@@ -105,6 +105,8 @@ impl MoveLegExecution {
         self.rung() == Rung::Committed
     }
 
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn complete_from_receipt(
         &mut self,
         tx_hash: [u8; 32],
@@ -277,10 +279,18 @@ impl MovePlan {
         );
         out.extend(route);
         if !self.bank_requests.is_empty() {
-            out.extend((self.bank_requests.len() as u16).to_be_bytes());
+            out.extend(
+                u16::try_from(self.bank_requests.len())
+                    .unwrap_or_else(|_| unreachable!("bounded bank requests"))
+                    .to_be_bytes(),
+            );
             for request in &self.bank_requests {
                 let bytes = request.canonical_encode();
-                out.extend((bytes.len() as u32).to_be_bytes());
+                out.extend(
+                    u32::try_from(bytes.len())
+                        .unwrap_or_else(|_| unreachable!("bounded bank request"))
+                        .to_be_bytes(),
+                );
                 out.extend(bytes);
             }
         }
@@ -440,21 +450,6 @@ impl MovePlan {
             arrival_expectation,
         )
     }
-    /// Rebinds an unchanged reviewed route to the commit idempotency key.
-    /// This is restricted to the privileged server composition; all economic
-    /// fields and per-leg action keys remain exactly those returned by the
-    /// trusted movement planner.
-    pub(crate) fn with_idempotency_key(
-        mut self,
-        idempotency_key: [u8; 32],
-    ) -> Result<Self, MoveJourneyError> {
-        if idempotency_key == [0; 32] {
-            return Err(MoveJourneyError::InvalidPlan);
-        }
-        self.idempotency_key = idempotency_key;
-        Ok(self)
-    }
-
     /// Resolves the complete route and derives the review and aggregate fee ceiling.
     ///
     /// # Errors
@@ -559,6 +554,8 @@ impl MovePlan {
     }
 
     #[allow(clippy::too_many_arguments)]
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn new_bank_transfers(
         journey_id: JourneyId,
         idempotency_key: [u8; 32],
@@ -672,6 +669,8 @@ impl MovePlan {
         &self.executions
     }
 
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn complete_bank_leg(
         &mut self,
         index: usize,
@@ -1008,6 +1007,8 @@ impl MoveJourney {
         Self::commit_profile(scope, plan, authorization, registry, now, false)
     }
 
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn commit_native(
         scope: &mut PrincipalScope<'_>,
         plan: &MovePlan,
@@ -1115,6 +1116,8 @@ impl MoveJourney {
 
     /// Drives the same durable engine through the merged node's bank transaction transport.
     #[allow(clippy::too_many_arguments)]
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub async fn advance_bank(
         &mut self,
         scope: &mut PrincipalScope<'_>,
@@ -1132,6 +1135,8 @@ impl MoveJourney {
 
     /// Advances with pinned consensus evidence for every committed sequence batch.
     #[allow(clippy::too_many_arguments)]
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub async fn advance_bank_with_commit(
         &mut self,
         scope: &mut PrincipalScope<'_>,
@@ -1166,6 +1171,8 @@ impl MoveJourney {
         self.engine.signed_transaction(index)
     }
 
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn verified_leg_evidence(
         &self,
         index: usize,
@@ -1173,6 +1180,8 @@ impl MoveJourney {
         Ok(self.engine.verified_leg_evidence(index)?)
     }
 
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn rung(&self) -> Result<Rung, MoveJourneyError> {
         let mut rung = Rung::Committed;
         for index in 0..self.record.legs.len() {
@@ -1343,30 +1352,7 @@ fn stored_move(plan: &MovePlan, plan_digest: [u8; 32]) -> StoredMove {
 }
 
 fn engine_plan(plan: &MovePlan) -> Result<JourneyPlan, MoveJourneyError> {
-    let legs = if !plan.bank_transfers.is_empty() {
-        plan.bank_transfers
-            .iter()
-            .zip(&plan.bank_requests)
-            .zip(&plan.executions)
-            .map(|((call, request), execution)| {
-                let super::Relationship::BankTransfer { from, denom, .. } = &request.relationship
-                else {
-                    return Err(JourneyError::InvalidPlan);
-                };
-                JourneyLeg::bank(
-                    call.clone(),
-                    from.bytes(),
-                    denom.clone(),
-                    execution.action_key,
-                    execution.actor.clone(),
-                    execution.authority.clone(),
-                    execution.not_before,
-                    execution.not_after,
-                    execution.fee_ceiling,
-                )
-            })
-            .collect::<Result<Vec<_>, _>>()?
-    } else {
+    let legs = if plan.bank_transfers.is_empty() {
         plan.route
             .legs()
             .iter()
@@ -1379,6 +1365,31 @@ fn engine_plan(plan: &MovePlan) -> Result<JourneyPlan, MoveJourneyError> {
                     execution.authority.clone(),
                     execution.pending_nonce,
                     execution.pending_nonce,
+                    execution.not_before,
+                    execution.not_after,
+                    execution.fee_ceiling,
+                )
+            })
+            .collect::<Result<Vec<_>, _>>()?
+    } else {
+        plan.bank_transfers
+            .iter()
+            .zip(&plan.bank_requests)
+            .zip(&plan.executions)
+            .map(|((call, request), execution)| {
+                let super::Relationship::BankTransfer { from, denom, .. } = &request.relationship
+                else {
+                    return Err(JourneyError::InvalidPlan);
+                };
+                JourneyLeg::bank(
+                    super::engine::BankLegCall {
+                        call: call.clone(),
+                        sender: from.bytes(),
+                        denom: denom.clone(),
+                    },
+                    execution.action_key,
+                    execution.actor.clone(),
+                    execution.authority.clone(),
                     execution.not_before,
                     execution.not_after,
                     execution.fee_ceiling,

@@ -3,13 +3,15 @@ package auth
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 	"io"
 	"net"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/cleanup"
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 )
 
 func identityClientIP(r *http.Request) string {
@@ -152,8 +154,8 @@ func (s *Identity) registerOwnerV2Routes(router chi.Router) {
 			s.writeIdentityError(w, err)
 			return
 		}
-		for _, name := range []string{"__Host-kindle_refresh", "__Host-kindle_access", "__Host-kindle_csrf"} {
-			cookie := SessionCookie(name, "", time.Unix(0, 0))
+		for _, name := range []string{refreshCookieName, accessCookieName, csrfCookieName} {
+			cookie := SessionCookie(name, "", time.Unix(0, 0)) //nolint:gosec // SessionCookie sets the security attributes of response cookies.
 			cookie.MaxAge = -1
 			http.SetCookie(w, cookie)
 		}
@@ -175,9 +177,9 @@ func (s *Identity) registerOwnerV2Routes(router chi.Router) {
 		}
 		var challenge Challenge
 		switch req.Action {
-		case "wallet_unlink":
+		case walletUnlinkEvent:
 			challenge, err = s.IssueStepUp(r.Context(), p, identityClientIP(r))
-		case "account.delete":
+		case accountDeleteScope:
 			challenge, err = s.IssueActionStepUp(r.Context(), p, identityClientIP(r), req.Action)
 		default:
 			err = invalid()
@@ -207,9 +209,9 @@ func (s *Identity) registerOwnerV2Routes(router chi.Router) {
 		}
 		var receipt string
 		switch req.Action {
-		case "wallet_unlink":
+		case walletUnlinkEvent:
 			receipt, err = s.VerifyStepUp(r.Context(), p, req.ChallengeID, req.Proof)
-		case "account.delete":
+		case accountDeleteScope:
 			receipt, err = s.VerifyActionStepUp(r.Context(), p, req.ChallengeID, req.Proof, req.Action)
 		default:
 			err = invalid()
@@ -247,7 +249,7 @@ func (s *Identity) writeIdentityStatus(w http.ResponseWriter, status int, data a
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(envelope)
+	cleanup.Report("encode identity response", json.NewEncoder(w).Encode(envelope))
 }
 
 // walletLinksHTTP serves GET /v2/me/wallet-links for the session's account.
@@ -273,5 +275,5 @@ func (s *Identity) walletLinksHTTP(w http.ResponseWriter, r *http.Request) {
 	envelope.NextCursor = next
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
-	json.NewEncoder(w).Encode(envelope)
+	cleanup.Report("encode identity response", json.NewEncoder(w).Encode(envelope))
 }

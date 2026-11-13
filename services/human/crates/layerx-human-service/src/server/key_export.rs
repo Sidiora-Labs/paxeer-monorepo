@@ -71,6 +71,8 @@ pub(crate) fn finish(
 
 /// Completes an explicit delivery acknowledgement after the schema owner wires
 /// its operation. The proof is derived from the delivered seed, never the seed itself.
+/// # Errors
+/// Returns an error if validation or a required operation fails.
 pub fn acknowledge(
     passkeys: &Passkeys,
     keystore: &Keystore,

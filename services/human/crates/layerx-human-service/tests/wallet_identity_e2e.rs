@@ -4,61 +4,47 @@ use layerx_human_test_support as support;
 #[path = "../../layerx-human-kms/tests/support/attestor_cluster.rs"]
 mod cluster;
 
+// The included runtime-clock/src/server.rs is shared with another test module.
+#[allow(clippy::duplicate_mod)]
 #[path = "../../../../platform/hosted/runtime-clock/src/server.rs"]
 mod runtime_clock_server;
 
-use std::collections::BTreeMap;
 use std::env;
 use std::fs;
-use std::future::Future;
 use std::os::unix::fs::PermissionsExt as _;
 use std::path::Path;
-use std::pin::pin;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use std::task::{Context, Poll, Wake, Waker};
 use std::time::Duration;
 
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use ed25519_dalek::{Signer as _, SigningKey};
-use layerx_agent_api::idempotency::IdempotentMutation;
 use layerx_agent_api::identity::{AgentDid, AuthorityRef};
-use layerx_agent_api::prepare::{PreparationRef, PrepareRequest as ApiPrepareRequest};
-use layerx_agent_api::submit::SubmitRequest;
-use layerx_agent_api::track::{
-    EvidenceRef as AgentEvidenceRef, ReceiptRef, SubmissionRef, SubmissionState, TrackRequest,
-    TrackedSubmission,
-};
-use layerx_agentd::outbox::{Outbox, OutboxError, SubmissionState as OutboxState};
-use layerx_agentd::prepare::{
-    prepare_activity, verify_call_binding, EvmPreparationDefaults, EvmPrepareRequest, EvmPrepared,
-    PrecompileCall, ProductionEvmPreparationBoundary,
-};
+use layerx_agentd::outbox::Outbox;
 use layerx_agentd::receipt::{self as daemon_receipt, ReceiptLookupKey as DaemonReceiptKey};
-use layerx_agentd::sign::{attach_external_signature, verify_before_submit, SigningPreparation};
 use layerx_agentd::store::{Store as AgentStore, TenantId};
 use layerx_client::runtime_clock::RuntimeClock;
-use layerx_human_identity_provider::{AssertionConfig, AssertionVerifier, Policy, Server, State};
+use layerx_human_identity_provider::{
+    AssertionConfig, AssertionPrincipal, AssertionVerifier, Policy, Server, State,
+};
 use layerx_human_service::custody::{
     CustodyError, EvmAction, EvmPlanAuthorization, EvmTransaction, KeyClass, KeyId, Keystore,
     KmsError,
 };
 use layerx_human_service::journeys::{
-    authority_label, intent_journey_id, plan, start_kernel_journey, verify_bindings, AgentBoundary,
-    AgentBoundaryError, AgentObservation, AgentPreparation, BalanceEntry, BindingExpectation,
-    Constraints, Endpoint, FeeSchedule, LegMechanism, Mechanism, ObservedState, ReceiptKeyEntry,
-    ReceiptLookup, ReceiptMaterial, SubmitPlanRequest, UnifiedIntent, UnifiedPlan,
+    authority_label, intent_journey_id, plan, start_kernel_journey, verify_bindings, BalanceEntry,
+    BindingExpectation, Constraints, Endpoint, FeeSchedule, LegMechanism, Mechanism, ObservedState,
+    ReceiptKeyEntry, ReceiptMaterial, SubmitPlanRequest, UnifiedIntent, UnifiedPlan,
 };
 use layerx_human_service::server::production_components::{
     AttestorCustodyConfig, AttestorKms, ProductionComponentsConfig,
 };
 use layerx_human_service::store::{PrincipalId, PrincipalScope, PrincipalStore, RowKey, Table};
 use layerx_proof::receipt::AuthorizedBatch;
-use layerx_sdk::{Call, Client as AgentClient};
 use layerx_types::account::AccountId;
 use layerx_types::amount::Amount;
 use layerx_types::clock::Clock;
-use layerx_types::ids::{AssetId, IdempotencyKey};
+use layerx_types::ids::AssetId;
 use layerx_types::intent::TimestampSeconds;
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
 use layerx_types::rung::Rung;
@@ -79,22 +65,6 @@ const SEND_FEE: u128 = 2;
 const MAX_FEE: u128 = 20;
 const AMOUNT: u128 = 90;
 const SEND_PROTOCOL: u16 = layerx_intents::canonical::STATE_COMMITMENT_PROTOCOL_VERSION;
-
-struct NoopWake;
-
-impl Wake for NoopWake {
-    fn wake(self: Arc<Self>) {}
-}
-
-fn ready<F: Future>(future: F) -> F::Output {
-    let mut future = pin!(future);
-    let waker = Waker::from(Arc::new(NoopWake));
-    let mut context = Context::from_waker(&waker);
-    match future.as_mut().poll(&mut context) {
-        Poll::Ready(value) => value,
-        Poll::Pending => panic!("wallet identity journey future unexpectedly blocked"),
-    }
-}
 
 fn asset_send() -> ActivityType {
     ActivityType::new(ModuleId::Asset, 5)
@@ -342,315 +312,6 @@ struct ReceiptSpec {
     fee: u128,
 }
 
-struct RealAgentLayer {
-    store: AgentStore,
-    outbox: Outbox,
-    outbox_submissions: BTreeMap<[u8; 32], [u8; 32]>,
-    tenant: TenantId,
-    registry: ModuleRegistry,
-    specifications: BTreeMap<[u8; 32], ReceiptSpec>,
-    preparations: BTreeMap<[u8; 32], EvmPrepared>,
-    sender: Option<[u8; 20]>,
-    receipts: BTreeMap<[u8; 32], ReceiptMaterial>,
-    submissions: BTreeMap<String, [u8; 32]>,
-    signers: Vec<[u8; 32]>,
-    owner: [u8; 32],
-}
-
-impl RealAgentLayer {
-    fn new(
-        root: &std::path::Path,
-        owner: [u8; 32],
-        specifications: BTreeMap<[u8; 32], ReceiptSpec>,
-    ) -> Self {
-        Self {
-            store: AgentStore::open(root).unwrap_or_else(|error| panic!("agent store: {error}")),
-            outbox: Outbox::default(),
-            outbox_submissions: BTreeMap::new(),
-            tenant: TenantId::new("tenant-a").unwrap_or_else(|error| panic!("tenant: {error}")),
-            registry: registry(),
-            specifications,
-            preparations: BTreeMap::new(),
-            sender: None,
-            receipts: BTreeMap::new(),
-            submissions: BTreeMap::new(),
-            signers: Vec::new(),
-            owner,
-        }
-    }
-
-    fn tracked(
-        key: [u8; 32],
-        state: SubmissionState,
-        digest: Option<[u8; 32]>,
-    ) -> TrackedSubmission {
-        let evidence = digest.map_or_else(Vec::new, |value| {
-            vec![AgentEvidenceRef {
-                kind: "sequencer-receipt".to_owned(),
-                digest: value,
-            }]
-        });
-        TrackedSubmission {
-            submission_ref: SubmissionRef::new(format!("sub-{}", hex(&key)))
-                .unwrap_or_else(|error| panic!("submission ref: {error:?}")),
-            state,
-            rung: if evidence.is_empty() {
-                Rung::Submitted
-            } else {
-                Rung::Receipted
-            },
-            evidence,
-            transitions: Vec::new(),
-        }
-    }
-}
-
-impl AgentBoundary for RealAgentLayer {
-    fn bind_transaction_sender(&mut self, sender: [u8; 20]) -> Result<(), AgentBoundaryError> {
-        if sender == [0; 20] || self.sender.is_some_and(|bound| bound != sender) {
-            return Err(AgentBoundaryError::Refused);
-        }
-        self.sender = Some(sender);
-        Ok(())
-    }
-
-    fn prepare(
-        &mut self,
-        call: &Call<IdempotentMutation<ApiPrepareRequest>>,
-    ) -> Result<AgentPreparation, AgentBoundaryError> {
-        let mutation = call.request();
-        let key = mutation.key.bytes();
-        let request = &mutation.operation;
-        if !self.preparations.contains_key(&key) {
-            let specification = self
-                .specifications
-                .get(&key)
-                .ok_or(AgentBoundaryError::CorruptResponse)?;
-            if specification.activity != asset_send() {
-                return Err(AgentBoundaryError::Refused);
-            }
-            let node = layerx_agentd::node_rpc::NodeRpcConfig::from_environment()
-                .map_err(|_| AgentBoundaryError::Unavailable)?;
-            let boundary = ProductionEvmPreparationBoundary::new(&node.url, &[])
-                .map_err(|_| AgentBoundaryError::Unavailable)?;
-            let prepared = prepare_activity(
-                &boundary,
-                EvmPreparationDefaults {
-                    max_priority_fee_per_gas: 1,
-                    max_fee_per_gas: request.fee_limit.get(),
-                    maximum_payload_bytes: 1_024,
-                },
-                EvmPrepareRequest {
-                    from: self.sender.ok_or(AgentBoundaryError::Refused)?,
-                    call: PrecompileCall::ledger_transfer(request.payload.as_bytes().to_vec()),
-                    expected_nonce: Some(request.account_sequence.get()),
-                    max_priority_fee_per_gas: Some(1),
-                    max_fee_per_gas: Some(request.fee_limit.get()),
-                    declared_payload_limit: 1_024,
-                },
-            )
-            .map_err(|_| AgentBoundaryError::Refused)?;
-            verify_call_binding(&prepared).map_err(|_| AgentBoundaryError::CorruptResponse)?;
-            self.preparations.insert(key, prepared);
-        }
-        let prepared = self
-            .preparations
-            .get(&key)
-            .cloned()
-            .ok_or(AgentBoundaryError::CorruptResponse)?;
-        Ok(AgentPreparation {
-            preparation_ref: PreparationRef::new(format!("prep-{}", hex(&key)))
-                .map_err(|_| AgentBoundaryError::CorruptResponse)?,
-            unsigned_canonical_bytes: prepared.call.encode_unsigned(),
-            signing_preimage: prepared.signing_hash.to_vec(),
-            disclosure: prepared.disclosure.clone(),
-            actor: request.actor.clone(),
-            authority: request.authority.clone(),
-            account_sequence: request.account_sequence.get(),
-            pending_nonce: prepared.call.nonce,
-            not_before: request.timestamp_bound.not_before.get(),
-            not_after: request.timestamp_bound.not_after.get(),
-            fee_limit: request.fee_limit.get(),
-            activity_type: self.specifications[&key].activity,
-            payload: request.payload.as_bytes().to_vec(),
-            payload_hash: layerx_wire::hash::payload_hash_for(
-                &layerx_types::payload::Payload::new(
-                    &self.registry,
-                    self.specifications[&key].activity,
-                    request.payload.as_bytes(),
-                )
-                .map_err(|_| AgentBoundaryError::CorruptResponse)?,
-            )
-            .map_err(|_| AgentBoundaryError::CorruptResponse)?,
-            idempotency_key: key,
-        })
-    }
-
-    fn submit(
-        &mut self,
-        call: &Call<IdempotentMutation<SubmitRequest>>,
-        signer_public_key: [u8; 32],
-    ) -> Result<AgentObservation, AgentBoundaryError> {
-        let mutation = call.request();
-        let key = mutation.key.bytes();
-        let prepared = self
-            .preparations
-            .get(&key)
-            .cloned()
-            .ok_or(AgentBoundaryError::CorruptResponse)?;
-        let signature: [u8; 65] = mutation
-            .operation
-            .signature
-            .as_bytes()
-            .try_into()
-            .map_err(|_| AgentBoundaryError::Refused)?;
-        if signer_public_key != self.owner {
-            return Err(AgentBoundaryError::Refused);
-        }
-        let signing = SigningPreparation {
-            actor_address: self.sender.ok_or(AgentBoundaryError::Refused)?,
-            transaction: prepared,
-        };
-        let signed = attach_external_signature(&signing, signature)
-            .map_err(|_| AgentBoundaryError::Refused)?;
-        let verified =
-            verify_before_submit(&signed, &signing, &signing.actor_address, &self.registry)
-                .map_err(|_| AgentBoundaryError::Refused)?;
-        let (submitted_call, submitted_signature) =
-            layerx_crypto::evm_transaction::decode_signed(&signed)
-                .map_err(|_| AgentBoundaryError::CorruptResponse)?;
-        assert_eq!(
-            submitted_call.signing_hash(),
-            signing.transaction.signing_hash
-        );
-        assert_eq!(submitted_call, signing.transaction.call);
-        assert_eq!(
-            layerx_crypto::evm_transaction::recover_sender(&submitted_call, &submitted_signature)
-                .map_err(|_| AgentBoundaryError::CorruptResponse)?,
-            signing.actor_address
-        );
-        assert_eq!(verified.exact_bytes(), signed);
-        self.signers.push(signer_public_key);
-        let raw = if let Some(id) = self.outbox_submissions.get(&key) {
-            self.outbox
-                .exact_signed_bytes(*id)
-                .map_err(|_| AgentBoundaryError::CorruptResponse)?
-                .to_vec()
-        } else {
-            verified.into_exact_bytes()
-        };
-        let submission_id = match self
-            .outbox
-            .enqueue(&mut self.store, self.tenant.clone(), raw)
-        {
-            Ok(id) => id,
-            Err(OutboxError::Duplicate) => return Err(AgentBoundaryError::CorruptResponse),
-            Err(_) => return Err(AgentBoundaryError::Refused),
-        };
-        self.outbox_submissions.insert(key, submission_id);
-        let activity_id = submission_id;
-        self.outbox
-            .transition(
-                &mut self.store,
-                submission_id,
-                OutboxState::Submitted,
-                "real transport accepted exact bytes",
-                None,
-            )
-            .map_err(|_| AgentBoundaryError::Refused)?;
-        let specification = self
-            .specifications
-            .get(&key)
-            .copied()
-            .ok_or(AgentBoundaryError::CorruptResponse)?;
-        let material = receipt(activity_id, key[0], specification);
-        daemon_receipt::store(
-            &mut self.store,
-            self.tenant.clone(),
-            key,
-            &material.canonical_bytes,
-            &material.authorised_batch,
-        )
-        .map_err(|_| AgentBoundaryError::CorruptResponse)?;
-        self.receipts.insert(key, material);
-        self.outbox
-            .transition(
-                &mut self.store,
-                submission_id,
-                OutboxState::Submitted,
-                "core acknowledged",
-                None,
-            )
-            .map_err(|_| AgentBoundaryError::Refused)?;
-        let observation = AgentObservation {
-            submission: Self::tracked(key, SubmissionState::Submitted, None),
-            activity_id,
-            receipt: None,
-        };
-        self.submissions.insert(
-            observation.submission.submission_ref.as_str().to_owned(),
-            key,
-        );
-        Ok(observation)
-    }
-
-    fn track(&mut self, call: &Call<TrackRequest>) -> Result<AgentObservation, AgentBoundaryError> {
-        let key = *self
-            .submissions
-            .get(call.request().submission_ref.as_str())
-            .ok_or(AgentBoundaryError::CorruptResponse)?;
-        let submission_id = *self
-            .outbox_submissions
-            .get(&key)
-            .ok_or(AgentBoundaryError::CorruptResponse)?;
-        let activity_id = self
-            .outbox
-            .status(submission_id)
-            .map(|status| status.activity_id)
-            .ok_or(AgentBoundaryError::CorruptResponse)?;
-        let material = self
-            .receipts
-            .get(&key)
-            .cloned()
-            .ok_or(AgentBoundaryError::CorruptResponse)?;
-        let digest: [u8; 32] = Sha256::digest(&material.canonical_bytes).into();
-        Ok(AgentObservation {
-            submission: Self::tracked(
-                key,
-                SubmissionState::Executed {
-                    receipt_ref: ReceiptRef::new(format!("rcp-{}", hex(&key)))
-                        .map_err(|_| AgentBoundaryError::CorruptResponse)?,
-                },
-                Some(digest),
-            ),
-            activity_id,
-            receipt: Some(material),
-        })
-    }
-
-    fn receipt_by_idempotency_key(
-        &mut self,
-        idempotency_key: [u8; 32],
-        expected_activity_id: [u8; 32],
-    ) -> Result<ReceiptLookup, AgentBoundaryError> {
-        let served = daemon_receipt::serve(
-            &self.store,
-            self.tenant.clone(),
-            DaemonReceiptKey::Idempotency(idempotency_key),
-        )
-        .map_err(|_| AgentBoundaryError::Unavailable)?;
-        if served.metadata.activity_id != expected_activity_id {
-            return Err(AgentBoundaryError::CorruptResponse);
-        }
-        self.receipts
-            .get(&idempotency_key)
-            .cloned()
-            .map_or(Ok(ReceiptLookup::Absent), |material| {
-                Ok(ReceiptLookup::Found(material))
-            })
-    }
-}
-
 fn receipt(activity_id: [u8; 32], marker: u8, specification: ReceiptSpec) -> ReceiptMaterial {
     let previous = [marker.saturating_add(1); 32];
     let resulting = [marker.saturating_add(2); 32];
@@ -751,40 +412,9 @@ fn write_private(path: &Path, bytes: &[u8]) {
 /// The complete components environment of the kernel host under attestor custody: the five
 /// attestors, three signers, the service's client leaf chained to the attestor CA, and no
 /// `LAYERX_HUMAN_KMS_*` variable at all.
-fn loader_environment(
-    root: &Path,
-    cluster: &cluster::Cluster,
-    tenancy_digest: [u8; 32],
-) -> Vec<(&'static str, String)> {
-    write_private(
-        &root.join("attestor-ca.der"),
-        &cluster
-            .pki
-            .certificate_der("node-ca")
-            .unwrap_or_else(|error| panic!("node CA: {error}")),
-    );
-    write_private(
-        &root.join("attestor-client.der"),
-        &cluster
-            .pki
-            .certificate_der("gateway")
-            .unwrap_or_else(|error| panic!("gateway certificate: {error}")),
-    );
-    write_private(
-        &root.join("attestor-client-key.der"),
-        &cluster
-            .pki
-            .key_der("gateway")
-            .unwrap_or_else(|error| panic!("gateway key: {error}")),
-    );
+fn base_loader_environment(root: &Path, tenancy_digest: [u8; 32]) -> Vec<(&'static str, String)> {
     let path = |name: &str| root.join(name).display().to_string();
     let secret = |byte: u8| URL_SAFE_NO_PAD.encode([byte; 32]);
-    let nodes = cluster
-        .nodes
-        .iter()
-        .map(|(id, address)| format!("{id}={address}"))
-        .collect::<Vec<_>>()
-        .join(",");
     vec![
         ("LAYERX_HUMAN_STORE_ROOT", path("human-store")),
         ("LAYERX_HUMAN_CUSTODY_ROOT", path("custody")),
@@ -835,6 +465,12 @@ fn loader_environment(
             "LAYERX_HUMAN_SECURITY_MAX_FRAME_BYTES",
             "1048576".to_owned(),
         ),
+    ]
+}
+
+fn identity_loader_environment(root: &Path) -> Vec<(&'static str, String)> {
+    let path = |name: &str| root.join(name).display().to_string();
+    vec![
         (
             "LAYERX_HUMAN_IDENTITY_BINDING_SOCKET",
             path("identity-binding.sock"),
@@ -857,6 +493,13 @@ fn loader_environment(
         ),
         ("LAYERX_HUMAN_IDENTITY_PEER_UID", "4020".to_owned()),
         ("LAYERX_HUMAN_IDENTITY_PEER_GID", "4020".to_owned()),
+    ]
+}
+
+fn attestor_loader_environment(root: &Path, nodes: String) -> Vec<(&'static str, String)> {
+    let path = |name: &str| root.join(name).display().to_string();
+    let secret = |byte: u8| URL_SAFE_NO_PAD.encode([byte; 32]);
+    vec![
         ("LAYERX_HUMAN_ATTESTOR_NODES", nodes),
         ("LAYERX_HUMAN_ATTESTOR_SIGNERS", cluster::SIGNERS.join(",")),
         (
@@ -926,6 +569,44 @@ fn loader_environment(
             "300".to_owned(),
         ),
     ]
+}
+
+fn loader_environment(
+    root: &Path,
+    cluster: &cluster::Cluster,
+    tenancy_digest: [u8; 32],
+) -> Vec<(&'static str, String)> {
+    write_private(
+        &root.join("attestor-ca.der"),
+        &cluster
+            .pki
+            .certificate_der("node-ca")
+            .unwrap_or_else(|error| panic!("node CA: {error}")),
+    );
+    write_private(
+        &root.join("attestor-client.der"),
+        &cluster
+            .pki
+            .certificate_der("gateway")
+            .unwrap_or_else(|error| panic!("gateway certificate: {error}")),
+    );
+    write_private(
+        &root.join("attestor-client-key.der"),
+        &cluster
+            .pki
+            .key_der("gateway")
+            .unwrap_or_else(|error| panic!("gateway key: {error}")),
+    );
+    let nodes = cluster
+        .nodes
+        .iter()
+        .map(|(id, address)| format!("{id}={address}"))
+        .collect::<Vec<_>>()
+        .join(",");
+    let mut environment = base_loader_environment(root, tenancy_digest);
+    environment.extend(identity_loader_environment(root));
+    environment.extend(attestor_loader_environment(root, nodes));
+    environment
 }
 
 /// Loads the attestor custody backend the way the components binary does on the kernel
@@ -1085,197 +766,13 @@ fn identity_state(
     state
 }
 
-#[test]
-fn wallet_identity_e2e_signs_a_kernel_send_through_the_attestors_to_a_verified_receipt() {
-    let kms_variables: Vec<String> = env::vars()
-        .map(|(name, _)| name)
-        .filter(|name| name.starts_with("LAYERX_HUMAN_KMS_"))
-        .collect();
-    assert!(
-        kms_variables.is_empty(),
-        "the attestor-only path must run without the KMS group: {kms_variables:?}"
-    );
-    let mut cluster =
-        cluster::Cluster::start_with_kernel_policy(&activity_types(), &kernel_policy())
-            .unwrap_or_else(|error| panic!("attestor cluster: {error}"));
-    let root = directory("wallet-identity-e2e");
-    fs::create_dir_all(&root).unwrap_or_else(|error| panic!("fixture root: {error}"));
-    fs::set_permissions(&root, fs::Permissions::from_mode(0o700))
-        .unwrap_or_else(|error| panic!("fixture root permissions: {error}"));
-
-    let signing_clock = SigningClock::start(&root);
-    let clock = Arc::clone(&signing_clock.clock);
-    let mut producer_scalar = [0; 32];
-    getrandom::fill(&mut producer_scalar)
-        .unwrap_or_else(|error| panic!("binding producer entropy: {error}"));
-    let producer = BindingSigningKey::from_slice(&producer_scalar)
-        .unwrap_or_else(|error| panic!("binding producer: {error}"));
-    let mut identity = identity_state(
-        &root.join("identity"),
-        cluster.key_set_url(),
-        &producer,
-        clock.clone(),
-    );
-    let assertion = cluster
-        .tokens
-        .mint(SUBJECT)
-        .unwrap_or_else(|error| panic!("assertion: {error}"));
-    let signed_in = wall_clock(clock.as_ref());
-    let (principal, created) = identity
-        .open_or_create_by_assertion(&assertion, None, signed_in)
-        .unwrap_or_else(|error| panic!("assertion sign-in: {error}"));
-    assert!(created);
-    assert_eq!(principal.subject(), SUBJECT);
-    assert_eq!(principal.did(), None);
-    let principal_id = PrincipalId::new(principal.principal())
-        .unwrap_or_else(|error| panic!("principal: {error}"));
-
-    let store_root = root.join("human-store");
-    let tenancy_digest = tenancy(&[(principal.principal(), BINDING_TENANT)])
-        .install(&store_root)
-        .unwrap_or_else(|error| panic!("tenancy: {error}"));
-
-    let environment = loader_environment(&root, &cluster, tenancy_digest.bytes());
-    let kms = AttestorKms::connect(loader_custody(&environment))
-        .unwrap_or_else(|error| panic!("attestor custody: {error}"));
-    let keystore = Keystore::open_production(root.join("custody"), NETWORK_ID, kms.clone())
-        .unwrap_or_else(|error| panic!("production keystore: {error}"));
-    let wallet_public = cluster
-        .generate_key("wallet-identity", "secp256k1", SUBJECT, "")
-        .unwrap_or_else(|error| panic!("wallet generation: {error}: {}", cluster.logs()));
-    let wallet = layerx_crypto::secp256k1::evm_address(&wallet_public)
-        .unwrap_or_else(|error| panic!("wallet address: {error:?}"));
-    let wallet_account = format!("0x{}", hex(&wallet));
-    let binding_digest = keystore
-        .binding(&principal_id, &custody_key(), KeyClass::HumanPrimary)
-        .unwrap_or_else(|error| panic!("custody binding: {error}"))
-        .digest();
-    let key_id = format!("lx-{}", hex(&binding_digest[..16]));
-    cluster
-        .approve_generate(&key_id, "ed25519", SUBJECT)
-        .unwrap_or_else(|error| panic!("approve key generation: {error}"));
-    let public_key = kms
-        .create_owned_key(
-            &keystore,
-            &principal_id,
-            &custody_key(),
-            principal.subject(),
-            &wallet_account,
-        )
-        .unwrap_or_else(|error| panic!("attestor key: {error}: {}", cluster.logs()));
-    cluster
-        .approve_sign(&key_id, &public_key)
-        .unwrap_or_else(|error| panic!("approve key signing: {error}"));
-    let descriptor = keystore
-        .describe(&principal_id, &custody_key())
-        .unwrap_or_else(|error| panic!("describe key: {error:?}"));
-    assert_eq!(descriptor.public_key, public_key);
-
-    let did = format!("did:layerx:{}", hex(&public_key));
-    let binding = wallet_binding(&producer, &did);
-    let (reopened, created) = identity
-        .open_or_create_by_assertion(&assertion, Some(&binding), wall_clock(clock.as_ref()))
-        .unwrap_or_else(|error| panic!("wallet DID: {error}"));
-    assert!(!created);
-    assert_eq!(reopened.principal(), principal.principal());
-    let resolved = identity
-        .resolve_assertion(&assertion, wall_clock(clock.as_ref()))
-        .unwrap_or_else(|error| panic!("resolve assertion: {error}"));
-    assert_eq!(resolved.principal(), principal.principal());
-    assert_eq!(resolved.did(), Some(did.as_str()));
-
-    let signing_assertion = cluster
-        .tokens
-        .mint(SUBJECT)
-        .unwrap_or_else(|error| panic!("signing assertion: {error}"));
-    kms.admit_assertion(resolved.subject(), &signing_assertion)
-        .unwrap_or_else(|error| panic!("admit assertion: {error}"));
-    let (approved_wallet, approved_binding, _) = keystore
-        .public_wallet_identity(&principal_id, &custody_key())
-        .unwrap_or_else(|error| panic!("public wallet identity: {error}"));
-    assert_eq!(approved_wallet, wallet);
-    assert_eq!(approved_binding.digest(), binding_digest);
-
-    let home = format!("agent:{did}:main");
-    let actor = AgentDid::new(did.clone()).unwrap_or_else(|error| panic!("actor: {error:?}"));
-    let now = wall_clock(clock.as_ref());
-    let plan = kernel_plan(&home, now);
-    assert_eq!(
-        plan.legs()[0].mechanism(),
-        LegMechanism::Protocol(Mechanism::Send)
-    );
-    let request = submit_request(
-        &plan,
-        &actor,
-        (now.saturating_sub(5), now.saturating_add(100)),
-    );
-    let expectation = BindingExpectation {
-        actor: actor.clone(),
-        authority: authority(),
-        account_sequence: SEQUENCE,
-        currency: "LXP".to_owned(),
-        now,
-    };
-    verify_bindings(&plan, &request, &expectation)
-        .unwrap_or_else(|error| panic!("bindings: {error}"));
-    let client = cluster
-        .client()
-        .unwrap_or_else(|error| panic!("operator client: {error}"));
-    let audit_before = cluster
-        .audit(&client)
-        .unwrap_or_else(|error| panic!("audit before: {error}"));
-    let journey_id = intent_journey_id("kernel-submit", plan.digest())
-        .unwrap_or_else(|error| panic!("journey id: {error}"));
-
-    let mut store = PrincipalStore::open(&store_root, retention_uniform(10_000), tenancy_digest)
-        .unwrap_or_else(|error| panic!("principal store: {error}"));
-    let mut scope = store
-        .principal(&principal_id)
-        .unwrap_or_else(|error| panic!("scope: {error}"));
-    let actions = signed_actions(
-        &mut scope,
-        &plan,
-        &request,
-        &SendAuthority {
-            cluster: &cluster,
-            kms: &kms,
-            keystore: &keystore,
-            principal: &principal_id,
-        },
-    );
-    let initial = start_kernel_journey(
-        &mut scope,
-        &plan,
-        &request,
-        &expectation,
-        journey_id.clone(),
-        &actions,
-    )
-    .unwrap_or_else(|error| panic!("start: {error}"));
-    assert_eq!(initial.to_json()["state"], "processing");
-    assert_eq!(initial.journey_id(), &journey_id);
-    let record_key = RowKey::new(format!("intent-evm-{}", journey_id.as_str()))
-        .unwrap_or_else(|error| panic!("journey key: {error}"));
-    let record: Value = serde_json::from_slice(
-        scope
-            .get(Table::Journeys, &record_key)
-            .unwrap_or_else(|| panic!("persisted kernel journey missing"))
-            .bytes(),
-    )
-    .unwrap_or_else(|error| panic!("journey record: {error}"));
-    assert_eq!(record["journey_id"], journey_id.as_str());
-    assert_eq!(record["plan_digest"], hex(&plan.digest()));
-    assert_eq!(record["state"], "processing");
-    let legs = record["legs"]
-        .as_array()
-        .unwrap_or_else(|| panic!("recorded legs missing"));
-    assert_eq!(legs.len(), actions.len());
+fn assert_agent_receipts(root: &Path, legs: &[Value], actions: &[EvmAction]) {
     let mut agent_store = AgentStore::open(root.join("agent-store"))
         .unwrap_or_else(|error| panic!("agent store: {error}"));
     let tenant =
         TenantId::new(BINDING_TENANT).unwrap_or_else(|error| panic!("receipt tenant: {error}"));
     let mut outbox = Outbox::default();
-    for (index, (leg, action)) in legs.iter().zip(&actions).enumerate() {
+    for (index, (leg, action)) in legs.iter().zip(actions).enumerate() {
         let tx_hash = layerx_crypto::evm_transaction::transaction_hash(&action.raw_transaction);
         assert_eq!(action.transaction_hash, Some(tx_hash));
         assert_eq!(leg["tx_hash"], format!("0x{}", hex(&tx_hash)));
@@ -1332,17 +829,75 @@ fn wallet_identity_e2e_signs_a_kernel_send_through_the_attestors_to_a_verified_r
         assert_eq!(served.metadata, verified);
         assert_eq!(served.canonical_bytes, material.canonical_bytes);
     }
-    let audit_after = cluster
-        .audit(&client)
-        .unwrap_or_else(|error| panic!("audit after: {error}"));
-    assert!(
-        audit_after
-            .iter()
-            .zip(&audit_before)
-            .all(|(after, before)| after > before),
-        "attestor audit did not advance: {audit_before:?} -> {audit_after:?}"
-    );
+}
 
+fn create_wallet_identity(
+    cluster: &mut cluster::Cluster,
+    kms: &AttestorKms,
+    keystore: &Keystore,
+    principal_id: &PrincipalId,
+    subject: &str,
+) -> ([u8; 20], [u8; 32], [u8; 32]) {
+    let wallet_public = cluster
+        .generate_key("wallet-identity", "secp256k1", SUBJECT, "")
+        .unwrap_or_else(|error| panic!("wallet generation: {error}: {}", cluster.logs()));
+    let wallet = layerx_crypto::secp256k1::evm_address(&wallet_public)
+        .unwrap_or_else(|error| panic!("wallet address: {error:?}"));
+    let wallet_account = format!("0x{}", hex(&wallet));
+    let binding_digest = keystore
+        .binding(principal_id, &custody_key(), KeyClass::HumanPrimary)
+        .unwrap_or_else(|error| panic!("custody binding: {error}"))
+        .digest();
+    let key_id = format!("lx-{}", hex(&binding_digest[..16]));
+    cluster
+        .approve_generate(&key_id, "ed25519", SUBJECT)
+        .unwrap_or_else(|error| panic!("approve key generation: {error}"));
+    let public_key = kms
+        .create_owned_key(
+            keystore,
+            principal_id,
+            &custody_key(),
+            subject,
+            &wallet_account,
+        )
+        .unwrap_or_else(|error| panic!("attestor key: {error}: {}", cluster.logs()));
+    cluster
+        .approve_sign(&key_id, &public_key)
+        .unwrap_or_else(|error| panic!("approve key signing: {error}"));
+    let descriptor = keystore
+        .describe(principal_id, &custody_key())
+        .unwrap_or_else(|error| panic!("describe key: {error:?}"));
+    assert_eq!(descriptor.public_key, public_key);
+
+    (wallet, public_key, binding_digest)
+}
+
+fn assert_persisted_journey(
+    scope: &PrincipalScope<'_>,
+    journey_id: &str,
+    plan_digest: [u8; 32],
+    actions_len: usize,
+) -> Value {
+    let record_key = RowKey::new(format!("intent-evm-{journey_id}"))
+        .unwrap_or_else(|error| panic!("journey key: {error}"));
+    let record: Value = serde_json::from_slice(
+        scope
+            .get(Table::Journeys, &record_key)
+            .unwrap_or_else(|| panic!("persisted kernel journey missing"))
+            .bytes(),
+    )
+    .unwrap_or_else(|error| panic!("journey record: {error}"));
+    assert_eq!(record["journey_id"], journey_id);
+    assert_eq!(record["plan_digest"], hex(&plan_digest));
+    assert_eq!(record["state"], "processing");
+    let legs = record["legs"]
+        .as_array()
+        .unwrap_or_else(|| panic!("recorded legs missing"));
+    assert_eq!(legs.len(), actions_len);
+    record
+}
+
+fn assert_backend_configuration(environment: &[(&'static str, String)]) {
     env::remove_var("LAYERX_HUMAN_ATTESTOR_NODES");
     let refused = ProductionComponentsConfig::from_environment()
         .err()
@@ -1351,10 +906,211 @@ fn wallet_identity_e2e_signs_a_kernel_send_through_the_attestors_to_a_verified_r
         refused.contains("LAYERX_HUMAN_KMS_PROVIDER_REFERENCE is required"),
         "refusal without any custody backend does not name the KMS group: {refused}"
     );
-    for (name, _) in &environment {
+    for (name, _) in environment {
         env::remove_var(name);
     }
+}
 
+fn bound_kernel_plan(
+    did: &str,
+    clock: &dyn Clock,
+) -> (UnifiedPlan, SubmitPlanRequest, BindingExpectation) {
+    let home = format!("agent:{did}:main");
+    let actor = AgentDid::new(did.to_owned()).unwrap_or_else(|error| panic!("actor: {error:?}"));
+    let now = wall_clock(clock);
+    let plan = kernel_plan(&home, now);
+    assert_eq!(
+        plan.legs()[0].mechanism(),
+        LegMechanism::Protocol(Mechanism::Send)
+    );
+    let request = submit_request(
+        &plan,
+        &actor,
+        (now.saturating_sub(5), now.saturating_add(100)),
+    );
+    let expectation = BindingExpectation {
+        actor: actor.clone(),
+        authority: authority(),
+        account_sequence: SEQUENCE,
+        currency: "LXP".to_owned(),
+        now,
+    };
+    verify_bindings(&plan, &request, &expectation)
+        .unwrap_or_else(|error| panic!("bindings: {error}"));
+    (plan, request, expectation)
+}
+
+fn open_wallet_principal(
+    cluster: &mut cluster::Cluster,
+    root: &Path,
+    clock: &Arc<RuntimeClock>,
+) -> (
+    State,
+    BindingSigningKey,
+    String,
+    AssertionPrincipal,
+    PrincipalId,
+) {
+    let mut producer_scalar = [0; 32];
+    getrandom::fill(&mut producer_scalar)
+        .unwrap_or_else(|error| panic!("binding producer entropy: {error}"));
+    let producer = BindingSigningKey::from_slice(&producer_scalar)
+        .unwrap_or_else(|error| panic!("binding producer: {error}"));
+    let mut identity = identity_state(
+        &root.join("identity"),
+        cluster.key_set_url(),
+        &producer,
+        clock.clone(),
+    );
+    let assertion = cluster
+        .tokens
+        .mint(SUBJECT)
+        .unwrap_or_else(|error| panic!("assertion: {error}"));
+    let signed_in = wall_clock(clock.as_ref());
+    let (principal, created) = identity
+        .open_or_create_by_assertion(&assertion, None, signed_in)
+        .unwrap_or_else(|error| panic!("assertion sign-in: {error}"));
+    assert!(created);
+    assert_eq!(principal.subject(), SUBJECT);
+    assert_eq!(principal.did(), None);
+    let principal_id = PrincipalId::new(principal.principal())
+        .unwrap_or_else(|error| panic!("principal: {error}"));
+
+    (identity, producer, assertion, principal, principal_id)
+}
+
+fn assert_attestor_only_environment() {
+    let kms_variables: Vec<String> = env::vars()
+        .map(|(name, _)| name)
+        .filter(|name| name.starts_with("LAYERX_HUMAN_KMS_"))
+        .collect();
+    assert!(
+        kms_variables.is_empty(),
+        "the attestor-only path must run without the KMS group: {kms_variables:?}"
+    );
+}
+
+fn wallet_fixture_root() -> std::path::PathBuf {
+    let root = directory("wallet-identity-e2e");
+    fs::create_dir_all(&root).unwrap_or_else(|error| panic!("fixture root: {error}"));
+    fs::set_permissions(&root, fs::Permissions::from_mode(0o700))
+        .unwrap_or_else(|error| panic!("fixture root permissions: {error}"));
+    root
+}
+
+fn assert_audit_advanced(before: &[u64], after: &[u64]) {
+    assert!(
+        after
+            .iter()
+            .zip(before)
+            .all(|(after, before)| after > before),
+        "attestor audit did not advance: {before:?} -> {after:?}"
+    );
+}
+
+#[test]
+fn wallet_identity_e2e_signs_a_kernel_send_through_the_attestors_to_a_verified_receipt() {
+    assert_attestor_only_environment();
+    let mut cluster =
+        cluster::Cluster::start_with_kernel_policy(&activity_types(), &kernel_policy())
+            .unwrap_or_else(|error| panic!("attestor cluster: {error}"));
+    let root = wallet_fixture_root();
+
+    let signing_clock = SigningClock::start(&root);
+    let clock = Arc::clone(&signing_clock.clock);
+    let (mut identity, producer, assertion, principal, principal_id) =
+        open_wallet_principal(&mut cluster, &root, &clock);
+    let store_root = root.join("human-store");
+    let tenancy_digest = tenancy(&[(principal.principal(), BINDING_TENANT)])
+        .install(&store_root)
+        .unwrap_or_else(|error| panic!("tenancy: {error}"));
+
+    let environment = loader_environment(&root, &cluster, tenancy_digest.bytes());
+    let kms = AttestorKms::connect(loader_custody(&environment))
+        .unwrap_or_else(|error| panic!("attestor custody: {error}"));
+    let keystore = Keystore::open_production(root.join("custody"), NETWORK_ID, kms.clone())
+        .unwrap_or_else(|error| panic!("production keystore: {error}"));
+    let (wallet, public_key, binding_digest) = create_wallet_identity(
+        &mut cluster,
+        &kms,
+        &keystore,
+        &principal_id,
+        principal.subject(),
+    );
+    let did = format!("did:layerx:{}", hex(&public_key));
+    let binding = wallet_binding(&producer, &did);
+    let (reopened, created) = identity
+        .open_or_create_by_assertion(&assertion, Some(&binding), wall_clock(clock.as_ref()))
+        .unwrap_or_else(|error| panic!("wallet DID: {error}"));
+    assert!(!created);
+    assert_eq!(reopened.principal(), principal.principal());
+    let resolved = identity
+        .resolve_assertion(&assertion, wall_clock(clock.as_ref()))
+        .unwrap_or_else(|error| panic!("resolve assertion: {error}"));
+    assert_eq!(resolved.principal(), principal.principal());
+    assert_eq!(resolved.did(), Some(did.as_str()));
+
+    let signing_assertion = cluster
+        .tokens
+        .mint(SUBJECT)
+        .unwrap_or_else(|error| panic!("signing assertion: {error}"));
+    kms.admit_assertion(resolved.subject(), &signing_assertion)
+        .unwrap_or_else(|error| panic!("admit assertion: {error}"));
+    let (approved_wallet, approved_binding, _) = keystore
+        .public_wallet_identity(&principal_id, &custody_key())
+        .unwrap_or_else(|error| panic!("public wallet identity: {error}"));
+    assert_eq!(approved_wallet, wallet);
+    assert_eq!(approved_binding.digest(), binding_digest);
+
+    let (plan, request, expectation) = bound_kernel_plan(&did, clock.as_ref());
+    let client = cluster
+        .client()
+        .unwrap_or_else(|error| panic!("operator client: {error}"));
+    let audit_before = cluster
+        .audit(&client)
+        .unwrap_or_else(|error| panic!("audit before: {error}"));
+    let journey_id = intent_journey_id("kernel-submit", plan.digest())
+        .unwrap_or_else(|error| panic!("journey id: {error}"));
+
+    let mut store = PrincipalStore::open(&store_root, retention_uniform(10_000), tenancy_digest)
+        .unwrap_or_else(|error| panic!("principal store: {error}"));
+    let mut scope = store
+        .principal(&principal_id)
+        .unwrap_or_else(|error| panic!("scope: {error}"));
+    let actions = signed_actions(
+        &mut scope,
+        &plan,
+        &request,
+        &SendAuthority {
+            cluster: &cluster,
+            kms: &kms,
+            keystore: &keystore,
+            principal: &principal_id,
+        },
+    );
+    let initial = start_kernel_journey(
+        &mut scope,
+        &plan,
+        &request,
+        &expectation,
+        journey_id.clone(),
+        &actions,
+    )
+    .unwrap_or_else(|error| panic!("start: {error}"));
+    assert_eq!(initial.to_json()["state"], "processing");
+    assert_eq!(initial.journey_id(), &journey_id);
+    let record =
+        assert_persisted_journey(&scope, journey_id.as_str(), plan.digest(), actions.len());
+    let legs = record["legs"]
+        .as_array()
+        .unwrap_or_else(|| panic!("recorded legs missing"));
+    assert_agent_receipts(&root, legs, &actions);
+    let audit_after = cluster
+        .audit(&client)
+        .unwrap_or_else(|error| panic!("audit after: {error}"));
+    assert_audit_advanced(&audit_before, &audit_after);
+
+    assert_backend_configuration(&environment);
     drop(scope);
     drop(store);
     let _ = fs::remove_dir_all(&root);

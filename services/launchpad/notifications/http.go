@@ -3,8 +3,6 @@ package notifications
 import (
 	"crypto/subtle"
 	"encoding/json"
-	"github.com/Sidiora-Technologies/KindleLaunch/core/discovery"
-	"github.com/google/uuid"
 	"io"
 	"net/http"
 	"net/url"
@@ -13,6 +11,9 @@ import (
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/core/discovery"
+	"github.com/google/uuid"
 )
 
 type Authenticate func(*http.Request) (string, error)

@@ -115,6 +115,38 @@ async function eventually(predicate: () => boolean | Promise<boolean>, timeout =
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
 }
+async function settledCandlePage(
+  read: () => ReturnType<typeof fetchCanonicalCandlePage>,
+  minimumRevision = 1n
+) {
+  const result: { page?: Awaited<ReturnType<typeof fetchCanonicalCandlePage>> } = {};
+  await eventually(async () => {
+    const current = await read();
+    if (BigInt(current.data.items.at(-1)?.revision ?? '0') < minimumRevision) return false;
+    result.page = current;
+    return true;
+  });
+  if (!result.page) throw new Error('Actual canonical candle required');
+  return result.page;
+}
+async function settledCandleCommit(
+  read: () => ReturnType<typeof fetchCanonicalCandlePage>,
+  transactionHash: string
+) {
+  const result: { page?: Awaited<ReturnType<typeof fetchCanonicalCandlePage>> } = {};
+  await eventually(async () => {
+    const current = await read();
+    if (
+      current.data.items.at(-1)?.lastPosition.transactionHash.toLowerCase() !==
+      transactionHash.toLowerCase()
+    )
+      return false;
+    result.page = current;
+    return true;
+  });
+  if (!result.page) throw new Error('Actual committed candle required');
+  return result.page;
+}
 function actualJoined() {
   const path = string(process.env.JOINED_CONFIG_FILE);
   const bytes = readFileSync(path);
@@ -405,11 +437,13 @@ async function actualBuy(actual: ReturnType<typeof actualJoined>) {
   const topic = `market.candles.${actual.pool.toLowerCase()}.1d`;
   const snapshotUrl = new URL('/v2/snapshots', actual.api);
   snapshotUrl.searchParams.set('topics', topic);
+  let snapshotStatus: number | undefined;
   await eventually(async () => {
     const response = await fetch(snapshotUrl, {
       headers: { 'X-Schema-Version': '2', Origin: actual.applicationOrigin },
     });
-    expect(response.status).toBe(200);
+    snapshotStatus = response.status;
+    if (response.status !== 200) return false;
     const envelope = decodeV2Contract('TopicSnapshotReadResponse', await response.json());
     const snapshot = envelope.data.snapshot;
     expect(snapshot.topics).toHaveLength(1);
@@ -417,6 +451,7 @@ async function actualBuy(actual: ReturnType<typeof actualJoined>) {
     const candle = decodeV2Contract('Candle', snapshot.topics[0].payload);
     return candle.lastPosition.transactionHash.toLowerCase() === transaction.toLowerCase();
   });
+  expect(snapshotStatus).toBe(200);
   return transaction;
 }
 function expiredFixtureCursor(cursor: string, key: string): string {
@@ -480,20 +515,20 @@ describe('real joined canonical chart recovery', () => {
         () => feed.replayStatus()[0]?.replayComplete === true && faults.checkpoints.length > 0
       );
       const acceptedCursor = string(faults.checkpoints.at(-1)?.cursor);
-      const before = await authoritative();
+      const before = await settledCandlePage(authoritative);
       let revision = BigInt(before.data.items.at(-1)?.revision ?? '0');
+      let candleStart = string(before.data.items.at(-1)?.start);
       faults.realtimeUnavailable = true;
       faults.disconnect();
       await eventually(() => states.includes('resync_required'));
       for (let index = 0; index < 3; index++) {
-        await actualBuy(actual);
-        await eventually(async () => {
-          const page = await authoritative();
-          const next = BigInt(page.data.items.at(-1)?.revision ?? '0');
-          if (next <= revision) return false;
-          revision = next;
-          return true;
-        });
+        const transaction = await actualBuy(actual);
+        const next = (await settledCandleCommit(authoritative, transaction)).data.items.at(-1);
+        if (!next) throw new Error('Actual committed candle missing');
+        expect(next.start >= candleStart).toBe(true);
+        if (next.start === candleStart) expect(BigInt(next.revision) > revision).toBe(true);
+        candleStart = next.start;
+        revision = BigInt(next.revision);
       }
       faults.realtimeUnavailable = false;
       await eventually(
@@ -501,7 +536,7 @@ describe('real joined canonical chart recovery', () => {
           feed.replayStatus()[0]?.replayComplete === true &&
           faults.subscriptions.some((frame) => frame.afterCursor === acceptedCursor)
       );
-      const final = await authoritative();
+      const final = await settledCandlePage(authoritative, revision);
       const candle = final.data.items.at(-1);
       expect(candle).toBeDefined();
       if (!candle) throw new Error('Actual committed candle missing');
@@ -517,7 +552,12 @@ describe('real joined canonical chart recovery', () => {
       await eventually(
         () => states.filter((value) => value === 'resync_required').length > resyncs
       );
-      await eventually(() => feed.replayStatus()[0]?.replayComplete === true);
+      await eventually(
+        () =>
+          feed.replayStatus()[0]?.replayComplete === true &&
+          feed.replayStatus()[0].pending === 0 &&
+          JSON.stringify(ticks.at(-1)) === JSON.stringify(canonicalCandleToDisplayBar(candle))
+      );
       expect(ticks.at(-1)).toEqual(canonicalCandleToDisplayBar(candle));
       expect(feed.replayStatus()[0].pending).toBe(0);
     } finally {
@@ -583,7 +623,9 @@ describe('real joined canonical chart recovery', () => {
       faults.disconnect();
       faults.httpUnavailable = true;
       feed.retry();
-      await eventually(() => states.includes('offline'));
+      await eventually(
+        () => states.includes('offline') && ticks.at(-1) === last && lateBars === 0
+      );
       expect(ticks.at(-1)).toEqual(last);
       expect(lateBars).toBe(0);
       faults.httpUnavailable = false;
@@ -657,9 +699,9 @@ describe('real joined chart adversarial revisions and confirmed annotations', ()
       { apiOrigin: faults.origin, valuationOrigin: faults.origin },
       (view) => views.push(view)
     );
-    const now = Math.floor(Date.now() / 1000);
-    const history = () =>
-      fetchCanonicalCandlePage(
+    const history = () => {
+      const now = Math.floor(Date.now() / 1000);
+      return fetchCanonicalCandlePage(
         actual.pool,
         '1D',
         new Date((now - 3 * 86400) * 1000).toISOString(),
@@ -669,24 +711,34 @@ describe('real joined chart adversarial revisions and confirmed annotations', ()
         undefined,
         faults.origin
       );
+    };
     try {
-      const before = await history();
-      const first = before.data.items.at(-1);
+      const before = await settledCandlePage(history);
+      let first = before.data.items.at(-1);
       if (!first) throw new Error('Actual canonical candle required');
       faults.delaySnapshot = true;
       feed.subscribeBars({}, '1D', (bar) => ticks.push(bar), 'racing');
       await eventually(() => faults.delayedSnapshots === 1);
       let revision = BigInt(first.revision);
-      for (let index = 0; index < 5; index++) {
-        await actualBuy(actual);
-        await eventually(async () => {
-          const next = BigInt((await history()).data.items.at(-1)?.revision ?? '0');
-          if (next <= revision) return false;
-          revision = next;
-          return true;
-        });
+      let candleStart = first.start;
+      let revisions = 0;
+      while (revisions < 5) {
+        const transaction = await actualBuy(actual);
+        const next = (await settledCandleCommit(history, transaction)).data.items.at(-1);
+        if (!next) throw new Error('Actual committed candle missing');
+        expect(next.start >= candleStart).toBe(true);
+        if (next.start !== candleStart) {
+          first = next;
+          candleStart = next.start;
+          revision = BigInt(next.revision);
+          revisions = 0;
+          continue;
+        }
+        expect(BigInt(next.revision) > revision).toBe(true);
+        revision = BigInt(next.revision);
+        revisions++;
       }
-      const latest = (await history()).data.items.at(-1);
+      const latest = (await settledCandlePage(history, revision)).data.items.at(-1);
       if (!latest) throw new Error('Actual newest candle missing');
       const merge = new CanonicalCandleRevisionMerge();
       expect(merge.accept(latest, actual.pool, '1d')).toBe('apply');
@@ -713,12 +765,26 @@ describe('real joined chart adversarial revisions and confirmed annotations', ()
               (marker) => marker.transactionHash === latest.close.source.position?.transactionHash
             ) === true
       );
+      await eventually(() => faults.disconnectedTradeReads === 1);
       expect(faults.disconnectedTradeReads).toBe(1);
       const url = new URL(`/v2/pools/${actual.pool}/trades`, actual.api);
       url.searchParams.set('limit', '50');
-      const response = await fetch(url, { headers: { 'X-Schema-Version': '2' } });
+      const result: {
+        response?: Response;
+        page?: ReturnType<typeof decodeV2Contract<'TradesResponse'>>;
+      } = {};
+      await eventually(async () => {
+        const next = await fetch(url, { headers: { 'X-Schema-Version': '2' } });
+        if (!next.ok) return false;
+        const decoded = decodeV2Contract('TradesResponse', await next.json());
+        if (confirmedChartMarkers([latest], decoded.data.items).markers.length === 0) return false;
+        result.response = next;
+        result.page = decoded;
+        return true;
+      });
+      const { response, page } = result;
+      if (!response || !page) throw new Error('Actual canonical fills required');
       expect(response.ok).toBe(true);
-      const page = decodeV2Contract('TradesResponse', await response.json());
       const joined = confirmedChartMarkers([latest], page.data.items);
       expect(joined.markers.length).toBeGreaterThan(0);
       for (const marker of joined.markers) {
@@ -784,9 +850,30 @@ describe('real joined chart adversarial revisions and confirmed annotations', ()
       );
       try {
         expect(await rpc(actual, 'eth_getTransactionReceipt', [pendingHash])).toBeNull();
-        const confirmedResponse = await fetch(url, { headers: { 'X-Schema-Version': '2' } });
+        const result: {
+          response?: Response;
+          page?: ReturnType<typeof decodeV2Contract<'TradesResponse'>>;
+        } = {};
+        await eventually(async () => {
+          const next = await fetch(url, { headers: { 'X-Schema-Version': '2' } });
+          if (!next.ok) return false;
+          const decoded = decodeV2Contract('TradesResponse', await next.json());
+          if (confirmedChartMarkers([latest], decoded.data.items).markers.length === 0) return false;
+          if (
+            decoded.data.items.some((trade) =>
+              [pendingHash.toLowerCase(), failedHash.toLowerCase()].includes(
+                trade.position.transactionHash.toLowerCase()
+              )
+            )
+          )
+            return false;
+          result.response = next;
+          result.page = decoded;
+          return true;
+        });
+        const { response: confirmedResponse, page: confirmed } = result;
+        if (!confirmedResponse || !confirmed) throw new Error('Actual confirmed fills required');
         expect(confirmedResponse.ok).toBe(true);
-        const confirmed = decodeV2Contract('TradesResponse', await confirmedResponse.json());
         const annotations = confirmedChartMarkers([latest], confirmed.data.items).markers;
         expect(
           annotations.some(
@@ -845,9 +932,15 @@ const chain = JSON.parse(fs.readFileSync(process.env.JOINED_CHAIN_FILE, 'utf8'))
 assert.equal(chain.productionActivation, false);
 const pool = chain.pool;
 const browser = await chromium.launch({ headless: true });
+async function eventually(predicate, timeout = 45000) {
+ const end = Date.now() + timeout;
+ while (!(await predicate())) {
+  if (Date.now() >= end) throw new Error('Actual chart browser response timed out');
+  await new Promise(resolve => setTimeout(resolve, 50));
+ }
+}
 async function activate(page, control, touch) {
  if (touch) {
-  await control.scrollIntoViewIfNeeded();
   await control.tap();
  }
  else { await control.focus(); await page.keyboard.press('Enter'); }
@@ -899,9 +992,17 @@ try {
   const now = Math.floor(Date.now() / 1000);
   const request = new URL('/v2/pools/' + pool + '/candles', origin);
   request.searchParams.set('interval', '1d'); request.searchParams.set('from', new Date(Math.max(0, now - 86400 * 50) * 1000).toISOString()); request.searchParams.set('to', new Date((now + 60) * 1000).toISOString()); request.searchParams.set('limit', '50');
-  const response = await page.request.get(request.href, { headers: { 'X-Schema-Version': '2' } });
+  let response, envelope;
+  await eventually(async () => {
+   const next = await page.request.get(request.href, { headers: { 'X-Schema-Version': '2' } });
+   if (!next.ok() || next.headers()['x-schema-version'] !== '2') return false;
+   const current = await next.json();
+   if (!current?.data?.items?.length) return false;
+   response = next; envelope = current;
+   return true;
+  });
   assert.equal(response.ok(), true); assert.equal(response.headers()['x-schema-version'], '2');
-  const envelope = await response.json(); assert.ok(envelope.data.items.length > 0);
+  assert.ok(envelope.data.items.length > 0);
   const exact = (n, d) => { const a = BigInt(n), b = BigInt(d); let remainder = a % b, digits = ''; for (let i = 0; i < 160 && remainder !== 0n; i++) { remainder *= 10n; digits += String(remainder / b); remainder %= b; } return remainder !== 0n ? n + '/' + d : String(a / b) + (digits ? '.' + digits : ''); };
   for (const candle of envelope.data.items) {
    const row = region.getByRole('row').filter({ has: page.locator('time[datetime="' + candle.start + '"]') });

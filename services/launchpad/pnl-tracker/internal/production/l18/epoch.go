@@ -3,12 +3,13 @@ package l18
 import (
 	"context"
 	"encoding/json"
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"math/big"
 	"strings"
 	"time"
+
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 )
 
 type NativeEvent struct {
@@ -146,7 +147,7 @@ func (l *Ledger) RegisterEpoch(ctx context.Context, c *Creator, txHash, pool str
 	if e != nil {
 		return Epoch{}, e
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 	dup, e := inbox(ctx, tx, "epoch:"+ev.Identity, out)
 	if e != nil {
 		return Epoch{}, e
@@ -210,7 +211,7 @@ func (l *Ledger) RecordEpochClaim(ctx context.Context, c *Creator, txHash, pool,
 	if e != nil {
 		return EpochClaim{}, e
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 	dup, e := inbox(ctx, tx, "epochclaim:"+ev.Identity, out)
 	if e != nil {
 		return EpochClaim{}, e
@@ -295,7 +296,7 @@ func (l *Ledger) EpochEntitlement(ctx context.Context, c *Creator, pool, epoch, 
 	if e != nil {
 		return Entitlement{}, e
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 	var funded, supply string
 	var snapshot uint64
 	e = tx.QueryRow(ctx, `SELECT funded::text,eligible_supply::text,snapshot_block FROM l18_epochs WHERE pool=$1 AND epoch=$2`, pool, epoch).Scan(&funded, &supply, &snapshot)

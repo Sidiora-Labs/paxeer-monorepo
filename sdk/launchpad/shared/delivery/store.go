@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"reflect"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -207,6 +208,7 @@ func (s *Store) MarkPublished(ctx context.Context, l Lease, a PersistenceAck) er
 		return errors.New("delivery: persistence acknowledgement required")
 	}
 	return s.mutate(ctx, func(tx pgx.Tx) error {
+		//nolint:gosec // Acknowledgement sequences are bounded to MaxInt64 at admission.
 		tag, err := tx.Exec(ctx, "UPDATE "+s.table("delivery_outbox")+" SET acknowledgement_latency_ms=GREATEST(0,EXTRACT(EPOCH FROM (clock_timestamp()-claimed_at))*1000)::bigint,state='published',broker_stream=$4,broker_sequence=$5,published_at=clock_timestamp(),lease_owner=NULL,lease_until=NULL,failure_class=NULL WHERE event_id=$1 AND lease_owner=$2 AND fence=$3 AND lease_until>clock_timestamp() AND state='pending'", l.EventID, l.Owner, l.Fence, a.Stream, int64(a.Sequence))
 		if err != nil {
 			return err
@@ -576,7 +578,7 @@ func (s *Store) QuarantineAfterRollback(ctx context.Context, in QuarantineInput,
 	if !token.MatchString(in.ConsumerID) || !token.MatchString(in.Generation) || len(in.Subject) > 256 || !subjectToken.MatchString(in.Subject) || len(in.Wire) > MaxEnvelopeBytes || string(in.WireSHA256) != Hash(in.Wire) || !partitionDigest.MatchString(string(in.EvidenceDigest)) || !poisonClass(in.Class) || len(in.PublicationID) > 128 || len(in.AffectedPools) > 128 {
 		return errors.New("delivery: invalid quarantine evidence")
 	}
-	pools := append([]string(nil), in.AffectedPools...)
+	pools := append([]string{}, in.AffectedPools...)
 	sort.Strings(pools)
 	unique := pools[:0]
 	for _, pool := range pools {
@@ -660,7 +662,7 @@ func (s *Store) QuarantineAfterRollback(ctx context.Context, in QuarantineInput,
 	if err = tx.QueryRow(cleanup, "SELECT subject,publication_id,envelope,affected_pools,evidence_digest FROM "+s.table("delivery_ordered_quarantine")+" WHERE consumer_id=$1 AND projection_generation=$2 AND envelope_hash=$3 AND failure_class=$4 FOR UPDATE", in.ConsumerID, in.Generation, string(in.WireSHA256), string(in.Class)).Scan(&recordedSubject, &recordedPublication, &recordedWire, &recordedPools, &recordedEvidence); err != nil {
 		return err
 	}
-	if recordedSubject != in.Subject || recordedPublication != in.PublicationID || !bytes.Equal(recordedWire, in.Wire) || recordedEvidence != string(in.EvidenceDigest) || !reflect.DeepEqual(recordedPools, unique) {
+	if recordedSubject != in.Subject || recordedPublication != in.PublicationID || !bytes.Equal(recordedWire, in.Wire) || recordedEvidence != string(in.EvidenceDigest) || !slices.Equal(recordedPools, unique) {
 		return ErrIntegrity
 	}
 	if freeze != nil && len(unique) > 0 {
@@ -733,6 +735,7 @@ func (s *Store) ConsumeOrderedWithWatermark(ctx context.Context, consumer, gener
 		if err != nil {
 			return err
 		}
+		//nolint:gosec // Broker sequences are bounded to MaxInt64 at admission.
 		tag, err := tx.Exec(ctx, "INSERT INTO "+s.table("delivery_consumer_watermarks")+`(consumer_id,generation,partition_kind,partition_key,broker_stream,broker_sequence,source_order,position_sequence,event_id,envelope_hash) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT(consumer_id,generation,partition_kind,partition_key) DO UPDATE SET broker_sequence=EXCLUDED.broker_sequence,source_order=EXCLUDED.source_order,position_sequence=EXCLUDED.position_sequence,event_id=EXCLUDED.event_id,envelope_hash=EXCLUDED.envelope_hash,committed_at=clock_timestamp() WHERE delivery_consumer_watermarks.broker_stream=EXCLUDED.broker_stream AND delivery_consumer_watermarks.position_sequence=EXCLUDED.position_sequence-1 AND delivery_consumer_watermarks.broker_sequence<EXCLUDED.broker_sequence`, consumer, generation, g.Position.PartitionKind, g.Position.PartitionKey, broker.Stream, int64(broker.Sequence), raw, sequence, e.EventID, Hash(wire))
 		if err != nil {
 			return err

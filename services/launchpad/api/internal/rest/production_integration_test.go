@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -167,15 +168,35 @@ func TestProductionCanonicalStatsAndSnapshotResume(t *testing.T) {
 	if string(actualStats["realUsdlBalanceRaw"]) != string(expectedStats["realUsdlBalanceRaw"]) || got.RequestID != response.Header.Get("X-Request-ID") || response.Header.Get("X-Schema-Version") != "2" {
 		t.Fatal(string(body), response.Header)
 	}
-	endpoint := srv.URL + "/v2/snapshots?topics=market.stats." + address
-	response, err = http.Get(endpoint)
-	if err != nil {
-		t.Fatal(err)
+	batch := waitForV2Ready(t, func() v2Response {
+		response, err := http.Post(srv.URL+"/v2/pools/stats:batch", "application/json", strings.NewReader(`{"poolAddresses":["`+address+`"]}`))
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer response.Body.Close()
+		body, err := io.ReadAll(response.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return v2Response{status: response.StatusCode, body: body, header: response.Header}
+	})
+	batchBody := batch.body
+	if batch.status != 200 || interfaces.ValidateJSON("StatsBatchResponse", batchBody) != nil {
+		t.Fatalf("stats batch: %d %s", batch.status, batchBody)
 	}
-	body, err = io.ReadAll(response.Body)
-	response.Body.Close()
-	if err != nil || response.StatusCode != 200 || interfaces.ValidateJSON("TopicSnapshotReadResponse", body) != nil {
-		t.Fatal(response.StatusCode, string(body), err)
+	var batchPage struct {
+		Data struct {
+			Items []json.RawMessage `json:"items"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(batchBody, &batchPage); err != nil || len(batchPage.Data.Items) != 1 || string(batchPage.Data.Items[0]) != string(got.Data.Stats) {
+		t.Fatalf("stats batch differs from single read: %s, %v", batchBody, err)
+	}
+	endpoint := srv.URL + "/v2/snapshots?topics=market.stats." + address
+	snapshotRead := waitForV2Ready(t, func() v2Response { return getV2(t, endpoint) })
+	body = snapshotRead.body
+	if snapshotRead.status != 200 || interfaces.ValidateJSON("TopicSnapshotReadResponse", body) != nil {
+		t.Fatal(snapshotRead.status, string(body))
 	}
 	var snap struct {
 		Data struct {
@@ -191,6 +212,26 @@ func TestProductionCanonicalStatsAndSnapshotResume(t *testing.T) {
 	}
 	if json.Unmarshal(body, &snap) != nil || len(snap.Data.Snapshot.Topics) != 1 {
 		t.Fatal(string(body))
+	}
+	for _, tc := range []struct {
+		query  string
+		status int
+		code   string
+	}{
+		{"topics=market.stats." + address + "&unknown=1", 422, "FIELD_UNKNOWN"},
+		{"topics=market.stats." + address + "&topics=market.stats." + address, 422, "FIELD_UNKNOWN"},
+		{"topics=market.stats." + address + "&normalizedFilters=" + url.QueryEscape(`{"poolAddress":"0x9999999999999999999999999999999999999999"}`), 422, "FIELD_INVALID"},
+		{"topics=market.stats." + address + "&cursor=invalid", 400, "CURSOR_INVALID"},
+	} {
+		response, err := http.Get(srv.URL + "/v2/snapshots?" + tc.query)
+		if err != nil {
+			t.Fatal(err)
+		}
+		invalidBody, err := io.ReadAll(response.Body)
+		response.Body.Close()
+		if err != nil || response.StatusCode != tc.status || !strings.Contains(string(invalidBody), `"code":"`+tc.code+`"`) {
+			t.Fatalf("snapshot query %q: %d %s %v", tc.query, response.StatusCode, invalidBody, err)
+		}
 	}
 	tx, err := pool.Begin(context.Background())
 	if err != nil {
@@ -225,18 +266,45 @@ func TestProductionCanonicalStatsAndSnapshotResume(t *testing.T) {
 	if err = tx.Commit(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	response, err = http.Get(endpoint + "&cursor=" + snap.Data.Snapshot.Cursor)
+	replay, err := stream.PublicResume(context.Background(), []string{"market.stats." + address}, snap.Data.Snapshot.Cursor)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("committed snapshot cursor: %v", err)
 	}
-	body, err = io.ReadAll(response.Body)
-	response.Body.Close()
-	if err != nil || response.StatusCode != 200 {
-		t.Fatal(response.StatusCode, string(body), err)
+	var resumedSnapshot json.RawMessage
+	var readErr error
+	readDeadline := time.Now().Add(60 * time.Second)
+	for {
+		resumedSnapshot, readErr = model.TopicSnapshotAt(context.Background(), []string{"market.stats." + address}, replay.Cursor.Offsets, replay.Cursor.Scope.SnapshotID, snap.Data.Snapshot.Cursor)
+		if readErr == nil || !errors.Is(readErr, context.DeadlineExceeded) || !time.Now().Before(readDeadline) {
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	checkErr := replay.Check(context.Background())
+	replay.Close()
+	if readErr != nil || checkErr != nil || !json.Valid(resumedSnapshot) {
+		t.Fatalf("committed snapshot read: %v, check: %v, body: %s", readErr, checkErr, resumedSnapshot)
+	}
+	resumedRead := waitForV2Ready(t, func() v2Response { return getV2(t, endpoint+"&cursor="+snap.Data.Snapshot.Cursor) })
+	body = resumedRead.body
+	if resumedRead.status != 200 {
+		t.Fatal(resumedRead.status, string(body))
 	}
 	var resumed productionSnapshotResponse
 	if json.Unmarshal(body, &resumed) != nil || resumed.Data.Snapshot.ID != snap.Data.Snapshot.ID || len(resumed.Data.Snapshot.Topics) != 1 || resumed.Data.Snapshot.Topics[0].Sequence != snap.Data.Snapshot.Topics[0].Sequence || !bytes.Equal(resumed.Data.Snapshot.Topics[0].Payload, snap.Data.Snapshot.Topics[0].Payload) {
 		t.Fatal("snapshot continuation changed", string(body))
+	}
+}
+
+func waitForV2Ready(t *testing.T, read func() v2Response) v2Response {
+	t.Helper()
+	deadline := time.Now().Add(60 * time.Second)
+	for {
+		got := read()
+		if got.status != http.StatusServiceUnavailable || !time.Now().Before(deadline) {
+			return got
+		}
+		time.Sleep(50 * time.Millisecond)
 	}
 }
 
@@ -473,7 +541,12 @@ func TestProductionHTTPAdmissionSurgePreservesReserveAndRejectsExplicitly(t *tes
 	health()
 	recovery()
 	held()
-	code, body, _ := getJSON(t, srv.URL+"/v2/pools/"+address+"/stats")
+	recovered := waitForV2Ready(t, func() v2Response { return getV2(t, srv.URL+"/v2/pools/"+address+"/stats") })
+	code := recovered.status
+	var body map[string]any
+	if err := json.Unmarshal(recovered.body, &body); err != nil {
+		t.Fatal(err)
+	}
 	if code != 200 || body["data"] == nil {
 		t.Fatal("surge recovery", code, body)
 	}

@@ -375,7 +375,10 @@ fn every_remaining_intent_kind_compiles() {
 #[test]
 fn perps_intent_still_compiles_to_perps_module() {
     let intent = perps_intent();
-    let expected = intent.kind().perps_payload().expect("Perps payload");
+    let expected = intent
+        .kind()
+        .perps_payload()
+        .unwrap_or_else(|| panic!("Perps payload"));
     let compiled = checked(compile(&intent, &registry()));
     assert_eq!(intent.module(), ModuleId::Perps);
     assert_eq!(

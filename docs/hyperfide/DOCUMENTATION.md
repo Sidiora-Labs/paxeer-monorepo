@@ -4,7 +4,7 @@ Hyperfide's documentation stage gives your existing agent the repository evidenc
 
 Start with the [command reference](../../tools/hyperfide/README.md#command-reference), [architecture](ARCHITECTURE.md), or [contribution guide](../../CONTRIBUTING.md) if you are new to the project. Examples use `hyperfide`; `cg` is the deprecated compatibility alias of the same executable, with identical arguments, JSON and exit codes.
 
-This page describes the local CLI. The distributed documentation operations (`docs.packet`, `docs.check`, `docs.close`) are described in the [operations page](hyperfide/operations.md#distributed-documentation-api) and are not part of the local CLI in this revision. Under a distributed authority descriptor the local `hyperfide docs` and `hyperfide spec` commands refuse with exit 78 (see [Authority mode](integrate.md#authority-mode)).
+This page describes documentation closure against the local graph. In distributed authority mode, `docs packet`, `docs inspect`, `docs check` and `docs close` route to the control service with explicit operation identities; the local lifecycle sequence below applies in local authority mode. See the [distributed documentation API](hyperfide/operations.md#distributed-documentation-api) and [Authority mode](integrate.md#authority-mode).
 
 ## Enable the final stage
 
@@ -79,8 +79,8 @@ For this repository's own baseline, the [source reference](SOURCE-REFERENCE.md) 
 
 ```kvx
 [coverage]
-user = "docs/DOCUMENTATION.md"
-developer = "docs/ARCHITECTURE.md"
+user = "docs/hyperfide/DOCUMENTATION.md"
+developer = "docs/hyperfide/ARCHITECTURE.md"
 release_or_migration = "CHANGELOG.md"
 exclusions = "Test routes are fixture examples, not deployed services."
 unresolved = ""
@@ -88,8 +88,8 @@ unresolved = ""
 [claim.docs_check]
 type = "symbol"
 value = "docs_check"
-document = "docs/ARCHITECTURE.md"
-evidence = "src/docs.c"
+document = "docs/hyperfide/ARCHITECTURE.md"
+evidence = "tools/hyperfide/core/native/src/docs.c"
 ```
 
 Claim types are `symbol`, `route`, `path`, and `command`. A claim must appear in its mapped document and have a repository evidence path. Symbol and route evidence must point to the file where the graph resolves that name or route. Command checks look for the command text in the evidence file; they do not execute it or prove its runtime behavior. Each recorded claim must be true at that limited level, with behavioral explanations reviewed against source separately.
@@ -100,7 +100,7 @@ The current checker requires mappings for user, developer, and release/migration
 
 `hyperfide docs check` verifies target scope, preservation of changed documents, local inline Markdown links, coverage mappings, recorded evidence, and required graph observations. It requires at least one configured document to have changed. The active feature's spec and generated Markdown mirrors are allowed bookkeeping exceptions to document scope.
 
-The checker does not certify arbitrary prose, external URLs, Markdown fragment targets, reference-style links, localized wording, or live provider behavior. It also does not enforce preservation of every existing paragraph inside an allowed file; review the diff for unrelated deletions and rewrites. A pass is structural evidence, not a substitute for editorial or runtime review.
+Review prose and its source evidence alongside the structural scope, link and claim checks.
 
 `hyperfide docs close` re-runs the checks, writes a snapshot tagged `[spec:<feature>/@docs]`, then completes the owned attempt and writes baseline metadata. A failed check leaves the stage unfinished. A failed snapshot cannot qualify the stage. Do not use `hyperfide spec docs done`, manually create marker files, or force an implementation task to impersonate documentation closure.
 
@@ -110,11 +110,12 @@ If a launched agent exits without completion, the orchestrator releases its clai
 
 ## Developer entry points
 
-The behavior above is implemented in [src/docs.c](../../tools/hyperfide/core/native/src/docs.c), [src/spec.c](../../tools/hyperfide/core/native/src/spec.c), and [src/orchestrate.c](../../tools/hyperfide/core/native/src/orchestrate.c). `docs_packet` assembles evidence, `docs_check` validates recorded claims, and `docs_close` invokes the guarded completion path. `spec_docs_stage` computes effective lifecycle state; `spec_docs_finish` is the internal completion entry used after checks. MCP routing lives in [src/mcp.c](../../tools/hyperfide/core/native/src/mcp.c).
+The behavior above is implemented in [core/native/src/docs.c](../../tools/hyperfide/core/native/src/docs.c), [core/native/src/spec.c](../../tools/hyperfide/core/native/src/spec.c), and [core/native/src/orchestrate.c](../../tools/hyperfide/core/native/src/orchestrate.c). `docs_packet` assembles evidence, `docs_check` validates recorded claims, and `docs_close` invokes the guarded completion path. `spec_docs_stage` computes effective lifecycle state; `spec_docs_finish` is the internal completion entry used after checks. MCP routing lives in [core/native/src/mcp.c](../../tools/hyperfide/core/native/src/mcp.c).
 
 For changes to this feature, run its real CLI integration coverage against the checkout binary:
 
 ```sh
+cd tools/hyperfide
 make
 CG="$PWD/hyperfide" tests/integration/24_docs.sh
 ```

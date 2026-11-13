@@ -7,6 +7,8 @@ import useApiQuery from 'lib/api/useApiQuery';
 import DataFetchAlert from 'ui/shared/DataFetchAlert';
 import { ScanStatCard } from 'ui/shared/scan';
 
+import useStatsService from './useStatsService';
+
 export const NETWORK_HERO_LABELS = [ 'Transactions per second', 'Active validators', 'Current epoch', 'Latest block' ] as const;
 
 export function getNetworkCounter(counters: Array<stats.Counter> | undefined, label: string): string | undefined {
@@ -18,18 +20,20 @@ export function getNetworkCounter(counters: Array<stats.Counter> | undefined, la
 }
 
 const NetworkStatsHero = () => {
-  const counters = useApiQuery('stats:counters');
+  const hasStatsService = useStatsService();
+  const counters = useApiQuery('stats:counters', { queryOptions: { enabled: hasStatsService } });
   const stats = useApiQuery('general:stats', { queryOptions: { refetchOnMount: false } });
 
   return (
     <>
-      { (counters.isError || stats.isError) && <DataFetchAlert/> }
+      { ((hasStatsService && counters.isError) || stats.isError) && <DataFetchAlert/> }
       <Grid data-network-stats-hero templateColumns={{ base: '1fr', sm: 'repeat(2, minmax(0, 1fr))', lg: 'repeat(4, minmax(0, 1fr))' }} gap={ 4 } mb={ 8 }>
         { NETWORK_HERO_LABELS.map((label) => {
           const epoch = label === 'Current epoch' ? stats.data?.celo?.epoch_number : undefined;
           const value = epoch !== undefined && Number.isFinite(epoch) ? epoch.toLocaleString() : getNetworkCounter(counters.data?.counters, label);
           return (
-            <ScanStatCard key={ label } label={ label } value={ value ?? <chakra.span color="text.muted">—</chakra.span> } isLoading={ counters.isPending || stats.isPending }/>
+            <ScanStatCard key={ label } label={ label } value={ value ?? <chakra.span color="text.muted">—</chakra.span> }
+              isLoading={ (hasStatsService && counters.isPending) || stats.isPending }/>
           );
         }) }
       </Grid>

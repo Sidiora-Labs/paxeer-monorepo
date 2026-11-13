@@ -115,7 +115,7 @@ type Capability struct {
 }
 
 func StrategyCapability(strategy uint8, snapshotSupported bool) Capability {
-	names := []string{"CLAIM", "BURN", "AIRDROP", "LP_REWARDS"}
+	names := []string{eventClaim, "BURN", "AIRDROP", "LP_REWARDS"}
 	c := Capability{DeploymentVersion: ManifestDigest}
 	if int(strategy) >= len(names) {
 		c.Strategy = "UNSUPPORTED"

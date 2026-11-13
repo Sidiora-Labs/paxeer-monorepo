@@ -5,9 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/jackc/pgx/v5"
+	"math"
 	"regexp"
 	"time"
+
+	chartcleanup "github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/cleanup"
+	"github.com/jackc/pgx/v5"
 )
 
 var regexpReprocessGeneration = regexp.MustCompile(`^reprocess_[a-zA-Z0-9_-]{1,100}$`)
@@ -31,7 +34,7 @@ CREATE TABLE %[1]s.chart_recoverability_incidents(id bigserial PRIMARY KEY,pool 
 `, schema), nil
 }
 func (s *ExactStore) AdvanceSeriesTx(ctx context.Context, tx pgx.Tx, pool string, height uint64, timestamp int64, gaps bool) (uint64, error) {
-	if s == nil || tx == nil || height > uint64(^uint64(0)>>1) || timestamp < 0 {
+	if s == nil || tx == nil || height > math.MaxInt64 || timestamp < 0 {
 		return 0, ErrIntegrity
 	}
 	unresolved, err := s.HasUnresolvedDeliveriesTx(ctx, tx)
@@ -44,10 +47,16 @@ func (s *ExactStore) AdvanceSeriesTx(ctx context.Context, tx pgx.Tx, pool string
 	if errors.Is(err, pgx.ErrNoRows) {
 		return 0, ErrSourceWatermarkRegression
 	}
-	return uint64(revision), err
+	if err != nil {
+		return 0, err
+	}
+	if revision < 0 {
+		return 0, ErrIntegrity
+	}
+	return uint64(revision), nil
 }
 func (s *ExactStore) InvalidateRollupTx(ctx context.Context, tx pgx.Tx, pool, interval string, start int64, revision uint64) error {
-	if revision > uint64(^uint64(0)>>1) {
+	if revision > math.MaxInt64 {
 		return ErrIntegrity
 	}
 	_, err := tx.Exec(ctx, `INSERT INTO `+s.Schema+`.chart_rollup_pending VALUES('125',$1,$2,$3,$4) ON CONFLICT(chain_id,pool,interval,start) DO UPDATE SET child_revision=GREATEST(chart_rollup_pending.child_revision,EXCLUDED.child_revision)`, pool, interval, start, int64(revision))
@@ -61,7 +70,7 @@ func (s *ExactStore) SeriesSnapshots(ctx context.Context, pool, interval string,
 	if err != nil {
 		return nil, nil, 0, err
 	}
-	defer tx.Rollback(ctx)
+	defer chartcleanup.Rollback(ctx, tx)
 	var revision, height uint64
 	var timestamp int64
 	var gaps bool
@@ -148,7 +157,7 @@ func (s *ExactStore) AuthorizeReprocess(ctx context.Context, consumer, generatio
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer chartcleanup.Rollback(ctx, tx)
 	var priorDecoder string
 	err = tx.QueryRow(ctx, `SELECT COALESCE((SELECT decoder_version FROM `+s.Schema+`.chart_reprocess_audit WHERE consumer_id=$1 AND publication_id=$2 ORDER BY id DESC LIMIT 1),'accounting-fill-v1')`, consumer, publication).Scan(&priorDecoder)
 	if err != nil {
@@ -190,7 +199,7 @@ func (s *ExactStore) RecordAttemptResult(ctx context.Context, consumer, generati
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer chartcleanup.Rollback(ctx, tx)
 	if err = s.RecordAttemptResultTx(ctx, tx, consumer, generation, publication, category, resolved); err != nil {
 		return err
 	}
@@ -233,7 +242,7 @@ func refreshSeriesSnapshot(raw json.RawMessage, height uint64, timestamp int64, 
 	status := "interval_elapsed"
 	switch {
 	case gaps:
-		status = "backfill_incomplete"
+		status = statusBackfillIncomplete
 	case now.Unix() < end:
 		status = "live_interval"
 	case timestamp >= end:

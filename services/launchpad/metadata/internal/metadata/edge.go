@@ -8,7 +8,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"net/url"
@@ -45,10 +44,10 @@ func SessionChannel(identity RequestIdentityAuthority) func(http.Handler) http.H
 				return
 			}
 			deny := func(status int) {
-				w.Header().Set("Content-Type", "application/json")
+				w.Header().Set("Content-Type", metadataJSONType)
 				w.Header().Set("Cache-Control", "no-store")
 				w.WriteHeader(status)
-				json.NewEncoder(w).Encode(map[string]string{"code": "media_channel_unavailable"})
+				writeJSON(w, map[string]string{"code": "media_channel_unavailable"})
 			}
 			if identity == nil {
 				deny(http.StatusServiceUnavailable)
@@ -94,7 +93,7 @@ func (s SessionCheckIdentities) ConfirmTx(ctx context.Context, _ pgx.Tx, expecte
 		if !errors.As(e, &authority) && errors.Is(e, sharedauth.ErrScopeDenied) {
 			return sharedauth.IdentityPrincipal{}, sharedauth.ErrScopeDenied
 		}
-		return sharedauth.IdentityPrincipal{}, &sharedauth.VerificationError{Category: "upstream", Retryable: true}
+		return sharedauth.IdentityPrincipal{}, &sharedauth.VerificationError{Category: metadataUpstreamCategory, Retryable: true}
 	}
 	return expected, nil
 }
@@ -115,7 +114,7 @@ func (c ConnectedMedia) RegisterApprovedObjects(r chi.Router) {
 
 func (c ConnectedMedia) serveApproved(w http.ResponseWriter, r *http.Request) {
 	if c.Objects.Client == nil || c.Objects.PublicBucket == "" {
-		v2Error(w, http.StatusServiceUnavailable, "unavailable")
+		v2Error(w, http.StatusServiceUnavailable, metadataUnavailableQuality)
 		return
 	}
 	if r.URL.RawQuery != "" || r.URL.RawPath != "" || !immutableURL(strings.TrimRight(c.Objects.PublicOrigin, "/")+r.URL.Path) {
@@ -129,7 +128,7 @@ func (c ConnectedMedia) serveApproved(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	digest := sha256.Sum256(body)
-	w.Header().Set("Content-Type", "image/png")
+	w.Header().Set("Content-Type", metadataMimePNG)
 	w.Header().Set("Content-Length", strconv.Itoa(len(body)))
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
@@ -154,12 +153,12 @@ func (o S3AssetObjects) readVerifiedPNG(ctx context.Context, key string) ([]byte
 		return nil, raster.ErrUnavailable
 	}
 	body, e := raster.ReadBounded(object.Body)
-	object.Body.Close()
+	closeResource(object.Body)
 	if e != nil {
 		return nil, raster.ErrUnavailable
 	}
 	digest := sha256.Sum256(body)
-	if strings.TrimSuffix(key[strings.LastIndexByte(key, '/')+1:], ".png") != hex.EncodeToString(digest[:]) || http.DetectContentType(body) != "image/png" {
+	if strings.TrimSuffix(key[strings.LastIndexByte(key, '/')+1:], ".png") != hex.EncodeToString(digest[:]) || http.DetectContentType(body) != metadataMimePNG {
 		return nil, raster.ErrUnavailable
 	}
 	return body, nil
@@ -189,12 +188,12 @@ func (a PostgresVisibilityAuthority) view() (string, bool) {
 }
 
 func (a PostgresVisibilityAuthority) Read(ctx context.Context, pool string) (D12Visibility, error) {
-	return a.ReadTarget(ctx, "token", pool)
+	return a.ReadTarget(ctx, metadataTokenTarget, pool)
 }
 
 func (a PostgresVisibilityAuthority) ReadTarget(ctx context.Context, targetType, targetID string) (D12Visibility, error) {
 	view, ok := a.view()
-	if !ok || (targetType != "token" && targetType != "asset") || (targetType == "token" && !addressRE.MatchString(targetID)) || (targetType == "asset" && !uuidRE.MatchString(targetID)) {
+	if !ok || (targetType != metadataTokenTarget && targetType != metadataAssetTarget) || (targetType == metadataTokenTarget && !addressRE.MatchString(targetID)) || (targetType == metadataAssetTarget && !uuidRE.MatchString(targetID)) {
 		return D12Visibility{}, raster.ErrUnavailable
 	}
 	bounded, cancel := context.WithTimeout(ctx, 2*time.Second)
@@ -202,13 +201,13 @@ func (a PostgresVisibilityAuthority) ReadTarget(ctx context.Context, targetType,
 	result := D12Visibility{TargetType: targetType, TargetID: targetID}
 	e := a.Pool.QueryRow(bounded, "SELECT revision,status FROM "+view+" WHERE target_type=$1 AND target_id=$2", targetType, targetID).Scan(&result.Revision, &result.Status)
 	if errors.Is(e, pgx.ErrNoRows) {
-		result.Status = "allowed"
+		result.Status = metadataVisibilityAllowed
 		return result, nil
 	}
 	if e != nil {
 		return D12Visibility{}, raster.ErrUnavailable
 	}
-	if result.Revision < 1 || (result.Status != "removed" && result.Status != "restored") {
+	if result.Revision < 1 || (result.Status != metadataVisibilityRemoved && result.Status != "restored") {
 		return D12Visibility{}, ErrUnrepresentable
 	}
 	return result, nil
@@ -248,7 +247,7 @@ type ReportedCommittedProofVerifier struct {
 
 func (v ReportedCommittedProofVerifier) Verify(ctx context.Context, wallet, message, signature string) error {
 	if v.RPC == nil || v.Blocks == nil {
-		return &sharedauth.VerificationError{Category: "upstream", Retryable: true}
+		return &sharedauth.VerificationError{Category: metadataUpstreamCategory, Retryable: true}
 	}
 	return sharedauth.CommittedProofVerifier{Backend: sharedauth.NewReportedHashBackend(v.RPC), Blocks: v.Blocks, Observe: v.Observe}.Verify(ctx, wallet, message, signature)
 }
@@ -261,11 +260,11 @@ func (v ReportedCommittedProofVerifier) CheckCommittedHead(ctx context.Context) 
 	}
 	height, hash, err := v.Blocks.CommittedBlock(ctx)
 	if err != nil || height == nil || height.Sign() < 0 || !height.IsUint64() || hash == (common.Hash{}) {
-		return &sharedauth.VerificationError{Category: "upstream", Retryable: true}
+		return &sharedauth.VerificationError{Category: metadataUpstreamCategory, Retryable: true}
 	}
 	block, err := sharedauth.NewReportedHashBackend(v.RPC).ReportedBlockByNumber(ctx, height)
 	if err != nil || block.Hash != hash {
-		return &sharedauth.VerificationError{Category: "upstream", Retryable: true}
+		return &sharedauth.VerificationError{Category: metadataUpstreamCategory, Retryable: true}
 	}
 	return nil
 }
@@ -274,16 +273,16 @@ func (v ReportedCommittedProofVerifier) CheckCommittedHead(ctx context.Context) 
 func legacySocialColumn(link string) string {
 	u, e := url.Parse(link)
 	if e != nil {
-		return "website"
+		return metadataSocialWebsite
 	}
 	host := strings.TrimPrefix(strings.ToLower(u.Hostname()), "www.")
-	switch {
-	case host == "x.com" || host == "twitter.com" || host == "mobile.twitter.com":
-		return "twitter"
-	case host == "t.me" || host == "telegram.me" || host == "telegram.org":
-		return "telegram"
-	case host == "discord.gg" || host == "discord.com" || host == "discordapp.com":
-		return "discord"
+	switch host {
+	case "x.com", "twitter.com", "mobile.twitter.com":
+		return metadataSocialTwitter
+	case "t.me", "telegram.me", "telegram.org":
+		return metadataSocialTelegram
+	case "discord.gg", "discord.com", "discordapp.com":
+		return metadataSocialDiscord
 	}
-	return "website"
+	return metadataSocialWebsite
 }

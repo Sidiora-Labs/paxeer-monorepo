@@ -1,11 +1,11 @@
 //! Task record 22.33.1499, audit 22.30.89.
-//! readme_retired_endpoint -> readme_retired_endpoint (README commands through real CLI/HTTP).
-//! readme_operator_contract -> readme_operator_contract, readme_receipt_policy_and_watch.
+//! `readme_retired_endpoint` -> `readme_retired_endpoint` (README commands through real CLI/HTTP).
+//! `readme_operator_contract` -> `readme_operator_contract`, `readme_receipt_policy_and_watch`.
 //! Baseline: not run; the ordered gate contract forbids verification before implementation,
 //! and this test target did not exist. No baseline failures or native execution are claimed.
-//! Wiring: tools/platform/cli/src/{rpc.rs,rpc_subscription.rs,wallet.rs} — domain 8:
+//! Wiring: `tools/platform/cli/src/{rpc.rs,rpc_subscription.rs,wallet.rs`} — domain 8:
 //! separate root-node transport from hosted service transport before advertising public CLI onboarding.
-//! Wiring: rpc/sequencer_receipt_vectors_test.go and precompiles/layerxledger — domain 2:
+//! Wiring: `rpc/sequencer_receipt_vectors_test.go` and precompiles/layerxledger — domain 2:
 //! retain merged-node execution coverage; this gate uses committed Go receipts, real codecs and loopback peers.
 //! Evidence: hf-build/hf-done retain the candidate revision, commands, exits and private logs.
 //! Task 22.39.118 continuation: root transport follows src/rpc.rs:47-49 and
@@ -15,8 +15,8 @@
 //! (src/wallet.rs:1025-1032), independently of the node origin.
 //! Hosted balance verification follows src/wallet.rs:720; missing send signing
 //! input follows the handler refusal at src/wallet.rs:1504 before transport.
-//! Token info/list have no gateway_rpc option (src/wallet.rs:206-216) and
-//! read_asset passes their --rpc endpoint to sdk_rpc (src/wallet.rs:908).
+//! Token info/list have no `gateway_rpc` option (src/wallet.rs:206-216) and
+//! `read_asset` passes their --rpc endpoint to `sdk_rpc` (src/wallet.rs:908).
 
 use std::collections::BTreeMap;
 use std::io::{Read as _, Write as _};
@@ -33,7 +33,6 @@ use std::time::{Duration, Instant};
 use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_crypto::evm_transaction::{decode_signed, recover_sender, transaction_hash};
 use layerx_platform_cli::{encoding::hex_decode, wallet_gateway as producer};
-use layerx_wire::encode::Encoder;
 use layerx_wire::hash::receipt_digest;
 use ring::{aead, pbkdf2};
 use serde_json::{json, Value};
@@ -47,7 +46,7 @@ fn hex(bytes: &[u8]) -> String {
     producer::hex(bytes)
 }
 fn unhex(text: &str) -> Vec<u8> {
-    hex_decode("fixture", text.strip_prefix("0x").unwrap_or(text)).unwrap()
+    hex_decode("fixture", text.strip_prefix("0x").unwrap_or(text)).unwrap_or_else(panic_error)
 }
 fn sequencer() -> SigningKey {
     SigningKey::from_bytes(&[0x51; 32])
@@ -60,7 +59,7 @@ fn example(needle: &str, variables: &BTreeMap<String, String>) -> Vec<String> {
         .lines()
         .find(|line| line.starts_with("layerx ") && line.contains(needle))
         .unwrap_or_else(|| panic!("missing README example {needle}"));
-    let mut args = shlex::split(line).expect("README shell syntax");
+    let mut args = shlex::split(line).unwrap_or_else(|| panic!("{}", "README shell syntax"));
     assert_eq!(args.remove(0), "layerx");
     for arg in &mut args {
         for (name, value) in variables {
@@ -72,18 +71,18 @@ fn example(needle: &str, variables: &BTreeMap<String, String>) -> Vec<String> {
     args
 }
 
-fn successful(output: Output) -> Value {
+fn successful(output: &Output) -> Value {
     assert!(
         output.status.success(),
         "{}",
         String::from_utf8_lossy(&output.stderr)
     );
-    let result: Value = serde_json::from_slice(&output.stdout).unwrap();
+    let result: Value = serde_json::from_slice(&output.stdout).unwrap_or_else(panic_error);
     assert_eq!(result["ok"], true);
     result
 }
 
-fn refused(output: Output, reason: &str) {
+fn refused(output: &Output, reason: &str) {
     assert!(!output.status.success());
     assert!(output.stdout.is_empty());
     assert!(
@@ -99,15 +98,25 @@ struct Cli {
 }
 impl Cli {
     fn new() -> Self {
-        let directory = tempfile::tempdir().unwrap();
+        let directory = tempfile::tempdir().unwrap_or_else(panic_error);
         let variables = BTreeMap::from([
             (
                 "EVM_KEY_FILE".into(),
-                directory.path().join("keys.json").to_str().unwrap().into(),
+                directory
+                    .path()
+                    .join("keys.json")
+                    .to_str()
+                    .unwrap_or_else(panic_missing)
+                    .into(),
             ),
             (
                 "MNEMONIC_FILE".into(),
-                directory.path().join("mnemonic").to_str().unwrap().into(),
+                directory
+                    .path()
+                    .join("mnemonic")
+                    .to_str()
+                    .unwrap_or_else(panic_missing)
+                    .into(),
             ),
             (
                 "RECEIPT_POLICY".into(),
@@ -115,12 +124,17 @@ impl Cli {
                     .path()
                     .join("policy.json")
                     .to_str()
-                    .unwrap()
+                    .unwrap_or_else(panic_missing)
                     .into(),
             ),
             (
                 "RECEIPT_ANCHOR_FILE".into(),
-                directory.path().join("anchor").to_str().unwrap().into(),
+                directory
+                    .path()
+                    .join("anchor")
+                    .to_str()
+                    .unwrap_or_else(panic_missing)
+                    .into(),
             ),
             ("FEE_LIMIT".into(), "200000".into()),
             ("ASSET_ID".into(), "22".repeat(32)),
@@ -132,28 +146,29 @@ impl Cli {
             variables,
         };
         cli.vault();
-        std::fs::write(&cli.variables["MNEMONIC_FILE"], "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about").unwrap();
+        std::fs::write(&cli.variables["MNEMONIC_FILE"], "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about").unwrap_or_else(panic_error);
         std::fs::write(
             &cli.variables["RECEIPT_ANCHOR_FILE"],
             hex(&sequencer().verifying_key().to_bytes()),
         )
-        .unwrap();
-        successful(cli.documented("wallet derive --mnemonic-file", None));
-        let exported: Value =
-            serde_json::from_slice(&std::fs::read(&cli.variables["EVM_KEY_FILE"]).unwrap())
-                .unwrap();
-        successful(cli.run(
+        .unwrap_or_else(panic_error);
+        successful(&cli.documented("wallet derive --mnemonic-file", None));
+        let exported: Value = serde_json::from_slice(
+            &std::fs::read(&cli.variables["EVM_KEY_FILE"]).unwrap_or_else(panic_error),
+        )
+        .unwrap_or_else(panic_error);
+        successful(&cli.run(
             &[
                 "wallet",
                 "import",
                 "payments",
                 "--did",
-                exported["did"].as_str().unwrap(),
+                exported["did"].as_str().unwrap_or_else(panic_missing),
             ],
             exported["layerx_seed"].as_str(),
         ));
-        successful(cli.documented("key default payments", None));
-        std::fs::write(&cli.variables["RECEIPT_POLICY"], policy()).unwrap();
+        successful(&cli.documented("key default payments", None));
+        std::fs::write(&cli.variables["RECEIPT_POLICY"], policy()).unwrap_or_else(panic_error);
         cli
     }
     fn vault(&self) {
@@ -162,36 +177,38 @@ impl Cli {
         std::fs::DirBuilder::new()
             .mode(0o700)
             .create(&directory)
-            .unwrap();
+            .unwrap_or_else(panic_error);
         let mut key = [0; 32];
         let salt = [0x31; 16];
         let nonce = [0x32; 12];
         pbkdf2::derive(
             pbkdf2::PBKDF2_HMAC_SHA256,
-            std::num::NonZeroU32::new(600_000).unwrap(),
+            std::num::NonZeroU32::new(600_000).unwrap_or_else(panic_missing),
             &salt,
             PASSPHRASE.as_bytes(),
             &mut key,
         );
-        let key = aead::LessSafeKey::new(aead::UnboundKey::new(&aead::AES_256_GCM, &key).unwrap());
+        let key = aead::LessSafeKey::new(
+            aead::UnboundKey::new(&aead::AES_256_GCM, &key).unwrap_or_else(panic_error),
+        );
         let mut encrypted = serde_json::to_vec(
             &json!({"gateway:beta":format!("beta:lxp_live_{}", "a".repeat(64))}),
         )
-        .unwrap();
+        .unwrap_or_else(panic_error);
         key.seal_in_place_append_tag(
             aead::Nonce::assume_unique_for_key(nonce),
             aead::Aad::from(b"LXVAULT1"),
             &mut encrypted,
         )
-        .unwrap();
+        .unwrap_or_else(panic_error);
         let mut file = std::fs::OpenOptions::new()
             .write(true)
             .create_new(true)
             .mode(0o600)
             .open(directory.join("vault"))
-            .unwrap();
+            .unwrap_or_else(panic_error);
         for bytes in [b"LXVAULT1".as_slice(), &salt, &nonce, &encrypted] {
-            file.write_all(bytes).unwrap();
+            file.write_all(bytes).unwrap_or_else(panic_error);
         }
     }
     fn command(&self) -> Command {
@@ -213,16 +230,16 @@ impl Cli {
         if input.is_some() {
             command.stdin(Stdio::piped());
         }
-        let mut child = command.spawn().unwrap();
+        let mut child = command.spawn().unwrap_or_else(panic_error);
         if let Some(input) = input {
             child
                 .stdin
                 .take()
-                .unwrap()
+                .unwrap_or_else(panic_missing)
                 .write_all(input.as_bytes())
-                .unwrap();
+                .unwrap_or_else(panic_error);
         }
-        child.wait_with_output().unwrap()
+        child.wait_with_output().unwrap_or_else(panic_error)
     }
     fn documented(&self, needle: &str, input: Option<&str>) -> Output {
         let args = example(needle, &self.variables);
@@ -235,12 +252,15 @@ impl Cli {
             .insert("CLI_RPC_URL".into(), format!("{}/", server.base));
         self.variables
             .insert("HOSTED_FAUCET_URL".into(), format!("{}/", server.base));
-        successful(self.documented("environment use beta", None));
-        let key: Value =
-            serde_json::from_slice(&std::fs::read(&self.variables["EVM_KEY_FILE"]).unwrap())
-                .unwrap();
-        self.variables
-            .insert("WALLET_DID".into(), key["did"].as_str().unwrap().into());
+        successful(&self.documented("environment use beta", None));
+        let key: Value = serde_json::from_slice(
+            &std::fs::read(&self.variables["EVM_KEY_FILE"]).unwrap_or_else(panic_error),
+        )
+        .unwrap_or_else(panic_error);
+        self.variables.insert(
+            "WALLET_DID".into(),
+            key["did"].as_str().unwrap_or_else(panic_missing).into(),
+        );
     }
 }
 fn policy() -> String {
@@ -257,9 +277,12 @@ struct Server {
 }
 impl Server {
     fn start(mut answer: impl FnMut(&Value, &str) -> Value + Send + 'static) -> Self {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        listener.set_nonblocking(true).unwrap();
-        let base = format!("http://{}", listener.local_addr().unwrap());
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap_or_else(panic_error);
+        listener.set_nonblocking(true).unwrap_or_else(panic_error);
+        let base = format!(
+            "http://{}",
+            listener.local_addr().unwrap_or_else(panic_error)
+        );
         let stop = Arc::new(AtomicBool::new(false));
         let done = stop.clone();
         let requests = Arc::new(Mutex::new(Vec::new()));
@@ -276,35 +299,37 @@ impl Server {
                 };
                 socket
                     .set_read_timeout(Some(Duration::from_secs(5)))
-                    .unwrap();
+                    .unwrap_or_else(panic_error);
                 socket
                     .set_write_timeout(Some(Duration::from_secs(5)))
-                    .unwrap();
+                    .unwrap_or_else(panic_error);
                 let mut header = Vec::new();
                 while !header.ends_with(b"\r\n\r\n") {
                     assert!(header.len() < 8192);
                     let mut byte = [0];
-                    socket.read_exact(&mut byte).unwrap();
+                    socket.read_exact(&mut byte).unwrap_or_else(panic_error);
                     header.push(byte[0]);
                 }
-                let header = std::str::from_utf8(&header).unwrap();
+                let header = std::str::from_utf8(&header).unwrap_or_else(panic_error);
                 assert!(header.starts_with("POST / HTTP/1.1\r\n"));
                 let length = header
                     .lines()
                     .find_map(|line| {
                         let (name, value) = line.split_once(':')?;
                         name.eq_ignore_ascii_case("content-length")
-                            .then(|| value.trim().parse::<usize>().unwrap())
+                            .then(|| value.trim().parse::<usize>().unwrap_or_else(panic_error))
                     })
-                    .unwrap();
+                    .unwrap_or_else(panic_missing);
                 assert!(length <= 1_048_576);
                 let mut bytes = vec![0; length];
-                socket.read_exact(&mut bytes).unwrap();
-                let request: Value = serde_json::from_slice(&bytes).unwrap();
-                seen.lock().unwrap().push(request.clone());
+                socket.read_exact(&mut bytes).unwrap_or_else(panic_error);
+                let request: Value = serde_json::from_slice(&bytes).unwrap_or_else(panic_error);
+                seen.lock()
+                    .unwrap_or_else(panic_error)
+                    .push(request.clone());
                 let result = answer(&request, header);
                 let body = json!({"jsonrpc":"2.0","id":request["id"],"result":result}).to_string();
-                write!(socket, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len()).unwrap();
+                write!(socket, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len()).unwrap_or_else(panic_error);
             }
         });
         Self {
@@ -318,7 +343,11 @@ impl Server {
 impl Drop for Server {
     fn drop(&mut self) {
         self.stop.store(true, Ordering::Release);
-        self.thread.take().unwrap().join().unwrap();
+        self.thread
+            .take()
+            .unwrap_or_else(panic_missing)
+            .join()
+            .unwrap_or_else(panic_error);
     }
 }
 
@@ -328,12 +357,17 @@ fn word(value: u128) -> Vec<u8> {
     out
 }
 fn source(did: &str, asset: &str, sequence: u64) -> Value {
-    let owner = producer::key(did.strip_prefix("did:layerx:").unwrap()).unwrap();
-    let asset_id = producer::key(asset).unwrap();
+    let owner = producer::key(
+        did.strip_prefix("did:layerx:")
+            .unwrap_or_else(panic_missing),
+    )
+    .unwrap_or_else(panic_error);
+    let asset_id = producer::key(asset).unwrap_or_else(panic_error);
     let mut native = [0; 32];
     native[0] = 1;
-    let name = layerx_wire::account::account_name_for_asset(did, asset_id, native).unwrap();
-    let account = layerx_wire::hash::account_id_for_protocol(&name, 3).unwrap();
+    let name = layerx_wire::account::account_name_for_asset(did, asset_id, native)
+        .unwrap_or_else(panic_error);
+    let account = layerx_wire::hash::account_id_for_protocol(&name, 3).unwrap_or_else(panic_error);
     producer::ledger_account(did, asset, 7, &mut |data| {
         Ok(match &data[..4] {
             [0x3f, 0x05, 0x0c, 0xbc] => account.to_vec(),
@@ -343,7 +377,7 @@ fn source(did: &str, asset: &str, sequence: u64) -> Value {
             selector => panic!("unexpected fixture ABI {selector:?}"),
         })
     })
-    .unwrap()
+    .unwrap_or_else(panic_error)
 }
 
 #[test]
@@ -351,7 +385,7 @@ fn readme_retired_endpoint() {
     let public = README
         .lines()
         .find_map(|line| line.strip_prefix("export RPC_URL="))
-        .unwrap();
+        .unwrap_or_else(panic_missing);
     assert_eq!(public, "https://api1.mainnet-beta.paxeer.network/");
     assert!(README.contains("https://api-mainnet-beta.paxeer.network/"));
     assert!(!README.contains("/rpc/ws"));
@@ -369,10 +403,14 @@ fn readme_retired_endpoint() {
         assert!(header
             .to_ascii_lowercase()
             .contains("authorization: layerx-key beta:lxp_live_"));
-        match request["method"].as_str().unwrap() {
+        match request["method"].as_str().unwrap_or_else(panic_missing) {
             "px_getBalances" => {
-                let did = request["params"][0].as_str().unwrap();
-                let owner = producer::key(did.strip_prefix("did:layerx:").unwrap()).unwrap();
+                let did = request["params"][0].as_str().unwrap_or_else(panic_missing);
+                let owner = producer::key(
+                    did.strip_prefix("did:layerx:")
+                        .unwrap_or_else(panic_missing),
+                )
+                .unwrap_or_else(panic_error);
                 producer::balances(
                     producer::account_document(
                         Some([0x12; 20]),
@@ -385,16 +423,17 @@ fn readme_retired_endpoint() {
                 )
             }
             "px_listAssets" => {
-                let (cursor, limit) = producer::page_params(Some(&request["params"])).unwrap();
+                let (cursor, limit) =
+                    producer::page_params(Some(&request["params"])).unwrap_or_else(panic_error);
                 assert_eq!(cursor, None);
                 assert_eq!(limit, 16);
-                producer::assets_page(vec![json!({"asset_id":"22".repeat(32),"kind":"bank","denom":"factory/pay","name":"Payment Token","symbol":"PAY","decimals":6,"supply":"1000"})], 7, cursor, limit, None).unwrap()
+                producer::assets_page(vec![json!({"asset_id":"22".repeat(32),"kind":"bank","denom":"factory/pay","name":"Payment Token","symbol":"PAY","decimals":6,"supply":"1000"})], 7, cursor, limit, None).unwrap_or_else(panic_error)
             }
             method => panic!("unexpected README read {method}"),
         }
     });
     cli.connect(&server);
-    let balance = successful(cli.documented("wallet balance --did", None));
+    let balance = successful(&cli.documented("wallet balance --did", None));
     assert_eq!(balance["data"]["height"], 7);
     assert_eq!(balance["data"]["balances"][0]["amount"], "1000");
     assert_eq!(balance["data"]["evidence"], "committed_eth_call");
@@ -402,14 +441,14 @@ fn readme_retired_endpoint() {
         balance["data"]["verification"],
         "unverified_node_observation"
     );
-    let filtered = successful(cli.documented("--did \"$WALLET_DID\" --asset", None));
+    let filtered = successful(&cli.documented("--did \"$WALLET_DID\" --asset", None));
     assert_eq!(filtered["data"]["balances"], balance["data"]["balances"]);
-    let listed = successful(cli.documented("token list --limit", None));
+    let listed = successful(&cli.documented("token list --limit", None));
     assert_eq!(listed["data"]["assets"][0]["symbol"], "PAY");
-    let info = successful(cli.documented("token info", None));
+    let info = successful(&cli.documented("token info", None));
     assert_eq!(info["data"]["asset"]["asset_id"], "22".repeat(32));
     refused(
-        cli.run(
+        &cli.run(
             &[
                 "--rpc",
                 &retired,
@@ -426,10 +465,10 @@ fn readme_retired_endpoint() {
         "node RPC URL must name the root endpoint",
     );
     refused(
-        cli.run(&["token", "list", "--limit", "17"], None),
+        &cli.run(&["token", "list", "--limit", "17"], None),
         "invalid value",
     );
-    assert_eq!(server.requests.lock().unwrap().len(), 4);
+    assert_eq!(server.requests.lock().unwrap_or_else(panic_error).len(), 4);
 }
 
 // Receipt peer fixture uses the production canonical encoder, hash and Ed25519 signer.
@@ -445,8 +484,10 @@ fn error_data(reason: &str) -> Vec<u8> {
 }
 
 fn transaction_receipt(raw: &[u8], reverted: bool) -> Value {
-    let (call, signature) = decode_signed(raw).expect("signed EVM transaction");
-    let from_address = recover_sender(&call, &signature).expect("secp256k1 recovery");
+    let (call, signature) = decode_signed(raw)
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "signed EVM transaction"));
+    let from_address = recover_sender(&call, &signature)
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "secp256k1 recovery"));
     let hash = transaction_hash(raw);
     let return_data = if reverted {
         error_data("LXP_INSUFFICIENT_BALANCE")
@@ -462,7 +503,11 @@ fn transaction_receipt(raw: &[u8], reverted: bool) -> Value {
     body.extend_from_slice(&0_u32.to_be_bytes());
     body.extend_from_slice(&[0; 40]);
     body.extend_from_slice(&digest(vm_error.as_bytes()));
-    body.extend_from_slice(&(return_data.len() as u32).to_be_bytes());
+    body.extend_from_slice(
+        &u32::try_from(return_data.len())
+            .unwrap_or_else(panic_error)
+            .to_be_bytes(),
+    );
     body.extend_from_slice(&0_u32.to_be_bytes());
     body.push(4);
     body.extend_from_slice(b"uhpx");
@@ -472,60 +517,31 @@ fn transaction_receipt(raw: &[u8], reverted: bool) -> Value {
     from[12..].copy_from_slice(&from_address);
     let mut to = [0; 32];
     to[12..].copy_from_slice(&call.to);
-    let encode = |signature: Option<[u8; 64]>| {
-        let mut e = Encoder::new(4096);
-        e.structure_header_version(0x5201, 2).expect("header");
-        e.u16(2).expect("protocol");
-        e.bytes(&hash, 32).expect("hash");
-        e.u64(10).expect("sequence");
-        e.bytes(&[0x21; 32], 32).expect("previous root");
-        e.bytes(&[0x22; 32], 32).expect("resulting root");
-        e.bytes(&digest(&return_data), 32).expect("return digest");
-        e.i32(i32::from(reverted)).expect("result");
-        e.sequence_length(1, layerx_wire::limits::MAX_SEQUENCER_EFFECTS)
-            .expect("effects");
-        e.u16(12).expect("module");
-        e.u16(0).expect("ordinal");
-        e.u16(0).expect("event");
-        e.tag(1, 3).expect("kind");
-        e.u8(0).expect("monetary");
-        e.bytes(&[0; 32], 32).expect("transfer root");
-        e.bytes(&body, 256).expect("summary");
-        e.u128(42_000).expect("fee");
-        e.bytes(&batch_id, 32).expect("batch id");
-        e.u16(12).expect("module");
-        e.u32(1).expect("module version");
-        e.u32(0).expect("parameter version");
-        e.u8(2).expect("operation");
-        e.bytes(&digest(b"uhpx"), 32).expect("denom");
-        e.u128(0).expect("amount");
-        e.bytes(&from, 32).expect("from");
-        e.u128(0).expect("balance before");
-        e.u128(0).expect("balance after");
-        e.u64(call.nonce).expect("nonce");
-        e.bytes(&to, 32).expect("to");
-        e.u128(0).expect("credit before");
-        e.u128(0).expect("credit after");
-        e.bytes(&[0; 32], 32).expect("transfer root");
-        e.bytes(&[0; 32], 32).expect("authorization");
-        e.bytes(&KEY_ID, 32).expect("key id");
-        e.u64(1000).expect("timestamp");
-        e.u8(u8::from(signature.is_some())).expect("signature flag");
-        if let Some(signature) = signature {
-            e.bytes(&signature, 64).expect("signature");
-        }
-        e.finish()
+    let fields = receipt_wire::ReceiptFields {
+        hash: &hash,
+        return_data: &return_data,
+        reverted,
+        body: &body,
+        batch_id: &batch_id,
+        from: &from,
+        to: &to,
+        nonce: call.nonce,
+        key_id: &KEY_ID,
     };
-    let unsigned = encode(None);
+    let unsigned = receipt_wire::encode(&fields, None);
     let signature = sequencer()
-        .sign(&receipt_digest(&unsigned).expect("receipt digest"))
+        .sign(
+            &receipt_digest(&unsigned)
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "receipt digest")),
+        )
         .to_bytes();
-    let canonical = encode(Some(signature));
+    let canonical = receipt_wire::encode(&fields, Some(signature));
     assert_eq!(
         layerx_wire::receipt::encode(
-            &layerx_wire::receipt::decode(&canonical).expect("receipt decode")
+            &layerx_wire::receipt::decode(&canonical)
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "receipt decode"))
         )
-        .expect("receipt encode"),
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "receipt encode")),
         canonical
     );
     json!({
@@ -543,28 +559,19 @@ fn transaction_receipt(raw: &[u8], reverted: bool) -> Value {
     })
 }
 
-#[test]
-fn readme_operator_contract() {
-    let mut cli = Cli::new();
-    assert_eq!(
-        std::fs::metadata(&cli.variables["EVM_KEY_FILE"])
-            .unwrap()
-            .permissions()
-            .mode()
-            & 0o777,
-        0o600
-    );
-    let export: Value =
-        serde_json::from_slice(&std::fs::read(&cli.variables["EVM_KEY_FILE"]).unwrap()).unwrap();
-    let did = export["did"].as_str().unwrap().to_owned();
-    let evm_address = unhex(export["evm_address"].as_str().unwrap());
-    let captured = Arc::new(Mutex::new(Vec::new()));
-    let received = captured.clone();
-    let mut submitted = BTreeMap::new();
-    let mut next_nonce = 7_u64;
-    let mut next_sequence = 19_u64;
-    let server = Server::start(move |request, header| {
-        let method = request["method"].as_str().unwrap();
+struct OperatorFixture {
+    did: String,
+    export: Value,
+    evm_address: Vec<u8>,
+    received: Arc<Mutex<Vec<u16>>>,
+    submitted: BTreeMap<String, Vec<u8>>,
+    next_nonce: u64,
+    next_sequence: u64,
+}
+
+impl OperatorFixture {
+    fn answer(&mut self, request: &Value, header: &str) -> Value {
+        let method = request["method"].as_str().unwrap_or_else(panic_missing);
         if method == "px_requestFunds" {
             assert!(header
                 .to_ascii_lowercase()
@@ -572,11 +579,15 @@ fn readme_operator_contract() {
             assert_eq!(
                 request["params"],
                 json!([
-                    did,
+                    self.did,
                     hex(&SigningKey::from_bytes(
-                        &unhex(export["layerx_seed"].as_str().unwrap())
-                            .try_into()
-                            .unwrap()
+                        &unhex(
+                            self.export["layerx_seed"]
+                                .as_str()
+                                .unwrap_or_else(panic_missing)
+                        )
+                        .try_into()
+                        .unwrap_or_else(panic_error)
                     )
                     .verifying_key()
                     .to_bytes())
@@ -590,53 +601,28 @@ fn readme_operator_contract() {
         match method {
             "eth_getTransactionCount" => {
                 assert_eq!(request["params"][1], "pending");
-                json!(format!("0x{next_nonce:x}"))
+                json!(format!("0x{:x}", self.next_nonce))
             }
             "eth_gasPrice" => json!("0x2"),
             "eth_estimateGas" => {
                 assert_eq!(request["params"][0]["chainId"], "0x7d");
-                assert_eq!(request["params"][0]["nonce"], format!("0x{next_nonce:x}"));
+                assert_eq!(
+                    request["params"][0]["nonce"],
+                    format!("0x{:x}", self.next_nonce)
+                );
                 assert_eq!(request["params"][1], "pending");
                 json!("0x5208")
             }
             "px_getAccount" => {
-                assert_eq!(request["params"], json!([did, "22".repeat(32)]));
-                source(&did, &"22".repeat(32), next_sequence)
+                assert_eq!(request["params"], json!([self.did, "22".repeat(32)]));
+                source(&self.did, &"22".repeat(32), self.next_sequence)
             }
-            "eth_sendRawTransaction" => {
-                let raw = unhex(request["params"][0].as_str().unwrap());
-                let (call, signature) = decode_signed(&raw).unwrap();
-                assert_eq!(call.chain_id, 125);
-                assert_eq!(call.nonce, next_nonce);
-                assert_eq!(call.gas_limit, 21_000);
-                assert_eq!(
-                    recover_sender(&call, &signature).unwrap().as_slice(),
-                    evm_address
-                );
-                let disclosure = layerx_crypto::disclosure::call::bind_call(
-                    &call,
-                    recover_sender(&call, &signature).unwrap(),
-                )
-                .unwrap();
-                // The source-account sequence remains independent of the EVM nonce.
-                if disclosure.activity_type.ordinal() == 5 {
-                    assert_eq!(&call.data[184..192], &next_sequence.to_be_bytes());
-                    assert_ne!(call.nonce, next_sequence);
-                    next_sequence += 1;
-                }
-                received
-                    .lock()
-                    .unwrap()
-                    .push(disclosure.activity_type.ordinal());
-                let hash = format!("0x{}", hex(&transaction_hash(&raw)));
-                submitted.insert(hash.clone(), raw);
-                next_nonce += 1;
-                json!(hash)
-            }
+            "eth_sendRawTransaction" => self.submit_raw(request),
             "pax_sequencerReceipt" => {
-                let raw = submitted
-                    .get(request["params"][0].as_str().unwrap())
-                    .unwrap();
+                let raw = self
+                    .submitted
+                    .get(request["params"][0].as_str().unwrap_or_else(panic_missing))
+                    .unwrap_or_else(panic_missing);
                 let mut receipt = transaction_receipt(raw, false);
                 receipt["rung"] = json!("committed");
                 receipt["blockNumber"] = json!("0x7");
@@ -644,22 +630,95 @@ fn readme_operator_contract() {
                 receipt
             }
             "eth_getTransactionReceipt" => {
-                assert!(submitted.contains_key(request["params"][0].as_str().unwrap()));
+                assert!(self
+                    .submitted
+                    .contains_key(request["params"][0].as_str().unwrap_or_else(panic_missing)));
                 json!({"transactionHash":request["params"][0],"blockNumber":"0x7","blockHash":format!("0x{}", "ef".repeat(32)),"status":"0x1","transactionIndex":"0x0"})
             }
             method => panic!("unexpected README write method {method}"),
         }
-    });
+    }
+    fn submit_raw(&mut self, request: &Value) -> Value {
+        let raw = unhex(request["params"][0].as_str().unwrap_or_else(panic_missing));
+        let (call, signature) = decode_signed(&raw).unwrap_or_else(panic_error);
+        assert_eq!(call.chain_id, 125);
+        assert_eq!(call.nonce, self.next_nonce);
+        assert_eq!(call.gas_limit, 21_000);
+        assert_eq!(
+            recover_sender(&call, &signature)
+                .unwrap_or_else(panic_error)
+                .as_slice(),
+            self.evm_address
+        );
+        let disclosure = layerx_crypto::disclosure::call::bind_call(
+            &call,
+            recover_sender(&call, &signature).unwrap_or_else(panic_error),
+        )
+        .unwrap_or_else(panic_error);
+        // The source-account sequence remains independent of the EVM nonce.
+        if disclosure.activity_type.ordinal() == 5 {
+            assert_eq!(&call.data[184..192], &self.next_sequence.to_be_bytes());
+            assert_ne!(call.nonce, self.next_sequence);
+            self.next_sequence += 1;
+        }
+        self.received
+            .lock()
+            .unwrap_or_else(panic_error)
+            .push(disclosure.activity_type.ordinal());
+        let hash = format!("0x{}", hex(&transaction_hash(&raw)));
+        self.submitted.insert(hash.clone(), raw);
+        self.next_nonce += 1;
+        json!(hash)
+    }
+}
+
+fn readme_operator_identity(cli: &Cli) -> (Value, String, Vec<u8>) {
+    assert_eq!(
+        std::fs::metadata(&cli.variables["EVM_KEY_FILE"])
+            .unwrap_or_else(panic_error)
+            .permissions()
+            .mode()
+            & 0o777,
+        0o600
+    );
+    let export: Value = serde_json::from_slice(
+        &std::fs::read(&cli.variables["EVM_KEY_FILE"]).unwrap_or_else(panic_error),
+    )
+    .unwrap_or_else(panic_error);
+    let did = export["did"]
+        .as_str()
+        .unwrap_or_else(panic_missing)
+        .to_owned();
+    let evm_address = unhex(export["evm_address"].as_str().unwrap_or_else(panic_missing));
+    (export, did, evm_address)
+}
+
+#[test]
+fn readme_operator_contract() {
+    let mut cli = Cli::new();
+    let (export, did, evm_address) = readme_operator_identity(&cli);
+    let captured = Arc::new(Mutex::new(Vec::new()));
+    let received = captured.clone();
+    let mut state = OperatorFixture {
+        did,
+        export,
+        evm_address,
+        received,
+        submitted: BTreeMap::new(),
+        next_nonce: 7,
+        next_sequence: 19,
+    };
+    let server = Server::start(move |request, header| state.answer(request, header));
     cli.connect(&server);
     refused(
-        cli.documented("faucet --service-endpoint", None),
+        &cli.documented("faucet --service-endpoint", None),
         "identity_session_required",
     );
-    successful(cli.documented(
+    successful(&cli.documented(
         "auth set --environment beta",
         Some("readme-identity-session"),
     ));
-    let grant = successful(cli.documented("faucet --service-endpoint", None));
+    let grant = successful(&cli.documented("faucet --service-endpoint", None));
     assert_eq!(grant["data"]["claim"]["txHash"], "cd".repeat(32));
     assert_eq!(grant["data"]["claim"]["amount"], "1000");
     let mut hashes = Vec::new();
@@ -679,26 +738,74 @@ fn readme_operator_contract() {
             );
         }
         let output =
-            successful(cli.run(&args.iter().map(String::as_str).collect::<Vec<_>>(), None));
+            successful(&cli.run(&args.iter().map(String::as_str).collect::<Vec<_>>(), None));
         assert_eq!(output["data"]["rung"], "committed");
-        hashes.push(output["data"]["txHash"].as_str().unwrap().to_owned());
+        hashes.push(
+            output["data"]["txHash"]
+                .as_str()
+                .unwrap_or_else(panic_missing)
+                .to_owned(),
+        );
     }
-    assert_eq!(captured.lock().unwrap().as_slice(), &[1, 4, 10, 11, 5, 5]);
-    cli.variables
-        .insert("TX_HASH".into(), hashes.last().unwrap().clone());
-    let receipt = successful(cli.documented("wallet receipt", None));
-    assert_eq!(receipt["data"]["txHash"], *hashes.last().unwrap());
+    assert_eq!(
+        captured.lock().unwrap_or_else(panic_error).as_slice(),
+        &[1, 4, 10, 11, 5, 5]
+    );
+    cli.variables.insert(
+        "TX_HASH".into(),
+        hashes.last().unwrap_or_else(panic_missing).clone(),
+    );
+    let receipt = successful(&cli.documented("wallet receipt", None));
+    assert_eq!(
+        receipt["data"]["txHash"],
+        *hashes.last().unwrap_or_else(panic_missing)
+    );
     assert_eq!(receipt["data"]["rung"], "committed");
     // Required signing input is enforced by the real parser/handler before network I/O.
     let mut args = example(" wallet send ", &cli.variables);
-    let position = args.iter().position(|arg| arg == "--evm-key-file").unwrap();
+    let position = args
+        .iter()
+        .position(|arg| arg == "--evm-key-file")
+        .unwrap_or_else(panic_missing);
     args.drain(position..=position + 1);
-    let before = server.requests.lock().unwrap().len();
+    let before = server.requests.lock().unwrap_or_else(panic_error).len();
     refused(
-        cli.run(&args.iter().map(String::as_str).collect::<Vec<_>>(), None),
+        &cli.run(&args.iter().map(String::as_str).collect::<Vec<_>>(), None),
         "provide --evm-key-file from wallet derive --export-private-keys",
     );
-    assert_eq!(server.requests.lock().unwrap().len(), before);
+    assert_eq!(
+        server.requests.lock().unwrap_or_else(panic_error).len(),
+        before
+    );
+}
+
+fn invalid_receipt_policies(cli: &Cli, server: &Server, valid: &Value) {
+    for (field, value) in [
+        ("protocol_version", json!(3)),
+        ("network_id", json!(402)),
+        ("first_batch", json!(0)),
+        ("last_batch", json!(999)),
+        ("checkpoint_context_digest", json!("11".repeat(32))),
+        ("unknown_field", json!(true)),
+    ] {
+        let mut invalid = valid.clone();
+        invalid[field] = value;
+        std::fs::write(&cli.variables["RECEIPT_POLICY"], invalid.to_string())
+            .unwrap_or_else(panic_error);
+        let before = server.requests.lock().unwrap_or_else(panic_error).len();
+        refused(
+            &cli.documented("wallet receipt", None),
+            if field == "unknown_field" {
+                "unknown field"
+            } else {
+                "EVM receipt policy requires"
+            },
+        );
+        assert_eq!(
+            server.requests.lock().unwrap_or_else(panic_error).len(),
+            before
+        );
+    }
 }
 
 #[test]
@@ -707,7 +814,7 @@ fn readme_receipt_policy_and_watch() {
     let corpus: Value = serde_json::from_str(include_str!(
         "../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
     ))
-    .unwrap();
+    .unwrap_or_else(panic_error);
     assert_eq!(
         corpus["provenance"]["generator"],
         "rpc/sequencer_receipt_vectors_test.go"
@@ -719,14 +826,14 @@ fn readme_receipt_policy_and_watch() {
     receipt["blockNumber"] = json!("0x3e8");
     receipt["blockHash"] = json!(format!("0x{}", "ef".repeat(32)));
     let valid = json!({"protocol_version":2,"network_id":125,
-        "sequencer_id":case["pinnedKey"]["keyId"].as_str().unwrap().strip_prefix("0x").unwrap(),
-        "sequencer_key":case["pinnedKey"]["publicKey"].as_str().unwrap().strip_prefix("0x").unwrap(),
+        "sequencer_id":case["pinnedKey"]["keyId"].as_str().unwrap_or_else(panic_missing).strip_prefix("0x").unwrap_or_else(panic_missing),
+        "sequencer_key":case["pinnedKey"]["publicKey"].as_str().unwrap_or_else(panic_missing).strip_prefix("0x").unwrap_or_else(panic_missing),
         "first_batch":case["pinnedKey"]["firstHeight"],"last_batch":case["pinnedKey"]["lastHeight"],
         "checkpoint_context_digest":null});
     let tamper = Arc::new(AtomicBool::new(false));
     let changed = tamper.clone();
-    let server = Server::start(
-        move |request, _| match request["method"].as_str().unwrap() {
+    let server = Server::start(move |request, _| {
+        match request["method"].as_str().unwrap_or_else(panic_missing) {
             "pax_sequencerReceipt" => {
                 assert_eq!(request["params"][0], receipt["txHash"]);
                 let mut result = receipt.clone();
@@ -739,76 +846,64 @@ fn readme_receipt_policy_and_watch() {
                 json!({"transactionHash":receipt["txHash"],"blockNumber":"0x3e8","blockHash":receipt["blockHash"],"status":"0x1","transactionIndex":receipt["index"]})
             }
             method => panic!("unexpected receipt method {method}"),
-        },
-    );
+        }
+    });
     cli.connect(&server);
     cli.variables.insert(
         "TX_HASH".into(),
-        case["receiptJson"]["txHash"].as_str().unwrap().into(),
+        case["receiptJson"]["txHash"]
+            .as_str()
+            .unwrap_or_else(panic_missing)
+            .into(),
     );
-    std::fs::write(&cli.variables["RECEIPT_POLICY"], valid.to_string()).unwrap();
-    let output = successful(cli.documented("wallet receipt", None));
+    std::fs::write(&cli.variables["RECEIPT_POLICY"], valid.to_string()).unwrap_or_else(panic_error);
+    let output = successful(&cli.documented("wallet receipt", None));
     assert_eq!(output["data"]["receipt"], case["signedReceipt"]);
     assert_eq!(output["data"]["rung"], "committed");
     tamper.store(true, Ordering::Release);
     refused(
-        cli.documented("wallet receipt", None),
+        &cli.documented("wallet receipt", None),
         "served execution differs from the signed receipt",
     );
     tamper.store(false, Ordering::Release);
-    for (field, value) in [
-        ("protocol_version", json!(3)),
-        ("network_id", json!(402)),
-        ("first_batch", json!(0)),
-        ("last_batch", json!(999)),
-        ("checkpoint_context_digest", json!("11".repeat(32))),
-        ("unknown_field", json!(true)),
-    ] {
-        let mut invalid = valid.clone();
-        invalid[field] = value;
-        std::fs::write(&cli.variables["RECEIPT_POLICY"], invalid.to_string()).unwrap();
-        let before = server.requests.lock().unwrap().len();
-        refused(
-            cli.documented("wallet receipt", None),
-            if field == "unknown_field" {
-                "unknown field"
-            } else {
-                "EVM receipt policy requires"
-            },
-        );
-        assert_eq!(server.requests.lock().unwrap().len(), before);
-    }
-    std::fs::write(&cli.variables["RECEIPT_POLICY"], valid.to_string()).unwrap();
+    invalid_receipt_policies(&cli, &server, &valid);
+    std::fs::write(&cli.variables["RECEIPT_POLICY"], valid.to_string()).unwrap_or_else(panic_error);
     let mut finalised = example("wallet receipt", &cli.variables);
-    *finalised.last_mut().unwrap() = "finalised".into();
-    let finalised = successful(cli.run(
+    *finalised.last_mut().unwrap_or_else(panic_missing) = "finalised".into();
+    let finalised = successful(&cli.run(
         &finalised.iter().map(String::as_str).collect::<Vec<_>>(),
         None,
     ));
     assert_eq!(finalised["data"]["receipt"], case["signedReceipt"]);
     assert_eq!(finalised["data"]["rung"], "committed");
     let mut invalid_wait = example("wallet receipt", &cli.variables);
-    *invalid_wait.last_mut().unwrap() = "unknown".into();
-    let before = server.requests.lock().unwrap().len();
+    *invalid_wait.last_mut().unwrap_or_else(panic_missing) = "unknown".into();
+    let before = server.requests.lock().unwrap_or_else(panic_error).len();
     refused(
-        cli.run(
+        &cli.run(
             &invalid_wait.iter().map(String::as_str).collect::<Vec<_>>(),
             None,
         ),
         "invalid value",
     );
-    assert_eq!(server.requests.lock().unwrap().len(), before);
+    assert_eq!(
+        server.requests.lock().unwrap_or_else(panic_error).len(),
+        before
+    );
     watch(&mut cli);
 }
 
 fn watch(cli: &mut Cli) {
     use tungstenite::handshake::server::{Request, Response};
     use tungstenite::Message;
-    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-    listener.set_nonblocking(true).unwrap();
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap_or_else(panic_error);
+    listener.set_nonblocking(true).unwrap_or_else(panic_error);
     cli.variables.insert(
         "CLI_RPC_URL".into(),
-        format!("http://{}/", listener.local_addr().unwrap()),
+        format!(
+            "http://{}/",
+            listener.local_addr().unwrap_or_else(panic_error)
+        ),
     );
     let address = cli.variables["WATCH_ADDRESS"].clone();
     let expected = address.clone();
@@ -826,10 +921,10 @@ fn watch(cli: &mut Cli) {
         };
         stream
             .set_read_timeout(Some(Duration::from_secs(5)))
-            .unwrap();
+            .unwrap_or_else(panic_error);
         stream
             .set_write_timeout(Some(Duration::from_secs(5)))
-            .unwrap();
+            .unwrap_or_else(panic_error);
         let mut socket =
             tungstenite::accept_hdr(stream, |request: &Request, response: Response| {
                 assert_eq!(request.uri().path(), "/");
@@ -839,11 +934,11 @@ fn watch(cli: &mut Cli) {
                 );
                 Ok(response)
             })
-            .unwrap();
-        let Message::Text(text) = socket.read().unwrap() else {
+            .unwrap_or_else(panic_error);
+        let Message::Text(text) = socket.read().unwrap_or_else(panic_error) else {
             panic!("expected subscription JSON")
         };
-        let request: Value = serde_json::from_str(&text).unwrap();
+        let request: Value = serde_json::from_str(&text).unwrap_or_else(panic_error);
         assert_eq!(request["method"], "eth_subscribe");
         assert_eq!(
             request["params"],
@@ -855,11 +950,11 @@ fn watch(cli: &mut Cli) {
                     .to_string()
                     .into(),
             ))
-            .unwrap();
-        socket.send(Message::Text(json!({"jsonrpc":"2.0","method":"eth_subscription","params":{"subscription":"readme-subscription","result":{"address":address,"topics":[],"data":"0x","transactionHash":format!("0x{}","cd".repeat(32))}}}).to_string().into())).unwrap();
+            .unwrap_or_else(panic_error);
+        socket.send(Message::Text(json!({"jsonrpc":"2.0","method":"eth_subscription","params":{"subscription":"readme-subscription","result":{"address":address,"topics":[],"data":"0x","transactionHash":format!("0x{}","cd".repeat(32))}}}).to_string().into())).unwrap_or_else(panic_error);
     });
-    let result = successful(cli.documented("wallet watch account", None));
-    server.join().unwrap();
+    let result = successful(&cli.documented("wallet watch account", None));
+    server.join().unwrap_or_else(panic_error);
     assert_eq!(result["data"]["verified"], false);
     assert_eq!(result["data"]["notification"]["address"], expected);
     for topic in ["receipts", "checkpoints"] {
@@ -868,8 +963,19 @@ fn watch(cli: &mut Cli) {
             .map(|arg| if arg == "account" { topic.into() } else { arg })
             .collect::<Vec<String>>();
         refused(
-            cli.run(&args.iter().map(String::as_str).collect::<Vec<_>>(), None),
+            &cli.run(&args.iter().map(String::as_str).collect::<Vec<_>>(), None),
             "wallet watch requires account",
         );
     }
 }
+
+fn panic_error<T, E: std::fmt::Debug>(error: E) -> T {
+    panic!("{error:?}")
+}
+
+fn panic_missing<T>() -> T {
+    panic!("expected value")
+}
+
+#[path = "common/receipt_wire.rs"]
+mod receipt_wire;

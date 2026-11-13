@@ -11,10 +11,11 @@ module.
 No `px_register` wrapper. The agent catalog constant
 `AgentOperationAgentRegister` (`"agent.register"`) can be sent
 with `Client.Agent` **if** you supply a `Transport` that implements
-the agent plane. This module ships `NewHumanHTTPTransport` only
-(`sdk/platform/go/http.go`). There is no shipped agent-plane HTTP
-transport. Calling `agent.register` through the human transport will
-not reach the public gateway method.
+the agent plane. `NewAgentEnvelopeHTTPTransport` in
+[`http.go`](../../sdk/platform/go/http.go) supplies the hosted agent-envelope
+transport with a gateway authorizer and optional agent session credential.
+`NewHumanHTTPTransport` serves human operations. Agent registration does not
+invoke the hosted self-service `px_register` method.
 
 Use [Public JSON-RPC](PublicRpc.md) or the Rust SDK.
 
@@ -84,15 +85,22 @@ package main
 
 import layerx "github.com/Sidiora-Labs/LayerX-Network/sdk/platform/go"
 
-func verify(canonicalReceipt []byte, authorized layerx.AuthorizedBatch) (layerx.VerifiedReceipt, error) {
-	return layerx.VerifyReceipt(canonicalReceipt, authorized)
+func verify(receiptJSON, rawTransaction []byte, keys layerx.ReceiptKeys) (layerx.SequencerReceiptVerification, error) {
+	return layerx.VerifySequencerReceipt(receiptJSON, rawTransaction, keys)
 }
 ```
 
-`AuthorizedBatch` is five `[32]byte` fields: `BatchID`, `Asset`,
-`PreviousStateRoot`, `ResultingStateRoot`, `SequencerPublicKey`.
-Those facts must come from a source you already trust.
-`VerifyReceiptOutcome` returns the decoded outcome without requiring
-result code 0.
+`receiptJSON` is the JSON result object from `pax_sequencerReceipt`, including
+its canonical signed `receipt` field. `rawTransaction` is the exact signed EVM
+transaction. `ReceiptKeys` contains `Pins` and `PreviousSequenceHash`;
+each `ReceiptKey` carries `KeyID`, `PublicKey`, `FirstHeight` and `LastHeight`.
+Authenticate the pins and predecessor independently of the response.
+
+The verifier checks the signature, transaction and JSON bindings, logs and
+sequence continuity. Inspect `Status` and `Revert` for execution success.
+`VerifyCommittedReceipt` additionally verifies block inclusion and consensus
+commitment using caller-supplied evidence and trust. See
+[`verify.go`](../../sdk/platform/go/verify.go) and
+[`committed.go`](../../sdk/platform/go/committed.go).
 
 [SDK quickstarts](SdkQuickstarts.md) · [Home](Home.md)

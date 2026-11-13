@@ -9,7 +9,6 @@ import subprocess
 ROOT = Path(__file__).resolve().parents[2]
 CONTRIBUTOR_PAGES = {
     "CONTRIBUTING.md",
-    "docs/site/docs/reference/index.md",
 }
 PAGE_SUFFIXES = {".md", ".markdown", ".mdx", ".rst", ".txt", ".html", ".htm", ".adoc"}
 VENDOR_COMPONENTS = {"vendor", "vendored", "third_party", "third-party", "node_modules"}

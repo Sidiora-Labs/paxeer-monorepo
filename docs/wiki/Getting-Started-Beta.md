@@ -8,19 +8,16 @@ the execution and evidence model.
 
 ## Endpoints and trust
 
-The public node JSON-RPC is served at the root path:
+Choose a public node from [Public RPC](PublicRpc.md) and set `RPC_URL`
+to its root URL. Check its chain ID before signing:
 
 ```sh
-export RPC_URL=https://api-mainnet-beta.paxeer.network
-
 curl --fail-with-body --silent --show-error "$RPC_URL" \
   --header 'Content-Type: application/json' \
   --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'
 ```
 
-Require `result` to be `"0x7d"` before signing. The other public node names
-are `https://api1.mainnet-beta.paxeer.network` through
-`https://api14.mainnet-beta.paxeer.network`, also at the root. Compare
+Require `result` to be `"0x7d"` before signing. Compare
 `eth_blockNumber` when choosing a current node; an unavailable or lagging node
 is not evidence that a transaction failed.
 
@@ -28,7 +25,6 @@ The node also serves the `px` namespace at the root. `px_register` and
 `px_requestFunds` are operations of the operator-deployed hosted gateway,
 whose contract is `services/platform/hosted/gateway/openrpc.json`; obtain its
 endpoint and any credentials from the operator when using those operations.
-The old `lx_sendActivity` integration flow is retired.
 
 ## Wallet and funding
 
@@ -38,18 +34,27 @@ Check the address and balance with `eth_getBalance(address, "latest")`.
 A DID binding does not supply gas or create a ledger balance.
 
 For a wallet whose EVM key and DID derive from one secret, follow
-[One account](../site/docs/concepts/one-account.md). The CLI can derive the pair from
-standard input and bind it through the node:
+[One account](../site/paxeer-docs/src/app/accounts/page.tsx). The CLI can derive the pair from
+standard input:
 
 ```sh
 layerx wallet derive --index 0 < phrase.txt
-layerx wallet derive --bind --rpc "$RPC_URL" < phrase.txt
 ```
 
-Keep the phrase file private. The bind transaction needs native funding and
-must commit before a later operation relies on the binding. Custody-credit
-scripts and deposit-based account opening are retired; funding and ledger
-account opening use the current chain operations described below.
+Keep the phrase file private. To submit the binding with the CLI, use:
+
+```sh
+layerx --rpc "$RPC_URL" wallet derive --index 0 --bind < phrase.txt
+```
+
+The command checks chain ID `125` and the binding state, then returns
+`submitted` or `already_bound`. A submitted bind transaction needs native gas
+funding and must commit successfully before a later operation uses the binding.
+The TypeScript SDK also exports `autoBindLayerX` and signed bind transaction
+helpers in
+[`account-derivation.ts`](../../services/agent/sdk/typescript/src/account-derivation.ts).
+See [CLI transport](Cli.md#emulator-hosted-gateway-and-node) for node and hosted
+endpoint selection.
 
 ## Submit a native transaction
 
@@ -143,10 +148,10 @@ errors have their own declared method contract; preserve their typed data
 instead of interpreting unavailable evidence as a zero balance or success.
 
 For service-managed payments, use
-[Human service journeys](../site/docs/human/journeys.md) and the deployment's
+[Human service journeys](../site/paxeer-docs/src/app/human-interface/page.tsx) and the deployment's
 authentication and allowance policy.
 
-[One account](../site/docs/concepts/one-account.md) ·
+[One account](../site/paxeer-docs/src/app/accounts/page.tsx) ·
 [Unified network](UnifiedNetwork.md) ·
 [SDK terminal verification](SdkTerminalVerification.md) ·
 [Home](Home.md)

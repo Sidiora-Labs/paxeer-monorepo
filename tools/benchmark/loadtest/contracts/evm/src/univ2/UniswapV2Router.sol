@@ -54,22 +54,9 @@ contract UniswapV2Router {
         uint256 amountBMin,
         address to,
         uint256 deadline
-    )
-        public
-        check(deadline)
-        returns (
-            uint256 amountA,
-            uint256 amountB,
-            uint256 liquidity
-        )
-    {
+    ) public check(deadline) returns (uint256 amountA, uint256 amountB, uint256 liquidity) {
         (amountA, amountB) = _computeLiquidityAmounts(
-            tokenA,
-            tokenB,
-            amountADesired,
-            amountBDesired,
-            amountAMin,
-            amountBMin
+            tokenA, tokenB, amountADesired, amountBDesired, amountAMin, amountBMin
         );
         address pair = factory.pairs(tokenA, tokenB);
         _safeTransferFrom(tokenA, msg.sender, pair, amountA);
@@ -97,10 +84,8 @@ contract UniswapV2Router {
         address pair = factory.pairs(tokenA, tokenB);
         _safeTransferFrom(address(pair), msg.sender, address(pair), liquidity);
         (uint256 amount0, uint256 amount1) = IUniswapV2Pair(pair).burn(to);
-        (address token0, ) = UniswapV2Library.sortPairs(tokenA, tokenB);
-        (amountA, amountB) = token0 == tokenA
-            ? (amount0, amount1)
-            : (amount1, amount0);
+        (address token0,) = UniswapV2Library.sortPairs(tokenA, tokenB);
+        (amountA, amountB) = token0 == tokenA ? (amount0, amount1) : (amount1, amount0);
         if (amountA < amountAMin) revert InsufficientAmountA();
         if (amountB < amountBMin) revert InsufficientAmountB();
     }
@@ -123,11 +108,7 @@ contract UniswapV2Router {
 
         // require(false, string(abi.encodePacked(factory)));
 
-        (uint112 reserveA, uint112 reserveB) = UniswapV2Library.getReserves(
-            address(factory),
-            tokenA,
-            tokenB
-        );
+        (uint112 reserveA, uint112 reserveB) = UniswapV2Library.getReserves(address(factory), tokenA, tokenB);
         // require(false, "after getReserves");
         if (reserveA == 0 && reserveB == 0) {
             (amountA, amountB) = (amountADesired, amountBDesired);
@@ -140,11 +121,7 @@ contract UniswapV2Router {
                 }
                 amountA = amountADesired;
             } else {
-                amountA = UniswapV2Library.quote(
-                    amountBDesired,
-                    reserveB,
-                    reserveA
-                );
+                amountA = UniswapV2Library.quote(amountBDesired, reserveB, reserveA);
                 assert(amountA <= amountADesired);
 
                 if (amountA < amountAMin) {
@@ -156,12 +133,10 @@ contract UniswapV2Router {
         }
     }
 
-    function _safeTransferFrom(
-        address token,
-        address from,
-        address to,
-        uint256 amount
-    ) internal returns (bool success) {
+    function _safeTransferFrom(address token, address from, address to, uint256 amount)
+        internal
+        returns (bool success)
+    {
         success = IERC20(token).transferFrom(from, to, amount);
         if (!success) {
             require(false, "SafeTransferFromFailed");
@@ -171,34 +146,31 @@ contract UniswapV2Router {
 
     // **** SWAP ****
     // requires the initial amount to have already been sent to the first pair
-    function _swap(uint[] memory amounts, address[] memory path, address _to) internal virtual {
-        for (uint i; i < path.length - 1; i++) {
+    function _swap(uint256[] memory amounts, address[] memory path, address _to) internal virtual {
+        for (uint256 i; i < path.length - 1; i++) {
             (address input, address output) = (path[i], path[i + 1]);
             (address token0,) = UniswapV2Library.sortPairs(input, output);
-            uint amountOut = amounts[i + 1];
-            (uint amount0Out, uint amount1Out) = input == token0 ? (uint(0), amountOut) : (amountOut, uint(0));
+            uint256 amountOut = amounts[i + 1];
+            (uint256 amount0Out, uint256 amount1Out) =
+                input == token0 ? (uint256(0), amountOut) : (amountOut, uint256(0));
 
             address to = i < path.length - 2 ? UniswapV2Library.pairFor(address(factory), output, path[i + 2]) : _to;
-            IUniswapV2Pair(UniswapV2Library.pairFor(address(factory), input, output)).swap(
-                amount0Out, amount1Out, to
-            );
+            IUniswapV2Pair(UniswapV2Library.pairFor(address(factory), input, output)).swap(amount0Out, amount1Out, to);
         }
     }
 
     function swapExactTokensForTokens(
-        uint amountIn,
-        uint amountOutMin,
+        uint256 amountIn,
+        uint256 amountOutMin,
         address[] calldata path,
         address to,
-        uint deadline
-    ) external check(deadline) returns (uint[] memory amounts) {
+        uint256 deadline
+    ) external check(deadline) returns (uint256[] memory amounts) {
         amounts = UniswapV2Library.getAmountsOut(address(factory), amountIn, path);
-        require(amounts[amounts.length - 1] >= amountOutMin, 'UniswapV2Router: INSUFFICIENT_OUTPUT_AMOUNT');
+        require(amounts[amounts.length - 1] >= amountOutMin, "UniswapV2Router: INSUFFICIENT_OUTPUT_AMOUNT");
         (address token0, address token1) = UniswapV2Library.sortPairs(path[0], path[1]);
         address pair = factory.pairs(token0, token1);
-        _safeTransferFrom(
-            path[0], msg.sender, pair, amounts[0]
-        );
+        _safeTransferFrom(path[0], msg.sender, pair, amounts[0]);
         _swap(amounts, path, to);
     }
 }

@@ -167,6 +167,62 @@ class Environment:
     def joined(self):
         module(WEB / 'src/widgets/trading/run-joined-services.py').prepare_fixture(self)
 
+    def chart_recovery_ready(self, timeout=90):
+        joined = json.loads(Path(self.env['JOINED_CONFIG_FILE']).read_text())
+        chain = json.loads(Path(self.env['JOINED_CHAIN_FILE']).read_text())
+        pool = chain['pool'].lower()
+        now = int(time.time())
+        candle_query = urllib.parse.urlencode({
+            'interval': '1d',
+            'from': time.strftime('%Y-%m-%dT%H:%M:%S.000Z', time.gmtime(now - 3 * 86400)),
+            'to': time.strftime('%Y-%m-%dT%H:%M:%S.000Z', time.gmtime(now + 60)),
+            'limit': '50',
+        })
+        candle_path = '/v2/pools/' + pool + '/candles?' + candle_query
+        probes = [
+            (joined['api_origin'] + '/v2/snapshots?' + urllib.parse.urlencode({
+                'topics': 'market.candles.' + pool + '.1d'}), 'snapshot'),
+            (joined['api_origin'] + candle_path, 'items'),
+            (joined['api_origin'] + '/v2/pools/' + pool + '/trades?limit=50', 'items'),
+            (joined['browser_origin'] + candle_path, 'items'),
+        ]
+        api = next(child for child in self.children
+                   if self.processes[child.pid][0] == 'api')
+        browser = next(child for child in self.children
+                       if self.processes[child.pid][0] == 'joined-browser')
+        deadline = time.monotonic() + timeout
+        pending = probes[0][0]
+        while time.monotonic() < deadline:
+            for url, kind in probes:
+                pending = url
+                child = browser if url.startswith(joined['browser_origin']) else api
+                if child.poll() is not None:
+                    raise self.readiness_error(child, 'exited before chart response: ' + url)
+                request = urllib.request.Request(url, headers={
+                    'X-Schema-Version': '2',
+                    'Origin': joined['stream_application_origin'],
+                })
+                try:
+                    with urllib.request.urlopen(request, timeout=5) as response:
+                        envelope = json.load(response)
+                        if response.status != 200 or response.headers.get('X-Schema-Version') != '2':
+                            break
+                        data = envelope.get('data', {})
+                        if kind == 'snapshot':
+                            topics = data.get('snapshot', {}).get('topics', [])
+                            if (len(topics) != 1 or
+                                    topics[0].get('topic') != 'market.candles.' + pool + '.1d' or
+                                    not topics[0].get('payload')):
+                                break
+                        elif not data.get('items'):
+                            break
+                except (OSError, ValueError):
+                    break
+            else:
+                return
+            time.sleep(.1)
+        raise self.readiness_error(api, 'chart response timed out: ' + pending)
+
     def required(self, name):
         value = self.env.get(name)
         if not value:
@@ -221,6 +277,7 @@ def main():
         setup.stage('advanced inputs', setup.advanced)
         setup.stage('trading phase two', setup.trading_phase2)
         setup.stage('joined services', setup.joined)
+        setup.stage('chart recovery responses', setup.chart_recovery_ready)
         if args.prepare_only:
             # Observe the candle interface separately from mandatory trade readiness.
             # Never manufacture candle documents or change a gate based on this probe.

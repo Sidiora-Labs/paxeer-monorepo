@@ -158,6 +158,7 @@ func (s *Store) ConsumeOrderedBatch(ctx context.Context, consumer, generation st
 						return err
 					}
 					b := brokers[i]
+					//nolint:gosec // Broker sequences are bounded to MaxInt64 at admission.
 					tag, err = tx.Exec(ctx, "INSERT INTO "+s.table("delivery_consumer_watermarks")+`(consumer_id,generation,partition_kind,partition_key,broker_stream,broker_sequence,source_order,position_sequence,event_id,envelope_hash) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT(consumer_id,generation,partition_kind,partition_key) DO UPDATE SET broker_sequence=EXCLUDED.broker_sequence,source_order=EXCLUDED.source_order,position_sequence=EXCLUDED.position_sequence,event_id=EXCLUDED.event_id,envelope_hash=EXCLUDED.envelope_hash,committed_at=clock_timestamp() WHERE delivery_consumer_watermarks.broker_stream=EXCLUDED.broker_stream AND delivery_consumer_watermarks.position_sequence=EXCLUDED.position_sequence-1`, consumer, generation, g.Position.PartitionKind, g.Position.PartitionKey, b.Stream, int64(b.Sequence), raw, sequence, e.EventID, Hash(in.Wire))
 					if err != nil {
 						return err

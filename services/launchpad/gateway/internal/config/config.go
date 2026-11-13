@@ -17,10 +17,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	runtimedb "github.com/Sidiora-Technologies/KindleLaunch/shared/db"
-	dbproduction "github.com/Sidiora-Technologies/KindleLaunch/shared/db/production"
-	sharedsecrets "github.com/Sidiora-Technologies/KindleLaunch/shared/secrets"
-	pgxpool "github.com/jackc/pgx/v5/pgxpool"
 	"io"
 	"net/url"
 	"os"
@@ -28,7 +24,16 @@ import (
 	"sync"
 	"time"
 
+	runtimedb "github.com/Sidiora-Technologies/KindleLaunch/shared/db"
+	dbproduction "github.com/Sidiora-Technologies/KindleLaunch/shared/db/production"
+	sharedsecrets "github.com/Sidiora-Technologies/KindleLaunch/shared/secrets"
+	pgxpool "github.com/jackc/pgx/v5/pgxpool"
+
 	"github.com/caarlos0/env/v11"
+)
+
+const (
+	nodeEnvironmentProduction = "production"
 )
 
 // Config is the parsed gateway environment.
@@ -223,7 +228,7 @@ func (c *Config) Validate() error {
 		errs = append(errs, fmt.Errorf("RATE_LIMIT_WINDOW_SECONDS %d must be positive", c.RateLimitWindowSeconds))
 	}
 
-	if c.NodeEnv == "production" {
+	if c.NodeEnv == nodeEnvironmentProduction {
 		if (c.GatewayRuntimeFile == "" && c.GatewayRuntimeDocument == "") || len(c.GatewayRuntimeSHA256) != 64 {
 			errs = append(errs, errors.New("gateway_runtime_binding_required"))
 		}
@@ -259,7 +264,7 @@ func requireURL(name, raw string) error {
 }
 
 func (c *Config) ResolveProductionSecrets(ctx context.Context) (func(context.Context) error, context.CancelFunc, error) {
-	if c.NodeEnv != "production" {
+	if c.NodeEnv != nodeEnvironmentProduction {
 		if c.NodeEnv != "" && c.NodeEnv != "test" && c.NodeEnv != "development" {
 			return nil, nil, fmt.Errorf("environment_invalid")
 		}
@@ -338,18 +343,19 @@ func (c *Config) ResolveProductionSecrets(ctx context.Context) (func(context.Con
 }
 
 func (c *Config) OpenRuntimePool(ctx context.Context, role string, legacy runtimedb.PoolOptions) (*pgxpool.Pool, error) {
-	if c.NodeEnv != "production" {
+	if c.NodeEnv != nodeEnvironmentProduction {
 		return runtimedb.NewPool(ctx, c.DatabaseURL, legacy)
 	}
-	if c.RuntimeProfile == "container" {
+	switch c.RuntimeProfile {
+	case "container":
 		if c.Port != 8080 || c.BindAddress != "0.0.0.0" {
 			return nil, fmt.Errorf("container_bind_mismatch")
 		}
-	} else if c.RuntimeProfile == "owned_local" {
+	case "owned_local":
 		if c.BindAddress != "127.0.0.1" {
 			return nil, fmt.Errorf("owned_loopback_required")
 		}
-	} else {
+	default:
 		return nil, fmt.Errorf("runtime_profile_required")
 	}
 	if (c.RuntimeBudgetFile == "" && c.RuntimeBudgetDocument == "") || c.RuntimePoolID == "" || c.RuntimeInstanceID == "" {
@@ -381,7 +387,7 @@ func (c *Config) OpenRuntimePool(ctx context.Context, role string, legacy runtim
 	return pool, nil
 }
 func (c *Config) CheckRuntimeSchema(ctx context.Context, pool *pgxpool.Pool) error {
-	if c.NodeEnv != "production" {
+	if c.NodeEnv != nodeEnvironmentProduction {
 		return pool.Ping(ctx)
 	}
 	if (c.ExpectedSchemaFile == "" && c.ExpectedSchemaDocument == "") || len(c.ExpectedSchemaSHA256) != 64 {
@@ -449,7 +455,7 @@ func boundBytes(path, inline, digest string) ([]byte, error) {
 		if !info.Mode().IsRegular() || info.Size() > 1048576 {
 			return nil, fmt.Errorf("runtime_document_invalid")
 		}
-		if raw, err = os.ReadFile(path); err != nil {
+		if raw, err = os.ReadFile(path); err != nil { //nolint:gosec // The configured runtime document is regular, bounded, and digest verified.
 			return nil, err
 		}
 	} else {
@@ -497,7 +503,7 @@ type RuntimePoolSplit struct {
 }
 
 func (c *Config) OpenSplitRuntimePools(ctx context.Context, split RuntimePoolSplit) (*pgxpool.Pool, *pgxpool.Pool, error) {
-	if c.NodeEnv != "production" || split.IdentityPoolID != c.RuntimePoolID || split.ControlPoolID == "" || split.ControlPoolID == split.IdentityPoolID || split.IdentityMaxConnections < 1 || split.ControlMaxConnections < 1 || split.ControlCredentialReference == "" {
+	if c.NodeEnv != nodeEnvironmentProduction || split.IdentityPoolID != c.RuntimePoolID || split.ControlPoolID == "" || split.ControlPoolID == split.IdentityPoolID || split.IdentityMaxConnections < 1 || split.ControlMaxConnections < 1 || split.ControlCredentialReference == "" {
 		return nil, nil, fmt.Errorf("explicit_runtime_pool_split_required")
 	}
 	if c.RuntimeProfile == "container" {

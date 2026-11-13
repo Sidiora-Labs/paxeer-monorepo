@@ -29,28 +29,16 @@ const KERNEL_SIDE_VARIABLES: [&str; 8] = [
 ];
 
 fn command(program: &str, arguments: &[&str]) {
-    let output = Command::new(program)
-        .args(arguments)
-        .output()
-        .unwrap_or_else(|error| panic!("{program} must run: {error}"));
-    assert!(
-        output.status.success(),
-        "{program} failed: {}",
-        String::from_utf8_lossy(&output.stderr)
-    );
+    let output = Command::new(program).args(arguments).output().unwrap_or_else(|error| panic!("{program} must run: {error}"));
+    assert!(output.status.success(), "{program} failed: {}", String::from_utf8_lossy(&output.stderr));
 }
 
 fn path(value: &Path) -> &str {
-    value
-        .to_str()
-        .unwrap_or_else(|| panic!("test path must be UTF-8"))
+    value.to_str().unwrap_or_else(|| panic!("test path must be UTF-8"))
 }
 
 fn free_port() -> u16 {
-    TcpListener::bind("127.0.0.1:0")
-        .and_then(|listener| listener.local_addr())
-        .unwrap_or_else(|error| panic!("test port must be allocated: {error}"))
-        .port()
+    TcpListener::bind("127.0.0.1:0").and_then(|listener| listener.local_addr()).unwrap_or_else(|error| panic!("test port must be allocated: {error}")).port()
 }
 
 struct Fixture {
@@ -63,72 +51,20 @@ struct Fixture {
 impl Fixture {
     fn start() -> Self {
         let _ = rustls::crypto::ring::default_provider().install_default();
-        let directory = std::env::temp_dir().join(format!(
-            "layerx-router-surface-{}-{}",
-            std::process::id(),
-            SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_nanos()
-        ));
-        fs::create_dir(&directory)
-            .unwrap_or_else(|error| panic!("test directory must be created: {error}"));
+        let directory = std::env::temp_dir().join(format!("layerx-router-surface-{}-{}", std::process::id(), SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_nanos()));
+        fs::create_dir(&directory).unwrap_or_else(|error| panic!("test directory must be created: {error}"));
         let pem = directory.join("server.pem");
         let der = directory.join("server.der");
         let key = directory.join("server.key");
         let key_der = directory.join("server-key.der");
         command(
             "openssl",
-            &[
-                "req",
-                "-x509",
-                "-newkey",
-                "rsa:2048",
-                "-nodes",
-                "-keyout",
-                path(&key),
-                "-out",
-                path(&pem),
-                "-days",
-                "1",
-                "-subj",
-                "/CN=localhost",
-                "-addext",
-                "subjectAltName=DNS:localhost",
-            ],
+            &["req", "-x509", "-newkey", "rsa:2048", "-nodes", "-keyout", path(&key), "-out", path(&pem), "-days", "1", "-subj", "/CN=localhost", "-addext", "subjectAltName=DNS:localhost"],
         );
-        command(
-            "openssl",
-            &[
-                "x509",
-                "-in",
-                path(&pem),
-                "-outform",
-                "DER",
-                "-out",
-                path(&der),
-            ],
-        );
-        command(
-            "openssl",
-            &[
-                "pkcs8",
-                "-topk8",
-                "-nocrypt",
-                "-in",
-                path(&key),
-                "-outform",
-                "DER",
-                "-out",
-                path(&key_der),
-            ],
-        );
+        command("openssl", &["x509", "-in", path(&pem), "-outform", "DER", "-out", path(&der)]);
+        command("openssl", &["pkcs8", "-topk8", "-nocrypt", "-in", path(&key), "-outform", "DER", "-out", path(&key_der)]);
         let redis_port = free_port();
-        fs::write(
-            directory.join("users.acl"),
-            "user default off\nuser gateway on >gateway-secret ~* &* +@all\n",
-        )
-        .unwrap_or_else(|error| panic!("test Redis ACL must be written: {error}"));
+        fs::write(directory.join("users.acl"), "user default off\nuser gateway on >gateway-secret ~* &* +@all\n").unwrap_or_else(|error| panic!("test Redis ACL must be written: {error}"));
         let config = directory.join("redis.conf");
         fs::write(
             &config,
@@ -142,30 +78,11 @@ impl Fixture {
             ),
         )
         .unwrap_or_else(|error| panic!("test Redis config must be written: {error}"));
-        let redis = Command::new("redis-server")
-            .arg(&config)
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()
-            .unwrap_or_else(|error| panic!("real Redis server must start: {error}"));
-        let certificate = CertificateDer::from(
-            fs::read(&der).unwrap_or_else(|error| panic!("certificate must be read: {error}")),
-        );
-        let private_key = PrivateKeyDer::from(PrivatePkcs8KeyDer::from(
-            fs::read(&key_der).unwrap_or_else(|error| panic!("key must be read: {error}")),
-        ));
-        let tls = Arc::new(
-            ServerConfig::builder()
-                .with_no_client_auth()
-                .with_single_cert(vec![certificate], private_key)
-                .unwrap_or_else(|error| panic!("listener TLS must build: {error}")),
-        );
-        let fixture = Self {
-            redis,
-            directory,
-            redis_port,
-            tls,
-        };
+        let redis = Command::new("redis-server").arg(&config).stdout(Stdio::null()).stderr(Stdio::null()).spawn().unwrap_or_else(|error| panic!("real Redis server must start: {error}"));
+        let certificate = CertificateDer::from(fs::read(&der).unwrap_or_else(|error| panic!("certificate must be read: {error}")));
+        let private_key = PrivateKeyDer::from(PrivatePkcs8KeyDer::from(fs::read(&key_der).unwrap_or_else(|error| panic!("key must be read: {error}"))));
+        let tls = Arc::new(ServerConfig::builder().with_no_client_auth().with_single_cert(vec![certificate], private_key).unwrap_or_else(|error| panic!("listener TLS must build: {error}")));
+        let fixture = Self { redis, directory, redis_port, tls };
         for _ in 0..100 {
             if TcpStream::connect(("127.0.0.1", redis_port)).is_ok() {
                 return fixture;
@@ -184,36 +101,15 @@ impl Fixture {
     fn environment(&self, listen: u16) -> Vec<(String, String)> {
         let ca = path(&self.directory.join("server.der")).to_owned();
         vec![
-            (
-                "LAYERX_GATEWAY_LISTEN".to_owned(),
-                format!("127.0.0.1:{listen}"),
-            ),
+            ("LAYERX_GATEWAY_LISTEN".to_owned(), format!("127.0.0.1:{listen}")),
             ("LAYERX_GATEWAY_LISTENER".to_owned(), "plain".to_owned()),
             ("LAYERX_GATEWAY_OUTBOUND_CA_DER".to_owned(), ca),
-            (
-                "LAYERX_GATEWAY_NETWORK_ID".to_owned(),
-                "router-surface".to_owned(),
-            ),
-            (
-                "LAYERX_GATEWAY_LXP_WIRE_VERSION".to_owned(),
-                layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION.to_string(),
-            ),
-            (
-                "LAYERX_GATEWAY_PROTOCOL_NETWORK_ID".to_owned(),
-                "7".to_owned(),
-            ),
-            (
-                "LAYERX_GATEWAY_REDIS_URL".to_owned(),
-                format!("rediss://localhost:{}", self.redis_port),
-            ),
-            (
-                "LAYERX_GATEWAY_REDIS_USERNAME_FILE".to_owned(),
-                self.secret("redis-username", "gateway"),
-            ),
-            (
-                "LAYERX_GATEWAY_REDIS_PASSWORD_FILE".to_owned(),
-                self.secret("redis-password", "gateway-secret"),
-            ),
+            ("LAYERX_GATEWAY_NETWORK_ID".to_owned(), "router-surface".to_owned()),
+            ("LAYERX_GATEWAY_LXP_WIRE_VERSION".to_owned(), layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION.to_string()),
+            ("LAYERX_GATEWAY_PROTOCOL_NETWORK_ID".to_owned(), "7".to_owned()),
+            ("LAYERX_GATEWAY_REDIS_URL".to_owned(), format!("rediss://localhost:{}", self.redis_port)),
+            ("LAYERX_GATEWAY_REDIS_USERNAME_FILE".to_owned(), self.secret("redis-username", "gateway")),
+            ("LAYERX_GATEWAY_REDIS_PASSWORD_FILE".to_owned(), self.secret("redis-password", "gateway-secret")),
         ]
     }
 }
@@ -228,10 +124,7 @@ impl Drop for Fixture {
 
 fn gateway_command(environment: &[(String, String)]) -> Command {
     let mut command = Command::new(env!("CARGO_BIN_EXE_layerx-gateway"));
-    command
-        .env_clear()
-        .env("PATH", std::env::var_os("PATH").unwrap_or_default())
-        .envs(environment.iter().map(|(name, value)| (name, value)));
+    command.env_clear().env("PATH", std::env::var_os("PATH").unwrap_or_default()).envs(environment.iter().map(|(name, value)| (name, value)));
     command
 }
 
@@ -241,48 +134,28 @@ struct Listener {
     join: Option<JoinHandle<()>>,
 }
 impl Listener {
-    fn start(
-        tls: Arc<ServerConfig>,
-        handler: impl Fn(&IncomingRequest) -> http::Response + Send + 'static,
-    ) -> Self {
+    fn start(tls: Arc<ServerConfig>, handler: impl Fn(&IncomingRequest) -> http::Response + Send + 'static) -> Self {
         Self::start_on(tls, 0, handler)
     }
-    fn start_on(
-        tls: Arc<ServerConfig>,
-        port: u16,
-        handler: impl Fn(&IncomingRequest) -> http::Response + Send + 'static,
-    ) -> Self {
-        let listener =
-            TcpListener::bind(("127.0.0.1", port)).unwrap_or_else(|error| panic!("{error}"));
-        let port = listener
-            .local_addr()
-            .unwrap_or_else(|error| panic!("{error}"))
-            .port();
-        listener
-            .set_nonblocking(true)
-            .unwrap_or_else(|error| panic!("{error}"));
+    fn start_on(tls: Arc<ServerConfig>, port: u16, handler: impl Fn(&IncomingRequest) -> http::Response + Send + 'static) -> Self {
+        let listener = TcpListener::bind(("127.0.0.1", port)).unwrap_or_else(|error| panic!("{error}"));
+        let port = listener.local_addr().unwrap_or_else(|error| panic!("{error}")).port();
+        listener.set_nonblocking(true).unwrap_or_else(|error| panic!("{error}"));
         let stop = Arc::new(AtomicBool::new(false));
         let stopped = Arc::clone(&stop);
         let join = std::thread::spawn(move || {
             while !stopped.load(Ordering::Acquire) {
                 match listener.accept() {
                     Ok((tcp, _)) => {
-                        tcp.set_read_timeout(Some(Duration::from_secs(3)))
-                            .unwrap_or_else(|error| panic!("{error}"));
-                        tcp.set_write_timeout(Some(Duration::from_secs(3)))
-                            .unwrap_or_else(|error| panic!("{error}"));
-                        let connection = ServerConnection::new(Arc::clone(&tls))
-                            .unwrap_or_else(|error| panic!("{error}"));
+                        tcp.set_read_timeout(Some(Duration::from_secs(3))).unwrap_or_else(|error| panic!("{error}"));
+                        tcp.set_write_timeout(Some(Duration::from_secs(3))).unwrap_or_else(|error| panic!("{error}"));
+                        let connection = ServerConnection::new(Arc::clone(&tls)).unwrap_or_else(|error| panic!("{error}"));
                         let mut stream = StreamOwned::new(connection, tcp);
-                        let request = read_request(&mut stream, http::MAX_REQUEST_BYTES)
-                            .unwrap_or_else(|error| panic!("listener request: {error}"));
+                        let request = read_request(&mut stream, http::MAX_REQUEST_BYTES).unwrap_or_else(|error| panic!("listener request: {error}"));
                         {
-                            http::write_response(&mut stream, &handler(&request))
-                                .unwrap_or_else(|error| panic!("listener response: {error}"));
+                            http::write_response(&mut stream, &handler(&request)).unwrap_or_else(|error| panic!("listener response: {error}"));
                             stream.conn.send_close_notify();
-                            stream
-                                .flush()
-                                .unwrap_or_else(|error| panic!("TLS flush: {error}"));
+                            stream.flush().unwrap_or_else(|error| panic!("TLS flush: {error}"));
                         }
                     }
                     Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
@@ -292,11 +165,7 @@ impl Listener {
                 }
             }
         });
-        Self {
-            port,
-            stop,
-            join: Some(join),
-        }
+        Self { port, stop, join: Some(join) }
     }
 }
 impl Drop for Listener {
@@ -321,31 +190,13 @@ impl Drop for Gateway {
 }
 
 impl Gateway {
-    fn start(
-        fixture: &Fixture,
-        chain: &Listener,
-        consensus: &Listener,
-        indexer: &Listener,
-    ) -> Self {
+    fn start(fixture: &Fixture, chain: &Listener, consensus: &Listener, indexer: &Listener) -> Self {
         let port = free_port();
         let mut environment = fixture.environment(port);
         environment.extend([
-            (
-                "LAYERX_GATEWAY_PAXEER_RPC_URLS".to_owned(),
-                json!([
-                    format!("https://localhost:{}/chain", chain.port),
-                    format!("https://localhost:{}/secondary", chain.port)
-                ])
-                .to_string(),
-            ),
-            (
-                "LAYERX_GATEWAY_CONSENSUS_RPC_URL".to_owned(),
-                format!("https://localhost:{}/consensus", consensus.port),
-            ),
-            (
-                "LAYERX_GATEWAY_INDEXER_URL".to_owned(),
-                format!("https://localhost:{}", indexer.port),
-            ),
+            ("LAYERX_GATEWAY_PAXEER_RPC_URLS".to_owned(), json!([format!("https://localhost:{}/chain", chain.port), format!("https://localhost:{}/secondary", chain.port)]).to_string()),
+            ("LAYERX_GATEWAY_CONSENSUS_RPC_URL".to_owned(), format!("https://localhost:{}/consensus", consensus.port)),
+            ("LAYERX_GATEWAY_INDEXER_URL".to_owned(), format!("https://localhost:{}", indexer.port)),
         ]);
         assert!(environment.iter().all(|(name, _)| matches!(
             name.as_str(),
@@ -367,20 +218,13 @@ impl Gateway {
             assert!(environment.iter().all(|(name, _)| name != variable));
             command.env_remove(variable);
         }
-        let child = command
-            .stdout(Stdio::null())
-            .stderr(Stdio::inherit())
-            .spawn()
-            .unwrap_or_else(|error| panic!("gateway must start: {error}"));
+        let child = command.stdout(Stdio::null()).stderr(Stdio::inherit()).spawn().unwrap_or_else(|error| panic!("gateway must start: {error}"));
         let mut gateway = Self { child, port };
         for _ in 0..200 {
-            if let Some(status) = gateway.child.try_wait().expect("gateway process status") {
+            if let Some(status) = gateway.child.try_wait().unwrap_or_else(|error| panic!("{}: {error:?}", "gateway process status")) {
                 panic!("gateway refused start-up without the kernel: {status}");
             }
-            if gateway
-                .exchange("GET", "/livez", b"")
-                .is_ok_and(|(status, _)| status == 200)
-            {
+            if gateway.exchange("GET", "/livez", b"").is_ok_and(|(status, _)| status == 200) {
                 return gateway;
             }
             thread::sleep(Duration::from_millis(50));
@@ -389,58 +233,33 @@ impl Gateway {
     }
 
     fn exchange(&self, method: &str, path: &str, body: &[u8]) -> Result<(u16, Vec<u8>), String> {
-        let mut stream =
-            TcpStream::connect(("127.0.0.1", self.port)).map_err(|error| error.to_string())?;
-        stream
-            .set_read_timeout(Some(Duration::from_secs(30)))
-            .map_err(|error| error.to_string())?;
-        let mut request = format!(
-            "{method} {path} HTTP/1.1\r\nHost: localhost\r\nAccept: application/json\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
-            body.len()
-        )
-        .into_bytes();
+        let mut stream = TcpStream::connect(("127.0.0.1", self.port)).map_err(|error| error.to_string())?;
+        stream.set_read_timeout(Some(Duration::from_secs(30))).map_err(|error| error.to_string())?;
+        let mut request = format!("{method} {path} HTTP/1.1\r\nHost: localhost\r\nAccept: application/json\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", body.len()).into_bytes();
         request.extend_from_slice(body);
-        stream
-            .write_all(&request)
-            .map_err(|error| error.to_string())?;
+        stream.write_all(&request).map_err(|error| error.to_string())?;
         let mut answer = Vec::new();
-        stream
-            .read_to_end(&mut answer)
-            .map_err(|error| error.to_string())?;
-        let header_end = answer
-            .windows(4)
-            .position(|window| window == b"\r\n\r\n")
-            .ok_or_else(|| "answer has no header terminator".to_owned())?;
+        stream.read_to_end(&mut answer).map_err(|error| error.to_string())?;
+        let header_end = answer.windows(4).position(|window| window == b"\r\n\r\n").ok_or_else(|| "answer has no header terminator".to_owned())?;
         let head = String::from_utf8_lossy(&answer[..header_end]).into_owned();
-        let status = head
-            .split_whitespace()
-            .nth(1)
-            .and_then(|value| value.parse::<u16>().ok())
-            .ok_or_else(|| format!("answer status is invalid: {head}"))?;
+        let status = head.split_whitespace().nth(1).and_then(|value| value.parse::<u16>().ok()).ok_or_else(|| format!("answer status is invalid: {head}"))?;
         Ok((status, answer[header_end + 4..].to_vec()))
     }
 
     fn assert_retired_rpc_path(&self) {
-        let call =
-            json!({"jsonrpc":"2.0", "id":"retired", "method":"px_getReceiptKeys", "params":[]});
-        let (status, body) = self
-            .exchange("POST", "/rpc", call.to_string().as_bytes())
-            .expect("retired path refusal");
+        let call = json!({"jsonrpc":"2.0", "id":"retired", "method":"px_getReceiptKeys", "params":[]});
+        let (status, body) = self.exchange("POST", "/rpc", call.to_string().as_bytes()).unwrap_or_else(|error| panic!("{}: {error:?}", "retired path refusal"));
         assert_eq!(status, 404);
-        let body: Value = serde_json::from_slice(&body).expect("retired refusal JSON");
+        let body: Value = serde_json::from_slice(&body).unwrap_or_else(|error| panic!("{}: {error:?}", "retired refusal JSON"));
         assert_eq!(body["error"]["code"], "not_found");
     }
 
-    fn rpc(&self, method: &str, params: Value) -> Value {
+    fn rpc(&self, method: &str, params: &Value) -> Value {
         thread::sleep(Duration::from_secs(1));
-        let call =
-            json!({"jsonrpc": "2.0", "id": "router-surface", "method": method, "params": params});
-        let (status, body) = self
-            .exchange("POST", "/", call.to_string().as_bytes())
-            .unwrap_or_else(|error| panic!("RPC exchange: {error}"));
+        let call = json!({"jsonrpc": "2.0", "id": "router-surface", "method": method, "params": params});
+        let (status, body) = self.exchange("POST", "/", call.to_string().as_bytes()).unwrap_or_else(|error| panic!("RPC exchange: {error}"));
         assert_eq!(status, 200, "{}", String::from_utf8_lossy(&body));
-        let answer: Value =
-            serde_json::from_slice(&body).unwrap_or_else(|error| panic!("RPC response: {error}"));
+        let answer: Value = serde_json::from_slice(&body).unwrap_or_else(|error| panic!("RPC response: {error}"));
         assert_eq!(answer["jsonrpc"], "2.0");
         assert_eq!(answer["id"], "router-surface");
         answer
@@ -448,31 +267,22 @@ impl Gateway {
 }
 
 fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+    layerx_platform_gateway::encoding::hex_encode(bytes)
 }
 
 fn precompile_answers() -> Vec<(String, String)> {
-    let vectors: Value = serde_json::from_str(include_str!("fixtures/paxeer-abi-vectors.json"))
-        .expect("ABI vectors must be JSON");
+    let vectors: Value = serde_json::from_str(include_str!("fixtures/paxeer-abi-vectors.json")).unwrap_or_else(|error| panic!("{}: {error:?}", "ABI vectors must be JSON"));
     let name = format!("agent:did:layerx:{}:main", "61".repeat(32));
-    let account = layerx_types::account::AccountId::parse(&name).expect("main account");
-    let account =
-        hex(&layerx_wire::hash::account_id_for_protocol(&account, 3).expect("account ID"));
+    let account = layerx_types::account::AccountId::parse(&name).unwrap_or_else(|error| panic!("{}: {error:?}", "main account"));
+    let account = hex(&layerx_wire::hash::account_id_for_protocol(&account, 3).unwrap_or_else(|error| panic!("{}: {error:?}", "account ID")));
     let mut answers: Vec<_> = vectors["cases"]
         .as_array()
-        .expect("ABI cases")
+        .unwrap_or_else(|| panic!("{}", "ABI cases"))
         .iter()
         .filter_map(|case| {
             let result = case["result"].as_str()?;
-            let result = if case["name"] == "addr.getUnifiedAccount" {
-                result.replace(&"7c".repeat(32), &account)
-            } else {
-                result.to_owned()
-            };
-            Some((
-                format!("0x{}", case["calldata"].as_str()?),
-                format!("0x{result}"),
-            ))
+            let result = if case["name"] == "addr.getUnifiedAccount" { result.replace(&"7c".repeat(32), &account) } else { result.to_owned() };
+            Some((format!("0x{}", case["calldata"].as_str()?), format!("0x{result}")))
         })
         .collect();
     for (calldata, words) in [
@@ -485,24 +295,15 @@ fn precompile_answers() -> Vec<(String, String)> {
     ] {
         answers.push((calldata, format!("0x{}", "00".repeat(words * 32))));
     }
-    answers.push((
-        format!("0xd4a03b3d{}", "00".repeat(96)),
-        format!(
-            "0x{}{:064x}{:064x}{:0<64}",
-            "00".repeat(32),
-            64,
-            "LXP_UNKNOWN_FIELD".len(),
-            hex(b"LXP_UNKNOWN_FIELD")
-        ),
-    ));
+    answers.push((format!("0xd4a03b3d{}", "00".repeat(96)), format!("0x{}{:064x}{:064x}{:0<64}", "00".repeat(32), 64, "LXP_UNKNOWN_FIELD".len(), hex(b"LXP_UNKNOWN_FIELD"))));
     answers
 }
 
 fn chain_answer(answers: &[(String, String)], request: &IncomingRequest) -> http::Response {
     assert_eq!(request.method, "POST");
     assert!(matches!(request.path.as_str(), "/chain" | "/secondary"));
-    let call: Value = serde_json::from_slice(&request.body).expect("chain JSON-RPC request");
-    let result = match call["method"].as_str().expect("chain method") {
+    let call: Value = serde_json::from_slice(&request.body).unwrap_or_else(|error| panic!("{}: {error:?}", "chain JSON-RPC request"));
+    let result = match call["method"].as_str().unwrap_or_else(|| panic!("{}", "chain method")) {
         "eth_chainId" => json!("0x7d"),
         "eth_blockNumber" => json!(format!("0x{CHAIN_HEIGHT:x}")),
         "eth_getBalance" => json!("0x64"),
@@ -510,21 +311,12 @@ fn chain_answer(answers: &[(String, String)], request: &IncomingRequest) -> http
         "eth_getCode" => json!("0x"),
         "pax_sequencerReceipt" => Value::Null,
         "eth_call" => {
-            let data = call["params"][0]["data"].as_str().expect("ABI calldata");
-            json!(
-                answers
-                    .iter()
-                    .find(|(calldata, _)| calldata == data)
-                    .unwrap_or_else(|| panic!("undeclared chain calldata: {data}"))
-                    .1
-            )
+            let data = call["params"][0]["data"].as_str().unwrap_or_else(|| panic!("{}", "ABI calldata"));
+            json!(answers.iter().find(|(calldata, _)| calldata == data).unwrap_or_else(|| panic!("undeclared chain calldata: {data}")).1)
         }
         method => panic!("unexpected chain request: {method}"),
     };
-    http::json(
-        200,
-        &json!({"jsonrpc": "2.0", "id": call["id"], "result": result}),
-    )
+    http::json(200, &json!({"jsonrpc": "2.0", "id": call["id"], "result": result}))
 }
 
 fn sequence_transaction(height: u64) -> Vec<u8> {
@@ -564,7 +356,7 @@ fn validator(height: u64) -> Value {
 fn consensus_answer(request: &IncomingRequest) -> http::Response {
     assert_eq!(request.method, "POST");
     assert_eq!(request.path, "/consensus");
-    let call: Value = serde_json::from_slice(&request.body).expect("consensus JSON-RPC request");
+    let call: Value = serde_json::from_slice(&request.body).unwrap_or_else(|error| panic!("{}: {error:?}", "consensus JSON-RPC request"));
     assert_eq!(call["jsonrpc"], "2.0");
     if call["method"] == "status" {
         assert_eq!(call["params"], json!({}));
@@ -581,25 +373,15 @@ fn consensus_answer(request: &IncomingRequest) -> http::Response {
             }),
         );
     }
-    let height = call["params"]["height"]
-        .as_str()
-        .expect("requested height")
-        .parse::<u64>()
-        .expect("decimal height");
-    assert!(
-        [5, 23].contains(&height),
-        "unexpected consensus height: {call}"
-    );
-    let result = match call["method"].as_str().expect("consensus method") {
+    let height = call["params"]["height"].as_str().unwrap_or_else(|| panic!("{}", "requested height")).parse::<u64>().unwrap_or_else(|error| panic!("{}: {error:?}", "decimal height"));
+    assert!([5, 23].contains(&height), "unexpected consensus height: {call}");
+    let result = match call["method"].as_str().unwrap_or_else(|| panic!("{}", "consensus method")) {
         "commit" => {
             assert_eq!(call["params"], json!({"height": height.to_string()}));
             json!({"signed_header": signed_header(height), "canonical": true})
         }
         "validators" => {
-            assert_eq!(
-                call["params"],
-                json!({"height": height.to_string(), "page": "1", "per_page": "100"})
-            );
+            assert_eq!(call["params"], json!({"height": height.to_string(), "page": "1", "per_page": "100"}));
             json!({"block_height": height.to_string(), "validators": [validator(height)], "count": "1", "total": "1"})
         }
         "block" => {
@@ -612,21 +394,14 @@ fn consensus_answer(request: &IncomingRequest) -> http::Response {
         }
         method => panic!("unexpected consensus request: {method}"),
     };
-    http::json(
-        200,
-        &json!({"jsonrpc": "2.0", "id": call["id"], "result": result}),
-    )
+    http::json(200, &json!({"jsonrpc": "2.0", "id": call["id"], "result": result}))
 }
 
 fn method_params(method: &str, height: u64) -> Value {
     match method {
         "pax_sequencerReceipt" => json!([format!("0x{}", "ab".repeat(32))]),
         "px_getAccount" | "px_getBalances" | "px_resolveAccount" => json!([ACCOUNT]),
-        "px_getCapabilities"
-        | "px_getNetwork"
-        | "px_getReceiptKeys"
-        | "px_getRouteCatalogue"
-        | "px_listAssets" => json!([]),
+        "px_getCapabilities" | "px_getNetwork" | "px_getReceiptKeys" | "px_getRouteCatalogue" | "px_listAssets" => json!([]),
         "px_getCommit" | "px_getValidators" | "px_getSequenceBatch" => json!([height.to_string()]),
         "px_getHistory" | "px_getUnifiedHistory" => json!([ACCOUNT, null, 10, "native_transfer"]),
         "px_listHolderRecords" => json!([ACCOUNT, "budget", null, 10]),
@@ -640,18 +415,11 @@ fn method_params(method: &str, height: u64) -> Value {
             let key = ed25519_dalek::SigningKey::from_bytes(&[0x42; 32]);
             let public_key = key.verifying_key().to_bytes();
             let mut binding = Sha256::new();
-            for part in [
-                b"layerx-register-binding-v1".as_slice(),
-                b"beta",
-                &public_key,
-            ] {
+            for part in [b"layerx-register-binding-v1".as_slice(), b"beta", &public_key] {
                 binding.update((part.len() as u64).to_be_bytes());
                 binding.update(part);
             }
-            json!([
-                hex(&public_key),
-                hex(&key.sign(&binding.finalize()).to_bytes())
-            ])
+            json!([hex(&public_key), hex(&key.sign(&binding.finalize()).to_bytes())])
         }
         _ => panic!("router method has no OpenRPC parameter case: {method}"),
     }
@@ -659,36 +427,16 @@ fn method_params(method: &str, height: u64) -> Value {
 
 fn assert_surface_answer(method: &str, entry: &Value, answer: &Value) {
     assert_ne!(answer["error"]["code"], -32601, "{method}: {answer}");
-    assert_ne!(
-        answer["error"]["code"], -32602,
-        "valid OpenRPC params must be accepted by {method}: {answer}"
-    );
-    assert_ne!(
-        answer.get("result").is_some(),
-        answer.get("error").is_some(),
-        "{method}: {answer}"
-    );
+    assert_ne!(answer["error"]["code"], -32602, "valid OpenRPC params must be accepted by {method}: {answer}");
+    assert_ne!(answer.get("result").is_some(), answer.get("error").is_some(), "{method}: {answer}");
     if let Some(error) = answer.get("error") {
         assert!(error["code"].as_i64().is_some(), "{method}: {answer}");
-        assert!(
-            error["message"]
-                .as_str()
-                .is_some_and(|message| !message.is_empty()),
-            "{method}: {answer}"
-        );
+        assert!(error["message"].as_str().is_some_and(|message| !message.is_empty()), "{method}: {answer}");
         if method == "px_getRouteCatalogue" {
-            assert_eq!(
-                error,
-                &json!({"code": -32002, "message": "Authentication required"})
-            );
+            assert_eq!(error, &json!({"code": -32002, "message": "Authentication required"}));
         } else {
             assert!(
-                entry["errors"]
-                    .as_array()
-                    .expect("declared refusals")
-                    .iter()
-                    .any(|declared| declared["code"] == error["code"]
-                        && declared["message"] == error["message"]),
+                entry["errors"].as_array().unwrap_or_else(|| panic!("{}", "declared refusals")).iter().any(|declared| declared["code"] == error["code"] && declared["message"] == error["message"]),
                 "{method} must answer a declared named refusal: {answer}"
             );
         }
@@ -696,10 +444,7 @@ fn assert_surface_answer(method: &str, entry: &Value, answer: &Value) {
 }
 
 fn assert_consensus_result(method: &str, height: u64, answer: &Value) {
-    assert!(
-        answer.get("error").is_none(),
-        "{method} at {height}: {answer}"
-    );
+    assert!(answer.get("error").is_none(), "{method} at {height}: {answer}");
     let result = &answer["result"];
     assert_eq!(result["height"], height.to_string(), "{method}: {answer}");
     match method {
@@ -732,115 +477,66 @@ fn assert_consensus_result(method: &str, height: u64, answer: &Value) {
 fn router_answers_every_listed_method() {
     let fixture = Fixture::start();
     let answers = precompile_answers();
-    let chain = Listener::start(Arc::clone(&fixture.tls), move |request| {
-        chain_answer(&answers, request)
-    });
+    let chain = Listener::start(Arc::clone(&fixture.tls), move |request| chain_answer(&answers, request));
     let consensus_calls = Arc::new(Mutex::new(Vec::new()));
     let calls = Arc::clone(&consensus_calls);
     let consensus = Listener::start(Arc::clone(&fixture.tls), move |request| {
-        let call: Value = serde_json::from_slice(&request.body).expect("consensus request JSON");
-        calls.lock().expect("consensus calls").push(call);
+        let call: Value = serde_json::from_slice(&request.body).unwrap_or_else(|error| panic!("{}: {error:?}", "consensus request JSON"));
+        calls.lock().unwrap_or_else(|error| panic!("{}: {error:?}", "consensus calls")).push(call);
         consensus_answer(request)
     });
     let indexer_paths = Arc::new(Mutex::new(Vec::new()));
     let paths = Arc::clone(&indexer_paths);
-    let store = layerx_indexer::store::Store::open_in_memory().expect("real indexer database");
+    let store = layerx_indexer::store::Store::open_in_memory().unwrap_or_else(|error| panic!("{}: {error:?}", "real indexer database"));
     let indexer = Listener::start(Arc::clone(&fixture.tls), move |request| {
-        let (path, _) = layerx_platform_gateway::http::split_target(&request.path)
-            .expect("indexer request target");
-        paths.lock().expect("indexer paths").push(path.to_owned());
+        let (path, _) = layerx_platform_gateway::http::split_target(&request.path).unwrap_or_else(|error| panic!("{}: {error:?}", "indexer request target"));
+        paths.lock().unwrap_or_else(|error| panic!("{}: {error:?}", "indexer paths")).push(path.to_owned());
         layerx_indexer::api::route(&store, &request.method, &request.path)
     });
     let gateway = Gateway::start(&fixture, &chain, &consensus, &indexer);
     gateway.assert_retired_rpc_path();
-    let document: Value =
-        serde_json::from_str(include_str!("../openrpc.json")).expect("OpenRPC JSON");
-    let entries = document["methods"].as_array().expect("OpenRPC methods");
+    let document: Value = serde_json::from_str(include_str!("../openrpc.json")).unwrap_or_else(|error| panic!("{}: {error:?}", "OpenRPC JSON"));
+    let entries = document["methods"].as_array().unwrap_or_else(|| panic!("{}", "OpenRPC methods"));
     let mut exercised = Vec::new();
     for method in ROUTER_METHODS {
-        let matching: Vec<_> = entries
-            .iter()
-            .filter(|entry| entry["name"] == method)
-            .collect();
+        let matching: Vec<_> = entries.iter().filter(|entry| entry["name"] == method).collect();
         assert_eq!(matching.len(), 1, "{method} needs one OpenRPC entry");
         let entry = matching[0];
         assert_eq!(entry["paramStructure"], "by-position", "{method}");
         let params = method_params(method, 5);
-        let declared = entry["params"].as_array().expect("OpenRPC params");
-        assert_eq!(
-            params.as_array().expect("positional params").len(),
-            declared.len(),
-            "{method}"
-        );
-        let answer = gateway.rpc(method, params);
+        let declared = entry["params"].as_array().unwrap_or_else(|| panic!("{}", "OpenRPC params"));
+        assert_eq!(params.as_array().unwrap_or_else(|| panic!("{}", "positional params")).len(), declared.len(), "{method}");
+        let answer = gateway.rpc(method, &params);
         assert_surface_answer(method, entry, &answer);
         if method == "px_getCapabilities" {
             assert!(answer.get("error").is_none(), "{method}: {answer}");
-            for surface in [
-                "exchange",
-                "bridge",
-                "launchpad",
-                "ledger",
-                "pay",
-                "auth",
-                "programs",
-            ] {
+            for surface in ["exchange", "bridge", "launchpad", "ledger", "pay", "auth", "programs"] {
                 assert_eq!(answer["result"][surface], true, "{method}: {answer}");
             }
             assert_eq!(answer["result"]["rpc_height"], CHAIN_HEIGHT.to_string());
         }
-        if matches!(
-            method,
-            "px_getCommit" | "px_getValidators" | "px_getSequenceBatch"
-        ) {
+        if matches!(method, "px_getCommit" | "px_getValidators" | "px_getSequenceBatch") {
             assert_consensus_result(method, 5, &answer);
         }
         exercised.push(method);
     }
     assert_eq!(exercised.as_slice(), ROUTER_METHODS.as_slice());
     for method in ["px_getCommit", "px_getValidators", "px_getSequenceBatch"] {
-        let answer = gateway.rpc(method, method_params(method, 23));
+        let answer = gateway.rpc(method, &method_params(method, 23));
         assert_consensus_result(method, 23, &answer);
     }
-    let calls = consensus_calls.lock().expect("recorded consensus calls");
-    assert_eq!(
-        calls.len(),
-        7,
-        "every consensus read must reach the one listener: {calls:?}"
-    );
-    assert_eq!(
-        calls
-            .iter()
-            .filter(|call| call["method"] == "status" && call["params"] == json!({}))
-            .count(),
-        1
-    );
+    let calls = consensus_calls.lock().unwrap_or_else(|error| panic!("{}: {error:?}", "recorded consensus calls"));
+    assert_eq!(calls.len(), 7, "every consensus read must reach the one listener: {calls:?}");
+    assert_eq!(calls.iter().filter(|call| call["method"] == "status" && call["params"] == json!({})).count(), 1);
     for height in [5, 23] {
+        let height_text = height.to_string();
         for method in ["commit", "validators", "block"] {
-            assert_eq!(
-                calls
-                    .iter()
-                    .filter(|call| call["method"] == method
-                        && call["params"]["height"] == height.to_string())
-                    .count(),
-                1,
-                "{method} must reach consensus at {height}: {calls:?}"
-            );
+            assert_eq!(calls.iter().filter(|call| call["method"] == method && call["params"]["height"] == height_text.as_str()).count(), 1, "{method} must reach consensus at {height}: {calls:?}");
         }
     }
-    let paths = indexer_paths.lock().expect("recorded indexer paths");
-    assert!(
-        paths
-            .iter()
-            .any(|path| path == &format!("/v1/history/{ACCOUNT}")),
-        "history listener was not read: {paths:?}"
-    );
-    assert!(
-        paths
-            .iter()
-            .any(|path| path == &format!("/v1/holders/{ACCOUNT}")),
-        "holder listener was not read: {paths:?}"
-    );
+    let paths = indexer_paths.lock().unwrap_or_else(|error| panic!("{}: {error:?}", "recorded indexer paths"));
+    assert!(paths.iter().any(|path| path == &format!("/v1/history/{ACCOUNT}")), "history listener was not read: {paths:?}");
+    assert!(paths.iter().any(|path| path == &format!("/v1/holders/{ACCOUNT}")), "holder listener was not read: {paths:?}");
     drop(gateway);
     drop(indexer);
     drop(consensus);
@@ -853,29 +549,17 @@ fn chain_only_router_serves_receipts_balances_and_assets() {
 
     let fixture = Fixture::start();
     let mut answers = precompile_answers();
-    for (selector, text) in [
-        (evm::SELECTOR_BANK_NAME, "LayerX"),
-        (evm::SELECTOR_BANK_SYMBOL, "LXP"),
-    ] {
-        answers.push((
-            format!("0x{}", hex(&evm::calldata_string(selector, "ulxp"))),
-            format!("0x{}", hex(&evm::calldata_string([0; 4], text)[4..])),
-        ));
+    for (selector, text) in [(evm::SELECTOR_BANK_NAME, "LayerX"), (evm::SELECTOR_BANK_SYMBOL, "LXP")] {
+        answers.push((format!("0x{}", hex(&evm::calldata_string(selector, "ulxp"))), format!("0x{}", hex(&evm::calldata_string([0; 4], text)[4..]))));
     }
-    for (selector, value) in [
-        (evm::SELECTOR_BANK_DECIMALS, 18_u64),
-        (evm::SELECTOR_BANK_SUPPLY, 1_000_000_u64),
-    ] {
-        answers.push((
-            format!("0x{}", hex(&evm::calldata_string(selector, "ulxp"))),
-            format!("0x{value:064x}"),
-        ));
+    for (selector, value) in [(evm::SELECTOR_BANK_DECIMALS, 18_u64), (evm::SELECTOR_BANK_SUPPLY, 1_000_000_u64)] {
+        answers.push((format!("0x{}", hex(&evm::calldata_string(selector, "ulxp"))), format!("0x{value:064x}")));
     }
     let chain_calls = Arc::new(Mutex::new(Vec::new()));
     let calls = Arc::clone(&chain_calls);
     let chain = Listener::start(Arc::clone(&fixture.tls), move |request| {
-        let call: Value = serde_json::from_slice(&request.body).expect("chain request JSON");
-        calls.lock().expect("chain calls").push(call);
+        let call: Value = serde_json::from_slice(&request.body).unwrap_or_else(|error| panic!("{}: {error:?}", "chain request JSON"));
+        calls.lock().unwrap_or_else(|error| panic!("{}: {error:?}", "chain calls")).push(call);
         chain_answer(&answers, request)
     });
     let consensus_calls = Arc::new(Mutex::new(Vec::new()));
@@ -883,11 +567,11 @@ fn chain_only_router_serves_receipts_balances_and_assets() {
     let consensus = Listener::start(Arc::clone(&fixture.tls), move |request| {
         assert_eq!(request.method, "POST");
         assert_eq!(request.path, "/consensus");
-        let call: Value = serde_json::from_slice(&request.body).expect("consensus request JSON");
+        let call: Value = serde_json::from_slice(&request.body).unwrap_or_else(|error| panic!("{}: {error:?}", "consensus request JSON"));
         assert_eq!(call["jsonrpc"], "2.0");
         assert_eq!(call["method"], "status");
         assert_eq!(call["params"], json!({}));
-        calls.lock().expect("consensus calls").push(call.clone());
+        calls.lock().unwrap_or_else(|error| panic!("{}: {error:?}", "consensus calls")).push(call.clone());
         http::json(
             200,
             &json!({
@@ -896,7 +580,7 @@ fn chain_only_router_serves_receipts_balances_and_assets() {
             }),
         )
     });
-    let store = layerx_indexer::store::Store::open_in_memory().expect("real indexer database");
+    let store = layerx_indexer::store::Store::open_in_memory().unwrap_or_else(|error| panic!("{}: {error:?}", "real indexer database"));
     store
         .register_assets(&[layerx_indexer::store::AssetRow {
             asset: "paxeer:ulxp".to_owned(),
@@ -906,35 +590,36 @@ fn chain_only_router_serves_receipts_balances_and_assets() {
             denom: Some("ulxp".to_owned()),
             metadata: json!({}),
         }])
-        .expect("register indexed bank asset");
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "register indexed bank asset"));
     let indexer_paths = Arc::new(Mutex::new(Vec::new()));
     let paths = Arc::clone(&indexer_paths);
     let indexer = Listener::start(Arc::clone(&fixture.tls), move |request| {
-        paths
-            .lock()
-            .expect("indexer paths")
-            .push(request.path.clone());
+        paths.lock().unwrap_or_else(|error| panic!("{}: {error:?}", "indexer paths")).push(request.path.clone());
         layerx_indexer::api::route(&store, &request.method, &request.path)
     });
     let gateway = Gateway::start(&fixture, &chain, &consensus, &indexer);
     gateway.assert_retired_rpc_path();
 
-    let balances = gateway.rpc("px_getBalances", json!([ACCOUNT]));
+    assert_chain_only_router(&gateway, &chain_calls, &consensus_calls, &indexer_paths);
+}
+
+fn assert_chain_only_router(gateway: &Gateway, chain_calls: &Arc<Mutex<Vec<Value>>>, consensus_calls: &Arc<Mutex<Vec<Value>>>, indexer_paths: &Arc<Mutex<Vec<String>>>) {
+    use layerx_platform_gateway::evm;
+    let balances = gateway.rpc("px_getBalances", &json!([ACCOUNT]));
     assert!(balances.get("error").is_none(), "{balances}");
     assert_eq!(balances["result"]["height"], CHAIN_HEIGHT);
     assert_eq!(balances["result"]["account"]["evm_address"], ACCOUNT);
     assert_eq!(balances["result"]["account"]["bound"], true);
-    let vectors: Value = serde_json::from_str(include_str!("fixtures/paxeer-abi-vectors.json"))
-        .expect("ABI vectors JSON");
+    let vectors: Value = serde_json::from_str(include_str!("fixtures/paxeer-abi-vectors.json")).unwrap_or_else(|error| panic!("{}: {error:?}", "ABI vectors JSON"));
     let bank = vectors["cases"]
         .as_array()
-        .expect("ABI cases")
+        .unwrap_or_else(|| panic!("{}", "ABI cases"))
         .iter()
         .find(|case| case["name"] == "bank.all_balances")
-        .expect("bank balance vector");
+        .unwrap_or_else(|| panic!("{}", "bank balance vector"));
     assert_eq!(balances["result"]["balances"], bank["out"]["response"]);
 
-    let assets = gateway.rpc("px_listAssets", json!([]));
+    let assets = gateway.rpc("px_listAssets", &json!([]));
     assert!(assets.get("error").is_none(), "{assets}");
     assert_eq!(
         assets["result"],
@@ -945,117 +630,47 @@ fn chain_only_router_serves_receipts_balances_and_assets() {
         })
     );
 
-    let capabilities = gateway.rpc("px_getCapabilities", json!([]));
+    let capabilities = gateway.rpc("px_getCapabilities", &json!([]));
     assert!(capabilities.get("error").is_none(), "{capabilities}");
-    for surface in [
-        "exchange",
-        "bridge",
-        "launchpad",
-        "ledger",
-        "pay",
-        "auth",
-        "programs",
-    ] {
-        assert_eq!(
-            capabilities["result"][surface], true,
-            "{surface}: {capabilities}"
-        );
+    for surface in ["exchange", "bridge", "launchpad", "ledger", "pay", "auth", "programs"] {
+        assert_eq!(capabilities["result"][surface], true, "{surface}: {capabilities}");
     }
-    assert_eq!(
-        capabilities["result"]["rpc_height"],
-        CHAIN_HEIGHT.to_string()
-    );
-    assert!(capabilities["result"]["probed_at"]
-        .as_u64()
-        .is_some_and(|time| time > 0));
+    assert_eq!(capabilities["result"]["rpc_height"], CHAIN_HEIGHT.to_string());
+    assert!(capabilities["result"]["probed_at"].as_u64().is_some_and(|time| time > 0));
 
     let receipt_params = method_params("pax_sequencerReceipt", CHAIN_HEIGHT);
-    let receipt = gateway.rpc("pax_sequencerReceipt", receipt_params.clone());
-    assert_eq!(
-        receipt,
-        json!({"jsonrpc": "2.0", "id": "router-surface", "result": null})
-    );
+    let receipt = gateway.rpc("pax_sequencerReceipt", &receipt_params.clone());
+    assert_eq!(receipt, json!({"jsonrpc": "2.0", "id": "router-surface", "result": null}));
 
-    let (status, body) = gateway
-        .exchange("GET", "/readyz", b"")
-        .expect("readiness exchange");
-    let readiness: Value = serde_json::from_slice(&body).expect("readiness JSON");
+    let (status, body) = gateway.exchange("GET", "/readyz", b"").unwrap_or_else(|error| panic!("{}: {error:?}", "readiness exchange"));
+    let readiness: Value = serde_json::from_slice(&body).unwrap_or_else(|error| panic!("{}: {error:?}", "readiness JSON"));
     assert_eq!(status, 200, "{readiness}");
     for backend in ["durable_store", "paxeer_chain", "consensus"] {
-        assert_eq!(
-            readiness["backends"][backend],
-            json!({"state": "ready", "reason": "ready"}),
-            "{backend}: {readiness}"
-        );
+        assert_eq!(readiness["backends"][backend], json!({"state": "ready", "reason": "ready"}), "{backend}: {readiness}");
     }
     assert_eq!(readiness["capabilities"]["chain_serving"]["state"], "ready");
-    assert_eq!(consensus_calls.lock().expect("consensus calls").len(), 1);
-    assert_eq!(
-        *indexer_paths.lock().expect("indexer paths"),
-        vec!["/v1/assets?limit=500"]
-    );
+    assert_eq!(consensus_calls.lock().unwrap_or_else(|error| panic!("{}: {error:?}", "consensus calls")).len(), 1);
+    assert_eq!(*indexer_paths.lock().unwrap_or_else(|error| panic!("{}: {error:?}", "indexer paths")), vec!["/v1/assets?limit=500"]);
     {
-        let calls = chain_calls.lock().expect("chain calls");
+        let calls = chain_calls.lock().unwrap_or_else(|error| panic!("{}: {error:?}", "chain calls"));
         assert!(calls.iter().any(|call| call["method"] == "eth_chainId"));
+        assert_eq!(calls.iter().filter(|call| call["method"] == "pax_sequencerReceipt" && call["params"] == receipt_params).count(), 1, "{calls:?}");
+        let bank_calldata = format!("0x{}", bank["calldata"].as_str().unwrap_or_else(|| panic!("{}", "balance calldata")));
         assert_eq!(
-            calls
-                .iter()
-                .filter(|call| call["method"] == "pax_sequencerReceipt"
-                    && call["params"] == receipt_params)
-                .count(),
-            1,
-            "{calls:?}"
-        );
-        let bank_calldata = format!("0x{}", bank["calldata"].as_str().expect("balance calldata"));
-        assert_eq!(
-            calls
-                .iter()
-                .filter(|call| call["method"] == "eth_call"
-                    && call["params"][0]["to"] == evm::address_hex(&evm::BANK_PRECOMPILE)
-                    && call["params"][0]["data"] == bank_calldata)
-                .count(),
+            calls.iter().filter(|call| call["method"] == "eth_call" && call["params"][0]["to"] == evm::address_hex(&evm::BANK_PRECOMPILE) && call["params"][0]["data"] == bank_calldata).count(),
             1,
             "{calls:?}"
         );
         for call in calls.iter().filter(|call| call["method"] == "eth_call") {
             assert_eq!(call["params"][1], format!("0x{CHAIN_HEIGHT:x}"), "{call}");
         }
-        for (address, calldata) in [
-            (
-                evm::LEDGER_PRECOMPILE,
-                format!("0x3f050cbc{}", "00".repeat(64)),
-            ),
-            (
-                evm::AUTH_PRECOMPILE,
-                format!("0xd4a03b3d{}", "00".repeat(96)),
-            ),
-        ] {
-            assert_eq!(
-                calls
-                    .iter()
-                    .filter(|call| call["method"] == "eth_call"
-                        && call["params"][0]["to"] == evm::address_hex(&address)
-                        && call["params"][0]["data"] == calldata)
-                    .count(),
-                1,
-                "{calls:?}"
-            );
+        for (address, calldata) in [(evm::LEDGER_PRECOMPILE, format!("0x3f050cbc{}", "00".repeat(64))), (evm::AUTH_PRECOMPILE, format!("0xd4a03b3d{}", "00".repeat(96)))] {
+            assert_eq!(calls.iter().filter(|call| call["method"] == "eth_call" && call["params"][0]["to"] == evm::address_hex(&address) && call["params"][0]["data"] == calldata).count(), 1, "{calls:?}");
         }
     }
     assert_eq!(readiness["status"], "ready", "{readiness}");
-    let backends = readiness["backends"]
-        .as_object()
-        .expect("readiness backends");
-    for kernel in [
-        "core_agent_boundary",
-        "public_core",
-        "independent_receipt_authority",
-        "identity",
-        "program_registry",
-    ] {
-        assert!(
-            !backends.contains_key(kernel),
-            "kernel backend {kernel}: {readiness}"
-        );
+    let backends = readiness["backends"].as_object().unwrap_or_else(|| panic!("{}", "readiness backends"));
+    for kernel in ["core_agent_boundary", "public_core", "independent_receipt_authority", "identity", "program_registry"] {
+        assert!(!backends.contains_key(kernel), "kernel backend {kernel}: {readiness}");
     }
 }

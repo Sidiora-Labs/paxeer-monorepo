@@ -106,11 +106,11 @@ func parseLimit(raw string, def, max int32) int32 {
 	if raw == "" {
 		return def
 	}
-	n, err := strconv.Atoi(raw)
+	n, err := strconv.ParseInt(raw, 10, 32)
 	if err != nil || n <= 0 {
 		return def
 	}
-	if int32(n) > max {
+	if n > int64(max) {
 		return max
 	}
 	return int32(n)

@@ -3,10 +3,12 @@ package fanout
 import (
 	"encoding/json"
 	"errors"
-	"github.com/go-chi/chi/v5"
 	"io"
+	"log/slog"
 	"net/http"
 	"strconv"
+
+	"github.com/go-chi/chi/v5"
 )
 
 // HistoryHandler is a coordinator-registerable REST primitive. Authenticate must
@@ -15,12 +17,12 @@ func HistoryHandler(store *DurableStore, authenticate AuthenticateUpgrade) http.
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "private, no-store")
 		if authenticate == nil || !store.ready() {
-			http.Error(w, "unauthorized", 401)
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
 		p, err := authenticate(r)
 		if err != nil || !p.valid(r.Context(), store.now()) {
-			http.Error(w, "unauthorized", 401)
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
 		limit := 0
@@ -48,32 +50,38 @@ func HistoryHandler(store *DurableStore, authenticate AuthenticateUpgrade) http.
 			if status == 503 {
 				code = "chat_unavailable"
 			}
-			json.NewEncoder(w).Encode(map[string]any{"error": code, "next_cursor": page.Next, "reset_required": page.Reset})
+			if err := json.NewEncoder(w).Encode(map[string]any{errorField: code, "next_cursor": page.Next, "reset_required": page.Reset}); err != nil {
+				slog.Error("chat history response write failed", "error", err)
+			}
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(page)
+		if err := json.NewEncoder(w).Encode(page); err != nil {
+			slog.Error("chat history response write failed", "error", err)
+		}
 	}
 }
 func ConversationsHandler(store *DurableStore, authenticate AuthenticateUpgrade) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "private, no-store")
 		if authenticate == nil || !store.ready() {
-			http.Error(w, "unauthorized", 401)
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
 		p, err := authenticate(r)
 		if err != nil || !p.valid(r.Context(), store.now()) {
-			http.Error(w, "unauthorized", 401)
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
 		ids, err := store.List(WithPrincipal(r.Context(), p), p.Wallet, 100)
 		if err != nil {
-			http.Error(w, "unavailable", 503)
+			http.Error(w, "unavailable", http.StatusServiceUnavailable)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]any{"conversations": ids})
+		if err := json.NewEncoder(w).Encode(map[string]any{"conversations": ids}); err != nil {
+			slog.Error("chat conversations response write failed", "error", err)
+		}
 	}
 }
 
@@ -97,12 +105,12 @@ func RegisterChatRoutes(router chi.Router, store *DurableStore, authenticate Aut
 		w.Header().Set("Cache-Control", "private, no-store")
 		principal, err := authenticate(r)
 		if err != nil || !principal.valid(r.Context(), store.now()) {
-			http.Error(w, "unauthorized", 401)
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
 		rows, err := store.Pool.Query(r.Context(), `SELECT c.id,peer.wallet,extract(epoch from max(msg.created_at))::bigint,count(msg.id) FILTER(WHERE msg.sequence>own.read_sequence AND msg.deleted_at IS NULL AND msg.sender<>$1),own.read_sequence,own.muted FROM chat_conversations c JOIN chat_members own ON own.conversation_id=c.id AND own.wallet=$1 JOIN chat_members peer ON peer.conversation_id=c.id AND peer.wallet<>$1 LEFT JOIN chat_messages msg ON msg.conversation_id=c.id WHERE c.kind='dm' GROUP BY c.id,peer.wallet,own.read_sequence,own.muted ORDER BY max(msg.created_at) DESC NULLS LAST,c.id LIMIT 100`, principal.Wallet)
 		if err != nil {
-			http.Error(w, "unavailable", 503)
+			http.Error(w, "unavailable", http.StatusServiceUnavailable)
 			return
 		}
 		defer rows.Close()
@@ -113,13 +121,13 @@ func RegisterChatRoutes(router chi.Router, store *DurableStore, authenticate Aut
 			var unread, read int64
 			var muted bool
 			if err = rows.Scan(&id, &peer, &last, &unread, &read, &muted); err != nil {
-				http.Error(w, "unavailable", 503)
+				http.Error(w, "unavailable", http.StatusServiceUnavailable)
 				return
 			}
 			result = append(result, map[string]any{"id": id, "peer": peer, "last_message_at": last, "unread_count": unread, "read_sequence": itoa64(read), "muted": muted})
 		}
 		if rows.Err() != nil {
-			http.Error(w, "unavailable", 503)
+			http.Error(w, "unavailable", http.StatusServiceUnavailable)
 			return
 		}
 		rows.Close()
@@ -134,7 +142,7 @@ func RegisterChatRoutes(router chi.Router, store *DurableStore, authenticate Aut
 	router.Post("/v2/chat/read", func(w http.ResponseWriter, r *http.Request) {
 		principal, err := authenticate(r)
 		if err != nil || !principal.valid(r.Context(), store.now()) {
-			http.Error(w, "unauthorized", 401)
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
 		var body struct {
@@ -159,7 +167,7 @@ func RegisterChatRoutes(router chi.Router, store *DurableStore, authenticate Aut
 	router.Post("/v2/chat/revise", func(w http.ResponseWriter, r *http.Request) {
 		principal, err := authenticate(r)
 		if err != nil || !principal.valid(r.Context(), store.now()) {
-			http.Error(w, "unauthorized", 401)
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
 		var body struct {
@@ -220,7 +228,7 @@ func connectedError(w http.ResponseWriter, err error) {
 	if status == 503 {
 		code = "chat_unavailable"
 	}
-	connectedJSON(w, status, map[string]string{"error": code})
+	connectedJSON(w, status, map[string]string{errorField: code})
 }
 
 // WalletChannel is the Redis channel a hub with channel namespace ns

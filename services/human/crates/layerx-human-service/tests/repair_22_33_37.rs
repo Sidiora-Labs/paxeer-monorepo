@@ -1,32 +1,31 @@
 //! Repair 22.33.37 task record (acceptance 22998.1).
-//! archive-history-mutation: archive_history_detects_replacement_and_missing_after_reopen.
-//! control-state-restart: completed_limit_retry_recovers_exact_authority_after_reopen.
-//! reclaim-old-key-retry: reclaim_exact_old_key_retry_survives_later_nonce_and_reopen.
-//! spend-never-reconciles: spend_uses_verified_budget_and_receipts_after_reopen.
+//! archive-history-mutation: `archive_history_detects_replacement_and_missing_after_reopen`.
+//! control-state-restart: `completed_limit_retry_recovers_exact_authority_after_reopen`.
+//! reclaim-old-key-retry: `reclaim_exact_old_key_retry_survives_later_nonce_and_reopen`.
+//! spend-never-reconciles: `spend_uses_verified_budget_and_receipts_after_reopen`.
 //! recovery-production-gap: production recovery remains unavailable; the current chain
 //! lifecycle exposes policy registration but no supported recovery authority submission.
 //! Wiring request (authentication domain): modules/layerxauth/keeper/lifecycle.go must expose
-//! a supported chain recovery transition; RecordLifecycle currently admits only tags 1 and 3.
+//! a supported chain recovery transition; `RecordLifecycle` currently admits only tags 1 and 3.
 //! Attempt 2 reported control and archive cases failing; reclaim and spend passed.
 //! Attempt 3 retains those cases and repairs receipt-version binding and retained-row write admission.
 //! Baseline verification was not run: implementation-first and hf-done-only gate order
 //! supersedes step 9's unchanged-tree verification; no baseline failures are claimed.
 
-#[path = "support/canonical_owner.rs"]
-mod canonical_owner;
+pub mod canonical_owner {
+    include!("support/canonical_owner.rs");
+}
 
 mod control_proof {
     use super::canonical_owner;
+    use crate::require_value::RequireValue as _;
     use layerx_human_test_support as support;
 
     use std::collections::{BTreeMap, BTreeSet};
     use std::fs;
 
     use ed25519_dalek::{Signer as _, SigningKey};
-    use layerx_agentd::budget::{
-        reserve, BudgetLimiter, LimitConfig, LimitId, LimitRefusal, LimitScope, LocalLimit,
-        ReservationRequest,
-    };
+    use layerx_agentd::budget::{BudgetLimiter, LimitConfig, LimitId, LimitScope, LocalLimit};
     use layerx_agentd::identity::{
         register, CoreIdentity, IdentityError, IdentityResolver, ProtocolAuthority,
     };
@@ -40,11 +39,9 @@ mod control_proof {
     use layerx_crypto::session::IssuedSessionKey;
     use layerx_crypto::signer::Signer as _;
     use layerx_human_service::agents::{
-        AgentControlAgent, AgentControlError, AgentControlProfile, AgentControlState,
-        AgentControls, AppLimitEvidence, AppLimitRequest, CapabilityProvision, LimitBacking,
-        LimitChangeRequest, LimitEnforcement, ProtocolAction, ProtocolEvidence,
-        SessionControlAdapter, APP_LIMIT_COPY_KEY, APP_LIMIT_EXPLANATION, PAUSE_CONSEQUENCE,
-        PAUSE_CONSEQUENCE_COPY_KEY, PROTOCOL_LIMIT_COPY_KEY,
+        AgentControlAgent, AgentControlError, AgentControlProfile, AgentControls, AppLimitEvidence,
+        AppLimitRequest, CapabilityProvision, LimitBacking, LimitChangeRequest, ProtocolAction,
+        ProtocolEvidence, SessionControlAdapter,
     };
     use layerx_human_service::agents::{
         AgentCreationContract, AgentEvidence, AgentFailure, SessionProvision,
@@ -84,7 +81,7 @@ mod control_proof {
     struct InstalledSession {
         _issued: IssuedSessionKey,
         _signer: ProvisionedSessionKey,
-        token: Token,
+        _token: Token,
     }
 
     /// In-process agent contract over the actual agentd identity, session,
@@ -151,46 +148,6 @@ mod control_proof {
             } else {
                 Err(AgentContractError::Refused("wrong principal"))
             }
-        }
-
-        fn daemon_open(&self, grant_id: [u8; 32]) -> bool {
-            self.sessions
-                .get(&self.tenant, SessionId(grant_id))
-                .is_some_and(|record| record.open)
-        }
-
-        fn authorizes(&self, grant_id: [u8; 32], scope: &str) -> bool {
-            self.installed.get(&grant_id).is_some_and(|installed| {
-                installed
-                    .token
-                    .authorize(
-                        &self.sessions,
-                        &self.tenant,
-                        &self.did,
-                        scope,
-                        self.core_sequence,
-                    )
-                    .is_ok()
-            })
-        }
-
-        fn app_refuses(&self, amount: u128) -> bool {
-            let Some((limiter, id)) = &self.app_limiter else {
-                return false;
-            };
-            matches!(
-                reserve(
-                    limiter,
-                    &ReservationRequest {
-                        id: [0x91; 32],
-                        amount,
-                        expiry_sequence: self.core_sequence.saturating_add(10),
-                        current_sequence: self.core_sequence,
-                        applicable_limits: vec![*id],
-                    },
-                ),
-                Err(LimitRefusal::Exceeded { .. })
-            )
         }
     }
 
@@ -278,7 +235,7 @@ mod control_proof {
                 InstalledSession {
                     _issued: issued,
                     _signer: signer,
-                    token,
+                    _token: token,
                 },
             );
             let mut evidence = ProvisionEvidence {
@@ -575,29 +532,6 @@ mod control_proof {
         batch_id: [u8; 32],
     }
 
-    fn protocol_receipt(action_key: [u8; 32]) -> ProtocolEvidence {
-        let profile = profile();
-        let intent = layerx_intents::Intent::v1(IntentKind::BudgetCreate(
-            layerx_intents::BudgetCreate::new(
-                layerx_types::intent::BudgetId::new(action_key),
-                profile.owner,
-                profile.budget_account,
-                profile.asset,
-                layerx_types::amount::Amount::from_u128(500),
-                layerx_types::intent::PeriodLength::new(profile.period_seconds)
-                    .unwrap_or_else(|error| panic!("period: {error:?}")),
-                layerx_types::intent::RolloverPolicy::None,
-                layerx_types::amount::Amount::ZERO,
-                profile.purpose,
-                layerx_types::intent::TimestampSeconds::from_u64(2000),
-            )
-            .unwrap_or_else(|error| panic!("budget intent: {error:?}")),
-        ));
-        let compiled = layerx_intents::compile(&intent, &registry())
-            .unwrap_or_else(|error| panic!("budget encoding: {error:?}"));
-        protocol_receipt_for_payload(action_key, compiled.payload())
-    }
-
     fn protocol_receipt_for_payload(
         action_key: [u8; 32],
         payload: &layerx_types::payload::Payload,
@@ -622,15 +556,16 @@ mod control_proof {
         };
         let signer = SigningKey::from_bytes(&[0x84; 32]);
         let persisted = encode_receipt(&fields, None);
-        let decoded = layerx_wire::receipt::decode(&persisted).expect("decode retained receipt");
+        let decoded = layerx_wire::receipt::decode(&persisted).or_fail("decode retained receipt");
         let unsigned = layerx_wire::receipt::encode_unsigned(&decoded)
-            .expect("reproduce receipt signing preimage");
+            .or_fail("reproduce receipt signing preimage");
         assert_eq!(
             unsigned, persisted,
             "retained signing bytes reproduce exactly"
         );
-        let signature = signer
-            .sign(&layerx_wire::hash::receipt_digest(&unsigned).expect("canonical receipt digest"));
+        let signature = signer.sign(
+            &layerx_wire::hash::receipt_digest(&unsigned).or_fail("canonical receipt digest"),
+        );
         let receipt_bytes = encode_receipt(&fields, Some(signature.to_bytes()));
         let evidence = ProtocolEvidence {
             signed_activity: owner.bytes,
@@ -654,7 +589,7 @@ mod control_proof {
         );
         evidence
             .bound_activity(payload.activity_type())
-            .expect("bound owner transaction");
+            .or_fail("bound owner transaction");
         let keys = [layerx_proof::inclusion::SequencerAuthorization::new(
             [0x86; 32],
             signer.verifying_key().to_bytes(),
@@ -665,8 +600,13 @@ mod control_proof {
             &evidence.receipt_bytes,
             keys.as_slice(),
         )
-        .expect("owner receipt with sequencer key pinned to its context and height");
-        let protocol = receipt.protocol().expect("protocol receipt");
+        .unwrap_or_else(|error| {
+            panic!(
+                "{}: {error:?}",
+                "owner receipt with sequencer key pinned to its context and height"
+            )
+        });
+        let protocol = receipt.protocol().or_fail("protocol receipt");
         assert_eq!(protocol.batch_id(), authorized_batch.batch_id());
         assert_eq!(
             protocol.previous_state_root(),
@@ -680,8 +620,8 @@ mod control_proof {
             &evidence,
             payload.activity_type(),
         )
-        .expect("verified owner transaction outcome");
-        let protocol = receipt.protocol().expect("protocol receipt");
+        .or_fail("verified owner transaction outcome");
+        let protocol = receipt.protocol().or_fail("protocol receipt");
         assert_eq!(evidence.tx_hash, protocol.activity_id());
         assert_eq!(evidence.tx_hash, evidence.activity_id);
         assert_eq!(evidence.rung, layerx_types::rung::Rung::Committed);
@@ -748,9 +688,12 @@ mod control_proof {
         bytes.extend_from_slice(value);
     }
 
-    #[test]
-    fn completed_limit_retry_recovers_exact_authority_after_reopen() {
-        use layerx_human_service::store::PrincipalStore;
+    fn open_durable_controls() -> (
+        std::path::PathBuf,
+        std::sync::Arc<std::sync::Mutex<layerx_human_service::store::PrincipalStore>>,
+        layerx_human_service::store::TenancyDigest,
+        Controls,
+    ) {
         use std::sync::{Arc, Mutex};
         let root = directory("repair-control-record");
         let (store, tenancy_digest) = support::install_and_open(
@@ -765,7 +708,7 @@ mod control_proof {
                 active_budget_id: AGENT_ID,
             },
         );
-        let mut controls = AgentControls::open(
+        let controls = AgentControls::open(
             initial.into_boundary(),
             profile(),
             1_000,
@@ -775,11 +718,19 @@ mod control_proof {
             1_000,
             store.clone(),
         )
-        .expect("open durable controls");
-        let first = LimitChangeRequest::new([0x71; 32], 500).expect("first limit");
+        .or_fail("open durable controls");
+        (root, store, tenancy_digest, controls)
+    }
+
+    #[test]
+    fn completed_limit_retry_recovers_exact_authority_after_reopen() {
+        use layerx_human_service::store::PrincipalStore;
+        use std::sync::{Arc, Mutex};
+        let (root, store, tenancy_digest, mut controls) = open_durable_controls();
+        let first = LimitChangeRequest::new([0x71; 32], 500).or_fail("first limit");
         let completed = controls
             .change_limit(Rung::Committed, &registry(), first, 1_002)
-            .expect("receipt-backed limit");
+            .or_fail("receipt-backed limit");
         assert_eq!(completed.limit.monthly, 500);
         assert_eq!(
             controls
@@ -794,7 +745,7 @@ mod control_proof {
         drop(store);
         let store = Arc::new(Mutex::new(
             PrincipalStore::open(&root, support::retention_uniform(100_000), tenancy_digest)
-                .expect("reopen control store"),
+                .or_fail("reopen control store"),
         ));
         let mut recovered = AgentControls::open(
             authority,
@@ -806,11 +757,11 @@ mod control_proof {
             1_010,
             store.clone(),
         )
-        .expect("reconstruct controls");
+        .or_fail("reconstruct controls");
         assert_eq!(
             recovered
                 .change_limit(Rung::Committed, &registry(), first, 1_010)
-                .expect("exact old retry"),
+                .or_fail("exact old retry"),
             completed
         );
         assert_eq!(
@@ -825,10 +776,10 @@ mod control_proof {
             recovered.boundary().sessions().contract().active_budget_id,
             first_budget
         );
-        let second = LimitChangeRequest::new([0x72; 32], 400).expect("second limit");
+        let second = LimitChangeRequest::new([0x72; 32], 400).or_fail("second limit");
         let later = recovered
             .change_limit(Rung::Committed, &registry(), second, 1_011)
-            .expect("next budget");
+            .or_fail("next budget");
         assert_eq!(later.limit.monthly, 400);
         let expected = digest(&[
             b"layerx-human/agent-limit-budget/v1",
@@ -848,14 +799,14 @@ mod control_proof {
         assert_eq!(
             recovered
                 .change_limit(Rung::Committed, &registry(), first, 1_012)
-                .expect("older completed retry"),
+                .or_fail("older completed retry"),
             completed
         );
         assert!(matches!(
             recovered.change_limit(
                 Rung::Committed,
                 &registry(),
-                LimitChangeRequest::new(first.idempotency_key, 600).expect("conflict request"),
+                LimitChangeRequest::new(first.idempotency_key, 600).or_fail("conflict request"),
                 1_012
             ),
             Err(AgentControlError::IdempotencyConflict)
@@ -868,11 +819,23 @@ mod control_proof {
                 .protocol_limit_effects,
             2
         );
+        verify_second_control_reopen(recovered, store, &root, tenancy_digest, &later);
+    }
+
+    fn verify_second_control_reopen(
+        recovered: Controls,
+        store: std::sync::Arc<std::sync::Mutex<layerx_human_service::store::PrincipalStore>>,
+        root: &std::path::Path,
+        tenancy_digest: layerx_human_service::store::TenancyDigest,
+        later: &layerx_human_service::agents::AgentControlView,
+    ) {
+        use layerx_human_service::store::PrincipalStore;
+        use std::sync::{Arc, Mutex};
         let authority = recovered.into_boundary();
         drop(store);
         let store = Arc::new(Mutex::new(
-            PrincipalStore::open(&root, support::retention_uniform(100_000), tenancy_digest)
-                .expect("second reopen"),
+            PrincipalStore::open(root, support::retention_uniform(100_000), tenancy_digest)
+                .or_fail("second reopen"),
         ));
         let recovered = AgentControls::open(
             authority,
@@ -884,8 +847,8 @@ mod control_proof {
             1_013,
             store.clone(),
         )
-        .expect("second reconstruction");
-        assert_eq!(recovered.view(1_013).expect("current view"), later);
+        .or_fail("second reconstruction");
+        assert_eq!(&recovered.view(1_013).or_fail("current view"), later);
         let mut foreign_profile = profile();
         foreign_profile.principal = support::principal("bob");
         assert!(AgentControls::open(
@@ -900,7 +863,7 @@ mod control_proof {
         )
         .is_err());
         drop(store);
-        fs::remove_dir_all(root).expect("remove control store");
+        fs::remove_dir_all(root).or_fail("remove control store");
     }
 
     fn digest(parts: &[&[u8]]) -> [u8; 32] {
@@ -914,25 +877,27 @@ mod control_proof {
 
 mod archive_proof {
 
+    use crate::require_value::RequireValue as _;
     use ed25519_dalek::{Signer as _, SigningKey};
     use layerx_agentd::store::{Store as AgentStore, TenantId};
     use layerx_human_service::store::{PrincipalId, PrincipalScope, PrincipalStore, Table};
+    use layerx_human_service::trace::TraceId;
     use layerx_human_test_support::{
         directory, install_and_open, principal, retention_uniform, tenancy,
     };
     use layerx_types::ids::{AssetId, Did};
     use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
     use sha2::{Digest as _, Sha256};
-    use std::collections::{BTreeMap, BTreeSet};
+    use std::collections::BTreeMap;
     fn registry() -> ModuleRegistry {
         ModuleRegistry::new(
             &[ModuleRegistration::new(ModuleId::Asset, &[activity_type()])
-                .expect("asset registration")],
+                .or_fail("asset registration")],
         )
-        .expect("registry")
+        .or_fail("registry")
     }
     fn activity_type() -> ActivityType {
-        ActivityType::new(ModuleId::Asset, 5).expect("activity type")
+        ActivityType::new(ModuleId::Asset, 5).or_fail("activity type")
     }
     use base64::engine::general_purpose::URL_SAFE_NO_PAD;
     use base64::Engine as _;
@@ -947,12 +912,10 @@ mod archive_proof {
     use layerx_agentd::sign::ProvisionedSessionKey;
     use layerx_crypto::session::IssuedSessionKey;
     use layerx_human_service::agents::{
-        AgentBalance, ArchiveAgentContract, ArchiveBoundary, ArchiveError, ArchiveJourney,
-        ArchiveRequest, ArchiveStage, FundsDispositionEvidence, ReclaimStatus,
-        SessionArchiveAdapter, ARCHIVE_ACTION_LABEL, ARCHIVE_CONFIRMATION_TONE,
-        ARCHIVE_IRREVERSIBILITY_NOTICE,
+        AgentBalance, ArchiveAgentContract, ArchiveError, ArchiveJourney, ArchiveRequest,
+        ArchiveStage, FundsDispositionEvidence, SessionArchiveAdapter,
     };
-    use layerx_human_service::audit::{AuditChain, AuditEvent, SecurityChangeKind};
+
     use layerx_human_service::auth::{
         AccountIdentity, AuthConfig, Device, Passkeys, RateLimit, SessionGrant,
     };
@@ -960,8 +923,7 @@ mod archive_proof {
         AgentContractError, AgentSessionContract, AgentSessionProvision, ProtocolIdentitySnapshot,
         ProvisionEvidence, RevocationEvidence, RevocationReason, RotationEvidence,
         RotationObservation, RotationSubmission, SessionEntropySource, SessionKeyEntropy,
-        SessionKeyError, SessionKeyProvisioner, SessionLeaseState, SessionPolicy, SessionTarget,
-        SuspensionEvidence,
+        SessionKeyError, SessionKeyProvisioner, SessionPolicy, SessionTarget, SuspensionEvidence,
     };
     use layerx_human_service::notify::AgentId;
     use layerx_human_service::store::{EvidenceRef, RowKey};
@@ -986,7 +948,7 @@ mod archive_proof {
     struct InstalledAuthority {
         _issued: IssuedSessionKey,
         _signer: ProvisionedSessionKey,
-        token: Token,
+        _token: Token,
     }
 
     struct AuthorityLayer {
@@ -1051,27 +1013,6 @@ mod archive_proof {
             } else {
                 Err(AgentContractError::Refused("archive scope mismatch"))
             }
-        }
-
-        fn daemon_open(&self, grant: [u8; 32]) -> bool {
-            self.sessions
-                .get(&self.tenant, SessionId(grant))
-                .is_some_and(|session| session.open)
-        }
-
-        fn authorizes(&self, grant: [u8; 32]) -> bool {
-            self.installed.get(&grant).is_some_and(|installed| {
-                installed
-                    .token
-                    .authorize(
-                        &self.sessions,
-                        &self.tenant,
-                        &self.did,
-                        "prepare",
-                        self.core_sequence,
-                    )
-                    .is_ok()
-            })
         }
     }
 
@@ -1153,7 +1094,7 @@ mod archive_proof {
                 InstalledAuthority {
                     _issued: issued,
                     _signer: signer,
-                    token,
+                    _token: token,
                 },
             );
             let mut evidence = ProvisionEvidence {
@@ -1478,148 +1419,24 @@ mod archive_proof {
         )
     }
 
-    #[test]
-    fn archive_history_detects_replacement_and_missing_after_reopen() {
-        let root = directory("repair-archive-history");
-        let (mut store, digest) = install_and_open(
-            &root.join("human"),
-            &tenancy(&[("alice", "tenant-a")]),
-            retention_uniform(100_000),
-        );
-        let principal = principal("alice");
-        let did = Did::new(b"did:layerx:worker").expect("agent DID");
-        let mut authority = AuthorityLayer::new(
-            &root.join("authority"),
-            principal.clone(),
-            did.clone(),
-            [0x11; 32],
-        );
-        authority.funds.before[0].amount = 0;
-        authority.funds.after[0].amount = 0;
-        let mut sessions =
-            SessionKeyProvisioner::new(authority, ArchiveEntropy, archive_policy(), registry());
-        sessions
-            .provision(&principal, &did, vec![activity_type()])
-            .expect("real session authority");
-        let mut boundary = SessionArchiveAdapter::new(sessions);
-        let history = RowKey::new("retained-agent-history").expect("history key");
-        let mut scope = store.principal(&principal).expect("scope");
-        scope
-            .put(
-                Table::Cache,
-                history.clone(),
-                1_000,
-                b"original receipt timeline".to_vec(),
-            )
-            .expect("history producer");
-        let request = ArchiveRequest {
-            idempotency_key: [0x76; 32],
-            agent_id: AgentId::new("agt_worker").expect("agent id"),
-            agent_name: "worker".to_owned(),
-            did,
-            history: vec![EvidenceRef::new(Table::Cache, history.clone())],
-        };
-        let mut journey = ArchiveJourney::start(&mut scope, &mut boundary, &request, &[], 1_001)
-            .expect("start actual archive");
-        let passkeys = Passkeys::new(auth_config()).expect("passkeys");
-        let mut authenticator = ArchiveAuthenticator::new();
-        let session = open_session(&passkeys, &mut scope, &mut authenticator, 1_002);
-        let ceremony = passkeys
-            .begin_step_up(
-                &mut scope,
-                session.access_token().expose(),
-                session.csrf_token().expose(),
-                journey.operation_digest(),
-                1_007,
-            )
-            .expect("step-up begin");
-        let response = authenticator.assert(&ceremony.ceremony);
-        let evidence = passkeys
-            .finish_step_up(&mut scope, &ceremony.challenge_id, &response, 1_008)
-            .expect("real passkey step-up");
-        let trace =
-            layerx_human_service::trace::TraceId::parse("trc_00112233445566778899aabbccddeeff")
-                .expect("trace");
-        scope
-            .put(
-                Table::Cache,
-                history.clone(),
-                1_000,
-                b"changed receipt timeline".to_vec(),
-            )
-            .expect("replace unpinned history");
-        assert!(matches!(
-            journey.confirm(
-                &mut scope,
-                &passkeys,
-                session.access_token().expose(),
-                session.csrf_token().expose(),
-                &evidence,
-                "worker",
-                &mut boundary,
-                &trace,
-                1_009,
-            ),
-            Err(ArchiveError::HistoryChanged)
-        ));
-        assert_eq!(boundary.sessions().contract().revocation_effects, 0);
-        scope
-            .remove(Table::Cache, &history)
-            .expect("remove unpinned history");
-        assert!(matches!(
-            journey.confirm(
-                &mut scope,
-                &passkeys,
-                session.access_token().expose(),
-                session.csrf_token().expose(),
-                &evidence,
-                "worker",
-                &mut boundary,
-                &trace,
-                1_009,
-            ),
-            Err(ArchiveError::HistoryMissing)
-        ));
-        assert_eq!(boundary.sessions().contract().revocation_effects, 0);
-        scope
-            .put(
-                Table::Cache,
-                history.clone(),
-                1_000,
-                b"original receipt timeline".to_vec(),
-            )
-            .expect("restore exact history");
-        let completed = journey
-            .confirm(
-                &mut scope,
-                &passkeys,
-                session.access_token().expose(),
-                session.csrf_token().expose(),
-                &evidence,
-                "worker",
-                &mut boundary,
-                &trace,
-                1_009,
-            )
-            .expect("archive actual authority");
-        assert_eq!(completed.stage(), ArchiveStage::Archived);
-        assert_eq!(
-            journey.history(&scope).expect("original history")[0].bytes(),
-            b"original receipt timeline"
-        );
-        drop(scope);
-        drop(journey);
-        drop(store);
+    fn verify_retained_history(
+        root: &std::path::Path,
+        digest: layerx_human_service::store::TenancyDigest,
+        principal: &PrincipalId,
+        request_id: [u8; 32],
+        history: &layerx_human_service::store::RowKey,
+        completed: &layerx_human_service::agents::ArchiveStatus,
+    ) {
         let mut store =
-            PrincipalStore::open(&root.join("human"), retention_uniform(100_000), digest)
-                .expect("reopen archived store");
-        let mut scope = store.principal(&principal).expect("reopened scope");
-        let journey = ArchiveJourney::load(&scope, request.idempotency_key)
-            .expect("load")
-            .expect("archive");
-        assert_eq!(journey.status().expect("durable status"), completed);
+            PrincipalStore::open(root.join("human"), retention_uniform(100_000), digest)
+                .or_fail("reopen archived store");
+        let mut scope = store.principal(principal).or_fail("reopened scope");
+        let journey = ArchiveJourney::load(&scope, request_id)
+            .or_fail("load")
+            .or_fail("archive");
+        assert_eq!(&journey.status().or_fail("durable status"), completed);
         assert_eq!(
-            journey.history(&scope).expect("recovered history")[0].bytes(),
+            journey.history(&scope).or_fail("recovered history")[0].bytes(),
             b"original receipt timeline"
         );
         let replacement = scope.put(
@@ -1661,7 +1478,7 @@ mod archive_proof {
             ),
             "unchanged evidence remains pinned: {identical:?}"
         );
-        let unrelated = RowKey::new("unrelated-history-batch-row").expect("batch key");
+        let unrelated = RowKey::new("unrelated-history-batch-row").or_fail("batch key");
         let batch = scope.put_batch(
             1_000,
             vec![
@@ -1691,19 +1508,26 @@ mod archive_proof {
         assert_eq!(
             journey
                 .history(&scope)
-                .expect("history after refused writes")[0]
+                .or_fail("history after refused writes")[0]
                 .bytes(),
             b"original receipt timeline"
         );
         assert!(matches!(
-            scope.remove(Table::Cache, &history),
+            scope.remove(Table::Cache, history),
             Err(layerx_human_service::store::StoreError::EvidencePinned)
         ));
         drop(scope);
         drop(store);
+    }
 
+    fn verify_replaced_history(
+        root: &std::path::Path,
+        digest: layerx_human_service::store::TenancyDigest,
+        principal: &PrincipalId,
+        request_id: [u8; 32],
+    ) {
         let path = root.join("human/principals/alice/store.bin");
-        let original = std::fs::read(&path).expect("read durable store");
+        let original = std::fs::read(&path).or_fail("read durable store");
         let payload = b"original receipt timeline";
         let positions: Vec<_> = original
             .windows(payload.len())
@@ -1719,16 +1543,18 @@ mod archive_proof {
         assert_eq!(&original[offset - 12..offset - 4], &1_000_u64.to_be_bytes());
         let mut altered = original.clone();
         altered[offset] ^= 1;
-        std::fs::write(&path, &altered).expect("simulate out-of-band row replacement");
+        std::fs::write(&path, &altered).unwrap_or_else(|error| {
+            panic!("{}: {error:?}", "simulate out-of-band row replacement")
+        });
         let mut store =
-            PrincipalStore::open(&root.join("human"), retention_uniform(100_000), digest)
-                .expect("reopen altered store");
+            PrincipalStore::open(root.join("human"), retention_uniform(100_000), digest)
+                .or_fail("reopen altered store");
         let scope = store
-            .principal(&principal)
-            .expect("decode replaced history row");
-        let journey = ArchiveJourney::load(&scope, request.idempotency_key)
-            .expect("load archived transition")
-            .expect("archive exists");
+            .principal(principal)
+            .or_fail("decode replaced history row");
+        let journey = ArchiveJourney::load(&scope, request_id)
+            .or_fail("load archived transition")
+            .or_fail("archive exists");
         assert!(matches!(
             journey.history(&scope),
             Err(ArchiveError::HistoryChanged)
@@ -1738,36 +1564,200 @@ mod archive_proof {
 
         let mut altered = original.clone();
         altered[offset - 12..offset - 4].copy_from_slice(&1_001_u64.to_be_bytes());
-        std::fs::write(&path, &altered).expect("simulate changed row timestamp");
+        std::fs::write(&path, &altered).or_fail("simulate changed row timestamp");
         let mut store =
-            PrincipalStore::open(&root.join("human"), retention_uniform(100_000), digest)
-                .expect("reopen changed timestamp");
+            PrincipalStore::open(root.join("human"), retention_uniform(100_000), digest)
+                .or_fail("reopen changed timestamp");
         let scope = store
-            .principal(&principal)
-            .expect("decode timestamp change");
-        let journey = ArchiveJourney::load(&scope, request.idempotency_key)
-            .expect("load archived transition")
-            .expect("archive exists");
+            .principal(principal)
+            .or_fail("decode timestamp change");
+        let journey = ArchiveJourney::load(&scope, request_id)
+            .or_fail("load archived transition")
+            .or_fail("archive exists");
         assert!(matches!(
             journey.history(&scope),
             Err(ArchiveError::HistoryChanged)
         ));
         drop(scope);
         drop(store);
+    }
+
+    fn start_archive_request(
+        scope: &mut PrincipalScope<'_>,
+        did: Did,
+        history: &layerx_human_service::store::RowKey,
+    ) -> ArchiveRequest {
+        scope
+            .put(
+                Table::Cache,
+                history.clone(),
+                1_000,
+                b"original receipt timeline".to_vec(),
+            )
+            .or_fail("history producer");
+        ArchiveRequest {
+            idempotency_key: [0x76; 32],
+            agent_id: AgentId::new("agt_worker").or_fail("agent id"),
+            agent_name: "worker".to_owned(),
+            did,
+            history: vec![EvidenceRef::new(Table::Cache, history.clone())],
+        }
+    }
+
+    fn archive_step_up(
+        scope: &mut PrincipalScope<'_>,
+        journey: &ArchiveJourney,
+    ) -> (
+        Passkeys,
+        SessionGrant,
+        layerx_human_service::auth::StepUpEvidence,
+    ) {
+        let passkeys = Passkeys::new(auth_config()).or_fail("passkeys");
+        let mut authenticator = ArchiveAuthenticator::new();
+        let session = open_session(&passkeys, scope, &mut authenticator, 1_002);
+        let ceremony = passkeys
+            .begin_step_up(
+                scope,
+                session.access_token().expose(),
+                session.csrf_token().expose(),
+                journey.operation_digest(),
+                1_007,
+            )
+            .or_fail("step-up begin");
+        let response = authenticator.assert(&ceremony.ceremony);
+        let evidence = passkeys
+            .finish_step_up(scope, &ceremony.challenge_id, &response, 1_008)
+            .or_fail("real passkey step-up");
+        (passkeys, session, evidence)
+    }
+
+    fn open_archive_store() -> (
+        std::path::PathBuf,
+        PrincipalStore,
+        layerx_human_service::store::TenancyDigest,
+    ) {
+        let root = directory("repair-archive-history");
+        let (store, digest) = install_and_open(
+            &root.join("human"),
+            &tenancy(&[("alice", "tenant-a")]),
+            retention_uniform(100_000),
+        );
+        (root, store, digest)
+    }
+
+    #[test]
+    fn archive_history_detects_replacement_and_missing_after_reopen() {
+        let (root, mut store, digest) = open_archive_store();
+        let principal = principal("alice");
+        let did = Did::new(b"did:layerx:worker").or_fail("agent DID");
+        let mut authority = AuthorityLayer::new(
+            &root.join("authority"),
+            principal.clone(),
+            did.clone(),
+            [0x11; 32],
+        );
+        authority.funds.before[0].amount = 0;
+        authority.funds.after[0].amount = 0;
+        let mut sessions =
+            SessionKeyProvisioner::new(authority, ArchiveEntropy, archive_policy(), registry());
+        sessions
+            .provision(&principal, &did, vec![activity_type()])
+            .or_fail("real session authority");
+        let mut boundary = SessionArchiveAdapter::new(sessions);
+        let history = RowKey::new("retained-agent-history").or_fail("history key");
+        let mut scope = store.principal(&principal).or_fail("scope");
+        let request = start_archive_request(&mut scope, did, &history);
+        let mut journey = ArchiveJourney::start(&mut scope, &mut boundary, &request, &[], 1_001)
+            .or_fail("start actual archive");
+        let (passkeys, session, evidence) = archive_step_up(&mut scope, &journey);
+        let trace = TraceId::parse("trc_00112233445566778899aabbccddeeff").or_fail("trace");
+        scope
+            .put(
+                Table::Cache,
+                history.clone(),
+                1_000,
+                b"changed receipt timeline".to_vec(),
+            )
+            .or_fail("replace unpinned history");
+        assert!(matches!(
+            journey.confirm(
+                &mut scope,
+                &passkeys,
+                session.access_token().expose(),
+                session.csrf_token().expose(),
+                &evidence,
+                "worker",
+                &mut boundary,
+                &trace,
+                1_009,
+            ),
+            Err(ArchiveError::HistoryChanged)
+        ));
+        assert_eq!(boundary.sessions().contract().revocation_effects, 0);
+        scope
+            .remove(Table::Cache, &history)
+            .or_fail("remove unpinned history");
+        assert!(matches!(
+            journey.confirm(
+                &mut scope,
+                &passkeys,
+                session.access_token().expose(),
+                session.csrf_token().expose(),
+                &evidence,
+                "worker",
+                &mut boundary,
+                &trace,
+                1_009,
+            ),
+            Err(ArchiveError::HistoryMissing)
+        ));
+        assert_eq!(boundary.sessions().contract().revocation_effects, 0);
+        scope
+            .put(
+                Table::Cache,
+                history.clone(),
+                1_000,
+                b"original receipt timeline".to_vec(),
+            )
+            .or_fail("restore exact history");
+        let completed = journey
+            .confirm(
+                &mut scope,
+                &passkeys,
+                session.access_token().expose(),
+                session.csrf_token().expose(),
+                &evidence,
+                "worker",
+                &mut boundary,
+                &trace,
+                1_009,
+            )
+            .or_fail("archive actual authority");
+        assert_eq!(completed.stage(), ArchiveStage::Archived);
+        assert_eq!(
+            journey.history(&scope).or_fail("original history")[0].bytes(),
+            b"original receipt timeline"
+        );
+        drop(scope);
+        drop(journey);
+        drop(store);
+        verify_retained_history(&root, digest, &principal, request.idempotency_key, &history, &completed);
+        verify_replaced_history(&root, digest, &principal, request.idempotency_key);
         drop(boundary);
-        std::fs::remove_dir_all(root).expect("remove archive state");
+        std::fs::remove_dir_all(root).or_fail("remove archive state");
     }
 }
 
 mod reclaim_proof {
+    use crate::require_value::RequireValue as _;
     use layerx_agent_api::identity::{AgentDid, AuthorityRef};
     use layerx_human_service::agents::{
-        Reclaim, ReclaimAgentContext, ReclaimError, ReclaimMechanism, ReclaimRequest, ReclaimStage,
+        Reclaim, ReclaimAgentContext, ReclaimError, ReclaimMechanism, ReclaimRequest,
     };
     use layerx_human_service::custody::KeyId;
-    use layerx_human_service::journeys::JourneyEngine;
+
     use layerx_human_service::notify::JourneyId;
-    use layerx_human_service::store::{PrincipalScope, PrincipalStore, Table};
+    use layerx_human_service::store::{PrincipalStore, Table};
     use layerx_human_test_support::{directory, principal, retention_uniform, tenancy};
     use layerx_types::account::AccountId;
     use layerx_types::amount::Amount;
@@ -1778,34 +1768,34 @@ mod reclaim_proof {
     fn registry() -> ModuleRegistry {
         ModuleRegistry::new(&[ModuleRegistration::new(
             ModuleId::Budget,
-            &[ActivityType::new(ModuleId::Budget, 8).expect("defund activity")],
+            &[ActivityType::new(ModuleId::Budget, 8).or_fail("defund activity")],
         )
-        .expect("budget registration")])
-        .expect("module registry")
+        .or_fail("budget registration")])
+        .or_fail("module registry")
     }
 
     fn request(key: u8, nonce: u64, agent: &str) -> ReclaimRequest {
         ReclaimRequest {
-            journey_id: JourneyId::new(format!("jrn_reclaimnonce{key}")).expect("journey id"),
+            journey_id: JourneyId::new(format!("jrn_reclaimnonce{key}")).or_fail("journey id"),
             idempotency_key: [key; 32],
-            owner: AccountId::parse("agent:did:layerx:human:main").expect("owner account"),
+            owner: AccountId::parse("agent:did:layerx:human:main").or_fail("owner account"),
             agent_account: AccountId::parse(&format!("agent:did:layerx:{agent}:main"))
-                .expect("agent account"),
+                .or_fail("agent account"),
             asset: AssetId::new([0x33; 32]),
             amount: Amount::from_u128(1),
             mechanism: ReclaimMechanism::BudgetDefund {
                 budget_account: AccountId::parse(&format!(
                     "agent:did:layerx:{agent}:budget:operations"
                 ))
-                .expect("budget account"),
+                .or_fail("budget account"),
                 budget_id: BudgetId::new([0x41; 32]),
                 revocation_sequence: Sequence::from_u64(4),
             },
             agent: ReclaimAgentContext {
                 label: "worker".to_owned(),
-                actor: AgentDid::new(format!("did:layerx:{agent}")).expect("agent DID"),
-                authority: AuthorityRef::new("custody-human-primary").expect("authority"),
-                custody_key: KeyId::new("human-primary").expect("custody key"),
+                actor: AgentDid::new(format!("did:layerx:{agent}")).or_fail("agent DID"),
+                authority: AuthorityRef::new("custody-human-primary").or_fail("authority"),
+                custody_key: KeyId::new("human-primary").or_fail("custody key"),
                 account_sequence: nonce,
                 nonce,
                 not_before: 995,
@@ -1820,24 +1810,24 @@ mod reclaim_proof {
         let root = directory("repair-reclaim-old-key");
         let digest = tenancy(&[("alice", "tenant-a"), ("bob", "tenant-b")])
             .install(&root)
-            .expect("tenancy");
+            .or_fail("tenancy");
         let owner = principal("alice");
         let first = request(1, 40, "worker");
         let registry = registry();
         let mut store =
-            PrincipalStore::open(&root, retention_uniform(10_000), digest).expect("store");
-        let mut scope = store.principal(&owner).expect("scope");
-        let initial = Reclaim::start(&mut scope, &first, &registry, 1_000).expect("first reclaim");
+            PrincipalStore::open(&root, retention_uniform(10_000), digest).or_fail("store");
+        let mut scope = store.principal(&owner).or_fail("scope");
+        let initial = Reclaim::start(&mut scope, &first, &registry, 1_000).or_fail("first reclaim");
         Reclaim::start(&mut scope, &request(2, 41, "worker"), &registry, 1_001)
-            .expect("next reclaim");
+            .or_fail("next reclaim");
         drop(scope);
         drop(store);
-        let mut store =
-            PrincipalStore::open(&root, retention_uniform(10_000), digest).expect("reopened store");
-        let mut scope = store.principal(&owner).expect("reopened scope");
+        let mut store = PrincipalStore::open(&root, retention_uniform(10_000), digest)
+            .or_fail("reopened store");
+        let mut scope = store.principal(&owner).or_fail("reopened scope");
         let keys = scope.keys(Table::Journeys);
         assert_eq!(
-            Reclaim::start(&mut scope, &first, &registry, 1_002).expect("exact older retry"),
+            Reclaim::start(&mut scope, &first, &registry, 1_002).or_fail("exact older retry"),
             initial
         );
         assert_eq!(
@@ -1859,7 +1849,7 @@ mod reclaim_proof {
             })
         ));
         assert!(Reclaim::load(&scope, &request(3, 40, "worker").journey_id)
-            .expect("absent stale journey")
+            .or_fail("absent stale journey")
             .is_none());
         assert!(
             matches!(
@@ -1872,21 +1862,20 @@ mod reclaim_proof {
         drop(scope);
         let scope = store
             .principal(&principal("bob"))
-            .expect("foreign principal scope");
+            .or_fail("foreign principal scope");
         assert!(Reclaim::load(&scope, &first.journey_id)
-            .expect("isolated lookup")
+            .or_fail("isolated lookup")
             .is_none());
         drop(scope);
         drop(store);
-        std::fs::remove_dir_all(root).expect("remove reclaim state");
+        std::fs::remove_dir_all(root).or_fail("remove reclaim state");
     }
 }
 
 mod spend_proof {
+    use crate::require_value::RequireValue as _;
     use ed25519_dalek::SigningKey;
-    use layerx_agentd::budget::{
-        verify_budget_proof, BudgetProofTrust, ProtocolBudgetState, SpendReceiptEvidence,
-    };
+    use layerx_agentd::budget::{verify_budget_proof, BudgetProofTrust, SpendReceiptEvidence};
     use layerx_agentd::read::ServedCheckpoint;
     use layerx_client::sequencer::SequencerEndpoint;
     use layerx_human_service::agents::{
@@ -1931,10 +1920,10 @@ mod spend_proof {
             .as_bytes()
             .chunks_exact(2)
             .map(|b| {
-                u8::from_str_radix(std::str::from_utf8(b).expect("hex"), 16).expect("hex byte")
+                u8::from_str_radix(std::str::from_utf8(b).or_fail("hex"), 16).or_fail("hex byte")
             })
             .collect();
-        bytes.try_into().expect("digest width")
+        bytes.try_into().or_fail("digest width")
     }
     use ed25519_dalek::Signer as _;
     use layerx_agentd::protocol_evidence::RawReceiptEvidence;
@@ -1945,8 +1934,8 @@ mod spend_proof {
     use sha2::{Digest as _, Sha256};
     #[derive(Clone)]
     struct SpendReceipt {
-        material: ReceiptMaterial,
-        authorized_batch: AuthorizedBatch,
+        _material: ReceiptMaterial,
+        _authorized_batch: AuthorizedBatch,
         evidence: RawReceiptEvidence,
     }
 
@@ -2001,7 +1990,7 @@ mod spend_proof {
         );
         let decoded = layerx_intents::canonical::decode_receipt(&canonical_receipt)
             .unwrap_or_else(|error| panic!("spend producer receipt: {error:?}"));
-        let protocol = decoded.protocol().expect("spend protocol receipt");
+        let protocol = decoded.protocol().or_fail("spend protocol receipt");
         assert_eq!(protocol.previous_state_root(), fields.previous_state_root);
         assert_eq!(protocol.resulting_state_root(), fields.resulting_state_root);
         let evidence = support::raw_receipt_evidence(
@@ -2031,7 +2020,7 @@ mod spend_proof {
         };
         let receipt = layerx_intents::canonical::decode_receipt(&material.canonical_bytes)
             .unwrap_or_else(|error| panic!("spend receipt: {error:?}"));
-        let protocol = receipt.protocol().expect("protocol spend receipt");
+        let protocol = receipt.protocol().or_fail("protocol spend receipt");
         assert_eq!(material.tx_hash, protocol.activity_id());
         assert_eq!(material.block_height, protocol.global_sequence());
         assert_eq!(
@@ -2040,22 +2029,10 @@ mod spend_proof {
         );
         assert_eq!(material.rung, layerx_types::rung::Rung::Receipted);
         SpendReceipt {
-            material,
-            authorized_batch,
+            _material: material,
+            _authorized_batch: authorized_batch,
             evidence,
         }
-    }
-
-    fn spend_activity_id(sequence: u64, idempotency_key: [u8; 32]) -> [u8; 32] {
-        Sha256::digest(
-            [
-                b"layerx-human-spend-activity/v1".as_slice(),
-                &sequence.to_be_bytes(),
-                &idempotency_key,
-            ]
-            .concat(),
-        )
-        .into()
     }
 
     fn encode_receipt(fields: &ReceiptFields, signature: Option<[u8; 64]>) -> Vec<u8> {
@@ -2120,11 +2097,11 @@ mod spend_proof {
     }
     impl Replay {
         fn new(answers: Value) -> Self {
-            let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind RPC");
+            let listener = std::net::TcpListener::bind("127.0.0.1:0").or_fail("bind RPC");
             listener
                 .set_nonblocking(true)
-                .expect("nonblocking listener");
-            let address = listener.local_addr().expect("RPC address");
+                .or_fail("nonblocking listener");
+            let address = listener.local_addr().or_fail("RPC address");
             let stop = Arc::new(AtomicBool::new(false));
             let stopped = Arc::clone(&stop);
             let worker = std::thread::spawn(move || {
@@ -2140,47 +2117,47 @@ mod spend_proof {
                     };
                     stream
                         .set_read_timeout(Some(std::time::Duration::from_secs(5)))
-                        .expect("read deadline");
+                        .or_fail("read deadline");
                     let mut headers = Vec::new();
                     while !headers.ends_with(b"\r\n\r\n") {
                         let mut byte = [0];
-                        stream.read_exact(&mut byte).expect("HTTP header");
+                        stream.read_exact(&mut byte).or_fail("HTTP header");
                         headers.push(byte[0]);
                     }
-                    let headers = String::from_utf8(headers).expect("headers");
+                    let headers = String::from_utf8(headers).or_fail("headers");
                     let length: usize = headers
                         .lines()
                         .find_map(|line| {
                             let (name, value) = line.split_once(':')?;
                             name.eq_ignore_ascii_case("content-length")
-                                .then(|| value.trim().parse().expect("length"))
+                                .then(|| value.trim().parse().or_fail("length"))
                         })
-                        .expect("content length");
+                        .or_fail("content length");
                     let mut body = vec![0; length];
-                    stream.read_exact(&mut body).expect("RPC body");
-                    let request: Value = serde_json::from_slice(&body).expect("RPC JSON");
+                    stream.read_exact(&mut body).or_fail("RPC body");
+                    let request: Value = serde_json::from_slice(&body).or_fail("RPC JSON");
                     let answer = answers
                         .as_array()
-                        .expect("answers")
+                        .or_fail("answers")
                         .iter()
                         .find(|answer| {
                             answer["method"] == request["method"]
                                 && answer["params"] == request["params"]
                         })
-                        .expect("recorded method and params");
+                        .or_fail("recorded method and params");
                     if request["method"] == "eth_call" {
                         calls += 1;
                     }
                     let body =
                         json!({"jsonrpc":"2.0", "id":request["id"], "result":answer["result"]})
                             .to_string();
-                    write!(stream,"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",body.len(),body).expect("RPC reply");
+                    write!(stream,"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",body.len(),body).or_fail("RPC reply");
                 }
                 calls
             });
             Self {
                 endpoint: SequencerEndpoint::new(&format!("http://{address}"), &[])
-                    .expect("endpoint"),
+                    .or_fail("endpoint"),
                 stop,
                 worker: Some(worker),
             }
@@ -2189,9 +2166,9 @@ mod spend_proof {
             self.stop.store(true, Ordering::SeqCst);
             self.worker
                 .take()
-                .expect("worker")
+                .or_fail("worker")
                 .join()
-                .expect("RPC replay")
+                .or_fail("RPC replay")
         }
     }
     impl Drop for Replay {
@@ -2203,81 +2180,20 @@ mod spend_proof {
         }
     }
 
-    #[test]
-    fn spend_uses_verified_budget_and_receipts_after_reopen() {
-        let root = directory("repair-spend-projection");
-        let (mut store, digest) = install_and_open(
-            &root,
-            &tenancy(&[("operator", "tenant"), ("bob", "foreign")]),
-            retention_uniform(100_000),
-        );
-        let mut scope = store
-            .principal(&principal("operator"))
-            .expect("principal scope");
-        let mut service =
-            SpendReconciliation::open(&scope, profile()).expect("empty spend service");
-        assert!(matches!(
-            service.both_shells(&principal("operator")),
-            Err(SpendError::ProtocolBudgetStateUnavailable)
-        ));
-        assert!(matches!(
-            service.both_shells(&principal("bob")),
-            Err(SpendError::WrongPrincipal)
-        ));
-        let replay = Replay::new(serde_json::from_str(ANSWERS).expect("recorded RPC transcript"));
-        let document: Value = serde_json::from_slice(EXPORT).expect("production authority export");
-        let hash = hex(document["head"]["block_hash"].as_str().expect("block hash"));
-        let checkpoint =
-            ServedCheckpoint::acquire_at_committed_block(&replay.endpoint, 8, Some(hash), "125")
-                .expect("actual committed checkpoint consumer");
-        let owner = Did::new(OWNER.as_bytes()).expect("owner DID");
-        let trust = BudgetProofTrust {
-            tenant: "tenant",
-            principal: "operator",
-            owner: &owner,
-            protocol_version: 3,
-            network_id: 125,
-            checkpoint: &checkpoint,
-            endpoint: &replay.endpoint,
-            current_height: 8,
-            now_ms: 1_700_000_000_000,
-            maximum_age_seconds: 60,
-        };
-        let proof = verify_budget_proof(EXPORT, budget_id(), &trust)
-            .expect("real budget authority producer/transport/verifier");
-        let verifier =
-            layerx_human_test_support::evidence_verifier(&SigningKey::from_bytes(&[0x84; 32]));
-        let view = service
-            .observe_budget_proof(&mut scope, &proof, &[], &verifier, 1_700_000_000_000)
-            .expect("adopt actual network budget");
-        assert_eq!(view.spent(), 23);
-        assert_eq!(view.limit(), 100);
-        assert_eq!(view.remaining(), 77);
-        assert_eq!(view.receipt_spent(), 0);
-        assert_eq!(view.verification_level(), Rung::Committed);
-        assert_eq!(view.observed_head_sequence(), 8);
-        assert_eq!(
-            view.reconciliation(),
-            SpendReconciliationStatus::ProtocolAdopted {
-                direction: ReconciliationDirection::ProtocolHigher,
-                difference: 23
-            }
-        );
-        assert_eq!(view.evidence_digests(), &[proof.digest()]);
+    fn verify_receipt_observation(
+        service: &mut SpendReconciliation,
+        scope: &mut layerx_human_service::store::PrincipalScope<'_>,
+        proof: &layerx_agentd::budget::VerifiedBudgetProof,
+        verifier: &layerx_agentd::protocol_evidence::EvidenceAuthority,
+    ) {
         let receipt = signed_receipt(7, [0x45; 32], 20, [4; 32], [0x55; 32]);
         let observations = [SpendReceiptEvidence {
             expected_activity_id: [0x45; 32],
             evidence: receipt.evidence,
         }];
         let reconciled = service
-            .observe_budget_proof(
-                &mut scope,
-                &proof,
-                &observations,
-                &verifier,
-                1_700_000_000_007,
-            )
-            .expect("verified spend receipt observation");
+            .observe_budget_proof(scope, proof, &observations, verifier, 1_700_000_000_007)
+            .or_fail("verified spend receipt observation");
         assert_eq!(reconciled.spent(), 23);
         assert_eq!(reconciled.receipt_spent(), 20);
         assert_eq!(reconciled.receipt_count(), 1);
@@ -2295,74 +2211,49 @@ mod spend_proof {
         );
         let duplicate = [observations[0].clone(), observations[0].clone()];
         assert!(matches!(
-            service.observe_budget_proof(
-                &mut scope,
-                &proof,
-                &duplicate,
-                &verifier,
-                1_700_000_000_007
-            ),
+            service.observe_budget_proof(scope, proof, &duplicate, verifier, 1_700_000_000_007),
             Err(SpendError::EvidenceConflict)
         ));
         let mut substituted = observations.clone();
         substituted[0].expected_activity_id = [0xff; 32];
         assert!(matches!(
-            service.observe_budget_proof(
-                &mut scope,
-                &proof,
-                &substituted,
-                &verifier,
-                1_700_000_000_007
-            ),
+            service.observe_budget_proof(scope, proof, &substituted, verifier, 1_700_000_000_007),
             Err(SpendError::EvidenceConflict)
         ));
-        let surfaces = service
-            .both_shells(&principal("operator"))
-            .expect("atomic native projections");
-        assert_eq!(surfaces.mobile().spend(), surfaces.desktop().spend());
-        let mut changed = document.clone();
-        changed["budget_state"]["remaining"] = json!("78");
-        assert!(verify_budget_proof(
-            &serde_json::to_vec(&changed).expect("tampered export"),
-            budget_id(),
-            &trust
-        )
-        .is_err());
-        let mut wrong_profile = profile();
-        wrong_profile.agent_account = [0xff; 32];
-        let mut wrong = SpendReconciliation::new(wrong_profile).expect("other account profile");
-        assert!(matches!(
-            wrong.observe_budget_proof(&mut scope, &proof, &[], &verifier, 1_700_000_000_000),
-            Err(SpendError::EvidenceConflict)
-        ));
-        drop(scope);
-        drop(service);
-        drop(store);
-        let mut store = PrincipalStore::open(&root, retention_uniform(100_000), digest)
-            .expect("reopen spend store");
+    }
+
+    fn verify_reopened_spend(
+        root: &std::path::Path,
+        digest: layerx_human_service::store::TenancyDigest,
+        proof: &layerx_agentd::budget::VerifiedBudgetProof,
+        verifier: &layerx_agentd::protocol_evidence::EvidenceAuthority,
+        surfaces: &layerx_human_service::agents::AgentSpendSurfaces,
+    ) {
+        let mut store = PrincipalStore::open(root, retention_uniform(100_000), digest)
+            .or_fail("reopen spend store");
         let scope = store
             .principal(&principal("operator"))
-            .expect("reopened principal");
+            .or_fail("reopened principal");
         let recovered =
-            SpendReconciliation::open(&scope, profile()).expect("recover verified projection");
+            SpendReconciliation::open(&scope, profile()).or_fail("recover verified projection");
         assert_eq!(
-            recovered
+            &recovered
                 .both_shells(&principal("operator"))
-                .expect("recovered surfaces"),
+                .or_fail("recovered surfaces"),
             surfaces
         );
         drop(scope);
-        let mut scope = store.principal(&principal("bob")).expect("foreign scope");
+        let mut scope = store.principal(&principal("bob")).or_fail("foreign scope");
         assert!(matches!(
             SpendReconciliation::open(&scope, profile()),
             Err(SpendError::WrongPrincipal)
         ));
         let mut foreign = profile();
         foreign.principal = principal("bob");
-        let mut service = SpendReconciliation::new(foreign).expect("foreign service");
+        let mut service = SpendReconciliation::new(foreign).or_fail("foreign service");
         assert!(
             matches!(
-                service.observe_budget_proof(&mut scope, &proof, &[], &verifier, 1_700_000_000_000),
+                service.observe_budget_proof(&mut scope, proof, &[], verifier, 1_700_000_000_000),
                 Err(SpendError::WrongPrincipal)
             ),
             "verified proof principal cannot be replayed into a foreign scope"
@@ -2373,10 +2264,109 @@ mod spend_proof {
         ));
         drop(scope);
         drop(store);
+    }
+
+    #[test]
+    fn spend_uses_verified_budget_and_receipts_after_reopen() {
+        let root = directory("repair-spend-projection");
+        let (mut store, digest) = install_and_open(
+            &root,
+            &tenancy(&[("operator", "tenant"), ("bob", "foreign")]),
+            retention_uniform(100_000),
+        );
+        let mut scope = store
+            .principal(&principal("operator"))
+            .or_fail("principal scope");
+        let mut service =
+            SpendReconciliation::open(&scope, profile()).or_fail("empty spend service");
+        assert!(matches!(
+            service.both_shells(&principal("operator")),
+            Err(SpendError::ProtocolBudgetStateUnavailable)
+        ));
+        assert!(matches!(
+            service.both_shells(&principal("bob")),
+            Err(SpendError::WrongPrincipal)
+        ));
+        let replay = Replay::new(serde_json::from_str(ANSWERS).or_fail("recorded RPC transcript"));
+        let document: Value = serde_json::from_slice(EXPORT).or_fail("production authority export");
+        let hash = hex(document["head"]["block_hash"]
+            .as_str()
+            .or_fail("block hash"));
+        let checkpoint =
+            ServedCheckpoint::acquire_at_committed_block(&replay.endpoint, 8, Some(hash), "125")
+                .unwrap_or_else(|error| {
+                    panic!("{}: {error:?}", "actual committed checkpoint consumer")
+                });
+        let owner = Did::new(OWNER.as_bytes()).or_fail("owner DID");
+        let trust = BudgetProofTrust {
+            tenant: "tenant",
+            principal: "operator",
+            owner: &owner,
+            protocol_version: 3,
+            network_id: 125,
+            checkpoint: &checkpoint,
+            endpoint: &replay.endpoint,
+            current_height: 8,
+            now_ms: 1_700_000_000_000,
+            maximum_age_seconds: 60,
+        };
+        let proof = verify_budget_proof(EXPORT, budget_id(), &trust).unwrap_or_else(|error| {
+            panic!(
+                "{}: {error:?}",
+                "real budget authority producer/transport/verifier"
+            )
+        });
+        let verifier =
+            layerx_human_test_support::evidence_verifier(&SigningKey::from_bytes(&[0x84; 32]));
+        let view = service
+            .observe_budget_proof(&mut scope, &proof, &[], &verifier, 1_700_000_000_000)
+            .or_fail("adopt actual network budget");
+        assert_eq!(view.spent(), 23);
+        assert_eq!(view.limit(), 100);
+        assert_eq!(view.remaining(), 77);
+        assert_eq!(view.receipt_spent(), 0);
+        assert_eq!(view.verification_level(), Rung::Committed);
+        assert_eq!(view.observed_head_sequence(), 8);
+        assert_eq!(
+            view.reconciliation(),
+            SpendReconciliationStatus::ProtocolAdopted {
+                direction: ReconciliationDirection::ProtocolHigher,
+                difference: 23
+            }
+        );
+        assert_eq!(view.evidence_digests(), &[proof.digest()]);
+        verify_receipt_observation(&mut service, &mut scope, &proof, &verifier);
+        let surfaces = service
+            .both_shells(&principal("operator"))
+            .or_fail("atomic native projections");
+        assert_eq!(surfaces.mobile().spend(), surfaces.desktop().spend());
+        let mut changed = document.clone();
+        changed["budget_state"]["remaining"] = json!("78");
+        assert!(verify_budget_proof(
+            &serde_json::to_vec(&changed).or_fail("tampered export"),
+            budget_id(),
+            &trust
+        )
+        .is_err());
+        let mut wrong_profile = profile();
+        wrong_profile.agent_account = [0xff; 32];
+        let mut wrong = SpendReconciliation::new(wrong_profile).or_fail("other account profile");
+        assert!(matches!(
+            wrong.observe_budget_proof(&mut scope, &proof, &[], &verifier, 1_700_000_000_000),
+            Err(SpendError::EvidenceConflict)
+        ));
+        drop(scope);
+        drop(service);
+        drop(store);
+        verify_reopened_spend(&root, digest, &proof, &verifier, &surfaces);
         assert!(
             replay.finish() >= 2,
             "real verifier read both getBudget and budgetRemaining"
         );
-        std::fs::remove_dir_all(root).expect("remove spend state");
+        std::fs::remove_dir_all(root).or_fail("remove spend state");
     }
+}
+
+pub mod require_value {
+    include!("support/require_value.rs");
 }

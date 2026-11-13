@@ -11,9 +11,10 @@ const FIXTURE: &str =
     include_str!("../../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json");
 
 fn cases() -> Vec<Value> {
-    serde_json::from_str::<Value>(FIXTURE).expect("recorded receipt corpus")["cases"]
+    serde_json::from_str::<Value>(FIXTURE)
+        .unwrap_or_else(|error| panic!("recorded receipt corpus: {error:?}"))["cases"]
         .as_array()
-        .expect("recorded cases")
+        .unwrap_or_else(|| panic!("recorded cases"))
         .clone()
 }
 
@@ -21,22 +22,26 @@ fn case(id: &str) -> Value {
     cases()
         .into_iter()
         .find(|case| case["id"] == id)
-        .expect("recorded case")
+        .unwrap_or_else(|| panic!("recorded case"))
 }
 
 fn bytes(value: &Value) -> Vec<u8> {
     let digits = value
         .as_str()
-        .expect("fixture hex string")
+        .unwrap_or_else(|| panic!("fixture hex string"))
         .strip_prefix("0x")
-        .expect("fixture hex prefix");
+        .unwrap_or_else(|| panic!("fixture hex prefix"));
     assert_eq!(digits.len() % 2, 0);
     digits
         .as_bytes()
         .chunks_exact(2)
         .map(|pair| {
-            u8::from_str_radix(std::str::from_utf8(pair).expect("fixture ASCII"), 16)
-                .expect("fixture hex digits")
+            u8::from_str_radix(
+                std::str::from_utf8(pair)
+                    .unwrap_or_else(|error| panic!("fixture ASCII: {error:?}")),
+                16,
+            )
+            .unwrap_or_else(|error| panic!("fixture hex digits: {error:?}"))
         })
         .collect()
 }
@@ -44,12 +49,18 @@ fn bytes(value: &Value) -> Vec<u8> {
 fn key(case: &Value) -> ReceiptKeyEntry {
     let key = &case["pinnedKey"];
     ReceiptKeyEntry::new(
-        bytes(&key["keyId"]).try_into().expect("32-byte key ID"),
+        bytes(&key["keyId"])
+            .try_into()
+            .unwrap_or_else(|error| panic!("32-byte key ID: {error:?}")),
         bytes(&key["publicKey"])
             .try_into()
-            .expect("32-byte public key"),
-        key["firstHeight"].as_u64().expect("first height"),
-        key["lastHeight"].as_u64().expect("last height"),
+            .unwrap_or_else(|error| panic!("32-byte public key: {error:?}")),
+        key["firstHeight"]
+            .as_u64()
+            .unwrap_or_else(|| panic!("first height")),
+        key["lastHeight"]
+            .as_u64()
+            .unwrap_or_else(|| panic!("last height")),
     )
 }
 
@@ -57,21 +68,21 @@ fn height(case: &Value) -> u64 {
     u64::from_str_radix(
         case["receiptJson"]["height"]
             .as_str()
-            .expect("height quantity")
+            .unwrap_or_else(|| panic!("height quantity"))
             .strip_prefix("0x")
-            .expect("quantity prefix"),
+            .unwrap_or_else(|| panic!("quantity prefix")),
         16,
     )
-    .expect("signed height")
+    .unwrap_or_else(|error| panic!("signed height: {error:?}"))
 }
 
 fn fenced<'a>(section: &'a str, language: &str) -> &'a str {
     section
         .split_once(&format!("```{language}\n"))
-        .expect("documented code fence")
+        .unwrap_or_else(|| panic!("documented code fence"))
         .1
         .split_once("\n```")
-        .expect("closed code fence")
+        .unwrap_or_else(|| panic!("closed code fence"))
         .0
 }
 
@@ -87,19 +98,26 @@ fn portable_v1_instructions_example_matches_compiled_consumer() {
     assert!(GUIDE.contains("## Historical v1 (unsupported archival context)"));
     let section = GUIDE
         .split_once("### Example (v2)\n")
-        .expect("v2 example heading")
+        .unwrap_or_else(|| panic!("v2 example heading"))
         .1;
     let documented = fenced(section, "json");
     let recorded = case("V1-layerxledger-pay-exact");
     let keys = [key(&recorded)];
     let exported = portable_v2::export_receipt(&recorded["receiptJson"], &keys, None)
-        .expect("real recorded RPC answer exports");
+        .unwrap_or_else(|error| panic!("real recorded RPC answer exports: {error:?}"));
     assert_eq!(
-        serde_json::from_str::<Value>(documented).expect("documented JSON"),
-        serde_json::from_slice::<Value>(&exported).expect("exported JSON")
+        serde_json::from_str::<Value>(documented)
+            .unwrap_or_else(|error| panic!("documented JSON: {error:?}")),
+        serde_json::from_slice::<Value>(&exported)
+            .unwrap_or_else(|error| panic!("exported JSON: {error:?}"))
     );
-    let verified = portable_v2::verify_receipt(documented.as_bytes(), &keys)
-        .expect("documented consumer verifies the guide's JSON");
+    let verified =
+        portable_v2::verify_receipt(documented.as_bytes(), &keys).unwrap_or_else(|error| {
+            panic!(
+                "{}: {error:?}",
+                "documented consumer verifies the guide's JSON"
+            )
+        });
     assert_eq!(verified.signed_receipt(), bytes(&recorded["signedReceipt"]));
     assert_eq!(verified.receipt_key(), &keys[0]);
     assert_eq!(verified.height(), height(&recorded));
@@ -126,10 +144,19 @@ fn portable_v1_instructions_recorded_producer_transport_consumer() {
             } else {
                 height(&recorded)
             };
-            let json = portable_v2::export_receipt(&answer, &keys, Some(&raw))
-                .expect("recorded signed receipt exports to transport bytes");
-            let verified = portable_v2::verify_receipt(&json, &keys)
-                .expect("offline public consumer verifies transported bytes");
+            let json =
+                portable_v2::export_receipt(&answer, &keys, Some(&raw)).unwrap_or_else(|error| {
+                    panic!(
+                        "{}: {error:?}",
+                        "recorded signed receipt exports to transport bytes"
+                    )
+                });
+            let verified = portable_v2::verify_receipt(&json, &keys).unwrap_or_else(|error| {
+                panic!(
+                    "{}: {error:?}",
+                    "offline public consumer verifies transported bytes"
+                )
+            });
             assert_eq!(verified.signed_receipt(), bytes(&recorded["signedReceipt"]));
             assert_eq!(verified.raw_transaction(), Some(raw.as_slice()));
             assert_eq!(
@@ -144,11 +171,12 @@ fn portable_v1_instructions_recorded_producer_transport_consumer() {
             assert_eq!(verified.height(), height(&recorded));
             assert_eq!(
                 verified.result_code(),
-                if recorded["vector"] == "V2" { 1 } else { 0 },
+                i32::from(recorded["vector"] == "V2"),
                 "a valid signature preserves a rejected execution result"
             );
             assert_eq!(verified.inclusion_height(), inclusion_height);
-            let transported: Value = serde_json::from_slice(&json).expect("transport JSON");
+            let transported: Value = serde_json::from_slice(&json)
+                .unwrap_or_else(|error| panic!("transport JSON: {error:?}"));
             assert_eq!(transported["verificationLevel"], "receipted");
         }
         exercised += 1;
@@ -177,10 +205,16 @@ fn portable_v1_instructions_height_ranged_keys_use_signed_height() {
             last,
         )];
         let exported = PortableReceiptV2::export(&signed, &keys[0], inclusion_height)
-            .expect("inclusive signed-height endpoint exports");
-        let json = exported.to_json().expect("transport JSON");
-        let verified = portable_v2::verify_receipt(&json, &keys)
-            .expect("later inclusion outside key window is allowed");
+            .unwrap_or_else(|error| panic!("inclusive signed-height endpoint exports: {error:?}"));
+        let json = exported
+            .to_json()
+            .unwrap_or_else(|error| panic!("transport JSON: {error:?}"));
+        let verified = portable_v2::verify_receipt(&json, &keys).unwrap_or_else(|error| {
+            panic!(
+                "{}: {error:?}",
+                "later inclusion outside key window is allowed"
+            )
+        });
         assert_eq!(verified.height(), signed_height);
         assert_eq!(verified.inclusion_height(), inclusion_height);
         assert_eq!(verified.receipt_key(), &keys[0]);
@@ -213,22 +247,28 @@ fn portable_v1_instructions_proof_cannot_supply_trust_or_enable_v1() {
     let recorded = case("V1-layerxledger-pay-exact");
     let keys = [key(&recorded)];
     let json = portable_v2::export_receipt(&recorded["receiptJson"], &keys, None)
-        .expect("recorded proof exports");
+        .unwrap_or_else(|error| panic!("recorded proof exports: {error:?}"));
     assert_eq!(
         portable_v2::verify_receipt(&json, &[]),
         Err(signature_failure()),
         "a carried receipt key does not become a trust anchor"
     );
-    let mut carried: Value = serde_json::from_slice(&json).expect("exported JSON");
+    let mut carried: Value =
+        serde_json::from_slice(&json).unwrap_or_else(|error| panic!("exported JSON: {error:?}"));
     carried["receiptKey"]["lastHeight"] = format!("{:#x}", keys[0].last_batch_number() + 1).into();
     assert_eq!(
-        portable_v2::verify_receipt(&serde_json::to_vec(&carried).expect("JSON"), &keys),
+        portable_v2::verify_receipt(
+            &serde_json::to_vec(&carried).unwrap_or_else(|error| panic!("JSON: {error:?}")),
+            &keys
+        ),
         Err(PortableReceiptError::ReceiptKeyMismatch),
         "every carried key field must equal the independent pin"
     );
-    let mut historical: Value = serde_json::from_slice(&json).expect("exported JSON");
+    let mut historical: Value =
+        serde_json::from_slice(&json).unwrap_or_else(|error| panic!("exported JSON: {error:?}"));
     historical["format"] = "layerx-receipt-proof-v1".into();
-    let historical_json = serde_json::to_vec(&historical).expect("historical format JSON");
+    let historical_json = serde_json::to_vec(&historical)
+        .unwrap_or_else(|error| panic!("historical format JSON: {error:?}"));
     assert_eq!(
         portable_v2::verify_receipt(&historical_json, &keys),
         Err(PortableReceiptError::UnsupportedFormat)

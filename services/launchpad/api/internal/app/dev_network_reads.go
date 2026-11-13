@@ -93,7 +93,7 @@ func (d *developmentNetworkReads) register(r chi.Router, admission *rest.Admissi
 		}
 		r.Method(method, path, rest.ResponseMetadata(handler))
 	}
-	d.networkReads.mount(r, admission)
+	d.mount(r, admission)
 	mount(http.MethodGet, "/v2/cups/current", rest.AdmissionCached, currentCupEmpty)
 	for _, path := range []string{"/v2/cups/{cupId}", "/v2/cups/{cupId}/standings", "/v2/cups/{cupId}/results"} {
 		mount(http.MethodGet, path, rest.AdmissionCached, cupNotFound)

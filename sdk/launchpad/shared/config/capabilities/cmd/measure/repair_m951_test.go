@@ -112,7 +112,7 @@ func repairM951Candidate(t *testing.T) string {
 
 func TestRepairM_951_CurrentAuthorityLayout(t *testing.T) {
 	root := repairM951Root(t)
-	if _, err := os.Stat(filepath.Join(root, "launchpad/spec/production-system/spec.kvx")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(root, "spec/production-system/spec.kvx")); !os.IsNotExist(err) {
 		t.Fatalf("obsolete authority should be absent from this checkout: %v", err)
 	}
 	index, output, _ := repairM951Index(t, root)
@@ -135,7 +135,7 @@ func TestRepairM_951_CurrentAuthorityLayout(t *testing.T) {
 			t.Fatalf("producer did not hash the complete current input %s", path)
 		}
 	}
-	if _, exists := actual["launchpad/spec/production-system/spec.kvx"]; exists {
+	if _, exists := actual["spec/production-system/spec.kvx"]; exists {
 		t.Fatal("producer requires the retired authority")
 	}
 	info, err := os.Stat(output)
@@ -249,7 +249,7 @@ func TestRepairM_951_ObsoleteAuthorityCannotSubstitute(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	obsolete := "launchpad/spec/production-system/spec.kvx"
+	obsolete := "spec/production-system/spec.kvx"
 	if err := os.MkdirAll(filepath.Dir(filepath.Join(root, obsolete)), 0700); err != nil {
 		t.Fatal(err)
 	}

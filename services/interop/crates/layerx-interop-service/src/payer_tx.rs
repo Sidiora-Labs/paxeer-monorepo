@@ -221,10 +221,9 @@ mod tests {
     #[test]
     fn refuses_a_transaction_to_another_contract() -> TestResult {
         let fixture = fixture("V1-pax-transfer")?;
-        let error = match decode_pay_exact(&hex(&fixture["rawTransaction"])?) {
-            Err(error) => error,
-            Ok(_) => panic!("the PAX transfer must be refused"),
-        };
+        let error = decode_pay_exact(&hex(&fixture["rawTransaction"])?)
+            .err()
+            .ok_or("the PAX transfer must be refused")?;
         assert_eq!(error, PayerTransactionRefusal::TargetRefused);
         assert_eq!(error.code(), "transaction_target_refused");
         Ok(())
@@ -235,10 +234,9 @@ mod tests {
         let fixture = fixture("V1-layerxledger-pay-exact")?;
         let mut raw = hex(&fixture["rawTransaction"])?;
         raw.pop().ok_or("transaction fixture must not be empty")?;
-        let error = match decode_pay_exact(&raw) {
-            Err(error) => error,
-            Ok(_) => panic!("truncated RLP must be refused"),
-        };
+        let error = decode_pay_exact(&raw)
+            .err()
+            .ok_or("truncated RLP must be refused")?;
         assert_eq!(error, PayerTransactionRefusal::Malformed);
         assert_eq!(error.code(), "transaction_malformed");
         Ok(())

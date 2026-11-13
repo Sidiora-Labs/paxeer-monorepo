@@ -5,9 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
+
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"regexp"
 )
 
 // SchemaSQL is a proposed serial migration. Runtime constructors never execute
@@ -67,9 +68,9 @@ func (r *Repository) Discover(ctx context.Context, token string, decimals uint8,
 	if _, err = UInt(creationHeight); err != nil {
 		return err
 	}
-	coverage := "incomplete"
+	coverage := valueIncomplete
 	if genesisAvailable {
-		coverage = "complete"
+		coverage = valueComplete
 	}
 	tag, err := r.pool.Exec(ctx, "INSERT INTO "+r.schema+".tokens(token,decimals,creation_height,coverage) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING", token, int(decimals), creationHeight, coverage)
 	if err != nil {
@@ -95,7 +96,7 @@ type ApplyResult struct {
 
 func (r *Repository) Apply(ctx context.Context, input Transfer) (result ApplyResult, err error) {
 	defer func() {
-		if err != nil && !(result.Incident && errors.Is(err, ErrIntegrity)) {
+		if err != nil && (!result.Incident || !errors.Is(err, ErrIntegrity)) {
 			r.observeFailure(ctx, input, err)
 		}
 	}()
@@ -103,7 +104,7 @@ func (r *Repository) Apply(ctx context.Context, input Transfer) (result ApplyRes
 	if err != nil {
 		return result, err
 	}
-	defer tx.Rollback(context.WithoutCancel(ctx))
+	defer rollbackTransaction(context.WithoutCancel(ctx), tx)
 	result, err = r.ApplyTx(ctx, tx, input)
 	if err != nil {
 		return result, err
@@ -125,7 +126,7 @@ func (r *Repository) ApplyTx(ctx context.Context, tx pgx.Tx, input Transfer) (re
 	if err != nil {
 		return result, err
 	}
-	defer savepoint.Rollback(context.WithoutCancel(ctx))
+	defer rollbackTransaction(context.WithoutCancel(ctx), savepoint)
 	result, err = r.applyTx(ctx, savepoint, input)
 	if err != nil {
 		return result, err
@@ -164,7 +165,7 @@ func (r *Repository) applyTx(ctx context.Context, tx pgx.Tx, input Transfer) (re
 	if !errors.Is(err, pgx.ErrNoRows) {
 		return result, err
 	}
-	if result.Coverage == "quarantined" {
+	if result.Coverage == valueQuarantined {
 		result.Incident = true
 		return result, nil
 	}
@@ -215,7 +216,7 @@ func (r *Repository) applyTx(ctx context.Context, tx pgx.Tx, input Transfer) (re
 		if er != nil {
 			return result, er
 		}
-		result.Coverage = "quarantined"
+		result.Coverage = valueQuarantined
 		result.Incident = true
 		return result, nil
 	}
@@ -287,7 +288,7 @@ func (r *Repository) Snapshot(ctx context.Context, token string, limit int) (s S
 	if err != nil {
 		return s, err
 	}
-	defer tx.Rollback(context.WithoutCancel(ctx))
+	defer rollbackTransaction(context.WithoutCancel(ctx), tx)
 	s.Token = token
 	var raw []byte
 	err = tx.QueryRow(ctx, "SELECT decimals,supply::text,coverage,revision,last_event FROM "+r.schema+".tokens WHERE token=$1", token).Scan(&s.Decimals, &s.Supply, &s.Coverage, &s.Revision, &raw)

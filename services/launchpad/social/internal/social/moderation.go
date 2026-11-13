@@ -3,6 +3,13 @@ package social
 import (
 	"context"
 	"encoding/json"
+	"io"
+	"log/slog"
+	"net/http"
+	"strconv"
+	"strings"
+	"time"
+
 	"github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/safety"
 	"github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/voice"
 	"github.com/Sidiora-Technologies/KindleLaunch/media/social/pkg/types"
@@ -12,11 +19,6 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"io"
-	"net/http"
-	"strconv"
-	"strings"
-	"time"
 )
 
 // WithModeration is a trusted app/middleware injection point. Legacy static-key
@@ -90,7 +92,7 @@ func (h *Handlers) adminCreateBan(w http.ResponseWriter, r *http.Request) {
 			moderationError(w, safety.ErrInvalid)
 			return
 		}
-		scope = "pool"
+		scope = poolResource
 	}
 	reason := ""
 	if req.Reason != nil {
@@ -135,7 +137,7 @@ func (h *Handlers) adminResolveReport(w http.ResponseWriter, r *http.Request) {
 		moderationError(w, e)
 		return
 	}
-	sharedhttp.WriteJSON(w, http.StatusOK, map[string]any{"ok": true, "revision": rev})
+	sharedhttp.WriteJSON(w, http.StatusOK, map[string]any{"ok": true, revisionField: rev})
 }
 
 // Unsafe unrevisioned deletion and unrestricted admin listings are intentionally
@@ -230,7 +232,7 @@ func authorizeFrozenVoiceRead(r *http.Request, store *safety.Store, control *voi
 	if err != nil {
 		return view, err
 	}
-	id := chi.URLParam(r, "roomId")
+	id := chi.URLParam(r, roomIDField)
 	if _, err = uuid.Parse(id); err != nil || len(id) != 36 {
 		return view, safety.ErrInvalid
 	}
@@ -241,7 +243,7 @@ func authorizeFrozenVoiceRead(r *http.Request, store *safety.Store, control *voi
 	if err != nil {
 		return view, err
 	}
-	for _, scope := range []struct{ kind, resource string }{{"pool", room.PoolID}, {"voice", room.ID}} {
+	for _, scope := range []struct{ kind, resource string }{{poolResource, room.PoolID}, {"voice", room.ID}} {
 		decision := store.Check(r.Context(), p.Wallet, scope.kind, scope.resource)
 		if decision == safety.Unavailable {
 			return view, safety.ErrUnavailable
@@ -255,7 +257,7 @@ func authorizeFrozenVoiceRead(r *http.Request, store *safety.Store, control *voi
 		return view, safety.ErrUnavailable
 	}
 	var created v2.VoiceCreateBody
-	if v2.ValidateJSON("VoiceCreateBody", metadata) != nil || json.Unmarshal(metadata, &created) != nil || created.ScopeType != "pool" || created.ScopeId != room.PoolID {
+	if v2.ValidateJSON("VoiceCreateBody", metadata) != nil || json.Unmarshal(metadata, &created) != nil || created.ScopeType != poolResource || created.ScopeId != room.PoolID {
 		return view, safety.ErrUnavailable
 	}
 	var participant bool
@@ -291,7 +293,7 @@ func RegisterSafetyRoutes(router chi.Router, store *safety.Store, control *voice
 	})
 	router.Get("/v2/safety/cases", func(w http.ResponseWriter, r *http.Request) {
 		limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-		v, e := store.ListCases(r.Context(), r.URL.Query().Get("state"), r.URL.Query().Get("after"), limit)
+		v, e := store.ListCases(r.Context(), r.URL.Query().Get(stateField), r.URL.Query().Get("after"), limit)
 		result(w, v, e)
 	})
 	router.Patch("/v2/safety/cases/{caseId}", func(w http.ResponseWriter, r *http.Request) {
@@ -305,7 +307,7 @@ func RegisterSafetyRoutes(router chi.Router, store *safety.Store, control *voice
 			return
 		}
 		v, e := store.Transition(r.Context(), chi.URLParam(r, "caseId"), body.ExpectedRevision, body.Status, body.Reason, body.PolicyVersion)
-		result(w, map[string]int64{"revision": v}, e)
+		result(w, map[string]int64{revisionField: v}, e)
 	})
 	router.Post("/v2/safety/cases/{caseId}/bans", func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
@@ -438,7 +440,7 @@ func RegisterSafetyRoutes(router chi.Router, store *safety.Store, control *voice
 			return
 		}
 		w.WriteHeader(http.StatusCreated)
-		_, _ = w.Write(raw)
+		_, _ = w.Write(raw) //nolint:gosec // The voice adapter marshals and validates this JSON envelope.
 	})
 	router.Get("/v2/voice-rooms/{roomId}", func(w http.ResponseWriter, r *http.Request) {
 		view, e := authorizeFrozenVoiceRead(r, store, control)
@@ -465,10 +467,10 @@ func RegisterSafetyRoutes(router chi.Router, store *safety.Store, control *voice
 			return
 		}
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write(raw)
+		_, _ = w.Write(raw) //nolint:gosec // The voice adapter marshals and validates this JSON envelope.
 	})
 	voiceRoomID := func(w http.ResponseWriter, r *http.Request) (string, bool) {
-		id := chi.URLParam(r, "roomId")
+		id := chi.URLParam(r, roomIDField)
 		if _, e := uuid.Parse(id); e != nil || len(id) != 36 {
 			writeV2VoiceError(w, r, safety.ErrInvalid)
 			return "", false
@@ -513,7 +515,7 @@ func RegisterSafetyRoutes(router chi.Router, store *safety.Store, control *voice
 			return
 		}
 		var created v2.VoiceCreateBody
-		if v2.ValidateJSON("VoiceCreateBody", metadata) != nil || json.Unmarshal(metadata, &created) != nil || created.ScopeType != "pool" || created.ScopeId != room.PoolID {
+		if v2.ValidateJSON("VoiceCreateBody", metadata) != nil || json.Unmarshal(metadata, &created) != nil || created.ScopeType != poolResource || created.ScopeId != room.PoolID {
 			writeV2VoiceError(w, r, safety.ErrUnavailable)
 			return
 		}
@@ -536,7 +538,7 @@ func RegisterSafetyRoutes(router chi.Router, store *safety.Store, control *voice
 			writeV2VoiceError(w, r, e)
 			return
 		}
-		_, _ = w.Write(raw)
+		_, _ = w.Write(raw) //nolint:gosec // The voice adapter marshals and validates this JSON envelope.
 	})
 	router.Post("/v2/voice-rooms/{roomId}:leave", func(w http.ResponseWriter, r *http.Request) {
 		var body v2.VoiceLeaveBody
@@ -567,7 +569,7 @@ func RegisterSafetyRoutes(router chi.Router, store *safety.Store, control *voice
 			writeV2VoiceError(w, r, e)
 			return
 		}
-		_, _ = w.Write(raw)
+		_, _ = w.Write(raw) //nolint:gosec // The voice adapter marshals and validates this JSON envelope.
 	})
 	router.Post("/v2/voice-rooms/{roomId}/tickets", func(w http.ResponseWriter, r *http.Request) {
 		var body v2.VoiceJoinTicketBody
@@ -602,7 +604,7 @@ func RegisterSafetyRoutes(router chi.Router, store *safety.Store, control *voice
 			writeV2VoiceError(w, r, e)
 			return
 		}
-		_, _ = w.Write(raw)
+		_, _ = w.Write(raw) //nolint:gosec // The voice adapter marshals and validates this JSON envelope.
 	})
 	router.Post("/v2/voice-rooms/{roomId}/moderation-actions", func(w http.ResponseWriter, r *http.Request) {
 		var body v2.VoiceModerateBody
@@ -650,13 +652,13 @@ func RegisterSafetyRoutes(router chi.Router, store *safety.Store, control *voice
 				result(w, nil, e)
 				return
 			}
-			participants = append(participants, map[string]any{"wallet": wallet, "role": role, "muted": muted, "revision": revision})
+			participants = append(participants, map[string]any{"wallet": wallet, "role": role, "muted": muted, revisionField: revision})
 		}
 		if e = rows.Err(); e != nil {
 			result(w, nil, e)
 			return
 		}
-		result(w, map[string]any{"roomId": room.ID, "state": room.APIState(), "revision": room.Revision, "recording": record, "participants": participants}, nil)
+		result(w, map[string]any{roomIDField: room.ID, stateField: room.APIState(), revisionField: room.Revision, "recording": record, "participants": participants}, nil)
 	})
 	if control == nil {
 		return
@@ -669,7 +671,7 @@ func RegisterSafetyRoutes(router chi.Router, store *safety.Store, control *voice
 			return
 		}
 		v, e := control.Create(r.Context(), body.PoolID)
-		result(w, map[string]any{"roomId": v.ID, "state": v.APIState(), "revision": v.Revision}, e)
+		result(w, map[string]any{roomIDField: v.ID, stateField: v.APIState(), revisionField: v.Revision}, e)
 	})
 	router.Post("/v2/voice-rooms/{roomId}/start", func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
@@ -678,8 +680,8 @@ func RegisterSafetyRoutes(router chi.Router, store *safety.Store, control *voice
 		if !decodeModeration(w, r, &body) {
 			return
 		}
-		v, e := control.Start(r.Context(), chi.URLParam(r, "roomId"), body.ExpectedRevision)
-		result(w, map[string]any{"roomId": v.ID, "state": v.APIState(), "revision": v.Revision}, e)
+		v, e := control.Start(r.Context(), chi.URLParam(r, roomIDField), body.ExpectedRevision)
+		result(w, map[string]any{roomIDField: v.ID, stateField: v.APIState(), revisionField: v.Revision}, e)
 	})
 	router.Post("/v2/voice-rooms/{roomId}/end", func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
@@ -688,8 +690,8 @@ func RegisterSafetyRoutes(router chi.Router, store *safety.Store, control *voice
 		if !decodeModeration(w, r, &body) {
 			return
 		}
-		v, e := control.End(r.Context(), chi.URLParam(r, "roomId"), body.ExpectedRevision)
-		result(w, map[string]any{"roomId": v.ID, "state": v.APIState(), "revision": v.Revision}, e)
+		v, e := control.End(r.Context(), chi.URLParam(r, roomIDField), body.ExpectedRevision)
+		result(w, map[string]any{roomIDField: v.ID, stateField: v.APIState(), revisionField: v.Revision}, e)
 	})
 	router.Post("/v3/voice-rooms/{roomId}/moderation-actions", func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
@@ -701,7 +703,7 @@ func RegisterSafetyRoutes(router chi.Router, store *safety.Store, control *voice
 		if !decodeModeration(w, r, &body) {
 			return
 		}
-		id := chi.URLParam(r, "roomId")
+		id := chi.URLParam(r, roomIDField)
 		if body.Action != "mute" && body.Action != "eject" && body.Action != "ban" || !safety.Bounded(body.Reason, 1000) {
 			result(w, nil, safety.ErrInvalid)
 			return
@@ -726,7 +728,7 @@ func RegisterSafetyRoutes(router chi.Router, store *safety.Store, control *voice
 			result(w, nil, safety.ErrUnavailable)
 			return
 		}
-		id := chi.URLParam(r, "roomId")
+		id := chi.URLParam(r, roomIDField)
 		if e := control.JoinWithConsent(r.Context(), id, body.Consent); e != nil {
 			result(w, nil, e)
 			return
@@ -735,23 +737,27 @@ func RegisterSafetyRoutes(router chi.Router, store *safety.Store, control *voice
 		result(w, map[string]any{"ticket": ticket, "providerEndpoint": "wss://" + strings.TrimPrefix(provider.Endpoint, "https://"), "expiresAt": time.Now().UTC().Add(time.Minute)}, e)
 	})
 	router.Get("/v2/voice-rooms/{roomId}/recording", func(w http.ResponseWriter, r *http.Request) {
-		v, e := control.Recording(r.Context(), chi.URLParam(r, "roomId"))
+		v, e := control.Recording(r.Context(), chi.URLParam(r, roomIDField))
 		result(w, v, e)
 	})
 	router.Get("/v2/voice-rooms/{roomId}/recording/object", func(w http.ResponseWriter, r *http.Request) {
-		object, e := control.OpenRecording(r.Context(), chi.URLParam(r, "roomId"))
+		object, e := control.OpenRecording(r.Context(), chi.URLParam(r, roomIDField))
 		if e != nil {
 			result(w, nil, e)
 			return
 		}
-		defer object.Body.Close()
+		defer func() {
+			if err := object.Body.Close(); err != nil {
+				slog.Error("social object body close failed", "error", err)
+			}
+		}()
 		w.Header().Set("Content-Type", "audio/ogg")
 		w.Header().Set("Cache-Control", "private, no-store")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		_, _ = io.Copy(w, object.Body)
 	})
 	router.Post("/v2/voice-rooms/{roomId}/recording", func(w http.ResponseWriter, r *http.Request) {
-		v, e := control.RequestRecording(r.Context(), chi.URLParam(r, "roomId"))
+		v, e := control.RequestRecording(r.Context(), chi.URLParam(r, roomIDField))
 		result(w, v, e)
 	})
 	router.Post("/v2/voice-rooms/{roomId}/recording/consent", func(w http.ResponseWriter, r *http.Request) {
@@ -763,7 +769,7 @@ func RegisterSafetyRoutes(router chi.Router, store *safety.Store, control *voice
 		if !decodeModeration(w, r, &body) {
 			return
 		}
-		result(w, map[string]bool{"ok": true}, control.Consent(r.Context(), chi.URLParam(r, "roomId"), body.RecordingID, body.ExpectedRevision, body.Agree))
+		result(w, map[string]bool{"ok": true}, control.Consent(r.Context(), chi.URLParam(r, roomIDField), body.RecordingID, body.ExpectedRevision, body.Agree))
 	})
 	router.Post("/v2/voice-rooms/{roomId}/recording/start", func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
@@ -772,7 +778,7 @@ func RegisterSafetyRoutes(router chi.Router, store *safety.Store, control *voice
 		if !decodeModeration(w, r, &body) {
 			return
 		}
-		v, e := control.StartConsentedRecording(r.Context(), chi.URLParam(r, "roomId"), body.ExpectedRevision)
+		v, e := control.StartConsentedRecording(r.Context(), chi.URLParam(r, roomIDField), body.ExpectedRevision)
 		result(w, v, e)
 	})
 	router.Post("/v2/voice-rooms/{roomId}/recording/stop", func(w http.ResponseWriter, r *http.Request) {
@@ -782,7 +788,7 @@ func RegisterSafetyRoutes(router chi.Router, store *safety.Store, control *voice
 		if !decodeModeration(w, r, &body) {
 			return
 		}
-		v, e := control.StopConsentedRecording(r.Context(), chi.URLParam(r, "roomId"), body.ExpectedRevision)
+		v, e := control.StopConsentedRecording(r.Context(), chi.URLParam(r, roomIDField), body.ExpectedRevision)
 		result(w, v, e)
 	})
 	router.Post("/v2/voice-rooms/{roomId}/speaker-requests", func(w http.ResponseWriter, r *http.Request) {
@@ -792,7 +798,7 @@ func RegisterSafetyRoutes(router chi.Router, store *safety.Store, control *voice
 		if !decodeModeration(w, r, &body) {
 			return
 		}
-		result(w, map[string]bool{"ok": true}, control.RequestSpeaker(r.Context(), chi.URLParam(r, "roomId"), body.ExpectedRevision))
+		result(w, map[string]bool{"ok": true}, control.RequestSpeaker(r.Context(), chi.URLParam(r, roomIDField), body.ExpectedRevision))
 	})
 	router.Post("/v2/voice-rooms/{roomId}/speakers", func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
@@ -802,10 +808,10 @@ func RegisterSafetyRoutes(router chi.Router, store *safety.Store, control *voice
 		if !decodeModeration(w, r, &body) {
 			return
 		}
-		result(w, map[string]bool{"ok": true}, control.ApproveSpeaker(r.Context(), chi.URLParam(r, "roomId"), body.Wallet, body.ExpectedRevision))
+		result(w, map[string]bool{"ok": true}, control.ApproveSpeaker(r.Context(), chi.URLParam(r, roomIDField), body.Wallet, body.ExpectedRevision))
 	})
 	router.Post("/v2/voice-rooms/{roomId}/leave", func(w http.ResponseWriter, r *http.Request) {
-		result(w, map[string]bool{"ok": true}, control.Leave(r.Context(), chi.URLParam(r, "roomId")))
+		result(w, map[string]bool{"ok": true}, control.Leave(r.Context(), chi.URLParam(r, roomIDField)))
 	})
 }
 

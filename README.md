@@ -1,3 +1,5 @@
+# Paxeer X Network
+
 <div align="center">
 
 <img alt="Paxeer X Network" src="https://shieldcn.dev/header/transparent.svg?title=Paxeer+X+Network&subtitle=Distributed+HyperState+Machine+for+payments%2C+code+execution+and+intent+routing&logo=https%3A%2F%2Fwww.paxeer.network%2Fpaxeer.x_darkmode_white.png&mode=dark&image=https%3A%2F%2Fwww.sidioralabs.com%2Fmedia%2Floops%2Fsphere-field.jpg">
@@ -46,7 +48,7 @@ The node integrates the following components:
 - **Node and consensus.** `paxd` is built from [`daemon/paxd`](daemon/paxd/), with the application in [`node/`](node/), BFT consensus in [`consensus/`](consensus/), state machine modules in [`modules/`](modules/) and JSON-RPC servers in [`rpc/`](rpc/).
 - **Kernel and programs.** The C17 kernel in `src/` and `include/` runs inside `paxd` through [`modules/lxphost`](modules/lxphost/). The node links `build/liblayerx.a` and the programs sandbox from [`programs/`](programs/). [`node/sequencer`](node/sequencer/) supplies execution ordering and the consensus block source within the node.
 
-A receipt is final once its block is committed. A signed execution receipt can arrive before that commitment; [`pax_sequencerReceipt`](rpc/sequencer_receipt.go) distinguishes `submitted`, `receipted` and `committed`. See [committed block evidence](docs/site/docs/concepts/checkpoints.md) for verification. There is no separate kernel daemon, sequencer service or checkpoint deployment. External checkpoint settlement is retired.
+A receipt is final once its block is committed. A signed execution receipt can arrive before that commitment; [`pax_sequencerReceipt`](rpc/sequencer_receipt.go) distinguishes `submitted`, `receipted` and `committed`. See [committed block evidence](docs/site/paxeer-docs/src/app/checkpoints/page.tsx) for verification. There is no separate kernel daemon, sequencer service or checkpoint deployment. External checkpoint settlement is retired.
 
 Sub-chains are tenant domains stored in the database, managed by [`modules/layerxchains`](modules/layerxchains/). Creating a domain namespaces state within the shared network and does not require new node infrastructure.
 
@@ -72,29 +74,29 @@ flowchart LR
     State -->|Transaction receipts, logs and proofs| Client
 ```
 
-The public API reaches the node directly at the root path on EVM chain ID 125: there is no router and no separate LayerX interface. The hosted gateway is optional developer tooling with its own declared contract; it is outside consensus and does not provide another execution or finality domain. The archive node `api2.mainnet-beta.paxeer.network` keeps full history; the other thirteen numbered public nodes prune. On a pruned node, `pax_sequencerReceipt` and state queries for heights outside that node's retention return JSON-RPC error `-32000`; this is expected retention behavior, not a defect. Send historical receipt and state queries to `https://api2.mainnet-beta.paxeer.network` at the root path. A configured standby follows the integrated node's durable WAL for recovery; restart and recovery belong to the node lifecycle, without an external settlement service. See the [sequencing implementation](node/sequencer/) and [consensus block source](node/sequencer/consensus_source.go).
+The public API reaches the node directly at the root path on EVM chain ID 125. The hosted gateway is optional developer tooling with its own declared contract; it operates outside consensus. Historical queries require a node that retains the requested state and receipts. A configured standby follows the integrated node's durable WAL for recovery. See the [sequencing implementation](node/sequencer/) and [consensus block source](node/sequencer/consensus_source.go).
 
 ## Documentation
 
 - To build on Paxeer X Network, start with the [Paxeer documentation](https://docs.paxeer.app/) and the [developer wiki](docs/wiki/Home.md).
-- To connect to the chain, see the [public JSON-RPC endpoints](docs/site/docs/reference/public-rpc.md) and [beta endpoint checklist](docs/wiki/Getting-Started-Beta.md).
+- To connect to the chain, see the [public JSON-RPC endpoints](docs/site/paxeer-docs/src/app/public-rpc/page.tsx) and [beta endpoint checklist](docs/wiki/Getting-Started-Beta.md).
 - For wallets, funding and payments, follow the [Payments Quickstart](docs/wiki/PaymentsQuickstart.md).
 - For hosted tooling and disposable integration environments, see the [hosted quickstart](docs/wiki/Quickstart.md). Build the merged node using the [commands below](#build).
-- For protocol references, see [assets](docs/wiki/Assets.md), [committed block evidence](docs/site/docs/concepts/checkpoints.md) and [hosted gateway methods](docs/site/docs/platform/gateway-rpc.md). Hosted payment examples are in the [payment API guide](docs/wiki/PublicAPI.md).
+- For protocol references, see [assets](docs/wiki/Assets.md), [committed block evidence](docs/site/paxeer-docs/src/app/checkpoints/page.tsx) and [hosted gateway methods](docs/site/paxeer-docs/src/app/platform-api/page.tsx). Hosted payment examples are in the [payment API guide](docs/wiki/PublicAPI.md).
 - Component guides include the [launchpad production checklist](docs/launchpad/production-checklist.md), [perps data API](docs/perps/data-api.md), [agent compatibility matrix](docs/agent/COMPATIBILITY.md) and [portable verification guide](docs/interop/PORTABILITY.md).
 
 ### Quick start: connect to chain 125
 
-Public node JSON-RPC uses the root URL: `https://api-mainnet-beta.paxeer.network` or the numbered nodes `https://api1.mainnet-beta.paxeer.network` through `https://api14.mainnet-beta.paxeer.network`. Send HTTPS JSON-RPC requests to the root path of these hosts, without a route suffix. Node API families include `debug`, `echo`, `eth`, `net`, `pax`, `px` and `txpool`; `test` is restricted to non-live chain IDs. The [node registrations](rpc/server.go) also include `web3`, `pax2` and native `px_` account/history and receipt-key methods. Method availability depends on node configuration and the queried domain. Confirm the chain ID before signing or broadcasting:
+Set `PAXEER_RPC_URL` to a node root URL from the [public RPC reference](docs/site/paxeer-docs/src/app/public-rpc/page.tsx). Send HTTPS JSON-RPC requests to the root path without a route suffix. Node API families include `debug`, `echo`, `eth`, `net`, `pax`, `px` and `txpool`; `test` is restricted to non-live chain IDs. The [node registrations](rpc/server.go) also include `web3`, `pax2` and native `px_` account/history and receipt-key methods. Method availability depends on node configuration and the queried domain. Confirm the chain ID before signing or broadcasting:
 
 ```sh
-curl --max-time 10 -sS https://api1.mainnet-beta.paxeer.network \
+curl --max-time 10 -sS "$PAXEER_RPC_URL" \
   -H 'Content-Type: application/json' \
   -d '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'
 # Expected result: "0x7d"
 ```
 
-Configure more than one node and compare `eth_blockNumber` when selecting one near the head. `node.hyperpaxeer.com` is only the hpx library mirror used by build and installation tooling, never a JSON-RPC endpoint.
+Configure more than one node and compare `eth_blockNumber` when selecting one near the head.
 
 The node answers the `px` namespace from node state. The hosted gateway's `px_` API is defined by [`services/platform/hosted/gateway/openrpc.json`](services/platform/hosted/gateway/openrpc.json). Obtain its deployment URL and credentials from the operator; the gateway contract does not establish method availability at public node URLs. `px_getReceiptKeys` is registered by the node, and the gateway relays its governed key ranges. `px_register` and `px_requestFunds` are operations of the hosted identity and faucet services: the node validates their parameters and answers `-32004` with data code `hosted_gateway_service_required`. Mainnet-beta uses real value; hosted funding and private test-environment faucets have their own access policies.
 
@@ -134,7 +136,7 @@ An EVM address uses a secp256k1 key; a LayerX DID is `did:layerx:<64 lowercase h
 "LX:PAXEER-BIND:v1" || chainId:uint256be || evmAddress:20 || nonce:uint64be
 ```
 
-The EVM transaction supplies the address owner's consent; the 64-byte Ed25519 signature supplies the DID's consent. After commit, confirm the binding with `getLayerXDid(address)` and `getUnifiedAccount(address)`. Binding does not fund an account. The [one-account guide](docs/site/docs/concepts/one-account.md) retains mnemonic derivation, external-wallet EIP-712/HKDF-SHA256 derivation and recovery details; preserve the original derivation context when recovering an identity.
+The EVM transaction supplies the address owner's consent; the 64-byte Ed25519 signature supplies the DID's consent. After commit, confirm the binding with `getLayerXDid(address)` and `getUnifiedAccount(address)`. Binding does not fund an account. The [one-account guide](docs/site/paxeer-docs/src/app/accounts/page.tsx) retains mnemonic derivation, external-wallet EIP-712/HKDF-SHA256 derivation and recovery details; preserve the original derivation context when recovering an identity.
 
 Native sub-accounts map to derived bank addresses inside the node; see [`modules/lxphost/accountmap.go`](modules/lxphost/accountmap.go). For each registered Asset, the bound owner opens a per-asset account at the [`layerxledger` precompile](precompiles/layerxledger/abi.json), `0x101A`. Its funding and balance calls are:
 
@@ -152,7 +154,7 @@ Account ID derivation alone does not open or fund an account. Submit ledger writ
 
 The node produces signed ProtocolReceipt v2 bytes through [`node/sequencer/receipt.go`](node/sequencer/receipt.go). Its [Ed25519 receipt key](node/sequencer/receiptkey.go) is separate from the validator consensus key and must be pinned for the receipt height. Verify canonical receipt bytes and their signature using [`layerxproof/verify/receipt.go`](layerxproof/verify/receipt.go); a public key supplied beside an untrusted receipt does not establish trust. A valid signature proves execution evidence, while the `committed` rung requires coverage by the committed block's `MsgSequenceBatch`.
 
-For independent committed proofs, authenticate the block header and CometBFT commit against trusted validator information, then verify transaction or state inclusion against the authenticated root at the relevant height and key. The [chain proof verifier](programs/crates/layerx-programs-registry/src/chain_proof/) implements those checks. Neither a transaction hash nor a signed execution receipt alone establishes block commitment; the [committed block evidence guide](docs/site/docs/concepts/checkpoints.md) explains the current proof model.
+For independent committed proofs, authenticate the block header and CometBFT commit against trusted validator information, then verify transaction or state inclusion against the authenticated root at the relevant height and key. The [chain proof verifier](programs/crates/layerx-programs-registry/src/chain_proof/) implements those checks. Neither a transaction hash nor a signed execution receipt alone establishes block commitment; the [committed block evidence guide](docs/site/paxeer-docs/src/app/checkpoints/page.tsx) explains the current proof model.
 
 ### Client SDKs
 
@@ -202,7 +204,7 @@ The `v6.12.0` set built by `v6120Contracts` in [`node/app.go`](node/app.go) serv
 
 The pre-merge `layerxVerify` (`0x1012`) and `layerxCustody` (`0x1013`) interfaces are retired at the merge. `layerxAnchor` (`0x1014`) rejects writes after the merge; its remaining historical views retire at `v7.0-anchor-store-delete`. See the retirement gates in [`precompiles/layerxverify`](precompiles/layerxverify/), [`precompiles/layerxcustody`](precompiles/layerxcustody/) and [`precompiles/layerxanchor`](precompiles/layerxanchor/). These are retired refusal surfaces retained for compatibility, not active funding or checkpoint executors. They return retirement errors (including `LXP_MODULE_DISABLED`) at their applicable upgrade gates. Historical anchor reads before store deletion are archive-only; they do not provide current funding or finality paths. The external native bridge at `0x1016` remains distinct from retired kernel custody: outward transfers use its native `bridgeOut` interface.
 
-The retained [batch-header codec](layerxproof/codec/batch.go) and [archived settlement witness formats](docs/site/docs/operators/settlement-evidence.md) support historical interpretation. External checkpoint registration, guarantor attestations and the L0–L4 settlement ladder are retired; archived formats add no settlement step to current block finality.
+The retained [batch-header codec](layerxproof/codec/batch.go) and [archived settlement witness formats](docs/site/paxeer-docs/src/app/proofs/page.tsx) support historical interpretation. External checkpoint registration, guarantor attestations and the L0–L4 settlement ladder are retired; archived formats add no settlement step to current block finality.
 
 ## Community
 
@@ -240,7 +242,7 @@ Please follow [SECURITY.md](SECURITY.md) to report vulnerabilities privately. **
 | `spec/` | Feature specifications and the kvx workflow |
 | `scripts/` | CI, qualification, release and workspace scripts |
 
-The node and kernel source trees currently remain at the root: `src`, `include`, `cmd` and `migrations` (kernel sources and tools), `modules`, `precompiles`, `engine`, `consensus`, `node`, `rpc`, `storage`, `wasm`, `wasm-runtime`, `daemon`, `admin`, `custodyproof`, `layerxproof`, `utils`, `interchain`, the framework fork in `sdk`, and `programs`. Source directory names describe code organization, not separate network deployments. [The complete root layout table](docs/MONOREPO.md#root-layout) documents every tracked top-level entry and its configuration; planned destinations under `core/` and `sdk/programs` are specified in [`spec/monorepo-layout/spec.kvx`](spec/monorepo-layout/spec.kvx).
+The node and kernel source trees are at the root: `src`, `include`, `cmd` and `migrations` (kernel sources and tools), `modules`, `precompiles`, `engine`, `consensus`, `node`, `rpc`, `storage`, `wasm`, `wasm-runtime`, `daemon`, `admin`, `custodyproof`, `layerxproof`, `utils`, `interchain`, the framework fork in `sdk`, and `programs`. Source directory names describe code organization, not separate network deployments. [The complete root layout table](docs/MONOREPO.md#root-layout) documents every tracked top-level entry and its configuration.
 
 ## Development and Release Process
 
@@ -258,7 +260,7 @@ Build the merged node from the repository root:
 make paxd-build        # build/paxd, linked native libraries and release version stamp
 ```
 
-`paxd-build` builds `build/liblayerx.a` and `programs/target/release/liblayerx_programs_sandbox.a` before invoking `chain.mk`. It stamps the version from [`tools/release/version.json`](tools/release/version.json). `make paxeer-build` and `make -f chain.mk build` also build the linked native prerequisites and produce `build/paxd`, using the chain makefile's version defaults.
+`paxd-build` builds `build/liblayerx.a` and `programs/target/release/liblayerx_programs_sandbox.a` before invoking `chain.mk`. It stamps the version from [`tools/release/version.json`](tools/release/version.json) and sets `GOPROXY=off`, so the required Go modules must already be available locally. `make paxeer-build` and `make -f chain.mk build` also build the linked native prerequisites and produce `build/paxd`, using the chain makefile's version defaults.
 
 For a checksummed operator package, use `tools/release/build-paxd.sh` with the pinned toolchains.
 It packages the merged `paxd`, the price sidecar and the required shared libraries; the kernel and
@@ -315,7 +317,7 @@ make monorepo-ci           # every workspace: build, test and lint
 
 See [CHANGELOG.md](CHANGELOG.md) for release notes. Network upgrades determine which native interfaces are active; refer to the precompile registrations and upgrade definitions when working with version-dependent functionality.
 
-The merged runtime executes kernel activity inside `paxd` and commits it with the BFT chain state. The `v7.0` merge handler activates the merged interfaces and retires the old custody/checkpoint write paths; `v7.0-anchor-store-delete` removes the historical anchor store. Consult the code and the network's recorded upgrade height when interpreting historical blocks. Planned directory moves under `core/` change source organization, not this runtime model.
+The merged runtime executes kernel activity inside `paxd` and commits it with the BFT chain state. The `v7.0` merge handler activates the merged interfaces and retires the old custody/checkpoint write paths; `v7.0-anchor-store-delete` removes the historical anchor store. Consult the code and the network's recorded upgrade height when interpreting historical blocks. Source directories organize the components of this shared runtime.
 
 ## Downloading and Shallow-Cloning the Monorepo
 

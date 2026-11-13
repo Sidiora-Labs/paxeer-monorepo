@@ -1,110 +1,68 @@
 # Attestor backup restore
 
-Each attestor keeps its encrypted share store and audit log on its volume
-`attestor_data`, mounted at `/data` (`ATTESTOR_DATA_DIR`). Every share in the
-store is encrypted under the node key (`ATTESTOR_NODE_KEY`) with the key id,
-curve, public key, refresh epoch and participant set as associated data. A
-backup of a node is useful only together with that same node key, and only
-while its shares are on the current refresh epoch of their keys.
+The attestor stores encrypted shares and its audit log under `ATTESTOR_DATA_DIR`.
+`ATTESTOR_NODE_KEY_FILE` supplies the node key. Share encryption binds the key ID,
+curve, public key, epoch and participants as associated data.
 
-Two backup layers exist:
+The [snapshot writer](../../../../services/wallet/attestor/internal/backup/writer.go)
+writes encrypted snapshots when `ATTESTOR_BACKUP_DIR` and
+`ATTESTOR_BACKUP_KEY_FILE` are configured. `ATTESTOR_SNAPSHOT_INTERVAL` defaults
+to `1h`; `ATTESTOR_SNAPSHOT_RETAIN` defaults to `48`. The deployment examples
+select `15m` and `96`. Key operations also request snapshots.
 
-- Platform volume snapshots of `attestor_data`, listed and restored with
-  `flyctl volumes snapshots` and `flyctl volumes create --snapshot-id`.
-- Encrypted store snapshots, the `store.Snapshot` format of
-  `services/wallet/attestor/internal/store/backup.go`, encrypted under the backup
-  key (`ATTESTOR_BACKUP_KEY`) and restored by `store.Restore` into an empty
-  data directory. The daemon does not write them yet and no command restores
-  them; shipping them to the replica server (`ATTESTOR_REPLICA_` variables
-  in `services/wallet/deploy/env`) still needs implementation. Until a writer
-  and a restore command exist, the volume snapshot is the restore path.
+## Select a snapshot
 
-## Trigger
+Stop the affected node before restoring its data. Preserve its existing data
+separately. Use a snapshot for the same node ID with its original node key and
+backup key. Obtain the expected SHA-256 digest from the retained snapshot
+metadata, separately from the file being restored.
 
-- A node's volume is corrupted or destroyed while its node key secret is
-  intact, and restoring it is quicker than re-issuing every key.
-- The daemon exits on start with a store error in `flyctl logs`.
+Compare the snapshot's key epochs and participant sets with the current signed
+inventory and surviving holders. Shares from an earlier refresh epoch do not
+combine with current shares. If the original node key is unavailable, untrusted,
+or the snapshot is stale, use [node replacement](node-replacement.md).
 
-## Preconditions
+## Restore into an empty directory
 
-- The node key secret `ATTESTOR_NODE_KEY` of the application is unchanged.
-  When it is lost or suspected, a restore is useless or unsafe; use
-  `node-replacement.md` Case B instead.
-- No refresh of any key has completed since the snapshot was taken. A restored
-  share from an older epoch no longer combines with its peers; if the last
-  refresh in the operator's change record, with its command, exit code and log
-  path, is newer than the snapshot, use `node-replacement.md` Case B instead.
-- At least three other nodes answer ready (`scripts/wallet/check-live.sh attestors`).
-- The operator shell of `node-replacement.md`, and the node's region, the
-  `primary_region` of `services/wallet/deploy/attestor-<N>.toml`.
-
-## Commands
-
-1. Find the volume and its snapshots.
-
-   ```sh
-   flyctl volumes list --app paxeer-attestor-<N>
-   flyctl volumes snapshots list <volume-id>
-   ```
-
-   Expected: the `attestor_data` volume id, then its snapshots with id, size
-   and creation time. Pick the newest snapshot `<snapshot-id>` older than the
-   damage and newer than the last refresh.
-
-2. Keep the damaged volume as evidence, then stop and remove the machine and
-   the damaged volume so the deployment attaches only the restored one.
-
-   ```sh
-   flyctl volumes snapshots create <volume-id>
-   flyctl machine list --app paxeer-attestor-<N>
-   flyctl machine destroy <machine-id> --force --app paxeer-attestor-<N>
-   flyctl volumes destroy <volume-id> --app paxeer-attestor-<N> --yes
-   ```
-
-   Expected: a new snapshot id `<evidence-snapshot-id>` is printed, then the
-   machine and the volume are reported destroyed.
-
-3. Create the restored volume in the node's region.
-
-   ```sh
-   flyctl volumes create attestor_data --snapshot-id <snapshot-id> --region <region> --size 10 --app paxeer-attestor-<N> --yes
-   ```
-
-   Expected: a new volume id in state `created`, `attestor_data`, 10 GB.
-
-4. Deploy the node from its definition with the running image and no public
-   address.
-
-   ```sh
-   flyctl image show --app paxeer-attestor-<M>
-   (cd services/wallet/deploy && flyctl deploy --config attestor-<N>.toml --image <attestor-image> --app paxeer-attestor-<N> --ha=false --no-public-ips -y)
-   ```
-
-   Expected: one machine created on the restored volume, passing its tcp
-   checks; `flyctl logs --app paxeer-attestor-<N> --no-tail` shows the daemon
-   listening on its API and peer ports.
-
-5. Prove the restored shares combine with their peers: refresh one key that
-   every node holds, the network's test key `<test-key-id>`, across all five
-   nodes as in `refresh-cadence.md` step 3.
-
-   Expected: five key responses with the same `public_key` and the same raised
-   `epoch`. A `session_failed` from the restored node means its shares are
-   stale; continue with `node-replacement.md` Case B.
-
-## Readiness check that proves recovery
+The [attestor executable](../../../../services/wallet/attestor/cmd/attestor/main.go)
+provides the restore command. Load the node's normal runtime configuration,
+including `ATTESTOR_NODE_ID`, `ATTESTOR_NODE_KEY_FILE` and
+`ATTESTOR_BACKUP_KEY_FILE`, then run:
 
 ```sh
-scripts/wallet/check-live.sh attestors
+attestor restore -snapshot "$SNAPSHOT_FILE" -sha256 "$SNAPSHOT_SHA256" \
+  -data-dir "$RESTORE_DATA_DIR"
 ```
 
-The restored node passes with `peers=4/4`, its `shares=` equals its peers'
-count, and the quorum line reads `pass quorum ready=5/5 need=3`. Record the
-revision, the command, its exit code, the log path and the snapshot id used in
-the operator's change record.
+`SNAPSHOT_FILE`, `SNAPSHOT_SHA256` and `RESTORE_DATA_DIR` are operator shell
+variables. The destination must be empty; omitting `-data-dir` selects
+`ATTESTOR_DATA_DIR`. Restore checks the digest and node identity, decrypts the
+snapshot and restores the store and audit data. It appends a restore audit entry.
 
-## Rollback
+Start only one instance of the restored node, with the restored directory
+mounted as its data directory. Check `/health` over authenticated TLS, compare
+key descriptions with surviving holders, and confirm the expected public key,
+owner, participant set and epoch before including it in signing. A signature
+using a quorum that includes the restored node establishes share compatibility.
+See [node replacement](node-replacement.md) for the operator client setup.
 
-Destroy the restored machine and volume, create a volume from
-`<evidence-snapshot-id>` with step 3, and redeploy with step 4 to return the
-node to its state before the restore. The other four nodes sign throughout.
+## Remote copies
+
+The [SFTP replica shipper](../../../../services/wallet/attestor/internal/replica/config.go)
+uses these variables as a complete set:
+
+- `ATTESTOR_REPLICA_ADDR` and `ATTESTOR_REPLICA_USER`.
+- `ATTESTOR_REPLICA_KEY_FILE` and `ATTESTOR_REPLICA_HOST_KEY_FILE`.
+- `ATTESTOR_REPLICA_REMOTE_DIR` and `ATTESTOR_REPLICA_INTERVAL`.
+
+`ATTESTOR_REPLICA_OPERATION_TIMEOUT` defaults to `2m`. The remote directory must
+be an absolute directory below the filesystem root. With shipping configured,
+local snapshot retention waits for the corresponding shipping acknowledgment.
+Keep the node and backup keys separate from snapshot copies.
+
+## Recovery constraints
+
+A restore does not reverse a refresh or change the approved inventory. Keep an
+incompatible restored node out of signing and replace its shares through the
+current participants. Preserve the prior data until the restored node has been
+checked; never start two copies of the same participant.

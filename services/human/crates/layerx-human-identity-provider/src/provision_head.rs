@@ -24,6 +24,14 @@ struct Input {
     maximum_age_seconds: u64,
 }
 
+struct Identity {
+    public: [u8; 32],
+    asset: [u8; 32],
+    account: [u8; 32],
+    main: [u8; 32],
+    owner: [u8; 32],
+}
+
 fn refused() -> io::Error {
     io::Error::new(io::ErrorKind::InvalidData, "account-state head refused")
 }
@@ -82,17 +90,7 @@ fn call(
         .map_err(|_| refused())
 }
 
-/// Reads the current account through the configured authenticated chain endpoint.
-/// `now_ms` must come from the caller's trusted clock, never the request document.
-///
-/// # Errors
-/// Refuses untrusted transport, changed or stale heads, conflicting identities,
-/// retired batch envelopes and any debit history whose limit cannot be recovered.
-pub fn validate_account_head(
-    input: impl Read,
-    mut output: impl Write,
-    now_ms: u64,
-) -> io::Result<()> {
+fn read_identity(input: impl Read) -> io::Result<(Input, Identity)> {
     let mut bytes = Vec::new();
     input.take(MAX_INPUT + 1).read_to_end(&mut bytes)?;
     if bytes.len() as u64 > MAX_INPUT {
@@ -121,6 +119,67 @@ pub fn validate_account_head(
     let main = account_id(&format!("agent:{}:main", input.owner_did))?;
     let did = Did::new(input.owner_did.as_bytes()).map_err(|_| refused())?;
     let owner = layerx_intents::canonical::did_id_for_protocol(&did, 3).map_err(|_| refused())?;
+    Ok((
+        input,
+        Identity {
+            public,
+            asset,
+            account,
+            main,
+            owner,
+        },
+    ))
+}
+
+fn verify_chain_binding(
+    endpoint: &SequencerEndpoint,
+    height: u64,
+    identity: &Identity,
+    address: [u8; 20],
+) -> io::Result<()> {
+    let bound = call(
+        endpoint,
+        height,
+        &ADDR_PRECOMPILE,
+        GET_EVM_ADDR_BY_LAYERX,
+        &identity.public,
+    )?;
+    let identified = call(
+        endpoint,
+        height,
+        &LEDGER,
+        [0x3f, 0x05, 0x0c, 0xbc],
+        &[identity.public, identity.asset].concat(),
+    )?;
+    let holder = call(
+        endpoint,
+        height,
+        &LEDGER,
+        [0x37, 0x95, 0x5a, 0xb2],
+        &identity.account,
+    )?;
+    if bound[..12] != [0; 12]
+        || bound[12..] != address
+        || identified != identity.account
+        || holder != identity.owner
+    {
+        return Err(refused());
+    }
+    Ok(())
+}
+
+/// Reads the current account through the configured authenticated chain endpoint.
+/// `now_ms` must come from the caller's trusted clock, never the request document.
+///
+/// # Errors
+/// Refuses untrusted transport, changed or stale heads, conflicting identities,
+/// retired batch envelopes and any debit history whose limit cannot be recovered.
+pub fn validate_account_head(
+    input: impl Read,
+    mut output: impl Write,
+    now_ms: u64,
+) -> io::Result<()> {
+    let (input, identity) = read_identity(input)?;
     let anchors = input
         .rpc_ca_der_hex
         .iter()
@@ -158,7 +217,7 @@ pub fn validate_account_head(
     if !join.account.bound
         || address == [0; 20]
         || join.account.layerx_did.as_deref() != Some(input.owner_did.as_str())
-        || join.account.layerx_account != Some(main)
+        || join.account.layerx_account != Some(identity.main)
         || join
             .paxeer
             .as_ref()
@@ -166,32 +225,8 @@ pub fn validate_account_head(
     {
         return Err(refused());
     }
-    let bound = call(
-        &endpoint,
-        height,
-        &ADDR_PRECOMPILE,
-        GET_EVM_ADDR_BY_LAYERX,
-        &public,
-    )?;
-    let identified = call(
-        &endpoint,
-        height,
-        &LEDGER,
-        [0x3f, 0x05, 0x0c, 0xbc],
-        &[public, asset].concat(),
-    )?;
-    let holder = call(
-        &endpoint,
-        height,
-        &LEDGER,
-        [0x37, 0x95, 0x5a, 0xb2],
-        &account,
-    )?;
-    if bound[..12] != [0; 12] || bound[12..] != address || identified != account || holder != owner
-    {
-        return Err(refused());
-    }
-    let arguments = [account, asset].concat();
+    verify_chain_binding(&endpoint, height, &identity, address)?;
+    let arguments = [identity.account, identity.asset].concat();
     let balance = call(
         &endpoint,
         height,

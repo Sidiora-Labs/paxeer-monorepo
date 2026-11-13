@@ -82,8 +82,8 @@ func (p publisherFunc) Publish(ctx context.Context, s, id string, b []byte) (Per
 	return p(ctx, s, id, b)
 }
 
-// Missing integration configuration fails instead of qualifying zero tests.
 func TestPostgresDelivery(t *testing.T) {
+	requireDeliveryEnv(t, "DELIVERY_TEST_DSN", "DELIVERY_TEST_SCHEMA")
 	dsn, schema := os.Getenv("DELIVERY_TEST_DSN"), os.Getenv("DELIVERY_TEST_SCHEMA")
 	if dsn == "" || !strings.HasPrefix(schema, "kd_") || !token.MatchString(schema) {
 		t.Fatal("explicit private PostgreSQL DSN and kd_ namespace required")

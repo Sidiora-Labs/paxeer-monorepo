@@ -6,11 +6,12 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/jackc/pgx/v5/pgconn"
 	"net/url"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -226,7 +227,7 @@ func (o PoolOptions) Validate() error {
 	}
 	for _, label := range []string{o.Service, o.Instance, o.PoolID, o.BudgetIdentity, o.DatabaseAlias, o.DatabaseUser} {
 		for _, c := range label {
-			if !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '-' || c == '_') {
+			if (c < 'a' || c > 'z') && (c < 'A' || c > 'Z') && (c < '0' || c > '9') && c != '-' && c != '_' {
 				return fmt.Errorf("db: invalid metric identity")
 			}
 		}
@@ -300,7 +301,18 @@ func WithTransaction(ctx context.Context, pool *pgxpool.Pool, opts PoolOptions, 
 	if err != nil {
 		return err
 	}
-	defer conn.Release()
+	discard := false
+	defer func() {
+		raw := conn.Conn()
+		if discard || raw.IsClosed() || raw.PgConn().IsBusy() || raw.PgConn().TxStatus() != 'I' {
+			raw = conn.Hijack()
+			cleanup, cancel := context.WithTimeout(context.Background(), time.Second)
+			defer cancel()
+			_ = raw.Close(cleanup)
+			return
+		}
+		conn.Release()
+	}()
 	tx, err := conn.BeginTx(ctx, txOpts)
 	if err != nil {
 		return err
@@ -309,8 +321,7 @@ func WithTransaction(ctx context.Context, pool *pgxpool.Pool, opts PoolOptions, 
 		cleanup, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
 		if rollbackErr := tx.Rollback(cleanup); rollbackErr != nil && !errors.Is(rollbackErr, pgx.ErrTxClosed) {
-			raw := conn.Hijack()
-			_ = raw.Close(cleanup)
+			discard = true
 		}
 	}()
 	if opts.Transport == TransportTransactionPooler {

@@ -229,7 +229,7 @@ func TestAuthPrecompileKernelParity(t *testing.T) {
 	for _, name := range []string{"authentication", "fee", "legacy", "replacement"} {
 		t.Run(name, func(t *testing.T) {
 			if name == "replacement" {
-				repairM1503SuccessorParity(t)
+				assertChargedSessionSuccessorParity(t)
 				return
 			}
 			f := readNativeSessionFixture(t, name)
@@ -263,14 +263,14 @@ func TestAuthPrecompileKernelParity(t *testing.T) {
 	}
 }
 
-func repairM1503SuccessorParity(t *testing.T) {
+func assertChargedSessionSuccessorParity(t *testing.T) {
 	t.Helper()
 	f := newGrantFixture(t)
-	payload, fee := repairM1503FeesAndProgram(t, f)
+	payload, fee := setupGovernedFeesAndProgram(t, f)
 	evm, db := f.evm()
-	predecessorBody := repairM1503Body(f, f.key, 41, fee)
+	predecessorBody := feeSessionSuccessorBody(f, f.key, 41, fee)
 	predecessorID := grantCall(t, f, evm, "grantSession", predecessorBody, uint64(100), [32]byte{0x33})[0].([32]byte)
-	charged := repairM1503Charge(t, f, db.Ctx(), predecessorID, payload, fee)
+	charged := chargeSessionFee(t, f, db.Ctx(), predecessorID, payload, fee)
 	require.Equal(t, sdk.NewIntFromUint64(fee), charged.FeeBudget.SpentTotal)
 	require.Equal(t, charged.FeeBudget.SpentTotal, charged.FeeBudget.SpentThisPeriod)
 	sequence, err := lxphost.NextSequence(db.Ctx(), f.hostKey)
@@ -283,15 +283,15 @@ func repairM1503SuccessorParity(t *testing.T) {
 	require.True(t, predecessor.Revoked)
 	require.Equal(t, charged.FeeBudget, predecessor.FeeBudget)
 	require.Equal(t, revoked.GlobalSequence, predecessor.RevokedAtSequence)
-	commitment := repairM1503Commitment(predecessor)
-	repairM1503Reopen(t, f, db.Ctx())
+	commitment := sessionReplacementCommitment(predecessor)
+	reopenGrantFixture(t, f, db.Ctx())
 	persisted, err := f.host.ReadGrant(f.ctx, predecessorID)
 	require.NoError(t, err)
 	require.Equal(t, predecessor, persisted)
-	require.Equal(t, commitment, repairM1503Commitment(persisted))
+	require.Equal(t, commitment, sessionReplacementCommitment(persisted))
 	var successorKey [32]byte
 	copy(successorKey[:], ed25519.NewKeyFromSeed(bytes.Repeat([]byte{75}, ed25519.SeedSize)).Public().(ed25519.PublicKey))
-	successorBody := repairM1503Body(f, successorKey, predecessor.RevokedAtSequence, fee)
+	successorBody := feeSessionSuccessorBody(f, successorKey, predecessor.RevokedAtSequence, fee)
 	successorID, err := codec.DomainHash(codec.DomainAuthorityHash, successorBody)
 	require.NoError(t, err)
 	action := [32]byte{0x34}
@@ -306,7 +306,7 @@ func repairM1503SuccessorParity(t *testing.T) {
 		PredecessorID: predecessorID, ExpectedCommitment: commitment})
 	require.NoError(t, err)
 	nativeCtx, _ := f.ctx.CacheContext()
-	activity := repairM1503Activity(t, f, nativeCtx, 0x00070005, nativePayload, 0, f.actor.DIDKey)
+	activity := newAuthorityActivity(t, f, nativeCtx, 0x00070005, nativePayload, 0, f.actor.DIDKey)
 	activity.IdempotencyKey = idempotency
 	sequence, err = lxphost.NextSequence(nativeCtx, f.hostKey)
 	require.NoError(t, err)
@@ -360,9 +360,9 @@ func repairM1503SuccessorParity(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, encoded, logs[i].Data)
 	}
-	repairM1503Reopen(t, f, db.Ctx())
+	reopenGrantFixture(t, f, db.Ctx())
 	recovered, err := f.host.ReadGrant(f.ctx, successorID)
 	require.NoError(t, err)
 	require.Equal(t, nativeGrant, recovered)
-	repairM1503AssertExhausted(t, f, successorID, fee, false)
+	assertSessionFeeBudgetExhausted(t, f, successorID, fee, false)
 }

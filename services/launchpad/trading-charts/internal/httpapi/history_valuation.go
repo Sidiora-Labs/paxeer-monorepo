@@ -38,7 +38,7 @@ func (c CanonicalCandleClient) Read(ctx context.Context, r HistoryRequest) (Cano
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	base, err := url.Parse(c.Endpoint)
-	if err != nil || base.Host == "" || base.User != nil || base.RawQuery != "" || base.Fragment != "" || (base.Scheme != "http" && base.Scheme != "https") {
+	if err != nil || base.Host == "" || base.User != nil || base.RawQuery != "" || base.Fragment != "" || (base.Scheme != schemeHTTP && base.Scheme != schemeHTTPS) {
 		return out, errors.New("canonical history authority unavailable")
 	}
 	base.Path = strings.TrimRight(base.Path, "/") + "/v2/pools/" + r.Symbol + "/candles"
@@ -170,7 +170,7 @@ func valuationHistory(ctx context.Context, page CanonicalCandlePage, supply *RPC
 	if ctx.Err() != nil {
 		return nil, ctx.Err()
 	}
-	if mode != "price" && mode != "total_supply_valuation" {
+	if mode != modePrice && mode != modeTotalSupplyValuation {
 		return nil, errors.New("invalid valuation mode")
 	}
 	if len(page.Items) > MaxHistoryBars {
@@ -227,7 +227,6 @@ func valuationHistory(ctx context.Context, page CanonicalCandlePage, supply *RPC
 			}
 			supplyKey := strings.ToLower(*p.BaseAsset.Address) + ":" + p.Source.Position.BlockHash
 			snapshot, found := supplies[supplyKey]
-			e = nil
 			if !found && !supplyFailures[supplyKey] {
 				snapshot, e = supply.At(enrich, *p.BaseAsset.Address, *p.Source.Position)
 				if e == nil {
@@ -263,25 +262,25 @@ func valuationHistory(ctx context.Context, page CanonicalCandlePage, supply *RPC
 		values[4] = append(values[4], v)
 		if !barAvailable {
 			available = false
-			valuations = append(valuations, map[string]any{"available": false, "valuationBasis": "total_supply_valuation", "reason": "historical_supply_unavailable"})
+			valuations = append(valuations, map[string]any{fieldAvailable: false, fieldValuationBasis: modeTotalSupplyValuation, fieldReason: "historical_supply_unavailable"})
 		} else {
-			valuations = append(valuations, map[string]any{"available": true, "valuationBasis": "total_supply_valuation", "o": valued[0], "h": valued[1], "l": valued[2], "c": valued[3], "supply": provenance})
+			valuations = append(valuations, map[string]any{fieldAvailable: true, fieldValuationBasis: modeTotalSupplyValuation, "o": valued[0], "h": valued[1], "l": valued[2], "c": valued[3], "supply": provenance})
 			for i := 0; i < 4; i++ {
 				valuationValues[i] = append(valuationValues[i], valued[i])
 			}
 		}
 	}
-	body := map[string]any{"s": "ok", "t": times, "o": values[0], "h": values[1], "l": values[2], "c": values[3], "v": values[4], "mode": mode, "valuationBasis": "total_supply_valuation", "valuationAvailable": available, "valuations": valuations, "snapshotId": page.SnapshotID, "algorithmVersion": page.Algorithm, "watermark": page.Watermark}
-	if mode == "total_supply_valuation" && available {
+	body := map[string]any{"s": "ok", "t": times, "o": values[0], "h": values[1], "l": values[2], "c": values[3], "v": values[4], "mode": mode, fieldValuationBasis: modeTotalSupplyValuation, "valuationAvailable": available, "valuations": valuations, "snapshotId": page.SnapshotID, "algorithmVersion": page.Algorithm, "watermark": page.Watermark}
+	if mode == modeTotalSupplyValuation && available {
 		for i, key := range []string{"o", "h", "l", "c"} {
 			body[key] = valuationValues[i]
 		}
 	}
 	if len(times) == 0 {
-		body["s"] = "no_data"
+		body["s"] = statusNoData
 	}
-	if mode == "total_supply_valuation" && !available {
-		body["s"] = "unavailable"
+	if mode == modeTotalSupplyValuation && !available {
+		body["s"] = statusUnavailable
 		body["priceHistory"] = map[string]any{"t": times, "o": values[0], "h": values[1], "l": values[2], "c": values[3]}
 		delete(body, "o")
 		delete(body, "h")

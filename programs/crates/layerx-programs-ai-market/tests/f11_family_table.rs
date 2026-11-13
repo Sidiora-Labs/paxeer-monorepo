@@ -1,3 +1,4 @@
+use layerx_ai_market_test_values::RequiredValue as _;
 use layerx_programs_ai_market::{
     codec::{self, Envelope},
     dispatch::{self, AuthorityClass, CallBoundary, Operation, SequencePolicy, OPERATIONS},
@@ -25,7 +26,117 @@ use layerx_programs_ai_market::{
 #[test]
 fn f11_selectors_route_to_their_operation_metadata() -> CodecResult<()> {
     use AuthorityClass::*;
-    let expected = [
+    use Section::*;
+    let expected = EXPECTED_F11_OPERATIONS;
+    assert_eq!(OPERATIONS.iter().filter(|m| m.feature == 11).count(), 17);
+    for (associated, exported, selector, name, min, max, authority) in expected {
+        let operation = Operation::decode(selector)?;
+        assert_eq!(operation, associated);
+        assert_eq!(operation, exported);
+        assert_eq!(operation.selector(), selector);
+        let metadata = operation.metadata();
+        assert_eq!(metadata.operation, operation);
+        assert_eq!(metadata.name, name);
+        assert_eq!(metadata.feature, 11);
+        assert_eq!(metadata.authority, authority);
+        assert_eq!((metadata.payload_min, metadata.payload_max), (min, max));
+        assert!(!metadata.delegate_allowed);
+        let read = selector >= 0x0B10;
+        assert_eq!(
+            metadata.boundary,
+            if read {
+                CallBoundary::ProgramRead
+            } else {
+                CallBoundary::Mutation
+            }
+        );
+        assert_eq!(
+            metadata.sequence,
+            if read
+                || matches!(
+                    authority,
+                    AnyAccount | HostOrAfterChallengeWindow | ResolvedFault
+                )
+            {
+                SequencePolicy::ObjectLocal
+            } else {
+                SequencePolicy::Role
+            }
+        );
+        let sections: &[Section] = match selector {
+            0x0B01 | 0x0B02 | 0x0B04 => &[PolicyLifecycle, IdentityRoster, Control],
+            0x0B03 | 0x0B05 | 0x0B09 => {
+                &[PolicyLifecycle, IdentityRoster, SettlementClaims, Control]
+            }
+            0x0B06 => &[PolicyLifecycle, IdentityRoster, CurrentReports, Control],
+            0x0B07 | 0x0B08 | 0x0B0A | 0x0B0B | 0x0B0C => &[
+                PolicyLifecycle,
+                IdentityRoster,
+                CurrentReports,
+                SettlementClaims,
+                Control,
+            ],
+            0x0B10 => &[PolicyLifecycle, IdentityRoster],
+            0x0B11..=0x0B13 => &[IdentityRoster, SettlementClaims],
+            0x0B14 => &[PolicyLifecycle, SettlementClaims],
+            _ => unreachable!(),
+        };
+        assert_eq!(metadata.sections, sections);
+        assert_eq!(
+            metadata.sections.contains(&Section::IdentityRoster),
+            selector != 0x0B14
+        );
+        assert_eq!(metadata.sections.contains(&Section::Control), !read);
+        for (i, section) in metadata.sections.iter().enumerate() {
+            assert!(!metadata.sections[..i].contains(section));
+        }
+        assert_eq!(operation.validate_payload_length(min), Ok(()));
+        assert_eq!(operation.validate_payload_length(max), Ok(()));
+        assert_eq!(
+            operation.validate_payload_length(min - 1),
+            Err(errors::NON_CANONICAL)
+        );
+        assert_eq!(
+            operation.validate_payload_length(max + 1),
+            Err(errors::NON_CANONICAL)
+        );
+    }
+    for left in OPERATIONS {
+        assert_eq!(
+            OPERATIONS
+                .iter()
+                .filter(|right| left.operation == right.operation)
+                .count(),
+            1
+        );
+    }
+    for selector in [0x0B00, 0x0B0D, 0x0B0E, 0x0B0F, 0x0B15, 0x0BFF] {
+        assert_eq!(Operation::decode(selector), Err(errors::UNKNOWN_OPERATION));
+    }
+    for count in 1..=32 {
+        assert_eq!(
+            dispatch::RecordDeal.validate_payload_length(145 + 36 * count),
+            Ok(())
+        );
+        assert_eq!(
+            dispatch::RecordDeal.validate_payload_length(146 + 36 * count),
+            Err(errors::NON_CANONICAL)
+        );
+    }
+    Ok(())
+}
+type ExpectedOperation = (
+    Operation,
+    Operation,
+    u16,
+    &'static str,
+    usize,
+    usize,
+    AuthorityClass,
+);
+const EXPECTED_F11_OPERATIONS: [ExpectedOperation; 17] = {
+    use AuthorityClass::*;
+    [
         (
             Operation::OpenRoom,
             dispatch::OpenRoom,
@@ -179,105 +290,8 @@ fn f11_selectors_route_to_their_operation_metadata() -> CodecResult<()> {
             32,
             PublicRead,
         ),
-    ];
-    assert_eq!(OPERATIONS.iter().filter(|m| m.feature == 11).count(), 17);
-    for (associated, exported, selector, name, min, max, authority) in expected {
-        let operation = Operation::decode(selector)?;
-        assert_eq!(operation, associated);
-        assert_eq!(operation, exported);
-        assert_eq!(operation.selector(), selector);
-        let metadata = operation.metadata();
-        assert_eq!(metadata.operation, operation);
-        assert_eq!(metadata.name, name);
-        assert_eq!(metadata.feature, 11);
-        assert_eq!(metadata.authority, authority);
-        assert_eq!((metadata.payload_min, metadata.payload_max), (min, max));
-        assert!(!metadata.delegate_allowed);
-        let read = selector >= 0x0B10;
-        assert_eq!(
-            metadata.boundary,
-            if read {
-                CallBoundary::ProgramRead
-            } else {
-                CallBoundary::Mutation
-            }
-        );
-        assert_eq!(
-            metadata.sequence,
-            if read
-                || matches!(
-                    authority,
-                    AnyAccount | HostOrAfterChallengeWindow | ResolvedFault
-                )
-            {
-                SequencePolicy::ObjectLocal
-            } else {
-                SequencePolicy::Role
-            }
-        );
-        use Section::*;
-        let sections: &[Section] = match selector {
-            0x0B01 | 0x0B02 | 0x0B04 => &[PolicyLifecycle, IdentityRoster, Control],
-            0x0B03 | 0x0B05 | 0x0B09 => {
-                &[PolicyLifecycle, IdentityRoster, SettlementClaims, Control]
-            }
-            0x0B06 => &[PolicyLifecycle, IdentityRoster, CurrentReports, Control],
-            0x0B07 | 0x0B08 | 0x0B0A | 0x0B0B | 0x0B0C => &[
-                PolicyLifecycle,
-                IdentityRoster,
-                CurrentReports,
-                SettlementClaims,
-                Control,
-            ],
-            0x0B10 => &[PolicyLifecycle, IdentityRoster],
-            0x0B11 | 0x0B12 | 0x0B13 => &[IdentityRoster, SettlementClaims],
-            0x0B14 => &[PolicyLifecycle, SettlementClaims],
-            _ => unreachable!(),
-        };
-        assert_eq!(metadata.sections, sections);
-        assert_eq!(
-            metadata.sections.contains(&Section::IdentityRoster),
-            selector != 0x0B14
-        );
-        assert_eq!(metadata.sections.contains(&Section::Control), !read);
-        for (i, section) in metadata.sections.iter().enumerate() {
-            assert!(!metadata.sections[..i].contains(section));
-        }
-        assert_eq!(operation.validate_payload_length(min), Ok(()));
-        assert_eq!(operation.validate_payload_length(max), Ok(()));
-        assert_eq!(
-            operation.validate_payload_length(min - 1),
-            Err(errors::NON_CANONICAL)
-        );
-        assert_eq!(
-            operation.validate_payload_length(max + 1),
-            Err(errors::NON_CANONICAL)
-        );
-    }
-    for left in OPERATIONS {
-        assert_eq!(
-            OPERATIONS
-                .iter()
-                .filter(|right| left.operation == right.operation)
-                .count(),
-            1
-        );
-    }
-    for selector in [0x0B00, 0x0B0D, 0x0B0E, 0x0B0F, 0x0B15, 0x0BFF] {
-        assert_eq!(Operation::decode(selector), Err(errors::UNKNOWN_OPERATION));
-    }
-    for count in 1..=32 {
-        assert_eq!(
-            dispatch::RecordDeal.validate_payload_length(145 + 36 * count),
-            Ok(())
-        );
-        assert_eq!(
-            dispatch::RecordDeal.validate_payload_length(146 + 36 * count),
-            Err(errors::NON_CANONICAL)
-        );
-    }
-    Ok(())
-}
+    ]
+};
 
 #[test]
 fn f11_mutation_selectors_survive_the_real_envelope_codec() -> CodecResult<()> {
@@ -462,7 +476,7 @@ fn room_market_capture() -> CodecResult<Vec<u8>> {
     assert_eq!(
         RoomBook::decode(shared.room_market()?.1)?
             .room(request.room_id)?
-            .unwrap()
+            .required()
             .profile,
         request.profile
     );
@@ -544,7 +558,7 @@ fn f11_errors_are_registered_exported_and_distinct_from_f01_through_f10() -> Cod
         10
     );
     for (index, (error, name)) in expected.iter().enumerate() {
-        assert_eq!(error.code(), 0x0B01 + index as u16);
+        assert_eq!(error.code(), 0x0B01 + u16::try_from(index).required());
         assert_eq!(ApplicationError::from_code(error.code())?, *error);
         assert_eq!(ApplicationError::named("F11", name)?, *error);
         assert!(!expected[..index]
@@ -624,48 +638,7 @@ fn f11_market_policy_round_trips_every_room_profile_field() -> CodecResult<()> {
     assert_eq!(decoded, policy);
     assert_eq!(decoded.digest()?, policy.digest()?);
     let room = &encoded[2 + TASK_POLICY_BYTES..n];
-    assert_eq!(room.len(), ROOM_PROFILE_BYTES);
-    assert_eq!(
-        &room[..2],
-        &layerx_programs_ai_market::policy::ROOM_PROFILE_VERSION.to_be_bytes()
-    );
-    assert_eq!(
-        &room[2..18],
-        &policy.room_profile.minimum_bond.to_be_bytes()
-    );
-    assert_eq!(&room[18..20], &250u16.to_be_bytes());
-    assert_eq!(
-        &room[20..28],
-        &policy.room_profile.lap_size_tokens.to_be_bytes()
-    );
-    assert_eq!(&room[28..36], &120u64.to_be_bytes());
-    assert_eq!(&room[36..38], &2_500u16.to_be_bytes());
-    assert_eq!(&room[38..40], &1_000u16.to_be_bytes());
-    assert_eq!(&room[40..42], &500u16.to_be_bytes());
-    assert_eq!(&room[42..74], &[8; 32]);
-    assert_eq!(
-        &room[74..82],
-        &policy.room_profile.max_generated_tokens.to_be_bytes()
-    );
-    assert_eq!(
-        &room[82..84],
-        &policy.room_profile.queue_depth.to_be_bytes()
-    );
-    assert_eq!(
-        &room[84..92],
-        &policy.room_profile.liveness_timeout_ms.to_be_bytes()
-    );
-    assert_eq!(
-        &room[92..100],
-        &policy.room_profile.acknowledgement_window_ms.to_be_bytes()
-    );
-    assert_eq!(
-        &room[100..102],
-        &policy
-            .room_profile
-            .canary_relative_tolerance_bps
-            .to_be_bytes()
-    );
+    verify_room_profile_encoding(room, &policy);
     assert_eq!(
         decoded.room_profile.max_generated_tokens,
         policy.room_profile.max_generated_tokens
@@ -720,7 +693,7 @@ fn f11_market_policy_round_trips_every_room_profile_field() -> CodecResult<()> {
         );
     }
     assert_eq!(MarketPolicy::decode(&encoded), Err(errors::NON_CANONICAL));
-    encoded[1] = MARKET_POLICY_VERSION as u8 + 1;
+    encoded[1] = u8::try_from(MARKET_POLICY_VERSION).required() + 1;
     assert_eq!(
         MarketPolicy::decode(&encoded[..n]),
         Err(errors::BAD_VERSION)
@@ -732,12 +705,111 @@ fn f11_market_policy_round_trips_every_room_profile_field() -> CodecResult<()> {
     }
     Ok(())
 }
+fn verify_room_profile_encoding(room: &[u8], policy: &MarketPolicy) {
+    assert_eq!(room.len(), ROOM_PROFILE_BYTES);
+    assert_eq!(
+        &room[..2],
+        &layerx_programs_ai_market::policy::ROOM_PROFILE_VERSION.to_be_bytes()
+    );
+    assert_eq!(
+        &room[2..18],
+        &policy.room_profile.minimum_bond.to_be_bytes()
+    );
+    assert_eq!(&room[18..20], &250u16.to_be_bytes());
+    assert_eq!(
+        &room[20..28],
+        &policy.room_profile.lap_size_tokens.to_be_bytes()
+    );
+    assert_eq!(&room[28..36], &120u64.to_be_bytes());
+    assert_eq!(&room[36..38], &2_500u16.to_be_bytes());
+    assert_eq!(&room[38..40], &1_000u16.to_be_bytes());
+    assert_eq!(&room[40..42], &500u16.to_be_bytes());
+    assert_eq!(&room[42..74], &[8; 32]);
+    assert_eq!(
+        &room[74..82],
+        &policy.room_profile.max_generated_tokens.to_be_bytes()
+    );
+    assert_eq!(
+        &room[82..84],
+        &policy.room_profile.queue_depth.to_be_bytes()
+    );
+    assert_eq!(
+        &room[84..92],
+        &policy.room_profile.liveness_timeout_ms.to_be_bytes()
+    );
+    assert_eq!(
+        &room[92..100],
+        &policy.room_profile.acknowledgement_window_ms.to_be_bytes()
+    );
+    assert_eq!(
+        &room[100..102],
+        &policy
+            .room_profile
+            .canary_relative_tolerance_bps
+            .to_be_bytes()
+    );
+}
 
 #[test]
 fn f11_room_profile_refuses_invalid_bounds_and_zero_settlement_account() -> CodecResult<()> {
     let policy = market_policy()?;
     let profile = policy.room_profile;
-    for invalid in [
+    for invalid in invalid_room_profiles(profile) {
+        assert_eq!(invalid.validate(), Err(errors::F01_INVALID_POLICY));
+        let mut bytes = [0xa5; MARKET_POLICY_BYTES];
+        assert_eq!(
+            MarketPolicy {
+                room_profile: invalid,
+                ..policy
+            }
+            .encode(&mut bytes),
+            Err(errors::F01_INVALID_POLICY)
+        );
+        assert!(bytes.iter().all(|b| *b == 0xa5));
+    }
+    for ratio in [0, 10_000] {
+        let boundary = RoomProfile {
+            canary_relative_tolerance_bps: ratio,
+            canary_ratio_bps: ratio,
+            slash_fraction_bps: ratio,
+            host_share_bps: ratio,
+            protocol_share_bps: 10_000 - ratio,
+            ..profile
+        };
+        let mut bytes = [0; ROOM_PROFILE_BYTES];
+        boundary.encode(&mut bytes)?;
+        assert_eq!(RoomProfile::decode(&bytes)?, boundary);
+    }
+    let mut bytes = [0; ROOM_PROFILE_BYTES];
+    profile.encode(&mut bytes)?;
+    // Validation must also run on hostile bytes, not just typed producers.
+    for (start, end) in [(74, 82), (82, 84), (84, 92), (92, 100)] {
+        let mut invalid = bytes;
+        invalid[start..end].fill(0);
+        assert_eq!(
+            RoomProfile::decode(&invalid),
+            Err(errors::F01_INVALID_POLICY)
+        );
+        let mut market_bytes = [0; MARKET_POLICY_BYTES];
+        policy.encode(&mut market_bytes)?;
+        market_bytes[2 + TASK_POLICY_BYTES..].copy_from_slice(&invalid);
+        assert_eq!(
+            MarketPolicy::decode(&market_bytes),
+            Err(errors::F01_INVALID_POLICY)
+        );
+    }
+    let mut invalid = bytes;
+    invalid[100..102].copy_from_slice(&10_001u16.to_be_bytes());
+    assert_eq!(
+        RoomProfile::decode(&invalid),
+        Err(errors::F01_INVALID_POLICY)
+    );
+    bytes[42..74].fill(0);
+    assert_eq!(RoomProfile::decode(&bytes), Err(errors::F01_INVALID_POLICY));
+    Ok(())
+}
+fn invalid_room_profiles(profile: RoomProfile) -> [RoomProfile; 14] {
+    [
         RoomProfile {
             max_generated_tokens: 0,
             ..profile
@@ -796,57 +868,5 @@ fn f11_room_profile_refuses_invalid_bounds_and_zero_settlement_account() -> Code
             protocol_share_bps: u16::MAX,
             ..profile
         },
-    ] {
-        assert_eq!(invalid.validate(), Err(errors::F01_INVALID_POLICY));
-        let mut bytes = [0xa5; MARKET_POLICY_BYTES];
-        assert_eq!(
-            MarketPolicy {
-                room_profile: invalid,
-                ..policy
-            }
-            .encode(&mut bytes),
-            Err(errors::F01_INVALID_POLICY)
-        );
-        assert!(bytes.iter().all(|b| *b == 0xa5));
-    }
-    for ratio in [0, 10_000] {
-        let boundary = RoomProfile {
-            canary_relative_tolerance_bps: ratio,
-            canary_ratio_bps: ratio,
-            slash_fraction_bps: ratio,
-            host_share_bps: ratio,
-            protocol_share_bps: 10_000 - ratio,
-            ..profile
-        };
-        let mut bytes = [0; ROOM_PROFILE_BYTES];
-        boundary.encode(&mut bytes)?;
-        assert_eq!(RoomProfile::decode(&bytes)?, boundary);
-    }
-    let mut bytes = [0; ROOM_PROFILE_BYTES];
-    profile.encode(&mut bytes)?;
-    // Validation must also run on hostile bytes, not just typed producers.
-    for (start, end) in [(74, 82), (82, 84), (84, 92), (92, 100)] {
-        let mut invalid = bytes;
-        invalid[start..end].fill(0);
-        assert_eq!(
-            RoomProfile::decode(&invalid),
-            Err(errors::F01_INVALID_POLICY)
-        );
-        let mut market_bytes = [0; MARKET_POLICY_BYTES];
-        policy.encode(&mut market_bytes)?;
-        market_bytes[2 + TASK_POLICY_BYTES..].copy_from_slice(&invalid);
-        assert_eq!(
-            MarketPolicy::decode(&market_bytes),
-            Err(errors::F01_INVALID_POLICY)
-        );
-    }
-    let mut invalid = bytes;
-    invalid[100..102].copy_from_slice(&10_001u16.to_be_bytes());
-    assert_eq!(
-        RoomProfile::decode(&invalid),
-        Err(errors::F01_INVALID_POLICY)
-    );
-    bytes[42..74].fill(0);
-    assert_eq!(RoomProfile::decode(&bytes), Err(errors::F01_INVALID_POLICY));
-    Ok(())
+    ]
 }

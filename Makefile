@@ -2586,9 +2586,9 @@ paxeer-npm-build: paxeer-hardhat-compilers-ready
 	npm --prefix tests/integration/rpc_tests run compile
 
 paxeer-npm-static-test: paxeer-npm-dependencies-ready
-	npm --prefix contracts exec -- tsc --noEmit
+	npm --prefix contracts exec -- tsc --noEmit --project contracts/tsconfig.json
 	find tests/integration/dapp_tests -type f -name '*.js' -exec node --check {} \;
-	npm --prefix tests/integration/rpc_tests exec -- tsc --noEmit
+	npm --prefix tests/integration/rpc_tests exec -- tsc --noEmit --project tests/integration/rpc_tests/tsconfig.json
 
 paxeer-tools-install:
 	@set -eu; \

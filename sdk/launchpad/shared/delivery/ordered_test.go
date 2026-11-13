@@ -1,7 +1,9 @@
 package delivery
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"strings"
@@ -15,6 +17,7 @@ import (
 
 func orderedPostgres(t *testing.T) (context.Context, *pgxpool.Pool, *PartitionStore, string) {
 	t.Helper()
+	requireDeliveryEnv(t, "DELIVERY_TEST_DSN", "DELIVERY_TEST_SCHEMA")
 	dsn, base := os.Getenv("DELIVERY_TEST_DSN"), os.Getenv("DELIVERY_TEST_SCHEMA")
 	schema := base + "_ordered"
 	if dsn == "" || !strings.HasPrefix(base, "kd_") || !token.MatchString(schema) || len(schema) > 63 {
@@ -66,6 +69,63 @@ func orderedPostgres(t *testing.T) (context.Context, *pgxpool.Pool, *PartitionSt
 		t.Fatal(err)
 	}
 	return ctx, pool, partitions, q
+}
+
+func TestQuarantinePoisonWithoutAffectedPoolsPostgres(t *testing.T) {
+	ctx, pool, _, q := orderedPostgres(t)
+	schema := os.Getenv("DELIVERY_TEST_SCHEMA") + "_ordered"
+	store, err := NewStore(pool, schema, fixturePolicy())
+	if err != nil {
+		t.Fatal(err)
+	}
+	envelope := fixtureEnvelope("empty-pools-poison")
+	if err = store.Produce(ctx, []Pending{{fixtureSubject, envelope}}, func(ctx context.Context, tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, "INSERT INTO "+q+".ordered_effects(id) VALUES($1)", envelope.EventID)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	var produced []byte
+	if err = pool.QueryRow(ctx, "SELECT envelope FROM "+q+".delivery_outbox WHERE event_id=$1", envelope.EventID).Scan(&produced); err != nil {
+		t.Fatal(err)
+	}
+	envelope, err = Decode(produced, fixturePolicy(), fixtureSubject)
+	if err != nil {
+		t.Fatal(err)
+	}
+	envelope.SchemaVersion = 2
+	poison, err := json.Marshal(envelope)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decoded, err := Decode(poison, fixturePolicy(), fixtureSubject)
+	if !errors.Is(err, ErrSchema) {
+		t.Fatal("unknown-version poison was not refused", err)
+	}
+	in := QuarantineInput{ConsumerID: "empty-pools", Generation: "g1", Subject: fixtureSubject, PublicationID: decoded.EventID, Wire: poison, WireSHA256: accounting.Digest(Hash(poison)), Class: InnerSchema, EvidenceDigest: accounting.Digest(Hash(poison))}
+	for _, pools := range [][]string{nil, {}} {
+		in.AffectedPools = pools
+		if err = store.QuarantineAfterRollback(ctx, in, nil); err != nil {
+			t.Fatal("poison without affected pools did not commit", err)
+		}
+		var subject, publication, evidence string
+		var recorded []byte
+		var recordedPools []string
+		if err = pool.QueryRow(ctx, "SELECT subject,publication_id,envelope,affected_pools,evidence_digest FROM "+q+".delivery_ordered_quarantine WHERE consumer_id=$1 AND projection_generation=$2 AND envelope_hash=$3 AND failure_class=$4", in.ConsumerID, in.Generation, string(in.WireSHA256), string(in.Class)).Scan(&subject, &publication, &recorded, &recordedPools, &evidence); err != nil {
+			t.Fatal("committed poison quarantine missing", err)
+		}
+		if subject != in.Subject || publication != in.PublicationID || !bytes.Equal(recorded, poison) || recordedPools == nil || len(recordedPools) != 0 || evidence != string(in.EvidenceDigest) {
+			t.Fatal("committed poison quarantine changed its evidence")
+		}
+		store, err = NewStore(pool, schema, fixturePolicy())
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	var count int
+	if err = pool.QueryRow(ctx, "SELECT count(*) FROM "+q+".delivery_ordered_quarantine WHERE consumer_id=$1 AND projection_generation=$2 AND envelope_hash=$3 AND failure_class=$4", in.ConsumerID, in.Generation, string(in.WireSHA256), string(in.Class)).Scan(&count); err != nil || count != 1 {
+		t.Fatal("restart duplicated the poison quarantine", count, err)
+	}
 }
 
 func orderedAppendInput(id, height string) AppendInput {

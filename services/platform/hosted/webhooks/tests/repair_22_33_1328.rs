@@ -185,7 +185,7 @@ fn created_state() -> Vec<u8> {
 fn header(root: [u8; 32], height: u64, data_hash: [u8; 32]) -> Header {
     Header {
         chain_id: CHAIN_ID.into(),
-        height: height as i64,
+        height: must(i64::try_from(height)),
         app_hash: root.to_vec(),
         version: ConsensusVersion { block: 11, app: 1 },
         time: Timestamp {
@@ -206,7 +206,7 @@ fn header(root: [u8; 32], height: u64, data_hash: [u8; 32]) -> Header {
 
 fn signed(header: &Header) -> Commit {
     let mut commit = Commit {
-        height: header.height as u64,
+        height: must(u64::try_from(header.height)),
         round: 0,
         block_id: BlockId {
             hash: header.hash().to_vec(),
@@ -285,10 +285,10 @@ fn capture(observed: u64) -> CaptureDocument {
     let state = created_state();
     let mut manifest = vec![0, 1];
     manifest.extend(1u32.to_be_bytes());
-    manifest.extend((SHARED_STATE_KEY.len() as u16).to_be_bytes());
+    manifest.extend(must(u16::try_from(SHARED_STATE_KEY.len())).to_be_bytes());
     manifest.extend(SHARED_STATE_KEY);
     manifest.extend(digest(&state));
-    manifest.extend((state.len() as u32).to_be_bytes());
+    manifest.extend(must(u32::try_from(state.len())).to_be_bytes());
     let mut value = vec![0, 1];
     value.extend(1u32.to_be_bytes());
     value.extend(digest(&manifest));
@@ -326,7 +326,7 @@ fn capture(observed: u64) -> CaptureDocument {
         },
         revision: 1,
         digest: checked(codec::state_digest(&state)),
-        total_bytes: state.len() as u32,
+        total_bytes: must(u32::try_from(state.len())),
         chunks: 1,
     };
     let binding = checked(queries::bind_snapshot(
@@ -360,8 +360,7 @@ fn capture(observed: u64) -> CaptureDocument {
         state: &state,
         proof: Some(native),
     };
-    let document = checked(CaptureDocument::from_capture(&row, &evidence));
-    document
+    checked(CaptureDocument::from_capture(&row, &evidence))
 }
 
 fn outbox(scratch: &Scratch) -> MarketOutbox {
@@ -447,7 +446,7 @@ fn trusted_event_for(principal: Principal, observed: u64) -> trusted::TrustedEve
     admit(&store, &capture(observed));
     must(store.pending_trusted(&market()))
         .pop()
-        .expect("durable verified event")
+        .unwrap_or_else(|| panic!("durable verified event"))
 }
 fn verify_request(request: &Request, now: u64) -> scheme::Verified {
     let keys = BTreeMap::from([(
@@ -456,10 +455,18 @@ fn verify_request(request: &Request, now: u64) -> scheme::Verified {
     )]);
     must(scheme::verify(
         &scheme::Presentation {
-            id: request.header(scheme::ID_HEADER).expect("event ID"),
-            timestamp: request.header(scheme::TIMESTAMP_HEADER).expect("timestamp"),
-            key_id: request.header(scheme::KEY_HEADER).expect("key ID"),
-            signature: request.header(scheme::SIGNATURE_HEADER).expect("signature"),
+            id: request
+                .header(scheme::ID_HEADER)
+                .unwrap_or_else(|| panic!("event ID")),
+            timestamp: request
+                .header(scheme::TIMESTAMP_HEADER)
+                .unwrap_or_else(|| panic!("timestamp")),
+            key_id: request
+                .header(scheme::KEY_HEADER)
+                .unwrap_or_else(|| panic!("key ID")),
+            signature: request
+                .header(scheme::SIGNATURE_HEADER)
+                .unwrap_or_else(|| panic!("signature")),
             payload: &request.body,
             now,
             tolerance_seconds: scheme::DEFAULT_TOLERANCE_SECONDS,
@@ -487,7 +494,7 @@ fn finding_15_retention_reopens_compacted_identities_and_protects_unpublished_ro
         store.prune(&market(), 1),
         Err(MarketEventError::InvalidRequest)
     ));
-    assert_eq!(must(store.pending(&market())), [event.clone()]);
+    assert_eq!(must(store.pending(&market())), std::slice::from_ref(&event));
     let delayed = provisional(&first, 1, 40);
     assert_eq!(
         must(store.admit(
@@ -518,11 +525,17 @@ fn finding_15_retention_reopens_compacted_identities_and_protects_unpublished_ro
     let json = state_json(&scratch);
     let stream = &json["streams"][hex_encode(&market())];
     assert_eq!(stream["replay_through"], 1);
-    assert_eq!(stream["admitted"].as_object().expect("identities").len(), 0);
+    assert_eq!(
+        stream["admitted"]
+            .as_object()
+            .unwrap_or_else(|| panic!("identities"))
+            .len(),
+        0
+    );
     assert_eq!(
         stream["provisional"]
             .as_object()
-            .expect("provisional")
+            .unwrap_or_else(|| panic!("provisional"))
             .len(),
         0
     );
@@ -533,7 +546,7 @@ fn finding_15_retention_reopens_compacted_identities_and_protects_unpublished_ro
         assert_eq!(
             state_json(&scratch)["streams"][hex_encode(&market())]["admitted"]
                 .as_object()
-                .expect("identities")
+                .unwrap_or_else(|| panic!("identities"))
                 .len(),
             0
         );
@@ -541,7 +554,10 @@ fn finding_15_retention_reopens_compacted_identities_and_protects_unpublished_ro
     let last = admit(&store, &capture(19));
     drop(store);
     let reopened = outbox(&scratch);
-    assert_eq!(must(reopened.pending(&market())), [last.clone()]);
+    assert_eq!(
+        must(reopened.pending(&market())),
+        std::slice::from_ref(&last)
+    );
     let Admission::Finalized { event, duplicate } =
         must(reopened.admit_document(&producer(), &capture(19)))
     else {
@@ -568,7 +584,7 @@ fn finding_15_bounds_provisional_and_market_admission_without_allocating_unknown
     ));
     must(store.grant(&market()));
     for n in 0..MAXIMUM_PROVISIONAL {
-        let row = provisional(&doc, 2, n as u16);
+        let row = provisional(&doc, 2, must(u16::try_from(n)));
         assert_eq!(
             must(store.admit(
                 &producer(),
@@ -581,7 +597,7 @@ fn finding_15_bounds_provisional_and_market_admission_without_allocating_unknown
             Admission::Delayed
         );
     }
-    let extra = provisional(&doc, 2, MAXIMUM_PROVISIONAL as u16);
+    let extra = provisional(&doc, 2, must(u16::try_from(MAXIMUM_PROVISIONAL)));
     assert!(matches!(
         store.admit(
             &producer(),
@@ -611,12 +627,89 @@ fn finding_15_bounds_provisional_and_market_admission_without_allocating_unknown
     assert_eq!(must(reopened.rollback(&market(), 0)), MAXIMUM_PROVISIONAL);
     let json = state_json(&scratch);
     assert_eq!(
-        json["streams"].as_object().expect("streams").len(),
+        json["streams"]
+            .as_object()
+            .unwrap_or_else(|| panic!("streams"))
+            .len(),
         MAXIMUM_MARKETS
     );
     assert!(must(reopened.alerts())
         .iter()
         .any(|alert| alert.category == "outbox_capacity"));
+}
+
+fn deliver_facts(
+    consumer: &Arc<MarketConsumer>,
+    signed: &SignedDelivery,
+    expected: &BTreeMap<&'static str, String>,
+) {
+    let expected = expected.clone();
+    let tls = hosted::repair_support::tls_material();
+    let receiver = Arc::clone(consumer);
+    let peer = Peer::http(&tls, move |request| {
+        let result = must(
+            receiver.receive(
+                &scheme::Presentation {
+                    id: request
+                        .header(scheme::ID_HEADER)
+                        .unwrap_or_else(|| panic!("id")),
+                    timestamp: request
+                        .header(scheme::TIMESTAMP_HEADER)
+                        .unwrap_or_else(|| panic!("timestamp")),
+                    key_id: request
+                        .header(scheme::KEY_HEADER)
+                        .unwrap_or_else(|| panic!("key")),
+                    signature: request
+                        .header(scheme::SIGNATURE_HEADER)
+                        .unwrap_or_else(|| panic!("signature")),
+                    payload: &request.body,
+                    now: 1000,
+                    tolerance_seconds: scheme::DEFAULT_TOLERANCE_SECONDS,
+                },
+                |tx| {
+                    for (name, value) in &expected {
+                        assert_eq!(
+                            tx.facts()
+                                .iter()
+                                .find(|fact| fact.name() == *name)
+                                .unwrap_or_else(|| panic!("v2 fact"))
+                                .value(),
+                            value.as_str()
+                        );
+                    }
+                    must(tx.set("schema", MARKET_FACTS_SCHEMA.into()));
+                    "committed".into()
+                },
+            ),
+        );
+        assert!(matches!(result, Consumed::Applied { sequence: 1, .. }));
+        Reply::json(204, String::new())
+    });
+    let client = boundary::Client::trusted(boundary::ClientIdentity::new(
+        must(native_tls::Certificate::from_der(&tls.ca)),
+        Some(tls.identity.clone()),
+    ));
+    let target = must(boundary::Endpoint::parse(&peer.url));
+    let headers = vec![
+        (scheme::ID_HEADER.into(), signed.id.clone()),
+        (scheme::TIMESTAMP_HEADER.into(), signed.timestamp.clone()),
+        (scheme::KEY_HEADER.into(), signed.key_id.clone()),
+        (scheme::SIGNATURE_HEADER.into(), signed.signature.clone()),
+    ];
+    assert_eq!(
+        must(client.request(&boundary::OutboundRequest {
+            endpoint: &target,
+            method: "POST",
+            path: "",
+            bearer: None,
+            idempotency: None,
+            headers: &headers,
+            body: &signed.body
+        }))
+        .status,
+        204
+    );
+    drop(peer);
 }
 
 #[test]
@@ -677,62 +770,7 @@ fn finding_16_v2_facts_survive_signed_transport_and_consumer_restart() {
     let consumer_dir = scratch.0.join("consumer");
     let keys = BTreeMap::from([("whk_repair".into(), signing.verifying_key().to_bytes())]);
     let consumer = Arc::new(must(MarketConsumer::open(&consumer_dir, keys.clone())));
-    let tls = hosted::repair_support::tls_material();
-    let receiver = Arc::clone(&consumer);
-    let peer = Peer::http(&tls, move |request| {
-        let result = must(receiver.receive(
-            &scheme::Presentation {
-                id: request.header(scheme::ID_HEADER).expect("id"),
-                timestamp: request.header(scheme::TIMESTAMP_HEADER).expect("timestamp"),
-                key_id: request.header(scheme::KEY_HEADER).expect("key"),
-                signature: request.header(scheme::SIGNATURE_HEADER).expect("signature"),
-                payload: &request.body,
-                now: 1000,
-                tolerance_seconds: scheme::DEFAULT_TOLERANCE_SECONDS,
-            },
-            |tx| {
-                for (name, value) in &expected {
-                    assert_eq!(
-                        tx.facts()
-                            .iter()
-                            .find(|fact| fact.name() == *name)
-                            .expect("v2 fact")
-                            .value(),
-                        value.as_str()
-                    );
-                }
-                must(tx.set("schema", MARKET_FACTS_SCHEMA.into()));
-                "committed".into()
-            },
-        ));
-        assert!(matches!(result, Consumed::Applied { sequence: 1, .. }));
-        Reply::json(204, String::new())
-    });
-    let client = boundary::Client::trusted(boundary::ClientIdentity::new(
-        must(native_tls::Certificate::from_der(&tls.ca)),
-        Some(tls.identity.clone()),
-    ));
-    let target = must(boundary::Endpoint::parse(&peer.url));
-    let headers = vec![
-        (scheme::ID_HEADER.into(), signed.id.clone()),
-        (scheme::TIMESTAMP_HEADER.into(), signed.timestamp.clone()),
-        (scheme::KEY_HEADER.into(), signed.key_id.clone()),
-        (scheme::SIGNATURE_HEADER.into(), signed.signature.clone()),
-    ];
-    assert_eq!(
-        must(client.request(&boundary::OutboundRequest {
-            endpoint: &target,
-            method: "POST",
-            path: "",
-            bearer: None,
-            idempotency: None,
-            headers: &headers,
-            body: &signed.body
-        }))
-        .status,
-        204
-    );
-    drop(peer);
+    deliver_facts(&consumer, &signed, &expected);
     drop(consumer);
     let recovered = must(MarketConsumer::open(&consumer_dir, keys));
     assert_eq!(
@@ -790,7 +828,7 @@ fn finding_12_maximum_policy_completes_final_attempt_and_reopens_history() {
         let timestamp = must(
             request
                 .header(scheme::TIMESTAMP_HEADER)
-                .expect("timestamp")
+                .unwrap_or_else(|| panic!("timestamp"))
                 .parse(),
         );
         verify_request(&request, timestamp);
@@ -826,7 +864,7 @@ fn finding_12_maximum_policy_completes_final_attempt_and_reopens_history() {
         .deliveries
         .iter()
         .find(|row| row.endpoint == endpoint.as_str())
-        .expect("delivery");
+        .unwrap_or_else(|| panic!("delivery"));
     assert_eq!(
         delivery.attempts.len(),
         endpoints::MAXIMUM_ATTEMPTS as usize
@@ -855,7 +893,7 @@ fn finding_13_slow_dispatch_refreshes_signatures_leases_and_settlement() {
         must(receiver_seen.lock()).push((
             request
                 .header(scheme::ENDPOINT_HEADER)
-                .expect("endpoint")
+                .unwrap_or_else(|| panic!("endpoint"))
                 .into(),
             verified.timestamp,
         ));
@@ -903,12 +941,12 @@ fn finding_13_slow_dispatch_refreshes_signatures_leases_and_settlement() {
         .deliveries
         .iter()
         .find(|d| d.endpoint == seen_endpoints[0].0)
-        .expect("first");
+        .unwrap_or_else(|| panic!("first"));
     let second = snapshot
         .deliveries
         .iter()
         .find(|d| d.endpoint == seen_endpoints[1].0)
-        .expect("second");
+        .unwrap_or_else(|| panic!("second"));
     assert!(matches!(
         first.state,
         deliveries::DeliveryState::Retrying {
@@ -943,16 +981,19 @@ fn finding_11_cursor_route_refuses_utf8_boundary_hex_errors_and_bad_tags() {
     must(service.publish(&trusted_event(1), 1000));
     let valid = must(service.events_since(&principal(), &endpoint, None, 1)).next_cursor;
     let mut forged = valid.clone().into_bytes();
-    let last = forged.last_mut().expect("tag");
+    let last = forged.last_mut().unwrap_or_else(|| panic!("tag"));
     *last = if *last == b'0' { b'1' } else { b'0' };
     let malformed = vec![
         format!("lxwc2_{}é{}", "0".repeat(15), "0".repeat(31)),
         format!("lxwc2_{}g", "0".repeat(47)),
-        String::from_utf8(forged).expect("ASCII"),
+        String::from_utf8(forged).unwrap_or_else(|error| panic!("ASCII: {error:?}")),
         format!("lxwc2_{}", "0".repeat(47)),
     ];
     assert_eq!(
-        malformed[0].strip_prefix("lxwc2_").expect("prefix").len(),
+        malformed[0]
+            .strip_prefix("lxwc2_")
+            .unwrap_or_else(|| panic!("prefix"))
+            .len(),
         48
     );
     let listener = must(TcpListener::bind("127.0.0.1:0"));
@@ -1092,19 +1133,19 @@ fn finding_15_horizon_waits_for_older_unpublished_rows_and_migrates_legacy_ident
     assert_eq!(must(store.prune(&market(), 1)), 1);
     let json = state_json(&scratch);
     assert_eq!(json["streams"][hex_encode(&market())]["replay_through"], 1);
-    assert_eq!(must(store.pending(&market())), [low.clone()]);
+    assert_eq!(must(store.pending(&market())), std::slice::from_ref(&low));
     drop(store);
     // The prior durable codec emitted no observed_sequence on admitted
     // identities. Reopen that representation rather than inventing deliveries.
     let mut json = state_json(&scratch);
     for admitted in json["streams"][hex_encode(&market())]["admitted"]
         .as_object_mut()
-        .expect("identities")
+        .unwrap_or_else(|| panic!("identities"))
         .values_mut()
     {
         admitted
             .as_object_mut()
-            .expect("identity")
+            .unwrap_or_else(|| panic!("identity"))
             .remove("observed_sequence");
     }
     must(fs::write(
@@ -1119,7 +1160,7 @@ fn finding_15_horizon_waits_for_older_unpublished_rows_and_migrates_legacy_ident
     assert_eq!(stream["replay_through"], 20);
     assert!(stream["admitted"]
         .as_object()
-        .expect("compacted")
+        .unwrap_or_else(|| panic!("compacted"))
         .is_empty());
     assert!(matches!(
         store.admit_document(&producer(), &capture(20)),

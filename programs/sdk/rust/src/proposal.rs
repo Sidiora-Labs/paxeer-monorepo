@@ -18,6 +18,8 @@ pub struct PaymentProposal<'a> {
 }
 
 impl<'a> PaymentProposal<'a> {
+    /// # Errors
+    /// Returns an error when the account seed is empty or the payment is not permitted.
     pub fn new(
         account: PreparedProgramAccount<'a>,
         to: AccountId,
@@ -57,6 +59,8 @@ pub struct ProposalSet<'a> {
 }
 
 impl<'a> ProposalSet<'a> {
+    /// # Errors
+    /// Returns an error when the proposal count exceeds the supported bound.
     pub fn from_proposals(proposals: &[PaymentProposal<'a>]) -> Result<Self, ProgramError> {
         check_count(proposals.len())?;
         let mut result = Self {
@@ -69,6 +73,8 @@ impl<'a> ProposalSet<'a> {
         Ok(result)
     }
 
+    /// # Errors
+    /// Returns an error when the proposal encoding is malformed or exceeds its bounds.
     pub fn decode(bytes: &'a [u8]) -> Result<Self, ProgramError> {
         if bytes.len() > MAX_PROPOSAL_BYTES {
             return Err(ProgramError::value(Field::Buffer, Reason::TooLarge));
@@ -120,6 +126,8 @@ impl<'a> ProposalSet<'a> {
         self.proposals[..self.length].iter().copied().flatten()
     }
 
+    /// # Errors
+    /// Returns an error when the proposal set is invalid or the output buffer is too small.
     pub fn encode_into(&self, output: &mut [u8]) -> Result<usize, ProgramError> {
         check_count(self.length)?;
         let length = self
@@ -176,6 +184,9 @@ pub struct ProposalBudget<'a, const N: usize> {
 }
 
 impl<'a, const N: usize> ProposalBudget<'a, N> {
+    /// # Errors
+    /// Prepared capability sets yield a valid budget.
+    #[allow(clippy::unnecessary_wraps)]
     pub fn new(
         owner: ProgramId,
         original: &ProgramPaymentCapabilities<'a, N>,
@@ -192,6 +203,8 @@ impl<'a, const N: usize> ProposalBudget<'a, N> {
         Ok(result)
     }
 
+    /// # Errors
+    /// Returns an error when ownership, grants, or cumulative spending do not permit a proposal.
     pub fn validate<'p, const EDGE: usize>(
         &mut self,
         owner: ProgramId,
@@ -327,10 +340,10 @@ mod tests {
             must(AssetId::new([2; 32])),
         ))
     }
-    fn grant<'a>(
-        account: PreparedProgramAccount<'a>,
+    fn grant(
+        account: PreparedProgramAccount<'_>,
         maximum: Amount,
-    ) -> ProgramPaymentCapabilities<'a, 1> {
+    ) -> ProgramPaymentCapabilities<'_, 1> {
         let mut capabilities = ProgramPaymentCapabilities::empty();
         must(capabilities.insert(PaymentGrant::ProgramSpend {
             account,
@@ -339,7 +352,7 @@ mod tests {
         }));
         capabilities
     }
-    fn proposal<'a>(account: PreparedProgramAccount<'a>, amount: Amount) -> PaymentProposal<'a> {
+    fn proposal(account: PreparedProgramAccount<'_>, amount: Amount) -> PaymentProposal<'_> {
         must(PaymentProposal::new(account, destination(), amount))
     }
 

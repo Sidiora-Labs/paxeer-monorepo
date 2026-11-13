@@ -1,0 +1,25 @@
+[meta]
+module = "notifications"
+
+[findings]
+errcheck_count = 50
+errcheck = "SQL rows, transactions, HTTP bodies, files, and concurrent jobs now account for returned errors."
+goconst_count = 62
+goconst = "Repeated provider, channel, state, reason, scheme, resource, and measurement values share constants."
+goimports_count = 5
+goimports = "Affected imports use standard Go grouping."
+gosec_count = 6
+gosec = "Configured release input and output paths retain their selected locations; the Web Push key length is fixed to the P-256 public key size."
+prealloc_count = 1
+prealloc = "Credential refresh allocates the key slice for the known map size."
+staticcheck_count = 1
+staticcheck = "Web Push encodes the VAPID public key with the ECDH public key bytes."
+unconvert_count = 1
+unconvert = "The social authority call passes its existing JSON value directly."
+
+[comments]
+release_limited_file = "release_measurement.go:306 releaseLimitedFile reads the configured input path."
+release_file_digest = "release_measurement.go:322 releaseFileDigest reads the configured input path."
+release_read_triggers = "release_measurement.go:380 releaseReadTriggers reads the configured evidence path."
+release_raw_global = "release_measurement.go:773 releaseRawGlobal reads a configured evidence path."
+release_capture = "release_measurement.go:989 RunReleaseMeasurements creates the configured isolated capture file."

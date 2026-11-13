@@ -54,7 +54,7 @@ func RegisterSnapshots(r chi.Router, h *Snapshots) {
 	r.Get("/rankings/{category}", h.page)
 }
 func snapshotCategory(raw string) (string, error) {
-	if raw == "top_volume" {
+	if raw == categoryTopVolume {
 		raw = "volume"
 	}
 	_, err := ranker.Policy(raw)

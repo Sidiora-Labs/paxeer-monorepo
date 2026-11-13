@@ -246,6 +246,7 @@ struct Config {
     listen: String,
     bearer: String,
     node_endpoint: String,
+    consensus_endpoint: Option<String>,
     expected_chain_id: u64,
     node_bearer: String,
     authority_endpoint: String,
@@ -689,8 +690,16 @@ fn connect_human_node() -> Result<SequencerEndpoint, String> {
     {
         return Err("human sequencer chain id mismatch".to_owned());
     }
-    layerx_agentd::human_node::verify_direct_node_readiness(&endpoint, config.chain_id)
-        .map_err(|error| format!("human node evidence refused: {error:?}"))?;
+    let consensus_chain_id = optional("LAYERX_AGENT_CHAIN_TRUST_ROOT")
+        .map(|path| load_chain_trust_root(Path::new(&path)).map(|trust| trust.chain_id))
+        .transpose()?
+        .unwrap_or_else(|| config.chain_id.to_string());
+    layerx_agentd::human_node::verify_direct_node_readiness_for_chain(
+        &endpoint,
+        config.chain_id,
+        &consensus_chain_id,
+    )
+    .map_err(|error| format!("human node evidence refused: {error:?}"))?;
     Ok(endpoint)
 }
 
@@ -1975,6 +1984,7 @@ fn config() -> Result<Config, String> {
         program_budget_denomination_sources,
         bearer,
         node_endpoint: required("LAYERX_AGENT_NODE_ENDPOINT")?,
+        consensus_endpoint: env::var("LAYERX_AGENT_CONSENSUS_ENDPOINT").ok(),
         expected_chain_id: parse_u64("LAYERX_EXPECTED_CHAIN_ID")?,
         node_bearer,
         authority_endpoint: required("LAYERX_AGENT_AUTHORITY_ENDPOINT")?,
@@ -1997,7 +2007,7 @@ fn load_registry(root: &Path, reader: &LayerxdProgramBalanceReader) -> Result<Re
         .map_err(|error| format!("deployment journal is unreadable: {error}"))?;
     paths.retain(|path| path.extension().is_some_and(|value| value == "admission"));
     paths.sort();
-    let mut registry = Registry::new();
+    let mut admissions = Vec::new();
     for path in paths {
         let bytes = fs::read(&path)
             .map_err(|error| format!("{} is unreadable: {error}", path.display()))?;
@@ -2028,6 +2038,11 @@ fn load_registry(root: &Path, reader: &LayerxdProgramBalanceReader) -> Result<Re
                 record_path.display()
             ));
         }
+        admissions.push(evidence);
+    }
+    admissions.sort_by_key(|evidence| (evidence.record().program, evidence.record().version));
+    let mut registry = Registry::new();
+    for evidence in admissions {
         registry
             .record_verified_deployment(&evidence)
             .map_err(|error| format!("verified deployment replay failed: {error}"))?;
@@ -2133,7 +2148,10 @@ fn program_reader(
         format!("agent program reader configuration failed: {error:?}")
     })?;
     let source = layerx_agentd::read::NativeResultSource::connect(
-        &config.node_endpoint,
+        config
+            .consensus_endpoint
+            .as_deref()
+            .unwrap_or(&config.node_endpoint),
         Some(&config.authority_ca_der),
     )
     .map_err(|_| "agent native node source configuration failed")?;
@@ -2172,6 +2190,7 @@ struct InferenceDealTerms {
 struct InferenceDealRuntime {
     engine: Arc<Mutex<inference_signal::deals::DealEngine>>,
     endpoint: SequencerEndpoint,
+    consensus: SequencerEndpoint,
     verifier: layerx_programs::chain_proof::ChainProofVerifier,
     journal: layerx_client::ai_market::OperationJournal,
     signer: layerx_human_kms::attestor::AttestorSigner,
@@ -2300,6 +2319,17 @@ impl InferenceLapRuntime {
     }
 }
 struct InferenceLapTransport<'a>(&'a InferenceDealRuntime);
+
+struct InferenceLapTermInputs<'a> {
+    signer: &'a layerx_human_kms::attestor::AttestorSigner,
+    actor_did: &'a str,
+    nonce: u64,
+    expiry: u64,
+    request: [u8; 32],
+    capabilities: &'a [u8],
+    access_declaration: &'a [u8],
+}
+
 fn lap_market_call_terms(
     operation: layerx_client::ai_market::market_program::dispatch::Operation,
     program: [u8; 32],
@@ -2371,6 +2401,20 @@ fn deal_market_call_terms(
     layerx_client::ai_market::market_call_terms(operation, program, actor)
 }
 
+fn inference_signer_did(signer: &layerx_human_kms::attestor::AttestorSigner) -> String {
+    format!(
+        "did:layerx:{}",
+        layerx_programs::hex::encode(&signer.public_key())
+    )
+}
+
+fn inference_signer_actor(did: &str) -> Result<[u8; 32], String> {
+    let did = layerx_types::ids::Did::new(did.as_bytes())
+        .map_err(|_| "invalid inference signer DID".to_owned())?;
+    layerx_wire::hash::did_id_for_protocol(&did, 3)
+        .map_err(|_| "invalid inference signer principal".to_owned())
+}
+
 impl InferenceLapTransport<'_> {
     fn signer_for(
         &self,
@@ -2397,8 +2441,9 @@ impl InferenceLapTransport<'_> {
             .evidence_signers
             .iter()
             .find(|signer| {
-                let mut actor = [0; 32];
-                actor[12..].copy_from_slice(&signer.evm_address());
+                let Ok(actor) = inference_signer_actor(&inference_signer_did(signer)) else {
+                    return false;
+                };
                 roster.entries().any(|entry| {
                     entry.entry.owner.bytes() == actor
                         && !seals.seals(epoch).any(|seal| {
@@ -2462,25 +2507,20 @@ impl InferenceLapTransport<'_> {
     }
     fn terms<'a>(
         &'a self,
-        signer: &'a layerx_human_kms::attestor::AttestorSigner,
-        nonce: u64,
-        expiry: u64,
-        request: [u8; 32],
-        capabilities: &'a [u8],
-        access_declaration: &'a [u8],
+        inputs: &InferenceLapTermInputs<'a>,
     ) -> layerx_client::ai_market::NativeTerms<'a> {
         let terms = &self.0.terms;
         layerx_client::ai_market::NativeTerms {
             network_id: 125,
-            actor_did: terms.actor_did.as_bytes(),
-            owner_public_key: signer.public_key(),
-            account_sequence: nonce,
-            idempotency_key: request,
+            actor_did: inputs.actor_did.as_bytes(),
+            owner_public_key: inputs.signer.public_key(),
+            account_sequence: inputs.nonce,
+            idempotency_key: inputs.request,
             not_before: 0,
-            not_after: expiry,
+            not_after: inputs.expiry,
             fee_limit: terms.fee_limit,
-            capabilities,
-            access_declaration,
+            capabilities: inputs.capabilities,
+            access_declaration: inputs.access_declaration,
             response_capacity: 16_384,
             resources: layerx_types::program_call::Resources(terms.resources),
             gas_limit: terms.gas_limit,
@@ -2514,8 +2554,9 @@ impl inference_signal::deals::laps::LapTransport for InferenceLapTransport<'_> {
             .ok_or(LapError::Invalid("missing frozen roster"))?
             .binding;
         let signer = self.signer_for(operation, &shared, frozen.epoch)?;
-        let mut actor = [0; 32];
-        actor[12..].copy_from_slice(&signer.evm_address());
+        let actor_did = inference_signer_did(signer);
+        let actor = inference_signer_actor(&actor_did)
+            .map_err(|_| LapError::Invalid("invalid lap signer principal"))?;
         let mut identity = operation.operation().selector().to_be_bytes().to_vec();
         identity.extend_from_slice(&actor);
         identity.extend_from_slice(operation.payload());
@@ -2564,14 +2605,15 @@ impl inference_signal::deals::laps::LapTransport for InferenceLapTransport<'_> {
             Ok(inference_wait(
                 layerx_client::ai_market::sign_market_envelope(
                     &envelope,
-                    &self.terms(
+                    &self.terms(&InferenceLapTermInputs {
                         signer,
+                        actor_did: &actor_did,
                         nonce,
                         expiry,
                         request,
-                        &call_terms.capabilities,
-                        &call_terms.access_declaration,
-                    ),
+                        capabilities: &call_terms.capabilities,
+                        access_declaration: &call_terms.access_declaration,
+                    }),
                     &InferenceDealSigner(signer),
                 ),
             )?)
@@ -2606,7 +2648,15 @@ impl inference_signal::deals::laps::LapTransport for InferenceLapTransport<'_> {
             Ok(inference_wait(
                 layerx_client::ai_market::inference_market::sign_stream_meter(
                     &calldata,
-                    &self.terms(signer, nonce, expiry, request, &[], &[]),
+                    &self.terms(&InferenceLapTermInputs {
+                        signer,
+                        actor_did: &self.0.terms.actor_did,
+                        nonce,
+                        expiry,
+                        request,
+                        capabilities: &[],
+                        access_declaration: &[],
+                    }),
                     &InferenceDealSigner(signer),
                 ),
             )?)
@@ -2875,7 +2925,10 @@ impl layerx_crypto::signer::Signer for InferenceDealSigner<'_> {
                     &layerx_human_kms::attestor::unsigned_evm_transaction(call),
                     call.chain_id,
                 )
-                .map_err(|_| SignError::RemoteRefused)?;
+                .map_err(|error| {
+                    eprintln!("layerx-agentd: inference transaction signer: {error}");
+                    SignError::RemoteRefused
+                })?;
             signature[64] = signature[64]
                 .checked_add(27)
                 .ok_or(SignError::ReturnedSignatureInvalid)?;
@@ -2959,6 +3012,14 @@ impl InferenceDealRuntime {
         let endpoint =
             SequencerEndpoint::new_node(&config.node_endpoint, &[&config.authority_ca_der])
                 .map_err(|error| format!("inference deal node: {error:?}"))?;
+        let consensus = SequencerEndpoint::new_node(
+            config
+                .consensus_endpoint
+                .as_deref()
+                .unwrap_or(&config.node_endpoint),
+            &[&config.authority_ca_der],
+        )
+        .map_err(|error| format!("inference deal consensus: {error:?}"))?;
         if endpoint
             .chain_id()
             .map_err(|error| format!("inference deal chain: {error:?}"))?
@@ -2981,6 +3042,7 @@ impl InferenceDealRuntime {
             laps,
             engine: Arc::new(Mutex::new(engine)),
             endpoint,
+            consensus,
             verifier,
             journal,
             signer,
@@ -2993,9 +3055,13 @@ impl InferenceDealRuntime {
         let height = self
             .endpoint
             .block_number()
-            .map_err(|error| format!("inference book head: {error:?}"))?;
-        layerx_client::ai_market::inference_market::poll_finalized_market(
+            .map_err(|error| format!("inference book head: {error:?}"))?
+            .checked_sub(1)
+            .filter(|height| *height > 1)
+            .ok_or("inference book has no committed predecessor")?;
+        layerx_client::ai_market::inference_market::poll_finalized_market_with_consensus(
             &self.endpoint,
+            &self.consensus,
             &self.verifier,
             self.program,
             height,
@@ -3027,8 +3093,10 @@ impl InferenceDealRuntime {
         let envelope = engine.envelope(expiry).map_err(|error| error.to_string())?;
         drop(engine);
         let from = self.signer.evm_address();
-        let mut actor = [0; 32];
-        actor[12..].copy_from_slice(&from);
+        if self.terms.actor_did != inference_signer_did(&self.signer) {
+            return Err("inference signer DID does not bind its public key".to_owned());
+        }
+        let actor = inference_signer_actor(&self.terms.actor_did)?;
         if actor != frame.plan.embedding_host {
             return Err("inference signer does not own the room".to_owned());
         }
@@ -3073,6 +3141,7 @@ impl InferenceDealRuntime {
             &self.journal,
             &self.endpoint,
             &mut record,
+            from,
         )
         .map_err(|error| error.to_string())?;
         Ok(())
@@ -3096,31 +3165,30 @@ fn inference_observation(
         .map_err(|error| format!("inference node RPC readiness failed: {error}"))?;
     readiness_gate(&node)
         .map_err(|error| format!("inference node RPC readiness failed: {error:?}"))?;
-    let height = node.block_number().map_err(|error| error.to_string())?;
-    reader
-        .read_chain_head_at(height, now_ms()?)
-        .map_err(|error| format!("inference program authority failed: {error:?}"))?;
-    let block = node
-        .block_by_number(height)
-        .map_err(|error| error.to_string())?
-        .ok_or("inference node head is unavailable")?;
-    let reference = layerx_agentd::degraded::Reference {
-        head_sequence: height,
-        checkpoint: block.hash,
-    };
     let availability = config
         .inference_availability
         .as_ref()
         .ok_or("inference gateway configuration is required")?;
-    let components = layerx_agentd::boot::inference_market::read_availability(
+    layerx_agentd::boot::inference_market::read_verified_availability(
         agent,
         &availability.endpoint,
         "", // Authentication is supplied by the gateway-only client middleware.
         config.expected_chain_id,
         &config.probe_program.bytes(),
-        reference,
-    )?;
-    Ok((reference, components))
+        |height| {
+            reader
+                .read_chain_head_at(height, now_ms()?)
+                .map_err(|error| format!("inference program authority failed: {error:?}"))?;
+            let block = node
+                .block_by_number(height)
+                .map_err(|error| error.to_string())?
+                .ok_or("inference node head is unavailable")?;
+            Ok(layerx_agentd::degraded::Reference {
+                head_sequence: height,
+                checkpoint: block.hash,
+            })
+        },
+    )
 }
 
 fn inference_enrol_host(
@@ -3334,7 +3402,7 @@ fn inference_boot(
         return Err("inference room offer disagrees with configured digests".to_owned());
     }
     let signal_authority = inference_signal::SignalAuthority::new(
-        agent.clone(),
+        node_rpc(&config.node_endpoint, &config.authority_ca_der)?,
         config.node_endpoint.clone(),
         config.node_bearer.clone(),
         config.expected_chain_id,
@@ -3959,6 +4027,7 @@ mod inference_availability_tests {
             listen: "127.0.0.1:0".into(),
             bearer: "program-only-credential-0123456789012345".into(),
             node_endpoint: node.url(),
+            consensus_endpoint: None,
             expected_chain_id: 125,
             node_bearer: NODE_KEY.into(),
             authority_endpoint: format!("{}/authority", node.url()),

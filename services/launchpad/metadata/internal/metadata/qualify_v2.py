@@ -1,3 +1,4 @@
+import argparse
 import json
 import pathlib
 import subprocess
@@ -6,7 +7,9 @@ import sys
 from jsonschema import Draft202012Validator, FormatChecker
 
 root = pathlib.Path(__file__).resolve().parents[5]
-base = root / 'launchpad/spec/production-system/handoffs/L39/phase1'
+parser = argparse.ArgumentParser()
+parser.add_argument('--schema-dir', type=pathlib.Path, required=True)
+base = parser.parse_args().schema_dir.resolve()
 validators = {name: Draft202012Validator(json.loads((base / ('metadata-v2-' + name + '.schema.json')).read_text()), format_checker=FormatChecker()) for name in ('patch', 'response')}
 result = subprocess.run(['go', 'test', '-race', '-p', '1', '-count=1', '-json', './metadata/internal/image', './gateway/internal/image', './metadata/internal/metadata', '-run', 'Production|Allowed|SVG'], cwd=root / 'services/launchpad', text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=300)
 print(result.stdout, end='')

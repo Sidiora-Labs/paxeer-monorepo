@@ -1,10 +1,14 @@
 # Node-root inference design supplement
 
-Task 22.38.12 extends decision 2521 and the original 22.34.1 design with
-five inference reads. The complete inventory is now 22 methods: 20 node reads
-and two deliberate hosted-service refusals. The original three groups and this
-inference group partition the 20 reads. Source and complete contract objects
-below come from the served node implementation and current OpenRPC publication.
+The five inference schemas below are published in the
+[gateway OpenRPC contract](../../../../services/platform/hosted/gateway/openrpc.json).
+That publication contains 22 methods: 20 node reads and two hosted-service
+refusals. Its account, history, commitment and inference groups partition those
+20 reads. The [node implementation](../../../../rpc/px_inference.go) also serves
+`px_getInferenceRoomAt` and `px_getInferencePeerAt` for explicit committed-height
+reads. The schema excerpts reproduce the published contract; node receipt
+queries enumerate the retained receipt-digest index for the deal and return
+the matching batches, up to 16 entries.
 
 ## Implementation groups
 
@@ -1092,4 +1096,4 @@ Hosted gateway dispatch remains unchanged: its 17-method router does not serve i
 
 ## Client cutover order
 
-Inference reads use the configured node root under task 22.38.12.
+Clients send inference reads to the configured node root.

@@ -8,7 +8,7 @@ import (
 	"image/png"
 	"net/http"
 	"net/http/httptest"
-	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -19,7 +19,11 @@ import (
 
 func sharingV3Fixture(t *testing.T) (*SharesV3, auth.IdentityPrincipal, Summary) {
 	t.Helper()
-	r := phase2Repository(t)
+	return sharingV3RepositoryFixture(t, phase2Repository(t))
+}
+
+func sharingV3RepositoryFixture(t *testing.T, r Repository) (*SharesV3, auth.IdentityPrincipal, Summary) {
+	t.Helper()
 	ctx := context.Background()
 	if _, e := r.Pool.Exec(ctx, SharesV3DDL); e != nil {
 		t.Fatal(e)
@@ -143,13 +147,10 @@ func TestShareV3ImmutableSelectedIntentAndPrivacy(t *testing.T) {
 	}
 	t.Logf("L17_SHARE_V3_EVIDENCE %s", evidence)
 }
-func TestShareV3RealFontPNGExpiryAndSelectedNull(t *testing.T) {
+func TestProductionShareV3RealFontPNGExpiryAndSelectedNull(t *testing.T) {
 	s, p, summary := sharingV3Fixture(t)
 	ctx := context.Background()
-	fontDir := os.Getenv("L17_SHARE_FONT_DIR")
-	if fontDir == "" {
-		t.Fatal("L17_SHARE_FONT_DIR required with actual admitted Inter-Bold.ttf and Inter-Regular.ttf")
-	}
+	fontDir := filepath.Join("..", "..", "ogrender", "fonts")
 	preview, e := s.Preview(ctx, p, ShareSelectionV3{SnapshotID: summary.SnapshotID, Fields: []string{"realizedPnlRaw"}, ExpiresAt: time.Now().Add(time.Hour)})
 	if e != nil {
 		t.Fatal(e)

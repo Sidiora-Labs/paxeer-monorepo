@@ -5,13 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/holdings"
-	"github.com/google/uuid"
 	"math/big"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/holdings"
+	"github.com/google/uuid"
 
 	"github.com/go-chi/chi/v5"
 
@@ -58,7 +59,7 @@ func RegisterPoolHolders(r chi.Router, st *store.Store, schemas ...string) {
 // GET /stats/:pool/holders route.
 func holderList(st *store.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		poolAddress := chi.URLParam(r, "poolAddress")
+		poolAddress := chi.URLParam(r, valuePoolAddress)
 		ctx := r.Context()
 		page, err := boundedPage(r.URL.Query(), 50, legacyPageMaximum, 1, "holders:"+poolAddress)
 		if err != nil {
@@ -88,12 +89,12 @@ func holderList(st *store.Store) http.HandlerFunc {
 		}
 
 		sharedhttp.WriteJSON(w, http.StatusOK, map[string]any{
-			"coverage":        "legacy_incomplete",
-			"ownershipSource": "swap_sender_legacy",
-			"holders":         enriched,
-			"total":           total,
-			"limit":           limit,
-			"offset":          offset,
+			valueCoverage:        valueLegacy_incomplete,
+			valueOwnershipSource: valueSwap_sender_legacy,
+			"holders":            enriched,
+			"total":              total,
+			valueLimit:           limit,
+			valueOffset:          offset,
 		})
 	}
 }
@@ -128,26 +129,26 @@ func TransferHolders(st *store.Store, repository *holdings.Repository) http.Hand
 		fail := func(status int, code string) {
 			w.Header().Set("Cache-Control", "private, no-store")
 			w.WriteHeader(status)
-			_ = json.NewEncoder(w).Encode(map[string]any{"code": code, "message": code, "requestId": requestID, "retryable": status == 503, "retryAfterMs": nil, "fieldErrors": []any{}, "details": nil})
+			_ = json.NewEncoder(w).Encode(map[string]any{valueCode: code, valueMessage: code, valueRequestId: requestID, valueRetryable: status == 503, valueRetryAfterMs: nil, valueFieldErrors: []any{}, valueDetails: nil})
 		}
 		if repository == nil || st == nil {
 			fail(503, "DEPENDENCY_UNAVAILABLE")
 			return
 		}
-		pool, err := holdings.Address(chi.URLParam(r, "poolAddress"))
+		pool, err := holdings.Address(chi.URLParam(r, valuePoolAddress))
 		if err != nil {
 			fail(422, "FIELD_INVALID")
 			return
 		}
 		query := r.URL.Query()
 		for key, values := range query {
-			if (key != "limit" && key != "cursor") || len(values) != 1 {
+			if (key != valueLimit && key != valueCursor) || len(values) != 1 {
 				fail(422, "FIELD_UNKNOWN")
 				return
 			}
 		}
 		limit := 50
-		if value, ok := query["limit"]; ok {
+		if value, ok := query[valueLimit]; ok {
 			limit, err = strconv.Atoi(value[0])
 			if err != nil || limit < 1 || limit > 100 {
 				fail(422, "FIELD_INVALID")
@@ -172,8 +173,8 @@ func TransferHolders(st *store.Store, repository *holdings.Repository) http.Hand
 		if context.CreatorAddress != nil {
 			creator = *context.CreatorAddress
 		}
-		cursor := query.Get("cursor")
-		if _, exists := query["cursor"]; exists && cursor == "" {
+		cursor := query.Get(valueCursor)
+		if _, exists := query[valueCursor]; exists && cursor == "" {
 			fail(400, "CURSOR_INVALID")
 			return
 		}
@@ -203,16 +204,16 @@ func TransferHolders(st *store.Store, repository *holdings.Repository) http.Hand
 		for _, balance := range page.Snapshot.Balances {
 			var share any
 			ratio := holdings.BasisPoints(balance.Raw, page.Snapshot.Supply)
-			if page.Snapshot.Coverage == "complete" && ratio.BasisPoints != nil {
+			if page.Snapshot.Coverage == valueComplete && ratio.BasisPoints != nil {
 				share = map[string]any{"numerator": balance.Raw, "denominator": page.Snapshot.Supply, "basisPoints": *ratio.BasisPoints, "denominatorPolicy": "indexed_supply_v1", "excludedCategories": []string{}}
 			}
-			items = append(items, map[string]any{"wallet": balance.Address, "tokenAddress": token, "balanceRaw": balance.Raw, "share": share})
+			items = append(items, map[string]any{valueWallet: balance.Address, valueTokenAddress: token, "balanceRaw": balance.Raw, "share": share})
 		}
-		coverage := "partial"
-		if page.Snapshot.Coverage == "complete" {
-			coverage = "complete"
+		coverage := valuePartial
+		if page.Snapshot.Coverage == valueComplete {
+			coverage = valueComplete
 		}
-		if page.Snapshot.Coverage == "quarantined" {
+		if page.Snapshot.Coverage == valueQuarantined {
 			coverage = "unavailable"
 		}
 		revision := strconv.FormatInt(page.Snapshot.Revision, 10)
@@ -220,24 +221,24 @@ func TransferHolders(st *store.Store, repository *holdings.Repository) http.Hand
 		if revision != "0" {
 			wireRevision = revision
 		}
-		data := map[string]any{"items": items, "coverage": coverage, "coverageReason": page.Snapshot.Coverage, "fromPosition": page.Snapshot.StartPosition, "toPosition": page.Snapshot.Position, "exclusionPolicyVersion": "inclusive_indexed_supply_v1", "excludedProtocolAddresses": []string{}, "tokenAddress": token, "poolAddress": pool, "decimals": page.Snapshot.Decimals, "supplyRaw": page.Snapshot.Supply, "snapshotId": page.SnapshotID, "distribution": page.Distribution, "lastTransferProvenance": page.Provenance, "stale": page.Stale, "staleReason": page.StaleReason}
+		data := map[string]any{valueItems: items, valueCoverage: coverage, "coverageReason": page.Snapshot.Coverage, "fromPosition": page.Snapshot.StartPosition, "toPosition": page.Snapshot.Position, "exclusionPolicyVersion": "inclusive_indexed_supply_v1", "excludedProtocolAddresses": []string{}, valueTokenAddress: token, valuePoolAddress: pool, "decimals": page.Snapshot.Decimals, "supplyRaw": page.Snapshot.Supply, "snapshotId": page.SnapshotID, "distribution": page.Distribution, "lastTransferProvenance": page.Provenance, valueStale: page.Stale, "staleReason": page.StaleReason}
 		var watermark any
 		if page.Snapshot.Position != nil && page.Snapshot.Revision > 0 {
 			position := page.Snapshot.Position
 			integrity := "healthy"
-			if page.Snapshot.Coverage == "quarantined" {
-				integrity = "quarantined"
+			if page.Snapshot.Coverage == valueQuarantined {
+				integrity = valueQuarantined
 			}
 			watermark = map[string]any{"chainId": "125", "height": position.Height, "blockHash": position.BlockHash, "projectionRevision": revision, "observedAt": page.ObservedAt, "integrity": integrity}
 		}
 		quality := coverageQuality(coverage)
-		if page.Stale && quality == "complete" {
-			quality = "stale"
+		if page.Stale && quality == valueComplete {
+			quality = valueStale
 		}
 		if page.Stale {
 			w.Header().Set("Cache-Control", "private, no-store")
 		}
-		body, err := json.Marshal(map[string]any{"requestId": requestID, "data": data, "watermark": watermark, "revision": wireRevision, "quality": quality, "nextCursor": page.Next, "generatedAt": time.Now().UTC().Format("2006-01-02T15:04:05.000Z")})
+		body, err := json.Marshal(map[string]any{valueRequestId: requestID, valueData: data, valueWatermark: watermark, valueRevision: wireRevision, valueQuality: quality, valueNextCursor: page.Next, valueGeneratedAt: time.Now().UTC().Format("2006-01-02T15:04:05.000Z")})
 		if err != nil {
 			fail(503, "DEPENDENCY_UNAVAILABLE")
 			return
@@ -249,13 +250,13 @@ func TransferHolders(st *store.Store, repository *holdings.Repository) http.Hand
 	}
 }
 func coverageQuality(coverage string) string {
-	if coverage == "complete" {
-		return "complete"
+	if coverage == valueComplete {
+		return valueComplete
 	}
 	if coverage == "unavailable" {
-		return "quarantined"
+		return valueQuarantined
 	}
-	return "partial"
+	return valuePartial
 }
 
 // devHoldersCursorPrefix tags the opaque development holder cursor; the cursor
@@ -287,26 +288,26 @@ func DevHolders(st *store.Store) http.HandlerFunc {
 		fail := func(status int, code string) {
 			w.Header().Set("Cache-Control", "private, no-store")
 			w.WriteHeader(status)
-			_ = json.NewEncoder(w).Encode(map[string]any{"code": code, "message": code, "requestId": requestID, "retryable": status == 503, "retryAfterMs": nil, "fieldErrors": []any{}, "details": nil})
+			_ = json.NewEncoder(w).Encode(map[string]any{valueCode: code, valueMessage: code, valueRequestId: requestID, valueRetryable: status == 503, valueRetryAfterMs: nil, valueFieldErrors: []any{}, valueDetails: nil})
 		}
 		if st == nil {
 			fail(503, "DEPENDENCY_UNAVAILABLE")
 			return
 		}
-		pool, err := holdings.Address(chi.URLParam(r, "poolAddress"))
+		pool, err := holdings.Address(chi.URLParam(r, valuePoolAddress))
 		if err != nil {
 			fail(422, "FIELD_INVALID")
 			return
 		}
 		query := r.URL.Query()
 		for key, values := range query {
-			if (key != "limit" && key != "cursor") || len(values) != 1 {
+			if (key != valueLimit && key != valueCursor) || len(values) != 1 {
 				fail(422, "FIELD_UNKNOWN")
 				return
 			}
 		}
 		limit := 50
-		if value, ok := query["limit"]; ok {
+		if value, ok := query[valueLimit]; ok {
 			limit, err = strconv.Atoi(value[0])
 			if err != nil || limit < 1 || limit > 100 {
 				fail(422, "FIELD_INVALID")
@@ -314,8 +315,8 @@ func DevHolders(st *store.Store) http.HandlerFunc {
 			}
 		}
 		offset := 0
-		if _, exists := query["cursor"]; exists {
-			offset, err = decodeDevHoldersCursor(query.Get("cursor"))
+		if _, exists := query[valueCursor]; exists {
+			offset, err = decodeDevHoldersCursor(query.Get(valueCursor))
 			if err != nil {
 				fail(400, "CURSOR_INVALID")
 				return
@@ -347,10 +348,10 @@ func DevHolders(st *store.Store) http.HandlerFunc {
 		}
 		items := make([]map[string]any, 0, len(rows))
 		for _, row := range rows {
-			items = append(items, map[string]any{"wallet": row.Wallet, "tokenAddress": token, "balanceRaw": row.BalanceRaw, "share": nil})
+			items = append(items, map[string]any{valueWallet: row.Wallet, valueTokenAddress: token, "balanceRaw": row.BalanceRaw, "share": nil})
 		}
-		data := map[string]any{"items": items, "coverage": "partial", "coverageReason": "development_swap_ledger", "ownershipSource": "swap_sender_legacy", "fromPosition": nil, "toPosition": nil, "exclusionPolicyVersion": "inclusive_indexed_supply_v1", "excludedProtocolAddresses": []string{}, "tokenAddress": token, "poolAddress": pool, "stale": false, "staleReason": nil}
-		body, err := json.Marshal(map[string]any{"requestId": requestID, "data": data, "watermark": nil, "revision": nil, "quality": "partial", "nextCursor": next, "generatedAt": time.Now().UTC().Format("2006-01-02T15:04:05.000Z")})
+		data := map[string]any{valueItems: items, valueCoverage: valuePartial, "coverageReason": "development_swap_ledger", valueOwnershipSource: valueSwap_sender_legacy, "fromPosition": nil, "toPosition": nil, "exclusionPolicyVersion": "inclusive_indexed_supply_v1", "excludedProtocolAddresses": []string{}, valueTokenAddress: token, valuePoolAddress: pool, valueStale: false, "staleReason": nil}
+		body, err := json.Marshal(map[string]any{valueRequestId: requestID, valueData: data, valueWatermark: nil, valueRevision: nil, valueQuality: valuePartial, valueNextCursor: next, valueGeneratedAt: time.Now().UTC().Format("2006-01-02T15:04:05.000Z")})
 		if err != nil {
 			fail(503, "DEPENDENCY_UNAVAILABLE")
 			return

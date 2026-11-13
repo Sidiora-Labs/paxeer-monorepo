@@ -136,7 +136,7 @@ func developmentPoolRowFrom(ctx context.Context, q developmentQuerier, token str
 // token with no legacy row reads as revision 0 with an empty display, the
 // same shape production serves before the creator's first edit.
 func (d *DevelopmentV2Reads) legacyData(ctx context.Context, row developmentPoolRow) (V2Data, bool, error) {
-	data := V2Data{ChainID: 125, PoolAddress: row.Pool, TokenAddress: row.Token, Revision: "0", Display: V2Display{Tags: []string{}, Socials: []V2Social{}}, Source: "creator", ModerationStatus: "allowed"}
+	data := V2Data{ChainID: 125, PoolAddress: row.Pool, TokenAddress: row.Token, Revision: "0", Display: V2Display{Tags: []string{}, Socials: []V2Social{}}, Source: "creator", ModerationStatus: metadataVisibilityAllowed}
 	meta, err := sqlcdb.New(d.Pool).GetTokenMetadata(ctx, row.Token)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return data, false, nil
@@ -242,22 +242,22 @@ func (d *DevelopmentV2Reads) chainToken(ctx context.Context, row developmentPool
 		}
 		match = l
 	}
-	if match == nil || match.BlockNumber != uint64(row.CreatedBlock) || !strings.EqualFold(match.TxHash.Hex(), row.TxHash) {
+	if match == nil || row.CreatedBlock < 0 || match.BlockNumber != uint64(row.CreatedBlock) || !strings.EqualFold(match.TxHash.Hex(), row.TxHash) {
 		return iface.Token{}, ErrUnrepresentable
 	}
 	values := map[string]any{}
 	if err = event.Inputs.NonIndexed().UnpackIntoMap(values, match.Data); err != nil {
 		return iface.Token{}, ErrUnrepresentable
 	}
-	name, okName := values["name"].(string)
-	symbol, okSymbol := values["symbol"].(string)
+	name, okName := values[metadataNameKey].(string)
+	symbol, okSymbol := values[metadataSymbolKey].(string)
 	decimals, okDecimals := values["decimals"].(uint8)
 	supply, okSupply := values["totalSupply"].(*big.Int)
 	if !okName || !okSymbol || !okDecimals || !okSupply || supply.Sign() < 0 || !canonicalUint(values["blockNumber"], strconv.FormatInt(row.CreatedBlock, 10)) {
 		return iface.Token{}, ErrUnrepresentable
 	}
 	position := map[string]string{"chainId": "125", "height": strconv.FormatUint(match.BlockNumber, 10), "transactionIndex": strconv.FormatUint(uint64(match.TxIndex), 10), "logIndex": strconv.FormatUint(uint64(match.Index), 10), "transactionHash": strings.ToLower(match.TxHash.Hex()), "blockHash": strings.ToLower(match.BlockHash.Hex())}
-	raw, err := json.Marshal(map[string]any{"address": row.Token, "name": name, "symbol": symbol, "decimals": decimals, "decimalsQuality": "verified", "totalSupplyRaw": supply.String(), "supplyQuality": "verified", "metadataRevision": "0", "logoAssetId": nil, "sourcePosition": position})
+	raw, err := json.Marshal(map[string]any{"address": row.Token, metadataNameKey: name, metadataSymbolKey: symbol, "decimals": decimals, "decimalsQuality": metadataVerifiedQuality, "totalSupplyRaw": supply.String(), "supplyQuality": metadataVerifiedQuality, "metadataRevision": "0", metadataLogoAssetIDKey: nil, "sourcePosition": position})
 	if err != nil {
 		return iface.Token{}, err
 	}
@@ -374,14 +374,14 @@ func (d *DevelopmentV2Reads) respond(w http.ResponseWriter, data any, cache stri
 		developmentFailure(w, err)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", metadataJSONType)
 	w.Header().Set("Cache-Control", cache)
-	json.NewEncoder(w).Encode(response)
+	writeJSON(w, response)
 }
 
 func developmentFailure(w http.ResponseWriter, err error) {
 	if errors.Is(err, ErrChainUnavailable) {
-		v2Error(w, http.StatusServiceUnavailable, "unavailable")
+		v2Error(w, http.StatusServiceUnavailable, metadataUnavailableQuality)
 		return
 	}
 	v2Failure(w, err)

@@ -184,7 +184,7 @@ func NewIdentity(c IdentityConfig) (*Identity, error) {
 		return nil, invalid()
 	}
 	u, e := url.Parse(c.URI)
-	if e != nil || u.Scheme != "https" || u.Host != c.Domain || !validIdentityDomain(c.Domain) || u.User != nil || u.Fragment != "" || len(c.URI) > 2048 || strings.ContainsAny(c.Domain, "\r\n") || len(c.LimiterKey) < 32 || c.Pool == nil || c.Verifier == nil {
+	if e != nil || u.Scheme != httpsScheme || u.Host != c.Domain || !validIdentityDomain(c.Domain) || u.User != nil || u.Fragment != "" || len(c.URI) > 2048 || strings.ContainsAny(c.Domain, "\r\n") || len(c.LimiterKey) < 32 || c.Pool == nil || c.Verifier == nil {
 		return nil, invalid()
 	}
 	if c.Pool.Config().MaxConns > 32 {
@@ -193,7 +193,7 @@ func NewIdentity(c IdentityConfig) (*Identity, error) {
 	origins := map[string]bool{}
 	for _, v := range c.AllowedOrigins {
 		o, e := url.Parse(v)
-		if e != nil || o.Scheme != "https" || o.Host == "" || o.User != nil || o.Path != "" || o.RawQuery != "" || o.Fragment != "" || strings.Contains(v, "*") {
+		if e != nil || o.Scheme != httpsScheme || o.Host == "" || o.User != nil || o.Path != "" || o.RawQuery != "" || o.Fragment != "" || strings.Contains(v, "*") {
 			return nil, invalid()
 		}
 		origins[v] = true
@@ -240,7 +240,7 @@ func digest(v string) []byte { d := sha256.Sum256([]byte(v)); return d[:] }
 // Statement is intentionally deterministic and must be derived from trusted purpose/account.
 func Statement(purpose, account string) (string, error) {
 	switch purpose {
-	case "login":
+	case loginOperation:
 		if account != "" {
 			return "", invalid()
 		}
@@ -264,7 +264,7 @@ func BuildSIWE(c Challenge, account string) (string, error) {
 	wallet, e := normalizeWallet(c.Wallet)
 	u, uriErr := url.Parse(c.URI)
 	nonce, nonceErr := hex.DecodeString(c.Nonce)
-	if e != nil || !validUUID(c.ChallengeID) || !validIdentityDomain(c.Domain) || uriErr != nil || u.Scheme != "https" || u.Host != c.Domain || u.User != nil || u.Fragment != "" || c.ChainID != "125" || nonceErr != nil || len(nonce) != 32 || c.IssuedAt.Year() < 1 || c.IssuedAt.Year() > 9999 || !c.ExpiresAt.Equal(c.IssuedAt.Add(300*time.Second)) {
+	if e != nil || !validUUID(c.ChallengeID) || !validIdentityDomain(c.Domain) || uriErr != nil || u.Scheme != httpsScheme || u.Host != c.Domain || u.User != nil || u.Fragment != "" || c.ChainID != "125" || nonceErr != nil || len(nonce) != 32 || c.IssuedAt.Year() < 1 || c.IssuedAt.Year() > 9999 || !c.ExpiresAt.Equal(c.IssuedAt.Add(300*time.Second)) {
 		return "", invalid()
 	}
 	statement, e := Statement(c.Purpose, account)

@@ -1,6 +1,6 @@
 //! Task 22.31.162, finding failed-sponsor:
-//! node_revert_vector_preserves_evidence proves the committed producer vector;
-//! failed_sponsor_survives_submit_status_and_reopen proves submit, status and
+//! `node_revert_vector_preserves_evidence` proves the committed producer vector;
+//! `failed_sponsor_survives_submit_status_and_reopen` proves submit, status and
 //! disk-journal recovery over bounded loopback HTTPS, including foreign-sponsor
 //! rejection. No external endpoint, credential, toolchain or native build is used.
 //! Baseline: the supplied attempt failed with Malformed and exceeded 60 seconds.
@@ -204,7 +204,7 @@ impl Transcript {
         assert_eq!(request["jsonrpc"], "2.0");
         assert_eq!(request["id"], 1);
         let params = &request["params"];
-        let result = match request["method"].as_str().expect("RPC method") {
+        let result = match request["method"].as_str().or_panic("RPC method") {
             "eth_chainId" => {
                 assert_eq!(*params, json!([]));
                 json!(format!("0x{CHAIN_ID:x}"))
@@ -228,22 +228,14 @@ impl Transcript {
                     json!(format!("0x{:x}", self.authorization_nonce))
                 }
             }
-            "eth_getCode" => {
-                assert_eq!(params[0], hex(&self.account));
-                assert!(
-                    params[1] == "pending"
-                        || params[1]
-                            == json!({"blockHash":hex(&[0xab; 32]), "requireCanonical":true})
-                );
-                json!(hex(&[&[0xef, 0x01, 0x00][..], &self.paymaster].concat()))
-            }
+            "eth_getCode" => self.code_response(params),
             "eth_call" => {
                 let did = [
                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x10, 0x04,
                 ];
                 if params[0]["to"] == hex(&did) {
                     assert_eq!(params[1], "pending");
-                    let data = params[0]["data"].as_str().expect("DID calldata");
+                    let data = params[0]["data"].as_str().or_panic("DID calldata");
                     let call = |signature: &[u8]| {
                         hex(&[&keccak(signature)[..4], &address_word(self.account)].concat())
                     };
@@ -265,8 +257,8 @@ impl Transcript {
                     .concat()))
                 } else {
                     assert_eq!(params[0]["to"], hex(&self.account));
-                    let data = bytes(params[0]["data"].as_str().expect("account calldata"))
-                        .expect("hex calldata");
+                    let data = bytes(params[0]["data"].as_str().or_panic("account calldata"))
+                        .or_panic("hex calldata");
                     if data == keccak(b"nonce()")[..4] {
                         assert_eq!(params[1], "pending");
                     } else {
@@ -302,6 +294,15 @@ impl Transcript {
             other => panic!("unexpected fixture RPC: {other}: {params}"),
         };
         json!({"jsonrpc":"2.0", "id":1, "result":result})
+    }
+
+    fn code_response(&self, params: &Value) -> Value {
+        assert_eq!(params[0], hex(&self.account));
+        assert!(
+            params[1] == "pending"
+                || params[1] == json!({"blockHash":hex(&[0xab; 32]), "requireCanonical":true})
+        );
+        json!(hex(&[&[0xef, 0x01, 0x00][..], &self.paymaster].concat()))
     }
 }
 
@@ -416,7 +417,6 @@ fn failed_sponsor_survives_submit_status_and_reopen() -> TestResult {
     )?;
     let sponsor = Signer::new(1)?;
     let account = Signer::new(2)?;
-    let now = NOW;
     let fees = Fees {
         gas_limit: 200_000,
         max_fee_per_gas: 500_000_000_000,
@@ -427,240 +427,392 @@ fn failed_sponsor_survives_submit_status_and_reopen() -> TestResult {
         value: word(0),
         data: vec![1, 2, 3],
     }];
-    for index in 0..2 {
-        let paymaster: Address = [0x44; 20];
-        let mut config = ServiceConfig {
-            station: StationConfig {
-                chain_id: CHAIN_ID,
-                endpoints: vec!["https://127.0.0.1:1".into()],
-                paymaster,
-                token: SIDIORA,
-                decimals: 6,
-                max_rate_age: 300,
-                spread_bps: 500,
-                margin_bps: 100,
-                per_account_limit: 8_000_000,
-                per_interval_limit: 16_000_000,
-                per_quote_limit: 4_000_000,
-                interval_seconds: 60,
-                balance_floor: 1,
-                relayer_key_env: "REPAIR_2231162_SPONSOR".into(),
-            },
-            listen: "127.0.0.1:12345".parse()?,
-            gas_limit: fees.gas_limit,
-            max_priority_fee_per_gas: fees.max_priority_fee_per_gas,
-            registered_senders: vec![],
-        };
-        let key = Key {
-            sponsor: sponsor.address(),
-            quote_nonce: word(index as u128 + 1),
-        };
-        let quote = Quote {
-            sponsor: sponsor.address(),
-            token: SIDIORA,
-            max_token_amount: word(10),
-            token_amount: word(1),
-            deadline: word(u128::from(now + 600)),
-            nonce: key.quote_nonce,
-            gas_cost: word(fees.gas_cost()?),
-        };
-        let digest = quote_digest(word(u128::from(CHAIN_ID)), account.address(), &quote);
-        let signed = SignedQuote {
-            signature: sponsor.sign_digest(digest)?,
-            digest,
-            quote,
-        };
-        let account_signature = account.sign_digest(batch_digest(
-            CHAIN_ID,
-            account.address(),
-            word(0),
-            &calls,
-            &signed.quote,
-        )?)?;
-        let mut authorization = Authorization {
-            chain_id: CHAIN_ID,
-            delegate: paymaster,
-            nonce: index as u64 + 2,
-            signature: [0; 65],
-        };
-        authorization.signature = account.sign_digest(authorization_digest(&authorization)?)?;
-        let journal_path = runtime.directory.join(format!("station-{index}.jsonl"));
-        let mut journal = Journal::open(&journal_path)?;
-        let reservation = Entry::QuoteReserved {
-            quote: Box::new(QuoteRecord {
-                key,
-                did: hex(&account.address()),
-                batch_nonce: word(0),
-                chain_id: CHAIN_ID,
-                paymaster,
-                account: account.address(),
-                token: SIDIORA,
-                maximum: word(10),
-                amount: word(1),
-                deadline: now + 600,
-                gas_cost: signed.quote.gas_cost,
-                issued_at: now,
-                signature: signed.signature.to_vec(),
-                fees,
-            }),
-        };
-        journal.append(&reservation)?;
-        let prepared = prepare_submission(
-            &mut journal,
-            TransactionRequest {
-                chain_id: CHAIN_ID,
-                account: account.address(),
-                paymaster,
-                nonce: index as u64,
-                batch_nonce: word(0),
-                fees,
-                calls: &calls,
-                authorizations: &[authorization.clone()],
-                quote: &signed,
-                account_signature: &account_signature,
-            },
-            &hex(&account.address()),
-            &sponsor,
-        )?;
-        drop(journal);
-        // The committed producer receipt supplies all execution evidence. Bind
-        // its request identity to the genuine type-4 bytes prepared by the crate;
-        // node_revert_vector_preserves_evidence separately checks the unchanged
-        // signed vector. This service test does not claim signature verification.
-        let mut produced = fixture[if index == 0 { "reverted" } else { "receipted" }].clone();
-        produced["txHash"] = json!(hex(&prepared.hash));
-        produced["nonce"] = json!(format!("0x{:x}", prepared.nonce));
-        if index == 1 {
-            produced["sponsor"] = json!(hex(&[0x77; 20]));
-        }
-        let mut producer = Producer::start(
-            &fixture["tls"],
-            Transcript {
-                raw: prepared.raw.clone(),
-                hash: prepared.hash,
-                nonce: prepared.nonce,
-                receipt: produced.clone(),
-                sponsor: sponsor.address(),
-                account: account.address(),
-                paymaster,
-                authorization_nonce: authorization.nonce,
-            },
-        )?;
-        config.station.endpoints = vec![producer.endpoint.clone()];
-        // Only the quote is durable initially: /submit must prepare and broadcast
-        // exactly the same transaction itself through the production path.
-        let initial_path = runtime.directory.join(format!("initial-{index}.jsonl"));
-        let mut initial = Journal::open(&initial_path)?;
-        initial.append(&reservation)?;
-        drop(initial);
-        assert_eq!(fixed::<32>(&produced["txHash"])?, prepared.hash);
-        assert_eq!(
-            quantity(produced["nonce"].as_str().ok_or("missing node nonce")?)?,
-            index as u128
-        );
-        let wire_quote = json!({"sponsor": hex(&sponsor.address()), "token": hex(&SIDIORA),
-            "maxTokenAmount": "10", "tokenAmount": "1", "deadline": (now + 600).to_string(),
-            "quoteNonce": (index + 1).to_string(), "gasCost": fees.gas_cost()?.to_string(), "decimals": 6});
-        let submit = serde_json::to_vec(&json!({
-            "call": {"to": hex(&account.address()), "value": "0", "data": hex(&encode_sponsored(&calls, &signed, &account_signature)?)},
-            "authorization": {"chainId": CHAIN_ID.to_string(), "address": hex(&paymaster),
-                "nonce": authorization.nonce.to_string(), "yParity": authorization.signature[64] - 27,
-                "r": hex(&authorization.signature[..32]), "s": hex(&authorization.signature[32..64])},
-            "batch": {"chainId": CHAIN_ID.to_string(), "account": hex(&account.address()), "nonce": "0",
-                "calls": [{"to": hex(&calls[0].to), "value": "0", "data": hex(&calls[0].data)}], "quote": wire_quote},
-            "accountSignature": hex(&account_signature), "relayerSignature": hex(&signed.signature),
-        }))?;
-        let status = serde_json::to_vec(
-            &json!({"sponsor": hex(&key.sponsor), "quoteNonce": (index + 1).to_string(),
-            "account": hex(&account.address()), "relayerSignature": hex(&signed.signature)}),
-        )?;
-        let rpc = || ConfiguredRpc::new(&config.station, BoundedHttps);
-        let endpoint = SequencerEndpoint::new(rpc()?);
-        let full = endpoint
-            .full_receipt(&prepared.hash)?
-            .ok_or("loopback producer lost receipt")?;
-        let expected = if index == 0 {
-            ServiceError::Refused
-        } else {
-            ServiceError::Unavailable
-        };
-        if index == 0 {
-            assert_eq!(produced["status"], "0x0");
-            assert_eq!(produced["sponsor"], hex(&[0; 20]));
-            assert_eq!(full.sponsor, None);
-            assert_eq!(full.vm_error.as_deref(), Some("execution reverted"));
-        } else {
-            assert_eq!(produced["status"], "0x1");
-            assert_eq!(full.sponsor, Some([0x77; 20]));
-            assert_ne!(full.sponsor, Some(sponsor.address()));
-        }
-        // Drop and reopen the real service and its exclusively locked journal.
-        for reopen in 0..2 {
-            let station = GasStation::new(
-                config.station.clone(),
-                Signer::new(1)?,
-                rpc()?,
-                PaymasterRateSource::new(rpc()?, paymaster),
-                Journal::open(&initial_path)?,
-            )?;
-            let mut service = Service::new(&config, station, move || Some(now), Limits::default())
-                .with_sequencer(SequencerEndpoint::new(rpc()?));
-            if reopen == 1 {
-                let recovered = service.recover(Duration::from_secs(5))?;
-                assert_eq!(recovered.pending, 1);
-                assert_eq!(recovered.completed, 0);
-                assert_eq!(recovered.unreachable, 0);
-                assert_eq!(recovered.deferred, 0);
-                assert_eq!(
-                    service.station().journal().state().items[&key]
-                        .submission
-                        .as_ref(),
-                    Some(&prepared)
-                );
-            }
-            assert_eq!(service.respond("/submit", &submit), Err(expected));
-            assert_eq!(expected.status(), if index == 0 { 422 } else { 503 });
-            assert_eq!(
-                service.station().journal().state().items[&key]
-                    .submission
-                    .as_ref(),
-                Some(&prepared)
-            );
-            if index == 0 {
-                let answer = service.respond("/status", &status)?;
-                assert_eq!(answer["state"], "completed");
-                assert_eq!(
-                    answer["completion"],
-                    json!({"outcome": "reverted", "rung": "receipted", "transactionHash": hex(&prepared.hash)})
-                );
-            } else {
-                assert_eq!(
-                    service.respond("/status", &status),
-                    Err(ServiceError::Unavailable)
-                );
-            }
-        }
-        let requests = producer.finish()?;
-        assert_eq!(
-            requests
-                .iter()
-                .filter(|request| request["method"] == "eth_sendRawTransaction")
-                .count(),
-            1,
-            "submit broadcasts once; reopening and recovery must retain the receipted transaction"
-        );
-        assert!(requests
-            .iter()
-            .any(|request| request["method"] == "eth_call"
-                && request["params"][0]["data"].as_str().is_some_and(
-                    |data| data.starts_with(&hex(&keccak(b"getLayerXDid(address)")[..4]))
-                )));
-        assert!(requests
-            .iter()
-            .any(|request| request["method"] == "eth_call"
-                && request["params"][0]["data"].as_str().is_some_and(
-                    |data| data.starts_with(&hex(&keccak(b"getUnifiedAccount(address)")[..4]))
-                )));
+    let inputs = SponsorInputs {
+        fixture: &fixture,
+        runtime: &runtime,
+        sponsor: &sponsor,
+        account: &account,
+        fees,
+        calls: &calls,
+    };
+    for index in 0_u64..2 {
+        sponsor_case(&inputs, index)?;
     }
     Ok(())
+}
+
+#[derive(Clone, Copy)]
+struct SponsorInputs<'a> {
+    fixture: &'a Value,
+    runtime: &'a TestRuntime,
+    sponsor: &'a Signer,
+    account: &'a Signer,
+    fees: Fees,
+    calls: &'a [Call],
+}
+
+struct SponsorCase {
+    config: ServiceConfig,
+    paymaster: Address,
+    key: Key,
+    signed: SignedQuote,
+    authorization: Authorization,
+    account_signature: [u8; 65],
+    reservation: Entry,
+    prepared: layerx_gas_station::journal::Submission,
+}
+
+struct ProducerRun {
+    producer: Producer,
+    initial_path: PathBuf,
+    submit: Vec<u8>,
+    status: Vec<u8>,
+    node_receipt: Value,
+}
+
+fn sponsor_case(inputs: &SponsorInputs<'_>, index: u64) -> TestResult {
+    let mut case = prepare_sponsor_case(inputs, index)?;
+    let mut run = start_producer(inputs, &mut case, index)?;
+    assert_reopened_service(inputs, &case, &run, index)?;
+    let requests = run.producer.finish()?;
+    assert_eq!(
+        requests
+            .iter()
+            .filter(|request| request["method"] == "eth_sendRawTransaction")
+            .count(),
+        1,
+        "submit broadcasts once; reopening and recovery must retain the receipted transaction"
+    );
+    assert!(requests
+        .iter()
+        .any(|request| request["method"] == "eth_call"
+            && request["params"][0]["data"].as_str().is_some_and(
+                |data| data.starts_with(&hex(&keccak(b"getLayerXDid(address)")[..4]))
+            )));
+    assert!(requests
+        .iter()
+        .any(|request| request["method"] == "eth_call"
+            && request["params"][0]["data"].as_str().is_some_and(
+                |data| data.starts_with(&hex(&keccak(b"getUnifiedAccount(address)")[..4]))
+            )));
+    Ok(())
+}
+
+fn prepare_sponsor_case(inputs: &SponsorInputs<'_>, index: u64) -> TestResult<SponsorCase> {
+    let SponsorInputs {
+        runtime,
+        sponsor,
+        account,
+        fees,
+        calls,
+        ..
+    } = *inputs;
+    let now = NOW;
+    let paymaster: Address = [0x44; 20];
+    let config = sponsor_service_config(paymaster, fees)?;
+    let key = Key {
+        sponsor: sponsor.address(),
+        quote_nonce: word(u128::from(index) + 1),
+    };
+    let quote = Quote {
+        sponsor: sponsor.address(),
+        token: SIDIORA,
+        max_token_amount: word(10),
+        token_amount: word(1),
+        deadline: word(u128::from(now + 600)),
+        nonce: key.quote_nonce,
+        gas_cost: word(fees.gas_cost()?),
+    };
+    let digest = quote_digest(word(u128::from(CHAIN_ID)), account.address(), &quote);
+    let signed = SignedQuote {
+        signature: sponsor.sign_digest(digest)?,
+        digest,
+        quote,
+    };
+    let account_signature = account.sign_digest(batch_digest(
+        CHAIN_ID,
+        account.address(),
+        word(0),
+        calls,
+        &signed.quote,
+    )?)?;
+    let mut authorization = Authorization {
+        chain_id: CHAIN_ID,
+        delegate: paymaster,
+        nonce: index + 2,
+        signature: [0; 65],
+    };
+    authorization.signature = account.sign_digest(authorization_digest(&authorization)?)?;
+    let journal_path = runtime.directory.join(format!("station-{index}.jsonl"));
+    let mut journal = Journal::open(&journal_path)?;
+    let reservation = Entry::QuoteReserved {
+        quote: Box::new(QuoteRecord {
+            key,
+            did: hex(&account.address()),
+            batch_nonce: word(0),
+            chain_id: CHAIN_ID,
+            paymaster,
+            account: account.address(),
+            token: SIDIORA,
+            maximum: word(10),
+            amount: word(1),
+            deadline: now + 600,
+            gas_cost: signed.quote.gas_cost,
+            issued_at: now,
+            signature: signed.signature.to_vec(),
+            fees,
+        }),
+    };
+    journal.append(&reservation)?;
+    let prepared = prepare_submission(
+        &mut journal,
+        TransactionRequest {
+            chain_id: CHAIN_ID,
+            account: account.address(),
+            paymaster,
+            nonce: index,
+            batch_nonce: word(0),
+            fees,
+            calls,
+            authorizations: &[authorization.clone()],
+            quote: &signed,
+            account_signature: &account_signature,
+        },
+        &hex(&account.address()),
+        sponsor,
+    )?;
+    drop(journal);
+    Ok(SponsorCase {
+        config,
+        paymaster,
+        key,
+        signed,
+        authorization,
+        account_signature,
+        reservation,
+        prepared,
+    })
+}
+
+fn sponsor_service_config(paymaster: Address, fees: Fees) -> TestResult<ServiceConfig> {
+    let config = ServiceConfig {
+        station: StationConfig {
+            chain_id: CHAIN_ID,
+            endpoints: vec!["https://127.0.0.1:1".into()],
+            paymaster,
+            token: SIDIORA,
+            decimals: 6,
+            max_rate_age: 300,
+            spread_bps: 500,
+            margin_bps: 100,
+            per_account_limit: 8_000_000,
+            per_interval_limit: 16_000_000,
+            per_quote_limit: 4_000_000,
+            interval_seconds: 60,
+            balance_floor: 1,
+            relayer_key_env: "REPAIR_2231162_SPONSOR".into(),
+        },
+        listen: "127.0.0.1:12345".parse()?,
+        gas_limit: fees.gas_limit,
+        max_priority_fee_per_gas: fees.max_priority_fee_per_gas,
+        registered_senders: vec![],
+    };
+    Ok(config)
+}
+
+fn start_producer(
+    inputs: &SponsorInputs<'_>,
+    case: &mut SponsorCase,
+    index: u64,
+) -> TestResult<ProducerRun> {
+    let SponsorInputs {
+        fixture,
+        runtime,
+        sponsor,
+        account,
+        fees,
+        calls,
+    } = *inputs;
+    let now = NOW;
+    let SponsorCase {
+        config,
+        paymaster,
+        key,
+        signed,
+        authorization,
+        account_signature,
+        reservation,
+        prepared,
+    } = case;
+    // The committed producer receipt supplies all execution evidence. Bind
+    // its request identity to the genuine type-4 bytes prepared by the crate;
+    // node_revert_vector_preserves_evidence separately checks the unchanged
+    // signed vector. This service test does not claim signature verification.
+    let mut node_receipt = fixture[if index == 0 { "reverted" } else { "receipted" }].clone();
+    node_receipt["txHash"] = json!(hex(&prepared.hash));
+    node_receipt["nonce"] = json!(format!("0x{:x}", prepared.nonce));
+    if index == 1 {
+        node_receipt["sponsor"] = json!(hex(&[0x77; 20]));
+    }
+    let producer = Producer::start(
+        &fixture["tls"],
+        Transcript {
+            raw: prepared.raw.clone(),
+            hash: prepared.hash,
+            nonce: prepared.nonce,
+            receipt: node_receipt.clone(),
+            sponsor: sponsor.address(),
+            account: account.address(),
+            paymaster: *paymaster,
+            authorization_nonce: authorization.nonce,
+        },
+    )?;
+    config.station.endpoints = vec![producer.endpoint.clone()];
+    // Only the quote is durable initially: /submit must prepare and broadcast
+    // exactly the same transaction itself through the production path.
+    let initial_path = runtime.directory.join(format!("initial-{index}.jsonl"));
+    let mut initial = Journal::open(&initial_path)?;
+    initial.append(reservation)?;
+    drop(initial);
+    assert_eq!(fixed::<32>(&node_receipt["txHash"])?, prepared.hash);
+    assert_eq!(
+        quantity(node_receipt["nonce"].as_str().ok_or("missing node nonce")?)?,
+        u128::from(index)
+    );
+    let wire_quote = json!({"sponsor": hex(&sponsor.address()), "token": hex(&SIDIORA),
+            "maxTokenAmount": "10", "tokenAmount": "1", "deadline": (now + 600).to_string(),
+            "quoteNonce": (index + 1).to_string(), "gasCost": fees.gas_cost()?.to_string(), "decimals": 6});
+    let submit = serde_json::to_vec(&json!({
+        "call": {"to": hex(&account.address()), "value": "0", "data": hex(&encode_sponsored(calls, signed, account_signature)?)},
+        "authorization": {"chainId": CHAIN_ID.to_string(), "address": hex(paymaster),
+            "nonce": authorization.nonce.to_string(), "yParity": authorization.signature[64] - 27,
+            "r": hex(&authorization.signature[..32]), "s": hex(&authorization.signature[32..64])},
+        "batch": {"chainId": CHAIN_ID.to_string(), "account": hex(&account.address()), "nonce": "0",
+            "calls": [{"to": hex(&calls[0].to), "value": "0", "data": hex(&calls[0].data)}], "quote": wire_quote},
+        "accountSignature": hex(account_signature), "relayerSignature": hex(&signed.signature),
+    }))?;
+    let status = serde_json::to_vec(
+        &json!({"sponsor": hex(&key.sponsor), "quoteNonce": (index + 1).to_string(),
+            "account": hex(&account.address()), "relayerSignature": hex(&signed.signature)}),
+    )?;
+    Ok(ProducerRun {
+        producer,
+        initial_path,
+        submit,
+        status,
+        node_receipt,
+    })
+}
+
+fn assert_reopened_service(
+    inputs: &SponsorInputs<'_>,
+    case: &SponsorCase,
+    run: &ProducerRun,
+    index: u64,
+) -> TestResult {
+    let sponsor = inputs.sponsor;
+    let now = NOW;
+    let SponsorCase {
+        config,
+        paymaster,
+        key,
+        prepared,
+        ..
+    } = case;
+    let ProducerRun {
+        initial_path,
+        submit,
+        status,
+        node_receipt,
+        ..
+    } = run;
+    let rpc = || ConfiguredRpc::new(&config.station, BoundedHttps);
+    let endpoint = SequencerEndpoint::new(rpc()?);
+    let full = endpoint
+        .full_receipt(&prepared.hash)?
+        .ok_or("loopback producer lost receipt")?;
+    let expected = if index == 0 {
+        ServiceError::Refused
+    } else {
+        ServiceError::Unavailable
+    };
+    if index == 0 {
+        assert_eq!(node_receipt["status"], "0x0");
+        assert_eq!(node_receipt["sponsor"], hex(&[0; 20]));
+        assert_eq!(full.sponsor, None);
+        assert_eq!(full.vm_error.as_deref(), Some("execution reverted"));
+    } else {
+        assert_eq!(node_receipt["status"], "0x1");
+        assert_eq!(full.sponsor, Some([0x77; 20]));
+        assert_ne!(full.sponsor, Some(sponsor.address()));
+    }
+    // Drop and reopen the real service and its exclusively locked journal.
+    for reopen in 0..2 {
+        let station = GasStation::new(
+            config.station.clone(),
+            Signer::new(1)?,
+            rpc()?,
+            PaymasterRateSource::new(rpc()?, *paymaster),
+            Journal::open(initial_path)?,
+        )?;
+        let mut service = Service::new(config, station, move || Some(now), Limits::default())
+            .with_sequencer(SequencerEndpoint::new(rpc()?));
+        if reopen == 1 {
+            let recovered = service.recover(Duration::from_secs(5))?;
+            assert_eq!(recovered.pending, 1);
+            assert_eq!(recovered.completed, 0);
+            assert_eq!(recovered.unreachable, 0);
+            assert_eq!(recovered.deferred, 0);
+            assert_eq!(
+                service.station().journal().state().items[key]
+                    .submission
+                    .as_ref(),
+                Some(prepared)
+            );
+        }
+        assert_eq!(service.respond("/submit", submit), Err(expected));
+        assert_eq!(expected.status(), if index == 0 { 422 } else { 503 });
+        assert_eq!(
+            service.station().journal().state().items[key]
+                .submission
+                .as_ref(),
+            Some(prepared)
+        );
+        if index == 0 {
+            let answer = service.respond("/status", status)?;
+            assert_eq!(answer["state"], "completed");
+            assert_eq!(
+                answer["completion"],
+                json!({"outcome": "reverted", "rung": "receipted", "transactionHash": hex(&prepared.hash)})
+            );
+        } else {
+            assert_eq!(
+                service.respond("/status", status),
+                Err(ServiceError::Unavailable)
+            );
+        }
+    }
+    Ok(())
+}
+
+trait OrPanic {
+    type Output;
+
+    fn or_panic(self, context: &str) -> Self::Output;
+}
+
+impl<T, E: std::fmt::Debug> OrPanic for std::result::Result<T, E> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|error| panic!("{context}: {error:?}"))
+    }
+}
+
+impl<T> OrPanic for std::option::Option<T> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|| panic!("{context}"))
+    }
 }

@@ -110,7 +110,7 @@ func (r Repository) createCard(ctx context.Context, wallet, verifiedWallet, snap
 	if e != nil {
 		return out, e
 	}
-	out.State = "pending"
+	out.State = statusPending
 	if _, e = tx.Exec(ctx, "INSERT INTO portfolio_cards(id,source_event,wallet,snapshot_id,snapshot,state,created_at) VALUES($1,$2,$3,$4,$5,'pending',$6)", out.ID, sourceEvent, wallet, snapshot, data, now); e != nil {
 		return out, e
 	}
@@ -131,10 +131,10 @@ func (r Repository) RenderCard(ctx context.Context, id string) error {
 	if e != nil {
 		return e
 	}
-	if state == "revoked" {
+	if state == statusRevoked {
 		return ErrGone
 	}
-	if state == "public" {
+	if state == visibilityPublic {
 		return nil
 	}
 	if attempts >= 3 {
@@ -186,10 +186,10 @@ func (r Repository) PublicCard(ctx context.Context, id string) (StoredCard, erro
 	if e != nil {
 		return StoredCard{}, e
 	}
-	if out.State == "revoked" {
+	if out.State == statusRevoked {
 		return StoredCard{ID: out.ID, State: out.State}, ErrGone
 	}
-	if out.State != "public" {
+	if out.State != visibilityPublic {
 		return StoredCard{}, ErrNotFound
 	}
 	var share ShareSnapshot
@@ -331,7 +331,7 @@ func (r Repository) OwnerCardV2(ctx context.Context, id, wallet, verified string
 	if e != nil {
 		return out, e
 	}
-	out.RenderExhausted = out.State == "pending" && out.RenderAttempts >= 3
+	out.RenderExhausted = out.State == statusPending && out.RenderAttempts >= 3
 	out.PrivacyIncident = out.PurgePending && out.PurgeRequestedAt != nil && now.Sub(*out.PurgeRequestedAt) > 300*time.Second
 	return out, nil
 }

@@ -161,12 +161,13 @@ export class SupportChatSession {
 
   #enqueue(work: (generation: number) => Promise<void>): Promise<void> {
     const generation = this.#generation;
+    const stopped = () => this.#stopped;
     const next = this.#queue.then(async () => {
-      if (this.#stopped || generation !== this.#generation) return;
+      if (stopped() || generation !== this.#generation) return;
       try {
         await work(generation);
       } catch (error) {
-        if (this.#stopped || generation !== this.#generation) return;
+        if (stopped() || generation !== this.#generation) return;
         this.#connection = offlineFailure(error) ? "offline" : "online";
         this.#load = "failed";
         this.#notify();

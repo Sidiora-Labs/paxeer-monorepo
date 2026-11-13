@@ -20,7 +20,7 @@ TOOLKIT = "apps/explorer/toolkit/package/package.json"
 REGISTRY = "services/platform/hosted/registry/README.md"
 KEYRING = "tools/paxctl/sidecar/docs/keyring.md"
 OLD_TARGETS = {
-    "docs/site/mkdocs.yml": ("LayerX-Network", "Paxeer-X-Network"),
+    "docs/site/paxeer-docs/src/components/SiteHeader.tsx": ("LayerX-Network", "Paxeer-X-Network"),
     "sdk/js/package.json": ("pax-protocol/pax-js",),
     "sdk/js/README.md": (
         "](./dist/",
@@ -76,18 +76,13 @@ def test_stale_targets_removed_from_every_edited_document(document, old_targets)
 
 
 def test_documentation_site_uses_monorepo_and_its_pages_address():
-    settings = dict(
-        re.findall(
-            r"^(site_url|repo_url|repo_name):\s*(\S+)$",
-            read("docs/site/mkdocs.yml"),
-            re.MULTILINE,
-        )
-    )
-    assert settings == {
-        "site_url": "https://sidiora-labs.github.io/paxeer-monorepo/",
-        "repo_url": REPOSITORY,
-        "repo_name": "Sidiora-Labs/paxeer-monorepo",
-    }
+    header = read("docs/site/paxeer-docs/src/components/SiteHeader.tsx")
+    assert f'href="{REPOSITORY}"' in header
+    seo = read("docs/site/paxeer-docs/src/lib/seo.ts")
+    assert "process.env.NEXT_PUBLIC_SITE_URL || 'https://docs.paxeer.app'" in seo
+    assert "output: 'export'" in read("docs/site/paxeer-docs/next.config.js")
+    workflow = read(".github/workflows/docs-site.yml")
+    assert "path: docs/site/paxeer-docs/out" in workflow
 
 
 @pytest.mark.parametrize(

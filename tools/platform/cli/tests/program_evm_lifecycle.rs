@@ -1,9 +1,12 @@
-//! Task 22.39.118: ProgramLifecycleArgs requires --receipt-policy (src/main.rs:366-368).
+//! Task 22.39.118: `ProgramLifecycleArgs` requires --receipt-policy (src/main.rs:366-368).
 //! Pinned policy follows tests/repair_22_33_1494.rs:403-405.
 
+#[allow(dead_code)]
+mod programs {
+    include!("../src/programs.rs");
+}
 use layerx_platform_cli::{encoding, http};
-#[path = "../src/programs.rs"]
-mod programs;
+use std::io::Write as _;
 
 use std::io::{BufRead as _, Read as _};
 use std::net::{Shutdown, TcpListener};
@@ -205,7 +208,6 @@ fn assert_cli_rpc(directory: &std::path::Path, operation: &[&str]) -> Result<(),
         use std::os::unix::fs::OpenOptionsExt as _;
         options.mode(0o600);
     }
-    use std::io::Write as _;
     let mut file = options.open(&key_file).map_err(|error| error.to_string())?;
     file.write_all(serde_json::to_string(&json!({
         "evm_address":format!("0x{}", encoding::hex_encode(&account.evm_address())),

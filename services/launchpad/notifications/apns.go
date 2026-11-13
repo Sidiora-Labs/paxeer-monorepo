@@ -32,11 +32,11 @@ func NewAPNS(c *Credentials, a TargetAuthority, key, keyID, team, topic string, 
 	}
 	return &APNS{c, a, key, keyID, team, topic, sandbox, providerClient()}, nil
 }
-func (*APNS) Provider() string     { return "apns" }
+func (*APNS) Provider() string     { return providerAPNS }
 func (*APNS) MaxPayloadBytes() int { return 4096 }
 func (a *APNS) Send(ctx context.Context, target PushTarget, p Payload) (SendResult, error) {
-	unknown := SendResult{State: "unknown", Reason: "provider_uncertain"}
-	if target.Provider != "apns" || target.Status != "active" || ValidatePayload(p, 4096) != nil || validateLink(p) != nil {
+	unknown := SendResult{State: stateUnknown, Reason: reasonProviderUncertain}
+	if target.Provider != providerAPNS || target.Status != targetActive || ValidatePayload(p, 4096) != nil || validateLink(p) != nil {
 		return unknown, ErrInvalid
 	}
 	endpoint, e := a.Authority.ResolveEndpoint(ctx, target)
@@ -66,7 +66,7 @@ func (a *APNS) Send(ctx context.Context, target PushTarget, p Payload) (SendResu
 	if e != nil {
 		return unknown, e
 	}
-	jwt, e := ecJWT(key, map[string]string{"alg": "ES256", "kid": kid}, map[string]any{"iss": team, "iat": time.Now().Unix()})
+	jwt, e := ecJWT(key, map[string]string{jwtAlgorithmField: "ES256", "kid": kid}, map[string]any{"iss": team, "iat": time.Now().Unix()})
 	if e != nil {
 		return unknown, e
 	}
@@ -96,23 +96,23 @@ func (a *APNS) Send(ctx context.Context, target PushTarget, p Payload) (SendResu
 }
 
 func apnsResult(status int, headers http.Header, b []byte) (SendResult, error) {
-	unknown := SendResult{State: "unknown", Reason: "provider_uncertain"}
+	unknown := SendResult{State: stateUnknown, Reason: reasonProviderUncertain}
 	if status == 200 {
 		receipt := headers.Get("apns-id")
 		if receipt == "" {
 			return unknown, ErrUnavailable
 		}
-		return SendResult{State: "accepted", Receipt: receipt}, nil
+		return SendResult{State: stateAccepted, Receipt: receipt}, nil
 	}
 	var rejection struct {
 		Reason string `json:"reason"`
 	}
 	_ = json.Unmarshal(b, &rejection)
 	if (status == 410 && rejection.Reason == "Unregistered") || (status == 400 && (rejection.Reason == "BadDeviceToken" || rejection.Reason == "DeviceTokenNotForTopic")) {
-		return SendResult{State: "rejected", Reason: rejection.Reason, DisableTarget: true}, nil
+		return SendResult{State: stateRejected, Reason: rejection.Reason, DisableTarget: true}, nil
 	}
 	if status == 429 || status >= 500 {
-		return SendResult{State: "retry", Reason: "provider_unavailable"}, nil
+		return SendResult{State: stateRetry, Reason: reasonProviderUnavailable}, nil
 	}
-	return SendResult{State: "rejected", Reason: "provider_rejected"}, nil
+	return SendResult{State: stateRejected, Reason: reasonProviderRejected}, nil
 }

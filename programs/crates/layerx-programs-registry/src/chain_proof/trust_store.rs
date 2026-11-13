@@ -14,6 +14,10 @@ pub struct TrustRoot {
 }
 
 impl TrustRoot {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the supplied chain evidence cannot be decoded or verified.
     pub fn from_head(
         head: &VerifiedChainHead,
         validators: ValidatorSet,
@@ -29,6 +33,10 @@ impl TrustRoot {
         Ok(root)
     }
 
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the supplied chain evidence cannot be decoded or verified.
     pub fn canonical_bytes(&self) -> Result<Vec<u8>, ChainProofError> {
         if self.chain_id.is_empty() || self.height == 0 {
             return Err(ChainProofError::NonCanonical);
@@ -50,6 +58,10 @@ impl TrustRoot {
         Ok(bytes)
     }
 
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the supplied chain evidence cannot be decoded or verified.
     pub fn decode(bytes: &[u8]) -> Result<Self, ChainProofError> {
         let mut reader = TrustRootReader { remaining: bytes };
         if reader.take(4)? != b"LXTR" || reader.take(1)? != [1] {

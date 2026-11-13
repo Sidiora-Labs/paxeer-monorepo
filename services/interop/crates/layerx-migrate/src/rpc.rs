@@ -358,12 +358,13 @@ fn authority(host: &str, port: u16) -> String {
     }
 }
 
-fn read_json_rpc(
+type HttpResponseHead = (Vec<u8>, usize, u16, BTreeMap<String, String>);
+
+fn read_http_head(
     stream: &mut impl Read,
     maximum_response_bytes: usize,
-    request_id: u64,
     deadline: Deadline,
-) -> Result<Value, MigrationError> {
+) -> Result<HttpResponseHead, MigrationError> {
     let mut response = Vec::with_capacity(4096);
     let mut buffer = [0_u8; 4096];
     let header_end = loop {
@@ -408,6 +409,18 @@ fn read_json_rpc(
         }
         headers.insert(name, value.trim().to_owned());
     }
+    Ok((response, header_end, status, headers))
+}
+
+fn read_json_rpc(
+    stream: &mut impl Read,
+    maximum_response_bytes: usize,
+    request_id: u64,
+    deadline: Deadline,
+) -> Result<Value, MigrationError> {
+    let (response, header_end, status, headers) =
+        read_http_head(stream, maximum_response_bytes, deadline)?;
+    let mut buffer = [0_u8; 4096];
     if status == 429 {
         let retry_after_seconds = headers
             .get("retry-after")

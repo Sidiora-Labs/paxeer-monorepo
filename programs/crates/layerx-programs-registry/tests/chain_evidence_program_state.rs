@@ -1,3 +1,4 @@
+#[allow(dead_code)]
 #[path = "support/chain.rs"]
 mod chain;
 
@@ -31,7 +32,7 @@ fn program_record(policy: UpgradePolicy, code_hash: [u8; 32], version: u32) -> V
 
 #[test]
 fn chain_program_record_verifies_at_head() {
-    let program = ProgramId::new([11; 32]).unwrap();
+    let program = ProgramId::new([11; 32]).unwrap_or_else(|error| panic!("{error:?}"));
     let key = program_key(program);
     assert_eq!(&key[..3], &[0x01, 0x00, 0x09]);
     assert_eq!(&key[3..11], b"program\0");
@@ -49,16 +50,20 @@ fn chain_program_record_verifies_at_head() {
                 (programs_state_key(b"z"), vec![2]),
             ],
         )
-        .unwrap();
+        .unwrap_or_else(|error| panic!("{error:?}"));
         let head = fixture
             .verifier
             .verify_head(&fixture.header, &fixture.commit)
-            .unwrap();
+            .unwrap_or_else(|error| panic!("{error:?}"));
         let proof = ChainProgramStateProof {
             program,
-            ops: fixture.prove(&key).unwrap(),
+            ops: fixture
+                .prove(&key)
+                .unwrap_or_else(|error| panic!("{error:?}")),
         };
-        let record = proof.verify(&head).unwrap();
+        let record = proof
+            .verify(&head)
+            .unwrap_or_else(|error| panic!("{error:?}"));
         assert_eq!(record.program(), program);
         assert_eq!(record.code_hash(), [13; 32]);
         assert_eq!(record.abi_version(), 1);
@@ -73,11 +78,11 @@ fn chain_program_record_verifies_at_head() {
             &[[1; 32]],
             vec![(key.clone(), program_record(policy, [14; 32], 8))],
         )
-        .unwrap();
+        .unwrap_or_else(|error| panic!("{error:?}"));
         let other_head = other
             .verifier
             .verify_head(&other.header, &other.commit)
-            .unwrap();
+            .unwrap_or_else(|error| panic!("{error:?}"));
         assert_ne!(head.app_hash(), other_head.app_hash());
         assert_eq!(
             proof.verify(&other_head),
@@ -101,8 +106,8 @@ fn chain_program_record_verifies_at_head() {
 
 #[test]
 fn chain_program_record_refuses_other_program() {
-    let program = ProgramId::new([21; 32]).unwrap();
-    let other_program = ProgramId::new([22; 32]).unwrap();
+    let program = ProgramId::new([21; 32]).unwrap_or_else(|error| panic!("{error:?}"));
+    let other_program = ProgramId::new([22; 32]).unwrap_or_else(|error| panic!("{error:?}"));
     let key = program_key(program);
     let canonical = program_record(UpgradePolicy::Authority([23; 32]), [24; 32], 3);
     let fixture = ChainFixture::new(
@@ -110,14 +115,16 @@ fn chain_program_record_refuses_other_program() {
         &[[1; 32]],
         vec![(key.clone(), canonical.clone())],
     )
-    .unwrap();
+    .unwrap_or_else(|error| panic!("{error:?}"));
     let head = fixture
         .verifier
         .verify_head(&fixture.header, &fixture.commit)
-        .unwrap();
+        .unwrap_or_else(|error| panic!("{error:?}"));
     let proof = ChainProgramStateProof {
         program,
-        ops: fixture.prove(&key).unwrap(),
+        ops: fixture
+            .prove(&key)
+            .unwrap_or_else(|error| panic!("{error:?}")),
     };
     assert!(proof.verify(&head).is_ok());
     let other_proof = ChainProgramStateProof {
@@ -137,14 +144,16 @@ fn chain_program_record_refuses_other_program() {
             &[[1; 32]],
             vec![(key.clone(), value)],
         )
-        .unwrap();
+        .unwrap_or_else(|error| panic!("{error:?}"));
         let head = fixture
             .verifier
             .verify_head(&fixture.header, &fixture.commit)
-            .unwrap();
+            .unwrap_or_else(|error| panic!("{error:?}"));
         let proof = ChainProgramStateProof {
             program,
-            ops: fixture.prove(&key).unwrap(),
+            ops: fixture
+                .prove(&key)
+                .unwrap_or_else(|error| panic!("{error:?}")),
         };
         assert_eq!(
             proof.verify(&head),
@@ -159,14 +168,16 @@ fn chain_program_record_refuses_other_program() {
         &[[1; 32]],
         vec![(wrong_module.clone(), canonical)],
     )
-    .unwrap();
+    .unwrap_or_else(|error| panic!("{error:?}"));
     let head = fixture
         .verifier
         .verify_head(&fixture.header, &fixture.commit)
-        .unwrap();
+        .unwrap_or_else(|error| panic!("{error:?}"));
     let proof = ChainProgramStateProof {
         program,
-        ops: fixture.prove(&wrong_module).unwrap(),
+        ops: fixture
+            .prove(&wrong_module)
+            .unwrap_or_else(|error| panic!("{error:?}")),
     };
     assert_eq!(proof.verify(&head), Err(ProtocolEvidenceError::StateProof));
 }

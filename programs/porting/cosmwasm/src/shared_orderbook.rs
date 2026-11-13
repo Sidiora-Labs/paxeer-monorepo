@@ -10,7 +10,10 @@
 
 use crate::error::PortRefusal;
 use crate::storage::{map_key, StateBinding};
-use crate::wasm::*;
+use crate::wasm::{
+    Code, ModuleBuilder, I32, I32_GT_U, I32_LOAD8_U, I32_NE, I64, I64_ADD, I64_EQZ, I64_GT_U,
+    I64_LOAD, I64_MUL, I64_NE, I64_STORE, I64_SUB,
+};
 use layerx_programs_runtime::{
     Capability, CapabilitySet, Deploy, PrincipalId, ProgramId, Storage, StorageNamespace,
     StorageSelector, UpgradePolicy, ABI_V2_MODULE, ABI_V2_VERSION,
@@ -336,45 +339,17 @@ impl BoundedOrderBook {
         let read = builder.import(ABI_V2_MODULE, "storage_read_scoped", host);
         let write = builder.import(ABI_V2_MODULE, "storage_write_scoped", host);
         let respond = builder.import(ABI_V2_MODULE, "response_write", response);
-        let cells = [
-            (StorageSelector::Principal, ROLE_KEY.to_vec(), ROLE, 1),
-            (
-                StorageSelector::Shared,
-                OrderBook::order_count_key()?,
-                COUNT,
-                8,
-            ),
-            (
-                StorageSelector::Shared,
-                OrderBook::order_key(1)?,
-                ORDER,
-                ORDER_BYTES,
-            ),
-            (
-                StorageSelector::Shared,
-                Self::settlement_key(self.terms.maker)?,
-                MAKER,
-                16,
-            ),
-            (
-                StorageSelector::Shared,
-                Self::settlement_key(self.terms.taker)?,
-                TAKER,
-                16,
-            ),
-            (
-                StorageSelector::Principal,
-                OrderBook::position_key()?,
-                POSITION,
-                16,
-            ),
-        ];
+        let cells = order_cells(self.terms)?;
         let mut keys = Vec::new();
         let mut key_pointer = 0_u32;
         for (_, key, _, _) in &cells {
             builder.segment(key_pointer, key);
-            keys.push((key_pointer, key.len() as i32));
-            key_pointer += key.len() as u32;
+            let length = i32::try_from(key.len()).map_err(|_| PortRefusal::OutOfRange)?;
+            let advance = u32::try_from(key.len()).map_err(|_| PortRefusal::OutOfRange)?;
+            keys.push((key_pointer, length));
+            key_pointer = key_pointer
+                .checked_add(advance)
+                .ok_or(PortRefusal::OutOfRange)?;
         }
         let mut reserve = Code::new();
         reserve.local_get(0);
@@ -398,99 +373,12 @@ impl BoundedOrderBook {
             code.op(I64_EQZ);
             code.trap_if();
             code.local_get(2);
-            code.i64_const(self.terms.base_lots as i64);
+            code.i64_const(signed_word(self.terms.base_lots));
             code.op(I64_GT_U);
             code.trap_if();
-            for ((selector, _, buffer, width), (key, length)) in cells.iter().zip(&keys) {
-                emit_storage(&mut code, read, *selector, *key, *length, *buffer, *width);
-                // A present scoped value returns its byte length plus one;
-                // zero denotes absence. Buffer capacity is the value width.
-                code.i32_const(*width + 1);
-                code.op(I32_NE);
-                code.trap_if();
-            }
-            code.pointer(ROLE);
-            code.memory(I32_LOAD8_U, 0);
-            code.i32_const(if matching { 2 } else { 1 });
-            code.op(I32_NE);
-            code.trap_if();
-            // Validate persisted quantities before any arithmetic, including
-            // the unaligned u128 price and complete order identity.
-            check_word(&mut code, ORDER, 0, 1, true);
-            code.pointer(ORDER);
-            code.memory(I32_LOAD8_U, 8);
-            code.trap_if();
-            check_word(&mut code, ORDER, 9, self.terms.price, true);
-            check_word(&mut code, ORDER, 17, 0, true);
-            check_word(&mut code, ORDER, 25, self.terms.base_lots, false);
-            for (buffer, offset, bound) in [
-                (MAKER, 0, self.terms.base_lots),
-                (MAKER, 8, self.terms.quote_lots),
-                (TAKER, 0, self.terms.base_lots),
-                (TAKER, 8, self.terms.quote_lots),
-                (POSITION, 0, self.terms.base_lots),
-                (POSITION, 8, self.terms.base_lots),
-            ] {
-                check_word(&mut code, buffer, offset, bound, false);
-            }
-            check_word(&mut code, COUNT, 0, u64::from(matching), true);
-            emit_conservation(&mut code, self.terms);
-            if matching {
-                // Quantity cannot exceed resting inventory or the quote
-                // balance. The immutable product bound prevents overflow.
-                code.local_get(2);
-                code.pointer(ORDER);
-                code.memory(I64_LOAD, 25);
-                code.op(I64_GT_U);
-                code.trap_if();
-                code.local_get(2);
-                code.i64_const(self.terms.price as i64);
-                code.op(I64_MUL);
-                code.local_set(3);
-                code.local_get(3);
-                code.pointer(TAKER);
-                code.memory(I64_LOAD, 8);
-                code.op(I64_GT_U);
-                code.trap_if();
-                update_word(&mut code, ORDER, 25, 2, I64_SUB);
-                update_word(&mut code, TAKER, 0, 2, I64_ADD);
-                update_word(&mut code, TAKER, 8, 3, I64_SUB);
-                update_word(&mut code, MAKER, 8, 3, I64_ADD);
-                update_word(&mut code, POSITION, 0, 2, I64_ADD);
-            } else {
-                check_word(&mut code, ORDER, 25, 0, true);
-                code.local_get(2);
-                code.pointer(MAKER);
-                code.memory(I64_LOAD, 0);
-                code.op(I64_GT_U);
-                code.trap_if();
-                update_word(&mut code, MAKER, 0, 2, I64_SUB);
-                code.pointer(ORDER);
-                code.local_get(2);
-                code.memory(I64_STORE, 25);
-                code.pointer(COUNT);
-                code.i64_const(1);
-                code.memory(I64_STORE, 0);
-                update_word(&mut code, POSITION, 8, 2, I64_ADD);
-            }
-            // Check all additions against their conserved allocation ceilings.
-            for (buffer, offset, bound) in [
-                (MAKER, 8, self.terms.quote_lots),
-                (TAKER, 0, self.terms.base_lots),
-                (POSITION, 0, self.terms.base_lots),
-                (POSITION, 8, self.terms.base_lots),
-            ] {
-                check_word(&mut code, buffer, offset, bound, false);
-            }
-            emit_conservation(&mut code, self.terms);
-            // Principal position is deliberately last: a denied final write
-            // must roll back the order and both shared settlement balances.
-            for index in [1_usize, 2, 3, 4, 5] {
-                let (selector, _, buffer, width) = &cells[index];
-                let (key, length) = keys[index];
-                emit_storage(&mut code, write, *selector, key, length, *buffer, *width);
-                code.trap_unless_ok();
-            }
+            emit_entry_checks(&mut code, self.terms, &cells, &keys, read, matching);
+            emit_entry_settlement(&mut code, self.terms, matching);
+            emit_entry_writes(&mut code, &cells, &keys, write);
             emit_order_response(&mut code, respond);
             let function = builder.function(entry, &[(2, I64)], &code);
             builder.export_function(name, function);
@@ -527,6 +415,154 @@ impl BoundedOrderBook {
             return Err(PortRefusal::ModuleTooLarge);
         }
         Ok(wasm)
+    }
+}
+
+type OrderCell = (StorageSelector, Vec<u8>, u32, i32);
+
+fn order_cells(terms: OrderBookTerms) -> Result<[OrderCell; 6], PortRefusal> {
+    Ok([
+        (StorageSelector::Principal, ROLE_KEY.to_vec(), ROLE, 1),
+        (
+            StorageSelector::Shared,
+            OrderBook::order_count_key()?,
+            COUNT,
+            8,
+        ),
+        (
+            StorageSelector::Shared,
+            OrderBook::order_key(1)?,
+            ORDER,
+            ORDER_BYTES,
+        ),
+        (
+            StorageSelector::Shared,
+            BoundedOrderBook::settlement_key(terms.maker)?,
+            MAKER,
+            16,
+        ),
+        (
+            StorageSelector::Shared,
+            BoundedOrderBook::settlement_key(terms.taker)?,
+            TAKER,
+            16,
+        ),
+        (
+            StorageSelector::Principal,
+            OrderBook::position_key()?,
+            POSITION,
+            16,
+        ),
+    ])
+}
+
+fn signed_word(value: u64) -> i64 {
+    i64::from_ne_bytes(value.to_ne_bytes())
+}
+
+fn emit_entry_checks(
+    code: &mut Code,
+    terms: OrderBookTerms,
+    cells: &[OrderCell; 6],
+    keys: &[(u32, i32)],
+    read: u32,
+    matching: bool,
+) {
+    for ((selector, _, buffer, width), (key, length)) in cells.iter().zip(keys) {
+        emit_storage(code, read, *selector, *key, *length, *buffer, *width);
+        // A present scoped value returns its byte length plus one;
+        // zero denotes absence. Buffer capacity is the value width.
+        code.i32_const(*width + 1);
+        code.op(I32_NE);
+        code.trap_if();
+    }
+    code.pointer(ROLE);
+    code.memory(I32_LOAD8_U, 0);
+    code.i32_const(if matching { 2 } else { 1 });
+    code.op(I32_NE);
+    code.trap_if();
+    // Validate persisted quantities before any arithmetic, including
+    // the unaligned u128 price and complete order identity.
+    check_word(code, ORDER, 0, 1, true);
+    code.pointer(ORDER);
+    code.memory(I32_LOAD8_U, 8);
+    code.trap_if();
+    check_word(code, ORDER, 9, terms.price, true);
+    check_word(code, ORDER, 17, 0, true);
+    check_word(code, ORDER, 25, terms.base_lots, false);
+    for (buffer, offset, bound) in [
+        (MAKER, 0, terms.base_lots),
+        (MAKER, 8, terms.quote_lots),
+        (TAKER, 0, terms.base_lots),
+        (TAKER, 8, terms.quote_lots),
+        (POSITION, 0, terms.base_lots),
+        (POSITION, 8, terms.base_lots),
+    ] {
+        check_word(code, buffer, offset, bound, false);
+    }
+    check_word(code, COUNT, 0, u64::from(matching), true);
+    emit_conservation(code, terms);
+}
+
+fn emit_entry_settlement(code: &mut Code, terms: OrderBookTerms, matching: bool) {
+    if matching {
+        // Quantity cannot exceed resting inventory or the quote
+        // balance. The immutable product bound prevents overflow.
+        code.local_get(2);
+        code.pointer(ORDER);
+        code.memory(I64_LOAD, 25);
+        code.op(I64_GT_U);
+        code.trap_if();
+        code.local_get(2);
+        code.i64_const(signed_word(terms.price));
+        code.op(I64_MUL);
+        code.local_set(3);
+        code.local_get(3);
+        code.pointer(TAKER);
+        code.memory(I64_LOAD, 8);
+        code.op(I64_GT_U);
+        code.trap_if();
+        update_word(code, ORDER, 25, 2, I64_SUB);
+        update_word(code, TAKER, 0, 2, I64_ADD);
+        update_word(code, TAKER, 8, 3, I64_SUB);
+        update_word(code, MAKER, 8, 3, I64_ADD);
+        update_word(code, POSITION, 0, 2, I64_ADD);
+    } else {
+        check_word(code, ORDER, 25, 0, true);
+        code.local_get(2);
+        code.pointer(MAKER);
+        code.memory(I64_LOAD, 0);
+        code.op(I64_GT_U);
+        code.trap_if();
+        update_word(code, MAKER, 0, 2, I64_SUB);
+        code.pointer(ORDER);
+        code.local_get(2);
+        code.memory(I64_STORE, 25);
+        code.pointer(COUNT);
+        code.i64_const(1);
+        code.memory(I64_STORE, 0);
+        update_word(code, POSITION, 8, 2, I64_ADD);
+    }
+    // Check all additions against their conserved allocation ceilings.
+    for (buffer, offset, bound) in [
+        (MAKER, 8, terms.quote_lots),
+        (TAKER, 0, terms.base_lots),
+        (POSITION, 0, terms.base_lots),
+        (POSITION, 8, terms.base_lots),
+    ] {
+        check_word(code, buffer, offset, bound, false);
+    }
+    emit_conservation(code, terms);
+}
+
+fn emit_entry_writes(code: &mut Code, cells: &[OrderCell; 6], keys: &[(u32, i32)], write: u32) {
+    // Principal position is deliberately last: a denied final write
+    // must roll back the order and both shared settlement balances.
+    for index in [1_usize, 2, 3, 4, 5] {
+        let (selector, _, buffer, width) = &cells[index];
+        let (key, length) = keys[index];
+        emit_storage(code, write, *selector, key, length, *buffer, *width);
+        code.trap_unless_ok();
     }
 }
 
@@ -569,7 +605,7 @@ fn emit_storage(
 fn check_word(code: &mut Code, buffer: u32, offset: u32, bound: u64, exact: bool) {
     code.pointer(buffer);
     code.memory(I64_LOAD, offset);
-    code.i64_const(bound as i64);
+    code.i64_const(signed_word(bound));
     code.op(if exact { I64_NE } else { I64_GT_U });
     code.trap_if();
 }
@@ -592,7 +628,7 @@ fn emit_conservation(code: &mut Code, terms: OrderBookTerms) {
     code.pointer(ORDER);
     code.memory(I64_LOAD, 25);
     code.op(I64_ADD);
-    code.i64_const(terms.base_lots as i64);
+    code.i64_const(signed_word(terms.base_lots));
     code.op(I64_NE);
     code.trap_if();
     code.pointer(MAKER);
@@ -600,7 +636,7 @@ fn emit_conservation(code: &mut Code, terms: OrderBookTerms) {
     code.pointer(TAKER);
     code.memory(I64_LOAD, 8);
     code.op(I64_ADD);
-    code.i64_const(terms.quote_lots as i64);
+    code.i64_const(signed_word(terms.quote_lots));
     code.op(I64_NE);
     code.trap_if();
 }

@@ -496,7 +496,7 @@ func ReplayHistorical(ctx context.Context, source AuthoritySource, input Measure
 				out.Blockers = append(out.Blockers, fmt.Sprintf("scenario_%d_expected_projection_mismatch:%s", record.Scenario, record.Receipt.TxHash.Hex()))
 			}
 			for _, event := range result.Records {
-				if event.Decoded.EmitterRole == "SidioraFactory" && event.Event == "MarketCreated" {
+				if event.Decoded.EmitterRole == roleSidioraFactory && event.Event == eventMarketCreated {
 					if _, e = result.ResolveCreation(record.Receipt.TxHash); e != nil {
 						out.Blockers = append(out.Blockers, "creation_resolution:"+e.Error())
 					}
@@ -510,7 +510,7 @@ func ReplayHistorical(ctx context.Context, source AuthoritySource, input Measure
 						continue
 					}
 					unique[key] = true
-					if r.Decoded.Status == "decoded" || r.Decoded.Status == "schema_unrecognized" {
+					if r.Decoded.Status == statusDecoded || r.Decoded.Status == statusSchemaUnrecognized {
 						observeSurface(rows, r.Decoded.EmitterRole, r.Decoded.Version, "event", r.Decoded.Signature)
 					}
 					if r.Status == "caller_evidence_unavailable" || r.Status == "typed_permission_mismatch" {
@@ -607,7 +607,7 @@ func MeasureDecoderBurst(ctx context.Context, registry *catalog.Registry, captur
 				return nil, fmt.Errorf("missing captured raw log")
 			}
 			decoded := registry.Decode(125, *l)
-			if decoded.Status != "decoded" && decoded.Status != "schema_unrecognized" {
+			if decoded.Status != statusDecoded && decoded.Status != statusSchemaUnrecognized {
 				continue
 			}
 			raw, err := json.Marshal(decoded)
@@ -648,7 +648,7 @@ func MeasureDecoderBurst(ctx context.Context, registry *catalog.Registry, captur
 			}
 			hash := sha256.Sum256(raw)
 			out.Attempted++
-			if decoded.Status == "decoded" || decoded.Status == "schema_unrecognized" {
+			if decoded.Status == statusDecoded || decoded.Status == statusSchemaUnrecognized {
 				out.Decoded++
 				window.Decoded++
 			}
@@ -729,8 +729,7 @@ func (t measurementTransport) RoundTrip(request *http.Request) (*http.Response, 
 		return nil, err
 	}
 	if response.ContentLength > MaxMeasurementInput {
-		response.Body.Close()
-		return nil, fmt.Errorf("historical RPC response exceeds bounded capture")
+		return nil, errors.Join(fmt.Errorf("historical RPC response exceeds bounded capture"), response.Body.Close())
 	}
 	response.Body = measurementBoundedBody{Reader: io.LimitReader(response.Body, MaxMeasurementInput+1), Closer: response.Body}
 	return response, nil

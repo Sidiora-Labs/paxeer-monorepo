@@ -30,6 +30,50 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
+func TestNativeDeploymentAcceptsOnlyApprovedStagedPin(t *testing.T) {
+	approved := deployment.Current()
+	if approved.Roles["Router"].StagedRuntimeHash == "" || approved.Roles["Router"].StagedUpgrade == "" {
+		t.Fatal("approved router must carry the staged pin")
+	}
+	for _, variant := range []string{"approved", "absent", "different hash", "different upgrade"} {
+		t.Run(variant, func(t *testing.T) {
+			manifest := deployment.Current()
+			for name, role := range manifest.Roles {
+				role.StagedRuntimeHash, role.StagedUpgrade = "", ""
+				manifest.Roles[name] = role
+			}
+			if variant == "approved" {
+				manifest = deployment.Current()
+			} else if variant != "absent" {
+				role := manifest.Roles["Router"]
+				role.StagedRuntimeHash = approved.Roles["Router"].StagedRuntimeHash
+				role.StagedUpgrade = approved.Roles["Router"].StagedUpgrade
+				if variant == "different hash" {
+					role.StagedRuntimeHash = common.HexToHash("0x01").Hex()
+				} else {
+					role.StagedUpgrade += "-other"
+				}
+				manifest.Roles["Router"] = role
+			}
+			if err := manifest.Validate(); err != nil {
+				t.Fatalf("test manifest must remain well-formed: %v", err)
+			}
+			engine := &PreflightEngine{manifest: manifest}
+			native, err := engine.nativeDeployment()
+			if variant == "approved" || variant == "absent" {
+				if err != nil || !native {
+					t.Fatalf("approved deployment refused: native=%v err=%v", native, err)
+				}
+				return
+			}
+			var issue deployment.Issue
+			if native || !errors.As(err, &issue) || issue.Code != "identity_unverified" || issue.Role != "Router" {
+				t.Fatalf("unapproved staged pin admitted: native=%v err=%v", native, err)
+			}
+		})
+	}
+}
+
 // lockedBuffer collects a child process's stderr while the test reads it.
 type lockedBuffer struct {
 	mu  sync.Mutex
@@ -582,7 +626,7 @@ func assertRecordedPreflightDrift(t *testing.T, native bool) {
 				if !found || !identity.Verified || identity.Address != role.Address {
 					t.Fatalf("selected %s identity was not attested: %+v", name, identity)
 				}
-				if role.Kind == "surface" && (identity.RuntimeHash != role.RuntimeHash || identity.ImplementationAddress != "" || identity.ImplementationHash != "" || identity.BeaconAddress != "") {
+				if role.Kind == "surface" && (!role.AcceptsRuntimeHash(identity.RuntimeHash) || identity.ImplementationAddress != "" || identity.ImplementationHash != "" || identity.BeaconAddress != "") {
 					t.Fatalf("native %s was interpreted as a proxy: %+v", name, identity)
 				}
 			}

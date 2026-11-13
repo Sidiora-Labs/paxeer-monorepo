@@ -551,12 +551,23 @@ func TestIdentityFrozenWireTimestamps(t *testing.T) {
 	creds.Session.RevokedAt = &zero
 	w := WalletLink{LinkID: uuid.NewString(), AccountID: p.AccountID(), ChainID: "125", Wallet: f.wallet, Visibility: "private", State: "verified", LinkedAt: &nano}
 	fixtures := map[string]any{"AuthChallenge": c, "Session": creds.Session, "WalletLink": w, "LoginResponse": Envelope[LoginData]{RequestID: uuid.NewString(), Data: creds.LoginData, Quality: "complete", GeneratedAt: zero}}
+	canonical := map[string][]string{
+		"AuthChallenge": {`"issuedAt":"2026-10-10T01:02:03.000Z"`, `"expiresAt":"2026-10-10T01:07:03.000Z"`},
+		"Session":       {`"accessExpiresAt":"2026-10-10T01:02:03.123Z"`, `"revokedAt":"2026-10-10T01:02:03.000Z"`},
+		"WalletLink":    {`"linkedAt":"2026-10-10T01:02:03.123Z"`},
+		"LoginResponse": {`"generatedAt":"2026-10-10T01:02:03.000Z"`},
+	}
 	for name, v := range fixtures {
 		raw, e := json.Marshal(v)
 		if e != nil {
 			t.Fatal(e)
 		}
-		if strings.Contains(string(raw), "123456789") || strings.Contains(string(raw), "03Z") {
+		for _, field := range canonical[name] {
+			if !strings.Contains(string(raw), field) {
+				t.Fatal("canonical timestamp missing", name, field, string(raw))
+			}
+		}
+		if strings.Contains(string(raw), "123456789") || strings.Contains(string(raw), `"2026-10-10T01:02:03Z"`) || strings.Contains(string(raw), `"2026-10-10T01:07:03Z"`) {
 			t.Fatal("noncanonical timestamp", string(raw))
 		}
 		if dir := os.Getenv("L33_WIRE_FIXTURE_DIR"); dir != "" {

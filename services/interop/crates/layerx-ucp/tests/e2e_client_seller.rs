@@ -116,7 +116,7 @@ impl LayerXSeller {
 
     fn process_checkout(
         &mut self,
-        submission: CheckoutSubmission,
+        submission: &CheckoutSubmission,
         payment: &mut ExecutedUcpPayment,
         trace: &TraceId,
         now: u64,
@@ -124,8 +124,8 @@ impl LayerXSeller {
         let outcome = UcpAdapter::complete_checkout(
             &mut self.gateway,
             &self.principal,
-            &submission,
-            &mut currency_config(&submission).bind_plane(payment),
+            submission,
+            &mut currency_config(submission).bind_plane(payment),
             &receipt_keys(),
             trace,
             now,
@@ -291,12 +291,12 @@ fn signed_receipt(
     digest.update(b"LXP/v1/receipt\0");
     digest.update(&unsigned);
     digest.update([0]);
-    let signer = SigningKey::from_bytes(&[0x5e; 32]);
+    let receipt_signer = SigningKey::from_bytes(&[0x5e; 32]);
     assert_eq!(
-        signer.verifying_key().to_bytes(),
+        receipt_signer.verifying_key().to_bytes(),
         fixture_array(&case["pinnedKey"]["publicKey"])
     );
-    let signature = signer.sign(&digest.finalize()).to_bytes();
+    let signature = receipt_signer.sign(&digest.finalize()).to_bytes();
     unsigned.extend_from_slice(&[1, 0, 0, 0, 64]);
     unsigned.extend_from_slice(&signature);
     SequencerEvidence {
@@ -379,7 +379,7 @@ fn client_and_seller_complete_on_the_recorded_receipt() {
     let trace = TraceId::mint([0xe3; 16]);
 
     let first_attempt = seller
-        .process_checkout(submission.clone(), &mut payment, &trace, 100)
+        .process_checkout(&submission, &mut payment, &trace, 100)
         .unwrap_or_else(|error| panic!("first checkout attempt: {error}"));
     assert_eq!(
         first_attempt,
@@ -397,7 +397,7 @@ fn client_and_seller_complete_on_the_recorded_receipt() {
 
     payment.evidence.rung = SettlementRung::Receipted;
     let second_attempt = seller
-        .process_checkout(submission.clone(), &mut payment, &trace, 101)
+        .process_checkout(&submission, &mut payment, &trace, 101)
         .unwrap_or_else(|error| panic!("second checkout attempt: {error}"));
     assert_eq!(
         second_attempt,
@@ -428,7 +428,7 @@ fn client_and_seller_complete_on_the_recorded_receipt() {
     assert_ne!(order.receipt_digest, [0; 32]);
 
     let replay = seller
-        .process_checkout(submission, &mut payment, &trace, 102)
+        .process_checkout(&submission, &mut payment, &trace, 102)
         .unwrap_or_else(|error| panic!("checkout replay: {error}"));
     assert_eq!(replay, CheckoutStatus::Completed);
     assert_eq!(
@@ -469,12 +469,12 @@ fn ucp_client_retrieves_order_with_verified_receipt() {
     let trace = TraceId::mint([0xf3; 16]);
 
     seller
-        .process_checkout(submission.clone(), &mut payment, &trace, 200)
+        .process_checkout(&submission, &mut payment, &trace, 200)
         .unwrap_or_else(|error| panic!("first attempt: {error}"));
 
     payment.evidence.rung = SettlementRung::Receipted;
     let status = seller
-        .process_checkout(submission.clone(), &mut payment, &trace, 201)
+        .process_checkout(&submission, &mut payment, &trace, 201)
         .unwrap_or_else(|error| panic!("second attempt: {error}"));
     assert_eq!(status, CheckoutStatus::Completed);
 
@@ -522,17 +522,17 @@ fn ucp_client_and_seller_maintain_idempotency_across_retries() {
     let trace = TraceId::mint([0xb3; 16]);
 
     seller
-        .process_checkout(submission.clone(), &mut payment, &trace, 300)
+        .process_checkout(&submission, &mut payment, &trace, 300)
         .unwrap_or_else(|error| panic!("attempt 1: {error}"));
 
     payment.evidence.rung = SettlementRung::Receipted;
     let completed = seller
-        .process_checkout(submission.clone(), &mut payment, &trace, 301)
+        .process_checkout(&submission, &mut payment, &trace, 301)
         .unwrap_or_else(|error| panic!("attempt 2: {error}"));
     assert_eq!(completed, CheckoutStatus::Completed);
 
     let replay = seller
-        .process_checkout(submission.clone(), &mut payment, &trace, 302)
+        .process_checkout(&submission, &mut payment, &trace, 302)
         .unwrap_or_else(|error| panic!("replay: {error}"));
     assert_eq!(
         replay,
@@ -542,7 +542,7 @@ fn ucp_client_and_seller_maintain_idempotency_across_retries() {
 }
 
 #[path = "support/producer_checkout.rs"]
-mod producer_checkout;
+pub mod producer_checkout;
 
 #[test]
 fn ucp_e2e_durability() {

@@ -82,6 +82,7 @@ type repair958Peers struct {
 	identity   sharedauth.MTLSIdentityAuthority
 	account    Principal
 	target     PushTarget
+	endpoint   Endpoint
 	preference DeliveryPreference
 	calls      atomic.Int64
 }
@@ -132,7 +133,11 @@ func repair958Authorities(t *testing.T) *repair958Peers {
 		base := accountPath(p.account.AccountID)
 		switch r.URL.Path {
 		case base + "/targets":
-			json.NewEncoder(w).Encode([]PushTarget{p.target})
+			if r.Method == http.MethodDelete {
+				w.WriteHeader(http.StatusNoContent)
+			} else {
+				json.NewEncoder(w).Encode([]PushTarget{p.target})
+			}
 		case base + "/targets/" + p.target.DeviceInstallationID:
 			json.NewEncoder(w).Encode(p.target)
 		case base + "/targets/" + p.target.DeviceInstallationID + ":resolve":
@@ -142,9 +147,54 @@ func repair958Authorities(t *testing.T) *repair958Peers {
 				w.WriteHeader(400)
 				return
 			}
-			json.NewEncoder(w).Encode(Endpoint{Token: strings.Repeat("a", 64)})
+			endpoint := p.endpoint
+			if endpoint.Token == "" && endpoint.URL == "" {
+				endpoint.Token = strings.Repeat("a", 64)
+			}
+			json.NewEncoder(w).Encode(endpoint)
 		case base + "/delivery-preference":
 			json.NewEncoder(w).Encode(p.preference)
+		case base + "/targets/" + p.target.DeviceInstallationID + ":disable":
+			var input struct {
+				Target PushTarget
+				Reason string
+			}
+			if r.Method != http.MethodPost || json.Unmarshal(raw, &input) != nil || input.Target != p.target || input.Reason == "" {
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			w.WriteHeader(http.StatusNoContent)
+		case base + "/discovery-preferences":
+			json.NewEncoder(w).Encode(discovery.PreferenceSnapshot{AccountID: p.account.AccountID, Revision: 1, ObservedAt: time.Now().UTC(), Linked: true})
+		case base + "/watchlist":
+			json.NewEncoder(w).Encode(discovery.WatchlistSnapshot{AccountID: p.account.AccountID, Revision: 1, Entries: []discovery.WatchlistEntry{{PoolAddress: "0x3333333333333333333333333333333333333333", AlertEnabled: true}}})
+		case base + "/verified-account":
+			json.NewEncoder(w).Encode(struct{ Verified bool }{true})
+		case base + "/attribution":
+			json.NewEncoder(w).Encode(discovery.WalletAttribution{AccountID: p.account.AccountID, ProfileID: p.account.Wallet, Verified: true, OptedIn: true})
+		case "/internal/v2/wallets/" + p.account.Wallet + "/attribution":
+			json.NewEncoder(w).Encode(discovery.WalletAttribution{AccountID: p.account.AccountID, ProfileID: p.account.Wallet, Verified: true, OptedIn: true})
+		case "/internal/v2/notifications/chat":
+			var input ChatRequest
+			if r.Method != http.MethodPost || json.Unmarshal(raw, &input) != nil || input.AccountID != p.account.AccountID || input.EventID == "" {
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			json.NewEncoder(w).Encode(ChatResponse{NotificationID: "chat-1", Created: true})
+		case "/internal/v2/social/graph/" + p.account.AccountID:
+			json.NewEncoder(w).Encode(discovery.GraphSnapshot{AccountID: p.account.AccountID, Revision: 1, ObservedAt: time.Now().UTC()})
+		case "/internal/v2/social/public/callout/callout-1":
+			json.NewEncoder(w).Encode(discovery.PublicResource{Ref: discovery.SourceRef{ID: "callout-1", EventID: "event-1", Kind: "callout", SourceRevision: 1, VisibilityRevision: 1, PublishedAt: time.Now().UTC(), Public: true, Authorized: true}})
+		case "/internal/v2/social/callouts:review":
+			json.NewEncoder(w).Encode(discovery.ModerationDecision{ResourceID: "callout-1", Revision: 1, Visible: true, ObservedAt: time.Now().UTC()})
+		case "/internal/v2/social/callout-authority":
+			if r.Method != http.MethodPost || !json.Valid(raw) {
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			w.WriteHeader(http.StatusNoContent)
+		case accountPath("foreign-account") + "/discovery-preferences", base + "/targets/foreign-device":
+			w.WriteHeader(http.StatusNotFound)
 		default:
 			t.Errorf("unexpected authority request: %s %s", r.Method, r.URL)
 			w.WriteHeader(404)
@@ -331,6 +381,11 @@ func TestRepairM_958_RuntimePositivePath(t *testing.T) {
 		return runtime
 	}
 	runtime := construct()
+	withRetiredPnL := config
+	withRetiredPnL.PnLBase = peer.server.URL
+	if _, e := NewHTTPRuntime(ctx, db, auth, withRetiredPnL); !errors.Is(e, ErrInvalid) {
+		t.Fatalf("retired PnL authority admitted: %v", e)
+	}
 	for _, missing := range []string{"principal", "pools", "intervals"} {
 		bad := config
 		switch missing {

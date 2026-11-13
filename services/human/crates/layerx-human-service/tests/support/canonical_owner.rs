@@ -16,6 +16,11 @@ fn checked<T, E: Debug>(value: Result<T, E>) -> T {
     value.unwrap_or_else(|error| panic!("canonical owner encoding: {error:?}"))
 }
 
+/// Signs the owner transaction for a supported protocol version.
+///
+/// # Panics
+/// Panics when the version or payload violates the owner transaction contract.
+#[must_use]
 pub fn sign_transaction(
     payload: &Payload,
     action_key: [u8; 32],
@@ -131,6 +136,32 @@ fn budget_create_calldata(payload: &Payload) -> Vec<u8> {
     data
 }
 
+fn assert_nonmonetary_receipt(protocol: &layerx_wire::receipt::ProtocolReceipt) {
+    assert_eq!(protocol.operation(), 0);
+    assert_eq!(protocol.asset(), [0; 32]);
+    assert_eq!(protocol.amount(), 0);
+    assert_eq!(protocol.from(), [0; 32]);
+    assert_eq!(protocol.to(), [0; 32]);
+    assert_eq!(protocol.debit_sequence(), 0);
+    assert_eq!(protocol.debit_balance_before(), 0);
+    assert_eq!(protocol.debit_balance_after(), 0);
+    assert_eq!(protocol.credit_balance_before(), 0);
+    assert_eq!(protocol.credit_balance_after(), 0);
+    assert_eq!(protocol.transfer_set_root(), [0; 32]);
+    assert_eq!(protocol.authorization_hash(), [0; 32]);
+    assert_eq!(protocol.context_hash(), [0; 32]);
+    assert!(protocol.program_outcome().is_none());
+    assert!(protocol.total_units().is_none());
+    assert!(!protocol
+        .effects()
+        .iter()
+        .any(layerx_wire::receipt::Effect::monetary));
+}
+
+/// Asserts that the owner evidence matches the authorized batch.
+///
+/// # Panics
+/// Panics when a lifecycle binding differs from the authorized batch.
 pub fn assert_outcome(
     evidence: &layerx_human_service::agents::ProtocolEvidence,
     kind: layerx_types::payload::ActivityType,
@@ -201,7 +232,7 @@ pub fn assert_outcome(
         checked(layerx_wire::receipt::encode(&authenticated)),
         checked(layerx_wire::receipt::encode(&receipt))
     );
-    let protocol = receipt.protocol().expect("protocol receipt");
+    let protocol = receipt.protocol().or_fail("protocol receipt");
     assert_eq!(protocol.batch_id(), authorized_batch.batch_id());
     assert_eq!(protocol.asset(), authorized_batch.asset());
     assert_eq!(
@@ -212,25 +243,7 @@ pub fn assert_outcome(
         protocol.resulting_state_root(),
         authorized_batch.resulting_state_root()
     );
-    assert_eq!(protocol.operation(), 0);
-    assert_eq!(protocol.asset(), [0; 32]);
-    assert_eq!(protocol.amount(), 0);
-    assert_eq!(protocol.from(), [0; 32]);
-    assert_eq!(protocol.to(), [0; 32]);
-    assert_eq!(protocol.debit_sequence(), 0);
-    assert_eq!(protocol.debit_balance_before(), 0);
-    assert_eq!(protocol.debit_balance_after(), 0);
-    assert_eq!(protocol.credit_balance_before(), 0);
-    assert_eq!(protocol.credit_balance_after(), 0);
-    assert_eq!(protocol.transfer_set_root(), [0; 32]);
-    assert_eq!(protocol.authorization_hash(), [0; 32]);
-    assert_eq!(protocol.context_hash(), [0; 32]);
-    assert!(protocol.program_outcome().is_none());
-    assert!(protocol.total_units().is_none());
-    assert!(!protocol
-        .effects()
-        .iter()
-        .any(layerx_wire::receipt::Effect::monetary));
+    assert_nonmonetary_receipt(protocol);
     assert_eq!(evidence.tx_hash, protocol.activity_id());
     assert_eq!(evidence.tx_hash, evidence.activity_id);
     assert_eq!(evidence.rung, layerx_types::rung::Rung::Committed);
@@ -243,3 +256,5 @@ pub fn assert_outcome(
         <[u8; 32]>::from(Sha256::digest(&evidence.receipt_bytes))
     );
 }
+
+use crate::require_value::RequireValue as _;

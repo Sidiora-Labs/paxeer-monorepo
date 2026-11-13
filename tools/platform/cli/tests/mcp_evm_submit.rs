@@ -6,8 +6,9 @@ mod config;
 mod credential;
 #[path = "../src/encoding.rs"]
 mod encoding;
-#[path = "../src/faucet.rs"]
-mod faucet;
+mod faucet {
+    include!("../src/faucet.rs");
+}
 #[path = "../src/file_store.rs"]
 mod file_store;
 #[path = "../src/output.rs"]
@@ -141,96 +142,10 @@ fn capture(
     Ok((endpoint, worker))
 }
 
-#[test]
-fn mcp_submit_tool_sends_raw_transaction() -> Result<(), Box<dyn std::error::Error>> {
-    let raw = signed_transaction()?;
-    let encoded = format!("0x{}", encoding::hex_encode(&raw));
-    let arguments = json!({"raw_transaction": encoded});
-    let tools = toolset::surface(DeploymentMode::Full)?;
-    let tool = tools
-        .iter()
-        .find(|tool| tool.name == "activity.submit")
-        .copied()
-        .ok_or("submit tool absent")?;
-    let (endpoint, captured) = capture(None)?;
-    let runtime = toolset::runtime(&endpoint)?;
-    let outcome = toolset::invoke(&runtime, tool, &arguments);
-    let sent = captured.join().map_err(|_| "wire capture panicked")??;
-    assert!(
-        outcome.is_err(),
-        "a closed transport must not report submission success"
-    );
-    assert_eq!(
-        sent,
-        json!({"jsonrpc":"2.0", "id":1, "method":"eth_sendRawTransaction", "params":[encoded]})
-    );
-    let bytes = encoding::hex_decode(
-        "sent transaction",
-        sent["params"][0]
-            .as_str()
-            .ok_or("raw hex absent")?
-            .strip_prefix("0x")
-            .ok_or("hex prefix absent")?,
-    )?;
-    assert_eq!(bytes, raw);
-    let (call, signature) = decode_signed(&bytes)?;
-    assert_eq!(call.chain_id, 125);
-    assert_eq!(call.nonce, 7);
-    recover_sender(&call, &signature)?;
-
-    let hash = format!("0x{}", encoding::hex_encode(&transaction_hash(&raw)));
-    assert!(outcome
-        .unwrap_err()
-        .starts_with(&format!("submission_indeterminate: {hash}: ")));
-    let (endpoint, returned) = capture(Some(json!({"jsonrpc":"2.0", "id":1, "result":hash})))?;
-    let accepted = toolset::invoke(&toolset::runtime(&endpoint)?, tool, &arguments)?;
-    assert_eq!(accepted, json!({"txHash":hash,"rung":"submitted"}));
-    assert_eq!(
-        returned.join().map_err(|_| "node exchange panicked")??,
-        sent
-    );
-
-    assert_eq!(
-        toolset::result(&raw, &json!({"jsonrpc":"2.0", "id":1, "result":hash}))?,
-        json!({"txHash":hash, "rung":"submitted"})
-    );
-    for response in [
-        json!({"jsonrpc":"2.0", "id":1, "result":format!("0x{}", "00".repeat(32))}),
-        json!({"jsonrpc":"2.0", "id":1, "result":null}),
-        json!({"jsonrpc":"2.0", "id":2, "result":hash}),
-        json!({"jsonrpc":"2.0", "id":1, "error":{"code":-32000, "message":"nonce too low"}}),
-    ] {
-        assert!(toolset::result(&raw, &response).is_err());
-    }
-    let listener = TcpListener::bind("127.0.0.1:0")?;
-    listener.set_nonblocking(true)?;
-    let runtime = toolset::runtime(&format!("http://{}", listener.local_addr()?))?;
-    for invalid in [
-        json!({"activity":"00".repeat(64)}),
-        json!({"raw_transaction":"0x02c0"}),
-        json!({"raw_transaction":encoded, "extra":true}),
-        json!({"raw_transaction":encoded.trim_start_matches("0x")}),
-    ] {
-        assert!(toolset::invoke(&runtime, tool, &invalid).is_err());
-        assert!(
-            matches!(listener.accept(), Err(error) if error.kind() == std::io::ErrorKind::WouldBlock)
-        );
-    }
-    let wrong_chain = Eip1559Call {
-        chain_id: 126,
-        ..call
-    }
-    .sign(&[1; 32])?;
-    assert!(toolset::invoke(
-        &runtime,
-        tool,
-        &json!({"raw_transaction":format!("0x{}", encoding::hex_encode(&wrong_chain))})
-    )
-    .is_err());
-    assert!(
-        matches!(listener.accept(), Err(error) if error.kind() == std::io::ErrorKind::WouldBlock)
-    );
-
+fn assert_submit_catalogue(
+    arguments: &Value,
+    encoded: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
     assert_eq!(
         toolset::schema("activity.submit")["required"],
         json!(["raw_transaction"])
@@ -239,9 +154,9 @@ fn mcp_submit_tool_sends_raw_transaction() -> Result<(), Box<dyn std::error::Err
         .iter()
         .all(|tool| tool.name != "activity.submit"));
     assert!(
-        layerx_mcp::catalogue::validate("activity.submit", &arguments).is_ok(),
+        layerx_mcp::catalogue::validate("activity.submit", arguments).is_ok(),
         "layerx mcp serve uses the daemon catalogue, which must admit raw transaction submission: {:?}",
-        layerx_mcp::catalogue::validate("activity.submit", &arguments)
+        layerx_mcp::catalogue::validate("activity.submit", arguments)
     );
     let kernel = json!({
         "preparation_ref": "prepared-transaction",
@@ -300,6 +215,101 @@ fn mcp_submit_tool_sends_raw_transaction() -> Result<(), Box<dyn std::error::Err
         native[1]["properties"]["raw_transaction"]["pattern"],
         toolset::schema("activity.submit")["properties"]["raw_transaction"]["pattern"]
     );
+    Ok(())
+}
+
+#[test]
+fn mcp_submit_tool_sends_raw_transaction() -> Result<(), Box<dyn std::error::Error>> {
+    let raw = signed_transaction()?;
+    let encoded = format!("0x{}", encoding::hex_encode(&raw));
+    let arguments = json!({"raw_transaction": encoded});
+    let tools = toolset::surface(DeploymentMode::Full)?;
+    let tool = tools
+        .iter()
+        .find(|tool| tool.name == "activity.submit")
+        .copied()
+        .ok_or("submit tool absent")?;
+    let (endpoint, captured) = capture(None)?;
+    let runtime = toolset::runtime(&endpoint)?;
+    let outcome = toolset::invoke(&runtime, tool, &arguments);
+    let sent = captured.join().map_err(|_| "wire capture panicked")??;
+    assert!(
+        outcome.is_err(),
+        "a closed transport must not report submission success"
+    );
+    assert_eq!(
+        sent,
+        json!({"jsonrpc":"2.0", "id":1, "method":"eth_sendRawTransaction", "params":[encoded]})
+    );
+    let bytes = encoding::hex_decode(
+        "sent transaction",
+        sent["params"][0]
+            .as_str()
+            .ok_or("raw hex absent")?
+            .strip_prefix("0x")
+            .ok_or("hex prefix absent")?,
+    )?;
+    assert_eq!(bytes, raw);
+    let (call, signature) = decode_signed(&bytes)?;
+    assert_eq!(call.chain_id, 125);
+    assert_eq!(call.nonce, 7);
+    recover_sender(&call, &signature)?;
+
+    let hash = format!("0x{}", encoding::hex_encode(&transaction_hash(&raw)));
+    assert!(outcome
+        .err()
+        .unwrap_or_else(|| panic!("expected error"))
+        .starts_with(&format!("submission_indeterminate: {hash}: ")));
+    let (endpoint, returned) = capture(Some(json!({"jsonrpc":"2.0", "id":1, "result":hash})))?;
+    let accepted = toolset::invoke(&toolset::runtime(&endpoint)?, tool, &arguments)?;
+    assert_eq!(accepted, json!({"txHash":hash,"rung":"submitted"}));
+    assert_eq!(
+        returned.join().map_err(|_| "node exchange panicked")??,
+        sent
+    );
+
+    assert_eq!(
+        toolset::result(&raw, &json!({"jsonrpc":"2.0", "id":1, "result":hash}))?,
+        json!({"txHash":hash, "rung":"submitted"})
+    );
+    for response in [
+        json!({"jsonrpc":"2.0", "id":1, "result":format!("0x{}", "00".repeat(32))}),
+        json!({"jsonrpc":"2.0", "id":1, "result":null}),
+        json!({"jsonrpc":"2.0", "id":2, "result":hash}),
+        json!({"jsonrpc":"2.0", "id":1, "error":{"code":-32000, "message":"nonce too low"}}),
+    ] {
+        assert!(toolset::result(&raw, &response).is_err());
+    }
+    let listener = TcpListener::bind("127.0.0.1:0")?;
+    listener.set_nonblocking(true)?;
+    let runtime = toolset::runtime(&format!("http://{}", listener.local_addr()?))?;
+    for invalid in [
+        json!({"activity":"00".repeat(64)}),
+        json!({"raw_transaction":"0x02c0"}),
+        json!({"raw_transaction":encoded, "extra":true}),
+        json!({"raw_transaction":encoded.trim_start_matches("0x")}),
+    ] {
+        assert!(toolset::invoke(&runtime, tool, &invalid).is_err());
+        assert!(
+            matches!(listener.accept(), Err(error) if error.kind() == std::io::ErrorKind::WouldBlock)
+        );
+    }
+    let wrong_chain = Eip1559Call {
+        chain_id: 126,
+        ..call
+    }
+    .sign(&[1; 32])?;
+    assert!(toolset::invoke(
+        &runtime,
+        tool,
+        &json!({"raw_transaction":format!("0x{}", encoding::hex_encode(&wrong_chain))})
+    )
+    .is_err());
+    assert!(
+        matches!(listener.accept(), Err(error) if error.kind() == std::io::ErrorKind::WouldBlock)
+    );
+
+    assert_submit_catalogue(&arguments, &encoded)?;
     Ok(())
 }
 

@@ -11,11 +11,12 @@ import type {
   Transaction,
   TransactionsResponseWatchlist,
   TransactionsResponseWithBlobs,
-  TransactionsStats,
 } from 'types/api/transaction';
 import type { TxInterpretationResponse } from 'types/api/txInterpretation';
 import type { TTxsFilters, TTxsWithBlobsFilters } from 'types/api/txsFilters';
 import type { TxStateChanges } from 'types/api/txStateChanges';
+
+import type { ExplorerTransactionsStats } from './stats';
 
 export const GENERAL_API_TX_RESOURCES = {
   txs_stats: {
@@ -108,7 +109,7 @@ export type GeneralApiTxResourceName = `general:${ keyof typeof GENERAL_API_TX_R
 
 /* eslint-disable @stylistic/indent */
 export type GeneralApiTxResourcePayload<R extends GeneralApiTxResourceName> =
-R extends 'general:txs_stats' ? TransactionsStats :
+R extends 'general:txs_stats' ? ExplorerTransactionsStats :
 R extends 'general:txs_validated' ? TransactionsResponseValidated :
 R extends 'general:txs_pending' ? TransactionsResponsePending :
 R extends 'general:txs_with_blobs' ? TransactionsResponseWithBlobs :

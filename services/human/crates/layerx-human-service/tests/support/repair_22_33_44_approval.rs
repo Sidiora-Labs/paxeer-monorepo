@@ -3,8 +3,9 @@ use std::path::Path;
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 
-#[path = "repair_22_33_44_clock.rs"]
-mod runtime_clock;
+pub mod runtime_clock {
+    include!("repair_22_33_44_clock.rs");
+}
 
 use layerx_client::runtime_clock::RuntimeClock;
 use layerx_types::clock::Clock;
@@ -31,10 +32,10 @@ pub fn clock() -> Arc<RuntimeClock> {
     AUTHORITY
         .get_or_init(|| {
             let root = layerx_human_test_support::directory("a44");
-            std::fs::create_dir_all(&root).expect("approval clock root");
+            std::fs::create_dir_all(&root).or_fail("approval clock root");
             std::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o700))
-                .expect("private approval clock root");
-            runtime_clock::ClockAuthority::start(&root).expect("real approval runtime clock")
+                .or_fail("private approval clock root");
+            runtime_clock::ClockAuthority::start(&root).or_fail("real approval runtime clock")
         })
         .connect()
 }
@@ -43,7 +44,7 @@ pub fn current_time(clock: &dyn Clock) -> TimestampSeconds {
     TimestampSeconds(
         clock
             .sample(Duration::from_secs(1))
-            .expect("authenticated approval time")
+            .or_fail("authenticated approval time")
             .unix_seconds(),
     )
 }
@@ -54,32 +55,32 @@ pub fn activity_expiry() -> u64 {
         current_time(clock().as_ref())
             .get()
             .checked_add(900)
-            .expect("activity expiry")
+            .or_fail("activity expiry")
     })
 }
 
 pub fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+    layerx_human_service::hex::lower(bytes)
 }
 
 pub fn preparation(evm: &EvmPrepared) -> Prepared {
-    layerx_agentd::prepare::verify_call_binding(evm).expect("producer disclosure binding");
+    layerx_agentd::prepare::verify_call_binding(evm).or_fail("producer disclosure binding");
     let disclosure = &evm.disclosure;
     let bytes = evm.call.encode_unsigned();
     assert_eq!(
-        layerx_crypto::disclosure::call::reencode(disclosure).expect("call disclosure reencoding"),
+        layerx_crypto::disclosure::call::reencode(disclosure).or_fail("call disclosure reencoding"),
         bytes,
     );
     let counterparties: Vec<_> = disclosure
         .counterparties
         .iter()
-        .map(|party| AgentDid::new(hex(&party.account)).expect("counterparty"))
+        .map(|party| AgentDid::new(hex(&party.account)).or_fail("counterparty"))
         .collect();
     let amounts = disclosure
         .amounts
         .iter()
         .map(|amount| DisclosedAmount {
-            counterparty: counterparties.last().expect("disclosed recipient").clone(),
+            counterparty: counterparties.last().or_fail("disclosed recipient").clone(),
             amount: Amount(amount.value),
         })
         .collect();
@@ -91,22 +92,22 @@ pub fn preparation(evm: &EvmPrepared) -> Prepared {
     );
     Prepared {
         preparation_ref: PreparationRef::new(hex(&evm.signing_hash))
-            .expect("preparation reference"),
+            .or_fail("preparation reference"),
         disclosure: Disclosure {
             canonical_digest: Sha256::digest(&bytes).into(),
             activity_type: ActivityType(disclosure.activity_type.ordinal()),
-            actor: AgentDid::new(hex(&disclosure.actor)).expect("sender actor"),
-            authority: AuthorityRef::new(hex(&disclosure.authority)).expect("authority"),
+            actor: AgentDid::new(hex(&disclosure.actor)).or_fail("sender actor"),
+            authority: AuthorityRef::new(hex(&disclosure.authority)).or_fail("authority"),
             counterparties: ExplicitSet::allow(counterparties),
             amounts: ExplicitSet::allow(amounts),
-            asset: Asset::new(hex(&disclosure.asset)).expect("asset"),
+            asset: Asset::new(hex(&disclosure.asset)).or_fail("asset"),
             fee_limit: Amount(disclosure.fee_limit),
             expiry,
             idempotency_key: IdempotencyRef::new(hex(&disclosure.idempotency_key))
-                .expect("idempotency"),
+                .or_fail("idempotency"),
         },
-        unsigned_canonical_bytes: CanonicalBytes::new(bytes).expect("unsigned type-2 bytes"),
-        signing_preimage: SigningPreimage::new(evm.signing_hash.to_vec()).expect("signing hash"),
+        unsigned_canonical_bytes: CanonicalBytes::new(bytes).or_fail("unsigned type-2 bytes"),
+        signing_preimage: SigningPreimage::new(evm.signing_hash.to_vec()).or_fail("signing hash"),
         expiry,
     }
 }
@@ -119,7 +120,7 @@ pub fn limiter() -> BudgetLimiter {
         ceiling: 1_000,
         consumed: 0,
     }])
-    .expect("budget limiter")
+    .or_fail("budget limiter")
 }
 
 pub fn register_and_reopen(
@@ -136,7 +137,10 @@ pub fn register_and_reopen(
     layerx_agentd::approval::ApprovalExpiry,
 ) {
     let prepared = preparation(evm);
-    let store = Arc::new(Mutex::new(Store::open(root).expect("approval store")));
+    let store =
+        Arc::new(Mutex::new(Store::open(root).unwrap_or_else(|error| {
+            panic!("{}: {error:?}", "approval store")
+        })));
     let registry = ApprovalRegistry::with_store(store.clone());
     let limits = limiter();
     let ticket = reserve_and_hold_at(
@@ -146,7 +150,7 @@ pub fn register_and_reopen(
             actor_address: evm.from,
             tenant: tenant.clone(),
             agent: Did::new(prepared.disclosure.actor.as_str().as_bytes())
-                .expect("sender identity"),
+                .or_fail("sender identity"),
             session: SessionId([2; 32]),
             capability: CapabilityId([3; 32]),
             policy_version: "approval-repair-v1".to_owned(),
@@ -163,33 +167,36 @@ pub fn register_and_reopen(
         ApprovalSequence(expires),
         current_time(clock),
     )
-    .expect("durable reserved approval");
+    .or_fail("durable reserved approval");
     assert_eq!(ticket.disclosure, prepared.disclosure);
     drop(registry);
     drop(store);
     drop(limits);
-    let reopened = Arc::new(Mutex::new(
-        Store::open(root).expect("reopen approval store"),
-    ));
+    let reopened =
+        Arc::new(Mutex::new(Store::open(root).unwrap_or_else(|error| {
+            panic!("{}: {error:?}", "reopen approval store")
+        })));
     let registry = ApprovalRegistry::with_store(reopened.clone());
     let limits = limiter();
     assert_eq!(
         registry
             .replay_tenant(tenant, &limits)
-            .expect("replay held approval"),
+            .or_fail("replay held approval"),
         1
     );
-    let modules = layerx_types::payload::ModuleRegistry::new(&[]).expect("EVM registry");
+    let modules = layerx_types::payload::ModuleRegistry::new(&[]).or_fail("EVM registry");
     registry
         .validate_registry(tenant, &modules)
-        .expect("rebind durable call and sender");
+        .or_fail("rebind durable call and sender");
     assert_eq!(
         registry
             .ticket([marker; 32])
-            .expect("ticket")
-            .expect("recovered ticket"),
+            .or_fail("ticket")
+            .or_fail("recovered ticket"),
         ticket
     );
     let expiry = layerx_agentd::approval::ApprovalExpiry::from_shared_store(reopened);
     (registry, limits, expiry)
 }
+
+use crate::require_value::RequireValue as _;

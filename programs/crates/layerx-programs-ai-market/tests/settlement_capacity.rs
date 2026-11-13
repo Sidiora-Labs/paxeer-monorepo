@@ -1,23 +1,67 @@
-include!("support/f11_rooms.rs");
+use layerx_ai_market_test_values::RequiredValue as _;
+use layerx_programs_ai_market::placement::SIDE_CAPACITY;
+#[allow(
+    dead_code,
+    reason = "Shared room producers expose the operations used by each independent suite."
+)]
+#[path = "support/f11_rooms.rs"]
+mod rooms_support;
+use rooms_support::*;
 
 #[test]
 fn funded_reward_state_and_all_room_book_capacities_fit_together() {
     use layerx_programs_ai_market::{bonds, rewards};
 
     let mut h = Harness::new();
-    let funded = h.state().room_market().unwrap().0.to_vec();
+    let funded = h.state().room_market().required().0.to_vec();
     // Funding emits the fixed dictionary, all padded epoch rows and refund cursor.
     // Occupying rows or enabling payouts changes their contents, never their size.
     assert_eq!(funded.len(), rewards::REWARD_STATE_BYTES);
     assert_eq!(
         rewards::decode_reward_state(&funded)
-            .unwrap()
+            .required()
             .ledger()
-            .unwrap()
+            .required()
             .free,
         1000
     );
 
+    fill_rooms_and_asks(&mut h);
+    fill_bid_capacity(&mut h);
+    fill_deal_capacity(&mut h);
+    let persisted = h.current.clone();
+    let restarted = Harness {
+        current: persisted,
+        height: h.height,
+        request: h.request,
+    };
+    assert_eq!(
+        restarted.book().counts(),
+        [ROOM_CAPACITY, ASK_CAPACITY, BID_CAPACITY, DEAL_CAPACITY]
+    );
+    for i in 0..BID_CAPACITY {
+        assert!(
+            bonds::bond_from_state(&restarted.current, digest(1 + u8::try_from(i).required()))
+                .required()
+                .is_some()
+        );
+    }
+    let (prefix, book) = restarted.state().room_market().required();
+    assert_eq!(prefix.len(), REWARD_STATE_BYTES);
+    rewards::decode_reward_state(prefix).required();
+    assert!(book.len() <= BOOK_MAX_BYTES);
+    assert_eq!(
+        restarted
+            .state()
+            .section(Section::SettlementClaims)
+            .required()
+            .len(),
+        prefix.len() + book.len() + state::ROOM_MARKET_FRAMING_BYTES
+    );
+    assert!(restarted.current.len() <= MAX_STATE_BYTES);
+}
+use layerx_programs_ai_market::bonds;
+fn fill_rooms_and_asks(h: &mut Harness) {
     for i in 0..ROOM_CAPACITY {
         let request = OpenRoomRequest {
             model_digest: if i < ROOM_CAPACITY / 2 {
@@ -25,7 +69,7 @@ fn funded_reward_state_and_all_room_book_capacities_fit_together() {
             } else {
                 digest(52)
             },
-            ..open_request(digest(100 + i as u8))
+            ..open_request(digest(100 + u8::try_from(i).required()))
         };
         h.apply(
             dispatch::OpenRoom,
@@ -45,7 +89,11 @@ fn funded_reward_state_and_all_room_book_capacities_fit_together() {
     );
 
     for i in 0..ASK_CAPACITY {
-        h.ask(digest(100), digest(1 + i as u8), 1 + i as u128);
+        h.ask(
+            digest(100),
+            digest(1 + u8::try_from(i).required()),
+            1 + i as u128,
+        );
     }
     h.refuse(
         dispatch::PostAsk,
@@ -56,7 +104,8 @@ fn funded_reward_state_and_all_room_book_capacities_fit_together() {
         Presence::Absent,
         CAPACITY,
     );
-
+}
+fn fill_bid_capacity(h: &mut Harness) {
     for i in 0..BID_CAPACITY {
         let room = if i < SIDE_CAPACITY {
             digest(100)
@@ -65,17 +114,23 @@ fn funded_reward_state_and_all_room_book_capacities_fit_together() {
         };
         let peer = if i % 2 == 0 { PEER_A } else { PEER_B };
         // Harness::bid first applies LockBond, then PostBid through dispatch::route.
-        h.bid(room, digest(1 + i as u8), peer);
-        let bond = bonds::bond_from_state(&h.current, digest(1 + i as u8))
-            .unwrap()
-            .unwrap();
+        h.bid(room, digest(1 + u8::try_from(i).required()), peer);
+        let bond = bonds::bond_from_state(&h.current, digest(1 + u8::try_from(i).required()))
+            .required()
+            .required();
         assert_eq!(bond.room, room);
         assert_eq!(bond.owner, principal(peer));
-        assert_eq!(bond.remaining().unwrap(), profile().minimum_bond);
+        assert_eq!(bond.remaining().required(), profile().minimum_bond);
         assert!(!bond.refunded);
-        assert_eq!(h.state().room_market().unwrap().0.len(), REWARD_STATE_BYTES);
+        assert_eq!(
+            h.state().room_market().required().0.len(),
+            REWARD_STATE_BYTES
+        );
         assert!(
-            h.state().section(Section::SettlementClaims).unwrap().len()
+            h.state()
+                .section(Section::SettlementClaims)
+                .required()
+                .len()
                 <= Section::SettlementClaims.payload_cap()
         );
     }
@@ -98,22 +153,23 @@ fn funded_reward_state_and_all_room_book_capacities_fit_together() {
             amount: 100,
         }
         .encode()
-        .unwrap(),
+        .required(),
         Presence::Present(h.roster()),
         CAPACITY,
     );
-
+}
+fn fill_deal_capacity(h: &mut Harness) {
     for i in 0..DEAL_CAPACITY {
-        let ask_id = digest(1 + i as u8);
-        let deal_id = digest(150 + i as u8);
+        let ask_id = digest(1 + u8::try_from(i).required());
+        let deal_id = digest(150 + u8::try_from(i).required());
         let mut layers = [None; MAX_DEAL_PEERS];
         layers[0] = Some(LayerSplit {
-            bid_id: digest(1 + 2 * i as u8),
+            bid_id: digest(1 + 2 * u8::try_from(i).required()),
             first_layer: 0,
             end_layer: 8,
         });
         layers[1] = Some(LayerSplit {
-            bid_id: digest(2 + 2 * i as u8),
+            bid_id: digest(2 + 2 * u8::try_from(i).required()),
             first_layer: 8,
             end_layer: 20,
         });
@@ -136,22 +192,22 @@ fn funded_reward_state_and_all_room_book_capacities_fit_together() {
         assert!(
             matches!(routed, Routed::Applied { .. }),
             "deal index {i}, ask {ask_id:?}, layers {layers:?}: {:?}",
-            codec::decode_result(&result).unwrap()
+            codec::decode_result(&result).required()
         );
         assert_eq!(
-            h.book().ask(ask_id).unwrap().unwrap().state,
+            h.book().ask(ask_id).required().required().state,
             AskState::Matched
         );
-        assert_eq!(h.book().deal(deal_id).unwrap().unwrap().layers, layers);
+        assert_eq!(h.book().deal(deal_id).required().required().layers, layers);
     }
     assert_eq!(
         h.book().counts(),
         [ROOM_CAPACITY, ASK_CAPACITY, BID_CAPACITY, DEAL_CAPACITY]
     );
-    let mut overflow = h.book().deal(digest(150)).unwrap().unwrap();
+    let mut overflow = h.book().deal(digest(150)).required().required();
     overflow.deal_id = digest(166);
-    overflow.layers[0].as_mut().unwrap().bid_id = digest(33);
-    overflow.layers[1].as_mut().unwrap().bid_id = digest(34);
+    overflow.layers[0].as_mut().required().bid_id = digest(33);
+    overflow.layers[1].as_mut().required().bid_id = digest(34);
     let next = RecordDealRequest {
         room_id: overflow.room_id,
         deal_id: overflow.deal_id,
@@ -167,37 +223,6 @@ fn funded_reward_state_and_all_room_book_capacities_fit_together() {
         Presence::Present(h.roster()),
         CAPACITY,
     );
-
-    let persisted = h.current.clone();
-    let restarted = Harness {
-        current: persisted,
-        height: h.height,
-        request: h.request,
-    };
-    assert_eq!(
-        restarted.book().counts(),
-        [ROOM_CAPACITY, ASK_CAPACITY, BID_CAPACITY, DEAL_CAPACITY]
-    );
-    for i in 0..BID_CAPACITY {
-        assert!(
-            bonds::bond_from_state(&restarted.current, digest(1 + i as u8))
-                .unwrap()
-                .is_some()
-        );
-    }
-    let (prefix, book) = restarted.state().room_market().unwrap();
-    assert_eq!(prefix.len(), REWARD_STATE_BYTES);
-    rewards::decode_reward_state(prefix).unwrap();
-    assert!(book.len() <= BOOK_MAX_BYTES);
-    assert_eq!(
-        restarted
-            .state()
-            .section(Section::SettlementClaims)
-            .unwrap()
-            .len(),
-        prefix.len() + book.len() + state::ROOM_MARKET_FRAMING_BYTES
-    );
-    assert!(restarted.current.len() <= MAX_STATE_BYTES);
 }
 
 #[test]
@@ -213,7 +238,9 @@ fn settlement_maxima_and_protocol_resource_bounds_are_explicit() {
         rewards::PAYOUT_REGION_MAX_BYTES,
         9 + 64 * 99 + DEAL_CAPACITY * 104
     );
-    assert!(rewards::PAYOUT_REGION_MAX_BYTES <= rewards::EPOCH_ROWS_BYTES);
+    const {
+        assert!(rewards::PAYOUT_REGION_MAX_BYTES <= rewards::EPOCH_ROWS_BYTES);
+    }
     assert_eq!(
         aggregation_codec::F05_MAX_BYTES,
         aggregation_codec::CURRENT_MAX_BYTES + aggregation_codec::HISTORY_MAX_BYTES
@@ -229,7 +256,9 @@ fn settlement_maxima_and_protocol_resource_bounds_are_explicit() {
         MAX_STATE_BYTES
     );
     assert!(SETTLEMENT_MAX_BYTES <= Section::SettlementClaims.payload_cap());
-    assert!(MAX_STATE_BYTES <= MAX_STORAGE_VALUE_BYTES);
+    const {
+        assert!(MAX_STATE_BYTES <= MAX_STORAGE_VALUE_BYTES);
+    }
     assert_eq!(
         layerx_programs_ai_market::reputation::COMMON_CAP,
         MAX_STATE_BYTES
@@ -254,25 +283,25 @@ fn rebuilt_guest_instantiates_within_the_activity_memory_declaration() {
         },
         PathBuf::from,
     );
-    let manifest = std::fs::read_to_string(&path).unwrap();
+    let manifest = std::fs::read_to_string(&path).required();
     let lines: Vec<_> = manifest.lines().collect();
     assert_eq!(lines.len(), 3);
     let wasm_path = PathBuf::from(lines[0]);
     let wasm_path = if wasm_path.is_absolute() {
         wasm_path
     } else {
-        path.parent().unwrap().join(wasm_path)
+        path.parent().required().join(wasm_path)
     };
-    let wasm = std::fs::read(wasm_path).unwrap();
+    let wasm = std::fs::read(wasm_path).required();
     assert!(wasm.len() <= 524_184);
-    let engine = WasmEngine::declared().unwrap();
+    let engine = WasmEngine::declared().required();
     let module = engine
         .validate_versioned_metered(ABI_V5_VERSION, &wasm, FuelSchedule::WASMI_0_31_2)
-        .unwrap();
-    module.instantiate_for_qualification().unwrap();
+        .required();
+    module.instantiate_for_qualification().required();
     println!(
         "packaged_guest_bytes={} digest={:?}",
         wasm.len(),
-        codec::sha256([wasm.as_slice()]).unwrap()
+        codec::sha256([wasm.as_slice()]).required()
     );
 }

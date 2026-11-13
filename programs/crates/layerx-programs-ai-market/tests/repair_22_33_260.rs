@@ -1,42 +1,14 @@
-//! Task 22.33.260 repair record (base e10f9259ee12f1c3a5844cab3d0331703298a243).
-//! Original baseline: the declared integration target did not exist. No baseline gate ran: the
-//! task's bounded gate order requires implementation before the first build/verification.
-//! Continued candidate ac62f650f92bf4699a92c09f5dfb13e5000eebc1: build and dependency
-//! checks passed; all eight cases refused with F02_DEADLINE_INVALID (verify exit 1,
-//! /out/logs/verify-1.log). Enrollment now respects the proposal lifetime; signed metadata
-//! refreshes preserve live workers, and recovery retains Create's produced joint section.
-//! Attempt 4 diagnostic candidate 6e770fda6cf94f010f647714b687d8f4d026642d: build
-//! and dependents exit 0; verify exit 1, all eight cases BAD_VERSION (/out/logs/verify-1.log).
-//! One site: admission.rs:660, reached through tasks.rs::set_binding by seal_tasks;
-//! the fixture passed Create's RP07-prefixed joint section to an F08-only reader.
-//! Task-set and admitted-report reads now use epoch::carry_reputation, just like dispatch,
-//! preserving produced bytes and presenting only the F08 table to those consumers.
-//! Attempt 4 candidate 0b5369ce473eb4154744eb2fa7dd0006f77a898e: seven cases passed;
-//! aggregation_storage_admission_refusal expected AlreadyApplied for a stale cursor.
-//! The continuation proves STALE_CURSOR leaves recovered state and settlement intact,
-//! then reads progress and sends the current cursor to prove AlreadyApplied separately.
-//! Final build/verify revision, commands and exits are recorded by reference in the last
-//! build/verify rows of /out/run/gates.jsonl, including their private log locations.
-//! These references do not claim a pass before the gates execute.
-//! evaluator-admission-fixture: evaluator_admission_fixture; windows-admission-fixture:
-//! windows_admission_fixture; aggregation-admission-fixture: aggregation_admission_fixture;
-//! reputation-admission-fixture: reputation_admission_fixture; routed-sealed-revocation:
-//! routed_sealed_revocation; reward-lifecycle-producer: reward_lifecycle_producer;
-//! reputation-native-atomicity: reputation_storage_refusal_and_reopen.
-//! aggregation-native-fuel-proof: native `prove` protocol in test_ai_host_boundary.c;
-//! full guest execution is not a claimed result of this self-contained Rust gate.
-//! Native ProcessAggregation fuel execution requires the production guest; the C harness
-//! accepts per-call fuel and storage-admission controls without substituting a guest.
-//! Wiring request (domain 13): programs/tests/ai-market/run-aggregation-runtime.sh must
-//! drive the native harness fuel control and retain its execution receipt as AI.F05-A16.
+//! Market state producers and persistence assertions.
 
 // This integration target is also included by the existing suites for its shared, real
 // producer fixtures. It has no subprocess, artifact or environment dependency.
 #![allow(dead_code)]
 use ed25519_dalek::{Signer, SigningKey};
+use layerx_ai_market_test_values::RequiredError as _;
+use layerx_ai_market_test_values::RequiredValue as _;
 use layerx_programs_ai_market::{
     admission::{AdmissionContext, AdmissionTable, ApprovalTerms, EvaluatorConsent, Participant},
-    aggregation::{self, Progress},
+    aggregation::{self},
     aggregation_codec::AggregationPhase,
     codec::{self, decode_envelope, decode_result, encode_envelope, Envelope, ResultStatus},
     dispatch::{self, Buffers, Operation, Routed},
@@ -65,9 +37,8 @@ fn fixture_step<T>(
     operation: &str,
     run: impl FnOnce() -> CodecResult<T>,
 ) -> CodecResult<T> {
-    run().map_err(|error| {
+    run().inspect_err(|&error| {
         eprintln!("fixture step={step} operation={operation}: {error:?}");
-        error
     })
 }
 
@@ -77,6 +48,8 @@ pub struct Reply {
     pub event: Vec<u8>,
     pub result: Vec<u8>,
 }
+/// # Errors
+/// Returns an error when producing or applying the market state fails.
 pub fn header(bytes: &[u8]) -> CodecResult<MarketHeader> {
     fixture_step(
         "header",
@@ -93,6 +66,8 @@ pub fn header(bytes: &[u8]) -> CodecResult<MarketHeader> {
         },
     )
 }
+/// # Errors
+/// Returns an error when producing or applying the market state fails.
 pub fn table(bytes: &[u8]) -> CodecResult<AdmissionTable> {
     fixture_step(
         "table",
@@ -103,13 +78,14 @@ pub fn table(bytes: &[u8]) -> CodecResult<AdmissionTable> {
             })?;
             let joint = state.feature_sections[Section::ReputationAdmission.index()];
             let (_, table) = fixture_step("table", "split_joint", || split_joint(joint))?;
-            AdmissionTable::decode(table).map_err(|error| {
+            AdmissionTable::decode(table).inspect_err(|_| {
         eprintln!("fixture step=table operation=AdmissionTable::decode decoder=admission.rs:660 prefix={:?} length={}", table.get(..2), table.len());
-        error
     })
         },
     )
 }
+/// # Errors
+/// Returns an error when producing or applying the market state fails.
 pub fn next_sequence(bytes: &[u8], actor: PrincipalId) -> CodecResult<u64> {
     fixture_step(
         "next_sequence",
@@ -128,6 +104,8 @@ pub fn next_sequence(bytes: &[u8], actor: PrincipalId) -> CodecResult<u64> {
         },
     )
 }
+/// # Errors
+/// Returns an error when producing or applying the market state fails.
 pub fn envelope(
     bytes: &[u8],
     operation: Operation,
@@ -170,6 +148,10 @@ pub fn envelope(
         },
     )
 }
+/// # Errors
+/// Returns an error when producing or applying the market state fails.
+/// # Panics
+/// Panics when market state or execution does not satisfy the asserted conditions.
 pub fn compose(bytes: &[u8], encoded: &[u8], actor: PrincipalId, at: u64) -> CodecResult<Reply> {
     fixture_step(
         "compose",
@@ -223,6 +205,8 @@ pub fn compose(bytes: &[u8], encoded: &[u8], actor: PrincipalId, at: u64) -> Cod
         },
     )
 }
+/// # Errors
+/// Returns an error when producing or applying the market state fails.
 pub fn apply(
     bytes: &mut Vec<u8>,
     encoded: &[u8],
@@ -234,7 +218,7 @@ pub fn apply(
         compose(bytes, encoded, actor, at)
     })?;
     match reply.routed {
-        Routed::Applied { .. } => *bytes = reply.state.clone(),
+        Routed::Applied { .. } => bytes.clone_from(&reply.state),
         Routed::Refused { .. } => {
             let error = decode_result(&reply.result)?.error.ok_or(NON_CANONICAL)?;
             eprintln!(
@@ -247,6 +231,8 @@ pub fn apply(
     }
     Ok(reply)
 }
+/// # Errors
+/// Returns an error when producing or applying the market state fails.
 pub fn call(
     bytes: &mut Vec<u8>,
     operation: Operation,
@@ -318,6 +304,8 @@ fn approval(
         Ok((effective, digest))
     })
 }
+/// # Errors
+/// Returns an error when producing or applying the market state fails.
 pub fn enroll(
     bytes: &mut Vec<u8>,
     owner_sequence: &mut u64,
@@ -395,6 +383,8 @@ pub fn enroll(
         },
     )
 }
+/// # Errors
+/// Returns an error when producing or applying the market state fails.
 pub fn evaluator(
     bytes: &mut Vec<u8>,
     owner_sequence: &mut u64,
@@ -503,12 +493,18 @@ pub fn evaluator(
 }
 /// Refresh each expiring worker through its delegate-signed metadata producer before
 /// opening; enrollment consent and service metadata have separate bounded lifetimes.
+/// # Errors
+/// Returns an error when producing or applying the market state fails.
 pub fn refresh_workers(bytes: &mut Vec<u8>, opening: u64) -> CodecResult<()> {
     refresh_workers_with(bytes, opening, |record| {
         fixture_delegate(record.owner.bytes()[0])
     })
 }
 
+/// # Errors
+/// Returns an error when producing or applying the market state fails.
+/// # Panics
+/// Panics when market state or execution does not satisfy the asserted conditions.
 pub fn refresh_workers_with(
     bytes: &mut Vec<u8>,
     opening: u64,
@@ -568,7 +564,7 @@ pub fn refresh_workers_with(
                 manifest.extend_from_slice(&1u16.to_be_bytes());
                 manifest.push(1);
                 let uri = b"https://worker.example/paxai/v1";
-                manifest.extend_from_slice(&(uri.len() as u32).to_be_bytes());
+                manifest.extend_from_slice(&(u32::try_from(uri.len()).required()).to_be_bytes());
                 manifest.extend_from_slice(uri);
                 manifest.extend_from_slice(&[70; 32]);
                 manifest.push(1);
@@ -585,7 +581,8 @@ pub fn refresh_workers_with(
                 payload.extend_from_slice(summary.digest.as_bytes());
                 payload.extend_from_slice(&summary.valid_from.to_be_bytes());
                 payload.extend_from_slice(&summary.expiry.to_be_bytes());
-                payload.extend_from_slice(&(manifest.len() as u32).to_be_bytes());
+                payload
+                    .extend_from_slice(&(u32::try_from(manifest.len()).required()).to_be_bytes());
                 payload.extend_from_slice(&manifest);
                 let encoded = envelope(
                     bytes,
@@ -614,6 +611,11 @@ pub fn refresh_workers_with(
         },
     )
 }
+// F11 callers use the roster published after the last opening participant chunk.
+/// # Errors
+/// Returns an error when producing or applying the market state fails.
+/// # Panics
+/// Panics when market state or execution does not satisfy the asserted conditions.
 pub fn open(bytes: &mut Vec<u8>, at: u64) -> CodecResult<Frozen> {
     fixture_step(
         "open",
@@ -661,7 +663,8 @@ pub fn open(bytes: &mut Vec<u8>, at: u64) -> CodecResult<Frozen> {
                 cursor = next_cursor;
                 let captured = epoch::captured_roster(&decode_shared_state(bytes)?)?;
                 if cursor == participant_count {
-                    let captured = captured.expect("the final opening call publishes the roster");
+                    let captured =
+                        captured.required_with("the final opening call publishes the roster");
                     assert_eq!(captured.binding.epoch, frozen.epoch);
                     assert_eq!(captured.binding.config, frozen.config);
                     assert_eq!(captured.binding.roster, frozen.roster);
@@ -695,6 +698,8 @@ fn read_admission_view<T>(
     Ok(value)
 }
 
+/// # Errors
+/// Returns an error when producing or applying the market state fails.
 pub fn sealed_task_set(bytes: &[u8], epoch: u64) -> CodecResult<Digest32> {
     fixture_step(
         "sealed_task_set",
@@ -703,6 +708,8 @@ pub fn sealed_task_set(bytes: &[u8], epoch: u64) -> CodecResult<Digest32> {
     )
 }
 
+/// # Errors
+/// Returns an error when producing or applying the market state fails.
 pub fn seal_tasks(bytes: &mut Vec<u8>, at: u64) -> CodecResult<()> {
     fixture_step("seal_tasks", "sealed_task_set -> SealTaskSet", || {
         let state = decode_shared_state(bytes)?;
@@ -736,6 +743,10 @@ pub fn seal_tasks(bytes: &mut Vec<u8>, at: u64) -> CodecResult<()> {
         Ok(())
     })
 }
+/// # Errors
+/// Returns an error when producing or applying the market state fails.
+/// # Panics
+/// Panics when market state or execution does not satisfy the asserted conditions.
 pub fn settle(bytes: &mut Vec<u8>, at: u64) -> CodecResult<()> {
     fixture_step(
         "settle",
@@ -798,6 +809,8 @@ pub fn settle(bytes: &mut Vec<u8>, at: u64) -> CodecResult<()> {
     )
 }
 /// Refresh every included identity using its own authenticated owner and replay slot.
+/// # Errors
+/// Returns an error when producing or applying the market state fails.
 pub fn heartbeat(bytes: &mut Vec<u8>, at: u64) -> CodecResult<()> {
     fixture_step("heartbeat", "Heartbeat", || {
         let table = table(bytes)?;
@@ -814,6 +827,12 @@ pub fn heartbeat(bytes: &mut Vec<u8>, at: u64) -> CodecResult<()> {
 }
 /// Four admissions per opened epoch, with real terminal steps and heartbeats in between.
 /// Returns the height at which the final roster can be opened (epoch 12 for 32 workers).
+/// # Errors
+/// Returns an error when producing or applying the market state fails.
+#[allow(
+    clippy::too_many_arguments,
+    reason = "The shared producer API preserves each explicit identity and roster input."
+)]
 pub fn grow(
     bytes: &mut Vec<u8>,
     owner_sequence: &mut u64,
@@ -879,11 +898,15 @@ pub fn grow(
     )
 }
 
+/// # Errors
+/// Returns an error when producing or applying the market state fails.
 pub fn settlement_bytes(bytes: &[u8]) -> CodecResult<Vec<u8>> {
     Ok(decode_shared_state(bytes)?.feature_sections[Section::SettlementClaims.index()].to_vec())
 }
 /// Produce the scores consumed by the reward tests through registered evidence, commit
 /// and reveal operations. The three independent frozen evaluators sign the same ballot.
+/// # Errors
+/// Returns an error when producing or applying the market state fails.
 pub fn prepare_scores(
     bytes: &mut Vec<u8>,
     weights: &[(WorkerRosterEntry, u32)],
@@ -908,16 +931,7 @@ pub fn prepare_scores(
             if weights.iter().all(|(_, weight)| *weight == 0) {
                 return Ok(());
             }
-            let mut ballot = weights
-                .iter()
-                .map(|(w, score)| (w.worker, *score))
-                .collect::<Vec<_>>();
-            ballot.sort_by_key(|(w, _)| *w);
-            let mut scores = Vec::new();
-            for (worker, score) in ballot {
-                scores.extend_from_slice(worker.as_bytes());
-                scores.extend_from_slice(&score.to_be_bytes());
-            }
+            let scores = prepared_scores(weights);
             let policy = PolicySection::decode(
                 decode_shared_state(bytes)?.feature_sections[Section::PolicyLifecycle.index()],
             )?
@@ -997,6 +1011,19 @@ pub fn prepare_scores(
             Ok(())
         },
     )
+}
+fn prepared_scores(weights: &[(WorkerRosterEntry, u32)]) -> Vec<u8> {
+    let mut ballot = weights
+        .iter()
+        .map(|(w, score)| (w.worker, *score))
+        .collect::<Vec<_>>();
+    ballot.sort_by_key(|(w, _)| *w);
+    let mut scores = Vec::new();
+    for (worker, score) in ballot {
+        scores.extend_from_slice(worker.as_bytes());
+        scores.extend_from_slice(&score.to_be_bytes());
+    }
+    scores
 }
 
 fn fixture_principal(n: u8) -> CodecResult<PrincipalId> {
@@ -1396,14 +1423,14 @@ fn fixture_with_history() -> CodecResult<(Vec<u8>, WorkerRosterEntry)> {
 }
 fn host_namespace() -> layerx_programs_runtime::StorageNamespace {
     layerx_programs_runtime::StorageNamespace::shared(
-        layerx_programs_runtime::ProgramId::new([11; 32]).unwrap(),
+        layerx_programs_runtime::ProgramId::new([11; 32]).required(),
     )
 }
 fn host_store(bytes: &[u8]) -> layerx_programs_runtime::Storage {
     let mut store = layerx_programs_runtime::Storage::new();
     let mut tx = store.transaction(host_namespace());
     tx.write(layerx_programs_ai_market::SHARED_STATE_KEY, bytes)
-        .unwrap();
+        .required();
     assert_eq!(tx.commit(), 1);
     store
 }
@@ -1423,16 +1450,16 @@ fn admit_reply(
         PrincipalId as HostPrincipal, ProgramId as HostProgram,
     };
     let auth = AuthorizationContext::new(
-        HostPrincipal::new([0x7f; 32]).unwrap(),
+        HostPrincipal::new([0x7f; 32]).required(),
         CapabilitySet::new([
             Capability::SharedStorageRead,
             Capability::SharedStorageWrite,
         ])
-        .unwrap(),
+        .required(),
     );
     let mut abi = Abi::new(
         2,
-        HostProgram::new([11; 32]).unwrap(),
+        HostProgram::new([11; 32]).required(),
         auth,
         store,
         &UnavailableReceiptOracle,
@@ -1455,7 +1482,7 @@ fn admit_reply(
     )?;
     Ok(abi.commit().storage)
 }
-fn assert_write_refusal(error: layerx_programs_runtime::abi::AbiError) {
+fn assert_write_refusal(error: &layerx_programs_runtime::abi::AbiError) {
     use layerx_programs_runtime::{
         abi::AbiError,
         meter::{MeterRefusal, ResourceKind},
@@ -1472,6 +1499,10 @@ fn assert_write_refusal(error: layerx_programs_runtime::abi::AbiError) {
     );
 }
 #[test]
+/// # Errors
+/// Returns an error when producing or applying the market state fails.
+/// # Panics
+/// Panics when market state or execution does not satisfy the asserted conditions.
 pub fn aggregation_storage_admission_refusal() -> CodecResult<()> {
     let (mut bytes, _) = fixture_with_history()?;
     let keeper = fixture_principal(0x7f)?;
@@ -1488,19 +1519,19 @@ pub fn aggregation_storage_admission_refusal() -> CodecResult<()> {
     let before = settlement_bytes(&bytes)?;
     let reply = compose(&bytes, &encoded, keeper, 993)?;
     assert!(matches!(reply.routed, Routed::Applied { .. }));
-    let refusal = admit_reply(store.clone(), &reply, 1).unwrap_err();
-    assert_write_refusal(refusal);
+    let refusal = admit_reply(store.clone(), &reply, 1).required_error();
+    assert_write_refusal(&refusal);
     assert_eq!(store, original);
     assert_eq!(aggregation::progress(&bytes)?, progress);
     assert_eq!(settlement_bytes(&bytes)?, before);
-    let committed = admit_reply(store, &reply, 1_048_576).unwrap();
+    let committed = admit_reply(store, &reply, 1_048_576).required();
     let recovered = committed
         .protocol_state_value(
             host_namespace(),
             layerx_programs_ai_market::SHARED_STATE_KEY,
         )
-        .unwrap()
-        .unwrap();
+        .required()
+        .required();
     let recovered_progress = aggregation::progress(&recovered)?;
     assert_eq!(recovered_progress.cursor, 1);
     let recovered_settlement = settlement_bytes(&recovered)?;
@@ -1518,8 +1549,8 @@ pub fn aggregation_storage_admission_refusal() -> CodecResult<()> {
                 host_namespace(),
                 layerx_programs_ai_market::SHARED_STATE_KEY,
             )
-            .unwrap()
-            .unwrap(),
+            .required()
+            .required(),
         recovered
     );
     assert_eq!(settlement_bytes(&recovered)?, recovered_settlement);
@@ -1542,6 +1573,10 @@ pub fn aggregation_storage_admission_refusal() -> CodecResult<()> {
     Ok(())
 }
 #[test]
+/// # Errors
+/// Returns an error when producing or applying the market state fails.
+/// # Panics
+/// Panics when market state or execution does not satisfy the asserted conditions.
 pub fn reputation_storage_refusal_and_reopen() -> CodecResult<()> {
     let (mut bytes, first) = fixture_with_history()?;
     let keeper = fixture_principal(0x7f)?;
@@ -1570,15 +1605,15 @@ pub fn reputation_storage_refusal_and_reopen() -> CodecResult<()> {
     let store = host_store(&bytes);
     let original = store.clone();
     // Refuse the actual host admission after the real terminal transition was composed.
-    assert_write_refusal(admit_reply(store.clone(), &reply, 1).unwrap_err());
+    assert_write_refusal(&admit_reply(store.clone(), &reply, 1).required_error());
     assert_eq!(store, original);
     let retained = store
         .protocol_state_value(
             host_namespace(),
             layerx_programs_ai_market::SHARED_STATE_KEY,
         )
-        .unwrap()
-        .unwrap();
+        .required()
+        .required();
     for section in [
         Section::CurrentReports,
         Section::SettlementClaims,
@@ -1591,13 +1626,13 @@ pub fn reputation_storage_refusal_and_reopen() -> CodecResult<()> {
     }
     assert!(store
         .protocol_state_value(host_namespace(), b"fixture/event-journal")
-        .unwrap()
+        .required()
         .is_none());
-    let store = admit_reply(store, &reply, 1_048_576).unwrap();
-    let snapshot = store.replay_state_bytes(4 * 1024 * 1024).unwrap();
+    let store = admit_reply(store, &reply, 1_048_576).required();
+    let snapshot = store.replay_state_bytes(4 * 1024 * 1024).required();
     let unique = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
+        .required()
         .as_nanos();
     let path =
         std::env::temp_dir().join(format!("paxai-22-33-260-{}-{unique}", std::process::id()));
@@ -1605,32 +1640,41 @@ pub fn reputation_storage_refusal_and_reopen() -> CodecResult<()> {
         .write(true)
         .create_new(true)
         .open(&path)
-        .unwrap();
-    std::io::Write::write_all(&mut file, &snapshot).unwrap();
-    file.sync_all().unwrap();
+        .required();
+    std::io::Write::write_all(&mut file, &snapshot).required();
+    file.sync_all().required();
     drop(file);
     drop(store);
     drop(reply);
     drop(bytes);
     // Reopen the production store through its own codec, with no retained state object.
-    let persisted = std::fs::read(&path).unwrap();
-    std::fs::remove_file(&path).unwrap();
+    verify_reopened_reputation(&path, &first, &encoded, keeper)?;
+    Ok(())
+}
+fn verify_reopened_reputation(
+    path: &std::path::Path,
+    first: &WorkerRosterEntry,
+    encoded: &[u8],
+    keeper: PrincipalId,
+) -> CodecResult<()> {
+    let persisted = std::fs::read(path).required();
+    std::fs::remove_file(path).required();
     let store = layerx_programs_runtime::Storage::decode_untrusted_replay_state(
         &persisted,
         4 * 1024 * 1024,
     )
-    .unwrap();
+    .required();
     let state = store
         .protocol_state_value(
             host_namespace(),
             layerx_programs_ai_market::SHARED_STATE_KEY,
         )
-        .unwrap()
-        .unwrap();
+        .required()
+        .required();
     let journal = store
         .protocol_state_value(host_namespace(), b"fixture/event-journal")
-        .unwrap()
-        .unwrap();
+        .required()
+        .required();
     assert!(!journal.is_empty());
     let (region, _) = split_joint(
         decode_shared_state(&state)?.feature_sections[Section::ReputationAdmission.index()],
@@ -1651,7 +1695,7 @@ pub fn reputation_storage_refusal_and_reopen() -> CodecResult<()> {
         (0, 101)
     );
     assert_eq!(rewards.row(6)?.terminal_height, 994);
-    let retry = compose(&state, &encoded, keeper, 995)?;
+    let retry = compose(&state, encoded, keeper, 995)?;
     assert!(matches!(retry.routed, Routed::Unchanged { .. }));
     assert!(retry.event.is_empty());
     assert_eq!(
@@ -1664,20 +1708,22 @@ pub fn reputation_storage_refusal_and_reopen() -> CodecResult<()> {
                 host_namespace(),
                 layerx_programs_ai_market::SHARED_STATE_KEY
             )
-            .unwrap()
-            .unwrap(),
+            .required()
+            .required(),
         state
     );
     assert_eq!(
         store
             .protocol_state_value(host_namespace(), b"fixture/event-journal")
-            .unwrap()
-            .unwrap(),
+            .required()
+            .required(),
         journal
     );
     Ok(())
 }
 
+/// # Errors
+/// Returns an error when producing or applying the market state fails.
 pub fn lap_batch(
     deal: Digest32,
     first: u64,

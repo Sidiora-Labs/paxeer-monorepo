@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"math"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/checked"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -57,7 +58,19 @@ func (row canonicalMarketRow) decode() (DiscoveredMarket, error) {
 	if !common.IsHexAddress(row.Token) || !common.IsHexAddress(row.Pool) || !rpcHash(row.BlockHash) || !rpcHash(row.TransactionHash) || row.Height < 0 || row.TransactionIndex < 0 || row.TransactionIndex > math.MaxUint32 || row.LogIndex < 0 || row.LogIndex > math.MaxUint32 || json.Unmarshal(row.Provenance, &provenance) != nil {
 		return DiscoveredMarket{}, ErrQualification
 	}
-	market := DiscoveredMarket{Token: common.HexToAddress(row.Token), Pool: common.HexToAddress(row.Pool), Height: uint64(row.Height), TransactionIndex: uint(row.TransactionIndex), Creation: &MarketCreationProvenance{BlockHash: common.HexToHash(row.BlockHash), TransactionHash: common.HexToHash(row.TransactionHash), LogIndex: uint(row.LogIndex), Provenance: provenance}}
+	rowHeightUint64, conversionErr := checked.Convert[uint64](row.Height)
+	if conversionErr != nil {
+		return DiscoveredMarket{}, conversionErr
+	}
+	rowTransactionIndexUint, conversionErr := checked.Convert[uint](row.TransactionIndex)
+	if conversionErr != nil {
+		return DiscoveredMarket{}, conversionErr
+	}
+	rowLogIndexUint, conversionErr := checked.Convert[uint](row.LogIndex)
+	if conversionErr != nil {
+		return DiscoveredMarket{}, conversionErr
+	}
+	market := DiscoveredMarket{Token: common.HexToAddress(row.Token), Pool: common.HexToAddress(row.Pool), Height: rowHeightUint64, TransactionIndex: rowTransactionIndexUint, Creation: &MarketCreationProvenance{BlockHash: common.HexToHash(row.BlockHash), TransactionHash: common.HexToHash(row.TransactionHash), LogIndex: rowLogIndexUint, Provenance: provenance}}
 	if market.Token == (common.Address{}) || market.Pool == (common.Address{}) || market.Token == market.Pool || provenance.DeploymentID == "" || provenance.ABIRevision == "" || provenance.EmitterCodeEpoch == "" || provenance.PoolCodeEpoch == "" || provenance.ReceiptSHA256 == "" || provenance.HeaderSHA256 == "" {
 		return DiscoveredMarket{}, ErrQualification
 	}

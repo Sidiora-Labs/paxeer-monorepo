@@ -48,7 +48,7 @@ func (o S3AssetObjects) Ready(ctx context.Context) error {
 		return o.Readiness(ctx)
 	}
 	u, e := url.Parse(o.PublicOrigin)
-	if o.Client == nil || o.QuarantineBucket == "" || o.PublicBucket == "" || o.PublicBucket == o.QuarantineBucket || e != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || u.Path != "" {
+	if o.Client == nil || o.QuarantineBucket == "" || o.PublicBucket == "" || o.PublicBucket == o.QuarantineBucket || e != nil || u.Scheme != metadataHTTPSScheme || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || u.Path != "" {
 		return raster.ErrUnavailable
 	}
 	acl, e := o.Client.GetBucketAcl(ctx, &s3.GetBucketAclInput{Bucket: aws.String(o.QuarantineBucket)})
@@ -87,7 +87,7 @@ func (o S3AssetObjects) Ready(ctx context.Context) error {
 // keyspace; a 200 on the listing would expose it.
 func anonymousAccessDenied(ctx context.Context, endpoint, bucket string) error {
 	base, e := url.Parse(strings.TrimRight(endpoint, "/"))
-	if e != nil || (base.Scheme != "https" && base.Scheme != "http") || base.Host == "" || base.User != nil || base.RawQuery != "" || base.Fragment != "" || bucket == "" || strings.ContainsAny(bucket, "/?#") {
+	if e != nil || (base.Scheme != metadataHTTPSScheme && base.Scheme != "http") || base.Host == "" || base.User != nil || base.RawQuery != "" || base.Fragment != "" || bucket == "" || strings.ContainsAny(bucket, "/?#") {
 		return raster.ErrUnavailable
 	}
 	client := http.Client{Timeout: 2 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
@@ -100,9 +100,9 @@ func anonymousAccessDenied(ctx context.Context, endpoint, bucket string) error {
 		if e != nil {
 			return raster.ErrUnavailable
 		}
-		io.Copy(io.Discard, io.LimitReader(response.Body, 65536))
-		response.Body.Close()
-		if response.StatusCode != http.StatusForbidden {
+		_, readErr := io.Copy(io.Discard, io.LimitReader(response.Body, 65536))
+		closeErr := response.Body.Close()
+		if readErr != nil || closeErr != nil || response.StatusCode != http.StatusForbidden {
 			return raster.ErrUnavailable
 		}
 	}
@@ -141,7 +141,7 @@ func (o S3AssetObjects) read(ctx context.Context, bucket, key string) ([]byte, e
 	if e != nil {
 		return nil, raster.ErrUnavailable
 	}
-	defer object.Body.Close()
+	defer closeResource(object.Body)
 	body, e := raster.ReadBounded(object.Body)
 	if e != nil {
 		return nil, e
@@ -152,7 +152,7 @@ func (o S3AssetObjects) PutImmutable(ctx context.Context, key string, body []byt
 	if !strings.HasPrefix(key, "approved/") || strings.Contains(key, "..") || len(body) == 0 || len(body) > 6<<20 {
 		return ErrValidation
 	}
-	return o.put(ctx, o.PublicBucket, key, body, "image/png")
+	return o.put(ctx, o.PublicBucket, key, body, metadataMimePNG)
 }
 
 type RequestIdentityAuthority interface {
@@ -278,7 +278,7 @@ func (c ConnectedMedia) upload(w http.ResponseWriter, r *http.Request) {
 	}
 	mime := http.DetectContentType(body)
 	declared := strings.TrimSpace(strings.Split(r.Header.Get("Content-Type"), ";")[0])
-	if mime != declared || (mime != "image/png" && mime != "image/jpeg" && mime != "image/webp") {
+	if mime != declared || (mime != metadataMimePNG && mime != metadataMimeJPEG && mime != metadataMimeWebP) {
 		v2Error(w, 415, "unsupported_image")
 		return
 	}
@@ -309,7 +309,7 @@ func (c ConnectedMedia) upload(w http.ResponseWriter, r *http.Request) {
 		cleanup, done := context.WithTimeout(context.Background(), time.Second)
 		defer done()
 		if _, err := connection.Exec(cleanup, "SELECT pg_advisory_unlock(hashtextextended($1,0))", lock); err != nil {
-			connection.Conn().Close(cleanup)
+			closeConnection(cleanup, connection.Conn())
 		}
 	}()
 	hash := sha256.Sum256(body)
@@ -323,31 +323,31 @@ func (c ConnectedMedia) upload(w http.ResponseWriter, r *http.Request) {
 		v2Failure(w, e)
 		return
 	}
-	if state == "REJECTED" || state == "DELETED" {
+	if state == metadataStateRejected || state == metadataStateDeleted {
 		v2Failure(w, ErrForbidden)
 		return
 	}
-	if state == "APPROVED" {
+	if state == metadataStateApproved {
 		c.respondAsset(w, r, id, http.StatusOK)
 		return
 	}
 	if state == "CREATED" {
-		if e = store.TransitionAsset(ctx, id, "CREATED", "UPLOADING"); e != nil {
+		if e = store.TransitionAsset(ctx, id, "CREATED", metadataStateUploading); e != nil {
 			v2Failure(w, e)
 			return
 		}
-		state = "UPLOADING"
+		state = metadataStateUploading
 	}
-	if state == "UPLOADING" {
+	if state == metadataStateUploading {
 		if e = c.Objects.put(ctx, c.Objects.QuarantineBucket, record.ObjectKey, body, mime); e != nil {
 			v2Failure(w, e)
 			return
 		}
-		if e = store.TransitionAsset(ctx, id, "UPLOADING", "QUARANTINED"); e != nil {
+		if e = store.TransitionAsset(ctx, id, metadataStateUploading, metadataStateQuarantined); e != nil {
 			v2Failure(w, e)
 			return
 		}
-		state = "QUARANTINED"
+		state = metadataStateQuarantined
 	}
 	stored, e := c.Objects.read(ctx, c.Objects.QuarantineBucket, record.ObjectKey)
 	if e != nil {
@@ -358,16 +358,16 @@ func (c ConnectedMedia) upload(w http.ResponseWriter, r *http.Request) {
 		v2Failure(w, ErrConflict)
 		return
 	}
-	if state == "QUARANTINED" {
-		if e = store.TransitionAsset(ctx, id, state, "VALIDATING"); e != nil {
+	if state == metadataStateQuarantined {
+		if e = store.TransitionAsset(ctx, id, state, metadataStateValidating); e != nil {
 			v2Failure(w, e)
 			return
 		}
-		state = "VALIDATING"
+		state = metadataStateValidating
 	}
 	scan := sharedhttp.ScanVerifiedBuffer(ctx, stored, c.Scanner)
 	if scan.Verdict == sharedhttp.ScanInfected {
-		if state != "VALIDATING" {
+		if state != metadataStateValidating {
 			v2Failure(w, ErrForbidden)
 			return
 		}
@@ -435,7 +435,7 @@ func (c ConnectedMedia) respondAsset(w http.ResponseWriter, r *http.Request, id 
 		v2Failure(w, e)
 		return
 	}
-	if a.State == "APPROVED" {
+	if a.State == metadataStateApproved {
 		var keys map[string]string
 		if json.Unmarshal(variants, &keys) != nil || len(keys) != 3 {
 			v2Failure(w, raster.ErrUnavailable)
@@ -458,10 +458,10 @@ func (c ConnectedMedia) respondAsset(w http.ResponseWriter, r *http.Request, id 
 		v2Failure(w, e)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", metadataJSONType)
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(response)
+	writeJSON(w, response)
 }
 
 func (c ConnectedMedia) ExpireRejected(ctx context.Context) error {
@@ -492,7 +492,7 @@ func (c ConnectedMedia) ExpireRejected(ctx context.Context) error {
 		if _, e = c.Objects.Client.DeleteObject(ctx, &s3.DeleteObjectInput{Bucket: aws.String(c.Objects.QuarantineBucket), Key: aws.String(a.key)}); e != nil {
 			return raster.ErrUnavailable
 		}
-		if e = store.TransitionAsset(ctx, a.id, "REJECTED", "DELETED"); e != nil {
+		if e = store.TransitionAsset(ctx, a.id, metadataStateRejected, metadataStateDeleted); e != nil {
 			return e
 		}
 	}
@@ -517,7 +517,7 @@ type ConnectedMetadata struct {
 
 func (c ConnectedMedia) media(w http.ResponseWriter, r *http.Request) {
 	if c.Metadata.Store == nil || c.Metadata.Canonical == nil {
-		v2Error(w, 503, "unavailable")
+		v2Error(w, 503, metadataUnavailableQuality)
 		return
 	}
 	store := c.Metadata.Store
@@ -561,7 +561,7 @@ func (c ConnectedMedia) media(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	result := ConnectedMetadata{Metadata: data}
-	if data.LogoAssetID != nil && data.ModerationStatus == "allowed" {
+	if data.LogoAssetID != nil && data.ModerationStatus == metadataVisibilityAllowed {
 		image := ConnectedImage{AssetID: *data.LogoAssetID}
 		var encoded []byte
 		e = tx.QueryRow(r.Context(), "SELECT a.hash,d.mime,d.width,d.height,d.variants FROM "+store.table("assets")+" a JOIN "+store.table("asset_details_v2")+" d ON d.asset_id=a.id WHERE a.id=$1 AND a.pool=$2 AND a.state='APPROVED'", image.AssetID, data.PoolAddress).Scan(&image.SHA256, &image.MIME, &image.Width, &image.Height, &encoded)
@@ -603,8 +603,8 @@ func (c ConnectedMedia) media(w http.ResponseWriter, r *http.Request) {
 		v2Failure(w, e)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	w.Header().Set("Content-Type", metadataJSONType)
+	writeJSON(w, response)
 }
 
 type D12VisibilityClient struct {
@@ -622,12 +622,12 @@ type D12Visibility struct {
 }
 
 func (c D12VisibilityClient) Read(ctx context.Context, pool string) (D12Visibility, error) {
-	return c.ReadTarget(ctx, "token", pool)
+	return c.ReadTarget(ctx, metadataTokenTarget, pool)
 }
 func (c D12VisibilityClient) ReadTarget(ctx context.Context, targetType, targetID string) (D12Visibility, error) {
 	var result D12Visibility
 	endpoint, e := url.Parse(c.Endpoint)
-	if e != nil || endpoint.Scheme != "https" || endpoint.Host == "" || endpoint.User != nil || endpoint.Path != "" || endpoint.RawQuery != "" || endpoint.Fragment != "" || c.Secrets == nil || c.TokenKey == "" || (targetType != "token" && targetType != "asset") || (targetType == "token" && !addressRE.MatchString(targetID)) || (targetType == "asset" && !uuidRE.MatchString(targetID)) {
+	if e != nil || endpoint.Scheme != metadataHTTPSScheme || endpoint.Host == "" || endpoint.User != nil || endpoint.Path != "" || endpoint.RawQuery != "" || endpoint.Fragment != "" || c.Secrets == nil || c.TokenKey == "" || (targetType != metadataTokenTarget && targetType != metadataAssetTarget) || (targetType == metadataTokenTarget && !addressRE.MatchString(targetID)) || (targetType == metadataAssetTarget && !uuidRE.MatchString(targetID)) {
 		return result, raster.ErrUnavailable
 	}
 	token, e := c.Secrets.GetRequired(ctx, c.TokenKey)
@@ -636,6 +636,7 @@ func (c D12VisibilityClient) ReadTarget(ctx context.Context, targetType, targetI
 	}
 	bounded, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
+	//nolint:gosec // The public endpoint is restricted to an HTTPS origin and both query values are validated above.
 	req, e := http.NewRequestWithContext(bounded, "GET", c.Endpoint+"/internal/v2/safety/visibility?targetType="+targetType+"&targetId="+url.QueryEscape(targetID), nil)
 	if e != nil {
 		return result, raster.ErrUnavailable
@@ -645,11 +646,12 @@ func (c D12VisibilityClient) ReadTarget(ctx context.Context, targetType, targetI
 	if c.Client != nil {
 		client.Transport = c.Client.Transport
 	}
+	//nolint:gosec // The request uses the validated HTTPS origin with redirects disabled.
 	response, e := client.Do(req)
 	if e != nil {
 		return result, raster.ErrUnavailable
 	}
-	defer response.Body.Close()
+	defer closeResource(response.Body)
 	if response.StatusCode != http.StatusOK {
 		return result, raster.ErrUnavailable
 	}
@@ -659,7 +661,10 @@ func (c D12VisibilityClient) ReadTarget(ctx context.Context, targetType, targetI
 	}
 	decoder := json.NewDecoder(bytes.NewReader(raw))
 	decoder.DisallowUnknownFields()
-	if decoder.Decode(&result) != nil || decoder.Decode(new(any)) != io.EOF || result.TargetType != targetType || result.TargetID != targetID || !((result.Revision == 0 && result.CaseID == "" && result.Status == "allowed") || (result.Revision > 0 && uuidRE.MatchString(result.CaseID) && (result.Status == "removed" || result.Status == "restored"))) {
+	decodeErr := decoder.Decode(&result)
+	validInitial := result.Revision == 0 && result.CaseID == "" && result.Status == metadataVisibilityAllowed
+	validRevision := result.Revision > 0 && uuidRE.MatchString(result.CaseID) && (result.Status == metadataVisibilityRemoved || result.Status == "restored")
+	if decodeErr != nil || decoder.Decode(new(any)) != io.EOF || result.TargetType != targetType || result.TargetID != targetID || (!validInitial && !validRevision) {
 		return D12Visibility{}, ErrUnrepresentable
 	}
 	return result, nil
@@ -672,7 +677,7 @@ func (c ConnectedMedia) syncModeration(ctx context.Context, pool string) error {
 	if e != nil {
 		return e
 	}
-	return c.Metadata.Store.Restrict(ctx, pool, strconv.FormatInt(visibility.Revision, 10), visibility.Status == "removed")
+	return c.Metadata.Store.Restrict(ctx, pool, strconv.FormatInt(visibility.Revision, 10), visibility.Status == metadataVisibilityRemoved)
 }
 
 func (c ConnectedMedia) patchMetadata(w http.ResponseWriter, r *http.Request) {
@@ -765,18 +770,18 @@ func (c ConnectedMedia) getAccountAsset(w http.ResponseWriter, r *http.Request) 
 		v2Failure(w, e)
 		return
 	}
-	if blocked || a.State == "DELETED" {
+	if blocked || a.State == metadataStateDeleted {
 		v2Failure(w, ErrMissing)
 		return
 	}
 	a.SHA256 = "0x" + a.SHA256
-	states := map[string]string{"UPLOADING": "uploading", "QUARANTINED": "quarantined", "VALIDATING": "quarantined", "REJECTED": "rejected", "APPROVED": "approved"}
+	states := map[string]string{metadataStateUploading: metadataStateUploadingWire, metadataStateQuarantined: metadataStateQuarantinedWire, metadataStateValidating: metadataStateQuarantinedWire, metadataStateRejected: metadataStateRejectedWire, metadataStateApproved: metadataStateApprovedWire}
 	a.State = states[a.State]
 	if a.State == "" {
 		v2Failure(w, ErrUnrepresentable)
 		return
 	}
-	if a.State == "approved" {
+	if a.State == metadataStateApprovedWire {
 		var keys map[string]string
 		if engine == "" || signature == "" || json.Unmarshal(variants, &keys) != nil || len(keys) != 3 {
 			v2Failure(w, raster.ErrUnavailable)
@@ -790,22 +795,22 @@ func (c ConnectedMedia) getAccountAsset(w http.ResponseWriter, r *http.Request) 
 		}
 		a.PublicURL = &link
 	}
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", metadataJSONType)
 	w.Header().Set("Cache-Control", "no-store")
-	if r.Method == http.MethodPut && a.State != "approved" && a.State != "rejected" {
+	if r.Method == http.MethodPut && a.State != metadataStateApprovedWire && a.State != metadataStateRejectedWire {
 		w.WriteHeader(http.StatusAccepted)
 	}
-	json.NewEncoder(w).Encode(a)
+	writeJSON(w, a)
 }
 func (c ConnectedMedia) syncAccountModeration(ctx context.Context, id string) error {
 	if c.Metadata.Store == nil || c.Moderation == nil {
 		return raster.ErrUnavailable
 	}
-	v, e := c.Moderation.ReadTarget(ctx, "asset", id)
+	v, e := c.Moderation.ReadTarget(ctx, metadataAssetTarget, id)
 	if e != nil {
 		return e
 	}
-	_, e = c.Metadata.Store.Pool.Exec(ctx, "UPDATE "+c.Metadata.Store.table("account_assets_v2")+" SET moderation_revision=$2,blocked=$3 WHERE id=$1 AND moderation_revision<$2", id, v.Revision, v.Status == "removed")
+	_, e = c.Metadata.Store.Pool.Exec(ctx, "UPDATE "+c.Metadata.Store.table("account_assets_v2")+" SET moderation_revision=$2,blocked=$3 WHERE id=$1 AND moderation_revision<$2", id, v.Revision, v.Status == metadataVisibilityRemoved)
 	return e
 }
 func (c ConnectedMedia) uploadAccountAsset(w http.ResponseWriter, r *http.Request) {
@@ -835,7 +840,7 @@ func (c ConnectedMedia) uploadAccountAsset(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	mime := http.DetectContentType(body)
-	if mime != strings.TrimSpace(strings.Split(r.Header.Get("Content-Type"), ";")[0]) || (mime != "image/png" && mime != "image/jpeg" && mime != "image/webp") {
+	if mime != strings.TrimSpace(strings.Split(r.Header.Get("Content-Type"), ";")[0]) || (mime != metadataMimePNG && mime != metadataMimeJPEG && mime != metadataMimeWebP) {
 		v2Error(w, 415, "unsupported_image")
 		return
 	}
@@ -870,7 +875,7 @@ func (c ConnectedMedia) uploadAccountAsset(w http.ResponseWriter, r *http.Reques
 		v2Failure(w, ErrConflict)
 		return
 	}
-	if state == "REJECTED" || state == "DELETED" {
+	if state == metadataStateRejected || state == metadataStateDeleted {
 		v2Failure(w, ErrForbidden)
 		return
 	}
@@ -888,7 +893,7 @@ func (c ConnectedMedia) uploadAccountAsset(w http.ResponseWriter, r *http.Reques
 		v2Failure(w, e)
 		return
 	}
-	if state == "REJECTED" || state == "DELETED" {
+	if state == metadataStateRejected || state == metadataStateDeleted {
 		v2Failure(w, ErrForbidden)
 		return
 	}
@@ -924,7 +929,7 @@ func (c ConnectedMedia) ProcessAccountAsset(ctx context.Context, id string) erro
 		cleanup, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
 		if _, e := connection.Exec(cleanup, "SELECT pg_advisory_unlock(hashtextextended($1,0))", lock); e != nil {
-			connection.Conn().Close(cleanup)
+			closeConnection(cleanup, connection.Conn())
 		}
 	}()
 	if e = c.syncAccountModeration(ctx, id); e != nil {
@@ -941,19 +946,19 @@ func (c ConnectedMedia) ProcessAccountAsset(ctx context.Context, id string) erro
 	if blocked {
 		return ErrForbidden
 	}
-	if state == "APPROVED" || state == "REJECTED" || state == "DELETED" {
+	if state == metadataStateApproved || state == metadataStateRejected || state == metadataStateDeleted {
 		return nil
 	}
 	object, e := c.Objects.Client.GetObject(ctx, &s3.GetObjectInput{Bucket: aws.String(c.Objects.QuarantineBucket), Key: aws.String("quarantine/account/" + id)})
 	if e != nil {
 		var api smithy.APIError
-		if state == "UPLOADING" && errors.As(e, &api) && api.ErrorCode() == "NoSuchKey" {
+		if state == metadataStateUploading && errors.As(e, &api) && api.ErrorCode() == "NoSuchKey" {
 			return nil
 		}
 		return raster.ErrUnavailable
 	}
 	original, e := raster.ReadBounded(object.Body)
-	object.Body.Close()
+	closeResource(object.Body)
 	if e != nil {
 		return e
 	}
@@ -993,7 +998,7 @@ func (c ConnectedMedia) ProcessAccountAsset(ctx context.Context, id string) erro
 	if e = tx.QueryRow(ctx, "SELECT blocked,state FROM "+store.table("account_assets_v2")+" WHERE id=$1 FOR UPDATE", id).Scan(&blocked, &state); e != nil {
 		return e
 	}
-	if blocked || state != "VALIDATING" {
+	if blocked || state != metadataStateValidating {
 		return ErrForbidden
 	}
 	keys := map[string]string{}
@@ -1146,12 +1151,12 @@ func (c ConnectedMedia) purgeAccountAssets(w http.ResponseWriter, r *http.Reques
 			}
 		}
 	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]bool{"deleted": true})
+	w.Header().Set("Content-Type", metadataJSONType)
+	writeJSON(w, map[string]bool{"deleted": true})
 }
 
 func (s *ProductionStore) CreateConnectedAsset(ctx context.Context, a AssetRecord, mime string, width, height int) error {
-	if !uuidRE.MatchString(a.ID) || !addressRE.MatchString(a.Pool) || a.Size < 1 || a.Size > 6<<20 || !regexp.MustCompile(`^[a-f0-9]{64}$`).MatchString(a.Hash) || a.ObjectKey != "quarantine/"+a.ID || (mime != "image/png" && mime != "image/jpeg" && mime != "image/webp") || width < 1 || height < 1 || width > 8192 || height > 8192 || int64(width)*int64(height) > 20000000 {
+	if !uuidRE.MatchString(a.ID) || !addressRE.MatchString(a.Pool) || a.Size < 1 || a.Size > 6<<20 || !regexp.MustCompile(`^[a-f0-9]{64}$`).MatchString(a.Hash) || a.ObjectKey != "quarantine/"+a.ID || (mime != metadataMimePNG && mime != metadataMimeJPEG && mime != metadataMimeWebP) || width < 1 || height < 1 || width > 8192 || height > 8192 || int64(width)*int64(height) > 20000000 {
 		return ErrValidation
 	}
 	tx, e := s.Pool.Begin(ctx)

@@ -12,7 +12,7 @@ import (
 // Every matching source row must have a canonical commit, including rows beyond
 // the page boundary; a bounded page cannot hide an unprojected legacy row.
 func (s *Store) DevelopmentTrades(ctx context.Context, r AccountingPageRequest) ([]json.RawMessage, error) {
-	if pool, err := Address(r.Pool); err != nil || pool != r.Pool || r.Side != "" && r.Side != "buy" && r.Side != "sell" || r.Limit < 1 || r.Limit > MaxCanonicalTrades {
+	if pool, err := Address(r.Pool); err != nil || pool != r.Pool || r.Side != "" && r.Side != literalBuy && r.Side != literalSell || r.Limit < 1 || r.Limit > MaxCanonicalTrades {
 		return nil, ErrDevelopmentScope
 	}
 	ctx, cancel, tx, err := s.beginLegacyRead(ctx)

@@ -141,6 +141,59 @@ fn chain_head_verifies_with_two_thirds_power() -> Result<(), ChainProofError> {
     Ok(())
 }
 
+fn verify_nil_and_absent_signatures(
+    verifier: &ChainProofVerifier,
+    header: &ChainHeader,
+    valid: &Commit,
+    underpowered: &Commit,
+    keys: &[SigningKey],
+) -> Result<(), ChainProofError> {
+    let mut nil = underpowered.clone();
+    nil.signatures.push(sign_vote(
+        &header.chain_id,
+        &nil,
+        &keys[2],
+        BlockIdFlag::Nil,
+    )?);
+    assert_eq!(
+        verifier.verify_head(header, &nil),
+        Err(ChainProofError::InsufficientPower)
+    );
+    nil.signatures[2].flag = BlockIdFlag::Commit;
+    assert_eq!(
+        verifier.verify_head(header, &nil),
+        Err(ChainProofError::Mismatch)
+    );
+    let mut relabeled_nil = valid.clone();
+    relabeled_nil.signatures[0].flag = BlockIdFlag::Nil;
+    assert_eq!(
+        verifier.verify_head(header, &relabeled_nil),
+        Err(ChainProofError::Mismatch)
+    );
+    let mut malformed_absent = valid.clone();
+    malformed_absent.signatures[0].flag = BlockIdFlag::Absent;
+    assert_eq!(
+        verifier.verify_head(header, &malformed_absent),
+        Err(ChainProofError::Mismatch)
+    );
+
+    Ok(())
+}
+
+fn verify_weighted_commit_thresholds() -> Result<(), ChainProofError> {
+    let (boundary, header, keys) = fixture(&[1, 1, 1])?;
+    assert_eq!(
+        boundary.verify_head(&header, &signed_commit(&header, &keys[..2])?),
+        Err(ChainProofError::InsufficientPower)
+    );
+    let (weighted, header, keys) = fixture(&[7, 1, 1, 1])?;
+    assert_eq!(
+        weighted.verify_head(&header, &signed_commit(&header, &keys[1..])?),
+        Err(ChainProofError::InsufficientPower)
+    );
+    Ok(())
+}
+
 #[test]
 fn chain_head_refuses_forged_and_underpowered_commits() -> Result<(), ChainProofError> {
     let (verifier, header, keys) = fixture(&[1, 1, 1, 1])?;
@@ -237,44 +290,8 @@ fn chain_head_refuses_forged_and_underpowered_commits() -> Result<(), ChainProof
         Err(ChainProofError::Mismatch)
     );
 
-    let mut nil = underpowered.clone();
-    nil.signatures.push(sign_vote(
-        &header.chain_id,
-        &nil,
-        &keys[2],
-        BlockIdFlag::Nil,
-    )?);
-    assert_eq!(
-        verifier.verify_head(&header, &nil),
-        Err(ChainProofError::InsufficientPower)
-    );
-    nil.signatures[2].flag = BlockIdFlag::Commit;
-    assert_eq!(
-        verifier.verify_head(&header, &nil),
-        Err(ChainProofError::Mismatch)
-    );
-    let mut relabeled_nil = valid.clone();
-    relabeled_nil.signatures[0].flag = BlockIdFlag::Nil;
-    assert_eq!(
-        verifier.verify_head(&header, &relabeled_nil),
-        Err(ChainProofError::Mismatch)
-    );
-    let mut malformed_absent = valid.clone();
-    malformed_absent.signatures[0].flag = BlockIdFlag::Absent;
-    assert_eq!(
-        verifier.verify_head(&header, &malformed_absent),
-        Err(ChainProofError::Mismatch)
-    );
+    verify_nil_and_absent_signatures(&verifier, &header, &valid, &underpowered, &keys)?;
 
-    let (boundary, header, keys) = fixture(&[1, 1, 1])?;
-    assert_eq!(
-        boundary.verify_head(&header, &signed_commit(&header, &keys[..2])?),
-        Err(ChainProofError::InsufficientPower)
-    );
-    let (weighted, header, keys) = fixture(&[7, 1, 1, 1])?;
-    assert_eq!(
-        weighted.verify_head(&header, &signed_commit(&header, &keys[1..])?),
-        Err(ChainProofError::InsufficientPower)
-    );
+    verify_weighted_commit_thresholds()?;
     Ok(())
 }

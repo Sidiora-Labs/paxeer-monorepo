@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 use std::fmt::Write as _;
 use std::io::{self, Read as _, Write as _};
 use std::net::{Shutdown, TcpListener, TcpStream};
-use std::sync::{Arc, RwLock};
+use std::sync::RwLock;
 use std::time::{Duration, Instant};
 
 use serde_json::{json, Value};
@@ -158,6 +158,7 @@ impl std::ops::Deref for AttestationSnapshot {
 }
 
 impl AttestationSnapshot {
+    #[must_use]
     pub fn from_journal(
         journal: &Journal,
         cosign: Option<&CosignDirectory>,
@@ -173,6 +174,9 @@ impl AttestationSnapshot {
 }
 
 pub trait AttestationSource {
+    ///
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     fn resolve(&self, key: &str) -> Result<AttestationView, JournalError>;
 }
 
@@ -230,14 +234,17 @@ impl AttestationSource for AttestationSnapshot {
 const MAX_REQUEST_BYTES: usize = 8192;
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(2);
 
+///
+/// # Errors
+/// Returns an error if the requested operation cannot be completed.
 pub fn serve<S: AttestationSource>(
-    listener: TcpListener,
-    view: Arc<RwLock<S>>,
-    origins: Vec<String>,
+    listener: &TcpListener,
+    view: &RwLock<S>,
+    origins: &[String],
 ) -> io::Result<()> {
     for connection in listener.incoming() {
         let mut stream = connection?;
-        let result = serve_connection(&mut stream, &view, &origins);
+        let result = serve_connection(&mut stream, view, origins);
         let _ = stream.shutdown(Shutdown::Both);
         if let Err(error) = result {
             eprintln!("layerx-bridge-relayer: attestation connection: {error}");
@@ -259,16 +266,16 @@ fn serve_connection<S: AttestationSource>(
             break end;
         }
         if request.len() == MAX_REQUEST_BYTES {
-            return respond(stream, 413, json!({"error": "request too large"}));
+            return respond(stream, 413, &json!({"error": "request too large"}));
         }
         let Some(remaining) = deadline.checked_duration_since(Instant::now()) else {
-            return respond(stream, 408, json!({"error": "request timeout"}));
+            return respond(stream, 408, &json!({"error": "request timeout"}));
         };
         stream.set_read_timeout(Some(remaining))?;
         let mut bytes = [0_u8; 1024];
         let capacity = bytes.len().min(MAX_REQUEST_BYTES - request.len());
         match stream.read(&mut bytes[..capacity]) {
-            Ok(0) => return respond(stream, 400, json!({"error": "incomplete request"})),
+            Ok(0) => return respond(stream, 400, &json!({"error": "incomplete request"})),
             Ok(count) => request.extend_from_slice(&bytes[..count]),
             Err(error) if error.kind() == io::ErrorKind::Interrupted => {}
             Err(error)
@@ -277,30 +284,30 @@ fn serve_connection<S: AttestationSource>(
                     io::ErrorKind::TimedOut | io::ErrorKind::WouldBlock
                 ) =>
             {
-                return respond(stream, 408, json!({"error": "request timeout"}));
+                return respond(stream, 408, &json!({"error": "request timeout"}));
             }
             Err(error) => return Err(error),
         }
     };
     let Ok(headers) = std::str::from_utf8(&request[..header_end]) else {
-        return respond(stream, 400, json!({"error": "invalid request"}));
+        return respond(stream, 400, &json!({"error": "invalid request"}));
     };
     let mut lines = headers.split("\r\n");
     let parts: Vec<_> = lines.next().unwrap_or_default().split(' ').collect();
     let [method, path, version] = parts.as_slice() else {
-        return respond(stream, 400, json!({"error": "invalid request line"}));
+        return respond(stream, 400, &json!({"error": "invalid request line"}));
     };
     if !matches!(*version, "HTTP/1.0" | "HTTP/1.1") {
-        return respond(stream, 400, json!({"error": "invalid request headers"}));
+        return respond(stream, 400, &json!({"error": "invalid request headers"}));
     }
     let mut origin = None;
     for line in lines {
         let Some((name, value)) = line.split_once(':') else {
-            return respond(stream, 400, json!({"error": "invalid request headers"}));
+            return respond(stream, 400, &json!({"error": "invalid request headers"}));
         };
         if name.eq_ignore_ascii_case("Origin") {
             if origin.is_some() {
-                return respond(stream, 400, json!({"error": "duplicate origin"}));
+                return respond(stream, 400, &json!({"error": "duplicate origin"}));
             }
             origin = Some(value.trim_matches([' ', '\t']));
         }
@@ -308,7 +315,7 @@ fn serve_connection<S: AttestationSource>(
     let allowed_origin =
         origin.filter(|origin| origins.iter().any(|allowed| allowed.as_str() == *origin));
     let respond = |stream: &mut TcpStream, status, body| {
-        respond_with_origin(stream, status, body, allowed_origin)
+        respond_with_origin(stream, status, &body, allowed_origin)
     };
     let preflight = *method == "OPTIONS" && origin.is_some();
     if preflight && allowed_origin.is_none() {
@@ -338,39 +345,37 @@ fn serve_connection<S: AttestationSource>(
     if preflight {
         return respond(stream, 204, Value::Null);
     }
-    let answer = {
-        let Ok(view) = view.read() else {
-            return respond(
-                stream,
-                500,
-                json!({"error": "attestation view unavailable"}),
-            );
-        };
-        let key = if *route == "deposit" {
-            inbound_key(chain, &hash, index)
-        } else {
-            outbound_key(chain, &hash, index)
-        };
-        let resolved = match view.resolve(&key) {
-            Ok(resolved) => resolved,
-            Err(_) => {
-                return respond(
-                    stream,
-                    500,
-                    json!({"error": "attestation history unavailable"}),
-                )
-            }
-        };
-        if *route == "deposit" {
-            deposit_from_view(&resolved, chain, &hash, index)
-        } else {
-            release_from_view(&resolved, chain, &hash, index)
-        }
+    let answer = match resolve_attestation(view, route, chain, &hash, index) {
+        Ok(answer) => answer,
+        Err(error) => return respond(stream, 500, json!({"error": error})),
     };
     match answer {
         Some(answer) => respond(stream, 200, answer),
         None => respond(stream, 404, json!({"error": "not observed"})),
     }
+}
+
+fn resolve_attestation<S: AttestationSource>(
+    view: &RwLock<S>,
+    route: &str,
+    chain: u64,
+    hash: &[u8; 32],
+    index: u64,
+) -> Result<Option<Value>, &'static str> {
+    let view = view.read().map_err(|_| "attestation view unavailable")?;
+    let key = if route == "deposit" {
+        inbound_key(chain, hash, index)
+    } else {
+        outbound_key(chain, hash, index)
+    };
+    let resolved = view
+        .resolve(&key)
+        .map_err(|_| "attestation history unavailable")?;
+    Ok(if route == "deposit" {
+        deposit_from_view(&resolved, chain, hash, index)
+    } else {
+        release_from_view(&resolved, chain, hash, index)
+    })
 }
 
 fn decimal_u64(text: &str) -> Option<u64> {
@@ -380,14 +385,14 @@ fn decimal_u64(text: &str) -> Option<u64> {
     text.parse().ok()
 }
 
-fn respond(stream: &mut TcpStream, status: u16, body: Value) -> io::Result<()> {
+fn respond(stream: &mut TcpStream, status: u16, body: &Value) -> io::Result<()> {
     respond_with_origin(stream, status, body, None)
 }
 
 fn respond_with_origin(
     stream: &mut TcpStream,
     status: u16,
-    body: Value,
+    body: &Value,
     origin: Option<&str>,
 ) -> io::Result<()> {
     let reason = match status {

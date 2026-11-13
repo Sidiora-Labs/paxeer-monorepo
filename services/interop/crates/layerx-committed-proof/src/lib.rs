@@ -113,7 +113,7 @@ pub mod committed {
     use sha2::{Digest, Sha256};
 
     /// Establish batch inclusion for a digest already authenticated by receipt verification.
-    /// The committed successor header authenticates the execution header through LastBlockID.
+    /// The committed successor header authenticates the execution header through `LastBlockID`.
     /// The public path is `layerx_committed_proof::committed::verify_committed`.
     /// Its four arguments bind an authenticated receipt digest to a consensus-backed
     /// [`CommittedBlock`]. The distinct six-argument
@@ -150,11 +150,11 @@ pub mod committed {
             chain_id,
             set,
             header_hash,
-            header.height as u64,
+            u64::try_from(header.height).map_err(|_| ProofError::InvalidCommit)?,
             &proof.commit,
         )?;
         let block = CommittedBlock {
-            number: execution.height as u64,
+            number: u64::try_from(execution.height).map_err(|_| ProofError::InvalidCommit)?,
             hash: execution.hash(),
         };
         if header.last_block_id.hash.as_slice() != block.hash {
@@ -375,6 +375,7 @@ pub fn verify_committed(
     )
 }
 
+#[derive(Clone, Copy)]
 enum ReceiptRung {
     Receipted,
     Committed([u8; 32]),
@@ -388,17 +389,7 @@ fn verify_receipt(
     keys: &[([u8; 32], [u8; 32], u64, u64)],
     expected_rung: ReceiptRung,
 ) -> Result<[u8; 32], ProofError> {
-    if raw_transaction.is_empty()
-        || raw_transaction.len() > 1_048_576
-        || signed_receipt.len() > 1_048_576
-        || receipt_json.len() > 4_194_304
-    {
-        return Err(ProofError::InvalidReceipt);
-    }
-    let mut reader = ReceiptReader(signed_receipt);
-    if reader.take(6)? != [0, 2, 0x52, 1, 0, 2] {
-        return Err(ProofError::InvalidReceipt);
-    }
+    let mut reader = receipt_reader(raw_transaction, signed_receipt, receipt_json)?;
     let activity = reader.array::<32>()?;
     let sequence = u64::from_be_bytes(reader.fixed()?);
     let previous = reader.array::<32>()?;
@@ -412,28 +403,7 @@ fn verify_receipt(
     if effects == 0 || effects > 512 {
         return Err(ProofError::InvalidReceipt);
     }
-    let mut decoded_effects = Vec::new();
-    for _ in 0..effects {
-        let header = reader.fixed::<6>()?;
-        let kind = reader.take(1)?[0];
-        let monetary = reader.take(1)?[0];
-        if !(1..=3).contains(&kind) || monetary > 1 || (monetary == 1 && kind != 2) {
-            return Err(ProofError::InvalidReceipt);
-        }
-        let root = reader.array::<32>()?;
-        let length = u32::from_be_bytes(reader.fixed()?);
-        if length > 256 {
-            return Err(ProofError::InvalidReceipt);
-        }
-        let body = reader.take(length as usize)?;
-        decoded_effects.push(ReceiptEffect {
-            header,
-            kind,
-            monetary,
-            root,
-            body,
-        });
-    }
+    let decoded_effects = read_effects(&mut reader, effects)?;
     let fee = u128::from_be_bytes(reader.fixed()?);
     let batch_id = reader.array::<32>()?;
     if batch_id[..24] != [0; 24] {
@@ -468,29 +438,8 @@ fn verify_receipt(
     if timestamp == 0 {
         return Err(ProofError::InvalidReceipt);
     }
-    let unsigned_length = signed_receipt.len() - reader.0.len();
-    if reader.take(1)? != [1] {
-        return Err(ProofError::InvalidReceipt);
-    }
-    let signature = Signature::from_bytes(&reader.array::<64>()?);
-    if !reader.0.is_empty() {
-        return Err(ProofError::InvalidReceipt);
-    }
-    let mut digest = Sha256::new();
-    digest.update(b"LXP/v1/receipt\0");
-    digest.update(&signed_receipt[..unsigned_length]);
-    digest.update([0]);
-    let digest: [u8; 32] = digest.finalize().into();
-    let (_, signing_key, _, _) = keys
-        .iter()
-        .find(|(id, key, first, last)| {
-            *id == key_id
-                && *id != [0; 32]
-                && (*first..=*last).contains(&height)
-                && VerifyingKey::from_bytes(key)
-                    .is_ok_and(|key| key.verify_strict(&digest, &signature).is_ok())
-        })
-        .ok_or(ProofError::UnpinnedReceiptSignature)?;
+    let (digest, signature) = read_receipt_signature(&mut reader, signed_receipt)?;
+    let signing_key = receipt_signing_key(keys, key_id, height, &digest, &signature)?;
     if activity != transaction_hash(raw_transaction) {
         return Err(ProofError::ReceiptActivityMismatch);
     }
@@ -524,6 +473,103 @@ fn verify_receipt(
         asset,
         &decoded_effects,
     )?;
+    verify_receipt_sequence(prev_seq_hash, sequence, activity, previous, resulting)?;
+    Ok(digest)
+}
+
+fn receipt_reader<'a>(
+    raw_transaction: &[u8],
+    signed_receipt: &'a [u8],
+    receipt_json: &[u8],
+) -> Result<ReceiptReader<'a>, ProofError> {
+    if raw_transaction.is_empty()
+        || raw_transaction.len() > 1_048_576
+        || signed_receipt.len() > 1_048_576
+        || receipt_json.len() > 4_194_304
+    {
+        return Err(ProofError::InvalidReceipt);
+    }
+    let mut reader = ReceiptReader(signed_receipt);
+    if reader.take(6)? != [0, 2, 0x52, 1, 0, 2] {
+        return Err(ProofError::InvalidReceipt);
+    }
+    Ok(reader)
+}
+
+fn read_effects<'a>(
+    reader: &mut ReceiptReader<'a>,
+    count: u32,
+) -> Result<Vec<ReceiptEffect<'a>>, ProofError> {
+    let mut effects = Vec::new();
+    for _ in 0..count {
+        let header = reader.fixed::<6>()?;
+        let kind = reader.take(1)?[0];
+        let monetary = reader.take(1)?[0];
+        if !(1..=3).contains(&kind) || monetary > 1 || (monetary == 1 && kind != 2) {
+            return Err(ProofError::InvalidReceipt);
+        }
+        let root = reader.array::<32>()?;
+        let length = u32::from_be_bytes(reader.fixed()?);
+        if length > 256 {
+            return Err(ProofError::InvalidReceipt);
+        }
+        let body = reader.take(length as usize)?;
+        effects.push(ReceiptEffect {
+            header,
+            kind,
+            monetary,
+            root,
+            body,
+        });
+    }
+    Ok(effects)
+}
+
+fn read_receipt_signature(
+    reader: &mut ReceiptReader<'_>,
+    signed_receipt: &[u8],
+) -> Result<([u8; 32], Signature), ProofError> {
+    let unsigned_length = signed_receipt.len() - reader.0.len();
+    if reader.take(1)? != [1] {
+        return Err(ProofError::InvalidReceipt);
+    }
+    let signature = Signature::from_bytes(&reader.array::<64>()?);
+    if !reader.0.is_empty() {
+        return Err(ProofError::InvalidReceipt);
+    }
+    let mut digest = Sha256::new();
+    digest.update(b"LXP/v1/receipt\0");
+    digest.update(&signed_receipt[..unsigned_length]);
+    digest.update([0]);
+    Ok((digest.finalize().into(), signature))
+}
+
+fn receipt_signing_key<'a>(
+    keys: &'a [([u8; 32], [u8; 32], u64, u64)],
+    key_id: [u8; 32],
+    height: u64,
+    digest: &[u8; 32],
+    signature: &Signature,
+) -> Result<&'a [u8; 32], ProofError> {
+    keys.iter()
+        .find(|(id, key, first, last)| {
+            *id == key_id
+                && *id != [0; 32]
+                && (*first..=*last).contains(&height)
+                && VerifyingKey::from_bytes(key)
+                    .is_ok_and(|key| key.verify_strict(digest, signature).is_ok())
+        })
+        .map(|(_, key, _, _)| key)
+        .ok_or(ProofError::UnpinnedReceiptSignature)
+}
+
+fn verify_receipt_sequence(
+    prev_seq_hash: [u8; 32],
+    sequence: u64,
+    activity: [u8; 32],
+    previous: [u8; 32],
+    resulting: [u8; 32],
+) -> Result<(), ProofError> {
     let mut chain = Sha256::new();
     chain.update(b"PAXEER/v1/sequence\0");
     chain.update(prev_seq_hash);
@@ -533,7 +579,7 @@ fn verify_receipt(
     if sequence == 0 || previous != prev_seq_hash || resulting != next {
         return Err(ProofError::ReceiptSequenceMismatch);
     }
-    Ok(digest)
+    Ok(())
 }
 
 struct ReceiptEffect<'a> {
@@ -727,30 +773,30 @@ fn keccak_absorb(state: &mut [u64; 25], block: &[u8]) {
         14,
     ];
     const ROUND_CONSTANTS: [u64; 24] = [
-        0x0000000000000001,
-        0x0000000000008082,
-        0x800000000000808a,
-        0x8000000080008000,
-        0x000000000000808b,
-        0x0000000080000001,
-        0x8000000080008081,
-        0x8000000000008009,
-        0x000000000000008a,
-        0x0000000000000088,
-        0x0000000080008009,
-        0x000000008000000a,
-        0x000000008000808b,
-        0x800000000000008b,
-        0x8000000000008089,
-        0x8000000000008003,
-        0x8000000000008002,
-        0x8000000000000080,
-        0x000000000000800a,
-        0x800000008000000a,
-        0x8000000080008081,
-        0x8000000000008080,
-        0x0000000080000001,
-        0x8000000080008008,
+        0x0000_0000_0000_0001,
+        0x0000_0000_0000_8082,
+        0x8000_0000_0000_808a,
+        0x8000_0000_8000_8000,
+        0x0000_0000_0000_808b,
+        0x0000_0000_8000_0001,
+        0x8000_0000_8000_8081,
+        0x8000_0000_0000_8009,
+        0x0000_0000_0000_008a,
+        0x0000_0000_0000_0088,
+        0x0000_0000_8000_8009,
+        0x0000_0000_8000_000a,
+        0x0000_0000_8000_808b,
+        0x8000_0000_0000_008b,
+        0x8000_0000_0000_8089,
+        0x8000_0000_0000_8003,
+        0x8000_0000_0000_8002,
+        0x8000_0000_0000_0080,
+        0x0000_0000_0000_800a,
+        0x8000_0000_8000_000a,
+        0x8000_0000_8000_8081,
+        0x8000_0000_0000_8080,
+        0x0000_0000_8000_0001,
+        0x8000_0000_8000_8008,
     ];
     for (index, byte) in block.iter().enumerate() {
         state[index / 8] ^= u64::from(*byte) << (8 * (index % 8));

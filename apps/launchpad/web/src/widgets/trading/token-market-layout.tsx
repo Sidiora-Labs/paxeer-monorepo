@@ -18,6 +18,7 @@ import PoolInfoCard from '@/widgets/coin/pool-info-card';
 import CreatorCard from '@/widgets/coin/creator-card';
 import McAthCard from '@/widgets/coin/mc-ath-card';
 import CreatorRewardsCard from '@/widgets/coin/creator-rewards-card';
+import ChainRevenue from '@/widgets/holder-rewards/chain-revenue';
 import CoinTabs from '@/widgets/coin/coin-tabs';
 import TokenDescription from './token-description';
 import { MetadataViewer } from '@/features/metadata-media/viewer';
@@ -166,6 +167,7 @@ export default function TokenMarketLayout({ poolAddress }: { poolAddress: string
           <PremiumErrorBoundary area="Market cap"><McAthCard poolAddress={poolAddress} liveStats={liveStats} /></PremiumErrorBoundary>
           <PremiumErrorBoundary area="Description"><DescriptionCard poolAddress={poolAddress} /></PremiumErrorBoundary>
           <PremiumErrorBoundary area="Creator rewards"><CreatorRewardsCard poolAddress={poolAddress} /></PremiumErrorBoundary>
+          <PremiumErrorBoundary area="Chain revenue"><ChainRevenue poolAddress={poolAddress} /></PremiumErrorBoundary>
         </aside>
         <div className="min-w-0 lg:col-start-1 lg:row-start-2 xl:col-start-2">
           {marketPool ? (

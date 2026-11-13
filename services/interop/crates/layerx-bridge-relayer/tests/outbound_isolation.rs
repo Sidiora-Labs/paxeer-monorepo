@@ -1,5 +1,6 @@
 #[path = "support/capture_prerequisite.rs"]
 pub mod capture_prerequisite;
+use capture_prerequisite::{MANIFEST_ENV, PIN_ENV as MANIFEST_PIN_ENV};
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs::{self, File, OpenOptions};
@@ -22,8 +23,6 @@ use serde_json::{json, Value};
 use sha2::{Digest as _, Sha256};
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
-const MANIFEST_ENV: &str = "LAYERX_BRIDGE_CAPTURE_MANIFEST";
-const MANIFEST_PIN_ENV: &str = "LAYERX_BRIDGE_CAPTURE_MANIFEST_SHA256";
 const MAX_DOCUMENT: u64 = 16 * 1024 * 1024;
 static DEADLINE: OnceLock<Instant> = OnceLock::new();
 
@@ -163,7 +162,7 @@ fn read(path: &Path) -> Result<Vec<u8>> {
 fn digest(path: &Path) -> Result<String> {
     let mut file = File::open(path)?;
     let mut hash = Sha256::new();
-    let mut buffer = [0_u8; 65536];
+    let mut buffer = vec![0_u8; 65_536];
     loop {
         if Instant::now() >= deadline(12 * 60) {
             return Err("capture artifact hashing exceeded the qualification deadline".into());
@@ -216,7 +215,7 @@ impl Corpus {
             .parent()
             .ok_or("capture root missing")?
             .canonicalize()?;
-        let manifest: Manifest = serde_json::from_slice(&read(&path)?)?;
+        let manifest: Manifest = serde_json::from_slice(&read(path)?)?;
         if manifest.schema != "layerx.bridge.outbound-isolation/v1"
             || manifest.capture_kind != "genuine-boundary-capture"
             || manifest.capture_id.is_empty()
@@ -259,21 +258,26 @@ impl Corpus {
         for capture in &provenance.captures {
             corpus.artifact(capture, "capture")?;
         }
-        let faults: BTreeSet<_> = corpus
+        corpus.validate_scenarios()?;
+        Ok(corpus)
+    }
+
+    fn validate_scenarios(&self) -> Result<()> {
+        let faults: BTreeSet<_> = self
             .manifest
             .scenarios
             .iter()
             .map(|case| case.fault.as_str())
             .collect();
-        if corpus.manifest.scenarios.len() != 3
+        if self.manifest.scenarios.len() != 3
             || faults != BTreeSet::from(["rpc", "receipt", "signer"])
         {
             return Err("RPC, receipt and signer fault scenarios are all mandatory".into());
         }
-        for case in &corpus.manifest.scenarios {
-            corpus.artifact(&case.config, "config")?;
+        for case in &self.manifest.scenarios {
+            self.artifact(&case.config, "config")?;
             if let Some(journal) = &case.seed_journal {
-                corpus.artifact(journal, "journal")?;
+                self.artifact(journal, "journal")?;
             }
             if case.fault == "receipt" && case.seed_journal.is_none() {
                 return Err("receipt fault requires a genuine pending journal capture".into());
@@ -309,7 +313,7 @@ impl Corpus {
                 return Err("all five production service roles are required".into());
             }
             for service in &case.services {
-                corpus.artifact(&service.command.executable, "executable")?;
+                self.artifact(&service.command.executable, "executable")?;
                 relative(Path::new("/"), &service.ready_file)?;
             }
             let phases: BTreeSet<_> = case.actions.keys().map(String::as_str).collect();
@@ -327,10 +331,10 @@ impl Corpus {
                 return Err("capture scenario lacks a required bounded phase".into());
             }
             for action in case.actions.values() {
-                corpus.artifact(&action.executable, "executable")?;
+                self.artifact(&action.executable, "executable")?;
             }
         }
-        Ok(corpus)
+        Ok(())
     }
 
     fn artifact(&self, name: &str, kind: &str) -> Result<PathBuf> {
@@ -545,7 +549,7 @@ fn config(corpus: &Corpus, case: &Scenario, dir: &Path) -> Result<PathBuf> {
             Value::String(text) => {
                 *text = text
                     .replace("{capture_root}", root)
-                    .replace("{case_dir}", dir)
+                    .replace("{case_dir}", dir);
             }
             Value::Array(values) => values.iter_mut().for_each(|value| expand(value, root, dir)),
             Value::Object(values) => values
@@ -798,26 +802,7 @@ fn run_case(corpus: &Corpus, case: &Scenario, dir: &Path) -> Result<()> {
     assert_fault(&down, case);
     assert_eq!(down.submitted, 2);
     let first = state(dir)?;
-    assert_eq!(first.items.len(), 4);
-    for (key, chain) in [
-        (&case.failing_item, case.failing_chain),
-        (&case.blocked_item, case.failing_chain),
-        (&case.evm_item, case.ready_chain),
-        (&case.solana_item, SOLANA_CHAIN_ID),
-    ] {
-        assert!(
-            matches!(first.items[key].observation, Observation::Outbound { chain_id, .. } if chain_id == chain)
-        );
-    }
-    assert!(first.items[&case.failing_item].is_open());
-    if case.fault == "receipt" {
-        let pending = first.items[&case.failing_item]
-            .pending()
-            .ok_or("receipt fault lacks a pending transaction")?;
-        assert_eq!(pending.nonce, case.failing_nonce);
-    }
-    assert!(first.items[&case.blocked_item].submissions.is_empty());
-    assert!(first.items[&case.blocked_item].signature.is_none());
+    assert_initial_fault_state(&first, case)?;
     let evm = first.items[&case.evm_item]
         .pending()
         .ok_or("ready EVM did not advance")?
@@ -893,9 +878,53 @@ fn run_case(corpus: &Corpus, case: &Scenario, dir: &Path) -> Result<()> {
         event.kind == "sign" && (event.item == case.evm_item || event.item == case.solana_item)
     }));
 
+    let idle_trace = assert_finalized_case(corpus, case, dir, &config_path)?;
+
+    assert_journal_failure(
+        corpus,
+        case,
+        dir,
+        &config_path,
+        &idle_trace,
+        &pending_snapshot,
+        &first,
+    )?;
+    Ok(())
+}
+
+fn assert_initial_fault_state(first: &State, case: &Scenario) -> Result<()> {
+    assert_eq!(first.items.len(), 4);
+    for (key, chain) in [
+        (&case.failing_item, case.failing_chain),
+        (&case.blocked_item, case.failing_chain),
+        (&case.evm_item, case.ready_chain),
+        (&case.solana_item, SOLANA_CHAIN_ID),
+    ] {
+        assert!(
+            matches!(first.items[key].observation, Observation::Outbound { chain_id, .. } if chain_id == chain)
+        );
+    }
+    assert!(first.items[&case.failing_item].is_open());
+    if case.fault == "receipt" {
+        let pending = first.items[&case.failing_item]
+            .pending()
+            .ok_or("receipt fault lacks a pending transaction")?;
+        assert_eq!(pending.nonce, case.failing_nonce);
+    }
+    assert!(first.items[&case.blocked_item].submissions.is_empty());
+    assert!(first.items[&case.blocked_item].signature.is_none());
+    Ok(())
+}
+
+fn assert_finalized_case(
+    corpus: &Corpus,
+    case: &Scenario,
+    dir: &Path,
+    config_path: &Path,
+) -> Result<Trace> {
     for phase_name in ["finalize_first", "finalize_all"] {
         action(corpus, case, dir, phase_name)?;
-        let report = phase(&config_path, dir, "normal")?.ok_or("final report missing")?;
+        let report = phase(config_path, dir, "normal")?.ok_or("final report missing")?;
         assert!(report.failures.is_empty());
         assert_eq!(report.refused, 0);
     }
@@ -938,7 +967,7 @@ fn run_case(corpus: &Corpus, case: &Scenario, dir: &Path) -> Result<()> {
     ] {
         assert_eq!(completed.effects.get(item), Some(&1));
     }
-    let idle = phase(&config_path, dir, "normal")?.ok_or("idle report missing")?;
+    let idle = phase(config_path, dir, "normal")?.ok_or("idle report missing")?;
     assert_eq!(
         (
             idle.observed,
@@ -957,23 +986,35 @@ fn run_case(corpus: &Corpus, case: &Scenario, dir: &Path) -> Result<()> {
         .any(|event| matches!(event.kind.as_str(), "sign" | "send")));
     assert_eq!(idle_trace.effects, completed.effects);
 
+    Ok(idle_trace)
+}
+
+fn assert_journal_failure(
+    corpus: &Corpus,
+    case: &Scenario,
+    dir: &Path,
+    config_path: &Path,
+    idle_trace: &Trace,
+    pending_snapshot: &[u8],
+    first: &State,
+) -> Result<()> {
     OpenOptions::new()
         .append(true)
         .open(dir.join("journal.jsonl"))?
         .write_all(b"not a journal record\n")?;
-    phase(&config_path, dir, "corrupt")?;
+    phase(config_path, dir, "corrupt")?;
     let corrupt_trace = snapshot(corpus, case, dir)?;
-    assert!(since(&idle_trace, &corrupt_trace)?.is_empty());
+    assert!(since(idle_trace, &corrupt_trace)?.is_empty());
     fs::write(dir.join("journal.jsonl"), pending_snapshot)?;
     action(corpus, case, dir, "journal_failure")?;
     let before_failure = snapshot(corpus, case, dir)?;
-    phase(&config_path, dir, "unwritable")?;
+    phase(config_path, dir, "unwritable")?;
     let after_failure = snapshot(corpus, case, dir)?;
     assert!(!since(&before_failure, &after_failure)?
         .iter()
         .any(|event| matches!(event.kind.as_str(), "sign" | "send")));
     assert_eq!(after_failure.effects, before_failure.effects);
-    assert_eq!(state(dir)?, first);
+    assert_eq!(&state(dir)?, first);
     Ok(())
 }
 
@@ -1001,12 +1042,20 @@ fn outbound_isolation_captured_production_boundaries() -> Result<()> {
     }
 }
 
+/// Validates the captured boundary manifest against its expected digest.
+///
+/// # Errors
+/// Returns an error when the manifest cannot be loaded or authenticated.
 pub fn validate_capture_manifest(path: &Path, expected: &str) -> Result<()> {
     Corpus::load_from(path, expected).map(|_| ())
 }
 
 // Qualification calls this path with mandatory producer inputs; it never
 // converts missing or invalid artifacts into a prerequisite disposition.
+/// Verifies the captured producer and consumer boundary cases.
+///
+/// # Errors
+/// Returns an error when a captured case or its required input is invalid.
 pub fn required_captured_production_boundaries() -> Result<()> {
     let _ = DEADLINE.set(Instant::now() + Duration::from_secs(12 * 60));
     let corpus = Corpus::load()?;

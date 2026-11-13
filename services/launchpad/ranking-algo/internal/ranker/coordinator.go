@@ -23,7 +23,7 @@ var uuidGrammar = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-
 var heavyCategories = func() []string {
 	categories := make([]string, 0, len(Categories)-1)
 	for _, category := range Categories {
-		if category != "new" {
+		if category != categoryNew {
 			categories = append(categories, category)
 		}
 	}
@@ -92,20 +92,20 @@ func (c *Coordinator) Refresh(ctx context.Context, runID string, cutoff time.Tim
 }
 func ComputeRun(in InputSnapshot, newOnly bool) ([]Snapshot, error) {
 	if newOnly {
-		s, err := BuildSnapshot(in, "new", nil)
+		s, err := BuildSnapshot(in, categoryNew, nil)
 		if err != nil {
 			return nil, err
 		}
 		return []Snapshot{s}, nil
 	}
-	trending, err := BuildSnapshot(in, "trending", nil)
+	trending, err := BuildSnapshot(in, categoryTrending, nil)
 	if err != nil {
 		return nil, err
 	}
 	out := []Snapshot{trending}
 	for _, category := range heavyCategories[1:] {
 		var dependency *Snapshot
-		if category == "movers" {
+		if category == categoryMovers {
 			dependency = &trending
 		}
 		s, err := buildFrozenSnapshot(trending.input, category, dependency)
@@ -179,7 +179,7 @@ func (p StoredPage) Validate() error {
 			return fmt.Errorf("invalid persisted ranking page")
 		}
 		seen[item.Address] = true
-		if i > 0 && p.Header.Category != "new" {
+		if i > 0 && p.Header.Category != categoryNew {
 			previous, _ := strconv.ParseFloat(p.Items[i-1].Score, 64)
 			if previous < score || (previous == score && p.Items[i-1].Address >= item.Address) {
 				return fmt.Errorf("invalid persisted ranking order")

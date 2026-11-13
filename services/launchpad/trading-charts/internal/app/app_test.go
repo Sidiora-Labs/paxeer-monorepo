@@ -79,6 +79,15 @@ func TestNewBadDatabase(t *testing.T) {
 	}
 }
 
+func TestNewRejectsMalformedRedisProvider(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.RedisURL = "redis://invalid:port"
+	opened, err := app.New(context.Background(), cfg, sharedlog.New("candles-test", "error"))
+	if opened != nil || err == nil || !strings.Contains(err.Error(), "redis") {
+		t.Fatalf("malformed Redis provider: app=%v err=%v", opened, err)
+	}
+}
+
 // TestRunShutsDownOnContextCancel exercises the full Run() lifecycle: it loads
 // config from the environment, starts the HTTP server (ephemeral port), the swap
 // consumer and the gap-fill timers, then returns cleanly when the parent context
@@ -134,5 +143,16 @@ func TestRunShutsDownOnContextCancel(t *testing.T) {
 		}
 	case <-time.After(40 * time.Second):
 		t.Fatal("Run did not return after context cancel")
+	}
+	t.Setenv("REDIS_URL", "redis://127.0.0.1:1")
+	t.Setenv("REDIS_BULL_URL", "redis://127.0.0.1:1/1")
+	unavailable, stop := context.WithTimeout(context.Background(), 3*time.Second)
+	defer stop()
+	if err := app.Run(unavailable); err == nil || !strings.Contains(err.Error(), "start consumer") {
+		t.Fatalf("consumer subscription admission: %v", err)
+	}
+	t.Setenv("WEBHOOK_HMAC_SECRET", "short")
+	if err := app.Run(context.Background()); err == nil || !strings.Contains(err.Error(), "at least 32") {
+		t.Fatalf("runtime configuration admission: %v", err)
 	}
 }

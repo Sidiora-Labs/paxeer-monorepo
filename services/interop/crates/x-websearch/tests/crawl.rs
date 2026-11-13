@@ -1,3 +1,7 @@
+mod test_network {
+    include!(concat!(env!("CARGO_MANIFEST_DIR"), "/../test_network.rs"));
+}
+
 use std::io::{Read, Write};
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
@@ -23,6 +27,7 @@ struct Scratch(PathBuf);
 
 impl Scratch {
     fn new(name: &str) -> std::io::Result<Self> {
+        test_network::isolate()?;
         let path =
             std::env::temp_dir().join(format!("x-websearch-crawl-{}-{name}", std::process::id()));
         let _ = std::fs::remove_dir_all(&path);

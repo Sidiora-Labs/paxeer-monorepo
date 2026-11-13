@@ -1,0 +1,163 @@
+[manifest]
+task = "22.41.12"
+pages = 40
+
+[page.1]
+path = "docs/hyperfide/runtime/sidebar-warning-banners.md"
+status = "corrected"
+
+[page.2]
+path = "docs/hyperfide/runtime/source-control.md"
+status = "corrected"
+
+[page.3]
+path = "docs/hyperfide/runtime/system-overview.md"
+status = "corrected"
+
+[page.4]
+path = "docs/hyperfide/runtime/testing.md"
+status = "corrected"
+
+[page.5]
+path = "docs/hyperfide/runtime/timeline-pagination.md"
+status = "corrected"
+
+[page.6]
+path = "docs/hyperfide/runtime/ui-code-splitting.md"
+status = "corrected"
+
+[page.7]
+path = "docs/hyperfide/runtime/vcs-process-admission.md"
+status = "corrected"
+
+[page.8]
+path = "docs/hyperfide/runtime/windows-ci.md"
+status = "corrected"
+
+[page.9]
+path = "docs/hyperfide/runtime/worktrees.md"
+status = "corrected"
+
+[page.10]
+path = "docs/hyperfide/sync.md"
+status = "corrected"
+
+[page.11]
+path = "docs/hyperfide/verification/manual-runbook.md"
+status = "corrected"
+
+[page.12]
+path = "docs/hyperfide/verification/provider-permission-mode-runbook.md"
+status = "corrected"
+
+[page.13]
+path = "docs/interop/PORTABILITY.md"
+status = "corrected"
+
+[page.14]
+path = "docs/launchpad/chain-launch.md"
+status = "corrected"
+
+[page.15]
+path = "docs/launchpad/production-checklist.md"
+status = "corrected"
+
+[page.16]
+path = "docs/paxeer-chain-docs.md"
+status = "corrected"
+
+[page.17]
+path = "docs/paxeer-network.md"
+status = "corrected"
+
+[page.18]
+path = "docs/perps-abi-change-history.md"
+status = "corrected"
+
+[page.19]
+path = "docs/perps/data-api.md"
+status = "corrected"
+
+[page.20]
+path = "docs/platform/README.md"
+status = "corrected"
+
+[page.21]
+path = "docs/platform/beta-environment.md"
+status = "corrected"
+
+[page.22]
+path = "docs/platform/content/beta.md"
+status = "corrected"
+
+[page.23]
+path = "docs/platform/content/concepts/agents.md"
+status = "corrected"
+
+[page.24]
+path = "docs/platform/content/concepts/enforcement.md"
+status = "corrected"
+
+[page.25]
+path = "docs/platform/content/concepts/idempotency.md"
+status = "corrected"
+
+[page.26]
+path = "docs/platform/content/concepts/money.md"
+status = "corrected"
+
+[page.27]
+path = "docs/platform/content/concepts/paying.md"
+status = "corrected"
+
+[page.28]
+path = "docs/platform/content/concepts/receipts.md"
+status = "corrected"
+
+[page.29]
+path = "docs/platform/content/environments/emulator.md"
+status = "corrected"
+
+[page.30]
+path = "docs/platform/content/framework/android.md"
+status = "corrected"
+
+[page.31]
+path = "docs/platform/content/framework/express.md"
+status = "corrected"
+
+[page.32]
+path = "docs/platform/content/framework/fastapi.md"
+status = "corrected"
+
+[page.33]
+path = "docs/platform/content/framework/ios.md"
+status = "corrected"
+
+[page.34]
+path = "docs/platform/content/framework/next.md"
+status = "corrected"
+
+[page.35]
+path = "docs/platform/content/framework/spring.md"
+status = "corrected"
+
+[page.36]
+path = "docs/platform/content/guide/agent-middleware.md"
+status = "corrected"
+
+[page.37]
+path = "docs/platform/content/guide/buyer-middleware.md"
+status = "corrected"
+
+[page.38]
+path = "docs/platform/content/guide/interop.md"
+status = "corrected"
+
+[page.39]
+path = "docs/platform/content/guide/merchant-middleware.md"
+status = "corrected"
+
+[page.40]
+path = "docs/platform/content/guide/programs.md"
+status = "corrected"

@@ -23,6 +23,7 @@ func streamAskKey(prefix string, id [32]byte) []byte {
 // StreamOpenForAsk funds a native-asset metered stream to the room's bound
 // settlement account. A reading is the cumulative token count of the last
 // settled lap batch; only the existing signed StreamMeter path advances it.
+// The pay precompile supplies a streamID with sixteen leading zero bytes.
 func (k Keeper) StreamOpenForAsk(ctx sdk.Context, caller common.Address, streamID, askRef [32]byte, settlementAccount common.Address, rate *big.Int, rateUnit uint8, totalCap *big.Int, hostAuthorityKey [32]byte) error {
 	if err := k.CheckWrite(ctx, "streamOpen"); err != nil {
 		return err

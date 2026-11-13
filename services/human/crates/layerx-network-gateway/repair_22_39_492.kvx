@@ -1,0 +1,3 @@
+[quantity_literal]
+accepted = ["word_u64(123456789)", "word_u64(123_456_789)"]
+generated = "word_u64(123_456_789)"

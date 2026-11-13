@@ -1,6 +1,6 @@
 # Wallet app architecture
 
-The wallet app is a Next.js App Router application built as a standalone server and served under the base path `/wallet` (`next.config.mjs`). This page maps the source tree; the code under `src/` is authoritative.
+The wallet app is a Next.js App Router application built as a standalone server and served under the base path `/wallet` (`next.config.mjs`). This page maps the source tree; source paths on this page are relative to `apps/wallet`.
 
 ## Entry point
 
@@ -10,7 +10,7 @@ src/app/layout.tsx
     QueryProvider
       ErrorBoundary
         page content
-    Toaster
+      Toaster
 src/app/page.tsx
   SplashScreen
     LocaleProvider
@@ -28,7 +28,7 @@ src/app/page.tsx
 | --- | --- | --- |
 | `/` | `src/app/page.tsx` | Shell with the routed widgets below |
 | `/account`, `/account/history`, `/account/deposit`, `/account/plan` | `src/app/account`, `src/account` | Unified account view, history, deposit and value movement for the signed-in wallet |
-| `/surfaces/exchange`, `/surfaces/bridge`, `/surfaces/launchpad`, `/surfaces/fees`, `/surfaces/web-data` | `src/app/surfaces`, `src/surfaces` | Network surfaces listed in `src/surfaces/routes.ts` |
+| `/surfaces/exchange`, `/surfaces/bridge`, `/surfaces/launchpad`, `/surfaces/fees`, `/surfaces/web-data`, `/surfaces/inference` | `src/app/surfaces`, `src/surfaces` | Network surfaces listed in `src/surfaces/routes.ts` |
 | `/auth/callback` | `src/app/auth/callback` | Sign-in return |
 | `/offline` | `src/app/offline` | Offline fallback |
 | `/privacy` | `src/app/privacy` | Privacy information |

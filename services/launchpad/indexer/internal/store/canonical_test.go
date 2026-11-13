@@ -86,6 +86,28 @@ func TestCanonicalPostgres(t *testing.T) {
 		t.Fatal(err)
 	}
 	inspect(101)
+	if matched, reconcileErr := st.ReconcileCanonicalCommit(ctx, b); reconcileErr != nil || !matched {
+		t.Fatalf("committed batch reconciliation: %t %v", matched, reconcileErr)
+	}
+	unknown := b
+	unknown.BatchID = "not-committed"
+	if matched, reconcileErr := st.ReconcileCanonicalCommit(ctx, unknown); reconcileErr != nil || matched {
+		t.Fatalf("unknown batch reconciliation: %t %v", matched, reconcileErr)
+	}
+	changedBlock := b
+	changedBlock.Blocks = append([]BlockCompleteness(nil), b.Blocks...)
+	changedBlock.Blocks[0].Hash = "0x" + strings.Repeat("9", 64)
+	changedBlock.Records = append([]RawRecord(nil), b.Records...)
+	changedBlock.Records[0].BlockHash = changedBlock.Blocks[0].Hash
+	if matched, reconcileErr := st.ReconcileCanonicalCommit(ctx, changedBlock); !errors.Is(reconcileErr, ErrIntegrity) || matched {
+		t.Fatalf("changed block reconciliation: %t %v", matched, reconcileErr)
+	}
+	changedIntent := b
+	changedIntent.Outbox = append([]OutboxIntent(nil), b.Outbox...)
+	changedIntent.Outbox[0].Kind = "FeeRecorded"
+	if matched, reconcileErr := st.ReconcileCanonicalCommit(ctx, changedIntent); !errors.Is(reconcileErr, ErrIntegrity) || matched {
+		t.Fatalf("changed outbox reconciliation: %t %v", matched, reconcileErr)
+	}
 	if err = st.CommitCanonical(ctx, b, nil); !errors.Is(err, ErrWatermark) {
 		t.Fatalf("retry: %v", err)
 	}

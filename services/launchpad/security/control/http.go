@@ -140,7 +140,7 @@ func (s *HTTPService) mutate(w http.ResponseWriter, r *http.Request) {
 		if err == nil {
 			data, err = s.store.TransitionWorkflow(r.Context(), cred, q)
 		}
-	case "caps":
+	case controlCaps:
 		var q CapRequest
 		err = decodeRequest(r, &q)
 		if err == nil && q.Expected == nil {
@@ -211,7 +211,7 @@ func (s *HTTPService) mutate(w http.ResponseWriter, r *http.Request) {
 		if err == nil {
 			err = s.store.BountyState(r.Context(), cred, q.Scope, q.Key, q.Reason, q.Next, q.Evidence, q.Destination, *q.Expected)
 		}
-	case "inventory":
+	case controlInventory:
 		var q InventoryRequest
 		err = decodeRequest(r, &q)
 		if err == nil {

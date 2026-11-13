@@ -2,6 +2,9 @@ package processor
 
 import (
 	"context"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,6 +13,8 @@ import (
 
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/store"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -110,5 +115,106 @@ func TestRestoreCheckpointRejectsUnboundOrMalformedBytes(t *testing.T) {
 	}
 	if _, err := (&IngestMeasurementHarness{}).Reconstruct(context.Background(), IngestReconstructionSpec{}); err == nil {
 		t.Fatal("absent archive/restore provider accepted")
+	}
+}
+
+func TestMeasurementCaptureBindsWrittenRecords(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "capture.ndjson")
+	if _, err := openMeasurementCapture(path, 0); err == nil {
+		t.Fatal("capture accepted an absent storage budget")
+	}
+	capture, err := openMeasurementCapture(path, 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := capture.write("sample", map[string]int{"height": 101}); err != nil {
+		t.Fatal(err)
+	}
+	if err := capture.write("large", strings.Repeat("x", 100)); err == nil {
+		t.Fatal("capture accepted a record beyond the storage budget")
+	}
+	if err := capture.file.Close(); err != nil {
+		t.Fatal(err)
+	}
+	body, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var row struct {
+		Kind  string
+		Value map[string]int
+	}
+	if err := json.Unmarshal(body, &row); err != nil || row.Kind != "sample" || row.Value["height"] != 101 {
+		t.Fatalf("captured record: %+v %v", row, err)
+	}
+	if digest := hex.EncodeToString(capture.hash.(interface{ Sum([]byte) []byte }).Sum(nil)); digest != delivery.Hash(body) {
+		t.Fatal("capture digest differs from persisted records")
+	}
+	if _, err := openMeasurementCapture(path, 100); !os.IsExist(err) {
+		t.Fatalf("capture replaced a prior record: %v", err)
+	}
+}
+
+func TestMeasurementArtifactsRequireExactBindings(t *testing.T) {
+	spec := repairM1000MeasurementSpec(t)
+	if err := validateMeasurementSource(spec); err != nil {
+		t.Fatal(err)
+	}
+	cases := []struct {
+		name string
+		edit func(*IngestMeasurementSpec)
+	}{
+		{"topology region", func(s *IngestMeasurementSpec) { s.Region = "different" }},
+		{"candidate digest", func(s *IngestMeasurementSpec) { s.CandidateSHA256 = strings.Repeat("0", 64) }},
+		{"steady duration", func(s *IngestMeasurementSpec) { s.Duration = time.Second }},
+		{"burst duration", func(s *IngestMeasurementSpec) { s.Profile = "burst"; s.Duration = 4 * time.Minute }},
+		{"soak duration", func(s *IngestMeasurementSpec) { s.Profile = "soak" }},
+		{"unknown profile", func(s *IngestMeasurementSpec) { s.Profile = "other" }},
+		{"missing source", func(s *IngestMeasurementSpec) { s.SourceFiles = nil }},
+		{"missing topology", func(s *IngestMeasurementSpec) { s.TopologyPath = "" }},
+		{"capture budget", func(s *IngestMeasurementSpec) { s.CaptureMaxBytes = 0 }},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			changed := spec
+			tc.edit(&changed)
+			if err := validateMeasurementSource(changed); err == nil {
+				t.Fatal("unbound measurement input accepted")
+			}
+		})
+	}
+	path := filepath.Join(t.TempDir(), "checkpoint.json")
+	checkpoint := IngestRestoreCheckpoint{CandidateSHA256: spec.CandidateSHA256, CapturedAt: time.Now().UTC(), Storage: store.IngestStorageSample{Database: "indexer"}, Canonical: store.CanonicalRangeDigest{RawSHA256: strings.Repeat("1", 64), TypedSHA256: strings.Repeat("2", 64)}}
+	body, err := json.Marshal(checkpoint)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, body, 0600); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := loadRestoreCheckpoint(path, delivery.Hash(body))
+	if err != nil || loaded.CandidateSHA256 != checkpoint.CandidateSHA256 || loaded.Storage.Database != checkpoint.Storage.Database {
+		t.Fatalf("checkpoint binding: %+v %v", loaded, err)
+	}
+	if _, err := loadRestoreCheckpoint(path, strings.Repeat("0", 64)); err == nil {
+		t.Fatal("changed checkpoint digest accepted")
+	}
+	if err := os.WriteFile(path, append(body, []byte("{}")...), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := loadRestoreCheckpoint(path, delivery.Hash(append(body, []byte("{}")...))); err == nil {
+		t.Fatal("trailing checkpoint value accepted")
+	}
+}
+
+func TestMeasurementSQLCopyTraceCountsRowsAndFailures(t *testing.T) {
+	trace := new(IngestSQLMeasurementTracer)
+	ctx := trace.TraceCopyFromStart(context.Background(), nil, pgx.TraceCopyFromStartData{})
+	trace.TraceCopyFromEnd(ctx, nil, pgx.TraceCopyFromEndData{CommandTag: pgconn.NewCommandTag("COPY 3")})
+	trace.TraceCopyFromEnd(ctx, nil, pgx.TraceCopyFromEndData{CommandTag: pgconn.NewCommandTag("COPY 2")})
+	trace.TraceCopyFromEnd(ctx, nil, pgx.TraceCopyFromEndData{Err: errors.New("copy rejected")})
+	got := trace.Snapshot()
+	if got.CopyCalls != 1 || got.CopyRows != 5 || got.MaxCopyRows != 3 || got.QueryFailures != 1 {
+		t.Fatalf("copy trace counters: %+v", got)
 	}
 }

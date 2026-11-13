@@ -1,3 +1,4 @@
+#[allow(dead_code)]
 #[path = "support/chain.rs"]
 mod chain;
 
@@ -19,6 +20,87 @@ fn status_record(program: ProgramId, lifecycle: u8) -> [u8; 54] {
     value[34..42].copy_from_slice(&1_800_000_000_u64.to_be_bytes());
     value[42..50].copy_from_slice(&72_u64.to_be_bytes());
     value
+}
+
+fn verify_invalid_status_proofs(
+    status_a: [u8; 54],
+    b: ProgramId,
+    raw_key: &[u8],
+    fixture: &ChainFixture,
+    head: &layerx_programs::chain_proof::VerifiedChainHead,
+    present: &ChainWindDownProof,
+) -> Result<(), String> {
+    let mut altered = status_a;
+    altered[34] ^= 1;
+    for invalid in [
+        ChainWindDownProof {
+            value: Some(altered.to_vec()),
+            ..present.clone()
+        },
+        ChainWindDownProof {
+            program: b,
+            ..present.clone()
+        },
+        ChainWindDownProof {
+            value: None,
+            ..present.clone()
+        },
+        ChainWindDownProof {
+            ops: Vec::new(),
+            ..present.clone()
+        },
+        ChainWindDownProof {
+            ops: fixture
+                .prove(raw_key)
+                .map_err(|error| format!("unwrapped key: {error:?}"))?,
+            ..present.clone()
+        },
+    ] {
+        assert_eq!(invalid.verify(head), Err(ProtocolEvidenceError::StateProof));
+    }
+
+    let mut wrong_store = present.clone();
+    wrong_store.ops[1].key = b"bank".to_vec();
+    assert_eq!(
+        wrong_store.verify(head),
+        Err(ProtocolEvidenceError::StateProof)
+    );
+    let mut damaged_ops = present.clone();
+    damaged_ops.ops[0].data[0] ^= 1;
+    assert_eq!(
+        damaged_ops.verify(head),
+        Err(ProtocolEvidenceError::StateProof)
+    );
+
+    Ok(())
+}
+
+fn verify_malformed_status_lengths(a: ProgramId) -> Result<(), String> {
+    for length in [1, 53, 55] {
+        let value = vec![1; length];
+        let malformed = ChainFixture::new(
+            "paxeer-wind-down-test",
+            &[[1; 32], [2; 32], [3; 32], [4; 32]],
+            vec![(status_key(a), value.clone())],
+        )
+        .map_err(|error| format!("malformed fixture: {error:?}"))?;
+        let malformed_head = malformed
+            .verifier
+            .verify_head(&malformed.header, &malformed.commit)
+            .map_err(|error| format!("malformed head: {error:?}"))?;
+        let proof = ChainWindDownProof {
+            program: a,
+            value: Some(value),
+            ops: malformed
+                .prove(&status_key(a))
+                .map_err(|error| format!("malformed membership: {error:?}"))?,
+        };
+        assert_eq!(
+            proof.verify(&malformed_head),
+            Err(ProtocolEvidenceError::Encoding)
+        );
+    }
+    Ok(())
 }
 
 #[test]
@@ -83,51 +165,10 @@ fn chain_wind_down_reads_status_or_absence() -> Result<(), String> {
         );
     }
 
+    verify_invalid_status_proofs(status_a, b, &raw_key, &fixture, &head, &present)?;
+
     let mut altered = status_a;
     altered[34] ^= 1;
-    for invalid in [
-        ChainWindDownProof {
-            value: Some(altered.to_vec()),
-            ..present.clone()
-        },
-        ChainWindDownProof {
-            program: b,
-            ..present.clone()
-        },
-        ChainWindDownProof {
-            value: None,
-            ..present.clone()
-        },
-        ChainWindDownProof {
-            ops: Vec::new(),
-            ..present.clone()
-        },
-        ChainWindDownProof {
-            ops: fixture
-                .prove(&raw_key)
-                .map_err(|error| format!("unwrapped key: {error:?}"))?,
-            ..present.clone()
-        },
-    ] {
-        assert_eq!(
-            invalid.verify(&head),
-            Err(ProtocolEvidenceError::StateProof)
-        );
-    }
-
-    let mut wrong_store = present.clone();
-    wrong_store.ops[1].key = b"bank".to_vec();
-    assert_eq!(
-        wrong_store.verify(&head),
-        Err(ProtocolEvidenceError::StateProof)
-    );
-    let mut damaged_ops = present.clone();
-    damaged_ops.ops[0].data[0] ^= 1;
-    assert_eq!(
-        damaged_ops.verify(&head),
-        Err(ProtocolEvidenceError::StateProof)
-    );
-
     let other = ChainFixture::new(
         "paxeer-wind-down-test",
         &[[1; 32], [2; 32], [3; 32], [4; 32]],
@@ -144,30 +185,7 @@ fn chain_wind_down_reads_status_or_absence() -> Result<(), String> {
         Err(ProtocolEvidenceError::StateProof)
     );
 
-    for length in [1, 53, 55] {
-        let value = vec![1; length];
-        let malformed = ChainFixture::new(
-            "paxeer-wind-down-test",
-            &[[1; 32], [2; 32], [3; 32], [4; 32]],
-            vec![(status_key(a), value.clone())],
-        )
-        .map_err(|error| format!("malformed fixture: {error:?}"))?;
-        let malformed_head = malformed
-            .verifier
-            .verify_head(&malformed.header, &malformed.commit)
-            .map_err(|error| format!("malformed head: {error:?}"))?;
-        let proof = ChainWindDownProof {
-            program: a,
-            value: Some(value),
-            ops: malformed
-                .prove(&status_key(a))
-                .map_err(|error| format!("malformed membership: {error:?}"))?,
-        };
-        assert_eq!(
-            proof.verify(&malformed_head),
-            Err(ProtocolEvidenceError::Encoding)
-        );
-    }
+    verify_malformed_status_lengths(a)?;
     let empty = ChainWindDownProof {
         value: Some(Vec::new()),
         ..present

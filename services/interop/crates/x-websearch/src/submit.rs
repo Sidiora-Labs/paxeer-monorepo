@@ -441,6 +441,8 @@ pub fn request_status(rpc: &EvmRpc, request_id: u64) -> Result<u8, EvmError> {
         .ok_or(EvmError::Malformed)
 }
 
+/// # Errors
+/// Returns an error when journal state or chain submission cannot be completed.
 pub fn request_status_at_depth(
     rpc: &EvmRpc,
     request_id: u64,
@@ -833,6 +835,8 @@ impl Submitter {
         &self.journal
     }
 
+    /// # Errors
+    /// Returns an error when journal state or chain submission cannot be completed.
     pub fn bind_source(
         &self,
         request: &crate::watch::WebRequest,
@@ -909,6 +913,8 @@ impl Submitter {
         Ok(false)
     }
 
+    /// # Errors
+    /// Returns an error when journal state or chain submission cannot be completed.
     pub fn acknowledge_closed(&self, request_id: u64) -> Result<bool, SubmitError> {
         if let Some(outcome) = self.confirm(request_id)? {
             if outcome.completed() {
@@ -920,6 +926,8 @@ impl Submitter {
             .map(|outcome| outcome.is_some_and(Outcome::completed))
     }
 
+    /// # Errors
+    /// Returns an error when journal state or chain submission cannot be completed.
     pub fn abandon(&self, request_id: u64) -> Result<(), SubmitError> {
         let transaction = self
             .journal
@@ -1022,6 +1030,8 @@ impl Submitter {
         }
     }
 
+    /// # Errors
+    /// Returns an error when journal state or chain submission cannot be completed.
     pub fn resume(&self) -> Result<Resumed, SubmitError> {
         let mut results = Vec::new();
         for request_id in self.journal.requests()? {
@@ -1038,6 +1048,8 @@ impl Submitter {
         Ok(results)
     }
 
+    /// # Errors
+    /// Returns an error when journal state or chain submission cannot be completed.
     pub fn submit_program(
         &mut self,
         key: ProgramKey,
@@ -1054,6 +1066,8 @@ impl Submitter {
     }
 
     /// Sends the durable program transaction without allocating or replacing it.
+    /// # Errors
+    /// Returns an error when journal state or chain submission cannot be completed.
     pub fn broadcast_program(&self, key: ProgramKey) -> Result<Outcome, SubmitError> {
         let entry = self.journal.load(key)?.ok_or(SubmitError::Journal)?;
         if entry.state != JournalState::Signed {
@@ -1063,6 +1077,8 @@ impl Submitter {
         self.broadcast_signed(&signed)
     }
 
+    /// # Errors
+    /// Returns an error when journal state or chain submission cannot be completed.
     pub fn resume_program(&self, key: ProgramKey) -> Result<Option<Outcome>, SubmitError> {
         let Some(entry) = self.journal.load(key)? else {
             return Ok(None);
@@ -1175,6 +1191,8 @@ impl Submitter {
     }
 
     /// Durably allocates and publishes an ordinary fulfilment before any send.
+    /// # Errors
+    /// Returns an error when journal state or chain submission cannot be completed.
     pub fn stage(
         &self,
         ready: &Ready,
@@ -1192,6 +1210,8 @@ impl Submitter {
     }
 
     /// Durably allocates and publishes a program fulfilment before any send.
+    /// # Errors
+    /// Returns an error when journal state or chain submission cannot be completed.
     pub fn stage_program(
         &self,
         key: ProgramKey,
@@ -1204,6 +1224,34 @@ impl Submitter {
         let data = fulfil_program_calldata(observation);
         let gas = fulfil_program_gas_limit(&data, signatures);
         self.stage_transaction(JournalKey::Program(key), data, gas, pending, fees)
+    }
+
+    fn recover_reservation(state: &mut Value, state_path: &Path) -> Result<(), SubmitError> {
+        if state["reservation"].is_null() {
+            return Ok(());
+        }
+        let reservation = &state["reservation"];
+        let directory = reservation["directory"]
+            .as_str()
+            .ok_or(SubmitError::Journal)?;
+        let entry = JournalEntry::from_json(&reservation["entry"]).ok_or(SubmitError::Journal)?;
+        let reserved_key = if reservation["program"].is_null() {
+            JournalKey::Web(entry.request_id)
+        } else {
+            JournalKey::Program((
+                crate::program::fixed0x(Some(&reservation["program"]))
+                    .ok_or(SubmitError::Journal)?,
+                entry.request_id,
+            ))
+        };
+        let journal = Journal::open(Path::new(directory)).map_err(|_| SubmitError::Journal)?;
+        match journal.load(reserved_key)? {
+            Some(old) if old != entry => return Err(SubmitError::Journal),
+            Some(_) => {}
+            None => journal.store_at(reserved_key, &entry)?,
+        }
+        state["reservation"] = Value::Null;
+        write_nonce_state(state_path, state)
     }
 
     fn stage_transaction(
@@ -1238,31 +1286,7 @@ impl Submitter {
             return Err(SubmitError::Journal);
         }
         // Recover a crash between the shared reservation and journal publication.
-        if !state["reservation"].is_null() {
-            let reservation = &state["reservation"];
-            let directory = reservation["directory"]
-                .as_str()
-                .ok_or(SubmitError::Journal)?;
-            let entry =
-                JournalEntry::from_json(&reservation["entry"]).ok_or(SubmitError::Journal)?;
-            let reserved_key = if reservation["program"].is_null() {
-                JournalKey::Web(entry.request_id)
-            } else {
-                JournalKey::Program((
-                    crate::program::fixed0x(Some(&reservation["program"]))
-                        .ok_or(SubmitError::Journal)?,
-                    entry.request_id,
-                ))
-            };
-            let journal = Journal::open(Path::new(directory)).map_err(|_| SubmitError::Journal)?;
-            match journal.load(reserved_key)? {
-                Some(old) if old != entry => return Err(SubmitError::Journal),
-                Some(_) => {}
-                None => journal.store_at(reserved_key, &entry)?,
-            }
-            state["reservation"] = Value::Null;
-            write_nonce_state(&state_path, &state)?;
-        }
+        Self::recover_reservation(&mut state, &state_path)?;
         if let Some(entry) = self.journal.load(key)? {
             return entry
                 .transaction
@@ -1440,6 +1464,17 @@ impl Submitter {
     }
 }
 
+fn write_nonce_state(path: &Path, state: &Value) -> Result<(), SubmitError> {
+    let temporary = path.with_extension("tmp");
+    std::fs::write(&temporary, state.to_string())
+        .and_then(|()| std::fs::File::open(&temporary)?.sync_all())
+        .and_then(|()| std::fs::rename(&temporary, path))
+        .and_then(|()| {
+            std::fs::File::open(path.parent().ok_or(io::ErrorKind::InvalidInput)?)?.sync_all()
+        })
+        .map_err(|_| SubmitError::Journal)
+}
+
 #[cfg(test)]
 mod tests {
     use std::error::Error;
@@ -1576,15 +1611,4 @@ mod tests {
         assert_eq!(decode_request_view(&dirty, REQUEST_ID), None);
         Ok(())
     }
-}
-
-fn write_nonce_state(path: &Path, state: &Value) -> Result<(), SubmitError> {
-    let temporary = path.with_extension("tmp");
-    std::fs::write(&temporary, state.to_string())
-        .and_then(|()| std::fs::File::open(&temporary)?.sync_all())
-        .and_then(|()| std::fs::rename(&temporary, path))
-        .and_then(|()| {
-            std::fs::File::open(path.parent().ok_or(io::ErrorKind::InvalidInput)?)?.sync_all()
-        })
-        .map_err(|_| SubmitError::Journal)
 }

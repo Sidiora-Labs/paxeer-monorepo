@@ -66,7 +66,7 @@ func mustSend(t *testing.T, r *fixtureRPC, from, to string, a abi.ABI, method st
 	}
 	return h
 }
-func TestActualAnvilCreatorAndEpochStorage(t *testing.T) {
+func TestProductionAnvilCreatorAndEpochStorage(t *testing.T) {
 	path := localChainFixture(t)
 	if path == "" {
 		t.Fatal("L18_CHAIN_FIXTURE required: actual owned Anvil contract fixture")
@@ -306,7 +306,7 @@ func assertFixtureOwner() error {
 	return errors.New("owned Anvil no longer owns endpoint")
 }
 
-func TestPhase3ActualReceiptReplayAndNodeDisagreement(t *testing.T) {
+func TestProductionReceiptReplayAndNodeDisagreement(t *testing.T) {
 	path := localChainFixture(t)
 	if path == "" {
 		t.Fatal("owned real Anvil fixture required")

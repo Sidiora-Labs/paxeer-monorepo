@@ -1,12 +1,15 @@
 # Solidity API
 
+Source: [MaxWalletOptical.sol](../../../contracts/opticals/presets/MaxWalletOptical.sol).
+
 ## MaxWalletOptical
 
-Enforces maximum token holding percentage per wallet after buy swaps.
+Limits recipient holdings on transfers from an attached pool. Uses the token's `beforeTokenTransfer`
+extension, flag bit 4 (16). The check requires the registered pool's token as caller and rejects a
+transfer when the recipient's balance plus the amount exceeds `totalSupply * maxWalletBps / 10000`.
 
-_Uses afterSwap hook. Immutable once deployed.
-     Pool address is exempt (it holds the liquidity).
-     Only checks on buys — sells naturally reduce holdings._
+Transfers to the pool and exempt recipients are allowed. The cap is fixed at construction; only the
+owner may change exemptions.
 
 ### MaxWalletExceeded
 
@@ -38,11 +41,11 @@ constructor(address _poolRegistry, address _owner, uint256 _maxWalletBps) public
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| _poolRegistry | address | PoolRegistry address for pool validation |
-| _owner | address | Deployer/owner address |
-| _maxWalletBps | uint256 | Maximum holding in bps of total supply |
+| Name           | Type    | Description                              |
+| -------------- | ------- | ---------------------------------------- |
+| \_poolRegistry | address | PoolRegistry address for pool validation |
+| \_owner        | address | Deployer/owner address                   |
+| \_maxWalletBps | uint256 | Maximum holding in bps of total supply   |
 
 ### setExempt
 
@@ -60,9 +63,16 @@ _Only owner can set exemptions (e.g., pool address, treasury)_
 function getFlags() external pure returns (uint8)
 ```
 
-### afterSwap
+### beforeTokenTransfer
 
 ```solidity
-function afterSwap(address pool, address sender, bool isBuy, uint256, uint256) external returns (bytes4)
+function beforeTokenTransfer(address pool, address from, address to, uint256 amount) external view
 ```
 
+Checks transfers from the attached pool before recipient balances change.
+
+### ExemptionUpdated
+
+```solidity
+event ExemptionUpdated(address indexed account, bool isExempt)
+```

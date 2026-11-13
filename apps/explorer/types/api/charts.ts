@@ -19,7 +19,9 @@ export interface ChartMarketResponse {
   chart_data: Array<ChartMarketItem>;
 }
 
-export interface ChartSecondaryCoinPriceResponse {
+export type ChartSecondaryCoinMarketItem = Pick<ChartMarketItem, 'date' | 'closing_price' | 'market_cap'>;
+
+export interface ChartSecondaryCoinMarketResponse {
   available_supply: string;
-  chart_data: Array<ChartMarketItem>;
+  chart_data: Array<ChartSecondaryCoinMarketItem>;
 }

@@ -52,7 +52,7 @@ impl Fixture {
         Self { directory, options }
     }
 
-    fn manifest(&self, entries: Vec<Value>) -> BridgeOptions {
+    fn manifest(&self, entries: &[Value]) -> BridgeOptions {
         let keys_file = self.directory.join("keys.json");
         write_private(
             &keys_file,
@@ -154,7 +154,7 @@ fn signer_role_alias_rejects_shared_identities_across_handles() {
                     if reverse {
                         entries.reverse();
                     }
-                    let options = fixture.manifest(entries);
+                    let options = fixture.manifest(&entries);
                     match SignerListener::bind_bridge(&options) {
                         Err(StartupError::Manifest { reason, .. }) => {
                             assert!(reason.contains("shares a public identity"), "{reason}");
@@ -177,7 +177,7 @@ fn signer_role_alias_separated_keys_sign_through_the_real_client() {
     let fixture = Fixture::new("separated-roles");
     let submitter = fixture.directory.join("submitter.key");
     write_private(&submitter, "22".repeat(32).as_bytes());
-    let options = fixture.manifest(vec![
+    let options = fixture.manifest(&[
         entry(
             "attestor-in",
             &fixture.options.ethereum_key_file,
@@ -219,7 +219,7 @@ fn signer_role_alias_separated_keys_sign_through_the_real_client() {
 #[test]
 fn signer_secret_readability_requires_owner_only_files_for_both_algorithms() {
     let fixture = Fixture::new("permissions");
-    let bridge = fixture.manifest(vec![entry(
+    let bridge = fixture.manifest(&[entry(
         "attestor",
         &fixture.options.ethereum_key_file,
         BRIDGE_ATTEST_INBOUND_DOMAIN,
@@ -378,7 +378,7 @@ fn signer_secret_readability_checks_the_descriptor_during_atomic_replacement() {
                     ETHEREUM_POLICY_DOMAIN,
                 ),
                 Err(StartupError::KeyMaterial { reason, .. }) => {
-                    assert!(reason.contains("owner-only"), "{reason}")
+                    assert!(reason.contains("owner-only"), "{reason}");
                 }
                 Err(error) => panic!("unexpected replacement error: {error}"),
             }

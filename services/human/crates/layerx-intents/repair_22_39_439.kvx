@@ -1,0 +1,11 @@
+[member]
+name = "layerx-intents"
+
+[lint_locations]
+dead_code = 7
+clippy_expect_used = 66
+clippy_doc_markdown = 18
+clippy_similar_names = 1
+clippy_too_many_lines = 1
+clippy_format_collect = 1
+clippy_unreadable_literal = 1

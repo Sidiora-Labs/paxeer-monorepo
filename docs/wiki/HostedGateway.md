@@ -10,33 +10,24 @@ domains in the database, launchable without new infrastructure.
 
 ## Public nodes and hosted gateway
 
-The public node JSON-RPC endpoints are the root paths of
-`https://api-mainnet-beta.paxeer.network` and `https://api1.mainnet-beta.paxeer.network`
-through `https://api14.mainnet-beta.paxeer.network`. EVM chain ID is `125`
-(`0x7d`). Node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test` and
-`txpool`. The `px` namespace answers from node state; `px_register` and
-`px_requestFunds` are operations of the hosted identity and faucet
-services declared in `services/platform/hosted/gateway/openrpc.json`.
-Obtain the gateway origin and enabled product routes from its operator.
-The checked-in Ingress names the public node hostname; that manifest alone
-does not establish a deployed public gateway there.
-
-The unified router and its `/rpc`, `/rpc/schema` and `/rpc/ws` endpoints are retired.
-There is no separate LayerX interface or sequencer service in the merged network.
-`node.hyperpaxeer.com` is the build-time library mirror, not a JSON-RPC endpoint.
+Use a root node URL from [Public JSON-RPC](PublicRpc.md) for chain access.
+EVM chain ID is `125` (`0x7d`). The node's registered methods are defined in
+[`rpc/server.go`](../../rpc/server.go) and filtered by node configuration.
+Native `px_*` reads are served by the node; hosted identity and faucet
+operations use `px_register` and `px_requestFunds` on the configured gateway.
 
 The current gateway dispatcher serves JSON-RPC at `POST /` with
 `Content-Type: application/json`. It accepts one request or a batch of 1–32
 requests. JSON-RPC replies and errors use HTTP 200; notifications produce no
 reply, and an all-notification request returns HTTP 204. Invalid JSON is
 `-32700`; an invalid request or batch is `-32600`. All `lx_*` names now answer
-`-32601 Method not found`. The removed `/rpc/schema` route is unavailable;
-read the checked-in OpenRPC file instead.
+`-32601 Method not found`. `GET /openrpc.json` serves the gateway schema.
 
-Use this request against a public node to identify the network:
+Set the shell variable `PAXEER_RPC_URL` to the selected node root URL to identify
+the network:
 
 ```sh
-curl https://api1.mainnet-beta.paxeer.network/ \
+curl "$PAXEER_RPC_URL" \
   -H 'Content-Type: application/json' \
   --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'
 ```
@@ -51,16 +42,17 @@ curl "${LAYERX_GATEWAY_URL%/}/" \
 
 See the [OpenRPC contract](../../services/platform/hosted/gateway/openrpc.json)
 and [`src/rpc.rs`](../../services/platform/hosted/gateway/src/rpc.rs) for the
-current request contract. [Public JSON-RPC](PublicRpc.md) and
-[Public payment API](PublicAPI.md) provide related background; older examples
-of activity submission there do not restore the removed methods on this gateway.
+current request contract. See [Public JSON-RPC](PublicRpc.md) and
+[Public payment API](PublicAPI.md) for related chain access and payment material.
 
 ## Hosted JSON-RPC methods
 
-OpenRPC and `ROUTER_METHODS` in
+The served schema and `ROUTER_METHODS` in
 [`src/lib.rs`](../../services/platform/hosted/gateway/src/lib.rs) declare
 17 method names: the following 16 `px_*` methods and `pax_sequencerReceipt`.
-This count excludes the EVM methods relayed to a configured node.
+This count excludes the EVM methods relayed to a configured node. The checked-in
+OpenRPC file also describes five `px_getInference*` node reads; the gateway
+schema omits those methods and its dispatcher returns method-not-found for them.
 Parameters are positional; use `[]` explicitly for methods without arguments.
 
 | Method | Parameters | Result or dependency |
@@ -70,7 +62,7 @@ Parameters are positional; use `[]` explicitly for methods without arguments.
 | `px_resolveAccount` | `[account]` | EVM address or `did:layerx:<64 hex>` resolution through the address precompile; unbound fields are null |
 | `px_getAccount` | `[account]` | Resolution and EVM balance, nonce and height from one chain snapshot |
 | `px_getBalances` | `[account]` | Bank balances at one height; amounts are exact decimal strings in base units |
-| `px_listAssets` | `[]` | Up to 16 indexer assets, sorted by asset ID, with chain metadata at the returned height; unavailable metadata remains null |
+| `px_listAssets` | `[cursor?, limit?]` | Registered assets in registration order, with `next_cursor` and chain metadata at the returned height; unavailable metadata remains null |
 | `px_getNetwork` | `[]` | Network identifier, EVM chain ID and head, plus consensus head; missing consensus yields null with `consensus_unavailable` |
 | `px_getCommit` | `[height]` | Consensus `signedHeader` at a positive decimal-string height |
 | `px_getValidators` | `[height]` | Full validator set collected across consensus pages |
@@ -83,6 +75,10 @@ Parameters are positional; use `[]` explicitly for methods without arguments.
 | `px_getRouteCatalogue` | `[]` | Authenticated product route catalogue with dependency readiness; requires `LayerX-Key` |
 | `pax_sequencerReceipt` | `[txHash]` | Node response relayed unchanged for a `0x`-prefixed 32-byte hash; unknown hashes return null |
 
+Asset-list cursors are canonical decimal strings; omit the cursor or use null
+for the first page. The optional integer limit is 1–16, default 16, and the
+response reports `order: "registration"`.
+
 History cursors are opaque indexer cursors. Holder-record cursors are 32
 lowercase hex characters; holder page size defaults to 50 and is bounded at
 100. Use the OpenRPC schemas for optional argument types and result fields.
@@ -91,7 +87,8 @@ or explicit DID selector for repeated resolution, balance and history reads.
 
 The gateway relays permitted `eth_*`, `net_*` and `web3_*` methods through its
 configured node pool. Node-side signing methods are refused; ordinary HTTP
-relay does not implement `eth_subscribe` or `eth_unsubscribe`. Submit signed
+relay refuses `eth_subscribe` and `eth_unsubscribe`; the root WebSocket listener
+relays subscriptions. Submit signed
 transactions using `eth_sendRawTransaction` or `eth_sendRawTransactionSync`.
 The `submitted`, `receipted` and `committed` rungs of `pax_sequencerReceipt`
 describe progress within this one network. A signed receipt before block
@@ -189,6 +186,8 @@ is deployed or has completed an end-to-end operation.
 | Method and path | Authentication and behavior |
 | --- | --- |
 | `POST /` | JSON-RPC; public reads, with method-specific authentication for catalogue and funding |
+| `GET /openrpc.json` | No credential; served JSON-RPC schema |
+| `GET /` with WebSocket upgrade | EVM subscription relay through the configured node pool |
 | `GET /livez` | No credential; `status=live`, `service=layerx-gateway`, package version |
 | `GET /readyz` | No credential; backend readiness and product dependency report |
 | `GET /readyz/core` | No credential; backend readiness with product route report omitted |
@@ -254,9 +253,7 @@ Without that group, outbound service mTLS may use the paired
 `LAYERX_GATEWAY_SERVICE_CLIENT_IDENTITY_PASSWORD_FILE` variables.
 
 `capabilities::chain_rpc` sends upstream node calls to the root path: a
-bare node origin gets the base path `/`. The checked-in testnet manifest
-supplies only one node-pool entry, while the current parser requires at least
-two.
+bare node origin gets the base path `/`.
 
 ## Redis state and ACL
 
@@ -403,8 +400,7 @@ defines `platform-build` for platform workspaces and SDK/release checks,
 `platform-test` for workspace suites through the runtime-clock wrapper,
 `platform-hosted-smoke`, `platform-hosted-topology-check` and
 `platform-test-agent-install` for their respective integration workflows.
-These broader targets have additional prerequisites; they are not gates
-for this documentation rewrite.
+These broader targets require their declared integration dependencies.
 
 ## Version-2 module registry
 

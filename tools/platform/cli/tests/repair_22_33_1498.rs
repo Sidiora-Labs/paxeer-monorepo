@@ -1,8 +1,8 @@
-//! Repair record: mcp_readiness_test_rewrite is proven by
-//! mcp_readiness_test_rewrite_publishes_and_recovers_exact_output and
-//! mcp_readiness_test_rewrite_refuses_unprotected_publication_credentials.
-//! Wiring request: tools/platform/cli/tests/mcp_daemon_bound.rs (CLI domain)
-//! must prepare Gateway before enrolment, pass Gateway::readiness to DaemonSurface,
+//! Repair record: `mcp_readiness_test_rewrite` is proven by
+//! `mcp_readiness_test_rewrite_publishes_and_recovers_exact_output` and
+//! `mcp_readiness_test_rewrite_refuses_unprotected_publication_credentials`.
+//! Wiring request: `tools/platform/cli/tests/mcp_daemon_bound.rs` (CLI domain)
+//! must prepare Gateway before enrolment, pass `Gateway::readiness` to `DaemonSurface`,
 //! then serve the unmodified publication; its call sites are outside this task's scope.
 //! Baseline: the repair target did not exist on the unchanged tree; no baseline
 //! verify was run because the task's ordered gates require implementation first.
@@ -97,7 +97,7 @@ fn enrol(
         &mut boundary,
     )
     .unwrap_or_else(|error| panic!("identity: {error:?}"));
-    let publisher = binding_publisher(root, readiness);
+    let binding_publisher_handle = binding_publisher(root, readiness);
     let mut sessions = SessionRegistry::default();
     let request = EnrolmentRequest {
         session_id: SessionId([0x0c; 32]),
@@ -117,11 +117,11 @@ fn enrol(
         &mut sessions,
         &identity,
         request.clone(),
-        &publisher,
+        &binding_publisher_handle,
     )?;
     drop(store);
     persist_native_grant(root);
-    Ok((published, publisher, identity, request))
+    Ok((published, binding_publisher_handle, identity, request))
 }
 
 fn binding_publisher(root: &Path, readiness: ReadinessDeclaration) -> BindingPublisher {
@@ -147,8 +147,10 @@ fn binding_publisher(root: &Path, readiness: ReadinessDeclaration) -> BindingPub
 }
 
 fn persist_native_grant(root: &Path) {
-    let mut store = Store::open(root.join("store")).expect("native capability store");
-    let tenant = TenantId::new("tenant-a").expect("native tenant");
+    let mut store = Store::open(root.join("store"))
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "native capability store"));
+    let tenant =
+        TenantId::new("tenant-a").unwrap_or_else(|error| panic!("{}: {error:?}", "native tenant"));
     let native = NativeTimedCapabilityV1 {
         record: TimedCapability {
             id: [9; 32],
@@ -172,7 +174,7 @@ fn persist_native_grant(root: &Path) {
             .into_iter()
             .map(|ordinal| {
                 ActivityType::new(ModuleId::Asset, ordinal)
-                    .expect("native activity")
+                    .unwrap_or_else(|error| panic!("{}: {error:?}", "native activity"))
                     .into()
             })
             .collect(),
@@ -181,37 +183,46 @@ fn persist_native_grant(root: &Path) {
     };
     store
         .put_local(
-            timed::native_record_key(&tenant, &[9; 32]).expect("native key"),
-            native.encode().expect("native capability"),
+            timed::native_record_key(&tenant, &[9; 32])
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "native key")),
+            native
+                .encode()
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "native capability")),
         )
-        .expect("persist native grant");
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "persist native grant"));
     drop(store);
 }
 
 fn gateway_authentication_required(root: &Path, endpoint: &str, binding_path: &Path) {
-    let binding = Binding::open(binding_path).expect("unchanged binding");
+    let binding = Binding::open(binding_path)
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "unchanged binding"));
     let session = binding
         .daemon_credential()
-        .expect("real enrolled credential");
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "real enrolled credential"));
     let credential = EnvelopeCredential::new(
         session.tenant().as_str(),
         session.session_id().0,
         session.token_id(),
         session.generation(),
     )
-    .expect("session envelope credential");
+    .unwrap_or_else(|error| panic!("{}: {error:?}", "session envelope credential"));
     let transport = AgentEnvelopeTransport::connect(endpoint, None, Some(&root.join("ca.pem")))
-        .expect("TLS transport without a gateway credential");
-    let refusal = match DaemonClientSession::connect(transport, credential, binding.mode()) {
-        Ok(_) => panic!("a session token must not replace gateway authentication"),
-        Err(refusal) => refusal,
+        .unwrap_or_else(|error| {
+            panic!(
+                "{}: {error:?}",
+                "TLS transport without a gateway credential"
+            )
+        });
+    let Err(refusal) = DaemonClientSession::connect(transport, credential, binding.mode()) else {
+        panic!("a session token must not replace gateway authentication");
     };
     assert_eq!(refusal["reason"], "gateway.authentication");
     assert_eq!(refusal["state"], "refused");
 }
 
 fn consume_published_binding(binding_path: &Path) -> Value {
-    let binding = Binding::open(binding_path).expect("exact producer document");
+    let binding = Binding::open(binding_path)
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "exact producer document"));
     let mut client = binding
         .open_daemon_client()
         .unwrap_or_else(|error| panic!("authenticated published transport: {}", error.detail()));
@@ -222,7 +233,7 @@ fn consume_published_binding(binding_path: &Path) -> Value {
             })
             .to_string(),
         )
-        .expect("MCP initialization");
+        .unwrap_or_else(|| panic!("{}", "MCP initialization"));
     assert_eq!(
         initialization["result"]["_meta"]["layerx/binding"],
         "agent-daemon"
@@ -238,18 +249,35 @@ fn consume_published_binding(binding_path: &Path) -> Value {
             })
             .to_string(),
         )
-        .expect("MCP catalogue");
+        .unwrap_or_else(|| panic!("{}", "MCP catalogue"));
     assert!(response.get("error").is_none(), "{response}");
     let tools = response["result"]["tools"]
         .as_array()
-        .expect("daemon-produced tools");
+        .unwrap_or_else(|| panic!("{}", "daemon-produced tools"));
     let names = tools
         .iter()
-        .map(|tool| tool["name"].as_str().expect("tool name"))
+        .map(|tool| {
+            tool["name"]
+                .as_str()
+                .unwrap_or_else(|| panic!("{}", "tool name"))
+        })
         .collect::<BTreeSet<_>>();
     assert_eq!(names, catalogue().iter().map(|tool| tool.name).collect());
     assert_eq!(tools.len(), catalogue().len());
     response
+}
+
+fn assert_private_paths(paths: &[&std::path::Path]) {
+    for path in paths {
+        assert_eq!(
+            fs::metadata(path)
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "protected file"))
+                .permissions()
+                .mode()
+                & 0o777,
+            0o600
+        );
+    }
 }
 
 #[test]
@@ -257,18 +285,27 @@ fn mcp_readiness_test_rewrite_publishes_and_recovers_exact_output() {
     let directory = tempfile::Builder::new()
         .prefix("mcp-readiness-")
         .tempdir()
-        .expect("private directory");
-    let root = fs::canonicalize(directory.path()).expect("canonical root");
-    fs::set_permissions(&root, fs::Permissions::from_mode(0o700)).expect("private root");
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "private directory"));
+    let root = fs::canonicalize(directory.path())
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "canonical root"));
+    fs::set_permissions(&root, fs::Permissions::from_mode(0o700))
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "private root"));
     let mut gateway = daemon_gateway::Gateway::prepare(&root);
     let endpoint = gateway.endpoint();
-    let (published, publisher, identity, request) =
-        enrol(&root, gateway.readiness(&root)).expect("publish through real enrolment inputs");
-    let original = fs::read(&published.binding).expect("published bytes");
-    let token = fs::read(&published.session_token_file).expect("published session token");
-    let bearer = fs::read(&published.daemon_bearer_file).expect("published daemon bearer");
-    let key = fs::read(root.join("gateway-key")).expect("protected gateway credential");
-    let document: Value = serde_json::from_slice(&original).expect("published JSON");
+    let (published, binding_publisher_handle, identity, request) =
+        enrol(&root, gateway.readiness(&root)).unwrap_or_else(|error| {
+            panic!("{}: {error:?}", "publish through real enrolment inputs")
+        });
+    let original = fs::read(&published.binding)
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "published bytes"));
+    let token = fs::read(&published.session_token_file)
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "published session token"));
+    let bearer = fs::read(&published.daemon_bearer_file)
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "published daemon bearer"));
+    let key = fs::read(root.join("gateway-key"))
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "protected gateway credential"));
+    let document: Value = serde_json::from_slice(&original)
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "published JSON"));
     assert_eq!(
         document["agent"]["readiness"],
         json!({
@@ -280,65 +317,67 @@ fn mcp_readiness_test_rewrite_publishes_and_recovers_exact_output() {
     assert_eq!(document["core_height"], request.core_sequence);
     assert!(document.get("core_sequence").is_none());
     assert!(!original.windows(key.len()).any(|bytes| bytes == key));
-    for path in [
+    assert_private_paths(&[
         &published.binding,
         &published.session_token_file,
         &published.daemon_bearer_file,
         &root.join("gateway-key"),
-    ] {
-        assert_eq!(
-            fs::metadata(path)
-                .expect("protected file")
-                .permissions()
-                .mode()
-                & 0o777,
-            0o600
-        );
-    }
+    ]);
     gateway.serve(&root, &published.binding);
     assert_eq!(
-        fs::read(&published.binding).expect("served publication"),
+        fs::read(&published.binding)
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "served publication")),
         original
     );
     gateway_authentication_required(&root, &endpoint, &published.binding);
     let first = consume_published_binding(&published.binding);
     let readiness = gateway.readiness(&root);
     drop(gateway);
-    drop(publisher);
+    drop(binding_publisher_handle);
 
-    let store = Store::open(root.join("store")).expect("reopened production store");
+    let store = Store::open(root.join("store"))
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "reopened production store"));
     let mut sessions = SessionRegistry::default();
     sessions
         .restore_tenant(&store, identity.tenant())
-        .expect("recover durable session");
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "recover durable session"));
     let record = sessions
         .get(identity.tenant(), published.session_id)
-        .expect("recovered session");
+        .unwrap_or_else(|| panic!("{}", "recovered session"));
     assert!(record.open);
     assert_eq!(record.generation, published.session_generation);
-    let publisher = binding_publisher(&root, readiness);
-    publisher
+    let binding_publisher_handle = binding_publisher(&root, readiness);
+    binding_publisher_handle
         .validate_existing(&sessions, &identity, &request)
-        .expect("recover exact publication against real durable authority");
+        .unwrap_or_else(|error| {
+            panic!(
+                "{}: {error:?}",
+                "recover exact publication against real durable authority"
+            )
+        });
     drop(store);
     let gateway = daemon_gateway::Gateway::start(&root, &published.binding);
     assert_eq!(gateway.endpoint(), endpoint);
     gateway_authentication_required(&root, &endpoint, &published.binding);
     assert_eq!(consume_published_binding(&published.binding), first);
     assert_eq!(
-        fs::read(&published.binding).expect("recovered document"),
+        fs::read(&published.binding)
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "recovered document")),
         original
     );
     assert_eq!(
-        fs::read(&published.session_token_file).expect("recovered token"),
+        fs::read(&published.session_token_file)
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "recovered token")),
         token
     );
     assert_eq!(
-        fs::read(&published.daemon_bearer_file).expect("recovered bearer"),
+        fs::read(&published.daemon_bearer_file)
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "recovered bearer")),
         bearer
     );
     assert_eq!(
-        fs::read(root.join("gateway-key")).expect("recovered key"),
+        fs::read(root.join("gateway-key"))
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "recovered key")),
         key
     );
     drop(gateway);
@@ -349,15 +388,21 @@ fn mcp_readiness_test_rewrite_refuses_unprotected_publication_credentials() {
     let directory = tempfile::Builder::new()
         .prefix("mcp-readiness-refusal-")
         .tempdir()
-        .expect("private directory");
-    let root = fs::canonicalize(directory.path()).expect("canonical root");
-    fs::set_permissions(&root, fs::Permissions::from_mode(0o700)).expect("private root");
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "private directory"));
+    let root = fs::canonicalize(directory.path())
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "canonical root"));
+    fs::set_permissions(&root, fs::Permissions::from_mode(0o700))
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "private root"));
     let gateway = daemon_gateway::Gateway::prepare(&root);
     fs::set_permissions(root.join("gateway-key"), fs::Permissions::from_mode(0o644))
-        .expect("expose credential permissions for refusal case");
-    let error = match enrol(&root, gateway.readiness(&root)) {
-        Ok(_) => panic!("publication must refuse an unprotected gateway credential"),
-        Err(error) => error,
+        .unwrap_or_else(|error| {
+            panic!(
+                "{}: {error:?}",
+                "expose credential permissions for refusal case"
+            )
+        });
+    let Err(error) = enrol(&root, gateway.readiness(&root)) else {
+        panic!("publication must refuse an unprotected gateway credential");
     };
     assert!(
         matches!(
@@ -373,16 +418,18 @@ fn mcp_readiness_test_rewrite_refuses_unprotected_publication_credentials() {
     ] {
         assert!(!root.join("mcp").join(name).exists());
     }
-    let store = Store::open(root.join("store")).expect("refused publication store");
+    let store = Store::open(root.join("store"))
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "refused publication store"));
     let mut sessions = SessionRegistry::default();
-    let tenant = TenantId::new("tenant-a").expect("tenant");
+    let tenant =
+        TenantId::new("tenant-a").unwrap_or_else(|error| panic!("{}: {error:?}", "tenant"));
     sessions
         .restore_tenant(&store, &tenant)
-        .expect("recover refused publication");
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "recover refused publication"));
     assert!(
         !sessions
             .get(&tenant, SessionId([0x0c; 32]))
-            .expect("rolled-back session")
+            .unwrap_or_else(|| panic!("{}", "rolled-back session"))
             .open
     );
 }

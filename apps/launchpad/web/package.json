@@ -54,6 +54,7 @@
     "@eslint/eslintrc": "^3",
     "@next/bundle-analyzer": "15.5.28",
     "@tailwindcss/postcss": "^4",
+    "@types/jsdom": "^21.1.7",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",

@@ -5,13 +5,14 @@ import (
 	"context"
 	"encoding/binary"
 	"errors"
-	_ "golang.org/x/image/webp"
 	"image"
 	"image/color"
 	_ "image/jpeg"
 	"image/png"
 	"io"
 	"net/http"
+
+	_ "golang.org/x/image/webp"
 )
 
 const MaxBytes = 6 << 20
@@ -50,36 +51,36 @@ func reencodeRaster(ctx context.Context, b []byte, webp bool) (Raster, error) {
 		return Raster{}, err
 	}
 	mime := http.DetectContentType(b)
-	if mime == "image/webp" && !webp {
+	if mime == mimeWebP && !webp {
 		return Raster{}, ErrUnavailable
 	}
-	if mime == "image/webp" {
+	if mime == mimeWebP {
 		if len(b) < 12 || string(b[:4]) != "RIFF" || string(b[8:12]) != "WEBP" || uint64(binary.LittleEndian.Uint32(b[4:8]))+8 != uint64(len(b)) {
 			return Raster{}, ErrInvalid
 		}
-		for p := 12; p < len(b); {
-			if p+8 > len(b) {
+		for p := int64(12); p < int64(len(b)); {
+			if p+8 > int64(len(b)) {
 				return Raster{}, ErrInvalid
 			}
-			n := uint64(binary.LittleEndian.Uint32(b[p+4 : p+8]))
-			if n > uint64(len(b)-p-8) {
+			n := int64(binary.LittleEndian.Uint32(b[p+4 : p+8]))
+			if n > int64(len(b))-p-8 {
 				return Raster{}, ErrInvalid
 			}
 			kind := string(b[p : p+4])
 			if kind == "ANIM" || kind == "ANMF" || (kind == "VP8X" && (n < 10 || b[p+8]&2 != 0)) {
 				return Raster{}, ErrInvalid
 			}
-			p += 8 + int(n) + (int(n) & 1)
-			if p > len(b) {
+			p += 8 + n + (n & 1)
+			if p > int64(len(b)) {
 				return Raster{}, ErrInvalid
 			}
 		}
 	}
-	if mime != "image/png" && mime != "image/jpeg" && mime != "image/webp" {
+	if mime != mimePNG && mime != mimeJPEG && mime != mimeWebP {
 		return Raster{}, ErrInvalid
 	}
 	// APNG's acTL must precede IDAT. Reject it before decode, also malformed chunks.
-	if mime == "image/png" {
+	if mime == mimePNG {
 		for p := 8; p+12 <= len(b); {
 			n := int(uint32(b[p])<<24 | uint32(b[p+1])<<16 | uint32(b[p+2])<<8 | uint32(b[p+3]))
 			if n > len(b)-p-12 {
@@ -96,7 +97,7 @@ func reencodeRaster(ctx context.Context, b []byte, webp bool) (Raster, error) {
 	if err != nil {
 		return Raster{}, ErrInvalid
 	}
-	if (mime == "image/png" && format != "png") || (mime == "image/jpeg" && format != "jpeg") || (mime == "image/webp" && format != "webp") {
+	if (mime == mimePNG && format != formatPNG) || (mime == mimeJPEG && format != "jpeg") || (mime == mimeWebP && format != formatWebP) {
 		return Raster{}, ErrInvalid
 	}
 	if c.Width < 1 || c.Height < 1 || c.Width > 8192 || c.Height > 8192 || int64(c.Width)*int64(c.Height) > 20_000_000 {
@@ -106,7 +107,7 @@ func reencodeRaster(ctx context.Context, b []byte, webp bool) (Raster, error) {
 	if err != nil {
 		return Raster{}, ErrInvalid
 	}
-	out := Raster{MIME: "image/png", Width: c.Width, Height: c.Height, Variants: map[int][]byte{}}
+	out := Raster{MIME: mimePNG, Width: c.Width, Height: c.Height, Variants: map[int][]byte{}}
 	for _, size := range []int{256, 512, 1024} {
 		w, h := c.Width, c.Height
 		if w > size || h > size {

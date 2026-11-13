@@ -1,8 +1,13 @@
 use layerx_client::runtime_clock::{ClockBinding, RuntimeClock};
-use layerx_human_service::custody::{KeyClass, KeyId, Keystore, KmsProvider, RemoteKmsProvider};
+use layerx_human_kms::export::{ExportAcknowledgement, ExportCeremony, ExportRecipient};
+use layerx_human_service::custody::{
+    KeyClass, KeyId, Keystore, KmsError, KmsProvider, PrincipalKeyBinding, ProviderKeyReference,
+    RemoteKmsProvider,
+};
 use layerx_human_service::frame::{read_frame, write_frame, Limits, MutualTlsConfig};
 use layerx_human_service::store::PrincipalId;
 use layerx_types::clock::{Clock, Deadline};
+use ring::signature::KeyPair;
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, ServerName};
 use rustls::{ClientConfig, ClientConnection, RootCertStore, StreamOwned};
 use std::error::Error;
@@ -15,8 +20,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-#[path = "../../../../platform/hosted/runtime-clock/src/server.rs"]
-mod runtime_clock_server;
+use attestor_cluster::runtime_clock_server;
 
 struct Runtime {
     stop: Arc<AtomicBool>,
@@ -1192,11 +1196,17 @@ fn export_signing_frame(
     )
 }
 
+fn assert_export_seed_public(seed: &[u8], public: [u8; 32]) -> Result<()> {
+    let derived = checked(ring::signature::Ed25519KeyPair::from_seed_unchecked(seed))?;
+    assert_eq!(
+        <[u8; 32]>::try_from(ring::signature::KeyPair::public_key(&derived).as_ref())?,
+        public
+    );
+    Ok(())
+}
+
 #[test]
 fn primary_export_is_admitted_once_committed_before_success_and_survives_restart() -> Result<()> {
-    use layerx_human_kms::export::{ExportAcknowledgement, ExportRecipient};
-    use layerx_human_service::custody::{KmsError, PrincipalKeyBinding, ProviderKeyReference};
-    use ring::signature::KeyPair;
     let mut host = Host::for_bindings(&[91, 92, 94])?;
     let client = host.remote("client", "beta-kms")?;
     let executor = host.remote("foreign", "beta-kms")?;
@@ -1215,102 +1225,25 @@ fn primary_export_is_admitted_once_committed_before_success_and_survives_restart
     let recipient = ExportRecipient::new([11; 32])?;
     let ceremony = recipient.ceremony([12; 32])?;
     let export = client.encode_export_request(&human, &reference, &ceremony)?;
-    let mut legacy = export.clone();
-    legacy[4..6].copy_from_slice(&1_u16.to_be_bytes());
-    let mut evm_version = export.clone();
-    evm_version[4..6].copy_from_slice(&3_u16.to_be_bytes());
-    let mut with_evm_payload = export.clone();
-    blob(&mut with_evm_payload, b"{}")?;
-    let truncated = export[..export.len() - 1].to_vec();
-    let mut unknown = export.clone();
-    unknown[6] = 15;
-    let mut empty_reference = request(14, [91; 32], &[], None)?;
-    empty_reference[4..6].copy_from_slice(&5_u16.to_be_bytes());
-    for frame in [
-        legacy,
-        evm_version,
-        with_evm_payload,
-        truncated,
-        unknown,
-        empty_reference,
-    ] {
-        let mut stream = host.connection(Some("client"))?;
-        checked(write_frame(&mut stream, &frame, MAX))?;
-        assert!(read_frame(&mut stream, MAX).is_err());
-    }
-    let mut stream = host.connection(Some("foreign"))?;
-    checked(write_frame(&mut stream, &export, MAX))?;
-    assert_eq!(
-        checked(read_frame(&mut stream, MAX))?,
-        b"LXKP\0\x08\x0e\x01"
-    );
-    assert_eq!(
-        executor
-            .export_envelope(&human, &reference, &ceremony)
-            .err(),
-        Some(KmsError::Refused)
-    );
-    assert_eq!(
-        host.remote("client", "other-kms")?
-            .export_envelope(&human, &reference, &ceremony)
-            .err(),
-        Some(KmsError::Refused)
-    );
-    assert_eq!(
-        client
-            .export_envelope(&agent, &agent_reference, &ceremony)
-            .err(),
-        Some(KmsError::Refused)
-    );
-    let misclassed = PrincipalKeyBinding::from_digest([91; 32], 125, KeyClass::AgentPrimary)?;
-    assert_eq!(
-        client
-            .export_envelope(&misclassed, &reference, &ceremony)
-            .err(),
-        Some(KmsError::Integrity)
-    );
-    assert_eq!(
-        client
-            .export_envelope(&human, &ProviderKeyReference::new(vec![33; 32])?, &ceremony)
-            .err(),
-        Some(KmsError::Integrity)
-    );
-    assert_eq!(
-        client
-            .export_envelope(
-                &PrincipalKeyBinding::from_digest([93; 32], 125, KeyClass::HumanPrimary)?,
-                &reference,
-                &ceremony
-            )
-            .err(),
-        Some(KmsError::KeyNotFound)
-    );
+    assert_malformed_export_frames(&host, &export)?;
+    assert_export_identity_refusals(
+        &host,
+        &human,
+        &reference,
+        &agent,
+        &agent_reference,
+        &ceremony,
+        &export,
+    )?;
     assert_eq!(
         client.describe_key(&human, &reference)?.public_key(),
         public
     );
     assert_eq!(host.call(&sign)?[7], 0);
 
-    let blocker = host.root.join("state/state.next");
-    fs::create_dir(&blocker)?;
-    assert_eq!(
-        client.export_envelope(&human, &reference, &ceremony).err(),
-        Some(KmsError::Unavailable)
-    );
-    assert_eq!(
-        client.describe_key(&human, &reference).err(),
-        Some(KmsError::Unavailable)
-    );
-    assert_eq!(host.call(&sign)?[7], 4);
-    host.stop();
-    fs::remove_dir(&blocker)?;
-    host.start()?;
-    assert_eq!(
-        client.describe_key(&human, &reference)?.public_key(),
-        public
-    );
-    assert_eq!(host.call(&sign)?[7], 0);
-
+    assert_durable_export_blocker(
+        &mut host, &client, &human, &reference, &ceremony, public, &sign,
+    )?;
     let envelope = client.export_envelope(&human, &reference, &ceremony)?;
     assert_eq!(
         client.export_envelope(&human, &reference, &ceremony)?,
@@ -1338,13 +1271,7 @@ fn primary_export_is_admitted_once_committed_before_success_and_survives_restart
         Err(KmsError::Refused)
     );
     client.acknowledge_export(&human, &reference, &acknowledgement)?;
-    let derived = checked(ring::signature::Ed25519KeyPair::from_seed_unchecked(
-        seed.as_slice(),
-    ))?;
-    assert_eq!(
-        <[u8; 32]>::try_from(ring::signature::KeyPair::public_key(&derived).as_ref())?,
-        public
-    );
+    assert_export_seed_public(seed.as_slice(), public)?;
     for pass in 0..2 {
         if pass == 1 {
             host.stop();
@@ -1378,108 +1305,8 @@ fn primary_export_is_admitted_once_committed_before_success_and_survives_restart
         assert!(client.describe_key(&agent, &agent_reference)?.reference() == &agent_reference);
     }
 
-    let lost = PrincipalKeyBinding::from_digest([94; 32], 125, KeyClass::HumanPrimary)?;
-    let lost_created = client.create_key(&lost)?;
-    let lost_reference = lost_created.reference().clone();
-    let lost_ceremony = recipient.ceremony([15; 32])?;
-    let lost_export = client.encode_export_request(&lost, &lost_reference, &lost_ceremony)?;
-    {
-        let mut tls = host.connection(Some("client"))?;
-        checked(write_frame(&mut tls, &lost_export, MAX))?;
-    }
-    let clock = Arc::clone(&host.clock);
-    let mut deadline = Deadline::start(clock.as_ref(), Duration::from_secs(5))?;
-    loop {
-        if client.evm_operation(6, &lost, &lost_reference, &[]).err()
-            == Some(KmsError::SelfCustodied)
-        {
-            break;
-        }
-        if deadline.remaining(clock.as_ref())?.is_zero() {
-            return Err("lost-response export was not committed".into());
-        }
-        std::thread::sleep(Duration::from_millis(20));
-    }
-    let lost_envelope = client.export_envelope(&lost, &lost_reference, &lost_ceremony)?;
-    host.stop();
-    host.start()?;
-    assert_eq!(
-        client.export_envelope(&lost, &lost_reference, &lost_ceremony)?,
-        lost_envelope
-    );
-    let (recovered, lost_ack) = recipient.open(
-        "beta-kms",
-        lost.digest(),
-        lost_reference.as_bytes(),
-        &lost_envelope,
-    )?;
-    assert_eq!(
-        checked(ring::signature::Ed25519KeyPair::from_seed_unchecked(
-            &*recovered
-        ))?
-        .public_key()
-        .as_ref(),
-        lost_created.public_key()
-    );
-    assert!(client
-        .export_envelope(&human, &lost_reference, &lost_ceremony)
-        .is_err());
-    assert_eq!(
-        client.export_envelope(&lost, &lost_reference, &recipient.ceremony([16; 32])?),
-        Err(KmsError::Conflict)
-    );
-    client.acknowledge_export(&lost, &lost_reference, &lost_ack)?;
-    host.stop();
-    host.start()?;
-    assert_eq!(
-        client
-            .export_envelope(&lost, &lost_reference, &lost_ceremony)
-            .err(),
-        Some(KmsError::SelfCustodied)
-    );
-    client.acknowledge_export(&lost, &lost_reference, &lost_ack)?;
-    assert_eq!(client.create_key(&lost).err(), Some(KmsError::Conflict));
-    assert_eq!(
-        client.describe_key(&lost, &lost_reference)?.public_key(),
-        lost_created.public_key()
-    );
-
-    let keystore = Keystore::open_production(
-        host.root.join("client-state"),
-        125,
-        host.remote("client", "beta-kms")?,
-    )?;
-    let alice = PrincipalId::new("alice")?;
-    let bob = PrincipalId::new("bob")?;
-    let key = KeyId::new("primary")?;
-    let alice_public = keystore.create(&alice, &key, KeyClass::HumanPrimary)?;
-    let bob_public = keystore.create(&bob, &key, KeyClass::AgentPrimary)?;
-    assert!(keystore.export_primary_once(&bob, &key).is_err());
-    let alice_binding = keystore.evm_binding(&alice, &key)?;
-    let alice_reference = keystore.evm_provider_reference(&alice, &key)?;
-    let alice_ceremony = recipient.ceremony([17; 32])?;
-    let exported = client.export_envelope(&alice_binding, &alice_reference, &alice_ceremony)?;
-    let (alice_seed, alice_ack) = recipient.open(
-        "beta-kms",
-        alice_binding.digest(),
-        alice_reference.as_bytes(),
-        &exported,
-    )?;
-    assert_eq!(
-        checked(ring::signature::Ed25519KeyPair::from_seed_unchecked(
-            &*alice_seed
-        ))?
-        .public_key()
-        .as_ref(),
-        alice_public
-    );
-    client.acknowledge_export(&alice_binding, &alice_reference, &alice_ack)?;
-    assert!(keystore.export_primary_once(&alice, &key).is_err());
-    host.stop();
-    host.start()?;
-    assert!(keystore.export_primary_once(&alice, &key).is_err());
-    assert_eq!(keystore.describe(&alice, &key)?.public_key, alice_public);
-    assert_eq!(keystore.describe(&bob, &key)?.public_key, bob_public);
+    assert_lost_reply_export(&mut host, &recipient, &human)?;
+    assert_keystore_export(&mut host, &recipient)?;
     Ok(())
 }
 
@@ -2060,5 +1887,236 @@ fn public_wallet_signing_isolated_for_two_principals_after_restart() -> Result<(
             )?;
         }
     }
+    Ok(())
+}
+
+fn assert_malformed_export_frames(host: &Host, export: &[u8]) -> Result<()> {
+    let mut legacy = export.to_vec();
+    legacy[4..6].copy_from_slice(&1_u16.to_be_bytes());
+    let mut evm_version = export.to_vec();
+    evm_version[4..6].copy_from_slice(&3_u16.to_be_bytes());
+    let mut with_evm_payload = export.to_vec();
+    blob(&mut with_evm_payload, b"{}")?;
+    let truncated = export[..export.len() - 1].to_vec();
+    let mut unknown = export.to_vec();
+    unknown[6] = 15;
+    let mut empty_reference = request(14, [91; 32], &[], None)?;
+    empty_reference[4..6].copy_from_slice(&5_u16.to_be_bytes());
+    for frame in [
+        legacy,
+        evm_version,
+        with_evm_payload,
+        truncated,
+        unknown,
+        empty_reference,
+    ] {
+        let mut stream = host.connection(Some("client"))?;
+        checked(write_frame(&mut stream, &frame, MAX))?;
+        assert!(read_frame(&mut stream, MAX).is_err());
+    }
+    Ok(())
+}
+
+fn assert_export_identity_refusals(
+    host: &Host,
+    human: &PrincipalKeyBinding,
+    reference: &ProviderKeyReference,
+    agent: &PrincipalKeyBinding,
+    agent_reference: &ProviderKeyReference,
+    ceremony: &ExportCeremony,
+    export: &[u8],
+) -> Result<()> {
+    let client = host.remote("client", "beta-kms")?;
+    let executor = host.remote("foreign", "beta-kms")?;
+    let mut stream = host.connection(Some("foreign"))?;
+    checked(write_frame(&mut stream, export, MAX))?;
+    assert_eq!(
+        checked(read_frame(&mut stream, MAX))?,
+        b"LXKP\0\x08\x0e\x01"
+    );
+    assert_eq!(
+        executor.export_envelope(human, reference, ceremony).err(),
+        Some(KmsError::Refused)
+    );
+    assert_eq!(
+        host.remote("client", "other-kms")?
+            .export_envelope(human, reference, ceremony)
+            .err(),
+        Some(KmsError::Refused)
+    );
+    assert_eq!(
+        client
+            .export_envelope(agent, agent_reference, ceremony)
+            .err(),
+        Some(KmsError::Refused)
+    );
+    let misclassed = PrincipalKeyBinding::from_digest([91; 32], 125, KeyClass::AgentPrimary)?;
+    assert_eq!(
+        client
+            .export_envelope(&misclassed, reference, ceremony)
+            .err(),
+        Some(KmsError::Integrity)
+    );
+    assert_eq!(
+        client
+            .export_envelope(human, &ProviderKeyReference::new(vec![33; 32])?, ceremony)
+            .err(),
+        Some(KmsError::Integrity)
+    );
+    assert_eq!(
+        client
+            .export_envelope(
+                &PrincipalKeyBinding::from_digest([93; 32], 125, KeyClass::HumanPrimary)?,
+                reference,
+                ceremony
+            )
+            .err(),
+        Some(KmsError::KeyNotFound)
+    );
+    Ok(())
+}
+
+fn assert_durable_export_blocker(
+    host: &mut Host,
+    client: &RemoteKmsProvider,
+    human: &PrincipalKeyBinding,
+    reference: &ProviderKeyReference,
+    ceremony: &ExportCeremony,
+    public: [u8; 32],
+    sign: &[u8],
+) -> Result<()> {
+    let blocker = host.root.join("state/state.next");
+    fs::create_dir(&blocker)?;
+    assert_eq!(
+        client.export_envelope(human, reference, ceremony).err(),
+        Some(KmsError::Unavailable)
+    );
+    assert_eq!(
+        client.describe_key(human, reference).err(),
+        Some(KmsError::Unavailable)
+    );
+    assert_eq!(host.call(sign)?[7], 4);
+    host.stop();
+    fs::remove_dir(&blocker)?;
+    host.start()?;
+    assert_eq!(client.describe_key(human, reference)?.public_key(), public);
+    assert_eq!(host.call(sign)?[7], 0);
+
+    Ok(())
+}
+
+fn assert_lost_reply_export(
+    host: &mut Host,
+    recipient: &ExportRecipient,
+    human: &PrincipalKeyBinding,
+) -> Result<()> {
+    let client = host.remote("client", "beta-kms")?;
+    let lost = PrincipalKeyBinding::from_digest([94; 32], 125, KeyClass::HumanPrimary)?;
+    let lost_created = client.create_key(&lost)?;
+    let lost_reference = lost_created.reference().clone();
+    let lost_ceremony = recipient.ceremony([15; 32])?;
+    let lost_export = client.encode_export_request(&lost, &lost_reference, &lost_ceremony)?;
+    {
+        let mut tls = host.connection(Some("client"))?;
+        checked(write_frame(&mut tls, &lost_export, MAX))?;
+    }
+    let clock = Arc::clone(&host.clock);
+    let mut deadline = Deadline::start(clock.as_ref(), Duration::from_secs(5))?;
+    loop {
+        if client.evm_operation(6, &lost, &lost_reference, &[]).err()
+            == Some(KmsError::SelfCustodied)
+        {
+            break;
+        }
+        if deadline.remaining(clock.as_ref())?.is_zero() {
+            return Err("lost-response export was not committed".into());
+        }
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    let lost_envelope = client.export_envelope(&lost, &lost_reference, &lost_ceremony)?;
+    host.stop();
+    host.start()?;
+    assert_eq!(
+        client.export_envelope(&lost, &lost_reference, &lost_ceremony)?,
+        lost_envelope
+    );
+    let (recovered, lost_ack) = recipient.open(
+        "beta-kms",
+        lost.digest(),
+        lost_reference.as_bytes(),
+        &lost_envelope,
+    )?;
+    assert_eq!(
+        checked(ring::signature::Ed25519KeyPair::from_seed_unchecked(
+            &*recovered
+        ))?
+        .public_key()
+        .as_ref(),
+        lost_created.public_key()
+    );
+    assert!(client
+        .export_envelope(human, &lost_reference, &lost_ceremony)
+        .is_err());
+    assert_eq!(
+        client.export_envelope(&lost, &lost_reference, &recipient.ceremony([16; 32])?),
+        Err(KmsError::Conflict)
+    );
+    client.acknowledge_export(&lost, &lost_reference, &lost_ack)?;
+    host.stop();
+    host.start()?;
+    assert_eq!(
+        client
+            .export_envelope(&lost, &lost_reference, &lost_ceremony)
+            .err(),
+        Some(KmsError::SelfCustodied)
+    );
+    client.acknowledge_export(&lost, &lost_reference, &lost_ack)?;
+    assert_eq!(client.create_key(&lost).err(), Some(KmsError::Conflict));
+    assert_eq!(
+        client.describe_key(&lost, &lost_reference)?.public_key(),
+        lost_created.public_key()
+    );
+
+    Ok(())
+}
+
+fn assert_keystore_export(host: &mut Host, recipient: &ExportRecipient) -> Result<()> {
+    let client = host.remote("client", "beta-kms")?;
+    let keystore = Keystore::open_production(
+        host.root.join("client-state"),
+        125,
+        host.remote("client", "beta-kms")?,
+    )?;
+    let alice = PrincipalId::new("alice")?;
+    let bob = PrincipalId::new("bob")?;
+    let key = KeyId::new("primary")?;
+    let alice_public = keystore.create(&alice, &key, KeyClass::HumanPrimary)?;
+    let bob_public = keystore.create(&bob, &key, KeyClass::AgentPrimary)?;
+    assert!(keystore.export_primary_once(&bob, &key).is_err());
+    let alice_binding = keystore.evm_binding(&alice, &key)?;
+    let alice_reference = keystore.evm_provider_reference(&alice, &key)?;
+    let alice_ceremony = recipient.ceremony([17; 32])?;
+    let exported = client.export_envelope(&alice_binding, &alice_reference, &alice_ceremony)?;
+    let (alice_seed, alice_ack) = recipient.open(
+        "beta-kms",
+        alice_binding.digest(),
+        alice_reference.as_bytes(),
+        &exported,
+    )?;
+    assert_eq!(
+        checked(ring::signature::Ed25519KeyPair::from_seed_unchecked(
+            &*alice_seed
+        ))?
+        .public_key()
+        .as_ref(),
+        alice_public
+    );
+    client.acknowledge_export(&alice_binding, &alice_reference, &alice_ack)?;
+    assert!(keystore.export_primary_once(&alice, &key).is_err());
+    host.stop();
+    host.start()?;
+    assert!(keystore.export_primary_once(&alice, &key).is_err());
+    assert_eq!(keystore.describe(&alice, &key)?.public_key, alice_public);
+    assert_eq!(keystore.describe(&bob, &key)?.public_key, bob_public);
     Ok(())
 }

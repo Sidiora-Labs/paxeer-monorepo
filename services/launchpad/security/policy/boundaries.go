@@ -37,11 +37,11 @@ func ValidateBoundaries(crossings []Crossing) error {
 func PrivateBoundary(v WorkloadVerifier, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if next == nil {
-			http.Error(w, "unavailable", 503)
+			http.Error(w, "unavailable", http.StatusServiceUnavailable)
 			return
 		}
 		if _, err := v.Verify(r.Context(), r); err != nil {
-			http.Error(w, "unauthorized", 401)
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
 		next.ServeHTTP(w, r)

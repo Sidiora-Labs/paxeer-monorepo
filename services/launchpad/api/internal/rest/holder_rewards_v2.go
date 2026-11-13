@@ -22,7 +22,7 @@ func holderRewardsStats(st *store.Store) http.HandlerFunc {
 func holderRewardsStatsFrom(load func(context.Context) (*store.HolderRewardsStats, error)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if len(r.URL.Query()) != 0 {
-			WriteV2APIError(w, r, 400, "QUERY_INVALID")
+			WriteV2APIError(w, r, 400, literalQUERYINVALID)
 			return
 		}
 		if load == nil {
@@ -35,7 +35,7 @@ func holderRewardsStatsFrom(load func(context.Context) (*store.HolderRewardsStat
 			return
 		}
 		generated := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
-		data := map[string]any{"cumulativeDistributedRaw": string(stats.CumulativeDistributedRaw), "walletsRewarded": stats.WalletsRewarded, "watermark": stats.Watermark, "generatedAt": generated}
+		data := map[string]any{"cumulativeDistributedRaw": string(stats.CumulativeDistributedRaw), "walletsRewarded": stats.WalletsRewarded, literalWatermark: stats.Watermark, literalGeneratedAt: generated}
 		writeComputedEnvelope(w, r, "HolderRewardsStatsResponse", data, stats.Watermark, stats.Watermark.ProjectionRevision, "complete", nil)
 	}
 }
@@ -53,32 +53,32 @@ func holderRewardsPoolsFrom(load func(context.Context, string) (*store.HolderRew
 	return func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
 		for key, values := range q {
-			if (key != "sort" && key != "cursor" && key != "limit") || len(values) != 1 {
+			if (key != literalSort && key != literalCursor && key != literalLimit) || len(values) != 1 {
 				WriteV2APIError(w, r, 422, "FIELD_UNKNOWN")
 				return
 			}
 		}
-		limit, err := boundedInteger(q.Get("limit"), 50, 1, 100)
+		limit, err := boundedInteger(q.Get(literalLimit), 50, 1, 100)
 		if err != nil {
-			WriteV2APIError(w, r, 422, "FIELD_INVALID")
+			WriteV2APIError(w, r, 422, literalFIELDINVALID)
 			return
 		}
 		sortKey := "rewards"
-		if values, present := q["sort"]; present {
+		if values, present := q[literalSort]; present {
 			sortKey = values[0]
 		}
-		shape := map[string]any{"sort": sortKey, "limit": limit}
-		token, hasCursor := q["cursor"]
+		shape := map[string]any{literalSort: sortKey, literalLimit: limit}
+		token, hasCursor := q[literalCursor]
 		if hasCursor {
 			if token[0] == "" {
-				WriteV2APIError(w, r, 400, "CURSOR_INVALID")
+				WriteV2APIError(w, r, 400, literalCURSORINVALID)
 				return
 			}
-			shape["cursor"] = token[0]
+			shape[literalCursor] = token[0]
 		}
 		raw, _ := json.Marshal(shape)
 		if interfaces.ValidateJSON("HolderRewardsPoolsRequest", raw) != nil {
-			WriteV2APIError(w, r, 422, "FIELD_INVALID")
+			WriteV2APIError(w, r, 422, literalFIELDINVALID)
 			return
 		}
 		if load == nil {
@@ -94,7 +94,7 @@ func holderRewardsPoolsFrom(load func(context.Context, string) (*store.HolderRew
 		if hasCursor {
 			cursor, cursorErr := decodePoolListCursor(token[0])
 			if cursorErr != nil {
-				WriteV2APIError(w, r, 400, "CURSOR_INVALID")
+				WriteV2APIError(w, r, 400, literalCURSORINVALID)
 				return
 			}
 			if cursor.SnapshotID != snapshot.SnapshotID {
@@ -102,7 +102,7 @@ func holderRewardsPoolsFrom(load func(context.Context, string) (*store.HolderRew
 				return
 			}
 			if cursor.Offset > len(snapshot.Items) {
-				WriteV2APIError(w, r, 400, "CURSOR_INVALID")
+				WriteV2APIError(w, r, 400, literalCURSORINVALID)
 				return
 			}
 			offset = cursor.Offset
@@ -119,6 +119,6 @@ func holderRewardsPoolsFrom(load func(context.Context, string) (*store.HolderRew
 		if end < len(snapshot.Items) {
 			next = encodePoolListCursor(poolListCursor{SnapshotID: snapshot.SnapshotID, Offset: end})
 		}
-		writeComputedEnvelope(w, r, "HolderRewardsPoolsResponse", map[string]any{"items": items}, snapshot.Watermark, snapshot.Watermark.ProjectionRevision, snapshot.Quality, next)
+		writeComputedEnvelope(w, r, "HolderRewardsPoolsResponse", map[string]any{literalItems: items}, snapshot.Watermark, snapshot.Watermark.ProjectionRevision, snapshot.Quality, next)
 	}
 }

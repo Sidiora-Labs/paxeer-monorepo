@@ -1,5 +1,6 @@
 use layerx_programs::chain_proof::ChainProofError;
 
+#[allow(dead_code)]
 #[path = "../src/chain_proof/decode.rs"]
 mod decode;
 
@@ -33,7 +34,11 @@ fn canonical_bytes(proof: &CommitmentProof) -> (Vec<u8>, Vec<usize>, usize, usiz
     let mut prefixes = Vec::new();
     let mut append = |bytes: &mut Vec<u8>, field: &[u8]| {
         prefixes.push(bytes.len());
-        bytes.extend_from_slice(&(field.len() as u32).to_be_bytes());
+        bytes.extend_from_slice(
+            &u32::try_from(field.len())
+                .unwrap_or_else(|error| panic!("{error:?}"))
+                .to_be_bytes(),
+        );
         bytes.extend_from_slice(field);
     };
     for field in [
@@ -51,7 +56,11 @@ fn canonical_bytes(proof: &CommitmentProof) -> (Vec<u8>, Vec<usize>, usize, usiz
         append(&mut bytes, value);
     }
     let count = bytes.len();
-    bytes.extend_from_slice(&(proof.proof_ops.len() as u32).to_be_bytes());
+    bytes.extend_from_slice(
+        &u32::try_from(proof.proof_ops.len())
+            .unwrap_or_else(|error| panic!("{error:?}"))
+            .to_be_bytes(),
+    );
     for op in &proof.proof_ops {
         for field in [op.op_type.as_bytes(), op.key.as_slice(), op.data.as_slice()] {
             append(&mut bytes, field);
@@ -83,7 +92,7 @@ fn chain_commitment_proof_round_trips() -> Result<(), ChainProofError> {
 }
 
 #[test]
-fn chain_commitment_proof_refuses_oversize_and_trailing_bytes() -> Result<(), ChainProofError> {
+fn chain_commitment_proof_refuses_oversize_and_trailing_bytes() {
     let proof = commitment_proof();
     let (bytes, prefixes, presence, count) = canonical_bytes(&proof);
     for prefix in &prefixes {
@@ -166,5 +175,4 @@ fn chain_commitment_proof_refuses_oversize_and_trailing_bytes() -> Result<(), Ch
     let mut too_many = proof;
     too_many.proof_ops.push(too_many.proof_ops[0].clone());
     assert_eq!(too_many.encode(), Err(ChainProofError::NonCanonical));
-    Ok(())
 }

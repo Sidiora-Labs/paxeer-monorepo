@@ -141,7 +141,7 @@ func (s Store) EraseBatch(ctx context.Context, caseID string) (ErasureReceipt, e
 				rows.Close()
 				return receipt, err
 			}
-			requests = append(requests, Request{Actor: a, ID: b, Action: "follow", Remove: true})
+			requests = append(requests, Request{Actor: a, ID: b, Action: followAction, Remove: true})
 		}
 		err = rows.Err()
 		rows.Close()
@@ -169,7 +169,7 @@ func (s Store) EraseBatch(ctx context.Context, caseID string) (ErasureReceipt, e
 				rows.Close()
 				return receipt, err
 			}
-			requests = append(requests, Request{Actor: wallet, ID: id, Pool: pool, Action: "comment", Remove: true})
+			requests = append(requests, Request{Actor: wallet, ID: id, Pool: pool, Action: commentAction, Remove: true})
 		}
 		err = rows.Err()
 		rows.Close()
@@ -197,7 +197,7 @@ func (s Store) EraseBatch(ctx context.Context, caseID string) (ErasureReceipt, e
 				rows.Close()
 				return receipt, err
 			}
-			requests = append(requests, Request{Actor: wallet, ID: target, Kind: kind, Action: "reaction", Remove: true})
+			requests = append(requests, Request{Actor: wallet, ID: target, Kind: kind, Action: reactionAction, Remove: true})
 		}
 		err = rows.Err()
 		rows.Close()

@@ -214,7 +214,7 @@ fn real_receipt_material() -> ([u8; 32], Vec<u8>, AuthorizedBatch) {
         verified
             .receipt()
             .protocol()
-            .expect("protocol receipt")
+            .or_fail("protocol receipt")
             .activity_id(),
         fields.activity_id
     );
@@ -876,4 +876,10 @@ fn cached_receipt_rows_are_labelled_only_by_the_verifier() {
         Err(VerifyError::Unverified(UnverifiedReason::AuthorityMismatch))
     ));
     let _ = fs::remove_dir_all(root);
+}
+
+use crate::require_value::RequireValue as _;
+
+pub mod require_value {
+    include!("support/require_value.rs");
 }

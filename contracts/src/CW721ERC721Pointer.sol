@@ -10,8 +10,7 @@ import {IWasmd} from "./precompiles/IWasmd.sol";
 import {IJson} from "./precompiles/IJson.sol";
 import {IAddr} from "./precompiles/IAddr.sol";
 
-contract CW721ERC721Pointer is ERC721,ERC2981 {
-
+contract CW721ERC721Pointer is ERC721, ERC2981 {
     address constant WASMD_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000001002;
     address constant JSON_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000001003;
     address constant ADDR_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000001004;
@@ -32,11 +31,8 @@ contract CW721ERC721Pointer is ERC721,ERC2981 {
     }
 
     function supportsInterface(bytes4 interfaceId) public pure override(ERC721, ERC2981) returns (bool) {
-        return
-            interfaceId == type(IERC2981).interfaceId ||
-            interfaceId == type(IERC165).interfaceId ||
-            interfaceId == type(IERC721).interfaceId ||
-            interfaceId == type(IERC721Metadata).interfaceId;
+        return interfaceId == type(IERC2981).interfaceId || interfaceId == type(IERC165).interfaceId
+            || interfaceId == type(IERC721).interfaceId || interfaceId == type(IERC721Metadata).interfaceId;
     }
 
     // Queries
@@ -54,10 +50,8 @@ contract CW721ERC721Pointer is ERC721,ERC2981 {
         }
         uint256 numTokens = 0;
         string memory startAfter;
-        string memory qb = string.concat(
-            string.concat("\"limit\":1000,\"owner\":\"", AddrPrecompile.getPaxAddr(owner_)),
-            "\""
-        );
+        string memory qb =
+            string.concat(string.concat("\"limit\":1000,\"owner\":\"", AddrPrecompile.getPaxAddr(owner_)), "\"");
         bytes32 terminator = keccak256("{\"tokens\":[]}");
 
         bytes[] memory tokens;
@@ -68,11 +62,8 @@ contract CW721ERC721Pointer is ERC721,ERC2981 {
             tokens = JsonPrecompile.extractAsBytesList(response, "tokens");
             tokensLength = tokens.length;
             numTokens += tokensLength;
-            startAfter = string.concat(",\"start_after\":", string(tokens[tokensLength-1]));
-            req = string.concat(
-                string.concat("{\"tokens\":{", string.concat(qb, startAfter)),
-                "}}"
-            );
+            startAfter = string.concat(",\"start_after\":", string(tokens[tokensLength - 1]));
+            req = string.concat(string.concat("{\"tokens\":{", string.concat(qb, startAfter)), "}}");
             response = WasmdPrecompile.query(Cw721Address, bytes(req));
         }
         return numTokens;
@@ -103,7 +94,7 @@ contract CW721ERC721Pointer is ERC721,ERC2981 {
         string memory req = _curlyBrace(_formatPayload("all_operators", _curlyBrace(o)));
         bytes memory response = WasmdPrecompile.query(Cw721Address, bytes(req));
         bytes[] memory approvals = JsonPrecompile.extractAsBytesList(response, "operators");
-        for (uint i=0; i<approvals.length; i++) {
+        for (uint256 i = 0; i < approvals.length; i++) {
             bytes memory op = JsonPrecompile.extractAsBytes(approvals[i], "spender");
             if (AddrPrecompile.getEvmAddr(string(op)) == operator) {
                 return true;
@@ -114,7 +105,8 @@ contract CW721ERC721Pointer is ERC721,ERC2981 {
 
     // 2981
     function royaltyInfo(uint256 tokenId, uint256 salePrice) public view override returns (address, uint256) {
-        bytes memory checkRoyaltyResponse = WasmdPrecompile.query(Cw721Address, bytes("{\"extension\":{\"msg\":{\"check_royalties\":{}}}}"));
+        bytes memory checkRoyaltyResponse =
+            WasmdPrecompile.query(Cw721Address, bytes("{\"extension\":{\"msg\":{\"check_royalties\":{}}}}"));
         bytes memory isRoyaltyImplemented = JsonPrecompile.extractAsBytes(checkRoyaltyResponse, "royalty_payments");
         if (keccak256(isRoyaltyImplemented) != keccak256("true")) {
             revert NotImplementedOnCosmwasmContract("royalty_info");
@@ -186,12 +178,7 @@ contract CW721ERC721Pointer is ERC721,ERC2981 {
 
     function _execute(bytes memory req) internal returns (bytes memory) {
         (bool success, bytes memory ret) = WASMD_PRECOMPILE_ADDRESS.delegatecall(
-            abi.encodeWithSignature(
-                "execute(string,bytes,bytes)",
-                Cw721Address,
-                bytes(req),
-                bytes("[]")
-            )
+            abi.encodeWithSignature("execute(string,bytes,bytes)", Cw721Address, bytes(req), bytes("[]"))
         );
         require(success, "CosmWasm execute failed");
         return ret;

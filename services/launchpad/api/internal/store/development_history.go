@@ -69,9 +69,9 @@ func (s *Store) DevelopmentPoolsIndexed(ctx context.Context, pools []string) (ma
 }
 
 // DevelopmentSwapsRecorded reports whether indexer.swaps holds any swap for the
-// pool, optionally restricted to one side ("buy" or "sell").
+// pool, optionally restricted to one side (literalBuy or literalSell).
 func (s *Store) DevelopmentSwapsRecorded(ctx context.Context, pool, side string) (bool, error) {
-	if normalized, err := Address(pool); err != nil || normalized != pool || side != "" && side != "buy" && side != "sell" {
+	if normalized, err := Address(pool); err != nil || normalized != pool || side != "" && side != literalBuy && side != literalSell {
 		return false, ErrDevelopmentScope
 	}
 	ctx, cancel, tx, err := s.beginLegacyRead(ctx)

@@ -14,6 +14,7 @@ export default defineConfig({
     environment: 'node',
     // Wallet suites share one private EVM and exercise chain/account changes.
     fileParallelism: false,
+    maxWorkers: 1,
     include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
     exclude: [...configDefaults.exclude, 'src/widgets/trading/transaction-controls/measurement.integration.test.tsx'],
     globals: false,

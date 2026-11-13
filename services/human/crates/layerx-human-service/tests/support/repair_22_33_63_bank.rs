@@ -1,4 +1,3 @@
-use layerx_types::clock::{Clock, Deadline};
 use std::fs;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::TcpListener;
@@ -9,14 +8,12 @@ use std::time::Duration;
 use base64::Engine as _;
 use layerx_agent_api::identity::{AgentDid, AuthorityRef};
 use layerx_client::rpc::receipt::{lookup_authenticated, Lookup, LookupContext};
-use layerx_client::sequencer::{ReceiptKeyEntry, SequencerEndpoint, SequencerError};
-use layerx_crypto::evm_transaction::{
-    decode_signed, recover_sender, transaction_hash, Eip1559Call,
-};
+use layerx_client::sequencer::{ReceiptKeyEntry, SequencerEndpoint};
+use layerx_crypto::evm_transaction::{decode_signed, recover_sender, transaction_hash};
 use layerx_human_service::custody::{KeyId, Operation};
 use layerx_human_service::journeys::{
-    BankCommitEvidence, BankCommittedReceipt, Endpoint, MoveJourneyError, MoveLegExecution,
-    MovePlan, Relationship, RouteRequest, SendRoute,
+    BankCommitEvidence, Endpoint, MoveJourneyError, MoveLegExecution, MovePlan, Relationship,
+    RouteRequest, SendRoute,
 };
 use layerx_human_service::notify::JourneyId;
 use layerx_types::amount::Amount;
@@ -32,14 +29,14 @@ use sha2::{Digest as _, Sha256};
 fn execution(key: u8, nonce: u64, ceiling: u128) -> MoveLegExecution {
     MoveLegExecution::new(
         [key; 32],
-        AgentDid::new("did:layerx:alice").expect("actor"),
-        AuthorityRef::new("custody-human-primary").expect("authority"),
+        AgentDid::new("did:layerx:alice").or_fail("actor"),
+        AuthorityRef::new("custody-human-primary").or_fail("authority"),
         nonce,
         0,
         u64::MAX,
         ceiling,
     )
-    .expect("execution")
+    .or_fail("execution")
 }
 
 fn request(nonce: u64, to: u8, amount: u128) -> RouteRequest {
@@ -59,8 +56,8 @@ fn request(nonce: u64, to: u8, amount: u128) -> RouteRequest {
                     PublicKey::new([0x11; 32]),
                     AuthorizationSignature::new([0x22; 64]),
                 ),
-                network_id: NetworkId::new(125).expect("network"),
-                protocol_version: ProtocolVersion::new(2).expect("protocol"),
+                network_id: NetworkId::new(125).or_fail("network"),
+                protocol_version: ProtocolVersion::new(2).or_fail("protocol"),
             },
             pointer: EvmAddress::new([0x88; 20]),
             denom: "uhpx".to_owned(),
@@ -79,9 +76,9 @@ fn plan(
     executions: Vec<MoveLegExecution>,
 ) -> Result<MovePlan, MoveJourneyError> {
     MovePlan::new_bank_transfers(
-        JourneyId::new("jrn_movebanksend").expect("journey"),
+        JourneyId::new("jrn_movebanksend").or_fail("journey"),
         [0x44; 32],
-        KeyId::new("human-primary").expect("key"),
+        KeyId::new("human-primary").or_fail("key"),
         Operation::ProtocolMutation,
         requests,
         executions,
@@ -93,11 +90,12 @@ fn plan(
 
 fn unhex(text: &str) -> Vec<u8> {
     text.strip_prefix("0x")
-        .expect("hex prefix")
+        .or_fail("hex prefix")
         .as_bytes()
         .chunks_exact(2)
         .map(|pair| {
-            u8::from_str_radix(std::str::from_utf8(pair).expect("hex text"), 16).expect("hex byte")
+            u8::from_str_radix(std::str::from_utf8(pair).or_fail("hex text"), 16)
+                .or_fail("hex byte")
         })
         .collect()
 }
@@ -105,11 +103,10 @@ fn unhex(text: &str) -> Vec<u8> {
 // Re-recorded with the production bank ABI, receipt/RPC, sequence-batch and
 // Comet encoders. Producer source hashes are retained inside the recording.
 fn transcript() -> Value {
-    serde_json::from_str(BANK_TRANSCRIPT).expect("canonical bank producer transcript")
+    serde_json::from_str(BANK_TRANSCRIPT).or_fail("canonical bank producer transcript")
 }
 
 struct BankNode {
-    clock: Arc<dyn Clock>,
     endpoint: SequencerEndpoint,
     secret: [u8; 32],
     stop: Arc<AtomicBool>,
@@ -117,175 +114,197 @@ struct BankNode {
 }
 
 impl BankNode {
-    fn start(clock: Arc<dyn Clock>, lose_submit_ack: bool) -> Self {
-        let fixture = transcript();
-        let listener = TcpListener::bind("127.0.0.1:0").expect("loopback peer");
-        listener.set_nonblocking(true).expect("nonblocking peer");
-        let endpoint = SequencerEndpoint::new(
-            &format!("http://{}/", listener.local_addr().expect("peer address")),
-            &[],
-        )
-        .expect("production RPC client");
-        let stop = Arc::new(AtomicBool::new(false));
-        let stopped = stop.clone();
-        let secret = unhex(fixture["secret"].as_str().expect("fixture signing seed"))
-            .try_into()
-            .expect("signing seed width");
-        let worker = thread::spawn(move || {
-            let records = fixture["records"].as_array().expect("two recorded sends");
-            assert_eq!(records.len(), 2);
-            let mut sent = [false; 2];
-            while !stopped.load(Ordering::Acquire) {
-                let (stream, _) = match listener.accept() {
-                    Ok(pair) => pair,
-                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
-                        thread::sleep(Duration::from_millis(1));
-                        continue;
-                    }
-                    Err(error) => panic!("loopback accept: {error}"),
-                };
-                stream
-                    .set_read_timeout(Some(Duration::from_secs(3)))
-                    .expect("peer read bound");
-                let mut reader = BufReader::new(stream);
-                let mut length = None;
-                loop {
-                    let mut line = String::new();
-                    assert_ne!(reader.read_line(&mut line).expect("HTTP request"), 0);
-                    if line == "\r\n" {
-                        break;
-                    }
-                    if let Some(value) = line.to_ascii_lowercase().strip_prefix("content-length:") {
-                        length = Some(value.trim().parse::<usize>().expect("request length"));
-                    }
+    fn balance_result(records: &[Value], sent: [bool; 2], params: &Value) -> Value {
+        assert_eq!(params[1], "pending");
+        let index = records
+            .iter()
+            .position(|record| {
+                record["recipient"]
+                    .as_str()
+                    .or_fail("recipient")
+                    .to_ascii_lowercase()
+                    == params[0].as_str().or_fail("balance address")
+            })
+            .or_fail("recorded recipient balance");
+        records[index][if sent[index] {
+            "balanceAfter"
+        } else {
+            "balanceBefore"
+        }]
+        .clone()
+    }
+
+    fn rpc_result(
+        request: &Value,
+        fixture: &Value,
+        records: &[Value],
+        sent: &mut [bool; 2],
+        lose_submit_ack: bool,
+    ) -> (Value, bool) {
+        let params = &request["params"];
+        let mut drop_reply = false;
+        let result = match request["method"].as_str().or_fail("RPC method") {
+            "eth_chainId" => serde_json::json!("0x7d"),
+            "eth_getTransactionCount" => {
+                assert_eq!(
+                    params[0],
+                    fixture["sender"]
+                        .as_str()
+                        .or_fail("sender")
+                        .to_ascii_lowercase()
+                );
+                assert_eq!(params[1], "pending");
+                serde_json::json!(format!(
+                    "{:#x}",
+                    fixture["nonce"].as_u64().or_fail("nonce")
+                        + sent.iter().filter(|sent| **sent).count() as u64
+                ))
+            }
+            "eth_sendRawTransaction" => {
+                let index = records
+                    .iter()
+                    .position(|record| record["raw"] == params[0])
+                    .unwrap_or_else(|| {
+                        panic!("{}", "engine must send the exact producer transaction")
+                    });
+                assert!(
+                    !sent[index],
+                    "recovery must not send a duplicate transaction"
+                );
+                assert!(
+                    sent[..index].iter().all(|sent| *sent),
+                    "consecutive nonce order"
+                );
+                sent[index] = true;
+                drop_reply = lose_submit_ack && index == 0;
+                records[index]["view"]["txHash"].clone()
+            }
+            "pax_sequencerReceipt" => {
+                let index = records
+                    .iter()
+                    .position(|record| record["view"]["txHash"] == params[0])
+                    .or_fail("lookup exact transaction hash");
+                if sent[index] {
+                    records[index]["view"].clone()
+                } else {
+                    Value::Null
                 }
-                let length = length.expect("RPC body length");
-                assert!(length <= 65_536);
-                let mut body = vec![0; length];
-                reader.read_exact(&mut body).expect("RPC body");
-                let request: Value = serde_json::from_slice(&body).expect("JSON RPC request");
-                let params = &request["params"];
-                let mut drop_reply = false;
-                let result = match request["method"].as_str().expect("RPC method") {
-                    "eth_chainId" => serde_json::json!("0x7d"),
-                    "eth_getTransactionCount" => {
-                        assert_eq!(
-                            params[0],
-                            fixture["sender"]
-                                .as_str()
-                                .expect("sender")
-                                .to_ascii_lowercase()
-                        );
-                        assert_eq!(params[1], "pending");
-                        serde_json::json!(format!(
-                            "{:#x}",
-                            fixture["nonce"].as_u64().expect("nonce")
-                                + sent.iter().filter(|sent| **sent).count() as u64
-                        ))
-                    }
-                    "eth_sendRawTransaction" => {
-                        let index = records
-                            .iter()
-                            .position(|record| record["raw"] == params[0])
-                            .expect("engine must send the exact producer transaction");
-                        assert!(
-                            !sent[index],
-                            "recovery must not send a duplicate transaction"
-                        );
-                        assert!(
-                            sent[..index].iter().all(|sent| *sent),
-                            "consecutive nonce order"
-                        );
-                        sent[index] = true;
-                        drop_reply = lose_submit_ack && index == 0;
-                        records[index]["view"]["txHash"].clone()
-                    }
-                    "pax_sequencerReceipt" => {
-                        let index = records
-                            .iter()
-                            .position(|record| record["view"]["txHash"] == params[0])
-                            .expect("lookup exact transaction hash");
-                        if sent[index] {
-                            records[index]["view"].clone()
-                        } else {
-                            Value::Null
-                        }
-                    }
-                    "eth_getTransactionReceipt" => {
-                        let index = records
-                            .iter()
-                            .position(|record| record["view"]["txHash"] == params[0])
-                            .expect("lookup exact landing receipt");
-                        assert!(sent[index]);
-                        records[index]["landing"].clone()
-                    }
-                    "eth_getBalance" => {
-                        assert_eq!(params[1], "pending");
-                        let index = records
-                            .iter()
-                            .position(|record| {
-                                record["recipient"]
-                                    .as_str()
-                                    .expect("recipient")
-                                    .to_ascii_lowercase()
-                                    == params[0].as_str().expect("balance address")
-                            })
-                            .expect("recorded recipient balance");
-                        records[index][if sent[index] {
-                            "balanceAfter"
-                        } else {
-                            "balanceBefore"
-                        }]
-                        .clone()
-                    }
-                    "px_getCommit" | "px_getValidators" => {
-                        let record = records
-                            .iter()
-                            .find(|record| {
-                                record["height"].as_u64().expect("height").to_string()
-                                    == params[0].as_str().expect("decimal height")
-                            })
-                            .expect("recorded committed height");
-                        record[if request["method"] == "px_getCommit" {
-                            "material"
-                        } else {
-                            "validators"
-                        }]
-                        .clone()
-                    }
-                    "eth_getBlockByNumber" => {
-                        let record = records
-                            .iter()
-                            .find(|record| {
-                                format!("{:#x}", record["height"].as_u64().expect("height"))
-                                    == params[0].as_str().expect("height")
-                            })
-                            .expect("recorded committed block");
-                        if params[1] == false {
-                            serde_json::json!({"number": params[0], "stateRoot":record["appHash"]})
-                        } else {
-                            record["block"].clone()
-                        }
-                    }
-                    method => panic!("unrecorded RPC method {method}"),
-                };
-                if drop_reply {
+            }
+            "eth_getTransactionReceipt" => {
+                let index = records
+                    .iter()
+                    .position(|record| record["view"]["txHash"] == params[0])
+                    .or_fail("lookup exact landing receipt");
+                assert!(sent[index]);
+                records[index]["landing"].clone()
+            }
+            "eth_getBalance" => Self::balance_result(records, *sent, params),
+            "px_getCommit" | "px_getValidators" => {
+                let record = records
+                    .iter()
+                    .find(|record| {
+                        record["height"].as_u64().or_fail("height").to_string()
+                            == params[0].as_str().or_fail("decimal height")
+                    })
+                    .or_fail("recorded committed height");
+                record[if request["method"] == "px_getCommit" {
+                    "material"
+                } else {
+                    "validators"
+                }]
+                .clone()
+            }
+            "eth_getBlockByNumber" => {
+                let record = records
+                    .iter()
+                    .find(|record| {
+                        format!("{:#x}", record["height"].as_u64().or_fail("height"))
+                            == params[0].as_str().or_fail("height")
+                    })
+                    .or_fail("recorded committed block");
+                if params[1] == false {
+                    serde_json::json!({"number": params[0], "stateRoot":record["appHash"]})
+                } else {
+                    record["block"].clone()
+                }
+            }
+            method => panic!("unrecorded RPC method {method}"),
+        };
+        (result, drop_reply)
+    }
+
+    fn serve(
+        listener: &TcpListener,
+        fixture: &Value,
+        stopped: &Arc<AtomicBool>,
+        lose_submit_ack: bool,
+    ) {
+        let records = fixture["records"].as_array().or_fail("two recorded sends");
+        assert_eq!(records.len(), 2);
+        let mut sent = [false; 2];
+        while !stopped.load(Ordering::Acquire) {
+            let (stream, _) = match listener.accept() {
+                Ok(pair) => pair,
+                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                    thread::sleep(Duration::from_millis(1));
                     continue;
                 }
-                let answer =
-                    serde_json::json!({"jsonrpc":"2.0", "id":request["id"], "result":result})
-                        .to_string();
-                let mut stream = reader.into_inner();
-                write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{answer}",answer.len()).expect("RPC response");
-                stream.flush().expect("flush RPC response");
+                Err(error) => panic!("loopback accept: {error}"),
+            };
+            stream
+                .set_read_timeout(Some(Duration::from_secs(3)))
+                .or_fail("peer read bound");
+            let mut reader = BufReader::new(stream);
+            let mut length = None;
+            loop {
+                let mut line = String::new();
+                assert_ne!(reader.read_line(&mut line).or_fail("HTTP request"), 0);
+                if line == "\r\n" {
+                    break;
+                }
+                if let Some(value) = line.to_ascii_lowercase().strip_prefix("content-length:") {
+                    length = Some(value.trim().parse::<usize>().or_fail("request length"));
+                }
             }
-            assert!(
-                sent.into_iter().all(|sent| sent),
-                "both producer sends traversed the real RPC client"
-            );
-        });
+            let length = length.or_fail("RPC body length");
+            assert!(length <= 65_536);
+            let mut body = vec![0; length];
+            reader.read_exact(&mut body).or_fail("RPC body");
+            let request: Value = serde_json::from_slice(&body).or_fail("JSON RPC request");
+            let (result, drop_reply) =
+                Self::rpc_result(&request, fixture, records, &mut sent, lose_submit_ack);
+            if drop_reply {
+                continue;
+            }
+            let answer = serde_json::json!({"jsonrpc":"2.0", "id":request["id"], "result":result})
+                .to_string();
+            let mut stream = reader.into_inner();
+            write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{answer}",answer.len()).or_fail("RPC response");
+            stream.flush().or_fail("flush RPC response");
+        }
+        assert!(
+            sent.into_iter().all(|sent| sent),
+            "both producer sends traversed the real RPC client"
+        );
+    }
+
+    fn start(lose_submit_ack: bool) -> Self {
+        let fixture = transcript();
+        let listener = TcpListener::bind("127.0.0.1:0").or_fail("loopback peer");
+        listener.set_nonblocking(true).or_fail("nonblocking peer");
+        let endpoint = SequencerEndpoint::new(
+            &format!("http://{}/", listener.local_addr().or_fail("peer address")),
+            &[],
+        )
+        .or_fail("production RPC client");
+        let stop = Arc::new(AtomicBool::new(false));
+        let stopped = stop.clone();
+        let secret = unhex(fixture["secret"].as_str().or_fail("fixture signing seed"))
+            .try_into()
+            .or_fail("signing seed width");
+        let worker =
+            thread::spawn(move || Self::serve(&listener, &fixture, &stopped, lose_submit_ack));
         Self {
-            clock,
             endpoint,
             secret,
             stop,
@@ -293,44 +312,44 @@ impl BankNode {
         }
     }
 
-    fn receipt_keys(&self) -> Vec<ReceiptKeyEntry> {
+    fn receipt_keys() -> Vec<ReceiptKeyEntry> {
         let fixture = transcript();
         let key = &fixture["key"];
         vec![ReceiptKeyEntry {
-            key_id: unhex(key["keyId"].as_str().expect("governed key id"))
+            key_id: unhex(key["keyId"].as_str().or_fail("governed key id"))
                 .try_into()
-                .expect("key id"),
-            public_key: unhex(key["publicKey"].as_str().expect("governed key"))
+                .or_fail("key id"),
+            public_key: unhex(key["publicKey"].as_str().or_fail("governed key"))
                 .try_into()
-                .expect("key"),
-            first_height: key["firstHeight"].as_u64().expect("first height"),
-            last_height: key["lastHeight"].as_u64().expect("last height"),
+                .or_fail("key"),
+            first_height: key["firstHeight"].as_u64().or_fail("first height"),
+            last_height: key["lastHeight"].as_u64().or_fail("last height"),
         }]
     }
 
-    fn commit_evidence(&self) -> Vec<BankCommitEvidence> {
+    fn commit_evidence() -> Vec<BankCommitEvidence> {
         transcript()["records"]
             .as_array()
-            .expect("records")
+            .or_fail("records")
             .iter()
             .map(|record| {
-                let batch = unhex(record["batch"].as_str().expect("node sequence batch"));
+                let batch = unhex(record["batch"].as_str().or_fail("node sequence batch"));
                 let proof = &record["proof"];
                 let mut leaf = b"LXAR\x01".to_vec();
                 leaf.extend_from_slice(
                     &proof["total"]
                         .as_str()
-                        .expect("proof total")
+                        .or_fail("proof total")
                         .parse::<i64>()
-                        .expect("total")
+                        .or_fail("total")
                         .to_be_bytes(),
                 );
                 leaf.extend_from_slice(
                     &proof["index"]
                         .as_str()
-                        .expect("proof index")
+                        .or_fail("proof index")
                         .parse::<i64>()
-                        .expect("index")
+                        .or_fail("index")
                         .to_be_bytes(),
                 );
                 let transaction_hash = Sha256::digest(&batch);
@@ -342,9 +361,9 @@ impl BankNode {
                         .decode(
                             proof["leaf_hash"]
                                 .as_str()
-                                .expect("Comet transaction leaf hash")
+                                .or_fail("Comet transaction leaf hash")
                         )
-                        .expect("base64 leaf hash"),
+                        .or_fail("base64 leaf hash"),
                     expected_leaf_hash.as_slice(),
                     "the recorded Comet transaction proof commits the transaction hash"
                 );
@@ -352,55 +371,37 @@ impl BankNode {
                 fields.extend(
                     proof["aunts"]
                         .as_array()
-                        .expect("Comet proof aunts")
+                        .or_fail("Comet proof aunts")
                         .iter()
                         .map(|aunt| {
                             base64::engine::general_purpose::STANDARD
-                                .decode(aunt.as_str().expect("aunt"))
-                                .expect("base64 aunt")
+                                .decode(aunt.as_str().or_fail("aunt"))
+                                .or_fail("base64 aunt")
                         }),
                 );
                 BankCommitEvidence {
                     chain_id: record["material"]["signedHeader"]["header"]["chain_id"]
                         .as_str()
-                        .expect("chain")
+                        .or_fail("chain")
                         .to_owned(),
                     trusted_validators: record["validators"].clone(),
                     committed_header: record["material"]["signedHeader"].clone(),
-                    covering_height: record["height"].as_u64().expect("covering height"),
+                    covering_height: record["height"].as_u64().or_fail("covering height"),
                     batch_transaction: batch,
                     transaction_proof: fields,
                     activity_ids: record["activityIds"]
                         .as_array()
-                        .expect("activity ids")
+                        .or_fail("activity ids")
                         .iter()
                         .map(|id| {
-                            unhex(id.as_str().expect("id"))
+                            unhex(id.as_str().or_fail("id"))
                                 .try_into()
-                                .expect("id width")
+                                .or_fail("id width")
                         })
                         .collect(),
                 }
             })
             .collect()
-    }
-
-    fn receipt(
-        &self,
-        hash: [u8; 32],
-        keys: &[ReceiptKeyEntry],
-        rung: Rung,
-    ) -> BankCommittedReceipt {
-        let proof = self
-            .commit_evidence()
-            .into_iter()
-            .find(|proof| proof.activity_ids.contains(&hash))
-            .expect("recorded coverage");
-        let receipt = proof
-            .authenticate(&self.endpoint, hash, keys)
-            .expect("verify signed receipt and committed batch");
-        assert!(receipt.rung() >= rung);
-        receipt
     }
 }
 
@@ -409,29 +410,9 @@ impl Drop for BankNode {
         self.stop.store(true, Ordering::Release);
         self.worker
             .take()
-            .expect("peer worker")
+            .or_fail("peer worker")
             .join()
-            .expect("loopback peer shutdown");
-    }
-}
-
-fn pending<T>(clock: &dyn Clock, mut operation: impl FnMut() -> Result<T, SequencerError>) -> T {
-    let mut deadline = Deadline::start(clock, Duration::from_secs(20)).expect("pending deadline");
-    loop {
-        match operation() {
-            Ok(value) => return value,
-            Err(SequencerError::Rpc(refusal))
-                if refusal.message == "pending block unavailable: sequencer: no block is open"
-                    || refusal.message == "sequencer: no block is open" =>
-            {
-                assert!(
-                    !deadline.remaining(clock).expect("pending clock").is_zero(),
-                    "sequencer did not open a block"
-                );
-                thread::sleep(Duration::from_millis(10));
-            }
-            Err(error) => panic!("real sequencer refused bank operation: {error:?}"),
-        }
+            .or_fail("loopback peer shutdown");
     }
 }
 
@@ -471,7 +452,7 @@ use layerx_human_service::journeys::{MoveAuthorization, MoveJourney, MoveStage};
 use layerx_human_service::store::PrincipalStore;
 use layerx_human_service::trace::TraceId;
 use layerx_human_test_support::{
-    directory, install_and_open, principal, retention_uniform, tenancy, StepClock,
+    directory, install_and_open, principal, retention_uniform, tenancy,
 };
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
 use std::future::Future;
@@ -494,10 +475,10 @@ fn ready<F: Future>(future: F) -> F::Output {
 fn registry() -> ModuleRegistry {
     ModuleRegistry::new(&[ModuleRegistration::new(
         ModuleId::Asset,
-        &[ActivityType::new(ModuleId::Asset, 5).expect("send activity")],
+        &[ActivityType::new(ModuleId::Asset, 5).or_fail("send activity")],
     )
-    .expect("asset registration")])
-    .expect("registry")
+    .or_fail("asset registration")])
+    .or_fail("registry")
 }
 
 pub fn exact_custody_bank_transfer() {
@@ -507,21 +488,290 @@ pub fn producer_outbox_and_consumer_reopen() {
     exercise(true);
 }
 
-fn exercise(restart_every_phase: bool) {
-    let root = directory(if restart_every_phase {
-        "repair-22-33-63-reopen"
-    } else {
-        "repair-22-33-63-exact"
-    });
-    fs::create_dir_all(&root).expect("fixture directory");
-    let clock: Arc<dyn Clock> = Arc::new(StepClock::new(1_700_000_000_000));
+fn assert_recorded_calls(movement: &MovePlan, fixture: &Value, sender: [u8; 20]) {
+    for (index, call) in movement.bank_transfers().iter().enumerate() {
+        let raw = unhex(
+            fixture["records"][index]["raw"]
+                .as_str()
+                .or_fail("recorded transaction"),
+        );
+        let (recorded, signature) = decode_signed(&raw).or_fail("recorded production transaction");
+        assert_eq!(
+            recover_sender(&recorded, &signature).or_fail("recorded sender"),
+            sender
+        );
+        assert_eq!(
+            &recorded, call,
+            "the node recording must contain the exact current 0x1001 bank-send preparation"
+        );
+    }
+}
+
+fn capture_signed_bank_calls(
+    journey: &MoveJourney,
+    movement: &MovePlan,
+    outbox: &mut Outbox,
+    producer: &mut AgentStore,
+    tenant: &TenantId,
+    signed: &mut std::collections::BTreeMap<usize, Vec<u8>>,
+    coordinates: ([u8; 20], u64),
+) {
+    let (sender, nonce) = coordinates;
+    // Enqueue only bytes emitted and durably signed by the real journey/custody path.
+    for index in 0..2 {
+        if let Some(raw) = journey.signed_transaction(index) {
+            let hash = transaction_hash(raw);
+            signed.entry(index).or_insert_with(|| {
+                assert_eq!(
+                    outbox
+                        .enqueue(producer, tenant.clone(), raw.to_vec())
+                        .unwrap_or_else(|error| panic!(
+                            "{}: {error:?}",
+                            "enqueue exact verified custody bytes"
+                        )),
+                    hash
+                );
+                raw.to_vec()
+            });
+            assert_eq!(
+                outbox
+                    .exact_signed_bytes(hash)
+                    .or_fail("durable outbox bytes"),
+                raw
+            );
+            let (call, signature) = decode_signed(raw).or_fail("decode actual signed bytes");
+            assert_eq!(call, movement.bank_transfers()[index]);
+            assert_eq!(
+                recover_sender(&call, &signature).or_fail("custody sender"),
+                sender
+            );
+            assert_eq!(call.nonce, nonce + index as u64);
+            let disclosure = layerx_crypto::disclosure::call::bind_call(&call, sender)
+                .or_fail("bank disclosure");
+            let mut amount = [0; 32];
+            amount[16..].copy_from_slice(&(if index == 0 { 90_u128 } else { 40 }).to_be_bytes());
+            assert_eq!(
+                disclosure.construct_method().or_fail("decode bank method"),
+                Some(layerx_crypto::disclosure::call::ConstructMethod::BankSend {
+                    from: sender,
+                    to: [if index == 0 { 0x22 } else { 0x55 }; 20],
+                    denom: "uhpx".to_owned(),
+                    amount,
+                })
+            );
+        }
+    }
+}
+
+fn assert_committed_bank_calls(
+    journey: &MoveJourney,
+    signed: &std::collections::BTreeMap<usize, Vec<u8>>,
+    proofs: &[BankCommitEvidence],
+    node: &BankNode,
+    before: &[[u8; 32]],
+    nonce: u64,
+) {
+    for index in 0..2 {
+        let raw = signed.get(&index).or_fail("original custody bytes");
+        assert_eq!(journey.signed_transaction(index), Some(raw.as_slice()));
+        let evidence = journey
+            .verified_leg_evidence(index)
+            .or_fail("receipt lookup")
+            .or_fail("verified receipt");
+        assert_eq!(evidence.tx_hash, transaction_hash(raw));
+        assert_eq!(evidence.rung, Rung::Committed);
+        assert_eq!(journey.bank_commit_evidence(index), Some(&proofs[index]));
+        let receipt = layerx_wire::receipt::decode(&evidence.canonical_receipt)
+            .or_fail("decode real producer receipt");
+        let protocol = receipt.protocol().or_fail("protocol receipt");
+        assert_eq!(protocol.activity_id(), transaction_hash(raw));
+        assert_eq!(protocol.debit_sequence(), nonce + index as u64);
+        let after = node
+            .endpoint
+            .balance(&[if index == 0 { 0x22 } else { 0x55 }; 20])
+            .or_fail("after balance");
+        let amount =
+            |bytes: &[u8]| u128::from_be_bytes(bytes[16..].try_into().or_fail("balance width"));
+        assert_eq!(
+            amount(&after) - amount(&before[index]),
+            (if index == 0 { 90 } else { 40 }) * 1_000_000_000_000
+        );
+    }
+}
+
+struct BankCustodySetup {
+    store: PrincipalStore,
+    digest: layerx_human_service::store::TenancyDigest,
+    custody_digest: layerx_human_service::store::TenancyDigest,
+    owner: layerx_human_service::store::PrincipalId,
+    retention: layerx_human_service::store::RetentionPolicy,
+    custody: CustodySigner,
+}
+
+fn open_bank_keys(root: &std::path::Path) -> Keystore {
+    let secret_path = root.join("kms-root");
+    Keystore::open_development(
+        root.join("custody"),
+        125,
+        EnvelopeKms::new("file-kms://repair-22-33-63", &secret_path)
+            .or_fail("real envelope provider"),
+    )
+    .or_fail("keystore")
+}
+
+fn open_bank_custody(
+    root: &std::path::Path,
+    retention: layerx_human_service::store::RetentionPolicy,
+    custody_digest: layerx_human_service::store::TenancyDigest,
+) -> CustodySigner {
+    CustodySigner::new(
+        open_bank_keys(root),
+        PrincipalStore::open(root.join("custody-store"), retention, custody_digest)
+            .or_fail("custody audit store"),
+        registry(),
+        SigningLimits::new(100, 10_000).or_fail("sign limits"),
+    )
+}
+
+fn create_bank_custody_setup(
+    root: &std::path::Path,
+    node: &BankNode,
+    sender: [u8; 20],
+) -> BankCustodySetup {
+    let map = tenancy(&[("alice", "tenant-a")]);
+    let retention = retention_uniform(10_000);
+    let owner = principal("alice");
+    let (store, digest) = install_and_open(&root.join("human"), &map, retention);
+    fs::write(root.join("kms-root"), [0x42; 64]).or_fail("envelope root");
+    let key = KeyId::new("human-primary").or_fail("key");
+    let keystore = open_bank_keys(root);
+    keystore
+        .generate(
+            &owner,
+            &key,
+            KeyClass::HumanPrimary,
+            KeyEntropy::new(node.secret, [0x52; 16], [0x53; 24]).or_fail("key entropy"),
+        )
+        .or_fail("custody key");
+    drop(keystore);
+    let (custody_store, custody_digest) =
+        install_and_open(&root.join("custody-store"), &map, retention);
+    drop(custody_store);
+    let custody = open_bank_custody(root, retention, custody_digest);
+    assert_eq!(custody.evm_wallet(&owner, &key).or_fail("wallet"), sender);
+    BankCustodySetup {
+        store,
+        digest,
+        custody_digest,
+        owner,
+        retention,
+        custody,
+    }
+}
+
+fn restore_signed_outbox(
+    producer: &AgentStore,
+    outbox: &mut Outbox,
+    tenant: &TenantId,
+    signed: &std::collections::BTreeMap<usize, Vec<u8>>,
+) {
+    let ids = producer.list_object_ids(tenant, ObjectKind::Outbox);
+    assert_eq!(ids.len(), signed.len());
+    for id in ids {
+        let hash = id.try_into().or_fail("submission hash");
+        outbox
+            .restore(producer, tenant.clone(), hash)
+            .or_fail("reopen durable outbox");
+        let raw = outbox
+            .exact_signed_bytes(hash)
+            .or_fail("restored exact bytes");
+        assert_eq!(transaction_hash(raw), hash);
+        assert!(signed.values().any(|bytes| bytes.as_slice() == raw));
+    }
+}
+
+fn track_signed_bank_calls(
+    node: &BankNode,
+    keys: &[ReceiptKeyEntry],
+    signed: &std::collections::BTreeMap<usize, Vec<u8>>,
+    outbox: &mut Outbox,
+    producer: &mut AgentStore,
+) {
+    for raw in signed.values() {
+        let hash = transaction_hash(raw);
+        if matches!(
+            lookup_authenticated(&node.endpoint, hash, LookupContext { receipt_keys: keys })
+                .or_fail("track exact transaction"),
+            Lookup::Verified(_)
+        ) && outbox.status(hash).or_fail("outbox status").state == SubmissionState::Queued
+        {
+            outbox
+                .transition(
+                    producer,
+                    hash,
+                    SubmissionState::Submitted,
+                    "real RPC accepted exact custody transaction",
+                    None,
+                )
+                .or_fail("persist acknowledgement");
+        }
+    }
+}
+
+fn verify_reopened_bank_state(
+    roots: (&std::path::Path, &std::path::Path),
+    durability: (
+        layerx_human_service::store::RetentionPolicy,
+        layerx_human_service::store::TenancyDigest,
+    ),
+    owner: &layerx_human_service::store::PrincipalId,
+    id: &JourneyId,
+    tenant: &TenantId,
+    signed: &std::collections::BTreeMap<usize, Vec<u8>>,
+    final_status: &layerx_human_service::journeys::MoveStatus,
+) {
+    let (producer_root, store_root) = roots;
+    let (retention, digest) = durability;
+    let producer = AgentStore::open(producer_root).or_fail("reopen final producer");
+    let mut outbox = Outbox::default();
+    for raw in signed.values() {
+        let hash = transaction_hash(raw);
+        outbox
+            .restore(&producer, tenant.clone(), hash)
+            .or_fail("final outbox reopen");
+        assert_eq!(outbox.exact_signed_bytes(hash).or_fail("final bytes"), raw);
+        assert_eq!(
+            outbox.status(hash).or_fail("submission state").state,
+            SubmissionState::Submitted
+        );
+    }
+    let mut store =
+        PrincipalStore::open(store_root, retention, digest).or_fail("final consumer reopen");
+    let recovered = MoveJourney::load(&store.principal(owner).or_fail("scope"), id)
+        .or_fail("load final evidence")
+        .or_fail("journey");
+    assert_eq!(
+        &recovered.status().or_fail("recovered action"),
+        final_status
+    );
+    assert_eq!(
+        recovered.rung().or_fail("recovered finality"),
+        Rung::Committed
+    );
+    drop(recovered);
+    drop(store);
+    drop(outbox);
+    drop(producer);
+}
+
+fn recorded_bank_movement() -> (MovePlan, [u8; 20], u64) {
     let fixture = transcript();
-    let sender: [u8; 20] = unhex(fixture["sender"].as_str().expect("sender"))
+    let sender: [u8; 20] = unhex(fixture["sender"].as_str().or_fail("sender"))
         .try_into()
-        .expect("sender width");
+        .or_fail("sender width");
     let mut pointer = [0; 20];
     pointer[18..].copy_from_slice(&0x1001_u16.to_be_bytes());
-    let nonce = fixture["nonce"].as_u64().expect("nonce");
+    let nonce = fixture["nonce"].as_u64().or_fail("nonce");
     let ceiling = 1_000_000_000_000_000_000;
     let movement = plan(
         vec![
@@ -533,167 +783,166 @@ fn exercise(restart_every_phase: bool) {
             execution(2, nonce + 1, ceiling),
         ],
     )
-    .expect("current bank plan");
-    for (index, call) in movement.bank_transfers().iter().enumerate() {
-        let raw = unhex(
-            fixture["records"][index]["raw"]
-                .as_str()
-                .expect("recorded transaction"),
-        );
-        let (recorded, signature) = decode_signed(&raw).expect("recorded production transaction");
-        assert_eq!(
-            recover_sender(&recorded, &signature).expect("recorded sender"),
-            sender
-        );
-        assert_eq!(
-            &recorded, call,
-            "the node recording must contain the exact current 0x1001 bank-send preparation"
-        );
-    }
-    let node = BankNode::start(clock, restart_every_phase);
-    let keys = node.receipt_keys();
-    let proofs = node.commit_evidence();
-    let map = tenancy(&[("alice", "tenant-a")]);
-    let retention = retention_uniform(10_000);
-    let owner = principal("alice");
+    .or_fail("current bank plan");
+    assert_recorded_calls(&movement, &fixture, sender);
+    (movement, sender, nonce)
+}
+
+fn bank_exercise_root(restart_every_phase: bool) -> std::path::PathBuf {
+    let root = directory(if restart_every_phase {
+        "repair-22-33-63-reopen"
+    } else {
+        "repair-22-33-63-exact"
+    });
+    fs::create_dir_all(&root).or_fail("fixture directory");
+    root
+}
+
+fn assert_completed_bank_journey(
+    journey: &MoveJourney,
+    signed: &std::collections::BTreeMap<usize, Vec<u8>>,
+    restart_every_phase: bool,
+    lost_acknowledgements: usize,
+) {
+    assert_eq!(journey.rung().or_fail("final rung"), Rung::Committed);
+    assert_eq!(
+        journey.status().or_fail("final status").stage(),
+        MoveStage::Done
+    );
+    assert_eq!(
+        journey.status().or_fail("amount").actual_amount(),
+        Some(130)
+    );
+    assert_eq!(signed.len(), 2);
+    assert_eq!(lost_acknowledgements, usize::from(restart_every_phase));
+}
+
+type BankCycleResources = (
+    MoveJourney,
+    PrincipalStore,
+    CustodySigner,
+    Outbox,
+    AgentStore,
+);
+
+fn reopen_bank_cycle(
+    resources: BankCycleResources,
+    roots: (&std::path::Path, &std::path::Path, &std::path::Path),
+    durability: (
+        layerx_human_service::store::RetentionPolicy,
+        layerx_human_service::store::TenancyDigest,
+        layerx_human_service::store::TenancyDigest,
+    ),
+    coordinates: (
+        &layerx_human_service::store::PrincipalId,
+        &JourneyId,
+        &TenantId,
+    ),
+    signed: &std::collections::BTreeMap<usize, Vec<u8>>,
+) -> BankCycleResources {
+    let (journey, store, custody, outbox, producer) = resources;
+    let (root, store_root, producer_root) = roots;
+    let (retention, digest, custody_digest) = durability;
+    let (owner, id, tenant) = coordinates;
+    drop(journey);
+    drop(store);
+    drop(custody);
+    drop(outbox);
+    drop(producer);
+    let producer = AgentStore::open(producer_root).or_fail("reopen producer");
+    let mut outbox = Outbox::default();
+    restore_signed_outbox(&producer, &mut outbox, tenant, signed);
+    let custody = open_bank_custody(root, retention, custody_digest);
+    let mut store =
+        PrincipalStore::open(store_root, retention, digest).or_fail("reopen Human consumer");
+    let journey = MoveJourney::load(&store.principal(owner).or_fail("scope"), id)
+        .or_fail("reopen journey")
+        .or_fail("durable journey");
+    (journey, store, custody, outbox, producer)
+}
+
+fn assert_bank_outcome(
+    journey: &MoveJourney,
+    signed: &std::collections::BTreeMap<usize, Vec<u8>>,
+    restart: (bool, usize),
+    chain: (&BankNode, &[BankCommitEvidence], &[[u8; 32]], u64, [u8; 20]),
+) -> layerx_human_service::journeys::MoveStatus {
+    let (restart_every_phase, lost_acknowledgements) = restart;
+    let (node, proofs, before, nonce, sender) = chain;
+    assert_completed_bank_journey(journey, signed, restart_every_phase, lost_acknowledgements);
+    let final_status = journey.status().or_fail("final status");
+    assert_committed_bank_calls(journey, signed, proofs, node, before, nonce);
+    assert_eq!(
+        node.endpoint
+            .pending_nonce(&sender)
+            .or_fail("pending nonce after recovery"),
+        nonce + 2
+    );
+    final_status
+}
+
+fn exercise(restart_every_phase: bool) {
+    let root = bank_exercise_root(restart_every_phase);
+    let (movement, sender, nonce) = recorded_bank_movement();
+    let node = BankNode::start(restart_every_phase);
+    let keys = BankNode::receipt_keys();
+    let proofs = BankNode::commit_evidence();
     let store_root = root.join("human");
-    let (mut store, digest) = install_and_open(&store_root, &map, retention);
-    let secret_path = root.join("kms-root");
-    fs::write(&secret_path, [0x42; 64]).expect("envelope root");
-    let key = KeyId::new("human-primary").expect("key");
-    let open_keys = || {
-        Keystore::open_development(
-            root.join("custody"),
-            125,
-            EnvelopeKms::new("file-kms://repair-22-33-63", &secret_path)
-                .expect("real envelope provider"),
-        )
-        .expect("keystore")
-    };
-    let keystore = open_keys();
-    keystore
-        .generate(
-            &owner,
-            &key,
-            KeyClass::HumanPrimary,
-            KeyEntropy::new(node.secret, [0x52; 16], [0x53; 24]).expect("key entropy"),
-        )
-        .expect("custody key");
-    drop(keystore);
-    let (custody_store, custody_digest) =
-        install_and_open(&root.join("custody-store"), &map, retention);
-    drop(custody_store);
-    let open_custody = || {
-        CustodySigner::new(
-            open_keys(),
-            PrincipalStore::open(root.join("custody-store"), retention, custody_digest)
-                .expect("custody audit store"),
-            registry(),
-            SigningLimits::new(100, 10_000).expect("sign limits"),
-        )
-    };
-    let mut custody = open_custody();
-    assert_eq!(custody.evm_wallet(&owner, &key).expect("wallet"), sender);
+    let BankCustodySetup {
+        mut store,
+        digest,
+        custody_digest,
+        owner,
+        retention,
+        mut custody,
+    } = create_bank_custody_setup(&root, &node, sender);
     let now = 1_700_000_000;
     let trace = TraceId::mint([0x63; 16]);
-    let id = JourneyId::new("jrn_movebanksend").expect("id");
+    let id = JourneyId::new("jrn_movebanksend").or_fail("id");
     let mut journey = MoveJourney::commit(
-        &mut store.principal(&owner).expect("scope"),
+        &mut store.principal(&owner).or_fail("scope"),
         &movement,
         MoveAuthorization::Allowed,
         &registry(),
         now,
     )
-    .expect("commit original economic plan");
+    .or_fail("commit original economic plan");
     let before: Vec<_> = [[0x22; 20], [0x55; 20]]
         .iter()
-        .map(|to| node.endpoint.balance(to).expect("before balance"))
+        .map(|to| node.endpoint.balance(to).or_fail("before balance"))
         .collect();
-    let tenant = TenantId::new("tenant-a").expect("tenant");
+    let tenant = TenantId::new("tenant-a").or_fail("tenant");
     let producer_root = root.join("producer");
-    let mut producer = AgentStore::open(&producer_root).expect("producer store");
+    let mut producer = AgentStore::open(&producer_root).or_fail("producer store");
     let mut outbox = Outbox::default();
     let mut observed_phases = std::collections::BTreeSet::new();
     let mut signed = std::collections::BTreeMap::new();
     let mut lost_acknowledgements = 0;
     for _ in 0..48 {
-        // Enqueue only bytes emitted and durably signed by the real journey/custody path.
-        for index in 0..2 {
-            if let Some(raw) = journey.signed_transaction(index) {
-                let hash = transaction_hash(raw);
-                if !signed.contains_key(&index) {
-                    assert_eq!(
-                        outbox
-                            .enqueue(&mut producer, tenant.clone(), raw.to_vec())
-                            .expect("enqueue exact verified custody bytes"),
-                        hash
-                    );
-                    signed.insert(index, raw.to_vec());
-                }
-                assert_eq!(
-                    outbox
-                        .exact_signed_bytes(hash)
-                        .expect("durable outbox bytes"),
-                    raw
-                );
-                let (call, signature) = decode_signed(raw).expect("decode actual signed bytes");
-                assert_eq!(call, movement.bank_transfers()[index]);
-                assert_eq!(
-                    recover_sender(&call, &signature).expect("custody sender"),
-                    sender
-                );
-                assert_eq!(call.nonce, nonce + index as u64);
-                let disclosure = layerx_crypto::disclosure::call::bind_call(&call, sender)
-                    .expect("bank disclosure");
-                let mut amount = [0; 32];
-                amount[16..]
-                    .copy_from_slice(&(if index == 0 { 90_u128 } else { 40 }).to_be_bytes());
-                assert_eq!(
-                    disclosure.construct_method().expect("decode bank method"),
-                    Some(layerx_crypto::disclosure::call::ConstructMethod::BankSend {
-                        from: sender,
-                        to: [if index == 0 { 0x22 } else { 0x55 }; 20],
-                        denom: "uhpx".to_owned(),
-                        amount,
-                    })
-                );
-            }
-        }
-        let status = journey.status().expect("stage");
-        observed_phases.insert(format!("{:?}", status.stage()));
-        if journey.rung().expect("rung") == Rung::Committed {
+        capture_signed_bank_calls(
+            &journey,
+            &movement,
+            &mut outbox,
+            &mut producer,
+            &tenant,
+            &mut signed,
+            (sender, nonce),
+        );
+        observed_phases.insert(format!("{:?}", journey.status().or_fail("stage").stage()));
+        if journey.rung().or_fail("rung") == Rung::Committed {
             break;
         }
         if restart_every_phase {
-            drop(journey);
-            drop(store);
-            drop(custody);
-            drop(outbox);
-            drop(producer);
-            producer = AgentStore::open(&producer_root).expect("reopen producer");
-            outbox = Outbox::default();
-            let ids = producer.list_object_ids(&tenant, ObjectKind::Outbox);
-            assert_eq!(ids.len(), signed.len());
-            for id in ids {
-                let hash = id.try_into().expect("submission hash");
-                outbox
-                    .restore(&producer, tenant.clone(), hash)
-                    .expect("reopen durable outbox");
-                let raw = outbox
-                    .exact_signed_bytes(hash)
-                    .expect("restored exact bytes");
-                assert_eq!(transaction_hash(raw), hash);
-                assert!(signed.values().any(|bytes| bytes.as_slice() == raw));
-            }
-            custody = open_custody();
-            store = PrincipalStore::open(&store_root, retention, digest)
-                .expect("reopen Human consumer");
-            journey = MoveJourney::load(&store.principal(&owner).expect("scope"), &id)
-                .expect("reopen journey")
-                .expect("durable journey");
+            (journey, store, custody, outbox, producer) = reopen_bank_cycle(
+                (journey, store, custody, outbox, producer),
+                (&root, &store_root, &producer_root),
+                (retention, digest, custody_digest),
+                (&owner, &id, &tenant),
+                &signed,
+            );
         }
         let advance = ready(journey.advance_bank_with_commit(
-            &mut store.principal(&owner).expect("scope"),
+            &mut store.principal(&owner).or_fail("scope"),
             &node.endpoint,
             &keys,
             &proofs,
@@ -712,108 +961,27 @@ fn exercise(restart_every_phase: bool) {
             );
             lost_acknowledgements += 1;
         }
-        for raw in signed.values() {
-            let hash = transaction_hash(raw);
-            if matches!(
-                lookup_authenticated(
-                    &node.endpoint,
-                    hash,
-                    LookupContext {
-                        receipt_keys: &keys
-                    }
-                )
-                .expect("track exact transaction"),
-                Lookup::Verified(_)
-            ) && outbox.status(hash).expect("outbox status").state == SubmissionState::Queued
-            {
-                outbox
-                    .transition(
-                        &mut producer,
-                        hash,
-                        SubmissionState::Submitted,
-                        "real RPC accepted exact custody transaction",
-                        None,
-                    )
-                    .expect("persist acknowledgement");
-            }
-        }
+        track_signed_bank_calls(&node, &keys, &signed, &mut outbox, &mut producer);
     }
-    assert_eq!(journey.rung().expect("final rung"), Rung::Committed);
-    assert_eq!(
-        journey.status().expect("final status").stage(),
-        MoveStage::Done
+    let final_status = assert_bank_outcome(
+        &journey,
+        &signed,
+        (restart_every_phase, lost_acknowledgements),
+        (&node, &proofs, &before, nonce, sender),
     );
-    assert_eq!(journey.status().expect("amount").actual_amount(), Some(130));
-    assert_eq!(signed.len(), 2);
-    assert_eq!(lost_acknowledgements, usize::from(restart_every_phase));
-    let final_status = journey.status().expect("final status");
-    for index in 0..2 {
-        let raw = signed.get(&index).expect("original custody bytes");
-        assert_eq!(journey.signed_transaction(index), Some(raw.as_slice()));
-        let evidence = journey
-            .verified_leg_evidence(index)
-            .expect("receipt lookup")
-            .expect("verified receipt");
-        assert_eq!(evidence.tx_hash, transaction_hash(raw));
-        assert_eq!(evidence.rung, Rung::Committed);
-        assert_eq!(journey.bank_commit_evidence(index), Some(&proofs[index]));
-        let receipt = layerx_wire::receipt::decode(&evidence.canonical_receipt)
-            .expect("decode real producer receipt");
-        let protocol = receipt.protocol().expect("protocol receipt");
-        assert_eq!(protocol.activity_id(), transaction_hash(raw));
-        assert_eq!(protocol.debit_sequence(), nonce + index as u64);
-        let after = node
-            .endpoint
-            .balance(&[if index == 0 { 0x22 } else { 0x55 }; 20])
-            .expect("after balance");
-        let amount =
-            |bytes: &[u8]| u128::from_be_bytes(bytes[16..].try_into().expect("balance width"));
-        assert_eq!(
-            amount(&after) - amount(&before[index]),
-            (if index == 0 { 90 } else { 40 }) * 1_000_000_000_000
-        );
-    }
-    assert_eq!(
-        node.endpoint
-            .pending_nonce(&sender)
-            .expect("pending nonce after recovery"),
-        nonce + 2
-    );
-    drop(journey);
-    drop(store);
-    drop(custody);
-    drop(outbox);
-    drop(producer);
-    let producer = AgentStore::open(&producer_root).expect("reopen final producer");
-    let mut outbox = Outbox::default();
-    for raw in signed.values() {
-        let hash = transaction_hash(raw);
-        outbox
-            .restore(&producer, tenant.clone(), hash)
-            .expect("final outbox reopen");
-        assert_eq!(outbox.exact_signed_bytes(hash).expect("final bytes"), raw);
-        assert_eq!(
-            outbox.status(hash).expect("submission state").state,
-            SubmissionState::Submitted
-        );
-    }
-    let mut store =
-        PrincipalStore::open(&store_root, retention, digest).expect("final consumer reopen");
-    let recovered = MoveJourney::load(&store.principal(&owner).expect("scope"), &id)
-        .expect("load final evidence")
-        .expect("journey");
-    assert_eq!(recovered.status().expect("recovered action"), final_status);
-    assert_eq!(
-        recovered.rung().expect("recovered finality"),
-        Rung::Committed
+    drop((journey, store, custody, outbox, producer));
+    verify_reopened_bank_state(
+        (&producer_root, &store_root),
+        (retention, digest),
+        &owner,
+        &id,
+        &tenant,
+        &signed,
+        &final_status,
     );
     assert!(!observed_phases.is_empty());
-    drop(recovered);
-    drop(store);
-    drop(outbox);
-    drop(producer);
     drop(node);
-    fs::remove_dir_all(root).expect("remove private durable fixtures");
+    fs::remove_dir_all(root).or_fail("remove private durable fixtures");
 }
 
 const BANK_TRANSCRIPT: &str = r#"{
@@ -1104,3 +1272,5 @@ const BANK_TRANSCRIPT: &str = r#"{
   }
 }
 "#;
+
+use crate::require_value::RequireValue as _;

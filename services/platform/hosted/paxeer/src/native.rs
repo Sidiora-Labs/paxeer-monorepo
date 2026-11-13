@@ -6,7 +6,7 @@ use sha3::Keccak256;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Write};
-use std::os::unix::fs::{DirBuilderExt, MetadataExt, OpenOptionsExt, PermissionsExt};
+use std::os::unix::fs::{DirBuilderExt, MetadataExt, OpenOptionsExt};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 use zeroize::Zeroizing;
@@ -31,8 +31,14 @@ const OUTPUT_FILES: [&str; 8] = [
     ".native-prepared.json",
 ];
 
+#[must_use]
 pub fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+    let mut encoded = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        encoded.push(char::from(b"0123456789abcdef"[usize::from(byte >> 4)]));
+        encoded.push(char::from(b"0123456789abcdef"[usize::from(byte & 0x0f)]));
+    }
+    encoded
 }
 
 fn hash(bytes: &[u8]) -> String {
@@ -57,7 +63,9 @@ fn canonical(value: &Value) -> Result<Vec<u8>> {
 fn read_file(path: &Path, maximum: u64, secret: bool) -> Result<Zeroizing<Vec<u8>>> {
     let mut file = OpenOptions::new()
         .read(true)
-        .custom_flags(rustix::fs::OFlags::NOFOLLOW.bits() as i32)
+        .custom_flags(i32::from_ne_bytes(
+            rustix::fs::OFlags::NOFOLLOW.bits().to_ne_bytes(),
+        ))
         .open(path)?;
     let info = file.metadata()?;
     if !info.is_file()
@@ -124,6 +132,8 @@ pub struct ImmutableInputs {
 }
 
 impl ImmutableInputs {
+    /// # Errors
+    /// Refuses unsafe or missing inputs and invalid JSON documents.
     pub fn capture(source: &Path, options: &BTreeMap<String, String>) -> Result<Self> {
         let mut fields = BTreeMap::new();
         for name in INPUT_FILES {
@@ -132,7 +142,7 @@ impl ImmutableInputs {
                 MAX_INPUT,
                 name == "priv_validator_key.json",
             )?;
-            if name.ends_with(".json") {
+            if name.to_ascii_lowercase().ends_with(".json") {
                 let value: Value = serde_json::from_slice(&raw)?;
                 fingerprints(name, &value, &mut fields)?;
             } else {
@@ -163,8 +173,7 @@ impl ImmutableInputs {
             .chain(requested.fields.keys())
             .filter(|key| self.fields.get(*key) != requested.fields.get(*key))
             .max_by_key(|key| key.matches('/').count())
-            .map(String::as_str)
-            .unwrap_or("digest");
+            .map_or("digest", String::as_str);
         Err(format!("immutable native input drift: {changed}").into())
     }
 }
@@ -186,6 +195,8 @@ pub struct BootstrapGuard {
 }
 
 impl BootstrapGuard {
+    /// # Errors
+    /// Refuses unsafe state directories, changed inputs, or invalid initialization records.
     pub fn open(state: &Path, data: &Path, inputs: ImmutableInputs) -> Result<Self> {
         private_directory(state)?;
         let lock = OpenOptions::new()
@@ -194,7 +205,9 @@ impl BootstrapGuard {
             .create(true)
             .truncate(false)
             .mode(0o600)
-            .custom_flags(rustix::fs::OFlags::NOFOLLOW.bits() as i32)
+            .custom_flags(i32::from_ne_bytes(
+                rustix::fs::OFlags::NOFOLLOW.bits().to_ne_bytes(),
+            ))
             .open(state.join("owner.lock"))?;
         lock.try_lock()
             .map_err(|_| "native initialization is already owned")?;
@@ -234,6 +247,7 @@ impl BootstrapGuard {
         Ok(guard)
     }
 
+    #[must_use]
     pub fn initialized(&self) -> bool {
         self.initialized
     }
@@ -254,6 +268,8 @@ impl BootstrapGuard {
             .collect()
     }
 
+    /// # Errors
+    /// Refuses changed native inputs, missing outputs, or failed state publication.
     pub fn complete(&mut self, current: &ImmutableInputs) -> Result<()> {
         if self.initialized {
             return Err("native generation is already initialized".into());
@@ -270,7 +286,7 @@ impl BootstrapGuard {
                 MAX_INPUT,
                 name == "priv_validator_key.json",
             )?;
-            let digest = if name.ends_with(".json") {
+            let digest = if name.to_ascii_lowercase().ends_with(".json") {
                 hash(&canonical(&serde_json::from_slice(&raw)?)?)
             } else {
                 hash(&raw)
@@ -316,6 +332,8 @@ pub struct BootstrapRequest {
 }
 
 impl BootstrapRequest {
+    /// # Errors
+    /// Refuses missing, duplicate, or invalid native bootstrap arguments.
     pub fn parse(arguments: &[String]) -> Result<Self> {
         let mut options: BTreeMap<String, String> = [
             ("paxd", "/usr/local/bin/paxd"),
@@ -351,7 +369,7 @@ impl BootstrapRequest {
             "ready-seconds",
         ];
         let mut seen = BTreeSet::new();
-        if arguments.len() % 2 != 0 {
+        if !arguments.len().is_multiple_of(2) {
             return Err("bootstrap requires explicit flag/value pairs".into());
         }
         for pair in arguments.chunks_exact(2) {
@@ -402,6 +420,8 @@ impl BootstrapRequest {
         })
     }
 
+    /// # Errors
+    /// Refuses invalid native inputs or an unsafe state directory.
     pub fn open(&self) -> Result<BootstrapGuard> {
         let name = self
             .data
@@ -419,6 +439,7 @@ impl BootstrapRequest {
         )
     }
 
+    #[must_use]
     pub fn command(&self, script: &Path) -> std::process::Command {
         let mut command = std::process::Command::new(script);
         command.args(&self.arguments);
@@ -433,6 +454,8 @@ pub struct AccountIdentity {
     pub public_key: String,
 }
 
+/// # Errors
+/// Refuses a scalar that is not a valid secp256k1 signing key.
 pub fn account_identity(secret: &[u8]) -> Result<AccountIdentity> {
     let key = SigningKey::from_slice(secret).map_err(|_| "invalid secp256k1 signing scalar")?;
     let public = key.verifying_key();
@@ -508,7 +531,7 @@ fn quantity(value: &str) -> Result<[u8; 32]> {
     Ok(bytes)
 }
 
-fn rpc(url: &str, method: &str, params: Value) -> Result<Value> {
+fn rpc(url: &str, method: &str, params: &Value) -> Result<Value> {
     let address = url
         .strip_prefix("http://127.0.0.1:")
         .and_then(|v| v.strip_suffix('/'))
@@ -525,12 +548,12 @@ fn rpc(url: &str, method: &str, params: Value) -> Result<Value> {
     let mut reply = agent
         .post(url)
         .send_json(json!({"jsonrpc":"2.0", "id":method, "method":method, "params":params}))?;
-    if reply.status() != 200
-        || !reply
+    if !(reply.status() == 200
+        && reply
             .headers()
             .get("content-type")
             .and_then(|v| v.to_str().ok())
-            .is_some_and(|v| v.split(';').next() == Some("application/json"))
+            .is_some_and(|v| v.split(';').next() == Some("application/json")))
     {
         return Err("native evidence transport refused".into());
     }
@@ -540,7 +563,7 @@ fn rpc(url: &str, method: &str, params: Value) -> Result<Value> {
         .limit(8 * 1024 * 1024)
         .read_to_vec()?;
     let value: Value = serde_json::from_slice(&raw)?;
-    if value["jsonrpc"] != "2.0" || value["id"] != method || value.get("error").is_some() {
+    if !(value["jsonrpc"] == "2.0" && value["id"] == method && value.get("error").is_none()) {
         return Err("native evidence RPC refused".into());
     }
     value
@@ -569,13 +592,15 @@ fn hash_text(value: &Value) -> Result<String> {
 }
 
 impl NativeEvidence {
+    /// # Errors
+    /// Refuses inconsistent chain, commit, block, or validator evidence.
     pub fn fetch(chain_rpc: &str, consensus_rpc: &str) -> Result<Self> {
-        if rpc(chain_rpc, "eth_chainId", json!([]))? != "0x7d" {
+        if rpc(chain_rpc, "eth_chainId", &json!([]))? != "0x7d" {
             return Err("native evidence requires chain id 125".into());
         }
-        let status = rpc(consensus_rpc, "status", json!({}))?;
+        let status = rpc(consensus_rpc, "status", &json!({}))?;
         if status["node_info"]["network"] != "hyperpax_125-1"
-            || status["sync_info"]["catching_up"] != false
+            || status["sync_info"]["catching_up"].as_bool() != Some(false)
         {
             return Err("native consensus is not committed and caught up".into());
         }
@@ -583,25 +608,21 @@ impl NativeEvidence {
             .as_str()
             .ok_or("missing committed height")?
             .parse::<u64>()?;
-        if height == 0 || status["sync_info"]["latest_block_height"] != height.to_string() {
+        let height_text = height.to_string();
+        if height == 0 || status["sync_info"]["latest_block_height"].as_str() != Some(&height_text)
+        {
             return Err("invalid committed height".into());
         }
         let block_hash = hash_text(&status["sync_info"]["latest_block_hash"])?;
-        let commit = rpc(
-            consensus_rpc,
-            "commit",
-            json!({"height":height.to_string()}),
-        )?;
+        let commit = rpc(consensus_rpc, "commit", &json!({"height":height_text}))?;
         let header = &commit["signed_header"]["header"];
         let signed = &commit["signed_header"]["commit"];
-        if commit["canonical"] != true
+        if commit["canonical"].as_bool() != Some(true)
             || header["chain_id"] != "hyperpax_125-1"
-            || header["height"] != height.to_string()
-            || signed["height"] != height.to_string()
+            || header["height"].as_str() != Some(&height_text)
+            || signed["height"].as_str() != Some(&height_text)
             || hash_text(&signed["block_id"]["hash"])? != block_hash
-            || !signed["signatures"]
-                .as_array()
-                .is_some_and(|values| !values.is_empty())
+            || signed["signatures"].as_array().is_none_or(Vec::is_empty)
         {
             return Err("native signed commit differs from status".into());
         }
@@ -609,72 +630,20 @@ impl NativeEvidence {
         let block = rpc(
             chain_rpc,
             "eth_getBlockByNumber",
-            json!([format!("0x{height:x}"), false]),
+            &json!([format!("0x{height:x}"), false]),
         )?;
-        if block["number"] != format!("0x{height:x}")
-            || block["hash"].as_str().map(str::to_ascii_lowercase)
-                != Some(format!("0x{block_hash}"))
+        let block_number = format!("0x{height:x}");
+        let expected_hash = format!("0x{block_hash}");
+        if block["number"].as_str() != Some(&block_number)
+            || block["hash"]
+                .as_str()
+                .map(str::to_ascii_lowercase)
+                .as_deref()
+                != Some(expected_hash.as_str())
         {
             return Err("native EVM block differs from committed consensus height".into());
         }
-        let mut validators = Vec::new();
-        let mut addresses = BTreeSet::new();
-        let mut expected_total = None;
-        for page in 1..=41 {
-            let result = rpc(
-                consensus_rpc,
-                "validators",
-                json!({"height":height.to_string(), "page":page.to_string(), "per_page":"100"}),
-            )?;
-            let total = result["total"]
-                .as_str()
-                .ok_or("missing validator total")?
-                .parse::<usize>()?;
-            let members = result["validators"]
-                .as_array()
-                .ok_or("missing native validators")?;
-            if result["block_height"] != height.to_string()
-                || total == 0
-                || total > 4096
-                || expected_total.is_some_and(|previous| previous != total)
-                || members.is_empty()
-                || members.len() > 100
-                || result["count"] != members.len().to_string()
-            {
-                return Err("validator page differs from committed height or bounds".into());
-            }
-            expected_total = Some(total);
-            for member in members {
-                let address = member["address"]
-                    .as_str()
-                    .ok_or("missing validator address")?;
-                if address.len() != 40
-                    || !address.bytes().all(|c| c.is_ascii_hexdigit())
-                    || !addresses.insert(address.to_ascii_lowercase())
-                    || member["voting_power"]
-                        .as_str()
-                        .ok_or("missing voting power")?
-                        .parse::<u64>()?
-                        == 0
-                    || member["pub_key"]["type"] != "tendermint/PubKeyEd25519"
-                    || member["pub_key"]["value"]
-                        .as_str()
-                        .is_none_or(str::is_empty)
-                {
-                    return Err("invalid committed validator member".into());
-                }
-                validators.push(member.clone());
-            }
-            if validators.len() == total {
-                break;
-            }
-            if validators.len() > total {
-                return Err("validator pages exceed committed total".into());
-            }
-        }
-        if expected_total != Some(validators.len()) {
-            return Err("incomplete committed validator set".into());
-        }
+        let validators = fetch_validators(consensus_rpc, height)?;
         Ok(Self {
             schema: "paxeer/committed-native-evidence/1".into(),
             chain_id: 125,
@@ -686,6 +655,71 @@ impl NativeEvidence {
     }
 }
 
+fn fetch_validators(consensus_rpc: &str, height: u64) -> Result<Vec<Value>> {
+    let mut validators = Vec::new();
+    let mut addresses = BTreeSet::new();
+    let mut expected_total = None;
+    for page in 1..=41 {
+        let result = rpc(
+            consensus_rpc,
+            "validators",
+            &json!({"height":height.to_string(), "page":page.to_string(), "per_page":"100"}),
+        )?;
+        let total = result["total"]
+            .as_str()
+            .ok_or("missing validator total")?
+            .parse::<usize>()?;
+        let members = result["validators"]
+            .as_array()
+            .ok_or("missing native validators")?;
+        let height_text = height.to_string();
+        if result["block_height"].as_str() != Some(&height_text)
+            || total == 0
+            || total > 4096
+            || expected_total.is_some_and(|previous| previous != total)
+            || members.is_empty()
+            || members.len() > 100
+            || result["count"].as_str() != Some(members.len().to_string().as_str())
+        {
+            return Err("validator page differs from committed height or bounds".into());
+        }
+        expected_total = Some(total);
+        for member in members {
+            let address = member["address"]
+                .as_str()
+                .ok_or("missing validator address")?;
+            if address.len() != 40
+                || !address.bytes().all(|c| c.is_ascii_hexdigit())
+                || !addresses.insert(address.to_ascii_lowercase())
+                || member["voting_power"]
+                    .as_str()
+                    .ok_or("missing voting power")?
+                    .parse::<u64>()?
+                    == 0
+                || member["pub_key"]["type"] != "tendermint/PubKeyEd25519"
+                || member["pub_key"]["value"]
+                    .as_str()
+                    .is_none_or(str::is_empty)
+            {
+                return Err("invalid committed validator member".into());
+            }
+            validators.push(member.clone());
+        }
+        if validators.len() == total {
+            break;
+        }
+        if validators.len() > total {
+            return Err("validator pages exceed committed total".into());
+        }
+    }
+    if expected_total != Some(validators.len()) {
+        return Err("incomplete committed validator set".into());
+    }
+    Ok(validators)
+}
+
+/// # Errors
+/// Refuses invalid tenant configuration or insufficient committed balance.
 pub fn provision_account(config: &TenantAccount) -> Result<Value> {
     if config.schema != "paxeer/native-tenant-account/1"
         || config.tenant.is_empty()
@@ -707,7 +741,7 @@ pub fn provision_account(config: &TenantAccount) -> Result<Value> {
     let balance = rpc(
         &config.chain_rpc,
         "eth_getBalance",
-        json!([identity.address, format!("0x{:x}", evidence.height)]),
+        &json!([identity.address, format!("0x{:x}", evidence.height)]),
     )?;
     let balance = balance
         .as_str()
@@ -720,6 +754,8 @@ pub fn provision_account(config: &TenantAccount) -> Result<Value> {
     )
 }
 
+/// # Errors
+/// Refuses invalid commands, unavailable chain evidence, or failed output writes.
 pub fn run_read_command(arguments: &[String], output: &mut impl Write) -> Result<()> {
     let value = match arguments {
         [command, config] if command == "account" => {

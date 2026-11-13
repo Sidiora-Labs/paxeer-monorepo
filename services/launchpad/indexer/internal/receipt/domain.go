@@ -7,6 +7,7 @@ import (
 	"math"
 	"math/big"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/checked"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -49,7 +50,11 @@ func (a *RPCQualification) ValidateSignedDomain(ctx context.Context, b Bundle) e
 		return err
 	}
 	index := b.Receipt.TransactionIndex
-	if index >= uint(len(receipts)) || block.Transactions[index].Hash() != b.Transaction.Hash() || !receiptEqual(receipts[index], b.Receipt) {
+	lenReceiptsUint, conversionErr := checked.Convert[uint](len(receipts))
+	if conversionErr != nil {
+		return conversionErr
+	}
+	if index >= lenReceiptsUint || block.Transactions[index].Hash() != b.Transaction.Hash() || !receiptEqual(receipts[index], b.Receipt) {
 		return ErrQualification
 	}
 	claimedHeader, err := digest(b.Header)
@@ -64,10 +69,17 @@ func (a *RPCQualification) ValidateSignedDomain(ctx context.Context, b Bundle) e
 	if err != nil {
 		return err
 	}
-	id := uint32(b.Transaction.ChainId().Uint64() - virtualChainIDBase)
+	id, conversionErr := checked.Convert[uint32](b.Transaction.ChainId().Uint64() - virtualChainIDBase)
+	if conversionErr != nil {
+		return conversionErr
+	}
 	created := registryABI.Events["ChainCreated"]
 	changed := registryABI.Events["ChainStatusChanged"]
-	topic := common.BigToHash(new(big.Int).SetUint64(uint64(id)))
+	idUint64, conversionErr := checked.Convert[uint64](id)
+	if conversionErr != nil {
+		return conversionErr
+	}
+	topic := common.BigToHash(new(big.Int).SetUint64(idUint64))
 	var prior []*types.Log
 	createdHere := false
 	for _, receipt := range receipts[:index] {

@@ -743,15 +743,15 @@ impl NativeProcess {
             (rpc_fixture, files.path("rpc_e2e_test.go")),
             (
                 root.join("node/sequencer/repair_22_31_211_test.go"),
-                source.join("node_test.go"),
+                source.join("node_test.go.overlay"),
             ),
             (
                 root.join("modules/layerxledger/keeper/repair_22_31_211_test.go"),
-                source.join("expiry_test.go"),
+                source.join("expiry_test.go.overlay"),
             ),
             (
                 root.join("precompiles/layerxpay/repair_22_31_211_test.go"),
-                source.join("payment_test.go"),
+                source.join("payment_test.go.overlay"),
             ),
         ]);
         let overlay = json!({"Replace":replacements});

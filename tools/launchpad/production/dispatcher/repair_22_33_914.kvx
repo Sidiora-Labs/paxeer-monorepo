@@ -5,7 +5,7 @@ base_revision = "4299cb15eced23eb9a839162acd11e9a937edd05"
 verification = "hf-done records the verified candidate revision, exact cg spec done command, exit code and private evidence log; no success is claimed before that gate."
 baseline = "No pre-change run is claimed: the explicit implementation-first gate order forbids the unchanged-tree verify requested by do_7. The supplied prior-attempt evidence reports 36 tests passing at 090ac2fef0b6df4bbad28d73932f0a191c65d82c, but qualification was held for same_candidate and build_on_verified; this continuation must qualify its own unchanged candidate."
 proof = "The component is a filesystem dispatcher: real Go source bytes flow through production digest and declared-input policy, USTAR archive/extraction, JSON manifest/blob transport and trusted patch staging. No network interface, restart-recovery finding, subprocess toolchain or external service is involved."
-wiring_request = "launchpad/spec/production-system/spec.kvx and execution-plan.json: launchpad domain 4 coordinator must restore the reviewed matching DAG/plan before production lifecycle qualification; these files are outside this task's paths."
+wiring_request = "The dispatcher requires an explicit reviewed DAG and its matching execution-plan projection."
 
 [finding.dispatcher-readme-moved-commands]
 task_alias = "routing (doc-drift)"

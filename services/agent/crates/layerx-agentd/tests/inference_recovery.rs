@@ -312,7 +312,8 @@ impl Room {
                 &mut deals,
                 &journal,
                 market.endpoint(),
-                &mut record
+                &mut record,
+                producers::host_evm_address(),
             )),
             OperationState::Pending
         );
@@ -589,7 +590,8 @@ fn the_recorded_replacement_resumes_generation_at_the_last_countersigned_lap_plu
             &mut room.deals,
             &room.journal,
             room.market.endpoint(),
-            &mut signed
+            &mut signed,
+            producers::host_evm_address(),
         )),
         OperationState::Pending
     );

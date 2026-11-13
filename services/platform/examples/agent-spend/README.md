@@ -19,16 +19,11 @@ workspace: install its locked dependencies with
 owner session, private store paths and service configuration from `index.mjs`
 and `services.mjs`.
 
-Review recovery requires the wallet gateway contract in
-[repair-22-33-1364.kvx](repair-22-33-1364.kvx). The client looks up the verified
-unsigned transaction hash before creation and uses the same hash as the
-idempotency key. A missing lookup route fails explicitly. Reopening the owner
-store reconciles a pending preparation to the original review ID; approval
-still requires the explicit owner terminal confirmation.
+## Review recovery
 
-The declared repair gate runs an in-process walkthrough of the real handoff,
-SQLite owner store, wallet SDK, authentication and HTTP transport against a
-loopback wallet peer. The gate installs the root npm workspace and builds the
-agent SDK and middleware. It imports the example in place and loads committed
-wallet and integration TypeScript sources in process, preserving dependency
-resolution without credentials or an external service.
+The [wallet transport](wallet-review-transport.mjs) looks up the verified unsigned
+transaction hash before creation and uses the same hash as the idempotency key.
+An unavailable lookup route returns an explicit error. Reopening the owner store
+reconciles a pending preparation to the original review ID; approval requires
+explicit owner terminal confirmation. The [service bindings](services.mjs)
+retain the owner context and review state in SQLite.

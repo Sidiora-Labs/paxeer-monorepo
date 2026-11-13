@@ -84,7 +84,7 @@ fn read_private(path: &Path) -> Result<Vec<u8>> {
     Ok(fs::read(path)?)
 }
 
-fn write_private(path: &Path, value: serde_json::Value) -> Result<()> {
+fn write_private(path: &Path, value: &serde_json::Value) -> Result<()> {
     use std::io::Write as _;
     let temporary = path.with_extension("pending");
     let mut file = fs::OpenOptions::new()
@@ -214,15 +214,259 @@ fn current_time(clock: &dyn Clock) -> Result<u64> {
     Ok(clock.sample(Duration::from_secs(1))?.unix_seconds())
 }
 
-#[test]
-fn native_send_provider_and_sdk_real_cluster() -> Result<()> {
-    let clock = RuntimeClock::from_environment()?;
-    let path = std::env::var("PAXEER_X_NATIVE_SEND_LIVE_FIXTURE")?;
-    let fixture: Fixture = serde_json::from_slice(&read_private(Path::new(&path))?)?;
-    if fixture.schema != "layerx-human-native-send-live.v1" {
-        return Err("closed genuine live fixture profile".into());
+fn verify_native_purpose_signature(
+    purpose: &NativeSendPurposeV2,
+    result: &layerx_human_service::custody::signer::NativeConsentSignatureGrant,
+    public: [u8; 32],
+    now: u64,
+) -> Result<[u8; 32]> {
+    let digest: [u8; 32] = Sha256::digest(
+        purpose
+            .canonical_bytes()
+            .map_err(|error| format!("{error:?}"))?,
+    )
+    .into();
+    assert_eq!(result.signer_public_key(), public);
+    ed25519_dalek::Verifier::verify(
+        &ed25519_dalek::VerifyingKey::from_bytes(&public)?,
+        &digest,
+        &ed25519_dalek::Signature::from_bytes(result.signature()),
+    )
+    .map_err(|_| "native purpose signature verification refused")?;
+    let canonical = purpose
+        .canonical_bytes()
+        .map_err(|error| format!("{error:?}"))?;
+    assert_eq!(
+        &NativeSendPurposeV2::from_canonical_bytes(&canonical)
+            .map_err(|error| format!("{error:?}"))?,
+        purpose
+    );
+    assert!(NativePreparationPurposeV1::from_canonical_bytes(&canonical).is_err());
+    assert_eq!(purpose.consent_public_key, public);
+    let signed_purpose = SignedNativeSendPurposeV2 {
+        purpose: purpose.clone(),
+        signature: *result.signature(),
     }
-    let directory = Path::new(&fixture.directory);
+    .validate()
+    .map_err(|error| format!("{error:?}"))?;
+    verify_native_purpose_mutations(purpose, &signed_purpose, &canonical, public, now)?;
+    Ok(digest)
+}
+
+fn verify_native_purpose_mutations(
+    purpose: &NativeSendPurposeV2,
+    signed_purpose: &SignedNativeSendPurposeV2,
+    canonical: &[u8],
+    public: [u8; 32],
+    now: u64,
+) -> Result<()> {
+    let verifier = ed25519_dalek::VerifyingKey::from_bytes(&public)?;
+    let signature = ed25519_dalek::Signature::from_bytes(&signed_purpose.signature);
+    verify_native_purpose_fields(purpose, &verifier, &signature)?;
+    for length in 0..canonical.len() {
+        assert!(NativeSendPurposeV2::from_canonical_bytes(&canonical[..length]).is_err());
+    }
+    let mut trailing = canonical.to_vec();
+    trailing.push(0);
+    assert!(NativeSendPurposeV2::from_canonical_bytes(&trailing).is_err());
+    let mut wrong_owner = signed_purpose.clone();
+    wrong_owner.purpose.consent_public_key[0] ^= 1;
+    assert!(NativeConsent::SendPurpose(&wrong_owner.purpose)
+        .validate_at(now.saturating_mul(1000), public)
+        .is_err());
+    assert!(layerx_crypto::ed25519::verify_digest(
+        &public,
+        &wrong_owner.signature,
+        &Sha256::digest(
+            wrong_owner
+                .purpose
+                .canonical_bytes()
+                .map_err(|error| format!("{error:?}"))?
+        )
+        .into(),
+    )
+    .is_err());
+    let mut expired = purpose.clone();
+    expired.expires_at_ms = now.saturating_mul(1000);
+    assert!(NativeConsent::SendPurpose(&expired)
+        .validate_at(now.saturating_mul(1000), public)
+        .is_err());
+    let mut foreign_key = public;
+    foreign_key[0] ^= 1;
+    assert!(NativeConsent::SendPurpose(purpose)
+        .validate_at(now.saturating_mul(1000), foreign_key)
+        .is_err());
+    Ok(())
+}
+
+fn verify_native_purpose_fields(
+    purpose: &NativeSendPurposeV2,
+    verifier: &ed25519_dalek::VerifyingKey,
+    signature: &ed25519_dalek::Signature,
+) -> Result<()> {
+    for field in 0..17 {
+        let mut changed = purpose.clone();
+        match field {
+            0 => changed.generation += 1,
+            1 => changed.expires_at_ms -= 1,
+            2 => changed.preparation_id[0] ^= 1,
+            3 => changed.canonical_digest[0] ^= 1,
+            4 => changed.economic_action[0] ^= 1,
+            5 => changed.idempotency_key[0] ^= 1,
+            6 => changed.commitment[0] ^= 1,
+            7 => changed.chain_id += 1,
+            8 => changed.consent_public_key[0] ^= 1,
+            9 => {
+                changed.activity = layerx_agent_api::identity::NativeActivity::new(1, 6)
+                    .map_err(|error| format!("{error:?}"))?;
+            }
+            10 => changed.transaction_type += 1,
+            11 => {
+                changed.session_id = layerx_agent_api::identity::SessionId::new("33".repeat(32))
+                    .map_err(|error| format!("{error:?}"))?;
+            }
+            12 => {
+                changed.capability_id =
+                    layerx_agent_api::identity::CapabilityId::new("44".repeat(32))
+                        .map_err(|error| format!("{error:?}"))?;
+            }
+            13 => {
+                changed.tenant = layerx_agent_api::identity::TenantId::new("tenant-b")
+                    .map_err(|error| format!("{error:?}"))?;
+            }
+            14 => {
+                changed.agent_did = layerx_agent_api::identity::AgentDid::new(format!(
+                    "did:layerx:{}",
+                    "bb".repeat(32)
+                ))
+                .map_err(|error| format!("{error:?}"))?;
+            }
+            15 => changed.evm_sender[0] ^= 1,
+            _ => {
+                changed.owner_did = layerx_agent_api::identity::AgentDid::new(format!(
+                    "did:layerx:{}",
+                    "bb".repeat(32)
+                ))
+                .map_err(|error| format!("{error:?}"))?;
+            }
+        }
+        if let Ok(bytes) = changed.canonical_bytes() {
+            let changed_digest: [u8; 32] = Sha256::digest(bytes).into();
+            assert!(ed25519_dalek::Verifier::verify(verifier, &changed_digest, signature).is_err());
+        } else {
+            assert!(changed.validate().is_err());
+        }
+    }
+    Ok(())
+}
+
+fn authenticate_native_grant(
+    scope: &mut layerx_human_service::store::PrincipalScope<'_>,
+    clock: &dyn Clock,
+    principal: &PrincipalId,
+    grant_digest: [u8; 32],
+) -> Result<(Passkeys, layerx_human_service::auth::StepUpEvidence)> {
+    let passkeys = Passkeys::new(AuthConfig {
+        rp_id: "paxportwallet.com".to_owned(),
+        rp_name: "LayerX".to_owned(),
+        origin: "https://paxportwallet.com".to_owned(),
+        ceremony_ttl_secs: 300,
+        assertion_ttl_secs: 60,
+        session_ttl_secs: 300,
+        refresh_ttl_secs: 3600,
+        step_up_ttl_secs: 60,
+        rate_limit: RateLimit {
+            attempts: 100,
+            window_secs: 60,
+        },
+    })?;
+    let account = AccountIdentity::new(principal.as_str(), "Native consent qualification")?;
+    let mut authenticator = Authenticator::open()?;
+    let registration =
+        passkeys.begin_registration(scope, &account, "Disposable passkey", current_time(clock)?)?;
+    let credential = authenticator.credential("register", &registration.ceremony)?;
+    passkeys.finish_registration(
+        scope,
+        &registration.registration_id,
+        &credential,
+        current_time(clock)?,
+    )?;
+    let assertion = passkeys.begin_assertion(scope, current_time(clock)?)?;
+    let credential = authenticator.credential("assert", &assertion.ceremony)?;
+    passkeys.finish_assertion(
+        scope,
+        &assertion.assertion_id,
+        &credential,
+        current_time(clock)?,
+    )?;
+    let session = passkeys.open_session(
+        scope,
+        &assertion.assertion_id,
+        Device::mint("Disposable authenticator", "qualification")?,
+        current_time(clock)?,
+    )?;
+    let confirms = OperationDigest::new(grant_digest);
+    let challenge = passkeys.begin_step_up(
+        scope,
+        session.access_token().expose(),
+        session.csrf_token().expose(),
+        confirms,
+        current_time(clock)?,
+    )?;
+    let credential = authenticator.credential("assert", &challenge.ceremony)?;
+    let mut forged: serde_json::Value =
+        serde_json::from_slice(&URL_SAFE_NO_PAD.decode(&credential)?)?;
+    let mut altered_signature = URL_SAFE_NO_PAD.decode(
+        forged["signature"]
+            .as_str()
+            .ok_or("assertion signature missing")?,
+    )?;
+    altered_signature[0] ^= 1;
+    forged["signature"] = json!(URL_SAFE_NO_PAD.encode(altered_signature));
+    let forged = URL_SAFE_NO_PAD.encode(serde_json::to_vec(&forged)?);
+    assert!(passkeys
+        .finish_step_up(
+            scope,
+            &challenge.challenge_id,
+            &forged,
+            current_time(clock)?
+        )
+        .is_err());
+    let authenticated = passkeys.finish_step_up(
+        scope,
+        &challenge.challenge_id,
+        &credential,
+        current_time(clock)?,
+    )?;
+    assert!(passkeys
+        .finish_step_up(
+            scope,
+            &challenge.challenge_id,
+            &credential,
+            current_time(clock)?
+        )
+        .is_err());
+    Ok((passkeys, authenticated))
+}
+
+struct LiveNativeSetup {
+    clock: Arc<RuntimeClock>,
+    fixture: Fixture,
+    provider: AttestorKms,
+    principal: PrincipalId,
+    key: KeyId,
+    provider_key: String,
+    public: [u8; 32],
+    material: Material,
+    purpose: NativeSendPurposeV2,
+    foreign_principal: PrincipalId,
+    shared_store: Arc<std::sync::Mutex<PrincipalStore>>,
+    custody: CustodySigner,
+    now: u64,
+    trace: TraceId,
+}
+
+fn connect_live_attestor(fixture: &Fixture, clock: &Arc<RuntimeClock>) -> Result<AttestorKms> {
     let nodes: Vec<_> = fixture
         .nodes
         .iter()
@@ -238,6 +482,18 @@ fn native_send_provider_and_sdk_real_cluster() -> Result<()> {
     )?;
     let provider = AttestorKms::connect_with_clock(config, clock.clone())?;
     provider.admit_assertion(&fixture.owner, &fixture.owner_assertion)?;
+    Ok(provider)
+}
+
+fn open_live_native_setup() -> Result<LiveNativeSetup> {
+    let clock = RuntimeClock::from_environment()?;
+    let path = std::env::var("PAXEER_X_NATIVE_SEND_LIVE_FIXTURE")?;
+    let fixture: Fixture = serde_json::from_slice(&read_private(Path::new(&path))?)?;
+    if fixture.schema != "layerx-human-native-send-live.v1" {
+        return Err("closed genuine live fixture profile".into());
+    }
+    let directory = Path::new(&fixture.directory);
+    let provider = connect_live_attestor(&fixture, &clock)?;
     let principal = PrincipalId::new("native-owner")?;
     let key = KeyId::new("primary")?;
     let binding = PrincipalKeyBinding::new(
@@ -248,14 +504,11 @@ fn native_send_provider_and_sdk_real_cluster() -> Result<()> {
     )?;
     let provider_key = format!(
         "lx-{}",
-        binding.digest()[..16]
-            .iter()
-            .map(|byte| format!("{byte:02x}"))
-            .collect::<String>()
+        layerx_human_service::hex::lower((binding.digest()[..16]).as_ref())
     );
     write_private(
         &directory.join("provision.json"),
-        json!({"key_id":provider_key}),
+        &json!({"key_id":provider_key}),
     )?;
     wait(&directory.join("provision-ready"), clock.as_ref())?;
     let keystore = Keystore::open_production(directory.join("custody"), 125, provider.clone())?;
@@ -269,7 +522,7 @@ fn native_send_provider_and_sdk_real_cluster() -> Result<()> {
     assert_eq!(keystore.describe(&principal, &key)?.public_key, public);
     write_private(
         &directory.join("generated.json"),
-        json!({"public":public.to_vec()}),
+        &json!({"public":public.to_vec()}),
     )?;
     wait(&directory.join("signing.json"), clock.as_ref())?;
     let material: Material =
@@ -316,6 +569,206 @@ fn native_send_provider_and_sdk_real_cluster() -> Result<()> {
     getrandom::fill(&mut trace_entropy)
         .map_err(|error| std::io::Error::other(error.to_string()))?;
     let trace = TraceId::mint(trace_entropy);
+    Ok(LiveNativeSetup {
+        clock,
+        fixture,
+        provider,
+        principal,
+        key,
+        provider_key,
+        public,
+        material,
+        purpose,
+        foreign_principal,
+        shared_store,
+        custody,
+        now,
+        trace,
+    })
+}
+
+fn verify_sdk_native_grant(
+    fixture: &Fixture,
+    provider_key: &str,
+    grant: &NativeLocalGrantConsentV1,
+    public: [u8; 32],
+) -> Result<(AttestorSigner, [u8; 32])> {
+    let signers: Vec<_> = fixture.signers.iter().map(String::as_str).collect();
+    let sdk = AttestorSigner::new(client(fixture)?, provider_key, public, &signers, 125)?;
+    let signature =
+        sdk.sign_native_local_grant(grant, "rust-genuine-grant", &fixture.second_assertion)?;
+    let grant_digest: [u8; 32] = Sha256::digest(native_local_grant_signing_bytes(grant)?).into();
+    assert_eq!(signature.digest(), &grant_digest);
+    ed25519_dalek::Verifier::verify(
+        &ed25519_dalek::VerifyingKey::from_bytes(&public)?,
+        &grant_digest,
+        &ed25519_dalek::Signature::from_bytes(signature.signature()),
+    )
+    .map_err(|_| "native SDK grant signature verification refused")?;
+
+    Ok((sdk, grant_digest))
+}
+
+struct GrantValidation<'a> {
+    custody: &'a CustodySigner,
+    principal: &'a PrincipalId,
+    key: &'a KeyId,
+    grant: &'a NativeLocalGrantConsentV1,
+    evidence: &'a layerx_human_service::custody::StepUpEvidence,
+    clock: &'a Arc<RuntimeClock>,
+    trace: &'a TraceId,
+    provider: &'a AttestorKms,
+    fixture: &'a Fixture,
+    public: [u8; 32],
+    grant_digest: [u8; 32],
+}
+
+impl GrantValidation<'_> {
+    fn verify(self, scope: &mut layerx_human_service::store::PrincipalScope<'_>) -> Result<()> {
+        let Self {
+            custody,
+            principal,
+            key,
+            grant,
+            evidence,
+            clock,
+            trace,
+            provider,
+            fixture,
+            public,
+            grant_digest,
+        } = self;
+        let mut changed_grant = (*grant).clone();
+        changed_grant.owner_public_key[0] ^= 1;
+        let mismatched = ready(custody.sign_native_consent_in_scope(
+            scope,
+            NativeConsentRequest::new(
+                principal,
+                key,
+                NativeConsent::LocalGrant(&changed_grant),
+                SignAuthorization::new(Operation::SecuritySettings, Some(evidence)),
+                current_time(clock.as_ref())?,
+                trace.clone(),
+            ),
+        ))?;
+        assert!(matches!(mismatched, Err(CustodyError::StepUpMismatch)));
+        let expiry_skewed_grant = NativeLocalGrantConsentV1 {
+            expires_at_ms: grant.expires_at_ms - 1,
+            ..(*grant).clone()
+        };
+        let invalid_evidence = ready(custody.sign_native_consent_in_scope(
+            scope,
+            NativeConsentRequest::new(
+                principal,
+                key,
+                NativeConsent::LocalGrant(&expiry_skewed_grant),
+                SignAuthorization::new(Operation::SecuritySettings, Some(evidence)),
+                current_time(clock.as_ref())?,
+                trace.clone(),
+            ),
+        ))?;
+        assert!(matches!(
+            invalid_evidence,
+            Err(CustodyError::InvalidEvidence)
+        ));
+        provider.admit_assertion(&fixture.owner, &fixture.second_assertion)?;
+        let signed = ready(custody.sign_native_consent_in_scope(
+            scope,
+            NativeConsentRequest::new(
+                principal,
+                key,
+                NativeConsent::LocalGrant(grant),
+                SignAuthorization::new(Operation::SecuritySettings, Some(evidence)),
+                current_time(clock.as_ref())?,
+                trace.clone(),
+            ),
+        ))??;
+        assert_eq!(signed.signer_public_key(), public);
+        assert_eq!(signed.disclosure_digest(), grant_digest);
+        ed25519_dalek::Verifier::verify(
+            &ed25519_dalek::VerifyingKey::from_bytes(&public)?,
+            &grant_digest,
+            &ed25519_dalek::Signature::from_bytes(signed.signature()),
+        )
+        .map_err(|_| "native custody grant signature verification refused")?;
+        let replayed = ready(custody.sign_native_consent_in_scope(
+            scope,
+            NativeConsentRequest::new(
+                principal,
+                key,
+                NativeConsent::LocalGrant(grant),
+                SignAuthorization::new(Operation::SecuritySettings, Some(evidence)),
+                current_time(clock.as_ref())?,
+                trace.clone(),
+            ),
+        ))?;
+        assert!(matches!(replayed, Err(CustodyError::StepUpReplayed)));
+        Ok(())
+    }
+}
+
+fn assert_invalid_step_up_binding(
+    passkeys: &Passkeys,
+    scope: &mut layerx_human_service::store::PrincipalScope<'_>,
+    authenticated: &layerx_human_service::auth::StepUpEvidence,
+    digests: (OperationDigest, [u8; 32], [u8; 32]),
+    clock: &dyn Clock,
+) -> Result<()> {
+    let (operation_digest, grant_digest, capability_digest) = digests;
+    assert!(matches!(
+        CustodySigner::bind_authenticated_step_up(
+            passkeys,
+            scope,
+            authenticated,
+            operation_digest,
+            Operation::SecuritySettings,
+            grant_digest,
+            capability_digest,
+            current_time(clock)?
+        ),
+        Err(CustodyError::InvalidEvidence)
+    ));
+    Ok(())
+}
+
+fn assert_foreign_owner_refused(
+    sdk: &AttestorSigner,
+    purpose: &NativeSendPurposeV2,
+    fixture: &Fixture,
+) {
+    let stranger =
+        sdk.sign_native_send_purpose(purpose, "rust-foreign-owner", &fixture.foreign_assertion);
+    assert!(matches!(stranger,Err(AttestorError::Refused{code,..}) if code=="token_not_owner"));
+}
+
+fn native_grant(material: &Material, public: [u8; 32]) -> Result<NativeLocalGrantConsentV1> {
+    Ok(NativeLocalGrantConsentV1 {
+        capability: STANDARD.decode(&material.capability)?,
+        session_scope: STANDARD.decode(&material.native_session)?,
+        expires_at_ms: material.expiry_ms,
+        owner_public_key: public,
+        signature: [0; 64],
+    })
+}
+
+#[test]
+fn native_send_provider_and_sdk_real_cluster() -> Result<()> {
+    let LiveNativeSetup {
+        clock,
+        fixture,
+        provider,
+        principal,
+        key,
+        provider_key,
+        public,
+        material,
+        purpose,
+        foreign_principal,
+        shared_store,
+        custody,
+        now,
+        trace,
+    } = open_live_native_setup()?;
     let mut store = shared_store
         .lock()
         .map_err(|_| "native send store lock poisoned")?;
@@ -331,132 +784,8 @@ fn native_send_provider_and_sdk_real_cluster() -> Result<()> {
             trace.clone(),
         ),
     ))??;
-    let digest: [u8; 32] = Sha256::digest(
-        purpose
-            .canonical_bytes()
-            .map_err(|error| format!("{error:?}"))?,
-    )
-    .into();
-    assert_eq!(result.signer_public_key(), public);
-    ed25519_dalek::Verifier::verify(
-        &ed25519_dalek::VerifyingKey::from_bytes(&public)?,
-        &digest,
-        &ed25519_dalek::Signature::from_bytes(result.signature()),
-    )
-    .map_err(|_| "native purpose signature verification refused")?;
-    let canonical = purpose
-        .canonical_bytes()
-        .map_err(|error| format!("{error:?}"))?;
-    assert_eq!(
-        NativeSendPurposeV2::from_canonical_bytes(&canonical)
-            .map_err(|error| format!("{error:?}"))?,
-        purpose
-    );
-    assert!(NativePreparationPurposeV1::from_canonical_bytes(&canonical).is_err());
-    assert_eq!(purpose.consent_public_key, public);
-    let signed_purpose = SignedNativeSendPurposeV2 {
-        purpose: purpose.clone(),
-        signature: *result.signature(),
-    }
-    .validate()
-    .map_err(|error| format!("{error:?}"))?;
-    let verifier = ed25519_dalek::VerifyingKey::from_bytes(&public)?;
-    let signature = ed25519_dalek::Signature::from_bytes(&signed_purpose.signature);
-    for field in 0..17 {
-        let mut changed = purpose.clone();
-        match field {
-            0 => changed.generation += 1,
-            1 => changed.expires_at_ms -= 1,
-            2 => changed.preparation_id[0] ^= 1,
-            3 => changed.canonical_digest[0] ^= 1,
-            4 => changed.economic_action[0] ^= 1,
-            5 => changed.idempotency_key[0] ^= 1,
-            6 => changed.commitment[0] ^= 1,
-            7 => changed.chain_id += 1,
-            8 => changed.consent_public_key[0] ^= 1,
-            9 => {
-                changed.activity = layerx_agent_api::identity::NativeActivity::new(1, 6)
-                    .map_err(|error| format!("{error:?}"))?
-            }
-            10 => changed.transaction_type += 1,
-            11 => {
-                changed.session_id = layerx_agent_api::identity::SessionId::new("33".repeat(32))
-                    .map_err(|error| format!("{error:?}"))?
-            }
-            12 => {
-                changed.capability_id =
-                    layerx_agent_api::identity::CapabilityId::new("44".repeat(32))
-                        .map_err(|error| format!("{error:?}"))?
-            }
-            13 => {
-                changed.tenant = layerx_agent_api::identity::TenantId::new("tenant-b")
-                    .map_err(|error| format!("{error:?}"))?
-            }
-            14 => {
-                changed.agent_did = layerx_agent_api::identity::AgentDid::new(format!(
-                    "did:layerx:{}",
-                    "bb".repeat(32)
-                ))
-                .map_err(|error| format!("{error:?}"))?
-            }
-            15 => changed.evm_sender[0] ^= 1,
-            _ => {
-                changed.owner_did = layerx_agent_api::identity::AgentDid::new(format!(
-                    "did:layerx:{}",
-                    "bb".repeat(32)
-                ))
-                .map_err(|error| format!("{error:?}"))?
-            }
-        }
-        if let Ok(bytes) = changed.canonical_bytes() {
-            let changed_digest: [u8; 32] = Sha256::digest(bytes).into();
-            assert!(
-                ed25519_dalek::Verifier::verify(&verifier, &changed_digest, &signature).is_err()
-            );
-        } else {
-            assert!(changed.validate().is_err());
-        }
-    }
-    for length in 0..canonical.len() {
-        assert!(NativeSendPurposeV2::from_canonical_bytes(&canonical[..length]).is_err());
-    }
-    let mut trailing = canonical.clone();
-    trailing.push(0);
-    assert!(NativeSendPurposeV2::from_canonical_bytes(&trailing).is_err());
-    let mut wrong_owner = signed_purpose.clone();
-    wrong_owner.purpose.consent_public_key[0] ^= 1;
-    assert!(NativeConsent::SendPurpose(&wrong_owner.purpose)
-        .validate_at(now.saturating_mul(1000), public)
-        .is_err());
-    assert!(layerx_crypto::ed25519::verify_digest(
-        &public,
-        &wrong_owner.signature,
-        &Sha256::digest(
-            wrong_owner
-                .purpose
-                .canonical_bytes()
-                .map_err(|error| format!("{error:?}"))?
-        )
-        .into(),
-    )
-    .is_err());
-    let mut expired = purpose.clone();
-    expired.expires_at_ms = now.saturating_mul(1000);
-    assert!(NativeConsent::SendPurpose(&expired)
-        .validate_at(now.saturating_mul(1000), public)
-        .is_err());
-    let mut foreign_key = public;
-    foreign_key[0] ^= 1;
-    assert!(NativeConsent::SendPurpose(&purpose)
-        .validate_at(now.saturating_mul(1000), foreign_key)
-        .is_err());
-    let grant = NativeLocalGrantConsentV1 {
-        capability: STANDARD.decode(&material.capability)?,
-        session_scope: STANDARD.decode(&material.native_session)?,
-        expires_at_ms: material.expiry_ms,
-        owner_public_key: public,
-        signature: [0; 64],
-    };
+    let digest = verify_native_purpose_signature(&purpose, &result, public, now)?;
+    let grant = native_grant(&material, public)?;
     let missing = ready(custody.sign_native_consent_in_scope(
         &mut scope,
         NativeConsentRequest::new(
@@ -469,132 +798,31 @@ fn native_send_provider_and_sdk_real_cluster() -> Result<()> {
         ),
     ))?;
     assert!(matches!(missing, Err(CustodyError::StepUpRequired)));
-    let signers: Vec<_> = fixture.signers.iter().map(String::as_str).collect();
-    let sdk = AttestorSigner::new(client(&fixture)?, &provider_key, public, &signers, 125)?;
-    let signature =
-        sdk.sign_native_local_grant(&grant, "rust-genuine-grant", &fixture.second_assertion)?;
-    let grant_digest: [u8; 32] = Sha256::digest(native_local_grant_signing_bytes(&grant)?).into();
-    assert_eq!(signature.digest(), &grant_digest);
-    ed25519_dalek::Verifier::verify(
-        &ed25519_dalek::VerifyingKey::from_bytes(&public)?,
-        &grant_digest,
-        &ed25519_dalek::Signature::from_bytes(signature.signature()),
-    )
-    .map_err(|_| "native SDK grant signature verification refused")?;
-
-    let passkeys = Passkeys::new(AuthConfig {
-        rp_id: "paxportwallet.com".to_owned(),
-        rp_name: "LayerX".to_owned(),
-        origin: "https://paxportwallet.com".to_owned(),
-        ceremony_ttl_secs: 300,
-        assertion_ttl_secs: 60,
-        session_ttl_secs: 300,
-        refresh_ttl_secs: 3600,
-        step_up_ttl_secs: 60,
-        rate_limit: RateLimit {
-            attempts: 100,
-            window_secs: 60,
-        },
-    })?;
-    let account = AccountIdentity::new(principal.as_str(), "Native consent qualification")?;
-    let mut authenticator = Authenticator::open()?;
-    let registration = passkeys.begin_registration(
-        &mut scope,
-        &account,
-        "Disposable passkey",
-        current_time(clock.as_ref())?,
-    )?;
-    let credential = authenticator.credential("register", &registration.ceremony)?;
-    passkeys.finish_registration(
-        &mut scope,
-        &registration.registration_id,
-        &credential,
-        current_time(clock.as_ref())?,
-    )?;
-    let assertion = passkeys.begin_assertion(&mut scope, current_time(clock.as_ref())?)?;
-    let credential = authenticator.credential("assert", &assertion.ceremony)?;
-    passkeys.finish_assertion(
-        &mut scope,
-        &assertion.assertion_id,
-        &credential,
-        current_time(clock.as_ref())?,
-    )?;
-    let session = passkeys.open_session(
-        &mut scope,
-        &assertion.assertion_id,
-        Device::mint("Disposable authenticator", "qualification")?,
-        current_time(clock.as_ref())?,
-    )?;
+    let (sdk, grant_digest) = verify_sdk_native_grant(&fixture, &provider_key, &grant, public)?;
+    let (passkeys, authenticated) =
+        authenticate_native_grant(&mut scope, clock.as_ref(), &principal, grant_digest)?;
     let confirms = OperationDigest::new(grant_digest);
-    let challenge = passkeys.begin_step_up(
-        &mut scope,
-        session.access_token().expose(),
-        session.csrf_token().expose(),
-        confirms,
-        current_time(clock.as_ref())?,
-    )?;
-    let credential = authenticator.credential("assert", &challenge.ceremony)?;
-    let mut forged: serde_json::Value =
-        serde_json::from_slice(&URL_SAFE_NO_PAD.decode(&credential)?)?;
-    let mut altered_signature = URL_SAFE_NO_PAD.decode(
-        forged["signature"]
-            .as_str()
-            .ok_or("assertion signature missing")?,
-    )?;
-    altered_signature[0] ^= 1;
-    forged["signature"] = json!(URL_SAFE_NO_PAD.encode(altered_signature));
-    let forged = URL_SAFE_NO_PAD.encode(serde_json::to_vec(&forged)?);
-    assert!(passkeys
-        .finish_step_up(
-            &mut scope,
-            &challenge.challenge_id,
-            &forged,
-            current_time(clock.as_ref())?
-        )
-        .is_err());
-    let authenticated = passkeys.finish_step_up(
-        &mut scope,
-        &challenge.challenge_id,
-        &credential,
-        current_time(clock.as_ref())?,
-    )?;
-    assert!(passkeys
-        .finish_step_up(
-            &mut scope,
-            &challenge.challenge_id,
-            &credential,
-            current_time(clock.as_ref())?
-        )
-        .is_err());
     let capability_digest: [u8; 32] = Sha256::digest(&grant.capability).into();
-    assert!(matches!(
-        CustodySigner::bind_authenticated_step_up(
-            &passkeys,
-            &mut scope,
-            &authenticated,
+    assert_invalid_step_up_binding(
+        &passkeys,
+        &mut scope,
+        &authenticated,
+        (
             OperationDigest::new(digest),
-            Operation::SecuritySettings,
             grant_digest,
             capability_digest,
-            current_time(clock.as_ref())?
         ),
-        Err(CustodyError::InvalidEvidence)
-    ));
+        clock.as_ref(),
+    )?;
     drop(scope);
     let mut foreign_scope = store.principal(&foreign_principal)?;
-    assert!(matches!(
-        CustodySigner::bind_authenticated_step_up(
-            &passkeys,
-            &mut foreign_scope,
-            &authenticated,
-            confirms,
-            Operation::SecuritySettings,
-            grant_digest,
-            capability_digest,
-            current_time(clock.as_ref())?
-        ),
-        Err(CustodyError::InvalidEvidence)
-    ));
+    assert_invalid_step_up_binding(
+        &passkeys,
+        &mut foreign_scope,
+        &authenticated,
+        (confirms, grant_digest, capability_digest),
+        clock.as_ref(),
+    )?;
     drop(foreign_scope);
     let mut scope = store.principal(&principal)?;
     let evidence = CustodySigner::bind_authenticated_step_up(
@@ -607,76 +835,23 @@ fn native_send_provider_and_sdk_real_cluster() -> Result<()> {
         capability_digest,
         current_time(clock.as_ref())?,
     )?;
-    let mut changed_grant = grant.clone();
-    changed_grant.owner_public_key[0] ^= 1;
-    let mismatched = ready(custody.sign_native_consent_in_scope(
-        &mut scope,
-        NativeConsentRequest::new(
-            &principal,
-            &key,
-            NativeConsent::LocalGrant(&changed_grant),
-            SignAuthorization::new(Operation::SecuritySettings, Some(&evidence)),
-            current_time(clock.as_ref())?,
-            trace.clone(),
-        ),
-    ))?;
-    assert!(matches!(mismatched, Err(CustodyError::StepUpMismatch)));
-    let expiry_skewed_grant = NativeLocalGrantConsentV1 {
-        expires_at_ms: grant.expires_at_ms - 1,
-        ..grant.clone()
-    };
-    let invalid_evidence = ready(custody.sign_native_consent_in_scope(
-        &mut scope,
-        NativeConsentRequest::new(
-            &principal,
-            &key,
-            NativeConsent::LocalGrant(&expiry_skewed_grant),
-            SignAuthorization::new(Operation::SecuritySettings, Some(&evidence)),
-            current_time(clock.as_ref())?,
-            trace.clone(),
-        ),
-    ))?;
-    assert!(matches!(
-        invalid_evidence,
-        Err(CustodyError::InvalidEvidence)
-    ));
-    provider.admit_assertion(&fixture.owner, &fixture.second_assertion)?;
-    let signed = ready(custody.sign_native_consent_in_scope(
-        &mut scope,
-        NativeConsentRequest::new(
-            &principal,
-            &key,
-            NativeConsent::LocalGrant(&grant),
-            SignAuthorization::new(Operation::SecuritySettings, Some(&evidence)),
-            current_time(clock.as_ref())?,
-            trace.clone(),
-        ),
-    ))??;
-    assert_eq!(signed.signer_public_key(), public);
-    assert_eq!(signed.disclosure_digest(), grant_digest);
-    ed25519_dalek::Verifier::verify(
-        &ed25519_dalek::VerifyingKey::from_bytes(&public)?,
-        &grant_digest,
-        &ed25519_dalek::Signature::from_bytes(signed.signature()),
-    )
-    .map_err(|_| "native custody grant signature verification refused")?;
-    let replayed = ready(custody.sign_native_consent_in_scope(
-        &mut scope,
-        NativeConsentRequest::new(
-            &principal,
-            &key,
-            NativeConsent::LocalGrant(&grant),
-            SignAuthorization::new(Operation::SecuritySettings, Some(&evidence)),
-            current_time(clock.as_ref())?,
-            trace.clone(),
-        ),
-    ))?;
-    assert!(matches!(replayed, Err(CustodyError::StepUpReplayed)));
+    GrantValidation {
+        custody: &custody,
+        principal: &principal,
+        key: &key,
+        grant: &grant,
+        evidence: &evidence,
+        clock: &clock,
+        trace: &trace,
+        provider: &provider,
+        fixture: &fixture,
+        public,
+        grant_digest,
+    }
+    .verify(&mut scope)?;
     println!("native custody genuine passkey issuance and grant consent verified");
     println!("native custody principal digest forgery ceremony-replay and consumed-evidence refusals verified");
-    let stranger =
-        sdk.sign_native_send_purpose(&purpose, "rust-foreign-owner", &fixture.foreign_assertion);
-    assert!(matches!(stranger,Err(AttestorError::Refused{code,..}) if code=="token_not_owner"));
+    assert_foreign_owner_refused(&sdk, &purpose, &fixture);
     Ok(())
 }
 
@@ -757,51 +932,21 @@ fn native_send_v2_purpose_with_foreign_consent_key_or_sender_is_refused() -> Res
     })
 }
 
-fn rotated_primary_key_release_proof(
-    check: impl FnOnce(&SignedNativeSendPurposeV2, &ed25519_dalek::SigningKey, &[u8]) -> Result<()>,
-) -> Result<()> {
-    use ed25519_dalek::Signer as _;
-    use layerx_agent_api::identity::{AgentDid, CapabilityId, NativeActivity, SessionId, TenantId};
-    use layerx_crypto::send::{ledger_payment_call, CallOptions, SendDebit};
-    use layerx_human_service::custody::{EnvelopeKms, KeyEntropy, KmsProvider, SignRequest};
-    use layerx_human_test_support::{directory, install_and_open, retention_uniform, tenancy};
-    use layerx_types::intent::SendAuthorizationKind;
-    use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration};
+struct PreparedDebit {
+    debit: layerx_crypto::send::SendDebit,
+    payload: Vec<u8>,
+    prepared: layerx_crypto::send::DisclosedCall,
+    canonical: Vec<u8>,
+    digest: [u8; 32],
+}
 
-    let root = directory("native-send-v2-rotation");
-    fs::create_dir(&root)?;
-    fs::set_permissions(&root, fs::Permissions::from_mode(0o700))?;
-    let secret_path = root.join("envelope-root");
-    fs::write(&secret_path, [0x42; 64])?;
-    fs::set_permissions(&secret_path, fs::Permissions::from_mode(0o600))?;
-    let provider = || EnvelopeKms::new("file-kms://native-send-v2", &secret_path);
-    let keys = Keystore::open_development(root.join("keys"), 125, provider()?)?;
-    let principal = PrincipalId::new("rotating-owner")?;
-    let key = KeyId::new("primary")?;
-    let original = keys.generate(
-        &principal,
-        &key,
-        KeyClass::HumanPrimary,
-        KeyEntropy::new([0x31; 32], [0x32; 16], [0x33; 24])?,
-    )?;
-    let owner = AgentDid::new(format!(
-        "did:layerx:{}",
-        original
-            .iter()
-            .map(|byte| format!("{byte:02x}"))
-            .collect::<String>()
-    ))
-    .map_err(|error| format!("{error:?}"))?;
-    let current = keys.rotate(&principal, &key)?;
-    assert_ne!(original, current.public_key);
-    assert_eq!(keys.describe(&principal, &key)?, current);
-    let sender = keys.evm_wallet(&principal, &key)?;
-    let seed = provider()?.export_primary_key(
-        &keys.evm_binding(&principal, &key)?,
-        &keys.evm_provider_reference(&principal, &key)?,
-    )?;
-    let consent_key = ed25519_dalek::SigningKey::from_bytes(&seed);
-    assert_eq!(consent_key.verifying_key().to_bytes(), current.public_key);
+fn prepare_rotated_debit(
+    seed: &[u8; 32],
+    current_public: [u8; 32],
+    sender: [u8; 20],
+) -> Result<PreparedDebit> {
+    use layerx_crypto::send::{ledger_payment_call, CallOptions, SendDebit};
+    use layerx_types::intent::SendAuthorizationKind;
     let debit = SendDebit {
         from: [0x41; 32],
         to: [0x42; 32],
@@ -827,7 +972,7 @@ fn rotated_primary_key_release_proof(
     ))??;
     let payload = layerx_intents::canonical::signed_send_payload(
         &debit,
-        current.public_key,
+        current_public,
         *authorization.as_bytes(),
     )
     .map_err(|error| format!("{error:?}"))?;
@@ -845,11 +990,137 @@ fn rotated_primary_key_release_proof(
     .map_err(|error| format!("{error:?}"))?;
     let canonical = prepared.call.encode_unsigned();
     let digest = Sha256::digest(&canonical).into();
+    Ok(PreparedDebit {
+        debit,
+        payload,
+        prepared,
+        canonical,
+        digest,
+    })
+}
+
+fn verify_encoded_rotation_prepare(
+    owner: &layerx_agent_api::identity::AgentDid,
+    current_public: [u8; 32],
+    sender: [u8; 20],
+    debit: &layerx_crypto::send::SendDebit,
+    payload: Vec<u8>,
+    signed: &SignedNativeSendPurposeV2,
+) -> Result<()> {
+    let request = layerx_agent_api::prepare::PrepareRequest {
+        protocol_activity_type: layerx_human_service::server::native_send::NATIVE_SEND,
+        actor: owner.clone(),
+        authority: layerx_agent_api::identity::AuthorityRef::new(layerx_human_service::hex::lower(
+            (current_public).as_ref(),
+        ))
+        .map_err(|error| format!("{error:?}"))?,
+        account_sequence: layerx_agent_api::Sequence(7),
+        timestamp_bound: layerx_agent_api::prepare::TimestampBound {
+            not_before: layerx_agent_api::TimestampSeconds(1_000),
+            not_after: layerx_agent_api::TimestampSeconds(1_010),
+        },
+        idempotency_key: layerx_agent_api::prepare::IdempotencyRef::new(
+            layerx_human_service::hex::lower((debit.idempotency_key).as_ref()),
+        )
+        .map_err(|error| format!("{error:?}"))?,
+        fee_limit: layerx_agent_api::Amount(700_000),
+        payload_hash: Sha256::digest(&payload).into(),
+        payload: layerx_agent_api::prepare::PayloadBytes::new(payload)
+            .map_err(|error| format!("{error:?}"))?,
+    };
+    let wire = layerx_human_service::server::native_send::encode_native_send_prepare_v2(
+        &request, signed, None,
+    )
+    .map_err(|error| format!("{error:?}"))?;
+    assert_eq!(wire["purpose"]["purpose"]["version"], "2");
+    assert_eq!(wire["purpose"]["purpose"]["owner_did"], owner.as_str());
+    assert_eq!(wire["purpose"]["purpose"]["transaction_type"], "2");
+    assert_eq!(wire["purpose"]["purpose"]["chain_id"], "125");
+    assert_eq!(
+        wire["purpose"]["purpose"]["consent_public_key"],
+        layerx_human_service::hex::lower((current_public).as_ref())
+    );
+    assert_eq!(
+        wire["purpose"]["purpose"]["evm_sender"],
+        layerx_human_service::hex::lower((sender).as_ref())
+    );
+    assert!(wire["purpose"].get("owner_public_key").is_none());
+    Ok(())
+}
+
+fn verify_rotation_release(
+    signed: &SignedNativeSendPurposeV2,
+    consent_key: &ed25519_dalek::SigningKey,
+    raw: &[u8],
+    owner: &layerx_agent_api::identity::AgentDid,
+    original: [u8; 32],
+    sender: [u8; 20],
+    check: impl FnOnce(&SignedNativeSendPurposeV2, &ed25519_dalek::SigningKey, &[u8]) -> Result<()>,
+) -> Result<()> {
+    use ed25519_dalek::Signer as _;
+    let frame = signed
+        .canonical_bytes()
+        .map_err(|error| format!("{error:?}"))?;
+    layerx_human_kms::attestor::validate_native_send_release(
+        &frame,
+        owner,
+        &signed.purpose.consent_public_key,
+        &sender,
+        raw,
+    )?;
+    assert_eq!(&signed.purpose.owner_did, owner);
+    assert_ne!(signed.purpose.consent_public_key, original);
+    assert!(NativeConsent::SendPurpose(&signed.purpose)
+        .validate_at(1_000_000, original)
+        .is_err());
+    assert!(layerx_human_kms::attestor::validate_native_send_release(
+        &frame, owner, &original, &sender, raw
+    )
+    .is_err());
+    let mut different_sender = sender;
+    different_sender[0] ^= 1;
+    assert!(layerx_human_kms::attestor::validate_native_send_release(
+        &frame,
+        owner,
+        &signed.purpose.consent_public_key,
+        &different_sender,
+        raw
+    )
+    .is_err());
+    let mut changed = signed.clone();
+    changed.purpose.evm_sender = different_sender;
+    changed.signature = consent_key
+        .sign(&NativeConsent::SendPurpose(&changed.purpose).digest()?)
+        .to_bytes();
+    assert!(layerx_human_kms::attestor::validate_native_send_release(
+        &changed
+            .canonical_bytes()
+            .map_err(|error| format!("{error:?}"))?,
+        owner,
+        &signed.purpose.consent_public_key,
+        &different_sender,
+        raw,
+    )
+    .is_err());
+    check(signed, consent_key, raw)?;
+    Ok(())
+}
+
+fn sign_rotated_purpose(
+    owner: &layerx_agent_api::identity::AgentDid,
+    current_public: [u8; 32],
+    sender: [u8; 20],
+    digest: [u8; 32],
+    idempotency_key: [u8; 32],
+    consent_key: &ed25519_dalek::SigningKey,
+) -> Result<SignedNativeSendPurposeV2> {
+    use ed25519_dalek::Signer as _;
+    use layerx_agent_api::identity::{CapabilityId, NativeActivity, SessionId, TenantId};
     let purpose = NativeSendPurposeV2 {
         tenant: TenantId::new("tenant-a").map_err(|error| format!("{error:?}"))?,
         agent_did: owner.clone(),
         owner_did: owner.clone(),
-        consent_public_key: current.public_key,
+        consent_public_key: current_public,
         evm_sender: sender,
         session_id: SessionId::new("51".repeat(32)).map_err(|error| format!("{error:?}"))?,
         generation: 2,
@@ -861,69 +1132,74 @@ fn rotated_primary_key_release_proof(
         preparation_id: digest,
         canonical_digest: digest,
         economic_action: [0x53; 32],
-        idempotency_key: debit.idempotency_key,
+        idempotency_key,
         commitment: [0x54; 32],
     };
-    NativeConsent::SendPurpose(&purpose).validate_at(1_000_000, current.public_key)?;
+    NativeConsent::SendPurpose(&purpose).validate_at(1_000_000, current_public)?;
     let signed = SignedNativeSendPurposeV2 {
         purpose: purpose.clone(),
         signature: consent_key
             .sign(&NativeConsent::SendPurpose(&purpose).digest()?)
             .to_bytes(),
     };
-    let request = layerx_agent_api::prepare::PrepareRequest {
-        protocol_activity_type: layerx_human_service::server::native_send::NATIVE_SEND,
-        actor: owner.clone(),
-        authority: layerx_agent_api::identity::AuthorityRef::new(
-            current
-                .public_key
-                .iter()
-                .map(|byte| format!("{byte:02x}"))
-                .collect::<String>(),
-        )
-        .map_err(|error| format!("{error:?}"))?,
-        account_sequence: layerx_agent_api::Sequence(7),
-        timestamp_bound: layerx_agent_api::prepare::TimestampBound {
-            not_before: layerx_agent_api::TimestampSeconds(1_000),
-            not_after: layerx_agent_api::TimestampSeconds(1_010),
-        },
-        idempotency_key: layerx_agent_api::prepare::IdempotencyRef::new(
-            debit
-                .idempotency_key
-                .iter()
-                .map(|byte| format!("{byte:02x}"))
-                .collect::<String>(),
-        )
-        .map_err(|error| format!("{error:?}"))?,
-        fee_limit: layerx_agent_api::Amount(700_000),
-        payload_hash: Sha256::digest(&payload).into(),
-        payload: layerx_agent_api::prepare::PayloadBytes::new(payload)
-            .map_err(|error| format!("{error:?}"))?,
-    };
-    let wire = layerx_human_service::server::native_send::encode_native_send_prepare_v2(
-        &request, &signed, None,
-    )
+    Ok(signed)
+}
+
+fn rotated_primary_key_release_proof(
+    check: impl FnOnce(&SignedNativeSendPurposeV2, &ed25519_dalek::SigningKey, &[u8]) -> Result<()>,
+) -> Result<()> {
+    use layerx_agent_api::identity::AgentDid;
+    use layerx_human_service::custody::{EnvelopeKms, KeyEntropy, KmsProvider, SignRequest};
+    use layerx_human_test_support::{directory, install_and_open, retention_uniform, tenancy};
+    use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration};
+
+    let root = directory("native-send-v2-rotation");
+    fs::create_dir(&root)?;
+    fs::set_permissions(&root, fs::Permissions::from_mode(0o700))?;
+    let secret_path = root.join("envelope-root");
+    fs::write(&secret_path, [0x42; 64])?;
+    fs::set_permissions(&secret_path, fs::Permissions::from_mode(0o600))?;
+    let provider = || EnvelopeKms::new("file-kms://native-send-v2", &secret_path);
+    let keys = Keystore::open_development(root.join("keys"), 125, provider()?)?;
+    let principal = PrincipalId::new("rotating-owner")?;
+    let key = KeyId::new("primary")?;
+    let original = keys.generate(
+        &principal,
+        &key,
+        KeyClass::HumanPrimary,
+        KeyEntropy::new([0x31; 32], [0x32; 16], [0x33; 24])?,
+    )?;
+    let owner = AgentDid::new(format!(
+        "did:layerx:{}",
+        layerx_human_service::hex::lower((original).as_ref())
+    ))
     .map_err(|error| format!("{error:?}"))?;
-    assert_eq!(wire["purpose"]["purpose"]["version"], "2");
-    assert_eq!(wire["purpose"]["purpose"]["owner_did"], owner.as_str());
-    assert_eq!(wire["purpose"]["purpose"]["transaction_type"], "2");
-    assert_eq!(wire["purpose"]["purpose"]["chain_id"], "125");
-    assert_eq!(
-        wire["purpose"]["purpose"]["consent_public_key"],
-        current
-            .public_key
-            .iter()
-            .map(|byte| format!("{byte:02x}"))
-            .collect::<String>()
-    );
-    assert_eq!(
-        wire["purpose"]["purpose"]["evm_sender"],
-        sender
-            .iter()
-            .map(|byte| format!("{byte:02x}"))
-            .collect::<String>()
-    );
-    assert!(wire["purpose"].get("owner_public_key").is_none());
+    let current = keys.rotate(&principal, &key)?;
+    assert_ne!(original, current.public_key);
+    assert_eq!(keys.describe(&principal, &key)?, current);
+    let sender = keys.evm_wallet(&principal, &key)?;
+    let seed = provider()?.export_primary_key(
+        &keys.evm_binding(&principal, &key)?,
+        &keys.evm_provider_reference(&principal, &key)?,
+    )?;
+    let consent_key = ed25519_dalek::SigningKey::from_bytes(&seed);
+    assert_eq!(consent_key.verifying_key().to_bytes(), current.public_key);
+    let PreparedDebit {
+        debit,
+        payload,
+        prepared,
+        canonical,
+        digest,
+    } = prepare_rotated_debit(&seed, current.public_key, sender)?;
+    let signed = sign_rotated_purpose(
+        &owner,
+        current.public_key,
+        sender,
+        digest,
+        debit.idempotency_key,
+        &consent_key,
+    )?;
+    verify_encoded_rotation_prepare(&owner, current.public_key, sender, &debit, payload, &signed)?;
     let activity = ActivityType::new(ModuleId::Asset, 5).map_err(|error| format!("{error:?}"))?;
     let registry = ModuleRegistry::new(&[ModuleRegistration::new(ModuleId::Asset, &[activity])
         .map_err(|error| format!("{error:?}"))?])
@@ -961,51 +1237,7 @@ fn rotated_primary_key_release_proof(
         layerx_crypto::signer::AgentSignature::new(*transaction_signature.signature())
             .map_err(|error| format!("{error:?}"))?;
     let raw = layerx_crypto::evm_transaction::assemble(&prepared.call, &transaction_signature);
-    let frame = signed
-        .canonical_bytes()
-        .map_err(|error| format!("{error:?}"))?;
-    layerx_human_kms::attestor::validate_native_send_release(
-        &frame,
-        &owner,
-        &current.public_key,
-        &sender,
-        &raw,
-    )?;
-    assert_eq!(signed.purpose.owner_did, owner);
-    assert_ne!(signed.purpose.consent_public_key, original);
-    assert!(NativeConsent::SendPurpose(&purpose)
-        .validate_at(1_000_000, original)
-        .is_err());
-    assert!(layerx_human_kms::attestor::validate_native_send_release(
-        &frame, &owner, &original, &sender, &raw
-    )
-    .is_err());
-    let mut different_sender = sender;
-    different_sender[0] ^= 1;
-    assert!(layerx_human_kms::attestor::validate_native_send_release(
-        &frame,
-        &owner,
-        &current.public_key,
-        &different_sender,
-        &raw
-    )
-    .is_err());
-    let mut changed = signed.clone();
-    changed.purpose.evm_sender = different_sender;
-    changed.signature = consent_key
-        .sign(&NativeConsent::SendPurpose(&changed.purpose).digest()?)
-        .to_bytes();
-    assert!(layerx_human_kms::attestor::validate_native_send_release(
-        &changed
-            .canonical_bytes()
-            .map_err(|error| format!("{error:?}"))?,
-        &owner,
-        &current.public_key,
-        &different_sender,
-        &raw,
-    )
-    .is_err());
-    check(&signed, &consent_key, &raw)?;
+    verify_rotation_release(&signed, &consent_key, &raw, &owner, original, sender, check)?;
     drop(scope);
     drop(retained);
     drop(store);

@@ -1,7 +1,7 @@
 //! Audit 22.30.110. Real service handlers, TLS journal and node transport;
 //! peers implement the recorded RESP/JSON-RPC boundary and persist to disk.
 use base64::Engine as _;
-use ed25519_dalek::{Signer as _, SigningKey};
+use ed25519_dalek::SigningKey;
 use layerx_crypto::evm_transaction::{decode_signed, recover_sender, transaction_hash};
 use layerx_interop_service::config::{self, Config};
 use layerx_interop_service::relay::{ChainRelay, RelayError, RelayOutcome};
@@ -43,7 +43,13 @@ static SERIAL: Mutex<()> = Mutex::new(());
 const TIMEOUT: Duration = Duration::from_secs(5);
 
 fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+    use std::fmt::Write as _;
+    let mut encoded = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        write!(&mut encoded, "{byte:02x}")
+            .unwrap_or_else(|error| panic!("hex encoding: {error:?}"));
+    }
+    encoded
 }
 
 fn bytes(text: &str) -> TestResult<Vec<u8>> {
@@ -94,9 +100,13 @@ impl Listener {
             while !stopped.load(Ordering::SeqCst) {
                 match listener.accept() {
                     Ok((stream, _)) => {
-                        stream.set_nodelay(true).unwrap();
-                        stream.set_read_timeout(Some(TIMEOUT)).unwrap();
-                        stream.set_write_timeout(Some(TIMEOUT)).unwrap();
+                        stream.set_nodelay(true).or_panic("test value");
+                        stream
+                            .set_read_timeout(Some(TIMEOUT))
+                            .or_panic("test value");
+                        stream
+                            .set_write_timeout(Some(TIMEOUT))
+                            .or_panic("test value");
                         let handler = Arc::clone(&handler);
                         thread::spawn(move || handler(stream));
                     }
@@ -117,7 +127,11 @@ impl Listener {
 impl Drop for Listener {
     fn drop(&mut self) {
         self.stop.store(true, Ordering::SeqCst);
-        self.worker.take().unwrap().join().unwrap();
+        self.worker
+            .take()
+            .or_panic("test value")
+            .join()
+            .or_panic("test value");
     }
 }
 
@@ -174,7 +188,7 @@ fn tag(value: &str) -> Vec<u8> {
     array(&[value.as_bytes().to_vec()])
 }
 fn text(value: &[u8]) -> &str {
-    std::str::from_utf8(value).unwrap()
+    std::str::from_utf8(value).or_panic("test value")
 }
 
 #[derive(Default, Serialize, Deserialize)]
@@ -201,6 +215,142 @@ impl StoreState {
             hash.insert((*field).into(), value.to_vec());
         }
     }
+    fn eval_relay(&mut self, script: &str, keys: &[String], args: &[Vec<u8>]) -> Vec<u8> {
+        let k = |i: usize| keys[i - 1].as_str();
+        let a = |i: usize| args[i - 1].as_slice();
+        let terminal = format!("{}:finalized", k(1));
+        if script.contains("local terminal") {
+            assert_eq!(keys.len(), 1);
+            if let Some(hash) = self.strings.get(&terminal) {
+                assert_eq!(hash, a(1));
+                return bulk(Some(hash));
+            }
+            let Some(old) = self.strings.get(k(1)) else {
+                return bulk(None);
+            };
+            assert_eq!(&old[..32], a(1));
+            self.strings.insert(terminal, a(1).to_vec());
+            let deadline = unix_millis() + text(a(2)).parse::<u128>().or_panic("test value") * 1000;
+            self.expiries.insert(k(1).to_owned(), deadline);
+            self.expiries
+                .insert(format!("{}:submitted", k(1)), deadline);
+            return bulk(Some(a(1)));
+        }
+        if script.contains("string.char(1) .. ARGV[1]") {
+            assert_eq!(keys.len(), 1);
+            if let Some(hash) = self.strings.get(&terminal) {
+                return bulk(Some(&[vec![0], hash.clone()].concat()));
+            }
+            let old = self.strings.get(k(1)).cloned();
+            let (status, record) = if let Some(old) = old {
+                (0, old)
+            } else {
+                self.strings.insert(k(1).into(), a(1).to_vec());
+                (1, a(1).to_vec())
+            };
+            return bulk(Some(&[vec![status], record].concat()));
+        }
+        if script.contains("local progress") {
+            assert_eq!(keys.len(), 2);
+            let old = self.strings.get(k(1));
+            if let Some(hash) = self.strings.get(&terminal) {
+                if let Some(old) = old {
+                    assert_eq!(&old[..32], hash);
+                }
+                return bulk(Some(&[vec![2], old.unwrap_or(hash).clone()].concat()));
+            }
+            return match old {
+                None => bulk(None),
+                Some(record) => {
+                    let progress = self.strings.get(k(2));
+                    if let Some(progress) = progress {
+                        assert_eq!(progress, &record[..32]);
+                    }
+                    bulk(Some(
+                        &[vec![u8::from(progress.is_some())], record.clone()].concat(),
+                    ))
+                }
+            };
+        }
+        assert!(script.contains("ARGV[2]"));
+        assert_eq!(keys.len(), 2);
+        if self.strings.get(k(1)).map(Vec::as_slice) != Some(a(1)) {
+            return bulk(None);
+        }
+        self.strings.insert(k(2).into(), a(2).to_vec());
+        bulk(Some(a(2)))
+    }
+    fn eval_reserved(&mut self, keys: &[String], args: &[Vec<u8>]) -> Vec<u8> {
+        let k = |i: usize| keys[i - 1].as_str();
+        let a = |i: usize| args[i - 1].as_slice();
+        assert_eq!(keys.len(), 8);
+        if self.field(k(1), "disabled") != b"0" || self.field(k(1), "epoch") != a(1) {
+            return tag("revoked");
+        }
+        let digest = self.field(k(3), "digest");
+        if !digest.is_empty() {
+            return array(&[
+                b"existing".to_vec(),
+                digest,
+                self.field(k(3), "state"),
+                self.field(k(3), "response"),
+                self.field(k(3), "receipt"),
+                self.field(k(3), "principal"),
+            ]);
+        }
+        if self.value(k(5)) != a(8) {
+            return tag("audit_retry");
+        }
+        if self.strings.get(k(7)).is_some_and(|owner| owner != a(10))
+            || self
+                .strings
+                .get(k(8))
+                .is_some_and(|operation| operation != k(3).as_bytes())
+        {
+            return tag("conflict");
+        }
+        let used: u64 = if self.value(k(2)).is_empty() {
+            0
+        } else {
+            text(self.value(k(2))).parse().or_panic("test value")
+        };
+        if used >= text(a(2)).parse().or_panic("test value") {
+            return array(&[b"rate_limited".to_vec(), a(3).to_vec()]);
+        }
+        self.strings
+            .insert(k(2).into(), (used + 1).to_string().into_bytes());
+        self.set_fields(
+            k(3),
+            &[
+                ("scope", &k(3).as_bytes()[13..]),
+                ("digest", a(5)),
+                ("state", b"pending"),
+                ("started_at", a(7)),
+                ("principal", a(10)),
+                ("activity_id", &k(7).as_bytes()[17..]),
+                ("idempotency_key", a(11)),
+                (
+                    "continuation_count",
+                    (args.len() - 11).to_string().as_bytes(),
+                ),
+            ],
+        );
+        for (i, value) in args[11..].iter().enumerate() {
+            self.set_fields(k(3), &[(&format!("continuation_{i}"), value)]);
+        }
+        self.sets
+            .entry(k(6).into())
+            .or_default()
+            .insert(k(3).as_bytes().to_vec());
+        self.strings.insert(k(7).into(), a(10).to_vec());
+        self.strings.insert(k(8).into(), k(3).as_bytes().to_vec());
+        self.strings.insert(k(5).into(), a(9).to_vec());
+        let deadline = unix_millis() + text(a(4)).parse::<u128>().or_panic("test value") * 1000;
+        for key in [k(3), k(7), k(8)] {
+            self.expiries.insert(key.to_owned(), deadline);
+        }
+        tag("reserved")
+    }
     fn eval(&mut self, script: &str, keys: &[String], args: &[Vec<u8>]) -> Vec<u8> {
         let k = |i: usize| keys[i - 1].as_str();
         let a = |i: usize| args[i - 1].as_slice();
@@ -219,68 +369,7 @@ impl StoreState {
             return bulk(Some(keys.join("\n").as_bytes()));
         }
         if k(1).starts_with("interop:relay:v1:") {
-            let terminal = format!("{}:finalized", k(1));
-            if script.contains("local terminal") {
-                assert_eq!(keys.len(), 1);
-                if let Some(hash) = self.strings.get(&terminal) {
-                    assert_eq!(hash, a(1));
-                    return bulk(Some(hash));
-                }
-                let Some(old) = self.strings.get(k(1)) else {
-                    return bulk(None);
-                };
-                assert_eq!(&old[..32], a(1));
-                self.strings.insert(terminal, a(1).to_vec());
-                let deadline = unix_millis() + text(a(2)).parse::<u128>().unwrap() * 1000;
-                self.expiries.insert(k(1).to_owned(), deadline);
-                self.expiries
-                    .insert(format!("{}:submitted", k(1)), deadline);
-                return bulk(Some(a(1)));
-            }
-            if script.contains("string.char(1) .. ARGV[1]") {
-                assert_eq!(keys.len(), 1);
-                if let Some(hash) = self.strings.get(&terminal) {
-                    return bulk(Some(&[vec![0], hash.clone()].concat()));
-                }
-                let old = self.strings.get(k(1)).cloned();
-                let (status, record) = match old {
-                    Some(old) => (0, old),
-                    None => {
-                        self.strings.insert(k(1).into(), a(1).to_vec());
-                        (1, a(1).to_vec())
-                    }
-                };
-                return bulk(Some(&[vec![status], record].concat()));
-            }
-            if script.contains("local progress") {
-                assert_eq!(keys.len(), 2);
-                let old = self.strings.get(k(1));
-                if let Some(hash) = self.strings.get(&terminal) {
-                    if let Some(old) = old {
-                        assert_eq!(&old[..32], hash);
-                    }
-                    return bulk(Some(&[vec![2], old.unwrap_or(hash).clone()].concat()));
-                }
-                return match old {
-                    None => bulk(None),
-                    Some(record) => {
-                        let progress = self.strings.get(k(2));
-                        if let Some(progress) = progress {
-                            assert_eq!(progress, &record[..32]);
-                        }
-                        bulk(Some(
-                            &[vec![u8::from(progress.is_some())], record.clone()].concat(),
-                        ))
-                    }
-                };
-            }
-            assert!(script.contains("ARGV[2]"));
-            assert_eq!(keys.len(), 2);
-            if self.strings.get(k(1)).map(Vec::as_slice) != Some(a(1)) {
-                return bulk(None);
-            }
-            self.strings.insert(k(2).into(), a(2).to_vec());
-            return bulk(Some(a(2)));
+            return self.eval_relay(script, keys, args);
         }
         if script.contains("return {'issued'}") {
             assert_eq!(keys.len(), 4);
@@ -290,7 +379,9 @@ impl StoreState {
             if self.hashes.contains_key(k(1)) {
                 return tag("conflict");
             }
-            if self.sets.get(k(2)).map_or(0, BTreeSet::len) >= text(a(10)).parse().unwrap() {
+            if self.sets.get(k(2)).map_or(0, BTreeSet::len)
+                >= text(a(10)).parse().or_panic("test value")
+            {
                 return tag("limit");
             }
             self.set_fields(
@@ -315,73 +406,7 @@ impl StoreState {
             return tag("issued");
         }
         if script.contains("return {'reserved'}") {
-            assert_eq!(keys.len(), 8);
-            if self.field(k(1), "disabled") != b"0" || self.field(k(1), "epoch") != a(1) {
-                return tag("revoked");
-            }
-            let digest = self.field(k(3), "digest");
-            if !digest.is_empty() {
-                return array(&[
-                    b"existing".to_vec(),
-                    digest,
-                    self.field(k(3), "state"),
-                    self.field(k(3), "response"),
-                    self.field(k(3), "receipt"),
-                    self.field(k(3), "principal"),
-                ]);
-            }
-            if self.value(k(5)) != a(8) {
-                return tag("audit_retry");
-            }
-            if self.strings.get(k(7)).is_some_and(|owner| owner != a(10))
-                || self
-                    .strings
-                    .get(k(8))
-                    .is_some_and(|operation| operation != k(3).as_bytes())
-            {
-                return tag("conflict");
-            }
-            let used: u64 = if self.value(k(2)).is_empty() {
-                0
-            } else {
-                text(self.value(k(2))).parse().unwrap()
-            };
-            if used >= text(a(2)).parse().unwrap() {
-                return array(&[b"rate_limited".to_vec(), a(3).to_vec()]);
-            }
-            self.strings
-                .insert(k(2).into(), (used + 1).to_string().into_bytes());
-            self.set_fields(
-                k(3),
-                &[
-                    ("scope", &k(3).as_bytes()[13..]),
-                    ("digest", a(5)),
-                    ("state", b"pending"),
-                    ("started_at", a(7)),
-                    ("principal", a(10)),
-                    ("activity_id", &k(7).as_bytes()[17..]),
-                    ("idempotency_key", a(11)),
-                    (
-                        "continuation_count",
-                        (args.len() - 11).to_string().as_bytes(),
-                    ),
-                ],
-            );
-            for (i, value) in args[11..].iter().enumerate() {
-                self.set_fields(k(3), &[(&format!("continuation_{i}"), value)]);
-            }
-            self.sets
-                .entry(k(6).into())
-                .or_default()
-                .insert(k(3).as_bytes().to_vec());
-            self.strings.insert(k(7).into(), a(10).to_vec());
-            self.strings.insert(k(8).into(), k(3).as_bytes().to_vec());
-            self.strings.insert(k(5).into(), a(9).to_vec());
-            let deadline = unix_millis() + text(a(4)).parse::<u128>().unwrap() * 1000;
-            for key in [k(3), k(7), k(8)] {
-                self.expiries.insert(key.to_owned(), deadline);
-            }
-            return tag("reserved");
+            return self.eval_reserved(keys, args);
         }
         assert!(
             script.contains("return {'completed'}"),
@@ -452,7 +477,7 @@ impl StoreState {
                 array(&values)
             }
             "EVAL" => {
-                let count: usize = text(&arguments[2]).parse().unwrap();
+                let count: usize = text(&arguments[2]).parse().or_panic("test value");
                 let keys = arguments[3..3 + count]
                     .iter()
                     .map(|key| text(key).to_owned())
@@ -486,7 +511,7 @@ impl Redis {
             let Ok(mut stream) = acceptor.accept(stream) else {
                 return;
             };
-            let auth = command(&mut stream).unwrap();
+            let auth = command(&mut stream).or_panic("test value");
             assert_eq!(
                 auth,
                 [
@@ -495,16 +520,17 @@ impl Redis {
                     b"repair-secret".to_vec()
                 ]
             );
-            stream.write_all(b"+OK\r\n").unwrap();
+            stream.write_all(b"+OK\r\n").or_panic("test value");
             while let Ok(arguments) = command(&mut stream) {
                 let reply = {
-                    let mut state = shared.lock().unwrap();
+                    let mut state = shared.lock().or_panic("test value");
                     let reply = state.exchange(&arguments);
-                    let mut file = fs::File::create(snapshot.with_extension("tmp")).unwrap();
-                    file.write_all(&serde_json::to_vec(&*state).unwrap())
-                        .unwrap();
-                    file.sync_all().unwrap();
-                    fs::rename(snapshot.with_extension("tmp"), &snapshot).unwrap();
+                    let mut file =
+                        fs::File::create(snapshot.with_extension("tmp")).or_panic("test value");
+                    file.write_all(&serde_json::to_vec(&*state).or_panic("test value"))
+                        .or_panic("test value");
+                    file.sync_all().or_panic("test value");
+                    fs::rename(snapshot.with_extension("tmp"), &snapshot).or_panic("test value");
                     reply
                 };
                 if arguments[0] == b"EVAL"
@@ -529,7 +555,12 @@ impl Redis {
         })
     }
     fn record(&self, key: &str) -> Option<Vec<u8>> {
-        self.state.lock().unwrap().strings.get(key).cloned()
+        self.state
+            .lock()
+            .or_panic("test value")
+            .strings
+            .get(key)
+            .cloned()
     }
 }
 
@@ -540,12 +571,117 @@ struct NodeState {
     methods: Vec<String>,
     connects: Vec<String>,
 }
-struct Node {
+pub struct Node {
     listener: Listener,
     state: Arc<Mutex<NodeState>>,
     fault: Arc<AtomicU8>,
     hide_receipt: Arc<AtomicBool>,
 }
+fn respond_node(
+    mut stream: TcpStream,
+    shared: &Arc<Mutex<NodeState>>,
+    faulted: &Arc<AtomicU8>,
+    hidden: &Arc<AtomicBool>,
+    case: &Value,
+    raw: &[u8],
+) {
+    let connect = line(&mut stream).or_panic("test value");
+    let connect = text(&connect).to_owned();
+    assert_eq!(connect, "CONNECT router.railway.internal:9443 HTTP/1.1");
+    shared.lock().or_panic("test value").connects.push(connect);
+    while !line(&mut stream).or_panic("test value").is_empty() {}
+    stream
+        .write_all(b"HTTP/1.1 200 Connection established\r\n\r\n")
+        .or_panic("test value");
+    let request = http::read_request(&mut stream, 2 * 1024 * 1024).or_panic("test value");
+    assert_eq!(request.method, "POST");
+    assert_eq!(
+        request.headers.get("host").map(String::as_str),
+        Some("router.railway.internal:9443")
+    );
+    let rpc: Value = serde_json::from_slice(&request.body).or_panic("test value");
+    let method = rpc["method"].as_str().or_panic("test value");
+    let result = {
+        let mut state = shared.lock().or_panic("test value");
+        state.methods.push(method.into());
+        match method {
+            "px_getReceiptKeys" => {
+                assert_eq!(rpc["params"], json!([]));
+                if faulted.load(Ordering::SeqCst) == 3 {
+                    json!({"keys": []})
+                } else {
+                    json!({"keys": [case["pinnedKey"]]})
+                }
+            }
+            "eth_sendRawTransaction" => {
+                let sent =
+                    bytes(rpc["params"][0].as_str().or_panic("test value")).or_panic("test value");
+                assert_eq!(
+                    sent.as_slice(),
+                    raw,
+                    "only the payer's exact recorded signed bytes may be sent"
+                );
+                assert_eq!(
+                    format!("0x{}", hex(&transaction_hash(&sent))),
+                    case["receiptJson"]["txHash"]
+                );
+                state.attempts.push(sent.clone());
+                let mode = faulted.load(Ordering::SeqCst);
+                if matches!(mode, 1 | 2) {
+                    faulted.store(0, Ordering::SeqCst);
+                }
+                if mode == 1 {
+                    return;
+                }
+                state.accepted.insert(sent);
+                if mode == 2 {
+                    return;
+                }
+                case["receiptJson"]["txHash"].clone()
+            }
+            "pax_sequencerReceipt" => {
+                if rpc["params"] != json!([case["receiptJson"]["txHash"]])
+                    || hidden.swap(false, Ordering::SeqCst)
+                    || state.accepted.is_empty()
+                {
+                    Value::Null
+                } else if faulted.load(Ordering::SeqCst) == 4 {
+                    let mut receipt = case["receiptJson"].clone();
+                    receipt["rung"] = json!("receipted");
+                    receipt
+                        .as_object_mut()
+                        .or_panic("test value")
+                        .remove("blockNumber");
+                    receipt
+                        .as_object_mut()
+                        .or_panic("test value")
+                        .remove("blockHash");
+                    receipt
+                } else {
+                    case["receiptJson"].clone()
+                }
+            }
+            "eth_getBlockByNumber" => {
+                assert_eq!(rpc["params"][0], case["receiptJson"]["blockNumber"]);
+                case["blockJson"].clone()
+            }
+            other => panic!("unrecorded node fixture method: {other}"),
+        }
+    };
+    http::write_response(
+        &mut stream,
+        &OutgoingResponse {
+            status: 200,
+            content_type: "application/json".into(),
+            headers: Vec::new(),
+            retry_after: None,
+            body: serde_json::to_vec(&json!({"jsonrpc":"2.0", "id":rpc["id"], "result":result}))
+                .or_panic("test value"),
+        },
+    )
+    .or_panic("test value");
+}
+
 impl Node {
     fn start(case: &Value) -> TestResult<Self> {
         let state = Arc::new(Mutex::new(NodeState::default()));
@@ -556,96 +692,8 @@ impl Node {
         let hidden = Arc::clone(&hide_receipt);
         let case = case.clone();
         let raw = bytes(case["rawTransaction"].as_str().ok_or("raw transaction")?)?;
-        let listener = Listener::start("127.0.0.1:0".parse()?, move |mut stream| {
-            let connect = line(&mut stream).unwrap();
-            let connect = text(&connect).to_owned();
-            assert_eq!(connect, "CONNECT router.railway.internal:9443 HTTP/1.1");
-            shared.lock().unwrap().connects.push(connect);
-            while !line(&mut stream).unwrap().is_empty() {}
-            stream
-                .write_all(b"HTTP/1.1 200 Connection established\r\n\r\n")
-                .unwrap();
-            let request = http::read_request(&mut stream, 2 * 1024 * 1024).unwrap();
-            assert_eq!(request.method, "POST");
-            assert_eq!(
-                request.headers.get("host").map(String::as_str),
-                Some("router.railway.internal:9443")
-            );
-            let rpc: Value = serde_json::from_slice(&request.body).unwrap();
-            let method = rpc["method"].as_str().unwrap();
-            let result = {
-                let mut state = shared.lock().unwrap();
-                state.methods.push(method.into());
-                match method {
-                    "px_getReceiptKeys" => {
-                        assert_eq!(rpc["params"], json!([]));
-                        if faulted.load(Ordering::SeqCst) == 3 {
-                            json!({"keys": []})
-                        } else {
-                            json!({"keys": [case["pinnedKey"]]})
-                        }
-                    }
-                    "eth_sendRawTransaction" => {
-                        let sent = bytes(rpc["params"][0].as_str().unwrap()).unwrap();
-                        assert_eq!(
-                            sent, raw,
-                            "only the payer's exact recorded signed bytes may be sent"
-                        );
-                        assert_eq!(
-                            format!("0x{}", hex(&transaction_hash(&sent))),
-                            case["receiptJson"]["txHash"]
-                        );
-                        state.attempts.push(sent.clone());
-                        let mode = faulted.load(Ordering::SeqCst);
-                        if matches!(mode, 1 | 2) {
-                            faulted.store(0, Ordering::SeqCst);
-                        }
-                        if mode == 1 {
-                            return;
-                        }
-                        state.accepted.insert(sent);
-                        if mode == 2 {
-                            return;
-                        }
-                        case["receiptJson"]["txHash"].clone()
-                    }
-                    "pax_sequencerReceipt" => {
-                        if rpc["params"] != json!([case["receiptJson"]["txHash"]])
-                            || hidden.swap(false, Ordering::SeqCst)
-                            || state.accepted.is_empty()
-                        {
-                            Value::Null
-                        } else if faulted.load(Ordering::SeqCst) == 4 {
-                            let mut receipt = case["receiptJson"].clone();
-                            receipt["rung"] = json!("receipted");
-                            receipt.as_object_mut().unwrap().remove("blockNumber");
-                            receipt.as_object_mut().unwrap().remove("blockHash");
-                            receipt
-                        } else {
-                            case["receiptJson"].clone()
-                        }
-                    }
-                    "eth_getBlockByNumber" => {
-                        assert_eq!(rpc["params"][0], case["receiptJson"]["blockNumber"]);
-                        case["blockJson"].clone()
-                    }
-                    other => panic!("unrecorded node fixture method: {other}"),
-                }
-            };
-            http::write_response(
-                &mut stream,
-                &OutgoingResponse {
-                    status: 200,
-                    content_type: "application/json".into(),
-                    headers: Vec::new(),
-                    retry_after: None,
-                    body: serde_json::to_vec(
-                        &json!({"jsonrpc":"2.0", "id":rpc["id"], "result":result}),
-                    )
-                    .unwrap(),
-                },
-            )
-            .unwrap();
+        let listener = Listener::start("127.0.0.1:0".parse()?, move |stream| {
+            respond_node(stream, &shared, &faulted, &hidden, &case, &raw);
         })?;
         Ok(Self {
             listener,
@@ -654,8 +702,8 @@ impl Node {
             hide_receipt,
         })
     }
-    fn reset(&self) {
-        *self.state.lock().unwrap() = NodeState::default();
+    pub fn reset(&self) {
+        *self.state.lock().or_panic("test value") = NodeState::default();
     }
 }
 
@@ -829,7 +877,7 @@ fn gateway(dir: &Path, redis: &Redis, node: &Node) -> TestResult<Config> {
 fn unix_millis() -> u128 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .unwrap()
+        .or_panic("test value")
         .as_millis()
 }
 
@@ -950,7 +998,9 @@ fn x402_verify_request(raw: &[u8]) -> TestResult<Value> {
 
 #[test]
 fn obsolete_service_config_and_readiness_component_type() -> TestResult {
-    let _serial = SERIAL.lock().unwrap_or_else(|error| error.into_inner());
+    let _serial = SERIAL
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     let case = fixture()?;
     let dir = Directory::new()?;
     let identity = configure(&dir.0, &case)?;
@@ -1000,14 +1050,14 @@ fn readiness_cli_declaration_and_concrete_proof_workflow() -> TestResult {
     let pin = SequencerAuthorization::new(
         bytes(key["keyId"].as_str().ok_or("key id")?)?
             .try_into()
-            .unwrap(),
+            .or_panic("test value"),
         bytes(key["publicKey"].as_str().ok_or("public key")?)?
             .try_into()
-            .unwrap(),
-        key["firstHeight"].as_u64().unwrap(),
-        key["lastHeight"].as_u64().unwrap(),
+            .or_panic("test value"),
+        key["firstHeight"].as_u64().or_panic("test value"),
+        key["lastHeight"].as_u64().or_panic("test value"),
     );
-    let raw = bytes(case["rawTransaction"].as_str().unwrap())?;
+    let raw = bytes(case["rawTransaction"].as_str().or_panic("test value"))?;
     let exported =
         PortableLayerXEvidence::from_sequencer_receipt(&case["receiptJson"], &[pin], Some(&raw))?;
     let document = exported.to_json()?;
@@ -1022,7 +1072,9 @@ fn readiness_cli_declaration_and_concrete_proof_workflow() -> TestResult {
 
 #[test]
 fn payer_chain_id_through_actual_verify_handler() -> TestResult {
-    let _serial = SERIAL.lock().unwrap_or_else(|error| error.into_inner());
+    let _serial = SERIAL
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     let case = fixture()?;
     let dir = Directory::new()?;
     let identity = configure(&dir.0, &case)?;
@@ -1061,13 +1113,15 @@ fn payer_chain_id_through_actual_verify_handler() -> TestResult {
             );
         }
     }
-    assert!(node.state.lock().unwrap().attempts.is_empty());
+    assert!(node.state.lock().or_panic("test value").attempts.is_empty());
     Ok(())
 }
 
 #[test]
 fn payment_expiry_units_through_mounted_real_clock_route() -> TestResult {
-    let _serial = SERIAL.lock().unwrap_or_else(|error| error.into_inner());
+    let _serial = SERIAL
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     let case = fixture()?;
     let dir = Directory::new()?;
     let identity = configure(&dir.0, &case)?;
@@ -1105,7 +1159,7 @@ fn payment_expiry_units_through_mounted_real_clock_route() -> TestResult {
         }
     }
     // The unchanged ledger-produced capture is now expired in real milliseconds.
-    let raw = bytes(case["rawTransaction"].as_str().unwrap())?;
+    let raw = bytes(case["rawTransaction"].as_str().or_panic("test value"))?;
     let (_, status, response) = mounted(
         config,
         "POST",
@@ -1119,7 +1173,7 @@ fn payment_expiry_units_through_mounted_real_clock_route() -> TestResult {
         response["result"]["invalidReason"],
         "activity_time_window_refused"
     );
-    assert!(node.state.lock().unwrap().attempts.is_empty());
+    assert!(node.state.lock().or_panic("test value").attempts.is_empty());
     Ok(())
 }
 
@@ -1135,9 +1189,11 @@ fn committed_case() -> TestResult<Value> {
 
 #[test]
 fn relay_retention_reopens_and_late_replay_never_submits_again() -> TestResult {
-    let _serial = SERIAL.lock().unwrap_or_else(|error| error.into_inner());
+    let _serial = SERIAL
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     let case = committed_case()?;
-    let raw = bytes(case["rawTransaction"].as_str().unwrap())?;
+    let raw = bytes(case["rawTransaction"].as_str().or_panic("test value"))?;
     let (tx, sig) = decode_signed(&raw)?;
     let sender = recover_sender(&tx, &sig)?;
     let hash = transaction_hash(&raw);
@@ -1229,7 +1285,7 @@ fn relay_retention_reopens_and_late_replay_never_submits_again() -> TestResult {
         Err(RelayError::FinalizedEvidenceUnavailable)
     );
     assert_eq!(relay.compact_finalized()?, 0);
-    let state = node.state.lock().unwrap();
+    let state = node.state.lock().or_panic("test value");
     assert_eq!(state.accepted.len(), 1);
     assert_eq!(state.attempts, vec![raw]);
     Ok(())
@@ -1237,7 +1293,9 @@ fn relay_retention_reopens_and_late_replay_never_submits_again() -> TestResult {
 
 #[test]
 fn committed_claim_without_proof_stays_receipted() -> TestResult {
-    let _serial = SERIAL.lock().unwrap_or_else(|error| error.into_inner());
+    let _serial = SERIAL
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     for (label, block) in [
         ("absent", Value::Null),
         ("matching", committed_case()?["blockJson"].clone()),
@@ -1253,7 +1311,7 @@ fn committed_claim_without_proof_stays_receipted() -> TestResult {
         let node = Node::start(&case)?;
         let redis = Redis::start(&dir.0, &identity, "127.0.0.1:0".parse()?)?;
         let config = gateway(&dir.0, &redis, &node)?;
-        let raw = bytes(case["rawTransaction"].as_str().unwrap())?;
+        let raw = bytes(case["rawTransaction"].as_str().or_panic("test value"))?;
         let (tx, sig) = decode_signed(&raw)?;
         let RelayOutcome::Executed(evidence) =
             ChainRelay::from_config(&config).relay(label, &raw, recover_sender(&tx, &sig)?)?
@@ -1266,23 +1324,23 @@ fn committed_claim_without_proof_stays_receipted() -> TestResult {
         );
         assert_eq!(
             evidence.signed_receipt,
-            bytes(case["signedReceipt"].as_str().unwrap())?
+            bytes(case["signedReceipt"].as_str().or_panic("test value"))?
         );
     }
     Ok(())
 }
 
 fn es256_key(seed: u8) -> p256::ecdsa::SigningKey {
-    p256::ecdsa::SigningKey::from_bytes((&[seed; 32]).into()).unwrap()
+    p256::ecdsa::SigningKey::from_bytes((&[seed; 32]).into()).or_panic("test value")
 }
 
-fn jws(header: Value, payload: Value, key: &p256::ecdsa::SigningKey) -> String {
+fn jws(header: &Value, payload: &Value, key: &p256::ecdsa::SigningKey) -> String {
     use base64::engine::general_purpose::URL_SAFE_NO_PAD;
     use p256::ecdsa::signature::Signer as _;
     let input = format!(
         "{}.{}",
-        URL_SAFE_NO_PAD.encode(serde_json::to_vec(&header).unwrap()),
-        URL_SAFE_NO_PAD.encode(serde_json::to_vec(&payload).unwrap())
+        URL_SAFE_NO_PAD.encode(serde_json::to_vec(header).or_panic("test value")),
+        URL_SAFE_NO_PAD.encode(serde_json::to_vec(payload).or_panic("test value"))
     );
     let signature: p256::ecdsa::Signature = key.sign(input.as_bytes());
     format!("{input}.{}", URL_SAFE_NO_PAD.encode(signature.to_bytes()))
@@ -1310,11 +1368,11 @@ impl layerx_ap2::KeyResolver for MandateKeys {
 fn mandates(now: u64) -> (String, String) {
     use base64::engine::general_purpose::URL_SAFE_NO_PAD;
     let checkout = jws(
-        json!({"alg":"ES256","typ":"JWT","kid":"layerx-beta-merchant-checkout-key"}),
-        json!({
+        &json!({"alg":"ES256","typ":"JWT","kid":"layerx-beta-merchant-checkout-key"}),
+        &json!({
         "id":"checkout-223386","merchant":{"id":"merchant-001","name":"Test Merchant"},
-        "line_items":[{"id":"line-001","item":{"id":"sku-001","title":"Node credit","price":1000000},"quantity":1,"totals":[{"type":"total","amount":1000000}]}],
-        "status":"completed","currency":"USD","totals":[{"type":"total","amount":1000000}],"links":[]}),
+        "line_items":[{"id":"line-001","item":{"id":"sku-001","title":"Node credit","price":1_000_000},"quantity":1,"totals":[{"type":"total","amount":1_000_000}]}],
+        "status":"completed","currency":"USD","totals":[{"type":"total","amount":1_000_000}],"links":[]}),
         &es256_key(9),
     );
     let reference = URL_SAFE_NO_PAD.encode(Sha256::digest(checkout.as_bytes()));
@@ -1322,8 +1380,8 @@ fn mandates(now: u64) -> (String, String) {
         format!(
             "{}~",
             jws(
-                json!({"alg":"ES256","typ":"dc+sd-jwt","kid":kid}),
-                json!({"iat":now-60,"exp":now+3600,"delegate_payload":[mandate]}),
+                &json!({"alg":"ES256","typ":"dc+sd-jwt","kid":kid}),
+                &json!({"iat":now-60,"exp":now+3600,"delegate_payload":[mandate]}),
                 &es256_key(9)
             )
         )
@@ -1335,7 +1393,7 @@ fn mandates(now: u64) -> (String, String) {
         ),
         root(
             "layerx-beta-payment-mandate-key",
-            json!({"vct":"mandate.payment.1","transaction_id":reference,"payee":{"id":"merchant-001","name":"Test Merchant"},"payment_amount":{"amount":1000000,"currency":"USD"},"payment_instrument":{"id":"card-001","type":"card"},"iat":now-30,"exp":now+1800}),
+            json!({"vct":"mandate.payment.1","transaction_id":reference,"payee":{"id":"merchant-001","name":"Test Merchant"},"payment_amount":{"amount":1_000_000,"currency":"USD"},"payment_instrument":{"id":"card-001","type":"card"},"iat":now-30,"exp":now+1800}),
         ),
     )
 }
@@ -1350,12 +1408,12 @@ fn hosted_ap2_fixture() -> TestResult<(Value, Value, layerx_ap2::LayerXAssetBind
     };
     use layerx_interop_gateway::principal::PrincipalId;
     let mut case = fixture()?;
-    let original = bytes(case["rawTransaction"].as_str().unwrap())?;
+    let original = bytes(case["rawTransaction"].as_str().or_panic("test value"))?;
     let (mut transaction, _) = decode_signed(&original)?;
     let word = |index: usize| -> [u8; 32] {
         transaction.data[4 + index * 32..4 + (index + 1) * 32]
             .try_into()
-            .unwrap()
+            .or_panic("test value")
     };
     let binding = LayerXAssetBinding {
         currency: "USD".into(),
@@ -1385,7 +1443,7 @@ fn hosted_ap2_fixture() -> TestResult<(Value, Value, layerx_ap2::LayerXAssetBind
     )?;
     transaction.nonce = 0;
     transaction.data[4 + 4 * 32 + 24..4 + 5 * 32]
-        .copy_from_slice(&(server::payment_now_millis()? + 600000).to_be_bytes());
+        .copy_from_slice(&(server::payment_now_millis()? + 600_000).to_be_bytes());
     transaction.data[4 + 5 * 32..4 + 6 * 32].copy_from_slice(&payment.idempotency_key());
     let raw = transaction.sign(&[0x3b; 32])?;
     let (tx, sig) = decode_signed(&raw)?;
@@ -1427,7 +1485,7 @@ fn hosted_ap2_fixture() -> TestResult<(Value, Value, layerx_ap2::LayerXAssetBind
 }
 
 #[path = "support/payment_fixture.rs"]
-mod payment_fixture;
+pub mod payment_fixture;
 use payment_fixture::emit_node_receipt;
 
 fn configure_ap2(
@@ -1463,43 +1521,26 @@ fn verify_receipt_jwt(jwt: &str, key: &p256::ecdsa::VerifyingKey, kid: &str) -> 
     Ok(serde_json::from_slice(&URL_SAFE_NO_PAD.decode(parts[1])?)?)
 }
 
-#[test]
-fn hosted_ap2_signed_export_and_restarted_replay() -> TestResult {
-    let _serial = SERIAL.lock().unwrap_or_else(|error| error.into_inner());
-    let (case, body, binding) = hosted_ap2_fixture()?;
-    let dir = Directory::new()?;
-    let identity = configure_ap2(&dir.0, &case, &binding)?;
-    let node = Node::start(&case)?;
-    let mut redis = Redis::start(&dir.0, &identity, "127.0.0.1:0".parse()?)?;
-    let mut config = gateway(&dir.0, &redis, &node)?;
-    // The gateway replay window may exceed the journal's independently tested 1s fixture.
-    config.idempotency_seconds = 60;
-    let authorization = issue(&config)?;
-    let (config, status, response) = mounted(
-        config,
-        "POST",
-        "/v1/http/ap2/execute",
-        &body,
-        Some(&authorization),
-        "ap2",
-    )?;
-    assert_eq!(status, 200, "{response}");
-    assert_eq!(response["result"]["verificationLevel"], "receipted");
+fn assert_ap2_export(case: &Value, body: &Value, response: &Value, config: &Config) -> TestResult {
     let result = &response["result"];
     let portable =
         layerx_ap2::PortableLayerXEvidence::from_json(&serde_json::to_vec(&result["layerx"])?)?;
     let verified = portable.verify_v2(&config.receipt_keys)?;
     assert_eq!(
         verified.raw_transaction(),
-        Some(bytes(case["rawTransaction"].as_str().unwrap())?.as_slice())
+        Some(bytes(case["rawTransaction"].as_str().or_panic("test value"))?.as_slice())
     );
     assert_eq!(
         verified.activity_id(),
-        transaction_hash(&bytes(case["rawTransaction"].as_str().unwrap())?)
+        transaction_hash(&bytes(
+            case["rawTransaction"].as_str().or_panic("test value")
+        )?)
     );
     let pair = (
-        body["checkout_presentation"].as_str().unwrap(),
-        body["payment_presentation"].as_str().unwrap(),
+        body["checkout_presentation"]
+            .as_str()
+            .or_panic("test value"),
+        body["payment_presentation"].as_str().or_panic("test value"),
     );
     let context = layerx_ap2::VerificationContext {
         now: SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs(),
@@ -1534,6 +1575,34 @@ fn hosted_ap2_signed_export_and_restarted_replay() -> TestResult {
         assert_eq!(payload["status"], "Success");
         assert_eq!(payload["layerx_evidence"], result["layerx"]);
     }
+    Ok(())
+}
+
+#[test]
+fn hosted_ap2_signed_export_and_restarted_replay() -> TestResult {
+    let _serial = SERIAL
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let (case, body, binding) = hosted_ap2_fixture()?;
+    let dir = Directory::new()?;
+    let identity = configure_ap2(&dir.0, &case, &binding)?;
+    let node = Node::start(&case)?;
+    let mut redis = Redis::start(&dir.0, &identity, "127.0.0.1:0".parse()?)?;
+    let mut config = gateway(&dir.0, &redis, &node)?;
+    // The gateway replay window may exceed the journal's independently tested 1s fixture.
+    config.idempotency_seconds = 60;
+    let authorization = issue(&config)?;
+    let (config, status, response) = mounted(
+        config,
+        "POST",
+        "/v1/http/ap2/execute",
+        &body,
+        Some(&authorization),
+        "ap2",
+    )?;
+    assert_eq!(status, 200, "{response}");
+    assert_eq!(response["result"]["verificationLevel"], "receipted");
+    assert_ap2_export(&case, &body, &response, &config)?;
     let operation = response["operation"].as_str().ok_or("operation")?;
     let stored = config
         .store
@@ -1564,7 +1633,7 @@ fn hosted_ap2_signed_export_and_restarted_replay() -> TestResult {
     )?;
     assert_eq!(status, 200, "{replay}");
     assert_eq!(replay, response);
-    let state = node.state.lock().unwrap();
+    let state = node.state.lock().or_panic("test value");
     assert_eq!(state.attempts.len(), 1);
     assert_eq!(state.accepted.len(), 1);
     Ok(())
@@ -1572,7 +1641,9 @@ fn hosted_ap2_signed_export_and_restarted_replay() -> TestResult {
 
 #[test]
 fn committed_claim_without_proof_hosted_ap2_response() -> TestResult {
-    let _serial = SERIAL.lock().unwrap_or_else(|error| error.into_inner());
+    let _serial = SERIAL
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     for scenario in ["absent", "unrelated", "matching"] {
         let (mut case, body, binding) = hosted_ap2_fixture()?;
         let committed = committed_case()?;
@@ -1624,10 +1695,32 @@ fn committed_claim_without_proof_hosted_ap2_response() -> TestResult {
         assert!(node
             .state
             .lock()
-            .unwrap()
+            .or_panic("test value")
             .methods
             .iter()
             .any(|method| method == "eth_getBlockByNumber"));
     }
     Ok(())
+}
+
+trait OrPanic {
+    type Output;
+
+    fn or_panic(self, context: &str) -> Self::Output;
+}
+
+impl<T, E: std::fmt::Debug> OrPanic for std::result::Result<T, E> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|error| panic!("{context}: {error:?}"))
+    }
+}
+
+impl<T> OrPanic for std::option::Option<T> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|| panic!("{context}"))
+    }
 }
