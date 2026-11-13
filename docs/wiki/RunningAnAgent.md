@@ -6,9 +6,9 @@ registers a daemon-bound MCP client with an agent runtime. The daemon owns the
 signing, policy, budget, approval, and receipt-resolution paths. Installing a
 client does not create protocol authority.
 
-Paxeer mainnet-beta is one BFT network, with EVM chain ID `125` (`0x7d`).
-The kernel is part of the network and proposes blocks. Execution and finality
-belong to that network: a receipt is final once its block is committed.
+Paxeer mainnet-beta uses EVM chain ID `125` (`0x7d`). The LayerX kernel inside
+`paxd` executes and orders each transaction and builds each block; validators
+check and commit it. Execution and finality belong to that network: a receipt is final once its block is committed.
 Sub-chains are tenant domains in the database, not additional infrastructure
 or new public chain endpoints.
 

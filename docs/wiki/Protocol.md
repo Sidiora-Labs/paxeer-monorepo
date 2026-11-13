@@ -1,9 +1,9 @@
 # Protocol
 
-Paxeer mainnet-beta is one BFT network running `paxd`, with EVM chain ID
-`125` (`0x7d`). LayerX is merged into that network. The kernel is part of the
-network and its block proposal path; execution, accounting and consensus
-operate within the same chain. A receipt is final once its block is committed.
+Paxeer mainnet-beta runs `paxd` with EVM chain ID `125` (`0x7d`). LayerX is
+merged into that network. The LayerX kernel inside `paxd` executes and orders each
+transaction and builds each block; validators check and commit it. Execution,
+accounting and consensus operate within the same chain. A receipt is final once its block is committed.
 
 The pre-merge split between LayerX execution and Paxeer settlement is retired.
 Checkpoint attestations and an external finality ladder are no longer the
