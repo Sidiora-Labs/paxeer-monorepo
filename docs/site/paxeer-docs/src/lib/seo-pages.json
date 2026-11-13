@@ -1,0 +1,390 @@
+{
+  "/a2a": {
+    "title": "Agent-to-Agent Payments",
+    "description": "Discover a payment agent, submit structured tasks and reconcile each outcome with Paxeer X protocol evidence."
+  },
+  "/accounts": {
+    "title": "Accounts & Unified Identity",
+    "description": "One user account across Paxeer EVM and LayerX, with explicit asset accounts and protocol-owned financial subaccounts."
+  },
+  "/activities": {
+    "title": "Activities",
+    "description": "The signed, canonical unit of agent action across the Paxeer X execution system."
+  },
+  "/admin-hpx": {
+    "title": "Admin & HPX",
+    "description": "Runtime administration, the HPX node distribution, and operational controls for Paxeer X."
+  },
+  "/agent-budgets": {
+    "title": "Agent Budgets and Approvals",
+    "description": "Fund bounded agent activity, delegate spending authority, review exact actions and reconcile verified results."
+  },
+  "/agent-runtime": {
+    "title": "Agent runtime",
+    "description": "Run the agent daemon, enrol an identity, connect MCP runtimes, and preserve policy and receipt continuity across restarts."
+  },
+  "/agents": {
+    "title": "Agents on Paxeer X",
+    "description": "Give autonomous software a verifiable identity, explicit authority, bounded spending, and an evidence trail for every network action."
+  },
+  "/assets": {
+    "title": "Assets and issuance",
+    "description": "Register assets, control issuance, move value, and connect business instruments to payments and markets across Paxeer X."
+  },
+  "/bridge": {
+    "title": "Bridging and custody",
+    "description": "Move assets between external chains, Paxeer X settlement, and LayerX execution with explicit proofs, replay protection, and withdrawal guarantees."
+  },
+  "/building-a-frontend": {
+    "title": "Build a Frontend",
+    "description": "Connect a browser wallet to Paxeer with React and viem, show PAX balances, and read contracts at a consistent block."
+  },
+  "/checkpoints": {
+    "title": "Checkpoints",
+    "description": "The LayerX checkpoint anchor at 0x1014: its historical ABI, and its retirement at the layerx-merge upgrade."
+  },
+  "/cli": {
+    "title": "Command-Line Workflows",
+    "description": "Operate Paxeer X identities, native assets, payments, deterministic Programs and agent transports with the layerx CLI."
+  },
+  "/commerce": {
+    "title": "Agent commerce",
+    "description": "Connect merchant checkout, trusted shopping agents, delegated authorization, and receipt-backed payment through Paxeer X."
+  },
+  "/configuration": {
+    "title": "Configuration",
+    "description": "The current paxd configuration files, node modes, RPC settings, and storage controls."
+  },
+  "/consensus": {
+    "title": "Consensus",
+    "description": "Consensus service wiring, application execution, trusted headers, and validator signing state."
+  },
+  "/contracts": {
+    "title": "Contracts",
+    "description": "Build Solidity applications on Paxeer X and integrate wrapped PAX, token pointers, and native precompile interfaces."
+  },
+  "/custody": {
+    "title": "Custody, deposits & exits",
+    "description": "The pre-merge custody precompile is retired. This page states what replaced it and what still holds for key custody."
+  },
+  "/data-availability": {
+    "title": "Data Availability",
+    "description": "Retrieve authenticated batch data, verify it against the committed availability root, and preserve independent evidence through archives and mirrors."
+  },
+  "/debugging-transactions": {
+    "title": "Debug Transactions",
+    "description": "Diagnose reverted or missing Paxeer transactions with receipts, calldata, gas checks, traces, and reproducible local tests."
+  },
+  "/developer-funding": {
+    "title": "Developer funding and allocations",
+    "description": "Request a bounded development allocation, track its signed treasury transfer, and verify the funded account before your first Paxeer X payment."
+  },
+  "/discovery": {
+    "title": "Program Discovery",
+    "description": "Discover registered programs and resolve current interfaces, lifecycle, accounts and signed deployment provenance."
+  },
+  "/docker": {
+    "title": "Docker Development",
+    "description": "Local Docker clusters, state-sync RPC nodes, and monitoring for Paxeer X development and testing."
+  },
+  "/emulator": {
+    "title": "Local Protocol Emulator",
+    "description": "Develop Paxeer X applications against real native protocol transitions, local signing identities and verifiable receipts."
+  },
+  "/engine": {
+    "title": "Engine",
+    "description": "Paxeer's EVM execution engine, transaction processing, and state transition management."
+  },
+  "/escrow": {
+    "title": "Escrow and Conditional Payments",
+    "description": "Reserve funds, capture milestone payments, refund unused balances, and resolve disputes through native Paxeer X escrow."
+  },
+  "/evm": {
+    "title": "EVM Module",
+    "description": "Native EVM execution, address association, receipts, pointers, and precompile integration on chain ID 125."
+  },
+  "/fees": {
+    "title": "Fees and payment costs",
+    "description": "Understand Paxeer X EVM gas, kernel execution fees, program occupancy, merchant pricing, spending ceilings and fee estimation."
+  },
+  "/finality": {
+    "title": "Finality & Commitment",
+    "description": "Follow an activity from execution into a sealed batch, and request the evidence your application needs."
+  },
+  "/foundry": {
+    "title": "Build with Foundry",
+    "description": "Create, test, and deploy a Solidity counter with Forge, then read its state through the Paxeer EVM using Cast."
+  },
+  "/funding": {
+    "title": "Funding and money movement",
+    "description": "Move balances, fund agents, and connect external payment rails on the merged network. Former custody-boundary deposit, withdraw, and exit journeys are retired."
+  },
+  "/governance": {
+    "title": "Governance",
+    "description": "Ordered authority changes, versioned parameters, staged rollouts, and controlled settlement upgrades across Paxeer X."
+  },
+  "/guarantors": {
+    "title": "Guarantors",
+    "description": "Independent batch replay, bonded attestations, checkpoint certificates, and settlement accountability."
+  },
+  "/hardhat": {
+    "title": "Build with Hardhat",
+    "description": "Configure Hardhat 3 for Paxeer, test a Solidity contract locally, and keep repeatable deployments with Hardhat Ignition."
+  },
+  "/human-interface": {
+    "title": "Human interface",
+    "description": "Manage your Paxeer X identity, balances, agents, approvals, and recovery through evidence-backed journeys."
+  },
+  "/identity": {
+    "title": "Identity, Ownership and Credentials",
+    "description": "Connect human ownership, agent identities, hosted sessions and scoped signing authority across Paxeer X."
+  },
+  "/installation": {
+    "title": "Installation & Build",
+    "description": "Build the Paxeer X node, deterministic LayerX kernel, hosted services, agent tools and Programs from the unified monorepo."
+  },
+  "/interchain": {
+    "title": "Interchain (IBC)",
+    "description": "Connect Paxeer X to other chains through IBC packets, native token transfers, and the attested bridge."
+  },
+  "/interop": {
+    "title": "Interoperability",
+    "description": "Connect agent payments, commerce mandates, card and bank rails, and external chains to Paxeer X through evidence-backed adapters."
+  },
+  "/json-rpc-unsupported": {
+    "title": "Unsupported JSON-RPC Methods",
+    "description": "Ethereum JSON-RPC methods that are explicitly unsupported on Paxeer EVM."
+  },
+  "/json-rpc": {
+    "title": "JSON-RPC API",
+    "description": "Paxeer's EVM JSON-RPC interface with standard Ethereum compatibility and Paxeer-specific enhancements."
+  },
+  "/launchpad": {
+    "title": "Launchpad",
+    "description": "Create fixed-supply instruments, open virtual-reserve markets, trade with explicit limits, and direct accumulated fees."
+  },
+  "/layerx-kernel": {
+    "title": "LayerX Kernel",
+    "description": "The deterministic C17 execution core of Paxeer X: one signed activity, one canonical history, and one reproducible result."
+  },
+  "/mandates": {
+    "title": "Payment mandates and trusted agents",
+    "description": "Authorize direct and autonomous purchases with signed AP2 mandates, exact asset bindings, and trusted-agent request verification."
+  },
+  "/market-makers": {
+    "title": "Market Makers",
+    "description": "Provide exchange liquidity and operate independent asset ramps with bound quotes, authorized payments, durable reconciliation, and receipt-gated settlement."
+  },
+  "/mcp": {
+    "title": "MCP tools",
+    "description": "Connect assistants to verified Paxeer X state and policy-governed wallet and token operations through 22 scoped MCP tools."
+  },
+  "/mirrors": {
+    "title": "Ethereum & Solana Mirrors",
+    "description": "Publish Paxeer X batch archives to external chains and verify committed receipt evidence independently of a hosted gateway."
+  },
+  "/modules/epoch": {
+    "title": "Epoch Module",
+    "description": "Time-based hooks and epoch lifecycle management for coordinating periodic chain operations."
+  },
+  "/modules/mint": {
+    "title": "Mint Module",
+    "description": "Scheduled native token release: a fixed amount minted daily through the epoch hook, under governance-controlled schedules."
+  },
+  "/modules/oracle": {
+    "title": "Oracle Module",
+    "description": "Navigate the retired EVM Oracle API and the native interfaces for exchange rates, voting parameters, and price observations."
+  },
+  "/modules": {
+    "title": "Paxeer X Modules",
+    "description": "Native execution, markets, issuance, and data modules in modules/, including retired settlement-compatibility directories."
+  },
+  "/modules/store": {
+    "title": "Store Module",
+    "description": "A single cached-context helper in modules/store/ — not a registered chain module."
+  },
+  "/modules/tokenfactory": {
+    "title": "Token Factory Module",
+    "description": "Creation and admin management of native token denominations with creator-namespaced denoms."
+  },
+  "/network-operations": {
+    "title": "Network operations",
+    "description": "Operate the hosted Paxeer X service graph, qualify journeys, preserve durable state, and recover across service boundaries."
+  },
+  "/network-parameters": {
+    "title": "Network Parameters",
+    "description": "Chain identity, denominations, configurable defaults, and governance controls across Paxeer X."
+  },
+  "/node-troubleshooting": {
+    "title": "Troubleshoot a Node",
+    "description": "Diagnose Paxeer X sync stalls, peer failures, RPC errors, database locks, and AppHash mismatches before changing node state."
+  },
+  "/operators": {
+    "title": "Operators Guide",
+    "description": "Manage Paxeer X node services, validator accounts, monitoring, and recovery."
+  },
+  "/oracle-risk": {
+    "title": "Oracles & Market Risk",
+    "description": "Understand how Paxeer X accepts signed price observations, rejects stale or anomalous inputs, and applies market-specific risk limits."
+  },
+  "/": {
+    "title": "Money. Markets. Machines. One network to build on.",
+    "description": "Paxeer X unites EVM applications, the LayerX agent economy, payments, markets and deterministic programs with verifiable execution and settlement."
+  },
+  "/paid-apis": {
+    "title": "Paid APIs and x402",
+    "description": "Monetize HTTP resources, agent tools, and recurring access with payment-required offers and receipt-verified fulfillment on Paxeer X."
+  },
+  "/parallelization": {
+    "title": "Design for Parallel Execution",
+    "description": "Reduce shared-state contention in Paxeer contracts, preserve on-chain invariants, and measure gas separately from throughput."
+  },
+  "/paxeer-vs-layerx": {
+    "title": "Paxeer X and LayerX",
+    "description": "One BFT network combines EVM smart contracts, autonomous agent execution, and programmable finance, with finality at block commit."
+  },
+  "/payments-quickstart": {
+    "title": "Your first payment",
+    "description": "Quote, commit, and verify a Paxeer X payment using the application SDK or a native Asset transfer."
+  },
+  "/payments": {
+    "title": "Payments",
+    "description": "Build transfers, paid APIs, merchant checkout, metered usage, and subscriptions on Paxeer X with explicit approval, bounded fees, and verifiable settlement."
+  },
+  "/perpetuals": {
+    "title": "Perpetual Futures",
+    "description": "Trade long and short exposure with explicit margin accounts, deterministic funding, signed market prices, and accountable liquidation settlement."
+  },
+  "/platform-api": {
+    "title": "Platform API",
+    "description": "Accounts, balances, history, assets, registration, funding and consensus evidence over the hosted gateway, plus the Agent API for policy-governed writes."
+  },
+  "/precompiles": {
+    "title": "Precompiles",
+    "description": "Call native Paxeer X capabilities from the EVM with the correct addresses, ABIs, permissions, and token units."
+  },
+  "/program-workspace": {
+    "title": "Programs Developer Workspace",
+    "description": "Build deterministic Paxeer X programs with runtime crates, language SDKs, fixtures, policies and reproducible development workflows."
+  },
+  "/programs": {
+    "title": "Deterministic Programs",
+    "description": "Deploy and call deterministic Paxeer X programs with scoped capabilities, metered execution, governed upgrades and verifiable outputs."
+  },
+  "/proofs": {
+    "title": "Receipts & Proofs",
+    "description": "Verify Paxeer X outcomes independently, carry evidence between systems, and connect native state to settlement."
+  },
+  "/public-rpc": {
+    "title": "Public RPC endpoints",
+    "description": "Connect wallets and applications to Paxeer X chain ID 125 over HTTPS and WebSocket, and choose the correct interface for chain or kernel requests."
+  },
+  "/python": {
+    "title": "Python Quickstart",
+    "description": "Connect to Paxeer with web3.py, read PAX balances and ERC-20 state, and inspect transaction receipts without a signing key."
+  },
+  "/querying-evm": {
+    "title": "Query the EVM",
+    "description": "Read Paxeer balances, contract state, receipts, and bounded event ranges with JSON-RPC, Cast, and viem."
+  },
+  "/receipts": {
+    "title": "Receipts & Proofs",
+    "description": "Verify what the protocol executed, what it charged, and whether the covering block has committed."
+  },
+  "/registry": {
+    "title": "Program Registry",
+    "description": "Publish receipt-verified program deployments, versioned interfaces and reproducible source across Paxeer X."
+  },
+  "/relay-archive": {
+    "title": "Relay & Archive Nodes",
+    "description": "Status of the former relay/archive node product and its RPC surface."
+  },
+  "/rest-grpc": {
+    "title": "REST & gRPC APIs",
+    "description": "Cosmos SDK REST and gRPC interfaces for Paxeer chain modules and administration."
+  },
+  "/run-node": {
+    "title": "Run a Node",
+    "description": "Initialize a Paxeer X node, choose its role, connect to a network, and verify synchronization."
+  },
+  "/sandbox": {
+    "title": "Bounded Sandboxes",
+    "description": "Lease isolated deterministic computation with explicit resource ceilings, receipt-backed lifecycle transitions, metered snapshots, and resumable execution."
+  },
+  "/sdk-quickstarts": {
+    "title": "SDK quickstarts",
+    "description": "Register a principal, fund an account, send a payment, and independently verify receipts with the Paxeer X SDKs."
+  },
+  "/sdk": {
+    "title": "Cosmos SDK Fork",
+    "description": "Paxeer X’s in-tree Cosmos SDK fork with Paxeer X-specific modifications and extensions."
+  },
+  "/security": {
+    "title": "Security and trust boundaries",
+    "description": "What signatures, replay, checkpoint settlement, custody controls, and authority services establish in Paxeer X."
+  },
+  "/sequencing": {
+    "title": "Sequencing & Finality",
+    "description": "Follow an activity from deterministic ordering into a sealed, signed batch, and request the evidence your application needs."
+  },
+  "/services": {
+    "title": "Services and agreements",
+    "description": "Publish paid capabilities, agree on deliverables, attest execution, and resolve delivery through the Paxeer X service lifecycle."
+  },
+  "/settlement": {
+    "title": "Checkpoint settlement & evidence",
+    "description": "Follow LayerX activities from ordered receipts to bonded replay, finalized Paxeer checkpoints, and verifiable custody claims."
+  },
+  "/sidiora": {
+    "title": "Sidiora",
+    "description": "The SID asset on Paxeer X: native balances, its stable ERC-20 address, bridge-controlled supply, and sponsored or native gas payments."
+  },
+  "/spot-exchange": {
+    "title": "Spot Exchange",
+    "description": "Trade asset pairs on Paxeer X with deterministic order books, price-time matching, escrowed liquidity, and immediate two-leg settlement."
+  },
+  "/storage-scan": {
+    "title": "Bounded Storage Scans",
+    "description": "Iterate Paxeer X program state with deterministic ordering, explicit page budgets, scope-bound continuation cursors, and metered canonical results."
+  },
+  "/storage": {
+    "title": "Storage",
+    "description": "State commitment, historical queries, receipt retention, and backend configuration in Paxeer."
+  },
+  "/streams": {
+    "title": "Streaming Payments",
+    "description": "Pay for elapsed time or verified usage with funded, capped streams, deterministic accrual, settlement, and cancellation."
+  },
+  "/subscriptions": {
+    "title": "Event subscriptions",
+    "description": "Build durable agent consumers with scoped visibility, acknowledged cursors, explicit gap recovery, and verified receipt references."
+  },
+  "/unified-network": {
+    "title": "Unified Network Architecture",
+    "description": "How Paxeer X combines EVM and Cosmos execution with LayerX activities, identity, programs, and receipts in one BFT network."
+  },
+  "/wasm-runtime": {
+    "title": "WASM Runtime",
+    "description": "Understand Paxeer’s in-tree CosmWasm virtual machine, Go and Rust boundary, native library builds, and gas accounting."
+  },
+  "/wasm": {
+    "title": "WASM",
+    "description": "CosmWasm contract lifecycle, deployment permissions, and calls between Paxeer’s EVM and WebAssembly runtimes."
+  },
+  "/wasmbinding": {
+    "title": "WASM Bindings",
+    "description": "Use Paxeer custom messages and queries from CosmWasm, including token creation, EVM calls, address association, and native module reads."
+  },
+  "/webhooks": {
+    "title": "Webhooks",
+    "description": "Receive signed Paxeer X events with durable delivery, per-subject ordering, bounded retries, and cursor-based replay."
+  },
+  "/xdk": {
+    "title": "XDK developer toolkit",
+    "description": "Build Paxeer X applications in seven languages with native activities, human journeys, agent tools, exchange integrations, and local proof verification."
+  },
+  "/xweb": {
+    "title": "Web Search and xweb",
+    "description": "Search the web, fetch content, and consume attested API results from agents and Solidity contracts."
+  }
+}
