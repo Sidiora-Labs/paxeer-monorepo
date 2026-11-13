@@ -361417,7 +361417,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.41.38]
 title = "Review the documentation pages of lines 2696 to 2736 of the page list against the tree"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -361448,7 +361448,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.41.37]
 title = "Review the documentation pages of lines 2625 to 2695 of the page list against the tree"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -362006,7 +362006,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.41.19]
 title = "Review the documentation pages of lines 813 to 852 of the page list against the tree"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -362316,7 +362316,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.41.9]
 title = "Review the documentation pages of lines 406 to 454 of the page list against the tree"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
