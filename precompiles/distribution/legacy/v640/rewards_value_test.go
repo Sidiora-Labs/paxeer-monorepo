@@ -48,41 +48,41 @@ import (
 )
 
 const (
-	repair1261HistoricalHeight int64 = 10
-	repair1261MergeHeight      int64 = 30
+	rewardsValueHistoricalHeight int64 = 10
+	rewardsValueMergeHeight      int64 = 30
 )
 
 //go:embed distribution.go abi.json
-var repair1261HistoricalFiles embed.FS
+var rewardsValueHistoricalFiles embed.FS
 
-type repair1261Coin struct {
+type rewardsValueCoin struct {
 	Amount   *big.Int
 	Decimals *big.Int
 	Denom    string
 }
 
-type repair1261Reward struct {
-	Coins            []repair1261Coin
+type rewardsValueReward struct {
+	Coins            []rewardsValueCoin
 	ValidatorAddress string
 }
 
-type repair1261Rewards struct {
-	Rewards []repair1261Reward
-	Total   []repair1261Coin
+type rewardsValueRewards struct {
+	Rewards []rewardsValueReward
+	Total   []rewardsValueCoin
 }
 
-type repair1261Env struct {
-	app    *repair1261Keepers
+type rewardsValueEnv struct {
+	app    *rewardsValueKeepers
 	ctx    sdk.Context
 	caller common.Address
 	abi    abi.ABI
 	input  []byte
-	want   repair1261Rewards
+	want   rewardsValueRewards
 }
 
 // This adapter exposes the real keepers consumed by every distribution
 // constructor. Unrelated domains are absent and cannot be called through it.
-type repair1261Keepers struct {
+type rewardsValueKeepers struct {
 	utils.Keepers
 	EvmKeeper     *evmkeeper.Keeper
 	DistrKeeper   distrkeeper.Keeper
@@ -91,10 +91,10 @@ type repair1261Keepers struct {
 	UpgradeKeeper upgradekeeper.Keeper
 }
 
-func (k *repair1261Keepers) EVMK() utils.EVMKeeper                   { return k.EvmKeeper }
-func (k *repair1261Keepers) DistributionK() utils.DistributionKeeper { return k.DistrKeeper }
+func (k *rewardsValueKeepers) EVMK() utils.EVMKeeper                   { return k.EvmKeeper }
+func (k *rewardsValueKeepers) DistributionK() utils.DistributionKeeper { return k.DistrKeeper }
 
-func newRepair1261Keepers(t *testing.T) (*repair1261Keepers, sdk.Context) {
+func newRewardsValueKeepers(t *testing.T) (*rewardsValueKeepers, sdk.Context) {
 	t.Helper()
 	database := dbm.NewMemDB()
 	t.Cleanup(func() { require.NoError(t, database.Close()) })
@@ -145,7 +145,7 @@ func newRepair1261Keepers(t *testing.T) (*repair1261Keepers, sdk.Context) {
 	evm.SetParams(ctx, evmtypes.DefaultParams())
 	bank.RegisterRecipientChecker(evm.CanAddressReceive)
 	evm.SetAddressMapping(ctx, accounts.GetModuleAddress(authtypes.FeeCollectorName), evmkeeper.GetCoinbaseAddress())
-	keepers := &repair1261Keepers{EvmKeeper: evm, DistrKeeper: distributionKeeper, BankKeeper: bank, StakingKeeper: staking, UpgradeKeeper: upgrades}
+	keepers := &rewardsValueKeepers{EvmKeeper: evm, DistrKeeper: distributionKeeper, BankKeeper: bank, StakingKeeper: staking, UpgradeKeeper: upgrades}
 	tags, err := os.ReadFile("../../../../node/tags")
 	require.NoError(t, err)
 	versions := strings.Fields(string(tags))
@@ -157,14 +157,14 @@ func newRepair1261Keepers(t *testing.T) (*repair1261Keepers, sdk.Context) {
 	return keepers, ctx
 }
 
-func newRepair1261Env(t *testing.T) *repair1261Env {
+func newRewardsValueEnv(t *testing.T) *rewardsValueEnv {
 	t.Helper()
-	a, ctx := newRepair1261Keepers(t)
+	a, ctx := newRewardsValueKeepers(t)
 	a.UpgradeKeeper.SetDone(ctx.WithBlockHeight(5), "v6.3.0")
-	a.UpgradeKeeper.SetDone(ctx.WithBlockHeight(repair1261HistoricalHeight), "v6.4.0")
-	a.UpgradeKeeper.SetDone(ctx.WithBlockHeight(repair1261MergeHeight), pcommon.MergeUpgrade)
-	require.Equal(t, repair1261HistoricalHeight, a.UpgradeKeeper.GetDoneHeight(ctx, "v6.4.0"))
-	require.Equal(t, repair1261MergeHeight, a.UpgradeKeeper.GetDoneHeight(ctx, pcommon.MergeUpgrade))
+	a.UpgradeKeeper.SetDone(ctx.WithBlockHeight(rewardsValueHistoricalHeight), "v6.4.0")
+	a.UpgradeKeeper.SetDone(ctx.WithBlockHeight(rewardsValueMergeHeight), pcommon.MergeUpgrade)
+	require.Equal(t, rewardsValueHistoricalHeight, a.UpgradeKeeper.GetDoneHeight(ctx, "v6.4.0"))
+	require.Equal(t, rewardsValueMergeHeight, a.UpgradeKeeper.GetDoneHeight(ctx, pcommon.MergeUpgrade))
 
 	key := &secp256k1.PrivKey{Key: make([]byte, 32)}
 	key.Key[30], key.Key[31] = 12, 61
@@ -184,32 +184,32 @@ func newRepair1261Env(t *testing.T) *repair1261Env {
 	val, found := a.StakingKeeper.GetValidator(ctx, validator)
 	require.True(t, found)
 	a.DistrKeeper.AllocateTokensToValidator(ctx, val, sdk.NewDecCoinsFromCoins(sdk.NewInt64Coin("uhpx", 1000)))
-	ctx = ctx.WithBlockHeight(repair1261HistoricalHeight)
+	ctx = ctx.WithBlockHeight(rewardsValueHistoricalHeight)
 
 	response, err := a.DistrKeeper.DelegationTotalRewards(sdk.WrapSDKContext(ctx), &distrtypes.QueryDelegationTotalRewardsRequest{DelegatorAddress: delegator.String()})
 	require.NoError(t, err)
 	require.Len(t, response.Rewards, 1)
 	require.True(t, response.Total.AmountOf("uhpx").IsPositive())
-	want := repair1261Rewards{Rewards: make([]repair1261Reward, 0), Total: make([]repair1261Coin, 0)}
+	want := rewardsValueRewards{Rewards: make([]rewardsValueReward, 0), Total: make([]rewardsValueCoin, 0)}
 	for _, reward := range response.Rewards {
-		row := repair1261Reward{ValidatorAddress: reward.ValidatorAddress, Coins: make([]repair1261Coin, 0)}
+		row := rewardsValueReward{ValidatorAddress: reward.ValidatorAddress, Coins: make([]rewardsValueCoin, 0)}
 		for _, coin := range reward.Reward {
-			row.Coins = append(row.Coins, repair1261Coin{Amount: coin.Amount.BigInt(), Decimals: big.NewInt(sdk.Precision), Denom: coin.Denom})
+			row.Coins = append(row.Coins, rewardsValueCoin{Amount: coin.Amount.BigInt(), Decimals: big.NewInt(sdk.Precision), Denom: coin.Denom})
 		}
 		want.Rewards = append(want.Rewards, row)
 	}
 	for _, coin := range response.Total {
-		want.Total = append(want.Total, repair1261Coin{Amount: coin.Amount.BigInt(), Decimals: big.NewInt(sdk.Precision), Denom: coin.Denom})
+		want.Total = append(want.Total, rewardsValueCoin{Amount: coin.Amount.BigInt(), Decimals: big.NewInt(sdk.Precision), Denom: coin.Denom})
 	}
 	p, err := v640.NewPrecompile(a)
 	require.NoError(t, err)
 	require.Equal(t, "view", p.Methods[v640.RewardsMethod].StateMutability)
 	input, err := p.Pack(v640.RewardsMethod, caller)
 	require.NoError(t, err)
-	return &repair1261Env{app: a, ctx: ctx, caller: caller, abi: p.GetABI(), input: input, want: want}
+	return &rewardsValueEnv{app: a, ctx: ctx, caller: caller, abi: p.GetABI(), input: input, want: want}
 }
 
-func (e *repair1261Env) evm(t *testing.T, height int64, tracing bool) (*vm.EVM, *state.DBImpl, sdk.Context) {
+func (e *rewardsValueEnv) evm(t *testing.T, height int64, tracing bool) (*vm.EVM, *state.DBImpl, sdk.Context) {
 	t.Helper()
 	ctx, _ := e.ctx.CacheContext()
 	ctx = ctx.WithBlockHeight(height).WithIsTracing(tracing)
@@ -217,7 +217,7 @@ func (e *repair1261Env) evm(t *testing.T, height int64, tracing bool) (*vm.EVM, 
 	served := k.CustomPrecompiles(ctx)
 	address := common.HexToAddress(v640.DistrAddress)
 	require.Contains(t, served, address)
-	if tracing && height < repair1261MergeHeight {
+	if tracing && height < rewardsValueMergeHeight {
 		p, ok := served[address].(*legacycommon.DynamicGasPrecompile)
 		require.True(t, ok, "historical dispatch must select the frozen wrapper")
 		require.IsType(t, &v640.PrecompileExecutor{}, p.GetExecutor())
@@ -236,32 +236,32 @@ func (e *repair1261Env) evm(t *testing.T, height int64, tracing bool) (*vm.EVM, 
 	return evm, db, ctx
 }
 
-func (e *repair1261Env) assertRewards(t *testing.T, output []byte) {
+func (e *rewardsValueEnv) assertRewards(t *testing.T, output []byte) {
 	t.Helper()
 	decoded, err := e.abi.Methods[v640.RewardsMethod].Outputs.Unpack(output)
 	require.NoError(t, err)
 	require.Len(t, decoded, 1)
-	actual := abi.ConvertType(decoded[0], new(repair1261Rewards)).(*repair1261Rewards)
+	actual := abi.ConvertType(decoded[0], new(rewardsValueRewards)).(*rewardsValueRewards)
 	require.Equal(t, e.want, *actual)
 }
 
-func TestRepairM_1261_HistoricalBytes(t *testing.T) {
+func TestRewardsValueHistoricalBytes(t *testing.T) {
 	for path, want := range map[string]string{
 		"distribution.go": "9ffcc2b557fd8e0a8954d79ff1c377af6cd43f6dd00c4d0d88c21cfa2e0bac76",
 		"abi.json":        "f0846d0d841d118ac9524b14881d48eb3599c03456dba43e57f6dc76a7cc6be6",
 	} {
-		data, err := repair1261HistoricalFiles.ReadFile(path)
+		data, err := rewardsValueHistoricalFiles.ReadFile(path)
 		require.NoError(t, err)
 		require.Equal(t, want, fmt.Sprintf("%x", sha256.Sum256(data)), "historical replay source must remain byte-compatible")
 	}
 }
 
-func TestRepairM_1261_HistoricalActivationRawCALL(t *testing.T) {
-	e := newRepair1261Env(t)
+func TestRewardsValueHistoricalActivationRawCALL(t *testing.T) {
+	e := newRewardsValueEnv(t)
 	address := common.HexToAddress(v640.DistrAddress)
-	beforeActivation := e.ctx.WithBlockHeight(repair1261HistoricalHeight - 1).WithIsTracing(true)
+	beforeActivation := e.ctx.WithBlockHeight(rewardsValueHistoricalHeight - 1).WithIsTracing(true)
 	require.Equal(t, "v6.3.0", e.app.EvmKeeper.GetCustomPrecompilesVersions(beforeActivation)[address])
-	for _, height := range []int64{repair1261HistoricalHeight, repair1261HistoricalHeight + 1, repair1261MergeHeight - 1} {
+	for _, height := range []int64{rewardsValueHistoricalHeight, rewardsValueHistoricalHeight + 1, rewardsValueMergeHeight - 1} {
 		for _, value := range []int64{1, 1_000_000_000_000, 1_000_000_000_001} {
 			t.Run(fmt.Sprintf("height_%d/value_%d", height, value), func(t *testing.T) {
 				evm, db, ctx := e.evm(t, height, true)
@@ -285,18 +285,18 @@ func TestRepairM_1261_HistoricalActivationRawCALL(t *testing.T) {
 	}
 }
 
-func TestRepairM_1261_LiveRoutingActivation(t *testing.T) {
-	e := newRepair1261Env(t)
+func TestRewardsValueLiveRoutingActivation(t *testing.T) {
+	e := newRewardsValueEnv(t)
 	address := common.HexToAddress(v640.DistrAddress)
 	for _, tracing := range []bool{false, true} {
-		for _, height := range []int64{repair1261MergeHeight - 1, repair1261MergeHeight, repair1261MergeHeight + 1} {
+		for _, height := range []int64{rewardsValueMergeHeight - 1, rewardsValueMergeHeight, rewardsValueMergeHeight + 1} {
 			for _, value := range []int64{1, 1_000_000_000_000, 1_000_000_000_001} {
 				t.Run(fmt.Sprintf("tracing_%t/height_%d/value_%d", tracing, height, value), func(t *testing.T) {
 					evm, db, ctx := e.evm(t, height, tracing)
-					require.Equal(t, height >= repair1261MergeHeight, pcommon.MergePlanActive(ctx, e.app.EvmKeeper))
+					require.Equal(t, height >= rewardsValueMergeHeight, pcommon.MergePlanActive(ctx, e.app.EvmKeeper))
 					callerBefore, targetBefore := db.GetBalance(e.caller).ToBig(), db.GetBalance(address).ToBig()
 					output, _, err := evm.Call(e.caller, address, e.input, 1_000_000, uint256.NewInt(uint64(value)))
-					if height < repair1261MergeHeight {
+					if height < rewardsValueMergeHeight {
 						require.NoError(t, err)
 						e.assertRewards(t, output)
 						require.Equal(t, new(big.Int).Sub(callerBefore, big.NewInt(value)), db.GetBalance(e.caller).ToBig())
@@ -320,11 +320,11 @@ func TestRepairM_1261_LiveRoutingActivation(t *testing.T) {
 	}
 }
 
-func TestRepairM_1261_ZeroValueRewards(t *testing.T) {
-	e := newRepair1261Env(t)
+func TestRewardsValueZeroValueRewards(t *testing.T) {
+	e := newRewardsValueEnv(t)
 	address := common.HexToAddress(v640.DistrAddress)
 	for _, tracing := range []bool{false, true} {
-		for _, height := range []int64{repair1261HistoricalHeight, repair1261MergeHeight - 1, repair1261MergeHeight, repair1261MergeHeight + 1} {
+		for _, height := range []int64{rewardsValueHistoricalHeight, rewardsValueMergeHeight - 1, rewardsValueMergeHeight, rewardsValueMergeHeight + 1} {
 			for _, static := range []bool{false, true} {
 				t.Run(fmt.Sprintf("tracing_%t/height_%d/static_%t", tracing, height, static), func(t *testing.T) {
 					evm, db, _ := e.evm(t, height, tracing)

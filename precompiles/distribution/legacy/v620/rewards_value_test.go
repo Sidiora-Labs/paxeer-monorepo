@@ -46,16 +46,16 @@ import (
 
 // These are heights in the isolated upgrade-store fixture, not network heights.
 const (
-	repairM1259LegacyHeight int64  = 20
-	repairM1259NextHeight   int64  = 30
-	repairM1259MergeHeight  int64  = 100
-	repairM1259Gas          uint64 = 1_000_000
+	rewardsValueLegacyHeight int64  = 20
+	rewardsValueNextHeight   int64  = 30
+	rewardsValueMergeHeight  int64  = 100
+	rewardsValueGas          uint64 = 1_000_000
 )
 
 // This provider adapts concrete production keepers to the constructor's broad
 // interface. Only EVMK and DistributionK are consumed by distribution's real
 // version registry; no execution component is replaced by a test double.
-type repairM1259Keepers struct {
+type rewardsValueKeepers struct {
 	putils.Keepers
 	EvmKeeper     evmkeeper.Keeper
 	UpgradeKeeper upgradekeeper.Keeper
@@ -64,10 +64,10 @@ type repairM1259Keepers struct {
 	DistrKeeper   distrkeeper.Keeper
 }
 
-func (k *repairM1259Keepers) EVMK() putils.EVMKeeper                   { return &k.EvmKeeper }
-func (k *repairM1259Keepers) DistributionK() putils.DistributionKeeper { return k.DistrKeeper }
+func (k *rewardsValueKeepers) EVMK() putils.EVMKeeper                   { return &k.EvmKeeper }
+func (k *rewardsValueKeepers) DistributionK() putils.DistributionKeeper { return k.DistrKeeper }
 
-func newRepairM1259Keepers(t *testing.T) (*repairM1259Keepers, sdk.Context) {
+func newRewardsValueKeepers(t *testing.T) (*rewardsValueKeepers, sdk.Context) {
 	t.Helper()
 	db := dbm.NewMemDB()
 	cms := store.NewCommitMultiStore(db)
@@ -117,14 +117,14 @@ func newRepairM1259Keepers(t *testing.T) (*repairM1259Keepers, sdk.Context) {
 	ek := evmkeeper.NewKeeper(keys[evmtypes.StoreKey], evmTransient, subspace(evmtypes.ModuleName), nil, bk, &ak, &sk, transferkeeper.Keeper{}, nil, nil, &uk)
 	ek.SetParams(ctx, evmtypes.DefaultParams())
 	ek.SetAddressMapping(ctx, ak.GetModuleAddress(authtypes.FeeCollectorName), evmkeeper.GetCoinbaseAddress())
-	k := &repairM1259Keepers{EvmKeeper: *ek, UpgradeKeeper: uk, BankKeeper: bk, StakingKeeper: sk, DistrKeeper: dk}
+	k := &rewardsValueKeepers{EvmKeeper: *ek, UpgradeKeeper: uk, BankKeeper: bk, StakingKeeper: sk, DistrKeeper: dk}
 	versions := distribution.GetVersioned(pcommon.MergeUpgrade, k)
 	k.EvmKeeper.SetCustomPrecompiles(map[common.Address]putils.VersionedPrecompiles{common.HexToAddress(legacy.DistrAddress): versions}, pcommon.MergeUpgrade)
 	return k, ctx
 }
 
-type repairM1259Env struct {
-	app      *repairM1259Keepers
+type rewardsValueEnv struct {
+	app      *rewardsValueKeepers
 	ctx      sdk.Context
 	caller   common.Address
 	address  common.Address
@@ -132,14 +132,14 @@ type repairM1259Env struct {
 	expected []byte
 }
 
-func newRepairM1259Env(t *testing.T, height int64, tracing, applied bool) *repairM1259Env {
+func newRewardsValueEnv(t *testing.T, height int64, tracing, applied bool) *rewardsValueEnv {
 	t.Helper()
-	a, ctx := newRepairM1259Keepers(t)
+	a, ctx := newRewardsValueKeepers(t)
 	require.Zero(t, a.UpgradeKeeper.GetDoneHeight(ctx, pcommon.MergeUpgrade))
-	a.UpgradeKeeper.SetDone(ctx.WithBlockHeight(repairM1259LegacyHeight), "v6.2.0")
-	a.UpgradeKeeper.SetDone(ctx.WithBlockHeight(repairM1259NextHeight), "v6.3.0")
+	a.UpgradeKeeper.SetDone(ctx.WithBlockHeight(rewardsValueLegacyHeight), "v6.2.0")
+	a.UpgradeKeeper.SetDone(ctx.WithBlockHeight(rewardsValueNextHeight), "v6.3.0")
 	if applied {
-		a.UpgradeKeeper.SetDone(ctx.WithBlockHeight(repairM1259MergeHeight), pcommon.MergeUpgrade)
+		a.UpgradeKeeper.SetDone(ctx.WithBlockHeight(rewardsValueMergeHeight), pcommon.MergeUpgrade)
 	}
 
 	key := &secp256k1.PrivKey{Key: make([]byte, 32)}
@@ -167,10 +167,10 @@ func newRepairM1259Env(t *testing.T, height int64, tracing, applied bool) *repai
 	ctx = ctx.WithBlockHeight(height).WithIsTracing(tracing)
 	if tracing {
 		version := "v6.2.0"
-		if height >= repairM1259NextHeight {
+		if height >= rewardsValueNextHeight {
 			version = "v6.3.0"
 		}
-		if applied && height >= repairM1259MergeHeight {
+		if applied && height >= rewardsValueMergeHeight {
 			version = pcommon.MergeUpgrade
 		}
 		ctx = ctx.WithClosestUpgradeName(version)
@@ -201,10 +201,10 @@ func newRepairM1259Env(t *testing.T, height int64, tracing, applied bool) *repai
 	}
 	encoded, err := historical.Methods[legacy.RewardsMethod].Outputs.Pack(expected)
 	require.NoError(t, err)
-	return &repairM1259Env{app: a, ctx: ctx, caller: caller, address: historical.Address(), input: input, expected: encoded}
+	return &rewardsValueEnv{app: a, ctx: ctx, caller: caller, address: historical.Address(), input: input, expected: encoded}
 }
 
-func (e *repairM1259Env) evm(t *testing.T) (*vm.EVM, *state.DBImpl, vm.PrecompiledContract) {
+func (e *rewardsValueEnv) evm(t *testing.T) (*vm.EVM, *state.DBImpl, vm.PrecompiledContract) {
 	t.Helper()
 	k := &e.app.EvmKeeper
 	// The production distribution registry was installed on the real keeper.
@@ -222,7 +222,7 @@ func (e *repairM1259Env) evm(t *testing.T) (*vm.EVM, *state.DBImpl, vm.Precompil
 	return evm, db, selected
 }
 
-func (e *repairM1259Env) assertBalances(t *testing.T, db *state.DBImpl, caller, recipient *big.Int) {
+func (e *rewardsValueEnv) assertBalances(t *testing.T, db *state.DBImpl, caller, recipient *big.Int) {
 	t.Helper()
 	require.Equal(t, uint256.MustFromBig(caller), db.GetBalance(e.caller))
 	require.Equal(t, uint256.MustFromBig(recipient), db.GetBalance(e.address))
@@ -234,13 +234,13 @@ func (e *repairM1259Env) assertBalances(t *testing.T, db *state.DBImpl, caller, 
 	require.Equal(t, uint256.MustFromBig(recipient), reopened.GetBalance(e.address))
 }
 
-func TestRepairM_1259_HistoricalRawCALL(t *testing.T) {
-	for _, height := range []int64{repairM1259LegacyHeight, repairM1259NextHeight - 1} {
+func TestRewardsValueHistoricalRawCALL(t *testing.T) {
+	for _, height := range []int64{rewardsValueLegacyHeight, rewardsValueNextHeight - 1} {
 		for _, value := range []uint64{0, 1, 1_000_000_000_000, 1_000_000_000_001} {
 			t.Run(fmt.Sprintf("height_%d/value_%d", height, value), func(t *testing.T) {
 				// The merge marker is already present: replay below it must
 				// still select v620 and retain the historical payment hazard.
-				e := newRepairM1259Env(t, height, true, true)
+				e := newRewardsValueEnv(t, height, true, true)
 				require.Equal(t, "v6.2.0", e.app.EvmKeeper.GetCustomPrecompilesVersions(e.ctx)[e.address])
 				evm, db, selected := e.evm(t)
 				p, ok := selected.(*legacycommon.DynamicGasPrecompile)
@@ -248,10 +248,10 @@ func TestRepairM_1259_HistoricalRawCALL(t *testing.T) {
 				require.IsType(t, &legacy.PrecompileExecutor{}, p.GetExecutor())
 				callerBefore := db.GetBalance(e.caller).ToBig()
 				recipientBefore := db.GetBalance(e.address).ToBig()
-				output, remaining, err := evm.Call(e.caller, e.address, e.input, repairM1259Gas, uint256.NewInt(value))
+				output, remaining, err := evm.Call(e.caller, e.address, e.input, rewardsValueGas, uint256.NewInt(value))
 				require.NoError(t, err)
 				require.Positive(t, remaining)
-				require.Less(t, remaining, repairM1259Gas)
+				require.Less(t, remaining, rewardsValueGas)
 				require.Equal(t, e.expected, output)
 				require.NoError(t, db.GetPrecompileError())
 				amount := new(big.Int).SetUint64(value)
@@ -261,12 +261,12 @@ func TestRepairM_1259_HistoricalRawCALL(t *testing.T) {
 	}
 }
 
-func TestRepairM_1259_LiveRoutingActivation(t *testing.T) {
+func TestRewardsValueLiveRoutingActivation(t *testing.T) {
 	for _, tracing := range []bool{false, true} {
-		for _, height := range []int64{repairM1259MergeHeight, repairM1259MergeHeight + 1} {
+		for _, height := range []int64{rewardsValueMergeHeight, rewardsValueMergeHeight + 1} {
 			for _, value := range []uint64{0, 1, 1_000_000_000_000, 1_000_000_000_001} {
 				t.Run(fmt.Sprintf("tracing_%t/height_%d/value_%d", tracing, height, value), func(t *testing.T) {
-					e := newRepairM1259Env(t, height, tracing, true)
+					e := newRewardsValueEnv(t, height, tracing, true)
 					require.True(t, pcommon.MergePlanActive(e.ctx, &e.app.EvmKeeper))
 					evm, db, selected := e.evm(t)
 					p, ok := selected.(*pcommon.DynamicGasPrecompile)
@@ -274,7 +274,7 @@ func TestRepairM_1259_LiveRoutingActivation(t *testing.T) {
 					require.IsType(t, &distribution.PrecompileExecutor{}, p.GetExecutor())
 					callerBefore := db.GetBalance(e.caller).ToBig()
 					recipientBefore := db.GetBalance(e.address).ToBig()
-					output, _, err := evm.Call(e.caller, e.address, e.input, repairM1259Gas, uint256.NewInt(value))
+					output, _, err := evm.Call(e.caller, e.address, e.input, rewardsValueGas, uint256.NewInt(value))
 					if value == 0 {
 						require.NoError(t, err)
 						require.Equal(t, e.expected, output)
@@ -290,14 +290,14 @@ func TestRepairM_1259_LiveRoutingActivation(t *testing.T) {
 	}
 }
 
-func TestRepairM_1259_PreActivationCompatibility(t *testing.T) {
+func TestRewardsValuePreActivationCompatibility(t *testing.T) {
 	for _, applied := range []bool{false, true} {
-		height := repairM1259MergeHeight - 1
+		height := rewardsValueMergeHeight - 1
 		if !applied {
-			height = repairM1259MergeHeight + 1
+			height = rewardsValueMergeHeight + 1
 		}
 		t.Run(fmt.Sprintf("applied_%t", applied), func(t *testing.T) {
-			e := newRepairM1259Env(t, height, false, applied)
+			e := newRewardsValueEnv(t, height, false, applied)
 			require.False(t, pcommon.MergePlanActive(e.ctx, &e.app.EvmKeeper))
 			evm, db, selected := e.evm(t)
 			p, ok := selected.(*pcommon.DynamicGasPrecompile)
@@ -306,7 +306,7 @@ func TestRepairM_1259_PreActivationCompatibility(t *testing.T) {
 			callerBefore := db.GetBalance(e.caller).ToBig()
 			recipientBefore := db.GetBalance(e.address).ToBig()
 			value := uint256.NewInt(1_000_000_000_001)
-			output, _, err := evm.Call(e.caller, e.address, e.input, repairM1259Gas, value)
+			output, _, err := evm.Call(e.caller, e.address, e.input, rewardsValueGas, value)
 			require.NoError(t, err)
 			require.Equal(t, e.expected, output)
 			e.assertBalances(t, db, new(big.Int).Sub(callerBefore, value.ToBig()), new(big.Int).Add(recipientBefore, value.ToBig()))
@@ -314,25 +314,25 @@ func TestRepairM_1259_PreActivationCompatibility(t *testing.T) {
 	}
 }
 
-func TestRepairM_1259_HistoricalBoundaryAndStaticQuery(t *testing.T) {
-	for _, height := range []int64{repairM1259NextHeight - 1, repairM1259NextHeight, repairM1259MergeHeight} {
+func TestRewardsValueHistoricalBoundaryAndStaticQuery(t *testing.T) {
+	for _, height := range []int64{rewardsValueNextHeight - 1, rewardsValueNextHeight, rewardsValueMergeHeight} {
 		t.Run(fmt.Sprintf("height_%d", height), func(t *testing.T) {
-			e := newRepairM1259Env(t, height, true, true)
+			e := newRewardsValueEnv(t, height, true, true)
 			evm, db, selected := e.evm(t)
 			version := e.app.EvmKeeper.GetCustomPrecompilesVersions(e.ctx)[e.address]
 			switch height {
-			case repairM1259NextHeight - 1:
+			case rewardsValueNextHeight - 1:
 				require.Equal(t, "v6.2.0", version)
 				require.IsType(t, &legacy.PrecompileExecutor{}, selected.(*legacycommon.DynamicGasPrecompile).GetExecutor())
-			case repairM1259NextHeight:
+			case rewardsValueNextHeight:
 				require.Equal(t, "v6.3.0", version)
 				require.IsType(t, &next.PrecompileExecutor{}, selected.(*nextcommon.DynamicGasPrecompile).GetExecutor())
-			case repairM1259MergeHeight:
+			case rewardsValueMergeHeight:
 				require.IsType(t, &distribution.PrecompileExecutor{}, selected.(*pcommon.DynamicGasPrecompile).GetExecutor())
 			}
 			callerBefore := db.GetBalance(e.caller).ToBig()
 			recipientBefore := db.GetBalance(e.address).ToBig()
-			output, _, err := evm.StaticCall(e.caller, e.address, e.input, repairM1259Gas)
+			output, _, err := evm.StaticCall(e.caller, e.address, e.input, rewardsValueGas)
 			require.NoError(t, err)
 			require.Equal(t, e.expected, output)
 			e.assertBalances(t, db, callerBefore, recipientBefore)

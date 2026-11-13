@@ -28,29 +28,29 @@ import (
 )
 
 const (
-	repair1255HistoricalHeight int64  = 10
-	repair1255CurrentHeight    int64  = 20
-	repair1255MergeHeight      int64  = 30
-	repair1255Gas              uint64 = 1_000_000
+	rewardsValueHistoricalHeight int64  = 10
+	rewardsValueCurrentHeight    int64  = 20
+	rewardsValueMergeHeight      int64  = 30
+	rewardsValueGas              uint64 = 1_000_000
 )
 
-type repair1255Coin struct {
+type rewardsValueCoin struct {
 	Amount   *big.Int
 	Decimals *big.Int
 	Denom    string
 }
 
-type repair1255Reward struct {
-	Coins            []repair1255Coin
+type rewardsValueReward struct {
+	Coins            []rewardsValueCoin
 	ValidatorAddress string
 }
 
-type repair1255Rewards struct {
-	Rewards []repair1255Reward
-	Total   []repair1255Coin
+type rewardsValueRewards struct {
+	Rewards []rewardsValueReward
+	Total   []rewardsValueCoin
 }
 
-type repair1255Env struct {
+type rewardsValueEnv struct {
 	app       *node.App
 	ctx       sdk.Context
 	caller    common.Address
@@ -58,16 +58,16 @@ type repair1255Env struct {
 	abi       abi.ABI
 }
 
-func newRepair1255Env(t *testing.T, applied bool) *repair1255Env {
+func newRewardsValueEnv(t *testing.T, applied bool) *rewardsValueEnv {
 	t.Helper()
 	a := testkeeper.EVMTestApp
 	ctx, _ := a.NewContext(false, tmtypes.Header{Height: 2, Time: time.Unix(1, 0).UTC()}).CacheContext()
 	ctx = ctx.WithGasMeter(sdk.NewInfiniteGasMeter(1, 1))
 	require.Zero(t, a.UpgradeKeeper.GetDoneHeight(ctx, pcommon.MergeUpgrade))
-	a.UpgradeKeeper.SetDone(ctx.WithBlockHeight(repair1255HistoricalHeight), "v6.0.5")
-	a.UpgradeKeeper.SetDone(ctx.WithBlockHeight(repair1255CurrentHeight), "v6.4.0")
+	a.UpgradeKeeper.SetDone(ctx.WithBlockHeight(rewardsValueHistoricalHeight), "v6.0.5")
+	a.UpgradeKeeper.SetDone(ctx.WithBlockHeight(rewardsValueCurrentHeight), "v6.4.0")
 	if applied {
-		a.UpgradeKeeper.SetDone(ctx.WithBlockHeight(repair1255MergeHeight), pcommon.MergeUpgrade)
+		a.UpgradeKeeper.SetDone(ctx.WithBlockHeight(rewardsValueMergeHeight), pcommon.MergeUpgrade)
 	}
 	key := &secp256k1.PrivKey{Key: make([]byte, 32)}
 	key.Key[30], key.Key[31] = 12, 55
@@ -90,10 +90,10 @@ func newRepair1255Env(t *testing.T, applied bool) *repair1255Env {
 	p, err := v605.NewPrecompile(a.GetPrecompileKeepers())
 	require.NoError(t, err)
 	require.Equal(t, "view", p.Methods[v605.RewardsMethod].StateMutability)
-	return &repair1255Env{app: a, ctx: ctx, caller: caller, delegator: delegator, abi: p.GetABI()}
+	return &rewardsValueEnv{app: a, ctx: ctx, caller: caller, delegator: delegator, abi: p.GetABI()}
 }
 
-func (e *repair1255Env) evm(t *testing.T, height int64, historical bool) (*vm.EVM, *state.DBImpl) {
+func (e *rewardsValueEnv) evm(t *testing.T, height int64, historical bool) (*vm.EVM, *state.DBImpl) {
 	t.Helper()
 	ctx := e.ctx.WithBlockHeight(height).WithTraceMode(historical)
 	e.ctx = ctx
@@ -120,14 +120,14 @@ func (e *repair1255Env) evm(t *testing.T, height int64, historical bool) (*vm.EV
 	return evm, db
 }
 
-func (e *repair1255Env) input(t *testing.T) []byte {
+func (e *rewardsValueEnv) input(t *testing.T) []byte {
 	t.Helper()
 	input, err := e.abi.Pack(v605.RewardsMethod, e.caller)
 	require.NoError(t, err)
 	return input
 }
 
-func (e *repair1255Env) assertRewards(t *testing.T, output []byte) {
+func (e *rewardsValueEnv) assertRewards(t *testing.T, output []byte) {
 	t.Helper()
 	response, err := e.app.DistrKeeper.DelegationTotalRewards(sdk.WrapSDKContext(e.ctx), &distrtypes.QueryDelegationTotalRewardsRequest{DelegatorAddress: e.delegator.String()})
 	require.NoError(t, err)
@@ -136,9 +136,9 @@ func (e *repair1255Env) assertRewards(t *testing.T, output []byte) {
 	decoded, err := e.abi.Methods[v605.RewardsMethod].Outputs.Unpack(output)
 	require.NoError(t, err)
 	require.Len(t, decoded, 1)
-	actual := abi.ConvertType(decoded[0], new(repair1255Rewards)).(*repair1255Rewards)
+	actual := abi.ConvertType(decoded[0], new(rewardsValueRewards)).(*rewardsValueRewards)
 	require.Len(t, actual.Rewards, len(response.Rewards))
-	assertCoins := func(actual []repair1255Coin, expected sdk.DecCoins) {
+	assertCoins := func(actual []rewardsValueCoin, expected sdk.DecCoins) {
 		require.Len(t, actual, len(expected))
 		for i, coin := range expected {
 			require.Equal(t, coin.Denom, actual[i].Denom)
@@ -156,19 +156,19 @@ func (e *repair1255Env) assertRewards(t *testing.T, output []byte) {
 	require.Equal(t, output, encoded)
 }
 
-func TestRepairM_1255_HistoricalRawCALL(t *testing.T) {
-	for _, height := range []int64{repair1255HistoricalHeight, repair1255HistoricalHeight + 1} {
+func TestRewardsValueHistoricalRawCALL(t *testing.T) {
+	for _, height := range []int64{rewardsValueHistoricalHeight, rewardsValueHistoricalHeight + 1} {
 		for _, amount := range []uint64{1, 1_000_000_000_000, 1_000_000_000_001} {
 			t.Run(fmt.Sprintf("height_%d/value_%d", height, amount), func(t *testing.T) {
-				e := newRepair1255Env(t, true)
+				e := newRewardsValueEnv(t, true)
 				evm, db := e.evm(t, height, true)
 				address := common.HexToAddress(v605.DistrAddress)
 				beforeCaller, beforeTarget := db.GetBalance(e.caller).ToBig(), db.GetBalance(address).ToBig()
 				value := new(big.Int).SetUint64(amount)
-				output, left, err := evm.Call(e.caller, address, e.input(t), repair1255Gas, uint256.NewInt(amount))
+				output, left, err := evm.Call(e.caller, address, e.input(t), rewardsValueGas, uint256.NewInt(amount))
 				require.NoError(t, err)
 				require.Positive(t, left)
-				require.Less(t, left, repair1255Gas)
+				require.Less(t, left, rewardsValueGas)
 				e.assertRewards(t, output)
 				require.NoError(t, db.GetPrecompileError())
 				require.Zero(t, new(big.Int).Sub(beforeCaller, value).Cmp(db.GetBalance(e.caller).ToBig()))
@@ -184,25 +184,25 @@ func TestRepairM_1255_HistoricalRawCALL(t *testing.T) {
 	}
 }
 
-func TestRepairM_1255_LiveRoutingActivation(t *testing.T) {
+func TestRewardsValueLiveRoutingActivation(t *testing.T) {
 	for _, tc := range []struct {
 		name    string
 		height  int64
 		applied bool
 		refuse  bool
 	}{
-		{"before_merge", repair1255MergeHeight - 1, true, false},
-		{"at_merge", repair1255MergeHeight, true, true},
-		{"after_merge", repair1255MergeHeight + 1, true, true},
-		{"unapplied_merge", repair1255MergeHeight + 1, false, false},
+		{"before_merge", rewardsValueMergeHeight - 1, true, false},
+		{"at_merge", rewardsValueMergeHeight, true, true},
+		{"after_merge", rewardsValueMergeHeight + 1, true, true},
+		{"unapplied_merge", rewardsValueMergeHeight + 1, false, false},
 	} {
 		for _, amount := range []uint64{1, 1_000_000_000_000, 1_000_000_000_001} {
 			t.Run(fmt.Sprintf("%s/value_%d", tc.name, amount), func(t *testing.T) {
-				e := newRepair1255Env(t, tc.applied)
+				e := newRewardsValueEnv(t, tc.applied)
 				evm, db := e.evm(t, tc.height, false)
 				address := common.HexToAddress(v605.DistrAddress)
 				beforeCaller, beforeTarget := db.GetBalance(e.caller).ToBig(), db.GetBalance(address).ToBig()
-				output, _, err := evm.Call(e.caller, address, e.input(t), repair1255Gas, uint256.NewInt(amount))
+				output, _, err := evm.Call(e.caller, address, e.input(t), rewardsValueGas, uint256.NewInt(amount))
 				if tc.refuse {
 					require.ErrorIs(t, err, vm.ErrExecutionReverted)
 					require.Empty(t, output)
@@ -221,14 +221,14 @@ func TestRepairM_1255_LiveRoutingActivation(t *testing.T) {
 	}
 }
 
-func TestRepairM_1255_ZeroValueQueries(t *testing.T) {
+func TestRewardsValueZeroValueQueries(t *testing.T) {
 	for _, historical := range []bool{true, false} {
 		for _, static := range []bool{false, true} {
 			t.Run(fmt.Sprintf("historical_%t/static_%t", historical, static), func(t *testing.T) {
-				e := newRepair1255Env(t, true)
-				height := repair1255MergeHeight
+				e := newRewardsValueEnv(t, true)
+				height := rewardsValueMergeHeight
 				if historical {
-					height = repair1255HistoricalHeight
+					height = rewardsValueHistoricalHeight
 				}
 				evm, db := e.evm(t, height, historical)
 				address := common.HexToAddress(v605.DistrAddress)
@@ -236,9 +236,9 @@ func TestRepairM_1255_ZeroValueQueries(t *testing.T) {
 				var output []byte
 				var err error
 				if static {
-					output, _, err = evm.StaticCall(e.caller, address, e.input(t), repair1255Gas)
+					output, _, err = evm.StaticCall(e.caller, address, e.input(t), rewardsValueGas)
 				} else {
-					output, _, err = evm.Call(e.caller, address, e.input(t), repair1255Gas, uint256.NewInt(0))
+					output, _, err = evm.Call(e.caller, address, e.input(t), rewardsValueGas, uint256.NewInt(0))
 				}
 				require.NoError(t, err)
 				e.assertRewards(t, output)

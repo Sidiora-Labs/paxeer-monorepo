@@ -44,11 +44,11 @@ import (
 
 // Heights are an in-memory upgrade history, not claims about mainnet heights.
 const (
-	repair1257HistoricalHeight int64 = 5
-	repair1257MergeHeight      int64 = 10
+	rewardsValueHistoricalHeight int64 = 5
+	rewardsValueMergeHeight      int64 = 10
 )
 
-type repair1257Env struct {
+type rewardsValueEnv struct {
 	ctx      sdk.Context
 	keeper   *keeper.Keeper
 	caller   common.Address
@@ -60,25 +60,25 @@ type repair1257Env struct {
 
 // ABI decoding follows tuple order; the historical Go structs use a
 // different field order even though packing resolves their fields by name.
-type repair1257Coin struct {
+type rewardsValueCoin struct {
 	Amount   *big.Int
 	Decimals *big.Int
 	Denom    string
 }
 
-type repair1257Reward struct {
-	Coins            []repair1257Coin
+type rewardsValueReward struct {
+	Coins            []rewardsValueCoin
 	ValidatorAddress string
 }
 
-type repair1257Rewards struct {
-	Rewards []repair1257Reward
-	Total   []repair1257Coin
+type rewardsValueRewards struct {
+	Rewards []rewardsValueReward
+	Total   []rewardsValueCoin
 }
 
 // This adapter supplies the two real keepers used by GetVersioned. It does
 // not import the full node or replace any keeper operation with a test double.
-type repair1257Keepers struct {
+type rewardsValueKeepers struct {
 	utils.Keepers
 	auth         authkeeper.AccountKeeper
 	bank         bankkeeper.BaseKeeper
@@ -88,10 +88,10 @@ type repair1257Keepers struct {
 	evm          *keeper.Keeper
 }
 
-func (a *repair1257Keepers) DistributionK() utils.DistributionKeeper { return a.distribution }
-func (a *repair1257Keepers) EVMK() utils.EVMKeeper                   { return a.evm }
+func (a *rewardsValueKeepers) DistributionK() utils.DistributionKeeper { return a.distribution }
+func (a *rewardsValueKeepers) EVMK() utils.EVMKeeper                   { return a.evm }
 
-func newRepair1257Store(t *testing.T) (*repair1257Keepers, sdk.Context) {
+func newRewardsValueStore(t *testing.T) (*rewardsValueKeepers, sdk.Context) {
 	t.Helper()
 	db := dbm.NewMemDB()
 	cms := store.NewCommitMultiStore(db)
@@ -122,7 +122,7 @@ func newRepair1257Store(t *testing.T) (*repair1257Keepers, sdk.Context) {
 		stakingtypes.BondedPoolName:    {authtypes.Burner, authtypes.Staking},
 		stakingtypes.NotBondedPoolName: {authtypes.Burner, authtypes.Staking},
 	}
-	a := &repair1257Keepers{}
+	a := &rewardsValueKeepers{}
 	a.auth = authkeeper.NewAccountKeeper(cdc, keys[authtypes.StoreKey], subspace(authtypes.ModuleName), authtypes.ProtoBaseAccount, permissions)
 	a.auth.SetParams(ctx, authtypes.DefaultParams())
 	for name, perms := range permissions {
@@ -144,13 +144,13 @@ func newRepair1257Store(t *testing.T) (*repair1257Keepers, sdk.Context) {
 	return a, ctx
 }
 
-func newRepair1257Env(t *testing.T, height int64, tracing, mergeApplied bool) *repair1257Env {
+func newRewardsValueEnv(t *testing.T, height int64, tracing, mergeApplied bool) *rewardsValueEnv {
 	t.Helper()
-	a, ctx := newRepair1257Store(t)
+	a, ctx := newRewardsValueStore(t)
 	require.Zero(t, a.upgrades.GetDoneHeight(ctx, pcommon.MergeUpgrade))
-	a.upgrades.SetDone(ctx.WithBlockHeight(repair1257HistoricalHeight), "v6.1.0")
+	a.upgrades.SetDone(ctx.WithBlockHeight(rewardsValueHistoricalHeight), "v6.1.0")
 	if mergeApplied {
-		a.upgrades.SetDone(ctx.WithBlockHeight(repair1257MergeHeight), pcommon.MergeUpgrade)
+		a.upgrades.SetDone(ctx.WithBlockHeight(rewardsValueMergeHeight), pcommon.MergeUpgrade)
 	}
 
 	key := &secp256k1.PrivKey{Key: make([]byte, 32)}
@@ -204,10 +204,10 @@ func newRepair1257Env(t *testing.T, height int64, tracing, mergeApplied bool) *r
 	}
 	packed, err := method.Outputs.Pack(expected)
 	require.NoError(t, err)
-	return &repair1257Env{ctx: ctx, keeper: k, caller: caller, address: address, method: method, input: input, expected: packed}
+	return &rewardsValueEnv{ctx: ctx, keeper: k, caller: caller, address: address, method: method, input: input, expected: packed}
 }
 
-func (e *repair1257Env) evm(t *testing.T, historical bool) (*vm.EVM, *state.DBImpl) {
+func (e *rewardsValueEnv) evm(t *testing.T, historical bool) (*vm.EVM, *state.DBImpl) {
 	t.Helper()
 	routes := e.keeper.CustomPrecompiles(e.ctx)
 	require.Contains(t, routes, e.address)
@@ -230,13 +230,13 @@ func (e *repair1257Env) evm(t *testing.T, historical bool) (*vm.EVM, *state.DBIm
 	return evm, db
 }
 
-func (e *repair1257Env) assertRewards(t *testing.T, output []byte) {
+func (e *rewardsValueEnv) assertRewards(t *testing.T, output []byte) {
 	t.Helper()
 	require.Equal(t, e.expected, output, "ABI response must contain the real keeper's validator rewards and totals")
 	decoded, err := e.method.Outputs.Unpack(output)
 	require.NoError(t, err)
 	require.Len(t, decoded, 1)
-	actual := abi.ConvertType(decoded[0], new(repair1257Rewards)).(*repair1257Rewards)
+	actual := abi.ConvertType(decoded[0], new(rewardsValueRewards)).(*rewardsValueRewards)
 	require.NotEmpty(t, actual.Rewards)
 	require.NotEmpty(t, actual.Total)
 	require.Positive(t, actual.Total[0].Amount.Sign())
@@ -244,11 +244,11 @@ func (e *repair1257Env) assertRewards(t *testing.T, output []byte) {
 
 // historical-rewards-value-v610: a raw CALL really transfers the payment;
 // marking rewards as view in the ABI never enforced nonpayability here.
-func TestRepairM_1257_HistoricalRawCALL(t *testing.T) {
-	for _, height := range []int64{repair1257HistoricalHeight, repair1257MergeHeight - 1} {
+func TestRewardsValueHistoricalRawCALL(t *testing.T) {
+	for _, height := range []int64{rewardsValueHistoricalHeight, rewardsValueMergeHeight - 1} {
 		for _, value := range []int64{1, 1_000_000_000_000, 1_000_000_000_001} {
 			t.Run(fmt.Sprintf("height_%d/value_%d", height, value), func(t *testing.T) {
-				e := newRepair1257Env(t, height, true, true)
+				e := newRewardsValueEnv(t, height, true, true)
 				require.False(t, pcommon.MergePlanActive(e.ctx, e.keeper))
 				evm, db := e.evm(t, true)
 				callerBefore, targetBefore := db.GetBalance(e.caller).ToBig(), db.GetBalance(e.address).ToBig()
@@ -272,7 +272,7 @@ func TestRepairM_1257_HistoricalRawCALL(t *testing.T) {
 	}
 }
 
-func TestRepairM_1257_LiveActivationBoundary(t *testing.T) {
+func TestRewardsValueLiveActivationBoundary(t *testing.T) {
 	for _, tc := range []struct {
 		name    string
 		height  int64
@@ -280,16 +280,16 @@ func TestRepairM_1257_LiveActivationBoundary(t *testing.T) {
 		applied bool
 		active  bool
 	}{
-		{"before_activation", repair1257MergeHeight - 1, false, true, false},
-		{"at_activation", repair1257MergeHeight, false, true, true},
-		{"after_activation", repair1257MergeHeight + 1, false, true, true},
-		{"replay_at_activation", repair1257MergeHeight, true, true, true},
-		{"replay_after_activation", repair1257MergeHeight + 1, true, true, true},
-		{"unapplied_plan", repair1257MergeHeight + 1, false, false, false},
+		{"before_activation", rewardsValueMergeHeight - 1, false, true, false},
+		{"at_activation", rewardsValueMergeHeight, false, true, true},
+		{"after_activation", rewardsValueMergeHeight + 1, false, true, true},
+		{"replay_at_activation", rewardsValueMergeHeight, true, true, true},
+		{"replay_after_activation", rewardsValueMergeHeight + 1, true, true, true},
+		{"unapplied_plan", rewardsValueMergeHeight + 1, false, false, false},
 	} {
 		for _, value := range []int64{1, 1_000_000_000_000, 1_000_000_000_001} {
 			t.Run(fmt.Sprintf("%s/value_%d", tc.name, value), func(t *testing.T) {
-				e := newRepair1257Env(t, tc.height, tc.tracing, tc.applied)
+				e := newRewardsValueEnv(t, tc.height, tc.tracing, tc.applied)
 				require.Equal(t, tc.active, pcommon.MergePlanActive(e.ctx, e.keeper))
 				evm, db := e.evm(t, false)
 				callerBefore, targetBefore := db.GetBalance(e.caller).ToBig(), db.GetBalance(e.address).ToBig()
@@ -312,15 +312,15 @@ func TestRepairM_1257_LiveActivationBoundary(t *testing.T) {
 	}
 }
 
-func TestRepairM_1257_ZeroValueQueries(t *testing.T) {
+func TestRewardsValueZeroValueQueries(t *testing.T) {
 	for _, historical := range []bool{true, false} {
 		for _, static := range []bool{false, true} {
 			t.Run(fmt.Sprintf("historical_%t/static_%t", historical, static), func(t *testing.T) {
-				height := repair1257MergeHeight
+				height := rewardsValueMergeHeight
 				if historical {
-					height = repair1257HistoricalHeight
+					height = rewardsValueHistoricalHeight
 				}
-				e := newRepair1257Env(t, height, historical, true)
+				e := newRewardsValueEnv(t, height, historical, true)
 				evm, db := e.evm(t, historical)
 				callerBefore, targetBefore := db.GetBalance(e.caller).ToBig(), db.GetBalance(e.address).ToBig()
 				var output []byte
