@@ -239088,7 +239088,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.22.43.262]
 title = "Name in the readiness checklist the asset record of the native denomination"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374386,7 +374386,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.271]
 title = "Bring the Python tests 143 to 152 of tools/qualification/audit_repairs to the present pages and paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
