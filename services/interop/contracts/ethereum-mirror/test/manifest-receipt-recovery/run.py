@@ -207,7 +207,7 @@ def main():
         (package / "Cargo.toml").write_text(manifest)
         subprocess.run(["cargo", "build", "--quiet", "--manifest-path", str(package / "Cargo.toml")],
                        cwd=repo, check=True)
-        binary = package / "target/debug/repair2231231-publisher"
+        binary = package / "target/debug/manifest-receipt-publisher"
         tls = certificates(directory)
         (directory / "bearer").write_text(BEARER)
         os.chmod(directory / "bearer", 0o600)

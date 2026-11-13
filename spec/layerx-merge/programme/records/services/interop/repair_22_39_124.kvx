@@ -31,7 +31,7 @@ repair = "The two-endpoint supplied fixture declares distinct backend identities
 
 [decision.repair_22_31_160]
 side = "test setup"
-producer = "src/repair_22_31_160_vault.cjs loads actual ganache, solc, ethers and OpenZeppelin contracts, but no manifest or provisioning supplied these dependencies in a fresh workspace. contracts/bridge/evm/foundry.toml pins solc 0.8.30 and bootstrap-libs.sh pins OpenZeppelin v5.3.0."
+producer = "src/vault_test_host.cjs loads actual ganache, solc, ethers and OpenZeppelin contracts, but no manifest or provisioning supplied these dependencies in a fresh workspace. contracts/bridge/evm/foundry.toml pins solc 0.8.30 and bootstrap-libs.sh pins OpenZeppelin v5.3.0."
 repair = "Declare and lock the real EVM test dependencies under tests/support/evm; provision them once per test process into an exclusive temporary directory with npm ci and pass its node_modules through NODE_PATH. Match the vault compiler and OpenZeppelin pins; retain actual deployment, on-chain deposit, live policy reads, rotation, static-call refusals and successful release. Missing tools and dependency-install errors fail explicitly."
 
 [decision.sequencer_receipt]

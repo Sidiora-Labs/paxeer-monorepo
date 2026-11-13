@@ -21,12 +21,12 @@ encoder_exit = 0
 encoder_log = "/out/logs/ap2-portable-encoding.log"
 
 [finding.mandate_fixture_rewritten_receipt]
-test = "repair_22_33_92::mandate_fixture_rewritten_receipt"
+test = "settlement_receipt_recovery::mandate_fixture_rewritten_receipt"
 status = "implemented_pending_qualification"
 change = "mandates.rs uses the node-produced mandates case for its exact direct-pair presentation. The closure test reproduces the same signed presentations, compiles through the real intent authority, consumes the original node evidence through Ap2Adapter/GatewayCore and verifies portable evidence and both original AP2 JWT signatures/references."
 
 [finding.ap2_settlement_rewritten_receipt]
-test = "repair_22_33_92::ap2_settlement_rewritten_receipt"
+test = "settlement_receipt_recovery::ap2_settlement_rewritten_receipt"
 status = "implemented_pending_qualification"
 change = "sequencer_settlement.rs uses the node-produced settlement case. The closure test settles once, syncs exact mandate/portable/execution/JWT evidence, drops the adapter, gateway, plane and signers, then opens a new verifier and GatewayCore and recovers through begin_translation and settle_with_sequencer_evidence."
 replay = "Fresh contexts at NOW+1, NOW+2, NOW+3 and NOW+17 preserve request identity and the original settled digest; recovery rechecks raw transaction binding, original node logs, receipt pins and both JWT signatures; replays execute zero additional payments and add zero audit entries. A changed economic binding still fails with IdempotencyConflict."
@@ -34,7 +34,7 @@ production = "Prerequisite 22.33.88 already removed the local verification clock
 wiring_request = "Interop composition domain: services/interop/crates/layerx-interop-service/src/{server,relay}.rs must wire its private Redis operation journal to the same verified-request/receipt recovery path; this task proves GatewayCore recovery through its public APIs and does not alter that service."
 
 [proof.node_receipt_keeps_transaction_logs_and_sequence]
-test = "repair_22_33_92::node_receipt_keeps_transaction_logs_and_sequence"
+test = "settlement_receipt_recovery::node_receipt_keeps_transaction_logs_and_sequence"
 path = "Both original node transactions -> production PortableReceiptV2 raw-transaction binding -> original pinned receipt signature and complete log commitment verification -> original sequence-chain assertion and exact committed portable export. A changed payer transaction is positively refused."
 logs = "The real producer emits exactly two logs, Transfer and PaymentExact. Preserve both, verify the transfer fields, and select exactly one PaymentExact instead of assuming it is log zero."
 gate_dependencies = "The gate uses committed fixtures and Rust production compiler/codec/adapter/store code only: no environment variable, credential, live endpoint, subprocess, external binary or native node artifact. Runtime openssl intent signers were replaced by exact committed producer-signed request authorizations."

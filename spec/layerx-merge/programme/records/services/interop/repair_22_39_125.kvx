@@ -24,7 +24,7 @@ decision = "Decode execution-header UTC time and each recorded validator's base6
 
 [target.repair_22_33_90]
 side = "consumer test; retain the current producer-aligned expectations"
-record = "services/interop/crates/layerx-committed-proof/tests/repair_22_33_90.rs and services/interop/specs/conformance/committed/repair_22_31_622.kvx"
+record = "services/interop/crates/layerx-committed-proof/tests/namespace_registry.rs and services/interop/specs/conformance/committed/repair_22_31_622.kvx"
 decision = "Both public verifier namespaces already consume the current normalized recording and source-pinned receipt; retain digest authentication, consensus inclusion and all three exact consensus refusal results. Qualify this target as part of the complete member gate."
 
 [target.fiat_sequenced_vectors]
@@ -52,7 +52,7 @@ decision = "Install the independent verifier's declared dependencies and collect
 
 [target.repair_22_33_95]
 side = "consumer test"
-record = "services/interop/repair_22_33_95.kvx and services/interop/tests/repair_22_33_95.rs"
+record = "spec/layerx-merge/programme/records/services/interop/repair_22_33_95.kvx and services/interop/tests/repair_22_33_95.rs"
 decision = "Keep the integration target name and all four tests, relocating its registered source into the allowed layerx-portable/tests directory with adjusted relative imports. The original shared source is outside this task's scope and is left untouched; Cargo executes only the registered crate-local source. Require all seven current recordings rather than six; preserve the compiled real example, guide/source equality, exact exported bytes/results, signed-height windows and all trust/format refusals."
 
 [target.portable_sequencer_vectors]

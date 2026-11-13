@@ -3,7 +3,7 @@ pragma solidity 0.8.30;
 
 import {LayerXMirrorArchive} from "../LayerXMirrorArchive.sol";
 
-interface Repair2231231Vm {
+interface ManifestReceiptRecoveryVm {
     struct Log {
         bytes32[] topics;
         bytes data;
@@ -19,8 +19,9 @@ interface Repair2231231Vm {
     function toString(bytes calldata value) external pure returns (string memory);
 }
 
-contract Repair2231231Test {
-    Repair2231231Vm private constant vm = Repair2231231Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
+contract ManifestReceiptRecoveryTest {
+    ManifestReceiptRecoveryVm private constant vm =
+        ManifestReceiptRecoveryVm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
     function testManifestOpenedSevenFieldReceiptAndStoredCoordinate() public {
         LayerXMirrorArchive archive = new LayerXMirrorArchive(address(this));
@@ -34,7 +35,7 @@ contract Repair2231231Test {
 
         vm.recordLogs();
         archive.begin(commitment, network, height, blockHash, uint64(payload.length), 1, digest, chain);
-        Repair2231231Vm.Log[] memory logs = vm.getRecordedLogs();
+        ManifestReceiptRecoveryVm.Log[] memory logs = vm.getRecordedLogs();
         require(logs.length == 1 && logs[0].emitter == address(archive), "manifest receipt producer");
         require(logs[0].topics.length == 2 && logs[0].topics[1] == commitment, "indexed commitment");
         require(
@@ -73,7 +74,7 @@ contract Repair2231231Test {
         LayerXMirrorArchive archive = new LayerXMirrorArchive(publisher);
         string[] memory command = new string[](4);
         command[0] = "python3";
-        command[1] = string.concat(vm.projectRoot(), "/test/repair2231231/run.py");
+        command[1] = string.concat(vm.projectRoot(), "/test/manifest-receipt-recovery/run.py");
         command[2] = vm.toString(bytes.concat(type(LayerXMirrorArchive).creationCode, abi.encode(publisher)));
         command[3] = vm.toString(address(archive).code);
         bytes memory result = vm.ffi(command);

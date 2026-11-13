@@ -204,12 +204,12 @@ lint = "clippy::all, clippy::pedantic"
 change = "The test uses explicit values and types in its existing assertions."
 
 [interop_lint.file_004]
-file = "services/interop/crates/layerx-ap2/tests/repair_22_33_88.rs"
+file = "services/interop/crates/layerx-ap2/tests/mandate_replay_and_time_claims.rs"
 lint = "too_many_lines, clippy::all, clippy::pedantic"
 change = "The test keeps its assertions in focused functions."
 
 [interop_lint.file_005]
-file = "services/interop/crates/layerx-ap2/tests/repair_22_33_92.rs"
+file = "services/interop/crates/layerx-ap2/tests/settlement_receipt_recovery.rs"
 lint = "too_many_lines, clippy::all, clippy::pedantic"
 change = "The test keeps its assertions in focused functions."
 
@@ -324,27 +324,27 @@ lint = "too_many_lines, clippy::all, clippy::pedantic"
 change = "The test keeps its assertions in focused functions."
 
 [interop_lint.file_028]
-file = "services/interop/crates/layerx-bridge-relayer/tests/repair_22_31_160.rs"
+file = "services/interop/crates/layerx-bridge-relayer/tests/destination_policy_and_consumers.rs"
 lint = "too_many_lines, clippy::all, clippy::pedantic"
 change = "The test keeps its assertions in focused functions."
 
 [interop_lint.file_029]
-file = "services/interop/crates/layerx-bridge-relayer/tests/repair_22_31_161.rs"
+file = "services/interop/crates/layerx-bridge-relayer/tests/solana_cpi_recovery.rs"
 lint = "too_many_lines, clippy::all, clippy::pedantic"
 change = "The test keeps its assertions in focused functions."
 
 [interop_lint.file_030]
-file = "services/interop/crates/layerx-bridge-relayer/tests/repair_22_33_65.rs"
+file = "services/interop/crates/layerx-bridge-relayer/tests/solana_backfill.rs"
 lint = "too_many_lines, clippy::all, clippy::pedantic"
 change = "The test keeps its assertions in focused functions."
 
 [interop_lint.file_031]
-file = "services/interop/crates/layerx-bridge-relayer/tests/repair_22_33_66.rs"
+file = "services/interop/crates/layerx-bridge-relayer/tests/journal_checkpoints_and_rpc_quorum.rs"
 lint = "too_many_lines, clippy::all, clippy::pedantic"
 change = "The test keeps its assertions in focused functions."
 
 [interop_lint.file_032]
-file = "services/interop/crates/layerx-bridge-relayer/tests/repair_22_33_68.rs"
+file = "services/interop/crates/layerx-bridge-relayer/tests/attestation_policy_and_transport.rs"
 lint = "clippy::all, clippy::pedantic"
 change = "The test uses explicit values and types in its existing assertions."
 
@@ -369,7 +369,7 @@ lint = "clippy::all, clippy::pedantic"
 change = "The test uses explicit values and types in its existing assertions."
 
 [interop_lint.file_037]
-file = "services/interop/crates/layerx-bridge-relayer/tests/support/repair_22_33_68.rs"
+file = "services/interop/crates/layerx-bridge-relayer/tests/support/attestation_policy.rs"
 lint = "too_many_lines, clippy::all, clippy::pedantic"
 change = "The test keeps its assertions in focused functions."
 
@@ -409,7 +409,7 @@ lint = "too_many_lines, clippy::all, clippy::pedantic"
 change = "The test keeps its assertions in focused functions."
 
 [interop_lint.file_045]
-file = "services/interop/crates/layerx-committed-proof/tests/repair_22_33_90.rs"
+file = "services/interop/crates/layerx-committed-proof/tests/namespace_registry.rs"
 lint = "clippy::all, clippy::pedantic"
 change = "The test uses explicit values and types in its existing assertions."
 

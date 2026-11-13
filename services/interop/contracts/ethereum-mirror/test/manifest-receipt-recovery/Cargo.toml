@@ -1,7 +1,7 @@
 [package]
 license = "Apache-2.0"
 authors = ["Sidiora Labs"]
-name = "repair2231231-publisher"
+name = "manifest-receipt-publisher"
 version = "0.1.0"
 edition = "2021"
 publish = false

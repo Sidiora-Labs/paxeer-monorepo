@@ -1,12 +1,12 @@
 [interop.dependencies]
 rule = "Dependency selections use accepted releases where compatible. Each remaining advisory or duplicate version has one identified, reasoned and dated configuration entry. SQLite is refused on every interop dependency path outside the platform gateway; all other forbidden crates are refused throughout the package list."
-files = ["scripts/interop/dependency-policy.sh", "services/interop/Cargo.toml", "services/interop/Cargo.lock", "services/interop/crates/layerx-gas-station/Cargo.toml", "services/interop/crates/layerx-migrate/Cargo.toml", "services/interop/crates/x-websearch/Cargo.toml", "services/interop/deny.toml", "services/interop/repair_22_39_501.kvx"]
+files = ["scripts/interop/dependency-policy.sh", "services/interop/Cargo.toml", "services/interop/Cargo.lock", "services/interop/crates/layerx-gas-station/Cargo.toml", "services/interop/crates/layerx-migrate/Cargo.toml", "services/interop/crates/x-websearch/Cargo.toml", "services/interop/deny.toml", "spec/layerx-merge/programme/records/services/interop/repair_22_39_501.kvx"]
 sqlite = "The resolved graph is traversed from workspace members with the platform gateway node removed. Any SQLite package still reachable is refused."
 search = "Tantivy 0.25.0 provides the persistent search index without typetag or inventory."
 test_runner = "libtest-mimic 0.8.2 shares the clap terminal dependencies."
 updates = "The lockfile selects compatible ctutils, rustls-webpki, Tokio, zstd, zstd-safe and zstd-sys releases."
 build_command = "make -s interop-build"
-command = "test -s services/interop/repair_22_39_501.kvx && make -s interop-lint"
+command = "test -s spec/layerx-merge/programme/records/services/interop/repair_22_39_501.kvx && make -s interop-lint"
 
 [interop.boundary.libsqlite3_sys]
 identifier = "libsqlite3-sys"
