@@ -26,7 +26,7 @@ criterion = "Inspect the example's source imports, excluding installed packages 
 [qualification]
 build = "hf-build: npm ci --ignore-scripts"
 verify = "hf-done: cg spec done 22.31.479 -f layerx-merge --root /work/paxeer-monorepo"
-verify_cmd = "npm ci --ignore-scripts && node --test services/platform/examples/agent-spend/test/repair-22-31-479.test.mjs"
+verify_cmd = "npm ci --ignore-scripts && node --test services/platform/examples/agent-spend/test/workspace-dependencies.test.mjs"
 verified_revision_record = "/out/run/gates.jsonl: the final hf-done row names the exact verified candidate revision, command, exit code and private log; its revision must match the passing hf-build row."
 private_build_log = "/out/logs/build-1.log"
 private_verify_log = "/out/logs/verify-1.log"

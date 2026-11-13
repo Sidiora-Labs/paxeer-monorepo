@@ -34,13 +34,13 @@ const hooks = registerHooks({
 });
 const { decodePaymentRequiredHeader, decodeSettlementHeader, encodePaymentPayloadHeader, verifyPaymentReceipt } =
   await import("@sidiora/layerx-seller-middleware");
-const { beta, document, bindEnvironment, bytes, createMerchantRepairFixture } = await import("../repair_22_31_353.mjs");
+const { beta, document, bindEnvironment, bytes, createMerchantSettlementFixture } = await import("../settlement-fixture.mjs");
 hooks.deregister();
 
 async function merchantChainOrigin(context) {
   assert.equal(beta.rpcUrl, "https://api-mainnet-beta.paxeer.network");
   assert.equal(beta.network, "eip155:125");
-  const app = await createMerchantRepairFixture(context);
+  const app = await createMerchantSettlementFixture(context);
   const receipt = await app.produce();
   const chainId = await fetch(app.config.rpcUrl, {
     method: "POST", headers: { "content-type": "application/json" },
@@ -69,7 +69,7 @@ async function merchantChainOrigin(context) {
 }
 
 async function merchantSettlementOrigin(context) {
-  const app = await createMerchantRepairFixture(context);
+  const app = await createMerchantSettlementFixture(context);
   const unauthenticated = await fetch(app.config.settlementUrl, {
     method: "POST", headers: { "content-type": "application/json" }, body: "{}",
     signal: AbortSignal.timeout(8000),
@@ -117,7 +117,7 @@ async function merchantSettlementOrigin(context) {
 }
 
 async function merchantSettlementDecoderRejectsInvalidResponses(context) {
-  const app = await createMerchantRepairFixture(context);
+  const app = await createMerchantSettlementFixture(context);
   const cases = [
     { id: "pending", response: { state: "pending" }, status: 202, state: "pending", order: "awaiting-payment" },
     { id: "refused", response: { state: "refused", reason: "not_authorized" }, status: 402, state: "refused", order: "refused" },

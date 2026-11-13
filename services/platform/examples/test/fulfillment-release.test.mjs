@@ -156,7 +156,7 @@ async function close(server) {
 }
 
 async function startMerchant(t) {
-  const root = await mkdtemp(join(tmpdir(), "layerx-repair-22-31-360-"));
+  const root = await mkdtemp(join(tmpdir(), "layerx-fulfillment-release-"));
   const savedEnvironment = { ...process.env };
   const transactions = new Map();
   const settlements = [];
@@ -213,24 +213,24 @@ async function startMerchant(t) {
   const authorityUrl = await listen(authority);
   Object.assign(process.env, {
     LAYERX_EXAMPLE_STATE_ROOT: root,
-    REPAIR_360_TOKEN: "repair-merchant-token",
-    REPAIR_360_KEYS: JSON.stringify([{
+    FULFILLMENT_MERCHANT_TOKEN: "repair-merchant-token",
+    FULFILLMENT_MERCHANT_KEYS: JSON.stringify([{
       keyId: hex(keyId), publicKey: hex(publicKey), firstHeight: "1", lastHeight: "1000",
     }]),
-    REPAIR_360_WEBHOOK_KEYS: JSON.stringify({ merchant: hex(publicKey) }),
-    REPAIR_360_ASSET: hex(asset),
-    REPAIR_360_PAYEE: hex(payee),
-    REPAIR_360_ACCOUNT: "agent:merchant:main",
-    REPAIR_360_CURRENCY: "USD",
-    REPAIR_360_PRICE: "25",
+    FULFILLMENT_MERCHANT_WEBHOOK_KEYS: JSON.stringify({ merchant: hex(publicKey) }),
+    FULFILLMENT_MERCHANT_ASSET: hex(asset),
+    FULFILLMENT_MERCHANT_PAYEE: hex(payee),
+    FULFILLMENT_MERCHANT_ACCOUNT: "agent:merchant:main",
+    FULFILLMENT_MERCHANT_CURRENCY: "USD",
+    FULFILLMENT_MERCHANT_PRICE: "25",
   });
   const config = {
     application: "merchant-checkout", directory: root, stateDirectory: "state", publicUrl: "http://127.0.0.1",
     scheme: "exact", rpcUrl: authorityUrl + "/rpc", settlementUrl: authorityUrl + "/settle",
-    tokenEnvironment: "REPAIR_360_TOKEN", receiptKeysEnvironment: "REPAIR_360_KEYS",
-    webhookKeysEnvironment: "REPAIR_360_WEBHOOK_KEYS", assetEnvironment: "REPAIR_360_ASSET",
-    payToEnvironment: "REPAIR_360_PAYEE", accountEnvironment: "REPAIR_360_ACCOUNT",
-    currencyEnvironment: "REPAIR_360_CURRENCY", priceEnvironment: "REPAIR_360_PRICE",
+    tokenEnvironment: "FULFILLMENT_MERCHANT_TOKEN", receiptKeysEnvironment: "FULFILLMENT_MERCHANT_KEYS",
+    webhookKeysEnvironment: "FULFILLMENT_MERCHANT_WEBHOOK_KEYS", assetEnvironment: "FULFILLMENT_MERCHANT_ASSET",
+    payToEnvironment: "FULFILLMENT_MERCHANT_PAYEE", accountEnvironment: "FULFILLMENT_MERCHANT_ACCOUNT",
+    currencyEnvironment: "FULFILLMENT_MERCHANT_CURRENCY", priceEnvironment: "FULFILLMENT_MERCHANT_PRICE",
   };
   async function start() {
     server = createMerchantApplicationServer(config);

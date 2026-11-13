@@ -270,11 +270,11 @@ async function marketplaceAnchorRejectsMalformedEnvelopes(t) {
   }
 }
 
-async function repair2231349(t) {
+async function marketplaceLifecycleAnchor(t) {
   await t.test(marketplaceRootAnchorDrivesEvmDeploymentAndCalls);
   await t.test(marketplaceAnchorRequiresEvmSender);
   await t.test(marketplaceAnchorReportsUnavailableNode);
   await t.test(marketplaceAnchorRejectsMalformedEnvelopes);
 }
 
-test(repair2231349);
+test(marketplaceLifecycleAnchor);

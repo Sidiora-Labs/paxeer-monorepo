@@ -1,7 +1,7 @@
 [task]
 id = "22.33.1448"
 base_revision = "9fda5aafcf8b4dba3d79ad6d650ea1272c960511"
-verify_cmd = "node --test services/platform/examples/test/repair-22-33-1448.test.mjs"
+verify_cmd = "node --test services/platform/examples/test/merchant-result-code.test.mjs"
 baseline = "Not run: explicit Order 1 prohibits testing before full implementation and Order 4 prohibits running verify_cmd by hand before hf-done; the inherited tree has no gate ledger, so no baseline failures are claimed."
 evidence = "The runner's private gates.jsonl records the exact candidate revision, command, exit and log; hf-build and hf-done must qualify the same candidate."
 

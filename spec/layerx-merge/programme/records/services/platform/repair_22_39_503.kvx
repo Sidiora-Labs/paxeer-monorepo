@@ -1,7 +1,7 @@
 [platform_lint]
 rule = "Use accepted dependency releases first; retain single, dated and reasoned entries only for advisories or duplicate APIs constrained by pinned dependencies. SQLite is limited to the indexer store through rusqlite and its native bindings; sqlx-sqlite remains forbidden."
-files = ["services/platform/Cargo.toml", "services/platform/Cargo.lock", "services/platform/deny.toml", "services/platform/hosted/indexer/tests/store_writers.rs", "services/platform/hosted/indexer/Cargo.toml", "services/platform/repair_22_39_503.kvx", "tools/platform/Cargo.toml", "tools/platform/Cargo.lock", "tools/platform/deny.toml"]
-command = "test -s services/platform/repair_22_39_503.kvx && make -s platform-lint"
+files = ["services/platform/Cargo.toml", "services/platform/Cargo.lock", "services/platform/deny.toml", "services/platform/hosted/indexer/tests/store_writers.rs", "services/platform/hosted/indexer/Cargo.toml", "spec/layerx-merge/programme/records/services/platform/repair_22_39_503.kvx", "tools/platform/Cargo.toml", "tools/platform/Cargo.lock", "tools/platform/deny.toml"]
+command = "test -s spec/layerx-merge/programme/records/services/platform/repair_22_39_503.kvx && make -s platform-lint"
 build_command = "cargo build --offline --locked --workspace --manifest-path services/platform/Cargo.toml && cargo build --offline --locked --workspace --manifest-path tools/platform/Cargo.toml && cargo build --offline --locked --workspace --manifest-path sdk/platform/generators/Cargo.toml"
 writer_assertions = "Two independent connections each record 100 source heads; the count and every stored head are asserted, with checked integer conversions and explicit panic messages."
 dependency_versions = ["services/platform: ctutils 0.4.4", "services/platform: tokio 1.53.3", "tools/platform: async-executor 1.14.1", "services/platform: rusqlite 0.41.1 with libsqlite3-sys 0.39.1 (RUSTSEC-2026-0459)"]
