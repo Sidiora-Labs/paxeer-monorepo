@@ -144,9 +144,18 @@ the schema root. An error prints `agent-sdk-gen:` and exits nonzero.
 The [implementation](../../../services/agent/tests/parity/src/main.rs) requires an
 HTTP(S) node JSON-RPC URL; it refuses a filesystem executable path with
 `expected a node JSON-RPC URL`. It also rejects URL credentials and fragments.
-It queries `eth_chainId` and `eth_blockNumber`, checks 21 scenarios and compares
-Rust, TypeScript and Python SDK observations through a local Unix-socket test
-session. The session is a harness component, not a network executor.
+It qualifies the node with chain, block and receipt-key reads, then compares
+Rust, TypeScript and Python SDK observations for 21 scenarios through a
+provisioned daemon's mutual-TLS operation-envelope transport.
+
+Provide `services/agent/tests/parity/provisioned.json` with a `daemon` object
+and `cases` matching all 21 declared scenario names. The daemon configuration
+supplies `endpoint`, `tenant`, `session_id`, `token_id`, `generation`,
+`client_certificate`, `client_key` and `trust_anchors`. Certificate, key and
+trust-anchor paths resolve relative to the plan.
+Each case supplies an operation, canonical request ID, request and optional
+idempotency key. The TypeScript and Python drivers consume that same file with
+`--envelope-plan`.
 
 `agent-sdk-parity --check-scenarios PATH` validates the scenario file without
 running the parity suite. The checked-in
@@ -370,7 +379,7 @@ Source: [run-real-node-tests.sh](../../../services/agent/tools/run-real-node-tes
 |---|---|---|
 | `interface.9.cli-run-real-node-tests-test` | `sh services/agent/tools/run-real-node-tests.sh test` | Runs `make agent-test`. |
 | `interface.9.cli-run-real-node-tests-sanitizers` | `sh services/agent/tools/run-real-node-tests.sh sanitizers` | Runs `make agent-test-sanitize`. |
-| `interface.9.cli-run-real-node-tests-prepare` | `sh services/agent/tools/run-real-node-tests.sh prepare` | Builds native program-admission and metered-allowance tests, builds `paxd`, exports its paths and prints its SHA-256. |
+| `interface.9.cli-run-real-node-tests-prepare` | `sh services/agent/tools/run-real-node-tests.sh prepare` | Builds `paxd`, exports its paths and prints its SHA-256. |
 
 The script requires exactly one mode and root privileges to arrange distinct
 agent user identities. It checks Forge, Cast, Anvil, Go and the listed Python

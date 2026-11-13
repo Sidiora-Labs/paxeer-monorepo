@@ -40,7 +40,7 @@ Mount options remain `loop,nosuid,nodev,noatime`. Execution remains enabled
 because the builder executes pinned open-inode supervisor and isolation
 binaries from its quota-backed environment; `noexec` would break that contract.
 The provisioner validates ext4, mount options, a distinct device, loop backing
-identity on reuse, autoclear, byte and inode bounds, and root ownership
+identity on reuse, autoclear, byte and inode bounds, and mount-root mode and ownership
 `0700 4030:4030` before completing. systemd owns loop setup and autoclear;
 no provisioner process performs a mount in its private namespace.
 

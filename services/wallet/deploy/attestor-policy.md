@@ -29,6 +29,7 @@ The same fields are accepted in `defaults` and each `accounts` entry.
 | `destinations_allow` | Optional array of allowed addresses. When absent there is no allow-list restriction; an empty array blocks every inspected destination. Applies to inspected call targets and counterparties such as recipients and permit spenders. |
 | `destinations_deny` | Optional array of refused addresses. Deny entries take precedence over the allow list. An absent or empty array adds no denials. |
 | `selectors` | Object mapping destination addresses to arrays of allowed four-byte method selectors, encoded as `0x` plus eight hex digits. Precompile call targets require an entry and an allowed selector. Other call targets are restricted only if listed. An empty array permits no methods on that target. Counterparties still undergo address checks; a listed counterparty does not need a call selector because it is not the call target. A precompile counterparty still requires a `selectors` entry, even if its selector array is empty. |
+| `program_calls` | Optional array of permitted native program IDs, entrypoints and maximum call fees, described below. The shipped policy omits it and permits no program calls. |
 | `trusted_spenders` | Array of spender addresses allowed bounded ERC-20 approvals and Permit allowances under the token-scope rules below. The shipped entries are `0x0000000000000000000000000000000000001015` and `0x0000000000000000000000000000000000001017`. |
 | `authorization_delegates` | Array of permitted EIP-7702 delegation targets, checked for standalone authorizations and authorizations embedded in transactions. An absent or empty array refuses all delegation targets. The shipped array is empty. |
 
@@ -39,6 +40,24 @@ destination key, case insensitively for addresses: an override replaces the
 whole cap or selector list at that key. An empty map does not remove inherited
 entries. A cap override does not inherit individual bounds from that asset's
 default cap.
+
+### Native program calls
+
+Each `program_calls` entry contains:
+
+| Field | Meaning |
+| --- | --- |
+| `program_id` | Unique 32-byte program ID encoded as 64 lowercase hex characters without `0x`. |
+| `entrypoints` | Nonempty array of unique, nonempty entrypoint strings, with no leading or trailing whitespace and no NUL characters. |
+| `fee_limit` | Required non-negative decimal integer string bounded by `uint128`, limiting the requested program call fee. |
+
+A `layerxprograms.call` request must have zero EVM value, name a listed program
+and entrypoint, and request a fee no greater than its configured `fee_limit`.
+An unlisted program or entrypoint, or an excessive fee, is refused with
+`selector_not_allowed`; nonzero EVM value is refused with `decode_error`.
+Destination and selector checks also apply. An account's supplied `program_calls` array replaces the
+whole default list; an empty array permits no program calls, while an omitted
+or JSON `null` field inherits the default list.
 
 ### Cap fields and shipped limits
 
@@ -114,7 +133,7 @@ states can produce the policy-related codes below.
 | `contract_creation` | An EVM transaction creates a contract rather than calling a destination. |
 | `destination_denied` | An inspected destination is on `destinations_deny`. |
 | `destination_not_allowed` | An inspected destination is absent from the configured allow list, or a transfer recipient is a precompile. |
-| `selector_not_allowed` | A target's method selector is not allowed, or a precompile target has no selector policy. |
+| `selector_not_allowed` | A target's method selector is not allowed, a precompile target has no selector policy, or a program call violates `program_calls`. |
 | `rate_limited` | The account has reached its rolling one-minute request limit. |
 | `no_cap` | A positive spend has no applicable cap with at least one bound. |
 | `value_cap` | The request's summed asset amount exceeds its per-transaction bound. |
