@@ -68,7 +68,7 @@ chain.
 
 The deposit event is:
 
-```
+```solidity
 event BridgeDeposit(address indexed asset, uint256 amount, address indexed sender,
                     bytes32 indexed paxeerRecipient, uint64 nonce);
 ```
@@ -124,7 +124,7 @@ their derived `lxb…` denom.
 `bridgeOut(chain, asset, amount, recipient)` burns the caller's registered
 bridged denom and emits, from `0x0000000000000000000000000000000000001016`,
 
-```
+```solidity
 event BridgeOut(uint64 indexed chain, address indexed asset, uint256 amount,
                 address recipient, uint64 indexed nonce);
 ```

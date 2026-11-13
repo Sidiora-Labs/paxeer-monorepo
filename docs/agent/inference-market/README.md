@@ -23,7 +23,7 @@ Check F11 availability on the target network before attempting the flows.
 | --- | --- | --- |
 | Protocol and settlement | Node execution of the ai-market program F11, pay at `0x101B`, attestor at `0x0907` | Enrolment records, rooms, asks, bids, deals, sealed receipts, challenges, bonds, metered streams and reward credits |
 | Orchestration | Operator's `layerx-agentd` inference-market profile | Capability enrolment, placement, signalling, signed writes, lap collection, canary checks, recovery and completion routes |
-| Inference | Host plus browser or native peers; see `apps/inference-peer/README.md` | Execute the assigned model layers over WebRTC data channels and countersign contributed laps; the host keeps embedding and head |
+| Inference | Host plus browser or native peers; see the [peer guide](../../../apps/inference-peer/README.md) | Execute the assigned model layers over WebRTC data channels and countersign contributed laps; the host keeps embedding and head |
 
 The operator runs the host daemon and provides its node connection, signing
 identity, model/runtime digests and room policy. Peer operators provide compute,
@@ -42,8 +42,3 @@ No participant gains protocol authority from an HTTP success or a local receipt.
   and explorer entry points.
 - [Threat statement](threats.md): development attestation, incorrect answers,
   liveness, collusion and privacy limits.
-
-The planned isolated-chain driver is intended to prove
-ask → stream → lap settlement → claim and a canary failure that slashes a bond
-with one host, two native peers and a synthetic scripted model. Documentation
-checks establish page coverage, not those runtime results.

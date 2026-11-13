@@ -1,10 +1,10 @@
 # Perps data services contract
 
-This release-era page retains its numbered sections and the event table consumed by ABI conformance tests. The operating guidance below describes the current merged-network implementation; the [current service contract](../../../contracts/perps-data.md) is the integration entry point, and the [frozen interface inventory](../../layerx-merge/contracts/perps-data.md) records its own historical revision.
+The services index and serve native market activity. The [service contract](../../../contracts/perps-data.md) describes the integration interfaces.
 
 The services index native perpetuals (0x…1015), pricefeed (0x…1020), spot rails (0x…1021–0x…1025 and discovered share pointers), and USDL transfers, then serve the [perps application](../../../apps/perps), explorer and portal. Paxeer mainnet-beta is one BFT network, chain ID 125 (`0x7d`): the kernel is part of the network and proposes blocks, and receipts are final when their blocks commit. Indexing, delivery and replay track data-service progress, with no additional settlement stage.
 
-Public node JSON-RPC uses HTTPS at the root of `api1.mainnet-beta.paxeer.network` through `api14.mainnet-beta.paxeer.network`, and `api-mainnet-beta.paxeer.network`; see [public RPC](../../../docs/site/docs/reference/public-rpc.md). Configure CometBFT listeners separately. The data gateway described here serves REST, GraphQL and sockets; it does not proxy node JSON-RPC. Sub-chains are tenant domains in the database, not separate consensus infrastructure. Chart candles remain on the configured Chainflow feed (section 12).
+Public node JSON-RPC uses HTTPS at the node root path; see [public RPC](../../../docs/site/docs/reference/public-rpc.md). Configure CometBFT listeners separately. The data gateway described here serves REST, GraphQL and sockets; it does not proxy node JSON-RPC. Sub-chains are tenant domains in the database, not separate consensus infrastructure. Chart candles remain on the configured Chainflow feed (section 12).
 
 ## 1. Scope, code home and reuse
 
@@ -12,25 +12,13 @@ Code lives in the root Go module under [services/platform/perps-data](../../../s
 
 Implementation sources for the numbered sections are [migrations](../../../services/platform/perps-data/migrations), [source following](../../../services/platform/perps-data/internal/source), [decoding](../../../services/platform/perps-data/internal/decode), [storage](../../../services/platform/perps-data/internal/store), [delivery](../../../services/platform/perps-data/internal/delivery), [REST](../../../services/platform/perps-data/internal/rest), [topic feeds](../../../services/platform/perps-data/internal/feeds), [GraphQL](../../../services/platform/perps-data/internal/graphql/schema.go), and [gateway registration](../../../services/platform/perps-data/internal/gateway/server.go). These sources define exact types, nullability and route registration.
 
-Packages copied from the launchpad backend (github.com/Sidiora-Labs/Launch-x) keep their behaviour; each copy names its origin in the package comment.
-
-| target package | origin in the launchpad backend | change on copy |
-| --- | --- | --- |
-| internal/delivery (envelope, store, relay) | shared/delivery | database/sql and lib/pq instead of pgx |
-| internal/delivery/natsdriver | shared/delivery/natsdriver | none |
-| internal/stream (ValidFilter, Matches) | shared/delivery/stream.go | renamed |
-| internal/httpx | shared/http/health.go | net/http ServeMux instead of chi |
-| internal/telemetry | shared/telemetry/metrics.go | none |
-| internal/bigint | shared/db/bigint.go | ValidateRawInt256 added |
-| internal/ratelimit | core/api/internal/ratelimit | none |
-| deploy/Dockerfile | deploy/Dockerfile.svc | SERVICE build argument |
-| deploy/nats/nats.conf | deploy/production/bootstrap/nats.conf | cluster block and permissions |
+The delivery packages encode envelopes, persist outbox state and relay through NATS. Stream filtering, HTTP health, telemetry, integer validation and rate limiting have separate internal packages. The deployment directory contains data-service and NATS images.
 
 Dependencies are already declared in the [root go.mod](../../../go.mod): `github.com/nats-io/nats.go`, `github.com/nats-io/nats-server/v2` and `github.com/graph-gophers/graphql-go`. Use the checked-in module graph and checksums; adding these libraries is not a deployment prerequisite.
 
 ABI imports: the decoders import the leaf packages `precompiles/perps/abi`, `precompiles/pricefeed/abi` and `precompiles/spot/abi`, which embed the ABI without importing node keepers or the native host. The USDL Transfer event is declared by the decoder. This permits the data images to build with CGO_ENABLED=0 (section 20).
 
-The launchpad configuration loader is not reused because it requires Redis variables these services do not read; see section 23.
+The configuration loader reads the variables used by each service; see section 23.
 
 ### Address set
 
@@ -45,7 +33,7 @@ One address set is used by the follower, the decoders, the replay tool and the t
 | 0x0000000000000000000000000000000000001023 | PECORStopOrders | [spot contract](spot.md), Events |
 | 0x0000000000000000000000000000000000001024 | PECORQuoter | view only, no logs |
 | 0x0000000000000000000000000000000000001025 | PECORVault | [spot contract](spot.md), Events |
-| every share pointer returned by `shareTokens(address)` (0x96153f07) of 0x1025 | PECORVaultShare | Transfer, Approval, OwnershipTransferred |
+| every share pointer returned by `shareTokens(address)` (0x96153f07) of 0x1025 | PECORVaultShare | Transfer, Approval |
 | 0x85FcD13735F4309833A503EE804ea32395851479 | USDL, 6 decimals (decode.USDLAddress and store.USDL) | ERC20 Transfer, filtered to transfers touching a venue custody address (the perps or the spot module EVM address) |
 
 Module EVM addresses are the first 20 bytes of SHA-256 of the module name (`perps`, `spot`, `pricefeed`), as wired by the indexer command; they are distinct from precompile addresses. The USDL address is a code constant of the indexer; USDL is an ERC20 contract, not a bank denom and not a pointer. The pricefeed aggregates are Cosmos block events, read per height from CometBFT `block_results` (section 5). The monitored venue log set excludes 0x1026 and 0x1027; share addresses are discovered from the vault rather than assumed to occupy a fixed precompile slot.
@@ -64,7 +52,7 @@ A synthetic receipt whose hash or index differs from the table stops the followe
 
 ## 2. Postgres schema
 
-One database, schema `perps`. Migrations are embedded SQL files applied in lexical order by store.Migrate, one transaction per file, recorded with their sha256 in `perps.schema_migrations (file text primary key, sha256 bytea, applied_at timestamptz)`. A changed or missing recorded migration refuses start. The [migration directory](../../../services/platform/perps-data/migrations) currently contains 0001 through 0015: facts, projections, delivery, accounts and market seeds, followed by nullable market decimals, ledger row IDs, ordered delivery indexes, raw-log lookup classes, projection seeds, chain market configuration, chain counters, margin tiers and spot leaderboard projections.
+One database, schema `perps`. Migrations are embedded SQL files applied in lexical order by store.Migrate, one transaction per file, recorded with their sha256 in `perps.schema_migrations (file text primary key, sha256 bytea, applied_at timestamptz)`. A changed or missing recorded migration refuses start. The [migration directory](../../../services/platform/perps-data/migrations) currently contains 0001 through 0016: facts, projections, delivery, accounts and market seeds, followed by nullable market decimals, ledger row IDs, ordered delivery indexes, raw-log lookup classes, projection seeds, chain market configuration, chain counters, margin tiers, spot leaderboard projections and persisted leaderboard generation/omission metadata.
 
 ### Common fact columns
 
@@ -212,6 +200,8 @@ Projections are rebuilt from facts by store.Rebuild for any height range; their 
 | perps.projection_seeds | kind (order, position), id, block, height, path (at_height, latest), account, market_id, is_long, size_usd, the order columns order_type, time_in_force, order_status, reduce_only, limit_price, trigger_price, acceptable_price, size_base, filled_base, remaining_size_usd, status, deadline, cloid, and the position columns collateral_usd, collateral_amount, collateral_token, entry_price, leverage, take_profit_price, stop_loss_price | the state getters, read by the decoder (Decoding, Projection seed) | primary key (kind, id); (block); a fact table: a rewind deletes its rows above the fork, store.Rebuild keeps them |
 | perps.spot_account_legs | account, realized_usd, volume_usd, trades, updated_block | stablecoin-denominated spot market/simple swaps and executed orders | primary key account |
 | perps.spot_leaderboard | kind (pnl, volume, win-rate), rank, account, value, updated_block | FoldSpotBoard over account history | primary key (kind, rank); unique (kind, account) |
+| perps.spot_board_omissions | account, updated_block | Accounts excluded from the spot leaderboard fold | primary key account |
+| perps.spot_board_generation | singleton, generated_at, omitted_accounts | Persisted metadata of the published spot leaderboard generation | primary key singleton; omitted_accounts is nonnegative |
 | perps.keeper_cycles | block, block_time, markets_updated, orders_executed, liquidations_executed, orders_failed (always 0), liquidations_failed (always 0) | the logs of one perps_endblock receipt | primary key block |
 
 Projection rules:
@@ -294,7 +284,7 @@ EnsureStream creates the stream when absent and refuses start when the live conf
 
 ## 6. Event decoding
 
-Decoders load the ABI exported by the leaf packages of section 1 and register typed event handlers. [TestDecoderColumnsMatchABI](../../../services/platform/perps-data/internal/decode/abi_test.go) reads this exact section and checks event signatures, indexed arguments, decoder coverage and fact columns against the ABI and migration. Preserve this table's five-column layout and the numbered section boundaries when updating it.
+Decoders load the ABI exported by the leaf packages of section 1 and register typed event handlers. Native share pointers use the deployed `Share()` ABI, which declares `Transfer` and `Approval`.
 
 | event (indexed arguments marked) | source | table | kind | account |
 | --- | --- | --- | --- | --- |
@@ -363,7 +353,7 @@ Decoders load the ABI exported by the leaf packages of section 1 and register ty
 | TokenPauseUpdated(address indexed token, bool paused) | 0x1025 | spot_admin | token_pause_updated | module address |
 | TransactionTrackerUpdated(address indexed tracker) | 0x1025 | spot_admin | tracker_updated | module address |
 | UtilizationCapUpdated(address indexed token, uint256 maxUtilizationBps) | 0x1025 | spot_admin | utilization_cap_updated | module address |
-| OwnershipTransferred(address indexed previousOwner, address indexed newOwner) | 0x1021, 0x1022, 0x1023, 0x1025, share pointers | spot_admin | ownership_transferred | module address |
+| OwnershipTransferred(address indexed previousOwner, address indexed newOwner) | 0x1021, 0x1022, 0x1023, 0x1025 | spot_admin | ownership_transferred | module address |
 | Paused(address account) | 0x1021, 0x1022, 0x1023 | spot_admin | paused | module address |
 | Unpaused(address account) | 0x1021, 0x1022, 0x1023 | spot_admin | unpaused | module address |
 | Transfer(address indexed from, address indexed to, uint256 value) | share pointers | spot_share_transfers | transfer | from, or to on a mint |
@@ -497,7 +487,7 @@ Chart candles are owned by the configured Chainflow feed and are not produced by
 
 POST `/graphql` and its alias `/api/subgraph` take `{query, operationName, variables}` and answer `{data}` or `{errors:[{message}]}` with HTTP 200. Depth limit 10, parallelism 20. limit defaults to 50, clamped to [1, 500]; offset clamped to [0, 100000]. Addresses compare in lower case. Single roots answer null for an unknown id; list roots answer []. Integer `id` fields are the row_id of the source row (section 2).
 
-The executable [SDL](../../../services/platform/perps-data/internal/graphql/schema.go) is authoritative. It includes Query.leaderboard, nullable UserVault.marginMode, native market configuration and marginTiers, the account roots of section 27 and the Subscription type of section 15. BigDecimal fields carry canonical raw integer strings, BigInt carries canonical unsigned integer strings, and DateTime is RFC 3339. Do not infer availability from an older application schema or the historical operation list.
+The executable [SDL](../../../services/platform/perps-data/internal/graphql/schema.go) is authoritative. It includes Query.leaderboard, nullable UserVault.marginMode, native market configuration and marginTiers, the account roots of section 27 and the Subscription type of section 15. BigDecimal fields carry canonical raw integer strings, BigInt carries canonical unsigned integer strings, and DateTime is RFC 3339. Field availability follows this executable schema.
 
 | root | type | resolver source and field mapping |
 | --- | --- | --- |
@@ -654,7 +644,7 @@ Action mapping (seven actions, including collateral deposits):
 
 - user is the bech32 form with prefix pax (`node/const.go`) of the row account; proposer is the upper-case hex of the CometBFT header (section 5).
 - A synthetic receipt hash is rendered from the stored rows only; the explorer never calls eth_getTransactionByHash for it.
-- Finding 3.54.7.1: account history linked collateral deposits while the six-action mapping omitted CollateralDeposited, so `store.txActions` wrote no row and the transaction route returned 404. The seventh mapping stores the deposit in `perps.tx_actions` so the history link resolves from the same indexed facts.
+- Collateral deposits are stored in `perps.tx_actions`, so account-history links resolve to indexed transaction details.
 
 link is PERPS_EXPLORER_TX_BASE + /tx/<hash> or /address/<address>; it is omitted when the variable is empty. Responses carry Cache-Control max-age 2; excess requests answer 429 with Retry-After.
 
@@ -745,7 +735,7 @@ TestLoadProfile runs the profile scaled to 2000 sockets in-process; perps-loadte
 
 | variable | services | rule |
 | --- | --- | --- |
-| PERPS_CHAIN_ID | all | required, nonzero uint64 decimal; use 125 on mainnet-beta; identifies subjects and event IDs for the configured chain |
+| PERPS_CHAIN_ID | all | required decimal uint64 equal to 125; identifies subjects and event IDs for the network |
 | PERPS_RPC_URLS | indexer, replay, gateway | comma list, at least one http or https entry; EVM JSON-RPC |
 | PERPS_COMET_URLS | indexer, replay | comma list, at least one http or https entry; CometBFT RPC serving `header` and `block_results` |
 | DATABASE_URL | indexer, gateway, explorer, replay | required; printed redacted |
@@ -759,7 +749,7 @@ TestLoadProfile runs the profile scaled to 2000 sockets in-process; perps-loadte
 | NATS_MAX_FILE_STORE, NATS_ROUTES | nats | required for the cluster |
 | NATS_CLUSTER_PASSWORD, NATS_INDEXER_PASSWORD, NATS_GATEWAY_PASSWORD | nats | required broker credentials from operator configuration |
 
-[config.Load](../../../services/platform/perps-data/internal/config/config.go) reads only variables used by the named service, except PERPS_CHAIN_ID, which every service requires. It provides no default chain ID, port or start height. The [deployment guide](../../../services/platform/perps-data/deploy/README.md) explains trusted proxy identity: forwarding headers from untrusted peers are ignored. Config logging redacts DATABASE_URL, NATS_URL and PERPS_AUTH_SECRET; other endpoint strings are currently printed verbatim, so they do not have the same redaction guarantee.
+[config.Load](../../../services/platform/perps-data/internal/config/config.go) reads only variables used by the named service, except PERPS_CHAIN_ID, which every service requires. It provides no default chain ID, port or start height. The [deployment guide](../../../services/platform/perps-data/deploy/README.md) explains trusted proxy identity: forwarding headers from untrusted peers are ignored. Config logging redacts DATABASE_URL, NATS_URL and PERPS_AUTH_SECRET.
 
 Tests read PERPS_DATA_TEST_DATABASE_URL (a real Postgres) and PERPS_DATA_TEST_RPC and PERPS_DATA_TEST_COMET (a node started with make run-local-node); a test needing one fails, never skips, when it is unset. NATS runs in-process from nats-server/v2.
 
@@ -790,9 +780,9 @@ The routes are served at the gateway origin with the paths exactly as the spot c
 | GET /v1/users/<address>/closed-legs | limit, afterId | {address, count, limit, items: [{id, token, qty, entryPrice, exitPrice, pnl, pnlUsd, pnlPct, holdingSeconds, openedAt, closedAt, closeTxHash, fullyClosed, symbol, name, decimals}], nextCursor: {afterId} or null} |
 | GET /v1/users/<address>/pnl/summary and /pnl | none | {address, realizedUsd, unrealizedUsd, totalUsd, tradeCount, closedLegCount} |
 | GET /v1/users/<address>/identity | none | {address, paxscan: {firstSeenBlock, txCount}, trading24h: {trades, volumeUsd}, latestSnapshot: {realizedUsd, at}} |
-| GET /v1/leaderboards/<kind> | kind pnl, volume or win-rate | {kind, as_of, omitted_accounts, items: [{rank, address, value}]}; items are read from persisted perps.spot_leaderboard, not folded at request time; current as_of is the request time and omitted_accounts is always 0; an unknown kind currently answers 400 |
+| GET /v1/leaderboards/<kind> | kind pnl, volume or win-rate | {kind, as_of, omitted_accounts, items: [{rank, address, value}]}; items are read from persisted perps.spot_leaderboard, not folded at request time; as_of and omitted_accounts come from the persisted projection generation; an unknown kind answers 404 and an invalid limit answers 400 |
 
-The registered [leaderboard handler](../../../services/platform/perps-data/internal/rest/spotusers.go) calls projectedRank. The older 30-second in-memory fold is not the HTTP serving path. These are unresolved audit gaps, not freshness guarantees: the intended contract requires a durable generation timestamp, an honest persisted omission count and HTTP 404 for an unsupported kind (invalid limit remains HTTP 400). [Audit findings 11–13](../../layerx-merge/programme/audit/records/22.30.18.kvx) retain those protections for the owning repair; as_of and zero omissions currently cannot prove the projection is fresh or complete.
+The [leaderboard handler](../../../services/platform/perps-data/internal/rest/spotusers.go) reads ranks and generation metadata in one database snapshot. `perps.spot_board_generation` stores `generated_at` and `omitted_accounts`; `perps.spot_board_omissions` tracks accounts excluded from the fold. Before a generation is published, `as_of` is empty. Ranks are read from the persisted projection rather than folded at request time.
 
 ### Spot user socket
 

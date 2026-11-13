@@ -1,6 +1,11 @@
 # Docker
 
-This directory holds the Docker build contexts and compose files of the repository. Every subdirectory with a `Dockerfile` is the build context of one image: `localnode/` and `rpcnode/` for the local cluster below, `hpx-registry/` for the node registry described in [`tools/hpx/README.md`](../tools/hpx/README.md), and the other directories for the remaining node and service images (kernel, explorer, platform, wallet, interop, CI runner and others). `monitornode/` and `docker_compose_monitoring/` hold the Prometheus and Grafana setup. Images are built from the repository root.
+This directory holds image Dockerfiles, Compose files and monitoring scripts.
+Image builds use the repository root as their context and select the appropriate
+Dockerfile, including those under `localnode/` and `rpcnode/`.
+The node registry is described in [tools/hpx/README.md](../tools/hpx/README.md).
+`monitornode/` and `docker_compose_monitoring/` contain Prometheus and Grafana
+configuration.
 
 The rest of this page covers the local `paxd` cluster defined by [`docker-compose.yml`](docker-compose.yml).
 
@@ -12,13 +17,13 @@ Install Docker with the Docker Compose plugin (`docker compose`). On macOS, Dock
 
 The make targets below are defined in [`chain.mk`](../chain.mk). The root [`Makefile`](../Makefile) forwards them, so run them from the repository root.
 
-**To start a single local node (Not Recommended)**
+### Single local node
 
 ```sh
 make build-docker-node && make run-local-node
 ```
 
-**To start 4 node cluster**
+### Four-node cluster
 
 The Make callers select `local-<full git HEAD revision>` for both
 `LOCALNODE_IMAGE_TAG` and `X_WEBSEARCH_IMAGE_TAG` by default, including skipbuild,
@@ -54,12 +59,15 @@ All the logs and genesis files will be generated under the temporary build/gener
 tail -f build/generated/logs/paxd-0.log
 ```
 
-**To ssh into a single node**
+### Open a container shell
+
+Set `CONTAINER_NAME` to the running container selected from `docker ps -a`.
+
 ```sh
 # List all containers
 docker ps -a
-# SSH into a running container
-docker exec -it [container_name] /bin/bash
+# Open a shell in a running container
+docker exec -it "$CONTAINER_NAME" /bin/bash
 ```
 
 ## Prometheus / Grafana (monitornode)
@@ -68,7 +76,7 @@ docker exec -it [container_name] /bin/bash
 
 The monitoring overlay requires a file-backed Grafana admin password for both
 local and remote access. Create a private file outside the checkout containing a
-unique password (never `admin`), then export its absolute path. For example,
+unique password, then export its absolute path. For example,
 generate the file once and retain it for later starts:
 
 ```sh
@@ -89,10 +97,10 @@ make docker-cluster-start-monitoring
 By default Grafana publishes on `127.0.0.1:3000` and Prometheus on
 `127.0.0.1:9099`. Log in to Grafana as `admin` with the password from your file.
 For deliberate remote Grafana access, keep the same secret file configured and
-set `GRAFANA_BIND_ADDRESS` to the host interface address before starting the stack:
+set `GRAFANA_BIND_ADDRESS` in the environment to the intended host interface
+address before starting the stack:
 
 ```sh
-export GRAFANA_BIND_ADDRESS=192.0.2.10 # Replace with your host's private interface address.
 make docker-cluster-start-monitoring
 ```
 
@@ -111,14 +119,20 @@ The make target stops any existing compose stack, rebuilds the node image, start
 make docker-cluster-stop-monitoring
 ```
 
-**Scripts only:** to start Prometheus and Grafana by themselves (for example when you are not using the make target above):
+**Scripts only:** the standalone scripts use `GRAFANA_ADMIN_PASSWORD` directly.
+Read the password from the private file before starting Grafana:
 
 ```sh
+IFS= read -r GRAFANA_ADMIN_PASSWORD < "$GRAFANA_ADMIN_PASSWORD_FILE"
+export GRAFANA_ADMIN_PASSWORD
 ./docker/monitornode/scripts/start-prometheus.sh
 ./docker/monitornode/scripts/start-grafana.sh
 ```
 
-Grafana UI: http://localhost:3000 (login: admin / admin). To stop containers started via the scripts:
+Grafana defaults to `http://127.0.0.1:3000`. The standalone Prometheus script
+publishes port 9091 on host interfaces; restrict access through the host network
+configuration. These are separate containers from the Compose monitoring stack.
+Stop containers started by the scripts with:
 
 ```sh
 ./docker/monitornode/scripts/stop-prometheus.sh

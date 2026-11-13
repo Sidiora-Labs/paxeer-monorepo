@@ -17,7 +17,7 @@ Contributors are recommended to provide the following in addition to the new cod
     It may justify various design decisions, give a motivation and outline security goals.
     If the specification contains pseudocode, a reference implementation or test vectors, these can be used to compare with the proposed libsecp256k1 code.
 * **Security Arguments:**
-    In addition to a defining the security goals, it should be argued that the new functionality meets these goals.
+    In addition to defining the security goals, it should be argued that the new functionality meets these goals.
     Depending on the nature of the new functionality, a wide range of security arguments are acceptable, ranging from being "obviously secure" to rigorous proofs of security.
 * **Relevance Arguments:**
     The relevance of the new functionality for the Bitcoin ecosystem should be argued by outlining clear use cases.
@@ -29,7 +29,7 @@ We recommend reaching out to other contributors (see [Communication Channels](#c
 
 ## Communication channels
 
-Most communication about libsecp256k1 occurs on the GitHub repository: in issues, pull request or on the discussion board.
+Most communication about libsecp256k1 occurs on the GitHub repository: in issues, pull requests or on the discussion board.
 
 Additionally, there is an IRC channel dedicated to libsecp256k1, with biweekly meetings (see channel topic).
 The channel is `#secp256k1` on Libera Chat.

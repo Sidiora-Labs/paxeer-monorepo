@@ -3,10 +3,11 @@
 Run from the repository root with Python 3.11 or newer:
 
 ```sh
-python3 tools/deps/lockfloor.py tools/deps/floors/<group>.json
+python3 tools/deps/lockfloor.py tools/deps/floors/go-root.json
 ```
 
-The floors file is a JSON object mapping manifest paths to package minimums:
+Select a floors file from [`floors/`](floors). Each is a JSON object mapping
+manifest paths to package minimums:
 
 ```json
 {
@@ -45,4 +46,5 @@ segments compare numerically, prereleases sort below releases, and `v` prefixes
 and build metadata are ignored. Exit status is 0 when all floors pass and 1 on
 violations or input errors. Each violation is one tab-separated line containing
 manifest, package, resolved version, and floor. Missing packages report
-`<unresolved>`; input errors go to stderr. No floors file is supplied by this task.
+`<unresolved>`; input errors go to stderr. The checker reads manifests and locks
+without changing them.

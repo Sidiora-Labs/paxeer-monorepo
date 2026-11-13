@@ -7,7 +7,7 @@ finality. See the [benchmark overview](../README.md) for the simpler write
 microbenchmarks and the [migration overview](../../sc/migration/README.md) for
 state-backend migration.
 
-# Running Cryptosim
+## Running Cryptosim
 
 From this directory, with the repository's Go toolchain and `make` available:
 
@@ -29,7 +29,7 @@ toggles suspend/resume. Suspension forces applied state blocks to commit. A
 successful shutdown drains accepted transactions and receipts and joins their
 workers before reporting completion; storage errors make `Close` return an error.
 
-# Configuring Cryptosim
+## Configuring Cryptosim
 
 The authoritative fields, defaults and validation are in
 [cryptosim_config.go](cryptosim_config.go). The loader overlays JSON onto
@@ -74,14 +74,13 @@ Use separate data and log directories for each experiment. The deletion flags
 can remove those directories; keep `DeleteDataDirOnStartup` and
 `DeleteDataDirOnShutdown` false when retaining data.
 
-# Data Persistence
+## Data persistence
 
 A retained database supports continuation after a successful normal shutdown.
 Keep the backend, key/value layout settings, `Seed`, `CannedRandomSize` and
 `Erc20InteractionsPerAccount` unchanged, and keep deletion flags false. Preserve
-state and its `receipts` subdirectory together. Databases created before the
-next-unused block-counter repair require a fresh directory: their block counter
-has different semantics and their receipt identities may already overlap.
+state and its `receipts` subdirectory together. Continuation requires the
+next-unused counter layout described below.
 
 [database.go](database.go) persists the **next unused** block sequence, account ID
 and contract ID in every finalized batch as 8-byte big-endian values. Setup may
@@ -105,7 +104,7 @@ evidence. Suspension commits state but does not promise to have drained the
 asynchronous receipt queue; successful shutdown does. Console transaction totals
 and metric counters describe this process, not a persisted transaction history.
 
-The bounded reopen example is executable in
+The reopen example is in
 [repair_m1195_test.go](repair_m1195_test.go):
 
 ```bash
@@ -124,13 +123,11 @@ It also checks that new receipt heights and hashes do not reuse prior IDs.
 Receipt metrics observe actual Pebble write/read calls: written receipts,
 receipt reads/found/not-found, operation durations, and
 `cryptosim_receipt_log_filter_reads_total` plus
-`cryptosim_receipt_log_filter_unsupported_total`. The six former cache-only
-hit/miss and timing series are retired; no cache hit rate is inferred from a
-backend operation. Reader targets come from successfully submitted writes within
-backend retention; an async write not yet visible counts as not found. External
-registry/dashboard retirement requests are listed in [repair_m1195.kvx](repair_m1195.kvx).
+`cryptosim_receipt_log_filter_unsupported_total`. No cache hit rate is inferred
+from a backend operation. Reader targets come from successfully submitted writes
+within backend retention; an async write not yet visible counts as not found.
 
-# Transaction Model
+## Transaction model
 
 [transaction.go](transaction.go) chooses a source account, destination account,
 storage slot for each, and a simulated ERC20 contract. With reads enabled, each
@@ -144,7 +141,7 @@ Contracts and receipts are also synthetic. The workload approximates I/O access
 patterns, including hot/cold accounts and optional new-account growth, rather
 than transfer execution semantics.
 
-# Setting Up Prometheus / Grafana
+## Prometheus and Grafana
 
 From the repository root, with Docker running:
 
@@ -156,8 +153,10 @@ docker/monitornode/scripts/start-grafana.sh
 The supplied [Prometheus config](../../../../docker/monitornode/config/prometheus.yaml)
 scrapes `host.docker.internal:9090`; keep this aligned with `MetricsAddr`.
 Prometheus is exposed at `http://localhost:9091/`. Grafana is at
-`http://localhost:3000/` with the script's initial local credentials `admin` /
-`admin`. The scripts provision the Prometheus data source and dashboards from
+`http://localhost:3000/`. Set `GRAFANA_ADMIN_PASSWORD` in the environment before
+starting Grafana. The script binds Grafana to loopback by default; a different
+`GRAFANA_BIND_ADDRESS` requires an explicit password. The scripts provision the
+Prometheus data source and dashboards from
 [docker/monitornode](../../../../docker/monitornode), including
 [cryptosim-dashboard.json](../../../../docker/monitornode/dashboards/cryptosim-dashboard.json).
 These are benchmark metrics endpoints, not chain API endpoints.
@@ -169,13 +168,13 @@ docker/monitornode/scripts/stop-prometheus.sh
 docker/monitornode/scripts/stop-grafana.sh
 ```
 
-# Running in AWS
+## Remote execution
 
 Use the same checkout and commands on a remote Ubuntu host with sufficient disk
 and memory. The optional [setup script](tools/setup-ubuntu.sh) installs system
 dependencies; review it for the host before using it. Run cryptosim from this
 directory, optionally in tmux, and start Prometheus on the remote machine if
-collecting metrics. Keep the revision and full config with the results.
+collecting metrics. Keep the full config with the measurements.
 
 To use the provisioned local Grafana with remote Prometheus, stop local
 Prometheus and forward its host port through an existing SSH connection:

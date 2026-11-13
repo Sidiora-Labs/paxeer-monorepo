@@ -6,14 +6,16 @@ PaxDB is the storage layer of the Paxeer X chain (`paxd`). It replaces the singl
 
 The design follows the [Cosmos store v2 ADR](https://github.com/cosmos/cosmos-sdk/blob/main/docs/architecture/adr-065-store-v2.md): instead of one large database that stores both latest and historical data, state is split into two layers:
 
-- **State Commitment (SC)**: the active chain state in a Merkle tree, providing transaction state access and the app hash
+- **State Commitment (SC)**: the active chain state and its commitment, providing transaction state access and the app hash
 - **State Store (SS)**: versioned raw key/values for full nodes and archive nodes to serve historical queries
 
 ### Advantages
+
 - SC and SS backends are swappable
 - The SS store only keeps raw key/values, which saves disk space and reduces write amplification
 
 ### Trade-offs
+
 - Historical proofs are not available for every historical block
 - Historical data has no integrity or correctness validation of its own
 
@@ -32,18 +34,22 @@ The design follows the [Cosmos store v2 ADR](https://github.com/cosmos/cosmos-sd
 | `common`, `proto` | Shared helpers and protobuf definitions |
 
 ## State Commitment (SC) Layer
-Responsibility of the SC layer:
-- Provide the root app hash for each new block
-- Provide the data access layer for transaction execution
-- Provide an API to import/export chain state for state sync
-- Provide proofs for heights not pruned yet
+
+The SC layer provides:
+
+- The root app hash for each new block
+- The data access layer for transaction execution
+- An API to import/export chain state for state sync
+- Proofs for retained heights where the selected backend supports them
 
 The memiavl implementation is a fork of MemIAVL from [Cronos](https://github.com/crypto-org-chain/cronos). To stay compatible with Cosmos SDK chains, it uses the same data structure (a Merkleized AVL tree), but represents the tree as memory-mapped flat files instead of persisting it as key/values in a database engine. See [`state_db/sc/memiavl/README.md`](state_db/sc/memiavl/README.md).
 
 EVM state can live in flatkv instead; the `write_mode` setting (see [`config/write_mode.go`](config/write_mode.go)) selects memiavl only, flatkv only, or one of the migration stages between them.
 
 ## State Store (SS) Layer
+
 The SS layer provides a modular storage backend for versioned raw key/value pairs in an embedded database:
+
 - Queries for versioned raw key/value pairs
 - Versioned CRUD operations
 - Versioned batching
@@ -51,4 +57,5 @@ The SS layer provides a modular storage backend for versioned raw key/value pair
 - Pruning
 
 ### DB Backend
+
 PebbleDB is the default SS backend (`pebbledb`). RocksDB (`rocksdb`) is available when the binary is built with `-tags=rocksdbBackend`.

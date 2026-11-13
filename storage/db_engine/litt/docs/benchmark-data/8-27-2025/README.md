@@ -1,14 +1,15 @@
-# Test Description
+# LittDB soak benchmark data
 
-A long term soak test (2 weeks) with ~200 TB on disk. The goal of this test was to verify that LittDB performance
-did not degrade over time and with this quantity of data on disk.
+This directory contains charts and [raw measurements](data/raw.tar.gz) for a
+14-day, approximately 192 TB storage workload with a seven-day TTL. The first
+seven days cover ramp-up and the next seven steady-state retention. These are
+local database measurements, not network throughput or consensus measurements.
 
-# Setup
+## Environment
 
-
-| Property          | Value                                        | 
-|-------------------|----------------------------------------------| 
-| code              | upstream LittDB, before import into this repo | 
+| Property          | Value                                        |
+|-------------------|----------------------------------------------|
+| code              | upstream LittDB |
 | environment       | OCI (Oracle Cloud Infrastructure)            |
 | region            | US East (Ashburn)                            |
 | OS                | Canonical Ubuntu 20.04                       |
@@ -23,9 +24,7 @@ did not degrade over time and with this quantity of data on disk.
 | Disk encryption   | disabled                                     |
 | Disk backup       | disabled                                     |
 
-# Configuration
-
-I used the following benchmark configuration:
+## Configuration
 
 ```json
 {
@@ -39,12 +38,12 @@ I used the following benchmark configuration:
 }
 ```
 
-The block volumes were mounted under `~/mount/b` ... `~/mount/i` and formatted with `ext4` filesystem. 
-("`/dev/sda`" was already in use, so I started with "`/dev/sdb`".)
+The storage roots use ext4. The benchmark's default random-data pool occupies
+1 GiB; account for that allocation separately from database caches and keymaps.
+See [BenchmarkConfig](../../../benchmark/config/benchmark_config.go) for current
+fields and defaults.
 
-I ran the test for 14 days. The first 7 days (i.e. 168 hours) were spent ramping up, followed by 7 days of steady state.
-
-# Results
+## Measurements
 
 | | |
 |---|---|
@@ -58,96 +57,17 @@ I ran the test for 14 days. The first 7 days (i.e. 168 hours) were spent ramping
 | ![Cache Misses / Second](data/cache-misses-second.webp) | ![Cache Miss Latency](data/cache-miss-latency.webp) |
 | ![Memory](data/memory.webp) | ![CPU Seconds](data/cpu-seconds.webp) |
 
-# Notes and Observations
+## Run the benchmark
 
-## Clean Bill of Health
+Use the Go version required by the repository's `go.mod`. From the repository root:
 
-The test completed successfully with no errors. All metrics reported healthy values. There were no signs of 
-performance degradation or resource leaks over the course of the test. Although read latency and memory use did
-increase slightly over time, I suspect this can be explained by the growth in size of the keymap (i.e. an internal
-embedded key-value store used for tracking metadata). Once the size of the data reached a steady state, this minor growth
-in read latency and memory appeared to flatten out and enter a steady state as well.
+```bash
+cd storage/db_engine/litt
+make build
+./bin/litt benchmark /path/to/benchmark_config.json
+```
 
-## Is the benchmark code available?
-
-Yes. The benchmark is part of the LittDB CLI in this repo. To run it yourself:
-
-- install the Go version required by the repo's `go.mod`
-- from the repo root, `cd storage/db_engine/litt && make build`
-  - this will create the LittDB CLI binary at `storage/db_engine/litt/bin/litt`
-  - you can install this CLI by making sure this binary is on your PATH, or you can invoke it directly
-- create a benchmark config file
-  - the above example is a good starting point, as is [basic-config.json](../../../benchmark/config/basic-config.json)
-  - a complete list of config options can be found in [benchmark_config.go](../../../benchmark/config/benchmark_config.go)
-- `litt benchmark /path/to/benchmark_config.json`
-
-## Why OCI?
-
-It's cheap.
-
-## What's the current write bottleneck?
-
-The write throughput observed during this test vastly exceeds what we need, so I didn't spend much time attempting to
-further optimize the write throughput.
-
-I suspect the write bottleneck is one of two things:
-
-- the benchmark utility itself
-- some sort of OCI limitation based on the VM shape
-
-When I was running this benchmark with a single disk, I observed slightly faster write throughput. If the bottleneck
-was the capacity of the disks themselves, I would expect that adding more disks would increase the write throughput.
-Additionally, the observed write throughput is well below the theoretical maximum of the disks (even when running with 
-a single disk).
-
-It's plausible that there is some other cause for the current write bottleneck. As of now, I've not collected
-sufficient data to determine the exact cause.
-
-## Memory Use
-
-It's important to point out that the benchmark allocates a fixed size 1 GB memory buffer. Although the system was using
-~2 GB of memory, the actual memory use of the DB itself was at most only half of that.
-
-In a production environment, LittDB can use a lot of memory depending on cache configuration. But modulo caching,
-the baseline memory needed for a high capacity LittDB instance is quite low (under 1 GB).
-
-## Garbage Collection Overhead
-
-One of the major problems with other DB's I've tested with the EigenDA workload is garbage collection. This test
-demonstrates that LittDB garbage collection is exceptionally fast and efficient. Garbage collection runs once
-per 5 minutes, and takes 100-200ms to complete.
-
-## Data Validation
-
-A feature of this benchmark is that when it reads data, it validates that the data read is correct. During the span
-of this two week benchmark, no data corruption was detected. Note that since the write rate was much larger than
-the read rate, only a small fraction of the data written was actually read and validated. But if there was systemic
-and large scale data corruption, it is very likely that the random sampling would have detected it.
-
-# Future Work
-
-## Test Length
-
-The intended use case of the DB requires continuous uptime over months or years. This test was only 2 weeks long, so
-it's possible that issues could arise over longer time periods. The length of this test was limited by cost 
-considerations.
-
-## Read Workload
-
-The read workload of this test was intentionally kept light. The primary purpose of this test was to verify that
-performance did not degrade with large quantities of data on disk. It might be interesting to repeat this test
-with a more realistic read workload.
-
-## Larger Data Set
-
-The target data size for this test was ~200 TB. The test only achieved ~192 TB, but this is close enough for all
-practical purposes. The exact quantity of data stored on disk is a function of the write throughput and the TTL.
-Since the write throughput was dependant on the speed of the underlying disks and the TTL was fixed at 7 days, the
-exact quantity of data stored on disk could not be precisely controlled.
-
-Based on this data, we are confident that LittDB can handle EigenDA workloads for 1/8th stake validators, and then some!
-The scale of this benchmark exceeded the requirements for this EigenDA use case by 2-4x.
-
-A long term goal is to make the EigenDA protocol capable of bearing 1gb/s. In order to do so, we will need to validate
-LittDB at a 1-2 petabyte scale. Due to cost considerations, this test was not performed at that scale. Based on observed
-data, I do not anticipate DB problems at this scale. But it's hard to say for sure without actually running the test.
+The [basic configuration](../../../benchmark/config/basic-config.json) provides
+a smaller set of explicit settings. Choose dedicated storage roots and set
+`TimeLimitSeconds` to bound a run; its default of zero runs until interrupted.
+The benchmark validates sampled reads against its generated data.

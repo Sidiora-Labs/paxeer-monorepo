@@ -5,7 +5,7 @@ workloads. These are storage microbenchmarks, not network transaction-throughput
 or finality measurements. For the transfer-shaped workload, see
 [cryptosim](cryptosim/README.md). For backend migration behavior, see the
 [migration overview](../sc/migration/README.md) and
-[operations roadmap](../sc/migration/OPERATIONS.md).
+[operations guide](../sc/migration/OPERATIONS.md).
 
 ## Run benchmarks
 
@@ -21,7 +21,7 @@ Each Go benchmark iteration creates a new temporary database and executes all
 `NumBlocks` generated blocks. `-benchtime=1x` requests one complete scenario per
 selected sub-benchmark. Construction and snapshot import are outside the timer;
 generation, commit work and the final close/flush are timed. The command above
-is a usage example, not a recorded performance result.
+selects a single benchmark scenario.
 
 ### Backend configuration
 
@@ -43,9 +43,8 @@ Unsupported configuration types and typed nil pointers return explicit errors.
 
 `BenchmarkSSCompositeWrite` and
 `BenchmarkCombinedCompositeDualSSCompositeWrite` use local stores and receive
-the concrete defaults above. `BenchmarkSSHistoricalOffloadWrite` currently omits
-its required destination and returns a configuration error: set that scenario's
-`HistoricalOffloadConfig` and provision Kafka before selecting it. Do not use
+the concrete defaults above. Set `HistoricalOffloadConfig` and provision Kafka
+before selecting `BenchmarkSSHistoricalOffloadWrite`. Do not use
 `-bench .` for a local backend comparison; select the intended benchmark.
 
 ### Workload and result interpretation
@@ -61,7 +60,7 @@ builder. The named workloads are explicitly wired as follows:
 | `normal_distribution` | `NormalDistribution(1, 0.2)` | First block 75; seeded normal samples around mean 100, sigma 20. |
 | `ramp_distribution` | `RampDistribution(0.5, 1.5)` | First block 50, fifth 94, last 150. |
 
-The regression gate asserts these representative counts and commits each
+The correctness tests assert these representative counts and commit each
 workload through the real backends. `TotalKeys` is a nominal distribution input,
 not a write quota: even counts use integer division, burst and normal counts
 vary, and ramp counts are rounded down per block. Duplicate keys reduce unique
@@ -71,7 +70,7 @@ including updates, and `blocks` counts completed commits. Both metrics sum all
 divided by that same elapsed time. Progress reports use actual completed block
 and pair counts. Every producer is canceled and joined when its consumer exits.
 
-The bounded gate fixtures in [repair_m1194_test.go](repair_m1194_test.go) assert
+The correctness fixtures in [repair_m1194_test.go](repair_m1194_test.go) assert
 these completed counts for **each** of MemIAVL and FlatKV, then close and reopen
 the store and check every generated key and the recovered version:
 

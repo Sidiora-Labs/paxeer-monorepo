@@ -1,62 +1,35 @@
 # Paxeer X Network documentation
 
-This directory holds the documentation of Paxeer X Network: the MkDocs site, the
-wiki tree the root [README.md](../README.md) links into, monorepo notes and the
-Paxeer X chain RPC references. The hosted documentation is
-[docs.paxeer.app](https://docs.paxeer.app/). Normative protocol text lives under
-[`spec/`](../spec/), not here.
+Paxeer mainnet-beta is one BFT network with EVM chain ID `125` (`0x7d`).
+The kernel runs inside `paxd` and participates in execution and block proposal.
+A receipt is final when its block commits. Sub-chains are tenant domains in
+the database.
 
-Paxeer mainnet-beta is one BFT network, with EVM chain ID `125` (`0x7d`).
-The kernel runs inside `paxd` and participates in block proposal and execution;
-a receipt is final when its block is committed. Sub-chains are tenant domains
-in the database, rather than separately deployed networks.
+Public node JSON-RPC is served at the root of
+`https://api-mainnet-beta.paxeer.network` and the numbered nodes `api1` through
+`api14.mainnet-beta.paxeer.network`. The node also registers `px` methods;
+`px_register` and `px_requestFunds` belong to the hosted gateway contract.
 
-Start integrations with the public node JSON-RPC at the root of
-`https://api-mainnet-beta.paxeer.network` or the numbered nodes `api1` through
-`api14.mainnet-beta.paxeer.network`. The node serves the `px` namespace at
-the same root; `px_register` and `px_requestFunds` are hosted identity and
-faucet operations defined in the gateway OpenRPC contract.
-The former router and separate LayerX interface are retired.
-
-The index below includes current documentation and historical references. Rows
-marked historical retain useful background, but their pre-merge execution/settlement
-split and LNI write transport are retired. Use the public node reference and
-checked-in gateway contract for current integrations.
-
-| Path | Contents |
+| Documentation | Contents |
 | --- | --- |
-| [site/](site/) | MkDocs Material site (Overview, Concepts, Protocol, Programs, Agents, Human, Platform, Interop, Operators, Reference); preview and build instructions in [site/README.md](site/README.md) |
-| [CI secrets and runners](ci/secrets-and-runners.md) | Workflow secret and variable names, provisioning roles and runner labels |
-| [Public node JSON-RPC](site/docs/reference/public-rpc.md) | Root node endpoints, chain identity, namespaces, and client guidance |
-| [Hosted gateway OpenRPC](../services/platform/hosted/gateway/openrpc.json) | Declared hosted JSON-RPC method, parameter, result, and error contracts; implementation in [gateway source](../services/platform/hosted/gateway/src/) |
-| [site/build_wiki.py](site/build_wiki.py) | Renders `wiki/` to static HTML under `site/out/` and refuses broken relative links |
-| [build/build_wiki.py](build/build_wiki.py) | Older wiki renderer writing to `docs/_site/`, with a `--check` flag |
-| [wiki/README.md](wiki/README.md) | About the wiki tree |
-| [wiki/Home.md](wiki/Home.md) | Wiki index |
-| [wiki/Quickstart.md](wiki/Quickstart.md) | Quickstart |
-| [wiki/Protocol.md](wiki/Protocol.md) | Historical activity-envelope and three-rule description; pre-merge topology and write transport are retired |
-| [wiki/Modules.md](wiki/Modules.md) | Module index; one page per module under `wiki/` |
-| [wiki/Fees.md](wiki/Fees.md) | Canonical fee schedule |
-| [wiki/Programs.md](wiki/Programs.md) | Programs runtime, ABI, occupancy, LXT-20 |
-| [wiki/LNI.md](wiki/LNI.md) | Historical LNI v1.7 reference; retired node transport |
-| [wiki/AgentApi.md](wiki/AgentApi.md) | Agent client API reference; pre-merge LNI transport details are historical |
-| [wiki/Mcp.md](wiki/Mcp.md) | MCP tool reference; current catalogue in [layerx-mcp source](../services/agent/crates/layerx-mcp/src/server.rs) |
-| [wiki/Roadmap.md](wiki/Roadmap.md) | Beta surface expansion (in development, not shipped) |
-| [MONOREPO.md](MONOREPO.md) | Monorepo layout and release notes; pre-merge component boundaries are historical |
-| [QUALIFICATION.md](QUALIFICATION.md) | Evidence levels layered by risk |
-| [Perps ABI change history](perps-abi-change-history.md) | Decision commit scope, the separate SDK implementation, and outstanding follow-up tasks |
-| [readme/](readme/) | Translations of the root README |
-| [release/7.0.0-upgrade-plan.md](release/7.0.0-upgrade-plan.md) | 7.0.0 release plan, with the [validator runbook](release/7.0.0-validator-runbook.md), [service operator runbook](release/7.0.0-service-operator-runbook.md) and [readiness checklist](release/7.0.0-readiness-checklist.md) |
-| [runbooks/paxeer-x-fork.md](runbooks/paxeer-x-fork.md) | Validator runbook for the Paxeer X upgrade of the chain |
-| [paxeer-network.md](paxeer-network.md) | Current merged-network overview for EVM chain ID `125` (`0x7d`) |
-| [paxeer-chain-docs.md](paxeer-chain-docs.md) | Chain documentation index: Swagger/OpenAPI and EVM JSON-RPC notes; pre-merge boundary descriptions are historical |
-| [evm_jsonrpc_unsupported.md](evm_jsonrpc_unsupported.md) | EVM JSON-RPC methods that are registered but return a documented error |
-| [swagger-ui/](swagger-ui/), [swagger/](swagger/) | Swagger UI assets, and the `statik.go` package that embeds them for `paxd` |
-| [hyperfide/](hyperfide/) | Vendored Hyperfide project documentation: CLI, architecture, workflows and integrations; source paths in it are relative to [`tools/hyperfide/`](../tools/hyperfide/) |
-| [platform/](platform/) | Platform developer documentation, API references, integration guides and documentation site tooling |
-| [wallet/](wallet/) | Wallet [app](wallet/app/) development, architecture and operations, and [service](wallet/service/) security reviews and runbooks |
-| [explorer/](explorer/) | Explorer build configuration, environment variables, contribution guides and upstream notes |
-| [launchpad/](launchpad/) | Launchpad production readiness checklist |
-| [perps/](perps/) | Perpetuals data API reference |
-| [agent/](agent/) | Agent daemon compatibility matrix |
-| [interop/](interop/) | Interoperability portability requirements and guidance |
+| [Network overview](paxeer-network.md) | Chain identity, endpoints, tenant domains and build commands |
+| [Public node JSON-RPC](site/docs/reference/public-rpc.md) | Node endpoints, namespaces and client guidance |
+| [Hosted gateway OpenRPC](../services/platform/hosted/gateway/openrpc.json) | Hosted method, parameter, result and error contracts |
+| [Documentation site](site/README.md) | MkDocs preview and build instructions |
+| [Wiki](wiki/Home.md) | Module, program and agent reference pages |
+| [Monorepo layout](MONOREPO.md) | Source directories, build targets and trust boundaries |
+| [Qualification](QUALIFICATION.md) | Native, node, replay, fault and deployment coverage |
+| [Agent compatibility](agent/COMPATIBILITY.md) | Daemon, contract and SDK compatibility |
+| [Inference market](agent/inference-market/README.md) | Protocol, operator, client and threat guides |
+| [EVM JSON-RPC limitations](evm_jsonrpc_unsupported.md) | Registered methods and their supported behavior |
+| [CI secrets and runners](ci/secrets-and-runners.md) | Workflow configuration names and runner labels |
+| [Platform](platform/) | Platform APIs and integration guides |
+| [Wallet](wallet/) | Wallet application and service documentation |
+| [Explorer](explorer/) | Explorer configuration and upstream documentation |
+| [Launchpad](../deploy/launchpad/README.md) | Service images, configuration and operational tooling |
+| [Perpetuals](perps/) | Perpetuals data API reference |
+| [Interoperability](interop/) | Portability requirements and guidance |
+| [Translations](readme/) | Translations of the root README |
+
+Protocol specifications live under [spec/](../spec/). The hosted documentation
+site is [docs.paxeer.app](https://docs.paxeer.app/).

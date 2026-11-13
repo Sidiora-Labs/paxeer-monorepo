@@ -1,5 +1,36 @@
-Initialize one native chain home with `kernel-genesis.sh init HOME MONIKER CHAIN_ID MODE GENESIS_JSON SHA256 STOPPED_UNIT`. Obtain the approved genesis and its SHA-256 through the chain release procedure. The command checks the service is stopped, requires an empty home, runs `paxd init` with the explicit mode and chain ID, installs the approved native genesis, and retains its identity fingerprints. It does not start the unit or create a second kernel.
+# Native chain initialization
 
-For an existing deployment, stop its exclusive service owner, retain the complete home (including native node key, validator key and last signing state, and sequencer receipt key/WAL), then run `kernel-genesis.sh adopt HOME CHAIN_ID`. Subsequent `identity HOME CHAIN_ID` checks refuse changed keys or genesis. Signing state may advance normally; it is validated and never reset. Identity adoption is explicit and does not migrate old daemon bindings. Keep primary and standby receipt keys and WAL separate. Receipt key changes require the native chain's committed receipt-key governance and pin update procedure; do not rotate keys by deleting the home or signing state.
+Initialize one chain home with the [initialization script](kernel-genesis.sh):
 
-The previous `keys`, `genesis`, `plan` and `migrate` operations are refused. `offline-render ENV_FILE OUTPUT_DIR` and `offline-regenerate-fixture FIXTURE_DIR` retain historical artifact conversion solely for offline analysis. They do not query the network, alter a live home, or authorize deployment. Historical signed fixtures remain historical and cannot define native chain readiness.
+```bash
+tools/bringup/kernel-genesis.sh init "$NODE_HOME" "$MONIKER" "$CHAIN_ID" "$MODE" "$GENESIS_JSON" "$GENESIS_SHA256" "$STOPPED_UNIT"
+```
+
+Supply the approved native genesis and its SHA-256. The command checks that the
+named systemd service is stopped, requires an empty home, runs `paxd init` with
+the explicit mode and chain ID, installs the genesis, and retains identity
+fingerprints. `PAXD` selects the binary (default `paxd`), and
+`BRINGUP_INSPECT_BIN` selects the inspector (default `bringup-inspect`). The
+command leaves the service stopped.
+
+## Retain an existing identity
+
+Stop the home's exclusive service owner and retain the complete home, including
+the native node key, validator key, last signing state, and sequencer receipt
+key and WAL. Then adopt its identity:
+
+```bash
+tools/bringup/kernel-genesis.sh adopt "$NODE_HOME" "$CHAIN_ID"
+tools/bringup/kernel-genesis.sh identity "$NODE_HOME" "$CHAIN_ID"
+```
+
+Identity checks refuse changed keys or genesis. Signing state may advance
+normally; it is validated and never reset. Keep primary and standby receipt
+keys and WAL separate. Receipt key changes require the native chain's committed
+receipt-key governance and pin update procedure.
+
+## Offline artifact conversion
+
+`offline-render ENV_FILE OUTPUT_DIR` renders signed LXGB genesis artifacts
+from an environment file. `offline-regenerate-fixture FIXTURE_DIR` regenerates a signed fixture.
+Both operations run offline without starting a node or querying the network.
