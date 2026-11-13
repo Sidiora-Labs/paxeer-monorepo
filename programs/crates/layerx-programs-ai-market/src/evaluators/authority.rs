@@ -7,28 +7,28 @@
 //! remains an explicit trust assumption.
 use crate::types::GuestIndex as _;
 use crate::{
+    MAX_EVALUATORS, MAX_WORKERS,
     admission::{AdmissionMeta, AdmissionTable, Participant},
     codec::{self, Reader, Writer},
     dispatch,
     errors::{
-        CodecResult, ARITHMETIC, CAPACITY, CONFLICT, EXPIRED, F03_BAD_ACTIVATION,
+        ARITHMETIC, CAPACITY, CONFLICT, CodecResult, EXPIRED, F03_BAD_ACTIVATION,
         F03_EVALUATOR_CAPACITY, F03_GRANT_VERSION_CONFLICT, F03_KEY_REUSED,
         F03_KEY_VERSION_CONFLICT, F03_NO_GRANT, NON_CANONICAL, NOT_FOUND, REVOKED, ROLE_CONFLICT,
         UNAUTHORIZED, UNKNOWN_OPERATION, WRONG_CONFIG, WRONG_EPOCH, WRONG_PHASE, WRONG_ROSTER,
     },
     evaluators::{
         codec::{decode_grant, encode_grant},
-        model::{nonzero_key, EvaluatorGrant, GrantStatus, GrantTerms, GRANT_BYTES},
+        model::{EvaluatorGrant, GRANT_BYTES, GrantStatus, GrantTerms, nonzero_key},
     },
-    registry::{market_clock, MarketHeader},
+    registry::{MarketHeader, market_clock},
     registry_ops::{ACTIVE, REGISTERED, SUSPENDED, WINDING_DOWN},
     state::{self, ActorSlot, ReplayDecision, ReplayRequest, RetainedResult, Section},
     types::{
         Digest32, EvaluatorId, EvaluatorRosterEntry, Presence, PrincipalId, ProgramId, PublicKey32,
         RequestDigest, RequestId, ResultDigest, RubricDigest, Version, WorkerRosterEntry,
     },
-    workers::{WorkerTable, WORKER_RECORD_BYTES},
-    MAX_EVALUATORS, MAX_WORKERS,
+    workers::{WORKER_RECORD_BYTES, WorkerTable},
 };
 
 pub const LAST_REQUEST_BYTES: usize = 104;
@@ -1093,7 +1093,7 @@ fn revoke(
         (GrantStatus::Revoked, Some(prior))
             if prior.reason == reason && prior.evidence == evidence =>
         {
-            return Ok(None)
+            return Ok(None);
         }
         (GrantStatus::Revoked, _) => return Err(REVOKED),
         (GrantStatus::Expired, _) => return Err(EXPIRED),

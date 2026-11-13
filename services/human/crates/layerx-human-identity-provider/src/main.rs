@@ -76,6 +76,31 @@ fn provision_account() -> io::Result<()> {
     output.write_all(b"\n")
 }
 
+fn configured_binding_reader(mut server: Server) -> io::Result<Server> {
+    let binding_names = [
+        "LAYERX_HUMAN_IDENTITY_PROVIDER_BINDING_SOCKET",
+        "LAYERX_HUMAN_IDENTITY_PROVIDER_BINDING_TENANT",
+        "LAYERX_HUMAN_IDENTITY_PROVIDER_BINDING_ALLOWED_UIDS",
+    ];
+    if binding_names
+        .iter()
+        .any(|name| std::env::var_os(name).is_some())
+    {
+        let binding_socket = PathBuf::from(required(binding_names[0])?);
+        let tenant = required(binding_names[1])?;
+        let reader_uids: Vec<u32> = required(binding_names[2])?
+            .split(',')
+            .map(|value| {
+                value.parse::<u32>().map_err(|_| {
+                    io::Error::new(io::ErrorKind::InvalidInput, "invalid binding reader uid")
+                })
+            })
+            .collect::<io::Result<_>>()?;
+        server = server.with_binding_reader(&binding_socket, &tenant, &reader_uids)?;
+    }
+    Ok(server)
+}
+
 fn run() -> io::Result<()> {
     let mut args = std::env::args().skip(1);
     let command = args.next();
@@ -109,14 +134,16 @@ fn run() -> io::Result<()> {
         return probe::run();
     }
     if command.as_deref() == Some("validate-account-head") {
-        let now_ms = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_err(io::Error::other)?
-            .as_millis();
+        let clock = layerx_client::runtime_clock::RuntimeClock::from_environment()
+            .map_err(io::Error::other)?;
+        let now_ms =
+            layerx_types::clock::Clock::sample(clock.as_ref(), std::time::Duration::from_secs(1))
+                .map_err(io::Error::other)?
+                .unix_milliseconds;
         return layerx_human_identity_provider::provision_head::validate_account_head(
             io::stdin().lock(),
             io::stdout().lock(),
-            u64::try_from(now_ms).map_err(io::Error::other)?,
+            now_ms,
         );
     }
     if command.as_deref() == Some("provision-account") {
@@ -163,34 +190,13 @@ fn run() -> io::Result<()> {
     let shutdown = Arc::new(AtomicBool::new(false));
     signal_hook::flag::register(signal_hook::consts::SIGTERM, Arc::clone(&shutdown))?;
     signal_hook::flag::register(signal_hook::consts::SIGINT, Arc::clone(&shutdown))?;
-    let mut server = Server::bind(
+    let server = configured_binding_reader(Server::bind(
         &socket,
         state,
         uid,
         Duration::from_secs(deadline),
         clock.ok_or_else(|| io::Error::other("clock authority required"))?,
-    )?;
-    let binding_names = [
-        "LAYERX_HUMAN_IDENTITY_PROVIDER_BINDING_SOCKET",
-        "LAYERX_HUMAN_IDENTITY_PROVIDER_BINDING_TENANT",
-        "LAYERX_HUMAN_IDENTITY_PROVIDER_BINDING_ALLOWED_UIDS",
-    ];
-    if binding_names
-        .iter()
-        .any(|name| std::env::var_os(name).is_some())
-    {
-        let binding_socket = PathBuf::from(required(binding_names[0])?);
-        let tenant = required(binding_names[1])?;
-        let reader_uids: Vec<u32> = required(binding_names[2])?
-            .split(',')
-            .map(|value| {
-                value.parse::<u32>().map_err(|_| {
-                    io::Error::new(io::ErrorKind::InvalidInput, "invalid binding reader uid")
-                })
-            })
-            .collect::<io::Result<_>>()?;
-        server = server.with_binding_reader(&binding_socket, &tenant, &reader_uids)?;
-    }
+    )?)?;
     server.run(&shutdown)
 }
 

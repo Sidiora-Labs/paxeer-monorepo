@@ -21,7 +21,6 @@ import (
 	"time"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/checked"
-
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/jackc/pgx/v5"
@@ -122,6 +121,27 @@ type CapacityClockSample struct {
 	ObservedAt                                     time.Time
 	OffsetLowerNanoseconds, OffsetUpperNanoseconds int64
 }
+type capacityClockReading struct {
+	before, database, after time.Time
+}
+
+func sampleCapacityClock(ctx context.Context, read func(context.Context) (capacityClockReading, error)) (CapacityClockSample, error) {
+	for range 3 {
+		reading, err := read(ctx)
+		if err != nil {
+			return CapacityClockSample{}, err
+		}
+		if reading.after.Sub(reading.before) <= 5*time.Millisecond {
+			return CapacityClockSample{
+				ObservedAt:             reading.after,
+				OffsetLowerNanoseconds: reading.database.Sub(reading.after).Nanoseconds(),
+				OffsetUpperNanoseconds: reading.database.Sub(reading.before).Nanoseconds(),
+			}, nil
+		}
+	}
+	return CapacityClockSample{}, sourceError(TimeoutError, "capacity-clock-uncertainty", nil)
+}
+
 type CapacityFaultObservation struct {
 	Kind, SourceID, State string
 	ObservedAt            time.Time
@@ -158,11 +178,19 @@ func (c *capacityCapture) write(kind string, value any) error {
 	data = append(data, '\n')
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if uint64(len(data)) > c.max-c.used {
+	lenDataUint64, conversionErr := checked.Convert[uint64](len(data))
+	if conversionErr != nil {
+		return conversionErr
+	}
+	if lenDataUint64 > c.max-c.used {
 		return sourceError(OversizeError, "capacity-capture", nil)
 	}
 	n, err := c.hash.Write(data)
-	c.used += uint64(n) //nolint:gosec // successful write count is nonnegative
+	nUint64, conversionErr := checked.Convert[uint64](n)
+	if conversionErr != nil {
+		return conversionErr
+	}
+	c.used += nUint64
 	if err == nil && n != len(data) {
 		return io.ErrShortWrite
 	}
@@ -311,13 +339,29 @@ func (s *CommittedSource) validateCapacityMeasurement(snapshot CapacityMeasureme
 		limit := cap(endpoint.permits)
 		limits[endpoint.id] = limit
 		if endpoint.historical {
-			archiveLimit += int64(limit)
+			limitInt64, conversionErr := checked.Convert[int64](limit)
+			if conversionErr != nil {
+				return conversionErr
+			}
+			archiveLimit += limitInt64
 		} else {
-			primaryLimit += int64(limit)
+			limitInt642, conversionErr := checked.Convert[int64](limit)
+			if conversionErr != nil {
+				return conversionErr
+			}
+			primaryLimit += limitInt642
 		}
 	}
-	primaryLimit = min(primaryLimit, int64(cap(processPermits)))
-	if snapshot.InFlight < 0 || snapshot.InFlight > primaryLimit+archiveLimit || snapshot.ProcessPermits < 0 || snapshot.ProcessPermits > int64(cap(processPermits)) || snapshot.HistoricalPermits < 0 || snapshot.HistoricalPermits > int64(cap(historicalPermits)) || snapshot.PendingRanges > 1024 || snapshot.HeaderCacheEntries > 16384 || snapshot.HeapBytes > maxHeap {
+	capProcessPermitsInt64, conversionErr := checked.Convert[int64](cap(processPermits))
+	if conversionErr != nil {
+		return conversionErr
+	}
+	primaryLimit = min(primaryLimit, capProcessPermitsInt64)
+	capHistoricalPermitsInt64, conversionErr := checked.Convert[int64](cap(historicalPermits))
+	if conversionErr != nil {
+		return conversionErr
+	}
+	if snapshot.InFlight < 0 || snapshot.InFlight > primaryLimit+archiveLimit || snapshot.ProcessPermits < 0 || snapshot.ProcessPermits > capProcessPermitsInt64 || snapshot.HistoricalPermits < 0 || snapshot.HistoricalPermits > capHistoricalPermitsInt64 || snapshot.PendingRanges > 1024 || snapshot.HeaderCacheEntries > 16384 || snapshot.HeapBytes > maxHeap {
 		return sourceError(OverloadError, "capacity-budget", nil)
 	}
 	for id, active := range snapshot.EndpointInFlight {
@@ -368,7 +412,15 @@ func capacityDurable(ctx context.Context, pool *pgxpool.Pool, stream string, fro
 		defer cancelCleanup()
 		_ = tx.Rollback(cleanup)
 	}()
-	rows, err := tx.Query(read, `SELECT r.height,r.block_hash,r.transaction_hash,r.transaction_index,r.log_index,r.emitter,r.topics,r.data,pg_xact_commit_timestamp(c.xmin) FROM indexer.indexer_raw_logs r JOIN indexer.indexer_ingest_commits c ON c.chain_id=r.chain_id AND r.height>c.previous_height AND r.height<=c.last_complete_height WHERE r.chain_id=125 AND c.stream_id=$1 AND r.height BETWEEN $2 AND $3 ORDER BY r.height,r.transaction_index,r.log_index`, stream, int64(from), int64(to)) //nolint:gosec // chain value uses the existing signed storage representation
+	fromInt64, conversionErr := checked.Convert[int64](from)
+	if conversionErr != nil {
+		return time.Time{}, 0, conversionErr
+	}
+	toInt64, conversionErr := checked.Convert[int64](to)
+	if conversionErr != nil {
+		return time.Time{}, 0, conversionErr
+	}
+	rows, err := tx.Query(read, `SELECT r.height,r.block_hash,r.transaction_hash,r.transaction_index,r.log_index,r.emitter,r.topics,r.data,pg_xact_commit_timestamp(c.xmin) FROM indexer.indexer_raw_logs r JOIN indexer.indexer_ingest_commits c ON c.chain_id=r.chain_id AND r.height>c.previous_height AND r.height<=c.last_complete_height WHERE r.chain_id=125 AND c.stream_id=$1 AND r.height BETWEEN $2 AND $3 ORDER BY r.height,r.transaction_index,r.log_index`, stream, fromInt64, toInt64)
 	if err != nil {
 		return time.Time{}, 0, err
 	}
@@ -395,15 +447,27 @@ func capacityDurable(ctx context.Context, pool *pgxpool.Pool, stream string, fro
 			rows.Close()
 			return latest, count, err
 		}
-		observed, observedOK := observations[uint64(height)] //nolint:gosec // persisted chain value uses the existing unsigned protocol representation
+		heightUint64, conversionErr := checked.Convert[uint64](height)
+		if conversionErr != nil {
+			return time.Time{}, 0, conversionErr
+		}
+		observed, observedOK := observations[heightUint64]
 		observedLower := observed.Add(time.Duration(clockOffsetLower))
 		if !observedOK || committed == nil || committed.Before(observedLower) || !validHash(block) || !validHash(transaction) || !common.IsHexAddress(emitter) || txIndex < 0 || logIndex < 0 || txIndex > math.MaxUint32 || logIndex > math.MaxUint32 {
 			rows.Close()
 			return latest, count, sourceError(IntegrityError, "capacity-durable-row", nil)
 		}
-		key := RawParityIdentity{125, common.HexToHash(block), common.HexToHash(transaction), uint(logIndex)}
+		logIndexUint, conversionErr := checked.Convert[uint](logIndex)
+		if conversionErr != nil {
+			return time.Time{}, 0, conversionErr
+		}
+		key := RawParityIdentity{125, common.HexToHash(block), common.HexToHash(transaction), logIndexUint}
 		log, ok := wanted[key]
-		if !ok || seen[key] || log.BlockNumber != uint64(height) || log.TxIndex != uint(txIndex) || log.Address != common.HexToAddress(emitter) || len(log.Topics) != len(topics) || !bytes.Equal(log.Data, data) { //nolint:gosec // persisted chain value uses the existing unsigned protocol representation
+		txIndexUint, conversionErr := checked.Convert[uint](txIndex)
+		if conversionErr != nil {
+			return time.Time{}, 0, conversionErr
+		}
+		if !ok || seen[key] || log.BlockNumber != heightUint64 || log.TxIndex != txIndexUint || log.Address != common.HexToAddress(emitter) || len(log.Topics) != len(topics) || !bytes.Equal(log.Data, data) {
 			rows.Close()
 			return latest, count, sourceError(IntegrityError, "capacity-durable-identity", nil)
 		}
@@ -421,7 +485,7 @@ func capacityDurable(ctx context.Context, pool *pgxpool.Pool, stream string, fro
 			Topics                  []string
 			Data                    []byte
 			ObservedAt, CommittedAt time.Time
-		}{key, uint64(height), uint(txIndex), strings.ToLower(emitter), topics, data, observed, committed.UTC()}); err != nil { //nolint:gosec // persisted chain value uses the existing unsigned protocol representation
+		}{key, heightUint64, txIndexUint, strings.ToLower(emitter), topics, data, observed, committed.UTC()}); err != nil {
 			rows.Close()
 			return latest, count, err
 		}
@@ -438,10 +502,14 @@ func capacityDurable(ctx context.Context, pool *pgxpool.Pool, stream string, fro
 	if err != nil {
 		return latest, count, err
 	}
-	if count != uint64(len(wanted)) {
+	lenWantedUint64, conversionErr := checked.Convert[uint64](len(wanted))
+	if conversionErr != nil {
+		return time.Time{}, 0, conversionErr
+	}
+	if count != lenWantedUint64 {
 		return latest, count, sourceError(IncompleteError, "capacity-missing-identity", nil)
 	}
-	blockRows, err := tx.Query(read, `SELECT height,block_hash,raw_count,fetch_complete,required_decode_complete FROM indexer.indexer_block_completeness WHERE chain_id=125 AND stream_id=$1 AND height BETWEEN $2 AND $3 ORDER BY height`, stream, int64(from), int64(to)) //nolint:gosec // chain value uses the existing signed storage representation
+	blockRows, err := tx.Query(read, `SELECT height,block_hash,raw_count,fetch_complete,required_decode_complete FROM indexer.indexer_block_completeness WHERE chain_id=125 AND stream_id=$1 AND height BETWEEN $2 AND $3 ORDER BY height`, stream, fromInt64, toInt64)
 	if err != nil {
 		return latest, count, err
 	}
@@ -459,8 +527,16 @@ func capacityDurable(ctx context.Context, pool *pgxpool.Pool, stream string, fro
 			blockRows.Close()
 			return latest, count, err
 		}
-		record, ok := expected.Blocks[uint64(height)]                                                                                                                   //nolint:gosec // persisted chain value uses the existing unsigned protocol representation
-		if !ok || height != int64(from+blocks) || !validHash(hash) || common.HexToHash(hash) != record.Hash || raw != rawCounts[uint64(height)] || !fetch || !decoded { //nolint:gosec // chain value uses the existing signed storage representation
+		heightUint642, conversionErr := checked.Convert[uint64](height)
+		if conversionErr != nil {
+			return time.Time{}, 0, conversionErr
+		}
+		record, ok := expected.Blocks[heightUint642]
+		fromBlocksInt64, conversionErr := checked.Convert[int64](from + blocks)
+		if conversionErr != nil {
+			return time.Time{}, 0, conversionErr
+		}
+		if !ok || height != fromBlocksInt64 || !validHash(hash) || common.HexToHash(hash) != record.Hash || raw != rawCounts[heightUint642] || !fetch || !decoded {
 			blockRows.Close()
 			return latest, count, sourceError(IntegrityError, "capacity-block-coverage", nil)
 		}
@@ -477,7 +553,15 @@ func capacityDurable(ctx context.Context, pool *pgxpool.Pool, stream string, fro
 			return latest, count, sourceError(IncompleteError, "capacity-empty-observation", nil)
 		}
 		var committed *time.Time
-		err = tx.QueryRow(read, `SELECT max(pg_xact_commit_timestamp(xmin)) FROM indexer.indexer_ingest_commits WHERE chain_id=125 AND stream_id=$1 AND previous_height<$2 AND last_complete_height>=$3`, stream, int64(from), int64(to)).Scan(&committed) //nolint:gosec // chain value uses the existing signed storage representation
+		fromInt642, conversionErr := checked.Convert[int64](from)
+		if conversionErr != nil {
+			return time.Time{}, 0, conversionErr
+		}
+		toInt642, conversionErr := checked.Convert[int64](to)
+		if conversionErr != nil {
+			return time.Time{}, 0, conversionErr
+		}
+		err = tx.QueryRow(read, `SELECT max(pg_xact_commit_timestamp(xmin)) FROM indexer.indexer_ingest_commits WHERE chain_id=125 AND stream_id=$1 AND previous_height<$2 AND last_complete_height>=$3`, stream, fromInt642, toInt642).Scan(&committed)
 		if err != nil || committed == nil || committed.Before(observed.Add(time.Duration(clockOffsetLower))) {
 			return latest, count, sourceError(IncompleteError, "capacity-empty-commit", err)
 		}
@@ -526,15 +610,10 @@ func capacityWorkload(ctx context.Context, command CapacityCommand, capture *cap
 	if err != nil {
 		return err
 	}
-	stderr, err := child.StderrPipe()
-	if err != nil {
-		return err
-	}
+	child.Stderr = io.Discard
 	if err = child.Start(); err != nil {
 		return err
 	}
-	stderrDone := make(chan error, 1)
-	go func() { _, err := io.Copy(io.Discard, stderr); stderrDone <- err }()
 	scanner := bufio.NewScanner(stdout)
 	scanner.Buffer(make([]byte, 4096), 1<<20)
 	var lines uint64
@@ -544,14 +623,12 @@ func capacityWorkload(ctx context.Context, command CapacityCommand, capture *cap
 		if err = json.Unmarshal(value, &record); err != nil || record.Kind == "" {
 			_ = syscall.Kill(-child.Process.Pid, syscall.SIGKILL)
 			_ = child.Wait()
-			checked.Report(<-stderrDone)
 			return sourceError(InvalidError, "capacity-workload-capture", nil)
 		}
 		if record.Kind == "fault" {
 			if record.Fault == nil || !validSourceID(record.Fault.SourceID) || record.Fault.ObservedAt.IsZero() || (record.Fault.Kind != "throttle" && record.Fault.Kind != "truncate" && record.Fault.Kind != "endpoint_loss" && record.Fault.Kind != valueRecovery) || (record.Fault.State != "injected" && record.Fault.State != valueRestored) {
 				_ = syscall.Kill(-child.Process.Pid, syscall.SIGKILL)
 				_ = child.Wait()
-				checked.Report(<-stderrDone)
 				return sourceError(InvalidError, "capacity-fault-capture", nil)
 			}
 			select {
@@ -559,14 +636,12 @@ func capacityWorkload(ctx context.Context, command CapacityCommand, capture *cap
 			case <-ctx.Done():
 				_ = syscall.Kill(-child.Process.Pid, syscall.SIGKILL)
 				_ = child.Wait()
-				checked.Report(<-stderrDone)
 				return ctx.Err()
 			}
 		}
 		if err = capture.write("workload_provider", value); err != nil {
 			_ = syscall.Kill(-child.Process.Pid, syscall.SIGKILL)
 			_ = child.Wait()
-			checked.Report(<-stderrDone)
 			return err
 		}
 		lines++
@@ -576,9 +651,8 @@ func capacityWorkload(ctx context.Context, command CapacityCommand, capture *cap
 		_ = syscall.Kill(-child.Process.Pid, syscall.SIGKILL)
 	}
 	waitErr := child.Wait()
-	stderrErr := <-stderrDone
-	if readErr != nil || waitErr != nil || stderrErr != nil {
-		return sourceError(IncompleteError, "capacity-workload", errors.Join(readErr, waitErr, stderrErr))
+	if readErr != nil || waitErr != nil {
+		return sourceError(IncompleteError, "capacity-workload", errors.Join(readErr, waitErr))
 	}
 	if lines == 0 {
 		return sourceError(IncompleteError, "capacity-workload-capture", nil)
@@ -593,11 +667,19 @@ func capacityParity(ctx context.Context, p CapacityProviders, options CapacityOp
 	right := FetchResult{ManifestDigest: p.Live.opts.ManifestDigest, Blocks: map[uint64]BlockRecord{}, BlockTimestamps: map[uint64]int64{}, TxFromMap: map[string]string{}}
 	for from := options.ParityFrom; from <= options.ParityTo; {
 		to := min(from+1999, options.ParityTo)
-		rpc, err := p.Live.FetchCommitted(ctx, FetchOptions{FromBlock: int64(from), ToBlock: int64(to)}, true, nil) //nolint:gosec // chain value uses the existing signed storage representation
+		fromInt643, conversionErr := checked.Convert[int64](from)
+		if conversionErr != nil {
+			return ParityReport{}, conversionErr
+		}
+		toInt643, conversionErr := checked.Convert[int64](to)
+		if conversionErr != nil {
+			return ParityReport{}, conversionErr
+		}
+		rpc, err := p.Live.FetchCommitted(ctx, FetchOptions{FromBlock: fromInt643, ToBlock: toInt643}, true, nil)
 		if err != nil {
 			return ParityReport{}, err
 		}
-		explorer, err := p.Historical.Explorer.FetchParityLogs(ctx, FetchOptions{FromBlock: int64(from), ToBlock: int64(to), Historical: true}) //nolint:gosec // chain value uses the existing signed storage representation
+		explorer, err := p.Historical.Explorer.FetchParityLogs(ctx, FetchOptions{FromBlock: fromInt643, ToBlock: toInt643, Historical: true})
 		if err != nil {
 			return ParityReport{}, err
 		}
@@ -652,19 +734,20 @@ func RunSourceCapacity(ctx context.Context, options CapacityOptions, p CapacityP
 	if err = p.Pool.QueryRow(ctx, `SELECT raw_complete_height,typed_complete_height FROM indexer.indexer_ingest_watermarks WHERE chain_id=125 AND stream_id=$1`, options.StreamID).Scan(&initial, &typed); err != nil || initial < 0 || typed != initial {
 		return report, sourceError(IntegrityError, "capacity-watermark", err)
 	}
-	beforeClock := time.Now().UTC()
-	var databaseClock time.Time
-	if err = p.Pool.QueryRow(ctx, `SELECT clock_timestamp()`).Scan(&databaseClock); err != nil {
+	readClock := func(ctx context.Context) (capacityClockReading, error) {
+		reading := capacityClockReading{before: time.Now().UTC()}
+		err := p.Pool.QueryRow(ctx, `SELECT clock_timestamp()`).Scan(&reading.database)
+		reading.after = time.Now().UTC()
+		return reading, err
+	}
+	initialClock, err := sampleCapacityClock(ctx, readClock)
+	if err != nil {
 		return report, err
 	}
-	afterClock := time.Now().UTC()
-	if afterClock.Sub(beforeClock) > 5*time.Millisecond {
-		return report, sourceError(TimeoutError, "capacity-clock-uncertainty", nil)
-	}
-	report.DBClockOffsetLowerNanoseconds = databaseClock.Sub(afterClock).Nanoseconds()
-	report.DBClockOffsetUpperNanoseconds = databaseClock.Sub(beforeClock).Nanoseconds()
+	report.DBClockOffsetLowerNanoseconds = initialClock.OffsetLowerNanoseconds
+	report.DBClockOffsetUpperNanoseconds = initialClock.OffsetUpperNanoseconds
 	report.LatencyResolutionNanoseconds = int64(time.Microsecond)
-	report.ClockSamples = []CapacityClockSample{{afterClock, report.DBClockOffsetLowerNanoseconds, report.DBClockOffsetUpperNanoseconds}}
+	report.ClockSamples = []CapacityClockSample{initialClock}
 	initialHead, err := p.Head.Head(ctx)
 	if err != nil || initialHead != initial {
 		return report, sourceError(IntegrityError, "capacity-initial-cursor", err)
@@ -805,7 +888,22 @@ func RunSourceCapacity(ctx context.Context, options CapacityOptions, p CapacityP
 		defer wg.Done()
 		for from := options.HistoricalFrom; run.Err() == nil; {
 			to := min(from+1999, options.HistoricalTo)
-			result, err := p.Historical.FetchHistorical(run, FetchOptions{FromBlock: int64(from), ToBlock: int64(to), Historical: true}, uint64(initial)) //nolint:gosec // chain value uses the existing signed storage representation
+			fromHeight, err := checked.Convert[int64](from)
+			if err != nil {
+				events <- err
+				return
+			}
+			toHeight, err := checked.Convert[int64](to)
+			if err != nil {
+				events <- err
+				return
+			}
+			initialHeight, err := checked.Convert[uint64](initial)
+			if err != nil {
+				events <- err
+				return
+			}
+			result, err := p.Historical.FetchHistorical(run, FetchOptions{FromBlock: fromHeight, ToBlock: toHeight, Historical: true}, initialHeight)
 			if err != nil {
 				if run.Err() != nil {
 					return
@@ -857,8 +955,11 @@ func RunSourceCapacity(ctx context.Context, options CapacityOptions, p CapacityP
 	histogram := map[int64]uint64{}
 	observations := map[uint64]time.Time{}
 	inputSeconds := map[int64]uint64{}
-	seenHead := uint64(initial)
-	cursor := uint64(initial)
+	seenHead, conversionErr := checked.Convert[uint64](initial)
+	if conversionErr != nil {
+		return report, conversionErr
+	}
+	cursor := seenHead
 	deadline := time.NewTimer(options.Duration)
 	defer deadline.Stop()
 	ticker := time.NewTicker(100 * time.Millisecond)
@@ -901,13 +1002,17 @@ loop:
 			if err != nil {
 				return report, err
 			}
-			if height < 0 || uint64(height) < cursor {
+			heightUint643, conversionErr := checked.Convert[uint64](height)
+			if conversionErr != nil {
+				return report, conversionErr
+			}
+			if height < 0 || heightUint643 < cursor {
 				return report, sourceError(IntegrityError, "capacity-head", nil)
 			}
 			p.Live.mu.Lock()
 			head := p.Live.authoritative
 			p.Live.mu.Unlock()
-			if head.Height < uint64(height) || head.ObservedAt.IsZero() {
+			if head.Height < heightUint643 || head.ObservedAt.IsZero() {
 				return report, sourceError(IdentityError, "capacity-observation", nil)
 			}
 			lagAt := time.Now().UTC()
@@ -922,7 +1027,11 @@ loop:
 				return report, err
 			}
 			if head.Height > seenHead {
-				if head.Height-seenHead > uint64(65536-len(observations)) { //nolint:gosec // nonnegative count uses the existing unsigned counter field
+				lenObservationsUint64, conversionErr := checked.Convert[uint64](65536 - len(observations))
+				if conversionErr != nil {
+					return report, conversionErr
+				}
+				if head.Height-seenHead > lenObservationsUint64 {
 					return report, sourceError(OverloadError, "capacity-observation-backlog", nil)
 				}
 				for height := seenHead + 1; height <= head.Height; height++ {
@@ -935,7 +1044,15 @@ loop:
 			}
 			to := min(cursor+64, head.Height)
 			observerBefore := p.Live.ids.Load()
-			expected, err := p.Live.FetchCommitted(run, FetchOptions{FromBlock: int64(cursor + 1), ToBlock: int64(to)}, false, nil) //nolint:gosec // chain value uses the existing signed storage representation
+			cursor1Int64, conversionErr := checked.Convert[int64](cursor + 1)
+			if conversionErr != nil {
+				return report, conversionErr
+			}
+			toInt644, conversionErr := checked.Convert[int64](to)
+			if conversionErr != nil {
+				return report, conversionErr
+			}
+			expected, err := p.Live.FetchCommitted(run, FetchOptions{FromBlock: cursor1Int64, ToBlock: toInt644}, false, nil)
 			if err != nil {
 				return report, err
 			}
@@ -948,22 +1065,16 @@ loop:
 				return report, err
 			}
 			before := p.Live.ids.Load()
-			clockBefore := time.Now().UTC()
-			var actualDatabaseTime time.Time
-			if err = p.Pool.QueryRow(run, `SELECT clock_timestamp()`).Scan(&actualDatabaseTime); err != nil {
+			clockSample, err := sampleCapacityClock(run, readClock)
+			if err != nil {
 				return report, err
 			}
-			clockAfter := time.Now().UTC()
-			if clockAfter.Sub(clockBefore) > 5*time.Millisecond {
-				return report, sourceError(TimeoutError, "capacity-clock-uncertainty", nil)
-			}
-			report.DBClockOffsetLowerNanoseconds = actualDatabaseTime.Sub(clockAfter).Nanoseconds()
-			report.DBClockOffsetUpperNanoseconds = actualDatabaseTime.Sub(clockBefore).Nanoseconds()
-			clockSample := CapacityClockSample{clockAfter, report.DBClockOffsetLowerNanoseconds, report.DBClockOffsetUpperNanoseconds}
+			report.DBClockOffsetLowerNanoseconds = clockSample.OffsetLowerNanoseconds
+			report.DBClockOffsetUpperNanoseconds = clockSample.OffsetUpperNanoseconds
 			if err = capture.write("clock_sample", clockSample); err != nil {
 				return report, err
 			}
-			if err = p.Processor.ProcessBatch(run, int64(cursor+1), int64(to)); err != nil { //nolint:gosec // chain value uses the existing signed storage representation
+			if err = p.Processor.ProcessBatch(run, cursor1Int64, toInt644); err != nil {
 				report.FailedAttempts++
 				_ = capture.write("processor_failure", struct {
 					From, To uint64
@@ -980,9 +1091,17 @@ loop:
 			elapsed := durable.Sub(observed.Add(time.Duration(report.DBClockOffsetLowerNanoseconds))).Nanoseconds()
 			for _, log := range expected.Logs {
 				second := observations[log.BlockNumber].Sub(report.StartedAt) / time.Second
-				inputSeconds[int64(second)]++
+				secondInt64, conversionErr := checked.Convert[int64](second)
+				if conversionErr != nil {
+					return report, conversionErr
+				}
+				inputSeconds[secondInt64]++
 			}
-			report.InputEvents += uint64(len(expected.Logs))
+			expectedLogsUint64, conversionErr := checked.Convert[uint64](len(expected.Logs))
+			if conversionErr != nil {
+				return report, conversionErr
+			}
+			report.InputEvents += expectedLogsUint64
 			report.DurableEvents += count
 			report.Batches++
 			if len(histogram) > 1000000 {
@@ -1012,7 +1131,11 @@ loop:
 		}
 	}
 	finalHeight, finalErr := p.Head.Head(run)
-	if finalErr != nil || finalHeight < 0 || uint64(finalHeight) != cursor {
+	finalHeightUint64, conversionErr := checked.Convert[uint64](finalHeight)
+	if conversionErr != nil {
+		return report, conversionErr
+	}
+	if finalErr != nil || finalHeight < 0 || finalHeightUint64 != cursor {
 		return report, sourceError(IncompleteError, "capacity-final-head", finalErr)
 	}
 	cancel()
@@ -1034,7 +1157,11 @@ loop:
 	if report.P99Nanoseconds > int64(500*time.Millisecond) {
 		return report, sourceError(TimeoutError, "capacity-p99", nil)
 	}
-	if report.InputEvents > ^uint64(0)/1000000000 || report.InputEvents*1000000000 < options.TargetEventsPerSecond*uint64(options.Duration) {
+	optionsDurationUint64, conversionErr := checked.Convert[uint64](options.Duration)
+	if conversionErr != nil {
+		return report, conversionErr
+	}
+	if report.InputEvents > ^uint64(0)/1000000000 || report.InputEvents*1000000000 < options.TargetEventsPerSecond*optionsDurationUint64 {
 		return report, sourceError(OverloadError, "capacity-input-rate", nil)
 	}
 	if options.Profile != valueHarness {
@@ -1183,10 +1310,14 @@ func MeasureSourceLagRecovery(ctx context.Context, options CapacityOptions, p Ca
 				return report, sourceError(IntegrityError, "capacity-lag-watermark", err)
 			}
 			observed = time.Now().UTC()
-			if err = p.Live.ReportDurableHeight(observed, uint64(raw)); err != nil {
+			rawUint64, conversionErr := checked.Convert[uint64](raw)
+			if conversionErr != nil {
+				return report, conversionErr
+			}
+			if err = p.Live.ReportDurableHeight(observed, rawUint64); err != nil {
 				return report, err
 			}
-			sample, err := p.Live.capacityLagSample(observed, uint64(raw))
+			sample, err := p.Live.capacityLagSample(observed, rawUint64)
 			if err != nil {
 				return report, err
 			}

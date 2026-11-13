@@ -1,9 +1,11 @@
-#[path = "support/repair_22_33_44_auth.rs"]
-mod auth_fixture;
+mod auth_fixture {
+    include!("support/repair_22_33_44_auth.rs");
+}
 use auth_fixture::{auth_config, register_session, required, SoftwareAuthenticator};
 
-#[path = "support/repair_22_33_44_approval.rs"]
-mod durable_approval;
+mod durable_approval {
+    include!("support/repair_22_33_44_approval.rs");
+}
 
 use layerx_human_test_support as support;
 
@@ -45,20 +47,20 @@ use layerx_types::payload::{
 use layerx_types::rung::Rung;
 
 fn tenant() -> TenantId {
-    TenantId::new("tenant-decisions").expect("tenant")
+    TenantId::new("tenant-decisions").or_fail("tenant")
 }
 
 fn ledger_payload() -> Vec<u8> {
     let signer = layerx_crypto::local::LocalSigner::new([0x51; 32]);
     let public_key = layerx_crypto::signer::Signer::public_key(&signer);
-    let from = AccountId::parse("agent:did:layerx:decision-agent:main").expect("source account");
-    let to = AccountId::parse("agent:did:layerx:recipient:main").expect("destination account");
+    let from = AccountId::parse("agent:did:layerx:decision-agent:main").or_fail("source account");
+    let to = AccountId::parse("agent:did:layerx:recipient:main").or_fail("destination account");
     let protocol = layerx_intents::canonical::PROTOCOL_VERSION;
     let debit = layerx_crypto::send::SendDebit {
         from: layerx_intents::canonical::account_id_for_protocol(&from, protocol)
-            .expect("canonical source account"),
+            .or_fail("canonical source account"),
         to: layerx_intents::canonical::account_id_for_protocol(&to, protocol)
-            .expect("canonical destination account"),
+            .or_fail("canonical destination account"),
         asset: [0x33; 32],
         amount: 1,
         source_sequence: 7,
@@ -88,16 +90,16 @@ fn ledger_payload() -> Vec<u8> {
                 AuthorizationSignature::new([0x77; 64]),
             ),
         ),
-        NetworkId::new(debit.network_id).expect("network"),
-        ProtocolVersion::new(protocol).expect("protocol"),
+        NetworkId::new(debit.network_id).or_fail("network"),
+        ProtocolVersion::new(protocol).or_fail("protocol"),
     )
-    .expect("send intent");
-    let activity = PayloadActivityType::new(ModuleId::Asset, 5).expect("send activity");
+    .or_fail("send intent");
+    let activity = PayloadActivityType::new(ModuleId::Asset, 5).or_fail("send activity");
     let registration =
-        ModuleRegistration::new(ModuleId::Asset, &[activity]).expect("asset registration");
-    let registry = ModuleRegistry::new(&[registration]).expect("module registry");
+        ModuleRegistration::new(ModuleId::Asset, &[activity]).or_fail("asset registration");
+    let registry = ModuleRegistry::new(&[registration]).or_fail("module registry");
     let compiled =
-        compile(&Intent::v1(IntentKind::LxpSend(send)), &registry).expect("compiled send intent");
+        compile(&Intent::v1(IntentKind::LxpSend(send)), &registry).or_fail("compiled send intent");
     compiled.payload().as_bytes().to_vec()
 }
 
@@ -152,7 +154,7 @@ impl AgentdDecisions<'_> {
     }
 
     fn normalize(
-        decision: layerx_agentd::approval::ApprovalDecision,
+        decision: &layerx_agentd::approval::ApprovalDecision,
     ) -> Result<AgentDecision, ApprovalBoundaryError> {
         let status = match decision.outcome {
             ApprovalOutcome::Granted => AgentDecisionStatus::Approved {
@@ -237,10 +239,7 @@ impl ApprovalBoundary for AgentdDecisions<'_> {
         if released != self.held {
             return Err(ApprovalBoundaryError::VerificationFailed);
         }
-        let reference: String = submission_ref
-            .iter()
-            .map(|byte| format!("{byte:02x}"))
-            .collect();
+        let reference: String = layerx_human_service::hex::lower((submission_ref).as_ref());
         Ok(TrackedSubmission {
             submission_ref: SubmissionRef::new(reference)
                 .map_err(|_| ApprovalBoundaryError::Corrupt)?,
@@ -284,7 +283,7 @@ impl AgentDecisionBoundary for AgentdDecisions<'_> {
                 self.queue,
             )
             .map_err(|_| ApprovalBoundaryError::Unavailable)?;
-        Self::normalize(decision)
+        Self::normalize(&decision)
     }
 
     fn reject(
@@ -310,14 +309,86 @@ impl AgentDecisionBoundary for AgentdDecisions<'_> {
                 current_time: self.decision_time()?,
             })
             .map_err(|_| ApprovalBoundaryError::Unavailable)?;
-        Self::normalize(decision)
+        Self::normalize(&decision)
     }
+}
+
+fn assert_approved_result(
+    result: Result<layerx_human_service::approvals::DecisionResult, DecisionError>,
+    boundary: &AgentdDecisions<'_>,
+    context: (&ApprovalSubmissionQueue, &Prepared, &EvmPrepared),
+    audit: &AuditChain,
+    scope: &layerx_human_service::store::PrincipalScope<'_>,
+    pending: u64,
+) {
+    let (queue, held, evm) = context;
+    let approved = result.or_fail("approval at the pending nonce");
+    let AgentDecisionStatus::Approved {
+        submission_ref: Some(reference),
+    } = approved.status()
+    else {
+        panic!("hold must release, got {:?}", approved.status());
+    };
+    assert_eq!(approved.resolution(), AgentDecisionResolution::Applied);
+    assert_eq!(
+        approved.tracking().map(|value| &value.state),
+        Some(&SubmissionState::Queued)
+    );
+    assert_eq!(queue.len(), 1);
+    let released = queue.prepared(reference).or_fail("released preparation");
+    assert_eq!(released, *held);
+    let transaction = layerx_crypto::evm_transaction::decode_unsigned(
+        released.unsigned_canonical_bytes.as_bytes(),
+    )
+    .or_fail("released EVM call");
+    assert_eq!(transaction.nonce, pending);
+    assert_eq!(transaction.chain_id, evm.call.chain_id);
+    assert_eq!(transaction.data, evm.call.data);
+    assert_eq!(released.signing_preimage.as_bytes(), evm.signing_hash);
+    assert_eq!(boundary.stale, None);
+    assert_eq!(
+        boundary
+            .service
+            .get(
+                &tenant(),
+                [1; 32],
+                pending,
+                boundary.decision_time().or_fail("decision time"),
+            )
+            .or_fail("approved hold")
+            .state,
+        ApprovalState::Approved
+    );
+    let entries = audit.entries(scope).or_fail("audit entries");
+    assert_eq!(entries.len(), 1);
+    assert!(
+        matches!(entries[0].event(), AuditEvent::ApprovalDecision { hold_digest, outcome: AuditOutcome::Approved, .. } if *hold_digest == held.disclosure.canonical_digest)
+    );
+}
+
+fn decision_step_up(
+    passkeys: &Passkeys,
+    scope: &mut layerx_human_service::store::PrincipalScope<'_>,
+    authenticator: &mut SoftwareAuthenticator,
+    access: &str,
+    csrf: &str,
+    digest: [u8; 32],
+) -> layerx_human_service::auth::StepUpEvidence {
+    let challenge = required(
+        passkeys.begin_step_up(scope, access, csrf, OperationDigest::new(digest), 110),
+        "begin step-up",
+    );
+    let assertion = authenticator.assert(&challenge.ceremony);
+    required(
+        passkeys.finish_step_up(scope, &challenge.challenge_id, &assertion, 111),
+        "finish step-up",
+    )
 }
 
 fn decide_at(pending: u64) {
     let directory = support::directory(&format!("decide-nonce-{pending}"));
     let queue = ApprovalSubmissionQueue::default();
-    let evm = pending_nonce(7, 7).expect("prepared EVM call");
+    let evm = pending_nonce(7, 7).or_fail("prepared EVM call");
     assert_eq!(evm.call.nonce, 7);
     assert_eq!(evm.observed_head_height, 88);
     let held = preparation(&evm);
@@ -345,28 +416,19 @@ fn decide_at(pending: u64) {
         &map,
         support::retention_uniform(10_000),
     );
-    let mut scope = store
-        .principal(&support::principal("mara"))
-        .expect("principal scope");
+    let mut scope = store.principal(&support::principal("mara")).or_fail("principal scope");
     let passkeys = required(Passkeys::new(auth_config()), "passkeys");
     let mut authenticator = SoftwareAuthenticator::new();
     let session = register_session(&passkeys, &mut scope, &mut authenticator, 100);
-    let challenge = required(
-        passkeys.begin_step_up(
-            &mut scope,
-            session.access_token().expose(),
-            session.csrf_token().expose(),
-            OperationDigest::new(held.disclosure.canonical_digest),
-            110,
-        ),
-        "begin step-up",
+    let evidence = decision_step_up(
+        &passkeys,
+        &mut scope,
+        &mut authenticator,
+        session.access_token().expose(),
+        session.csrf_token().expose(),
+        held.disclosure.canonical_digest,
     );
-    let assertion = authenticator.assert(&challenge.ceremony);
-    let evidence = required(
-        passkeys.finish_step_up(&mut scope, &challenge.challenge_id, &assertion, 111),
-        "finish step-up",
-    );
-    let mut audit = AuditChain::open(&scope).expect("audit");
+    let mut audit = AuditChain::open(&scope).or_fail("audit");
     let result = Decisions::approve(
         &mut scope,
         &passkeys,
@@ -382,47 +444,13 @@ fn decide_at(pending: u64) {
         &TraceId::mint([1; 16]),
     );
     if pending == 7 {
-        let approved = result.expect("approval at the pending nonce");
-        let AgentDecisionStatus::Approved {
-            submission_ref: Some(reference),
-        } = approved.status()
-        else {
-            panic!("hold must release, got {:?}", approved.status());
-        };
-        assert_eq!(approved.resolution(), AgentDecisionResolution::Applied);
-        assert_eq!(
-            approved.tracking().map(|value| &value.state),
-            Some(&SubmissionState::Queued)
-        );
-        assert_eq!(queue.len(), 1);
-        let released = queue.prepared(reference).expect("released preparation");
-        assert_eq!(released, held);
-        let transaction = layerx_crypto::evm_transaction::decode_unsigned(
-            released.unsigned_canonical_bytes.as_bytes(),
-        )
-        .expect("released EVM call");
-        assert_eq!(transaction.nonce, pending);
-        assert_eq!(transaction.chain_id, evm.call.chain_id);
-        assert_eq!(transaction.data, evm.call.data);
-        assert_eq!(released.signing_preimage.as_bytes(), evm.signing_hash);
-        assert_eq!(boundary.stale, None);
-        assert_eq!(
-            boundary
-                .service
-                .get(
-                    &tenant(),
-                    [1; 32],
-                    pending,
-                    boundary.decision_time().expect("decision time"),
-                )
-                .expect("approved hold")
-                .state,
-            ApprovalState::Approved
-        );
-        let entries = audit.entries(&scope).expect("audit entries");
-        assert_eq!(entries.len(), 1);
-        assert!(
-            matches!(entries[0].event(), AuditEvent::ApprovalDecision { hold_digest, outcome: AuditOutcome::Approved, .. } if *hold_digest == held.disclosure.canonical_digest)
+        assert_approved_result(
+            result,
+            &boundary,
+            (&queue, &held, &evm),
+            &audit,
+            &scope,
+            pending,
         );
     } else {
         assert!(matches!(
@@ -446,17 +474,17 @@ fn decide_at(pending: u64) {
                     &tenant(),
                     [1; 32],
                     pending,
-                    boundary.decision_time().expect("decision time"),
+                    boundary.decision_time().or_fail("decision time"),
                 )
-                .expect("unreleased hold")
+                .or_fail("unreleased hold")
                 .state,
             ApprovalState::AwaitingApproval
         );
-        assert!(audit.entries(&scope).expect("audit entries").is_empty());
+        assert!(audit.entries(&scope).or_fail("audit entries").is_empty());
     }
     drop(scope);
     drop(store);
-    fs::remove_dir_all(directory).expect("cleanup");
+    fs::remove_dir_all(directory).or_fail("cleanup");
 }
 
 #[test]
@@ -467,4 +495,10 @@ fn approval_releases_a_hold_prepared_at_the_pending_nonce() {
 #[test]
 fn approval_of_a_stale_nonce_hold_is_refused() {
     decide_at(8);
+}
+
+use self::require_value::RequireValue as _;
+
+pub mod require_value {
+    include!("support/require_value.rs");
 }

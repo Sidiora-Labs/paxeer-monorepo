@@ -40,6 +40,7 @@ const RESOURCE_STALE_TIME: Partial<Record<ResourceName, number>> = {
   'general:txs_stats': STALE_TIME.stats,
   'general:stats_charts_txs': STALE_TIME.stats,
   'general:stats_charts_market': STALE_TIME.stats,
+  'general:stats_charts_secondary_coin_market': STALE_TIME.stats,
   'general:address_counters': STALE_TIME.stats,
   'general:address_tabs_counters': STALE_TIME.stats,
   'general:token_counters': STALE_TIME.stats,

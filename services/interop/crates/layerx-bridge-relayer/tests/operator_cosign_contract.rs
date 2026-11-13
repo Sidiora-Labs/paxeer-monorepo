@@ -26,7 +26,7 @@ use layerx_bridge_relayer::attestation::{
     assemble_signatures, ethereum_address, recover_signer, uint256_from_u64, InboundAttestation,
     SignatureError,
 };
-use layerx_bridge_relayer::config::RelayerConfig;
+use layerx_bridge_relayer::config::{RelayerConfig, ATTESTOR_SET_SIZE, ATTESTOR_THRESHOLD};
 use layerx_bridge_relayer::cosign::transport::{spki_pin, ENABLE_VARIABLE};
 use layerx_bridge_relayer::cosign::transport::{DestinationPolicy, OperatorInventory, Transport};
 use layerx_bridge_relayer::cosign::CosignDirectory;
@@ -73,11 +73,8 @@ fn declared_quorum() -> (usize, usize) {
         .and_then(|value| usize::try_from(value).ok())
         .or_panic("attestors.json has no threshold");
     let members = document["attestors"].as_array().map_or(0, Vec::len);
-    assert!(
-        threshold >= 2 && threshold <= members,
-        "declared threshold {threshold} of {members}"
-    );
-    (members, threshold)
+    assert_eq!((members, threshold), (1, 1), "governed attestor set");
+    (ATTESTOR_SET_SIZE, usize::from(ATTESTOR_THRESHOLD))
 }
 
 fn wait_for(what: &str, mut done: impl FnMut() -> bool) {
@@ -574,7 +571,7 @@ fn declared_cardinality_assembles_only_from_distinct_real_operator_shares() {
 
     assert_fee_payers(&operators, &wanted);
 
-    start_operator_transports(&mut operators, &mut outsider, &ca, &root);
+    start_operator_transports(&mut operators, &mut outsider, &ca, &root, threshold);
 
     assert_below_quorum(&operators, &members, &wanted, &digest, threshold);
 
@@ -669,6 +666,7 @@ fn start_operator_transports(
     outsider: &mut Operator,
     ca: &Ca,
     root: &Path,
+    threshold: usize,
 ) {
     // Each member delivers to every other member; the outsider is pinned by nobody.
     for operator in &*operators {
@@ -678,7 +676,7 @@ fn start_operator_transports(
             .collect();
         operator.configure(ca, &peers);
     }
-    let inputs = operator_inputs(root, operators);
+    let inputs = operator_inputs(root, operators, threshold);
     let inventory =
         OperatorInventory::load(&inputs.inventory).or_panic("generated operator inventory");
     for input in &inputs.operators {
@@ -1262,8 +1260,7 @@ fn operator_credentials(root: &Path) -> (PathBuf, PathBuf) {
     (ca_der, token)
 }
 
-fn operator_inputs(root: &Path, operators: &[Operator]) -> SuppliedInputs {
-    let (_, threshold) = declared_quorum();
+fn operator_inputs(root: &Path, operators: &[Operator], threshold: usize) -> SuppliedInputs {
     let mut members: Vec<_> = operators
         .iter()
         .map(|operator| hex::prefixed(&operator.address()))
@@ -1415,7 +1412,7 @@ fn recorded_operator_policies(
 fn supplied_operator_inventory_matches_registered_bridge_configuration() {
     let root = fixture_directory("operator-inventory");
     let ca = Ca::new(&root);
-    let (size, _) = declared_quorum();
+    let (size, threshold) = declared_quorum();
     let operators: Vec<_> = (0..u8::try_from(size).or_panic("expected Ok value"))
         .map(|index| Operator::new(&root, &ca, index))
         .collect();
@@ -1428,10 +1425,9 @@ fn supplied_operator_inventory_matches_registered_bridge_configuration() {
                 .collect::<Vec<_>>(),
         );
     }
-    let inputs = operator_inputs(&root, &operators);
+    let inputs = operator_inputs(&root, &operators, threshold);
     let inventory =
         OperatorInventory::load(&inputs.inventory).or_panic("genuine approved bridge inventory");
-    let (size, threshold) = declared_quorum();
     assert_eq!(
         inventory.operators.len(),
         size,

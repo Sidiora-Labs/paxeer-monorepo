@@ -250,7 +250,9 @@ impl StateFile {
             .create(true)
             .truncate(false)
             .mode(0o600)
-            .custom_flags(rustix::fs::OFlags::NOFOLLOW.bits() as i32)
+            .custom_flags(i32::from_ne_bytes(
+                rustix::fs::OFlags::NOFOLLOW.bits().to_ne_bytes(),
+            ))
             .open(root.join("lock"))
             .map_err(io)?;
         secure(&lock)?;
@@ -383,7 +385,7 @@ pub(super) mod key_id {
     }
 }
 pub(super) mod activities {
-    use super::*;
+    use super::{ActivityType, Deserialize, Serialize};
     pub fn serialize<S: serde::Serializer>(
         value: &[ActivityType],
         serializer: S,

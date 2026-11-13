@@ -64,6 +64,23 @@ impl NativeResultSource {
         Ok(envelope["result"].clone())
     }
 
+    fn historical_query(&self, params: &Value) -> Result<Value, CheckpointReadError> {
+        for retry in 0..=8 {
+            let result = self.rpc("abci_query", params)?;
+            let response = &result["response"];
+            if response["code"].as_u64() != Some(36)
+                || !response["log"]
+                    .as_str()
+                    .is_some_and(|log| log.starts_with("historical proof rate limited"))
+                || retry == 8
+            {
+                return Ok(result);
+            }
+            std::thread::sleep(Duration::from_millis(250));
+        }
+        unreachable!()
+    }
+
     /// # Errors
     /// Returns an error if node acquisition fails or the committed checkpoint, target, result
     /// root or proof cannot be verified.
@@ -431,14 +448,11 @@ impl NativeResultSource {
         blob(&mut request, 2, key);
         scalar(&mut request, 3, height);
         scalar(&mut request, 4, 1);
-        let result = self.rpc(
-            "abci_query",
-            &json!({
-                "path":"/paxprotocol.paxchain.layerxprograms.Query/ProgramState",
-                "data":layerx_programs::hex::encode(&request),
-                "height":height.to_string(), "prove":true
-            }),
-        )?;
+        let result = self.historical_query(&json!({
+            "path":"/paxprotocol.paxchain.layerxprograms.Query/ProgramState",
+            "data":layerx_programs::hex::encode(&request),
+            "height":height.to_string(), "prove":true
+        }))?;
         let response = &result["response"];
         crate::reject_if(
             response["code"].as_u64().unwrap_or(0) != 0
@@ -567,12 +581,9 @@ impl NativeResultSource {
             .filter(|height| *height > 1)
             .ok_or(CheckpointReadError::TargetMismatch)?;
         let key = vec![0x02];
-        let result = self.rpc(
-            "abci_query",
-            &json!({
-                "path":"/store/lxphost/key", "data":"02", "height":height.to_string(), "prove":true
-            }),
-        )?;
+        let result = self.historical_query(&json!({
+            "path":"/store/lxphost/key", "data":"02", "height":height.to_string(), "prove":true
+        }))?;
         let response = &result["response"];
         let code = response
             .get("code")
@@ -590,6 +601,10 @@ impl NativeResultSource {
                     .ok_or(CheckpointReadError::InvalidProof)?,
             )? != key
         {
+            eprintln!(
+                "agent host commitment store query code={code}: {}",
+                response["log"]
+            );
             return Err(CheckpointReadError::TargetMismatch);
         }
         let value = match &response["value"] {
@@ -598,7 +613,7 @@ impl NativeResultSource {
             Value::String(text) => Some(decode_base64(text)?),
             _ => return Err(CheckpointReadError::InvalidProof),
         };
-        let ops = response["proof_ops"]["ops"]
+        let ops = response["proofOps"]["ops"]
             .as_array()
             .filter(|ops| ops.len() == 2)
             .ok_or(CheckpointReadError::InvalidProof)?;

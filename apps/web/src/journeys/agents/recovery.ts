@@ -47,12 +47,14 @@ export function readAgentOperation(
   return value as PendingAgentOperation;
 }
 
-export function agentOperationParts(scope: string): string[] {
+export function agentOperationParts(scope: string): [string, string, ...string[]] {
   const parts: unknown = JSON.parse(scope);
   if (!Array.isArray(parts) || parts.length < 2 || !parts.every((part: unknown) => typeof part === "string")) {
     throw new Error("Invalid agent operation identity");
   }
-  return parts as string[];
+  const [operation, target, ...rest] = parts;
+  if (operation === undefined || target === undefined) throw new Error("Invalid agent operation identity");
+  return [operation, target, ...rest];
 }
 
 export function writeAgentOperation(

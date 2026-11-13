@@ -58,7 +58,14 @@ func init() {
 	if len(os.Args) != 2 || os.Args[1] != workerArgument {
 		return
 	}
-	body, e := ReadBounded(os.Stdin)
+	if runRasterWorker(os.Stdin, os.Stdout) != nil {
+		os.Exit(2)
+	}
+	os.Exit(0)
+}
+
+func runRasterWorker(input io.Reader, output io.Writer) error {
+	body, e := ReadBounded(input)
 	response := workerResponse{}
 	if e == nil {
 		response.Raster, e = ReencodeSupported(context.Background(), body)
@@ -73,10 +80,7 @@ func init() {
 			response.Failure = "invalid"
 		}
 	}
-	if json.NewEncoder(os.Stdout).Encode(response) != nil {
-		os.Exit(2)
-	}
-	os.Exit(0)
+	return json.NewEncoder(output).Encode(response)
 }
 func (w ProcessWorker) Ready() error {
 	if w.Isolation != "" && w.Isolation != "cgroup" && w.Isolation != RlimitIsolation {
@@ -103,19 +107,18 @@ func (w ProcessWorker) Ready() error {
 	if e != nil {
 		return ErrUnavailable
 	}
-	fields := " " + strings.Join(strings.Fields(string(raw)), " ") + " "
-	for _, name := range []string{"memory", "cpu", "pids"} {
-		if !strings.Contains(fields, " "+name+" ") {
-			return ErrUnavailable
-		}
-	}
 	control, e := os.ReadFile(filepath.Join(w.CgroupParent, "cgroup.subtree_control"))
 	if e != nil {
 		return ErrUnavailable
 	}
+	return cgroupControllersAvailable(raw, control)
+}
+
+func cgroupControllersAvailable(raw, control []byte) error {
+	fields := " " + strings.Join(strings.Fields(string(raw)), " ") + " "
 	enabled := " " + strings.Join(strings.Fields(string(control)), " ") + " "
 	for _, name := range []string{"memory", "cpu", "pids"} {
-		if !strings.Contains(enabled, " "+name+" ") {
+		if !strings.Contains(fields, " "+name+" ") || !strings.Contains(enabled, " "+name+" ") {
 			return ErrUnavailable
 		}
 	}
@@ -131,43 +134,13 @@ func (w ProcessWorker) Decode(ctx context.Context, body []byte) (Raster, error) 
 	rlimit := w.Isolation == RlimitIsolation
 	group := ""
 	if !rlimit {
-		nonce := make([]byte, 16)
-		if _, e := rand.Read(nonce); e != nil {
-			return Raster{}, ErrUnavailable
-		}
-		group = filepath.Join(w.CgroupParent, "metadata-raster-"+hex.EncodeToString(nonce))
-		if os.Mkdir(group, 0700) != nil {
-			return Raster{}, ErrUnavailable
-		}
-		defer func() {
-			if err := os.Remove(group); err != nil {
-				slog.Error("raster cgroup removal", "error", err)
-			}
-		}()
-		root, err := os.OpenRoot(group)
+		var cleanup func()
+		var err error
+		group, cleanup, err = prepareRasterGroup(w.CgroupParent)
 		if err != nil {
-			return Raster{}, ErrUnavailable
+			return Raster{}, err
 		}
-		for name, value := range map[string]string{"memory.max": "268435456", "memory.swap.max": "0", "pids.max": "32", "cpu.max": "100000 100000"} {
-			if os.WriteFile(filepath.Join(group, name), []byte(value), 0600) != nil {
-				closeWorkerRoot(root)
-				return Raster{}, ErrUnavailable
-			}
-			file, e := root.Open(name)
-			if e != nil {
-				closeWorkerRoot(root)
-				return Raster{}, ErrUnavailable
-			}
-			actual, e := io.ReadAll(io.LimitReader(file, 1024))
-			e = errors.Join(e, file.Close())
-			if e != nil || strings.TrimSpace(string(actual)) != value {
-				closeWorkerRoot(root)
-				return Raster{}, ErrUnavailable
-			}
-		}
-		if err := root.Close(); err != nil {
-			return Raster{}, ErrUnavailable
-		}
+		defer cleanup()
 	}
 	bounded, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
@@ -208,12 +181,7 @@ func (w ProcessWorker) Decode(ctx context.Context, body []byte) (Raster, error) 
 			return Raster{}, ErrUnavailable
 		}
 	} else {
-		if os.WriteFile(filepath.Join(group, "cgroup.procs"), []byte(strconv.Itoa(cmd.Process.Pid)), 0600) != nil {
-			closeWorkerInput(input)
-			return Raster{}, ErrUnavailable
-		}
-		membership, e := os.ReadFile(filepath.Join(group, "cgroup.procs"))
-		if e != nil || !strings.Contains("\n"+string(membership), "\n"+strconv.Itoa(cmd.Process.Pid)+"\n") {
+		if joinRasterGroup(group, cmd.Process.Pid) != nil {
 			closeWorkerInput(input)
 			return Raster{}, ErrUnavailable
 		}
@@ -238,8 +206,72 @@ func (w ProcessWorker) Decode(ctx context.Context, body []byte) (Raster, error) 
 	if <-writeErr != nil {
 		return Raster{}, ErrUnavailable
 	}
+	return decodeWorkerResponse(output.Bytes())
+}
+
+func prepareRasterGroup(parent string) (string, func(), error) {
+	nonce := make([]byte, 16)
+	if _, err := rand.Read(nonce); err != nil {
+		return "", nil, ErrUnavailable
+	}
+	group := filepath.Join(parent, "metadata-raster-"+hex.EncodeToString(nonce))
+	if os.Mkdir(group, 0700) != nil {
+		return "", nil, ErrUnavailable
+	}
+	cleanup := func() {
+		if err := os.Remove(group); err != nil {
+			slog.Error("raster cgroup removal", "error", err)
+		}
+	}
+	if err := configureRasterGroup(group); err != nil {
+		cleanup()
+		return "", nil, ErrUnavailable
+	}
+	return group, cleanup, nil
+}
+
+func joinRasterGroup(group string, pid int) error {
+	if os.WriteFile(filepath.Join(group, "cgroup.procs"), []byte(strconv.Itoa(pid)+"\n"), 0600) != nil {
+		return ErrUnavailable
+	}
+	root, err := os.OpenRoot(group)
+	if err != nil {
+		return ErrUnavailable
+	}
+	defer closeWorkerRoot(root)
+	membership, err := root.ReadFile("cgroup.procs")
+	if err != nil || !strings.Contains("\n"+string(membership), "\n"+strconv.Itoa(pid)+"\n") {
+		return ErrUnavailable
+	}
+	return nil
+}
+
+func configureRasterGroup(group string) error {
+	root, err := os.OpenRoot(group)
+	if err != nil {
+		return ErrUnavailable
+	}
+	defer closeWorkerRoot(root)
+	for name, value := range map[string]string{"memory.max": "268435456", "memory.swap.max": "0", "pids.max": "32", "cpu.max": "100000 100000"} {
+		if os.WriteFile(filepath.Join(group, name), []byte(value), 0600) != nil {
+			return ErrUnavailable
+		}
+		file, e := root.Open(name)
+		if e != nil {
+			return ErrUnavailable
+		}
+		actual, e := io.ReadAll(io.LimitReader(file, 1024))
+		e = errors.Join(e, file.Close())
+		if e != nil || strings.TrimSpace(string(actual)) != value {
+			return ErrUnavailable
+		}
+	}
+	return nil
+}
+
+func decodeWorkerResponse(raw []byte) (Raster, error) {
 	var result workerResponse
-	decoder := json.NewDecoder(bytes.NewReader(output.Bytes()))
+	decoder := json.NewDecoder(bytes.NewReader(raw))
 	decoder.DisallowUnknownFields()
 	if decoder.Decode(&result) != nil || decoder.Decode(new(any)) != io.EOF {
 		return Raster{}, ErrInvalid

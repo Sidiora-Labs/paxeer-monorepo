@@ -123,6 +123,8 @@ pub struct EvidenceBundle {
 }
 
 impl EvidenceBundle {
+    /// # Errors
+    /// Returns an error if the value cannot be encoded.
     pub fn encode(&self) -> Result<Vec<u8>, ExportError> {
         let mut out = Vec::new();
         out.extend_from_slice(if self.version == 2 {
@@ -215,6 +217,8 @@ impl EvidenceBundle {
         Ok(out)
     }
 
+    /// # Errors
+    /// Returns an error if the input cannot be decoded or validated.
     pub fn decode(bytes: &[u8]) -> Result<Self, ExportError> {
         require_bound(bytes.len(), MAXIMUM_EXPORT_BYTES)?;
         let mut reader = BundleReader { bytes, offset: 0 };
@@ -248,71 +252,7 @@ impl EvidenceBundle {
                 rung: read_rung(reader.byte()?)?,
             });
         }
-        let export_count = reader.count()?;
-        let mut protocol_evidence = Vec::new();
-        for _ in 0..export_count {
-            let count = reader.count()?;
-            let mut receipts = Vec::new();
-            for _ in 0..count {
-                receipts.push(ReceiptFact {
-                    statement: reader.string()?,
-                    canonical_receipt_bytes: reader.bytes()?.to_vec(),
-                    tx_hash: reader.array()?,
-                    receipt_hash: reader.array()?,
-                    block_height: u64::from_be_bytes(reader.array()?),
-                    rung: read_rung(reader.byte()?)?,
-                    committed: if version == 2 {
-                        None
-                    } else {
-                        match reader.byte()? {
-                            0 => None,
-                            1 => Some(CommittedReceiptEvidence::decode(&mut reader)?),
-                            _ => return Err(ExportError::UnboundProtocolEvidence),
-                        }
-                    },
-                    header_binding: if version == 2 {
-                        None
-                    } else {
-                        match reader.byte()? {
-                            0 => None,
-                            1 => Some(ReceiptHeaderBinding::decode(&mut reader)?),
-                            _ => return Err(ExportError::UnboundProtocolEvidence),
-                        }
-                    },
-                });
-            }
-            let count = reader.count()?;
-            let mut inclusions = Vec::new();
-            for _ in 0..count {
-                let statement = reader.string()?;
-                let kind = match reader.byte()? {
-                    0 => InclusionKind::Activity,
-                    1 => InclusionKind::State,
-                    _ => return Err(ExportError::UnboundProtocolEvidence),
-                };
-                inclusions.push(InclusionFact {
-                    statement,
-                    kind,
-                    canonical_leaf_bytes: reader.bytes()?.to_vec(),
-                    proof: decode_proof(reader.bytes()?)
-                        .map_err(|_| ExportError::UnboundProtocolEvidence)?,
-                    named_root: reader.array()?,
-                    canonical_header_bytes: reader.bytes()?.to_vec(),
-                    header_signature: reader.array()?,
-                    sequencer_authorization: SequencerAuthorization::new(
-                        reader.array()?,
-                        reader.array()?,
-                        u64::from_be_bytes(reader.array()?),
-                        u64::from_be_bytes(reader.array()?),
-                    ),
-                });
-            }
-            protocol_evidence.push(ReceiptExport {
-                receipts,
-                inclusions,
-                derived_aggregates: Vec::new(),
-            });
-        }
+        let protocol_evidence = decode_receipt_exports(&mut reader, version)?;
         let audit_export = match reader.byte()? {
             0 => None,
             1 => Some(reader.bytes()?.to_vec()),
@@ -350,10 +290,14 @@ impl EvidenceBundle {
     pub const fn bounded_bytes(&self) -> usize {
         self.bounded_bytes
     }
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn digest(&self) -> Result<[u8; 32], ExportError> {
         Ok(Sha256::digest(self.encode()?).into())
     }
 
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn receipt_fact(
         entry_id: &ActivityEntryId,
         canonical_receipt: Vec<u8>,
@@ -389,6 +333,8 @@ impl EvidenceBundle {
         })
     }
 
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn receipt(
         entry_id: ActivityEntryId,
         receipt: ReceiptFact,
@@ -411,6 +357,8 @@ impl EvidenceBundle {
         Ok(bundle)
     }
 
+    /// # Errors
+    /// Returns an error if the supplied evidence does not satisfy the required checks.
     pub fn verify(
         &self,
         expected_digest: [u8; 32],
@@ -423,6 +371,8 @@ impl EvidenceBundle {
         self.verify_bindings(principal, receipt_keys, &[])
     }
 
+    /// # Errors
+    /// Returns an error if the supplied evidence does not satisfy the required checks.
     pub fn verify_with_consensus(
         &self,
         expected_digest: [u8; 32],
@@ -496,6 +446,8 @@ impl EvidenceBundle {
         })
     }
 
+    /// # Errors
+    /// Returns an error if the supplied evidence does not satisfy the required checks.
     pub fn verify_receipt(
         receipt: &ReceiptFact,
         receipt_keys: &[ReceiptKeyEntry],
@@ -503,6 +455,8 @@ impl EvidenceBundle {
         Self::verify_receipt_with_consensus(receipt, receipt_keys, &[])
     }
 
+    /// # Errors
+    /// Returns an error if the supplied evidence does not satisfy the required checks.
     pub fn verify_receipt_with_consensus(
         receipt: &ReceiptFact,
         receipt_keys: &[ReceiptKeyEntry],
@@ -676,6 +630,78 @@ fn push_bytes(out: &mut Vec<u8>, value: &[u8]) -> Result<(), ExportError> {
     out.extend_from_slice(value);
     require_bound(out.len(), MAXIMUM_EXPORT_BYTES)
 }
+fn decode_receipt_exports(
+    reader: &mut BundleReader<'_>,
+    version: u8,
+) -> Result<Vec<ReceiptExport>, ExportError> {
+    let export_count = reader.count()?;
+    let mut protocol_evidence = Vec::new();
+    for _ in 0..export_count {
+        let count = reader.count()?;
+        let mut receipts = Vec::new();
+        for _ in 0..count {
+            receipts.push(ReceiptFact {
+                statement: reader.string()?,
+                canonical_receipt_bytes: reader.bytes()?.to_vec(),
+                tx_hash: reader.array()?,
+                receipt_hash: reader.array()?,
+                block_height: u64::from_be_bytes(reader.array()?),
+                rung: read_rung(reader.byte()?)?,
+                committed: if version == 2 {
+                    None
+                } else {
+                    match reader.byte()? {
+                        0 => None,
+                        1 => Some(CommittedReceiptEvidence::decode(reader)?),
+                        _ => return Err(ExportError::UnboundProtocolEvidence),
+                    }
+                },
+                header_binding: if version == 2 {
+                    None
+                } else {
+                    match reader.byte()? {
+                        0 => None,
+                        1 => Some(ReceiptHeaderBinding::decode(reader)?),
+                        _ => return Err(ExportError::UnboundProtocolEvidence),
+                    }
+                },
+            });
+        }
+        let count = reader.count()?;
+        let mut inclusions = Vec::new();
+        for _ in 0..count {
+            let statement = reader.string()?;
+            let kind = match reader.byte()? {
+                0 => InclusionKind::Activity,
+                1 => InclusionKind::State,
+                _ => return Err(ExportError::UnboundProtocolEvidence),
+            };
+            inclusions.push(InclusionFact {
+                statement,
+                kind,
+                canonical_leaf_bytes: reader.bytes()?.to_vec(),
+                proof: decode_proof(reader.bytes()?)
+                    .map_err(|_| ExportError::UnboundProtocolEvidence)?,
+                named_root: reader.array()?,
+                canonical_header_bytes: reader.bytes()?.to_vec(),
+                header_signature: reader.array()?,
+                sequencer_authorization: SequencerAuthorization::new(
+                    reader.array()?,
+                    reader.array()?,
+                    u64::from_be_bytes(reader.array()?),
+                    u64::from_be_bytes(reader.array()?),
+                ),
+            });
+        }
+        protocol_evidence.push(ReceiptExport {
+            receipts,
+            inclusions,
+            derived_aggregates: Vec::new(),
+        });
+    }
+    Ok(protocol_evidence)
+}
+
 struct BundleReader<'a> {
     bytes: &'a [u8],
     offset: usize,
@@ -799,8 +825,10 @@ impl From<ExportError> for VerifyError {
             | ExportError::EvidenceUnavailable { .. }
             | ExportError::UnexpectedEvidence { .. }
             | ExportError::DuplicateEvidence
-            | ExportError::UnboundProtocolEvidence => Self::Unverified(UnverifiedReason::Tampered),
-            ExportError::UnsupportedVersion { .. } => Self::Unverified(UnverifiedReason::Tampered),
+            | ExportError::UnboundProtocolEvidence
+            | ExportError::UnsupportedVersion { .. } => {
+                Self::Unverified(UnverifiedReason::Tampered)
+            }
             ExportError::Unverified(reason) => Self::Unverified(reason),
             ExportError::Feed(_)
             | ExportError::InvalidSizeBound
@@ -994,6 +1022,8 @@ impl EvidenceExport {
     }
 
     #[allow(clippy::too_many_arguments)]
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn evidence_with_consensus(
         self,
         scope: &PrincipalScope<'_>,
@@ -1185,6 +1215,8 @@ fn referenced_receipts(entries: &[EvidenceEntry]) -> BTreeSet<String> {
         .collect()
 }
 
+/// # Errors
+/// Returns an error if the supplied evidence does not satisfy the required checks.
 pub fn verify_receipt_export(
     artifact: &ReceiptExport,
     receipt_keys: &[ReceiptKeyEntry],
@@ -1192,6 +1224,8 @@ pub fn verify_receipt_export(
     verify_receipt_export_with_consensus(artifact, receipt_keys, &[])
 }
 
+/// # Errors
+/// Returns an error if the supplied evidence does not satisfy the required checks.
 pub fn verify_receipt_export_with_consensus(
     artifact: &ReceiptExport,
     receipt_keys: &[ReceiptKeyEntry],
@@ -1215,6 +1249,34 @@ pub fn verify_receipt_export_with_consensus(
             },
         )?;
     }
+    verify_inclusions(artifact, receipt_keys)?;
+    Ok(VerificationReport {
+        verified_receipts: artifact.receipts.len(),
+        verified_inclusions: artifact.inclusions.len()
+            + artifact
+                .receipts
+                .iter()
+                .filter(|receipt| receipt.header_binding.is_some())
+                .count(),
+        receipt_digests: artifact.receipts.iter().map(|r| r.receipt_hash).collect(),
+        achieved_levels: artifact
+            .receipts
+            .iter()
+            .map(|receipt| match receipt.rung {
+                Rung::Committed => layerx_types::verify::VerificationLevel::COMMITTED,
+                Rung::Receipted | Rung::Submitted => {
+                    layerx_types::verify::VerificationLevel::SEQUENCER_SIGNED
+                }
+            })
+            .collect(),
+        derived_aggregates_are_protocol_facts: false,
+    })
+}
+
+fn verify_inclusions(
+    artifact: &ReceiptExport,
+    receipt_keys: &[ReceiptKeyEntry],
+) -> Result<(), ExportError> {
     for (index, fact) in artifact.inclusions.iter().enumerate() {
         if fact.statement.trim().is_empty() {
             return Err(ExportError::Protocol(
@@ -1236,9 +1298,9 @@ pub fn verify_receipt_export_with_consensus(
                         layerx_wire::receipt::decode(&receipt.canonical_receipt_bytes)
                             .ok()
                             .and_then(|decoded| {
-                                decoded
-                                    .protocol()
-                                    .map(|protocol| protocol.resulting_state_root())
+                                decoded.protocol().map(
+                                    layerx_wire::receipt::ProtocolReceipt::resulting_state_root,
+                                )
                             })
                             == Some(fact.named_root)
                     }
@@ -1291,27 +1353,7 @@ pub fn verify_receipt_export_with_consensus(
             ));
         }
     }
-    Ok(VerificationReport {
-        verified_receipts: artifact.receipts.len(),
-        verified_inclusions: artifact.inclusions.len()
-            + artifact
-                .receipts
-                .iter()
-                .filter(|receipt| receipt.header_binding.is_some())
-                .count(),
-        receipt_digests: artifact.receipts.iter().map(|r| r.receipt_hash).collect(),
-        achieved_levels: artifact
-            .receipts
-            .iter()
-            .map(|receipt| match receipt.rung {
-                Rung::Committed => layerx_types::verify::VerificationLevel::COMMITTED,
-                Rung::Receipted | Rung::Submitted => {
-                    layerx_types::verify::VerificationLevel::SEQUENCER_SIGNED
-                }
-            })
-            .collect(),
-        derived_aggregates_are_protocol_facts: false,
-    })
+    Ok(())
 }
 
 fn verify_protocol_set(

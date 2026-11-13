@@ -6,7 +6,7 @@ use crate::{
         ClosureReason, CompletedHistory, HistoryStatus, Observation, ReputationCurrent,
         ReputationState, SegmentKey, CURRENT_BYTES, HISTORY_BYTES, LIMIT, SECTION_CAP,
     },
-    types::{Digest32, MarketId, Presence, PrincipalId, Score, Version, WorkerId},
+    types::{Digest32, MarketId, Presence},
 };
 
 /// Encodes one current record.
@@ -246,8 +246,8 @@ pub fn decode_history(input: &[u8]) -> CodecResult<CompletedHistory> {
         result,
         root,
         observed_workers: (counts >> 24) as u8,
-        total_workers: (counts >> 16) as u8,
-        covered_workers: (counts >> 8) as u8,
+        total_workers: counts.to_be_bytes()[1],
+        covered_workers: counts.to_be_bytes()[2],
     };
     r.finish()?;
     value.validate()?;

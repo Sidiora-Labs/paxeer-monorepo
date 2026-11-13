@@ -1002,7 +1002,7 @@ impl World {
                 )?;
                 let written = match &outcome {
                     Close::Applied { state_len, .. } => Some(*state_len),
-                    _ => None,
+                    Close::Retained(_) => None,
                 };
                 Ok((outcome, written))
             })?;
@@ -1691,8 +1691,10 @@ fn a36_routed_approve_admission_then_admit_worker_reads_admitted() -> TestResult
     Ok(())
 }
 
-#[path = "support/guest.rs"]
-mod guest;
+#[allow(dead_code)]
+mod guest {
+    include!("support/guest.rs");
+}
 
 fn guest_step(
     world: &mut World,
@@ -1728,7 +1730,143 @@ fn guest_step(
 
 /// Both allocated epochs cross the compiled guest's close and payment boundary. The
 /// consumer is stopped after delivery but before the caller observes its response.
+/// # Errors
+/// Returns an error when producing or applying the market state fails.
+/// # Panics
+/// Panics when market state or execution does not satisfy the asserted conditions.
 pub fn compiled_close_settlement_recovers_balances_and_retries() -> Result<(), String> {
+    let (mut world, mut host, worker, first, second) = compiled_settlement_state()?;
+    host = compiled_close_and_refund(&mut world, host)?;
+    let mut payload = vec![0; 80];
+    worker_claim(&worker)
+        .encode(&mut payload)
+        .map_err(|e| format!("{e:?}"))?;
+    let claim = Req {
+        request: [0xf4; 32],
+        ..bound(
+            &first,
+            dispatch::CLAIM,
+            principal(KEEPER).map_err(|e| format!("{e:?}"))?,
+            payload,
+        )
+    };
+    let paid = guest_step(&mut world, &mut host, &claim, 1142).map_err(|e| format!("{e:?}"))?;
+    assert_eq!(paid.transfers, 1);
+    assert_eq!(host.ledger.balance(worker.recipient.bytes()), 90);
+    host = host.restart().map_err(|e| format!("{e:?}"))?;
+    let state = host.state().map_err(|e| format!("{e:?}"))?;
+    let image = host.ledger.image();
+    let transfers = host.ledger.transfers;
+    let retry = guest_step(&mut world, &mut host, &claim, 1143).map_err(|e| format!("{e:?}"))?;
+    assert_eq!(retry.transfers, 0);
+    assert!(retry.events.is_empty());
+    assert_eq!(host.state().map_err(|e| format!("{e:?}"))?, state);
+    assert_eq!(host.ledger.image(), image);
+    assert_eq!(host.ledger.transfers, transfers);
+    let deadline = world
+        .reward_state()
+        .map_err(|e| format!("{e:?}"))?
+        .row(7)
+        .map_err(|e| format!("{e:?}"))?
+        .expiry_height;
+    let expiration_call = Req {
+        request: [0xf5; 32],
+        ..bound(
+            &second,
+            dispatch::EXPIRE_EPOCH_CLAIMS,
+            principal(KEEPER).map_err(|e| format!("{e:?}"))?,
+            vec![],
+        )
+    };
+    let expired = guest_step(&mut world, &mut host, &expiration_call, deadline)
+        .map_err(|e| format!("{e:?}"))?;
+    assert_eq!(expired.transfers, 0);
+    host = host.restart().map_err(|e| format!("{e:?}"))?;
+    let state = host.state().map_err(|e| format!("{e:?}"))?;
+    let image = host.ledger.image();
+    let repeated = guest_step(&mut world, &mut host, &expiration_call, deadline + 1)
+        .map_err(|e| format!("{e:?}"))?;
+    assert_eq!(repeated.transfers, 0);
+    assert_eq!(host.state().map_err(|e| format!("{e:?}"))?, state);
+    assert_eq!(host.ledger.image(), image);
+    for _ in 0..10 {
+        if world.header().map_err(|e| format!("{e:?}"))?.lifecycle == CLOSED {
+            break;
+        }
+        let call = world.advance_call().map_err(|e| format!("{e:?}"))?;
+        guest_step(&mut world, &mut host, &call, deadline + 2).map_err(|e| format!("{e:?}"))?;
+    }
+    assert_eq!(
+        world.header().map_err(|e| format!("{e:?}"))?.lifecycle,
+        CLOSED
+    );
+    assert_eq!(host.ledger.balance(OWNER), 500);
+    assert_eq!(host.ledger.balance(REFUND), 410);
+    assert_eq!(host.ledger.balance(worker.recipient.bytes()), 90);
+    assert_eq!(host.ledger.balance(host.account), 0);
+    assert_eq!(host.ledger.transfers, 4);
+    assert_eq!(host.ledger.total(), 1_000);
+    assert_eq!(
+        world.ledger().map_err(|e| format!("{e:?}"))?,
+        [500, 90, 410, 0, 0, 0]
+    );
+    host = host.restart().map_err(|e| format!("{e:?}"))?;
+    assert_eq!(
+        host.state().map_err(|e| format!("{e:?}"))?.as_deref(),
+        Some(world.bytes.as_slice())
+    );
+    assert_eq!(host.ledger.total(), 1_000);
+    Ok(())
+}
+fn compiled_close_and_refund(
+    world: &mut World,
+    mut host: guest::Guest,
+) -> Result<guest::Guest, String> {
+    let close = world
+        .owner_call(dispatch::REQUEST_CLOSE, &REASON)
+        .map_err(|e| format!("{e:?}"))?;
+    guest_step(world, &mut host, &close, 1137).map_err(|e| format!("{e:?}"))?;
+    world.owner_sequence += 1;
+    host = host.restart().map_err(|e| format!("{e:?}"))?;
+    let image = host.ledger.image();
+    let state = host.state().map_err(|e| format!("{e:?}"))?;
+    let repeated = guest_step(world, &mut host, &close, 1138).map_err(|e| format!("{e:?}"))?;
+    assert_eq!(repeated.transfers, 0);
+    assert!(repeated.events.is_empty());
+    assert_eq!(host.ledger.image(), image);
+    assert_eq!(host.state().map_err(|e| format!("{e:?}"))?, state);
+    let mut refund_call = None;
+    for at in 1139..=1141 {
+        let call = world.advance_call().map_err(|e| format!("{e:?}"))?;
+        guest_step(world, &mut host, &call, at).map_err(|e| format!("{e:?}"))?;
+        refund_call = Some(call);
+    }
+    host = host.restart().map_err(|e| format!("{e:?}"))?;
+    let refund_call = refund_call
+        .ok_or("missing refund call")
+        .map_err(|e| format!("{e:?}"))?;
+    let state = host.state().map_err(|e| format!("{e:?}"))?;
+    let image = host.ledger.image();
+    let refused = world
+        .route(&refund_call, 1142)
+        .map_err(|e| format!("{e:?}"))?;
+    assert_eq!(refused.error, Some(F01_STALE_REVISION));
+    assert!(host
+        .call(
+            &refund_call.context(1142).map_err(|e| format!("{e:?}"))?,
+            &refund_call.encode().map_err(|e| format!("{e:?}"))?,
+            Some(&world.bytes)
+        )
+        .is_err());
+    assert_eq!(host.state().map_err(|e| format!("{e:?}"))?, state);
+    assert_eq!(host.ledger.image(), image);
+    assert_eq!(host.ledger.balance(REFUND), 320);
+    assert_eq!(host.ledger.balance(host.account), 180);
+    Ok(host)
+}
+
+fn compiled_settlement_state(
+) -> Result<(World, guest::Guest, WorkerRosterEntry, Frozen, Frozen), String> {
     let mut world = World::create().map_err(|e| format!("{e:?}"))?;
     let mut host = guest::Guest::new(
         guest::module().map_err(|e| format!("{e:?}"))?,
@@ -1803,126 +1941,7 @@ pub fn compiled_close_settlement_recovers_balances_and_retries() -> Result<(), S
         .terminalize(&second, &[worker], 1136)
         .map_err(|e| format!("{e:?}"))?;
     host.seed(&world.bytes).map_err(|e| format!("{e:?}"))?;
-    let close = world
-        .owner_call(dispatch::REQUEST_CLOSE, &REASON)
-        .map_err(|e| format!("{e:?}"))?;
-    guest_step(&mut world, &mut host, &close, 1137).map_err(|e| format!("{e:?}"))?;
-    world.owner_sequence += 1;
-    host = host.restart().map_err(|e| format!("{e:?}"))?;
-    let image = host.ledger.image();
-    let state = host.state().map_err(|e| format!("{e:?}"))?;
-    let repeated = guest_step(&mut world, &mut host, &close, 1138).map_err(|e| format!("{e:?}"))?;
-    assert_eq!(repeated.transfers, 0);
-    assert!(repeated.events.is_empty());
-    assert_eq!(host.ledger.image(), image);
-    assert_eq!(host.state().map_err(|e| format!("{e:?}"))?, state);
-    let mut refund_call = None;
-    for at in 1139..=1141 {
-        let call = world.advance_call().map_err(|e| format!("{e:?}"))?;
-        guest_step(&mut world, &mut host, &call, at).map_err(|e| format!("{e:?}"))?;
-        refund_call = Some(call);
-    }
-    host = host.restart().map_err(|e| format!("{e:?}"))?;
-    let refund_call = refund_call
-        .ok_or("missing refund call")
-        .map_err(|e| format!("{e:?}"))?;
-    let state = host.state().map_err(|e| format!("{e:?}"))?;
-    let image = host.ledger.image();
-    let stale = world
-        .route(&refund_call, 1142)
-        .map_err(|e| format!("{e:?}"))?;
-    assert_eq!(stale.error, Some(F01_STALE_REVISION));
-    assert!(host
-        .call(
-            &refund_call.context(1142).map_err(|e| format!("{e:?}"))?,
-            &refund_call.encode().map_err(|e| format!("{e:?}"))?,
-            Some(&world.bytes)
-        )
-        .is_err());
-    assert_eq!(host.state().map_err(|e| format!("{e:?}"))?, state);
-    assert_eq!(host.ledger.image(), image);
-    assert_eq!(host.ledger.balance(REFUND), 320);
-    assert_eq!(host.ledger.balance(host.account), 180);
-    let mut payload = vec![0; 80];
-    worker_claim(&worker)
-        .encode(&mut payload)
-        .map_err(|e| format!("{e:?}"))?;
-    let claim = Req {
-        request: [0xf4; 32],
-        ..bound(
-            &first,
-            dispatch::CLAIM,
-            principal(KEEPER).map_err(|e| format!("{e:?}"))?,
-            payload,
-        )
-    };
-    let paid = guest_step(&mut world, &mut host, &claim, 1142).map_err(|e| format!("{e:?}"))?;
-    assert_eq!(paid.transfers, 1);
-    assert_eq!(host.ledger.balance(worker.recipient.bytes()), 90);
-    host = host.restart().map_err(|e| format!("{e:?}"))?;
-    let state = host.state().map_err(|e| format!("{e:?}"))?;
-    let image = host.ledger.image();
-    let transfers = host.ledger.transfers;
-    let retry = guest_step(&mut world, &mut host, &claim, 1143).map_err(|e| format!("{e:?}"))?;
-    assert_eq!(retry.transfers, 0);
-    assert!(retry.events.is_empty());
-    assert_eq!(host.state().map_err(|e| format!("{e:?}"))?, state);
-    assert_eq!(host.ledger.image(), image);
-    assert_eq!(host.ledger.transfers, transfers);
-    let expiry = world
-        .reward_state()
-        .map_err(|e| format!("{e:?}"))?
-        .row(7)
-        .map_err(|e| format!("{e:?}"))?
-        .expiry_height;
-    let expire = Req {
-        request: [0xf5; 32],
-        ..bound(
-            &second,
-            dispatch::EXPIRE_EPOCH_CLAIMS,
-            principal(KEEPER).map_err(|e| format!("{e:?}"))?,
-            vec![],
-        )
-    };
-    let expired =
-        guest_step(&mut world, &mut host, &expire, expiry).map_err(|e| format!("{e:?}"))?;
-    assert_eq!(expired.transfers, 0);
-    host = host.restart().map_err(|e| format!("{e:?}"))?;
-    let state = host.state().map_err(|e| format!("{e:?}"))?;
-    let image = host.ledger.image();
-    let repeated =
-        guest_step(&mut world, &mut host, &expire, expiry + 1).map_err(|e| format!("{e:?}"))?;
-    assert_eq!(repeated.transfers, 0);
-    assert_eq!(host.state().map_err(|e| format!("{e:?}"))?, state);
-    assert_eq!(host.ledger.image(), image);
-    for _ in 0..10 {
-        if world.header().map_err(|e| format!("{e:?}"))?.lifecycle == CLOSED {
-            break;
-        }
-        let call = world.advance_call().map_err(|e| format!("{e:?}"))?;
-        guest_step(&mut world, &mut host, &call, expiry + 2).map_err(|e| format!("{e:?}"))?;
-    }
-    assert_eq!(
-        world.header().map_err(|e| format!("{e:?}"))?.lifecycle,
-        CLOSED
-    );
-    assert_eq!(host.ledger.balance(OWNER), 500);
-    assert_eq!(host.ledger.balance(REFUND), 410);
-    assert_eq!(host.ledger.balance(worker.recipient.bytes()), 90);
-    assert_eq!(host.ledger.balance(host.account), 0);
-    assert_eq!(host.ledger.transfers, 4);
-    assert_eq!(host.ledger.total(), 1_000);
-    assert_eq!(
-        world.ledger().map_err(|e| format!("{e:?}"))?,
-        [500, 90, 410, 0, 0, 0]
-    );
-    host = host.restart().map_err(|e| format!("{e:?}"))?;
-    assert_eq!(
-        host.state().map_err(|e| format!("{e:?}"))?.as_deref(),
-        Some(world.bytes.as_slice())
-    );
-    assert_eq!(host.ledger.total(), 1_000);
-    Ok(())
+    Ok((world, host, worker, first, second))
 }
 
 #[test]

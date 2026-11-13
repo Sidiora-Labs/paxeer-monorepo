@@ -313,6 +313,48 @@ struct Harness {
 }
 
 impl Harness {
+    fn open_session(
+        store: &mut PrincipalStore,
+        passkeys: &Passkeys,
+        now: u64,
+    ) -> layerx_human_service::auth::SessionGrant {
+        let mut scope = required(store.principal(&principal(ACCOUNT_ID)), "principal scope");
+        let mut authenticator = SoftwareAuthenticator::new();
+        let identity = required(
+            AccountIdentity::new("owner@example.test", "Owner"),
+            "account identity",
+        );
+        let registration = required(
+            passkeys.begin_registration(&mut scope, &identity, "Passkey", now),
+            "begin registration",
+        );
+        let credential = authenticator.register(&registration.ceremony);
+        required(
+            passkeys.finish_registration(
+                &mut scope,
+                &registration.registration_id,
+                &credential,
+                now,
+            ),
+            "finish registration",
+        );
+        let assertion = required(passkeys.begin_assertion(&mut scope, now), "begin assertion");
+        let credential = authenticator.assert(&assertion.ceremony);
+        required(
+            passkeys.finish_assertion(&mut scope, &assertion.assertion_id, &credential, now),
+            "finish assertion",
+        );
+        required(
+            passkeys.open_session(
+                &mut scope,
+                &assertion.assertion_id,
+                required(Device::mint("Retirement test", "web"), "device"),
+                now,
+            ),
+            "open session",
+        )
+    }
+
     fn new() -> Self {
         let directory = required(TestDirectory::new(), "test directory");
         let (clock_server, binding) = required(RunningClock::start(&directory.0), "clock server");
@@ -338,43 +380,7 @@ impl Harness {
             }),
             "passkeys",
         );
-        let session = {
-            let mut scope = required(store.principal(&principal(ACCOUNT_ID)), "principal scope");
-            let mut authenticator = SoftwareAuthenticator::new();
-            let identity = required(
-                AccountIdentity::new("owner@example.test", "Owner"),
-                "account identity",
-            );
-            let registration = required(
-                passkeys.begin_registration(&mut scope, &identity, "Passkey", now),
-                "begin registration",
-            );
-            let credential = authenticator.register(&registration.ceremony);
-            required(
-                passkeys.finish_registration(
-                    &mut scope,
-                    &registration.registration_id,
-                    &credential,
-                    now,
-                ),
-                "finish registration",
-            );
-            let assertion = required(passkeys.begin_assertion(&mut scope, now), "begin assertion");
-            let credential = authenticator.assert(&assertion.ceremony);
-            required(
-                passkeys.finish_assertion(&mut scope, &assertion.assertion_id, &credential, now),
-                "finish assertion",
-            );
-            required(
-                passkeys.open_session(
-                    &mut scope,
-                    &assertion.assertion_id,
-                    required(Device::mint("Retirement test", "web"), "device"),
-                    now,
-                ),
-                "open session",
-            )
-        };
+        let session = Self::open_session(&mut store, &passkeys, now);
         let access_token = session.access_token().expose().to_owned();
         let csrf_token = session.csrf_token().expose().to_owned();
         let executed = Arc::new(Mutex::new(Vec::new()));
@@ -454,24 +460,33 @@ impl Harness {
         let mut request =
             format!("{method} {path} HTTP/1.1\r\nHost: paxportwallet.com\r\nOrigin: {ORIGIN}\r\n");
         if authenticated {
-            request.push_str(&format!(
+            std::fmt::Write::write_fmt(
+                &mut request,
+                format_args!(
                 "Cookie: __Host-layerx_access={}; __Host-layerx_csrf={}\r\nX-LayerX-CSRF: {}\r\n",
                 self.access_token, self.csrf_token, self.csrf_token
-            ));
+            ),
+            )
+            .unwrap_or_else(|_| unreachable!("writing to String"));
         }
         if let Some(headers) = golden.get("headers").and_then(Value::as_object) {
             for (name, value) in headers {
                 let value = value.as_str().unwrap_or_else(|| panic!("header {name}"));
-                request.push_str(&format!("{name}: {value}\r\n"));
+                std::fmt::Write::write_fmt(&mut request, format_args!("{name}: {value}\r\n"))
+                    .unwrap_or_else(|_| unreachable!("writing to String"));
             }
         }
         let body = golden
             .get("body")
             .map_or_else(String::new, Value::to_string);
-        request.push_str(&format!(
-            "Content-Type: application/json\r\nContent-Length: {}\r\n\r\n{body}",
-            body.len()
-        ));
+        std::fmt::Write::write_fmt(
+            &mut request,
+            format_args!(
+                "Content-Type: application/json\r\nContent-Length: {}\r\n\r\n{body}",
+                body.len()
+            ),
+        )
+        .unwrap_or_else(|_| unreachable!("writing to String"));
         request
     }
 
@@ -490,7 +505,7 @@ impl Harness {
             required(
                 router.serve_one(&mut server, "retired-operations"),
                 "serve HTTP",
-            )
+            );
         });
         required(client.write_all(request.as_bytes()), "write HTTP");
         let mut raw = String::new();

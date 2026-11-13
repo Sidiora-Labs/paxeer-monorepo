@@ -13438,6 +13438,198 @@ value = "Task 22.38.39 no longer requires tasks 22.38.37 and 22.38.38. It requir
 basis = "Gotcha 4306 and decision 3381."
 affects = ["22.38.39"]
 
+[decision.3388]
+title = "Stream identifier assigned by streamOpenForAsk"
+value = "The identifier that streamOpenForAsk assigns to a stream is the idempotency key of the call with its first sixteen bytes set to zero. The outputs of streamOpenForAsk and askStreamOf and the event AskStreamOpened stay bytes32. The ask record of the AI market program and the agent daemon are not changed."
+basis = "Gotcha 4307 and decision 3056."
+affects = ["22.38.36"]
+
+[decision.3389]
+title = "The node passes the inference program option from its configuration"
+value = "The node reads the identifier of the AI market program and the reader address of the px inference reads from its configuration and passes the option WithPxInferenceProgram to its RPC server. Without the two settings the reads answer as before. The settings take part in no state transition."
+basis = "Gotcha 4308."
+affects = ["22.38.36"]
+
+[decision.3390]
+title = "Consensus endpoint setting of the agent daemon"
+value = "The agent daemon takes a setting for the consensus endpoint of its native result source. Without the setting the source connects to the node endpoint as before."
+basis = "Gotcha 4309."
+affects = ["22.38.36"]
+
+[decision.3391]
+title = "Task 22.38.36 carries the changes of decisions 3388 to 3390"
+value = "Task 22.38.36 makes the changes of decisions 3388, 3389 and 3390 in its own commit and proves them with the room proof. Its paths gain precompiles/layerxpay, modules/layerxpay, node, rpc, the agent daemon and client crates, the driver directory and the contract file of the inference market."
+basis = "Decisions 3388, 3389 and 3390."
+affects = ["22.38.36"]
+
+[decision.3392]
+title = "The explorer takes the price of PAX and SID from the Chainflow price feed"
+value = "The explorer backend gains a market source that reads the Chainflow price feed. PAX is the native coin and SID is the secondary coin of the explorer. The market value of each is the feed price multiplied by the supply the explorer holds, the native supply for PAX and the total supply of the token row for SID. The token rows of WPAX and SID receive price, market value and day volume on the token interval of the backend, and WPAX takes the price of PAX. A value the feed does not return stays empty."
+basis = "Gotcha 4310 and decision 2587."
+affects = ["22.35.11", "22.35.13"]
+
+[decision.3393]
+title = "Field names of the market and transaction statistics of the explorer API"
+value = "The statistics response carries secondary_coin_market_cap and secondary_coin_price_change_percentage. The items of the secondary coin chart carry market_cap. The transactions statistics response carries price_updates_count_24h, total_price_updates_count and total_transactions_count as integer strings, its transactions_count_24h includes the price updates of the day, and total_transactions_count equals total_transactions of the statistics response. The producing and the consuming tasks use these names and run side by side."
+basis = "Gotcha 4310 and decision 3046."
+affects = ["22.35.11", "22.35.12", "22.35.13", "22.35.14", "22.35.15"]
+
+[decision.3394]
+title = "The statistics page of the explorer reads the explorer API when no statistics service address is set"
+value = "Without a statistics service address the statistics page builds its counters and charts from the statistics, transactions statistics, price feed and chart routes of the explorer API, and its navigation entry and route are present. With a statistics service address the page reads the service as before."
+basis = "Gotcha 4311 and decision 2587."
+affects = ["22.35.15"]
+
+[decision.3395]
+title = "Task 22.39.429 may change the Next integration example"
+value = "The paths of task 22.39.429 gain sdk/integrations/next. The task has the scan script of the example name only directories the example holds, or has the example hold the public directory with one tracked file. The scanner keeps refusing an explicitly named directory that is absent."
+basis = "Gotcha 4312."
+affects = ["22.39.429"]
+
+[decision.3396]
+title = "The Chainflow market source of the explorer reads the CoinGecko format routes of the feed"
+value = "The source reads price, market value, day volume, circulating supply and total supply of PAX and SID from api/v3/coins/ followed by the coin id and sends the key of the setting MARKET_CHAINFLOW_API_KEY in the X-API-Key header on every request. The coin ids are paxeer and sidiora. The market value is the figure of the feed. Where the feed gives none, it is the price times the supply the explorer holds as in decision 3392. The price and market value histories stay on the history route."
+basis = "Gotcha 4313. Decision 3392."
+affects = ["22.35.16"]
+
+[decision.3397]
+title = "Task 22.39.430 may change the lock file of the interop workspace"
+value = "The paths of task 22.39.430 gain services/interop/Cargo.lock. The lock file changes only as far as a dependency of a member under services/interop/crates requires."
+basis = "Gotcha 4314."
+affects = ["22.39.430"]
+
+[decision.3398]
+title = "An item of the ai-market member whose lint needs a public signature change carries an allow attribute"
+value = "In task 22.39.445 an item whose lint can only be met by changing a public name or signature of the member carries an allow attribute for that one lint on that one item, with a reason on the attribute. The record of the task lists each such item with its lint. Every other location is repaired in the source as before."
+basis = "Gotcha 4315. Decision 3346."
+affects = ["22.39.445"]
+
+[decision.3399]
+title = "Task 22.39.445 may change the lock file of the programs workspace"
+value = "The paths of task 22.39.445 gain programs/Cargo.lock. The lock file changes only as far as a dependency of the member programs/crates/layerx-programs-ai-market requires."
+basis = "Gotcha 4316."
+affects = ["22.39.445"]
+
+[decision.3400]
+title = "Task 22.39.441 repairs the member files the boundary check reports"
+value = "The paths of task 22.39.441 gain the six member directories of services/human/crates in which the boundary check reports a direct read of the clock or of the random source. Such a file is repaired in the member: a wait is bounded by a count of steps or by the clock the member already injects, and a random value comes from the source the member already injects. The boundary check keeps its rules and its list of patterns. The behaviour of a member outside its tests does not change. For these files this replaces the listing rule of the third step of the task."
+basis = "Gotcha 4317. Decisions 3340 to 3346."
+affects = ["22.39.441"]
+
+[decision.3401]
+title = "Task 22.39.454 repairs a lint finding in the lines the project added to the vendored interpreter"
+value = "Where clippy reports a line of programs/vendor/wasmi-0.31.2 that the project added, task 22.39.454 repairs that line in the form clippy proposes. The repair changes no result of a program execution: the vectors and fixtures of the tree stay byte for byte and the cases of the interpreter member keep their results. Each repair is noted in PATCHES.md of that directory. No other file under programs/vendor is changed, no allow attribute is added and the recipe keeps its options. For these lines this replaces the vendor rule of the second step of the task."
+basis = "Gotcha 4318. Decisions 3340 to 3346."
+affects = ["22.39.454"]
+
+[decision.3402]
+title = "The boundary check of the human workspace accepts the monotonic clock in two named transport files"
+value = "The boundary check carries a list of files that may read the monotonic clock for a transport deadline. The list holds services/human/crates/layerx-human-kms/src/server.rs and services/human/crates/layerx-network-gateway/src/lib.rs, each with its reason. In a listed file only the pattern Instant::now is accepted; every other pattern and every other rule holds as before. A case of the boundary check asserts that the list holds exactly these two files. Every other file the check reports is repaired in its member as decision 3400 says."
+basis = "Gotcha 4319. Decision 3400."
+affects = ["22.39.441"]
+
+[decision.3403]
+title = "The web policy records the wallet package under the licence field of decision 2775"
+value = "The policy check of apps/web and its record state Apache-2.0 for the local package @paxeer/wallet and follow the manifest of the package as it is at the base revision. The checks of the name, the path and the version of the package stay. Task 22.39.441 makes the change inside apps/web."
+basis = "Gotcha 4320. Decision 2775."
+affects = ["22.39.441"]
+
+[decision.3404]
+title = "The human lint task verifies the steps of the recipe before the lock file checks"
+value = "The verification of task 22.39.441 runs every step of the recipe human-lint except the advisory, ban and source check of the lock file. That check is not part of this task, as decision 3383 says for the platform workspace."
+basis = "Decision 3383."
+affects = ["22.39.441"]
+
+[decision.3405]
+title = "The statistics page charts of SID read the registered secondary coin chart resource"
+value = "The SID price chart and the SID market value chart of the statistics page read general:stats_charts_secondary_coin_market, the route api/v2/stats/charts/secondary-coin-market, as the charts of the home page do. One resource name serves both pages. The verification of the task type checks the whole explorer frontend."
+basis = "Gotcha 4321. Decision 3393."
+affects = ["22.35.17"]
+
+[decision.3406]
+title = "The market value of SID is the price times the circulating supply"
+value = "The market value of the secondary coin is the figure of the feed when the feed gives one. Otherwise it is the price times the circulating supply. The circulating supply is the figure of the feed when the feed gives one. Otherwise it is the total supply the explorer holds for the SID token less the balances the explorer holds for the addresses of a setting that lists the non-circulating addresses. The list is empty by default, and with an empty list the circulating supply equals the total supply. For the secondary coin this replaces the fallback of decisions 3392 and 3396."
+basis = "Gotcha 4322. Decisions 3392 and 3396."
+affects = ["22.35.18"]
+
+[decision.3407]
+title = "The lint task of the programs workspace may change the Ed25519 declaration of the proof crate"
+value = "The paths of task 22.39.454 gain services/interop/crates/layerx-committed-proof/Cargo.toml, services/interop/Cargo.toml and services/interop/Cargo.lock. The change is limited to the Ed25519 dependency declaration: no default features, with the features alloc, fast and zeroize kept. The members of services/interop compile and the tests of the proof crate pass with it. Nothing else under services/interop changes."
+basis = "Gotcha 4323. Decision 3401."
+affects = []
+
+[decision.3408]
+title = "The PAX market value history is the closing price times the circulating supply of the feed"
+value = "For every point of the PAX price history the Chainflow market source stores the closing price times circulating_supply of the coin reply of the feed. Where the feed gives no circulating supply the source uses the supply the explorer holds. The value does not depend on the order in which the market processes start, and a start of the backend fills the market value of the stored days."
+basis = "Gotcha 4324. Decisions 3392 and 3396."
+affects = ["22.35.19"]
+
+[decision.3409]
+title = "The wallet attestor signs a program call only where the policy names the program and the entry point"
+value = "The rules of the wallet attestor policy gain the field program_calls, a list of entries that each state a program id, the entry points of that program the account may call and the highest fee limit of one call. The construct inspection passes the call method of layerxprograms only where the merged rules of the signing account hold an entry with the program id and the entry point of the call, the value of the transaction is zero and the fee limit of the call is not above the figure of the entry. A policy without the field answers every program call selector_not_allowed as before. The stream metering method of layerxpay passes where the inspection establishes from the call and the reviewed state that it debits no account of the signer beyond the funded stream. Every other method keeps its present answer. The paths of task 22.38.36 gain services/wallet/attestor/internal, and its change there is limited to this rule, the reading of the policy file and their tests."
+basis = "Gotcha 4325. Decision 3046."
+affects = []
+
+[decision.3410]
+title = "The unsafe rule of the programs workspace names the files of the native boundary"
+value = "The unsafe rule of scripts/programs/dependency-policy.sh keeps one list of excepted files. The list names single files, never a directory or a pattern over a member, and every entry carries one line that states why the file needs the keyword: a foreign function declaration or export, a guest cell of the single threaded guest, or a counting allocator or a foreign function link of a test. The list holds the files of the present native boundary. Every other Rust file under programs/crates stays under the rule, and the rule keeps refusing with the present message. No code moves between files for this."
+basis = "Gotcha 4326. Decisions 3401 and 3407."
+affects = []
+
+[decision.3411]
+title = "The advisory settings of the programs workspace record the big integer crate of the secp256k1 chain"
+value = "The runtime member of the programs workspace calls the secp256k1 crate for verification and for key recovery, both over public inputs, and holds no signing key outside its tests. programs/deny.toml records the advisory that the check reports for crypto-bigint 0.5 as one entry with that reason. The entry names the single advisory and nothing wider. No vendored file changes for it. A later move of the secp256k1 chain to a line that takes crypto-bigint 0.7.6 or later removes the entry."
+basis = "Gotcha 4327. Decision 3410."
+affects = []
+
+[decision.3412]
+title = "The intents crate of the human workspace gains the receipt constructors the service member needs"
+value = "The paths of task 22.39.441 gain services/human/crates/layerx-intents. The crate gains constructors for the receipt payloads that src/server/production_reads.rs and tests/repair_22_33_49.rs of the service member build, with the same bytes for the same fields as today, and the two files call the constructors. The payload rule of the boundary check stays as it is and no file joins an exception for it. Nothing else of the crate changes."
+basis = "Gotcha 4328. Decisions 3046 and 3402."
+affects = []
+
+[decision.3413]
+title = "The wave 6 gate task may add the rows of the Swift sample package files to the platform dependency inventory"
+value = "The paths of task 17.5.7 gain tools/workspace/platform-dependency-roots.txt. The change there is limited to one row for each of services/platform/examples/samples/first-payment-swift/Package.resolved and services/platform/examples/samples/mobile-payment-ios/Package.resolved, in the form of the rows of their Package.swift files. The check script stays as it is."
+basis = "Gotcha 4329. Decision 3349."
+affects = []
+
+[decision.3414]
+title = "The decoder burst case runs a declared fraction of its rate under the race detector"
+value = "Under the race detector the complete workload case of services/launchpad/indexer/internal/decode keeps its duration and schedules its deliveries at the full rate divided by one constant, declared in a file that is built only with the race build tag. The constant is not above 4. The assertions on conservation, on zero drops and on the latency bound stay as they are. Without the race detector the case runs the full rate, so the test stage and the coverage stage keep the full workload. No other case changes its bounds."
+basis = "Gotchas 4330 and 4331."
+affects = []
+
+[decision.3415]
+title = "The wave 6 gate task may regenerate the web client, group the inputs of one agent daemon function and list two live names in the retired reference catalogue"
+value = "The paths of task 17.5.7 gain apps/web/src/api/generated, services/agent/crates/layerx-agentd/src/main.rs and tools/paxeer-x/retired_callers.json. Under apps/web/src/api/generated the task commits only the output of the generator target of the Makefile. In the agent daemon file the change is limited to the function terms and its callers: the inputs move into one parameter structure, the behaviour and every signed value stay the same, and no lint allowance is added. In the catalogue the task adds one allowed reference for the genesis key layerxcustody in tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py and one for the import of the receipt authority fixture module in tools/qualification/paxeer-x/inference_market_room.py, each with its citation in the form of the neighbouring entries. The check program stays unchanged."
+basis = "Gotchas 4332 to 4334. Decisions 3051 and 3413."
+affects = []
+
+[decision.3416]
+title = "The source capacity measurement takes up to three database clock samples at each point"
+value = "At each of the two points where the source capacity measurement of services/launchpad/indexer/internal/source reads the database clock it takes up to three samples and uses the first whose two local readings lie within five milliseconds. The bound of five milliseconds, the offsets the report carries and the error capacity-clock-uncertainty when no sample lies within the bound stay as they are. No other bound of the measurement changes."
+basis = "Gotcha 4335. Decision 3414."
+affects = []
+
+[decision.3417]
+title = "The canary check of the peer compares the fields of the answer context that its deal states"
+value = "The answer context of a canary stays as the host builds it: the frozen binding of the epoch, the deal, the lap, the participant and the prompt digest. The check of apps/inference-peer/src/canary.mjs compares the chain, the program, the market, the epoch and the configuration of the binding and the deal and the lap index of the context with the values of its deal and of the plan. The roster field of the binding is not part of that comparison: the binding carries the digest of the captured roster, the deal carries the admission roster digest of the current epoch (decision 3169), and the challenge operations of the program are bound to the frozen binding. The refusal answer_context_mismatch and every other check of the peer stay as they are. The cases of apps/inference-peer/test/canary.test.mjs take the two roster values as two different values, in the form the host produces them (decision 3046). The paths of task 22.38.37 gain apps/inference-peer/src/canary.mjs, apps/inference-peer/test/canary.test.mjs, apps/inference-peer/test/fixtures/host-canary-frames.json and services/agent/crates/layerx-agentd/src/inference_market/canary.rs. A difference between the host and the peer that the canary proof shows is settled in these files, and nothing under programs changes."
+basis = "Gotcha 4336. Decisions 3046 and 3169."
+affects = []
+
+[decision.3418]
+title = "The areas bring their own targets in line before the wave 6 gate runs"
+value = "The wave 6 gate task keeps its own paths: the gate test, the gate runner, the web client generator output and the entries it already holds. Every other target that the six wave commands run is brought in line by a task of the area that owns the files, tasks 22.39.497 to 22.39.511, each with the make target of its area as verification and a record file. The gate task requires those tasks. The gate runner admits the build directories that the AssemblyScript targets of the programs SDK write as outputs of the programs command."
+basis = "One task per area keeps the paths narrow and lets the areas proceed side by side, and the gate task then states the result of the whole wave at one revision."
+affects = ["17.5.7", "22.39.497", "22.39.498", "22.39.499", "22.39.500", "22.39.501", "22.39.502", "22.39.503", "22.39.504", "22.39.505", "22.39.506", "22.39.507", "22.39.508", "22.39.509", "22.39.510", "22.39.511"]
+
+[decision.3419]
+title = "How a dependency check and a format check are settled"
+value = "A finding of a dependency check is settled first by moving the dependency in the lock file to a release that the check accepts. Where no such release exists, or a duplicate version comes from a dependency that cannot move, the configuration of the check takes one entry for that finding with the identifier, the reason and the date of review, and no entry covers more than one finding. A crate that the dependency policy of an area forbids is removed from the dependency tree and is never allowed by an entry. A contract whose deployed bytecode is compared with its source keeps its source bytes and is left out of the format check through the ignore list of the format configuration; every other contract is formatted."
+basis = "The checks keep their meaning when every exception is single, dated and reasoned, and the source of a deployed contract stays byte for byte what was published."
+affects = ["22.39.500", "22.39.501", "22.39.503", "22.39.507"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -43098,6 +43290,222 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.511]
+title = "Bring the Go format, lint and module commands of the repository in line"
+reqs = ["22998.1"]
+touches = ["go.mod", "go.sum", "tools/hpx/registry", "core/deps/cosmwasm/packages/go-gen", "tools/hyperfide/tests/fixtures", "services/platform/hosted/gateway/tests", "apps/launchpad/web/src/widgets/rewards", ".golangci.yml", "Makefile"]
+tests = []
+verification_contract = "test -s tools/hpx/registry/repair_22_39_511.kvx && make -s paxeer-manifest-lint && GOPROXY=off go mod tidy -diff && cd tools/hpx/registry && GOPROXY=off go build ./..."
+do_1 = "do_1 Gotcha 4337, decision 3418. The command make paxeer-manifest-lint passes, the root module is tidy and the module of tools/hpx/registry builds. The Go format check and the Go lint run read Go source only: the generated type fragments under core/deps/cosmwasm/packages/go-gen/tests and the C fixture files of the vendored tree under tools are left out of both, by the exclusion lists of the checks or by a file form that is not read as a Go package, and their content stays byte for byte. The support file of services/platform/hosted/gateway/tests compiles against the names that the gateway member defines at the present revision. The reward handler case under apps/launchpad/web/src/widgets/rewards imports a package that exists in this repository, or moves next to the code it tests. The files go.mod and go.sum of the root and of tools/hpx/registry are tidy without a change of a dependency version beyond what tidying requires."
+symbols = []
+
+[capability.22.39.510]
+title = "Bring the inventory check of the repository in line"
+reqs = ["22998.1"]
+touches = ["scripts/workspace", "tools/workspace"]
+tests = []
+verification_contract = "test -s scripts/workspace/repair_22_39_510.kvx && make -s workspace-inventory-check"
+do_1 = "do_1 Gotcha 4337, decision 3418. The command make workspace-inventory-check passes on a clean tree and on a tree in which the dashboard has been built. The manifest inventory that scripts/workspace/check-paxeer-manifests.sh compares equals the manifests of the repository at the present revision. The dependency root comparison of scripts/workspace/check-platform-dependencies.sh reads only files that are part of the source tree and leaves out the output directories that a build of the dashboard writes, and the root list under tools/workspace names every lock file of the platform examples."
+symbols = []
+
+[capability.22.39.509]
+title = "Let the binding cases of the Rust program SDK find the artifacts they read"
+reqs = ["22998.1"]
+touches = ["programs/sdk/rust", "Makefile"]
+tests = []
+verification_contract = "test -s programs/sdk/rust/repair_22_39_509.kvx && make -s programs-test"
+do_1 = "do_1 Gotcha 4337, decision 3418. The command make programs-test passes from a clean tree. The two cases of programs/sdk/rust/tests/bindgen_conformance.rs that read built artifacts of the quickstart, the response fixture and the examples run after the step that builds those artifacts: either the cases build what they read through the build scripts of programs/sdk/rust, or the targets of the Makefile order the build scripts before the test run of the programs workspace. No case is removed or ignored, and the case that the SDK target runs by name keeps running."
+symbols = []
+
+[capability.22.39.508]
+title = "Bring the compile step of the integration test packages in line"
+reqs = ["22998.1"]
+touches = ["tests/integration/dapp_tests", "tests/integration/rpc_tests", "scripts/workspace/check-hardhat-compilers.mjs"]
+tests = []
+verification_contract = "test -s tests/integration/repair_22_39_508.kvx && cd tests/integration/dapp_tests && npx --no-install hardhat compile && cd ../rpc_tests && npm run compile"
+do_1 = "do_1 Gotcha 4337, decision 3418. The compile step of tests/integration/dapp_tests and of tests/integration/rpc_tests passes with the installed packages and without a download. The configuration of tests/integration/dapp_tests names a compiler version that satisfies the version pragma of every contract it compiles, including the library contracts, and that version is one of the compilers that scripts/workspace/check-hardhat-compilers.mjs holds ready. The compile script of tests/integration/rpc_tests produces its typed bindings with the package versions of its lock file."
+symbols = []
+
+[capability.22.39.507]
+title = "Bring the contract tests and the contract format check in line"
+reqs = ["22998.1"]
+touches = ["contracts/test", "contracts/src", "tests/solidity", "tools/benchmark/loadtest/contracts/evm", "foundry.paxeer.toml"]
+tests = []
+verification_contract = "test -s contracts/repair_22_39_507.kvx && FOUNDRY_CONFIG=foundry.paxeer.toml forge test --offline --root . && FOUNDRY_CONFIG=foundry.paxeer.toml forge fmt --check --root . && sh tools/benchmark/loadtest/contracts/evm/setup.sh && forge fmt --check --root tools/benchmark/loadtest/contracts/evm"
+do_1 = "do_1 Gotcha 4337, decisions 3418 and 3419. The contract test command and the two format commands of the Makefile pass. The set-up of contracts/test/SidioraNativeERC20Test.t.sol initialises the proxy the way the deployment does before the first call, and the governance case of tests/solidity/governance/SidioraProxyTimelock.t.sol names the artifact that the build writes for the contract it deploys. The format check passes for the contracts of the root configuration and for tools/benchmark/loadtest/contracts/evm under the rule of decision 3419: contracts/src/WPAX.sol keeps its source bytes and enters the ignore list of the format configuration, every other contract is formatted. No case is removed or ignored and no contract changes behaviour."
+symbols = []
+
+[capability.22.39.506]
+title = "Bring the example contracts and the contract runtime library in line with their lint and test commands"
+reqs = ["22998.1"]
+touches = ["tests/fixtures/example/cosmwasm", "tools/benchmark/loadtest/contracts/jupiter", "wasm-runtime/libwasmvm"]
+tests = []
+verification_contract = "test -s wasm-runtime/libwasmvm/repair_22_39_506.kvx && for m in tests/fixtures/example/cosmwasm/cw1155 tests/fixtures/example/cosmwasm/cw20 tests/fixtures/example/cosmwasm/cw721 tests/fixtures/example/cosmwasm/parallelization/wasm tools/benchmark/loadtest/contracts/jupiter wasm-runtime/libwasmvm; do cargo clippy --manifest-path $m/Cargo.toml --locked --offline --all-targets -- -D warnings || exit 1; done && cargo test --manifest-path wasm-runtime/libwasmvm/Cargo.toml --locked --offline"
+do_1 = "do_1 Gotcha 4337, decision 3418. The lint command of the Makefile for the locked Rust manifests passes for the example contracts under tests/fixtures/example/cosmwasm, for tools/benchmark/loadtest/contracts/jupiter and for wasm-runtime/libwasmvm, without a lint allowance and without a change of behaviour: empty checks use the empty test of the type, copies of copy types are plain, field initialisers use the short form, the multiple test uses the method of the integer type, and wasm-runtime/libwasmvm/src/cache.rs calls the present function of the virtual machine cache in place of the retired one with the same arguments of meaning. The library tests of wasm-runtime/libwasmvm link and pass with the linker of the gate environment."
+symbols = []
+
+[capability.22.39.505]
+title = "Bring the SDK verification target of the platform in line"
+reqs = ["22998.1"]
+touches = ["sdk/platform/conformance", "sdk/platform/conformance-runner", "sdk/platform/jvm", "sdk/platform/swift"]
+tests = []
+verification_contract = "test -s sdk/platform/repair_22_39_505.kvx && make -s platform-verify-sdks"
+do_1 = "do_1 Gotcha 4337, decision 3418. The command make platform-verify-sdks passes. The native lifecycle fixtures under sdk/platform/conformance/fixtures equal the output of their generator at the present revision and are produced by it. The JVM conformance run reads the account sequence in the encoding that the producer of the fixture writes, and the SDK under sdk/platform/jvm accepts that encoding. The cases of the Swift SDK under sdk/platform/swift assert the receipt version that the producer writes at the present revision, and a case that needs the envelope case variable of the agent operation states that need through the make target, so that the target sets it. In each of the three the consumer follows the producer. No case is removed or ignored."
+symbols = []
+
+[capability.22.39.504]
+title = "Bring the test target of the platform workspaces in line"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/indexer/src", "sdk/platform/generators", "services/agent/sdk/typescript/src/generated"]
+tests = []
+verification_contract = "test -s services/platform/hosted/indexer/repair_22_39_504.kvx && make -s platform-test"
+do_1 = "do_1 Gotcha 4337, decision 3418. The command make platform-test passes. The event count cases of services/platform/hosted/indexer/src/abi.rs assert the events that the loader reads from the interface files at the present revision, by name and by count, so that an event added to an interface is stated in the case. The drift cases of sdk/platform/generators/tests/drift.rs build their comparison tree with every generated file that the generators write, including the mirror file of the TypeScript SDK of the agent, and compare it with the committed output; where the committed output differs from the generator, it is produced again by the generator. No case is removed or ignored."
+symbols = []
+
+[capability.22.39.503]
+title = "Bring the lint target of the platform workspaces in line"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/indexer/tests/store_writers.rs", "services/platform/Cargo.toml", "services/platform/Cargo.lock", "services/platform/deny.toml", "tools/platform/Cargo.toml", "tools/platform/Cargo.lock", "tools/platform/deny.toml"]
+tests = []
+verification_contract = "test -s services/platform/repair_22_39_503.kvx && make -s platform-lint"
+do_1 = "do_1 Gotcha 4337, decisions 3418 and 3419. The command make platform-lint passes. The cases of services/platform/hosted/indexer/tests/store_writers.rs satisfy the lint configuration without an allowance and keep their assertions. The dependency checks of services/platform and tools/platform pass under the rule of decision 3419, with changes in the manifest, the lock file and the configuration of the check of each of the two workspaces only."
+symbols = []
+
+[capability.22.39.502]
+title = "Bring the test target of the interop workspace in line"
+reqs = ["22998.1"]
+touches = ["services/interop/crates/layerx-gas-station"]
+tests = []
+verification_contract = "test -s services/interop/crates/layerx-gas-station/repair_22_39_502.kvx && make -s interop-test"
+do_1 = "do_1 Gotcha 4337, decision 3418. The command make interop-test passes. The journal cases of services/interop/crates/layerx-gas-station/src/journal.rs each open a journal directory of their own and release its lock before the next open of the same directory, so that the cases pass when they run side by side and in any order. The locking rule of the journal itself stays as it is. No case is removed or ignored."
+symbols = []
+
+[capability.22.39.501]
+title = "Bring the lint target of the interop workspace in line"
+reqs = ["22998.1"]
+touches = ["services/interop/Cargo.toml", "services/interop/Cargo.lock", "services/interop/deny.toml", "services/interop/crates"]
+tests = []
+verification_contract = "test -s services/interop/repair_22_39_501.kvx && make -s interop-lint"
+do_1 = "do_1 Gotcha 4337, decisions 3418 and 3419. The command make interop-lint passes. The crate that scripts/interop/dependency-policy.sh forbids leaves the dependency tree of services/interop through the feature selection or the version of the dependency that brings it in; the policy file keeps its list. The dependency check of services/interop passes under the rule of decision 3419."
+symbols = []
+
+[capability.22.39.500]
+title = "Bring the lint target of the human services in line"
+reqs = ["22998.1"]
+touches = ["services/human/tools/api-gen", "apps/web/src/api/generated", "services/human/Cargo.toml", "services/human/Cargo.lock", "services/human/deny.toml"]
+tests = []
+verification_contract = "test -s services/human/tools/api-gen/repair_22_39_500.kvx && make -s human-lint"
+do_1 = "do_1 Gotcha 4337, decisions 3418 and 3419. The command make human-lint passes. The web client generator under services/human/tools/api-gen/src writes the abort function of a request with a statement body, so that its output under apps/web/src/api/generated satisfies the lint rule on void expressions; the output is produced by the generator target of the Makefile and never edited by hand, and the cases of the generator follow the new form. The dependency check of services/human passes under the rule of decision 3419, with changes in services/human/Cargo.toml, services/human/Cargo.lock and services/human/deny.toml only."
+symbols = []
+
+[capability.22.39.499]
+title = "Bring the test target of the human services in line"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/human", "services/human/crates/layerx-human-identity-provider"]
+tests = []
+verification_contract = "test -s services/human/crates/layerx-human-identity-provider/repair_22_39_499.kvx && make -s human-test"
+do_1 = "do_1 Gotcha 4337, decision 3418. The command make human-test passes. The program read refusal case of services/platform/hosted/human/test_repair_22_33_1402.py asserts the form in which the web client refuses at the present revision, a rejected promise, and keeps asserting that the refusal happens before any request leaves. The producer path case and the two account head cases of services/human/crates/layerx-human-identity-provider/tests pass against the recording that the producer writes at the present revision: where a recorded digest is derived from producer output, the recording is produced again by its own generator and never edited by hand, and the configuration that the account head cases give the identity provider is the one the provider accepts. No case is removed or ignored."
+symbols = []
+
+[capability.22.39.498]
+title = "Bring the test target of the agent workspace in line"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-agentd/src", "services/agent/crates/layerx-sdk/tests", "services/agent/crates/layerx-sdk/src"]
+tests = []
+verification_contract = "test -s services/agent/crates/layerx-sdk/repair_22_39_498.kvx && make -s agent-test"
+do_1 = "do_1 Gotcha 4337, decision 3418. The command make agent-test passes on the whole agent workspace. The native terminal evidence cases of services/agent/crates/layerx-agentd/src/protocol_evidence_native_tests.rs each open a store root of their own, so that no case meets the writer of another case when the cases run side by side. The daemon disclosure case of services/agent/crates/layerx-sdk/tests/support/audit_22_30_99.rs asserts the operation names that the daemon produces at the present revision; where the daemon and the SDK differ on the name of the prepare operation, the consumer follows the producer and the case asserts the producer value. No case is removed or ignored."
+symbols = []
+
+[capability.22.39.497]
+title = "Bring the lint target of the agent workspace in line"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-agentd/tests/inference_deals.rs"]
+tests = []
+verification_contract = "test -s services/agent/crates/layerx-agentd/repair_22_39_497.kvx && make -s agent-lint"
+do_1 = "do_1 Gotcha 4337, decision 3418. The command make agent-lint passes on the whole agent workspace. The test function of services/agent/crates/layerx-agentd/tests/inference_deals.rs that is longer than the line limit of the lint configuration is divided into helper functions of the same file; every assertion of the case stays and no lint allowance is added. Any other point that the target reports in this file is settled the same way."
+symbols = []
+
+[capability.22.35.19]
+title = "Store the market value of every PAX price history point in the explorer backend"
+reqs = ["22998.1"]
+touches = ["services/explorer/backend/apps/explorer/lib/explorer/market", "services/explorer/backend/apps/explorer/test/explorer/market"]
+tests = []
+verification_contract = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/explorer/market/source/chainflow_history_test.exs && services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/explorer/market/source/chainflow_format_test.exs"
+do_1 = "do_1 Gotcha 4324, decision 3408. In the Chainflow market source under services/explorer/backend/apps/explorer/lib/explorer/market/source the market value of a native coin history point is the closing price times the circulating supply of the feed. The source reads circulating_supply from the reply of api/v3/coins/ followed by the coin id when it builds the native coin price history and the market value history, with the key header as on every request. Where that figure is null it uses the supply the explorer holds, and where both are absent the market value of the point stays empty. The result does not depend on a figure that another market process has to fetch first. The first history fetch after a start writes the market value for every stored day of its range, also for days whose row holds none. The secondary coin history stays as task 22.35.18 leaves it."
+symbols = []
+
+[capability.22.35.18]
+title = "Take the market value of SID from the price times the circulating supply in the explorer backend"
+reqs = ["22998.1"]
+touches = ["services/explorer/backend/apps/explorer/lib/explorer/market", "services/explorer/backend/apps/explorer/test/explorer/market", "services/explorer/backend/config/runtime.exs", "services/explorer/deploy/env/backend.example.env"]
+tests = []
+verification_contract = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/explorer/market/source/chainflow_circulating_test.exs && services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/explorer/market/source/chainflow_format_test.exs"
+do_1 = "do_1 Gotcha 4322, decision 3406, decision 3396. In the Chainflow market source under services/explorer/backend/apps/explorer/lib/explorer/market/source the market value of the secondary coin is market_cap.usd of the feed reply when it is present. Where it is null the market value is the price times the circulating supply. The circulating supply is circulating_supply of the feed reply when it is present. Where that is null too, it is the total supply the explorer holds for the SID token of the tokens setting less the sum of the current balances the explorer holds in that token for the addresses of the new setting MARKET_CHAINFLOW_SECONDARY_COIN_NON_CIRCULATING_ADDRESSES, a comma separated list of addresses that is empty by default and is read in services/explorer/backend/config/runtime.exs. With an empty list the circulating supply equals the total supply. The result is never below zero, and where the explorer holds no total supply the market value stays empty. The available supply of the result, the market value of the statistics response, the SID token row and the market value points of the secondary coin history carry figures of this one rule. The figures of PAX and of the WPAX row stay as decision 3396 states them."
+symbols = []
+
+[capability.22.35.17]
+title = "Name the registered secondary coin chart resource in the statistics page charts of the explorer"
+reqs = ["22998.1"]
+touches = ["apps/explorer/ui/stats", "apps/explorer/ui/pages/Stats.tsx", "apps/explorer/lib/api/services/general", "apps/explorer/lib/api/useQueryClientConfig.tsx", "apps/explorer/types/api", "apps/explorer/ui/home", "apps/explorer/ui/snippets/topBar"]
+tests = []
+verification_contract = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run ui/stats/repair-22-35-17.spec.tsx ui/stats/repair-22-35-15.spec.tsx ui/home/repair-22-35-13.spec.tsx ui/snippets/topBar/repair-22-35-13.spec.tsx"
+do_1 = "do_1 Gotcha 4321, decision 3405, decision 3393. The chart definitions of apps/explorer/ui/stats/explorerCharts.ts name only resources registered in apps/explorer/lib/api/services/general/misc.ts: general:stats_charts_txs, general:stats_charts_market and general:stats_charts_secondary_coin_market. The SID price chart and the SID market value chart read general:stats_charts_secondary_coin_market and take closing_price and market_cap from its items. The widget of apps/explorer/ui/stats/ExplorerChartWidget.tsx and every other reader of a chart resource under apps/explorer type check against the response type of the registered name. Give the secondary coin chart resource the same stale time as the two other chart resources in apps/explorer/lib/api/useQueryClientConfig.tsx."
+symbols = []
+
+[capability.22.35.16]
+title = "Read the market figures of PAX and SID from the CoinGecko format routes of the Chainflow feed with the key header"
+reqs = ["22998.1"]
+touches = ["services/explorer/backend/apps/explorer/lib/explorer/market", "services/explorer/backend/apps/explorer/test/explorer/market", "services/explorer/backend/config/runtime.exs", "services/explorer/deploy/env/backend.example.env"]
+tests = []
+verification_contract = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/explorer/market/source/chainflow_format_test.exs && services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/explorer/market/source/chainflow_test.exs"
+do_1 = "do_1 Gotcha 4313, decision 3396. In the Chainflow market source under services/explorer/backend/apps/explorer/lib/explorer/market/source add the settings MARKET_CHAINFLOW_API_KEY, MARKET_CHAINFLOW_COIN_ID with the default paxeer and MARKET_CHAINFLOW_SECONDARY_COIN_ID with the default sidiora, read in services/explorer/backend/config/runtime.exs. Send the key as the X-API-Key header on every request of the source, the history requests included. Without a key send no such header. Fetch the native coin and the secondary coin from api/v3/coins/ followed by the coin id under the base address of the source. The reply carries name, symbol, image and market_data, and market_data carries current_price.usd, market_cap.usd, total_volume.usd, circulating_supply, total_supply and last_updated. Map them to fiat value, market value, day volume, available supply, total supply, last update, name, upper-case symbol and image. Where market_cap.usd is null the market value is the price times the supply the explorer holds, as before, and where that supply is absent too it stays empty. The token rows of the tokens setting take the same figures: the WPAX row those of PAX and the SID row those of SID. The price history and the market value history stay on the history route."
+symbols = []
+
+[capability.22.35.15]
+title = "Show every explorer statistic on the statistics page from the explorer API"
+reqs = ["22998.1"]
+touches = ["apps/explorer/ui/stats", "apps/explorer/ui/pages/Stats.tsx", "apps/explorer/configs/app/features/stats.ts", "apps/explorer/lib/hooks/useNavItems.tsx", "apps/explorer/pages/stats", "apps/explorer/lib/api/services/general"]
+tests = []
+verification_contract = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run ui/stats/repair-22-35-15.spec.tsx"
+do_1 = "do_1 Gotcha 4311, decisions 3393 and 3394, decision 2587. Without a statistics service address the page of apps/explorer/ui/pages/Stats.tsx and the components under apps/explorer/ui/stats build their content from the explorer API. Counters from the statistics response: total blocks, total addresses, total transactions, transactions of the day, average block time, total gas used, gas used of the day, network utilisation, gas prices, PAX price, PAX market value, SID price and SID market value. Counters from the transactions statistics response: the day count, the pending count, the fee total, the average fee and the price update totals. The market count comes from the price feed markets route. The charts daily transactions, PAX price, PAX market value, SID price and SID market value come from the chart routes. With a statistics service address the page reads the service as before. The feature of apps/explorer/configs/app/features/stats.ts, the navigation entry and the route of the page are present in both cases."
+symbols = []
+
+[capability.22.35.14]
+title = "Show the price update totals in the transaction statistics of the explorer transactions page"
+reqs = ["22998.1"]
+touches = ["apps/explorer/ui/txs", "apps/explorer/types/api/transaction.ts", "apps/explorer/stubs", "apps/explorer/mocks"]
+tests = []
+verification_contract = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run ui/txs/repair-22-35-14.spec.tsx"
+do_1 = "do_1 Gotcha 4310, decision 3393, decision 2587. In apps/explorer/ui/txs/TxsStats.tsx the day count of transactions is the value the transactions statistics response returns, which includes the price updates, and the tiles add Total transactions from total_transactions_count, Price updates of the last day from price_updates_count_24h and Total price updates from total_price_updates_count. Add the three fields as optional strings to the transactions statistics type of apps/explorer/types/api/transaction.ts. A field the response does not carry shows a dash. The share shown on the day tile uses total_transactions_count when it is present."
+symbols = []
+
+[capability.22.35.13]
+title = "Show the PAX and SID prices in the explorer top bar and their price and market value charts on the home page"
+reqs = ["22998.1"]
+touches = ["apps/explorer/ui/snippets/topBar", "apps/explorer/ui/home", "apps/explorer/types/api/stats.ts", "apps/explorer/types/api/charts.ts", "apps/explorer/types/homepage.ts", "apps/explorer/stubs/stats.ts", "apps/explorer/lib/api/services/general", "apps/explorer/configs/envs/paxeer-x.env", "apps/explorer/configs/app", "apps/explorer/deploy/tools/envs-validator/schemas", "docs/explorer/ENVS.md"]
+tests = []
+verification_contract = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run ui/snippets/topBar/repair-22-35-13.spec.tsx ui/home/repair-22-35-13.spec.tsx"
+do_1 = "do_1 Gotcha 4310, decisions 3392 and 3393, decision 2587. In apps/explorer/ui/snippets/topBar/TopBarStats.tsx the top bar shows the PAX price with its day change and the SID price with its day change from coin_price, coin_price_change_percentage, secondary_coin_price and secondary_coin_price_change_percentage of the statistics response, at desktop and mobile widths, with a dash for an absent value. apps/explorer/configs/envs/paxeer-x.env stops hiding the native coin price, names SID as the secondary coin and lists the price and market value charts in NEXT_PUBLIC_HOMEPAGE_CHARTS."
+symbols = []
+
+[capability.22.35.12]
+title = "Count the price updates in the transactions statistics response of the explorer backend"
+reqs = ["22998.1"]
+touches = ["services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/transaction_controller.ex", "services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/price_feed.ex", "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/price_feed_test.exs", "services/explorer/backend/apps/block_scout_web/test/repair"]
+tests = []
+verification_contract = "services/explorer/deploy/tools/mix-in-builder.sh test apps/block_scout_web/test/repair/repair_22_35_12_test.exs && services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/explorer/chain/paxeer_x/price_feed_test.exs"
+do_1 = "do_1 Gotcha 4310, decision 3393. The statistics response adds the total of price updates to total_transactions through the price feed context of services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/price_feed.ex. Add to that context a count of the price updates of the last 24 hours next to the existing total. Have the stats action of the transaction controller of block_scout_web return price_updates_count_24h, total_price_updates_count and total_transactions_count as integer strings and add the day count of price updates to transactions_count_24h. total_transactions_count is the same sum the statistics response gives as total_transactions. Extend the response schema of the action with the three fields."
+symbols = []
+
+[capability.22.35.11]
+title = "Add a Chainflow market source to the explorer backend for PAX, SID and WPAX"
+reqs = ["22998.1"]
+touches = ["services/explorer/backend/apps/explorer/lib/explorer/market", "services/explorer/backend/apps/explorer/test/explorer/market", "services/explorer/backend/config/runtime.exs", "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/stats_controller.ex", "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/stats/response.ex", "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2", "services/explorer/backend/apps/block_scout_web/test/repair", "services/explorer/deploy/env/backend.example.env"]
+tests = []
+verification_contract = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/explorer/market/source/chainflow_test.exs && services/explorer/deploy/tools/mix-in-builder.sh test apps/block_scout_web/test/repair/repair_22_35_11_test.exs"
+do_1 = "do_1 Gotcha 4310, decisions 3392 and 3393. Add services/explorer/backend/apps/explorer/lib/explorer/market/source/chainflow.ex implementing the behaviour of market/source.ex in the pattern of source/dia.ex: native coin, secondary coin, tokens, native coin price history, secondary coin price history and market value history. Register it in the source list of market/source.ex. It reads the price route, the statistics route and the candle history route of the Chainflow price feed as sdk/chainflow/go/pricefeed.go and sdk/chainflow/go/tradingview.go name them. Settings in services/explorer/backend/config/runtime.exs: MARKET_CHAINFLOW_BASE_URL with the default https://data.feed.chainflowtrading.com, MARKET_CHAINFLOW_MARKET, MARKET_CHAINFLOW_COIN_SYMBOL with the default PAX, MARKET_CHAINFLOW_SECONDARY_COIN_SYMBOL with the default SID, and MARKET_CHAINFLOW_TOKENS, a list of pairs of token address and feed symbol. services/explorer/deploy/env/backend.example.env selects the source for the native coin, the secondary coin, the tokens and the three histories and lists the addresses of the wrapped native token and of SID as apps/perps/src/core/spot/addresses.ts states them."
+symbols = []
 
 [capability.22.39.496]
 title = "Admit a call of another principal within the standing occupancy responsibility of the program owner"
@@ -164239,6 +164647,154 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.508]
+title = "Bring the compile step of the integration test packages in line"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.508"]
+interfaces = []
+do_1 = "do_1 Gotcha 4337, decision 3418. The compile step of tests/integration/dapp_tests and of tests/integration/rpc_tests passes with the installed packages and without a download. The configuration of tests/integration/dapp_tests names a compiler version that satisfies the version pragma of every contract it compiles, including the library contracts, and that version is one of the compilers that scripts/workspace/check-hardhat-compilers.mjs holds ready. The compile script of tests/integration/rpc_tests produces its typed bindings with the package versions of its lock file."
+do_2 = "do_2 Record in tests/integration/repair_22_39_508.kvx the rule, the changed files and the commands. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tests/integration/dapp_tests", "tests/integration/rpc_tests", "scripts/workspace/check-hardhat-compilers.mjs"]
+tests = []
+planned_paths = ["tests/integration/repair_22_39_508.kvx"]
+build_cmd = "make -s paxeer-npm-install"
+verify_cmd = "test -s tests/integration/repair_22_39_508.kvx && cd tests/integration/dapp_tests && npx --no-install hardhat compile && cd ../rpc_tests && npm run compile"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.35.17]
+title = "Name the registered secondary coin chart resource in the statistics page charts of the explorer"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = ["22.35.13", "22.35.15"]
+reqs = ["22998.1"]
+capabilities = ["22.35.17"]
+interfaces = []
+do_1 = "do_1 Gotcha 4321, decision 3405, decision 3393. The chart definitions of apps/explorer/ui/stats/explorerCharts.ts name only resources registered in apps/explorer/lib/api/services/general/misc.ts: general:stats_charts_txs, general:stats_charts_market and general:stats_charts_secondary_coin_market. The SID price chart and the SID market value chart read general:stats_charts_secondary_coin_market and take closing_price and market_cap from its items. The widget of apps/explorer/ui/stats/ExplorerChartWidget.tsx and every other reader of a chart resource under apps/explorer type check against the response type of the registered name. Give the secondary coin chart resource the same stale time as the two other chart resources in apps/explorer/lib/api/useQueryClientConfig.tsx."
+do_2 = "do_2 Run the type check of the whole project first and repair every finding it reports under the listed paths, not only the first one. Then run the production build of the frontend once by hand the way docker/explorer-frontend/Dockerfile runs it, with NODE_OPTIONS=--max-old-space-size=8192 and yarn build, and repair every compile or lint finding it reports under the listed paths. A stop of that build for another reason than a compile or lint finding is outside this task. The pages, the counters and the charts of tasks 22.35.13, 22.35.14 and 22.35.15 keep their content."
+do_3 = "do_3 Tests: apps/explorer/ui/stats/repair-22-35-17.spec.tsx asserts that every chart definition names a key of the general services list, and renders the SID price chart and the SID market value chart from a response of the secondary coin chart route. Record the resource names and the routes in apps/explorer/ui/stats/repair-22-35-17.kvx. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/explorer/ui/stats", "apps/explorer/ui/pages/Stats.tsx", "apps/explorer/lib/api/services/general", "apps/explorer/lib/api/useQueryClientConfig.tsx", "apps/explorer/types/api", "apps/explorer/ui/home", "apps/explorer/ui/snippets/topBar"]
+tests = []
+planned_paths = ["apps/explorer/ui/stats/repair-22-35-17.spec.tsx", "apps/explorer/ui/stats/repair-22-35-17.kvx"]
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run ui/stats/repair-22-35-17.spec.tsx ui/stats/repair-22-35-15.spec.tsx ui/home/repair-22-35-13.spec.tsx ui/snippets/topBar/repair-22-35-13.spec.tsx"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.35.15]
+title = "Show every explorer statistic on the statistics page from the explorer API"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.35.15"]
+interfaces = []
+do_1 = "do_1 Gotcha 4311, decisions 3393 and 3394, decision 2587. Without a statistics service address the page of apps/explorer/ui/pages/Stats.tsx and the components under apps/explorer/ui/stats build their content from the explorer API. Counters from the statistics response: total blocks, total addresses, total transactions, transactions of the day, average block time, total gas used, gas used of the day, network utilisation, gas prices, PAX price, PAX market value, SID price and SID market value. Counters from the transactions statistics response: the day count, the pending count, the fee total, the average fee and the price update totals. The market count comes from the price feed markets route. The charts daily transactions, PAX price, PAX market value, SID price and SID market value come from the chart routes. With a statistics service address the page reads the service as before. The feature of apps/explorer/configs/app/features/stats.ts, the navigation entry and the route of the page are present in both cases."
+do_2 = "do_2 Each counter and chart keeps the section layout, the filters and both colour modes of the page as spec/layerx-merge/programme/docs/explorer-ui/design-brief.md states them. An absent value shows a dash, and a failed request shows the existing error state of its own section only."
+do_3 = "do_3 Tests: apps/explorer/ui/stats/repair-22-35-15.spec.tsx renders the page without a statistics service address from responses that use the field names of decision 3393 and asserts every counter and chart of do_1, the dash for an absent value and the error state of one section. Record the consumed routes and fields in apps/explorer/ui/stats/repair-22-35-15.kvx. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/explorer/ui/stats", "apps/explorer/ui/pages/Stats.tsx", "apps/explorer/configs/app/features/stats.ts", "apps/explorer/lib/hooks/useNavItems.tsx", "apps/explorer/pages/stats", "apps/explorer/lib/api/services/general"]
+tests = []
+planned_paths = ["apps/explorer/ui/stats/repair-22-35-15.spec.tsx", "apps/explorer/ui/stats/repair-22-35-15.kvx"]
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run ui/stats/repair-22-35-15.spec.tsx"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.35.14]
+title = "Show the price update totals in the transaction statistics of the explorer transactions page"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.35.14"]
+interfaces = []
+do_1 = "do_1 Gotcha 4310, decision 3393, decision 2587. In apps/explorer/ui/txs/TxsStats.tsx the day count of transactions is the value the transactions statistics response returns, which includes the price updates, and the tiles add Total transactions from total_transactions_count, Price updates of the last day from price_updates_count_24h and Total price updates from total_price_updates_count. Add the three fields as optional strings to the transactions statistics type of apps/explorer/types/api/transaction.ts. A field the response does not carry shows a dash. The share shown on the day tile uses total_transactions_count when it is present."
+do_2 = "do_2 Tests: apps/explorer/ui/txs/repair-22-35-14.spec.tsx asserts the three new tiles, the day count and the dash for an absent field from responses that use the field names of decision 3393. Record the consumed fields in apps/explorer/ui/txs/repair-22-35-14.kvx. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/explorer/ui/txs", "apps/explorer/types/api/transaction.ts", "apps/explorer/stubs", "apps/explorer/mocks"]
+tests = []
+planned_paths = ["apps/explorer/ui/txs/repair-22-35-14.spec.tsx", "apps/explorer/ui/txs/repair-22-35-14.kvx"]
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run ui/txs/repair-22-35-14.spec.tsx"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.35.13]
+title = "Show the PAX and SID prices in the explorer top bar and their price and market value charts on the home page"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.35.13"]
+interfaces = []
+do_1 = "do_1 Gotcha 4310, decisions 3392 and 3393, decision 2587. In apps/explorer/ui/snippets/topBar/TopBarStats.tsx the top bar shows the PAX price with its day change and the SID price with its day change from coin_price, coin_price_change_percentage, secondary_coin_price and secondary_coin_price_change_percentage of the statistics response, at desktop and mobile widths, with a dash for an absent value. apps/explorer/configs/envs/paxeer-x.env stops hiding the native coin price, names SID as the secondary coin and lists the price and market value charts in NEXT_PUBLIC_HOMEPAGE_CHARTS."
+do_2 = "do_2 On the home page, beside the daily transactions chart of apps/explorer/ui/home/Stats.tsx, add four charts of the same size and style: PAX price, PAX market value, SID price and SID market value. They read the market chart route and the secondary coin chart route through ui/home/indicators/useChartDataQuery.tsx. Add the indicator secondary_coin_market_cap to types/homepage.ts, to ui/home/indicators and to the validator schema under deploy/tools/envs-validator/schemas, add secondary_coin_market_cap and secondary_coin_price_change_percentage to types/api/stats.ts and market_cap to the secondary coin chart item of types/api/charts.ts. A chart with no points shows the empty state of the daily transactions chart. Both colour modes follow spec/layerx-merge/programme/docs/explorer-ui/design-brief.md."
+do_3 = "do_3 Tests: apps/explorer/ui/snippets/topBar/repair-22-35-13.spec.tsx and apps/explorer/ui/home/repair-22-35-13.spec.tsx assert the two prices, the two changes, the dash for an absent value and the four charts from responses that use the field names of decision 3393. Update docs/explorer/ENVS.md for the new indicator. Record the consumed fields in apps/explorer/ui/home/repair-22-35-13.kvx. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/explorer/ui/snippets/topBar", "apps/explorer/ui/home", "apps/explorer/types/api/stats.ts", "apps/explorer/types/api/charts.ts", "apps/explorer/types/homepage.ts", "apps/explorer/stubs/stats.ts", "apps/explorer/lib/api/services/general", "apps/explorer/configs/envs/paxeer-x.env", "apps/explorer/configs/app", "apps/explorer/deploy/tools/envs-validator/schemas", "docs/explorer/ENVS.md"]
+tests = []
+planned_paths = ["apps/explorer/ui/snippets/topBar/repair-22-35-13.spec.tsx", "apps/explorer/ui/home/repair-22-35-13.spec.tsx", "apps/explorer/ui/home/repair-22-35-13.kvx"]
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run ui/snippets/topBar/repair-22-35-13.spec.tsx ui/home/repair-22-35-13.spec.tsx"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.455]
 title = "Hold every case of the chart recovery file steady across whole runs of the launchpad web tests"
 status = "done"
@@ -187416,6 +187972,122 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.510]
+title = "Bring the inventory check of the repository in line"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.510"]
+interfaces = []
+do_1 = "do_1 Gotcha 4337, decision 3418. The command make workspace-inventory-check passes on a clean tree and on a tree in which the dashboard has been built. The manifest inventory that scripts/workspace/check-paxeer-manifests.sh compares equals the manifests of the repository at the present revision. The dependency root comparison of scripts/workspace/check-platform-dependencies.sh reads only files that are part of the source tree and leaves out the output directories that a build of the dashboard writes, and the root list under tools/workspace names every lock file of the platform examples."
+do_2 = "do_2 Record in scripts/workspace/repair_22_39_510.kvx the rule, the changed files and the command. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["scripts/workspace", "tools/workspace"]
+tests = []
+planned_paths = ["scripts/workspace/repair_22_39_510.kvx"]
+build_cmd = "sh scripts/workspace/check-core-gates.sh"
+verify_cmd = "test -s scripts/workspace/repair_22_39_510.kvx && make -s workspace-inventory-check"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.509]
+title = "Let the binding cases of the Rust program SDK find the artifacts they read"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.509"]
+interfaces = []
+do_1 = "do_1 Gotcha 4337, decision 3418. The command make programs-test passes from a clean tree. The two cases of programs/sdk/rust/tests/bindgen_conformance.rs that read built artifacts of the quickstart, the response fixture and the examples run after the step that builds those artifacts: either the cases build what they read through the build scripts of programs/sdk/rust, or the targets of the Makefile order the build scripts before the test run of the programs workspace. No case is removed or ignored, and the case that the SDK target runs by name keeps running."
+do_2 = "do_2 Record in programs/sdk/rust/repair_22_39_509.kvx the rule, the changed files and the command. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["programs/sdk/rust", "Makefile"]
+tests = []
+planned_paths = ["programs/sdk/rust/repair_22_39_509.kvx"]
+build_cmd = "make -s programs-build"
+verify_cmd = "test -s programs/sdk/rust/repair_22_39_509.kvx && make -s programs-test"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-programs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.500]
+title = "Bring the lint target of the human services in line"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.500"]
+interfaces = []
+do_1 = "do_1 Gotcha 4337, decisions 3418 and 3419. The command make human-lint passes. The web client generator under services/human/tools/api-gen/src writes the abort function of a request with a statement body, so that its output under apps/web/src/api/generated satisfies the lint rule on void expressions; the output is produced by the generator target of the Makefile and never edited by hand, and the cases of the generator follow the new form. The dependency check of services/human passes under the rule of decision 3419, with changes in services/human/Cargo.toml, services/human/Cargo.lock and services/human/deny.toml only."
+do_2 = "do_2 Record in services/human/tools/api-gen/repair_22_39_500.kvx the rule, the changed files, every entry added to the configuration of the dependency check with its reason, and the command. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/human/tools/api-gen", "apps/web/src/api/generated", "services/human/Cargo.toml", "services/human/Cargo.lock", "services/human/deny.toml"]
+tests = []
+planned_paths = ["services/human/tools/api-gen/repair_22_39_500.kvx"]
+build_cmd = "make -s human-build"
+verify_cmd = "test -s services/human/tools/api-gen/repair_22_39_500.kvx && make -s human-lint"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-human"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.499]
+title = "Bring the test target of the human services in line"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.499"]
+interfaces = []
+do_1 = "do_1 Gotcha 4337, decision 3418. The command make human-test passes. The program read refusal case of services/platform/hosted/human/test_repair_22_33_1402.py asserts the form in which the web client refuses at the present revision, a rejected promise, and keeps asserting that the refusal happens before any request leaves. The producer path case and the two account head cases of services/human/crates/layerx-human-identity-provider/tests pass against the recording that the producer writes at the present revision: where a recorded digest is derived from producer output, the recording is produced again by its own generator and never edited by hand, and the configuration that the account head cases give the identity provider is the one the provider accepts. No case is removed or ignored."
+do_2 = "do_2 Record in services/human/crates/layerx-human-identity-provider/repair_22_39_499.kvx the rule, the changed files and the command. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/human", "services/human/crates/layerx-human-identity-provider"]
+tests = []
+planned_paths = ["services/human/crates/layerx-human-identity-provider/repair_22_39_499.kvx"]
+build_cmd = "make -s human-build"
+verify_cmd = "test -s services/human/crates/layerx-human-identity-provider/repair_22_39_499.kvx && make -s human-test"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-human"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.405]
 title = "Keep the terminal vectors of the program ABI in line with the receipt fixture they are taken from"
 status = "done"
@@ -188201,7 +188873,7 @@ do_6 = "Attempt 4 (requalify, gotcha 3874, decision 3075): the attempt-3 tree f5
 
 [task.18.1750.1]
 title = "Issue #1750: Prove authenticated Claim and RefundFree replay through native activities"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -188673,7 +189345,7 @@ do_7 = "Attempt 4 (continue, gotcha 3390, decision 2774): the attempt-3 tree sta
 
 [task.22.38.38]
 title = "Prove ask to stream to lap settlement to claim"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["22.31.620", "22.39.388"]
@@ -188713,7 +189385,7 @@ capabilities = ["22.38.37"]
 interfaces = []
 do_1 = "do_1 Add the --proof canary mode to inference_market_room.py: the second peer is started with a fault flag that perturbs one logit, the host injects a canary, and the driver asserts the ChallengeLap, RevealScore and ResolveChallenge writes, the SlashBond write, and that the slashed fraction reached the reward ledger of the honest peer."
 symbols = ["proof_canary_slash"]
-touches = ["tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py"]
+touches = ["tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py", "apps/inference-peer/src/canary.mjs", "apps/inference-peer/test/canary.test.mjs", "apps/inference-peer/test/fixtures/host-canary-frames.json", "services/agent/crates/layerx-agentd/src/inference_market/canary.rs"]
 tests = []
 planned_paths = ["tools/qualification/paxeer-x/inference_market_room.py"]
 build_cmd = "export PAXEER_X_BUILDER_ID=$(hostname); make -C . build/liblayerx.a && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --bin layerx-agentd && npm --prefix apps/inference-peer install --no-audit --no-fund --ignore-scripts && python3 tools/qualification/paxeer-x/inference_market_room.py --begin-build && python3 tools/qualification/paxeer-x/inference_market_room.py --build"
@@ -188733,10 +189405,11 @@ do_2 = "do_2 Decisions 3271 and 3272, gotcha 4200: the task now requires task 22
 do_3 = "do_3 Decision 3309, gotcha 4238: the task now requires task 22.39.388, which proves at the host level which receipt admits a value operation after a block-end transition. Read its record rpc/repair_22_39_388.kvx before the first value operation of this proof. Take the call terms of every operation without a value action from the function market_call_terms of the client library (decision 3307). Place no anchor by hand between the block-end transition and a call and write nothing into the store; when the record states that no receipt that a sender can know admits a value operation, record the step that needs one and stop."
 do_4 = "do_4 Decisions 3311 and 3312, gotcha 4241: the record rpc/repair_22_39_388.kvx states that no receipt a sender can know admits a balance sight, and the program no longer reads the sight once task 22.39.389 has landed, which this task reaches through task 22.38.36. This replaces the stop that do_3 orders for that case. Take the two fields of every value operation from the function market_value_call_terms of the client library; a value operation carries no BalanceView grant and no receipt authority, and no anchor is placed for it."
 do_5 = "do_5 Gotcha 4294, decision 3377. The task no longer requires task 22.38.36. The canary mode is written as additions to the driver that the room proof adds, and the build and the verification of this task run on a base that holds task 22.38.36, so the commit of this task changes only its own paths."
+do_6 = "do_6 Decision 3417, gotcha 4336. In apps/inference-peer/src/canary.mjs compare the answer context of a canary with the chain, the program, the market, the epoch and the configuration of the deal and with the deal and the lap index of the plan, and leave the roster field of the binding out of the comparison. In apps/inference-peer/test/canary.test.mjs give the binding and the deal two different roster values and assert by value that the answer is accepted and that a change of each compared field gives answer_context_mismatch. Run npm --prefix apps/inference-peer test. When the canary proof shows a further difference between the host and the peer, settle it in the paths of decision 3417 and add a case for it; a difference that needs a change under programs is recorded and the task stops there. The driver keeps the modes room, canary and settlement side by side with one argument for the mode."
 
 [task.22.38.36]
 title = "Drive an isolated chain, one host, two native peers and one asker through a room on a synthetic model"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["22.38.21", "22.38.27", "22.31.620", "22.39.368", "22.39.369", "22.39.386", "22.39.387", "22.39.389", "22.39.390", "22.39.394", "22.39.395"]
@@ -188747,7 +189420,7 @@ do_1 = "do_1 Add tools/qualification/paxeer-x/inference_market_room.py on the Ru
 do_2 = "do_2 Support the --begin-build and --build steps like the other drivers so the daemon and the peer package are built once per run."
 do_3 = "do_3 The first proof: the completion answer equals the scripted model output token for token and a deal with two peers is recorded on chain."
 symbols = ["InferenceRoomDriver"]
-touches = ["tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py", "tools/qualification/paxeer-x/agent_operation_envelope.py", "services/agent/crates/layerx-client/Cargo.toml", "services/agent/Cargo.lock", "services/platform/hosted/indexer/src/ai_source.rs", "services/platform/hosted/indexer/src/bin/ai_source.rs", "services/platform/hosted/indexer/tests/ai_source.rs", "services/platform/hosted/indexer/src", "services/platform/hosted/indexer/tests", "services/platform/hosted/indexer/Cargo.toml"]
+touches = ["tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py", "tools/qualification/paxeer-x/agent_operation_envelope.py", "services/agent/crates/layerx-client/Cargo.toml", "services/agent/Cargo.lock", "services/platform/hosted/indexer/src/ai_source.rs", "services/platform/hosted/indexer/src/bin/ai_source.rs", "services/platform/hosted/indexer/tests/ai_source.rs", "services/platform/hosted/indexer/src", "services/platform/hosted/indexer/tests", "services/platform/hosted/indexer/Cargo.toml", "precompiles/layerxpay", "modules/layerxpay", "node", "rpc", "services/agent/crates/layerx-agentd", "services/agent/crates/layerx-client", "tools/qualification/paxeer-x", "spec/layerx-merge/contracts/inference-market.md", "services/wallet/attestor/internal"]
 tests = []
 planned_paths = ["tools/qualification/paxeer-x/inference_market_room.py", "services/agent/crates/layerx-client/examples/inference_room_writes.rs", "services/platform/hosted/indexer/tests/store_writers.rs"]
 build_cmd = "export PAXEER_X_BUILDER_ID=$(hostname); make -C . build/liblayerx.a && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --bin layerx-agentd && npm --prefix apps/inference-peer install --no-audit --no-fund --ignore-scripts && python3 tools/qualification/paxeer-x/inference_market_room.py --begin-build && python3 tools/qualification/paxeer-x/inference_market_room.py --build"
@@ -188775,10 +189448,12 @@ do_12 = "do_12 Decision 3313, gotcha 4243: the record of this task states produc
 do_13 = "do_13 Decision 3325, gotcha 4253. In services/platform/hosted/indexer/src/ai_source.rs the committed read takes the signed header and the commit of the height below the latest height of the node and requires that commit canonical, reads the store at the height below that one, and sends the store key as hexadecimal text without a prefix. The node double of services/platform/hosted/indexer/tests/ai_source.rs answers as a node does: the commit of its latest height is not canonical and a store key with a prefix is refused. The cases of that file pass, and the room journey reads through the source with no change to what the indexer verifies."
 do_14 = "do_14 Decision 3328, gotcha 4256. With the AI capture configured the indexer has two followers that write to one database file through separate connections. Find each place where a connection is opened on the file and each transaction that writes, under services/platform/hosted/indexer/src, and make a writer wait for a held write lock within a stated bound; a transaction that reads before it writes takes the write lock when it begins. Add services/platform/hosted/indexer/tests/store_writers.rs: two connections on one file, opened as the indexer opens them, write in turn from two threads for a stated number of rounds, and every write is recorded. Change nothing that the indexer verifies or records. In the room driver set no poll interval and no scan position whose purpose is to keep the two followers apart."
 do_15 = "do_15 Decision 3331, gotcha 4259: the task now requires task 22.39.400, which makes the readers of the reward state read the part of the settlement section before the room market tail. Change nothing under programs/crates/layerx-programs-ai-market in this task. The record states the bound of each retry that the source of the indexer applies."
+do_16 = "do_16 Gotchas 4307 to 4309, decisions 3388 to 3391. This task makes three changes in its own commit and proves them with the room proof. In precompiles/layerxpay the identifier that streamOpenForAsk assigns is the idempotency key of the call with its first sixteen bytes set to zero, and the cases of that package that compare the identifier follow. In node/app.go the function RegisterLocalServices passes the option WithPxInferenceProgram when the node configuration names the program identifier and the reader address. In services/agent/crates/layerx-agentd the native result source connects to the consensus endpoint setting and falls back to the node endpoint. Change nothing under programs/crates/layerx-programs-ai-market. The record names each of the three changes with its file and line."
+do_17 = "do_17 Decision 3409, gotcha 4325. In services/wallet/attestor/internal/policy add the rule field program_calls and let the construct inspection pass the call method of layerxprograms only for a program id and an entry point that the merged rules of the signing account list, with a zero value and a fee limit not above the figure of the entry. The inspection result records the program id, the entry point and the fee limit. Inspect the stream metering method of layerxpay that the agent daemon signs and pass it only where it debits no account of the signer beyond the funded stream. A policy without the field, an unlisted program, an unlisted entry point, a fee limit above the figure and a non-zero value each keep a refusal. The policy file the room proof writes for its attestors lists the market program with the entry points the daemon calls and nothing more. Tests: services/wallet/attestor/internal/policy/repair_22_38_36_test.go asserts each of these cases by value, with the refusal code for every refused case. Record the rule in services/wallet/attestor/internal/policy/repair_22_38_36.kvx. Run go test over the packages under services/wallet/attestor/internal by hand before the room proof. Nothing else under services/wallet changes."
 
 [task.22.38.13]
 title = "Prove every F11 operation under the fuel cap and the replay profile through the native host boundary"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["22.38.4", "22.38.5", "22.38.6", "22.38.7", "22.38.11", "22.31.586", "22.39.300", "22.39.316", "22.39.333", "22.39.348", "22.39.365"]
@@ -197046,6 +197721,209 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.506]
+title = "Bring the example contracts and the contract runtime library in line with their lint and test commands"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.506"]
+interfaces = []
+do_1 = "do_1 Gotcha 4337, decision 3418. The lint command of the Makefile for the locked Rust manifests passes for the example contracts under tests/fixtures/example/cosmwasm, for tools/benchmark/loadtest/contracts/jupiter and for wasm-runtime/libwasmvm, without a lint allowance and without a change of behaviour: empty checks use the empty test of the type, copies of copy types are plain, field initialisers use the short form, the multiple test uses the method of the integer type, and wasm-runtime/libwasmvm/src/cache.rs calls the present function of the virtual machine cache in place of the retired one with the same arguments of meaning. The library tests of wasm-runtime/libwasmvm link and pass with the linker of the gate environment."
+do_2 = "do_2 Record in wasm-runtime/libwasmvm/repair_22_39_506.kvx the rule, the changed files and the commands. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tests/fixtures/example/cosmwasm", "tools/benchmark/loadtest/contracts/jupiter", "wasm-runtime/libwasmvm"]
+tests = []
+planned_paths = ["wasm-runtime/libwasmvm/repair_22_39_506.kvx"]
+build_cmd = "cargo build --manifest-path wasm-runtime/libwasmvm/Cargo.toml --locked --offline"
+verify_cmd = "test -s wasm-runtime/libwasmvm/repair_22_39_506.kvx && for m in tests/fixtures/example/cosmwasm/cw1155 tests/fixtures/example/cosmwasm/cw20 tests/fixtures/example/cosmwasm/cw721 tests/fixtures/example/cosmwasm/parallelization/wasm tools/benchmark/loadtest/contracts/jupiter wasm-runtime/libwasmvm; do cargo clippy --manifest-path $m/Cargo.toml --locked --offline --all-targets -- -D warnings || exit 1; done && cargo test --manifest-path wasm-runtime/libwasmvm/Cargo.toml --locked --offline"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-cosmos-fork"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.504]
+title = "Bring the test target of the platform workspaces in line"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.504"]
+interfaces = []
+do_1 = "do_1 Gotcha 4337, decision 3418. The command make platform-test passes. The event count cases of services/platform/hosted/indexer/src/abi.rs assert the events that the loader reads from the interface files at the present revision, by name and by count, so that an event added to an interface is stated in the case. The drift cases of sdk/platform/generators/tests/drift.rs build their comparison tree with every generated file that the generators write, including the mirror file of the TypeScript SDK of the agent, and compare it with the committed output; where the committed output differs from the generator, it is produced again by the generator. No case is removed or ignored."
+do_2 = "do_2 Record in services/platform/hosted/indexer/repair_22_39_504.kvx the rule, the changed files and the command. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/indexer/src", "sdk/platform/generators", "services/agent/sdk/typescript/src/generated"]
+tests = []
+planned_paths = ["services/platform/hosted/indexer/repair_22_39_504.kvx"]
+build_cmd = "make -s platform-build"
+verify_cmd = "test -s services/platform/hosted/indexer/repair_22_39_504.kvx && make -s platform-test"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.503]
+title = "Bring the lint target of the platform workspaces in line"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.503"]
+interfaces = []
+do_1 = "do_1 Gotcha 4337, decisions 3418 and 3419. The command make platform-lint passes. The cases of services/platform/hosted/indexer/tests/store_writers.rs satisfy the lint configuration without an allowance and keep their assertions. The dependency checks of services/platform and tools/platform pass under the rule of decision 3419, with changes in the manifest, the lock file and the configuration of the check of each of the two workspaces only."
+do_2 = "do_2 Record in services/platform/repair_22_39_503.kvx the rule, the changed files, every entry added to a configuration of the dependency check with its reason, and the command. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/indexer/tests/store_writers.rs", "services/platform/Cargo.toml", "services/platform/Cargo.lock", "services/platform/deny.toml", "tools/platform/Cargo.toml", "tools/platform/Cargo.lock", "tools/platform/deny.toml"]
+tests = []
+planned_paths = ["services/platform/repair_22_39_503.kvx"]
+build_cmd = "make -s platform-build"
+verify_cmd = "test -s services/platform/repair_22_39_503.kvx && make -s platform-lint"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.502]
+title = "Bring the test target of the interop workspace in line"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.502"]
+interfaces = []
+do_1 = "do_1 Gotcha 4337, decision 3418. The command make interop-test passes. The journal cases of services/interop/crates/layerx-gas-station/src/journal.rs each open a journal directory of their own and release its lock before the next open of the same directory, so that the cases pass when they run side by side and in any order. The locking rule of the journal itself stays as it is. No case is removed or ignored."
+do_2 = "do_2 Record in services/interop/crates/layerx-gas-station/repair_22_39_502.kvx the rule, the changed files and the command. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/interop/crates/layerx-gas-station"]
+tests = []
+planned_paths = ["services/interop/crates/layerx-gas-station/repair_22_39_502.kvx"]
+build_cmd = "make -s interop-build"
+verify_cmd = "test -s services/interop/crates/layerx-gas-station/repair_22_39_502.kvx && make -s interop-test"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-interop"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.501]
+title = "Bring the lint target of the interop workspace in line"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.501"]
+interfaces = []
+do_1 = "do_1 Gotcha 4337, decisions 3418 and 3419. The command make interop-lint passes. The crate that scripts/interop/dependency-policy.sh forbids leaves the dependency tree of services/interop through the feature selection or the version of the dependency that brings it in; the policy file keeps its list. The dependency check of services/interop passes under the rule of decision 3419."
+do_2 = "do_2 Record in services/interop/repair_22_39_501.kvx the rule, the changed files, every entry added to the configuration of the dependency check with its reason, and the command. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/interop/Cargo.toml", "services/interop/Cargo.lock", "services/interop/deny.toml", "services/interop/crates"]
+tests = []
+planned_paths = ["services/interop/repair_22_39_501.kvx"]
+build_cmd = "make -s interop-build"
+verify_cmd = "test -s services/interop/repair_22_39_501.kvx && make -s interop-lint"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-interop"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.498]
+title = "Bring the test target of the agent workspace in line"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.498"]
+interfaces = []
+do_1 = "do_1 Gotcha 4337, decision 3418. The command make agent-test passes on the whole agent workspace. The native terminal evidence cases of services/agent/crates/layerx-agentd/src/protocol_evidence_native_tests.rs each open a store root of their own, so that no case meets the writer of another case when the cases run side by side. The daemon disclosure case of services/agent/crates/layerx-sdk/tests/support/audit_22_30_99.rs asserts the operation names that the daemon produces at the present revision; where the daemon and the SDK differ on the name of the prepare operation, the consumer follows the producer and the case asserts the producer value. No case is removed or ignored."
+do_2 = "do_2 Record in services/agent/crates/layerx-sdk/repair_22_39_498.kvx the rule, the changed files and the command. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/agent/crates/layerx-agentd/src", "services/agent/crates/layerx-sdk/tests", "services/agent/crates/layerx-sdk/src"]
+tests = []
+planned_paths = ["services/agent/crates/layerx-sdk/repair_22_39_498.kvx"]
+build_cmd = "make -s agent-build"
+verify_cmd = "test -s services/agent/crates/layerx-sdk/repair_22_39_498.kvx && make -s agent-test"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.497]
+title = "Bring the lint target of the agent workspace in line"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.497"]
+interfaces = []
+do_1 = "do_1 Gotcha 4337, decision 3418. The command make agent-lint passes on the whole agent workspace. The test function of services/agent/crates/layerx-agentd/tests/inference_deals.rs that is longer than the line limit of the lint configuration is divided into helper functions of the same file; every assertion of the case stays and no lint allowance is added. Any other point that the target reports in this file is settled the same way."
+do_2 = "do_2 Record in services/agent/crates/layerx-agentd/repair_22_39_497.kvx the rule, the changed file and the command. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/agent/crates/layerx-agentd/tests/inference_deals.rs"]
+tests = []
+planned_paths = ["services/agent/crates/layerx-agentd/repair_22_39_497.kvx"]
+build_cmd = "make -s agent-build"
+verify_cmd = "test -s services/agent/crates/layerx-agentd/repair_22_39_497.kvx && make -s agent-lint"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.495]
 title = "Bring the retired caller scan to exit 0 on the attestor source of the key management member"
 status = "done"
@@ -197409,7 +198287,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.445]
 title = "Bring the member layerx-programs-ai-market of the programs workspace through the lint of the recipe"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.400"]
@@ -197420,7 +198298,7 @@ do_1 = "do_1 Decisions 3340, 3341 and 3349. Run by hand cargo clippy --locked --
 do_2 = "do_2 Repair each location in the source of the member. Add no allow attribute beyond the one decision 3346 names and change no lint table and no clippy configuration. Keep every public name and signature of the member; where a lint can only be met by changing one, list the location in the closing report. A file under programs/vendor is not changed, and a repair changes no result of a program execution: the vectors and fixtures of the tree stay byte for byte. A repair keeps every test result of the member as at the base revision, and the workspace compiles wherever it does at the base: run cargo test for the member and cargo check for the whole workspace with all targets at the base and on the tree and compare (decision 3342)."
 do_3 = "do_3 Record in programs/crates/layerx-programs-ai-market/repair_22_39_445.kvx the lints repaired with the count of locations of each. A location in another member is not repaired here. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["programs/crates/layerx-programs-ai-market"]
+touches = ["programs/crates/layerx-programs-ai-market", "programs/Cargo.lock"]
 tests = []
 planned_paths = ["programs/crates/layerx-programs-ai-market/repair_22_39_445.kvx"]
 build_cmd = "cargo check --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --all-targets"
@@ -197436,6 +198314,7 @@ time_limit_minutes = 480
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "do_4 Gotcha 4315, decision 3398. Where a lint can only be met by changing a public name or signature of the member, such as the eight arguments of apply_record_deal in src/rooms.rs and the large variant of Outcome in src/canary.rs, put an allow attribute for that one lint on that one item with a reason, and list the item with its lint in programs/crates/layerx-programs-ai-market/repair_22_39_445.kvx. Repair every other location in the source. No allow attribute covers a module or the crate."
 
 [task.22.39.444]
 title = "Bring the member layerx-programs-market of the programs workspace through the lint of the recipe"
@@ -197650,7 +198529,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.436]
 title = "Bring the member layerx-human-identity-provider of the human workspace through the lint of the recipe"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.435"]
@@ -197681,7 +198560,7 @@ do_4 = "do_4 Decision 3359 and gotcha 4276. The test target client of the member
 
 [task.22.39.435]
 title = "Bring the member layerx-human-service of the human workspace through the lint of the recipe"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -197743,7 +198622,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.430]
 title = "Bring the interop test recipe through"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.404"]
@@ -197754,7 +198633,7 @@ do_1 = "do_1 Decision 3349. The recipe interop-test runs tests/ci/interop_worksp
 do_2 = "do_2 For each stopping case decide from the source which side holds the rule. Where the case asserts a behaviour that a decision of the spec has changed, change the case to assert the behaviour as decided and name the decision in the record. Where the crate departs from its interface, repair the crate. Weaken no assertion and remove no case."
 do_3 = "do_3 Record in services/interop/crates/repair_22_39_430.kvx each repaired case with its file and the rule it asserts. A stop whose cause lies outside services/interop/crates is listed in the closing report with file and first message and is not repaired here. The lint of task 22.39.404 stays clean. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["services/interop/crates"]
+touches = ["services/interop/crates", "services/interop/Cargo.lock"]
 tests = []
 planned_paths = ["services/interop/crates/repair_22_39_430.kvx"]
 build_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml --workspace --all-targets"
@@ -229679,7 +230558,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.22.39.491]
 title = "Route the integer conversions of the launchpad indexer through checked conversion functions"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.478"]
@@ -229799,7 +230678,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.487]
 title = "Pass the race and coverage stages of the launchpad Makefile in the user module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.471", "22.39.458"]
@@ -229829,7 +230708,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.486]
 title = "Pass the race and coverage stages of the launchpad Makefile in the social module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.470", "22.39.458"]
@@ -229859,7 +230738,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.485]
 title = "Pass the race and coverage stages of the launchpad Makefile in the metadata module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.469", "22.39.458"]
@@ -229919,7 +230798,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.483]
 title = "Pass the race and coverage stages of the launchpad Makefile in the gateway module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.467", "22.39.458"]
@@ -229949,7 +230828,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.482]
 title = "Pass the race and coverage stages of the launchpad Makefile in the trading charts module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.466", "22.39.458"]
@@ -229979,7 +230858,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.481]
 title = "Pass the race and coverage stages of the launchpad Makefile in the statistics module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.465", "22.39.458"]
@@ -230039,7 +230918,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.479]
 title = "Pass the race and coverage stages of the launchpad Makefile in the PnL tracker module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.463", "22.39.458"]
@@ -230069,7 +230948,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.478]
 title = "Pass the race and coverage stages of the launchpad Makefile in the indexer module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.462", "22.39.458"]
@@ -230096,10 +230975,12 @@ time_limit_minutes = 600
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "do_4 Decision 3414, gotchas 4330 and 4331. Add one file with the race build tag and one without it to services/launchpad/indexer/internal/decode that declare the rate divisor of the complete workload case, 1 without the race detector and at most 4 with it, and let the case divide its scheduled rate by it. Keep the duration and every assertion. Name the divisor and the prerequisite track_commit_timestamp on for the source capacity cases in services/launchpad/indexer/repair_22_39_478.kvx. Change no other bound."
+do_5 = "do_5 Decision 3416, gotcha 4335. In services/launchpad/indexer/internal/source/capacity.go let each of the two database clock readings of the capacity measurement take up to three samples and use the first within the bound of five milliseconds, with the present error when none is. Keep the sampling in one small internal function that takes the reading of the database clock as an input, and add a case to the tests of the package that asserts by value that a slow first sample followed by a sample within the bound is accepted and that three slow samples give the error. Note the rule in services/launchpad/indexer/repair_22_39_478.kvx. Change no other bound."
 
 [task.22.39.477]
 title = "Pass the race and coverage stages of the launchpad Makefile in the API module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.461", "22.39.458"]
@@ -230129,7 +231010,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.476]
 title = "Pass the race and coverage stages of the launchpad Makefile in the protocol SDK module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.460", "22.39.458"]
@@ -230159,7 +231040,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.475]
 title = "Pass the race and coverage stages of the launchpad Makefile in the shared SDK module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.459", "22.39.458"]
@@ -290310,9 +291191,40 @@ do_13 = "Decision 2117: delete the faucet.claim entry (the O28 group, sdk/platfo
 do_14 = "Decision 2118: this task requires 8.46.9, which first returns sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedContract.java to the generator's shape and moves the JVM verification enum to decision 2115. After do_10, run --write (do_1) and accept GeneratedContract.java and sdk/platform/conformance/jvm.kvx exactly as rendered; if the rendered GeneratedContract.java still differs from the 8.46.9 result, the difference is the generator's and the mvn test of the verify proves it compiles. Run the build and the verify once on the final revision."
 do_15 = "Decision 2127: continue from attempt 6 (a82f26174). In sdk/platform/go/cmd/conformance/main.go delete the PerLeg field of operationDescriptor (:25) and the `strings.HasPrefix(metadata.Method, 'eth_')` branch at :424-428, so the request-vector comparison at :429-431 runs for every human operation (intent.plan and intent.submit have POST vectors under services/human/schema/human-api/golden); drop the strings import only if nothing else uses it. Nothing else in attempt 6 changes. Build once and verify once."
 
+[task.22.39.505]
+title = "Bring the SDK verification target of the platform in line"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.498"]
+reqs = ["22998.1"]
+capabilities = ["22.39.505"]
+interfaces = []
+wiring = ["wiring.J42.1"]
+do_1 = "do_1 Gotcha 4337, decision 3418. The command make platform-verify-sdks passes. The native lifecycle fixtures under sdk/platform/conformance/fixtures equal the output of their generator at the present revision and are produced by it. The JVM conformance run reads the account sequence in the encoding that the producer of the fixture writes, and the SDK under sdk/platform/jvm accepts that encoding. The cases of the Swift SDK under sdk/platform/swift assert the receipt version that the producer writes at the present revision, and a case that needs the envelope case variable of the agent operation states that need through the make target, so that the target sets it. In each of the three the consumer follows the producer. No case is removed or ignored."
+do_2 = "do_2 Record in sdk/platform/repair_22_39_505.kvx the rule, the changed files and the command. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["sdk/platform/conformance", "sdk/platform/conformance-runner", "sdk/platform/jvm", "sdk/platform/swift"]
+tests = []
+planned_paths = ["sdk/platform/repair_22_39_505.kvx"]
+build_cmd = "make -s platform-build"
+verify_cmd = "test -s sdk/platform/repair_22_39_505.kvx && make -s platform-verify-sdks"
+gate_kind = "planned"
+sandbox_profile = "sdk-all"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+
 [task.22.39.454]
 title = "Bring the whole lint recipe of the programs workspace through"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.442", "22.39.443", "22.39.444", "22.39.445", "22.39.446", "22.39.447", "22.39.448", "22.39.449", "22.39.450", "22.39.451", "22.39.452", "22.39.453", "22.39.456"]
@@ -290324,7 +291236,7 @@ do_1 = "do_1 Decision 3349. Run make workspace-install first. Run make -k progra
 do_2 = "do_2 Repair each remaining location by the rules of decisions 3340 to 3346: no allow attribute beyond the one decision 3346 names, no change of a lint table, of programs/clippy.toml or of programs/deny.toml, no removal of a check. A file under programs/vendor is not changed, and a repair changes no result of a program execution: the vectors and fixtures of the tree stay byte for byte."
 do_3 = "do_3 A repair keeps every test result of the workspace as at the base revision. Record in programs/repair_22_39_454.kvx what each step of the recipe covers and the locations repaired here. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["programs", "scripts/programs"]
+touches = ["programs", "scripts/programs", "services/interop/crates/layerx-committed-proof/Cargo.toml", "services/interop/Cargo.toml", "services/interop/Cargo.lock"]
 tests = []
 planned_paths = ["programs/repair_22_39_454.kvx"]
 build_cmd = "make -n programs-lint > /dev/null"
@@ -290341,10 +291253,14 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_4 = "do_4 Gotcha 4318, decision 3401. Repair the findings clippy reports in the lines the project added to programs/vendor/wasmi-0.31.2, such as the two closures in src/engine/executor.rs that only observe an error and the missing errors section of execute_step in src/engine/mod.rs. Use the form clippy proposes, change no behaviour, add no allow attribute and note each repair in PATCHES.md of that directory. Run the cases of the interpreter member by hand and confirm the vectors and fixtures are unchanged before the counted runs. Change no other file under programs/vendor."
+do_5 = "do_5 Decision 3407, gotcha 4323. Change the Ed25519 dependency declaration of services/interop/crates/layerx-committed-proof/Cargo.toml so that it takes no default features and keeps alloc, fast and zeroize, with the matching line of services/interop/Cargo.toml where the declaration is inherited from there. The dependency policy of the programs workspace then passes. The members of services/interop compile and the tests of the proof crate pass with the change. Note the change in programs/repair_22_39_454.kvx."
+do_6 = "do_6 Decision 3410, gotcha 4326. Give the unsafe rule of scripts/programs/dependency-policy.sh one list of excepted files with a reason line for every entry, the same list for both search tools of the script. The list names the files of the present native boundary one by one: the foreign function files and the native contract file of the runtime member, the guest cell file of the market program, the host boundary files and the library file of the isolation member, and the test files that declare a foreign function or a counting allocator. Read every finding the rule prints before adding its file and add no file whose use is not one of the three kinds of decision 3410. Change no Rust file for this rule. Add a case to the self-test of the script, or one next to it under scripts/programs, that asserts a file outside the list is still refused. Note the list in programs/repair_22_39_454.kvx."
+do_7 = "do_7 Decision 3411, gotcha 4327. Add to the ignore list of programs/deny.toml one entry for the advisory the check reports against crypto-bigint 0.5.5, with a reason that states that the runtime member uses the secp256k1 crate for verification and key recovery over public inputs only. Before adding it, confirm with a search of programs/crates that no code outside tests builds a signing key of that crate, and write the result into programs/repair_22_39_454.kvx. Change no vendored file and no dependency version for this."
 
 [task.22.39.441]
 title = "Bring the whole lint recipe of the human workspace through"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.434", "22.39.435", "22.39.436", "22.39.437", "22.39.438", "22.39.439", "22.39.440"]
@@ -290356,11 +291272,11 @@ do_1 = "do_1 Decision 3349. Run make workspace-install first. Run make -k human-
 do_2 = "do_2 Repair each stop inside services/human/tools/boundary-check, services/human/tools/copy-lint, services/human/tools/dependency-policy.sh and apps/web by the rules of decisions 3340 to 3346: no allow attribute beyond the one decision 3346 names, no change of a lint table or of a lint configuration, no removal of a check."
 do_3 = "do_3 A stop whose cause lies in a member crate is listed in the closing report with file and first message. Record in services/human/tools/repair_22_39_441.kvx what each step of the recipe covers. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["services/human/tools/boundary-check", "services/human/tools/copy-lint", "services/human/tools/dependency-policy.sh", "apps/web"]
+touches = ["services/human/tools/boundary-check", "services/human/tools/copy-lint", "services/human/tools/dependency-policy.sh", "apps/web", "services/human/crates/layerx-human-service", "services/human/crates/layerx-human-test-support", "services/human/crates/layerx-human-kms", "services/human/crates/layerx-network-gateway", "services/human/crates/layerx-human-identity-provider", "services/human/crates/layerx-human-security-provider", "services/human/crates/layerx-intents"]
 tests = []
 planned_paths = ["services/human/tools/repair_22_39_441.kvx"]
 build_cmd = "make -n human-lint > /dev/null"
-verify_cmd = "test -s services/human/tools/repair_22_39_441.kvx && make -s human-js-install > /dev/null && make -s human-lint"
+verify_cmd = "test -s services/human/tools/repair_22_39_441.kvx && make -s human-js-install > /dev/null && d=$(mktemp -d) && make -n human-lint > $d/steps.txt && grep -q clippy $d/steps.txt && grep -v 'cargo deny' $d/steps.txt | sh -e"
 gate_kind = "planned"
 sandbox_profile = "sdk-all"
 owner_role = "fm-human"
@@ -290373,6 +291289,9 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_4 = "do_4 Gotcha 4317, decision 3400. Run the boundary check over services/human/crates by hand and repair every file it reports for a direct read of the clock or of the random source, in the member that holds the file. Bound a wait by a count of steps or by the clock the member already injects and take a random value from the source the member already injects. Change no rule and no pattern of the boundary check and keep the behaviour of each member outside its tests. Run the tests of each changed member by hand before the counted runs and name each changed file in services/human/tools/repair_22_39_441.kvx."
+do_5 = "do_5 Gotchas 4319 and 4320, decisions 3402 to 3404. Give the boundary check the list of decision 3402 with its two files and their reasons and a case that asserts the list. Bring the policy check of apps/web and its record in line with the manifest of the wallet package as decision 3403 says. The advisory, ban and source check of the lock file is not part of this task; name its findings in the closing report only. A test of a member that already stops at the base revision is not repaired here, and a test file this task changes keeps the result it has at the base revision."
+do_6 = "do_6 Decision 3412, gotcha 4328. Add to services/human/crates/layerx-intents the constructors for the receipt payloads that src/server/production_reads.rs and tests/repair_22_33_49.rs of the service member build, and let both files call them. A test of the crate asserts for each constructor that its bytes equal the bytes the replaced code produced for the same fields. The payload rule of the boundary check keeps its list of entry points and gains no exception. The tests of the intents crate pass as at the base revision."
 
 [task.22.39.432]
 title = "Bring the static type checks of the manifest recipes through"
@@ -290408,7 +291327,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.22.39.429]
 title = "Bring the middleware and reference application parts of the platform test recipe through"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -290420,7 +291339,7 @@ do_1 = "do_1 Decision 3349. Run make platform-sample-install first where the dep
 do_2 = "do_2 The case encodesLedgerDrawCalldataWithDrawSelector of services/platform/middleware/seller/test/ledger.test.mjs compares the call the seller middleware encodes with the draw signature of the ledger interface. Find which side departs from the ledger precompile interface of the tree and repair that side inside the middleware; the precompile is the producer and is not changed here (decision 3046). The script services/platform/examples/run-reference-apps.mjs imports the built entry of the buyer middleware: find the step of the recipes that builds that entry and make platform-test-reference-apps run after it."
 do_3 = "do_3 Repair every further stop of the first two targets whose cause lies in services/platform/middleware, services/platform/examples or the recipes of services/platform/Makefile.inc. A test run leaves no process behind. List in the closing report each remaining stop, and each stop of platform-test-docs, with its file and first message. Record in services/platform/middleware/repair_22_39_429.kvx what each of the three targets runs. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["services/platform/middleware", "services/platform/examples", "services/platform/Makefile.inc", "sdk/integrations/agents", "sdk/integrations/express", "sdk/integrations/fastapi"]
+touches = ["services/platform/middleware", "services/platform/examples", "services/platform/Makefile.inc", "sdk/integrations/agents", "sdk/integrations/express", "sdk/integrations/fastapi", "sdk/integrations/next"]
 tests = []
 planned_paths = ["services/platform/middleware/repair_22_39_429.kvx"]
 build_cmd = "make -n platform-test-middleware > /dev/null && make -n platform-test-reference-apps > /dev/null"
@@ -290437,6 +291356,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_4 = "do_4 Gotcha 4312, decision 3395. The scan script of sdk/integrations/next/example names the directory public, which the example does not hold. Have the script name only directories the example holds, or have the example hold the public directory with one tracked file, whichever is the smaller change. Do not change the scanner under sdk/integrations/next/bin. Then bring the remaining parts of the recipe through and record the change in services/platform/middleware/repair_22_39_429.kvx."
 
 [task.22.39.427]
 title = "Bring the prepare step of the agent test recipe in line with the native test programs of the tree"
@@ -314094,6 +315014,35 @@ do_15 = "Attempt 32 (28dfb4c7c) reverts the funded sandboxExecute with LXP_SEQUE
 do_16 = "Attempt 34 re-qualified the attempt 33 files on a base with 13.27.6 and sandboxExecute still reverted with a bare LXP_FATAL_INVARIANT returned by host Execute (not by the handler or a receipt code); the stored lease is Active with zero usage, the escrow funded 100000000 with nothing spent, and the ledger is the initial one. This task changes nothing further; it requires 13.27.7 (decision.1890), which fixes the -1001 site on the sandboxed SUCCESS path with an end-to-end SANDBOX_EXECUTE SUCCESS case in tests/codec/lxp_test_sandbox_lifecycle.c; then re-qualify ef3be2b2f unchanged."
 do_17 = "Attempt 35 (566d189c8) reverts TestProgramsSandboxExecuteEmitsUsage with LXP_FATAL_INVARIANT on a base that holds 13.27.7 (7331258b0), and the test output carries no sandbox.c invariant line although sandbox_invariant (src/modules/programs/sandbox.c:82, called at :395, :411 and :440) prints the line, site and state to stderr: run the test so the kernel's stderr reaches the output (go test -v; the precompile harness must not redirect fd 2) and include the printed site with the lease-state record in the failure message. When the site shows the precompile's request out of order or missing a step (admit host, open lease, execute, publish usage, release), fix method_sandbox_execute.go; when the kernel refuses a legal sequence, record file, line and site as a finding and stop without changing src/."
 do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection (src/protocol/lxp_kernel.c:2389-2394) refuses the sandbox escrow-charge effect that task 13.27.7 made the call emit; task 13.27.8 binds it in the kernel (decision.1898). Once 13.27.8 is on main, continue attempt 35 unchanged: one build, one verify."
+
+[task.22.39.511]
+title = "Bring the Go format, lint and module commands of the repository in line"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.506", "22.39.507", "22.39.510"]
+reqs = ["22998.1"]
+capabilities = ["22.39.511"]
+interfaces = []
+do_1 = "do_1 Gotcha 4337, decision 3418. The command make paxeer-manifest-lint passes, the root module is tidy and the module of tools/hpx/registry builds. The Go format check and the Go lint run read Go source only: the generated type fragments under core/deps/cosmwasm/packages/go-gen/tests and the C fixture files of the vendored tree under tools are left out of both, by the exclusion lists of the checks or by a file form that is not read as a Go package, and their content stays byte for byte. The support file of services/platform/hosted/gateway/tests compiles against the names that the gateway member defines at the present revision. The reward handler case under apps/launchpad/web/src/widgets/rewards imports a package that exists in this repository, or moves next to the code it tests. The files go.mod and go.sum of the root and of tools/hpx/registry are tidy without a change of a dependency version beyond what tidying requires."
+do_2 = "do_2 Record in tools/hpx/registry/repair_22_39_511.kvx the rule, the changed files and the commands. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["go.mod", "go.sum", "tools/hpx/registry", "core/deps/cosmwasm/packages/go-gen", "tools/hyperfide/tests/fixtures", "services/platform/hosted/gateway/tests", "apps/launchpad/web/src/widgets/rewards", ".golangci.yml", "Makefile"]
+tests = []
+planned_paths = ["tools/hpx/registry/repair_22_39_511.kvx"]
+build_cmd = "make -s paxeer-tools-install"
+verify_cmd = "test -s tools/hpx/registry/repair_22_39_511.kvx && make -s paxeer-manifest-lint && GOPROXY=off go mod tidy -diff && cd tools/hpx/registry && GOPROXY=off go build ./..."
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-cosmos-fork"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.496]
 title = "Admit a call of another principal within the standing occupancy responsibility of the program owner"
@@ -341097,7 +342046,7 @@ title = "Run the wave 6 aggregate gate once on the merged wave revision"
 status = "pending"
 mode = "BUILD"
 wave = 48
-requires = ["17.5.8", "17.8.6", "17.7.5", "17.2.6", "17.4.5", "1.0.4", "2.0.4", "3.0.4", "4.0.4", "5.0.4", "6.0.4", "7.0.4", "8.0.4", "9.0.4", "10.0.4", "11.0.4", "12.0.4", "13.0.4", "14.0.4", "15.0.4", "16.0.4", "16.1.7", "18.1121.1", "14.0.5", "22.39.239", "22.39.243", "22.39.287", "22.39.294", "22.39.301", "22.39.309", "22.39.317", "22.39.335", "22.39.339", "22.39.350", "22.39.352", "22.39.353", "22.39.354", "22.39.358", "22.39.360", "22.39.361", "22.39.363", "22.39.366", "22.39.377", "22.39.378", "22.39.396", "22.39.397", "22.39.398", "22.39.400", "22.39.401", "22.39.402", "22.39.403", "22.39.404", "22.39.405", "22.39.406", "22.39.407", "22.39.408", "22.39.409", "22.39.410", "22.39.426", "22.39.427", "22.39.428", "22.39.429", "22.39.430", "22.39.431", "22.39.432", "22.39.433", "22.39.441", "22.39.454"]
+requires = ["17.5.8", "17.8.6", "17.7.5", "17.2.6", "17.4.5", "1.0.4", "2.0.4", "3.0.4", "4.0.4", "5.0.4", "6.0.4", "7.0.4", "8.0.4", "9.0.4", "10.0.4", "11.0.4", "12.0.4", "13.0.4", "14.0.4", "15.0.4", "16.0.4", "16.1.7", "18.1121.1", "14.0.5", "22.39.239", "22.39.243", "22.39.287", "22.39.294", "22.39.301", "22.39.309", "22.39.317", "22.39.335", "22.39.339", "22.39.350", "22.39.352", "22.39.353", "22.39.354", "22.39.358", "22.39.360", "22.39.361", "22.39.363", "22.39.366", "22.39.377", "22.39.378", "22.39.396", "22.39.397", "22.39.398", "22.39.400", "22.39.401", "22.39.402", "22.39.403", "22.39.404", "22.39.405", "22.39.406", "22.39.407", "22.39.408", "22.39.409", "22.39.410", "22.39.426", "22.39.427", "22.39.428", "22.39.429", "22.39.430", "22.39.431", "22.39.432", "22.39.433", "22.39.441", "22.39.454", "22.39.497", "22.39.498", "22.39.499", "22.39.500", "22.39.501", "22.39.502", "22.39.503", "22.39.504", "22.39.505", "22.39.506", "22.39.507", "22.39.508", "22.39.509", "22.39.510", "22.39.511"]
 reqs = ["17060.1"]
 capabilities = ["17.5.7"]
 interfaces = []
@@ -341106,7 +342055,7 @@ do_1 = "Run gates.run_wave(6, root) from spec/layerx-merge/programme/gates.py (p
 do_2 = "Record the evidence line in logs/waves/6 named by [wave.6] of spec/layerx-merge/programme/data/wave-gates.kvx (planned); a nonzero exit fails the wave and files a finding in spec/layerx-merge/qualification.kvx:1 format."
 do_3 = "Create spec/layerx-merge/programme/tests/test_wave_6_gate.py (planned) with the test named below; it runs the real script, never --list alone."
 symbols = ["test_wave_6_gate_passes"]
-touches = ["spec/layerx-merge/programme/tests/test_wave_6_gate.py", "spec/layerx-merge/programme/gates.py", "services/human/tools/api-gen/tests/completion_gate.rs", "apps/web/package.json", "Makefile", "scripts/gates/run_gate.py", "scripts/gates/test_run_gate.py"]
+touches = ["spec/layerx-merge/programme/tests/test_wave_6_gate.py", "spec/layerx-merge/programme/gates.py", "services/human/tools/api-gen/tests/completion_gate.rs", "apps/web/package.json", "Makefile", "scripts/gates/run_gate.py", "scripts/gates/test_run_gate.py", "tools/workspace/platform-dependency-roots.txt", "apps/web/src/api/generated", "services/agent/crates/layerx-agentd/src/main.rs", "tools/paxeer-x/retired_callers.json"]
 tests = ["spec/layerx-merge/programme/tests/test_wave_6_gate.py::test_wave_6_gate_passes"]
 planned_paths = ["spec/layerx-merge/programme/tests/test_wave_6_gate.py"]
 build_cmd = "python3 -m py_compile spec/layerx-merge/programme/tests/test_wave_6_gate.py"
@@ -341152,6 +342101,9 @@ do_30 = "Attempt 26 (continue after 22.39.377 and 22.39.378 land, gotchas 4228 a
 do_31 = "do_31 Decision 3326, gotcha 4254: tasks 22.39.396, 22.39.397 and 22.39.398 carry the ABI type set of the SDKs, the copy catalog of the web app and the runtime module boundary check. Change none of the three in this task."
 do_32 = "do_32 Decisions 3331 to 3335: the task now requires tasks 22.39.400 to 22.39.409, which carry the readers of the settlement section, the generated files of the agent TypeScript SDK, the recipes of the developer dashboard, the lints of the platform and interop crates, the terminal vectors of the program ABI, the lifecycle cases, the output directory of the program recipes, the compiler fetch of the install step and the record of what each part of the test and lint recipes covers. Change none of those in this task and drop from its tree each change that those tasks carry. The gate runs in the checkout of the task and makes no second checkout. The permitted outputs of scripts/gates/run_gate.py hold the ignored build directory of the C SDK example."
 do_33 = "do_33 Decision 3349: the task now requires tasks 22.39.426 to 22.39.433, 22.39.441 and 22.39.454, which own the parts of the workspace test and lint recipes. Change nothing for those parts in this task."
+do_34 = "do_34 Decision 3413, gotcha 4329. Add one row for each of the two Package.resolved files of the Swift samples to tools/workspace/platform-dependency-roots.txt in the form of the neighbouring rows, so that sh scripts/workspace/check-platform-dependencies.sh passes. Change nothing else in the inventory and nothing in the check script. Then run the install target of the workspace and go on with the wave commands."
+do_35 = "do_35 Decision 3415, gotchas 4332 to 4334. Run the generator target of the Makefile for the web client and commit its output under apps/web/src/api/generated without a hand edit, so that make human-check-api passes. Move the inputs of the function terms of services/agent/crates/layerx-agentd/src/main.rs into one parameter structure, without a lint allowance and without a change of behaviour, and run the lint recipe of the agent workspace. Add the two allowed references of decision 3415 to tools/paxeer-x/retired_callers.json in the form of the neighbouring entries and run python3 tools/paxeer-x/tests/retired_callers_test.py with the deleted option. Then go on with the wave commands."
+do_36 = "do_36 Decision 3418, gotcha 4337. Tasks 22.39.497 to 22.39.511 bring the targets of the areas in line; take their changes from the base revision and keep no second repair of the same point in this task. In scripts/gates/run_gate.py admit the build directories that the AssemblyScript targets of the programs SDK write, programs/sdk/assemblyscript/build and the build directory of each example under programs/sdk/assemblyscript/examples, as outputs of the programs command, with a case in scripts/gates/test_run_gate.py for an admitted directory and for a path outside it. Run the Go race and coverage steps of the test command package group by package group and clear the Go build cache between groups, so that the cache stays within its volume. Then run the six wave commands once each, and the build and the verification once at the final revision."
 
 [task.17.5.8]
 title = "Write the wave gate manifest over the domain-16 wave scripts"
@@ -343185,6 +344137,35 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.507]
+title = "Bring the contract tests and the contract format check in line"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.507"]
+interfaces = []
+do_1 = "do_1 Gotcha 4337, decisions 3418 and 3419. The contract test command and the two format commands of the Makefile pass. The set-up of contracts/test/SidioraNativeERC20Test.t.sol initialises the proxy the way the deployment does before the first call, and the governance case of tests/solidity/governance/SidioraProxyTimelock.t.sol names the artifact that the build writes for the contract it deploys. The format check passes for the contracts of the root configuration and for tools/benchmark/loadtest/contracts/evm under the rule of decision 3419: contracts/src/WPAX.sol keeps its source bytes and enters the ignore list of the format configuration, every other contract is formatted. No case is removed or ignored and no contract changes behaviour."
+do_2 = "do_2 Record in contracts/repair_22_39_507.kvx the rule, the changed files and the commands. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["contracts/test", "contracts/src", "tests/solidity", "tools/benchmark/loadtest/contracts/evm", "foundry.paxeer.toml"]
+tests = []
+planned_paths = ["contracts/repair_22_39_507.kvx"]
+build_cmd = "FOUNDRY_CONFIG=foundry.paxeer.toml forge build --offline --root ."
+verify_cmd = "test -s contracts/repair_22_39_507.kvx && FOUNDRY_CONFIG=foundry.paxeer.toml forge test --offline --root . && FOUNDRY_CONFIG=foundry.paxeer.toml forge fmt --check --root . && sh tools/benchmark/loadtest/contracts/evm/setup.sh && forge fmt --check --root tools/benchmark/loadtest/contracts/evm"
+gate_kind = "planned"
+sandbox_profile = "solidity"
+owner_role = "fm-chain-modules"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
@@ -378026,7 +379007,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.38.39]
 title = "Close the inference market series: interface rows served, docs cross-checked, reconcile clean"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["22.38.33", "22.38.34", "22.38.35", "22.38.32", "22.38.22", "22.38.29", "22.38.30", "22.38.20"]
@@ -425872,6 +426853,155 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.35.19]
+title = "Store the market value of every PAX price history point in the explorer backend"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = ["22.35.18"]
+reqs = ["22998.1"]
+capabilities = ["22.35.19"]
+interfaces = []
+do_1 = "do_1 Gotcha 4324, decision 3408. In the Chainflow market source under services/explorer/backend/apps/explorer/lib/explorer/market/source the market value of a native coin history point is the closing price times the circulating supply of the feed. The source reads circulating_supply from the reply of api/v3/coins/ followed by the coin id when it builds the native coin price history and the market value history, with the key header as on every request. Where that figure is null it uses the supply the explorer holds, and where both are absent the market value of the point stays empty. The result does not depend on a figure that another market process has to fetch first. The first history fetch after a start writes the market value for every stored day of its range, also for days whose row holds none. The secondary coin history stays as task 22.35.18 leaves it."
+do_2 = "do_2 Tests: services/explorer/backend/apps/explorer/test/explorer/market/source/chainflow_history_test.exs serves a coin reply and a history reply from a local stand-in address and asserts by value that every native coin history record and every market value history record carries the closing price times the circulating supply of the coin reply while no coin figure is held in memory, that a null circulating supply falls back to the held supply, and that a stored row without a market value holds one after the fetch. Record the rule in services/explorer/backend/apps/explorer/lib/explorer/market/source/repair_22_35_19.kvx. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/explorer/backend/apps/explorer/lib/explorer/market", "services/explorer/backend/apps/explorer/test/explorer/market"]
+tests = []
+planned_paths = ["services/explorer/backend/apps/explorer/test/explorer/market/source/chainflow_history_test.exs", "services/explorer/backend/apps/explorer/lib/explorer/market/source/repair_22_35_19.kvx"]
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/explorer/market/source/chainflow_history_test.exs && services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/explorer/market/source/chainflow_format_test.exs"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.35.18]
+title = "Take the market value of SID from the price times the circulating supply in the explorer backend"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = ["22.35.16"]
+reqs = ["22998.1"]
+capabilities = ["22.35.18"]
+interfaces = []
+do_1 = "do_1 Gotcha 4322, decision 3406, decision 3396. In the Chainflow market source under services/explorer/backend/apps/explorer/lib/explorer/market/source the market value of the secondary coin is market_cap.usd of the feed reply when it is present. Where it is null the market value is the price times the circulating supply. The circulating supply is circulating_supply of the feed reply when it is present. Where that is null too, it is the total supply the explorer holds for the SID token of the tokens setting less the sum of the current balances the explorer holds in that token for the addresses of the new setting MARKET_CHAINFLOW_SECONDARY_COIN_NON_CIRCULATING_ADDRESSES, a comma separated list of addresses that is empty by default and is read in services/explorer/backend/config/runtime.exs. With an empty list the circulating supply equals the total supply. The result is never below zero, and where the explorer holds no total supply the market value stays empty. The available supply of the result, the market value of the statistics response, the SID token row and the market value points of the secondary coin history carry figures of this one rule. The figures of PAX and of the WPAX row stay as decision 3396 states them."
+do_2 = "do_2 Add the setting with an empty value to services/explorer/deploy/env/backend.example.env with one line that says what it lists."
+do_3 = "do_3 Tests: services/explorer/backend/apps/explorer/test/explorer/market/source/chainflow_circulating_test.exs serves replies from a local stand-in address and asserts four cases by value: a reply with a market value keeps it; a reply without a market value and with a circulating supply gives the price times that supply; a reply without both and an empty list gives the price times the held total supply; a list of two addresses with loaded balances gives the price times the total supply less those balances. A fifth case asserts an empty market value when no total supply is held. Record the setting and the order of the rule in services/explorer/backend/apps/explorer/lib/explorer/market/source/repair_22_35_18.kvx. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/explorer/backend/apps/explorer/lib/explorer/market", "services/explorer/backend/apps/explorer/test/explorer/market", "services/explorer/backend/config/runtime.exs", "services/explorer/deploy/env/backend.example.env"]
+tests = []
+planned_paths = ["services/explorer/backend/apps/explorer/test/explorer/market/source/chainflow_circulating_test.exs", "services/explorer/backend/apps/explorer/lib/explorer/market/source/repair_22_35_18.kvx"]
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/explorer/market/source/chainflow_circulating_test.exs && services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/explorer/market/source/chainflow_format_test.exs"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.35.16]
+title = "Read the market figures of PAX and SID from the CoinGecko format routes of the Chainflow feed with the key header"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = ["22.35.11"]
+reqs = ["22998.1"]
+capabilities = ["22.35.16"]
+interfaces = []
+do_1 = "do_1 Gotcha 4313, decision 3396. In the Chainflow market source under services/explorer/backend/apps/explorer/lib/explorer/market/source add the settings MARKET_CHAINFLOW_API_KEY, MARKET_CHAINFLOW_COIN_ID with the default paxeer and MARKET_CHAINFLOW_SECONDARY_COIN_ID with the default sidiora, read in services/explorer/backend/config/runtime.exs. Send the key as the X-API-Key header on every request of the source, the history requests included. Without a key send no such header. Fetch the native coin and the secondary coin from api/v3/coins/ followed by the coin id under the base address of the source. The reply carries name, symbol, image and market_data, and market_data carries current_price.usd, market_cap.usd, total_volume.usd, circulating_supply, total_supply and last_updated. Map them to fiat value, market value, day volume, available supply, total supply, last update, name, upper-case symbol and image. Where market_cap.usd is null the market value is the price times the supply the explorer holds, as before, and where that supply is absent too it stays empty. The token rows of the tokens setting take the same figures: the WPAX row those of PAX and the SID row those of SID. The price history and the market value history stay on the history route."
+do_2 = "do_2 Add the key setting with an empty value and the two coin id settings to services/explorer/deploy/env/backend.example.env. No key value enters the tree."
+do_3 = "do_3 Tests: services/explorer/backend/apps/explorer/test/explorer/market/source/chainflow_format_test.exs serves replies of the shape of do_1 from a local stand-in address and asserts that the X-API-Key header arrives on the coin requests and on the history requests when the key is set, that the PAX figures of the reply reach the result by name and value, that a null market value falls back to the price times the held supply, and that a 401 reply gives an error and no figures. Bring the existing cases of chainflow_test.exs in line with the new route. Record the settings and the mapped fields in services/explorer/backend/apps/explorer/lib/explorer/market/source/repair_22_35_16.kvx. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/explorer/backend/apps/explorer/lib/explorer/market", "services/explorer/backend/apps/explorer/test/explorer/market", "services/explorer/backend/config/runtime.exs", "services/explorer/deploy/env/backend.example.env"]
+tests = []
+planned_paths = ["services/explorer/backend/apps/explorer/test/explorer/market/source/chainflow_format_test.exs", "services/explorer/backend/apps/explorer/lib/explorer/market/source/repair_22_35_16.kvx"]
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/explorer/market/source/chainflow_format_test.exs && services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/explorer/market/source/chainflow_test.exs"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.35.12]
+title = "Count the price updates in the transactions statistics response of the explorer backend"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.35.12"]
+interfaces = []
+do_1 = "do_1 Gotcha 4310, decision 3393. The statistics response adds the total of price updates to total_transactions through the price feed context of services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/price_feed.ex. Add to that context a count of the price updates of the last 24 hours next to the existing total. Have the stats action of the transaction controller of block_scout_web return price_updates_count_24h, total_price_updates_count and total_transactions_count as integer strings and add the day count of price updates to transactions_count_24h. total_transactions_count is the same sum the statistics response gives as total_transactions. Extend the response schema of the action with the three fields."
+do_2 = "do_2 Tests: apps/block_scout_web/test/repair/repair_22_35_12_test.exs loads transactions and price updates inside and outside the day window and asserts the four fields by name and value, and a case in apps/explorer/test/explorer/chain/paxeer_x/price_feed_test.exs covers the day count. Record the field names in services/explorer/backend/apps/block_scout_web/test/repair/repair_22_35_12.kvx. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/transaction_controller.ex", "services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/price_feed.ex", "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/price_feed_test.exs", "services/explorer/backend/apps/block_scout_web/test/repair"]
+tests = []
+planned_paths = ["services/explorer/backend/apps/block_scout_web/test/repair/repair_22_35_12_test.exs", "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_35_12.kvx"]
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/block_scout_web/test/repair/repair_22_35_12_test.exs && services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/explorer/chain/paxeer_x/price_feed_test.exs"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.35.11]
+title = "Add a Chainflow market source to the explorer backend for PAX, SID and WPAX"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.35.11"]
+interfaces = []
+do_1 = "do_1 Gotcha 4310, decisions 3392 and 3393. Add services/explorer/backend/apps/explorer/lib/explorer/market/source/chainflow.ex implementing the behaviour of market/source.ex in the pattern of source/dia.ex: native coin, secondary coin, tokens, native coin price history, secondary coin price history and market value history. Register it in the source list of market/source.ex. It reads the price route, the statistics route and the candle history route of the Chainflow price feed as sdk/chainflow/go/pricefeed.go and sdk/chainflow/go/tradingview.go name them. Settings in services/explorer/backend/config/runtime.exs: MARKET_CHAINFLOW_BASE_URL with the default https://data.feed.chainflowtrading.com, MARKET_CHAINFLOW_MARKET, MARKET_CHAINFLOW_COIN_SYMBOL with the default PAX, MARKET_CHAINFLOW_SECONDARY_COIN_SYMBOL with the default SID, and MARKET_CHAINFLOW_TOKENS, a list of pairs of token address and feed symbol. services/explorer/deploy/env/backend.example.env selects the source for the native coin, the secondary coin, the tokens and the three histories and lists the addresses of the wrapped native token and of SID as apps/perps/src/core/spot/addresses.ts states them."
+do_2 = "do_2 The market value of the native coin is the feed price multiplied by the supply the backend holds for the native coin. The market value of a token is the feed price multiplied by the total supply of its token row scaled by its decimals. The token rows of WPAX and SID receive fiat_value, circulating_market_cap and volume_24h on each token interval through market/fetcher/token.ex, and WPAX takes the price of PAX. A value the feed does not return stays nil, and an unreachable feed leaves the stored rows unchanged."
+do_3 = "do_3 In the statistics controller of block_scout_web add secondary_coin_market_cap and secondary_coin_price_change_percentage to the statistics response and to its schema in schemas/api/v2/stats/response.ex, and have the items of the secondary coin chart route carry market_cap. The percentage follows the computation of coin_price_change_percentage."
+do_4 = "do_4 Tests: apps/explorer/test/explorer/market/source/chainflow_test.exs, in the pattern of the existing source tests, answers the feed routes inside the test and asserts the native coin, the secondary coin, the two token rows, the histories, the nil value on a missing field and the unchanged rows on an unreachable feed. apps/block_scout_web/test/repair/repair_22_35_11_test.exs asserts the three new response fields by name. Record the settings and the field names in services/explorer/backend/apps/explorer/lib/explorer/market/source/repair_22_35_11.kvx. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/explorer/backend/apps/explorer/lib/explorer/market", "services/explorer/backend/apps/explorer/test/explorer/market", "services/explorer/backend/config/runtime.exs", "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/stats_controller.ex", "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/stats/response.ex", "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2", "services/explorer/backend/apps/block_scout_web/test/repair", "services/explorer/deploy/env/backend.example.env"]
+tests = []
+planned_paths = ["services/explorer/backend/apps/explorer/lib/explorer/market/source/chainflow.ex", "services/explorer/backend/apps/explorer/test/explorer/market/source/chainflow_test.exs", "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_35_11_test.exs", "services/explorer/backend/apps/explorer/lib/explorer/market/source/repair_22_35_11.kvx"]
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/explorer/market/source/chainflow_test.exs && services/explorer/deploy/tools/mix-in-builder.sh test apps/block_scout_web/test/repair/repair_22_35_11_test.exs"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."

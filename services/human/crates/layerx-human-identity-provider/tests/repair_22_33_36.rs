@@ -8,7 +8,7 @@ use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use layerx_client::runtime_clock::{ClockBinding, RuntimeClock};
 use layerx_human_identity_provider::{
@@ -19,8 +19,10 @@ use serde_json::{json, Value};
 
 // Compile the actual production clock authority and operational probe in-process.
 #[path = "../../../../platform/hosted/runtime-clock/src/server.rs"]
+#[allow(dead_code)]
 mod clock_server;
 #[path = "../src/probe.rs"]
+#[allow(dead_code)]
 mod readiness;
 
 type Result<T = ()> = std::result::Result<T, Box<dyn Error>>;
@@ -410,12 +412,12 @@ fn identity_clock_doc_authenticated_startup_and_readiness() -> Result {
     // honor its own total budget, even though the server's budget is five seconds.
     let mut slow = UnixStream::connect(&socket)?;
     slow.write_all(&[0])?;
-    let began = Instant::now();
+    let began = clock.sample(Duration::from_secs(1))?;
     let error = readiness::probe(&settings)
         .err()
         .ok_or("queued probe unexpectedly ready")?;
     assert_eq!(error.kind(), io::ErrorKind::TimedOut);
-    assert!(began.elapsed() < Duration::from_secs(2));
+    assert!(clock.sample(Duration::from_secs(1))?.elapsed_since(began)? < Duration::from_secs(2));
     drop(slow);
     readiness::probe(&settings)?;
     provider.finish()?;

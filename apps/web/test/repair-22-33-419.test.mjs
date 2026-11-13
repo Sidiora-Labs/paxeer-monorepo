@@ -166,8 +166,18 @@ async function webLocalLinkPolicy() {
   rejectsChange(({ lockfile }) => {
     delete lockfile.packages[nestedPackage].version;
   }, /not pinned to a version/u);
-  rejectsChange(({ localManifests }) => { localManifests["@paxeer/wallet"].private = false; }, /requires a private package/u);
-  assert.equal(inputs.localManifests["@paxeer/wallet"].license, "UNLICENSED");
+  for (const privateFlag of [false, undefined, "true"]) {
+    rejectsChange(({ localManifests }) => { localManifests["@paxeer/wallet"].private = privateFlag; }, /requires a private package/u);
+  }
+  assert.equal(inputs.localManifests["@paxeer/wallet"].private, true);
+  assert.equal(inputs.localManifests["@paxeer/wallet"].license, "Apache-2.0");
+  assert.equal(inputs.lockfile.packages["../../sdk/wallet"].license, "Apache-2.0");
+  for (const license of ["UNLICENSED", "MIT", undefined]) {
+    rejectsChange(({ lockfile, localManifests }) => {
+      lockfile.packages["../../sdk/wallet"].license = license;
+      localManifests["@paxeer/wallet"].license = license;
+    }, /license disposition changed/u);
+  }
   await walletExchangeWalkthrough();
 }
 

@@ -193,12 +193,14 @@ export class BrowserSupportReportOutbox implements ErrorReporter {
 
   async #postReport(report: SupportReportRequest): Promise<SavedReportReceipt> {
     const principalScope = this.#requirePrincipal();
+    const csrf = this.#csrf;
+    if (csrf === undefined) throw new SupportReportPrincipalError();
     const response = await fetch("/api/support/reports", {
       method: "POST",
       credentials: "same-origin",
       headers: {
         "content-type": "application/json",
-        "x-layerx-csrf": this.#csrf!,
+        "x-layerx-csrf": csrf,
         [SUPPORT_REPORT_PRINCIPAL_HEADER]: principalScope,
       },
       body: JSON.stringify(report),

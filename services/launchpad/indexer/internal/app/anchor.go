@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/checked"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/receipt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jackc/pgx/v5"
@@ -33,7 +34,11 @@ func bindRuntimeAnchor(lifecycle *lifecycleRuntimeDocument, authority receipt.RP
 	if committed.Anchor == nil || committed.Anchor.Height != authority.Anchor.Height || committed.Anchor.Hash != authority.Anchor.Hash || committed.GenesisHash != (common.Hash{}) {
 		return errors.New("indexer: committed provider anchor disagrees with receipt authority")
 	}
-	if lifecycle.InitialCheckpointHeight < 0 || uint64(lifecycle.InitialCheckpointHeight) != authority.Anchor.Height || lifecycle.InitialCheckpointHash != strings.ToLower(authority.Anchor.Hash.Hex()) {
+	lifecycleInitialCheckpointHeightUint64, conversionErr := checked.Convert[uint64](lifecycle.InitialCheckpointHeight)
+	if conversionErr != nil {
+		return conversionErr
+	}
+	if lifecycle.InitialCheckpointHeight < 0 || lifecycleInitialCheckpointHeightUint64 != authority.Anchor.Height || lifecycle.InitialCheckpointHash != strings.ToLower(authority.Anchor.Hash.Hex()) {
 		return errors.New("indexer: chain anchor must be the issued initial checkpoint")
 	}
 	return nil
@@ -52,11 +57,15 @@ func attestDurableAnchor(ctx context.Context, pool *pgxpool.Pool, stream string,
 	}
 	var extended bool
 	var watermark int64
-	err := pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM indexer.indexer_ingest_commits WHERE chain_id=125 AND stream_id=$1 AND previous_height=$2), COALESCE((SELECT raw_complete_height FROM indexer.indexer_ingest_watermarks WHERE chain_id=125 AND stream_id=$1), -1)`, stream, int64(anchor.Height)).Scan(&extended, &watermark) //nolint:gosec // anchor height uses the existing signed database height field
+	anchorHeightInt64, conversionErr := checked.Convert[int64](anchor.Height)
+	if conversionErr != nil {
+		return conversionErr
+	}
+	err := pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM indexer.indexer_ingest_commits WHERE chain_id=125 AND stream_id=$1 AND previous_height=$2), COALESCE((SELECT raw_complete_height FROM indexer.indexer_ingest_watermarks WHERE chain_id=125 AND stream_id=$1), -1)`, stream, anchorHeightInt64).Scan(&extended, &watermark)
 	if err != nil {
 		return err
 	}
-	if !extended || watermark <= int64(anchor.Height) { //nolint:gosec // anchor height uses the existing signed database height field
+	if !extended || watermark <= anchorHeightInt64 {
 		return errors.New("indexer: no durable ingestion descends from the pruned chain anchor")
 	}
 	return nil
@@ -65,11 +74,21 @@ func attestDurableAnchor(ctx context.Context, pool *pgxpool.Pool, stream string,
 // durableBlockHash is the hash the next live batch must extend: the issued
 // initial checkpoint at its height, otherwise the completed block at height.
 func durableBlockHash(ctx context.Context, pool *pgxpool.Pool, stream string, height uint64, lifecycle lifecycleRuntimeDocument) (common.Hash, error) {
-	if lifecycle.InitialCheckpointHeight >= 0 && height == uint64(lifecycle.InitialCheckpointHeight) {
-		return common.HexToHash(lifecycle.InitialCheckpointHash), nil
+	if lifecycle.InitialCheckpointHeight >= 0 {
+		checkpointHeight, conversionErr := checked.Convert[uint64](lifecycle.InitialCheckpointHeight)
+		if conversionErr != nil {
+			return common.Hash{}, conversionErr
+		}
+		if height == checkpointHeight {
+			return common.HexToHash(lifecycle.InitialCheckpointHash), nil
+		}
 	}
 	var hash string
-	err := pool.QueryRow(ctx, `SELECT block_hash FROM indexer.indexer_block_completeness WHERE chain_id=125 AND stream_id=$1 AND height=$2 AND fetch_complete AND required_decode_complete`, stream, int64(height)).Scan(&hash) //nolint:gosec // chain values use the existing signed storage representation
+	heightInt64, conversionErr := checked.Convert[int64](height)
+	if conversionErr != nil {
+		return common.Hash{}, conversionErr
+	}
+	err := pool.QueryRow(ctx, `SELECT block_hash FROM indexer.indexer_block_completeness WHERE chain_id=125 AND stream_id=$1 AND height=$2 AND fetch_complete AND required_decode_complete`, stream, heightInt64).Scan(&hash)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return common.Hash{}, fmt.Errorf("indexer: durable block %d has no completed source block", height)
 	}

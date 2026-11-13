@@ -3,10 +3,12 @@
 #[path = "repair_22_33_50.rs"]
 mod committed_evidence_regressions;
 
-#[path = "support/canonical_owner.rs"]
-mod canonical_owner;
+pub mod canonical_owner {
+    include!("support/canonical_owner.rs");
+}
 mod control_fixture {
     use super::canonical_owner;
+    use crate::require_value::RequireValue as _;
     use layerx_types::rung::Rung;
 
     use layerx_human_test_support as support;
@@ -792,7 +794,7 @@ mod control_fixture {
         };
         evidence
             .verify_outcome(payload.activity_type())
-            .expect("bound committed transaction receipt");
+            .or_fail("bound committed transaction receipt");
         evidence
     }
 
@@ -857,14 +859,22 @@ mod control_fixture {
             },
         ] {
             let (mut controls, _) = controls("rung-authority", backing);
-            let before = controls.view(1_000).unwrap();
-            let request = LimitChangeRequest::new([0x88; 32], 750).unwrap();
+            let before = controls
+                .view(1_000)
+                .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
+            let request = LimitChangeRequest::new([0x88; 32], 750)
+                .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
             for rung in [Rung::Submitted, Rung::Receipted] {
                 assert!(matches!(
                     controls.change_limit(rung, &registry(), request, 1_002),
                     Err(AgentControlError::EvidenceConflict)
                 ));
-                assert_eq!(controls.view(1_000).unwrap(), before);
+                assert_eq!(
+                    controls
+                        .view(1_000)
+                        .unwrap_or_else(|error| panic!("unexpected error: {error:?}")),
+                    before
+                );
                 assert_eq!(
                     controls.boundary().sessions().contract().app_limit_effects,
                     0
@@ -880,7 +890,7 @@ mod control_fixture {
             }
             let committed = controls
                 .change_limit(Rung::Committed, &registry(), request, 1_002)
-                .unwrap();
+                .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
             assert_eq!(committed.limit.monthly, request.monthly_limit);
             let layer = controls.boundary().sessions().contract();
             let effects = (layer.app_limit_effects, layer.protocol_limit_effects);
@@ -896,7 +906,12 @@ mod control_fixture {
                     controls.change_limit(rung, &registry(), request, 1_003),
                     Err(AgentControlError::EvidenceConflict)
                 ));
-                assert_eq!(controls.view(1_003).unwrap(), committed);
+                assert_eq!(
+                    controls
+                        .view(1_003)
+                        .unwrap_or_else(|error| panic!("unexpected error: {error:?}")),
+                    committed
+                );
                 let layer = controls.boundary().sessions().contract();
                 assert_eq!(
                     (layer.app_limit_effects, layer.protocol_limit_effects),
@@ -909,10 +924,11 @@ mod control_fixture {
             .change_limit(
                 Rung::Committed,
                 &registry(),
-                LimitChangeRequest::new([0x89; 32], 750).unwrap(),
+                LimitChangeRequest::new([0x89; 32], 750)
+                    .unwrap_or_else(|error| panic!("unexpected error: {error:?}")),
                 1_002,
             )
-            .unwrap();
+            .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
         assert_eq!(changed.limit.monthly, 750);
         assert_eq!(
             controls.boundary().sessions().contract().app_limit_effects,
@@ -921,6 +937,7 @@ mod control_fixture {
     }
 }
 mod archive_fixture {
+    use crate::require_value::RequireValue as _;
     use layerx_human_test_support as support;
     use layerx_types::rung::Rung;
 
@@ -1105,17 +1122,11 @@ mod archive_fixture {
         Lookup,
     }
 
-    fn prepare_bound(
+    fn call_data(
         request: &ApiPrepareRequest,
         activity: ActivityType,
-        actor_address: [u8; 20],
-    ) -> Result<layerx_agentd::prepare::EvmPrepared, AgentBoundaryError> {
-        use layerx_agentd::prepare::evm::{
-            AbiArgument, EvmPreparationState, PrecompileCall, PrecompileTarget,
-            PreparationDefaults as EvmDefaults, PrepareRequest as EvmRequest,
-        };
+    ) -> Result<([u8; 20], Vec<u8>), AgentBoundaryError> {
         use layerx_crypto::disclosure::call::{encode_payment_call, ledger_selector};
-
         let payload = &request.payload;
         let mut to = [0; 20];
         let data = match (activity.module(), activity.ordinal()) {
@@ -1178,6 +1189,19 @@ mod archive_fixture {
             }
             _ => return Err(AgentBoundaryError::Refused),
         };
+        Ok((to, data))
+    }
+
+    fn prepare_bound(
+        request: &ApiPrepareRequest,
+        activity: ActivityType,
+        actor_address: [u8; 20],
+    ) -> Result<layerx_agentd::prepare::EvmPrepared, AgentBoundaryError> {
+        use layerx_agentd::prepare::evm::{
+            AbiArgument, EvmPreparationState, PrecompileCall, PrecompileTarget,
+            PreparationDefaults as EvmDefaults, PrepareRequest as EvmRequest,
+        };
+        let (to, data) = call_data(request, activity)?;
         let target = match activity.module() {
             ModuleId::Budget => PrecompileTarget::Pay,
             ModuleId::Asset => PrecompileTarget::Ledger,
@@ -1271,12 +1295,12 @@ mod archive_fixture {
 
         fn evm_address(&self) -> Option<[u8; 20]> {
             let key =
-                k256::ecdsa::SigningKey::from_slice(&[0x51; 32]).expect("fixture secp256k1 key");
+                k256::ecdsa::SigningKey::from_slice(&[0x51; 32]).or_fail("fixture secp256k1 key");
             Some(
                 layerx_crypto::secp256k1::evm_address(
                     key.verifying_key().to_encoded_point(false).as_bytes(),
                 )
-                .expect("fixture wallet"),
+                .or_fail("fixture wallet"),
             )
         }
 
@@ -1303,14 +1327,14 @@ mod archive_fixture {
             &signing.transaction.call,
             signing.actor_address,
         )
-        .expect("fixture call disclosure");
+        .or_fail("fixture call disclosure");
         ready(layerx_crypto::signer::sign_disclosed_call(
             &signer,
             &signing.transaction.call,
             &disclosure,
             signing.actor_address,
         ))
-        .expect("disclosure-bound transaction signature")
+        .or_fail("disclosure-bound transaction signature")
     }
 
     fn transaction_hash(raw: &[u8]) -> [u8; 32] {
@@ -1442,6 +1466,63 @@ mod archive_fixture {
         }
     }
 
+    impl RealAgentLayer {
+        fn verified_submission(
+            &self,
+            mutation: &IdempotentMutation<SubmitRequest>,
+            signer_public_key: [u8; 32],
+            key: [u8; 32],
+        ) -> Result<Vec<u8>, AgentBoundaryError> {
+            let prepared = self
+                .preparations
+                .get(&key)
+                .cloned()
+                .ok_or(AgentBoundaryError::CorruptResponse)?;
+            if mutation.operation.preparation_ref.as_str() != format!("prep-{}", hex(&key)) {
+                return Err(AgentBoundaryError::Refused);
+            }
+            let signature: [u8; 65] = mutation
+                .operation
+                .signature
+                .as_bytes()
+                .try_into()
+                .map_err(|_| AgentBoundaryError::Refused)?;
+            if signer_public_key
+                != layerx_crypto::signer::Signer::public_key(
+                    &layerx_crypto::local::LocalSigner::new([0x51; 32]),
+                )
+            {
+                return Err(AgentBoundaryError::Refused);
+            }
+            let signing =
+                signing_preparation(&prepared, self.sender.ok_or(AgentBoundaryError::Refused)?)?;
+            let signed = attach_external_signature(&signing, signature)
+                .map_err(|_| AgentBoundaryError::Refused)?;
+            let fixture_signature = sign_disclosed_call(&signing);
+            let expected_raw = layerx_crypto::evm_transaction::assemble(
+                &signing.transaction.call,
+                &fixture_signature,
+            );
+            assert_eq!(
+                signed, expected_raw,
+                "service and fixture sign the same prepared call"
+            );
+            let (decoded, recovered_signature) =
+                layerx_crypto::evm_transaction::decode_signed(&signed)
+                    .map_err(|_| AgentBoundaryError::CorruptResponse)?;
+            assert_eq!(decoded, signing.transaction.call);
+            assert_eq!(
+                layerx_crypto::evm_transaction::recover_sender(&decoded, &recovered_signature)
+                    .map_err(|_| AgentBoundaryError::CorruptResponse)?,
+                signing.actor_address
+            );
+            let verified =
+                verify_before_submit(&signed, &signing, &signing.actor_address, &self.registry)
+                    .map_err(|_| AgentBoundaryError::Refused)?;
+            Ok(verified.into_exact_bytes())
+        }
+    }
+
     impl AgentBoundary for RealAgentLayer {
         fn bind_transaction_sender(&mut self, sender: [u8; 20]) -> Result<(), AgentBoundaryError> {
             if sender == [0; 20] || self.sender.is_some_and(|bound| bound != sender) {
@@ -1561,59 +1642,14 @@ mod archive_fixture {
                 self.fail_after(FaultPoint::Submit)?;
                 return Ok(observation);
             }
-            let prepared = self
-                .preparations
-                .get(&key)
-                .cloned()
-                .ok_or(AgentBoundaryError::CorruptResponse)?;
-            if mutation.operation.preparation_ref.as_str() != format!("prep-{}", hex(&key)) {
-                return Err(AgentBoundaryError::Refused);
-            }
-            let signature: [u8; 65] = mutation
-                .operation
-                .signature
-                .as_bytes()
-                .try_into()
-                .map_err(|_| AgentBoundaryError::Refused)?;
-            if signer_public_key
-                != layerx_crypto::signer::Signer::public_key(
-                    &layerx_crypto::local::LocalSigner::new([0x51; 32]),
-                )
-            {
-                return Err(AgentBoundaryError::Refused);
-            }
-            let signing =
-                signing_preparation(&prepared, self.sender.ok_or(AgentBoundaryError::Refused)?)?;
-            let signed = attach_external_signature(&signing, signature)
-                .map_err(|_| AgentBoundaryError::Refused)?;
-            let fixture_signature = sign_disclosed_call(&signing);
-            let expected_raw = layerx_crypto::evm_transaction::assemble(
-                &signing.transaction.call,
-                &fixture_signature,
-            );
-            assert_eq!(
-                signed, expected_raw,
-                "service and fixture sign the same prepared call"
-            );
-            let (decoded, recovered_signature) =
-                layerx_crypto::evm_transaction::decode_signed(&signed)
-                    .map_err(|_| AgentBoundaryError::CorruptResponse)?;
-            assert_eq!(decoded, signing.transaction.call);
-            assert_eq!(
-                layerx_crypto::evm_transaction::recover_sender(&decoded, &recovered_signature)
-                    .map_err(|_| AgentBoundaryError::CorruptResponse)?,
-                signing.actor_address
-            );
-            let verified =
-                verify_before_submit(&signed, &signing, &signing.actor_address, &self.registry)
-                    .map_err(|_| AgentBoundaryError::Refused)?;
+            let verified_raw = self.verified_submission(mutation, signer_public_key, key)?;
             let raw = if let Some(id) = self.outbox_submissions.get(&key) {
                 self.outbox
                     .exact_signed_bytes(*id)
                     .map_err(|_| AgentBoundaryError::CorruptResponse)?
                     .to_vec()
             } else {
-                verified.into_exact_bytes()
+                verified_raw
             };
             let activity_id = transaction_hash(&raw);
             let submission_id = match self
@@ -2420,6 +2456,203 @@ mod archive_fixture {
         panic!("reclaim did not reach a receipt-gated terminal state")
     }
 
+    fn protocol_account(account: &AccountId) -> [u8; 32] {
+        layerx_intents::canonical::account_id_for_protocol(
+            account,
+            layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
+        )
+        .unwrap_or_else(|error| panic!("budget account: {error:?}"))
+    }
+
+    fn setup_reclaim_budget(agent: &mut RealAgentLayer, request: &ReclaimRequest) {
+        let ReclaimMechanism::BudgetDefund {
+            budget_id,
+            budget_account,
+            ..
+        } = &request.mechanism
+        else {
+            panic!("first reclaim must be the fixture budget");
+        };
+        let owner = protocol_account(&request.agent_account);
+        agent.budget_records.insert(
+            budget_id.bytes(),
+            layerx_agentd::budget::ProtocolBudgetRecord {
+                budget_id: budget_id.bytes(),
+                owner,
+                budget_account: protocol_account(budget_account),
+                asset_id: request.asset.bytes(),
+                purpose_hash: [0x82; 32],
+                per_period_limit: 1,
+                configured_period_limit: 1,
+                carry_cap: 0,
+                spent_this_period: 0,
+                carried: 0,
+                period_length: 60,
+                period_start: 995,
+                expiry: 1_010,
+                revocation_sequence: 3,
+                rollover_policy: 0,
+                closed: false,
+                revoked: false,
+                delegates: Vec::new(),
+                source_account: Some(owner),
+            },
+        );
+
+        agent.budget_balances.insert(
+            budget_id.bytes(),
+            layerx_human_service::journeys::BalanceEntry::new(
+                layerx_human_service::journeys::Endpoint::agent_budget(budget_account.clone())
+                    .unwrap_or_else(|error| panic!("budget endpoint: {error:?}")),
+                request.asset,
+                Amount::from_u128(1),
+            ),
+        );
+    }
+
+    fn assert_reclaim_receipts(
+        fixture: &Fixture,
+        agent: &mut RealAgentLayer,
+        requests: &[ReclaimRequest; 3],
+    ) {
+        for (offset, request) in requests.iter().enumerate() {
+            let reclaim = drive_reclaim(
+                fixture,
+                agent,
+                &request.journey_id,
+                301 + u64::try_from(offset).unwrap_or(0) * 30,
+            );
+            let status = reclaim
+                .status()
+                .unwrap_or_else(|error| panic!("reclaim status: {error}"));
+            assert_eq!(status.stage(), ReclaimStage::Done);
+            let result = status
+                .result()
+                .unwrap_or_else(|| panic!("receipt result missing"));
+            assert_eq!(result.asset(), [0x33; 32]);
+            assert_eq!(result.amount(), 1);
+            assert_eq!(result.fee_charged(), 1);
+            assert_ne!(result.activity_id(), [0; 32]);
+            assert_ne!(result.receipt_digest(), [0; 32]);
+
+            let submission_id = agent.outbox_submissions[&request.idempotency_key];
+            let raw = agent
+                .outbox
+                .exact_signed_bytes(submission_id)
+                .unwrap_or_else(|error| panic!("reclaim raw transaction: {error:?}"));
+            let (call, signature) = layerx_crypto::evm_transaction::decode_signed(raw)
+                .unwrap_or_else(|error| panic!("reclaim type-2 transaction: {error:?}"));
+            assert_eq!(raw[0], 2);
+            assert_eq!(signature.as_bytes().len(), 65);
+            assert_eq!(call.nonce, request.agent.nonce());
+            assert_eq!(
+                u128::from(call.gas_limit) * call.max_fee_per_gas,
+                request.agent.fee_limit
+            );
+            assert_eq!(
+                layerx_crypto::evm_transaction::recover_sender(&call, &signature)
+                    .unwrap_or_else(|error| panic!("reclaim sender: {error:?}")),
+                agent.sender.or_fail("agent wallet")
+            );
+            assert_eq!(result.activity_id(), transaction_hash(raw));
+            assert_eq!(
+                agent.receipt_material[&request.idempotency_key].tx_hash,
+                transaction_hash(raw)
+            );
+            if let ReclaimMechanism::BudgetDefund { budget_id, .. } = &request.mechanism {
+                assert_eq!(
+                    call.to,
+                    layerx_agentd::prepare::PrecompileTarget::Pay.address()
+                );
+                assert_eq!(
+                    call.data[..4],
+                    layerx_crypto::disclosure::call::ledger_selector(
+                        "budgetDefund(bytes32,uint128)"
+                    )
+                );
+                assert_eq!(call.data[4..36], budget_id.bytes());
+                assert_eq!(call.data[36..52], [0; 16]);
+                assert_eq!(call.data[52..], request.amount.value().to_be_bytes());
+                let disclosure = layerx_crypto::disclosure::call::bind_call(
+                    &call,
+                    agent.sender.or_fail("agent wallet"),
+                )
+                .unwrap_or_else(|error| panic!("reclaim call binding: {error:?}"));
+                assert_eq!(
+                    disclosure
+                        .counterparties
+                        .iter()
+                        .find(|party| {
+                            party.role == layerx_crypto::disclosure::CounterpartyRole::Payer
+                        })
+                        .map(|party| party.account),
+                    Some(budget_id.bytes())
+                );
+                assert_eq!(
+                    disclosure
+                        .amounts
+                        .iter()
+                        .find(|amount| {
+                            amount.role == layerx_crypto::disclosure::AmountRole::Transfer
+                        })
+                        .map(|amount| amount.value),
+                    Some(request.amount.value())
+                );
+                let record = &agent.budget_records[&budget_id.bytes()];
+                let balance = &agent.budget_balances[&budget_id.bytes()];
+                assert_eq!(balance.available().value(), 1);
+                assert_eq!(balance.asset().bytes(), request.asset.bytes());
+                assert_eq!(record.asset_id, request.asset.bytes());
+                let ReclaimMechanism::BudgetDefund { budget_account, .. } = &request.mechanism
+                else {
+                    panic!("budget reclaim mechanism");
+                };
+                assert_eq!(record.budget_account, protocol_account(budget_account));
+                assert_eq!(record.owner, protocol_account(&request.agent_account));
+                assert_eq!(record.source_account, Some(record.owner));
+            }
+            assert_eq!(agent.effects.get(&request.idempotency_key), Some(&1));
+            assert_eq!(agent.submit_calls.get(&request.idempotency_key), Some(&1));
+        }
+    }
+
+    fn assert_reclaim_activity(fixture: &Fixture, requests: &[ReclaimRequest; 3]) {
+        let mut final_store = fixture.store();
+        let final_scope = final_store
+            .principal(&fixture.principal)
+            .unwrap_or_else(|error| panic!("activity scope: {error}"));
+        let filters = Feed::apply_filters(
+            FilterDraft::new()
+                .with_kinds([ActivityKind::Movement])
+                .with_agent("worker"),
+        )
+        .unwrap_or_else(|error| panic!("activity filters: {error}"));
+        let page = Feed::new(120)
+            .unwrap_or_else(|error| panic!("activity feed: {error}"))
+            .page(&final_scope, PageRequest::new(10, filters), 400, 0)
+            .unwrap_or_else(|error| panic!("activity page: {error}"));
+        assert_eq!(page.entries().len(), 3);
+        for entry in page.entries() {
+            let receipt = &entry.receipts()[0];
+            let verified = layerx_proof::receipt::verify(
+                receipt.canonical().or_fail("projected receipt bytes"),
+                receipt.authority().or_fail("projected receipt authority"),
+            )
+            .unwrap_or_else(|error| panic!("activity receipt: {error:?}"));
+            let actual =
+                layerx_human_service::activity::detail::ReceiptActual::from_verified(&verified)
+                    .unwrap_or_else(|error| panic!("activity actual: {error:?}"));
+            assert_eq!(actual.asset(), requests[0].asset.bytes());
+            assert_eq!(actual.amount(), requests[0].amount.value());
+        }
+
+        assert!(page.entries().iter().all(|entry| {
+            entry.kind() == ActivityKind::Movement
+                && entry.agent() == Some("worker")
+                && entry.receipts().len() == 1
+        }));
+    }
+
     #[test]
     fn every_reclaim_mechanism_uses_real_agent_receipts_and_projects_activity() {
         let fixture = Fixture::new("agent-reclaim-mechanisms");
@@ -2476,190 +2709,10 @@ mod archive_fixture {
             ([0x73; 32], DeliveryMode::TrackThenReceipt),
         ]);
         let mut agent = RealAgentLayer::new(&fixture.agent_root, modes);
-        let ReclaimMechanism::BudgetDefund {
-            budget_id,
-            budget_account,
-            ..
-        } = &requests[0].mechanism
-        else {
-            panic!("first reclaim must be the fixture budget");
-        };
-        let protocol_account = |account: &AccountId| {
-            layerx_intents::canonical::account_id_for_protocol(
-                account,
-                layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
-            )
-            .unwrap_or_else(|error| panic!("budget account: {error:?}"))
-        };
-        let owner = protocol_account(&requests[0].agent_account);
-        agent.budget_records.insert(
-            budget_id.bytes(),
-            layerx_agentd::budget::ProtocolBudgetRecord {
-                budget_id: budget_id.bytes(),
-                owner,
-                budget_account: protocol_account(budget_account),
-                asset_id: requests[0].asset.bytes(),
-                purpose_hash: [0x82; 32],
-                per_period_limit: 1,
-                configured_period_limit: 1,
-                carry_cap: 0,
-                spent_this_period: 0,
-                carried: 0,
-                period_length: 60,
-                period_start: 995,
-                expiry: 1_010,
-                revocation_sequence: 3,
-                rollover_policy: 0,
-                closed: false,
-                revoked: false,
-                delegates: Vec::new(),
-                source_account: Some(owner),
-            },
-        );
+        setup_reclaim_budget(&mut agent, &requests[0]);
+        assert_reclaim_receipts(&fixture, &mut agent, &requests);
 
-        agent.budget_balances.insert(
-            budget_id.bytes(),
-            layerx_human_service::journeys::BalanceEntry::new(
-                layerx_human_service::journeys::Endpoint::agent_budget(budget_account.clone())
-                    .unwrap_or_else(|error| panic!("budget endpoint: {error:?}")),
-                requests[0].asset,
-                Amount::from_u128(1),
-            ),
-        );
-        for (offset, request) in requests.iter().enumerate() {
-            let reclaim = drive_reclaim(
-                &fixture,
-                &mut agent,
-                &request.journey_id,
-                301 + u64::try_from(offset).unwrap_or(0) * 30,
-            );
-            let status = reclaim
-                .status()
-                .unwrap_or_else(|error| panic!("reclaim status: {error}"));
-            assert_eq!(status.stage(), ReclaimStage::Done);
-            let result = status
-                .result()
-                .unwrap_or_else(|| panic!("receipt result missing"));
-            assert_eq!(result.asset(), [0x33; 32]);
-            assert_eq!(result.amount(), 1);
-            assert_eq!(result.fee_charged(), 1);
-            assert_ne!(result.activity_id(), [0; 32]);
-            assert_ne!(result.receipt_digest(), [0; 32]);
-
-            let submission_id = agent.outbox_submissions[&request.idempotency_key];
-            let raw = agent
-                .outbox
-                .exact_signed_bytes(submission_id)
-                .unwrap_or_else(|error| panic!("reclaim raw transaction: {error:?}"));
-            let (call, signature) = layerx_crypto::evm_transaction::decode_signed(raw)
-                .unwrap_or_else(|error| panic!("reclaim type-2 transaction: {error:?}"));
-            assert_eq!(raw[0], 2);
-            assert_eq!(signature.as_bytes().len(), 65);
-            assert_eq!(call.nonce, request.agent.nonce());
-            assert_eq!(
-                u128::from(call.gas_limit) * call.max_fee_per_gas,
-                request.agent.fee_limit
-            );
-            assert_eq!(
-                layerx_crypto::evm_transaction::recover_sender(&call, &signature)
-                    .unwrap_or_else(|error| panic!("reclaim sender: {error:?}")),
-                agent.sender.expect("agent wallet")
-            );
-            assert_eq!(result.activity_id(), transaction_hash(raw));
-            assert_eq!(
-                agent.receipt_material[&request.idempotency_key].tx_hash,
-                transaction_hash(raw)
-            );
-            if let ReclaimMechanism::BudgetDefund { budget_id, .. } = &request.mechanism {
-                assert_eq!(
-                    call.to,
-                    layerx_agentd::prepare::PrecompileTarget::Pay.address()
-                );
-                assert_eq!(
-                    call.data[..4],
-                    layerx_crypto::disclosure::call::ledger_selector(
-                        "budgetDefund(bytes32,uint128)"
-                    )
-                );
-                assert_eq!(call.data[4..36], budget_id.bytes());
-                assert_eq!(call.data[36..52], [0; 16]);
-                assert_eq!(call.data[52..], request.amount.value().to_be_bytes());
-                let disclosure = layerx_crypto::disclosure::call::bind_call(
-                    &call,
-                    agent.sender.expect("agent wallet"),
-                )
-                .unwrap_or_else(|error| panic!("reclaim call binding: {error:?}"));
-                assert_eq!(
-                    disclosure
-                        .counterparties
-                        .iter()
-                        .find(|party| {
-                            party.role == layerx_crypto::disclosure::CounterpartyRole::Payer
-                        })
-                        .map(|party| party.account),
-                    Some(budget_id.bytes())
-                );
-                assert_eq!(
-                    disclosure
-                        .amounts
-                        .iter()
-                        .find(|amount| {
-                            amount.role == layerx_crypto::disclosure::AmountRole::Transfer
-                        })
-                        .map(|amount| amount.value),
-                    Some(request.amount.value())
-                );
-                let record = &agent.budget_records[&budget_id.bytes()];
-                let balance = &agent.budget_balances[&budget_id.bytes()];
-                assert_eq!(balance.available().value(), 1);
-                assert_eq!(balance.asset().bytes(), request.asset.bytes());
-                assert_eq!(record.asset_id, request.asset.bytes());
-                let ReclaimMechanism::BudgetDefund { budget_account, .. } = &request.mechanism
-                else {
-                    panic!("budget reclaim mechanism");
-                };
-                assert_eq!(record.budget_account, protocol_account(budget_account));
-                assert_eq!(record.owner, protocol_account(&request.agent_account));
-                assert_eq!(record.source_account, Some(record.owner));
-            }
-            assert_eq!(agent.effects.get(&request.idempotency_key), Some(&1));
-            assert_eq!(agent.submit_calls.get(&request.idempotency_key), Some(&1));
-        }
-
-        let mut final_store = fixture.store();
-        let final_scope = final_store
-            .principal(&fixture.principal)
-            .unwrap_or_else(|error| panic!("activity scope: {error}"));
-        let filters = Feed::apply_filters(
-            FilterDraft::new()
-                .with_kinds([ActivityKind::Movement])
-                .with_agent("worker"),
-        )
-        .unwrap_or_else(|error| panic!("activity filters: {error}"));
-        let page = Feed::new(120)
-            .unwrap_or_else(|error| panic!("activity feed: {error}"))
-            .page(&final_scope, PageRequest::new(10, filters), 400, 0)
-            .unwrap_or_else(|error| panic!("activity page: {error}"));
-        assert_eq!(page.entries().len(), 3);
-        for entry in page.entries() {
-            let receipt = &entry.receipts()[0];
-            let verified = layerx_proof::receipt::verify(
-                receipt.canonical().expect("projected receipt bytes"),
-                receipt.authority().expect("projected receipt authority"),
-            )
-            .unwrap_or_else(|error| panic!("activity receipt: {error:?}"));
-            let actual =
-                layerx_human_service::activity::detail::ReceiptActual::from_verified(&verified)
-                    .unwrap_or_else(|error| panic!("activity actual: {error:?}"));
-            assert_eq!(actual.asset(), requests[0].asset.bytes());
-            assert_eq!(actual.amount(), requests[0].amount.value());
-        }
-
-        assert!(page.entries().iter().all(|entry| {
-            entry.kind() == ActivityKind::Movement
-                && entry.agent() == Some("worker")
-                && entry.receipts().len() == 1
-        }));
+        assert_reclaim_activity(&fixture, &requests);
     }
 
     #[test]
@@ -3348,7 +3401,7 @@ mod archive_fixture {
                 Err(ArchiveError::UnverifiedDisposition)
             ));
             assert!(ArchiveJourney::load(&scope, request.idempotency_key)
-                .unwrap()
+                .unwrap_or_else(|error| panic!("unexpected error: {error:?}"))
                 .is_none());
             assert_eq!(boundary.inner.sessions().contract().suspension_effects, 0);
             assert_eq!(boundary.inner.sessions().contract().revocation_effects, 0);
@@ -3419,7 +3472,13 @@ mod archive_fixture {
                 ),
                 Err(ArchiveError::UnverifiedDisposition)
             ));
-            assert_ne!(archive.status().unwrap().stage(), ArchiveStage::Archived);
+            assert_ne!(
+                archive
+                    .status()
+                    .unwrap_or_else(|error| panic!("unexpected error: {error:?}"))
+                    .stage(),
+                ArchiveStage::Archived
+            );
             assert_eq!(boundary.inner.sessions().contract().suspension_effects, 0);
             assert_eq!(boundary.inner.sessions().contract().revocation_effects, 0);
             assert!(boundary
@@ -3428,8 +3487,8 @@ mod archive_fixture {
                 .contract()
                 .authorizes(lease.grant_id));
             archive = ArchiveJourney::load(&scope, request.idempotency_key)
-                .unwrap()
-                .expect("pending archive survives reload");
+                .unwrap_or_else(|error| panic!("unexpected error: {error:?}"))
+                .or_fail("pending archive survives reload");
         }
         boundary.inner.sessions_mut().contract_mut().funds.rung = Rung::Committed;
         let lost_ack = archive.confirm(
@@ -3565,4 +3624,8 @@ fn agent_controls_refuse_a_change_read_below_committed() {
 #[test]
 fn protocol_and_app_limit_changes_keep_their_real_enforcement_labels() {
     control_fixture::protocol_and_app_limit_changes_keep_their_real_enforcement_labels();
+}
+
+pub mod require_value {
+    include!("support/require_value.rs");
 }

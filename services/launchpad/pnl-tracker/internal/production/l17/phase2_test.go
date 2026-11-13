@@ -435,7 +435,7 @@ func TestPhase3CardRetryAfterSnapshotExpiryAndRevocation(t *testing.T) {
 	}
 	t.Logf("L17_PHASE3_EVIDENCE card=%s state=%s pending_effect=%s", again.ID, again.State, effects[0].Kind)
 }
-func TestPhase3ExportExpiredLeaseRestartAndDigestIntegrity(t *testing.T) {
+func TestProductionExportExpiredLeaseRestartAndDigestIntegrity(t *testing.T) {
 	r := phase2Repository(t)
 	ctx := context.Background()
 	summary := phase2Commit(t, r, "adversarial-export-snapshot", "1", 1)
@@ -448,6 +448,9 @@ func TestPhase3ExportExpiredLeaseRestartAndDigestIntegrity(t *testing.T) {
 		t.Fatal(e)
 	}
 	dir := t.TempDir()
+	if e = os.Chmod(dir, 0700); e != nil {
+		t.Fatal(e)
+	}
 	partial := filepath.Join(dir, job.ID+"-1.partial")
 	actual, e := json.Marshal(records[0])
 	if e != nil {

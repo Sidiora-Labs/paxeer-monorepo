@@ -10,7 +10,7 @@ PLATFORM_BETA_CLUSTER_ENV ?= build/beta-cluster/env
 	platform-test-cli-production-credential-refusal platform-test-registry \
 	platform-test-core platform-test-authority platform-test-agent-boundary platform-test-identity platform-test-paxeer-boundary \
 	platform-test-trusted-boundary \
-	platform-test-reference-apps platform-test-mobile-artifacts \
+	platform-test-reference-apps platform-build-reference-app-middleware platform-test-mobile-artifacts \
 	platform-test-android-artifact platform-test-ios-artifact \
 	platform-real-agent-integration \
 	platform-real-ios-integration platform-real-android-integration \
@@ -335,6 +335,8 @@ platform-test-ten-line:
 
 platform-test-middleware: platform-sample-dependencies-ready
 	npm test --workspace @sidiora/layerx-seller-middleware
+	npm run build --workspace @sidiora/layerx-express
+	npm run build --workspace @sidiora/layerx-next
 	npm test --workspace @sidiora/layerx-buyer-middleware
 	npm test --workspace @sidiora/layerx-merchant-middleware
 	npm test --workspace @sidiora/layerx-agent-middleware
@@ -363,8 +365,11 @@ platform-test-middleware: platform-sample-dependencies-ready
 	swift build --disable-automatic-resolution --package-path sdk/integrations/ios
 	swift test --package-path sdk/integrations/ios
 
-platform-test-reference-apps:
+platform-test-reference-apps: platform-build-reference-app-middleware
 	node services/platform/examples/run-reference-apps.mjs --check
+
+platform-build-reference-app-middleware:
+	npm run build --workspace @sidiora/layerx-buyer-middleware
 
 platform-build-reference-apps:
 	node services/platform/examples/build-reference-apps.mjs

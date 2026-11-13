@@ -456,7 +456,10 @@ func Run(parent context.Context) error {
 	}
 	logger := sharedlog.New("pnl", cfg.LogLevel)
 	logger.Info("starting pnl service")
+	return runConfigured(parent, cfg, logger)
+}
 
+func runConfigured(parent context.Context, cfg config.Config, logger *slog.Logger) error {
 	ctx, cancel := context.WithCancel(parent)
 	defer cancel()
 

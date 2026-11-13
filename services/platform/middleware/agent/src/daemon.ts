@@ -201,13 +201,26 @@ export function decodeDaemonSubmission(value: unknown, expectedTxHash?: string, 
   if (executed) {
     hex(s.receipt_ref, 32, 32);
     const receipt = object(observation.receipt);
-    exact(receipt, ["tx_hash", "canonical_bytes", "authorised_batch", "rung"]);
+    exact(receipt, ["tx_hash", "canonical_bytes", "authorised_batch", "rung", "verification_level",
+      "receipt_hash", "block_height", "signed_receipt", "receipt_key_id", "public_key",
+      "first_height", "last_height", "inclusion_height"]);
     transactionHash(receipt.tx_hash, txHash);
     if (rung(receipt.rung) !== level) fail();
     signedReceipt = hex(receipt.canonical_bytes, 1048576);
+    if (receipt.signed_receipt !== signedReceipt
+      || receipt.receipt_hash !== digest(Buffer.from(signedReceipt, "hex"))) fail();
+    hex(receipt.receipt_key_id, 32, 32);
+    hex(receipt.public_key, 32, 32);
+    decimal(receipt.verification_level);
+    const blockHeight = BigInt(decimal(receipt.block_height));
+    const inclusionHeight = BigInt(decimal(receipt.inclusion_height));
+    const firstHeight = BigInt(decimal(receipt.first_height));
+    const lastHeight = BigInt(decimal(receipt.last_height));
+    if (firstHeight > blockHeight || blockHeight > lastHeight || inclusionHeight < blockHeight) fail();
     const batch = object(receipt.authorised_batch);
     exact(batch, ["batch_id", "asset", "previous_state_root", "resulting_state_root", "sequencer_public_key"]);
     for (const field of Object.values(batch)) hex(field, 32, 32);
+    if (batch.sequencer_public_key !== receipt.public_key) fail();
   } else if (observation.receipt !== null) fail();
   if (state === "Failed" && (typeof s.result_code !== "string" || s.result_code.length > 11
     || !/^(0|-?[1-9][0-9]*)$/u.test(s.result_code) || BigInt(s.result_code) < -2147483648n || BigInt(s.result_code) > 2147483647n)) fail();
@@ -235,6 +248,14 @@ export async function resolveDaemonReceipt(
     try { receiptDigest = (await verifySequencerReceipt(signedReceipt, raw, [key])).receiptDigest; trusted = key; break; } catch { /* Try the next configured pin. */ }
   }
   if (trusted === undefined || receiptDigest === undefined) throw new PlatformSdkError({ code: "verification-failure", retry: "unknown-outcome" });
+  if (submission.observation !== undefined) {
+    if (submission.receipt_ref !== Buffer.from(receiptDigest).toString("hex")) fail();
+    const receipt = object(object(submission.observation).receipt);
+    if (receipt.receipt_key_id !== Buffer.from(trusted.keyId).toString("hex")
+      || receipt.public_key !== Buffer.from(trusted.publicKey).toString("hex")
+      || receipt.first_height !== trusted.first_height.toString()
+      || receipt.last_height !== trusted.last_height.toString()) fail();
+  }
   const portableReceipt: PortableReceiptV2 = Object.freeze({
     // The signature proves receipt execution; the observation rung is not a commitment proof.
     format: "layerx-receipt-proof-v2", verificationLevel: "receipted",

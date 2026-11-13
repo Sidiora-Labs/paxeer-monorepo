@@ -5,6 +5,10 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 
+[[example]]
+name = "inference_room_writes"
+path = "examples/inference_room_writes.rs"
+
 [dependencies]
 base64 = "=0.22.1"
 layerx_programs_registry = { package = "layerx-programs-registry", version = "=0.1.0", path = "../../../../programs/crates/layerx-programs-registry" }
@@ -27,6 +31,7 @@ rustix = { version = "=1.1.4", features = ["net", "process"] }
 
 [dev-dependencies]
 layerx-platform-gateway = { path = "../../../platform/hosted/gateway" }
+native-tls = "=0.2.18"
 getrandom = "=0.4.3"
 
 [lints]

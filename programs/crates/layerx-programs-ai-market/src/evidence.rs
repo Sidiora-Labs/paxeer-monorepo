@@ -1803,6 +1803,11 @@ pub struct SealRegion<'a> {
     rest: &'a [u8],
 }
 impl<'a> SealRegion<'a> {
+    /// Reads the framing of a seal region already validated in committed state.
+    pub(crate) fn committed(feature_bytes: &'a [u8]) -> CodecResult<Self> {
+        Self::read(feature_bytes, false)
+    }
+
     /// Strictly decodes the region prefix of `feature_bytes`.
     ///
     /// # Errors
@@ -1810,6 +1815,11 @@ impl<'a> SealRegion<'a> {
     /// invalid record, or an empty region with nothing after it.
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(feature_bytes: &'a [u8]) -> CodecResult<Self> {
+        Self::read(feature_bytes, true)
+    }
+
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    fn read(feature_bytes: &'a [u8], validate: bool) -> CodecResult<Self> {
         if feature_bytes.is_empty() {
             return Ok(Self {
                 epoch: 0,
@@ -1826,23 +1836,29 @@ impl<'a> SealRegion<'a> {
         }
         let records = r.take(count * SEAL_RECORD_BYTES)?;
         let rest = feature_bytes.get(r.offset()..).ok_or(NON_CANONICAL)?;
-        let lap_len = crate::laps::region_length(rest)?;
+        let lap_len = if validate {
+            crate::laps::region_length(rest)?
+        } else {
+            crate::laps::committed_region_length(rest)?
+        };
         let (laps, rest) = rest.guest_split_at(lap_len);
         if count == 0 && rest.is_empty() && laps.is_empty() {
             return Err(NON_CANONICAL);
         }
-        let mut previous = None;
-        for record in records
-            .as_chunks::<{ SEAL_RECORD_BYTES }>()
-            .0
-            .iter()
-            .map(|chunk| chunk.as_slice())
-        {
-            let evaluator = EvidenceSeal::decode(record)?.evaluator;
-            if previous.is_some_and(|p| p >= evaluator) {
-                return Err(NON_CANONICAL);
+        if validate {
+            let mut previous = None;
+            for record in records
+                .as_chunks::<{ SEAL_RECORD_BYTES }>()
+                .0
+                .iter()
+                .map(<[u8; SEAL_RECORD_BYTES]>::as_slice)
+            {
+                let evaluator = EvidenceSeal::decode(record)?.evaluator;
+                if previous.is_some_and(|p| p >= evaluator) {
+                    return Err(NON_CANONICAL);
+                }
+                previous = Some(evaluator);
             }
-            previous = Some(evaluator);
         }
         Ok(Self {
             epoch,
@@ -1858,7 +1874,7 @@ impl<'a> SealRegion<'a> {
         let mut w = Writer::new(out);
         crate::codec::write_fields!(w;
             u64: self.epoch;
-            u8: (self.records.len() / SEAL_RECORD_BYTES) as u8;
+            u8: u8::try_from(self.records.len() / SEAL_RECORD_BYTES).map_err(|_| crate::errors::CAPACITY)?;
             put: self.records;
         )?;
         Ok(w.len())
@@ -1876,7 +1892,7 @@ impl<'a> SealRegion<'a> {
             .as_chunks::<{ SEAL_RECORD_BYTES }>()
             .0
             .iter()
-            .map(|chunk| chunk.as_slice())
+            .map(<[u8; 185]>::as_slice)
             .map(EvidenceSeal::decode)
     }
     /// The seal of `evaluator` in `epoch`.
@@ -1910,7 +1926,7 @@ impl<'a> SealRegion<'a> {
             .as_chunks::<{ SEAL_RECORD_BYTES }>()
             .0
             .iter()
-            .map(|chunk| chunk.as_slice())
+            .map(<[u8; 185]>::as_slice)
             .enumerate()
         {
             if EvidenceSeal::decode(record)?.evaluator > seal.evaluator {
@@ -1936,7 +1952,7 @@ impl<'a> SealRegion<'a> {
 #[cfg_attr(target_arch = "wasm32", inline(never))]
 fn committed<'a>(state: &SharedState<'a>) -> CodecResult<PolicySection<'a>> {
     let section = PolicySection::decode(
-        *state
+        state
             .feature_sections
             .guest_index(Section::PolicyLifecycle.index()),
     )?;
@@ -1955,7 +1971,7 @@ fn frozen_binding<'a>(
     _known: Option<RewardState<'a>>,
 ) -> CodecResult<FrozenBinding> {
     let admission = AdmissionTable::decode(crate::reputation_transition::framed_admission_table(
-        *state
+        state
             .feature_sections
             .guest_index(Section::ReputationAdmission.index()),
     )?)?;
@@ -2146,8 +2162,7 @@ impl Call<'_> {
             &region,
             &frozen,
             self.opened.frozen.epoch,
-            *self
-                .opened
+            self.opened
                 .state
                 .feature_sections
                 .guest_index(Section::ReputationAdmission.index()),
@@ -2602,6 +2617,8 @@ pub fn verify_evidence_proof(proof: &EvidenceProof<'_>) -> Conclusions {
 }
 
 #[cfg_attr(target_arch = "wasm32", inline(never))]
+/// # Errors
+/// Returns an error if the requested operation cannot be completed.
 pub fn require_sealed_artifact_chunk_root(
     state: &SharedState<'_>,
     epoch: u64,

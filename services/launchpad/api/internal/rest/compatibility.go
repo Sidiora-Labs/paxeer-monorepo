@@ -405,9 +405,12 @@ func streamSnapshot(o ProductionReadOptions) http.HandlerFunc {
 					return
 				}
 				defer replay.Close()
+				checked := make(chan error, 1)
+				go func() { checked <- replay.Check(r.Context()) }()
 				snapshot, err = o.Model.TopicSnapshotAt(r.Context(), topics, replay.Cursor.Offsets, replay.Cursor.Scope.SnapshotID, token)
+				checkErr := <-checked
 				if err == nil {
-					err = replay.Check(r.Context())
+					err = checkErr
 				}
 			} else {
 				snapshot, err = o.Stream.PublicSnapshot(r.Context(), topics)
@@ -438,9 +441,12 @@ func streamSnapshot(o ProductionReadOptions) http.HandlerFunc {
 					return
 				}
 				defer replay.Close()
+				checked := make(chan error, 1)
+				go func() { checked <- replay.Check(r.Context()) }()
 				snapshot, err = o.Model.TopicSnapshotAt(r.Context(), topics, replay.Cursor.Offsets, replay.Cursor.Scope.SnapshotID, token)
+				checkErr := <-checked
 				if err == nil {
-					err = replay.Check(r.Context())
+					err = checkErr
 				}
 			} else {
 				snapshot, err = o.Stream.Snapshot(r.Context(), principal, binding)

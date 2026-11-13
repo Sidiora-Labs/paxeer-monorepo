@@ -1,3 +1,5 @@
+#[path = "support/production_fixture_journey.rs"]
+mod fixture_journey;
 #[path = "support/production_fixture.rs"]
 mod production_fixture;
 
@@ -6,11 +8,7 @@ use layerx_crypto::evm_transaction::{decode_signed, recover_sender, transaction_
 use production_fixture::*;
 use serde_json::json;
 
-#[test]
-fn move_commit_submits_a_bank_transfer_without_a_movement_provider() -> Result<()> {
-    let _guard = ENVIRONMENT
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
+fn assert_no_retired_dependency() {
     for source in [
         include_str!("../src/server/production_components.rs"),
         include_str!("support/production_fixture.rs"),
@@ -24,15 +22,43 @@ fn move_commit_submits_a_bank_transfer_without_a_movement_provider() -> Result<(
             assert!(!source.contains(retired), "retired dependency: {retired}");
         }
     }
-    let mut fixture = Fixture::open()?;
-    let wallet = {
-        let peer = fixture.peer_state.lock().map_err(|_| "peer state")?;
-        let actor = fixture.document["actor"].as_str().ok_or("owner actor")?;
-        assert!(peer.submitted.is_empty());
-        peer.identities.get(actor).ok_or("owner identity")?.1
-    };
-    let recipient = [0x42; 20];
-    assert_ne!(recipient, wallet);
+}
+
+fn assert_reopened_bank_transfer(
+    fixture: &mut Fixture,
+    commit: &serde_json::Value,
+    started: &serde_json::Value,
+    hash: [u8; 32],
+    raw: &[u8],
+    original_leg: &serde_json::Value,
+) -> Result<()> {
+    fixture.reopen()?;
+    let repeated = fixture.request("POST", "/v1/moves", commit, "move-bank-commit")?;
+    assert_eq!(repeated["journey_id"], started["journey_id"]);
+    assert_eq!(
+        repeated["stages"][0]["tx_hash"],
+        started["stages"][0]["tx_hash"]
+    );
+    let journey_id = started["journey_id"].as_str().ok_or("journey id")?;
+    let recovered = fixture_journey::journey_record(fixture, journey_id)?;
+    assert_eq!(recovered["legs"][0]["tx_hash"], original_leg["tx_hash"]);
+    let peer = fixture.peer_state.lock().map_err(|_| "peer state")?;
+    assert_eq!(peer.submitted.len(), 1);
+    assert_eq!(peer.submitted.get(&hash).map(Vec::as_slice), Some(raw));
+    assert_eq!(
+        peer.rpc_served
+            .iter()
+            .filter(|method| *method == "eth_sendRawTransaction")
+            .count(),
+        1
+    );
+    Ok(())
+}
+
+fn quote_bank_transfer(
+    fixture: &mut Fixture,
+    recipient: [u8; 20],
+) -> Result<(serde_json::Value, u128)> {
     let body = json!({
         "source": fixture.document["intent"]["source"]["account"],
         "destination": format!("0x{}", cluster::hex(&recipient)),
@@ -53,11 +79,30 @@ fn move_commit_submits_a_bank_transfer_without_a_movement_provider() -> Result<(
         .submitted
         .is_empty());
 
+    Ok((quote, amount))
+}
+
+#[test]
+fn move_commit_submits_a_bank_transfer_without_a_movement_provider() -> Result<()> {
+    let _guard = ENVIRONMENT
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    assert_no_retired_dependency();
+    let mut fixture = Fixture::open()?;
+    let wallet = {
+        let peer = fixture.peer_state.lock().map_err(|_| "peer state")?;
+        let actor = fixture.document["actor"].as_str().ok_or("owner actor")?;
+        assert!(peer.submitted.is_empty());
+        peer.identities.get(actor).ok_or("owner identity")?.1
+    };
+    let recipient = [0x42; 20];
+    assert_ne!(recipient, wallet);
+    let (quote, amount) = quote_bank_transfer(&mut fixture, recipient)?;
     let commit = json!({"quote_id": quote["quote_id"]});
     let started = fixture.request("POST", "/v1/moves", &commit, "move-bank-commit")?;
     assert_eq!(started["kind"], "move");
     let journey_id = started["journey_id"].as_str().ok_or("journey id")?;
-    let record = fixture.journey_record(journey_id)?;
+    let record = fixture_journey::journey_record(&mut fixture, journey_id)?;
     assert_eq!(record["move_quote_id"], quote["quote_id"]);
     let legs = record["legs"].as_array().ok_or("record legs")?;
     assert_eq!(legs.len(), 1);
@@ -123,15 +168,24 @@ fn move_commit_submits_a_bank_transfer_without_a_movement_provider() -> Result<(
         raw
     );
 
-    fixture.reopen()?;
-    let repeated = fixture.request("POST", "/v1/moves", &commit, "move-bank-commit")?;
-    assert_eq!(repeated["journey_id"], started["journey_id"]);
-    assert_eq!(repeated["stages"][0]["tx_hash"], stages[0]["tx_hash"]);
-    let recovered = fixture.journey_record(journey_id)?;
-    assert_eq!(recovered["legs"][0]["tx_hash"], legs[0]["tx_hash"]);
+    assert_reopened_bank_transfer(&mut fixture, &commit, &started, hash, &raw, &legs[0])?;
+    Ok(())
+}
+
+fn assert_waiting_submission(
+    fixture: &mut Fixture,
+    commit: &serde_json::Value,
+    journey_id: &str,
+    hash_text: &str,
+    nonce: u64,
+) -> Result<()> {
+    let waiting = fixture.request("POST", "/v1/moves", commit, "recovery-commit")?;
+    assert_eq!(waiting["state"], "still-checking");
+    let waiting_record = fixture_journey::journey_record(fixture, journey_id)?;
+    assert_eq!(waiting_record["legs"][0]["submitted"], true);
+    assert_eq!(waiting_record["legs"][0]["tx_hash"], hash_text);
+    assert_eq!(waiting_record["legs"][0]["nonce"], nonce);
     let peer = fixture.peer_state.lock().map_err(|_| "peer state")?;
-    assert_eq!(peer.submitted.len(), 1);
-    assert_eq!(peer.submitted.get(&hash), Some(&raw));
     assert_eq!(
         peer.rpc_served
             .iter()
@@ -142,15 +196,9 @@ fn move_commit_submits_a_bank_transfer_without_a_movement_provider() -> Result<(
     Ok(())
 }
 
-fn exercise_accepted_submission_recovery(
-    reopen: bool,
-    retained_only: bool,
-    submitted: bool,
-) -> Result<()> {
-    let _guard = ENVIRONMENT
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
-    let mut fixture = Fixture::open()?;
+fn start_accepted_submission(
+    fixture: &mut Fixture,
+) -> Result<(serde_json::Value, serde_json::Value)> {
     let body = json!({
         "source": fixture.document["intent"]["source"]["account"],
         "destination": format!("0x{}", cluster::hex(&[0x42; 20])),
@@ -165,6 +213,19 @@ fn exercise_accepted_submission_recovery(
     let commit = json!({"quote_id": quote["quote_id"]});
     let started = fixture.request("POST", "/v1/moves", &commit, "recovery-commit")?;
     assert_eq!(started["state"], "still-checking");
+    Ok((commit, started))
+}
+
+fn exercise_accepted_submission_recovery(
+    reopen: bool,
+    retained_only: bool,
+    submitted: bool,
+) -> Result<()> {
+    let _guard = ENVIRONMENT
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let mut fixture = Fixture::open()?;
+    let (commit, started) = start_accepted_submission(&mut fixture)?;
     let journey_id = started["journey_id"].as_str().ok_or("journey id")?;
     let (hash, raw) = {
         let peer = fixture.peer_state.lock().map_err(|_| "peer state")?;
@@ -180,7 +241,7 @@ fn exercise_accepted_submission_recovery(
         decode_signed(&raw).map_err(|error| format!("signed leg: {error:?}"))?;
     let sender = recover_sender(&call, &signature).map_err(|error| format!("sender: {error:?}"))?;
     let disclosure = bind_call(&call, sender).map_err(|error| format!("disclosure: {error:?}"))?;
-    let record = fixture.journey_record(journey_id)?;
+    let record = fixture_journey::journey_record(&mut fixture, journey_id)?;
     assert_eq!(record["state"], "still-checking");
     assert_eq!(record["legs"][0]["submitted"], true);
     assert_eq!(record["legs"][0]["verified"], false);
@@ -190,37 +251,24 @@ fn exercise_accepted_submission_recovery(
 
     if reopen {
         fixture.reopen()?;
-        let recovered = fixture.journey_record(journey_id)?;
+        let recovered = fixture_journey::journey_record(&mut fixture, journey_id)?;
         assert_eq!(recovered, record);
-        fixture.edit_journey_record(journey_id, |record| {
+        fixture_journey::edit_journey_record(&mut fixture, journey_id, |record| {
             record["legs"][0]
                 .as_object_mut()
-                .expect("submitted leg")
+                .or_fail("submitted leg")
                 .remove("nonce");
         })?;
     }
     if submitted {
-        let waiting = fixture.request("POST", "/v1/moves", &commit, "recovery-commit")?;
-        assert_eq!(waiting["state"], "still-checking");
-        let waiting_record = fixture.journey_record(journey_id)?;
-        assert_eq!(waiting_record["legs"][0]["submitted"], true);
-        assert_eq!(waiting_record["legs"][0]["tx_hash"], hash_text);
-        assert_eq!(waiting_record["legs"][0]["nonce"], call.nonce);
-        let peer = fixture.peer_state.lock().map_err(|_| "peer state")?;
-        assert_eq!(
-            peer.rpc_served
-                .iter()
-                .filter(|method| *method == "eth_sendRawTransaction")
-                .count(),
-            1
-        );
+        assert_waiting_submission(&mut fixture, &commit, journey_id, &hash_text, call.nonce)?;
     }
     if retained_only {
-        fixture.edit_journey_record(journey_id, |record| {
+        fixture_journey::edit_journey_record(&mut fixture, journey_id, |record| {
             record["legs"][0]["submitted"] = json!(false);
             record["legs"][0]
                 .as_object_mut()
-                .expect("retained leg")
+                .or_fail("retained leg")
                 .remove("nonce");
         })?;
     }
@@ -233,7 +281,7 @@ fn exercise_accepted_submission_recovery(
     assert_eq!(completed["journey_id"], started["journey_id"]);
     assert_eq!(completed["state"], "done");
     assert_eq!(completed["stages"][0]["tx_hash"], hash_text);
-    let record = fixture.journey_record(journey_id)?;
+    let record = fixture_journey::journey_record(&mut fixture, journey_id)?;
     assert_eq!(record["state"], "done");
     assert_eq!(record["legs"][0]["submitted"], true);
     assert_eq!(record["legs"][0]["verified"], true);
@@ -285,4 +333,10 @@ fn move_commit_reconciles_a_consumed_nonce_with_a_retained_hash() -> Result<()> 
 #[test]
 fn move_commit_keeps_a_submitted_receipt_pending_without_resending() -> Result<()> {
     exercise_accepted_submission_recovery(false, false, true)
+}
+
+use crate::require_value::RequireValue as _;
+
+pub mod require_value {
+    include!("support/require_value.rs");
 }

@@ -228,7 +228,7 @@ export class DurablePerformanceWrite {
     await ensureDirectory(directory);
     const timestamp = String(Date.now()).padStart(13, "0");
     const name = `${seriesPrefix(observation)}${timestamp}-${randomUUID()}.json`;
-    const temporary = path.join(directory, `.${name}.${process.pid}.${threadId}.tmp`);
+    const temporary = path.join(directory, `.${name}.${String(process.pid)}.${String(threadId)}.tmp`);
     // Register before creating the file so a concurrent snapshot cannot recover an active write.
     activeWrites.add(temporary);
     try {

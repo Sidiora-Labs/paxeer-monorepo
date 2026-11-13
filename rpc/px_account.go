@@ -333,8 +333,11 @@ func (a *pxAccountAPI) RequestFunds(ctx context.Context, did, signer string) (re
 // Every nested call is pinned to the height resolved once by the public method.
 var pxProgramABI = mustPxABI(`[
  {"type":"function","name":"getStateHead","inputs":[{"type":"bytes32"}],"outputs":[{"type":"bytes"}]},
+ {"type":"function","name":"quoteCallFee","inputs":[{"type":"uint64[7]"}],"outputs":[{"type":"uint32"},{"type":"uint128"},{"type":"bytes32"}]},
  {"type":"function","name":"simulateCall","inputs":[{"type":"bytes32"},{"type":"uint16"},{"type":"string"},{"type":"bytes"},{"type":"bytes"},{"type":"bytes"},{"type":"uint32"},{"type":"uint64[7]"},{"type":"uint128"}],"outputs":[{"type":"int32"},{"type":"uint8"},{"type":"bytes"}]}
 ]`)
+
+type pxProgramReadBatchKey struct{}
 
 func (a *pxAccountAPI) programRead(ctx context.Context, height int64, selector uint16, payload []byte) ([]byte, error) {
 	if a.inference == nil {
@@ -371,7 +374,12 @@ func (a *pxAccountAPI) programRead(ctx context.Context, height int64, selector u
 	requestDigest := sha256.Sum256(append([]byte("PAXAI/request/v1\x00"), envelope...))
 	envelope = append(envelope, 0)
 	budget := [7]uint64{1000000, 16777216, 1048576, 1048576, 64, 1048576, 4096}
-	values, err := a.callFrom(ctx, height, cfg.reader, common.HexToAddress("0x101d"), pxProgramABI, "simulateCall", cfg.program, uint16(5), "layerx_call", envelope, []byte{0, 1, 7}, []byte("LayerX/programs/access-declaration/v1\x00\x00"), uint32(16384), budget, new(big.Int).SetUint64(^uint64(0)))
+	quote, err := a.call(ctx, height, common.HexToAddress("0x101d"), pxProgramABI, "quoteCallFee", budget)
+	if err != nil {
+		return nil, pxUnavailable("inference_program_unavailable")
+	}
+	readContext := context.WithValue(ctx, pxProgramReadBatchKey{}, height)
+	values, err := a.callFrom(readContext, height, cfg.reader, common.HexToAddress("0x101d"), pxProgramABI, "simulateCall", cfg.program, uint16(5), "layerx_call", envelope, []byte{0, 1, 7}, []byte("LayerX/programs/access-declaration/v1\x00\x00"), uint32(16384), budget, quote[1])
 	if err != nil {
 		return nil, pxUnavailable("inference_program_unavailable")
 	}

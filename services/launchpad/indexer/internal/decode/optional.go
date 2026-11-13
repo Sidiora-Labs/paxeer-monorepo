@@ -136,12 +136,13 @@ func (r *Registry) OptionalAvailability(at Order, policies []CapabilityPolicy) (
 				}
 			}
 		}
+		a.DeploymentPresent = true
 		for _, role := range roles {
 			if !active[role] {
+				a.DeploymentPresent = false
 				a.Missing = append(a.Missing, "deployment:"+role)
 			}
 		}
-		a.DeploymentPresent = len(active) == len(roles)
 		for _, role := range roles {
 			found := false
 			for _, coverage := range r.coverage {

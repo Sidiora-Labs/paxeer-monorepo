@@ -1,4 +1,6 @@
-use layerx_agentd::read::{AbciResultProof, CommitValidator, ServedCheckpoint};
+use layerx_agentd::read::{
+    AbciResultProof, BlockId, CommitTimestamp, CommitValidator, ServedCheckpoint,
+};
 use layerx_client::rpc::receipt::{
     lookup_authenticated, AuthenticatedReceipt, Lookup, LookupContext,
 };
@@ -36,14 +38,19 @@ impl BankCommittedReceipt {
         &self.receipt
     }
 
+    /// # Panics
+    /// Panics if the authenticated receipt carries an unexpected rung.
     #[must_use]
     pub const fn rung(&self) -> Rung {
+        assert!(matches!(self.receipt.rung(), Rung::Receipted));
         Rung::Committed
     }
 }
 
 impl BankCommitEvidence {
     /// Authenticates the receipt, governed key, sequence batch and committed inclusion.
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn authenticate(
         &self,
         endpoint: &SequencerEndpoint,
@@ -249,69 +256,69 @@ impl BankCommitEvidence {
 // Replay the retained Comet transport through the daemon checkpoint verifier.
 // Its JSON constructor is crate-private, so the journey owns only this decoding
 // adapter; quorum, header hashing, signatures and inclusion stay in real codecs.
-fn retained_checkpoint(evidence: &BankCommitEvidence) -> Result<ServedCheckpoint, JourneyError> {
-    use base64::Engine as _;
-    use layerx_agentd::read::{
-        BlockCommit, BlockId, CheckpointHeader, CommitTimestamp, CommitVote,
-    };
-    let bad = || JourneyError::ReceiptMismatch;
-    fn number(value: &Value) -> Result<u64, JourneyError> {
-        value
-            .as_u64()
-            .or_else(|| value.as_str()?.parse().ok())
-            .ok_or(JourneyError::ReceiptMismatch)
+fn number(value: &Value) -> Result<u64, JourneyError> {
+    value
+        .as_u64()
+        .or_else(|| value.as_str()?.parse().ok())
+        .ok_or(JourneyError::ReceiptMismatch)
+}
+fn hex<const N: usize>(value: &Value) -> Result<[u8; N], JourneyError> {
+    let text = value.as_str().ok_or(JourneyError::ReceiptMismatch)?;
+    let text = text.strip_prefix("0x").unwrap_or(text);
+    if text.len() != N * 2 || !text.is_ascii() {
+        return Err(JourneyError::ReceiptMismatch);
     }
-    fn hex<const N: usize>(value: &Value) -> Result<[u8; N], JourneyError> {
-        let text = value.as_str().ok_or(JourneyError::ReceiptMismatch)?;
-        let text = text.strip_prefix("0x").unwrap_or(text);
-        if text.len() != N * 2 || !text.is_ascii() {
+    let mut out = [0; N];
+    for (index, pair) in text.as_bytes().chunks_exact(2).enumerate() {
+        out[index] = u8::from_str_radix(
+            std::str::from_utf8(pair).map_err(|_| JourneyError::ReceiptMismatch)?,
+            16,
+        )
+        .map_err(|_| JourneyError::ReceiptMismatch)?;
+    }
+    Ok(out)
+}
+fn timestamp(value: &Value) -> Result<CommitTimestamp, JourneyError> {
+    let text = value.as_str().ok_or(JourneyError::ReceiptMismatch)?;
+    let (base, nanos) = if let Some((base, fraction)) = text.split_once('.') {
+        let digits = fraction
+            .strip_suffix('Z')
+            .ok_or(JourneyError::ReceiptMismatch)?;
+        if digits.is_empty() || digits.len() > 9 || !digits.bytes().all(|b| b.is_ascii_digit()) {
             return Err(JourneyError::ReceiptMismatch);
         }
-        let mut out = [0; N];
-        for (index, pair) in text.as_bytes().chunks_exact(2).enumerate() {
-            out[index] = u8::from_str_radix(
-                std::str::from_utf8(pair).map_err(|_| JourneyError::ReceiptMismatch)?,
-                16,
-            )
-            .map_err(|_| JourneyError::ReceiptMismatch)?;
-        }
-        Ok(out)
-    }
-    fn timestamp(value: &Value) -> Result<CommitTimestamp, JourneyError> {
-        let text = value.as_str().ok_or(JourneyError::ReceiptMismatch)?;
-        let (base, nanos) = if let Some((base, fraction)) = text.split_once('.') {
-            let digits = fraction
-                .strip_suffix('Z')
-                .ok_or(JourneyError::ReceiptMismatch)?;
-            if digits.is_empty() || digits.len() > 9 || !digits.bytes().all(|b| b.is_ascii_digit())
-            {
-                return Err(JourneyError::ReceiptMismatch);
-            }
-            (
-                format!("{base}Z"),
-                digits
-                    .parse::<u32>()
-                    .map_err(|_| JourneyError::ReceiptMismatch)?
-                    * 10_u32.pow(9 - digits.len() as u32),
-            )
-        } else {
-            (text.to_owned(), 0)
-        };
-        let seconds =
-            crate::time::seconds_from_rfc3339(&base).ok_or(JourneyError::ReceiptMismatch)?;
-        Ok(CommitTimestamp {
-            seconds: i64::try_from(seconds).map_err(|_| JourneyError::ReceiptMismatch)?,
-            nanos,
-        })
-    }
-    fn block_id(value: &Value) -> Result<BlockId, JourneyError> {
-        Ok(BlockId {
-            hash: hex(&value["hash"])?,
-            part_set_total: u32::try_from(number(&value["parts"]["total"])?)
-                .map_err(|_| JourneyError::ReceiptMismatch)?,
-            part_set_hash: hex(&value["parts"]["hash"])?,
-        })
-    }
+        (
+            format!("{base}Z"),
+            digits
+                .parse::<u32>()
+                .map_err(|_| JourneyError::ReceiptMismatch)?
+                * 10_u32.pow(
+                    9 - u32::try_from(digits.len())
+                        .unwrap_or_else(|_| unreachable!("bounded fractional digits")),
+                ),
+        )
+    } else {
+        (text.to_owned(), 0)
+    };
+    let seconds = crate::time::seconds_from_rfc3339(&base).ok_or(JourneyError::ReceiptMismatch)?;
+    Ok(CommitTimestamp {
+        seconds: i64::try_from(seconds).map_err(|_| JourneyError::ReceiptMismatch)?,
+        nanos,
+    })
+}
+fn block_id(value: &Value) -> Result<BlockId, JourneyError> {
+    Ok(BlockId {
+        hash: hex(&value["hash"])?,
+        part_set_total: u32::try_from(number(&value["parts"]["total"])?)
+            .map_err(|_| JourneyError::ReceiptMismatch)?,
+        part_set_hash: hex(&value["parts"]["hash"])?,
+    })
+}
+
+fn retained_checkpoint(evidence: &BankCommitEvidence) -> Result<ServedCheckpoint, JourneyError> {
+    use base64::Engine as _;
+    use layerx_agentd::read::{BlockCommit, CheckpointHeader, CommitVote};
+    let bad = || JourneyError::ReceiptMismatch;
     let trusted = layerx_client::rpc::commit::decode_validators(&evidence.trusted_validators)
         .map_err(|_| bad())?;
     let validators: Vec<_> = trusted

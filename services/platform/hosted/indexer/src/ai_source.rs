@@ -1,6 +1,7 @@
 //! Read-only adapter from one node's consensus RPC to the AI runtime capture route.
 use std::io::{Read, Write};
 use std::net::{SocketAddr, TcpListener, TcpStream};
+use std::thread;
 use std::time::{Duration, Instant};
 
 use layerx_committed_proof::{
@@ -18,7 +19,7 @@ use sha2::{Digest as _, Sha256};
 
 use crate::ai_market::BlockCommitProof;
 use crate::ai_runtime::encode_committed_read;
-use crate::codec::{base64_decode, hex, hex0x, unhex, unhex_fixed};
+use crate::codec::{base64_decode, hex, unhex, unhex_fixed};
 use crate::transport::{Endpoint, Security};
 use crate::IndexError;
 
@@ -133,12 +134,18 @@ pub fn respond(config: &SourceConfig, target: &str) -> (u16, Vec<u8>) {
     match committed_read(config) {
         Ok((sequence, body)) if sequence > after => (200, body),
         Ok(_) => (204, Vec::new()),
-        Err(_) => (502, Vec::new()),
+        Err(error) => {
+            eprintln!("layerx-ai-source committed read: {error}");
+            (502, Vec::new())
+        }
     }
 }
 
 fn invalid() -> IndexError {
     IndexError::Source("invalid AI source node material".to_owned())
+}
+fn at_stage<T>(result: Result<T, IndexError>, stage: &str) -> Result<T, IndexError> {
+    result.map_err(|error| IndexError::Source(format!("AI source {stage}: {error}")))
 }
 fn text(value: &Value) -> Result<&str, IndexError> {
     value.as_str().ok_or_else(invalid)
@@ -162,50 +169,74 @@ fn bytes(value: &Value) -> Result<Vec<u8>, IndexError> {
 }
 
 fn committed_read(config: &SourceConfig) -> Result<(u64, Vec<u8>), IndexError> {
-    let status = config.node.rpc("status", &json!({}))?;
-    let height = number(&status["sync_info"]["latest_block_height"])?;
+    let status = at_stage(config.node.rpc("status", &json!({})), "status")?;
+    let latest = number(&status["sync_info"]["latest_block_height"])?;
+    let height = latest
+        .checked_sub(1)
+        .filter(|h| *h > 0)
+        .ok_or_else(invalid)?;
     let sequence = height
         .checked_sub(1)
         .filter(|h| *h > 0)
         .ok_or_else(invalid)?;
-    let material = config
-        .node
-        .rpc("commit", &json!({"height": height.to_string()}))?;
+    let material = at_stage(
+        config
+            .node
+            .rpc("commit", &json!({"height": height.to_string()})),
+        "commit",
+    )?;
     if material["canonical"] != true {
-        return Err(invalid());
+        return Err(IndexError::Source(
+            "AI source commit not canonical".to_owned(),
+        ));
     }
-    let (header, commit) = decode_commit(&material["signed_header"])?;
+    let (header, commit) = at_stage(decode_commit(&material["signed_header"]), "signed header")?;
     if u64::try_from(header.height).ok() != Some(height)
         || commit.height != height
         || commit.block_id.hash != header.hash()
     {
-        return Err(invalid());
+        return Err(IndexError::Source(
+            "AI source commit binding invalid".to_owned(),
+        ));
     }
     let mut key = b"\x01\x00\x09progstor".to_vec();
     key.extend(config.program.as_bytes());
     key.push(1);
-    let (namespace, ops) = artifact(&config.node, &key, sequence, true)?;
+    let (namespace, ops) = at_stage(artifact(&config.node, &key, sequence, true), "namespace")?;
     if namespace.len() != 38 || namespace[..2] != [0, 1] {
-        return Err(invalid());
+        return Err(IndexError::Source(
+            "AI source namespace header invalid".to_owned(),
+        ));
     }
     let blob_key = |digest: &[u8]| [&[5, 0, 9][..], digest].concat();
-    let (manifest, _) = artifact(&config.node, &blob_key(&namespace[6..]), sequence, false)?;
+    let (manifest, _) = at_stage(
+        artifact(&config.node, &blob_key(&namespace[6..]), sequence, false),
+        "manifest",
+    )?;
     if Sha256::digest(&manifest).as_slice() != &namespace[6..] {
-        return Err(invalid());
+        return Err(IndexError::Source(
+            "AI source manifest digest invalid".to_owned(),
+        ));
     }
-    let (digest, length) = state_entry(&namespace, &manifest)?;
-    let (state, _) = artifact(&config.node, &blob_key(&digest), sequence, false)?;
+    let (digest, length) = at_stage(state_entry(&namespace, &manifest), "state entry")?;
+    let (state, _) = at_stage(
+        artifact(&config.node, &blob_key(&digest), sequence, false),
+        "state",
+    )?;
     if state.len() != length || Sha256::digest(&state).as_slice() != digest {
-        return Err(invalid());
+        return Err(IndexError::Source(
+            "AI source state digest invalid".to_owned(),
+        ));
     }
-    layerx_programs_ai_market::queries::read_header(&state, config.chain, config.program)
-        .map_err(|_| invalid())?;
+    layerx_programs_ai_market::queries::read_header(&state, config.chain, config.program).map_err(
+        |error| IndexError::Source(format!("AI source state header invalid: {error:?}")),
+    )?;
     let store_proof = serde_json::to_vec(&json!({
         "membership": { "proof": unwrap_existence(&ops[0])?, "multistore": ops[1] },
         "manifest": manifest
     }))
-    .map_err(|_| invalid())?;
-    let chunks = state_chunks(&state)?;
+    .map_err(|_| IndexError::Source("AI source store proof encoding invalid".to_owned()))?;
+    let chunks = at_stage(state_chunks(&state), "state chunks")?;
     let body = encode_committed_read(
         config.chain,
         config.program,
@@ -217,7 +248,7 @@ fn committed_read(config: &SourceConfig) -> Result<(u64, Vec<u8>), IndexError> {
         },
         &chunks,
     )
-    .map_err(|_| invalid())?;
+    .map_err(|_| IndexError::Source("AI source committed read encoding invalid".to_owned()))?;
     Ok((sequence, body))
 }
 
@@ -257,43 +288,75 @@ fn state_entry(namespace: &[u8], manifest: &[u8]) -> Result<([u8; 32], usize), I
 }
 
 type Artifact = (Vec<u8>, Vec<Vec<u8>>);
+// A historical proof rate limit permits eight retries, 250 ms apart (two seconds total).
 fn artifact(node: &Endpoint, key: &[u8], height: u64, prove: bool) -> Result<Artifact, IndexError> {
-    let result = node.rpc(
-        "abci_query",
-        &json!({
-            "path": "/store/lxphost/key", "data": hex0x(key),
-            "height": height.to_string(), "prove": prove
-        }),
-    )?;
+    let mut retries = 0;
+    let result = loop {
+        let result = node.rpc(
+            "abci_query",
+            &json!({
+                "path": "/store/lxphost/key", "data": hex(key),
+                "height": height.to_string(), "prove": prove
+            }),
+        )?;
+        let response = &result["response"];
+        if prove
+            && response["code"].as_u64() == Some(36)
+            && response["log"]
+                .as_str()
+                .is_some_and(|log| log.starts_with("historical proof rate limited"))
+            && retries < 8
+        {
+            retries += 1;
+            thread::sleep(Duration::from_millis(250));
+            continue;
+        }
+        break result;
+    };
     let response = &result["response"];
-    if response["code"].as_u64() != Some(0)
-        || number(&response["height"])? != height
-        || bytes(&response["key"])? != key
-    {
-        return Err(invalid());
+    if response["code"].as_u64() != Some(0) {
+        return Err(IndexError::Source(format!(
+            "AI source store query refused at height {height}: code={}, log={}",
+            response["code"], response["log"]
+        )));
     }
-    let value = bytes(&response["value"])?;
+    let actual_height = at_stage(number(&response["height"]), "store height")?;
+    let key_matches = at_stage(
+        bytes(&response["key"]),
+        &format!("store key at height {height}"),
+    )? == key;
+    if actual_height != height || !key_matches {
+        return Err(IndexError::Source(format!(
+            "AI source store response: code={}, height={actual_height}, requested_height={height}, key_matches={key_matches}",
+            response["code"]
+        )));
+    }
+    let value = at_stage(bytes(&response["value"]), "store value")?;
     if value.is_empty() {
-        return Err(invalid());
+        return Err(IndexError::Source(
+            "AI source store value absent".to_owned(),
+        ));
     }
     let mut ops = Vec::new();
     if prove {
         let rows = response["proofOps"]["ops"]
             .as_array()
             .filter(|r| r.len() == 2)
-            .ok_or_else(invalid)?;
+            .ok_or_else(|| IndexError::Source("AI source store proof shape invalid".to_owned()))?;
         for (row, (kind, expected)) in rows
             .iter()
             .zip([("ics23:iavl", key), ("ics23:simple", &b"lxphost"[..])])
         {
-            if row["type"] != kind || bytes(&row["key"])? != expected {
-                return Err(invalid());
+            if row["type"] != kind || at_stage(bytes(&row["key"]), "store proof key")? != expected {
+                return Err(IndexError::Source(
+                    "AI source store proof key invalid".to_owned(),
+                ));
             }
-            ops.push(bytes(&row["data"])?);
+            ops.push(at_stage(bytes(&row["data"]), "store proof data")?);
         }
         // Both proofs must contain exactly one ICS23 existence message.
         for op in &ops {
-            unwrap_existence(op)?;
+            at_stage(unwrap_existence(op), "store proof existence")?;
         }
     }
     Ok((value, ops))

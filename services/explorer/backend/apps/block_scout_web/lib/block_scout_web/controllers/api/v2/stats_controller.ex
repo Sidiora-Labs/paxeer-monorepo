@@ -76,20 +76,8 @@ defmodule BlockScoutWeb.API.V2.StatsController do
           nil
       end
 
-    coin_price_change =
-      case Market.fetch_recent_history() do
-        [_today, yesterday | _] ->
-          exchange_rate.fiat_value && yesterday.closing_price &&
-            exchange_rate.fiat_value
-            |> Decimal.div(yesterday.closing_price)
-            |> Decimal.sub(1)
-            |> Decimal.mult(100)
-            |> Decimal.to_float()
-            |> Float.ceil(2)
-
-        _ ->
-          nil
-      end
+    coin_price_change = price_change_percentage(exchange_rate, false)
+    secondary_coin_price_change = price_change_percentage(secondary_coin_exchange_rate, true)
 
     gas_price = Application.get_env(:block_scout_web, :gas_price)
 
@@ -105,6 +93,8 @@ defmodule BlockScoutWeb.API.V2.StatsController do
         "coin_price" => exchange_rate.fiat_value,
         "coin_price_change_percentage" => coin_price_change,
         "secondary_coin_price" => secondary_coin_exchange_rate.fiat_value,
+        "secondary_coin_market_cap" => secondary_coin_exchange_rate.market_cap,
+        "secondary_coin_price_change_percentage" => secondary_coin_price_change,
         "total_gas_used" => GasUsageSum.total() |> to_string(),
         "transactions_today" => Enum.at(transaction_stats, 0).number_of_transactions |> to_string(),
         "gas_used_today" => Enum.at(transaction_stats, 0).gas_used,
@@ -120,6 +110,23 @@ defmodule BlockScoutWeb.API.V2.StatsController do
       |> add_chain_identity_fields()
       |> backward_compatibility(conn)
     )
+  end
+
+  defp price_change_percentage(exchange_rate, secondary_coin?) do
+    case Market.fetch_recent_history(secondary_coin?) do
+      [_today, yesterday | _] ->
+        if exchange_rate.fiat_value && yesterday.closing_price && !Decimal.equal?(yesterday.closing_price, 0) do
+          exchange_rate.fiat_value
+          |> Decimal.div(yesterday.closing_price)
+          |> Decimal.sub(1)
+          |> Decimal.mult(100)
+          |> Decimal.to_float()
+          |> Float.ceil(2)
+        end
+
+      _ ->
+        nil
+    end
   end
 
   defp network_utilization_percentage do
@@ -242,13 +249,7 @@ defmodule BlockScoutWeb.API.V2.StatsController do
   def secondary_coin_market_chart(conn, _params) do
     recent_market_history = Market.fetch_recent_history(true)
 
-    chart_data =
-      recent_market_history
-      |> Enum.map(fn day -> Map.take(day, [:closing_price, :date]) end)
-
-    json(conn, %{
-      chart_data: chart_data
-    })
+    render(conn, :secondary_coin_market_chart, %{history: recent_market_history})
   end
 
   operation :hot_smart_contracts,
