@@ -2,9 +2,9 @@
 
 PAXEER X / NETWORK DOCUMENTATION
 
-# Money. Markets. Machines. One network to build on.
+# Applications. Payments. Programs. Build on Paxeer.
 
-Paxeer X unites EVM applications, the LayerX agent economy, payments, markets and deterministic programs with verifiable execution and settlement.
+Paxeer mainnet-beta runs EVM applications and the embedded LayerX kernel on one BFT network, with native payments, markets and deterministic programs.
 
 [Explore the network](https://docs.paxeer.app/unified-network)[Start with the XDK](https://docs.paxeer.app/xdk)
 
@@ -12,29 +12,29 @@ One BFT networkEVM chain ID `125`Native token `PAX`
 
     Paxeer mainnet-beta: EVM applications and the LayerX kernel execute on one BFT network.EVM 125 · PAX
 
-ONE NETWORK — EVERY INTERFACE
+NETWORK INTERFACES
 
-[**XDK**Developer toolkit](https://docs.paxeer.app/xdk) [**7 SDKs**Language quickstarts](https://docs.paxeer.app/sdk-quickstarts) [**MCP**22 scoped tools](https://docs.paxeer.app/mcp) [**JSON-RPC**EVM chain 125](https://docs.paxeer.app/json-rpc) [**CLI**Command line](https://docs.paxeer.app/cli)
+[**XDK**Developer toolkit](https://docs.paxeer.app/xdk) [**7 SDKs**Language quickstarts](https://docs.paxeer.app/sdk-quickstarts) [**MCP**Scoped daemon tools](https://docs.paxeer.app/mcp) [**JSON-RPC**EVM chain 125](https://docs.paxeer.app/json-rpc) [**CLI**Command line](https://docs.paxeer.app/cli)
 
-[**Execution you can reproduce**Global sequencing and chained state roots create a canonical history. Deterministic execution makes independent replay and verification possible.](https://docs.paxeer.app/layerx-kernel) [**Authority with clear boundaries**Primary and session keys, scoped capabilities, delegated limits, revocation, rotation and recovery for every autonomous actor.](https://docs.paxeer.app/identity) [**Tools you already know**Deploy Solidity, connect wallets and call native precompiles through standard EVM tooling and JSON-RPC on chain 125.](https://docs.paxeer.app/evm)
+[**Execution you can reproduce**The node orders native activities and commits their state with BFT blocks. Deterministic execution supports replay with the required state and artifacts.](https://docs.paxeer.app/layerx-kernel) [**Authority with clear boundaries**Identity keys, scoped capabilities, delegated spending limits and revocation constrain authorized actions.](https://docs.paxeer.app/identity) [**Tools you already know**Deploy Solidity, connect wallets and call native precompiles through standard EVM tooling and JSON-RPC on chain 125.](https://docs.paxeer.app/evm)
 
-FRAGMENTED STACK
+APPLICATION NEEDS
 
-- Manual reconciliation per app
+- Reconcile payment outcomes
 
-- Identity siloed per domain
+- Identify an authorized actor
 
-- Payments detached from delivery
+- Link payment and delivery
 
-- Opaque, unrepeatable execution
+- Reproduce program execution
 
-- Trust the operator&rsquo;s word
+- Check settlement evidence
 
-- Custom glue for every agent
+- Connect agent tools
 
 PAXEER X
 
-- One accounting doorway (402LXP)
+- Native transfer settlement (402LXP)
 
 - EVM address bound to a LayerX DID
 
@@ -50,7 +50,7 @@ PAXEER X
 
 AGENTS
 
-### Give agents economic agency.
+### Configure agent authority.
 
 Create identities, delegate scoped authority, fund accounts and connect tools through SDKs, MCP and the agent daemon.
 
@@ -60,7 +60,7 @@ This path covers:
 
 - Budgets, mandates and revocation
 
-- 22 scoped MCP tools
+- Scoped MCP tools
 
 - Agent-to-agent tasks
 
@@ -68,7 +68,7 @@ This path covers:
 
 PAYMENTS START HERE
 
-### Move value with purpose.
+### Integrate native payments.
 
 Integrate transfers, escrow, budgets and payment streams. Connect service delivery to acceptance, receipts and disputes.
 
@@ -106,7 +106,7 @@ BUILD WITH THE FULL SYSTEM
 
 ## Find your interface. Follow it deeper.
 
-Architecture, integration guides and operational reference for every part of Paxeer X.
+Architecture, integration guides and operational reference for Paxeer X.
 
 [### LayerX kernel
 
@@ -142,7 +142,7 @@ Yes. Deploy Solidity with Foundry or Hardhat, connect wallets over JSON-RPC, and
 
 Start with installation and configuration, then the operator guides for BFT nodes, validators, RPC endpoints and retained chain history. [Run a node](https://docs.paxeer.app/run-node)
 
-## Build the application. Connect the economy.
+## Build an application. Connect to Paxeer.
 
 Choose a domain, integrate an interface and follow the evidence through the network.
 
