@@ -373842,7 +373842,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.288]
 title = "Bring the Python tests 1 to 26 of tools/qualification to the present pages and paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374130,7 +374130,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.279]
 title = "Bring the Python tests 231 to 255 of tools/qualification/audit_repairs to the present pages and paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374290,7 +374290,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.274]
 title = "Bring the Python tests 173 to 182 of tools/qualification/audit_repairs to the present pages and paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374354,7 +374354,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.272]
 title = "Bring the Python tests 153 to 162 of tools/qualification/audit_repairs to the present pages and paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
