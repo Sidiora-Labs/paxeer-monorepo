@@ -32,7 +32,18 @@ For an indexed transaction with successfully fetched traces, the HTTP raw-trace 
 
 `rung` is `submitted`, `receipted`, or `committed`; the two heights can be null. An indexed consensus transaction is committed when its block number is covered by the committed height. Missing block/head evidence leaves it submitted. A verified signed receipt can establish receipted status, while verified landing evidence can establish commitment before indexing catches up. A signed pre-commit receipt alone is not final execution. See [Status.of](../services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/status.ex).
 
-For an unknown hash, the handler attempts receipt verification through its configured provider; without verified evidence it returns 404. The optional provider configuration still uses the internal key `router_url` under `Explorer.Chain.PaxeerX.SequencerReceipt`; that name is a legacy implementation detail, not a deployed routing tier. The handler calls `pax_sequencerReceipt` and uses receipt keys; landing verification additionally requests the transaction receipt, consensus commit/validators, and `px_getSequenceBatch`. A public node's root URL alone does not guarantee all these provider methods.
+For an unknown hash, the handler attempts receipt verification through its
+configured provider; without verified evidence it returns 404.
+`PAXEER_X_GATEWAY_URL` supplies the internal `router_url` key under
+`Explorer.Chain.PaxeerX.SequencerReceipt`. The handler calls
+`pax_sequencerReceipt` and authenticates discovered receipt keys against the
+configured governed pins. Landing verification reads `eth_getTransactionReceipt`,
+`px_getCommit`, `px_getValidators`, and `px_getSequenceBatch` from the gateway,
+plus `block` and `block_results` from the consensus listener selected by
+`PAXEER_X_NODE_RPC_URL`. Result inclusion also uses the successor height's commit
+and validators. Configure the trusted chain, receipt keys and validator
+checkpoints through the [authority file](explorer-config.md#paxeer-capabilities).
+A public node's root URL alone does not supply all these reads or trust anchors.
 
 [TransactionSignatureController](../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/transaction_signature_controller.ex) serves `/signature` only after receipt verification. It adds `committed_height` when verified as committed. Unconfigured, unavailable, malformed, or unverified receipt material follows the not-found path; this endpoint does not manufacture a signature.
 

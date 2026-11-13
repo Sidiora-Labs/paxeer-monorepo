@@ -61,6 +61,7 @@ The feed channel replies with `{"reason":"invalid market id"}` for a malformed m
 | Block indexing topics | `index_status` | Indexing progress, including `finished` and `ratio` |
 | `transactions:new_transaction` | `transaction` | `{transaction: count}`; not a transaction object |
 | `transactions:new_pending_transaction` | `pending_transaction` | `{pending_transaction: count}` |
+| `transactions:<hash>` | `raw_trace` | `{raw_trace: [...]}` after an on-demand trace fetch |
 | `addresses:<hash>` | `transaction`, `pending_transaction` | Transaction arrays under `transactions` |
 | `addresses:<hash>` | `token_transfer` | Transfers under `token_transfers` |
 | `addresses:<hash>` | `balance`, `current_coin_balance`, `coin_balance`, `token_balance` | Balance value/history or invalidation data specific to the event |
@@ -79,8 +80,9 @@ Feed publication iterates submissions oldest first; market pushes require a succ
 ### Raw trace reads
 
 Read `GET /api/v2/transactions/:hash/raw-trace` after indexing for the trace array.
-Treat socket notifications as prompts to refresh HTTP data. An empty or missing
-push does not establish that a transaction has no traces.
+The V2 on-demand trace notification wraps the rendered array under `raw_trace`;
+the HTTP action returns the array directly. An empty or missing push does not
+establish that a transaction has no traces.
 
 ### Transaction commitment
 
@@ -92,7 +94,8 @@ These channel joins carry no durable replay cursor or missed-event log. After di
 
 The frontend [SocketProvider](../apps/explorer/lib/socket/context.tsx) owns the Phoenix connection and disconnects on unmount. [useSocketChannel](../apps/explorer/lib/socket/useSocketChannel.tsx) shares channels by topic with subscriber counts; the last subscriber leaves and removes the registry entry. It installs close/error callbacks when provided. [useSocketMessage](../apps/explorer/lib/socket/useSocketMessage.tsx) removes its event handler on cleanup.
 
-Components reconcile state through HTTP reads after reconnection.
+Consumers should refetch HTTP snapshots when channels rejoin; the shared socket
+hooks manage subscriptions, while each component owns its data reconciliation.
 [useFeedSocket](../apps/explorer/ui/paxeerX/feed/useFeedSocket.ts) marks the feed
 down on close/error and uses a five-second HTTP fallback while unjoined;
 overview/history buffers are bounded at 200/50. Refresh transaction status after

@@ -44,7 +44,11 @@ The following fields are shared by both services. Addresses are IP socket addres
 | `block_on_origin_mismatch` | bool | `false` |
 | `send_wildcard` | bool | `false` |
 
-Enabled CORS splits origins and methods on commas and trims whitespace. Origin `*` allows any origin. The launcher installs CORS middleware only when enabled. CORS is browser request policy, not user authentication; invalid Actix combinations can still fail startup.
+Enabled CORS accepts any request header and splits origins and methods on commas,
+trimming whitespace. An `allowed_origin` value consisting solely of `*` allows
+any origin. The launcher installs CORS middleware only when enabled. CORS is
+browser request policy, not user authentication; invalid Actix combinations can
+still fail startup.
 
 ## Cfg sig provider
 

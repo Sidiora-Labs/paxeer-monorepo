@@ -30,7 +30,12 @@ These are application metric names before Prometheus exposition adds histogram b
 | `json_rpc_throttle_wait_time_milliseconds` | histogram | `class`; milliseconds |
 | `json_rpc_throttle_coalesced_count` | counter | `class`; requests sharing an in-flight request |
 
-`class` is `default`, `archive`, or `trace`. Endpoint URLs are deliberately excluded from labels because they can contain credentials. Wait histogram buckets are 1, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 30000, and 60000 ms. Preserve that unit when calculating quantiles.
+`class` is `default`, `archive`, or `trace`. The gauges aggregate endpoints within
+each class; queue depth includes coalesced callers waiting on the same in-flight
+result. Endpoint URLs are deliberately excluded from labels because they can
+contain credentials. Wait histogram buckets are 1, 5, 10, 25, 50, 100, 250, 500,
+1000, 2500, 5000, 10000, 30000, and 60000 ms. Preserve that unit when calculating
+quantiles.
 
 ### Indexer
 
