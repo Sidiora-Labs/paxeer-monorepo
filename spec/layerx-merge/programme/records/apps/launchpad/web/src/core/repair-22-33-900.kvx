@@ -33,7 +33,7 @@ proof = "All three override variables fail visibly on insecure, credential-beari
 fixture_status = "Recorded current Go producer response with eligible surface roles; the gate consumes only the committed recording and loopback TLS fixtures."
 tests = ["authorityProductionCoverageAcceptsCurrentGoProducer", "authorityProductionCoverageRefusesChangedRuntimeAndRevision", "privateFixtureProfileRefusedInProduction", "privateFixtureProfileParsedOutsideProduction"]
 proof = "The production suite replays an unchanged current Go authority response over real HTTPS into loadRuntimeAuthority, checks surface pins and committed-head consumption, and refuses changed runtime and both corrupt and internally consistent changed revisions. Existing private-fixture refusals execute in the same gate."
-recording = "test-fixtures/authority-production/go-authority.json is unchanged stdout from GOWORK=off go run /work/paxeer-monorepo/apps/launchpad/web/src/core/repair-22-31-22/attest.go, run from sdk/launchpad/shared during implementation. The gate itself launches no Go, openssl or live endpoint."
+recording = "test-fixtures/authority-production/go-authority.json is unchanged stdout from GOWORK=off go run /work/paxeer-monorepo/apps/launchpad/web/src/core/authority-attestation/attest.go, run from sdk/launchpad/shared during implementation. The gate itself launches no Go, openssl or live endpoint."
 recording_sha256 = "3978b449e751a72c754f033045a9e832594722143d01faf79cba400ca9b7a566"
 
 [gotcha.test_registration]

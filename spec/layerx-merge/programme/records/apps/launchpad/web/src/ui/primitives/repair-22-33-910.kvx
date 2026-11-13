@@ -1,6 +1,6 @@
 [repair.22.33.910]
 audit = "22.30.20"
-test_file = "apps/launchpad/web/src/ui/primitives/repair-22-33-910.test.ts"
+test_file = "apps/launchpad/web/src/ui/primitives/interaction-and-popover-position.test.ts"
 baseline = "Not run: the explicit implementation-first order and gate limits prohibit running verify before implementation; no pre-change execution is claimed."
 wiring_requests = []
 evidence = "The runner records the qualified revision, command, exit and private log through hf-build and hf-done."

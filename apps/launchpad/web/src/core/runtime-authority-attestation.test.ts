@@ -39,7 +39,7 @@ const requests: string[] = [];
 
 beforeAll(async () => {
   const root = resolve(__dirname, '../../../../..');
-  const produced = await execute('go', ['run', resolve(__dirname, 'repair-22-31-22/attest.go')], {
+  const produced = await execute('go', ['run', resolve(__dirname, 'authority-attestation/attest.go')], {
     cwd: join(root, 'sdk/launchpad/shared'),
     env: { ...process.env, GOWORK: 'off' },
     timeout: 240_000,
