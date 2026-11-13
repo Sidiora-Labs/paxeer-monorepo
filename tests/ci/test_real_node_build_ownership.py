@@ -7,10 +7,13 @@ import sys
 import tempfile
 import unittest
 
+import pytest
+
 
 HELPER = pathlib.Path(__file__).resolve().parents[2] / "scripts/ci/restore-build-ownership.py"
 
 
+@pytest.mark.native
 class BuildOwnership(unittest.TestCase):
     def setUp(self):
         if os.geteuid() != 0:

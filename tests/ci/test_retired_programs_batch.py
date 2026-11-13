@@ -4,7 +4,10 @@ from retired_tests import (
     build_and_run_c_suite,
 )
 
+import pytest
 
+
+@pytest.mark.native
 def test_programs_batch_retired():
     assert_paths_absent(
         [
