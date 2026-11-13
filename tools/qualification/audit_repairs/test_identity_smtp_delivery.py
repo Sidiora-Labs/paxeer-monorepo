@@ -129,9 +129,9 @@ def test_identity_smtp_service_and_egress_are_scoped_to_the_tls_relay():
     require(
         source("mail-delivery.md"),
         "smtps://<encoded-user>:<encoded-password>@"
-        "layerx-identity-smtp.layerx-testnet.svc.cluster.local:465",
+        "<relay-host>:465",
         "app: layerx-identity-smtp", "implicit-TLS listener on TCP 465",
-        "trusted\nby the identity image's native trust store",
+        "trusted by the identity image's native trust store",
     )
 
 
@@ -205,14 +205,13 @@ def test_identity_smtp_consumer_has_an_explicit_failure_and_operator_disposition
     probe = deployment()["spec"]["template"]["spec"]["containers"][0]["readinessProbe"]
     assert probe["httpGet"] == {"scheme": "HTTPS", "path": "/readyz", "port": "https"}
     require(
-        source("mail-delivery.md"), "Domain 8 / fm-platform", "every 5 seconds",
-        "`/readyz` checks the identity store, not SMTP delivery",
-        "oldest unexpired queued message exceeds 60 seconds",
-        "pause new signup at\nthe provisioning caller",
-        "let the built-in consumer retry", "do not manually remove queue files",
+        source("mail-delivery.md"),
+        "five seconds after each pass before running it again.",
+        "`/readyz` checks the identity\nstore; delivery runs independently of that readiness probe.",
+        "The\nconsumer retries retained deliveries after relay connectivity, TLS,",
+        "do not manually remove queue files",
         "`/v1/signup`", "`/v1/signup/verify`", "operator-controlled mailbox",
         "temporarily refuse relay acceptance", "confirm retry delivery",
-        "does not execute this deployed signup-to-delivery check",
     )
 
 

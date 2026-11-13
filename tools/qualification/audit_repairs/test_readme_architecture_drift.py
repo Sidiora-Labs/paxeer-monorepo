@@ -15,7 +15,9 @@ from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[3]
 RECORD = ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_1296.kvx"
-README = (ROOT / "README.md").read_text(encoding="utf-8")
+NETWORK_PAGE = ROOT / "docs/readme/NETWORK.md"
+README = NETWORK_PAGE.read_text(encoding="utf-8")
+RPC_REFERENCE = (ROOT / "docs/readme/PUBLIC-RPC.md").read_text(encoding="utf-8")
 
 
 def source(path):
@@ -58,6 +60,9 @@ def make_rule(path, target):
 
 def test_single_paxd_network_embeds_kernel_and_commits_receipts():
     overview = section("What is Paxeer X Network?", 2)
+    assert "There is no separate LayerX interface, router, or sequencer service to deploy." in source(
+        "docs/wiki/PaxeerBoundary.md"
+    )
     for fact in (
         "one BFT network", "chain ID **125** (`0x7d`)",
         "kernel is embedded in the node", "proposes blocks inside `paxd`",
@@ -65,7 +70,7 @@ def test_single_paxd_network_embeds_kernel_and_commits_receipts():
         "A receipt is final once its block is committed",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
         "External checkpoint settlement is retired",
-        "no router and no separate LayerX interface",
+        "The public API reaches the node directly at the root path on EVM chain ID 125",
     ):
         assert fact in overview, fact
     assert "app.LayerXHost, err = NewHost(" in source("node/app.go")
@@ -88,17 +93,17 @@ def test_single_paxd_network_embeds_kernel_and_commits_receipts():
 
 def test_public_rpc_range_and_chain_probe_use_https_root_urls():
     quickstart = section("Quick start: connect to chain 125")
-    assert "Public node JSON-RPC uses the root URL" in quickstart
-    assert "root path of these hosts, without a route suffix" in quickstart
+    assert "Send HTTPS JSON-RPC requests to the root path without a route suffix." in quickstart
+    assert "root path without a route suffix" in quickstart
     match = re.search(
-        r"numbered nodes `https://api(\d+)\.mainnet-beta\.paxeer\.network` "
-        r"through `https://api(\d+)\.mainnet-beta\.paxeer\.network`", quickstart,
+        r"Use `api(\d+)` through `api(\d+)\.mainnet-beta\.paxeer\.network`",
+        RPC_REFERENCE,
     )
     assert match is not None
     assert tuple(map(int, match.groups())) == (1, 14)
     hosts = {f"api{i}.mainnet-beta.paxeer.network" for i in range(1, 15)}
     hosts.add("api-mainnet-beta.paxeer.network")
-    urls = re.findall(r"https?://[^\s`<>)]+", README)
+    urls = re.findall(r"https?://[^\s`<>)]+", RPC_REFERENCE)
     public_urls = [urlsplit(url) for url in urls if urlsplit(url).hostname in hosts]
     assert public_urls
     for url in public_urls:
@@ -111,15 +116,15 @@ def test_public_rpc_range_and_chain_probe_use_https_root_urls():
     assert argv[0] == "curl"
     assert argv[argv.index("--max-time") + 1] == "10"
     assert argv[argv.index("-H") + 1] == "Content-Type: application/json"
-    assert [arg for arg in argv if arg.startswith("https://")] == [
-        "https://api1.mainnet-beta.paxeer.network"
+    assert [arg for arg in argv if arg.startswith(("https://", "http://", "$"))] == [
+        "$PAXEER_RPC_URL"
     ]
     assert json.loads(argv[argv.index("-d") + 1]) == {
         "jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": [],
     }
     assert '# Expected result: "0x7d"' in blocks[0]
-    assert "node.hyperpaxeer.com` is only the hpx library mirror" in quickstart
-    assert "never a JSON-RPC endpoint" in quickstart
+    assert "node.hyperpaxeer.com` is only the hpx library mirror" in RPC_REFERENCE
+    assert "never a JSON-RPC endpoint" in RPC_REFERENCE
     assert 'if path == "" {\n\t\treturn r.URL.Path == "/"' in source("rpc/rpcstack.go")
 
 
@@ -250,12 +255,12 @@ def test_operator_commands_build_linked_paxd_and_start_that_binary():
 
 def test_maintained_architecture_source_and_cited_paths_are_current():
     spec = section("Specification", 2)
-    assert "This README is the maintained architecture entry point" in spec
+    assert "This reference page describes the integrated network architecture" in spec
     assert "translated and archived pages must be read against this network model" in spec
     assert "Source directory names describe code organization, not separate network deployments" in README
     for target in re.findall(r"\]\(([^)]+)\)", README):
         if not target.startswith(("https:", "http:", "#")):
-            assert (ROOT / target.split("#", 1)[0]).exists(), target
+            assert (NETWORK_PAGE.parent / target.split("#", 1)[0]).exists(), target
 
 
 def test_repair_record_maps_the_finding_to_all_proofs_and_private_evidence():
