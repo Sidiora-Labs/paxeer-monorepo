@@ -6,7 +6,7 @@ Paxeer mainnet-beta is one BFT network with EVM chain ID `125` (`0x7d`). Its ker
 
 ## Install and build
 
-The package is a member of the [`services/wallet` pnpm workspace](../../services/wallet/pnpm-workspace.yaml). Workspace consumers can depend on `"@paxeer/wallet": "workspace:*"`; [`apps/wallet`](../../apps/wallet/package.json) uses `link:../../sdk/wallet`. The entry points are `@paxeer/wallet`, `@paxeer/wallet/react` and `@paxeer/wallet/provider`. React is an optional peer dependency (version 18 or later).
+The package is a member of the [`services/wallet` pnpm workspace](../../services/wallet/pnpm-workspace.yaml). Workspace consumers can depend on `"@paxeer/wallet": "workspace:*"`; [`apps/wallet`](../../apps/wallet/package.json) uses `link:../../sdk/wallet`. The entry points are `@paxeer/wallet`, `@paxeer/wallet/react`, `@paxeer/wallet/provider`, `@paxeer/wallet/receipt` and `@paxeer/wallet/types`. The last three expose TypeScript source and require a consumer that supports it. React is an optional peer dependency (version 18 or later).
 
 From the repository root:
 
@@ -87,7 +87,7 @@ Approval records consent and does not broadcast. The gateway has an [EVM signing
 
 ## Authenticated receipts
 
-`sendTransaction()` returns `{ tx_hash, address, chain_id, receipt? }`. It validates the send response, authenticates any returned receipt, and otherwise queries `pax_sequencerReceipt` through the wallet's `chain.rpc_url`. A missing receipt is still pending evidence, not transaction failure. A receipt lookup or authentication error can occur after broadcast; retain the original transaction hash and reconcile before submitting again.
+`sendTransaction()` returns `{ tx_hash, address, chain_id, receipt? }`. It validates the send response and preserves a returned `submitted` answer as pending. It authenticates any execution receipt, and queries `pax_sequencerReceipt` through the wallet's `chain.rpc_url` when no receipt was returned. A missing receipt is still pending evidence, not transaction failure. A receipt lookup or authentication error can occur after broadcast; retain the original transaction hash and reconcile before submitting again.
 
 The wire API and exported types retain the names `pax_sequencerReceipt` and `SequencerReceiptAnswer`. These describe receipts from the merged network's kernel. The receipt stages are:
 
@@ -121,7 +121,7 @@ try {
 }
 ```
 
-`readSequencerReceipt(rpc, hash)` performs one authenticated lookup and can return `null`. `authenticateSequencerReceipt(rpc, value, expectedHash)` authenticates an existing answer. `waitForSequencerReceipt` also accepts an `AbortSignal`; its polling limit bounds attempts, not the duration of each fetch. A timeout does not cancel or reverse the submitted transaction.
+`readSequencerReceipt(rpc, hash)` performs one lookup and can return `null` or a pending `submitted` answer. It authenticates `receipted` and `committed` answers. `authenticateSequencerReceipt(rpc, value, expectedHash)` authenticates an existing answer. `waitForSequencerReceipt` also accepts an `AbortSignal`; its polling limit bounds attempts, not the duration of each fetch. A timeout does not cancel or reverse the submitted transaction.
 
 ## Usage (React)
 
@@ -175,10 +175,10 @@ Wallet HTTP failures use `PaxeerWalletError` with `code`, `status` and `detail`;
 
 ## Node reads and hosted operations
 
-`EndpointClient` defaults to `https://api-mainnet-beta.paxeer.network` for node calls. Public node JSON-RPC uses the root URL of that alias or `api1` through `api14.mainnet-beta.paxeer.network`, with chain ID `125`. See [public RPC endpoints](../../docs/site/docs/reference/public-rpc.md).
+`EndpointClient` uses the public alias in `DEFAULT_ENDPOINT_URL` for node calls. Public node JSON-RPC uses the root URL, with chain ID `125`. See [public RPC endpoints](../../docs/site/docs/reference/public-rpc.md).
 
 Set `nodeUrl` (or the legacy `url` option) to choose a node. `px_` reads go to the node root; only `px_register` and `px_requestFunds` require `hostedUrl`. Account, asset, balance, network, capabilities and history reads use the node, as does `px_getReceiptKeys`. Configure `hostedUrl` separately for the hosted gateway's two operations; its contract is [OpenRPC](../../services/platform/hosted/gateway/openrpc.json).
 
-`EndpointClient.batch()` uses the same split: it sends `px_register` and `px_requestFunds` to the hosted gateway and all other methods, including `px_getReceiptKeys`, to the node, then returns results in the original call order. Without `hostedUrl`, a batch containing either hosted operation throws `JsonRpcTransportError`. The legacy error message refers to hosted reads, but read-only batches do not require `hostedUrl`.
+`EndpointClient.batch()` uses the same split: it sends `px_register` and `px_requestFunds` to the hosted gateway and all other methods, including `px_getReceiptKeys`, to the node, then returns results in the original call order. Without `hostedUrl`, a batch containing either hosted operation throws `JsonRpcTransportError`. Read-only batches do not require `hostedUrl`.
 
 `KernelClient` uses this endpoint and `KernelAvailability` to return either `{ available: true, result }` or a typed unavailable state. Availability depends on a consensus head that is not catching up. Recognized kernel-unavailable responses use JSON-RPC code `-32010` with `data.code = "kernel_unavailable"`; unrelated errors propagate. These clients access the same network and its hosted services.
