@@ -1,0 +1,64 @@
+[manifest]
+task = "22.43.67"
+records_moved = 5
+files_renamed = 6
+
+[file.1]
+from = "modules/perps/keeper/repair_14.kvx"
+to = "spec/layerx-merge/programme/records/modules/perps/keeper/repair_14.kvx"
+
+[file.2]
+from = "modules/perps/keeper/repair_m363.kvx"
+to = "spec/layerx-merge/programme/records/modules/perps/keeper/repair_m363.kvx"
+
+[file.3]
+from = "modules/perps/repair_16.kvx"
+to = "spec/layerx-merge/programme/records/modules/perps/repair_16.kvx"
+
+[file.4]
+from = "modules/perps/types/repair_15.kvx"
+to = "spec/layerx-merge/programme/records/modules/perps/types/repair_15.kvx"
+
+[file.5]
+from = "modules/perps/types/repair_m364.kvx"
+to = "spec/layerx-merge/programme/records/modules/perps/types/repair_m364.kvx"
+
+[file.6]
+from = "modules/perps/keeper/repair_14_test.go"
+to = "modules/perps/keeper/precompile_keeper_contract_test.go"
+
+[file.7]
+from = "modules/perps/keeper/repair_14_adl_test.go"
+to = "modules/perps/keeper/adl_persistence_test.go"
+
+[file.8]
+from = "modules/perps/keeper/repair_m363_test.go"
+to = "modules/perps/keeper/execution_policy_test.go"
+
+[file.9]
+from = "modules/perps/repair_16_test.go"
+to = "modules/perps/module_genesis_transport_test.go"
+
+[file.10]
+from = "modules/perps/types/repair_15_test.go"
+to = "modules/perps/types/validation_transport_test.go"
+
+[file.11]
+from = "modules/perps/types/repair_m364_test.go"
+to = "modules/perps/types/genesis_error_contract_test.go"
+
+[reference.1]
+file = "spec/layerx-merge/qualification.kvx"
+name = "modules/perps/keeper/repair_14_test.go"
+
+[reference.2]
+file = "spec/layerx-merge/qualification.kvx"
+name = "modules/perps/keeper/repair_m363_test.go"
+
+[reference.3]
+file = "spec/layerx-merge/dispositions/d22-27.kvx"
+name = "modules/perps/keeper/repair_m363_test.go"
+
+[reference.4]
+file = "spec/layerx-merge/dispositions/d22-17.kvx"
+name = "modules/perps/keeper/repair_14_test.go"

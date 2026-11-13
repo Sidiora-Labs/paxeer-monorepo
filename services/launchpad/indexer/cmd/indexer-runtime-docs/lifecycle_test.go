@@ -19,7 +19,7 @@ import (
 
 func recordedCurrentAnchor(t *testing.T) (json.RawMessage, uint64, common.Hash) {
 	t.Helper()
-	body, err := os.ReadFile("../../internal/receipt/testdata/repair53-producer.json")
+	body, err := os.ReadFile("../../internal/receipt/testdata/producer_receipts.json")
 	if err != nil {
 		t.Fatal(err)
 	}
