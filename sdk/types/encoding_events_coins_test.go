@@ -20,7 +20,7 @@ import (
 	distrtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/distribution/types"
 )
 
-func TestRepairM_645_AddressPrefixCache(t *testing.T) {
+func TestAddressPrefixCache(t *testing.T) {
 	config := sdk.GetConfig()
 	cases := []struct {
 		name         string
@@ -66,7 +66,7 @@ func TestRepairM_645_AddressPrefixCache(t *testing.T) {
 	}
 }
 
-func TestRepairM_645_EncoderResultPropagation(t *testing.T) {
+func TestEncoderResultPropagation(t *testing.T) {
 	s := new(configTestSuite)
 	s.SetT(t)
 	s.TestConfig_SetTxEncoder()
@@ -86,7 +86,7 @@ func TestRepairM_645_EncoderResultPropagation(t *testing.T) {
 	require.Panics(t, func() { config.SetTxEncoder(nil) })
 }
 
-func TestRepairM_645_CachedContextEVMEvents(t *testing.T) {
+func TestCachedContextEVMEvents(t *testing.T) {
 	key := sdk.NewKVStoreKey("repair-m645")
 	ctx := testutil.DefaultContext(key, sdk.NewTransientStoreKey("repair-m645-transient"))
 	rootLog := &ethtypes.Log{Address: common.BytesToAddress([]byte{1}), Topics: []common.Hash{common.BytesToHash([]byte{1})}, Data: []byte("root")}
@@ -148,7 +148,7 @@ func TestRepairM_645_CachedContextEVMEvents(t *testing.T) {
 	require.Nil(t, ctx.KVStore(key).Get([]byte("failed-nested")))
 }
 
-func TestRepairM_645_DecCoinsZeroConversion(t *testing.T) {
+func TestDecCoinsZeroConversion(t *testing.T) {
 	cases := []struct {
 		name  string
 		input sdk.Coins
@@ -190,7 +190,7 @@ func TestRepairM_645_DecCoinsZeroConversion(t *testing.T) {
 	}
 }
 
-func TestRepairM_645_DecCoinsUnionOrder(t *testing.T) {
+func TestDecCoinsUnionOrder(t *testing.T) {
 	left := sdk.NewDecCoins(sdk.NewDecCoinFromDec("aaa", sdk.MustNewDecFromStr("1.25")), sdk.NewInt64DecCoin("ccc", 8), sdk.NewInt64DecCoin("eee", 2))
 	right := sdk.NewDecCoins(sdk.NewInt64DecCoin("bbb", 3), sdk.NewInt64DecCoin("ccc", 6), sdk.NewDecCoinFromDec("eee", sdk.MustNewDecFromStr("2.5")), sdk.NewInt64DecCoin("zzz", 9))
 	want := sdk.NewDecCoins(left[0], right[0], left[1], right[2], right[3])
@@ -214,17 +214,17 @@ func TestRepairM_645_DecCoinsUnionOrder(t *testing.T) {
 	require.Equal(t, "3.000000000000000000bbb,6.000000000000000000ccc,2.500000000000000000eee,9.000000000000000000zzz", right.String())
 }
 
-func TestRepairM_645_UnionTestResult(t *testing.T) {
+func TestUnionMaxResult(t *testing.T) {
 	s := new(decCoinTestSuite)
 	s.SetT(t)
 	s.TestUnionMax()
 }
 
-func TestRepairM_645_CeilOverflowBoundary(t *testing.T) {
+func TestCeilOverflowBoundary(t *testing.T) {
 	TestCeilOverflow(t)
 }
 
-func TestRepairM_645_NormalizationGenesis(t *testing.T) {
+func TestNormalizationGenesis(t *testing.T) {
 	sdk.Repair293RegisterDenoms(t)
 	cases := []struct {
 		input  string

@@ -18,14 +18,14 @@ import (
 	banktypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/types"
 )
 
-func TestRepairM_649_Paginate(t *testing.T) {
-	repairM649StorePages(t, func(store storetypes.KVStore, request *query.PageRequest, onResult func([]byte, []byte) error) (*query.PageResponse, error) {
+func TestReversePagination(t *testing.T) {
+	reversePaginationStorePages(t, func(store storetypes.KVStore, request *query.PageRequest, onResult func([]byte, []byte) error) (*query.PageResponse, error) {
 		return query.Paginate(store, request, onResult)
 	})
 }
 
-func TestRepairM_649_FilteredPaginate(t *testing.T) {
-	repairM649StorePages(t, func(store storetypes.KVStore, request *query.PageRequest, onResult func([]byte, []byte) error) (*query.PageResponse, error) {
+func TestFilteredReversePagination(t *testing.T) {
+	reversePaginationStorePages(t, func(store storetypes.KVStore, request *query.PageRequest, onResult func([]byte, []byte) error) (*query.PageResponse, error) {
 		return query.FilteredPaginate(store, request, func(key, value []byte, accumulate bool) (bool, error) {
 			if !accumulate {
 				return true, nil
@@ -35,7 +35,7 @@ func TestRepairM_649_FilteredPaginate(t *testing.T) {
 	})
 }
 
-func repairM649StorePages(t *testing.T, paginate func(storetypes.KVStore, *query.PageRequest, func([]byte, []byte) error) (*query.PageResponse, error)) {
+func reversePaginationStorePages(t *testing.T, paginate func(storetypes.KVStore, *query.PageRequest, func([]byte, []byte) error) (*query.PageResponse, error)) {
 	t.Helper()
 	all := []string{"\xff\xff", "\xff", "e", "c", "a\x01", "a\x00", "a"}
 	cases := []struct {
@@ -123,7 +123,7 @@ func repairM649StorePages(t *testing.T, paginate func(storetypes.KVStore, *query
 	}
 }
 
-func TestRepairM_649_BankQuery(t *testing.T) {
+func TestReverseBankQuery(t *testing.T) {
 	app, ctx, _ := setupTest(t)
 	addr := sdk.AccAddress(bytes.Repeat([]byte{0x64}, 20))
 	emptyAddr := sdk.AccAddress(bytes.Repeat([]byte{0x65}, 20))
