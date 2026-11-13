@@ -169752,7 +169752,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.179]
 title = "Give the example environment files of the deployments under apps/perps and apps/explorer the values of the deployment again"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -204726,7 +204726,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.146]
 title = "Move the task records and name the files after what they hold in services/explorer/services/smart-contract-verifier"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -204758,7 +204758,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.145]
 title = "Move the task records and name the files after what they hold in services/explorer/services/sig-provider"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -204790,7 +204790,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.144]
 title = "Move the task records and name the files after what they hold in services/explorer/services/libs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -204950,7 +204950,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.129]
 title = "Move the task records and name the files after what they hold in services/agent/crates/layerx-agentd/tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -205014,7 +205014,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.127]
 title = "Move the task records and name the files after what they hold in services/agent and 3 more directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -239038,7 +239038,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.162]
 title = "Move the task records and name the files after what they hold in services/launchpad/social"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -239102,7 +239102,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.160]
 title = "Move the task records and name the files after what they hold in services/launchpad/pnl-tracker"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -239134,7 +239134,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.159]
 title = "Move the task records and name the files after what they hold in services/launchpad/livestream and 2 more directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -239198,7 +239198,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.157]
 title = "Move the task records and name the files after what they hold in services/launchpad/gateway"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -239230,7 +239230,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.156]
 title = "Move the task records and name the files after what they hold in services/launchpad/api and 1 more directory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -239294,7 +239294,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.135]
 title = "Move the task records and name the files after what they hold in services/bridge"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373890,7 +373890,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.143]
 title = "Move the task records and name the files after what they hold in services/explorer/backend/apps/nft_media_handler and 2 more directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -448754,7 +448754,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.142]
 title = "Move the task records and name the files after what they hold in services/explorer/backend/apps/indexer/test"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -448786,7 +448786,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.141]
 title = "Move the task records and name the files after what they hold in services/explorer/backend/apps/explorer/test/support and 1 more directory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -448850,7 +448850,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.139]
 title = "Move the task records and name the files after what they hold in services/explorer/backend/apps/explorer/lib and 2 more directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -448882,7 +448882,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.138]
 title = "Move the task records and name the files after what they hold in services/explorer/backend/apps/ethereum_jsonrpc and 1 more directory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
