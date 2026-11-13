@@ -1,6 +1,6 @@
 # Express quickstart
 
-Charge for a route you already have. Eight lines mount a payment gate in front of it and a verified webhook endpoint beside it.
+Mount a payment gate and a verified webhook endpoint on an Express application.
 
 ## Before you start
 
@@ -99,7 +99,11 @@ export class FileFulfillmentRepository {
 
 It creates one record per key with `wx`, syncs it before returning, and raises `fulfillment-conflict` for a different request digest. The resource callback runs before record creation; use an idempotent callback and storage that coordinates concurrent requests and restarts when fulfilment has side effects.
 
+The sample's `SingleProcessWebhookDeliveryStore` keeps delivery claims in memory. Supply a shared durable delivery store when claims must survive restarts or coordinate multiple workers.
+
 ## Run it
+
+Supply the required seller and webhook configuration before starting. The sample listens on loopback port `8080` unless `PORT` selects another port.
 
 ```sh
 cd services/platform/examples/samples/paid-endpoint-express

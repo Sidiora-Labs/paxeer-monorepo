@@ -1,104 +1,90 @@
 # The emulator
 
-The emulator is a local compatibility environment. It runs the LayerX kernel's real core transition and produces compatibility receipts, with controls to set the clock, prefund an account, inject a fault and snapshot state. It does not reproduce Paxeer X Network's consensus or committed block evidence.
+The emulator is a local inspection environment around the LayerX core. It
+provides account prefunding, clock controls and snapshot export and import.
+Payment execution uses a merged-network node and signed EVM transactions.
+The emulator does not participate in consensus or establish block commitment.
 
 ## Starting it
 
-The emulator has no compiled-in signing authority. `layerx emulator provision` generates the sequencer seed under your profile directory, readable only by you, and publishes the matching trust anchor beside it; `layerx emulator up` requires the seed path.
-
-Secure provisioning is supported on Linux, Android and Apple hosts. Other host targets fail closed before writing profile material because they do not provide the atomic owner-only directory publication this command requires.
+`layerx emulator provision` generates a sequencer seed and publishes its trust
+anchor under the CLI profile directory. Provisioning uses owner-only storage
+and is supported on Linux, Android and Apple hosts.
 
 ```sh
 layerx emulator provision
 layerx emulator up --sequencer-seed-file "$HOME/.config/layerx/emulator/sequencer.seed"
 ```
 
-Defaults: listen on `127.0.0.1:9402`, network id `402`, clock at `1700000000000` milliseconds. Override any of them:
+The seed path above assumes the default profile location. Use the path reported
+by provisioning when `LAYERX_CONFIG` or `XDG_CONFIG_HOME` selects another
+location.
+
+Defaults are loopback port `9402`, network id `402`, protocol version `2` and
+clock `1700000000000` milliseconds. The listener accepts only loopback addresses.
+For example:
 
 ```sh
 layerx emulator up \
   --sequencer-seed-file "$HOME/.config/layerx/emulator/sequencer.seed" \
   --listen 127.0.0.1:9402 \
   --network-id 402 \
+  --protocol-version 2 \
   --time-ms 1700000000000 \
-  --prefund did:layerx:alice,<64-hex-public-key>,1000000
+  --prefund 'did:layerx:sample,<64-hex-public-key>,1000000'
 ```
 
-`--prefund` may be repeated. Its format is `did,64-hex-public-key,amount`, where the amount is either a plain integer or `high:low` for values beyond 64 bits.
+`--protocol-version` accepts `2` or `3`. Repeat `--prefund` to initialize more
+accounts. Its format is `did,64-hex-public-key,amount`; amount is a 64-bit
+unsigned integer or two unsigned 64-bit words in `high:low` form.
 
-Configure the local compatibility endpoint:
+## Binding the local profile
 
 ```sh
-export LAYERX_API_URL=http://127.0.0.1:9402
 layerx environment use emulator --endpoint http://127.0.0.1:9402 --network-id 402 \
   --sequencer-trust-anchor-file "$HOME/.config/layerx/emulator/sequencer.anchor"
 ```
 
-The CLI reads the published anchor, fetches the identity the running emulator advertises on `GET /v1/sequencer`, and saves the profile only when the network id and the sequencer public key both agree.
+The CLI compares the supplied network identifier and trust anchor with
+`GET /v1/sequencer` before saving the profile. This binds the local identity;
+it does not provide payment or finality evidence.
 
-## Starting it from the reference applications
-
-`node services/platform/examples/run-reference-apps.mjs --scenario emulator` does all of the above for you on a host that has the CLI built. It resolves the binary from the first of `$LAYERX_BIN`, `build/bin/layerx`, and `layerx` on `PATH`, provisions the sequencer identity into a scratch profile directory, creates its signing keys with `layerx key create`, starts `layerx emulator up` with `--protocol-version 3` (the compatibility activity version selected by the reference runner; the emulator default is `2`), `--time-ms` set to the current clock and one `--prefund` per DID, polls `GET /healthz` until it reports `ready`, and terminates the emulator and removes the scratch profile when the run ends, including on failure. Every `LAYERX_EMULATOR_*` value the applications need is then read back out of that emulator - the asset from a real transfer receipt, the account identifiers from `GET /v1/state` - rather than being hand-set. Set any of those variables yourself to override one input, or `LAYERX_EMULATOR_SEED_FILE` to start from a seed you already provisioned. The reference application [README](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/345655b6e6e4a193455b9aa34fcc9e5961188d42/services/platform/examples/README.md) lists every derived input.
-
-Loopback `http://` is accepted here and only here. Every non-loopback endpoint must be `https://`, in the CLI and in the middleware transport alike, and that is a refusal rather than a warning.
-
-## The protocol surface
+## Inspection routes
 
 | Method and path | Purpose |
 |---|---|
-| `GET /healthz` | Readiness; `status` is `ready` once the core answers |
-| `GET /v1/sequencer` | Network id and the sequencer public key receipts are signed with |
-| `POST /v1/activities` | Submit a canonical activity, receive a receipt |
-| `GET /v1/state` | State root, next sequence, batch number, clock, cell and account counts |
-| `GET /v1/receipts/{id}` | Exact receipt material |
+| `GET /healthz` | Reports `ready` when the core can be inspected |
+| `GET /v1/surface` | Lists routes and supported operations |
+| `GET /v1/sequencer` | Reports the configured network id and public key |
+| `GET /v1/state` | Reports state roots, sequence, batch, clock, cells and accounts |
+| `GET /v1/dids/{did}/sequence` | Reads an identity's sequence from local state |
+| `GET /v1/journeys/{id}` | Reads journey records present in an imported snapshot |
 
-These are the local endpoints. `layerx receipt verify` is a local compatibility verifier for receipts fetched here and the caller-supplied batch facts the emulator reports. A successful check establishes consistency with those facts, not public-chain finality.
-
-## The control surface
-
-Everything under `/__emulator` exists only here. It is what makes tests deterministic instead of flaky.
+## Control routes
 
 | Method and path | Purpose |
 |---|---|
-| `POST /__emulator/accounts/prefund` | Fund an account without a faucet |
-| `POST /__emulator/time/set` | Set the clock to an exact millisecond |
-| `POST /__emulator/time/advance` | Move the clock forward by a delta |
-| `POST /__emulator/faults` | Inject a fault |
-| `GET /__emulator/snapshot` | Export the whole state |
-| `PUT /__emulator/snapshot` | Import a previously exported state |
+| `POST /__emulator/accounts/prefund` | Initializes an account balance |
+| `POST /__emulator/time/set` | Sets the core clock in milliseconds |
+| `POST /__emulator/time/advance` | Advances the core clock by a delta |
+| `POST /__emulator/faults` | Configures core fault injection |
+| `GET /__emulator/snapshot` | Exports core state and recovery metadata |
+| `PUT /__emulator/snapshot` | Imports a validated snapshot |
 
-Fault kinds are `reject`, `drop_receipt` and `corrupt_receipt`, each with an optional `count` (default 1).
+Fault kinds are `reject`, `drop_receipt` and `corrupt_receipt`. The optional
+`count` defaults to `1` and accepts values from `1` to `1000000`. These controls
+configure the local core; they do not inject faults into a network node.
 
-Those three are the ones worth building tests around, because they are the failure modes that separate correct integrations from lucky ones:
+Snapshots retain account metadata, stored receipts, program operation records,
+move quotes and journeys alongside core state. Import validates the recovered
+account identifiers against the restored core. State otherwise resides in the
+process and is lost on restart.
 
-- **`reject`** - the activity is refused. Does your code release the budget reservation, or does it leak?
-- **`drop_receipt`** - the activity may have applied, but no receipt comes back. This is the `unknown` outcome, and the correct behaviour is to leave it unknown and resolve it by receipt lookup under the idempotency key. Code that retries here double-pays in production.
-- **`corrupt_receipt`** - a receipt arrives and does not verify. `verification-failure`, not success.
+## Payment evidence
 
-Snapshot export and import make a scenario reproducible: set up the world once, export it, and import it at the start of every test.
-
-## Advancing time
-
-Timeouts, expiries and settlement windows are real, and waiting for them in wall-clock time makes a test suite slow and non-deterministic. Set the clock, submit, advance the clock past the window, and assert. The core sees exactly the timestamp you set.
-
-## What the emulator is not
-
-It is a single local process holding state in memory, with no consensus or other validators. Advancing its clock or checking its compatibility receipts does not establish a committed block on the merged network.
-
-A receipt is final once its block is committed. The merged network reports `submitted`, `receipted` and `committed`; `checkpoint-finalised` and `done-finalised` are retained API names for the `committed` rung. `settlement-anchored` and `paxeer-finalised` are never reached on the merged network. External anchoring is not a later finality rung for either environment.
-
-For network finality, authenticate the block header and CometBFT commit, then verify transaction or state inclusion at the relevant height. See [Committed block evidence](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/345655b6e6e4a193455b9aa34fcc9e5961188d42/docs/site/docs/concepts/checkpoints.md#committed-block-evidence).
-
-For an environment with real finality and other participants, use the [beta quickstart](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/345655b6e6e4a193455b9aa34fcc9e5961188d42/docs/wiki/Quickstart.md).
-
-## Enforced by
-
-| Capability | Layer | What that means here |
-|---|---|---|
-| Atomic settlement | `protocol` | The emulator runs the real core transition; a rejected activity leaves no partial state. |
-| Conserved supply | `protocol` | Prefunding creates balance explicitly; nothing else does. |
-| Offline receipt verification | `protocol` | Emulator receipts use the pure local compatibility verifier; its result does not establish network finality. |
-| Replay refusal | `protocol` | Resubmitting a canonical activity is refused here as it is in production. |
-| Unknown is a real outcome | `agent-layer` | `drop_receipt` produces a genuine unknown, so you can test that you keep it unknown. |
-| Beta faucet funding | `hosted-surface` | Not present locally - `--prefund` and the prefund endpoint replace it. |
-| Scheduled beta resets | `hosted-surface` | The private test environment has a reset calendar; the emulator keeps its in-memory state until restarted. |
+Use a configured node's root JSON-RPC endpoint to submit signed transactions
+through `eth_sendRawTransaction` and obtain signed execution receipts through
+`pax_sequencerReceipt`. Verify receipts against independently pinned keys.
+For finality, authenticate the block header and CometBFT commit and verify
+transaction or state inclusion at the relevant height. See
+[Committed block evidence](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/docs/site/docs/concepts/checkpoints.md#committed-block-evidence).

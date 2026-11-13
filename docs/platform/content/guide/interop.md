@@ -22,7 +22,7 @@ An `AdapterDescriptor` identifies the adapter, pinned specification and declared
 
 `verify_external_evidence` binds an adapter's typed verification result to the exact presentation bytes and pinned specification. The caller selects and trusts the adapter and supplies its verification context. The binding digest alone does not authenticate a report from another process.
 
-See the [portable verification guide](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/345655b6e6e4a193455b9aa34fcc9e5961188d42/docs/interop/PORTABILITY.md) for the format and public API.
+See the [portable verification guide](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/docs/interop/PORTABILITY.md) for the format and public API.
 
 ## The gateway
 
@@ -73,5 +73,5 @@ Installation accepts `--token-stdin` for hosted key provisioning and `--rotate` 
 | Replay refusal | `protocol` | An applied signed transaction cannot apply again with the same sender nonce. |
 | Quote then commit | `service` | The x402 buyer accepts an offer before paying it. |
 | Idempotent money moves | `service` | Request identity supports reconciliation with the original payment. |
-| Capability attenuation | `agent-layer` | Read-only transport mode removes write tools. |
-| Agent tenancy isolation | `agent-layer` | MCP uses an authenticated daemon binding; A2A uses its configured environment and key. |
+| MCP binding and catalogue access | `agent-layer` | MCP uses an authenticated daemon binding and filters write tools in read-only mode. |
+| A2A transaction validation and local bearer checks | `service` | The A2A runtime validates signed transaction inputs and authenticates local requests. |

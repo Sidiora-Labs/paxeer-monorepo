@@ -1,0 +1,83 @@
+[manifest]
+task = "22.41.62"
+pages = 20
+
+[page.1]
+path = "docs/platform/beta-environment.md"
+status = "reviewed"
+
+[page.2]
+path = "docs/platform/content/beta.md"
+status = "corrected"
+
+[page.3]
+path = "docs/platform/content/concepts/agents.md"
+status = "corrected"
+
+[page.4]
+path = "docs/platform/content/concepts/enforcement.md"
+status = "corrected"
+
+[page.5]
+path = "docs/platform/content/concepts/idempotency.md"
+status = "corrected"
+
+[page.6]
+path = "docs/platform/content/concepts/money.md"
+status = "corrected"
+
+[page.7]
+path = "docs/platform/content/concepts/paying.md"
+status = "corrected"
+
+[page.8]
+path = "docs/platform/content/concepts/receipts.md"
+status = "corrected"
+
+[page.9]
+path = "docs/platform/content/environments/emulator.md"
+status = "corrected"
+
+[page.10]
+path = "docs/platform/content/framework/android.md"
+status = "corrected"
+
+[page.11]
+path = "docs/platform/content/framework/express.md"
+status = "corrected"
+
+[page.12]
+path = "docs/platform/content/framework/fastapi.md"
+status = "corrected"
+
+[page.13]
+path = "docs/platform/content/framework/ios.md"
+status = "corrected"
+
+[page.14]
+path = "docs/platform/content/framework/next.md"
+status = "corrected"
+
+[page.15]
+path = "docs/platform/content/framework/spring.md"
+status = "corrected"
+
+[page.16]
+path = "docs/platform/content/guide/agent-middleware.md"
+status = "corrected"
+
+[page.17]
+path = "docs/platform/content/guide/buyer-middleware.md"
+status = "corrected"
+
+[page.18]
+path = "docs/platform/content/guide/interop.md"
+status = "corrected"
+
+[page.19]
+path = "docs/platform/content/guide/merchant-middleware.md"
+status = "corrected"
+
+[page.20]
+path = "docs/platform/content/guide/programs.md"
+status = "corrected"

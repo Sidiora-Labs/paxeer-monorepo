@@ -6,7 +6,7 @@
 This is the canonical beta contract of Paxeer X Network. The beta is
 mainnet-beta: it runs on the Paxeer network, chain 125. Public node JSON-RPC
 is served at the selected node's root path; see the
-[public RPC guide](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/345655b6e6e4a193455b9aa34fcc9e5961188d42/docs/site/docs/reference/public-rpc.md). Hosted services have their own operator-provided origins. LayerX
+[public RPC guide](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/docs/site/docs/reference/public-rpc.md). Hosted services have their own operator-provided origins. LayerX
 is the kernel domain inside
 Paxeer X Network; it is not a separate network and has no separate beta.
 
@@ -58,9 +58,9 @@ faucet or control surface on the mainnet-beta.
 
 ## Unknown-state behaviour
 
-- An outcome a client did not observe stays unknown under its idempotency key
-  and is resolved only by looking up the canonical receipt; it is never
-  resubmitted blindly and never reported as success.
+- An outcome a client did not observe stays unknown. Keep the idempotency key
+  and transaction reference and reconcile the original submission through its
+  journey or tracking API before issuing another payment.
 - Paxeer degradation is never presented as kernel finality.
 - Check the configured service readiness before sending application requests.
 
