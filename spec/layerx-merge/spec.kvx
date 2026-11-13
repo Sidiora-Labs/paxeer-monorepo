@@ -362431,7 +362431,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.41.107]
 title = "Correct the text of pages 53 to 59 of the documentation site against the tree"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
