@@ -1,7 +1,7 @@
 [task.22.31.387]
 finding = "support-report-route-template"
 tests = ["support_report_route_template_durable_retrieval", "support_report_route_template_inventory", "support_report_route_template_redacts_identifiers", "support_report_route_template_refuses_unsafe_paths", "support_report_route_template_authenticated_post", "support_report_route_template_outbox_reopens"]
-test_file = "apps/web/e2e/repair-22-31-387.test.ts"
+test_file = "apps/web/e2e/support-report-routes.test.ts"
 repair = "RouteErrorBoundary and the report schema share an explicit canonical route inventory; the privacy redactor replaces concrete dynamic identifiers before reporting; stored and queued schemas accept only inventory templates."
 baseline = "Inherited attempt 1 at dfcf1be4f8c5ad4432b8954a4aec1041ebeb5e85: authenticated_post failed for absent LAYERX_HUMAN_SERVICE_URL; the other four tests passed. The original schema regex rejects /app/agents/[agentId]. No additional unchanged-tree verification ran because the ordered instructions require implementation before qualification and the sole verify invocation through hf-done."
 wiring_requests = []

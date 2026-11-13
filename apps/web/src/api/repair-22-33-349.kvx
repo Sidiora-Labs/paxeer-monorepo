@@ -2,7 +2,7 @@
 task = "22.33.349"
 audit = "22.30.139"
 acceptance = "22998.1"
-test_path = "apps/web/e2e/repair-22-33-349.test.ts"
+test_path = "apps/web/e2e/api-resource-bounds.test.ts"
 qualification = "Only hf-build and hf-done qualify the candidate; their private ledger binds the verified revision, exact command, exit and log."
 verified_revision_evidence = "/out/run/gates.jsonl: final hf-done record (the candidate includes this task record)"
 baseline = "Not run: the explicit ordered instructions prohibit tests before implementation and running verify_cmd by hand; no pre-change failures are claimed."

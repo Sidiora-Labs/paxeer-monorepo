@@ -1,6 +1,6 @@
 [task.22.33.355]
 findings = ["state-matrix-stale-inventory", "support-report-principal-replay"]
-test_file = "apps/web/e2e/repair-22-33-355.test.ts"
+test_file = "apps/web/e2e/state-matrix-report-principals.test.ts"
 state-matrix-stale-inventory = ["state_matrix_stale_inventory_matches_live_routes", "state_matrix_real_surfaces_both_shells"]
 support-report-principal-replay = ["support_report_principal_replay_offline_switch_reopen", "support_report_principal_replay_session_guard_and_authorization", "support_report_principal_replay_authenticated_boundary_logout", "support_report_principal_replay_in_flight_logout"]
 repair = "One route manifest produces matrix entries, inventory and canonical report routes; completeness rejects retired and duplicate registrations. MatrixStateSurface drives the existing production surfaces in both shells, and the proof checks every real Next page and inherited loading/error boundary. Private outbox v2 partitions immutable redacted attempts by verified principal, rejects replay into another principal or changed session, drops unowned v1 data, and preserves owner-only retries across reopen. Explicit logout clears every private outbox partition and revokes live reporters without deleting unrelated preferences."

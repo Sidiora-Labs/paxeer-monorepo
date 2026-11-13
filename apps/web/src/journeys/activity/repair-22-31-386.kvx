@@ -1,6 +1,6 @@
 [repair.22.31.386]
 finding = "activity-detail-shape"
-test = "apps/web/e2e/repair-22-31-386.test.ts:activity_detail_shape_producer_http_decoder_and_rendering"
+test = "apps/web/e2e/activity-detail-http.test.ts:activity_detail_shape_producer_http_decoder_and_rendering"
 producer_test = "server::production_reads::activity_detail_contract_tests::activity_detail_http_contract"
 path = "Durable Feed and verified receipt -> EntryDetail -> production activity_detail_json codec -> schema-validated HTTP -> generated client decoder -> ActivityDetailFacts and ActivityDetailAmount used by the detail page. Nonmonetary cases also execute activity_entry_json."
 units = "Money.amount remains the exact receipt base-unit integer; currency is joined to the gateway asset catalog; the detail explicitly labels base units rather than assuming token decimal precision."

@@ -2,7 +2,7 @@
 mode = "BUILD"
 base = "e3d7e5828b39e4182e9559fb6bc28d74c2f37e0f"
 audit = "22.30.138"
-proof = "apps/web/e2e/repair-22-33-337.test.ts"
+proof = "apps/web/e2e/journey-contracts.test.ts"
 baseline = "No pre-change verification was run: the task's ordered implementation-first and bounded-gate instructions prohibit the contradictory audit step requesting an extra unchanged-tree verify. No pre-change failures are claimed."
 evidence = "The hf-build/hf-done private ledger records the candidate revision, exact command, exit code and log; no gate result is claimed in this source record."
 peers = "Committed human-api golden responses, an in-memory fixture store and loopback HTTP servers; generated clients, approval controller, WebAuthn signer, receipt readers, renderers and recovery functions are real modules."

@@ -2,7 +2,7 @@
 mode = "BUILD"
 audit = "22.30.139"
 base = "8a5302e1b13ed685ab2cd21b29cd69052c2a8f6a"
-proof = "apps/web/e2e/repair-22-33-361.test.ts"
+proof = "apps/web/e2e/native-account-page.test.ts"
 baseline = "No unchanged-tree verify was run: the explicit ordered instructions require complete implementation before the bounded hf-build/hf-done gates and prohibit a manual verify. No baseline test failure is claimed."
 evidence = "The private hf-build/hf-done ledger records the verified candidate revision, exact command, exit code and log; the runner owns publication."
 

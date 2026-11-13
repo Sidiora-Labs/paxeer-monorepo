@@ -1,7 +1,7 @@
 [repair.22.33.276]
 audit = "22.30.132"
 base_revision = "84b6cf09552744359c78f419900ba8fcd9bbeaf5"
-test_file = "apps/web/e2e/repair-22-33-276.test.ts"
+test_file = "apps/web/e2e/network-copy.test.ts"
 qualification = "hf-build and hf-done retain the exact candidate revision, command, exit code and private evidence location in the runner gate ledger; no qualification is asserted by this implementation record."
 baseline = "No unchanged-tree verification ran: step 8 conflicts with the explicit implementation-first order and prohibition on manually running verify_cmd; baseline failures are not claimed."
 

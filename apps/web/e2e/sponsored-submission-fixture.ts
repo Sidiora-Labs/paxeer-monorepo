@@ -46,7 +46,7 @@ registerHooks({
 const wallet = await import("../src/api/wallet.ts");
 const sdk = await import("../src/api/sdk.ts");
 const { PaxeerProvider, constructionDigest } = await import("../../../sdk/wallet/src/provider.ts");
-const { committedReceipt, committedRecording } = await import("./repair-22-33-338-receipts.ts");
+const { committedReceipt, committedRecording } = await import("./native-receipt-fixture.ts");
 const { nodeVector, receiptWireKeys } = await import("../../../sdk/wallet/test/support/receipt-recordings.ts");
 const { privateKeyToAccount } = await import("viem/accounts");
 const account = privateKeyToAccount(`0x${"0b".repeat(32)}`);

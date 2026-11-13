@@ -2,30 +2,30 @@
 mode = "BUILD"
 base_revision = "4de64521366a4ade389cffe6160ce07fdebf1cdf"
 acceptance = "22998.1"
-verify = "pnpm --dir apps/web exec tsc --noEmit && pnpm --dir apps/web exec node --test e2e/repair-22-33-338.test.ts"
+verify = "pnpm --dir apps/web exec tsc --noEmit && pnpm --dir apps/web exec node --test e2e/receipt-and-support-contracts.test.ts"
 evidence = "The runner hf-build/hf-done ledger records the exact candidate revision, command, exit and private log; no qualification is claimed before those gates run."
 baseline = "Not run: the explicit ordered gate instructions prohibit testing before implementation and prohibit running verify_cmd by hand; these take precedence over do_9's contradictory baseline request. No pre-change test failure is claimed."
 
 [finding.receipt-env-proof-retired-target]
-test = "repair-22-33-338.test.ts:receipt_env_proof_retired_target"
+test = "receipt-and-support-contracts.test.ts:receipt_env_proof_retired_target"
 repair = "Current receipt targets require the resolved native transaction hash and lead to /tx/<hash>; the environment proof reads and authenticates a native receipt over root JSON-RPC, validates the public origin on each read, and refuses obsolete settings and malformed identifiers."
 
 [finding.receipt-consumer-proof-retired-target]
-test = "repair-22-33-338.test.ts:receipt_consumer_proof_retired_target"
+test = "receipt-and-support-contracts.test.ts:receipt_consumer_proof_retired_target"
 repair = "The production ExplorerExternalLink renders the exact native transaction destination from freshly authenticated receipt bytes, hash, block and logs; receipt digests are deliberately different from the transaction hash. Only an explicit historical-receipt identity with frozen:true reaches the archive."
 
 [finding.kit-separate-layerx-finality]
-test = "repair-22-33-338.test.ts:kit_separate_layerx_finality; proof_kit.test.ts:kit_producers_reach_home_consumers_twice"
+test = "receipt-and-support-contracts.test.ts:kit_separate_layerx_finality; proof_kit.test.ts:kit_producers_reach_home_consumers_twice"
 repair = "Both proofs require Finalised in a committed Paxeer block; the focused proof verifies the recorded receipt signature, native transaction inclusion and linked Comet commits, and refuses missing signatures and corrupt transaction inclusion before rendering the real kit copy consumer."
 state = "The scoped catalogue and generated runtime describe committed Paxeer block finality. The production verifiedReceiptWord adapter authenticates the receipt and verifies committed inclusion before selecting finality copy; missing signatures and corrupt inclusion reject rather than render finality."
 
 [finding.support-fixture-route-shape]
-test = "repair-22-33-338.test.ts:support_fixture_route_shape; support.spec.ts:message delivery states"
+test = "receipt-and-support-contracts.test.ts:support_fixture_route_shape; support.spec.ts:message delivery states"
 repair = "SupportChatSession and the generated client/codec cross real loopback HTTP at /human/v1/support/conversations, replies, feedback, status and read, preserving service envelopes and typed refusals. Socket interruption and typed failure retain the failed message and next draft, and retry reuses its request identity. Browser cases use a public session and the real conversation producer, require exact request observation and validate reply/feedback envelopes."
 limitation = "The loopback peer replays committed Human API golden contracts through the generated encoder, not a running Rust service. A public browser session cannot manufacture an operator reply; the browser feedback case requires the Human fixture wiring below."
 
 [finding.sponsored-retired-transport]
-test = "repair-22-33-338.test.ts:sponsored_retired_transport_reopens_recovery; wallet-sponsored-receipt.test.ts:resumed_submission_reports_receipt"
+test = "receipt-and-support-contracts.test.ts:sponsored_retired_transport_reopens_recovery; wallet-sponsored-receipt.test.ts:resumed_submission_reports_receipt"
 repair = "The shared sponsored fixture gives hosted wallet operations and node RPC distinct loopback origins, rejects foreign methods and paths at both servers, requires hosted bearer authentication and prevents bearer leakage to public RPC. It disconnects the provider, closes SQLite, reopens the same file and constructs a fresh provider before repeated read-only recovery; pending context is byte-identical and neither signing nor submission repeats. Completion authenticates the unchanged signed/committed native receipt and clears recovery context. Existing send, revert, cancellation, receipt-unavailable and stale-context assertions remain."
 limitation = "Native receipt authenticity and restart-safe consumer recovery are proven; the signed native recordings are independent node transactions, not a capture of funded sponsored execution. The hosted signer uses real viem digest/signature code; the station status peer is an in-memory contract fixture."
 
@@ -76,7 +76,7 @@ revision = "9f6cfb0741391f4965b52dae3ea185c267d56a5a"
 command = "pnpm --dir apps/web exec tsc --noEmit"
 exit = 2
 log = "/out/logs/build-1.log"
-observed = "TS2307 in the pre-existing e2e/repair-22-33-897.test.ts:8:24: cannot find ../src/app/exchange/node_modules/happy-dom/lib/index.js or its corresponding type declarations; no diagnostics name this task's repair files."
+observed = "TS2307 in the pre-existing e2e/perps-exchange-integration.test.ts:8:24: cannot find ../src/app/exchange/node_modules/happy-dom/lib/index.js or its corresponding type declarations; no diagnostics name this task's repair files."
 assumption = "The exchange dependency installation belongs to another task; preserve its import and assertions, record this unrelated failure once, and leave verification unrun because hf-done requires a passing build."
 
 [wiring.attempt_2_build_blocker]
@@ -91,7 +91,7 @@ revision = "13e0d6f008da08ea463e144920043c2facef39c2"
 command = "pnpm --dir apps/web exec tsc --noEmit"
 exit = 2
 log = "/out/logs/build-1.log"
-observed = "The pre-existing e2e/repair-22-33-897.test.ts:8:24 still reports TS2307 for ../src/app/exchange/node_modules/happy-dom/lib/index.js; no diagnostic names this task's files."
+observed = "The pre-existing e2e/perps-exchange-integration.test.ts:8:24 still reports TS2307 for ../src/app/exchange/node_modules/happy-dom/lib/index.js; no diagnostic names this task's files."
 assumption = "The unrelated exchange dependency failure is recorded without repair or another gate run; hf-done requires a passing build, so verification did not run and this task remains unqualified."
 
 [continuation.attempt_5]

@@ -74,7 +74,7 @@ async function close(server: Server): Promise<void> {
   });
 }
 
-async function repair_22_31_385_producer_copy_contract_matches_consumer() {
+async function onboarding_producer_copy_contract_matches_consumer() {
   const source = await readFile(new URL(dispatcherPath, repository), "utf8");
   const declaration = source.match(/fn onboarding_stage_copy_key\([^]*?\n\}/u)?.[0];
   assert.ok(declaration, "the production dispatcher must declare the onboarding copy projection");
@@ -107,7 +107,7 @@ async function repair_22_31_385_producer_copy_contract_matches_consumer() {
     "projection checks the durable evidence before exposing receipt-backed activation");
 }
 
-async function repair_22_31_385_pending_reopens_and_receipt_activation_over_http() {
+async function onboarding_pending_reopens_and_receipt_activation_over_http() {
   const creationFixture = await goldenResponse("account.create");
   const statusFixture = await goldenResponse("onboarding.status");
   const resumeFixture = await goldenResponse("onboarding.resume");
@@ -203,7 +203,7 @@ async function repair_22_31_385_pending_reopens_and_receipt_activation_over_http
   }
 }
 
-async function repair_22_31_385_receipt_requirement_survives_reopen() {
+async function onboarding_receipt_requirement_survives_reopen() {
   const fixture = await goldenResponse("onboarding.resume");
   const server = createServer((request, response) => {
     request.resume();
@@ -258,6 +258,6 @@ async function repair_22_31_385_receipt_requirement_survives_reopen() {
   }
 }
 
-test(repair_22_31_385_producer_copy_contract_matches_consumer);
-test(repair_22_31_385_pending_reopens_and_receipt_activation_over_http);
-test(repair_22_31_385_receipt_requirement_survives_reopen);
+test(onboarding_producer_copy_contract_matches_consumer);
+test(onboarding_pending_reopens_and_receipt_activation_over_http);
+test(onboarding_receipt_requirement_survives_reopen);
