@@ -3,7 +3,7 @@ task = "22.33.347"
 base = "8a5302e1b13ed685ab2cd21b29cd69052c2a8f6a"
 status = "implemented; bounded qualification recorded by the private gate ledger"
 baseline = "UNRUN: the implementation-first order and hf-build/hf-done-only rules prohibit the contradictory unchanged-tree verification step; no baseline failure is claimed. No earlier gate ledger existed when this continuation began."
-scope = "Only apps/web/src/explorer and apps/web/e2e/repair-22-33-347.test.ts are changed; pre-existing runner bookkeeping, wallet lockfile and generated UI output are preserved."
+scope = "Only apps/web/src/explorer and apps/web/e2e/explorer-native-presentation.test.ts are changed; pre-existing runner bookkeeping, wallet lockfile and generated UI output are preserved."
 
 [finding.retired-freshness-presentation]
 test = "retired_freshness_presentation_native_http_to_display"

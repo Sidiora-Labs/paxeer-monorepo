@@ -555,7 +555,7 @@ evidence = "The gate runner records exact revision, command, exit and private lo
 observed = "Attempt 1 excluded the catalogue and RPC test owners; attempt 2 explicitly adds those paths and permits the live and compatibility allowances under decisions 3125 and 3131."
 
 [gotcha.historical-test]
-observed = "The out-of-scope repair-22-33-338.test.ts asserts the obsolete historical UI path; the declared package test command does not select that file, and this task does not alter its assertion."
+observed = "The out-of-scope receipt-and-support-contracts.test.ts asserts the obsolete historical UI path; the declared package test command does not select that file, and this task does not alter its assertion."
 
 [qualification.attempt-1-bounded-result]
 revision = "ffeb04cc7c2fd9f7621deec651d3a6c4deec7040"

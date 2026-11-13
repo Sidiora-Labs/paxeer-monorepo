@@ -1,7 +1,7 @@
 [repair.22.33.348]
 finding = "program-unearned-finality"
 audit = "spec/layerx-merge/programme/audit/records/22.30.139.kvx"
-test_file = "apps/web/e2e/repair-22-33-348.test.ts"
+test_file = "apps/web/e2e/program-finality-observations.test.ts"
 proving_tests = ["program_unearned_finality_reports_observations_without_finality", "program_unearned_finality_does_not_infer_currentness_from_age", "program_unearned_finality_future_timestamp_has_unknown_age", "program_unearned_finality_ignores_reported_verification_claims", "program_unearned_finality_missing_native_interface_stays_unavailable"]
 change = "ProgramPage renders the production ProgramDetails component, which labels all program facts and value accounts Reported and shows observation sequence, timestamp and reported age at render without granting finality or currentness; future timestamps explicitly have unknown age."
 unavailable = "ProgramPage renders ProgramUnavailable when programRecord rejects, using explorer.freshness.unavailable and explorer.freshness.unavailable.body from the copy runtime with current=false, no reported observation and no verification marker."

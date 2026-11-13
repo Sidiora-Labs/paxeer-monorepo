@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import test, { type TestContext } from "node:test";
-import "./repair-22-33-338-runtime.ts";
-import { committedReceipt, withNativeReceipt } from "./repair-22-33-338-receipts.ts";
-import { committedEvidence, committedVector, receiptKeys, unhex } from "./repair-22-33-338-commit.ts";
-import { SUPPORT_ACCOUNT, SUPPORT_CONVERSATIONS, supportRecording, withSupportConversations } from "./repair-22-33-338-support.ts";
+import "./typescript-test-runtime.ts";
+import { committedReceipt, withNativeReceipt } from "./native-receipt-fixture.ts";
+import { committedEvidence, committedVector, receiptKeys, unhex } from "./committed-receipt-evidence.ts";
+import { SUPPORT_ACCOUNT, SUPPORT_CONVERSATIONS, supportRecording, withSupportConversations } from "./support-conversation-fixture.ts";
 import type { JsonValue } from "../src/api/generated/index.ts";
 
 const client = await import("../src/explorer/client.ts");
@@ -208,7 +208,7 @@ async function support_fixture_route_shape(context: TestContext): Promise<void> 
   });
 }
 
-const { wallet, HASH, expectedReceipt, withSubmission } = await import("./repair-22-33-338-sponsored.ts");
+const { wallet, HASH, expectedReceipt, withSubmission } = await import("./sponsored-submission-fixture.ts");
 
 async function sponsored_retired_transport_reopens_recovery(): Promise<void> {
   await withSubmission(async session => {
