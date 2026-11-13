@@ -18,7 +18,7 @@
     "@sidiora/layerx-next": "file:..",
     "next": "16.4.1",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.3.1"
   },
   "engines": {
     "node": ">=22"
