@@ -237,4 +237,4 @@ read with their own certificate and committee checks.
 [commit-qc]: ../../../autobahn/types/commit_qc.go
 [persisted-state]: ../../../internal/autobahn/consensus/persisted_inner.go
 [persistence]: ../../../internal/autobahn/consensus/persist/persist.go
-[public-rpc]: ../../../../docs/site/docs/reference/public-rpc.md
+[public-rpc]: ../../../../docs/readme/PUBLIC-RPC.md

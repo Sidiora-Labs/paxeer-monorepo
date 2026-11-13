@@ -1389,7 +1389,7 @@ impl RoomMutation<'_, '_> {
             _ => Err(UNKNOWN_OPERATION),
         }
     }
-    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    #[cfg_attr(target_arch = "wasm32", inline(always))]
     fn open_room(&self, first: &mut [u8]) -> CodecResult<BookUpdate> {
         let e = &self.envelope.envelope;
         let ctx = self.ctx;
@@ -1417,7 +1417,7 @@ impl RoomMutation<'_, '_> {
             subject: room_id,
         })
     }
-    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    #[cfg_attr(target_arch = "wasm32", inline(always))]
     fn post_ask(&self, first: &mut [u8]) -> CodecResult<BookUpdate> {
         let e = &self.envelope.envelope;
         let ctx = self.ctx;
@@ -1455,7 +1455,7 @@ impl RoomMutation<'_, '_> {
             subject: ask.ask_id,
         })
     }
-    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    #[cfg_attr(target_arch = "wasm32", inline(always))]
     fn post_bid(&self, first: &mut [u8]) -> CodecResult<BookUpdate> {
         let e = &self.envelope.envelope;
         let ctx = self.ctx;
@@ -1490,7 +1490,7 @@ impl RoomMutation<'_, '_> {
             subject: bid.bid_id,
         })
     }
-    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    #[cfg_attr(target_arch = "wasm32", inline(always))]
     fn record_deal(&self, first: &mut [u8]) -> CodecResult<BookUpdate> {
         let state = self.state;
         let e = &self.envelope.envelope;
@@ -1520,7 +1520,7 @@ impl RoomMutation<'_, '_> {
             subject: request.deal_id,
         })
     }
-    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    #[cfg_attr(target_arch = "wasm32", inline(always))]
     fn close_room(&self, first: &mut [u8]) -> CodecResult<BookUpdate> {
         let ctx = self.ctx;
         let book = self.book;

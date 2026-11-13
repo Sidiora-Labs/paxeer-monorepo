@@ -18,7 +18,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/http/httptrace"
-	"reflect"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -239,17 +238,15 @@ func TestProofRpcRoutes(t *testing.T) {
 	require.Same(t, health, results[1])
 	require.Equal(t, genesis.ChainID, pending.NodeInfo.Network)
 
-	// consensus/rpc/jsonrpc/server/http_server.go: writeRPCResponse emits an
-	// object for one response, even to a batch request. The array decoder in
-	// consensus/rpc/jsonrpc/client/decode.go: unmarshalResponseBytesArray
-	// currently refuses that shape; these files are outside this task's scope.
+	// A batch request is encoded as an array, including when it contains one
+	// request, and the decoded result is the same status value returned on enqueue.
 	single := c.NewBatch()
-	_, err = single.Status(ctx)
+	singleStatus, err := single.Status(ctx)
 	require.NoError(t, err)
-	_, err = single.Send(ctx)
-	var shapeError *json.UnmarshalTypeError
-	require.ErrorAs(t, err, &shapeError)
-	require.Equal(t, reflect.TypeOf([]rpctypes.RPCResponse{}), shapeError.Type)
+	singleResults, err := single.Send(ctx)
+	require.NoError(t, err)
+	require.Len(t, singleResults, 1)
+	require.Same(t, singleStatus, singleResults[0])
 
 	// Stop and reopen real storage before a new consumer observes history.
 	require.NoError(t, closeNode(ctx))
