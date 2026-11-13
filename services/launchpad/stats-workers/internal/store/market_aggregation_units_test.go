@@ -40,14 +40,14 @@ import (
 	"modernc.org/sqlite"
 )
 
-var repairM1041Register sync.Once
-var repairM1041Casts = regexp.MustCompile(`(?i)::(?:text|int|bigint|numeric|varchar\(66\))`)
+var marketAggregationRegister sync.Once
+var marketAggregationCasts = regexp.MustCompile(`(?i)::(?:text|int|bigint|numeric|varchar\(66\))`)
 
-func repairM1041Translate(q string) string {
+func marketAggregationTranslate(q string) string {
 	q = strings.ReplaceAll(q, "stats.", "")
 	q = strings.ReplaceAll(q, `"stats".`, "")
 	q = strings.ReplaceAll(q, "balance::numeric", "raw_numeric(balance)")
-	q = repairM1041Casts.ReplaceAllString(q, "")
+	q = marketAggregationCasts.ReplaceAllString(q, "")
 	// pgx simple protocol encodes booleans as PostgreSQL's 't'/'f' literals.
 	// SQLite BOOLEAN affinity needs integer boolean literals for CASE and equality.
 	q = strings.ReplaceAll(q, "'t'", "TRUE")
@@ -56,20 +56,20 @@ func repairM1041Translate(q string) string {
 	return q
 }
 
-// repairM1041SQL exposes a real file-backed SQLite database over the PostgreSQL
+// marketAggregationSQL exposes a real file-backed SQLite database over the PostgreSQL
 // simple-query protocol. Production pgx, Store, projection and holder arithmetic
 // run unchanged. Only schema qualification and lock syntax are translated:
 // BEGIN IMMEDIATE supplies a database-wide writer lock instead of advisory locks.
 // Savepoints, conflicts, reads, writes and crash recovery execute in SQLite.
 // This fixture does not certify PostgreSQL-specific concurrency behaviour.
-type repairM1041SQL struct {
+type marketAggregationSQL struct {
 	db          *sql.DB
 	listener    net.Listener
 	accepted    chan struct{}
 	connections sync.WaitGroup
 }
 
-func repairM1041OpenSQL(t *testing.T, path string) *repairM1041SQL {
+func marketAggregationOpenSQL(t *testing.T, path string) *marketAggregationSQL {
 	t.Helper()
 	db, err := sql.Open("sqlite", path+"?_pragma=busy_timeout(5000)")
 	if err != nil {
@@ -80,7 +80,7 @@ func repairM1041OpenSQL(t *testing.T, path string) *repairM1041SQL {
 		_ = db.Close()
 		t.Fatal(err)
 	}
-	s := &repairM1041SQL{db: db, listener: listener, accepted: make(chan struct{})}
+	s := &marketAggregationSQL{db: db, listener: listener, accepted: make(chan struct{})}
 	go func() {
 		defer close(s.accepted)
 		for {
@@ -95,14 +95,14 @@ func repairM1041OpenSQL(t *testing.T, path string) *repairM1041SQL {
 	return s
 }
 
-func (s *repairM1041SQL) close() {
+func (s *marketAggregationSQL) close() {
 	_ = s.listener.Close()
 	<-s.accepted
 	s.connections.Wait()
 	_ = s.db.Close()
 }
 
-func (s *repairM1041SQL) serve(conn net.Conn) {
+func (s *marketAggregationSQL) serve(conn net.Conn) {
 	defer conn.Close()
 	backend := pgproto3.NewBackend(conn, conn)
 	if _, err := backend.ReceiveStartupMessage(); err != nil {
@@ -135,7 +135,7 @@ func (s *repairM1041SQL) serve(conn net.Conn) {
 		case *pgproto3.Query:
 			query := strings.TrimSpace(message.String)
 			normalized := strings.ToUpper(strings.Join(strings.Fields(query), " "))
-			translated := repairM1041Translate(query)
+			translated := marketAggregationTranslate(query)
 			if normalized == "BEGIN" {
 				translated = "BEGIN IMMEDIATE"
 			}
@@ -146,7 +146,7 @@ func (s *repairM1041SQL) serve(conn net.Conn) {
 			if status == 'E' && !strings.HasPrefix(normalized, "ROLLBACK") {
 				err = fmt.Errorf("current transaction is aborted")
 			} else if strings.HasPrefix(strings.ToUpper(translated), "SELECT") {
-				err = repairM1041Rows(ctx, backend, dbconn, translated)
+				err = marketAggregationRows(ctx, backend, dbconn, translated)
 			} else {
 				var result sql.Result
 				result, err = dbconn.ExecContext(ctx, translated)
@@ -196,7 +196,7 @@ func (s *repairM1041SQL) serve(conn net.Conn) {
 	}
 }
 
-func repairM1041Rows(ctx context.Context, backend *pgproto3.Backend, conn *sql.Conn, query string) error {
+func marketAggregationRows(ctx context.Context, backend *pgproto3.Backend, conn *sql.Conn, query string) error {
 	rows, err := conn.QueryContext(ctx, query)
 	if err != nil {
 		return err
@@ -277,8 +277,8 @@ func repairM1041Rows(ctx context.Context, backend *pgproto3.Backend, conn *sql.C
 // SQLite's NUMERIC affinity is not arbitrary precision. This deterministic SQL
 // key translates PostgreSQL's exact numeric balance cast without using float.
 // Every tested ORDER BY and expression index still executes in the SQL engine.
-func repairM1041RegisterNumeric() {
-	repairM1041Register.Do(func() {
+func marketAggregationRegisterNumeric() {
+	marketAggregationRegister.Do(func() {
 		sqlite.MustRegisterDeterministicScalarFunction("raw_numeric", 1, func(_ *sqlite.FunctionContext, args []driver.Value) (driver.Value, error) {
 			raw, ok := args[0].(string)
 			if !ok {
@@ -294,20 +294,20 @@ func repairM1041RegisterNumeric() {
 	})
 }
 
-type repairM1041Fixture struct {
+type marketAggregationFixture struct {
 	path  string
-	sql   *repairM1041SQL
+	sql   *marketAggregationSQL
 	pool  *pgxpool.Pool
 	store *store.Store
 	redis *goredis.Client
 }
 
-const repairM1041Version = "stats-market-v1"
+const marketAggregationVersion = "stats-market-v1"
 
-func newRepairM1041Fixture(t *testing.T) *repairM1041Fixture {
+func newMarketAggregationFixture(t *testing.T) *marketAggregationFixture {
 	t.Helper()
-	repairM1041RegisterNumeric()
-	f := &repairM1041Fixture{path: filepath.Join(t.TempDir(), "stats.sqlite")}
+	marketAggregationRegisterNumeric()
+	f := &marketAggregationFixture{path: filepath.Join(t.TempDir(), "stats.sqlite")}
 	f.open(t)
 	t.Cleanup(f.close)
 	ddl, err := migrations.FS.ReadFile("00001_init.sql")
@@ -325,7 +325,7 @@ func newRepairM1041Fixture(t *testing.T) *repairM1041Fixture {
 		if statement == "" || strings.HasPrefix(statement, "CREATE SCHEMA") {
 			continue
 		}
-		statement = strings.ReplaceAll(repairM1041Translate(statement), " USING btree", "")
+		statement = strings.ReplaceAll(marketAggregationTranslate(statement), " USING btree", "")
 		if _, err = f.sql.db.Exec(statement); err != nil {
 			t.Fatalf("registered migration: %v: %s", err, statement)
 		}
@@ -337,9 +337,9 @@ func newRepairM1041Fixture(t *testing.T) *repairM1041Fixture {
 	}
 	return f
 }
-func (f *repairM1041Fixture) open(t *testing.T) {
+func (f *marketAggregationFixture) open(t *testing.T) {
 	t.Helper()
-	f.sql = repairM1041OpenSQL(t, f.path)
+	f.sql = marketAggregationOpenSQL(t, f.path)
 	cfg, err := pgxpool.ParseConfig("postgres://fixture@" + f.sql.listener.Addr().String() + "/stats?sslmode=disable")
 	if err != nil {
 		t.Fatal(err)
@@ -352,7 +352,7 @@ func (f *repairM1041Fixture) open(t *testing.T) {
 		t.Fatal(err)
 	}
 	f.store = store.New(f.pool)
-	if err = f.store.SetAccountingProjection(repairM1041Version); err != nil {
+	if err = f.store.SetAccountingProjection(marketAggregationVersion); err != nil {
 		t.Fatal(err)
 	}
 	f.redis = goredis.NewClient(&goredis.Options{Addr: "127.0.0.1:1"})
@@ -360,22 +360,22 @@ func (f *repairM1041Fixture) open(t *testing.T) {
 		t.Fatal(err)
 	}
 }
-func (f *repairM1041Fixture) close() {
+func (f *marketAggregationFixture) close() {
 	f.pool.Close()
 	f.sql.close()
 }
-func (f *repairM1041Fixture) restart(t *testing.T) {
+func (f *marketAggregationFixture) restart(t *testing.T) {
 	t.Helper()
 	f.close()
 	f.open(t)
 }
-func (f *repairM1041Fixture) exec(t *testing.T, q string, args ...any) {
+func (f *marketAggregationFixture) exec(t *testing.T, q string, args ...any) {
 	t.Helper()
 	if _, err := f.sql.db.Exec(q, args...); err != nil {
 		t.Fatalf("SQL fixture: %v: %s", err, q)
 	}
 }
-func (f *repairM1041Fixture) seedPool(t *testing.T, pool, token string, at int64) {
+func (f *marketAggregationFixture) seedPool(t *testing.T, pool, token string, at int64) {
 	t.Helper()
 	_, err := f.store.InsertInitialPoolStats(context.Background(), store.InitialPoolStats{PoolAddress: pool, TokenAddress: token, Price: "1000", MarketCap: "1000", High24h: "1000", Low24h: "1000", CreatedAt: at, UpdatedAt: at})
 	if err != nil {
@@ -385,14 +385,14 @@ func (f *repairM1041Fixture) seedPool(t *testing.T, pool, token string, at int64
 
 // Decode the committed chain-125 receipts through the canonical fill codec and
 // the live bridge's ABI binding before the actual SwapConsumer writes Store.
-type repairM1041Receipt struct {
+type marketAggregationReceipt struct {
 	Fill    accounting.FillV1
 	Emitter string
 	Topics  []string
 	Data    []byte
 }
 
-func repairM1041Receipts(t *testing.T) []repairM1041Receipt {
+func marketAggregationReceipts(t *testing.T) []marketAggregationReceipt {
 	t.Helper()
 	raw, err := os.ReadFile(filepath.Join("..", "projectionstats", "testdata", "real_pool_125.json"))
 	if err != nil {
@@ -415,7 +415,7 @@ func repairM1041Receipts(t *testing.T) []repairM1041Receipt {
 	if err = json.Unmarshal(raw, &tape); err != nil {
 		t.Fatal(err)
 	}
-	out := []repairM1041Receipt{}
+	out := []marketAggregationReceipt{}
 	for _, tx := range tape.Transactions {
 		for _, log := range tx.Logs {
 			if log.Address != tape.EventEmitter || len(log.Topics) != 3 || log.Topics[0] != "0xa234ab85728295548823d8a26077ecc77aa5815f9ed8f4c5e6fd390ac851d4cc" {
@@ -442,7 +442,7 @@ func repairM1041Receipts(t *testing.T) []repairM1041Receipt {
 				fill.Side, fill.TokenAmountRaw, fill.USDLAmountRaw, fill.FeeDisposition = "sell", word(1), word(2), "retained_token_reserve"
 			}
 			fill.SourceFillID = accounting.SourceFillIdentity(fill.Position, fill.Provenance.DeploymentID)
-			out = append(out, repairM1041Receipt{fill, log.Address, log.Topics, data})
+			out = append(out, marketAggregationReceipt{fill, log.Address, log.Topics, data})
 		}
 	}
 	if len(out) != 2 || out[0].Fill.Side != "buy" || out[1].Fill.Side != "sell" {
@@ -453,15 +453,15 @@ func repairM1041Receipts(t *testing.T) []repairM1041Receipt {
 
 // The producer emits a validated canonical publication; the SQL peer stores its
 // immutable fill and digest. The bridge then supplies the real swap projection.
-func (f *repairM1041Fixture) project(t *testing.T, r repairM1041Receipt) accounting.FillV1 {
+func (f *marketAggregationFixture) project(t *testing.T, r marketAggregationReceipt) accounting.FillV1 {
 	t.Helper()
 	fill := r.Fill
 	digest, err := accounting.FillDigest(fill)
 	if err != nil {
 		t.Fatal(err)
 	}
-	partition := accounting.PartitionPosition{ProjectionVersion: repairM1041Version, PartitionKind: "market", PartitionKey: "125:" + fill.PoolAddress, Sequence: "1", SourceEventID: fill.SourceFillID, PayloadDigest: digest, SourceOrder: fill.Position}
-	partition.EffectIdentity = accounting.EffectIdentity(fill.SourceFillID, "market", repairM1041Version, "", "market", partition.PartitionKey)
+	partition := accounting.PartitionPosition{ProjectionVersion: marketAggregationVersion, PartitionKind: "market", PartitionKey: "125:" + fill.PoolAddress, Sequence: "1", SourceEventID: fill.SourceFillID, PayloadDigest: digest, SourceOrder: fill.Position}
+	partition.EffectIdentity = accounting.EffectIdentity(fill.SourceFillID, "market", marketAggregationVersion, "", "market", partition.PartitionKey)
 	publication, err := accounting.NewMarketPublication(fill, []accounting.PartitionPosition{partition})
 	if err != nil {
 		t.Fatal(err)
@@ -479,7 +479,7 @@ func (f *repairM1041Fixture) project(t *testing.T, r repairM1041Receipt) account
 	if err != nil {
 		t.Fatal(err)
 	}
-	f.exec(t, `INSERT INTO accounting_market_commits(publication_id,source_fill_id,source_fact_digest,projection_version,pool,fill) VALUES(?,?,?,?,?,?)`, decoded.PublicationID, fill.SourceFillID, string(decoded.SourceFactDigest), repairM1041Version, fill.PoolAddress, string(raw))
+	f.exec(t, `INSERT INTO accounting_market_commits(publication_id,source_fill_id,source_fact_digest,projection_version,pool,fill) VALUES(?,?,?,?,?,?)`, decoded.PublicationID, fill.SourceFillID, string(decoded.SourceFactDigest), marketAggregationVersion, fill.PoolAddress, string(raw))
 	event, err := consumer.LegacySwapFromCanonical(fill, r.Emitter, r.Topics, r.Data)
 	if err != nil {
 		t.Fatal(err)
@@ -494,7 +494,7 @@ func (f *repairM1041Fixture) project(t *testing.T, r repairM1041Receipt) account
 	}
 	return fill
 }
-func (f *repairM1041Fixture) get(t *testing.T, path string) map[string]json.RawMessage {
+func (f *marketAggregationFixture) get(t *testing.T, path string) map[string]json.RawMessage {
 	t.Helper()
 	router := chi.NewRouter()
 	httpapi.RegisterPlatform(router, f.store, f.redis)
@@ -521,7 +521,7 @@ func (f *repairM1041Fixture) get(t *testing.T, path string) map[string]json.RawM
 	}
 	return payload
 }
-func repairM1041At(r repairM1041Receipt, at int64) repairM1041Receipt {
+func marketAggregationAt(r marketAggregationReceipt, at int64) marketAggregationReceipt {
 	r.Data = append([]byte(nil), r.Data...)
 	r.Topics = append([]string(nil), r.Topics...)
 	r.Fill.BlockTimestampSeconds = strconv.FormatInt(at, 10)
@@ -529,8 +529,8 @@ func repairM1041At(r repairM1041Receipt, at int64) repairM1041Receipt {
 	return r
 }
 
-func repairM1041DifferentScale(r repairM1041Receipt) repairM1041Receipt {
-	r = repairM1041At(r, time.Now().Unix()-10)
+func marketAggregationDifferentScale(r marketAggregationReceipt) marketAggregationReceipt {
+	r = marketAggregationAt(r, time.Now().Unix()-10)
 	r.Fill.PoolAddress = "0x" + strings.Repeat("7", 40)
 	r.Fill.Token = accounting.Asset{Address: "0x" + strings.Repeat("8", 40), Decimals: 18}
 	r.Fill.Attribution.TransactionSender = "0x" + strings.Repeat("6", 40)
@@ -549,15 +549,15 @@ func repairM1041DifferentScale(r repairM1041Receipt) repairM1041Receipt {
 	return r
 }
 
-func repairM1041FeeContract(t *testing.T) {
+func marketAggregationFeeContract(t *testing.T) {
 	t.Helper()
 	ctx := context.Background()
-	f := newRepairM1041Fixture(t)
+	f := newMarketAggregationFixture(t)
 	now := time.Now().Unix()
-	receipts := repairM1041Receipts(t)
-	buy := repairM1041At(receipts[0], now-30)
-	sell := repairM1041At(receipts[1], now-20)
-	other := repairM1041DifferentScale(sell)
+	receipts := marketAggregationReceipts(t)
+	buy := marketAggregationAt(receipts[0], now-30)
+	sell := marketAggregationAt(receipts[1], now-20)
+	other := marketAggregationDifferentScale(sell)
 	f.seedPool(t, buy.Fill.PoolAddress, buy.Fill.Token.Address, now-60)
 	f.seedPool(t, other.Fill.PoolAddress, other.Fill.Token.Address, now-90000)
 	f.project(t, buy)
@@ -614,15 +614,15 @@ func repairM1041FeeContract(t *testing.T) {
 	}
 }
 
-func TestRepairM_1041_PlatformFeeUnits(t *testing.T) { repairM1041FeeContract(t) }
+func TestMarketAggregationPlatformFeeUnits(t *testing.T) { marketAggregationFeeContract(t) }
 
-func TestRepairM_1041_FeeFixtureWrongUnits(t *testing.T) {
-	repairM1041FeeContract(t)
+func TestMarketAggregationFeeFixtureWrongUnits(t *testing.T) {
+	marketAggregationFeeContract(t)
 	for _, mutation := range []string{"missing_commit", "missing_conversion_evidence", "invalid_scale", "digest_mismatch", "legacy_mismatch"} {
 		t.Run(mutation, func(t *testing.T) {
-			f := newRepairM1041Fixture(t)
+			f := newMarketAggregationFixture(t)
 			now := time.Now().Unix()
-			receipt := repairM1041At(repairM1041Receipts(t)[0], now-10)
+			receipt := marketAggregationAt(marketAggregationReceipts(t)[0], now-10)
 			f.seedPool(t, receipt.Fill.PoolAddress, receipt.Fill.Token.Address, now-20)
 			fill := f.project(t, receipt)
 			switch mutation {
@@ -660,22 +660,22 @@ func TestRepairM_1041_FeeFixtureWrongUnits(t *testing.T) {
 	}
 }
 
-func repairM1041PressureContract(t *testing.T) {
+func marketAggregationPressureContract(t *testing.T) {
 	t.Helper()
-	f := newRepairM1041Fixture(t)
+	f := newMarketAggregationFixture(t)
 	now := time.Now().Unix()
-	receipts := repairM1041Receipts(t)
-	buy := repairM1041At(receipts[0], now-90)
-	sell := repairM1041At(receipts[1], now-80)
+	receipts := marketAggregationReceipts(t)
+	buy := marketAggregationAt(receipts[0], now-90)
+	sell := marketAggregationAt(receipts[1], now-80)
 	f.seedPool(t, buy.Fill.PoolAddress, buy.Fill.Token.Address, now-100)
 	f.project(t, buy)
 	f.project(t, sell)
 	// Full canonical buys outside 1h, and future fills, must not enter the window.
-	old := repairM1041At(buy, now-7200)
+	old := marketAggregationAt(buy, now-7200)
 	old.Fill.Position.TransactionHash = "0x" + strings.Repeat("c", 64)
 	old.Fill.SourceFillID = accounting.SourceFillIdentity(old.Fill.Position, old.Fill.Provenance.DeploymentID)
 	f.project(t, old)
-	future := repairM1041At(buy, now+7200)
+	future := marketAggregationAt(buy, now+7200)
 	future.Fill.Position.TransactionHash = "0x" + strings.Repeat("d", 64)
 	future.Fill.SourceFillID = accounting.SourceFillIdentity(future.Fill.Position, future.Fill.Provenance.DeploymentID)
 	// Record the future transaction without advancing the current pool projection.
@@ -713,16 +713,16 @@ func repairM1041PressureContract(t *testing.T) {
 		t.Fatalf("unknown pool found=%v err=%v", found, err)
 	}
 }
-func TestRepairM_1041_PressureSellUnits(t *testing.T)       { repairM1041PressureContract(t) }
-func TestRepairM_1041_PressureFixtureWrongLeg(t *testing.T) { repairM1041PressureContract(t) }
-func TestRepairM_1041_LegacyIdleWindows(t *testing.T) {
+func TestMarketAggregationPressureSellUnits(t *testing.T)       { marketAggregationPressureContract(t) }
+func TestMarketAggregationPressureFixtureWrongLeg(t *testing.T) { marketAggregationPressureContract(t) }
+func TestMarketAggregationLegacyIdleWindows(t *testing.T) {
 	ctx := context.Background()
-	f := newRepairM1041Fixture(t)
+	f := newMarketAggregationFixture(t)
 	// No wall-clock sleeps: the scheduler's explicit clock crosses every cutoff.
 	last := (time.Now().Unix()/60)*60 - 60
-	receipts := repairM1041Receipts(t)
-	buy := repairM1041At(receipts[0], last)
-	sell := repairM1041At(receipts[1], last+1)
+	receipts := marketAggregationReceipts(t)
+	buy := marketAggregationAt(receipts[0], last)
+	sell := marketAggregationAt(receipts[1], last+1)
 	pool := buy.Fill.PoolAddress
 	f.seedPool(t, pool, buy.Fill.Token.Address, last-100)
 	f.seedPool(t, "0xz-idle", "0xz-token", last-100)
@@ -813,9 +813,9 @@ func TestRepairM_1041_LegacyIdleWindows(t *testing.T) {
 	}
 }
 
-func TestRepairM_1041_HolderTextOrder(t *testing.T) {
+func TestMarketAggregationHolderTextOrder(t *testing.T) {
 	ctx := context.Background()
-	f := newRepairM1041Fixture(t)
+	f := newMarketAggregationFixture(t)
 	const pool = "0xholders"
 	now := time.Now().Unix()
 	f.seedPool(t, pool, "0xtoken", now-1000000)

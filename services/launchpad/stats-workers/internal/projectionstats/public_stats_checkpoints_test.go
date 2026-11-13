@@ -31,48 +31,48 @@ import (
 // and consumer codecs run unchanged. Unknown SQL fails closed. COMMIT and
 // savepoint rollback change the stored state, rather than returning canned
 // query results; reopening the peer reloads its committed JSON snapshot.
-type repairM1043Raw struct {
+type publicStatsSyncRaw struct {
 	Pool, Emitter string
 	Record        syncRecord
 }
-type repairM1043Checkpoint struct {
+type publicStatsSyncCheckpoint struct {
 	Key    string
 	Events json.RawMessage
 }
-type repairM1043State struct {
-	Raw          []repairM1043Raw
+type publicStatsSyncState struct {
+	Raw          []publicStatsSyncRaw
 	Commits      []accounting.PublicationV1
 	Pools        []string
 	Frames       map[string]json.RawMessage
-	Checkpoints  map[string]repairM1043Checkpoint
+	Checkpoints  map[string]publicStatsSyncCheckpoint
 	ResetQueries int
 }
-type repairM1043DB struct {
+type publicStatsSyncDB struct {
 	mu       sync.Mutex
-	state    repairM1043State
+	state    publicStatsSyncState
 	path     string
 	listener net.Listener
 	wg       sync.WaitGroup
 	pool     *pgxpool.Pool
 }
 
-func repairM1043Clone(s repairM1043State) repairM1043State {
+func publicStatsSyncClone(s publicStatsSyncState) publicStatsSyncState {
 	wire, err := json.Marshal(s)
 	if err != nil {
 		panic(err)
 	}
-	var out repairM1043State
+	var out publicStatsSyncState
 	if err = json.Unmarshal(wire, &out); err != nil {
 		panic(err)
 	}
 	return out
 }
 
-func repairM1043Open(t *testing.T, path string, initial *repairM1043State) *repairM1043DB {
+func publicStatsSyncOpen(t *testing.T, path string, initial *publicStatsSyncState) *publicStatsSyncDB {
 	t.Helper()
-	d := &repairM1043DB{path: path}
+	d := &publicStatsSyncDB{path: path}
 	if initial != nil {
-		d.state = repairM1043Clone(*initial)
+		d.state = publicStatsSyncClone(*initial)
 		wire, err := json.Marshal(d.state)
 		if err != nil {
 			t.Fatal(err)
@@ -120,7 +120,7 @@ func repairM1043Open(t *testing.T, path string, initial *repairM1043State) *repa
 	t.Cleanup(d.close)
 	return d
 }
-func (d *repairM1043DB) close() {
+func (d *publicStatsSyncDB) close() {
 	if d.pool != nil {
 		d.pool.Close()
 	}
@@ -129,42 +129,44 @@ func (d *repairM1043DB) close() {
 	}
 	d.wg.Wait()
 }
-func (d *repairM1043DB) snapshot() repairM1043State {
+func (d *publicStatsSyncDB) snapshot() publicStatsSyncState {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	return repairM1043Clone(d.state)
+	return publicStatsSyncClone(d.state)
 }
 
-type repairM1043Cell struct {
+type publicStatsSyncCell struct {
 	oid  uint32
 	text []byte
 }
 
-func repairM1043Text(s string) repairM1043Cell { return repairM1043Cell{pgtype.TextOID, []byte(s)} }
-func repairM1043Bytes(b []byte) repairM1043Cell {
+func publicStatsSyncText(s string) publicStatsSyncCell {
+	return publicStatsSyncCell{pgtype.TextOID, []byte(s)}
+}
+func publicStatsSyncBytes(b []byte) publicStatsSyncCell {
 	if b == nil {
-		return repairM1043Cell{pgtype.ByteaOID, nil}
+		return publicStatsSyncCell{pgtype.ByteaOID, nil}
 	}
-	return repairM1043Cell{pgtype.ByteaOID, []byte("\\x" + hex.EncodeToString(b))}
+	return publicStatsSyncCell{pgtype.ByteaOID, []byte("\\x" + hex.EncodeToString(b))}
 }
-func repairM1043Bool(b bool) repairM1043Cell {
-	return repairM1043Cell{pgtype.BoolOID, []byte(strconv.FormatBool(b))}
+func publicStatsSyncBool(b bool) publicStatsSyncCell {
+	return publicStatsSyncCell{pgtype.BoolOID, []byte(strconv.FormatBool(b))}
 }
-func repairM1043Int(n int64) repairM1043Cell {
-	return repairM1043Cell{pgtype.Int8OID, []byte(strconv.FormatInt(n, 10))}
+func publicStatsSyncInt(n int64) publicStatsSyncCell {
+	return publicStatsSyncCell{pgtype.Int8OID, []byte(strconv.FormatInt(n, 10))}
 }
-func repairM1043JSON(v any) repairM1043Cell {
+func publicStatsSyncJSON(v any) publicStatsSyncCell {
 	b, e := json.Marshal(v)
 	if e != nil {
 		panic(e)
 	}
-	return repairM1043Cell{pgtype.JSONBOID, b}
+	return publicStatsSyncCell{pgtype.JSONBOID, b}
 }
-func repairM1043ByteArg(s string) ([]byte, error) {
+func publicStatsSyncByteArg(s string) ([]byte, error) {
 	return hex.DecodeString(strings.TrimPrefix(s, "\\x"))
 }
 
-func (d *repairM1043DB) serve(c net.Conn) {
+func (d *publicStatsSyncDB) serve(c net.Conn) {
 	b := pgproto3.NewBackend(c, c)
 	if _, err := b.ReceiveStartupMessage(); err != nil {
 		return
@@ -178,10 +180,10 @@ func (d *repairM1043DB) serve(c net.Conn) {
 	}
 	var query string
 	var args []string
-	var tx *repairM1043State
-	var savepoints []repairM1043State
+	var tx *publicStatsSyncState
+	var savepoints []publicStatsSyncState
 	respond := func(q string, a []string) {
-		var rows [][]repairM1043Cell
+		var rows [][]publicStatsSyncCell
 		var err error
 		command := strings.ToLower(q)
 		switch {
@@ -203,7 +205,7 @@ func (d *repairM1043DB) serve(c net.Conn) {
 				break
 			}
 			d.mu.Lock()
-			d.state = repairM1043Clone(*tx)
+			d.state = publicStatsSyncClone(*tx)
 			d.mu.Unlock()
 			tx = nil
 		case command == "rollback":
@@ -213,14 +215,14 @@ func (d *repairM1043DB) serve(c net.Conn) {
 				err = errors.New("savepoint without transaction")
 				break
 			}
-			savepoints = append(savepoints, repairM1043Clone(*tx))
+			savepoints = append(savepoints, publicStatsSyncClone(*tx))
 		case strings.HasPrefix(command, "rollback to savepoint "):
 			if len(savepoints) == 0 {
 				err = errors.New("missing savepoint")
 				break
 			}
 			s := savepoints[len(savepoints)-1]
-			*tx = repairM1043Clone(s)
+			*tx = publicStatsSyncClone(s)
 			savepoints = savepoints[:len(savepoints)-1]
 		case strings.HasPrefix(command, "release savepoint "):
 			if len(savepoints) == 0 {
@@ -232,7 +234,7 @@ func (d *repairM1043DB) serve(c net.Conn) {
 			if tx == nil {
 				err = errors.New("query outside transaction")
 			} else {
-				rows, err = repairM1043Query(tx, q, a)
+				rows, err = publicStatsSyncQuery(tx, q, a)
 			}
 		}
 		if err != nil {
@@ -312,7 +314,7 @@ func (d *repairM1043DB) serve(c net.Conn) {
 	}
 }
 
-func repairM1043PositionCompare(h, t, l string, p accounting.SourcePosition) int {
+func publicStatsSyncPositionCompare(h, t, l string, p accounting.SourcePosition) int {
 	for i, s := range []string{h, t, l} {
 		a, _ := new(big.Int).SetString(s, 10)
 		b, _ := new(big.Int).SetString([]string{p.Height, p.TransactionIndex, p.LogIndex}[i], 10)
@@ -322,26 +324,28 @@ func repairM1043PositionCompare(h, t, l string, p accounting.SourcePosition) int
 	}
 	return 0
 }
-func repairM1043Anchor(s *repairM1043State) accounting.FillV1 {
+func publicStatsSyncAnchor(s *publicStatsSyncState) accounting.FillV1 {
 	var last accounting.FillV1
 	for _, p := range s.Commits {
-		if last.SourceFillID == "" || repairM1043PositionCompare(p.Fill.Position.Height, p.Fill.Position.TransactionIndex, p.Fill.Position.LogIndex, last.Position) > 0 {
+		if last.SourceFillID == "" || publicStatsSyncPositionCompare(p.Fill.Position.Height, p.Fill.Position.TransactionIndex, p.Fill.Position.LogIndex, last.Position) > 0 {
 			last = *p.Fill
 		}
 	}
 	return last
 }
 
-func repairM1043Query(s *repairM1043State, q string, a []string) ([][]repairM1043Cell, error) {
-	one := func(c ...repairM1043Cell) ([][]repairM1043Cell, error) { return [][]repairM1043Cell{c}, nil }
+func publicStatsSyncQuery(s *publicStatsSyncState, q string, a []string) ([][]publicStatsSyncCell, error) {
+	one := func(c ...publicStatsSyncCell) ([][]publicStatsSyncCell, error) {
+		return [][]publicStatsSyncCell{c}, nil
+	}
 	switch {
 	case strings.HasPrefix(q, "SELECT pg_advisory_xact_lock"):
 		return nil, nil
 	case q == "SELECT clock_timestamp()":
-		return one(repairM1043Cell{pgtype.TimestamptzOID, []byte("2026-01-01 00:00:00+00")})
+		return one(publicStatsSyncCell{pgtype.TimestamptzOID, []byte("2026-01-01 00:00:00+00")})
 	case strings.HasPrefix(q, "INSERT INTO") && strings.Contains(q, ".accounting_market_commits("):
 		var f accounting.FillV1
-		raw, e := repairM1043ByteArg(a[7])
+		raw, e := publicStatsSyncByteArg(a[7])
 		if e != nil {
 			return nil, e
 		}
@@ -349,7 +353,7 @@ func repairM1043Query(s *repairM1043State, q string, a []string) ([][]repairM104
 			return nil, e
 		}
 		var pos accounting.PartitionPosition
-		raw, e = repairM1043ByteArg(a[6])
+		raw, e = publicStatsSyncByteArg(a[6])
 		if e != nil {
 			return nil, e
 		}
@@ -367,13 +371,13 @@ func repairM1043Query(s *repairM1043State, q string, a []string) ([][]repairM104
 		if !ok {
 			return nil, nil
 		}
-		return one(repairM1043Text(c.Key), repairM1043Cell{pgtype.JSONBOID, c.Events})
+		return one(publicStatsSyncText(c.Key), publicStatsSyncCell{pgtype.JSONBOID, c.Events})
 	case strings.HasPrefix(q, "INSERT INTO") && strings.Contains(q, ".public_stats_sync_baselines("):
-		raw, e := repairM1043ByteArg(a[3])
+		raw, e := publicStatsSyncByteArg(a[3])
 		if e != nil {
 			return nil, e
 		}
-		s.Checkpoints[a[1]] = repairM1043Checkpoint{a[2], raw}
+		s.Checkpoints[a[1]] = publicStatsSyncCheckpoint{a[2], raw}
 		return nil, nil
 	case strings.HasPrefix(q, "SELECT height::text,transaction_index::text,log_index::text,topics,data FROM "):
 		// Apply the production lookup's emitter, pool, anchor and ABI-word
@@ -382,11 +386,11 @@ func repairM1043Query(s *repairM1043State, q string, a []string) ([][]repairM104
 		if e := pgtype.NewMap().Scan(pgtype.TextArrayOID, pgtype.TextFormatCode, []byte(a[0]), &emitters); e != nil {
 			return nil, e
 		}
-		cutoff, e := repairM1043ByteArg(a[6])
+		cutoff, e := publicStatsSyncByteArg(a[6])
 		if e != nil {
 			return nil, e
 		}
-		candidates := []repairM1043Raw{}
+		candidates := []publicStatsSyncRaw{}
 		for _, r := range s.Raw {
 			allowed := false
 			for _, emitter := range emitters {
@@ -397,7 +401,7 @@ func repairM1043Query(s *repairM1043State, q string, a []string) ([][]repairM104
 			if !allowed || len(topics) < 2 || topics[0] != a[1] || topics[1] != a[2] {
 				continue
 			}
-			if repairM1043PositionCompare(a[3], a[4], a[5], accounting.SourcePosition{Height: r.Record.Height, TransactionIndex: r.Record.TransactionIndex, LogIndex: r.Record.LogIndex}) < 0 {
+			if publicStatsSyncPositionCompare(a[3], a[4], a[5], accounting.SourcePosition{Height: r.Record.Height, TransactionIndex: r.Record.TransactionIndex, LogIndex: r.Record.LogIndex}) < 0 {
 				continue
 			}
 			stamp := []byte{}
@@ -410,7 +414,7 @@ func repairM1043Query(s *repairM1043State, q string, a []string) ([][]repairM104
 			candidates = append(candidates, r)
 		}
 		sort.Slice(candidates, func(i, j int) bool {
-			return repairM1043PositionCompare(candidates[i].Record.Height, candidates[i].Record.TransactionIndex, candidates[i].Record.LogIndex, accounting.SourcePosition{Height: candidates[j].Record.Height, TransactionIndex: candidates[j].Record.TransactionIndex, LogIndex: candidates[j].Record.LogIndex}) > 0
+			return publicStatsSyncPositionCompare(candidates[i].Record.Height, candidates[i].Record.TransactionIndex, candidates[i].Record.LogIndex, accounting.SourcePosition{Height: candidates[j].Record.Height, TransactionIndex: candidates[j].Record.TransactionIndex, LogIndex: candidates[j].Record.LogIndex}) > 0
 		})
 		s.ResetQueries++
 		if !strings.Contains(q, "ORDER BY height DESC,transaction_index DESC,log_index DESC LIMIT 1") {
@@ -420,13 +424,13 @@ func repairM1043Query(s *repairM1043State, q string, a []string) ([][]repairM104
 			return nil, nil
 		}
 		r := candidates[0].Record
-		return one(repairM1043Text(r.Height), repairM1043Text(r.TransactionIndex), repairM1043Text(r.LogIndex), repairM1043Bytes(r.Topics), repairM1043Bytes(r.Data))
+		return one(publicStatsSyncText(r.Height), publicStatsSyncText(r.TransactionIndex), publicStatsSyncText(r.LogIndex), publicStatsSyncBytes(r.Topics), publicStatsSyncBytes(r.Data))
 	case strings.HasPrefix(q, "SELECT COALESCE(SUM(CASE WHEN fill"):
 		delta := new(big.Int)
 		any := false
 		for _, p := range s.Commits {
 			f := p.Fill
-			if f.PoolAddress != a[1] || repairM1043PositionCompare(a[2], a[3], a[4], f.Position) >= 0 || repairM1043PositionCompare(a[5], a[6], a[7], f.Position) < 0 {
+			if f.PoolAddress != a[1] || publicStatsSyncPositionCompare(a[2], a[3], a[4], f.Position) >= 0 || publicStatsSyncPositionCompare(a[5], a[6], a[7], f.Position) < 0 {
 				continue
 			}
 			any = true
@@ -439,21 +443,21 @@ func repairM1043Query(s *repairM1043State, q string, a []string) ([][]repairM104
 				delta.Sub(delta, usdl)
 			}
 		}
-		sides := repairM1043Cell{pgtype.BoolOID, nil}
+		sides := publicStatsSyncCell{pgtype.BoolOID, nil}
 		if any {
-			sides = repairM1043Bool(true)
+			sides = publicStatsSyncBool(true)
 		}
-		return one(repairM1043Text(delta.String()), sides)
+		return one(publicStatsSyncText(delta.String()), sides)
 	case strings.HasPrefix(q, "SELECT c.fill,t.block_timestamp,c.sequence,c.source_fact_digest"):
 		before, _ := strconv.ParseInt(a[5], 10, 64)
 		var last *accounting.PublicationV1
 		for i := range s.Commits {
 			p := &s.Commits[i]
 			ts, _ := strconv.ParseInt(p.Fill.BlockTimestampSeconds, 10, 64)
-			if p.Fill.PoolAddress != a[1] || repairM1043PositionCompare(a[2], a[3], a[4], p.Fill.Position) < 0 || (before >= 0 && ts >= before) {
+			if p.Fill.PoolAddress != a[1] || publicStatsSyncPositionCompare(a[2], a[3], a[4], p.Fill.Position) < 0 || (before >= 0 && ts >= before) {
 				continue
 			}
-			if last == nil || repairM1043PositionCompare(p.Fill.Position.Height, p.Fill.Position.TransactionIndex, p.Fill.Position.LogIndex, last.Fill.Position) > 0 {
+			if last == nil || publicStatsSyncPositionCompare(p.Fill.Position.Height, p.Fill.Position.TransactionIndex, p.Fill.Position.LogIndex, last.Fill.Position) > 0 {
 				last = p
 			}
 		}
@@ -462,7 +466,7 @@ func repairM1043Query(s *repairM1043State, q string, a []string) ([][]repairM104
 		}
 		ts, _ := strconv.ParseInt(last.Fill.BlockTimestampSeconds, 10, 64)
 		seq, _ := strconv.ParseInt(last.Positions[0].Sequence, 10, 64)
-		return one(repairM1043JSON(last.Fill), repairM1043Int(ts), repairM1043Int(seq), repairM1043Text(string(last.SourceFactDigest)))
+		return one(publicStatsSyncJSON(last.Fill), publicStatsSyncInt(ts), publicStatsSyncInt(seq), publicStatsSyncText(string(last.SourceFactDigest)))
 	case strings.HasPrefix(q, "SELECT emitter,block_hash,topics,data FROM "):
 		for _, p := range s.Commits {
 			f := p.Fill
@@ -471,7 +475,7 @@ func repairM1043Query(s *repairM1043State, q string, a []string) ([][]repairM104
 			}
 			for _, r := range s.Raw {
 				if r.Record.Height == a[2] && r.Record.TransactionIndex == a[3] && r.Record.LogIndex == a[1] {
-					return one(repairM1043Text(r.Emitter), repairM1043Text(f.Position.BlockHash), repairM1043Bytes(r.Record.Topics), repairM1043Bytes(r.Record.Data))
+					return one(publicStatsSyncText(r.Emitter), publicStatsSyncText(f.Position.BlockHash), publicStatsSyncBytes(r.Record.Topics), publicStatsSyncBytes(r.Record.Data))
 				}
 			}
 		}
@@ -485,7 +489,7 @@ func repairM1043Query(s *repairM1043State, q string, a []string) ([][]repairM104
 		for _, p := range s.Commits {
 			f := p.Fill
 			ts, _ := strconv.ParseInt(f.BlockTimestampSeconds, 10, 64)
-			if f.PoolAddress != a[1] || ts < start || ts >= end || repairM1043PositionCompare(a[2], a[3], a[4], f.Position) < 0 {
+			if f.PoolAddress != a[1] || ts < start || ts >= end || publicStatsSyncPositionCompare(a[2], a[3], a[4], f.Position) < 0 {
 				continue
 			}
 			n, _ := new(big.Int).SetString(f.USDLAmountRaw, 10)
@@ -497,20 +501,20 @@ func repairM1043Query(s *repairM1043State, q string, a []string) ([][]repairM104
 				sells++
 			}
 		}
-		return one(repairM1043Text(sum.String()), repairM1043Text(strconv.FormatInt(buys, 10)), repairM1043Text(strconv.FormatInt(sells, 10)), repairM1043Text(strconv.Itoa(len(actors))), repairM1043Text(strconv.FormatInt(buys+sells, 10)))
+		return one(publicStatsSyncText(sum.String()), publicStatsSyncText(strconv.FormatInt(buys, 10)), publicStatsSyncText(strconv.FormatInt(sells, 10)), publicStatsSyncText(strconv.Itoa(len(actors))), publicStatsSyncText(strconv.FormatInt(buys+sells, 10)))
 	case strings.HasPrefix(q, "SELECT coverage,last_event,supply::text,decimals FROM "):
 		return nil, nil
 	case strings.Contains(q, `"market_projection_head"($1)`):
-		return one(repairM1043Bytes(s.Frames[a[0]]))
+		return one(publicStatsSyncBytes(s.Frames[a[0]]))
 	case strings.Contains(q, `"append_market_`):
 		if !strings.HasPrefix(q, `SELECT "api_stream".`) {
 			return nil, fmt.Errorf("wrong stream sink: %s", q)
 		}
-		raw, e := repairM1043ByteArg(a[0])
+		raw, e := publicStatsSyncByteArg(a[0])
 		if e != nil {
 			return nil, e
 		}
-		proofRaw, e := repairM1043ByteArg(a[1])
+		proofRaw, e := publicStatsSyncByteArg(a[1])
 		if e != nil {
 			return nil, e
 		}
@@ -562,29 +566,29 @@ func repairM1043Query(s *repairM1043State, q string, a []string) ([][]repairM104
 		s.Frames[u.Topic] = wire
 		return nil, nil
 	case strings.HasPrefix(q, "SELECT w.raw_complete_height,w.typed_complete_height"):
-		f := repairM1043Anchor(s)
+		f := publicStatsSyncAnchor(s)
 		h, _ := strconv.ParseInt(f.Position.Height, 10, 64)
-		return one(repairM1043Int(h), repairM1043Int(h), repairM1043Bool(h > 0))
+		return one(publicStatsSyncInt(h), publicStatsSyncInt(h), publicStatsSyncBool(h > 0))
 	case strings.HasPrefix(q, "SELECT block_hash,fetch_complete AND required_decode_complete"):
-		return one(repairM1043Text(repairM1043Anchor(s).Position.BlockHash), repairM1043Bool(true))
+		return one(publicStatsSyncText(publicStatsSyncAnchor(s).Position.BlockHash), publicStatsSyncBool(true))
 	case strings.HasPrefix(q, "SELECT EXISTS(SELECT 1 FROM ") && strings.Contains(q, ".accounting_pool_fences"):
-		return one(repairM1043Bool(false))
+		return one(publicStatsSyncBool(false))
 	case strings.HasPrefix(q, "SELECT NOT EXISTS(SELECT 1 FROM "):
-		return one(repairM1043Bool(len(s.Commits) > 0))
+		return one(publicStatsSyncBool(len(s.Commits) > 0))
 	case strings.HasPrefix(q, "SELECT height::text,transaction_index::text,log_index::text,transaction_hash,block_hash,block_timestamp FROM ("):
-		f := repairM1043Anchor(s)
+		f := publicStatsSyncAnchor(s)
 		ts, _ := strconv.ParseInt(f.BlockTimestampSeconds, 10, 64)
-		return one(repairM1043Text(f.Position.Height), repairM1043Text(f.Position.TransactionIndex), repairM1043Text(f.Position.LogIndex), repairM1043Text(f.Position.TransactionHash), repairM1043Text(f.Position.BlockHash), repairM1043Int(ts))
+		return one(publicStatsSyncText(f.Position.Height), publicStatsSyncText(f.Position.TransactionIndex), publicStatsSyncText(f.Position.LogIndex), publicStatsSyncText(f.Position.TransactionHash), publicStatsSyncText(f.Position.BlockHash), publicStatsSyncInt(ts))
 	case strings.HasPrefix(q, "SELECT EXISTS(SELECT 1 FROM ") && strings.Contains(q, "indexer_block_completeness_v1"):
-		return one(repairM1043Bool(a[1] == repairM1043Anchor(s).Position.Height && a[2] == repairM1043Anchor(s).Position.BlockHash))
+		return one(publicStatsSyncBool(a[1] == publicStatsSyncAnchor(s).Position.Height && a[2] == publicStatsSyncAnchor(s).Position.BlockHash))
 	case strings.HasPrefix(q, "SELECT pool,token,lower(creator),block_timestamp FROM "):
 		limit, _ := strconv.Atoi(a[2])
-		rows := [][]repairM1043Cell{}
+		rows := [][]publicStatsSyncCell{}
 		pools := append([]string(nil), s.Pools...)
 		sort.Strings(pools)
 		for _, pool := range pools {
 			if pool > a[1] && len(rows) < limit {
-				rows = append(rows, []repairM1043Cell{repairM1043Text(pool), repairM1043Text("0x" + strings.Repeat("a", 40)), repairM1043Text("0x" + strings.Repeat("b", 40)), repairM1043Int(1)})
+				rows = append(rows, []publicStatsSyncCell{publicStatsSyncText(pool), publicStatsSyncText("0x" + strings.Repeat("a", 40)), publicStatsSyncText("0x" + strings.Repeat("b", 40)), publicStatsSyncInt(1)})
 			}
 		}
 		return rows, nil
@@ -593,16 +597,16 @@ func repairM1043Query(s *repairM1043State, q string, a []string) ([][]repairM104
 		for _, p := range s.Commits {
 			emitters[p.Fill.ActualEmitter] = true
 		}
-		rows := [][]repairM1043Cell{}
+		rows := [][]publicStatsSyncCell{}
 		for e := range emitters {
-			rows = append(rows, []repairM1043Cell{repairM1043Text(e)})
+			rows = append(rows, []publicStatsSyncCell{publicStatsSyncText(e)})
 		}
 		return rows, nil
 	}
 	return nil, fmt.Errorf("unsupported fixture query: %s", q)
 }
 
-func repairM1043Receipt(t *testing.T) (accounting.PublicationV1, repairM1043Raw) {
+func publicStatsSyncReceipt(t *testing.T) (accounting.PublicationV1, publicStatsSyncRaw) {
 	t.Helper()
 	wire, err := os.ReadFile("testdata/real_pool_125.json")
 	if err != nil {
@@ -658,18 +662,18 @@ func repairM1043Receipt(t *testing.T) (accounting.PublicationV1, repairM1043Raw)
 			if err != nil {
 				t.Fatal(err)
 			}
-			return p, repairM1043Raw{Pool: f.PoolAddress, Emitter: f.ActualEmitter, Record: syncRecord{Height: f.Position.Height, TransactionIndex: f.Position.TransactionIndex, LogIndex: f.Position.LogIndex, Topics: topics, Data: data}}
+			return p, publicStatsSyncRaw{Pool: f.PoolAddress, Emitter: f.ActualEmitter, Record: syncRecord{Height: f.Position.Height, TransactionIndex: f.Position.TransactionIndex, LogIndex: f.Position.LogIndex, Topics: topics, Data: data}}
 		}
 	}
 	t.Fatal("recorded receipt contains no canonical buy")
-	return accounting.PublicationV1{}, repairM1043Raw{}
+	return accounting.PublicationV1{}, publicStatsSyncRaw{}
 }
 
-func repairM1043StateFor(t *testing.T, resets int) (repairM1043State, accounting.PublicationV1) {
+func publicStatsSyncStateFor(t *testing.T, resets int) (publicStatsSyncState, accounting.PublicationV1) {
 	t.Helper()
-	pub, swap := repairM1043Receipt(t)
+	pub, swap := publicStatsSyncReceipt(t)
 	f := pub.Fill
-	s := repairM1043State{Raw: []repairM1043Raw{swap}, Pools: []string{f.PoolAddress}, Frames: map[string]json.RawMessage{}, Checkpoints: map[string]repairM1043Checkpoint{}}
+	s := publicStatsSyncState{Raw: []publicStatsSyncRaw{swap}, Pools: []string{f.PoolAddress}, Frames: map[string]json.RawMessage{}, Checkpoints: map[string]publicStatsSyncCheckpoint{}}
 	height, _ := strconv.ParseInt(f.Position.Height, 10, 64)
 	timestamp, _ := strconv.ParseInt(f.BlockTimestampSeconds, 10, 64)
 	topics, err := json.Marshal([]string{poolStateUpdatedTopic, poolTopic(f.PoolAddress)})
@@ -684,11 +688,11 @@ func repairM1043StateFor(t *testing.T, resets int) (repairM1043State, accounting
 		for j, n := range []int64{100000, 1000000 + int64(i)*100, 2000000, 100 + int64(i), ts, h} {
 			big.NewInt(n).FillBytes(data[j*32 : (j+1)*32])
 		}
-		s.Raw = append(s.Raw, repairM1043Raw{Pool: f.PoolAddress, Emitter: f.ActualEmitter, Record: syncRecord{Height: strconv.FormatInt(h, 10), TransactionIndex: "0", LogIndex: "0", Topics: topics, Data: data}})
+		s.Raw = append(s.Raw, publicStatsSyncRaw{Pool: f.PoolAddress, Emitter: f.ActualEmitter, Record: syncRecord{Height: strconv.FormatInt(h, 10), TransactionIndex: "0", LogIndex: "0", Topics: topics, Data: data}})
 	}
 	return s, pub
 }
-func repairM1043Projector(t *testing.T, d *repairM1043DB, batch int) (*Repository, *PublicStatsProjector) {
+func publicStatsSyncProjector(t *testing.T, d *publicStatsSyncDB, batch int) (*Repository, *PublicStatsProjector) {
 	t.Helper()
 	r, err := NewRepository(d.pool, "stats")
 	if err != nil {
@@ -704,7 +708,7 @@ func repairM1043Projector(t *testing.T, d *repairM1043DB, batch int) (*Repositor
 	}
 	return r, p
 }
-func repairM1043Commit(t *testing.T, r *Repository, p accounting.PublicationV1) {
+func publicStatsSyncCommit(t *testing.T, r *Repository, p accounting.PublicationV1) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -720,7 +724,7 @@ func repairM1043Commit(t *testing.T, r *Repository, p accounting.PublicationV1) 
 		t.Fatal(err)
 	}
 }
-func repairM1043Stats(t *testing.T, s repairM1043State, pool string) publicStatsFrame {
+func publicStatsSyncStats(t *testing.T, s publicStatsSyncState, pool string) publicStatsFrame {
 	t.Helper()
 	raw := s.Frames["market.stats."+pool]
 	if err := ValidatePublicStatsFrame(raw); err != nil {
@@ -740,16 +744,16 @@ func repairM1043Stats(t *testing.T, s repairM1043State, pool string) publicStats
 	return frame
 }
 
-func TestRepairM_1043_StreamSchemaSplit(t *testing.T) {
-	state, pub := repairM1043StateFor(t, 0)
-	d := repairM1043Open(t, filepath.Join(t.TempDir(), "committed.json"), &state)
-	repo, p := repairM1043Projector(t, d, 2)
+func TestPublicStatsCheckpointStreamSchemaSplit(t *testing.T) {
+	state, pub := publicStatsSyncStateFor(t, 0)
+	d := publicStatsSyncOpen(t, filepath.Join(t.TempDir(), "committed.json"), &state)
+	repo, p := publicStatsSyncProjector(t, d, 2)
 	for _, schema := range []string{"other_stream", "API_STREAM", "api_stream;drop schema stats", ""} {
 		if _, err := NewPublicStatsProjector(PublicStatsConfig{Reads: p.reads, HolderSchema: publicTestHolders, StreamSchema: schema, Batch: 2}); !errors.Is(err, ErrInvalid) {
 			t.Fatalf("override %q accepted: %v", schema, err)
 		}
 	}
-	repairM1043Commit(t, repo, pub)
+	publicStatsSyncCommit(t, repo, pub)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	result, err := p.RefreshOnce(ctx, time.Unix(1800000000, 0))
@@ -761,7 +765,7 @@ func TestRepairM_1043_StreamSchemaSplit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	stats := repairM1043Stats(t, stored, pub.Fill.PoolAddress)
+	stats := publicStatsSyncStats(t, stored, pub.Fill.PoolAddress)
 	var payload struct {
 		USDL  string `json:"usdlAmountRaw"`
 		Token string `json:"tokenAmountRaw"`
@@ -777,12 +781,12 @@ func TestRepairM_1043_StreamSchemaSplit(t *testing.T) {
 	}
 }
 
-func TestRepairM_1043_SyncLifetimeCapRestart(t *testing.T) {
-	state, pub := repairM1043StateFor(t, 400)
+func TestPublicStatsCheckpointSyncLifetimeCapRestart(t *testing.T) {
+	state, pub := publicStatsSyncStateFor(t, 400)
 	path := filepath.Join(t.TempDir(), "committed.json")
-	d := repairM1043Open(t, path, &state)
-	repo, p := repairM1043Projector(t, d, 2)
-	repairM1043Commit(t, repo, pub)
+	d := publicStatsSyncOpen(t, path, &state)
+	repo, p := publicStatsSyncProjector(t, d, 2)
+	publicStatsSyncCommit(t, repo, pub)
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	result, err := p.RefreshOnce(ctx, time.Unix(1800000000, 0))
@@ -790,7 +794,7 @@ func TestRepairM_1043_SyncLifetimeCapRestart(t *testing.T) {
 		t.Fatal(result, err)
 	}
 	stored := d.snapshot()
-	frame := repairM1043Stats(t, stored, pub.Fill.PoolAddress)
+	frame := publicStatsSyncStats(t, stored, pub.Fill.PoolAddress)
 	reserve := big.NewInt(1000000 + 399*100)
 	paid, _ := new(big.Int).SetString(pub.Fill.PaidInputRaw, 10)
 	fee, _ := new(big.Int).SetString(pub.Fill.FeeRaw, 10)
@@ -836,8 +840,8 @@ func TestRepairM_1043_SyncLifetimeCapRestart(t *testing.T) {
 	}
 	first := append([]byte(nil), stored.Frames["market.stats."+pub.Fill.PoolAddress]...)
 	d.close() // Stop connections, projector and SQL peer, then reopen from disk.
-	reopened := repairM1043Open(t, path, nil)
-	_, p = repairM1043Projector(t, reopened, 2)
+	reopened := publicStatsSyncOpen(t, path, nil)
+	_, p = publicStatsSyncProjector(t, reopened, 2)
 	result, err = p.RefreshOnce(ctx, time.Unix(1800000060, 0))
 	if err != nil || result.Pools != 1 || result.Appended != 0 || result.Prices != 0 {
 		t.Fatal(result, err)
@@ -848,10 +852,10 @@ func TestRepairM_1043_SyncLifetimeCapRestart(t *testing.T) {
 	}
 }
 
-func TestRepairM_1043_FailedPoolReadinessAndLaterPage(t *testing.T) {
+func TestPublicStatsCheckpointFailedPoolReadinessAndLaterPage(t *testing.T) {
 	for _, batch := range []int{1, 2} {
 		t.Run(fmt.Sprintf("batch_%d", batch), func(t *testing.T) {
-			state, pub := repairM1043StateFor(t, 400)
+			state, pub := publicStatsSyncStateFor(t, 400)
 			bad := "0x" + strings.Repeat("1", 40)
 			state.Pools = append(state.Pools, bad)
 			topics, err := json.Marshal([]string{poolStateUpdatedTopic, poolTopic(bad)})
@@ -860,10 +864,10 @@ func TestRepairM_1043_FailedPoolReadinessAndLaterPage(t *testing.T) {
 			}
 			// An invalid authorized raw reset must remain an integrity failure, while
 			// the healthy pool in the next page still commits its frame.
-			state.Raw = append(state.Raw, repairM1043Raw{Pool: bad, Emitter: pub.Fill.ActualEmitter, Record: syncRecord{Height: pub.Fill.Position.Height, TransactionIndex: "0", LogIndex: "0", Topics: topics, Data: []byte{1}}})
-			d := repairM1043Open(t, filepath.Join(t.TempDir(), "committed.json"), &state)
-			repo, p := repairM1043Projector(t, d, batch)
-			repairM1043Commit(t, repo, pub)
+			state.Raw = append(state.Raw, publicStatsSyncRaw{Pool: bad, Emitter: pub.Fill.ActualEmitter, Record: syncRecord{Height: pub.Fill.Position.Height, TransactionIndex: "0", LogIndex: "0", Topics: topics, Data: []byte{1}}})
+			d := publicStatsSyncOpen(t, filepath.Join(t.TempDir(), "committed.json"), &state)
+			repo, p := publicStatsSyncProjector(t, d, batch)
+			publicStatsSyncCommit(t, repo, pub)
 			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 			defer cancel()
 			result, err := p.RefreshOnce(ctx, time.Unix(1800000000, 0))
@@ -871,7 +875,7 @@ func TestRepairM_1043_FailedPoolReadinessAndLaterPage(t *testing.T) {
 				t.Fatal(result, err)
 			}
 			stored := d.snapshot()
-			repairM1043Stats(t, stored, pub.Fill.PoolAddress)
+			publicStatsSyncStats(t, stored, pub.Fill.PoolAddress)
 			if len(stored.Frames["market.stats."+bad]) != 0 || len(stored.Checkpoints[bad].Events) != 0 {
 				t.Fatal("failed pool published or checkpointed invalid evidence")
 			}
@@ -879,8 +883,8 @@ func TestRepairM_1043_FailedPoolReadinessAndLaterPage(t *testing.T) {
 	}
 }
 
-func TestRepairM_1043_SyncSafetyBounds(t *testing.T) {
-	state, pub := repairM1043StateFor(t, 1)
+func TestPublicStatsCheckpointSyncSafetyBounds(t *testing.T) {
+	state, pub := publicStatsSyncStateFor(t, 1)
 	ts, _ := strconv.ParseInt(pub.Fill.BlockTimestampSeconds, 10, 64)
 	anchor := publicAnchor{Position: Position(pub.Fill.Position), timestamp: ts}
 	good := state.Raw[1].Record

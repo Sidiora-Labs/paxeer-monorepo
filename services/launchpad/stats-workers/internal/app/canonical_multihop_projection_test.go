@@ -31,18 +31,18 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-type repair70RawLog struct {
+type canonicalWalletRawLog struct {
 	Address, BlockHash, TransactionHash, Data string
 	BlockNumber, TransactionIndex, Index      int64
 	Topics                                    []string
 	Removed                                   bool
 }
-type repair70Receipt struct {
+type canonicalWalletReceipt struct {
 	Label, Hash, BlockHash, From string
 	BlockNumber, Index, Status   int64
-	Logs                         []repair70RawLog
+	Logs                         []canonicalWalletRawLog
 }
-type repair70Fixture struct {
+type canonicalWalletFixture struct {
 	dsn        string
 	pool       *pgxpool.Pool
 	projection *canonicalMultihopProjection
@@ -54,7 +54,7 @@ type repair70Fixture struct {
 	expected   store.CrossTokenSwapRow
 }
 
-func newRepair70Fixture(t *testing.T) *repair70Fixture {
+func newCanonicalWalletFixture(t *testing.T) *canonicalWalletFixture {
 	t.Helper()
 	ctx := context.Background()
 	dsn, pool := internaltest.NewPostgresWithDSN(t)
@@ -71,12 +71,12 @@ func newRepair70Fixture(t *testing.T) *repair70Fixture {
 		ChainID        int
 		ReplayVerified bool
 		Addresses      map[string]string
-		Receipts       []repair70Receipt
+		Receipts       []canonicalWalletReceipt
 		DecodedLogs    []struct {
 			Name, Address string
 			BlockNumber   int64
 			Args          []json.RawMessage
-			Raw           repair70RawLog
+			Raw           canonicalWalletRawLog
 		}
 	}
 	if err = json.Unmarshal(raw, &golden); err != nil {
@@ -111,7 +111,7 @@ func newRepair70Fixture(t *testing.T) *repair70Fixture {
 	exec(string(ddl))
 	exec(canonicalMultihopSchemaSQL)
 	exec(`INSERT INTO recovery.recovery_control(singleton,epoch,region,revision,checkpoint_sha256) VALUES(true,1,'fixture-region',1,repeat('0',64))`)
-	var receipt repair70Receipt
+	var receipt canonicalWalletReceipt
 	for _, r := range golden.Receipts {
 		if r.Label == "multihop" {
 			receipt = r
@@ -168,7 +168,7 @@ func newRepair70Fixture(t *testing.T) *repair70Fixture {
 		t.Fatal(err)
 	}
 	expected := store.CrossTokenSwapRow{ID: receipt.Hash + "-12", Sender: strings.ToLower(receipt.From), TokenIn: "0x82eeedbedd9e9f890b65924a9ca904726530d57a", TokenOut: "0xed9e01c0e704566017556794f9d89daf4363099d", PoolIn: "0x277100da3092ad2693701d36f7a659e834f80bf9", PoolOut: "0xa850aa7dea058da707b4c1d0668eef1f01a96aee", AmountIn: "14969972418576", IntermediateUsdl: "297812138", AmountOut: "28835684790084", FeeIn: "44909917255", FeeOut: "893436", BlockTimestamp: 1791504068, TxHash: receipt.Hash}
-	return &repair70Fixture{dsn: dsn, pool: pool, projection: projection, cfg: cfg, document: document, logger: logger, guard: guard, route: route, expected: expected}
+	return &canonicalWalletFixture{dsn: dsn, pool: pool, projection: projection, cfg: cfg, document: document, logger: logger, guard: guard, route: route, expected: expected}
 }
 
 func rawJSON(t *testing.T, v any) []byte {
@@ -179,13 +179,13 @@ func rawJSON(t *testing.T, v any) []byte {
 	}
 	return raw
 }
-func (f *repair70Fixture) exec(t *testing.T, sql string, args ...any) {
+func (f *canonicalWalletFixture) exec(t *testing.T, sql string, args ...any) {
 	t.Helper()
 	if _, err := f.pool.Exec(context.Background(), sql, args...); err != nil {
 		t.Fatal(err)
 	}
 }
-func (f *repair70Fixture) counts(t *testing.T) (int, int) {
+func (f *canonicalWalletFixture) counts(t *testing.T) (int, int) {
 	t.Helper()
 	var rows, checkpoints int
 	if err := f.pool.QueryRow(context.Background(), `SELECT (SELECT count(*) FROM stats.cross_token_swaps),(SELECT count(*) FROM stats.canonical_multihop_checkpoints)`).Scan(&rows, &checkpoints); err != nil {
@@ -193,7 +193,7 @@ func (f *repair70Fixture) counts(t *testing.T) (int, int) {
 	}
 	return rows, checkpoints
 }
-func (f *repair70Fixture) assertHistory(t *testing.T, want int) {
+func (f *canonicalWalletFixture) assertHistory(t *testing.T, want int) {
 	t.Helper()
 	router := chi.NewRouter()
 	httpapi.RegisterCrossTokenSwaps(router, store.New(f.pool))
@@ -210,7 +210,7 @@ func (f *repair70Fixture) assertHistory(t *testing.T, want int) {
 		t.Fatalf("wallet row = %+v, want %+v", page.Swaps[0], f.expected)
 	}
 }
-func (f *repair70Fixture) restart(t *testing.T) {
+func (f *canonicalWalletFixture) restart(t *testing.T) {
 	t.Helper()
 	f.pool.Close()
 	pool, err := pgxpool.New(context.Background(), f.dsn)
@@ -223,7 +223,7 @@ func (f *repair70Fixture) restart(t *testing.T) {
 	old.pool = pool
 	f.projection = &old
 }
-func (f *repair70Fixture) runJob(t *testing.T) {
+func (f *canonicalWalletFixture) runJob(t *testing.T) {
 	t.Helper()
 	health := &statsRuntimeHealth{failures: map[string]error{}}
 	job, err := canonicalMultihopJob(f.pool, f.cfg, f.document, f.guard, f.logger, health)
@@ -258,8 +258,8 @@ func (f *repair70Fixture) runJob(t *testing.T) {
 	}
 }
 
-func TestRepair_70_CrossWalletCatchupAndRestart(t *testing.T) {
-	f := newRepair70Fixture(t)
+func TestCanonicalMultihopProjectionCrossWalletCatchupAndRestart(t *testing.T) {
+	f := newCanonicalWalletFixture(t)
 	f.assertHistory(t, 0)
 	f.runJob(t)
 	f.assertHistory(t, 1)
@@ -315,8 +315,8 @@ func TestRepair_70_CrossWalletCatchupAndRestart(t *testing.T) {
 	}
 }
 
-func TestRepair_70_CheckpointFailureRollsBackAndRecovers(t *testing.T) {
-	f := newRepair70Fixture(t)
+func TestCanonicalMultihopProjectionCheckpointFailureRollsBackAndRecovers(t *testing.T) {
+	f := newCanonicalWalletFixture(t)
 	f.exec(t, `ALTER TABLE stats.canonical_multihop_checkpoints ADD CONSTRAINT repair70_checkpoint_failure CHECK(log_index<>12)`)
 	n, err := f.projection.RunOnce(context.Background())
 	var failure *pgconn.PgError
@@ -338,8 +338,8 @@ func TestRepair_70_CheckpointFailureRollsBackAndRecovers(t *testing.T) {
 	}
 }
 
-func TestRepair_70_CheckpointAndWalletRowBecomeVisibleTogether(t *testing.T) {
-	f := newRepair70Fixture(t)
+func TestCanonicalMultihopProjectionCheckpointAndWalletRowBecomeVisibleTogether(t *testing.T) {
+	f := newCanonicalWalletFixture(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	blocker, err := f.pool.Begin(ctx)
@@ -393,7 +393,7 @@ func TestRepair_70_CheckpointAndWalletRowBecomeVisibleTogether(t *testing.T) {
 	f.assertHistory(t, 1)
 }
 
-func TestRepair_70_RejectsUnboundRouteEvidence(t *testing.T) {
+func TestCanonicalMultihopProjectionRejectsUnboundRouteEvidence(t *testing.T) {
 	cases := []struct {
 		name, sql   string
 		unavailable bool
@@ -413,7 +413,7 @@ func TestRepair_70_RejectsUnboundRouteEvidence(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			f := newRepair70Fixture(t)
+			f := newCanonicalWalletFixture(t)
 			f.exec(t, tc.sql)
 			want := consumer.ErrLegacyBridgeIntegrity
 			if tc.unavailable {
@@ -430,8 +430,8 @@ func TestRepair_70_RejectsUnboundRouteEvidence(t *testing.T) {
 	}
 }
 
-func TestRepair_70_DoesNotInventRoutesFromPoolFills(t *testing.T) {
-	f := newRepair70Fixture(t)
+func TestCanonicalMultihopProjectionDoesNotInventRoutesFromPoolFills(t *testing.T) {
+	f := newCanonicalWalletFixture(t)
 	f.exec(t, `DELETE FROM indexer.indexer_raw_logs WHERE log_index IN (12,13)`)
 	if n, err := f.projection.RunOnce(context.Background()); n != 0 || err != nil {
 		t.Fatal(n, err)
@@ -442,8 +442,8 @@ func TestRepair_70_DoesNotInventRoutesFromPoolFills(t *testing.T) {
 	}
 }
 
-func TestRepair_70_RedeliveryRejectsIdentityConflict(t *testing.T) {
-	f := newRepair70Fixture(t)
+func TestCanonicalMultihopProjectionRedeliveryRejectsIdentityConflict(t *testing.T) {
+	f := newCanonicalWalletFixture(t)
 	if n, err := f.projection.RunOnce(context.Background()); n != 1 || err != nil {
 		t.Fatal(n, err)
 	}
@@ -466,8 +466,8 @@ func TestRepair_70_RedeliveryRejectsIdentityConflict(t *testing.T) {
 	}
 }
 
-func TestRepair_70_RejectsExistingConflictingWalletRow(t *testing.T) {
-	f := newRepair70Fixture(t)
+func TestCanonicalMultihopProjectionRejectsExistingConflictingWalletRow(t *testing.T) {
+	f := newCanonicalWalletFixture(t)
 	conflict := f.expected
 	conflict.AmountOut = "1"
 	if err := store.New(f.pool).InsertCrossTokenSwap(context.Background(), conflict); err != nil {
@@ -485,8 +485,8 @@ func TestRepair_70_RejectsExistingConflictingWalletRow(t *testing.T) {
 	}
 }
 
-func TestRepair_70_RecoveryEpochFencesProjection(t *testing.T) {
-	f := newRepair70Fixture(t)
+func TestCanonicalMultihopProjectionRecoveryEpochFencesProjection(t *testing.T) {
+	f := newCanonicalWalletFixture(t)
 	f.exec(t, `UPDATE recovery.recovery_control SET epoch=2`)
 	if n, err := f.projection.RunOnce(context.Background()); n != 0 || err == nil {
 		t.Fatal(n, err)
@@ -497,8 +497,8 @@ func TestRepair_70_RecoveryEpochFencesProjection(t *testing.T) {
 	f.assertHistory(t, 0)
 }
 
-func TestRepair_70_ProductionJobRequiresCanonicalDependencies(t *testing.T) {
-	f := newRepair70Fixture(t)
+func TestCanonicalMultihopProjectionProductionJobRequiresCanonicalDependencies(t *testing.T) {
+	f := newCanonicalWalletFixture(t)
 	health := &statsRuntimeHealth{failures: map[string]error{}}
 	bad := f.cfg
 	bad.RouterAddress = ""

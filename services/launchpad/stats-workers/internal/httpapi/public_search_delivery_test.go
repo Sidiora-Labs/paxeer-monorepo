@@ -29,7 +29,7 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 )
 
-type repair69Envelope struct {
+type publicSearchEnvelope struct {
 	Data struct {
 		Items      []search.Hit `json:"items"`
 		Generation string       `json:"generation"`
@@ -40,7 +40,7 @@ type repair69Envelope struct {
 	Next     *string `json:"nextCursor"`
 }
 
-type repair69Path struct {
+type publicSearchPath struct {
 	t          *testing.T
 	ctx        context.Context
 	dsn        string
@@ -54,7 +54,7 @@ type repair69Path struct {
 	sequence   int
 }
 
-func repair69JSON(t *testing.T, value any) []byte {
+func publicSearchJSON(t *testing.T, value any) []byte {
 	t.Helper()
 	raw, err := json.Marshal(value)
 	if err != nil {
@@ -63,7 +63,7 @@ func repair69JSON(t *testing.T, value any) []byte {
 	return raw
 }
 
-func repair69Broker(t *testing.T) *nats.Conn {
+func publicSearchBroker(t *testing.T) *nats.Conn {
 	t.Helper()
 	binary, err := exec.LookPath("nats-server")
 	if err != nil {
@@ -102,11 +102,11 @@ func repair69Broker(t *testing.T) *nats.Conn {
 	return nil
 }
 
-func newRepair69Path(t *testing.T) *repair69Path {
+func newPublicSearchPath(t *testing.T) *publicSearchPath {
 	t.Helper()
 	ctx := context.Background()
 	dsn, pool := internaltest.NewPostgresWithDSN(t)
-	p := &repair69Path{t: t, ctx: ctx, dsn: dsn, pool: pool, nc: repair69Broker(t), consumers: map[string]*natsdriver.Consumer{}}
+	p := &publicSearchPath{t: t, ctx: ctx, dsn: dsn, pool: pool, nc: publicSearchBroker(t), consumers: map[string]*natsdriver.Consumer{}}
 	if _, err := pool.Exec(ctx, "CREATE EXTENSION IF NOT EXISTS pg_trgm; CREATE SCHEMA stats_search; CREATE SCHEMA indexer; CREATE SCHEMA repair_source; CREATE SCHEMA repair_source_delivery; CREATE SCHEMA repair_search_delivery"); err != nil {
 		t.Fatal(err)
 	}
@@ -176,7 +176,7 @@ func newRepair69Path(t *testing.T) *repair69Path {
 	return p
 }
 
-func (p *repair69Path) open() {
+func (p *publicSearchPath) open() {
 	p.t.Helper()
 	policy := delivery.Policy{Subjects: map[string]bool{"repair69.creation": true, "repair69.metadata": true, "repair69.visibility": true, "repair69.invalidation": true}, EventTypes: map[string]bool{"creation": true, "metadata": true, "visibility": true, "invalidation": true}}
 	var err error
@@ -195,7 +195,7 @@ func (p *repair69Path) open() {
 	p.router = router
 }
 
-func (p *repair69Path) restart() {
+func (p *publicSearchPath) restart() {
 	p.t.Helper()
 	p.pool.Close()
 	pool, err := pgxpool.New(p.ctx, p.dsn)
@@ -207,10 +207,10 @@ func (p *repair69Path) restart() {
 	p.open()
 }
 
-func (p *repair69Path) deliver(kind string, payload any, effect func(context.Context, pgx.Tx) error) {
+func (p *publicSearchPath) deliver(kind string, payload any, effect func(context.Context, pgx.Tx) error) {
 	p.t.Helper()
 	p.sequence++
-	raw := repair69JSON(p.t, payload)
+	raw := publicSearchJSON(p.t, payload)
 	event := delivery.Envelope{EventID: fmt.Sprintf("repair69_%d", p.sequence), EventType: kind, SchemaVersion: 1, ChainID: 125, SourceOrder: delivery.SourceOrder{Height: "1", TransactionIndex: "0", LogIndex: "0"}, EmittedAt: time.Now().UTC(), TraceID: "repair69", Payload: raw, PayloadHash: delivery.Hash(raw)}
 	subject := "repair69." + kind
 	if err := p.source.Produce(p.ctx, []delivery.Pending{{Subject: subject, Envelope: event}}, func(ctx context.Context, tx pgx.Tx) error {
@@ -240,12 +240,12 @@ func (p *repair69Path) deliver(kind string, payload any, effect func(context.Con
 	}
 }
 
-func repair69Address(number int) string { return fmt.Sprintf("0x%040x", number) }
+func publicSearchAddress(number int) string { return fmt.Sprintf("0x%040x", number) }
 
-func (p *repair69Path) create(number int, token string) string {
+func (p *publicSearchPath) create(number int, token string) string {
 	p.t.Helper()
-	pool := repair69Address(number)
-	fact := search.CanonicalCreation{Pool: pool, Token: token, Creator: repair69Address(999), BlockTimestampSeconds: "1700000000"}
+	pool := publicSearchAddress(number)
+	fact := search.CanonicalCreation{Pool: pool, Token: token, Creator: publicSearchAddress(999), BlockTimestampSeconds: "1700000000"}
 	fact.Position.ChainID, fact.Position.Height, fact.Position.TransactionIndex, fact.Position.LogIndex = "125", "1", "0", "0"
 	fact.Position.TransactionHash = fmt.Sprintf("0x%064x", number)
 	fact.Position.BlockHash = "0x" + strings.Repeat("1", 64)
@@ -254,13 +254,13 @@ func (p *repair69Path) create(number int, token string) string {
 		Symbol string `json:"symbol"`
 	}{Name: "Canonical Coin", Symbol: "COIN"}
 	p.deliver("creation", fact, func(ctx context.Context, tx pgx.Tx) error {
-		_, err := tx.Exec(ctx, `INSERT INTO indexer.indexer_canonical_creations VALUES($1,$2,$3,$4,$5,1,1,$6,$7,0,0,1700000000,'{}',$8)`, token, pool, fact.Creator, repair69Address(901), repair69Address(902), fact.Position.BlockHash, fact.Position.TransactionHash, repair69JSON(p.t, fact))
+		_, err := tx.Exec(ctx, `INSERT INTO indexer.indexer_canonical_creations VALUES($1,$2,$3,$4,$5,1,1,$6,$7,0,0,1700000000,'{}',$8)`, token, pool, fact.Creator, publicSearchAddress(901), publicSearchAddress(902), fact.Position.BlockHash, fact.Position.TransactionHash, publicSearchJSON(p.t, fact))
 		return err
 	})
 	return pool
 }
 
-func (p *repair69Path) change(change search.Change) {
+func (p *publicSearchPath) change(change search.Change) {
 	p.t.Helper()
 	if err := change.Validate(); err != nil {
 		p.t.Fatal(err)
@@ -268,7 +268,7 @@ func (p *repair69Path) change(change search.Change) {
 	p.deliver(change.Kind, change, nil)
 }
 
-func (p *repair69Path) get(values url.Values, status int) repair69Envelope {
+func (p *publicSearchPath) get(values url.Values, status int) publicSearchEnvelope {
 	p.t.Helper()
 	response := serve(p.t, p.router, http.MethodGet, "/v2/search?"+values.Encode(), nil, nil)
 	if response.Code != status {
@@ -284,7 +284,7 @@ func (p *repair69Path) get(values url.Values, status int) repair69Envelope {
 	if response.Header().Get("Cache-Control") != "no-store" || response.Header().Get("X-Schema-Version") != "2" {
 		p.t.Fatal(response.Header())
 	}
-	var body repair69Envelope
+	var body publicSearchEnvelope
 	if status == 200 {
 		decode(p.t, response, &body)
 	} else if !strings.Contains(response.Body.String(), "CURSOR_INVALID") {
@@ -293,13 +293,13 @@ func (p *repair69Path) get(values url.Values, status int) repair69Envelope {
 	return body
 }
 
-func repair69Query(query, kind string, limit int) url.Values {
+func publicSearchQuery(query, kind string, limit int) url.Values {
 	return url.Values{"q": {query}, "type": {kind}, "limit": {strconv.Itoa(limit)}}
 }
 
-func TestRepair_69_PublicSearchSourceDeliveryAndRestart(t *testing.T) {
-	p := newRepair69Path(t)
-	token := repair69Address(100)
+func TestPublicSearchDeliveryPublicSearchSourceDeliveryAndRestart(t *testing.T) {
+	p := newPublicSearchPath(t)
+	token := publicSearchAddress(100)
 	first := p.create(1, token)
 	p.create(2, first)
 	// The production migration deliberately has no legacy search tables.
@@ -307,43 +307,43 @@ func TestRepair_69_PublicSearchSourceDeliveryAndRestart(t *testing.T) {
 	if err := p.pool.QueryRow(p.ctx, "SELECT to_regclass('stats_search.generation')::text").Scan(&legacy); err != nil || legacy != nil {
 		t.Fatal("legacy source unexpectedly installed", legacy, err)
 	}
-	before := p.get(repair69Query(first, "pool", 25), 200)
+	before := p.get(publicSearchQuery(first, "pool", 25), 200)
 	if len(before.Data.Items) != 0 || before.Data.Status != "not-indexed" {
 		t.Fatal("missing visibility must fail closed", before)
 	}
-	for _, address := range []string{first, repair69Address(2)} {
+	for _, address := range []string{first, publicSearchAddress(2)} {
 		p.change(search.Change{Version: 2, Kind: "visibility", Revision: 1, PoolAddress: address, Public: true})
 	}
 	for _, kind := range []string{"pool", "token"} {
-		page := p.get(repair69Query("coin", kind, 25), 200)
+		page := p.get(publicSearchQuery("coin", kind, 25), 200)
 		if len(page.Data.Items) != 2 || page.Data.Items[0].Kind != kind || page.Data.Items[0].Label != "Canonical Coin" || *page.Data.Items[0].PoolAddress != first || *page.Data.Items[0].TokenAddress != token {
 			t.Fatal(page)
 		}
 	}
-	exact := p.get(repair69Query(first, "pool", 1), 200)
+	exact := p.get(publicSearchQuery(first, "pool", 1), 200)
 	if len(exact.Data.Items) != 1 || *exact.Data.Items[0].PoolAddress != first || exact.Next == nil {
 		t.Fatal("exact pool must precede token associations", exact)
 	}
-	next := repair69Query(first, "pool", 1)
+	next := publicSearchQuery(first, "pool", 1)
 	next.Set("cursor", *exact.Next)
 	for _, replacement := range []struct{ key, value string }{{"q", "coin"}, {"type", "token"}, {"limit", "2"}, {"filter", `{"poolStatus":"active"}`}} {
-		rebound := repair69Query(first, "pool", 1)
+		rebound := publicSearchQuery(first, "pool", 1)
 		rebound.Set("cursor", *exact.Next)
 		rebound.Set(replacement.key, replacement.value)
 		p.get(rebound, 400)
 	}
-	if page := p.get(repair69Query("%_", "pool", 25), 200); len(page.Data.Items) != 0 {
+	if page := p.get(publicSearchQuery("%_", "pool", 25), 200); len(page.Data.Items) != 0 {
 		t.Fatal("LIKE metacharacters became wildcards", page)
 	}
-	if page := p.get(repair69Query("ＣＯＩＮ", "pool", 25), 200); len(page.Data.Items) != 2 {
+	if page := p.get(publicSearchQuery("ＣＯＩＮ", "pool", 25), 200); len(page.Data.Items) != 2 {
 		t.Fatal("normalization no longer matches projected keys", page)
 	}
-	if page := p.get(repair69Query("0x000", "pool", 25), 200); len(page.Data.Items) != 2 || page.Data.MatchKind != "partial_address" {
+	if page := p.get(publicSearchQuery("0x000", "pool", 25), 200); len(page.Data.Items) != 2 || page.Data.MatchKind != "partial_address" {
 		t.Fatal(page)
 	}
 	p.restart()
 	second := p.get(next, 200)
-	if len(second.Data.Items) != 1 || *second.Data.Items[0].PoolAddress != repair69Address(2) || second.Next != nil || second.Revision != exact.Revision {
+	if len(second.Data.Items) != 1 || *second.Data.Items[0].PoolAddress != publicSearchAddress(2) || second.Next != nil || second.Revision != exact.Revision {
 		t.Fatal("restart lost cursor snapshot", second)
 	}
 	var document search.IndexedDocument
@@ -358,11 +358,11 @@ func TestRepair_69_PublicSearchSourceDeliveryAndRestart(t *testing.T) {
 	p.change(search.Change{Version: 2, Kind: "metadata", Revision: 2, PoolAddress: first, Document: &document})
 	p.get(next, 400)
 	// Authority must catch up to the metadata visibility revision before disclosure.
-	if page := p.get(repair69Query("updated", "token", 25), 200); len(page.Data.Items) != 0 {
+	if page := p.get(publicSearchQuery("updated", "token", 25), 200); len(page.Data.Items) != 0 {
 		t.Fatal(page)
 	}
 	p.change(search.Change{Version: 2, Kind: "visibility", Revision: 2, PoolAddress: first, Public: true})
-	page := p.get(repair69Query("updated", "token", 25), 200)
+	page := p.get(publicSearchQuery("updated", "token", 25), 200)
 	if len(page.Data.Items) != 1 || page.Data.Items[0].Label != "Updated Coin" || *page.Data.Items[0].TokenAddress != token {
 		t.Fatal(page)
 	}
@@ -389,24 +389,24 @@ func TestRepair_69_PublicSearchSourceDeliveryAndRestart(t *testing.T) {
 		t.Fatal(err)
 	}
 	p.get(next, 400)
-	if page := p.get(repair69Query("updated", "pool", 25), 200); len(page.Data.Items) != 1 || page.Data.Generation != "repair_generation_two" {
+	if page := p.get(publicSearchQuery("updated", "pool", 25), 200); len(page.Data.Items) != 1 || page.Data.Generation != "repair_generation_two" {
 		t.Fatal("generation cutover lost canonical hit", page)
 	}
 	p.change(search.Change{Version: 2, Kind: "visibility", Revision: 3, PoolAddress: first, Public: false, Tombstone: true})
 	p.restart()
-	hidden := p.get(repair69Query(token, "token", 25), 200)
+	hidden := p.get(publicSearchQuery(token, "token", 25), 200)
 	if len(hidden.Data.Items) != 0 || hidden.Data.Status != "not-indexed" {
 		t.Fatal("restart resurrected moderated token", hidden)
 	}
 	p.get(next, 400)
 	// An older visibility delivery cannot reverse the current moderation decision.
 	p.change(search.Change{Version: 2, Kind: "visibility", Revision: 2, PoolAddress: first, Public: true})
-	if page := p.get(repair69Query("updated", "pool", 25), 200); len(page.Data.Items) != 0 {
+	if page := p.get(publicSearchQuery("updated", "pool", 25), 200); len(page.Data.Items) != 0 {
 		t.Fatal("stale authority resurrected hit", page)
 	}
 }
 
-func TestRepair_69_FrozenQueriesAndCursorBounds(t *testing.T) {
+func TestPublicSearchDeliveryFrozenQueriesAndCursorBounds(t *testing.T) {
 	router := chi.NewRouter()
 	httpapi.RegisterCanonicalSearch(router, search.Store{})
 	for _, test := range []struct {
@@ -415,9 +415,9 @@ func TestRepair_69_FrozenQueriesAndCursorBounds(t *testing.T) {
 		code   string
 	}{
 		{url.Values{"q": {"coin", "other"}, "type": {"pool"}}, 400, "QUERY_INVALID"},
-		{repair69Query("coin", "profile", 25), 412, "PRECONDITION_FAILED"},
-		{repair69Query("coin", "wallet", 25), 422, "FIELD_INVALID"},
-		{repair69Query("coin", "pool", 26), 422, "FIELD_INVALID"},
+		{publicSearchQuery("coin", "profile", 25), 412, "PRECONDITION_FAILED"},
+		{publicSearchQuery("coin", "wallet", 25), 422, "FIELD_INVALID"},
+		{publicSearchQuery("coin", "pool", 26), 422, "FIELD_INVALID"},
 		{url.Values{"q": {"coin"}, "type": {"pool"}, "sort": {"address"}}, 400, "QUERY_INVALID"},
 		{url.Values{"q": {"coin"}, "type": {"pool"}, "filter": {`{"poolStatus":"active","poolStatus":"paused"}`}}, 400, "QUERY_INVALID"},
 		{url.Values{"q": {"coin"}, "type": {"pool"}, "cursor": {strings.Repeat("x", 2049)}}, 413, "PAYLOAD_TOO_LARGE"},

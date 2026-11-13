@@ -33,7 +33,7 @@ files = ["services/launchpad/Makefile"]
 modules = "The complete module inventory is tested with the race detector independently."
 synchronization = "The stats-workers commit acknowledgment fixture sets and reads transaction state under its mutex."
 worker_limits = "The metadata raster case runs the production service executable under the worker limits."
-files = ["services/launchpad/stats-workers/internal/httpapi/repair_m1040_test.go"]
+files = ["services/launchpad/stats-workers/internal/httpapi/webhook_transaction_bounds_test.go"]
 
 [stage.cover_check]
 money_minimum = "90.0%"
@@ -104,7 +104,7 @@ threshold_percent = 90.0
 
 [coverage.stats_workers]
 baseline_percent = 86.2
-baseline_source = "services/launchpad/stats-workers/repair_22_39_481.kvx"
+baseline_source = "spec/layerx-merge/programme/records/services/launchpad/stats-workers/repair_22_39_481.kvx"
 measured_percent = 86.2
 threshold_percent = 85.0
 

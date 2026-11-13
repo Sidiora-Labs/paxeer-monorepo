@@ -38,23 +38,23 @@ import (
 // The file-backed table peer speaks PostgreSQL to the production Store and
 // consumers. Only the peer is a fixture: transaction snapshots, immutable-row
 // conflicts and commit persistence are independent of the repaired handler.
-type repairM1040Bucket struct {
+type webhookTransactionBucket struct {
 	Pool, Volume string
 	Start        int64
 	Buys, Sells  int
 }
-type repairM1040Tables struct {
+type webhookTransactionTables struct {
 	Transactions map[string]store.TransactionRow
 	Pools        map[string]store.PoolStatsRow
 	Holders      map[string]store.HolderRow
-	Buckets      map[string]repairM1040Bucket
+	Buckets      map[string]webhookTransactionBucket
 	Traders      map[string]bool
 	Snapshots    map[string]string
 }
-type repairM1040DB struct {
+type webhookTransactionDB struct {
 	t           *testing.T
 	mu          sync.Mutex
-	Tables      repairM1040Tables
+	Tables      webhookTransactionTables
 	File        string
 	Listener    net.Listener
 	Connections sync.WaitGroup
@@ -64,7 +64,7 @@ type repairM1040DB struct {
 	CommitDrops int
 }
 
-func (d *repairM1040DB) start() {
+func (d *webhookTransactionDB) start() {
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		d.t.Fatal(err)
@@ -83,17 +83,17 @@ func (d *repairM1040DB) start() {
 		}
 	}()
 }
-func (d *repairM1040DB) stop() {
+func (d *webhookTransactionDB) stop() {
 	d.Listener.Close()
 	<-d.Accepted
 	d.Connections.Wait()
 }
-func (d *repairM1040DB) commitDrops() int {
+func (d *webhookTransactionDB) commitDrops() int {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	return d.CommitDrops
 }
-func (d *repairM1040DB) save() {
+func (d *webhookTransactionDB) save() {
 	raw, err := json.Marshal(d.Tables)
 	if err != nil {
 		d.t.Fatal(err)
@@ -102,7 +102,7 @@ func (d *repairM1040DB) save() {
 		d.t.Error(err)
 	}
 }
-func (d *repairM1040DB) openPool() *pgxpool.Pool {
+func (d *webhookTransactionDB) openPool() *pgxpool.Pool {
 	cfg, err := pgxpool.ParseConfig("postgres://fixture@" + d.Listener.Addr().String() + "/fixture?sslmode=disable")
 	if err != nil {
 		d.t.Fatal(err)
@@ -117,7 +117,7 @@ func (d *repairM1040DB) openPool() *pgxpool.Pool {
 	return pool
 }
 
-func (d *repairM1040DB) connection(connection net.Conn) {
+func (d *webhookTransactionDB) connection(connection net.Conn) {
 	defer d.Connections.Done()
 	defer connection.Close()
 	backend := pgproto3.NewBackend(connection, connection)
@@ -132,24 +132,24 @@ func (d *repairM1040DB) connection(connection net.Conn) {
 		return
 	}
 	statements := map[string]*pgproto3.Parse{}
-	var result repair1039Result
+	var result historyPaginationResult
 	locked := false
-	var rollback repairM1040Tables
+	var rollback webhookTransactionTables
 	defer func() {
 		if locked {
 			d.Tables = rollback
 			d.mu.Unlock()
 		}
 	}()
-	execute := func(sql string, args []string) repair1039Result {
+	execute := func(sql string, args []string) historyPaginationResult {
 		lower := strings.ToLower(strings.TrimSpace(sql))
 		if strings.HasPrefix(lower, "begin") {
 			d.mu.Lock()
 			locked = true
 			raw, _ := json.Marshal(d.Tables)
-			rollback = repairM1040Tables{}
+			rollback = webhookTransactionTables{}
 			_ = json.Unmarshal(raw, &rollback)
-			return repair1039Result{tag: "BEGIN"}
+			return historyPaginationResult{tag: "BEGIN"}
 		}
 		if lower == "commit" {
 			d.save()
@@ -161,15 +161,15 @@ func (d *repairM1040DB) connection(connection net.Conn) {
 			locked = false
 			d.mu.Unlock()
 			if dropCommit {
-				return repair1039Result{err: "fixture: commit acknowledgement lost"}
+				return historyPaginationResult{err: "fixture: commit acknowledgement lost"}
 			}
-			return repair1039Result{tag: "COMMIT"}
+			return historyPaginationResult{tag: "COMMIT"}
 		}
 		if lower == "rollback" {
 			d.Tables = rollback
 			locked = false
 			d.mu.Unlock()
-			return repair1039Result{tag: "ROLLBACK"}
+			return historyPaginationResult{tag: "ROLLBACK"}
 		}
 		if !locked {
 			d.mu.Lock()
@@ -225,7 +225,7 @@ func (d *repairM1040DB) connection(connection net.Conn) {
 			}
 			backend.Send(&pgproto3.BindComplete{})
 		case *pgproto3.Describe:
-			if fields := repair1039Fields(result); len(fields) > 0 {
+			if fields := historyPaginationFields(result); len(fields) > 0 {
 				backend.Send(&pgproto3.RowDescription{Fields: fields})
 			} else {
 				backend.Send(&pgproto3.NoData{})
@@ -237,7 +237,7 @@ func (d *repairM1040DB) connection(connection net.Conn) {
 				for _, row := range result.rows {
 					values := make([][]byte, len(row))
 					for i, v := range row {
-						values[i] = repair1039Wire(v)
+						values[i] = historyPaginationWire(v)
 					}
 					backend.Send(&pgproto3.DataRow{Values: values})
 				}
@@ -255,13 +255,13 @@ func (d *repairM1040DB) connection(connection net.Conn) {
 			if result.err != "" {
 				backend.Send(&pgproto3.ErrorResponse{Severity: "ERROR", Code: "XX000", Message: result.err})
 			} else {
-				if fields := repair1039Fields(result); len(fields) > 0 {
+				if fields := historyPaginationFields(result); len(fields) > 0 {
 					backend.Send(&pgproto3.RowDescription{Fields: fields})
 				}
 				for _, row := range result.rows {
 					values := make([][]byte, len(row))
 					for i, v := range row {
-						values[i] = repair1039Wire(v)
+						values[i] = historyPaginationWire(v)
 					}
 					backend.Send(&pgproto3.DataRow{Values: values})
 				}
@@ -297,7 +297,7 @@ func (d *repairM1040DB) connection(connection net.Conn) {
 
 // Recorded chain receipts are decoded by the production ABI binding, then
 // serialized with the production webhook wire type and signed by shared auth.
-func repairM1040Events(t *testing.T) []httpapi.WebhookEvent {
+func webhookTransactionEvents(t *testing.T) []httpapi.WebhookEvent {
 	t.Helper()
 	raw, err := os.ReadFile(filepath.Join("..", "projectionstats", "testdata", "real_pool_125.json"))
 	if err != nil {
@@ -352,7 +352,7 @@ func repairM1040Events(t *testing.T) []httpapi.WebhookEvent {
 	return events
 }
 
-func (f *repairM1040Fixture) router(t *testing.T) http.Handler {
+func (f *webhookTransactionFixture) router(t *testing.T) http.Handler {
 	t.Helper()
 	market, err := consumer.NewMarketConsumer(f.store, quietLogger())
 	if err != nil {
@@ -363,12 +363,12 @@ func (f *repairM1040Fixture) router(t *testing.T) http.Handler {
 	return router
 }
 
-type repairM1040Reply struct {
+type webhookTransactionReply struct {
 	OK                bool
 	Processed, Errors int
 }
 
-func repairM1040Post(t *testing.T, client *http.Client, url string, body []byte) (int, http.Header, repairM1040Reply) {
+func webhookTransactionPost(t *testing.T, client *http.Client, url string, body []byte) (int, http.Header, webhookTransactionReply) {
 	t.Helper()
 	request, err := http.NewRequest(http.MethodPost, url+"/webhooks/events", bytes.NewReader(body))
 	if err != nil {
@@ -382,14 +382,14 @@ func repairM1040Post(t *testing.T, client *http.Client, url string, body []byte)
 		t.Fatal(err)
 	}
 	defer response.Body.Close()
-	var reply repairM1040Reply
+	var reply webhookTransactionReply
 	if err := json.NewDecoder(response.Body).Decode(&reply); err != nil {
 		t.Fatal(err)
 	}
 	return response.StatusCode, response.Header, reply
 }
 
-func (f *repairM1040Fixture) assertState(t *testing.T, events []httpapi.WebhookEvent, count int, balance, volume string, buys, sells int) {
+func (f *webhookTransactionFixture) assertState(t *testing.T, events []httpapi.WebhookEvent, count int, balance, volume string, buys, sells int) {
 	t.Helper()
 	f.db.mu.Lock()
 	snapshotRaw, err := json.Marshal(f.db.Tables)
@@ -397,7 +397,7 @@ func (f *repairM1040Fixture) assertState(t *testing.T, events []httpapi.WebhookE
 	if err != nil {
 		t.Fatal(err)
 	}
-	var snapshot repairM1040Tables
+	var snapshot webhookTransactionTables
 	if err := json.Unmarshal(snapshotRaw, &snapshot); err != nil {
 		t.Fatal(err)
 	}
@@ -425,9 +425,9 @@ func (f *repairM1040Fixture) assertState(t *testing.T, events []httpapi.WebhookE
 
 }
 
-func TestRepairM_1040_WebhookFailedAck(t *testing.T) {
-	f := newRepairM1040Fixture(t)
-	events := repairM1040Events(t)
+func TestWebhookTransactionWebhookFailedAck(t *testing.T) {
+	f := newWebhookTransactionFixture(t)
+	events := webhookTransactionEvents(t)
 	body := mustJSON(t, httpapi.WebhookBody{Events: events})
 	// The committed database transcript refuses the sell's holder write after
 	// its inbox/volume/snapshot writes. The production outer transaction must roll back.
@@ -436,7 +436,7 @@ func TestRepairM_1040_WebhookFailedAck(t *testing.T) {
 	server := httptest.NewServer(f.router(t))
 	defer func() { server.Close() }()
 	for attempt := 0; attempt < 2; attempt++ {
-		status, headers, reply := repairM1040Post(t, server.Client(), server.URL, body)
+		status, headers, reply := webhookTransactionPost(t, server.Client(), server.URL, body)
 		if status != http.StatusServiceUnavailable || reply.OK || reply.Processed != 1 || reply.Errors != 1 || headers.Get("Retry-After") != "1" {
 			t.Fatalf("failed batch acknowledged: status=%d reply=%+v headers=%v", status, reply, headers)
 		}
@@ -450,7 +450,7 @@ func TestRepairM_1040_WebhookFailedAck(t *testing.T) {
 	}
 	f.db.FailSell = false
 	for attempt := 0; attempt < 2; attempt++ {
-		status, _, reply := repairM1040Post(t, server.Client(), server.URL, body)
+		status, _, reply := webhookTransactionPost(t, server.Client(), server.URL, body)
 		if status != http.StatusOK || !reply.OK || reply.Processed != 2 || reply.Errors != 0 {
 			t.Fatalf("retry did not recover: status=%d reply=%+v", status, reply)
 		}
@@ -462,15 +462,15 @@ func TestRepairM_1040_WebhookFailedAck(t *testing.T) {
 	}
 }
 
-func TestRepairM_1040_CommitAckLost(t *testing.T) {
-	f := newRepairM1040Fixture(t)
-	events := repairM1040Events(t)[:1]
+func TestWebhookTransactionCommitAckLost(t *testing.T) {
+	f := newWebhookTransactionFixture(t)
+	events := webhookTransactionEvents(t)[:1]
 	body := mustJSON(t, httpapi.WebhookBody{Events: events})
 	f.db.mu.Lock()
 	f.db.DropCommit = true
 	f.db.mu.Unlock()
 	server := httptest.NewServer(f.router(t))
-	status, _, reply := repairM1040Post(t, server.Client(), server.URL, body)
+	status, _, reply := webhookTransactionPost(t, server.Client(), server.URL, body)
 	server.Close()
 	if status != http.StatusServiceUnavailable || reply.OK || reply.Errors != 1 || f.db.commitDrops() != 1 {
 		t.Fatalf("ambiguous commit acknowledged: %d %+v", status, reply)
@@ -479,16 +479,16 @@ func TestRepairM_1040_CommitAckLost(t *testing.T) {
 	f.assertState(t, events, 1, "9606813905120", "100000000", 1, 0)
 	server = httptest.NewServer(f.router(t))
 	defer server.Close()
-	status, _, reply = repairM1040Post(t, server.Client(), server.URL, body)
+	status, _, reply = webhookTransactionPost(t, server.Client(), server.URL, body)
 	if status != http.StatusOK || !reply.OK || reply.Processed != 1 || reply.Errors != 0 {
 		t.Fatalf("committed retry: %d %+v", status, reply)
 	}
 	f.assertState(t, events, 1, "9606813905120", "100000000", 1, 0)
 }
 
-func TestRepairM_1040_PostCommitCacheFailure(t *testing.T) {
-	f := newRepairM1040Fixture(t)
-	events := repairM1040Events(t)[:1]
+func TestWebhookTransactionPostCommitCacheFailure(t *testing.T) {
+	f := newWebhookTransactionFixture(t)
+	events := webhookTransactionEvents(t)[:1]
 	market, err := consumer.NewMarketConsumer(f.store, quietLogger())
 	if err != nil {
 		t.Fatal(err)
@@ -499,7 +499,7 @@ func TestRepairM_1040_PostCommitCacheFailure(t *testing.T) {
 	body := mustJSON(t, httpapi.WebhookBody{Events: events})
 	for attempt := 0; attempt < 2; attempt++ {
 		server := httptest.NewServer(f.router(t))
-		status, _, reply := repairM1040Post(t, server.Client(), server.URL, body)
+		status, _, reply := webhookTransactionPost(t, server.Client(), server.URL, body)
 		server.Close()
 		if status != http.StatusServiceUnavailable || reply.OK || reply.Errors != 1 {
 			t.Fatalf("cache failure acknowledged: %d %+v", status, reply)
@@ -511,12 +511,12 @@ func TestRepairM_1040_PostCommitCacheFailure(t *testing.T) {
 
 // This body peer records exactly how much input the registered handler reads.
 // It can stream past the cap without allocating the advertised payload.
-type repairM1040Body struct {
+type webhookTransactionBody struct {
 	remaining, read int64
 	reads           int
 }
 
-func (b *repairM1040Body) Read(p []byte) (int, error) {
+func (b *webhookTransactionBody) Read(p []byte) (int, error) {
 	b.reads++
 	if b.remaining == 0 {
 		return 0, io.EOF
@@ -531,15 +531,15 @@ func (b *repairM1040Body) Read(p []byte) (int, error) {
 	b.read += int64(len(p))
 	return len(p), nil
 }
-func (*repairM1040Body) Close() error { return nil }
+func (*webhookTransactionBody) Close() error { return nil }
 
-func repairM1040BoundRouter() http.Handler {
+func webhookTransactionBoundRouter() http.Handler {
 	router := chi.NewRouter()
 	httpapi.RegisterWebhook(router, httpapi.WebhookDeps{Logger: quietLogger(), Secret: testSecret})
 	return router
 }
 
-func TestRepairM_1040_UnsignedStreamingBody(t *testing.T) {
+func TestWebhookTransactionUnsignedStreamingBody(t *testing.T) {
 	for _, missing := range []string{"both", "signature", "timestamp"} {
 		t.Run(missing, func(t *testing.T) {
 			reader, writer := io.Pipe()
@@ -555,7 +555,7 @@ func TestRepairM_1040_UnsignedStreamingBody(t *testing.T) {
 			}
 			rec := httptest.NewRecorder()
 			done := make(chan struct{})
-			go func() { repairM1040BoundRouter().ServeHTTP(rec, req); close(done) }()
+			go func() { webhookTransactionBoundRouter().ServeHTTP(rec, req); close(done) }()
 			select {
 			case <-done:
 			case <-time.After(time.Second):
@@ -571,16 +571,16 @@ func TestRepairM_1040_UnsignedStreamingBody(t *testing.T) {
 	}
 }
 
-func TestRepairM_1040_WebhookBodyBound(t *testing.T) {
+func TestWebhookTransactionWebhookBodyBound(t *testing.T) {
 	for _, length := range []int64{httpapi.WebhookMaxBodyBytes + 1, -1, 1} {
 		t.Run(strconv.FormatInt(length, 10), func(t *testing.T) {
-			body := &repairM1040Body{remaining: 10 * httpapi.WebhookMaxBodyBytes}
+			body := &webhookTransactionBody{remaining: 10 * httpapi.WebhookMaxBodyBytes}
 			req := httptest.NewRequest(http.MethodPost, "/webhooks/events", body)
 			req.ContentLength = length
 			req.Header.Set("X-Sidiora-Timestamp", strconv.FormatInt(time.Now().Unix(), 10))
 			req.Header.Set("X-Sidiora-Signature", "sha256=not-needed-for-oversize")
 			rec := httptest.NewRecorder()
-			repairM1040BoundRouter().ServeHTTP(rec, req)
+			webhookTransactionBoundRouter().ServeHTTP(rec, req)
 			if rec.Code != http.StatusRequestEntityTooLarge {
 				t.Fatalf("oversize status=%d body=%s", rec.Code, rec.Body.String())
 			}
@@ -606,28 +606,28 @@ func TestRepairM_1040_WebhookBodyBound(t *testing.T) {
 		t.Fatal("legitimate HMAC encoding changed")
 	}
 	for _, header := range []string{"X-Sidiora-Signature", "X-Hub-Signature-256"} {
-		rec := serve(t, repairM1040BoundRouter(), http.MethodPost, "/webhooks/events", body, map[string]string{"X-Sidiora-Timestamp": ts, header: sig})
+		rec := serve(t, webhookTransactionBoundRouter(), http.MethodPost, "/webhooks/events", body, map[string]string{"X-Sidiora-Timestamp": ts, header: sig})
 		if rec.Code != http.StatusOK {
 			t.Fatalf("exact maximum signed %s: %d %s", header, rec.Code, rec.Body.String())
 		}
 	}
 	tampered := append([]byte(nil), body...)
 	tampered[len(tampered)-1] = '\t'
-	rec := serve(t, repairM1040BoundRouter(), http.MethodPost, "/webhooks/events", tampered, map[string]string{"X-Sidiora-Timestamp": ts, "X-Sidiora-Signature": sig})
+	rec := serve(t, webhookTransactionBoundRouter(), http.MethodPost, "/webhooks/events", tampered, map[string]string{"X-Sidiora-Timestamp": ts, "X-Sidiora-Signature": sig})
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("raw-byte tampering: status=%d", rec.Code)
 	}
 }
 
-func TestRepairM_1040_WebhookEventBound(t *testing.T) {
-	f := newRepairM1040Fixture(t)
+func TestWebhookTransactionWebhookEventBound(t *testing.T) {
+	f := newWebhookTransactionFixture(t)
 	events := make([]httpapi.WebhookEvent, httpapi.WebhookMaxEvents)
 	for i := range events {
 		events[i] = httpapi.WebhookEvent{EventName: "Unknown", TxHash: fmt.Sprintf("event-%d", i)}
 	}
 	body := mustJSON(t, httpapi.WebhookBody{Events: events})
 	rec := serve(t, f.router(t), http.MethodPost, "/webhooks/events", body, hmacHeaders(testSecret, body))
-	var reply repairM1040Reply
+	var reply webhookTransactionReply
 	decode(t, rec, &reply)
 	if rec.Code != http.StatusOK || !reply.OK || reply.Processed != httpapi.WebhookMaxEvents || reply.Errors != 0 {
 		t.Fatalf("maximum event count: %d %+v", rec.Code, reply)
@@ -655,8 +655,8 @@ func TestRepairM_1040_WebhookEventBound(t *testing.T) {
 	}
 }
 
-type repairM1040Fixture struct {
-	db     *repairM1040DB
+type webhookTransactionFixture struct {
+	db     *webhookTransactionDB
 	pool   *pgxpool.Pool
 	store  *store.Store
 	swap   *consumer.SwapConsumer
@@ -664,18 +664,18 @@ type repairM1040Fixture struct {
 	redis  *goredis.Client
 }
 
-func newRepairM1040Fixture(t *testing.T) *repairM1040Fixture {
+func newWebhookTransactionFixture(t *testing.T) *webhookTransactionFixture {
 	t.Helper()
-	db := &repairM1040DB{t: t, File: filepath.Join(t.TempDir(), "webhook-tables.json"), Tables: repairM1040Tables{
-		Transactions: map[string]store.TransactionRow{}, Pools: map[string]store.PoolStatsRow{}, Holders: map[string]store.HolderRow{}, Buckets: map[string]repairM1040Bucket{}, Traders: map[string]bool{}, Snapshots: map[string]string{},
+	db := &webhookTransactionDB{t: t, File: filepath.Join(t.TempDir(), "webhook-tables.json"), Tables: webhookTransactionTables{
+		Transactions: map[string]store.TransactionRow{}, Pools: map[string]store.PoolStatsRow{}, Holders: map[string]store.HolderRow{}, Buckets: map[string]webhookTransactionBucket{}, Traders: map[string]bool{}, Snapshots: map[string]string{},
 	}}
 	db.save()
-	f := &repairM1040Fixture{db: db}
+	f := &webhookTransactionFixture{db: db}
 	f.open()
 	t.Cleanup(f.close)
 	return f
 }
-func (f *repairM1040Fixture) open() {
+func (f *webhookTransactionFixture) open() {
 	f.db.start()
 	f.pool = f.db.openPool()
 	f.store = store.New(f.pool)
@@ -686,19 +686,19 @@ func (f *repairM1040Fixture) open() {
 	f.swap = consumer.NewSwapConsumer(f.store, f.redis, quietLogger())
 	f.holder = consumer.NewHolderTracker(f.store, f.redis, quietLogger(), time.Hour)
 }
-func (f *repairM1040Fixture) close() {
+func (f *webhookTransactionFixture) close() {
 	f.holder.Close()
 	f.pool.Close()
 	f.db.stop()
 }
-func (f *repairM1040Fixture) restart(t *testing.T) {
+func (f *webhookTransactionFixture) restart(t *testing.T) {
 	t.Helper()
 	f.close()
 	raw, err := os.ReadFile(f.db.File)
 	if err != nil {
 		t.Fatal(err)
 	}
-	f.db.Tables = repairM1040Tables{}
+	f.db.Tables = webhookTransactionTables{}
 	if err := json.Unmarshal(raw, &f.db.Tables); err != nil {
 		t.Fatal(err)
 	}
@@ -707,24 +707,24 @@ func (f *repairM1040Fixture) restart(t *testing.T) {
 
 // Every supported statement has a committed table operation. Unrecognized SQL
 // fails explicitly; the fixture never returns fabricated generic successes.
-func (d *repairM1040DB) query(sql string, a []string) repair1039Result {
+func (d *webhookTransactionDB) query(sql string, a []string) historyPaginationResult {
 	q := strings.Join(strings.Fields(sql), " ")
 	if q == "-- ping" {
-		return repair1039Result{tag: "SELECT 0"}
+		return historyPaginationResult{tag: "SELECT 0"}
 	}
 	upper := strings.ToUpper(q)
 	if strings.HasPrefix(upper, "SAVEPOINT ") || strings.HasPrefix(upper, "RELEASE SAVEPOINT ") {
-		return repair1039Result{tag: strings.Fields(upper)[0]}
+		return historyPaginationResult{tag: strings.Fields(upper)[0]}
 	}
 	if strings.Contains(q, "pg_advisory_xact_lock") {
-		return repair1039Rows([]any{int64(1)})
+		return historyPaginationRows([]any{int64(1)})
 	}
 	if strings.HasPrefix(q, "INSERT INTO stats.pool_transactions") {
 		if _, ok := d.Tables.Transactions[a[0]]; ok {
-			return repair1039Result{tag: "INSERT 0 0"}
+			return historyPaginationResult{tag: "INSERT 0 0"}
 		}
-		d.Tables.Transactions[a[0]] = store.TransactionRow{ID: a[0], PoolAddress: a[1], Sender: a[2], IsBuy: repair1039Bool(a[3]), AmountIn: a[4], AmountOut: a[5], Price: a[6], Fee: a[7], BlockTimestamp: repair1039Int(a[8]), TxHash: a[9]}
-		return repair1039Result{tag: "INSERT 0 1"}
+		d.Tables.Transactions[a[0]] = store.TransactionRow{ID: a[0], PoolAddress: a[1], Sender: a[2], IsBuy: historyPaginationBool(a[3]), AmountIn: a[4], AmountOut: a[5], Price: a[6], Fee: a[7], BlockTimestamp: historyPaginationInt(a[8]), TxHash: a[9]}
+		return historyPaginationResult{tag: "INSERT 0 1"}
 	}
 	if strings.HasPrefix(q, "SELECT volume_usdl, buy_count, sell_count FROM stats.volume_buckets") {
 		var rows [][]any
@@ -732,7 +732,7 @@ func (d *repairM1040DB) query(sql string, a []string) repair1039Result {
 			if bucket.Pool != a[0] {
 				continue
 			}
-			timestamp := repair1039Int(a[1])
+			timestamp := historyPaginationInt(a[1])
 			if strings.Contains(q, "bucket_start >=") && bucket.Start < timestamp {
 				continue
 			}
@@ -741,130 +741,130 @@ func (d *repairM1040DB) query(sql string, a []string) repair1039Result {
 			}
 			rows = append(rows, []any{bucket.Volume, int64(bucket.Buys), int64(bucket.Sells)})
 		}
-		return repair1039Rows(rows...)
+		return historyPaginationRows(rows...)
 	}
 	if strings.HasPrefix(q, "INSERT INTO stats.volume_buckets") {
 		key := a[0] + "|" + a[1]
 		if _, ok := d.Tables.Buckets[key]; ok {
-			return repair1039Result{tag: "INSERT 0 0"}
+			return historyPaginationResult{tag: "INSERT 0 0"}
 		}
-		d.Tables.Buckets[key] = repairM1040Bucket{Pool: a[0], Start: repair1039Int(a[1]), Volume: a[2], Buys: int(repair1039Int(a[3])), Sells: int(repair1039Int(a[4]))}
-		return repair1039Result{tag: "INSERT 0 1"}
+		d.Tables.Buckets[key] = webhookTransactionBucket{Pool: a[0], Start: historyPaginationInt(a[1]), Volume: a[2], Buys: int(historyPaginationInt(a[3])), Sells: int(historyPaginationInt(a[4]))}
+		return historyPaginationResult{tag: "INSERT 0 1"}
 	}
 	if strings.HasPrefix(q, "UPDATE stats.volume_buckets SET") {
 		key := a[0] + "|" + a[1]
 		bucket := d.Tables.Buckets[key]
 		bucket.Volume = a[2]
-		bucket.Buys = int(repair1039Int(a[3]))
-		bucket.Sells = int(repair1039Int(a[4]))
+		bucket.Buys = int(historyPaginationInt(a[3]))
+		bucket.Sells = int(historyPaginationInt(a[4]))
 		d.Tables.Buckets[key] = bucket
-		return repair1039Result{tag: "UPDATE 1"}
+		return historyPaginationResult{tag: "UPDATE 1"}
 	}
 	if strings.HasPrefix(q, "INSERT INTO stats.bucket_traders") {
 		d.Tables.Traders[a[0]+"|"+a[1]+"|"+a[2]] = true
-		return repair1039Result{tag: "INSERT 0 1"}
+		return historyPaginationResult{tag: "INSERT 0 1"}
 	}
 	if strings.HasPrefix(q, "SELECT COUNT(DISTINCT trader)") {
 		traders := map[string]bool{}
 		for key := range d.Tables.Traders {
 			parts := strings.Split(key, "|")
-			if parts[0] == a[0] && repair1039Int(parts[1]) >= repair1039Int(a[1]) {
+			if parts[0] == a[0] && historyPaginationInt(parts[1]) >= historyPaginationInt(a[1]) {
 				traders[parts[2]] = true
 			}
 		}
-		return repair1039Rows([]any{int64(len(traders))})
+		return historyPaginationRows([]any{int64(len(traders))})
 	}
 	if strings.HasPrefix(q, "UPDATE stats.pool_stats SET volume_5m") {
 		row, ok := d.Tables.Pools[a[0]]
 		if !ok {
-			return repair1039Result{tag: "UPDATE 0"}
+			return historyPaginationResult{tag: "UPDATE 0"}
 		}
 		row.Volume5m = a[1]
 		row.Volume1h = a[2]
 		row.Volume24h = a[3]
-		row.BuyCount24h = int(repair1039Int(a[4]))
-		row.SellCount24h = int(repair1039Int(a[5]))
-		row.UniqueTraders24h = int(repair1039Int(a[6]))
-		row.UpdatedAt = repair1039Int(a[7])
+		row.BuyCount24h = int(historyPaginationInt(a[4]))
+		row.SellCount24h = int(historyPaginationInt(a[5]))
+		row.UniqueTraders24h = int(historyPaginationInt(a[6]))
+		row.UpdatedAt = historyPaginationInt(a[7])
 		d.Tables.Pools[a[0]] = row
-		return repair1039Result{tag: "UPDATE 1"}
+		return historyPaginationResult{tag: "UPDATE 1"}
 	}
 	if strings.HasPrefix(q, "INSERT INTO stats.price_snapshots") {
 		d.Tables.Snapshots[a[0]+"|"+a[1]] = a[2]
-		return repair1039Result{tag: "INSERT 0 1"}
+		return historyPaginationResult{tag: "INSERT 0 1"}
 	}
 	if strings.HasPrefix(q, "SELECT price FROM stats.price_snapshots") {
 		var selected int64
 		var price string
 		for key, p := range d.Tables.Snapshots {
 			parts := strings.Split(key, "|")
-			ts := repair1039Int(parts[1])
-			if parts[0] == a[0] && ts >= repair1039Int(a[1]) && (price == "" || ts < selected) {
+			ts := historyPaginationInt(parts[1])
+			if parts[0] == a[0] && ts >= historyPaginationInt(a[1]) && (price == "" || ts < selected) {
 				selected = ts
 				price = p
 			}
 		}
 		if price == "" {
-			return repair1039Rows()
+			return historyPaginationRows()
 		}
-		return repair1039Rows([]any{price})
+		return historyPaginationRows([]any{price})
 	}
 	if strings.HasPrefix(q, "SELECT high_24h, low_24h FROM stats.pool_stats") {
 		row, ok := d.Tables.Pools[a[0]]
 		if !ok {
-			return repair1039Rows()
+			return historyPaginationRows()
 		}
-		return repair1039Rows([]any{row.High24h, row.Low24h})
+		return historyPaginationRows([]any{row.High24h, row.Low24h})
 	}
 	if strings.HasPrefix(q, "UPDATE stats.pool_stats SET price =") {
 		row, ok := d.Tables.Pools[a[0]]
 		if !ok {
-			return repair1039Result{tag: "UPDATE 0"}
+			return historyPaginationResult{tag: "UPDATE 0"}
 		}
 		row.Price = a[1]
 		row.MarketCap = a[2]
 		row.High24h = a[3]
 		row.Low24h = a[4]
-		row.UpdatedAt = repair1039Int(a[5])
+		row.UpdatedAt = historyPaginationInt(a[5])
 		d.Tables.Pools[a[0]] = row
-		return repair1039Result{tag: "UPDATE 1"}
+		return historyPaginationResult{tag: "UPDATE 1"}
 	}
 	if strings.HasPrefix(q, "SELECT balance FROM stats.pool_holders") {
 		row, ok := d.Tables.Holders[a[0]+"|"+a[1]]
 		if !ok {
-			return repair1039Rows()
+			return historyPaginationRows()
 		}
-		return repair1039Rows([]any{row.Balance})
+		return historyPaginationRows([]any{row.Balance})
 	}
 	if strings.HasPrefix(q, "INSERT INTO stats.pool_holders") {
 		if d.FailSell && a[2] == "4803406952560" {
-			return repair1039Result{err: "holder temporarily unavailable"}
+			return historyPaginationResult{err: "holder temporarily unavailable"}
 		}
-		d.Tables.Holders[a[0]+"|"+a[1]] = store.HolderRow{PoolAddress: a[0], HolderAddress: a[1], Balance: a[2], PctOfSupply: a[3], LastUpdated: repair1039Int(a[4])}
-		return repair1039Result{tag: "INSERT 0 1"}
+		d.Tables.Holders[a[0]+"|"+a[1]] = store.HolderRow{PoolAddress: a[0], HolderAddress: a[1], Balance: a[2], PctOfSupply: a[3], LastUpdated: historyPaginationInt(a[4])}
+		return historyPaginationResult{tag: "INSERT 0 1"}
 	}
 	if strings.HasPrefix(q, "INSERT INTO stats.pool_stats") {
 		if _, ok := d.Tables.Pools[a[0]]; ok {
-			return repair1039Result{tag: "INSERT 0 0"}
+			return historyPaginationResult{tag: "INSERT 0 0"}
 		}
-		row := store.PoolStatsRow{PoolAddress: a[0], TokenAddress: a[1], Price: a[3], MarketCap: a[4], High24h: a[5], Low24h: a[6], CreatedAt: repair1039Int(a[7]), UpdatedAt: repair1039Int(a[8])}
+		row := store.PoolStatsRow{PoolAddress: a[0], TokenAddress: a[1], Price: a[3], MarketCap: a[4], High24h: a[5], Low24h: a[6], CreatedAt: historyPaginationInt(a[7]), UpdatedAt: historyPaginationInt(a[8])}
 		if a[2] != "" {
 			creator := a[2]
 			row.CreatorAddress = &creator
 		}
 		d.Tables.Pools[a[0]] = row
-		return repair1039Result{tag: "INSERT 0 1"}
+		return historyPaginationResult{tag: "INSERT 0 1"}
 	}
 	if strings.HasPrefix(q, "SELECT pool_address, token_address, price,") && strings.Contains(q, "FROM stats.pool_stats WHERE pool_address") {
 		row, ok := d.Tables.Pools[a[0]]
 		if !ok {
-			return repair1039Rows()
+			return historyPaginationRows()
 		}
 		var creator any
 		if row.CreatorAddress != nil {
 			creator = *row.CreatorAddress
 		}
-		return repair1039Rows([]any{row.PoolAddress, row.TokenAddress, row.Price, "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", row.High24h, row.Low24h, row.Volume24h, row.Volume1h, row.Volume5m, row.MarketCap, int64(row.BuyCount24h), int64(row.SellCount24h), int64(row.UniqueTraders24h), int64(row.HolderCount), "0", "0", int64(row.RiskRating), nil, creator, row.CreatedAt, row.UpdatedAt})
+		return historyPaginationRows([]any{row.PoolAddress, row.TokenAddress, row.Price, "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", row.High24h, row.Low24h, row.Volume24h, row.Volume1h, row.Volume5m, row.MarketCap, int64(row.BuyCount24h), int64(row.SellCount24h), int64(row.UniqueTraders24h), int64(row.HolderCount), "0", "0", int64(row.RiskRating), nil, creator, row.CreatedAt, row.UpdatedAt})
 	}
-	return repair1039Result{err: "unsupported webhook peer SQL: " + q}
+	return historyPaginationResult{err: "unsupported webhook peer SQL: " + q}
 }
