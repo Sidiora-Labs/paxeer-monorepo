@@ -14,7 +14,7 @@ import (
 	"testing"
 )
 
-func repairM729Read(t *testing.T, path string) string {
+func readRolloutFile(t *testing.T, path string) string {
 	t.Helper()
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -23,7 +23,7 @@ func repairM729Read(t *testing.T, path string) string {
 	return string(data)
 }
 
-func repairM729Ordered(t *testing.T, source string, parts ...string) {
+func requireStatementsInOrder(t *testing.T, source string, parts ...string) {
 	t.Helper()
 	for _, part := range parts {
 		at := strings.Index(source, part)
@@ -34,7 +34,7 @@ func repairM729Ordered(t *testing.T, source string, parts ...string) {
 	}
 }
 
-func repairM729Function(t *testing.T, source, name string) string {
+func pythonFunctionSource(t *testing.T, source, name string) string {
 	t.Helper()
 	start := strings.Index(source, "\ndef "+name+"(")
 	if start < 0 {
@@ -47,12 +47,12 @@ func repairM729Function(t *testing.T, source, name string) string {
 	return body
 }
 
-func TestRepairM_729_LedgerConcurrentRestartRecovery(t *testing.T) {
+func TestLedgerConcurrentRestartRecovery(t *testing.T) {
 	// Inspect the actual shell program, as required by the continuation ruling.
 	// Opening in append mode and retaining descriptor 9 to process exit keeps
 	// allocation and the entire record on the same locked inode across retries.
-	script := repairM729Read(t, "ledger.sh")
-	repairM729Ordered(t, script,
+	script := readRolloutFile(t, "ledger.sh")
+	requireStatementsInOrder(t, script,
 		"set -euo pipefail\n",
 		`file="$dir/${started%%T*}.kvx"`,
 		`mkdir -p "$dir"`,
@@ -155,9 +155,9 @@ evidence = "/root/lx-ops/attempt-0.log"
 	}
 }
 
-func TestRepairM_729_SleepingBlocksRolloutAndPerpsConsumer(t *testing.T) {
-	rollout := repairM729Read(t, "rollout.py")
-	perps := repairM729Read(t, "../deploy/railway-perps-project.py")
+func TestSleepingBlocksRolloutAndPerpsConsumer(t *testing.T) {
+	rollout := readRolloutFile(t, "rollout.py")
+	perps := readRolloutFile(t, "../deploy/railway-perps-project.py")
 	terminalLiteral := regexp.MustCompile(`(?m)^TERMINAL = (\{[^}]+\})`).FindStringSubmatch(rollout)
 	if len(terminalLiteral) != 2 {
 		t.Fatal("missing production terminal status table")
@@ -176,37 +176,37 @@ func TestRepairM_729_SleepingBlocksRolloutAndPerpsConsumer(t *testing.T) {
 
 	// Check the production producer, wire status extraction, and consumers. This
 	// verifies that the parsed policy is the one both actual waiters consume.
-	repairM729Ordered(t, repairM729Function(t, rollout, "gql"),
+	requireStatementsInOrder(t, pythonFunctionSource(t, rollout, "gql"),
 		"urllib.request.Request(", "json.dumps({\"query\": query, \"variables\": variables})",
 		"urllib.request.urlopen(req, timeout=30)", "body = json.load(resp)", `return body["data"]`)
-	repairM729Ordered(t, repairM729Function(t, rollout, "wait_deployment"),
+	requireStatementsInOrder(t, pythonFunctionSource(t, rollout, "wait_deployment"),
 		`status = gql("query Deployment(`, `{"id": deployment})["deployment"]["status"]`,
 		"if status not in IN_PROGRESS:", "if status in TERMINAL:", "return TERMINAL[status]",
 		`return "fail"`)
-	repairM729Ordered(t, repairM729Function(t, rollout, "apply_railway_image"),
+	requireStatementsInOrder(t, pythonFunctionSource(t, rollout, "apply_railway_image"),
 		`if not change and runs(latest, ref, svc["health"]):`,
 		`return wait_deployment(latest["id"], log)`,
 		`deployment = gql("mutation Deploy(`, "return wait_deployment(deployment, log)")
-	repairM729Ordered(t, repairM729Function(t, rollout, "apply_railway"),
+	requireStatementsInOrder(t, pythonFunctionSource(t, rollout, "apply_railway"),
 		`deployment = gql("mutation DeployCommit(`, "return wait_deployment(deployment, log)")
-	repairM729Ordered(t, repairM729Function(t, rollout, "main"),
+	requireStatementsInOrder(t, pythonFunctionSource(t, rollout, "main"),
 		"for svc in work:", "outcome = apply_railway(", "outcome = apply_railway_image(",
 		`subprocess.run([str(HERE / "ledger.sh"), sha, svc["name"], target, started,`,
 		"outcome, str(path)], check=True)",
 		`print(f"{outcome} {svc['name']} evidence={path}")`, "if outcome != \"pass\":\n            return 1")
-	repairM729Ordered(t, perps,
+	requireStatementsInOrder(t, perps,
 		"from rollout import API, GHCR, IN_PROGRESS, TERMINAL, Malformed, load_digests",
 		`SUCCESS = {s for s, v in TERMINAL.items() if v == "pass"}`)
 	if strings.Count(perps, "SUCCESS =") != 1 || strings.Count(perps, "TERMINAL =") != 0 {
 		t.Fatal("perps must derive its success policy solely from rollout's imported terminal table")
 	}
-	repairM729Ordered(t, repairM729Function(t, perps, "http_transport"),
+	requireStatementsInOrder(t, pythonFunctionSource(t, perps, "http_transport"),
 		"urllib.request.Request(", "json.dumps({\"query\": query, \"variables\": variables})",
 		"urllib.request.urlopen(req, timeout=30)", "body = json.load(resp)", `return body["data"]`)
-	repairM729Ordered(t, repairM729Function(t, perps, "wait_deployment"),
+	requireStatementsInOrder(t, pythonFunctionSource(t, perps, "wait_deployment"),
 		`status = gql("query DeploymentStatus(`, `{"id": deployment})["deployment"]["status"]`,
 		"if status not in IN_PROGRESS:", "return status if status in TERMINAL else")
-	repairM729Ordered(t, repairM729Function(t, perps, "main"),
+	requireStatementsInOrder(t, pythonFunctionSource(t, perps, "main"),
 		"status = wait_deployment(gql, deployment)", "if status not in SUCCESS:",
 		"later waves were not applied", "return 1")
 
@@ -222,7 +222,7 @@ func TestRepairM_729_SleepingBlocksRolloutAndPerpsConsumer(t *testing.T) {
 			}
 		}
 	}
-	if err := json.Unmarshal([]byte(repairM729Read(t, "tests/replay.json")), &replay); err != nil {
+	if err := json.Unmarshal([]byte(readRolloutFile(t, "tests/replay.json")), &replay); err != nil {
 		t.Fatal(err)
 	}
 	for _, check := range []struct {
