@@ -55,7 +55,7 @@ What runs on the kernel:
 flowchart LR
     Client["Client"] -->|signed transaction| Node["paxd node"]
     Node --> Kernel["LayerX kernel"]
-    Kernel -->|executes on open layer; assigns sequence| Receipt["signed execution receipt"]
+    Kernel -->|executes on the open layer and assigns the sequence position| Receipt["signed execution receipt"]
     Receipt --> Client
     Kernel -->|seals open layer| Proposed["proposed block"]
     Proposed --> Validators["validators"]
