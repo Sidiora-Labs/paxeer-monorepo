@@ -12,7 +12,7 @@ import (
 	tmprotobits "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/libs/bits"
 )
 
-func repairM1090Array(t *testing.T, bits []bool) *BitArray {
+func bitArrayProtoRoundTrip(t *testing.T, bits []bool) *BitArray {
 	t.Helper()
 	produced := NewBitArray(len(bits))
 	for i, set := range bits {
@@ -32,13 +32,13 @@ func repairM1090Array(t *testing.T, bits []bool) *BitArray {
 	if err := consumed.FromProto(&message); err != nil {
 		t.Fatal(err)
 	}
-	if err := repairM1090CheckBits(consumed, bits); err != nil {
+	if err := checkBitArrayBits(consumed, bits); err != nil {
 		t.Fatal(err)
 	}
 	return consumed
 }
 
-func repairM1090CheckBits(got *BitArray, want []bool) error {
+func checkBitArrayBits(got *BitArray, want []bool) error {
 	if got == nil || got.Size() != len(want) {
 		return fmt.Errorf("got size %d, want %d", got.Size(), len(want))
 	}
@@ -50,7 +50,7 @@ func repairM1090CheckBits(got *BitArray, want []bool) error {
 	return nil
 }
 
-func repairM1090Bounded(t *testing.T, work func() error) {
+func runBoundedBitArrayOperation(t *testing.T, work func() error) {
 	t.Helper()
 	done := make(chan error, 1)
 	go func() { done <- work() }()
@@ -68,7 +68,7 @@ func repairM1090Bounded(t *testing.T, work func() error) {
 	}
 }
 
-func TestRepairM_1090_LockOrder(t *testing.T) {
+func TestBitArrayLockOrder(t *testing.T) {
 	operations := []struct {
 		name  string
 		apply func(*BitArray, *BitArray) *BitArray
@@ -95,12 +95,12 @@ func TestRepairM_1090_LockOrder(t *testing.T) {
 				if op.name == "Update" {
 					copy(right, left)
 				}
-				a, b := repairM1090Array(t, left), repairM1090Array(t, right)
+				a, b := bitArrayProtoRoundTrip(t, left), bitArrayProtoRoundTrip(t, right)
 				if self {
 					b, right = a, left
 				}
 				ctx := t.Context()
-				repairM1090Bounded(t, func() error {
+				runBoundedBitArrayOperation(t, func() error {
 					return scope.Run(ctx, func(ctx context.Context, s scope.Scope) error {
 						start := make(chan struct{})
 						for worker := range 4 {
@@ -118,7 +118,7 @@ func TestRepairM_1090_LockOrder(t *testing.T) {
 									if err := ctx.Err(); err != nil {
 										return err
 									}
-									if err := repairM1090CheckBits(op.apply(first, second), want); err != nil {
+									if err := checkBitArrayBits(op.apply(first, second), want); err != nil {
 										return fmt.Errorf("worker %d: %w", worker, err)
 									}
 									runtime.Gosched()
@@ -130,10 +130,10 @@ func TestRepairM_1090_LockOrder(t *testing.T) {
 						return nil
 					})
 				})
-				if err := repairM1090CheckBits(a, left); err != nil {
+				if err := checkBitArrayBits(a, left); err != nil {
 					t.Fatal(err)
 				}
-				if err := repairM1090CheckBits(b, right); err != nil {
+				if err := checkBitArrayBits(b, right); err != nil {
 					t.Fatal(err)
 				}
 			})
@@ -141,7 +141,7 @@ func TestRepairM_1090_LockOrder(t *testing.T) {
 	}
 }
 
-func TestRepairM_1090_OrRightTail(t *testing.T) {
+func TestBitArrayOrRightTail(t *testing.T) {
 	for _, leftSize := range []int{1, 64, 65, 129} {
 		for _, rightSize := range []int{1, 64, 65, 129} {
 			for _, pattern := range []string{"boundary", "dense", "sparse"} {
@@ -153,18 +153,18 @@ func TestRepairM_1090_OrRightTail(t *testing.T) {
 					for i := range right {
 						right[i] = i == rightSize-1 || i == 0 || i == 63 || i == 64 || i == 127 || i == 128 || pattern == "dense" || pattern == "sparse" && i%5 == 0
 					}
-					a, b := repairM1090Array(t, left), repairM1090Array(t, right)
+					a, b := bitArrayProtoRoundTrip(t, left), bitArrayProtoRoundTrip(t, right)
 					want := make([]bool, max(leftSize, rightSize))
 					for i := range want {
 						want[i] = i < leftSize && left[i] || i < rightSize && right[i]
 					}
 					var union *BitArray
-					repairM1090Bounded(t, func() error {
+					runBoundedBitArrayOperation(t, func() error {
 						union = a.Or(b)
-						if err := repairM1090CheckBits(union, want); err != nil {
+						if err := checkBitArrayBits(union, want); err != nil {
 							return err
 						}
-						return repairM1090CheckBits(b.Or(a), want)
+						return checkBitArrayBits(b.Or(a), want)
 					})
 					// Exercise the production JSON transport and a consumer of the union.
 					encoded, err := json.Marshal(union)
@@ -175,20 +175,20 @@ func TestRepairM_1090_OrRightTail(t *testing.T) {
 					if err := json.Unmarshal(encoded, &consumed); err != nil {
 						t.Fatal(err)
 					}
-					if err := repairM1090CheckBits(consumed, want); err != nil {
+					if err := checkBitArrayBits(consumed, want); err != nil {
 						t.Fatal(err)
 					}
-					if err := repairM1090CheckBits(a, left); err != nil {
+					if err := checkBitArrayBits(a, left); err != nil {
 						t.Fatal(err)
 					}
-					if err := repairM1090CheckBits(b, right); err != nil {
+					if err := checkBitArrayBits(b, right); err != nil {
 						t.Fatal(err)
 					}
 					union.SetIndex(0, !union.GetIndex(0))
-					if err := repairM1090CheckBits(a, left); err != nil {
+					if err := checkBitArrayBits(a, left); err != nil {
 						t.Fatalf("union aliases left operand: %v", err)
 					}
-					if err := repairM1090CheckBits(b, right); err != nil {
+					if err := checkBitArrayBits(b, right); err != nil {
 						t.Fatalf("union aliases right operand: %v", err)
 					}
 				})
@@ -197,7 +197,7 @@ func TestRepairM_1090_OrRightTail(t *testing.T) {
 	}
 }
 
-func TestRepairM_1090_UpdateAndNilContracts(t *testing.T) {
+func TestBitArrayUpdateAndNilContracts(t *testing.T) {
 	for _, sizes := range [][2]int{{1, 129}, {129, 1}, {64, 65}, {65, 64}} {
 		t.Run(fmt.Sprintf("%d_%d", sizes[0], sizes[1]), func(t *testing.T) {
 			left, right := make([]bool, sizes[0]), make([]bool, sizes[1])
@@ -207,23 +207,23 @@ func TestRepairM_1090_UpdateAndNilContracts(t *testing.T) {
 			for i := range right {
 				right[i] = i%3 == 0
 			}
-			a, b := repairM1090Array(t, left), repairM1090Array(t, right)
+			a, b := bitArrayProtoRoundTrip(t, left), bitArrayProtoRoundTrip(t, right)
 			want := append([]bool(nil), left...)
 			// Update copies whole overlapping words, retaining any later receiver words.
 			for i := 0; i < min(len(left), ((len(right)+63)/64)*64); i++ {
 				want[i] = i < len(right) && right[i]
 			}
-			repairM1090Bounded(t, func() error { a.Update(b); return repairM1090CheckBits(a, want) })
+			runBoundedBitArrayOperation(t, func() error { a.Update(b); return checkBitArrayBits(a, want) })
 			b.SetIndex(0, !right[0])
-			if err := repairM1090CheckBits(a, want); err != nil {
+			if err := checkBitArrayBits(a, want); err != nil {
 				t.Fatal(err)
 			}
 		})
 	}
 	var empty *BitArray
 	var zero BitArray
-	a := repairM1090Array(t, []bool{true})
-	repairM1090Bounded(t, func() error {
+	a := bitArrayProtoRoundTrip(t, []bool{true})
+	runBoundedBitArrayOperation(t, func() error {
 		if empty.Or(empty) != nil || empty.And(a) != nil || a.And(empty) != nil || empty.Sub(a) != nil || a.Sub(empty) != nil {
 			return fmt.Errorf("nil operand contract changed")
 		}
@@ -232,16 +232,16 @@ func TestRepairM_1090_UpdateAndNilContracts(t *testing.T) {
 		empty.Update(empty)
 		zero.Update(&zero)
 		for _, result := range []*BitArray{zero.Or(&zero), zero.And(&zero), zero.Sub(&zero), &zero} {
-			if err := repairM1090CheckBits(result, []bool{}); err != nil {
+			if err := checkBitArrayBits(result, []bool{}); err != nil {
 				return err
 			}
 		}
-		if err := repairM1090CheckBits(empty.Or(a), []bool{true}); err != nil {
+		if err := checkBitArrayBits(empty.Or(a), []bool{true}); err != nil {
 			return err
 		}
-		if err := repairM1090CheckBits(a.Or(empty), []bool{true}); err != nil {
+		if err := checkBitArrayBits(a.Or(empty), []bool{true}); err != nil {
 			return err
 		}
-		return repairM1090CheckBits(a, []bool{true})
+		return checkBitArrayBits(a, []bool{true})
 	})
 }

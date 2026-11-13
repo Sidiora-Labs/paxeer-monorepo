@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-type repairM1089Service struct {
+type startupLifecycleService struct {
 	*BaseService
 	startErr     error
 	startContext context.Context
@@ -27,7 +27,7 @@ type repairM1089Service struct {
 	workerErr    error
 }
 
-func (s *repairM1089Service) OnStart(ctx context.Context) error {
+func (s *startupLifecycleService) OnStart(ctx context.Context) error {
 	s.starts.Add(1)
 	s.startContext = ctx
 	s.Spawn("pipe reader", func(ctx context.Context) error {
@@ -51,13 +51,13 @@ func (s *repairM1089Service) OnStart(ctx context.Context) error {
 	return s.startErr
 }
 
-func (s *repairM1089Service) OnStop() {
+func (s *startupLifecycleService) OnStop() {
 	s.stops.Add(1)
 	s.writer.Close()
 	close(s.stopped)
 }
 
-func repairM1089Await(t *testing.T, done <-chan struct{}) {
+func awaitServiceLifecycle(t *testing.T, done <-chan struct{}) {
 	t.Helper()
 	select {
 	case <-done:
@@ -66,10 +66,10 @@ func repairM1089Await(t *testing.T, done <-chan struct{}) {
 	}
 }
 
-func repairM1089Fixture(t *testing.T, startErr error) (*repairM1089Service, context.Context, context.CancelFunc, func(), func()) {
+func newStartupLifecycleFixture(t *testing.T, startErr error) (*startupLifecycleService, context.Context, context.CancelFunc, func(), func()) {
 	t.Helper()
 	reader, writer := io.Pipe()
-	s := &repairM1089Service{
+	s := &startupLifecycleService{
 		startErr: startErr, reader: reader, writer: writer,
 		allowReturn: make(chan struct{}), releaseTasks: make(chan struct{}),
 		stopped: make(chan struct{}),
@@ -93,11 +93,11 @@ func repairM1089Fixture(t *testing.T, startErr error) (*repairM1089Service, cont
 	return s, ctx, cancel, allowReturn, releaseTasks
 }
 
-func TestRepairM_1089_FailedStartState(t *testing.T) {
+func TestFailedStartState(t *testing.T) {
 	for _, trigger := range []string{"startup_error", "stop_during_start", "parent_cancel_during_start"} {
 		t.Run(trigger, func(t *testing.T) {
 			startErr := errors.New("startup resource initialization failed")
-			s, ctx, cancel, allowReturn, releaseTasks := repairM1089Fixture(t, startErr)
+			s, ctx, cancel, allowReturn, releaseTasks := newStartupLifecycleFixture(t, startErr)
 			startResult := make(chan error, 1)
 			startReturned := make(chan struct{})
 			go func() {
@@ -105,7 +105,7 @@ func TestRepairM_1089_FailedStartState(t *testing.T) {
 				close(startReturned)
 			}()
 			for _, started := range s.started {
-				repairM1089Await(t, started)
+				awaitServiceLifecycle(t, started)
 			}
 			if s.startContext != ctx {
 				t.Fatal("OnStart did not receive the caller's context")
@@ -126,7 +126,7 @@ func TestRepairM_1089_FailedStartState(t *testing.T) {
 			}
 			if trigger != "startup_error" {
 				for _, canceled := range s.canceled {
-					repairM1089Await(t, canceled)
+					awaitServiceLifecycle(t, canceled)
 				}
 				if s.stops.Load() != 0 {
 					t.Fatal("OnStop ran before OnStart finished")
@@ -134,9 +134,9 @@ func TestRepairM_1089_FailedStartState(t *testing.T) {
 			}
 			allowReturn()
 			for _, canceled := range s.canceled {
-				repairM1089Await(t, canceled)
+				awaitServiceLifecycle(t, canceled)
 			}
-			repairM1089Await(t, s.stopped)
+			awaitServiceLifecycle(t, s.stopped)
 			if s.stops.Load() != 1 {
 				t.Fatal("failed startup did not clean resources exactly once")
 			}
@@ -152,7 +152,7 @@ func TestRepairM_1089_FailedStartState(t *testing.T) {
 			}
 			releaseTasks()
 			for _, returned := range []<-chan struct{}{startReturned, retryReturned, stopReturned, waitReturned} {
-				repairM1089Await(t, returned)
+				awaitServiceLifecycle(t, returned)
 			}
 			if err := <-startResult; !errors.Is(err, startErr) {
 				t.Fatalf("Start returned %v, want the original startup error", err)
@@ -161,7 +161,7 @@ func TestRepairM_1089_FailedStartState(t *testing.T) {
 				t.Fatalf("concurrent Start returned %v, want the original startup error", err)
 			}
 			for _, finished := range s.finished {
-				repairM1089Await(t, finished)
+				awaitServiceLifecycle(t, finished)
 			}
 			if s.workerErr != nil {
 				t.Fatalf("owned reader failed after resource cleanup: %v", s.workerErr)
@@ -178,7 +178,7 @@ func TestRepairM_1089_FailedStartState(t *testing.T) {
 				s.Wait()
 				close(repeated)
 			}()
-			repairM1089Await(t, repeated)
+			awaitServiceLifecycle(t, repeated)
 			for range 3 {
 				if err := s.Start(t.Context()); !errors.Is(err, startErr) {
 					t.Fatalf("subsequent Start returned %v, want the original startup error", err)
@@ -191,8 +191,8 @@ func TestRepairM_1089_FailedStartState(t *testing.T) {
 	}
 }
 
-func TestRepairM_1089_SuccessfulStartupStillStops(t *testing.T) {
-	s, ctx, _, allowReturn, releaseTasks := repairM1089Fixture(t, nil)
+func TestSuccessfulStartupStillStops(t *testing.T) {
+	s, ctx, _, allowReturn, releaseTasks := newStartupLifecycleFixture(t, nil)
 	allowReturn()
 	if err := s.Start(ctx); err != nil {
 		t.Fatal(err)
@@ -206,9 +206,9 @@ func TestRepairM_1089_SuccessfulStartupStillStops(t *testing.T) {
 	releaseTasks()
 	stopped := make(chan struct{})
 	go func() { s.Stop(); s.Wait(); close(stopped) }()
-	repairM1089Await(t, stopped)
+	awaitServiceLifecycle(t, stopped)
 	for _, finished := range s.finished {
-		repairM1089Await(t, finished)
+		awaitServiceLifecycle(t, finished)
 	}
 	if s.IsRunning() || s.stops.Load() != 1 || s.workerErr != nil {
 		t.Fatal("successful service did not shut down its resources and owned work")
