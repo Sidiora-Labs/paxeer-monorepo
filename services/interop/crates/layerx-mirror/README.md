@@ -173,10 +173,7 @@ After reconciliation, initialize a distinct empty directory with `first_height`
 set to the operator-verified next committed block. Reopen and verify the new state,
 retrieve a new publication and authenticate its receipts before cutover. A rollback
 also requires reconciliation of any newly signed or broadcast transactions.
-Domain 11 (interop) owns any future migration tooling and durable-format contract
-updates; this crate does not supply a migration command. Configure the next
-committed block with the current `RuntimeConfig.first_height` field; historical
-configuration spellings are not accepted by the current schema.
+Configure the next committed block with `RuntimeConfig.first_height`.
 
 ## Contracts, signer and development targets
 
@@ -187,5 +184,5 @@ in [signer-protocol.md](../../deploy/mirror/signer-protocol.md).
 From the monorepo root, development targets are `make interop-build`,
 `make interop-test` and `make interop-test-mirrors` (the crate plus both archive
 contracts). `make mirror-live` and `make mirror-verify-live` require genuine
-operator configuration and live infrastructure. Listing these targets does not
-claim a live qualification result.
+operator configuration and live infrastructure, including source nodes,
+destination contracts and signer authority.

@@ -213,35 +213,22 @@ supplies no payout adapter, evidence verifier or reconciliation assets.
 Its settlement capability therefore remains unavailable. Implemented optional
 adapters must not be advertised as a configured production treasury.
 
-The private checker is invoked from the repository root with
-`python3 services/launchpad/security/control/check.py`. It reconstructs an
-isolated Go module from the shared manifests and uses readonly module resolution
-and the installed dependency cache. It starts an owned chain-125 Anvil, reserves
-its port and uses its private IPC socket for mutation. The Go fixtures start
-an isolated PostgreSQL instance using local server binaries; root execution
-requires the unprivileged `postgres` account. The checker also requires its
-configured Anvil binary at `/root/.foundry/bin/anvil`. Fixture credentials and
-local authorities are test data and never production attestation.
+## Development
 
-The bounded repair gate runs only `TestRepairM_1020_*`. Native integration
-fixtures start lazily when an integration test consumes them; no integration
-test is skipped or treated as passing without its fixture. The bounded tests
-use the real Store with explicit `OpenLocalStore` snapshot storage and separate
-setup/reader credential objects, real HTTPS provider clients and loopback owner
-transcripts, including `ChainVerifier` JSON-RPC receipt consumption. The local
-backend shares the authorization/mutation logic, atomically syncs snapshots,
-and keeps an exclusive store lock. It is never a fallback for `NewRuntime`.
-Its credential registry is an explicitly local in-memory authority; production
-credentials and revocation remain in the V2 PostgreSQL views and tables.
+From the repository root:
 
-`TestPhase3ProductionRolesDetectRecoverAndRestart` separately installs
-470000/470001 and exercises `NewRuntime` with restricted `control_runtime` and
-`identity_runtime` logins, actual owner views, verified HTTPS recovery, revoked
-and replacement credentials, connection restart and unrelated-write denial.
-That native PostgreSQL integration test is compiled but is outside this task's
-allowed bounded verification, so no claim of its execution is made here.
+```sh
+python3 services/launchpad/security/control/check.py
+```
 
-This bounded repair does not run the private checker or certify a deployment.
-Image and release authority are described in the
-[supply-chain notes](../supplychain/README.md); the media service's qualification
-boundary is recorded in [livestream progress](../../livestream/PROGRESS.md).
+The checker reconstructs an isolated Go module from the shared manifests and
+uses read-only module resolution and the installed dependency cache. Its native
+fixtures require Anvil, PostgreSQL server binaries and an unprivileged
+`postgres` account when invoked as root. Local fixture authorities are test data.
+
+`OpenLocalStore` provides explicit local snapshot storage with an exclusive
+store lock and atomic synced writes. Its credential registry is local and
+in memory. `NewRuntime` uses the PostgreSQL identity views and control tables.
+
+Image admission is described in the [supply-chain notes](../supplychain/README.md).
+The [livestream guide](../../livestream/PROGRESS.md) describes media dependencies.

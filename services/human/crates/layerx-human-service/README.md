@@ -104,9 +104,10 @@ deployment environment. Required fields and bounds are read by
 
 The public node URL uses the root path, for example
 `https://api1.mainnet-beta.paxeer.network`. The
-[workspace guide](../../README.md) lists the public node names and distinguishes
-node namespaces from hosted gateway `px_*` methods. Gateway projections carry
-`gateway-reported` evidence; they are not proof of a committed balance.
+[workspace guide](../../README.md) lists the public node names. The node serves
+`px_*` state reads; registration and funding use hosted services. Gateway
+projections carry `gateway-reported` evidence; they are not proof of a committed
+balance.
 
 Remote KMS settings are parsed by `RemoteKmsConfig::from_environment` in the
 production composition module: `LAYERX_HUMAN_KMS_PROVIDER_REFERENCE`,
@@ -145,15 +146,9 @@ recorded peers; they need no credentials, live node, native artifact or external
 clock process:
 
 ```sh
-cargo test --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --test repair_22_33_45
 cargo test --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --test agent_runtime_eip1559
 cargo test --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --test agent_runtime_nonces
 ```
-
-`repair_22_33_45` checks this README against the production bank-call producer,
-transaction/disclosure consumer, pending-nonce transport, committed receipt verifier,
-configuration parsers and retired operation inventory. Its receipt peer replays the
-committed node transcript retained under `src/journeys`.
 
 Production still requires its authenticated runtime-clock supervisor. Broader suites
 that exercise native custody or hosted dependencies need the prerequisites in the

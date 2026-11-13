@@ -1,17 +1,15 @@
 # Identity verification delivery
 
-Domain 8 / fm-platform operates the built-in identity outbox consumer. The
-single identity replica runs it every 5 seconds; no separate worker should read
-or delete this outbox. `pending: true` acknowledges a queued signup, not receipt
-of mail. `/readyz` checks the identity store, not SMTP delivery. Delivery is an
+The identity service runs its built-in outbox consumer every five seconds.
+The single replica owns delivery and durable acknowledgement. `pending: true`
+acknowledges a queued signup, not receipt of mail. `/readyz` checks the identity store, not SMTP delivery. Delivery is an
 explicitly operated consumer rather than a dependency of the readiness probe.
 
-Before applying `deployment.yaml`, provision these required objects in
-`layerx-testnet` through the domain's protected secret/config management:
+The [deployment](deployment.yaml) requires these objects in `layerx-testnet`:
 
 | Object | Key | Contract |
 | --- | --- | --- |
-| Secret `layerx-identity-smtp` | `url` | `smtps://<encoded-user>:<encoded-password>@layerx-identity-smtp.layerx-testnet.svc.cluster.local:465` |
+| Secret `layerx-identity-smtp` | `url` | `smtps://<encoded-user>:<encoded-password>@<relay-host>:465` |
 | ConfigMap `layerx-identity-mail` | `from` | A relay-authorized sender mailbox in `local@domain` form; the domain must contain a dot. |
 
 Percent-encode credential delimiters in the URL. Never commit the resolved URL,
@@ -20,12 +18,11 @@ prevent container startup; malformed configured SMTP settings fail startup.
 Secret and ConfigMap environment changes require restarting the identity pod.
 
 The Service `layerx-identity-smtp` selects only relay pods labeled
-`app: layerx-identity-smtp` in `layerx-testnet`. The domain 8 bring-up owner must
-provision these pods with an authenticated implicit-TLS listener on TCP 465, a
-certificate for `layerx-identity-smtp.layerx-testnet.svc.cluster.local` trusted
-by the identity image's native trust store, and the configured sender's upstream
-delivery. The identity policy admits TCP 465 only to those pods, plus DNS on
-TCP/UDP 53. It grants no direct external SMTP access. Admission to the relay,
+`app: layerx-identity-smtp` in `layerx-testnet`. Relay pods require an
+authenticated implicit-TLS listener on TCP 465, a certificate matching the
+configured relay hostname and trusted by the identity image's native trust store,
+and upstream delivery for the configured sender. The identity policy admits
+TCP 465 only to those pods, plus DNS on TCP/UDP 53. It grants no direct external SMTP access. Admission to the relay,
 its ingress policy, credentials, certificate renewal, upstream egress and
 recipient delivery belong to the relay operator. Do not substitute STARTTLS on
 587: the production mailer uses implicit TLS for `smtps://`.
@@ -40,7 +37,7 @@ are retired by reconciliation. Preserve the PVC and store key during recovery;
 do not manually remove queue files. An interrupted SMTP acknowledgement can
 produce duplicate messages, so SMTP acceptance is not an exactly-once promise.
 
-The domain 8 on-call operator must watch `layerx-identity mailer failed:` in
+Monitor `layerx-identity mailer failed:` in
 identity logs and queue count/oldest age on the state volume. Page when the
 oldest unexpired queued message exceeds 60 seconds or delivery errors persist
 for 60 seconds. Inspect metadata only; queue contents contain verification
@@ -58,6 +55,4 @@ receipt of the verification message from the configured sender, and successful
 outbox entry disappears after relay acceptance. In a controlled staging check,
 temporarily refuse relay acceptance, confirm the error and retained queue entry,
 restore the relay, and confirm retry delivery. Retain only redacted outcomes in
-private deployment evidence. The offline repair gate checks source/config
-wiring; it does not execute this deployed signup-to-delivery check or certify
-relay availability, credentials, certificates or mailbox receipt.
+private deployment evidence.
