@@ -56,10 +56,7 @@ configuration files contain placeholders rather than proof of deployment.
 URL values must use HTTP or HTTPS without embedded credentials; EVM vault
 addresses must be valid and nonzero. Invalid values are treated as unset.
 
-For public Paxeer JSON-RPC, use a node's root URL, for example
-`https://api1.mainnet-beta.paxeer.network`. The public node names are `api1`
-through `api14.mainnet-beta.paxeer.network`, plus
-`api-mainnet-beta.paxeer.network`; they serve chain ID 125 at the root path.
+For public Paxeer JSON-RPC, use a node's root URL for chain ID 125.
 See the [public RPC reference](../../docs/site/docs/reference/public-rpc.md).
 The app supplies no default Paxeer RPC URL.
 
@@ -137,8 +134,9 @@ the backend or deployment configuration before submission.
 A submitted claim or release hash is saved immediately, and the transfer stays
 settling while its result is pending. Completion requires the destination
 nullifier or verified Solana release record. Reverted or dropped EVM attempts
-show a retry action; a transaction absent for two minutes is classified as
-dropped. Inspect the destination receipt and nullifier before retrying.
+show a retry action. When neither the settlement receipt nor the transaction is
+found, the attempt is classified as dropped once two minutes have elapsed since
+submission. Inspect the destination receipt and nullifier before retrying.
 Importing an already tracked transfer preserves its existing local record.
 
 ## Learn More

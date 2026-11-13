@@ -1,5 +1,5 @@
 ---
-name: LayerX Network security vulnerability
+name: Paxeer X Network security vulnerability
 about: Do not report vulnerabilities with this form. Follow SECURITY.md.
 title: ""
 labels: []

@@ -62,7 +62,7 @@ the relevant implementation, API contract or user-facing guide instead.
 - Solidity 0.8.27 for the root Foundry project (`foundry.toml`)
 - Node.js for the TypeScript apps and SDKs; each workspace declares its own package manager
 
-The development container under [.devcontainer/](.devcontainer/) provides a development environment. Chain node builds require `CGO_ENABLED=1`, the kernel and programs sandbox archives, the evmone shared library, and OpenSSL development libraries; `make paxeer-build` builds the native archives before linking `paxd`. The merged-network [test plan](spec/layerx-merge/docs/plans/test-plan.md#command-shapes-and-manifest-constraints) describes toolchain boundaries and bounded verification commands; the active task declares the commands to run.
+The development container under [.devcontainer/](.devcontainer/) provides a development environment. Chain node builds require `CGO_ENABLED=1`, the kernel and programs sandbox archives, the evmone shared library, and OpenSSL development libraries; `make paxeer-build` builds the native archives before linking `paxd`. The merged-network [test plan](spec/layerx-merge/docs/plans/test-plan.md#toolchains-and-native-dependencies) describes toolchain boundaries and native dependencies.
 
 ## Gates
 
@@ -79,7 +79,7 @@ make public-audit      # publication audit: pinned actions, required files, secr
 make specgen-lint      # generated rule files match spec/workflow.kvx
 ```
 
-`scripts/ci/layout-check.sh` fails while any file or configuration names a path that has moved. The pre-commit hooks in `.pre-commit-config.yaml` check whitespace, Markdown, YAML, `cargo fmt` and `forge fmt`. Moved trees keep their own targets, such as `make agent-build`, `make human-build` and `make bridge-test-evm`.
+`scripts/ci/layout-check.sh <old-path> [<old-path> ...]` checks the Git index and selected root-relative build, CI, deployment and tool configuration files for the specified old paths. The pre-commit hooks in `.pre-commit-config.yaml` check whitespace, Markdown, YAML, `cargo fmt` and `forge fmt`. Component targets include `make agent-build`, `make human-build` and `make bridge-test-evm`.
 
 `make ci`, `make paxeer-ci` and `make monorepo-ci` are aggregate gates; they run at release boundaries rather than on every change. `make ci` includes sanitizer and reproducibility runs. Merged-network acceptance coverage, domain ownership and release qualification are described in the [test plan](spec/layerx-merge/docs/plans/test-plan.md); use the owning specification's declared gates for execution, ledger, replay, recovery and cross-architecture changes.
 

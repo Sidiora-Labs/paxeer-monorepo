@@ -24,7 +24,7 @@ The record of a decision is the merged specification and code on `main`.
 
 ## Releases and chain upgrades
 
-A release of the chain node is a version in [`tools/release/version.json`](tools/release/version.json) and a matching `paxeer-network/vX.Y.Z` tag; [RELEASE.md](RELEASE.md) gives the procedure. A release that changes chain state carries a named upgrade plan registered in [`node/upgrades.go`](node/upgrades.go), and the network adopts it through an on-chain governance proposal.
+A release of the chain node is a version in [`tools/release/version.json`](tools/release/version.json) and a matching `paxeer-network/vX.Y.Z` tag; [RELEASE.md](RELEASE.md) describes its artifacts. Coordinated state migrations use named upgrade plans registered in [`node/upgrades.go`](node/upgrades.go) and scheduled through on-chain governance.
 
 ## Security fixes
 

@@ -28,8 +28,9 @@ under [configs/app](../../../configs/app), with validation in
 ## Pull request metadata
 
 The [fetch-release-prs.js helper](fetch-release-prs.js) reads pull request labels
-and descriptions through the GitHub API. It uses the repository selected by
-`gh repo view`. GitHub CLI authentication is described by the
+and descriptions through the GitHub API. Its default repository is
+`blockscout/frontend`; `gh repo view` selects the checkout's repository.
+GitHub CLI authentication is described by the
 [check-github-cli guide](../check-github-cli/SKILL.md).
 
 From the monorepo root:
@@ -38,7 +39,9 @@ From the monorepo root:
 node apps/explorer/.cursor/skills/prepare-release/fetch-release-prs.js <pr-number> --out <output-file>
 ```
 
-The output is a JSON object with a `prs` array. Entries carry `number`, `title`,
+The helper accepts multiple pull request numbers. With `--out` it writes the JSON
+to that file; otherwise it prints JSON to standard output. The output is a JSON
+object with a `prs` array. Entries carry `number`, `title`,
 `author`, `url`, `labels` and `body`. The helper waits 400 milliseconds between
 requests. Configuration changes can be identified by the `ENVs` label and the
 corresponding description.

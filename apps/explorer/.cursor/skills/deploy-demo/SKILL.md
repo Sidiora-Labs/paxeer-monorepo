@@ -19,7 +19,9 @@ to events other than pull requests.
 The application uses the `/explorer` base path and port 3000. Supply a deployment
 environment file using the variables in the
 [environment reference](../../../../../docs/explorer/ENVS.md). The
-[Paxeer presets](../../../configs/envs) define chain ID 125 and branding.
+[Paxeer environment files](../../../configs/envs) define chain ID 125 and branding.
+Use `paxeer-x.env` or `paxeer-x-dev.env` as the basis for the file passed to
+`--env-file`, with values appropriate to the deployment.
 
 ```sh
 docker run -p 3000:3000 --env-file <path-to-your-env-file> ghcr.io/sidiora-labs/paxeer-x-explorer-frontend:latest
