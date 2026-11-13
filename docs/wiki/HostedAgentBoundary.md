@@ -98,10 +98,10 @@ chain transaction hash. The deployment-proof route additionally rejects an
 all-zero hash.
 
 The deployment-proof route returns a verified receipt, not a complete
-program deployment attestation. The registry separately validates the
-successful EVM receipt, the Programs deployment event, and the program record
-at that receipt's canonical block; see
-[`programs_chain.rs`](../../services/platform/hosted/registry/src/programs_chain.rs).
+program deployment attestation. Registry ingestion separately requires a canonical
+`DeploymentProof` and verifies it against native chain trust and the current
+authenticated head. See [Registry deployment journal](RegistryDeploymentJournal.md)
+and [`node_state.rs`](../../services/platform/hosted/registry/src/node_state.rs).
 
 The old `POST /v1/activities`, program submit/simulate routes, and
 idempotency-key receipt routes are retired. The old account-state relay
@@ -225,7 +225,6 @@ reads, authorization, and startup without the retired socket configuration.
 [`tests/repair_22_31_191.rs`](../../services/platform/hosted/agent-boundary/tests/repair_22_31_191.rs)
 covers retired account-state routes, readiness using only chain dependencies,
 absence of journal directories, upstream loss with liveness retained, and
-pinned key-height enforcement. These are source coverage descriptions, not
-a claim that the tests have run for a deployment.
+pinned key-height enforcement.
 
 [Home](Home.md)

@@ -85,30 +85,32 @@ The check mode leaves the vectors untouched.
 ## AI-market deployment artifact
 
 Build the AI-market guest for `wasm32-unknown-unknown` in release mode with
-optimization level `z`. The workspace release profile otherwise defaults to
-level `3`; select `z` explicitly for deployment packaging. Run Cargo inside
-`programs/` so its vendored-source and WASM code-generation configuration
-applies. For chain 125, a packaging command from the repository root is:
+optimization level `z`. The workspace release profile defaults to level `3`
+and overrides the AI-market package to `z`. The shared guest recipe also sets
+LTO, one codegen unit, aborting panics, stripped symbols and its canonical
+code-generation flags, then packages the output with Binaryen `wasm-opt`
+version 133. Install that optimizer and the WASM target first. From the
+repository root:
 
 ```sh
-cd programs
 PAXAI_CHAIN_DOMAIN=62b6b14734fa769c3e0fbc94de495a3d038be49a2524b1c071d75d0a4eed71f6 \
-CARGO_PROFILE_RELEASE_OPT_LEVEL=z \
-cargo build --locked --release --target wasm32-unknown-unknown \
-  -p layerx-programs-ai-market
+bash programs/crates/layerx-programs-ai-market/tests/fixtures/guest-recipe.sh \
+  build programs /tmp/ai-market.wasm
 ```
 
 `PAXAI_CHAIN_DOMAIN` is read at compile time with `option_env!` in the guest's
 `src/lib.rs`. It must be 64 lowercase hexadecimal digits encoding the domain
 derived by SHA-256 over `PAXAI/chain-domain/v1` followed by the big-endian u64
-chain id `125`. The guest defaults to that merged-chain domain when unset
-and refuses malformed or foreign overrides with `WRONG_DOMAIN`.
-Set it explicitly when packaging. The `paxai-host-boundary-build` Makefile
-recipe also takes this variable, but its current default differs from the
-guest's chain-125 domain and its recipe does not select optimization level `z`.
+chain ID `125`. The guest and `paxai-host-boundary-build` Makefile recipe both
+default to that merged-chain domain. The guest refuses malformed or foreign
+overrides with `WRONG_DOMAIN`; set the domain explicitly when packaging.
 
-The artifact is `wasm32-unknown-unknown/release/layerx_programs_ai_market.wasm`
-under the selected Cargo target directory (normally `programs/target`).
+The command above publishes the packaged artifact at `/tmp/ai-market.wasm`.
+`make paxai-host-boundary-build` uses the same guest recipe, checks the packaged
+WASM against the 524184-byte ceiling and runs the native host-boundary executable
+against that artifact. The intermediate Cargo output is
+`wasm32-unknown-unknown/release/layerx_programs_ai_market.wasm` under the selected
+target directory (normally `programs/target`).
 `LXP_MAX_PAYLOAD_BYTES` in `include/layerx/lxp_protocol.h` is **524,288 bytes**.
 The basic deployment encoding in `src/modules/programs/deploy.c` consumes
 **104 bytes** before WASM, leaving at most **524,184 bytes** for WASM with
@@ -191,9 +193,8 @@ defines `ProgramState`, `ProgramBalances` and `ProgramEvents` query evidence.
 
 ## Test tiers
 
-These recipes describe the current Makefile. Select the gates declared for
-the task being qualified; the full workspace and release recipes are broader
-than a documentation or single-crate task.
+These recipes describe the current Makefile and their respective build and
+test coverage.
 
 `programs-build` builds the locked workspace with
 `layerx-programs-sandbox/host-ffi`, using `programs/target` for the native
@@ -216,7 +217,8 @@ The differential binary is compiled from
 `programs/tests/differential/parallel.c`, which includes
 `tests/programs/test_call_activity.c`, and links the kernel and Programs
 runtime libraries. Its Makefile prerequisites contain those two sources and
-libraries; it uses the merged kernel execution path.
+libraries; compiler-generated dependency files also track included headers
+and sources. It uses the merged kernel execution path.
 
 ## Signature and storage test authorities
 

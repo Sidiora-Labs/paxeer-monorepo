@@ -303,8 +303,7 @@ Cluster provisioning now sends tenant-bearing principal bodies; see
 
 ## Tests
 
-Current tests are references to coverage, not gates run by this documentation
-rewrite. [`tests/service.rs`](../../services/platform/hosted/identity/tests/service.rs)
+[`tests/service.rs`](../../services/platform/hosted/identity/tests/service.rs)
 exercises real TLS, all introspection shapes, unauthorized callers, registrar
 principal creation without session minting, required distinct registrar tokens,
 revocation, expiry, health, store failure, tenant binding and restart, retained
@@ -320,7 +319,6 @@ key binding, fresh nonces, tamper refusal, HMAC and hex encoding.
 
 The [platform Makefile](../../services/platform/Makefile.inc) defines
 `platform-test-identity` for the identity crate and
-`platform-test-trusted-boundary`, which depends on it. These developer targets
-are separate from this task's bounded documentation gates.
+`platform-test-trusted-boundary`, which depends on it.
 
 [Hosted authority](HostedAuthority.md) · [Hosted registry](HostedRegistry.md) · [Home](Home.md)

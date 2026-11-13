@@ -1,7 +1,7 @@
 # Market-maker ramps
 
-Independent market-maker ramps are **not** an `services/interop/crates`
-adapter. They live under `services/platform/ramps/`: toolkit crate
+Independent market-maker ramps live under `services/platform/ramps/`, separately
+from the interoperability adapters: toolkit crate
 `layerx-ramp-toolkit` (`services/platform/ramps/toolkit`) and reference
 material under `services/platform/ramps/reference/`
 (`services/platform/ramps/README.md`).

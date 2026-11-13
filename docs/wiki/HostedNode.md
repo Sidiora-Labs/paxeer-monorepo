@@ -87,10 +87,9 @@ has no public Ingress object; public access is configured at the gateway edge.
 
 The manifest names `ghcr.io/sidiora-labs/layerx-kernel:0.1.0` and expects
 `/usr/local/bin/paxd`, the native supervisor, Python helpers and signer provider.
-That declaration alone does not prove that an image contains them.
-The checked `docker/kernel/Dockerfile` does not install `paxd` or
-`native_runtime.py`, and `docker/platform-node/Dockerfile` retains retired build
-inputs. Neither is a complete packaging recipe for this native supervisor path.
+The image must include all of those runtime components.
+`docker/kernel/Dockerfile` supplies the kernel image but does not install
+`paxd` or `native_runtime.py`.
 `docker/paxeer/Dockerfile.paxd-node` builds the chain executable with its native
 libraries at `/usr/bin/paxd`; it does not supply the hosted Python supervisor.
 Use an image whose contents satisfy the native launch contract before deploying

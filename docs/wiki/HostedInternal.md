@@ -321,8 +321,6 @@ and immutable event ordering in `src/events.rs`; and bounded durable delivery
 in `src/producer.rs`. Human's real TLS observation and sink-loss recovery path
 is in
 `services/human/crates/layerx-human-service/src/event_producer_tls.rs`.
-These are locations of implementation tests, not a claim that this documentation
-rewrite ran those suites.
 
 [Human custody](HumanCustody.md) · [Human journeys](HumanJourneys.md) ·
 [Home](Home.md)

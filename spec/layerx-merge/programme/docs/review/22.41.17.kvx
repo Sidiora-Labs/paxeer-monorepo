@@ -1,0 +1,163 @@
+[manifest]
+task = "22.41.17"
+pages = 40
+
+[page.1]
+path = "docs/wiki/Guarantor.md"
+status = "reviewed"
+
+[page.2]
+path = "docs/wiki/Home.md"
+status = "reviewed"
+
+[page.3]
+path = "docs/wiki/HostedAgentBoundary.md"
+status = "corrected"
+
+[page.4]
+path = "docs/wiki/HostedAuthority.md"
+status = "corrected"
+
+[page.5]
+path = "docs/wiki/HostedBetaControl.md"
+status = "reviewed"
+
+[page.6]
+path = "docs/wiki/HostedCore.md"
+status = "corrected"
+
+[page.7]
+path = "docs/wiki/HostedDashboard.md"
+status = "reviewed"
+
+[page.8]
+path = "docs/wiki/HostedFaucet.md"
+status = "reviewed"
+
+[page.9]
+path = "docs/wiki/HostedGateway.md"
+status = "corrected"
+
+[page.10]
+path = "docs/wiki/HostedHuman.md"
+status = "corrected"
+
+[page.11]
+path = "docs/wiki/HostedIdentity.md"
+status = "corrected"
+
+[page.12]
+path = "docs/wiki/HostedInternal.md"
+status = "corrected"
+
+[page.13]
+path = "docs/wiki/HostedNode.md"
+status = "corrected"
+
+[page.14]
+path = "docs/wiki/HostedRegistry.md"
+status = "corrected"
+
+[page.15]
+path = "docs/wiki/HostedWebhooks.md"
+status = "reviewed"
+
+[page.16]
+path = "docs/wiki/HumanCustody.md"
+status = "reviewed"
+
+[page.17]
+path = "docs/wiki/HumanJourneys.md"
+status = "reviewed"
+
+[page.18]
+path = "docs/wiki/HumanOwnerRegistration.md"
+status = "reviewed"
+
+[page.19]
+path = "docs/wiki/Interop.md"
+status = "reviewed"
+
+[page.20]
+path = "docs/wiki/LNI.md"
+status = "reviewed"
+
+[page.21]
+path = "docs/wiki/MarketMakerRamps.md"
+status = "corrected"
+
+[page.22]
+path = "docs/wiki/Mcp.md"
+status = "corrected"
+
+[page.23]
+path = "docs/wiki/Migration.md"
+status = "corrected"
+
+[page.24]
+path = "docs/wiki/Mirrors.md"
+status = "reviewed"
+
+[page.25]
+path = "docs/wiki/Modules.md"
+status = "corrected"
+
+[page.26]
+path = "docs/wiki/PaxeerBoundary.md"
+status = "corrected"
+
+[page.27]
+path = "docs/wiki/PaymentsQuickstart.md"
+status = "reviewed"
+
+[page.28]
+path = "docs/wiki/Perps.md"
+status = "corrected"
+
+[page.29]
+path = "docs/wiki/PortableVerifier.md"
+status = "corrected"
+
+[page.30]
+path = "docs/wiki/Porting.md"
+status = "reviewed"
+
+[page.31]
+path = "docs/wiki/Programs.md"
+status = "corrected"
+
+[page.32]
+path = "docs/wiki/ProgramsWorkspace.md"
+status = "corrected"
+
+[page.33]
+path = "docs/wiki/Protocol.md"
+status = "reviewed"
+
+[page.34]
+path = "docs/wiki/PublicAPI.md"
+status = "reviewed"
+
+[page.35]
+path = "docs/wiki/PublicRpc.md"
+status = "corrected"
+
+[page.36]
+path = "docs/wiki/Quickstart.md"
+status = "reviewed"
+
+[page.37]
+path = "docs/wiki/README.md"
+status = "reviewed"
+
+[page.38]
+path = "docs/wiki/RegistryDeploymentJournal.md"
+status = "corrected"
+
+[page.39]
+path = "docs/wiki/Roadmap.md"
+status = "reviewed"
+
+[page.40]
+path = "docs/wiki/RunningAnAgent.md"
+status = "reviewed"

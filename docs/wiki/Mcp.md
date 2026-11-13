@@ -162,9 +162,11 @@ Intent fields retain the useful tool-specific names:
 The abbreviated legacy `token.create` field is `supply`; the native carrier
 requires `supply_cap` and an approved `native-registration-v1` profile. Native
 alias targets are ledger `0x000000000000000000000000000000000000101A`:
-Asset ordinals 5 for send/transfer, 1 for create, 10 for mint, 7 for issue and
-6 for draw. Registration must satisfy the owner policy and capability chain;
-a model's request does not establish that authority.
+Asset ordinals 5 for send/transfer, 1 for create and 10 for mint. The retained
+grant aliases encode ordinals 7 for issue and 6 for draw; those Asset activities
+are retired and are not registered by the kernel. These aliases do not
+establish a live ledger grant operation. Registration must satisfy the owner policy and capability
+chain; a model's request does not establish that authority.
 
 ---
 

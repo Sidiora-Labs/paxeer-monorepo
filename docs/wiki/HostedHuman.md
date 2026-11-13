@@ -9,10 +9,12 @@ contract.
 
 Human policy assembly consumes the same generated schema-version-2 asset and
 module registry published to `layerx-core-module-registry`. The native producer
-uses the module interfaces registered by the daemon. Beta asset metadata lives
-next to `ASSET_ID` in `services/platform/hosted/node/bootstrap.sh`: `LXT`, currency `LXT`,
-and 18 protocol decimals. Bootstrap exports these alongside `LAYERX_NODE_ASSET_ID`.
-These metadata do not constitute an on-chain asset registration or asset proof.
+uses the module interfaces registered by the integrated node and kernel host.
+The schema-version-2 registry supplies nonzero asset identifiers and optional
+`symbol`, `currency` and `decimals` metadata. The material assembler validates
+the selected asset against that registry. `services/platform/hosted/node/bootstrap.sh`
+delegates to the native runtime; it does not define fixed token metadata.
+Registry metadata alone does not constitute an on-chain asset proof.
 
 A fresh cluster generates its Human KMS seal and policy material. Repeating
 `up` with `LAYERX_BETA_RETAIN_MATERIAL=1` reuses the complete saved material set.
@@ -44,8 +46,9 @@ duplicate, additional or differently bound peer entries.
 
 The beta provisioning contract and output sources are documented in
 [the hosted Human README](../../services/platform/hosted/human/README.md#evidence-provisioning).
-The owner identity is provisioned through LXIP inside a Job with the runtime identity
-PVC. Protocol registration, recovery policy, guarantor checkpoint public key and
-registry journal pairs remain explicit upstream inputs. The assembler publishes
-one complete protected set; unavailable inputs refuse by path. A locally loadable
-catalog or passing package tests do not prove deployment or full evidence integration.
+Owner preparation and registration bind the identity, recovery policy and ledger
+account. Evidence assembly consumes authenticated ledger funding, naming and
+registry deployment evidence, journal pairs and the producer manifest. Retired
+custody references, checkpoint timing and guarantor keys are not assembly inputs.
+The assembler publishes one complete protected set and refuses unavailable inputs
+by path. The owner-provisioning Job mounts the runtime identity PVC.

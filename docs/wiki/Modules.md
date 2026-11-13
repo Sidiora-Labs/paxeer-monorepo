@@ -76,8 +76,7 @@ These names describe account namespaces, not a list of accounts provisioned at
 genesis. `lx_account` in `include/layerx/lxp_ledger.h` holds one account ID, one
 asset binding, one balance and one `next_sequence`. A per-asset principal account
 is `LX_ACCOUNT_AGENT_ASSET` (`14`); `agent:<did>:main` is
-`LX_ACCOUNT_AGENT_MAIN` (`1`). The parser distinguishes these kinds even though
-an older comment beside the main-account enum still groups both names together.
+`LX_ACCOUNT_AGENT_MAIN` (`1`). The parser distinguishes these account kinds.
 A balance lookup for the wrong bound asset returns `LXP_ERR_ASSET_MISMATCH`.
 
 Named accounts use the `LX:ACCOUNT:v1` derivation. The issuance account ID derives
@@ -154,9 +153,9 @@ state also participates in the evidence that consumers verify.
 
 **Bridge.** The old C Bridge ID is not in the active registration set. The
 network's native EVM integration is a different surface; see
-[Unified Network Architecture](UnifiedNetwork.md). The optional
-[custody credit profile](Custody.md) describes external-deposit-backed credit,
-not a separate settlement chain for ordinary module operations.
+[Unified Network Architecture](UnifiedNetwork.md). The former
+[custody credit profile](Custody.md) and external-deposit-backed credit path
+are retired.
 
 **Spot.** Match two-asset orders and settle the fill's legs through kernel
 monetary transfers. See [Spot](Spot.md).
