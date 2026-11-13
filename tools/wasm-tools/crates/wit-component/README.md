@@ -86,7 +86,7 @@ $ wasm-tools objdump demo.wasm
 # Convert the core wasm into a component now
 $ wasm-tools component new demo.wasm -o demo.component.wasm
 
-# Like before the output `demo.wasm` is a valid component binary
+# Like before the output `demo.component.wasm` is a valid component binary
 $ wasm-tools validate --features component-model demo.component.wasm
 $ wasm-tools print demo.component.wasm
 
@@ -249,3 +249,4 @@ disabled through various options and flags in tooling.
 
 [`wit_parser::Resolve::merge_worlds`]: https://docs.rs/wit-parser/latest/wit_parser/struct.Resolve.html#method.merge_worlds
 [`wit_parser::Resolve::merge_world_imports_based_on_semver`]: https://docs.rs/wit-parser/latest/wit_parser/struct.Resolve.html#method.merge_world_imports_based_on_semver
+[`wit-bindgen`]: https://github.com/bytecodealliance/wit-bindgen
