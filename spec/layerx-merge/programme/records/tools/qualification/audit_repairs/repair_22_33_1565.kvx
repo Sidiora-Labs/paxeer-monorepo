@@ -108,7 +108,7 @@ clock_requests = [
 
 [qualification]
 build_cmd = "python3 --version"
-verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1565.py"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_agent_documentation_and_clock_policy.py"
 done_cmd = "cg spec done 22.33.1565 -f layerx-merge --root /work/paxeer-monorepo"
 evidence_ledger = "/out/run/gates.jsonl"
 verified_revision = "The private hf-done ledger row records the exact content-derived candidate revision, command, exit and log. The final response copies it verbatim. Embedding that hash in this file would change the candidate hash, so this record is finalized before the gates. Build and verify must use the same unchanged candidate."
