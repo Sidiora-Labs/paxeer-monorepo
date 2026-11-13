@@ -34,7 +34,7 @@ result = "Not run: the explicit allowed gates and implementation-first order res
 suites = ["budget_schema", "budget_unknown", "recovery"]
 execution = "The declared integration test includes each original suite as an unchanged test module, apart from the required millisecond constructor and accessor in budget_schema. All cases execute in the sole hf-done verification command."
 result_source = "Final /out/logs/verify-<n>.log and /out/run/gates.jsonl; no result is asserted before execution."
-command = "test -s services/agent/crates/layerx-agentd/repair_22_39_318.kvx && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test repair_22_39_318"
+command = "test -s spec/layerx-merge/programme/records/services/agent/crates/layerx-agentd/repair_22_39_318.kvx && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test repair_22_39_318"
 
 [gotcha.scope]
 symptom = "Session workflow requests root GOTCHA/spec updates and publication, while this task forbids edits outside its scope and reserves commits for the runner."

@@ -9,7 +9,7 @@ tests = "Four executing tests cover shared resources and durable rejection recov
 build = "hf-build"
 build_command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --tests && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd"
 verify = "hf-done"
-verify_command = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --test repair_22_31_532 --test payer_evm --test payer && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd"
+verify_command = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --test payer_signing_and_approval --test payer_evm --test payer && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd"
 results = "The bounded runner records each gate result, exact verified candidate revision, command, exit code and private log in /out/run/gates.jsonl; the final response copies the terminal gate evidence. This record is included in that candidate before qualification to keep build and verify on the same revision."
 
 [interface_limitation]

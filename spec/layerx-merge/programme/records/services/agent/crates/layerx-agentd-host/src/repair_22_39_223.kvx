@@ -16,7 +16,7 @@ revision = "324876ce9bea1a714f4c0612405ae4fe634ed7ab"
 command = "cg spec done 22.39.223 -f layerx-merge --root /work/paxeer-monorepo"
 exit = 1
 log = "/out/logs/verify-1.log"
-verify_command = "test -s services/agent/crates/layerx-agentd-host/src/repair_22_39_223.kvx && cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --no-deps --all-targets -- -D warnings"
+verify_command = "test -s spec/layerx-merge/programme/records/services/agent/crates/layerx-agentd-host/src/repair_22_39_223.kvx && cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --no-deps --all-targets -- -D warnings"
 verify_exit = 101
 build_reference = "/out/logs/build-1.log; same candidate; cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --all-targets; exit 0"
 count_policy = "Every emitted diagnostic is retained below, including repeated diagnostics from separate target compilations; summary errors are excluded. Lines refer to this first gate revision, not the base or repaired sources."
@@ -254,7 +254,7 @@ observed = "error: function `hex` is never used"
 repair = "Use the shared library payer rather than recompiling it in private modules; expose shared audit helpers within integration targets so every retained proof remains reachable."
 
 [lint.30]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_363.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_payment_asset.rs"
 line = 1
 column = 27
 lint = "doc_markdown"
@@ -262,7 +262,7 @@ observed = "error: item in documentation is missing backticks"
 repair = "Quote referenced test names and repair filenames with backticks."
 
 [lint.31]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_363.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_payment_asset.rs"
 line = 2
 column = 5
 lint = "doc_markdown"
@@ -270,7 +270,7 @@ observed = "error: item in documentation is missing backticks"
 repair = "Quote referenced test names and repair filenames with backticks."
 
 [lint.32]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_363.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_payment_asset.rs"
 line = 2
 column = 50
 lint = "doc_markdown"
@@ -278,7 +278,7 @@ observed = "error: item in documentation is missing backticks"
 repair = "Quote referenced test names and repair filenames with backticks."
 
 [lint.33]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_363.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_payment_asset.rs"
 line = 3
 column = 5
 lint = "doc_markdown"
@@ -534,7 +534,7 @@ observed = "error: function `hex` is never used"
 repair = "Use the shared library payer rather than recompiling it in private modules; expose shared audit helpers within integration targets so every retained proof remains reachable."
 
 [lint.65]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_33_1511.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_receipt_bindings.rs"
 line = 1
 column = 50
 lint = "doc_markdown"
@@ -950,7 +950,7 @@ observed = "error: consider adding a `;` to the last statement for consistent fo
 repair = "Outside permitted scope; retained unchanged and recorded as a scope blocker."
 
 [lint.117]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs"
 line = 59
 column = 5
 lint = "format_collect"
@@ -958,7 +958,7 @@ observed = "error: use of `format!` to build up a string from an iterator"
 repair = "Encode the high and low nibbles with a fixed hexadecimal digit table and collect characters."
 
 [lint.118]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs"
 line = 70
 column = 13
 lint = "expect_used"
@@ -966,7 +966,7 @@ observed = "error: used `expect()` on a `Result` value"
 repair = "Propagate errors through Result-returning tests/helpers or require Some/Ok explicitly with a diverging failure branch; preserve the success condition and all assertions."
 
 [lint.119]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs"
 line = 70
 column = 32
 lint = "expect_used"
@@ -974,7 +974,7 @@ observed = "error: used `expect()` on a `Result` value"
 repair = "Propagate errors through Result-returning tests/helpers or require Some/Ok explicitly with a diverging failure branch; preserve the success condition and all assertions."
 
 [lint.120]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs"
 line = 94
 column = 5
 lint = "expect_used"
@@ -982,7 +982,7 @@ observed = "error: used `expect()` on a `Result` value"
 repair = "Propagate errors through Result-returning tests/helpers or require Some/Ok explicitly with a diverging failure branch; preserve the success condition and all assertions."
 
 [lint.121]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs"
 line = 98
 column = 5
 lint = "expect_used"
@@ -990,7 +990,7 @@ observed = "error: used `expect()` on a `Result` value"
 repair = "Propagate errors through Result-returning tests/helpers or require Some/Ok explicitly with a diverging failure branch; preserve the success condition and all assertions."
 
 [lint.122]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs"
 line = 111
 column = 8
 lint = "must_use_candidate"
@@ -998,7 +998,7 @@ observed = "error: this function could have a `#[must_use]` attribute"
 repair = "Mark published_keys as must_use."
 
 [lint.123]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs"
 line = 218
 column = 1
 lint = "missing_errors_doc"
@@ -1006,7 +1006,7 @@ observed = "error: docs for function returning `Result` missing `# Errors` secti
 repair = "Document signing/calldata/encoding failure conditions on the existing public helper."
 
 [lint.124]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs"
 line = 342
 column = 21
 lint = "expect_used"
@@ -1014,7 +1014,7 @@ observed = "error: used `expect()` on a `Result` value"
 repair = "Propagate errors through Result-returning tests/helpers or require Some/Ok explicitly with a diverging failure branch; preserve the success condition and all assertions."
 
 [lint.125]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs"
 line = 343
 column = 21
 lint = "expect_used"
@@ -1022,7 +1022,7 @@ observed = "error: used `expect()` on a `Result` value"
 repair = "Propagate errors through Result-returning tests/helpers or require Some/Ok explicitly with a diverging failure branch; preserve the success condition and all assertions."
 
 [lint.126]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs"
 line = 344
 column = 63
 lint = "expect_used"
@@ -1030,7 +1030,7 @@ observed = "error: used `expect()` on a `Result` value"
 repair = "Propagate errors through Result-returning tests/helpers or require Some/Ok explicitly with a diverging failure branch; preserve the success condition and all assertions."
 
 [lint.127]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs"
 line = 348
 column = 42
 lint = "expect_used"
@@ -1038,7 +1038,7 @@ observed = "error: used `expect()` on a `Result` value"
 repair = "Propagate errors through Result-returning tests/helpers or require Some/Ok explicitly with a diverging failure branch; preserve the success condition and all assertions."
 
 [lint.128]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs"
 line = 352
 column = 38
 lint = "expect_used"
@@ -1046,7 +1046,7 @@ observed = "error: used `expect()` on an `Option` value"
 repair = "Propagate errors through Result-returning tests/helpers or require Some/Ok explicitly with a diverging failure branch; preserve the success condition and all assertions."
 
 [lint.129]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs"
 line = 355
 column = 48
 lint = "expect_used"
@@ -1054,7 +1054,7 @@ observed = "error: used `expect()` on a `Result` value"
 repair = "Propagate errors through Result-returning tests/helpers or require Some/Ok explicitly with a diverging failure branch; preserve the success condition and all assertions."
 
 [lint.130]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs"
 line = 395
 column = 13
 lint = "expect_used"
@@ -1062,7 +1062,7 @@ observed = "error: used `expect()` on a `Result` value"
 repair = "Propagate errors through Result-returning tests/helpers or require Some/Ok explicitly with a diverging failure branch; preserve the success condition and all assertions."
 
 [lint.131]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs"
 line = 407
 column = 17
 lint = "expect_used"
@@ -1070,7 +1070,7 @@ observed = "error: used `expect()` on an `Option` value"
 repair = "Propagate errors through Result-returning tests/helpers or require Some/Ok explicitly with a diverging failure branch; preserve the success condition and all assertions."
 
 [lint.132]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs"
 line = 413
 column = 16
 lint = "expect_used"
@@ -1078,7 +1078,7 @@ observed = "error: used `expect()` on a `Result` value"
 repair = "Propagate errors through Result-returning tests/helpers or require Some/Ok explicitly with a diverging failure branch; preserve the success condition and all assertions."
 
 [lint.133]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs"
 line = 417
 column = 5
 lint = "expect_used"
@@ -1086,7 +1086,7 @@ observed = "error: used `expect()` on a `Result` value"
 repair = "Propagate errors through Result-returning tests/helpers or require Some/Ok explicitly with a diverging failure branch; preserve the success condition and all assertions."
 
 [lint.134]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs"
 line = 423
 column = 9
 lint = "expect_used"
@@ -1094,7 +1094,7 @@ observed = "error: used `expect()` on a `Result` value"
 repair = "Propagate errors through Result-returning tests/helpers or require Some/Ok explicitly with a diverging failure branch; preserve the success condition and all assertions."
 
 [lint.135]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs"
 line = 427
 column = 18
 lint = "expect_used"
@@ -1102,7 +1102,7 @@ observed = "error: used `expect()` on a `Result` value"
 repair = "Propagate errors through Result-returning tests/helpers or require Some/Ok explicitly with a diverging failure branch; preserve the success condition and all assertions."
 
 [lint.136]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs"
 line = 428
 column = 18
 lint = "expect_used"
@@ -1110,7 +1110,7 @@ observed = "error: used `expect()` on an `Option` value"
 repair = "Propagate errors through Result-returning tests/helpers or require Some/Ok explicitly with a diverging failure branch; preserve the success condition and all assertions."
 
 [lint.137]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs"
 line = 433
 column = 30
 lint = "expect_used"
@@ -1118,7 +1118,7 @@ observed = "error: used `expect()` on a `Result` value"
 repair = "Propagate errors through Result-returning tests/helpers or require Some/Ok explicitly with a diverging failure branch; preserve the success condition and all assertions."
 
 [lint.138]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs"
 line = 438
 column = 5
 lint = "expect_used"
@@ -1126,7 +1126,7 @@ observed = "error: used `expect()` on a `Result` value"
 repair = "Propagate errors through Result-returning tests/helpers or require Some/Ok explicitly with a diverging failure branch; preserve the success condition and all assertions."
 
 [lint.139]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs"
 line = 443
 column = 5
 lint = "expect_used"
@@ -1134,7 +1134,7 @@ observed = "error: used `expect()` on a `Result` value"
 repair = "Propagate errors through Result-returning tests/helpers or require Some/Ok explicitly with a diverging failure branch; preserve the success condition and all assertions."
 
 [lint.140]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs"
 line = 444
 column = 5
 lint = "expect_used"
@@ -1142,7 +1142,7 @@ observed = "error: used `expect()` on a `Result` value"
 repair = "Propagate errors through Result-returning tests/helpers or require Some/Ok explicitly with a diverging failure branch; preserve the success condition and all assertions."
 
 [lint.141]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs"
 line = 461
 column = 5
 lint = "too_many_lines"
@@ -1150,7 +1150,7 @@ observed = "error: this function has too many lines (115/100)"
 repair = "Extract focused verification, request/response and fixture setup helpers, preserving every assertion and call order."
 
 [lint.142]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs"
 line = 480
 column = 21
 lint = "expect_used"
@@ -1158,7 +1158,7 @@ observed = "error: used `expect()` on a `Result` value"
 repair = "Propagate errors through Result-returning tests/helpers or require Some/Ok explicitly with a diverging failure branch; preserve the success condition and all assertions."
 
 [lint.143]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs"
 line = 483
 column = 42
 lint = "expect_used"
@@ -1166,7 +1166,7 @@ observed = "error: used `expect()` on a `Result` value"
 repair = "Propagate errors through Result-returning tests/helpers or require Some/Ok explicitly with a diverging failure branch; preserve the success condition and all assertions."
 
 [lint.144]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs"
 line = 484
 column = 34
 lint = "expect_used"
@@ -1174,7 +1174,7 @@ observed = "error: used `expect()` on an `Option` value"
 repair = "Propagate errors through Result-returning tests/helpers or require Some/Ok explicitly with a diverging failure branch; preserve the success condition and all assertions."
 
 [lint.145]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs"
 line = 485
 column = 37
 lint = "expect_used"
@@ -1182,7 +1182,7 @@ observed = "error: used `expect()` on a `Result` value"
 repair = "Propagate errors through Result-returning tests/helpers or require Some/Ok explicitly with a diverging failure branch; preserve the success condition and all assertions."
 
 [lint.146]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs"
 line = 523
 column = 43
 lint = "expect_used"
@@ -1190,7 +1190,7 @@ observed = "error: used `expect()` on a `Result` value"
 repair = "Propagate errors through Result-returning tests/helpers or require Some/Ok explicitly with a diverging failure branch; preserve the success condition and all assertions."
 
 [lint.147]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs"
 line = 530
 column = 39
 lint = "expect_used"
@@ -1198,7 +1198,7 @@ observed = "error: used `expect()` on an `Option` value"
 repair = "Propagate errors through Result-returning tests/helpers or require Some/Ok explicitly with a diverging failure branch; preserve the success condition and all assertions."
 
 [lint.148]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs"
 line = 531
 column = 53
 lint = "expect_used"
@@ -1206,7 +1206,7 @@ observed = "error: used `expect()` on a `Result` value"
 repair = "Propagate errors through Result-returning tests/helpers or require Some/Ok explicitly with a diverging failure branch; preserve the success condition and all assertions."
 
 [lint.149]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs"
 line = 533
 column = 33
 lint = "expect_used"
@@ -1214,7 +1214,7 @@ observed = "error: used `expect()` on a `Result` value"
 repair = "Propagate errors through Result-returning tests/helpers or require Some/Ok explicitly with a diverging failure branch; preserve the success condition and all assertions."
 
 [lint.150]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs"
 line = 536
 column = 51
 lint = "expect_used"
@@ -1222,7 +1222,7 @@ observed = "error: used `expect()` on a `Result` value"
 repair = "Propagate errors through Result-returning tests/helpers or require Some/Ok explicitly with a diverging failure branch; preserve the success condition and all assertions."
 
 [lint.151]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs"
 line = 546
 column = 39
 lint = "expect_used"
@@ -1230,7 +1230,7 @@ observed = "error: used `expect()` on an `Option` value"
 repair = "Propagate errors through Result-returning tests/helpers or require Some/Ok explicitly with a diverging failure branch; preserve the success condition and all assertions."
 
 [lint.152]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs"
 line = 547
 column = 45
 lint = "expect_used"
@@ -1238,7 +1238,7 @@ observed = "error: used `expect()` on a `Result` value"
 repair = "Propagate errors through Result-returning tests/helpers or require Some/Ok explicitly with a diverging failure branch; preserve the success condition and all assertions."
 
 [lint.153]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs"
 line = 551
 column = 33
 lint = "expect_used"
@@ -1254,7 +1254,7 @@ observed = "error: this function has too many lines (137/100)"
 repair = "Extract focused verification, request/response and fixture setup helpers, preserving every assertion and call order."
 
 [lint.155]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs"
 line = 583
 column = 13
 lint = "expect_used"
@@ -1262,7 +1262,7 @@ observed = "error: used `expect()` on a `Result` value"
 repair = "Propagate errors through Result-returning tests/helpers or require Some/Ok explicitly with a diverging failure branch; preserve the success condition and all assertions."
 
 [lint.156]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs"
 line = 617
 column = 9
 lint = "expect_used"
@@ -1270,7 +1270,7 @@ observed = "error: used `expect()` on a `Result` value"
 repair = "Propagate errors through Result-returning tests/helpers or require Some/Ok explicitly with a diverging failure branch; preserve the success condition and all assertions."
 
 [lint.157]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs"
 line = 631
 column = 26
 lint = "expect_used"
@@ -1278,7 +1278,7 @@ observed = "error: used `expect()` on a `Result` value"
 repair = "Propagate errors through Result-returning tests/helpers or require Some/Ok explicitly with a diverging failure branch; preserve the success condition and all assertions."
 
 [lint.158]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs"
 line = 632
 column = 35
 lint = "expect_used"
@@ -1286,7 +1286,7 @@ observed = "error: used `expect()` on a `Result` value"
 repair = "Propagate errors through Result-returning tests/helpers or require Some/Ok explicitly with a diverging failure branch; preserve the success condition and all assertions."
 
 [lint.159]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs"
 line = 633
 column = 27
 lint = "expect_used"
@@ -1294,7 +1294,7 @@ observed = "error: used `expect()` on a `Result` value"
 repair = "Propagate errors through Result-returning tests/helpers or require Some/Ok explicitly with a diverging failure branch; preserve the success condition and all assertions."
 
 [lint.160]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs"
 line = 638
 column = 20
 lint = "expect_used"
@@ -1302,7 +1302,7 @@ observed = "error: used `expect()` on a `Result` value"
 repair = "Propagate errors through Result-returning tests/helpers or require Some/Ok explicitly with a diverging failure branch; preserve the success condition and all assertions."
 
 [lint.161]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs"
 line = 639
 column = 24
 lint = "expect_used"
@@ -1310,7 +1310,7 @@ observed = "error: used `expect()` on a `Result` value"
 repair = "Propagate errors through Result-returning tests/helpers or require Some/Ok explicitly with a diverging failure branch; preserve the success condition and all assertions."
 
 [lint.162]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs"
 line = 642
 column = 20
 lint = "expect_used"
@@ -1318,7 +1318,7 @@ observed = "error: used `expect()` on a `Result` value"
 repair = "Propagate errors through Result-returning tests/helpers or require Some/Ok explicitly with a diverging failure branch; preserve the success condition and all assertions."
 
 [lint.163]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs"
 line = 645
 column = 30
 lint = "expect_used"
@@ -1350,7 +1350,7 @@ observed = "error: this function has too many lines (146/100)"
 repair = "Outside permitted scope; retained unchanged and recorded as a scope blocker."
 
 [lint.167]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs"
 line = 739
 column = 13
 lint = "expect_used"
@@ -1430,7 +1430,7 @@ observed = "error: item in documentation is missing backticks"
 repair = "Outside permitted scope; retained unchanged and recorded as a scope blocker."
 
 [lint.177]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs"
 line = 781
 column = 13
 lint = "expect_used"
@@ -1454,7 +1454,7 @@ observed = "error: this function has too many lines (103/100)"
 repair = "Outside permitted scope; retained unchanged and recorded as a scope blocker."
 
 [lint.180]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs"
 line = 801
 column = 27
 lint = "expect_used"
@@ -1462,7 +1462,7 @@ observed = "error: used `expect()` on a `Result` value"
 repair = "Propagate errors through Result-returning tests/helpers or require Some/Ok explicitly with a diverging failure branch; preserve the success condition and all assertions."
 
 [lint.181]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs"
 line = 807
 column = 9
 lint = "expect_used"
@@ -1470,7 +1470,7 @@ observed = "error: used `expect()` on a `Result` value"
 repair = "Propagate errors through Result-returning tests/helpers or require Some/Ok explicitly with a diverging failure branch; preserve the success condition and all assertions."
 
 [lint.182]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs"
 line = 811
 column = 5
 lint = "expect_used"
@@ -1478,7 +1478,7 @@ observed = "error: used `expect()` on a `Result` value"
 repair = "Propagate errors through Result-returning tests/helpers or require Some/Ok explicitly with a diverging failure branch; preserve the success condition and all assertions."
 
 [lint.183]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs"
 line = 814
 column = 21
 lint = "expect_used"
@@ -1502,7 +1502,7 @@ observed = "error: consider adding a `;` to the last statement for consistent fo
 repair = "Outside permitted scope; retained unchanged and recorded as a scope blocker."
 
 [lint.186]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs"
 line = 838
 column = 5
 lint = "expect_used"
@@ -1510,7 +1510,7 @@ observed = "error: used `expect()` on a `Result` value"
 repair = "Propagate errors through Result-returning tests/helpers or require Some/Ok explicitly with a diverging failure branch; preserve the success condition and all assertions."
 
 [lint.187]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs"
 line = 843
 column = 17
 lint = "expect_used"
@@ -1518,7 +1518,7 @@ observed = "error: used `expect()` on a `Result` value"
 repair = "Propagate errors through Result-returning tests/helpers or require Some/Ok explicitly with a diverging failure branch; preserve the success condition and all assertions."
 
 [lint.188]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs"
 line = 867
 column = 27
 lint = "expect_used"
@@ -1534,7 +1534,7 @@ observed = "error: used `expect()` on a `Result` value"
 repair = "Outside permitted scope; retained unchanged and recorded as a scope blocker."
 
 [lint.190]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs"
 line = 877
 column = 9
 lint = "expect_used"
@@ -1566,7 +1566,7 @@ observed = "error: used `expect()` on a `Result` value"
 repair = "Outside permitted scope; retained unchanged and recorded as a scope blocker."
 
 [lint.194]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs"
 line = 915
 column = 16
 lint = "expect_used"
@@ -1574,7 +1574,7 @@ observed = "error: used `expect()` on a `Result` value"
 repair = "Propagate errors through Result-returning tests/helpers or require Some/Ok explicitly with a diverging failure branch; preserve the success condition and all assertions."
 
 [lint.195]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs"
 line = 919
 column = 17
 lint = "expect_used"
@@ -2350,15 +2350,15 @@ file = "services/agent/crates/layerx-agentd-host/tests/payer_evm.rs"
 reported = 9
 
 [inventory.file.4]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_363.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_payment_asset.rs"
 reported = 4
 
 [inventory.file.5]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs"
 reported = 58
 
 [inventory.file.6]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_33_1511.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_receipt_bindings.rs"
 reported = 1
 
 [inventory.file.7]
@@ -2487,7 +2487,7 @@ observed = "error: item in documentation is missing backticks"
 status = "Outside permitted scope: retained unchanged."
 
 [remaining.lint.8]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs"
 line = 483
 column = 9
 lint = "semicolon_if_nothing_returned"
@@ -3892,7 +3892,7 @@ in_scope = 4
 outside_scope = 178
 
 [remaining.file.1]
-file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"
+file = "services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs"
 reported = 1
 
 [remaining.file.2]

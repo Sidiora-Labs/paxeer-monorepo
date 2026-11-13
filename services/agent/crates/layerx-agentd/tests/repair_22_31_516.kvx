@@ -87,7 +87,7 @@ revision = "9fa8d294623ef613e19fbe0fef2e12ceea37d877"
 command = "hf-done"
 exit = 7
 log = "/out/logs/dependents-1.log"
-observed = "The automatic dependent-crate check exited 101 with E0063 at services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs:590: GrantTerms is missing receiver_did_key; hf-done refused before cg spec done or either focused test ran."
+observed = "The automatic dependent-crate check exited 101 with E0063 at services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs:590: GrantTerms is missing receiver_did_key; hf-done refused before cg spec done or either focused test ran."
 assumption = "The host test is outside this task's scope; preserve it and stop under the gate's explicit instruction without retrying the unchanged failure."
 
 [qualification.attempt_3_disposition]

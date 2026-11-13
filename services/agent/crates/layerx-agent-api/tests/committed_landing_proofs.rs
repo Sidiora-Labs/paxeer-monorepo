@@ -1,17 +1,4 @@
-//! Build repair: first candidate f4835403bb4cd08e8083ff466dcfa14012483ce1
-//! failed linking undeclared verifier crates (exit 101, /out/logs/build-1.log);
-//! the independent test verifier retains all signature/inclusion assertions.
-//! Task 22.33.1505 repair record; exact qualified revision/command/exit/log are
-//! supplied by the private hf-build/hf-done ledger, never guessed in this file.
-//! proof-corpus-gap: `proof_corpus_gap_encoded_landing_evidence_verifies_after_reopen`;
-//! proof-corpus-gap: `corpus::proof_agent_api_encoded_node_evidence_refuses_tampering`.
-//! proof-rung-test: `proof_rung_test_committed_evidence_satisfies_both_selectors`;
-//! proof-rung-test: `heights::proof_bundle_mirror_requires_receipted_or_committed_rungs`.
-//! Baseline: the repair target did not exist and no earlier gate ledger existed.
-//! No unchanged verification ran: the explicit gate order requires complete
-//! implementation before hf-build and hf-done; no baseline failures are claimed.
-//! Wiring request, agent domain 9: sdk/platform/conformance/fixtures/vector-v5-portable.json and daemon/committed-fixture/vectors must publish this recorded block's encoded Comet/ABCI evidence and a current type-2 landing transaction; the recorded block uses a legacy EVM envelope and Comet result inclusion, not an Ethereum receipt trie.
-//! Wiring request, agent domain 9: `services/agent/crates/layerx-agentd/src/read/proof_bundle`.rs and services/agent/sdk/typescript/src/committed-proof.ts must share the native comet-abci-results-v1 codec and run the same encoded corpus through daemon acquisition and the language SDK gates.
+//! Committed landing evidence survives export, transport and reopening.
 
 #[path = "proof_agent_api.rs"]
 mod corpus;
@@ -63,7 +50,8 @@ fn proof_corpus_gap_encoded_landing_evidence_verifies_after_reopen() -> Result<(
         bundles: vec![observed.value],
         height: observed.freshness.value_height,
     };
-    let path = std::env::temp_dir().join(format!("repair-22-33-1505-{}", std::process::id()));
+    let path =
+        std::env::temp_dir().join(format!("committed-landing-proofs-{}", std::process::id()));
     let mut file = fs::OpenOptions::new()
         .write(true)
         .create_new(true)

@@ -97,7 +97,7 @@ fn producer() -> &'static Value {
     static PRODUCER: OnceLock<Value> = OnceLock::new();
     PRODUCER.get_or_init(|| {
         must(serde_json::from_str(include_str!(
-            "../../layerx-agentd-host/src/repair_22_31_363_receipts.json"
+            "../../layerx-agentd-host/src/payer_payment_receipts.json"
         )))
     })
 }

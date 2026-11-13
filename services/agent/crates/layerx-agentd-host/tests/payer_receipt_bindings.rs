@@ -1,4 +1,4 @@
-//! Finding/test mapping and fixture provenance: `repair_22_33_1511.kvx`.
+//! Payer receipts preserve denomination and payment bindings.
 
 #[path = "support/payer_audit.rs"]
 pub mod payer_audit;
