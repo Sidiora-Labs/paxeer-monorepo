@@ -34,7 +34,7 @@ import (
 
 // Produce the length-prefixed key/hash leaves consumed by ValueOp, then use
 // the production Merkle tree, operation encoder and protobuf transport.
-func repairM1153ValueProof(t *testing.T, key, value []byte, siblings int) ([]byte, tmcrypto.ProofOp) {
+func makeValueProof(t *testing.T, key, value []byte, siblings int) ([]byte, tmcrypto.ProofOp) {
 	t.Helper()
 	hash := sha256.Sum256(value)
 	leaf := binary.AppendUvarint(nil, uint64(len(key)))
@@ -50,7 +50,7 @@ func repairM1153ValueProof(t *testing.T, key, value []byte, siblings int) ([]byt
 	return root, merkle.NewValueOp(key, proofs[0]).ProofOp()
 }
 
-func repairM1153RoundTrip(t *testing.T, ops ...tmcrypto.ProofOp) *tmcrypto.ProofOps {
+func roundTripProofOps(t *testing.T, ops ...tmcrypto.ProofOp) *tmcrypto.ProofOps {
 	t.Helper()
 	proof := &tmcrypto.ProofOps{Ops: ops}
 	wire, err := proof.Marshal()
@@ -60,7 +60,7 @@ func repairM1153RoundTrip(t *testing.T, ops ...tmcrypto.ProofOp) *tmcrypto.Proof
 	return decoded
 }
 
-func TestRepairM_1153_MalformedProofs(t *testing.T) {
+func TestProofRuntimeMalformedProofs(t *testing.T) {
 	runtime := merkle.DefaultProofRuntime()
 	root := []byte("unproven root")
 	for name, proof := range map[string]*tmcrypto.ProofOps{
@@ -90,12 +90,12 @@ func TestRepairM_1153_MalformedProofs(t *testing.T) {
 	}
 }
 
-func TestRepairM_1153_ValidProofVectors(t *testing.T) {
+func TestProofRuntimeValidProofVectors(t *testing.T) {
 	runtime := merkle.DefaultProofRuntime()
 	key, value := []byte("account/key"), []byte("committed value")
 	for _, siblings := range []int{0, 1, 2, 3, 7} {
-		root, op := repairM1153ValueProof(t, key, value, siblings)
-		proof := repairM1153RoundTrip(t, op)
+		root, op := makeValueProof(t, key, value, siblings)
+		proof := roundTripProofOps(t, op)
 		path := merkle.KeyPath{}.AppendKey(key, merkle.KeyEncodingURL).String()
 		require.NoError(t, runtime.VerifyValue(proof, root, path, value))
 		operators, err := runtime.DecodeProof(proof)
@@ -109,19 +109,19 @@ func TestRepairM_1153_ValidProofVectors(t *testing.T) {
 		require.Error(t, runtime.VerifyAbsence(proof, root, path))
 		require.Error(t, runtime.Verify(proof, root, path, [][]byte{value, value}))
 
-		outerRoot, outer := repairM1153ValueProof(t, []byte("bank"), root, 2)
-		chain := repairM1153RoundTrip(t, op, outer)
+		outerRoot, outer := makeValueProof(t, []byte("bank"), root, 2)
+		chain := roundTripProofOps(t, op, outer)
 		require.NoError(t, runtime.VerifyValue(chain, outerRoot, "/bank"+path, value))
 		require.Error(t, runtime.VerifyValue(chain, outerRoot, path, value))
-		require.Error(t, runtime.VerifyValue(repairM1153RoundTrip(t, outer, op), outerRoot, "/bank"+path, value))
+		require.Error(t, runtime.VerifyValue(roundTripProofOps(t, outer, op), outerRoot, "/bank"+path, value))
 	}
 }
 
 // Anchor a real signed block in the real trusted store. The RPC consumer then
 // obtains its AppHash through light.Client, without a LightClient test double.
-func repairM1153TrustedBlock(t *testing.T, root []byte) *types.LightBlock {
+func makeTrustedProofBlock(t *testing.T, root []byte) *types.LightBlock {
 	t.Helper()
-	const chainID = "repair-m1153"
+	const chainID = "merkle-proof-verification"
 	key := ed25519.GenerateSecretKey()
 	state, err := sm.MakeGenesisState(&types.GenesisDoc{
 		ChainID: chainID, GenesisTime: time.Now().Add(-time.Minute).UTC(),
@@ -144,12 +144,12 @@ func repairM1153TrustedBlock(t *testing.T, root []byte) *types.LightBlock {
 	return lb
 }
 
-func TestRepairM_1153_RemoteABCIResponses(t *testing.T) {
+func TestProofRuntimeRemoteABCIResponses(t *testing.T) {
 	key, value := []byte("requested"), []byte("committed value")
-	innerRoot, inner := repairM1153ValueProof(t, key, value, 2)
-	root, outer := repairM1153ValueProof(t, []byte("bank"), innerRoot, 1)
-	valid := repairM1153RoundTrip(t, inner, outer)
-	lb := repairM1153TrustedBlock(t, root)
+	innerRoot, inner := makeValueProof(t, key, value, 2)
+	root, outer := makeValueProof(t, []byte("bank"), innerRoot, 1)
+	valid := roundTripProofOps(t, inner, outer)
+	lb := makeTrustedProofBlock(t, root)
 	// Malformed transcripts are mutations of the production proof encoding.
 	badData := inner
 	badData.Data = []byte{0xff}
@@ -165,16 +165,16 @@ func TestRepairM_1153_RemoteABCIResponses(t *testing.T) {
 		{"valid membership", value, valid, true},
 		{"value nil proof", value, nil, false},
 		{"value empty operations", value, &tmcrypto.ProofOps{Ops: []tmcrypto.ProofOp{}}, false},
-		{"value malformed operation", value, repairM1153RoundTrip(t, badData, outer), false},
-		{"value unknown operation", value, repairM1153RoundTrip(t, unknown, outer), false},
-		{"value missing embedded proof", value, repairM1153RoundTrip(t, missingProof, outer), false},
+		{"value malformed operation", value, roundTripProofOps(t, badData, outer), false},
+		{"value unknown operation", value, roundTripProofOps(t, unknown, outer), false},
+		{"value missing embedded proof", value, roundTripProofOps(t, missingProof, outer), false},
 		{"value tampered", []byte("changed"), valid, false},
-		{"value incomplete path", value, repairM1153RoundTrip(t, inner), false},
+		{"value incomplete path", value, roundTripProofOps(t, inner), false},
 		{"absence nil proof", nil, nil, false},
 		{"absence empty operations", nil, &tmcrypto.ProofOps{Ops: []tmcrypto.ProofOp{}}, false},
-		{"absence malformed operation", nil, repairM1153RoundTrip(t, badData, outer), false},
-		{"absence unknown operation", nil, repairM1153RoundTrip(t, unknown, outer), false},
-		{"absence missing embedded proof", nil, repairM1153RoundTrip(t, missingProof, outer), false},
+		{"absence malformed operation", nil, roundTripProofOps(t, badData, outer), false},
+		{"absence unknown operation", nil, roundTripProofOps(t, unknown, outer), false},
+		{"absence missing embedded proof", nil, roundTripProofOps(t, missingProof, outer), false},
 		{"absence membership proof", nil, valid, false},
 		{"valid membership after malformed responses", value, valid, true},
 	} {
