@@ -14,7 +14,7 @@ tests = "Every existing integration and inline test is retained unchanged"
 inherited_packaged_bytes = 504494
 source = "Task do_1 and GOTCHA.kvx gotcha.3636, payout split main-tree measurement"
 measurement_status = "Inherited measurement, not independently measured at this base: starting-tree and intermediate builds conflict with the explicit implementation-first and bounded-gate-only instructions"
-function_guidance = "Prior repair_22_39_142.kvx attempt3.after.function.1 through .25; current packaged metrics are captured from the first authorized hf-build"
+function_guidance = "Prior spec/layerx-merge/programme/records/programs/crates/layerx-programs-ai-market/src/repair_22_39_142.kvx attempt3.after.function.1 through .25; current packaged metrics are captured from the first authorized hf-build"
 
 [techniques.epoch]
 implementation = "Share carry preparation and completion outside the generic producer wrapper; validate the original reputation region once and carry its canonical prefix verbatim; move owned control into stripped state, retain produced-region rejection, storage and shared-state capacity checks"

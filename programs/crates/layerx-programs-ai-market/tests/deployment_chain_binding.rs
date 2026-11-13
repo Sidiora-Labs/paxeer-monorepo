@@ -6,7 +6,7 @@
 //! `tests/ci/test_paxai_chain_domain.py` to the chain-125 golden
 //! 62b6b14734fa769c3e0fbc94de495a3d038be49a2524b1c071d75d0a4eed71f6,
 //! retaining packaging override checks. It also updates this test record at
-//! programs/crates/layerx-programs-ai-market/tests/repair_22_31_254.rs.
+//! programs/crates/layerx-programs-ai-market/tests/deployment_chain_binding.rs.
 //! Declared gates: hf-build (Python compilation), then hf-done (CI and graph checks).
 //! Wiring request: reconcile historical chain-229 references in
 //! spec/layerx-merge/spec.kvx,

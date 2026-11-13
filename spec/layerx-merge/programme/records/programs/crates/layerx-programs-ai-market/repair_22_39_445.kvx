@@ -76,7 +76,7 @@ lint = "clippy::too_many_arguments"
 reason = "The public deal operation takes separate admission and worker views."
 
 [item_exception.3]
-file = "tests/repair_22_33_260.rs"
+file = "tests/market_state_producers.rs"
 item = "grow"
 lint = "clippy::too_many_arguments"
 reason = "The shared producer takes explicit identity and roster inputs."
@@ -100,25 +100,25 @@ lint = "dead_code"
 reason = "The shared retry proof is consumed by the participant retry suite."
 
 [item_exception.7]
-file = "tests/repair_22_33_261.rs"
+file = "tests/reward_finality_and_execution.rs"
 item = "RewardCall"
 lint = "dead_code"
 reason = "The shared market producer is consumed by independent integration suites."
 
 [item_exception.8]
-file = "tests/repair_22_33_261.rs"
+file = "tests/reward_finality_and_execution.rs"
 item = "ExecutionFixture"
 lint = "dead_code"
 reason = "The shared market producer is consumed by independent integration suites."
 
 [item_exception.9]
-file = "tests/repair_22_33_261.rs"
+file = "tests/reward_finality_and_execution.rs"
 item = "execution_height_fixture"
 lint = "dead_code"
 reason = "The shared market producer is consumed by independent integration suites."
 
 [item_exception.10]
-file = "tests/repair_22_33_261.rs"
+file = "tests/reward_finality_and_execution.rs"
 item = "native_reward_calls"
 lint = "dead_code"
 reason = "The shared market producer is consumed by independent integration suites."
