@@ -25,9 +25,9 @@ The ordinary lifecycle is Requested → Funded → Active → Settling → Expir
 
 Transitions consume verified receipt evidence and reject replayed evidence or undeclared state edges. A principal has at most 32 concurrent leases. Requested, Funded, Active, and Settling all count toward this limit. Expiry releases the slot; destroying an already expired lease does not release it a second time.
 
-## Resource limits and automatic closure
+## Resource limits and closure
 
-Declare execution ceilings, namespace capacity, lifetime in protocol batches, and escrow before activation. Usage observations are monotonic: a later observation cannot reset consumed resources. The runtime closes an Active lease into Settling when usage first exceeds a bound, the lifetime, or escrow. This is an intrinsic consequence of metering, not an arbitrary caller-requested transition.
+Declare execution ceilings, namespace capacity, lifetime in protocol batches, and escrow before activation. Usage observations are monotonic: a later observation cannot reset consumed resources. Execution refuses an exhausted resource budget or a request at or after expiry. Recording usage beyond a resource bound, at expiry, or beyond escrow requires verified `CloseBoundExceeded` transition evidence tied to that observation; the lease then moves from Active to Settling. Without that evidence, the usage update is refused.
 
 | Dimension | Protocol declaration ceiling |
 | --- | --- |
@@ -52,15 +52,15 @@ A guest that imports event or call functions does not gain their authority. Atte
 
 ### Canonical snapshots
 
-A renter-authorized snapshot captures the source lease, host program, namespace prefix, linear memory, globals, continuation, and ordered namespace cells. Canonical encoding uses the domain `LayerX/programs/sandbox/snapshot/v1`. SHA-256 commits the exact encoded state.
+A renter-authorized snapshot captures the source lease, host program, namespace prefix, linear memory, globals, continuation, and ordered namespace cells. Canonical encoding begins with `LayerX/programs/sandbox/snapshot/v1` followed by a NUL byte. SHA-256 commits the exact encoded state.
 
 Persistence stores a 44-byte manifest containing the digest, byte length, and chunk count, followed by chunks of up to 65,536 bytes. Metered storage includes keys and values. Snapshot records share the lease's namespace capacity with live state, so repeated snapshots cannot bypass the storage ceiling.
 
 ### Restore into a funded target
 
-Restore requires a recognized snapshot digest, a Funded target lease, the same owner principal, the same host program, and the same image hash. Live cells are rebound to the target namespace. Restoration charges the canonical snapshot bytes and reconstructed cells before instantiation; reconstructing memory and the continuation also consumes runtime resources.
+Restore requires the canonical snapshot state, a recognized snapshot digest, a Funded target lease, the same owner principal, the same host program, the same image hash and a guest that supports continuation. Live cells are rebound to the target namespace. Restoration charges the canonical snapshot bytes and reconstructed cells before instantiation; reconstructing memory and the continuation also consumes runtime resources.
 
-A successful restore preserves the exact memory, globals, continuation, and state needed to continue execution. The target is a new bounded lease. Destroying the source lease does not make its identity reusable.
+A successful restore preserves the captured memory, globals, continuation entry point and arguments, and namespace cells. Retain the canonical snapshot bytes before destroying the source storage. The target is a new bounded lease. Destroying the source lease does not make its identity reusable.
 
 ## End-to-end workflow
 
@@ -68,7 +68,7 @@ A successful restore preserves the exact memory, globals, continuation, and stat
 2. Request a lease with explicit resource, namespace, lifetime, escrow, and fee-schedule bounds. Retain the verified request evidence.
 3. Fund and activate through the admitted lifecycle transitions.
 4. Run under derived lease capabilities and record monotonic usage evidence.
-5. If resumption is required, persist a renter-authorized snapshot while Active and retain its digest.
+5. If resumption is required, persist a renter-authorized snapshot while Active and retain its canonical bytes and digest.
 6. Settle, expire, and destroy the source lease with the required evidence.
 7. Fund a compatible target lease, restore the snapshot with sufficient reconstruction budget, and continue under the new lease's bounds.
 
@@ -80,4 +80,4 @@ Sandbox trace replay also supports deterministic compute-market dispute adjudica
 
 Read [Programs](https://docs.paxeer.app/programs) for deployment, broader capability grants, native value accounts, and atomic transfer settlement.
 
-**Technical references:** Paxeer X Sandbox protocol documentation; sandbox lease, execution, and snapshot modules; receipt-backed lifecycle and snapshot conformance tests.
+**Technical references:** `programs/crates/layerx-programs-sandbox/src/` contains `lease.rs`, `execute.rs`, `snapshot.rs` and `expiry.rs`; market replay verification in `programs/crates/layerx-programs-arbiter/src/market.rs`.

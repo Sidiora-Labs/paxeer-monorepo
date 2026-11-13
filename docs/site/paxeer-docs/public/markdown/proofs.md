@@ -2,22 +2,22 @@
 
 # Receipts & Proofs
 
-Verify Paxeer X outcomes independently, carry evidence between systems, and connect native state to settlement.
+Verify Paxeer outcomes independently with signed receipts, native state witnesses, custody proofs, and mirror archives.
 
 ## Choose the evidence for your decision
 
-Paxeer X gives each activity a canonical signed receipt. A merchant verifies payment facts before releasing a resource; an auditor preserves the exact signed outcome; an account owner proves committed state to settlement workflows. Each workflow uses a different evidence boundary.
+Paxeer executes transactions inside the node and returns signed execution receipts. A merchant verifies payment facts before releasing a resource; an auditor preserves the signed outcome; an account owner verifies state against an authenticated root. Finality requires the covering block to commit.
 
 | Evidence | Establishes | Use |
 | --- | --- | --- |
 | Portable receipt (v2) | Canonical outcome authenticated by a pinned receipt key | Offline receipt validation and outcome accounting |
 | Native state witness | A canonical account or module fact is included in a composite state root | Balance and module-state verification |
 | Custody state proof | Custody state at verified heights under a pinned chain identity | Paxeer custody verification |
-| Mirror archive | A receipt obtained from an untrusted archive belongs to an authenticated batch | Independent receipt verification from Ethereum or Solana mirrors |
+| Mirror archive | A receipt belongs to an archive matching an independently observed mirror commitment | Independent receipt verification from Ethereum or Solana mirrors |
 
 ## Portable receipt format
 
-The current format is `layerx-receipt-proof-v2`. The wire identifiers retain the LayerX name for interoperability. The earlier v1 format (`layerx-receipt-proof-v1`) is not accepted by the current crate; there is no v1 parser in `layerx-portable`. Verification runs offline once you supply your own pinned receipt-key list.
+The portable format is `layerx-receipt-proof-v2`, implemented by `PortableReceiptV2` in `layerx-portable`. Verification runs offline against a receipt-key list pinned independently by the caller. The portable object establishes receipt authentication; it does not by itself prove block commitment.
 
 | Member | Value |
 | --- | --- |
@@ -48,7 +48,7 @@ let verified = layerx_portable::PortableReceiptV2::verify_json(
 ### What verification checks
 
 1. Parse the bounded JSON and decode every field in its canonical `0x` form.
-2. Strictly verify the sequencer Ed25519 signature on the signed receipt against the pinned key list.
+2. Verify the node receipt key’s Ed25519 signature on the signed receipt against the pinned key list.
 3. Select the pinned entry by the receipt key ID and require the carried `receiptKey` to equal it exactly.
 4. Require `inclusionHeight` to be at or after the signed receipt height.
 5. Recompute the receipt digest and require it to equal `receiptDigest`.
@@ -58,13 +58,13 @@ let verified = layerx_portable::PortableReceiptV2::verify_json(
 receipt_digest domain: "LXP/v1/receipt\0"
 ```
 
-A cryptographically verified rejected outcome remains rejected. The portable proof establishes sequencer authentication of the signed receipt; batch inclusion and checkpoint settlement require their own evidence.
+A cryptographically verified rejected outcome remains rejected. The portable proof authenticates the signed receipt. Its inclusion height is checked against the signed height, but is not an inclusion proof. Verify the covering block and its receipt coverage separately when commitment is required.
 
 **Source:** `services/interop/crates/layerx-portable/src/receipt.rs` — `PortableReceiptV2`, `verify_json`, `export`.
 
 ## Native state witnesses
 
-Native witnesses prove a canonical key/value leaf through its module subtree into the composite state root. Account leaves (module 0) include a separate positional account-registry path, followed by the module-zero `account-tree` binding and the module wrapper. The Rust and Go verifiers share this encoding.
+Native witnesses prove a canonical key/value leaf through its module subtree into the composite state root. Account leaves with module ID 0 and a 33-byte key beginning with byte 4 include a separate positional account-registry path, followed by the module-zero `account-tree` binding and the module wrapper.
 
 Lengths, indices, leaf counts, path depths and trailing bytes are checked. Odd-width Merkle levels duplicate the final node and require that exact sibling. The native leaf hash places both lengths before the key and value:
 
@@ -85,9 +85,9 @@ Pin the expected values from your own configuration. Values copied out of the in
 
 ## Archive and mirror verification
 
-Ethereum and Solana mirrors publish batch archives for independent receipt verification. `layerx-mirror-verify` validates an untrusted archive, authenticates its batch header against configured trust, verifies receipt inclusion and reports freshness. Preserve trust configuration alongside the archive: a valid historical receipt does not alone establish that it is current.
+The Ethereum and Solana mirror tooling reads archives under configured source identities and read policies. `layerx-mirror-verify` checks the archive against the observed source commitment, requires a committed block coordinate, and verifies selected receipts against pinned receipt-key windows. It reports source provenance and freshness. The implementation is in `services/interop/crates/layerx-mirror/src/verify.rs` and its `src/bin/layerx-mirror-verify.rs` entry point.
 
-For long-term evidence, retain signed receipts, your pinned receipt-key list, signed headers, inclusion proofs and publication references. Preserve exact bytes rather than reconstructed display JSON. See [Data Availability](https://docs.paxeer.app/data-availability) for availability verification and [Finality](https://docs.paxeer.app/finality) for commitment policies.
+For long-term evidence, retain signed receipts, your pinned receipt-key list, authenticated block evidence, state proofs and mirror publication references. Preserve exact bytes rather than reconstructed display JSON. See [Data Availability](https://docs.paxeer.app/data-availability) for availability verification and [Finality](https://docs.paxeer.app/finality) for block commitment.
 
 ## Verification failures
 

@@ -2,33 +2,28 @@
 
 # Build with Hardhat
 
-Configure Hardhat 3 for Paxeer, test a Solidity contract locally, and keep repeatable deployments with Hardhat Ignition.
+Use the repository's Hardhat 2 project to compile contracts and interact with a development node.
 
-Hardhat brings Solidity compilation, tests, and deployment records into a TypeScript project. This walkthrough creates a new Hardhat 3 project with its Mocha/Ethers toolbox and an explicit HTTP network for Paxeer chain ID 125 (Cosmos chain `hyperpax_125-1`; local or unmapped chains report other IDs, defaulting to 713714). It is separate from the repository's in-tree contract project, which remains Hardhat 2 with a CommonJS config — see the note under Configure the network.
+The contract project at `contracts/` uses Hardhat 2 and a CommonJS configuration. Its sources live under `contracts/src/`. Paxeer EVM chain ID is `125`, mapped from `hyperpax_125-1` in `modules/evm/config/config.go`.
 
-## Create a Hardhat 3 project
+## Use the in-tree project
 
-Use a [Node.js version supported by Hardhat 3](https://hardhat.org/docs/reference/nodejs-support). Run the initializer and choose the TypeScript project with Mocha and Ethers.js; install the dependencies it proposes.
+Use a [Node.js version supported by Hardhat 2](https://hardhat.org/hardhat2). Install the dependencies recorded in `contracts/package-lock.json` and inspect the local tool version.
 
 ```
-mkdir paxeer-hardhat
-cd paxeer-hardhat
-npx hardhat@3 --init
+cd contracts
+npm ci
 npx hardhat --version
 ```
 
-The scaffold includes ESM configuration, a TypeScript configuration, and the toolbox plugins. Retain its lockfile so another developer uses the same toolchain.
+`contracts/package.json` declares `hardhat ^2.20.1`, `@nomicfoundation/hardhat-toolbox ^6.1.2`, and `@openzeppelin/hardhat-upgrades ^3.0.2`. The lockfile records the resolved dependency versions.
 
-## Configure the network
+## Configure the development endpoint
 
-In `hardhat.config.ts`, preserve any scaffold settings your project needs and use this network configuration. The compiler settings match the in-tree project (solc 0.8.27, Prague, which the chain enables from genesis); only the Hardhat 3 config shape is new.
+`contracts/hardhat.config.js` selects Solidity `0.8.27`, the `prague` target, and an enabled optimizer with `1000` runs. Its network configuration reads `PAXEER_LOCAL_EVM_RPC_URL`. The following excerpt shows the compiler and source settings.
 
 ```
-import { configVariable, defineConfig } from "hardhat/config";
-import hardhatToolboxMochaEthers from "@nomicfoundation/hardhat-toolbox-mocha-ethers";
-
-export default defineConfig({
-  plugins: [hardhatToolboxMochaEthers],
+module.exports = {
   solidity: {
     version: "0.8.27",
     settings: {
@@ -36,113 +31,111 @@ export default defineConfig({
       optimizer: { enabled: true, runs: 1000 },
     },
   },
-  networks: {
-    local: { type: "edr-simulated", chainType: "l1" },
-    paxeer: {
-      type: "http",
-      chainType: "l1",
-      chainId: 125,
-      url: configVariable("PAXEER_RPC_URL"),
-      accounts: [configVariable("PAXEER_PRIVATE_KEY")],
-    },
-  },
-});
+  paths: { sources: "./src" },
+};
 ```
 
-For reference, the in-tree project at `contracts/` uses Hardhat 2 (`hardhat ^2.20.1`, toolbox `^4.0.0`) with sources in `./src` and a `paxlocal` network read from `PAXEER_LOCAL_EVM_RPC_URL` (default `http://127.0.0.1:8545`). Use that project as-is for chain contracts; use this guide only for a new standalone project.
+The configured HTTP network is named `paxlocal`. Set `PAXEER_LOCAL_EVM_RPC_URL` to your development node's root EVM endpoint before connecting. The default uses the loopback interface on port `8545`.
 
-Store your EVM endpoint and deployment key through the keystore plugin included in the toolbox. `configVariable` also resolves environment variables for CI and other automation.
+The configuration loads `contracts/.env` through `dotenv` and reads the endpoint from the environment. The following command requires that endpoint to be set.
 
 ```
-npx hardhat keystore set PAXEER_RPC_URL
-npx hardhat keystore set PAXEER_PRIVATE_KEY
+: "${PAXEER_LOCAL_EVM_RPC_URL:?Set the development node EVM endpoint}"
 ```
 
-## Add and test the contract
+## Read sources and run the compiler check
 
-Create `contracts/PaxeerCounter.sol`. This is the same small contract used by the Foundry guide.
+`contracts/src/Box.sol` is an existing storage example. It exposes `store`, `retrieve`, and `boxIncr` and emits `ValueChanged`.
 
 ```
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.27;
+pragma solidity ^0.8.0;
 
-contract PaxeerCounter {
-    uint256 public number;
-    event NumberChanged(address indexed caller, uint256 number);
+contract Box {
+    uint256 private _value;
 
-    function setNumber(uint256 next) external {
-        number = next;
-        emit NumberChanged(msg.sender, next);
+    event ValueChanged(uint256 value);
+
+    function store(uint256 value) public {
+        _value = value;
+        emit ValueChanged(value);
     }
 
-    function increment() external {
-        number += 1;
-        emit NumberChanged(msg.sender, number);
+    function retrieve() public view returns (uint256) {
+        return _value;
+    }
+
+    function boxIncr() public {
+        _value = _value + 1;
+        emit ValueChanged(_value);
     }
 }
 ```
 
-Create `contracts/PaxeerCounter.t.sol`. A failed `require` fails the test; this test deploys and exercises the contract within the simulated EVM.
+Token contracts use the installed OpenZeppelin package. For example, this is the import and constructor in `contracts/src/TestToken.sol`.
 
 ```
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.27;
+pragma solidity ^0.8.20;
 
-import {PaxeerCounter} from "./PaxeerCounter.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract PaxeerCounterTest {
-    function testIncrement() public {
-        PaxeerCounter counter = new PaxeerCounter();
-        counter.increment();
-        require(counter.number() == 1, "increment did not persist");
+contract TestToken is ERC20, Ownable {
+    constructor(string memory name, string memory symbol) Ownable(msg.sender) ERC20(name, symbol) {
+        _mint(msg.sender, 1000 * (10 ** uint256(decimals())));
     }
 
-    function testSetNumber(uint256 next) public {
-        PaxeerCounter counter = new PaxeerCounter();
-        counter.setNumber(next);
-        require(counter.number() == next, "value did not persist");
+    // The owner adjusts balances by minting or burning
+    function setBalance(address account, uint256 amount) public onlyOwner {
+        uint256 currentBalance = balanceOf(account);
+        if (amount > currentBalance) {
+            _mint(account, amount - currentBalance);
+        } else if (amount < currentBalance) {
+            _burn(account, currentBalance - amount);
+        }
     }
 }
 ```
 
 ```
-npx hardhat build
-npx hardhat test solidity
+npx hardhat compile
+node --test test/hardhat_solc_parity.test.js
 ```
 
-Hardhat treats the parameterized test as a fuzz test. Keep existing scaffold contracts compatible with your chosen compiler or remove the unused scaffold examples when you make the project your own.
+The focused Node test `contracts/test/hardhat_solc_parity.test.js` checks that the Hardhat compiler version matches `foundry.paxeer.toml`. Run it from `contracts/` after compiling.
 
-## Describe the deployment
+## Interact through the console
 
-Create `ignition/modules/PaxeerCounter.ts`. Ignition records the deployment and can resume its own deployment plan when invoked again.
-
-```
-import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
-
-export default buildModule("PaxeerCounterModule", (m) => {
-  const counter = m.contract("PaxeerCounter");
-  return { counter };
-});
-```
-
-Exercise the deployment against the simulated network first. The simulated network uses local accounts and state.
+In the Hardhat console, the following Ethers calls deploy the existing Box artifact, wait for deployment, write a value, and read it. Deployment and writes require a signer exposed by the development node.
 
 ```
-npx hardhat ignition deploy ignition/modules/PaxeerCounter.ts --network local
+const box = await ethers.deployContract("Box");
+await box.waitForDeployment();
+const tx = await box.store(7);
+const receipt = await tx.wait();
+await box.retrieve();
 ```
 
-## Deploy to your Paxeer endpoint
-
-This command broadcasts using the configured signer and spends PAX for gas. Hardhat checks the endpoint against the configured chain ID. Review the deployment confirmation and retain the resulting address and transaction record.
+Open the console with the configured network. Confirm that it is the intended development node before running the deployment expressions above.
 
 ```
-npx hardhat ignition deploy ignition/modules/PaxeerCounter.ts --network paxeer
+npx hardhat console --network paxlocal
 ```
 
-Keep `ignition/deployments/chain-125/`, your source revision, and compiler configuration together. Read the receipt and deployed contract through the [querying guide](https://docs.paxeer.app/querying-evm). For application tokens, configure the ERC-20 symbol and decimals independently of native PAX.
+## Check the connected chain
 
-For token contracts, the standard library package is `@openzeppelin/contracts`. Use a release compatible with your Solidity version; resolve imports such as `@openzeppelin/contracts/token/ERC20/ERC20.sol` against that installed package.
+In that console, inspect the endpoint's chain ID before submitting transactions. Paxeer uses `125`. Deployment and storage writes spend the configured signer's gas balance.
 
-References: [Hardhat network configuration](https://hardhat.org/docs/reference/configuration), [Solidity tests](https://hardhat.org/docs/guides/testing/using-solidity), and [Ignition deployments](https://hardhat.org/docs/guides/deployment/using-ignition).
+```
+const network = await ethers.provider.getNetwork();
+network.chainId;
+```
 
-**Paxeer source:** `Paxeer-X-Network/` — contracts/hardhat.config.js and contracts/package.json (in-tree Hardhat 2, solc 0.8.27/Prague/1000), modules/evm/config/config.go (ChainIDMapping), and rpc/send.go (SendRawTransaction). This guide configures a new Hardhat 3 project.
+Retain the contract address, transaction receipt, source, and compiler settings. Read the result through the [querying guide](https://docs.paxeer.app/querying-evm). Hardhat writes the Box artifact to `contracts/artifacts/src/Box.sol/Box.json`.
+
+`contracts/package.json` declares `@openzeppelin/contracts ^5.4.0`. Its `TestToken` source imports `@openzeppelin/contracts/token/ERC20/ERC20.sol`.
+
+References: [Hardhat 2 configuration](https://hardhat.org/hardhat2/hardhat-runner/docs/config), [contract tests](https://hardhat.org/hardhat2/hardhat-runner/docs/guides/test-contracts), and [contract deployment](https://hardhat.org/hardhat2/hardhat-runner/docs/guides/deploying).
+
+**Paxeer source:** `contracts/hardhat.config.js`, `contracts/package.json`, `contracts/src/Box.sol`, `contracts/src/TestToken.sol`, and `contracts/test/hardhat_solc_parity.test.js`.

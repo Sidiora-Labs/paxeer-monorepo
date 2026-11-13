@@ -4,11 +4,11 @@
 
 Native EVM execution, address association, receipts, pointers, and precompile integration on chain ID 125.
 
-**Source:** `Paxeer-X-Network/modules/evm/`
+**Source:** `modules/evm/`
 
 ## Overview
 
-The EVM module (`modules/evm/`) provides full Ethereum Virtual Machine execution on Paxeer. It runs as a Cosmos SDK module and integrates with the [execution engine](https://docs.paxeer.app/engine) to process EVM transactions with chain ID **125**.
+The EVM module (`modules/evm/`) executes Ethereum-format transactions on Paxeer. It integrates with the [execution engine](https://docs.paxeer.app/engine) inside the BFT node, using EVM chain ID **125**.
 
 The module handles:
 
@@ -36,15 +36,15 @@ The EVM module handles `MsgEVMTransaction`, which wraps a standard Ethereum tran
 
 - EIP-7702 set-code transactions (type 4), accepted from Prague
 
-Cancun and Prague both activate at time 0 in the chain configuration, so all five types are accepted. `MsgEVMTransaction` also has an associate-transaction variant (`AssociateTx`, reported by `IsAssociateTx`) used for address association.
+The default chain configuration enables Cancun and Prague at time 0. Its transaction-type allowlist includes all five types. `MsgEVMTransaction` also supports `AssociateTx`, identified by `IsAssociateTx`, for address association.
 
 Transactions are submitted via the JSON-RPC `eth_sendRawTransaction` endpoint or the Cosmos SDK `MsgEVMTransaction` message.
 
-**Source:** `Paxeer-X-Network/modules/evm/ante/preprocess.go`, `modules/evm/types/codec.go`, `modules/evm/types/message_evm_transaction.go`, `modules/evm/types/config.go`
+**Source:** `modules/evm/ante/preprocess.go`, `modules/evm/types/codec.go`, `modules/evm/types/message_evm_transaction.go`, `modules/evm/types/config.go`
 
 ## Address Association
 
-**Source:** `Paxeer-X-Network/modules/evm/keeper/address.go`
+**Source:** `modules/evm/keeper/address.go`
 
 Paxeer addresses exist in two formats:
 
@@ -52,7 +52,7 @@ Paxeer addresses exist in two formats:
 
 - **EVM:** `0x...` (hex, 20 bytes)
 
-The EVM module maintains a bidirectional mapping between these formats. When a Cosmos account sends an EVM transaction, the module associates its `pax1...` address with the derived `0x...` address. This allows:
+The EVM module stores a bidirectional mapping between these addresses. Transaction preprocessing derives both addresses from the signer and establishes their association when needed. This supports:
 
 - Cosmos accounts to interact with EVM contracts
 
@@ -62,17 +62,17 @@ The EVM module maintains a bidirectional mapping between these formats. When a C
 
 ## State Management
 
-**Source:** `Paxeer-X-Network/modules/evm/keeper/state.go`
+**Source:** `modules/evm/keeper/state.go`
 
 The EVM module stores:
 
 - **Accounts:** Nonce, balance (via bank module)
 
-- **Code:** Contract bytecode (`keeper/code.go`)
+- **Code:** Contract bytecode (`modules/evm/keeper/code.go`)
 
-- **Storage:** Contract storage slots (`keeper/state.go`)
+- **Storage:** Contract storage slots (`modules/evm/keeper/state.go`)
 
-- **Receipts:** Transaction receipts and logs (`keeper/receipt.go`)
+- **Receipts:** Transaction receipts and logs (`modules/evm/keeper/receipt.go`)
 
 EVM state is stored in the module's KVStore. Account balances are managed by the bank module to maintain consistency with native token operations.
 
@@ -85,12 +85,12 @@ When an EVM transaction is submitted:
 3. Msg server routes to EVM module
 4. Execution runs through the [engine executor](https://docs.paxeer.app/engine); on the node Giga path this is `ExecuteTransactionFeeCharged`, with fees already charged
 5. Executor runs EVM bytecode against state DB
-6. Module generates receipt (`keeper/receipt.go`) with logs, gas used, status
+6. Module generates receipt (`modules/evm/keeper/receipt.go`) with logs, gas used, status
 7. Module emits events for indexing
 
 ## Receipts
 
-**Source:** `Paxeer-X-Network/modules/evm/keeper/receipt.go`
+**Source:** `modules/evm/keeper/receipt.go`
 
 Transaction receipts include:
 
@@ -108,43 +108,43 @@ Execution stages receipts in a transient store and flushes them to the configure
 
 ## Pointers
 
-Pointers are a Paxeer-specific feature that links ERC-20 token contracts to native Cosmos denoms. A pointer allows:
+Pointer contracts expose native denominations and CosmWasm tokens through ERC interfaces. Native token pointers use the bank module for balances and transfers. They support:
 
 - ERC-20 `transfer` to move native tokens via bank module
 
-- Native token transfers to appear as ERC-20 events
+- ERC-20 balance queries for a registered native denomination
 
-- Unified balance view across EVM and Cosmos APIs
+- ERC token interfaces for registered CosmWasm assets
 
 Pointer contracts are deployed via the [pointer precompile](https://docs.paxeer.app/precompiles).
 
 ## Precompile Integration
 
-**Source:** `Paxeer-X-Network/modules/evm/keeper/precompile.go`, `Paxeer-X-Network/precompiles/`
+**Source:** `precompiles/setup.go`, `precompiles/`
 
 The EVM module registers custom precompiled contracts that expose Cosmos SDK modules to EVM callers. Paxeer-specific addresses are registered by the precompile package, including bank at `0x1001` and address conversion at `0x1004`. Standard Ethereum precompiles occupy a separate address range.
 
-See [Precompiles documentation](https://docs.paxeer.app/precompiles) for the full list of Paxeer precompiles (bank, staking, oracle, IBC, etc.).
+See [Precompiles documentation](https://docs.paxeer.app/precompiles) for the registered interfaces. Check each interface's availability before making a call.
 
 ## Fee Collection
 
-**Source:** `Paxeer-X-Network/modules/evm/keeper/fee.go`, `Paxeer-X-Network/precompiles/feetoken/feetoken.go`
+**Source:** `modules/evm/keeper/fee.go`, `modules/evm/keeper/feetoken.go`, `modules/evm/keeper/feecollect.go`, `precompiles/feetoken/feetoken.go`
 
 EVM transaction fees are:
 
-- Charged in PAX (native gas token) by default. An account can select an allowed alternative fee denom, such as SID, through the fee-token precompile at `0x0000000000000000000000000000000000001018`. See [Sidiora](https://docs.paxeer.app/sidiora)
+- Charged in PAX by default. When governance enables fee-token selection and configures an allowed denomination, an account can select it through the fee-token precompile at `0x0000000000000000000000000000000000001018`. See [Sidiora](https://docs.paxeer.app/sidiora)
 
 - Reported using receipt gas usage and the effective gas price; estimation and charge settlement depend on the configured execution path
 
 - Sent to the fee collector module
 
-- Distributed to validators and stakers
+- Routed under the configured fee-distribution rules; alternative fee tokens are held separately when their distribution is disabled
 
 EIP-1559 dynamic fees are supported with `baseFee` and priority fees.
 
 ## Coinbase
 
-**Source:** `Paxeer-X-Network/modules/evm/keeper/coinbase.go`, `keeper.go`
+**Source:** `modules/evm/keeper/coinbase.go`, `modules/evm/keeper/keeper.go`
 
 The EVM block context sets `COINBASE` to the fee collector module’s associated EVM address through `GetFeeCollectorAddress`.
 
@@ -154,7 +154,7 @@ Paxeer uses **EVM chain ID 125**. This must match the `chainId` field in EIP-155
 
 ## Configuration
 
-**Source:** `Paxeer-X-Network/modules/evm/types/params.go`, `types/config.go`, `keeper/params.go`
+**Source:** `modules/evm/types/params.go`, `modules/evm/types/config.go`, `modules/evm/keeper/params.go`
 
 EVM module parameters include:
 
@@ -168,7 +168,7 @@ EVM module parameters include:
 
 ## Genesis
 
-**Source:** `Paxeer-X-Network/modules/evm/keeper/genesis.go`
+**Source:** `modules/evm/keeper/genesis.go`
 
 Genesis state for the EVM module includes:
 
@@ -180,15 +180,15 @@ Genesis state for the EVM module includes:
 
 ## Logging
 
-**Source:** `Paxeer-X-Network/modules/evm/keeper/log.go`
+**Source:** `modules/evm/keeper/log.go`
 
 EVM event logs are emitted during transaction execution via the `LOG0`, `LOG1`, `LOG2`, `LOG3`, `LOG4` opcodes. Logs are included in receipts and indexed for querying via `eth_getLogs`.
 
 ## Deferred Operations
 
-**Source:** `Paxeer-X-Network/modules/evm/keeper/deferred.go`
+**Source:** `modules/evm/keeper/deferred.go`
 
-Some EVM operations (like balance updates from precompiles) are deferred and batched for commit. This avoids redundant state writes during execution and improves performance.
+`modules/evm/keeper/deferred.go` records each transaction's index, hash, bloom, and balance surplus in transient storage for block processing. It also tracks nonce bumps and execution errors.
 
 ## Next Steps
 

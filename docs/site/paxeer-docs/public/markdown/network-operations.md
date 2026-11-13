@@ -2,36 +2,36 @@
 
 # Network operations
 
-Operate the hosted Paxeer X service graph, qualify journeys, preserve durable state, and recover across service boundaries.
+Operate Paxeer mainnet-beta nodes and the optional hosted services, monitor readiness, and preserve durable state.
 
-The hosted platform connects identity, Human workflows, gateway admission, protocol execution, verified receipt authority, program registration, settlement, and outbound events. Each service has a specific authority and persistence boundary. Operating the network means keeping those boundaries consistent through startup, release changes, maintenance, and recovery. The concrete control implementation in the monorepo is the hosted testnet control service (`services/platform/hosted/testnet/`); readiness, journeys, and parameters below describe that service, not a generic production control plane.
+Paxeer mainnet-beta is one BFT network with EVM chain ID 125. The kernel runs inside `paxd` and participates in block proposal and execution. A receipt is final when its block is committed. Hosted identity, Human, gateway, registry, signing, and event-delivery services support applications around that network. The control routes below belong to `services/platform/hosted/testnet/`, the control service for an isolated hosted environment.
 
 ## Service architecture
 
 | Service boundary | Responsibility | Operational evidence |
 | --- | --- | --- |
-| Gateway | Public protocol API admission and routing. | Readiness, activity responses, and receipt lookup. |
+| Gateway | Application JSON-RPC admission, authentication, and upstream calls. | Readiness, JSON-RPC responses, and verified receipt lookup. |
 | Identity and Human | Identity sessions, human journeys, approvals, and account-facing workflows. | Identity readiness and durable journey or approval state. |
-| Node and core | Ordered execution, canonical receipts, and authorized administrative operations. | Node history, roots, receipts, and core journals. |
-| Receipt authority and replica | Verify receipt inclusion and derive authorized batch facts. | Pinned identities, signed headers, inclusion evidence, and derived roots. |
+| Node and core | The node commits execution; hosted core coordinates payment and funding operations. | Committed blocks, receipts, and core operation journals. |
+| Receipt authority | Verify signed receipt material for hosted consumers. | Configured receipt keys, transaction binding, and receipt digest. |
 | Registry and builder | Program artifacts, registration, and release material. | Artifact commitments, registry records, and compatible release versions. |
-| Paxeer and guarantors | Custody, independent replay, checkpoint registration, and finality evidence. | Settlement receipts, checkpoint events, and matching node evidence. |
+| Chain consensus | Commit blocks through the validator set. | Block headers, commits, validator sets, and application state. |
 | Internal signing and event sources | Non-exporting signing APIs and verified journey, payment, approval, and program events. | Durable journals, principal binding, and event sequences. |
 | Control | Dependency status, package and wire gates, and journey admission. | Readiness document and explicit failing dependencies. |
 
-The gateway provides the public protocol entry point. Human APIs and administrative services remain separate service boundaries. Private-network control tooling manages disposable environments; its funding and reset endpoints are not public production account APIs. Production account funding follows the custody-credit workflow.
+Public node JSON-RPC serves the node namespaces at the root path. The hosted gateway additionally serves its declared `px_` methods. Human and administrative APIs have their own authorization boundaries. The testnet control service exposes protected funding and reset operations for its configured environment; application payments use the chain ledger.
 
 ## Startup and release lifecycle
 
-1. Validate the selected network and custody profile, release images, genesis inputs, and retained-material inventory.
-2. Provision trust material and persistent stores before services that consume them start.
-3. Start the Paxeer and trusted execution boundaries, then bootstrap node genesis and settlement bindings.
-4. Publish the resulting settlement contract addresses and canonical module registry.
-5. Start control, gateway, registry, and outbound-delivery services after their dependencies exist.
-6. Require compatible package and wire versions, dependency readiness, and admitted application journeys.
-7. Complete a real journey through execution and evidence inspection before promoting the release.
+1. Select the node release, genesis, chain identity, and node profile for the intended network.
+2. Provision service trust material and persistent stores before starting their consumers.
+3. Start the chain node with its configured kernel and verify synchronization.
+4. Confirm the connected EVM chain identifier and enabled application interfaces.
+5. Start configured hosted services after their dependencies are reachable.
+6. Check package and wire versions, dependency readiness, and application journey admission.
+7. Complete an application operation and inspect its transaction and receipt evidence before admitting traffic.
 
-Registry preparation compares published module identifiers and activity ordinals with the node's advertised preparation surface. An observer node uses the same genesis with a separate process and data store. Genesis bytes, Comet chain identity, EVM chain identifier, and CA digest identify the intended settlement environment.
+Use the same genesis and chain identity for nodes joining the same network, with a separate data directory and peer identity for each node. Hosted clients must use the matching EVM chain identifier and configured trust roots. Tenant domains share the network infrastructure and namespace their state in the database.
 
 ### Package and protocol compatibility
 
@@ -49,7 +49,7 @@ The control release gate compares package semantic version and wire protocol ver
 
 These routes describe the control service inside the operator's configured environment. Configure the control origin explicitly; the paths are not a promise of a public control hostname.
 
-The control service declares exactly three journeys: `funding`, `payment`, and `receipt-inspection`. There is no `programs` journey.
+The control service declares three journey routes: `funding`, `payment`, and `receipt-inspection`. The last route reports the journey name `receipt_inspection` in JSON.
 
 | Journey | Required dependencies |
 | --- | --- |
@@ -61,27 +61,27 @@ An admitted journey returns HTTP 200 with `admitted: true`, `ready: true`, and a
 
 ### Probe depth
 
-Readiness probes establish only their declared dependency condition (connection-level checks such as HTTP readiness, TLS handshake, TCP connection, or Redis connectivity). A real payment, registry operation, or settled checkpoint supplies deeper application evidence. The exact probe depth per dependency was not verified against the testnet probe bodies and is not specified here.
+Identity, faucet, core, receipt authority, gateway, and Paxeer probes require HTTP 200 from their configured `/readyz` routes. The core-admin probe completes a TLS handshake. Redis is probed over TLS with PING; either PONG or an authentication-required response establishes reachability. These checks do not execute an application payment. Inspect a real transaction and its verified receipt for application evidence.
 
 ## Durability and recovery
 
-Core operation journals, Human state, registry records, internal event journals, signing material, and node history are durable state with distinct ownership. Preserve the complete material set needed by each service. Replacing a container does not authorize generating a new identity or seal secret for an existing store.
+Core operation journals, Human state, registry records, internal event journals, signing material, and chain data have distinct owners. Preserve the complete material set needed by each service. Restore an existing store with its matching signing and sealing material.
 
 ### Signing boundary
 
-Internal signing uses non-exporting signing APIs: callers create key handles and sign through authenticated routes without receiving seed material. Detailed sealing parameters were not verified in source and are not specified here.
+Internal signing uses authenticated APIs: callers create key handles and request signatures without receiving private material. Stored private material is sealed with AES-256-GCM using a key derived from the configured secret and domain label, with a fresh nonce for each sealed value.
 
 The signing API does not export seeds. KMS readiness requires the exclusive store lock and a successful durable-write probe. Access to signing routes requires a verified client certificate and bearer identity.
 
 ### Verified event sources
 
-Journey, payment, approval, and program event sources bind provisioned principals to their upstream credentials. Payment facts come from a decoded protocol receipt. Exact per-principal sequence and idempotency rules were not verified in source and are not specified here.
+Journey, payment, approval, and program event sources bind provisioned principals to upstream credentials. Payment facts come from verified receipt data. The event store advances a separate sequence for each principal and subject and validates the sequence while replaying its journal.
 
 Internal journals append and synchronize records before reporting success, hold an exclusive lock, and replay in append order. A failed append marks the journal unavailable. Event-source readiness requires upstream readiness, principal binding, and a writable journal; this prevents an apparently healthy process from silently losing new events.
 
 ## Maintenance and draining
 
-1. Record the active release, network identity, latest verified batch and checkpoint, and outstanding operation identifiers.
+1. Record the active release, network identity, latest committed block and verified receipt, and outstanding operation identifiers.
 2. Remove the affected service from new ingress admission through the deployment's traffic controls.
 3. Reconcile accepted operations from their durable receipts and journals, preserving idempotency keys for retries.
 4. Preserve outstanding event delivery state, signing material, and persistent volumes before replacing a process.
@@ -92,18 +92,18 @@ Draining is a deployment and reconciliation workflow. The control API exposes re
 
 ## Disposable environment tooling
 
-The repository provides these operator targets for an isolated hosted environment. Cluster creation and teardown change infrastructure; teardown deletes the disposable cluster, persistent volumes, and local generated material.
+The chain Makefile provides a disposable Docker cluster and a separate monitoring variant. Run these commands from the monorepo root. Startup stops the corresponding cluster and replaces generated cluster configuration; use a directory dedicated to development.
 
 ```
-make platform-test-tooling
-make platform-hosted-topology-check
-make platform-beta-cluster-up
-make platform-hosted-smoke
-# After the disposable environment is no longer needed:
-make platform-beta-cluster-down
+DOCKER_DETACH=true make -f chain.mk docker-cluster-start
+# Or start the cluster with Prometheus and Grafana:
+DOCKER_DETACH=true make -f chain.mk docker-cluster-start-monitoring
+# Stop the matching cluster:
+make -f chain.mk docker-cluster-stop
+make -f chain.mk docker-cluster-stop-monitoring
 ```
 
-Hosted smoke consumes the environment generated by bring-up and requires complete inputs. Retained-material mode validates inventory completeness, ownership, permissions, profile selection, registry consistency, and the live KMS seal digest before reuse. Retaining material supports another startup against the existing environment; it does not preserve data through teardown.
+The cluster targets in `chain.mk` use the Compose definitions under `docker/`. The monitoring variant adds the monitoring Compose file. Keep generated development configuration separate from a mainnet node home and retain the stores and signing state needed for any planned recovery.
 
 ## Failure triage
 
@@ -111,6 +111,6 @@ Hosted smoke consumes the environment generated by bring-up and requires complet
 2. Check the named dependency at its own boundary and distinguish connection health from verified application results.
 3. For release failures, compare package and wire versions before changing traffic admission.
 4. For journal or seal failures, preserve the store and restore matching material before restarting consumers.
-5. For settlement failures, compare the intended domain, certificate, canonical transaction receipt, and registered checkpoint evidence.
+5. For payment failures, compare the intended chain, signed transaction, receipt digest, and committed-block evidence required by the application.
 
-Continue with [Node operators](https://docs.paxeer.app/operators), [Guarantors](https://docs.paxeer.app/guarantors), [Security and trust boundaries](https://docs.paxeer.app/security), and [Governance](https://docs.paxeer.app/governance).
+Continue with [Node operators](https://docs.paxeer.app/operators), [Related protocol reference](https://docs.paxeer.app/guarantors), [Security and trust boundaries](https://docs.paxeer.app/security), and [Governance](https://docs.paxeer.app/governance).

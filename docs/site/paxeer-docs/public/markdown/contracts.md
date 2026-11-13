@@ -6,25 +6,25 @@ Build Solidity applications on Paxeer X and integrate wrapped PAX, token pointer
 
 ## Custody and settlement
 
-The pre-merge LayerX settlement contract family is retired. `LayerXCustody.sol`, `CheckpointRegistry.sol`, `GuarantorBond.sol`, `WithdrawalClaims.sol`, and `EmergencyExit.sol` no longer exist as deployable contracts and are not deployment requirements for the merged network; the surviving `LayerXCustody.sol` is the interface for the native custody precompile. Current funding uses native bank balances and derived sub-accounts, and the chain exposes custody and anchor modules through fixed precompile addresses.
+Paxeer mainnet-beta executes and settles transactions on one BFT chain. Funding uses native bank balances and derived sub-accounts. The `LayerXCustody.sol` ABI is in `precompiles/layerxcustody/LayerXCustody.sol`; `contracts/src/precompiles/ILayerXCustody.sol` is a Solidity interface. Custody calls at `0x1013` are disabled on the merged network. The checkpoint anchor at `0x1014` is also disabled once its store-delete upgrade is active.
 
-Choose the interface for the custody route your application uses and verify its authority and deployment configuration. A deployed Solidity contract address and a fixed native precompile address have distinct call targets and state. The [settlement guide](https://docs.paxeer.app/settlement) explains checkpoints, proofs, challenge windows, and exits.
+Choose the interface for the native module your application uses and verify its authorization requirements. A deployed Solidity contract and a native precompile have distinct call targets and state. A receipt is final when its block is committed; see the [settlement guide](https://docs.paxeer.app/settlement) for related evidence.
 
 ### Native application composition
 
-Contracts call custody at `0x1013`, anchor at `0x1014`, perpetuals at `0x1015` (from the v6.12.0 plan; below it, that address held the historical exchange implementation), bridge at `0x1016`, and launchpad at `0x1017`. The verification precompile at `0x1012` verifies LayerX proofs; fee-token selection uses `0x1018`, and XWeb requests use `0x1019`. Import the exact ABI or Solidity interface for each call and preserve integer units, authorization requirements, and event decoding.
+Custody at `0x1013` and anchor at `0x1014` do not provide an application settlement path on the merged network. Native application interfaces include perpetuals at `0x1015`, bridge at `0x1016`, and launchpad at `0x1017`. The verification precompile at `0x1012` is disabled on the merged network. Fee-token selection uses `0x1018`, and XWeb requests use `0x1019`. Import the exact ABI or Solidity interface for each call and preserve integer units, authorization requirements, and event decoding.
 
 Combine [native denominations and token pointers](https://docs.paxeer.app/assets) with [bridged assets](https://docs.paxeer.app/bridge), or use the [XDK](https://docs.paxeer.app/xdk) to prepare calls and consume application events.
 
 ### Contract project boundaries
 
-Chain contracts under `contracts/src/` use `foundry.paxeer.toml` (sources `contracts/src`, tests `contracts/test`, artifacts `contracts/out`). The repository-root `foundry.toml` is a separate project (sources `contracts`, artifacts `build/forge-artifacts`) that explicitly skips `contracts/src/**` and `contracts/test/**`; its `tests/solidity/` suite now covers only governance and names. Select the configuration matching the contract family when compiling or testing.
+Chain contracts under `contracts/src/` use `foundry.paxeer.toml` (sources `contracts/src`, tests `contracts/test`, artifacts `contracts/out`). The repository-root `foundry.toml` is a separate project (sources `contracts`, artifacts `build/forge-artifacts`) that explicitly skips `contracts/src/**` and `contracts/test/**`; its `tests/solidity/` suite covers governance and names. Select the configuration matching the contract family when compiling or testing.
 
 ## Start a New Application
 
-Follow the [Foundry](https://docs.paxeer.app/foundry) or [Hardhat](https://docs.paxeer.app/hardhat) walkthrough to compile, test, and deploy a contract on chain ID 125 (`hyperpax_125-1`; other networks use their own IDs). Continue with [Build a Frontend](https://docs.paxeer.app/building-a-frontend) to connect a browser wallet and read deployed state.
+Follow the [Foundry](https://docs.paxeer.app/foundry) or [Hardhat](https://docs.paxeer.app/hardhat) walkthrough to compile, test, and deploy a contract on chain ID 125 (`hyperpax_125-1`). Continue with [Build a Frontend](https://docs.paxeer.app/building-a-frontend) to connect a browser wallet and read deployed state.
 
-The Paxeer X contract library provides Solidity interfaces and implementations for native token operations and Cosmos integration. Its sources live in `Paxeer-X-Network/contracts/src/`.
+The Paxeer X contract library provides Solidity interfaces and implementations for native token operations and Cosmos integration. Its sources live in `contracts/src/`.
 
 ## Wrapped PAX and Token Pointers
 
@@ -75,10 +75,10 @@ The repository includes Foundry and Hardhat tooling. Use the configuration for t
 
 | Tool | Configuration | Project layout |
 | --- | --- | --- |
-| Foundry | `Paxeer-X-Network/foundry.paxeer.toml` | Sources in `contracts/src/`, tests in `contracts/test/`, artifacts in `contracts/out/` |
-| Hardhat | `Paxeer-X-Network/contracts/hardhat.config.js` | Hardhat 2 project with its dependencies and lockfile under `contracts/` |
+| Foundry | `foundry.paxeer.toml` | Sources in `contracts/src/`, tests in `contracts/test/`, artifacts in `contracts/out/` |
+| Hardhat | `contracts/hardhat.config.js` | Hardhat 2 project with its dependencies and lockfile under `contracts/` |
 
-The Hardhat `paxlocal` network reads `PAXEER_LOCAL_EVM_RPC_URL` and defaults to `http://127.0.0.1:8545`. Start a [Paxeer development cluster](https://docs.paxeer.app/docker) for integration tests that call native precompiles or CosmWasm modules.
+The Hardhat `paxlocal` network reads `PAXEER_LOCAL_EVM_RPC_URL` and defaults to a loopback HTTP listener on port `8545`. Start a [Paxeer development cluster](https://docs.paxeer.app/docker) for integration tests that call native precompiles or CosmWasm modules.
 
 Use the [Foundry](https://docs.paxeer.app/foundry) and [Hardhat](https://docs.paxeer.app/hardhat) guides for a complete new-project setup, including compiler configuration, local tests, and deployment commands.
 
@@ -116,4 +116,4 @@ cast code "$CONTRACT_ADDRESS" --rpc-url "$PAXEER_RPC_URL"
 
 Retain the creation transaction, source revision, compiler settings, constructor arguments, and ABI. For a proxy contract, also retain the implementation address and upgrade configuration. Continue with [Query the EVM](https://docs.paxeer.app/querying-evm) to read state and events.
 
-**Source:** `Paxeer-X-Network/contracts/src/`, `contracts/hardhat.config.js`, `foundry.paxeer.toml`, `precompiles/`, and `modules/evm/artifacts/` with `keeper/pointer.go`.
+**Source:** `contracts/src/`, `contracts/hardhat.config.js`, `foundry.paxeer.toml`, `precompiles/`, and `modules/evm/artifacts/` with `modules/evm/keeper/pointer.go`.

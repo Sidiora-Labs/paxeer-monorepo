@@ -2,75 +2,75 @@
 
 # Security and trust boundaries
 
-What signatures, replay, checkpoint settlement, custody controls, and authority services establish in Paxeer X.
+How transaction signatures, receipt keys, committed blocks, and scoped service credentials establish trust in Paxeer X.
 
-Paxeer X separates fast ordered execution from settlement and custody. A receipt establishes a specific execution claim; its inclusion evidence, sequencer authorization, guarantor certificate, and settlement state determine how that claim is verified. Applications preserve these distinctions when releasing goods, updating balances, or permitting withdrawals.
+Paxeer mainnet-beta is one BFT network. The kernel executes within the chain, and a transaction is final when its covering block is committed. A signed execution receipt establishes a narrower claim before commitment. Applications verify the evidence needed before releasing goods or updating balances.
 
 ## The trust boundaries
 
 | Boundary | Verification responsibility | Remaining dependency |
 | --- | --- | --- |
-| Actor to sequencer | Canonical activity encoding, actor signature, authority scope, sequence, and fee rules. | Key custody and correctly scoped delegation. |
-| Sequencer to client | Authorized header signature, receipt inclusion, batch identity, and outcome. | Sequencer availability and the requested evidence level. |
-| Sealed batch to guarantor | Availability proofs, deterministic replay, and root comparison. | Accessible batch data and eligible honest guarantors. |
-| Checkpoint to Paxeer | Domain-bound eligible attestations and registry acceptance. | Settlement-chain execution and configured challenge and withdrawal rules. |
-| Application to hosted authority | Authenticated request and pinned identities; verify the resulting receipt facts. | Authority and replica availability. |
+| Signer to node | Signed transaction, chain identifier, nonce, gas, and balance checks. | Key custody and correct transaction construction. |
+| Node to client | Canonical receipt, authorized receipt key, raw transaction hash, and execution status. | Receipt-key trust and node availability. |
+| Proposer to validators | Sequence-batch signature, sequence continuity, and transaction replay. | Consensus validator set and deterministic execution. |
+| Block to application | Transaction inclusion and consensus commit under a trusted validator set. | Authenticated chain and validator-set trust. |
+| Application to hosted service | Authenticated request, scoped authorization, and evidence for the resulting operation. | Service availability and credential custody. |
 
 ## Evidence levels are consequential
 
-Distinguish acceptance, execution, attestation, and settlement as separate evidence levels: acceptance is an ordering receipt, attestation adds bonded replay, and settlement registers the checkpoint on Paxeer. The gateway exposes executed-state handling; use the evidence level required by the application rather than interpreting every successful response as settlement. A canonical L0–L4 naming ladder and a complete commitment-level enum were not verified in source and are not asserted here.
+A submission response identifies a transaction. A signed receipt authenticates execution under a pinned receipt key. A covering block and verified consensus commit establish committed inclusion. Applications retain the signed transaction and check its hash, receipt outcome, and block evidence together.
 
-Custody remains on Paxeer. Guarantor bonds, challenge windows, withdrawal limits, and emergency exits bound settlement risk under their configured rules. The checkpoint path uses bonded re-execution and does not claim a SNARK or another validity proof.
+Native balances and EVM execution belong to the same network. Receipt signatures authenticate the signer and payload; consensus commitment establishes finality. Neither service authentication nor a matching chain identifier proves a payment.
 
 ## Canonical execution and replay
 
-The append-only activity log is the execution record. Indexes are derived views. Replay checks actor authority, receipts, state transitions, recovery metadata, and roots. Consensus execution excludes floating point, local-clock dependence, and unstable iteration so independent machines reproduce identical bytes.
+The node validates the ordered sequence batch and re-executes proposed transactions. Sequence continuity, signatures, and committed roots bind the execution order. Query indexes expose derived views and do not replace consensus evidence.
 
-Program monetary effects are represented as transfer sets in the same history; they are not private balance writes outside the protocol. Storage occupancy is also replay-checkable. Missing availability data or inconsistent replay results prevent a guarantor from signing.
+Program monetary effects pass through protocol transfer sets and the asset module. Storage occupancy is accounted for during deterministic execution. Applications check the resulting execution status and transfer evidence before treating a program call as successful.
 
-## Verify hosted receipt authority
+## Verify receipt authority
 
-The hosted authority obtains a canonical receipt and requests evidence from a pinned replica. It checks the replica identity, pinned sequencer public key, signed header, Merkle inclusion, protocol version, sequence range, and re-derived execution batch identifier. Outcome verification then runs against these derived batch facts.
+The node exposes signed execution receipts bound to the raw EVM transaction hash. Clients authenticate the signing key against independently trusted key identifiers, public keys, and valid height ranges, then check the canonical receipt and execution outputs.
 
-### Authorized batch facts
+### Trusted receipt keys
 
-The hosted authority references an authenticated authorized-batches route (`GET /v1/authorized-batches/by-activity/{activity_id}`) for derived batch facts. Its exact response schema was not verified in authority source (only README/test references were found) and is not specified here; read the deployed service's contract before depending on field names.
+Receipt-key entries come from `px_getReceiptKeys`. Their key identifiers, public keys, and inclusive height ranges describe the governed receipt-signing authority. Establish trust in that key list independently of the receipt response.
 
-1. Start with the exact activity identifier and the intended network and wire version.
-2. Retrieve the canonical receipt and authorized evidence through the configured authenticated service.
-3. Verify the receipt against the derived batch facts and the application's expected outcome.
-4. Require the appropriate checkpoint and settlement evidence for the action being authorized.
+1. Start with the exact signed transaction and its hash on the intended network.
+2. Retrieve its canonical receipt and authenticate the signing key for the receipt height.
+3. Check the signature, transaction binding, execution status, and expected payment or program effect.
+4. Authenticate committed block inclusion before treating the transaction as final.
 
-A valid signature over a different batch does not establish inclusion for the requested activity. A root copied from an unverified response does not establish authorized execution.
+A signature over another transaction does not establish the requested payment. A root or signing key copied from an untrusted response does not authenticate execution or consensus membership.
 
 ### Refusals and retry behavior
 
-Treat authentication failures, unknown activities, refused evidence, and unavailable dependencies as distinct outcomes: fix credentials for the first, confirm the identifier for the second, do not retry refused evidence as if it were transient, and retry dependency outages with backoff. Exact status codes and error strings for the authorized-batches route were not verified in source and are not listed here.
+Authentication failures, unknown transactions, execution refusals, and unavailable dependencies have different meanings. Confirm the identifier when a transaction is unknown, inspect the execution outcome when it is refused, and retain the original transaction when transport failure leaves its outcome uncertain.
 
-Service readiness probes the replica, and liveness reports process availability. Neither response certifies a particular activity or proves that the sequencer is reachable.
+A liveness or readiness response reports service availability. It does not certify a transaction, establish receipt-key authority, or prove a block commit.
 
 ## Keys, roles, and custody
 
-Owner signatures, session grants, delegated capabilities, and budget allowances carry distinct authority scopes. Revocation and primary-key rotation are ordered governance events. Grant only the operations, assets, budgets, and lifetime the application needs, and verify recovery and signer history when evaluating authority.
+Owner keys, identity sessions, scoped gateway keys, capabilities, and budgets carry distinct authority. Grant only the operations, assets, amounts, and lifetime the application needs. Check revocation and current authorization before signing.
 
-Guarantor membership, bond control, custody authority, checkpoint publication authority, and settlement submission are separate responsibilities. The live guarantor model is the Go `layerxanchor` Cosmos module (see [Guarantors](https://docs.paxeer.app/guarantors)), not a GuarantorBond contract. A funded submitter can publish an authorized certificate; funding does not give it the ability to manufacture eligible attestations or owner authorization.
+Validator governance and receipt-key governance serve different verification roles. The `modules/sequencer` module stores the leader list, receipt keys, and committed sequence position. See [consensus and signing roles](https://docs.paxeer.app/guarantors) when selecting the trust inputs for receipt verification.
 
 ## Emergency response and upgrade control
 
-Protocol emergency controls identify their scope, trigger, exit conditions, epoch, and ordered sequence. Settlement timelocks restrict proposers, executors, guardians, target selectors, call value, delays, and execution windows. Layer X component attestations identify role, configuration, release, and layout; upgrade authority follows the specific component or proxy path.
+Upgrade controls follow the specific chain or contract authority. Contract timelocks restrict permitted calls, role assignments, delays, and execution windows. Applications inspect those deployed parameters rather than inferring authority from a service response.
 
-During a stall, preserve the latest verified receipts, inclusion proofs, batch data, and checkpoint evidence. Determine the last established commitment level before proceeding with settlement or exit workflows. A loss of service availability must not be interpreted as a successful state transition.
+During an outage, preserve signed transactions, receipts, and block inclusion evidence. Resume lookup using the original transaction hash and establish its outcome before authorizing another economic action.
 
 ## Integration review
 
-- Pin network, protocol version, sequencer authorization, and settlement domain.
+- Pin the chain, validator set, and receipt-key authority.
 
-- Reject noncanonical encodings, unexpected response fields, and evidence bound to another activity or batch.
+- Reject noncanonical encodings and evidence bound to another transaction or sequence.
 
-- Make retries idempotent and preserve the original activity identifier.
+- Keep retries idempotent and retain the original transaction hash.
 
-- Distinguish transport success, verified execution, checkpoint attestation, and settlement.
+- Distinguish submission, authenticated execution, and committed inclusion.
 
-- Inspect deployed role assignments, thresholds, delays, and limits as part of the application's risk policy.
+- Inspect current role assignments, thresholds, delays, and limits when evaluating contract authority.
 
-Continue with [Guarantors](https://docs.paxeer.app/guarantors), [Governance](https://docs.paxeer.app/governance), and [Finality](https://docs.paxeer.app/finality).
+Continue with [verification roles](https://docs.paxeer.app/guarantors), [Governance](https://docs.paxeer.app/governance), and [Finality](https://docs.paxeer.app/finality).

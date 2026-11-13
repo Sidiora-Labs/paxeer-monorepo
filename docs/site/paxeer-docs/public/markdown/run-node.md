@@ -6,9 +6,9 @@ Initialize a Paxeer X node, choose its role, connect to a network, and verify sy
 
 ## Chain node and hosted services
 
-The chain node is `paxd`. Hosted services (gateway, core, authority, registry, Human and related components) live under `services/platform/hosted/` in the monorepo, with the hosted node under `services/platform/hosted/node/`; each has its own configuration, credentials, and state. This page covers the `paxd` chain node.
+The chain node is `paxd`. The kernel executes inside the node, and the proposer executes transactions and proposes their block. A receipt is final once its block commits. Hosted applications such as the gateway and registry live under `services/platform/hosted/` and have their own configuration and state. This page covers the chain node.
 
-The former `layerxd` C daemon (`cmd/layerxd`) is retired: its sources are absent from the build and retirement tests assert that absence. There is no `layerxd --check-config`, `--serve`, or `--authority-replica` startup path. Order startup so dependencies exist first, then verify synchronization and an end-to-end receipt before admitting traffic. See [operators](https://docs.paxeer.app/operators), [configuration](https://docs.paxeer.app/configuration), [relay/archive status](https://docs.paxeer.app/relay-archive), and [kernel architecture](https://docs.paxeer.app/layerx-kernel).
+Initialize the node for its intended role, install the verified network genesis and configure peers before starting. Verify synchronization and receipt reads before admitting application traffic. See [operators](https://docs.paxeer.app/operators), [configuration](https://docs.paxeer.app/configuration), [chain history and archives](https://docs.paxeer.app/relay-archive), and [kernel architecture](https://docs.paxeer.app/layerx-kernel).
 
 ## Before You Start
 
@@ -36,7 +36,7 @@ The default home is `~/.paxeer`. Init writes configuration and a local genesis. 
 
 ## Genesis and Peers
 
-Place the verified network genesis at `~/.paxeer/config/genesis.json`. Confirm its chain ID and expected checksum. Configure `bootstrap-peers` and `persistent-peers` under `[p2p]` in `config.toml` using the network's `node-id@host:26656` entries.
+Place the verified network genesis at `~/.paxeer/config/genesis.json`. Confirm its chain ID and expected checksum. Configure `bootstrap-peers` and `persistent-peers` under `[p2p]` in `config.toml` using the network's peer entries in `node-id@host:port` form. The default peer port is 26656.
 
 [HPX tooling](https://docs.paxeer.app/admin-hpx) provides distribution manifests, genesis, and peer registry handling for managed node setup.
 
@@ -48,17 +48,16 @@ A node with compatible genesis and an available block history can replay blocks.
 
 ### State Sync
 
-State sync imports an application snapshot at a recent height. In `config.toml`, the `[statesync]` section accepts `rpc-servers`, `trust-height`, `trust-hash`, and `trust-period`. Use independent trusted RPC sources and a checkpoint within the trust period.
+State sync imports an application snapshot at a recent height. In `config.toml`, the `[statesync]` section uses `enable`, `rpc-servers`, `trust-height`, `trust-hash`, and `trust-period`. RPC-based state sync requires at least two RPC servers and a trusted checkpoint within the trust period. It starts only when the node has no local application state.
 
-Inspect a chosen RPC checkpoint before configuring it:
+Set `TM_RPC_URL` to your consensus HTTP endpoint and `TRUST_HEIGHT` to the checkpoint height. These are client-side variables for the following queries:
 
 ```
-TM_RPC_URL=http://127.0.0.1:26657
 curl -sS "$TM_RPC_URL/status" | jq '.result.sync_info'
-curl -sS "$TM_RPC_URL/block?height=100000" | jq '.result.block.header, .result.block_id.hash'
+curl -sS "$TM_RPC_URL/block?height=$TRUST_HEIGHT" | jq '.result.block.header, .result.block_id.hash'
 ```
 
-Replace the example height with your trusted checkpoint height. JSON-RPC data is inside `result`. Check the response for a matching height and valid block hash before entering the checkpoint in your configuration.
+Consensus JSON-RPC data is inside `result`. Check the response for a matching height and valid block hash before entering the checkpoint in your configuration.
 
 ### Snapshot Restore
 
@@ -72,35 +71,21 @@ Choose a snapshot covering the historical range your application needs. Archive 
 paxd start --home "$HOME/.paxeer"
 ```
 
-For a service, use an explicit binary path, operating-system user, and home that match the initialized node. Create the user and directories shown in the example before starting the service.
+To use a different data directory, set the example variable `NODE_HOME` to the initialized node home. The `--home` option selects that directory:
 
 ```
-[Unit]
-Description=Paxeer Node
-After=network-online.target
-
-[Service]
-Type=simple
-User=paxeer
-ExecStart=/usr/local/bin/paxd start --home /var/lib/paxeer
-Restart=on-failure
-RestartSec=3
-LimitNOFILE=65535
-
-[Install]
-WantedBy=multi-user.target
+paxd start --home "$NODE_HOME"
 ```
 
 ## Verify Synchronization
 
 ```
-paxd status --node tcp://127.0.0.1:26657
-curl -sS http://127.0.0.1:26657/status | jq '.result.sync_info'
-curl -sS http://127.0.0.1:26657/net_info | jq '.result.n_peers'
-journalctl -u paxd -f
+paxd status --node "$TM_NODE_URL"
+curl -sS "$TM_RPC_URL/status" | jq '.result.sync_info'
+curl -sS "$TM_RPC_URL/net_info" | jq '.result.n_peers'
 ```
 
-Confirm the expected chain identity, advancing block height, and completed synchronization before directing application traffic to the node.
+Set `TM_NODE_URL` to the consensus RPC address accepted by `paxd status --node`, with its transport scheme. The default consensus RPC port is 26657. Confirm the expected chain identity, advancing block height and completed synchronization before directing application traffic to the node.
 
 ## Validator Setup
 
@@ -108,7 +93,7 @@ After synchronization, create or select the operator account and fund it with th
 
 ## Local Docker Development
 
-From the monorepo root (the repository is flattened; there is no `Paxeer-X-Network/` subdirectory):
+From the repository root, start the local Docker cluster with the target forwarded to `chain.mk`:
 
 ```
 make docker-cluster-start

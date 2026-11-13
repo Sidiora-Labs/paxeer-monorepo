@@ -6,7 +6,7 @@ State commitment, historical queries, receipt retention, and backend configurati
 
 ## Overview
 
-Paxeer storage separates active state commitment from historical state queries and receipt storage. Each has its own configuration and retention behavior. The implementation is under `Paxeer-X-Network/storage/`.
+Paxeer storage separates active state commitment from historical state queries and receipt storage. Each has its own configuration and retention behavior. The implementation is under `storage/` at the repository root.
 
 ## State Commitment
 
@@ -41,7 +41,7 @@ The default backend is Pebble and the default retention is 100,000 versions. `ss
 
 ## RocksDB Backend
 
-The optional RocksDB backend uses user-defined timestamps and column families for versioned state. Build it from the Paxeer subtree:
+The optional RocksDB backend uses user-defined timestamps and column families for versioned state. Build RocksDB and install the node from the repository root:
 
 ```
 make build-rocksdb
@@ -80,7 +80,7 @@ Changelogs and write-ahead logs support storage replay and recovery. Follow the 
 
 ## Inspection Tools
 
-The separate PaxDB command provides storage inspection and benchmark operations. Build or run it from the Paxeer subtree, using its help to select the correct database path and height:
+The PaxDB command provides storage inspection and benchmark operations. Build or run it from the repository root, using its help to select the correct database path and height:
 
 ```
 go run ./storage/tools/cmd/paxdb --help

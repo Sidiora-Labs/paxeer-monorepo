@@ -4,7 +4,7 @@
 
 Time-based hooks and epoch lifecycle management for coordinating periodic chain operations.
 
-**Source:** `Paxeer-X-Network/modules/epoch/`
+**Source:** `modules/epoch/`
 
 ## Overview
 
@@ -14,16 +14,16 @@ In this codebase only one hook consumer is wired in `node/app.go`: the mint keep
 
 ## State
 
-The epoch module maintains a single state object:
+The epoch module maintains a single epoch state object. Query it with the command below; the JSON illustrates default genesis values before initialization. Initialization replaces these default timestamps with consensus block time; a running chain returns its stored epoch:
 
 ```
-> paxd q epoch epoch --output json
+paxd query epoch epoch --output json
 {
   "epoch": {
-    "genesis_time": "2023-04-27T19:08:11.958027Z",
+    "genesis_time": "1970-01-01T00:00:01Z",
     "epoch_duration": "60s",
     "current_epoch": "0",
-    "current_epoch_start_time": "2023-04-27T19:08:11.958027Z",
+    "current_epoch_start_time": "1970-01-01T00:00:01Z",
     "current_epoch_height": "0"
   }
 }
@@ -105,7 +105,7 @@ The epoch module does not expose any transactions. Its handler rejects every mes
 
 ## Parameters
 
-The epoch module has no runtime parameters: `Params` is empty and validation rejects any non-empty value. The epoch duration lives in the epoch genesis state.
+The epoch module has no runtime parameter fields: `Params` is empty. The epoch duration lives in the epoch genesis state.
 
 ## Use Cases
 

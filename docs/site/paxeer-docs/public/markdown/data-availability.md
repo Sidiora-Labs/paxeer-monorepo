@@ -2,11 +2,11 @@
 
 # Data Availability
 
-Retrieve authenticated batch data, verify it against the committed availability root, and preserve independent evidence through archives and mirrors.
+Read block availability through the agent runtime and verify supplied batch archives with the proof library.
 
 ## Availability makes replay possible
 
-Paxeer X commits batch data in five availability classes. A verifier fetches these bytes in chunks, authenticates every chunk against the committed data-availability root, and can then independently replay the transition. An availability proof establishes committed data; replay establishes the computed result.
+The proof library defines five batch availability classes. Given an authenticated availability root and provider chunks, a verifier authenticates the data before replay. This format describes supplied batch evidence; the agent runtime reads merged-node blocks through a separate availability operation.
 
 | Class | Contents |
 | --- | --- |
@@ -25,27 +25,27 @@ Chunks carry at most 65,536 bytes. Each chunk states its batch number, flattened
 1. Obtain the committed data-availability root from evidence you already trust.
 2. Fetch chunks for the batch from a provider.
 3. For each chunk, recompute its digest and verify its inclusion path against the root. Refuse chunks from another batch, out-of-order chunks and digest mismatches.
-4. Require complete coverage of the classes your decision depends on.
+4. Require complete bundle coverage and contiguous class offsets before complete-bundle verification.
 5. Replay activities and oracle inputs; compare state roots and the recomputed account diff.
 6. Attest only after replay reaches the exact committed result.
 
 ## Agent availability API
 
-The agent runtime exposes an `availability_fetch` operation. A request carries a selector string, a requested rung, and finite retrieval bounds: `maximum_bytes`, `maximum_chunks` and a `deadline`. An empty selector or a zero bound is refused.
+The agent runtime exposes an `availability_fetch` operation. Its selector is a decimal block height. The request also carries a requested rung, `maximum_bytes`, `maximum_chunks` and a `deadline` in Unix seconds. Empty selectors, zero bounds and expired deadlines are refused. The implementation bounds transaction bytes and transaction count for the selected block.
 
-The report states whether retrieval completed from one provider or is partial. It carries a per-class report (completeness, verified chunk and byte counts, and any failure) and a per-provider report. Treat a partial report as missing data, not as an empty batch.
+For an available block, the runtime returns a complete `transactions` class with transaction count and byte count, plus the height, transaction root and receipt root. A pruned block produces a partial report with a provider failure of `pruned`. Missing data does not represent an empty block.
 
 **Source:** `services/agent/crates/layerx-agent-api/src/read.rs` — `AvailabilityRequest`, `AvailabilityReport`; `services/agent/crates/layerx-agentd/src/human_runtime.rs` — `availability_fetch`.
 
-## Retired kernel bundle API
+## Block availability reads
 
-The earlier kernel bundle symbols (`lxp_batch_availability_root` and the `lxp_da_*` family) are retired. The chain test suite asserts these symbols are absent from the kernel archive. Do not build integrations against them; use the chunk verification and agent API surfaces above.
+The merged-node reader checks the requested height against the node head and fetches that block. It returns the block's transaction root, receipt root and transaction count, or a pruned result when the block is absent. The runtime returns this block report separately from the proof library's five-class batch format.
 
-**Source:** `modules/lxphost/retired_da_bundle_test.go`.
+**Source:** `services/agent/crates/layerx-agentd/src/read/availability.rs`.
 
 ## Refusals and recovery
 
-Keep storage and proof failures as typed refusals. Chunk verification distinguishes batch mismatch, index mismatch, digest mismatch, inclusion failure and ordering failure. Retry a retained selection or restore authenticated archive data; do not treat missing chunks as an empty batch or replace a verified root with an untrusted newer one.
+Keep storage and proof failures as typed refusals. Chunk verification distinguishes batch mismatch, index mismatch, digest mismatch, inclusion failure, ordering failure and incomplete bundle coverage. Retry a retained selection or restore authenticated archive data; do not treat missing chunks as an empty batch or replace a verified root with an untrusted newer one.
 
 ## Ethereum and Solana mirrors
 

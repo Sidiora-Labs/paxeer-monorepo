@@ -8,13 +8,13 @@ Paxeer X unites EVM applications, the LayerX agent economy, payments, markets an
 
 [Explore the network](https://docs.paxeer.app/unified-network)[Start with the XDK](https://docs.paxeer.app/xdk)
 
-Two execution domainsEVM chain ID `125`Native token `PAX`
+One BFT networkEVM chain ID `125`Native token `PAX`
 
-    Paxeer X chain and LayerX kernel: connected through identity, evidence and settlement.EVM 125 · PAX
+    Paxeer mainnet-beta: EVM applications and the LayerX kernel execute on one BFT network.EVM 125 · PAX
 
 ONE NETWORK — EVERY INTERFACE
 
-[**XDK**Developer toolkit](https://docs.paxeer.app/xdk) [**7 SDKs**Language quickstarts](https://docs.paxeer.app/sdk-quickstarts) [**MCP**21 scoped tools](https://docs.paxeer.app/mcp) [**JSON-RPC**EVM chain 125](https://docs.paxeer.app/json-rpc) [**CLI**Command line](https://docs.paxeer.app/cli)
+[**XDK**Developer toolkit](https://docs.paxeer.app/xdk) [**7 SDKs**Language quickstarts](https://docs.paxeer.app/sdk-quickstarts) [**MCP**22 scoped tools](https://docs.paxeer.app/mcp) [**JSON-RPC**EVM chain 125](https://docs.paxeer.app/json-rpc) [**CLI**Command line](https://docs.paxeer.app/cli)
 
 [**Execution you can reproduce**Global sequencing and chained state roots create a canonical history. Deterministic execution makes independent replay and verification possible.](https://docs.paxeer.app/layerx-kernel) [**Authority with clear boundaries**Primary and session keys, scoped capabilities, delegated limits, revocation, rotation and recovery for every autonomous actor.](https://docs.paxeer.app/identity) [**Tools you already know**Deploy Solidity, connect wallets and call native precompiles through standard EVM tooling and JSON-RPC on chain 125.](https://docs.paxeer.app/evm)
 
@@ -42,7 +42,7 @@ PAXEER X
 
 - Deterministic, replayable transitions
 
-- Signed receipts, batches and checkpoints
+- Signed receipts and committed blocks
 
 - Scoped MCP tools and agent budgets
 
@@ -60,7 +60,7 @@ This path covers:
 
 - Budgets, mandates and revocation
 
-- 21 scoped MCP tools
+- 22 scoped MCP tools
 
 - Agent-to-agent tasks
 
@@ -88,7 +88,7 @@ EVM APPLICATIONS
 
 ### Use the tools you know.
 
-Deploy Solidity, connect wallets and call native precompiles for account binding, custody, checkpoints, exchange and asset launches.
+Deploy Solidity, connect wallets and call native precompiles for account binding, native payments, exchange and asset launches.
 
 This path covers:
 
@@ -120,7 +120,7 @@ Nodes, configuration, network services and settlement infrastructure.](https://d
 
 What is the difference between Paxeer X and LayerX?
 
-Paxeer X is the EVM chain supplying execution, custody and settlement. LayerX is the kernel that orders agent activities and produces deterministic state transitions, signed receipts and checkpoints. Native precompiles connect the two domains through verifiable evidence. [Compare the domains](https://docs.paxeer.app/paxeer-vs-layerx)
+Paxeer mainnet-beta is one BFT network. LayerX is its embedded kernel for native activities and deterministic execution. EVM transactions call native precompiles, and receipt finality comes from the covering block commit. [Explore the network architecture](https://docs.paxeer.app/paxeer-vs-layerx)
 
  Which chain ID and token does the network use?
 
@@ -132,15 +132,15 @@ Through scoped, revocable delegation: primary and session keys, budget limits an
 
  How do I verify a payment actually settled?
 
-Verify the signed receipt, confirm its inclusion in a sealed batch, then check the checkpoint settled on Paxeer X: receipt → batch → checkpoint → finalized settlement. [Receipts and proofs](https://docs.paxeer.app/receipts)
+Verify the signed execution receipt against trusted receipt keys, check its transaction and outcome, and confirm the covering BFT block is committed. [Receipts and proofs](https://docs.paxeer.app/receipts)
 
  Can I use my existing EVM tooling?
 
-Yes. Deploy Solidity with Foundry or Hardhat, connect wallets over JSON-RPC, and call native precompiles for account binding, custody, checkpoints and markets on chain 125. [Build on the EVM](https://docs.paxeer.app/evm)
+Yes. Deploy Solidity with Foundry or Hardhat, connect wallets over JSON-RPC, and call native precompiles for account binding, native payments and markets on chain 125. [Build on the EVM](https://docs.paxeer.app/evm)
 
  How do I run a node or operate the network?
 
-Start with installation and configuration, then the operator guides for chain nodes, sequencers, replicas, guarantors and archive services. [Run a node](https://docs.paxeer.app/run-node)
+Start with installation and configuration, then the operator guides for BFT nodes, validators, RPC endpoints and retained chain history. [Run a node](https://docs.paxeer.app/run-node)
 
 ## Build the application. Connect the economy.
 

@@ -6,9 +6,9 @@ Connect assistants to verified Paxeer X state and policy-governed wallet and tok
 
 ## One governed execution path
 
-`layerx-mcp` exposes a 22-tool catalogue to MCP clients. Every invocation passes through `layerx-agentd` as a `DaemonInvocation`, with Policy, Capability, Budget, RateLimit, and Audit gates, except `faucet.request`, which has no daemon operation and executes directly against the node (below). The same authorization and submission rules apply when an assistant uses a tool as when an application calls the daemon.
+`layerx-mcp` exposes a 22-tool catalogue to MCP clients. Calls are authorized by `layerx-agentd` and recorded as a `DaemonInvocation`, with Policy, Capability, Budget, RateLimit, and Audit gates on ordinary daemon operations. `faucet.request` uses session and capability authorization and invocation auditing, then calls the configured gateway directly (below). The same authorization and submission rules apply when an assistant uses a tool as when an application calls the daemon.
 
-A read-only deployment exposes read tools and omits writes. Tool discovery is filtered to the scopes bound to the caller, so an unavailable scope does not appear as an actionable tool.
+A read-only deployment exposes read tools and omits writes. Tool discovery is filtered to the caller's scopes. Native wallet and token aliases also require an enabled native profile, the required activity capability, and authorization for every preparation, disclosure, signing, submission and tracking stage.
 
 ## Tool catalog
 
@@ -18,7 +18,7 @@ A read-only deployment exposes read tools and omits writes. Tool discovery is fi
 | `balance.get` | read | `read:balance` | `ReadBalance` | Read verified program-scoped balances from the daemon with their verification level and freshness. |
 | `history.list` | read | `read:history` | `ReadHistory` | Page verified account history from the daemon under an explicit item bound and stable cursor. |
 | `receipt.get` | read | `read:receipt` | `ProgramReceipt` | Read the canonical receipt the daemon holds for one activity. |
-| `checkpoint.get` | read | `read:checkpoint` | `ReadCheckpoint` | Read the finalised checkpoint certificate for one batch sequence through the daemon. |
+| `checkpoint.get` | read | `read:checkpoint` | `ReadCheckpoint` | Read native committed-block evidence, including the header, BFT commit and validator set, for the requested height. |
 | `proof.get` | read | `read:proof` | `ReadProofBundle` | Read the proof bundle the daemon holds for one activity. |
 | `availability.get` | read | `read:availability` | `AvailabilityFetch` | Read verified availability chunks and attributed failures for one decimal batch number. |
 | `wallet.accounts` | read | `read:wallet:accounts` | `ReadAccount` | List the verified accounts the daemon observes for one program. |
@@ -33,9 +33,9 @@ A read-only deployment exposes read tools and omits writes. Tool discovery is fi
 | `token.create` | write | `write:token:create` | `Submit` | Create one asset through the ordinary daemon submission path. |
 | `token.mint` | write | `write:token:mint` | `Submit` | Mint one asset amount through the ordinary daemon submission path. |
 | `token.transfer` | write | `write:token:transfer` | `Submit` | Transfer one asset amount through the ordinary daemon submission path. |
-| `grant.issue` | write | `write:grant:issue` | `Submit` | Issue one spending grant through the ordinary daemon submission path. |
-| `grant.draw` | write | `write:grant:draw` | `Submit` | Draw against one spending grant through the ordinary daemon submission path. |
-| `faucet.request` | write | `write:faucet:claim` | — | One testnet funding request through the node's `px_requestFunds`; returns the funding transaction hash or a refusal. The retired Agent API `faucet.claim` operation is not used. |
+| `grant.issue` | write | `write:grant:issue` | `Submit` | Submit the grant-issuance alias through native preparation; ledger payer-grant issuance is retired and refuses execution. |
+| `grant.draw` | write | `write:grant:draw` | `Submit` | Submit the grant-draw alias through native preparation; ledger payer-grant draws are retired and refuse execution. |
+| `faucet.request` | write | `write:faucet:claim` | — | One testnet funding request through the configured gateway's `px_requestFunds`; returns the funding transaction hash or a refusal. The session token accompanies the request. |
 
 ## Session and web tools
 
@@ -43,44 +43,44 @@ Two further surfaces are served alongside the main catalogue. The session surfac
 
 ## Tool parameters
 
-A hex32 value represents 32 bytes in hexadecimal; hex64 represents 64 bytes. Sequence and batch identifiers are decimal u64 values. Keep integer amounts exact. The argument schema bounds encoded JSON to 65,536 bytes at catalog validation.
+A hex32 value represents 32 bytes in hexadecimal; hex64 represents 64 bytes. Integer arguments are decimal strings; height, batch and timeout values must fit their declared bounds. Native signatures are 65 bytes and EVM signer addresses are 20 bytes, encoded as lowercase hexadecimal without a prefix. The native aliases require a native_write_v1 envelope containing intent, preparation, canonical_bytes, signature and signer_address. The intent fields appear below; token creation uses supply_cap. Obtain the full request schema from tool discovery. Catalog validation bounds encoded JSON to 65,536 bytes.
 
-| Tool | Required arguments | Optional arguments |
+| Tool | Arguments or intent fields | Further requirements |
 | --- | --- | --- |
 | `balance.get` | `program` (hex32) | `account`, `asset` (hex32) |
 | `history.list` | `account` (hex32), `limit` (1–256) | `cursor` (hex32) |
 | `receipt.get` | `activity_id` (hex32) | — |
-| `checkpoint.get` | `sequence` (decimal u64) | — |
+| `checkpoint.get` | `sequence` (committed block height) | — |
 | `proof.get` | `activity_id` (hex32) | — |
 | `availability.get` | `batch` (decimal u64) | — |
 | `wallet.accounts` | `program` (hex32) | — |
 | `wallet.balance` | `program`, `account`, `asset` (hex32) | — |
-| `activity.prepare` | `activity_type`, `payload`, `account_sequence`, `not_before_ms`, `expires_at_ms`, `fee_limit`, `idempotency_key` | — |
+| `activity.prepare` | `variant`, `payload`, `account_sequence`, `not_before`, `not_after`, `fee_limit`, `idempotency_key` | Use the discovered native_v1, native_effect_v1 or native_send_v1 schema, including activity, actor, authority, payload hash, capability and signed purpose. |
 | `activity.disclose` | `canonical_bytes` | — |
-| `activity.sign` | `preparation_ref` | — |
-| `activity.submit` | `preparation_ref`, `signature` (hex64), `signer_public_key` (hex32) | — |
+| `activity.sign` | `preparation_ref` and a 65-byte external signature | Use external_signature_v1; the signer supplies the EVM signature. |
+| `activity.submit` | `preparation_ref`, `signature` (65 bytes), `signer_address` (20 bytes) | Use native_send_submit_v1 for native sends; alternatively supply only raw_transaction with signed EIP-1559 bytes. |
 | `activity.track` | `submission_ref` | — |
 | `activity.wait` | `submission_ref`, `timeout_ms` (1–600000) | — |
-| `wallet.send` | `destination`, `asset`, `amount`, `idempotency_key` | — |
-| `token.create` | `symbol`, `decimals` (0–18), `supply`, `idempotency_key` | — |
-| `token.mint` | `asset`, `destination`, `amount`, `idempotency_key` | — |
-| `token.transfer` | `asset`, `destination`, `amount`, `idempotency_key` | — |
-| `grant.issue` | `beneficiary`, `asset`, `amount`, `expires_at_ms`, `idempotency_key` | — |
-| `grant.draw` | `grant_id`, `amount`, `idempotency_key` | — |
+| `wallet.send` | `destination`, `asset`, `amount`, `idempotency_key` | Fields belong in intent within native_write_v1; include the bound preparation, canonical bytes, EVM signature and signer address. |
+| `token.create` | `symbol`, `decimals` (0–18), `supply_cap`, `idempotency_key` | Fields belong in intent within native_write_v1; include the bound preparation, canonical bytes, EVM signature and signer address. |
+| `token.mint` | `asset`, `destination`, `amount`, `idempotency_key` | Fields belong in intent within native_write_v1; include the bound preparation, canonical bytes, EVM signature and signer address. |
+| `token.transfer` | `asset`, `destination`, `amount`, `idempotency_key` | Fields belong in intent within native_write_v1; include the bound preparation, canonical bytes, EVM signature and signer address. |
+| `grant.issue` | `beneficiary`, `asset`, `amount`, `expires_at_ms`, `idempotency_key` | Fields belong in intent within native_write_v1; include the bound preparation, canonical bytes, EVM signature and signer address. |
+| `grant.draw` | `grant_id`, `amount`, `idempotency_key` | Fields belong in intent within native_write_v1; include the bound preparation, canonical bytes, EVM signature and signer address. |
 | `faucet.request` | `did`, `public_key` (hex32) | — |
 
 ## Prepare, disclose, sign, submit
 
-Prepare canonical activity bytes with an account sequence, validity window, fee ceiling, and idempotency key. Read the bound disclosure before authorizing a signature. `activity.sign` crosses the external signing boundary without exposing key material. Submit the preparation reference with the signature and signer public key, then track the submission or wait under an explicit timeout.
+Prepare the EIP-1559 call through the selected native request schema, including its signed purpose and capability. Read the bound disclosure before authorizing the transaction. `activity.sign` accepts an externally produced signature for the preparation; it does not create a signing key. Submit the preparation reference with the EVM signature and signer address, then track the submission or wait under an explicit timeout.
 
 `activity.wait` accepts 1–600000 milliseconds. A timeout bounds waiting; it does not reverse a submitted activity. Continue tracking the same submission reference and preserve the business action idempotency key.
 
 ## Read verified state and settlement evidence
 
-Use balances with their verification level and freshness, bounded history pages with stable cursors, canonical receipts, checkpoint certificates, and proof bundles. `availability.get` returns verified chunks and attributed failures for a batch. `tenant.readiness` is the exception: it reports daemon-local readiness only and its evidence is unverified. Read operations otherwise retain the daemon verification context instead of asking a model to infer settlement from prose.
+Use balances with their verification level and freshness, bounded history pages with stable cursors, canonical receipts, committed block headers and BFT commits, and proof bundles. `availability.get` returns verified chunks and attributed failures for a batch. `tenant.readiness` is the exception: it reports daemon-local readiness only and its evidence is unverified. Read operations otherwise retain the daemon verification context instead of asking a model to infer settlement from prose.
 
 ## Wallet, token, grant, and faucet journeys
 
-Wallet sends, token creation, minting, transfers, grant issuance, and grant draws reuse ordinary daemon submission. Token decimals are bounded to 0–18. A grant binds beneficiary, asset, amount, and expiry; a draw names the grant and amount. Faucet requests bind the DID and public key and execute as one `px_requestFunds` call against the node.
+Wallet sends, token creation, minting and transfers use the native preparation and submission path when authorized and enabled. Token decimals are bounded to 0–18. The grant aliases target retired ledger payer-grant methods and return refusals; payment budgets use the maintained payment module. Faucet requests bind the DID and public key and execute as one `px_requestFunds` call against the configured gateway, whose funding policy determines availability.
 
 Integrate tools alongside [XDK](https://docs.paxeer.app/xdk) and [SDK quickstarts](https://docs.paxeer.app/sdk-quickstarts). Inspect [Agent API](https://docs.paxeer.app/platform-api) for canonical write semantics and [the agent daemon](https://docs.paxeer.app/agent-runtime) for its execution boundary.

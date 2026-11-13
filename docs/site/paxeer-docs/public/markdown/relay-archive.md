@@ -1,25 +1,25 @@
 <!-- Source: https://docs.paxeer.app/relay-archive/ -->
 
-# Relay & Archive Nodes
+# Chain History & Archives
 
-Status of the former relay/archive node product and its RPC surface.
+Read retained chain history from full or archive nodes and verify exported receipt evidence.
 
-## Relay/archive is retired
+## Full and archive nodes
 
-The relay/archive node product is retired. There is no installable relay/archive service in the monorepo: the install assets (`install.sh`, `config.example.json`, `deployment.yaml`, and the `layerx-relay-archive.service` unit) must be absent, and retirement tests assert their absence. There is no `services/platform/relay_archive/` service, no `docker/relay-archive/` image, and the beta cluster deploys no relay-archive component. The former startup command `layerxd --relay-archive` no longer exists; the `layerxd` daemon itself is retired.
+The chain node is `paxd`. Initialize with `--mode full` for recent query history or `--mode archive` to retain all available state history and blocks. The archive profile retains state history and blocks by setting its retention counts to zero; the generated application configuration includes `ss-keep-recent` under `[state-store]` and `min-retain-blocks`. Retention applies to the history the node has synchronized or restored.
 
-Do not follow older install, configuration, or tuning instructions for a relay/archive node, including release-bundle contents such as `layerx-archive-codec`. No successor install path was found in the monorepo.
+Choose retention for the queries your application needs. A recent read can succeed while a request for pruned state fails. A snapshot supplies only the history included in that snapshot.
 
-## lx_* RPC methods are switched off
+## Read chain history through node RPC
 
-All 26 `lx_*` JSON-RPC methods are switched off (Decision 701) at both the node and the gateway. This includes the archive and subscription methods previously documented here — `lx_getArchiveNetwork`, `lx_getArchiveHead`, `lx_listActivities`, `lx_listBatches`, `lx_getNodeInfo`, `lx_getActivityStatus`, `lx_getReceipt`, `lx_getBatchHeader`, `lx_sendActivity`, and `lx_subscribe` with its resume-window error codes. Clients must not depend on any `lx_*` method.
+Use `eth_getBlockByNumber`, `eth_getTransactionReceipt` and bounded `eth_getLogs` queries at the node’s root JSON-RPC endpoint. Keep one transaction namespace throughout an indexer and retain block coordinates with each result. Use `pax_sequencerReceipt` to distinguish a signed execution result from one covered by a committed block.
 
-## HTTP sync and history routes
+## Verify receipt archives
 
-The previously documented `/v1/sync/*` and `/v1/history/*` HTTP surface has no live implementation in the monorepo. Only the specification contract (`contracts/platform-relay-archive.md` in the spec tree) remains. Whether any non-retired successor serves those routes could not be confirmed from source, so they are not documented as available endpoints.
+The mirror tooling under `services/interop/crates/layerx-mirror/` reads Ethereum or Solana archives under configured source trust. It checks archive commitments, committed block coordinates and receipt signatures. Preserve receipt-key pins and source provenance with the archive, and use its reported freshness when deciding whether the evidence is current.
 
-## What to use instead
+## Continue reading
 
 For chain history and state, run a `paxd` full or archive node (see [Run a Node](https://docs.paxeer.app/run-node) and [Configuration](https://docs.paxeer.app/configuration)). For receipts and proofs, see [Receipts & Proofs](https://docs.paxeer.app/proofs) and [Data Availability](https://docs.paxeer.app/data-availability). For external mirrors, see [External Mirrors](https://docs.paxeer.app/mirrors).
 
-**Source:** `services/platform/tests/test_relay_archive_install_retired.py`, `services/platform/hosted/tests/test_beta_relay_archive_retired.py`, `rpc/lx_switch_off_test.go`.
+**Source:** `node/params/config.go`, `rpc/block.go`, `rpc/tx.go`, `rpc/filter.go`, `rpc/sequencer_receipt.go` and `services/interop/crates/layerx-mirror/src/verify.rs`.

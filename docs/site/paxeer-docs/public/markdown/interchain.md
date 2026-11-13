@@ -4,7 +4,7 @@
 
 Connect Paxeer X to other chains through IBC packets, native token transfers, and the attested bridge.
 
-**Source:** `Paxeer-X-Network/interchain/`, `precompiles/ibc/`, and the IBC keeper and router wiring in `node/app.go`.
+**Source:** `interchain/`, `precompiles/ibc/`, and the IBC keeper and router wiring in `node/app.go`.
 
 ## Cross-chain routes in Paxeer X
 
@@ -42,7 +42,7 @@ Verify the channel's port, connection, remote chain, ordering, and open state. C
 
 ## Transfer through the CLI
 
-This command template sends `1,000,000 uhpx`, one PAX. Set `IBC_CHANNEL` to a verified channel and `IBC_RECIPIENT` to an address valid on its destination chain.
+This command template sends `1,000,000 uhpx`, one unit of the registered display denomination `hpx`. Set `IBC_CHANNEL` to a verified channel and `IBC_RECIPIENT` to an address valid on its destination chain.
 
 ```
 paxd tx ibc-transfer transfer \

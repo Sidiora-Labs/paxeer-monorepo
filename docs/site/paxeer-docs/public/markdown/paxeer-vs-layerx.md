@@ -8,20 +8,20 @@ One BFT network combines EVM smart contracts, autonomous agent execution, and pr
 
 Paxeer X is one BFT network with EVM chain ID `125`. `paxd` supplies the Cosmos SDK chain and native EVM. The LayerX kernel is embedded in the node through `modules/lxphost` and participates in block proposal and deterministic execution. `node/sequencer` supplies execution ordering within the node. Applications compose both through native EVM precompiles and protocol receipts.
 
-The names describe execution surfaces, not separate networks. A normal agent payment executes as a signed LayerX activity without requiring a separate EVM transaction. Its kernel state changes commit with the rest of the node's transaction state. A receipt is final once its block is committed. There is no later checkpoint or settlement step.
+The kernel runs inside `paxd`. Native wallet payments submit signed EVM transactions to the ledger precompile; protocol activity authorization binds the payment terms. Kernel state changes commit with the rest of the node's transaction state. A receipt is final once its block is committed. There is no later checkpoint or settlement step.
 
 | Capability | Paxeer surface | LayerX surface |
 | --- | --- | --- |
 | Application execution | Solidity contracts, native precompiles, Cosmos modules | Signed activities, economic modules, deterministic WASM programs |
 | Identity | EVM and Paxeer addresses | Agent DIDs, sessions, scoped grants, recovery and revocation |
 | Money | Native assets and bank balances | Payments, holds, escrow, budgets, streams and protocol balances |
-| Markets | `perps` at `0x1015`, `pricefeed` at `0x1020`, spot at `0x1021`–`0x1025`, launchpad at `0x1017`, bridge at `0x1016` | Trading, positions, funding, and liquidation modules |
+| Markets | `perps` at `0x1015`, `pricefeed` at `0x1020`, spot at `0x1021`–`0x1025`, launchpad at `0x1017`, bridge at `0x1016` | Kernel economic operations; the EVM perpetuals venue is implemented in `modules/perps` |
 | Evidence | Committed blocks; `pax_sequencerReceipt` | Signed receipts, ordered batches, state witnesses and replay |
 | Security authority | Validators and governance under BFT consensus | Actor authority, deterministic execution and independently replayed activity |
 
-## What the Merger Enables
+## Applications on the Shared Network
 
-### Agent Businesses with Real Financial Controls
+### Agent Financial Controls
 
 An agent operates through its own identity and bounded authority. It pays for services, commits funds to escrow, spends against a budget, and receives delivery evidence. Businesses issue assets and agents trade the resulting instruments. Programs coordinate these operations while the protocol controls every balance change.
 
@@ -29,9 +29,9 @@ An agent operates through its own identity and bounded authority. It pays for se
 
 A contract consumes a verified service receipt, proves a LayerX account balance, or checks a program result before applying its own rules. The merge precompiles at `0x101A`–`0x101E` and `0x0901`–`0x0908` expose ledger, payment, authorization, program, and tenant-domain surfaces. Select the interface for the upgrade active at the queried height.
 
-### Connected Markets and Assets
+### Markets and Assets
 
-In the v6.12.0 set, `perps` is served at `0x1015` in place of the earlier `layerxExchange`. The same set serves the second-generation `launchpad` at `0x1017`, `pricefeed` at `0x1020`, and `spot_pecor`, `spot_orders`, `spot_stoporders`, `spot_quoter` and `spot_vault` at `0x1021`–`0x1025`. Registered external chains connect through `layerxBridge` at `0x1016`. Each path retains its own economic and verification rules.
+`perps` is served at `0x1015`. Native applications also include `launchpad` at `0x1017`, `pricefeed` at `0x1020`, and `spot_pecor`, `spot_orders`, `spot_stoporders`, `spot_quoter` and `spot_vault` at `0x1021`–`0x1025`. Registered external chains connect through `layerxBridge` at `0x1016`. Each path retains its own economic and verification rules.
 
 ## A Shared Account, Explicit Authority
 
@@ -45,7 +45,7 @@ Binding makes identity discoverable across surfaces. Spending remains subject to
 2. Receive a signed execution receipt. `pax_sequencerReceipt` reports `submitted`, `receipted`, or `committed`.
 3. Treat the result as final only at `committed`, when the block covering its sequence batch has committed.
 
-The external checkpoint registry, bonded guarantor attestations, and L0–L4 settlement ladder are retired. The pre-merge `layerxVerify` (`0x1012`) and `layerxCustody` (`0x1013`) interfaces are retired at the merge. `layerxAnchor` (`0x1014`) rejects writes after the merge. These historical interfaces do not provide current funding or finality paths.
+`modules/lxphost` stages kernel writes in the transaction store, and the node commits them with the block. Receipt verification uses the authorized receipt key and evidence for the containing committed block. EVM callers use the ABIs in `precompiles/` for ledger, payment, authorization and program operations.
 
 The native asset pays EVM transaction gas. Its human-unit identifier in node parameters is `hpx`, with base unit `uhpx`. LayerX activities use their committed fee schedule and declared fee limits. Applications show the activity fee and EVM gas at the corresponding step.
 

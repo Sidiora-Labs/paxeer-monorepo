@@ -2,79 +2,79 @@
 
 # Sequencing & Finality
 
-Follow an activity from deterministic ordering into a sealed, signed batch, and request the evidence your application needs.
+Follow a signed transaction through ordered execution, receipt verification, and BFT block commitment.
 
-Paxeer X combines the LayerX activity execution plane with Paxeer custody. Activities are ordered into signed batches and replicas preserve the sealed history for replay. A normal payment or agent action does not require a separate settlement-chain transaction.
+Paxeer mainnet-beta is one BFT chain. Its kernel participates in block execution and proposal, and the committed chain records the resulting order. A signed receipt can be available before its covering block is committed.
 
-The layerx-merge upgrade (`v7.0`) retired the separate sequencer, checkpoint, and guarantor settlement plane. The native sequencer recovery, equivocation, loss, and handover interfaces no longer exist in the kernel, and checkpoint submission to the Paxeer anchor returns a module-retired error. Sections below describe the live ordering and batch-evidence path; see [Checkpoints](https://docs.paxeer.app/checkpoints) for the retired anchor surface.
+The proposer places `MsgSequenceBatch` at transaction index zero of each block at or above the sequencing activation height. Validators verify that batch and re-execute its transactions. See [block commitment](https://docs.paxeer.app/checkpoints) for the evidence boundary.
 
-## Global ordering and signed batches
+## Global ordering and sequence batches
 
-Admitted activities receive contiguous global sequence numbers. A batch begins immediately after the previous batch’s last sequence and extends the state-root chain. A sequence gap, a reversed range, or a mismatched previous root refuses the batch. Account sequences enforce each actor’s own ordering alongside the network-wide sequence.
+A nonempty batch starts at the stored last sequence plus one and binds the preceding sequence hash. The keeper rejects a discontinuity, an invalid receipt-key signature, a mismatched height, or a second sequence batch in one block. EVM account nonces separately enforce sender ordering.
 
-| Header commitment | Fields |
+| Batch commitment | Fields |
 | --- | --- |
-| Protocol and network | `protocol_version`, `network_id`, `epoch` |
-| Ordered range | `batch_number`, `first_sequence`, `last_sequence` |
-| State transition | `previous_state_root`, `resulting_state_root` |
-| Execution evidence | `activity_merkle_root`, `receipt_merkle_root`, `event_merkle_root` |
-| Reconstruction inputs | `data_availability_root`, `oracle_root` |
-| Time and signer | Batch timestamp and `sequencer_id`; the native header stores time in `timestamp_ms`. |
+| Block height | `Height`, `FromSeq`, `ToSeq` |
+| Sequence continuity | `PrevSeqHash`, `LastSeqHash`, `TxRoot` |
+| Receipt-key authority | `KeyId`, `Sig` |
+| Hash widths | `PrevSeqHash`, `LastSeqHash`, `TxRoot` are each 32 bytes. |
+| Key and signature widths | `KeyId` is 32 bytes; `Sig` is a 64-byte Ed25519 signature. |
+| Canonical encoding | The domain prefix is followed by big-endian positions, hashes, key ID, and signature; `Height` names the covering block. |
 
-The canonical header contains exactly these 15 fields, encodes to 354 bytes, and is signed by the key bound to the authorized sequencer identity. Batch time is the only time consulted during execution. Protocol-3 batches append an `LXP/batch-maintenance/v1` receipt and an `LXP/batch-maintenance-effects/v1` event leaf after activity leaves, including an empty effects frame when no maintenance module is enabled.
+The canonical sequence-batch transaction is 241 bytes, including its domain prefix and signature. For an empty batch, `ToSeq` equals `FromSeq` minus one, the sequence hash is unchanged, and the transaction root is SHA-256 of the empty input.
 
 ## Evidence stages
 
 | Level | Evidence | Responsibility |
 | --- | --- | --- |
-| L0 · Accepted | The ordered activity has a receipt chained to its state root. | Inclusion and ordering. |
-| L1 · Sealed | The signed batch fixes ordering and committed roots. | Replica preservation of sealed bytes. |
-| L2 · Distributed | The batch and availability bundle are retrievable for independent replay. | Availability of the material needed for replay. |
+| Submitted | The node holds the transaction without a signed receipt. | Track its transaction hash. |
+| Receipted | A signed receipt binds the raw transaction to its execution outcome. | Authenticate the receipt key and check the outcome. |
+| Committed | A committed block covers the receipt sequence. | Verify block inclusion and the consensus commit. |
 
-Earlier designs extended this ladder with bonded guarantor attestation (L3) and checkpoint registration on Paxeer (L4). That settlement plane is retired: a receipt’s existence does not imply Paxeer checkpoint settlement, and applications must not wait for or require anchor registration. Certificates and attestations in historical data used the distinct domains `LXP/v2/checkpoint-certificate` and `LXP/v2/guarantor-attestation`, each with its terminating zero byte.
+A `submitted` result carries no execution receipt. A `receipted` result authenticates execution when verified under a trusted receipt key. Finality is established when the covering block is committed by BFT consensus.
 
 ## Replay
 
-1. Retrieve the complete batch body: activities, receipts, events, oracle inputs, state-diff material, and recovery metadata.
-2. Verify actor, grant, oracle, and sequencer signatures.
-3. Replay from the previous state root using the committed protocol and parameters.
-4. Recompute every committed root and compare the canonical results byte for byte.
+1. Retrieve the exact signed transaction and its canonical execution receipt.
+2. Authenticate the receipt signature using a trusted key with a height range covering the receipt.
+3. Check the sequence-batch signature, transaction order, and sequence-hash continuity.
+4. Authenticate the covering block and its consensus commit before accepting committed inclusion.
 
-Any disagreement stops acceptance of that replay. Deterministic execution excludes local clocks, floating point, and unstable iteration, so identical ordered input reproduces identical receipts and roots.
+A failed replay or sequence check rejects the proposal. Consensus execution uses the ordered transaction input and block context so validators can reproduce the transition before committing it.
 
-## Public commitment levels
+## Public receipt states
 
-Submission uses the exact names `executed`, `batched`, and `finalised`. These are evidence requirements alongside the lifecycle stages.
+The node receipt API reports `submitted`, `receipted`, and `committed`. These values describe transaction progress; applications verify the evidence behind the reported value.
 
-| Requested level | Required evidence |
+| Receipt state | Required evidence |
 | --- | --- |
-| `executed` | A verified canonical receipt for the submitted activity. |
-| `batched` | Execution evidence plus an authenticated receipt proof whose canonical value exactly matches the receipt. |
-| `finalised` | Batch evidence plus finalised checkpoint evidence whose canonical header exactly matches the proof’s signed batch header. |
+| `submitted` | Transaction hash, nonce, and progress state. |
+| `receipted` | Canonical signed receipt, authenticated signing key, and matching execution view. |
+| `committed` | Receipt evidence plus the covering block number and block hash; independent finality verification authenticates inclusion and the consensus commit. |
 
-The gateway never downgrades the requested assurance. If its bounded wait cannot establish the requested commitment, it returns an error rather than a weaker success. Preserve the original signed activity and recover through `lx_getActivityStatus`, `lx_getReceipt`, and the required proof reads. An acknowledgement, HTTP 202, or activity identifier alone is not an executed receipt. The accepted spelling is `finalised`.
+Retrieve transaction progress with `pax_sequencerReceipt`. Preserve the original signed transaction and obtain `px_getSequenceBatch` and `px_getCommit` evidence for independent committed inclusion checks. A transaction hash or successful HTTP response alone is not a receipt. The final rung is `committed`.
 
 ## Data availability and recovery
 
-A state root without its reconstruction material is insufficient. Retrieval must re-hash to the committed availability roots. Missing data prevents independent replay from accepting the batch.
+Committed inclusion verification requires the exact transaction, receipt, covering sequence batch, block inclusion path, consensus commit, and a trusted validator set. A root without authenticated reconstruction and inclusion evidence is insufficient.
 
-After a crash, recovery reads the durable log head, loads a usable snapshot, replays committed records, compares roots, and rebuilds disposable projections.
+Node recovery restores committed sequence state from the module store. The proposer executor also keeps a write-ahead log of accepted transactions and sealed blocks so recovery can reconcile uncommitted execution with the committed head.
 
-### Equivocation
+### Proposal validation
 
-Two different signed batches at one batch number, or two activities at one global sequence, are conflicting histories. The later conflicting batch is refused. There is no native sequencer equivocation, loss, recovery, or handover interface in the current kernel; those entry points were retired with the separate sequencer plane.
+The signed sequence batch binds its height, ordered range, transaction root, and sequence hashes. Validators check the proposer against the governed leader schedule and reject inconsistent sequence or replay results.
 
-## The Paxeer custody boundary
+## Execution in one network
 
-Economic rules for orders, service delivery, escrow, and ordinary transfers execute in LayerX. Custody operations on Paxeer consume proven facts from the executed history. Deposits credit against proven custody facts. Withdrawals debit LayerX first and pay on Paxeer at most once.
+Transfers, program calls, service operations, and market operations execute within the same network. Applications inspect the operation result and affected account state in addition to its transaction position.
 
-If Paxeer is unreachable, ordinary LayerX execution continues. Paxeer payouts wait for settlement connectivity. Applications should choose their commitment requirement according to the value and reversibility of the action they release.
+If consensus cannot commit a block, an available execution receipt remains evidence of signed execution. Clients retain that receipt and wait for authenticated committed inclusion before treating its effects as final.
 
 ## Continue reading
 
 - [Deterministic kernel execution](https://docs.paxeer.app/layerx-kernel)
 
-- [Checkpoints (retired anchor)](https://docs.paxeer.app/checkpoints)
+- [Block commitment](https://docs.paxeer.app/checkpoints)
 
 - [Data availability and reconstruction](https://docs.paxeer.app/data-availability)
 

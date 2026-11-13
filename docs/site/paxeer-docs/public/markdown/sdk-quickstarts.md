@@ -2,43 +2,44 @@
 
 # SDK quickstarts
 
-Register a principal, fund an account, send a payment, and independently verify receipts with the Paxeer X SDKs.
+Register a principal, fund an account, submit a signed transaction, and verify execution evidence with the Paxeer X SDKs.
 
 ## Register, fund, send, verify
 
-Choose a public principal flow or a human payment journey before selecting a client. `agent.register` registers an agent with the daemon; `px_register` creates the public principal binding. The retired `lx_*` gateway names return `-32601`. They serve different workflows. Fund through an authenticated faucet claim and submit signed canonical activities with a scoped LayerX key.
+Choose a node transaction flow or a Human payment journey before selecting a client. `eth_sendRawTransaction` submits signed EVM transactions to the node; `px_register` creates a principal binding through the hosted gateway. Retrieve progress with `pax_sequencerReceipt` and trusted signing-key data with `px_getReceiptKeys`. Faucet funding requires an authorized identity session.
 
 ## Rust
 
-Use the typed `RpcClient` for registration, funding requests, and canonical activity submission. Sign the binding digest returned by `register::binding` before calling register. Funding requires the identity session authorization on the gateway request. Note: `RpcClient::request_funds` currently still calls the retired `lx_requestFunds` name, which the gateway refuses; call `px_requestFunds` directly until the SDK is updated.
+Use `RpcClient` for node access and hosted registration. Sign the digest from `register::binding` before registering. Node connections use `RpcClient::connect_node`; `RpcClient::get_balance` reads an EVM balance, and `RpcClient::send_raw_transaction` submits signed transaction bytes.
 
 ### Registration binding
 
 ```
 use layerx_sdk::register::{binding, TENANT};
-use layerx_sdk::rpc::RpcClient;
+use layerx_sdk::rpc::{RpcClient, RpcError};
+
+fn registration_digest(public_key: &[u8; 32]) -> [u8; 32] {
+    binding(TENANT, public_key)
+}
 
 fn register(rpc: &RpcClient, public_key: [u8; 32], signature: &[u8; 64])
-    -> Result<layerx_sdk::register::Registration, layerx_sdk::rpc::RpcError>
+    -> Result<layerx_sdk::register::Registration, RpcError>
 {
-    let _digest = binding(TENANT, &public_key);
     rpc.register(public_key, signature)
 }
 ```
 
-### Authenticated funding
+### Read an EVM balance
 
 ```
-use layerx_sdk::rpc::{FaucetGrant, RpcClient, RpcError};
+use layerx_sdk::rpc::{RpcClient, RpcError};
 
-fn request_funds(rpc: &RpcClient, did: &str, public_key: &[u8; 32])
-    -> Result<FaucetGrant, RpcError>
-{
-    rpc.request_funds(did, public_key)
+fn balance(rpc: &RpcClient, address: &str) -> Result<serde_json::Value, RpcError> {
+    rpc.get_balance(address)
 }
 ```
 
-### Client and payment example
+### Submit a signed EVM transaction
 
 ```
 use layerx_sdk::rpc::{RpcClient, RpcError};
@@ -48,89 +49,78 @@ fn send(rpc: &RpcClient, raw: &[u8]) -> Result<[u8; 32], RpcError> {
 }
 ```
 
-### Client and payment example
+### Connect to a node
 
 ```
-use layerx_sdk::production::SecretBytes;
-use layerx_sdk::programs::LayerXKeyCredential;
-use layerx_sdk::rpc::RpcClient;
+use layerx_sdk::rpc::{RpcClient, RpcError};
 
-fn connect(endpoint: &str, key_id: &str, secret: &[u8]) -> Result<RpcClient, layerx_sdk::rpc::RpcError> {
-    let secret = SecretBytes::new(secret).map_err(|_| layerx_sdk::rpc::RpcError::InvalidRequest)?;
-    let credential = LayerXKeyCredential::new(key_id, secret).map_err(layerx_sdk::rpc::RpcError::Configuration)?;
-    RpcClient::connect(endpoint, Some(credential))
+fn connect(endpoint: &str) -> Result<RpcClient, RpcError> {
+    RpcClient::connect_node(endpoint, None)
 }
 ```
 
-The Rust crate still exposes the kernel-batch verifier below. The platform SDKs in the other languages have retired this model; use their sequencer-receipt verifiers instead.
+The Rust committed-wait example uses a caller-supplied receipt policy. Configure the client with a runtime clock and independently pinned node consensus authority before waiting for committed inclusion.
 
-### Local receipt verification (Rust kernel batch)
+### Verify committed inclusion (Rust)
 
 ```
-use layerx_proof::receipt::AuthorizedBatch;
-use layerx_sdk::production::verify_receipt;
+use std::time::Duration;
+use layerx_sdk::rpc::{Commitment, RpcClient, RpcError};
+use layerx_sdk::rpc_verification::{ReceiptPolicy, VerifiedRpcReceipt};
 
-fn verify(
-    receipt: &[u8],
-    batch_id: [u8; 32],
-    asset: [u8; 32],
-    previous_state_root: [u8; 32],
-    resulting_state_root: [u8; 32],
-    sequencer_public_key: [u8; 32],
-) -> Result<layerx_proof::receipt::VerifiedReceipt, layerx_sdk::production::ReceiptVerificationFailure> {
-    let authorised = AuthorizedBatch::new(
-        batch_id,
-        asset,
-        previous_state_root,
-        resulting_state_root,
-        sequencer_public_key,
-    );
-    verify_receipt(receipt, &authorised)
+fn wait_for_commit(
+    rpc: &RpcClient,
+    transaction_hash: [u8; 32],
+    policy: &ReceiptPolicy,
+) -> Result<VerifiedRpcReceipt, RpcError> {
+    rpc.wait_for(transaction_hash, Commitment::Committed, policy, Duration::from_secs(30))
 }
 ```
 
 ## TypeScript
 
-Use `JsonRpcClient` for native submission and reads. Use public JSON-RPC for registration and faucet methods; `ProductionClient` provides human and agent operation interfaces with an appropriate transport.
+Use `JsonRpcClient` for node reads and signed EVM transaction submission. `ProductionClient` provides Human operations through a configured Human transport. Registration and faucet calls use the hosted gateway contract.
 
-### Client and payment example
+### Connect and submit a transaction
 
 ```
-import { JsonRpcClient, LayerXKeyCredential, SecretBytes } from "@sidiora/layerx-sdk";
-import type { Commitment } from "@sidiora/layerx-sdk";
+import { JsonRpcClient } from "@sidiora/layerx-sdk";
 
-export function openRpc(endpoint: string, keyId: string, secret: Uint8Array): JsonRpcClient {
-  return new JsonRpcClient(endpoint, new LayerXKeyCredential(keyId, new SecretBytes(secret)));
+export function openNode(endpoint: string): JsonRpcClient {
+  return new JsonRpcClient(endpoint);
 }
 
-export async function send(
-  rpc: JsonRpcClient,
-  canonical: Uint8Array,
-  commitment: Commitment = "submitted",
-): Promise<Record<string, unknown>> {
-  const hash = await rpc.sendRawTransaction(canonical);
-  return { hash, commitment };
+export function send(rpc: JsonRpcClient, signedTransaction: Uint8Array): Promise<string> {
+  return rpc.sendRawTransaction(signedTransaction);
 }
 ```
 
-### Client and payment example
+### Quote and commit a Human payment
 
 ```
-import { ProductionClient, SecretBytes, idempotencyKey } from "@sidiora/layerx-sdk";
+import { ProductionClient, idempotencyKey } from "@sidiora/layerx-sdk";
+
+type MoveRequest = {
+  source: string;
+  destination: string;
+  money: { amount: string; currency: string };
+};
 
 export async function pay(
-  layerx: ProductionClient,
-  source: string,
-  destination: string,
-  money: { amount: string; currency: string },
+  client: ProductionClient,
+  request: MoveRequest,
   paymentKey: string,
-) {
-  const quote = await layerx.human("move.quote", { source, destination, money });
-  return layerx.human("move.commit", { quote_id: quote.quote_id }, { idempotencyKey: idempotencyKey(paymentKey) });
+): Promise<Record<string, unknown>> {
+  const quote = await client.human<MoveRequest, { quote_id: string }>("move.quote", request);
+  return client.human<{ quote_id: string }, Record<string, unknown>>(
+    "move.commit",
+    { quote_id: quote.quote_id },
+    { idempotencyKey: idempotencyKey(paymentKey) },
+  );
 }
 ```
 
-### Local receipt verification
+### Verify canonical receipt bytes
 
 ```
 import { verifySequencerReceipt } from "@sidiora/layerx-sdk";
@@ -147,28 +137,34 @@ export function verify(
 
 ## Python
 
-`PaymentRpc.call` sends public method names directly. The endpoint must be HTTPS with path exactly `/rpc`. Registration uses lowercase hexadecimal key and signature values. Faucet calls use a Bearer identity session; signed activity calls use the LayerX-Key header.
+`PaymentRpc` sends node methods at the root path `/`. The hosted gateway client handles registration and faucet methods at its configured service endpoint. Registration takes lowercase hexadecimal keys and signatures; funding requires a Bearer identity session.
 
-### Public registration
+### Hosted registration
 
 ```
-from layerx_sdk import PaymentRpc
+from layerx_sdk.x402_rpc import HostedGatewayRpc
 
-def register(rpc: PaymentRpc, signer_public_key: str, registration_signature: str) -> dict:
-    return rpc.call("px_register", [signer_public_key, registration_signature])
+def register(rpc: HostedGatewayRpc, signer_public_key: str, registration_signature: str) -> dict:
+    result = rpc.call("px_register", [signer_public_key, registration_signature])
+    if not isinstance(result, dict):
+        raise ValueError("Invalid registration response")
+    return result
 ```
 
 ### Authenticated funding
 
 ```
-from layerx_sdk import PaymentRpc
+from layerx_sdk.x402_rpc import HostedGatewayRpc
 
-def request_funds(endpoint: str, session_token: str, did: str, signer_public_key: str) -> dict:
-    rpc = PaymentRpc(endpoint, {"Authorization": f"Bearer {session_token}"})
-    return rpc.call("px_requestFunds", [did, signer_public_key])
+def request_funds(gateway_endpoint: str, session_token: str, did: str, signer_public_key: str) -> dict:
+    rpc = HostedGatewayRpc(gateway_endpoint, {"Authorization": f"Bearer {session_token}"})
+    result = rpc.call("px_requestFunds", [did, signer_public_key])
+    if not isinstance(result, dict):
+        raise ValueError("Invalid funding response")
+    return result
 ```
 
-### Client and payment example
+### Submit a signed EVM transaction
 
 ```
 from layerx_sdk import PaymentRpc
@@ -177,7 +173,7 @@ def send(rpc: PaymentRpc, raw_transaction: str) -> str:
     return rpc.send(raw_transaction)
 ```
 
-### Client and payment example
+### Quote and commit a Human payment
 
 ```
 from layerx_sdk import IdempotencyKey, ProductionClient
@@ -187,7 +183,7 @@ def pay(layerx: ProductionClient, source, destination, money, payment_key):
     return layerx.human("move.commit", {"quote_id": quote["quote_id"]}, idempotency_key=IdempotencyKey(payment_key))
 ```
 
-### Local receipt verification
+### Verify canonical receipt bytes
 
 ```
 from layerx_sdk import ReceiptKey, SequencerReceiptVerification, verify_sequencer_receipt
@@ -202,9 +198,9 @@ def verify(
 
 ## Go
 
-Use `NewHumanHTTPTransport` and `Client.Human` for a quote followed by an idempotent commit. Agent catalog operations require an agent-plane transport.
+Use `NewHumanHTTPTransport` and `Client.Human` for a quote followed by an idempotent commit. The Go package is in sdk/platform/go; its import path is declared by that directory's go.mod.
 
-### Client and payment example
+### Quote and commit a Human payment
 
 ```
 package main
@@ -269,23 +265,23 @@ func pay(ctx context.Context, apiURL, apiToken, source, destination, paymentKey 
 }
 ```
 
-### Local receipt verification
+### Verify the JSON receipt view
 
 ```
 package main
 
 import layerx "github.com/Sidiora-Labs/LayerX-Network/sdk/platform/go"
 
-func verify(receiptBytes, rawTransaction []byte, keys layerx.ReceiptKeys) (layerx.SequencerReceiptVerification, error) {
-	return layerx.VerifySequencerReceipt(receiptBytes, rawTransaction, keys)
+func verify(receiptJSON, rawTransaction []byte, keys layerx.ReceiptKeys) (layerx.SequencerReceiptVerification, error) {
+	return layerx.VerifySequencerReceipt(receiptJSON, rawTransaction, keys)
 }
 ```
 
 ## JVM
 
-Configure `HttpProductionTransport` with the human origin and the agent origin. Human payments use `ProductionClient.human` and typed options.
+Configure `HttpProductionTransport` with the Human and agent origins. Human payments use `ProductionClient.human` and typed options. The JVM SDK source is in sdk/platform/jvm.
 
-### Client and payment example
+### Quote and commit a Human payment
 
 ```
 import com.fasterxml.jackson.databind.JsonNode;
@@ -299,7 +295,8 @@ import java.util.Map;
 
 public final class Pay {
     public static JsonNode pay(
-        String apiUrl,
+        String humanOrigin,
+        String agentOrigin,
         String apiToken,
         String source,
         String destination,
@@ -309,7 +306,7 @@ public final class Pay {
         var credential = new HttpProductionTransport.BearerCredential(
             new SecretBytes(apiToken.getBytes(StandardCharsets.UTF_8)));
         var layerx = new ProductionClient(
-            HttpProductionTransport.create(URI.create(apiUrl), URI.create(apiUrl), credential));
+            HttpProductionTransport.create(URI.create(humanOrigin), URI.create(agentOrigin), credential));
         var quote = layerx.human(
             "move.quote",
             Map.of("source", source, "destination", destination, "money", money),
@@ -327,16 +324,24 @@ public final class Pay {
 }
 ```
 
-### Local receipt verification
+### Verify bytes and JSON execution evidence
 
 ```
+import com.fasterxml.jackson.databind.JsonNode;
 import com.sidiora.layerx.sdk.verify.LocalVerifier;
 import com.sidiora.layerx.sdk.verify.LocalVerifier.ReceiptKeys;
 import com.sidiora.layerx.sdk.verify.LocalVerifier.SequencerReceiptVerification;
 
 public final class Verify {
-    public static SequencerReceiptVerification verify(byte[] receiptBytes, byte[] rawTransaction, ReceiptKeys keys) {
-        return LocalVerifier.verifySequencerReceipt(receiptBytes, rawTransaction, keys);
+    public static SequencerReceiptVerification verify(
+        byte[] receiptBytes,
+        byte[] rawTransaction,
+        ReceiptKeys keys,
+        JsonNode receiptJSON,
+        byte[] previousSequenceHash
+    ) {
+        return LocalVerifier.verifySequencerReceipt(
+            receiptBytes, rawTransaction, keys, receiptJSON, previousSequenceHash);
     }
 
     private Verify() {}
@@ -345,9 +350,9 @@ public final class Verify {
 
 ## Swift
 
-Use `PlatformClient` with `HumanHTTPTransport` for a payment quote and commit. Access tokens and idempotency keys use dedicated types.
+Use `PlatformClient` with `HumanHTTPTransport` for a payment quote and commit. Access tokens and idempotency keys use dedicated types. The Swift package is in sdk/platform/swift.
 
-### Client and payment example
+### Quote and commit a Human payment
 
 ```
 import Foundation
@@ -375,7 +380,7 @@ func pay(
 }
 ```
 
-### Local receipt verification
+### Verify bytes and JSON execution evidence
 
 ```
 import Foundation
@@ -388,12 +393,15 @@ func verify(receiptBytes: Data, rawTransaction: Data, keys: [ReceiptKeys], recei
 
 ## .NET
 
-Use `PlatformClient` with `HumanHttpTransport`, `AccessToken`, and `IdempotencyKey` for the human payment flow.
+Use `PlatformClient` with `HumanHttpTransport`, `AccessToken`, and `IdempotencyKey` for the Human payment flow. The .NET project is in sdk/platform/dotnet.
 
-### Client and payment example
+### Quote and commit a Human payment
 
 ```
+using System;
+using System.Collections.Generic;
 using System.Text;
+using System.Threading.Tasks;
 using LayerX.Sdk;
 
 static async Task<JsonValue> Pay(
@@ -412,40 +420,39 @@ static async Task<JsonValue> Pay(
         ["destination"] = JsonValue.String(destination),
         ["money"] = money,
     }));
-    IReadOnlyDictionary<string, JsonValue> fields = quote is JsonValue.ObjectValue record
-        ? record.Value
-        : new Dictionary<string, JsonValue>();
-    string quoteId = fields.TryGetValue("quote_id", out var found) && found is JsonValue.StringValue text
-        ? text.Value
-        : string.Empty;
+    if (quote is not JsonValue.ObjectValue record ||
+        !record.Value.TryGetValue("quote_id", out var value) ||
+        value is not JsonValue.StringValue quoteId)
+        throw new InvalidOperationException("Invalid quote response");
     return await layerx.HumanMoveCommitAsync(
-        JsonValue.Object(new Dictionary<string, JsonValue> { ["quote_id"] = JsonValue.String(quoteId) }),
+        JsonValue.Object(new Dictionary<string, JsonValue> { ["quote_id"] = JsonValue.String(quoteId.Value) }),
         new IdempotencyKey(paymentKey));
 }
 ```
 
-### Local receipt verification
+### Verify the JSON receipt view
 
 ```
+using System;
 using LayerX.Sdk;
 
 static SequencerReceiptVerification Verify(
-    ReadOnlyMemory<byte> receiptBytes,
+    ReadOnlyMemory<byte> receiptJSON,
     ReadOnlyMemory<byte> rawTransaction,
     ReceiptKeys keys) =>
-    LocalVerifier.VerifySequencerReceipt(receiptBytes, rawTransaction, keys);
+    LocalVerifier.VerifySequencerReceipt(receiptJSON, rawTransaction, keys);
 ```
 
 ## Verify sequencer receipts against trusted keys
 
-The platform verifiers take the signed receipt, the raw transaction, and independently trusted receipt keys (key ID, public key, and valid height range). They check the canonical encoding, the sequencer signature, and that the Keccak-256 hash of the raw transaction matches the receipt. Supplying keys from the same untrusted response as the receipt does not establish independent trust.
+Receipt verifiers check the signed receipt, raw transaction hash, and independently trusted receipt-key identifiers, public keys, and height ranges. TypeScript and Python take canonical receipt bytes; Go and .NET take the JSON receipt view. The JVM and Swift examples take canonical bytes, the JSON view, and authenticated previous-sequence context. A receipt signature proves execution under that key; committed finality additionally requires authenticated block inclusion and consensus evidence.
 
-The TypeScript `Commitment` type is `"submitted" | "receipted" | "committed"`. The values `executed`, `batched`, and `finalised` are retired and are rejected as invalid; the only verification rungs are `receipted` and `committed`. The Rust kernel-batch verifier above is the exception and follows its own `AuthorizedBatch` contract.
+The TypeScript `Commitment` type is `"submitted" | "receipted" | "committed"`. The node reports progress as `submitted`, `receipted`, or `committed`. Verify signatures at the `receipted` stage and consensus inclusion for `committed`. Rust exposes its committed wait through a separate typed policy API.
 
-## Programs terminal evidence
+## Program execution evidence
 
-A Programs CALL receipt commits to one runtime terminal. Verify the receipt first, then check the terminal payload against its receipt commitments before acting on a program outcome.
+A program call returns execution status, return data, and event evidence committed by its transaction receipt. Verify those receipt commitments and the expected program outcome before acting on a result.
 
-There is no public cross-SDK terminal-verifier function with a single shared name. The previously documented entry points (`decode_and_verify_program_terminal`, `decodeAndVerifyProgramTerminal`, `verifyProgramTerminal`, `ProgramsClient.verifyTerminal`, `ProgramsClient.VerifyTerminal`, and Swift `verifyTerminal`) are retired, unexported, package-private, private, or internal. On the JVM the public entry point is `ProgramsClient.verifyTerminalV5`. In other languages, verify the sequencer receipt and the commitments it carries, and confirm any terminal-decoding helper in your SDK source before depending on it.
+Receipt verification uses language-specific APIs: TypeScript `verifySequencerReceipt`, Python `verify_sequencer_receipt`, Go `VerifySequencerReceipt`, JVM `LocalVerifier.verifySequencerReceipt`, .NET `LocalVerifier.VerifySequencerReceipt`, and Swift `LocalVerifier.verifySequencerReceipt`. The JVM Programs client additionally exposes `ProgramsClient.verifyTerminalV5` for terminal evidence. Supply the trust inputs required by the selected API.
 
 Continue with [XDK API families](https://docs.paxeer.app/xdk), [Programs](https://docs.paxeer.app/programs), and [MCP tools](https://docs.paxeer.app/mcp).

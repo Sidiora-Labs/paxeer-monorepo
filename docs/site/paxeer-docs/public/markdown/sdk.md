@@ -4,28 +4,28 @@
 
 Paxeer X’s in-tree Cosmos SDK fork with Paxeer X-specific modifications and extensions.
 
-**Source:** `Paxeer-X-Network/sdk/`
+**Source:** `sdk/`
 
 ## Choose the right development surface
 
-Paxeer X has three complementary SDK surfaces. The in-tree Cosmos SDK powers `paxd` and native chain modules. The [XDK](https://docs.paxeer.app/xdk) provides application-facing clients for LayerX transactions, proofs, identity, exchange, bridge, launchpad, and native precompile calls. The [platform API](https://docs.paxeer.app/platform-api) connects paid resources, merchant checkout, agent spending, receipts, and webhooks.
+The in-tree Cosmos SDK powers `paxd` and native chain modules. The [XDK](https://docs.paxeer.app/xdk) provides application clients for node transactions, receipts, identity, and native precompiles. The [platform API](https://docs.paxeer.app/platform-api) connects paid resources, merchant checkout, agent spending, receipts, and webhooks.
 
 Chain maintainers work in `sdk/`, `modules/`, and `node/`. Application developers use `services/agent/sdk/` (TypeScript, Python), `services/agent/crates/layerx-sdk` (Rust), `sdk/platform/` (Go, JVM, Swift, .NET), and `sdk/wallet`. `docs/system/sdk.md` indexes exported SDK symbols and their source paths.
 
 ### Cross-surface application lifecycle
 
-1. Resolve the unified EVM, Cosmos, and LayerX identity and select the asset denomination or pointer.
-2. Use the matching client or native ABI to deposit custody funds, submit an intent, transfer an asset, or create a market.
-3. Track transaction receipts together with kernel receipts, checkpoint finality, and withdrawal or settlement status.
-4. Verify proofs against the appropriate finalized root before fulfilling a payment or releasing funds.
+1. Resolve the account identity and select the native asset denomination or ERC-20 pointer.
+2. Use the matching client or native ABI to submit a signed transaction for the intended operation.
+3. Track the transaction hash, execution receipt, and covering committed block.
+4. Verify receipt signatures and committed inclusion before treating a payment as final.
 
-The [network overview](https://docs.paxeer.app/unified-network) explains how these execution surfaces compose. An EVM transaction receipt and a finalized kernel checkpoint represent different stages of an application lifecycle.
+The [network overview](https://docs.paxeer.app/unified-network) explains how these execution surfaces compose. The kernel executes within the BFT network; an execution receipt becomes final when its covering block is committed.
 
 ## Overview
 
-Paxeer X vendors a fork of the Cosmos SDK directly in the monorepo under `Paxeer-X-Network/sdk/`. This is **not** a published Go module or npm package. It is an in-tree dependency for the `paxd` binary and Paxeer chain modules.
+Paxeer X vendors a fork of the Cosmos SDK directly in the monorepo under `sdk/`. These packages are **part of** the root Go module. It is an in-tree dependency for the `paxd` binary and Paxeer chain modules.
 
-### Why a Fork?
+### Fork capabilities
 
 Paxeer X maintains a fork to support:
 
@@ -33,7 +33,7 @@ Paxeer X maintains a fork to support:
 
 - EVM integration and pointer contracts
 
-- Fast iteration without waiting for upstream releases
+- Chain-specific module and precompile integration
 
 - Paxeer X-specific consensus and execution optimizations
 
@@ -41,7 +41,7 @@ Paxeer X maintains a fork to support:
 
 ## Upstream Base
 
-The fork is based on Cosmos SDK but diverges significantly. It is not compatible with upstream Cosmos SDK releases without careful rebasing and testing.
+The fork includes its own application framework, stores, account types, and module implementations. Its imports resolve through the root Go module.
 
 **Warning:** Do not assume drop-in compatibility with standard Cosmos SDK tooling or libraries. Paxeer X’s SDK is a custom fork.
 
@@ -57,7 +57,7 @@ The fork is based on Cosmos SDK but diverges significantly. It is not compatible
 | `proto/` | Protobuf definitions for SDK modules |
 | `store/` | State store abstraction and implementations |
 | `storev2/`, `codec/`, `crypto/` | Store v2, codec, and cryptography support |
-| `platform/`, `wallet/`, `js/` | Platform language SDKs, wallet, and JavaScript support |
+| `platform/`, `wallet/`, `js/` | Platform language SDKs, wallet SDK, and the first-party @pax-js/cosmos package |
 
 ## Key Modules
 
@@ -77,7 +77,7 @@ Paxeer X’s SDK includes standard Cosmos modules:
 | `x/params` | Module parameter management |
 | `x/upgrade` | Coordinated chain upgrades |
 
-Plus Paxeer X-specific modules under `Paxeer-X-Network/modules/`:
+Chain module source directories under `modules/`:
 
 - `evm` — EVM execution and JSON-RPC
 
@@ -125,7 +125,7 @@ See [REST & gRPC](https://docs.paxeer.app/rest-grpc) for API documentation.
 
 ## State Store
 
-The SDK's `store/` abstraction is implemented by Paxeer X’s custom storage engines. The engine implementations live under `storage/`:
+The SDK's `sdk/store/` abstraction is implemented by Paxeer X’s custom storage engines. The engine implementations live under `storage/`:
 
 - Database engines under `storage/db_engine/`: `litt`, `pebbledb`, `rocksdb`, and `dbcache`.
 
@@ -136,11 +136,11 @@ See [Storage](https://docs.paxeer.app/storage) for engine details.
 SDK types are defined in `sdk/proto/`. Regenerate Go code with:
 
 ```
-cd Paxeer-X-Network
-./scripts/protoc.sh
+# From the repository root
+bash scripts/protoc.sh
 ```
 
-The script builds the pinned `protoc-gen-gocosmos` plugin and runs `buf generate` via `go run github.com/bufbuild/buf/cmd/buf@v1.58.0`. See `Paxeer-X-Network/api/README.md`.
+The script builds the pinned `protoc-gen-gocosmos` plugin and runs `buf generate` via `go run github.com/bufbuild/buf/cmd/buf@v1.58.0`. See `api/README.md`.
 
 ## Building Against the SDK
 
@@ -169,7 +169,7 @@ make paxeer-test
 
 ## Documentation
 
-There is no `sdk/docs/` tree in the fork. Use `docs/system/sdk.md` in the monorepo as the index of exported SDK symbols and source paths.
+Use `docs/system/sdk.md` for exported SDK symbols and source paths. The first-party @pax-js/cosmos package in `sdk/js` is edited in place and aligned to the protos of this repository.
 
 ### Upstream Resources
 
@@ -183,13 +183,13 @@ There is no `sdk/docs/` tree in the fork. Use `docs/system/sdk.md` in the monore
 
 ## Contributing to the Fork
 
-Changes to `Paxeer-X-Network/sdk/` affect the entire Paxeer chain. Test thoroughly:
+Changes to `sdk/` affect the entire Paxeer chain. Test thoroughly:
 
 1. Edit code under `sdk/`
 2. Rebuild `paxd`: `make paxeer-build`
-3. Run unit tests: `make test`
+3. Run chain tests: `make paxeer-test`
 4. Test with [Docker cluster](https://docs.paxeer.app/docker): `make docker-cluster-start`
-5. Run integration tests: `make human-test-integration` (there is no `test-integration` target)
+5. Run Human service integration tests: `make human-test-integration`
 
 ## Differences from Upstream Cosmos SDK
 

@@ -4,7 +4,7 @@
 
 Paxeer's EVM execution engine, transaction processing, and state transition management.
 
-**Source:** `Paxeer-X-Network/engine/`
+**Source:** `engine/`
 
 ## Overview
 
@@ -12,9 +12,9 @@ The engine package provides EVM transaction execution for Paxeer. It wraps go-et
 
 ## Executor
 
-**Source:** `Paxeer-X-Network/engine/executor/`
+**Source:** `engine/executor/`
 
-The executor is the core EVM execution wrapper. It provides two entry points:
+The executor wraps EVM execution with separate constructors for the Geth interpreter and the EVMC backend.
 
 ### Executor Types
 
@@ -51,7 +51,7 @@ func (e *Executor) ExecuteTransaction(tx *types.Transaction,
     gasPool *core.GasPool) (*core.ExecutionResult, error)
 ```
 
-Standard execution charges gas fees from the sender, executes the transaction, and refunds unused gas. This path is used for direct EVM transaction submission.
+Standard execution converts the transaction into an internal message and calls go-ethereum’s ApplyMessage, including its gas purchase and refund handling.
 
 #### Fee-Already-Charged Execution
 
@@ -65,7 +65,7 @@ This mode assumes fees were already charged before execution. It skips fee deduc
 
 ### Internal Components
 
-**Source:** `Paxeer-X-Network/engine/executor/internal/`
+**Source:** `engine/executor/internal/`
 
 Internal execution utilities:
 
@@ -77,7 +77,7 @@ Internal execution utilities:
 
 ## Precompiles
 
-**Source:** `Paxeer-X-Network/precompiles/`; `engine/executor/precompiles/failfast.go`
+**Source:** `precompiles/`; `engine/executor/precompiles/failfast.go`
 
 Paxeer-specific precompiled contracts live in the top-level `precompiles/` package and are registered with the executor at initialization. The executor passes the `customPrecompiles` map to the EVM, which routes calls to the registered precompile addresses. The `engine/executor/precompiles/` directory itself contains only the fail-fast wrapper (`failfast.go`) and its tests.
 
@@ -85,7 +85,7 @@ See [Precompiles documentation](https://docs.paxeer.app/precompiles) for the ful
 
 ## Dependencies (xbank, xevm)
 
-**Source:** `Paxeer-X-Network/engine/deps/`
+**Source:** `engine/deps/`
 
 The engine depends on Cosmos SDK modules via thin wrappers in `engine/deps/`:
 
@@ -115,13 +115,13 @@ The engine depends on Cosmos SDK modules via thin wrappers in `engine/deps/`:
 
 - **Fee:** Gas price and fee collection
 
-- **Coinbase:** Block reward recipient
+- **Coinbase:** EVM coinbase address and fee-collector lookup
 
 - **Precompile:** Precompile address registration
 
 ## Configuration
 
-**Source:** `Paxeer-X-Network/engine/executor/config/`
+**Source:** `engine/executor/config/`
 
 The Giga executor configuration carries two flags, both defaulting to `true`:
 
@@ -140,25 +140,25 @@ Chain configuration (chain ID 125, fork activation) and the custom precompile ad
 
 ## Testing
 
-**Source:** `Paxeer-X-Network/engine/tests/`
+**Source:** `engine/tests/`
 
-The engine includes comprehensive test suites:
+The engine includes state-transition tests and an execution harness:
 
 - **State Tests:** `state_test.go` runs Ethereum state transition tests
 
-- **Harness:** `tests/harness/` provides test fixtures and builders
+- **Harness:** `engine/tests/harness/` provides test fixtures and builders
 
 - **Giga Test:** `giga_test.go` for large-scale execution
 
 ## Chain ID
 
-The chain configuration maps the Cosmos identifier `hyperpax_125-1` to **EVM chain ID 125**. Transactions on that network must use chain ID 125 for EIP-155 replay protection. Unknown Cosmos identifiers use the separate development fallback chain ID and must not be treated as Paxeer mainnet.
+The chain configuration maps the Cosmos identifier `hyperpax_125-1` to **EVM chain ID 125**. Transactions on that network must use chain ID 125 for EIP-155 replay protection. Unmapped Cosmos identifiers also return the default EVM chain ID 125 in `modules/evm/config/config.go`. Check the configured network as well as the numeric chain ID.
 
 ## Utilities
 
-**Source:** `Paxeer-X-Network/engine/executor/utils/`
+**Source:** `engine/executor/utils/`
 
-The utils package (`errors.go`) defines the Giga abort sentinel (`giga_fallback_to_v2`) and `ShouldExecutionAbort`, which reports whether an error should abort Giga execution and fall back to the standard (V2) execution path.
+The utils package (`errors.go`) defines the Giga abort sentinel (`giga_fallback_to_v2`). `ShouldExecutionAbort` checks whether a `vm.AbortError` requests an abort, allowing the caller to select the standard (V2) execution path.
 
 ## Integration with EVM Module
 

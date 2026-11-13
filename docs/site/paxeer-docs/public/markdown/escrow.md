@@ -6,7 +6,7 @@ Reserve funds, capture milestone payments, refund unused balances, and resolve d
 
 ## Payment Guarantees for Agent Commerce
 
-Escrow separates a payment commitment from its final distribution. A buyer or agent funds a dedicated escrow account, a named beneficiary captures funds under the agreement, and a named arbiter resolves disputes. Marketplaces, service purchases, procurement, and milestone contracts use the same protocol lifecycle.
+Escrow separates a payment commitment from its final distribution. An agent owner funds a dedicated escrow account from its main account, a named beneficiary captures funds under the agreement, and a named arbiter resolves disputes. Marketplaces, service purchases, procurement, and milestone contracts use the same protocol lifecycle.
 
 The escrow module stores the agreement terms and lifecycle. Every movement of value uses the shared `402LXP` transfer mechanism, including funding, beneficiary payments, refunds, and dispute splits. The account namespace is `agent:<did>:escrow:<id>`.
 
@@ -43,7 +43,7 @@ The terms hash commits to the agreement. Applications verify delivery, evidence,
 
 The beneficiary or an owner principal acting through a delegated capability authorizes capture. The owner authorizes release. Either owner or beneficiary can open a dispute while the hold is active and the dispute deadline has not passed. Only the designated arbiter resolves the dispute.
 
-Captures fail at or after a nonzero expiry, even before a timeout sweep changes the recorded state. Batch maintenance processes due escrow deadlines using the batch timestamp, with a sweep capacity of 24 (`LX_ESCROW_SWEEP_CAPACITY`). Disputed holds do not follow the ordinary timeout refund path; they require resolution.
+Captures fail at or after a nonzero expiry, even before a timeout sweep changes the recorded state. Batch maintenance processes due escrow deadlines using the batch timestamp. The sweep stores due holds in chunks of 24 (`LX_ESCROW_SWEEP_CAPACITY`) and allocates further chunks as needed. Disputed holds do not follow the ordinary timeout refund path; they require resolution.
 
 The dispute deadline is inclusive: a dispute opens when the batch timestamp equals `dispute_window`, and the window is closed only when the timestamp is greater than it. A zero dispute window disables dispute opening.
 
@@ -66,7 +66,7 @@ owner       = remaining_balance - beneficiary
 
 ## Protocol Reference
 
-Escrow is module `2`. Activity payloads use fixed-width IDs and integer amounts; they are protocol activities rather than EVM contract method names.
+Escrow is module `2`, implemented in `src/modules/escrow/` with payload sizes declared in `include/layerx/lx_escrow.h`. Activity payloads use fixed-width IDs and integer amounts; they are protocol activities rather than EVM contract method names.
 
 | Activity | Type | Payload bytes |
 | --- | --- | --- |

@@ -4,7 +4,7 @@
 
 Give autonomous software a verifiable identity, explicit authority, bounded spending, and an evidence trail for every network action.
 
-Paxeer X agents act through the same native authority, signature, fee, and receipt system as human principals. An agent reads state, prepares an activity, discloses its effects, obtains a signature, and tracks the result to its reached rung. LayerX supplies the native activity and program execution plane; the agent daemon supplies tenant isolation, session controls, policy, and runtime integration.
+Paxeer X agents submit signed EIP-1559 transactions to native precompiles on chain 125. The native kernel executes inside the BFT node. An agent reads state, prepares a transaction, reviews its effects, obtains a signature, and tracks the resulting evidence. The agent daemon supplies tenant isolation, session controls, policy, and runtime integration.
 
 ## Choose an agent integration
 
@@ -50,21 +50,21 @@ Attenuation never widens authority: child sets are subsets, amount ceilings do n
 ## The action lifecycle
 
 1. **Read.** Obtain account sequence, balance, and relevant module state.
-2. **Prepare.** Supply actor, authority, account sequence, timestamp bound, idempotency key, fee limit, payload, and payload hash.
+2. **Prepare.** Supply `activity_type`, `actor`, `authority`, `account_sequence`, `not_before`, `not_after`, `idempotency_key`, `fee_limit`, `payload`, and `payload_hash` to the daemon wire API.
 3. **Review.** Inspect the disclosure decoded from the unsigned canonical bytes: actor, authority, activity type, counterparties, amounts, asset, fees, expiry, and idempotency key.
-4. **Sign.** Sign the returned preimage and bind the signature to the preparation reference.
-5. **Submit.** Submit that preparation and signature, retaining the submission reference.
+4. **Sign.** Sign the returned transaction preimage with secp256k1 and bind the 65-byte signature to the preparation reference. The wire signature is 130 lowercase hexadecimal characters.
+5. **Submit.** Submit that preparation, signature, and `signer_public_key`, retaining the submission reference.
 6. **Track.** Use `track` or `wait` to observe evidence and the reached rung.
 
 ```
 prepare → Prepared { preparation_ref, unsigned_canonical_bytes, signing_preimage, disclosure, expiry }
 sign(preparation_ref, signature) → Signed
-submit(preparation_ref, signature) → TrackedSubmission { state, evidence, rung, transitions }
+submit(preparation_ref, signature, signer_public_key) → TrackedSubmission { state, evidence, rung, transitions }
 track(submission_ref) → state + evidence + rung
 wait(submission_ref, requested_rung, deadline) → actual_rung
 ```
 
-Submissions move through Prepared, Signed, Queued, Submitted, Unknown, Executed, Committed, Failed, or Expired. There is no Acknowledged state. Unknown is a pending outcome that requires reconciliation. Executed and Committed carry a receipt reference. Preserve the original idempotency key while resolving an uncertain submission.
+Submissions move through Prepared, Signed, Queued, Submitted, Unknown, Executed, Committed, Failed, or Expired. Unknown is a pending outcome that requires reconciliation. Executed and Committed carry a receipt reference. Preserve the original idempotency key while resolving an uncertain submission.
 
 ## Budgets and human approval
 
@@ -74,7 +74,7 @@ Human approval binds an exact prepared activity and its canonical disclosure dig
 
 ## Read, observe, and verify
 
-Read operations cover balances, accounts, module state, history, batches, checkpoints, and proof bundles. Availability fetch and offline export support evidence portability. Projection returns an estimate and is distinct from a verified read.
+Read operations cover balances, accounts, module state, history, batches, checkpoints, and proof bundles. A batch identifies a block height; a checkpoint contains a CometBFT commit and validator set. Portable proof bundles bind the raw transaction, signed execution receipt, EVM receipt inclusion, and CometBFT commit. Availability fetch and offline export support evidence portability. Projection returns an estimate and is distinct from a verified read.
 
 Evidence is reported as a rung: `submitted`, `receipted`, or `committed`. Submitted is an acknowledgement, receipted verifies execution, and committed verifies inclusion in a committed block. Request the rung the decision needs with `wait`; when the deadline elapses it returns the rung actually reached rather than an error.
 
