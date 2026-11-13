@@ -170120,7 +170120,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.122]
 title = "Move the task records and name the files after what they hold in sdk/wallet"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -205039,7 +205039,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.134]
 title = "Move the task records and name the files after what they hold in services/agent/tests and 1 more directory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -239924,7 +239924,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.115]
 title = "Move the task records and name the files after what they hold in sdk/store"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -239988,7 +239988,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.112]
 title = "Move the task records and name the files after what they hold in sdk/platform and 3 more directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373108,7 +373108,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.41.119]
 title = "Give the page docs/readme/PUBLIC-RPC.md the node inventory and the method contracts of the earlier reference page"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
