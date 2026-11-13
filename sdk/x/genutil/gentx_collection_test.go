@@ -33,15 +33,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const repairM653Mnemonic = "side video kiss hotel essence door angle student degree during vague adjust submit trick globe muscle frozen vacuum artwork million shield bind useful wave"
+const gentxCollectionMnemonic = "side video kiss hotel essence door angle student degree during vague adjust submit trick globe muscle frozen vacuum artwork million shield bind useful wave"
 
-type repairM653Env struct {
+type gentxCollectionEnv struct {
 	config *cfg.Config
 	client client.Context
 	basics module.BasicManager
 }
 
-func repairM653Environment(t *testing.T) repairM653Env {
+func gentxCollectionEnvironment(t *testing.T) gentxCollectionEnv {
 	t.Helper()
 	config := cfg.TestConfig().SetRoot(t.TempDir())
 	require.NoError(t, os.MkdirAll(filepath.Dir(config.NodeKeyFile()), 0700))
@@ -56,7 +56,7 @@ func repairM653Environment(t *testing.T) repairM653Env {
 	sdk.RegisterLegacyAminoCodec(amino)
 	cryptocodec.RegisterCrypto(amino)
 	stakingtypes.RegisterLegacyAminoCodec(amino)
-	return repairM653Env{
+	return gentxCollectionEnv{
 		config: config,
 		client: client.Context{}.WithCodec(cdc).WithLegacyAmino(amino).
 			WithTxConfig(authtx.NewTxConfig(cdc, authtx.DefaultSignModes)).
@@ -66,7 +66,7 @@ func repairM653Environment(t *testing.T) repairM653Env {
 	}
 }
 
-func repairM653Execute(t *testing.T, env repairM653Env, cmd *cobra.Command, args ...string) (string, error) {
+func gentxCollectionExecute(t *testing.T, env gentxCollectionEnv, cmd *cobra.Command, args ...string) (string, error) {
 	t.Helper()
 	var output bytes.Buffer
 	cmd.SetOut(&output)
@@ -98,16 +98,16 @@ func repairM653Execute(t *testing.T, env repairM653Env, cmd *cobra.Command, args
 	return output.String(), err
 }
 
-func repairM653Read(t *testing.T, path string) []byte {
+func gentxCollectionRead(t *testing.T, path string) []byte {
 	t.Helper()
 	data, err := os.ReadFile(path)
 	require.NoError(t, err)
 	return data
 }
 
-func repairM653Generate(t *testing.T, env repairM653Env) (string, []byte) {
+func gentxCollectionGenerate(t *testing.T, env gentxCollectionEnv) (string, []byte) {
 	t.Helper()
-	info, err := env.client.Keyring.NewAccount("validator", repairM653Mnemonic, "", sdk.GetConfig().GetFullBIP44Path(), hd.Secp256k1)
+	info, err := env.client.Keyring.NewAccount("validator", gentxCollectionMnemonic, "", sdk.GetConfig().GetFullBIP44Path(), hd.Secp256k1)
 	require.NoError(t, err)
 	bank := banktypes.DefaultGenesisState()
 	bank.Balances = []banktypes.Balance{{Address: info.GetAddress().String(), Coins: sdk.NewCoins(sdk.NewInt64Coin(sdk.DefaultBondDenom, 10000000))}}
@@ -122,13 +122,13 @@ func repairM653Generate(t *testing.T, env repairM653Env) (string, []byte) {
 	dir := filepath.Join(env.config.RootDir, "config", "gentx")
 	require.NoError(t, os.MkdirAll(dir, 0700))
 	path := filepath.Join(dir, "ceremony.json")
-	output, err := repairM653Execute(t, env,
+	output, err := gentxCollectionExecute(t, env,
 		genutilcli.GenTxCmd(env.basics, env.client.TxConfig, banktypes.GenesisBalancesIterator{}, env.config.RootDir),
 		"validator", "1000000"+sdk.DefaultBondDenom, "--chain-id="+env.client.ChainID,
 		"--ip=127.0.0.1", "--moniker=producer", "--output-document="+path)
 	require.NoError(t, err, output)
 	require.Contains(t, output, "Genesis transaction written")
-	encoded := repairM653Read(t, path)
+	encoded := gentxCollectionRead(t, path)
 	tx, err := env.client.TxConfig.TxJSONDecoder()(encoded)
 	require.NoError(t, err)
 	require.Len(t, tx.GetMsgs(), 1)
@@ -137,7 +137,7 @@ func repairM653Generate(t *testing.T, env repairM653Env) (string, []byte) {
 	return path, encoded
 }
 
-func TestRepairM_653_CollectMalformedGentxs(t *testing.T) {
+func TestGentxCollectionCollectMalformedGentxs(t *testing.T) {
 	cases := []struct {
 		name   string
 		mutate func(*testing.T, client.TxBuilder)
@@ -182,8 +182,8 @@ func TestRepairM_653_CollectMalformedGentxs(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			env := repairM653Environment(t)
-			path, encoded := repairM653Generate(t, env)
+			env := gentxCollectionEnvironment(t)
+			path, encoded := gentxCollectionGenerate(t, env)
 			decoded, err := env.client.TxConfig.TxJSONDecoder()(encoded)
 			require.NoError(t, err)
 			builder, err := env.client.TxConfig.WrapTxBuilder(decoded)
@@ -195,7 +195,7 @@ func TestRepairM_653_CollectMalformedGentxs(t *testing.T) {
 			// The real decoder must accept the fixture before collection rejects it.
 			_, err = env.client.TxConfig.TxJSONDecoder()(encoded)
 			require.NoError(t, err)
-			before := repairM653Read(t, env.config.GenesisFile())
+			before := gentxCollectionRead(t, env.config.GenesisFile())
 			doc, err := tmtypes.GenesisDocFromFile(env.config.GenesisFile())
 			require.NoError(t, err)
 			accepted, peers, err := genutil.CollectTxs(env.client.Codec, env.client.TxConfig.TxJSONDecoder(), env.config.Moniker, filepath.Dir(path), *doc, banktypes.GenesisBalancesIterator{})
@@ -203,24 +203,24 @@ func TestRepairM_653_CollectMalformedGentxs(t *testing.T) {
 			require.ErrorContains(t, err, filepath.Base(path))
 			require.Empty(t, accepted)
 			require.Empty(t, peers)
-			output, err := repairM653Execute(t, env, genutilcli.CollectGenTxsCmd(banktypes.GenesisBalancesIterator{}, env.config.RootDir))
+			output, err := gentxCollectionExecute(t, env, genutilcli.CollectGenTxsCmd(banktypes.GenesisBalancesIterator{}, env.config.RootDir))
 			require.ErrorContains(t, err, tc.want)
 			require.ErrorContains(t, err, filepath.Base(path))
 			require.Empty(t, output)
-			require.Equal(t, before, repairM653Read(t, env.config.GenesisFile()))
-			require.Equal(t, encoded, repairM653Read(t, path))
+			require.Equal(t, before, gentxCollectionRead(t, env.config.GenesisFile()))
+			require.Equal(t, encoded, gentxCollectionRead(t, path))
 		})
 	}
 }
 
-func TestRepairM_653_CollectGeneratedGentx(t *testing.T) {
-	env := repairM653Environment(t)
-	path, encoded := repairM653Generate(t, env)
+func TestGentxCollectionCollectGeneratedGentx(t *testing.T) {
+	env := gentxCollectionEnvironment(t)
+	path, encoded := gentxCollectionGenerate(t, env)
 	generated, err := env.client.TxConfig.TxJSONDecoder()(encoded)
 	require.NoError(t, err)
 	memo := generated.(sdk.TxWithMemo).GetMemo()
 	env.config.Moniker = "collector"
-	output, err := repairM653Execute(t, env, genutilcli.CollectGenTxsCmd(banktypes.GenesisBalancesIterator{}, env.config.RootDir))
+	output, err := gentxCollectionExecute(t, env, genutilcli.CollectGenTxsCmd(banktypes.GenesisBalancesIterator{}, env.config.RootDir))
 	require.NoError(t, err, output)
 	require.Contains(t, output, `"app_message"`)
 	require.Equal(t, memo, env.config.P2P.PersistentPeers)
@@ -236,13 +236,13 @@ func TestRepairM_653_CollectGeneratedGentx(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, reopened.ValidateBasic())
 	require.Equal(t, generated.GetMsgs(), reopened.GetMsgs())
-	require.Equal(t, encoded, repairM653Read(t, path))
+	require.Equal(t, encoded, gentxCollectionRead(t, path))
 }
 
-func TestRepairM_653_ValidatorLoadErrors(t *testing.T) {
+func TestGentxCollectionValidatorLoadErrors(t *testing.T) {
 	for _, corrupt := range []string{"key", "state"} {
 		t.Run(corrupt, func(t *testing.T) {
-			env := repairM653Environment(t)
+			env := gentxCollectionEnvironment(t)
 			nodeID, pub, err := genutil.InitializeNodeValidatorFiles(env.config)
 			require.NoError(t, err)
 			require.NotEmpty(t, nodeID)
@@ -252,14 +252,14 @@ func TestRepairM_653_ValidatorLoadErrors(t *testing.T) {
 				path = env.config.PrivValidator.StateFile()
 			}
 			require.NoError(t, os.WriteFile(path, []byte("malformed validator JSON"), 0600))
-			before := repairM653Identity(t, env)
+			before := gentxCollectionIdentity(t, env)
 			_, originalErr := privval.LoadOrGenFilePV(env.config.PrivValidator.KeyFile(), env.config.PrivValidator.StateFile())
 			require.Error(t, originalErr)
 			nodeID, pub, err = genutil.InitializeNodeValidatorFiles(env.config)
 			require.EqualError(t, err, originalErr.Error())
 			require.Empty(t, nodeID)
 			require.Nil(t, pub)
-			require.Equal(t, before, repairM653Identity(t, env))
+			require.Equal(t, before, gentxCollectionIdentity(t, env))
 			for _, cmd := range []*cobra.Command{
 				genutilcli.InitCmd(env.basics, env.config.RootDir),
 				genutilcli.CollectGenTxsCmd(banktypes.GenesisBalancesIterator{}, env.config.RootDir),
@@ -268,10 +268,10 @@ func TestRepairM_653_ValidatorLoadErrors(t *testing.T) {
 				if cmd.Name() == "init" {
 					args = []string{"validator"}
 				}
-				output, err := repairM653Execute(t, env, cmd, args...)
+				output, err := gentxCollectionExecute(t, env, cmd, args...)
 				require.ErrorContains(t, err, originalErr.Error())
 				require.Empty(t, output)
-				require.Equal(t, before, repairM653Identity(t, env))
+				require.Equal(t, before, gentxCollectionIdentity(t, env))
 				_, err = os.Stat(env.config.GenesisFile())
 				require.True(t, os.IsNotExist(err))
 			}
@@ -279,23 +279,23 @@ func TestRepairM_653_ValidatorLoadErrors(t *testing.T) {
 	}
 }
 
-func repairM653Identity(t *testing.T, env repairM653Env) map[string][]byte {
+func gentxCollectionIdentity(t *testing.T, env gentxCollectionEnv) map[string][]byte {
 	t.Helper()
 	result := make(map[string][]byte)
 	for _, path := range []string{env.config.NodeKeyFile(), env.config.PrivValidator.KeyFile(), env.config.PrivValidator.StateFile(), filepath.Join(filepath.Dir(env.config.PrivValidator.KeyFile()), "validator_pubkey.txt")} {
-		result[path] = repairM653Read(t, path)
+		result[path] = gentxCollectionRead(t, path)
 	}
 	return result
 }
 
-func TestRepairM_653_ValidatorWriteFailure(t *testing.T) {
+func TestGentxCollectionValidatorWriteFailure(t *testing.T) {
 	for _, entry := range []string{"initializer", "init", "collect-gentxs"} {
 		t.Run(entry, func(t *testing.T) {
-			env := repairM653Environment(t)
+			env := gentxCollectionEnvironment(t)
 			// Generate the P2P identity before inducing a real validator save failure.
 			_, err := env.config.LoadOrGenNodeKeyID()
 			require.NoError(t, err)
-			nodeBefore := repairM653Read(t, env.config.NodeKeyFile())
+			nodeBefore := gentxCollectionRead(t, env.config.NodeKeyFile())
 			blocker := filepath.Join(filepath.Dir(env.config.PrivValidator.KeyFile()), "validator_pubkey.txt")
 			require.NoError(t, os.Mkdir(blocker, 0700))
 			sentinel := filepath.Join(blocker, "existing-identity")
@@ -308,9 +308,9 @@ func TestRepairM_653_ValidatorWriteFailure(t *testing.T) {
 				require.Empty(t, nodeID)
 				require.Nil(t, pub)
 			case "init":
-				output, err = repairM653Execute(t, env, genutilcli.InitCmd(env.basics, env.config.RootDir), "validator")
+				output, err = gentxCollectionExecute(t, env, genutilcli.InitCmd(env.basics, env.config.RootDir), "validator")
 			case "collect-gentxs":
-				output, err = repairM653Execute(t, env, genutilcli.CollectGenTxsCmd(banktypes.GenesisBalancesIterator{}, env.config.RootDir))
+				output, err = gentxCollectionExecute(t, env, genutilcli.CollectGenTxsCmd(banktypes.GenesisBalancesIterator{}, env.config.RootDir))
 			}
 			require.Error(t, err)
 			var pathErr *os.PathError
@@ -318,8 +318,8 @@ func TestRepairM_653_ValidatorWriteFailure(t *testing.T) {
 			require.Equal(t, "open", pathErr.Op)
 			require.Equal(t, blocker, pathErr.Path)
 			require.Empty(t, output)
-			require.Equal(t, nodeBefore, repairM653Read(t, env.config.NodeKeyFile()))
-			require.Equal(t, []byte("retain this identity"), repairM653Read(t, sentinel))
+			require.Equal(t, nodeBefore, gentxCollectionRead(t, env.config.NodeKeyFile()))
+			require.Equal(t, []byte("retain this identity"), gentxCollectionRead(t, sentinel))
 			_, err = os.Stat(env.config.PrivValidator.StateFile())
 			require.True(t, os.IsNotExist(err))
 			_, err = os.Stat(env.config.GenesisFile())
@@ -331,11 +331,11 @@ func TestRepairM_653_ValidatorWriteFailure(t *testing.T) {
 	}
 }
 
-func TestRepairM_653_CollectMissingBasicFields(t *testing.T) {
+func TestGentxCollectionCollectMissingBasicFields(t *testing.T) {
 	for _, field := range []string{"min_self_delegation", "commission", "rate", "max_rate", "max_change_rate"} {
 		t.Run(field, func(t *testing.T) {
-			env := repairM653Environment(t)
-			path, encoded := repairM653Generate(t, env)
+			env := gentxCollectionEnvironment(t)
+			path, encoded := gentxCollectionGenerate(t, env)
 			var raw map[string]json.RawMessage
 			require.NoError(t, json.Unmarshal(encoded, &raw))
 			var body map[string]json.RawMessage
@@ -363,16 +363,16 @@ func TestRepairM_653_CollectMissingBasicFields(t *testing.T) {
 			_, err = env.client.TxConfig.TxJSONDecoder()(encoded)
 			require.NoError(t, err)
 			require.NoError(t, os.WriteFile(path, encoded, 0600))
-			before := repairM653Read(t, env.config.GenesisFile())
-			output, err := repairM653Execute(t, env, genutilcli.CollectGenTxsCmd(banktypes.GenesisBalancesIterator{}, env.config.RootDir))
+			before := gentxCollectionRead(t, env.config.GenesisFile())
+			output, err := gentxCollectionExecute(t, env, genutilcli.CollectGenTxsCmd(banktypes.GenesisBalancesIterator{}, env.config.RootDir))
 			require.ErrorContains(t, err, filepath.Base(path))
 			require.ErrorContains(t, err, "invalid MsgCreateValidator")
 			if field != "min_self_delegation" {
 				require.ErrorContains(t, err, field)
 			}
 			require.Empty(t, output)
-			require.Equal(t, before, repairM653Read(t, env.config.GenesisFile()))
-			require.Equal(t, encoded, repairM653Read(t, path))
+			require.Equal(t, before, gentxCollectionRead(t, env.config.GenesisFile()))
+			require.Equal(t, encoded, gentxCollectionRead(t, path))
 		})
 	}
 }

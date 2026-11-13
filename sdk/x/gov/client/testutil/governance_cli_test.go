@@ -48,7 +48,7 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-type repair683Chain struct {
+type governanceCLIChain struct {
 	app      *baseapp.BaseApp
 	ctx      sdk.Context
 	keeper   govkeeper.Keeper
@@ -59,13 +59,13 @@ type repair683Chain struct {
 	genesis  *tmtypes.GenesisDoc
 }
 
-func repair683Encoding() moduletestutil.TestEncodingConfig {
+func governanceCLIEncoding() moduletestutil.TestEncodingConfig {
 	return moduletestutil.MakeTestEncodingConfig(auth.AppModuleBasic{}, bank.AppModuleBasic{}, staking.AppModuleBasic{}, gov.AppModuleBasic{})
 }
 
-func newRepair683Chain(t *testing.T) *repair683Chain {
+func newGovernanceCLIChain(t *testing.T) *governanceCLIChain {
 	t.Helper()
-	enc := repair683Encoding()
+	enc := governanceCLIEncoding()
 	cfg := config.TestConfig().SetRoot(t.TempDir())
 	config.EnsureRoot(cfg.RootDir)
 	cfg.Mode = config.ModeFull
@@ -122,7 +122,7 @@ func newRepair683Chain(t *testing.T) *repair683Chain {
 	require.NoError(t, err)
 	// The node supplies the production stores and local RPC handlers; no consensus
 	// service or listening endpoint is started in this integration test.
-	chain := &repair683Chain{app: app, ctx: ctx, keeper: k, encoding: enc, node: node, bank: bk, config: cfg, genesis: genesis}
+	chain := &governanceCLIChain{app: app, ctx: ctx, keeper: k, encoding: enc, node: node, bank: bk, config: cfg, genesis: genesis}
 	t.Cleanup(func() {
 		if chain.node != nil {
 			chain.node.(interface{ OnStop() }).OnStop()
@@ -131,23 +131,23 @@ func newRepair683Chain(t *testing.T) *repair683Chain {
 	return chain
 }
 
-func (chain *repair683Chain) client(t *testing.T) client.Context {
+func (chain *governanceCLIChain) client(t *testing.T) client.Context {
 	t.Helper()
 	rpc, err := local.New(chain.node)
 	require.NoError(t, err)
-	enc := repair683Encoding()
+	enc := governanceCLIEncoding()
 	return client.Context{}.WithClient(rpc).WithCodec(enc.Codec).WithLegacyAmino(enc.Amino).
 		WithInterfaceRegistry(enc.InterfaceRegistry).WithTxConfig(enc.TxConfig).
 		WithChainID("repair-683").WithOutputFormat("json")
 }
 
-func (chain *repair683Chain) commit() {
+func (chain *governanceCLIChain) commit() {
 	chain.ctx.MultiStore().(sdk.CacheMultiStore).Write()
 	chain.app.CommitMultiStore().Commit(true)
 	chain.ctx = chain.ctx.WithMultiStore(chain.app.CommitMultiStore().CacheMultiStore())
 }
 
-func TestRepairM_683_CLIConfig(t *testing.T) {
+func TestGovernanceCLIConfig(t *testing.T) {
 	cfg := network.DefaultConfig(t)
 	integration := NewIntegrationTestSuite(cfg)
 	deposits := NewDepositTestSuite(cfg)
@@ -186,8 +186,8 @@ func TestRepairM_683_CLIConfig(t *testing.T) {
 	require.Equal(t, genesis.TallyParams, app.(*paxapp.App).GovKeeper.GetTallyParams(ctx))
 }
 
-func TestRepairM_683_Params(t *testing.T) {
-	chain := newRepair683Chain(t)
+func TestGovernanceCLIParams(t *testing.T) {
+	chain := newGovernanceCLIChain(t)
 	chain.commit()
 	clientCtx := chain.client(t)
 	s := NewIntegrationTestSuite(network.Config{LegacyAmino: chain.encoding.Amino})
@@ -215,8 +215,8 @@ func TestRepairM_683_Params(t *testing.T) {
 	}
 }
 
-func TestRepairM_683_CumulativeDeposits(t *testing.T) {
-	chain := newRepair683Chain(t)
+func TestGovernanceCLICumulativeDeposits(t *testing.T) {
+	chain := newGovernanceCLIChain(t)
 	coins := func(amount int64) sdk.Coins { return sdk.NewCoins(sdk.NewInt64Coin(sdk.DefaultBondDenom, amount)) }
 	owners := []sdk.AccAddress{bytes.Repeat([]byte{1}, 20), bytes.Repeat([]byte{2}, 20)}
 	for _, owner := range owners {

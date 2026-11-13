@@ -24,7 +24,7 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-func repair307Keeper(t *testing.T) (keeper.Keeper, sdk.Context, *sdk.KVStoreKey) {
+func allowanceKeyKeeper(t *testing.T) (keeper.Keeper, sdk.Context, *sdk.KVStoreKey) {
 	t.Helper()
 	db := dbm.NewMemDB()
 	t.Cleanup(func() { require.NoError(t, db.Close()) })
@@ -48,8 +48,8 @@ func repair307Keeper(t *testing.T) (keeper.Keeper, sdk.Context, *sdk.KVStoreKey)
 	return keeper.NewKeeper(cdc, feeKey, ak), ctx, feeKey
 }
 
-func TestRepair_307_FeegrantKey(t *testing.T) {
-	k, ctx, storeKey := repair307Keeper(t)
+func TestAllowanceKeyRoundTrip(t *testing.T) {
+	k, ctx, storeKey := allowanceKeyKeeper(t)
 	lengths := []int{20, 32}
 	grantees := make([]sdk.AccAddress, len(lengths))
 	granters := make([]sdk.AccAddress, len(lengths))
@@ -94,7 +94,7 @@ func TestRepair_307_FeegrantKey(t *testing.T) {
 	}
 }
 
-func TestRepair_307_FeegrantKeyLayout(t *testing.T) {
+func TestAllowanceKeyLayout(t *testing.T) {
 	for _, granterLen := range []int{20, 32, address.MaxAddrLen} {
 		for _, granteeLen := range []int{20, 32, address.MaxAddrLen} {
 			t.Run(fmt.Sprintf("round_trip_%d_%d", granterLen, granteeLen), func(t *testing.T) {
@@ -130,11 +130,11 @@ func TestRepair_307_FeegrantKeyLayout(t *testing.T) {
 	}
 }
 
-func TestRepair_307_FilteredRemove(t *testing.T) {
+func TestFilteredAllowanceRemovalFlags(t *testing.T) {
 	for _, wrapped := range []bool{false, true} {
 		for _, unlimited := range []bool{false, true} {
 			t.Run(fmt.Sprintf("wrapped_%t_unlimited_%t", wrapped, unlimited), func(t *testing.T) {
-				k, ctx, storeKey := repair307Keeper(t)
+				k, ctx, storeKey := allowanceKeyKeeper(t)
 				granter := sdk.AccAddress(bytes.Repeat([]byte{1}, 20))
 				grantee := sdk.AccAddress(bytes.Repeat([]byte{2}, 20))
 				expiration := ctx.BlockTime().Add(time.Hour)
