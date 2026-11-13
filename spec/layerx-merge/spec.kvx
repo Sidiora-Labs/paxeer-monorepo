@@ -194533,7 +194533,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.257]
 title = "Bring the readers of renamed files under the interop services, the bring-up tools and the chain packages to the present paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.43.151", "22.43.152"]
