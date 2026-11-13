@@ -21,7 +21,7 @@ previous_result = "51 tests passed, but qualification was rejected for .cgignore
 
 [qualification]
 build_cmd = "python3 -m py_compile tests/conformance/check_receipt_vector_copies.py"
-verify_cmd = "python3 -m pytest -q tests/conformance/test_repair_22_33_886.py"
+verify_cmd = "python3 -m pytest -q tests/conformance/test_receipt_vector_copies.py"
 evidence = "The private hf-build/hf-done ledger records the exact candidate revision, command, exit and log; completion requires both gates to pass at the same revision."
 
 [wiring.sdk]
