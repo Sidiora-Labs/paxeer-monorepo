@@ -430,7 +430,7 @@ func TestGenesisRetiredNetworkBoundary(t *testing.T) {
 	}
 	// This committed fixture is a native paxd-produced genesis, decoded and
 	// emitted again through its actual consensus codec rather than an LXGB blob.
-	doc, e := tmtypes.GenesisDocFromJSON(serviceRecoveryRead(t, "../../services/platform/hosted/node/tests/fixtures/repair_22_31_355/genesis.json"))
+	doc, e := tmtypes.GenesisDocFromJSON(serviceRecoveryRead(t, "../../services/platform/hosted/node/tests/fixtures/native_lifecycle/genesis.json"))
 	if e != nil {
 		t.Fatal(e)
 	}

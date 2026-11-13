@@ -663,7 +663,7 @@ func TestChainModulesCompletionRetiredSurfacesAbsent(t *testing.T) {
 		{"6.32.3", "precompiles/layerxanchor/retired_surface_test.go"},
 		{"6.34.1", "precompiles/layerxanchor/unwired_test.go"},
 		{"6.71.1", "precompiles/layerxverify/retire_gate_test.go"},
-		{"6.59.7", "tests/bridge/retired/repair_6_59_7.kvx"},
+		{"6.59.7", "spec/layerx-merge/programme/records/tests/bridge/retired/repair_6_59_7.kvx"},
 		{"6.53.2", "tests/bridge/retired/test_retired_asset_registry.py"},
 		{"6.54.1", "tests/bridge/retired/test_retired_block_errors.py"},
 		{"6.59.1", "tests/bridge/retired/test_retired_blueprint.py"},

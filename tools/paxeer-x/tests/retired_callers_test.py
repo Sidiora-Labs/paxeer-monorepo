@@ -539,7 +539,7 @@ def self_test(catalogue):
             "core/deps/geth/signer/fourbyte/**",
             "programs/vendor/**",
             "apps/launchpad/web/public/charting_library/**",
-            "services/platform/examples/marketplace/repair-22-31-349.kvx",
+            "spec/layerx-merge/programme/records/services/platform/examples/marketplace/repair-22-31-349.kvx",
             "tools/bringup/repair-*.kvx",
             "api/README.md",
             "modules/README.md",

@@ -252,7 +252,7 @@ fn documented_sponsorship_uses_chain_125_quote() {
 
 fn transcript() -> Value {
     checked(serde_json::from_str(include_str!(
-        "../crates/layerx-human-service/src/journeys/repair_22_31_153_transcript.json"
+        "../crates/layerx-human-service/src/journeys/bank_commit_transcript.json"
     )))
 }
 fn unhex(text: &str) -> Vec<u8> {

@@ -204502,7 +204502,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.255]
 title = "Bring the readers of renamed files under the human service tests to the present paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -205040,7 +205040,7 @@ do_6 = "do_6 Decision 3451, gotcha 4367. The paths of this task now hold service
 
 [task.22.43.152]
 title = "Move the task records and name the files after what they hold in services/interop/crates/layerx-fiat and 5 more directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -238686,7 +238686,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.41.123]
 title = "Read the public endpoint contract of the consensus RPC from docs/readme/PUBLIC-RPC.md"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.41.119"]

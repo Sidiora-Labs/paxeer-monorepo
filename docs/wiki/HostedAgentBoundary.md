@@ -204,7 +204,7 @@ Current receipt behavior is covered in
 [`tests/chain_receipt.rs`](../../services/platform/hosted/agent-boundary/tests/chain_receipt.rs):
 receipt identity and signature checks, unknown transactions, deployment proof
 reads, authorization, and startup without the retired socket configuration.
-[`tests/repair_22_31_191.rs`](../../services/platform/hosted/agent-boundary/tests/repair_22_31_191.rs)
+[`tests/chain_receipt_lifecycle.rs`](../../services/platform/hosted/agent-boundary/tests/chain_receipt_lifecycle.rs)
 covers retired account-state routes, readiness using only chain dependencies,
 absence of journal directories, upstream loss with liveness retained, and
 pinned key-height enforcement.

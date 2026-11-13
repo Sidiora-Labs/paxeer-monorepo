@@ -134,7 +134,7 @@ moves balances again, and proves the export still matches that fixed state,
 including the full supply, the sorted JSON and its evidence digest. It also
 refuses stale and conflicting history; it never accepts a supply drop.
 
-The [CSV/RPC test suite](../../qualification/audit_repairs/test_repair_22_33_846.py)
+The [CSV/RPC test suite](../../qualification/audit_repairs/test_sid_snapshot_height_and_transfer.py)
 exercises export and reconciliation with an in-process RPC peer. That suite
 does not execute an EVM. Neither it nor the real-contract integration regenerates
 the embedded release holder file.
