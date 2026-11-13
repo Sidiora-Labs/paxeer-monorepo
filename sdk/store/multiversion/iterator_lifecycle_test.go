@@ -13,20 +13,20 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-func repairM638Iterator(store types.KVStore, ascending bool) types.Iterator {
+func newVersionedStoreIterator(store types.KVStore, ascending bool) types.Iterator {
 	if ascending {
 		return store.Iterator(nil, nil)
 	}
 	return store.ReverseIterator(nil, nil)
 }
 
-func TestRepairM_638_IteratorErrors(t *testing.T) {
+func TestVersionedStoreIteratorErrors(t *testing.T) {
 	for _, ascending := range []bool{true, false} {
 		t.Run(fmt.Sprintf("ascending=%t", ascending), func(t *testing.T) {
 			parent := dbadapter.Store{DB: dbm.NewMemDB()}
 			store := NewMultiVersionStore(parent)
 			consumer := store.VersionedIndexedStore(1, 0, make(chan occ.Abort, 1))
-			empty := repairM638Iterator(consumer, ascending)
+			empty := newVersionedStoreIterator(consumer, ascending)
 			require.NoError(t, empty.Error())
 			require.False(t, empty.Valid())
 			require.NoError(t, empty.Error())
@@ -42,7 +42,7 @@ func TestRepairM_638_IteratorErrors(t *testing.T) {
 			producer.Set([]byte("c"), []byte("version"))
 			producer.WriteToMultiVersionStore()
 			consumer = store.VersionedIndexedStore(1, 1, make(chan occ.Abort, 1))
-			iter := repairM638Iterator(consumer, ascending)
+			iter := newVersionedStoreIterator(consumer, ascending)
 			values := map[string]string{}
 			var keys []string
 			for ; iter.Valid(); iter.Next() {
@@ -67,7 +67,7 @@ func TestRepairM_638_IteratorErrors(t *testing.T) {
 			failedStore := NewMultiVersionStore(failedParent)
 			failedConsumer := failedStore.VersionedIndexedStore(0, 0, make(chan occ.Abort, 1))
 			failedConsumer.Set([]byte("local"), []byte("still-valid"))
-			failed := repairM638Iterator(failedConsumer, ascending)
+			failed := newVersionedStoreIterator(failedConsumer, ascending)
 			merged := failed.(*trackedIterator).Iterator.(*mvsMergeIterator)
 			backingErr := merged.parent.Error()
 			require.Error(t, backingErr, "the real closed backend must produce the error")
@@ -83,10 +83,10 @@ func TestRepairM_638_IteratorErrors(t *testing.T) {
 			valid, _ := failedStore.ValidateTransactionState(0)
 			require.False(t, valid, "a backend failure must invalidate the recorded scan")
 
-			cacheFailure := repairM638Iterator(failedParent, ascending)
+			cacheFailure := newVersionedStoreIterator(failedParent, ascending)
 			backingErr = cacheFailure.Error()
 			require.Error(t, backingErr)
-			parentIter := repairM638Iterator(parent, ascending)
+			parentIter := newVersionedStoreIterator(parent, ascending)
 			merged = NewMVSMergeIterator(parentIter, cacheFailure, ascending, NoOpHandler{})
 			require.ErrorIs(t, merged.Error(), backingErr, "cache errors must also survive the merge")
 			require.NoError(t, merged.Close())
@@ -94,7 +94,7 @@ func TestRepairM_638_IteratorErrors(t *testing.T) {
 	}
 }
 
-func TestRepairM_638_NilSet(t *testing.T) {
+func TestVersionedStoreNilSet(t *testing.T) {
 	parent := dbadapter.Store{DB: dbm.NewMemDB()}
 	key := []byte("key")
 	parent.Set(key, []byte("parent"))
@@ -132,7 +132,7 @@ func TestRepairM_638_NilSet(t *testing.T) {
 	require.NotNil(t, parent.Get([]byte("empty")))
 }
 
-type repairM638ObservedStore struct {
+type iteratorObservedStore struct {
 	types.KVStore
 	opened       atomic.Int32
 	closed       atomic.Int32
@@ -140,22 +140,22 @@ type repairM638ObservedStore struct {
 	closeRelease chan struct{}
 }
 
-type repairM638ObservedIterator struct {
+type observedStoreIterator struct {
 	types.Iterator
-	store *repairM638ObservedStore
+	store *iteratorObservedStore
 }
 
-func (store *repairM638ObservedStore) Iterator(start, end []byte) types.Iterator {
+func (store *iteratorObservedStore) Iterator(start, end []byte) types.Iterator {
 	store.opened.Add(1)
-	return &repairM638ObservedIterator{Iterator: store.KVStore.Iterator(start, end), store: store}
+	return &observedStoreIterator{Iterator: store.KVStore.Iterator(start, end), store: store}
 }
 
-func (store *repairM638ObservedStore) ReverseIterator(start, end []byte) types.Iterator {
+func (store *iteratorObservedStore) ReverseIterator(start, end []byte) types.Iterator {
 	store.opened.Add(1)
-	return &repairM638ObservedIterator{Iterator: store.KVStore.ReverseIterator(start, end), store: store}
+	return &observedStoreIterator{Iterator: store.KVStore.ReverseIterator(start, end), store: store}
 }
 
-func (iter *repairM638ObservedIterator) Close() error {
+func (iter *observedStoreIterator) Close() error {
 	close(iter.store.closeStarted)
 	<-iter.store.closeRelease
 	err := iter.Iterator.Close()
@@ -163,11 +163,11 @@ func (iter *repairM638ObservedIterator) Close() error {
 	return err
 }
 
-func TestRepairM_638_ParticipantAbort(t *testing.T) {
+func TestVersionedStoreParticipantAbort(t *testing.T) {
 	for _, ascending := range []bool{true, false} {
 		t.Run(fmt.Sprintf("ascending=%t", ascending), func(t *testing.T) {
 			backing := dbadapter.Store{DB: dbm.NewMemDB()}
-			parent := &repairM638ObservedStore{KVStore: backing}
+			parent := &iteratorObservedStore{KVStore: backing}
 			store := NewMultiVersionStore(parent)
 			producer := store.VersionedIndexedStore(0, 0, make(chan occ.Abort, 1))
 			for _, key := range []string{"a", "b", "c", "d", "e"} {
@@ -179,7 +179,7 @@ func TestRepairM_638_ParticipantAbort(t *testing.T) {
 			parent.closeStarted = make(chan struct{})
 			parent.closeRelease = make(chan struct{})
 			close(parent.closeRelease)
-			iter := repairM638Iterator(consumer, ascending)
+			iter := newVersionedStoreIterator(consumer, ascending)
 			for ; iter.Valid(); iter.Next() {
 				require.Equal(t, []byte("predecessor"), iter.Value())
 			}
@@ -235,7 +235,7 @@ func TestRepairM_638_ParticipantAbort(t *testing.T) {
 	}
 }
 
-func TestRepairM_638_TerminalEstimate(t *testing.T) {
+func TestVersionedStoreTerminalEstimate(t *testing.T) {
 	parent := dbadapter.Store{DB: dbm.NewMemDB()}
 	store := NewMultiVersionStore(parent)
 	producer := store.VersionedIndexedStore(0, 0, make(chan occ.Abort, 1))

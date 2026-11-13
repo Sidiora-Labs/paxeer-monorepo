@@ -10,7 +10,7 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-func repairM640DBState(t *testing.T, db dbm.DB) map[string][]byte {
+func persistedDBState(t *testing.T, db dbm.DB) map[string][]byte {
 	t.Helper()
 	it, err := db.Iterator(nil, nil)
 	require.NoError(t, err)
@@ -23,7 +23,7 @@ func repairM640DBState(t *testing.T, db dbm.DB) map[string][]byte {
 	return state
 }
 
-func TestRepairM_640_RollbackRestartRecovery(t *testing.T) {
+func TestStoreRollbackRestartRecovery(t *testing.T) {
 	for _, typ := range []storetypes.StoreType{storetypes.StoreTypeIAVL, storetypes.StoreTypeDB} {
 		for _, target := range []int64{1, 2, 3, 4, 0, -1} {
 			t.Run(fmt.Sprintf("store=%d/target=%d", typ, target), func(t *testing.T) {
@@ -67,7 +67,7 @@ func TestRepairM_640_RollbackRestartRecovery(t *testing.T) {
 					commits = append(commits, commit)
 				}
 				store.GetKVStore(transient).Set([]byte("pending"), []byte("keep-on-refusal"))
-				before := repairM640DBState(t, db)
+				before := persistedDBState(t, db)
 				commitInfo, err := store.LastCommitInfo().Marshal()
 				require.NoError(t, err)
 
@@ -83,7 +83,7 @@ func TestRepairM_640_RollbackRestartRecovery(t *testing.T) {
 				} else {
 					require.EqualError(t, err, fmt.Sprintf("invalid rollback height target: %d", target))
 				}
-				require.Equal(t, before, repairM640DBState(t, db), "refusal must not rewrite any persisted values or metadata")
+				require.Equal(t, before, persistedDBState(t, db), "refusal must not rewrite any persisted values or metadata")
 				require.Equal(t, []byte("keep-on-refusal"), store.GetKVStore(transient).Get([]byte("pending")))
 
 				assertLatest := func() {
@@ -103,7 +103,7 @@ func TestRepairM_640_RollbackRestartRecovery(t *testing.T) {
 				store = nil
 				open()
 				assertLatest()
-				require.Equal(t, before, repairM640DBState(t, db), "reopening must retain the original data and every commit record")
+				require.Equal(t, before, persistedDBState(t, db), "reopening must retain the original data and every commit record")
 
 				cache := store.CacheMultiStore()
 				cache.GetKVStore(bank).Set([]byte("balance"), []byte("4"))
@@ -122,7 +122,7 @@ func TestRepairM_640_RollbackRestartRecovery(t *testing.T) {
 	}
 }
 
-func TestRepairM_640_RollbackRejectedBeforeLoad(t *testing.T) {
+func TestStoreRollbackRejectedBeforeLoad(t *testing.T) {
 	var store rootmulti.Store
 	err := store.RollbackToVersion(1)
 	var unsupported *rootmulti.RollbackUnsupportedError

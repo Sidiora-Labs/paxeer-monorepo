@@ -37,7 +37,7 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-func TestRepairM_636_FirstLastRanges(t *testing.T) {
+func TestStoreFirstLastRanges(t *testing.T) {
 	for _, backend := range []string{"memory", "goleveldb"} {
 		t.Run(backend, func(t *testing.T) {
 			var db dbm.DB
@@ -111,7 +111,7 @@ func TestRepairM_636_FirstLastRanges(t *testing.T) {
 	}
 }
 
-func TestRepairM_636_FirstLastCloses(t *testing.T) {
+func TestStoreFirstLastCloses(t *testing.T) {
 	db, err := dbm.NewGoLevelDB("closes", t.TempDir())
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, db.Close()) })
@@ -154,7 +154,7 @@ func TestRepairM_636_FirstLastCloses(t *testing.T) {
 	}
 }
 
-func TestRepairM_636_SDKAPIContract(t *testing.T) {
+func TestStoreSDKAPIContract(t *testing.T) {
 	data, err := os.ReadFile("../../contracts/cosmos-fork.md")
 	require.NoError(t, err)
 	doc := string(data)
@@ -179,7 +179,7 @@ func TestRepairM_636_SDKAPIContract(t *testing.T) {
 	}
 }
 
-func TestRepairM_636_BulkKeyNamespace(t *testing.T) {
+func TestStoreBulkKeyNamespace(t *testing.T) {
 	db := dbm.NewMemDB()
 	t.Cleanup(func() { require.NoError(t, db.Close()) })
 	parent := dbadapter.Store{DB: db}
@@ -205,7 +205,7 @@ func TestRepairM_636_BulkKeyNamespace(t *testing.T) {
 	require.Equal(t, []byte("other-tenant"), parent.Get([]byte("other/bank/b")))
 }
 
-func TestRepairM_636_ErrorTransport(t *testing.T) {
+func TestStoreErrorTransport(t *testing.T) {
 	for _, sentinel := range []*sdkerrors.Error{sdkerrors.ErrInvalidRequest, sdkerrors.ErrUnauthorized, sdkerrors.ErrOutOfGas} {
 		t.Run(sentinel.Error(), func(t *testing.T) {
 			response := sdkerrors.QueryResult(sdkerrors.Wrap(sentinel, "store request refused"))
@@ -226,7 +226,7 @@ func TestRepairM_636_ErrorTransport(t *testing.T) {
 	require.Empty(t, log)
 }
 
-func TestRepairM_636_CLIContract(t *testing.T) {
+func TestStoreCLIContract(t *testing.T) {
 	home := t.TempDir()
 	configPath := filepath.Join(home, "config")
 	require.NoError(t, os.MkdirAll(configPath, 0700))
@@ -260,7 +260,7 @@ func TestRepairM_636_CLIContract(t *testing.T) {
 	require.Equal(t, "m636-consensus", conf.ChainID)
 }
 
-func TestRepairM_636_HistoricalStoreContract(t *testing.T) {
+func TestStoreHistoricalStoreContract(t *testing.T) {
 	ms := store.NewCommitMultiStore(dbm.NewMemDB())
 	t.Cleanup(func() { require.NoError(t, ms.Close()) })
 	key := storetypes.NewKVStoreKey("bank")
@@ -295,7 +295,7 @@ func TestRepairM_636_HistoricalStoreContract(t *testing.T) {
 	require.Equal(t, []byte("latest"), ms.CacheMultiStore().GetKVStore(key).Get([]byte("balance")))
 }
 
-type repairM636Genesis struct {
+type genesisStreamStore struct {
 	ms      storetypes.CommitMultiStore
 	ctx     sdk.Context
 	keeper  paramkeeper.Keeper
@@ -304,7 +304,7 @@ type repairM636Genesis struct {
 	closed  bool
 }
 
-func repairM636OpenGenesis(t *testing.T, dir string) *repairM636Genesis {
+func openGenesisStreamStore(t *testing.T, dir string) *genesisStreamStore {
 	t.Helper()
 	db, err := dbm.NewGoLevelDB("genesis", dir)
 	require.NoError(t, err)
@@ -316,12 +316,12 @@ func repairM636OpenGenesis(t *testing.T, dir string) *repairM636Genesis {
 	require.NoError(t, ms.LoadLatestVersion())
 	cdc := codec.NewProtoCodec(codectypes.NewInterfaceRegistry())
 	keeper := paramkeeper.NewKeeper(cdc, codec.NewLegacyAmino(), key, tkey)
-	f := &repairM636Genesis{ms: ms, ctx: sdk.NewContext(ms, tmproto.Header{Height: 1, Time: time.Unix(1, 0)}, false), keeper: keeper, cdc: cdc, manager: module.NewManager(params.NewAppModule(keeper))}
+	f := &genesisStreamStore{ms: ms, ctx: sdk.NewContext(ms, tmproto.Header{Height: 1, Time: time.Unix(1, 0)}, false), keeper: keeper, cdc: cdc, manager: module.NewManager(params.NewAppModule(keeper))}
 	t.Cleanup(func() { f.close(t) })
 	return f
 }
 
-func (f *repairM636Genesis) close(t *testing.T) {
+func (f *genesisStreamStore) close(t *testing.T) {
 	t.Helper()
 	if !f.closed {
 		require.NoError(t, f.ms.Close())
@@ -329,8 +329,8 @@ func (f *repairM636Genesis) close(t *testing.T) {
 	}
 }
 
-func TestRepairM_636_GenesisStreamContract(t *testing.T) {
-	producer := repairM636OpenGenesis(t, t.TempDir())
+func TestStoreGenesisStreamContract(t *testing.T) {
+	producer := openGenesisStreamStore(t, t.TempDir())
 	state := paramtypes.DefaultGenesis()
 	state.CosmosGasParams.CosmosGasMultiplierDenominator = 636
 	producer.keeper.InitGenesis(producer.ctx, state)
@@ -347,14 +347,14 @@ func TestRepairM_636_GenesisStreamContract(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "genesis.stream")
 	require.NoError(t, os.WriteFile(path, exported.Bytes(), 0600))
 	dir := t.TempDir()
-	consumer := repairM636OpenGenesis(t, dir)
+	consumer := openGenesisStreamStore(t, dir)
 	stream := genesis.IngestGenesisFileLineByLine(path)
 	consumer.manager.InitGenesisStream(consumer.ctx, consumer.cdc, stream)
 	require.NoError(t, stream.Wait())
 	require.Equal(t, uint64(636), consumer.keeper.ExportGenesis(consumer.ctx).CosmosGasParams.CosmosGasMultiplierDenominator)
 	commit := consumer.ms.Commit(true)
 	consumer.close(t)
-	reopened := repairM636OpenGenesis(t, dir)
+	reopened := openGenesisStreamStore(t, dir)
 	require.Equal(t, commit, reopened.ms.LastCommitID())
 	require.Equal(t, uint64(636), reopened.keeper.ExportGenesis(reopened.ctx).CosmosGasParams.CosmosGasMultiplierDenominator)
 	missing := genesis.IngestGenesisFileLineByLine(filepath.Join(t.TempDir(), "missing"))
@@ -362,7 +362,7 @@ func TestRepairM_636_GenesisStreamContract(t *testing.T) {
 	// A real truncated export must fail before publishing its cached state.
 	badPath := filepath.Join(t.TempDir(), "truncated.stream")
 	require.NoError(t, os.WriteFile(badPath, []byte(strings.TrimSuffix(exported.String(), "}")), 0600))
-	rejected := repairM636OpenGenesis(t, t.TempDir())
+	rejected := openGenesisStreamStore(t, t.TempDir())
 	rejected.keeper.InitGenesis(rejected.ctx, paramtypes.DefaultGenesis())
 	before := rejected.keeper.ExportGenesis(rejected.ctx)
 	require.Panics(t, func() {

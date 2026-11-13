@@ -16,7 +16,7 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-func repairM642Parent(t *testing.T, cached bool) (storetypes.KVStore, storetypes.KVStore, func()) {
+func policyParentStores(t *testing.T, cached bool) (storetypes.KVStore, storetypes.KVStore, func()) {
 	t.Helper()
 	db := dbm.NewMemDB()
 	t.Cleanup(func() { require.NoError(t, db.Close()) })
@@ -28,7 +28,7 @@ func repairM642Parent(t *testing.T, cached bool) (storetypes.KVStore, storetypes
 	return base, base, func() {}
 }
 
-func repairM642NoParentEscape(t *testing.T, guarded storetypes.KVStore) {
+func assertNoPolicyParentEscape(t *testing.T, guarded storetypes.KVStore) {
 	t.Helper()
 	_, exposed := reflect.TypeOf(guarded).Elem().FieldByName("KVStore")
 	require.False(t, exposed, "the raw parent must not be an exported embedded field")
@@ -40,7 +40,7 @@ func repairM642NoParentEscape(t *testing.T, guarded storetypes.KVStore) {
 	require.False(t, exposed, "a raw cache must not escape the policy")
 }
 
-func TestRepairM_642_MutationPaths(t *testing.T) {
+func TestWhitelistMutationPaths(t *testing.T) {
 	paths := []struct {
 		name  string
 		trace []bool
@@ -56,7 +56,7 @@ func TestRepairM_642_MutationPaths(t *testing.T) {
 	for _, cached := range []bool{false, true} {
 		for _, path := range paths {
 			t.Run(fmt.Sprintf("cached_parent=%t/%s", cached, path.name), func(t *testing.T) {
-				parent, base, flushParent := repairM642Parent(t, cached)
+				parent, base, flushParent := policyParentStores(t, cached)
 				seed := map[string]string{
 					"allow/set": "original", "allow/delete": "original",
 					"allow/range/1": "one", "allow/range/2": "two", "deny/key": "protected",
@@ -68,7 +68,7 @@ func TestRepairM_642_MutationPaths(t *testing.T) {
 				prefixes := []string{"allow/"}
 				guarded := kv.NewStore(parent, prefixes)
 				prefixes[0] = "deny/"
-				repairM642NoParentEscape(t, guarded)
+				assertNoPolicyParentEscape(t, guarded)
 				var branches []storetypes.CacheKVStore
 				var trace bytes.Buffer
 				for _, traced := range path.trace {
@@ -82,7 +82,7 @@ func TestRepairM_642_MutationPaths(t *testing.T) {
 					require.True(t, ok, "branches must retain the KVStore and Write interfaces")
 					branches = append(branches, cache)
 					guarded = cache
-					repairM642NoParentEscape(t, guarded)
+					assertNoPolicyParentEscape(t, guarded)
 				}
 
 				for _, key := range []string{"deny/key", "allow", "allow0/key", "xallow/key"} {
@@ -132,7 +132,7 @@ func TestRepairM_642_MutationPaths(t *testing.T) {
 	}
 }
 
-func TestRepairM_642_RangeBoundsAndPolicies(t *testing.T) {
+func TestWhitelistRangeBoundsAndPolicies(t *testing.T) {
 	cases := []struct {
 		name       string
 		prefixes   []string
@@ -154,7 +154,7 @@ func TestRepairM_642_RangeBoundsAndPolicies(t *testing.T) {
 	for _, cached := range []bool{false, true} {
 		for _, tc := range cases {
 			t.Run(fmt.Sprintf("cached_parent=%t/%s", cached, tc.name), func(t *testing.T) {
-				parent, base, flush := repairM642Parent(t, cached)
+				parent, base, flush := policyParentStores(t, cached)
 				keys := []string{"a/1", "a/2", "z/1"}
 				for _, key := range keys {
 					parent.Set([]byte(key), []byte(key))
@@ -167,7 +167,7 @@ func TestRepairM_642_RangeBoundsAndPolicies(t *testing.T) {
 					require.NoError(t, guarded.DeleteAll(tc.start, tc.end))
 				}
 				for _, key := range keys {
-					if containsM642(tc.removed, key) {
+					if containsPolicyKey(tc.removed, key) {
 						require.False(t, guarded.Has([]byte(key)), key)
 					} else {
 						require.Equal(t, []byte(key), guarded.Get([]byte(key)), key)
@@ -175,14 +175,14 @@ func TestRepairM_642_RangeBoundsAndPolicies(t *testing.T) {
 				}
 				flush()
 				for _, key := range keys {
-					require.Equal(t, !containsM642(tc.removed, key), base.Has([]byte(key)), key)
+					require.Equal(t, !containsPolicyKey(tc.removed, key), base.Has([]byte(key)), key)
 				}
 			})
 		}
 	}
 }
 
-func containsM642(keys []string, key string) bool {
+func containsPolicyKey(keys []string, key string) bool {
 	for _, candidate := range keys {
 		if candidate == key {
 			return true
@@ -191,8 +191,8 @@ func containsM642(keys []string, key string) bool {
 	return false
 }
 
-func TestRepairM_642_ReadAndTracePreservation(t *testing.T) {
-	parent, _, _ := repairM642Parent(t, false)
+func TestWhitelistReadAndTracePreservation(t *testing.T) {
+	parent, _, _ := policyParentStores(t, false)
 	parent.Set([]byte("allow/a"), []byte("allowed"))
 	parent.Set([]byte("deny/z"), []byte("protected"))
 	guarded := kv.NewStore(parent, []string{"allow/"})

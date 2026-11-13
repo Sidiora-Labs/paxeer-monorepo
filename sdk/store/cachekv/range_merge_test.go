@@ -12,14 +12,14 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-func repair289Backing(t *testing.T) types.KVStore {
+func rangeMergeBacking(t *testing.T) types.KVStore {
 	t.Helper()
 	db := dbm.NewMemDB()
 	t.Cleanup(func() { require.NoError(t, db.Close()) })
 	return dbadapter.Store{DB: db}
 }
 
-func repair289Cache(parent types.KVStore, engine bool) types.CacheKVStore {
+func rangeMergeCache(parent types.KVStore, engine bool) types.CacheKVStore {
 	key := types.NewKVStoreKey("repair289")
 	if engine {
 		return enginestore.NewStore(parent, key, types.DefaultCacheSizeLimit)
@@ -27,13 +27,13 @@ func repair289Cache(parent types.KVStore, engine bool) types.CacheKVStore {
 	return cachekv.NewStore(parent, key, types.DefaultCacheSizeLimit)
 }
 
-func repair289Seed(parent types.KVStore) {
+func rangeMergeSeed(parent types.KVStore) {
 	for _, key := range []string{"a", "b", "d", "m", "z"} {
 		parent.Set([]byte(key), []byte("parent-"+key))
 	}
 }
 
-func repair289Mutate(store types.KVStore) {
+func rangeMergeMutate(store types.KVStore) {
 	store.Delete([]byte("b"))
 	store.Set([]byte("c"), []byte("insert-c"))
 	store.Set([]byte("d"), []byte("update-d"))
@@ -45,14 +45,14 @@ func repair289Mutate(store types.KVStore) {
 	store.Set([]byte{0xff, 0xff}, []byte("higher"))
 }
 
-func repair289Values() map[string]string {
+func rangeMergeValues() map[string]string {
 	return map[string]string{
 		"a": "parent-a", "c": "insert-c", "d": "update-d", "m": "restore-m",
 		"z": "parent-z", "\xff": "high", "\xff\xff": "higher",
 	}
 }
 
-func repair289AssertState(t *testing.T, store types.KVStore, want map[string]string) {
+func rangeMergeAssertState(t *testing.T, store types.KVStore, want map[string]string) {
 	t.Helper()
 	keys := make([]string, 0, len(want))
 	for key := range want {
@@ -70,7 +70,7 @@ func repair289AssertState(t *testing.T, store types.KVStore, want map[string]str
 	}
 }
 
-func repair289AssertRange(t *testing.T, store types.KVStore, start, end []byte, want []string) {
+func rangeMergeAssertRange(t *testing.T, store types.KVStore, start, end []byte, want []string) {
 	t.Helper()
 	require.ElementsMatch(t, want, store.GetAllKeyStrsInRange(start, end))
 	// Engine caches explicitly do not support iterators. SDK caches and the real
@@ -90,16 +90,16 @@ func repair289AssertRange(t *testing.T, store types.KVStore, start, end []byte, 
 	}
 }
 
-func TestRepair_289_RangeMerge(t *testing.T) {
+func TestCacheRangeMerge(t *testing.T) {
 	for _, implementation := range []string{"sdk", "engine"} {
 		t.Run(implementation, func(t *testing.T) {
-			parent := repair289Backing(t)
-			repair289Seed(parent)
-			store := repair289Cache(parent, implementation == "engine")
-			repair289Mutate(store)
+			parent := rangeMergeBacking(t)
+			rangeMergeSeed(parent)
+			store := rangeMergeCache(parent, implementation == "engine")
+			rangeMergeMutate(store)
 			check := func(t *testing.T, view types.KVStore) {
 				t.Helper()
-				repair289AssertState(t, view, repair289Values())
+				rangeMergeAssertState(t, view, rangeMergeValues())
 				for _, tc := range []struct {
 					name       string
 					start, end []byte
@@ -114,7 +114,7 @@ func TestRepair_289_RangeMerge(t *testing.T) {
 					{"empty", []byte("n"), []byte("s"), nil},
 				} {
 					t.Run(tc.name, func(t *testing.T) {
-						repair289AssertRange(t, view, tc.start, tc.end, tc.want)
+						rangeMergeAssertRange(t, view, tc.start, tc.end, tc.want)
 					})
 				}
 			}
@@ -123,12 +123,12 @@ func TestRepair_289_RangeMerge(t *testing.T) {
 			require.Nil(t, parent.Get([]byte("c")))
 			store.Write()
 			t.Run("written", func(t *testing.T) { check(t, parent); check(t, store) })
-			t.Run("fresh-cache", func(t *testing.T) { check(t, repair289Cache(parent, implementation == "engine")) })
+			t.Run("fresh-cache", func(t *testing.T) { check(t, rangeMergeCache(parent, implementation == "engine")) })
 		})
 	}
 }
 
-func TestRepair_289_DeleteAll(t *testing.T) {
+func TestCacheDeleteAll(t *testing.T) {
 	for _, implementation := range []string{"sdk", "engine"} {
 		t.Run(implementation, func(t *testing.T) {
 			for _, tc := range []struct {
@@ -143,43 +143,43 @@ func TestRepair_289_DeleteAll(t *testing.T) {
 				{"high-tail", []byte{0xff}, nil, map[string]string{"a": "parent-a", "c": "insert-c", "d": "update-d", "m": "restore-m", "z": "parent-z"}},
 			} {
 				t.Run(tc.name, func(t *testing.T) {
-					parent := repair289Backing(t)
-					repair289Seed(parent)
-					outer := repair289Cache(parent, implementation == "engine")
+					parent := rangeMergeBacking(t)
+					rangeMergeSeed(parent)
+					outer := rangeMergeCache(parent, implementation == "engine")
 					store := outer.CacheWrap(types.NewKVStoreKey("child")).(types.CacheKVStore)
-					repair289Mutate(store)
+					rangeMergeMutate(store)
 					require.NoError(t, store.DeleteAll(tc.start, tc.end))
-					repair289AssertState(t, store, tc.remaining)
-					repair289AssertRange(t, store, tc.start, tc.end, nil)
+					rangeMergeAssertState(t, store, tc.remaining)
+					rangeMergeAssertRange(t, store, tc.start, tc.end, nil)
 					initial := map[string]string{"a": "parent-a", "b": "parent-b", "d": "parent-d", "m": "parent-m", "z": "parent-z"}
-					repair289AssertState(t, outer, initial)
+					rangeMergeAssertState(t, outer, initial)
 					store.Write()
-					repair289AssertState(t, outer, tc.remaining)
-					repair289AssertState(t, store, tc.remaining)
-					repair289AssertState(t, parent, initial)
+					rangeMergeAssertState(t, outer, tc.remaining)
+					rangeMergeAssertState(t, store, tc.remaining)
+					rangeMergeAssertState(t, parent, initial)
 					outer.Write()
-					repair289AssertState(t, parent, tc.remaining)
-					repair289AssertState(t, store, tc.remaining)
-					repair289AssertRange(t, parent, tc.start, tc.end, nil)
+					rangeMergeAssertState(t, parent, tc.remaining)
+					rangeMergeAssertState(t, store, tc.remaining)
+					rangeMergeAssertRange(t, parent, tc.start, tc.end, nil)
 				})
 			}
 		})
 	}
 }
 
-func TestRepair_289_PrefixDeleteAll(t *testing.T) {
+func TestCachePrefixDeleteAll(t *testing.T) {
 	for _, implementation := range []string{"sdk", "engine"} {
 		t.Run(implementation, func(t *testing.T) {
-			parent := repair289Backing(t)
+			parent := rangeMergeBacking(t)
 			parent.Set([]byte("p/b"), []byte("deleted-parent"))
 			parent.Set([]byte("q/a"), []byte("outside"))
-			store := repair289Cache(parent, implementation == "engine")
+			store := rangeMergeCache(parent, implementation == "engine")
 			view := prefix.NewStore(store, []byte("p/"))
 			view.Set([]byte("a"), []byte("pending"))
 			view.Delete([]byte("b"))
 			require.Equal(t, []byte("pending"), view.Get([]byte("a")))
 			require.Nil(t, view.Get([]byte("b")))
-			repair289AssertRange(t, store, []byte("p/"), []byte("p0"), []string{"p/a"})
+			rangeMergeAssertRange(t, store, []byte("p/"), []byte("p0"), []string{"p/a"})
 			require.NoError(t, view.DeleteAll(nil, nil))
 			require.Nil(t, view.Get([]byte("a")))
 			require.Empty(t, store.GetAllKeyStrsInRange([]byte("p/"), []byte("p0")))
