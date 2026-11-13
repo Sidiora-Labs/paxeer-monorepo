@@ -105,14 +105,17 @@ fn authenticate_provider(journey: &Value) -> TestResult {
     )?;
     let payload = serde_json::to_vec(&journey["provider_facts"])?;
     let evidence = ProviderEvidence::new(payload)?;
-    let public = VerifyingKey::from_bytes(&array(&journey["provider_public_key"]))?;
+    let public = VerifyingKey::from_bytes(&array(&journey["provider_public_key"]))
+        .map_err(|error| error.to_string())?;
     let signature = Signature::from_bytes(&array(&journey["provider_signature"]));
     let message = [
         b"LayerX/fiat/sequenced-provider/v1\0".as_slice(),
         evidence.canonical(),
     ]
     .concat();
-    public.verify_strict(&message, &signature)?;
+    public
+        .verify_strict(&message, &signature)
+        .map_err(|error| error.to_string())?;
     let token_digest: [u8; 32] = Sha256::digest(token.as_bytes()).into();
     if token_digest != array(&journey["provider_facts"]["token_reference_sha256"]) {
         return Err("provider recording does not authenticate this token".into());
