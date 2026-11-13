@@ -1,0 +1,83 @@
+[manifest]
+task = "22.41.88"
+pages = 20
+
+[page.1]
+path = "spec/layerx-merge/contracts/interop-fiat.md"
+status = "reviewed"
+
+[page.2]
+path = "spec/layerx-merge/contracts/interop-gas-station.md"
+status = "corrected"
+
+[page.3]
+path = "spec/layerx-merge/contracts/interop-gateway.md"
+status = "corrected"
+
+[page.4]
+path = "spec/layerx-merge/contracts/interop-intent-ingester.md"
+status = "reviewed"
+
+[page.5]
+path = "spec/layerx-merge/contracts/interop-migrate.md"
+status = "corrected"
+
+[page.6]
+path = "spec/layerx-merge/contracts/interop-mirror-contracts.md"
+status = "corrected"
+
+[page.7]
+path = "spec/layerx-merge/contracts/interop-mirror-signer.md"
+status = "reviewed"
+
+[page.8]
+path = "spec/layerx-merge/contracts/interop-mirror.md"
+status = "corrected"
+
+[page.9]
+path = "spec/layerx-merge/contracts/interop-portable.md"
+status = "reviewed"
+
+[page.10]
+path = "spec/layerx-merge/contracts/interop-service.md"
+status = "corrected"
+
+[page.11]
+path = "spec/layerx-merge/contracts/interop-specs.md"
+status = "reviewed"
+
+[page.12]
+path = "spec/layerx-merge/contracts/interop-ucp.md"
+status = "reviewed"
+
+[page.13]
+path = "spec/layerx-merge/contracts/interop-visa-tap.md"
+status = "reviewed"
+
+[page.14]
+path = "spec/layerx-merge/contracts/interop-websearch.md"
+status = "corrected"
+
+[page.15]
+path = "spec/layerx-merge/contracts/interop-x402.md"
+status = "reviewed"
+
+[page.16]
+path = "spec/layerx-merge/contracts/interop.md"
+status = "corrected"
+
+[page.17]
+path = "spec/layerx-merge/contracts/kernel.md"
+status = "corrected"
+
+[page.18]
+path = "spec/layerx-merge/contracts/launchpad.md"
+status = "corrected"
+
+[page.19]
+path = "spec/layerx-merge/contracts/layerxanchor.md"
+status = "reviewed"
+
+[page.20]
+path = "spec/layerx-merge/contracts/layerxgov.md"
+status = "reviewed"

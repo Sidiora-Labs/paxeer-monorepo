@@ -96,55 +96,55 @@ The [migration service](../../../services/interop/crates/layerx-migrate/src/lib.
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.11.cfg-migrate-ethereum-custody-schema-custody-reference</code> | <code>config_key</code> | [services/interop/crates/layerx-migrate/src/ethereum.rs](../../../services/interop/crates/layerx-migrate/src/ethereum.rs) | <code>migration ethereum custody_schema custody_reference: EthereumWord (required)</code> |
+| <code>interface.11.cfg-migrate-ethereum-custody-schema-custody-reference</code> | <code>config_key</code> | [services/interop/crates/layerx-migrate/src/ethereum.rs](../../../services/interop/crates/layerx-migrate/src/ethereum.rs) | <code>migration ethereum custody custody_reference: EthereumWord (required)</code> |
 
 ## cfg-migrate-ethereum-custody-schema-destination
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.11.cfg-migrate-ethereum-custody-schema-destination</code> | <code>config_key</code> | [services/interop/crates/layerx-migrate/src/ethereum.rs](../../../services/interop/crates/layerx-migrate/src/ethereum.rs) | <code>migration ethereum custody_schema destination: EthereumWord (required)</code> |
+| <code>interface.11.cfg-migrate-ethereum-custody-schema-destination</code> | <code>config_key</code> | [services/interop/crates/layerx-migrate/src/ethereum.rs](../../../services/interop/crates/layerx-migrate/src/ethereum.rs) | <code>migration ethereum custody destination: EthereumWord (required)</code> |
 
 ## cfg-migrate-ethereum-custody-schema-event-topic
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.11.cfg-migrate-ethereum-custody-schema-event-topic</code> | <code>config_key</code> | [services/interop/crates/layerx-migrate/src/ethereum.rs](../../../services/interop/crates/layerx-migrate/src/ethereum.rs) | <code>migration ethereum custody_schema event_topic: [u8; 32] (required)</code> |
+| <code>interface.11.cfg-migrate-ethereum-custody-schema-event-topic</code> | <code>config_key</code> | [services/interop/crates/layerx-migrate/src/ethereum.rs](../../../services/interop/crates/layerx-migrate/src/ethereum.rs) | <code>migration ethereum custody event_topic: [u8; 32] (required)</code> |
 
 ## cfg-migrate-ethereum-custody-schema-function-selector
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.11.cfg-migrate-ethereum-custody-schema-function-selector</code> | <code>config_key</code> | [services/interop/crates/layerx-migrate/src/ethereum.rs](../../../services/interop/crates/layerx-migrate/src/ethereum.rs) | <code>migration ethereum custody_schema function_selector: [u8; 4] (required)</code> |
+| <code>interface.11.cfg-migrate-ethereum-custody-schema-function-selector</code> | <code>config_key</code> | [services/interop/crates/layerx-migrate/src/ethereum.rs](../../../services/interop/crates/layerx-migrate/src/ethereum.rs) | <code>migration ethereum custody function_selector: [u8; 4] (required)</code> |
 
 ## cfg-migrate-ethereum-custody-schema-layerx-amount
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.11.cfg-migrate-ethereum-custody-schema-layerx-amount</code> | <code>config_key</code> | [services/interop/crates/layerx-migrate/src/ethereum.rs](../../../services/interop/crates/layerx-migrate/src/ethereum.rs) | <code>migration ethereum custody_schema layerx_amount: EthereumWord (required)</code> |
+| <code>interface.11.cfg-migrate-ethereum-custody-schema-layerx-amount</code> | <code>config_key</code> | [services/interop/crates/layerx-migrate/src/ethereum.rs](../../../services/interop/crates/layerx-migrate/src/ethereum.rs) | <code>migration ethereum custody layerx_amount: EthereumWord (required)</code> |
 
 ## cfg-migrate-ethereum-custody-schema-layerx-asset
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.11.cfg-migrate-ethereum-custody-schema-layerx-asset</code> | <code>config_key</code> | [services/interop/crates/layerx-migrate/src/ethereum.rs](../../../services/interop/crates/layerx-migrate/src/ethereum.rs) | <code>migration ethereum custody_schema layerx_asset: EthereumWord (required)</code> |
+| <code>interface.11.cfg-migrate-ethereum-custody-schema-layerx-asset</code> | <code>config_key</code> | [services/interop/crates/layerx-migrate/src/ethereum.rs](../../../services/interop/crates/layerx-migrate/src/ethereum.rs) | <code>migration ethereum custody layerx_asset: EthereumWord (required)</code> |
 
 ## cfg-migrate-ethereum-custody-schema-source
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.11.cfg-migrate-ethereum-custody-schema-source</code> | <code>config_key</code> | [services/interop/crates/layerx-migrate/src/ethereum.rs](../../../services/interop/crates/layerx-migrate/src/ethereum.rs) | <code>migration ethereum custody_schema source: EthereumWord (required)</code> |
+| <code>interface.11.cfg-migrate-ethereum-custody-schema-source</code> | <code>config_key</code> | [services/interop/crates/layerx-migrate/src/ethereum.rs](../../../services/interop/crates/layerx-migrate/src/ethereum.rs) | <code>migration ethereum custody source: EthereumWord (required)</code> |
 
 ## cfg-migrate-ethereum-custody-schema-source-amount
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.11.cfg-migrate-ethereum-custody-schema-source-amount</code> | <code>config_key</code> | [services/interop/crates/layerx-migrate/src/ethereum.rs](../../../services/interop/crates/layerx-migrate/src/ethereum.rs) | <code>migration ethereum custody_schema source_amount: EthereumWord (required)</code> |
+| <code>interface.11.cfg-migrate-ethereum-custody-schema-source-amount</code> | <code>config_key</code> | [services/interop/crates/layerx-migrate/src/ethereum.rs](../../../services/interop/crates/layerx-migrate/src/ethereum.rs) | <code>migration ethereum custody source_amount: EthereumWord (required)</code> |
 
 ## cfg-migrate-ethereum-custody-schema-source-asset
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.11.cfg-migrate-ethereum-custody-schema-source-asset</code> | <code>config_key</code> | [services/interop/crates/layerx-migrate/src/ethereum.rs](../../../services/interop/crates/layerx-migrate/src/ethereum.rs) | <code>migration ethereum custody_schema source_asset: EthereumWord (required)</code> |
+| <code>interface.11.cfg-migrate-ethereum-custody-schema-source-asset</code> | <code>config_key</code> | [services/interop/crates/layerx-migrate/src/ethereum.rs](../../../services/interop/crates/layerx-migrate/src/ethereum.rs) | <code>migration ethereum custody source_asset: EthereumWord (required)</code> |
 
 ## cfg-migrate-ethereum-finality-tag
 

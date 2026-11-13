@@ -58,7 +58,7 @@ Interop services use node JSON-RPC and authenticated receipts on Paxeer mainnet-
 |---|---|---|---|
 | <code>interface.11.cfg-mirror-first-height-j48</code> | <code>config_key</code> | [services/interop/crates/layerx-mirror/src/runtime.rs](../../../services/interop/crates/layerx-mirror/src/runtime.rs) | <code>mirror runtime config first_height: u64</code> |
 | <code>interface.11.cfg-mirror-freshness-budget-blocks-j48</code> | <code>config_key</code> | [services/interop/crates/layerx-mirror/src/runtime.rs](../../../services/interop/crates/layerx-mirror/src/runtime.rs) | <code>mirror runtime config freshness_budget_blocks: u64</code> |
-| <code>interface.11.cfg-mirror-paxeer-section-j48</code> | <code>config_key</code> | [services/interop/crates/layerx-mirror/src/runtime.rs](../../../services/interop/crates/layerx-mirror/src/runtime.rs) | <code>mirror runtime config paxeer: {endpoints, quorum, chain_id, genesis_hash, receipt_keys}</code> |
+| <code>interface.11.cfg-mirror-paxeer-section-j48</code> | <code>config_key</code> | [services/interop/crates/layerx-mirror/src/runtime.rs](../../../services/interop/crates/layerx-mirror/src/runtime.rs) | <code>mirror runtime config paxeer: {rpc, chain_id, genesis_hash_hex, receipt_keys}; rpc contains endpoints and quorum</code> |
 | <code>interface.11.err-mirror-committed-refusal-codes-j48</code> | <code>error_code</code> | [services/interop/crates/layerx-mirror/src/committed.rs](../../../services/interop/crates/layerx-mirror/src/committed.rs) | <code>committed_unavailable &#124; committed_chain_mismatch &#124; committed_genesis_mismatch &#124; committed_parent_mismatch &#124; committed_receipt_unverified &#124; committed_malformed</code> |
 | <code>interface.11.rs-mirror-archive-from-committed-j48</code> | <code>rust_pub_item</code> | [services/interop/crates/layerx-mirror/src/publisher.rs](../../../services/interop/crates/layerx-mirror/src/publisher.rs) | <code>pub fn from_committed( block: &amp;CommittedBlock, network_id: u32, node_head: NodeHead, ) -&gt; Result&lt;Self, SourceError&gt;</code> |
 | <code>interface.11.rs-mirror-archived-committed-block-j48</code> | <code>rust_pub_item</code> | [services/interop/crates/layerx-mirror/src/publisher.rs](../../../services/interop/crates/layerx-mirror/src/publisher.rs) | <code>pub struct ArchivedCommittedBlock</code> |
@@ -124,11 +124,11 @@ Interop services use node JSON-RPC and authenticated receipts on Paxeer mainnet-
 
 | Field | Rule |
 |---|---|
-| interface | Paid routes settle on the 0x101A ledger precompile: metered draws and payExact transactions concluded from pax_sequencerReceipt. |
+| interface | Paid routes offer exact payments on the 0x101A ledger precompile and verify payExact evidence from pax_sequencerReceipt. |
 | storage | Payment journal under `<data_dir>/payments`. |
 | errors | 402 challenges with invalid_grant, payment_failed, receipt_mismatch, receipt_unverified, receipt_consumed and payer_mismatch. |
 | events | PaymentDrawn and PaymentExact logs of 0x101A. |
-| gas | Draw transactions are paid by the receiver account. |
+| gas | Exact payment transactions are signed and funded by the payer. |
 | activation | When payment is configured. |
 | invariants | A response is released at most once per verified receipt. |
 | pause | none |
@@ -146,11 +146,11 @@ Interop services use node JSON-RPC and authenticated receipts on Paxeer mainnet-
 
 | Field | Rule |
 |---|---|
-| interface | Paid routes settle on the 0x101A ledger precompile: metered draws and payExact transactions concluded from pax_sequencerReceipt. |
+| interface | Paid routes offer exact payments on the 0x101A ledger precompile and verify payExact evidence from pax_sequencerReceipt. |
 | storage | Payment journal under `<data_dir>/payments`. |
 | errors | 402 challenges with invalid_grant, payment_failed, receipt_mismatch, receipt_unverified, receipt_consumed and payer_mismatch. |
 | events | PaymentDrawn and PaymentExact logs of 0x101A. |
-| gas | Draw transactions are paid by the receiver account. |
+| gas | Exact payment transactions are signed and funded by the payer. |
 | activation | When payment is configured. |
 | invariants | A response is released at most once per verified receipt. |
 | pause | none |
