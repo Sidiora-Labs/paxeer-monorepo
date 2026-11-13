@@ -1,0 +1,323 @@
+[manifest]
+task = "22.43.167"
+records_moved = 16
+files_renamed = 24
+
+[file.1]
+from = "services/platform/hosted/dashboard/repair_22_39_402.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/hosted/dashboard/repair_22_39_402.kvx"
+
+[file.2]
+from = "services/platform/hosted/dashboard/src/repair_22_33_1410.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/hosted/dashboard/src/repair_22_33_1410.kvx"
+
+[file.3]
+from = "services/platform/hosted/feeder/repair_22_39_416.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/hosted/feeder/repair_22_39_416.kvx"
+
+[file.4]
+from = "services/platform/hosted/feeder/src/bin/price-sidecar/repair_22_33_1412.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/hosted/feeder/src/bin/price-sidecar/repair_22_33_1412.kvx"
+
+[file.5]
+from = "services/platform/hosted/feeder/src/repair_22_33_1413.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/hosted/feeder/src/repair_22_33_1413.kvx"
+
+[file.6]
+from = "services/platform/hosted/gateway/repair_22_31_345.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/hosted/gateway/repair_22_31_345.kvx"
+
+[file.7]
+from = "services/platform/hosted/gateway/repair_22_31_620.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/hosted/gateway/repair_22_31_620.kvx"
+
+[file.8]
+from = "services/platform/hosted/gateway/repair_22_33_1438.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/hosted/gateway/repair_22_33_1438.kvx"
+
+[file.9]
+from = "services/platform/hosted/gateway/repair_22_39_262.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/hosted/gateway/repair_22_39_262.kvx"
+
+[file.10]
+from = "services/platform/hosted/gateway/repair_22_39_417.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/hosted/gateway/repair_22_39_417.kvx"
+
+[file.11]
+from = "services/platform/hosted/gateway/src/repair_22_31_202/record.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/hosted/gateway/src/repair_22_31_202/record.kvx"
+
+[file.12]
+from = "services/platform/hosted/gateway/tests/repair_22_31_504.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/hosted/gateway/tests/repair_22_31_504.kvx"
+
+[file.13]
+from = "services/platform/hosted/gateway/tests/repair_22_33_1335.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/hosted/gateway/tests/repair_22_33_1335.kvx"
+
+[file.14]
+from = "services/platform/hosted/gateway/tests/repair_22_33_1336.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/hosted/gateway/tests/repair_22_33_1336.kvx"
+
+[file.15]
+from = "services/platform/hosted/gateway/tests/repair_22_39_279.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/hosted/gateway/tests/repair_22_39_279.kvx"
+
+[file.16]
+from = "services/platform/hosted/gateway/tests/repair_22_39_280.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/hosted/gateway/tests/repair_22_39_280.kvx"
+
+[file.17]
+from = "services/platform/hosted/dashboard/src/fixtures/repair_22_33_1410_receipts.json"
+to = "services/platform/hosted/dashboard/src/fixtures/verified_payment_receipts.json"
+
+[file.18]
+from = "services/platform/hosted/dashboard/tests/repair_22_33_1410.rs"
+to = "services/platform/hosted/dashboard/tests/audit_receipt_indexes.rs"
+
+[file.19]
+from = "services/platform/hosted/feeder/tests/repair_22_33_1413.rs"
+to = "services/platform/hosted/feeder/tests/sender_hex_validation.rs"
+
+[file.20]
+from = "services/platform/hosted/feeder/tests/repair_22_33_1412.rs"
+to = "services/platform/hosted/feeder/tests/sidecar_submission_recovery.rs"
+
+[file.21]
+from = "services/platform/hosted/gateway/tests/repair_22_33_1335.rs"
+to = "services/platform/hosted/gateway/tests/committed_router_paths.rs"
+
+[file.22]
+from = "services/platform/hosted/gateway/tests/repair_22_33_1438.rs"
+to = "services/platform/hosted/gateway/tests/documented_rpc_examples.rs"
+
+[file.23]
+from = "services/platform/hosted/gateway/tests/fixtures/repair_22_33_1335_committed.json"
+to = "services/platform/hosted/gateway/tests/fixtures/committed_evidence.json"
+
+[file.24]
+from = "services/platform/hosted/gateway/tests/fixtures/repair_22_33_64_openrpc.json"
+to = "services/platform/hosted/gateway/tests/fixtures/openrpc_normalized_digest.json"
+
+[file.25]
+from = "services/platform/hosted/gateway/tests/fixtures/repair_22_33_1417_openrpc.json"
+to = "services/platform/hosted/gateway/tests/fixtures/openrpc_source_digest.json"
+
+[file.26]
+from = "services/platform/hosted/gateway/tests/fixtures/repair_22_31_202/consensus.json"
+to = "services/platform/hosted/gateway/tests/fixtures/producer_paths/consensus.json"
+
+[file.27]
+from = "services/platform/hosted/gateway/tests/fixtures/repair_22_31_202/faucet.json"
+to = "services/platform/hosted/gateway/tests/fixtures/producer_paths/faucet.json"
+
+[file.28]
+from = "services/platform/hosted/gateway/tests/fixtures/repair_22_31_202/identity.json"
+to = "services/platform/hosted/gateway/tests/fixtures/producer_paths/identity.json"
+
+[file.29]
+from = "services/platform/hosted/gateway/tests/fixtures/repair_22_31_202/indexer-blocks.json"
+to = "services/platform/hosted/gateway/tests/fixtures/producer_paths/indexer-blocks.json"
+
+[file.30]
+from = "services/platform/hosted/gateway/tests/fixtures/repair_22_31_202/node-committed.json"
+to = "services/platform/hosted/gateway/tests/fixtures/producer_paths/node-committed.json"
+
+[file.31]
+from = "services/platform/hosted/gateway/tests/fixtures/repair_22_31_202/node-views.json"
+to = "services/platform/hosted/gateway/tests/fixtures/producer_paths/node-views.json"
+
+[file.32]
+from = "services/platform/hosted/gateway/tests/fixtures/repair_22_31_202/redis-scripts.json"
+to = "services/platform/hosted/gateway/tests/fixtures/producer_paths/redis-scripts.json"
+
+[file.33]
+from = "services/platform/hosted/gateway/tests/repair_22_33_1440.rs"
+to = "services/platform/hosted/gateway/tests/hosted_service_contracts.rs"
+
+[file.34]
+from = "services/platform/hosted/gateway/tests/repair_22_31_202.rs"
+to = "services/platform/hosted/gateway/tests/producer_paths.rs"
+
+[file.35]
+from = "services/platform/hosted/gateway/tests/repair_22_33_1441.rs"
+to = "services/platform/hosted/gateway/tests/published_transports.rs"
+
+[file.36]
+from = "services/platform/hosted/gateway/tests/repair_22_33_1336.rs"
+to = "services/platform/hosted/gateway/tests/router_recovery.rs"
+
+[file.37]
+from = "services/platform/hosted/gateway/tests/repair_22_31_345.rs"
+to = "services/platform/hosted/gateway/tests/rpc_egress.rs"
+
+[file.38]
+from = "services/platform/hosted/gateway/tests/support/repair_22_33_1335.rs"
+to = "services/platform/hosted/gateway/tests/support/committed_evidence.rs"
+
+[file.39]
+from = "services/platform/hosted/gateway/tests/support/repair_22_31_202.rs"
+to = "services/platform/hosted/gateway/tests/support/producer_peers.rs"
+
+[file.40]
+from = "services/platform/hosted/gateway/tests/repair_22_33_1439.rs"
+to = "services/platform/hosted/gateway/tests/upstream_read_contracts.rs"
+[reference.1]
+file = "GOTCHA.kvx"
+name = "services/platform/hosted/gateway/tests/repair_22_31_345.rs"
+
+[reference.2]
+file = "GOTCHA.kvx"
+name = "services/platform/hosted/gateway/tests/repair_22_33_1336.rs"
+
+[reference.3]
+file = "GOTCHA.kvx"
+name = "services/platform/hosted/gateway/tests/repair_22_33_1439.rs"
+
+[reference.4]
+file = "spec/layerx-merge/qualification.kvx"
+name = "services/platform/hosted/dashboard/tests/repair_22_33_1410.rs"
+
+[reference.5]
+file = "spec/layerx-merge/qualification.kvx"
+name = "services/platform/hosted/feeder/tests/repair_22_33_1413.rs"
+
+[reference.6]
+file = "spec/layerx-merge/qualification.kvx"
+name = "services/platform/hosted/gateway/tests/repair_22_31_202.rs"
+
+[reference.7]
+file = "spec/layerx-merge/qualification.kvx"
+name = "services/platform/hosted/gateway/tests/repair_22_33_1336.rs"
+
+[reference.8]
+file = "spec/layerx-merge/qualification.kvx"
+name = "services/platform/hosted/gateway/tests/repair_22_33_1438.rs"
+
+[reference.9]
+file = "spec/layerx-merge/qualification.kvx"
+name = "services/platform/hosted/gateway/tests/repair_22_31_345.rs"
+
+[reference.10]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/platform/hosted/dashboard/repair_22_39_402.kvx"
+
+[reference.11]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/platform/hosted/feeder/repair_22_39_416.kvx"
+
+[reference.12]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/platform/hosted/gateway/repair_22_33_1438.kvx"
+
+[reference.13]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/platform/hosted/gateway/repair_22_39_262.kvx"
+
+[reference.14]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/platform/hosted/gateway/repair_22_39_417.kvx"
+
+[reference.15]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/platform/hosted/gateway/tests/repair_22_33_1335.kvx"
+
+[reference.16]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/platform/hosted/gateway/tests/repair_22_33_1336.kvx"
+
+[reference.17]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/platform/hosted/gateway/tests/repair_22_39_279.kvx"
+
+[reference.18]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/platform/hosted/gateway/tests/repair_22_39_280.kvx"
+
+[reference.19]
+file = "spec/layerx-merge/programme/issues/1664.kvx"
+name = "services/platform/hosted/gateway/tests/repair_22_33_1440.rs"
+
+[reference.20]
+file = "spec/layerx-merge/programme/issues/1665.kvx"
+name = "services/platform/hosted/gateway/tests/repair_22_33_1440.rs"
+
+[reference.21]
+file = "spec/layerx-merge/programme/issues/1777.kvx"
+name = "services/platform/hosted/gateway/tests/repair_22_33_1439.rs"
+
+[reference.22]
+file = "tools/qualification/audit_repairs/test_gateway_history_openrpc_contracts.py"
+name = "services/platform/hosted/gateway/tests/repair_22_31_202.rs"
+
+[reference.23]
+file = "tools/qualification/audit_repairs/test_gateway_receipt_key_provisioning.py"
+name = "services/platform/hosted/gateway/tests/fixtures/repair_22_33_1335_committed.json"
+
+[reference.24]
+file = "tests/ci/data/intentional_copies.txt"
+name = "services/platform/hosted/gateway/tests/fixtures/repair_22_31_202/node-committed.json"
+
+[reference.25]
+file = "spec/layerx-merge/dispositions/d22-17.kvx"
+name = "services/platform/hosted/gateway/tests/repair_22_31_202.rs"
+
+[reference.26]
+file = "spec/layerx-merge/dispositions/d22-17.kvx"
+name = "services/platform/hosted/gateway/tests/repair_22_31_345.rs"
+
+[reference.27]
+file = "spec/layerx-merge/dispositions/d22-18.kvx"
+name = "services/platform/hosted/gateway/tests/repair_22_31_345.rs"
+
+[reference.28]
+file = "spec/layerx-merge/dispositions/d22-19.kvx"
+name = "services/platform/hosted/gateway/tests/repair_22_31_345.rs"
+
+[reference.29]
+file = "spec/layerx-merge/dispositions/d22-20.kvx"
+name = "services/platform/hosted/gateway/tests/repair_22_33_1439.rs"
+
+[reference.30]
+file = "spec/layerx-merge/dispositions/d22-23.kvx"
+name = "services/platform/hosted/gateway/tests/repair_22_31_345.rs"
+
+[reference.31]
+file = "spec/layerx-merge/dispositions/d22-23.kvx"
+name = "services/platform/hosted/gateway/tests/repair_22_33_1336.rs"
+
+[reference.32]
+file = "spec/layerx-merge/dispositions/d22-23.kvx"
+name = "services/platform/hosted/dashboard/tests/repair_22_33_1410.rs"
+
+[reference.33]
+file = "spec/layerx-merge/dispositions/d22-24.kvx"
+name = "services/platform/hosted/gateway/repair_22_33_1438.kvx"
+
+[reference.34]
+file = "spec/layerx-merge/dispositions/d22-24.kvx"
+name = "services/platform/hosted/gateway/tests/repair_22_33_1439.rs"
+
+[reference.35]
+file = "spec/layerx-merge/dispositions/d22-24.kvx"
+name = "services/platform/hosted/gateway/tests/repair_22_33_1440.rs"
+
+[reference.36]
+file = "spec/layerx-merge/dispositions/d22-25.kvx"
+name = "services/platform/hosted/gateway/tests/repair_22_31_345.rs"
+
+[reference.37]
+file = "spec/layerx-merge/dispositions/d22-31.kvx"
+name = "services/platform/hosted/gateway/tests/repair_22_33_1439.rs"
+
+[reference.38]
+file = "spec/layerx-merge/dispositions/d22-35.kvx"
+name = "services/platform/hosted/gateway/tests/repair_22_33_1439.rs"
+
+[reference.39]
+file = "spec/layerx-merge/programme/records/renames/22.43.129.kvx"
+name = "services/platform/hosted/dashboard/tests/repair_22_33_1410.rs"
+
+[reference.40]
+file = "spec/layerx-merge/programme/records/renames/22.43.205.kvx"
+name = "services/platform/hosted/gateway/tests/support/repair_22_33_1335.rs"

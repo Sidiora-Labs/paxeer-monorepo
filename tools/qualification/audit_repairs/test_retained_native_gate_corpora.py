@@ -248,7 +248,7 @@ def test_f022_f027_native_transfer_committed_bank_proofs_and_genuine_counts():
                  "nativeTransport(t, f.request)", "v.Close()", "OpenVerifier(nativeTrustDB(t, dir)",
                  "require.Equal(t, result.Amount, recovered.Amount)", 'require.Equal(t, "500", advanced.Amount)'):
         assert fact in bank
-    refusals = (ROOT / "custodyproof/repair_m856_test.go").read_text()
+    refusals = (ROOT / "custodyproof/bank_verifier_test.go").read_text()
     for fact in ('"wrong_account"', '"wrong_denom"', '"bad_membership"', '"bad_signature"',
                  '"refused proof advanced persistent trust"'):
         assert fact in refusals
