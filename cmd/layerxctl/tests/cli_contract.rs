@@ -21,7 +21,7 @@ mod contract {
     }
 
     #[test]
-    fn f032_read_state_uses_pending_or_explicit_height() -> TestResult {
+    fn read_state_uses_pending_or_explicit_height() -> TestResult {
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0))?;
         listener.set_nonblocking(true)?;
         let url = format!("http://{}/", listener.local_addr()?);
@@ -120,7 +120,7 @@ mod contract {
     }
 
     #[test]
-    fn f032_local_bounds_and_supported_commands() -> TestResult {
+    fn local_bounds_and_supported_commands() -> TestResult {
         let directory = Directory(
             std::env::temp_dir().join(format!("layerxctl-contract-{}", std::process::id())),
         );
