@@ -1514,14 +1514,19 @@ mod tests {
     use crate::signer::QuoteSigner;
     use std::fs::OpenOptions;
     use std::io::Write as _;
-    use std::os::unix::fs::OpenOptionsExt as _;
+    use std::os::unix::fs::{DirBuilderExt as _, OpenOptionsExt as _};
+
+    fn journal_directory() -> Result<std::path::PathBuf, Box<dyn std::error::Error>> {
+        let suffix = layerx_platform_internal::secret::random_hex(16)?;
+        let directory = std::env::temp_dir().join(format!("paxeer-journal-{}", suffix.as_str()));
+        std::fs::DirBuilder::new().mode(0o700).create(&directory)?;
+        Ok(directory)
+    }
+
     #[test]
     fn append_replay_lock_conflict_and_corruption() -> Result<(), Box<dyn std::error::Error>> {
-        let path =
-            std::env::temp_dir().join(format!("paxeer-journal-{}.jsonl", std::process::id()));
-        if path.exists() {
-            std::fs::remove_file(&path)?;
-        }
+        let directory = journal_directory()?;
+        let path = directory.join("journal.jsonl");
         let mut journal = Journal::open(&path)?;
         assert!(matches!(Journal::open(&path), Err(JournalError::Locked)));
         let entry = Entry::Completed {
@@ -1538,6 +1543,7 @@ mod tests {
         drop(journal);
         let journal = Journal::open(&path)?;
         assert_eq!(journal.state(), &state);
+        assert!(matches!(Journal::open(&path), Err(JournalError::Locked)));
         drop(journal);
         let mut file = OpenOptions::new().append(true).open(&path)?;
         file.write_all(b"{")?;
@@ -1545,7 +1551,7 @@ mod tests {
         assert!(matches!(Journal::open(&path), Err(JournalError::Corrupt)));
         std::fs::write(&path, b"bad\n")?;
         assert!(matches!(Journal::open(&path), Err(JournalError::Corrupt)));
-        std::fs::remove_file(path)?;
+        std::fs::remove_dir_all(directory)?;
         Ok(())
     }
     fn quoted(
@@ -1643,13 +1649,8 @@ mod tests {
     fn refusal_frees_the_nonce_and_retired_replacement_records_refuse_replay(
     ) -> Result<(), Box<dyn std::error::Error>> {
         let signer = crate::signer::tests::signer()?;
-        let path = std::env::temp_dir().join(format!(
-            "paxeer-journal-lifecycle-{}.jsonl",
-            std::process::id()
-        ));
-        if path.exists() {
-            std::fs::remove_file(&path)?;
-        }
+        let directory = journal_directory()?;
+        let path = directory.join("journal.jsonl");
         let key = |n: u128| Key {
             sponsor: signer.address(),
             quote_nonce: word(n),
@@ -1702,6 +1703,7 @@ mod tests {
         drop(journal);
         let journal = Journal::open(&path)?;
         assert_eq!(journal.state(), &state);
+        assert!(matches!(Journal::open(&path), Err(JournalError::Locked)));
         assert!(journal.state().refused(&key(1)));
         assert_eq!(
             journal.state().items[&key(2)]
@@ -1717,7 +1719,7 @@ mod tests {
         unknown.extend_from_slice(b"{\"kind\":\"withdrawn\"}\n");
         std::fs::write(&path, &unknown)?;
         assert!(matches!(Journal::open(&path), Err(JournalError::Corrupt)));
-        std::fs::remove_file(path)?;
+        std::fs::remove_dir_all(directory)?;
         Ok(())
     }
 }

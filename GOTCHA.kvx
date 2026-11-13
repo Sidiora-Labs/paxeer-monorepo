@@ -21600,3 +21600,13 @@ fix = "A reference to the former path is written as migrations, and a directory 
 title = "The page list of the documentation site includes the home page"
 symptom = "The files named page.tsx under docs/site/paxeer-docs/src/app include the home page docs/site/paxeer-docs/src/app/page.tsx, which lies in no route directory, beside one page in each route directory."
 fix = "A reading of the pages of the site reads the home page as well. Task 22.41.117 reads the home page and the programs page."
+
+[gotcha.4356]
+title = "The page of a directory is the file README.md at its root"
+symptom = "The repository view shows the file README.md of a directory below the list of its files, so that file is the page a reader of the directory meets first."
+fix = "Tasks 22.42.34 and later write one page for each directory of sources in one order of sections: what the directory holds, its layout, its build and test commands, its configuration and its documentation."
+
+[gotcha.4357]
+title = "The files of the upgrade to version 7.0.0 lie under docs/release and tools/release"
+symptom = "The pages of the upgrade lie under docs/release with the prefix 7.0.0, and the scripts that stage, swap, snapshot, roll back and verify a release lie under tools/release."
+fix = "Tasks 22.42.1 to 22.42.26 add the inventory of systems, the pages of variables, the checks before and after the upgrade height, the example proposal, the release notes, the rollback page and an index of the whole."
