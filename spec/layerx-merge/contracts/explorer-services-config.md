@@ -1,12 +1,12 @@
 # Explorer services config contract
 
-This page describes the settings read by the explorer signature provider and smart-contract verifier in the current tree. Interface identifiers are retained for cross references; a registry label or an old source line does not establish that a setting is accepted by the linked dependency.
+This page describes the settings read by the explorer signature provider and smart-contract verifier in the current tree. The settings types define the supported keys.
 
 Paxeer mainnet-beta is one BFT network, with the kernel inside the node participating in execution and block proposal. EVM chain ID is `125` (`0x7d`); receipts are final when their block commits. The explorer services below supply signatures and verify contract source against bytecode. Their HTTP/gRPC listeners and compiler/source-provider URLs are service configuration, not additional chain endpoints. Sub-chains are tenant domains in the database.
 
-For node access, use the root HTTPS URL of `api1.mainnet-beta.paxeer.network` through `api14.mainnet-beta.paxeer.network`, or `https://api-mainnet-beta.paxeer.network`. See [public RPC endpoints](../../../docs/site/docs/reference/public-rpc.md) for node configuration and [explorer configuration](explorer-config.md) for the explorer backend. The retired router and prefixed RPC routes are no longer part of the network. `node.hyperpaxeer.com` is only the hpx library mirror, never a JSON-RPC endpoint.
+For node access, use the root JSON-RPC URL configured for the node. See [public RPC endpoints](../../../docs/site/docs/reference/public-rpc.md) and [explorer configuration](explorer-config.md).
 
-## Dependency provenance and configuration loading
+## Dependencies and configuration loading
 
 The server manifests inherit `blockscout-service-launcher` from their respective workspaces. The lockfiles resolve different registry releases:
 
@@ -15,7 +15,7 @@ The server manifests inherit `blockscout-service-launcher` from their respective
 | Signature provider | `0.10.0` | crates.io `blockscout-service-launcher` **0.10.1** | [workspace manifest][sig-workspace], [server manifest][sig-manifest], [lockfile][sig-lock] |
 | Smart-contract verifier | `0.17.0` | crates.io `blockscout-service-launcher` **0.17.0** | [workspace manifest][verifier-workspace], [server manifest][verifier-manifest], [lockfile][verifier-lock] |
 
-The repository's [local launcher][local-launcher] is version **0.22.0** and is not the linked producer for either server. Shared settings below cite the versioned registry source, not that local crate. Service-specific settings cite each server's own `src/settings.rs`. The [interface registry](../interfaces.kvx) preserves inventory identifiers; the types and supported keys here follow the actual producers.
+The repository's [local launcher][local-launcher] is version **0.22.0** and is not the linked producer for either server. Shared settings below cite the versioned registry source, not that local crate. Service-specific settings cite each server's own `src/settings.rs`. The types and supported keys follow the linked producers.
 
 Both executable entry points call `Settings::build()` before starting their server. In both linked launcher versions, `ConfigSettings::build` reads an optional file named by `<SERVICE_NAME>__CONFIG`, adds the service-prefixed environment as an overlay, deserializes settings, then calls `validate`. The loader removes the config-file variable before reading the environment overlay. Environment values override file values; defaults come from the deserialized settings types. Unknown fields are rejected. These settings need no storage, gas, activation or pause rules.
 
@@ -26,11 +26,9 @@ Both executable entry points call `Settings::build()` before starting their serv
 
 For example, `SMART_CONTRACT_VERIFIER__SERVER__HTTP__ADDR` sets `server.http.addr`; underscores within a key, such as `max_body_size`, remain single underscores. Both loaders use `config::File::with_name` for the selected file; the checked-in examples are TOML. The [0.10.1 loader][launcher010] and [0.17.0 loader][launcher017] define this behavior at lines 9–29.
 
-Both linked versions default to HTTP enabled at `0.0.0.0:8050` with a `2097152`-byte body limit, gRPC disabled at `0.0.0.0:8051`, and metrics disabled at `0.0.0.0:6060` with route `/metrics`. Give co-located services distinct listen addresses. Tracing defaults to enabled with format `default` (`json` is the other accepted value); Jaeger defaults to disabled with agent endpoint `127.0.0.1:6831`. Checked-in configuration files can override defaults.
+Both linked versions default to HTTP enabled on port `8050` with a `2097152`-byte body limit, gRPC disabled on port `8051`, and metrics disabled on port `6060` with route `/metrics`. Give co-located services distinct listen addresses. Tracing defaults to enabled with format `default` (`json` is the other accepted value); Jaeger defaults to disabled with agent port `6831` on the loopback interface. Checked-in configuration files can override defaults.
 
-Neither registry release defines `server.http.base_path`; setting it or its derived environment variable fails deserialization. Registry entries `interface.14.cfg-sig-provider-server-http-base-path`, `interface.14.cfg-verifier-server-http-base-path`, `interface.14.env-sig-provider-server-http-base-path` and `interface.14.env-smart-contract-verifier-server-http-base-path` therefore do not describe supported server settings. The local launcher's `BasePath` type cannot establish support in these consumers.
-
-Version 0.10.1 also lacks `server.http.cors.send_wildcard`: `interface.14.cfg-sig-provider-server-http-cors-send-wildcard` and `interface.14.env-sig-provider-server-http-cors-send-wildcard` are unsupported by the signature provider. Version 0.17.0 does define that field for the verifier. The active tables below omit unsupported keys.
+The tables below list the settings supported by each linked launcher version.
 
 ## cfg-sig-provider
 
