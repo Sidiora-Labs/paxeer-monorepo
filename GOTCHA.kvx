@@ -21745,3 +21745,38 @@ fix = "The build command of a task whose verification runs make paxeer-manifest-
 title = "Record files moved after the readers of their directory were brought to present paths"
 symptom = "Task 22.43.239 moved the record files of tools/qualification/audit_repairs under spec/layerx-merge/programme/records. Eighteen test files of that directory read a record by the earlier path. One test under tools/qualification/paxeer-x/tests, two patterns of tools/paxeer-x/retired_callers.json with the lines of its test, one list entry of tests/bridge/retired/test_retired_checkpoint_settlement.py and one line of .gitignore name a file or a directory by a path from before a rename."
 fix = "Task 22.43.258 brings these readers to the present paths. A search for stale references runs once more after the last task that moves files."
+
+[gotcha.4385]
+title = "The notice page of a fixture directory with key material is one line"
+symptom = "The test tests/ci/test_key_material_only_in_fixtures.py reads the page README.md of every fixture directory that the section package.metadata.test-fixtures of four manifests names. It accepts a page of one line that holds the words generated test data and no production use. Five such pages hold a heading and a paragraph."
+fix = "Task 22.43.259 brings the five pages to the one-line form. A task that rewrites pages leaves the notice page of a fixture directory with key material in that form."
+
+[gotcha.4386]
+title = "Tests under tools/qualification read sections and sentences of the front page of the repository"
+symptom = "Test files under tools/qualification/audit_repairs read README.md of the repository root and look for sections and sentences of the text it held before task 22.42.29 wrote the short front page: the overview of the network, the quick start for chain 125, the build and test sections and others."
+fix = "The earlier text lives on as the page docs/readme/NETWORK.md, brought to the present paths, and the front page links to it. A task that shortens a page first searches the tests for readers of its sections and sentences and names the page where each fact lives afterwards."
+
+[gotcha.4387]
+title = "Pages and records written or moved after the register of retired interfaces name symbols it does not list"
+symptom = "The scan tools/paxeer-x/tests/retired_callers_test.py reads the files of the tree for the symbols of retired interfaces and admits the references that the register tools/paxeer-x/retired_callers.json lists. Pages of the documentation site under docs/site/paxeer-docs with their generated copies, three directory pages, one record under apps/launchpad/qualification/records and four other files name such symbols on lines the register does not list. The pages read so far state that the interface is disabled or retired."
+fix = "Task 22.43.261 reads each reported line and admits in the register the lines that state a retirement or record an earlier state. A task that writes or moves a file that names a retired interface adds the reference to the register in the same change."
+
+[gotcha.4388]
+title = "A budget with no spend in its period is revoked and its unused funds are returned"
+symptom = "Since task 22.31.99 the kernel budget module keeps the configured period limit in the record when a budget is closed or revoked, so a budget whose period holds no spend is revoked and its unused funds are returned. The case of modules/layerxpay/keeper/budget_revoke_precompile_test.go covers the revocation without spend and with spend. The end-to-end proof precompiles/layerxpay/proof_layerxpay_0x101b_test.go dates from before that task, and the history case of the indexer under services/platform runs it."
+fix = "A proof that walks the revocation of a budget expects the revocation to pass with and without spend. Task 22.39.504 takes precompiles/layerxpay into its paths and brings the end-to-end proof to that rule."
+
+[gotcha.4389]
+title = "The fixture of the isolated chain writes an asset record of the custody module for the native denomination"
+symptom = "tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py adds to the genesis of the isolated chain an asset record of the custody module for the native denomination before the streams of the pay module open. On the network that record comes from the state at the upgrade height, and the readiness checklist under docs/release is the page where an operator looks for such a condition."
+fix = "The readiness checklist names the record, the query that reads it from a node, and the step that writes it where it is absent. Task 22.43.262 adds the item."
+
+[gotcha.4390]
+title = "The systems inventory of the release has three values for the change of a system"
+symptom = "docs/release/7.0.0-systems.kvx gives each system one of the values new, changed and unchanged, and the page of the inventory, the generator of the documentation site and its system map read them. docs/release/7.0.0-upgrade-plan.md states that the precompiles at 0x1012 and 0x1013 refuse every method from the upgrade height and that the one at 0x1014 refuses writes and keeps reads; their trees stay in the build. The inventory lists these systems as changed, and precompiles/README.md and the module list of the SDK page of the site name them without the statement of the plan."
+fix = "The inventory takes a fourth value, retired, for the systems whose interface the plan retires; the page of the inventory defines it, the site shows it, and the two pages say what the plan says. Task 22.43.263."
+
+[gotcha.4391]
+title = "Python tests under tools/qualification and tests/ci pin the text and the paths of pages as they stood when each test was written"
+symptom = "Test files under tools/qualification and tests/ci read sections and sentences of pages and the paths of files as they stood when each test was written. Later tasks shortened the front page, rewrote pages under docs, replaced the documentation site and renamed files, and the reference text of the front page lives in docs/readme/NETWORK.md since task 22.43.260."
+fix = "The tests follow the present pages and paths: tasks 22.43.264 to 22.43.289 bring them along in groups selected by position in the sorted list of each directory. A task that rewrites, moves or shortens a page searches the tests for readers first and brings them along in the same task."
