@@ -22,7 +22,7 @@ path_provenance = "Readlink inspection on the unchanged task base: apps/perps/no
 revision = "The final hf-done ledger row identifies the verified candidate revision; references avoid changing the candidate after qualification."
 build_command = "pnpm --dir apps/perps install --frozen-lockfile --offline && pnpm --dir apps/perps exec tsc --noEmit"
 build_reference = "/out/run/gates.jsonl: final kind=build row, including revision, command, exit and private log /out/logs/build-N.log."
-verify_command = "test -s apps/perps/repair_22_39_234.kvx && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/spot-release-gate.test.ts"
+verify_command = "test -s spec/layerx-merge/programme/records/apps/perps/repair_22_39_234.kvx && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/spot-release-gate.test.ts"
 verify_reference = "/out/run/gates.jsonl: final kind=verify row for cg spec done 22.39.234 -f layerx-merge --root /work/paxeer-monorepo, including revision, command, exit and private log /out/logs/verify-N.log."
 criterion = "Existing spot-release-gate.test.ts asserts closed/open routing, market selection, navigation and rendered spot mode behavior with every assertion unchanged and a real query client supplied to the markets Harness. Only a passing hf-done qualifies the task."
 
