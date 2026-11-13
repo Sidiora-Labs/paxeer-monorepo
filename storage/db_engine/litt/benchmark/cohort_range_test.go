@@ -16,17 +16,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepair_116_NewCohortSingletonRoundTrip(t *testing.T) {
+func TestNewCohortSingletonRoundTrip(t *testing.T) {
 	for _, keyIndex := range []uint64{0, 42, math.MaxUint64} {
 		t.Run(fmt.Sprint(keyIndex), func(t *testing.T) {
 			cohort, err := NewCohort(t.TempDir(), 7, keyIndex, keyIndex, 64, true)
 			require.NoError(t, err)
-			proveRepair116Singleton(t, cohort, keyIndex)
+			proveCohortRangeSingleton(t, cohort, keyIndex)
 		})
 	}
 }
 
-func TestRepair_116_NextCohortSingletonRoundTrip(t *testing.T) {
+func TestNextCohortSingletonRoundTrip(t *testing.T) {
 	for _, highIndex := range []uint64{0, 41, math.MaxUint64 - 1} {
 		t.Run(fmt.Sprint(highIndex), func(t *testing.T) {
 			previous, err := NewCohort(t.TempDir(), 7, highIndex, highIndex, 32, true)
@@ -36,12 +36,12 @@ func TestRepair_116_NextCohortSingletonRoundTrip(t *testing.T) {
 			cohort, err := previous.NextCohort(1, 64)
 			require.NoError(t, err)
 			require.Equal(t, uint64(8), cohort.CohortIndex())
-			proveRepair116Singleton(t, cohort, highIndex+1)
+			proveCohortRangeSingleton(t, cohort, highIndex+1)
 		})
 	}
 }
 
-func proveRepair116Singleton(t *testing.T, cohort *Cohort, keyIndex uint64) {
+func proveCohortRangeSingleton(t *testing.T, cohort *Cohort, keyIndex uint64) {
 	t.Helper()
 	require.NoError(t, cohort.Write())
 	loaded, err := LoadCohort(cohort.Path())
@@ -88,7 +88,7 @@ func proveRepair116Singleton(t *testing.T, cohort *Cohort, keyIndex uint64) {
 	require.Error(t, err)
 }
 
-func TestRepair_116_InvalidRanges(t *testing.T) {
+func TestInvalidRanges(t *testing.T) {
 	for _, tc := range []struct {
 		name string
 		low  uint64
@@ -120,7 +120,7 @@ func TestRepair_116_InvalidRanges(t *testing.T) {
 	}
 }
 
-func TestRepair_116_InclusiveBoundaryRanges(t *testing.T) {
+func TestInclusiveBoundaryRanges(t *testing.T) {
 	for _, indices := range [][2]uint64{{0, math.MaxUint64 - 1}, {1, math.MaxUint64}, {math.MaxUint64 - 1, math.MaxUint64}} {
 		t.Run(fmt.Sprintf("%d_%d", indices[0], indices[1]), func(t *testing.T) {
 			cohort, err := NewCohort(t.TempDir(), 1, indices[0], indices[1], 64, false)
@@ -134,7 +134,7 @@ func TestRepair_116_InclusiveBoundaryRanges(t *testing.T) {
 	}
 }
 
-func TestRepair_116_NextCohortOverflow(t *testing.T) {
+func TestNextCohortOverflow(t *testing.T) {
 	for _, tc := range []struct {
 		name        string
 		cohortIndex uint64
@@ -167,7 +167,7 @@ func TestRepair_116_NextCohortOverflow(t *testing.T) {
 	}
 }
 
-func TestRepair_116_SingletonTrackerRestart(t *testing.T) {
+func TestSingletonTrackerRestart(t *testing.T) {
 	cfg := config.DefaultBenchmarkConfig()
 	cfg.MetadataDirectory = t.TempDir()
 	cfg.CohortSize = 1

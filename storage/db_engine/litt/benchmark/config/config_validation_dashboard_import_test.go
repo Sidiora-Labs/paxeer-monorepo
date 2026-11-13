@@ -18,14 +18,14 @@ import (
 	"golang.org/x/time/rate"
 )
 
-func repairM1169Load(t *testing.T, document string) (*BenchmarkConfig, error) {
+func benchmarkValidationLoad(t *testing.T, document string) (*BenchmarkConfig, error) {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "benchmark config.json")
 	require.NoError(t, os.WriteFile(path, []byte(document), 0600))
 	return LoadConfig(path)
 }
 
-func TestRepairM_1169_LoadConfigRejectsInvalid(t *testing.T) {
+func TestLoadConfigRejectsInvalid(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "unopened-storage")
 	paths, err := json.Marshal([]string{dbPath})
 	require.NoError(t, err)
@@ -111,7 +111,7 @@ func TestRepairM_1169_LoadConfigRejectsInvalid(t *testing.T) {
 					document = fmt.Sprintf(`{"LittConfig":{"Paths":%s},%q:%s}`, paths, tc.field, tc.value)
 				}
 			}
-			loaded, err := repairM1169Load(t, document)
+			loaded, err := benchmarkValidationLoad(t, document)
 			require.Error(t, err)
 			require.Nil(t, loaded, "invalid config must not escape to consumers")
 			require.Contains(t, err.Error(), tc.message)
@@ -121,7 +121,7 @@ func TestRepairM_1169_LoadConfigRejectsInvalid(t *testing.T) {
 	}
 }
 
-func TestRepairM_1169_LoadConfigValidBoundaries(t *testing.T) {
+func TestLoadConfigValidBoundaries(t *testing.T) {
 	t.Run("shipped-config", func(t *testing.T) {
 		loaded, err := LoadConfig("basic-config.json")
 		require.NoError(t, err)
@@ -140,7 +140,7 @@ func TestRepairM_1169_LoadConfigValidBoundaries(t *testing.T) {
 			"CohortGCPeriodSeconds":1e-9,"TTLHours":1,"ReadSafetyMarginMinutes":0,
 			"StartupSleepFactorSeconds":0,"MetricsLoggingPeriodSeconds":0,"TimeLimitSeconds":0
 		}`, t.TempDir(), 1.0/unit.MB, 1.0/unit.MB, 1.0/unit.MB, 1.0/unit.MB)
-		loaded, err := repairM1169Load(t, document)
+		loaded, err := benchmarkValidationLoad(t, document)
 		require.NoError(t, err)
 		require.True(t, filepath.IsAbs(loaded.MetadataDirectory))
 		require.Equal(t, uint64(1), uint64(loaded.ValueSizeMB*unit.MB))
@@ -163,14 +163,14 @@ func TestRepairM_1169_LoadConfigValidBoundaries(t *testing.T) {
 	t.Run("representable-upper-durations", func(t *testing.T) {
 		seconds := math.Exp2(62) / float64(time.Second)
 		document := fmt.Sprintf(`{"LittConfig":{"Paths":["/unused/litt"]},"TimeLimitSeconds":%g,"StartupSleepFactorSeconds":%g}`, seconds, seconds/2)
-		loaded, err := repairM1169Load(t, document)
+		loaded, err := benchmarkValidationLoad(t, document)
 		require.NoError(t, err)
 		require.Positive(t, time.Duration(loaded.TimeLimitSeconds*float64(time.Second)))
 		require.Positive(t, time.Duration(loaded.StartupSleepFactorSeconds*float64(time.Second)*2))
 	})
 }
 
-func TestRepairM_1169_ValidateNonFinite(t *testing.T) {
+func TestValidateNonFinite(t *testing.T) {
 	fields := []struct {
 		name string
 		set  func(*BenchmarkConfig, float64)
@@ -200,14 +200,14 @@ func TestRepairM_1169_ValidateNonFinite(t *testing.T) {
 	}
 	for _, literal := range []string{"NaN", "Infinity", "-Infinity"} {
 		t.Run("json-"+literal, func(t *testing.T) {
-			cfg, err := repairM1169Load(t, fmt.Sprintf(`{"LittConfig":{"Paths":["/unused/litt"]},"ValueSizeMB":%s}`, literal))
+			cfg, err := benchmarkValidationLoad(t, fmt.Sprintf(`{"LittConfig":{"Paths":["/unused/litt"]},"ValueSizeMB":%s}`, literal))
 			require.Error(t, err)
 			require.Nil(t, cfg)
 		})
 	}
 }
 
-func TestRepairM_1169_DashboardDatasourceImport(t *testing.T) {
+func TestDashboardDatasourceImport(t *testing.T) {
 	data, err := os.ReadFile("benchmark-grafana-dashboard.json")
 	require.NoError(t, err)
 	type datasource struct{ Type, UID string }

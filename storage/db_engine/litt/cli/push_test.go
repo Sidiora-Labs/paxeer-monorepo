@@ -20,7 +20,7 @@ import (
 )
 
 // The full rsync integration suite uses the supported OpenSSH fixture shared
-// with repair_112_test.go. It requires sshd and rsync, with no Docker dependency.
+// with snapshot_transfer_test.go. It requires sshd and rsync, with no Docker dependency.
 func pushTest(t *testing.T, sourceDirs, destDirs uint64, verbose bool) {
 	t.Helper()
 	pushIntegrationTest(t, sourceDirs, destDirs, verbose, false)
@@ -28,7 +28,7 @@ func pushTest(t *testing.T, sourceDirs, destDirs uint64, verbose bool) {
 
 func pushIntegrationTest(t *testing.T, sourceDirs, destDirs uint64, verbose, snapshot bool) {
 	t.Helper()
-	server := repair112StartSSH(t)
+	server := snapshotTransferStartSSH(t)
 	random := util.NewTestRandom()
 	parent := t.TempDir()
 	var sources, destinations []string
@@ -216,7 +216,7 @@ func TestPushSnapshot(t *testing.T) { pushIntegrationTest(t, 3, 3, false, true) 
 func pushInterruptedParticipantsTest(t *testing.T) {
 	t.Helper()
 	root, snapshot := t.TempDir(), t.TempDir()
-	files := repair112Produce(t, root, snapshot, "interrupt_table", 0, time.Now())
+	files := snapshotTransferProduce(t, root, snapshot, "interrupt_table", 0, time.Now())
 	upper, err := disktable.LoadBoundaryFile(disktable.UpperBound, filepath.Join(snapshot, "interrupt_table"))
 	require.NoError(t, err)
 	require.NoError(t, upper.Update(0))
@@ -224,7 +224,7 @@ func pushInterruptedParticipantsTest(t *testing.T) {
 	heldDirectory := filepath.Join(snapshot, "interrupt_table", "held")
 	destination := t.TempDir()
 	var interrupted atomic.Bool
-	server := repairM1163StartSSH(t, func(command string) error {
+	server := cliLifecycleStartSSH(t, func(command string) error {
 		if strings.HasPrefix(command, "mkdir -p ") && interrupted.CompareAndSwap(false, true) {
 			// Pause access to all files after planning, before the transfer
 			// participants open them. Rsync's real preflight reports the errors.
@@ -232,7 +232,7 @@ func pushInterruptedParticipantsTest(t *testing.T) {
 		}
 		return nil
 	})
-	output := &repairM1163Log{}
+	output := &cliLifecycleLog{}
 	logger := slog.New(slog.NewTextHandler(output, nil))
 	err = push(logger, []string{snapshot}, []string{destination}, "fixture", "127.0.0.1", server.port, server.key, server.knownHosts, true, false, 2, 0, false)
 	require.ErrorContains(t, err, "error detected during transfer")
@@ -254,7 +254,7 @@ func pushInterruptedParticipantsTest(t *testing.T) {
 		require.NoFileExists(t, filepath.Join(destination, "interrupt_table", segment.SegmentDirectory, filepath.Base(file)))
 	}
 	require.NoError(t, os.Rename(heldDirectory, sourceDirectory))
-	repair112AssertRecovered(t, []string{root}, "interrupt_table", 0)
+	snapshotTransferAssertRecovered(t, []string{root}, "interrupt_table", 0)
 }
 
 func TestPushInterruptedMultiFile(t *testing.T) { pushInterruptedParticipantsTest(t) }

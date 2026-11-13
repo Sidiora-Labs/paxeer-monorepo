@@ -28,7 +28,7 @@ import (
 // The SSH subprocess uses the actual CLI parser and handlers in this test
 // executable, avoiding a second build or any replacement of the prune handler.
 func TestMain(m *testing.M) {
-	if len(os.Args) > 1 && os.Args[1] == "--repair-112-cli" {
+	if len(os.Args) > 1 && os.Args[1] == "--snapshot-transfer-cli" {
 		if err := buildCLIParser(slog.Default()).Run(append([]string{"litt"}, os.Args[2:]...)); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
@@ -38,12 +38,12 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-type repair112SSH struct {
+type snapshotTransferSSH struct {
 	user, key, knownHosts string
 	port                  uint64
 }
 
-func repair112StartSSH(t *testing.T) repair112SSH {
+func snapshotTransferStartSSH(t *testing.T) snapshotTransferSSH {
 	t.Helper()
 	sshd, err := exec.LookPath("sshd")
 	require.NoError(t, err, "the real SSH integration tests require openssh-server")
@@ -110,14 +110,14 @@ LogLevel ERROR
 	require.NoError(t, err)
 	knownHosts := filepath.Join(dir, "known_hosts")
 	require.NoError(t, os.WriteFile(knownHosts, []byte(knownhosts.Line([]string{address}, publicKey)+"\n"), 0600))
-	return repair112SSH{user: currentUser.Username, key: key, knownHosts: knownHosts, port: uint64(port)}
+	return snapshotTransferSSH{user: currentUser.Username, key: key, knownHosts: knownHosts, port: uint64(port)}
 }
 
-func (s repair112SSH) args() []string {
+func (s snapshotTransferSSH) args() []string {
 	return []string{"--key", s.key, "--known-hosts", s.knownHosts, "--port", strconv.FormatUint(s.port, 10), "--threads", "2"}
 }
 
-func (s repair112SSH) connect(t *testing.T) *util.SSHSession {
+func (s snapshotTransferSSH) connect(t *testing.T) *util.SSHSession {
 	t.Helper()
 	connection, err := util.NewSSHSession(slog.Default(), s.user, "127.0.0.1", s.port, s.key, s.knownHosts, false)
 	require.NoError(t, err)
@@ -125,7 +125,7 @@ func (s repair112SSH) connect(t *testing.T) *util.SSHSession {
 	return connection
 }
 
-func repair112Produce(t *testing.T, root, snapshot, table string, index uint32, sealTime time.Time) []string {
+func snapshotTransferProduce(t *testing.T, root, snapshot, table string, index uint32, sealTime time.Time) []string {
 	t.Helper()
 	paths, err := segment.BuildSegmentPaths([]string{root}, snapshot, table)
 	require.NoError(t, err)
@@ -144,7 +144,7 @@ func repair112Produce(t *testing.T, root, snapshot, table string, index uint32, 
 	return seg.GetFilePaths()
 }
 
-func repair112AssertRecovered(t *testing.T, roots []string, tableName string, indexes ...uint32) {
+func snapshotTransferAssertRecovered(t *testing.T, roots []string, tableName string, indexes ...uint32) {
 	t.Helper()
 	config, err := litt.DefaultConfig(roots...)
 	require.NoError(t, err)
@@ -167,7 +167,7 @@ func repair112AssertRecovered(t *testing.T, roots []string, tableName string, in
 	}
 }
 
-func repair112CheckTransfers(t *testing.T, files, destinations []string, table string) {
+func snapshotTransferCheckTransfers(t *testing.T, files, destinations []string, table string) {
 	t.Helper()
 	for _, file := range files {
 		name := filepath.Base(file)
@@ -188,30 +188,30 @@ func repair112CheckTransfers(t *testing.T, files, destinations []string, table s
 	}
 }
 
-func TestRepair_112_PushDestinationFlag(t *testing.T) {
-	server := repair112StartSSH(t)
+func TestPushDestinationFlag(t *testing.T) {
+	server := snapshotTransferStartSSH(t)
 	for _, flag := range []string{"--dst", "-d"} {
 		t.Run(flag, func(t *testing.T) {
 			root := t.TempDir()
-			files := repair112Produce(t, root, "", "push_table", 0, time.Now())
+			files := snapshotTransferProduce(t, root, "", "push_table", 0, time.Now())
 			destinations := []string{filepath.Join(t.TempDir(), "first"), filepath.Join(t.TempDir(), "second")}
 			args := []string{"litt", "push", "--src", root, flag, destinations[0], flag, destinations[1], "--no-gc"}
 			args = append(args, server.args()...)
 			args = append(args, server.user+"@127.0.0.1")
 			require.NoError(t, buildCLIParser(slog.Default()).Run(args))
-			repair112CheckTransfers(t, files, destinations, "push_table")
-			repair112AssertRecovered(t, destinations, "push_table", 0)
+			snapshotTransferCheckTransfers(t, files, destinations, "push_table")
+			snapshotTransferAssertRecovered(t, destinations, "push_table", 0)
 		})
 	}
 }
 
-func TestRepair_112_SyncDestinationFlag(t *testing.T) {
-	server := repair112StartSSH(t)
+func TestSyncDestinationFlag(t *testing.T) {
+	server := snapshotTransferStartSSH(t)
 	root := t.TempDir()
-	oldFiles := repair112Produce(t, root, "", "sync_table", 0, time.Now().Add(-2*time.Hour))
-	freshFiles := repair112Produce(t, root, "", "sync_table", 1, time.Now())
+	oldFiles := snapshotTransferProduce(t, root, "", "sync_table", 0, time.Now().Add(-2*time.Hour))
+	freshFiles := snapshotTransferProduce(t, root, "", "sync_table", 1, time.Now())
 	destinations := []string{filepath.Join(t.TempDir(), "first"), filepath.Join(t.TempDir(), "second")}
-	binary := repair112RemoteCLI(t)
+	binary := snapshotTransferRemoteCLI(t)
 	args := []string{"litt", "sync", "--src", root, "--dst", destinations[0], "--dst", destinations[1], "--no-gc", "--period", "1", "--max-age", "3600", "--litt-binary", binary}
 	args = append(args, server.args()...)
 	args = append(args, server.user+"@127.0.0.1")
@@ -240,18 +240,18 @@ func TestRepair_112_SyncDestinationFlag(t *testing.T) {
 	}, 15*time.Second, 30*time.Millisecond)
 	cancel()
 	require.NoError(t, <-done)
-	repair112CheckTransfers(t, freshFiles, destinations, "sync_table")
-	repair112AssertRecovered(t, destinations, "sync_table", 1)
+	snapshotTransferCheckTransfers(t, freshFiles, destinations, "sync_table")
+	snapshotTransferAssertRecovered(t, destinations, "sync_table", 1)
 }
 
-func TestRepair_112_SnapshotReclaimRange(t *testing.T) {
-	server := repair112StartSSH(t)
+func TestSnapshotReclaimRange(t *testing.T) {
+	server := snapshotTransferStartSSH(t)
 	root, snapshot := t.TempDir(), t.TempDir()
-	first := repair112Produce(t, root, snapshot, "snapshot_table", 0, time.Now())
+	first := snapshotTransferProduce(t, root, snapshot, "snapshot_table", 0, time.Now())
 	upper, err := disktable.LoadBoundaryFile(disktable.UpperBound, filepath.Join(snapshot, "snapshot_table"))
 	require.NoError(t, err)
 	require.NoError(t, upper.Update(0))
-	second := repair112Produce(t, root, snapshot, "snapshot_table", 1, time.Now())
+	second := snapshotTransferProduce(t, root, snapshot, "snapshot_table", 1, time.Now())
 	publish, published := make(chan struct{}), make(chan error, 1)
 	// Pause the real producer between Snapshot and publication, exactly where
 	// the consumer can see a complete but unpublished segment.
@@ -271,7 +271,7 @@ func TestRepair_112_SnapshotReclaimRange(t *testing.T) {
 	args = append(args, server.args()...)
 	args = append(args, server.user+"@127.0.0.1")
 	require.NoError(t, buildCLIParser(slog.Default()).Run(args))
-	repair112CheckTransfers(t, first, []string{destination}, "snapshot_table")
+	snapshotTransferCheckTransfers(t, first, []string{destination}, "snapshot_table")
 	for _, file := range first {
 		require.NoFileExists(t, filepath.Join(snapshot, "snapshot_table", segment.SegmentDirectory, filepath.Base(file)))
 	}
@@ -306,18 +306,18 @@ func TestRepair_112_SnapshotReclaimRange(t *testing.T) {
 
 	// A fresh parser and SSH connection resume the snapshot consumer.
 	require.NoError(t, buildCLIParser(slog.Default()).Run(args))
-	repair112CheckTransfers(t, second, []string{destination}, "snapshot_table")
+	snapshotTransferCheckTransfers(t, second, []string{destination}, "snapshot_table")
 	lower, err = disktable.LoadBoundaryFile(disktable.LowerBound, filepath.Join(snapshot, "snapshot_table"))
 	require.NoError(t, err)
 	require.Equal(t, uint32(1), lower.BoundaryIndex())
-	repair112AssertRecovered(t, []string{destination}, "snapshot_table", 0, 1)
+	snapshotTransferAssertRecovered(t, []string{destination}, "snapshot_table", 0, 1)
 }
 
-func TestRepair_112_SnapshotReclaimPrefix(t *testing.T) {
+func TestSnapshotReclaimPrefix(t *testing.T) {
 	root, snapshot := t.TempDir(), t.TempDir()
 	files := make([][]string, 3)
 	for index := range files {
-		files[index] = repair112Produce(t, root, snapshot, "prefix_table", uint32(index), time.Now())
+		files[index] = snapshotTransferProduce(t, root, snapshot, "prefix_table", uint32(index), time.Now())
 	}
 	paths, err := segment.BuildSegmentPaths([]string{snapshot}, "", "prefix_table")
 	require.NoError(t, err)
@@ -343,18 +343,18 @@ func TestRepair_112_SnapshotReclaimPrefix(t *testing.T) {
 	require.Equal(t, uint32(2), lower.BoundaryIndex())
 }
 
-func repair112RemoteCLI(t *testing.T) string {
+func snapshotTransferRemoteCLI(t *testing.T) string {
 	t.Helper()
 	executable, err := os.Executable()
 	require.NoError(t, err)
 	binary := filepath.Join(t.TempDir(), "litt binary's entry")
-	wrapper := "#!/bin/sh\nexec " + quoteRemoteArgument(executable) + " --repair-112-cli \"$@\"\n"
+	wrapper := "#!/bin/sh\nexec " + quoteRemoteArgument(executable) + " --snapshot-transfer-cli \"$@\"\n"
 	require.NoError(t, os.WriteFile(binary, []byte(wrapper), 0700))
 	return binary
 }
 
-func TestRepair_112_RemotePruneSources(t *testing.T) {
-	server := repair112StartSSH(t)
+func TestRemotePruneSources(t *testing.T) {
+	server := snapshotTransferStartSSH(t)
 	connection := server.connect(t)
 	parent := t.TempDir()
 	destinations := []string{filepath.Join(parent, "backup one"), filepath.Join(parent, "backup' two;$(printf injected)")}
@@ -366,10 +366,10 @@ func TestRepair_112_RemotePruneSources(t *testing.T) {
 		for _, segmentPath := range paths {
 			require.NoError(t, segmentPath.MakeDirectories(false))
 		}
-		oldFiles = append(oldFiles, repair112Produce(t, destination, "", table, 0, time.Now().Add(-2*time.Hour)))
-		freshFiles = append(freshFiles, repair112Produce(t, destination, "", table, 1, time.Now()))
+		oldFiles = append(oldFiles, snapshotTransferProduce(t, destination, "", table, 0, time.Now().Add(-2*time.Hour)))
+		freshFiles = append(freshFiles, snapshotTransferProduce(t, destination, "", table, 1, time.Now()))
 	}
-	engine := newSyncEngine(t.Context(), slog.Default(), nil, destinations, server.user, "127.0.0.1", server.port, server.key, server.knownHosts, false, false, 2, 0, time.Second, 3600, repair112RemoteCLI(t), false)
+	engine := newSyncEngine(t.Context(), slog.Default(), nil, destinations, server.user, "127.0.0.1", server.port, server.key, server.knownHosts, false, false, 2, 0, time.Second, 3600, snapshotTransferRemoteCLI(t), false)
 	defer engine.Stop()
 	stdout, stderr, err := connection.Exec(engine.pruneCommand())
 	require.NoError(t, err, "stdout=%s stderr=%s", stdout, stderr)
@@ -380,14 +380,14 @@ func TestRepair_112_RemotePruneSources(t *testing.T) {
 		for _, file := range freshFiles[index] {
 			require.FileExists(t, file)
 		}
-		repair112AssertRecovered(t, []string{destination}, fmt.Sprintf("prune_%d", index), 1)
+		snapshotTransferAssertRecovered(t, []string{destination}, fmt.Sprintf("prune_%d", index), 1)
 	}
 }
 
-func TestRepair_112_SnapshotUnpublished(t *testing.T) {
-	server := repair112StartSSH(t)
+func TestSnapshotUnpublished(t *testing.T) {
+	server := snapshotTransferStartSSH(t)
 	root, snapshot := t.TempDir(), t.TempDir()
-	files := repair112Produce(t, root, snapshot, "unpublished_table", 0, time.Now())
+	files := snapshotTransferProduce(t, root, snapshot, "unpublished_table", 0, time.Now())
 	destination := filepath.Join(t.TempDir(), "backup")
 	args := []string{"litt", "push", "--src", snapshot, "--dst", destination}
 	args = append(args, server.args()...)
@@ -404,6 +404,6 @@ func TestRepair_112_SnapshotUnpublished(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, upper.Update(0))
 	require.NoError(t, buildCLIParser(slog.Default()).Run(args))
-	repair112CheckTransfers(t, files, []string{destination}, "unpublished_table")
-	repair112AssertRecovered(t, []string{destination}, "unpublished_table", 0)
+	snapshotTransferCheckTransfers(t, files, []string{destination}, "unpublished_table")
+	snapshotTransferAssertRecovered(t, []string{destination}, "unpublished_table", 0)
 }

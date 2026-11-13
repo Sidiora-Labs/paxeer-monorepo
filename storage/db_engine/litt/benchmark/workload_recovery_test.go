@@ -22,7 +22,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func repairM1170Config(t *testing.T) (*config.BenchmarkConfig, string) {
+func workloadRecoveryConfig(t *testing.T) (*config.BenchmarkConfig, string) {
 	t.Helper()
 	cfg := config.DefaultBenchmarkConfig()
 	cfg.LittConfig.Paths = []string{t.TempDir()}
@@ -48,16 +48,16 @@ func repairM1170Config(t *testing.T) (*config.BenchmarkConfig, string) {
 	return cfg, filepath.Join(t.TempDir(), "benchmark.json")
 }
 
-func repairM1170SaveConfig(t *testing.T, cfg *config.BenchmarkConfig, filename string) {
+func workloadRecoverySaveConfig(t *testing.T, cfg *config.BenchmarkConfig, filename string) {
 	t.Helper()
 	data, err := json.Marshal(cfg)
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(filename, data, 0600))
 }
 
-func repairM1170Open(t *testing.T, cfg *config.BenchmarkConfig, filename string) *BenchmarkEngine {
+func workloadRecoveryOpen(t *testing.T, cfg *config.BenchmarkConfig, filename string) *BenchmarkEngine {
 	t.Helper()
-	repairM1170SaveConfig(t, cfg, filename)
+	workloadRecoverySaveConfig(t, cfg, filename)
 	engine, err := NewBenchmarkEngine(filename)
 	require.NoError(t, err)
 	t.Cleanup(func() {
@@ -69,9 +69,9 @@ func repairM1170Open(t *testing.T, cfg *config.BenchmarkConfig, filename string)
 }
 
 // The metadata fixture is emitted by the real tracker after real durable writes.
-func repairM1170Seed(t *testing.T, cfg *config.BenchmarkConfig, filename string, corrupt bool) {
+func workloadRecoverySeed(t *testing.T, cfg *config.BenchmarkConfig, filename string, corrupt bool) {
 	t.Helper()
-	engine := repairM1170Open(t, cfg, filename)
+	engine := workloadRecoveryOpen(t, cfg, filename)
 	for i := uint64(0); i < cfg.CohortSize; i++ {
 		info := engine.dataTracker.GetWriteInfo()
 		require.NotNil(t, info)
@@ -90,7 +90,7 @@ func repairM1170Seed(t *testing.T, cfg *config.BenchmarkConfig, filename string,
 	require.True(t, cohort.IsComplete())
 }
 
-func TestRepairM_1170_GeneratorSeed(t *testing.T) {
+func TestGeneratorSeed(t *testing.T) {
 	first := NewDataGenerator(1170, 128)
 	replay := NewDataGenerator(1170, 128)
 	other := NewDataGenerator(1171, 128)
@@ -109,7 +109,7 @@ func TestRepairM_1170_GeneratorSeed(t *testing.T) {
 	}
 }
 
-func TestRepairM_1170_GeneratorExactPool(t *testing.T) {
+func TestGeneratorExactPool(t *testing.T) {
 	for _, poolSize := range []uint64{0, 1, 128} {
 		generator := NewDataGenerator(1170, poolSize)
 		sizes := []uint64{0, poolSize, poolSize + 1}
@@ -138,12 +138,12 @@ func TestRepairM_1170_GeneratorExactPool(t *testing.T) {
 	require.True(t, sawLast)
 }
 
-func TestRepairM_1170_GenesisCohortCount(t *testing.T) {
+func TestGenesisCohortCount(t *testing.T) {
 	for _, size := range []uint64{1, 2, 7} {
 		t.Run(fmt.Sprint(size), func(t *testing.T) {
-			cfg, filename := repairM1170Config(t)
+			cfg, filename := workloadRecoveryConfig(t)
 			cfg.CohortSize = size
-			engine := repairM1170Open(t, cfg, filename)
+			engine := workloadRecoveryOpen(t, cfg, filename)
 			for i := uint64(0); i <= size; i++ {
 				info := engine.dataTracker.GetWriteInfo()
 				require.NotNil(t, info)
@@ -153,7 +153,7 @@ func TestRepairM_1170_GenesisCohortCount(t *testing.T) {
 			require.NoError(t, engine.db.Close())
 			lastHigh := engine.dataTracker.activeCohort.HighKeyIndex()
 			require.Equal(t, size-1, engine.dataTracker.cohorts[0].HighKeyIndex())
-			reopened := repairM1170Open(t, cfg, filename)
+			reopened := workloadRecoveryOpen(t, cfg, filename)
 			info := reopened.dataTracker.GetWriteInfo()
 			require.NotNil(t, info)
 			require.Equal(t, lastHigh+1, info.KeyIndex)
@@ -163,19 +163,19 @@ func TestRepairM_1170_GenesisCohortCount(t *testing.T) {
 			}
 		})
 	}
-	cfg, _ := repairM1170Config(t)
+	cfg, _ := workloadRecoveryConfig(t)
 	cfg.CohortSize = 0
 	tracker, err := NewDataTracker(t.Context(), cfg, util.NewErrorMonitor(t.Context(), slog.Default(), nil))
 	require.ErrorContains(t, err, "CohortSize must be positive")
 	require.Nil(t, tracker)
 }
 
-func TestRepairM_1170_CohortDurabilityRestart(t *testing.T) {
-	cfg, filename := repairM1170Config(t)
+func TestCohortDurabilityRestart(t *testing.T) {
+	cfg, filename := workloadRecoveryConfig(t)
 	cfg.Fsync = false
-	repairM1170Seed(t, cfg, filename, false)
+	workloadRecoverySeed(t, cfg, filename, false)
 	cfg.Fsync = true
-	engine := repairM1170Open(t, cfg, filename)
+	engine := workloadRecoveryOpen(t, cfg, filename)
 	for i := uint64(0); i < cfg.CohortSize*3; i++ {
 		info := engine.dataTracker.GetWriteInfo()
 		require.NotNil(t, info)
@@ -188,7 +188,7 @@ func TestRepairM_1170_CohortDurabilityRestart(t *testing.T) {
 	for _, cohort := range engine.dataTracker.cohorts {
 		require.True(t, cohort.fsync, "cohort %d lost active durability policy", cohort.CohortIndex())
 	}
-	restarted := repairM1170Open(t, cfg, filename)
+	restarted := workloadRecoveryOpen(t, cfg, filename)
 	read := restarted.dataTracker.GetReadInfoWithTimeout(time.Second)
 	require.NotNil(t, read)
 	actual, exists, err := restarted.table.Get(read.Key)
@@ -199,8 +199,8 @@ func TestRepairM_1170_CohortDurabilityRestart(t *testing.T) {
 	require.True(t, restarted.dataTracker.activeCohort.fsync)
 }
 
-func TestRepairM_1170_CohortGapRecovery(t *testing.T) {
-	cfg, _ := repairM1170Config(t)
+func TestCohortGapRecovery(t *testing.T) {
+	cfg, _ := workloadRecoveryConfig(t)
 	dir := filepath.Join(cfg.MetadataDirectory, "cohorts")
 	require.NoError(t, os.MkdirAll(dir, 0700))
 	first, err := NewCohort(dir, 0, 0, 1, 32, true)
@@ -229,10 +229,10 @@ func TestRepairM_1170_CohortGapRecovery(t *testing.T) {
 	require.Len(t, files, 2)
 }
 
-func TestRepairM_1170_CohortRangeRecovery(t *testing.T) {
+func TestCohortRangeRecovery(t *testing.T) {
 	for _, low := range []uint64{1, 3} {
 		t.Run(fmt.Sprint(low), func(t *testing.T) {
-			cfg, _ := repairM1170Config(t)
+			cfg, _ := workloadRecoveryConfig(t)
 			dir := filepath.Join(cfg.MetadataDirectory, "cohorts")
 			require.NoError(t, os.MkdirAll(dir, 0700))
 			_, err := NewCohort(dir, 0, 0, 1, 32, true)
@@ -251,10 +251,10 @@ func TestRepairM_1170_CohortRangeRecovery(t *testing.T) {
 	}
 }
 
-func TestRepairM_1170_ErrorResult(t *testing.T) {
-	cfg, filename := repairM1170Config(t)
+func TestErrorResult(t *testing.T) {
+	cfg, filename := workloadRecoveryConfig(t)
 	cfg.TimeLimitSeconds = 5
-	engine := repairM1170Open(t, cfg, filename)
+	engine := workloadRecoveryOpen(t, cfg, filename)
 	require.NoError(t, engine.db.Close())
 	started := time.Now()
 	err := engine.Run() // The production writer attempts a Put on a closed table.
@@ -271,9 +271,9 @@ func TestRepairM_1170_ErrorResult(t *testing.T) {
 	require.Zero(t, count)
 }
 
-func TestRepairM_1170_CLIErrorStatus(t *testing.T) {
-	cfg, filename := repairM1170Config(t)
-	repairM1170Seed(t, cfg, filename, false)
+func TestCLIErrorStatus(t *testing.T) {
+	cfg, filename := workloadRecoveryConfig(t)
+	workloadRecoverySeed(t, cfg, filename, false)
 	require.NoError(t, os.RemoveAll(cfg.LittConfig.Paths[0])) // Lost storage, intact real metadata.
 	var stderr bytes.Buffer
 	require.Equal(t, 1, RunCLI([]string{filename}, &stderr))
@@ -281,14 +281,14 @@ func TestRepairM_1170_CLIErrorStatus(t *testing.T) {
 	require.NotContains(t, stderr.String(), "Failed to create benchmark engine")
 }
 
-func TestRepairM_1170_MissingReadSuccess(t *testing.T) {
+func TestMissingReadSuccess(t *testing.T) {
 	for _, panicOnFailure := range []bool{false, true} {
 		t.Run(fmt.Sprint(panicOnFailure), func(t *testing.T) {
-			cfg, filename := repairM1170Config(t)
+			cfg, filename := workloadRecoveryConfig(t)
 			cfg.PanicOnReadFailure = panicOnFailure
-			repairM1170Seed(t, cfg, filename, false)
+			workloadRecoverySeed(t, cfg, filename, false)
 			require.NoError(t, os.RemoveAll(cfg.LittConfig.Paths[0]))
-			engine := repairM1170Open(t, cfg, filename)
+			engine := workloadRecoveryOpen(t, cfg, filename)
 			require.ErrorContains(t, engine.Run(), "not found in database")
 			require.Positive(t, engine.metrics.missingReadCount.Load())
 			require.Zero(t, engine.metrics.readCount.Load())
@@ -297,10 +297,10 @@ func TestRepairM_1170_MissingReadSuccess(t *testing.T) {
 	}
 }
 
-func TestRepairM_1170_CorruptReadSuccess(t *testing.T) {
-	cfg, filename := repairM1170Config(t)
-	repairM1170Seed(t, cfg, filename, true)
-	engine := repairM1170Open(t, cfg, filename)
+func TestCorruptReadSuccess(t *testing.T) {
+	cfg, filename := workloadRecoveryConfig(t)
+	workloadRecoverySeed(t, cfg, filename, true)
+	engine := workloadRecoveryOpen(t, cfg, filename)
 	require.ErrorContains(t, engine.Run(), "does not match expected value")
 	require.Positive(t, engine.metrics.invalidReadCount.Load())
 	require.Zero(t, engine.metrics.readCount.Load())
@@ -308,13 +308,13 @@ func TestRepairM_1170_CorruptReadSuccess(t *testing.T) {
 	require.Zero(t, engine.metrics.missingReadCount.Load())
 }
 
-func TestRepairM_1170_ShutdownDrainRestart(t *testing.T) {
-	cfg, filename := repairM1170Config(t)
+func TestShutdownDrainRestart(t *testing.T) {
+	cfg, filename := workloadRecoveryConfig(t)
 	cfg.WriterParallelism = 4
 	cfg.ReaderParallelism = 4
 	cfg.MaximumWriteThroughputMB = 0.02
 	cfg.BatchSizeMB = 512.0 / unit.MB
-	engine := repairM1170Open(t, cfg, filename)
+	engine := workloadRecoveryOpen(t, cfg, filename)
 	require.NoError(t, engine.Run())
 	require.Positive(t, engine.metrics.writeCount.Load())
 	require.Positive(t, engine.metrics.readCount.Load())
@@ -336,7 +336,7 @@ func TestRepairM_1170_ShutdownDrainRestart(t *testing.T) {
 	require.Equal(t, writes, uint64(len(reported)), "every accepted write must be flushed and reported")
 	_, err := engine.db.BuildTable(litt.DefaultTableConfig("after_close"))
 	require.ErrorContains(t, err, "database is closing or closed")
-	reopened := repairM1170Open(t, cfg, filename)
+	reopened := workloadRecoveryOpen(t, cfg, filename)
 	for _, index := range reported {
 		expected := reopened.dataTracker.generator
 		got, exists, err := reopened.table.Get(expected.Key(index))
@@ -360,13 +360,13 @@ func TestRepairM_1170_ShutdownDrainRestart(t *testing.T) {
 	require.Positive(t, complete)
 }
 
-func TestRepairM_1170_ReadSafetyDeadline(t *testing.T) {
-	cfg, filename := repairM1170Config(t)
+func TestReadSafetyDeadline(t *testing.T) {
+	cfg, filename := workloadRecoveryConfig(t)
 	cfg.TimeLimitSeconds = 0.08
 	cfg.TTLHours = 2.0 / 3600
 	cfg.ReadSafetyMarginMinutes = 0
-	repairM1170Seed(t, cfg, filename, false)
-	engine := repairM1170Open(t, cfg, filename)
+	workloadRecoverySeed(t, cfg, filename, false)
+	engine := workloadRecoveryOpen(t, cfg, filename)
 	queued := engine.dataTracker.GetReadInfoWithTimeout(time.Second)
 	require.NotNil(t, queued)
 	// Wait until the real producer's safety deadline. The queue still contains
@@ -380,8 +380,8 @@ func TestRepairM_1170_ReadSafetyDeadline(t *testing.T) {
 	require.Zero(t, engine.metrics.bytesRead.Load())
 }
 
-func TestRepairM_1170_CloseError(t *testing.T) {
-	cfg, _ := repairM1170Config(t)
+func TestCloseError(t *testing.T) {
+	cfg, _ := workloadRecoveryConfig(t)
 	runtime := litt.DefaultRuntimeConfig()
 	dbCtx, stopDB := context.WithCancel(context.Background())
 	defer stopDB()

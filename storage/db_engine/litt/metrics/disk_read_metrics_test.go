@@ -20,7 +20,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/db_engine/litt/util"
 )
 
-func TestRepair_117_DiskReadMetricSemantics(t *testing.T) {
+func TestDiskReadMetricSemantics(t *testing.T) {
 	previousProvider := otel.GetMeterProvider()
 	registry, shutdown, err := commonmetrics.SetupOtelPrometheus()
 	require.NoError(t, err)
@@ -30,7 +30,7 @@ func TestRepair_117_DiskReadMetricSemantics(t *testing.T) {
 	})
 	reporter := metrics.NewLittDBMetrics()
 	root := t.TempDir()
-	const tableName = "repair117"
+	const tableName = "disk_read_metrics"
 	keymapPath := filepath.Join(root, tableName, keymap.KeymapDirectoryName)
 	require.NoError(t, os.MkdirAll(keymapPath, 0750))
 	typeFile := keymap.NewKeymapTypeFile(keymapPath, keymap.MemKeymapType)
@@ -62,7 +62,7 @@ func TestRepair_117_DiskReadMetricSemantics(t *testing.T) {
 	}
 	check := func(t *testing.T, logical, disk, hits uint64) {
 		t.Helper()
-		assertRepair117Samples(t, registry, tableName, map[string]float64{
+		assertDiskReadSamples(t, registry, tableName, map[string]float64{
 			"litt_logical_bytes_read_bytes_total": float64(logical * uint64(len(value))),
 			"litt_logical_keys_read_total":        float64(logical),
 			"litt_bytes_read_bytes_total":         float64(disk * uint64(len(value))),
@@ -114,7 +114,7 @@ func TestRepair_117_DiskReadMetricSemantics(t *testing.T) {
 	})
 }
 
-func assertRepair117Samples(t *testing.T, registry *prometheus.Registry, table string, expected map[string]float64) {
+func assertDiskReadSamples(t *testing.T, registry *prometheus.Registry, table string, expected map[string]float64) {
 	t.Helper()
 	families, err := registry.Gather()
 	require.NoError(t, err)

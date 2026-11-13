@@ -15,14 +15,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type repairM1173Value struct {
+type addressSpanValue struct {
 	offset uint32
 	shard  uint8
 	value  []byte
 }
 
 // Addresses come from the production writer and persisted key-file decoder.
-func repairM1173Segment(t *testing.T) (*segment.Segment, []*segment.SegmentPath, map[string]repairM1173Value) {
+func addressSpanSegment(t *testing.T) (*segment.Segment, []*segment.SegmentPath, map[string]addressSpanValue) {
 	t.Helper()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	monitor := util.NewErrorMonitor(t.Context(), logger, nil)
@@ -54,7 +54,7 @@ func repairM1173Segment(t *testing.T) (*segment.Segment, []*segment.SegmentPath,
 	require.Len(t, durable, 6)
 	require.True(t, s.IsSealed())
 
-	expected := map[string]repairM1173Value{
+	expected := map[string]addressSpanValue{
 		"guard":       {offset: 0, shard: 0, value: guard},
 		"other-shard": {offset: 0, shard: 1, value: []byte("other")},
 		"primary":     {offset: 6, shard: 0, value: []byte("prefix-payload-suffix")},
@@ -65,7 +65,7 @@ func repairM1173Segment(t *testing.T) (*segment.Segment, []*segment.SegmentPath,
 	return s, paths, expected
 }
 
-func repairM1173Reopen(t *testing.T, paths []*segment.SegmentPath) *segment.Segment {
+func addressSpanReopen(t *testing.T, paths []*segment.SegmentPath) *segment.Segment {
 	t.Helper()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	monitor := util.NewErrorMonitor(t.Context(), logger, nil)
@@ -75,8 +75,8 @@ func repairM1173Reopen(t *testing.T, paths []*segment.SegmentPath) *segment.Segm
 	return s
 }
 
-func TestRepairM_1173_AddressRawByteSpan(t *testing.T) {
-	s, paths, expected := repairM1173Segment(t)
+func TestAddressRawByteSpan(t *testing.T) {
+	s, paths, expected := addressSpanSegment(t)
 	files := s.GetValueFilePaths()
 	require.Len(t, files, 2)
 	for shard, want := range [][]byte{
@@ -88,7 +88,7 @@ func TestRepairM_1173_AddressRawByteSpan(t *testing.T) {
 		require.Equal(t, want, raw, "shard %d must contain only raw primary bytes", shard)
 	}
 
-	s = repairM1173Reopen(t, paths)
+	s = addressSpanReopen(t, paths)
 	keys, err := s.GetKeys()
 	require.NoError(t, err)
 	require.Len(t, keys, len(expected))
@@ -126,13 +126,13 @@ func TestRepairM_1173_AddressRawByteSpan(t *testing.T) {
 	}
 }
 
-func TestRepairM_1173_TruncationUsesExactSpan(t *testing.T) {
+func TestTruncationUsesExactSpan(t *testing.T) {
 	// Endpoints are raw offsets: guard ends at 6, slice at 20, primary at 27.
 	for _, remaining := range []uint32{6, 20, 26, 27} {
 		t.Run(fmt.Sprintf("bytes_%d", remaining), func(t *testing.T) {
-			s, paths, expected := repairM1173Segment(t)
+			s, paths, expected := addressSpanSegment(t)
 			require.NoError(t, os.Truncate(s.GetValueFilePaths()[0], int64(remaining)))
-			s = repairM1173Reopen(t, paths)
+			s = addressSpanReopen(t, paths)
 			keys, err := s.GetKeys()
 			require.NoError(t, err)
 			require.Len(t, keys, len(expected))
