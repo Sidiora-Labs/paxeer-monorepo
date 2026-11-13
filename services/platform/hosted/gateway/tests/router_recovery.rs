@@ -1,6 +1,6 @@
 include!("../src/main.rs");
 
-mod repair_22_33_1336 {
+mod router_recovery_contract {
     use super::*;
     use layerx_client::sequencer::SequencerEndpoint;
     use layerx_platform_internal::journal::Journal;
@@ -18,9 +18,12 @@ mod repair_22_33_1336 {
     }
 
     fn config() -> Config {
-        let certificate = rcgen::generate_simple_self_signed(vec!["localhost".into()]).unwrap_or_else(|error| panic!("{}: {error:?}", "test certificate"));
-        let ca = Certificate::from_der(certificate.cert.der()).unwrap_or_else(|error| panic!("{}: {error:?}", "outbound trust"));
-        let pin: Value = serde_json::from_str(include_str!("fixtures/repair_22_33_1335_committed.json")).unwrap_or_else(|error| panic!("{}: {error:?}", "recorded producer evidence"));
+        let certificate = rcgen::generate_simple_self_signed(vec!["localhost".into()])
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "test certificate"));
+        let ca = Certificate::from_der(certificate.cert.der())
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "outbound trust"));
+        let pin: Value = serde_json::from_str(include_str!("fixtures/committed_evidence.json"))
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "recorded producer evidence"));
         let key = &pin["pinnedKey"];
         Config {
             routes: routes::Registry::configured("repair-22-33-1336", "1").unwrap_or_else(|error| panic!("{}: {error:?}", "routes")),
@@ -67,9 +70,14 @@ mod repair_22_33_1336 {
 
     impl Gateway {
         fn start(config: Config) -> Self {
-            let listener = TcpListener::bind("127.0.0.1:0").unwrap_or_else(|error| panic!("{}: {error:?}", "gateway loopback"));
-            let address = listener.local_addr().unwrap_or_else(|error| panic!("{}: {error:?}", "gateway address"));
-            listener.set_nonblocking(true).unwrap_or_else(|error| panic!("{}: {error:?}", "nonblocking gateway"));
+            let listener = TcpListener::bind("127.0.0.1:0")
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "gateway loopback"));
+            let address = listener
+                .local_addr()
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "gateway address"));
+            listener
+                .set_nonblocking(true)
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "nonblocking gateway"));
             let stop = Arc::new(AtomicBool::new(false));
             let stopped = Arc::clone(&stop);
             let config = Arc::new(config);
@@ -80,9 +88,15 @@ mod repair_22_33_1336 {
                         Ok((mut stream, peer)) => {
                             let config = Arc::clone(&config);
                             connections.push(thread::spawn(move || {
-                                stream.set_read_timeout(Some(Duration::from_secs(3))).unwrap_or_else(|error| panic!("{}: {error:?}", "read bound"));
-                                stream.set_write_timeout(Some(Duration::from_secs(3))).unwrap_or_else(|error| panic!("{}: {error:?}", "write bound"));
-                                exchange(&config, &mut stream, peer).unwrap_or_else(|error| panic!("{}: {error:?}", "production gateway exchange"));
+                                stream
+                                    .set_read_timeout(Some(Duration::from_secs(3)))
+                                    .unwrap_or_else(|error| panic!("{}: {error:?}", "read bound"));
+                                stream
+                                    .set_write_timeout(Some(Duration::from_secs(3)))
+                                    .unwrap_or_else(|error| panic!("{}: {error:?}", "write bound"));
+                                exchange(&config, &mut stream, peer).unwrap_or_else(|error| {
+                                    panic!("{}: {error:?}", "production gateway exchange")
+                                });
                             }));
                         }
                         Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
@@ -92,28 +106,53 @@ mod repair_22_33_1336 {
                     }
                 }
                 for connection in connections {
-                    connection.join().unwrap_or_else(|error| panic!("{}: {error:?}", "gateway connection stopped cleanly"));
+                    connection.join().unwrap_or_else(|error| {
+                        panic!("{}: {error:?}", "gateway connection stopped cleanly")
+                    });
                 }
             });
-            Self { address, stop, join: Some(join) }
+            Self {
+                address,
+                stop,
+                join: Some(join),
+            }
         }
 
         fn exchange(&self, method: &str, path: &str, body: &[u8], headers: &str) -> (u16, Vec<u8>) {
-            let mut stream = TcpStream::connect(self.address).unwrap_or_else(|error| panic!("{}: {error:?}", "gateway connection"));
-            stream.set_read_timeout(Some(Duration::from_secs(3))).unwrap_or_else(|error| panic!("{}: {error:?}", "response bound"));
-            let connection = if headers.contains("Upgrade: websocket") { "Upgrade" } else { "close" };
+            let mut stream = TcpStream::connect(self.address)
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "gateway connection"));
+            stream
+                .set_read_timeout(Some(Duration::from_secs(3)))
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "response bound"));
+            let connection = if headers.contains("Upgrade: websocket") {
+                "Upgrade"
+            } else {
+                "close"
+            };
             write!(stream, "{method} {path} HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: {connection}\r\n{headers}\r\n", body.len()).unwrap_or_else(|error| panic!("{}: {error:?}", "request headers"));
-            stream.write_all(body).unwrap_or_else(|error| panic!("{}: {error:?}", "request body"));
-            stream.shutdown(std::net::Shutdown::Write).unwrap_or_else(|error| panic!("{}: {error:?}", "finish request"));
+            stream
+                .write_all(body)
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "request body"));
+            stream
+                .shutdown(std::net::Shutdown::Write)
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "finish request"));
             let mut response = Vec::new();
             while !response.ends_with(b"\r\n\r\n") {
                 let mut byte = [0];
-                stream.read_exact(&mut byte).unwrap_or_else(|error| panic!("{}: {error:?}", "gateway response header"));
+                stream
+                    .read_exact(&mut byte)
+                    .unwrap_or_else(|error| panic!("{}: {error:?}", "gateway response header"));
                 response.push(byte[0]);
                 assert!(response.len() <= 16_384, "bounded response headers");
             }
-            let head = std::str::from_utf8(&response).unwrap_or_else(|error| panic!("{}: {error:?}", "HTTP headers"));
-            let status = head.split_whitespace().nth(1).unwrap_or_else(|| panic!("{}", "HTTP status")).parse().unwrap_or_else(|error| panic!("{}: {error:?}", "status code"));
+            let head = std::str::from_utf8(&response)
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "HTTP headers"));
+            let status = head
+                .split_whitespace()
+                .nth(1)
+                .unwrap_or_else(|| panic!("{}", "HTTP status"))
+                .parse()
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "status code"));
             let length = head
                 .lines()
                 .filter_map(|line| line.split_once(':'))
@@ -125,15 +164,24 @@ mod repair_22_33_1336 {
                 .unwrap_or_else(|error| panic!("{}: {error:?}", "valid response length"));
             assert!(length <= MAX_REQUEST, "bounded response body");
             let mut body = vec![0; length];
-            stream.read_exact(&mut body).unwrap_or_else(|error| panic!("{}: {error:?}", "gateway response body"));
+            stream
+                .read_exact(&mut body)
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "gateway response body"));
             (status, body)
         }
 
         fn rpc(&self, method: &str, params: &Value) -> Value {
             let call = json!({"jsonrpc":"2.0", "id":9_007_199_254_740_993_u64, "method":method, "params":params});
-            let (status, body) = self.exchange("POST", "/", &serde_json::to_vec(&call).unwrap_or_else(|error| panic!("{}: {error:?}", "request JSON")), "");
+            let (status, body) = self.exchange(
+                "POST",
+                "/",
+                &serde_json::to_vec(&call)
+                    .unwrap_or_else(|error| panic!("{}: {error:?}", "request JSON")),
+                "",
+            );
             assert_eq!(status, 200);
-            let answer: Value = serde_json::from_slice(&body).unwrap_or_else(|error| panic!("{}: {error:?}", "RPC JSON"));
+            let answer: Value = serde_json::from_slice(&body)
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "RPC JSON"));
             assert_eq!(answer["id"], call["id"]);
             assert_eq!(answer["jsonrpc"], "2.0");
             answer
@@ -144,21 +192,27 @@ mod repair_22_33_1336 {
                 for method in ["GET", "POST"] {
                     let (status, body) = self.exchange(method, path, b"{}", "");
                     assert_eq!(status, 404, "{method} {path}");
-                    let refusal: Value = serde_json::from_slice(&body).unwrap_or_else(|error| panic!("{}: {error:?}", "refusal JSON"));
+                    let refusal: Value = serde_json::from_slice(&body)
+                        .unwrap_or_else(|error| panic!("{}: {error:?}", "refusal JSON"));
                     assert_eq!(refusal["error"]["code"], "not_found");
                 }
             }
             for path in ["/rpc/ws", "/rpc/evm/ws"] {
                 let (status, body) = self.exchange("GET", path, b"", "Upgrade: websocket\r\nSec-WebSocket-Version: 13\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n");
                 assert_eq!(status, 404, "retired upgrade {path}");
-                let refusal: Value = serde_json::from_slice(&body).unwrap_or_else(|error| panic!("{}: {error:?}", "upgrade refusal JSON"));
+                let refusal: Value = serde_json::from_slice(&body)
+                    .unwrap_or_else(|error| panic!("{}: {error:?}", "upgrade refusal JSON"));
                 assert_eq!(refusal["error"]["code"], "not_found");
             }
         }
 
         fn stop(mut self) {
             self.stop.store(true, Ordering::Release);
-            self.join.take().unwrap_or_else(|| panic!("{}", "running gateway")).join().unwrap_or_else(|error| panic!("{}: {error:?}", "gateway stopped cleanly"));
+            self.join
+                .take()
+                .unwrap_or_else(|| panic!("{}", "running gateway"))
+                .join()
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "gateway stopped cleanly"));
         }
     }
 
@@ -175,17 +229,34 @@ mod repair_22_33_1336 {
     fn receipt_key_router_path() {
         let gateway = Gateway::start(config());
         gateway.retired();
-        let consumer = SequencerEndpoint::new(&format!("http://{}", gateway.address), &[]).unwrap_or_else(|error| panic!("{}: {error:?}", "real SDK consumer"));
-        let keys = consumer.receipt_keys().unwrap_or_else(|error| panic!("{}: {error:?}", "root receipt-key read"));
-        let recorded: Value = serde_json::from_str(include_str!("fixtures/repair_22_33_1335_committed.json")).unwrap_or_else(|error| panic!("{}: {error:?}", "recorded key"));
+        let consumer = SequencerEndpoint::new(&format!("http://{}", gateway.address), &[])
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "real SDK consumer"));
+        let keys = consumer
+            .receipt_keys()
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "root receipt-key read"));
+        let recorded: Value =
+            serde_json::from_str(include_str!("fixtures/committed_evidence.json"))
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "recorded key"));
         assert_eq!(keys.len(), 1);
         assert_eq!(
             keys[0].key_id.as_slice(),
-            unhex(recorded["pinnedKey"]["keyId"].as_str().unwrap_or_else(|| panic!("{}", "id")).trim_start_matches("0x")).unwrap_or_else(|| panic!("{}", "key bytes"))
+            unhex(
+                recorded["pinnedKey"]["keyId"]
+                    .as_str()
+                    .unwrap_or_else(|| panic!("{}", "id"))
+                    .trim_start_matches("0x")
+            )
+            .unwrap_or_else(|| panic!("{}", "key bytes"))
         );
         assert_eq!(
             keys[0].public_key.as_slice(),
-            unhex(recorded["pinnedKey"]["publicKey"].as_str().unwrap_or_else(|| panic!("{}", "public key")).trim_start_matches("0x")).unwrap_or_else(|| panic!("{}", "public key bytes"))
+            unhex(
+                recorded["pinnedKey"]["publicKey"]
+                    .as_str()
+                    .unwrap_or_else(|| panic!("{}", "public key"))
+                    .trim_start_matches("0x")
+            )
+            .unwrap_or_else(|| panic!("{}", "public key bytes"))
         );
         drop(consumer);
         for params in [json!(["5"]), json!({}), Value::Null] {
@@ -215,19 +286,45 @@ mod repair_22_33_1336 {
                     headers: std::collections::BTreeMap::default(),
                     body: Vec::new(),
                 };
-                assert_eq!(rpc::route(&config, &request).status, 404, "direct producer {method} {path}");
+                assert_eq!(
+                    rpc::route(&config, &request).status,
+                    404,
+                    "direct producer {method} {path}"
+                );
             }
         }
         let gateway = Gateway::start(config);
         gateway.retired();
-        let schema: Value = serde_json::from_slice(include_bytes!("../openrpc.json")).unwrap_or_else(|error| panic!("{}: {error:?}", "distributed OpenRPC"));
+        let schema: Value = serde_json::from_slice(include_bytes!("../openrpc.json"))
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "distributed OpenRPC"));
         for method in layerx_platform_gateway::ROUTER_METHODS {
-            assert_eq!(schema["methods"].as_array().unwrap_or_else(|| panic!("{}", "methods")).iter().filter(|entry| entry["name"] == method).count(), 1, "{method}");
+            assert_eq!(
+                schema["methods"]
+                    .as_array()
+                    .unwrap_or_else(|| panic!("{}", "methods"))
+                    .iter()
+                    .filter(|entry| entry["name"] == method)
+                    .count(),
+                1,
+                "{method}"
+            );
             let answer = gateway.rpc(method, &json!([]));
             assert_ne!(answer["error"]["code"], -32601, "{method}: {answer}");
         }
-        assert_eq!(gateway.rpc("px_getReceiptKeys", &json!([]))["result"]["keys"].as_array().unwrap_or_else(|| panic!("{}", "published keys")).len(), 1);
-        for method in ["lx_getNodeInfo", "lx_register", "lx_subscribe", "lx_unsubscribe", "lx_unknown"] {
+        assert_eq!(
+            gateway.rpc("px_getReceiptKeys", &json!([]))["result"]["keys"]
+                .as_array()
+                .unwrap_or_else(|| panic!("{}", "published keys"))
+                .len(),
+            1
+        );
+        for method in [
+            "lx_getNodeInfo",
+            "lx_register",
+            "lx_subscribe",
+            "lx_unsubscribe",
+            "lx_unknown",
+        ] {
             let answer = gateway.rpc(method, &json!([]));
             assert_eq!(answer["error"]["code"], -32601);
             assert_eq!(answer["error"]["message"], "Method not found");
@@ -243,23 +340,38 @@ mod repair_22_33_1336 {
         let journal = loop {
             match Journal::open(directory, |state: QueueState| recovered = state) {
                 Ok(journal) => break journal,
-                Err(error) if error.starts_with(layerx_platform_internal::journal::LOCK_REFUSAL) && std::time::Instant::now() < deadline => {
+                Err(error)
+                    if error.starts_with(layerx_platform_internal::journal::LOCK_REFUSAL)
+                        && std::time::Instant::now() < deadline =>
+                {
                     thread::sleep(Duration::from_millis(2));
                 }
                 Err(error) => panic!("reopen production journal: {error}"),
             }
         };
-        recovered.validate().unwrap_or_else(|error| panic!("{}: {error:?}", "recovered producer state"));
+        recovered
+            .validate()
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "recovered producer state"));
         (journal, recovered)
     }
 
     #[test]
     fn tap_recovery_proof_gap_outbox_consumer() {
         use layerx_platform_internal::{events::Fact, secret};
-        let document: Value = serde_json::from_str(include_str!("fixtures/maintained-authority.json")).unwrap_or_else(|error| panic!("{}: {error:?}", "recorded receipt"));
-        let receipt_bytes = secret::unhex(document["receipt_hex"].as_str().unwrap_or_else(|| panic!("{}", "receipt bytes"))).unwrap_or_else(|| panic!("{}", "receipt hex"));
-        let decoded = layerx_wire::receipt::decode(&receipt_bytes).unwrap_or_else(|error| panic!("{}: {error:?}", "real receipt consumer"));
-        let receipt = decoded.protocol().unwrap_or_else(|| panic!("{}", "protocol receipt"));
+        let document: Value =
+            serde_json::from_str(include_str!("fixtures/maintained-authority.json"))
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "recorded receipt"));
+        let receipt_bytes = secret::unhex(
+            document["receipt_hex"]
+                .as_str()
+                .unwrap_or_else(|| panic!("{}", "receipt bytes")),
+        )
+        .unwrap_or_else(|| panic!("{}", "receipt hex"));
+        let decoded = layerx_wire::receipt::decode(&receipt_bytes)
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "real receipt consumer"));
+        let receipt = decoded
+            .protocol()
+            .unwrap_or_else(|| panic!("{}", "protocol receipt"));
         let resource = secret::hex(&receipt.activity_id());
         let observation = Observation {
             kind: "payment".into(),
@@ -278,52 +390,99 @@ mod repair_22_33_1336 {
             amount: Some(receipt.amount().to_string()),
             asset: Some(secret::hex(&receipt.asset())),
         };
-        let directory = tempfile::tempdir().unwrap_or_else(|error| panic!("{}: {error:?}", "persisted outbox directory"));
+        let directory = tempfile::tempdir()
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "persisted outbox directory"));
         let (mut journal, mut queue) = reopen_queue(directory.path());
-        let original = queue.enqueue("tap-payment", observation.clone()).unwrap_or_else(|error| panic!("{}: {error:?}", "real producer enqueue"));
-        let bytes = original.encode().unwrap_or_else(|error| panic!("{}: {error:?}", "producer transport bytes"));
-        journal.append(&queue).unwrap_or_else(|error| panic!("{}: {error:?}", "persist pending event"));
+        let original = queue
+            .enqueue("tap-payment", observation.clone())
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "real producer enqueue"));
+        let bytes = original
+            .encode()
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "producer transport bytes"));
+        journal
+            .append(&queue)
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "persist pending event"));
         drop(queue);
         drop(journal);
         let (mut journal, mut queue) = reopen_queue(directory.path());
-        assert_eq!(queue.enqueue("tap-payment", observation.clone()), Ok(original.clone()));
+        assert_eq!(
+            queue.enqueue("tap-payment", observation.clone()),
+            Ok(original.clone())
+        );
         let mut changed = observation.clone();
         changed.amount = Some("2".into());
         assert_ne!(changed.amount, observation.amount);
         assert!(queue.enqueue("tap-payment", changed).is_err());
-        let pending = queue.pending().unwrap_or_else(|| panic!("{}", "recovered pending event"));
-        assert_eq!(pending.observation.encode().unwrap_or_else(|error| panic!("{}: {error:?}", "recovered bytes")), bytes);
+        let pending = queue
+            .pending()
+            .unwrap_or_else(|| panic!("{}", "recovered pending event"));
+        assert_eq!(
+            pending
+                .observation
+                .encode()
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "recovered bytes")),
+            bytes
+        );
         assert!(!pending.observed);
         assert!(queue.acknowledge(&original.id, false).is_err());
-        queue.acknowledge(&original.id, true).unwrap_or_else(|error| panic!("{}: {error:?}", "source acknowledgement"));
-        journal.append(&queue).unwrap_or_else(|error| panic!("{}: {error:?}", "persist source acknowledgement"));
+        queue
+            .acknowledge(&original.id, true)
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "source acknowledgement"));
+        journal
+            .append(&queue)
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "persist source acknowledgement"));
         drop(queue);
         drop(journal);
         let (mut journal, mut queue) = reopen_queue(directory.path());
-        assert!(queue.pending().unwrap_or_else(|| panic!("{}", "pending webhook event")).observed);
-        queue.acknowledge(&original.id, false).unwrap_or_else(|error| panic!("{}: {error:?}", "webhook acknowledgement"));
-        journal.append(&queue).unwrap_or_else(|error| panic!("{}: {error:?}", "persist full acknowledgement"));
+        assert!(
+            queue
+                .pending()
+                .unwrap_or_else(|| panic!("{}", "pending webhook event"))
+                .observed
+        );
+        queue
+            .acknowledge(&original.id, false)
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "webhook acknowledgement"));
+        journal
+            .append(&queue)
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "persist full acknowledgement"));
         drop(queue);
         drop(journal);
         let (_journal, mut queue) = reopen_queue(directory.path());
         assert!(queue.pending().is_none());
         assert_eq!(queue.enqueue("tap-payment", observation), Ok(original));
-        assert!(queue.pending().is_none(), "retry cannot duplicate acknowledged event");
+        assert!(
+            queue.pending().is_none(),
+            "retry cannot duplicate acknowledged event"
+        );
     }
 
     #[test]
     fn unified_paths_retired_upgrades() {
         let gateway = Gateway::start(config());
         gateway.retired();
-        let schema: Value = serde_json::from_slice(include_bytes!("../openrpc.json")).unwrap_or_else(|error| panic!("{}: {error:?}", "maintained OpenRPC distribution"));
-        let names: Vec<_> = schema["methods"].as_array().unwrap_or_else(|| panic!("{}", "methods")).iter().map(|entry| entry["name"].as_str().unwrap_or_else(|| panic!("{}", "method name"))).collect();
+        let schema: Value = serde_json::from_slice(include_bytes!("../openrpc.json"))
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "maintained OpenRPC distribution"));
+        let names: Vec<_> = schema["methods"]
+            .as_array()
+            .unwrap_or_else(|| panic!("{}", "methods"))
+            .iter()
+            .map(|entry| {
+                entry["name"]
+                    .as_str()
+                    .unwrap_or_else(|| panic!("{}", "method name"))
+            })
+            .collect();
         assert!(names.contains(&"px_register"));
         assert!(names.contains(&"px_getHistory"));
         assert!(names.iter().all(|name| !name.starts_with("lx_")));
         let (status, _) = gateway.exchange("GET", "/", b"", "Upgrade: websocket\r\nSec-WebSocket-Version: 13\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n");
         // The maintained subscription handler must be registered before it can
         // authenticate a client; a missing route is not an authentication refusal.
-        assert_eq!(status, 401, "maintained root subscription transport must reach authentication");
+        assert_eq!(
+            status, 401,
+            "maintained root subscription transport must reach authentication"
+        );
         gateway.stop();
     }
 }

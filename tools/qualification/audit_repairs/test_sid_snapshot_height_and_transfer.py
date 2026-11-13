@@ -27,7 +27,7 @@ try:
 finally:
     sys.path.pop(0)
 
-SPEC = importlib.util.spec_from_file_location("sid_snapshot_prior_proof", HERE / "test_repair_22_31_429.py")
+SPEC = importlib.util.spec_from_file_location("sid_snapshot_prior_proof", HERE / "test_snapshot_reconciliation.py")
 prior = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(prior)
 peer = prior.peer

@@ -239,6 +239,6 @@ Current source coverage lives in
 (maintenance inclusion and identity refusals), and
 [`tests/human_tls.rs`](../../services/platform/hosted/authority/tests/human_tls.rs)
 (TLS, durable evidence and committed-state boundaries). Committed state-proof
-coverage also lives in `tests/repair_22_31_207.rs`.
+coverage also lives in `tests/native_receipt_authority.rs`.
 
 [Hosted identity](HostedIdentity.md) · [Hosted gateway](HostedGateway.md) · [Home](Home.md)

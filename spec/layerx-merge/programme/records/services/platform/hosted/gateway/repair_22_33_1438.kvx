@@ -4,7 +4,7 @@ audit = "22.30.80"
 requirement = "22998.1"
 base_revision = "49ef6dc0bbf4c9a9baf2cee2a4d87781f303f9b4"
 finding_ids = ["doc-gateway"]
-test_path = "services/platform/hosted/gateway/tests/repair_22_33_1438.rs"
+test_path = "services/platform/hosted/gateway/tests/documented_rpc_examples.rs"
 scope = "Preserve the inherited README, Cargo test registration and integration tests; this continuation adds only the missing task record required by gotcha 3027."
 
 [finding.doc-gateway]

@@ -6,7 +6,7 @@ base = "72c91077cb966f1c4c640ded61b4b259f41cad90"
 baseline = "UNRUN: the explicit gate order requires complete implementation, hf-build, then hf-done; no unchanged-tree test failure is claimed. There was no previous gate ledger or gateway implementation at session start."
 revision_evidence = "The runner's private gates.jsonl and the final hf-done JSON bind this task record, changed paths and executed tests to the exact built and verified candidate revision."
 verify_cmd = "cargo test --locked --manifest-path services/platform/hosted/gateway/Cargo.toml --test repair_22_33_1335"
-fixture = "fixtures/repair_22_33_1335_committed.json maps committed conformance evidence from sdk/platform/conformance/fixtures/vector-v4-committed.json without changing signed bytes; its provenance retains the source digest and recorder limitations."
+fixture = "fixtures/committed_evidence.json maps committed conformance evidence from sdk/platform/conformance/fixtures/vector-v4-committed.json without changing signed bytes; its provenance retains the source digest and recorder limitations."
 transport = "The declared Cargo build supplies the production gateway executable; tests start it on loopback with generated TLS peers and a bounded AUTH/PING dependency peer, without Redis, OpenSSL, Python, Node, Go, credentials or live endpoints supplied by the environment. The gateway, codecs, relay, receipt key loader and Rust consumers are production code."
 recovery = "The receipt-key file is written once, the gateway is stopped and reopens that same file, and newly connected Rust consumers recover byte-identical authenticated receipts, commits and batch inclusion evidence; no claim of node or faucet database recovery is made."
 

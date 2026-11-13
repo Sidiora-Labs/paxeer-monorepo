@@ -72,7 +72,7 @@ observed = "The pre-existing test repair_22_31_345.rs:12 includes missing servic
 assumption = "The deployment artifact owner must resolve this unrelated failure; no task assertion or gate is weakened and this record-only update is unqualified."
 
 [wiring.paxeer-deployment]
-request = "Domain 8 (platform deployment): reconcile services/platform/hosted/paxeer/deployment.yaml with its existing consumer services/platform/hosted/gateway/tests/repair_22_31_345.rs; the declared all-tests build cannot qualify until the missing deployment artifact is resolved."
+request = "Domain 8 (platform deployment): reconcile services/platform/hosted/paxeer/deployment.yaml with its existing consumer services/platform/hosted/gateway/tests/rpc_egress.rs; the declared all-tests build cannot qualify until the missing deployment artifact is resolved."
 
 [gotcha.paxeer-deployment]
 area = "build"
