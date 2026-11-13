@@ -536,8 +536,10 @@ These groups are not a minimal environment sufficient to boot a deployment.
 
 | Keys | Purpose |
 | --- | --- |
-| `LAYERX_AGENT_NODE_RPC_URL`, `LAYERX_AGENT_NODE_CHAIN_ID` | Human node JSON-RPC connection and expected chain ID; decimal or canonical hex chain quantity |
-| `LAYERX_AGENT_HUMAN_NETWORK_ID`, `LAYERX_AGENT_HUMAN_PROTOCOL_VERSION` | Matching network ID and current state-commitment wire version |
+| `LAYERX_AGENT_NODE_RPC_URL` | Human node JSON-RPC connection URL |
+| `LAYERX_AGENT_NODE_CHAIN_ID` | Expected Human node chain ID; decimal or canonical hex chain quantity |
+| `LAYERX_AGENT_HUMAN_NETWORK_ID` | Human network ID; must match the node chain ID |
+| `LAYERX_AGENT_HUMAN_PROTOCOL_VERSION` | Current state-commitment wire version |
 | `LAYERX_AGENT_NODE_ENDPOINT`, `LAYERX_EXPECTED_CHAIN_ID` | Program/native node connection and expected decimal chain ID |
 | `LAYERX_AGENT_PROGRAM_LISTEN`, `LAYERX_AGENT_PROGRAM_BEARER_TOKEN` | Loopback `127.0.0.1:<port>` program listener and bearer of at least 32 bytes |
 | `LAYERX_AGENT_NODE_BEARER_TOKEN`, `LAYERX_AGENT_AUTHORITY_BEARER_TOKEN` | Upstream bearers, each at least 32 bytes; program bearer must differ from both |
@@ -557,7 +559,8 @@ When `LAYERX_AGENT_MCP_BINDING_ROOT` is set, enrolment also requires:
 | `LAYERX_AGENT_MCP_PEER_UID`, `LAYERX_AGENT_MCP_AGENT_DID` | Configured Human peer and authority-verified agent DID |
 | `LAYERX_AGENT_MCP_SESSION_ID`, `LAYERX_AGENT_MCP_CAPABILITY_ID` | 32-byte hexadecimal session and capability IDs |
 | `LAYERX_AGENT_MCP_ACTIVITY_TYPES`, `LAYERX_AGENT_MCP_SCOPES` | Permitted activity types and scopes; duplicate entries are refused |
-| `LAYERX_AGENT_MCP_CORE_HEIGHT`, `LAYERX_AGENT_MCP_EXPIRY_HEIGHT` | Current and expiry block heights; the binding field is `core_height` |
+| `LAYERX_AGENT_MCP_CORE_HEIGHT` | Current block height; the binding field is `core_height` |
+| `LAYERX_AGENT_MCP_EXPIRY_HEIGHT` | Session expiry block height |
 | `LAYERX_AGENT_MCP_OPENING_CLIENT`, `LAYERX_AGENT_MCP_POLICY_VERSION` | Session audit context |
 | `LAYERX_AGENT_MCP_MODE`, `LAYERX_AGENT_MCP_DEADLINE_MS` | `full` or `read-only` mode and transport deadline |
 | `LAYERX_AGENT_MCP_LIMIT_ID`, `LAYERX_AGENT_MCP_LIMIT_NAME`, `LAYERX_AGENT_MCP_LIMIT_SCOPE`, `LAYERX_AGENT_MCP_LIMIT_SCOPE_ID`, `LAYERX_AGENT_MCP_LIMIT_CEILING`, `LAYERX_AGENT_MCP_LIMIT_CONSUMED` | Binding limit with the same scope vocabulary as the Human limit |
