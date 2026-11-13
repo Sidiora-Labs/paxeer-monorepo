@@ -30,7 +30,7 @@ ENV = {
     for item in CONTAINER["env"]
 }
 RECORDED = json.loads(
-    (GATEWAY / "tests/fixtures/repair_22_33_1335_committed.json").read_text()
+    (GATEWAY / "tests/fixtures/committed_evidence.json").read_text()
 )
 
 
@@ -326,7 +326,7 @@ def test_identifier_meanings_and_proof_limits_are_published():
     assert all(item["metadata"]["namespace"] == "layerx-mainnet-beta" for item in DOCUMENTS)
     documentation = (GATEWAY / "README.md").read_text()
     for fact in (
-        "Kubernetes namespace `layerx-testnet`", "EVM chain ID `125` (`0x7d`)",
+        "Kubernetes namespace `layerx-mainnet-beta`", "EVM chain ID `125` (`0x7d`)",
         "LAYERX_GATEWAY_PROTOCOL_NETWORK_ID=125", "LAYERX_GATEWAY_NETWORK_ID=paxeer-mainnet-beta",
         "LAYERX_GATEWAY_LXP_WIRE_VERSION=3", "inclusive uint64\nchain heights",
         "A chain-ID label alone is not authentication", "Key rotation requires",
