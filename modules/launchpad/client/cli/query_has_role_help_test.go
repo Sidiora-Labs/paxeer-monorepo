@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepairM_945_HasRoleHelp(t *testing.T) {
+func TestQueryHasRoleHelp(t *testing.T) {
 	const contract = "0x7b14808b72f61664cDb79D25E6d1587655571a66"
 	const role = "0x9f2df0fed2c77648de5860a4cc508cd0818c85b8b8a1ab4ceeef8d981c8956a6"
 	const account = "0x0000000000000000000000000000000000000002"

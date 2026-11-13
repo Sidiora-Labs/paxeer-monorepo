@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func repairM946Keeper(t *testing.T) (*keeper.Keeper, sdk.Context) {
+func registeredErrorKeeper(t *testing.T) (*keeper.Keeper, sdk.Context) {
 	t.Helper()
 	app := testkeeper.EVMTestApp
 	ctx := app.GetContextForDeliverTx(nil).WithBlockHeight(1).WithBlockTime(time.Unix(1_800_000_000, 0))
@@ -28,22 +28,22 @@ func repairM946Keeper(t *testing.T) (*keeper.Keeper, sdk.Context) {
 	return k, ctx
 }
 
-func TestRepairM_946_RegisteredProducerCodes(t *testing.T) {
-	k, ctx := repairM946Keeper(t)
+func TestRegisteredProducerCodes(t *testing.T) {
+	k, ctx := registeredErrorKeeper(t)
 	proofLaunchpadProducerCodes(t, k, ctx)
 }
 
-func TestRepairM_946_OpticalHookCode(t *testing.T) {
-	k, ctx := repairM946Keeper(t)
+func TestOpticalHookCode(t *testing.T) {
+	k, ctx := registeredErrorKeeper(t)
 	proofLaunchpadHookCode(t, k, ctx)
 }
 
-func TestRepairM_946_NativeUpdateParamsRefusal(t *testing.T) {
-	k, ctx := repairM946Keeper(t)
+func TestNativeUpdateParamsRefusal(t *testing.T) {
+	k, ctx := registeredErrorKeeper(t)
 	proofLaunchpadUpdateParamsRefusal(t, k, ctx)
 }
 
-func TestRepairM_946_GenesisValidationCodes(t *testing.T) {
+func TestGenesisValidationCodes(t *testing.T) {
 	for _, tc := range []struct {
 		name    string
 		corrupt func(*types.GenesisState)

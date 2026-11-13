@@ -25,7 +25,7 @@ import (
 
 // Persist and close the real producer's export, discard the keeper, and
 // reopen the document into a fresh launchpad store over the preserved EVM.
-func repair34Restart(t *testing.T, e *env) {
+func restartLaunchpadGenesis(t *testing.T, e *env) {
 	t.Helper()
 	raw, err := json.Marshal(e.k.ExportGenesis(e.ctx))
 	require.NoError(t, err)
@@ -51,7 +51,7 @@ func repair34Restart(t *testing.T, e *env) {
 	sameJSON(t, restored, e.k.ExportGenesis(e.ctx))
 }
 
-func TestRepair_34_f01_FactoryNonceRecovery(t *testing.T) {
+func TestFactoryNonceRecovery(t *testing.T) {
 	e := newEnv(t)
 	creators := []sdk.AccAddress{e.account(10_000_000), e.account(10_000_000)}
 	var markets []types.Market
@@ -76,7 +76,7 @@ func TestRepair_34_f01_FactoryNonceRecovery(t *testing.T) {
 		}
 	}
 	check()
-	repair34Restart(t, e)
+	restartLaunchpadGenesis(t, e)
 	check()
 	for _, creator := range creators {
 		owner := e.evmAddress(creator)
@@ -98,13 +98,13 @@ func TestRepair_34_f01_FactoryNonceRecovery(t *testing.T) {
 	fresh, ctx := launchpadtest.NewKeeper(testkeeper.EVMTestApp, e.ctx)
 	fresh.InitGenesis(ctx, *gs)
 	e.k, e.ctx = fresh, ctx
-	repair34Restart(t, e)
+	restartLaunchpadGenesis(t, e)
 	for _, entry := range gs.FactoryNonces {
 		require.Equal(t, entry.Nonce, e.k.FactoryNonce(e.ctx, common.HexToAddress(entry.Creator)))
 	}
 }
 
-func TestRepair_34_f02_OwnerEnumerationRecovery(t *testing.T) {
+func TestOwnerEnumerationRecovery(t *testing.T) {
 	e := newEnv(t)
 	a, b := e.account(10_000_000), e.account(10_000_000)
 	ownerA, ownerB := e.evmAddress(a), e.evmAddress(b)
@@ -162,7 +162,7 @@ func TestRepair_34_f02_OwnerEnumerationRecovery(t *testing.T) {
 		require.Equal(t, true, proofModuleView(t, evm, ownerB, collection, nftABI, "isApprovedForAll", ownerB, operator))
 	}
 	check()
-	repair34Restart(t, e)
+	restartLaunchpadGenesis(t, e)
 	check()
 	// A later removal exercises the recovered reverse owner indexes too.
 	require.NoError(t, e.k.TransferFeeRight(e.ctx, collection, ownerA, ownerA, ownerB, 3))
@@ -173,7 +173,7 @@ func TestRepair_34_f02_OwnerEnumerationRecovery(t *testing.T) {
 	}
 }
 
-func TestRepair_34_GenesisValidation(t *testing.T) {
+func TestGenesisRecoveryValidation(t *testing.T) {
 	e := newEnv(t)
 	a, b := e.account(10_000_000), e.account(10_000_000)
 	for n := 0; n < 2; n++ {
@@ -212,7 +212,7 @@ func TestRepair_34_GenesisValidation(t *testing.T) {
 	}
 }
 
-func repair34QuoteToken(t *testing.T, e *env) common.Address {
+func deployReplacementQuoteToken(t *testing.T, e *env) common.Address {
 	t.Helper()
 	deployer := address("repair 34 replacement quote deployer")
 	args := packArguments(t, []string{"string", "string", "uint256", "address"},
@@ -226,7 +226,7 @@ func repair34QuoteToken(t *testing.T, e *env) common.Address {
 	return token
 }
 
-func TestRepair_34_f04_QuoteTokenGovernance(t *testing.T) {
+func TestQuoteTokenGovernance(t *testing.T) {
 	e := newEnv(t)
 	creator, trader := e.account(10_000_000), e.account(100_000_000)
 	market := e.create(creator, types.FeeStrategyClaim)
@@ -235,7 +235,7 @@ func TestRepair_34_f04_QuoteTokenGovernance(t *testing.T) {
 	require.True(t, e.market(market.Denom).RealQuoteBalance.IsPositive())
 	require.True(t, e.market(market.Denom).AccumulatedFees.IsPositive())
 	require.True(t, e.feeHeld().IsPositive())
-	replacement := repair34QuoteToken(t, e)
+	replacement := deployReplacementQuoteToken(t, e)
 	custody := e.k.ModuleEVMAddress(e.ctx)
 	e.sendToken(replacement, reserve, custody, big.NewInt(250_000))
 	params := e.k.GetParams(e.ctx)
@@ -275,7 +275,7 @@ func TestRepair_34_f04_QuoteTokenGovernance(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestRepair_34_f04_QuoteLiabilityWithoutMarkets(t *testing.T) {
+func TestQuoteLiabilityWithoutMarkets(t *testing.T) {
 	for _, kind := range []string{"empty", "held quote", "fee held", "fee liabilities", "empty market"} {
 		t.Run(kind, func(t *testing.T) {
 			e := newEnv(t)
@@ -302,7 +302,7 @@ func TestRepair_34_f04_QuoteLiabilityWithoutMarkets(t *testing.T) {
 			}
 			params := e.k.GetParams(e.ctx)
 			changed := params
-			changed.QuoteToken = repair34QuoteToken(t, e).Hex()
+			changed.QuoteToken = deployReplacementQuoteToken(t, e).Hex()
 			_, err := keeper.NewMsgServerImpl(e.k).UpdateParams(sdk.WrapSDKContext(e.ctx),
 				&types.MsgUpdateParams{Authority: e.k.Authority(), Params: changed})
 			if kind == "empty" {
@@ -316,7 +316,7 @@ func TestRepair_34_f04_QuoteLiabilityWithoutMarkets(t *testing.T) {
 	}
 }
 
-func repair34RequireUnauthorized(t *testing.T, produced error) {
+func requireUnauthorizedABCI(t *testing.T, produced error) {
 	t.Helper()
 	require.ErrorIs(t, produced, types.ErrUnauthorized)
 	response := sdkerrors.ResponseDeliverTx(produced, 100, 25, false)
@@ -330,7 +330,7 @@ func repair34RequireUnauthorized(t *testing.T, produced error) {
 	require.ErrorIs(t, sdkerrors.ABCIError(observed.Codespace, observed.Code, observed.Log), types.ErrUnauthorized)
 }
 
-func TestRepair_34_f05_UnauthorizedABCI(t *testing.T) {
+func TestGovernanceUnauthorizedABCI(t *testing.T) {
 	e := newEnv(t)
 	creator := e.account(10_000_000)
 	e.create(creator, types.FeeStrategyClaim)
@@ -340,7 +340,7 @@ func TestRepair_34_f05_UnauthorizedABCI(t *testing.T) {
 	changed.BaseFeeBps++
 	before := e.k.ExportGenesis(e.ctx)
 	events, logs := len(e.ctx.EventManager().Events()), len(e.ctx.EVMEventManager().Events())
-	repair34RequireUnauthorized(t, e.k.UpdateParams(e.ctx, outsider.String(), changed))
+	requireUnauthorizedABCI(t, e.k.UpdateParams(e.ctx, outsider.String(), changed))
 	message := &types.MsgUpdateParams{
 		Authority: outsider.String(), Params: changed,
 		RoleGrants: []types.RoleAssignment{{Contract: e.k.Generation2().SidioraFactory.Hex(),
@@ -348,7 +348,7 @@ func TestRepair_34_f05_UnauthorizedABCI(t *testing.T) {
 	}
 	response, err := keeper.NewMsgServerImpl(e.k).UpdateParams(sdk.WrapSDKContext(e.ctx), message)
 	require.Nil(t, response)
-	repair34RequireUnauthorized(t, err)
+	requireUnauthorizedABCI(t, err)
 	// Decode the real message's protobuf and dispatch through the registered
 	// native service router before encoding its refusal for the ABCI client.
 	wire, err := message.Marshal()
@@ -362,11 +362,11 @@ func TestRepair_34_f05_UnauthorizedABCI(t *testing.T) {
 	require.NotNil(t, handler)
 	result, err := handler(e.ctx, &decoded)
 	require.Nil(t, result)
-	repair34RequireUnauthorized(t, err)
+	requireUnauthorizedABCI(t, err)
 	// The audit's other active unauthorized producer is the native Treasury
 	// payout guard; it must preserve the same registered client error.
 	_, err = e.k.TreasuryWithdraw(e.ctx, e.k.ModuleCaller(), outsider.String(), e.usdl, e.evmAddress(outsider), i(1))
-	repair34RequireUnauthorized(t, err)
+	requireUnauthorizedABCI(t, err)
 	sameJSON(t, before, e.k.ExportGenesis(e.ctx))
 	sameJSON(t, params, e.k.GetParams(e.ctx))
 	require.Len(t, e.ctx.EventManager().Events(), events)

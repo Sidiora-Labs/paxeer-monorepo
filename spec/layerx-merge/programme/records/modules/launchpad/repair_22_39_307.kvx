@@ -9,7 +9,7 @@ current_text = "Non-debug ABCI log and client gRPC status message: exactly inval
 rule = "The replacement is a deliberate producer change. Follow task 22.39.307 do_2 and gotcha 3046: preserve the producer and align consumer expectations to its registered public text, without weakening refusal, status, identity, output or state assertions."
 tests = "TestCmdQueryAirdropNetwork, TestCmdQueryFeeRightNetwork, TestRepair_35_QuoteUint256 and TestRESTRegistryRoutes assert exact public messages; ABCI callers assert sdk/18 and gRPC callers assert InvalidArgument. TestQueryAirdropEpochABCICodes also asserts the public log while retaining and strengthening direct keeper validation assertions. All original input cases remain."
 build_cmd = "go build ./modules/launchpad/... && go vet ./modules/launchpad/client/..."
-verify_cmd = "test -s modules/launchpad/repair_22_39_307.kvx && go test -count=1 ./modules/launchpad/client/... && go test -count=1 ./modules/launchpad/keeper/..."
+verify_cmd = "test -s spec/layerx-merge/programme/records/modules/launchpad/repair_22_39_307.kvx && go test -count=1 ./modules/launchpad/client/... && go test -count=1 ./modules/launchpad/keeper/..."
 qualification = "No gate claimed before execution. The private /out/run/gates.jsonl final verify row names the verified revision, command, exit and log; its revision must equal the final build row revision. The final hf-done JSON receipt is the qualification reference for this record, avoiding a self-referential revision hash."
 
 [qualification.22.39.307]

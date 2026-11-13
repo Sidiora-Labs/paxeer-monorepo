@@ -1,0 +1,120 @@
+[manifest]
+task = "22.43.53"
+records_moved = 9
+files_renamed = 6
+
+[file.1]
+from = "modules/launchpad/client/cli/repair_35.kvx"
+to = "spec/layerx-merge/programme/records/modules/launchpad/client/cli/repair_35.kvx"
+
+[file.2]
+from = "modules/launchpad/client/cli/repair_m944.kvx"
+to = "spec/layerx-merge/programme/records/modules/launchpad/client/cli/repair_m944.kvx"
+
+[file.3]
+from = "modules/launchpad/client/cli/repair_m945.kvx"
+to = "spec/layerx-merge/programme/records/modules/launchpad/client/cli/repair_m945.kvx"
+
+[file.4]
+from = "modules/launchpad/keeper/repair_22_39_315.kvx"
+to = "spec/layerx-merge/programme/records/modules/launchpad/keeper/repair_22_39_315.kvx"
+
+[file.5]
+from = "modules/launchpad/keeper/repair_34.kvx"
+to = "spec/layerx-merge/programme/records/modules/launchpad/keeper/repair_34.kvx"
+
+[file.6]
+from = "modules/launchpad/keeper/repair_m943.kvx"
+to = "spec/layerx-merge/programme/records/modules/launchpad/keeper/repair_m943.kvx"
+
+[file.7]
+from = "modules/launchpad/repair_22_39_307.kvx"
+to = "spec/layerx-merge/programme/records/modules/launchpad/repair_22_39_307.kvx"
+
+[file.8]
+from = "modules/launchpad/types/repair_22_39_320.kvx"
+to = "spec/layerx-merge/programme/records/modules/launchpad/types/repair_22_39_320.kvx"
+
+[file.9]
+from = "modules/launchpad/types/repair_m946.kvx"
+to = "spec/layerx-merge/programme/records/modules/launchpad/types/repair_m946.kvx"
+
+[file.10]
+from = "modules/launchpad/client/cli/repair_m944_test.go"
+to = "modules/launchpad/client/cli/query_command_integration_test.go"
+
+[file.11]
+from = "modules/launchpad/client/cli/repair_m945_test.go"
+to = "modules/launchpad/client/cli/query_has_role_help_test.go"
+
+[file.12]
+from = "modules/launchpad/client/cli/repair_35_test.go"
+to = "modules/launchpad/client/cli/query_quote_uint256_test.go"
+
+[file.13]
+from = "modules/launchpad/keeper/repair_34_test.go"
+to = "modules/launchpad/keeper/genesis_recovery_and_governance_test.go"
+
+[file.14]
+from = "modules/launchpad/keeper/repair_m943_test.go"
+to = "modules/launchpad/keeper/grpc_query_state_integration_test.go"
+
+[file.15]
+from = "modules/launchpad/types/repair_m946_test.go"
+to = "modules/launchpad/types/registered_error_codes_test.go"
+
+[reference.1]
+file = "spec/layerx-merge/spec.kvx"
+name = "modules/launchpad/keeper/repair_22_39_315.kvx"
+
+[reference.2]
+file = "spec/layerx-merge/spec.kvx"
+name = "modules/launchpad/repair_22_39_307.kvx"
+
+[reference.3]
+file = "spec/layerx-merge/spec.kvx"
+name = "modules/launchpad/types/repair_22_39_320.kvx"
+
+[reference.4]
+file = "spec/layerx-merge/spec.kvx"
+name = "modules/launchpad/client/cli/repair_35_test.go"
+
+[reference.5]
+file = "spec/layerx-merge/spec.kvx"
+name = "modules/launchpad/client/cli/repair_m944_test.go"
+
+[reference.6]
+file = "spec/layerx-merge/spec.kvx"
+name = "modules/launchpad/client/cli/repair_m945_test.go"
+
+[reference.7]
+file = "spec/layerx-merge/spec.kvx"
+name = "modules/launchpad/keeper/repair_34_test.go"
+
+[reference.8]
+file = "spec/layerx-merge/spec.kvx"
+name = "modules/launchpad/keeper/repair_m943_test.go"
+
+[reference.9]
+file = "spec/layerx-merge/spec.kvx"
+name = "modules/launchpad/types/repair_m946_test.go"
+
+[reference.10]
+file = "spec/layerx-merge/qualification.kvx"
+name = "modules/launchpad/client/cli/repair_m944_test.go"
+
+[reference.11]
+file = "spec/layerx-merge/qualification.kvx"
+name = "modules/launchpad/keeper/repair_m943_test.go"
+
+[reference.12]
+file = "spec/layerx-merge/qualification.kvx"
+name = "modules/launchpad/types/repair_m946_test.go"
+
+[reference.13]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_35_QuoteUint256"
+
+[reference.14]
+file = "spec/layerx-merge/qualification.kvx"
+name = "TestRepair_35_QuoteUint256"
