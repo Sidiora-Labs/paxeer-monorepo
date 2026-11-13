@@ -19,7 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func repair182Suite(t *testing.T) *suite {
+func newSidioraGovernanceSuite(t *testing.T) *suite {
 	t.Helper()
 	a := app.Setup(t, true, false, false)
 	t.Cleanup(func() { require.NoError(t, a.Close()) })
@@ -36,7 +36,7 @@ func repair182Suite(t *testing.T) *suite {
 		attestors: bridgetestutil.Attestors(3), denom: types.SidioraDenom()}
 }
 
-func repair182Govern(s *suite, msgs ...sdk.Msg) error {
+func executeStoredBridgeProposal(s *suite, msgs ...sdk.Msg) error {
 	s.t.Helper()
 	submit, content := s.submitted(msgs...)
 	require.NoError(s.t, submit.ValidateBasic())
@@ -50,7 +50,7 @@ func repair182Govern(s *suite, msgs ...sdk.Msg) error {
 	return handler(s.ctx, stored.GetContent())
 }
 
-func repair182AssertNoGenericSidiora(s *suite) {
+func assertNoGenericSidiora(s *suite) {
 	s.t.Helper()
 	denom := types.Denom(types.SidioraHomeChainID, sidioraAsset())
 	_, found := s.k.GetAssetByDenom(s.ctx, denom)
@@ -66,7 +66,7 @@ func repair182AssertNoGenericSidiora(s *suite) {
 	require.True(s.t, s.app.BankKeeper.GetSupply(s.ctx, denom).Amount.IsZero())
 }
 
-func repair182RoundTrip(s *suite) *suite {
+func roundTripSidioraGovernanceGenesis(s *suite) *suite {
 	s.t.Helper()
 	wantBridge := s.k.ExportGenesis(s.ctx)
 	wantBank := s.app.BankKeeper.ExportGenesis(s.ctx)
@@ -109,13 +109,13 @@ func repair182RoundTrip(s *suite) *suite {
 	require.Equal(s.t, wantBank.Balances, importedBank.Balances)
 	require.Equal(s.t, wantBank.Supply, importedBank.Supply)
 	require.Equal(s.t, wantFactory, restored.TokenFactoryKeeper.ExportGenesis(ctx))
-	repair182AssertNoGenericSidiora(fresh)
+	assertNoGenericSidiora(fresh)
 	return fresh
 }
 
-func TestRepair_182_CapBeforePairRefusesBeforeWrites(t *testing.T) {
-	s := repair182Suite(t)
-	require.NoError(t, repair182Govern(s, &types.MsgRegisterChain{Authority: authority, Chain: solanaChain}))
+func TestSidioraCapBeforePairRefusesBeforeWrites(t *testing.T) {
+	s := newSidioraGovernanceSuite(t)
+	require.NoError(t, executeStoredBridgeProposal(s, &types.MsgRegisterChain{Authority: authority, Chain: solanaChain}))
 	before := s.k.ExportGenesis(s.ctx)
 	bank := s.app.BankKeeper.ExportGenesis(s.ctx)
 	factory := s.app.TokenFactoryKeeper.ExportGenesis(s.ctx)
@@ -129,21 +129,21 @@ func TestRepair_182_CapBeforePairRefusesBeforeWrites(t *testing.T) {
 	require.Equal(t, events, s.ctx.EventManager().Events())
 	_, found := s.k.GetAsset(s.ctx, types.SidioraHomeChainID, sidioraAsset())
 	require.False(t, found)
-	repair182AssertNoGenericSidiora(s)
-	s = repair182RoundTrip(s)
+	assertNoGenericSidiora(s)
+	s = roundTripSidioraGovernanceGenesis(s)
 	_, found = s.k.GetAsset(s.ctx, types.SidioraHomeChainID, sidioraAsset())
 	require.False(t, found)
 }
 
-func TestRepair_182_GovernanceOrdersRoundTrip(t *testing.T) {
+func TestSidioraGovernanceOrdersRoundTrip(t *testing.T) {
 	for _, capFirst := range []bool{true, false} {
 		name := "pair_first"
 		if capFirst {
 			name = "cap_first"
 		}
 		t.Run(name, func(t *testing.T) {
-			s := repair182Suite(t)
-			require.NoError(t, repair182Govern(s,
+			s := newSidioraGovernanceSuite(t)
+			require.NoError(t, executeStoredBridgeProposal(s,
 				&types.MsgRegisterChain{Authority: authority, Chain: solanaChain},
 				&types.MsgRegisterChain{Authority: authority, Chain: types.Chain{ChainID: chainID, Vault: vault, FinalityDepth: 64, Enabled: true}},
 				&types.MsgSetAttestors{Authority: authority, Set: bridgetestutil.Set(s.attestors, 1_000_000, 2)},
@@ -157,22 +157,22 @@ func TestRepair_182_GovernanceOrdersRoundTrip(t *testing.T) {
 				bank := s.app.BankKeeper.ExportGenesis(s.ctx)
 				factory := s.app.TokenFactoryKeeper.ExportGenesis(s.ctx)
 				for _, messages := range [][]sdk.Msg{{sidioraCap(authority)}, {sidioraCap(authority), pair}} {
-					require.ErrorIs(t, repair182Govern(s, messages...), types.ErrInvalidRequest)
+					require.ErrorIs(t, executeStoredBridgeProposal(s, messages...), types.ErrInvalidRequest)
 					require.Equal(t, before, s.k.ExportGenesis(s.ctx))
 					require.Equal(t, bank, s.app.BankKeeper.ExportGenesis(s.ctx))
 					require.Equal(t, factory, s.app.TokenFactoryKeeper.ExportGenesis(s.ctx))
 					require.Len(t, s.events(types.EventCapSet), 1)
 					require.Empty(t, s.events(types.EventSidioraPair))
-					repair182AssertNoGenericSidiora(s)
+					assertNoGenericSidiora(s)
 				}
-				s = repair182RoundTrip(s)
+				s = roundTripSidioraGovernanceGenesis(s)
 			}
 
 			bankBefore := s.app.BankKeeper.ExportGenesis(s.ctx)
-			require.NoError(t, repair182Govern(s, pair, sidioraCap(authority)))
+			require.NoError(t, executeStoredBridgeProposal(s, pair, sidioraCap(authority)))
 			require.Equal(t, bankBefore.Balances, s.app.BankKeeper.ExportGenesis(s.ctx).Balances)
 			require.Equal(t, bankBefore.Supply, s.app.BankKeeper.ExportGenesis(s.ctx).Supply)
-			repair182AssertNoGenericSidiora(s)
+			assertNoGenericSidiora(s)
 			in := sidioraDeposit(1, 700)
 			in.ChainID = types.SidioraHomeChainID
 			minted, err := s.k.BridgeIn(s.ctx, in, s.signed(in, s.attestors[0], s.attestors[1]))
@@ -183,13 +183,13 @@ func TestRepair_182_GovernanceOrdersRoundTrip(t *testing.T) {
 			require.Equal(t, sdk.NewInt(500), s.balance(recipient))
 			require.Equal(t, sdk.NewInt(500), s.app.BankKeeper.GetSupply(s.ctx, s.denom).Amount)
 			bankBefore = s.app.BankKeeper.ExportGenesis(s.ctx)
-			require.NoError(t, repair182Govern(s, sidioraCap(authority), pair))
+			require.NoError(t, executeStoredBridgeProposal(s, sidioraCap(authority), pair))
 			require.Equal(t, bankBefore, s.app.BankKeeper.ExportGenesis(s.ctx))
 			metadata, found := s.app.BankKeeper.GetDenomMetaData(s.ctx, s.denom)
 			require.True(t, found)
 			require.Equal(t, keeper.SidioraMetadata(), metadata)
 
-			s = repair182RoundTrip(s)
+			s = roundTripSidioraGovernanceGenesis(s)
 			record, found := s.k.GetAsset(s.ctx, types.SidioraHomeChainID, sidioraAsset())
 			require.True(t, found)
 			require.Equal(t, types.BridgedAsset{ChainID: types.SidioraHomeChainID, Asset: sidioraAsset(), Denom: s.denom}, record)

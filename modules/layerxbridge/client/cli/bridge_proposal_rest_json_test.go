@@ -25,7 +25,7 @@ import (
 	govtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/gov/types"
 )
 
-func repairM1268Request(t *testing.T, proposal []byte) (client.Context, []byte) {
+func bridgeProposalJSONRequest(t *testing.T, proposal []byte) (client.Context, []byte) {
 	t.Helper()
 	cdc, txConfig := testCodec()
 	amino := codec.NewLegacyAmino()
@@ -54,7 +54,7 @@ func repairM1268Request(t *testing.T, proposal []byte) (client.Context, []byte) 
 	return clientCtx, body
 }
 
-func repairM1268Server(t *testing.T, clientCtx client.Context, limit int64) *httptest.Server {
+func bridgeProposalJSONServer(t *testing.T, clientCtx client.Context, limit int64) *httptest.Server {
 	t.Helper()
 	router := mux.NewRouter()
 	govrest.RegisterHandlers(clientCtx, router, []govrest.ProposalRESTHandler{
@@ -66,7 +66,7 @@ func repairM1268Server(t *testing.T, clientCtx client.Context, limit int64) *htt
 	return server
 }
 
-func repairM1268Post(t *testing.T, server *httptest.Server, body string, status int) []byte {
+func postBridgeProposalJSON(t *testing.T, server *httptest.Server, body string, status int) []byte {
 	t.Helper()
 	response, err := server.Client().Post(server.URL+"/gov/proposals/"+ProposalRESTSubRoute,
 		"application/json", strings.NewReader(body))
@@ -79,7 +79,7 @@ func repairM1268Post(t *testing.T, server *httptest.Server, body string, status 
 	return contents
 }
 
-func repairM1268Unsigned(t *testing.T, clientCtx client.Context, response, proposal []byte) {
+func assertUnsignedBridgeProposal(t *testing.T, clientCtx client.Context, response, proposal []byte) {
 	t.Helper()
 	var unsigned legacytx.StdTx
 	require.NoError(t, clientCtx.LegacyAmino.UnmarshalAsJSON(response, &unsigned))
@@ -102,65 +102,65 @@ func repairM1268Unsigned(t *testing.T, clientCtx client.Context, response, propo
 	require.JSONEq(t, string(proposal), string(encoded))
 }
 
-func TestRepairM_1268_WhitespacePreservesUnsignedTransaction(t *testing.T) {
+func TestBridgeProposalRESTWhitespacePreservesUnsignedTransaction(t *testing.T) {
 	for _, chain := range []string{"ethereum", "solana"} {
 		_, files := generatedProposals(t, chain)
 		for _, file := range files {
 			t.Run(chain+"/"+file.Name, func(t *testing.T) {
-				clientCtx, body := repairM1268Request(t, file.Body)
-				server := repairM1268Server(t, clientCtx, rpcserver.DefaultConfig().MaxBodyBytes)
-				plain := repairM1268Post(t, server, string(body), http.StatusOK)
-				repairM1268Unsigned(t, clientCtx, plain, file.Body)
-				padded := repairM1268Post(t, server, " \r\n\t"+string(body)+"\t\r\n ", http.StatusOK)
+				clientCtx, body := bridgeProposalJSONRequest(t, file.Body)
+				server := bridgeProposalJSONServer(t, clientCtx, rpcserver.DefaultConfig().MaxBodyBytes)
+				plain := postBridgeProposalJSON(t, server, string(body), http.StatusOK)
+				assertUnsignedBridgeProposal(t, clientCtx, plain, file.Body)
+				padded := postBridgeProposalJSON(t, server, " \r\n\t"+string(body)+"\t\r\n ", http.StatusOK)
 				require.JSONEq(t, string(plain), string(padded))
-				repairM1268Unsigned(t, clientCtx, padded, file.Body)
+				assertUnsignedBridgeProposal(t, clientCtx, padded, file.Body)
 			})
 		}
 	}
 }
 
-func TestRepairM_1268_RejectsSecondJSONValue(t *testing.T) {
+func TestBridgeProposalRESTRejectsSecondJSONValue(t *testing.T) {
 	_, files := generatedProposals(t, "ethereum")
-	clientCtx, body := repairM1268Request(t, files[0].Body)
-	server := repairM1268Server(t, clientCtx, rpcserver.DefaultConfig().MaxBodyBytes)
+	clientCtx, body := bridgeProposalJSONRequest(t, files[0].Body)
+	server := bridgeProposalJSONServer(t, clientCtx, rpcserver.DefaultConfig().MaxBodyBytes)
 	for _, suffix := range []string{`{}`, string(body), `[]`, `null`, `true`, `42`, `"extra"`} {
 		t.Run(suffix, func(t *testing.T) {
-			response := repairM1268Post(t, server, string(body)+" \n"+suffix, http.StatusBadRequest)
+			response := postBridgeProposalJSON(t, server, string(body)+" \n"+suffix, http.StatusBadRequest)
 			require.Contains(t, string(response), "exactly one JSON value")
 		})
 	}
 }
 
-func TestRepairM_1268_RejectsTrailingInvalidBytes(t *testing.T) {
+func TestBridgeProposalRESTRejectsTrailingInvalidBytes(t *testing.T) {
 	_, files := generatedProposals(t, "ethereum")
-	clientCtx, body := repairM1268Request(t, files[0].Body)
-	server := repairM1268Server(t, clientCtx, rpcserver.DefaultConfig().MaxBodyBytes)
+	clientCtx, body := bridgeProposalJSONRequest(t, files[0].Body)
+	server := bridgeProposalJSONServer(t, clientCtx, rpcserver.DefaultConfig().MaxBodyBytes)
 	for _, suffix := range []string{"garbage", "}", "{", "\x00", "\xff", "/* comment */"} {
 		t.Run(suffix, func(t *testing.T) {
-			response := repairM1268Post(t, server, string(body)+" \n"+suffix, http.StatusBadRequest)
+			response := postBridgeProposalJSON(t, server, string(body)+" \n"+suffix, http.StatusBadRequest)
 			require.Contains(t, string(response), "exactly one JSON value")
 		})
 	}
 }
 
-func TestRepairM_1268_PreservesAPIBodyLimit(t *testing.T) {
+func TestBridgeProposalRESTPreservesAPIBodyLimit(t *testing.T) {
 	_, files := generatedProposals(t, "ethereum")
-	clientCtx, body := repairM1268Request(t, files[0].Body)
+	clientCtx, body := bridgeProposalJSONRequest(t, files[0].Body)
 	limit := int64(len(body) + 8)
-	server := repairM1268Server(t, clientCtx, limit)
+	server := bridgeProposalJSONServer(t, clientCtx, limit)
 	atLimit := string(body) + strings.Repeat(" ", 8)
-	response := repairM1268Post(t, server, atLimit, http.StatusOK)
-	repairM1268Unsigned(t, clientCtx, response, files[0].Body)
+	response := postBridgeProposalJSON(t, server, atLimit, http.StatusOK)
+	assertUnsignedBridgeProposal(t, clientCtx, response, files[0].Body)
 	for _, suffix := range []string{" ", "{}", "garbage"} {
 		t.Run(suffix, func(t *testing.T) {
-			response := repairM1268Post(t, server, atLimit+suffix, http.StatusBadRequest)
+			response := postBridgeProposalJSON(t, server, atLimit+suffix, http.StatusBadRequest)
 			require.Contains(t, string(response), "http: request body too large")
 			require.NotContains(t, string(response), "exactly one JSON value")
 		})
 	}
 	defaultLimit := rpcserver.DefaultConfig().MaxBodyBytes
-	defaultServer := repairM1268Server(t, clientCtx, defaultLimit)
+	defaultServer := bridgeProposalJSONServer(t, clientCtx, defaultLimit)
 	oversized := append(bytes.Clone(body), bytes.Repeat([]byte(" "), int(defaultLimit)-len(body)+1)...)
-	response = repairM1268Post(t, defaultServer, string(oversized), http.StatusBadRequest)
+	response = postBridgeProposalJSON(t, defaultServer, string(oversized), http.StatusBadRequest)
 	require.Contains(t, string(response), "http: request body too large")
 }
