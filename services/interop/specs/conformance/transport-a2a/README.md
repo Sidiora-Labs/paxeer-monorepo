@@ -26,11 +26,10 @@ Each file holds a JSON array of records:
 
 This binding carries JSON on every message.
 
-The eight original records retain their documents and representation verdicts.
-The opaque `authorization` in `payment_payload` and `facilitator_request` is
-intentional role coverage. It cannot settle a payment. Their expectations name
-`typed_intent_required` at the payment plane; the mounted facilitator refuses
-verification with `transaction_form`, and settlement with
+The opaque `authorization` in `payment_payload` and `facilitator_request` covers
+role representation. Payment admission requires typed signed payer bytes.
+Their expectations name `typed_intent_required` at the payment plane; the mounted
+facilitator refuses verification with `transaction_form`, and settlement with
 `protocol_idempotency_required` before reaching that plane.
 
 The `recorded_native_*` records bind the offer, payload and facilitator request
@@ -43,31 +42,16 @@ are expectation metadata, never caller-supplied settlement authority.
 lifetime; these historical bytes must not be tested against today's wall clock.
 Submission alone is pending; success requires verified matching receipt evidence.
 
-The `profile_free_*` records carry the same chain-125 offers without
-`extra.layerx`. At this revision they explicitly expect `ProfileMissing` and
-transport rejection. The audit proposal's claim that chain 125 forbids that
-profile conflicts with the current production validator, which defines
-`LAYERX_NETWORK` as `eip155:125` and requires `layerx_terms()`. These cases preserve
-that check until the owning domain resolves the policy; they are not labelled
-usable payments.
+The `profile_free_*` records carry chain-125 offers without `extra.layerx`
+and expect `ProfileMissing` and transport rejection. The production validator
+requires the account and currency profile on `eip155:125`.
 
 ## Conformance
 
-`services/interop/crates/layerx-x402/tests/transports.rs` reads these files with
-`include_str!` and runs every record through the production x402 model types
-and the production encoder and decoder for this transport, so the suite the
-deployment pins is the suite the tests exercise.
-
-`tools/qualification/audit_repairs/test_repair_22_33_98.py` checks the fixture
-facts against the real producer, codecs, mounted route dispatch and settlement
-guards without a native toolchain. It also executes the production deployment
-renderer in process to check this suite's count and digest. These Python source
-proofs do not execute Rust semantic validation or mounted HTTP requests.
-The additional expectation metadata is not consumed by the existing Rust
-round-trip harness. Runtime coverage must exercise those expectations through
-the model and mounted HTTP routes; the interop owner must resolve the
-profile-policy contradiction before profile-free records can describe usable
-payments.
+`services/interop/crates/layerx-x402/tests/transports.rs` reads the top-level role
+records with `include_str!` and exercises the production x402 model types and
+this transport's encoder and decoder. `expectations` and `provenance` describe
+additional payment and ingress conditions separately from the codec assertions.
 
 Ingress expectations apply after authentication and operation admission with a
 configured x402 adapter and supported kind. Each body is the record's document,
@@ -76,9 +60,8 @@ the fixed observation time. Runtime settlement must use the committed receipt
 and key pin through a loopback peer, never fabricate a successful response from
 an opaque authorization or a transaction hash alone.
 
-The fault-injected settlement cases in that file are not vectors and are not
-counted: they drive a live sequencer signer and a canonical receipt encoder
-rather than a transport representation.
+Additional settlement cases in that file use a local receipt signer and
+canonical receipt encoder. They are outside the JSON vector count.
 
 `services/interop/deploy/gateway/render.py` derives the vector count and the SHA-256
 the gateway configuration declares from these files.
@@ -86,9 +69,13 @@ the gateway configuration declares from these files.
 ## LayerX Profile
 
 The native `eip155:125` requirements in these records carry the LayerX profile in
-`extra.layerx` — `commitment`, the `agent:<did>:main` `account` a payer quotes
-against, and the `CurrencyCode` of that quote — with `payTo` equal to the
+`extra.layerx` — the `agent:<did>:main` or
+`agent:<did>:asset:<asset>` `account` a payer quotes against, and the
+`CurrencyCode` of that quote — with `payTo` equal to the
 account id derived from `account`. `PaymentRequirements::validate`
 (`services/interop/crates/layerx-x402/src/model.rs`) enforces that binding on both
 sides of this transport, so a representation advertising an account that does
 not derive its `payTo` is refused before it is encoded or after it is decoded.
+
+`commitment` is optional extension data; it is not a profile requirement or
+a finality selector. Settlement evidence is verified separately.

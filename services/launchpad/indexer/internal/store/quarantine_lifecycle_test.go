@@ -30,7 +30,7 @@ func lifecycleStore(t *testing.T) (*Store, *pgxpool.Pool) {
 		t.Fatal(err)
 	}
 	for _, id := range []string{"60001", "190001", "440000"} {
-		body, err := os.ReadFile(filepath.Join("../../../../../launchpad/spec/production-system/integration/migrations", id+".sql"))
+		body, err := os.ReadFile(filepath.Join("../../../../../migrations", id+".sql"))
 		if err != nil {
 			t.Fatal(err)
 		}

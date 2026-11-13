@@ -27,5 +27,5 @@ admitted, and permits remain held through termination cleanup.
 Workspace status uses status priority, diff panels and explicit mutations use
 interactive priority, and watcher setup, PR polling, fetches, and provisioning
 use background priority. The CLI and SDK reach the same workspace handlers.
-No daemon wire fields or user configuration changed. The Plugin Guide lists
+The plugin API exposes
 `experimental_runVcsProcess` for plugins that spawn their own git/gh commands.

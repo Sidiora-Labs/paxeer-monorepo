@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { ed25519 } from "@noble/curves/ed25519.js";
-const { committedPaymentFixture, nodeEvidence, refusesUnboundCommitments } = await import("./repair-22-33-1478-support.mjs");
+const { committedPaymentFixture, nodeEvidence, refusesUnboundCommitments } = await import("./committed-payment-fixture.mjs");
 const { PlatformSdkError, verifyCometCommit, verifySequencerReceipt } = await import("@sidiora/layerx-sdk");
 const { verifyPaymentCommitment, verifyPaymentCommitmentEvidence } = await import("../dist/commitment.js");
 

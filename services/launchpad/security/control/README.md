@@ -6,8 +6,8 @@ recovery. [providers.go](providers.go), [workers.go](workers.go) and
 [http.go](http.go) provide runtime, provider and HTTP adapters. The connected
 [gateway](../../gateway/internal/app/app.go) constructs the control runtime,
 checks readiness, mounts its handler and runs its configured workers.
-Implementation and fixture coverage do not establish production payout authority
-or launch qualification.
+Payout submission requires an explicitly configured provider and independent
+chain evidence.
 
 ## Authority and storage boundaries
 
@@ -35,7 +35,8 @@ transaction. Audit UPDATE, DELETE and TRUNCATE are rejected by triggers. Runtime
 roles must not own the objects or be able to disable their triggers. The single
 lock targets low-volume controls; it is not a throughput qualification.
 
-Reasons are nonempty UTF-8, at most 1000 bytes, without CR, LF or NUL. Credentials
+Reasons are nonempty UTF-8, at most 1000 bytes, without leading or trailing
+whitespace, CR, LF or NUL. Credentials
 are not persisted in domain objects or audit. Audit records actor, role,
 operation, resource scope, reason and result; callers must keep secrets out of
 reasons. Inventory and caps require exact `platform` scope. Actions, incidents,
@@ -66,9 +67,9 @@ must supply its idempotent inbox, effect/checkpoint transaction and result proof
 time before dispatch, and retains the strictly bound owner completion before
 calling `CompleteAction`. A lost acknowledgement retries the same completion
 identity. A retained completion can finish after restart without redispatch.
-The concrete indexer still needs an owning adapter for its generation, revision,
-authorization and canonical checkpoint fields; this runtime does not invent
-those bindings. See [the provider lifecycle contract](provider-contract.md).
+Replay dispatch requires an owner adapter binding generation, revision,
+authorization and canonical checkpoint fields. See
+[the provider lifecycle contract](provider-contract.md).
 
 Caps cover `pool_creation`, `quote`, `socket` and `paid_features`. Increasing a
 quota, extending expiry, advancing effective time or reactivating expired
@@ -77,9 +78,8 @@ A single operator can disable authority with zero quota or narrow both its quota
 and active interval. Version, effective time, expiry and revision are persisted.
 Admission rereads PostgreSQL and denies unavailable, unknown, future or expired
 state. `Runtime.RequireCapability` exposes middleware; the gateway wires it for
-socket admission. Consumers still own numeric enforcement and pre-wallet UI
-warnings, and read-only market access must remain available. These primitives
-alone do not prove a complete frontend journey or propagation within 60 seconds.
+socket admission. Caps records expose numeric quotas, effective times and
+expiry to consuming services.
 
 ## Disclosed automation
 
@@ -142,8 +142,8 @@ A unique receipt can settle only one obligation.
 
 Paxeer is one BFT network whose kernel proposes blocks as part of the network.
 Receipts are final once their blocks commit; there is no additional execution
-or periodic settlement chain. Public node JSON-RPC is at the root path, such as
-`https://api1.mainnet-beta.paxeer.network/`, with chain ID 125 (`0x7d`); see the
+or periodic settlement chain. Public node JSON-RPC is at the root path,
+with chain ID 125 (`0x7d`); see the
 [public RPC reference](../../../../docs/site/docs/reference/public-rpc.md).
 Private Anvil fixtures prove adapter behavior, not Paxeer consensus or current
 mainnet custody authority.
@@ -213,35 +213,22 @@ supplies no payout adapter, evidence verifier or reconciliation assets.
 Its settlement capability therefore remains unavailable. Implemented optional
 adapters must not be advertised as a configured production treasury.
 
-The private checker is invoked from the repository root with
-`python3 services/launchpad/security/control/check.py`. It reconstructs an
-isolated Go module from the shared manifests and uses readonly module resolution
-and the installed dependency cache. It starts an owned chain-125 Anvil, reserves
-its port and uses its private IPC socket for mutation. The Go fixtures start
-an isolated PostgreSQL instance using local server binaries; root execution
-requires the unprivileged `postgres` account. The checker also requires its
-configured Anvil binary at `/root/.foundry/bin/anvil`. Fixture credentials and
-local authorities are test data and never production attestation.
+## Development
 
-The bounded repair gate runs only `TestRepairM_1020_*`. Native integration
-fixtures start lazily when an integration test consumes them; no integration
-test is skipped or treated as passing without its fixture. The bounded tests
-use the real Store with explicit `OpenLocalStore` snapshot storage and separate
-setup/reader credential objects, real HTTPS provider clients and loopback owner
-transcripts, including `ChainVerifier` JSON-RPC receipt consumption. The local
-backend shares the authorization/mutation logic, atomically syncs snapshots,
-and keeps an exclusive store lock. It is never a fallback for `NewRuntime`.
-Its credential registry is an explicitly local in-memory authority; production
-credentials and revocation remain in the V2 PostgreSQL views and tables.
+From the repository root:
 
-`TestPhase3ProductionRolesDetectRecoverAndRestart` separately installs
-470000/470001 and exercises `NewRuntime` with restricted `control_runtime` and
-`identity_runtime` logins, actual owner views, verified HTTPS recovery, revoked
-and replacement credentials, connection restart and unrelated-write denial.
-That native PostgreSQL integration test is compiled but is outside this task's
-allowed bounded verification, so no claim of its execution is made here.
+```sh
+python3 services/launchpad/security/control/check.py
+```
 
-This bounded repair does not run the private checker or certify a deployment.
-Image and release authority are described in the
-[supply-chain notes](../supplychain/README.md); the media service's qualification
-boundary is recorded in [livestream progress](../../livestream/PROGRESS.md).
+The checker reconstructs an isolated Go module from the shared manifests and
+uses read-only module resolution and the installed dependency cache. Its native
+fixtures require Anvil, PostgreSQL server binaries and an unprivileged
+`postgres` account when invoked as root. Local fixture authorities are test data.
+
+`OpenLocalStore` provides explicit local snapshot storage with an exclusive
+store lock and atomic synced writes. Its credential registry is local and
+in memory. `NewRuntime` uses the PostgreSQL identity views and control tables.
+
+Image admission is described in the [supply-chain notes](../supplychain/README.md).
+The [livestream guide](../../livestream/PROGRESS.md) describes media dependencies.

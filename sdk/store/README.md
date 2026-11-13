@@ -97,7 +97,10 @@ type Store struct {
 }
 ```
 
-When each `KVStore` method is called, `gaskv.Store` consumes the amount of gas given by `Store.gasConfig` (flat cost plus per-byte cost of keys and values) and reports the call to `Store.tracer` when one is set.
+`gaskv.Store` charges reads and writes according to `Store.gasConfig`.
+`Get` and `Set` include flat and per-byte costs; `Has` and `Delete` use
+their configured flat costs. Iteration charges for seeking and reading
+entries. A configured `Store.tracer` receives those operations.
 
 ## Prefix
 
@@ -116,7 +119,11 @@ When `Store.{Get, Set}()` is called, the store forwards the call to its parent, 
 
 ## RootMulti
 
-`rootmulti.Store` in this directory is the original base-layer `MultiStore`, where multiple `KVStore`s can be mounted and retrieved via object-capability keys. `store.NewCommitMultiStore` returns it, and `BaseApp` uses it unless the application sets another one, which `paxd` does. In this fork it has no IAVL backend: stores mounted as `StoreTypeIAVL` or `StoreTypeDB` are plain `dbadapter.Store`s over a prefixed DB.
+`rootmulti.Store` in this directory mounts multiple `KVStore`s that can be
+retrieved via object-capability keys. `store.NewCommitMultiStore` returns it,
+and `BaseApp` uses it unless the application sets another one, which `paxd`
+does. Stores mounted as `StoreTypeIAVL` or `StoreTypeDB` use a
+`commitDBStoreAdapter` containing a `dbadapter.Store` over a prefixed DB.
 
 ## TraceKV
 
@@ -130,7 +137,9 @@ type Store struct {
 }
 ```
 
-When each `KVStore` method is called, `tracekv.Store` automatically logs a `traceOperation` to `Store.writer`.
+`tracekv.Store` writes a JSON `traceOperation` to `Store.writer` for `Get`,
+`Set` and `Delete`, and for iterator `Key` and `Value` reads. `Has` delegates
+directly to the parent store.
 
 ```go
 type traceOperation struct {

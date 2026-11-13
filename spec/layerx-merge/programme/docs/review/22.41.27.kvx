@@ -1,0 +1,159 @@
+[manifest]
+task = "22.41.27"
+pages = 39
+
+[page.1]
+path = "spec/layerx-merge/contracts/ledger-auth.md"
+status = "corrected"
+
+[page.2]
+path = "spec/layerx-merge/contracts/markets.md"
+status = "corrected"
+
+[page.3]
+path = "spec/layerx-merge/contracts/mcp-tools.md"
+status = "corrected"
+
+[page.4]
+path = "spec/layerx-merge/contracts/operations.md"
+status = "corrected"
+
+[page.5]
+path = "spec/layerx-merge/contracts/pay.md"
+status = "corrected"
+
+[page.6]
+path = "spec/layerx-merge/contracts/perps-client.md"
+status = "corrected"
+
+[page.7]
+path = "spec/layerx-merge/contracts/perps-data.md"
+status = "corrected"
+
+[page.8]
+path = "spec/layerx-merge/contracts/platform-cli.md"
+status = "corrected"
+
+[page.9]
+path = "spec/layerx-merge/contracts/platform-examples.md"
+status = "corrected"
+
+[page.10]
+path = "spec/layerx-merge/contracts/platform-gateway.md"
+status = "corrected"
+
+[page.11]
+path = "spec/layerx-merge/contracts/platform-hosted.md"
+status = "corrected"
+
+[page.12]
+path = "spec/layerx-merge/contracts/platform-middleware.md"
+status = "corrected"
+
+[page.13]
+path = "spec/layerx-merge/contracts/platform-perf-db.md"
+status = "corrected"
+
+[page.14]
+path = "spec/layerx-merge/contracts/platform-ramps.md"
+status = "corrected"
+
+[page.15]
+path = "spec/layerx-merge/contracts/platform-relay-archive.md"
+status = "corrected"
+
+[page.16]
+path = "spec/layerx-merge/contracts/platform-sdk.md"
+status = "corrected"
+
+[page.17]
+path = "spec/layerx-merge/contracts/platform-tools.md"
+status = "corrected"
+
+[page.18]
+path = "spec/layerx-merge/contracts/platform.md"
+status = "corrected"
+
+[page.19]
+path = "spec/layerx-merge/contracts/programme.md"
+status = "corrected"
+
+[page.20]
+path = "spec/layerx-merge/contracts/programs.md"
+status = "corrected"
+
+[page.21]
+path = "spec/layerx-merge/contracts/proto-api.md"
+status = "corrected"
+
+[page.22]
+path = "spec/layerx-merge/contracts/retirements.md"
+status = "corrected"
+
+[page.23]
+path = "spec/layerx-merge/contracts/rpc.md"
+status = "corrected"
+
+[page.24]
+path = "spec/layerx-merge/contracts/sdk-js.md"
+status = "corrected"
+
+[page.25]
+path = "spec/layerx-merge/contracts/sequencer.md"
+status = "corrected"
+
+[page.26]
+path = "spec/layerx-merge/contracts/services.md"
+status = "corrected"
+
+[page.27]
+path = "spec/layerx-merge/contracts/sig-provider-http.md"
+status = "corrected"
+
+[page.28]
+path = "spec/layerx-merge/contracts/telemetry.md"
+status = "corrected"
+
+[page.29]
+path = "spec/layerx-merge/contracts/test-harness.md"
+status = "corrected"
+
+[page.30]
+path = "spec/layerx-merge/contracts/tokenfactory.md"
+status = "corrected"
+
+[page.31]
+path = "spec/layerx-merge/contracts/tools-ops.md"
+status = "corrected"
+
+[page.32]
+path = "spec/layerx-merge/contracts/verifier-http.md"
+status = "corrected"
+
+[page.33]
+path = "spec/layerx-merge/contracts/virtual-chains.md"
+status = "corrected"
+
+[page.34]
+path = "spec/layerx-merge/contracts/wasm-runtime.md"
+status = "corrected"
+
+[page.35]
+path = "spec/layerx-merge/contracts/web-client.md"
+status = "corrected"
+
+[page.36]
+path = "spec/layerx-merge/contracts/web.md"
+status = "corrected"
+
+[page.37]
+path = "spec/layerx-merge/design.body.md"
+status = "corrected"
+
+[page.38]
+path = "spec/layerx-merge/docs/BUILD-REPORT.md"
+status = "corrected"
+
+[page.39]
+path = "spec/layerx-merge/docs/README.md"
+status = "corrected"

@@ -2,16 +2,18 @@
 
 This package supplies a small application for testing core IBC, light clients
 and middleware through the [IBC testing harness](../README.md). It supports
-channel behavior that the transfer application restricts, without depending on
-transfer or importing simapp. Keep that dependency direction: the
-[test simapp](../simapp/README.md) imports this package.
+channel behavior that the transfer application restricts. The application
+implementation imports neither transfer nor simapp. The
+[test simapp](../simapp/README.md) imports this package, and external tests
+compose the mock application with transfer and simapp.
 
 ## Registration and callbacks
 
 [`MockIBCApp`](ibc_app.go) holds a port ID, a scoped capability keeper and optional
 function fields for the IBC application callbacks. Create it with
-`NewMockIBCApp(portID, scopedKeeper)`, then pass it and a `*AppModule` to
-`NewIBCModule`. During `AppModule.InitGenesis`, registered applications with a
+`NewMockIBCApp(portID, scopedKeeper)`, then register it with
+`NewIBCModule(appModule, app)`, where `appModule` is a `*AppModule` and `app`
+is the `*MockIBCApp`. During `AppModule.InitGenesis`, registered applications with a
 non-empty, unbound port ID bind that port and claim its capability. An empty
 port ID leaves port binding to the surrounding application or middleware.
 

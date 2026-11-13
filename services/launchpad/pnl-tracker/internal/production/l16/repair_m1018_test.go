@@ -19,8 +19,8 @@ import (
 
 func repairM1018Inputs(t *testing.T) (string, production.MigrationRegistry, production.RoleManifest) {
 	t.Helper()
-	root := filepath.Join(coordinatortest.RepositoryRoot(t), "launchpad")
-	dir := filepath.Join(root, "spec", "production-system", "integration", "migrations")
+	root := coordinatortest.RepositoryRoot(t)
+	dir := filepath.Join(root, "migrations")
 	raw, err := os.ReadFile(filepath.Join(dir, "registry.json"))
 	if err != nil {
 		t.Fatal(err)

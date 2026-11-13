@@ -164,6 +164,11 @@ not clear `IsFrozen`; ordinary header updates cannot recover a frozen client.
 
 ## Updates By Proposal
 
+The [core proposal keeper](../../../core/02-client/keeper/proposal.go) requires
+a non-active subject and an active substitute with a strictly greater latest
+height. For solo-machine clients, this means a frozen subject and an unfrozen
+substitute with a higher sequence.
+
 The [substitute update handler](../types/proposal_handle.go) requires:
 
 - the subject client's `AllowUpdateAfterProposal` flag to be `true`;

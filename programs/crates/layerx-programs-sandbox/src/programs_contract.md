@@ -2,9 +2,13 @@
 
 The Programs module registration ABI is 4 under protocol 3. Guest execution uses
 its separately declared runtime ABI (the sandbox supports versions 1 through 4).
-A sandbox submission is version 1, an operation byte (execute 1, fund 2,
-activate 3), two zero reserved bytes, then a 32-byte lease identifier. Malformed
-or truncated submissions return `SandboxActivityRefusal::NonCanonical`.
+A sandbox submission starts with a one-byte version 1, an operation byte
+(execute 1, fund 2, activate 3), two zero reserved bytes, then a 32-byte lease
+identifier. Operation-specific fields follow this 36-byte header.
+Activation carries a 32-byte expected lease digest and a big-endian u64 usage
+sequence, for 76 bytes total; both fields must be nonzero. Execution and
+funding carry their respective call or funding payloads. Malformed or
+truncated submissions return `SandboxActivityRefusal::NonCanonical`.
 
 ## Chain transition authority
 

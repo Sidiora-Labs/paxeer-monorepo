@@ -4,6 +4,8 @@
 
 Interface for the global protocol configuration contract
 
+Source: [IProtocolConfig.sol](../../contracts/interfaces/IProtocolConfig.sol).
+
 ### FeeOutOfRange
 
 ```solidity
@@ -19,7 +21,7 @@ error ZeroAddress()
 ### ConfigUpdated
 
 ```solidity
-event ConfigUpdated(bytes32 key, uint256 oldValue, uint256 newValue)
+event ConfigUpdated(bytes32 indexed key, uint256 oldValue, uint256 newValue)
 ```
 
 ### usdlAddress
@@ -117,4 +119,3 @@ function setFeeWeights(uint256 newDecayRate, uint256 newVolWeight, uint256 newCo
 ```solidity
 function setVirtualDefaults(uint256 newVirtualUsdl, uint256 newVirtualToken) external
 ```
-

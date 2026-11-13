@@ -1,4 +1,4 @@
-# cosmwasm
+# cosmwasm-std
 
 [![cosmwasm-std on crates.io](https://img.shields.io/crates/v/cosmwasm-std.svg)](https://crates.io/crates/cosmwasm-std)
 

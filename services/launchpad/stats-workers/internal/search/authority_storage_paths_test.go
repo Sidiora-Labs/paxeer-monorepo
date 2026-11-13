@@ -19,7 +19,7 @@ import (
 func TestSearchCreationAuthorizationBindsCanonicalMetadata(t *testing.T) {
 	pool := integratedDatabase(t)
 	ctx := context.Background()
-	raw, err := os.ReadFile(filepath.Join("../../../../../launchpad/spec/production-system/integration/migrations/190001.sql"))
+	raw, err := os.ReadFile(filepath.Join("../../../../../migrations/190001.sql"))
 	if err != nil {
 		t.Fatal(err)
 	}

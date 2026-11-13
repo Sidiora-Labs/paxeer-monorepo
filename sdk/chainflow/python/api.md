@@ -79,8 +79,9 @@ client = ChainflowDataGateway(
 ```
 
 The constructor also reads `REST_API_KEY`, `WS_MINT_KEY` and `WS_TOKEN` when
-options are omitted; `rest_api_key` is required at construction. REST-only callers
-can omit `ws_mint_key`. REST data requests send the REST key in `X-API-Key`;
+options are omitted. Construction permits any credential subset; each protected
+operation requires its own credential. REST-only callers can omit `ws_mint_key`.
+REST data requests send the REST key in `X-API-Key`;
 `POST /auth/ws-token` selects only the mint key, and stream upgrades select only
 the scoped token in the `token` query parameter. Keep API keys server-side.
 Set `base_url` or `SIDIORALABS_BASE_URL` to change the HTTP gateway;
@@ -319,7 +320,9 @@ trading_view = client.trading_view.search(
 
 `GET /api/{market}/history`.
 
-Ascending, inclusive range. `countback` limits rows from the start of that range. Request subsequent windows starting at the last returned timestamp plus one interval; do not assume backward-fill semantics. Open candles can change. UDF unknown-symbol/resolution errors use HTTP 200; malformed parameters use HTTP 400.
+Ascending, inclusive range. `countback` limits rows from the start of that range;
+values above 5000 are clamped to 5000, and live-candle merging can add one row.
+Request subsequent windows starting at the last returned timestamp plus one interval; do not assume backward-fill semantics. Open candles can change. UDF unknown-symbol/resolution errors use HTTP 200; malformed parameters use HTTP 400.
 
 | Direction | Type |
 | --- | --- |
@@ -686,7 +689,10 @@ body. `recv()` parses a JSON frame into a Python value. Each example below uses
 the setup client with both keys and explicitly installs a token for its stream.
 Minting and renewal are caller-managed. Use separate clients for simultaneous
 scopes, and mint a fresh token before an upgrade after expiry. Do not log tokens
-or connection URLs; WebSocket debug logging includes the token-bearing URL.
+or connection URLs. The SDK redacts the `token` query parameter in WebSocket
+connection logs and recognized credential fields in connection-option logs.
+Received message bytes are logged at debug level; review message content and
+transport-library logging separately.
 
 ### Open {market} WebSocket
 

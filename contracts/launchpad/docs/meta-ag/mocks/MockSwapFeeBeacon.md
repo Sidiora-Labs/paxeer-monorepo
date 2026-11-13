@@ -1,15 +1,11 @@
 # Solidity API
 
+Source: [MockSwapFeeBeacon.sol](../../../contracts/meta-ag/mocks/MockSwapFeeBeacon.sol).
+
 ## MockSwapFeeBeacon
 
-Minimal stand-in for the PECOR engine surface used by MetaAGQuoter.
-        The quoter only ever reads `swapFeeBps()` via low-level staticcall,
-        so this mock exposes that single function with a configurable value
-        plus an optional revert switch to exercise the fail-soft path in
-        `_getFeeBps`.
-
-_Scope-isolated under `contracts/meta-ag/mocks/`. Do NOT use in
-     production — this is for unit tests only._
+Test contract exposing a configurable `swapFeeBps()` value. `setRevert(true)` makes that getter
+revert with `ForcedRevert`.
 
 ### ForcedRevert
 
@@ -40,4 +36,3 @@ function setRevert(bool flag) external
 ```solidity
 function swapFeeBps() external view returns (uint256)
 ```
-

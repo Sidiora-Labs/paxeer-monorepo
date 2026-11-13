@@ -6,10 +6,6 @@ block production. A transaction receipt is final once its block commits.
 Execution, receipt authentication, block inclusion and consensus commitment
 are distinct facts that a consumer must check.
 
-The former guarantor checkpoint, custody-publication and forced-exit workflow
-is retired. Its publication contracts and version numbers do not define
-finality for the merged network.
-
 ## Authority and publication
 
 The node's signed execution receipt authenticates an execution result under
@@ -29,7 +25,7 @@ An unknown transaction returns `null`. The node uses committed sequence state
 to find the covering block. A node with neither a local receipt source nor a
 configured forwarding endpoint returns JSON-RPC error `-32000` with the
 message `pax_sequencerReceipt served by sequencer`. This describes a role
-inside the node; the former separate sequencer service is retired.
+inside the node.
 
 `SequencerReceiptResult.Verify` checks the signed receipt against its JSON
 view, including the return-data, log-data and VM-error digests. Supply trusted
@@ -47,12 +43,9 @@ as native composite state roots or as the Cosmos application hash.
 
 ## Consumer sequence
 
-1. Use a root-path node JSON-RPC endpoint, such as
-   `https://api1.mainnet-beta.paxeer.network/`, and require `eth_chainId` to
-   return `0x7d`. The public node names are `api1.mainnet-beta.paxeer.network` through
-   `api14.mainnet-beta.paxeer.network` and
-   `api-mainnet-beta.paxeer.network`. Chain ID is a network selection check;
-   it does not authenticate a server or validator set.
+1. Use the configured node's HTTPS root for JSON-RPC and require `eth_chainId`
+   to return `0x7d`. Chain ID selects a network; it does not authenticate a server
+   or validator set. See [Public RPC](PublicRpc.md).
 2. Fetch `pax_sequencerReceipt` with the transaction hash. Preserve the raw
    signed transaction, canonical receipt bytes, JSON view and key
    authorization. Verify the pinned key identifier and its height range,
@@ -82,17 +75,11 @@ checks its chain evidence separately from its signed inclusion envelope.
 The recorded fixture's validator set is test material; production consumers
 need their own chain trust anchor.
 
-The V4 recording uses EIP-1559 type-2 transactions on EVM chain ID `125`.
-Its `payExact` transaction is `0x0825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e2` and its execution block is
-`0xa7c648246a5213d57d6a2f2aa7bdc8e0050249629e5e92a4b89f2bdb918e9108`. The daemon recording SHA-256 is
-`5013cd232ee94ece8d25fca4c802ca60c892f3a5f637a70962d9909dc71c4e7b`. These are private fixture identities; production consumers need their own trust anchors.
-
 ## Native state witness version 2
 
 Native state witnesses prove a key/value leaf under a supplied composite
 kernel state root. Their codec version is independent of receipt protocol
-versions and the retired publication-envelope versions. A witness does not
-by itself authenticate the supplied root, identify a committed block, or
+versions. A witness does not by itself authenticate the supplied root, identify a committed block, or
 authorize a transfer. Establish the root's provenance and state height
 separately before relying on the proven value.
 
@@ -176,29 +163,14 @@ Allocate `lxp_state_witness` on the heap: its value buffer can hold one MiB.
 Successful decoding establishes a canonical witness; successful verification
 also requires the expected root to match.
 
-## Retired publication and exit evidence
+## Native verification boundary
 
-The pre-merge `registerCheckpoint`, `publishCheckpointWitnesses`, signed
-deposit-root registration, account-recipient binding and forced-exit
-procedures are retired settlement workflows. `EVIDENCE_VERSION == 2` and
-`CHECKPOINT_ORDER_VERSION == 2` described those historical contract formats;
-they are not merged-network deployment requirements. Their certificates,
-publication digests, request anchors and producer input files do not replace
-a BFT block commit. The former guarantor finality ladder is retired.
-
-The compatibility precompiles at `0x1012` (`layerxVerify`), `0x1013`
-(`layerxCustody`) and `0x1014` (`layerxAnchor`) are retired surfaces, not the
-current route for publishing settlement evidence. Upgrade retirement checks
-in `precompiles/common/retire.go` and the respective executors preserve
-refusals. In particular, the merged `layerxVerify` executor refuses calls
-with `LXP_MODULE_DISABLED: module disabled; layerxVerify retired`, including
-its former on-chain state-proof method. Retained native and Go proof codecs
-remain useful for checking witness bytes without making that precompile a
-live verification endpoint.
-
-Use committed native transactions and their operation-specific authority
-checks for current transfers. Neither historical publication nor a valid
-balance witness grants permission to debit an account.
+The native and Go proof codecs verify witness bytes against an independently
+authenticated root. The `layerxVerify` precompile refuses calls with
+`LXP_MODULE_DISABLED: module disabled; layerxVerify retired` and does not serve
+these proof operations. Current transfers use native signed transactions and
+their operation-specific authority checks. A balance witness alone grants no
+permission to debit an account.
 
 [SDK terminal verification](SdkTerminalVerification.md) ·
 [Public RPC](PublicRpc.md) · [Home](Home.md)

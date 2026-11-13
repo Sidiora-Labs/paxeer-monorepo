@@ -21,8 +21,8 @@ wire strings of the presentation and the registry it is verified against:
   tampered presentation can be expressed as data
 - `signature_params`: the exact RFC 9421 `Signature-Input` parameters
 - `registry_*`, `key_status`, `key_expires_at`: the registered agent key
-- `clock_skew_seconds`: a number verifies through `verify_credential`, `null`
-  verifies through `verify` and a shared nonce window
+- `clock_skew_seconds`: a number verifies through `TapVerifier::verify_credential`, `null`
+  verifies through `TapVerifier::verify` and a shared nonce window
 - `now`, `replays`: verification time and how many accepted deliveries precede
   this one
 - `expect`: `verified` or the exact `TapError` variant
@@ -35,15 +35,16 @@ Target records carry `authority`, `path`, `signature_input`, `signature`,
 
 `services/interop/crates/layerx-visa-tap/tests/conformance.rs` reads these files with
 `include_str!` and runs every record through the production `TapRequest`,
-`SignatureInput`, `RegisteredAgentKey`, `NonceWindow` and `verify` types. The
-Ed25519 signature itself is produced here from the record's own key seed,
-because a signature is a live signer's output over the canonical signature base
-and cannot be a literal; every other byte of the presentation is data.
+`SignatureInput`, `RegisteredAgentKey`, `NonceWindow` and `TapVerifier` types.
+The tests sign the canonical signature base at runtime using each record's
+deterministic test-key seed; the remaining presentation fields come from data.
 
-One case in that file is not a vector and is not counted:
+The harness also includes tests outside the JSON vector count.
 `binding_is_scoped_non_authoritative_and_success_requires_a_real_receipt`
-drives the binding store and a canonical `LayerX` receipt rather than a
-credential presentation.
+checks principal-scoped credential binding and refusal of invalid receipt bytes.
+The `v2_*` tests verify exact payments against a governed receipt-key list,
+inclusive height bounds and signed ledger logs. They also cover invalid payment
+terms, failed or unverifiable receipts, and missing or duplicate payment logs.
 
 `services/interop/deploy/gateway/render.py` derives the suite identifier, the vector
 count and the SHA-256 the gateway configuration declares from these files.

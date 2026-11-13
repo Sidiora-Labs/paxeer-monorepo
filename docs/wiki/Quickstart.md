@@ -31,8 +31,10 @@ does not establish that a transaction failed.
 The pre-merge router and public `/rpc`, `/rpc/ws` and `/rpc/schema` paths are retired.
 `node.hyperpaxeer.com` is the hpx library mirror used by build scripts, not an RPC endpoint.
 
-The node namespace inventory is `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test`
-and `txpool`; availability depends on node configuration. The `px` namespace answers from node state; `px_register` and
+The node's HTTP registration includes `debug`, `echo`, `eth`, `net`, `pax`,
+`pax2`, `px`, `txpool` and `web3`; method availability depends on node
+configuration. The `test` namespace requires explicit enablement on a non-live
+chain ID. The `px` namespace answers from node state; `px_register` and
 `px_requestFunds` are operations of the hosted identity and faucet
 services declared in `services/platform/hosted/gateway/openrpc.json`. Obtain the service endpoint
 from its operator when using that contract. A gateway method is not a promise
@@ -252,8 +254,11 @@ layerx --json program build --manifest-path quickstart-program/Cargo.toml
 ```
 
 Use the returned artifact path. The current `program deploy` command takes
-that artifact plus `--program-id`, `--evm-key-file` and optional `--fee-limit`;
-`--interface` and `--upgrade-authority` are optional. The lifecycle in
+that artifact plus required `--program-id`, `--evm-key-file` and
+`--receipt-policy`; `--fee-limit`, `--interface` and `--upgrade-authority` are
+optional. The receipt-policy JSON pins `protocol_version: 2`, `network_id: 125`,
+`sequencer_id`, `sequencer_key`, `first_batch` and `last_batch`. Obtain the signing
+key identity independently and set a positive, ordered height range. The lifecycle in
 `tools/platform/cli/src/programs.rs` encodes a native deployment and signs
 an EIP-1559 transaction to the Programs precompile at
 `0x000000000000000000000000000000000000101d`.

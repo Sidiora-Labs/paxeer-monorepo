@@ -1,0 +1,79 @@
+[manifest]
+task = "22.41.51"
+pages = 19
+
+[page.1]
+path = "contracts/launchpad/docs/opticals/OpticalRegistry.md"
+status = "corrected"
+
+[page.2]
+path = "contracts/launchpad/docs/opticals/interfaces/IOptical.md"
+status = "corrected"
+
+[page.3]
+path = "contracts/launchpad/docs/opticals/presets/AntiSnipeOptical.md"
+status = "reviewed"
+
+[page.4]
+path = "contracts/launchpad/docs/opticals/presets/BuybackBurnOptical.md"
+status = "corrected"
+
+[page.5]
+path = "contracts/launchpad/docs/opticals/presets/CooldownOptical.md"
+status = "reviewed"
+
+[page.6]
+path = "contracts/launchpad/docs/opticals/presets/LaunchpadOptical.md"
+status = "corrected"
+
+[page.7]
+path = "contracts/launchpad/docs/opticals/presets/MaxWalletOptical.md"
+status = "reviewed"
+
+[page.8]
+path = "contracts/launchpad/docs/opticals/presets/TaxOptical.md"
+status = "reviewed"
+
+[page.9]
+path = "contracts/launchpad/docs/periphery/FeesRouter.md"
+status = "corrected"
+
+[page.10]
+path = "contracts/launchpad/docs/periphery/Quoter.md"
+status = "reviewed"
+
+[page.11]
+path = "contracts/launchpad/docs/periphery/Router.md"
+status = "reviewed"
+
+[page.12]
+path = "contracts/launchpad/docs/protocol/GovernanceModule.md"
+status = "corrected"
+
+[page.13]
+path = "contracts/launchpad/docs/protocol/ProtocolConfig.md"
+status = "reviewed"
+
+[page.14]
+path = "contracts/launchpad/docs/protocol/Timelock.md"
+status = "corrected"
+
+[page.15]
+path = "contracts/launchpad/docs/protocol/Treasury.md"
+status = "corrected"
+
+[page.16]
+path = "contracts/launchpad/docs/test/BitFlagWrapper.md"
+status = "reviewed"
+
+[page.17]
+path = "contracts/launchpad/docs/test/FeeLibWrapper.md"
+status = "reviewed"
+
+[page.18]
+path = "contracts/launchpad/docs/test/FixedPoint128Wrapper.md"
+status = "reviewed"
+
+[page.19]
+path = "contracts/launchpad/docs/test/MockAccessControl.md"
+status = "reviewed"

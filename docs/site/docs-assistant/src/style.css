@@ -1,0 +1,503 @@
+.docs-assistant {
+  --da-background: var(--gray-0, #111214);
+  --da-surface: var(--color-surface, #1c1d20);
+  --da-foreground: var(--color-text, #f2f2f4);
+  --da-muted: var(--color-text-secondary, #b9bbc2);
+  --da-border: var(--color-border, #37383e);
+  font-family: var(--font-sans, Inter, system-ui, sans-serif);
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--da-foreground);
+}
+.docs-assistant *,
+.docs-assistant *::before,
+.docs-assistant *::after {
+  box-sizing: border-box;
+}
+.docs-assistant-launcher {
+  position: fixed;
+  right: max(24px, env(safe-area-inset-right));
+  bottom: max(24px, env(safe-area-inset-bottom));
+  z-index: 45;
+}
+.docs-assistant .docs-assistant-launch-button {
+  gap: 9px;
+  padding-inline: 19px;
+  box-shadow: 0 4px 20px rgb(0 0 0 / 12%);
+  font-weight: 600;
+}
+.docs-assistant svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+.docs-assistant-dialog {
+  position: fixed;
+  inset: auto 24px max(24px, var(--da-keyboard-offset, 0px)) auto;
+  width: min(460px, calc(100vw - 32px));
+  height: min(720px, calc(var(--da-viewport-height, 100dvh) - 48px));
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--da-border);
+  border-radius: 22px;
+  background: var(--da-background);
+  color: var(--da-foreground);
+  font: inherit;
+  box-shadow: 0 12px 48px rgb(0 0 0 / 22%);
+}
+.docs-assistant-dialog::backdrop {
+  background: rgb(0 0 0 / 28%);
+}
+.docs-assistant[data-layout="drawer"] .docs-assistant-dialog {
+  inset: 0 0 0 auto;
+  width: min(430px, 100vw);
+  height: var(--da-viewport-height, 100dvh);
+  border-width: 0 0 0 1px;
+  border-radius: 0;
+  box-shadow: -12px 0 42px rgb(0 0 0 / 18%);
+}
+.docs-assistant[data-layout="drawer"] .docs-assistant-dialog::backdrop {
+  background: transparent;
+}
+.docs-assistant[data-layout="drawer"][data-open="true"] .docs-assistant-launcher {
+  display: none;
+}
+.docs-assistant-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.docs-assistant .docs-assistant-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  gap: 12px;
+  position: static;
+  padding: 18px 18px 16px;
+  background: var(--da-background);
+  border-bottom: 1px solid var(--da-border);
+}
+.docs-assistant .docs-assistant-header h2 {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 650;
+  line-height: 1.35;
+  letter-spacing: -0.02em;
+}
+.docs-assistant .docs-assistant-header p {
+  margin: 5px 0 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--da-muted);
+}
+.docs-assistant-header-actions {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 2px;
+}
+.docs-assistant-conversation {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 22px 20px;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scroll-padding: 16px;
+}
+.docs-assistant-empty {
+  padding: 25px 0 18px;
+}
+.docs-assistant-empty-icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin-bottom: 20px;
+  border: 1px solid var(--da-border);
+  border-radius: 14px;
+  background: var(--da-surface);
+}
+.docs-assistant-empty-icon svg {
+  width: 23px;
+  height: 23px;
+}
+.docs-assistant .docs-assistant-empty h3 {
+  margin: 0 0 8px;
+  padding: 0;
+  font-size: 22px;
+  line-height: 1.25;
+  font-weight: 550;
+  letter-spacing: -0.035em;
+}
+.docs-assistant .docs-assistant-empty > p {
+  margin: 0;
+  color: var(--da-muted);
+  font-size: 14px;
+}
+.docs-assistant-suggestions {
+  display: grid;
+  gap: 9px;
+  margin-top: 26px;
+}
+.docs-assistant .docs-assistant-suggestion {
+  width: 100%;
+  height: auto;
+  min-height: 48px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  text-align: left;
+  white-space: normal;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.docs-assistant .docs-assistant-suggestion > span {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 16px;
+  white-space: normal;
+}
+.docs-assistant-turn + .docs-assistant-turn {
+  margin-top: 30px;
+}
+.docs-assistant-question {
+  margin-left: 24px;
+  padding: 12px 15px;
+  background: var(--da-surface);
+  border: 1px solid var(--da-border);
+  border-radius: 16px 16px 4px 16px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.55;
+}
+.docs-assistant-answer {
+  margin-top: 19px;
+  min-width: 0;
+}
+.docs-assistant .docs-assistant-answer-label {
+  margin: 0 0 10px;
+  color: var(--da-muted);
+  font-size: 11px;
+  line-height: 1.3;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.docs-assistant .docs-assistant-waiting,
+.docs-assistant .docs-assistant-stopped {
+  margin: 0;
+  color: var(--da-muted);
+  font-size: 13px;
+}
+.docs-assistant-markdown {
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  line-height: 1.65;
+}
+.docs-assistant .docs-assistant-markdown p {
+  font-size: inherit;
+  line-height: inherit;
+}
+.docs-assistant .docs-assistant-markdown :is(h1, h2, h3, h4, h5, h6) {
+  border: 0;
+  padding: 0;
+  margin: 18px 0 8px;
+  font-size: 16px;
+  line-height: 1.4;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.docs-assistant .docs-assistant-markdown :is(ul, ol) {
+  padding-left: 22px;
+}
+.docs-assistant .docs-assistant-markdown pre {
+  max-width: 100%;
+  overflow-x: auto;
+  white-space: pre;
+  font-size: 12px;
+  border-radius: 10px;
+}
+.docs-assistant .docs-assistant-markdown code {
+  font-size: 0.88em;
+}
+.docs-assistant .docs-assistant-markdown table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  font-size: 12px;
+}
+.docs-assistant .docs-assistant-markdown a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.docs-assistant .docs-assistant-sources {
+  margin-top: 18px;
+}
+.docs-assistant .docs-assistant-sources > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 40px;
+  margin: 0;
+  padding: 8px 0;
+  border: 0;
+  background: transparent;
+  list-style: none;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--da-muted);
+}
+.docs-assistant .docs-assistant-sources > summary::-webkit-details-marker {
+  display: none;
+}
+.docs-assistant .docs-assistant-sources > summary svg {
+  width: 16px;
+  height: 16px;
+}
+.docs-assistant .docs-assistant-sources[open] > summary svg {
+  transform: rotate(180deg);
+}
+.docs-assistant-sources > div {
+  display: grid;
+  gap: 6px;
+  margin-top: 6px;
+}
+.docs-assistant .docs-assistant-sources a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 40px;
+  padding: 9px 12px;
+  border: 1px solid var(--da-border);
+  border-radius: 10px;
+  color: var(--da-foreground);
+  background: var(--da-surface);
+  font-size: 12px;
+  line-height: 1.4;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+.docs-assistant .docs-assistant-sources a:hover {
+  border-color: var(--da-muted);
+}
+.docs-assistant .docs-assistant-error {
+  margin: 14px 0 10px;
+  color: var(--da-foreground);
+  padding: 12px;
+  border: 1px solid var(--da-border);
+  border-left: 3px solid var(--da-muted);
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.docs-assistant .docs-assistant-stopped {
+  margin-top: 14px;
+}
+.docs-assistant .docs-assistant-retry {
+  margin-top: 10px;
+}
+.docs-assistant-composer {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 14px 16px 16px;
+  border-top: 1px solid var(--da-border);
+  background: var(--da-background);
+}
+.docs-assistant .docs-assistant-composer textarea {
+  width: 100%;
+  min-height: 66px;
+  max-height: 160px;
+  resize: none;
+  color: var(--da-foreground);
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.docs-assistant-composer-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+}
+.docs-assistant-key-hint {
+  font-size: 10px;
+  line-height: 1.4;
+  color: var(--da-muted);
+}
+.docs-assistant-composer-actions > button {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.docs-assistant-stop-icon {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  background: currentColor;
+}
+.docs-assistant .docs-assistant-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.docs-assistant :is(button, a, textarea, summary):focus-visible {
+  outline: 2px solid var(--da-foreground);
+  outline-offset: 3px;
+}
+@media (max-width: 600px) {
+  .docs-assistant-launcher {
+    right: max(16px, env(safe-area-inset-right));
+    bottom: max(16px, env(safe-area-inset-bottom));
+  }
+  .docs-assistant-dialog {
+    right: 8px;
+    bottom: calc(8px + var(--da-keyboard-offset, 0px));
+    width: calc(100vw - 16px);
+    height: min(760px, calc(var(--da-viewport-height, 100dvh) - 16px));
+    border-radius: 18px;
+  }
+  .docs-assistant[data-layout="drawer"] .docs-assistant-dialog {
+    inset: 0;
+    width: 100vw;
+    height: var(--da-viewport-height, 100dvh);
+    border: 0;
+    border-radius: 0;
+  }
+  .docs-assistant .docs-assistant-header {
+    gap: 6px;
+    padding: 16px 13px 14px;
+  }
+  .docs-assistant .docs-assistant-header h2 {
+    font-size: 15px;
+  }
+  .docs-assistant .docs-assistant-header p {
+    font-size: 11px;
+  }
+  .docs-assistant-conversation {
+    padding: 18px 15px;
+  }
+  .docs-assistant-composer {
+    padding: 12px 12px max(12px, env(safe-area-inset-bottom));
+  }
+  .docs-assistant .docs-assistant-composer textarea {
+    font-size: 16px;
+  }
+  .docs-assistant-key-hint {
+    display: none;
+  }
+  .docs-assistant-empty {
+    padding-top: 20px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .docs-assistant *,
+  .docs-assistant *::before,
+  .docs-assistant *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* A quiet workspace beside the documentation. */
+.docs-assistant[data-layout="drawer"] .docs-assistant-dialog {
+  border: 0;
+  background: var(--da-surface);
+  box-shadow: none;
+}
+.docs-assistant[data-layout="drawer"] .docs-assistant-dialog[open] {
+  animation: docs-assistant-enter 220ms ease-out;
+}
+.docs-assistant[data-layout="drawer"] .docs-assistant-header {
+  border: 0;
+  padding: 24px 20px 16px;
+  background: transparent;
+}
+.docs-assistant[data-layout="drawer"] .docs-assistant-empty-icon {
+  border: 0;
+  border-radius: 50%;
+  background: var(--da-background);
+  width: 52px;
+  height: 52px;
+}
+.docs-assistant[data-layout="drawer"] .docs-assistant-suggestion {
+  border: 0;
+  background: color-mix(in srgb, var(--da-background) 65%, transparent);
+}
+.docs-assistant[data-layout="drawer"] .docs-assistant-suggestion:hover {
+  background: var(--da-background);
+}
+.docs-assistant[data-layout="drawer"] .docs-assistant-question {
+  border: 0;
+  background: var(--da-background);
+}
+.docs-assistant[data-layout="drawer"] .docs-assistant-sources a {
+  border: 0;
+  background: var(--da-background);
+}
+.docs-assistant[data-layout="drawer"] .docs-assistant-composer {
+  border: 0;
+  border-radius: 18px;
+  margin: 12px;
+  padding: 14px;
+  padding-bottom: max(14px, env(safe-area-inset-bottom));
+  background: var(--da-background);
+}
+.docs-assistant[data-layout="drawer"] .docs-assistant-composer textarea {
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+}
+.docs-assistant .docs-assistant-answer-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.docs-assistant-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  border: 1.5px solid color-mix(in srgb, currentColor 20%, transparent);
+  border-top-color: currentColor;
+  border-right-color: currentColor;
+  border-radius: 50%;
+  animation: docs-assistant-spin 850ms linear infinite;
+}
+@keyframes docs-assistant-spin { to { transform: rotate(360deg); } }
+@keyframes docs-assistant-enter {
+  from { opacity: 0; transform: translateX(18px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@media (max-width: 1099px) {
+  .docs-assistant[data-layout="drawer"] .docs-assistant-dialog {
+    width: 100vw;
+    inset: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .docs-assistant .docs-assistant-spinner,
+  .docs-assistant[data-layout="drawer"] .docs-assistant-dialog[open] { animation: none; }
+}
