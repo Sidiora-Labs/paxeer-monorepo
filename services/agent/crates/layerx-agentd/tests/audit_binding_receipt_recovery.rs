@@ -1,4 +1,4 @@
-//! Repair record: `src/repair_22_31_364.kvx` maps findings to these real-path tests.
+//! Repair record: `spec/layerx-merge/programme/records/services/agent/crates/layerx-agentd/src/repair_22_31_364.kvx` maps findings to these real-path tests.
 //! Gate revisions and private evidence locations are supplied by hf-build/hf-done.
 
 fn require_err<T: std::fmt::Debug, E>(result: Result<T, E>, message: &str) -> E {
