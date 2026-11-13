@@ -31,7 +31,7 @@ import (
 	"github.com/sei-protocol/seictl/sidecar/wire"
 )
 
-func TestRepair_325_UnsafeDefaultAuth(t *testing.T) {
+func TestServerDefaultAuthentication(t *testing.T) {
 	t.Setenv("SEI_SIDECAR_AUTHN_MODE", "")
 	t.Setenv("SEI_SIDECAR_ISOLATED_DEVELOPMENT", "")
 	mode, err := AuthnMode()
@@ -153,7 +153,7 @@ func TestRepair_325_UnsafeDefaultAuth(t *testing.T) {
 
 // Drive a typed producer over HTTP into the real engine, stop its handler
 // after consumption, reopen SQLite, and let the engine recover the same task.
-func repair325Recover(t *testing.T, request sidecar.TaskRequest, consumer engine.TaskHandler) (json.RawMessage, json.RawMessage) {
+func taskPrecisionRecover(t *testing.T, request sidecar.TaskRequest, consumer engine.TaskHandler) (json.RawMessage, json.RawMessage) {
 	t.Helper()
 	dbPath := filepath.Join(t.TempDir(), "sidecar.db")
 	store, err := NewTaskStore(dbPath)
@@ -255,7 +255,7 @@ func repair325Recover(t *testing.T, request sidecar.TaskRequest, consumer engine
 	return first, result.Result
 }
 
-func TestRepair_325_TaskParamNumberPrecision(t *testing.T) {
+func TestTaskPrecisionTaskParamNumberPrecision(t *testing.T) {
 	kr, err := OpenKeyring(BackendTest, t.TempDir(), "")
 	if err != nil {
 		t.Fatal(err)
@@ -299,7 +299,7 @@ func TestRepair_325_TaskParamNumberPrecision(t *testing.T) {
 			if err := task.Validate(); err != nil {
 				t.Fatal(err)
 			}
-			first, recovered := repair325Recover(t, task.ToTaskRequest(), consumer)
+			first, recovered := taskPrecisionRecover(t, task.ToTaskRequest(), consumer)
 			for _, raw := range []json.RawMessage{first, recovered} {
 				var signed []byte
 				if err := json.Unmarshal(raw, &signed); err != nil {
@@ -328,7 +328,7 @@ func TestRepair_325_TaskParamNumberPrecision(t *testing.T) {
 	}
 }
 
-func TestRepair_325_GenesisOverridePrecision(t *testing.T) {
+func TestTaskPrecisionGenesisOverridePrecision(t *testing.T) {
 	overrides := map[string]json.RawMessage{
 		"staking.params.max_validators": json.RawMessage(`9007199254740993`),
 		"gov.boundary":                  json.RawMessage(`18446744073709551615`),
@@ -342,7 +342,7 @@ func TestRepair_325_GenesisOverridePrecision(t *testing.T) {
 	consumer := engine.TypedHandlerWithResult(func(_ context.Context, params tasks.AssembleGenesisRequest) (map[string]json.RawMessage, error) {
 		return params.Overrides, nil
 	})
-	first, recovered := repair325Recover(t, task.ToTaskRequest(), consumer)
+	first, recovered := taskPrecisionRecover(t, task.ToTaskRequest(), consumer)
 	for _, raw := range []json.RawMessage{first, recovered} {
 		var got map[string]json.RawMessage
 		if err := json.Unmarshal(raw, &got); err != nil {
@@ -359,7 +359,7 @@ func TestRepair_325_GenesisOverridePrecision(t *testing.T) {
 	}
 }
 
-func TestRepair_325_RejectInvalidTaskJSON(t *testing.T) {
+func TestTaskPrecisionRejectInvalidTaskJSON(t *testing.T) {
 	eng := newTestEngine(t, map[engine.TaskType]engine.TaskHandler{engine.TaskMarkReady: tasks.MarkReadyHandler()})
 	srv := NewServer("127.0.0.1:0", eng, t.TempDir(), AuthnModeTrustedHeader)
 	for _, body := range []string{
@@ -381,7 +381,7 @@ func TestRepair_325_RejectInvalidTaskJSON(t *testing.T) {
 	}
 }
 
-func TestRepair_325_TaskStoreEnvelope(t *testing.T) {
+func TestTaskPrecisionTaskStoreEnvelope(t *testing.T) {
 	store, err := NewTaskStore(filepath.Join(t.TempDir(), "sidecar.db"))
 	if err != nil {
 		t.Fatal(err)

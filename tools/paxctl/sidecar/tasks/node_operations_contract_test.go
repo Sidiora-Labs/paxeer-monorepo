@@ -211,7 +211,7 @@ func repairResetHome(t *testing.T, home string) []string {
 	return eps
 }
 
-func TestRepair_326_ResetLiveOrValidatorState(t *testing.T) {
+func TestNodeOperationsResetRequiresStoppedNonValidator(t *testing.T) {
 	home := t.TempDir()
 	eps := repairResetHome(t, home)
 	mustWrite(t, filepath.Join(home, "data", privValidatorStateFile), repairSignState)
@@ -285,7 +285,7 @@ func TestRepair_326_ResetLiveOrValidatorState(t *testing.T) {
 	}
 }
 
-func TestRepair_326_WitnessDuplication(t *testing.T) {
+func TestNodeOperationsDistinctWitnesses(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("SEI_CHAIN_ID", repairChainID)
 	eps := repairWitnessPair(t, home)
@@ -329,7 +329,7 @@ func TestRepair_326_WitnessDuplication(t *testing.T) {
 	}
 }
 
-func TestRepair_326_ConfigPathTraversal(t *testing.T) {
+func TestNodeOperationsConfigPathConfinement(t *testing.T) {
 	home := t.TempDir()
 	path := setupConfigFile(t, home, "mode = \"full\"\n")
 	original, err := os.ReadFile(path)
@@ -398,7 +398,7 @@ func repairArchive(t *testing.T, headers []*tar.Header, contents [][]byte) []byt
 	return b.Bytes()
 }
 
-func TestRepair_326_SnapshotExtractionSymlinks(t *testing.T) {
+func TestNodeOperationsSnapshotRejectsSymlinks(t *testing.T) {
 	root := t.TempDir()
 	dest := filepath.Join(root, "data", "snapshots")
 	outside := filepath.Join(root, "identity.json")
@@ -464,7 +464,7 @@ func TestRepair_326_SnapshotExtractionSymlinks(t *testing.T) {
 	}
 }
 
-func TestRepair_326_NativeFeeDenom(t *testing.T) {
+func TestNodeOperationsNativeFeeDenom(t *testing.T) {
 	// Verify the explicit nested-module contract against the deployed source.
 	contract, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "node", "params", "config.go"))
 	if err != nil {
@@ -832,7 +832,7 @@ func repairInitGenesis(t *testing.T, state map[string]json.RawMessage, gentx jso
 	}
 }
 
-func TestRepair_326_GenesisAddressPrefix(t *testing.T) {
+func TestNodeOperationsGenesisAddressPrefix(t *testing.T) {
 	home := t.TempDir()
 	repairCeremony(t, home)
 	cdc, txCodec := makeCodec()
@@ -912,7 +912,7 @@ func TestRepair_326_GenesisAddressPrefix(t *testing.T) {
 	}
 }
 
-func TestRepair_326_GenesisKeyLeak(t *testing.T) {
+func TestNodeOperationsPublicGenesisIdentity(t *testing.T) {
 	root, s3Factory, uploaderFactory, _ := repairObjectTransport(t)
 	home := t.TempDir()
 	if _, err := NewIdentityGenerator(home).Handler()(context.Background(), map[string]any{"chainId": repairChainID, "moniker": "public-only"}); err != nil {
@@ -976,7 +976,7 @@ func TestRepair_326_GenesisKeyLeak(t *testing.T) {
 	}
 }
 
-func TestRepair_326_GenesisHashRecovery(t *testing.T) {
+func TestNodeOperationsGenesisHashRecovery(t *testing.T) {
 	root, s3Factory, uploaderFactory, server := repairObjectTransport(t)
 	home := t.TempDir()
 	repairCeremony(t, home)
@@ -1046,7 +1046,7 @@ func TestRepair_326_GenesisHashRecovery(t *testing.T) {
 	}
 }
 
-func TestRepair_326_UnverifiedGenesis(t *testing.T) {
+func TestNodeOperationsGenesisVerification(t *testing.T) {
 	root, s3Factory, uploaderFactory, server := repairObjectTransport(t)
 	source := t.TempDir()
 	if _, err := NewIdentityGenerator(source).Handler()(context.Background(), map[string]any{"chainId": repairChainID, "moniker": "assembler"}); err != nil {
@@ -1112,7 +1112,7 @@ func TestRepair_326_UnverifiedGenesis(t *testing.T) {
 	}
 }
 
-func TestRepair_326_TxMarkerAdoptsDifferentRequest(t *testing.T) {
+func TestNodeOperationsTxMarkerRequestBinding(t *testing.T) {
 	kb, addr := testKeyring(t)
 	path := filepath.Join(t.TempDir(), "sidecar.db")
 	s, err := engine.NewSQLiteStore(path)
@@ -1216,7 +1216,7 @@ func TestRepair_326_TxMarkerAdoptsDifferentRequest(t *testing.T) {
 // This committed peer runs in the test executable itself, with the deployed
 // comm/argv/home contract and a loopback status transcript. Process discovery,
 // signaling, exit detection, restart and RPC transport all remain production code.
-// Full paxd application linkage belongs to the node module (see repair_326.kvx).
+// Full paxd application linkage belongs to the node module (see spec/layerx-merge/programme/records/tools/paxctl/sidecar/tasks/repair_326.kvx).
 func init() {
 	if len(os.Args) != 7 || filepath.Base(os.Args[0]) != "paxd" || os.Args[1] != "start" || os.Args[2] != "--home" || os.Args[4] != "--rpc" || os.Args[6] != "repair-326-peer" {
 		return
@@ -1284,7 +1284,7 @@ func repairWaitRPC(t *testing.T, endpoint string) {
 	}
 }
 
-func TestRepair_326_PaxdProcessInvisible(t *testing.T) {
+func TestNodeOperationsPaxdProcessDiscovery(t *testing.T) {
 	binary := repairPaxdBinary(t)
 	home := t.TempDir()
 	repairCeremony(t, home)

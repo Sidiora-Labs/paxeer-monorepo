@@ -39,9 +39,9 @@ import (
 	seis3 "github.com/sei-protocol/seictl/sidecar/s3"
 )
 
-const m836Chain = "repair-m836"
+const taskRecoveryChain = "repair-m836"
 
-func m836Read(t *testing.T, path string) []byte {
+func taskRecoveryRead(t *testing.T, path string) []byte {
 	t.Helper()
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -50,7 +50,7 @@ func m836Read(t *testing.T, path string) []byte {
 	return data
 }
 
-func m836Write(t *testing.T, path string, data []byte) {
+func taskRecoveryWrite(t *testing.T, path string, data []byte) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		t.Fatal(err)
@@ -60,7 +60,7 @@ func m836Write(t *testing.T, path string, data []byte) {
 	}
 }
 
-func m836Params(value any) map[string]any {
+func taskRecoveryParams(value any) map[string]any {
 	data, err := json.Marshal(value)
 	if err != nil {
 		panic(err)
@@ -73,10 +73,10 @@ func m836Params(value any) map[string]any {
 }
 
 // Real init, codec and module-default genesis, before the gentx producer runs.
-func m836Init(t *testing.T) string {
+func taskRecoveryInit(t *testing.T) string {
 	t.Helper()
 	home := t.TempDir()
-	if _, err := NewIdentityGenerator(home).Handler()(context.Background(), map[string]any{"chainId": m836Chain, "moniker": "validator"}); err != nil {
+	if _, err := NewIdentityGenerator(home).Handler()(context.Background(), map[string]any{"chainId": taskRecoveryChain, "moniker": "validator"}); err != nil {
 		t.Fatal(err)
 	}
 	path := filepath.Join(home, "config", "genesis.json")
@@ -103,11 +103,11 @@ func m836Init(t *testing.T) string {
 	return home
 }
 
-func m836GentxRequest() GenerateGentxRequest {
-	return GenerateGentxRequest{ChainID: m836Chain, StakingAmount: "1000000uhpx", AccountBalance: "100000000uhpx"}
+func taskRecoveryGentxRequest() GenerateGentxRequest {
+	return GenerateGentxRequest{ChainID: taskRecoveryChain, StakingAmount: "1000000uhpx", AccountBalance: "100000000uhpx"}
 }
 
-func m836Key(t *testing.T, home string) keyring.Info {
+func taskRecoveryKey(t *testing.T, home string) keyring.Info {
 	t.Helper()
 	kb, err := keyring.New(sdk.KeyringServiceName(), keyring.BackendTest, home, nil)
 	if err != nil {
@@ -120,9 +120,9 @@ func m836Key(t *testing.T, home string) keyring.Info {
 	return key
 }
 
-func m836CheckGentx(t *testing.T, home string, op gentxOperation) {
+func taskRecoveryCheckGentx(t *testing.T, home string, op gentxOperation) {
 	t.Helper()
-	data := m836Read(t, filepath.Join(home, "config", "gentx", op.GentxName))
+	data := taskRecoveryRead(t, filepath.Join(home, "config", "gentx", op.GentxName))
 	if !bytes.Equal(data, op.Signed) {
 		t.Fatal("signed gentx bytes changed across reopen")
 	}
@@ -139,10 +139,10 @@ func m836CheckGentx(t *testing.T, home string, op gentxOperation) {
 	if err != nil || len(signatures) != 1 {
 		t.Fatalf("signatures: %v %v", signatures, err)
 	}
-	if !signatures[0].PubKey.Equals(m836Key(t, home).GetPubKey()) {
+	if !signatures[0].PubKey.Equals(taskRecoveryKey(t, home).GetPubKey()) {
 		t.Fatal("gentx signer differs from durable key")
 	}
-	if err := authsigning.VerifySignature(signatures[0].PubKey, authsigning.SignerData{ChainID: m836Chain}, signatures[0].Data, txCfg.SignModeHandler(), tx); err != nil {
+	if err := authsigning.VerifySignature(signatures[0].PubKey, authsigning.SignerData{ChainID: taskRecoveryChain}, signatures[0].Data, txCfg.SignModeHandler(), tx); err != nil {
 		t.Fatalf("invalid recovered gentx signature: %v", err)
 	}
 	msgs := tx.GetMsgs()
@@ -150,7 +150,7 @@ func m836CheckGentx(t *testing.T, home string, op gentxOperation) {
 		t.Fatal("wrong message count")
 	}
 	msg, ok := msgs[0].(*stakingtypes.MsgCreateValidator)
-	if !ok || msg.DelegatorAddress != op.Address || msg.Value.String() != m836GentxRequest().StakingAmount {
+	if !ok || msg.DelegatorAddress != op.Address || msg.Value.String() != taskRecoveryGentxRequest().StakingAmount {
 		t.Fatalf("gentx request changed: %+v", msg)
 	}
 	cdc, _ := makeCodec()
@@ -177,7 +177,7 @@ func m836CheckGentx(t *testing.T, home string, op gentxOperation) {
 	for _, balance := range bank.Balances {
 		if balance.Address == op.Address {
 			count++
-			if balance.Coins.String() != m836GentxRequest().AccountBalance {
+			if balance.Coins.String() != taskRecoveryGentxRequest().AccountBalance {
 				t.Fatal("recovered balance changed")
 			}
 		}
@@ -187,17 +187,17 @@ func m836CheckGentx(t *testing.T, home string, op gentxOperation) {
 	}
 }
 
-func TestRepairM_836_GentxCrashResumable(t *testing.T) {
+func TestTaskRecoveryGentxCrashResumable(t *testing.T) {
 	for _, boundary := range []string{"key", "account", "signed"} {
 		t.Run(boundary, func(t *testing.T) {
-			home := m836Init(t)
-			request := m836GentxRequest()
-			input := m836Read(t, filepath.Join(home, "config", "genesis.json"))
+			home := taskRecoveryInit(t)
+			request := taskRecoveryGentxRequest()
+			input := taskRecoveryRead(t, filepath.Join(home, "config", "genesis.json"))
 			var unblock func()
 			switch boundary {
 			case "key":
 				path := filepath.Join(home, gentxStageDir)
-				m836Write(t, path, []byte("interrupt before account stage"))
+				taskRecoveryWrite(t, path, []byte("interrupt before account stage"))
 				unblock = func() {
 					if err := os.Remove(path); err != nil {
 						t.Fatal(err)
@@ -205,7 +205,7 @@ func TestRepairM_836_GentxCrashResumable(t *testing.T) {
 				}
 			case "account":
 				path := filepath.Join(home, "config", "node_key.json")
-				saved := m836Read(t, path)
+				saved := taskRecoveryRead(t, path)
 				if err := os.Remove(path); err != nil {
 					t.Fatal(err)
 				}
@@ -216,14 +216,14 @@ func TestRepairM_836_GentxCrashResumable(t *testing.T) {
 					if err := os.Remove(path); err != nil {
 						t.Fatal(err)
 					}
-					m836Write(t, path, saved)
+					taskRecoveryWrite(t, path, saved)
 				}
 			case "signed":
 				// Bind the operation at the key boundary, then interrupt the
 				// final completion write after the signed gentx is durable.
 				stageBlocker := filepath.Join(home, gentxStageDir)
-				m836Write(t, stageBlocker, []byte("bind operation before completion interruption"))
-				if _, err := NewGentxGenerator(home).Handler()(context.Background(), m836Params(request)); err == nil {
+				taskRecoveryWrite(t, stageBlocker, []byte("bind operation before completion interruption"))
+				if _, err := NewGentxGenerator(home).Handler()(context.Background(), taskRecoveryParams(request)); err == nil {
 					t.Fatal("expected key-boundary interruption")
 				}
 				if err := os.Remove(stageBlocker); err != nil {
@@ -240,104 +240,104 @@ func TestRepairM_836_GentxCrashResumable(t *testing.T) {
 				}
 			}
 			g := NewGentxGenerator(home)
-			if _, err := g.Handler()(context.Background(), m836Params(request)); err == nil {
+			if _, err := g.Handler()(context.Background(), taskRecoveryParams(request)); err == nil {
 				t.Fatal("interrupted ceremony reported success")
 			}
 			var before gentxOperation
-			if err := json.Unmarshal(m836Read(t, filepath.Join(home, gentxOperationFile)), &before); err != nil {
+			if err := json.Unmarshal(taskRecoveryRead(t, filepath.Join(home, gentxOperationFile)), &before); err != nil {
 				t.Fatal(err)
 			}
 			info, err := os.Stat(filepath.Join(home, gentxOperationFile))
 			if err != nil || info.Mode().Perm() != 0600 {
 				t.Fatalf("private journal permissions: %v %v", info, err)
 			}
-			key := m836Key(t, home)
+			key := taskRecoveryKey(t, home)
 			if key.GetAddress().String() != before.Address {
 				t.Fatal("key was not bound before creation")
 			}
-			if boundary == "key" && (!bytes.Equal(input, m836Read(t, filepath.Join(home, "config", "genesis.json"))) || len(before.Account) != 0) {
+			if boundary == "key" && (!bytes.Equal(input, taskRecoveryRead(t, filepath.Join(home, "config", "genesis.json"))) || len(before.Account) != 0) {
 				t.Fatal("key boundary modified genesis")
 			}
-			if boundary == "account" && (!bytes.Equal(before.Account, m836Read(t, filepath.Join(home, "config", "genesis.json"))) || len(before.Signed) != 0) {
+			if boundary == "account" && (!bytes.Equal(before.Account, taskRecoveryRead(t, filepath.Join(home, "config", "genesis.json"))) || len(before.Signed) != 0) {
 				t.Fatal("account boundary not reached")
 			}
 			if boundary == "signed" {
-				m836CheckGentx(t, home, before)
+				taskRecoveryCheckGentx(t, home, before)
 			}
 			// Stop using this instance, remove only the injected failing peer,
 			// and reopen all state through a fresh production handler/keyring.
 			g = nil
 			unblock()
 			g = NewGentxGenerator(home)
-			if _, err := g.Handler()(context.Background(), m836Params(request)); err != nil {
+			if _, err := g.Handler()(context.Background(), taskRecoveryParams(request)); err != nil {
 				t.Fatal(err)
 			}
 			var after gentxOperation
-			if err := json.Unmarshal(m836Read(t, filepath.Join(home, gentxOperationFile)), &after); err != nil {
+			if err := json.Unmarshal(taskRecoveryRead(t, filepath.Join(home, gentxOperationFile)), &after); err != nil {
 				t.Fatal(err)
 			}
-			if after.Address != before.Address || !m836Key(t, home).GetPubKey().Equals(key.GetPubKey()) {
+			if after.Address != before.Address || !taskRecoveryKey(t, home).GetPubKey().Equals(key.GetPubKey()) {
 				t.Fatal("restart replaced the signing identity")
 			}
 			if boundary == "signed" && !bytes.Equal(before.Signed, after.Signed) {
 				t.Fatal("restart signed a different transaction")
 			}
-			m836CheckGentx(t, home, after)
+			taskRecoveryCheckGentx(t, home, after)
 			if !markerExists(home, gentxMarkerFile) {
 				t.Fatal("completion was not durably recorded")
 			}
 			changed := request
 			changed.AccountBalance = "200000000uhpx"
-			if _, err := NewGentxGenerator(home).Handler()(context.Background(), m836Params(changed)); err == nil {
+			if _, err := NewGentxGenerator(home).Handler()(context.Background(), taskRecoveryParams(changed)); err == nil {
 				t.Fatal("completion adopted a different request")
 			}
-			if _, err := NewGentxGenerator(home).Handler()(context.Background(), m836Params(request)); err != nil {
+			if _, err := NewGentxGenerator(home).Handler()(context.Background(), taskRecoveryParams(request)); err != nil {
 				t.Fatal(err)
 			}
-			m836CheckGentx(t, home, after)
+			taskRecoveryCheckGentx(t, home, after)
 		})
 	}
 }
 
-func TestRepairM_836_GentxRejectsUnboundState(t *testing.T) {
-	home := m836Init(t)
+func TestTaskRecoveryGentxRejectsUnboundState(t *testing.T) {
+	home := taskRecoveryInit(t)
 	cdc, _ := makeCodec()
 	if _, err := NewGentxGenerator(home).addValidatorKey(cdc); err != nil {
 		t.Fatal(err)
 	}
-	key := m836Key(t, home)
-	if _, err := NewGentxGenerator(home).Handler()(context.Background(), m836Params(m836GentxRequest())); err == nil || !strings.Contains(err.Error(), "unbound") {
+	key := taskRecoveryKey(t, home)
+	if _, err := NewGentxGenerator(home).Handler()(context.Background(), taskRecoveryParams(taskRecoveryGentxRequest())); err == nil || !strings.Contains(err.Error(), "unbound") {
 		t.Fatalf("unbound key adopted: %v", err)
 	}
-	if !m836Key(t, home).GetPubKey().Equals(key.GetPubKey()) {
+	if !taskRecoveryKey(t, home).GetPubKey().Equals(key.GetPubKey()) {
 		t.Fatal("unbound key replaced")
 	}
 
-	home = m836Init(t)
+	home = taskRecoveryInit(t)
 	blocker := filepath.Join(home, gentxStageDir)
-	m836Write(t, blocker, []byte("stop after key"))
-	if _, err := NewGentxGenerator(home).Handler()(context.Background(), m836Params(m836GentxRequest())); err == nil {
+	taskRecoveryWrite(t, blocker, []byte("stop after key"))
+	if _, err := NewGentxGenerator(home).Handler()(context.Background(), taskRecoveryParams(taskRecoveryGentxRequest())); err == nil {
 		t.Fatal("expected interruption")
 	}
 	if err := os.Remove(blocker); err != nil {
 		t.Fatal(err)
 	}
-	address := m836Key(t, home).GetAddress().String()
+	address := taskRecoveryKey(t, home).GetAddress().String()
 	if err := NewGentxGenerator(home).addGenesisAccount(cdc, address, "3uhpx"); err != nil {
 		t.Fatal(err)
 	}
-	conflicting := m836Read(t, filepath.Join(home, "config", "genesis.json"))
-	if _, err := NewGentxGenerator(home).Handler()(context.Background(), m836Params(m836GentxRequest())); err == nil {
+	conflicting := taskRecoveryRead(t, filepath.Join(home, "config", "genesis.json"))
+	if _, err := NewGentxGenerator(home).Handler()(context.Background(), taskRecoveryParams(taskRecoveryGentxRequest())); err == nil {
 		t.Fatal("conflicting account adopted")
 	}
-	if !bytes.Equal(conflicting, m836Read(t, filepath.Join(home, "config", "genesis.json"))) {
+	if !bytes.Equal(conflicting, taskRecoveryRead(t, filepath.Join(home, "config", "genesis.json"))) {
 		t.Fatal("conflicting account overwritten")
 	}
 }
 
 // The storage peer commits actual HTTP uploads to files before acknowledging.
 // Both sides use the production AWS codec, HTTP transport and transfer manager.
-type m836Objects struct {
+type taskRecoveryObjects struct {
 	root     string
 	mu       sync.Mutex
 	reject   map[string]bool
@@ -345,9 +345,9 @@ type m836Objects struct {
 	puts     []string
 }
 
-func m836Transport(t *testing.T) (*m836Objects, S3ClientFactory, seis3.UploaderFactory) {
+func taskRecoveryTransport(t *testing.T) (*taskRecoveryObjects, S3ClientFactory, seis3.UploaderFactory) {
 	t.Helper()
-	objects := &m836Objects{root: t.TempDir(), reject: map[string]bool{}}
+	objects := &taskRecoveryObjects{root: t.TempDir(), reject: map[string]bool{}}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		name := strings.TrimPrefix(r.URL.Path, "/")
 		if !filepath.IsLocal(name) {
@@ -410,24 +410,24 @@ func m836Transport(t *testing.T) (*m836Objects, S3ClientFactory, seis3.UploaderF
 	return objects, func(context.Context, string) (S3GetObjectAPI, error) { return client, nil }, func(context.Context, string) (seis3.Uploader, error) { return transfermanager.New(client), nil }
 }
 
-func (o *m836Objects) refuse(method, path string, value bool) {
+func (o *taskRecoveryObjects) refuse(method, path string, value bool) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	o.reject[method+" "+path] = value
 }
 
-func TestRepairM_836_ExternalAccountsAssemblyRetry(t *testing.T) {
+func TestTaskRecoveryExternalAccountsAssemblyRetry(t *testing.T) {
 	ctx := context.Background()
-	producer := m836Init(t)
-	if _, err := NewGentxGenerator(producer).Handler()(ctx, m836Params(m836GentxRequest())); err != nil {
+	producer := taskRecoveryInit(t)
+	if _, err := NewGentxGenerator(producer).Handler()(ctx, taskRecoveryParams(taskRecoveryGentxRequest())); err != nil {
 		t.Fatal(err)
 	}
-	objects, download, upload := m836Transport(t)
-	if _, err := NewGenesisArtifactUploader(producer, "ceremony", "local", m836Chain, upload).Handler()(ctx, map[string]any{"nodeName": "val-0"}); err != nil {
+	objects, download, upload := taskRecoveryTransport(t)
+	if _, err := NewGenesisArtifactUploader(producer, "ceremony", "local", taskRecoveryChain, upload).Handler()(ctx, map[string]any{"nodeName": "val-0"}); err != nil {
 		t.Fatal(err)
 	}
-	home := m836Init(t)
-	input := m836Read(t, filepath.Join(home, "config", "genesis.json"))
+	home := taskRecoveryInit(t)
+	input := taskRecoveryRead(t, filepath.Join(home, "config", "genesis.json"))
 	external := randomSeiAddr(t)
 	request := AssembleGenesisRequest{AccountBalance: "100000000uhpx", Namespace: "ceremony", Nodes: []AssembleNodeEntry{{Name: "val-0"}}, Accounts: []GenesisAccountEntry{{Address: external, Balance: "123uhpx", Vesting: &GenesisAccountVesting{Amount: "100uhpx", EndTime: 4102444800}}}}
 	// Interrupt collection after external accounts have been written to the
@@ -436,15 +436,15 @@ func TestRepairM_836_ExternalAccountsAssemblyRetry(t *testing.T) {
 	if err := os.MkdirAll(blocker, 0700); err != nil {
 		t.Fatal(err)
 	}
-	a := NewGenesisAssembler(home, "ceremony", "local", m836Chain, download, upload)
-	if _, err := a.Handler()(ctx, m836Params(request)); err == nil {
+	a := NewGenesisAssembler(home, "ceremony", "local", taskRecoveryChain, download, upload)
+	if _, err := a.Handler()(ctx, taskRecoveryParams(request)); err == nil {
 		t.Fatal("expected interrupted collection")
 	}
 	staged := filepath.Join(home, assemblyStageDir, "config", "genesis.json")
 	if findAuthAccount(t, staged, external) == nil {
 		t.Fatal("interruption did not reach external-account write")
 	}
-	if !bytes.Equal(input, m836Read(t, filepath.Join(home, "config", "genesis.json"))) {
+	if !bytes.Equal(input, taskRecoveryRead(t, filepath.Join(home, "config", "genesis.json"))) {
 		t.Fatal("incomplete assembly mutated immutable input")
 	}
 	a = nil
@@ -453,27 +453,27 @@ func TestRepairM_836_ExternalAccountsAssemblyRetry(t *testing.T) {
 	}
 	// The next attempt rebuilds from input, reaches durable staging, then
 	// loses the second upload. A subsequent restart must adopt that stage.
-	objects.refuse("PUT", "/ceremony/"+m836Chain+"/peers.json", true)
-	a = NewGenesisAssembler(home, "ceremony", "local", m836Chain, download, upload)
-	if _, err := a.Handler()(ctx, m836Params(request)); err == nil {
+	objects.refuse("PUT", "/ceremony/"+taskRecoveryChain+"/peers.json", true)
+	a = NewGenesisAssembler(home, "ceremony", "local", taskRecoveryChain, download, upload)
+	if _, err := a.Handler()(ctx, taskRecoveryParams(request)); err == nil {
 		t.Fatal("expected interrupted peers upload")
 	}
-	stageBytes := m836Read(t, staged)
+	stageBytes := taskRecoveryRead(t, staged)
 	var operation assemblyOperation
-	if err := json.Unmarshal(m836Read(t, filepath.Join(home, assemblyOperationFile)), &operation); err != nil {
+	if err := json.Unmarshal(taskRecoveryRead(t, filepath.Join(home, assemblyOperationFile)), &operation); err != nil {
 		t.Fatal(err)
 	}
 	if operation.StageHash != recoveryHash(stageBytes) {
 		t.Fatal("upload started before durable stage identity")
 	}
-	if !bytes.Equal(input, m836Read(t, filepath.Join(home, "config", "genesis.json"))) {
+	if !bytes.Equal(input, taskRecoveryRead(t, filepath.Join(home, "config", "genesis.json"))) {
 		t.Fatal("failed upload published local genesis")
 	}
 	a = nil
-	objects.refuse("PUT", "/ceremony/"+m836Chain+"/peers.json", false)
-	objects.refuse("GET", "/ceremony/"+m836Chain+"/val-0/gentx.json", true)
-	a = NewGenesisAssembler(home, "ceremony", "local", m836Chain, download, upload)
-	result, err := a.Handler()(ctx, m836Params(request))
+	objects.refuse("PUT", "/ceremony/"+taskRecoveryChain+"/peers.json", false)
+	objects.refuse("GET", "/ceremony/"+taskRecoveryChain+"/val-0/gentx.json", true)
+	a = NewGenesisAssembler(home, "ceremony", "local", taskRecoveryChain, download, upload)
+	result, err := a.Handler()(ctx, taskRecoveryParams(request))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -481,8 +481,8 @@ func TestRepairM_836_ExternalAccountsAssemblyRetry(t *testing.T) {
 	if err := json.Unmarshal(result, &outcome); err != nil {
 		t.Fatal(err)
 	}
-	installed := m836Read(t, filepath.Join(home, "config", "genesis.json"))
-	uploaded := m836Read(t, filepath.Join(objects.root, "ceremony", m836Chain, "genesis.json"))
+	installed := taskRecoveryRead(t, filepath.Join(home, "config", "genesis.json"))
+	uploaded := taskRecoveryRead(t, filepath.Join(objects.root, "ceremony", taskRecoveryChain, "genesis.json"))
 	if !bytes.Equal(stageBytes, installed) || !bytes.Equal(installed, uploaded) || outcome.GenesisHash != recoveryHash(uploaded) {
 		t.Fatal("restart did not publish the exact bound stage")
 	}
@@ -508,24 +508,24 @@ func TestRepairM_836_ExternalAccountsAssemblyRetry(t *testing.T) {
 	if count != 1 || len(doc.Validators) != 1 {
 		t.Fatal("duplicate external account or missing collected validator")
 	}
-	replay, err := NewGenesisAssembler(home, "ceremony", "local", m836Chain, download, upload).Handler()(ctx, m836Params(request))
+	replay, err := NewGenesisAssembler(home, "ceremony", "local", taskRecoveryChain, download, upload).Handler()(ctx, taskRecoveryParams(request))
 	if err != nil || !bytes.Equal(result, replay) {
 		t.Fatalf("completion recovery changed result: %s %v", replay, err)
 	}
 	request.Accounts[0].Balance = "999uhpx"
-	if _, err := NewGenesisAssembler(home, "ceremony", "local", m836Chain, download, upload).Handler()(ctx, m836Params(request)); err == nil {
+	if _, err := NewGenesisAssembler(home, "ceremony", "local", taskRecoveryChain, download, upload).Handler()(ctx, taskRecoveryParams(request)); err == nil {
 		t.Fatal("different assembly adopted previous completion")
 	}
 	// The same real producer's validator account remains a genuine collision.
-	collisionHome := m836Init(t)
-	objects.refuse("GET", "/ceremony/"+m836Chain+"/val-0/gentx.json", false)
-	request.Accounts = []GenesisAccountEntry{{Address: m836Key(t, producer).GetAddress().String(), Balance: "1uhpx"}}
-	if _, err := NewGenesisAssembler(collisionHome, "ceremony", "local", m836Chain, download, upload).Handler()(ctx, m836Params(request)); err == nil || !strings.Contains(err.Error(), "collides") {
+	collisionHome := taskRecoveryInit(t)
+	objects.refuse("GET", "/ceremony/"+taskRecoveryChain+"/val-0/gentx.json", false)
+	request.Accounts = []GenesisAccountEntry{{Address: taskRecoveryKey(t, producer).GetAddress().String(), Balance: "1uhpx"}}
+	if _, err := NewGenesisAssembler(collisionHome, "ceremony", "local", taskRecoveryChain, download, upload).Handler()(ctx, taskRecoveryParams(request)); err == nil || !strings.Contains(err.Error(), "collides") {
 		t.Fatalf("genuine collision accepted: %v", err)
 	}
 }
 
-func TestRepairM_836_ReloadRestartRequired(t *testing.T) {
+func TestTaskRecoveryReloadRestartRequired(t *testing.T) {
 	home := t.TempDir()
 	writeDefaultConfig(t, home, seiconfig.ModeFull)
 	handler := NewConfigReloader(home).Handler()
@@ -547,7 +547,7 @@ func TestRepairM_836_ReloadRestartRequired(t *testing.T) {
 	}
 }
 
-type m836Source struct {
+type taskRecoverySource struct {
 	height       atomic.Int64
 	unavailable  atomic.Bool
 	blockFailure atomic.Bool
@@ -555,9 +555,9 @@ type m836Source struct {
 	server       *httptest.Server
 }
 
-func m836RPC(t *testing.T, chain string, height int64) *m836Source {
+func taskRecoveryRPC(t *testing.T, chain string, height int64) *taskRecoverySource {
 	t.Helper()
-	source := &m836Source{}
+	source := &taskRecoverySource{}
 	source.height.Store(height)
 	source.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if source.unavailable.Load() {
@@ -588,13 +588,13 @@ func m836RPC(t *testing.T, chain string, height int64) *m836Source {
 	return source
 }
 
-func m836ExportConfig(source *m836Source) ResultExportRequest {
+func taskRecoveryExportConfig(source *taskRecoverySource) ResultExportRequest {
 	return ResultExportRequest{Bucket: "results", Prefix: "archive/", Region: "local", RPCEndpoint: source.server.URL}
 }
 
-func m836CheckPage(t *testing.T, path string, start, end int64) {
+func taskRecoveryCheckPage(t *testing.T, path string, start, end int64) {
 	t.Helper()
-	raw := m836Read(t, path)
+	raw := taskRecoveryRead(t, path)
 	gz, err := gzip.NewReader(bytes.NewReader(raw))
 	if err != nil {
 		t.Fatal(err)
@@ -627,33 +627,33 @@ func m836CheckPage(t *testing.T, path string, start, end int64) {
 	}
 }
 
-func TestRepairM_836_ExportDestinationBoundRecovery(t *testing.T) {
-	source := m836RPC(t, m836Chain, 1000)
-	objects, _, upload := m836Transport(t)
+func TestTaskRecoveryExportDestinationBoundRecovery(t *testing.T) {
+	source := taskRecoveryRPC(t, taskRecoveryChain, 1000)
+	objects, _, upload := taskRecoveryTransport(t)
 	home := t.TempDir()
-	cfg := m836ExportConfig(source)
-	exporter := NewResultExporter(home, m836Chain, "node", upload)
-	if _, err := exporter.Handler()(context.Background(), m836Params(cfg)); err != nil {
+	cfg := taskRecoveryExportConfig(source)
+	exporter := NewResultExporter(home, taskRecoveryChain, "node", upload)
+	if _, err := exporter.Handler()(context.Background(), taskRecoveryParams(cfg)); err != nil {
 		t.Fatal(err)
 	}
-	m836CheckPage(t, filepath.Join(objects.root, "results", "archive", "1-1000.ndjson.gz"), 1, 1000)
+	taskRecoveryCheckPage(t, filepath.Join(objects.root, "results", "archive", "1-1000.ndjson.gz"), 1, 1000)
 	exporter = nil
 	source.height.Store(2000)
-	exporter = NewResultExporter(home, m836Chain, "node", upload)
-	if _, err := exporter.Handler()(context.Background(), m836Params(cfg)); err != nil {
+	exporter = NewResultExporter(home, taskRecoveryChain, "node", upload)
+	if _, err := exporter.Handler()(context.Background(), taskRecoveryParams(cfg)); err != nil {
 		t.Fatal(err)
 	}
-	m836CheckPage(t, filepath.Join(objects.root, "results", "archive", "1001-2000.ndjson.gz"), 1001, 2000)
+	taskRecoveryCheckPage(t, filepath.Join(objects.root, "results", "archive", "1001-2000.ndjson.gz"), 1001, 2000)
 	checkpoint, err := exporter.readCheckpoint(cfg)
 	if err != nil || checkpoint.LastExportedHeight != 2000 || checkpoint.Identity != exporter.exportIdentity(cfg) {
 		t.Fatalf("reopened progress not bound: %+v %v", checkpoint, err)
 	}
-	original := m836Read(t, filepath.Join(home, exportStateFile))
-	other := m836RPC(t, m836Chain, 3000)
+	original := taskRecoveryRead(t, filepath.Join(home, exportStateFile))
+	other := taskRecoveryRPC(t, taskRecoveryChain, 3000)
 	for _, field := range []string{"bucket", "prefix", "region", "source", "chain"} {
 		t.Run(field, func(t *testing.T) {
 			changed := cfg
-			chain := m836Chain
+			chain := taskRecoveryChain
 			switch field {
 			case "bucket":
 				changed.Bucket = "elsewhere"
@@ -665,14 +665,14 @@ func TestRepairM_836_ExportDestinationBoundRecovery(t *testing.T) {
 				changed.RPCEndpoint = other.server.URL
 			case "chain":
 				chain = "other-chain"
-				changed.RPCEndpoint = m836RPC(t, chain, 3000).server.URL
+				changed.RPCEndpoint = taskRecoveryRPC(t, chain, 3000).server.URL
 			}
-			_, err := NewResultExporter(home, chain, "node", upload).Handler()(context.Background(), m836Params(changed))
+			_, err := NewResultExporter(home, chain, "node", upload).Handler()(context.Background(), taskRecoveryParams(changed))
 			var failure *engine.TaskError
 			if !errors.As(err, &failure) || failure.Operation != "checkpoint-identity" || failure.Retryable {
 				t.Fatalf("unrelated progress adopted: %v", err)
 			}
-			if !bytes.Equal(original, m836Read(t, filepath.Join(home, exportStateFile))) {
+			if !bytes.Equal(original, taskRecoveryRead(t, filepath.Join(home, exportStateFile))) {
 				t.Fatal("refusal changed progress")
 			}
 		})
@@ -688,7 +688,7 @@ func TestRepairM_836_ExportDestinationBoundRecovery(t *testing.T) {
 	}
 }
 
-func m836RequireFailure(t *testing.T, err error, operation string, retryable bool) {
+func taskRecoveryRequireFailure(t *testing.T, err error, operation string, retryable bool) {
 	t.Helper()
 	var failure *engine.TaskError
 	if !errors.As(err, &failure) || failure.Operation != operation || failure.Retryable != retryable {
@@ -696,10 +696,10 @@ func m836RequireFailure(t *testing.T, err error, operation string, retryable boo
 	}
 }
 
-func TestRepairM_836_ExportFailuresAreObservable(t *testing.T) {
-	source := m836RPC(t, m836Chain, 1000)
-	objects, _, upload := m836Transport(t)
-	cfg := m836ExportConfig(source)
+func TestTaskRecoveryExportFailuresAreObservable(t *testing.T) {
+	source := taskRecoveryRPC(t, taskRecoveryChain, 1000)
+	objects, _, upload := taskRecoveryTransport(t)
+	cfg := taskRecoveryExportConfig(source)
 	for _, kind := range []string{"source", "block-source", "jsonrpc-source", "checkpoint-corrupt", "checkpoint-legacy", "checkpoint-read", "snapshot-corrupt", "no-progress", "upload", "checkpoint-write"} {
 		t.Run(kind, func(t *testing.T) {
 			home := t.TempDir()
@@ -727,15 +727,15 @@ func TestRepairM_836_ExportFailuresAreObservable(t *testing.T) {
 				operation = "source"
 				retryable = true
 			case "checkpoint-corrupt":
-				m836Write(t, filepath.Join(home, exportStateFile), []byte(`{"lastExportedHeight":`))
+				taskRecoveryWrite(t, filepath.Join(home, exportStateFile), []byte(`{"lastExportedHeight":`))
 			case "checkpoint-legacy":
-				m836Write(t, filepath.Join(home, exportStateFile), []byte(`{"lastExportedHeight":99999}`))
+				taskRecoveryWrite(t, filepath.Join(home, exportStateFile), []byte(`{"lastExportedHeight":99999}`))
 			case "checkpoint-read":
 				if err := os.Mkdir(filepath.Join(home, exportStateFile), 0700); err != nil {
 					t.Fatal(err)
 				}
 			case "snapshot-corrupt":
-				m836Write(t, filepath.Join(home, SnapshotHeightFile), []byte("corrupt"))
+				taskRecoveryWrite(t, filepath.Join(home, SnapshotHeightFile), []byte("corrupt"))
 			case "no-progress":
 				source.height.Store(999)
 				operation = "no-progress"
@@ -750,13 +750,13 @@ func TestRepairM_836_ExportFailuresAreObservable(t *testing.T) {
 				objects.afterPut = func(string) error { return os.Mkdir(filepath.Join(home, exportStateFile), 0700) }
 				objects.mu.Unlock()
 			}
-			exporter := NewResultExporter(home, m836Chain, "node", upload)
-			_, err := exporter.Handler()(context.Background(), m836Params(cfg))
-			m836RequireFailure(t, err, operation, retryable)
+			exporter := NewResultExporter(home, taskRecoveryChain, "node", upload)
+			_, err := exporter.Handler()(context.Background(), taskRecoveryParams(cfg))
+			taskRecoveryRequireFailure(t, err, operation, retryable)
 			if kind == "checkpoint-write" {
 				// The upload is durable, but absent checkpoint progress must
 				// fail. Reopening after repair backfills that page safely.
-				m836CheckPage(t, filepath.Join(objects.root, "results", "archive", "1-1000.ndjson.gz"), 1, 1000)
+				taskRecoveryCheckPage(t, filepath.Join(objects.root, "results", "archive", "1-1000.ndjson.gz"), 1, 1000)
 				objects.mu.Lock()
 				objects.afterPut = nil
 				objects.mu.Unlock()
@@ -764,10 +764,10 @@ func TestRepairM_836_ExportFailuresAreObservable(t *testing.T) {
 					t.Fatal(err)
 				}
 				exporter = nil
-				if _, err := NewResultExporter(home, m836Chain, "node", upload).Handler()(context.Background(), m836Params(cfg)); err != nil {
+				if _, err := NewResultExporter(home, taskRecoveryChain, "node", upload).Handler()(context.Background(), taskRecoveryParams(cfg)); err != nil {
 					t.Fatal(err)
 				}
-				state, err := NewResultExporter(home, m836Chain, "node", upload).readCheckpoint(cfg)
+				state, err := NewResultExporter(home, taskRecoveryChain, "node", upload).readCheckpoint(cfg)
 				if err != nil || state.LastExportedHeight != 1000 {
 					t.Fatalf("durable retry did not converge: %+v %v", state, err)
 				}
@@ -776,10 +776,10 @@ func TestRepairM_836_ExportFailuresAreObservable(t *testing.T) {
 	}
 }
 
-func TestRepairM_836_ExportEngineDoesNotCompleteFailedWork(t *testing.T) {
-	source := m836RPC(t, m836Chain, 1000)
+func TestTaskRecoveryExportEngineDoesNotCompleteFailedWork(t *testing.T) {
+	source := taskRecoveryRPC(t, taskRecoveryChain, 1000)
 	source.unavailable.Store(true)
-	_, _, upload := m836Transport(t)
+	_, _, upload := taskRecoveryTransport(t)
 	home := t.TempDir()
 	storePath := filepath.Join(home, "tasks.db")
 	store, err := engine.NewSQLiteStore(storePath)
@@ -787,10 +787,10 @@ func TestRepairM_836_ExportEngineDoesNotCompleteFailedWork(t *testing.T) {
 		t.Fatal(err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	exporter := NewResultExporter(home, m836Chain, "node", upload)
+	exporter := NewResultExporter(home, taskRecoveryChain, "node", upload)
 	e := engine.NewEngine(ctx, map[engine.TaskType]engine.TaskHandler{engine.TaskResultExport: exporter.Handler()}, store)
 	id := uuid.NewString()
-	if _, err := e.Submit(engine.Task{ID: id, Type: engine.TaskResultExport, Params: m836Params(m836ExportConfig(source))}); err != nil {
+	if _, err := e.Submit(engine.Task{ID: id, Type: engine.TaskResultExport, Params: taskRecoveryParams(taskRecoveryExportConfig(source))}); err != nil {
 		t.Fatal(err)
 	}
 	result := repairWaitResult(t, e, id)
@@ -808,7 +808,7 @@ func TestRepairM_836_ExportEngineDoesNotCompleteFailedWork(t *testing.T) {
 	defer store.Close()
 	ctx, cancel = context.WithCancel(context.Background())
 	defer cancel()
-	e = engine.NewEngine(ctx, map[engine.TaskType]engine.TaskHandler{engine.TaskResultExport: NewResultExporter(home, m836Chain, "node", upload).Handler()}, store)
+	e = engine.NewEngine(ctx, map[engine.TaskType]engine.TaskHandler{engine.TaskResultExport: NewResultExporter(home, taskRecoveryChain, "node", upload).Handler()}, store)
 	restored, err := e.GetResult(id)
 	if err != nil {
 		t.Fatal(err)
@@ -818,7 +818,7 @@ func TestRepairM_836_ExportEngineDoesNotCompleteFailedWork(t *testing.T) {
 	}
 	source.unavailable.Store(false)
 	retryID := uuid.NewString()
-	if _, err := e.Submit(engine.Task{ID: retryID, Type: engine.TaskResultExport, Params: m836Params(m836ExportConfig(source))}); err != nil {
+	if _, err := e.Submit(engine.Task{ID: retryID, Type: engine.TaskResultExport, Params: taskRecoveryParams(taskRecoveryExportConfig(source))}); err != nil {
 		t.Fatal(err)
 	}
 	result = repairWaitResult(t, e, retryID)
@@ -827,25 +827,25 @@ func TestRepairM_836_ExportEngineDoesNotCompleteFailedWork(t *testing.T) {
 	}
 }
 
-func TestRepairM_836_ExportCancellation(t *testing.T) {
-	source := m836RPC(t, m836Chain, 1000)
-	_, _, upload := m836Transport(t)
+func TestTaskRecoveryExportCancellation(t *testing.T) {
+	source := taskRecoveryRPC(t, taskRecoveryChain, 1000)
+	_, _, upload := taskRecoveryTransport(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	started := time.Now()
-	_, err := NewResultExporter(t.TempDir(), m836Chain, "node", upload).Handler()(ctx, m836Params(m836ExportConfig(source)))
+	_, err := NewResultExporter(t.TempDir(), taskRecoveryChain, "node", upload).Handler()(ctx, taskRecoveryParams(taskRecoveryExportConfig(source)))
 	if err == nil || time.Since(started) > time.Second {
 		t.Fatalf("export ignored cancellation: %v", err)
 	}
 }
 
-func TestRepairM_836_ExportComparisonCheckpointFailure(t *testing.T) {
+func TestTaskRecoveryExportComparisonCheckpointFailure(t *testing.T) {
 	shadow := fakeRPCAndBlockServer(5, "SHADOW", "RESULTS", nil)
 	canonical := fakeRPCAndBlockServer(5, "CANONICAL", "RESULTS", nil)
 	defer shadow.Close()
 	defer canonical.Close()
 	home := t.TempDir()
-	objects, _, upload := m836Transport(t)
+	objects, _, upload := taskRecoveryTransport(t)
 	cfg := ResultExportRequest{Bucket: "comparison", Region: "local", Prefix: "survey/", RPCEndpoint: shadow.URL, CanonicalRPC: canonical.URL}
 	objects.mu.Lock()
 	objects.afterPut = func(path string) error {
@@ -855,8 +855,8 @@ func TestRepairM_836_ExportComparisonCheckpointFailure(t *testing.T) {
 		return nil
 	}
 	objects.mu.Unlock()
-	_, err := NewResultExporter(home, "test-1", "shadow", upload).Handler()(context.Background(), m836Params(cfg))
-	m836RequireFailure(t, err, "checkpoint", true)
+	_, err := NewResultExporter(home, "test-1", "shadow", upload).Handler()(context.Background(), taskRecoveryParams(cfg))
+	taskRecoveryRequireFailure(t, err, "checkpoint", true)
 	objects.mu.Lock()
 	objects.afterPut = nil
 	objects.mu.Unlock()
@@ -864,7 +864,7 @@ func TestRepairM_836_ExportComparisonCheckpointFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 	exporter := NewResultExporter(home, "test-1", "shadow", upload)
-	if _, err := exporter.Handler()(context.Background(), m836Params(cfg)); err != nil {
+	if _, err := exporter.Handler()(context.Background(), taskRecoveryParams(cfg)); err != nil {
 		t.Fatal(err)
 	}
 	checkpoint, err := exporter.readCheckpoint(cfg)
@@ -872,6 +872,6 @@ func TestRepairM_836_ExportComparisonCheckpointFailure(t *testing.T) {
 		t.Fatalf("comparison failed to retain progress after reopen: %+v %v", checkpoint, err)
 	}
 	cfg.Prefix = "elsewhere/"
-	_, err = NewResultExporter(home, "test-1", "shadow", upload).Handler()(context.Background(), m836Params(cfg))
-	m836RequireFailure(t, err, "checkpoint-identity", false)
+	_, err = NewResultExporter(home, "test-1", "shadow", upload).Handler()(context.Background(), taskRecoveryParams(cfg))
+	taskRecoveryRequireFailure(t, err, "checkpoint-identity", false)
 }

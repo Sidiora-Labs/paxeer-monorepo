@@ -11,7 +11,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func repairM835Handlers(calls *atomic.Int32) map[TaskType]TaskHandler {
+func readinessRecoveryHandlers(calls *atomic.Int32) map[TaskType]TaskHandler {
 	return map[TaskType]TaskHandler{
 		TaskMarkReady: TypedHandler(func(context.Context, struct{}) error {
 			calls.Add(1)
@@ -23,14 +23,14 @@ func repairM835Handlers(calls *atomic.Int32) map[TaskType]TaskHandler {
 	}
 }
 
-func repairM835Engine(t *testing.T, store ResultStore, handlers map[TaskType]TaskHandler) (*Engine, context.CancelFunc) {
+func readinessRecoveryEngine(t *testing.T, store ResultStore, handlers map[TaskType]TaskHandler) (*Engine, context.CancelFunc) {
 	t.Helper()
 	ctx, stop := context.WithCancel(context.Background())
 	t.Cleanup(stop)
 	return NewEngine(ctx, handlers, store), stop
 }
 
-func repairM835Drain(t *testing.T, eng *Engine) {
+func readinessRecoveryDrain(t *testing.T, eng *Engine) {
 	t.Helper()
 	deadline := time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) {
@@ -42,7 +42,7 @@ func repairM835Drain(t *testing.T, eng *Engine) {
 	t.Fatal("task handlers did not stop")
 }
 
-func repairM835Submit(t *testing.T, eng *Engine, task Task, status TaskStatus) *TaskResult {
+func readinessRecoverySubmit(t *testing.T, eng *Engine, task Task, status TaskStatus) *TaskResult {
 	t.Helper()
 	id, err := eng.Submit(task)
 	if err != nil {
@@ -52,11 +52,11 @@ func repairM835Submit(t *testing.T, eng *Engine, task Task, status TaskStatus) *
 	if result.Status != status {
 		t.Fatalf("%s status=%s error=%q, want %s", task.Type, result.Status, result.Error, status)
 	}
-	repairM835Drain(t, eng)
+	readinessRecoveryDrain(t, eng)
 	return result
 }
 
-func repairM835Ready(t *testing.T, eng *Engine, want bool) {
+func readinessRecoveryReady(t *testing.T, eng *Engine, want bool) {
 	t.Helper()
 	wantStatus := "Initializing"
 	if want {
@@ -67,35 +67,35 @@ func repairM835Ready(t *testing.T, eng *Engine, want bool) {
 	}
 }
 
-func TestRepairM_835_CompletedReleaseRestartRepeatedSubmission(t *testing.T) {
+func TestReadinessRecoveryCompletedReleaseRestartRepeatedSubmission(t *testing.T) {
 	store, path := newFileStore(t)
 	var calls atomic.Int32
-	handlers := repairM835Handlers(&calls)
-	eng, stop := repairM835Engine(t, store, handlers)
-	repairM835Ready(t, eng, false)
+	handlers := readinessRecoveryHandlers(&calls)
+	eng, stop := readinessRecoveryEngine(t, store, handlers)
+	readinessRecoveryReady(t, eng, false)
 	task := Task{ID: uuid.NewString(), Type: TaskMarkReady}
-	original := repairM835Submit(t, eng, task, TaskStatusCompleted)
-	repairM835Ready(t, eng, true)
+	original := readinessRecoverySubmit(t, eng, task, TaskStatusCompleted)
+	readinessRecoveryReady(t, eng, true)
 
 	for boot := 0; boot < 2; boot++ {
 		stop()
 		store = reopenStore(t, store, path)
-		eng, stop = repairM835Engine(t, store, handlers)
+		eng, stop = readinessRecoveryEngine(t, store, handlers)
 		// Probes must be correct immediately, before stale-task replay and
 		// before a controller redelivers the already completed release.
-		repairM835Ready(t, eng, true)
+		readinessRecoveryReady(t, eng, true)
 		stale, err := store.ListStaleTasks()
 		if err != nil || len(stale) != 0 {
 			t.Fatalf("completed-only restart: stale=%+v err=%v", stale, err)
 		}
 		eng.RehydrateStaleTasks()
 		for delivery := 0; delivery < 3; delivery++ {
-			replayed := repairM835Submit(t, eng, task, TaskStatusCompleted)
+			replayed := readinessRecoverySubmit(t, eng, task, TaskStatusCompleted)
 			if replayed.ID != original.ID || replayed.Run != 1 || replayed.Generation != original.Generation ||
 				!replayed.CompletedAt.Equal(*original.CompletedAt) {
 				t.Fatalf("completed release was re-executed: before=%+v after=%+v", original, replayed)
 			}
-			repairM835Ready(t, eng, true)
+			readinessRecoveryReady(t, eng, true)
 		}
 		if calls.Load() != 1 {
 			t.Fatalf("release handler ran %d times, want exactly once", calls.Load())
@@ -103,12 +103,12 @@ func TestRepairM_835_CompletedReleaseRestartRepeatedSubmission(t *testing.T) {
 	}
 }
 
-func TestRepairM_835_NewerHoldWinsOnRestartAndRedelivery(t *testing.T) {
+func TestReadinessRecoveryNewerHoldWinsOnRestartAndRedelivery(t *testing.T) {
 	for _, holdStatus := range []TaskStatus{TaskStatusCompleted, TaskStatusFailed, TaskStatusRunning} {
 		t.Run(string(holdStatus), func(t *testing.T) {
 			store, path := newFileStore(t)
 			var calls atomic.Int32
-			handlers := repairM835Handlers(&calls)
+			handlers := readinessRecoveryHandlers(&calls)
 			started := make(chan struct{})
 			handlers[TaskMarkNotReady] = TypedHandler(func(ctx context.Context, _ struct{}) error {
 				if holdStatus == TaskStatusFailed {
@@ -121,9 +121,9 @@ func TestRepairM_835_NewerHoldWinsOnRestartAndRedelivery(t *testing.T) {
 				}
 				return nil
 			})
-			eng, stop := repairM835Engine(t, store, handlers)
+			eng, stop := readinessRecoveryEngine(t, store, handlers)
 			release := Task{ID: uuid.NewString(), Type: TaskMarkReady}
-			original := repairM835Submit(t, eng, release, TaskStatusCompleted)
+			original := readinessRecoverySubmit(t, eng, release, TaskStatusCompleted)
 			holdID, err := eng.Submit(Task{Type: TaskMarkNotReady})
 			if err != nil {
 				t.Fatal(err)
@@ -138,48 +138,48 @@ func TestRepairM_835_NewerHoldWinsOnRestartAndRedelivery(t *testing.T) {
 				t.Fatalf("hold=%+v, want %s", hold, holdStatus)
 			}
 			stop()
-			repairM835Drain(t, eng)
+			readinessRecoveryDrain(t, eng)
 			store = reopenStore(t, store, path)
-			handlers = repairM835Handlers(&calls)
-			eng, _ = repairM835Engine(t, store, handlers)
-			repairM835Ready(t, eng, false)
+			handlers = readinessRecoveryHandlers(&calls)
+			eng, _ = readinessRecoveryEngine(t, store, handlers)
+			readinessRecoveryReady(t, eng, false)
 			eng.RehydrateStaleTasks()
 			if holdStatus == TaskStatusRunning {
 				waitForResult(t, eng, holdID)
 			}
-			replayed := repairM835Submit(t, eng, release, TaskStatusCompleted)
+			replayed := readinessRecoverySubmit(t, eng, release, TaskStatusCompleted)
 			if replayed.Generation != original.Generation || calls.Load() != 1 {
 				t.Fatal("old release was re-executed instead of deduplicated")
 			}
-			repairM835Ready(t, eng, false)
+			readinessRecoveryReady(t, eng, false)
 		})
 	}
 }
 
-func TestRepairM_835_ReleaseAfterHoldRestoresReady(t *testing.T) {
+func TestReadinessRecoveryReleaseAfterHoldRestoresReady(t *testing.T) {
 	store, path := newFileStore(t)
 	var calls atomic.Int32
-	handlers := repairM835Handlers(&calls)
-	eng, stop := repairM835Engine(t, store, handlers)
-	repairM835Submit(t, eng, Task{Type: TaskMarkReady}, TaskStatusCompleted)
-	repairM835Submit(t, eng, Task{Type: TaskMarkNotReady}, TaskStatusCompleted)
-	repairM835Ready(t, eng, false)
+	handlers := readinessRecoveryHandlers(&calls)
+	eng, stop := readinessRecoveryEngine(t, store, handlers)
+	readinessRecoverySubmit(t, eng, Task{Type: TaskMarkReady}, TaskStatusCompleted)
+	readinessRecoverySubmit(t, eng, Task{Type: TaskMarkNotReady}, TaskStatusCompleted)
+	readinessRecoveryReady(t, eng, false)
 	release := Task{ID: uuid.NewString(), Type: TaskMarkReady}
-	repairM835Submit(t, eng, release, TaskStatusCompleted)
-	repairM835Ready(t, eng, true)
+	readinessRecoverySubmit(t, eng, release, TaskStatusCompleted)
+	readinessRecoveryReady(t, eng, true)
 	stop()
 	store = reopenStore(t, store, path)
-	eng, _ = repairM835Engine(t, store, handlers)
-	repairM835Ready(t, eng, true)
+	eng, _ = readinessRecoveryEngine(t, store, handlers)
+	readinessRecoveryReady(t, eng, true)
 	eng.RehydrateStaleTasks()
-	repairM835Submit(t, eng, release, TaskStatusCompleted)
+	readinessRecoverySubmit(t, eng, release, TaskStatusCompleted)
 	if calls.Load() != 2 {
 		t.Fatalf("release calls=%d, want 2", calls.Load())
 	}
-	repairM835Ready(t, eng, true)
+	readinessRecoveryReady(t, eng, true)
 }
 
-func TestRepairM_835_FailedReleasePreservesPriorCompletedRelease(t *testing.T) {
+func TestReadinessRecoveryFailedReleasePreservesPriorCompletedRelease(t *testing.T) {
 	store, path := newFileStore(t)
 	handlers := map[TaskType]TaskHandler{
 		TaskMarkReady: TypedHandler(func(_ context.Context, params struct{ Fail bool }) error {
@@ -189,17 +189,17 @@ func TestRepairM_835_FailedReleasePreservesPriorCompletedRelease(t *testing.T) {
 			return nil
 		}),
 	}
-	eng, stop := repairM835Engine(t, store, handlers)
-	repairM835Submit(t, eng, Task{Type: TaskMarkReady}, TaskStatusCompleted)
-	repairM835Submit(t, eng, Task{Type: TaskMarkReady, Params: map[string]any{"Fail": true}}, TaskStatusFailed)
-	repairM835Ready(t, eng, true)
+	eng, stop := readinessRecoveryEngine(t, store, handlers)
+	readinessRecoverySubmit(t, eng, Task{Type: TaskMarkReady}, TaskStatusCompleted)
+	readinessRecoverySubmit(t, eng, Task{Type: TaskMarkReady, Params: map[string]any{"Fail": true}}, TaskStatusFailed)
+	readinessRecoveryReady(t, eng, true)
 	stop()
 	store = reopenStore(t, store, path)
-	eng, _ = repairM835Engine(t, store, handlers)
-	repairM835Ready(t, eng, true)
+	eng, _ = readinessRecoveryEngine(t, store, handlers)
+	readinessRecoveryReady(t, eng, true)
 }
 
-func TestRepairM_835_ReadinessOrdersNewestHoldAndTies(t *testing.T) {
+func TestReadinessRecoveryNewestHoldAndTies(t *testing.T) {
 	base := time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC)
 	for _, tc := range []struct {
 		name    string
@@ -214,11 +214,11 @@ func TestRepairM_835_ReadinessOrdersNewestHoldAndTies(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			store, path := newFileStore(t)
 			var calls atomic.Int32
-			handlers := repairM835Handlers(&calls)
-			eng, stop := repairM835Engine(t, store, handlers)
-			oldHold := repairM835Submit(t, eng, Task{Type: TaskMarkNotReady}, TaskStatusCompleted)
-			release := repairM835Submit(t, eng, Task{Type: TaskMarkReady}, TaskStatusCompleted)
-			newHold := repairM835Submit(t, eng, Task{Type: TaskMarkNotReady}, TaskStatusCompleted)
+			handlers := readinessRecoveryHandlers(&calls)
+			eng, stop := readinessRecoveryEngine(t, store, handlers)
+			oldHold := readinessRecoverySubmit(t, eng, Task{Type: TaskMarkNotReady}, TaskStatusCompleted)
+			release := readinessRecoverySubmit(t, eng, Task{Type: TaskMarkReady}, TaskStatusCompleted)
+			newHold := readinessRecoverySubmit(t, eng, Task{Type: TaskMarkNotReady}, TaskStatusCompleted)
 			// Give real producer-emitted rows exact boundary times. Ordering
 			// must use time values, including RFC3339Nano's optional fraction.
 			for id, submitted := range map[string]time.Time{
@@ -232,21 +232,21 @@ func TestRepairM_835_ReadinessOrdersNewestHoldAndTies(t *testing.T) {
 			}
 			stop()
 			store = reopenStore(t, store, path)
-			eng, _ = repairM835Engine(t, store, handlers)
-			repairM835Ready(t, eng, tc.ready)
+			eng, _ = readinessRecoveryEngine(t, store, handlers)
+			readinessRecoveryReady(t, eng, tc.ready)
 			eng.RehydrateStaleTasks()
-			repairM835Submit(t, eng, Task{ID: release.ID, Type: TaskMarkReady}, TaskStatusCompleted)
-			repairM835Ready(t, eng, tc.ready)
+			readinessRecoverySubmit(t, eng, Task{ID: release.ID, Type: TaskMarkReady}, TaskStatusCompleted)
+			readinessRecoveryReady(t, eng, tc.ready)
 		})
 	}
 }
 
-func TestRepairM_835_LateReleaseCannotOverrideNewerHold(t *testing.T) {
+func TestReadinessRecoveryLateReleaseCannotOverrideNewerHold(t *testing.T) {
 	store, path := newFileStore(t)
 	started := make(chan struct{})
 	finish := make(chan struct{})
 	var calls atomic.Int32
-	handlers := repairM835Handlers(&calls)
+	handlers := readinessRecoveryHandlers(&calls)
 	handlers[TaskMarkReady] = TypedHandler(func(ctx context.Context, _ struct{}) error {
 		close(started)
 		select {
@@ -256,7 +256,7 @@ func TestRepairM_835_LateReleaseCannotOverrideNewerHold(t *testing.T) {
 			return ctx.Err()
 		}
 	})
-	eng, stop := repairM835Engine(t, store, handlers)
+	eng, stop := readinessRecoveryEngine(t, store, handlers)
 	id, err := eng.Submit(Task{Type: TaskMarkReady})
 	if err != nil {
 		t.Fatal(err)
@@ -277,15 +277,15 @@ func TestRepairM_835_LateReleaseCannotOverrideNewerHold(t *testing.T) {
 	if release := waitForResult(t, eng, id); release.Status != TaskStatusCompleted {
 		t.Fatalf("late release failed: %+v", release)
 	}
-	repairM835Drain(t, eng)
-	repairM835Ready(t, eng, false)
+	readinessRecoveryDrain(t, eng)
+	readinessRecoveryReady(t, eng, false)
 	stop()
 	store = reopenStore(t, store, path)
-	eng, _ = repairM835Engine(t, store, repairM835Handlers(&calls))
-	repairM835Ready(t, eng, false)
+	eng, _ = readinessRecoveryEngine(t, store, readinessRecoveryHandlers(&calls))
+	readinessRecoveryReady(t, eng, false)
 }
 
-func TestRepairM_835_ReleaseRequiresDurableCompletion(t *testing.T) {
+func TestReadinessRecoveryReleaseRequiresDurableCompletion(t *testing.T) {
 	store, path := newFileStore(t)
 	if _, err := store.db.Exec(`CREATE TRIGGER reject_release_completion
 		BEFORE UPDATE OF status ON task_results
@@ -294,22 +294,22 @@ func TestRepairM_835_ReleaseRequiresDurableCompletion(t *testing.T) {
 		t.Fatal(err)
 	}
 	var calls atomic.Int32
-	handlers := repairM835Handlers(&calls)
-	eng, stop := repairM835Engine(t, store, handlers)
+	handlers := readinessRecoveryHandlers(&calls)
+	eng, stop := readinessRecoveryEngine(t, store, handlers)
 	id, err := eng.Submit(Task{Type: TaskMarkReady})
 	if err != nil {
 		t.Fatal(err)
 	}
-	repairM835Drain(t, eng)
+	readinessRecoveryDrain(t, eng)
 	result := mustGetResult(t, eng, id)
 	if result == nil || result.Status != TaskStatusRunning || calls.Load() != 1 {
 		t.Fatalf("failed completion should remain recoverable: result=%+v calls=%d", result, calls.Load())
 	}
-	repairM835Ready(t, eng, false)
+	readinessRecoveryReady(t, eng, false)
 	stop()
 	store = reopenStore(t, store, path)
-	eng, _ = repairM835Engine(t, store, handlers)
-	repairM835Ready(t, eng, false)
+	eng, _ = readinessRecoveryEngine(t, store, handlers)
+	readinessRecoveryReady(t, eng, false)
 	if _, err := store.db.Exec("DROP TRIGGER reject_release_completion"); err != nil {
 		t.Fatal(err)
 	}
@@ -317,13 +317,13 @@ func TestRepairM_835_ReleaseRequiresDurableCompletion(t *testing.T) {
 	if recovered := waitForResult(t, eng, id); recovered.Status != TaskStatusCompleted || recovered.Run != 1 {
 		t.Fatalf("release did not recover its incomplete run: %+v", recovered)
 	}
-	repairM835Drain(t, eng)
-	repairM835Ready(t, eng, true)
+	readinessRecoveryDrain(t, eng)
+	readinessRecoveryReady(t, eng, true)
 }
 
-func TestRepairM_835_QueryStoreFailureDiffersFromAbsence(t *testing.T) {
+func TestReadinessRecoveryQueryStoreFailureDiffersFromAbsence(t *testing.T) {
 	store := newTestStore(t)
-	eng, _ := repairM835Engine(t, store, map[TaskType]TaskHandler{
+	eng, _ := readinessRecoveryEngine(t, store, map[TaskType]TaskHandler{
 		TaskConfigPatch: TypedHandlerWithResult(func(_ context.Context, params struct{ Value string }) (struct{ Value string }, error) {
 			return params, nil
 		}),
@@ -335,7 +335,7 @@ func TestRepairM_835_QueryStoreFailureDiffersFromAbsence(t *testing.T) {
 	if results, err := eng.RecentResults(); len(results) != 0 || err != nil {
 		t.Fatalf("confirmed empty history: results=%+v err=%v", results, err)
 	}
-	produced := repairM835Submit(t, eng, Task{Type: TaskConfigPatch, Params: map[string]any{"Value": "persisted"}}, TaskStatusCompleted)
+	produced := readinessRecoverySubmit(t, eng, Task{Type: TaskConfigPatch, Params: map[string]any{"Value": "persisted"}}, TaskStatusCompleted)
 	result, err := eng.GetResult(produced.ID)
 	if err != nil || result == nil || string(result.Result) != `{"Value":"persisted"}` {
 		t.Fatalf("producer/store/query result=%+v err=%v", result, err)
@@ -360,12 +360,12 @@ func TestRepairM_835_QueryStoreFailureDiffersFromAbsence(t *testing.T) {
 	}
 }
 
-func TestRepairM_835_QueryDecodeErrorsReachConsumer(t *testing.T) {
+func TestReadinessRecoveryQueryDecodeErrorsReachConsumer(t *testing.T) {
 	store := newTestStore(t)
-	eng, _ := repairM835Engine(t, store, map[TaskType]TaskHandler{
+	eng, _ := readinessRecoveryEngine(t, store, map[TaskType]TaskHandler{
 		TaskConfigPatch: TypedHandler(func(context.Context, struct{}) error { return nil }),
 	})
-	produced := repairM835Submit(t, eng, Task{Type: TaskConfigPatch}, TaskStatusCompleted)
+	produced := readinessRecoverySubmit(t, eng, Task{Type: TaskConfigPatch}, TaskStatusCompleted)
 	if _, err := store.db.Exec("UPDATE task_results SET params = ? WHERE id = ?", "{", produced.ID); err != nil {
 		t.Fatal(err)
 	}
@@ -380,20 +380,20 @@ func TestRepairM_835_QueryDecodeErrorsReachConsumer(t *testing.T) {
 	}
 }
 
-func TestRepairM_835_UnavailableRecoveryKeepsGateClosed(t *testing.T) {
+func TestReadinessRecoveryUnavailableRecoveryKeepsGateClosed(t *testing.T) {
 	store, path := newFileStore(t)
 	var calls atomic.Int32
-	handlers := repairM835Handlers(&calls)
-	eng, stop := repairM835Engine(t, store, handlers)
-	repairM835Submit(t, eng, Task{Type: TaskMarkReady}, TaskStatusCompleted)
+	handlers := readinessRecoveryHandlers(&calls)
+	eng, stop := readinessRecoveryEngine(t, store, handlers)
+	readinessRecoverySubmit(t, eng, Task{Type: TaskMarkReady}, TaskStatusCompleted)
 	stop()
 	if err := store.Close(); err != nil {
 		t.Fatal(err)
 	}
-	eng, _ = repairM835Engine(t, store, handlers)
-	repairM835Ready(t, eng, false)
+	eng, _ = readinessRecoveryEngine(t, store, handlers)
+	readinessRecoveryReady(t, eng, false)
 	eng.RehydrateStaleTasks()
-	repairM835Ready(t, eng, false)
+	readinessRecoveryReady(t, eng, false)
 	if calls.Load() != 1 {
 		t.Fatal("recovery dispatched a task with an unavailable store")
 	}
@@ -402,6 +402,6 @@ func TestRepairM_835_UnavailableRecoveryKeepsGateClosed(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = store.Close() })
-	eng, _ = repairM835Engine(t, store, handlers)
-	repairM835Ready(t, eng, true)
+	eng, _ = readinessRecoveryEngine(t, store, handlers)
+	readinessRecoveryReady(t, eng, true)
 }

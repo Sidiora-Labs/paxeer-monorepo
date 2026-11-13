@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-func repair327Wait(t *testing.T, condition func() bool) {
+func taskGenerationWait(t *testing.T, condition func() bool) {
 	t.Helper()
 	deadline := time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) {
@@ -22,7 +22,7 @@ func repair327Wait(t *testing.T, condition func() bool) {
 	t.Fatal("timed out waiting for engine transition")
 }
 
-func repair327Receive(t *testing.T, started <-chan context.Context) context.Context {
+func taskGenerationReceive(t *testing.T, started <-chan context.Context) context.Context {
 	t.Helper()
 	select {
 	case ctx := <-started:
@@ -33,7 +33,7 @@ func repair327Receive(t *testing.T, started <-chan context.Context) context.Cont
 	}
 }
 
-func repair327Release(t *testing.T) (<-chan struct{}, func()) {
+func taskGenerationRelease(t *testing.T) (<-chan struct{}, func()) {
 	t.Helper()
 	ch := make(chan struct{})
 	var once sync.Once
@@ -42,7 +42,7 @@ func repair327Release(t *testing.T) (<-chan struct{}, func()) {
 	return ch, release
 }
 
-func repair327Tombstones(t *testing.T, store *SQLiteStore, id, generation string) int {
+func taskGenerationTombstones(t *testing.T, store *SQLiteStore, id, generation string) int {
 	t.Helper()
 	var count int
 	if err := store.db.QueryRow("SELECT count(*) FROM task_cancellations WHERE id=? AND generation=?", id, generation).Scan(&count); err != nil {
@@ -51,7 +51,7 @@ func repair327Tombstones(t *testing.T, store *SQLiteStore, id, generation string
 	return count
 }
 
-func repair327Absent(t *testing.T, store *SQLiteStore, id string) {
+func taskGenerationAbsent(t *testing.T, store *SQLiteStore, id string) {
 	t.Helper()
 	r, err := store.Get(id)
 	if err != nil || r != nil {
@@ -71,14 +71,14 @@ func repair327Absent(t *testing.T, store *SQLiteStore, id string) {
 	}
 }
 
-func TestRepair_327_DeleteLateCompletionRestart(t *testing.T) {
+func TestTaskGenerationDeleteLateCompletionRestart(t *testing.T) {
 	for _, outcome := range []string{"success", "failure"} {
 		t.Run(outcome, func(t *testing.T) {
 			store, path := newFileStore(t)
 			ctx, stop := context.WithCancel(context.Background())
 			t.Cleanup(stop)
 			started := make(chan context.Context, 1)
-			release, finish := repair327Release(t)
+			release, finish := taskGenerationRelease(t)
 			var calls atomic.Int32
 			handlers := map[TaskType]TaskHandler{
 				TaskConfigPatch: func(ctx context.Context, params map[string]any) (json.RawMessage, error) {
@@ -97,7 +97,7 @@ func TestRepair_327_DeleteLateCompletionRestart(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			runningCtx := repair327Receive(t, started)
+			runningCtx := taskGenerationReceive(t, started)
 			old := mustGetResult(t, eng, id)
 			if old == nil || old.Generation == "" {
 				t.Fatal("submission did not persist a generation")
@@ -108,8 +108,8 @@ func TestRepair_327_DeleteLateCompletionRestart(t *testing.T) {
 			if !errors.Is(runningCtx.Err(), context.Canceled) {
 				t.Fatal("DELETE did not cancel its handler")
 			}
-			repair327Absent(t, store, id)
-			if repair327Tombstones(t, store, id, old.Generation) != 1 {
+			taskGenerationAbsent(t, store, id)
+			if taskGenerationTombstones(t, store, id, old.Generation) != 1 {
 				t.Fatal("cancellation tombstone missing while handler is still running")
 			}
 			// Open the durable state through a fresh store while completion is blocked.
@@ -117,10 +117,10 @@ func TestRepair_327_DeleteLateCompletionRestart(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if repair327Tombstones(t, reader, id, old.Generation) != 1 {
+			if taskGenerationTombstones(t, reader, id, old.Generation) != 1 {
 				t.Fatal("cancellation tombstone was not durable")
 			}
-			repair327Absent(t, reader, id)
+			taskGenerationAbsent(t, reader, id)
 			if err := reader.Close(); err != nil {
 				t.Fatal(err)
 			}
@@ -128,13 +128,13 @@ func TestRepair_327_DeleteLateCompletionRestart(t *testing.T) {
 				t.Fatalf("repeat delete: found=%v err=%v", found, err)
 			}
 			finish()
-			repair327Wait(t, func() bool { return repair327Tombstones(t, store, id, old.Generation) == 0 })
-			repair327Absent(t, store, id)
+			taskGenerationWait(t, func() bool { return taskGenerationTombstones(t, store, id, old.Generation) == 0 })
+			taskGenerationAbsent(t, store, id)
 			stop()
 			store = reopenStore(t, store, path)
 			restarted := NewEngine(context.Background(), handlers, store)
 			restarted.RehydrateStaleTasks()
-			repair327Absent(t, store, id)
+			taskGenerationAbsent(t, store, id)
 			if calls.Load() != 1 {
 				t.Fatalf("deleted handler replayed after restart: calls=%d", calls.Load())
 			}
@@ -142,7 +142,7 @@ func TestRepair_327_DeleteLateCompletionRestart(t *testing.T) {
 	}
 }
 
-func TestRepair_327_DeleteResubmitInterleavings(t *testing.T) {
+func TestTaskGenerationDeleteResubmitInterleavings(t *testing.T) {
 	for _, oldFirst := range []bool{true, false} {
 		name := "new-completes-first"
 		if oldFirst {
@@ -154,8 +154,8 @@ func TestRepair_327_DeleteResubmitInterleavings(t *testing.T) {
 			t.Cleanup(stop)
 			oldStarted := make(chan context.Context, 1)
 			newStarted := make(chan context.Context, 1)
-			oldRelease, finishOld := repair327Release(t)
-			newRelease, finishNew := repair327Release(t)
+			oldRelease, finishOld := taskGenerationRelease(t)
+			newRelease, finishNew := taskGenerationRelease(t)
 			handlers := map[TaskType]TaskHandler{
 				TaskConfigPatch: func(ctx context.Context, params map[string]any) (json.RawMessage, error) {
 					if params["version"] == "old" {
@@ -173,7 +173,7 @@ func TestRepair_327_DeleteResubmitInterleavings(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			repair327Receive(t, oldStarted)
+			taskGenerationReceive(t, oldStarted)
 			old := mustGetResult(t, eng, id)
 			if found, err := eng.RemoveResult(id); err != nil || !found {
 				t.Fatalf("delete: found=%v err=%v", found, err)
@@ -181,14 +181,14 @@ func TestRepair_327_DeleteResubmitInterleavings(t *testing.T) {
 			if _, err := eng.Submit(Task{ID: id, Type: TaskConfigPatch, Params: map[string]any{"version": "new"}}); err != nil {
 				t.Fatal(err)
 			}
-			newCtx := repair327Receive(t, newStarted)
+			newCtx := taskGenerationReceive(t, newStarted)
 			current := mustGetResult(t, eng, id)
 			if current == nil || current.Generation == old.Generation || current.Generation == "" || current.Run != 1 || old.Run != 1 {
 				t.Fatalf("resubmission reused generation: old=%+v new=%+v", old, current)
 			}
 			if oldFirst {
 				finishOld()
-				repair327Wait(t, func() bool { return repair327Tombstones(t, store, id, old.Generation) == 0 })
+				taskGenerationWait(t, func() bool { return taskGenerationTombstones(t, store, id, old.Generation) == 0 })
 				stillRunning := mustGetResult(t, eng, id)
 				if stillRunning == nil || stillRunning.Status != TaskStatusRunning || stillRunning.Generation != current.Generation || newCtx.Err() != nil {
 					t.Fatalf("obsolete completion changed or cancelled the live resubmission: %+v, ctx=%v", stillRunning, newCtx.Err())
@@ -198,13 +198,13 @@ func TestRepair_327_DeleteResubmitInterleavings(t *testing.T) {
 				finishNew()
 				waitForResult(t, eng, id)
 				finishOld()
-				repair327Wait(t, func() bool { return repair327Tombstones(t, store, id, old.Generation) == 0 })
+				taskGenerationWait(t, func() bool { return taskGenerationTombstones(t, store, id, old.Generation) == 0 })
 			}
 			result := waitForResult(t, eng, id)
 			if result.Generation != current.Generation || result.Status != TaskStatusCompleted || string(result.Result) != `{"version":"new"}` || result.Params["version"] != "new" {
 				t.Fatalf("obsolete completion overwrote new result: %+v", result)
 			}
-			repair327Wait(t, func() bool { return cancelRegistrySize(eng) == 0 })
+			taskGenerationWait(t, func() bool { return cancelRegistrySize(eng) == 0 })
 			stop()
 			store = reopenStore(t, store, path)
 			restarted := NewEngine(context.Background(), handlers, store)
@@ -217,7 +217,7 @@ func TestRepair_327_DeleteResubmitInterleavings(t *testing.T) {
 	}
 }
 
-func TestRepair_327_PersistedGenerationRejectsObsoleteResult(t *testing.T) {
+func TestTaskGenerationPersistedGenerationRejectsObsoleteResult(t *testing.T) {
 	store, path := newFileStore(t)
 	ctx, stop := context.WithCancel(context.Background())
 	t.Cleanup(stop)
@@ -232,7 +232,7 @@ func TestRepair_327_PersistedGenerationRejectsObsoleteResult(t *testing.T) {
 		t.Fatal(err)
 	}
 	old := waitForResult(t, eng, id)
-	repair327Wait(t, func() bool { return cancelRegistrySize(eng) == 0 })
+	taskGenerationWait(t, func() bool { return cancelRegistrySize(eng) == 0 })
 	if found, err := eng.RemoveResult(id); err != nil || !found {
 		t.Fatalf("delete: found=%v err=%v", found, err)
 	}
@@ -241,13 +241,13 @@ func TestRepair_327_PersistedGenerationRejectsObsoleteResult(t *testing.T) {
 	if err := store.Save(old); !errors.Is(err, ErrTaskGeneration) {
 		t.Fatalf("obsolete result recreated deleted state after restart: %v", err)
 	}
-	repair327Absent(t, store, id)
+	taskGenerationAbsent(t, store, id)
 	restarted := NewEngine(context.Background(), handlers, store)
 	if _, err := restarted.Submit(Task{ID: id, Type: TaskConfigPatch, Params: map[string]any{"version": "new"}}); err != nil {
 		t.Fatal(err)
 	}
 	current := waitForResult(t, restarted, id)
-	repair327Wait(t, func() bool { return cancelRegistrySize(restarted) == 0 })
+	taskGenerationWait(t, func() bool { return cancelRegistrySize(restarted) == 0 })
 	if current.Generation == old.Generation {
 		t.Fatal("generation repeated after store and engine restart")
 	}
@@ -260,7 +260,7 @@ func TestRepair_327_PersistedGenerationRejectsObsoleteResult(t *testing.T) {
 	}
 }
 
-func TestRepair_327_ShutdownRecoveryPreservesGeneration(t *testing.T) {
+func TestTaskGenerationShutdownRecoveryPreservesGeneration(t *testing.T) {
 	for _, successful := range []bool{false, true} {
 		name := "interrupted"
 		if successful {
@@ -285,10 +285,10 @@ func TestRepair_327_ShutdownRecoveryPreservesGeneration(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			repair327Receive(t, started)
+			taskGenerationReceive(t, started)
 			before := mustGetResult(t, eng, id)
 			stop()
-			repair327Wait(t, func() bool { return cancelRegistrySize(eng) == 0 })
+			taskGenerationWait(t, func() bool { return cancelRegistrySize(eng) == 0 })
 			store = reopenStore(t, store, path)
 			var calls atomic.Int32
 			restarted := NewEngine(context.Background(), map[TaskType]TaskHandler{
@@ -299,7 +299,7 @@ func TestRepair_327_ShutdownRecoveryPreservesGeneration(t *testing.T) {
 			}, store)
 			restarted.RehydrateStaleTasks()
 			recovered := waitForResult(t, restarted, id)
-			repair327Wait(t, func() bool { return cancelRegistrySize(restarted) == 0 })
+			taskGenerationWait(t, func() bool { return cancelRegistrySize(restarted) == 0 })
 			if recovered.Generation != before.Generation || recovered.Run != before.Run || recovered.Status != TaskStatusCompleted || string(recovered.Result) != `{"value":"durable"}` {
 				t.Fatalf("shutdown recovery lost generation or output: before=%+v after=%+v", before, recovered)
 			}
@@ -314,7 +314,7 @@ func TestRepair_327_ShutdownRecoveryPreservesGeneration(t *testing.T) {
 	}
 }
 
-func TestRepair_327_FailedRetryUsesNewGeneration(t *testing.T) {
+func TestTaskGenerationFailedRetryUsesNewGeneration(t *testing.T) {
 	store, path := newFileStore(t)
 	ctx, stop := context.WithCancel(context.Background())
 	t.Cleanup(stop)
@@ -331,7 +331,7 @@ func TestRepair_327_FailedRetryUsesNewGeneration(t *testing.T) {
 		t.Fatal(err)
 	}
 	failed := waitForResult(t, eng, id)
-	repair327Wait(t, func() bool { return cancelRegistrySize(eng) == 0 })
+	taskGenerationWait(t, func() bool { return cancelRegistrySize(eng) == 0 })
 	if failed.Status != TaskStatusFailed {
 		t.Fatalf("expected failed execution, got %+v", failed)
 	}
@@ -339,7 +339,7 @@ func TestRepair_327_FailedRetryUsesNewGeneration(t *testing.T) {
 		t.Fatal(err)
 	}
 	retried := waitForResult(t, eng, id)
-	repair327Wait(t, func() bool { return cancelRegistrySize(eng) == 0 })
+	taskGenerationWait(t, func() bool { return cancelRegistrySize(eng) == 0 })
 	if retried.Status != TaskStatusCompleted || retried.Run != 2 || retried.Generation == failed.Generation || retried.Generation == "" {
 		t.Fatalf("retry did not receive a fresh generation: failed=%+v retried=%+v", failed, retried)
 	}

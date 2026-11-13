@@ -35,47 +35,47 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-type repair841Schema struct {
-	Ref        string                      `json:"$ref"`
-	Type       string                      `json:"type"`
-	Format     string                      `json:"format"`
-	Pattern    string                      `json:"pattern"`
-	Minimum    *float64                    `json:"minimum"`
-	Required   []string                    `json:"required"`
-	Properties map[string]*repair841Schema `json:"properties"`
-	Items      *repair841Schema            `json:"items"`
-	Enum       []string                    `json:"enum"`
+type apiContractSchema struct {
+	Ref        string                        `json:"$ref"`
+	Type       string                        `json:"type"`
+	Format     string                        `json:"format"`
+	Pattern    string                        `json:"pattern"`
+	Minimum    *float64                      `json:"minimum"`
+	Required   []string                      `json:"required"`
+	Properties map[string]*apiContractSchema `json:"properties"`
+	Items      *apiContractSchema            `json:"items"`
+	Enum       []string                      `json:"enum"`
 }
 
-type repair841Operation struct {
+type apiContractOperation struct {
 	OperationID string                `json:"operationId"`
 	Security    []map[string][]string `json:"security"`
 	Parameters  []struct {
-		Name   string          `json:"name"`
-		In     string          `json:"in"`
-		Schema repair841Schema `json:"schema"`
+		Name   string            `json:"name"`
+		In     string            `json:"in"`
+		Schema apiContractSchema `json:"schema"`
 	} `json:"parameters"`
 	Responses map[string]struct {
 		Content map[string]struct {
-			Schema repair841Schema `json:"schema"`
+			Schema apiContractSchema `json:"schema"`
 		} `json:"content"`
 	} `json:"responses"`
 }
 
-type repair841Contract struct {
-	Paths      map[string]map[string]repair841Operation `json:"paths"`
+type apiContractContract struct {
+	Paths      map[string]map[string]apiContractOperation `json:"paths"`
 	Components struct {
-		Schemas map[string]*repair841Schema `json:"schemas"`
+		Schemas map[string]*apiContractSchema `json:"schemas"`
 	} `json:"components"`
 }
 
-func repair841Load(t *testing.T) *repair841Contract {
+func apiContractLoad(t *testing.T) *apiContractContract {
 	t.Helper()
 	data, err := os.ReadFile("openapi.yaml")
 	if err != nil {
 		t.Fatal(err)
 	}
-	var contract repair841Contract
+	var contract apiContractContract
 	var document map[string]any
 	if err := yaml.UnmarshalStrict(data, &document); err != nil {
 		t.Fatal(err)
@@ -88,7 +88,7 @@ func repair841Load(t *testing.T) *repair841Contract {
 
 // Check the schema against messages emitted by the real server, rather than
 // manufacturing a second TaskResult type that could conceal the omitted field.
-func (c *repair841Contract) check(t *testing.T, schema *repair841Schema, value any) {
+func (c *apiContractContract) check(t *testing.T, schema *apiContractSchema, value any) {
 	t.Helper()
 	if schema == nil {
 		t.Fatal("missing response schema")
@@ -165,7 +165,7 @@ func (c *repair841Contract) check(t *testing.T, schema *repair841Schema, value a
 	}
 }
 
-func (c *repair841Contract) response(t *testing.T, method, path string, status int, header http.Header, body []byte) {
+func (c *apiContractContract) response(t *testing.T, method, path string, status int, header http.Header, body []byte) {
 	t.Helper()
 	op, ok := c.Paths[path][strings.ToLower(method)]
 	if !ok {
@@ -198,8 +198,8 @@ func (c *repair841Contract) response(t *testing.T, method, path string, status i
 	c.check(t, &content.Schema, value)
 }
 
-func TestRepairM_841_RegisteredOperations(t *testing.T) {
-	c := repair841Load(t)
+func TestAPIContractRegisteredOperations(t *testing.T) {
+	c := apiContractLoad(t)
 	file, err := parser.ParseFile(token.NewFileSet(), "../server/server.go", nil, 0)
 	if err != nil {
 		t.Fatal(err)
@@ -278,7 +278,7 @@ func TestRepairM_841_RegisteredOperations(t *testing.T) {
 	}
 }
 
-type repair841Server struct {
+type apiContractServer struct {
 	base   string
 	http   *http.Client
 	engine *engine.Engine
@@ -286,7 +286,7 @@ type repair841Server struct {
 	home   string
 }
 
-func repair841Start(t *testing.T) *repair841Server {
+func apiContractStart(t *testing.T) *apiContractServer {
 	t.Helper()
 	ctx, cancel := context.WithCancel(context.Background())
 	store, err := engine.NewMemoryStore()
@@ -326,7 +326,7 @@ func repair841Start(t *testing.T) *repair841Server {
 			t.Error(err)
 		}
 	})
-	fixture := &repair841Server{base: "http://" + addr, http: hc, engine: eng, store: store, home: home}
+	fixture := &apiContractServer{base: "http://" + addr, http: hc, engine: eng, store: store, home: home}
 	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
 		resp, err := hc.Get(fixture.base + "/v0/livez")
@@ -348,7 +348,7 @@ func repair841Start(t *testing.T) *repair841Server {
 	return nil
 }
 
-func (s *repair841Server) request(t *testing.T, c *repair841Contract, method, path, body string, identity bool, want int) []byte {
+func (s *apiContractServer) request(t *testing.T, c *apiContractContract, method, path, body string, identity bool, want int) []byte {
 	t.Helper()
 	req, err := http.NewRequest(method, s.base+path, strings.NewReader(body))
 	if err != nil {
@@ -380,7 +380,7 @@ func (s *repair841Server) request(t *testing.T, c *repair841Contract, method, pa
 	return data
 }
 
-func repair841Client(t *testing.T, s *repair841Server) *sidecar.ClientWithResponses {
+func apiContractClient(t *testing.T, s *apiContractServer) *sidecar.ClientWithResponses {
 	t.Helper()
 	client, err := sidecar.NewClientWithResponses(s.base, sidecar.WithHTTPClient(s.http), sidecar.WithRequestEditorFn(func(_ context.Context, req *http.Request) error {
 		req.Header.Set("X-Remote-User", "repair-841")
@@ -392,7 +392,7 @@ func repair841Client(t *testing.T, s *repair841Server) *sidecar.ClientWithRespon
 	return client
 }
 
-func repair841Wait(t *testing.T, eng *engine.Engine, id string, run int, status engine.TaskStatus) *engine.TaskResult {
+func apiContractWait(t *testing.T, eng *engine.Engine, id string, run int, status engine.TaskStatus) *engine.TaskResult {
 	t.Helper()
 	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
@@ -413,9 +413,9 @@ func repair841Wait(t *testing.T, eng *engine.Engine, id string, run int, status 
 	return nil
 }
 
-func TestRepairM_841_FailedTaskResubmission(t *testing.T) {
-	c, s := repair841Load(t), repair841Start(t)
-	client := repair841Client(t, s)
+func TestAPIContractFailedTaskResubmission(t *testing.T) {
+	c, s := apiContractLoad(t), apiContractStart(t)
+	client := apiContractClient(t, s)
 	ctx := context.Background()
 	id := uuid.New()
 	request := sidecar.TaskRequest{Id: &id, Type: string(engine.TaskConfigValidate)}
@@ -433,7 +433,7 @@ func TestRepairM_841_FailedTaskResubmission(t *testing.T) {
 			t.Fatalf("submit: %+v", submit)
 		}
 		c.response(t, "POST", "/v0/tasks", submit.StatusCode(), submit.HTTPResponse.Header, submit.Body)
-		stored := repair841Wait(t, s.engine, id.String(), run+1, status)
+		stored := apiContractWait(t, s.engine, id.String(), run+1, status)
 		get, err := client.GetTaskWithResponse(ctx, id)
 		if err != nil {
 			t.Fatal(err)
@@ -506,8 +506,8 @@ func TestRepairM_841_FailedTaskResubmission(t *testing.T) {
 	s.request(t, c, "GET", "/v0/tasks/"+id.String(), "", true, 404)
 }
 
-func TestRepairM_841_ProbeAndNodeIDResponses(t *testing.T) {
-	c, s := repair841Load(t), repair841Start(t)
+func TestAPIContractProbeAndNodeIDResponses(t *testing.T) {
+	c, s := apiContractLoad(t), apiContractStart(t)
 	for _, path := range []string{"/v0/healthz", "/v0/startupz"} {
 		if body := s.request(t, c, "GET", path, "", false, 503); len(body) != 0 {
 			t.Fatalf("probe returned body: %s", body)

@@ -35,16 +35,16 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-const repair329Host = "validator-0.validator.chain.svc.cluster.local"
+const proxyTrustHost = "validator-0.validator.chain.svc.cluster.local"
 
-type repair329PKI struct {
+type proxyTrustPKI struct {
 	ca   *x509.Certificate
 	key  *ecdsa.PrivateKey
 	pem  []byte
 	file string
 }
 
-func repair329CA(t *testing.T) *repair329PKI {
+func proxyTrustCA(t *testing.T) *proxyTrustPKI {
 	t.Helper()
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
@@ -68,10 +68,10 @@ func repair329CA(t *testing.T) *repair329PKI {
 	if err := os.WriteFile(file, bundle, 0600); err != nil {
 		t.Fatal(err)
 	}
-	return &repair329PKI{ca: cert, key: key, pem: bundle, file: file}
+	return &proxyTrustPKI{ca: cert, key: key, pem: bundle, file: file}
 }
 
-func (p *repair329PKI) certificate(t *testing.T, host string, client bool) (tls.Certificate, []byte, []byte) {
+func (p *proxyTrustPKI) certificate(t *testing.T, host string, client bool) (tls.Certificate, []byte, []byte) {
 	t.Helper()
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
@@ -106,7 +106,7 @@ func (p *repair329PKI) certificate(t *testing.T, host string, client bool) (tls.
 	return cert, certPEM, keyPEM
 }
 
-func repair329TLS(t *testing.T, pki *repair329PKI, host string, handler http.Handler, clientAuth bool) *httptest.Server {
+func proxyTrustTLS(t *testing.T, pki *proxyTrustPKI, host string, handler http.Handler, clientAuth bool) *httptest.Server {
 	t.Helper()
 	cert, _, _ := pki.certificate(t, host, false)
 	srv := httptest.NewUnstartedServer(handler)
@@ -125,12 +125,12 @@ func repair329TLS(t *testing.T, pki *repair329PKI, host string, handler http.Han
 
 // Only the TCP destination changes for local qualification. The production URL,
 // SNI, hostname verification, TLS handshake, auth wrappers and HTTP codec run.
-func repair329Config(t *testing.T, srv *httptest.Server, expectedPort int32) *rest.Config {
+func proxyTrustConfig(t *testing.T, srv *httptest.Server, expectedPort int32) *rest.Config {
 	t.Helper()
 	return &rest.Config{
 		Host: "https://api-server.invalid", BearerToken: "repair-329-credential",
 		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
-			want := net.JoinHostPort(repair329Host, strconv.Itoa(int(expectedPort)))
+			want := net.JoinHostPort(proxyTrustHost, strconv.Itoa(int(expectedPort)))
 			if address != want {
 				return nil, fmt.Errorf("dial address = %s, want %s", address, want)
 			}
@@ -139,7 +139,7 @@ func repair329Config(t *testing.T, srv *httptest.Server, expectedPort int32) *re
 	}
 }
 
-func repair329Backend(t *testing.T) (*engine.Engine, string) {
+func proxyTrustBackend(t *testing.T) (*engine.Engine, string) {
 	t.Helper()
 	store, err := engine.NewMemoryStore()
 	if err != nil {
@@ -198,9 +198,9 @@ func repair329Backend(t *testing.T) (*engine.Engine, string) {
 	return nil, ""
 }
 
-func TestRepair_329_TLSSubmission(t *testing.T) {
-	eng, backend := repair329Backend(t)
-	pki := repair329CA(t)
+func TestProxyTrustTLSSubmission(t *testing.T) {
+	eng, backend := proxyTrustBackend(t)
+	pki := proxyTrustCA(t)
 	target, err := url.Parse(backend)
 	if err != nil {
 		t.Fatal(err)
@@ -211,7 +211,7 @@ func TestRepair_329_TLSSubmission(t *testing.T) {
 			t.Error("proxy received no verified TLS caller identity")
 			return
 		}
-		if pr.In.TLS.ServerName != repair329Host {
+		if pr.In.TLS.ServerName != proxyTrustHost {
 			t.Errorf("SNI = %q", pr.In.TLS.ServerName)
 		}
 		if pr.In.Header.Get("Authorization") != "Bearer repair-329-credential" {
@@ -222,8 +222,8 @@ func TestRepair_329_TLSSubmission(t *testing.T) {
 		pr.Out.Header.Del("Authorization")
 		pr.Out.Header.Set("X-Remote-User", pr.In.TLS.VerifiedChains[0][0].Subject.CommonName)
 	}}
-	srv := repair329TLS(t, pki, repair329Host, proxy, true)
-	cfg := repair329Config(t, srv, sidecarProxyPort)
+	srv := proxyTrustTLS(t, pki, proxyTrustHost, proxy, true)
+	cfg := proxyTrustConfig(t, srv, sidecarProxyPort)
 	_, certPEM, keyPEM := pki.certificate(t, "task-operator", true)
 	// API-server policy must neither disable verification nor choose the proxy CA/name.
 	cfg.TLSClientConfig = rest.TLSClientConfig{
@@ -269,23 +269,23 @@ func TestRepair_329_TLSSubmission(t *testing.T) {
 	t.Fatal("real hold handler did not complete")
 }
 
-func TestRepair_329_RejectUntrustedProxy(t *testing.T) {
+func TestProxyTrustRejectUntrustedProxy(t *testing.T) {
 	for _, kind := range []string{"wrong-ca", "wrong-identity"} {
 		t.Run(kind, func(t *testing.T) {
-			ca := repair329CA(t)
+			ca := proxyTrustCA(t)
 			signingCA := ca
-			host := repair329Host
+			host := proxyTrustHost
 			if kind == "wrong-ca" {
-				signingCA = repair329CA(t)
+				signingCA = proxyTrustCA(t)
 			} else {
 				host = "other-0.other.chain.svc.cluster.local"
 			}
 			var requests atomic.Int32
-			srv := repair329TLS(t, signingCA, host, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			srv := proxyTrustTLS(t, signingCA, host, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				requests.Add(1)
 				t.Error("HTTP request reached an untrusted proxy")
 			}), false)
-			cfg := repair329Config(t, srv, 9443)
+			cfg := proxyTrustConfig(t, srv, 9443)
 			// Even an insecure API config trusting the wrong peer must not weaken proxy trust.
 			cfg.TLSClientConfig = rest.TLSClientConfig{Insecure: true, ServerName: host, CAData: signingCA.pem}
 			sc, err := newSidecarClient(cfg, "chain", "validator", 9443, ca.file)
@@ -306,27 +306,27 @@ func TestRepair_329_RejectUntrustedProxy(t *testing.T) {
 	}
 }
 
-func TestRepair_329_RejectRedirect(t *testing.T) {
+func TestProxyTrustRejectRedirect(t *testing.T) {
 	for _, scheme := range []string{"http", "https"} {
 		t.Run(scheme, func(t *testing.T) {
-			pki := repair329CA(t)
+			pki := proxyTrustCA(t)
 			var redirected atomic.Int32
 			destination := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { redirected.Add(1) }))
 			t.Cleanup(destination.Close)
 			location := strings.Replace(destination.URL, "http://", scheme+"://", 1) + "/v0/tasks"
 			var requests atomic.Int32
-			srv := repair329TLS(t, pki, repair329Host, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			srv := proxyTrustTLS(t, pki, proxyTrustHost, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				requests.Add(1)
 				if r.Header.Get("Authorization") != "Bearer repair-329-credential" {
 					t.Error("missing authenticated request")
 				}
 				http.Redirect(w, r, location, http.StatusTemporaryRedirect)
 			}), false)
-			cfg := repair329Config(t, srv, 8443)
+			cfg := proxyTrustConfig(t, srv, 8443)
 			// A followed redirect must reach the actual destination even with the local DNS routing.
 			originalDial := cfg.Dial
 			cfg.Dial = func(ctx context.Context, network, address string) (net.Conn, error) {
-				if strings.HasPrefix(address, repair329Host+":") {
+				if strings.HasPrefix(address, proxyTrustHost+":") {
 					return originalDial(ctx, network, address)
 				}
 				redirected.Add(1)
@@ -347,8 +347,8 @@ func TestRepair_329_RejectRedirect(t *testing.T) {
 	}
 }
 
-func TestRepair_329_RequireExplicitTrust(t *testing.T) {
-	pki := repair329CA(t)
+func TestProxyTrustRequireExplicitTrust(t *testing.T) {
+	pki := proxyTrustCA(t)
 	badCA := filepath.Join(t.TempDir(), "invalid.pem")
 	if err := os.WriteFile(badCA, []byte("not a certificate"), 0600); err != nil {
 		t.Fatal(err)
@@ -380,7 +380,7 @@ func TestRepair_329_RequireExplicitTrust(t *testing.T) {
 	}
 }
 
-func TestRepair_329_AllVerbsExposeProxyTrust(t *testing.T) {
+func TestProxyTrustAllVerbsExposeProxyTrust(t *testing.T) {
 	for _, cmd := range Cmd.Commands {
 		t.Run(cmd.Name, func(t *testing.T) {
 			var proxyCA *cli.StringFlag
