@@ -1,1 +1,4 @@
-ca.pem, server.der and server-key.der are generated test data with no production use.
+# TLS test fixtures
+
+`ca.pem`, `server.der` and `server-key.der` contain generated test certificates
+and a test key for TLS connections. They have no production use.

@@ -137,7 +137,7 @@ and the readiness section required by the served daemon-client path. Replace
 the illustrative identifiers, paths and endpoints with operator-provisioned
 values; it does not create a session or capability. The hexadecimal values below
 are public example identifiers, addresses and a receipt verification key, never
-signing secrets. The regression test reads these JSON blocks directly:
+signing secrets:
 
 ```json
 {

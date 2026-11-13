@@ -22,9 +22,10 @@ Public JSON-RPC uses HTTPS at the root path of
 The EVM chain ID is **125** (`0x7d`). Node
 namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test` and `txpool`.
 The agent service reads precompile views through `eth_call` at a specified height.
-The `px` namespace answers from node state; `px_register` and
-`px_requestFunds` are operations of the hosted identity and faucet
-services declared in [the gateway OpenRPC contract](../platform/hosted/gateway/openrpc.json).
+The node registers `px` reads for account, balance, receipt and consensus data;
+asset and history queries use its configured indexer. `px_register` and
+`px_requestFunds` require the hosted identity and faucet services declared in
+[the gateway OpenRPC contract](../platform/hosted/gateway/openrpc.json).
 
 `node.hyperpaxeer.com` is only the hpx library mirror, never a JSON-RPC endpoint.
 

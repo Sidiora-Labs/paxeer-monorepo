@@ -1,3 +1,5 @@
+# Python SDK tests
+
 Run the owning Python SDK gate from the package directory:
 
 ```sh
@@ -12,7 +14,7 @@ ignore, deselect, skip or expected-failure options to meet this contract.
 `tests/test_collection_contract.py::test_default_sdk_collection_contract` checks
 pytest's real default-root resolution and unchanged discovery patterns.
 
-The local inventory includes all ten existing modules:
+The local integration modules include:
 
 - `test_ai_market_commit.py`
 - `test_px_commit.py`
@@ -25,14 +27,8 @@ The local inventory includes all ten existing modules:
 - `test_x402_draw_sequencer.py`
 - `test_x402_http_sequencer.py`
 
-Future `test_*.py` modules in either directory enter default discovery automatically.
+New `test_*.py` and `*_test.py` modules in either directory enter default
+discovery automatically.
 The default invocation preserves all receipt, restart and rejection assertions.
-The suite needs pytest and the SDK's `derivation` extra (cryptography). Some existing
-cases also use native receipt generators, local EVM tooling or explicit integration
-inputs; adding discovery does not provision those prerequisites.
-
-The focused repair qualification runs the collection contract in process, checks
-both source inventories and proves existing test files were preserved. It does
-not execute the SDK suites or certify their runtime behavior. The separately
-owned gate and CI wiring requests are in
-`tools/qualification/audit_repairs/repair_22_33_19.kvx` at the repository root.
+The suite needs pytest and the SDK's `derivation` extra (cryptography). Some cases also use native receipt generators, local EVM tooling or explicit
+integration inputs. Provide those prerequisites for the selected suites.

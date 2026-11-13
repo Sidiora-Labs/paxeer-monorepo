@@ -20,7 +20,7 @@ sufficient self-delegation and no tombstone.
 
 ## State
 
-### ValidatorSignInfo
+### ValidatorSigningInfo
 
 `ValidatorSigningInfo` stores the consensus address, `StartHeight`, circular
 `IndexOffset`, `JailedUntil`, `Tombstoned` and `MissedBlocksCounter`. The counter
@@ -32,7 +32,7 @@ bit on each update.
 reset an existing record's start height on every rebond. Signature handling
 requires both records and panics if either prerequisite is missing.
 
-### MissedBlocksBitArray
+### ValidatorMissedBlockArray
 
 The keeper stores one protobuf `ValidatorMissedBlockArray` per consensus address,
 containing `Address`, `WindowSize` and `MissedBlocks []uint64`. It allocates the

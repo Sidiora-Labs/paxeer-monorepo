@@ -1,9 +1,8 @@
 # Agent Rust crypto and proof API contract
 
-Owner: agent domain (9). This document is included in `layerx_crypto` crate
-documentation and maintained with its implementation. Paths below are relative
-to `services/agent/crates`. Public network transactions use the root Paxeer
-JSON-RPC endpoint, chain id 125, on the single BFT chain.
+This document is included in `layerx_crypto` crate documentation. Paths below
+are relative to `services/agent/crates`. Public network transactions use the
+root Paxeer JSON-RPC endpoint, chain ID 125, on the single BFT chain.
 
 ## Crypto
 
@@ -49,15 +48,10 @@ The DID Ed25519 key does not sign EVM transactions. A DID-only keystore reports
 
 Key storage and derivation remain in `keystore` and `account_derivation`.
 Payload codecs remain in `payments`, `authority_grant`, `session` and disclosure
-helpers. They describe kernel operations carried inside EVM calls. The obsolete settlement-recipient authorization is removed because it has no
-repository caller. Live consumers still require `disclosure::bind`,
-`bind_budget_mutation`, `send::EnvelopeOptions`, `DisclosedEnvelope`,
-`encode_send_envelope`, and the `onboarding` types/re-exports. These compatibility
-APIs retain their validation and are explicitly deprecated; their presence does
-not make activity ingress a supported merged-network transaction path. Migrate
-them to canonical type-2 calls with an explicit sender. Identity registration
-uses DID bind consent inside the EVM registration transaction. There is no
-settlement checkpoint or guarantor authorization in this contract.
+helpers. They describe kernel operations carried inside EVM calls. The
+deprecated `onboarding` module provides compatibility types; identity registration
+uses `binding::BindAuthorization` and DID bind consent inside the EVM registration
+transaction. Canonical type-2 call disclosure requires an explicit sender.
 
 Failures are explicit: `DisclosureError::FieldMismatch` names a changed semantic
 field, malformed/unsupported calldata is refused, and `SignError` distinguishes
