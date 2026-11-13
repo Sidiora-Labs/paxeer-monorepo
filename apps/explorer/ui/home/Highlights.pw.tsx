@@ -3,7 +3,7 @@ import React from 'react';
 import { test, expect } from 'playwright/lib';
 
 import PromotionalBanners from './PromotionalBanners';
-import { IMAGE_URL_1, IMAGE_URL_2, IMAGE_URL_3, HIGHLIGHTS_CONFIG_URL, HIGHLIGHTS_CONFIG } from './repair-22-33-408.fixtures';
+import { IMAGE_URL_1, IMAGE_URL_2, IMAGE_URL_3, HIGHLIGHTS_CONFIG_URL, HIGHLIGHTS_CONFIG } from './homepageConfiguration.fixtures';
 
 test('three banners +@dark-mode', async({ render, page, mockEnvs, mockAssetResponse }) => {
   await mockEnvs([
