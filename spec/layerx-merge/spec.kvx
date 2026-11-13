@@ -13690,6 +13690,18 @@ value = "Task 22.39.504 runs make platform-sdk-generate and keeps the generated 
 basis = "The generated files and the digest follow the generators, and a case that runs a producer needs what the producer links."
 affects = ["22.39.504"]
 
+[decision.3430]
+title = "The host seals the evidence in the commit window and holds only the settlement for the canaries"
+value = "In the supervision loop of services/agent/crates/layerx-agentd/src/main.rs and in the lap engine of services/agent/crates/layerx-agentd/src/inference_market/laps.rs the seal of the evidence of a ready batch is submitted inside the commit window of the epoch of the batch whether or not a canary of a lap of the batch is resolved. The settlement of the batch and the report of the meter follow only when every canary of the batch is resolved. No source of a program changes. Task 22.38.37 carries the change with a unit case of the lap engine."
+basis = "The program fixes the windows, and the order in which the host submits its calls belongs to the host."
+affects = ["22.38.37"]
+
+[decision.3431]
+title = "The client of the identity provider reads the answer of every operation the provider serves"
+value = "In the identity entry file of src/server of the member layerx-human-service the check of the number of answer fields admits each of the operations 0 to 4 with the number of fields that the wire file and the state of the provider write for it, and refuses every other operation and every other number as before. Task 22.39.499 carries the change and changes nothing else under that directory. The client cases of the provider keep their assertions."
+basis = "The provider is the producer of the answer, and its client reads what the producer writes."
+affects = ["22.39.499"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -188133,7 +188145,7 @@ interfaces = []
 do_1 = "do_1 Gotcha 4337, decision 3418. The command make human-test passes. The program read refusal case of services/platform/hosted/human/test_repair_22_33_1402.py asserts the form in which the web client refuses at the present revision, a rejected promise, and keeps asserting that the refusal happens before any request leaves. The producer path case and the two account head cases of services/human/crates/layerx-human-identity-provider/tests pass against the recording that the producer writes at the present revision: where a recorded digest is derived from producer output, the recording is produced again by its own generator and never edited by hand, and the configuration that the account head cases give the identity provider is the one the provider accepts. No case is removed or ignored."
 do_2 = "do_2 Record in services/human/crates/layerx-human-identity-provider/repair_22_39_499.kvx the rule, the changed files and the command. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["services/platform/hosted/human", "services/human/crates/layerx-human-identity-provider"]
+touches = ["services/platform/hosted/human", "services/human/crates/layerx-human-identity-provider", "services/human/crates/layerx-human-service/src/server"]
 tests = []
 planned_paths = ["services/human/crates/layerx-human-identity-provider/repair_22_39_499.kvx"]
 build_cmd = "make -s human-build"
@@ -188149,6 +188161,7 @@ time_limit_minutes = 180
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "do_3 Decision 3431, gotcha 4349. In the identity entry file of src/server of the member layerx-human-service let the check of the number of answer fields admit each of the operations 0 to 4 with the number of fields that the provider writes for it, and keep the refusal of every other operation and number. Change nothing else under that directory. The client cases of services/human/crates/layerx-human-identity-provider/tests keep their assertions. Add the changed file to the record. Run the build once and the verification once at the final revision."
 
 [task.22.39.405]
 title = "Keep the terminal vectors of the program ABI in line with the receipt fixture they are taken from"
@@ -189447,7 +189460,7 @@ capabilities = ["22.38.37"]
 interfaces = []
 do_1 = "do_1 Add the --proof canary mode to inference_market_room.py: the second peer is started with a fault flag that perturbs one logit, the host injects a canary, and the driver asserts the ChallengeLap, RevealScore and ResolveChallenge writes, the SlashBond write, and that the slashed fraction reached the reward ledger of the honest peer."
 symbols = ["proof_canary_slash"]
-touches = ["tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py", "apps/inference-peer/src/canary.mjs", "apps/inference-peer/test/canary.test.mjs", "apps/inference-peer/test/fixtures/host-canary-frames.json", "services/agent/crates/layerx-agentd/src/inference_market/canary.rs"]
+touches = ["tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py", "apps/inference-peer/src/canary.mjs", "apps/inference-peer/test/canary.test.mjs", "apps/inference-peer/test/fixtures/host-canary-frames.json", "services/agent/crates/layerx-agentd/src/inference_market/canary.rs", "services/agent/crates/layerx-agentd/src/main.rs", "services/agent/crates/layerx-agentd/src/inference_market/laps.rs"]
 tests = []
 planned_paths = ["tools/qualification/paxeer-x/inference_market_room.py"]
 build_cmd = "export PAXEER_X_BUILDER_ID=$(hostname); make -C . build/liblayerx.a && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --bin layerx-agentd && npm --prefix apps/inference-peer install --no-audit --no-fund --ignore-scripts && python3 tools/qualification/paxeer-x/inference_market_room.py --begin-build && python3 tools/qualification/paxeer-x/inference_market_room.py --build"
@@ -189468,6 +189481,7 @@ do_3 = "do_3 Decision 3309, gotcha 4238: the task now requires task 22.39.388, w
 do_4 = "do_4 Decisions 3311 and 3312, gotcha 4241: the record rpc/repair_22_39_388.kvx states that no receipt a sender can know admits a balance sight, and the program no longer reads the sight once task 22.39.389 has landed, which this task reaches through task 22.38.36. This replaces the stop that do_3 orders for that case. Take the two fields of every value operation from the function market_value_call_terms of the client library; a value operation carries no BalanceView grant and no receipt authority, and no anchor is placed for it."
 do_5 = "do_5 Gotcha 4294, decision 3377. The task no longer requires task 22.38.36. The canary mode is written as additions to the driver that the room proof adds, and the build and the verification of this task run on a base that holds task 22.38.36, so the commit of this task changes only its own paths."
 do_6 = "do_6 Decision 3417, gotcha 4336. In apps/inference-peer/src/canary.mjs compare the answer context of a canary with the chain, the program, the market, the epoch and the configuration of the deal and with the deal and the lap index of the plan, and leave the roster field of the binding out of the comparison. In apps/inference-peer/test/canary.test.mjs give the binding and the deal two different roster values and assert by value that the answer is accepted and that a change of each compared field gives answer_context_mismatch. Run npm --prefix apps/inference-peer test. When the canary proof shows a further difference between the host and the peer, settle it in the paths of decision 3417 and add a case for it; a difference that needs a change under programs is recorded and the task stops there. The driver keeps the modes room, canary and settlement side by side with one argument for the mode."
+do_7 = "do_7 Decision 3430, gotcha 4348. In services/agent/crates/layerx-agentd/src/main.rs and services/agent/crates/layerx-agentd/src/inference_market/laps.rs let the host submit the seal of the evidence of a ready batch inside the commit window of the epoch of the batch whether or not a canary of a lap of the batch is resolved, and let the settlement of the batch and the report of the meter wait until every canary of the batch is resolved. A unit case of the lap engine covers the seal before the resolution and the settlement after it. Change no source of a program. Run the build once and the verification once at the final revision."
 
 [task.22.38.36]
 title = "Drive an isolated chain, one host, two native peers and one asker through a room on a synthetic model"

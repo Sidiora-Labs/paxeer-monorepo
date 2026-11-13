@@ -21560,3 +21560,13 @@ fix = "The entry admits the crate as a direct dependency of the indexer member a
 title = "The SDK check of the platform reads a digest of the generator sources, and the history cases of the indexer run the Go producers"
 symptom = "The file sdk/platform/pipeline.kvx records a digest of the sources of each generator, among them the API generator under services/human/tools/api-gen, so a change of a generator is followed by make platform-sdk-generate. The cases of services/platform/hosted/indexer/tests/history_position.rs run Go tests of the precompiles, which link the native archives that the chain build writes under build and under the target directory of the programs workspace."
 fix = "Task 22.39.504 regenerates the SDK outputs and the digest file, and the test recipe of the platform builds the native archives before the history cases run."
+
+[gotcha.4348]
+title = "The seal of the evidence of a batch has the commit window of its epoch and the settlement has the whole epoch"
+symptom = "The program admits the seal of the evidence of a batch from height 64 to height 80 of the epoch of the batch. The canary of a lap is revealed and resolved from height 80 on. The settlement of the batch is admitted until the epoch ends at height 128."
+fix = "The host submits the seal of a ready batch inside the commit window, and holds the settlement of the batch and the report of the meter until the canaries of its laps are resolved."
+
+[gotcha.4349]
+title = "The identity provider serves the operations 0 to 4 and the client of the service reads each answer by its operation"
+symptom = "The wire file of services/human/crates/layerx-human-identity-provider serves the operations 0 to 4. The client in the identity entry file of src/server of the member layerx-human-service checks the number of answer fields by operation, and the client cases of the provider send the operations 2 and 3 through that client."
+fix = "The client admits for each operation that the provider serves the number of answer fields that the provider writes for it."
