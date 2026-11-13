@@ -34,7 +34,7 @@ func readySolanaRecordPath(t *testing.T) string {
 	return path
 }
 
-func TestRepair_277_DeploymentPhasesToApp(t *testing.T) {
+func TestDeploymentPhasesReachApp(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "solana.json")
 	envPath := filepath.Join(t.TempDir(), "app.env")
@@ -99,7 +99,7 @@ func TestRepair_277_DeploymentPhasesToApp(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cmd := exec.CommandContext(t.Context(), "node", "repair_277_app.mjs", root)
+	cmd := exec.CommandContext(t.Context(), "node", "bridge_app_config_reader.mjs", root)
 	cmd.Stdin = bytes.NewReader(input)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
@@ -128,7 +128,7 @@ func TestRepair_277_DeploymentPhasesToApp(t *testing.T) {
 	}
 }
 
-func TestRepair_277_RejectsUnverifiedReadiness(t *testing.T) {
+func TestUnverifiedReadinessIsRejected(t *testing.T) {
 	cases := []struct {
 		name, field string
 		corrupt     func(*Record)
@@ -206,7 +206,7 @@ func TestRepair_277_RejectsUnverifiedReadiness(t *testing.T) {
 	}
 }
 
-func TestRepair_277_AtomicCheckpoint(t *testing.T) {
+func TestCheckpointWritesAtomically(t *testing.T) {
 	path := readySolanaRecordPath(t)
 	old, err := os.Open(path)
 	if err != nil {
@@ -279,7 +279,7 @@ func TestRepair_277_AtomicCheckpoint(t *testing.T) {
 	}
 }
 
-func TestRepair_277_LegacyProducerCheckpoint(t *testing.T) {
+func TestLegacyProducerCheckpointIsRejected(t *testing.T) {
 	source, err := os.ReadFile("../deploy-solana-program.sh")
 	if err != nil {
 		t.Fatal(err)

@@ -7,7 +7,7 @@ proof_path = "Run -> proposal JSON -> DecodeProposal -> real governance handler 
 baseline = "Not run: the explicit gate order requires complete implementation before hf-build and hf-done and forbids running verify_cmd by hand. No baseline test failures are claimed."
 qualification = "hf-done records the verified candidate revision, exact command, exit and private log in the runner task ledger; the final evidence line copies that record."
 wiring_requests = []
-test_dependencies = "npm --prefix services/bridge/deploy/proposals/testdata/repair_270 ci --ignore-scripts; Node loads pinned solc 0.8.30 and OpenZeppelin 5.3.0 locally during the Go proof. npm-shrinkwrap.json retains the dependency lock in the runner candidate."
+test_dependencies = "npm --prefix services/bridge/deploy/proposals/testdata/vault_compiler_fixtures ci --ignore-scripts; Node loads pinned solc 0.8.30 and OpenZeppelin 5.3.0 locally during the Go proof. npm-shrinkwrap.json retains the dependency lock in the runner candidate."
 
 [gotcha.asset-fixture]
 observed = "The legacy Solana success fixture assigned Sidiora's reserved ID to a different mint."

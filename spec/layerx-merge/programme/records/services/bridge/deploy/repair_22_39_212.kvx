@@ -16,16 +16,16 @@ qualification = "Both gates must reference the same final candidate revision. Re
 continuation_base_revision = "58fc909ddd01ecb849ab1f2a738862e4ebafb56f"
 continuation_source_revision = "57191557c5b1765c4eabfb71815b0e5c15ab8c34"
 helper_setup = "Decisions 3047 and 3052: .github/workflows/bridge-test.yml deploy-tooling installs Node.js 24.11.0 with actions/setup-node@820762786026740c76f36085b0efc47a31fe5020, the same action revision as bridge-app, after the pinned Go toolchain and before go test."
-helper_installs = ["npm ci --no-audit --no-fund --prefix services/bridge/deploy/appenv", "npm ci --no-audit --no-fund --prefix services/bridge/deploy/proposals/testdata/repair_270"]
+helper_installs = ["npm ci --no-audit --no-fund --prefix services/bridge/deploy/appenv", "npm ci --no-audit --no-fund --prefix services/bridge/deploy/proposals/testdata/vault_compiler_fixtures"]
 helper_lockfile = "services/bridge/deploy/appenv/package-lock.json is generated with npm install --package-lock-only from the unchanged pinned devDependencies @noble/curves 2.4.0 and viem 2.41.2. The proposal compiler retains its existing npm-shrinkwrap.json and pinned dependency versions."
-helper_consumers = "The appenv install serves repair_277_app.mjs, which imports the real bridge app config.ts and chains.ts through viem and @noble/curves in TestRepair_277_DeploymentPhasesToApp. The proposal install serves testdata/repair_270/compile-vault.cjs, which uses solc and @openzeppelin/contracts to compile the real vault in TestRepair_270_VaultDepositReachesKeeper. Both installs also precede go build in the task build command. No dependency version or inherited test changes in this continuation."
+helper_consumers = "The appenv install serves bridge_app_config_reader.mjs, which imports the real bridge app config.ts and chains.ts through viem and @noble/curves in TestRepair_277_DeploymentPhasesToApp. The proposal install serves testdata/vault_compiler_fixtures/compile-vault.cjs, which uses solc and @openzeppelin/contracts to compile the real vault in TestRepair_270_VaultDepositReachesKeeper. Both installs also precede go build in the task build command. No dependency version or inherited test changes in this continuation."
 rollback = "Revert the task's commit."
 
 [evidence.build]
 wrapper = "hf-build"
 ledger = "/out/run/gates.jsonl"
 selector = "last entry with kind=build"
-command = "npm ci --no-audit --no-fund --prefix services/bridge/deploy/appenv && npm ci --no-audit --no-fund --prefix services/bridge/deploy/proposals/testdata/repair_270 && go build ./services/bridge/deploy/... && python3 -m py_compile tools/qualification/audit_repairs/test_repair_22_31_402.py tools/qualification/audit_repairs/test_repair_22_31_392.py tools/qualification/audit_repairs/test_repair_22_31_446.py"
+command = "npm ci --no-audit --no-fund --prefix services/bridge/deploy/appenv && npm ci --no-audit --no-fund --prefix services/bridge/deploy/proposals/testdata/vault_compiler_fixtures && go build ./services/bridge/deploy/... && python3 -m py_compile tools/qualification/audit_repairs/test_repair_22_31_402.py tools/qualification/audit_repairs/test_repair_22_31_392.py tools/qualification/audit_repairs/test_repair_22_31_446.py"
 
 [evidence.verify]
 wrapper = "hf-done"
@@ -56,7 +56,7 @@ severity = "blocker"
 
 [finding.appenv-writers]
 task = "22.39.212"
-file = "services/bridge/deploy/appenv/repair_277_test.go; services/bridge/deploy/appenv/repair_m484_test.go"
+file = "services/bridge/deploy/appenv/deployment_readiness_test.go; services/bridge/deploy/appenv/deployment_records_test.go"
 symbol = "TestRepair_277_LegacyProducerCheckpoint; TestRepairM_484_ScriptOutputToReadConfigAfterRestart; TestRepairM_484_PartialDeploymentRefusedAcrossRestart; TestRepairM_484_ReadConfigValidatesEmittedNames"
 observed = "Revision 61021d9889991ef9daeecc28060cf250ef2e43e9; command cg spec done 22.39.212 -f layerx-merge --root /work/paxeer-monorepo; exit 1; log /out/logs/verify-1.log: the unchanged source-inspection tests cannot find the legacy checkpoint writer or recorded EVM/Solana writers in the unchanged deployment scripts."
 assumption = "The legacy writer expectations predate this task and are independent of the attestor/threshold fields changed here."
@@ -64,7 +64,7 @@ severity = "blocker"
 
 [finding.node-dependencies]
 task = "22.39.212"
-file = "services/bridge/deploy/appenv/repair_277_test.go; services/bridge/deploy/proposals/repair_270_test.go"
+file = "services/bridge/deploy/appenv/deployment_readiness_test.go; services/bridge/deploy/proposals/asset_binding_test.go"
 symbol = "TestRepair_277_DeploymentPhasesToApp; TestRepair_270_VaultDepositReachesKeeper"
 observed = "Revision 61021d9889991ef9daeecc28060cf250ef2e43e9; command cg spec done 22.39.212 -f layerx-merge --root /work/paxeer-monorepo; exit 1; log /out/logs/verify-1.log: Node cannot resolve the already-declared viem and solc dependencies."
 assumption = "Dependency installation state predates this task; it is recorded without changing manifests, fixtures or assertions."

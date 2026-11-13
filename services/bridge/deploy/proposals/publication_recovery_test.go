@@ -10,7 +10,7 @@ import (
 	"testing"
 )
 
-func TestRepairM_365_ManifestJSONTail(t *testing.T) {
+func TestManifestJSONTail(t *testing.T) {
 	raw, err := os.ReadFile(testManifest)
 	if err != nil {
 		t.Fatal(err)
@@ -57,13 +57,13 @@ func TestRepairM_365_ManifestJSONTail(t *testing.T) {
 			if err := Run([]string{"-manifest", path, ethereumPath, out}, &report); err != nil {
 				t.Fatal(err)
 			}
-			assertRepairM365Bodies(t, out, generate(t, ethereumPath))
+			assertPublishedBodies(t, out, generate(t, ethereumPath))
 		})
 	}
 	TestManifestRefusals(t)
 }
 
-func TestRepairM_365_BridgeJSONTail(t *testing.T) {
+func TestBridgeJSONTail(t *testing.T) {
 	raw, err := os.ReadFile(ethereumPath)
 	if err != nil {
 		t.Fatal(err)
@@ -105,21 +105,21 @@ func TestRepairM_365_BridgeJSONTail(t *testing.T) {
 			if err := Run([]string{"-manifest", testManifest, path, out}, &report); err != nil {
 				t.Fatal(err)
 			}
-			assertRepairM365Bodies(t, out, generate(t, ethereumPath))
+			assertPublishedBodies(t, out, generate(t, ethereumPath))
 		})
 	}
 	TestChainConfigurationRefusals(t)
 }
 
-func TestRepairM_365_OutputStagingFailure(t *testing.T) {
+func TestOutputStagingFailure(t *testing.T) {
 	testPublicationStagingFailures(t)
 }
 
-func TestRepairM_365_OutputRestartRecovery(t *testing.T) {
+func TestOutputRestartRecovery(t *testing.T) {
 	testPublicationRestartRecovery(t)
 }
 
-func TestRepairM_365_InterruptedOutputsAreVerified(t *testing.T) {
+func TestInterruptedOutputsAreVerified(t *testing.T) {
 	for _, corrupt := range []string{"published-body", "staged-proposal", "staged-readback", "unexpected-body", "symlink-body", "changed-request"} {
 		t.Run(corrupt, func(t *testing.T) {
 			fixture := newPublicationFixture(t, "solana")
@@ -218,7 +218,7 @@ func TestRepairM_365_InterruptedOutputsAreVerified(t *testing.T) {
 	}
 }
 
-func TestRepairM_365_ExistingRefusalsAndNestedOutputs(t *testing.T) {
+func TestExistingRefusalsAndNestedOutputs(t *testing.T) {
 	TestRunRefusesAnOutputDirectoryThatHoldsAnything(t)
 	TestRunWritesNoProposalsOrBodiesWhenTheProposalsCannotBeWritten(t)
 	TestRunWritesTheReadbackBesideTheBodies(t)
@@ -259,7 +259,7 @@ func TestRepairM_365_ExistingRefusalsAndNestedOutputs(t *testing.T) {
 	}
 }
 
-func TestRepairM_365_ReadbackLinkRestart(t *testing.T) {
+func TestReadbackLinkRestart(t *testing.T) {
 	fixture := newPublicationFixture(t, "solana")
 	publication, err := stagePublication(fixture.outputs)
 	if err != nil {
@@ -283,7 +283,7 @@ func TestRepairM_365_ReadbackLinkRestart(t *testing.T) {
 	fixture.assertComplete(t, report.String())
 }
 
-func TestRepairM_365_JournalRefusals(t *testing.T) {
+func TestJournalRefusals(t *testing.T) {
 	for _, corrupt := range []string{"closing-token", "extra-document", "unknown-field", "version", "staging-path", "output-body", "missing-output"} {
 		t.Run(corrupt, func(t *testing.T) {
 			fixture := newPublicationFixture(t, "ethereum")

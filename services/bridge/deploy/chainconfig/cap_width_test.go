@@ -16,11 +16,11 @@ import (
 	gethmath "github.com/ethereum/go-ethereum/common/math"
 )
 
-func TestRepair_268_CapBoundaries(t *testing.T) {
+func TestCapDestinationBoundaries(t *testing.T) {
 	testCapDestinationBoundaries(t)
 }
 
-func TestRepair_268_DecimalInputBound(t *testing.T) {
+func TestDecimalInputIsBounded(t *testing.T) {
 	maximum, _ := capBoundaryValues(KindEVM)
 	for _, method := range []struct {
 		name string
@@ -123,7 +123,7 @@ func deploymentCapStrings(t *testing.T, config *ChainConfig) (perTx, total []str
 	return perTx, total
 }
 
-func TestRepair_268_EVMTransport(t *testing.T) {
+func TestEVMCapTransport(t *testing.T) {
 	config := transportCapConfig(t, "ethereum")
 	perTx, total := deploymentCapStrings(t, config)
 	script, err := os.ReadFile(filepath.Join(repositoryRoot(t), "contracts/bridge/evm/script/DeployPaxeerXVault.s.sol"))
@@ -179,7 +179,7 @@ func TestRepair_268_EVMTransport(t *testing.T) {
 	}
 }
 
-func TestRepair_268_SolanaTransport(t *testing.T) {
+func TestSolanaCapTransport(t *testing.T) {
 	config := transportCapConfig(t, "solana")
 	perTx, total := deploymentCapStrings(t, config)
 	root := repositoryRoot(t)
