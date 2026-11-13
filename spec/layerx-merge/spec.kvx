@@ -375221,7 +375221,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.121]
 title = "Write the page of the directory precompiles/layerxverify"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -375251,7 +375251,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.120]
 title = "Write the page of the directory precompiles/layerxprograms"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -375281,7 +375281,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.119]
 title = "Write the page of the directory precompiles/layerxpay"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -375311,7 +375311,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.118]
 title = "Write the page of the directory precompiles/layerxledger"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -375341,7 +375341,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.117]
 title = "Write the page of the directory precompiles/layerxexchange"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -375371,7 +375371,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.116]
 title = "Write the page of the directory precompiles/layerxcustody"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -375401,7 +375401,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.115]
 title = "Write the page of the directory precompiles/layerxchains"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -378364,7 +378364,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.12]
 title = "Write the page of variables of the application under apps/explorer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
