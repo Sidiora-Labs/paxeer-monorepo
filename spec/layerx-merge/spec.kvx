@@ -170069,7 +170069,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.83]
 title = "Move the task records and name the files after what they hold in precompiles/layerxpay"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -204184,7 +204184,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.176]
 title = "Give the example environment files of the deployments under services/platform the values of the deployment again"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -240028,7 +240028,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.71]
 title = "Move the task records and name the files after what they hold in modules/xweb"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -240060,7 +240060,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.69]
 title = "Move the task records and name the files after what they hold in modules/spot"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -240092,7 +240092,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.68]
 title = "Move the task records and name the files after what they hold in modules/pricefeed"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -240156,7 +240156,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.66]
 title = "Move the task records and name the files after what they hold in modules/oracle"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -240220,7 +240220,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.61]
 title = "Move the task records and name the files after what they hold in modules/layerxgov"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -240284,7 +240284,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.58]
 title = "Move the task records and name the files after what they hold in modules/layerxchains"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -240796,7 +240796,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.33]
 title = "Move the task records and name the files after what they hold in consensus/internal/state and 1 more directory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -244122,7 +244122,7 @@ do_4 = "Attempt 2 (continue, gotcha 3708, decisions 3010 and 3011): the attempt-
 
 [task.22.39.170]
 title = "Bring the remaining stages of the launchpad Makefile ci target to green and run them from the public launchpad workflow"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["22.39.168", "22.39.154", "22.39.162", "22.39.117", "22.39.458", "22.39.475", "22.39.476", "22.39.477", "22.39.478", "22.39.479", "22.39.480", "22.39.481", "22.39.482", "22.39.483", "22.39.484", "22.39.485", "22.39.486", "22.39.487", "22.39.488", "22.39.489", "22.39.490"]
@@ -325958,7 +325958,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.90]
 title = "Move the task records and name the files after what they hold in precompiles/xweb"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -325990,7 +325990,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.89]
 title = "Move the task records and name the files after what they hold in precompiles/wasmd"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -326054,7 +326054,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.87]
 title = "Move the task records and name the files after what they hold in precompiles/spot"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -326086,7 +326086,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.86]
 title = "Move the task records and name the files after what they hold in precompiles/solo"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -326150,7 +326150,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.84]
 title = "Move the task records and name the files after what they hold in precompiles/layerxprograms"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -326245,7 +326245,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.79]
 title = "Move the task records and name the files after what they hold in precompiles/layerxagent"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -326277,7 +326277,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.78]
 title = "Move the task records and name the files after what they hold in precompiles/launchpad"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -326341,7 +326341,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.76]
 title = "Move the task records and name the files after what they hold in precompiles/gov"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -326373,7 +326373,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.75]
 title = "Move the task records and name the files after what they hold in precompiles/distribution"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -326468,7 +326468,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.72]
 title = "Move the task records and name the files after what they hold in node"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -326531,7 +326531,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.64]
 title = "Move the task records and name the files after what they hold in modules/lxphost"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -326563,7 +326563,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.63]
 title = "Move the task records and name the files after what they hold in modules/layerxpay"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -378552,7 +378552,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.26]
 title = "Write the index of the files of the upgrade to version 7.0.0 and name the new files in the runbooks"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["22.42.1", "22.42.20", "22.42.21", "22.42.22", "22.42.23", "22.42.24", "22.42.25"]
