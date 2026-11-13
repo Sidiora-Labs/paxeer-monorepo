@@ -4,7 +4,7 @@ Hyperfide's documentation stage gives your existing agent the repository evidenc
 
 Start with the [command reference](../../tools/hyperfide/README.md#command-reference), [architecture](ARCHITECTURE.md), or [contribution guide](../../CONTRIBUTING.md) if you are new to the project. Examples use `hyperfide`; `cg` is the deprecated compatibility alias of the same executable, with identical arguments, JSON and exit codes.
 
-This page describes the local CLI. The distributed documentation operations (`docs.packet`, `docs.check`, `docs.close`) are described in the [operations page](hyperfide/operations.md#distributed-documentation-api) and are not part of the local CLI in this revision. Under a distributed authority descriptor the local `hyperfide docs` and `hyperfide spec` commands refuse with exit 78 (see [Authority mode](integrate.md#authority-mode)).
+This page describes documentation closure against the local graph. In distributed authority mode, `docs packet`, `docs inspect`, `docs check` and `docs close` route to the control service with explicit operation identities; the local lifecycle sequence below applies in local authority mode. See the [distributed documentation API](hyperfide/operations.md#distributed-documentation-api) and [Authority mode](integrate.md#authority-mode).
 
 ## Enable the final stage
 

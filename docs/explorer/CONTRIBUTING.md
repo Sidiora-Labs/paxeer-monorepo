@@ -76,7 +76,7 @@ For all types of dependencies:
 *Note*, if the variable should be exposed to the browser don't forget to add prefix `NEXT_PUBLIC_` to its name.
 
 These are the steps that you have to follow to make everything work:
-1. First and foremost, document variable in the [docs/explorer/ENVS.md](./ENVS.md) file; provide short description, its expected type, requirement flag, default and example value; **do not skip this step** so deployments can configure it
+1. Document the variable in the monorepo's [docs/explorer/ENVS.md](./ENVS.md) file; provide its description, type, requirement, default and example value; **do not skip this step** so deployments can configure it
 2. Make sure that you have added a property to React app config (`configs/app/index.ts`) in appropriate section that is associated with this variable; do not use ENV variable values directly in the application code; decide where this variable belongs to and place it under the certain section:
     - `app` - the front-end app itself
     - `apis` - the API configuration
