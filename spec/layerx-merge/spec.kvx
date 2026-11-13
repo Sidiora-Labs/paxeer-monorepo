@@ -165856,7 +165856,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.41.114]
 title = "Regenerate the derived files of the documentation site and build it"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.41.101", "22.41.102", "22.41.103", "22.41.104", "22.41.105", "22.41.106", "22.41.107", "22.41.108", "22.41.109", "22.41.110", "22.41.111", "22.41.112", "22.41.113"]
