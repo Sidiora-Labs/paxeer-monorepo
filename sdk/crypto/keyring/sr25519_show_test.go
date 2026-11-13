@@ -15,7 +15,7 @@ import (
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 )
 
-func TestRepairM_1340_SR25519Show(t *testing.T) {
+func TestKeyringSR25519Show(t *testing.T) {
 	dir := t.TempDir()
 	created, err := func() (keyring.Info, error) {
 		kr, err := keyring.New("repair-m1340-cli", keyring.BackendTest, dir, nil)

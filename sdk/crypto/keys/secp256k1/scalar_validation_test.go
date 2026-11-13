@@ -13,18 +13,18 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type repairM1343ScalarCase struct {
+type privateScalarCase struct {
 	name  string
 	key   []byte
 	valid bool
 }
 
-func repairM1343ScalarCases() []repairM1343ScalarCase {
+func privateScalarCases() []privateScalarCase {
 	n := btcSecp256k1.S256().N
 	encode := func(v *big.Int) []byte {
 		return v.FillBytes(make([]byte, secp256k1.PrivKeySize))
 	}
-	return []repairM1343ScalarCase{
+	return []privateScalarCase{
 		{"zero", make([]byte, 32), false},
 		{"N", encode(n), false},
 		{"N-plus-one", encode(new(big.Int).Add(n, big.NewInt(1))), false},
@@ -38,11 +38,11 @@ func repairM1343ScalarCases() []repairM1343ScalarCase {
 	}
 }
 
-func TestRepairM_1343_PrivateScalar(t *testing.T) {
+func TestSecp256k1PrivateScalar(t *testing.T) {
 	cdc := codec.NewLegacyAmino()
 	msg := []byte("canonical imported secp256k1 key")
 	hash := sha256.Sum256(msg)
-	for _, tc := range repairM1343ScalarCases() {
+	for _, tc := range privateScalarCases() {
 		t.Run(tc.name, func(t *testing.T) {
 			for _, decode := range []struct {
 				name string
@@ -111,7 +111,7 @@ func TestRepairM_1343_PrivateScalar(t *testing.T) {
 	}
 }
 
-func TestRepairM_1343_NilPrivateScalar(t *testing.T) {
+func TestSecp256k1NilPrivateScalar(t *testing.T) {
 	key := secp256k1.GenPrivKeyFromSecret([]byte("existing key"))
 	previous := bytes.Clone(key.Bytes())
 	require.Error(t, key.UnmarshalAmino(nil))
@@ -123,8 +123,8 @@ func TestRepairM_1343_NilPrivateScalar(t *testing.T) {
 	require.Nil(t, sig)
 }
 
-func TestRepairM_1343_HighS(t *testing.T) {
-	for _, tc := range repairM1343ScalarCases() {
+func TestSecp256k1HighS(t *testing.T) {
+	for _, tc := range privateScalarCases() {
 		if !tc.valid {
 			continue
 		}
@@ -156,6 +156,6 @@ func TestRepairM_1343_HighS(t *testing.T) {
 	}
 }
 
-func TestRepairM_1343_IndependentVerifier(t *testing.T) {
+func TestSecp256k1IndependentVerifier(t *testing.T) {
 	TestSignAndValidateSecp256k1(t)
 }

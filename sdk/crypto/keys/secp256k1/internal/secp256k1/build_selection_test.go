@@ -15,7 +15,7 @@ import (
 	"testing"
 )
 
-func repairM1349PackageDir(t *testing.T) string {
+func secp256k1PackageDir(t *testing.T) string {
 	t.Helper()
 	_, file, _, ok := runtime.Caller(0)
 	if !ok {
@@ -24,8 +24,8 @@ func repairM1349PackageDir(t *testing.T) string {
 	return filepath.Dir(file)
 }
 
-func TestRepairM_1349_BuildSelection(t *testing.T) {
-	dir := repairM1349PackageDir(t)
+func TestSecp256k1BuildSelection(t *testing.T) {
+	dir := secp256k1PackageDir(t)
 	for _, tc := range []struct {
 		name string
 		cgo  bool
@@ -43,7 +43,7 @@ func TestRepairM_1349_BuildSelection(t *testing.T) {
 			if tc.fuzz {
 				ctx.BuildTags = []string{"gofuzz"}
 			}
-			for _, name := range []string{"secp256.go", "scalar_mult_cgo.go", "panic_cb.go", "secp256_test.go", "repair_m1349_test.go"} {
+			for _, name := range []string{"secp256.go", "scalar_mult_cgo.go", "panic_cb.go", "secp256_test.go", "build_selection_test.go"} {
 				selected, err := ctx.MatchFile(dir, name)
 				if err != nil {
 					t.Fatal(err)
@@ -63,8 +63,8 @@ func TestRepairM_1349_BuildSelection(t *testing.T) {
 	}
 }
 
-func TestRepairM_1349_PureGoCryptoSelection(t *testing.T) {
-	dir := repairM1349PackageDir(t)
+func TestSecp256k1PureGoCryptoSelection(t *testing.T) {
+	dir := secp256k1PackageDir(t)
 	cryptoDir := filepath.Clean(filepath.Join(dir, "../../../.."))
 	ctx := build.Default
 	ctx.CgoEnabled = false
@@ -119,7 +119,7 @@ func TestRepairM_1349_PureGoCryptoSelection(t *testing.T) {
 		}
 	}
 	wrapper := packages["keys/secp256k1/internal/secp256k1"]
-	for _, name := range []string{"secp256.go", "scalar_mult_cgo.go", "panic_cb.go", "secp256_test.go", "repair_m1349_test.go"} {
+	for _, name := range []string{"secp256.go", "scalar_mult_cgo.go", "panic_cb.go", "secp256_test.go", "build_selection_test.go"} {
 		assertSelected(wrapper, name, false)
 	}
 	assertSelected(wrapper, "curve.go", true)
@@ -129,7 +129,7 @@ func TestRepairM_1349_PureGoCryptoSelection(t *testing.T) {
 	t.Logf("selected %d pure-Go crypto packages, including tests", len(packages))
 }
 
-func TestRepairM_1349_CgoSignRecoverVerify(t *testing.T) {
+func TestSecp256k1CgoSignRecoverVerify(t *testing.T) {
 	key := make([]byte, 32)
 	key[31] = 1
 	msg := sha256.Sum256([]byte("repair 22.33.1349 cgo-test-selection"))

@@ -28,14 +28,14 @@ import (
 	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 )
 
-func repairM1338Cost(t *testing.T, cost int) {
+func setArmorBcryptCost(t *testing.T, cost int) {
 	t.Helper()
 	previous := crypto.BcryptSecurityParameter
 	crypto.BcryptSecurityParameter = cost
 	t.Cleanup(func() { crypto.BcryptSecurityParameter = previous })
 }
 
-func TestRepairM_1338_SymmetricEmptyPayload(t *testing.T) {
+func TestSymmetricEncryptionEmptyPayload(t *testing.T) {
 	secret := bytes.Repeat([]byte{0x37}, 32)
 	for _, plaintext := range [][]byte{nil, {}, []byte("authenticated payload")} {
 		ciphertext := crypto.EncryptSymmetric(plaintext, secret)
@@ -66,13 +66,13 @@ func TestRepairM_1338_SymmetricEmptyPayload(t *testing.T) {
 
 // The children execute this already-linked test executable, never a Go toolchain
 // or an external helper. The producer exits before the fresh consumer starts.
-func TestRepairM_1338_ArmorRecoveryProcess(t *testing.T) {
+func TestPrivateKeyArmorRecoveryProcess(t *testing.T) {
 	for i, arg := range os.Args {
-		if arg != "--repair-m1338-process" {
+		if arg != "--armor-recovery-process" {
 			continue
 		}
 		require.Len(t, os.Args[i+1:], 2)
-		repairM1338RecoveryChild(t, os.Args[i+1], os.Args[i+2])
+		runArmorRecoveryChild(t, os.Args[i+1], os.Args[i+2])
 		return
 	}
 	root := t.TempDir()
@@ -80,11 +80,11 @@ func TestRepairM_1338_ArmorRecoveryProcess(t *testing.T) {
 	require.NoError(t, err)
 	for _, phase := range []string{"export", "restore"} {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		cmd := exec.CommandContext(ctx, executable, "-test.run=^TestRepairM_1338_ArmorRecoveryProcess$", "-test.v", "--", "--repair-m1338-process", phase, root)
+		cmd := exec.CommandContext(ctx, executable, "-test.run=^TestPrivateKeyArmorRecoveryProcess$", "-test.v", "--", "--armor-recovery-process", phase, root)
 		output, err := cmd.CombinedOutput()
 		cancel()
 		require.NoError(t, err, "%s process: %s", phase, output)
-		require.Contains(t, string(output), "--- PASS: TestRepairM_1338_ArmorRecoveryProcess")
+		require.Contains(t, string(output), "--- PASS: TestPrivateKeyArmorRecoveryProcess")
 	}
 	want, err := os.ReadFile(filepath.Join(root, "public"))
 	require.NoError(t, err)
@@ -93,12 +93,12 @@ func TestRepairM_1338_ArmorRecoveryProcess(t *testing.T) {
 	require.Equal(t, want, got)
 }
 
-func repairM1338RecoveryChild(t *testing.T, phase, root string) {
+func runArmorRecoveryChild(t *testing.T, phase, root string) {
 	t.Helper()
 	const passphrase = "process-independent export passphrase"
 	armorPath := filepath.Join(root, "export.asc")
 	if phase == "export" {
-		repairM1338Cost(t, 4)
+		setArmorBcryptCost(t, 4)
 		producer := keyring.NewInMemory()
 		info, _, err := producer.NewMnemonic("account", keyring.English, "m/44'/118'/0'/0/0", "", hd.Secp256k1)
 		require.NoError(t, err)
@@ -113,7 +113,7 @@ func repairM1338RecoveryChild(t *testing.T, phase, root string) {
 		return
 	}
 	require.Equal(t, "restore", phase)
-	repairM1338Cost(t, 5)
+	setArmorBcryptCost(t, 5)
 	exported, err := os.ReadFile(armorPath)
 	require.NoError(t, err)
 	consumer, err := keyring.New("repair-m1338", keyring.BackendTest, filepath.Join(root, "restored"), nil)
@@ -139,8 +139,8 @@ func repairM1338RecoveryChild(t *testing.T, phase, root string) {
 	require.NoError(t, os.WriteFile(filepath.Join(root, "restored-public"), public.Bytes(), 0600))
 }
 
-func TestRepairM_1338_ArmorLegacyAndBounds(t *testing.T) {
-	repairM1338Cost(t, 12)
+func TestPrivateKeyArmorLegacyAndBounds(t *testing.T) {
+	setArmorBcryptCost(t, 12)
 	key := secp256k1.GenPrivKey()
 	const passphrase = "legacy production default"
 	exported := crypto.EncryptArmorPrivKey(key.Bytes(), passphrase, "")
@@ -210,8 +210,8 @@ func TestRepairM_1338_ArmorLegacyAndBounds(t *testing.T) {
 	require.Panics(t, func() { crypto.EncryptArmorPrivKey(key.Bytes(), passphrase, key.Type()) })
 }
 
-func TestRepairM_1338_ArmorPasswordCode(t *testing.T) {
-	repairM1338Cost(t, 4)
+func TestPrivateKeyArmorPasswordCode(t *testing.T) {
+	setArmorBcryptCost(t, 4)
 	producer := keyring.NewInMemory()
 	info, _, err := producer.NewMnemonic("source", keyring.English, "m/44'/118'/0'/0/0", "", hd.Secp256k1)
 	require.NoError(t, err)
@@ -249,7 +249,7 @@ func TestRepairM_1338_ArmorPasswordCode(t *testing.T) {
 	require.True(t, public.VerifySignature(message, signature))
 }
 
-func TestRepairM_1338_XCryptoVersionAgreement(t *testing.T) {
+func TestPrivateKeyArmorXCryptoVersionAgreement(t *testing.T) {
 	manifest, err := os.ReadFile("../../go.mod")
 	require.NoError(t, err)
 	module, err := modfile.Parse("go.mod", manifest, nil)
@@ -274,8 +274,8 @@ func TestRepairM_1338_XCryptoVersionAgreement(t *testing.T) {
 	TestArmorPrivKeyRoundTripOnRequiredXCrypto(t)
 }
 
-func TestRepairM_1338_BcryptBackupRisk(t *testing.T) {
-	repairM1338Cost(t, 12)
+func TestPrivateKeyArmorBcryptBackupRisk(t *testing.T) {
+	setArmorBcryptCost(t, 12)
 	root := t.TempDir()
 	const password = "long distinct directory backup passphrase"
 	producer, err := keyring.New("repair-m1338-backup", keyring.BackendFile, root, strings.NewReader(password+"\n"+password+"\n"))

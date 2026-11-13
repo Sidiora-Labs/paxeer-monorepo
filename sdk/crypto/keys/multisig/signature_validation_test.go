@@ -28,7 +28,7 @@ import (
 	paramtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/params/types"
 )
 
-func repairM1345Codecs() (*codec.ProtoCodec, *codec.LegacyAmino) {
+func newMultisigValidationCodecs() (*codec.ProtoCodec, *codec.LegacyAmino) {
 	registry := codectypes.NewInterfaceRegistry()
 	sdk.RegisterInterfaces(registry)
 	cryptocodec.RegisterInterfaces(registry)
@@ -42,7 +42,7 @@ func repairM1345Codecs() (*codec.ProtoCodec, *codec.LegacyAmino) {
 	return codec.NewProtoCodec(registry), amino
 }
 
-func repairM1345Keys(n int) ([]cryptotypes.PrivKey, []cryptotypes.PubKey) {
+func newMultisigValidationKeys(n int) ([]cryptotypes.PrivKey, []cryptotypes.PubKey) {
 	privs := make([]cryptotypes.PrivKey, n)
 	pubs := make([]cryptotypes.PubKey, n)
 	for i := range privs {
@@ -52,7 +52,7 @@ func repairM1345Keys(n int) ([]cryptotypes.PrivKey, []cryptotypes.PubKey) {
 	return privs, pubs
 }
 
-func repairM1345Signed(t *testing.T, privs []cryptotypes.PrivKey, msg []byte, sparse bool) *signing.MultiSignatureData {
+func signMultisigValidationMessage(t *testing.T, privs []cryptotypes.PrivKey, msg []byte, sparse bool) *signing.MultiSignatureData {
 	t.Helper()
 	data := multisigtypes.NewMultisig(len(privs))
 	// Insert backwards to exercise the SDK's ordering of signatures across bytes.
@@ -69,9 +69,9 @@ func repairM1345Signed(t *testing.T, privs []cryptotypes.PrivKey, msg []byte, sp
 	return data
 }
 
-func TestRepairM_1345_CardinalityAndShape(t *testing.T) {
-	cdc, _ := repairM1345Codecs()
-	privs, pubs := repairM1345Keys(3)
+func TestLegacyAminoMultisigCardinalityAndShape(t *testing.T) {
+	cdc, _ := newMultisigValidationCodecs()
+	privs, pubs := newMultisigValidationKeys(3)
 	msg := []byte("multisig shape validation")
 	cases := []struct {
 		name   string
@@ -131,7 +131,7 @@ func TestRepairM_1345_CardinalityAndShape(t *testing.T) {
 			require.NoError(t, err)
 			key = new(kmultisig.LegacyAminoPubKey)
 			require.NoError(t, cdc.Unmarshal(wire, key))
-			data := repairM1345Signed(t, privs, msg, false)
+			data := signMultisigValidationMessage(t, privs, msg, false)
 			tc.mutate(&key, &data)
 			calls := 0
 			require.NotPanics(t, func() {
@@ -142,7 +142,7 @@ func TestRepairM_1345_CardinalityAndShape(t *testing.T) {
 		})
 	}
 	key := kmultisig.NewLegacyAminoPubKey(2, pubs)
-	data := repairM1345Signed(t, privs, msg, false)
+	data := signMultisigValidationMessage(t, privs, msg, false)
 	require.NoError(t, key.ValidateMultisignature(data))
 	require.NoError(t, key.VerifyMultisignature(func(signing.SignMode) ([]byte, error) { return msg, nil }, data))
 	require.Error(t, key.VerifyMultisignature(nil, data))
@@ -150,13 +150,13 @@ func TestRepairM_1345_CardinalityAndShape(t *testing.T) {
 	require.ErrorIs(t, key.VerifyMultisignature(func(signing.SignMode) ([]byte, error) { return nil, want }, data), want)
 }
 
-func TestRepairM_1345_NestedValidation(t *testing.T) {
-	privs, pubs := repairM1345Keys(3)
+func TestLegacyAminoMultisigNestedValidation(t *testing.T) {
+	privs, pubs := newMultisigValidationKeys(3)
 	msg := []byte("nested validation before any signature traversal")
 	for _, variant := range []string{"valid", "missing", "extra", "zero-threshold", "single-for-multikey"} {
 		t.Run(variant, func(t *testing.T) {
 			innerKey := kmultisig.NewLegacyAminoPubKey(2, pubs)
-			innerData := repairM1345Signed(t, privs, msg, false)
+			innerData := signMultisigValidationMessage(t, privs, msg, false)
 			key := kmultisig.NewLegacyAminoPubKey(2, []cryptotypes.PubKey{pubs[0], innerKey})
 			data := multisigtypes.NewMultisig(2)
 			multisigtypes.AddSignature(data, innerData.Signatures[0], 0)
@@ -186,13 +186,13 @@ func TestRepairM_1345_NestedValidation(t *testing.T) {
 	}
 }
 
-func TestRepairM_1345_TransactionBoundaries(t *testing.T) {
-	repairM1345Transactions(t)
+func TestLegacyAminoMultisigTransactionBoundaries(t *testing.T) {
+	checkMultisigTransactionBoundaries(t)
 }
 
-func repairM1345Transactions(t *testing.T) {
+func checkMultisigTransactionBoundaries(t *testing.T) {
 	t.Helper()
-	cdc, amino := repairM1345Codecs()
+	cdc, amino := newMultisigValidationCodecs()
 	configs := []struct {
 		name   string
 		config client.TxConfig
@@ -204,7 +204,7 @@ func repairM1345Transactions(t *testing.T) {
 		for _, config := range configs {
 			for _, sparse := range []bool{false, true} {
 				t.Run(fmt.Sprintf("%s/%d/sparse=%t", config.name, n, sparse), func(t *testing.T) {
-					privs, pubs := repairM1345Keys(n)
+					privs, pubs := newMultisigValidationKeys(n)
 					key := kmultisig.NewLegacyAminoPubKey(2, pubs)
 					builder := config.config.NewTxBuilder()
 					require.NoError(t, builder.SetMsgs(&banktypes.MsgSend{
@@ -219,7 +219,7 @@ func repairM1345Transactions(t *testing.T) {
 					require.NoError(t, err)
 					for _, variant := range []string{"valid", "missing", "extra", "zero-threshold", "threshold-over-key-count"} {
 						t.Run(variant, func(t *testing.T) {
-							data := repairM1345Signed(t, privs, msg, sparse)
+							data := signMultisigValidationMessage(t, privs, msg, sparse)
 							candidate := kmultisig.NewLegacyAminoPubKey(2, pubs)
 							switch variant {
 							case "missing":
@@ -267,7 +267,7 @@ func repairM1345Transactions(t *testing.T) {
 									meter := sdk.NewInfiniteGasMeter(1, 1)
 									require.NoError(t, ante.ConsumeMultisignatureVerificationGas(meter, sigs[0].Data.(*signing.MultiSignatureData), decodedKey, authtypes.DefaultParams(), 0))
 									require.Equal(t, uint64(len(data.Signatures))*authtypes.DefaultParams().SigVerifyCostSecp256k1, meter.GasConsumed())
-									repairM1345Ante(t, cdc, amino, tx, decodedKey, config.config.SignModeHandler(), signer)
+									checkMultisigAnteVerification(t, cdc, amino, tx, decodedKey, config.config.SignModeHandler(), signer)
 									wrongSigner := signer
 									wrongSigner.AccountNumber++
 									require.Error(t, authsigning.VerifySignature(decodedKey, wrongSigner, sigs[0].Data, config.config.SignModeHandler(), tx))
@@ -281,7 +281,7 @@ func repairM1345Transactions(t *testing.T) {
 	}
 }
 
-func repairM1345Ante(t *testing.T, cdc *codec.ProtoCodec, amino *codec.LegacyAmino, tx sdk.Tx, key *kmultisig.LegacyAminoPubKey, handler authsigning.SignModeHandler, signer authsigning.SignerData) {
+func checkMultisigAnteVerification(t *testing.T, cdc *codec.ProtoCodec, amino *codec.LegacyAmino, tx sdk.Tx, key *kmultisig.LegacyAminoPubKey, handler authsigning.SignModeHandler, signer authsigning.SignerData) {
 	t.Helper()
 	storeKey := sdk.NewKVStoreKey("repair-m1345")
 	transientKey := sdk.NewTransientStoreKey("repair-m1345-transient")
@@ -300,9 +300,9 @@ func repairM1345Ante(t *testing.T, cdc *codec.ProtoCodec, amino *codec.LegacyAmi
 	require.Error(t, err)
 }
 
-func TestRepairM_1345_MalformedTransactions(t *testing.T) {
-	cdc, amino := repairM1345Codecs()
-	privs, pubs := repairM1345Keys(3)
+func TestLegacyAminoMultisigMalformedTransactions(t *testing.T) {
+	cdc, amino := newMultisigValidationCodecs()
+	privs, pubs := newMultisigValidationKeys(3)
 	for _, config := range []struct {
 		name   string
 		config client.TxConfig
@@ -314,7 +314,7 @@ func TestRepairM_1345_MalformedTransactions(t *testing.T) {
 			for _, variant := range []string{"missing", "extra", "nil-bits", "empty-bits", "invalid-extra", "padding", "wrong-bit-count", "extra-byte", "zero-threshold"} {
 				t.Run(fmt.Sprintf("%s/nested=%t/%s", config.name, nested, variant), func(t *testing.T) {
 					key := kmultisig.NewLegacyAminoPubKey(2, pubs)
-					data := repairM1345Signed(t, privs, []byte("malformed transport"), false)
+					data := signMultisigValidationMessage(t, privs, []byte("malformed transport"), false)
 					switch variant {
 					case "missing":
 						data.Signatures = data.Signatures[:2]

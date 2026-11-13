@@ -20,7 +20,7 @@ import (
 	banktypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/types"
 )
 
-func TestRepair_135_BitCountBounds(t *testing.T) {
+func TestCompactBitArrayBitCountBounds(t *testing.T) {
 	for name, array := range map[string]*cryptotypes.CompactBitArray{
 		"nil":               nil,
 		"constructor_empty": cryptotypes.NewCompactBitArray(0),
@@ -60,7 +60,7 @@ func TestRepair_135_BitCountBounds(t *testing.T) {
 	}
 }
 
-func TestRepair_135_MultisigTransactionVerification(t *testing.T) {
+func TestCompactBitArrayMultisigTransactionVerification(t *testing.T) {
 	registry := codectypes.NewInterfaceRegistry()
 	std.RegisterInterfaces(registry)
 	banktypes.RegisterInterfaces(registry)

@@ -11,7 +11,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 )
 
-func TestRepairM_1341_StringRedactsSecret(t *testing.T) {
+func TestSr25519StringRedactsSecret(t *testing.T) {
 	for name, key := range map[string]*sr25519.PrivKey{
 		"derived": sr25519.GenPrivKeyFromSecret([]byte("repair-m1341-public-test-fixture")),
 		"random":  sr25519.GenPrivKey(),
@@ -39,7 +39,7 @@ func TestRepairM_1341_StringRedactsSecret(t *testing.T) {
 	}
 }
 
-func TestRepairM_1341_FormattingRedactsSecret(t *testing.T) {
+func TestSr25519FormattingRedactsSecret(t *testing.T) {
 	key := sr25519.GenPrivKeyFromSecret([]byte("repair-m1341-formatting-fixture"))
 	if len(key.Bytes()) != sr25519.PrivKeySize {
 		t.Fatal("expected an initialized private key")

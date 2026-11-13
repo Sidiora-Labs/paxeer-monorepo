@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepairM_1346_NullToPreallocated(t *testing.T) {
+func TestCompactBitArrayNullToPreallocated(t *testing.T) {
 	original := NewCompactBitArray(9)
 	for i := 0; i < original.Count(); i++ {
 		require.True(t, original.SetIndex(i, true))
@@ -46,7 +46,7 @@ func TestRepairM_1346_NullToPreallocated(t *testing.T) {
 	}
 }
 
-func TestRepairM_1346_EmptyJSON(t *testing.T) {
+func TestCompactBitArrayEmptyJSON(t *testing.T) {
 	for name, array := range map[string]*CompactBitArray{
 		"nil":               nil,
 		"constructor_empty": NewCompactBitArray(0),
@@ -91,7 +91,7 @@ func TestRepairM_1346_EmptyJSON(t *testing.T) {
 	t.Run("existing_round_trips", TestJSONMarshalUnmarshal)
 }
 
-func TestRepairM_1346_MalformedJSON(t *testing.T) {
+func TestCompactBitArrayMalformedJSON(t *testing.T) {
 	for _, wire := range []string{
 		``, `"`, `"x`, `"X"`, `"-"`, `" x"`, `"x "`, `"x\n_"`,
 		`"\u0078"`, `0`, `true`, `[]`, `{}`, `"x" "_"`,
@@ -109,7 +109,7 @@ func TestRepairM_1346_MalformedJSON(t *testing.T) {
 	}
 }
 
-func TestRepairM_1346_TestGeneration(t *testing.T) {
+func TestCompactBitArrayRandomGeneration(t *testing.T) {
 	for size := 0; size <= 257; size++ {
 		array, source := randCompactBitArray(t, size)
 		var binarySource strings.Builder
