@@ -15,7 +15,7 @@
 //!
 //! Baseline: attempt 1 failed to compile (E0433 for `layerx_committed_proof` and
 //! `layerx_indexer`); neither test executed. No extra baseline verify is run.
-//! The authoritative repair record is `repair_22_33_233.kvx`.
+//! The authoritative repair record is `spec/layerx-merge/programme/records/programs/crates/layerx-programs-ai-market/tests/repair_22_33_233.kvx`.
 //! Its [wiring.platform] block records the current platform wiring request.
 //! Wiring request (domain 8, Platform): services/platform/hosted/indexer owns
 //! transcript regeneration and its live `ProjectionStore` restart integration;

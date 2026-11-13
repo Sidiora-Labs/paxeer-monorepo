@@ -542,9 +542,9 @@ pub const MAX_CHUNK_BYTES: usize = 8_192;
 #[cfg(test)]
 extern crate self as layerx_programs_ai_market;
 #[cfg(test)]
-#[path = "../tests/support/repair_478_fixture.rs"]
+#[path = "../tests/support/fund_state_fixture.rs"]
 #[allow(dead_code)]
-mod repair_478_fixture;
+mod fund_state_fixture;
 
 #[cfg(test)]
 mod repair478_fund_tests {
@@ -568,7 +568,7 @@ mod repair478_fund_tests {
     };
     #[test]
     fn repair478_fund_head_carries_populated_regions_and_epoch_binding() -> CodecResult<()> {
-        let f = crate::repair_478_fixture::fixture([12; 32], [13; 32])?;
+        let f = crate::fund_state_fixture::fixture([12; 32], [13; 32])?;
         let (settled, height, epoch) = settled_funding_state(&f)?;
         let current = funding_shared_state(&f, &settled, epoch)?;
         let state = decode_shared_state(&current)?;
@@ -657,7 +657,7 @@ mod repair478_fund_tests {
         Ok(())
     }
     fn settled_funding_state(
-        f: &crate::repair_478_fixture::Fixture,
+        f: &crate::fund_state_fixture::Fixture,
     ) -> CodecResult<(Vec<u8>, u64, u64)> {
         let state = decode_shared_state(&f.next)?;
         let source = state.room_market()?.0;
@@ -732,7 +732,7 @@ mod repair478_fund_tests {
     }
 
     fn funding_shared_state(
-        f: &crate::repair_478_fixture::Fixture,
+        f: &crate::fund_state_fixture::Fixture,
         settled: &[u8],
         epoch: u64,
     ) -> CodecResult<Vec<u8>> {

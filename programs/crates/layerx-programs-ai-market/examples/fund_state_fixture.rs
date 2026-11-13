@@ -1,5 +1,5 @@
 use layerx_ai_market_test_values::RequiredValue as _;
-#[path = "../tests/support/repair_478_fixture.rs"]
+#[path = "../tests/support/fund_state_fixture.rs"]
 mod fixture;
 
 fn hex(bytes: &[u8]) -> String {

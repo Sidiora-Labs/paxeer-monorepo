@@ -136,7 +136,7 @@ change = "Assert the exact initialized reputation section alongside the three em
 
 [attempt1_repair.availability_expectations]
 producer = "queries::feature_availability and queries::participant_rows"
-files = ["tests/identity_section_sharing.rs", "tests/repair_22_31_253.rs"]
+files = ["tests/identity_section_sharing.rs", "tests/market_projection_consistency.rs"]
 change = "Keep exact equality checks and follow the real capture: initialized F03/F07 are Available, absent worker rewards are NotYetProduced, and F11 remains NotEnabled; assert the same exact vector after reopening"
 
 [attempt1_repair.manifest_version]
@@ -146,7 +146,7 @@ change = "Exercise unsupported schema 3 while retaining the exact BAD_VERSION as
 
 [attempt1_repair.reputation_fixture]
 producer = "RotateDelegate publishes the replacement key and incremented key version; metadata publication must use its actual signing key"
-files = ["tests/repair_22_33_260.rs", "tests/reputation_lifecycle.rs"]
+files = ["tests/market_state_producers.rs", "tests/reputation_lifecycle.rs"]
 change = "Accept an explicit delegate-key resolver for metadata refresh, retain the public-key equality assertion and real signature verification, and compare the crowded market's completion to its own frozen epoch"
 
 [attempt1_repair.chain_domain_configuration]
@@ -216,7 +216,7 @@ policy = "Read the actual first bounded gate; preserve the baseline inventory if
 
 [fixture_provenance]
 producer = "rpc/repair_478_test.go: TestRepair478_ tests run by the declared build after make -s paxd-native-libs and before the packaged guest build"
-consumer = "tests/support/repair_478_fixture.rs and tests/fuel_budget.rs read the real committed receipt fixture in programs/target/repair-478"
+consumer = "tests/support/fund_state_fixture.rs and tests/fuel_budget.rs read the real committed receipt fixture in programs/target/repair-478"
 evidence = "/out/logs/22.39.169-fixture.json: generated fixture file paths, sizes and SHA-256 digests, tied to each passing build revision"
 policy = "No hand-built funding receipt or fallback; the declared build runs the real Go producer"
 

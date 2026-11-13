@@ -60,7 +60,7 @@ const SEED: [u8; 32] = [17; 32];
 const NOW: u64 = 1_700_000_001_123;
 
 fn read(name: &str) -> Vec<u8> {
-    let directory = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/repair_22_31_262_recordings");
+    let directory = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/native_submission_recordings");
     let path = directory.join(format!("{name}.hex"));
     let encoded = fs::read_to_string(&path).unwrap_or_else(|error| {
         panic!("missing committed native producer transcript {}: {error}; regenerate with the native Programs/precompile owner before qualification", path.display())

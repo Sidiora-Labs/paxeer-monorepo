@@ -5,7 +5,7 @@
 //! `aggregation::apply` with real envelopes. A missing, expired or refused report is no vote;
 //! an explicit zero is a vote.
 use layerx_ai_market_test_values::RequiredValue as _;
-#[path = "repair_22_33_260.rs"]
+#[path = "market_state_producers.rs"]
 mod repair;
 use ed25519_dalek::{Signer, SigningKey};
 use layerx_programs_ai_market::{

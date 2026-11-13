@@ -100,7 +100,7 @@ inherited_failures = "Attempt 8: eleven passed and two failed; FUND at height 12
 merge = "Keep prepare_rewards_account shared by registry and value_adapter and the landed funding readers. Joint-aware producers replace the older strip-and-reencode routing wrapper; immutable input caches and all 55-selector native/guest comparisons remain."
 fixture = "The current 22.31.478 CREATE/FUND producer runs in process through the same committed opt-z guest and real transfer host; its measured fuel must be positive, below 999968 and within the unchanged protocol cap. No generated Go artifacts or subprocesses are required by this gate."
 paths = "Move the inherited guest loader, generator, artifact and repair record from src to the declared tests/support, tests/fixtures and tests record paths. Source provenance covers production Rust only."
-wiring_request = "Programs domain 13: tests/support/repair_478_fixture.rs retains its separate Go/kernel receipt transport gate; the standalone repair_22_33_223 gate uses the same CREATE/FUND fixture producer in tests/fixtures/fund.rs and the in-process runtime."
+wiring_request = "Programs domain 13: tests/support/fund_state_fixture.rs retains its separate Go/kernel receipt transport gate; the standalone repair_22_33_223 gate uses the same CREATE/FUND fixture producer in tests/fixtures/fund.rs and the in-process runtime."
 gotcha = "The current branch's fuel test imported a separate Go gate's target/repair-478 files; those generated external artifacts are not available to this task's self-contained verification."
 
 [qualification.ninth_attempt_first_gate]
@@ -2080,7 +2080,7 @@ target = "tests/host_boundary.rs"
 failed = ["native_read_selectors_return_exact_snapshot_without_writes", "a16_native_policy_width_and_assessment_modes", "a19_native_treasury_presence_and_later_setters", "a03_native_stage_open_refusal_cancel_and_restage", "a02_native_activation_schedule_rebinds_worker_revision_and_needs_readiness", "a09_native_policy_variants_and_maxima", "native_context_binds_chain_program_and_height", "a01_native_create_binds_principal_origin_and_refuses_duplicates", "native_selectors_preserve_exact_routed_refusals"]
 
 [census.thirteenth_baseline.target.3]
-target = "tests/repair_22_33_223.rs"
+target = "tests/fuel_and_codec_invariants.rs"
 failed = ["fuel_budget::every_routed_operation_fits_the_protocol_cpu_fuel_cap", "fuel_budget::maximum_state_fuel_scaling"]
 
 [census.thirteenth_baseline.target.4]
@@ -2105,7 +2105,7 @@ revision = "208444c51bfb94ae5b94ef6a0b2e26ba24f6119a plus candidate source_sha25
 command = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --no-fail-fast"
 exit = 101
 log = "/out/logs/thirteenth-final-census.log"
-additional_diagnostic_failure = ["tests/repair_22_33_223.rs::fuel_budget::roster_state_fuel_scaling"]
+additional_diagnostic_failure = ["tests/fuel_and_codec_invariants.rs::fuel_budget::roster_state_fuel_scaling"]
 regression = "The roster diagnostic was newly included in the repair target; no baseline-passing name failed in the first candidate."
 
 [census.thirteenth_first_candidate.target.0]
@@ -2121,7 +2121,7 @@ target = "tests/host_boundary.rs"
 failed = ["a01_native_create_binds_principal_origin_and_refuses_duplicates", "a02_native_activation_schedule_rebinds_worker_revision_and_needs_readiness", "a03_native_stage_open_refusal_cancel_and_restage", "a09_native_policy_variants_and_maxima", "a16_native_policy_width_and_assessment_modes", "a19_native_treasury_presence_and_later_setters", "native_context_binds_chain_program_and_height", "native_read_selectors_return_exact_snapshot_without_writes", "native_selectors_preserve_exact_routed_refusals"]
 
 [census.thirteenth_first_candidate.target.3]
-target = "tests/repair_22_33_223.rs"
+target = "tests/fuel_and_codec_invariants.rs"
 failed = ["fuel_budget::every_routed_operation_fits_the_protocol_cpu_fuel_cap", "fuel_budget::maximum_state_fuel_scaling", "fuel_budget::roster_state_fuel_scaling"]
 
 [census.thirteenth_first_candidate.target.4]
@@ -4278,7 +4278,7 @@ target = "tests/host_boundary.rs"
 failed = ["a01_native_create_binds_principal_origin_and_refuses_duplicates", "a02_native_activation_schedule_rebinds_worker_revision_and_needs_readiness", "a03_native_stage_open_refusal_cancel_and_restage", "a09_native_policy_variants_and_maxima", "a16_native_policy_width_and_assessment_modes", "a19_native_treasury_presence_and_later_setters", "native_context_binds_chain_program_and_height", "native_read_selectors_return_exact_snapshot_without_writes", "native_selectors_preserve_exact_routed_refusals"]
 
 [census.thirteenth_repair_final.target.3]
-target = "tests/repair_22_33_223.rs"
+target = "tests/fuel_and_codec_invariants.rs"
 failed = ["fuel_budget::every_routed_operation_fits_the_protocol_cpu_fuel_cap", "fuel_budget::maximum_state_fuel_scaling", "fuel_budget::roster_state_fuel_scaling"]
 
 [census.thirteenth_repair_final.target.4]

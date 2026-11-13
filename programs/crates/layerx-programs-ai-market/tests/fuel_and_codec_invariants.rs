@@ -1,6 +1,6 @@
 //! Audit 22.30.125: the existing fuel and close integration suites are the repair gate.
 //! Keeping their actual test functions here ensures that all assertions execute.
-//! Finding-to-test mappings and external wiring requests: `repair_22_33_223.kvx`.
+//! Finding-to-test mappings and external wiring requests: `spec/layerx-merge/programme/records/programs/crates/layerx-programs-ai-market/tests/repair_22_33_223.kvx`.
 use layerx_ai_market_test_values::RequiredValue as _;
 #[allow(dead_code)]
 #[path = "fuel_budget.rs"]

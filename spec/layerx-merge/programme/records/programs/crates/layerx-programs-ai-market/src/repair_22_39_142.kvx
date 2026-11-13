@@ -877,7 +877,7 @@ merged_revision = "33db3d4357f46f467d760e6641aa5b5558f5dd4a"
 prerequisite_revision = "1dbcff9f5b21a8ea23c6cd359d77cadc5dc36663"
 basis = "Attempt-6 ruling, gotcha 3585 and decisions 2771, 2857 and 2888; the runner already merged the qualified task 22.39.153 into this branch before applying the complete attempt-5 tree"
 preserved = "Every carried production source, shared codec, measured optimization and family-table correction remains intact; this continuation changes no Rust source or test"
-capacity_producer = "src/placement.rs:14,90-91 retains SIDE_CAPACITY = 64 per model side; merged tests/f11_rooms_and_deals.rs:1047-1110 fills two model digests while asserting per-model and aggregate refusals, as recorded by tests/repair_22_39_153.kvx"
+capacity_producer = "src/placement.rs:14,90-91 retains SIDE_CAPACITY = 64 per model side; merged tests/f11_rooms_and_deals.rs:1047-1110 fills two model digests while asserting per-model and aggregate refusals, as recorded by spec/layerx-merge/programme/records/programs/crates/layerx-programs-ai-market/tests/repair_22_39_153.kvx"
 
 [attempt6.qualification]
 build = "hf-build"
