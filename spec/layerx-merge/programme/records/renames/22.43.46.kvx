@@ -1,0 +1,40 @@
+[manifest]
+task = "22.43.46"
+records_moved = 4
+files_renamed = 0
+
+[file.1]
+from = "docs/repair_22_39_66.kvx"
+to = "spec/layerx-merge/programme/records/docs/repair_22_39_66.kvx"
+
+[file.2]
+from = "docs/repair_22_39_71.kvx"
+to = "spec/layerx-merge/programme/records/docs/repair_22_39_71.kvx"
+
+[file.3]
+from = "docs/release/repair_22_39_182.kvx"
+to = "spec/layerx-merge/programme/records/docs/release/repair_22_39_182.kvx"
+
+[file.4]
+from = "docs/wiki/repair_22_39_345.kvx"
+to = "spec/layerx-merge/programme/records/docs/wiki/repair_22_39_345.kvx"
+
+[reference.1]
+file = "spec/layerx-merge/spec.kvx"
+name = "docs/repair_22_39_66.kvx"
+
+[reference.2]
+file = "spec/layerx-merge/spec.kvx"
+name = "docs/repair_22_39_71.kvx"
+
+[reference.3]
+file = "spec/layerx-merge/spec.kvx"
+name = "docs/release/repair_22_39_182.kvx"
+
+[reference.4]
+file = "spec/layerx-merge/spec.kvx"
+name = "docs/wiki/repair_22_39_345.kvx"
+
+[reference.5]
+file = "tests/ci/test_release_docs_gap_markers.py"
+name = "repair_22_39_182.kvx"
