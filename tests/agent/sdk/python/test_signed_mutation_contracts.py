@@ -77,7 +77,7 @@ def program_client(endpoint):
 
 def signatures():
     spec = importlib.util.spec_from_file_location(
-        'repair_22_33_16_signatures', ROOT / 'sdk/integrations/fastapi/layerx_fastapi/signatures.py'
+        'sdk_authorization_signatures', ROOT / 'sdk/integrations/fastapi/layerx_fastapi/signatures.py'
     )
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)

@@ -1,13 +1,4 @@
-"""Repair 22.33.1509, finding python-retired-contract.
-
-Proofs: test_python_retired_contract_integration, test_daemon_type2_recovery,
-test_daemon_three_rung_decoder, and test_retired_kernel_frames_are_refused.
-Baseline: not executed; the ordered bounded-gate instructions prohibit a
-pre-implementation verify. No baseline failure or daemon execution is claimed.
-Wiring request: spec/layerx-merge/spec.kvx, owning domain 9 / task runner,
-record this finding-to-test mapping and the final gate revision/evidence.
-The servers below are contract fixtures; the SDK codecs and clients are real.
-"""
+"""Signed transaction recovery and verification decoding through the daemon client."""
 
 from dataclasses import replace
 import json

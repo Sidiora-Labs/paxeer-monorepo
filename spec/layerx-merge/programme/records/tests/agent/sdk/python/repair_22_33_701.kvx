@@ -2,7 +2,7 @@
 audit = "22.30.169"
 base_revision = "264615cba89456c37eeb19535cb16b81846f6a68"
 status = "Continuation implements SDK-owned codec, transport and envelope proofs; production restart, activation and missing interface evidence remain explicit owner wiring requests. Exact scoped qualification is recorded by hf-build/hf-done; no external closure is claimed."
-baseline = "Not run: explicit Order 1/4 prohibits tests before complete implementation and prohibits running verify_cmd by hand; initial gate.json reported builds_used=0 and verify_runs_used=0, and test_repair_22_33_701.py did not exist. No baseline failures are claimed."
+baseline = "Not run: explicit Order 1/4 prohibits tests before complete implementation and prohibits running verify_cmd by hand; initial gate.json reported builds_used=0 and verify_runs_used=0, and test_program_gateway_contracts.py did not exist. No baseline failures are claimed."
 qualification = "The runner hf-build/hf-done ledger owns exact candidate revision, command, exit and private evidence location. This record does not claim a gate passed before it ran."
 format = "No Python formatter is configured in the scoped package pyproject.toml or repository task instructions; edits follow the surrounding Python style."
 

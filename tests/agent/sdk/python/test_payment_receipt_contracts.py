@@ -1,4 +1,4 @@
-"""Scoped SDK proofs over committed producer evidence; see repair_22_33_702.kvx."""
+"""Signed payment receipts, ledger event binding and web search payment contracts."""
 
 import copy
 import json

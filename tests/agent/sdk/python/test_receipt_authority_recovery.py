@@ -1,8 +1,4 @@
-"""Audit 22.30.100: real HTTP, signed receipts, committed blocks and durable SQLite.
-
-The shared peers below are committed, in-process producers from the prerequisite
-repair suites. Importing them does not execute their tests or invoke toolchains.
-"""
+"""Receipt authority, signed payment binding and durable recovery over HTTP."""
 from __future__ import annotations
 
 import ast
@@ -34,10 +30,10 @@ from layerx_sdk.x402_http import (
 from layerx_sdk.x402_receive import decode_receive, encode_receive
 from layerx_sdk.x402_rpc import HostedGatewayRpc, PaymentRpc, rpc_committed_evidence, rpc_payment_evidence
 
-from test_repair_22_31_147 import (
+from test_committed_receipt_consumers import (
     commit_producer, finality_bundle, http_server, payment_terms,
 )
-from test_repair_22_33_16 import credential, sign_transaction, signatures
+from test_signed_mutation_contracts import credential, sign_transaction, signatures
 
 ROOT = Path(__file__).resolve().parents[4]
 SDK = ROOT / "services/agent/sdk/python/layerx_sdk"

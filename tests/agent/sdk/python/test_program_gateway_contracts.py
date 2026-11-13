@@ -1,4 +1,4 @@
-"""SDK-owned wire proofs; external execution requirements live in the task record."""
+"""Program transaction codecs, receipt trust and gateway read contracts."""
 
 import json
 from contextlib import contextmanager

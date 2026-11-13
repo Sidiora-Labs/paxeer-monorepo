@@ -1,4 +1,4 @@
-"""Task 22.31.147: real codecs, recorded node/sidecar exchanges and HTTP consumers.
+"""Signed receipt codecs, committed finality and HTTP consumers.
 
 The retired payer-grant path refuses with the ledger producer's registered reason;
 no successful draw receipt is accepted or invented here.
