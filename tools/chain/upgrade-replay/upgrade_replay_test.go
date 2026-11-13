@@ -20,7 +20,7 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-func TestRepairM_811_SourceHome(t *testing.T) {
+func TestSourceHomeStaging(t *testing.T) {
 	for _, suppliedHome := range []bool{false, true} {
 		t.Run(map[bool]string{false: "data-directory", true: "node-home"}[suppliedHome], func(t *testing.T) {
 			root := t.TempDir()
@@ -124,7 +124,7 @@ func TestRepairM_811_SourceHome(t *testing.T) {
 	}
 }
 
-func TestRepairM_811_PrecompileCallsSurviveReopen(t *testing.T) {
+func TestPrecompileCallsSurviveReopen(t *testing.T) {
 	home := t.TempDir()
 	if _, err := generateFixture(home, defaultChainID, 1, true); err != nil {
 		t.Fatal(err)
