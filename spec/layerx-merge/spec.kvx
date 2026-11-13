@@ -14014,6 +14014,12 @@ value = "A script finds cargo and the other tools on the search path. A build di
 basis = "Gotcha 4396."
 affects = []
 
+[decision.3484]
+title = "The front page of the repository leads with the kernel"
+value = "The opening of README.md states what the network is in its own terms. The LayerX kernel runs inside every paxd node, executes each transaction when it arrives, gives it the next position in one global sequence, returns the signed execution receipt and builds each block from the sealed sequence. Validators check the block and commit it and do not select or order transactions. The diagram of the page shows that path with the kernel as its central node. The page states only what the code shows."
+basis = "Gotcha 4397."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -43674,6 +43680,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.43.292]
+title = "Rewrite the opening and the diagram of the front page around the kernel"
+reqs = ["22998.1"]
+touches = ["README.md"]
+tests = []
+verification_contract = "test $(git grep -c -F 'Byzantine fault-tolerant network running' -- README.md | wc -l) -eq 0 && git grep -q -F 'LayerX kernel' -- README.md && git grep -q -F 'signed execution receipt' -- README.md && git grep -q -F 'mermaid' -- README.md && git grep -q -F 'receipted' -- README.md && git grep -q -F 'make paxd-build' -- README.md"
+do_1 = "do_1 Decision 3484, gotcha 4397. Read the code before writing, not the pages: in node/sequencer the files executor.go, accepter.go, receipt.go, seal.go and consensus_source.go; consensus/types/sequencer.go and the function CreateProposalBlock in consensus/internal/state/execution.go; the function ProcessProposalHandler in node/app.go with node/process_proposal_order.go and node/process_proposal_proposer.go; modules/sequencer/keeper/keeper.go; the function HostExecute in modules/lxphost/host.go; include/layerx/lxp_module.h for the list of kernel modules; rpc/sequencer_receipt.go for the three states of a receipt. List in the final message, one line each with the file and the function, the facts the page states."
+symbols = []
 
 [capability.22.43.291]
 title = "Let the gate scripts and the make fragments of tools/paxeer-x take their default locations from the checkout"
@@ -373839,6 +373854,37 @@ do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its t
 do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible): the three programme tests pass and the closure gate exits 1 only because 29 issue tasks are not done; the task now requires every one of them and is re-qualified without change when the last publishes."
 do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; it now requires every open issue task, so it is launched only when all of them are done and its verify can pass. Keep the superseded-task handling and the three regression cases of attempt 2."
 
+[task.22.43.292]
+title = "Rewrite the opening and the diagram of the front page around the kernel"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.43.292"]
+interfaces = []
+do_1 = "do_1 Decision 3484, gotcha 4397. Read the code before writing, not the pages: in node/sequencer the files executor.go, accepter.go, receipt.go, seal.go and consensus_source.go; consensus/types/sequencer.go and the function CreateProposalBlock in consensus/internal/state/execution.go; the function ProcessProposalHandler in node/app.go with node/process_proposal_order.go and node/process_proposal_proposer.go; modules/sequencer/keeper/keeper.go; the function HostExecute in modules/lxphost/host.go; include/layerx/lxp_module.h for the list of kernel modules; rpc/sequencer_receipt.go for the three states of a receipt. List in the final message, one line each with the file and the function, the facts the page states."
+do_2 = "do_2 Replace the opening paragraph of README.md. The new opening says what the network is in its own terms and leads with the kernel. Paxeer X Network is a distributed HyperState Machine for payments, code execution and intent routing, developed by Sidiora Labs. The LayerX kernel is the core of the network and runs inside every paxd node. It executes each transaction when the transaction arrives, gives it the next position in one global sequence and returns a signed execution receipt before any block is voted. It builds every block: the proposed block is the sealed sequence, with the signed sequence batch first and the executed transactions behind it in sequence order. Validators check that batch and the pinned proposer, replay the block and commit it; they do not select or order transactions. Keep in the opening the name paxd, the EVM chain identifier 125 with 0x7d and the native token PAX. Below the opening put a short list of what runs on the kernel, each entry with its directory linked: native payments with escrow, budgets, streams and services; spot and perpetual markets; Rust programs; agents with delegated authority and the pooled inference market; sub-chains as tenant domains of the same sequence; the EVM with its native precompiles; the bridge. At most 140 words before the list and one line for each entry. State nothing that the code read under do_1 does not show, no figure of speed or volume and no comparison with other networks. The words Byzantine and generic terms for the consensus family do not open the page; the commit step is named where the validators are named."
+do_3 = "do_3 Replace the diagram under the heading Architecture with one mermaid flowchart that shows this path and has the kernel as its central node. A client sends a signed transaction to the node. The kernel executes it on the open layer, assigns the sequence position and returns the signed receipt to the client. The kernel seals the layer into the proposed block. Validators check and commit it. The committed block gives the final state. Draw the EVM, the native modules, the Rust programs and the sub-chain domains as surfaces attached to the kernel, not as boxes above it. At most 14 nodes, and every label with punctuation inside square brackets with the form the present diagram uses. Under the diagram put four numbered sentences that walk the path and name the three receipt states submitted, receipted and committed. Leave the title, the layout table, the quick start, the documentation links, the upgrade links, the community section and the licence as they are."
+do_4 = "do_4 Change no other file. Where a test reads a sentence this task removes, name the test and the line in the final message. Read the mermaid block once more for unbalanced brackets. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["README.md"]
+tests = []
+planned_paths = []
+build_cmd = "test -s README.md"
+verify_cmd = "test $(git grep -c -F 'Byzantine fault-tolerant network running' -- README.md | wc -l) -eq 0 && git grep -q -F 'LayerX kernel' -- README.md && git grep -q -F 'signed execution receipt' -- README.md && git grep -q -F 'mermaid' -- README.md && git grep -q -F 'receipted' -- README.md && git grep -q -F 'make paxd-build' -- README.md"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.43.291]
 title = "Let the gate scripts and the make fragments of tools/paxeer-x take their default locations from the checkout"
 status = "pending"
@@ -373997,7 +374043,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.286]
 title = "Bring the Python tests 137 to 157 of tests/ci to the present pages and paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374093,7 +374139,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.283]
 title = "Bring the Python tests 30 to 49 of tests/ci to the present pages and paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374637,7 +374683,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.266]
 title = "Bring the Python tests 46 to 67 of tools/qualification/audit_repairs to the present pages and paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374733,7 +374779,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.261]
 title = "Admit in the register of retired interfaces the references that state a retirement"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []

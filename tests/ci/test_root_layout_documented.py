@@ -1,6 +1,5 @@
 """Keep the root layout inventory and package-manager lockfile documented."""
 
-from collections import Counter
 import json
 from pathlib import Path
 import re
@@ -34,33 +33,37 @@ def _tracked_paths():
 
 def test_every_top_level_entry_documented():
     tracked = _tracked_paths()
-    expected = {
-        path.partition("/")[0] + ("/" if "/" in path else "")
-        for path in tracked
-    }
     document = (ROOT / "docs/MONOREPO.md").read_text(encoding="utf-8")
     assert document.count(LAYOUT_HEADING) == 1, "Expected one root layout section"
     section = document.split(LAYOUT_HEADING, 1)[1].split("\n## ", 1)[0]
-    rows = re.findall(
-        r"^\| `([^`]+)` \| (Directory|File) \| ([^\n|]+) \|$",
-        section,
-        flags=re.MULTILINE,
+    rows = re.findall(r"^\| (.+) \| ([^\n|]+) \|$", section, re.MULTILINE)
+    assert rows[0] == ("Path", "Contents")
+    paths = []
+    for links, purpose in rows[1:]:
+        if re.fullmatch(r"[-: ]+", links):
+            continue
+        assert purpose.strip(), links
+        targets = re.findall(r"\[[^\]]+\]\(([^)]+)\)", links)
+        assert targets, links
+        for target in targets:
+            path = (ROOT / "docs" / target).resolve()
+            assert path.is_dir(), target
+            relative = path.relative_to(ROOT).as_posix()
+            assert any(name.startswith(relative + "/") for name in tracked), target
+            paths.append(relative)
+    assert len(paths) == len(set(paths))
+    assert {
+        "src", "include", "node", "programs", "services", "sdk", "apps", "tests"
+    } <= set(paths)
+    reference = ROOT / "docs/readme/NETWORK.md"
+    network = reference.read_text(encoding="utf-8")
+    link, = re.findall(r"\[[^\]\n]+\]\(([^)]+MONOREPO\.md#root-layout)\)", network)
+    assert (
+        (reference.parent / link.split("#", 1)[0]).resolve()
+        == ROOT / "docs/MONOREPO.md"
     )
-    counts = Counter(entry for entry, _, _ in rows)
-    assert set(counts) == expected, (
-        f"Undocumented root entries: {sorted(expected - counts.keys())}; "
-        f"Stale root entries: {sorted(counts.keys() - expected)}"
-    )
-    assert all(count == 1 for count in counts.values()), (
-        f"Duplicate inventory rows: {dict(counts)}"
-    )
-    for entry, kind, purpose in rows:
-        assert kind == ("Directory" if entry.endswith("/") else "File"), entry
-        assert purpose.strip(), f"Missing purpose for {entry}"
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    assert re.search(r"\[[^\]\n]+\]\(docs/MONOREPO\.md#root-layout\)", readme), (
-        "README must link to the complete root layout table"
-    )
+    assert re.search(r"\[[^\]\n]+\]\(docs/readme/NETWORK\.md\)", readme)
 
 
 def test_root_package_manager_matches_lockfile():

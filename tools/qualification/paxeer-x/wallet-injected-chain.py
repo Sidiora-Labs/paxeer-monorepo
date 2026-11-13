@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import secrets
+import shutil
 import signal
 import subprocess
 import sys
@@ -20,7 +21,7 @@ fixture = importlib.util.module_from_spec(MODULE)
 MODULE.loader.exec_module(fixture)
 BASELINE_FILES = tuple(fixture.OWNED)
 fixture.OWNED += ['apps/wallet/e2e/send.spec.ts', 'tools/qualification/paxeer-x/wallet-injected-chain.py', 'tools/paxeer-x/gates/14.2.sh']
-fixture.EVIDENCE = Path(os.environ.get('WALLET_INJECTED_CHAIN_ROOT', '/root/lx-ops/paxeer-x-integration-2026-10-03/task-14.2')).absolute()
+fixture.EVIDENCE = Path(os.environ.get('WALLET_INJECTED_CHAIN_ROOT', ROOT / "build/qualification/wallet-injected-chain")).absolute()
 EVIDENCE = fixture.EVIDENCE
 
 
@@ -29,8 +30,10 @@ def build():
     dependency_value = os.environ.get('WALLET_INJECTED_NODE_MODULES')
     fixture.require(dependency_value, 'WALLET_INJECTED_NODE_MODULES must name the wallet node_modules directory (apps/wallet/node_modules)')
     dependency = Path(dependency_value).resolve()
-    node = Path(os.environ.get('WALLET_INJECTED_NODE', '/root/lx-toolchains/node24/bin/node')).resolve()
-    fixture.require(node.is_file() and os.access(node, os.X_OK), 'actual Node executable required')
+    node = (Path(os.environ['WALLET_INJECTED_NODE']).resolve()
+            if 'WALLET_INJECTED_NODE' in os.environ else shutil.which('node'))
+    fixture.require(node is not None and Path(node).is_file() and os.access(node, os.X_OK), 'actual Node executable required')
+    node = Path(node).resolve()
     package = json.loads((dependency / '@playwright/test/package.json').read_text())
     fixture.require(package['version'] == fixture.PLAYWRIGHT_VERSION and package['dependencies']['playwright'] == fixture.PLAYWRIGHT_VERSION, 'pinned actual Playwright required')
     fixture.require(json.loads((ROOT / 'apps/wallet/package.json').read_text())['devDependencies']['@playwright/test'] == fixture.PLAYWRIGHT_VERSION, 'repository Playwright pin differs')

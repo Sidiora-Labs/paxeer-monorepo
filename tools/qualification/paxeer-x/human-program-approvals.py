@@ -49,7 +49,7 @@ def main():
                 for source in SOURCES), 'genuine owner/browser fixture does not bind the final source')
     require((ROOT / 'apps/web/.next/BUILD_ID').is_file(), 'actual production web build is required')
     require(Path(fixture.get('browser_executable', '')).is_file(), 'genuine browser executable is required')
-    result = subprocess.run(['/root/lx-toolchains/node24/bin/node', '--test',
+    result = subprocess.run(['node', '--test',
                              'e2e/program-approvals.test.ts'], cwd=ROOT / 'apps/web',
                             env=os.environ, timeout=480, capture_output=True, check=False)
     sys.stdout.buffer.write(result.stdout)

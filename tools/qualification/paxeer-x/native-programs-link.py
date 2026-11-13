@@ -140,7 +140,7 @@ def evidence_directory():
     directory = Path(
         os.environ.get(
             "PAXEER_X_NATIVE_PROGRAMS_LINK_EVIDENCE",
-            "/root/lx-ops/qualification/native-programs-link",
+            ROOT / "build/qualification/native-programs-link",
         )
     )
     directory.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -188,10 +188,8 @@ def build(evidence):
         + str(programs_dir / "release/liblayerx_programs_sandbox.a"),
         "paxeer-x-native-programs-link-build",
     ]
-    environment = dict(
-        os.environ, PATH="/root/.cargo/bin:" + os.environ.get("PATH", "")
-    )
-    lock_path = Path("/root/lx-cargo/native-build.lock")
+    environment = dict(os.environ)
+    lock_path = ROOT / "build/locks/native-build.lock"
     lock_path.parent.mkdir(parents=True, exist_ok=True)
     with lock_path.open("a") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)

@@ -51,7 +51,8 @@ def test_tests_ci_python_modules_are_collectable_or_helpers():
         r"(?:^|\s)(?:python(?:\d+(?:\.\d+)*)?|pytest)\s+([^\n;&|]+)"
     )
     module_path = re.compile(
-        r"(?<![\w./-])(?:\./)?(tests/ci/[^\s\"';&|]+\.py)(?![\w./-])"
+        r"(?<![\w./-])(?:\./|\$(?:GITHUB_WORKSPACE|\{GITHUB_WORKSPACE\})/)?"
+        r"(tests/ci/[^\s\"';&|]+\.py)(?![\w./-])"
     )
     for name in tracked:
         path = ROOT / name
