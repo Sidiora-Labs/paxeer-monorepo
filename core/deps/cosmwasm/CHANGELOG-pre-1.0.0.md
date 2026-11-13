@@ -425,7 +425,7 @@ and this project adheres to
 
 ### Fixed
 
-- comswasm-vm: Whitelisted the `i64.extend32_s` operation.
+- cosmwasm-vm: Whitelisted the `i64.extend32_s` operation.
 
 ## [0.14.1] - 2021-06-14
 
@@ -1333,20 +1333,13 @@ Some main points:
 
 All future Changelog entries will reference this base
 
-[1.0.0-rc.0]:
-  https://github.com/CosmWasm/cosmwasm/compare/v1.0.0-beta8...v1.0.0-rc.0
-[1.0.0-beta8]:
-  https://github.com/CosmWasm/cosmwasm/compare/v1.0.0-beta7...v1.0.0-beta8
-[1.0.0-beta7]:
-  https://github.com/CosmWasm/cosmwasm/compare/v1.0.0-beta6...v1.0.0-beta7
-[1.0.0-beta6]:
-  https://github.com/CosmWasm/cosmwasm/compare/v1.0.0-beta5...v1.0.0-beta6
-[1.0.0-beta5]:
-  https://github.com/CosmWasm/cosmwasm/compare/v1.0.0-beta4...v1.0.0-beta5
-[1.0.0-beta4]:
-  https://github.com/CosmWasm/cosmwasm/compare/v1.0.0-beta3...v1.0.0-beta4
-[1.0.0-beta3]:
-  https://github.com/CosmWasm/cosmwasm/compare/v1.0.0-beta...v1.0.0-beta3
+[1.0.0-rc.0]: https://github.com/CosmWasm/cosmwasm/compare/v1.0.0-beta8...v1.0.0-rc.0
+[1.0.0-beta8]: https://github.com/CosmWasm/cosmwasm/compare/v1.0.0-beta7...v1.0.0-beta8
+[1.0.0-beta7]: https://github.com/CosmWasm/cosmwasm/compare/v1.0.0-beta6...v1.0.0-beta7
+[1.0.0-beta6]: https://github.com/CosmWasm/cosmwasm/compare/v1.0.0-beta5...v1.0.0-beta6
+[1.0.0-beta5]: https://github.com/CosmWasm/cosmwasm/compare/v1.0.0-beta4...v1.0.0-beta5
+[1.0.0-beta4]: https://github.com/CosmWasm/cosmwasm/compare/v1.0.0-beta3...v1.0.0-beta4
+[1.0.0-beta3]: https://github.com/CosmWasm/cosmwasm/compare/v1.0.0-beta...v1.0.0-beta3
 [1.0.0-beta]: https://github.com/CosmWasm/cosmwasm/compare/v0.16.2...v1.0.0-beta
 [0.16.2]: https://github.com/CosmWasm/cosmwasm/compare/v0.16.1...v0.16.2
 [0.16.1]: https://github.com/CosmWasm/cosmwasm/compare/v0.16.0...v0.16.1

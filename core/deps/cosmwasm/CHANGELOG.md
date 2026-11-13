@@ -123,7 +123,7 @@ The format is based on [Keep a Changelog], and this project adheres to [Semantic
   of `::new`. ([#2399])
 - cosmwasm-std: Move `MemoryStorage` to `cosmwasm_std::testing::MockStorage`.
   ([#2237])
-- cosmwasm-std: Remove previously deprecated `cosmwast_std::testing::mock_info`.
+- cosmwasm-std: Remove previously deprecated `cosmwasm_std::testing::mock_info`.
   Use `cosmwasm_std::testing::message_info` instead. ([#2393])
 - cosmwasm-std: Remove abort feature. ([#2141])
 - cosmwasm-std: Change `Coin::amount` to `Uint256` instead of `Uint128`.
@@ -506,7 +506,7 @@ The format is based on [Keep a Changelog], and this project adheres to [Semantic
 
 ### Added
 
-- cosmwasm-std: Add `SubMsg:reply_never` constructor ([#1929])
+- cosmwasm-std: Add `SubMsg::reply_never` constructor ([#1929])
 - cosmwasm-std: Add optional memo field to `IbcMsg::Transfer`. ([#1878])
 - cosmwasm-std: Add `Reply::gas_used`. ([#1954])
 - cosmwasm-std: Add `SubMsgResponse::msg_responses` and deprecate

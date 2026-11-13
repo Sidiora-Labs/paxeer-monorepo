@@ -5,7 +5,7 @@
 **2022-2-21**
 
 - Use cosmos/rocksdb instead of techbot/rocksdb
-- Add `ForceCopmact` to goleveldb database
+- Add `ForceCompact` to goleveldb database
 
 ## 0.6.6
 
