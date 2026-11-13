@@ -31,11 +31,11 @@ import (
 
 // The retry fixture injects a real PostgreSQL serialization failure into the
 // second swap's transaction; sequence increments survive the rollback.
-type repairM1050State struct {
+type webhookDeliveryState struct {
 	pool *pgxpool.Pool
 }
 
-func repairM1050Postgres(t *testing.T) (*pgxpool.Pool, *repairM1050State) {
+func webhookDeliveryPostgres(t *testing.T) (*pgxpool.Pool, *webhookDeliveryState) {
 	t.Helper()
 	_, pool := internaltest.NewPostgres(t)
 	_, err := pool.Exec(context.Background(), `
@@ -52,10 +52,10 @@ FOR EACH ROW EXECUTE FUNCTION candles.interrupt_second_swap();`)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return pool, &repairM1050State{pool: pool}
+	return pool, &webhookDeliveryState{pool: pool}
 }
 
-func (s *repairM1050State) assertProgress(t *testing.T, commits int, finished bool) {
+func (s *webhookDeliveryState) assertProgress(t *testing.T, commits int, finished bool) {
 	t.Helper()
 	ctx := context.Background()
 	var claims, sourceStates, pending int
@@ -86,7 +86,7 @@ FROM candles.candles WHERE timeframe=$1`, timeframe).Scan(&trades, &volume); err
 	}
 }
 
-func repairM1050Builder(t *testing.T, pool *pgxpool.Pool) *engine.Builder {
+func webhookDeliveryBuilder(t *testing.T, pool *pgxpool.Pool) *engine.Builder {
 	t.Helper()
 	options, err := goredis.ParseURL(internaltest.NewRedisURL(t))
 	if err != nil {
@@ -96,12 +96,12 @@ func repairM1050Builder(t *testing.T, pool *pgxpool.Pool) *engine.Builder {
 	t.Cleanup(func() { _ = rdb.Close() })
 	return engine.New(pool, rdb, store.New(pool), slog.New(slog.NewTextHandler(io.Discard, nil)))
 }
-func repairM1050Router(builder *engine.Builder) *chi.Mux {
+func webhookDeliveryRouter(builder *engine.Builder) *chi.Mux {
 	router := chi.NewRouter()
 	RegisterWebhook(router, WebhookDeps{Builder: builder, Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), Secret: whSecret})
 	return router
 }
-func repairM1050Send(t *testing.T, endpoint string, body []byte) (int, http.Header, []byte) {
+func webhookDeliverySend(t *testing.T, endpoint string, body []byte) (int, http.Header, []byte) {
 	t.Helper()
 	req := signedRequest(body)
 	req.URL.Scheme = "http"
@@ -119,8 +119,8 @@ func repairM1050Send(t *testing.T, endpoint string, body []byte) (int, http.Head
 	}
 	return response.StatusCode, response.Header, raw
 }
-func TestRepairM_1050_PartialFailureRetry(t *testing.T) {
-	pool, script := repairM1050Postgres(t)
+func TestWebhookDeliveryPartialFailureRetry(t *testing.T) {
+	pool, script := webhookDeliveryPostgres(t)
 	var batch WebhookBody
 	if err := json.Unmarshal(swapBody(1704067260), &batch); err != nil {
 		t.Fatal(err)
@@ -135,8 +135,8 @@ func TestRepairM_1050_PartialFailureRetry(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	first := httptest.NewServer(repairM1050Router(repairM1050Builder(t, pool)))
-	status, headers, raw := repairM1050Send(t, first.URL, body)
+	first := httptest.NewServer(webhookDeliveryRouter(webhookDeliveryBuilder(t, pool)))
+	status, headers, raw := webhookDeliverySend(t, first.URL, body)
 	first.Close()
 	var result struct {
 		OK        bool `json:"ok"`
@@ -153,9 +153,9 @@ func TestRepairM_1050_PartialFailureRetry(t *testing.T) {
 	script.assertProgress(t, 1, false)
 	// A new builder must retain the first swap's durable claim while retrying
 	// the rolled-back second swap against the same database and Redis.
-	reopened := httptest.NewServer(repairM1050Router(repairM1050Builder(t, pool)))
+	reopened := httptest.NewServer(webhookDeliveryRouter(webhookDeliveryBuilder(t, pool)))
 	defer reopened.Close()
-	status, _, raw = repairM1050Send(t, reopened.URL, body)
+	status, _, raw = webhookDeliverySend(t, reopened.URL, body)
 	if err = json.Unmarshal(raw, &result); err != nil {
 		t.Fatal(err)
 	}
@@ -163,27 +163,27 @@ func TestRepairM_1050_PartialFailureRetry(t *testing.T) {
 		t.Fatalf("retry: %d %s", status, raw)
 	}
 	script.assertProgress(t, 2, true)
-	status, _, raw = repairM1050Send(t, reopened.URL, body)
+	status, _, raw = webhookDeliverySend(t, reopened.URL, body)
 	if status != 200 {
 		t.Fatalf("duplicate: %d %s", status, raw)
 	}
 	script.assertProgress(t, 2, true)
 }
 
-type repairM1050CountedBody struct {
+type webhookDeliveryCountedBody struct {
 	io.Reader
 	read   int
 	closed bool
 }
 
-func (b *repairM1050CountedBody) Read(p []byte) (int, error) {
+func (b *webhookDeliveryCountedBody) Read(p []byte) (int, error) {
 	n, e := b.Reader.Read(p)
 	b.read += n
 	return n, e
 }
-func (b *repairM1050CountedBody) Close() error { b.closed = true; return nil }
-func TestRepairM_1050_RequestBounds(t *testing.T) {
-	router := repairM1050Router(nil)
+func (b *webhookDeliveryCountedBody) Close() error { b.closed = true; return nil }
+func TestWebhookDeliveryRequestBounds(t *testing.T) {
+	router := webhookDeliveryRouter(nil)
 	tooMany := []byte(`{"events":[` + strings.Repeat(`{"eventName":"MarketCreated"},`, MaxWebhookEvents) + `{"eventName":"MarketCreated"}]}`)
 	atCount := []byte(`{"events":[` + strings.Repeat(`{"eventName":"MarketCreated"},`, MaxWebhookEvents-1) + `{"eventName":"MarketCreated"}]}`)
 	byteLimit := append([]byte(`{"events":[]}`), bytes.Repeat([]byte(" "), MaxWebhookBodyBytes-len(`{"events":[]}`))...)
@@ -203,7 +203,7 @@ func TestRepairM_1050_RequestBounds(t *testing.T) {
 				if !signed {
 					req.Header.Set("X-Sidiora-Signature", "sha256=deadbeef")
 				}
-				body := &repairM1050CountedBody{Reader: bytes.NewReader(tc.body)}
+				body := &webhookDeliveryCountedBody{Reader: bytes.NewReader(tc.body)}
 				req.Body = body
 				req.ContentLength = -1 // Also bound chunked requests and dishonest lengths.
 				rec := httptest.NewRecorder()
@@ -225,7 +225,7 @@ func TestRepairM_1050_RequestBounds(t *testing.T) {
 		}
 	}
 }
-func TestRepairM_1050_PermanentValidation(t *testing.T) {
+func TestWebhookDeliveryPermanentValidation(t *testing.T) {
 	var batch WebhookBody
 	if err := json.Unmarshal(swapBody(1704067260), &batch); err != nil {
 		t.Fatal(err)
@@ -253,7 +253,7 @@ func TestRepairM_1050_PermanentValidation(t *testing.T) {
 				t.Fatal(err)
 			}
 			rec := httptest.NewRecorder()
-			repairM1050Router(nil).ServeHTTP(rec, signedRequest(raw))
+			webhookDeliveryRouter(nil).ServeHTTP(rec, signedRequest(raw))
 			var result struct {
 				OK        bool
 				Retryable bool
@@ -270,16 +270,16 @@ func TestRepairM_1050_PermanentValidation(t *testing.T) {
 	}
 	for _, body := range []string{`{"events":null}`, `{"events":[],"events":[]}`, `{"events":[]} {"events":[]}`, `{"other":true}`, `[]`, `{"events":[`} {
 		rec := httptest.NewRecorder()
-		repairM1050Router(nil).ServeHTTP(rec, signedRequest([]byte(body)))
+		webhookDeliveryRouter(nil).ServeHTTP(rec, signedRequest([]byte(body)))
 		if rec.Code != 400 {
 			t.Fatalf("invalid envelope %s: %d", body, rec.Code)
 		}
 	}
 }
 
-func repairM1050CandleFrames(t *testing.T) [][]byte {
+func webhookDeliveryCandleFrames(t *testing.T) [][]byte {
 	t.Helper()
-	manifestBytes, err := os.ReadFile("../engine/testdata/repair74/manifests.json")
+	manifestBytes, err := os.ReadFile("../engine/testdata/retained_archive/manifests.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -287,7 +287,7 @@ func repairM1050CandleFrames(t *testing.T) [][]byte {
 	if err = json.Unmarshal(manifestBytes, &manifests); err != nil || len(manifests) != 1 {
 		t.Fatal("archive manifest", err)
 	}
-	archive, err := os.ReadFile("../engine/testdata/repair74/segment.json")
+	archive, err := os.ReadFile("../engine/testdata/retained_archive/segment.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -328,14 +328,14 @@ func repairM1050CandleFrames(t *testing.T) [][]byte {
 	}
 	return frames
 }
-func TestRepairM_1050_ProducerToSocketRestartResync(t *testing.T) {
-	testAdmittedCandleApplicationStream(t, repairM1050CandleFrames(t), filepath.Join(t.TempDir(), "retained-frames.json"))
+func TestWebhookDeliveryProducerToSocketRestartResync(t *testing.T) {
+	testAdmittedCandleApplicationStream(t, webhookDeliveryCandleFrames(t), filepath.Join(t.TempDir(), "retained-frames.json"))
 }
 
 // Relay failure must remain visible after the source fold commits; a healthy
 // retry drains that exact durable outbox without folding the candle twice.
-func TestRepairM_1050_BrokerFailurePreservesCommittedRetry(t *testing.T) {
-	pool, state := repairM1050Postgres(t)
+func TestWebhookDeliveryBrokerFailurePreservesCommittedRetry(t *testing.T) {
+	pool, state := webhookDeliveryPostgres(t)
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
@@ -347,9 +347,9 @@ func TestRepairM_1050_BrokerFailurePreservesCommittedRetry(t *testing.T) {
 	unavailable := goredis.NewClient(&goredis.Options{Addr: address, MaxRetries: -1, DialTimeout: time.Second, ReadTimeout: time.Second, WriteTimeout: time.Second})
 	defer unavailable.Close()
 	builder := engine.New(pool, unavailable, store.New(pool), slog.New(slog.NewTextHandler(io.Discard, nil)))
-	first := httptest.NewServer(repairM1050Router(builder))
+	first := httptest.NewServer(webhookDeliveryRouter(builder))
 	body := swapBody(1704067260)
-	status, headers, raw := repairM1050Send(t, first.URL, body)
+	status, headers, raw := webhookDeliverySend(t, first.URL, body)
 	first.Close()
 	var failure struct {
 		OK        bool `json:"ok"`
@@ -370,9 +370,9 @@ func TestRepairM_1050_BrokerFailurePreservesCommittedRetry(t *testing.T) {
 	if claims != 1 || pending != 1 {
 		t.Fatalf("committed retry lost: claims=%d pending=%d", claims, pending)
 	}
-	recovered := httptest.NewServer(repairM1050Router(repairM1050Builder(t, pool)))
+	recovered := httptest.NewServer(webhookDeliveryRouter(webhookDeliveryBuilder(t, pool)))
 	defer recovered.Close()
-	status, _, raw = repairM1050Send(t, recovered.URL, body)
+	status, _, raw = webhookDeliverySend(t, recovered.URL, body)
 	var success struct {
 		OK        bool `json:"ok"`
 		Processed int  `json:"processed"`

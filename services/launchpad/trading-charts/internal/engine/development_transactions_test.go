@@ -33,18 +33,18 @@ import (
 
 // This peer is a real embedded transactional database. The builder, monetary
 // fold, persisted codecs and committed relay are production code.
-type repair1051Database struct{ db *leveldb.DB }
-type repair1051Transaction struct{ tx *leveldb.Transaction }
+type developmentCandleTestDatabase struct{ db *leveldb.DB }
+type developmentCandleTestTransaction struct{ tx *leveldb.Transaction }
 
-func repair1051Open(t *testing.T, path string) *repair1051Database {
+func developmentCandleTestOpen(t *testing.T, path string) *developmentCandleTestDatabase {
 	t.Helper()
 	db, err := leveldb.OpenFile(path, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return &repair1051Database{db: db}
+	return &developmentCandleTestDatabase{db: db}
 }
-func (s *repair1051Database) Transaction(ctx context.Context, pool, identity string, apply func(developmentKV) error) error {
+func (s *developmentCandleTestDatabase) Transaction(ctx context.Context, pool, identity string, apply func(developmentKV) error) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -53,7 +53,7 @@ func (s *repair1051Database) Transaction(ctx context.Context, pool, identity str
 		return err
 	}
 	defer tx.Discard()
-	if err = apply(&repair1051Transaction{tx: tx}); err != nil {
+	if err = apply(&developmentCandleTestTransaction{tx: tx}); err != nil {
 		return err
 	}
 	if err = ctx.Err(); err != nil {
@@ -61,17 +61,17 @@ func (s *repair1051Database) Transaction(ctx context.Context, pool, identity str
 	}
 	return tx.Commit()
 }
-func (t *repair1051Transaction) Get(key string) ([]byte, error) {
+func (t *developmentCandleTestTransaction) Get(key string) ([]byte, error) {
 	raw, err := t.tx.Get([]byte(key), nil)
 	if errors.Is(err, leveldb.ErrNotFound) {
 		return nil, nil
 	}
 	return raw, err
 }
-func (t *repair1051Transaction) Put(key string, raw []byte) error {
+func (t *developmentCandleTestTransaction) Put(key string, raw []byte) error {
 	return t.tx.Put([]byte(key), raw, &opt.WriteOptions{Sync: true})
 }
-func (t *repair1051Transaction) Claim(swap SwapEvent) (bool, error) {
+func (t *developmentCandleTestTransaction) Claim(swap SwapEvent) (bool, error) {
 	key, raw, err := developmentClaim(swap)
 	if err != nil {
 		return false, err
@@ -88,7 +88,7 @@ func (t *repair1051Transaction) Claim(swap SwapEvent) (bool, error) {
 	}
 	return true, t.Put(key, raw)
 }
-func repair1051Read(t *testing.T, db *repair1051Database, key string, target any) bool {
+func developmentCandleTestRead(t *testing.T, db *developmentCandleTestDatabase, key string, target any) bool {
 	t.Helper()
 	raw, err := db.db.Get([]byte(key), nil)
 	if errors.Is(err, leveldb.ErrNotFound) {
@@ -102,25 +102,25 @@ func repair1051Read(t *testing.T, db *repair1051Database, key string, target any
 	}
 	return true
 }
-func repair1051Candle(t *testing.T, db *repair1051Database, pool, tf string, timestamp int64) developmentCandle {
+func developmentCandleTestCandle(t *testing.T, db *developmentCandleTestDatabase, pool, tf string, timestamp int64) developmentCandle {
 	t.Helper()
 	start := timestamp / constants.Timeframes[tf] * constants.Timeframes[tf]
 	var c developmentCandle
-	if !repair1051Read(t, db, developmentKey("candle", pool, tf, strconv.FormatInt(start, 10)), &c) {
+	if !developmentCandleTestRead(t, db, developmentKey("candle", pool, tf, strconv.FormatInt(start, 10)), &c) {
 		t.Fatal("missing candle", tf, start)
 	}
 	return c
 }
-func repair1051Pending(t *testing.T, db *repair1051Database, pool string) []developmentDelivery {
+func developmentCandleTestPending(t *testing.T, db *developmentCandleTestDatabase, pool string) []developmentDelivery {
 	t.Helper()
 	var pending []developmentDelivery
-	repair1051Read(t, db, developmentKey("outbox", pool), &pending)
+	developmentCandleTestRead(t, db, developmentKey("outbox", pool), &pending)
 	return pending
 }
 
 // A loopback RESP transcript peer exercises the real go-redis codec and EVAL
 // call. Replies are committed fixtures; it does not emulate a Redis database.
-type repair1051Redis struct {
+type developmentCandleTestRedis struct {
 	listener    net.Listener
 	mu          sync.Mutex
 	connections map[net.Conn]bool
@@ -132,24 +132,24 @@ type repair1051Redis struct {
 	wg          sync.WaitGroup
 }
 
-func repair1051Fixture(t *testing.T, name string) []byte {
+func developmentCandleTestFixture(t *testing.T, name string) []byte {
 	t.Helper()
-	raw, err := os.ReadFile(filepath.Join("testdata", "repair_m1051", name))
+	raw, err := os.ReadFile(filepath.Join("testdata", "development_candles", name))
 	if err != nil {
 		t.Fatal(err)
 	}
 	return raw
 }
-func repair1051StartRedis(t *testing.T, reply string) (*repair1051Redis, *goredis.Client) {
+func developmentCandleTestStartRedis(t *testing.T, reply string) (*developmentCandleTestRedis, *goredis.Client) {
 	t.Helper()
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
-	wire := repair1051Fixture(t, reply)
+	wire := developmentCandleTestFixture(t, reply)
 	wire = bytes.ReplaceAll(wire, []byte("\r\n"), []byte("\n"))
 	wire = bytes.ReplaceAll(wire, []byte("\n"), []byte("\r\n"))
-	peer := &repair1051Redis{listener: listener, connections: map[net.Conn]bool{}, reply: wire, failures: make(chan error, 256)}
+	peer := &developmentCandleTestRedis{listener: listener, connections: map[net.Conn]bool{}, reply: wire, failures: make(chan error, 256)}
 	peer.wg.Add(1)
 	go func() {
 		defer peer.wg.Done()
@@ -169,7 +169,7 @@ func repair1051StartRedis(t *testing.T, reply string) (*repair1051Redis, *goredi
 	t.Cleanup(func() { client.Close(); peer.close(t) })
 	return peer, client
 }
-func repair1051Command(reader *bufio.Reader) ([]string, error) {
+func developmentCandleTestCommand(reader *bufio.Reader) ([]string, error) {
 	line, err := reader.ReadString('\n')
 	if err != nil {
 		return nil, err
@@ -202,13 +202,13 @@ func repair1051Command(reader *bufio.Reader) ([]string, error) {
 	}
 	return parts, nil
 }
-func (p *repair1051Redis) serve(conn net.Conn) {
+func (p *developmentCandleTestRedis) serve(conn net.Conn) {
 	defer p.wg.Done()
 	defer conn.Close()
 	defer func() { p.mu.Lock(); delete(p.connections, conn); p.mu.Unlock() }()
 	reader := bufio.NewReader(conn)
 	for {
-		parts, err := repair1051Command(reader)
+		parts, err := developmentCandleTestCommand(reader)
 		if err != nil {
 			if !errors.Is(err, io.EOF) && !errors.Is(err, net.ErrClosed) {
 				p.failures <- err
@@ -258,7 +258,7 @@ func (p *repair1051Redis) serve(conn net.Conn) {
 		}
 	}
 }
-func (p *repair1051Redis) close(t *testing.T) {
+func (p *developmentCandleTestRedis) close(t *testing.T) {
 	t.Helper()
 	p.listener.Close()
 	p.mu.Lock()
@@ -276,27 +276,27 @@ func (p *repair1051Redis) close(t *testing.T) {
 		}
 	}
 }
-func (p *repair1051Redis) snapshot() []CandleUpdateEvent {
+func (p *developmentCandleTestRedis) snapshot() []CandleUpdateEvent {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	return append([]CandleUpdateEvent(nil), p.events...)
 }
-func repair1051Builder(db *repair1051Database, client *goredis.Client) *Builder {
+func developmentCandleTestBuilder(db *developmentCandleTestDatabase, client *goredis.Client) *Builder {
 	b := New(nil, client, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	b.storage = db
 	return b
 }
-func repair1051Swap(index int, timestamp int64, price string) SwapEvent {
+func developmentCandleTestSwap(index int, timestamp int64, price string) SwapEvent {
 	return SwapEvent{PoolAddress: "0x" + strings.Repeat("a", 40), Sender: "0x" + fmt.Sprintf("%040x", index+1), IsBuy: true,
 		AmountIn: "100", AmountOut: "200", Fee: "1", Price: price, BlockTimestamp: timestamp,
 		TxHash: "0x" + fmt.Sprintf("%064x", index+1), LogIndex: 0, Position: &ChainOrder{Height: uint64(100 + index)}}
 }
 
-func TestRepairM_1051_ConcurrentDistinctSwaps(t *testing.T) {
-	db := repair1051Open(t, filepath.Join(t.TempDir(), "state"))
+func TestDevelopmentCandleConcurrentDistinctSwaps(t *testing.T) {
+	db := developmentCandleTestOpen(t, filepath.Join(t.TempDir(), "state"))
 	defer db.db.Close()
-	peer, client := repair1051StartRedis(t, "redis-ack.resp")
-	builders := []*Builder{repair1051Builder(db, client), repair1051Builder(db, client)}
+	peer, client := developmentCandleTestStartRedis(t, "redis-ack.resp")
+	builders := []*Builder{developmentCandleTestBuilder(db, client), developmentCandleTestBuilder(db, client)}
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	base := int64(1704067260)
@@ -308,7 +308,7 @@ func TestRepairM_1051_ConcurrentDistinctSwaps(t *testing.T) {
 		for i := 0; i < swaps; i++ {
 			go func(i int) {
 				<-start
-				swap := repair1051Swap(phase*swaps+i, base+int64(i%20), "1000000000000000000")
+				swap := developmentCandleTestSwap(phase*swaps+i, base+int64(i%20), "1000000000000000000")
 				if i%2 == 1 {
 					swap.IsBuy = false
 					swap.AmountIn, swap.AmountOut = "200", "100"
@@ -324,13 +324,13 @@ func TestRepairM_1051_ConcurrentDistinctSwaps(t *testing.T) {
 		}
 		total := (phase + 1) * swaps
 		for _, tf := range constants.TimeframeKeys {
-			c := repair1051Candle(t, db, repair1051Swap(0, base, "1").PoolAddress, tf, base)
+			c := developmentCandleTestCandle(t, db, developmentCandleTestSwap(0, base, "1").PoolAddress, tf, base)
 			if c.Row.TradeCount != total || c.Row.VolumeUsdl != strconv.Itoa(total*100) || c.Row.VolumeToken != strconv.Itoa(total*200) || c.Row.BuyVolumeUsdl != strconv.Itoa(total*50) || c.Row.SellVolumeUsdl != strconv.Itoa(total*50) || c.Row.UniqueTraders != total || len(c.Traders) != total {
 				t.Fatalf("lost committed concurrent economics %s: %+v", tf, c.Row)
 			}
 		}
 	}
-	if len(repair1051Pending(t, db, repair1051Swap(0, base, "1").PoolAddress)) != 0 {
+	if len(developmentCandleTestPending(t, db, developmentCandleTestSwap(0, base, "1").PoolAddress)) != 0 {
 		t.Fatal("committed delivery left pending")
 	}
 	if got := len(peer.snapshot()); got != 2*swaps*len(constants.TimeframeKeys) {
@@ -338,32 +338,32 @@ func TestRepairM_1051_ConcurrentDistinctSwaps(t *testing.T) {
 	}
 }
 
-func TestRepairM_1051_RollbackAndRedisRestart(t *testing.T) {
+func TestDevelopmentCandleRollbackAndRedisRestart(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "state")
-	db := repair1051Open(t, path)
-	peer, client := repair1051StartRedis(t, "redis-ack.resp")
-	b := repair1051Builder(db, client)
+	db := developmentCandleTestOpen(t, path)
+	peer, client := developmentCandleTestStartRedis(t, "redis-ack.resp")
+	b := developmentCandleTestBuilder(db, client)
 	ctx := context.Background()
-	first := repair1051Swap(0, 1704067260, "1000000000000000000")
+	first := developmentCandleTestSwap(0, 1704067260, "1000000000000000000")
 	if err := b.ProcessSwap(ctx, first); err != nil {
 		t.Fatal(err)
 	}
-	original := repair1051Candle(t, db, first.PoolAddress, "5m", first.BlockTimestamp)
+	original := developmentCandleTestCandle(t, db, first.PoolAddress, "5m", first.BlockTimestamp)
 	key := developmentKey("candle", first.PoolAddress, "5m", strconv.FormatInt(original.Row.CandleStart, 10))
 	corrupt := original
 	corrupt.Row.High = "corrupt persisted amount"
 	if err := db.Transaction(ctx, first.PoolAddress, "", func(tx developmentKV) error { return saveDevelopment(tx, key, corrupt) }); err != nil {
 		t.Fatal(err)
 	}
-	before := repair1051Candle(t, db, first.PoolAddress, "1m", first.BlockTimestamp)
-	second := repair1051Swap(1, first.BlockTimestamp+1, "2000000000000000000")
+	before := developmentCandleTestCandle(t, db, first.PoolAddress, "1m", first.BlockTimestamp)
+	second := developmentCandleTestSwap(1, first.BlockTimestamp+1, "2000000000000000000")
 	if err := b.ProcessSwap(ctx, second); err == nil {
 		t.Fatal("corrupt later timeframe should roll back all effects")
 	}
-	if got := repair1051Candle(t, db, first.PoolAddress, "1m", first.BlockTimestamp); !reflect.DeepEqual(got, before) {
+	if got := developmentCandleTestCandle(t, db, first.PoolAddress, "1m", first.BlockTimestamp); !reflect.DeepEqual(got, before) {
 		t.Fatal("early timeframe or trader escaped rollback", got)
 	}
-	if len(peer.snapshot()) != len(constants.TimeframeKeys) || len(repair1051Pending(t, db, first.PoolAddress)) != 0 {
+	if len(peer.snapshot()) != len(constants.TimeframeKeys) || len(developmentCandleTestPending(t, db, first.PoolAddress)) != 0 {
 		t.Fatal("phantom rolled-back publication")
 	}
 	claim, _, _ := developmentClaim(second)
@@ -380,10 +380,10 @@ func TestRepairM_1051_RollbackAndRedisRestart(t *testing.T) {
 		t.Fatal(err)
 	}
 	b = nil
-	db = repair1051Open(t, path)
+	db = developmentCandleTestOpen(t, path)
 	defer db.db.Close()
-	restartedPeer, restartedClient := repair1051StartRedis(t, "redis-ack.resp")
-	b = repair1051Builder(db, restartedClient)
+	restartedPeer, restartedClient := developmentCandleTestStartRedis(t, "redis-ack.resp")
+	b = developmentCandleTestBuilder(db, restartedClient)
 	restartedPeer.mu.Lock()
 	restartedPeer.check = func(event CandleUpdateEvent) error {
 		var committed developmentCandle
@@ -406,13 +406,13 @@ func TestRepairM_1051_RollbackAndRedisRestart(t *testing.T) {
 	if err := b.ProcessSwap(ctx, second); err != nil {
 		t.Fatal("durable duplicate retry", err)
 	}
-	third := repair1051Swap(2, first.BlockTimestamp+2, "3000000000000000000")
+	third := developmentCandleTestSwap(2, first.BlockTimestamp+2, "3000000000000000000")
 	third.Sender = first.Sender
 	if err := b.ProcessSwap(ctx, third); err != nil {
 		t.Fatal(err)
 	}
 	for _, tf := range constants.TimeframeKeys {
-		got := repair1051Candle(t, db, first.PoolAddress, tf, first.BlockTimestamp)
+		got := developmentCandleTestCandle(t, db, first.PoolAddress, tf, first.BlockTimestamp)
 		if got.Row.TradeCount != 3 || got.Row.UniqueTraders != 2 || got.Row.VolumeUsdl != "300" || len(got.Traders) != 2 {
 			t.Fatal("restart changed committed economics", tf, got)
 		}
@@ -422,22 +422,22 @@ func TestRepairM_1051_RollbackAndRedisRestart(t *testing.T) {
 	}
 }
 
-func TestRepairM_1051_CommittedOutboxRetry(t *testing.T) {
+func TestDevelopmentCandleCommittedOutboxRetry(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "state")
-	db := repair1051Open(t, path)
-	peer, client := repair1051StartRedis(t, "redis-error.resp")
-	b := repair1051Builder(db, client)
-	swap := repair1051Swap(0, 1704067260, "1000000000000000000")
+	db := developmentCandleTestOpen(t, path)
+	peer, client := developmentCandleTestStartRedis(t, "redis-error.resp")
+	b := developmentCandleTestBuilder(db, client)
+	swap := developmentCandleTestSwap(0, 1704067260, "1000000000000000000")
 	ctx := context.Background()
 	if err := b.ProcessSwap(ctx, swap); err == nil {
 		t.Fatal("transport failure was swallowed")
 	}
-	pending := repair1051Pending(t, db, swap.PoolAddress)
+	pending := developmentCandleTestPending(t, db, swap.PoolAddress)
 	if len(pending) != len(constants.TimeframeKeys) {
 		t.Fatal("failed delivery lost committed outbox", pending)
 	}
 	for _, tf := range constants.TimeframeKeys {
-		c := repair1051Candle(t, db, swap.PoolAddress, tf, swap.BlockTimestamp)
+		c := developmentCandleTestCandle(t, db, swap.PoolAddress, tf, swap.BlockTimestamp)
 		if c.Row.TradeCount != 1 || c.Row.UniqueTraders != 1 {
 			t.Fatal("delivery failure altered commit", c)
 		}
@@ -447,19 +447,19 @@ func TestRepairM_1051_CommittedOutboxRetry(t *testing.T) {
 	if err := db.db.Close(); err != nil {
 		t.Fatal(err)
 	}
-	db = repair1051Open(t, path)
+	db = developmentCandleTestOpen(t, path)
 	defer db.db.Close()
 	// An ambiguous delivery acknowledgement must retain the exact same event
 	// identity and bytes. The duplicate transcript acknowledges the retry.
-	retryPeer, retryClient := repair1051StartRedis(t, "redis-duplicate.resp")
+	retryPeer, retryClient := developmentCandleTestStartRedis(t, "redis-duplicate.resp")
 	retryPeer.mu.Lock()
 	retryPeer.dropAck = true
 	retryPeer.mu.Unlock()
-	b = repair1051Builder(db, retryClient)
+	b = developmentCandleTestBuilder(db, retryClient)
 	if err := b.ProcessSwap(ctx, swap); err == nil {
 		t.Fatal("lost acknowledgement accepted")
 	}
-	if !reflect.DeepEqual(repair1051Pending(t, db, swap.PoolAddress), pending) {
+	if !reflect.DeepEqual(developmentCandleTestPending(t, db, swap.PoolAddress), pending) {
 		t.Fatal("ambiguous acknowledgement changed outbox")
 	}
 	retryPeer.mu.Lock()
@@ -477,7 +477,7 @@ func TestRepairM_1051_CommittedOutboxRetry(t *testing.T) {
 			t.Fatal("outbox transport/consumer mismatch", i)
 		}
 	}
-	if len(repair1051Pending(t, db, swap.PoolAddress)) != 0 {
+	if len(developmentCandleTestPending(t, db, swap.PoolAddress)) != 0 {
 		t.Fatal("acknowledged outbox retained")
 	}
 	if err := b.ProcessSwap(ctx, swap); err != nil {
@@ -488,24 +488,24 @@ func TestRepairM_1051_CommittedOutboxRetry(t *testing.T) {
 	}
 }
 
-func TestRepairM_1051_LateSourceOrder(t *testing.T) {
+func TestDevelopmentCandleLateSourceOrder(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "state")
-	db := repair1051Open(t, path)
-	_, client := repair1051StartRedis(t, "redis-ack.resp")
-	b := repair1051Builder(db, client)
+	db := developmentCandleTestOpen(t, path)
+	_, client := developmentCandleTestStartRedis(t, "redis-ack.resp")
+	b := developmentCandleTestBuilder(db, client)
 	ctx := context.Background()
 	base := int64(1704067260)
-	latest := repair1051Swap(30, base+190, "9000000000000000000")
+	latest := developmentCandleTestSwap(30, base+190, "9000000000000000000")
 	if err := b.ProcessSwap(ctx, latest); err != nil {
 		t.Fatal(err)
 	}
 	cursorKey := developmentKey("cursor", latest.PoolAddress, "1m")
 	var cursor store.CursorRow
-	if !repair1051Read(t, db, cursorKey, &cursor) {
+	if !developmentCandleTestRead(t, db, cursorKey, &cursor) {
 		t.Fatal("cursor missing")
 	}
 	// A missing old bucket must not inherit the future cursor's price.
-	late := repair1051Swap(10, base+10, "3000000000000000000")
+	late := developmentCandleTestSwap(10, base+10, "3000000000000000000")
 	if err := b.ProcessSwap(ctx, late); err != nil {
 		t.Fatal(err)
 	}
@@ -513,58 +513,58 @@ func TestRepairM_1051_LateSourceOrder(t *testing.T) {
 	if err := db.db.Close(); err != nil {
 		t.Fatal(err)
 	}
-	db = repair1051Open(t, path)
+	db = developmentCandleTestOpen(t, path)
 	defer db.db.Close()
-	b = repair1051Builder(db, client)
-	earliest := repair1051Swap(5, base+5, "1000000000000000000")
+	b = developmentCandleTestBuilder(db, client)
+	earliest := developmentCandleTestSwap(5, base+5, "1000000000000000000")
 	if err := b.ProcessSwap(ctx, earliest); err != nil {
 		t.Fatal(err)
 	}
-	middle := repair1051Swap(7, base+7, "5000000000000000000")
+	middle := developmentCandleTestSwap(7, base+7, "5000000000000000000")
 	if err := b.ProcessSwap(ctx, middle); err != nil {
 		t.Fatal(err)
 	}
-	old := repair1051Candle(t, db, latest.PoolAddress, "1m", base)
+	old := developmentCandleTestCandle(t, db, latest.PoolAddress, "1m", base)
 	if old.Row.Open != earliest.Price || old.Row.Close != late.Price || old.Row.High != middle.Price || old.Row.Low != earliest.Price || old.Row.TradeCount != 3 || old.Row.LastTradeTs != late.BlockTimestamp || old.First != *earliest.Position || old.Last != *late.Position {
 		t.Fatal("arrival order contaminated historical OHLC", old)
 	}
 	var after store.CursorRow
-	repair1051Read(t, db, cursorKey, &after)
+	developmentCandleTestRead(t, db, cursorKey, &after)
 	if after != cursor {
 		t.Fatal("old missing/existing bucket moved latest cursor", cursor, after)
 	}
 	// Late source order in the latest existing bucket must preserve its close.
-	existing := repair1051Swap(25, latest.BlockTimestamp-1, "7000000000000000000")
+	existing := developmentCandleTestSwap(25, latest.BlockTimestamp-1, "7000000000000000000")
 	if err := b.ProcessSwap(ctx, existing); err != nil {
 		t.Fatal(err)
 	}
-	current := repair1051Candle(t, db, latest.PoolAddress, "1m", latest.BlockTimestamp)
+	current := developmentCandleTestCandle(t, db, latest.PoolAddress, "1m", latest.BlockTimestamp)
 	if current.Row.Open != existing.Price || current.Row.Close != latest.Price || current.Row.LastTradeTs != latest.BlockTimestamp {
 		t.Fatal("latest close follows arrival order", current)
 	}
-	repair1051Read(t, db, cursorKey, &after)
+	developmentCandleTestRead(t, db, cursorKey, &after)
 	if after != cursor {
 		t.Fatal("late existing-bucket close changed cursor", after)
 	}
 	// Equal timestamps still order by transaction and log position.
-	tied := repair1051Swap(31, latest.BlockTimestamp, "11000000000000000000")
+	tied := developmentCandleTestSwap(31, latest.BlockTimestamp, "11000000000000000000")
 	tied.Position = &ChainOrder{Height: latest.Position.Height, TransactionIndex: 1, LogIndex: 0}
 	if err := b.ProcessSwap(ctx, tied); err != nil {
 		t.Fatal(err)
 	}
-	repair1051Read(t, db, cursorKey, &after)
+	developmentCandleTestRead(t, db, cursorKey, &after)
 	if after.LastClose != tied.Price || after.LastCandleStart != cursor.LastCandleStart {
 		t.Fatal("within-block source order lost", after)
 	}
-	invalid := repair1051Swap(40, base, "1")
+	invalid := developmentCandleTestSwap(40, base, "1")
 	invalid.Position = nil
 	if err := b.ProcessSwap(ctx, invalid); err == nil {
 		t.Fatal("unavailable source ordering was guessed")
 	}
 }
 
-func TestRepairM_1051_ArchiveNodeIdentity(t *testing.T) {
-	raw := repair1051Fixture(t, "block.json")
+func TestDevelopmentCandleArchiveNodeIdentity(t *testing.T) {
+	raw := developmentCandleTestFixture(t, "block.json")
 	var block struct {
 		Hash      string `json:"hash"`
 		Number    string `json:"number"`

@@ -20,7 +20,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-type repair75Fixture struct {
+type rebuildPromotionFixture struct {
 	dsn        string
 	db         *pgxpool.Pool
 	st         *store.ExactStore
@@ -28,7 +28,7 @@ type repair75Fixture struct {
 	checkpoint engine.SeriesCheckpoint
 }
 
-func repair75JSON(t *testing.T, v any) []byte {
+func rebuildPromotionJSON(t *testing.T, v any) []byte {
 	t.Helper()
 	b, err := json.Marshal(v)
 	if err != nil {
@@ -36,14 +36,17 @@ func repair75JSON(t *testing.T, v any) []byte {
 	}
 	return b
 }
-func repair75Digest(b []byte) string { sum := sha256.Sum256(b); return hex.EncodeToString(sum[:]) }
-func repair75Exec(t *testing.T, db *pgxpool.Pool, sql string, args ...any) {
+func rebuildPromotionDigest(b []byte) string {
+	sum := sha256.Sum256(b)
+	return hex.EncodeToString(sum[:])
+}
+func rebuildPromotionExec(t *testing.T, db *pgxpool.Pool, sql string, args ...any) {
 	t.Helper()
 	if _, err := db.Exec(context.Background(), sql, args...); err != nil {
 		t.Fatal(err)
 	}
 }
-func repair75New(t *testing.T) *repair75Fixture {
+func rebuildPromotionNew(t *testing.T) *rebuildPromotionFixture {
 	t.Helper()
 	dsn := internaltest.NewDatabase(t)
 	db := internaltest.OpenPool(t, dsn)
@@ -52,16 +55,16 @@ func repair75New(t *testing.T) *repair75Fixture {
 		if err != nil {
 			t.Fatal(err)
 		}
-		repair75Exec(t, db, sql)
+		rebuildPromotionExec(t, db, sql)
 	}
 	partitionDDL, err := delivery.PartitionSchemaDDL("indexer")
 	if err != nil {
 		t.Fatal(err)
 	}
-	repair75Exec(t, db, `CREATE SCHEMA indexer;`+partitionDDL)
+	rebuildPromotionExec(t, db, `CREATE SCHEMA indexer;`+partitionDDL)
 	// These are the read contracts consumed by the production append function.
 	// Positions and publications below come from the real canonical producers.
-	repair75Exec(t, db, `CREATE TABLE indexer.indexer_accounting_fills_v1(source_fill_id text PRIMARY KEY,source_fact_digest text NOT NULL,pool_address text NOT NULL,payload jsonb NOT NULL);
+	rebuildPromotionExec(t, db, `CREATE TABLE indexer.indexer_accounting_fills_v1(source_fill_id text PRIMARY KEY,source_fact_digest text NOT NULL,pool_address text NOT NULL,payload jsonb NOT NULL);
  CREATE TABLE indexer.indexer_accounting_publications_v1(publication_id text PRIMARY KEY,payload jsonb NOT NULL);
  CREATE VIEW indexer.indexer_market_partition_positions_v1 AS SELECT * FROM indexer.delivery_partition_positions;
  CREATE TABLE indexer.indexer_block_completeness_v1(chain_id bigint,stream_id text,height bigint,block_hash text,fetch_complete boolean,required_decode_complete boolean,PRIMARY KEY(chain_id,stream_id,height));
@@ -72,12 +75,12 @@ func repair75New(t *testing.T) *repair75Fixture {
  CREATE SCHEMA api_stream;
  CREATE TABLE api_stream.stream_projection(partition_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,topic text NOT NULL UNIQUE,sequence bigint NOT NULL DEFAULT 0 CHECK(sequence>=0),frame bytea,updated_at timestamptz NOT NULL DEFAULT clock_timestamp(),CHECK(sequence=0 OR frame IS NOT NULL));
  CREATE TABLE api_stream.stream_delivery_outbox(partition_id bigint NOT NULL REFERENCES api_stream.stream_projection,sequence bigint NOT NULL CHECK(sequence>0),event_id text NOT NULL UNIQUE,frame bytea NOT NULL,created_at timestamptz NOT NULL DEFAULT clock_timestamp(),PRIMARY KEY(partition_id,sequence));`)
-	repair75Exec(t, db, delivery.CandleStreamSourceDDL)
+	rebuildPromotionExec(t, db, delivery.CandleStreamSourceDDL)
 	st, err := store.NewExact(db, "candles")
 	if err != nil {
 		t.Fatal(err)
 	}
-	f := &repair75Fixture{dsn: dsn, db: db, st: st, checkpoint: engine.SeriesCheckpoint{Height: 102, Timestamp: 1700001000}}
+	f := &rebuildPromotionFixture{dsn: dsn, db: db, st: st, checkpoint: engine.SeriesCheckpoint{Height: 102, Timestamp: 1700001000}}
 	partitions, err := delivery.NewPartitionStore(db, "indexer")
 	if err != nil {
 		t.Fatal(err)
@@ -106,7 +109,7 @@ func repair75New(t *testing.T) *repair75Fixture {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err = tx.Exec(context.Background(), `INSERT INTO indexer.indexer_accounting_fills_v1 VALUES($1,$2,$3,$4)`, source.SourceFillID, string(digest), source.PoolAddress, repair75JSON(t, source)); err != nil {
+		if _, err = tx.Exec(context.Background(), `INSERT INTO indexer.indexer_accounting_fills_v1 VALUES($1,$2,$3,$4)`, source.SourceFillID, string(digest), source.PoolAddress, rebuildPromotionJSON(t, source)); err != nil {
 			t.Fatal(err)
 		}
 		if _, err = tx.Exec(context.Background(), `INSERT INTO indexer.indexer_accounting_publications_v1 VALUES($1,$2)`, publication.PublicationID, wire); err != nil {
@@ -128,7 +131,7 @@ func repair75New(t *testing.T) *repair75Fixture {
 	}
 	return f
 }
-func (f *repair75Fixture) stage(t *testing.T, id string, base uint64, alter func([]store.StagedCandle)) []engine.SeriesCandle {
+func (f *rebuildPromotionFixture) stage(t *testing.T, id string, base uint64, alter func([]store.StagedCandle)) []engine.SeriesCandle {
 	t.Helper()
 	bars := []store.StagedCandle{}
 	states := []engine.SeriesCandle{}
@@ -147,7 +150,7 @@ func (f *repair75Fixture) stage(t *testing.T, id string, base uint64, alter func
 		}
 		state.CorrectionReason = "archive_reconstruction"
 		states = append(states, state)
-		bars = append(bars, store.StagedCandle{Interval: interval, Start: state.Start, Snapshot: repair75JSON(t, state)})
+		bars = append(bars, store.StagedCandle{Interval: interval, Start: state.Start, Snapshot: rebuildPromotionJSON(t, state)})
 	}
 	if alter != nil {
 		alter(bars)
@@ -160,12 +163,12 @@ func (f *repair75Fixture) stage(t *testing.T, id string, base uint64, alter func
 	for i, fill := range f.fills {
 		raw := store.ArchiveRaw{Height: int64(101 + i), TransactionHash: fill.Position.TransactionHash, BlockHash: fill.Position.BlockHash, TransactionIndex: 0, LogIndex: 1, Emitter: fill.ActualEmitter, Topics: []string{}, Data: []byte{}}
 		records = append(records, raw)
-		events = append(events, store.ArchiveEvent{Kind: accounting.MarketSubject, Payload: repair75JSON(t, fill), RawDigest: repair75Digest(repair75JSON(t, raw)), Raw: raw, Timestamp: 1700000001 + int64(i)})
+		events = append(events, store.ArchiveEvent{Kind: accounting.MarketSubject, Payload: rebuildPromotionJSON(t, fill), RawDigest: rebuildPromotionDigest(rebuildPromotionJSON(t, raw)), Raw: raw, Timestamp: 1700000001 + int64(i)})
 		blocks = append(blocks, store.ArchiveBlock{Height: raw.Height, Hash: raw.BlockHash, RawCount: 1, FetchComplete: true, RequiredDecodeComplete: true})
 	}
 	segment := store.ArchiveSegment{FormatVersion: "raw-replay-v2", ChainID: 125, SourceStream: "canonical", FromHeight: 101, ToHeight: 102, Blocks: blocks, Records: records, Events: events}
-	raw := repair75JSON(t, segment)
-	digest := repair75Digest(raw)
+	raw := rebuildPromotionJSON(t, segment)
+	digest := rebuildPromotionDigest(raw)
 	manifest := store.ArchiveManifest{FormatVersion: "raw-archive-v2", ChainID: 125, SourceStream: "canonical", FromHeight: 101, ToHeight: 102, EventCount: 2, TypedCount: 2, ByteLength: int64(len(raw)), SHA256: digest, Bucket: "private-archive", ObjectKey: "indexer/raw/v2/canonical/" + digest + ".json", Blocks: blocks}
 	decoded, err := store.ValidateArchive(raw, manifest)
 	if err != nil {
@@ -181,9 +184,9 @@ func (f *repair75Fixture) stage(t *testing.T, id string, base uint64, alter func
 		}
 		economicDigests = append(economicDigests, digest)
 	}
-	outputDigest := repair75Digest(repair75JSON(t, economicDigests))
-	manifestDigests := []string{repair75Digest(repair75JSON(t, manifest))}
-	manifestDigest := repair75Digest(repair75JSON(t, manifestDigests))
+	outputDigest := rebuildPromotionDigest(rebuildPromotionJSON(t, economicDigests))
+	manifestDigests := []string{rebuildPromotionDigest(rebuildPromotionJSON(t, manifest))}
+	manifestDigest := rebuildPromotionDigest(rebuildPromotionJSON(t, manifestDigests))
 	if err = f.st.StageRebuild(context.Background(), id, f.fills[0].PoolAddress, states[0].Start, states[0].IntervalEnd, manifestDigest, outputDigest, outputDigest, base, bars, nil, decoded); err != nil {
 		t.Fatal(err)
 	}
@@ -194,7 +197,7 @@ func (f *repair75Fixture) stage(t *testing.T, id string, base uint64, alter func
 	}
 	return states
 }
-func (f *repair75Fixture) reopen(t *testing.T) {
+func (f *rebuildPromotionFixture) reopen(t *testing.T) {
 	t.Helper()
 	f.db.Close()
 	f.db = internaltest.OpenPool(t, f.dsn)
@@ -204,7 +207,7 @@ func (f *repair75Fixture) reopen(t *testing.T) {
 		t.Fatal(err)
 	}
 }
-func repair75EqualJSON(t *testing.T, a, b []byte) {
+func rebuildPromotionEqualJSON(t *testing.T, a, b []byte) {
 	t.Helper()
 	var x, y any
 	if err := json.Unmarshal(a, &x); err != nil {
@@ -218,13 +221,13 @@ func repair75EqualJSON(t *testing.T, a, b []byte) {
 	}
 }
 
-func TestRepair_75_HistorySnapshotReplayConvergeAfterRestart(t *testing.T) {
+func TestRebuildPromotionHistorySnapshotReplayConvergeAfterRestart(t *testing.T) {
 	for _, removeHistory := range []bool{false, true} {
 		t.Run(fmt.Sprint("retained_away=", removeHistory), func(t *testing.T) {
-			f := repair75New(t)
+			f := rebuildPromotionNew(t)
 			states := f.stage(t, "reconstruction", 1, nil)
 			if removeHistory {
-				repair75Exec(t, f.db, `DELETE FROM candles.chart_exact`)
+				rebuildPromotionExec(t, f.db, `DELETE FROM candles.chart_exact`)
 			}
 			f.reopen(t)
 			revision, err := f.st.PromoteRebuild(context.Background(), "reconstruction")
@@ -264,7 +267,7 @@ func TestRepair_75_HistorySnapshotReplayConvergeAfterRestart(t *testing.T) {
 				if frame.Revision != "2" || frame.Sequence != "2" {
 					t.Fatal(frame)
 				}
-				repair75EqualJSON(t, frame.Payload, repair75JSON(t, expected))
+				rebuildPromotionEqualJSON(t, frame.Payload, rebuildPromotionJSON(t, expected))
 				var resumed []byte
 				if err = f.db.QueryRow(context.Background(), `SELECT o.frame FROM api_stream.stream_delivery_outbox o JOIN api_stream.stream_projection p USING(partition_id) WHERE p.topic=$1 AND o.sequence>1 ORDER BY o.sequence`, topic).Scan(&resumed); err != nil {
 					t.Fatal(err)
@@ -276,7 +279,7 @@ func TestRepair_75_HistorySnapshotReplayConvergeAfterRestart(t *testing.T) {
 				if replay.EventID != frame.EventID || replay.Sequence != "2" {
 					t.Fatal(replay)
 				}
-				repair75EqualJSON(t, replay.Payload, frame.Payload)
+				rebuildPromotionEqualJSON(t, replay.Payload, frame.Payload)
 				var proof bool
 				if err = f.db.QueryRow(context.Background(), `SELECT EXISTS(SELECT 1 FROM candles.chart_rebuild_stream_sources r JOIN candles.chart_stream_sources s USING(event_id) JOIN candles.chart_rebuild_runs b USING(run_id) WHERE s.event_id=$1 AND s.source_sequence=2 AND s.revision=2 AND r.manifest_digest=b.manifest_digest AND r.output_digest=b.expected_digest AND r.owner_epoch=9 AND b.status='promoted' AND b.promotion_epoch=2)`, frame.EventID).Scan(&proof); err != nil || !proof {
 					t.Fatalf("durable reconstruction proof: %t %v", proof, err)
@@ -292,10 +295,10 @@ func TestRepair_75_HistorySnapshotReplayConvergeAfterRestart(t *testing.T) {
 	}
 }
 
-func TestRepair_75_PromotionRollbackPreservesPublicationAuthority(t *testing.T) {
+func TestRebuildPromotionRollbackPreservesPublicationAuthority(t *testing.T) {
 	for _, failure := range []string{"missing_publication", "changed_authoritative_fill", "invalid_last_candle", "parity_mismatch", "invalid_manifest", "stale_revision", "frozen_owner", "unparseable_staged_fill", "missing_staged_fills", "missing_pool_fence", "invalid_staged_snapshot"} {
 		t.Run(failure, func(t *testing.T) {
-			f := repair75New(t)
+			f := rebuildPromotionNew(t)
 			var alter func([]store.StagedCandle)
 			if failure == "invalid_last_candle" {
 				alter = func(bars []store.StagedCandle) {
@@ -304,31 +307,31 @@ func TestRepair_75_PromotionRollbackPreservesPublicationAuthority(t *testing.T) 
 						t.Fatal(err)
 					}
 					state.High.Numerator = "999999999"
-					bars[4].Snapshot = repair75JSON(t, state)
+					bars[4].Snapshot = rebuildPromotionJSON(t, state)
 				}
 			}
 			f.stage(t, "rejected", 1, alter)
 			switch failure {
 			case "missing_publication":
-				repair75Exec(t, f.db, `DELETE FROM indexer.indexer_accounting_publications_v1 WHERE payload->>'sourceFillId'=$1`, f.fills[1].SourceFillID)
+				rebuildPromotionExec(t, f.db, `DELETE FROM indexer.indexer_accounting_publications_v1 WHERE payload->>'sourceFillId'=$1`, f.fills[1].SourceFillID)
 			case "changed_authoritative_fill":
-				repair75Exec(t, f.db, `UPDATE indexer.indexer_accounting_fills_v1 SET source_fact_digest=$1 WHERE source_fill_id=$2`, strings.Repeat("f", 64), f.fills[0].SourceFillID)
+				rebuildPromotionExec(t, f.db, `UPDATE indexer.indexer_accounting_fills_v1 SET source_fact_digest=$1 WHERE source_fill_id=$2`, strings.Repeat("f", 64), f.fills[0].SourceFillID)
 			case "parity_mismatch":
-				repair75Exec(t, f.db, `UPDATE candles.chart_rebuild_runs SET output_digest=$1 WHERE run_id='rejected'`, strings.Repeat("f", 64))
+				rebuildPromotionExec(t, f.db, `UPDATE candles.chart_rebuild_runs SET output_digest=$1 WHERE run_id='rejected'`, strings.Repeat("f", 64))
 			case "invalid_manifest":
-				repair75Exec(t, f.db, `UPDATE candles.chart_rebuild_runs SET manifest_digest='untrusted' WHERE run_id='rejected'`)
+				rebuildPromotionExec(t, f.db, `UPDATE candles.chart_rebuild_runs SET manifest_digest='untrusted' WHERE run_id='rejected'`)
 			case "stale_revision":
-				repair75Exec(t, f.db, `UPDATE candles.chart_rebuild_runs SET base_revision=0 WHERE run_id='rejected'`)
+				rebuildPromotionExec(t, f.db, `UPDATE candles.chart_rebuild_runs SET base_revision=0 WHERE run_id='rejected'`)
 			case "frozen_owner":
-				repair75Exec(t, f.db, `UPDATE candles.chart_pool_fences SET frozen=true`)
+				rebuildPromotionExec(t, f.db, `UPDATE candles.chart_pool_fences SET frozen=true`)
 			case "unparseable_staged_fill":
-				repair75Exec(t, f.db, `UPDATE candles.chart_rebuild_fills SET payload='"invalid"'::jsonb WHERE source_id=$1`, f.fills[0].SourceFillID)
+				rebuildPromotionExec(t, f.db, `UPDATE candles.chart_rebuild_fills SET payload='"invalid"'::jsonb WHERE source_id=$1`, f.fills[0].SourceFillID)
 			case "missing_staged_fills":
-				repair75Exec(t, f.db, `DROP TABLE candles.chart_rebuild_fills`)
+				rebuildPromotionExec(t, f.db, `DROP TABLE candles.chart_rebuild_fills`)
 			case "missing_pool_fence":
-				repair75Exec(t, f.db, `DELETE FROM candles.chart_pool_fences`)
+				rebuildPromotionExec(t, f.db, `DELETE FROM candles.chart_pool_fences`)
 			case "invalid_staged_snapshot":
-				repair75Exec(t, f.db, `UPDATE candles.chart_rebuild_candles SET snapshot='"invalid"'::jsonb`)
+				rebuildPromotionExec(t, f.db, `UPDATE candles.chart_rebuild_candles SET snapshot='"invalid"'::jsonb`)
 			}
 			if _, err := f.st.PromoteRebuild(context.Background(), "rejected"); err == nil {
 				t.Fatal("unauthorized promotion succeeded")

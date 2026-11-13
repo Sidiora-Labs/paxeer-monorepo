@@ -18,9 +18,9 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
 )
 
-func repair74Archive(t *testing.T) ([]store.ArchiveManifest, []byte, []accounting.FillV1, string) {
+func retainedArchiveArchive(t *testing.T) ([]store.ArchiveManifest, []byte, []accounting.FillV1, string) {
 	t.Helper()
-	raw, err := os.ReadFile("testdata/repair74/manifests.json")
+	raw, err := os.ReadFile("testdata/retained_archive/manifests.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -28,7 +28,7 @@ func repair74Archive(t *testing.T) ([]store.ArchiveManifest, []byte, []accountin
 	if err = json.Unmarshal(raw, &manifests); err != nil || len(manifests) != 1 {
 		t.Fatal("committed manifests", err)
 	}
-	payload, err := os.ReadFile("testdata/repair74/segment.json")
+	payload, err := os.ReadFile("testdata/retained_archive/segment.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -57,7 +57,7 @@ func repair74Archive(t *testing.T) ([]store.ArchiveManifest, []byte, []accountin
 	return manifests, payload, fills, hex.EncodeToString(sum[:])
 }
 
-func repair74JSON(t *testing.T, v any) []byte {
+func retainedArchiveJSON(t *testing.T, v any) []byte {
 	t.Helper()
 	raw, err := json.Marshal(v)
 	if err != nil {
@@ -66,9 +66,9 @@ func repair74JSON(t *testing.T, v any) []byte {
 	return raw
 }
 
-func repair74Seed(t *testing.T) (retainedReconstructionCheckpoint, []QualifiedCandle, []accounting.FillV1) {
+func retainedArchiveSeed(t *testing.T) (retainedReconstructionCheckpoint, []QualifiedCandle, []accounting.FillV1) {
 	t.Helper()
-	_, _, fills, manifest := repair74Archive(t)
+	_, _, fills, manifest := retainedArchiveArchive(t)
 	from, err := BucketStart(1577923201, "1w")
 	if err != nil {
 		t.Fatal(err)
@@ -113,7 +113,7 @@ func repair74Seed(t *testing.T) (retainedReconstructionCheckpoint, []QualifiedCa
 	return checkpoint, bars, fills
 }
 
-func repair74Reopen(t *testing.T, path string) []byte {
+func retainedArchiveReopen(t *testing.T, path string) []byte {
 	t.Helper()
 	file, err := os.Open(path)
 	if err != nil {
@@ -129,13 +129,13 @@ func repair74Reopen(t *testing.T, path string) []byte {
 	return raw
 }
 
-func repair74Retain(t *testing.T, path string, checkpoint retainedReconstructionCheckpoint) {
+func retainedArchiveRetain(t *testing.T, path string, checkpoint retainedReconstructionCheckpoint) {
 	t.Helper()
 	file, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = file.Write(repair74JSON(t, checkpoint)); err != nil {
+	if _, err = file.Write(retainedArchiveJSON(t, checkpoint)); err != nil {
 		t.Fatal(err)
 	}
 	if err = file.Sync(); err != nil {
@@ -146,13 +146,13 @@ func repair74Retain(t *testing.T, path string, checkpoint retainedReconstruction
 	}
 }
 
-func TestRepair_74_RetainedParitySurvivesRestart(t *testing.T) {
-	checkpoint, live, fills := repair74Seed(t)
+func TestArchiveReconstructionRetainedParitySurvivesRestart(t *testing.T) {
+	checkpoint, live, fills := retainedArchiveSeed(t)
 	dir := t.TempDir()
 	retained := filepath.Join(dir, "retained.json")
-	repair74Retain(t, retained, checkpoint)
+	retainedArchiveRetain(t, retained, checkpoint)
 	projectionPath := filepath.Join(dir, "projection.json")
-	if err := os.WriteFile(projectionPath, repair74JSON(t, live), 0600); err != nil {
+	if err := os.WriteFile(projectionPath, retainedArchiveJSON(t, live), 0600); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.Remove(projectionPath); err != nil {
@@ -168,7 +168,7 @@ func TestRepair_74_RetainedParitySurvivesRestart(t *testing.T) {
 		t.Fatal("damage did not alter economic parity", err)
 	}
 	live = nil
-	expected, err := decodeReconstructionCheckpoint(repair74Reopen(t, retained), checkpoint.Pool, checkpoint.From, checkpoint.To, checkpoint.Manifest, checkpoint.Epoch)
+	expected, err := decodeReconstructionCheckpoint(retainedArchiveReopen(t, retained), checkpoint.Pool, checkpoint.From, checkpoint.To, checkpoint.Manifest, checkpoint.Epoch)
 	if err != nil || expected != checkpoint.Expected {
 		t.Fatal("lost independent commitment", expected, err)
 	}
@@ -182,11 +182,11 @@ func TestRepair_74_RetainedParitySurvivesRestart(t *testing.T) {
 	if len(recovered.Bars) != 8 || len(recovered.Candles) != 8 || len(recovered.Traders) != 7 {
 		t.Fatal("lost intervals or actor membership", len(recovered.Bars), len(recovered.Traders))
 	}
-	if err = os.WriteFile(projectionPath, repair74JSON(t, recovered.Candles), 0600); err != nil {
+	if err = os.WriteFile(projectionPath, retainedArchiveJSON(t, recovered.Candles), 0600); err != nil {
 		t.Fatal(err)
 	}
 	var snapshots []store.StagedCandle
-	if err = json.Unmarshal(repair74Reopen(t, projectionPath), &snapshots); err != nil {
+	if err = json.Unmarshal(retainedArchiveReopen(t, projectionPath), &snapshots); err != nil {
 		t.Fatal(err)
 	}
 	recoveredBars := []QualifiedCandle{}
@@ -223,8 +223,8 @@ func TestRepair_74_RetainedParitySurvivesRestart(t *testing.T) {
 	t.Log("finding 21: retained checkpoint codec survives deletion and file close/reopen independently of the damaged projection; shared reconstruction restores all intervals")
 }
 
-func TestRepair_74_RejectsInvalidRetainedAuthority(t *testing.T) {
-	checkpoint, _, _ := repair74Seed(t)
+func TestArchiveReconstructionRejectsInvalidRetainedAuthority(t *testing.T) {
+	checkpoint, _, _ := retainedArchiveSeed(t)
 	cases := []struct {
 		name  string
 		alter func(*retainedReconstructionCheckpoint)
@@ -249,12 +249,12 @@ func TestRepair_74_RejectsInvalidRetainedAuthority(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			invalid := checkpoint
 			tc.alter(&invalid)
-			if _, err := decodeReconstructionCheckpoint(repair74JSON(t, invalid), checkpoint.Pool, checkpoint.From, checkpoint.To, checkpoint.Manifest, checkpoint.Epoch); !errors.Is(err, ErrReconstructionCheckpoint) {
+			if _, err := decodeReconstructionCheckpoint(retainedArchiveJSON(t, invalid), checkpoint.Pool, checkpoint.From, checkpoint.To, checkpoint.Manifest, checkpoint.Epoch); !errors.Is(err, ErrReconstructionCheckpoint) {
 				t.Fatal("invalid retained authority accepted", err)
 			}
 		})
 	}
-	valid := repair74JSON(t, checkpoint)
+	valid := retainedArchiveJSON(t, checkpoint)
 	for _, wire := range [][]byte{nil, []byte("{}"), []byte("null"), append(append([]byte(nil), valid...), valid...), append(append([]byte(nil), valid[:len(valid)-1]...), []byte(",\"unknown\":true}")...), bytes.Repeat([]byte("x"), 4097)} {
 		if _, err := decodeReconstructionCheckpoint(wire, checkpoint.Pool, checkpoint.From, checkpoint.To, checkpoint.Manifest, checkpoint.Epoch); !errors.Is(err, ErrReconstructionCheckpoint) {
 			t.Fatal("malformed checkpoint accepted", err)
@@ -263,13 +263,13 @@ func TestRepair_74_RejectsInvalidRetainedAuthority(t *testing.T) {
 	t.Log("finding 21: checksum, manifest, pool, exact range, promotion and epoch guards preserved")
 }
 
-func TestRepair_74_DeleteCloseReopenReconstructArchive(t *testing.T) {
-	checkpoint, live, _ := repair74Seed(t)
+func TestArchiveReconstructionAfterProjectionDeletion(t *testing.T) {
+	checkpoint, live, _ := retainedArchiveSeed(t)
 	dir := t.TempDir()
 	retained := filepath.Join(dir, "checkpoint.json")
-	repair74Retain(t, retained, checkpoint)
+	retainedArchiveRetain(t, retained, checkpoint)
 	// Retention only proceeds after the independent commitment and floor qualify.
-	expected, err := decodeReconstructionCheckpoint(repair74Reopen(t, retained), checkpoint.Pool, checkpoint.From, checkpoint.To, checkpoint.Manifest, checkpoint.Epoch)
+	expected, err := decodeReconstructionCheckpoint(retainedArchiveReopen(t, retained), checkpoint.Pool, checkpoint.From, checkpoint.To, checkpoint.Manifest, checkpoint.Epoch)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -278,7 +278,7 @@ func TestRepair_74_DeleteCloseReopenReconstructArchive(t *testing.T) {
 		t.Fatal("retention floor", err)
 	}
 	path := filepath.Join(dir, "bars.json")
-	if err = os.WriteFile(path, repair74JSON(t, live), 0600); err != nil {
+	if err = os.WriteFile(path, retainedArchiveJSON(t, live), 0600); err != nil {
 		t.Fatal(err)
 	}
 	if err = os.Remove(path); err != nil {
@@ -286,11 +286,11 @@ func TestRepair_74_DeleteCloseReopenReconstructArchive(t *testing.T) {
 	}
 	live = nil
 	// Reopen both transports; there is no live projection available to checksum.
-	manifests, payload, fills, _ := repair74Archive(t)
+	manifests, payload, fills, _ := retainedArchiveArchive(t)
 	if _, err = os.Stat(path); !errors.Is(err, os.ErrNotExist) {
 		t.Fatal("retained-away projection survived", err)
 	}
-	expected, err = decodeReconstructionCheckpoint(repair74Reopen(t, retained), checkpoint.Pool, checkpoint.From, checkpoint.To, checkpoint.Manifest, checkpoint.Epoch)
+	expected, err = decodeReconstructionCheckpoint(retainedArchiveReopen(t, retained), checkpoint.Pool, checkpoint.From, checkpoint.To, checkpoint.Manifest, checkpoint.Epoch)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -303,10 +303,10 @@ func TestRepair_74_DeleteCloseReopenReconstructArchive(t *testing.T) {
 	if err = verifyReconstructionParity(expected, recovered.Digest); err != nil {
 		t.Fatal(err)
 	}
-	if err = os.WriteFile(path, repair74JSON(t, recovered.Candles), 0600); err != nil {
+	if err = os.WriteFile(path, retainedArchiveJSON(t, recovered.Candles), 0600); err != nil {
 		t.Fatal(err)
 	}
-	if len(repair74Reopen(t, path)) == 0 || len(recovered.Bars) != 8 {
+	if len(retainedArchiveReopen(t, path)) == 0 || len(recovered.Bars) != 8 {
 		t.Fatal("archive did not restore nonempty history")
 	}
 	// Equal re-emission produces exactly the same staged content after restart.
@@ -339,7 +339,7 @@ func TestRepair_74_DeleteCloseReopenReconstructArchive(t *testing.T) {
 	// An internally consistent, but wrong, retained digest must still reject output.
 	checkpoint.Expected = strings.Repeat("b", 64)
 	checkpoint.Output = checkpoint.Expected
-	wrongExpected, err := decodeReconstructionCheckpoint(repair74JSON(t, checkpoint), checkpoint.Pool, checkpoint.From, checkpoint.To, checkpoint.Manifest, checkpoint.Epoch)
+	wrongExpected, err := decodeReconstructionCheckpoint(retainedArchiveJSON(t, checkpoint), checkpoint.Pool, checkpoint.From, checkpoint.To, checkpoint.Manifest, checkpoint.Epoch)
 	if err != nil {
 		t.Fatal(err)
 	}

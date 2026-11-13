@@ -29,7 +29,7 @@ import (
 
 // Emit a real Swap on a local chain. TIMESTAMP and NUMBER in the emitter write
 // the source metadata into the event, so the bootstrap verifies real receipts.
-func repair314Source(t *testing.T) (*rpc.Client, developmentSourceRow) {
+func developmentSwapSource(t *testing.T) (*rpc.Client, developmentSourceRow) {
 	t.Helper()
 	key, err := crypto.GenerateKey()
 	if err != nil {
@@ -107,7 +107,7 @@ func repair314Source(t *testing.T) (*rpc.Client, developmentSourceRow) {
 	return raw, row
 }
 
-func TestRepair_22_39_314_DevelopmentSwapCarriesPosition(t *testing.T) {
+func TestDevelopmentSwapCarriesPosition(t *testing.T) {
 	ctx := context.Background()
 	_, pool := internaltest.NewPostgres(t)
 	opt, err := redis.ParseURL(internaltest.NewRedisURL(t))
@@ -119,7 +119,7 @@ func TestRepair_22_39_314_DevelopmentSwapCarriesPosition(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	st := store.New(pool)
 	builder := engine.New(pool, rdb, st, logger)
-	rpc, row := repair314Source(t)
+	rpc, row := developmentSwapSource(t)
 	source := NewDevelopmentSource(pool, rpc, builder, logger)
 	frame, err := source.frame(ctx, row)
 	if err != nil {
@@ -221,7 +221,7 @@ func TestRepair_22_39_314_DevelopmentSwapCarriesPosition(t *testing.T) {
 	}
 }
 
-func TestRepair_22_39_314_DevelopmentSchemaMigrates(t *testing.T) {
+func TestDevelopmentSchemaMigrates(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 	dsn := internaltest.NewDatabase(t)
