@@ -1,8 +1,8 @@
-# Kernel SQLite migrations
+# SQLite projection and import schemas
 
 This directory retains SQLite schemas for C projection tooling and historical import bookkeeping. Paxeer is one network: the kernel runs inside `paxd` and participates in block proposal. Committed chain state is authoritative, and a receipt is final when its block is committed. The kernel host loads and commits module state through the chain store in [`modules/lxphost/host.go`](../modules/lxphost/host.go); these SQLite files do not migrate that store.
 
-The projection code can rebuild a local SQLite projection from compatible log records. Committed chain state remains authoritative for network recovery and upgrades.
+The projection code opens the local SQLite database in WAL mode and applies the explicitly supplied schema file. A rebuild resets the projection tables and replays receipt records through the log's durable prefix in a transaction, clearing the stale flag on success. Committed chain state remains authoritative for network recovery and upgrades.
 
 | File | Creates | Current use |
 | --- | --- | --- |
