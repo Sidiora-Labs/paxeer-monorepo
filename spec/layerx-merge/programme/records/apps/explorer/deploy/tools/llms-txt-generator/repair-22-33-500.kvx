@@ -2,7 +2,7 @@
 finding = "llms-beacon-route"
 scope = "apps/explorer/deploy/tools/llms-txt-generator"
 implementation = "Generate the block beacon-deposit URL from GENERAL_API_BLOCK_RESOURCES.block_deposits, using the backend block_hash_or_number_param placeholder. Export the existing generator with typed configuration and output destination arguments so its real file output can be consumed without changing the CLI defaults."
-tests = "repair-22-33-500.spec.ts: llmsBeaconLinkMatchesRegisteredHandler, llmsBeaconLinkSupportsBlockNumberAndHash"
+tests = "beaconDepositLinks.spec.ts: llmsBeaconLinkMatchesRegisteredHandler, llmsBeaconLinkSupportsBlockNumberAndHash"
 proof_boundary = "The production generator writes llms.txt to a temporary file; tests read its curl URL, compare it to the committed Ethereum backend route registration and controller parameter contract, and consume both number and hash examples through the production frontend URL builder and route matcher. The Elixir controller is inspected as the registered contract, not executed; no external runtime, endpoint, credential or environment setting is required."
 baseline = "No baseline verification was run: the explicit task order forbids tests before complete implementation and permits verification only through hf-done after hf-build. No pre-change execution failure is claimed; the regression assertions reject the audited singular-block and number-only URL."
 wiring_requests = "None: the backend registration and frontend block-deposit resource already agree; no out-of-scope implementation step is required."

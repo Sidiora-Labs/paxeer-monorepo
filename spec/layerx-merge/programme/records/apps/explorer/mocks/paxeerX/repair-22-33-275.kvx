@@ -1,7 +1,7 @@
 [repair.22.33.275]
 audit = "22.30.132"
-failed-observations-accepted = "repair-22-33-275.spec.ts: failedObservationsStayVisibleInDetailAndNeverAdvanceLiveMarkets, successfulSubmissionKeepsRefusedObservationInDetailAndAppliesOnlyAcceptedMarket"
-unified-activity-shape = "repair-22-33-275.spec.ts: nativeAccountTransactionsPreserveExecutionResultsThroughTransportAndConsumer, emptyNativeAccountIncludesAndRendersZeroBalance"
+failed-observations-accepted = "nativePayloadConsumers.spec.ts: failedObservationsStayVisibleInDetailAndNeverAdvanceLiveMarkets, successfulSubmissionKeepsRefusedObservationInDetailAndAppliesOnlyAcceptedMarket"
+unified-activity-shape = "nativePayloadConsumers.spec.ts: nativeAccountTransactionsPreserveExecutionResultsThroughTransportAndConsumer, emptyNativeAccountIncludesAndRendersZeroBalance"
 implementation = "Failed submissions contain only rejected observations; a successful mixed submission carries a refused BTC observation and an accepted ETH observation. Native account fixtures carry committed transactions, required ok/error/null execution results and a native zero balance for an empty account. Native response types narrow the existing presentation model without broadening it."
 continuation = "Preserved the first attempt; failed observations now also retain FeedView's market-id ordering, and the repair test transports the strict native account exports directly."
 continuation_repair_1 = "Build 11ea0ea09fbba8f54873d0f1da9d420e43be6a3a failed (exit 2, /out/logs/build-1.log) because stricter presentation export annotations changed inference in ActivityListItem.spec.tsx. Restored the first attempt's existing presentation export annotations while preserving the strict native fixture definitions and transport input; no type definition or assertion was relaxed."

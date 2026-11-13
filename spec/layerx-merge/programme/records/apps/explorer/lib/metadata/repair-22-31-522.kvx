@@ -6,7 +6,7 @@ implementation = "Preserve the prerequisite 22.31.503 entries in the multichain 
 generated_file = "apps/explorer/nextjs/nextjs-routes.d.ts"
 generation = "Drop the stale attempt-1 route declaration in favor of the prerequisite 22.31.503 generated declaration; the declared production build regenerates nextjs/nextjs-routes.d.ts from the real pages directory."
 generated_routes = ["StaticRoute<\"/chains\">", "DynamicRoute<\"/chains/[id]\", { \"id\": string }>"]
-test_file = "apps/explorer/lib/metadata/repair-22-31-522.spec.ts"
+test_file = "apps/explorer/lib/metadata/chainPageOgType.spec.ts"
 tests = ["chainDirectoryHasRootPageOgType", "chainDetailHasRegularPageOgType"]
 proof = "Both registered named test functions call the real getPageOgType with typed route literals and assert exact Open Graph classifications, without credentials or live endpoints."
 owner_cleanup = "lib/metadata/templates/title.ts is unchanged; its intersection with Record<'/chains' | '/chains/[id]', string> becomes redundant once the regenerated Route union includes both chain routes and may be removed by its owner."
@@ -24,7 +24,7 @@ build_command = "cd apps/explorer && corepack enable && yarn install --frozen-lo
 build_logs = ["/out/logs/build-1.log", "/out/logs/build-2.log"]
 verify_gate = "hf-done"
 verify_command = "cg spec done 22.31.522 -f layerx-merge --root /work/paxeer-monorepo"
-verify_runs = "cd apps/explorer && yarn tsc --noEmit -p tsconfig.json && yarn vitest run lib/metadata/repair-22-31-522.spec.ts"
+verify_runs = "cd apps/explorer && yarn tsc --noEmit -p tsconfig.json && yarn vitest run lib/metadata/chainPageOgType.spec.ts"
 verify_log = "/out/logs/verify-1.log"
 evidence = "Retain raw logs and revision-specific gate results in the private locations above; no passing result is asserted by this source record before the gates execute."
 

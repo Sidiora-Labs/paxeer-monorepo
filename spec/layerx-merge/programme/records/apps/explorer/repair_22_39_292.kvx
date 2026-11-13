@@ -44,4 +44,4 @@ revision_binding = "hf-build and hf-done record the immutable candidate revision
 build_gate = "hf-build"
 build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn lint:tsc"
 verify_gate = "hf-done"
-verify_cmd = "test -s apps/explorer/repair_22_39_292.kvx && cd apps/explorer && yarn vitest run ui/paxeerX/account"
+verify_cmd = "test -s spec/layerx-merge/programme/records/apps/explorer/repair_22_39_292.kvx && cd apps/explorer && yarn vitest run ui/paxeerX/account"

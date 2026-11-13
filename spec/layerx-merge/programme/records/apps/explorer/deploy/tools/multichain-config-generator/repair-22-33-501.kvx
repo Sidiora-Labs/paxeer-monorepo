@@ -2,7 +2,7 @@
 finding = "multichain-fetch-unbounded"
 implementation = "index.ts: a 30000ms deadline covers the initial HTTP fetch and JSON body; HTTP status, items and every HTTP(S) explorer URL are validated before workers start; failures reject run and the CLI sets exit code 1."
 tests = ["repairMultichainFetchDeadlineBeforeHeaders", "repairMultichainFetchDeadlineIncludesBody", "repairMultichainFetchRejectsHttpErrors", "repairMultichainFetchValidatesEveryExplorerBeforeWorkers", "repairMultichainFetchPropagatesInvalidJson", "repairMultichainFetchRejectsEmptyCluster", "repairMultichainFetchPreservesValidExplorerUrls"]
-proof = "repair-22-33-501.spec.ts drives the production module against loopback HTTP servers and observes real worker creation through async_hooks; the shared fetch interception is disabled."
+proof = "aggregatorFetch.spec.ts drives the production module against loopback HTTP servers and observes real worker creation through async_hooks; the shared fetch interception is disabled."
 baseline = "Not run: the explicit implementation-first order and hf-build/hf-done-only gate limits take precedence over step 5's baseline instruction. No pre-change test failures are claimed."
 format = "apps/explorer/eslint.config.mjs explicitly ignores deploy/tools/; no repository formatter applies to these TypeScript files, and no KVX formatter is configured."
 previous_attempt = "Attempt 1 could not qualify because its build invoked pnpm in the Yarn-pinned explorer app (ERR_PNPM_OTHER_PM_EXPECTED); the current runner declares the authorized Yarn build and verify commands. The existing implementation and tests are retained."

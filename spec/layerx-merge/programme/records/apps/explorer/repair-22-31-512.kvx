@@ -65,7 +65,7 @@ repair = "Keep the external dependency directory named node_modules and point th
 
 [qualification.task_18_1712_1_boundary]
 task = "18.1712.1"
-file = "apps/explorer/repair-22-31-512.spec.ts"
+file = "apps/explorer/nodeFetchBoundary.spec.ts"
 symbol = "nodeFetchImportsStayServerOnly"
 observed = "At revision 5b685951a12bdb81ba9ed7b737bf0487c73c4954, cg spec done 18.1712.1 -f layerx-merge --root /work/paxeer-monorepo exited 1; /out/logs/verify-1.log records existing node-fetch imports in nextjs/pages-tests/api/repair-22-35-10.spec.ts:4, ui/pages/PaxeerXInference.spec.tsx:4 and ui/snippets/searchBar/repair-22-35-10.spec.tsx:5 outside the boundary allowlist."
 assumption = "Attempt 1 treated the unchanged importers and boundary allowlist as outside its scope; attempt 2 explicitly authorizes the three allowlist entries without changing those tests or assertions."

@@ -1,7 +1,7 @@
 [repair.22.33.295]
 audit = "22.30.134"
 finding = "chain_title"
-test_file = "apps/explorer/lib/metadata/templates/repair-22-33-295.spec.ts"
+test_file = "apps/explorer/lib/metadata/templates/chainMetadata.spec.ts"
 tests = ["chainDirectoryMetadataIncludesNetwork", "chainDetailMetadataIncludesNetworkAndRouteId", "chainDetailMetadataUsesSelectedChainName"]
 implementation = "Require both real chain page paths in the exhaustive title map; supply a network directory title, an ID-based detail title before enrichment, and a selected chain_name detail title after enrichment. Existing route coverage and title promotion behavior are retained."
 proof = "Production generate consumes the title templates and compiles configured network, route ID and selected chain name into both document and Open Graph metadata titles; the selected name comes through the production chain response codec from committed chain fixtures."
