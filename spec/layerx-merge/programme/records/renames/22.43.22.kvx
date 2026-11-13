@@ -1,0 +1,512 @@
+[manifest]
+task = "22.43.22"
+records_moved = 8
+files_renamed = 32
+
+[file.1]
+from = "apps/web/e2e/repair-22-31-383.test.ts"
+to = "apps/web/e2e/native-explorer-http.test.ts"
+
+[file.2]
+from = "apps/web/e2e/repair-22-31-384.test.ts"
+to = "apps/web/e2e/approval-stepup-http.test.ts"
+
+[file.3]
+from = "apps/web/e2e/repair-22-31-385.test.ts"
+to = "apps/web/e2e/onboarding-recovery-http.test.ts"
+
+[file.4]
+from = "apps/web/e2e/repair-22-31-386.test.ts"
+to = "apps/web/e2e/activity-detail-http.test.ts"
+
+[file.5]
+from = "apps/web/e2e/repair-22-31-387.test.ts"
+to = "apps/web/e2e/support-report-routes.test.ts"
+
+[file.6]
+from = "apps/web/e2e/repair-22-31-433.test.ts"
+to = "apps/web/e2e/market-receipt-deployment.test.ts"
+
+[file.7]
+from = "apps/web/e2e/repair-22-33-276.test.ts"
+to = "apps/web/e2e/network-copy.test.ts"
+
+[file.8]
+from = "apps/web/e2e/repair-22-33-337.test.ts"
+to = "apps/web/e2e/journey-contracts.test.ts"
+
+[file.9]
+from = "apps/web/e2e/repair-22-33-338-commit.ts"
+to = "apps/web/e2e/committed-receipt-evidence.ts"
+
+[file.10]
+from = "apps/web/e2e/repair-22-33-338-receipts.ts"
+to = "apps/web/e2e/native-receipt-fixture.ts"
+
+[file.11]
+from = "apps/web/e2e/repair-22-33-338-runtime.ts"
+to = "apps/web/e2e/typescript-test-runtime.ts"
+
+[file.12]
+from = "apps/web/e2e/repair-22-33-338-sponsored.ts"
+to = "apps/web/e2e/sponsored-submission-fixture.ts"
+
+[file.13]
+from = "apps/web/e2e/repair-22-33-338-support.ts"
+to = "apps/web/e2e/support-conversation-fixture.ts"
+
+[file.14]
+from = "apps/web/e2e/repair-22-33-338.test.ts"
+to = "apps/web/e2e/receipt-and-support-contracts.test.ts"
+
+[file.15]
+from = "apps/web/e2e/repair-22-33-339.test.ts"
+to = "apps/web/e2e/settings-http-envelopes.test.ts"
+
+[file.16]
+from = "apps/web/e2e/repair-22-33-347.test.ts"
+to = "apps/web/e2e/explorer-native-presentation.test.ts"
+
+[file.17]
+from = "apps/web/e2e/repair-22-33-348.test.ts"
+to = "apps/web/e2e/program-finality-observations.test.ts"
+
+[file.18]
+from = "apps/web/e2e/repair-22-33-349.test.ts"
+to = "apps/web/e2e/api-resource-bounds.test.ts"
+
+[file.19]
+from = "apps/web/e2e/repair-22-33-350.test.ts"
+to = "apps/web/e2e/launchpad-pagination.test.ts"
+
+[file.20]
+from = "apps/web/e2e/repair-22-33-351.test.ts"
+to = "apps/web/e2e/agent-authorization-recovery.test.ts"
+
+[file.21]
+from = "apps/web/e2e/repair-22-33-352.test.ts"
+to = "apps/web/e2e/move-money-formatting.test.ts"
+
+[file.22]
+from = "apps/web/e2e/repair-22-33-353.test.ts"
+to = "apps/web/e2e/activity-filter-export-evidence.test.ts"
+
+[file.23]
+from = "apps/web/e2e/repair-22-33-354.test.ts"
+to = "apps/web/e2e/explorer-performance-routes.test.ts"
+
+[file.24]
+from = "apps/web/e2e/repair-22-33-355.test.ts"
+to = "apps/web/e2e/state-matrix-report-principals.test.ts"
+
+[file.25]
+from = "apps/web/e2e/repair-22-33-356.test.ts"
+to = "apps/web/e2e/recovery-receipt-presentation.test.ts"
+
+[file.26]
+from = "apps/web/e2e/repair-22-33-357.test.ts"
+to = "apps/web/e2e/support-conversation-recovery.test.ts"
+
+[file.27]
+from = "apps/web/e2e/repair-22-33-361.test.ts"
+to = "apps/web/e2e/native-account-page.test.ts"
+
+[file.28]
+from = "apps/web/e2e/repair-22-33-362.test.ts"
+to = "apps/web/e2e/native-receipt-page.test.ts"
+
+[file.29]
+from = "apps/web/e2e/repair-22-33-506.test.ts"
+to = "apps/web/e2e/ui-component-state.test.ts"
+
+[file.30]
+from = "apps/web/e2e/repair-22-33-507.test.ts"
+to = "apps/web/e2e/csv-cell-encoding.test.ts"
+
+[file.31]
+from = "apps/web/e2e/repair-22-33-897.test.ts"
+to = "apps/web/e2e/perps-exchange-integration.test.ts"
+
+[file.32]
+from = "apps/web/policy/repair-22-33-419.json"
+to = "apps/web/policy/dependency-policy-coverage.json"
+
+[file.33]
+from = "apps/web/copy/repair-22-33-276.kvx"
+to = "spec/layerx-merge/programme/records/apps/web/copy/repair-22-33-276.kvx"
+
+[file.34]
+from = "apps/web/e2e/browser/repair-22-33-339.kvx"
+to = "spec/layerx-merge/programme/records/apps/web/e2e/browser/repair-22-33-339.kvx"
+
+[file.35]
+from = "apps/web/e2e/repair-22-31-469.kvx"
+to = "spec/layerx-merge/programme/records/apps/web/e2e/repair-22-31-469.kvx"
+
+[file.36]
+from = "apps/web/e2e/repair-22-33-337.kvx"
+to = "spec/layerx-merge/programme/records/apps/web/e2e/repair-22-33-337.kvx"
+
+[file.37]
+from = "apps/web/e2e/repair-22-33-338.kvx"
+to = "spec/layerx-merge/programme/records/apps/web/e2e/repair-22-33-338.kvx"
+
+[file.38]
+from = "apps/web/repair_22_39_269.kvx"
+to = "spec/layerx-merge/programme/records/apps/web/repair_22_39_269.kvx"
+
+[file.39]
+from = "apps/web/repair_22_39_305.kvx"
+to = "spec/layerx-merge/programme/records/apps/web/repair_22_39_305.kvx"
+
+[file.40]
+from = "apps/web/repair_22_39_397.kvx"
+to = "spec/layerx-merge/programme/records/apps/web/repair_22_39_397.kvx"
+
+[reference.1]
+file = "GOTCHA.kvx"
+name = "apps/web/e2e/repair-22-33-338-commit.ts"
+
+[reference.2]
+file = "GOTCHA.kvx"
+name = "apps/web/e2e/repair-22-33-338-support.ts"
+
+[reference.3]
+file = "GOTCHA.kvx"
+name = "repair-22-33-338.test.ts"
+
+[reference.4]
+file = "services/human/tools/repair_22_39_441.kvx"
+name = "apps/web/policy/repair-22-33-419.json"
+
+[reference.5]
+file = "spec/layerx-merge/dispositions/d22-18.kvx"
+name = "apps/web/e2e/repair-22-31-383.test.ts"
+
+[reference.6]
+file = "spec/layerx-merge/dispositions/d22-18.kvx"
+name = "apps/web/e2e/repair-22-31-384.test.ts"
+
+[reference.7]
+file = "spec/layerx-merge/dispositions/d22-18.kvx"
+name = "apps/web/e2e/repair-22-31-387.test.ts"
+
+[reference.8]
+file = "spec/layerx-merge/dispositions/d22-27.kvx"
+name = "apps/web/e2e/repair-22-33-337.test.ts"
+
+[reference.9]
+file = "spec/layerx-merge/dispositions/d22-27.kvx"
+name = "apps/web/e2e/repair-22-33-338-commit.ts"
+
+[reference.10]
+file = "spec/layerx-merge/dispositions/d22-27.kvx"
+name = "apps/web/e2e/repair-22-33-338.test.ts"
+
+[reference.11]
+file = "spec/layerx-merge/dispositions/d22-27.kvx"
+name = "apps/web/e2e/repair-22-33-897.test.ts"
+
+[reference.12]
+file = "spec/layerx-merge/dispositions/d22-30.kvx"
+name = "apps/web/e2e/repair-22-33-897.test.ts"
+
+[reference.13]
+file = "spec/layerx-merge/qualification.kvx"
+name = "apps/web/e2e/repair-22-31-383.test.ts"
+
+[reference.14]
+file = "spec/layerx-merge/qualification.kvx"
+name = "apps/web/e2e/repair-22-31-384.test.ts"
+
+[reference.15]
+file = "spec/layerx-merge/qualification.kvx"
+name = "apps/web/e2e/repair-22-31-387.test.ts"
+
+[reference.16]
+file = "spec/layerx-merge/qualification.kvx"
+name = "apps/web/e2e/repair-22-33-337.test.ts"
+
+[reference.17]
+file = "spec/layerx-merge/qualification.kvx"
+name = "apps/web/e2e/repair-22-33-338.test.ts"
+
+[reference.18]
+file = "spec/layerx-merge/qualification.kvx"
+name = "apps/web/e2e/repair-22-33-897.test.ts"
+
+[reference.19]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-31-383.test.ts"
+
+[reference.20]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-31-384.test.ts"
+
+[reference.21]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-31-387.test.ts"
+
+[reference.22]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-337.test.ts"
+
+[reference.23]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-338.test.ts"
+
+[reference.24]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-897.test.ts"
+
+[reference.25]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/web/e2e/repair-22-31-383.test.ts"
+
+[reference.26]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/web/e2e/repair-22-31-384.test.ts"
+
+[reference.27]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/web/e2e/repair-22-31-385.test.ts"
+
+[reference.28]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/web/e2e/repair-22-31-386.test.ts"
+
+[reference.29]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/web/e2e/repair-22-31-387.test.ts"
+
+[reference.30]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/web/e2e/repair-22-31-433.test.ts"
+
+[reference.31]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/web/e2e/repair-22-31-469.kvx"
+
+[reference.32]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/web/e2e/repair-22-33-276.test.ts"
+
+[reference.33]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/web/e2e/repair-22-33-337.test.ts"
+
+[reference.34]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/web/e2e/repair-22-33-338-commit.ts"
+
+[reference.35]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/web/e2e/repair-22-33-338-receipts.ts"
+
+[reference.36]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/web/e2e/repair-22-33-338-runtime.ts"
+
+[reference.37]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/web/e2e/repair-22-33-338-sponsored.ts"
+
+[reference.38]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/web/e2e/repair-22-33-338-support.ts"
+
+[reference.39]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/web/e2e/repair-22-33-338.kvx"
+
+[reference.40]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/web/e2e/repair-22-33-338.test.ts"
+
+[reference.41]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/web/e2e/repair-22-33-339.test.ts"
+
+[reference.42]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/web/e2e/repair-22-33-347.test.ts"
+
+[reference.43]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/web/e2e/repair-22-33-348.test.ts"
+
+[reference.44]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/web/e2e/repair-22-33-349.test.ts"
+
+[reference.45]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/web/e2e/repair-22-33-350.test.ts"
+
+[reference.46]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/web/e2e/repair-22-33-351.test.ts"
+
+[reference.47]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/web/e2e/repair-22-33-352.test.ts"
+
+[reference.48]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/web/e2e/repair-22-33-353.test.ts"
+
+[reference.49]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/web/e2e/repair-22-33-354.test.ts"
+
+[reference.50]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/web/e2e/repair-22-33-355.test.ts"
+
+[reference.51]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/web/e2e/repair-22-33-356.test.ts"
+
+[reference.52]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/web/e2e/repair-22-33-357.test.ts"
+
+[reference.53]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/web/e2e/repair-22-33-361.test.ts"
+
+[reference.54]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/web/e2e/repair-22-33-362.test.ts"
+
+[reference.55]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/web/e2e/repair-22-33-506.test.ts"
+
+[reference.56]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/web/e2e/repair-22-33-507.test.ts"
+
+[reference.57]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/web/e2e/repair-22-33-897.test.ts"
+
+[reference.58]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/web/repair_22_39_269.kvx"
+
+[reference.59]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/web/repair_22_39_305.kvx"
+
+[reference.60]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/web/repair_22_39_397.kvx"
+
+[reference.61]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-31-383.test.ts"
+
+[reference.62]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-31-384.test.ts"
+
+[reference.63]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-31-385.test.ts"
+
+[reference.64]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-31-386.test.ts"
+
+[reference.65]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-31-387.test.ts"
+
+[reference.66]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-31-433.test.ts"
+
+[reference.67]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-276.test.ts"
+
+[reference.68]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-337.test.ts"
+
+[reference.69]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-338-support.ts"
+
+[reference.70]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-338.test.ts"
+
+[reference.71]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-339.test.ts"
+
+[reference.72]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-347.test.ts"
+
+[reference.73]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-348.test.ts"
+
+[reference.74]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-349.test.ts"
+
+[reference.75]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-350.test.ts"
+
+[reference.76]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-351.test.ts"
+
+[reference.77]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-352.test.ts"
+
+[reference.78]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-353.test.ts"
+
+[reference.79]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-354.test.ts"
+
+[reference.80]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-355.test.ts"
+
+[reference.81]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-356.test.ts"
+
+[reference.82]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-357.test.ts"
+
+[reference.83]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-361.test.ts"
+
+[reference.84]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-362.test.ts"
+
+[reference.85]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-506.test.ts"
+
+[reference.86]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-507.test.ts"
+
+[reference.87]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-897.test.ts"

@@ -16,7 +16,7 @@ func parityWorker(t *testing.T) (*LiveTransferWorker, *internaltest.QueryCancell
 	ctx := context.Background()
 	s, trace := inventoryCancelableService(t)
 	inventoryCommittedHead(t, ctx, s.authority.pool)
-	origin := repair63RecordedRPC(t)
+	origin := coordinatorReplayRecordedRPC(t)
 	s.second, _ = inventoryProviderVariant(t, origin, func(r inventoryRPCRequest) bool { return r.Method == "eth_call" }, func(out map[string]any) { out["result"] = "0x" + strings.Repeat("0", 64) })
 	identity, principal := inventoryIdentityFixture(t, realMarketCreator)
 	worker, err := NewLiveTransferWorker(s, l17.Repository{Pool: s.authority.pool}, identity, 1)

@@ -109,7 +109,7 @@ CREATE TABLE indexer.indexer_ingest_watermarks_v1(chain_id integer,stream_id tex
 	if _, err := pool.Exec(ctx, "CREATE TABLE "+archive.store.table("repair_41_projection")+"(generation text NOT NULL,height bigint NOT NULL,transaction_index bigint NOT NULL,log_index bigint NOT NULL,body bytea NOT NULL,PRIMARY KEY(generation,height,transaction_index,log_index))"); err != nil {
 		t.Fatal(err)
 	}
-	replay, err := NewReplayEngine(archive, "archive_reader", "generation_1", "fixture_worker", repair41Projection{archive}, verifyWebhookFixtureAdmin, time.Minute)
+	replay, err := NewReplayEngine(archive, "archive_reader", "generation_1", "fixture_worker", activeRebuildProjection{archive}, verifyWebhookFixtureAdmin, time.Minute)
 	if err != nil {
 		t.Fatal(err)
 	}

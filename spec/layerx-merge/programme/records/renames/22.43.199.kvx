@@ -1,0 +1,52 @@
+[manifest]
+task = "22.43.199"
+records_moved = 4
+files_renamed = 3
+
+[file.1]
+from = "tests/protocol/repair_m730_test.go"
+to = "tests/protocol/clock_and_rejection_policy_test.go"
+
+[file.2]
+from = "tests/protocol/lxp_test_repair_22_33_18.c"
+to = "tests/protocol/lxp_test_producer_receipts.c"
+
+[file.3]
+from = "tests/protocol/repair_22_33_18_receipts.h"
+to = "tests/protocol/lxp_test_node_receipt_vectors.h"
+
+[file.4]
+from = "tests/protocol/repair_22_31_42.kvx"
+to = "spec/layerx-merge/programme/records/tests/protocol/repair_22_31_42.kvx"
+
+[file.5]
+from = "tests/protocol/repair_22_31_502.kvx"
+to = "spec/layerx-merge/programme/records/tests/protocol/repair_22_31_502.kvx"
+
+[file.6]
+from = "tests/protocol/repair_22_33_730.kvx"
+to = "spec/layerx-merge/programme/records/tests/protocol/repair_22_33_730.kvx"
+
+[file.7]
+from = "tests/protocol/repair_22_33_966.kvx"
+to = "spec/layerx-merge/programme/records/tests/protocol/repair_22_33_966.kvx"
+
+[reference.1]
+file = "spec/layerx-merge/spec.kvx"
+name = "lxp_test_repair_22_33_18.c"
+
+[reference.2]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_31_502.kvx"
+
+[reference.3]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_18_receipts.h"
+
+[reference.4]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m730_test.go"
+
+[reference.5]
+file = "tests/ci/repair_22_33_18.kvx"
+name = "lxp_test_repair_22_33_18.c"

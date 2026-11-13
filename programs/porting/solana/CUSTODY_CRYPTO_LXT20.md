@@ -1,0 +1,26 @@
+# Solana porting: custody, crypto and LXT-20
+
+The [migration guide](MIGRATION.md) maps Solana account and token operations
+onto the Programs runtime. Custody uses a registered program account, explicit
+funding and an owner-bound spend grant for each later payout. The grant binds
+the program, seed, source account, asset, recipient and ceiling. A foreign owner
+is refused at admission; a missing grant, wrong asset or insufficient ceiling
+cannot authorize a guest payment. Signed native registration and bank settlement
+are host responsibilities.
+
+Guest hashing and signature verification use the runtime's bounded host imports.
+SHA-256, Keccak-256, BLAKE3, Ed25519 verification and secp256k1 verification and
+recovery are available through the [SDK crypto bindings](../../sdk/rust/src/crypto.rs).
+An application signature does not add transaction spending authority.
+
+The [LXT-20 reference](../../sdk/rust/examples/token-lxt20/src/lib.rs) exposes
+eight operations. Issuer-only initialization funds the fixed supply once.
+Transfers and delegated transfers require the corresponding spend authority;
+delegated transfers also consume an allowance. Refused guest operations preserve
+storage and discard staged effects.
+
+The [integration tests](tests/custody_crypto_lxt20_guide.rs) exercise custody grants,
+guest crypto imports, initialization, all token exports, allowance revocation
+and atomic refusal behavior. They execute the committed token fixture through
+authenticated runtime calls. Native registration and settlement are separate
+from these runtime checks.

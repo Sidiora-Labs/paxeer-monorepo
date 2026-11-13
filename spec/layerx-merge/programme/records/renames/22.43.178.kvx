@@ -1,0 +1,276 @@
+[manifest]
+task = "22.43.178"
+records_moved = 11
+files_renamed = 16
+
+[file.1]
+from = "services/wallet/gateway/test/db/repair-22-31-447.test.ts"
+to = "services/wallet/gateway/test/db/test-database.test.ts"
+
+[file.2]
+from = "services/wallet/gateway/test/repair-22-31-370.test.ts"
+to = "services/wallet/gateway/test/approval-recovery.test.ts"
+
+[file.3]
+from = "services/wallet/gateway/test/repair-22-31-371.test.ts"
+to = "services/wallet/gateway/test/signing-policy-reservations.test.ts"
+
+[file.4]
+from = "services/wallet/gateway/test/repair-22-31-372.test.ts"
+to = "services/wallet/gateway/test/signature-ledger-persistence.test.ts"
+
+[file.5]
+from = "services/wallet/gateway/test/repair-22-31-373.test.ts"
+to = "services/wallet/gateway/test/sequencer-broadcast-outcomes.test.ts"
+
+[file.6]
+from = "services/wallet/gateway/test/repair-22-31-517.test.ts"
+to = "services/wallet/gateway/test/single-connection-signing.test.ts"
+
+[file.7]
+from = "services/wallet/gateway/test/repair-22-33-179.test.ts"
+to = "services/wallet/gateway/test/rpc-response-bounds.test.ts"
+
+[file.8]
+from = "services/wallet/gateway/test/repair-22-33-180.test.ts"
+to = "services/wallet/gateway/test/database-reservation-guards.test.ts"
+
+[file.9]
+from = "services/wallet/gateway/test/repair-22-33-181.test.ts"
+to = "services/wallet/gateway/test/action-worker-leases.test.ts"
+
+[file.10]
+from = "services/wallet/gateway/test/repair-22-33-182.test.ts"
+to = "services/wallet/gateway/test/rpc-receipt-availability.test.ts"
+
+[file.11]
+from = "services/wallet/gateway/test/repair-22-33-183.test.ts"
+to = "services/wallet/gateway/test/precompile-readiness-evidence.test.ts"
+
+[file.12]
+from = "services/wallet/gateway/test/repair-22-33-184.test.ts"
+to = "services/wallet/gateway/test/transaction-fields.test.ts"
+
+[file.13]
+from = "services/wallet/gateway/test/repair-22-33-207.test.ts"
+to = "services/wallet/gateway/test/signing-identity-and-receipts.test.ts"
+
+[file.14]
+from = "services/wallet/gateway/test/repair-22-33-208.test.ts"
+to = "services/wallet/gateway/test/sponsored-bind-receipts.test.ts"
+
+[file.15]
+from = "services/wallet/gateway/test/repair-22-33-209.test.ts"
+to = "services/wallet/gateway/test/gateway-authenticated-approvals.test.ts"
+
+[file.16]
+from = "services/wallet/gateway/test/repair-22-33-210.test.ts"
+to = "services/wallet/gateway/test/chain-receipt-fixtures.test.ts"
+
+[file.17]
+from = "services/wallet/gateway/repair_22_39_290.kvx"
+to = "spec/layerx-merge/programme/records/services/wallet/gateway/repair_22_39_290.kvx"
+
+[file.18]
+from = "services/wallet/gateway/src/db/repair-22-31-372.kvx"
+to = "spec/layerx-merge/programme/records/services/wallet/gateway/src/db/repair-22-31-372.kvx"
+
+[file.19]
+from = "services/wallet/gateway/src/db/repair-22-31-447.kvx"
+to = "spec/layerx-merge/programme/records/services/wallet/gateway/src/db/repair-22-31-447.kvx"
+
+[file.20]
+from = "services/wallet/gateway/src/db/repair-22-33-180.kvx"
+to = "spec/layerx-merge/programme/records/services/wallet/gateway/src/db/repair-22-33-180.kvx"
+
+[file.21]
+from = "services/wallet/gateway/src/policy/repair-22-31-371.kvx"
+to = "spec/layerx-merge/programme/records/services/wallet/gateway/src/policy/repair-22-31-371.kvx"
+
+[file.22]
+from = "services/wallet/gateway/src/routes/repair-22-31-370.kvx"
+to = "spec/layerx-merge/programme/records/services/wallet/gateway/src/routes/repair-22-31-370.kvx"
+
+[file.23]
+from = "services/wallet/gateway/src/routes/repair-22-33-183.kvx"
+to = "spec/layerx-merge/programme/records/services/wallet/gateway/src/routes/repair-22-33-183.kvx"
+
+[file.24]
+from = "services/wallet/gateway/src/rpc/repair-22-31-373.kvx"
+to = "spec/layerx-merge/programme/records/services/wallet/gateway/src/rpc/repair-22-31-373.kvx"
+
+[file.25]
+from = "services/wallet/gateway/src/rpc/repair-22-33-179.kvx"
+to = "spec/layerx-merge/programme/records/services/wallet/gateway/src/rpc/repair-22-33-179.kvx"
+
+[file.26]
+from = "services/wallet/gateway/test/repair-22-31-517.kvx"
+to = "spec/layerx-merge/programme/records/services/wallet/gateway/test/repair-22-31-517.kvx"
+
+[file.27]
+from = "services/wallet/gateway/test/repair-22-33-208.kvx"
+to = "spec/layerx-merge/programme/records/services/wallet/gateway/test/repair-22-33-208.kvx"
+
+[reference.1]
+file = "GOTCHA.kvx"
+name = "repair-22-33-181.test.ts"
+
+[reference.2]
+file = "GOTCHA.kvx"
+name = "repair-22-33-207.test.ts"
+
+[reference.3]
+file = "GOTCHA.kvx"
+name = "repair-22-33-209.test.ts"
+
+[reference.4]
+file = "GOTCHA.kvx"
+name = "repair-22-33-210.test.ts"
+
+[reference.5]
+file = "GOTCHA.kvx"
+name = "repair_22_39_290.kvx"
+
+[reference.6]
+file = "spec/layerx-merge/dispositions/d22-19.kvx"
+name = "repair-22-31-447.test.ts"
+
+[reference.7]
+file = "spec/layerx-merge/dispositions/d22-20.kvx"
+name = "repair-22-31-517.test.ts"
+
+[reference.8]
+file = "spec/layerx-merge/dispositions/d22-26.kvx"
+name = "repair-22-33-207.test.ts"
+
+[reference.9]
+file = "spec/layerx-merge/dispositions/d22-26.kvx"
+name = "repair-22-33-208.test.ts"
+
+[reference.10]
+file = "spec/layerx-merge/programme/issues/1662.kvx"
+name = "repair-22-33-181.test.ts"
+
+[reference.11]
+file = "spec/layerx-merge/programme/issues/1662.kvx"
+name = "repair-22-33-209.test.ts"
+
+[reference.12]
+file = "spec/layerx-merge/programme/issues/input/1662.md"
+name = "repair-22-33-181.test.ts"
+
+[reference.13]
+file = "spec/layerx-merge/programme/issues/input/1662.md"
+name = "repair-22-33-209.test.ts"
+
+[reference.14]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-31-447.test.ts"
+
+[reference.15]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-31-517.test.ts"
+
+[reference.16]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-179.test.ts"
+
+[reference.17]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-181.test.ts"
+
+[reference.18]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-184.test.ts"
+
+[reference.19]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-207.test.ts"
+
+[reference.20]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-208.test.ts"
+
+[reference.21]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-210.test.ts"
+
+[reference.22]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-31-370.test.ts"
+
+[reference.23]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-31-371.test.ts"
+
+[reference.24]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-31-372.test.ts"
+
+[reference.25]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-31-373.test.ts"
+
+[reference.26]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-31-447.test.ts"
+
+[reference.27]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-31-517.kvx"
+
+[reference.28]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-31-517.test.ts"
+
+[reference.29]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-179.kvx"
+
+[reference.30]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-179.test.ts"
+
+[reference.31]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-180.test.ts"
+
+[reference.32]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-181.test.ts"
+
+[reference.33]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-182.test.ts"
+
+[reference.34]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-183.test.ts"
+
+[reference.35]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-184.test.ts"
+
+[reference.36]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-207.test.ts"
+
+[reference.37]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-208.kvx"
+
+[reference.38]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-208.test.ts"
+
+[reference.39]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-209.test.ts"
+
+[reference.40]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-210.test.ts"
+
+[reference.41]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_290.kvx"

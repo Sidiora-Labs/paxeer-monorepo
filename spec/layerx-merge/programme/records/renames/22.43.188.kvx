@@ -1,0 +1,332 @@
+[manifest]
+task = "22.43.188"
+records_moved = 4
+files_renamed = 9
+
+[file.1]
+from = "tests/agent/sdk/python/test_repair_22_31_312.py"
+to = "tests/agent/sdk/python/test_program_terminal_response.py"
+
+[file.2]
+from = "tests/agent/sdk/python/test_repair_22_33_1362.py"
+to = "tests/agent/sdk/python/test_resumable_history_stream.py"
+
+[file.3]
+from = "tests/agent/sdk/python/test_repair_22_33_15.py"
+to = "tests/agent/sdk/python/test_installed_receipt_example.py"
+
+[file.4]
+from = "tests/agent/sdk/python/test_repair_22_33_1509.py"
+to = "tests/agent/sdk/python/test_daemon_transaction_recovery.py"
+
+[file.5]
+from = "tests/agent/sdk/python/test_repair_22_33_16.py"
+to = "tests/agent/sdk/python/test_signed_mutation_contracts.py"
+
+[file.6]
+from = "tests/agent/sdk/python/test_repair_22_33_17.py"
+to = "tests/agent/sdk/python/test_receipt_authority_recovery.py"
+
+[file.7]
+from = "tests/agent/sdk/python/test_repair_22_33_701.py"
+to = "tests/agent/sdk/python/test_program_gateway_contracts.py"
+
+[file.8]
+from = "tests/agent/sdk/python/test_repair_22_33_702.py"
+to = "tests/agent/sdk/python/test_payment_receipt_contracts.py"
+
+[file.9]
+from = "tests/agent/sdk/python/test_repair_22_31_147.py"
+to = "tests/agent/sdk/python/test_committed_receipt_consumers.py"
+
+[file.10]
+from = "tests/agent/sdk/python/repair_22_31_312.kvx"
+to = "spec/layerx-merge/programme/records/tests/agent/sdk/python/repair_22_31_312.kvx"
+
+[file.11]
+from = "tests/agent/sdk/python/repair_22_33_701.kvx"
+to = "spec/layerx-merge/programme/records/tests/agent/sdk/python/repair_22_33_701.kvx"
+
+[file.12]
+from = "tests/agent/sdk/python/repair_22_33_702.kvx"
+to = "spec/layerx-merge/programme/records/tests/agent/sdk/python/repair_22_33_702.kvx"
+
+[file.13]
+from = "tests/agent/sdk/python/repair_22_39_119.kvx"
+to = "spec/layerx-merge/programme/records/tests/agent/sdk/python/repair_22_39_119.kvx"
+
+[reference.1]
+file = "GOTCHA.kvx"
+name = "test_repair_22_33_16.py"
+
+[reference.2]
+file = "GOTCHA.kvx"
+name = "test_repair_22_33_17.py"
+
+[reference.3]
+file = "GOTCHA.kvx"
+name = "test_repair_22_33_701.py"
+
+[reference.4]
+file = "GOTCHA.kvx"
+name = "test_repair_22_33_702.py"
+
+[reference.5]
+file = "GOTCHA.kvx"
+name = "tests/agent/sdk/python/test_repair_22_31_147.py"
+
+[reference.6]
+file = "services/agent/sdk/python/layerx_sdk/repair_22_33_1362.kvx"
+name = "tests/agent/sdk/python/test_repair_22_33_1362.py"
+
+[reference.7]
+file = "services/agent/sdk/python/layerx_sdk/repair_22_33_16.kvx"
+name = "tests/agent/sdk/python/test_repair_22_31_147.py"
+
+[reference.8]
+file = "services/agent/sdk/python/layerx_sdk/repair_22_33_17.kvx"
+name = "test_repair_22_33_16.py"
+
+[reference.9]
+file = "services/agent/sdk/python/layerx_sdk/repair_22_33_17.kvx"
+name = "tests/agent/sdk/python/test_repair_22_31_147.py"
+
+[reference.10]
+file = "services/agent/sdk/python/tests/test_ai_market_commit.py"
+name = "test_repair_22_31_147"
+
+[reference.11]
+file = "services/agent/sdk/python/tests/test_ai_market_commit.py"
+name = "test_repair_22_33_17"
+
+[reference.12]
+file = "services/agent/sdk/python/tests/test_retired_kernel_receipts.py"
+name = "test_repair_22_31_147"
+
+[reference.13]
+file = "services/agent/sdk/python/tests/test_web_search_sequencer.py"
+name = "test_repair_22_31_147"
+
+[reference.14]
+file = "services/agent/sdk/python/tests/test_x402_draw_sequencer.py"
+name = "test_repair_22_33_17"
+
+[reference.15]
+file = "services/agent/sdk/python/tests/test_x402_http_sequencer.py"
+name = "test_repair_22_31_147"
+
+[reference.16]
+file = "services/agent/sdk/python/tests/test_x402_http_sequencer.py"
+name = "test_repair_22_33_17"
+
+[reference.17]
+file = "services/agent/sdk/repair_22_39_288.kvx"
+name = "tests/agent/sdk/python/test_repair_22_31_147.py"
+
+[reference.18]
+file = "spec/layerx-merge/dispositions/d22-17.kvx"
+name = "tests/agent/sdk/python/test_repair_22_31_147.py"
+
+[reference.19]
+file = "spec/layerx-merge/dispositions/d22-18.kvx"
+name = "tests/agent/sdk/python/test_repair_22_31_312.py"
+
+[reference.20]
+file = "spec/layerx-merge/dispositions/d22-29.kvx"
+name = "tests/agent/sdk/python/test_repair_22_33_701.py"
+
+[reference.21]
+file = "spec/layerx-merge/dispositions/d22-29.kvx"
+name = "tests/agent/sdk/python/test_repair_22_33_702.py"
+
+[reference.22]
+file = "spec/layerx-merge/dispositions/d22-31.kvx"
+name = "tests/agent/sdk/python/repair_22_39_119.kvx"
+
+[reference.23]
+file = "spec/layerx-merge/dispositions/d22-31.kvx"
+name = "tests/agent/sdk/python/test_repair_22_33_702.py"
+
+[reference.24]
+file = "spec/layerx-merge/programme/issues/1582.kvx"
+name = "tests/agent/sdk/python/test_repair_22_33_16.py"
+
+[reference.25]
+file = "spec/layerx-merge/programme/issues/1582.kvx"
+name = "tests/agent/sdk/python/test_repair_22_33_17.py"
+
+[reference.26]
+file = "spec/layerx-merge/programme/issues/1831.kvx"
+name = "tests/agent/sdk/python/test_repair_22_31_147.py"
+
+[reference.27]
+file = "spec/layerx-merge/programme/issues/1831.kvx"
+name = "tests/agent/sdk/python/test_repair_22_33_17.py"
+
+[reference.28]
+file = "spec/layerx-merge/programme/issues/1835.kvx"
+name = "tests/agent/sdk/python/test_repair_22_33_702.py"
+
+[reference.29]
+file = "spec/layerx-merge/programme/issues/1839.kvx"
+name = "tests/agent/sdk/python/test_repair_22_31_147.py"
+
+[reference.30]
+file = "spec/layerx-merge/programme/issues/1839.kvx"
+name = "tests/agent/sdk/python/test_repair_22_33_15.py"
+
+[reference.31]
+file = "spec/layerx-merge/programme/issues/1839.kvx"
+name = "tests/agent/sdk/python/test_repair_22_33_16.py"
+
+[reference.32]
+file = "spec/layerx-merge/programme/issues/1839.kvx"
+name = "tests/agent/sdk/python/test_repair_22_33_17.py"
+
+[reference.33]
+file = "spec/layerx-merge/programme/issues/1874.kvx"
+name = "tests/agent/sdk/python/test_repair_22_33_702.py"
+
+[reference.34]
+file = "spec/layerx-merge/programme/issues/input/1831.md"
+name = "test_repair_22_31_147.py"
+
+[reference.35]
+file = "spec/layerx-merge/programme/issues/input/1831.md"
+name = "test_repair_22_33_17.py"
+
+[reference.36]
+file = "spec/layerx-merge/programme/issues/input/1831.md"
+name = "tests/agent/sdk/python/test_repair_22_31_147.py"
+
+[reference.37]
+file = "spec/layerx-merge/programme/issues/input/1831.md"
+name = "tests/agent/sdk/python/test_repair_22_33_17.py"
+
+[reference.38]
+file = "spec/layerx-merge/programme/issues/input/1835.md"
+name = "test_repair_22_33_702.py"
+
+[reference.39]
+file = "spec/layerx-merge/programme/issues/input/1835.md"
+name = "tests/agent/sdk/python/test_repair_22_33_702.py"
+
+[reference.40]
+file = "spec/layerx-merge/programme/issues/input/1839.md"
+name = "tests/agent/sdk/python/test_repair_22_31_147.py"
+
+[reference.41]
+file = "spec/layerx-merge/programme/issues/input/1839.md"
+name = "tests/agent/sdk/python/test_repair_22_33_17.py"
+
+[reference.42]
+file = "spec/layerx-merge/programme/issues/input/1874.md"
+name = "tests/agent/sdk/python/test_repair_22_33_702.py"
+
+[reference.43]
+file = "spec/layerx-merge/qualification.kvx"
+name = "test_repair_22_31_147.py"
+
+[reference.44]
+file = "spec/layerx-merge/qualification.kvx"
+name = "test_repair_22_31_312.py"
+
+[reference.45]
+file = "spec/layerx-merge/qualification.kvx"
+name = "test_repair_22_33_17.py"
+
+[reference.46]
+file = "spec/layerx-merge/qualification.kvx"
+name = "test_repair_22_33_701.py"
+
+[reference.47]
+file = "spec/layerx-merge/qualification.kvx"
+name = "test_repair_22_33_702.py"
+
+[reference.48]
+file = "spec/layerx-merge/qualification.kvx"
+name = "tests/agent/sdk/python/test_repair_22_31_147.py"
+
+[reference.49]
+file = "spec/layerx-merge/qualification.kvx"
+name = "tests/agent/sdk/python/test_repair_22_31_312.py"
+
+[reference.50]
+file = "spec/layerx-merge/qualification.kvx"
+name = "tests/agent/sdk/python/test_repair_22_33_701.py"
+
+[reference.51]
+file = "spec/layerx-merge/qualification.kvx"
+name = "tests/agent/sdk/python/test_repair_22_33_702.py"
+
+[reference.52]
+file = "spec/layerx-merge/spec.kvx"
+name = "test_repair_22_31_312.py"
+
+[reference.53]
+file = "spec/layerx-merge/spec.kvx"
+name = "test_repair_22_33_15.py"
+
+[reference.54]
+file = "spec/layerx-merge/spec.kvx"
+name = "test_repair_22_33_16.py"
+
+[reference.55]
+file = "spec/layerx-merge/spec.kvx"
+name = "test_repair_22_33_17.py"
+
+[reference.56]
+file = "spec/layerx-merge/spec.kvx"
+name = "test_repair_22_33_701.py"
+
+[reference.57]
+file = "spec/layerx-merge/spec.kvx"
+name = "test_repair_22_33_702.py"
+
+[reference.58]
+file = "spec/layerx-merge/spec.kvx"
+name = "tests/agent/sdk/python/repair_22_39_119.kvx"
+
+[reference.59]
+file = "spec/layerx-merge/spec.kvx"
+name = "tests/agent/sdk/python/test_repair_22_31_147.py"
+
+[reference.60]
+file = "spec/layerx-merge/spec.kvx"
+name = "tests/agent/sdk/python/test_repair_22_31_312.py"
+
+[reference.61]
+file = "spec/layerx-merge/spec.kvx"
+name = "tests/agent/sdk/python/test_repair_22_33_1362.py"
+
+[reference.62]
+file = "spec/layerx-merge/spec.kvx"
+name = "tests/agent/sdk/python/test_repair_22_33_15.py"
+
+[reference.63]
+file = "spec/layerx-merge/spec.kvx"
+name = "tests/agent/sdk/python/test_repair_22_33_1509.py"
+
+[reference.64]
+file = "spec/layerx-merge/spec.kvx"
+name = "tests/agent/sdk/python/test_repair_22_33_16.py"
+
+[reference.65]
+file = "spec/layerx-merge/spec.kvx"
+name = "tests/agent/sdk/python/test_repair_22_33_17.py"
+
+[reference.66]
+file = "spec/layerx-merge/spec.kvx"
+name = "tests/agent/sdk/python/test_repair_22_33_701.py"
+
+[reference.67]
+file = "spec/layerx-merge/spec.kvx"
+name = "tests/agent/sdk/python/test_repair_22_33_702.py"
+
+[reference.68]
+file = "tests/ci/repair_22_31_510.kvx"
+name = "tests/agent/sdk/python/test_repair_22_31_147.py"
+
+[reference.69]
+file = "tests/ci/test_repair_22_31_510.py"
+name = "test_repair_22_31_147"

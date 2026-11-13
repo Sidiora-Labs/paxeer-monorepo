@@ -926,7 +926,7 @@ func testSidioraCapFirstInvariant(t *testing.T) {
 	require.Equal(t, factory, s.app.TokenFactoryKeeper.ExportGenesis(s.ctx))
 	require.Equal(t, events, s.ctx.EventManager().Events())
 	require.NoError(t, s.k.ExportGenesis(s.ctx).Validate())
-	repair182AssertNoGenericSidiora(s)
+	assertNoGenericSidiora(s)
 	_, found := s.app.BankKeeper.GetDenomMetaData(s.ctx, types.SidioraDenom())
 	require.False(t, found)
 	require.True(t, s.app.BankKeeper.GetSupply(s.ctx, types.SidioraDenom()).Amount.IsZero())
@@ -942,6 +942,6 @@ func testSidioraCapFirstInvariant(t *testing.T) {
 		require.Equal(t, sdk.NewInt(1500), cap.MaxInFlight)
 		require.Equal(t, sdk.NewInt(1000), cap.MaxPerTx)
 		require.NoError(t, fresh.k.ExportGenesis(fresh.ctx).Validate())
-		repair182AssertNoGenericSidiora(fresh)
+		assertNoGenericSidiora(fresh)
 	}
 }

@@ -1,0 +1,20 @@
+[manifest]
+task = "22.43.26"
+records_moved = 1
+files_renamed = 1
+
+[file.1]
+from = "consensus/abci/types/repair_m1071_test.go"
+to = "consensus/abci/types/validator_updates_sort_test.go"
+
+[file.2]
+from = "consensus/abci/types/repair_m1071.kvx"
+to = "spec/layerx-merge/programme/records/consensus/abci/types/repair_m1071.kvx"
+
+[reference.1]
+file = "spec/layerx-merge/spec.kvx"
+name = "consensus/abci/types/repair_m1071_test.go"
+
+[reference.2]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1071_"

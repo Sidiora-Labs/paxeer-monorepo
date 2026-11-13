@@ -1,0 +1,196 @@
+[manifest]
+task = "22.43.106"
+records_moved = 15
+files_renamed = 18
+
+[file.1]
+from = "sdk/crypto/repair_m1338_test.go"
+to = "sdk/crypto/armor_recovery_test.go"
+
+[file.2]
+from = "sdk/crypto/keyring/repair_134_test.go"
+to = "sdk/crypto/keyring/ledger_algorithms_test.go"
+
+[file.3]
+from = "sdk/crypto/keyring/repair_m1339_test.go"
+to = "sdk/crypto/keyring/file_backend_recovery_test.go"
+
+[file.4]
+from = "sdk/crypto/keyring/repair_m1340_test.go"
+to = "sdk/crypto/keyring/import_output_test.go"
+
+[file.5]
+from = "sdk/crypto/keyring/repair_m1340_cli_test.go"
+to = "sdk/crypto/keyring/sr25519_show_test.go"
+
+[file.6]
+from = "sdk/crypto/keys/sr25519/repair_m1341_test.go"
+to = "sdk/crypto/keys/sr25519/private_key_redaction_test.go"
+
+[file.7]
+from = "sdk/crypto/keys/internal/ecdsa/repair_m1342_test.go"
+to = "sdk/crypto/keys/internal/ecdsa/key_import_test.go"
+
+[file.8]
+from = "sdk/crypto/keys/secp256k1/repair_m1343_test.go"
+to = "sdk/crypto/keys/secp256k1/scalar_validation_test.go"
+
+[file.9]
+from = "sdk/crypto/keys/secp256k1/repair_m1343_cgo_test.go"
+to = "sdk/crypto/keys/secp256k1/scalar_validation_cgo_test.go"
+
+[file.10]
+from = "sdk/crypto/keys/ed25519/repair_m1344_test.go"
+to = "sdk/crypto/keys/ed25519/private_key_import_test.go"
+
+[file.11]
+from = "sdk/crypto/keys/multisig/repair_136_test.go"
+to = "sdk/crypto/keys/multisig/amino_json_replacement_test.go"
+
+[file.12]
+from = "sdk/crypto/keys/multisig/repair_m1345_test.go"
+to = "sdk/crypto/keys/multisig/signature_validation_test.go"
+
+[file.13]
+from = "sdk/crypto/types/repair_135_test.go"
+to = "sdk/crypto/types/compact_bit_array_multisig_test.go"
+
+[file.14]
+from = "sdk/crypto/types/repair_m1346_test.go"
+to = "sdk/crypto/types/compact_bit_array_json_test.go"
+
+[file.15]
+from = "sdk/crypto/types/multisig/repair_m1347_test.go"
+to = "sdk/crypto/types/multisig/signature_addition_test.go"
+
+[file.16]
+from = "sdk/crypto/ledger/repair_m1348_test.go"
+to = "sdk/crypto/ledger/device_signing_test.go"
+
+[file.17]
+from = "sdk/crypto/ledger/testdata/repair_m1348.json"
+to = "sdk/crypto/ledger/testdata/device_signing.json"
+
+[file.18]
+from = "sdk/crypto/keys/secp256k1/internal/secp256k1/repair_m1349_test.go"
+to = "sdk/crypto/keys/secp256k1/internal/secp256k1/build_selection_test.go"
+
+[file.19]
+from = "sdk/crypto/keyring/repair_134.kvx"
+to = "spec/layerx-merge/programme/records/sdk/crypto/keyring/repair_134.kvx"
+
+[file.20]
+from = "sdk/crypto/keyring/repair_m1339.kvx"
+to = "spec/layerx-merge/programme/records/sdk/crypto/keyring/repair_m1339.kvx"
+
+[file.21]
+from = "sdk/crypto/keyring/repair_m1340.kvx"
+to = "spec/layerx-merge/programme/records/sdk/crypto/keyring/repair_m1340.kvx"
+
+[file.22]
+from = "sdk/crypto/keys/ed25519/repair_m1344.kvx"
+to = "spec/layerx-merge/programme/records/sdk/crypto/keys/ed25519/repair_m1344.kvx"
+
+[file.23]
+from = "sdk/crypto/keys/internal/ecdsa/repair_m1342.kvx"
+to = "spec/layerx-merge/programme/records/sdk/crypto/keys/internal/ecdsa/repair_m1342.kvx"
+
+[file.24]
+from = "sdk/crypto/keys/multisig/repair_136.kvx"
+to = "spec/layerx-merge/programme/records/sdk/crypto/keys/multisig/repair_136.kvx"
+
+[file.25]
+from = "sdk/crypto/keys/multisig/repair_m1345.kvx"
+to = "spec/layerx-merge/programme/records/sdk/crypto/keys/multisig/repair_m1345.kvx"
+
+[file.26]
+from = "sdk/crypto/keys/secp256k1/internal/secp256k1/repair_m1349.kvx"
+to = "spec/layerx-merge/programme/records/sdk/crypto/keys/secp256k1/internal/secp256k1/repair_m1349.kvx"
+
+[file.27]
+from = "sdk/crypto/keys/secp256k1/repair_m1343.kvx"
+to = "spec/layerx-merge/programme/records/sdk/crypto/keys/secp256k1/repair_m1343.kvx"
+
+[file.28]
+from = "sdk/crypto/keys/sr25519/repair_m1341.kvx"
+to = "spec/layerx-merge/programme/records/sdk/crypto/keys/sr25519/repair_m1341.kvx"
+
+[file.29]
+from = "sdk/crypto/ledger/repair_m1348.kvx"
+to = "spec/layerx-merge/programme/records/sdk/crypto/ledger/repair_m1348.kvx"
+
+[file.30]
+from = "sdk/crypto/repair_m1338.kvx"
+to = "spec/layerx-merge/programme/records/sdk/crypto/repair_m1338.kvx"
+
+[file.31]
+from = "sdk/crypto/types/multisig/repair_m1347.kvx"
+to = "spec/layerx-merge/programme/records/sdk/crypto/types/multisig/repair_m1347.kvx"
+
+[file.32]
+from = "sdk/crypto/types/repair_135.kvx"
+to = "spec/layerx-merge/programme/records/sdk/crypto/types/repair_135.kvx"
+
+[file.33]
+from = "sdk/crypto/types/repair_m1346.kvx"
+to = "spec/layerx-merge/programme/records/sdk/crypto/types/repair_m1346.kvx"
+
+[reference.1]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_134_test.go"
+
+[reference.2]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_135_test.go"
+
+[reference.3]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_136_test.go"
+
+[reference.4]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1338_test.go"
+
+[reference.5]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1339_test.go"
+
+[reference.6]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1340_test.go"
+
+[reference.7]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1341_test.go"
+
+[reference.8]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1342_test.go"
+
+[reference.9]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1343_test.go"
+
+[reference.10]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1344_test.go"
+
+[reference.11]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1345_test.go"
+
+[reference.12]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1346_test.go"
+
+[reference.13]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1347_test.go"
+
+[reference.14]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1348_test.go"
+
+[reference.15]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1349_test.go"

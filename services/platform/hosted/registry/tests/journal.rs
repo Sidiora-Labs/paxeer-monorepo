@@ -1,5 +1,5 @@
 #[allow(dead_code)]
-mod repair_22_33_1470;
+mod committed_program_transport;
 
 #[allow(dead_code)]
 #[path = "support/journal/mod.rs"]
@@ -393,7 +393,7 @@ fn replaying_the_journal_reproduces_the_projection_of_its_evidence() {
 
 #[test]
 fn chain_upgrade_records_replay_authenticated_predecessors_after_reopen() {
-    repair_22_33_1470::upgrade_deploy_reopen_preserves_authenticated_history();
+    committed_program_transport::upgrade_deploy_reopen_preserves_authenticated_history();
 }
 
 #[test]

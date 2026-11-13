@@ -10,7 +10,7 @@ import (
 )
 
 func TestBudgetAdmissionReservesEveryActiveBroadcast(t *testing.T) {
-	f := repair57New(t)
+	f := streamContractNew(t)
 	ctx := context.Background()
 	if _, err := f.database.Exec(ctx, f.store.BudgetSchemaSQL()); err != nil {
 		t.Fatal(err)

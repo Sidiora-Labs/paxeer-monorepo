@@ -173,7 +173,7 @@ func TestSnapshotDoubleCloseReturnsError(t *testing.T) {
 }
 
 func TestSnapshotBackedDeletionReleasesOwnership(t *testing.T) {
-	repair1199Buffers(t)
+	resourceLifecycleBuffers(t)
 	dir := t.TempDir()
 	db, err := OpenDB(0, Options{Dir: dir, CreateIfMissing: true, InitialStores: []string{"bank", "layerxanchor"}})
 	require.NoError(t, err)

@@ -10,7 +10,10 @@ use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
 pub fn transcript() -> Value {
-    serde_json::from_str(include_str!("../fixtures/repair_1321/committed_chain.json")).checked()
+    serde_json::from_str(include_str!(
+        "../fixtures/native_chain/committed_chain.json"
+    ))
+    .checked()
 }
 
 pub struct NativePeer {

@@ -12,8 +12,8 @@ This directory contains the Go implementation, Solidity interface, ABIs, and tes
 - `distribution_test.go` — withdrawal, query, input-validation, and gas-execution tests.
 - `abi_freeze_test.go` — checks for the served ABI, method selectors, and event topics.
 - `gas_golden_test.go` — gas and output checks across merge activation.
-- `repair_183_test.go` — rewards call-value, query, and transaction rollback tests.
-- `repair_183.kvx` — rewards call-value and activation semantics.
+- `rewards_value_test.go` — rewards call-value, query, and transaction rollback tests.
+- [Rewards call-value record](../../spec/layerx-merge/programme/records/precompiles/distribution/repair_183.kvx) — rewards call-value and activation semantics.
 - `versions` — distribution version list.
 - `legacy/` — versioned distribution executors, ABIs, and tests.
 

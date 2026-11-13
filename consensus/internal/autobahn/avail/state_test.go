@@ -453,12 +453,12 @@ func TestNewStateWithPersistence(t *testing.T) {
 		rng := utils.TestRng()
 		committee, keys := types.GenCommittee(rng, 4)
 		dir := utils.Some(t.TempDir())
-		f := repairM1080CertifiedProgress(t, rng, committee, keys, 8, dir)
-		appQC := repairM1080AppQC(rng, committee, keys, f.qcs[7])
-		repairM1080PersistLiveAnchor(t, f.state, appQC, f.qcs[7])
+		f := pruneAnchorCertifiedProgress(t, rng, committee, keys, 8, dir)
+		appQC := pruneAnchorAppQC(rng, committee, keys, f.qcs[7])
+		pruneAnchorPersistLiveAnchor(t, f.state, appQC, f.qcs[7])
 		require.NoError(t, f.state.persisters.commitQCs.Close())
-		state := repairM1080State(t, committee, keys[0], dir)
-		repairM1080AssertRecovered(t, state, f, appQC, 7, 8)
+		state := pruneAnchorState(t, committee, keys[0], dir)
+		pruneAnchorAssertRecovered(t, state, f, appQC, 7, 8)
 		require.NoError(t, state.persisters.commitQCs.Close())
 	})
 
@@ -490,12 +490,12 @@ func TestNewStateWithPersistence(t *testing.T) {
 		rng := utils.TestRng()
 		committee, keys := types.GenCommittee(rng, 4)
 		dir := utils.Some(t.TempDir())
-		f := repairM1080CertifiedProgress(t, rng, committee, keys, 3, dir)
-		appQC := repairM1080AppQC(rng, committee, keys, f.qcs[2])
-		repairM1080PersistLiveAnchor(t, f.state, appQC, f.qcs[2])
+		f := pruneAnchorCertifiedProgress(t, rng, committee, keys, 3, dir)
+		appQC := pruneAnchorAppQC(rng, committee, keys, f.qcs[2])
+		pruneAnchorPersistLiveAnchor(t, f.state, appQC, f.qcs[2])
 		require.NoError(t, f.state.persisters.commitQCs.Close())
-		state := repairM1080State(t, committee, keys[0], dir)
-		repairM1080AssertRecovered(t, state, f, appQC, 2, 3)
+		state := pruneAnchorState(t, committee, keys[0], dir)
+		pruneAnchorAssertRecovered(t, state, f, appQC, 2, 3)
 		require.NoError(t, state.persisters.commitQCs.Close())
 	})
 
@@ -528,12 +528,12 @@ func TestNewStateWithPersistence(t *testing.T) {
 		rng := utils.TestRng()
 		committee, keys := types.GenCommittee(rng, 4)
 		dir := utils.Some(t.TempDir())
-		f := repairM1080CertifiedProgress(t, rng, committee, keys, 5, dir)
-		appQC := repairM1080AppQC(rng, committee, keys, f.qcs[1])
-		repairM1080PersistLiveAnchor(t, f.state, appQC, f.qcs[1])
+		f := pruneAnchorCertifiedProgress(t, rng, committee, keys, 5, dir)
+		appQC := pruneAnchorAppQC(rng, committee, keys, f.qcs[1])
+		pruneAnchorPersistLiveAnchor(t, f.state, appQC, f.qcs[1])
 		require.NoError(t, f.state.persisters.commitQCs.Close())
-		state := repairM1080State(t, committee, keys[0], dir)
-		repairM1080AssertRecovered(t, state, f, appQC, 1, 5)
+		state := pruneAnchorState(t, committee, keys[0], dir)
+		pruneAnchorAssertRecovered(t, state, f, appQC, 1, 5)
 		require.NoError(t, state.persisters.commitQCs.Close())
 	})
 
@@ -543,11 +543,11 @@ func TestNewStateWithPersistence(t *testing.T) {
 		// Build 6 sequential CommitQCs (indices 0-5).
 		rng := utils.TestRng()
 		committee, keys := types.GenCommittee(rng, 4)
-		f := repairM1080CertifiedProgress(t, rng, committee, keys, 6, utils.None[string]())
+		f := pruneAnchorCertifiedProgress(t, rng, committee, keys, 6, utils.None[string]())
 		allQCs := f.qcs
 
 		// Persist prune anchor (AppQC + CommitQC pair at road index 0).
-		appQC := repairM1080AppQC(rng, committee, keys, allQCs[0])
+		appQC := pruneAnchorAppQC(rng, committee, keys, allQCs[0])
 		require.NoError(t, f.state.PushAppQC(appQC, allQCs[0]))
 		prunePers, _, err := persist.NewPersister[*pb.PersistedAvailPruneAnchor](utils.Some(dir), innerFile)
 		require.NoError(t, err)
@@ -573,19 +573,19 @@ func TestNewStateWithPersistence(t *testing.T) {
 	t.Run("anchor past all persisted commitQCs truncates WAL", func(t *testing.T) {
 		rng := utils.TestRng()
 		committee, keys := types.GenCommittee(rng, 4)
-		repairM1080AnchorCrash(t, rng, committee, keys, 9, 3, 5)
+		pruneAnchorAnchorCrash(t, rng, committee, keys, 9, 3, 5)
 	})
 
 	t.Run("anchor past all persisted blocks truncates lane WAL", func(t *testing.T) {
 		rng := utils.TestRng()
 		committee, keys := types.GenCommittee(rng, 4)
-		repairM1080AnchorCrash(t, rng, committee, keys, 4, 3, 6)
+		pruneAnchorAnchorCrash(t, rng, committee, keys, 4, 3, 6)
 	})
 
 	t.Run("anchor inside persisted block tail retains lane WAL", func(t *testing.T) {
 		rng := utils.TestRng()
 		committee, keys := types.GenCommittee(rng, 4)
-		repairM1080AnchorCrash(t, rng, committee, keys, 2, 5, 6)
+		pruneAnchorAnchorCrash(t, rng, committee, keys, 2, 5, 6)
 	})
 
 	t.Run("corrupt AppQC data returns error", func(t *testing.T) {

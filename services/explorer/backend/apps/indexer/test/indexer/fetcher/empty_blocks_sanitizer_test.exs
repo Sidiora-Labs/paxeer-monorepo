@@ -1,4 +1,4 @@
-Code.require_file("repair_22_33_555_support.exs", __DIR__)
+Code.require_file("recorded_fetcher_support.exs", __DIR__)
 
 defmodule Indexer.Fetcher.EmptyBlocksSanitizerTest do
   # `async: false` due to use of named GenServer
@@ -16,7 +16,7 @@ defmodule Indexer.Fetcher.EmptyBlocksSanitizerTest do
   # in order to make it faster and to prevent filling the database with lots of trash.
   # Otherwise, with default offset of `1000`, the tests start to flake periodically.
   setup_all do
-    Indexer.Fetcher.Repair2233555.configure_sanitizer()
+    Indexer.Fetcher.RecordedFetcherSupport.configure_sanitizer()
   end
 
   setup :set_mox_global
@@ -198,3 +198,4 @@ defmodule Indexer.Fetcher.EmptyBlocksSanitizerTest do
      ]}
   end
 end
+

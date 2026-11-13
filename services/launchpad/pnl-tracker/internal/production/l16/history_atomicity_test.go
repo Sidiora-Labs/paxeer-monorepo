@@ -123,7 +123,7 @@ func TestParityQuarantineCancellationDoesNotPublish(t *testing.T) {
 	ctx := context.Background()
 	s, tracer := inventoryCancelableService(t)
 	pool := s.authority.pool
-	origin := repair63RecordedRPC(t)
+	origin := coordinatorReplayRecordedRPC(t)
 	s.second, _ = inventoryProviderVariant(t, origin, func(r inventoryRPCRequest) bool { return r.Method == "eth_call" }, func(out map[string]any) { out["result"] = "0x" + strings.Repeat("0", 64) })
 	invoke := func() error { _, err := s.Rebuild(ctx, realMarketCreator, realMarketToken, 33963733); return err }
 	tracer.Start(0)

@@ -1,0 +1,12 @@
+[manifest]
+task = "22.43.203"
+records_moved = 1
+files_renamed = 0
+
+[file.1]
+from = "tests/vectors/codec/repair_22_31_499.kvx"
+to = "spec/layerx-merge/programme/records/tests/vectors/codec/repair_22_31_499.kvx"
+
+[reference.1]
+file = "spec/layerx-merge/spec.kvx"
+name = "tests/vectors/codec/repair_22_31_499.kvx"

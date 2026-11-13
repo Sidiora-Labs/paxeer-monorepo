@@ -140,7 +140,7 @@ func TestFailoverRehearsalNoReceiptLost(t *testing.T) {
 		CommittedHeight: 1, LastSeq: secondary.opts.LastSeq,
 	})
 	require.NoError(t, err)
-	listener, auth := repair103TLSListener(t)
+	listener, auth := replicationTLSListener(t)
 	t.Cleanup(func() { require.NoError(t, listener.Close()) })
 	served := make(chan error, 1)
 	go func() { served <- standby.Serve(listener) }()

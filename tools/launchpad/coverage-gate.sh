@@ -92,8 +92,8 @@ for mod in $MODULES; do
 		[ "$fprof" != "$prof" ] && rm -f "$fprof"
 		continue
 	fi
-	fprof="$(realpath "$fprof")"
-	pct="$(cd "$mod" && go tool cover -func="$fprof" | awk '$1 == "total:" {gsub(/%/, "", $3); print $3}')"
+	fprof_abs="$(realpath "$fprof")"
+	pct="$(cd "$mod" && go tool cover -func="$fprof_abs" | awk '$1 == "total:" {gsub(/%/, "", $3); print $3}')"
 	[ "$fprof" != "$prof" ] && rm -f "$fprof"
 	if ! [[ "$pct" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
 		echo "coverage-gate: invalid coverage total for $mod: $pct" >&2

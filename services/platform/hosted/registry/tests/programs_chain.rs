@@ -1,5 +1,5 @@
 #[allow(dead_code)]
-mod repair_22_33_1470;
+mod committed_program_transport;
 
 use std::collections::HashMap;
 use std::fs;
@@ -53,7 +53,7 @@ fn registry_head_reads_the_programs_state_head() {
             .unwrap_or_else(|error| panic!("{error:?}"));
     let program = [0x72; 32];
     // The canonical empty-storage head emitted by the programs construct.
-    let state_record = repair_22_33_1470::storage_head_abi()[64..102].to_vec();
+    let state_record = committed_program_transport::storage_head_abi()[64..102].to_vec();
     let expected_root = hash_bytes(HashAlgorithm::Keccak256, &state_record)
         .unwrap_or_else(|error| panic!("{error:?}"));
     let state_abi = abi_bytes(&state_record);
@@ -62,8 +62,8 @@ fn registry_head_reads_the_programs_state_head() {
         hash_bytes(HashAlgorithm::Keccak256, &state_abi)
             .unwrap_or_else(|error| panic!("{error:?}"))
     );
-    let fixture = repair_22_33_1470::admission(1);
-    let program_record = repair_22_33_1470::program_abi(
+    let fixture = committed_program_transport::admission(1);
+    let program_record = committed_program_transport::program_abi(
         &fixture
             .proof
             .claimed_record()
@@ -615,10 +615,10 @@ fn serve_deployment_peer(listener: &TcpListener, case: DeploymentPeerCase) -> Ve
 
 #[test]
 fn registry_starts_without_an_lni_socket() {
-    repair_22_33_1470::registry_http_without_socket_recovers_the_same_view();
+    committed_program_transport::registry_http_without_socket_recovers_the_same_view();
 }
 
 #[test]
 fn registry_programs_root_authenticated_deployment_head_and_refusals() {
-    repair_22_33_1470::programs_root_transport_admits_and_refuses_transactions();
+    committed_program_transport::programs_root_transport_admits_and_refuses_transactions();
 }
