@@ -1,0 +1,348 @@
+[manifest]
+task = "22.43.52"
+records_moved = 15
+files_renamed = 14
+
+[file.1]
+from = "modules/evm/client/cli/repair_179_test.go"
+to = "modules/evm/client/cli/payable_precompile_value_test.go"
+
+[file.2]
+from = "modules/evm/client/cli/repair_m1240_test.go"
+to = "modules/evm/client/cli/cli_validation_test.go"
+
+[file.3]
+from = "modules/evm/client/wasm/repair_m1241_test.go"
+to = "modules/evm/client/wasm/wasm_query_json_test.go"
+
+[file.4]
+from = "modules/evm/config/generate_repair_476.py"
+to = "modules/evm/config/generate_chain_config_vectors.py"
+
+[file.5]
+from = "modules/evm/config/repair_476_test.go"
+to = "modules/evm/config/chain_config_vectors_test.go"
+
+[file.6]
+from = "modules/evm/keeper/repair_180_test.go"
+to = "modules/evm/keeper/domain_fee_settlement_test.go"
+
+[file.7]
+from = "modules/evm/keeper/repair_22_39_210_test.go"
+to = "modules/evm/keeper/execution_receipt_errors_test.go"
+
+[file.8]
+from = "modules/evm/keeper/repair_m1242_test.go"
+to = "modules/evm/keeper/evm_keeper_integration_test.go"
+
+[file.9]
+from = "modules/evm/migrations/repair_m1243_test.go"
+to = "modules/evm/migrations/eip_1559_persistence_test.go"
+
+[file.10]
+from = "modules/evm/repair_181_test.go"
+to = "modules/evm/genesis_restart_recovery_test.go"
+
+[file.11]
+from = "modules/evm/repair_m1244_test.go"
+to = "modules/evm/genesis_and_ante_recovery_test.go"
+
+[file.12]
+from = "modules/evm/state/repair_m1246_test.go"
+to = "modules/evm/state/balance_destruction_test.go"
+
+[file.13]
+from = "modules/evm/types/ethtx/repair_m1247_test.go"
+to = "modules/evm/types/ethtx/transaction_type_validation_test.go"
+
+[file.14]
+from = "modules/evm/types/repair_m1245_test.go"
+to = "modules/evm/types/envelope_genesis_transport_test.go"
+
+[file.15]
+from = "modules/evm/client/cli/repair_179.kvx"
+to = "spec/layerx-merge/programme/records/modules/evm/client/cli/repair_179.kvx"
+
+[file.16]
+from = "modules/evm/client/cli/repair_m1240.kvx"
+to = "spec/layerx-merge/programme/records/modules/evm/client/cli/repair_m1240.kvx"
+
+[file.17]
+from = "modules/evm/client/wasm/repair_m1241.kvx"
+to = "spec/layerx-merge/programme/records/modules/evm/client/wasm/repair_m1241.kvx"
+
+[file.18]
+from = "modules/evm/config/repair_476.kvx"
+to = "spec/layerx-merge/programme/records/modules/evm/config/repair_476.kvx"
+
+[file.19]
+from = "modules/evm/keeper/repair_180.kvx"
+to = "spec/layerx-merge/programme/records/modules/evm/keeper/repair_180.kvx"
+
+[file.20]
+from = "modules/evm/keeper/repair_22_39_143.kvx"
+to = "spec/layerx-merge/programme/records/modules/evm/keeper/repair_22_39_143.kvx"
+
+[file.21]
+from = "modules/evm/keeper/repair_22_39_148.kvx"
+to = "spec/layerx-merge/programme/records/modules/evm/keeper/repair_22_39_148.kvx"
+
+[file.22]
+from = "modules/evm/keeper/repair_m1242.kvx"
+to = "spec/layerx-merge/programme/records/modules/evm/keeper/repair_m1242.kvx"
+
+[file.23]
+from = "modules/evm/migrations/repair_m1243.kvx"
+to = "spec/layerx-merge/programme/records/modules/evm/migrations/repair_m1243.kvx"
+
+[file.24]
+from = "modules/evm/repair_181.kvx"
+to = "spec/layerx-merge/programme/records/modules/evm/repair_181.kvx"
+
+[file.25]
+from = "modules/evm/repair_22_39_321.kvx"
+to = "spec/layerx-merge/programme/records/modules/evm/repair_22_39_321.kvx"
+
+[file.26]
+from = "modules/evm/repair_m1244.kvx"
+to = "spec/layerx-merge/programme/records/modules/evm/repair_m1244.kvx"
+
+[file.27]
+from = "modules/evm/state/repair_m1246.kvx"
+to = "spec/layerx-merge/programme/records/modules/evm/state/repair_m1246.kvx"
+
+[file.28]
+from = "modules/evm/types/ethtx/repair_m1247.kvx"
+to = "spec/layerx-merge/programme/records/modules/evm/types/ethtx/repair_m1247.kvx"
+
+[file.29]
+from = "modules/evm/types/repair_m1245.kvx"
+to = "spec/layerx-merge/programme/records/modules/evm/types/repair_m1245.kvx"
+
+[reference.1]
+file = "GOTCHA.kvx"
+name = "TestRepair476_"
+
+[reference.2]
+file = "GOTCHA.kvx"
+name = "TestRepair476_AttestationDocumentation"
+
+[reference.3]
+file = "GOTCHA.kvx"
+name = "TestRepair_181_"
+
+[reference.4]
+file = "GOTCHA.kvx"
+name = "TestRepair_181_OrdinaryRestartRecovery"
+
+[reference.5]
+file = "GOTCHA.kvx"
+name = "repair_181_test.go"
+
+[reference.6]
+file = "GOTCHA.kvx"
+name = "repair_476_test.go"
+
+[reference.7]
+file = "modules/layerxgov/repair_22_39_249.kvx"
+name = "TestRepair476_"
+
+[reference.8]
+file = "modules/layerxgov/repair_22_39_249.kvx"
+name = "TestRepair476_AttestationDocumentation"
+
+[reference.9]
+file = "modules/layerxgov/repair_22_39_249.kvx"
+name = "repair_476_test.go"
+
+[reference.10]
+file = "modules/xweb/ATTESTATION.md"
+name = "generate_repair_476.py"
+
+[reference.11]
+file = "modules/xweb/repair_22_39_334.kvx"
+name = "TestRepair476_"
+
+[reference.12]
+file = "modules/xweb/repair_22_39_334.kvx"
+name = "TestRepair476_AttestationDocumentation"
+
+[reference.13]
+file = "modules/xweb/repair_22_39_334.kvx"
+name = "repair_476_test.go"
+
+[reference.14]
+file = "sdk/platform/conformance/fixtures/account-derivation-v1.json"
+name = "generate_repair_476.py"
+
+[reference.15]
+file = "spec/layerx-merge/dispositions/d22-22.kvx"
+name = "repair_m1240_test.go"
+
+[reference.16]
+file = "spec/layerx-merge/dispositions/d22-22.kvx"
+name = "repair_m1242_test.go"
+
+[reference.17]
+file = "spec/layerx-merge/dispositions/d22-22.kvx"
+name = "repair_m1244.kvx"
+
+[reference.18]
+file = "spec/layerx-merge/dispositions/d22-22.kvx"
+name = "repair_m1244_test.go"
+
+[reference.19]
+file = "spec/layerx-merge/qualification.kvx"
+name = "TestRepair476_"
+
+[reference.20]
+file = "spec/layerx-merge/qualification.kvx"
+name = "TestRepair476_AttestationDocumentation"
+
+[reference.21]
+file = "spec/layerx-merge/qualification.kvx"
+name = "TestRepair_181_"
+
+[reference.22]
+file = "spec/layerx-merge/qualification.kvx"
+name = "TestRepair_181_OrdinaryRestartRecovery"
+
+[reference.23]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_476_test.go"
+
+[reference.24]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_m1240_test.go"
+
+[reference.25]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_m1242_test.go"
+
+[reference.26]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_m1244_test.go"
+
+[reference.27]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair476_"
+
+[reference.28]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair476_AttestationDocumentation"
+
+[reference.29]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1240_"
+
+[reference.30]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1241_"
+
+[reference.31]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1242_014_"
+
+[reference.32]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1242_014_PrecompileVersions"
+
+[reference.33]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1243_"
+
+[reference.34]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1244_"
+
+[reference.35]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1246_"
+
+[reference.36]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_179_"
+
+[reference.37]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_181_"
+
+[reference.38]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_181_OrdinaryRestartRecovery"
+
+[reference.39]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_22_39_210"
+
+[reference.40]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_179_test.go"
+
+[reference.41]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_180_test.go"
+
+[reference.42]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_181_test.go"
+
+[reference.43]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_143.kvx"
+
+[reference.44]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_148.kvx"
+
+[reference.45]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_210_test.go"
+
+[reference.46]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_321.kvx"
+
+[reference.47]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_476.kvx"
+
+[reference.48]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_476_test.go"
+
+[reference.49]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1240_test.go"
+
+[reference.50]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1241_test.go"
+
+[reference.51]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1242_test.go"
+
+[reference.52]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1243_test.go"
+
+[reference.53]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1244.kvx"
+
+[reference.54]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1244_test.go"
+
+[reference.55]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1245_test.go"
+
+[reference.56]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1246_test.go"
+
+[reference.57]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1247_test.go"

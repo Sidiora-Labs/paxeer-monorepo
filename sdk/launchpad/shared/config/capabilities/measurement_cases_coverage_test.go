@@ -14,7 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
-func pinnedMeasurementPlan(t *testing.T, chain *repair38Chain) MeasurementPlan {
+func pinnedMeasurementPlan(t *testing.T, chain *preflightFixtureChain) MeasurementPlan {
 	t.Helper()
 	build := ConsumerBuildIdentity{BuildSHA256: strings.Repeat("a", 64), CandidateSHA256: strings.Repeat("b", 64), ManifestSHA256: chain.engine.revision.ManifestSHA256, SourceManifestSHA256: chain.engine.manifest.SourceManifestSHA256, RevisionSHA256: chain.engine.revision.RevisionSHA256, NetworkSHA256: strings.Repeat("c", 64), Addresses: chain.engine.manifest.Addresses()}
 	plan := MeasurementPlan{SchemaVersion: 1, CandidateSHA256: build.CandidateSHA256, HarnessBuildSHA256: strings.Repeat("d", 64), AuthoritySHA256: strings.Repeat("e", 64), PolicySHA256: strings.Repeat("f", 64), GoBuild: build, FrontendBuild: build, SamplesPerCase: 1, Concurrency: 1, DeadlineMilliseconds: 60000, P95BudgetMicroseconds: 60000000, MaxErrorBasisPoints: 0, MaxRawBytes: 64 << 20}
@@ -46,15 +46,15 @@ func TestMeasurementCasesBindPinnedFixtureConditions(t *testing.T) {
 	for _, kind := range []string{valueExports, valueNoOracle, valuePrivateExport, valueZeroRealSell, valueQuotes, valueQuoterRevoked, valuePendingGovernance, valueUnknownImplementation, "unknown"} {
 		t.Run(kind, func(t *testing.T) {
 			native := kind != valuePendingGovernance && kind != valueUnknownImplementation
-			chain := repair38OpenChain(t, native)
+			chain := preflightFixtureOpenChain(t, native)
 			plan := pinnedMeasurementPlan(t, chain)
 			probe := plan.Cases[0]
 			probe.Kind = kind
 			expected := ""
 			switch kind {
 			case valuePendingGovernance:
-				chain.peer.override(chain.peer.address("PoolBeacon"), "owner()", repair38Address(chain.peer.epoch.Trader))
-				chain.peer.override(chain.peer.address("PoolBeacon"), "pendingOwner()", repair38Address(common.HexToAddress(chain.engine.manifest.Governance.ExpectedBeaconOwner)))
+				chain.peer.override(chain.peer.address("PoolBeacon"), "owner()", preflightFixtureAddress(chain.peer.epoch.Trader))
+				chain.peer.override(chain.peer.address("PoolBeacon"), "pendingOwner()", preflightFixtureAddress(common.HexToAddress(chain.engine.manifest.Governance.ExpectedBeaconOwner)))
 			case valueUnknownImplementation:
 				chain.peer.mu.Lock()
 				chain.peer.codes[common.HexToAddress(chain.engine.manifest.Roles["Quoter"].ImplementationAddress)] = []byte{0}
@@ -66,7 +66,7 @@ func TestMeasurementCasesBindPinnedFixtureConditions(t *testing.T) {
 			case valueZeroRealSell:
 				expected = "quote_read_failed"
 				probe.Request.IsBuy = false
-				chain.peer.override(chain.peer.address("Quoter"), "quoteExactInput(address,uint256,bool)", repair38Tuple(t, []string{"1000000", "1", "0"}), probe.Request.Pool, big.NewInt(1000000), false)
+				chain.peer.override(chain.peer.address("Quoter"), "quoteExactInput(address,uint256,bool)", preflightFixtureTuple(t, []string{"1000000", "1", "0"}), probe.Request.Pool, big.NewInt(1000000), false)
 			case valueQuotes:
 				expected = "optical_quote_not_typed"
 			case "unknown":
@@ -90,7 +90,7 @@ func TestMeasurementCasesBindPinnedFixtureConditions(t *testing.T) {
 }
 
 func TestMeasurementPlanChecksConsumerAndCaseBindings(t *testing.T) {
-	chain := repair38OpenChain(t, true)
+	chain := preflightFixtureOpenChain(t, true)
 	base := pinnedMeasurementPlan(t, chain)
 	for name, edit := range map[string]func(*MeasurementPlan){
 		"consumer build":   func(p *MeasurementPlan) { p.GoBuild.BuildSHA256 = "invalid" },

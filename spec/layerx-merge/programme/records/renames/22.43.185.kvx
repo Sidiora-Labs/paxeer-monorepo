@@ -1,0 +1,88 @@
+[manifest]
+task = "22.43.185"
+records_moved = 3
+files_renamed = 3
+
+[file.1]
+from = "storage/tools/bench/repair_m1178_test.go"
+to = "storage/tools/bench/benchmark_workloads_test.go"
+
+[file.2]
+from = "storage/tools/cmd/paxdb/operations/repair_m1177_test.go"
+to = "storage/tools/cmd/paxdb/operations/offline_operations_test.go"
+
+[file.3]
+from = "storage/tools/utils/repair_m1179_test.go"
+to = "storage/tools/utils/kv_record_lengths_test.go"
+
+[file.4]
+from = "storage/tools/bench/repair_m1178.kvx"
+to = "spec/layerx-merge/programme/records/storage/tools/bench/repair_m1178.kvx"
+
+[file.5]
+from = "storage/tools/cmd/paxdb/operations/repair_m1177.kvx"
+to = "spec/layerx-merge/programme/records/storage/tools/cmd/paxdb/operations/repair_m1177.kvx"
+
+[file.6]
+from = "storage/tools/utils/repair_m1179.kvx"
+to = "spec/layerx-merge/programme/records/storage/tools/utils/repair_m1179.kvx"
+
+[reference.1]
+file = "spec/layerx-merge/dispositions/d22-22.kvx"
+name = "storage/tools/cmd/paxdb/operations/repair_m1177_test.go"
+
+[reference.2]
+file = "spec/layerx-merge/programme/issues/1634.kvx"
+name = "TestRepairM_1177_ModuleInventory"
+
+[reference.3]
+file = "spec/layerx-merge/programme/issues/1634.kvx"
+name = "repair_m1177_test.go"
+
+[reference.4]
+file = "spec/layerx-merge/programme/issues/1634.kvx"
+name = "storage/tools/cmd/paxdb/operations/repair_m1177_test.go"
+
+[reference.5]
+file = "spec/layerx-merge/programme/issues/input/1634.md"
+name = "TestRepairM_1177_ModuleInventory"
+
+[reference.6]
+file = "spec/layerx-merge/programme/issues/input/1634.md"
+name = "storage/tools/cmd/paxdb/operations/repair_m1177_test.go"
+
+[reference.7]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_m1177_test.go"
+
+[reference.8]
+file = "spec/layerx-merge/qualification.kvx"
+name = "storage/tools/cmd/paxdb/operations/repair_m1177_test.go"
+
+[reference.9]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1177_ModuleInventory"
+
+[reference.10]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1177_test.go"
+
+[reference.11]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1178_test.go"
+
+[reference.12]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1179_test.go"
+
+[reference.13]
+file = "spec/layerx-merge/spec.kvx"
+name = "storage/tools/bench/repair_m1178_test.go"
+
+[reference.14]
+file = "spec/layerx-merge/spec.kvx"
+name = "storage/tools/cmd/paxdb/operations/repair_m1177_test.go"
+
+[reference.15]
+file = "spec/layerx-merge/spec.kvx"
+name = "storage/tools/utils/repair_m1179_test.go"

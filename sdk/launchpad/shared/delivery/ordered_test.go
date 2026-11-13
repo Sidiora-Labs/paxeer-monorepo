@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -33,6 +34,25 @@ func orderedPostgres(t *testing.T) (context.Context, *pgxpool.Pool, *PartitionSt
 		t.Fatal("refusing non-fixture database")
 	}
 	cfg.MaxConns = 4
+	admin, err := pgxpool.NewWithConfig(ctx, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(admin.Close)
+	database := fmt.Sprintf("kd_ordered_%d", time.Now().UnixNano())
+	quotedDatabase := pgx.Identifier{database}.Sanitize()
+	if _, err := admin.Exec(ctx, "CREATE DATABASE "+quotedDatabase); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		cleanup, stop := context.WithTimeout(context.Background(), 5*time.Second)
+		defer stop()
+		if _, err := admin.Exec(cleanup, "DROP DATABASE "+quotedDatabase+" WITH (FORCE)"); err != nil {
+			t.Error(err)
+		}
+	})
+	cfg = cfg.Copy()
+	cfg.ConnConfig.Database = database
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
 		t.Fatal(err)

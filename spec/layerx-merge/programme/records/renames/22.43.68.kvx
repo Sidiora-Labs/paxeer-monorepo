@@ -1,0 +1,20 @@
+[manifest]
+task = "22.43.68"
+records_moved = 1
+files_renamed = 1
+
+[file.1]
+from = "modules/pricefeed/repair_m480.kvx"
+to = "spec/layerx-merge/programme/records/modules/pricefeed/repair_m480.kvx"
+
+[file.2]
+from = "modules/pricefeed/repair_m480_test.go"
+to = "modules/pricefeed/aggregate_quorum_test.go"
+
+[reference.1]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m480_test.go"
+
+[reference.2]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_480_"

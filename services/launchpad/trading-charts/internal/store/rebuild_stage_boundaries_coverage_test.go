@@ -11,7 +11,7 @@ import (
 )
 
 func TestRebuildStageKeepsInvalidInputsOutOfDurableRuns(t *testing.T) {
-	f := repair75New(t)
+	f := rebuildPromotionNew(t)
 	ctx := context.Background()
 	pool := f.fills[0].PoolAddress
 	digest := strings.Repeat("a", 64)
@@ -36,11 +36,11 @@ func TestRebuildStageKeepsInvalidInputsOutOfDurableRuns(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			id := "stage_boundary_" + string(rune('a'+index))
 			if tc.heldRelation != "" {
-				repair75Exec(t, f.db, `ALTER TABLE candles.`+tc.heldRelation+` RENAME TO `+tc.heldRelation+`_held`)
+				rebuildPromotionExec(t, f.db, `ALTER TABLE candles.`+tc.heldRelation+` RENAME TO `+tc.heldRelation+`_held`)
 			}
 			err := f.st.StageRebuild(ctx, id, pool, 1700000000, 1700000060, digest, digest, digest, 1, tc.bars, tc.traders, tc.fills)
 			if tc.heldRelation != "" {
-				repair75Exec(t, f.db, `ALTER TABLE candles.`+tc.heldRelation+`_held RENAME TO `+tc.heldRelation)
+				rebuildPromotionExec(t, f.db, `ALTER TABLE candles.`+tc.heldRelation+`_held RENAME TO `+tc.heldRelation)
 			}
 			if err == nil || !strings.Contains(err.Error(), tc.want) {
 				t.Fatalf("invalid stage persisted: %v", err)

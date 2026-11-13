@@ -19,9 +19,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Repair103TLSFixture issues real CA-signed certificates for both roles.
+// ReplicationTLSFixture issues real CA-signed certificates for both roles.
 // It is exported only in the test build so external package tests share it.
-func Repair103TLSFixture(t *testing.T) (ReplicationTLSConfig, ReplicationTLSConfig) {
+func ReplicationTLSFixture(t *testing.T) (ReplicationTLSConfig, ReplicationTLSConfig) {
 	t.Helper()
 	dir := t.TempDir()
 	pub, key, err := ed25519.GenerateKey(rand.Reader)
@@ -54,9 +54,9 @@ func Repair103TLSFixture(t *testing.T) (ReplicationTLSConfig, ReplicationTLSConf
 	return primary, standby
 }
 
-func repair103TLSListener(t *testing.T) (net.Listener, ReplicationTLSConfig) {
+func replicationTLSListener(t *testing.T) (net.Listener, ReplicationTLSConfig) {
 	t.Helper()
-	primary, standby := Repair103TLSFixture(t)
+	primary, standby := ReplicationTLSFixture(t)
 	cfg, err := standby.TLSConfig(true)
 	require.NoError(t, err)
 	listener, err := tls.Listen("tcp", "127.0.0.1:0", cfg)

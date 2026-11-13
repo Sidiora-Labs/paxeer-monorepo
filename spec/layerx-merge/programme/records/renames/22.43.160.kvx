@@ -1,0 +1,628 @@
+[manifest]
+task = "22.43.160"
+records_moved = 18
+files_renamed = 35
+
+[file.1]
+from = "services/launchpad/pnl-tracker/internal/app/repair_29_test.go"
+to = "services/launchpad/pnl-tracker/internal/app/reward_schema_recovery_test.go"
+
+[file.2]
+from = "services/launchpad/pnl-tracker/internal/app/repair_m917_peer_test.go"
+to = "services/launchpad/pnl-tracker/internal/app/migration_database_test.go"
+
+[file.3]
+from = "services/launchpad/pnl-tracker/internal/app/repair_m917_test.go"
+to = "services/launchpad/pnl-tracker/internal/app/migration_contract_test.go"
+
+[file.4]
+from = "services/launchpad/pnl-tracker/internal/app/testdata/repair29/contracts.mjs"
+to = "services/launchpad/pnl-tracker/internal/app/testdata/reward_schema/contracts.mjs"
+
+[file.5]
+from = "services/launchpad/pnl-tracker/internal/app/testdata/repair29/npm-shrinkwrap.json"
+to = "services/launchpad/pnl-tracker/internal/app/testdata/reward_schema/npm-shrinkwrap.json"
+
+[file.6]
+from = "services/launchpad/pnl-tracker/internal/app/testdata/repair29/package.json"
+to = "services/launchpad/pnl-tracker/internal/app/testdata/reward_schema/package.json"
+
+[file.7]
+from = "services/launchpad/pnl-tracker/internal/app/testdata/repair29/pnpm-lock.yaml"
+to = "services/launchpad/pnl-tracker/internal/app/testdata/reward_schema/pnpm-lock.yaml"
+
+[file.8]
+from = "services/launchpad/pnl-tracker/internal/app/testdata/repair29/store.mjs"
+to = "services/launchpad/pnl-tracker/internal/app/testdata/reward_schema/store.mjs"
+
+[file.9]
+from = "services/launchpad/pnl-tracker/internal/card/repair_45_test.go"
+to = "services/launchpad/pnl-tracker/internal/card/legacy_archive_test.go"
+
+[file.10]
+from = "services/launchpad/pnl-tracker/internal/card/repair_m980_test.go"
+to = "services/launchpad/pnl-tracker/internal/card/snapshot_evidence_test.go"
+
+[file.11]
+from = "services/launchpad/pnl-tracker/internal/config/repair_m977_test.go"
+to = "services/launchpad/pnl-tracker/internal/config/reconcile_intervals_test.go"
+
+[file.12]
+from = "services/launchpad/pnl-tracker/internal/devreads/repair_m1032_test.go"
+to = "services/launchpad/pnl-tracker/internal/devreads/snapshot_consistency_test.go"
+
+[file.13]
+from = "services/launchpad/pnl-tracker/internal/httpapi/repair_m979_test.go"
+to = "services/launchpad/pnl-tracker/internal/httpapi/webhook_boundaries_test.go"
+
+[file.14]
+from = "services/launchpad/pnl-tracker/internal/position/repair_m1015_test.go"
+to = "services/launchpad/pnl-tracker/internal/position/webhook_restart_test.go"
+
+[file.15]
+from = "services/launchpad/pnl-tracker/internal/position/testdata/repair_m1015/buy-log.json"
+to = "services/launchpad/pnl-tracker/internal/position/testdata/indexer_webhooks/buy-log.json"
+
+[file.16]
+from = "services/launchpad/pnl-tracker/internal/position/testdata/repair_m1015/buy.json"
+to = "services/launchpad/pnl-tracker/internal/position/testdata/indexer_webhooks/buy.json"
+
+[file.17]
+from = "services/launchpad/pnl-tracker/internal/position/testdata/repair_m1015/provenance.json"
+to = "services/launchpad/pnl-tracker/internal/position/testdata/indexer_webhooks/provenance.json"
+
+[file.18]
+from = "services/launchpad/pnl-tracker/internal/position/testdata/repair_m1015/record_indexer.go.overlay"
+to = "services/launchpad/pnl-tracker/internal/position/testdata/indexer_webhooks/record_indexer.go.overlay"
+
+[file.19]
+from = "services/launchpad/pnl-tracker/internal/position/testdata/repair_m1015/sell-log.json"
+to = "services/launchpad/pnl-tracker/internal/position/testdata/indexer_webhooks/sell-log.json"
+
+[file.20]
+from = "services/launchpad/pnl-tracker/internal/position/testdata/repair_m1015/sell.json"
+to = "services/launchpad/pnl-tracker/internal/position/testdata/indexer_webhooks/sell.json"
+
+[file.21]
+from = "services/launchpad/pnl-tracker/internal/production/l16/repair_63_test.go"
+to = "services/launchpad/pnl-tracker/internal/production/l16/coordinator_replay_test.go"
+
+[file.22]
+from = "services/launchpad/pnl-tracker/internal/production/l16/repair_m1018_test.go"
+to = "services/launchpad/pnl-tracker/internal/production/l16/coordinator_runtime_test.go"
+
+[file.23]
+from = "services/launchpad/pnl-tracker/internal/production/l16/testdata/repair_63_headers.jsonl"
+to = "services/launchpad/pnl-tracker/internal/production/l16/testdata/recorded_replay_headers.jsonl"
+
+[file.24]
+from = "services/launchpad/pnl-tracker/internal/production/l17/repair_64_test.go"
+to = "services/launchpad/pnl-tracker/internal/production/l17/history_storage_grants_test.go"
+
+[file.25]
+from = "services/launchpad/pnl-tracker/internal/production/l18/repair_1019_store_test.go"
+to = "services/launchpad/pnl-tracker/internal/production/l18/outbox_delivery_store_test.go"
+
+[file.26]
+from = "services/launchpad/pnl-tracker/internal/production/l18/repair_1019_test.go"
+to = "services/launchpad/pnl-tracker/internal/production/l18/reward_outbox_recovery_test.go"
+
+[file.27]
+from = "services/launchpad/pnl-tracker/internal/production/l18/repair_1019_transport_test.go"
+to = "services/launchpad/pnl-tracker/internal/production/l18/outbox_jetstream_test.go"
+
+[file.28]
+from = "services/launchpad/pnl-tracker/internal/production/l18/repair_22_39_328_test.go"
+to = "services/launchpad/pnl-tracker/internal/production/l18/deployment_manifest_test.go"
+
+[file.29]
+from = "services/launchpad/pnl-tracker/internal/production/l18/repair_62_support_test.go"
+to = "services/launchpad/pnl-tracker/internal/production/l18/rewards_database_test.go"
+
+[file.30]
+from = "services/launchpad/pnl-tracker/internal/production/l18/repair_62_test.go"
+to = "services/launchpad/pnl-tracker/internal/production/l18/rewards_history_test.go"
+
+[file.31]
+from = "services/launchpad/pnl-tracker/internal/production/l18/test_repair_22_33_1019.py"
+to = "services/launchpad/pnl-tracker/internal/production/l18/test_reward_delivery_contract.py"
+
+[file.32]
+from = "services/launchpad/pnl-tracker/internal/production/l18/testdata/repair_62/catalog.json"
+to = "services/launchpad/pnl-tracker/internal/production/l18/testdata/reward_history/catalog.json"
+
+[file.33]
+from = "services/launchpad/pnl-tracker/internal/production/l18/testdata/repair_62/peers.json"
+to = "services/launchpad/pnl-tracker/internal/production/l18/testdata/reward_history/peers.json"
+
+[file.34]
+from = "services/launchpad/pnl-tracker/internal/reconcile/repair_m1014_test.go"
+to = "services/launchpad/pnl-tracker/internal/reconcile/cursor_recovery_test.go"
+
+[file.35]
+from = "services/launchpad/pnl-tracker/internal/store/repair_m925_test.go"
+to = "services/launchpad/pnl-tracker/internal/store/journal_ordering_test.go"
+
+[file.36]
+from = "services/launchpad/pnl-tracker/internal/app/repair_29.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/pnl-tracker/internal/app/repair_29.kvx"
+
+[file.37]
+from = "services/launchpad/pnl-tracker/internal/app/repair_m917.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/pnl-tracker/internal/app/repair_m917.kvx"
+
+[file.38]
+from = "services/launchpad/pnl-tracker/internal/card/repair_45.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/pnl-tracker/internal/card/repair_45.kvx"
+
+[file.39]
+from = "services/launchpad/pnl-tracker/internal/card/repair_m980.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/pnl-tracker/internal/card/repair_m980.kvx"
+
+[file.40]
+from = "services/launchpad/pnl-tracker/internal/config/repair_m977.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/pnl-tracker/internal/config/repair_m977.kvx"
+
+[file.41]
+from = "services/launchpad/pnl-tracker/internal/devreads/repair_m1032.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/pnl-tracker/internal/devreads/repair_m1032.kvx"
+
+[file.42]
+from = "services/launchpad/pnl-tracker/internal/httpapi/repair_m979.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/pnl-tracker/internal/httpapi/repair_m979.kvx"
+
+[file.43]
+from = "services/launchpad/pnl-tracker/internal/position/repair_m1015.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/pnl-tracker/internal/position/repair_m1015.kvx"
+
+[file.44]
+from = "services/launchpad/pnl-tracker/internal/production/l16/repair_22_39_374.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/pnl-tracker/internal/production/l16/repair_22_39_374.kvx"
+
+[file.45]
+from = "services/launchpad/pnl-tracker/internal/production/l16/repair_63.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/pnl-tracker/internal/production/l16/repair_63.kvx"
+
+[file.46]
+from = "services/launchpad/pnl-tracker/internal/production/l16/repair_m1018.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/pnl-tracker/internal/production/l16/repair_m1018.kvx"
+
+[file.47]
+from = "services/launchpad/pnl-tracker/internal/production/l17/repair_64.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/pnl-tracker/internal/production/l17/repair_64.kvx"
+
+[file.48]
+from = "services/launchpad/pnl-tracker/internal/production/l18/repair_22_33_1019.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/pnl-tracker/internal/production/l18/repair_22_33_1019.kvx"
+
+[file.49]
+from = "services/launchpad/pnl-tracker/internal/production/l18/repair_62.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/pnl-tracker/internal/production/l18/repair_62.kvx"
+
+[file.50]
+from = "services/launchpad/pnl-tracker/internal/reconcile/repair_m1014.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/pnl-tracker/internal/reconcile/repair_m1014.kvx"
+
+[file.51]
+from = "services/launchpad/pnl-tracker/internal/store/repair_m925.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/pnl-tracker/internal/store/repair_m925.kvx"
+
+[file.52]
+from = "services/launchpad/pnl-tracker/repair_22_39_463.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/pnl-tracker/repair_22_39_463.kvx"
+
+[file.53]
+from = "services/launchpad/pnl-tracker/repair_22_39_479.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/pnl-tracker/repair_22_39_479.kvx"
+
+[reference.1]
+file = "GOTCHA.kvx"
+name = "TestRepair_63_RecordedReplayHeaders"
+
+[reference.2]
+file = "GOTCHA.kvx"
+name = "repair63RecordedRPC"
+
+[reference.3]
+file = "GOTCHA.kvx"
+name = "repair_63_test.go"
+
+[reference.4]
+file = "sdk/launchpad/protocol/catalog/repair_22_39_328.kvx"
+name = "TestRepair_22_39_328"
+
+[reference.5]
+file = "sdk/launchpad/protocol/catalog/repair_22_39_328.kvx"
+name = "services/launchpad/pnl-tracker/internal/production/l18/repair_22_39_328_test.go"
+
+[reference.6]
+file = "services/launchpad/indexer/internal/config/repair_m999_test.go"
+name = "TestRepair_22_39_328"
+
+[reference.7]
+file = "services/launchpad/indexer/internal/decode/repair_m995_test.go"
+name = "TestRepair_22_39_328"
+
+[reference.8]
+file = "services/launchpad/indexer/internal/receipt/repair_53_test.go"
+name = "TestRepair_22_39_328"
+
+[reference.9]
+file = "services/launchpad/indexer/internal/runtimedocs/repair_22_39_328_test.go"
+name = "TestRepair_22_39_328"
+
+[reference.10]
+file = "spec/layerx-merge/dispositions/d22-18.kvx"
+name = "services/launchpad/pnl-tracker/internal/app/repair_29_test.go"
+
+[reference.11]
+file = "spec/layerx-merge/dispositions/d22-21.kvx"
+name = "services/launchpad/pnl-tracker/internal/production/l16/repair_63_test.go"
+
+[reference.12]
+file = "spec/layerx-merge/dispositions/d22-21.kvx"
+name = "services/launchpad/pnl-tracker/internal/production/l16/testdata/repair_63_headers.jsonl"
+
+[reference.13]
+file = "spec/layerx-merge/dispositions/d22-21.kvx"
+name = "services/launchpad/pnl-tracker/internal/production/l18/repair_62_support_test.go"
+
+[reference.14]
+file = "spec/layerx-merge/dispositions/d22-21.kvx"
+name = "services/launchpad/pnl-tracker/internal/production/l18/repair_62_test.go"
+
+[reference.15]
+file = "spec/layerx-merge/dispositions/d22-30.kvx"
+name = "services/launchpad/pnl-tracker/internal/app/repair_m917_test.go"
+
+[reference.16]
+file = "spec/layerx-merge/programme/issues/1904.kvx"
+name = "services/launchpad/pnl-tracker/internal/app/repair_m917_test.go"
+
+[reference.17]
+file = "spec/layerx-merge/programme/issues/input/1904.md"
+name = "services/launchpad/pnl-tracker/internal/app/repair_m917_test.go"
+
+[reference.18]
+file = "spec/layerx-merge/qualification.kvx"
+name = "TestRepair_63_ActiveSnapshotUpdateGrant"
+
+[reference.19]
+file = "spec/layerx-merge/qualification.kvx"
+name = "services/launchpad/pnl-tracker/internal/app/repair_29_test.go"
+
+[reference.20]
+file = "spec/layerx-merge/qualification.kvx"
+name = "services/launchpad/pnl-tracker/internal/app/repair_m917_test.go"
+
+[reference.21]
+file = "spec/layerx-merge/qualification.kvx"
+name = "services/launchpad/pnl-tracker/internal/production/l16/repair_63_test.go"
+
+[reference.22]
+file = "spec/layerx-merge/qualification.kvx"
+name = "services/launchpad/pnl-tracker/internal/production/l18/repair_62_test.go"
+
+[reference.23]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_22_39_328"
+
+[reference.24]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_29_RewardRequestSchemaRecovery"
+
+[reference.25]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_63_RecordedReplayHeaders"
+
+[reference.26]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_63_TranscriptBlockParameter"
+
+[reference.27]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair63RecordedRPC"
+
+[reference.28]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_63_headers.jsonl"
+
+[reference.29]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m917_peer_test.go"
+
+[reference.30]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/launchpad/pnl-tracker/internal/app/repair_29_test.go"
+
+[reference.31]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/launchpad/pnl-tracker/internal/app/repair_m917_test.go"
+
+[reference.32]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/launchpad/pnl-tracker/internal/card/repair_45_test.go"
+
+[reference.33]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/launchpad/pnl-tracker/internal/card/repair_m980_test.go"
+
+[reference.34]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/launchpad/pnl-tracker/internal/config/repair_m977_test.go"
+
+[reference.35]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/launchpad/pnl-tracker/internal/devreads/repair_m1032_test.go"
+
+[reference.36]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/launchpad/pnl-tracker/internal/httpapi/repair_m979_test.go"
+
+[reference.37]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/launchpad/pnl-tracker/internal/position/repair_m1015_test.go"
+
+[reference.38]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/launchpad/pnl-tracker/internal/production/l16/repair_22_39_374.kvx"
+
+[reference.39]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/launchpad/pnl-tracker/internal/production/l16/repair_63_test.go"
+
+[reference.40]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/launchpad/pnl-tracker/internal/production/l16/repair_m1018_test.go"
+
+[reference.41]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/launchpad/pnl-tracker/internal/production/l17/repair_64_test.go"
+
+[reference.42]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/launchpad/pnl-tracker/internal/production/l18/repair_22_39_328_test.go"
+
+[reference.43]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/launchpad/pnl-tracker/internal/production/l18/repair_62_support_test.go"
+
+[reference.44]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/launchpad/pnl-tracker/internal/production/l18/repair_62_test.go"
+
+[reference.45]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/launchpad/pnl-tracker/internal/production/l18/test_repair_22_33_1019.py"
+
+[reference.46]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/launchpad/pnl-tracker/internal/reconcile/repair_m1014_test.go"
+
+[reference.47]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/launchpad/pnl-tracker/internal/store/repair_m925_test.go"
+
+[reference.48]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/launchpad/pnl-tracker/repair_22_39_463.kvx"
+
+[reference.49]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/launchpad/pnl-tracker/repair_22_39_479.kvx"
+
+[reference.50]
+file = "tests/ci/data/launchpad_go_test_baseline.json"
+name = "TestRepairM_1014_CursorFailureReplayDeduplicates"
+
+[reference.51]
+file = "tests/ci/data/launchpad_go_test_baseline.json"
+name = "TestRepairM_1014_PoisonCursorFailureRecovery"
+
+[reference.52]
+file = "tests/ci/data/launchpad_go_test_baseline.json"
+name = "TestRepairM_1014_PoisonPrefixRecovery"
+
+[reference.53]
+file = "tests/ci/data/launchpad_go_test_baseline.json"
+name = "TestRepairM_1014_RestartRefreshObligation"
+
+[reference.54]
+file = "tests/ci/data/launchpad_go_test_baseline.json"
+name = "TestRepairM_1018_CompleteDependencyMigrations"
+
+[reference.55]
+file = "tests/ci/data/launchpad_go_test_baseline.json"
+name = "TestRepairM_1018_ProductionGrantRendering"
+
+[reference.56]
+file = "tests/ci/data/launchpad_go_test_baseline.json"
+name = "TestRepairM_1032_ConcurrentFoldStaysWithinHistoryWatermark"
+
+[reference.57]
+file = "tests/ci/data/launchpad_go_test_baseline.json"
+name = "TestRepairM_1032_LatePoolMetadataChangesSnapshotIdentity"
+
+[reference.58]
+file = "tests/ci/data/launchpad_go_test_baseline.json"
+name = "TestRepairM_917_ExistingSchemaUpgradeMigrationContract"
+
+[reference.59]
+file = "tests/ci/data/launchpad_go_test_baseline.json"
+name = "TestRepairM_917_FreshInstallMigrationContract"
+
+[reference.60]
+file = "tests/ci/data/launchpad_go_test_baseline.json"
+name = "TestRepair_29_RewardRequestSchemaRecovery"
+
+[reference.61]
+file = "tests/ci/data/launchpad_go_test_baseline.json"
+name = "TestRepair_45_LegacyMintRetired"
+
+[reference.62]
+file = "tests/ci/data/launchpad_go_test_baseline.json"
+name = "TestRepair_63_ActiveSnapshotUpdateGrant"
+
+[reference.63]
+file = "tests/ci/data/launchpad_go_test_baseline.json"
+name = "TestRepair_63_WalletRangeSchemaMigrated"
+
+[reference.64]
+file = "tests/ci/data/launchpad_go_test_baseline.json"
+name = "repair_1019_test.go"
+
+[reference.65]
+file = "tests/ci/data/launchpad_go_test_baseline.json"
+name = "repair_29_test.go"
+
+[reference.66]
+file = "tests/ci/data/launchpad_go_test_baseline.json"
+name = "repair_45_test.go"
+
+[reference.67]
+file = "tests/ci/data/launchpad_go_test_baseline.json"
+name = "repair_62_test.go"
+
+[reference.68]
+file = "tests/ci/data/launchpad_go_test_baseline.json"
+name = "repair_63_test.go"
+
+[reference.69]
+file = "tests/ci/data/launchpad_go_test_baseline.json"
+name = "repair_m1014_test.go"
+
+[reference.70]
+file = "tests/ci/data/launchpad_go_test_baseline.json"
+name = "repair_m1018_test.go"
+
+[reference.71]
+file = "tests/ci/data/launchpad_go_test_baseline.json"
+name = "repair_m1032_test.go"
+
+[reference.72]
+file = "tests/ci/data/launchpad_go_test_baseline.json"
+name = "repair_m917_test.go"
+
+[reference.73]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepairM_925_BlockOrderPrecedesTimestamp"
+
+[reference.74]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepairM_925_CanonicalLogOrder"
+
+[reference.75]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepairM_925_DelayedBuy"
+
+[reference.76]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepairM_925_DelayedSell"
+
+[reference.77]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepairM_925_MixedRealtimeBackfill"
+
+[reference.78]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepairM_925_PreservesTokenAndRejectsCorruptJournal"
+
+[reference.79]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepairM_977_RejectInvalidIntervals"
+
+[reference.80]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepairM_977_ValidIntervals"
+
+[reference.81]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepairM_979_LegacyCardPublicationRetired"
+
+[reference.82]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepairM_979_WebhookBodyBound"
+
+[reference.83]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepairM_979_WebhookEventBatchBound"
+
+[reference.84]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepairM_979_WebhookMalformedAndUnauthorized"
+
+[reference.85]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepairM_979_WebhookRawHMACAndBoundaries"
+
+[reference.86]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepairM_980_BasisAndPricingQuality"
+
+[reference.87]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepairM_980_ExactValuesAndClosedPosition"
+
+[reference.88]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepairM_980_MintRemainsRetired"
+
+[reference.89]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepairM_980_MissingAndMalformedMarks"
+
+[reference.90]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepairM_980_MissingAndMalformedPositionEvidence"
+
+[reference.91]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_29_RewardRequestSchemaRecovery"
+
+[reference.92]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_45_ArchivedDisclosurePreserved"
+
+[reference.93]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_45_LegacyMintRetired"
+
+[reference.94]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_64_HistoryRowInsertGrant"
+
+[reference.95]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "services/launchpad/pnl-tracker/internal/app/repair_29_test.go"
+
+[reference.96]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "services/launchpad/pnl-tracker/internal/card/repair_45_test.go"
+
+[reference.97]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "services/launchpad/pnl-tracker/internal/card/repair_m980_test.go"
+
+[reference.98]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "services/launchpad/pnl-tracker/internal/config/repair_m977_test.go"
+
+[reference.99]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "services/launchpad/pnl-tracker/internal/httpapi/repair_m979_test.go"
+
+[reference.100]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "services/launchpad/pnl-tracker/internal/production/l17/repair_64_test.go"
+
+[reference.101]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "services/launchpad/pnl-tracker/internal/production/l18/repair_62_support_test.go"
+
+[reference.102]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "services/launchpad/pnl-tracker/internal/production/l18/repair_62_test.go"
+
+[reference.103]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "services/launchpad/pnl-tracker/internal/store/repair_m925_test.go"

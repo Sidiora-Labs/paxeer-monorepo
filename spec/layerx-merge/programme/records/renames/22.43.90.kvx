@@ -1,0 +1,48 @@
+[manifest]
+task = "22.43.90"
+records_moved = 2
+files_renamed = 3
+
+[file.1]
+from = "precompiles/xweb/repair_130_test.go"
+to = "precompiles/xweb/program_event_round_trip_test.go"
+
+[file.2]
+from = "precompiles/xweb/repair_m1282_test.go"
+to = "precompiles/xweb/program_event_schema_test.go"
+
+[file.3]
+from = "precompiles/xweb/testdata/repair_130_consumer.rs"
+to = "precompiles/xweb/testdata/program_event_consumer.rs"
+
+[file.4]
+from = "precompiles/xweb/repair_130.kvx"
+to = "spec/layerx-merge/programme/records/precompiles/xweb/repair_130.kvx"
+
+[file.5]
+from = "precompiles/xweb/repair_m1282.kvx"
+to = "spec/layerx-merge/programme/records/precompiles/xweb/repair_m1282.kvx"
+
+[reference.1]
+file = "spec/layerx-merge/spec.kvx"
+name = "precompiles/xweb/repair_130_test.go"
+
+[reference.2]
+file = "spec/layerx-merge/spec.kvx"
+name = "precompiles/xweb/repair_m1282_test.go"
+
+[reference.3]
+file = "spec/layerx-merge/qualification.kvx"
+name = "precompiles/xweb/repair_m1282_test.go"
+
+[reference.4]
+file = "spec/layerx-merge/dispositions/d22-23.kvx"
+name = "precompiles/xweb/repair_m1282_test.go"
+
+[reference.5]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_130_"
+
+[reference.6]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1282_"

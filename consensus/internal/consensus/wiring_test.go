@@ -53,14 +53,14 @@ func TestWiring_OtherChannelsAreNoOp(t *testing.T) {
 
 // TestWiring_AssembledBlock exercises the scanner at the block-parts consumer.
 func TestWiring_AssembledBlock(t *testing.T) {
-	testRepairM1082AssembledBlock(t)
+	testConsensusNetworkAssembledBlock(t)
 }
 
-func testRepairM1082AssembledBlock(t *testing.T) {
+func testConsensusNetworkAssembledBlock(t *testing.T) {
 	t.Helper()
 	for _, overLimit := range []bool{true, false} {
 		t.Run(fmt.Sprintf("over_limit_%t", overLimit), func(t *testing.T) {
-			f := newRepairM1082Fixture(t, false, time.Now().Add(-time.Minute))
+			f := newConsensusNetworkFixture(t, false, time.Now().Add(-time.Minute))
 			producer, _ := f.state(t, f.leader)
 			block, err := producer.createProposalBlock(t.Context())
 			require.NoError(t, err)
@@ -106,14 +106,14 @@ func testRepairM1082AssembledBlock(t *testing.T) {
 			// part-set header. No proposal or private round state is fabricated.
 			for signer := range 3 {
 				vote := f.vote(t, signer, tmproto.PrecommitType, 1, 0, id)
-				mi := repairM1082Transport(t, msgInfo{Msg: &VoteMessage{vote}, PeerID: "assembled-peer", ReceiveTime: time.Now()})
+				mi := consensusNetworkTransport(t, msgInfo{Msg: &VoteMessage{vote}, PeerID: "assembled-peer", ReceiveTime: time.Now()})
 				require.NoError(t, cs.AddVote(ctx, mi.Msg.(*VoteMessage).Vote, mi.PeerID))
 			}
 			_, err = validBlocks.Next(ctx)
 			require.NoError(t, err)
 			require.True(t, cs.GetRoundState().ProposalBlockParts.HasHeader(parts.Header()))
 			for i := range parts.Total() {
-				mi := repairM1082Transport(t, msgInfo{Msg: &BlockPartMessage{Height: 1, Round: 0, Part: parts.GetPart(int(i))}, PeerID: "assembled-peer", ReceiveTime: time.Now()})
+				mi := consensusNetworkTransport(t, msgInfo{Msg: &BlockPartMessage{Height: 1, Round: 0, Part: parts.GetPart(int(i))}, PeerID: "assembled-peer", ReceiveTime: time.Now()})
 				msg := mi.Msg.(*BlockPartMessage)
 				require.NoError(t, cs.AddProposalBlockPart(ctx, msg.Height, msg.Round, msg.Part, mi.PeerID))
 			}

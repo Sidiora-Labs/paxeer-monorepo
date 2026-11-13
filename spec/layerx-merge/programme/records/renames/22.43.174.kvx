@@ -1,0 +1,276 @@
+[manifest]
+task = "22.43.174"
+records_moved = 13
+files_renamed = 16
+
+[file.1]
+from = "services/platform/ramps/reference/tests/repair_22_33_1487.rs"
+to = "services/platform/ramps/reference/tests/tls_listener_recovery.rs"
+
+[file.2]
+from = "services/platform/ramps/toolkit/src/repair_22_31_211/expiry_test.go.overlay"
+to = "services/platform/ramps/toolkit/src/native_payment_overlays/expiry_test.go.overlay"
+
+[file.3]
+from = "services/platform/ramps/toolkit/src/repair_22_31_211/node_test.go.overlay"
+to = "services/platform/ramps/toolkit/src/native_payment_overlays/node_test.go.overlay"
+
+[file.4]
+from = "services/platform/ramps/toolkit/src/repair_22_31_211/payment_test.go.overlay"
+to = "services/platform/ramps/toolkit/src/native_payment_overlays/payment_test.go.overlay"
+
+[file.5]
+from = "services/platform/ramps/toolkit/tests/fixtures/repair_22_33_1486/README.md"
+to = "services/platform/ramps/toolkit/tests/fixtures/tls/README.md"
+
+[file.6]
+from = "services/platform/ramps/toolkit/tests/fixtures/repair_22_33_1486/ca.der"
+to = "services/platform/ramps/toolkit/tests/fixtures/tls/ca.der"
+
+[file.7]
+from = "services/platform/ramps/toolkit/tests/fixtures/repair_22_33_1486/ca.pem"
+to = "services/platform/ramps/toolkit/tests/fixtures/tls/ca.pem"
+
+[file.8]
+from = "services/platform/ramps/toolkit/tests/fixtures/repair_22_33_1486/identity.p12"
+to = "services/platform/ramps/toolkit/tests/fixtures/tls/identity.p12"
+
+[file.9]
+from = "services/platform/ramps/toolkit/tests/repair_22_31_211.rs"
+to = "services/platform/ramps/toolkit/tests/native_payment_settlement.rs"
+
+[file.10]
+from = "services/platform/ramps/toolkit/tests/repair_22_33_1490.rs"
+to = "services/platform/ramps/toolkit/tests/recovery_payment_evidence.rs"
+
+[file.11]
+from = "services/platform/ramps/toolkit/tests/support/repair_22_33_1490.rs"
+to = "services/platform/ramps/toolkit/tests/support/recovery_payment.rs"
+
+[file.12]
+from = "services/platform/ramps/toolkit/tests/repair_22_33_1486.rs"
+to = "services/platform/ramps/toolkit/tests/transport_journal_bindings.rs"
+
+[file.13]
+from = "services/platform/tests/repair_22_33_1366.rs"
+to = "services/platform/tests/tls_probe_process.rs"
+
+[file.14]
+from = "services/platform/tools/kvx/tests/repair_22_33_1416.rs"
+to = "services/platform/tools/kvx/tests/quoted_values.rs"
+
+[file.15]
+from = "services/platform/tools/workspace-gate/tests/repair_22_33_1414.rs"
+to = "services/platform/tools/workspace-gate/tests/workspace_path_containment.rs"
+
+[file.16]
+from = "services/platform/tools/workspace-gate/tests/repair_22_33_1418.rs"
+to = "services/platform/tools/workspace-gate/tests/workspace_policy.rs"
+
+[file.17]
+from = "services/platform/ramps/reference/tests/repair_22_39_163.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/ramps/reference/tests/repair_22_39_163.kvx"
+
+[file.18]
+from = "services/platform/ramps/repair_22_39_134.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/ramps/repair_22_39_134.kvx"
+
+[file.19]
+from = "services/platform/ramps/repair_22_39_265.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/ramps/repair_22_39_265.kvx"
+
+[file.20]
+from = "services/platform/ramps/repair_22_39_420.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/ramps/repair_22_39_420.kvx"
+
+[file.21]
+from = "services/platform/ramps/toolkit/src/repair_22_31_211/record.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/ramps/toolkit/src/repair_22_31_211/record.kvx"
+
+[file.22]
+from = "services/platform/ramps/toolkit/src/repair_22_33_1486/record.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/ramps/toolkit/src/repair_22_33_1486/record.kvx"
+
+[file.23]
+from = "services/platform/ramps/toolkit/tests/repair_22_33_1490.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/ramps/toolkit/tests/repair_22_33_1490.kvx"
+
+[file.24]
+from = "services/platform/ramps/toolkit/tests/repair_22_39_140.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/ramps/toolkit/tests/repair_22_39_140.kvx"
+
+[file.25]
+from = "services/platform/ramps/toolkit/tests/repair_22_39_149.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/ramps/toolkit/tests/repair_22_39_149.kvx"
+
+[file.26]
+from = "services/platform/tests/support/repair_22_33_1366.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/tests/support/repair_22_33_1366.kvx"
+
+[file.27]
+from = "services/platform/tools/repair_22_39_423.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/tools/repair_22_39_423.kvx"
+
+[file.28]
+from = "services/platform/tools/workspace-gate/src/repair_22_33_1414.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/tools/workspace-gate/src/repair_22_33_1414.kvx"
+
+[file.29]
+from = "services/platform/tools/workspace-gate/tests/repair_22_33_1418.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/tools/workspace-gate/tests/repair_22_33_1418.kvx"
+
+[reference.1]
+file = "GOTCHA.kvx"
+name = "repair_22_31_211"
+
+[reference.2]
+file = "GOTCHA.kvx"
+name = "repair_22_33_1366"
+
+[reference.3]
+file = "GOTCHA.kvx"
+name = "repair_22_33_1486"
+
+[reference.4]
+file = "GOTCHA.kvx"
+name = "repair_22_33_1487"
+
+[reference.5]
+file = "GOTCHA.kvx"
+name = "repair_22_33_1490"
+
+[reference.6]
+file = "GOTCHA.kvx"
+name = "repair_22_39_149"
+
+[reference.7]
+file = "services/platform/hosted/internal/tests/repair_22_33_1366.rs"
+name = "repair_22_33_1366"
+
+[reference.8]
+file = "spec/layerx-merge/dispositions/d22-17.kvx"
+name = "repair_22_31_211"
+
+[reference.9]
+file = "spec/layerx-merge/dispositions/d22-23.kvx"
+name = "repair_22_33_1366"
+
+[reference.10]
+file = "spec/layerx-merge/dispositions/d22-33.kvx"
+name = "repair_22_33_1487"
+
+[reference.11]
+file = "spec/layerx-merge/dispositions/d22-35.kvx"
+name = "repair_22_33_1487"
+
+[reference.12]
+file = "spec/layerx-merge/programme/docs/review/22.41.25.kvx"
+name = "repair_22_33_1486"
+
+[reference.13]
+file = "spec/layerx-merge/programme/docs/review/22.41.85.kvx"
+name = "repair_22_33_1486"
+
+[reference.14]
+file = "spec/layerx-merge/programme/issues/1864.kvx"
+name = "repair_22_33_1487"
+
+[reference.15]
+file = "spec/layerx-merge/programme/issues/input/1864.md"
+name = "repair_22_33_1487"
+
+[reference.16]
+file = "spec/layerx-merge/programme/records/tools/paxeer-x/repair_22_39_245.kvx"
+name = "repair_22_31_211"
+
+[reference.17]
+file = "spec/layerx-merge/programme/sweeps/repairs/rust-test-programs.10.kvx"
+name = "repair_22_33_1487"
+
+[reference.18]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_31_211"
+
+[reference.19]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_33_1366"
+
+[reference.20]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_33_1418"
+
+[reference.21]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_33_1487"
+
+[reference.22]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_33_1490"
+
+[reference.23]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_31_211"
+
+[reference.24]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_1366"
+
+[reference.25]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_1414"
+
+[reference.26]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_1416"
+
+[reference.27]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_1418"
+
+[reference.28]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_1486"
+
+[reference.29]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_1487"
+
+[reference.30]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_1490"
+
+[reference.31]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_140"
+
+[reference.32]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_149"
+
+[reference.33]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_163"
+
+[reference.34]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_265"
+
+[reference.35]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_420"
+
+[reference.36]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_423"
+
+[reference.37]
+file = "tests/ci/repair_22_39_68.kvx"
+name = "repair_22_39_149"
+
+[reference.38]
+file = "tools/paxeer-x/retired_callers.json"
+name = "repair_22_31_211"
+
+[reference.39]
+file = "tools/paxeer-x/tests/retired_callers_test.py"
+name = "repair_22_31_211"

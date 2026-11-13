@@ -14,7 +14,7 @@ This directory contains the Go implementation, EVM ABI, Solidity interface, and 
 - [gov_test.go](gov_test.go) — Governance calls and proposal validation through EVM transactions.
 - [abi_freeze_test.go](abi_freeze_test.go) — ABI, address, and method selector assertions.
 - [gas_golden_test.go](gas_golden_test.go) — Gas requirements across merge activation.
-- [repair_m1267_test.go](repair_m1267_test.go) — Parameter-change execution and empty or omitted proposal type defaults.
+- [proposal_submission_test.go](proposal_submission_test.go) — Parameter-change execution and empty or omitted proposal type defaults.
 
 ## Build and test
 

@@ -74,12 +74,12 @@ x * TestHalt1 - if we see +2/3 precommits after timing out into new round, we sh
 // ProposeSuite
 
 func TestStateProposerSelection0(t *testing.T) {
-	testRepairM1082ProposerSelection(t, 0)
+	testConsensusNetworkProposerSelection(t, 0)
 }
 
 // Exercise the same leader contract starting at a nonzero round.
 func TestStateProposerSelection2(t *testing.T) {
-	testRepairM1082ProposerSelection(t, 2)
+	testConsensusNetworkProposerSelection(t, 2)
 }
 
 // a non-validator should timeout into the prevote round
@@ -2846,11 +2846,11 @@ func TestAddProposalBlockPartNilProposalBlockParts(t *testing.T) {
 	require.NoError(t, err, "No error expected when ProposalBlockParts is nil, just debug logging")
 }
 
-func testRepairM1082ProposerSelection(t *testing.T, startRound int32) {
+func testConsensusNetworkProposerSelection(t *testing.T, startRound int32) {
 	t.Helper()
 	for _, mode := range []string{"weighted", "active_pin", "disabled_pin", "activate_at_second_height"} {
 		t.Run(fmt.Sprintf("round_%d/%s", startRound, mode), func(t *testing.T) {
-			f := newRepairM1082Fixture(t, true, time.Now().Add(-time.Minute))
+			f := newConsensusNetworkFixture(t, true, time.Now().Add(-time.Minute))
 			cs, _ := f.state(t, f.honest[0])
 			cs.SetPrivValidator(t.Context(), utils.None[types.PrivValidator]())
 			var pin cstypes.LeaderPin
@@ -2885,21 +2885,21 @@ func testRepairM1082ProposerSelection(t *testing.T, startRound int32) {
 				require.Equal(t, round, event.Round)
 				require.Equal(t, leader.Address(), event.Proposer.Address)
 				require.Equal(t, leader, cs.GetRoundState().Leader())
-				producer, _ := newRepairM1082State(t, getConfig(t), cs.GetState(), f.signers[f.index(t, leader)], cs.blockStore.(*store.BlockStore), NopMetrics())
+				producer, _ := newConsensusNetworkState(t, getConfig(t), cs.GetState(), f.signers[f.index(t, leader)], cs.blockStore.(*store.BlockStore), NopMetrics())
 				producer.SetLeaderPin(pin)
-				messages := repairM1082ProducerMessages(t, producer, height, round)
+				messages := consensusNetworkProducerMessages(t, producer, height, round)
 				proposal := messages[0].Msg.(*ProposalMessage).Proposal
 				require.Equal(t, leader.Address(), proposal.ProposerAddress)
 				require.NoError(t, leader.Verify(types.ProposalSignBytes(f.genesis.ChainID, proposal.ToProto()), proposal.Signature))
 				for _, mi := range messages {
-					cs.handleMsg(t.Context(), repairM1082Transport(t, mi), false)
+					cs.handleMsg(t.Context(), consensusNetworkTransport(t, mi), false)
 				}
 				id := ensureNewProposal(t, proposals, height, round)
 				require.True(t, id.Equals(proposal.BlockID))
 				require.Equal(t, proposal.Signature, cs.GetRoundState().Proposal.Signature)
 				for signer := range 3 {
 					vote := f.vote(t, signer, tmproto.PrecommitType, height, round, id)
-					cs.handleMsg(t.Context(), repairM1082Transport(t, msgInfo{Msg: &VoteMessage{vote}, PeerID: "selection-peer", ReceiveTime: time.Now()}), false)
+					cs.handleMsg(t.Context(), consensusNetworkTransport(t, msgInfo{Msg: &VoteMessage{vote}, PeerID: "selection-peer", ReceiveTime: time.Now()}), false)
 				}
 				ensureNewBlock(t, blocks, height)
 				require.Equal(t, height+1, cs.GetRoundState().Height)

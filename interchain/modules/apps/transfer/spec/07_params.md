@@ -54,7 +54,7 @@ The bank message server checks `IsSendEnabledCoins` for user `MsgSend` and
 `MsgMultiSend` messages. IBC receives instead use keeper `SendCoins` to
 unescrow, or `MintCoins` and `SendCoinsFromModuleToAccount` to deliver vouchers;
 these module flows do not invoke that user-message send-enabled gate.
-`TestRepairM_1206_ReceiveGating` proves both branches and the error-acknowledgement
+`TestTransferContractReceiveGating` proves both branches and the error-acknowledgement
 refund with the real bank keeper.
 
 Neither transfer parameter gates the acknowledgement or timeout refund paths.

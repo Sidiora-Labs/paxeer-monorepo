@@ -126,7 +126,7 @@ const mktEmitterAddress = "0x622e1bb90e0e2b6e6e5e9e2dbe1555389e8a3ef6"
 // initialize method creates the test authority, without hand-writing its roles.
 func mktEmitterAllocation(t *testing.T) types.GenesisAlloc {
 	t.Helper()
-	raw, err := os.ReadFile("testdata/repair_m1008_emitter.json")
+	raw, err := os.ReadFile("testdata/emitter_chain_state.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -493,7 +493,7 @@ func TestDevelopmentMarketReadsWithoutChainRPC(t *testing.T) {
 
 func TestDevelopmentMarketReadsPools(t *testing.T) {
 	f := newMktMarketFixture(t, true)
-	raw, err := os.ReadFile("testdata/repair_22_39_372_token.json")
+	raw, err := os.ReadFile("testdata/verified_token.json")
 	if err != nil {
 		t.Fatal(err)
 	}

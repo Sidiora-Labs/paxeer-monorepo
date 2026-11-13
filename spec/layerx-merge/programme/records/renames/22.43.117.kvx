@@ -1,0 +1,20 @@
+[manifest]
+task = "22.43.117"
+records_moved = 1
+files_renamed = 1
+
+[file.rename]
+from = "sdk/tasks/repair_m631_test.go"
+to = "sdk/tasks/scheduler_cancellation_recovery_test.go"
+
+[file.record]
+from = "sdk/tasks/repair_m631.kvx"
+to = "spec/layerx-merge/programme/records/sdk/tasks/repair_m631.kvx"
+
+[reference.test_file]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/tasks/repair_m631_test.go"
+
+[reference.test_names]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_631_"

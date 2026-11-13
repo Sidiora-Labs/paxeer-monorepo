@@ -273,9 +273,9 @@ func TestNewInnerLoadedCommitQCsWithAppQC(t *testing.T) {
 	rng := utils.TestRng()
 	committee, keys := types.GenCommittee(rng, 4)
 	dir := utils.Some(t.TempDir())
-	f := repairM1080CertifiedProgress(t, rng, committee, keys, 5, dir)
-	appQC := repairM1080AppQC(rng, committee, keys, f.qcs[2])
-	repairM1080PersistLiveAnchor(t, f.state, appQC, f.qcs[2])
+	f := pruneAnchorCertifiedProgress(t, rng, committee, keys, 5, dir)
+	appQC := pruneAnchorAppQC(rng, committee, keys, f.qcs[2])
+	pruneAnchorPersistLiveAnchor(t, f.state, appQC, f.qcs[2])
 	require.NoError(t, f.state.persisters.commitQCs.Close())
 	loaded, pers, err := loadPersistedState(committee, dir)
 	require.NoError(t, err)
@@ -297,9 +297,9 @@ func TestNewInnerLoadedAllThree(t *testing.T) {
 	committee, keys := types.GenCommittee(rng, 4)
 	lane := keys[0].Public()
 	dir := utils.Some(t.TempDir())
-	f := repairM1080CertifiedProgress(t, rng, committee, keys, 5, dir)
-	appQC := repairM1080AppQC(rng, committee, keys, f.qcs[2])
-	repairM1080PersistLiveAnchor(t, f.state, appQC, f.qcs[2])
+	f := pruneAnchorCertifiedProgress(t, rng, committee, keys, 5, dir)
+	appQC := pruneAnchorAppQC(rng, committee, keys, f.qcs[2])
+	pruneAnchorPersistLiveAnchor(t, f.state, appQC, f.qcs[2])
 	require.NoError(t, f.state.persisters.commitQCs.Close())
 	loaded, pers, err := loadPersistedState(committee, dir)
 	require.NoError(t, err)
@@ -386,10 +386,10 @@ func TestNewInnerLoadedCommitQCsAllBeforeAppQCArePruned(t *testing.T) {
 	// Build 6 CommitQCs (indices 0-5). Anchor at index 5.
 	// All stale commitQCs (0-4) were already filtered by loadPersistedState,
 	// so newInner receives an empty commitQC slice.
-	f := repairM1080CertifiedProgress(t, rng, committee, keys, 6, utils.None[string]())
+	f := pruneAnchorCertifiedProgress(t, rng, committee, keys, 6, utils.None[string]())
 	qcs := f.qcs
 
-	appQC := repairM1080AppQC(rng, committee, keys, qcs[5])
+	appQC := pruneAnchorAppQC(rng, committee, keys, qcs[5])
 	require.NoError(t, f.state.PushAppQC(appQC, qcs[5]))
 
 	loaded := &loadedAvailState{
@@ -411,10 +411,10 @@ func TestNewInnerAnchorWithNoCommitQCFiles(t *testing.T) {
 
 	// Simulate crash between anchor write and CommitQC file write:
 	// anchor has AppQC@3 + CommitQC@3, but no CommitQC files on disk.
-	f := repairM1080CertifiedProgress(t, rng, committee, keys, 4, utils.None[string]())
+	f := pruneAnchorCertifiedProgress(t, rng, committee, keys, 4, utils.None[string]())
 	qcs := f.qcs
 
-	appQC := repairM1080AppQC(rng, committee, keys, qcs[3])
+	appQC := pruneAnchorAppQC(rng, committee, keys, qcs[3])
 	require.NoError(t, f.state.PushAppQC(appQC, qcs[3]))
 
 	loaded := &loadedAvailState{
@@ -493,10 +493,10 @@ func TestNewInnerLoadedCommitQCsGapWithAppQCAnchor(t *testing.T) {
 	// Simulate crash scenario: disk had stale QCs [0,1,2] and a new QC at
 	// index 10. loadPersistedState pre-filters stale entries, so newInner
 	// only receives [10].
-	f := repairM1080CertifiedProgress(t, rng, committee, keys, 11, utils.None[string]())
+	f := pruneAnchorCertifiedProgress(t, rng, committee, keys, 11, utils.None[string]())
 	qcs := f.qcs
 
-	appQC := repairM1080AppQC(rng, committee, keys, qcs[10])
+	appQC := pruneAnchorAppQC(rng, committee, keys, qcs[10])
 	require.NoError(t, f.state.PushAppQC(appQC, qcs[10]))
 
 	loadedQCs := []persist.LoadedCommitQC{
@@ -534,10 +534,10 @@ func TestNewInnerLoadedCommitQCsBelowAnchorSkipped(t *testing.T) {
 	// Loaded list includes stale entries [1, 2] below the anchor plus [3, 4, 5].
 	// In production loadPersistedState filters these, but newInner should
 	// handle them gracefully via the lqc.Index < commitQCs.next skip.
-	f := repairM1080CertifiedProgress(t, rng, committee, keys, 6, utils.None[string]())
+	f := pruneAnchorCertifiedProgress(t, rng, committee, keys, 6, utils.None[string]())
 	qcs := f.qcs
 
-	appQC := repairM1080AppQC(rng, committee, keys, qcs[3])
+	appQC := pruneAnchorAppQC(rng, committee, keys, qcs[3])
 	require.NoError(t, f.state.PushAppQC(appQC, qcs[3]))
 
 	loadedQCs := []persist.LoadedCommitQC{
@@ -571,10 +571,10 @@ func TestNewInnerLoadedCommitQCsGapAfterAnchorReturnsError(t *testing.T) {
 	// Anchor at index 2. Loaded commitQCs are [2, 3, 5] — gap at 4.
 	// After prune(2), next=3. Index 2 is skipped, 3 pushed (next=4),
 	// then 5 != 4 → error.
-	f := repairM1080CertifiedProgress(t, rng, committee, keys, 6, utils.None[string]())
+	f := pruneAnchorCertifiedProgress(t, rng, committee, keys, 6, utils.None[string]())
 	qcs := f.qcs
 
-	appQC := repairM1080AppQC(rng, committee, keys, qcs[2])
+	appQC := pruneAnchorAppQC(rng, committee, keys, qcs[2])
 	require.NoError(t, f.state.PushAppQC(appQC, qcs[2]))
 
 	loadedQCs := []persist.LoadedCommitQC{
@@ -676,11 +676,11 @@ func TestNewInnerPruneAnchorPrunesBlockQueues(t *testing.T) {
 	committee, keys := types.GenCommittee(rng, 4)
 
 	// Build CommitQCs 0-2.
-	f := repairM1080CertifiedProgress(t, rng, committee, keys, 3, utils.None[string]())
+	f := pruneAnchorCertifiedProgress(t, rng, committee, keys, 3, utils.None[string]())
 	qcs := f.qcs
 
 	// AppQC at road index 2, prune anchor is CommitQC[2].
-	appQC := repairM1080AppQC(rng, committee, keys, qcs[2])
+	appQC := pruneAnchorAppQC(rng, committee, keys, qcs[2])
 	require.NoError(t, f.state.PushAppQC(appQC, qcs[2]))
 	pruneQC := qcs[2]
 
@@ -717,11 +717,11 @@ func TestNewInnerPruneAnchorCommitQCUsedForPrune(t *testing.T) {
 	committee, keys := types.GenCommittee(rng, 4)
 
 	// Build CommitQCs 0-2.
-	f := repairM1080CertifiedProgress(t, rng, committee, keys, 3, utils.None[string]())
+	f := pruneAnchorCertifiedProgress(t, rng, committee, keys, 3, utils.None[string]())
 	qcs := f.qcs
 
 	// AppQC at road index 1, prune anchor is CommitQC[1].
-	appQC := repairM1080AppQC(rng, committee, keys, qcs[1])
+	appQC := pruneAnchorAppQC(rng, committee, keys, qcs[1])
 	require.NoError(t, f.state.PushAppQC(appQC, qcs[1]))
 
 	loaded := &loadedAvailState{

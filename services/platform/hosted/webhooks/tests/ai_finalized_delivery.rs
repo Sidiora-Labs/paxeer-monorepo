@@ -1547,5 +1547,5 @@ fn public_process_refuses_private_producer_route_and_role_mismatch() {
     assert!(ProducerGrant::from_certificate(&leaf).is_ok());
 }
 
-#[path = "repair_22_33_1329.rs"]
-mod repair_22_33_1329;
+#[path = "capture_receiver_recovery.rs"]
+mod capture_receiver_recovery;

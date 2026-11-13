@@ -14,7 +14,7 @@ import (
 )
 
 func TestApplyUpgradesDeletesAnchorTreeAndKeepsMergeTrees(t *testing.T) {
-	repair1199Buffers(t)
+	resourceLifecycleBuffers(t)
 	const anchorName = "layerxanchor"
 	mergeStores := []string{
 		keys.LayerXProgramsStoreKey,

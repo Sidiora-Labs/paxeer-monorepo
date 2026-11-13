@@ -1,4 +1,4 @@
-Code.require_file("repair_22_33_555_support.exs", __DIR__)
+Code.require_file("recorded_fetcher_support.exs", __DIR__)
 
 defmodule Indexer.Fetcher.BlockRewardTest do
   # MUST be `async: false` so that {:shared, pid} is set for connection to allow CoinBalanceFetcher's self-send to have
@@ -453,7 +453,7 @@ defmodule Indexer.Fetcher.BlockRewardTest do
   end
 
   defp wait_until(timeout, producer) do
-    Indexer.Fetcher.Repair2233555.wait_until(timeout, producer)
+    Indexer.Fetcher.RecordedFetcherSupport.wait_until(timeout, producer)
   end
 
   defp trace_block_expectation(block_quantity, miner_hash, block_hash, block_number, value) do
@@ -496,3 +496,4 @@ defmodule Indexer.Fetcher.BlockRewardTest do
     end)
   end
 end
+
