@@ -17,13 +17,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepairM_1265_GasRealTransfer(t *testing.T) {
+func TestIbcGasRealTransfer(t *testing.T) {
 	TestIbcGasGolden(t)
 }
 
 // The supported solo-machine protocol authenticates committed peer state with
 // real signatures; both packet consumers are the application's IBC Msg server.
-func TestRepairM_1265_TransferRealPath(t *testing.T) {
+func TestIbcTransferLifecycle(t *testing.T) {
 	for _, method := range []string{ibc.TransferMethod, ibc.TransferWithDefaultTimeoutMethod} {
 		for _, settlement := range []string{"acknowledgement", "error_acknowledgement", "timeout"} {
 			t.Run(method+"/"+settlement, func(t *testing.T) {
@@ -74,10 +74,10 @@ func TestRepairM_1265_TransferRealPath(t *testing.T) {
 					require.Equal(t, authenticated.ConsensusState, consensus)
 					require.Greater(t, consensus.GetTimestamp(), packet.TimeoutTimestamp)
 					source.assertSent(t, source.ctx, packet, receiver)
-					path := repair1265Path(t, host.PacketReceiptPath("transfer", "channel-0", packet.Sequence))
+					path := ibcPacketMerklePath(t, host.PacketReceiptPath("transfer", "channel-0", packet.Sequence))
 					signBytes, err := solotypes.PacketReceiptAbsenceSignBytes(source.app.AppCodec(), peerSigner.Sequence, peerSigner.Time, peerSigner.Diversifier, path)
 					require.NoError(t, err)
-					proof = repair1265Proof(t, source, peerSigner, signBytes)
+					proof = ibcSignedPacketProof(t, source, peerSigner, signBytes)
 					response, err := source.app.IBCKeeper.Timeout(sdk.WrapSDKContext(source.ctx), &channeltypes.MsgTimeout{
 						Packet: packet, ProofUnreceived: proof, ProofHeight: proofHeight, NextSequenceRecv: 1, Signer: source.sender.String(),
 					})
@@ -86,10 +86,10 @@ func TestRepairM_1265_TransferRealPath(t *testing.T) {
 				} else {
 					commitment := source.app.IBCKeeper.ChannelKeeper.GetPacketCommitment(source.ctx, "transfer", "channel-0", packet.Sequence)
 					require.Equal(t, realIBCCommitment(packet), commitment)
-					path := repair1265Path(t, host.PacketCommitmentPath("transfer", "channel-0", packet.Sequence))
+					path := ibcPacketMerklePath(t, host.PacketCommitmentPath("transfer", "channel-0", packet.Sequence))
 					signBytes, err := solotypes.PacketCommitmentSignBytes(source.app.AppCodec(), sourceSigner.Sequence, sourceSigner.Time, sourceSigner.Diversifier, path, commitment)
 					require.NoError(t, err)
-					proofCommitment := repair1265Proof(t, source, sourceSigner, signBytes)
+					proofCommitment := ibcSignedPacketProof(t, source, sourceSigner, signBytes)
 					altered := packet
 					altered.Data = append(append([]byte(nil), packet.Data...), byte(' '))
 					refused, _ := peer.ctx.CacheContext()
@@ -107,7 +107,7 @@ func TestRepairM_1265_TransferRealPath(t *testing.T) {
 					})
 					require.NoError(t, err)
 					require.Equal(t, channeltypes.SUCCESS, receive.Result)
-					ack = repair1265Ack(t, peer.ctx.EventManager().Events())
+					ack = ibcAcknowledgementFromEvents(t, peer.ctx.EventManager().Events())
 					var decoded channeltypes.Acknowledgement
 					require.NoError(t, peer.app.AppCodec().UnmarshalAsJSON(ack, &decoded))
 					require.Equal(t, settlement == "acknowledgement", decoded.Success())
@@ -129,10 +129,10 @@ func TestRepairM_1265_TransferRealPath(t *testing.T) {
 					stored, found := peer.app.IBCKeeper.ChannelKeeper.GetPacketAcknowledgement(peer.ctx, "transfer", "channel-0", packet.Sequence)
 					require.True(t, found)
 					require.Equal(t, channeltypes.CommitAcknowledgement(ack), stored)
-					path = repair1265Path(t, host.PacketAcknowledgementPath("transfer", "channel-0", packet.Sequence))
+					path = ibcPacketMerklePath(t, host.PacketAcknowledgementPath("transfer", "channel-0", packet.Sequence))
 					signBytes, err = solotypes.PacketAcknowledgementSignBytes(source.app.AppCodec(), peerSigner.Sequence, peerSigner.Time, peerSigner.Diversifier, path, ack)
 					require.NoError(t, err)
-					proof = repair1265Proof(t, source, peerSigner, signBytes)
+					proof = ibcSignedPacketProof(t, source, peerSigner, signBytes)
 					proofHeight = clienttypes.NewHeight(0, peerSigner.Sequence)
 					refusedAck, _ := source.ctx.CacheContext()
 					_, err = source.app.IBCKeeper.Acknowledgement(sdk.WrapSDKContext(refusedAck), &channeltypes.MsgAcknowledgement{
@@ -184,14 +184,14 @@ func TestRepairM_1265_TransferRealPath(t *testing.T) {
 	}
 }
 
-func repair1265Path(t *testing.T, key string) commitmenttypes.MerklePath {
+func ibcPacketMerklePath(t *testing.T, key string) commitmenttypes.MerklePath {
 	t.Helper()
 	path, err := commitmenttypes.ApplyPrefix(commitmenttypes.NewMerklePrefix([]byte(host.StoreKey)), commitmenttypes.NewMerklePath(key))
 	require.NoError(t, err)
 	return path
 }
 
-func repair1265Proof(t *testing.T, f *realIBCFixture, signer *ibctesting.Solomachine, signBytes []byte) []byte {
+func ibcSignedPacketProof(t *testing.T, f *realIBCFixture, signer *ibctesting.Solomachine, signBytes []byte) []byte {
 	t.Helper()
 	proof, err := f.app.AppCodec().Marshal(&solotypes.TimestampedSignatureData{
 		SignatureData: signer.GenerateSignature(signBytes), Timestamp: signer.Time,
@@ -200,7 +200,7 @@ func repair1265Proof(t *testing.T, f *realIBCFixture, signer *ibctesting.Solomac
 	return proof
 }
 
-func repair1265Ack(t *testing.T, events sdk.Events) []byte {
+func ibcAcknowledgementFromEvents(t *testing.T, events sdk.Events) []byte {
 	t.Helper()
 	var ack []byte
 	count := 0
