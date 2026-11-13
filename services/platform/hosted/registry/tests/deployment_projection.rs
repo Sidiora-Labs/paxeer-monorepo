@@ -1,10 +1,5 @@
-//! Task 22.33.1470: mandatory, self-contained registry integration proofs.
-//! Peers use the committed node transaction/result corpus from 22.31.256;
-//! deployment records are also produced by the real Programs Lifecycle.
-//! The registry parser, clients, verifier, journal and Registrar are production code.
-
 #[allow(dead_code)]
-#[path = "support/repair_22_33_1470_chain.rs"]
+#[path = "support/deployment_projection_chain.rs"]
 mod chain;
 
 use chain::ChainFixture;
@@ -39,7 +34,7 @@ const CHAIN: &str = "repair-22-31-257";
 fn hash(bytes: &[u8]) -> [u8; 32] {
     Sha256::digest(bytes).into()
 }
-pub(crate) fn program() -> ProgramId {
+fn program() -> ProgramId {
     ProgramId::new([0x31; 32]).unwrap_or_else(|error| panic!("{error:?}"))
 }
 fn policy() -> UpgradePolicy {
@@ -69,7 +64,7 @@ fn descriptor(version: usize) -> ProgramInterface {
     ProgramInterface::decode(&transcript()[&format!("interface.{version}")])
         .unwrap_or_else(|error| panic!("{error:?}"))
 }
-pub(crate) fn code(version: usize) -> Vec<u8> {
+fn code(version: usize) -> Vec<u8> {
     transcript()[&format!("wasm.{version}")].clone()
 }
 fn program_key() -> Vec<u8> {
@@ -205,13 +200,13 @@ fn sign(fixture: &mut ChainFixture) {
         .collect();
 }
 
-pub(crate) struct Admission {
-    pub(crate) chain: ChainFixture,
-    pub(crate) proof: DeploymentProof,
-    pub(crate) verifier: ProtocolDeploymentVerifier,
-    pub(crate) now: u64,
+struct Admission {
+    chain: ChainFixture,
+    proof: DeploymentProof,
+    verifier: ProtocolDeploymentVerifier,
+    now: u64,
 }
-pub(crate) fn admission(version: usize) -> Admission {
+fn admission(version: usize) -> Admission {
     admission_abi(version, 1)
 }
 fn prior_chain(version: usize, transaction: &[u8]) -> (ChainFixture, [u8; 32]) {
@@ -294,7 +289,7 @@ fn wind_down_ops(chain: &ChainFixture) -> Vec<layerx_programs::chain_proof::deco
 
 fn admission_abi(version: usize, abi: u16) -> Admission {
     let producer = transcript();
-    let abi_five: Value = serde_json::from_str(include_str!("../src/repair_22_31_206_abi5.json"))
+    let abi_five: Value = serde_json::from_str(include_str!("../src/deployment_abi5.json"))
         .unwrap_or_else(|error| panic!("{error:?}"));
     let five_tx = hex::decode(
         abi_five["transaction_hex"]
@@ -397,9 +392,10 @@ fn admission_abi(version: usize, abi: u16) -> Admission {
 
 use layerx_platform_registry::{
     committed_head_route, parse_request, write_response, Config, FileDeploymentJournal,
-    HermeticBuilder, Registrar, RegistryAuthority, Request, Response,
+    HermeticBuilder, NodeProgramStateSource, Registrar, RegistryAuthority, Request, Response,
+    SourceMirror, VerifiedSource, VerifiedSourceDeployment, VerifiedSourceStore,
 };
-use layerx_programs::{hex, DeploymentJournal as _};
+use layerx_programs::{hex, BuildEnvironment, BuildPlan, ObservedHead, SourceArchive, SourceFile};
 use serde_json::{json, Value};
 use std::{
     collections::HashMap,
@@ -418,7 +414,7 @@ impl Directory {
     fn new() -> Self {
         static NEXT: AtomicU64 = AtomicU64::new(0);
         let path = std::env::temp_dir().join(format!(
-            "repair-22-33-1470-{}-{}",
+            "repair-22-31-206-{}-{}",
             std::process::id(),
             NEXT.fetch_add(1, Ordering::Relaxed)
         ));
@@ -588,8 +584,8 @@ fn tls() -> (Vec<u8>, Arc<rustls::ServerConfig>) {
     )
 }
 
-pub(crate) struct Server {
-    pub(crate) endpoint: String,
+struct Server {
+    endpoint: String,
     stop: Arc<AtomicBool>,
     thread: Option<thread::JoinHandle<()>>,
 }
@@ -790,6 +786,18 @@ impl Peers {
             tls,
         }
     }
+    fn source(&self, admission: &Admission) -> NodeProgramStateSource {
+        NodeProgramStateSource::connect(
+            &self.node.endpoint,
+            "node-repair-credential".into(),
+            &self.ca,
+            &self.authority.endpoint,
+            "authority-repair-credential".into(),
+            REPLICA,
+            admission.verifier.clone(),
+        )
+        .unwrap_or_else(|error| panic!("{error:?}"))
+    }
 }
 
 fn start_head_servers(
@@ -874,13 +882,21 @@ fn program_rpc(admission: &Admission) -> (Vec<u8>, Server) {
         .canonical_encoding()
         .unwrap_or_else(|error| panic!("{error:?}"));
     let rpc = Server::start(None, move |request| {
-        assert_eq!(request.path, "/");
         assert_eq!(request.method, "POST");
         let rpc: Value =
             serde_json::from_slice(&request.body).unwrap_or_else(|error| panic!("{error:?}"));
         assert_eq!(rpc["method"], "eth_call");
-        assert_eq!(rpc["params"][0]["to"], PROGRAMS);
-        response(200, &rpc_result(&storage_head_abi()))
+        let mut native_head = vec![0, 1, 0, 0, 0, 0];
+        native_head.extend_from_slice(&hash(&native_head.clone()));
+        let mut abi = vec![0; 64];
+        abi[31] = 32;
+        abi[63] = u8::try_from(native_head.len()).unwrap_or_else(|error| panic!("{error:?}"));
+        abi.extend_from_slice(&native_head);
+        abi.resize(64 + native_head.len().div_ceil(32) * 32, 0);
+        response(
+            200,
+            &json!({"jsonrpc":"2.0","id":1,"result":format!("0x{}",hex::encode(&abi))}),
+        )
     });
     (encoded, rpc)
 }
@@ -1017,962 +1033,12 @@ fn exchange(service: &Server, method: &str, path: &str, body: &[u8]) -> (u16, Va
     )
 }
 
-// The task record stays in scope. A baseline verify was not run: the ordered
-// qualification rules permit it only after implementation and hf-build.
-const TASK_RECORD: &[(&str, &str)] = &[
-    (
-        "upgrade-test-accepts-quarantine",
-        "upgrade_deploy_reopen_preserves_authenticated_history",
-    ),
-    (
-        "program-state-rpc-fixture",
-        "program_state_root_transport_persists_committed_head",
-    ),
-    (
-        "programs-rpc-fixture",
-        "programs_root_transport_admits_and_refuses_transactions",
-    ),
-    (
-        "startup-test-only-journal",
-        "registry_http_without_socket_recovers_the_same_view",
-    ),
-];
-// Wiring request: precompiles/layerxprograms and rpc (domain 15) own a recorded
-// full-node deployment/receipt/getProgram/getStateHead corpus; this gate uses the
-// committed transaction/result corpus and the producer's empty-storage golden.
-// Wiring request: services/platform/hosted/registry/src/main.rs (domain 8) owns
-// privileged cgroup delegation and binary startup; this gate opens its production
-// Registrar worker with the serialized builder boundary, without a subprocess.
-
-const PROGRAMS: &str = "0x000000000000000000000000000000000000101d";
-
-pub(crate) fn storage_head_abi() -> Vec<u8> {
-    // Empty-storage golden asserted against Host.ReadProgramStateHead and
-    // EVM.StaticCall in precompiles/layerxprograms/proof_layerxprograms_0x101d_test.go
-    // (getStateHead); replay verbatim rather than fabricate the manifest digest.
-    hex::decode(concat!(
-        "0000000000000000000000000000000000000000000000000000000000000020",
-        "0000000000000000000000000000000000000000000000000000000000000026",
-        "00010000000001cf85cfeb36d628ca2e6f583fa2331be029b6b28e877e1008fb3f862306c086",
-        "0000000000000000000000000000000000000000000000000000",
-    ))
-    .unwrap_or_else(|error| panic!("{error:?}"))
-}
-
-fn rpc_result(encoded: &[u8]) -> Value {
-    json!({"jsonrpc":"2.0","id":1,"result":format!("0x{}",hex::encode(encoded))})
-}
-
-fn selector(signature: &str) -> String {
-    let hash = layerx_crypto::evm_transaction::transaction_hash(signature.as_bytes());
-    format!(
-        "0x{}{}",
-        hex::encode(&hash[..4]),
-        hex::encode(&program().bytes())
-    )
-}
-
-fn word(value: u64) -> Vec<u8> {
-    let mut word = vec![0; 24];
-    word.extend_from_slice(&value.to_be_bytes());
-    word
-}
-
-pub(crate) fn program_abi(record: &DeploymentRecord) -> Vec<u8> {
-    let (policy, authority) = match record.upgrade_policy {
-        UpgradePolicy::Immutable => (0, [0; 32]),
-        UpgradePolicy::Authority(authority) => (1, authority),
-    };
-    let mut encoded = word(policy);
-    encoded.extend_from_slice(&authority);
-    encoded.extend_from_slice(&record.new_code_hash);
-    encoded.extend_from_slice(&word(u64::from(record.abi_version)));
-    encoded.extend_from_slice(&word(u64::from(record.version)));
-    encoded.extend_from_slice(&word(1));
-    encoded
-}
-
-fn rpc_request(request: &Request) -> Value {
-    assert_eq!(request.method, "POST");
-    assert_eq!(request.path, "/");
-    let rpc: Value =
-        serde_json::from_slice(&request.body).unwrap_or_else(|error| panic!("{error:?}"));
-    assert_eq!(rpc["jsonrpc"], "2.0");
-    assert_eq!(rpc["id"], 1);
-    rpc
-}
-
-pub(crate) fn state_rpc(height: u64) -> Server {
-    Server::start(None, move |request| {
-        let rpc = rpc_request(&request);
-        assert_eq!(rpc["method"], "eth_call");
-        assert_eq!(
-            rpc["params"],
-            json!([
-                {"to":PROGRAMS,"data":selector("getStateHead(bytes32)")},
-                format!("0x{height:x}")
-            ])
-        );
-        response(200, &rpc_result(&storage_head_abi()))
-    })
-}
-
-fn assert_recovered_history(
-    first: &Admission,
-    second: &Admission,
-    proofs: &[DeploymentProof],
-    reopened: &FileDeploymentJournal,
-    deployed: &layerx_programs::VerifiedDeploymentEvidence,
-    upgraded: &layerx_programs::VerifiedDeploymentEvidence,
-) {
-    let current = second
-        .chain
-        .verifier
-        .verify_head(&second.chain.header, &second.chain.commit)
-        .unwrap_or_else(|error| panic!("{error:?}"));
-    let history = [
-        (
-            first.chain.header.clone(),
-            first.chain.commit.clone(),
-            first.chain.verifier.validators.clone(),
-        ),
-        (
-            second.chain.header.clone(),
-            second.chain.commit.clone(),
-            second.chain.verifier.validators.clone(),
-        ),
-    ];
-    let mut recovered = Registry::new();
-    let mut verified = proofs
-        .iter()
-        .map(|proof| {
-            let height = proof
-                .claimed_record()
-                .unwrap_or_else(|error| panic!("{error:?}"))
-                .sequence;
-            let start = history
-                .iter()
-                .position(|(header, _, _)| {
-                    u64::try_from(header.height).unwrap_or_else(|error| panic!("{error:?}"))
-                        == height
-                })
-                .unwrap_or_else(|| panic!("expected a value"));
-            second
-                .verifier
-                .verify_historical_deployment(proof, &current, &history[start..], second.now)
-                .unwrap_or_else(|error| panic!("{error:?}"))
-        })
-        .collect::<Vec<_>>();
-    verified.sort_by_key(layerx_programs::VerifiedDeploymentEvidence::version);
-    assert_eq!(verified, vec![deployed.clone(), upgraded.clone()]);
-    for evidence in &verified {
-        reopened
-            .audit_projection(evidence)
-            .unwrap_or_else(|error| panic!("{error:?}"));
-        assert_eq!(
-            reopened
-                .canonical_record(evidence.receipt_digest())
-                .unwrap_or_else(|error| panic!("{error:?}")),
-            evidence.record().canonical_encoding()
-        );
-    }
-    recovered
-        .record_verified_deployment(&verified[0])
-        .unwrap_or_else(|error| panic!("{error:?}"));
-    recovered
-        .record_verified_upgrade(&verified[0], &verified[1])
-        .unwrap_or_else(|error| panic!("{error:?}"));
-    assert_eq!(
-        recovered
-            .latest_version(program())
-            .unwrap_or_else(|error| panic!("{error:?}")),
-        2
-    );
-    assert_eq!(
-        recovered
-            .resolve_deployment(upgraded.clone())
-            .unwrap_or_else(|error| panic!("{error:?}"))
-            .record(),
-        upgraded.record()
-    );
-}
-
 #[test]
-pub(crate) fn upgrade_deploy_reopen_preserves_authenticated_history() {
-    let first = admission(1);
-    let second = admission(2);
-    let deployed = first
-        .verifier
-        .verify_deployment(&first.proof, first.now)
-        .unwrap_or_else(|error| panic!("{error:?}"));
-    let upgraded = second
-        .verifier
-        .verify_deployment(&second.proof, second.now)
-        .unwrap_or_else(|error| panic!("{error:?}"));
-    assert_eq!(deployed.record(), &records(1)[0]);
-    assert_eq!(upgraded.record(), &records(1)[1]);
-    assert_eq!(upgraded.record().old_code_hash, Some(deployed.code_hash()));
-    upgraded
-        .record()
-        .validate()
-        .unwrap_or_else(|error| panic!("{error:?}"));
-    let mut registry = Registry::new();
-    assert_eq!(
-        registry.record_verified_upgrade(&deployed, &upgraded),
-        Err(layerx_programs::RegistryError::VersionHistoryMismatch)
-    );
-    registry
-        .record_verified_deployment(&deployed)
-        .unwrap_or_else(|error| panic!("{error:?}"));
-    registry
-        .record_verified_upgrade(&deployed, &upgraded)
-        .unwrap_or_else(|error| panic!("{error:?}"));
-    assert_eq!(
-        registry
-            .latest_version(program())
-            .unwrap_or_else(|error| panic!("{error:?}")),
-        2
-    );
-
-    let root = Directory::new();
-    let journal_path = root.0.join("journal");
-    let journal = FileDeploymentJournal::open(journal_path.clone())
-        .unwrap_or_else(|error| panic!("{error:?}"));
-    journal
-        .append(&deployed)
-        .unwrap_or_else(|error| panic!("{error:?}"));
-    journal
-        .append(&upgraded)
-        .unwrap_or_else(|error| panic!("{error:?}"));
-    let before = journal.load().unwrap_or_else(|error| panic!("{error:?}"));
-    assert_eq!(before.units.len(), 2);
-    assert!(before.quarantined.is_empty());
-    assert!(before.leftovers.is_empty());
-    let proofs = journal.proofs().unwrap_or_else(|error| panic!("{error:?}"));
-    drop(journal);
-    let reopened = FileDeploymentJournal::open(journal_path.clone())
-        .unwrap_or_else(|error| panic!("{error:?}"));
-    let after = reopened.load().unwrap_or_else(|error| panic!("{error:?}"));
-    assert_eq!(before.units, after.units);
-    assert!(after.quarantined.is_empty());
-    assert!(after.leftovers.is_empty());
-    assert_eq!(
-        reopened
-            .proofs()
-            .unwrap_or_else(|error| panic!("{error:?}")),
-        proofs
-    );
-    assert_recovered_history(&first, &second, &proofs, &reopened, &deployed, &upgraded);
-    assert_invalid_previous_proofs(&second);
-    assert_corrupt_upgrade_envelopes(&journal_path, &upgraded);
-}
-
-fn assert_invalid_previous_proofs(second: &Admission) {
-    let mut absent = second.proof.clone();
-    let mut execution = DeploymentExecutionProof::decode(&absent.state.transaction)
-        .unwrap_or_else(|error| panic!("{error:?}"));
-    execution.previous.proof_ops.clear();
-    absent
-        .bind_execution(&execution)
-        .unwrap_or_else(|error| panic!("{error:?}"));
-    assert!(second
-        .verifier
-        .verify_deployment(&absent, second.now)
-        .is_err());
-    let mut corrupt = second.proof.clone();
-    let mut execution = DeploymentExecutionProof::decode(&corrupt.state.transaction)
-        .unwrap_or_else(|error| panic!("{error:?}"));
-    execution.previous.proof_ops[0].data[0] ^= 1;
-    corrupt
-        .bind_execution(&execution)
-        .unwrap_or_else(|error| panic!("{error:?}"));
-    assert!(second
-        .verifier
-        .verify_deployment(&corrupt, second.now)
-        .is_err());
-}
-
-fn assert_corrupt_upgrade_envelopes(
-    journal_path: &std::path::Path,
-    upgraded: &layerx_programs::VerifiedDeploymentEvidence,
-) {
-    use layerx_platform_registry::{DeploymentEnvelope, UnitDefect, UnitPart};
-    let envelope = DeploymentEnvelope::from_evidence(upgraded);
-    let encoded = envelope
-        .canonical_encoding()
-        .unwrap_or_else(|error| panic!("{error:?}"));
-    let path = journal_path.join(format!(
-        "{}.envelope",
-        hex::encode(&upgraded.receipt_digest())
-    ));
-    let mut corrupt = encoded.clone();
-    *corrupt
-        .last_mut()
-        .unwrap_or_else(|| panic!("expected a value")) ^= 1;
-    fs::write(&path, &corrupt).unwrap_or_else(|error| panic!("{error:?}"));
-    let damaged = FileDeploymentJournal::open(journal_path.to_path_buf())
-        .unwrap_or_else(|error| panic!("{error:?}"));
-    let loaded = damaged.load().unwrap_or_else(|error| panic!("{error:?}"));
-    assert_eq!(loaded.units.len(), 1);
-    assert_eq!(loaded.quarantined.len(), 1);
-    assert!(matches!(
-        loaded.quarantined[0].defect,
-        UnitDefect::Corrupt {
-            part: UnitPart::Seal,
-            ..
-        }
-    ));
-    assert!(damaged.proofs().is_err());
-    let (record_frame, _, _) = envelope
-        .frames()
-        .unwrap_or_else(|error| panic!("{error:?}"));
-    fs::write(&path, &record_frame).unwrap_or_else(|error| panic!("{error:?}"));
-    let missing = FileDeploymentJournal::open(journal_path.to_path_buf())
-        .unwrap_or_else(|error| panic!("{error:?}"));
-    let loaded = missing.load().unwrap_or_else(|error| panic!("{error:?}"));
-    assert_eq!(loaded.units.len(), 1);
-    assert_eq!(loaded.quarantined.len(), 1);
-    assert_eq!(
-        loaded.quarantined[0].defect,
-        UnitDefect::Missing(UnitPart::Proof)
-    );
-    assert!(missing.proofs().is_err());
-}
-
-fn assert_state_head(
-    fixture: &Admission,
-    deployment_journal: &FileDeploymentJournal,
-    stored: &[u8],
-    cursor: layerx_platform_registry::ProgramStateCursor,
-) -> Server {
-    let head_peer = head_rpc(fixture);
-    let authority =
-        RegistryAuthority::new(TOKEN.to_owned().into()).unwrap_or_else(|error| panic!("{error:?}"));
-    let response = Registrar::route_chain_head(
-        &request(
-            "POST",
-            "/__registry/head",
-            serde_json::to_vec(&json!({"program_id":hex::encode(&program().bytes())}))
-                .unwrap_or_else(|error| panic!("{error:?}")),
-        ),
-        &authority,
-        deployment_journal,
-        &format!("{}/", head_peer.endpoint),
-        Instant::now() + Duration::from_secs(5),
-    );
-    assert_eq!(response.status, 200, "{}", response.body);
-    let body: Value =
-        serde_json::from_str(&response.body).unwrap_or_else(|error| panic!("{error:?}"));
-    let keccak = layerx_crypto::evm_transaction::transaction_hash(stored);
-    assert_eq!(body["state_root"], hex::encode(&keccak));
-    assert_eq!(body["sequence"], cursor.sequence);
-    head_peer
-}
-
-#[test]
-pub(crate) fn program_state_root_transport_persists_committed_head() {
-    use layerx_platform_registry::{FileProgramStateJournal, ProgramStateCursor};
-    let fixture = admission(1);
-    let root = Directory::new();
-    let peer = state_rpc(
-        u64::try_from(fixture.chain.header.height).unwrap_or_else(|error| panic!("{error:?}")),
-    );
-    let journal = FileProgramStateJournal::open(root.0.join("state"))
-        .unwrap_or_else(|error| panic!("{error:?}"));
-    let encoded = storage_head_abi();
-    assert_eq!(encoded.len(), 128);
-    let expected = encoded[64..102].to_vec();
-    assert_eq!(&expected[6..], hash(&expected[..6]));
-    let deadline = || Instant::now() + Duration::from_secs(5);
-    let stored = journal
-        .store(
-            &format!("{}/", peer.endpoint),
-            program(),
-            u64::try_from(fixture.chain.header.height).unwrap_or_else(|error| panic!("{error:?}")),
-            deadline(),
-        )
-        .unwrap_or_else(|error| panic!("{error:?}"));
-    assert_eq!(stored, expected);
-    let digest = hash(&stored);
-    let path = root.0.join("state").join(format!(
-        "{}.{}.program-state",
-        hex::encode(&program().bytes()),
-        hex::encode(&digest)
-    ));
-    assert_eq!(
-        fs::read(&path).unwrap_or_else(|error| panic!("{error:?}")),
-        expected
-    );
-    assert_eq!(
-        journal.cursor().unwrap_or_else(|error| panic!("{error:?}")),
-        ProgramStateCursor::default()
-    );
-    let cursor = ProgramStateCursor {
-        sequence: u64::try_from(fixture.chain.header.height)
-            .unwrap_or_else(|error| panic!("{error:?}")),
-        ordinal: 0,
-    };
-    journal
-        .advance(cursor)
-        .unwrap_or_else(|error| panic!("{error:?}"));
-    journal.audit().unwrap_or_else(|error| panic!("{error:?}"));
-    drop(journal);
-    let reopened = FileProgramStateJournal::open(root.0.join("state"))
-        .unwrap_or_else(|error| panic!("{error:?}"));
-    assert_eq!(
-        reopened
-            .cursor()
-            .unwrap_or_else(|error| panic!("{error:?}")),
-        cursor
-    );
-    reopened.audit().unwrap_or_else(|error| panic!("{error:?}"));
-    assert_eq!(
-        fs::read(&path).unwrap_or_else(|error| panic!("{error:?}")),
-        stored
-    );
-    let deployment_journal = FileDeploymentJournal::open(root.0.join("deployments"))
-        .unwrap_or_else(|error| panic!("{error:?}"));
-    let head_peer = assert_state_head(&fixture, &deployment_journal, &stored, cursor);
-    drop(deployment_journal);
-    let recovered = FileDeploymentJournal::open(root.0.join("deployments"))
-        .unwrap_or_else(|error| panic!("{error:?}"));
-    assert_eq!(
-        recovered
-            .observed_head()
-            .unwrap_or_else(|error| panic!("{error:?}"))
-            .sequence,
-        cursor.sequence
-    );
-    drop(peer);
-    assert_program_state_refusals(
-        &reopened,
-        &encoded,
-        cursor,
-        &head_peer.endpoint,
-        &path,
-        &stored,
-        &root,
-    );
-}
-
-fn assert_invalid_state_responses(
-    reopened: &layerx_platform_registry::FileProgramStateJournal,
-    encoded: &[u8],
-) {
-    for (index, value) in [
-        (0, 1),
-        (31, 64),
-        (32, 1),
-        (63, 37),
-        (64, 1),
-        (102, 1),
-        (101, 0),
-    ] {
-        let mut invalid = encoded.to_vec();
-        invalid[index] = value;
-        assert!(
-            reopened
-                .store_response(
-                    program(),
-                    &serde_json::to_vec(&rpc_result(&invalid))
-                        .unwrap_or_else(|error| panic!("{error:?}"))
-                )
-                .is_err(),
-            "mutation at {index}"
-        );
-    }
-    for invalid in [
-        encoded[..127].to_vec(),
-        [encoded.to_vec(), vec![0; 32]].concat(),
-    ] {
-        assert!(reopened
-            .store_response(
-                program(),
-                &serde_json::to_vec(&rpc_result(&invalid))
-                    .unwrap_or_else(|error| panic!("{error:?}"))
-            )
-            .is_err());
-    }
-    for invalid in [
-        json!({"jsonrpc":"2.0","id":1,"error":{"code":3,"message":"execution reverted"}}),
-        json!({"jsonrpc":"2.0","id":2,"result":rpc_result(encoded)["result"]}),
-        json!({"jsonrpc":"1.0","id":1,"result":"0x"}),
-        json!({"jsonrpc":"2.0","id":1,"result":"0xzz"}),
-        json!({"jsonrpc":"2.0","id":1,"result":null}),
-    ] {
-        assert!(reopened
-            .store_response(
-                program(),
-                &serde_json::to_vec(&invalid).unwrap_or_else(|error| panic!("{error:?}"))
-            )
-            .is_err());
-    }
-    assert!(reopened.store_response(program(), b"{").is_err());
-}
-
-fn assert_program_state_refusals(
-    reopened: &layerx_platform_registry::FileProgramStateJournal,
-    encoded: &[u8],
-    cursor: layerx_platform_registry::ProgramStateCursor,
-    head_endpoint: &str,
-    path: &std::path::Path,
-    stored: &[u8],
-    root: &Directory,
-) {
-    let deadline = || Instant::now() + Duration::from_secs(5);
-    assert!(reopened
-        .store(&format!("{head_endpoint}/"), program(), 0, deadline())
-        .is_err());
-    assert!(reopened
-        .store(
-            &format!("{head_endpoint}/"),
-            program(),
-            cursor.sequence,
-            Instant::now()
-        )
-        .is_err());
-    assert!(reopened
-        .store(
-            "http://chain.example/",
-            program(),
-            cursor.sequence,
-            deadline()
-        )
-        .is_err());
-    assert_invalid_state_responses(reopened, encoded);
-    let unavailable =
-        std::net::TcpListener::bind("127.0.0.1:0").unwrap_or_else(|error| panic!("{error:?}"));
-    let endpoint = format!(
-        "http://{}/",
-        unavailable
-            .local_addr()
-            .unwrap_or_else(|error| panic!("{error:?}"))
-    );
-    let observer = thread::spawn(move || {
-        let (mut socket, _) = unavailable
-            .accept()
-            .unwrap_or_else(|error| panic!("{error:?}"));
-        socket
-            .set_read_timeout(Some(Duration::from_secs(5)))
-            .unwrap_or_else(|error| panic!("{error:?}"));
-        let message = peer_request(&mut socket).unwrap_or_else(|error| panic!("{error:?}"));
-        let rpc = rpc_request(&message);
-        assert_eq!(rpc["params"][1], format!("0x{:x}", cursor.sequence));
-    });
-    assert!(reopened
-        .store(&endpoint, program(), cursor.sequence, deadline())
-        .is_err());
-    observer.join().unwrap_or_else(|error| panic!("{error:?}"));
-    assert_eq!(
-        reopened
-            .cursor()
-            .unwrap_or_else(|error| panic!("{error:?}")),
-        cursor
-    );
-    assert_eq!(
-        fs::read(path).unwrap_or_else(|error| panic!("{error:?}")),
-        stored
-    );
-    assert_eq!(
-        fs::read_dir(root.0.join("state"))
-            .unwrap_or_else(|error| panic!("{error:?}"))
-            .count(),
-        2
-    );
-    fs::write(path, b"corrupt").unwrap_or_else(|error| panic!("{error:?}"));
-    assert!(reopened.audit().is_err());
-}
-
-fn head_rpc(fixture: &Admission) -> Server {
-    let record = program_abi(
-        &fixture
-            .proof
-            .claimed_record()
-            .unwrap_or_else(|error| panic!("{error:?}")),
-    );
-    let height =
-        u64::try_from(fixture.chain.header.height).unwrap_or_else(|error| panic!("{error:?}"));
-    let timestamp = fixture.chain.header.time.seconds;
-    Server::start(None, move |request| {
-        let rpc = rpc_request(&request);
-        let result = match rpc["method"]
-            .as_str()
-            .unwrap_or_else(|| panic!("expected a value"))
-        {
-            "eth_blockNumber" => {
-                assert_eq!(rpc["params"], json!([]));
-                json!(format!("0x{height:x}"))
-            }
-            "eth_getBlockByNumber" => {
-                assert_eq!(rpc["params"], json!([format!("0x{height:x}"), false]));
-                json!({"number":format!("0x{height:x}"),"timestamp":format!("0x{timestamp:x}")})
-            }
-            "eth_call" => {
-                assert_eq!(rpc["params"][0]["to"], PROGRAMS);
-                assert_eq!(rpc["params"][1], format!("0x{height:x}"));
-                let data = rpc["params"][0]["data"]
-                    .as_str()
-                    .unwrap_or_else(|| panic!("expected a value"));
-                if data == selector("getProgram(bytes32)") {
-                    rpc_result(&record)["result"].clone()
-                } else {
-                    assert_eq!(data, selector("getStateHead(bytes32)"));
-                    rpc_result(&storage_head_abi())["result"].clone()
-                }
-            }
-            method => panic!("unexpected node method {method}"),
-        };
-        response(200, &json!({"jsonrpc":"2.0","id":1,"result":result}))
-    })
-}
-
-fn deployment_rpc_peer(
-    receipt: &Value,
-    evidence: &layerx_programs::VerifiedDeploymentEvidence,
-    transaction: [u8; 32],
-    failed_transaction: [u8; 32],
-    block_hash: [u8; 32],
-) -> (Arc<std::sync::Mutex<usize>>, Server) {
-    let valid = receipt.clone();
-    let encoded = program_abi(evidence.record());
-    let counter = Arc::new(std::sync::Mutex::new(0_usize));
-    let seen = counter.clone();
-    let peer = Server::start(None, move |request| {
-        let rpc = rpc_request(&request);
-        *seen.lock().unwrap_or_else(|error| panic!("{error:?}")) += 1;
-        let result = match rpc["method"]
-            .as_str()
-            .unwrap_or_else(|| panic!("expected a value"))
-        {
-            "eth_getTransactionReceipt" => {
-                if rpc["params"] == json!([format!("0x{}", hex::encode(&failed_transaction))]) {
-                    let mut refused = valid.clone();
-                    refused["status"] = json!("0x0");
-                    refused["logs"] = json!([]);
-                    refused["transactionHash"] = rpc["params"][0].clone();
-                    refused
-                } else {
-                    assert_eq!(
-                        rpc["params"],
-                        json!([format!("0x{}", hex::encode(&transaction))])
-                    );
-                    valid.clone()
-                }
-            }
-            "eth_call" => {
-                assert_eq!(
-                    rpc["params"],
-                    json!([{"to":PROGRAMS,"data":selector("getProgram(bytes32)")},{"blockHash":format!("0x{}",hex::encode(&block_hash)),"requireCanonical":true}])
-                );
-                rpc_result(&encoded)["result"].clone()
-            }
-            method => panic!("unexpected method {method}"),
-        };
-        response(200, &json!({"jsonrpc":"2.0","id":1,"result":result}))
-    });
-    (counter, peer)
-}
-
-fn assert_mutated_deployments(
-    receipt: &Value,
-    evidence: &layerx_programs::VerifiedDeploymentEvidence,
-    root: &Directory,
-    path: &std::path::Path,
-    stored: &[u8],
-    transaction: [u8; 32],
-    failed_transaction: [u8; 32],
-) {
-    let authority =
-        RegistryAuthority::new(TOKEN.to_owned().into()).unwrap_or_else(|error| panic!("{error:?}"));
-    let mut req = request("POST", "/__registry/deployments", transaction.to_vec());
-    req.headers
-        .insert("authorization".into(), format!("Bearer {TOKEN}"));
-    for mutation in 0..5 {
-        let mut bad = receipt.clone();
-        match mutation {
-            0 => bad = Value::Null,
-            1 => bad["transactionHash"] = json!(format!("0x{}", hex::encode(&failed_transaction))),
-            2 => bad["logs"][0]["address"] = json!("0x000000000000000000000000000000000000101c"),
-            3 => bad["logs"][0]["removed"] = json!(true),
-            4 => {}
-            _ => unreachable!(),
-        }
-        let mut record = program_abi(evidence.record());
-        if mutation == 4 {
-            record[64] ^= 1;
-        }
-        let peer = Server::start(None, move |request| {
-            let rpc = rpc_request(&request);
-            let result = if rpc["method"] == "eth_getTransactionReceipt" {
-                bad.clone()
-            } else {
-                assert_eq!(rpc["method"], "eth_call");
-                rpc_result(&record)["result"].clone()
-            };
-            response(200, &json!({"jsonrpc":"2.0","id":1,"result":result}))
-        });
-        req.body = transaction.to_vec();
-        let refused = Registrar::route_chain_deployment(
-            &req,
-            &authority,
-            &root.0.join("journal"),
-            &format!("{}/", peer.endpoint),
-            Instant::now() + Duration::from_secs(5),
-        );
-        assert_eq!(refused.status, 422, "mutation {mutation}: {}", refused.body);
-        assert_eq!(
-            fs::read(path).unwrap_or_else(|error| panic!("{error:?}")),
-            stored
-        );
-    }
-}
-
-fn deployment_receipt(
-    evidence: &layerx_programs::VerifiedDeploymentEvidence,
-    transaction: [u8; 32],
-    block_hash: [u8; 32],
-    block_number: u64,
-) -> Value {
-    let topic =
-        layerx_crypto::evm_transaction::transaction_hash(b"ProgramDeployed(bytes32,bytes32)");
-    let receipt = json!({
-        "transactionHash":format!("0x{}",hex::encode(&transaction)),
-        "blockHash":format!("0x{}",hex::encode(&block_hash)),"blockNumber":format!("0x{block_number:x}"),"status":"0x1",
-        "logs":[{"address":PROGRAMS,"topics":[format!("0x{}",hex::encode(&topic)),format!("0x{}",hex::encode(&program().bytes()))],
-        "data":format!("0x{}",hex::encode(&evidence.code_hash())),"transactionHash":format!("0x{}",hex::encode(&transaction)),
-        "blockHash":format!("0x{}",hex::encode(&block_hash)),"blockNumber":format!("0x{block_number:x}"),"removed":false}]
-    });
-    receipt
-}
-
-fn assert_stored_deployment(
-    root: &Directory,
-    transaction: [u8; 32],
-    body: &Value,
-) -> (std::path::PathBuf, Vec<u8>) {
-    let path = root
-        .0
-        .join("journal/chain-deployments")
-        .join(format!("{}.json", hex::encode(&transaction)));
-    let stored = fs::read(&path).unwrap_or_else(|error| panic!("{error:?}"));
-    let metadata: Value =
-        serde_json::from_slice(&stored).unwrap_or_else(|error| panic!("{error:?}"));
-    for field in [
-        "transaction_hash",
-        "program_id",
-        "code_hash",
-        "abi_version",
-        "version",
-        "policy",
-        "authority",
-        "block_hash",
-        "block_number",
-    ] {
-        assert_eq!(metadata[field], body[field], "{field}");
-    }
-    assert_eq!(metadata["active"], true);
-    (path, stored)
-}
-
-fn assert_deployment_answer(
-    answer: &Response,
-    evidence: &layerx_programs::VerifiedDeploymentEvidence,
-    block_number: u64,
-) -> Value {
-    assert_eq!(answer.status, 200, "{}", answer.body);
-    let body: Value =
-        serde_json::from_str(&answer.body).unwrap_or_else(|error| panic!("{error:?}"));
-    assert_eq!(body["program_id"], hex::encode(&program().bytes()));
-    assert_eq!(body["code_hash"], hex::encode(&evidence.code_hash()));
-    assert_eq!(body["abi_version"], evidence.abi_version());
-    assert_eq!(body["version"], evidence.version());
-    assert_eq!(body["policy"], 1);
-    assert_eq!(body["authority"], hex::encode(&[0x51; 32]));
-    assert_eq!(body["block_number"], block_number);
-    body
-}
-
-fn assert_malformed_deployment_requests(
-    route: &impl Fn(&Request) -> Response,
-    req: &mut Request,
-    counter: &Arc<std::sync::Mutex<usize>>,
-) {
-    req.headers.clear();
-    assert_eq!(route(req).status, 401);
-    req.headers
-        .insert("authorization".into(), format!("Bearer {TOKEN}"));
-    for malformed in [
-        Vec::new(),
-        b"{\"transaction_hash\":\"0x01\"}".to_vec(),
-        b"{\"transaction_hash\":null}".to_vec(),
-        b"{\"transaction_hash\":\"bad\",\"extra\":1}".to_vec(),
-    ] {
-        req.body = malformed;
-        assert_eq!(route(req).status, 400);
-    }
-    assert_eq!(
-        *counter.lock().unwrap_or_else(|error| panic!("{error:?}")),
-        0
-    );
-}
-
-#[test]
-pub(crate) fn programs_root_transport_admits_and_refuses_transactions() {
-    let fixture = admission(1);
-    let evidence = fixture
-        .verifier
-        .verify_deployment(&fixture.proof, fixture.now)
-        .unwrap_or_else(|error| panic!("{error:?}"));
-    let root = Directory::new();
-    let journal = FileDeploymentJournal::open(root.0.join("journal"))
-        .unwrap_or_else(|error| panic!("{error:?}"));
-    journal
-        .append(&evidence)
-        .unwrap_or_else(|error| panic!("{error:?}"));
-    let transaction = evidence.activity_id();
-    let failed_transaction = hash(&transcript()["unrelated"]);
-    let block_hash = fixture
-        .chain
-        .header
-        .hash()
-        .unwrap_or_else(|error| panic!("{error:?}"));
-    let block_number =
-        u64::try_from(fixture.chain.header.height).unwrap_or_else(|error| panic!("{error:?}"));
-    let receipt = deployment_receipt(&evidence, transaction, block_hash, block_number);
-    let (counter, peer) = deployment_rpc_peer(
-        &receipt,
-        &evidence,
-        transaction,
-        failed_transaction,
-        block_hash,
-    );
-    let authority =
-        RegistryAuthority::new(TOKEN.to_owned().into()).unwrap_or_else(|error| panic!("{error:?}"));
-    let deadline = || Instant::now() + Duration::from_secs(5);
-    let mut req = request("POST", "/__registry/deployments", transaction.to_vec());
-    let endpoint = format!("{}/", peer.endpoint);
-    let route = |req: &Request| {
-        Registrar::route_chain_deployment(
-            req,
-            &authority,
-            &root.0.join("journal"),
-            &endpoint,
-            deadline(),
-        )
-    };
-    assert_malformed_deployment_requests(&route, &mut req, &counter);
-    req.body = transaction.to_vec();
-    let body = assert_deployment_answer(&route(&req), &evidence, block_number);
-    let (path, stored) = assert_stored_deployment(&root, transaction, &body);
-    req.body =
-        serde_json::to_vec(&json!({"transaction_hash":format!("0x{}",hex::encode(&transaction))}))
-            .unwrap_or_else(|error| panic!("{error:?}"));
-    assert_eq!(route(&req).status, 200);
-    assert_eq!(
-        fs::read(&path).unwrap_or_else(|error| panic!("{error:?}")),
-        stored
-    );
-    req.body = failed_transaction.to_vec();
-    let refused = route(&req);
-    assert_eq!(refused.status, 422, "{}", refused.body);
-    assert_eq!(
-        serde_json::from_str::<Value>(&refused.body).unwrap_or_else(|error| panic!("{error:?}"))
-            ["error"]["code"],
-        "deployment_proof_refused"
-    );
-    assert!(!path
-        .with_file_name(format!("{}.json", hex::encode(&failed_transaction)))
-        .exists());
-    assert_eq!(
-        fs::read(&path).unwrap_or_else(|error| panic!("{error:?}")),
-        stored
-    );
-    drop(peer);
-    assert_mutated_deployments(
-        &receipt,
-        &evidence,
-        &root,
-        &path,
-        &stored,
-        transaction,
-        failed_transaction,
-    );
-    assert_committed_program_head(
-        &fixture,
-        journal,
-        &authority,
-        &root,
-        block_number,
-        &path,
-        &stored,
-    );
-}
-
-fn assert_committed_program_head(
-    fixture: &Admission,
-    journal: FileDeploymentJournal,
-    authority: &RegistryAuthority,
-    root: &Directory,
-    block_number: u64,
-    path: &std::path::Path,
-    stored: &[u8],
-) {
-    let head_peer = head_rpc(fixture);
-    let head_request = request(
-        "POST",
-        "/__registry/head",
-        serde_json::to_vec(&json!({"program_id":hex::encode(&program().bytes())}))
-            .unwrap_or_else(|error| panic!("{error:?}")),
-    );
-    let head = Registrar::route_chain_head(
-        &head_request,
-        authority,
-        &journal,
-        &format!("{}/", head_peer.endpoint),
-        Instant::now() + Duration::from_secs(5),
-    );
-    assert_eq!(head.status, 200, "{}", head.body);
-    let head: Value = serde_json::from_str(&head.body).unwrap_or_else(|error| panic!("{error:?}"));
-    assert_eq!(head["sequence"], block_number);
-    assert_eq!(
-        head["state_root"],
-        hex::encode(&layerx_crypto::evm_transaction::transaction_hash(
-            &storage_head_abi()[64..102]
-        ))
-    );
-    assert!(head.get("receipt_digest").is_none());
-    drop(journal);
-    let reopened = FileDeploymentJournal::open(root.0.join("journal"))
-        .unwrap_or_else(|error| panic!("{error:?}"));
-    assert_eq!(
-        reopened
-            .observed_head()
-            .unwrap_or_else(|error| panic!("{error:?}"))
-            .sequence,
-        block_number
-    );
-    assert_eq!(
-        reopened
-            .load()
-            .unwrap_or_else(|error| panic!("{error:?}"))
-            .units
-            .len(),
-        1
-    );
-    assert_eq!(
-        fs::read(path).unwrap_or_else(|error| panic!("{error:?}")),
-        stored
-    );
-}
-
-#[test]
-pub(crate) fn registry_http_without_socket_recovers_the_same_view() {
-    assert_eq!(TASK_RECORD.len(), 4);
+fn deployment_projection_post_get_source_and_restart() {
     let admission = admission(1);
     let root = Directory::new();
     let peers = Peers::new(&admission);
     let config = configuration(&root, &peers, &admission);
-    assert!(config.deployment_lni_socket.is_none());
     let path = format!("/v1/programs/registry/{}", hex::encode(&program().bytes()));
     let service = serve(open(&config, admission.now, &peers), admission.now);
     assert_eq!(exchange(&service, "GET", &path, &[]).0, 404);
@@ -1980,25 +1046,24 @@ pub(crate) fn registry_http_without_socket_recovers_the_same_view() {
         .proof
         .canonical_encoding()
         .unwrap_or_else(|error| panic!("{error:?}"));
-    let (status, deployed) = exchange(&service, "POST", "/__registry/deployments", &proof);
-    assert_eq!(status, 200, "{deployed}");
-    assert_eq!(deployed["version"], 1);
-    assert_eq!(deployed["code_hash"], hex::encode(&hash(&code(1))));
-    let (status, before) = exchange(&service, "GET", &path, &[]);
-    assert_eq!(status, 200, "{before}");
-    assert_eq!(before["versions"][0]["code_hash"], deployed["code_hash"]);
+    let (status, body) = exchange(&service, "POST", "/__registry/deployments", &proof);
+    assert_eq!(status, 200, "{body}");
+    assert_eq!(body["version"], 1);
+    let (status, body) = exchange(&service, "GET", &path, &[]);
+    assert_eq!(status, 200, "{body}");
     assert_eq!(
-        exchange(&service, "GET", "/v1/programs/registry", &[]),
-        (
-            200,
-            json!({
-                "program_ids":[hex::encode(&program().bytes())],
-                "state_root":hex::encode(&admission.chain.header.app_hash),
-                "observed_sequence":admission.chain.header.height,
-                "observed_at":admission.now,"valid_through":admission.now+5000,
-                "verification":"registry-receipt-and-current-head-verified",
-            })
-        )
+        body["versions"][0]["code_hash"],
+        hex::encode(&hash(&code(1)))
+    );
+    let (status, listed) = exchange(&service, "GET", "/v1/programs/registry", &[]);
+    assert_eq!(status, 200, "{listed}");
+    assert_eq!(
+        listed["program_ids"],
+        json!([hex::encode(&program().bytes())])
+    );
+    assert_eq!(
+        exchange(&service, "POST", "/__registry/deployments", &proof).0,
+        200
     );
     let (status, refused) = exchange(
         &service,
@@ -2007,22 +1072,480 @@ pub(crate) fn registry_http_without_socket_recovers_the_same_view() {
         &transcript()["deploy"],
     );
     assert_eq!(status, 422, "{refused}");
-    assert_eq!(
-        exchange(&service, "POST", "/__registry/deployments", &proof).0,
-        200
-    );
     drop(service);
-    let registrar = open(&config, admission.now, &peers);
-    let service = serve(registrar, admission.now);
-    let (status, after) = exchange(&service, "GET", &path, &[]);
-    assert_eq!(status, 200, "{after}");
-    assert_eq!(after, before);
-    let loaded = FileDeploymentJournal::open(config.journal.clone())
+    let mut recovered = open(&config, admission.now, &peers);
+    let deployment = recovered
+        .source_deployment(program(), admission.now)
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    assert_eq!(deployment.code_hash(), hash(&code(1)));
+    assert_eq!(deployment.proof(), &admission.proof);
+    let service = serve(recovered, admission.now);
+    let (status, body) = exchange(&service, "GET", &path, &[]);
+    assert_eq!(status, 200, "{body}");
+    assert_eq!(
+        body["versions"]
+            .as_array()
+            .unwrap_or_else(|| panic!("expected a value"))
+            .len(),
+        1
+    );
+    let loaded = FileDeploymentJournal::open(config.journal)
         .unwrap_or_else(|error| panic!("{error:?}"))
         .load()
         .unwrap_or_else(|error| panic!("{error:?}"));
     assert_eq!(loaded.units.len(), 1);
     assert!(loaded.quarantined.is_empty());
-    assert_eq!(loaded.units[0].proof(), &admission.proof);
-    drop(service);
+}
+
+#[test]
+fn head_authority_tls_current_and_historical_replay() {
+    let first = admission(1);
+    let second = admission(2);
+    let peers = Peers::with_history(&second, Some(&first));
+    let source = peers.source(&second);
+    let current = source
+        .current_head(second.now)
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    assert_eq!(
+        current.freshness.observed_sequence,
+        u64::try_from(second.chain.header.height).unwrap_or_else(|error| panic!("{error:?}"))
+    );
+    assert_eq!(current.state_root.as_slice(), second.chain.header.app_hash);
+    let historical_document = head_document(&first);
+    let digest = hex::decode_digest(
+        historical_document["receipt_digest"]
+            .as_str()
+            .unwrap_or_else(|| panic!("expected a value")),
+    )
+    .unwrap_or_else(|error| panic!("{error:?}"));
+    let historical = source
+        .receipt_head(digest)
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    assert_eq!(
+        historical.freshness.observed_sequence,
+        u64::try_from(first.chain.header.height).unwrap_or_else(|error| panic!("{error:?}"))
+    );
+    assert!(historical.freshness.observed_sequence < current.freshness.observed_sequence);
+    let recovered = source
+        .verify_stored_deployment(&first.proof, second.now)
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    assert_eq!(recovered.record().old_code_hash, None);
+    assert_eq!(recovered.code_hash(), hash(&code(1)));
+    let tls = ureq::tls::TlsConfig::builder()
+        .provider(ureq::tls::TlsProvider::Rustls)
+        .root_certs(ureq::tls::RootCerts::new_with_certs(&[
+            ureq::tls::Certificate::from_der(&peers.ca).to_owned(),
+        ]))
+        .build();
+    let agent: ureq::Agent = ureq::Agent::config_builder()
+        .http_status_as_error(false)
+        .tls_config(tls)
+        .build()
+        .into();
+    let endpoint = format!(
+        "{}{}?height={}",
+        peers.authority.endpoint,
+        committed_head_route::HEAD_PATH,
+        first.chain.header.height
+    );
+    assert_eq!(
+        agent
+            .get(&endpoint)
+            .call()
+            .unwrap_or_else(|error| panic!("{error:?}"))
+            .status(),
+        401
+    );
+    assert_eq!(
+        agent
+            .get(format!(
+                "{}{}?height=01",
+                peers.authority.endpoint,
+                committed_head_route::HEAD_PATH
+            ))
+            .header("authorization", "Bearer authority-repair-credential")
+            .call()
+            .unwrap_or_else(|error| panic!("{error:?}"))
+            .status(),
+        400
+    );
+    assert_eq!(
+        agent
+            .get(format!(
+                "{}{}?height=1",
+                peers.authority.endpoint,
+                committed_head_route::HEAD_PATH
+            ))
+            .header("authorization", "Bearer authority-repair-credential")
+            .call()
+            .unwrap_or_else(|error| panic!("{error:?}"))
+            .status(),
+        503
+    );
+    let mut forged = head_document(&second);
+    forged["authority_replica_id"] = json!(hex::encode(&[0x99; 32]));
+    let rejected = committed_head_route::route(
+        "GET",
+        committed_head_route::HEAD_PATH,
+        None,
+        || true,
+        REPLICA,
+        |_| Ok(forged),
+    )
+    .unwrap_or_else(|| panic!("expected a value"));
+    assert_eq!(rejected.0, 503);
+}
+
+fn source_record(
+    evidence: &layerx_programs::VerifiedDeploymentEvidence,
+    config: &Config,
+) -> VerifiedSource {
+    let archive = SourceArchive::new(vec![
+        SourceFile {
+            path: "module.wasm".into(),
+            content: evidence.module().to_vec(),
+            executable: false,
+        },
+        SourceFile {
+            path: "toolchain".into(),
+            content: b"recorded-production-module".to_vec(),
+            executable: false,
+        },
+        SourceFile {
+            path: "dependencies.lock".into(),
+            content: b"no-dependencies".to_vec(),
+            executable: false,
+        },
+    ])
+    .unwrap_or_else(|error| panic!("{error:?}"));
+    let plan = BuildPlan {
+        environment: BuildEnvironment {
+            builder_image_digest: [1; 32],
+            toolchain_digest: hash(b"recorded-production-module"),
+            dependency_lock_digest: hash(b"no-dependencies"),
+            source_date_epoch: 1,
+            command: vec!["cp".into(), "module.wasm".into(), "artifact.wasm".into()],
+        },
+        artifact_path: "artifact.wasm".into(),
+        toolchain_manifest: "toolchain".into(),
+        dependency_lock: "dependencies.lock".into(),
+    };
+    let mirror =
+        SourceMirror::open(config.mirror.clone()).unwrap_or_else(|error| panic!("{error:?}"));
+    let uri = "ipfs://recorded-program-module";
+    let digest = mirror
+        .publish(uri, &plan, &archive)
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    let published = mirror
+        .fetch(uri, digest)
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    let build = layerx_programs::ReproducibleBuild::from_output(
+        &published.source,
+        plan.environment.clone(),
+        evidence.module(),
+    )
+    .unwrap_or_else(|error| panic!("{error:?}"));
+    assert_eq!(build.artifact_digest, evidence.code_hash());
+    let header = layerx_programs::chain_proof::header::ChainHeader::decode(
+        &evidence.proof().state.commitment.signed_header,
+    )
+    .unwrap_or_else(|error| panic!("{error:?}"));
+    VerifiedSource {
+        program: evidence.program(),
+        version: evidence.version(),
+        source_uri: build.source_uri,
+        source_digest: build.source_digest,
+        artifact_digest: build.artifact_digest,
+        plan,
+        deployment_provenance: VerifiedSourceDeployment {
+            abi_version: evidence.abi_version(),
+            code_hash: evidence.code_hash(),
+            activity_id: evidence.activity_id(),
+            receipt_digest: evidence.receipt_digest(),
+            batch_header_digest: header.hash().unwrap_or_else(|error| panic!("{error:?}")),
+            state_root: evidence.state_root(),
+            programs_root: evidence.programs_root(),
+            observed_sequence: evidence.freshness().observed_sequence,
+            observed_at: evidence.freshness().observed_at,
+        },
+    }
+}
+
+fn assert_abi_five_head(
+    admission: &Admission,
+    deployment: &layerx_programs::VerifiedDeploymentEvidence,
+) {
+    let bundle = layerx_programs::ProgramStateBundle {
+        commitment: admission.proof.state.commitment.clone(),
+        program: program(),
+        program_record_ops: admission.proof.state.state.ops.clone(),
+        interface_ops: decode_commitment_proof(
+            admission
+                .proof
+                .deployment
+                .interface
+                .as_deref()
+                .unwrap_or_else(|| panic!("expected a value")),
+        )
+        .unwrap_or_else(|error| panic!("{error:?}"))
+        .proof_ops,
+        wind_down: Some(admission.proof.state.wind_down.clone()),
+    };
+    let transaction = transcript()["unrelated"].clone();
+    let chain = admission
+        .verifier
+        .verify_current_chain_head(
+            layerx_programs::ProgramHeadKind::Ordinary,
+            &bundle.commitment,
+            &transaction,
+            &SimpleProof {
+                total: 1,
+                index: 0,
+                leaf_hash: hash_from_byte_slices(&[&hash(&transaction)]),
+                aunts: vec![],
+            },
+            admission.now,
+        )
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    let verified_head = admission
+        .verifier
+        .verify_current_deployment_head(&bundle, &chain, deployment, admission.now)
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    assert_eq!(verified_head.code_hash(), deployment.code_hash());
+    for invalid in 0..5 {
+        let mut altered = bundle.clone();
+        match invalid {
+            0 => altered.interface_ops[0].data.push(0),
+            1 => altered.wind_down = None,
+            2 => altered.program_record_ops[0].data.push(0),
+            3 => {
+                altered.program =
+                    ProgramId::new([0x32; 32]).unwrap_or_else(|error| panic!("{error:?}"));
+            }
+            4 => altered.commitment = admission_abi(1, 1).proof.state.commitment,
+            _ => unreachable!(),
+        }
+        assert!(admission
+            .verifier
+            .verify_current_deployment_head(&altered, &chain, deployment, admission.now)
+            .is_err());
+    }
+    assert!(admission
+        .verifier
+        .verify_current_deployment_head(&bundle, &chain, deployment, admission.now + 5001)
+        .is_err());
+}
+
+fn assert_unsupported_source_abis(config: &Config, source: &VerifiedSource) {
+    for abi in [0, 6, u16::MAX] {
+        assert!(layerx_programs::VerifiedDeploymentEvidence::admit_abi_version(abi).is_err());
+        let mut unsupported = source.clone();
+        unsupported.deployment_provenance.abi_version = abi;
+        assert!(VerifiedSourceStore::open(config.verified.clone())
+            .unwrap_or_else(|error| panic!("{error:?}"))
+            .record(&unsupported)
+            .is_err());
+    }
+}
+
+fn assert_corrupt_source_provenance(config: &Config) {
+    let stored_path = config
+        .verified
+        .join(format!("{}-1.verified", hex::encode(&program().bytes())));
+    let mut bytes: Value =
+        serde_json::from_slice(&fs::read(&stored_path).unwrap_or_else(|error| panic!("{error:?}")))
+            .unwrap_or_else(|error| panic!("{error:?}"));
+    bytes["deployment_provenance"]["abi_version"] = json!(6);
+    fs::write(
+        stored_path,
+        serde_json::to_vec(&bytes).unwrap_or_else(|error| panic!("{error:?}")),
+    )
+    .unwrap_or_else(|error| panic!("{error:?}"));
+    assert!(VerifiedSourceStore::open(config.verified.clone())
+        .unwrap_or_else(|error| panic!("{error:?}"))
+        .records()
+        .is_err());
+}
+
+#[test]
+fn source_route_and_store_abi_five_publication_and_reopen() {
+    let admission = admission_abi(1, 5);
+    let root = Directory::new();
+    let peers = Peers::new(&admission);
+    let config = configuration(&root, &peers, &admission);
+    let producer: Value = serde_json::from_str(include_str!("../src/deployment_abi5.json"))
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    let transaction = DeploymentExecutionProof::decode(&admission.proof.state.transaction)
+        .unwrap_or_else(|error| panic!("{error:?}"))
+        .transaction;
+    assert_eq!(
+        hex::encode(&hash(&transaction)),
+        producer["transaction_digest"]
+    );
+    assert_eq!(hex::encode(&code(1)), producer["wasm_hex"]);
+    let mut registrar = open(&config, admission.now, &peers);
+    let post = request(
+        "POST",
+        "/__registry/deployments",
+        serde_json::to_vec(&json!({"admission":admission.proof.canonical_encoding().unwrap_or_else(|error| panic!("{error:?}"))}))
+            .unwrap_or_else(|error| panic!("{error:?}")),
+    );
+    let accepted = registrar.route(
+        &post,
+        admission.now,
+        Instant::now() + Duration::from_secs(10),
+    );
+    assert_eq!(accepted.status, 200, "{}", accepted.body);
+    let deployment = registrar
+        .source_deployment(program(), admission.now)
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    assert_eq!(deployment.abi_version(), 5);
+    assert_eq!(deployment.code_hash(), hash(&code(1)));
+    assert!(deployment.interface().is_none());
+    assert_abi_five_head(&admission, &deployment);
+    let source = source_record(&deployment, &config);
+    let store = VerifiedSourceStore::open(config.verified.clone())
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    store
+        .record(&source)
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    drop(store);
+    drop(registrar);
+    let records = VerifiedSourceStore::open(config.verified.clone())
+        .unwrap_or_else(|error| panic!("{error:?}"))
+        .records()
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    assert_eq!(records, vec![source.clone()]);
+    let mut reopened = open(&config, admission.now, &peers);
+    assert_eq!(
+        reopened
+            .source_deployment(program(), admission.now)
+            .unwrap_or_else(|error| panic!("{error:?}")),
+        deployment
+    );
+    let journal = FileDeploymentJournal::open(config.journal.clone())
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    journal
+        .refresh_head(ObservedHead {
+            sequence: deployment.freshness().observed_sequence,
+            observed_at: admission.now,
+        })
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    let mut registry = Registry::new();
+    registry
+        .record_verified_deployment(&deployment)
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    let build = layerx_programs::ReproducibleBuild::from_record(
+        source.source_uri.clone(),
+        source.source_digest,
+        source.plan.environment.clone(),
+        source.artifact_digest,
+    )
+    .unwrap_or_else(|error| panic!("{error:?}"));
+    assert!(matches!(
+        registry
+            .verify_source(program(), 1, &build)
+            .unwrap_or_else(|error| panic!("{error:?}")),
+        layerx_programs::SourceStatus::Verified { .. }
+    ));
+    let authority = layerx_programs::JournalReadAuthority::new(&journal, admission.now, 5000)
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    let read = registry
+        .read(program(), &authority)
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    assert_eq!(read.entry.versions[0].abi_version, 5);
+    assert!(matches!(
+        read.entry.versions[0].source,
+        layerx_programs::SourceStatus::Verified { .. }
+    ));
+    assert_unsupported_source_abis(&config, &source);
+    assert_corrupt_source_provenance(&config);
+}
+
+#[test]
+fn upgrade_journal_schema_deploy_upgrade_restart() {
+    let first = admission(1);
+    let second = admission(2);
+    let root = Directory::new();
+    let peers = Peers::with_history(&second, Some(&first));
+    let config = configuration(&root, &peers, &second);
+    let first_evidence = first
+        .verifier
+        .verify_deployment(&first.proof, first.now)
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    let second_evidence = second
+        .verifier
+        .verify_deployment(&second.proof, second.now)
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    assert_eq!(
+        second_evidence.record().old_code_hash,
+        Some(first_evidence.code_hash())
+    );
+    let canonical = DeploymentRecord::decode(&second_evidence.record().canonical_encoding())
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    canonical
+        .validate()
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    assert_eq!(canonical, *second_evidence.record());
+    let mut registrar = open(&config, second.now, &peers);
+    for proof in [&first.proof, &second.proof] {
+        let answer = registrar.route(
+            &request(
+                "POST",
+                "/__registry/deployments",
+                proof
+                    .canonical_encoding()
+                    .unwrap_or_else(|error| panic!("{error:?}")),
+            ),
+            second.now,
+            Instant::now() + Duration::from_secs(10),
+        );
+        assert_eq!(answer.status, 200, "{}", answer.body);
+    }
+    assert_eq!(
+        registrar
+            .source_deployment(program(), second.now)
+            .unwrap_or_else(|error| panic!("{error:?}"))
+            .version(),
+        2
+    );
+    drop(registrar);
+    let mut restarted = open(&config, second.now, &peers);
+    let recovered = restarted
+        .source_deployment(program(), second.now)
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    assert_eq!(recovered, second_evidence);
+    assert!(restarted.quarantined_units().is_empty());
+    let journal = FileDeploymentJournal::open(config.journal.clone())
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    let loaded = journal.load().unwrap_or_else(|error| panic!("{error:?}"));
+    assert_eq!(loaded.units.len(), 2);
+    assert!(loaded.quarantined.is_empty());
+    let (replayed, quarantined) = journal
+        .replay_deployments(&peers.source(&second), second.now)
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    assert!(quarantined.is_empty());
+    assert_eq!(
+        replayed
+            .iter()
+            .map(layerx_programs::VerifiedDeploymentEvidence::version)
+            .collect::<Vec<_>>(),
+        vec![1, 2]
+    );
+    assert_eq!(
+        replayed[1].record().old_code_hash,
+        Some(replayed[0].code_hash())
+    );
+    let mut broken = second.proof.clone();
+    let mut execution = DeploymentExecutionProof::decode(&broken.state.transaction)
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    execution.previous.key.push(0);
+    broken
+        .bind_execution(&execution)
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    assert!(broken.claimed_record().is_err());
+    assert!(second
+        .verifier
+        .verify_deployment(&broken, second.now)
+        .is_err());
 }

@@ -3,11 +3,11 @@ member = "layerx-platform-registry"
 contract = "Registry responses, public signatures, and test assertions retain their behavior."
 
 [lint.dead_code]
-files = ["src/routes.rs", "tests/repair_22_33_1470.rs", "tests/support/producer_transport.rs"]
+files = ["src/routes.rs", "tests/committed_program_transport.rs", "tests/support/producer_transport.rs"]
 change = "Registry tests exercise their retained ingress, peer, and transport operations."
 
 [lint.doc_markdown]
-files = ["src/program_state.rs", "tests/repair_22_33_1468.rs"]
+files = ["src/program_state.rs", "tests/source_mirror_persistence.rs"]
 change = "The documented RPC method is marked as code."
 
 [lint.expect_used]
@@ -31,11 +31,11 @@ files = ["src/routes.rs"]
 change = "Supported profile versions use inclusive ranges."
 
 [lint.missing_errors_doc]
-files = ["src/journal.rs", "src/node_state.rs", "src/routes.rs", "tests/support/journal/chain.rs", "tests/support/journal_chain_trust/chain.rs", "tests/support/producer_tls/chain.rs", "tests/support/repair_22_31_206_chain.rs", "tests/support/repair_22_33_1468_chain.rs", "tests/support/repair_22_33_1470_chain.rs"]
+files = ["src/journal.rs", "src/node_state.rs", "src/routes.rs", "tests/support/journal/chain.rs", "tests/support/journal_chain_trust/chain.rs", "tests/support/producer_tls/chain.rs", "tests/support/deployment_projection_chain.rs", "tests/support/source_mirror_chain.rs", "tests/support/committed_program_chain.rs"]
 change = "Public fallible operations document their refusal conditions."
 
 [lint.needless_pass_by_value]
-files = ["src/main.rs", "src/programs_chain.rs", "src/routes.rs", "src/verified.rs", "tests/journal_chain_trust.rs", "tests/programs_chain.rs", "tests/repair_22_31_206.rs", "tests/repair_22_31_358.rs", "tests/repair_22_33_1470.rs"]
+files = ["src/main.rs", "src/programs_chain.rs", "src/routes.rs", "src/verified.rs", "tests/journal_chain_trust.rs", "tests/programs_chain.rs", "tests/deployment_projection.rs", "tests/chain_rpc_deployment.rs", "tests/committed_program_transport.rs"]
 change = "Internal serializers and chain calls borrow values they read."
 
 [lint.semicolon_if_nothing_returned]
@@ -55,7 +55,7 @@ files = ["src/routes.rs"]
 change = "Interface rendering reads the verified version, interface, and head directly."
 
 [lint.too_many_lines]
-files = ["src/main.rs", "src/routes.rs", "src/verified.rs", "tests/journal.rs", "tests/journal_chain_trust.rs", "tests/program_state_eth_call.rs", "tests/programs_chain.rs", "tests/repair_22_31_206.rs", "tests/repair_22_31_358.rs", "tests/repair_22_33_1468.rs", "tests/repair_22_33_1470.rs"]
+files = ["src/main.rs", "src/routes.rs", "src/verified.rs", "tests/journal.rs", "tests/journal_chain_trust.rs", "tests/program_state_eth_call.rs", "tests/programs_chain.rs", "tests/deployment_projection.rs", "tests/chain_rpc_deployment.rs", "tests/source_mirror_persistence.rs", "tests/committed_program_transport.rs"]
 change = "Registry operations and integration cases use focused functions for scanning, persistence, transport, and verification."
 
 [lint.type_complexity]
@@ -63,19 +63,19 @@ files = ["src/verified.rs"]
 change = "Verification record collections have a named type."
 
 [lint.assigning_clones]
-files = ["tests/repair_22_31_206.rs", "tests/repair_22_33_1468.rs", "tests/repair_22_33_1470.rs"]
+files = ["tests/deployment_projection.rs", "tests/source_mirror_persistence.rs", "tests/committed_program_transport.rs"]
 change = "Chain fixture fields reuse their allocated storage when copying predecessor identifiers."
 
 [lint.cast_possible_truncation]
-files = ["tests/repair_22_31_206.rs", "tests/repair_22_33_1468.rs", "tests/repair_22_33_1470.rs"]
+files = ["tests/deployment_projection.rs", "tests/source_mirror_persistence.rs", "tests/committed_program_transport.rs"]
 change = "Fixture versions and encoded lengths use checked integer conversions."
 
 [lint.cast_sign_loss]
-files = ["tests/repair_22_31_206.rs", "tests/repair_22_33_1468.rs", "tests/repair_22_33_1470.rs"]
+files = ["tests/deployment_projection.rs", "tests/source_mirror_persistence.rs", "tests/committed_program_transport.rs"]
 change = "Fixture heights and timestamps use checked unsigned conversions."
 
 [lint.duplicate_mod]
-files = ["tests/journal.rs", "tests/journal_chain_trust.rs", "tests/producer_tls.rs", "tests/repair_22_31_206.rs", "tests/repair_22_33_1468.rs", "tests/repair_22_33_1470.rs", "tests/support"]
+files = ["tests/journal.rs", "tests/journal_chain_trust.rs", "tests/producer_tls.rs", "tests/deployment_projection.rs", "tests/source_mirror_persistence.rs", "tests/committed_program_transport.rs", "tests/support"]
 change = "Each registry integration target owns its chain and transport fixture modules."
 
 [lint.items_after_statements]
@@ -91,15 +91,15 @@ files = ["tests/support/journal/mod.rs", "tests/support/journal_chain_trust/mod.
 change = "Fixture accessors and produced values are marked for use by their callers."
 
 [lint.needless_borrow]
-files = ["tests/journal.rs", "tests/journal_chain_trust.rs", "tests/programs_chain.rs", "tests/repair_22_31_206.rs", "tests/repair_22_31_358.rs", "tests/repair_22_33_1468.rs", "tests/repair_22_33_1470.rs"]
+files = ["tests/journal.rs", "tests/journal_chain_trust.rs", "tests/programs_chain.rs", "tests/deployment_projection.rs", "tests/chain_rpc_deployment.rs", "tests/source_mirror_persistence.rs", "tests/committed_program_transport.rs"]
 change = "Fixture helpers pass existing references directly."
 
 [lint.needless_borrows_for_generic_args]
-files = ["tests/journal_chain_trust.rs", "tests/program_state_eth_call.rs", "tests/programs_chain.rs", "tests/repair_22_33_1470.rs"]
+files = ["tests/journal_chain_trust.rs", "tests/program_state_eth_call.rs", "tests/programs_chain.rs", "tests/committed_program_transport.rs"]
 change = "File operations receive their existing path references directly."
 
 [lint.redundant_closure_for_method_calls]
-files = ["tests/repair_22_31_206.rs", "tests/repair_22_33_1470.rs"]
+files = ["tests/deployment_projection.rs", "tests/committed_program_transport.rs"]
 change = "Verified deployment ordering uses the version method directly."
 
 [lint.too_many_arguments]
@@ -107,5 +107,5 @@ files = ["tests/journal_chain_trust.rs"]
 change = "Trust-root assertions derive their journal paths from the trust-root path."
 
 [lint.unwrap_used]
-files = ["tests/journal_chain_trust.rs", "tests/program_state_eth_call.rs", "tests/programs_chain.rs", "tests/repair_22_31_206.rs", "tests/repair_22_31_358.rs", "tests/repair_22_33_1468.rs", "tests/repair_22_33_1470.rs"]
+files = ["tests/journal_chain_trust.rs", "tests/program_state_eth_call.rs", "tests/programs_chain.rs", "tests/deployment_projection.rs", "tests/chain_rpc_deployment.rs", "tests/source_mirror_persistence.rs", "tests/committed_program_transport.rs"]
 change = "Integration assertions retain explicit panic branches for invalid fixture values."

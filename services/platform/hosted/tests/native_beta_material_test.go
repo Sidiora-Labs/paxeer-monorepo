@@ -36,20 +36,20 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func repair1386Write(t *testing.T, path string, raw []byte) {
+func nativeBetaWrite(t *testing.T, path string, raw []byte) {
 	t.Helper()
 	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o700))
 	require.NoError(t, os.WriteFile(path, raw, 0o600))
 }
 
-func repair1386JSON(t *testing.T, value any) []byte {
+func nativeBetaJSON(t *testing.T, value any) []byte {
 	t.Helper()
 	raw, err := json.Marshal(value)
 	require.NoError(t, err)
 	return raw
 }
 
-func repair1386Archive(t *testing.T, files map[string][]byte) []byte {
+func nativeBetaArchive(t *testing.T, files map[string][]byte) []byte {
 	t.Helper()
 	var buffer bytes.Buffer
 	writer := tar.NewWriter(&buffer)
@@ -62,7 +62,7 @@ func repair1386Archive(t *testing.T, files map[string][]byte) []byte {
 	return buffer.Bytes()
 }
 
-func repair1386Unpack(t *testing.T, raw []byte) map[string][]byte {
+func nativeBetaUnpack(t *testing.T, raw []byte) map[string][]byte {
 	t.Helper()
 	files := map[string][]byte{}
 	reader := tar.NewReader(bytes.NewReader(raw))
@@ -78,14 +78,14 @@ func repair1386Unpack(t *testing.T, raw []byte) map[string][]byte {
 	}
 }
 
-func TestRepairM_1386_DirtyImageProvenance(t *testing.T) {
+func TestDirtyImageProvenance(t *testing.T) {
 	root := t.TempDir()
 	repository, err := git.PlainInit(root, false)
 	require.NoError(t, err)
 	worktree, err := repository.Worktree()
 	require.NoError(t, err)
 	for _, name := range []string{"services/platform/hosted/input", "sdk/platform/input", "docker/kernel/Dockerfile"} {
-		repair1386Write(t, filepath.Join(root, name), []byte("committed\n"))
+		nativeBetaWrite(t, filepath.Join(root, name), []byte("committed\n"))
 		_, err := worktree.Add(name)
 		require.NoError(t, err)
 	}
@@ -99,14 +99,14 @@ func TestRepairM_1386_DirtyImageProvenance(t *testing.T) {
 	require.Equal(t, fmt.Sprintf("%x", sha256.Sum256(packed.Bytes())), clean.SourceTree)
 	previous := clean
 	for _, name := range []string{"services/platform/hosted/input", "sdk/platform/input"} {
-		repair1386Write(t, filepath.Join(root, name), []byte("selected dirty input\n"))
+		nativeBetaWrite(t, filepath.Join(root, name), []byte("selected dirty input\n"))
 		packed.Reset()
 		dirty, err := SnapshotSource(root, &packed)
 		require.NoError(t, err)
 		require.True(t, dirty.Dirty, name)
 		require.NotEqual(t, previous.SourceTree, dirty.SourceTree)
 		require.Contains(t, dirty.Tag, "-dirty-"+dirty.SourceTree[:16])
-		require.Equal(t, []byte("selected dirty input\n"), repair1386Unpack(t, packed.Bytes())[name])
+		require.Equal(t, []byte("selected dirty input\n"), nativeBetaUnpack(t, packed.Bytes())[name])
 		again, err := SnapshotSource(root, nil)
 		require.NoError(t, err)
 		require.Equal(t, dirty, again, "source metadata must describe the exact transported archive")
@@ -114,7 +114,7 @@ func TestRepairM_1386_DirtyImageProvenance(t *testing.T) {
 	}
 }
 
-func TestRepairM_1386_ImageBuildContexts(t *testing.T) {
+func TestImageBuildContexts(t *testing.T) {
 	root, err := filepath.Abs("../../../..")
 	require.NoError(t, err)
 	// The real explorer recipe's COPY paths are rooted in the backend tree.
@@ -122,13 +122,13 @@ func TestRepairM_1386_ImageBuildContexts(t *testing.T) {
 	require.NoError(t, err)
 	mix, err := os.ReadFile(filepath.Join(root, "services/explorer/backend/mix.exs"))
 	require.NoError(t, err)
-	source := repair1386Archive(t, map[string][]byte{"docker/explorer-backend/Dockerfile": recipe, "services/explorer/backend/mix.exs": mix, "services/platform/unrelated": []byte("excluded")})
+	source := nativeBetaArchive(t, map[string][]byte{"docker/explorer-backend/Dockerfile": recipe, "services/explorer/backend/mix.exs": mix, "services/platform/unrelated": []byte("excluded")})
 	plan, err := PlanImage("explorer-backend", "docker/explorer-backend/Dockerfile", "services/explorer/backend", "", "explorer.tar")
 	require.NoError(t, err)
 	var archive bytes.Buffer
 	projected, err := ProjectImageContext(plan, bytes.NewReader(source), &archive)
 	require.NoError(t, err)
-	files := repair1386Unpack(t, archive.Bytes())
+	files := nativeBetaUnpack(t, archive.Bytes())
 	require.Equal(t, recipe, files[projected.Dockerfile])
 	require.Equal(t, mix, files["mix.exs"])
 	require.NotContains(t, files, "services/platform/unrelated")
@@ -141,17 +141,17 @@ func TestRepairM_1386_ImageBuildContexts(t *testing.T) {
 		}
 		raw, err := os.ReadFile(source)
 		require.NoError(t, err)
-		repair1386Write(t, filepath.Join(prepared, name), raw)
+		nativeBetaWrite(t, filepath.Join(prepared, name), raw)
 	}
 	vendor, err := os.ReadFile(filepath.Join(root, "programs/vendor/wasm-instrument/src/lib.rs"))
 	require.NoError(t, err)
-	repair1386Write(t, filepath.Join(prepared, "vendor/wasm-instrument/src/lib.rs"), vendor)
+	nativeBetaWrite(t, filepath.Join(prepared, "vendor/wasm-instrument/src/lib.rs"), vendor)
 	plan, err = PlanImage("platform-registry-builder", "docker/platform-registry-builder/Dockerfile", "@registry-builder", prepared, "builder.tar")
 	require.NoError(t, err)
 	archive.Reset()
 	projected, err = ProjectImageContext(plan, bytes.NewReader(source), &archive)
 	require.NoError(t, err)
-	files = repair1386Unpack(t, archive.Bytes())
+	files = nativeBetaUnpack(t, archive.Bytes())
 	require.Contains(t, string(files[projected.Dockerfile]), "COPY")
 	require.Contains(t, files, "layerx-build")
 	require.Equal(t, vendor, files["vendor/wasm-instrument/src/lib.rs"])
@@ -163,7 +163,7 @@ func TestRepairM_1386_ImageBuildContexts(t *testing.T) {
 	require.Error(t, err)
 }
 
-func repair1386Home(t *testing.T) (string, TreasuryPolicy) {
+func nativeBetaHome(t *testing.T) (string, TreasuryPolicy) {
 	t.Helper()
 	home := t.TempDir()
 	require.NoError(t, os.Mkdir(filepath.Join(home, "config"), 0o700))
@@ -178,22 +178,22 @@ func repair1386Home(t *testing.T) (string, TreasuryPolicy) {
 	genesis := map[string]any{"chain_id": NativeChainID, "app_state": map[string]any{
 		"bank": map[string]any{"balances": []any{map[string]any{"address": account, "coins": []any{map[string]string{"denom": "uhpx", "amount": "100000000000000000000"}}}}}, "lxphost": map[string]any{}, "evm": map[string]any{},
 	}}
-	repair1386Write(t, filepath.Join(home, "config/genesis.json"), repair1386JSON(t, genesis))
-	repair1386Write(t, filepath.Join(home, "config/receipt.key"), []byte(hex.EncodeToString(bytes.Repeat([]byte{3}, 32))))
-	repair1386Write(t, filepath.Join(home, "config/config.toml"), []byte("mode = \"validator\"\ndb-dir = \"data\"\ngenesis-file = \"config/genesis.json\"\nnode-key-file = \"config/node_key.json\"\n[priv-validator]\nkey-file = \"config/priv_validator_key.json\"\nstate-file = \"data/priv_validator_state.json\"\nladdr = \"\"\n"))
-	repair1386Write(t, filepath.Join(home, "config/app.toml"), []byte("minimum-gas-prices = \"0.01uhpx\"\n"))
+	nativeBetaWrite(t, filepath.Join(home, "config/genesis.json"), nativeBetaJSON(t, genesis))
+	nativeBetaWrite(t, filepath.Join(home, "config/receipt.key"), []byte(hex.EncodeToString(bytes.Repeat([]byte{3}, 32))))
+	nativeBetaWrite(t, filepath.Join(home, "config/config.toml"), []byte("mode = \"validator\"\ndb-dir = \"data\"\ngenesis-file = \"config/genesis.json\"\nnode-key-file = \"config/node_key.json\"\n[priv-validator]\nkey-file = \"config/priv_validator_key.json\"\nstate-file = \"data/priv_validator_state.json\"\nladdr = \"\"\n"))
+	nativeBetaWrite(t, filepath.Join(home, "config/app.toml"), []byte("minimum-gas-prices = \"0.01uhpx\"\n"))
 	require.NoError(t, ConfigureNativeHome(home, account, policy))
 	return home, policy
 }
 
-func TestRepairM_1386_RetainedNativeMaterial(t *testing.T) {
-	home, policy := repair1386Home(t)
+func TestRetainedNativeMaterial(t *testing.T) {
+	home, policy := nativeBetaHome(t)
 	directory := filepath.Join(t.TempDir(), "material")
 	material, err := SaveNativeMaterial(home, directory, policy)
 	require.NoError(t, err)
 	secret, err := material.Secret("layerx-testnet")
 	require.NoError(t, err)
-	transport := repair1386JSON(t, secret)
+	transport := nativeBetaJSON(t, secret)
 	var decoded struct {
 		Data map[string]string `json:"data"`
 	}
@@ -205,11 +205,11 @@ func TestRepairM_1386_RetainedNativeMaterial(t *testing.T) {
 	require.NoError(t, err)
 	keys, err := LoadGatewayReceiptKeys(pins)
 	require.NoError(t, err)
-	receipt, err := os.ReadFile(repair142Receipt(t, t.TempDir(), 3, keys[0], 1))
+	receipt, err := os.ReadFile(receiptKeysReceipt(t, t.TempDir(), 3, keys[0], 1))
 	require.NoError(t, err)
 	_, err = keys.VerifyReceipt(receipt)
 	require.NoError(t, err)
-	original := repair1386JSON(t, material)
+	original := nativeBetaJSON(t, material)
 	material.Close()
 	_, err = material.Secret("layerx-testnet")
 	require.Error(t, err)
@@ -218,14 +218,14 @@ func TestRepairM_1386_RetainedNativeMaterial(t *testing.T) {
 	reopened, err := OpenNativeMaterial(directory, policy)
 	require.NoError(t, err)
 	defer reopened.Close()
-	require.Equal(t, original, repair1386JSON(t, reopened))
+	require.Equal(t, original, nativeBetaJSON(t, reopened))
 	// Consume the actual Secret bytes with the validator's real retained-file
 	// decoder. Advance and persist its anti-double-sign state, then reopen it.
 	installed := t.TempDir()
 	for _, name := range []string{"priv_validator_key.json", "priv_validator_state.json"} {
 		raw, err := base64.StdEncoding.DecodeString(decoded.Data[name])
 		require.NoError(t, err)
-		repair1386Write(t, filepath.Join(installed, name), raw)
+		nativeBetaWrite(t, filepath.Join(installed, name), raw)
 	}
 	keyFile, stateFile := filepath.Join(installed, "priv_validator_key.json"), filepath.Join(installed, "priv_validator_state.json")
 	validator, err := privval.LoadFilePV(keyFile, stateFile)
@@ -244,13 +244,13 @@ func TestRepairM_1386_RetainedNativeMaterial(t *testing.T) {
 	changed.Recipient = strings.Repeat("56", 20)
 	_, err = OpenNativeMaterial(directory, changed)
 	require.ErrorContains(t, err, "treasury policy changed")
-	repair1386Write(t, filepath.Join(directory, "genesis.json"), bytes.ReplaceAll(genesis, []byte(NativeChainID), []byte("retired-chain")))
+	nativeBetaWrite(t, filepath.Join(directory, "genesis.json"), bytes.ReplaceAll(genesis, []byte(NativeChainID), []byte("retired-chain")))
 	_, err = OpenNativeMaterial(directory, policy)
 	require.ErrorContains(t, err, "genesis.json")
 }
 
-func TestRepairM_1386_NativeBootstrapCommittedReadiness(t *testing.T) {
-	home, policy := repair1386Home(t)
+func TestNativeBootstrapCommittedReadiness(t *testing.T) {
+	home, policy := nativeBetaHome(t)
 	material, err := SaveNativeMaterial(home, filepath.Join(t.TempDir(), "native"), policy)
 	require.NoError(t, err)
 	defer material.Close()
@@ -258,7 +258,7 @@ func TestRepairM_1386_NativeBootstrapCommittedReadiness(t *testing.T) {
 	require.NoError(t, err)
 	keys, err := LoadGatewayReceiptKeys(keysRaw)
 	require.NoError(t, err)
-	wire, err := os.ReadFile(repair142Receipt(t, t.TempDir(), 3, keys[0], 1))
+	wire, err := os.ReadFile(receiptKeysReceipt(t, t.TempDir(), 3, keys[0], 1))
 	require.NoError(t, err)
 	signed, err := keys.VerifyReceipt(wire)
 	require.NoError(t, err)
@@ -266,7 +266,7 @@ func TestRepairM_1386_NativeBootstrapCommittedReadiness(t *testing.T) {
 	blockHash := fmt.Sprintf("%x", sha256.Sum256([]byte("recorded consensus block")))
 	validator, err := privval.LoadFilePV(filepath.Join(home, "config/priv_validator_key.json"), filepath.Join(home, "data/priv_validator_state.json"))
 	require.NoError(t, err)
-	vote := &tmproto.Vote{Type: tmproto.PrecommitType, Height: 2, Round: 0, Timestamp: time.Unix(1000, 0), ValidatorAddress: validator.Key.Address, ValidatorIndex: 0, BlockID: tmproto.BlockID{Hash: must1386Hex(t, blockHash), PartSetHeader: tmproto.PartSetHeader{Total: 1, Hash: must1386Hex(t, blockHash)}}}
+	vote := &tmproto.Vote{Type: tmproto.PrecommitType, Height: 2, Round: 0, Timestamp: time.Unix(1000, 0), ValidatorAddress: validator.Key.Address, ValidatorIndex: 0, BlockID: tmproto.BlockID{Hash: decodeNativeBetaHex(t, blockHash), PartSetHeader: tmproto.PartSetHeader{Total: 1, Hash: decodeNativeBetaHex(t, blockHash)}}}
 	require.NoError(t, validator.SignVote(context.Background(), NativeChainID, vote))
 	height := uint64(2)
 	rung := "committed"
@@ -282,11 +282,11 @@ func TestRepairM_1386_NativeBootstrapCommittedReadiness(t *testing.T) {
 		var result any
 		switch request.Method {
 		case "status":
-			result = &coretypes.ResultStatus{NodeInfo: tmtypes.NodeInfo{Network: NativeChainID}, SyncInfo: coretypes.SyncInfo{LatestBlockHeight: int64(height), LastCommittedBlockHeight: int64(height), LatestBlockHash: must1386Hex(t, blockHash), CatchingUp: false}}
+			result = &coretypes.ResultStatus{NodeInfo: tmtypes.NodeInfo{Network: NativeChainID}, SyncInfo: coretypes.SyncInfo{LatestBlockHeight: int64(height), LastCommittedBlockHeight: int64(height), LatestBlockHash: decodeNativeBetaHex(t, blockHash), CatchingUp: false}}
 		case "commit":
 			signedVote, err := tmtypes.VoteFromProto(vote)
 			require.NoError(t, err)
-			result = coretypes.NewResultCommit(&tmtypes.Header{ChainID: NativeChainID, Height: int64(height), AppHash: must1386Hex(t, blockHash)}, &tmtypes.Commit{Height: int64(height), Round: 0, BlockID: tmtypes.BlockID{Hash: must1386Hex(t, blockHash)}, Signatures: []tmtypes.CommitSig{signedVote.CommitSig()}}, true)
+			result = coretypes.NewResultCommit(&tmtypes.Header{ChainID: NativeChainID, Height: int64(height), AppHash: decodeNativeBetaHex(t, blockHash)}, &tmtypes.Commit{Height: int64(height), Round: 0, BlockID: tmtypes.BlockID{Hash: decodeNativeBetaHex(t, blockHash)}, Signatures: []tmtypes.CommitSig{signedVote.CommitSig()}}, true)
 		case "eth_chainId":
 			result = "0x7d"
 		case "eth_getBlockByNumber":
@@ -338,7 +338,7 @@ func TestRepairM_1386_NativeBootstrapCommittedReadiness(t *testing.T) {
 	require.ErrorContains(t, err, "root JSON-RPC")
 }
 
-func TestRepairM_1386_NativeImageSelection(t *testing.T) {
+func TestNativeImageSelection(t *testing.T) {
 	inventory, err := os.ReadFile("beta-images.sh")
 	require.NoError(t, err)
 	list := strings.Split(strings.Split(string(inventory), "IMAGE_NAMES=(")[1], ")")[0]
@@ -374,7 +374,7 @@ func TestRepairM_1386_NativeImageSelection(t *testing.T) {
 		require.NotContains(t, string(manifest), "bootstrap.sh")
 	}
 	require.True(t, found)
-	home, policy := repair1386Home(t)
+	home, policy := nativeBetaHome(t)
 	material, err := SaveNativeMaterial(home, filepath.Join(t.TempDir(), "inputs"), policy)
 	require.NoError(t, err)
 	defer material.Close()
@@ -384,7 +384,7 @@ func TestRepairM_1386_NativeImageSelection(t *testing.T) {
 	require.Contains(t, string(manifest), "secretName: layerx-native-inputs")
 }
 
-func TestRepairM_1386_MirrorKeypairDerived(t *testing.T) {
+func TestMirrorKeypairDerived(t *testing.T) {
 	seed, err := hex.DecodeString("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60")
 	require.NoError(t, err)
 	private := ed25519.NewKeyFromSeed(seed)
@@ -393,7 +393,7 @@ func TestRepairM_1386_MirrorKeypairDerived(t *testing.T) {
 	for i, b := range private {
 		values[i] = int(b)
 	}
-	raw := repair1386JSON(t, values)
+	raw := nativeBetaJSON(t, values)
 	key, err := SolanaPublicKey(raw)
 	require.NoError(t, err)
 	require.NotEmpty(t, key)
@@ -401,7 +401,7 @@ func TestRepairM_1386_MirrorKeypairDerived(t *testing.T) {
 	message := []byte("mirror deployment identity")
 	require.True(t, ed25519.Verify(private.Public().(ed25519.PublicKey), message, ed25519.Sign(private, message)))
 	values[63] ^= 1
-	_, err = SolanaPublicKey(repair1386JSON(t, values))
+	_, err = SolanaPublicKey(nativeBetaJSON(t, values))
 	require.ErrorContains(t, err, "does not match")
 	for _, value := range []string{"true", "1.0", "null", "-1", "256", "\"1\""} {
 		bad := []byte("[" + value + "," + strings.SplitN(string(raw), ",", 2)[1])
@@ -412,7 +412,7 @@ func TestRepairM_1386_MirrorKeypairDerived(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestRepairM_1386_GatewayPinsPersistedRotation(t *testing.T) {
+func TestGatewayPinsPersistedRotation(t *testing.T) {
 	directory := t.TempDir()
 	database, err := dbm.NewGoLevelDB("pins", directory)
 	require.NoError(t, err)
@@ -422,12 +422,12 @@ func TestRepairM_1386_GatewayPinsPersistedRotation(t *testing.T) {
 	require.NoError(t, multi.LoadLatestVersion())
 	ctx := sdk.NewContext(multi, tmproto.Header{ChainID: NativeChainID, Height: 1}, false)
 	keeper := seqkeeper.NewKeeper(mount)
-	primary := repair142Pin(3, 1, math.MaxUint64)
+	primary := receiptKeysPin(3, 1, math.MaxUint64)
 	require.NoError(t, keeper.SetReceiptKeys(ctx, seqkeeper.ReceiptKeys{primary}))
 	multi.Commit(true)
 	rotated := primary
 	rotated.LastHeight = 6999
-	standby := repair142Pin(4, 7000, math.MaxUint64)
+	standby := receiptKeysPin(4, 7000, math.MaxUint64)
 	require.NoError(t, seqkeeper.ValidateRotation(seqkeeper.ReceiptKeys{primary}, seqkeeper.ReceiptKeys{rotated, standby}, 6000))
 	require.NoError(t, keeper.SetReceiptKeys(ctx, seqkeeper.ReceiptKeys{rotated, standby}))
 	multi.Commit(true)
@@ -440,7 +440,7 @@ func TestRepairM_1386_GatewayPinsPersistedRotation(t *testing.T) {
 	projected, err := GatewayReceiptKeys(pins)
 	require.NoError(t, err)
 	path := filepath.Join(directory, "receipt-keys.json")
-	repair1386Write(t, path, projected)
+	nativeBetaWrite(t, path, projected)
 	require.NoError(t, multi.Close())
 	database, err = dbm.NewGoLevelDB("pins", directory)
 	require.NoError(t, err)
@@ -462,7 +462,7 @@ func TestRepairM_1386_GatewayPinsPersistedRotation(t *testing.T) {
 		height int64
 		accept bool
 	}{{3, primary, 1, true}, {3, primary, 6999, true}, {4, standby, 7000, true}, {3, primary, 7000, false}, {4, standby, 6999, false}} {
-		receipt, err := os.ReadFile(repair142Receipt(t, t.TempDir(), test.seed, test.pin, test.height))
+		receipt, err := os.ReadFile(receiptKeysReceipt(t, t.TempDir(), test.seed, test.pin, test.height))
 		require.NoError(t, err)
 		_, err = consumer.VerifyReceipt(receipt)
 		if test.accept {
@@ -475,7 +475,7 @@ func TestRepairM_1386_GatewayPinsPersistedRotation(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestRepairM_1386_TopologyShortDNSRefusals(t *testing.T) {
+func TestTopologyShortDNSRefusals(t *testing.T) {
 	var topology TopologyInput
 	raw := []byte(`{"workloads":[{"kind":"Deployment","ns":"beta","name":"caller","labels":{"app":"caller"}},{"kind":"Deployment","ns":"beta","name":"native","labels":{"app":"native"},"ports":{"rpc":["8545","TCP"]}}],"services":[{"ns":"beta","name":"native","selector":{"app":"native"},"ports":[{"port":"8545","targetPort":"rpc","protocol":"TCP"}]}],"policies":[{"ns":"beta","name":"native-deny","selector":{"matchLabels":{"app":"native"}},"types":["Ingress"],"ingress":[]}]}`)
 	require.NoError(t, json.Unmarshal(raw, &topology))
@@ -505,7 +505,7 @@ func TestRepairM_1386_TopologyShortDNSRefusals(t *testing.T) {
 	require.Equal(t, "note", CheckTopology(topology)[0][0])
 }
 
-func must1386Hex(t *testing.T, value string) []byte {
+func decodeNativeBetaHex(t *testing.T, value string) []byte {
 	t.Helper()
 	raw, err := hex.DecodeString(value)
 	require.NoError(t, err)

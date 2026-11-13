@@ -33,7 +33,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func repair142Command(t *testing.T, args ...string) []byte {
+func receiptKeysCommand(t *testing.T, args ...string) []byte {
 	t.Helper()
 	command := exec.Command(args[0], args[1:]...)
 	command.Env = append(os.Environ(), "PYTHONDONTWRITEBYTECODE=1")
@@ -42,18 +42,18 @@ func repair142Command(t *testing.T, args ...string) []byte {
 	return output
 }
 
-func repair142Write(t *testing.T, path string, data []byte) {
+func receiptKeysWrite(t *testing.T, path string, data []byte) {
 	t.Helper()
 	require.NoError(t, os.WriteFile(path, data, 0o600))
 }
 
-func repair142Pin(seed byte, first, last uint64) seqkeeper.ReceiptKeyEntry {
+func receiptKeysPin(seed byte, first, last uint64) seqkeeper.ReceiptKeyEntry {
 	private := ed25519.NewKeyFromSeed(bytes.Repeat([]byte{seed}, 32))
 	id := sha256.Sum256(append([]byte("receipt-key:"), private.Public().(ed25519.PublicKey)...))
 	return seqkeeper.ReceiptKeyEntry{KeyId: id[:], PublicKey: private.Public().(ed25519.PublicKey), FirstHeight: first, LastHeight: last}
 }
 
-func repair142Export(t *testing.T, path string, pins seqkeeper.ReceiptKeys) {
+func receiptKeysExport(t *testing.T, path string, pins seqkeeper.ReceiptKeys) {
 	t.Helper()
 	database := dbm.NewMemDB()
 	defer database.Close()
@@ -73,10 +73,10 @@ func repair142Export(t *testing.T, path string, pins seqkeeper.ReceiptKeys) {
 	}
 	encoded, err := json.Marshal(exported)
 	require.NoError(t, err)
-	repair142Write(t, path, encoded)
+	receiptKeysWrite(t, path, encoded)
 }
 
-type repair142Pod struct {
+type receiptKeysPod struct {
 	Containers []struct {
 		Name string `yaml:"name"`
 		Env  []struct {
@@ -103,7 +103,7 @@ type repair142Pod struct {
 	} `yaml:"volumes"`
 }
 
-func repair142GatewayPod(t *testing.T, path string) repair142Pod {
+func receiptKeysGatewayPod(t *testing.T, path string) receiptKeysPod {
 	t.Helper()
 	data, err := os.ReadFile(path)
 	require.NoError(t, err)
@@ -116,7 +116,7 @@ func repair142GatewayPod(t *testing.T, path string) repair142Pod {
 			} `yaml:"metadata"`
 			Spec struct {
 				Template struct {
-					Spec repair142Pod `yaml:"spec"`
+					Spec receiptKeysPod `yaml:"spec"`
 				} `yaml:"template"`
 			} `yaml:"spec"`
 		}
@@ -131,18 +131,18 @@ func repair142GatewayPod(t *testing.T, path string) repair142Pod {
 	}
 }
 
-func repair142Project(t *testing.T, material, manifests string) string {
+func receiptKeysProject(t *testing.T, material, manifests string) string {
 	t.Helper()
 	var secret struct {
 		Kind     string                           `json:"kind"`
 		Metadata struct{ Name, Namespace string } `json:"metadata"`
 		Data     map[string]string                `json:"data"`
 	}
-	require.NoError(t, json.Unmarshal(repair142Command(t, "python3", "sequencer-pins.py", "--gateway-secret", material, "layerx-testnet"), &secret))
+	require.NoError(t, json.Unmarshal(receiptKeysCommand(t, "python3", "sequencer-pins.py", "--gateway-secret", material, "layerx-testnet"), &secret))
 	require.Equal(t, "Secret", secret.Kind)
 	require.Equal(t, "layerx-testnet", secret.Metadata.Namespace)
 	require.Len(t, secret.Data, 1)
-	pod := repair142GatewayPod(t, filepath.Join(manifests, "gateway.yaml"))
+	pod := receiptKeysGatewayPod(t, filepath.Join(manifests, "gateway.yaml"))
 	var configured, mountName, mountPath string
 	for _, container := range pod.Containers {
 		if container.Name != "gateway" {
@@ -180,14 +180,14 @@ func repair142Project(t *testing.T, material, manifests string) string {
 		require.NoError(t, err)
 		path := filepath.Join(material, "projected", strings.TrimPrefix(configured, "/"))
 		require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o700))
-		repair142Write(t, path, data)
+		receiptKeysWrite(t, path, data)
 		return path
 	}
 	t.Fatal("receipt key volume missing")
 	return ""
 }
 
-func repair142BuildConsumer(t *testing.T) string {
+func receiptKeysBuildConsumer(t *testing.T) string {
 	t.Helper()
 	directory := t.TempDir()
 	gateway, err := filepath.Abs("../gateway")
@@ -196,14 +196,14 @@ func repair142BuildConsumer(t *testing.T) string {
 	require.NoError(t, err)
 	manifest := fmt.Sprintf("[package]\nname = \"receipt-pins-consumer\"\nversion = \"0.1.0\"\nedition = \"2021\"\n[workspace]\n[[bin]]\nname = \"receipt-pins-consumer\"\npath = %q\n[dependencies]\nlayerx-platform-gateway = { path = %q }\n", source, gateway)
 	path := filepath.Join(directory, "Cargo.toml")
-	repair142Write(t, path, []byte(manifest))
+	receiptKeysWrite(t, path, []byte(manifest))
 	command := exec.Command("cargo", "build", "--quiet", "--manifest-path", path, "--target-dir", filepath.Join(directory, "target"))
 	output, err := command.CombinedOutput()
 	require.NoError(t, err, "compile real gateway receipt consumer:\n%s", output)
 	return filepath.Join(directory, "target", "debug", "receipt-pins-consumer")
 }
 
-type repair142Consumer struct {
+type receiptKeysConsumer struct {
 	command *exec.Cmd
 	input   io.WriteCloser
 	output  *bufio.Scanner
@@ -211,9 +211,9 @@ type repair142Consumer struct {
 	stopped bool
 }
 
-func repair142Start(t *testing.T, binary, keys string, count int) *repair142Consumer {
+func receiptKeysStart(t *testing.T, binary, keys string, count int) *receiptKeysConsumer {
 	t.Helper()
-	consumer := &repair142Consumer{command: exec.Command(binary)}
+	consumer := &receiptKeysConsumer{command: exec.Command(binary)}
 	consumer.command.Env = append(os.Environ(), "LAYERX_GATEWAY_RECEIPT_KEYS_FILE="+keys)
 	consumer.command.Stderr = &consumer.stderr
 	input, err := consumer.command.StdinPipe()
@@ -228,7 +228,7 @@ func repair142Start(t *testing.T, binary, keys string, count int) *repair142Cons
 	return consumer
 }
 
-func (consumer *repair142Consumer) stop(t *testing.T) {
+func (consumer *receiptKeysConsumer) stop(t *testing.T) {
 	t.Helper()
 	if consumer.stopped {
 		return
@@ -238,7 +238,7 @@ func (consumer *repair142Consumer) stop(t *testing.T) {
 	require.NoError(t, consumer.command.Wait(), "%s", consumer.stderr.String())
 }
 
-func (consumer *repair142Consumer) query(t *testing.T, command string) string {
+func (consumer *receiptKeysConsumer) query(t *testing.T, command string) string {
 	t.Helper()
 	_, err := fmt.Fprintln(consumer.input, command)
 	require.NoError(t, err)
@@ -246,12 +246,12 @@ func (consumer *repair142Consumer) query(t *testing.T, command string) string {
 	return consumer.output.Text()
 }
 
-func repair142Receipt(t *testing.T, directory string, seed byte, pin seqkeeper.ReceiptKeyEntry, height int64) string {
+func receiptKeysReceipt(t *testing.T, directory string, seed byte, pin seqkeeper.ReceiptKeyEntry, height int64) string {
 	t.Helper()
 	// The node's real signer emits the wire receipt; its broad producer pin
 	// also lets the gateway prove refusals outside the deployed pin window.
 	keyFile := filepath.Join(directory, fmt.Sprintf("key-%d", seed))
-	repair142Write(t, keyFile, []byte(hex.EncodeToString(bytes.Repeat([]byte{seed}, 32))))
+	receiptKeysWrite(t, keyFile, []byte(hex.EncodeToString(bytes.Repeat([]byte{seed}, 32))))
 	consensusFile := filepath.Join(directory, fmt.Sprintf("consensus-%d.json", seed))
 	pv, err := privval.GenFilePV(consensusFile, filepath.Join(directory, "consensus-state"), "")
 	require.NoError(t, err)
@@ -274,16 +274,16 @@ func repair142Receipt(t *testing.T, directory string, seed byte, pin seqkeeper.R
 	require.NoError(t, err)
 	require.NotEmpty(t, receipt)
 	path := filepath.Join(directory, fmt.Sprintf("receipt-%d-%d", seed, height))
-	repair142Write(t, path, receipt)
+	receiptKeysWrite(t, path, receipt)
 	return path
 }
 
-func TestRepair_142_GatewayReceiptKeyProvisioning(t *testing.T) {
+func TestGatewayReceiptKeyProvisioning(t *testing.T) {
 	directory := t.TempDir()
 	source, output := filepath.Join(directory, "governed.json"), filepath.Join(directory, "receipt-keys.json")
-	primary := repair142Pin(3, 1, math.MaxUint64)
-	repair142Export(t, source, seqkeeper.ReceiptKeys{primary})
-	repair142Command(t, "python3", "sequencer-pins.py", "--gateway", source, output)
+	primary := receiptKeysPin(3, 1, math.MaxUint64)
+	receiptKeysExport(t, source, seqkeeper.ReceiptKeys{primary})
+	receiptKeysCommand(t, "python3", "sequencer-pins.py", "--gateway", source, output)
 	info, err := os.Stat(output)
 	require.NoError(t, err)
 	require.Equal(t, os.FileMode(0o600), info.Mode().Perm())
@@ -293,19 +293,19 @@ func TestRepair_142_GatewayReceiptKeyProvisioning(t *testing.T) {
 	for destination, source := range map[string]string{"gateway.yaml": "../gateway/deployment.yaml", "developer.yaml": "../webhooks/deployment.yaml"} {
 		data, err := os.ReadFile(source)
 		require.NoError(t, err)
-		repair142Write(t, filepath.Join(manifests, destination), data)
+		receiptKeysWrite(t, filepath.Join(manifests, destination), data)
 	}
-	repair142Command(t, "python3", "sequencer-pins.py", "--manifests", manifests)
+	receiptKeysCommand(t, "python3", "sequencer-pins.py", "--manifests", manifests)
 	before, err := os.ReadFile(filepath.Join(manifests, "gateway.yaml"))
 	require.NoError(t, err)
-	repair142Command(t, "python3", "sequencer-pins.py", "--manifests", manifests)
+	receiptKeysCommand(t, "python3", "sequencer-pins.py", "--manifests", manifests)
 	after, err := os.ReadFile(filepath.Join(manifests, "gateway.yaml"))
 	require.NoError(t, err)
 	require.Equal(t, before, after, "manifest projection must be idempotent")
-	projected := repair142Project(t, directory, manifests)
-	binary := repair142BuildConsumer(t)
-	consumer := repair142Start(t, binary, projected, 1)
-	receipt := repair142Receipt(t, directory, 3, primary, 1)
+	projected := receiptKeysProject(t, directory, manifests)
+	binary := receiptKeysBuildConsumer(t)
+	consumer := receiptKeysStart(t, binary, projected, 1)
+	receipt := receiptKeysReceipt(t, directory, 3, primary, 1)
 	require.Equal(t, "verified:1", consumer.query(t, "verify "+receipt))
 	consumer.stop(t)
 
@@ -313,13 +313,13 @@ func TestRepair_142_GatewayReceiptKeyProvisioning(t *testing.T) {
 	// a new key. No identity or height is derived from the webhook key files.
 	rotatedPrimary := primary
 	rotatedPrimary.LastHeight = 6999
-	standby := repair142Pin(4, 7000, math.MaxUint64)
+	standby := receiptKeysPin(4, 7000, math.MaxUint64)
 	rotated := seqkeeper.ReceiptKeys{rotatedPrimary, standby}
 	require.NoError(t, seqkeeper.ValidateRotation(seqkeeper.ReceiptKeys{primary}, rotated, 6000))
-	repair142Export(t, source, rotated)
-	repair142Command(t, "python3", "sequencer-pins.py", "--gateway", source, output)
-	require.Equal(t, projected, repair142Project(t, directory, manifests))
-	consumer = repair142Start(t, binary, projected, 2)
+	receiptKeysExport(t, source, rotated)
+	receiptKeysCommand(t, "python3", "sequencer-pins.py", "--gateway", source, output)
+	require.Equal(t, projected, receiptKeysProject(t, directory, manifests))
+	consumer = receiptKeysStart(t, binary, projected, 2)
 	for _, test := range []struct {
 		seed     byte
 		pin      seqkeeper.ReceiptKeyEntry
@@ -328,9 +328,9 @@ func TestRepair_142_GatewayReceiptKeyProvisioning(t *testing.T) {
 	}{
 		{3, primary, 1, true}, {3, primary, 6999, true}, {4, standby, 7000, true},
 		{4, standby, math.MaxInt64, true}, {3, primary, 7000, false}, {4, standby, 6999, false},
-		{5, repair142Pin(5, 1, math.MaxUint64), 7000, false},
+		{5, receiptKeysPin(5, 1, math.MaxUint64), 7000, false},
 	} {
-		path := repair142Receipt(t, directory, test.seed, test.pin, test.height)
+		path := receiptKeysReceipt(t, directory, test.seed, test.pin, test.height)
 		answer := consumer.query(t, "verify "+path)
 		if test.accepted {
 			require.Equal(t, "verified:1", answer)
@@ -344,22 +344,22 @@ func TestRepair_142_GatewayReceiptKeyProvisioning(t *testing.T) {
 	require.NoError(t, err)
 	corrupted[len(corrupted)-1] ^= 1
 	corruptPath := filepath.Join(directory, "corrupted-receipt")
-	repair142Write(t, corruptPath, corrupted)
+	receiptKeysWrite(t, corruptPath, corrupted)
 	require.Contains(t, consumer.query(t, "verify "+corruptPath), "refused:Receipt(SequencerSignature)")
 	substituted := primary
 	substituted.PublicKey = standby.PublicKey
-	wrongSigner := repair142Receipt(t, directory, 4, substituted, 1)
+	wrongSigner := receiptKeysReceipt(t, directory, 4, substituted, 1)
 	require.Equal(t, "refused:Receipt(SequencerSignature)", consumer.query(t, "verify "+wrongSigner))
 	consumer.stop(t)
 
 	saved, err := os.ReadFile(output)
 	require.NoError(t, err)
 	require.NoError(t, os.Remove(source))
-	repair142Command(t, "python3", "sequencer-pins.py", "--gateway-check", output)
-	require.Equal(t, projected, repair142Project(t, directory, manifests))
-	reopened := repair142Start(t, binary, projected, 2)
+	receiptKeysCommand(t, "python3", "sequencer-pins.py", "--gateway-check", output)
+	require.Equal(t, projected, receiptKeysProject(t, directory, manifests))
+	reopened := receiptKeysStart(t, binary, projected, 2)
 	require.Equal(t, "verified:1", reopened.query(t, "verify "+receipt))
-	retainedRotated := repair142Receipt(t, directory, 4, standby, 7000)
+	retainedRotated := receiptKeysReceipt(t, directory, 4, standby, 7000)
 	require.Equal(t, "verified:1", reopened.query(t, "verify "+retainedRotated))
 	reopened.stop(t)
 	retained, err := os.ReadFile(output)
@@ -367,15 +367,15 @@ func TestRepair_142_GatewayReceiptKeyProvisioning(t *testing.T) {
 	require.Equal(t, saved, retained, "retained startup must not regenerate pins")
 }
 
-func TestRepair_142_RefusesMalformedReceiptKeys(t *testing.T) {
+func TestRefusesMalformedReceiptKeys(t *testing.T) {
 	directory := t.TempDir()
 	source, output := filepath.Join(directory, "source.json"), filepath.Join(directory, "receipt-keys.json")
-	pin := repair142Pin(3, 1, 6999)
+	pin := receiptKeysPin(3, 1, 6999)
 	valid := map[string]any{"key_id": base64.StdEncoding.EncodeToString(pin.KeyId), "public_key": base64.StdEncoding.EncodeToString(pin.PublicKey), "first_height": uint64(1), "last_height": uint64(6999)}
 	encoded, err := json.Marshal([]any{valid})
 	require.NoError(t, err)
-	repair142Write(t, source, encoded)
-	repair142Command(t, "python3", "sequencer-pins.py", "--gateway", source, output)
+	receiptKeysWrite(t, source, encoded)
+	receiptKeysCommand(t, "python3", "sequencer-pins.py", "--gateway", source, output)
 	saved, err := os.ReadFile(output)
 	require.NoError(t, err)
 	cases := map[string][]byte{"empty": []byte("[]"), "legacy": []byte(`{"layerx":{}}`), "duplicate-id": append(append([]byte("["), encoded[1:len(encoded)-1]...), append([]byte(","), encoded[1:]...)...), "trailing": append(bytes.Clone(encoded), 'x'), "oversize": bytes.Repeat([]byte(" "), 256*1024+1), "duplicate-field": []byte(strings.Replace(string(encoded), `"first_height":1`, `"first_height":2,"first_height":1`, 1))}
@@ -403,7 +403,7 @@ func TestRepair_142_RefusesMalformedReceiptKeys(t *testing.T) {
 	}
 	for name, data := range cases {
 		t.Run(name, func(t *testing.T) {
-			repair142Write(t, source, data)
+			receiptKeysWrite(t, source, data)
 			command := exec.Command("python3", "sequencer-pins.py", "--gateway", source, output)
 			result, err := command.CombinedOutput()
 			require.Error(t, err, "malformed native pins accepted: %s", result)
@@ -414,7 +414,7 @@ func TestRepair_142_RefusesMalformedReceiptKeys(t *testing.T) {
 	}
 }
 
-func TestRepair_142_WebhookContract(t *testing.T) {
-	output := repair142Command(t, "python3", "-m", "pytest", "-q", "-p", "no:cacheprovider", "test_sequencer_pins.py")
+func TestWebhookContract(t *testing.T) {
+	output := receiptKeysCommand(t, "python3", "-m", "pytest", "-q", "-p", "no:cacheprovider", "test_sequencer_pins.py")
 	require.Contains(t, string(output), "19 passed", "all original trust-history cases and the webhook projection must execute")
 }

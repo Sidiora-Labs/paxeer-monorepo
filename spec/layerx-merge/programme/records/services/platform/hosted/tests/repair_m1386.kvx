@@ -6,35 +6,35 @@ qualification = "Only hf-build and hf-done qualify this candidate; their private
 baseline = "Not run: step 12 conflicts with the explicit order prohibiting verification before complete implementation and requiring hf-done as the only verifier. No pre-change failure is claimed."
 
 [finding.beta-dirty-image-provenance]
-test = "TestRepairM_1386_DirtyImageProvenance"
+test = "TestDirtyImageProvenance"
 repair = "Snapshot the actual tracked working bytes once, use deterministic tar identity and dirty tag, and bind global/context identities in image labels; cover services/platform and sdk/platform."
 
 [finding.beta-build-contexts]
-test = "TestRepairM_1386_ImageBuildContexts"
+test = "TestImageBuildContexts"
 repair = "Project explorer COPY inputs at backend root and reuse the registry owner's verified context producer, with context-relative Dockerfiles and bounded required context members."
 
 [finding.beta-retired-bootstrap]
-test = "TestRepairM_1386_NativeBootstrapCommittedReadiness"
+test = "TestNativeBootstrapCommittedReadiness"
 repair = "Reachable up/render select paxd-native genesis and protected native home inputs. Root JSON-RPC readiness requires the native canonical consensus commit, EVM block identity and an authenticated committed sequence receipt, with a persisted recovery floor."
 
 [finding.beta-retained-publication-file]
-test = "TestRepairM_1386_RetainedNativeMaterial"
+test = "TestRetainedNativeMaterial"
 repair = "Fresh save, Secret transport and retained reopen bind native chain identity, genesis pins, signing seed, validators and funded treasury policy; no checkpoint publication-authorization file is required."
 
 [finding.beta-image-retired-components]
-test = "TestRepairM_1386_NativeImageSelection"
+test = "TestNativeImageSelection"
 repair = "Remove retired node, core-boundary and receipt-authority selections; retain native paxd/kernel images and hosted adapters with existing declared contexts."
 
 [finding.mirror-keypair-not-derived]
-test = "TestRepairM_1386_MirrorKeypairDerived"
+test = "TestMirrorKeypairDerived"
 repair = "Strict integer bytes and real Ed25519 derivation compare the complete seed/public pair, including an RFC8032 keypair and substituted-public-half refusals."
 
 [finding.pin-tests-no-consumer]
-test = "TestRepairM_1386_GatewayPinsPersistedRotation"
+test = "TestGatewayPinsPersistedRotation"
 repair = "Real native keeper pins persist across a LevelDB close/reopen, project into gateway-native configuration and verify node-signed receipts at both inclusive rotation boundaries, refusing wrong heights. The Python suite additionally projects actual gateway manifests and restarts the real Rust gateway consumer against the committed conformance corpus; all 18 original cases remain."
 
 [finding.topology-short-dns-bypass]
-test = "TestRepairM_1386_TopologyShortDNSRefusals"
+test = "TestTopologyShortDNSRefusals"
 repair = "Resolve short names using caller namespace, require explicit external declarations, and check Service selection, target ports, ingress, egress and DNS. Both Python YAML parsers exercise the same denied short-name fixtures in topology-regressions.py."
 
 [wiring]

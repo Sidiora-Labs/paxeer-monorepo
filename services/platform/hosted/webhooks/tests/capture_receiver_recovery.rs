@@ -204,7 +204,7 @@ fn deliver(event: &ProtocolEvent, timestamp: u64) -> SignedDelivery {
     )
 }
 
-mod repair_m1329 {
+mod capture_receiver {
     use super::{consumer, deliver, hex_encode, now, scratch};
     use super::{Admission, CapturedEvent, Consumed, Evidence, MarketEventError, MarketOutbox};
     use super::{ProducerGrant, ProtocolEvent, SignedDelivery, Verification, WebhookError};
