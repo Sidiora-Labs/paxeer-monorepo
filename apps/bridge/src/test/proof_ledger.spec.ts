@@ -9,7 +9,7 @@
  */
 // @vitest-environment jsdom
 
-import { ledgerWithdrawalReopensIntoAuthoritativeReleaseVerification } from './repair-22-33-266.proofs';
+import { ledgerWithdrawalReopensIntoAuthoritativeReleaseVerification } from './bridge-lifecycle.proofs';
 
 import { ImportTransfer, importTransferReceipt } from '@/components/bridge/import-transfer';
 import { bridgeChainByKey, buildBridgeChains, type BridgeChain } from '@/lib/bridge/chains';

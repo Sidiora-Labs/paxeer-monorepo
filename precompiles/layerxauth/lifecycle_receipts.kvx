@@ -1,0 +1,3 @@
+[authority.lifecycle_receipts]
+test = "TestAuthLifecycleReceipts"
+proof = "Signed EVM registration and recovery transactions carry the kernel receipt event into the application receipt with the exact topic, DID and LXGI1 body; refused calls produce no logs or host-store changes."
