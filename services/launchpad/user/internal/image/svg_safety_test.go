@@ -11,7 +11,7 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/media/user/internal/image"
 )
 
-func TestRepairM_1065_CharacterReferences(t *testing.T) {
+func TestSVGSafetyCharacterReferences(t *testing.T) {
 	cases := map[string]string{
 		"audit exploit":          `<svg><a href="java&#x73;cript:alert(1)">open</a></svg>`,
 		"decimal reference":      `<svg><a href="java&#115;cript:alert(1)">open</a></svg>`,
@@ -31,7 +31,7 @@ func TestRepairM_1065_CharacterReferences(t *testing.T) {
 	}
 }
 
-func TestRepairM_1065_Namespaces(t *testing.T) {
+func TestSVGSafetyNamespaces(t *testing.T) {
 	cases := map[string]string{
 		"prefixed script":                   `<s:svg xmlns:s="http://www.w3.org/2000/svg"><s:script>alert(1)</s:script></s:svg>`,
 		"prefixed self-closing script":      `<svg xmlns:s="http://www.w3.org/2000/svg"><s:script/></svg>`,
@@ -54,7 +54,7 @@ func TestRepairM_1065_Namespaces(t *testing.T) {
 	}
 }
 
-func TestRepairM_1065_ExternalActiveContent(t *testing.T) {
+func TestSVGSafetyExternalActiveContent(t *testing.T) {
 	cases := map[string]string{
 		"external script":                   `<svg><script href="https://example.invalid/run.js"/></svg>`,
 		"external image":                    `<svg><image href="https://example.invalid/image.svg"/></svg>`,
@@ -89,7 +89,7 @@ func TestRepairM_1065_ExternalActiveContent(t *testing.T) {
 	}
 }
 
-func TestRepairM_1065_MalformedDocuments(t *testing.T) {
+func TestSVGSafetyMalformedDocuments(t *testing.T) {
 	cases := map[string]string{
 		"empty":                         "",
 		"not XML":                       "a plain string",
@@ -118,7 +118,7 @@ func TestRepairM_1065_MalformedDocuments(t *testing.T) {
 	}
 }
 
-func TestRepairM_1065_PassiveSVG(t *testing.T) {
+func TestSVGSafetyPassiveSVG(t *testing.T) {
 	cases := map[string]string{
 		"existing namespaced circle": `<svg xmlns="http://www.w3.org/2000/svg"><circle r="5"/></svg>`,
 		"existing simple rect":       `<svg><rect width="10" height="10" fill="blue"/></svg>`,
@@ -142,7 +142,7 @@ func TestRepairM_1065_PassiveSVG(t *testing.T) {
 
 // Exercise the real XML producer and multipart byte transport used for uploads
 // before calling the production MIME and SVG validation boundary.
-func TestRepairM_1065_UploadBytes(t *testing.T) {
+func TestSVGSafetyUploadBytes(t *testing.T) {
 	for _, tc := range []struct {
 		name string
 		href string

@@ -41,7 +41,7 @@ import (
 
 // The handler is the production component under test. Its peers below are
 // committed in-memory row/object stores and loopback RESP/clamd transcripts.
-type repairRows1064 struct {
+type signedOperationRows struct {
 	mu       sync.Mutex
 	profiles map[string]sqlcdb.UsersUserProfile
 	images   map[string]sqlcdb.UsersUserImage
@@ -50,7 +50,7 @@ type repairRows1064 struct {
 	reads    int
 }
 
-func (s *repairRows1064) UpsertUserProfile(_ context.Context, p sqlcdb.UpsertUserProfileParams) error {
+func (s *signedOperationRows) UpsertUserProfile(_ context.Context, p sqlcdb.UpsertUserProfileParams) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	old, exists := s.profiles[p.WalletAddress]
@@ -62,7 +62,7 @@ func (s *repairRows1064) UpsertUserProfile(_ context.Context, p sqlcdb.UpsertUse
 	s.writes++
 	return nil
 }
-func (s *repairRows1064) GetUserProfile(_ context.Context, addr string) (sqlcdb.UsersUserProfile, error) {
+func (s *signedOperationRows) GetUserProfile(_ context.Context, addr string) (sqlcdb.UsersUserProfile, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.reads++
@@ -72,14 +72,14 @@ func (s *repairRows1064) GetUserProfile(_ context.Context, addr string) (sqlcdb.
 	}
 	return p, nil
 }
-func (s *repairRows1064) UpsertUserImage(_ context.Context, p sqlcdb.UpsertUserImageParams) error {
+func (s *signedOperationRows) UpsertUserImage(_ context.Context, p sqlcdb.UpsertUserImageParams) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.images[p.WalletAddress+":"+p.ImageType] = sqlcdb.UsersUserImage{ID: p.ID, WalletAddress: p.WalletAddress, ImageType: p.ImageType, StorageKey: p.StorageKey, MimeType: p.MimeType, SizeBytes: p.SizeBytes, UploadedAt: p.UploadedAt}
 	s.writes++
 	return nil
 }
-func (s *repairRows1064) GetUserImages(_ context.Context, addr string) ([]sqlcdb.UsersUserImage, error) {
+func (s *signedOperationRows) GetUserImages(_ context.Context, addr string) ([]sqlcdb.UsersUserImage, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	out := []sqlcdb.UsersUserImage{}
@@ -90,7 +90,7 @@ func (s *repairRows1064) GetUserImages(_ context.Context, addr string) ([]sqlcdb
 	}
 	return out, nil
 }
-func (s *repairRows1064) GetImageByType(_ context.Context, p sqlcdb.GetImageByTypeParams) (sqlcdb.UsersUserImage, error) {
+func (s *signedOperationRows) GetImageByType(_ context.Context, p sqlcdb.GetImageByTypeParams) (sqlcdb.UsersUserImage, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	v, ok := s.images[p.WalletAddress+":"+p.ImageType]
@@ -99,10 +99,10 @@ func (s *repairRows1064) GetImageByType(_ context.Context, p sqlcdb.GetImageByTy
 	}
 	return v, nil
 }
-func (s *repairRows1064) ListCreatedPools(context.Context, string) ([]sqlcdb.ListCreatedPoolsRow, error) {
+func (s *signedOperationRows) ListCreatedPools(context.Context, string) ([]sqlcdb.ListCreatedPoolsRow, error) {
 	return []sqlcdb.ListCreatedPoolsRow{}, nil
 }
-func (s *repairRows1064) AddWatchlist(_ context.Context, p sqlcdb.AddWatchlistParams) error {
+func (s *signedOperationRows) AddWatchlist(_ context.Context, p sqlcdb.AddWatchlistParams) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.watch[p.WalletAddress] == nil {
@@ -114,14 +114,14 @@ func (s *repairRows1064) AddWatchlist(_ context.Context, p sqlcdb.AddWatchlistPa
 	s.writes++
 	return nil
 }
-func (s *repairRows1064) RemoveWatchlist(_ context.Context, p sqlcdb.RemoveWatchlistParams) error {
+func (s *signedOperationRows) RemoveWatchlist(_ context.Context, p sqlcdb.RemoveWatchlistParams) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	delete(s.watch[p.WalletAddress], p.PoolAddress)
 	s.writes++
 	return nil
 }
-func (s *repairRows1064) GetWatchlist(_ context.Context, addr string) ([]sqlcdb.GetWatchlistRow, error) {
+func (s *signedOperationRows) GetWatchlist(_ context.Context, addr string) ([]sqlcdb.GetWatchlistRow, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	out := []sqlcdb.GetWatchlistRow{}
@@ -131,13 +131,13 @@ func (s *repairRows1064) GetWatchlist(_ context.Context, addr string) ([]sqlcdb.
 	return out, nil
 }
 
-type repairObjects1064 struct {
+type signedOperationObjects struct {
 	mu      sync.Mutex
 	objects map[string][]byte
 	puts    int
 }
 
-func (s *repairObjects1064) Put(_ context.Context, key string, body io.Reader, size int64, _ string) error {
+func (s *signedOperationObjects) Put(_ context.Context, key string, body io.Reader, size int64, _ string) error {
 	data, err := io.ReadAll(body)
 	if err != nil {
 		return err
@@ -151,7 +151,7 @@ func (s *repairObjects1064) Put(_ context.Context, key string, body io.Reader, s
 	s.puts++
 	return nil
 }
-func (s *repairObjects1064) Get(_ context.Context, key string) (*storage.Object, error) {
+func (s *signedOperationObjects) Get(_ context.Context, key string) (*storage.Object, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	data, ok := s.objects[key]
@@ -161,20 +161,20 @@ func (s *repairObjects1064) Get(_ context.Context, key string) (*storage.Object,
 	return &storage.Object{Body: io.NopCloser(bytes.NewReader(bytes.Clone(data))), Size: int64(len(data))}, nil
 }
 
-type repairRedisValue1064 struct {
+type signedOperationRedisValue struct {
 	data    string
 	expires time.Time
 }
-type repairRedis1064 struct {
+type signedOperationRedis struct {
 	mu     sync.Mutex
-	values map[string]repairRedisValue1064
+	values map[string]signedOperationRedisValue
 	hits   int
 	claims int
 }
 
-func repairRedisClient1064(t *testing.T) (*goredis.Client, *repairRedis1064) {
+func signedOperationRedisClient(t *testing.T) (*goredis.Client, *signedOperationRedis) {
 	t.Helper()
-	state := &repairRedis1064{values: map[string]repairRedisValue1064{}}
+	state := &signedOperationRedis{values: map[string]signedOperationRedisValue{}}
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
@@ -193,7 +193,7 @@ func repairRedisClient1064(t *testing.T) (*goredis.Client, *repairRedis1064) {
 	t.Cleanup(func() { client.Close() })
 	return client, state
 }
-func (s *repairRedis1064) serve(conn net.Conn) {
+func (s *signedOperationRedis) serve(conn net.Conn) {
 	defer conn.Close()
 	r := bufio.NewReader(conn)
 	for {
@@ -265,7 +265,7 @@ func (s *repairRedis1064) serve(conn net.Conn) {
 			if nx && exists {
 				response = "$-1\r\n"
 			} else {
-				s.values[args[1]] = repairRedisValue1064{args[2], expires}
+				s.values[args[1]] = signedOperationRedisValue{args[2], expires}
 				response = "+OK\r\n"
 				if nx {
 					s.claims++
@@ -290,27 +290,27 @@ func (s *repairRedis1064) serve(conn net.Conn) {
 	}
 }
 
-type repairFixture1064 struct {
+type signedOperationFixture struct {
 	t         *testing.T
 	key       *ecdsa.PrivateKey
 	wallet    string
 	deps      Deps
-	rows      *repairRows1064
-	objects   *repairObjects1064
-	redis     *repairRedis1064
+	rows      *signedOperationRows
+	objects   *signedOperationObjects
+	redis     *signedOperationRedis
 	scanned   atomic.Int64
 	scanBytes atomic.Int64
 	server    *httptest.Server
 }
 
-func newRepairFixture1064(t *testing.T) *repairFixture1064 {
+func newSignedOperationFixture(t *testing.T) *signedOperationFixture {
 	t.Helper()
 	key, err := crypto.GenerateKey()
 	if err != nil {
 		t.Fatal(err)
 	}
-	f := &repairFixture1064{t: t, key: key, wallet: strings.ToLower(crypto.PubkeyToAddress(key.PublicKey).Hex()), rows: &repairRows1064{profiles: map[string]sqlcdb.UsersUserProfile{}, images: map[string]sqlcdb.UsersUserImage{}, watch: map[string]map[string]int64{}}, objects: &repairObjects1064{objects: map[string][]byte{}}}
-	client, state := repairRedisClient1064(t)
+	f := &signedOperationFixture{t: t, key: key, wallet: strings.ToLower(crypto.PubkeyToAddress(key.PublicKey).Hex()), rows: &signedOperationRows{profiles: map[string]sqlcdb.UsersUserProfile{}, images: map[string]sqlcdb.UsersUserImage{}, watch: map[string]map[string]int64{}}, objects: &signedOperationObjects{objects: map[string][]byte{}}}
+	client, state := signedOperationRedisClient(t)
 	f.redis = state
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -360,7 +360,7 @@ func newRepairFixture1064(t *testing.T) *repairFixture1064 {
 	f.reopen()
 	return f
 }
-func (f *repairFixture1064) reopen() {
+func (f *signedOperationFixture) reopen() {
 	if f.server != nil {
 		f.server.Close()
 	}
@@ -369,11 +369,11 @@ func (f *repairFixture1064) reopen() {
 	f.server = httptest.NewServer(router)
 	f.t.Cleanup(f.server.Close)
 }
-func (f *repairFixture1064) headers(method, path, action, contentType string, body []byte, change func(*sharedauth.OperationEnvelope)) http.Header {
+func (f *signedOperationFixture) headers(method, path, action, contentType string, body []byte, change func(*sharedauth.OperationEnvelope)) http.Header {
 	f.t.Helper()
 	intent := body
 	if contentType != "" {
-		intent = repairUploadIntent1064(contentType, body)
+		intent = signedUploadIntent(contentType, body)
 	}
 	digest, err := sharedauth.BodyDigest(intent)
 	if err != nil {
@@ -412,7 +412,7 @@ func (f *repairFixture1064) headers(method, path, action, contentType string, bo
 
 // This client-side producer deliberately computes the documented upload
 // manifest independently of the production uploadIntent implementation.
-func repairUploadIntent1064(contentType string, body []byte) []byte {
+func signedUploadIntent(contentType string, body []byte) []byte {
 	sum := sha256.Sum256(body)
 	data, _ := json.Marshal(struct {
 		ContentType string `json:"content_type"`
@@ -420,7 +420,7 @@ func repairUploadIntent1064(contentType string, body []byte) []byte {
 	}{contentType, hex.EncodeToString(sum[:])})
 	return data
 }
-func (f *repairFixture1064) request(method, path string, body []byte, headers http.Header) (int, http.Header, []byte) {
+func (f *signedOperationFixture) request(method, path string, body []byte, headers http.Header) (int, http.Header, []byte) {
 	f.t.Helper()
 	req, err := http.NewRequest(method, f.server.URL+path, bytes.NewReader(body))
 	if err != nil {
@@ -438,13 +438,13 @@ func (f *repairFixture1064) request(method, path string, body []byte, headers ht
 	}
 	return resp.StatusCode, resp.Header, data
 }
-func repairWant1064(t *testing.T, code, want int, body []byte) {
+func assertSignedOperationStatus(t *testing.T, code, want int, body []byte) {
 	t.Helper()
 	if code != want {
 		t.Fatalf("status = %d, want %d: %s", code, want, body)
 	}
 }
-func repairMultipart1064(t *testing.T, field, mimeType string, data []byte, extra int) ([]byte, string) {
+func signedUploadMultipart(t *testing.T, field, mimeType string, data []byte, extra int) ([]byte, string) {
 	t.Helper()
 	var buf bytes.Buffer
 	writer := multipart.NewWriter(&buf)
@@ -466,16 +466,16 @@ func repairMultipart1064(t *testing.T, field, mimeType string, data []byte, extr
 	return buf.Bytes(), writer.FormDataContentType()
 }
 
-func TestRepairM_1064_LegacyWalletReplay(t *testing.T) {
-	f := newRepairFixture1064(t)
+func TestSignedLegacyWalletReplay(t *testing.T) {
+	f := newSignedOperationFixture(t)
 	path := "/users/" + f.wallet
 	body := []byte(`{"data":{"display_name":"first"}}`)
 	headers := f.headers("POST", path, "profile.update", "", body, nil)
 	code, _, out := f.request("POST", path, body, headers)
-	repairWant1064(t, code, 200, out)
+	assertSignedOperationStatus(t, code, 200, out)
 	f.reopen()
 	code, _, out = f.request("POST", path, body, headers)
-	repairWant1064(t, code, 403, out)
+	assertSignedOperationStatus(t, code, 403, out)
 	for name, change := range map[string]func(*sharedauth.OperationEnvelope){
 		"chain":       func(e *sharedauth.OperationEnvelope) { e.ChainID = "1" },
 		"expired":     func(e *sharedauth.OperationEnvelope) { e.IssuedAt -= 400; e.ExpiresAt -= 400 },
@@ -486,18 +486,18 @@ func TestRepairM_1064_LegacyWalletReplay(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			h := f.headers("POST", path, "profile.update", "", body, change)
 			code, _, out := f.request("POST", path, body, h)
-			repairWant1064(t, code, 403, out)
+			assertSignedOperationStatus(t, code, 403, out)
 		})
 	}
 	fresh := f.headers("POST", path, "profile.update", "", body, nil)
 	code, _, out = f.request("POST", path, []byte(`{"data":{"display_name":"tampered"}}`), fresh)
-	repairWant1064(t, code, 403, out)
+	assertSignedOperationStatus(t, code, 403, out)
 	pool := "0x2222222222222222222222222222222222222222"
 	watch := path + "/watchlist/" + pool
 	code, _, out = f.request("PUT", watch, body, fresh)
-	repairWant1064(t, code, 403, out)
+	assertSignedOperationStatus(t, code, 403, out)
 	code, _, out = f.request("POST", path, body, fresh)
-	repairWant1064(t, code, 200, out)
+	assertSignedOperationStatus(t, code, 200, out)
 	legacy := []byte(`{"data":{"display_name":"stolen"},"message":"sign-in"}`)
 	sig, err := crypto.Sign(accounts.TextHash([]byte("sign-in")), f.key)
 	if err != nil {
@@ -505,9 +505,9 @@ func TestRepairM_1064_LegacyWalletReplay(t *testing.T) {
 	}
 	legacy = []byte(fmt.Sprintf(`{"data":{"display_name":"stolen"},"message":"sign-in","signature":%q}`, hexutil.Encode(sig)))
 	code, _, out = f.request("POST", path, legacy, nil)
-	repairWant1064(t, code, 400, out)
+	assertSignedOperationStatus(t, code, 400, out)
 	code, _, out = f.request("GET", path, nil, nil)
-	repairWant1064(t, code, 200, out)
+	assertSignedOperationStatus(t, code, 200, out)
 	var profile types.PublicProfile
 	if err := json.Unmarshal(out, &profile); err != nil {
 		t.Fatal(err)
@@ -518,13 +518,13 @@ func TestRepairM_1064_LegacyWalletReplay(t *testing.T) {
 	empty := []byte(`{}`)
 	add := f.headers("PUT", watch, "watchlist.update", "", empty, nil)
 	code, _, out = f.request("PUT", watch, empty, add)
-	repairWant1064(t, code, 200, out)
+	assertSignedOperationStatus(t, code, 200, out)
 	code, _, out = f.request("PUT", watch, empty, add)
-	repairWant1064(t, code, 403, out)
+	assertSignedOperationStatus(t, code, 403, out)
 	code, _, out = f.request("DELETE", watch, empty, add)
-	repairWant1064(t, code, 403, out)
+	assertSignedOperationStatus(t, code, 403, out)
 	code, _, out = f.request("GET", path+"/watchlist", nil, nil)
-	repairWant1064(t, code, 200, out)
+	assertSignedOperationStatus(t, code, 200, out)
 	var list types.WatchlistResponse
 	if err := json.Unmarshal(out, &list); err != nil {
 		t.Fatal(err)
@@ -534,9 +534,9 @@ func TestRepairM_1064_LegacyWalletReplay(t *testing.T) {
 	}
 	remove := f.headers("DELETE", watch, "watchlist.remove", "", empty, nil)
 	code, _, out = f.request("DELETE", watch, empty, remove)
-	repairWant1064(t, code, 200, out)
+	assertSignedOperationStatus(t, code, 200, out)
 	code, _, out = f.request("GET", path+"/watchlist", nil, nil)
-	repairWant1064(t, code, 200, out)
+	assertSignedOperationStatus(t, code, 200, out)
 	if err := json.Unmarshal(out, &list); err != nil {
 		t.Fatal(err)
 	}
@@ -551,16 +551,16 @@ func TestRepairM_1064_LegacyWalletReplay(t *testing.T) {
 	}
 	reused := f.headers("POST", path, "profile.update", "", body, func(e *sharedauth.OperationEnvelope) { e.Nonce = used.Nonce })
 	code, _, out = f.request("POST", path, body, reused)
-	repairWant1064(t, code, 403, out)
+	assertSignedOperationStatus(t, code, 403, out)
 	f.deps.Redis = nil
 	f.reopen()
 	unavailable := f.headers("POST", path, "profile.update", "", body, nil)
 	code, _, out = f.request("POST", path, body, unavailable)
-	repairWant1064(t, code, 503, out)
+	assertSignedOperationStatus(t, code, 503, out)
 }
 
-func TestRepairM_1064_ConcurrentNonce(t *testing.T) {
-	f := newRepairFixture1064(t)
+func TestSignedLegacyConcurrentNonce(t *testing.T) {
+	f := newSignedOperationFixture(t)
 	path := "/users/" + f.wallet
 	body := []byte(`{"data":{"display_name":"once"}}`)
 	h := f.headers("POST", path, "profile.update", "", body, nil)
@@ -609,29 +609,29 @@ func TestRepairM_1064_ConcurrentNonce(t *testing.T) {
 	}
 }
 
-type repairCountingBody1064 struct {
+type uploadCountingBody struct {
 	r io.Reader
 	n int
 }
 
-func (b *repairCountingBody1064) Read(p []byte) (int, error) {
+func (b *uploadCountingBody) Read(p []byte) (int, error) {
 	n, err := b.r.Read(p)
 	b.n += n
 	return n, err
 }
-func (b *repairCountingBody1064) Close() error { return nil }
+func (b *uploadCountingBody) Close() error { return nil }
 
-func TestRepairM_1064_LegacyMultipartUnbounded(t *testing.T) {
-	f := newRepairFixture1064(t)
+func TestSignedLegacyMultipartBounds(t *testing.T) {
+	f := newSignedOperationFixture(t)
 	path := "/users/" + f.wallet + "/avatar"
 	limit := int(f.deps.MaxAvatar) + multipartOverhead
-	large, ct := repairMultipart1064(t, "avatar", "image/png", bytes.Repeat([]byte("a"), limit*2), 0)
+	large, ct := signedUploadMultipart(t, "avatar", "image/png", bytes.Repeat([]byte("a"), limit*2), 0)
 	h := f.headers("POST", path, "image.avatar.update", ct, large, nil)
 	router := chi.NewRouter()
 	New(f.deps).RegisterRoutes(router)
 	for _, known := range []bool{true, false} {
 		t.Run(fmt.Sprintf("known-length-%t", known), func(t *testing.T) {
-			counter := &repairCountingBody1064{r: bytes.NewReader(large)}
+			counter := &uploadCountingBody{r: bytes.NewReader(large)}
 			req := httptest.NewRequest("POST", path, nil)
 			req.Header = h.Clone()
 			req.Body = counter
@@ -641,7 +641,7 @@ func TestRepairM_1064_LegacyMultipartUnbounded(t *testing.T) {
 			}
 			rec := httptest.NewRecorder()
 			router.ServeHTTP(rec, req)
-			repairWant1064(t, rec.Code, 413, rec.Body.Bytes())
+			assertSignedOperationStatus(t, rec.Code, 413, rec.Body.Bytes())
 			if known && counter.n != 0 {
 				t.Fatalf("known oversized request read %d bytes", counter.n)
 			}
@@ -651,10 +651,10 @@ func TestRepairM_1064_LegacyMultipartUnbounded(t *testing.T) {
 		})
 	}
 	// Bounded authorization is checked without consuming even a valid body.
-	small, ct := repairMultipart1064(t, "avatar", "image/png", []byte("png"), 0)
+	small, ct := signedUploadMultipart(t, "avatar", "image/png", []byte("png"), 0)
 	for name, headers := range map[string]http.Header{"missing": nil, "oversized": {sharedauth.OperationEnvelopeHeader: []string{strings.Repeat("a", 8193)}, sharedauth.OperationSignatureHeader: []string{strings.Repeat("a", 132)}}, "forged": f.headers("POST", path, "image.avatar.update", ct, small, func(e *sharedauth.OperationEnvelope) { e.Actor = "0x1111111111111111111111111111111111111111" })} {
 		t.Run(name, func(t *testing.T) {
-			counter := &repairCountingBody1064{r: bytes.NewReader(small)}
+			counter := &uploadCountingBody{r: bytes.NewReader(small)}
 			req := httptest.NewRequest("POST", path, nil)
 			req.Header = headers.Clone()
 			req.Body = counter
@@ -664,7 +664,7 @@ func TestRepairM_1064_LegacyMultipartUnbounded(t *testing.T) {
 			if name == "missing" {
 				want = 400
 			}
-			repairWant1064(t, rec.Code, want, rec.Body.Bytes())
+			assertSignedOperationStatus(t, rec.Code, want, rec.Body.Bytes())
 			if counter.n != 0 {
 				t.Fatalf("unauthenticated body read: %d", counter.n)
 			}
@@ -678,10 +678,10 @@ func TestRepairM_1064_LegacyMultipartUnbounded(t *testing.T) {
 		"extra-part": {3, 1, "avatar", 400}, "many-parts": {1, 20, "file", 400}, "wrong-part": {3, 0, "unrelated", 400}, "selected-file-limit": {1025, 0, "avatar", 413},
 	} {
 		t.Run(name, func(t *testing.T) {
-			body, ct := repairMultipart1064(t, tc.field, "image/png", bytes.Repeat([]byte("a"), tc.size), tc.extra)
+			body, ct := signedUploadMultipart(t, tc.field, "image/png", bytes.Repeat([]byte("a"), tc.size), tc.extra)
 			h := f.headers("POST", path, "image.avatar.update", ct, body, nil)
 			code, _, out := f.request("POST", path, body, h)
-			repairWant1064(t, code, tc.want, out)
+			assertSignedOperationStatus(t, code, tc.want, out)
 		})
 	}
 	if f.scanned.Load() != 0 || f.objects.puts != 0 || f.rows.writes != 0 {
@@ -690,23 +690,23 @@ func TestRepairM_1064_LegacyMultipartUnbounded(t *testing.T) {
 	// Rejection does not damage subsequent production scanner/storage use.
 	h = f.headers("POST", path, "image.avatar.update", ct, small, nil)
 	code, _, out := f.request("POST", path, small, h)
-	repairWant1064(t, code, 200, out)
+	assertSignedOperationStatus(t, code, 200, out)
 	if f.scanned.Load() != 1 || f.objects.puts != 1 || f.rows.writes != 1 {
 		t.Fatal("bounded upload did not traverse scanner, object and row stores")
 	}
 }
 
-func TestRepairM_1064_LegacyImageCacheStale(t *testing.T) {
-	f := newRepairFixture1064(t)
+func TestSignedLegacyImageCacheRevalidation(t *testing.T) {
+	f := newSignedOperationFixture(t)
 	for _, kind := range []string{"avatar", "banner"} {
 		t.Run(kind, func(t *testing.T) {
 			path := "/users/" + f.wallet + "/" + kind
 			var stable string
 			for i, data := range [][]byte{[]byte("first-png"), []byte("replacement-png")} {
-				body, ct := repairMultipart1064(t, kind, "image/png", data, 0)
+				body, ct := signedUploadMultipart(t, kind, "image/png", data, 0)
 				h := f.headers("POST", path, "image."+kind+".update", ct, body, nil)
 				code, _, out := f.request("POST", path, body, h)
-				repairWant1064(t, code, 200, out)
+				assertSignedOperationStatus(t, code, 200, out)
 				var uploaded types.UploadResponse
 				if err := json.Unmarshal(out, &uploaded); err != nil {
 					t.Fatal(err)
@@ -720,7 +720,7 @@ func TestRepairM_1064_LegacyImageCacheStale(t *testing.T) {
 					t.Fatal("expected stable revalidated URL")
 				}
 				code, _, out = f.request("GET", "/users/"+f.wallet, nil, nil)
-				repairWant1064(t, code, 200, out)
+				assertSignedOperationStatus(t, code, 200, out)
 				var profile types.PublicProfile
 				if err := json.Unmarshal(out, &profile); err != nil {
 					t.Fatal(err)
@@ -734,7 +734,7 @@ func TestRepairM_1064_LegacyImageCacheStale(t *testing.T) {
 				}
 				readHeaders := http.Header{"If-None-Match": []string{`"old-object"`}, "If-Modified-Since": []string{time.Now().Add(time.Hour).UTC().Format(http.TimeFormat)}}
 				code, headers, out := f.request("GET", *url, nil, readHeaders)
-				repairWant1064(t, code, 200, out)
+				assertSignedOperationStatus(t, code, 200, out)
 				if !bytes.Equal(out, data) {
 					t.Fatalf("replacement %d public bytes = %q, want %q", i, out, data)
 				}
@@ -749,16 +749,16 @@ func TestRepairM_1064_LegacyImageCacheStale(t *testing.T) {
 				}
 				scans, puts, writes := f.scanned.Load(), f.objects.puts, f.rows.writes
 				code, _, out = f.request("POST", path, body, h)
-				repairWant1064(t, code, 403, out)
+				assertSignedOperationStatus(t, code, 403, out)
 				other := "banner"
 				if kind == "banner" {
 					other = "avatar"
 				}
 				code, _, out = f.request("POST", "/users/"+f.wallet+"/"+other, body, h)
-				repairWant1064(t, code, 403, out)
+				assertSignedOperationStatus(t, code, 403, out)
 				changed := bytes.Replace(body, data, []byte("tampered-image"), 1)
 				code, _, out = f.request("POST", path, changed, f.headers("POST", path, "image."+kind+".update", ct, body, nil))
-				repairWant1064(t, code, 403, out)
+				assertSignedOperationStatus(t, code, 403, out)
 				if f.scanned.Load() != scans || f.objects.puts != puts || f.rows.writes != writes {
 					t.Fatal("replayed or rebound image reached scanner/storage")
 				}
@@ -770,17 +770,17 @@ func TestRepairM_1064_LegacyImageCacheStale(t *testing.T) {
 	}
 }
 
-func TestRepairM_1064_ProfileHostCachePoisoning(t *testing.T) {
+func TestSignedLegacyProfileCanonicalHost(t *testing.T) {
 	for _, canonical := range []string{"", "https://canonical.example/media"} {
 		t.Run(canonical, func(t *testing.T) {
-			f := newRepairFixture1064(t)
+			f := newSignedOperationFixture(t)
 			f.deps.PublicURL = canonical
 			f.reopen()
 			path := "/users/" + f.wallet
 			// Seed via the real signed upload route, then share the wallet cache across hosts.
-			body, ct := repairMultipart1064(t, "avatar", "image/png", []byte("profile-image"), 0)
+			body, ct := signedUploadMultipart(t, "avatar", "image/png", []byte("profile-image"), 0)
 			code, _, out := f.request("POST", path+"/avatar", body, f.headers("POST", path+"/avatar", "image.avatar.update", ct, body, nil))
-			repairWant1064(t, code, 200, out)
+			assertSignedOperationStatus(t, code, 200, out)
 			// Prior-version host-derived cache entries must not survive the migration.
 			poisoned := types.PublicProfile{WalletAddress: f.wallet, Images: types.Images{Avatar: strPtr("https://poison.example/image")}}
 			raw, err := json.Marshal(poisoned)
@@ -800,7 +800,7 @@ func TestRepairM_1064_ProfileHostCachePoisoning(t *testing.T) {
 				req.Header.Set("X-Forwarded-Host", "poison.example")
 				rec := httptest.NewRecorder()
 				router.ServeHTTP(rec, req)
-				repairWant1064(t, rec.Code, 200, rec.Body.Bytes())
+				assertSignedOperationStatus(t, rec.Code, 200, rec.Body.Bytes())
 				var profile types.PublicProfile
 				if err := json.Unmarshal(rec.Body.Bytes(), &profile); err != nil {
 					t.Fatal(err)
