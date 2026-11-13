@@ -439,7 +439,7 @@ sys.exit(int(code))
 
     def test_dispatcher_registry_missing_checker_and_wrong_command_reject(self):
         bundle=self.interface_registry()['tasks']['0.2']['interface_bundle']
-        argv=['python3','tools/launchpad/production/dispatcher/qualification.py','--spec','spec/layerx-merge/spec.kvx','--plan','tools/launchpad/production/dispatcher/tests/fixtures/repair_22_33_915/execution-plan.json','--state-dir','{evidence_dir}/dispatcher-state','--evidence-dir','{evidence_dir}/dispatcher','--case','all']
+        argv=['python3','tools/launchpad/production/dispatcher/qualification.py','--spec','spec/layerx-merge/spec.kvx','--plan','tools/launchpad/production/dispatcher/tests/fixtures/fifty_lane_graph/execution-plan.json','--state-dir','{evidence_dir}/dispatcher-state','--evidence-dir','{evidence_dir}/dispatcher','--case','all']
         entry={'interface_bundle':bundle,'checks':[{'id':'dispatcher','kind':'dispatcher','target':'scheduler-harness','required':True,'evidence_format':'dispatcher-json','argv':argv,'cwd':'.','timeout_seconds':600}]}
         registry={'schema_version':1,'tasks':{'0.3':entry}}
         with self.assertRaises(runner.QualificationError):runner.validate_registry(registry,'0.3',self.root)

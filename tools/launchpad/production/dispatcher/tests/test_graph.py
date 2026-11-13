@@ -12,8 +12,8 @@ module=importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
 Graph,GraphError=module.Graph,module.GraphError
 ROOT=Path(__file__).resolve().parents[5]
-SPEC=ROOT/'tools/launchpad/production/dispatcher/tests/fixtures/repair_22_33_915/spec.kvx'
-PLAN=ROOT/'tools/launchpad/production/dispatcher/tests/fixtures/repair_22_33_915/execution-plan.json'
+SPEC=ROOT/'tools/launchpad/production/dispatcher/tests/fixtures/fifty_lane_graph/spec.kvx'
+PLAN=ROOT/'tools/launchpad/production/dispatcher/tests/fixtures/fifty_lane_graph/execution-plan.json'
 
 class GraphTests(unittest.TestCase):
     spec_path = SPEC
