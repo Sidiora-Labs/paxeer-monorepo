@@ -21,7 +21,7 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-func repair11Input(t *testing.T, period, window uint64) (testutils.TestInput, string) {
+func migrationRestartInput(t *testing.T, period, window uint64) (testutils.TestInput, string) {
 	t.Helper()
 	dir := t.TempDir()
 	db, err := dbm.NewDB("oracle", dbm.GoLevelDBBackend, dir)
@@ -40,7 +40,7 @@ func repair11Input(t *testing.T, period, window uint64) (testutils.TestInput, st
 	return input, dir
 }
 
-func repair11Restart(t *testing.T, input *testutils.TestInput, dir string) {
+func migrationRestartRestart(t *testing.T, input *testutils.TestInput, dir string) {
 	t.Helper()
 	previous := input.Ctx.MultiStore().(storetypes.CommitMultiStore)
 	keys := previous.StoreKeys()
@@ -68,12 +68,12 @@ func repair11Restart(t *testing.T, input *testutils.TestInput, dir string) {
 		input.DistrKeeper, input.StakingKeeper, distrtypes.ModuleName)
 }
 
-func repair11Close(t *testing.T, input *testutils.TestInput) {
+func migrationRestartClose(t *testing.T, input *testutils.TestInput) {
 	t.Helper()
 	require.NoError(t, input.Ctx.MultiStore().(storetypes.CommitMultiStore).Close())
 }
 
-func repair11Block(t *testing.T, input *testutils.TestInput, height int64, outcome string) {
+func migrationRestartBlock(t *testing.T, input *testutils.TestInput, height int64, outcome string) {
 	t.Helper()
 	input.Ctx = input.Ctx.WithBlockHeight(height).WithEventManager(sdk.NewEventManager())
 	if outcome != "abstain" && utils.IsPeriodLastBlock(input.Ctx, input.OracleKeeper.VotePeriod(input.Ctx)) {
@@ -89,7 +89,7 @@ func repair11Block(t *testing.T, input *testutils.TestInput, height int64, outco
 	oracle.EndBlocker(input.Ctx, input.OracleKeeper)
 }
 
-func repair11LegacyCounter(input *testutils.TestInput) types.VotePenaltyCounter {
+func migrationRestartLegacyCounter(input *testutils.TestInput) types.VotePenaltyCounter {
 	operator := testutils.ValAddrs[0]
 	counter := input.OracleKeeper.GetVotePenaltyCounter(input.Ctx, operator)
 	if input.Ctx.KVStore(input.OracleKeeper.GetStoreKey()).Has(types.GetVotePenaltyCounterKey(operator)) {
@@ -98,23 +98,23 @@ func repair11LegacyCounter(input *testutils.TestInput) types.VotePenaltyCounter 
 	return counter
 }
 
-func TestRepair_11_RestartBoundaries(t *testing.T) {
+func TestMigrationRestartRestartBoundaries(t *testing.T) {
 	for _, period := range []uint64{2, 3, 4} {
 		for _, height := range []uint64{1, period - 1, period, period + 1, 10, 11, 12, 13, 14, 15, 16, 23, 24, 25, 26} {
 			t.Run(fmt.Sprintf("period_%d_height_%d", period, height), func(t *testing.T) {
-				input, dir := repair11Input(t, period, 12)
-				defer repair11Close(t, &input)
+				input, dir := migrationRestartInput(t, period, 12)
+				defer migrationRestartClose(t, &input)
 				outcomes := []string{"success", "success", "miss", "abstain"}
 				observation := 0
 				for block := uint64(1); block < height; block++ {
-					repair11Block(t, &input, int64(block), outcomes[observation%len(outcomes)])
+					migrationRestartBlock(t, &input, int64(block), outcomes[observation%len(outcomes)])
 					if (block+1)%period == 0 {
 						observation++
 					}
 				}
-				expected := repair11LegacyCounter(&input)
+				expected := migrationRestartLegacyCounter(&input)
 				input.Ctx = input.Ctx.WithBlockHeight(int64(height))
-				repair11Restart(t, &input, dir)
+				migrationRestartRestart(t, &input, dir)
 				var history []keeper.VotePeriodHistory
 				if height > 1 {
 					history = append(history, keeper.VotePeriodHistory{
@@ -122,11 +122,11 @@ func TestRepair_11_RestartBoundaries(t *testing.T) {
 					})
 				}
 				require.NoError(t, keeper.NewMigrator(input.OracleKeeper, history...).Migrate5To6(input.Ctx))
-				repair11Restart(t, &input, dir)
+				migrationRestartRestart(t, &input, dir)
 				require.Equal(t, expected, input.OracleKeeper.GetVotePenaltyCounter(input.Ctx, testutils.ValAddrs[0]))
 				// Resume the real producer at the upgrade block; a boundary tally
 				// must be counted exactly once and the end-window reset still runs.
-				repair11Block(t, &input, int64(height), "success")
+				migrationRestartBlock(t, &input, int64(height), "success")
 				if (height+1)%12 == 0 {
 					expected = types.VotePenaltyCounter{}
 				} else if (height+1)%period == 0 {
@@ -138,7 +138,7 @@ func TestRepair_11_RestartBoundaries(t *testing.T) {
 	}
 }
 
-func TestRepair_11_HistoricalPeriodAndWindowRecovery(t *testing.T) {
+func TestMigrationRestartHistoricalPeriodAndWindowRecovery(t *testing.T) {
 	cases := []struct {
 		name         string
 		history      []keeper.VotePeriodHistory
@@ -167,30 +167,30 @@ func TestRepair_11_HistoricalPeriodAndWindowRecovery(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			input, dir := repair11Input(t, tc.history[0].VotePeriod, tc.history[0].SlashWindow)
-			defer repair11Close(t, &input)
+			input, dir := migrationRestartInput(t, tc.history[0].VotePeriod, tc.history[0].SlashWindow)
+			defer migrationRestartClose(t, &input)
 			for _, epoch := range tc.history {
 				params := input.OracleKeeper.GetParams(input.Ctx)
 				params.VotePeriod, params.SlashWindow = epoch.VotePeriod, epoch.SlashWindow
 				input.OracleKeeper.SetParams(input.Ctx, params)
 				for height := epoch.StartHeight; height < epoch.EndHeight; height++ {
-					repair11Block(t, &input, int64(height), "success")
+					migrationRestartBlock(t, &input, int64(height), "success")
 				}
 			}
-			expected := repair11LegacyCounter(&input)
+			expected := migrationRestartLegacyCounter(&input)
 			require.Equal(t, types.VotePenaltyCounter{SuccessCount: tc.observations}, expected)
 			input.Ctx = input.Ctx.WithBlockHeight(int64(tc.history[len(tc.history)-1].EndHeight))
-			repair11Restart(t, &input, dir)
+			migrationRestartRestart(t, &input, dir)
 			require.NoError(t, keeper.NewMigrator(input.OracleKeeper, tc.history...).Migrate5To6(input.Ctx))
-			repair11Restart(t, &input, dir)
+			migrationRestartRestart(t, &input, dir)
 			require.Equal(t, expected, input.OracleKeeper.GetVotePenaltyCounter(input.Ctx, testutils.ValAddrs[0]))
 		})
 	}
 }
 
-func TestRepair_11_DefaultWindowRecoveryAndSlashing(t *testing.T) {
-	input, dir := repair11Input(t, types.DefaultVotePeriod, types.DefaultSlashWindow)
-	defer repair11Close(t, &input)
+func TestMigrationRestartDefaultWindowRecoveryAndSlashing(t *testing.T) {
+	input, dir := migrationRestartInput(t, types.DefaultVotePeriod, types.DefaultSlashWindow)
+	defer migrationRestartClose(t, &input)
 	window := uint64(types.DefaultSlashWindow)
 	// Start at an actual reset, so the preceding window cannot contribute.
 	input.Ctx = input.Ctx.WithBlockHeight(int64(window - 1))
@@ -203,20 +203,20 @@ func TestRepair_11_DefaultWindowRecoveryAndSlashing(t *testing.T) {
 		} else if observation < 25 {
 			outcome = "abstain"
 		}
-		repair11Block(t, &input, int64(height), outcome)
+		migrationRestartBlock(t, &input, int64(height), outcome)
 		if utils.IsPeriodLastBlock(input.Ctx, types.DefaultVotePeriod) {
 			observation++
 		}
 	}
-	expected := repair11LegacyCounter(&input)
+	expected := migrationRestartLegacyCounter(&input)
 	require.Equal(t, types.VotePenaltyCounter{MissCount: 12, AbstainCount: 13, SuccessCount: 4975}, expected)
 	input.Ctx = input.Ctx.WithBlockHeight(int64(window + 10000))
-	repair11Restart(t, &input, dir)
+	migrationRestartRestart(t, &input, dir)
 	require.NoError(t, keeper.NewMigrator(input.OracleKeeper, keeper.VotePeriodHistory{
 		StartHeight: 1, EndHeight: window + 10000,
 		VotePeriod: types.DefaultVotePeriod, SlashWindow: window,
 	}).Migrate5To6(input.Ctx))
-	repair11Restart(t, &input, dir)
+	migrationRestartRestart(t, &input, dir)
 	require.Equal(t, expected, input.OracleKeeper.GetVotePenaltyCounter(input.Ctx, testutils.ValAddrs[0]))
 	rate, updated, _, err := input.OracleKeeper.GetBaseExchangeRate(input.Ctx, utils.MicroEthDenom)
 	require.NoError(t, err)
@@ -234,12 +234,12 @@ func TestRepair_11_DefaultWindowRecoveryAndSlashing(t *testing.T) {
 	require.True(t, validator.IsJailed())
 	require.Equal(t, amount.Sub(params.SlashFraction.MulInt(amount).TruncateInt()), validator.GetBondedTokens())
 	require.False(t, input.Ctx.KVStore(input.OracleKeeper.GetStoreKey()).Has(types.GetVotePenaltyCounterKey(testutils.ValAddrs[0])))
-	repair11Restart(t, &input, dir)
+	migrationRestartRestart(t, &input, dir)
 	require.True(t, input.StakingKeeper.Validator(input.Ctx, testutils.ValAddrs[0]).IsJailed())
 	require.Equal(t, types.VotePenaltyCounter{}, input.OracleKeeper.GetVotePenaltyCounter(input.Ctx, testutils.ValAddrs[0]))
 }
 
-func TestRepair_11_RejectsUnreconstructableHistoryAfterRestart(t *testing.T) {
+func TestMigrationRestartRejectsUnreconstructableHistoryAfterRestart(t *testing.T) {
 	cases := []struct {
 		name    string
 		history []keeper.VotePeriodHistory
@@ -263,25 +263,25 @@ func TestRepair_11_RejectsUnreconstructableHistoryAfterRestart(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			input, dir := repair11Input(t, 3, 12)
-			defer repair11Close(t, &input)
+			input, dir := migrationRestartInput(t, 3, 12)
+			defer migrationRestartClose(t, &input)
 			for height := int64(1); height < 10; height++ {
-				repair11Block(t, &input, height, "success")
+				migrationRestartBlock(t, &input, height, "success")
 			}
-			repair11LegacyCounter(&input)
+			migrationRestartLegacyCounter(&input)
 			input.Ctx = input.Ctx.WithBlockHeight(10)
-			repair11Restart(t, &input, dir)
+			migrationRestartRestart(t, &input, dir)
 			key := types.GetVotePenaltyCounterKey(testutils.ValAddrs[0])
 			before := input.Ctx.KVStore(input.OracleKeeper.GetStoreKey()).Get(key)
 			require.ErrorContains(t, keeper.NewMigrator(input.OracleKeeper, tc.history...).Migrate5To6(input.Ctx), "unreconstructable")
 			require.Equal(t, before, input.Ctx.KVStore(input.OracleKeeper.GetStoreKey()).Get(key))
-			repair11Restart(t, &input, dir)
+			migrationRestartRestart(t, &input, dir)
 			require.Equal(t, before, input.Ctx.KVStore(input.OracleKeeper.GetStoreKey()).Get(key))
 		})
 	}
 }
 
-func TestRepair_11_RejectsInvalidCountersAtomically(t *testing.T) {
+func TestMigrationRestartRejectsInvalidCountersAtomically(t *testing.T) {
 	for _, counter := range []types.VotePenaltyCounter{
 		{MissCount: 4}, {MissCount: 2, AbstainCount: 2},
 		{MissCount: math.MaxUint64, AbstainCount: 1}, {AbstainCount: math.MaxUint64},

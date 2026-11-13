@@ -20,7 +20,7 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-func repair12Input(t *testing.T) (*testutils.TestInput, string) {
+func genesisFreshnessInput(t *testing.T) (*testutils.TestInput, string) {
 	t.Helper()
 	dir := t.TempDir()
 	db, err := dbm.NewDB("oracle", dbm.GoLevelDBBackend, dir)
@@ -32,7 +32,7 @@ func repair12Input(t *testing.T) (*testutils.TestInput, string) {
 	return &input, dir
 }
 
-func repair12Restart(t *testing.T, input *testutils.TestInput, dir string) {
+func genesisFreshnessRestart(t *testing.T, input *testutils.TestInput, dir string) {
 	t.Helper()
 	previous := input.Ctx.MultiStore().(storetypes.CommitMultiStore)
 	keys := previous.StoreKeys()
@@ -60,7 +60,7 @@ func repair12Restart(t *testing.T, input *testutils.TestInput, dir string) {
 		input.DistrKeeper, input.StakingKeeper, distrtypes.ModuleName)
 }
 
-func repair12Validator(t *testing.T, input *testutils.TestInput) {
+func genesisFreshnessValidator(t *testing.T, input *testutils.TestInput) {
 	t.Helper()
 	params := input.OracleKeeper.GetParams(input.Ctx)
 	params.VotePeriod = 1
@@ -72,7 +72,7 @@ func repair12Validator(t *testing.T, input *testutils.TestInput) {
 	require.True(t, input.StakingKeeper.Validator(input.Ctx, testutils.ValAddrs[0]).IsBonded())
 }
 
-func repair12Observe(t *testing.T, input *testutils.TestInput, height int64, observed time.Time, rates string) {
+func genesisFreshnessObserve(t *testing.T, input *testutils.TestInput, height int64, observed time.Time, rates string) {
 	t.Helper()
 	input.Ctx = input.Ctx.WithBlockHeight(height).WithBlockTime(observed).WithEventManager(sdk.NewEventManager())
 	msg := types.NewMsgAggregateExchangeRateVote(rates, testutils.Addrs[0], testutils.ValAddrs[0])
@@ -82,7 +82,7 @@ func repair12Observe(t *testing.T, input *testutils.TestInput, height int64, obs
 	oracle.MidBlocker(input.Ctx, input.OracleKeeper)
 }
 
-func repair12Transport(t *testing.T, format string, genesis *types.GenesisState) *types.GenesisState {
+func genesisFreshnessTransport(t *testing.T, format string, genesis *types.GenesisState) *types.GenesisState {
 	t.Helper()
 	cdc := testutils.MakeTestCodec(t)
 	// Protobuf has no distinction between nil and empty repeated fields. Start
@@ -108,7 +108,7 @@ func repair12Transport(t *testing.T, format string, genesis *types.GenesisState)
 	return &recovered
 }
 
-func repair12Rate(t *testing.T, input *testutils.TestInput, denom string) types.OracleExchangeRate {
+func genesisFreshnessRate(t *testing.T, input *testutils.TestInput, denom string) types.OracleExchangeRate {
 	t.Helper()
 	rate, height, timestamp, err := input.OracleKeeper.GetBaseExchangeRate(input.Ctx, denom)
 	require.NoError(t, err)
@@ -128,37 +128,37 @@ func repair12Rate(t *testing.T, input *testutils.TestInput, denom string) types.
 	return want
 }
 
-func TestRepair_12_ExportImportPreservesFreshness(t *testing.T) {
+func TestGenesisFreshnessExportImportPreservesFreshness(t *testing.T) {
 	for _, format := range []string{"protobuf", "json"} {
 		t.Run(format, func(t *testing.T) {
-			source, sourceDir := repair12Input(t)
-			repair12Validator(t, source)
+			source, sourceDir := genesisFreshnessInput(t)
+			genesisFreshnessValidator(t, source)
 			observed := time.UnixMilli(1700000000123).UTC()
-			repair12Observe(t, source, 101, observed, "12.5uatom,25ueth")
-			repair12Observe(t, source, 103, observed.Add(2*time.Second), "123.456789012345678901uatom")
+			genesisFreshnessObserve(t, source, 101, observed, "12.5uatom,25ueth")
+			genesisFreshnessObserve(t, source, 103, observed.Add(2*time.Second), "123.456789012345678901uatom")
 			wants := map[string]types.OracleExchangeRate{
 				utils.MicroAtomDenom: {ExchangeRate: sdk.MustNewDecFromStr("123.456789012345678901"), LastUpdate: sdk.NewInt(103), LastUpdateTimestamp: observed.Add(2 * time.Second).UnixMilli()},
 				utils.MicroEthDenom:  {ExchangeRate: sdk.NewDec(25), LastUpdate: sdk.NewInt(101), LastUpdateTimestamp: observed.UnixMilli()},
 			}
-			repair12Restart(t, source, sourceDir)
+			genesisFreshnessRestart(t, source, sourceDir)
 			for denom, want := range wants {
-				require.Equal(t, want, repair12Rate(t, source, denom))
+				require.Equal(t, want, genesisFreshnessRate(t, source, denom))
 			}
 			source.Ctx = source.Ctx.WithBlockHeight(500).WithBlockTime(observed.Add(24 * time.Hour))
 			exported := oracle.ExportGenesis(source.Ctx, source.OracleKeeper)
 			require.Equal(t, types.GenesisExchangeRateVersion, exported.ExchangeRateVersion)
 			require.Empty(t, exported.ExchangeRates)
 			require.Len(t, exported.OracleExchangeRates, 2)
-			genesis := repair12Transport(t, format, exported)
+			genesis := genesisFreshnessTransport(t, format, exported)
 			require.Equal(t, exported, genesis)
 			require.NoError(t, types.ValidateGenesis(genesis))
 
-			recovered, recoveredDir := repair12Input(t)
+			recovered, recoveredDir := genesisFreshnessInput(t)
 			recovered.Ctx = recovered.Ctx.WithBlockHeight(9000).WithBlockTime(observed.Add(48 * time.Hour))
 			oracle.InitGenesis(recovered.Ctx, recovered.OracleKeeper, genesis)
-			repair12Restart(t, recovered, recoveredDir)
+			genesisFreshnessRestart(t, recovered, recoveredDir)
 			for denom, want := range wants {
-				rate := repair12Rate(t, recovered, denom)
+				rate := genesisFreshnessRate(t, recovered, denom)
 				require.Equal(t, want, rate)
 				require.Greater(t, recovered.Ctx.BlockTime().UnixMilli()-rate.LastUpdateTimestamp,
 					int64(recovered.OracleKeeper.GetParams(recovered.Ctx).LookbackDuration)*1000)
@@ -168,7 +168,7 @@ func TestRepair_12_ExportImportPreservesFreshness(t *testing.T) {
 	}
 }
 
-func repair12Unavailable(t *testing.T, input *testutils.TestInput, denom string) {
+func genesisFreshnessUnavailable(t *testing.T, input *testutils.TestInput, denom string) {
 	t.Helper()
 	_, _, _, err := input.OracleKeeper.GetBaseExchangeRate(input.Ctx, denom)
 	require.ErrorIs(t, err, types.ErrUnknownDenom)
@@ -184,13 +184,13 @@ func repair12Unavailable(t *testing.T, input *testutils.TestInput, denom string)
 	require.Empty(t, actives.Actives)
 }
 
-func TestRepair_12_LegacyRatesUnavailableUntilVote(t *testing.T) {
+func TestGenesisFreshnessLegacyRatesUnavailableUntilVote(t *testing.T) {
 	for _, format := range []string{"protobuf", "json"} {
 		t.Run(format, func(t *testing.T) {
-			source, _ := repair12Input(t)
-			repair12Validator(t, source)
+			source, _ := genesisFreshnessInput(t)
+			genesisFreshnessValidator(t, source)
 			observed := time.UnixMilli(1700000000123).UTC()
-			repair12Observe(t, source, 101, observed, "12.5uatom")
+			genesisFreshnessObserve(t, source, 101, observed, "12.5uatom")
 			exported := oracle.ExportGenesis(source.Ctx, source.OracleKeeper)
 			legacyRates := make([]types.ExchangeRateTuple, 0, len(exported.OracleExchangeRates))
 			for _, entry := range exported.OracleExchangeRates {
@@ -198,35 +198,35 @@ func TestRepair_12_LegacyRatesUnavailableUntilVote(t *testing.T) {
 			}
 			legacy := types.NewGenesisState(exported.Params, legacyRates, exported.FeederDelegations,
 				exported.PenaltyCounters, exported.AggregateExchangeRateVotes, exported.PriceSnapshots)
-			genesis := repair12Transport(t, format, legacy)
+			genesis := genesisFreshnessTransport(t, format, legacy)
 			require.Zero(t, genesis.ExchangeRateVersion)
 			require.Len(t, genesis.ExchangeRates, 1)
 			require.NoError(t, types.ValidateGenesis(genesis))
-			recovered, recoveredDir := repair12Input(t)
+			recovered, recoveredDir := genesisFreshnessInput(t)
 			recovered.Ctx = recovered.Ctx.WithBlockHeight(9000).WithBlockTime(observed.Add(48 * time.Hour))
 			// Even an existing target value cannot grant freshness to a legacy import.
 			recovered.OracleKeeper.SetBaseExchangeRate(recovered.Ctx, utils.MicroAtomDenom, sdk.NewDec(777))
 			oracle.InitGenesis(recovered.Ctx, recovered.OracleKeeper, genesis)
-			repair12Unavailable(t, recovered, utils.MicroAtomDenom)
-			repair12Restart(t, recovered, recoveredDir)
-			repair12Unavailable(t, recovered, utils.MicroAtomDenom)
-			repair12Validator(t, recovered)
+			genesisFreshnessUnavailable(t, recovered, utils.MicroAtomDenom)
+			genesisFreshnessRestart(t, recovered, recoveredDir)
+			genesisFreshnessUnavailable(t, recovered, utils.MicroAtomDenom)
+			genesisFreshnessValidator(t, recovered)
 			oracle.MidBlocker(recovered.Ctx, recovered.OracleKeeper)
-			repair12Unavailable(t, recovered, utils.MicroAtomDenom)
+			genesisFreshnessUnavailable(t, recovered, utils.MicroAtomDenom)
 			freshTime := recovered.Ctx.BlockTime().Add(time.Second)
-			repair12Observe(t, recovered, 9001, freshTime, "17uatom")
+			genesisFreshnessObserve(t, recovered, 9001, freshTime, "17uatom")
 			want := types.OracleExchangeRate{ExchangeRate: sdk.NewDec(17), LastUpdate: sdk.NewInt(9001), LastUpdateTimestamp: freshTime.UnixMilli()}
-			require.Equal(t, want, repair12Rate(t, recovered, utils.MicroAtomDenom))
-			repair12Restart(t, recovered, recoveredDir)
-			require.Equal(t, want, repair12Rate(t, recovered, utils.MicroAtomDenom))
+			require.Equal(t, want, genesisFreshnessRate(t, recovered, utils.MicroAtomDenom))
+			genesisFreshnessRestart(t, recovered, recoveredDir)
+			require.Equal(t, want, genesisFreshnessRate(t, recovered, utils.MicroAtomDenom))
 		})
 	}
 }
 
-func TestRepair_12_RejectsAmbiguousGenesisBeforeWrites(t *testing.T) {
-	source, _ := repair12Input(t)
-	repair12Validator(t, source)
-	repair12Observe(t, source, 101, time.UnixMilli(1700000000123).UTC(), "12.5uatom,25ueth")
+func TestGenesisFreshnessRejectsAmbiguousGenesisBeforeWrites(t *testing.T) {
+	source, _ := genesisFreshnessInput(t)
+	genesisFreshnessValidator(t, source)
+	genesisFreshnessObserve(t, source, 101, time.UnixMilli(1700000000123).UTC(), "12.5uatom,25ueth")
 	exported := oracle.ExportGenesis(source.Ctx, source.OracleKeeper)
 	for _, tc := range []struct {
 		name   string
@@ -246,10 +246,10 @@ func TestRepair_12_RejectsAmbiguousGenesisBeforeWrites(t *testing.T) {
 		{"negative_height", func(g *types.GenesisState) { g.OracleExchangeRates[1].OracleExchangeRate.LastUpdate = sdk.NewInt(-1) }},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			genesis := repair12Transport(t, "protobuf", exported)
+			genesis := genesisFreshnessTransport(t, "protobuf", exported)
 			tc.mutate(genesis)
 			require.Error(t, types.ValidateGenesis(genesis))
-			target, _ := repair12Input(t)
+			target, _ := genesisFreshnessInput(t)
 			before := oracle.ExportGenesis(target.Ctx, target.OracleKeeper)
 			require.Panics(t, func() { oracle.InitGenesis(target.Ctx, target.OracleKeeper, genesis) })
 			require.Equal(t, before, oracle.ExportGenesis(target.Ctx, target.OracleKeeper))
@@ -257,18 +257,18 @@ func TestRepair_12_RejectsAmbiguousGenesisBeforeWrites(t *testing.T) {
 	}
 }
 
-func TestRepair_12_ZeroMetadataRemainsZero(t *testing.T) {
-	source, _ := repair12Input(t)
+func TestGenesisFreshnessZeroMetadataRemainsZero(t *testing.T) {
+	source, _ := genesisFreshnessInput(t)
 	source.Ctx = source.Ctx.WithBlockHeight(0).WithBlockTime(time.UnixMilli(0).UTC())
 	source.OracleKeeper.SetBaseExchangeRate(source.Ctx, utils.MicroAtomDenom, sdk.OneDec())
-	want := repair12Rate(t, source, utils.MicroAtomDenom)
+	want := genesisFreshnessRate(t, source, utils.MicroAtomDenom)
 	require.True(t, want.LastUpdate.IsZero())
 	require.Zero(t, want.LastUpdateTimestamp)
-	genesis := repair12Transport(t, "json", oracle.ExportGenesis(source.Ctx, source.OracleKeeper))
+	genesis := genesisFreshnessTransport(t, "json", oracle.ExportGenesis(source.Ctx, source.OracleKeeper))
 	require.NoError(t, types.ValidateGenesis(genesis))
-	recovered, dir := repair12Input(t)
+	recovered, dir := genesisFreshnessInput(t)
 	recovered.Ctx = recovered.Ctx.WithBlockHeight(9000).WithBlockTime(time.UnixMilli(1700000000123).UTC())
 	oracle.InitGenesis(recovered.Ctx, recovered.OracleKeeper, genesis)
-	repair12Restart(t, recovered, dir)
-	require.Equal(t, want, repair12Rate(t, recovered, utils.MicroAtomDenom))
+	genesisFreshnessRestart(t, recovered, dir)
+	require.Equal(t, want, genesisFreshnessRate(t, recovered, utils.MicroAtomDenom))
 }
