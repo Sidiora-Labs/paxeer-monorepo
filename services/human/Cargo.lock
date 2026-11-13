@@ -972,7 +972,7 @@ dependencies = [
 name = "layerx-human-identity-provider"
 version = "0.1.0"
 dependencies = [
- "base64 0.22.1",
+ "base64 0.23.1",
  "getrandom 0.4.3",
  "jsonwebtoken",
  "layerx-client",
@@ -996,7 +996,7 @@ dependencies = [
 name = "layerx-human-kms"
 version = "0.1.0"
 dependencies = [
- "base64 0.22.1",
+ "base64 0.23.1",
  "getrandom 0.4.3",
  "k256",
  "layerx-agent-api",
@@ -1022,7 +1022,7 @@ dependencies = [
 name = "layerx-human-security-provider"
 version = "0.1.0"
 dependencies = [
- "base64 0.22.1",
+ "base64 0.23.1",
  "data-encoding",
  "ed25519-dalek",
  "getrandom 0.4.3",
@@ -1047,7 +1047,7 @@ dependencies = [
 name = "layerx-human-service"
 version = "0.1.0"
 dependencies = [
- "base64 0.22.1",
+ "base64 0.23.1",
  "ciborium",
  "ed25519-dalek",
  "getrandom 0.4.3",
