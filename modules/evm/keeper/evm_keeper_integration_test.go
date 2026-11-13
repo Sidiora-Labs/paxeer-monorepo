@@ -21,19 +21,19 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepairM_1242_013_FeeConservationAndRecovery(t *testing.T) {
+func TestOperatorFeeConservationAndRecovery(t *testing.T) {
 	proveOperatorFeeSettlement(t)
 }
 
-func TestRepairM_1242_010_RegisteredDelegateCall(t *testing.T) {
+func TestPointerRegisteredDelegateCall(t *testing.T) {
 	proveRegisteredDelegateCall(t)
 }
 
-func TestRepairM_1242_014_PrecompileVersions(t *testing.T) {
+func TestCustomPrecompileVersions(t *testing.T) {
 	TestGetCustomPrecompiles(t)
 }
 
-func TestRepairM_1242_018_ReceiptRetryContract(t *testing.T) {
+func TestReceiptRetryContract(t *testing.T) {
 	a := app.Setup(t, false, false, false)
 	t.Cleanup(func() { require.NoError(t, a.Close()) })
 	k := &a.EvmKeeper
@@ -78,7 +78,7 @@ func TestRepairM_1242_018_ReceiptRetryContract(t *testing.T) {
 	require.ErrorIs(t, err, context.Canceled)
 }
 
-func TestRepairM_1242_015_MetadataDecodeErrors(t *testing.T) {
+func TestERCMetadataDecodeErrors(t *testing.T) {
 	a := app.Setup(t, false, false, false)
 	t.Cleanup(func() { require.NoError(t, a.Close()) })
 	k := &a.EvmKeeper
@@ -105,7 +105,7 @@ func TestRepairM_1242_015_MetadataDecodeErrors(t *testing.T) {
 	require.Equal(t, "42", fmt.Sprint(output))
 }
 
-func TestRepairM_1242_022_GenesisInstallationsAreAtomic(t *testing.T) {
+func TestGenesisInstallationsAreAtomic(t *testing.T) {
 	a := app.Setup(t, false, false, false)
 	t.Cleanup(func() { require.NoError(t, a.Close()) })
 	k := &a.EvmKeeper

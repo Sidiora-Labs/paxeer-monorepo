@@ -7,7 +7,7 @@ continued_tree = "04ec4064819f25b1df8ef6c0781d4380e5ca95d0"
 continuation = "Decision 3183 / gotcha 4105 explicitly assigns the five remaining red cases to this task; preserve the attempt-1 repairs and qualify the completed continuation."
 baseline = "No starting-revision verification was run: the explicit gate order prohibits a manual verify_cmd and requires implementation, hf-build, then hf-done. The attempt-1 gate result below is supplied by the continuation ruling and gotcha 4105; the original failures are supplied by gotcha 4095, not newly measured failures."
 verified_revision_record = "/out/run/gates.jsonl: final passing verify row must match the passing build revision; the immutable candidate hash includes this record, so the hash is retained in the external evidence ledger."
-verification_command = "test -s modules/evm/repair_22_39_321.kvx && go test -count=1 -timeout 40m ./modules/evm/ ./modules/evm/keeper/..."
+verification_command = "test -s spec/layerx-merge/programme/records/modules/evm/repair_22_39_321.kvx && go test -count=1 -timeout 40m ./modules/evm/ ./modules/evm/keeper/..."
 evidence = "hf-build and hf-done retain exact candidate revision, command, exit code and private log location in /out/run/gates.jsonl; no qualification is claimed before both pass at the same revision."
 
 [case.genesis_export]
@@ -53,12 +53,12 @@ disposition = "Decision 3183 supersedes the former outside-task classification: 
 
 [case.restart_identity]
 task = "22.39.321"
-file = "modules/evm/repair_181_test.go"
+file = "modules/evm/genesis_restart_recovery_test.go"
 symbol = "TestRepair_181_OrdinaryRestartRecovery"
 observed = "At 6817a46cdf413dcd265a7c071c924877c3fd04d2, cg spec done 22.39.321 -f layerx-merge --root /work/paxeer-monorepo exited 1; /out/logs/verify-1.log:436 reports panic: committed block identity missing at height 1, reached from repair181RestartRecovery:153 through repair181Open:116 and node.New:1448."
 cause = "The restart fixture commits the multistore directly, bypassing the production pre-commit hook which records the block identity required by node startup."
 producer_commit = "1ee93282cbe5d59b98b34bebd8a33f7ffdecf5b6"
-repair = "Generate a real consensus block hash and call App.HandlePreCommit before committing, matching the existing recovery fixture of repair_m1244_test.go. Retain every ordinary and streamed recovery assertion and additionally assert the reopened LastBlockID matches the committed block hash."
+repair = "Generate a real consensus block hash and call App.HandlePreCommit before committing, matching the existing recovery fixture of genesis_and_ante_recovery_test.go. Retain every ordinary and streamed recovery assertion and additionally assert the reopened LastBlockID matches the committed block hash."
 
 [case.chain_mapping]
 task = "22.39.321"

@@ -17,7 +17,7 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-func repairM1243OpenStore(t *testing.T, dir string) (*keeper.Keeper, sdk.Context, storetypes.CommitMultiStore, func()) {
+func openMigrationStore(t *testing.T, dir string) (*keeper.Keeper, sdk.Context, storetypes.CommitMultiStore, func()) {
 	t.Helper()
 	db, err := dbm.NewGoLevelDB("migration", dir)
 	require.NoError(t, err)
@@ -41,7 +41,7 @@ func repairM1243OpenStore(t *testing.T, dir string) (*keeper.Keeper, sdk.Context
 	return &keeper.Keeper{Paramstore: ss}, ctx, ms, closeStore
 }
 
-func repairM1243GovernedParams(t *testing.T) types.Params {
+func governedMigrationParams(t *testing.T) types.Params {
 	t.Helper()
 	params := types.DefaultParams()
 	params.PriorityNormalizer = sdk.NewDec(3)
@@ -64,10 +64,10 @@ func repairM1243GovernedParams(t *testing.T) types.Params {
 	return params
 }
 
-func TestRepairM_1243_MaxBaseFeePersistence(t *testing.T) {
+func TestMigrationMaxBaseFeePersistence(t *testing.T) {
 	TestMigrateEip1559MaxBaseFee(t)
 }
 
-func TestRepairM_1243_Eip1559ParamsPersistence(t *testing.T) {
+func TestMigrationEip1559ParamsPersistence(t *testing.T) {
 	TestMigrateEip1559Params(t)
 }

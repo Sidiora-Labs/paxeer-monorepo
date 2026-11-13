@@ -35,9 +35,9 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-const repairM1244BloomCutoff int64 = 2000
+const genesisRecoveryBloomCutoff int64 = 2000
 
-type repairM1244RecoveryState struct {
+type genesisFeeBloomState struct {
 	currentFee  sdk.Dec
 	nextFee     sdk.Dec
 	blockBloom  ethtypes.Bloom
@@ -45,23 +45,23 @@ type repairM1244RecoveryState struct {
 	legacyBloom ethtypes.Bloom
 }
 
-func repairM1244Bloom(id byte) ethtypes.Bloom {
+func genesisRecoveryBloom(id byte) ethtypes.Bloom {
 	return ethtypes.CreateBloom(&ethtypes.Receipt{Logs: []*ethtypes.Log{{
 		Address: common.BytesToAddress([]byte{id}),
 		Topics:  []common.Hash{common.BytesToHash([]byte{id, id})},
 	}}})
 }
 
-func repairM1244AssertRecovered(t *testing.T, k *keeper.Keeper, ctx sdk.Context, want repairM1244RecoveryState) {
+func assertGenesisFeesAndBloomsRecovered(t *testing.T, k *keeper.Keeper, ctx sdk.Context, want genesisFeeBloomState) {
 	t.Helper()
 	require.Equal(t, want.currentFee, k.GetCurrBaseFeePerGas(ctx))
 	require.Equal(t, want.nextFee, k.GetNextBaseFeePerGas(ctx))
 	require.True(t, k.GetNextBaseFeePerGas(ctx).GT(k.GetMinimumFeePerGas(ctx)))
 	require.Equal(t, want.nextFee.TruncateInt().BigInt(), appante.GetBaseFee(ctx, k, k.UpgradeKeeper()))
-	require.Equal(t, repairM1244BloomCutoff, k.GetLegacyBlockBloomCutoffHeight(ctx))
+	require.Equal(t, genesisRecoveryBloomCutoff, k.GetLegacyBlockBloomCutoffHeight(ctx))
 	require.Equal(t, want.blockBloom, k.GetBlockBloom(ctx))
 	require.Equal(t, want.evmBloom, k.GetEvmOnlyBlockBloom(ctx))
-	for _, height := range []int64{1, int64(evm.GENESIS_EXPORT_STREAM_SERIALIZED_LEN_MAX + 2), repairM1244BloomCutoff - 1, repairM1244BloomCutoff} {
+	for _, height := range []int64{1, int64(evm.GENESIS_EXPORT_STREAM_SERIALIZED_LEN_MAX + 2), genesisRecoveryBloomCutoff - 1, genesisRecoveryBloomCutoff} {
 		require.Equal(t, want.legacyBloom, k.GetLegacyBlockBloom(ctx, height))
 	}
 
@@ -71,9 +71,9 @@ func repairM1244AssertRecovered(t *testing.T, k *keeper.Keeper, ctx sdk.Context,
 	legacyCtx, _ := ctx.CacheContext()
 	legacyCtx.KVStore(k.GetStoreKey()).Delete(types.BlockBloomPrefix)
 	legacyCtx.KVStore(k.GetStoreKey()).Delete(types.EvmOnlyBlockBloomPrefix)
-	for _, height := range []int64{repairM1244BloomCutoff - 1, repairM1244BloomCutoff, repairM1244BloomCutoff + 1} {
+	for _, height := range []int64{genesisRecoveryBloomCutoff - 1, genesisRecoveryBloomCutoff, genesisRecoveryBloomCutoff + 1} {
 		wantBloom := ethtypes.Bloom{}
-		if height < repairM1244BloomCutoff {
+		if height < genesisRecoveryBloomCutoff {
 			wantBloom = want.legacyBloom
 		}
 		require.Equal(t, wantBloom, k.GetBlockBloom(legacyCtx.WithBlockHeight(height)))
@@ -84,7 +84,7 @@ func repairM1244AssertRecovered(t *testing.T, k *keeper.Keeper, ctx sdk.Context,
 	require.Equal(t, want.evmBloom, k.GetEvmOnlyBlockBloom(ctx))
 }
 
-func repairM1244Open(t *testing.T, dir, home string) (*app.App, func()) {
+func openFeeBloomRecoveryApp(t *testing.T, dir, home string) (*app.App, func()) {
 	t.Helper()
 	db, err := dbm.NewGoLevelDB("fee-bloom-recovery", dir)
 	require.NoError(t, err)
@@ -103,15 +103,15 @@ func repairM1244Open(t *testing.T, dir, home string) (*app.App, func()) {
 	return a, closeApp
 }
 
-func repairM1244RestartRecovery(t *testing.T, streamed bool) {
+func proveGenesisFeeBloomRestartRecovery(t *testing.T, streamed bool) {
 	t.Helper()
 	source := app.Setup(t, false, false, false)
-	ctx := source.GetContextForDeliverTx(nil).WithBlockHeight(repairM1244BloomCutoff)
+	ctx := source.GetContextForDeliverTx(nil).WithBlockHeight(genesisRecoveryBloomCutoff)
 	k := &source.EvmKeeper
-	want := repairM1244RecoveryState{
+	want := genesisFeeBloomState{
 		currentFee: k.GetMinimumFeePerGas(ctx).MulInt64(3).Add(sdk.MustNewDecFromStr("0.125")),
 		nextFee:    k.GetMinimumFeePerGas(ctx).MulInt64(5).Add(sdk.MustNewDecFromStr("0.875")),
-		blockBloom: repairM1244Bloom(1), evmBloom: repairM1244Bloom(2), legacyBloom: repairM1244Bloom(3),
+		blockBloom: genesisRecoveryBloom(1), evmBloom: genesisRecoveryBloom(2), legacyBloom: genesisRecoveryBloom(3),
 	}
 	k.SetCurrBaseFeePerGas(ctx, want.currentFee)
 	k.SetNextBaseFeePerGas(ctx, want.nextFee)
@@ -123,10 +123,10 @@ func repairM1244RestartRecovery(t *testing.T, streamed bool) {
 	for height := int64(1); height <= int64(evm.GENESIS_EXPORT_STREAM_SERIALIZED_LEN_MAX+2); height++ {
 		ctx.KVStore(k.GetStoreKey()).Set(types.BlockBloomKey(height), want.legacyBloom.Bytes())
 	}
-	for _, height := range []int64{repairM1244BloomCutoff - 1, repairM1244BloomCutoff} {
+	for _, height := range []int64{genesisRecoveryBloomCutoff - 1, genesisRecoveryBloomCutoff} {
 		ctx.KVStore(k.GetStoreKey()).Set(types.BlockBloomKey(height), want.legacyBloom.Bytes())
 	}
-	repairM1244AssertRecovered(t, k, ctx, want)
+	assertGenesisFeesAndBloomsRecovered(t, k, ctx, want)
 	cdc := source.AppCodec()
 	module := evm.NewAppModule(cdc, k)
 	var raw []json.RawMessage
@@ -170,7 +170,7 @@ func repairM1244RestartRecovery(t *testing.T, streamed bool) {
 	require.NoError(t, source.Close())
 
 	dir, home := t.TempDir(), t.TempDir()
-	target, closeTarget := repairM1244Open(t, dir, home)
+	target, closeTarget := openFeeBloomRecoveryApp(t, dir, home)
 	genesis, err := json.Marshal(app.NewDefaultGenesisState(target.AppCodec()))
 	require.NoError(t, err)
 	_, err = target.InitChain(context.Background(), &abci.RequestInitChain{
@@ -178,7 +178,7 @@ func repairM1244RestartRecovery(t *testing.T, streamed bool) {
 		ChainId: "pax-test", AppStateBytes: genesis,
 	})
 	require.NoError(t, err)
-	ctx = target.GetContextForDeliverTx(nil).WithBlockHeight(repairM1244BloomCutoff)
+	ctx = target.GetContextForDeliverTx(nil).WithBlockHeight(genesisRecoveryBloomCutoff)
 	k = &target.EvmKeeper
 	for _, prefix := range [][]byte{types.BaseFeePerGasPrefix, types.NextBaseFeePerGasPrefix, types.LegacyBlockBloomCutoffHeightKey, types.BlockBloomPrefix, types.EvmOnlyBlockBloomPrefix} {
 		require.False(t, ctx.KVStore(k.GetStoreKey()).Has(prefix))
@@ -194,7 +194,7 @@ func repairM1244RestartRecovery(t *testing.T, streamed bool) {
 	} else {
 		module.InitGenesis(ctx, cdc, raw[0])
 	}
-	repairM1244AssertRecovered(t, k, ctx, want)
+	assertGenesisFeesAndBloomsRecovered(t, k, ctx, want)
 	// The node requires the decided block identity when reopening committed
 	// state. Persist it through the same pre-commit hook used by BaseApp.Commit.
 	validators := tmtypes.NewValidatorSet([]*tmtypes.Validator{tmtypes.NewValidator(tmed25519.GenerateSecretKey().Public(), 1)})
@@ -211,29 +211,29 @@ func repairM1244RestartRecovery(t *testing.T, streamed bool) {
 	require.Positive(t, commit.Version)
 	closeTarget()
 
-	reopened, _ := repairM1244Open(t, dir, home)
+	reopened, _ := openFeeBloomRecoveryApp(t, dir, home)
 	require.Equal(t, commit, reopened.LastCommitID())
 	require.Equal(t, []byte(blockHash), reopened.LastBlockID().Hash)
-	ctx = reopened.NewUncachedContext(false, tmproto.Header{ChainID: "pax-test", Height: repairM1244BloomCutoff})
-	repairM1244AssertRecovered(t, &reopened.EvmKeeper, ctx, want)
+	ctx = reopened.NewUncachedContext(false, tmproto.Header{ChainID: "pax-test", Height: genesisRecoveryBloomCutoff})
+	assertGenesisFeesAndBloomsRecovered(t, &reopened.EvmKeeper, ctx, want)
 }
 
-func TestRepairM_1244_OrdinaryRestartRecovery(t *testing.T) {
-	repairM1244RestartRecovery(t, false)
+func TestGenesisFeesAndBloomsOrdinaryRestartRecovery(t *testing.T) {
+	proveGenesisFeeBloomRestartRecovery(t, false)
 }
 
-func TestRepairM_1244_StreamRestartRecovery(t *testing.T) {
-	repairM1244RestartRecovery(t, true)
+func TestGenesisFeesAndBloomsStreamRestartRecovery(t *testing.T) {
+	proveGenesisFeeBloomRestartRecovery(t, true)
 }
 
-func repairM1244Fund(t *testing.T, a *app.App, ctx sdk.Context, address common.Address, amount sdk.Int) {
+func fundAnteRecoveryAccount(t *testing.T, a *app.App, ctx sdk.Context, address common.Address, amount sdk.Int) {
 	t.Helper()
 	coins := sdk.NewCoins(sdk.NewCoin(a.EvmKeeper.GetBaseDenom(ctx), amount))
 	require.NoError(t, a.BankKeeper.MintCoins(ctx, types.ModuleName, coins))
 	require.NoError(t, a.BankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, sdk.AccAddress(address.Bytes()), coins))
 }
 
-func TestRepairM_1244_AntePipelineGuide(t *testing.T) {
+func TestAntePipelineGuide(t *testing.T) {
 	guide, err := os.ReadFile("AGENTS.md")
 	require.NoError(t, err)
 	pipeline := strings.Split(strings.Split(string(guide), "## Ante Handler Pipeline\n")[1], "\n---")[0]
@@ -258,7 +258,7 @@ func TestRepairM_1244_AntePipelineGuide(t *testing.T) {
 	operator := common.HexToAddress("0x1244")
 	params := a.LayerXChainsKeeper.GetParams(base)
 	bond := params.MinBond.Add(params.CreationFee)
-	repairM1244Fund(t, a, base, operator, bond.MulRaw(2))
+	fundAnteRecoveryAccount(t, a, base, operator, bond.MulRaw(2))
 	active, err := a.LayerXChainsKeeper.Create(base, operator, "repair-active", params.MinGasAllowance, params.MinByteAllowance, 0, bond, domainFee)
 	require.NoError(t, err)
 	paused, err := a.LayerXChainsKeeper.Create(base, operator, "repair-paused", params.MinGasAllowance, params.MinByteAllowance, 0, bond, domainFee)
@@ -307,7 +307,7 @@ func TestRepairM_1244_AntePipelineGuide(t *testing.T) {
 					k.SetNonce(selected, sender, 4)
 					funds := sdk.NewInt(1_000_000_000)
 					if tc.funded {
-						repairM1244Fund(t, a, selected, sender, funds)
+						fundAnteRecoveryAccount(t, a, selected, sender, funds)
 					}
 					cap := fee.TruncateInt().BigInt()
 					if tc.lowFee {
@@ -387,7 +387,7 @@ func TestRepairM_1244_AntePipelineGuide(t *testing.T) {
 	}
 }
 
-func TestRepairM_1244_AssociatePaths(t *testing.T) {
+func TestAnteAssociatePaths(t *testing.T) {
 	a := app.Setup(t, false, false, false)
 	t.Cleanup(func() { require.NoError(t, a.Close()) })
 	base := a.GetContextForDeliverTx(nil).WithChainID("hyperpax_125-1").WithBlockHeight(100)
@@ -409,7 +409,7 @@ func TestRepairM_1244_AssociatePaths(t *testing.T) {
 				ctx, _ := base.WithIsCheckTx(optimized).CacheContext()
 				k := &a.EvmKeeper
 				if scenario != "no-balance" {
-					repairM1244Fund(t, a, ctx, sender, sdk.NewInt(1))
+					fundAnteRecoveryAccount(t, a, ctx, sender, sdk.NewInt(1))
 				}
 				if scenario == "already-associated" {
 					k.SetAddressMapping(ctx, paxAddress, sender)

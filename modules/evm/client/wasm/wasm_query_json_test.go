@@ -26,7 +26,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func repairM1241Setup() (*keeper.Keeper, sdk.Context, *wasmbinding.QueryPlugin, sdk.AccAddress, common.Address) {
+func setupWasmJSONQuery() (*keeper.Keeper, sdk.Context, *wasmbinding.QueryPlugin, sdk.AccAddress, common.Address) {
 	app := testkeeper.EVMTestApp
 	k := &app.EvmKeeper
 	ctx, _ := app.GetContextForDeliverTx(nil).CacheContext()
@@ -42,7 +42,7 @@ func repairM1241Setup() (*keeper.Keeper, sdk.Context, *wasmbinding.QueryPlugin, 
 	return k, ctx, plugin, account, evm
 }
 
-func repairM1241JSON(t *testing.T, query bindings.PaxEVMQuery) []byte {
+func marshalWasmJSONQuery(t *testing.T, query bindings.PaxEVMQuery) []byte {
 	t.Helper()
 	bz, err := json.Marshal(query)
 	require.NoError(t, err)
@@ -51,10 +51,10 @@ func repairM1241JSON(t *testing.T, query bindings.PaxEVMQuery) []byte {
 
 // Start with the production binding's JSON, then alter a field as an untrusted
 // CosmWasm contract can. The real dispatcher performs decoding and routing.
-func repairM1241Field(t *testing.T, query bindings.PaxEVMQuery, field string, value json.RawMessage) []byte {
+func replaceWasmJSONQueryField(t *testing.T, query bindings.PaxEVMQuery, field string, value json.RawMessage) []byte {
 	t.Helper()
 	var envelope map[string]map[string]json.RawMessage
-	require.NoError(t, json.Unmarshal(repairM1241JSON(t, query), &envelope))
+	require.NoError(t, json.Unmarshal(marshalWasmJSONQuery(t, query), &envelope))
 	require.Len(t, envelope, 1)
 	for _, request := range envelope {
 		if value == nil {
@@ -68,8 +68,8 @@ func repairM1241Field(t *testing.T, query bindings.PaxEVMQuery, field string, va
 	return bz
 }
 
-func TestRepairM_1241_OptionalIntegersJSON(t *testing.T) {
-	_, ctx, plugin, account, _ := repairM1241Setup()
+func TestWasmQueryOptionalIntegersJSON(t *testing.T) {
+	_, ctx, plugin, account, _ := setupWasmJSONQuery()
 	a := account.String()
 	one := sdk.OneInt()
 	cases := []struct {
@@ -96,7 +96,7 @@ func TestRepairM_1241_OptionalIntegersJSON(t *testing.T) {
 	for _, tc := range cases {
 		for _, bad := range invalid {
 			t.Run(tc.name+"/"+bad.name, func(t *testing.T) {
-				res, err := plugin.HandleEVMQuery(ctx, repairM1241Field(t, tc.query, tc.field, bad.value))
+				res, err := plugin.HandleEVMQuery(ctx, replaceWasmJSONQueryField(t, tc.query, tc.field, bad.value))
 				require.Error(t, err)
 				require.Nil(t, res)
 				if bad.typed {
@@ -113,7 +113,7 @@ func TestRepairM_1241_OptionalIntegersJSON(t *testing.T) {
 		"negative": json.RawMessage(`["1","-1"]`), "overflow": json.RawMessage(`["1","` + overflow + `"]`),
 	} {
 		t.Run("batch/"+name, func(t *testing.T) {
-			res, err := plugin.HandleEVMQuery(ctx, repairM1241Field(t, batch, "amounts", value))
+			res, err := plugin.HandleEVMQuery(ctx, replaceWasmJSONQueryField(t, batch, "amounts", value))
 			require.Error(t, err)
 			require.Nil(t, res)
 			if name == "first_null" || name == "second_null" || name == "negative" {
@@ -123,8 +123,8 @@ func TestRepairM_1241_OptionalIntegersJSON(t *testing.T) {
 	}
 }
 
-func TestRepairM_1241_UninitializedIntegers(t *testing.T) {
-	k, ctx, _, account, _ := repairM1241Setup()
+func TestWasmQueryUninitializedIntegers(t *testing.T) {
+	k, ctx, _, account, _ := setupWasmJSONQuery()
 	h := wasm.NewEVMQueryHandler(k)
 	a := account.String()
 	uninitialized := sdk.Int{}
@@ -154,8 +154,8 @@ func TestRepairM_1241_UninitializedIntegers(t *testing.T) {
 	}
 }
 
-func TestRepairM_1241_TokenIDsJSON(t *testing.T) {
-	_, ctx, plugin, account, _ := repairM1241Setup()
+func TestWasmQueryTokenIDsJSON(t *testing.T) {
+	_, ctx, plugin, account, _ := setupWasmJSONQuery()
 	a := account.String()
 	one := sdk.OneInt()
 	cases := []struct {
@@ -193,7 +193,7 @@ func TestRepairM_1241_TokenIDsJSON(t *testing.T) {
 					}
 					encoded, err := json.Marshal(value)
 					require.NoError(t, err)
-					res, err := plugin.HandleEVMQuery(ctx, repairM1241Field(t, tc.query, tc.field, encoded))
+					res, err := plugin.HandleEVMQuery(ctx, replaceWasmJSONQueryField(t, tc.query, tc.field, encoded))
 					require.ErrorIs(t, err, sdkerrors.ErrInvalidRequest)
 					require.Contains(t, err.Error(), "token ID")
 					require.Nil(t, res)
@@ -203,8 +203,8 @@ func TestRepairM_1241_TokenIDsJSON(t *testing.T) {
 	}
 }
 
-func TestRepairM_1241_Uint256PayloadBoundaries(t *testing.T) {
-	_, ctx, plugin, account, evm := repairM1241Setup()
+func TestWasmQueryUint256PayloadBoundaries(t *testing.T) {
+	_, ctx, plugin, account, evm := setupWasmJSONQuery()
 	a := account.String()
 	erc20, err := native.NativeMetaData.GetAbi()
 	require.NoError(t, err)
@@ -235,7 +235,7 @@ func TestRepairM_1241_Uint256PayloadBoundaries(t *testing.T) {
 		}
 		for _, tc := range cases {
 			t.Run(tc.name+"/"+id, func(t *testing.T) {
-				res, err := plugin.HandleEVMQuery(ctx, repairM1241JSON(t, tc.query))
+				res, err := plugin.HandleEVMQuery(ctx, marshalWasmJSONQuery(t, tc.query))
 				require.NoError(t, err)
 				var payload bindings.ERCPayloadResponse
 				require.NoError(t, json.Unmarshal(res, &payload))
@@ -252,8 +252,8 @@ func TestRepairM_1241_Uint256PayloadBoundaries(t *testing.T) {
 	}
 }
 
-func TestRepairM_1241_RoyaltyBoundaries(t *testing.T) {
-	k, ctx, plugin, account, _ := repairM1241Setup()
+func TestWasmQueryRoyaltyBoundaries(t *testing.T) {
+	k, ctx, plugin, account, _ := setupWasmJSONQuery()
 	contract := common.Address{72}
 	// Committed EVM fixture: return (address(0), calldataload(36)). The second
 	// ABI argument is the sale price; execution returns its exact uint256 word.
@@ -267,7 +267,7 @@ func TestRepairM_1241_RoyaltyBoundaries(t *testing.T) {
 			{ERC721RoyaltyInfo: &bindings.ERC721RoyaltyInfoRequest{Caller: account.String(), ContractAddress: contract.Hex(), TokenID: value.String(), SalePrice: &amount}},
 			{ERC1155RoyaltyInfo: &bindings.ERC1155RoyaltyInfoRequest{Caller: account.String(), ContractAddress: contract.Hex(), TokenID: value.String(), SalePrice: &amount}},
 		} {
-			res, err := plugin.HandleEVMQuery(ctx, repairM1241JSON(t, query))
+			res, err := plugin.HandleEVMQuery(ctx, marshalWasmJSONQuery(t, query))
 			require.NoError(t, err)
 			var royalty bindings.ERC721RoyaltyInfoResponse
 			require.NoError(t, json.Unmarshal(res, &royalty))
@@ -278,8 +278,8 @@ func TestRepairM_1241_RoyaltyBoundaries(t *testing.T) {
 	}
 }
 
-func TestRepairM_1241_InterfaceIDsJSON(t *testing.T) {
-	k, ctx, plugin, account, _ := repairM1241Setup()
+func TestWasmQueryInterfaceIDsJSON(t *testing.T) {
+	k, ctx, plugin, account, _ := setupWasmJSONQuery()
 	contract := common.Address{73}
 	// Committed ERC165 fixture: compare the entire bytes4 ABI word with
 	// 0x12345678 followed by zero padding, then return the equality as a bool.
@@ -291,7 +291,7 @@ func TestRepairM_1241_InterfaceIDsJSON(t *testing.T) {
 	}
 	for _, id := range []string{"", "0x", "12", "1234", "123456", "1234567800", "0012345678", strings.Repeat("00", 32), "0x123", "zzzzzzzz"} {
 		t.Run("invalid/"+id, func(t *testing.T) {
-			res, err := plugin.HandleEVMQuery(ctx, repairM1241JSON(t, query(id)))
+			res, err := plugin.HandleEVMQuery(ctx, marshalWasmJSONQuery(t, query(id)))
 			require.Error(t, err)
 			require.Nil(t, res)
 			decoded, decodeErr := hex.DecodeString(strings.TrimPrefix(id, "0x"))
@@ -303,7 +303,7 @@ func TestRepairM_1241_InterfaceIDsJSON(t *testing.T) {
 	}
 	for _, id := range []string{"12345678", "0x12345678", "12345679", "78563412", "00000000", "ffffffff", "0xABCDEF01"} {
 		t.Run("exact/"+id, func(t *testing.T) {
-			res, err := plugin.HandleEVMQuery(ctx, repairM1241JSON(t, query(id)))
+			res, err := plugin.HandleEVMQuery(ctx, marshalWasmJSONQuery(t, query(id)))
 			require.NoError(t, err)
 			var response bindings.SupportsInterfaceResponse
 			require.NoError(t, json.Unmarshal(res, &response))
@@ -312,7 +312,7 @@ func TestRepairM_1241_InterfaceIDsJSON(t *testing.T) {
 	}
 	// Invalid IDs must fail even when there is no contract to execute.
 	k.SetCode(ctx, contract, nil)
-	res, err := plugin.HandleEVMQuery(ctx, repairM1241JSON(t, query("1234567800")))
+	res, err := plugin.HandleEVMQuery(ctx, marshalWasmJSONQuery(t, query("1234567800")))
 	require.ErrorIs(t, err, sdkerrors.ErrInvalidRequest)
 	require.Nil(t, res)
 }

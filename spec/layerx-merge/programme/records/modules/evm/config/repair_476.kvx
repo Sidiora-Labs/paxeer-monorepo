@@ -3,7 +3,7 @@ title = "Use Paxeer chain 125 by default and reserve only the Paxeer live mappin
 requirement = "22998.1"
 base_revision = "399c122802fbe3326c62ef9251760c3e53ee4060"
 verified_revision = "The candidate revision in the final hf-done evidence line and /out/run/gates.jsonl; qualification is claimed only on a passing entry."
-files_changed = ["modules/evm/config/config.go", "modules/evm/config/config_test.go", "modules/evm/config/generate_repair_476.py", "modules/evm/config/repair_476_test.go", "modules/evm/config/repair_476.kvx", "modules/xweb/ATTESTATION.md", "node/proof_node_abci_test.go", "node/sequenced_block_test.go", "sdk/platform/conformance/fixtures/account-derivation-v1.json"]
+files_changed = ["modules/evm/config/config.go", "modules/evm/config/config_test.go", "modules/evm/config/generate_chain_config_vectors.py", "modules/evm/config/chain_config_vectors_test.go", "spec/layerx-merge/programme/records/modules/evm/config/repair_476.kvx", "modules/xweb/ATTESTATION.md", "node/proof_node_abci_test.go", "node/sequenced_block_test.go", "sdk/platform/conformance/fixtures/account-derivation-v1.json"]
 implementation = "DefaultChainID is 125; both exported mapping names remain, containing only hyperpax_125-1 <-> 125; unmapped Cosmos chain names use 125 without becoming live networks."
 node_tests = "Sequenced transfers derive both transaction and signer chain IDs from the application EVM keeper; the ABCI proof removes its temporary root mapping and preserves its inactive-domain refusal using a real paused tenant domain."
 config_tests = "Retain all existing test cases and assertions; update exact expected IDs and live status for the removed networks, and exercise override suppression with the surviving Paxeer live chain."
@@ -12,8 +12,8 @@ production_path = "SignNewTx -> MarshalBinary -> UnmarshalBinary -> go-ethereum 
 
 [repair.22.31.476.regeneration]
 fixture = "sdk/platform/conformance/fixtures/account-derivation-v1.json"
-generator = "modules/evm/config/generate_repair_476.py"
-command = "PYTHONDONTWRITEBYTECODE=1 uv run --with eth-account==0.13.7 --with cryptography==46.0.3 modules/evm/config/generate_repair_476.py"
+generator = "modules/evm/config/generate_chain_config_vectors.py"
+command = "PYTHONDONTWRITEBYTECODE=1 uv run --with eth-account==0.13.7 --with cryptography==46.0.3 modules/evm/config/generate_chain_config_vectors.py"
 production_generator = "services/agent/sdk/python/layerx_sdk/account_derivation.py: derive_from_mnemonic, plan_layerx_bind, key_derivation_typed_data, derive_from_wallet_signature"
 changes = "Regenerate four Ed25519 bind signatures and ABI calldata, four EIP-1559 signed transactions, two EIP-712 documents/digests/signatures and equivalent signatures, HKDF-derived Ed25519 keys/DIDs, and all chain-dependent resolution data for chain 125; mnemonic-derived keys and addresses stay stable."
 validation = "The focused Go gate independently checks transaction decoding and production recovery, bind Ed25519 verification and cross-chain refusal, EIP-712 hashes and recovery, signature canonicalization, HKDF-derived public keys, and resolution ABI values."

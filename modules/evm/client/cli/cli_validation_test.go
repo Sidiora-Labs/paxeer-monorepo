@@ -39,9 +39,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const repairM1240Address = "0x1111111111111111111111111111111111111111"
+const cliValidationAddress = "0x1111111111111111111111111111111111111111"
 
-func repairM1240Execute(cmd *cobra.Command, args []string, ctx context.Context, clientCtx client.Context) (string, error) {
+func executeValidationCommand(cmd *cobra.Command, args []string, ctx context.Context, clientCtx client.Context) (string, error) {
 	var output bytes.Buffer
 	clientCtx = clientCtx.WithOutput(&output)
 	ctx = context.WithValue(ctx, client.ClientContextKey, &clientCtx)
@@ -55,7 +55,7 @@ func repairM1240Execute(cmd *cobra.Command, args []string, ctx context.Context, 
 	return output.String(), err
 }
 
-func repairM1240KeyContext(t *testing.T) (client.Context, *ecdsa.PrivateKey) {
+func cliSigningContext(t *testing.T) (client.Context, *ecdsa.PrivateKey) {
 	t.Helper()
 	keys := keyring.NewInMemory()
 	info, _, err := keys.NewMnemonic("repair-m1240", keyring.English, "", "", hd.Secp256k1)
@@ -74,7 +74,7 @@ func repairM1240KeyContext(t *testing.T) (client.Context, *ecdsa.PrivateKey) {
 		WithFromName("repair-m1240").WithFromAddress(address).WithChainID("pax-test"), key
 }
 
-func TestRepairM_1240_IntegerBounds(t *testing.T) {
+func TestCLIIntegerBounds(t *testing.T) {
 	for _, bits := range []int{8, 16, 24, 32, 64, 72, 128, 256} {
 		for _, signed := range []bool{true, false} {
 			kind := "uint"
@@ -97,7 +97,7 @@ func TestRepairM_1240_IntegerBounds(t *testing.T) {
 					minimum.Neg(limit)
 				}
 				for _, n := range []*big.Int{minimum, big.NewInt(0), maximum} {
-					output, err := repairM1240Execute(CmdQueryPayload(), []string{path, "set", n.String()}, context.Background(), client.Context{})
+					output, err := executeValidationCommand(CmdQueryPayload(), []string{path, "set", n.String()}, context.Background(), client.Context{})
 					require.NoError(t, err)
 					payload, err := hex.DecodeString(output)
 					require.NoError(t, err)
@@ -113,7 +113,7 @@ func TestRepairM_1240_IntegerBounds(t *testing.T) {
 					invalid = append(invalid, "-0")
 				}
 				for _, value := range invalid {
-					output, err := repairM1240Execute(CmdQueryPayload(), []string{path, "set", value}, context.Background(), client.Context{})
+					output, err := executeValidationCommand(CmdQueryPayload(), []string{path, "set", value}, context.Background(), client.Context{})
 					require.Error(t, err, "%s %s", typ, value)
 					require.Empty(t, output)
 				}
@@ -127,12 +127,12 @@ func TestRepairM_1240_IntegerBounds(t *testing.T) {
 	}
 }
 
-func TestRepairM_1240_ERC20ArgumentCounts(t *testing.T) {
+func TestCLIERC20ArgumentCounts(t *testing.T) {
 	for method, count := range map[string]int{"name": 2, "symbol": 2, "decimals": 2, "totalSupply": 2, "balanceOf": 3, "allowance": 4} {
 		t.Run(method, func(t *testing.T) {
-			valid := []string{repairM1240Address, method}
+			valid := []string{cliValidationAddress, method}
 			for len(valid) < count {
-				valid = append(valid, repairM1240Address)
+				valid = append(valid, cliValidationAddress)
 			}
 			require.NoError(t, CmdQueryERC20().Args(CmdQueryERC20(), valid))
 			for n := 0; n <= count+1; n++ {
@@ -141,13 +141,13 @@ func TestRepairM_1240_ERC20ArgumentCounts(t *testing.T) {
 				}
 				args := append([]string(nil), valid...)
 				for len(args) < n {
-					args = append(args, repairM1240Address)
+					args = append(args, cliValidationAddress)
 				}
 				args = args[:n]
 				// A deliberately invalid endpoint must not be read before argument validation.
 				cmd := CmdQueryERC20()
 				require.NoError(t, cmd.Flags().Set("node", ":invalid"))
-				output, err := repairM1240Execute(cmd, args, context.Background(), client.Context{})
+				output, err := executeValidationCommand(cmd, args, context.Background(), client.Context{})
 				require.Error(t, err)
 				require.EqualError(t, err, validateERC20QueryArgs(nil, args).Error())
 				require.Empty(t, output)
@@ -155,8 +155,8 @@ func TestRepairM_1240_ERC20ArgumentCounts(t *testing.T) {
 			}
 		})
 	}
-	for _, args := range [][]string{{repairM1240Address, "unknown"}, {repairM1240Address, "unknown", repairM1240Address}} {
-		output, err := repairM1240Execute(CmdQueryERC20(), args, context.Background(), client.Context{})
+	for _, args := range [][]string{{cliValidationAddress, "unknown"}, {cliValidationAddress, "unknown", cliValidationAddress}} {
+		output, err := executeValidationCommand(CmdQueryERC20(), args, context.Background(), client.Context{})
 		require.ErrorContains(t, err, "unknown method")
 		require.Empty(t, output)
 	}
@@ -177,13 +177,13 @@ func TestRepairM_1240_ERC20ArgumentCounts(t *testing.T) {
 		require.Equal(t, "/paxprotocol.paxchain.evm.Query/StaticCall", request.Params.Path)
 		var query types.QueryStaticCallRequest
 		require.NoError(t, query.Unmarshal(request.Params.Data))
-		require.Equal(t, repairM1240Address, query.To)
+		require.Equal(t, cliValidationAddress, query.To)
 		method, err := contract.MethodById(query.Data[:4])
 		require.NoError(t, err)
 		params, err := method.Inputs.Unpack(query.Data[4:])
 		require.NoError(t, err)
 		for _, value := range params {
-			require.Equal(t, common.HexToAddress(repairM1240Address), value)
+			require.Equal(t, common.HexToAddress(cliValidationAddress), value)
 		}
 		var result interface{} = big.NewInt(42)
 		switch method.Name {
@@ -207,21 +207,21 @@ func TestRepairM_1240_ERC20ArgumentCounts(t *testing.T) {
 	node, err := client.NewClientFromNode(server.URL)
 	require.NoError(t, err)
 	for method, want := range map[string]string{"name": "Token", "symbol": "Token", "decimals": "18", "totalSupply": "42", "balanceOf": "42", "allowance": "42"} {
-		args := []string{repairM1240Address, method}
+		args := []string{cliValidationAddress, method}
 		if method == "balanceOf" || method == "allowance" {
-			args = append(args, repairM1240Address)
+			args = append(args, cliValidationAddress)
 		}
 		if method == "allowance" {
-			args = append(args, repairM1240Address)
+			args = append(args, cliValidationAddress)
 		}
-		output, err := repairM1240Execute(CmdQueryERC20(), args, context.Background(), client.Context{}.WithClient(node))
+		output, err := executeValidationCommand(CmdQueryERC20(), args, context.Background(), client.Context{}.WithClient(node))
 		require.NoError(t, err)
 		require.Equal(t, want, output)
 	}
 	require.EqualValues(t, 6, calls.Load())
 }
 
-func TestRepairM_1240_TokenPayloadValidation(t *testing.T) {
+func TestCLITokenPayloadValidation(t *testing.T) {
 	a20, err := cw20.Cw20MetaData.GetAbi()
 	require.NoError(t, err)
 	a721, err := cw721.Cw721MetaData.GetAbi()
@@ -239,20 +239,20 @@ func TestRepairM_1240_TokenPayloadValidation(t *testing.T) {
 		arrays   []int
 		boolean  int
 	}{
-		{"erc20-transfer", CmdQueryERC20Payload, a20, []string{"transfer", repairM1240Address, max}, []int{2}, nil, 0},
-		{"erc20-approve", CmdQueryERC20Payload, a20, []string{"approve", repairM1240Address, max}, []int{2}, nil, 0},
-		{"erc20-transferFrom", CmdQueryERC20Payload, a20, []string{"transferFrom", repairM1240Address, repairM1240Address, max}, []int{3}, nil, 0},
-		{"erc721-approve", CmdQueryERC721Payload, a721, []string{"approve", repairM1240Address, max}, []int{2}, nil, 0},
-		{"erc721-transferFrom", CmdQueryERC721Payload, a721, []string{"transferFrom", repairM1240Address, repairM1240Address, max}, []int{3}, nil, 0},
-		{"erc721-approval", CmdQueryERC721Payload, a721, []string{"setApprovalForAll", repairM1240Address, "true"}, nil, nil, 2},
-		{"erc1155-transfer", CmdQueryERC1155Payload, a1155, []string{"safeTransferFrom", repairM1240Address, repairM1240Address, max, max, "data"}, []int{3, 4}, nil, 0},
-		{"erc1155-batch", CmdQueryERC1155Payload, a1155, []string{"safeBatchTransferFrom", repairM1240Address, repairM1240Address, "[0, " + max + "]", "[0, " + max + "]", "data"}, nil, []int{3, 4}, 0},
-		{"erc1155-approval", CmdQueryERC1155Payload, a1155, []string{"setApprovalForAll", repairM1240Address, "true"}, nil, nil, 2},
+		{"erc20-transfer", CmdQueryERC20Payload, a20, []string{"transfer", cliValidationAddress, max}, []int{2}, nil, 0},
+		{"erc20-approve", CmdQueryERC20Payload, a20, []string{"approve", cliValidationAddress, max}, []int{2}, nil, 0},
+		{"erc20-transferFrom", CmdQueryERC20Payload, a20, []string{"transferFrom", cliValidationAddress, cliValidationAddress, max}, []int{3}, nil, 0},
+		{"erc721-approve", CmdQueryERC721Payload, a721, []string{"approve", cliValidationAddress, max}, []int{2}, nil, 0},
+		{"erc721-transferFrom", CmdQueryERC721Payload, a721, []string{"transferFrom", cliValidationAddress, cliValidationAddress, max}, []int{3}, nil, 0},
+		{"erc721-approval", CmdQueryERC721Payload, a721, []string{"setApprovalForAll", cliValidationAddress, "true"}, nil, nil, 2},
+		{"erc1155-transfer", CmdQueryERC1155Payload, a1155, []string{"safeTransferFrom", cliValidationAddress, cliValidationAddress, max, max, "data"}, []int{3, 4}, nil, 0},
+		{"erc1155-batch", CmdQueryERC1155Payload, a1155, []string{"safeBatchTransferFrom", cliValidationAddress, cliValidationAddress, "[0, " + max + "]", "[0, " + max + "]", "data"}, nil, []int{3, 4}, 0},
+		{"erc1155-approval", CmdQueryERC1155Payload, a1155, []string{"setApprovalForAll", cliValidationAddress, "true"}, nil, nil, 2},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			decode := func(args []string) []interface{} {
-				output, err := repairM1240Execute(tc.command(), args, context.Background(), client.Context{})
+				output, err := executeValidationCommand(tc.command(), args, context.Background(), client.Context{})
 				require.NoError(t, err)
 				payload, err := hex.DecodeString(output)
 				require.NoError(t, err)
@@ -283,7 +283,7 @@ func TestRepairM_1240_TokenPayloadValidation(t *testing.T) {
 				require.Equal(t, false, decode(args)[tc.boolean-1])
 			}
 			reject := func(args []string) {
-				output, err := repairM1240Execute(tc.command(), args, context.Background(), client.Context{})
+				output, err := executeValidationCommand(tc.command(), args, context.Background(), client.Context{})
 				require.Error(t, err, "%v", args)
 				require.Empty(t, output)
 			}
@@ -315,39 +315,39 @@ func TestRepairM_1240_TokenPayloadValidation(t *testing.T) {
 	}
 }
 
-type repairM1240RPCRequest struct {
+type cliRPCRequest struct {
 	ID     json.RawMessage   `json:"id"`
 	Method string            `json:"method"`
 	Params []json.RawMessage `json:"params"`
 }
 
-func repairM1240ReadRPC(t *testing.T, r *http.Request) repairM1240RPCRequest {
+func readCLIRPCRequest(t *testing.T, r *http.Request) cliRPCRequest {
 	t.Helper()
 	require.Equal(t, http.MethodPost, r.Method)
 	require.Equal(t, "application/json", r.Header.Get("Content-Type"))
-	var req repairM1240RPCRequest
+	var req cliRPCRequest
 	require.NoError(t, json.NewDecoder(r.Body).Decode(&req))
 	return req
 }
 
-func repairM1240RPCResult(t *testing.T, w http.ResponseWriter, req repairM1240RPCRequest, result interface{}) {
+func writeCLIRPCResult(t *testing.T, w http.ResponseWriter, req cliRPCRequest, result interface{}) {
 	t.Helper()
 	w.Header().Set("Content-Type", "application/json")
 	require.NoError(t, json.NewEncoder(w).Encode(map[string]interface{}{"jsonrpc": "2.0", "id": req.ID, "result": result}))
 }
 
-func repairM1240TxServer(t *testing.T, consume func(*ethtypes.Transaction)) *httptest.Server {
+func newCLITransactionServer(t *testing.T, consume func(*ethtypes.Transaction)) *httptest.Server {
 	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		req := repairM1240ReadRPC(t, r)
+		req := readCLIRPCRequest(t, r)
 		switch req.Method {
 		case "eth_getTransactionCount":
 			require.Len(t, req.Params, 2)
 			require.JSONEq(t, `"pending"`, string(req.Params[1]))
-			repairM1240RPCResult(t, w, req, "0x5")
+			writeCLIRPCResult(t, w, req, "0x5")
 		case "eth_chainId":
 			require.Empty(t, req.Params)
-			repairM1240RPCResult(t, w, req, "0x7d")
+			writeCLIRPCResult(t, w, req, "0x7d")
 		case "eth_sendRawTransaction":
 			require.Len(t, req.Params, 1)
 			var encoded hexutil.Bytes
@@ -355,7 +355,7 @@ func repairM1240TxServer(t *testing.T, consume func(*ethtypes.Transaction)) *htt
 			var transaction ethtypes.Transaction
 			require.NoError(t, transaction.UnmarshalBinary(encoded))
 			consume(&transaction)
-			repairM1240RPCResult(t, w, req, transaction.Hash().Hex())
+			writeCLIRPCResult(t, w, req, transaction.Hash().Hex())
 		default:
 			t.Errorf("unexpected RPC method %q", req.Method)
 			w.WriteHeader(http.StatusBadRequest)
@@ -363,16 +363,16 @@ func repairM1240TxServer(t *testing.T, consume func(*ethtypes.Transaction)) *htt
 	}))
 }
 
-func TestRepairM_1240_DeployBinaryErrorsAndConventions(t *testing.T) {
+func TestCLIDeployBinaryErrorsAndConventions(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "contract.bin")
-	output, err := repairM1240Execute(CmdDeployContract(), []string{path}, context.Background(), client.Context{})
+	output, err := executeValidationCommand(CmdDeployContract(), []string{path}, context.Background(), client.Context{})
 	require.ErrorContains(t, err, path)
 	require.ErrorContains(t, err, "read contract binary")
 	require.ErrorIs(t, err, os.ErrNotExist)
 	require.Empty(t, output)
 	for _, text := range []string{"zz", "abc", "00 11", "0X0011", "0xzz"} {
 		require.NoError(t, os.WriteFile(path, []byte(text), 0600))
-		output, err := repairM1240Execute(CmdDeployContract(), []string{path}, context.Background(), client.Context{})
+		output, err := executeValidationCommand(CmdDeployContract(), []string{path}, context.Background(), client.Context{})
 		require.ErrorContains(t, err, path)
 		require.ErrorContains(t, err, "decode contract binary")
 		require.Empty(t, output)
@@ -381,9 +381,9 @@ func TestRepairM_1240_DeployBinaryErrorsAndConventions(t *testing.T) {
 	}
 	require.Contains(t, CmdDeployContract().Long, "whitespace")
 	require.Contains(t, CmdDeployContract().Long, "0x")
-	clientCtx, key := repairM1240KeyContext(t)
+	clientCtx, key := cliSigningContext(t)
 	var submissions atomic.Int32
-	server := repairM1240TxServer(t, func(transaction *ethtypes.Transaction) {
+	server := newCLITransactionServer(t, func(transaction *ethtypes.Transaction) {
 		require.Nil(t, transaction.To())
 		require.Equal(t, []byte{0x60, 0x00, 0x60, 0x01}, transaction.Data())
 		require.EqualValues(t, 5, transaction.Nonce())
@@ -396,14 +396,14 @@ func TestRepairM_1240_DeployBinaryErrorsAndConventions(t *testing.T) {
 	defer server.Close()
 	for _, text := range []string{"60006001", " \n60006001\t\r\n", "0x60006001", "\n 0x60006001 \n"} {
 		require.NoError(t, os.WriteFile(path, []byte(text), 0600))
-		_, err := repairM1240Execute(CmdDeployContract(), []string{path, "--evm-rpc=" + server.URL}, context.Background(), clientCtx)
+		_, err := executeValidationCommand(CmdDeployContract(), []string{path, "--evm-rpc=" + server.URL}, context.Background(), clientCtx)
 		require.NoError(t, err)
 	}
 	require.EqualValues(t, 4, submissions.Load())
 }
 
-func TestRepairM_1240_RPCResponseValidation(t *testing.T) {
-	_, key := repairM1240KeyContext(t)
+func TestCLIRPCResponseValidation(t *testing.T) {
+	_, key := cliSigningContext(t)
 	invalid := []struct{ name, body, message string }{
 		{"rpc-error", `{"jsonrpc":"2.0","id":"send-cli","error":{"code":-32000,"message":"account unavailable","data":{"retry":false}}}`, "account unavailable"},
 		{"error-with-result", `{"result":"0x1","error":{"code":-32603,"message":"internal failure"}}`, "internal failure"},
@@ -425,7 +425,7 @@ func TestRepairM_1240_RPCResponseValidation(t *testing.T) {
 	for _, tc := range invalid {
 		t.Run(tc.name, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				req := repairM1240ReadRPC(t, r)
+				req := readCLIRPCRequest(t, r)
 				require.Contains(t, []string{"eth_chainId", "eth_getTransactionCount"}, req.Method)
 				_, _ = io.WriteString(w, tc.body)
 			}))
@@ -473,13 +473,13 @@ func TestRepairM_1240_RPCResponseValidation(t *testing.T) {
 	require.Equal(t, new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 256), big.NewInt(1)), chainID)
 }
 
-func TestRepairM_1240_RPCMetadataFailureStopsSubmission(t *testing.T) {
-	clientCtx, _ := repairM1240KeyContext(t)
+func TestCLIRPCMetadataFailureStopsSubmission(t *testing.T) {
+	clientCtx, _ := cliSigningContext(t)
 	for _, failMethod := range []string{"eth_getTransactionCount", "eth_chainId"} {
 		t.Run(failMethod, func(t *testing.T) {
 			var submissions atomic.Int32
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				req := repairM1240ReadRPC(t, r)
+				req := readCLIRPCRequest(t, r)
 				if req.Method == failMethod {
 					require.NoError(t, json.NewEncoder(w).Encode(map[string]interface{}{
 						"jsonrpc": "2.0", "id": req.ID, "error": map[string]interface{}{"code": -32000, "message": "metadata lookup refused"},
@@ -489,33 +489,33 @@ func TestRepairM_1240_RPCMetadataFailureStopsSubmission(t *testing.T) {
 				if req.Method == "eth_sendRawTransaction" {
 					submissions.Add(1)
 				}
-				repairM1240RPCResult(t, w, req, "0x7d")
+				writeCLIRPCResult(t, w, req, "0x7d")
 			}))
 			defer server.Close()
-			_, err := repairM1240Execute(CmdSend(), []string{repairM1240Address, "1", "--evm-rpc=" + server.URL}, context.Background(), clientCtx)
+			_, err := executeValidationCommand(CmdSend(), []string{cliValidationAddress, "1", "--evm-rpc=" + server.URL}, context.Background(), clientCtx)
 			require.ErrorContains(t, err, "metadata lookup refused")
 			require.Zero(t, submissions.Load())
 		})
 	}
 }
 
-func TestRepairM_1240_RPCCancellationAndBounds(t *testing.T) {
-	clientCtx, key := repairM1240KeyContext(t)
+func TestCLIRPCCancellationAndBounds(t *testing.T) {
+	clientCtx, key := cliSigningContext(t)
 	for _, stage := range []string{"pax_associate", "eth_getTransactionCount", "eth_chainId", "eth_sendRawTransaction"} {
 		t.Run(stage, func(t *testing.T) {
 			command := func() (*cobra.Command, []string) {
 				if stage == "pax_associate" {
 					return CmdAssociateAddress(), []string{hex.EncodeToString(crypto.FromECDSA(key))}
 				}
-				return CmdSend(), []string{repairM1240Address, "1"}
+				return CmdSend(), []string{cliValidationAddress, "1"}
 			}
 			t.Run("cancel", func(t *testing.T) {
 				reached := make(chan struct{})
 				released := make(chan struct{})
 				server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-					req := repairM1240ReadRPC(t, r)
+					req := readCLIRPCRequest(t, r)
 					if req.Method != stage {
-						repairM1240RPCResult(t, w, req, "0x7d")
+						writeCLIRPCResult(t, w, req, "0x7d")
 						return
 					}
 					// Flush a partial response so cancellation must interrupt a body read.
@@ -532,7 +532,7 @@ func TestRepairM_1240_RPCCancellationAndBounds(t *testing.T) {
 				done := make(chan error, 1)
 				cmd, args := command()
 				go func() {
-					_, err := repairM1240Execute(cmd, append(args, "--evm-rpc="+server.URL), ctx, clientCtx)
+					_, err := executeValidationCommand(cmd, append(args, "--evm-rpc="+server.URL), ctx, clientCtx)
 					done <- err
 				}()
 				select {
@@ -555,30 +555,30 @@ func TestRepairM_1240_RPCCancellationAndBounds(t *testing.T) {
 			})
 			t.Run("oversized", func(t *testing.T) {
 				server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-					req := repairM1240ReadRPC(t, r)
+					req := readCLIRPCRequest(t, r)
 					if req.Method != stage {
-						repairM1240RPCResult(t, w, req, "0x7d")
+						writeCLIRPCResult(t, w, req, "0x7d")
 						return
 					}
 					_, _ = io.WriteString(w, strings.Repeat(" ", maxCLIResponseBytes+1))
 				}))
 				defer server.Close()
 				cmd, args := command()
-				_, err := repairM1240Execute(cmd, append(args, "--evm-rpc="+server.URL), context.Background(), clientCtx)
+				_, err := executeValidationCommand(cmd, append(args, "--evm-rpc="+server.URL), context.Background(), clientCtx)
 				require.ErrorContains(t, err, "RPC response exceeds")
 			})
 			t.Run("http-error", func(t *testing.T) {
 				server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-					req := repairM1240ReadRPC(t, r)
+					req := readCLIRPCRequest(t, r)
 					if req.Method != stage {
-						repairM1240RPCResult(t, w, req, "0x7d")
+						writeCLIRPCResult(t, w, req, "0x7d")
 						return
 					}
 					http.Error(w, "RPC unavailable", http.StatusServiceUnavailable)
 				}))
 				defer server.Close()
 				cmd, args := command()
-				_, err := repairM1240Execute(cmd, append(args, "--evm-rpc="+server.URL), context.Background(), clientCtx)
+				_, err := executeValidationCommand(cmd, append(args, "--evm-rpc="+server.URL), context.Background(), clientCtx)
 				require.ErrorContains(t, err, "503")
 			})
 		})
@@ -593,7 +593,7 @@ func TestRepairM_1240_RPCCancellationAndBounds(t *testing.T) {
 	require.Len(t, body, maxCLIResponseBytes)
 }
 
-func TestRepairM_1240_RPCFiniteTimeout(t *testing.T) {
+func TestCLIRPCFiniteTimeout(t *testing.T) {
 	require.Greater(t, cliRPCTimeout, time.Duration(0))
 	require.LessOrEqual(t, cliRPCTimeout, 30*time.Second)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -22,13 +22,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func repairM1245Codec() *codec.ProtoCodec {
+func envelopeTransportCodec() *codec.ProtoCodec {
 	registry := codectypes.NewInterfaceRegistry()
 	types.RegisterInterfaces(registry)
 	return codec.NewProtoCodec(registry)
 }
 
-func TestRepairM_1245_027_EnvelopeTransport(t *testing.T) {
+func TestTransactionEnvelopeTransport(t *testing.T) {
 	key, err := crypto.HexToECDSA(strings.Repeat("01", 32))
 	require.NoError(t, err)
 	chainID := big.NewInt(125)
@@ -43,7 +43,7 @@ func TestRepairM_1245_027_EnvelopeTransport(t *testing.T) {
 		&ethtypes.BlobTx{ChainID: uint256.NewInt(125), Nonce: 7, GasTipCap: uint256.NewInt(2), GasFeeCap: uint256.NewInt(100), Gas: 60000, To: to, Value: uint256.NewInt(9), Data: []byte{1, 2}, AccessList: accesses, BlobFeeCap: uint256.NewInt(3), BlobHashes: []common.Hash{{1, 2}}},
 		&ethtypes.SetCodeTx{ChainID: uint256.NewInt(125), Nonce: 7, GasTipCap: uint256.NewInt(2), GasFeeCap: uint256.NewInt(100), Gas: 60000, To: to, Value: uint256.NewInt(9), Data: []byte{1, 2}, AccessList: accesses, AuthList: []ethtypes.SetCodeAuthorization{auth}},
 	}
-	cdc := repairM1245Codec()
+	cdc := envelopeTransportCodec()
 	var envelopes []ethtx.TxData
 	for _, inner := range inners {
 		tx, err := ethtypes.SignTx(ethtypes.NewTx(inner), ethtypes.NewPragueSigner(chainID), key)
@@ -110,7 +110,7 @@ func TestRepairM_1245_027_EnvelopeTransport(t *testing.T) {
 	}
 }
 
-func TestRepairM_1245_027_RejectUnknownAndMismatchedTypes(t *testing.T) {
+func TestTransactionRejectUnknownAndMismatchedTypes(t *testing.T) {
 	for _, url := range []string{"", "/eth.UnknownTx", "/paxprotocol.paxchain.evm.MsgSend"} {
 		packed, err := types.PackTxData(&ethtx.LegacyTx{})
 		require.NoError(t, err)
@@ -133,7 +133,7 @@ func TestRepairM_1245_027_RejectUnknownAndMismatchedTypes(t *testing.T) {
 	require.Error(t, err)
 }
 
-func repairM1245Genesis(t *testing.T) *types.GenesisState {
+func exportTransportGenesis(t *testing.T) *types.GenesisState {
 	t.Helper()
 	a := testkeeper.EVMTestApp
 	ctx, _ := a.GetContextForDeliverTx(nil).CacheContext()
@@ -150,9 +150,9 @@ func repairM1245Genesis(t *testing.T) *types.GenesisState {
 	return genesis
 }
 
-func TestRepairM_1245_021_GenesisEntries(t *testing.T) {
-	valid := repairM1245Genesis(t)
-	cdc := repairM1245Codec()
+func TestGenesisGenesisEntries(t *testing.T) {
+	valid := exportTransportGenesis(t)
+	cdc := envelopeTransportCodec()
 	basic := evm.AppModuleBasic{}
 	wire, err := cdc.MarshalAsJSON(valid)
 	require.NoError(t, err)
@@ -205,9 +205,9 @@ func TestRepairM_1245_021_GenesisEntries(t *testing.T) {
 	}
 }
 
-func TestRepairM_1245_021_StreamTransport(t *testing.T) {
-	valid := repairM1245Genesis(t)
-	cdc := repairM1245Codec()
+func TestGenesisStreamTransport(t *testing.T) {
+	valid := exportTransportGenesis(t)
+	cdc := envelopeTransportCodec()
 	basic := evm.AppModuleBasic{}
 	validWire, err := cdc.MarshalAsJSON(valid)
 	require.NoError(t, err)
@@ -248,7 +248,7 @@ func TestRepairM_1245_021_StreamTransport(t *testing.T) {
 	require.Error(t, run(validWire, dataWire, validWire))
 }
 
-func TestRepairM_1245_023_MessageServiceRecipient(t *testing.T) {
+func TestMessageServiceRecipient(t *testing.T) {
 	a := testkeeper.EVMTestApp
 	ctx, _ := a.GetContextForDeliverTx(nil).CacheContext()
 	fromEVM := common.HexToAddress("0x1111111111111111111111111111111111111111")
@@ -260,7 +260,7 @@ func TestRepairM_1245_023_MessageServiceRecipient(t *testing.T) {
 	k.SetAddressMapping(ctx, recipient, to)
 	bank := k.BankKeeper()
 	require.NoError(t, bank.AddCoins(ctx, from, sdk.NewCoins(sdk.NewInt64Coin("uhpx", 100)), true))
-	cdc := repairM1245Codec()
+	cdc := envelopeTransportCodec()
 	route := a.MsgServiceRouter().Handler(&types.MsgSend{})
 	require.NotNil(t, route)
 	for _, destination := range []string{"", "not-hex", "0x", "0x1", "0x" + strings.Repeat("a", 39), "0x" + strings.Repeat("a", 41), "0x" + strings.Repeat("a", 42), strings.Repeat("a", 64), "0x" + strings.Repeat("g", 40), " " + to.Hex(), to.Hex() + " "} {
