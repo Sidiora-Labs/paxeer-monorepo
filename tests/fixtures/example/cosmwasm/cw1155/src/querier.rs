@@ -1,7 +1,12 @@
 use cosmwasm_std::{QuerierWrapper, StdResult, Uint128};
 use cw1155::msg::OwnerToken;
 
-use crate::msg::{Route, EvmQuery, EvmQueryWrapper, ErcPayloadResponse, Erc1155BalanceOfResponse, Erc1155IsApprovedForAllResponse, Erc1155NameSymbolResponse, Erc1155UriResponse, Erc1155RoyaltyInfoResponse, SupportsInterfaceResponse, Erc1155TotalSupplyResponse, Erc1155BalanceOfBatchResponse};
+use crate::msg::{
+    Erc1155BalanceOfBatchResponse, Erc1155BalanceOfResponse, Erc1155IsApprovedForAllResponse,
+    Erc1155NameSymbolResponse, Erc1155RoyaltyInfoResponse, Erc1155TotalSupplyResponse,
+    Erc1155UriResponse, ErcPayloadResponse, EvmQuery, EvmQueryWrapper, Route,
+    SupportsInterfaceResponse,
+};
 
 pub const DEFAULT_LIMIT: u32 = 10;
 pub const MAX_LIMIT: u32 = 30;
@@ -15,18 +20,37 @@ impl<'a> EvmQuerier<'a> {
         EvmQuerier { querier }
     }
 
-    pub fn erc1155_balance_of(&self, caller: String, contract_address: String, account: String, token_id: String) -> StdResult<Erc1155BalanceOfResponse> {
+    pub fn erc1155_balance_of(
+        &self,
+        caller: String,
+        contract_address: String,
+        account: String,
+        token_id: String,
+    ) -> StdResult<Erc1155BalanceOfResponse> {
         let request = EvmQueryWrapper {
             route: Route::Evm,
-            query_data: EvmQuery::Erc1155BalanceOf { caller, contract_address, account, token_id },
+            query_data: EvmQuery::Erc1155BalanceOf {
+                caller,
+                contract_address,
+                account,
+                token_id,
+            },
         }
-            .into();
+        .into();
 
         self.querier.query(&request)
     }
 
-    pub fn erc1155_balance_of_batch(&self, caller: String, contract_address: String, batch: &Vec<OwnerToken>) -> StdResult<Erc1155BalanceOfBatchResponse> {
-        let (accounts, token_ids): (Vec<_>, Vec<_>) = batch.iter().map(|ot| (ot.owner.to_string(), ot.token_id.to_string())).unzip();
+    pub fn erc1155_balance_of_batch(
+        &self,
+        caller: String,
+        contract_address: String,
+        batch: &[OwnerToken],
+    ) -> StdResult<Erc1155BalanceOfBatchResponse> {
+        let (accounts, token_ids): (Vec<_>, Vec<_>) = batch
+            .iter()
+            .map(|ot| (ot.owner.to_string(), ot.token_id.to_string()))
+            .unzip();
 
         let request = EvmQueryWrapper {
             route: Route::Evm,
@@ -34,38 +58,65 @@ impl<'a> EvmQuerier<'a> {
                 caller,
                 contract_address,
                 accounts,
-                token_ids
+                token_ids,
             },
         }
-            .into();
+        .into();
 
         self.querier.query(&request)
     }
 
-    pub fn erc1155_is_approved_for_all(&self, caller: String, contract_address: String, owner: String, operator: String) -> StdResult<Erc1155IsApprovedForAllResponse> {
+    pub fn erc1155_is_approved_for_all(
+        &self,
+        caller: String,
+        contract_address: String,
+        owner: String,
+        operator: String,
+    ) -> StdResult<Erc1155IsApprovedForAllResponse> {
         let request = EvmQueryWrapper {
             route: Route::Evm,
-            query_data: EvmQuery::Erc1155IsApprovedForAll { caller, contract_address, owner, operator },
+            query_data: EvmQuery::Erc1155IsApprovedForAll {
+                caller,
+                contract_address,
+                owner,
+                operator,
+            },
         }
         .into();
 
         self.querier.query(&request)
     }
 
-    pub fn erc1155_name_symbol(&self, caller: String, contract_address: String) -> StdResult<Erc1155NameSymbolResponse> {
+    pub fn erc1155_name_symbol(
+        &self,
+        caller: String,
+        contract_address: String,
+    ) -> StdResult<Erc1155NameSymbolResponse> {
         let request = EvmQueryWrapper {
             route: Route::Evm,
-            query_data: EvmQuery::Erc1155NameSymbol { caller, contract_address },
+            query_data: EvmQuery::Erc1155NameSymbol {
+                caller,
+                contract_address,
+            },
         }
         .into();
 
         self.querier.query(&request)
     }
 
-    pub fn erc1155_uri(&self, caller: String, contract_address: String, token_id: String,) -> StdResult<Erc1155UriResponse> {
+    pub fn erc1155_uri(
+        &self,
+        caller: String,
+        contract_address: String,
+        token_id: String,
+    ) -> StdResult<Erc1155UriResponse> {
         let request = EvmQueryWrapper {
             route: Route::Evm,
-            query_data: EvmQuery::Erc1155Uri { caller, contract_address, token_id },
+            query_data: EvmQuery::Erc1155Uri {
+                caller,
+                contract_address,
+                token_id,
+            },
         }
         .into();
 
@@ -73,36 +124,58 @@ impl<'a> EvmQuerier<'a> {
     }
 
     // returns base64-encoded bytes
-    pub fn erc1155_transfer_payload(&self, from: String, recipient: String, token_id: String, amount: Uint128) -> StdResult<ErcPayloadResponse> {
+    pub fn erc1155_transfer_payload(
+        &self,
+        from: String,
+        recipient: String,
+        token_id: String,
+        amount: Uint128,
+    ) -> StdResult<ErcPayloadResponse> {
         let request = EvmQueryWrapper {
             route: Route::Evm,
             query_data: EvmQuery::Erc1155TransferPayload {
-                from, recipient, token_id, amount
+                from,
+                recipient,
+                token_id,
+                amount,
             },
         }
-            .into();
+        .into();
 
         self.querier.query(&request)
     }
 
     // returns base64-encoded bytes
-    pub fn erc1155_batch_transfer_payload(&self, from: String, recipient: String, token_ids: Vec<String>, amounts: Vec<Uint128>) -> StdResult<ErcPayloadResponse> {
+    pub fn erc1155_batch_transfer_payload(
+        &self,
+        from: String,
+        recipient: String,
+        token_ids: Vec<String>,
+        amounts: Vec<Uint128>,
+    ) -> StdResult<ErcPayloadResponse> {
         let request = EvmQueryWrapper {
             route: Route::Evm,
             query_data: EvmQuery::Erc1155BatchTransferPayload {
-                from, recipient, token_ids, amounts
+                from,
+                recipient,
+                token_ids,
+                amounts,
             },
         }
-            .into();
+        .into();
 
         self.querier.query(&request)
     }
 
     // returns base64-encoded bytes
-    pub fn erc1155_set_approval_all_payload(&self, to: String, approved: bool) -> StdResult<ErcPayloadResponse> {
+    pub fn erc1155_set_approval_all_payload(
+        &self,
+        to: String,
+        approved: bool,
+    ) -> StdResult<ErcPayloadResponse> {
         let request = EvmQueryWrapper {
             route: Route::Evm,
-            query_data: EvmQuery::Erc1155SetApprovalAllPayload { to, approved, },
+            query_data: EvmQuery::Erc1155SetApprovalAllPayload { to, approved },
         }
         .into();
 
@@ -138,7 +211,11 @@ impl<'a> EvmQuerier<'a> {
     ) -> StdResult<SupportsInterfaceResponse> {
         let request = EvmQueryWrapper {
             route: Route::Evm,
-            query_data: EvmQuery::SupportsInterface { caller, interface_id, contract_address, },
+            query_data: EvmQuery::SupportsInterface {
+                caller,
+                interface_id,
+                contract_address,
+            },
         }
         .into();
 
@@ -149,13 +226,13 @@ impl<'a> EvmQuerier<'a> {
         &self,
         caller: String,
         contract_address: String,
-        token_id: Option<String>
+        token_id: Option<String>,
     ) -> StdResult<Erc1155TotalSupplyResponse> {
         let query_data = if let Some(token_id) = token_id {
             EvmQuery::Erc1155TotalSupplyForToken {
                 caller,
                 contract_address,
-                token_id
+                token_id,
             }
         } else {
             EvmQuery::Erc1155TotalSupply {
