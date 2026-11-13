@@ -319,6 +319,18 @@ fn committed_client_matches_regeneration() {
 }
 
 #[test]
+fn generated_stream_abort_has_statement_body() {
+    let client = generated(&real_schema_root());
+    let index = index_body(&client);
+    assert!(index.contains("const abort = () => {\n      cancellation.abort();\n    };"));
+    assert!(
+        index.contains("subscription.signal?.addEventListener(\"abort\", abort, { once: true });")
+    );
+    assert!(index.contains("subscription.signal?.removeEventListener(\"abort\", abort);"));
+    assert!(index.contains("signal: cancellation.signal,"));
+}
+
+#[test]
 fn fresh_regeneration_passes_the_gate() {
     let fixture = Fixture::from_real_schema();
     let written = fixture.write_fresh_output();

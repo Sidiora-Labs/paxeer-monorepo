@@ -21525,3 +21525,18 @@ fix = "The two cases run their assertions when the variable is set and print one
 title = "The interop service member links the platform gateway member, which keeps a SQLite store"
 symptom = "The dependency policy of the interop workspace reads the whole package list of the metadata, so the two SQLite crates that the platform gateway member uses appear in it through services/interop/crates/layerx-interop-service."
 fix = "The policy refuses the two crates on every dependency path that does not pass through the platform gateway member."
+
+[gotcha.4341]
+title = "The test target of the agent workspace starts a local chain for its native cases"
+symptom = "The command make agent-test prepares its native cases through services/agent/tools/run-real-node-tests.sh, which looks for forge, cast, anvil and go on the path before it builds the node."
+fix = "The verification of the agent test task names the local chain tool first, so that the gate shell provides the contract tools before the target runs."
+
+[gotcha.4342]
+title = "The test command of the interop workspace compiles and runs the cases of every member"
+symptom = "The command make interop-test runs the cases of every member under services/interop/crates. The payment cases of the fiat member convert a signature error with the question mark operator, the relay and server cases of the interop service member start a local store server from the path, and the receipt cases of the portable member run a Python verifier."
+fix = "Task 22.39.502 carries the test sources of every member under services/interop/crates, and the signature error is converted through a type that implements the standard error trait."
+
+[gotcha.4343]
+title = "The pinned cache size case of the runtime library compares against a fixed size"
+symptom = "The metrics case of wasm-runtime/libwasmvm/src/cache.rs compares the size of the pinned memory cache with a fixed number within a fifth. The size is made of the serialized size of the compiled module, an estimate of the engine and the size of the checksum, so it follows the engine version that the lock file pins."
+fix = "The number is the size measured with the engine version of the lock file, and the tolerance stays."
