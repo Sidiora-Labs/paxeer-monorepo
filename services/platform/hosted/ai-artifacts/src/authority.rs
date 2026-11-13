@@ -32,7 +32,7 @@
 //!
 //! Registry contracts/platform-hosted.md and contracts/platform-cli.md are owned
 //! by domain 8; publishing those pages and CLI/retirement dispositions is an
-//! external wiring request recorded in repair_22_33_1428.rs. These artifact
+//! external wiring request recorded in artifact_store_lifecycle.rs. These artifact
 //! acknowledgements never assert sequencer, checkpoint or chain finality.
 use crate::store::{Grant, ObjectRecord};
 use layerx_programs_ai_market::evidence::ArtifactError;
