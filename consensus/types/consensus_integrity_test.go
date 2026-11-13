@@ -23,8 +23,8 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 )
 
-func TestRepairM_1118_InvalidHeaderVector(t *testing.T) {
-	header := repairM1118Header(t)
+func TestHeaderVectorValidation(t *testing.T) {
+	header := headerFromLightCommitVector(t)
 	require.NoError(t, header.ValidateBasic())
 	require.Len(t, header.ProposerAddress, crypto.AddressSize)
 	for _, digest := range [][]byte{header.LastCommitHash, header.DataHash, header.ValidatorsHash,
@@ -53,10 +53,10 @@ func TestRepairM_1118_InvalidHeaderVector(t *testing.T) {
 	}
 }
 
-func TestRepairM_1118_LegacyEventTestGap(t *testing.T) {
+func TestLegacyEventSubscriptionResults(t *testing.T) {
 	// These existing proofs execute the real application and the RPC Subscribe
 	// handler over loopback WebSockets, including Message.LegacyData and ResultEvent.
-	t.Run("application_failure", TestRepair_93_FailedTransactionSubscription)
+	t.Run("application_failure", TestFailedTransactionSubscription)
 	for _, code := range []uint32{0, 37} {
 		t.Run(strconv.FormatUint(uint64(code), 10), func(t *testing.T) {
 			producer := abci.ResponseFinalizeBlock{TxResults: []*abci.ExecTxResult{{
@@ -72,15 +72,15 @@ func TestRepairM_1118_LegacyEventTestGap(t *testing.T) {
 			event := types.EventDataTx{TxResultV2: abci.TxResultV2{
 				Height: 42, Index: 2, Tx: []byte("repair-m1118/subscription"), Result: *transported.TxResults[0],
 			}}
-			decoded, _ := repair93SubscriptionRoundTrip(t, event)
-			repair93AssertResult(t, event, decoded)
+			decoded, _ := legacyTxSubscriptionRoundTrip(t, event)
+			assertLegacyTxResult(t, event, decoded)
 			require.Equal(t, code, decoded.TxResult.Result.Code)
 		})
 	}
 }
 
-func TestRepairM_1118_AttackEvidenceDigest(t *testing.T) {
-	evidence := repairM1118Evidence(t)
+func TestLightClientAttackEvidenceDigest(t *testing.T) {
+	evidence := signedLightClientAttackEvidence(t)
 	// This exact preimage and its SHA-256 were independently computed from the
 	// committed header vector, followed by the signed varint for common height 41.
 	const preimageHex = "d408adccc0ffde478eddda84c349482c61962cae22a930cee1e074631e9ebba352"
@@ -91,7 +91,7 @@ func TestRepairM_1118_AttackEvidenceDigest(t *testing.T) {
 	require.Equal(t, "14f22cca4417a45610f002f790b0304ec2a64df12025d87c1e332da21c3ad90a", hex.EncodeToString(sum[:]))
 	require.Equal(t, sum[:], evidence.Hash())
 
-	other := repairM1118Evidence(t)
+	other := signedLightClientAttackEvidence(t)
 	other.ConflictingBlock.Commit.Signatures[3] = types.NewCommitSigAbsent()
 	require.NoError(t, other.ValidateBasic())
 	require.NoError(t, other.ConflictingBlock.ValidatorSet.VerifyCommitLight(other.ConflictingBlock.ChainID,
@@ -102,8 +102,8 @@ func TestRepairM_1118_AttackEvidenceDigest(t *testing.T) {
 	require.NotEqual(t, evidence.Hash(), other.Hash())
 }
 
-func TestRepairM_1118_InvalidAttackVector(t *testing.T) {
-	evidence := repairM1118Evidence(t)
+func TestLightClientAttackEvidenceVectorValidation(t *testing.T) {
+	evidence := signedLightClientAttackEvidence(t)
 	pb, err := types.EvidenceToProto(evidence)
 	require.NoError(t, err)
 	wire, err := pb.Marshal()
@@ -151,8 +151,8 @@ func TestRepairM_1118_InvalidAttackVector(t *testing.T) {
 	}
 }
 
-func TestRepairM_1118_TxHashLength(t *testing.T) {
-	block := repairM1118Evidence(t).ConflictingBlock
+func TestProposalTxHashLengthValidation(t *testing.T) {
+	block := signedLightClientAttackEvidence(t).ConflictingBlock
 	tx := types.Tx("repair-m1118/transaction")
 	key := tx.Hash()
 	proposal := types.NewProposal(block.Height, 0, -1, block.Commit.BlockID, block.Time,
@@ -191,7 +191,7 @@ func TestRepairM_1118_TxHashLength(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestRepairM_1118_NodeKeyAtomicSave(t *testing.T) {
+func TestNodeKeyAtomicSave(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "node_key.json")
 	key, err := types.LoadOrGenNodeKey(path)
@@ -254,7 +254,7 @@ func TestRepairM_1118_NodeKeyAtomicSave(t *testing.T) {
 	require.Equal(t, original.ID(), stillPrevious.ID())
 }
 
-func TestRepairM_1118_NodePublicKeyRetry(t *testing.T) {
+func TestNodePublicKeyRecovery(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "node_key.json")
 	pubPath := filepath.Join(dir, "node_pubkey.txt")
@@ -312,7 +312,7 @@ func TestRepairM_1118_NodePublicKeyRetry(t *testing.T) {
 	require.Equal(t, "{", string(corrupt))
 }
 
-func TestRepairM_1118_VoteExtensionEnable(t *testing.T) {
+func TestVoteExtensionActivationUpdate(t *testing.T) {
 	for _, tc := range []struct {
 		name              string
 		old, next, height int64
@@ -332,7 +332,7 @@ func TestRepairM_1118_VoteExtensionEnable(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			params := types.DefaultConsensusParams()
 			params.ABCI.VoteExtensionsEnableHeight = tc.old
-			block := repairM1118Evidence(t).ConflictingBlock
+			block := signedLightClientAttackEvidence(t).ConflictingBlock
 			genesis, err := state.MakeGenesisState(&types.GenesisDoc{
 				GenesisTime: block.Time, ChainID: block.ChainID, InitialHeight: 1,
 				ConsensusParams: params,
@@ -371,7 +371,7 @@ func TestRepairM_1118_VoteExtensionEnable(t *testing.T) {
 	}
 }
 
-func repairM1118Header(t *testing.T) types.Header {
+func headerFromLightCommitVector(t *testing.T) types.Header {
 	t.Helper()
 	data, err := os.ReadFile("testdata/light_commit_v1.json")
 	require.NoError(t, err)
@@ -391,9 +391,9 @@ func repairM1118Header(t *testing.T) types.Header {
 	return header
 }
 
-func repairM1118Evidence(t *testing.T) *types.LightClientAttackEvidence {
+func signedLightClientAttackEvidence(t *testing.T) *types.LightClientAttackEvidence {
 	t.Helper()
-	header := repairM1118Header(t)
+	header := headerFromLightCommitVector(t)
 	keys := make(map[string]crypto.PrivKey)
 	validators := make([]*types.Validator, 4)
 	for i := range validators {

@@ -21,7 +21,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/version"
 )
 
-func TestRepairM_1119_ValidatorPowerBounds(t *testing.T) {
+func TestValidatorSetFromProtoPowerBounds(t *testing.T) {
 	for _, tc := range []struct {
 		name    string
 		powers  []int64
@@ -42,14 +42,14 @@ func TestRepairM_1119_ValidatorPowerBounds(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			for _, claimedTotal := range []int64{0, -1, math.MaxInt64} {
-				wire := repairM1119LightBlock(t)
+				wire := signedValidatorPowerLightBlock(t)
 				wire.ValidatorSet.Validators = wire.ValidatorSet.Validators[:len(tc.powers)]
 				for i, power := range tc.powers {
 					wire.ValidatorSet.Validators[i].VotingPower = power
 				}
 				wire.ValidatorSet.Proposer = wire.ValidatorSet.Validators[0]
 				wire.ValidatorSet.TotalVotingPower = claimedTotal
-				wire = repairM1119WireRoundTrip(t, wire)
+				wire = roundTripLightBlockProto(t, wire)
 
 				var decoded *types.ValidatorSet
 				var err error
@@ -78,7 +78,7 @@ func TestRepairM_1119_ValidatorPowerBounds(t *testing.T) {
 	}
 }
 
-func TestRepairM_1119_IndividualValidatorValidation(t *testing.T) {
+func TestValidatorSetFromProtoIndividualValidation(t *testing.T) {
 	for _, tc := range []struct {
 		name    string
 		mutate  func(*tmproto.ValidatorSet)
@@ -91,7 +91,7 @@ func TestRepairM_1119_IndividualValidatorValidation(t *testing.T) {
 		{"empty_set", func(v *tmproto.ValidatorSet) { v.Validators = nil }, types.ErrValidatorSetEmpty},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			wire := repairM1119LightBlock(t)
+			wire := signedValidatorPowerLightBlock(t)
 			tc.mutate(wire.ValidatorSet)
 			var err error
 			require.NotPanics(t, func() { _, err = types.ValidatorSetFromProto(wire.ValidatorSet) })
@@ -103,9 +103,9 @@ func TestRepairM_1119_IndividualValidatorValidation(t *testing.T) {
 	}
 }
 
-func TestRepairM_1119_DispatcherRejectsOversizedResponse(t *testing.T) {
-	good := repairM1119LightBlock(t)
-	bad := repairM1119LightBlock(t)
+func TestStateSyncDispatcherRejectsOversizedValidatorPower(t *testing.T) {
+	good := signedValidatorPowerLightBlock(t)
+	bad := signedValidatorPowerLightBlock(t)
 	bad.ValidatorSet.Validators[0].VotingPower = types.MaxTotalVotingPower
 	bad.ValidatorSet.Validators[1].VotingPower = 1
 	bad.ValidatorSet.TotalVotingPower = 1
@@ -176,7 +176,7 @@ func TestRepairM_1119_DispatcherRejectsOversizedResponse(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func repairM1119WireRoundTrip(t *testing.T, block *tmproto.LightBlock) *tmproto.LightBlock {
+func roundTripLightBlockProto(t *testing.T, block *tmproto.LightBlock) *tmproto.LightBlock {
 	t.Helper()
 	encoded, err := block.Marshal()
 	require.NoError(t, err)
@@ -185,7 +185,7 @@ func repairM1119WireRoundTrip(t *testing.T, block *tmproto.LightBlock) *tmproto.
 	return &decoded
 }
 
-func repairM1119LightBlock(t *testing.T) *tmproto.LightBlock {
+func signedValidatorPowerLightBlock(t *testing.T) *tmproto.LightBlock {
 	t.Helper()
 	keys := []ed25519.SecretKey{
 		ed25519.TestSecretKey([]byte("repair-m1119-validator-one")),
@@ -218,5 +218,5 @@ func repairM1119LightBlock(t *testing.T) *tmproto.LightBlock {
 	require.NoError(t, vals.VerifyCommitLight(header.ChainID, blockID, header.Height, commit))
 	wire, err := block.ToProto()
 	require.NoError(t, err)
-	return repairM1119WireRoundTrip(t, wire)
+	return roundTripLightBlockProto(t, wire)
 }
