@@ -4,28 +4,28 @@
 
 Call native Paxeer X capabilities from the EVM with the correct addresses, ABIs, permissions, and token units.
 
-**Source:** `Paxeer-X-Network/precompiles/setup.go` and each precompile's `abi.json` and Go implementation.
+**Source:** `precompiles/setup.go` and each precompile's `abi.json` and Go implementation.
 
 ## Kernel and native application precompiles
 
-Paxeer X extends the EVM with the LayerX kernel and native financial applications. These addresses share the same 20-byte padding convention as the chain interfaces above.
+Paxeer X extends the EVM with the LayerX kernel and native financial applications. The tables use shortened addresses; pad each address to 20 bytes for an EVM call.
 
 | Address | Interface | Operations |
 | --- | --- | --- |
-| `0x1012` | LayerX verification | `verifyEd25519`, `verifyReceipt`, `verifyReceiptInclusion`, `verifyStateProof`, `verifyDiscoveryProof` |
-| `0x1013` | Custody | Native and token deposits, withdrawal requests and finalisation, deposit-root registration, nullifier queries, forced-exit requests and execution |
-| `0x1014` | Anchor | Checkpoint submission and finality, finalized roots, availability attestations, guarantor bonds, sequencer authorization, challenges, and equivocation evidence |
-| `0x1015` | Perpetuals | `addCollateral`, `addSize`, `closePosition`, `executeOrder`, `cancelOrder`, account, balance, and market queries; every method is nonpayable. From the v6.12.0 activation height this address serves the perpetuals venue; below that height it served the v6.9 exchange precompile, so bindings must match the height range they target |
+| `0x1012` | Disabled verification surface | Calls revert with `LXP_MODULE_DISABLED` |
+| `0x1013` | Disabled custody surface | Calls revert with `LXP_MODULE_DISABLED` |
+| `0x1014` | Anchor reads | Read-only queries use the available anchor store. Writes revert with `LXP_MODULE_DISABLED`. Network finality is block commit |
+| `0x1015` | Perpetuals | `addCollateral`, `addSize`, `closePosition`, `executeOrder`, `cancelOrder`, account, balance, and market queries; every method is nonpayable. Use `precompiles/perps/abi/abi.json` and `modules/perps` for the served venue |
 | `0x1016` | Bridge | `bridgeIn`, `bridgeOut`, `getChain`, `getAttestors`, `getCap`, `isNullified`, `isPaused` |
 | `0x1017` | Launchpad | Market creation, quotes, buys and sells, reserves and price snapshots, fee strategies, fee claims, burns, airdrops, and LP rewards |
-| `0x1018` | Fee token | `setFeeDenom`, `getFeeDenom`, `clearFeeDenom` select an approved fee denomination. Present only from the v6.7 upgrade |
-| `0x1019` | XWeb | `request`, `fulfil`, `fulfilProgram`, `refund`, `getRequest`, `getResult`, `getProgramResult`, `getKernelNetworkId`, attestors, threshold, fee, and parameters. Present only from the v6.8 upgrade |
+| `0x1018` | Fee token | `setFeeDenom`, `getFeeDenom`, `clearFeeDenom` select an approved fee denomination |
+| `0x1019` | XWeb | `request`, `fulfil`, `fulfilProgram`, `refund`, `getRequest`, `getResult`, `getProgramResult`, `getKernelNetworkId`, attestors, threshold, fee, and parameters |
 | `0x1020` | Price feed | `getPrice`, `getPriceBySymbol`, `getPrices`, market and observation queries, feed-key registration and revocation |
 | `0x1021`–`0x1025` | Spot (PECOR) | Market and swap rail (`0x1021`), limit orders (`0x1022`), stop orders (`0x1023`), read-only quoter (`0x1024`), and liquidity vault (`0x1025`); see the [spot exchange guide](https://docs.paxeer.app/spot-exchange) |
 
-### Merge and agent-function precompiles
+### Kernel constructs and agent functions
 
-The merge upgrade plan brings a further address range online. These entries are withheld below the plan's activation height, and an address with no registered constructor is not served.
+The kernel constructs and agent functions are listed in `MergeAddressTable` in `precompiles/setup.go`. They are served through registered constructors and are gated by the merge activation height. Use the ABI for the address and queried height.
 
 | Address | Interface |
 | --- | --- |
@@ -36,13 +36,13 @@ The merge upgrade plan brings a further address range online. These entries are 
 | `0x101e` | `layerxchains` |
 | `0x0901`–`0x0908` | Agent functions: `orob`, `clearing`, `oracle aggregator`, `pofq`, `scheduler`, `streams`, `tee attestor`, `eip712` |
 
-Use `precompiles/<name>/abi.json` and `contracts/src/precompiles/` for exact tuple layouts, argument types, mutability, and events. `docs/system/precompiles.md` indexes the interfaces. A successful write transaction records an operation; check the corresponding checkpoint, claim, intent, or bridge lifecycle before treating it as finalized settlement.
+Use each precompile's ABI for exact tuple layouts, argument types, mutability, and events. Perpetuals and pricefeed ABIs are under `precompiles/perps/abi/` and `precompiles/pricefeed/abi/`; spot ABIs are under `precompiles/spot/abi/`. Solidity interfaces for the bank, address, JSON, WASM and XWeb surfaces are in `contracts/src/precompiles/`. Verify the operation result and its committed block before treating execution as final.
 
 ### One account across execution surfaces
 
 The address precompile also exposes `bindLayerX`, `unbindLayerX`, `layerXBindNonce`, `getLayerXDid`, `getEvmAddrByLayerX`, and `getUnifiedAccount`. The unified account returns EVM, Cosmos, DID public key, and LayerX main account identifiers. Binding requires the account signature and current nonce; applications retain each identifier in its native encoding.
 
-Continue with [XDK](https://docs.paxeer.app/xdk) for client bindings, [settlement](https://docs.paxeer.app/settlement) for custody and finality, [bridge transfers](https://docs.paxeer.app/bridge), and [assets](https://docs.paxeer.app/assets) for denomination and pointer rules.
+Continue with [XDK](https://docs.paxeer.app/xdk) for client bindings, [settlement](https://docs.paxeer.app/settlement) for receipt verification and block finality, [bridge transfers](https://docs.paxeer.app/bridge), and [assets](https://docs.paxeer.app/assets) for denomination and pointer rules.
 
 ## Fixed addresses and interfaces
 
@@ -57,7 +57,7 @@ Paxeer X implements precompiles natively in the node. Call them with their match
 | `0x1005` | Staking | Delegation and validator transactions, queries, pagination, pool, and parameters |
 | `0x1006` | Governance | `vote`, `voteWeighted`, `deposit`, `submitProposal` |
 | `0x1007` | Distribution | Reward queries, withdrawals, withdrawal address, and validator commission |
-| `0x1008` | Oracle | Registered, but both price-query methods revert as retired |
+| `0x1008` | Oracle | Both price-query methods revert with an explicit disabled-query error |
 | `0x1009` | IBC transfer | `transfer`, `transferWithDefaultTimeout` |
 | `0x100a` | Pointer lookup | Native, CW20, CW721, and CW1155 pointer address, version, and existence |
 | `0x100b` | Pointer creation | `addNativePointer`, `addCW20Pointer`, `addCW721Pointer`, `addCW1155Pointer` |
@@ -70,17 +70,18 @@ Addresses in the table are shortened for readability. Pad them to 20 bytes, for 
 
 `getPaxAddr(address)` resolves an existing EVM-to-Paxeer association. `getEvmAddr(string)` performs the reverse lookup. Account addresses use `pax1`; validator operator addresses use `paxvaloper1`. These lookups can fail when no association exists; they are not interchangeable with a bech32 encoding of the same 20 bytes.
 
-The manual association methods derive both addresses from a public key or signature. Use the key belonging to the account being linked. Creating a new random wallet would associate a different account. Signature construction must match the exact message bytes expected by `addr.go`; an application timestamp is not a replay-protection mechanism enforced by that method.
+The manual association methods derive both addresses from a public key or signature. Use the key belonging to the account being linked. Creating a new random wallet would associate a different account. Signature construction must match the exact message bytes expected by `precompiles/addr/addr.go`. Use `layerXBindNonce` when preparing the consent message for `bindLayerX`.
 
 ## Bank balances and transfers
 
 Bank amounts are integers in the supplied base denomination. The native bank denomination is `uhpx`: one PAX equals `1,000,000 uhpx`, while EVM transaction value uses `10^18` wei per PAX. The internal human-unit identifier is `hpx`; see [network parameters](https://docs.paxeer.app/network-parameters) for the unit mapping.
 
 ```
-// Minimal ABI for a read; use the full bank/abi.json for other methods.
+// Minimal read ABI; the complete interface is precompiles/bank/abi.json.
 import { Contract, JsonRpcProvider, formatUnits } from 'ethers'
 
-const provider = new JsonRpcProvider(process.env.PAXEER_EVM_RPC_URL)
+export async function readBankBalance(rpcUrl, account) {
+const provider = new JsonRpcProvider(rpcUrl)
 if ((await provider.getNetwork()).chainId !== 125n) throw new Error('Wrong chain')
 const bank = new Contract(
   '0x0000000000000000000000000000000000001001',
@@ -88,12 +89,11 @@ const bank = new Contract(
    'function decimals(string) view returns (uint8)'],
   provider,
 )
-const account = process.env.PAXEER_ACCOUNT_ADDRESS
-if (!account) throw new Error('Set PAXEER_ACCOUNT_ADDRESS')
 const amount = await bank.balance(account, 'uhpx')
 console.log('bank base units:', amount.toString())
 console.log('PAX:', formatUnits(amount, 6))
 console.log('bank denomination decimals:', await bank.decimals('uhpx')) // 0
+}
 ```
 
 `bank.decimals(denom)` returns `0` because the ABI represents base-denomination integers. It does not return the display exponent of PAX. The `name` and `symbol` methods require bank denomination metadata.
@@ -116,7 +116,7 @@ Distribution supports `setWithdrawAddress`, `withdrawDelegationRewards`, `withdr
 
 ## Governance transactions
 
-The governance ABI exposes writes only: `vote`, `voteWeighted`, `deposit`, and `submitProposal`. Use the native module query APIs to inspect proposals and live deposit or voting parameters. Take the exact argument and message shapes from `precompiles/gov/abi.json` and `gov/handler.go` for the node revision you target, and confirm a submission through the native governance queries rather than assuming a particular EVM event.
+The governance ABI exposes writes only: `vote`, `voteWeighted`, `deposit`, and `submitProposal`. Use the native module query APIs to inspect proposals and live deposit or voting parameters. Take the exact argument and message shapes from `precompiles/gov/abi.json` and `precompiles/gov/handler.go` for the node revision you target, and confirm a submission through the native governance queries rather than assuming a particular EVM event.
 
 ## JSON extraction
 
@@ -147,12 +147,12 @@ The [CosmWasm guide](https://docs.paxeer.app/wasm) covers matching the native co
 
 Pointer lookup returns the pointer address, a version, and an existence flag for one supplied native denomination or CosmWasm address. It does not provide a list-all query. Solo claims consume signed Cosmos transaction payloads; they are asset-claim operations rather than a general administrative interface.
 
-## Retired Oracle API
+## Oracle query behavior
 
-`getExchangeRates` and `getOracleTwaps` at `0x1008` revert with `oracle precompile is retired; oracle data queries are disabled`. See the [Oracle module guide](https://docs.paxeer.app/modules/oracle) for native query interfaces.
+`getExchangeRates` and `getOracleTwaps` at `0x1008` revert with `oracle precompile is retired; oracle data queries are disabled`. See the [Oracle module guide](https://docs.paxeer.app/modules/oracle) for native module queries. The EVM pricefeed read interface is at `0x1020`.
 
 ## ABI and failure handling
 
-Use the matching `precompiles/<name>/abi.json`, simulate the real caller and value, and inspect revert data before sending a transaction. Most module precompiles meter native execution dynamically; sample gas figures are not fixed limits. An off-chain read needs no funded signer, while an on-chain call still consumes gas.
+Use the matching `precompiles/<name>/abi.json`, simulate the real caller and value, and inspect revert data before sending a transaction. Module-backed precompiles can meter native execution dynamically; kernel constructs and the perpetuals venue use method gas tables. Use the gas policy of the specific precompile. An off-chain read needs no funded signer, while an on-chain call still consumes gas.
 
 In particular, address lookup is `getPaxAddr` in this tree. An SDK package targeting another chain can carry different selectors, chain IDs, prefixes, or addresses even when its API looks similar.

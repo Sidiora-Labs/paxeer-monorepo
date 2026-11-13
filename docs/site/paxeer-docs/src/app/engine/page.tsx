@@ -189,7 +189,7 @@ occ_enabled = true`}</code></pre>
 
       <ul>
         <li><strong>State Tests:</strong> <code>state_test.go</code> runs Ethereum state transition tests</li>
-        <li><strong>Harness:</strong> <code>tests/harness/</code> provides test fixtures and builders</li>
+        <li><strong>Harness:</strong> <code>engine/tests/harness/</code> provides test fixtures and builders</li>
         <li><strong>Giga Test:</strong> <code>giga_test.go</code> for large-scale execution</li>
       </ul>
 

@@ -6,21 +6,21 @@ Manage Paxeer X node services, validator accounts, monitoring, and recovery.
 
 For stalled heights, peer failures, or state mismatches, start with [Troubleshoot a Node](https://docs.paxeer.app/node-troubleshooting). Record the binary revision and failing height before changing state.
 
-## Operate every Paxeer X plane
+## Operate the node and application services
 
-A Paxeer X deployment joins chain consensus, kernel execution, checkpoint finality, public ingress, discovery, and user services. Assign each role its own health checks, storage policy, credentials, and recovery procedure.
+Paxeer mainnet-beta is one BFT chain with EVM chain ID 125. Kernel execution is embedded in `paxd` and participates in block proposal. A receipt is final when its block is committed. Hosted gateways and user services support applications around the chain. Assign each deployed service its own health checks, storage policy, and recovery procedure.
 
 | Role | Responsibility | Operational evidence |
 | --- | --- | --- |
-| Chain node and validator | Execute EVM and Cosmos transactions; enforce native custody, anchor, exchange, bridge, launchpad, and XWeb rules | Chain identity, synchronization, peers, application hash, upgrade version, and RPC health |
-| Kernel sequencer | Order signed activities, execute deterministic batches, and retain canonical logs and checkpoints | Signed batch headers, state and receipt roots, durable activity history |
-| Authority replica | Maintain the receipt-authority execution path and retained replica history | Replica progress, verified receipts, and agreement with the sequencer |
-| Guarantor | Independently retrieve and replay availability data, attest verified checkpoints, and submit settlement evidence | Verified roots, bonded membership, certificate threshold, registration and finality |
+| Chain node and validator | Execute EVM and Cosmos transactions; enforce active exchange, bridge, launchpad, ledger, and XWeb rules | Chain identity, synchronization, peers, application hash, upgrade version, and RPC health |
+| Embedded kernel | Execute ordered activities as part of chain block processing | Committed blocks, execution results, state roots, and receipts |
+| Receipt authority | Provide verified receipt material to hosted clients | Authorized receipt keys, transaction binding, and receipt digests |
+| Consensus validator set | Vote on blocks and establish BFT commits | Validator membership, voting power, commit signatures, and block identity |
 | Gateway and registry | Verify public receipts, route requests, and publish discovery records | Dependency readiness, receipt verification, registry identity, and routing health |
 | Agent and Human services | Serve identity, delegated execution, owner approval, security, movement, and key-management boundaries | Authorization outcomes, signed activity and receipt continuity, provider readiness |
-| Relay and archive | Retired — see [relay/archive status](https://docs.paxeer.app/relay-archive); there is no installable relay/archive role | — |
+| Historical queries | Serve retained node state; see [history access](https://docs.paxeer.app/relay-archive) | Earliest available height and archive retention settings |
 
-Public applications enter through the gateway. Core administration, signer channels, and provider internals stay inside their infrastructure boundary. Sequencing, custody release, and checkpoint authority remain distinct roles.
+Applications access node JSON-RPC or the hosted gateway methods appropriate to their integration. Core administration, signing APIs, and provider internals have separate authentication boundaries. Consensus and kernel execution remain within the node.
 
 See [kernel execution](https://docs.paxeer.app/layerx-kernel), [settlement](https://docs.paxeer.app/settlement), [public APIs](https://docs.paxeer.app/platform-api), and [configuration](https://docs.paxeer.app/configuration).
 
@@ -32,17 +32,18 @@ Use [Configuration](https://docs.paxeer.app/configuration) to choose a node prof
 
 ## HPX Node Management
 
-HPX manages a native `paxd` systemd service and verifies installation artifacts against its checksum manifest. The default distribution origin is `https://node.hyperpaxeer.com`.
+HPX manages a native `paxd` systemd service and verifies installation artifacts against the selected distribution mirror’s checksum manifest. The mirror distributes installation material.
 
 From the monorepo root, inspect and run the checked-out bootstrap script:
 
 ```
 less tools/hpx/get-hpx.sh
 sudo bash tools/hpx/get-hpx.sh
-HPX_TYPE=fullnode hpx setup
+# If setup was skipped during bootstrap:
+sudo env HPX_TYPE=fullnode hpx setup
 ```
 
-Select `HPX_TYPE=validator` for the validator setup flow. The selected artifact set includes the binary, architecture-specific Wasm runtimes, genesis, and configuration. Use the selected mirror's manifest to confirm the release and artifact checksums.
+The bootstrap script offers the setup wizard after installation. Select `HPX_TYPE=validator` instead of `fullnode` for validator setup. Run the HPX management commands below from a root shell. The selected artifact set includes the binary, architecture-specific Wasm runtimes, genesis, and configuration. Use the selected mirror's manifest to confirm the release and artifact checksums.
 
 ```
 hpx                 # interactive menu
@@ -69,11 +70,12 @@ hpx help
 From the monorepo root:
 
 ```
-make docker-cluster-start
-make docker-cluster-start-monitoring
+DOCKER_DETACH=true make -f chain.mk docker-cluster-start
+# Or start the cluster with monitoring:
+DOCKER_DETACH=true make -f chain.mk docker-cluster-start-monitoring
 ```
 
-The repository provides separate local cluster and monitoring targets. See [Docker](https://docs.paxeer.app/docker) for compose services and generated paths.
+The targets in `chain.mk` stop the corresponding local cluster and replace generated configuration before startup. See [Docker](https://docs.paxeer.app/docker) for compose services and generated paths.
 
 ## Validator Accounts and Keys
 
@@ -127,8 +129,8 @@ The staking module also exposes `edit-validator`, `delegate`, `redelegate`, and 
 ## Monitoring
 
 ```
-curl -sS http://127.0.0.1:26657/status | jq '.result.sync_info'
-curl -sS http://127.0.0.1:26657/net_info | jq '.result.n_peers'
+curl -sS "${CONSENSUS_HTTP_URL:?Set the consensus HTTP origin}/status" | jq '.result.sync_info'
+curl -sS "${CONSENSUS_HTTP_URL:?Set the consensus HTTP origin}/net_info" | jq '.result.n_peers'
 journalctl -u paxd -f
 ```
 
@@ -150,7 +152,7 @@ Remote signers connect through the configured `[priv-validator]` socket or gRPC 
 | Selected keyring backend | Operator account keys |
 | Genesis, TOML configuration, and configured stores | Matching chain and state data |
 
-Default paths are relative to `~/.paxeer` and can be overridden. Stop the node before replacing its stores. Preserve the key and last-sign state together and ensure the original signer is offline before activating a replacement. Never start a second active signer with the same validator key.
+The node defaults to `~/.paxeer`. HPX defaults to `/root/.paxeer` and reads `HPX_HOME` to override that home. Stop the node before replacing its stores. Preserve the key and last-sign state together and ensure the original signer is offline before activating a replacement. Never start a second active signer with the same validator key.
 
 For snapshot recovery, verify the archive revision, checksum, backend, and layout before extraction. Reserve `unsafe-reset-all` for a planned state reset with complete backups. Use retention settings for routine pruning and `paxd rollback` for supported stopped-node state reconciliation.
 

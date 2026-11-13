@@ -4,7 +4,7 @@
 
 Understand Paxeer’s in-tree CosmWasm virtual machine, Go and Rust boundary, native library builds, and gas accounting.
 
-**Source:** `Paxeer-X-Network/wasm-runtime/`, especially `lib.go`, `internal/api/`, and `libwasmvm/`.
+**Source:** `wasm-runtime/` at the repository root, especially `lib.go`, `internal/api/`, and `libwasmvm/`.
 
 ## Runtime responsibilities
 
@@ -24,7 +24,7 @@ A contract developer compiles Rust into a `.wasm` artifact separately. The runti
 | `builders/` | Containerized native-library build definitions. |
 | `testdata/` | Compiled contracts used by runtime tests. |
 
-The node imports `github.com/Sidiora-Labs/Paxeer-X-Network/wasm-runtime`. Use the version in the Paxeer tree with its matching native library and generated bindings.
+The node imports the local `wasm-runtime/` Go package as part of the root Go module. Use it with its matching native library and generated bindings.
 
 ## CGO and native libraries
 

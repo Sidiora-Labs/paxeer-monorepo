@@ -8,21 +8,21 @@ Build deterministic Paxeer X programs with runtime crates, language SDKs, fixtur
 
 The Programs workspace contains the deterministic WebAssembly execution surface for the LayerX kernel domain of Paxeer X. Applications deploy artifacts and interfaces, execute under explicit capabilities, and express monetary effects as authenticated native transfer sets. Read [Programs](https://docs.paxeer.app/programs) before choosing entrypoints, account seeds, and spending grants.
 
-Rust workspace packages use edition 2021 and Rust 1.91.1. Cargo resolves dependencies from the checked-in vendor tree in offline mode, and the interpreter is pinned to `wasmi = 0.31.2`. Run Cargo from inside `programs/` so its local configuration applies. Lockfiles, source checksums, and frozen ABI vectors make builds and byte contracts reproducible.
+Rust workspace packages use edition 2021 and declare a minimum Rust version of 1.91.1. Cargo resolves dependencies from the checked-in vendor tree in offline mode, and the interpreter is pinned to `wasmi = 0.31.2`. Run Cargo from inside `programs/` so its local configuration applies. Lockfiles, source checksums, and frozen ABI vectors make builds and byte contracts reproducible.
 
 ## Choose the right package
 
 | Workspace area | Responsibility |
 | --- | --- |
-| `crates/layerx-programs-runtime` | Validation, budgets, metering, host imports, storage, cross-program calls, transfer authorization, occupancy, replay, and kernel FFI. |
-| `crates/layerx-programs-registry` | Receipt-bound deployment journals, interfaces, program account bindings, account proofs, and lifecycle exits. Its `chain_proof` module carries verified program-state reads across the C and Rust boundary; there is no separate protocol-adapter crate. |
-| `crates/layerx-programs-ai-market` | PAXAI schema-1 common contracts and the direct native Programs entrypoint. |
-| `crates/layerx-programs-interpreter` | Bounded deterministic scripts with canonical input validation before effects. |
-| `crates/layerx-programs-market` | Compute leases, usage claims, challenge windows, provider stake, attesters, and bisection disputes. |
-| `crates/layerx-programs-arbiter` | Sandbox trace replay and disputed single-step adjudication. |
-| `crates/layerx-programs-sandbox` | Bounded lease lifecycle, isolated execution, snapshots, and restore. |
-| `sdk/` and `porting/` | Rust, C, and AssemblyScript guests; migration guides and reference guests for EVM, Solana, and CosmWasm developers. |
-| `fixtures/`, `tests/`, `fuzz/`, `benches/` | Canonical artifacts, cross-implementation vectors, hostile guests, fuzz corpora, and interpreter comparisons. |
+| `programs/crates/layerx-programs-runtime` | Validation, budgets, metering, host imports, storage, cross-program calls, transfer authorization, occupancy, replay, and kernel FFI. |
+| `programs/crates/layerx-programs-registry` | Receipt-bound deployment journals, interfaces, program account bindings, account proofs, and lifecycle exits. Its `chain_proof` module verifies committed chain evidence for program-state reads. |
+| `programs/crates/layerx-programs-ai-market` | PAXAI schema-1 common contracts and the direct native Programs entrypoint. |
+| `programs/crates/layerx-programs-interpreter` | Bounded deterministic scripts with canonical input validation before effects. |
+| `programs/crates/layerx-programs-market` | Compute leases, usage claims, challenge windows, provider stake, attesters, and bisection disputes. |
+| `programs/crates/layerx-programs-arbiter` | Sandbox trace replay and disputed single-step adjudication. |
+| `programs/crates/layerx-programs-sandbox` | Bounded lease lifecycle, isolated execution, snapshots, and restore. |
+| `programs/sdk/` and `programs/porting/` | Rust, C, and AssemblyScript guests; migration guides and reference guests for EVM, Solana, and CosmWasm developers. |
+| `programs/fixtures/`, `programs/tests/`, `programs/fuzz/`, `programs/benches/` | Canonical artifacts, cross-implementation vectors, hostile guests, fuzz corpora, and interpreter comparisons. |
 
 ## Build a guest application
 
@@ -69,7 +69,7 @@ make programs-test
 
 Frozen guest ABI versions 1 through 5 have independently pinned vector checksums in `programs/abi-frozen.sha256`. The ABI gate compares generated canonical bytes, manifests, validator allowlists, and SDK declarations with those baselines. An existing frozen import contract is immutable; add a new ABI version for a new surface.
 
-Do not treat vector regeneration as a fix for incompatible behavior. A missing frozen vector, changed checksum, or changed generated surface fails the drift check. Review interface generators and clients alongside a new ABI allocation so deployment, calls, and response decoding agree.
+Keep the canonical vectors, interface generators and clients aligned with the selected ABI version. Deployment validation, host imports and response decoding use that version to select the same byte contract.
 
 ## Maintain runtime boundaries
 
@@ -77,21 +77,21 @@ Host-function families register through their own modules and access execution s
 
 Dependency policy excludes entropy, clocks, arbitrary networking, dynamic registration, database engines, and alternate execution engines from the deterministic boundary. It verifies vendored checksums, the exact interpreter revision, approved licenses, and integer-only consensus-adjacent code. Workspace linting also rejects unchecked unwraps, expects, and float arithmetic.
 
-## Canonical fixtures and release evidence
+## Canonical fixtures
 
 Lifecycle, capability, executed-receipt, and reference-program fixtures keep native encoders and SDKs aligned. Use the check targets when validating existing output; generation targets intentionally write new fixtures.
 
 ```
 make programs-check-capability-fixture
 make programs-check-native-lifecycle-fixtures
-make programs-check-executed-fixture
+make programs-check-executed-v4-fixture
 
 # Rebuild reference artifacts when intentionally changing their source
 make programs-reference-fixtures
 ```
 
-Retain the artifact hash, interface, chosen ABI, test results, and receipt-verification behavior for each release. Local checks establish the behavior they exercise; the qualification runner adds its own release evidence. Applications still verify live deployment and execution receipts before relying on a program outcome.
+Retain the artifact hash, interface and chosen ABI with each deployed program. Applications verify deployment and execution receipts, including committed block evidence, before relying on a final program outcome.
 
 Continue with [bounded storage scans](https://docs.paxeer.app/storage-scan) and [sandbox execution](https://docs.paxeer.app/sandbox).
 
-**Technical references:** Programs workspace guide, Cargo manifest and configuration, Makefile Programs targets, frozen ABI baselines, dependency policy, and runtime boundary checks.
+**Technical references:** `programs/Cargo.toml`, `programs/.cargo/config.toml`, `Makefile`, `programs/abi-frozen.sha256`, `scripts/programs/dependency-policy.sh`, and `tests/programs/runtime-module-boundaries.sh`.

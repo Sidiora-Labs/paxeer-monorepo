@@ -11,10 +11,10 @@ A receipt is evidence computed by the protocol. Clients submit signed activities
 | Evidence | Native fields | What it establishes |
 | --- | --- | --- |
 | Identity and order | `activity_id`, `global_sequence`, `batch_id` | The activity and its position in ordered execution. |
-| State transition | `previous_state_root`, `resulting_state_root`, `activity_root` | The committed state chain and activity binding. |
+| State transition | `previous_state_root`, `resulting_state_root`, `activity_root` | The executed state transition and activity commitments. |
 | Outcome | `result_code`, `effects`, `fee_charged` | Success or refusal, computed effects, and execution charge. |
 | Rules | `protocol_version`, `module_id`, `module_version`, `parameter_version` | The execution rules needed for independent interpretation and replay. |
-| Authorization | `authorization_hash`, `context_hash`, `sequencer_signature` | The authorization and context commitments authenticated by the sequencer. |
+| Authorization | `authorization_hash`, `context_hash`, `sequencer_signature` | The authorization and context commitments authenticated by the receipt signing key. |
 
 ## Payment evidence
 
@@ -36,9 +36,9 @@ Node evidence is `pax_sequencerReceipt`. `px_getReceiptKeys` lists the node's pi
 | `receipted` | A signed execution receipt awaiting block commitment. |
 | `committed` | A receipt covered by the committed block’s sequence batch. This is final. |
 
-A queue acknowledgement, HTTP 202, or activity identifier establishes neither execution nor finality. A successful submission or signed receipt alone must not be treated as a committed result. The external checkpoint registry, bonded guarantor attestations, and L0–L4 settlement ladder are retired. Archived certificates describe that former protocol.
+An activity identifier or submission acknowledgement establishes neither execution nor finality. Authenticate the signed receipt against an independently pinned receipt-key list, match the intended operation, and require covering-block commitment before treating the result as final.
 
-The agent proof crate uses its own rank lattice for portable verification: ranks 0–5, `Unverified`, `SequencerSigned`, `BatchIncluded`, `StateProven`, `CheckpointFinalised`, and `SettlementAnchored`. `CheckpointFinalised` maps to the `committed` rung. Do not confuse these crate ranks with a live checkpoint process on the network.
+The agent types crate accepts verification wire ranks 0, 1, 2, 3 and 6: `unverified`, `sequencer_signed`, `batch_included`, `state_proven` and `committed`. Receipt signature, batch inclusion and native state-witness checks do not authenticate a CometBFT commit. A parsed label alone does not establish verified evidence.
 
 ## Independent verification
 
@@ -46,28 +46,28 @@ The agent proof crate uses its own rank lattice for portable verification: ranks
 | --- | --- |
 | `layerx-proof` | Verify signed receipt bytes. |
 | `layerx receipt verify` | Perform a local check against caller-supplied batch facts. |
-| `layerx-portable` | Export and verify a `layerx-receipt-proof-v1` JSON object against independently trusted `AuthorizedBatch` facts. |
+| `layerx-portable` | Export and verify a `layerx-receipt-proof-v2` JSON object against independently pinned `ReceiptKeyEntry` values. |
 
-Portable verification runs without a node, gateway, daemon, database, clock, or network. Its trust anchor is the independently trusted authorized batch. Merely packaging a receipt with a claimed signer does not make that signer authoritative.
+Portable verification runs offline. Its trust anchor is the caller’s independently pinned receipt-key list, including each key’s allowed signing heights. Merely packaging a receipt with a claimed signer does not make that signer authoritative. The portable proof authenticates a receipt but does not establish block commitment.
 
 For block-level verification, authenticate the block header and CometBFT commit, then verify transaction or state inclusion against the corresponding authenticated root. State proofs must name the relevant height and key. An unrelated newer head does not prove an earlier receipt's effects.
 
 ### Verification workflow
 
-1. Decode canonical receipt bytes and authenticate the signature against the expected authorized sequencer.
+1. Decode canonical receipt bytes and authenticate the signature against the pinned receipt key valid at the signed height.
 2. Match the activity identifier and require the expected success result.
 3. For payment, compare asset, amount, source, destination, authorization, and context with the intended purchase or transfer.
-4. Verify state-root binding and the exact receipt inclusion proof when batch assurance is required.
+4. Verify the covering block’s receipt coverage and any state proof against the corresponding authenticated root.
 5. Require the `committed` rung from `pax_sequencerReceipt` when finality is required.
 6. Persist the verified receipt identifier and evidence so retries and reconciliation refer to the original economic result.
 
 ## Unknown outcomes and honest UI states
 
-If submission fate cannot be determined, retain the signed activity and its idempotency key and recover the original receipt. Display the operation as still checking until verified evidence supports completion. An agent claims a result only after independently verifying core-produced evidence; a local success string is insufficient.
+If submission fate cannot be determined, retain the signed transaction and its hash, then query the original receipt before considering a rebroadcast. Display the operation as still checking until verified evidence supports completion. An agent claims a result only after independently verifying node-produced evidence; a local success string is insufficient.
 
 ## Native receipt interfaces
 
-The C interface provides `lxp_receipt_encode`, `lxp_receipt_decode`, `lxp_receipt_sign`, `lxp_receipt_verify`, and `lxp_receipt_digest`. Program evidence is bound with `lxp_receipt_bind_program_outcome` and `lxp_receipt_bind_program_artifacts`. Supply validation is exposed through `lxp_receipt_validate_supply`.
+The C interface in `include/layerx/lxp_receipt.h` provides `lxp_receipt_encode`, `lxp_receipt_decode`, `lxp_receipt_sign`, `lxp_receipt_verify`, and `lxp_receipt_digest`. Program evidence is bound with `lxp_receipt_bind_program_outcome` and `lxp_receipt_bind_program_artifacts`. Supply validation is exposed through `lxp_receipt_validate_supply`.
 
 ## Continue reading
 

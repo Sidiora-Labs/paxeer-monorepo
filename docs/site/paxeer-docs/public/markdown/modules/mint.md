@@ -2,9 +2,9 @@
 
 # Mint Module
 
-Scheduled native token release: a fixed amount minted daily through the epoch hook, under governance-controlled schedules.
+Scheduled native token release through epoch hooks, with daily amounts derived from the remaining supply and governed release dates.
 
-**Source:** `Paxeer-X-Network/modules/mint/`
+**Source:** `modules/mint/`
 
 ## Overview
 
@@ -28,15 +28,15 @@ If the amount is zero or nothing remains, the hook returns without minting. Othe
 
 ### Example
 
-If `total_mint_amount = 1,000,000` tokens and the period is 100 days:
+For an illustrative schedule with `total_mint_amount = 1,000,000` base units and 100 days between the initial release date and the end date:
 
-- Initial daily mint: `1,000,000 / 100 = 10,000` tokens/day
+- Initial daily mint: `1,000,000 / 100 = 10,000` base units/day
 
-- After 50 days: `500,000 remaining / 50 days = 10,000` tokens/day (unchanged if no downtime)
+- After 50 days: `500,000 remaining / 50 days = 10,000` base units/day (unchanged if no downtime)
 
-- If the chain was down for 1 day at day 50: `500,000 remaining / 49 days = 10,204` tokens/day (adjusted)
+- If a daily release is missed and the next evaluated epoch date is one day later: `500,000 remaining / 49 days = 10,204` base units/day (adjusted)
 
-- If the chain is still down past the end date, the first epoch end after recovery releases the entire remainder at once (rule 2)
+- When the evaluated epoch start date reaches the end date, the hook releases the entire remainder (rule 2). Epochs advance at most once per block, so recovery follows the epoch schedule
 
 ## State
 
@@ -93,9 +93,9 @@ The mint module has no begin-block minting logic of its own. Its `BeforeEpochSta
 
 ### Update Minter Proposal
 
-The minter can be replaced via governance to change the mint schedule. The proposal is stored *verbatim* after validation (`HandleUpdateMinterProposal` calls `ValidateMinter` then `SetMinter`), so every field must be set explicitly. In particular:
+The minter can be replaced via governance to change the mint schedule. The proposal is stored *verbatim* after validation (`HandleUpdateMinterProposal` calls `ValidateContent` then `SetMinter`), so every field must be set explicitly. In particular:
 
-- `remaining_mint_amount` is not derived from `total_mint_amount`. Setting it to `0` means no ongoing release and no further mints
+- `remaining_mint_amount` is not derived from `total_mint_amount`. Setting it to `0` ends that release; another eligible schedule can then supply a new minter
 
 - `last_mint_date` must be a parseable `yyyy-mm-dd` date; an empty string fails validation. A fresh minter uses `0001-01-01`
 
@@ -118,24 +118,25 @@ The minter can be replaced via governance to change the mint schedule. The propo
 }
 ```
 
-Submit the proposal:
+Save the example JSON as minter_prop.json and submit it with your network deposit and fee:
 
 ```
 paxd tx gov submit-proposal update-minter ./minter_prop.json \
-  --deposit 20pax --from admin -b block -y \
-  --gas 200000 --fees 2000uhpx
+  --deposit <deposit-coin> --from <key-name> -b block -y \
+  --gas 200000 --fees <fee-coin>
 ```
 
-After the proposal passes, `paxd q mint minter` returns exactly the stored minter above until the next daily release updates it.
+The amounts above are base units of the configured denom. Choose a deposit, fee, and signing key for your network. After the proposal executes, `paxd q mint minter` returns the stored minter; subsequent epoch processing can update it.
 
 ### Update Params Proposal
 
-Parameters can be updated to define new token release schedules:
+Parameters can be updated to define new token release schedules. Save the example below as param_change_prop.json and set its deposit to the amount required by your network:
 
 ```
 {
   "title": "Param Change Proposal",
   "description": "Update token release schedule",
+  "deposit": "20000000uhpx",
   "changes": [
     {
       "subspace": "mint",
@@ -166,7 +167,7 @@ Submit:
 
 ```
 paxd tx gov submit-proposal param-change ./param_change_prop.json \
-  --from admin -b block -y --gas 200000 --fees 200000uhpx
+  --from <key-name> -b block -y --gas 200000 --fees <fee-coin>
 ```
 
 **Note:** Changes to `total_mint_amount` or `remaining_mint_amount` after the start date do not affect tokens already minted.

@@ -29,12 +29,12 @@ Route all relevant traffic through the daemon when relying on a daemon limit or 
 | `asset_id`, `purpose_hash` | The funded asset and committed purpose reference. |
 | `amount` | Initial funding amount. |
 | `per_period_limit` | Maximum permitted spend in a budget period. |
-| `period_length`, `period_start` | Period duration and initial period boundary. |
+| `period_length`, `period_start` | Period duration and initial period boundary in milliseconds of protocol batch time. |
 | `rollover_policy`, `carry_cap` | No rollover, or capped carry-forward of allowance. |
-| `expiry`, `revocation_sequence` | Lifetime and revocation generation. |
+| `expiry`, `revocation_sequence` | Expiry in milliseconds of protocol batch time, and the revocation counter. |
 | `source_account`, `source_sequence` | Version 2 funding source and its replay-protected debit sequence. |
 
-Amounts and limits use unsigned 128-bit values at the protocol boundary. Agent API amounts, sequences, limits and timestamps travel as decimal strings, preserving exact values across clients. Native budgets support up to 16 delegates. The rollover constants are `LX_BUDGET_ROLLOVER_NONE = 1` and `LX_BUDGET_ROLLOVER_CAPPED = 2`.
+Amounts and limits use unsigned 128-bit values at the protocol boundary. Agent API amounts, sequences, limits and timestamps travel as decimal strings. Budget creation takes expiry in seconds; returned protocol records expose period_length_ms, period_start_ms, and expiry_ms in milliseconds. Native budgets support up to 16 delegates. The rollover constants are `LX_BUDGET_ROLLOVER_NONE = 1` and `LX_BUDGET_ROLLOVER_CAPPED = 2`.
 
 ### Example policy
 
@@ -76,11 +76,11 @@ Create supports version 1 at 211 bytes and version 2 at 251 bytes. Fund supports
 
 1. Use `budget.create` with the intended enforcement mode and establish the permitted agent capability. A `ProtocolBudget` create requires the signed `BudgetAuthorization`; that authorization is refused for a `DaemonLimit`.
 2. Use `budget.fund` to add funds to a protocol budget. Funding requires the signed authorization carrying its preparation reference and signature; funding a `DaemonLimit` is refused, because a daemon limit holds no funds.
-3. Inspect state with `budget.reconciliation` before scheduling new spending. Note that the served `budget.list` adapter currently answers a bare array rather than `AuthorityResponse<BudgetRecords>`, which SDKs refuse as a decode violation; do not rely on it until it answers the wrapped shape.
+3. Inspect state with `budget.reconciliation` before scheduling new spending. The `budget.state` read returns the budget record, proven head and balance.
 4. Prepare the action with actor, authority, account sequence, timestamp bound, idempotency key, fee limit, payload and payload hash.
 5. Review the returned disclosure, then sign and submit the exact preparation.
 6. Track the submission and reconcile its verified receipt with the budget and account state.
-7. Use `budget.revoke` and capability revocation when the assignment ends.
+7. Use `budget.revoke` and capability revocation when the assignment ends. Protocol-budget revocation requires BudgetAuthorization for the exact prepared revoke activity.
 
 Protocol spending uses the native budget activity and protocol validation. Daemon budget objects carry their enforcement mode explicitly. Keep receipt evidence attached to reconciled spending so local scheduling decisions follow committed results.
 
@@ -99,7 +99,7 @@ Decision operations carry an `idempotency_key`. Approval states are `Held`, `Gra
 
 ## Reconcile before retrying
 
-A submission progresses through Prepared, Signed, Queued, and Submitted before its final result; there is no Acknowledged state. `Unknown` is a pending state requiring reconciliation. Executed and Committed results carry a receipt reference. Use `track` or `wait` to inspect evidence and the rung actually reached (`submitted`, `receipted`, or `committed`) before making a new economic attempt.
+Submission states include Prepared, Signed, Queued, Submitted, Unknown, Executed, Committed, Failed and Expired. `Unknown` is a pending state requiring reconciliation. Executed and Committed results carry a receipt reference. Use `track` or `wait` to inspect evidence and the rung actually reached (`submitted`, `receipted`, or `committed`) before making a new economic attempt.
 
 ### Common refusals
 
@@ -111,6 +111,6 @@ A submission progresses through Prepared, Signed, Queued, and Submitted before i
 | `LXP_ERR_BUDGET_REVOKED`, `LXP_ERR_EXPIRED` | Stop spending under that authority. |
 | `LXP_ERR_STALE_REVOCATION`, `LXP_ERR_SEQUENCE_REUSED`, `LXP_ERR_SEQUENCE_GAP` | Refresh verified revocation and sequence state before preparing again. |
 
-**Technical references:** `include/layerx/lx_budget.h`; `src/modules/budget/`; `services/agent/schema/agent-api/` budget, write, identity and approval contracts.
+**Technical references:** `include/layerx/lx_budget.h`; `src/modules/budget/`; `services/agent/schema/agent-api/` identity, write and approval contracts.
 
 See [identity and delegated credentials](https://docs.paxeer.app/identity) for owner authority, session revocation and recovery.

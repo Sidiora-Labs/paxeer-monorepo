@@ -2,18 +2,18 @@
 
 # Human interface
 
-Manage your Paxeer X identity, balances, agents, approvals, and recovery through evidence-backed journeys.
+Manage your Paxeer identity, balances, agents, approvals, and recovery through receipt-backed journeys.
 
-## A human control plane for Paxeer X
+## An account interface for Paxeer
 
-The Human interface brings the LayerX execution system into an account experience: sign in with a passkey, add funds, create agents, authorize sensitive work, and follow every movement through receipts. Home combines your balance, managed agents, pending approvals, and recent activity.
+The Human interface presents the Paxeer network through accounts and journeys: authenticate with a passkey, move funds, manage agents, review approvals, and inspect receipts. Home combines balances, managed agents, pending approvals, and recent activity.
 
-Human is custodial by default. Account authentication and protocol authority have separate roles. This separation lets you manage agents without exposing protocol signing keys to the browser. On the merged network, money moves through `move` journeys; the former wallet-binding, deposit, withdraw, and exit journey kinds are retired and remain readable only as closed history.
+Self-custody is the default posture; custodial holding requires explicit opt-in. Account authentication and protocol authority have separate roles. The key-export ceremony transfers the primary key once and stops subsequent service signing for that identity. Current money movements use `move` journeys on the same network.
 
 | Identity | Purpose | Authority |
 | --- | --- | --- |
 | Application identity | Passkey authentication and device sessions | Opens the Human account experience |
-| Protocol identity | LayerX DID and account operations | Custody service holds the primary signing key |
+| Protocol identity | DID and account operations | Self-custody or explicitly selected custodial authority |
 
 ## Onboard and secure an account
 
@@ -32,13 +32,13 @@ Onboarding progresses through creating the account, adding the passkey, setting 
 | Sign in | `POST /v1/passkeys/assertions`, finish the assertion, then `POST /v1/sessions` |
 | Inspect or refresh sessions | `GET /v1/sessions`, `POST /v1/sessions/refresh` |
 
-### Wallet binding is retired
+### Protocol ownership
 
-The former wallet-binding flow (`POST /v1/wallet-binding/statement`, `POST` and `GET /v1/wallet-binding`, and rebind) is retired. Every binding type and operation is marked retired, and stored wallet-binding journeys read back only as closed history; they cannot resume signing or execution. There is no wallet to connect and no binding state to poll. An owner EVM address is bound to the DID during registration instead; see [identity](https://docs.paxeer.app/identity).
+Onboarding binds protocol identity through the address precompile and verifies the resulting receipt. Passkeys authorize application access; protocol authority controls signed operations. See [identity](https://docs.paxeer.app/identity) for these roles.
 
 ## Create and govern managed agents
 
-An agent has a name, purpose, and monthly spending limit. Creation establishes the agent, its protection, and first funding. A separate native fee budget sets maximum fees per activity, total fees, period length, and maximum fees per period; a spending allowance and a fee allowance serve different purposes. On networks enforcing native fee authority version 2, the finite `native_fee_budget` must be supplied at creation: omitting it refuses creation, and changing or rotating a key never silently replenishes it.
+Agent creation asks for a name, purpose, and monthly spending limit. Each limit identifies whether enforcement is `protocol` or `app`. A separate native fee budget sets maximum fees per activity, total fees, period length, and maximum fees per period. Networks enforcing fee-authority version 2 require a finite `native_fee_budget`; changing or rotating a key does not replenish it.
 
 ```
 POST /v1/agents
@@ -48,11 +48,17 @@ Idempotency-Key: 9f3c1e6a0b8d4f72a5c9e1d3b7a2c4e6
   "name": "Research Runner",
   "purpose": "Buys datasets and pays per-use research services",
   "monthly_limit": { "amount": "250000000", "currency": "LXP" },
-  "native_fee_budget": { "...": "finite fee budget, required on fee-authority-v2 networks" }
+  "native_fee_budget": {
+    "asset_id": "<asset_id-from-fee-policy>",
+    "maximum_per_activity": "1000000000000000",
+    "maximum_total": "100000000000000000",
+    "period_length_ms": "86400000",
+    "maximum_per_period": "10000000000000000"
+  }
 }
 ```
 
-The example follows the Human API wire format. Amounts are integer strings; present human-readable values using the asset's declared precision. Creation returns an `agent-create` journey.
+This example follows `services/human/schema/human-api/agents.kvx`. Substitute `asset_id` from `GET /v1/sessions/fee-policy`. Amounts are integer strings in the declared asset units. The positive per-activity limit cannot exceed the total; a nonzero period requires a period limit at least as large as the per-activity limit. Creation returns an `agent-create` journey.
 
 | Control | Operation | Result |
 | --- | --- | --- |
@@ -80,20 +86,20 @@ Approval states are pending, approved, rejected, expired, and defective. Expiry 
 
 ## Read progress and proof
 
-Journeys expose stages, evidence references, timestamps, and refusals. States are getting-ready, sending, processing, done, done-finalised, still-checking, refused, waiting-for-you, closed, and awaiting-approval. Closed is how retired wallet-binding, deposit, withdraw, and exit history reads back; awaiting-approval marks a journey held for approval and is not receipt-backed completion. A refusal identifies who refused, explanatory copy, money left, and an optional path to change the request.
+Journeys expose stages, evidence references, timestamps, and refusals. States include getting-ready, sending, processing, done, done-finalised, still-checking, refused, waiting-for-you, closed, and awaiting-approval. A journey held for approval has no completed movement. A refusal identifies its authority, explanatory copy, whether money left, and an optional path to change the request.
 
 | Verification | Meaning |
 | --- | --- |
 | `unverified` | Submitted; no stronger authenticated execution evidence is attached |
-| `receipt-verified` | Receipted; the LayerX execution receipt is verified |
+| `receipt-verified` | Receipted; the execution receipt is verified |
 | `checkpoint-finalised` | Committed; inclusion in a committed block is verified |
 
-The former `paxeer-finalised` label is retired and defines no further rung. Use `GET /v1/journeys`, `GET /v1/journeys/{journey_id}`, and `GET /v1/evidence/{evidence_id}`. Evidence material includes its class, verification, content type, and base64 bytes. Live updates use `POST /v1/stream` and `GET /v1/stream/{cursor}`. These Human verification labels are distinct from RPC commitment names.
+Read `GET /v1/journeys`, `GET /v1/journeys/{journey_id}`, and `GET /v1/evidence/{evidence_id}`. Evidence material includes its class, verification, content type, base64 bytes, and optional progress rung and inclusion height. Verify the actual material and its trusted key bindings. Live updates use `POST /v1/stream` and `GET /v1/stream/{cursor}`.
 
 ## Recovery, sessions, and support
 
-Security settings manage passkeys, individual or all sessions, authenticator enrollment, backup-code rotation, and recovery evidence. Sensitive actions use a disclosure digest and step-up authorization. Revealed recovery evidence is a timed secret with a remask timestamp and copy policy. Protocol keys remain in custody; the single exception is the `export-primary-key` security action, the only route by which a DID primary key leaves the service.
+Security settings manage passkeys, sessions, authenticators, backup codes, and recovery evidence. Sensitive actions require a server disclosure digest and matching step-up evidence. Recovery evidence has a remask time and copy policy. Primary-key export uses `POST /v1/security/key-export/begin` and `POST /v1/security/key-export/finish`; it returns the key once and leaves the service unable to sign for that identity.
 
 Activity search uses `POST /v1/activity/query`; detail uses `GET /v1/activity/{entry_id}`. Support conversations accept deposit, withdrawal, agents, account, and report topics through `POST /v1/support/conversations`.
 
-Continue with [funding, money movement, and withdrawals](https://docs.paxeer.app/funding) or explore [agent capabilities](https://docs.paxeer.app/agents).
+Continue with [funding and money movement](https://docs.paxeer.app/funding) or explore [agent capabilities](https://docs.paxeer.app/agents).

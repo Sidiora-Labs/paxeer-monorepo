@@ -6,7 +6,7 @@ Consensus service wiring, application execution, trusted headers, and validator 
 
 ## Overview
 
-Paxeer includes a Tendermint-derived consensus stack and Autobahn components. Consensus orders and verifies blocks; the application executes transactions and commits state. Network safety depends on the protocol's validator and trust assumptions, while observed block time and throughput depend on the deployed configuration.
+Paxeer mainnet-beta is one BFT chain with EVM chain ID 125. Its kernel is part of the network and proposes blocks. A receipt is final when its block is committed. The tree includes a Tendermint-derived consensus stack and configurable Autobahn components; the application executes transactions and commits state. Network safety depends on the protocol's validator and trust assumptions, while observed block time and throughput depend on the deployed configuration.
 
 ## Autobahn and Validator Committees
 
@@ -28,7 +28,7 @@ Consensus establishes transaction ordering, while the execution scheduler manage
 
 ## Node Services
 
-The `consensus/node/` package assembles peer networking, block and state stores, mempool, evidence handling, RPC, indexing, and application connections. Three node modes enable different services: `full`, `validator`, and `seed`. Any other mode value is rejected; there is no archive mode.
+The `consensus/node/` package assembles peer networking, block and state stores, mempool, evidence handling, RPC, indexing, and application connections. The consensus configuration accepts `full`, `validator`, and `seed`. The paxd initializer also accepts archive, writes consensus mode full, and configures the application to retain available history.
 
 Sequencer mode cannot run with an `autobahn-config-file`; the configuration rejects that combination.
 
@@ -63,12 +63,12 @@ Equivocation handling can permanently tombstone a validator. Query the connected
 ## RPC and Metrics
 
 ```
-curl -sS http://127.0.0.1:26657/status
-curl -sS http://127.0.0.1:26657/net_info
-curl -sS http://127.0.0.1:26657/consensus_params
+curl -sS "$CONSENSUS_RPC_URL/status"
+curl -sS "$CONSENSUS_RPC_URL/net_info"
+curl -sS "$CONSENSUS_RPC_URL/consensus_params"
 ```
 
-Consensus RPC and EVM JSON-RPC are separate listeners. The consensus metrics include height, validator last-signed height, missed-block gauges, block/state-sync state, and block intervals. Use the series emitted by your configured namespace when constructing alerts.
+Set CONSENSUS_RPC_URL in your shell to the consensus listener for these examples. Consensus RPC and EVM JSON-RPC are separate listeners; the default consensus RPC port is 26657. The consensus metrics include height, validator last-signed height, missed-block gauges, block/state-sync state, and block intervals. Use the series emitted by your configured namespace when constructing alerts.
 
 **Source:** `consensus/internal/rpc/core/routes.go`; `consensus/internal/consensus/metrics.go`.
 

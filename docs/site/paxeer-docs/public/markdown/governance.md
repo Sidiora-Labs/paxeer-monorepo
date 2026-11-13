@@ -2,51 +2,51 @@
 
 # Governance
 
-Ordered authority changes, versioned parameters, staged rollouts, and controlled settlement upgrades across Paxeer X.
+Authorized module proposals, scoped pauses, and constrained proxy upgrades on Paxeer.
 
-Paxeer X governance operates across two boundaries: the Layer X activity log governs protocol execution, while Paxeer settlement contracts enforce their own authorized roles and delayed calls. A governance decision is evidence with an actor, scope, ordering position, and activation condition.
+Governance authorizes changes on one network. Chain proposals carry typed module messages, protocol activities carry their own authority, and Solidity proxy upgrades use their declared governance contract.
 
-## Governance in the activity log
+## Governance activities
 
-Module 7 processes governance activities through the same envelope, authority, ordering, fee, and receipt rules as other activities. Identity creation, key rotation, recovery changes, session grants, revocation, and delegated capability issuance therefore remain part of replayable history.
+The kernel governance module processes identity and authority activities under the canonical activity envelope, ordering, fee, and receipt rules. Its implementation is `src/modules/governance/lxp_governance.c`.
 
-Only the following Module-7 ordinals were verified in monorepo source (`modules/lxphost` tests). Meanings for other ordinals (`0x00070002`, `0x00070003`, `0x00070006`, `0x00070009`) were not verified and are not listed.
+The governance activity catalogue includes identity registration, session authority, and delegated grants. The following identifiers are handled by the kernel:
 
-| Activity | Purpose (as used in source) |
+| Activity | Purpose |
 | --- | --- |
-| `0x00070001` | Register / create-or-onboard identity (`registerType`). |
-| `0x00070005` | Session-authority activity (used with fee-record loading in host tests). |
-| `0x00070008` | Grant (`grantType`). |
+| `0x00070001` | Identity registration and onboarding. |
+| `0x00070005` | Session authority. |
+| `0x00070008` | Delegated grant. |
 
-Governance activity types are specific operations. Parameter proposals and emergency-state operations use the governance interfaces; applications must not manufacture an activity ordinal for a library operation. See [Identity and authority](https://docs.paxeer.app/identity) for account delegation.
+Use the declared encoding and authority for each activity. Governance proposal handling in `modules/layerxgov` is a separate typed chain interface. See [Identity and authority](https://docs.paxeer.app/identity) for account delegation.
 
-## Parameter proposals and activation
+## Typed module proposals
 
-On the Cosmos side, `modules/layerxgov` handles proposals and pause scopes (including `ErrPausedScope`), separate from activity-log governance. Parameter-proposal field sets, any minimum activation delay, and staged-rollout scopes (All/Module/Market/Account set) were not verified in source and are not specified here. Before submitting a proposal, read the current value, bounds, and version from the deployed module, retain the proposal identifier and receipt, and verify the enacted value after activation.
+`modules/layerxgov/types/proposal.go` defines `LayerXProposal`, which contains a title, description, and packed messages. Validation requires supported messages whose authority is the governance module account. The handler in `modules/layerxgov/handler.go` dispatches every message in a cached context and commits the changes only when all handlers succeed.
 
-## Emergency controls
+## Scoped pause controls
 
-Governance records emergency halt and resume events with an ordered sequence. A pause identifies a module, market, or network scope, a trigger commitment, exit conditions, and entry epoch. Module enablement is also an ordered governance action. These interfaces require governance authorization and do not create an operator shortcut outside the log.
+`CheckPauseScope` enforces module pauses while allowing named exit operations. Its scopes cover payment, exchange, ledger, authorization, and agent operations. A paused operation outside its allowed exit set returns `ErrPausedScope`.
 
-When responding to an incident, retain the triggering evidence, select the narrowest applicable scope, order the halt, and inspect the resulting emergency state. Resume against the recorded exit conditions through a subsequent ordered action. Applications continue to distinguish execution availability from the availability of existing receipts and proofs.
+Payment exits include escrow release and timeout, budget closure and defunding, stream pause and close, and service-offer withdrawal. Exchange exits include order cancellation, position closure, and margin withdrawal. Read the scope's exact method names before invoking an exit.
 
-## Settlement roles and timelocks
+## Proxy upgrade roles
 
 | Role | Authority |
 | --- | --- |
-| Proposer | Schedules an allowed target and function selector with a sufficient delay. |
-| Executor | Executes the exact scheduled operation after readiness and before grace-period expiry. |
-| Guardian | Cancels a pending, incomplete operation. |
-| Timelock itself | Changes roles, minimum delay, and call permissions through authorized self-calls. |
+| Governance authority | Schedules the permitted proxy upgrade with sufficient delay. |
+| Executor | Executes the exact scheduled operation within its readiness window. |
+| Guardian | Cancels a scheduled operation before it becomes ready. |
+| Proxy target | Receives the authorized upgradeToAndCall operation with zero value. |
 
-The operation identifier commits to the chain, timelock address, target, value, calldata hash, salt, and nonce. Scheduling and execution both enforce call permissions and value limits. Completion prevents operation replay; target failure reverts execution. Read the deployed contract's `minDelay`, `delayFloor`, and `gracePeriod` rather than assuming one universal waiting period.
+`contracts/governance/SidioraProxyTimelock.sol` binds an immutable proxy, governance authority, executor, guardian, minimum delay, delay floor, and grace period. Its operation identifier commits to the chain, timelock, target, value, calldata hash, salt, and nonce. Execution requires the scheduled operation to be ready and within its grace period.
 
-### Upgrades respect component boundaries
+### Constrained proxy upgrades
 
-Layer X settlement components expose their role, static configuration hash, release version, and storage-layout version. The component base disables UUPS upgrades. The Sidiora proxy governance timelock provides a separate constrained upgrade path for its proxy targets. A proxy upgrade therefore follows that target's governance contract, while protocol parameter changes follow their own versioned activity rules.
+The Sidiora timelock permits only `upgradeToAndCall` on its configured proxy, requires zero call value and deployed implementation code, and checks canonical upgrade calldata. Its roles and delay settings are immutable.
 
-Before execution, compare the scheduled target, implementation, calldata, configuration commitments, and activation dependencies. After execution, retain the operation event and verify the target's resulting version and state.
+Compare the target, implementation, calldata, salt, nonce, and ready time before execution. Inspect the operation event and resulting proxy state afterwards. A failed target call reverts execution; a completed operation cannot execute again.
 
 ## Continue
 
-Read [Guarantors](https://docs.paxeer.app/guarantors) for membership and bonds, [Security and trust boundaries](https://docs.paxeer.app/security) for verification responsibilities, and [Finality](https://docs.paxeer.app/finality) for checkpoint settlement.
+Read [Validators and commitment](https://docs.paxeer.app/guarantors) for consensus evidence, [Security and trust boundaries](https://docs.paxeer.app/security) for verification responsibilities, and [Finality](https://docs.paxeer.app/finality) for block commitment.

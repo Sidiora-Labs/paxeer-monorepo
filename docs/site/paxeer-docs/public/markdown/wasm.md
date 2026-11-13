@@ -4,7 +4,7 @@
 
 CosmWasm contract lifecycle, deployment permissions, and calls between Paxeer’s EVM and WebAssembly runtimes.
 
-**Source:** `Paxeer-X-Network/wasm/x/wasm/`, `precompiles/wasmd/`, and `node/wasmbinding/`.
+**Source:** `wasm/x/wasm/`, `precompiles/wasmd/`, and `node/wasmbinding/` at the repository root.
 
 ## Runtime and module
 
@@ -26,7 +26,7 @@ These are the parameter keys in `wasm/x/wasm/types/params.go`. A particular code
 
 ## Contract lifecycle
 
-Set your node endpoint, chain ID, and signer in the CLI configuration first. In these command templates, `INIT_JSON`, `EXECUTE_JSON`, and `QUERY_JSON` contain valid JSON matching your contract; `CODE_ID` and `CONTRACT` come from confirmed transaction results.
+Set your node endpoint, Cosmos chain ID, and signer in the CLI configuration first. In these command templates, `INIT_JSON`, `EXECUTE_JSON`, and `QUERY_JSON` are shell variables containing JSON matching your contract; `CODE_ID` and `CONTRACT` come from confirmed transaction results. ADMIN is the chosen administrator address, NEW_CODE_ID identifies uploaded replacement code, and MIGRATE_JSON contains its migration message.
 
 ```
 # Upload a compiled contract and record its confirmed code_id.
@@ -65,7 +65,7 @@ const wasm = new Contract(
 const queryResult = await wasm.query(contractAddress, toUtf8Bytes(JSON.stringify(queryMessage)))
 const decodedJson = JSON.parse(toUtf8String(queryResult))
 
-// 1 PAX = 1,000,000 uhpx = 10^18 wei.
+// 1,000,000 uhpx corresponds to 10^18 wei of EVM value.
 const coins = toUtf8Bytes(JSON.stringify([{ denom: 'uhpx', amount: '1000000' }]))
 const tx = await wasm.execute(
   contractAddress,
@@ -90,7 +90,7 @@ The implementation places additional limits on nested execution. Delegatecalling
 
 Standard CosmWasm messages handle bank transfers, staking, distribution, and other contract calls; custom bindings add Paxeer-specific module operations. Each contract has isolated byte-keyed storage accessed through host callbacks. Runtime computation and host work consume gas, including when an EVM contract makes a CosmWasm query on-chain.
 
-The retained native Oracle query route and the retired EVM Oracle precompile are separate interfaces. Read the [Oracle module guide](https://docs.paxeer.app/modules/oracle) before choosing a price-data integration.
+Custom bindings provide a native Oracle query route for exchange rates and time-weighted prices. Read the [Oracle module guide](https://docs.paxeer.app/modules/oracle) for its query fields and available data.
 
 ## Implementation references
 

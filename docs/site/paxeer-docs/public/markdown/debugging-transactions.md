@@ -8,7 +8,7 @@ Begin with the transaction hash, chain ID, and the endpoint that accepted the su
 
 ## Collect the transaction and receipt
 
-Set `PAXEER_RPC_URL` and `TX_HASH`, then use Cast to inspect the recorded transaction. These commands only query the endpoint.
+Set the shell placeholders `PAXEER_RPC_URL` and `TX_HASH`, then use Cast to inspect the recorded transaction. These commands only query the endpoint.
 
 ```
 cast chain-id --rpc-url "$PAXEER_RPC_URL"
@@ -23,28 +23,28 @@ cast receipt "$TX_HASH" --rpc-url "$PAXEER_RPC_URL" --json
 | Receipt status 0 | The transaction was included but execution reverted | Inspect the ABI, revert data, and execution trace |
 | Receipt status 1 | Execution succeeded | Compare emitted events and resulting application state with the intended action |
 
-A timeout after submission does not prove the transaction failed. Search for the original hash first; a new transaction can repeat the application action.
+A receipt is final when its block is committed on the BFT network. A timeout after submission does not prove the transaction failed. Search for the original hash first; a new transaction can repeat the application action.
 
 ## Check the sender and call
 
-Read the sender’s native balance, nonce, and the current fee estimate. Set `SENDER_ADDRESS` to the sender recorded in the transaction.
+Read the sender’s native balance, nonce, and the current fee estimate. Set `SENDER_ADDRESS` to the sender recorded in the transaction and `CONTRACT_ADDRESS` to its target. The calldata example uses `store(uint256)` from `contracts/src/Box.sol`.
 
 ```
 cast balance "$SENDER_ADDRESS" --rpc-url "$PAXEER_RPC_URL"
 cast nonce "$SENDER_ADDRESS" --rpc-url "$PAXEER_RPC_URL"
 cast gas-price --rpc-url "$PAXEER_RPC_URL"
 cast code "$CONTRACT_ADDRESS" --rpc-url "$PAXEER_RPC_URL"
-cast calldata 'setNumber(uint256)' 42
+cast calldata 'store(uint256)' 42
 ```
 
 Compare the encoded calldata to the transaction input. Confirm the contract address and ABI against the deployed version. PAX pays gas even when execution reverts. Increasing the gas limit will not repair a failed authorization check or invalid function argument.
 
 ## Simulate the exact inputs
 
-For the counter example, reproduce a call with the original sender and arguments. `cast call` uses `eth_call`; it does not persist storage changes.
+For the Box example, reproduce a call with the original sender and arguments. `cast call` uses `eth_call`; it does not persist storage changes.
 
 ```
-cast call "$CONTRACT_ADDRESS" 'setNumber(uint256)' 42   --from "$SENDER_ADDRESS" --rpc-url "$PAXEER_RPC_URL"
+cast call "$CONTRACT_ADDRESS" 'store(uint256)' 42   --from "$SENDER_ADDRESS" --rpc-url "$PAXEER_RPC_URL"
 ```
 
 A call at `latest` tests current state. It may differ from the state at the time of the failed transaction. A call at the previous block is also only an approximation when earlier transactions in the same block changed relevant state.
@@ -61,13 +61,13 @@ Provider policies and node versions determine available tracers. The node accept
 
 ## Reproduce in a local test
 
-Write a minimal test using the exact contract version, sender, and arguments. For ordinary Solidity state, a fork pinned to a known block can help:
+Write a minimal test using the exact contract version, sender, and arguments. For ordinary Solidity state, a fork pinned to a known block can help. Set `BLOCK_NUMBER` to that height and `ANVIL_RPC_URL` to your local Anvil endpoint:
 
 ```
 anvil --fork-url "$PAXEER_RPC_URL" --fork-block-number "$BLOCK_NUMBER"
 
 # In another terminal, read the local fork.
-cast call "$CONTRACT_ADDRESS" 'number()(uint256)'   --rpc-url http://127.0.0.1:8545
+cast call "$CONTRACT_ADDRESS" 'retrieve()(uint256)'   --rpc-url "$ANVIL_RPC_URL"
 ```
 
 Use Anvil for ordinary Solidity contract state. For Cosmos modules, Paxeer precompiles, parallel scheduling, or consensus behavior, reproduce the issue with the matching Paxeer binary in a [development cluster](https://docs.paxeer.app/docker). The source RPC must retain the historical state needed by your fork.
@@ -86,4 +86,4 @@ Use Anvil for ordinary Solidity contract state. For Cosmos modules, Paxeer preco
 
 Reference: [Foundry Cast](https://getfoundry.sh/cast/overview/). Continue with [parallel execution design](https://docs.paxeer.app/parallelization) when the issue is contention or throughput rather than a revert.
 
-**Paxeer source:** `Paxeer-X-Network/` — rpc/tracers.go (DebugAPI), rpc/tx.go (TransactionAPI), and rpc/simulate.go (SimulationAPI).
+**Paxeer source:** `rpc/` — tracers.go (DebugAPI), tx.go (TransactionAPI), and simulate.go (SimulationAPI).

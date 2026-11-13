@@ -1,72 +1,72 @@
 <!-- Source: https://docs.paxeer.app/settlement/ -->
 
-# Checkpoint settlement & evidence
+# Settlement & committed evidence
 
-Follow LayerX activities from ordered receipts to bonded replay, finalized Paxeer checkpoints, and verifiable custody claims.
+Verify signed execution, transaction inclusion, and committed block evidence on the Paxeer BFT chain.
 
 ## Execution and settlement form one history
 
-Paxeer X settles LayerX activity on EVM chain ID `125`. The sequencer orders activities; guarantors independently replay sealed batches; Paxeer records the resulting checkpoints and enforces custody releases. Payments, program calls, program-owned transfers, and storage occupancy charges participate in the same deterministic history.
+Paxeer mainnet-beta has EVM chain ID `125`. Its kernel executes within the network, and receipts are final once their covering block is committed. Payments, program calls, transfers, and storage charges participate in the chain execution history.
 
 | Level | Evidence | Meaning |
 | --- | --- | --- |
-| L0 · Accepted | Sequencer receipt | The activity is ordered in the current batch and bound to a state transition. |
-| L1 · Sealed | Fixed batch history | Ordering is fixed and the batch is ready for distribution. |
-| L2 · Distributed | Batch and availability bundle | Guarantors receive the material needed for independent replay. |
-| L3 · Attested | Bonded guarantor certificate | Guarantors attest byte-identical replay results. |
-| L4 · Settled | Paxeer checkpoint | Settlement custody enforces finality, challenge windows, withdrawal limits, and exits. |
+| Submission | Transaction hash | The node has accepted a transaction for processing. |
+| Signed execution | Canonical execution receipt | The receipt binds the transaction to its execution outcome. |
+| Outcome verification | Receipt and execution outputs | The authenticated result matches the intended payment or program operation. |
+| Block coverage | Sequence batch and transaction inclusion | The transaction is included in the identified block and ordered sequence. |
+| Commitment | BFT consensus commit | The covering block is committed under the trusted validator set. |
 
-A guarantor attestation is bonded re-execution evidence. Its security combines bonds, challenges, availability checks, and release limits. Applications retain the receipt for the fast path and follow the same activity into settlement evidence before presenting settled funds.
+A signed receipt authenticates an execution claim under a receipt key. To establish finality independently, authenticate the covering block, the transaction and sequence-batch inclusion evidence, and the BFT commit under a trusted validator set.
 
-## Native checkpoint anchor
+## Node receipt and consensus reads
 
-The `layerxanchor` precompile at `0x0000000000000000000000000000000000001014` records checkpoints, finality, availability attestations, and guarantor bonds. Anyone can submit a self-verifying checkpoint certificate. Finalization requires the configured threshold of active bonded guarantors, continuity with the finalized chain, no open challenge, and completion of the challenge window.
+The node provides `pax_sequencerReceipt` for execution progress and `px_getCommit` for consensus evidence. The receipt response binds the transaction hash to its signed receipt and, when committed, identifies the covering block.
 
 | Method | Purpose |
 | --- | --- |
-| `submitCheckpoint(header, headerSignature, certificate)` | Admit a canonical 354-byte header, 64-byte sequencer signature, and guarantor certificate. |
-| `submitAvailabilityAttestation(attestation)` | Record a 274-byte attestation for a known checkpoint. |
-| `finalize(batchNumber)` | Finalize a checkpoint after its challenge conditions clear. |
-| `latestFinalized()`, `checkpoint(batchNumber)` | Read finalized progress and full checkpoint metadata. |
-| `finalizedStateRoot(batchNumber)`, `finalizedReceiptRoot(batchNumber)` | Retrieve roots together with their finality flags. |
-| `openChallenge(batchNumber, kind, evidenceHash)` | Open a bonded fraud or data-availability challenge. |
-| `submitEquivocation(evidenceA, evidenceB)` | Present conflicting guarantor attestations for slashing. |
+| `eth_sendRawTransaction(raw)` | Submit a signed EVM transaction and obtain its hash. |
+| `pax_sequencerReceipt(txHash)` | Read submitted, receipted, or committed progress and execution evidence. |
+| `eth_getTransactionReceipt(txHash)` | Read the EVM execution receipt. |
+| `px_getCommit(height)`, `px_getValidators(height)` | Acquire the signed consensus header and validator information. |
+| `eth_getBlockByNumber(height, false)`, `eth_getTransactionByHash(txHash)` | Acquire block and transaction data for reconciliation. |
+| `px_getSequenceBatch(height)` | Acquire the canonical sequence-batch transaction and its block inclusion proof. |
+| `px_getReceiptKeys()` | Acquire governed receipt-key identifiers, public keys, and valid height ranges. |
 
-Anchor status is `0` unknown, `1` submitted, or `2` final. Read the finality flag with a root; the existence of a root alone does not establish payout eligibility. The exact interface is `precompiles/layerxanchor/LayerXAnchor.sol`.
+The receipt rungs are `submitted`, `receipted`, and `committed`. Verify the evidence behind the reported rung. The response contract is implemented in `rpc/sequencer_receipt.go`.
 
-## Deposit-root registration
+## Sequence-batch coverage
 
-The custody precompile (`ILayerXCustody`) records the deposit root of a finalized checkpoint with `registerDepositRoot(registration, signature, leafOrdering)`. Only the account that submitted the checkpoint to the anchor may call it. No settlement publication contract exposing an `EVIDENCE_VERSION` or withdrawal/balance witness vectors exists in the current contracts; do not build against one.
+Each sequenced block begins with `MsgSequenceBatch`. Retrieve its canonical transaction, activity identifiers, and block inclusion proof with `px_getSequenceBatch(height)`. Obtain the corresponding consensus header and commit with `px_getCommit(height)`.
 
 | Item | Contents | Commitment |
 | --- | --- | --- |
-| Deposit root registration | Registration bytes, deposit-root authority signature, and positional leaf ordering. The ordering is committed to, not verified by the precompile. | `SHA256(abi.encode(uint16(2), registration, signature, leafOrdering))`, read back with `depositRegistrationDigest(checkpointId)` |
+| Ordered activity commitment | The batch binds fixed-width activity identifiers in their execution order. | `SHA256(activity_id32 \|\| ...)`, stored in the batch TxRoot field. |
 
-Registration records evidence; payout still requires the custody checks on the claim path. Use `depositRootRegistered(checkpointId)` and `depositRootAuthority()` to inspect registration state.
+The batch commits to the ordered activity identifiers and sequence hashes. Use `px_getValidators(height)` to acquire validator data and `px_getReceiptKeys` for receipt-key data, authenticating both against independently trusted chain state.
 
-### Independent signing roles
+### Receipt and consensus signing roles
 
-A separately configured Ed25519 deposit-root authority signs the registration. Guarantors attest replay. A guarantor key cannot substitute for the deposit-root authority.
+Receipt-signing keys authenticate execution receipts and sequence batches within their governed height ranges. Consensus validator keys authenticate block commits. A receipt signature alone does not establish the validator quorum or committed inclusion.
 
 ```
-Deposit-root registration:
-"LX:PAXEER:DEPOSIT:ROOT:v1" || checkpoint_id32
-|| checkpoint_state_root32 || deposit_root32 || custody_reference32
-|| network_id:u32 (4 bytes) || protocol_version:u16 (2 bytes)
+Sequence-batch transaction: 241 bytes
+"PAXEER/v1/sequence-batch" || 0x00 || Height:u64be || FromSeq:u64be || ToSeq:u64be
+|| PrevSeqHash[32] || LastSeqHash[32] || TxRoot[32]
+|| KeyId[32] || Sig[64]
 ```
 
-The `signature` argument is the deposit-root authority's Ed25519 signature over those registration bytes. An Ed25519 public key is not converted into an EVM address.
+The `Sig` field is an Ed25519 signature over the chain-bound sequence-batch digest. Verify it with the pinned receipt key valid at the batch height, then verify the batch transaction against the committed block.
 
-## Producer and consumer workflow
+## Committed inclusion workflow
 
-1. Replay native history independently and construct the deposit evidence for the checkpoint.
-2. Obtain the configured deposit-root authority's signature over the registration bytes.
-3. Submit and finalize the checkpoint at the anchor, then call `registerDepositRoot` from the checkpoint submitter account.
-4. Verify `depositRootRegistered` and `depositRegistrationDigest` before treating the deposit root as recorded.
-5. Apply claim-specific custody checks and verify the final payout on the custody path.
+1. Retain the signed transaction and verify its hash against the receipt.
+2. Authenticate the receipt key, height range, signature, and execution outcome.
+3. Acquire the covering sequence batch and verify its signature, sequence hashes, and ordered transaction identifiers.
+4. Authenticate the covering block and consensus commit using a trusted validator set.
+5. Check the expected account changes or payment effect before completing the application action.
 
 ## Verify the transport and the money
 
-Settlement clients verify endpoint TLS trust and chain identity before consuming evidence. A healthy process or matching chain ID establishes connectivity, while finalized checkpoint evidence establishes the settlement claim. Do not elevate one finality level merely because an earlier stage succeeded.
+Clients check TLS trust and chain identity before consuming evidence. A healthy endpoint or matching chain ID establishes connectivity. Finality requires authenticated committed inclusion and a verified execution outcome for the intended transaction.
 
-Continue with [deposits, withdrawals, and emergency exits](https://docs.paxeer.app/custody), [Paxeer consensus](https://docs.paxeer.app/consensus), and [native EVM interfaces](https://docs.paxeer.app/precompiles).
+Continue with [account and custody interfaces](https://docs.paxeer.app/custody), [Paxeer consensus](https://docs.paxeer.app/consensus), and [native EVM interfaces](https://docs.paxeer.app/precompiles).

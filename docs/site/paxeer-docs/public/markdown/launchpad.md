@@ -6,19 +6,19 @@ Create fixed-supply instruments, open virtual-reserve markets, trade with explic
 
 ## From issuance to an active market
 
-Paxeer X Launchpad deploys a CREATE2 `SidioraERC20` token, creates its SidioraPool, mints an NFT fee right, and opens a virtual-reserve curve in one market-creation workflow. The market's native denomination is `launchpad/` followed by the pool address hex. Human and agent-controlled businesses can issue instruments while trading agents buy and sell those instruments through explicit transaction permissions.
+Paxeer X Launchpad deploys a CREATE2 `SidioraERC20` token, installs its SidioraPool surface, mints an NFT fee right, and opens a virtual-reserve curve in one transaction. The market denomination is `launchpad/` followed by the pool's checksummed `0x`-prefixed address. The implementation is in `modules/launchpad/` and `precompiles/launchpad/`.
 
 The instrument represents the issuer's declared terms. Creating a market does not establish equity, revenue rights, or a legal claim automatically. Keep the business identity, creator account, token address, and instrument description visible in your application.
 
-1. Choose a name, symbol, fee strategy, and optical address (zero address when unused); fund the creator with the configured quote asset and transaction gas.
+1. Choose a name, symbol, fee strategy, and optical hook address (zero when unused; a nonzero hook must be approved); fund the creator with the configured quote asset and transaction gas.
 2. Submit `createMarket(name, symbol, feeStrategy, optical)` to the Launchpad precompile; it returns `(token, pool, nftId)`. A permit variant, `createMarketWithPermit`, takes the same arguments plus permit parameters.
-3. Read the confirmed `MarketCreated` event and retain the token address, pool address, NFT id, and native denomination.
+3. Read the committed `MarketCreated` and `PoolRegistered` events and retain the token address, pool address, NFT id, and market denomination. The NFT id is supplied by `PoolRegistered` or a registry query.
 4. Inspect reserves and a fresh buy or sell quote before signing an order.
 5. Operate fee distribution and market pause controls under the appropriate authority.
 
 ## Creation and supply
 
-The creation fee is paid in the configured quote token. Launchpad deploys the token with its fixed supply, binds it to the pool with `bindPool`, and transfers the supply to the pool. Market indices start at one and increase per market; the denomination is `launchpad/<pool hex>`, not a numbered subdenomination. The creator begins as guardian and fee-rights holder, and the fee right is represented by the minted NFT (`nftId`).
+The creation fee is paid in the configured quote token. Launchpad deploys the token with its fixed supply, binds it to the pool with `bindPool`, and transfers the supply to the pool. Market indices start at one and increase per market; the denomination is `launchpad/0x<checksummed pool hex>`. The creator begins as guardian and fee-rights holder, and the fee right is represented by the minted NFT (`nftId`).
 
 Names contain at most 64 bytes and symbols at most 16. Both are nonblank UTF-8 without surrounding whitespace or control characters. Market supply and initial reserve settings come from protocol parameters rather than a per-call supply argument.
 
@@ -52,7 +52,7 @@ Fees are charged in the input asset. On a buy, the protocol share of quote fees 
 
 | Value | Strategy | Execution |
 | --- | --- | --- |
-| 0 | Claim | `claimFees(nftId)` pays accumulated quote fees to the fee-rights holder; the accumulator-level `claim(pool, recipient)` pays a chosen recipient. |
+| 0 | Claim | `claimFees(nftId)` pays accumulated quote fees to the fee-rights holder; the accumulator-level `claim(pool, recipient)` requires the fees-router role and pays a chosen recipient. |
 | 1 | Burn | `executeBurn(nftId)` sends accumulated quote fees to the dead account. |
 | 2 | Airdrop | `executeAirdrop(nftId)` opens a holder distribution epoch. |
 | 3 | LP rewards | `executeLpRewards(nftId)` adds accumulated quote fees to real curve reserves. |
@@ -61,7 +61,7 @@ The fee-rights holder changes strategy with `setFeeStrategy(nftId, newStrategy)`
 
 ### Holder airdrop epochs
 
-Each airdrop fixes its distribution amount, holder history, supply, payout denomination, and block height. Entitlement is the integer floor of epoch amount multiplied by the holder's boundary balance divided by boundary supply. Later transfers do not rewrite the historical entitlement. A holder claims the current epoch through `claimAirdrop(nftId)` (or the accumulator-level `claimAirdrop(pool, holder)`); each holder claims an epoch once. Use `claimAirdropEpoch(nftId, epoch)` to claim a specified opened epoch.
+Each airdrop records its distribution amount, eligible supply, and snapshot block. Eligible supply excludes the pool and dead-account balances. A claim normally receives the integer floor of epoch amount multiplied by the holder's snapshot balance divided by eligible supply; the final eligible claimant receives the remaining rounding residue. The snapshot is the block before the epoch opens, so later transfers do not rewrite entitlement. A holder claims the current epoch through `claimAirdrop(nftId)` (or the accumulator-level `claimAirdrop(pool, holder)`); each holder claims an epoch once. Use `claimAirdropEpoch(nftId, epoch)` to claim a specified opened epoch.
 
 ## Permissions and market controls
 
@@ -80,10 +80,10 @@ Paused markets reject swaps. Orders also reject expired deadlines, zero input, i
 
 `getAllPools(offset, limit)` paginates discovery; `getPoolCount()` returns the total; `getPoolsByCreator(creator)` groups issuance by creator; and `getPoolByToken(token)`, `getNftIdByPool(pool)`, and `getPoolMetadata(pool)` resolve one market. `getPoolStats`, `getPoolPrice`, and `getMarketCap` support trading views. Markets exist in Generation 1 and Generation 2 SidioraPool forms; new markets are created as Generation 2.
 
-Index `MarketCreated`, `Swap`, `FeeFlow`, `FeeDistributed`, `FeeStrategyChanged`, `PoolRegistered`, `PoolStateUpdated`, and `TokenDeployed`. Reconcile event observations against the confirmed market record and balances before showing a completed issuance, trade, or claim.
+Index `MarketCreated`, `Swap`, `FeeFlow`, `FeeDistributed`, `FeeStrategyChanged`, `PoolRegistered`, `PoolStateUpdated`, and `TokenDeployed`. Use `precompiles/launchpad/abi.json` for the event family and the role ABIs under `precompiles/launchpad/abi/` for role events: their signatures differ, and the Router's `MarketCreated` includes the NFT id. Reconcile observations against the committed market record and balances before showing a completed issuance, trade, or claim.
 
 ## Protocol settings
 
-The default quote token is the USDL ERC-20 at `0x85FcD13735F4309833A503EE804ea32395851479`. Reference defaults set virtual quote reserve to `10000000000`, token supply (virtual token default) to `1000000000000000` base units, and creation fee to `1000000` quote base units. Fee bounds start at 10–300 basis points with a base of 30, and the protocol receives 1000 basis points of buy fees. Governance can update these values; read current settings (for example `creationFee()`, `baseFeeBps()`, `virtualUsdlDefault()`) before presenting a launch cost or fee estimate.
+The default quote token is the USDL ERC-20 at `0x85FcD13735F4309833A503EE804ea32395851479`. Defaults in `modules/launchpad/types/params.go` set virtual quote reserve to `10000000000`, token supply to `1000000000000000` base units, and creation fee to `1000000` quote base units. Fee bounds are 10–300 basis points with a base of 30, and the protocol receives 1000 basis points of buy fees. Read current settings through `creationFee()`, `baseFeeBps()`, and `virtualUsdlDefault()` before estimating costs. Parameter updates require governance authority; EVM administrator setters are refused.
 
 Continue with [asset registration and supply](https://docs.paxeer.app/assets), [exchange trading](https://docs.paxeer.app/spot-exchange), [precompile integration](https://docs.paxeer.app/precompiles), and [SDKs](https://docs.paxeer.app/sdk).

@@ -1,27 +1,27 @@
 <!-- Source: https://docs.paxeer.app/custody/ -->
 
-# Custody, deposits & exits
+# Account funding & key custody
 
-The pre-merge custody precompile is retired. This page states what replaced it and what still holds for key custody.
+Fund accounts on the merged network, bind owner identities, and understand signing-key custody in the Human interface.
 
-## The custody precompile is retired
+## Custody precompile behavior
 
-The `layerxcustody` precompile at `0x0000000000000000000000000000000000001013` was retired from the merge upgrade height on the merged network. Every one of its 20 ABI methods — including `deposit`, `depositToken`, `requestWithdrawal`, `finaliseWithdrawal`, `requestForcedExit`, and `executeForcedExit` — now reverts with `LXP_MODULE_DISABLED: module disabled; layerxCustody retired`. The retirement gate runs before call-shape checks, so no argument combination reaches the old logic. Do not build new deposit, withdrawal, or exit flows against this address.
+The `layerxcustody` precompile at `0x0000000000000000000000000000000000001013` is disabled on the merged network. Its 20 ABI methods, including `deposit`, `depositToken`, `requestWithdrawal`, `finaliseWithdrawal`, `requestForcedExit`, and `executeForcedExit`, revert with `LXP_MODULE_DISABLED: module disabled; layerxCustody retired`. The disabled-module check precedes call-shape checks.
 
-The full historical interface remains in `contracts/src/precompiles/ILayerXCustody.sol` for binding compatibility and audit. It also declares views such as `registerDepositRoot`, the deposit-root authority and registration digests, `depositCount`, `depositNonce`, `assetByPointer`, and `nativeAssetId`; all of them revert the same way at runtime.
+The ABI is declared in `contracts/src/precompiles/ILayerXCustody.sol`. Its deposit-root registration method, `registerDepositRoot`, and its views, including `depositCount`, `depositNonce`, `assetByPointer`, and `nativeAssetId`, are subject to the same runtime refusal.
 
-## What replaced it
+## Account and transfer paths
 
 | Need | Current path |
 | --- | --- |
-| Establish an owner account | Bind the DID to the owner EVM address with `bindLayerX(bytes32, bytes)` through the address precompile at `0x…1004`, then register identity and recovery through LayerXAuth. See [identity](https://docs.paxeer.app/identity). |
-| Fund an account on the merged network | Fund the kernel account directly with the correct native asset. No custody credit is issued and no deposit proof is required. |
+| Establish an owner account | Bind the DID to the owner EVM address with `bindLayerX(bytes32, bytes)` through the address precompile at `0x0000000000000000000000000000000000001004`, then register identity and recovery through LayerXAuth. See [identity](https://docs.paxeer.app/identity). |
+| Fund an account on the merged network | Transfer the native asset directly to the bound EVM address. Development allocations use a signed native transfer; see the developer funding guide. |
 | Move value to or from an external chain | Use the governed bridge at `0x0000000000000000000000000000000000001016`, which requires registered chains, attestors, caps, and enabled policy. See [the bridge](https://docs.paxeer.app/bridge). |
-| Move funds inside the Human interface | Use a `move` journey on the merged network. The wallet-binding, deposit, withdraw, and exit journey kinds are retired and survive only as closed history. |
+| Move funds inside the Human interface | Use a `move` journey and track its receipt and block commitment. |
 
-## Key custody is unchanged
+## Signing-key custody
 
-Retiring the precompile did not change who holds signing keys in the Human interface. The three identities remain distinct:
+The Human interface separates application authentication, protocol signing, and owner EVM authority:
 
 | Identity | Purpose | Signing authority |
 | --- | --- | --- |
@@ -31,12 +31,12 @@ Retiring the precompile did not change who holds signing keys in the Human inter
 
 The browser does not hold the Human protocol identity's private key. The one exception is the explicit `export-primary-key` security action, which is the only route by which a DID primary key leaves the service; see [the Human interface](https://docs.paxeer.app/human-interface).
 
-## Historical deposits
+## Confirm account funding
 
-Pre-merge deposits were recorded by the custody module and credited through a native custody-credit activity bound to the deposit record. That bootstrap is retired together with the precompile: it is not a prerequisite for funding an owner on the merged network, and it cannot be replayed to issue new credit. Deposit replay used the nullifier `SHA256("LX:DEPOSIT:NULLIFIER:v1" || deposit_id)`, so a recorded deposit could only be credited once. Historical claim and deposit records remain readable in module state for audit, but the EVM entry points that acted on them no longer execute.
+Confirm the DID-to-EVM binding before funding. Retain the transaction hash, inspect the native balance and receipt, and check the recipient and amount. The native funding path resolves the recipient through the address precompile and checks the transaction receipt. A funding reference alone does not establish a successful transfer.
 
 ## Show evidence accurately
 
-Human journeys report three current rungs: `unverified` (submitted), `receipt-verified` (receipted), and `checkpoint-finalised` (committed). The former `paxeer-finalised` and `settlement-anchored` labels are retired decoding values and do not define additional rungs. Evidence returned by `GET /v1/evidence/{evidence_id}` includes its class, verification level, content type, and encoded bytes.
+Human journeys report three rungs: `unverified` (submitted), `receipt-verified` (receipted), and `checkpoint-finalised` (committed). A receipt is final once its block is committed. Evidence returned by `GET /v1/evidence/{evidence_id}` includes its class, verification level, content type, and encoded bytes.
 
-Continue with [owner registration](https://docs.paxeer.app/identity), [the governed bridge](https://docs.paxeer.app/bridge), [checkpoint settlement and proof verification](https://docs.paxeer.app/settlement), and [Paxeer JSON-RPC](https://docs.paxeer.app/json-rpc).
+Continue with [owner registration](https://docs.paxeer.app/identity), [the governed bridge](https://docs.paxeer.app/bridge), [block commitment and proof verification](https://docs.paxeer.app/settlement), and [Paxeer JSON-RPC](https://docs.paxeer.app/json-rpc).

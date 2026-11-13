@@ -6,36 +6,33 @@ Connect a browser wallet to Paxeer with React and viem, show PAX balances, and r
 
 Start with one clear interaction: connect a wallet and display its PAX balance. viem separates public reads from wallet requests, so your page can load chain state before asking for a signature.
 
-## Create the application
+## Use the application workspace
 
-Use the React TypeScript scaffold from Vite with a supported Node.js release. Install viem in the generated application.
+The frontend in apps/launchpad/web uses Next.js, React, viem and Wagmi. From the repository root, install the launchpad workspace dependencies and run its web application.
 
 ```
-npm create vite@latest paxeer-frontend -- --template react-ts
-cd paxeer-frontend
-npm install
-npm install viem
+cd apps/launchpad
+pnpm install
+pnpm dev
 ```
 
-Create `.env.local` with `VITE_PAXEER_RPC_URL` set to your browser-accessible EVM endpoint. Vite exposes `VITE_` values to visitors: use a public browser endpoint, and keep privileged provider credentials on a server.
+Configure `apps/launchpad/web/.env.local` with `NEXT_PUBLIC_PAXEER_RPC_URL` set to a browser-accessible node root. Next.js exposes `NEXT_PUBLIC_` values to visitors: use a public browser endpoint and keep provider credentials on a server. The launchpad RPC selector gives NEXT_PUBLIC_RPC_URL and NEXT_PUBLIC_RPC_URL_FALLBACK precedence over this value.
 
 ## Define Paxeer once
 
-Create `src/paxeer.ts`. A custom chain definition makes the required chain ID and native currency explicit. For `hyperpax_125-1` the endpoint must answer `eth_chainId` with `0x7d` (125). On a local cluster or another network the ID differs (`pacific-1` is 1329; unmapped chains default to 713714), so set `id` and the checks below to the value your endpoint reports.
+The chain definition in `apps/launchpad/web/src/core/wallet-sdk/client.ts` makes the chain ID and native currency explicit. For `hyperpax_125-1` the endpoint must answer `eth_chainId` with `0x7d` (125). The node mapping in `modules/evm/config/config.go` also defaults unmapped chain names to 125. Check the endpoint and wallet `id` before requesting a signature.
 
 ```
 import { createPublicClient, defineChain, http } from "viem";
+import { getPaxeerRpcUrl } from "@/core/rpc";
 
-const rpcUrl = import.meta.env.VITE_PAXEER_RPC_URL;
-if (!rpcUrl) throw new Error("Set VITE_PAXEER_RPC_URL in .env.local");
-
+const rpcUrl = getPaxeerRpcUrl();
 export const paxeer = defineChain({
   id: 125,
-  name: "Paxeer",
+  name: "Paxeer X Network",
   nativeCurrency: { name: "PAX", symbol: "PAX", decimals: 18 },
   rpcUrls: { default: { http: [rpcUrl] } },
 });
-
 export const publicClient = createPublicClient({
   chain: paxeer,
   transport: http(rpcUrl),
@@ -44,12 +41,16 @@ export const publicClient = createPublicClient({
 
 ## Connect and display a balance
 
-Replace `src/App.tsx` with this component. It requests accounts only after a click, adds Paxeer if the wallet does not know the chain, and clears old results whenever the account or network changes.
+Use this example as a client component alongside `apps/launchpad/web/src/core/wallet-sdk/client.ts`. It requests accounts only after a click, adds Paxeer if the wallet does not know the chain, and clears old results whenever the account or network changes.
 
 ```
+"use client";
+
 import { useEffect, useRef, useState } from "react";
 import { createWalletClient, custom, formatEther, type EIP1193Provider } from "viem";
-import { paxeer, publicClient } from "./paxeer";
+import { paxeerWalletChain as paxeer, getPublicClient } from "@/core/wallet-sdk/client";
+
+const publicClient = getPublicClient();
 
 function injectedProvider() {
   return (window as Window & { ethereum?: EIP1193Provider }).ethereum;
@@ -149,29 +150,31 @@ export default function App() {
 }
 ```
 
-Run `npm run dev`, open the local URL, and connect an EVM wallet. The initial connection waits for account and network selection before reading. Later selection changes clear the old result and invalidate a read in flight; click again to refresh. This example reads balances without sending a transaction.
+Run `pnpm dev` from apps/launchpad, open the web application, and connect an EVM wallet. The initial connection waits for account and network selection before reading. Later selection changes clear the old result and invalidate a read in flight; click again to refresh. This example reads balances without sending a transaction.
 
-## Read your deployed counter
+## Read a deployed wrapped-token balance
 
-Use the contract address produced by [Foundry](https://docs.paxeer.app/foundry) or [Hardhat](https://docs.paxeer.app/hardhat). Put this helper in `src/readCounter.ts` and call it from your application with that address.
+Use the WPAX contract address produced by [Foundry](https://docs.paxeer.app/foundry) or [Hardhat](https://docs.paxeer.app/hardhat). The interface comes from `contracts/src/WPAX.sol`; pass the deployment address and account to this example helper.
 
 ```
 import { getAddress, parseAbi } from "viem";
-import { publicClient } from "./paxeer";
+import { getPublicClient } from "@/core/wallet-sdk/client";
 
-export async function readCounter(contractAddress: string) {
+export async function readWrappedBalance(contractAddress: string, owner: string) {
+  const publicClient = getPublicClient();
   if (await publicClient.getChainId() !== 125) throw new Error("Unexpected chain");
   const address = getAddress(contractAddress);
   const blockNumber = await publicClient.getBlockNumber();
   const bytecode = await publicClient.getCode({ address, blockNumber });
   if (!bytecode || bytecode === "0x") throw new Error("No contract at this address");
-  const number = await publicClient.readContract({
+  const balance = await publicClient.readContract({
     address,
-    abi: parseAbi(["function number() view returns (uint256)"]),
-    functionName: "number",
+    abi: parseAbi(["function balanceOf(address) view returns (uint256)"]),
+    functionName: "balanceOf",
+    args: [getAddress(owner)],
     blockNumber,
   });
-  return { blockNumber, number };
+  return { blockNumber, balance };
 }
 ```
 
@@ -191,4 +194,4 @@ For a larger React application, Wagmi adds connector lifecycle and query hooks o
 
 References: [viem custom chains](https://viem.sh/docs/chains/introduction), [clients and transports](https://viem.sh/docs/clients/intro), and [contract reads](https://viem.sh/docs/contract/readContract).
 
-**Paxeer source:** `Paxeer-X-Network/` — modules/evm/config/config.go (ChainIDMapping), modules/evm/keeper/balance.go (GetBalance), and rpc/state.go (GetCode).
+**Paxeer source:** `apps/launchpad/web/src/core/wallet-sdk/client.ts`, apps/launchpad/web/src/core/rpc.ts, modules/evm/config/config.go (ChainIDMapping), and rpc/state.go (GetBalance and GetCode).

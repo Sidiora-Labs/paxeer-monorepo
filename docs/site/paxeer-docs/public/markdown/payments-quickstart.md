@@ -2,19 +2,19 @@
 
 # Your first payment
 
-Quote, commit, and verify a Paxeer X payment using the application SDK or a native Asset transfer.
+Quote, commit, and verify a Paxeer X payment using the application SDK or a signed ledger transaction.
 
 ## Choose your integration
 
-Use the application SDK when you want account-level payment journeys and bearer-token authentication. Use the native CLI when you control a signing identity and need explicit canonical activities, receipt policy, fee limits, and commitment selection. The LayerX package and command names are the integration interfaces of Paxeer X.
+Use the application SDK when you want account-level payment journeys and bearer-token authentication. Use the native CLI when you control the wallet identity and its EVM key and need explicit transaction signing, receipt policy, fee limits, and commitment selection. The CLI submits ledger calls as signed EIP-1559 transactions on chain ID 125.
 
 ## 1. Install the application packages
 
 ```
-npm install @sidiora/layerx-sdk @sidiora/layerx-buyer-middleware
+npm install @sidiora/layerx-sdk@0.1.0 @sidiora/layerx-buyer-middleware@0.1.0
 ```
 
-Configure `LAYERX_API_URL` with your environment's API base URL and `LAYERX_API_TOKEN` with its account bearer token. Use HTTPS outside a loopback emulator. These credentials identify your API account; do not embed them in browser bundles or logs.
+The packages require Node.js 22 or newer. Their sources are `services/agent/sdk/typescript` and `services/platform/middleware/buyer`. In the sample under `services/platform/examples/samples/first-payment-typescript`, configure `LAYERX_API_URL` with your environment's API base URL and `LAYERX_API_TOKEN` with its account bearer token. Use HTTPS outside a loopback emulator. These credentials identify your API account; do not embed them in browser bundles or logs.
 
 ## 2. Quote and commit the payment
 
@@ -56,62 +56,55 @@ Store the returned journey identifier alongside the purchase key. Read its progr
 
 ## Native path: prepare a funded identity
 
-The CLI uses your local key, a stored gateway credential, and a receipt policy supplied independently of the RPC response you verify. A policy binds protocol version, network, sequencer identity and key, permitted batches, and checkpoint context. Keep private seeds out of shell history.
+The CLI uses a selected local identity, its matching owner-only EVM key export, and an independently supplied receipt policy. The policy requires protocol version 2, network 125, a receipt signer identity and key, and a bounded height range. Prepare the matching identity and EVM key with the wallet derivation and import workflow in the CLI guide. Receipt verification also relies on the configured node connection.
 
 ```
-cargo build --manifest-path tools/platform/cli/Cargo.toml
+cargo build --locked --manifest-path tools/platform/cli/Cargo.toml
 export PATH="$PWD/tools/platform/target/debug:$PATH"
-layerx key create alice
-layerx key default alice
 layerx wallet list
-
-export RPC_URL=https://api-mainnet-beta.paxeer.network/
-export RECEIPT_POLICY=/absolute/path/to/receipt-policy.json
-export EVM_KEY_FILE=/absolute/path/to/evm-key-export
-export FEE_LIMIT='<maximum fee in base units>'
-export ASSET_ID='<64-hex Asset id>'
-export RECIPIENT_DID='<recipient DID>'
+layerx key default payer
 ```
 
-Public JSON-RPC endpoints are HTTPS URLs at the root path. The old `/rpc` and `/rpc/ws` routes are retired. Note the current checkout still has CLI transport gaps: setting `--rpc` to a correct public root URL does not by itself make wallet commands work against a public node. Treat the native commands below as the command surface and verify connectivity in your environment before relying on them.
+In the examples below, `RPC_URL` is the node JSON-RPC root URL, and `GATEWAY_RPC_URL` is the hosted gateway root URL supplied by its operator. `GATEWAY_CREDENTIAL` names a locally stored gateway credential. These shell variables are sample inputs. Configure `RECEIPT_POLICY`, `EVM_KEY_FILE`, `FEE_LIMIT`, `ASSET_ID`, and `RECIPIENT_DID` for the selected wallet, fee ceiling and payment.
 
-The OS keyring stores keys by default; headless environments use the configured encrypted file store. The payer must already hold a spendable balance on the merged network before sending. Do not fund through the former custody precompile path: the custody module is retired, its keeper refuses deposits, and the precompile reverts. Confirm the account balance before spending.
+The selected wallet must hold a spendable balance of the chosen Asset, and its EVM sender must hold enough native currency for gas. `EVM_KEY_FILE` must be a private-key export from `wallet derive --export-private-keys` for the same identity. Confirm the source account and recipient account through the hosted gateway before sending.
 
 ## Open the recipient account and send
 
-Select the recipient wallet to open its account for the chosen Asset, then select the funded payer wallet to transfer. Identity sequence and source-account sequence are obtained separately. The signing flow discloses the debit authorization and outer activity, including recipient, amount, Asset, fee ceiling, expiry, network, and idempotency key.
+Select the recipient wallet to open its account for the chosen Asset, then select the funded payer wallet to transfer. The CLI reads the EVM sender nonce from the node and payment account state from the hosted gateway. The signing flow discloses the transaction and debit authorization, including recipient, amount, Asset, fee ceiling, expiry, network, and idempotency key.
 
 ```
-# Run with the recipient wallet selected.
-# open-account requires --evm-key-file, --receipt-policy, and --fee-limit.
-layerx --rpc "$RPC_URL" --gateway-credential beta wallet open-account \
-  --asset "$ASSET_ID" --evm-key-file "$EVM_KEY_FILE" \
-  --receipt-policy "$RECEIPT_POLICY" --fee-limit "$FEE_LIMIT"
+# Run with the recipient wallet and its matching EVM_KEY_FILE selected.
+layerx --rpc "$RPC_URL" --gateway-credential "$GATEWAY_CREDENTIAL" wallet open-account \
+  --gateway-rpc "$GATEWAY_RPC_URL" --asset "$ASSET_ID" \
+  --evm-key-file "$EVM_KEY_FILE" --receipt-policy "$RECEIPT_POLICY" \
+  --fee-limit "$FEE_LIMIT" --wait committed
 
-# Select the funded payer before sending.
-layerx key default alice
-layerx --rpc "$RPC_URL" --gateway-credential beta wallet send \
+# Select the funded payer and set EVM_KEY_FILE to its matching export.
+layerx key default payer
+layerx --rpc "$RPC_URL" --gateway-credential "$GATEWAY_CREDENTIAL" wallet send \
+  --gateway-rpc "$GATEWAY_RPC_URL" --evm-key-file "$EVM_KEY_FILE" \
   --to "$RECIPIENT_DID" --asset "$ASSET_ID" --amount 10 \
-  --wait executed --receipt-policy "$RECEIPT_POLICY" \
+  --wait committed --receipt-policy "$RECEIPT_POLICY" \
   --fee-limit "$FEE_LIMIT"
 ```
 
-Choose `executed` for a verified execution receipt, `batched` for authenticated batch inclusion, or `finalised` for matching finalised checkpoint evidence. The exact wire spelling is `finalised`.
+Choose `submitted` for an accepted transaction hash, `receipted` for a verified signed execution receipt, or `committed` for receipt and committed-block evidence. Only `committed` establishes finality. The amount is an integer in the Asset's base units.
 
 ## Recover a pending native payment
 
-Each new CLI write creates a new idempotency key. If the first attempt times out, save its transaction hash and recover the original receipt instead of repeating `wallet send`. `wallet receipt` takes a transaction hash, with `--wait` and `--receipt-policy` as its options.
+Each new send creates a new payment idempotency key. The CLI journals the signed transaction before submission. Retain its transaction hash and use the journal-backed recovery flow when the response is uncertain. `wallet receipt` takes a transaction hash, with `--wait` and `--receipt-policy` as its options.
 
 ```
-layerx --rpc "$RPC_URL" --gateway-credential beta wallet receipt \
-  "$TX_HASH" --receipt-policy "$RECEIPT_POLICY" --wait finalised
+layerx --rpc "$RPC_URL" --gateway-credential "$GATEWAY_CREDENTIAL" wallet receipt \
+  "$TX_HASH" --receipt-policy "$RECEIPT_POLICY" --wait committed
 ```
 
-`--timeout-seconds` (1 to 300, default 60) belongs to `wallet watch` and to write commands such as `wallet send`, not to `wallet receipt`. Stream notifications are wake-ups: reconcile them with verified reads or a receipt verification.
+`--timeout-seconds` (1 to 300, default 60) belongs to `wallet watch` and to write commands such as `wallet send`, not to `wallet receipt`. Use the recovered receipt and block evidence to establish the payment outcome.
 
-## Public JSON-RPC surface
+## Node and hosted JSON-RPC
 
-The hosted gateway publishes `px_*` methods — including `px_register`, `px_getAccount`, `px_getBalances`, `px_listAssets`, and `px_requestFunds` — plus `pax_sequencerReceipt`. Every legacy `lx_*` method name is refused wholesale with JSON-RPC `-32601` (`Method not found`). Do not build submission or recovery flows on `lx_sendActivity`, `lx_getActivityStatus`, `lx_getReceipt`, or `lx_getProof`; no such public transport exists in this checkout. Use the SDK, the CLI, or the published `px_*` and node namespaces instead, and verify recovered evidence before treating a payment as settled.
+The hosted gateway publishes `px_*` methods — including `px_register`, `px_getAccount`, `px_getBalances`, `px_listAssets`, and `px_requestFunds` — plus `pax_sequencerReceipt`. The node accepts signed transactions through `eth_sendRawTransaction` and reports receipt progress through `pax_sequencerReceipt`. The hosted gateway supplies account and asset reads at its separately configured origin. Use each endpoint for its declared methods and verify committed evidence before treating a payment as final.
 
 ## Handle common failures
 
