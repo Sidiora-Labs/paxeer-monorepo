@@ -18,7 +18,7 @@ attempt = 2
 start_revision = "fbe6b13a182368696aaddddce2942910074fada3"
 previous_candidate = "153cd5aa99"
 ruling = "Gotcha 4003 and decision 3125 preserve the attempt-1 implementation, authorize a path-and-symbol allowance for the live rank, and limit verification to the ai-market crate and programs overview."
-verify_command = "test -s programs/crates/layerx-programs-ai-market/repair_22_39_252.kvx && cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --lib && python3 tools/paxeer-x/tests/retired_callers_test.py --path programs/crates/layerx-programs-ai-market --path programs/README.md"
+verify_command = "test -s spec/layerx-merge/programme/records/programs/crates/layerx-programs-ai-market/repair_22_39_252.kvx && cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --lib && python3 tools/paxeer-x/tests/retired_callers_test.py --path programs/crates/layerx-programs-ai-market --path programs/README.md"
 finding_lines = "Finding line numbers below retain the original baseline; the five live rank references now occur at queries.rs lines 33, 736, 803, 872 and 906."
 runtime_owner = "22.39.251"
 runtime_disposition = "Findings 9 through 38 are preserved as historical inventory and excluded from this task's narrowed verification; no runtime repair is claimed."
@@ -49,7 +49,7 @@ severity = "blocker"
 resolved = "Attempt 2 narrows verification to the ai-market crate and programs/README.md; runtime findings belong to task 22.39.251 and remain outside this task's scope."
 
 [compatibility_consumers]
-paths = ["programs/crates/layerx-programs-ai-market/tests/view_binding.rs", "programs/crates/layerx-programs-ai-market/tests/proof_ai_market_guest.rs", "programs/crates/layerx-programs-ai-market/tests/repair_22_33_233.rs", "programs/crates/layerx-programs-ai-market/tests/repair_22_33_261.rs", "programs/crates/layerx-programs-ai-market/tests/rewards_native.rs", "services/platform/hosted/indexer/src/ai_market.rs", "services/agent/crates/layerx-client/src/ai_market.rs"]
+paths = ["programs/crates/layerx-programs-ai-market/tests/view_binding.rs", "programs/crates/layerx-programs-ai-market/tests/proof_ai_market_guest.rs", "programs/crates/layerx-programs-ai-market/tests/authenticated_consumer_recovery.rs", "programs/crates/layerx-programs-ai-market/tests/reward_finality_and_execution.rs", "programs/crates/layerx-programs-ai-market/tests/rewards_native.rs", "services/platform/hosted/indexer/src/ai_market.rs", "services/agent/crates/layerx-client/src/ai_market.rs"]
 assertions = "Existing tests require ranks below four to round-trip while refusing publication, ranks above four to be noncanonical, and the exact rank byte to remain in the wire encoding."
 live_producer = "services/agent/crates/layerx-client/src/ai_market.rs: ObservedSnapshot::finalize assigns FINALIZED_RANK after checking the verified program-state witness against the capture and block commit."
 allowance = "tools/paxeer-x/retired_callers.json: allowed_references entry with exact path programs/crates/layerx-programs-ai-market/src/queries.rs and symbol FINALIZED_RANK."

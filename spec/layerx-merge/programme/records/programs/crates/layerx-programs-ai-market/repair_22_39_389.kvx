@@ -6,7 +6,7 @@ kernel_deposit = "src/modules/programs/call.c:2559 emits the FUND transfer set; 
 kernel_payment = "src/modules/programs/call.c:2559 emits the ProgramSpend payment transfer set; src/ledger/lxp_apply.c:309-310 refuses a leg when the program source account balance is below the amount."
 
 [reader.inventory]
-inside = "programs/crates/layerx-programs-ai-market/tests/value_boundary.rs:503,513 and tests/rewards_native.rs:2438 asserted the removed refusal mapping; tests/fuel_budget.rs:2174-2178 counted the removed balance read; tests/support/guest.rs:445-453 supplied the sight grant; tests/support/repair_478_fixture.rs:245-299 reconstructed it for the diagnostic executor. These readers are corrected."
+inside = "programs/crates/layerx-programs-ai-market/tests/value_boundary.rs:503,513 and tests/rewards_native.rs:2438 asserted the removed refusal mapping; tests/fuel_budget.rs:2174-2178 counted the removed balance read; tests/support/guest.rs:445-453 supplied the sight grant; tests/support/fund_state_fixture.rs:245-299 reconstructed it for the diagnostic executor. These readers are corrected."
 outside = "tests/programs/test_monetary_law.c:264,278 and :296,306 prove the kernel insufficient-balance refusal; tools/qualification/paxeer-x/program_transfer_authority.py:68 names that case; docs/wiki/Programs.md:435 and docs/platform/content/guide/programs.md:79 describe the generic BalanceView capability; rpc/repair_478.kvx:11,161 records the historical sight fixture. These files are unchanged."
 examples = "No example of this crate reads the settlement balance sight."
 

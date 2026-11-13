@@ -11,7 +11,7 @@
 use layerx_ai_market_test_values::RequiredValue as _;
 use std::collections::BTreeMap;
 
-#[path = "repair_22_33_260.rs"]
+#[path = "market_state_producers.rs"]
 mod repair;
 use ed25519_dalek::{Signer, SigningKey};
 use layerx_programs_ai_market::{

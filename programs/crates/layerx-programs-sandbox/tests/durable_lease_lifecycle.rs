@@ -80,7 +80,7 @@ use std::{cell::RefCell, collections::BTreeMap, fs};
 
 fn recorded(name: &str) -> Vec<u8> {
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("src/repair_22_31_262_recordings")
+        .join("src/native_submission_recordings")
         .join(format!("{name}.hex"));
     let text = fs::read_to_string(path).checked();
     let digits: Vec<_> = text.bytes().filter(|b| !b.is_ascii_whitespace()).collect();
@@ -705,7 +705,7 @@ fn programs_contract_is_published_with_the_crate() {
     ] {
         assert!(contract.contains(term), "contract lacks {term}");
     }
-    let record = include_str!("../src/repair_22_33_231.kvx");
+    let record = include_str!("../../../../spec/layerx-merge/programme/records/spec/layerx-merge/programme/records/programs/crates/layerx-programs-sandbox/src/repair_22_33_231.kvx");
     for id in [
         "truncated-submission",
         "expiry-lifetime-capacity",
