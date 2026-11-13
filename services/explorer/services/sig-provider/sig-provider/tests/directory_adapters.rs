@@ -6,7 +6,7 @@ mod service {
 #[path = "../src/sources/abi_inventory_test_support.rs"]
 mod inventory;
 // These existing producer-path proofs run as part of this integration target.
-#[path = "repair_22_31_267.rs"]
+#[path = "precompile_inventory.rs"]
 mod producer_path;
 
 use serde_json::{json, Value};
