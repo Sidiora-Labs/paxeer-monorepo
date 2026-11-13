@@ -1,5 +1,5 @@
 // Reuse the committed in-memory node, TLS transport and production authority harness.
-include!("repair_22_31_208.rs");
+include!("native_budget_authority.rs");
 
 #[path = "support/lifecycle_finality.rs"]
 mod lifecycle_finality;

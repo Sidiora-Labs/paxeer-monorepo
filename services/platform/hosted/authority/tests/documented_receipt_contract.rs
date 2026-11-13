@@ -120,9 +120,9 @@ fn readme_matches_service_sources_and_configuration() {
         "tests/human_tls.rs",
         "tests/budget_proof_exports.rs",
         "tests/maintenance_identity.rs",
-        "tests/repair_22_31_207.rs",
-        "tests/repair_22_31_208.rs",
-        "tests/repair_22_33_1473.rs",
+        "tests/native_receipt_authority.rs",
+        "tests/native_budget_authority.rs",
+        "tests/documented_receipt_contract.rs",
     ] {
         assert!(
             root.join(path).is_file(),

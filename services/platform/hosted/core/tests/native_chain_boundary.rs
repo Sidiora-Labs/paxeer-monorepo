@@ -1,7 +1,7 @@
 include!("../src/main.rs");
 
 #[cfg(test)]
-mod repair {
+mod native_chain_boundary {
     use super::*;
     use layerx_client::storage_witness::verify_storage_witness;
     use layerx_platform_core::{SeedSigner, TreasurySigner as _};
@@ -61,7 +61,7 @@ mod repair {
     }
 
     fn transcripts() -> Value {
-        serde_json::from_str(include_str!("../src/repair_22_31_354_transcripts.json"))
+        serde_json::from_str(include_str!("../src/native_chain_transcripts.json"))
             .unwrap_or_else(|error| panic!("required value: {error:?}"))
     }
 

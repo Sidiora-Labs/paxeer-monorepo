@@ -4,7 +4,7 @@ acceptance = "22998.1"
 base_revision = "e3d7e5828b39e4182e9559fb6bc28d74c2f37e0f"
 verified_revision = "Recorded by hf-done in its private gate ledger and the final evidence JSON."
 baseline = "Not run: the task's ordered instructions require implementation before gates and prohibit running verify_cmd by hand; no earlier hf-build/hf-done ledger existed. No baseline test failures are claimed."
-verify_cmd = "cargo test --locked --manifest-path services/platform/hosted/core/Cargo.toml --test repair_22_33_1451"
+verify_cmd = "cargo test --locked --manifest-path services/platform/hosted/core/Cargo.toml --test funding_and_receipt_authentication"
 evidence = "hf-build and hf-done record the exact candidate revision, command, exit code and private log; completion requires both passing on that candidate."
 wiring_requests = []
 

@@ -1,7 +1,7 @@
 include!("../src/main.rs");
 
 #[cfg(test)]
-mod repair_22_31_485 {
+mod public_read_encoding {
     use super::*;
     use layerx_client::px::{
         PxAccountJoin, PxAssetEntry, PxAssetTable, PxNetworkHead, PxPaxeerAccount, PxPaxeerHead,

@@ -81,7 +81,7 @@ files = ["tests/support/committed_human_fixture.rs"]
 product = "The node worker borrows its listener, state, fixture and transcript."
 
 [lint.too_many_lines]
-files = ["tests/support/committed_human_fixture.rs", "tests/chain_receipts.rs", "tests/budget_proof_exports.rs", "tests/human_tls.rs", "tests/repair_22_33_1471.rs"]
+files = ["tests/support/committed_human_fixture.rs", "tests/chain_receipts.rs", "tests/budget_proof_exports.rs", "tests/human_tls.rs", "tests/committed_budget_exports.rs"]
 product = "Fixture construction and assertions use focused helpers while retaining the same evidence checks."
 
 [lint.private_interfaces]
