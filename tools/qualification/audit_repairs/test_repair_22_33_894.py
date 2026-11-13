@@ -212,7 +212,7 @@ def make_rule(path, target):
 def test_readme_two_domains_node_and_hosted_contracts_are_distinct():
     quickstart = section("Quick start: connect to chain 125")
     contract_path = "services/platform/hosted/gateway/openrpc.json"
-    for path in (contract_path, "rpc/server.go", "docs/site/docs/reference/public-rpc.md"):
+    for path in (contract_path, "rpc/server.go", "docs/site/paxeer-docs/src/app/public-rpc/page.tsx"):
         assert f"]({path})" in README, path
         assert (ROOT / path).is_file(), path
     for fact in (

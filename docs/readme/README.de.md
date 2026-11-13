@@ -58,7 +58,7 @@ Die öffentliche Mainnet-Beta verwendet Chain-ID 125. Verbinden Sie Wallets und 
 | Nummerierter Knoten | `https://api1.mainnet-beta.paxeer.network` |
 | WebSocket | `wss://api1.mainnet-beta.paxeer.network` |
 
-Die nummerierten Hosts reichen von `api1.mainnet-beta.paxeer.network` bis `api14.mainnet-beta.paxeer.network`. Die vollständige Liste und Nutzungshinweise stehen in [`docs/site/docs/reference/public-rpc.md`](../site/docs/reference/public-rpc.md). Prüfen Sie vor dem Signieren die Chain-ID; diese Anfrage erwartet `"0x7d"` als Ergebnis:
+Die nummerierten Hosts reichen von `api1.mainnet-beta.paxeer.network` bis `api14.mainnet-beta.paxeer.network`. Die vollständige Liste und Nutzungshinweise stehen in [`docs/site/paxeer-docs/src/app/public-rpc/page.tsx`](../site/paxeer-docs/src/app/public-rpc/page.tsx). Prüfen Sie vor dem Signieren die Chain-ID; diese Anfrage erwartet `"0x7d"` als Ergebnis:
 
 ```sh
 curl -sS --max-time 15 https://api1.mainnet-beta.paxeer.network \

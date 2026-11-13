@@ -3,10 +3,10 @@ import '@/styles/globals.css'
 import type { Metadata } from 'next'
 import { CodeBlockWrapper } from '@/components/CodeBlockWrapper'
 import { SiteHeader } from '@/components/SiteHeader'
-import { metadataFor, SITE_URL } from '@/lib/seo'
+import { metadataFor, SITE_NAME, SITE_URL } from '@/lib/seo'
 
 export const metadata: Metadata = {
-  ...metadataFor('/'), metadataBase: new URL(SITE_URL), applicationName: 'Paxeer X Docs',
+  ...metadataFor('/'), metadataBase: new URL(SITE_URL), applicationName: SITE_NAME,
   icons: { icon: [
     { url: '/brand/pax-black.svg', type: 'image/svg+xml', media: '(prefers-color-scheme: light)' },
     { url: '/brand/pax-white.svg', type: 'image/svg+xml', media: '(prefers-color-scheme: dark)' },
@@ -26,7 +26,7 @@ export default function RootLayout({
         <a href="#main-content" className="skip-link">Skip to content</a>
         <SiteHeader />
         {children}
-        <DocsAssistant layout="drawer" siteName="Paxeer X Docs" suggestions={["How do I make my first Paxeer X payment?", "How do agents use identities, budgets, and mandates?", "How do I build with the XDK and platform APIs?", "How do markets, settlement, and interoperability work?"]} />
+        <DocsAssistant layout="drawer" siteName={SITE_NAME} suggestions={["How do I make my first Paxeer X payment?", "How do agents use identities, budgets, and mandates?", "How do I build with the SDKs, CLI, and platform APIs?", "How do markets, settlement, and interoperability work?"]} />
         <CodeBlockWrapper />
       </body>
     </html>

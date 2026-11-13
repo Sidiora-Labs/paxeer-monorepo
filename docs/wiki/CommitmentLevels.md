@@ -14,7 +14,7 @@ failed execution; status `0x1` records success. Authenticate the receipt and
 block evidence before relying on a reported rung.
 
 For payment evidence requirements and recovery, see
-[Commitment levels](../site/docs/protocol/commitment-levels.md).
+[Commitment levels](../site/paxeer-docs/src/app/finality/page.tsx).
 See [Public JSON-RPC](PublicRpc.md) for node and hosted API ownership.
 
 [Home](Home.md)

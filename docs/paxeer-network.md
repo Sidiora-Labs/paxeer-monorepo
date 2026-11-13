@@ -49,7 +49,7 @@ curl --max-time 15 -sS "$PAXEER_RPC_URL" \
 
 Check chain identity before signing, use bounded timeouts, and compare
 `eth_blockNumber` across configured nodes when freshness matters. Consult
-[Public RPC endpoints](site/docs/reference/public-rpc.md) for the full list.
+[Public RPC endpoints](site/paxeer-docs/src/app/public-rpc/page.tsx) for the full list.
 The [HTTP server](../rpc/server.go) registers `debug`, `echo`, `eth`, `net`, `pax`, `pax2`, `px`,
 `txpool` and `web3`; method availability follows node configuration. The `test`
 namespace requires `EnableTestAPI` and a non-live chain ID. The `px` namespace is served at the node root from node
@@ -169,7 +169,7 @@ the selected network's release runbook.
 
 - [Monorepo layout](MONOREPO.md): current source and build boundaries
 - [Qualification](QUALIFICATION.md): evidence levels and release gates
-- [Public RPC endpoints](site/docs/reference/public-rpc.md): root node URLs and method guidance
+- [Public RPC endpoints](site/paxeer-docs/src/app/public-rpc/page.tsx): root node URLs and method guidance
 - [EVM JSON-RPC differences](evm_jsonrpc_unsupported.md): documented unsupported methods
 - [OpenAPI/Swagger generation](paxeer-chain-docs.md#openapiswagger-docs-generation): generating the node's API documentation
 - [Merged-network specification](../spec/layerx-merge/spec.kvx): acceptance criteria and current task status

@@ -87,4 +87,4 @@ through `eth_sendRawTransaction` and obtain signed execution receipts through
 `pax_sequencerReceipt`. Verify receipts against independently pinned keys.
 For finality, authenticate the block header and CometBFT commit and verify
 transaction or state inclusion at the relevant height. See
-[Committed block evidence](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/docs/site/docs/concepts/checkpoints.md#committed-block-evidence).
+[Committed block evidence](https://docs.paxeer.app/checkpoints/).

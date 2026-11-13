@@ -99,7 +99,7 @@ curl --fail --silent --show-error --max-time 20 "$LAYERX_NODE_URL" \
 ```
 
 The expected result is `0x7d`. Public mainnet-beta endpoints are listed in the
-[public RPC reference](../site/docs/reference/public-rpc.md); their genesis and
+[public RPC reference](../site/paxeer-docs/src/app/public-rpc/page.tsx); their genesis and
 receipt trust material are distinct from this disposable chain. The node's
 registered namespaces and methods are described in [EVM JSON-RPC](../system/rpc.md).
 

@@ -6,7 +6,7 @@
 This is the canonical beta contract of Paxeer X Network. The beta is
 mainnet-beta: it runs on the Paxeer network, chain 125. Public node JSON-RPC
 is served at the selected node's root path; see the
-[public RPC guide](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/docs/site/docs/reference/public-rpc.md). Hosted services have their own operator-provided origins. LayerX
+[public RPC guide](https://docs.paxeer.app/public-rpc/). Hosted services have their own operator-provided origins. LayerX
 is the kernel domain inside
 Paxeer X Network; it is not a separate network and has no separate beta.
 

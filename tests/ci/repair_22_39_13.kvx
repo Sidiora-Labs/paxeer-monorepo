@@ -9,10 +9,10 @@ evidence = "The runner's private /out/run/gates.jsonl records the exact built an
 
 [case.no_private_service_hosts]
 test = "tests/ci/test_docs_private_service_names.py::test_beta_and_faucet_docs_name_no_private_service_hosts"
-pages = ["docs/platform/beta-environment.md", "docs/site/docs/platform/faucet.md", "docs/wiki/HostedBetaControl.md", "docs/wiki/HostedFaucet.md"]
+pages = ["docs/platform/beta-environment.md", "docs/site/paxeer-docs/src/app/developer-funding/page.tsx", "docs/wiki/HostedBetaControl.md", "docs/wiki/HostedFaucet.md"]
 assertion = "Read each real page, reject service DNS suffixes and namespace-qualified hosts including shortened names, and require operator endpoint examples with the original paths, explicit ports and documented configuration variables."
 
 [case.private_network_only_wording]
 test = "tests/ci/test_docs_private_service_names.py::test_beta_and_faucet_docs_keep_private_network_only_wording"
-pages = ["docs/platform/beta-environment.md", "docs/site/docs/platform/faucet.md", "docs/wiki/HostedBetaControl.md", "docs/wiki/HostedFaucet.md"]
+pages = ["docs/platform/beta-environment.md", "docs/site/paxeer-docs/src/app/developer-funding/page.tsx", "docs/wiki/HostedBetaControl.md", "docs/wiki/HostedFaucet.md"]
 assertion = "Read each real page and require the case-insensitive private-network only or private network only wording matched by tools/paxeer-x/gates/108.0.7.sh."

@@ -6,16 +6,16 @@ A receipt is final when its block commits. Sub-chains are tenant domains in
 the database.
 
 Public node JSON-RPC is served at the root of each node endpoint listed in the
-[public RPC reference](site/docs/reference/public-rpc.md). The node registers
+[public RPC reference](site/paxeer-docs/src/app/public-rpc/page.tsx). The node registers
 `px` methods for account, inference, history and kernel reads;
 `px_register` and `px_requestFunds` belong to the hosted gateway contract.
 
 | Documentation | Contents |
 | --- | --- |
 | [Network overview](paxeer-network.md) | Chain identity, endpoints, tenant domains and build commands |
-| [Public node JSON-RPC](site/docs/reference/public-rpc.md) | Node endpoints, namespaces and client guidance |
+| [Public node JSON-RPC](site/paxeer-docs/src/app/public-rpc/page.tsx) | Node endpoints, namespaces and client guidance |
 | [Hosted gateway OpenRPC](../services/platform/hosted/gateway/openrpc.json) | Hosted method, parameter, result and error contracts |
-| [Documentation site](site/README.md) | MkDocs preview and build instructions |
+| [Documentation site](site/paxeer-docs/README.md) | Next.js static export, preview and build instructions |
 | [Wiki](wiki/Home.md) | Module, program and agent reference pages |
 | [Monorepo layout](MONOREPO.md) | Source directories, build targets and trust boundaries |
 | [Qualification](QUALIFICATION.md) | Native, node, replay, fault and deployment coverage |

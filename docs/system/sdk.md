@@ -2,7 +2,7 @@
 
 Paxeer is one BFT network, run by `paxd`, with the kernel participating in block proposal. Mainnet-beta uses EVM chain id **125** (`0x7d`). A transaction is final when its block is committed. Sub-chains are tenant domains in the database, launched without separate infrastructure.
 
-Public node JSON-RPC uses the root URL; select a node from the [public RPC reference](../site/docs/reference/public-rpc.md). The hpx library mirror distributes build libraries. Hosted gateway APIs have their own configured URL; their `px_` contract is [openrpc.json](../../services/platform/hosted/gateway/openrpc.json).
+Public node JSON-RPC uses the root URL; select a node from the [public RPC reference](../site/paxeer-docs/src/app/public-rpc/page.tsx). The hpx library mirror distributes build libraries. Hosted gateway APIs have their own configured URL; their `px_` contract is [openrpc.json](../../services/platform/hosted/gateway/openrpc.json).
 
 This reference covers the wallet package, the agent TypeScript and Python SDKs, and the Rust program guest SDK. Export availability is an inventory of source declarations; it does not establish that a backend is configured or that a transport exchange has been verified. See also [EVM JSON-RPC methods](rpc.md), [precompile ABIs](precompiles.md), and the [system index](INDEX.md).
 

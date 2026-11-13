@@ -222,7 +222,7 @@ def test_doc03_build_and_merged_developer_path():
     docs = section("Documentation", level=2)
     assert "Build the merged node using the [commands below](#build)" in docs
     for path in (
-        "docs/site/docs/reference/public-rpc.md", "docs/wiki/Getting-Started-Beta.md",
+        "docs/site/paxeer-docs/src/app/public-rpc/page.tsx", "docs/wiki/Getting-Started-Beta.md",
         "docs/wiki/PaymentsQuickstart.md", "node/sequencer/config.go",
     ):
         assert path in README and (ROOT / path).is_file(), path

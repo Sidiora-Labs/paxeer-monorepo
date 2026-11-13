@@ -3,7 +3,7 @@
 Paxeer mainnet-beta runs on chain 125 (`0x7d`). The kernel is part of the
 network, and a transaction is final when its block commits. Public node
 JSON-RPC uses the node root path; connection details are in the
-[public RPC guide](../site/docs/reference/public-rpc.md).
+[public RPC guide](../site/paxeer-docs/src/app/public-rpc/page.tsx).
 
 ## Mainnet-beta
 

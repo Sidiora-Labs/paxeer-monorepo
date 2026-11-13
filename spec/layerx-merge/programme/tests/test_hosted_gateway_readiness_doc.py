@@ -1,18 +1,42 @@
 """Keep both hosted gateway pages aligned with the readiness document scopes."""
 
+from html import unescape
 from pathlib import Path
+import re
 
 
 ROOT = Path(__file__).resolve().parents[4]
 DOCUMENTS = (
-    "docs/site/docs/platform/hosted-gateway.md",
+    "docs/site/paxeer-docs/src/app/platform-api/page.tsx",
     "docs/wiki/HostedGateway.md",
 )
 
 
+def document_text(path):
+    text = path.read_text(encoding="utf-8")
+    if path.suffix != ".tsx":
+        return text
+    text = re.sub(
+        r"<h([1-6])(?:\s[^>]*)?>(.*?)</h\1>",
+        lambda match: "\n\n" + "#" * int(match[1]) + " " + match[2] + "\n\n",
+        text,
+        flags=re.DOTALL,
+    )
+    text = re.sub(r"</?code(?:\s[^>]*)?>", "`", text)
+    text = re.sub(
+        r"<(?:Link|a)\b[^>]*href=[\"']([^\"']+)[\"'][^>]*>(.*?)</(?:Link|a)>",
+        lambda match: "[" + match[2] + "](" + match[1] + ")",
+        text,
+        flags=re.DOTALL,
+    )
+    text = re.sub(r"</(?:p|div|section|ul|ol)>", "\n\n", text)
+    text = re.sub(r"<[^>]+>", "", text)
+    return unescape(text)
+
+
 def test_readiness_doc_describes_chain_only_document() -> None:
     for path in DOCUMENTS:
-        document = (ROOT / path).read_text(encoding="utf-8")
+        document = document_text(ROOT / path)
         readiness = document.split("## Readiness\n", 1)[1].split("\n## ", 1)[0]
         readiness = " ".join(readiness.split())
         chain_only, kernel = readiness.split("When any `KernelBackend`", 1)
