@@ -139,102 +139,102 @@ producer = "precompiles/bank/abi.json amount:uint256; services/agent/sdk/python/
 correction = "Use the current producer uint256 maximum and first overflow as exact vectors, retaining all malformed/float/negative/canonical-decimal refusals."
 
 [case.26]
-nodeid = "tests/agent/sdk/python/test_repair_22_31_312.py::test_programs_terminal_response_recorded_call_survives_transport_reopen[]"
+nodeid = "tests/agent/sdk/python/test_program_terminal_response.py::test_programs_terminal_response_recorded_call_survives_transport_reopen[]"
 producer = "services/agent/sdk/python/layerx_sdk/x402_rpc.py:247 PaymentRpc; rpc/sequencer_receipt_vectors_test.go"
 correction = "Replay the unchanged signed transaction and receipt at the node root, asserting the exact root path before and after transport reopen; preserve all terminal bytes, framing and malformed/overflow assertions."
 
 [case.27]
-nodeid = "tests/agent/sdk/python/test_repair_22_31_312.py::test_programs_terminal_response_recorded_call_survives_transport_reopen[gggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg]"
+nodeid = "tests/agent/sdk/python/test_program_terminal_response.py::test_programs_terminal_response_recorded_call_survives_transport_reopen[gggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg]"
 producer = "services/agent/sdk/python/layerx_sdk/x402_rpc.py:247 PaymentRpc; rpc/sequencer_receipt_vectors_test.go"
 correction = "Replay the unchanged signed transaction and receipt at the node root, asserting the exact root path before and after transport reopen; preserve all terminal bytes, framing and malformed/overflow assertions."
 
 [case.28]
-nodeid = "tests/agent/sdk/python/test_repair_22_31_312.py::test_programs_terminal_response_recorded_call_survives_transport_reopen[guest response]"
+nodeid = "tests/agent/sdk/python/test_program_terminal_response.py::test_programs_terminal_response_recorded_call_survives_transport_reopen[guest response]"
 producer = "services/agent/sdk/python/layerx_sdk/x402_rpc.py:247 PaymentRpc; rpc/sequencer_receipt_vectors_test.go"
 correction = "Replay the unchanged signed transaction and receipt at the node root, asserting the exact root path before and after transport reopen; preserve all terminal bytes, framing and malformed/overflow assertions."
 
 [case.29]
-nodeid = "tests/agent/sdk/python/test_repair_22_33_15.py::test_offline_example_installed_receipt_round_trip[V1-erc20-approve]"
+nodeid = "tests/agent/sdk/python/test_installed_receipt_example.py::test_offline_example_installed_receipt_round_trip[V1-erc20-approve]"
 producer = "services/agent/sdk/python/layerx_sdk/x402_rpc.py:221 HostedGatewayRpc; :247 PaymentRpc"
 correction = "Keep node submission/receipt at the root and hosted receipt-key discovery at /rpc, assert each method-specific path, and retain installed-wheel identity, exact signed bytes and all key/signature refusal checks. Assert independent node/gateway correlation counters as exactly [1, 2, 1]."
 
 [case.30]
-nodeid = "tests/agent/sdk/python/test_repair_22_33_15.py::test_offline_example_installed_receipt_round_trip[V1-layerxbridge-bridge-out]"
+nodeid = "tests/agent/sdk/python/test_installed_receipt_example.py::test_offline_example_installed_receipt_round_trip[V1-layerxbridge-bridge-out]"
 producer = "services/agent/sdk/python/layerx_sdk/x402_rpc.py:221 HostedGatewayRpc; :247 PaymentRpc"
 correction = "Keep node submission/receipt at the root and hosted receipt-key discovery at /rpc, assert each method-specific path, and retain installed-wheel identity, exact signed bytes and all key/signature refusal checks. Assert independent node/gateway correlation counters as exactly [1, 2, 1]."
 
 [case.31]
-nodeid = "tests/agent/sdk/python/test_repair_22_33_15.py::test_offline_example_installed_receipt_round_trip[V1-layerxledger-pay-exact]"
+nodeid = "tests/agent/sdk/python/test_installed_receipt_example.py::test_offline_example_installed_receipt_round_trip[V1-layerxledger-pay-exact]"
 producer = "services/agent/sdk/python/layerx_sdk/x402_rpc.py:221 HostedGatewayRpc; :247 PaymentRpc"
 correction = "Keep node submission/receipt at the root and hosted receipt-key discovery at /rpc, assert each method-specific path, and retain installed-wheel identity, exact signed bytes and all key/signature refusal checks. Assert independent node/gateway correlation counters as exactly [1, 2, 1]."
 
 [case.32]
-nodeid = "tests/agent/sdk/python/test_repair_22_33_15.py::test_offline_example_installed_receipt_round_trip[V1-layerxprograms-call]"
+nodeid = "tests/agent/sdk/python/test_installed_receipt_example.py::test_offline_example_installed_receipt_round_trip[V1-layerxprograms-call]"
 producer = "services/agent/sdk/python/layerx_sdk/x402_rpc.py:221 HostedGatewayRpc; :247 PaymentRpc"
 correction = "Keep node submission/receipt at the root and hosted receipt-key discovery at /rpc, assert each method-specific path, and retain installed-wheel identity, exact signed bytes and all key/signature refusal checks. Assert independent node/gateway correlation counters as exactly [1, 2, 1]."
 
 [case.33]
-nodeid = "tests/agent/sdk/python/test_repair_22_33_15.py::test_offline_example_installed_receipt_round_trip[V1-pax-transfer]"
+nodeid = "tests/agent/sdk/python/test_installed_receipt_example.py::test_offline_example_installed_receipt_round_trip[V1-pax-transfer]"
 producer = "services/agent/sdk/python/layerx_sdk/x402_rpc.py:221 HostedGatewayRpc; :247 PaymentRpc"
 correction = "Keep node submission/receipt at the root and hosted receipt-key discovery at /rpc, assert each method-specific path, and retain installed-wheel identity, exact signed bytes and all key/signature refusal checks. Assert independent node/gateway correlation counters as exactly [1, 2, 1]."
 
 [case.34]
-nodeid = "tests/agent/sdk/python/test_repair_22_33_701.py::test_program_account_current_identity_over_recorded_rpc"
+nodeid = "tests/agent/sdk/python/test_program_gateway_contracts.py::test_program_account_current_identity_over_recorded_rpc"
 producer = "services/agent/sdk/python/layerx_sdk/x402_rpc.py:247 PaymentRpc; tests/agent/sdk/python/fixtures_22_33_701/chain-125-root.json:1"
 correction = "Assert the root path at both replay boundaries, preserve recorded answers and framing, and execute the corrected account, lifecycle, trust and typed-response cases unchanged through their existing wrappers."
 
 [case.35]
-nodeid = "tests/agent/sdk/python/test_repair_22_33_701.py::test_program_account_legacy_identity[test_account_bound_authority_rejects_changed_names_and_shape]"
+nodeid = "tests/agent/sdk/python/test_program_gateway_contracts.py::test_program_account_legacy_identity[test_account_bound_authority_rejects_changed_names_and_shape]"
 producer = "services/agent/sdk/python/layerx_sdk/x402_rpc.py:247 PaymentRpc; tests/agent/sdk/python/fixtures_22_33_701/chain-125-root.json:1"
 correction = "Assert the root path at both replay boundaries, preserve recorded answers and framing, and execute the corrected account, lifecycle, trust and typed-response cases unchanged through their existing wrappers."
 
 [case.36]
-nodeid = "tests/agent/sdk/python/test_repair_22_33_701.py::test_program_account_legacy_identity[test_current_transaction_binds_hash_sender_and_precompile]"
+nodeid = "tests/agent/sdk/python/test_program_gateway_contracts.py::test_program_account_legacy_identity[test_current_transaction_binds_hash_sender_and_precompile]"
 producer = "services/agent/sdk/python/layerx_sdk/x402_rpc.py:247 PaymentRpc; tests/agent/sdk/python/fixtures_22_33_701/chain-125-root.json:1"
 correction = "Assert the root path at both replay boundaries, preserve recorded answers and framing, and execute the corrected account, lifecycle, trust and typed-response cases unchanged through their existing wrappers."
 
 [case.37]
-nodeid = "tests/agent/sdk/python/test_repair_22_33_701.py::test_program_account_legacy_identity[test_real_native_call_verifies_with_principal_account_binding]"
+nodeid = "tests/agent/sdk/python/test_program_gateway_contracts.py::test_program_account_legacy_identity[test_real_native_call_verifies_with_principal_account_binding]"
 producer = "services/agent/sdk/python/layerx_sdk/x402_rpc.py:247 PaymentRpc; tests/agent/sdk/python/fixtures_22_33_701/chain-125-root.json:1"
 correction = "Assert the root path at both replay boundaries, preserve recorded answers and framing, and execute the corrected account, lifecycle, trust and typed-response cases unchanged through their existing wrappers."
 
 [case.38]
-nodeid = "tests/agent/sdk/python/test_repair_22_33_701.py::test_program_account_legacy_identity[test_signed_native_call_commitments_remain_bound]"
+nodeid = "tests/agent/sdk/python/test_program_gateway_contracts.py::test_program_account_legacy_identity[test_signed_native_call_commitments_remain_bound]"
 producer = "services/agent/sdk/python/layerx_sdk/x402_rpc.py:247 PaymentRpc; tests/agent/sdk/python/fixtures_22_33_701/chain-125-root.json:1"
 correction = "Assert the root path at both replay boundaries, preserve recorded answers and framing, and execute the corrected account, lifecycle, trust and typed-response cases unchanged through their existing wrappers."
 
 [case.39]
-nodeid = "tests/agent/sdk/python/test_repair_22_33_701.py::test_program_http_current_ingress_and_protected_inputs"
+nodeid = "tests/agent/sdk/python/test_program_gateway_contracts.py::test_program_http_current_ingress_and_protected_inputs"
 producer = "services/agent/sdk/python/layerx_sdk/x402_rpc.py:247 PaymentRpc; tests/agent/sdk/python/fixtures_22_33_701/chain-125-root.json:1"
 correction = "Assert the root path at both replay boundaries, preserve recorded answers and framing, and execute the corrected account, lifecycle, trust and typed-response cases unchanged through their existing wrappers."
 
 [case.40]
-nodeid = "tests/agent/sdk/python/test_repair_22_33_701.py::test_program_lifecycle_historical_internal_coverage[test_c_signed_fixtures_and_refusals]"
+nodeid = "tests/agent/sdk/python/test_program_gateway_contracts.py::test_program_lifecycle_historical_internal_coverage[test_c_signed_fixtures_and_refusals]"
 producer = "services/agent/sdk/python/layerx_sdk/x402_rpc.py:247 PaymentRpc; tests/agent/sdk/python/fixtures_22_33_701/chain-125-root.json:1"
 correction = "Assert the root path at both replay boundaries, preserve recorded answers and framing, and execute the corrected account, lifecycle, trust and typed-response cases unchanged through their existing wrappers."
 
 [case.41]
-nodeid = "tests/agent/sdk/python/test_repair_22_33_701.py::test_program_trust_envelope_shape_and_freshness[test_concurrent_head_change_invalidates_inflight_simulation]"
+nodeid = "tests/agent/sdk/python/test_program_gateway_contracts.py::test_program_trust_envelope_shape_and_freshness[test_concurrent_head_change_invalidates_inflight_simulation]"
 producer = "services/agent/sdk/python/layerx_sdk/x402_rpc.py:247 PaymentRpc; tests/agent/sdk/python/fixtures_22_33_701/chain-125-root.json:1"
 correction = "Assert the root path at both replay boundaries, preserve recorded answers and framing, and execute the corrected account, lifecycle, trust and typed-response cases unchanged through their existing wrappers."
 
 [case.42]
-nodeid = "tests/agent/sdk/python/test_repair_22_33_701.py::test_program_trust_envelope_shape_and_freshness[test_signed_validity_and_maximum_simulation_age_are_enforced]"
+nodeid = "tests/agent/sdk/python/test_program_gateway_contracts.py::test_program_trust_envelope_shape_and_freshness[test_signed_validity_and_maximum_simulation_age_are_enforced]"
 producer = "services/agent/sdk/python/layerx_sdk/x402_rpc.py:247 PaymentRpc; tests/agent/sdk/python/fixtures_22_33_701/chain-125-root.json:1"
 correction = "Assert the root path at both replay boundaries, preserve recorded answers and framing, and execute the corrected account, lifecycle, trust and typed-response cases unchanged through their existing wrappers."
 
 [case.43]
-nodeid = "tests/agent/sdk/python/test_repair_22_33_701.py::test_program_trust_envelope_shape_and_freshness[test_simulation_rechecks_head_freshness_after_http]"
+nodeid = "tests/agent/sdk/python/test_program_gateway_contracts.py::test_program_trust_envelope_shape_and_freshness[test_simulation_rechecks_head_freshness_after_http]"
 producer = "services/agent/sdk/python/layerx_sdk/x402_rpc.py:247 PaymentRpc; tests/agent/sdk/python/fixtures_22_33_701/chain-125-root.json:1"
 correction = "Assert the root path at both replay boundaries, preserve recorded answers and framing, and execute the corrected account, lifecycle, trust and typed-response cases unchanged through their existing wrappers."
 
 [case.44]
-nodeid = "tests/agent/sdk/python/test_repair_22_33_701.py::test_px_recorded_chain_125_root_answers_over_sdk_rpc"
+nodeid = "tests/agent/sdk/python/test_program_gateway_contracts.py::test_px_recorded_chain_125_root_answers_over_sdk_rpc"
 producer = "services/agent/sdk/python/layerx_sdk/x402_rpc.py:247 PaymentRpc; tests/agent/sdk/python/fixtures_22_33_701/chain-125-root.json:1"
 correction = "Assert the root path at both replay boundaries, preserve recorded answers and framing, and execute the corrected account, lifecycle, trust and typed-response cases unchanged through their existing wrappers."
 
 [case.45]
-nodeid = "tests/agent/sdk/python/test_repair_22_33_701.py::test_typed_program_verification_state[test_discovery_and_interface_are_typed_and_honest_about_server_verification]"
+nodeid = "tests/agent/sdk/python/test_program_gateway_contracts.py::test_typed_program_verification_state[test_discovery_and_interface_are_typed_and_honest_about_server_verification]"
 producer = "services/agent/sdk/python/layerx_sdk/x402_rpc.py:247 PaymentRpc; tests/agent/sdk/python/fixtures_22_33_701/chain-125-root.json:1"
 correction = "Assert the root path at both replay boundaries, preserve recorded answers and framing, and execute the corrected account, lifecycle, trust and typed-response cases unchanged through their existing wrappers."
 
@@ -271,7 +271,7 @@ severity = "blocker"
 
 [finding.baseline_preservation]
 task = "22.39.119"
-file = "tests/agent/sdk/python/test_repair_22_33_702.py"
+file = "tests/agent/sdk/python/test_payment_receipt_contracts.py"
 symbol = "test_payment_baseline_entries_are_retired_and_the_transport_baseline_is_preserved"
 observed = "At 51016514a8328132c747038584da423359a14a1e, cg spec done 22.39.119 -f layerx-merge --root /work/paxeer-monorepo exited 1 (/out/logs/verify-1.log): The unchanged payment repair test requires every 22.39.119 baseline entry to remain, contradicting this task's required retirement."
 assumption = "The owning baseline-preservation assertion must be made compatible with subsequent authorized baseline retirements."
@@ -279,7 +279,7 @@ severity = "blocker"
 
 [finding.retired_rpc_constructor]
 task = "22.39.119"
-file = "tests/agent/sdk/python/test_repair_22_31_147.py"
+file = "tests/agent/sdk/python/test_committed_receipt_consumers.py"
 symbol = "test_buyer_send_contract_and_restart_recovery; test_empty_receipt_keys_and_rotated_node_responses; test_draw_send_contract_and_restart_recovery; test_web_search_payer_header_and_ledger_accounts"
 observed = "At 51016514a8328132c747038584da423359a14a1e, cg spec done 22.39.119 -f layerx-merge --root /work/paxeer-monorepo exited 1 (/out/logs/verify-1.log): Unchanged payment tests call the retired PaymentRpc(hosted_gateway_endpoint=...) constructor and raise TypeError."
 assumption = "The owning tests must use the current separate node-root and HostedGatewayRpc interfaces without widening admission."
@@ -287,7 +287,7 @@ severity = "blocker"
 
 [finding.retired_rpc_keys]
 task = "22.39.119"
-file = "tests/agent/sdk/python/test_repair_22_33_17.py"
+file = "tests/agent/sdk/python/test_receipt_authority_recovery.py"
 symbol = "test_program_receipt_key_rotation_and_reopened_lifecycle_recovery; test_retired_batch_authority_and_payment_evidence_exports_preserve_signed_receipts; test_root_node_and_explicit_hosted_gateway_endpoints; test_rpc_endpoint_protections_apply_to_explicit_gateway_too; test_rpc_refuses_redirect_without_forwarding_credentials; test_live_payment_evidence_flows_through_buyer_seller_and_reopen"
 observed = "At 51016514a8328132c747038584da423359a14a1e, cg spec done 22.39.119 -f layerx-merge --root /work/paxeer-monorepo exited 1 (/out/logs/verify-1.log): Unchanged transport tests use the removed hosted_gateway_endpoint constructor argument or PaymentRpc.receipt_keys and fail with TypeError or AttributeError."
 assumption = "The owning tests must route hosted reads through HostedGatewayRpc while retaining the current node endpoint and method restrictions."
@@ -295,7 +295,7 @@ severity = "blocker"
 
 [finding.payment_identity]
 task = "22.39.119"
-file = "tests/agent/sdk/python/test_repair_22_31_147.py"
+file = "tests/agent/sdk/python/test_committed_receipt_consumers.py"
 symbol = "test_seller_commitment_downgrade_and_verified_landing; test_grant_receipt_kind_from_recorded_server_producer"
 observed = "At 51016514a8328132c747038584da423359a14a1e, cg spec done 22.39.119 -f layerx-merge --root /work/paxeer-monorepo exited 1 (/out/logs/verify-1.log): Unchanged payment cases fail with unsupported-network and PaymentBindingError payer mismatch."
 assumption = "The payment tests must follow the current producer network and distinct signer/ledger payer identities."
@@ -317,79 +317,79 @@ resolved_findings = "lifecycle_bound, baseline_preservation, retired_rpc_constru
 qualification = "Only the final matching passing build and verify rows of /out/run/gates.jsonl qualify the candidate; their revision, command, exit and private logs are the evidence by reference. No prior failed attempt establishes qualification."
 
 [case.47]
-nodeid = "tests/agent/sdk/python/test_repair_22_31_147.py::test_buyer_send_contract_and_restart_recovery"
+nodeid = "tests/agent/sdk/python/test_committed_receipt_consumers.py::test_buyer_send_contract_and_restart_recovery"
 producer = "services/agent/sdk/python/layerx_sdk/x402_rpc.py:221 HostedGatewayRpc; :247 PaymentRpc; x402_http.py:345 _make_proof; :487 BuyerMiddleware.prepare"
 correction = "Exercise both node root spellings with hosted keys at /rpc; preserve one send, pending recovery, exact v2 proof, settlement verification and durable seller replay. Use the recovered signer for RPC payer and the distinct payExact account for ledger terms."
 parameters = ["rpc_path=", "rpc_path=/"]
 
 [case.48]
-nodeid = "tests/agent/sdk/python/test_repair_22_31_147.py::test_seller_commitment_downgrade_and_verified_landing"
+nodeid = "tests/agent/sdk/python/test_committed_receipt_consumers.py::test_seller_commitment_downgrade_and_verified_landing"
 producer = "services/agent/sdk/python/layerx_sdk/x402_http.py:85 validate_requirements; :309 _verify_proof; x402.py:168 verify_payment_receipt"
 correction = "Use eip155:125 and the exact node-produced v2 proof; assert the exact commitment-mismatch downgrade refusal, preserve the missing-finality SDK refusal, and accept only verified block inclusion while retaining data/app hash tampering refusals."
 parameters = []
 
 [case.49]
-nodeid = "tests/agent/sdk/python/test_repair_22_31_147.py::test_empty_receipt_keys_and_rotated_node_responses"
+nodeid = "tests/agent/sdk/python/test_committed_receipt_consumers.py::test_empty_receipt_keys_and_rotated_node_responses"
 producer = "services/agent/sdk/python/layerx_sdk/x402_rpc.py:221 HostedGatewayRpc; :247 PaymentRpc"
 correction = "Fetch the same empty, pinned, rotated and duplicate-key responses at /rpc; for both node root spellings independently assert px_getReceiptKeys is refused without a request, retaining all four hosted responses and unpinned-key verification refusal."
 parameters = ["rpc_path=", "rpc_path=/"]
 
 [case.50]
-nodeid = "tests/agent/sdk/python/test_repair_22_31_147.py::test_web_search_payment_binding_uses_ledger_event"
+nodeid = "tests/agent/sdk/python/test_committed_receipt_consumers.py::test_web_search_payment_binding_uses_ledger_event"
 producer = "services/agent/sdk/python/layerx_sdk/web_search.py:437 verify_sequencer_receipt; x402.py:168 verify_payment_receipt; tests/agent/sdk/python/payment_receipt_evidence.py:34 payment_terms"
 correction = "Bind the offer payer to the ledger account from the independently checked signed calldata and PaymentExact log. Preserve amount, asset, pay-to, payer and non-ledger transfer refusals."
 parameters = []
 
 [case.51]
-nodeid = "tests/agent/sdk/python/test_repair_22_31_147.py::test_grant_receipt_kind_from_recorded_server_producer"
+nodeid = "tests/agent/sdk/python/test_committed_receipt_consumers.py::test_grant_receipt_kind_from_recorded_server_producer"
 producer = "services/agent/sdk/python/layerx_sdk/x402.py:168 verify_payment_receipt; web_search.py:437 verify_sequencer_receipt"
 correction = "Keep the recovered signer and ledger payer as separate terms; preserve every registered LXP_NO_PAYER_GRANT refusal, pending-result refusal, no-reservation assertion and mismatched draw transaction refusal."
 parameters = []
 
 [case.52]
-nodeid = "tests/agent/sdk/python/test_repair_22_31_147.py::test_draw_send_contract_and_restart_recovery"
+nodeid = "tests/agent/sdk/python/test_committed_receipt_consumers.py::test_draw_send_contract_and_restart_recovery"
 producer = "services/agent/sdk/python/layerx_sdk/x402_rpc.py:247 PaymentRpc"
 correction = "Send node eth_sendRawTransaction at the root in both canonical endpoint spellings, preserving exact signed calldata, typed producer refusal, durable reopen and zero grant rows."
 parameters = ["rpc_path=", "rpc_path=/"]
 
 [case.53]
-nodeid = "tests/agent/sdk/python/test_repair_22_31_147.py::test_web_search_payer_header_and_ledger_accounts"
+nodeid = "tests/agent/sdk/python/test_committed_receipt_consumers.py::test_web_search_payer_header_and_ledger_accounts"
 producer = "services/agent/sdk/python/layerx_sdk/x402_rpc.py:247 PaymentRpc; web_search.py:601 _exchange; :688 _payer_owner_did"
 correction = "Keep payer DID/account eth_call reads on the node root for both spellings; retain all four currencies and both DID registrations, exact payer header, account order and configured-payer mismatch refusal."
 parameters = ["rpc_path= or /; registered_did=False or True; currency=SID, PAX, USDC or USDL"]
 
 [case.54]
-nodeid = "tests/agent/sdk/python/test_repair_22_33_17.py::test_program_receipt_key_rotation_and_reopened_lifecycle_recovery"
+nodeid = "tests/agent/sdk/python/test_receipt_authority_recovery.py::test_program_receipt_key_rotation_and_reopened_lifecycle_recovery"
 producer = "services/agent/sdk/python/layerx_sdk/x402_rpc.py:221 HostedGatewayRpc; programs.py:251 lifecycle_receipt"
 correction = "Obtain rotated pins through the hosted client at /rpc and lifecycle receipts through the node root; retain both independent signing keys, durable reopen, all four pin mutations and signingKey summary refusal."
 parameters = []
 
 [case.55]
-nodeid = "tests/agent/sdk/python/test_repair_22_33_17.py::test_retired_batch_authority_and_payment_evidence_exports_preserve_signed_receipts"
+nodeid = "tests/agent/sdk/python/test_receipt_authority_recovery.py::test_retired_batch_authority_and_payment_evidence_exports_preserve_signed_receipts"
 producer = "services/agent/sdk/python/layerx_sdk/x402_rpc.py:221 HostedGatewayRpc; :247 PaymentRpc; :409 rpc_payment_evidence"
 correction = "Read keys from the hosted client while reading the exact recorded program receipt from the node; preserve retired-export checks, receipt digest and unpinned verification refusal."
 parameters = []
 
 [case.56]
-nodeid = "tests/agent/sdk/python/test_repair_22_33_17.py::test_root_node_and_explicit_hosted_gateway_endpoints"
+nodeid = "tests/agent/sdk/python/test_receipt_authority_recovery.py::test_root_node_and_explicit_hosted_gateway_endpoints"
 producer = "services/agent/sdk/python/layerx_sdk/x402_rpc.py:221 HostedGatewayRpc; :247 PaymentRpc"
 correction = "Keep all fifteen node hosts and both root spellings; use the explicit /rpc hosted endpoint, preserve five observed exchanges and assert cross-family methods and noncanonical gateway paths are refused before HTTP."
 parameters = []
 
 [case.57]
-nodeid = "tests/agent/sdk/python/test_repair_22_33_17.py::test_rpc_endpoint_protections_apply_to_explicit_gateway_too"
+nodeid = "tests/agent/sdk/python/test_receipt_authority_recovery.py::test_rpc_endpoint_protections_apply_to_explicit_gateway_too"
 producer = "services/agent/sdk/python/layerx_sdk/x402_rpc.py:171 _BoundedRpc.__init__; :221 HostedGatewayRpc; :247 PaymentRpc"
 correction = "Assert all twelve scheme, credential, query, fragment, path, port, whitespace and backslash refusals independently on hosted /rpc and node root clients; valid paths for each client expose the intended protection rather than an incidental wrong-path refusal."
 parameters = ["all twelve endpoint vectors"]
 
 [case.58]
-nodeid = "tests/agent/sdk/python/test_repair_22_33_17.py::test_rpc_refuses_redirect_without_forwarding_credentials"
+nodeid = "tests/agent/sdk/python/test_receipt_authority_recovery.py::test_rpc_refuses_redirect_without_forwarding_credentials"
 producer = "services/agent/sdk/python/layerx_sdk/x402_rpc.py:165 _NoRedirect; :221 HostedGatewayRpc; :247 PaymentRpc"
 correction = "Assert exact rpc-redirect refusal on both hosted keys and node receipt reads, preserving the real HTTP 307 boundary and zero destination credentials."
 parameters = []
 
 [case.59]
-nodeid = "tests/agent/sdk/python/test_repair_22_33_17.py::test_live_payment_evidence_flows_through_buyer_seller_and_reopen"
+nodeid = "tests/agent/sdk/python/test_receipt_authority_recovery.py::test_live_payment_evidence_flows_through_buyer_seller_and_reopen"
 producer = "services/agent/sdk/python/layerx_sdk/x402_rpc.py:221 HostedGatewayRpc; x402_http.py:85 validate_requirements; :487 BuyerMiddleware.prepare; x402.py:168 verify_payment_receipt"
 correction = "Use hosted receipt keys, the eip155:125 network, the recovered transaction signer and separate ledger account. Preserve receipted and committed proof paths, validator finality, one send, consumer reopen, verified settlement and exactly one durable fulfillment."
 parameters = ["commitment=receipted", "commitment=committed"]
@@ -397,11 +397,11 @@ parameters = ["commitment=receipted", "commitment=committed"]
 [case.60]
 nodeid = "tests/agent/sdk/python/test_program_lifecycle.py::ProgramLifecycleTest::test_c_signed_fixtures_and_refusals"
 producer = "services/agent/sdk/python/layerx_sdk/program_lifecycle.py:74 NativeProgramDeploy.encode; program_wire.py:157 _historical_activity_envelope"
-correction = "Encode the 524289-byte deploy only inside assertRaises; keep exact 524288-byte acceptance and independently construct the oversized historical frame to retain binder refusal. The existing test_repair_22_33_701 wrapper executes this case too."
+correction = "Encode the 524289-byte deploy only inside assertRaises; keep exact 524288-byte acceptance and independently construct the oversized historical frame to retain binder refusal. The existing test_program_gateway_contracts wrapper executes this case too."
 parameters = []
 
 [case.61]
-nodeid = "tests/agent/sdk/python/test_repair_22_33_702.py::test_payment_baseline_entries_are_retired_and_the_transport_baseline_is_preserved"
+nodeid = "tests/agent/sdk/python/test_payment_receipt_contracts.py::test_payment_baseline_entries_are_retired_and_the_transport_baseline_is_preserved"
 producer = "spec/layerx-merge/spec.kvx:10825 decision.2952; original baseline at 3a0f70d0fce59d96719043d5294b98aa3718e3bd"
 correction = "Preserve the original forty-eight payment-retirement inventory assertions; assert every retained entry is original and none of those forty-eight retired payment entries remains, allowing authorized subsequent transport retirements while preserving the unrelated payment baseline required by do_2."
 parameters = []
