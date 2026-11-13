@@ -1,0 +1,1601 @@
+# Paxeer 7.0.0 systems.
+# Build commands run from the repository root unless they include cd.
+
+[system.chain-node]
+title = "Paxeer chain node"
+kind = "node"
+path = "daemon/paxd"
+build = "make build"
+artefact = "build/paxd"
+configuration = "node/params/config.go and docs/release/7.0.0-validator-runbook.md"
+ports = ["26656", "26657", "8545", "8546", "1317"]
+health = "paxd status"
+depends = []
+docs = ["docs/release/7.0.0-upgrade-plan.md", "docs/release/7.0.0-validator-runbook.md", "docs/site/paxeer-docs/src/app/run-node/page.tsx", "/run-node"]
+change = "changed"
+
+[system.kernel]
+title = "LayerX kernel host"
+kind = "kernel"
+path = "modules/lxphost"
+build = "make build"
+artefact = "build/paxd with the native kernel archive"
+configuration = "modules/lxphost and docs/site/paxeer-docs/src/app/layerx-kernel/page.tsx"
+ports = []
+health = "paxd status"
+depends = ["chain-node"]
+docs = ["docs/system/kernel-modules.md", "docs/site/paxeer-docs/src/app/layerx-kernel/page.tsx", "/layerx-kernel"]
+change = "changed"
+
+[system.module-epoch]
+title = "Epoch module"
+kind = "module"
+path = "modules/epoch"
+build = "go build ./modules/epoch/..."
+artefact = "linked into build/paxd"
+configuration = "modules/epoch/types and node/app.go"
+ports = []
+health = "paxd status"
+depends = ["chain-node"]
+docs = ["docs/system/chain-modules.md", "docs/site/paxeer-docs/src/app/modules/page.tsx", "/modules"]
+change = "unchanged"
+
+[system.module-evm]
+title = "EVM module"
+kind = "module"
+path = "modules/evm"
+build = "go build ./modules/evm/..."
+artefact = "linked into build/paxd"
+configuration = "modules/evm/types and node/app.go"
+ports = []
+health = "paxd status"
+depends = ["chain-node"]
+docs = ["docs/system/chain-modules.md", "docs/site/paxeer-docs/src/app/modules/page.tsx", "/modules"]
+change = "unchanged"
+
+[system.module-launchpad]
+title = "Launchpad module"
+kind = "module"
+path = "modules/launchpad"
+build = "go build ./modules/launchpad/..."
+artefact = "linked into build/paxd"
+configuration = "modules/launchpad/types and node/app.go"
+ports = []
+health = "paxd status"
+depends = ["chain-node"]
+docs = ["docs/system/chain-modules.md", "docs/site/paxeer-docs/src/app/modules/page.tsx", "/modules"]
+change = "changed"
+
+[system.module-layerx-agent]
+title = "LayerX agent module"
+kind = "module"
+path = "modules/layerxagent"
+build = "go build ./modules/layerxagent/..."
+artefact = "linked into build/paxd"
+configuration = "modules/layerxagent/types and node/app.go"
+ports = []
+health = "paxd status"
+depends = ["chain-node"]
+docs = ["docs/system/chain-modules.md", "docs/site/paxeer-docs/src/app/modules/page.tsx", "/modules"]
+change = "new"
+
+[system.module-layerx-anchor]
+title = "LayerX anchor module"
+kind = "module"
+path = "modules/layerxanchor"
+build = "go build ./modules/layerxanchor/..."
+artefact = "linked into build/paxd"
+configuration = "modules/layerxanchor/types and node/app.go"
+ports = []
+health = "paxd status"
+depends = ["chain-node"]
+docs = ["docs/system/chain-modules.md", "docs/site/paxeer-docs/src/app/modules/page.tsx", "/modules"]
+change = "changed"
+
+[system.module-layerx-auth]
+title = "LayerX auth module"
+kind = "module"
+path = "modules/layerxauth"
+build = "go build ./modules/layerxauth/..."
+artefact = "linked into build/paxd"
+configuration = "modules/layerxauth/types and node/app.go"
+ports = []
+health = "paxd status"
+depends = ["chain-node"]
+docs = ["docs/system/chain-modules.md", "docs/site/paxeer-docs/src/app/modules/page.tsx", "/modules"]
+change = "new"
+
+[system.module-layerx-bridge]
+title = "LayerX bridge module"
+kind = "module"
+path = "modules/layerxbridge"
+build = "go build ./modules/layerxbridge/..."
+artefact = "linked into build/paxd"
+configuration = "modules/layerxbridge/types and node/app.go"
+ports = []
+health = "paxd status"
+depends = ["chain-node"]
+docs = ["docs/system/chain-modules.md", "docs/site/paxeer-docs/src/app/modules/page.tsx", "/modules"]
+change = "unchanged"
+
+[system.module-layerx-chains]
+title = "LayerX chains module"
+kind = "module"
+path = "modules/layerxchains"
+build = "go build ./modules/layerxchains/..."
+artefact = "linked into build/paxd"
+configuration = "modules/layerxchains/types and node/app.go"
+ports = []
+health = "paxd status"
+depends = ["chain-node"]
+docs = ["docs/system/chain-modules.md", "docs/site/paxeer-docs/src/app/modules/page.tsx", "/modules"]
+change = "new"
+
+[system.module-layerx-custody]
+title = "LayerX custody module"
+kind = "module"
+path = "modules/layerxcustody"
+build = "go build ./modules/layerxcustody/..."
+artefact = "linked into build/paxd"
+configuration = "modules/layerxcustody/types and node/app.go"
+ports = []
+health = "paxd status"
+depends = ["chain-node"]
+docs = ["docs/system/chain-modules.md", "docs/site/paxeer-docs/src/app/modules/page.tsx", "/modules"]
+change = "changed"
+
+[system.module-layerx-exchange]
+title = "LayerX exchange module"
+kind = "module"
+path = "modules/layerxexchange"
+build = "go build ./modules/layerxexchange/..."
+artefact = "linked into build/paxd"
+configuration = "modules/layerxexchange/types and node/app.go"
+ports = []
+health = "paxd status"
+depends = ["chain-node"]
+docs = ["docs/system/chain-modules.md", "docs/site/paxeer-docs/src/app/modules/page.tsx", "/modules"]
+change = "unchanged"
+
+[system.module-layerx-gov]
+title = "LayerX governance module"
+kind = "module"
+path = "modules/layerxgov"
+build = "go build ./modules/layerxgov/..."
+artefact = "linked into build/paxd"
+configuration = "modules/layerxgov/types and node/app.go"
+ports = []
+health = "paxd status"
+depends = ["chain-node"]
+docs = ["docs/system/chain-modules.md", "docs/site/paxeer-docs/src/app/modules/page.tsx", "/modules"]
+change = "unchanged"
+
+[system.module-layerx-ledger]
+title = "LayerX ledger module"
+kind = "module"
+path = "modules/layerxledger"
+build = "go build ./modules/layerxledger/..."
+artefact = "linked into build/paxd"
+configuration = "modules/layerxledger/types and node/app.go"
+ports = []
+health = "paxd status"
+depends = ["chain-node"]
+docs = ["docs/system/chain-modules.md", "docs/site/paxeer-docs/src/app/modules/page.tsx", "/modules"]
+change = "new"
+
+[system.module-layerx-pay]
+title = "LayerX pay module"
+kind = "module"
+path = "modules/layerxpay"
+build = "go build ./modules/layerxpay/..."
+artefact = "linked into build/paxd"
+configuration = "modules/layerxpay/types and node/app.go"
+ports = []
+health = "paxd status"
+depends = ["chain-node"]
+docs = ["docs/system/chain-modules.md", "docs/site/paxeer-docs/src/app/modules/page.tsx", "/modules"]
+change = "new"
+
+[system.module-mint]
+title = "Mint module"
+kind = "module"
+path = "modules/mint"
+build = "go build ./modules/mint/..."
+artefact = "linked into build/paxd"
+configuration = "modules/mint/types and node/app.go"
+ports = []
+health = "paxd status"
+depends = ["chain-node"]
+docs = ["docs/system/chain-modules.md", "docs/site/paxeer-docs/src/app/modules/page.tsx", "/modules"]
+change = "unchanged"
+
+[system.module-oracle]
+title = "Oracle module"
+kind = "module"
+path = "modules/oracle"
+build = "go build ./modules/oracle/..."
+artefact = "linked into build/paxd"
+configuration = "modules/oracle/types and node/app.go"
+ports = []
+health = "paxd status"
+depends = ["chain-node"]
+docs = ["docs/system/chain-modules.md", "docs/site/paxeer-docs/src/app/modules/page.tsx", "/modules"]
+change = "unchanged"
+
+[system.module-perps]
+title = "Perpetuals module"
+kind = "module"
+path = "modules/perps"
+build = "go build ./modules/perps/..."
+artefact = "linked into build/paxd"
+configuration = "modules/perps/types and node/app.go"
+ports = []
+health = "paxd status"
+depends = ["chain-node"]
+docs = ["docs/system/chain-modules.md", "docs/site/paxeer-docs/src/app/modules/page.tsx", "/modules"]
+change = "unchanged"
+
+[system.module-pricefeed]
+title = "Price feed module"
+kind = "module"
+path = "modules/pricefeed"
+build = "go build ./modules/pricefeed/..."
+artefact = "linked into build/paxd"
+configuration = "modules/pricefeed/types and node/app.go"
+ports = []
+health = "paxd status"
+depends = ["chain-node"]
+docs = ["docs/system/chain-modules.md", "docs/site/paxeer-docs/src/app/modules/page.tsx", "/modules"]
+change = "unchanged"
+
+[system.module-sequencer]
+title = "Embedded sequencer module"
+kind = "module"
+path = "modules/sequencer"
+build = "go build ./modules/sequencer/..."
+artefact = "linked into build/paxd"
+configuration = "modules/sequencer/types and node/app.go"
+ports = []
+health = "paxd status"
+depends = ["chain-node"]
+docs = ["docs/system/chain-modules.md", "docs/site/paxeer-docs/src/app/modules/page.tsx", "/modules"]
+change = "new"
+
+[system.module-spot]
+title = "Spot module"
+kind = "module"
+path = "modules/spot"
+build = "go build ./modules/spot/..."
+artefact = "linked into build/paxd"
+configuration = "modules/spot/types and node/app.go"
+ports = []
+health = "paxd status"
+depends = ["chain-node"]
+docs = ["docs/system/chain-modules.md", "docs/site/paxeer-docs/src/app/modules/page.tsx", "/modules"]
+change = "unchanged"
+
+[system.module-store]
+title = "Store module"
+kind = "module"
+path = "modules/store"
+build = "go build ./modules/store/..."
+artefact = "linked into build/paxd"
+configuration = "modules/store/types and node/app.go"
+ports = []
+health = "paxd status"
+depends = ["chain-node"]
+docs = ["docs/system/chain-modules.md", "docs/site/paxeer-docs/src/app/modules/page.tsx", "/modules"]
+change = "unchanged"
+
+[system.module-tokenfactory]
+title = "Token factory module"
+kind = "module"
+path = "modules/tokenfactory"
+build = "go build ./modules/tokenfactory/..."
+artefact = "linked into build/paxd"
+configuration = "modules/tokenfactory/types and node/app.go"
+ports = []
+health = "paxd status"
+depends = ["chain-node"]
+docs = ["docs/system/chain-modules.md", "docs/site/paxeer-docs/src/app/modules/page.tsx", "/modules"]
+change = "unchanged"
+
+[system.module-xweb]
+title = "XWeb module"
+kind = "module"
+path = "modules/xweb"
+build = "go build ./modules/xweb/..."
+artefact = "linked into build/paxd"
+configuration = "modules/xweb/types and node/app.go"
+ports = []
+health = "paxd status"
+depends = ["chain-node"]
+docs = ["docs/system/chain-modules.md", "docs/site/paxeer-docs/src/app/modules/page.tsx", "/modules"]
+change = "unchanged"
+
+[system.precompile-addr]
+title = "Address binding precompiles"
+kind = "precompile"
+path = "precompiles/addr"
+build = "go build ./precompiles/addr/..."
+artefact = "registered in build/paxd"
+configuration = "precompiles/addr/abi.json and node/app.go"
+ports = []
+health = "paxd status"
+depends = ["chain-node"]
+docs = ["docs/system/precompiles.md", "docs/site/paxeer-docs/src/app/precompiles/page.tsx", "/precompiles"]
+change = "changed"
+
+[system.precompile-bank]
+title = "Bank precompile"
+kind = "precompile"
+path = "precompiles/bank"
+build = "go build ./precompiles/bank/..."
+artefact = "registered in build/paxd"
+configuration = "precompiles/bank/abi.json and node/app.go"
+ports = []
+health = "paxd status"
+depends = ["chain-node"]
+docs = ["docs/system/precompiles.md", "docs/site/paxeer-docs/src/app/precompiles/page.tsx", "/precompiles"]
+change = "unchanged"
+
+[system.precompile-common]
+title = "Common token precompiles"
+kind = "precompile"
+path = "precompiles/common"
+build = "go build ./precompiles/common/..."
+artefact = "registered in build/paxd"
+configuration = "precompiles/common/abi.json and node/app.go"
+ports = []
+health = "paxd status"
+depends = ["chain-node"]
+docs = ["docs/system/precompiles.md", "docs/site/paxeer-docs/src/app/precompiles/page.tsx", "/precompiles"]
+change = "unchanged"
+
+[system.precompile-distribution]
+title = "Distribution precompiles"
+kind = "precompile"
+path = "precompiles/distribution"
+build = "go build ./precompiles/distribution/..."
+artefact = "registered in build/paxd"
+configuration = "precompiles/distribution/abi.json and node/app.go"
+ports = []
+health = "paxd status"
+depends = ["chain-node"]
+docs = ["docs/system/precompiles.md", "docs/site/paxeer-docs/src/app/precompiles/page.tsx", "/precompiles"]
+change = "unchanged"
+
+[system.precompile-feetoken]
+title = "Fee token precompile"
+kind = "precompile"
+path = "precompiles/feetoken"
+build = "go build ./precompiles/feetoken/..."
+artefact = "registered in build/paxd"
+configuration = "precompiles/feetoken/abi.json and node/app.go"
+ports = []
+health = "paxd status"
+depends = ["chain-node"]
+docs = ["docs/system/precompiles.md", "docs/site/paxeer-docs/src/app/precompiles/page.tsx", "/precompiles"]
+change = "changed"
+
+[system.precompile-gov]
+title = "Governance precompile"
+kind = "precompile"
+path = "precompiles/gov"
+build = "go build ./precompiles/gov/..."
+artefact = "registered in build/paxd"
+configuration = "precompiles/gov/abi.json and node/app.go"
+ports = []
+health = "paxd status"
+depends = ["chain-node"]
+docs = ["docs/system/precompiles.md", "docs/site/paxeer-docs/src/app/precompiles/page.tsx", "/precompiles"]
+change = "unchanged"
+
+[system.precompile-ibc]
+title = "IBC precompiles"
+kind = "precompile"
+path = "precompiles/ibc"
+build = "go build ./precompiles/ibc/..."
+artefact = "registered in build/paxd"
+configuration = "precompiles/ibc/abi.json and node/app.go"
+ports = []
+health = "paxd status"
+depends = ["chain-node"]
+docs = ["docs/system/precompiles.md", "docs/site/paxeer-docs/src/app/precompiles/page.tsx", "/precompiles"]
+change = "unchanged"
+
+[system.precompile-json]
+title = "JSON precompile"
+kind = "precompile"
+path = "precompiles/json"
+build = "go build ./precompiles/json/..."
+artefact = "registered in build/paxd"
+configuration = "precompiles/json/abi.json and node/app.go"
+ports = []
+health = "paxd status"
+depends = ["chain-node"]
+docs = ["docs/system/precompiles.md", "docs/site/paxeer-docs/src/app/precompiles/page.tsx", "/precompiles"]
+change = "unchanged"
+
+[system.precompile-launchpad]
+title = "Launchpad precompiles"
+kind = "precompile"
+path = "precompiles/launchpad"
+build = "go build ./precompiles/launchpad/..."
+artefact = "registered in build/paxd"
+configuration = "precompiles/launchpad/abi.json and node/app.go"
+ports = []
+health = "paxd status"
+depends = ["chain-node"]
+docs = ["docs/system/precompiles.md", "docs/site/paxeer-docs/src/app/precompiles/page.tsx", "/precompiles"]
+change = "changed"
+
+[system.precompile-layerx-agent]
+title = "LayerX agent precompiles"
+kind = "precompile"
+path = "precompiles/layerxagent"
+build = "go build ./precompiles/layerxagent/..."
+artefact = "registered in build/paxd"
+configuration = "precompiles/layerxagent/abi.json and node/app.go"
+ports = []
+health = "paxd status"
+depends = ["chain-node"]
+docs = ["docs/system/precompiles.md", "docs/site/paxeer-docs/src/app/precompiles/page.tsx", "/precompiles"]
+change = "new"
+
+[system.precompile-layerx-anchor]
+title = "LayerX anchor precompile"
+kind = "precompile"
+path = "precompiles/layerxanchor"
+build = "go build ./precompiles/layerxanchor/..."
+artefact = "registered in build/paxd"
+configuration = "precompiles/layerxanchor/abi.json and node/app.go"
+ports = []
+health = "paxd status"
+depends = ["chain-node"]
+docs = ["docs/system/precompiles.md", "docs/site/paxeer-docs/src/app/precompiles/page.tsx", "/precompiles"]
+change = "changed"
+
+[system.precompile-layerx-auth]
+title = "LayerX auth precompile"
+kind = "precompile"
+path = "precompiles/layerxauth"
+build = "go build ./precompiles/layerxauth/..."
+artefact = "registered in build/paxd"
+configuration = "precompiles/layerxauth/abi.json and node/app.go"
+ports = []
+health = "paxd status"
+depends = ["chain-node"]
+docs = ["docs/system/precompiles.md", "docs/site/paxeer-docs/src/app/precompiles/page.tsx", "/precompiles"]
+change = "new"
+
+[system.precompile-layerx-bridge]
+title = "LayerX bridge precompile"
+kind = "precompile"
+path = "precompiles/layerxbridge"
+build = "go build ./precompiles/layerxbridge/..."
+artefact = "registered in build/paxd"
+configuration = "precompiles/layerxbridge/abi.json and node/app.go"
+ports = []
+health = "paxd status"
+depends = ["chain-node"]
+docs = ["docs/system/precompiles.md", "docs/site/paxeer-docs/src/app/precompiles/page.tsx", "/precompiles"]
+change = "changed"
+
+[system.precompile-layerx-chains]
+title = "LayerX chains precompile"
+kind = "precompile"
+path = "precompiles/layerxchains"
+build = "go build ./precompiles/layerxchains/..."
+artefact = "registered in build/paxd"
+configuration = "precompiles/layerxchains/abi.json and node/app.go"
+ports = []
+health = "paxd status"
+depends = ["chain-node"]
+docs = ["docs/system/precompiles.md", "docs/site/paxeer-docs/src/app/precompiles/page.tsx", "/precompiles"]
+change = "new"
+
+[system.precompile-layerx-custody]
+title = "LayerX custody precompile"
+kind = "precompile"
+path = "precompiles/layerxcustody"
+build = "go build ./precompiles/layerxcustody/..."
+artefact = "registered in build/paxd"
+configuration = "precompiles/layerxcustody/abi.json and node/app.go"
+ports = []
+health = "paxd status"
+depends = ["chain-node"]
+docs = ["docs/system/precompiles.md", "docs/site/paxeer-docs/src/app/precompiles/page.tsx", "/precompiles"]
+change = "changed"
+
+[system.precompile-layerx-exchange]
+title = "LayerX exchange precompile"
+kind = "precompile"
+path = "precompiles/layerxexchange"
+build = "go build ./precompiles/layerxexchange/..."
+artefact = "registered in build/paxd"
+configuration = "precompiles/layerxexchange/abi.json and node/app.go"
+ports = []
+health = "paxd status"
+depends = ["chain-node"]
+docs = ["docs/system/precompiles.md", "docs/site/paxeer-docs/src/app/precompiles/page.tsx", "/precompiles"]
+change = "unchanged"
+
+[system.precompile-layerx-ledger]
+title = "LayerX ledger precompile"
+kind = "precompile"
+path = "precompiles/layerxledger"
+build = "go build ./precompiles/layerxledger/..."
+artefact = "registered in build/paxd"
+configuration = "precompiles/layerxledger/abi.json and node/app.go"
+ports = []
+health = "paxd status"
+depends = ["chain-node"]
+docs = ["docs/system/precompiles.md", "docs/site/paxeer-docs/src/app/precompiles/page.tsx", "/precompiles"]
+change = "new"
+
+[system.precompile-layerx-pay]
+title = "LayerX pay precompile"
+kind = "precompile"
+path = "precompiles/layerxpay"
+build = "go build ./precompiles/layerxpay/..."
+artefact = "registered in build/paxd"
+configuration = "precompiles/layerxpay/abi.json and node/app.go"
+ports = []
+health = "paxd status"
+depends = ["chain-node"]
+docs = ["docs/system/precompiles.md", "docs/site/paxeer-docs/src/app/precompiles/page.tsx", "/precompiles"]
+change = "new"
+
+[system.precompile-layerx-programs]
+title = "LayerX programs precompile"
+kind = "precompile"
+path = "precompiles/layerxprograms"
+build = "go build ./precompiles/layerxprograms/..."
+artefact = "registered in build/paxd"
+configuration = "precompiles/layerxprograms/abi.json and node/app.go"
+ports = []
+health = "paxd status"
+depends = ["chain-node"]
+docs = ["docs/system/precompiles.md", "docs/site/paxeer-docs/src/app/precompiles/page.tsx", "/precompiles"]
+change = "changed"
+
+[system.precompile-layerx-verify]
+title = "LayerX verify precompile"
+kind = "precompile"
+path = "precompiles/layerxverify"
+build = "go build ./precompiles/layerxverify/..."
+artefact = "registered in build/paxd"
+configuration = "precompiles/layerxverify/abi.json and node/app.go"
+ports = []
+health = "paxd status"
+depends = ["chain-node"]
+docs = ["docs/system/precompiles.md", "docs/site/paxeer-docs/src/app/precompiles/page.tsx", "/precompiles"]
+change = "changed"
+
+[system.precompile-oracle]
+title = "Oracle precompile"
+kind = "precompile"
+path = "precompiles/oracle"
+build = "go build ./precompiles/oracle/..."
+artefact = "registered in build/paxd"
+configuration = "precompiles/oracle/abi.json and node/app.go"
+ports = []
+health = "paxd status"
+depends = ["chain-node"]
+docs = ["docs/system/precompiles.md", "docs/site/paxeer-docs/src/app/precompiles/page.tsx", "/precompiles"]
+change = "unchanged"
+
+[system.precompile-p256]
+title = "P-256 precompile"
+kind = "precompile"
+path = "precompiles/p256"
+build = "go build ./precompiles/p256/..."
+artefact = "registered in build/paxd"
+configuration = "precompiles/p256/abi.json and node/app.go"
+ports = []
+health = "paxd status"
+depends = ["chain-node"]
+docs = ["docs/system/precompiles.md", "docs/site/paxeer-docs/src/app/precompiles/page.tsx", "/precompiles"]
+change = "unchanged"
+
+[system.precompile-perps]
+title = "Perpetuals precompile"
+kind = "precompile"
+path = "precompiles/perps"
+build = "go build ./precompiles/perps/..."
+artefact = "registered in build/paxd"
+configuration = "precompiles/perps/abi.json and node/app.go"
+ports = []
+health = "paxd status"
+depends = ["chain-node"]
+docs = ["docs/system/precompiles.md", "docs/site/paxeer-docs/src/app/precompiles/page.tsx", "/precompiles"]
+change = "unchanged"
+
+[system.precompile-pointer]
+title = "Pointer precompile"
+kind = "precompile"
+path = "precompiles/pointer"
+build = "go build ./precompiles/pointer/..."
+artefact = "registered in build/paxd"
+configuration = "precompiles/pointer/abi.json and node/app.go"
+ports = []
+health = "paxd status"
+depends = ["chain-node"]
+docs = ["docs/system/precompiles.md", "docs/site/paxeer-docs/src/app/precompiles/page.tsx", "/precompiles"]
+change = "unchanged"
+
+[system.precompile-pointerview]
+title = "Pointer view precompile"
+kind = "precompile"
+path = "precompiles/pointerview"
+build = "go build ./precompiles/pointerview/..."
+artefact = "registered in build/paxd"
+configuration = "precompiles/pointerview/abi.json and node/app.go"
+ports = []
+health = "paxd status"
+depends = ["chain-node"]
+docs = ["docs/system/precompiles.md", "docs/site/paxeer-docs/src/app/precompiles/page.tsx", "/precompiles"]
+change = "unchanged"
+
+[system.precompile-pricefeed]
+title = "Price feed precompile"
+kind = "precompile"
+path = "precompiles/pricefeed"
+build = "go build ./precompiles/pricefeed/..."
+artefact = "registered in build/paxd"
+configuration = "precompiles/pricefeed/abi.json and node/app.go"
+ports = []
+health = "paxd status"
+depends = ["chain-node"]
+docs = ["docs/system/precompiles.md", "docs/site/paxeer-docs/src/app/precompiles/page.tsx", "/precompiles"]
+change = "unchanged"
+
+[system.precompile-solo]
+title = "Solo precompile"
+kind = "precompile"
+path = "precompiles/solo"
+build = "go build ./precompiles/solo/..."
+artefact = "registered in build/paxd"
+configuration = "precompiles/solo/abi.json and node/app.go"
+ports = []
+health = "paxd status"
+depends = ["chain-node"]
+docs = ["docs/system/precompiles.md", "docs/site/paxeer-docs/src/app/precompiles/page.tsx", "/precompiles"]
+change = "unchanged"
+
+[system.precompile-spot]
+title = "Spot precompiles"
+kind = "precompile"
+path = "precompiles/spot"
+build = "go build ./precompiles/spot/..."
+artefact = "registered in build/paxd"
+configuration = "precompiles/spot/abi.json and node/app.go"
+ports = []
+health = "paxd status"
+depends = ["chain-node"]
+docs = ["docs/system/precompiles.md", "docs/site/paxeer-docs/src/app/precompiles/page.tsx", "/precompiles"]
+change = "unchanged"
+
+[system.precompile-staking]
+title = "Staking precompile"
+kind = "precompile"
+path = "precompiles/staking"
+build = "go build ./precompiles/staking/..."
+artefact = "registered in build/paxd"
+configuration = "precompiles/staking/abi.json and node/app.go"
+ports = []
+health = "paxd status"
+depends = ["chain-node"]
+docs = ["docs/system/precompiles.md", "docs/site/paxeer-docs/src/app/precompiles/page.tsx", "/precompiles"]
+change = "unchanged"
+
+[system.precompile-wasmd]
+title = "Wasm precompile"
+kind = "precompile"
+path = "precompiles/wasmd"
+build = "go build ./precompiles/wasmd/..."
+artefact = "registered in build/paxd"
+configuration = "precompiles/wasmd/abi.json and node/app.go"
+ports = []
+health = "paxd status"
+depends = ["chain-node"]
+docs = ["docs/system/precompiles.md", "docs/site/paxeer-docs/src/app/precompiles/page.tsx", "/precompiles"]
+change = "unchanged"
+
+[system.precompile-xweb]
+title = "XWeb precompile"
+kind = "precompile"
+path = "precompiles/xweb"
+build = "go build ./precompiles/xweb/..."
+artefact = "registered in build/paxd"
+configuration = "precompiles/xweb/abi.json and node/app.go"
+ports = []
+health = "paxd status"
+depends = ["chain-node"]
+docs = ["docs/system/precompiles.md", "docs/site/paxeer-docs/src/app/precompiles/page.tsx", "/precompiles"]
+change = "unchanged"
+
+[system.gateway]
+title = "Hosted gateway"
+kind = "service"
+path = "services/platform/hosted/gateway"
+build = "cargo build --locked --release --manifest-path services/platform/Cargo.toml --package layerx-platform-gateway"
+artefact = "services/platform/target/release/layerx-gateway"
+configuration = "services/platform/hosted/gateway/deployment.yaml and README.md"
+ports = ["9443"]
+health = "GET /readyz"
+depends = ["chain-node"]
+docs = ["docs/release/7.0.0-service-operator-runbook.md", "docs/site/paxeer-docs/src/app/services/page.tsx", "/services"]
+change = "changed"
+
+[system.explorer-backend]
+title = "Explorer backend"
+kind = "service"
+path = "services/explorer/backend"
+build = "mix release"
+artefact = "_build/prod/rel/blockscout/bin/blockscout"
+configuration = "services/explorer/backend/config/runtime.exs"
+ports = ["4000"]
+health = "GET /api/healthz"
+depends = ["chain-node", "gateway"]
+docs = ["docs/release/7.0.0-service-operator-runbook.md", "docs/explorer/ENVS.md"]
+change = "changed"
+
+[system.agent-daemon]
+title = "Agent daemon"
+kind = "service"
+path = "services/agent"
+build = "cargo build --locked --release --manifest-path services/agent/Cargo.toml --package layerx-agentd-host"
+artefact = "services/agent/target/release/layerx-agentd"
+configuration = "services/agent/crates/layerx-agentd README and environment variables"
+ports = ["8790"]
+health = "GET /healthz"
+depends = ["chain-node", "gateway"]
+docs = ["docs/release/7.0.0-service-operator-runbook.md", "docs/site/paxeer-docs/src/app/agent-runtime/page.tsx", "/agent-runtime"]
+change = "changed"
+
+[system.interop]
+title = "Interop workspace"
+kind = "service"
+path = "services/interop"
+build = "cargo build --locked --release --manifest-path services/interop/Cargo.toml"
+artefact = "services/interop/target/release binaries"
+configuration = "services/interop/deploy and README.md"
+ports = []
+health = "cargo run --manifest-path services/interop/Cargo.toml --bin layerx-interop-gateway -- --help"
+depends = ["chain-node"]
+docs = ["services/interop/README.md", "docs/site/paxeer-docs/src/app/interop/page.tsx", "/interop"]
+change = "changed"
+
+[system.bridge-relayer]
+title = "Bridge relayer"
+kind = "service"
+path = "services/interop/crates/layerx-bridge-relayer"
+build = "cargo build --locked --release --manifest-path services/interop/Cargo.toml --bin layerx-bridge-relayer"
+artefact = "services/interop/target/release/layerx-bridge-relayer"
+configuration = "services/interop/deploy/bridge-relayer and contracts/bridge/README.md"
+ports = ["8545"]
+health = "layerx-bridge-relayer --help"
+depends = ["chain-node", "module-layerx-bridge"]
+docs = ["docs/release/7.0.0-service-operator-runbook.md", "contracts/bridge/README.md"]
+change = "changed"
+
+[system.launchpad-indexer]
+title = "Launchpad indexer"
+kind = "service"
+path = "services/launchpad/indexer"
+build = "go build ./..."
+artefact = "services/launchpad/indexer/indexerd"
+configuration = "services/launchpad/indexer/internal/config/config.go"
+ports = ["8080"]
+health = "GET /health/ready"
+depends = ["chain-node", "module-layerx-chains"]
+docs = ["docs/release/7.0.0-service-operator-runbook.md", "docs/site/paxeer-docs/src/app/launchpad/page.tsx", "/launchpad"]
+change = "changed"
+
+[system.wallet-gateway]
+title = "Wallet gateway"
+kind = "service"
+path = "services/wallet/gateway"
+build = "pnpm --dir services/wallet --filter ./gateway build"
+artefact = "services/wallet/gateway/dist"
+configuration = "services/wallet/deploy/env and gateway/src/env.ts"
+ports = ["8787"]
+health = "GET /health"
+depends = ["chain-node", "gateway"]
+docs = ["docs/wallet/service/cutover.md", "/accounts"]
+change = "changed"
+
+[system.human-service]
+title = "Human service"
+kind = "service"
+path = "services/human"
+build = "cargo build --locked --release --manifest-path services/human/Cargo.toml"
+artefact = "services/human/target/release binaries"
+configuration = "services/human/crates/layerx-human-service README.md"
+ports = ["8080"]
+health = "GET /readyz"
+depends = ["chain-node", "gateway"]
+docs = ["services/human/README.md", "docs/site/paxeer-docs/src/app/human-interface/page.tsx", "/human-interface"]
+change = "unchanged"
+
+[system.service-bridge]
+title = "Bridge deployment service"
+kind = "service"
+path = "services/bridge"
+build = "bash services/bridge/deploy/checklist.sh --all"
+artefact = "deployment validation output"
+configuration = "services/bridge/deploy and contracts/bridge/README.md"
+ports = []
+health = "bash services/bridge/deploy/checklist.sh --all"
+depends = ["chain-node", "module-layerx-bridge"]
+docs = ["docs/release/7.0.0-service-operator-runbook.md", "contracts/bridge/README.md"]
+change = "changed"
+
+[system.service-launchpad]
+title = "Launchpad service workspace"
+kind = "service"
+path = "services/launchpad"
+build = "make -C services/launchpad build"
+artefact = "services/launchpad binaries"
+configuration = "services/launchpad/Makefile and services/launchpad/indexer/internal/config/config.go"
+ports = ["PORT"]
+health = "GET /health/ready"
+depends = ["chain-node", "module-layerx-chains"]
+docs = ["docs/release/7.0.0-service-operator-runbook.md", "docs/site/paxeer-docs/src/app/launchpad/page.tsx", "/launchpad"]
+change = "changed"
+
+[system.service-platform]
+title = "Platform hosted services"
+kind = "service"
+path = "services/platform"
+build = "cargo build --locked --release --manifest-path services/platform/Cargo.toml"
+artefact = "services/platform/target/release binaries"
+configuration = "services/platform/hosted/gateway/README.md and deployment.yaml"
+ports = ["9443"]
+health = "GET /readyz (HTTPS)"
+depends = ["chain-node"]
+docs = ["docs/site/paxeer-docs/src/app/services/page.tsx", "docs/release/7.0.0-service-operator-runbook.md", "/services"]
+change = "changed"
+
+[system.bridge]
+title = "Bridge application"
+kind = "application"
+path = "apps/bridge"
+build = "pnpm --dir apps/bridge build"
+artefact = "apps/bridge/.next"
+configuration = "apps/bridge/src/lib/bridge/config.ts"
+ports = ["3000"]
+health = "GET /"
+depends = ["gateway", "bridge-relayer"]
+docs = ["docs/release/7.0.0-service-operator-runbook.md", "docs/site/paxeer-docs/src/app/bridge/page.tsx", "/bridge"]
+change = "changed"
+
+[system.explorer]
+title = "Explorer application"
+kind = "application"
+path = "apps/explorer"
+build = "pnpm --dir apps/explorer build"
+artefact = "apps/explorer/.next"
+configuration = "apps/explorer/configs and docs/explorer/ENVS.md"
+ports = ["3000"]
+health = "GET /api/healthz"
+depends = ["explorer-backend"]
+docs = ["docs/release/7.0.0-service-operator-runbook.md", "/services"]
+change = "changed"
+
+[system.inference-peer]
+title = "Inference peer"
+kind = "application"
+path = "apps/inference-peer"
+build = "npm --prefix apps/inference-peer test"
+artefact = "apps/inference-peer/engine"
+configuration = "apps/inference-peer/package.json"
+ports = ["8787"]
+health = "npm --prefix apps/inference-peer test"
+depends = ["chain-node"]
+docs = ["docs/site/paxeer-docs/src/app/agents/page.tsx", "/agents"]
+change = "unchanged"
+
+[system.launchpad]
+title = "Launchpad web application"
+kind = "application"
+path = "apps/launchpad/web"
+build = "pnpm --dir apps/launchpad/web build"
+artefact = "apps/launchpad/web/.next"
+configuration = "apps/launchpad/web/src/core/rpc.ts"
+ports = ["3000"]
+health = "GET /"
+depends = ["launchpad-indexer", "chain-node"]
+docs = ["docs/release/7.0.0-service-operator-runbook.md", "docs/site/paxeer-docs/src/app/launchpad/page.tsx", "/launchpad"]
+change = "changed"
+
+[system.names]
+title = "Names application"
+kind = "application"
+path = "apps/names"
+build = "pnpm --dir apps/names build"
+artefact = "apps/names/.next"
+configuration = "apps/names/package.json"
+ports = ["3000"]
+health = "GET /"
+depends = ["chain-node"]
+docs = ["docs/system/sdk.md", "/sdk"]
+change = "unchanged"
+
+[system.perps]
+title = "Perpetuals application"
+kind = "application"
+path = "apps/perps"
+build = "pnpm --dir apps/perps build"
+artefact = "apps/perps/.next"
+configuration = "apps/perps/deploy and package.json"
+ports = ["3000"]
+health = "GET /"
+depends = ["chain-node"]
+docs = ["docs/site/paxeer-docs/src/app/perpetuals/page.tsx", "docs/perps/data-api.md", "/perpetuals"]
+change = "unchanged"
+
+[system.wallet]
+title = "Wallet application"
+kind = "application"
+path = "apps/wallet"
+build = "pnpm --dir apps/wallet build"
+artefact = "apps/wallet/.next"
+configuration = "apps/wallet/src/account/config.ts"
+ports = ["3000"]
+health = "GET /"
+depends = ["chain-node", "gateway"]
+docs = ["docs/release/7.0.0-service-operator-runbook.md", "/accounts"]
+change = "changed"
+
+[system.human-web]
+title = "Human web application"
+kind = "application"
+path = "apps/web"
+build = "npm --prefix apps/web run build"
+artefact = "apps/web/.next"
+configuration = "apps/web/package.json and docs/platform/site.kvx"
+ports = ["3000"]
+health = "GET /"
+depends = ["human-service"]
+docs = ["docs/site/paxeer-docs/src/app/human-interface/page.tsx", "docs/platform/content/index.md", "/human-interface"]
+change = "unchanged"
+
+[system.app-bridge]
+title = "Bridge application"
+kind = "application"
+path = "apps/bridge"
+build = "pnpm --dir apps/bridge build"
+artefact = "apps/bridge/.next"
+configuration = "apps/bridge/src/lib/bridge/config.ts"
+ports = ["3000"]
+health = "GET /"
+depends = ["gateway"]
+docs = ["docs/release/7.0.0-service-operator-runbook.md", "docs/site/paxeer-docs/src/app/bridge/page.tsx", "/bridge"]
+change = "changed"
+
+[system.app-explorer]
+title = "Explorer application"
+kind = "application"
+path = "apps/explorer"
+build = "pnpm --dir apps/explorer build"
+artefact = "apps/explorer/.next"
+configuration = "apps/explorer/configs and docs/explorer/ENVS.md"
+ports = ["3000"]
+health = "GET /api/healthz"
+depends = ["explorer-backend"]
+docs = ["docs/release/7.0.0-service-operator-runbook.md", "docs/site/paxeer-docs/src/app/services/page.tsx", "/services"]
+change = "changed"
+
+[system.app-launchpad]
+title = "Launchpad web application"
+kind = "application"
+path = "apps/launchpad/web"
+build = "pnpm --dir apps/launchpad/web build"
+artefact = "apps/launchpad/web/.next"
+configuration = "apps/launchpad/web/src/core/rpc.ts"
+ports = ["3000"]
+health = "GET /"
+depends = ["launchpad-indexer", "chain-node"]
+docs = ["docs/release/7.0.0-service-operator-runbook.md", "docs/site/paxeer-docs/src/app/launchpad/page.tsx", "/launchpad"]
+change = "changed"
+
+[system.app-wallet]
+title = "Wallet application"
+kind = "application"
+path = "apps/wallet"
+build = "pnpm --dir apps/wallet build"
+artefact = "apps/wallet/.next"
+configuration = "apps/wallet/src/account/config.ts"
+ports = ["3000"]
+health = "GET /"
+depends = ["chain-node", "gateway"]
+docs = ["docs/release/7.0.0-service-operator-runbook.md", "docs/site/paxeer-docs/src/app/accounts/page.tsx", "/accounts"]
+change = "changed"
+
+[system.app-web]
+title = "Human web application"
+kind = "application"
+path = "apps/web"
+build = "npm --prefix apps/web run build"
+artefact = "apps/web/.next"
+configuration = "apps/web/package.json"
+ports = ["3000"]
+health = "GET /"
+depends = ["human-service"]
+docs = ["docs/platform/content/index.md", "docs/site/paxeer-docs/src/app/human-interface/page.tsx", "/human-interface"]
+change = "unchanged"
+
+[system.app-inference-peer]
+title = "Inference peer"
+kind = "application"
+path = "apps/inference-peer"
+build = "npm --prefix apps/inference-peer test"
+artefact = "apps/inference-peer/engine"
+configuration = "apps/inference-peer/scripts/serve.mjs"
+ports = ["8787"]
+health = "GET /probe"
+depends = ["chain-node"]
+docs = ["docs/site/paxeer-docs/src/app/agents/page.tsx", "/agents"]
+change = "unchanged"
+
+[system.app-names]
+title = "Names application"
+kind = "application"
+path = "apps/names"
+build = "pnpm --dir apps/names build"
+artefact = "apps/names/.next"
+configuration = "apps/names/package.json"
+ports = ["3000"]
+health = "GET /"
+depends = ["chain-node"]
+docs = ["docs/system/sdk.md", "/names"]
+change = "unchanged"
+
+[system.app-perps]
+title = "Perpetuals application"
+kind = "application"
+path = "apps/perps"
+build = "pnpm --dir apps/perps build"
+artefact = "apps/perps/.next"
+configuration = "apps/perps/deploy and package.json"
+ports = ["3000"]
+health = "GET /"
+depends = ["chain-node"]
+docs = ["docs/perps/data-api.md", "docs/site/paxeer-docs/src/app/perpetuals/page.tsx", "/perpetuals"]
+change = "unchanged"
+
+[system.wallet-sdk]
+title = "Wallet SDK"
+kind = "sdk"
+path = "sdk/wallet"
+build = "pnpm --dir sdk/wallet build"
+artefact = "sdk/wallet/dist"
+configuration = "sdk/wallet/package.json"
+ports = []
+health = "package exports load"
+depends = ["chain-node"]
+docs = ["docs/system/sdk.md", "docs/site/paxeer-docs/src/app/sdk/page.tsx", "/sdk"]
+change = "changed"
+
+[system.cosmos-sdk]
+title = "Cosmos TypeScript SDK"
+kind = "sdk"
+path = "sdk/js"
+build = "npm --prefix sdk/js test"
+artefact = "sdk/js/dist"
+configuration = "sdk/js/package.json"
+ports = []
+health = "node --test sdk/js/test/"
+depends = ["chain-node"]
+docs = ["docs/system/sdk.md", "docs/site/paxeer-docs/src/app/sdk/page.tsx", "/sdk"]
+change = "unchanged"
+
+[system.names-sdk]
+title = "Names SDK"
+kind = "sdk"
+path = "sdk/names"
+build = "pnpm --dir sdk/names build"
+artefact = "sdk/names/dist"
+configuration = "sdk/names/package.json"
+ports = []
+health = "package exports load"
+depends = ["chain-node"]
+docs = ["docs/site/paxeer-docs/src/app/sdk/page.tsx", "/sdk"]
+change = "unchanged"
+
+[system.agent-sdk]
+title = "Agent TypeScript SDK"
+kind = "sdk"
+path = "services/agent/sdk/typescript"
+build = "npm --prefix services/agent/sdk/typescript run build"
+artefact = "services/agent/sdk/typescript/dist"
+configuration = "services/agent/sdk/typescript/package.json"
+ports = []
+health = "package exports load"
+depends = ["agent-daemon", "chain-node"]
+docs = ["docs/system/sdk.md", "docs/site/paxeer-docs/src/app/sdk/page.tsx", "/sdk"]
+change = "changed"
+
+[system.chainflow-sdk]
+title = "Chainflow data SDK"
+kind = "sdk"
+path = "sdk/chainflow/typescript"
+build = "npm --prefix sdk/chainflow/typescript run build"
+artefact = "sdk/chainflow/typescript/dist"
+configuration = "sdk/chainflow/typescript/pyproject.toml and package.json"
+ports = []
+health = "package exports load"
+depends = []
+docs = ["docs/site/paxeer-docs/src/app/sdk/page.tsx", "/sdk"]
+change = "unchanged"
+
+[system.program-rust-sdk]
+title = "Programs Rust SDK"
+kind = "sdk"
+path = "programs/sdk/rust"
+build = "cargo build --locked --manifest-path programs/sdk/rust/Cargo.toml"
+artefact = "programs/sdk/rust/target artifacts"
+configuration = "programs/sdk/rust/Cargo.toml"
+ports = []
+health = "cargo test --manifest-path programs/sdk/rust/Cargo.toml"
+depends = ["kernel"]
+docs = ["docs/system/sdk.md", "docs/site/paxeer-docs/src/app/programs/page.tsx", "/programs"]
+change = "changed"
+
+[system.program-assemblyscript-sdk]
+title = "Programs AssemblyScript SDK"
+kind = "sdk"
+path = "programs/sdk/assemblyscript"
+build = "npm --prefix programs/sdk/assemblyscript pack --dry-run"
+artefact = "programs/sdk/assemblyscript/package archive"
+configuration = "programs/sdk/assemblyscript/package.json"
+ports = []
+health = "package exports load"
+depends = ["kernel"]
+docs = ["docs/site/paxeer-docs/src/app/programs/page.tsx", "/programs"]
+change = "unchanged"
+
+[system.agent-python-sdk]
+title = "Agent Python SDK"
+kind = "sdk"
+path = "services/agent/sdk/python"
+build = "python3 -m build services/agent/sdk/python"
+artefact = "services/agent/sdk/python/dist"
+configuration = "services/agent/sdk/python/pyproject.toml"
+ports = []
+health = "python3 -m build services/agent/sdk/python"
+depends = ["agent-daemon"]
+docs = ["docs/system/sdk.md", "/sdk"]
+change = "changed"
+
+[system.agent-jvm-sdk]
+title = "Agent JVM SDK"
+kind = "sdk"
+path = "sdk/platform/jvm"
+build = "mvn -f sdk/platform/jvm/pom.xml package"
+artefact = "sdk/platform/jvm/target/*.jar"
+configuration = "sdk/platform/jvm/pom.xml"
+ports = []
+health = "mvn -f sdk/platform/jvm/pom.xml test"
+depends = ["agent-daemon"]
+docs = ["docs/site/paxeer-docs/src/app/sdk/page.tsx", "sdk/platform/jvm/README.md", "/sdk"]
+change = "unchanged"
+
+[system.agent-dotnet-sdk]
+title = "Agent .NET SDK"
+kind = "sdk"
+path = "sdk/platform/dotnet"
+build = "dotnet build sdk/platform/dotnet/LayerX.Sdk.csproj"
+artefact = "sdk/platform/dotnet/bin and obj"
+configuration = "sdk/platform/dotnet/LayerX.Sdk.csproj"
+ports = []
+health = "dotnet build sdk/platform/dotnet/LayerX.Sdk.csproj"
+depends = ["agent-daemon"]
+docs = ["docs/platform/content/quickstart/csharp.md", "/sdk"]
+change = "unchanged"
+
+[system.agent-swift-sdk]
+title = "Agent Swift SDK"
+kind = "sdk"
+path = "sdk/platform/swift"
+build = "swift build --package-path sdk/platform/swift"
+artefact = "sdk/platform/swift/.build"
+configuration = "sdk/platform/swift/Package.swift"
+ports = []
+health = "swift test --package-path sdk/platform/swift"
+depends = ["agent-daemon"]
+docs = ["docs/platform/content/quickstart/swift.md", "/sdk"]
+change = "unchanged"
+
+[system.chainflow-go-sdk]
+title = "Chainflow Go SDK"
+kind = "sdk"
+path = "sdk/chainflow/go"
+build = "go build ./..."
+artefact = "Go package artifacts"
+configuration = "sdk/chainflow/go/go.mod"
+ports = []
+health = "go test ./..."
+depends = []
+docs = ["sdk/chainflow/go/README.md"]
+change = "unchanged"
+
+[system.chainflow-python-sdk]
+title = "Chainflow Python SDK"
+kind = "sdk"
+path = "sdk/chainflow/python"
+build = "python3 -m build sdk/chainflow/python"
+artefact = "sdk/chainflow/python/dist"
+configuration = "sdk/chainflow/python/pyproject.toml"
+ports = []
+health = "python3 -m build sdk/chainflow/python"
+depends = []
+docs = ["docs/perps/data-api.md", "sdk/chainflow/python/README.md"]
+change = "unchanged"
+
+[system.chainflow-rust-sdk]
+title = "Chainflow Rust SDK"
+kind = "sdk"
+path = "sdk/chainflow/rust"
+build = "cargo build --locked --release --manifest-path sdk/chainflow/rust/Cargo.toml"
+artefact = "sdk/chainflow/rust/target artifacts"
+configuration = "sdk/chainflow/rust/Cargo.toml"
+ports = []
+health = "cargo test --manifest-path sdk/chainflow/rust/Cargo.toml"
+depends = []
+docs = ["docs/perps/data-api.md", "sdk/chainflow/rust/README.md"]
+change = "unchanged"
+
+[system.sdk-wallet]
+title = "Wallet SDK"
+kind = "sdk"
+path = "sdk/wallet"
+build = "pnpm --dir sdk/wallet build"
+artefact = "sdk/wallet/dist"
+configuration = "sdk/wallet/package.json"
+ports = []
+health = "package exports load"
+depends = ["chain-node"]
+docs = ["docs/system/sdk.md", "docs/site/paxeer-docs/src/app/sdk/page.tsx", "/sdk"]
+change = "changed"
+
+[system.sdk-cosmos]
+title = "Cosmos TypeScript SDK"
+kind = "sdk"
+path = "sdk/js"
+build = "npm --prefix sdk/js test"
+artefact = "sdk/js/dist"
+configuration = "sdk/js/package.json"
+ports = []
+health = "package exports load"
+depends = ["chain-node"]
+docs = ["docs/system/sdk.md", "docs/site/paxeer-docs/src/app/sdk/page.tsx", "/sdk"]
+change = "unchanged"
+
+[system.sdk-names]
+title = "Names SDK"
+kind = "sdk"
+path = "sdk/names"
+build = "pnpm --dir sdk/names build"
+artefact = "sdk/names/dist"
+configuration = "sdk/names/package.json"
+ports = []
+health = "package exports load"
+depends = ["chain-node"]
+docs = ["docs/site/paxeer-docs/src/app/sdk/page.tsx", "/sdk"]
+change = "unchanged"
+
+[system.sdk-agent-typescript]
+title = "Agent TypeScript SDK"
+kind = "sdk"
+path = "services/agent/sdk/typescript"
+build = "npm --prefix services/agent/sdk/typescript run build"
+artefact = "services/agent/sdk/typescript/dist"
+configuration = "services/agent/sdk/typescript/package.json"
+ports = []
+health = "package exports load"
+depends = ["agent-daemon"]
+docs = ["docs/system/sdk.md", "docs/site/paxeer-docs/src/app/sdk/page.tsx", "/sdk"]
+change = "changed"
+
+[system.sdk-program-rust]
+title = "Programs Rust SDK"
+kind = "sdk"
+path = "programs/sdk/rust"
+build = "cargo build --locked --release --manifest-path programs/Cargo.toml -p layerx-program-sdk"
+artefact = "programs/target/release/deps"
+configuration = "programs/sdk/rust/Cargo.toml"
+ports = []
+health = "cargo test --manifest-path programs/sdk/rust/Cargo.toml"
+depends = ["kernel"]
+docs = ["docs/system/sdk.md", "docs/site/paxeer-docs/src/app/programs/page.tsx", "/programs"]
+change = "changed"
+
+[system.sdk-program-assemblyscript]
+title = "Programs AssemblyScript SDK"
+kind = "sdk"
+path = "programs/sdk/assemblyscript"
+build = "npm --prefix programs/sdk/assemblyscript run test:source"
+artefact = "programs/sdk/assemblyscript/build/safety.wasm"
+configuration = "programs/sdk/assemblyscript/package.json"
+ports = []
+health = "package exports load"
+depends = ["kernel"]
+docs = ["docs/site/paxeer-docs/src/app/programs/page.tsx", "/programs"]
+change = "changed"
+
+[system.sdk-chainflow-typescript]
+title = "Chainflow TypeScript SDK"
+kind = "sdk"
+path = "sdk/chainflow/typescript"
+build = "npm --prefix sdk/chainflow/typescript run build"
+artefact = "sdk/chainflow/typescript/dist"
+configuration = "sdk/chainflow/typescript/package.json"
+ports = []
+health = "package exports load"
+depends = ["gateway"]
+docs = ["docs/site/paxeer-docs/src/app/sdk/page.tsx", "/sdk"]
+change = "unchanged"
+
+[system.sdk-chainflow-go]
+title = "Chainflow Go SDK"
+kind = "sdk"
+path = "sdk/chainflow/go"
+build = "go build ./..."
+artefact = "Go package artifacts"
+configuration = "sdk/chainflow/go/go.mod"
+ports = []
+health = "go test ./..."
+depends = []
+docs = ["sdk/chainflow/go/README.md"]
+change = "unchanged"
+
+[system.sdk-chainflow-python]
+title = "Chainflow Python SDK"
+kind = "sdk"
+path = "sdk/chainflow/python"
+build = "python3 -m build sdk/chainflow/python"
+artefact = "sdk/chainflow/python/dist"
+configuration = "sdk/chainflow/python/pyproject.toml"
+ports = []
+health = "python3 -m build sdk/chainflow/python"
+depends = []
+docs = ["docs/perps/data-api.md", "sdk/chainflow/python/README.md"]
+change = "unchanged"
+
+[system.sdk-chainflow-rust]
+title = "Chainflow Rust SDK"
+kind = "sdk"
+path = "sdk/chainflow/rust"
+build = "cargo build --locked --release --manifest-path sdk/chainflow/rust/Cargo.toml"
+artefact = "sdk/chainflow/rust/target artifacts"
+configuration = "sdk/chainflow/rust/Cargo.toml"
+ports = []
+health = "cargo test --manifest-path sdk/chainflow/rust/Cargo.toml"
+depends = []
+docs = ["docs/perps/data-api.md", "sdk/chainflow/rust/README.md"]
+change = "unchanged"
+
+[system.sdk-agent-jvm]
+title = "Agent JVM SDK"
+kind = "sdk"
+path = "sdk/platform/jvm"
+build = "mvn -f sdk/platform/jvm/pom.xml package"
+artefact = "sdk/platform/jvm/target/*.jar"
+configuration = "sdk/platform/jvm/pom.xml"
+ports = []
+health = "mvn -f sdk/platform/jvm/pom.xml test"
+depends = ["agent-daemon"]
+docs = ["docs/site/paxeer-docs/src/app/sdk/page.tsx", "/sdk"]
+change = "unchanged"
+
+[system.sdk-agent-dotnet]
+title = "Agent .NET SDK"
+kind = "sdk"
+path = "sdk/platform/dotnet"
+build = "dotnet build sdk/platform/dotnet/LayerX.Sdk.csproj"
+artefact = "sdk/platform/dotnet/bin and obj"
+configuration = "sdk/platform/dotnet/LayerX.Sdk.csproj"
+ports = []
+health = "dotnet build sdk/platform/dotnet/LayerX.Sdk.csproj"
+depends = ["agent-daemon"]
+docs = ["docs/site/paxeer-docs/src/app/sdk/page.tsx", "/sdk"]
+change = "unchanged"
+
+[system.sdk-agent-swift]
+title = "Agent Swift SDK"
+kind = "sdk"
+path = "sdk/platform/swift"
+build = "swift build --package-path sdk/platform/swift"
+artefact = "sdk/platform/swift/.build"
+configuration = "sdk/platform/swift/Package.swift"
+ports = []
+health = "swift test --package-path sdk/platform/swift"
+depends = ["agent-daemon"]
+docs = ["docs/site/paxeer-docs/src/app/sdk/page.tsx", "/sdk"]
+change = "unchanged"
+
+[system.sdk-agent-go]
+title = "Agent Go SDK"
+kind = "sdk"
+path = "sdk/platform/go"
+build = "cd sdk/platform/go && go build ./..."
+artefact = "Go package artifacts"
+configuration = "sdk/platform/go/go.mod"
+ports = []
+health = "go test ./..."
+depends = ["agent-daemon"]
+docs = ["docs/site/paxeer-docs/src/app/sdk/page.tsx", "/sdk"]
+change = "unchanged"
+
+[system.release-tools]
+title = "Release tools"
+kind = "tool"
+path = "tools/release"
+build = "python3 tools/release/upgrade_info.py --help"
+artefact = "command output and validated plan-info"
+configuration = "tools/release/version.json and tools/release/upgrade_info.py"
+ports = []
+health = "python3 tools/release/upgrade_info.py --help"
+depends = ["chain-node"]
+docs = ["docs/release/7.0.0-upgrade-plan.md", "docs/release/7.0.0-validator-runbook.md"]
+change = "changed"
+
+[system.paxctl]
+title = "Paxctl operator CLI"
+kind = "tool"
+path = "tools/paxctl"
+build = "make -C tools/paxctl build"
+artefact = "tools/paxctl/bin/paxctl"
+configuration = "tools/paxctl/README.md"
+ports = []
+health = "paxctl --help"
+depends = ["chain-node"]
+docs = ["docs/site/paxeer-docs/src/app/cli/page.tsx", "/cli"]
+change = "changed"
+
+[system.layerx-cli]
+title = "LayerX developer CLI"
+kind = "tool"
+path = "tools/platform/cli"
+build = "cargo build --locked --release --manifest-path tools/platform/Cargo.toml --package layerx-platform-cli"
+artefact = "tools/platform/target/release/layerx"
+configuration = "tools/platform/cli/src/config.rs"
+ports = []
+health = "layerx --help"
+depends = ["chain-node"]
+docs = ["docs/system/cli.md", "docs/site/paxeer-docs/src/app/cli/page.tsx", "/cli"]
+change = "changed"
+
+[system.wasm-tools]
+title = "Wasm tools"
+kind = "tool"
+path = "tools/wasm-tools"
+build = "cargo build --locked --release --manifest-path tools/wasm-tools/Cargo.toml"
+artefact = "tools/wasm-tools/target/release binaries"
+configuration = "tools/wasm-tools/Cargo.toml"
+ports = []
+health = "cargo run --manifest-path tools/wasm-tools/Cargo.toml -- --help"
+depends = ["kernel"]
+docs = ["docs/site/paxeer-docs/src/app/wasm/page.tsx", "/wasm"]
+change = "unchanged"
+
+[system.loadtest]
+title = "Load test tool"
+kind = "tool"
+path = "tools/loadtest"
+build = "make -C tools/loadtest build"
+artefact = "tools/loadtest/bin artifacts"
+configuration = "tools/loadtest/config"
+ports = []
+health = "loadtest --help"
+depends = ["chain-node"]
+docs = ["docs/site/paxeer-docs/src/app/debugging-transactions/page.tsx", "/debugging-transactions"]
+change = "unchanged"
+
+[system.docs-generator]
+title = "System documentation generator"
+kind = "tool"
+path = "tools/docs"
+build = "bash tools/docs/gen-system-docs.sh"
+artefact = "docs/system generated pages"
+configuration = "tools/docs/gen-system-docs.sh"
+ports = []
+health = "bash tools/docs/gen-system-docs.sh --check"
+depends = []
+docs = ["docs/system/INDEX.md"]
+change = "unchanged"
+
+[system.bringup]
+title = "Node bring-up tool"
+kind = "tool"
+path = "tools/bringup"
+build = "go build ./tools/bringup/..."
+artefact = "tools/bringup binaries"
+configuration = "tools/bringup/cmd"
+ports = []
+health = "bringup --help"
+depends = ["chain-node"]
+docs = ["docs/site/paxeer-docs/src/app/installation/page.tsx", "/installation"]
+change = "changed"
+
+[system.rollback-tool]
+title = "Release rollback tool"
+kind = "tool"
+path = "tools/release"
+build = "bash tools/release/rollback.sh --help"
+artefact = "rollback command"
+configuration = "tools/release/rollback.sh"
+ports = []
+health = "bash tools/release/rollback.sh --help"
+depends = ["chain-node"]
+docs = ["docs/release/7.0.0-upgrade-plan.md"]
+change = "changed"
+
+[system.operations]
+title = "Backup and monitoring tools"
+kind = "tool"
+path = "tools/ops"
+build = "bash tools/ops/monitoring/render.sh"
+artefact = "tools/ops/monitoring/rendered configurations"
+configuration = "tools/ops/monitoring and tools/ops/backup"
+ports = ["9090", "9093"]
+health = "python3 tools/ops/monitoring/readiness.py --help"
+depends = ["chain-node"]
+docs = ["docs/release/7.0.0-validator-runbook.md", "docs/site/paxeer-docs/src/app/network-operations/page.tsx", "/network-operations"]
+change = "changed"
+
+[system.backup-tools]
+title = "Backup and restore tools"
+kind = "tool"
+path = "tools/ops/backup"
+build = "bash tools/ops/backup/backup.sh --help"
+artefact = "backup archives and checkpoint metadata"
+configuration = "tools/ops/backup/backup.env.example"
+ports = []
+health = "systemctl status paxeer-backup.timer"
+depends = ["chain-node"]
+docs = ["docs/release/7.0.0-validator-runbook.md", "docs/site/paxeer-docs/src/app/network-operations/page.tsx", "/network-operations"]
+change = "unchanged"
+
+[system.monitoring-tools]
+title = "Monitoring stack"
+kind = "tool"
+path = "tools/ops/monitoring"
+build = "bash tools/ops/monitoring/render.sh"
+artefact = "rendered monitoring configuration"
+configuration = "tools/ops/monitoring/prometheus.yml, rules.yml and blackbox.yml"
+ports = ["9090", "9093"]
+health = "GET /-/ready (Prometheus)"
+depends = ["chain-node"]
+docs = ["docs/release/7.0.0-validator-runbook.md", "docs/site/paxeer-docs/src/app/network-operations/page.tsx", "/network-operations"]
+change = "changed"
+
+[system.paxload]
+title = "Paxeer load generator"
+kind = "tool"
+path = "tools/loadtest"
+build = "make -C tools/loadtest build"
+artefact = "tools/loadtest/build/paxload"
+configuration = "tools/loadtest/config and profiles"
+ports = []
+health = "paxload --help"
+depends = ["chain-node"]
+docs = ["docs/site/paxeer-docs/src/app/operators/page.tsx", "/operators"]
+change = "unchanged"
+
+[system.cosmovisor]
+title = "Cosmovisor supervisor"
+kind = "tool"
+path = "sdk/cosmovisor"
+build = "make -C sdk/cosmovisor"
+artefact = "sdk/cosmovisor/cosmovisor"
+configuration = "sdk/cosmovisor/README.md"
+ports = []
+health = "cosmovisor version"
+depends = ["chain-node"]
+docs = ["docs/release/7.0.0-validator-runbook.md", "docs/site/paxeer-docs/src/app/operators/page.tsx", "/operators"]
+change = "unchanged"
