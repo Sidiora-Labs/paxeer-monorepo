@@ -4,7 +4,11 @@
 
 Safe ERC20 transfer wrappers that handle non-standard return values
 
-_Handles tokens that return bool, return nothing, or revert_
+Accepts a successful token call with empty return data or exactly 32 bytes encoding `true`.
+An address without contract code, a reverted call, `false` or any other return encoding causes the
+wrapper's corresponding error.
+
+Source: [TransferHelper.sol](../../contracts/libraries/TransferHelper.sol).
 
 ### TransferFailed
 

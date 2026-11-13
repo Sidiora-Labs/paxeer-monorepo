@@ -63,7 +63,7 @@ func phase2EnvironmentFor(t *testing.T) *phase2Environment {
 		root, err = filepath.Abs("../../../..")
 		must(t, err)
 	}
-	migrationBytes, err := os.ReadFile(filepath.Join(root, "launchpad/spec/production-system/integration/migrations/330000.sql"))
+	migrationBytes, err := os.ReadFile(filepath.Join(root, "migrations/330000.sql"))
 	must(t, err)
 	tx, err := pool.Begin(ctx)
 	must(t, err)
@@ -532,7 +532,7 @@ func phase2ProductionEnvironmentFor(t *testing.T) (*phase2Environment, *Runtime,
 		root = configured
 	}
 	for _, number := range []string{"470000", "470001"} {
-		raw, err := os.ReadFile(filepath.Join(root, "launchpad/spec/production-system/integration/migrations", number+".sql"))
+		raw, err := os.ReadFile(filepath.Join(root, "migrations", number+".sql"))
 		must(t, err)
 		if number == "470001" {
 			_, err = admin.Exec(ctx, "CREATE VIEW "+e.store.schema+".identity_sessions_v2 AS SELECT * FROM "+e.store.schema+".identity_sessions; CREATE VIEW "+e.store.schema+".identity_accounts_v2 AS SELECT * FROM "+e.store.schema+".identity_accounts; CREATE VIEW "+e.store.schema+".identity_wallet_links_v2 AS SELECT * FROM "+e.store.schema+".identity_wallet_links; CREATE TABLE "+e.store.schema+".operator_sessions_v2(session_id text PRIMARY KEY,actor text NOT NULL,audience text NOT NULL,issued_at timestamptz NOT NULL,expires_at timestamptz NOT NULL,mfa_expires_at timestamptz NOT NULL,revoked boolean NOT NULL)")
@@ -581,7 +581,7 @@ func phase2ProductionEnvironmentFor(t *testing.T) (*phase2Environment, *Runtime,
 		_, err = admin.Exec(ctx, "GRANT USAGE ON SCHEMA "+control+" TO "+quoted)
 		must(t, err)
 	}
-	raw, err := os.ReadFile(filepath.Join(root, "launchpad/spec/production-system/integration/migrations/grants.json"))
+	raw, err := os.ReadFile(filepath.Join(root, "migrations/grants.json"))
 	must(t, err)
 	// Apply the manifest's actual control tables, owner views and audit
 	// sequence. The stale objects_seq_seq row has no 470000 producer; its

@@ -4,6 +4,8 @@
 
 Interface for the market creation orchestrator
 
+Source: [ISidioraFactory.sol](../../contracts/interfaces/ISidioraFactory.sol).
+
 ### ZeroAddress
 
 ```solidity
@@ -25,7 +27,7 @@ error DuplicateToken()
 ### MarketCreated
 
 ```solidity
-event MarketCreated(address token, address pool, address creator, uint256 nftId, address optical)
+event MarketCreated(address indexed token, address indexed pool, address indexed creator, uint256 nftId, address optical)
 ```
 
 ### createMarket
@@ -36,22 +38,25 @@ function createMarket(string name, string symbol, uint8 feeStrategy, address opt
 
 Create a new market (token + pool + NFT)
 
+The factory transfers a nonzero configured creation fee in USDL from the caller to the treasury;
+the caller must approve the factory to spend that amount.
+
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| name | string | Token name |
-| symbol | string | Token symbol |
-| feeStrategy | uint8 | Initial fee strategy for the pool NFT (0=CLAIM,1=BURN,2=AIRDROP,3=LP_REWARDS) |
-| optical | address | Optional optical hook contract (address(0) for none) |
+| Name        | Type    | Description                                                                   |
+| ----------- | ------- | ----------------------------------------------------------------------------- |
+| name        | string  | Token name                                                                    |
+| symbol      | string  | Token symbol                                                                  |
+| feeStrategy | uint8   | Initial fee strategy for the pool NFT (0=CLAIM,1=BURN,2=AIRDROP,3=LP_REWARDS) |
+| optical     | address | Optional optical hook contract (address(0) for none)                          |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name      | Type    | Description                |
+| --------- | ------- | -------------------------- |
 | tokenAddr | address | The deployed token address |
-| poolAddr | address | The deployed pool address |
-| nftId | uint256 | The minted NFT token ID |
+| poolAddr  | address | The deployed pool address  |
+| nftId     | uint256 | The minted NFT token ID    |
 
 ### createMarketFor
 
@@ -61,23 +66,26 @@ function createMarketFor(address creator, string name, string symbol, uint8 feeS
 
 Create a new market on behalf of a creator (Router-only via ROUTER_ROLE)
 
+The factory does not collect the creation fee in this entrypoint. The Router collects it before
+calling the factory.
+
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| creator | address | The actual creator address (receives NFT, becomes guardian) |
-| name | string | Token name |
-| symbol | string | Token symbol |
-| feeStrategy | uint8 | Initial fee strategy for the pool NFT |
-| optical | address | Optional optical hook contract (address(0) for none) |
+| Name        | Type    | Description                                                 |
+| ----------- | ------- | ----------------------------------------------------------- |
+| creator     | address | The creator address (receives NFT, becomes initial guardian) |
+| name        | string  | Token name                                                  |
+| symbol      | string  | Token symbol                                                |
+| feeStrategy | uint8   | Initial fee strategy for the pool NFT                       |
+| optical     | address | Optional optical hook contract (address(0) for none)        |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name      | Type    | Description                |
+| --------- | ------- | -------------------------- |
 | tokenAddr | address | The deployed token address |
-| poolAddr | address | The deployed pool address |
-| nftId | uint256 | The minted NFT token ID |
+| poolAddr  | address | The deployed pool address  |
+| nftId     | uint256 | The minted NFT token ID    |
 
 ### getNonce
 
@@ -134,4 +142,3 @@ function treasury() external view returns (address)
 ```
 
 Get the treasury address
-

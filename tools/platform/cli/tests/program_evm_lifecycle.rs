@@ -1,5 +1,5 @@
 //! Task 22.39.118: `ProgramLifecycleArgs` requires --receipt-policy (src/main.rs:366-368).
-//! Pinned policy follows tests/repair_22_33_1494.rs:403-405.
+//! Pinned policy follows tests/wallet_finality_and_recovery.rs:403-405.
 
 #[allow(dead_code)]
 mod programs {
@@ -426,5 +426,5 @@ fn program_wind_down_modes_use_layerxprograms() -> Result<(), String> {
 }
 
 // Audit proofs use committed node output and production CLI consumers.
-#[path = "repair_22_33_1496.rs"]
-mod audit_22_33_1496;
+#[path = "program_and_wallet_receipts.rs"]
+mod program_and_wallet_receipts;

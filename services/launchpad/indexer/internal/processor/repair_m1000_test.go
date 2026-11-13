@@ -315,7 +315,7 @@ func repairM1000Database(t *testing.T) (*pgxpool.Pool, func() *pgxpool.Pool) {
 	if err := migrate.Up(ctx, engine.ConnString()); err != nil {
 		t.Fatal(err)
 	}
-	raw, err := os.ReadFile(filepath.Join(repositoryRoot(), "launchpad/spec/production-system/integration/migrations/60000.sql"))
+	raw, err := os.ReadFile(filepath.Join(repositoryRoot(), "migrations/60000.sql"))
 	if err != nil {
 		t.Fatal(err)
 	}

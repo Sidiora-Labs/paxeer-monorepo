@@ -15,7 +15,7 @@ tests = ["test_native_repair_qualification_wiring[audit-export-not-scheduled]", 
 change = "AuditExporter.Run validates non-owner/nonprivileged credentials and read-only journal authority, catches up completed UTC days from the configured inception day, polls hourly and returns failures after bounded alert delivery. AuditExportDDL declares durable per-bucket/prefix/day progress."
 native_proof = "Startup catch-up with a real restricted PostgreSQL role and the real S3 client advances only completed-day progress; an interrupted upload produces one alert, cancellation stops the worker and reopening resumes its durable plan."
 wiring = "Domain 4 launchpad gateway runtime owner: services/launchpad/gateway/internal/app must own AuditExporter.Run lifecycle, journal inception day, two least-privilege pools, independently configured versioned Object Lock bucket, scoped read/put/get-retention credentials, signing key and failure-alert sink."
-wiring_migration = "Domain 4 launchpad integration owner: launchpad/spec/production-system/integration/migrations and grants.json must apply AuditExportDDL and grant journal SELECT plus progress SELECT/INSERT/UPDATE(complete), without journal writes, DELETE, schema ownership or runtime DDL."
+wiring_migration = "Domain 4 launchpad integration owner: migrations and grants.json must apply AuditExportDDL and grant journal SELECT plus progress SELECT/INSERT/UPDATE(complete), without journal writes, DELETE, schema ownership or runtime DDL."
 
 [finding.retained-export-positive-proof]
 tests = ["test_native_repair_qualification_wiring[retained-export-positive-proof]", "TestRepairRetainedExportRecoveryAndCommittedCoverage"]

@@ -1,0 +1,36 @@
+[manifest]
+task = "22.43.28"
+records_moved = 0
+files_renamed = 8
+
+[file.1]
+from = "consensus/cmd/contract_tests/repair_m1151_test.go"
+to = "consensus/cmd/contract_tests/hooks_integration_test.go"
+
+[file.2]
+from = "consensus/cmd/priv_val_server/repair_m1150_test.go"
+to = "consensus/cmd/priv_val_server/signer_server_test.go"
+
+[file.3]
+from = "consensus/cmd/tendermint/commands/repair_m1149_test.go"
+to = "consensus/cmd/tendermint/commands/command_persistence_test.go"
+
+[file.4]
+from = "consensus/cmd/tendermint/commands/debug/repair_m1152_test.go"
+to = "consensus/cmd/tendermint/commands/debug/dump_diagnostics_test.go"
+
+[file.5]
+from = "consensus/cmd/tendermint/commands/debug/repair_m1152.kvx"
+to = "consensus/cmd/tendermint/commands/debug/dump_diagnostics_record.kvx"
+
+[file.6]
+from = "consensus/cmd/contract_tests/repair_m1151.kvx"
+to = "consensus/cmd/contract_tests/hooks_integration_record.kvx"
+
+[file.7]
+from = "consensus/cmd/priv_val_server/repair_m1150.kvx"
+to = "consensus/cmd/priv_val_server/signer_server_record.kvx"
+
+[file.8]
+from = "consensus/cmd/tendermint/commands/repair_m1149.kvx"
+to = "consensus/cmd/tendermint/commands/command_persistence_record.kvx"

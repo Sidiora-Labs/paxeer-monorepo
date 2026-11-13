@@ -97,7 +97,7 @@ func NewAPIRuntimeDatabase(t *testing.T, runtimeRole string, planned ...string) 
 	}
 	ctx := context.Background()
 	root := RepositoryRoot(t)
-	const migrations = "launchpad/spec/production-system/integration/migrations"
+	const migrations = "migrations"
 
 	registryBytes := readBound(t, root, migrations+"/registry.json", "")
 	var registry production.MigrationRegistry

@@ -10,6 +10,10 @@ Its Go import prefix is
 `github.com/Sidiora-Labs/Paxeer-X-Network/consensus`; upstream Tendermint names
 in packages and protocol messages are retained identifiers.
 
+From `consensus/`, `make build` builds the standalone `tendermint` binary into
+`build/` by default; `BUILDDIR` selects another output directory. The merged
+network runs through `paxd`.
+
 ## Go API
 
 The following source files define the producer and consumer boundaries:
@@ -30,18 +34,13 @@ network interface.
 
 ## RPC routes
 
-Public Ethereum JSON-RPC is served at the root path of the node hosts
-`api1.mainnet-beta.paxeer.network` through
-`api14.mainnet-beta.paxeer.network`, and
-`api-mainnet-beta.paxeer.network`, over HTTPS. `eth_chainId` returns `0x7d`.
-The node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test` and `txpool`.
-The `px` namespace answers from node state; `px_register` and
-`px_requestFunds` are operations of the hosted identity and faucet
-services declared in [the gateway OpenRPC contract](../services/platform/hosted/gateway/openrpc.json).
-`node.hyperpaxeer.com` is a library mirror, never an RPC endpoint.
+Public Ethereum JSON-RPC uses HTTPS at the configured node’s root path.
+`eth_chainId` returns `0x7d`. See [node transport and served methods](evm-rpc.md)
+and [the hosted gateway contract](../services/platform/hosted/gateway/openrpc.json)
+for their respective method catalogs.
 
 The consensus RPC listener is configured separately in `config.toml` under
-`[rpc]`. `DefaultRPCConfig` binds `tcp://127.0.0.1:26657`; configure `laddr`
+`[rpc]`. `DefaultRPCConfig` binds the loopback TCP listener on port 26657; configure `laddr`
 explicitly for another deployment. JSON-RPC requests are POSTed to this
 listener's root path. Named methods also have URI handlers. The WebSocket
 handler is `/websocket`; `subscribe`, `unsubscribe` and `unsubscribe_all`
@@ -85,7 +84,7 @@ treating HTTP success as execution success.
 When Autobahn is installed, the consensus implementation serves committed
 global blocks through the internal `GigaRouter` type in
 [`giga_router.go`](../consensus/internal/p2p/giga_router.go). This is an internal
-consensus adapter. The pre-merge RPC router is retired.
+consensus adapter.
 
 [`blocks.go`](../consensus/internal/rpc/core/blocks.go),
 [`consensus.go`](../consensus/internal/rpc/core/consensus.go) and
@@ -208,5 +207,4 @@ setting is not a universal production home-directory setting.
 [`consensus/Makefile`](../consensus/Makefile) retains `build`, `install`,
 `build_privval_server`, `format`, `metrics` and test targets. Targets are
 invoked from the consensus directory. Its `all` target includes build, tests
-and installation; it is broader than a compile check. Select the owning
-task's declared gate when qualifying a change.
+and installation; it is broader than a compile check. Use `build` to compile the standalone consensus binary.

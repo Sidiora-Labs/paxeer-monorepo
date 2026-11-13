@@ -2,7 +2,7 @@
 
 `layerx-visa-tap` implements Visa Trusted Agent Protocol verification:
 RFC 9421-style `sig2` signatures, a trusted-agent registry, nonce
-replay, and browse/pay tags `agent-browser-auth` /
+replay protection, and browse/pay tags `agent-browser-auth` /
 `agent-payer-auth` (`services/interop/crates/layerx-visa-tap/src/lib.rs`).
 Binding to a LayerX agent is non-authoritative. Execute hands off a
 typed intent. The adapter id is `visa-tap`.
@@ -31,7 +31,7 @@ typed intent. The adapter id is `visa-tap`.
 
 Pins: `VISA_TAP_SPEC_COMMIT`, `VISA_TAP_SPEC_SHA256`,
 `MAX_CLOCK_SKEW_SECONDS`. Descriptor:
-`visa_tap_adapter_descriptor()`. The crate's descriptor function is
-`interop_visa_tap()`.
+`visa_tap_adapter_descriptor(spec, conformance)`. The crate's descriptor
+function is `interop_visa_tap()`.
 
 [Interop](Interop.md) · [Home](Home.md)

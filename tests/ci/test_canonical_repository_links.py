@@ -106,12 +106,15 @@ def test_docs_link_canonical_repository():
     pages = [
         name
         for name in tracked
-        if Path(name).suffix.lower() in {".md", ".mdx", ".rst"}
+        if (
+            Path(name).suffix.lower() in {".md", ".mdx", ".rst"}
+            or name.startswith("docs/site/paxeer-docs/src/") and name.endswith(".tsx")
+        )
         and not name.startswith((*VENDORED_TREES, "spec/"))
         and not {"vendor", "node_modules"}.intersection(Path(name).parts)
     ]
-    assert "docs/site/docs/index.md" in pages
-    assert "docs/site/docs/overview/i18n/ja.md" in pages
+    assert "docs/site/paxeer-docs/src/app/page.tsx" in pages
+    assert "docs/readme/README.ja.md" in pages
     failures = []
     references = 0
     for name in pages:

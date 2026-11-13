@@ -1,0 +1,83 @@
+[manifest]
+task = "22.41.42"
+pages = 20
+
+[page.1]
+path = ".github/ISSUE_TEMPLATE/security.md"
+status = "corrected"
+
+[page.2]
+path = ".github/copilot-instructions.md"
+status = "reviewed"
+
+[page.3]
+path = ".github/pull_request_template.md"
+status = "reviewed"
+
+[page.4]
+path = "CODE_OF_CONDUCT.md"
+status = "corrected"
+
+[page.5]
+path = "CONTRIBUTING.md"
+status = "corrected"
+
+[page.6]
+path = "CONTRIBUTORS.md"
+status = "corrected"
+
+[page.7]
+path = "GOVERNANCE.md"
+status = "corrected"
+
+[page.8]
+path = "README.md"
+status = "corrected"
+
+[page.9]
+path = "RELEASE.md"
+status = "corrected"
+
+[page.10]
+path = "SECURITY.md"
+status = "corrected"
+
+[page.11]
+path = "SUPPORT.md"
+status = "corrected"
+
+[page.12]
+path = "api/README.md"
+status = "corrected"
+
+[page.13]
+path = "apps/bridge/AGENTS.md"
+status = "reviewed"
+
+[page.14]
+path = "apps/bridge/README.md"
+status = "corrected"
+
+[page.15]
+path = "apps/explorer/.cursor/BUGBOT.md"
+status = "corrected"
+
+[page.16]
+path = "apps/explorer/.cursor/skills/check-github-cli/SKILL.md"
+status = "reviewed"
+
+[page.17]
+path = "apps/explorer/.cursor/skills/create-pr/SKILL.md"
+status = "corrected"
+
+[page.18]
+path = "apps/explorer/.cursor/skills/deploy-demo/SKILL.md"
+status = "corrected"
+
+[page.19]
+path = "apps/explorer/.cursor/skills/get-checks-status/SKILL.md"
+status = "corrected"
+
+[page.20]
+path = "apps/explorer/.cursor/skills/prepare-release/SKILL.md"
+status = "corrected"

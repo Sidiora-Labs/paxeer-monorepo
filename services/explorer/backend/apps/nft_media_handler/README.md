@@ -33,7 +33,7 @@ The umbrella's [runtime.exs](../../config/runtime.exs) maps these variables to
 | `worker_concurrency` | `NFT_MEDIA_HANDLER_WORKER_CONCURRENCY` | 10 |
 | `worker_batch_size` | `NFT_MEDIA_HANDLER_WORKER_BATCH_SIZE` | 10 |
 | `worker_spawn_tasks_timeout` | `NFT_MEDIA_HANDLER_WORKER_SPAWN_TASKS_TIMEOUT` | 100ms |
-| `r2_folder` | `NFT_MEDIA_HANDLER_BUCKET_FOLDER` | deployment path |
+| `r2_folder` | `NFT_MEDIA_HANDLER_BUCKET_FOLDER` | nil; configure an object prefix |
 | `cache_uniqueness_max_size` | `NFT_MEDIA_HANDLER_CACHE_UNIQUENESS_MAX_SIZE` | 100,000 |
 
 `tmp_dir` is configured as `"./temp"` in runtime.exs, not read from an
@@ -68,7 +68,7 @@ key prefix.
 ## Usage Examples
 
 Run these in the configured backend with its image/video dependencies and
-bucket settings available. All URLs and paths below are illustrative.
+bucket settings available. Supply `source_url` and `media_url` from the media being processed; the file path below is illustrative.
 
 ### Resizing an Image
 
@@ -79,7 +79,7 @@ If opening fails, return the error without calling the resizer:
 ```elixir
 case Vix.Vips.Image.new_from_file("path/to/image.jpg") do
   {:ok, image} ->
-    thumbnails = NFTMediaHandler.Image.Resizer.resize(image, "https://example.com/image.jpg", ".jpg")
+    thumbnails = NFTMediaHandler.Image.Resizer.resize(image, source_url, ".jpg")
     {:ok, thumbnails}
 
   {:error, reason} ->
@@ -111,7 +111,7 @@ upload error. An empty list returns `{:ok, nil}` without uploading an object.
 `fetch_media/2` takes a URL and request-header list:
 
 ```elixir
-case NFTMediaHandler.Media.Fetcher.fetch_media("https://example.com/media.jpg", []) do
+case NFTMediaHandler.Media.Fetcher.fetch_media(media_url, []) do
   {:ok, media_type, body} -> {:ok, media_type, body}
   {:error, reason} -> {:error, {:media_fetch_failed, reason}}
 end
@@ -122,6 +122,5 @@ path use `NFTMediaHandler.prepare_and_upload_by_url(url, folder)`. It also
 normalizes supported IPFS and Arweave references using the metadata retriever.
 It returns `{[file_path_pattern, uploaded_sizes, original_uploaded?], media_type}`
 on success, or `{:error, reason}`. The file pattern contains `{}` for the size
-suffix. In the current video branch `original_uploaded?` is set to true even
-though only thumbnails are uploaded; do not infer the presence of the original
-MP4 object from that flag.
+suffix. The video result sets `original_uploaded?` to true; the uploaded video
+objects are JPEG thumbnails.

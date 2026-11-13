@@ -3,7 +3,7 @@ status = "qualification_by_reference"
 source_revision = "deb2deb978c0804f7876e36fe9f6896fc1e616bf"
 continued_revision = "83e936a7ccc3a3f33955e1a7ae91bc527bb1bd0a"
 implementation = "State product behavior and proof limits directly; describe linked tests by their checks and centralize contributor specification references."
-coverage = "Every tracked README and documentation page, excluding the spec engineering record, CONTRIBUTING.md, docs/site/docs/reference/index.md, vendor components, VENDOR.kvx-pinned trees and the upstream Hyperfide source/documentation snapshots; filename-only code spans remain allowed."
+coverage = "Every tracked README and documentation page, excluding the spec engineering record, CONTRIBUTING.md, docs/site/paxeer-docs/src/app/page.tsx, vendor components, VENDOR.kvx-pinned trees and the upstream Hyperfide source/documentation snapshots; filename-only code spans remain allowed."
 tests = ["test_docs_have_no_task_numbers", "test_docs_have_no_gotcha_or_decision_numbers", "test_docs_have_no_repair_record_prose"]
 build_command = "python3 -m py_compile tests/ci/test_docs_free_of_process_numbering.py"
 verify_command = "python3 -m pytest -q tests/ci/test_docs_free_of_process_numbering.py"
@@ -26,7 +26,7 @@ path = "docs/MONOREPO.md"
 rewrite = "Describe current and planned layout directly and route contributor specification guidance through CONTRIBUTING.md."
 
 [page.reference_index]
-path = "docs/site/docs/reference/index.md"
+path = "docs/site/paxeer-docs/src/app/page.tsx"
 rewrite = "Identify the contributor specification entry points and keep product behavior separate from numbered development history."
 
 [page.routes]

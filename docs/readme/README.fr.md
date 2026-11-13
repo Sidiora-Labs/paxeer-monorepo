@@ -54,7 +54,7 @@ La valeur attendue de `result` est `0x7d`. Les espaces de noms publics sont `deb
 
 L’espace de noms `px` répond à partir de l’état du nœud ; `px_register` et `px_requestFunds` sont des opérations des services hébergés d’identité et de faucet, dont le contrat est [`services/platform/hosted/gateway/openrpc.json`](../../services/platform/hosted/gateway/openrpc.json). Consultez `px_getCapabilities` avant d’utiliser une fonctionnalité. `node.hyperpaxeer.com` est le miroir de bibliothèques hpx utilisé par les scripts de compilation (library mirror), et ne sert pas de point d’accès RPC.
 
-Pour vous connecter à la chaîne Paxeer X (identifiant de chaîne 125), utilisez l’un des noms publics JSON-RPC listés dans [`docs/site/docs/reference/public-rpc.md`](../../docs/site/docs/reference/public-rpc.md). La liste de contrôle du point d’accès public est [`docs/wiki/Getting-Started-Beta.md`](../../docs/wiki/Getting-Started-Beta.md). Le parcours portefeuille, financement et paiements est [`docs/wiki/PaymentsQuickstart.md`](../../docs/wiki/PaymentsQuickstart.md). Assets : [`docs/wiki/Assets.md`](../../docs/wiki/Assets.md). Méthodes RPC : [`docs/wiki/PublicRpc.md`](../../docs/wiki/PublicRpc.md). Niveaux d’engagement : [`docs/wiki/CommitmentLevels.md`](../../docs/wiki/CommitmentLevels.md). API publique de paiement : [`docs/wiki/PublicAPI.md`](../../docs/wiki/PublicAPI.md).
+Pour vous connecter à la chaîne Paxeer X (identifiant de chaîne 125), utilisez l’un des noms publics JSON-RPC listés dans [`docs/site/paxeer-docs/src/app/public-rpc/page.tsx`](../../docs/site/paxeer-docs/src/app/public-rpc/page.tsx). La liste de contrôle du point d’accès public est [`docs/wiki/Getting-Started-Beta.md`](../../docs/wiki/Getting-Started-Beta.md). Le parcours portefeuille, financement et paiements est [`docs/wiki/PaymentsQuickstart.md`](../../docs/wiki/PaymentsQuickstart.md). Assets : [`docs/wiki/Assets.md`](../../docs/wiki/Assets.md). Méthodes RPC : [`docs/wiki/PublicRpc.md`](../../docs/wiki/PublicRpc.md). Niveaux d’engagement : [`docs/wiki/CommitmentLevels.md`](../../docs/wiki/CommitmentLevels.md). API publique de paiement : [`docs/wiki/PublicAPI.md`](../../docs/wiki/PublicAPI.md).
 
 Les développeurs du noyau commencent par la documentation hébergée sur [docs.paxeer.app](https://docs.paxeer.app/) ; le guide du cluster local est [`docs/wiki/Quickstart.md`](../../docs/wiki/Quickstart.md).
 
@@ -68,7 +68,7 @@ Depuis la racine, construisez le nœud intégré :
 make paxd-build
 ```
 
-Cette cible construit `build/liblayerx.a` et `programs/target/release/liblayerx_programs_sandbox.a`, puis le binaire `build/paxd`. `make paxeer-build` reste la cible de compilation de la chaîne et construit aussi ses dépendances natives. Les recettes utilisent `GOPROXY=off` : les dépendances Go doivent déjà être disponibles localement.
+Cette cible construit `build/liblayerx.a`, `programs/target/release/liblayerx_programs_sandbox.a` et evmone, puis le binaire `build/paxd` avec la version de `tools/release/version.json`. `make paxeer-build` reste la cible de compilation de la chaîne et construit aussi ses dépendances natives. Les recettes utilisent `GOPROXY=off` : les dépendances Go doivent déjà être disponibles localement.
 
 Pour développer le noyau et les contrats :
 

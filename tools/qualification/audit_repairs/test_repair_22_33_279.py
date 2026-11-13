@@ -219,8 +219,8 @@ def test_custody_and_checkpoint_executors_are_historical_refusal_surfaces():
         if re.search(r"\blayerx(?:Anchor|Custody|Verify)\b|guarantor|L0–L4", paragraph):
             assert re.search(r"retired|historical|archived", paragraph), paragraph
     for body, target in (
-        (section("What is Paxeer X Network?", 2), "docs/site/docs/concepts/checkpoints.md"),
-        (native, "docs/site/docs/operators/settlement-evidence.md"),
+        (section("What is Paxeer X Network?", 2), "docs/site/paxeer-docs/src/app/checkpoints/page.tsx"),
+        (native, "docs/site/paxeer-docs/src/app/proofs/page.tsx"),
     ):
         assert target in body
         assert (ROOT / target).is_file()

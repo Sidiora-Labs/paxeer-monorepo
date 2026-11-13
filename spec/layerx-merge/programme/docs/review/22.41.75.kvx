@@ -1,0 +1,83 @@
+[manifest]
+task = "22.41.75"
+pages = 20
+
+[page.1]
+path = "interchain/testing/mock/README.md"
+status = "corrected"
+
+[page.2]
+path = "interchain/testing/simapp/README.md"
+status = "corrected"
+
+[page.3]
+path = "migrations/README.md"
+status = "corrected"
+
+[page.4]
+path = "modules/README.md"
+status = "reviewed"
+
+[page.5]
+path = "modules/epoch/README.md"
+status = "reviewed"
+
+[page.6]
+path = "modules/epoch/spec/README.md"
+status = "reviewed"
+
+[page.7]
+path = "modules/evm/AGENTS.md"
+status = "reviewed"
+
+[page.8]
+path = "modules/layerxbridge/ATTESTATION.md"
+status = "reviewed"
+
+[page.9]
+path = "modules/mint/README.md"
+status = "corrected"
+
+[page.10]
+path = "modules/oracle/README.md"
+status = "corrected"
+
+[page.11]
+path = "modules/oracle/spec/01_concepts.md"
+status = "corrected"
+
+[page.12]
+path = "modules/oracle/spec/02_state.md"
+status = "reviewed"
+
+[page.13]
+path = "modules/oracle/spec/03_end_block.md"
+status = "reviewed"
+
+[page.14]
+path = "modules/oracle/spec/04_messages.md"
+status = "reviewed"
+
+[page.15]
+path = "modules/oracle/spec/05_events.md"
+status = "reviewed"
+
+[page.16]
+path = "modules/oracle/spec/06_params.md"
+status = "reviewed"
+
+[page.17]
+path = "modules/oracle/spec/MidBlock.md"
+status = "reviewed"
+
+[page.18]
+path = "modules/oracle/spec/README.md"
+status = "reviewed"
+
+[page.19]
+path = "modules/tokenfactory/README.md"
+status = "reviewed"
+
+[page.20]
+path = "modules/xweb/ATTESTATION.md"
+status = "reviewed"

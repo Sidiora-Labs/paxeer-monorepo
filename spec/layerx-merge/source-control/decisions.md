@@ -1,6 +1,4 @@
-# Decisions and unresolved qualifications
-
-Status: product design, not implementation evidence. Requirements and task statuses are in [spec.kvx](spec.kvx).
+# Source-control design decisions
 
 ## Fixed product constraints
 
@@ -18,47 +16,32 @@ Status: product design, not implementation evidence. Requirements and task statu
 | D10 | Exact-source qualification and distinct lifecycle states | Saved, submitted, qualified, accepted and remotely published have different receipts. |
 | D11 | Stable provenance across consolidation | Original repository and Git identities remain mapped and queryable after monorepo ingestion. |
 
-## Proposed implementation choices
+## Implementation choices and deployment profiles
 
-| ID | Proposal | Evidence needed before treating it as settled |
+| ID | Choice or profile | Validation scope |
 |---|---|---|
 | P01 | TypeScript source service and host integration using existing product seams; C CLI as façade | Profiling of object processing, API throughput, host filesystem behavior and cancellation. A new low-level runtime is not assumed. |
 | P02 | PostgreSQL initial metadata authority with routed partitions | Within-repository partition splits, failure fencing, hot-key limits, and measured single-trunk ordering throughput. |
 | P03 | Versioned SHA-256 type-tagged canonical object IDs and bounded radix trees | Cross-implementation canonical vectors, huge-directory behavior, path compatibility, hash agility and migration. |
-| P04 | Native path names use exact validated UTF-8 bytes | Explicit rejection or reversible conversion for Git histories with non-UTF-8 names; collisions cannot be silently normalized. |
+| P04 | Native path names use exact validated UTF-8 bytes | Git import rejects non-UTF-8 names and case-folded or Unicode-normalized collisions. |
 | P05 | Authorization-domain-scoped deduplication and shared host caches | Cross-domain probing, cache revocation, object-grant expiry, and isolation checks. |
 | P06 | Qualification targets in verification.md | Recorded workload dimensions, real backend runs, cost/latency evidence and live fleet journeys. No provider quota or entitlement is implied. |
-| P07 | Single accepted trunk per repository for initial rollout, optional named channels | Bounded acceptance transaction and contention results; no promise of unlimited throughput through one ordered trunk. |
-| P08 | Per-task Git export grouped by the existing wave publication policy | Exact projection/parent mapping and native/publication separation, including tasks that cross project export boundaries. |
+| P07 | Explicit integration domains holding accepted revision/root and generation | Candidate acceptance compares the expected domain revision and generation before advancing it. |
+| P08 | Git publication of an accepted revision to an explicit destination and ref | Exact projection/parent mapping and separate native acceptance and remote publication receipts. |
 
-## Decisions required during implementation
+## Deployment inputs
 
 Deployment regions, S3 account/bucket configuration, credential references, metadata HA topology, source residency, exact recovery objectives, retention periods, cache quotas, supported filesystem/OS profiles, and external remote protection policies are deployment inputs. None is guessed from repository contents.
 
-Schema and source formats are versioned before persistent writes. Numeric migration filenames in task touches are proposals; implementation must allocate free versions and update its task scope before creating migrations. Compatibility and evidence adapters are mandatory if an existing identity changes shape.
-
-The first campaign freezes its workload and service objectives before measurement. A failing result cannot be turned into a pass by weakening the same campaign's limits after execution. Proposed SLOs can be revised in a new recorded profile with the original result retained.
-
-## Relationship to earlier specifications
-
-| Earlier contract | New contract for migrated native-source repositories |
-|---|---|
-| hyperfide req4: Git owns source objects | Native S3 objects and revision metadata own source; Git becomes a projection. |
-| hyperfide-v21 req6 / D7: Git object model default and offline local snapshot store | Versioned native objects are authoritative online; existing snapshots are imported or remain explicitly legacy. |
-| hyperfide-v22 req6: result Git branches and merge collection | Native revisions, custody and accepted-source receipts drive result collection. |
-| hyperfide-v22 req8: initial slice provider with Git publication | Native workspace adapter consumes server snapshots, retaining remote export through a separate adapter. |
-| workflow hierarchy: full manager worktrees and branch-based roles | Source scopes and integration APIs replace mandatory full manager checkouts after explicit workflow migration. Role authority remains with Hyperfide. |
-| workflow local-first graph/source assumptions | Online source is mandatory in native mode; local non-authoritative caches and legacy modes remain explicitly identified. |
-
-These replacements are scoped to this feature's migration. Historical specifications retain their original contracts and statuses. The owning workflow now selects this feature for layout implementation; that selection does not claim earlier tasks failed their original contracts or release later fleet/native prerequisite gates.
+Schema and source formats are versioned before persistent writes. Compatibility adapters preserve identity types across source-format transitions.
 
 ## Repository-layout prerequisite
 
-D12: organize existing source by category before native source-control implementation, with SDKs under `sdk/`, core packages under `core/`, and explicit application/plugin/contract/library/tool categories. Preserve package units, public identities and runtime behavior. [repository-layout.json](repository-layout.json) defines the proposed mapping. Tasks 0.3–0.9 precede the final fleet prerequisite 0.10–0.14, which gates native task 0.1. Package-manager/toolchain consolidation remains outside the path-only work.
+D12: source packages are grouped by category under `tools/hyperfide/`, with SDKs under `sdk/`, core packages under `core/`, and explicit application, plugin, contract, library and tool categories. Package units, public identities and runtime boundaries remain defined by their manifests. See [repository layout](repository-layout.md).
 
 D13: the Primary and Wave Managers on one supervisory box own adaptive orchestration. The engine validates contracts and durably executes admitted actions. Model unavailability does not activate an implicit deterministic planner. See [fleet orchestration](fleet-orchestration.md).
 
-D14: `package.kvx` describes a sandbox environment; `.neron` configures its source access; `interfaces.kvx` identifies declarations and associated compatibility contracts. Task assignments retain separate identities. Proposed `hyperfide install` prepares pinned code, dependencies, configs and interface subsets through an explicit existing-source adapter first, then a separately qualified native adapter. The example schemas are proposed, not existing command support.
+D14: `package.kvx` describes a sandbox environment; `.neron` configures its source access; `interfaces.kvx` identifies declarations and associated compatibility contracts. Task assignments retain separate identities. `hyperfide install` prepares pinned code, dependencies, configs and interface subsets through an explicit existing-source adapter first, then a separately qualified native adapter. The [installer](../../../tools/hyperfide/core/native/src/install_cmd.c) and [fleet contracts](../../../tools/hyperfide/contracts/fleet/index.mjs) define command support and validation.
 
 ## Native wire format v1
 
@@ -70,11 +53,11 @@ D17: v1 ordinary content uses a 4 MiB blob threshold and 4 MiB chunks, with enco
 
 D18: source metadata envelopes are bounded at 1 MiB. The `source.objects.put` and `source.objects.read` codecs have an explicit 12 MiB wire allowance for an encoded bounded content object; decoding still validates the action and storage verifies the decoded 8 MiB object limit. Native fleet manifest responses have a separate 96 MiB envelope cap for at most 64 MiB of selected file content plus descriptor metadata; callers supply explicit file, byte and node budgets. Other actions cannot borrow those allowances. Public provenance accepts only author name/email, message and a canonical UTC timestamp. Runtime authority and managed-task bindings stay outside exported source provenance.
 
-D19: the SDK contract is authoritative in `sdk/source-control/src/contracts.ts`; the control-plane build copies it into its source compilation root through `sync-fleet-contracts.mjs`. The executable `0_1.py` case imports the built SDK package and the server codec and checks independent cross-language golden bytes in `fixtures/contracts-v1.json`, version negotiation, strict decoding, scoped identities, path/type/mode preservation, operation transitions and content-transfer bounds.
+D19: the SDK contract is authoritative in `tools/hyperfide/sdk/source-control/src/contracts.ts`; the control-plane build copies it into its source compilation root through `sync-fleet-contracts.mjs`. Client and server codecs share version negotiation, strict decoding, scoped identities, path/type/mode preservation, operation transitions and content-transfer bounds.
 
 D20: native transformations use `hyperfide-three-way-v1` and require an explicit maximal common ancestor when several merge bases exist. Rename detection remains explicitly unperformed. Ordered linear rebase stacks retain per-step progress, conflict resolutions and stable change mappings. A replay that reproduces an existing revision preserves its original membership and records `unchanged: true`, avoiding self-predecessors or fabricated provenance. New source revisions receive no inherited qualification or acceptance.
 
-D21: native candidate acceptance uses explicit integration-domain generations and exact candidate input manifests. Registered independent checkers publish retained execution receipts under native authority; qualification and acceptance revalidate policy, evidence and contributor custody. Native acceptance remains separate from task completion and Git publication. New migrations use 0741 onward because the earlier proposed 0719 slot is already occupied.
+D21: native candidate acceptance uses explicit integration-domain generations and exact candidate input manifests. Registered independent checkers publish retained execution receipts under native authority; qualification and acceptance revalidate policy, evidence and contributor custody. Native acceptance remains separate from task completion and Git publication. Source-control migrations are stored with the control-plane package.
 
 D22: Git publication streams deterministic Git objects through receive-pack with an exact expected-old ref. Trusted destinations bind source scope, remote identity and allowed refs; credentials remain in protected server configuration. Confirmed remote mappings permit incremental projection. Uncertain dispatched updates retain the destination reservation and reconcile under their original operation identity.
 
@@ -88,4 +71,4 @@ D26: source selection advances through immutable accepted-descendant receipts an
 
 ## Required remote destination
 
-GitHub is the required remote integration for this release. GitLab remains an optional adapter with separate execution evidence if it is adopted. This supersedes the earlier requirement to supply both hosted providers for release closure.
+GitHub is the required remote integration for this release. GitLab remains an optional adapter with separate execution evidence if it is adopted. Both adapters use explicitly configured source scopes and remote destinations.

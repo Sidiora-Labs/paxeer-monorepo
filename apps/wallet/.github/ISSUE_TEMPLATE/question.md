@@ -32,7 +32,7 @@ Ask a specific question and describe the result you are trying to achieve.
 
 Paxeer mainnet-beta uses EVM chain id `125` (`0x7d`); identify any selected tenant
 domain when asking about network behavior. See the
-[network context](../../../../docs/wallet/app/CHANGELOG.md#network-context).
+[public RPC reference](../../../../docs/site/docs/reference/public-rpc.md).
 
 Share only the context needed to answer the question. Never include recovery
 phrases, private keys, passwords, session tokens, or raw wallet storage exports.

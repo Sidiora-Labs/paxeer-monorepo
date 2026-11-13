@@ -4,9 +4,10 @@
 
 Interface for Wrapped Native Coin (WETH / WPAX)
 
-_Standard WETH9 surface used by Uniswap, Aave, and every major DeFi protocol.
-     On Paxeer Network, the canonical WETH is WPAX at
-     0xe5ccf339d1c89c7e6c6768b28507f78b861fc1de (see LIVE_ADDRESSES in tests)._
+WETH9-compatible deposit, withdrawal and ERC20 operations. Meta-AG contracts receive their wrapped
+native token address through initialization; on Paxeer, that token is WPAX.
+
+Source: [IWETH.sol](../../../contracts/meta-ag/interfaces/IWETH.sol).
 
 ### deposit
 
@@ -59,12 +60,11 @@ function allowance(address owner, address spender) external view returns (uint25
 ### Deposit
 
 ```solidity
-event Deposit(address dst, uint256 wad)
+event Deposit(address indexed dst, uint256 wad)
 ```
 
 ### Withdrawal
 
 ```solidity
-event Withdrawal(address src, uint256 wad)
+event Withdrawal(address indexed src, uint256 wad)
 ```
-

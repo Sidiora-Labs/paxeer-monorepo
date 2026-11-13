@@ -13,7 +13,7 @@ The `devp2p key ...` command family deals with node key files.
 
 Run `devp2p key generate mynode.key` to create a new node key in the `mynode.key` file.
 
-Run `devp2p key to-enode mynode.key -ip 127.0.0.1 -tcp 30303` to create an enode:// URL
+Run `devp2p key to-enode -ip 127.0.0.1 -tcp 30303 mynode.key` to create an enode:// URL
 corresponding to the given node key and address information.
 
 ### Maintaining DNS Discovery Node Lists
@@ -109,7 +109,10 @@ Start the test by running `devp2p discv5 test -listen1 127.0.0.1 -listen2 127.0.
 The Eth Protocol test suite is a conformance test suite for the [eth protocol][eth].
 
 To run the eth protocol test suite against your implementation, the node needs to be initialized
-with our test chain. The chain files are located in `./cmd/devp2p/internal/ethtest/testdata`.
+with our test chain. Run the commands from `core/deps/geth`; the chain files
+are located in `./cmd/devp2p/internal/ethtest/testdata`. Set `JWT_SECRET_FILE` to
+the path of a file containing a 32-byte hex-encoded secret, and `JWT_SECRET`
+to that same hex string. Geth reads the file, while devp2p takes its contents.
 
 1. initialize the geth node with the `genesis.json` file
 2. import blocks from `chain.rlp`
@@ -121,16 +124,16 @@ with our test chain. The chain files are located in `./cmd/devp2p/internal/ethte
         --nat=none                     \
         --networkid 3503995874084926   \
         --verbosity 5                  \
-        --authrpc.jwtsecret 0x7365637265747365637265747365637265747365637265747365637265747365
+        --authrpc.jwtsecret "$JWT_SECRET_FILE"
 
 Note that the tests also require access to the engine API.
 The test suite can now be executed using the devp2p tool.
 
     devp2p rlpx eth-test \
-        --chain internal/ethtest/testdata   \
+        --chain cmd/devp2p/internal/ethtest/testdata   \
         --node enode://....                 \
         --engineapi http://127.0.0.1:8551   \
-        --jwtsecret 0x7365637265747365637265747365637265747365637265747365637265747365
+        --jwtsecret "$JWT_SECRET"
 
 Repeat the above process (re-initialising the node) in order to run the Eth Protocol test suite again.
 

@@ -19,7 +19,7 @@ Perform these checks when reviewing the release PR (see below):
 
 1. Ensure `make distcheck` doesn't fail.
    ```shell
-   ./autogen.sh && ./configure --enable-dev-mode && make distcheck
+   ./autogen.sh && ./configure && make distcheck
    ```
 2. Check installation with autotools:
    ```shell
@@ -34,7 +34,7 @@ Perform these checks when reviewing the release PR (see below):
    cmake -B $build -DCMAKE_INSTALL_PREFIX=$dir && cmake --build $build && cmake --install $build && ls -RlAh $dir
    gcc -o ecdsa examples/ecdsa.c -I $dir/include -L $dir/lib*/ -l secp256k1 -Wl,-rpath,"$dir/lib",-rpath,"$dir/lib64" && ./ecdsa
    ```
-4. Use the [`check-abi.sh`](https://github.com/Paxeer-Network/pax-geth/blob/d91114406b30c83e4dce2e4d966901d26f87ec1e/crypto/secp256k1/libsecp256k1/tools/check-abi.sh) tool to verify that there are no unexpected ABI incompatibilities and that the version number and the release notes accurately reflect all potential ABI changes. To run this tool, the `abi-dumper` and `abi-compliance-checker` packages are required.
+4. Use the [`check-abi.sh`](../tools/check-abi.sh) tool to verify that there are no unexpected ABI incompatibilities and that the version number and the release notes accurately reflect all potential ABI changes. To run this tool, the `abi-dumper` and `abi-compliance-checker` packages are required.
    ```shell
    tools/check-abi.sh
    ```
@@ -53,7 +53,7 @@ Perform these checks when reviewing the release PR (see below):
        * updates `project(libsecp256k1 VERSION ...)` and `${PROJECT_NAME}_LIB_VERSION_*` in `CMakeLists.txt`.
 2. Perform the [sanity checks](#sanity-checks) on the PR branch.
 3. After the PR is merged, tag the commit, and push the tag:
-   ```
+   ```sh
    RELEASE_COMMIT=<merge commit of step 1>
    git tag -s v$MAJOR.$MINOR.$PATCH -m "libsecp256k1 $MAJOR.$MINOR.$PATCH" $RELEASE_COMMIT
    git push git@github.com:bitcoin-core/secp256k1.git v$MAJOR.$MINOR.$PATCH
@@ -72,7 +72,7 @@ Perform these checks when reviewing the release PR (see below):
 Note that bug fixes need to be backported only to releases for which no compatible release without the bug exists.
 
 1. If there's no maintenance branch `$MAJOR.$MINOR`, create one:
-   ```
+   ```sh
    git checkout -b $MAJOR.$MINOR v$MAJOR.$MINOR.$((PATCH - 1))
    git push git@github.com:bitcoin-core/secp256k1.git $MAJOR.$MINOR
    ```
@@ -84,7 +84,7 @@ Note that bug fixes need to be backported only to releases for which no compatib
      (with commit message `"release: bump versions for $MAJOR.$MINOR.$PATCH"`, for example).
 3. Perform the [sanity checks](#sanity-checks) on the PR branch.
 4. After the PRs are merged, update the release branch, tag the commit, and push the tag:
-   ```
+   ```sh
    git checkout $MAJOR.$MINOR && git pull
    git tag -s v$MAJOR.$MINOR.$PATCH -m "libsecp256k1 $MAJOR.$MINOR.$PATCH"
    git push git@github.com:bitcoin-core/secp256k1.git v$MAJOR.$MINOR.$PATCH

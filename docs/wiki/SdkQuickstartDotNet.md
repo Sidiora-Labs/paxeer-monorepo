@@ -18,11 +18,8 @@ principal creation.
 
 ## Fund from faucet
 
-No `px_requestFunds` wrapper. `AgentFaucetClaimAsync` /
-`ReadAsync(PlatformOperation.AgentFaucetClaim, …)` exists on the
-catalog and needs an agent-plane `IPlatformTransport`. Use
-`px_requestFunds` on the configured hosted gateway as documented
-on [Hosted faucet](HostedFaucet.md).
+Use `px_requestFunds` on the configured hosted gateway as documented on
+[Hosted faucet](HostedFaucet.md).
 
 ---
 
@@ -51,21 +48,23 @@ static async Task<JsonValue> Pay(
         ["destination"] = JsonValue.String(destination),
         ["money"] = money,
     }));
-    IReadOnlyDictionary<string, JsonValue> fields = quote is JsonValue.ObjectValue record
-        ? record.Value
-        : new Dictionary<string, JsonValue>();
-    string quoteId = fields.TryGetValue("quote_id", out var found) && found is JsonValue.StringValue text
-        ? text.Value
-        : string.Empty;
+    if (quote is not JsonValue.ObjectValue record ||
+        !record.Value.TryGetValue("quote_id", out var found) ||
+        found is not JsonValue.StringValue text || string.IsNullOrEmpty(text.Value))
+    {
+        throw new FormatException("Invalid quote response");
+    }
+    string quoteId = text.Value;
     return await layerx.HumanMoveCommitAsync(
         JsonValue.Object(new Dictionary<string, JsonValue> { ["quote_id"] = JsonValue.String(quoteId) }),
         new IdempotencyKey(paymentKey));
 }
 ```
 
-The SDK calls that exist are `HumanMoveQuoteAsync` and
-`HumanMoveCommitAsync`. Agent `prepare` / `submit` need an
-appropriate `IPlatformTransport`.
+`HumanMoveCommitAsync` returns a journey. Follow it with
+`HumanJourneyGetAsync` using the returned `journey_id` until it reaches its
+outcome, as the sample does. Agent `prepare` / `submit` require an agent-plane
+`IPlatformTransport`, such as `AgentEnvelopeTransport`.
 
 ---
 
@@ -74,16 +73,23 @@ appropriate `IPlatformTransport`.
 ```csharp
 using LayerX.Sdk;
 
-static ValueTask<ReceiptVerification> Verify(
-    ReadOnlyMemory<byte> canonicalReceipt,
-    AuthorizedReceiptBatch authorized) =>
-    LocalVerifier.VerifyReceiptAsync(canonicalReceipt, authorized);
+static SequencerReceiptVerification Verify(
+    ReadOnlyMemory<byte> receiptJson,
+    ReadOnlyMemory<byte> rawTransaction,
+    ReceiptKeys keys) =>
+    LocalVerifier.VerifySequencerReceipt(receiptJson, rawTransaction, keys);
 ```
 
-`AuthorizedReceiptBatch` is
-`(byte[] BatchId, byte[] Asset, byte[] PreviousStateRoot, byte[] ResultingStateRoot, byte[] SequencerPublicKey)`.
-Those facts must come from a source you already trust.
-`VerifyReceiptOutcomeAsync` returns the decoded outcome without
-requiring result code 0. Default `protocolVersion` is `2`.
+`receiptJson` contains the JSON result object from `pax_sequencerReceipt`,
+including its canonical signed `receipt` field. `ReceiptKeys` holds `Pinned`
+keys and `PreviousSequenceHash`; each `ReceiptKey` has `KeyId`, `PublicKey`,
+`FirstHeight` and `LastHeight`. Authenticate those pins and the predecessor
+independently of the response, and retain the exact signed EVM transaction.
+
+The verifier checks receipt, transaction, RPC fields, logs and sequence
+bindings. Inspect `Status` and `Revert` before treating execution as successful.
+Use the evidence and trust interfaces in
+[`Committed.cs`](../../sdk/platform/dotnet/Committed.cs) to establish block
+inclusion and BFT commitment separately.
 
 [SDK quickstarts](SdkQuickstarts.md) · [Home](Home.md)

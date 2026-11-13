@@ -145,4 +145,4 @@ The [spot venue](spot.md#fees) uses a PECOR per-trade schedule. [`modules/spot/k
 
 - Fees are deducted from the gross output token amount, rounded down in output token units; impact applies afterward. The fee and impact deduction accrue by rail and output token in the vault, and `collectFees` pays the configured `FeeCollector` (the governance EVM address by default). There is no `spot_fees` store account or maker rebate. Invalid governance parameters return module errors, including `ScalarTooHigh()` for a scalar over 500; these validation errors are not EVM revert data.
 - The [opening pairs](spot.md#opening-pairs) are PAX/USDL and SID/USDL, using the registered tokens of `InitV6120`.
-- The perpetuals venue keeps counting perpetuals volume only (section 1); the Hyperliquid 2 x spot weight is not applied anywhere, because the spot venue has no volume tiers.
+- The perpetuals venue keeps counting perpetuals volume only (section 1); the Hyperliquid 2 x spot weight is not applied anywhere, because the spot venue has no rolling-volume tiers.
