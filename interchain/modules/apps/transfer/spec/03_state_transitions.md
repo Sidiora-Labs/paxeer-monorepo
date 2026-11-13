@@ -4,33 +4,30 @@ order: 3
 
 # State Transitions
 
+The [transfer keeper](../keeper/relay.go) chooses the source/sink branch relative
+to the packet's channel. See [Denomination Trace](01_concepts.md#denomination-trace).
+
 ## Send Fungible Tokens
 
-A successful fungible token send has two state transitions depending if the
-transfer is a movement forward or backwards in the token's timeline:
-
-1. Sender chain is the source chain, *i.e* a transfer to any chain other than the one it was previously received from is a movement forwards in the token's timeline. This results in the following state transitions:
-
-- The coins are transferred to an escrow address (i.e locked) on the sender chain
-- The coins are transferred to the receiving chain through IBC TAO logic.
-
-2. Sender chain is the sink chain, *i.e* the token is sent back to the chain it previously received from. This is a backwards movement in the token's timeline. This results in the following state transitions:
-
-- The coins (vouchers) are burned on the sender chain
-- The coins transferred to the receiving chain though IBC TAO logic.
+If the full denomination does not begin with the sending port/channel prefix,
+the sender escrows the local coins in the channel's escrow account. Otherwise,
+the sender burns its vouchers. The outgoing packet carries the full denomination
+trace and requested amount; the IBC core stores the packet commitment.
 
 ## Receive Fungible Tokens
 
-A successful fungible token receive has two state transitions depending if the
-transfer is a movement forward or backwards in the token's timeline:
+If the packet denomination begins with its source port/channel prefix, the
+receiver removes that prefix and unescrows the local coins from its destination
+channel's escrow account to the recipient.
 
-1. Receiver chain is the source chain. This is a backwards movement in the token's timeline. This results in the following state transitions:
+Otherwise, the receiver prepends its destination port/channel pair, stores the
+trace if absent, mints the corresponding `ibc/{hash}` vouchers and sends them
+to the recipient. Successful processing returns an acknowledgement.
 
-- The leftmost port and channel identifier pair is removed from the token denomination prefix.
-- The tokens are unescrowed and sent to the receiving address.
+## Acknowledgements and Timeouts
 
-2. Receiver chain is the sink chain. This is a movement forwards in the token's timeline. This results in the following state transitions:
-
-- Token vouchers are minted by prefixing the destination port and channel identifiers to the trace information.
-- The receiving chain stores the new trace information in the store (if not set already).
-- The vouchers are sent to the receiving address.
+A success acknowledgement completes the transfer without a refund. An error
+acknowledgement or a proven timeout refunds the original sender: escrowed coins
+are released, or burned vouchers are re-minted. The core deletes the sender's
+packet commitment after processing. See [Acknowledgements](01_concepts.md#acknowledgements)
+and [Events](05_events.md).

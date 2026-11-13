@@ -33,10 +33,13 @@ The adapter id is `ucp`.
 `CheckoutStatus`, `CheckoutSubmission`, `OrderMetadata`,
 `UcpPaymentIntent`, `UcpPlaneResult`, `ExecutedUcpPayment`,
 `UcpPaymentPlane`, `UcpOrder`, `CheckoutOutcome`, `StoredOrder`,
-`UcpAdapter::complete_checkout`, `UcpAdapter::read_order`,
-`UcpError`, `ucp_adapter_descriptor()`, `interop_ucp()`.
+`UcpAdapter::complete_checkout`, `UcpAdapter::read_order_with_config`,
+`UcpServiceConfig`, `MerchantCurrencyBinding`, `UcpError`,
+`ucp_adapter_descriptor(spec, conformance)`,
+`interop_ucp()`.
 
-Checkout completion is receipt-gated. An order read is not a
-balance write.
+Checkout completion is receipt-gated. Configure the merchant's currency/asset
+bindings with `UcpServiceConfig`; order reads re-verify stored receipt evidence
+under that configuration. An order read does not write balances.
 
 [Interop](Interop.md) · [Home](Home.md)
