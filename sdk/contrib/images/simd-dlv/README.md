@@ -7,8 +7,12 @@ binary under `dlv` with `--listen=:2345 --continue --headless=true
 --api-version=2 --accept-multiclient`. A client can attach with
 `dlv connect <host>:2345`.
 
-This directory has no image build recipe. The `simd-dlv` and default `all`
-targets in [`sdk/contrib/images/Makefile`](../Makefile) refuse image builds
-with a nonzero exit. This checkout provides `paxd`, built with
-`make -f chain.mk build` from the repository root; it has no `simd` application
-or supported Paxd Delve image.
+The wrapper requires a shell with `pipefail` support. From this directory,
+invoke it with `bash wrapper.sh start`, with the application binary placed
+under `/simd` and its node home under `/data`.
+
+The simulation application source is in
+[`interchain/testing/simapp/simd`](../../../../interchain/testing/simapp/simd).
+The Paxeer node is `paxd`, built with `make -f chain.mk build` from the
+repository root. The wrapper runs binaries supplied under `/simd`;
+this directory provides the launch script only.

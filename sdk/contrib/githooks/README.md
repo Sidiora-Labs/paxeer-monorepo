@@ -21,6 +21,4 @@ go install golang.org/x/tools/cmd/goimports@latest
 go install github.com/golangci/misspell/cmd/misspell@latest
 ```
 
-The hook still passes the upstream `-local github.com/cosmos/cosmos-sdk`
-prefix to `goimports`, so it does not group imports of
-`github.com/Sidiora-Labs/Paxeer-X-Network` as local.
+The hook uses `-local github.com/cosmos/cosmos-sdk` for import grouping.
