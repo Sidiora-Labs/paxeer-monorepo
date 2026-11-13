@@ -169776,7 +169776,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.171]
 title = "Move the task records and name the files after what they hold in services/platform/middleware"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -170218,7 +170218,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.16]
 title = "Move the task records and name the files after what they hold in apps/perps"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -170281,7 +170281,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.14]
 title = "Move the task records and name the files after what they hold in apps/launchpad/web/src/widgets"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -170376,7 +170376,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.11]
 title = "Move the task records and name the files after what they hold in apps/inference-peer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -170408,7 +170408,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.10]
 title = "Move the task records and name the files after what they hold in apps/explorer/ui/tx and 3 more directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -170664,7 +170664,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.2]
 title = "Move the task records and name the files after what they hold in apps/bridge"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -238359,7 +238359,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.197]
 title = "Move the task records and name the files after what they hold in tests/occ"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -325488,7 +325488,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.198]
 title = "Move the task records and name the files after what they hold in tests/programs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
