@@ -374093,7 +374093,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.283]
 title = "Bring the Python tests 30 to 49 of tests/ci to the present pages and paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
