@@ -32,7 +32,7 @@ The receipt lookup belongs to the `pax` namespace. Its evidence is related to th
 
 ## Account selectors and balances
 
-An account selector accepts a `0x`-prefixed 20-byte EVM address or `did:layerx:` followed by a 32-byte hexadecimal identity. Account parsing also recognizes a bare native account ID, but reverse lookup of that form is unavailable. History accepts only the EVM/DID selector forms.
+An account selector accepts a `0x`-prefixed 20-byte EVM address or `did:layerx:` followed by a nonzero 32-byte hexadecimal identity. Account parsing also recognizes a bare native account ID, but reverse lookup of that form is unavailable. History accepts only the EVM/DID selector forms.
 
 Resolution uses the address precompile at `0x1004`, including `getUnifiedAccount` and `getEvmAddrByLayerX`. The unified account fields are `evm_address`, `pax_address`, `layerx_did`, `layerx_account` and `bound`. Reads resolve one height through the node watermarks and keep dependent state reads at that height.
 
@@ -80,11 +80,11 @@ Commit, validator and sequence-batch heights are positive decimal unsigned-64-bi
 | `px_getInferenceRoomAt` | `roomID, height` | Room at a retained committed height |
 | `px_getInferenceRooms` | none | Rooms listed by program state |
 | `px_getInferenceDeal` | `dealID` | Deal record |
-| `px_getInferencePeer` | `peerKey` | Current peer record |
-| `px_getInferencePeerAt` | `peerKey, height` | Peer at a retained committed height |
+| `px_getInferencePeer` | `peerKey` | Current peer record and attestation binding |
+| `px_getInferencePeerAt` | `peerKey, height` | Peer and attestation binding at a retained committed height |
 | `px_getInferenceReceipts` | `dealID` | Deal receipt records |
 
-These methods validate fixed-width producer encodings and pin nested calls to one resolved height. Missing program configuration, unavailable historical state and noncanonical producer responses are explicit unavailable results.
+These methods validate fixed-width producer encodings and pin nested calls to one resolved height. Peer reads obtain `attestation_binding` from `peerBinding` at `0x0907`, with `family`, `model_digest`, `runtime_digest` and `block_height` fields. Missing program configuration, unavailable historical state and noncanonical producer responses are explicit unavailable results.
 
 ## Hosted operations and errors
 
