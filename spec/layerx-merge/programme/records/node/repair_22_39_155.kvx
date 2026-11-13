@@ -31,7 +31,7 @@ correction = "Preserve the current empty inventory following tests/ci/data/node_
 [repair.served_venue]
 test = "TestV640ToV66UpgradeServesTheExchangeBridgeAndLaunchpadPrecompiles"
 producer = "node/app.go:4098 v6120Contracts constructs perps and node/app.go:4125 pairs it with the historical exchange at the exchange address; precompiles/perps/perps.go:25 declares that address as 0x1015"
-abi_selection = "node/repair_m1142_test.go:85 selects totalMarkets for ordinary execution, and lines 92-115 obtain GetABI from the contract in EvmKeeper.CustomPrecompiles(ctx)"
+abi_selection = "node/merge_precompile_upgrade_lifecycle_test.go:85 selects totalMarkets for ordinary execution, and lines 92-115 obtain GetABI from the contract in EvmKeeper.CustomPrecompiles(ctx)"
 assertion = "Require the served 0x1015 contract and its address, call totalMarkets through its selected ABI via StaticCallEVM, and assert the returned uint256 market count is exactly zero; replace the stale exchange intentNonce call without changing bridge assertions; the launchpad assertion is corrected below after qualification exposed its historical ABI mismatch"
 
 [evidence.build]
@@ -75,5 +75,5 @@ observed = "The three Python checks and both replication tests passed; the upgra
 
 [repair.served_launchpad]
 producer = "modules/evm/keeper/keeper.go:258-265 selects the latest eligible contract during ordinary execution; node/app.go:4108 constructs generation 2 launchpad and node/app.go:4126 pairs it first at 0x1017"
-method_producer = "precompiles/launchpad/views.go:420-425 serves getPoolCount as the uint256 registry count; node/repair_m1142_test.go:74 and 78-84 likewise expect getPoolCount during ordinary execution and reserve getMarketCount for tracing"
+method_producer = "precompiles/launchpad/views.go:420-425 serves getPoolCount as the uint256 registry count; node/merge_precompile_upgrade_lifecycle_test.go:74 and 78-84 likewise expect getPoolCount during ordinary execution and reserve getMarketCount for tracing"
 assertion = "Require the served 0x1017 contract and its exact address, pack getPoolCount using its own ABI, execute through StaticCallEVM, and require the returned uint256 pool count to be exactly zero; this replaces the stale legacy ABI call while preserving a successful view and exact zero inventory assertion"

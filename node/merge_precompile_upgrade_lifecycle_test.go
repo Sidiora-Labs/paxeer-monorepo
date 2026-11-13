@@ -22,21 +22,21 @@ import (
 )
 
 // Audit 22.30.50 repair record (22.33.1142):
-// activation-test-requires-retired-anchor-module: TestRepairM_1142_RetainedAnchorLifecycle
-// activation-test-rejects-live-retirement-dependency: TestRepairM_1142_ActivationDependencies
-// merge-gate-test-expects-missing-production-constructors: TestRepairM_1142_RegisteredMergeConstructors
-// merge-name-test-assumes-last-plan: TestRepairM_1142_MergePlanOrder
-// merge-stores-test-omits-layerxchains: TestRepairM_1142_MergeStoresIncludeChains
-// sequencer-upgrade-test-obsolete-store-contract: TestRepairM_1142_CompleteSequencerUpgrade
-// fee-upgrade-test-stale-tag-tail: TestRepairM_1142_HistoricalFeeTokenMigration
-// v610-test-stale-current-upgrade-metadata: TestRepairM_1142_CurrentV610Metadata
+// activation-test-requires-retired-anchor-module: TestMergeUpgradeLifecycleRetainedAnchorLifecycle
+// activation-test-rejects-live-retirement-dependency: TestMergeUpgradeLifecycleActivationDependencies
+// merge-gate-test-expects-missing-production-constructors: TestMergeUpgradeLifecycleRegisteredMergeConstructors
+// merge-name-test-assumes-last-plan: TestMergeUpgradePlanOrder
+// merge-stores-test-omits-layerxchains: TestMergeUpgradeStoresIncludeChains
+// sequencer-upgrade-test-obsolete-store-contract: TestMergeUpgradeLifecycleCompleteSequencerUpgrade
+// fee-upgrade-test-stale-tag-tail: TestMergeUpgradeLifecycleHistoricalFeeTokenMigration
+// v610-test-stale-current-upgrade-metadata: TestMergeUpgradeLifecycleCurrentV610Metadata
 // The prior attempt failed ActivationDependencies on contract-instance equality
 // (gotcha 3009). Qualification revision and private evidence are in hf-done's ledger.
 // An earlier verify failed because ordinary execution serves perps at
 // 0x1015 while tracing serves the historical exchange after the activation plan.
 // No out-of-path wiring changes are required by these eight repairs.
 
-func repairM1142Addresses(contracts map[common.Address]vm.PrecompiledContract) []string {
+func mergeUpgradePrecompileAddresses(contracts map[common.Address]vm.PrecompiledContract) []string {
 	addresses := make([]string, 0, len(contracts))
 	for address := range contracts {
 		addresses = append(addresses, address.Hex())
@@ -45,7 +45,7 @@ func repairM1142Addresses(contracts map[common.Address]vm.PrecompiledContract) [
 	return addresses
 }
 
-func requireRepairM1142ABIValues(t *testing.T, want, got []interface{}) {
+func requireMergeUpgradeABIValues(t *testing.T, want, got []interface{}) {
 	t.Helper()
 	require.Len(t, got, len(want))
 	for i, expected := range want {
@@ -60,7 +60,7 @@ func requireRepairM1142ABIValues(t *testing.T, want, got []interface{}) {
 	}
 }
 
-func requireRepairM1142RestoredCalls(t *testing.T, a *App, ctx sdk.Context, below map[common.Address]vm.PrecompiledContract, oracleActive bool) {
+func requireMergeUpgradeRestoredCalls(t *testing.T, a *App, ctx sdk.Context, below map[common.Address]vm.PrecompiledContract, oracleActive bool) {
 	t.Helper()
 	owner := common.Address{1}
 	cases := map[common.Address]struct {
@@ -102,7 +102,7 @@ func requireRepairM1142RestoredCalls(t *testing.T, a *App, ctx sdk.Context, belo
 		require.True(t, ok, address.Hex())
 		require.Equal(t, address, typed.Address())
 		if address == common.HexToAddress(oracleprecompile.OracleAddress) {
-			requireRepairM1142OracleCall(t, a, ctx, oracleActive)
+			requireMergeUpgradeOracleCall(t, a, ctx, oracleActive)
 			continue
 		}
 		tc, ok := cases[address]
@@ -114,11 +114,11 @@ func requireRepairM1142RestoredCalls(t *testing.T, a *App, ctx sdk.Context, belo
 		require.NoError(t, err, "%s %s", address.Hex(), tc.method)
 		values, err := typed.GetABI().Unpack(tc.method, output)
 		require.NoError(t, err)
-		requireRepairM1142ABIValues(t, tc.want, values)
+		requireMergeUpgradeABIValues(t, tc.want, values)
 	}
 }
 
-func requireRepairM1142OracleCall(t *testing.T, a *App, ctx sdk.Context, active bool) {
+func requireMergeUpgradeOracleCall(t *testing.T, a *App, ctx sdk.Context, active bool) {
 	t.Helper()
 	address := common.HexToAddress(oracleprecompile.OracleAddress)
 	contract := a.EvmKeeper.CustomPrecompiles(ctx)[address]
@@ -141,10 +141,10 @@ func requireRepairM1142OracleCall(t *testing.T, a *App, ctx sdk.Context, active 
 	require.NoError(t, err)
 	values, err := typed.GetABI().Unpack(oracleprecompile.AggregateMethod, output)
 	require.NoError(t, err)
-	requireRepairM1142ABIValues(t, []interface{}{big.NewInt(17), big.NewInt(3)}, values)
+	requireMergeUpgradeABIValues(t, []interface{}{big.NewInt(17), big.NewInt(3)}, values)
 }
 
-func TestRepairM_1142_RetainedAnchorLifecycle(t *testing.T) {
+func TestMergeUpgradeLifecycleRetainedAnchorLifecycle(t *testing.T) {
 	w := NewTestWrapper(t, time.Now().UTC(), secp256k1.GenPrivKey().PubKey(), true)
 	a, ctx := w.App, w.Ctx.WithBlockHeight(mergeHeight-1)
 	t.Cleanup(func() { require.NoError(t, a.Close()) })
@@ -223,35 +223,35 @@ func TestRepairM_1142_RetainedAnchorLifecycle(t *testing.T) {
 	}
 }
 
-func TestRepairM_1142_ActivationDependencies(t *testing.T) {
+func TestMergeUpgradeLifecycleActivationDependencies(t *testing.T) {
 	TestActivationServesTheForkPrecompilesOnlyFromItsHeight(t)
 }
 
-func TestRepairM_1142_RegisteredMergeConstructors(t *testing.T) {
+func TestMergeUpgradeLifecycleRegisteredMergeConstructors(t *testing.T) {
 	TestMergePlanRefusesMissingMergeConstructors(t)
 }
 
-func TestRepairM_1142_MergePlanOrder(t *testing.T) {
+func TestMergeUpgradePlanOrder(t *testing.T) {
 	TestMergeUpgradeNameAgreesAcrossPackages(t)
 	TestAnchorStoreDeletedAtStep(t)
 }
 
-func TestRepairM_1142_MergeStoresIncludeChains(t *testing.T) {
+func TestMergeUpgradeStoresIncludeChains(t *testing.T) {
 	TestMergeStoreUpgradesAddsLayerXStores(t)
 }
 
-func TestRepairM_1142_CompleteSequencerUpgrade(t *testing.T) {
+func TestMergeUpgradeLifecycleCompleteSequencerUpgrade(t *testing.T) {
 	TestUpgradesSequencerInitialisesAllMergeStores(t)
 	TestUpgradesSequencerGenesisAtActivation(t)
 	TestMergePlanRequiresKeyForFirstSequencedHeight(t)
 	TestMergePlanRefusesKeyCoveringOnlyActivationHeight(t)
 }
 
-func TestRepairM_1142_HistoricalFeeTokenMigration(t *testing.T) {
+func TestMergeUpgradeLifecycleHistoricalFeeTokenMigration(t *testing.T) {
 	TestSidioraFeeTokenUpgradeIsRegisteredAndRunsTheFeeTokenMigration(t)
 }
 
-func TestRepairM_1142_CurrentV610Metadata(t *testing.T) {
+func TestMergeUpgradeLifecycleCurrentV610Metadata(t *testing.T) {
 	TestV610IsRegisteredBesideThePlansThatPrecedeIt(t)
 	TestV610AttestorsAreTheSuppliedSetInAscendingOrder(t)
 	TestV610WritesTheOperatingValuesInTheBlockTheUpgradeInfoNames(t)

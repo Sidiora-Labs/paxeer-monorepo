@@ -23,7 +23,7 @@ import (
 )
 
 // Exported only in the test binary, since the executor imports node itself.
-func RepairM1141MigrationConfiguration(t *testing.T) {
+func CheckNodeLifecycleMigrationConfiguration(t *testing.T) {
 	t.Helper()
 	for _, tc := range []struct {
 		name, value string
@@ -63,7 +63,7 @@ func RepairM1141MigrationConfiguration(t *testing.T) {
 	}
 }
 
-func RepairM1141UpgradeLifecycle(t *testing.T) {
+func CheckNodeLifecycleUpgradeLifecycle(t *testing.T) {
 	t.Helper()
 	TestActivationUpgradeIsRegisteredBesideTheTagList(t)
 	TestMergePlanIsRegisteredBesideTheTagList(t)
@@ -74,7 +74,7 @@ func RepairM1141UpgradeLifecycle(t *testing.T) {
 	}
 }
 
-func RepairM1141ChainsActivation(t *testing.T) {
+func CheckNodeLifecycleChainsActivation(t *testing.T) {
 	t.Helper()
 	w := NewTestWrapper(t, time.Now().UTC(), secp256k1.GenPrivKey().PubKey(), true)
 	a, ctx := w.App, w.Ctx
@@ -99,7 +99,7 @@ func RepairM1141ChainsActivation(t *testing.T) {
 	}
 }
 
-func RepairM1141MergedStores(t *testing.T) {
+func CheckNodeLifecycleMergedStores(t *testing.T) {
 	t.Helper()
 	stores, ok := layerxStoreUpgrades(MergeUpgrade)
 	require.True(t, ok)
@@ -138,7 +138,7 @@ func RepairM1141MergedStores(t *testing.T) {
 	}
 }
 
-func RepairM1141InitializationFailure(t *testing.T) {
+func CheckNodeLifecycleInitializationFailure(t *testing.T) {
 	t.Helper()
 	a := Setup(t, true, false, false)
 	t.Cleanup(func() { require.NoError(t, a.Close()) })

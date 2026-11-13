@@ -7,7 +7,7 @@ gotcha = "4051"
 
 [repair]
 manifest = "services/platform/hosted/paxeer/deployment.yaml"
-test = "node/repair_m1319_test.go: TestRepairM_1319_RestoredBoundaryManifest"
+test = "node/hosted_network_policy_manifest_test.go: TestRepairM_1319_RestoredBoundaryManifest"
 former_pin = "7f681de19c1c05401b1b0dfb98fb4ee3611e6e22f3bd3815b0fb1877108d9066"
 new_pin = "ba84aff353486b744f3b9759fb158219b9de90558366485b483e4793c60dc9a2"
 producer_revision = "9e17ec8e4d"
@@ -22,5 +22,5 @@ reference = "/out/run/gates.jsonl: final kind=build row records candidate revisi
 
 [evidence.verify]
 command = "cg spec done 22.39.304 -f layerx-merge --root /work/paxeer-monorepo"
-verify_cmd = "test -s node/repair_22_39_304.kvx && go test -count=1 ./node/ -run '^TestRepairM_1319_RestoredBoundaryManifest$'"
+verify_cmd = "test -s spec/layerx-merge/programme/records/node/repair_22_39_304.kvx && go test -count=1 ./node/ -run '^TestRepairM_1319_RestoredBoundaryManifest$'"
 reference = "/out/run/gates.jsonl: final kind=verify row names the verified revision, command, exit and private log; qualification requires exit zero and a build on that identical revision"

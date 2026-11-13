@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestRepairM_1319_RestoredBoundaryManifest(t *testing.T) {
+func TestHostedNetworkPolicyManifest(t *testing.T) {
 	const manifest = "../services/platform/hosted/paxeer/deployment.yaml"
 	// Commit 9e17ec8e4d (task 18.1790.1) produced the pinned manifest by
 	// restoring network-policy connectivity between the gateway and its hosted peers.

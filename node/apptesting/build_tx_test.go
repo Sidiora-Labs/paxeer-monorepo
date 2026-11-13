@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepairM_1074_BuildTxRoundTrip(t *testing.T) {
+func TestBuildTxRoundTrip(t *testing.T) {
 	priv := secp256k1.GenPrivKeyFromSecret([]byte("repair-m1074-sender"))
 	sender := sdk.AccAddress(priv.PubKey().Address())
 	recipient := sdk.AccAddress(secp256k1.GenPrivKeyFromSecret([]byte("repair-m1074-recipient")).PubKey().Address())
@@ -83,7 +83,7 @@ func TestRepairM_1074_BuildTxRoundTrip(t *testing.T) {
 	}
 }
 
-func TestRepairM_1074_RejectsEmptyMessages(t *testing.T) {
+func TestBuildTxRejectsEmptyMessages(t *testing.T) {
 	for _, tc := range []struct {
 		name string
 		msgs []sdk.Msg

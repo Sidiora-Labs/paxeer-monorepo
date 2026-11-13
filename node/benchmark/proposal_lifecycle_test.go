@@ -22,19 +22,19 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func repairM1075TxConfig() client.TxConfig {
+func proposalLifecycleTxConfig() client.TxConfig {
 	registry := codectypes.NewInterfaceRegistry()
 	evmtypes.RegisterInterfaces(registry)
 	return authtx.NewTxConfig(codec.NewProtoCodec(registry), authtx.DefaultSignModes)
 }
 
-func repairM1075Manager(t *testing.T, scenarioConfigs ...config.Scenario) (*Manager, context.CancelFunc) {
+func proposalLifecycleManager(t *testing.T, scenarioConfigs ...config.Scenario) (*Manager, context.CancelFunc) {
 	t.Helper()
 	cfg := &config.LoadConfig{
 		ChainID: 98765, PaxChainID: "repair-m1075", MockDeploy: true,
 		Scenarios: scenarioConfigs,
 	}
-	gen, err := NewGenerator(cfg, repairM1075TxConfig())
+	gen, err := NewGenerator(cfg, proposalLifecycleTxConfig())
 	require.NoError(t, err)
 	gen.txsPerBatch = 2
 	ctx, cancel := context.WithCancel(context.Background())
@@ -57,11 +57,11 @@ func repairM1075Manager(t *testing.T, scenarioConfigs ...config.Scenario) (*Mana
 	return m, cancel
 }
 
-func repairM1075Scenario(name string, count int) config.Scenario {
+func proposalLifecycleScenario(name string, count int) config.Scenario {
 	return config.Scenario{Name: name, Weight: 1, Accounts: &config.AccountConfig{Accounts: count}}
 }
 
-func repairM1075Batch(t *testing.T, m *Manager) []*ethtypes.Transaction {
+func proposalLifecycleBatch(t *testing.T, m *Manager) []*ethtypes.Transaction {
 	t.Helper()
 	select {
 	case batch, ok := <-m.ProposalChannel():
@@ -89,7 +89,7 @@ func repairM1075Batch(t *testing.T, m *Manager) []*ethtypes.Transaction {
 	}
 }
 
-func repairM1075Idle(t *testing.T, m *Manager) {
+func proposalLifecycleIdle(t *testing.T, m *Manager) {
 	t.Helper()
 	// Inspect the running production worker, rather than infer bounded work from
 	// elapsed time alone: an empty result must park in a select, not retry Generate.
@@ -111,16 +111,16 @@ func repairM1075Idle(t *testing.T, m *Manager) {
 	}
 }
 
-func repairM1075Commit(m *Manager) {
+func proposalLifecycleCommit(m *Manager) {
 	// This is the same producer called by App.RecordBenchmarkCommitTime after
 	// Commit, transported through the manager's real logger to the generator.
 	m.Logger.RecordCommitTime(time.Millisecond)
 }
 
-func TestRepairM_1075_ScenarioOnlyAccounts(t *testing.T) {
-	m, _ := repairM1075Manager(t,
-		repairM1075Scenario(scenarios.EVMTransfer, 2),
-		repairM1075Scenario(scenarios.EVMTransferNoop, 3))
+func TestProposalLifecycleScenarioOnlyAccounts(t *testing.T) {
+	m, _ := proposalLifecycleManager(t,
+		proposalLifecycleScenario(scenarios.EVMTransfer, 2),
+		proposalLifecycleScenario(scenarios.EVMTransferNoop, 3))
 	g := m.Generator
 	require.Nil(t, g.cfg.Accounts)
 	require.Nil(t, g.sharedAccounts)
@@ -136,9 +136,9 @@ func TestRepairM_1075_ScenarioOnlyAccounts(t *testing.T) {
 	}
 	require.Len(t, addresses, 5)
 	for i := 0; i < WarmupBlocks; i++ {
-		repairM1075Commit(m)
+		proposalLifecycleCommit(m)
 	}
-	for _, tx := range repairM1075Batch(t, m) {
+	for _, tx := range proposalLifecycleBatch(t, m) {
 		sender, err := ethtypes.Sender(ethtypes.NewCancunSigner(g.chainID), tx)
 		require.NoError(t, err)
 		require.True(t, addresses[sender], "load must use the constructed scenario pools")
@@ -147,14 +147,14 @@ func TestRepairM_1075_ScenarioOnlyAccounts(t *testing.T) {
 	require.Equal(t, PhaseLoad, g.Phase())
 }
 
-func TestRepairM_1075_CommittedBlockWarmup(t *testing.T) {
-	m, _ := repairM1075Manager(t, repairM1075Scenario(scenarios.EVMTransfer, 2))
+func TestProposalLifecycleCommittedBlockWarmup(t *testing.T) {
+	m, _ := proposalLifecycleManager(t, proposalLifecycleScenario(scenarios.EVMTransfer, 2))
 	g := m.Generator
 	for commits := 0; commits < WarmupBlocks; commits++ {
 		for attempt := 0; attempt < 100; attempt++ {
 			require.Empty(t, g.Generate(), "requests cannot consume block warmup")
 		}
-		repairM1075Idle(t, m)
+		proposalLifecycleIdle(t, m)
 		require.Equal(t, PhaseWarmup, g.Phase())
 		g.mu.RLock()
 		counter := g.warmupCounter
@@ -163,9 +163,9 @@ func TestRepairM_1075_CommittedBlockWarmup(t *testing.T) {
 		// Receipts, even repeated empty block results, do not count as commits.
 		m.ProcessReceipts(nil)
 		require.Equal(t, PhaseWarmup, g.Phase())
-		repairM1075Commit(m)
+		proposalLifecycleCommit(m)
 	}
-	require.Len(t, repairM1075Batch(t, m), 2)
+	require.Len(t, proposalLifecycleBatch(t, m), 2)
 	require.Equal(t, PhaseLoad, g.Phase())
 	g.mu.RLock()
 	counter := g.warmupCounter
@@ -173,23 +173,23 @@ func TestRepairM_1075_CommittedBlockWarmup(t *testing.T) {
 	require.Equal(t, WarmupBlocks, counter)
 }
 
-func TestRepairM_1075_DeploymentWaitAndResume(t *testing.T) {
-	m, _ := repairM1075Manager(t, repairM1075Scenario(scenarios.ERC20, 2))
+func TestProposalLifecycleDeploymentWaitAndResume(t *testing.T) {
+	m, _ := proposalLifecycleManager(t, proposalLifecycleScenario(scenarios.ERC20, 2))
 	for i := 0; i < WarmupBlocks; i++ {
-		repairM1075Commit(m)
+		proposalLifecycleCommit(m)
 	}
-	deployments := repairM1075Batch(t, m)
+	deployments := proposalLifecycleBatch(t, m)
 	require.Len(t, deployments, 1)
 	deployment := deployments[0]
 	require.Nil(t, deployment.To())
 	require.Equal(t, []common.Hash{deployment.Hash()}, m.GetPendingDeployHashes())
 	require.True(t, m.IsSetupPhase())
-	repairM1075Idle(t, m)
+	proposalLifecycleIdle(t, m)
 	for i := 0; i < 10; i++ {
 		m.ProcessReceipts(nil)
-		repairM1075Commit(m)
+		proposalLifecycleCommit(m)
 	}
-	repairM1075Idle(t, m)
+	proposalLifecycleIdle(t, m)
 	require.Equal(t, []common.Hash{deployment.Hash()}, m.GetPendingDeployHashes())
 
 	// Execute the actual deployment emitted through the proposal codec against
@@ -214,7 +214,7 @@ func TestRepairM_1075_DeploymentWaitAndResume(t *testing.T) {
 	require.Empty(t, m.GetPendingDeployHashes())
 	require.False(t, m.IsSetupPhase())
 	require.Equal(t, PhaseLoad, m.Generator.Phase())
-	for _, tx := range repairM1075Batch(t, m) {
+	for _, tx := range proposalLifecycleBatch(t, m) {
 		require.NotNil(t, tx.To())
 		require.Equal(t, address, *tx.To(), "receipt must attach the real deployment address")
 		require.GreaterOrEqual(t, len(tx.Data()), 4)
@@ -222,17 +222,17 @@ func TestRepairM_1075_DeploymentWaitAndResume(t *testing.T) {
 	}
 }
 
-func TestRepairM_1075_CancellationWhileWaiting(t *testing.T) {
+func TestProposalLifecycleCancellationWhileWaiting(t *testing.T) {
 	for _, phase := range []Phase{PhaseWarmup, PhaseSetup} {
 		t.Run([]string{"warmup", "pending-deployment"}[int(phase)], func(t *testing.T) {
-			m, cancel := repairM1075Manager(t, repairM1075Scenario(scenarios.ERC20, 2))
+			m, cancel := proposalLifecycleManager(t, proposalLifecycleScenario(scenarios.ERC20, 2))
 			if phase == PhaseSetup {
 				for i := 0; i < WarmupBlocks; i++ {
-					repairM1075Commit(m)
+					proposalLifecycleCommit(m)
 				}
-				require.Len(t, repairM1075Batch(t, m), 1)
+				require.Len(t, proposalLifecycleBatch(t, m), 1)
 			}
-			repairM1075Idle(t, m)
+			proposalLifecycleIdle(t, m)
 			require.Equal(t, phase, m.Generator.Phase())
 			cancel()
 			select {
@@ -246,17 +246,17 @@ func TestRepairM_1075_CancellationWhileWaiting(t *testing.T) {
 	}
 }
 
-func TestRepairM_1075_SharedAndScenarioPools(t *testing.T) {
+func TestProposalLifecycleSharedAndScenarioPools(t *testing.T) {
 	cfg := &config.LoadConfig{
 		ChainID: 98765, MockDeploy: true,
 		Accounts: &config.AccountConfig{Accounts: 2},
 		Scenarios: []config.Scenario{
 			{Name: scenarios.EVMTransfer, Weight: 1},
 			{Name: scenarios.EVMTransferNoop, Weight: 1},
-			repairM1075Scenario(scenarios.EVMTransfer, 3),
+			proposalLifecycleScenario(scenarios.EVMTransfer, 3),
 		},
 	}
-	g, err := NewGenerator(cfg, repairM1075TxConfig())
+	g, err := NewGenerator(cfg, proposalLifecycleTxConfig())
 	require.NoError(t, err)
 	require.Len(t, g.accountPools, 2, "shared pool must be constructed and counted once")
 	require.Same(t, g.sharedAccounts, g.scenarios[0].accounts)

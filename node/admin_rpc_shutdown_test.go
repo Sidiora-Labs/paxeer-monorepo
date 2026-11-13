@@ -20,7 +20,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func TestRepair2239367CloseWithUnfinishedAdminRPC(t *testing.T) {
+func TestAppCloseWithUnfinishedAdminRPC(t *testing.T) {
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 	address := listener.Addr().String()

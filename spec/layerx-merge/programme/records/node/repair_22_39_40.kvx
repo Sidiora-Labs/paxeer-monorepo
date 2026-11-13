@@ -208,7 +208,7 @@ revision = "f50f732bbffcdb475b1b102d8abccf45ebfff98c"
 command = "go test -timeout 15m -count=1 -run ^TestRepair_102_SchedulerFailureAtomic$ ./node/"
 exit = 1
 log = "/out/logs/isolated-TestRepair_102_SchedulerFailureAtomic.log"
-observed = "node/repair_102_test.go:463: The result is internal error while the assertion requires marshalling cosmosGasParams. Reproduced alone; recorded, not repaired: the failing path is outside the changed activation-readiness and driver-release paths."
+observed = "node/sequenced_execution_recovery_test.go:463: The result is internal error while the assertion requires marshalling cosmosGasParams. Reproduced alone; recorded, not repaired: the failing path is outside the changed activation-readiness and driver-release paths."
 
 [qualification.attempt4.isolated.TestFinalizeAdoptedSealedBlockMatchesReexecution]
 revision = "f50f732bbffcdb475b1b102d8abccf45ebfff98c"
