@@ -9,7 +9,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/utils/require"
 )
 
-func TestRepairM_1122_IdleHistoryExpires(t *testing.T) {
+func TestConnectionLifecycleIdleHistoryExpires(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		const window = time.Minute
 		tracker := newConnTracker(2, window)
@@ -39,7 +39,7 @@ func TestRepairM_1122_IdleHistoryExpires(t *testing.T) {
 	})
 }
 
-func TestRepairM_1122_RefreshPreservesWindowAndLimit(t *testing.T) {
+func TestConnectionLifecycleRefreshPreservesWindowAndLimit(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		const window = time.Minute
 		tracker := newConnTracker(2, window)
@@ -94,7 +94,7 @@ func TestRepairM_1122_RefreshPreservesWindowAndLimit(t *testing.T) {
 	})
 }
 
-func TestRepairM_1122_DisabledWindowKeepsNoHistory(t *testing.T) {
+func TestConnectionLifecycleDisabledWindowKeepsNoHistory(t *testing.T) {
 	tracker := newConnTracker(1, 0)
 	addr := netip.MustParseAddrPort("127.0.0.1:1000")
 	for range 1000 {
@@ -108,7 +108,7 @@ func TestRepairM_1122_DisabledWindowKeepsNoHistory(t *testing.T) {
 	require.Nil(t, tracker.expiryTimer)
 }
 
-func TestRepairM_1122_OrderedPeerUpdates(t *testing.T) {
+func TestConnectionLifecycleOrderedPeerUpdates(t *testing.T) {
 	network := MakeTestNetwork(t, TestNetworkOptions{})
 	observer := network.MakeNode(t, TestNodeOptions{})
 	first := network.MakeNode(t, TestNodeOptions{})

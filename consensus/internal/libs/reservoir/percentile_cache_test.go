@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepairM_1156_DirtyStateSurvivesEqualReplacement(t *testing.T) {
+func TestPercentileCacheDirtyStateSurvivesEqualReplacement(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		// This fixture selects the only slot for both the changed and equal
 		// replacements, then rejects the next input and selects the following one.

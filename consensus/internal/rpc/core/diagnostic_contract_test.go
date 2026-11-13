@@ -32,7 +32,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 )
 
-type repairM1113Document struct {
+type diagnosticContractDocument struct {
 	Info struct {
 		Title       string `yaml:"title"`
 		Description string `yaml:"description"`
@@ -62,16 +62,16 @@ type repairM1113Document struct {
 	} `yaml:"paths"`
 }
 
-func repairM1113LoadDocument(t *testing.T) repairM1113Document {
+func diagnosticContractLoadDocument(t *testing.T) diagnosticContractDocument {
 	t.Helper()
 	data, err := os.ReadFile("../../../rpc/openapi/openapi.yaml")
 	require.NoError(t, err)
-	var doc repairM1113Document
+	var doc diagnosticContractDocument
 	require.NoError(t, yaml.Unmarshal(data, &doc))
 	return doc
 }
 
-func repairM1113Server(t *testing.T, env *Environment) *httptest.Server {
+func diagnosticContractServer(t *testing.T, env *Environment) *httptest.Server {
 	t.Helper()
 	mux := http.NewServeMux()
 	rpc.RegisterRPCFuncs(mux, NewRoutesMap(env, nil))
@@ -80,8 +80,8 @@ func repairM1113Server(t *testing.T, env *Environment) *httptest.Server {
 	return server
 }
 
-func TestRepairM_1113_DiagnosticBoundary(t *testing.T) {
-	doc := repairM1113LoadDocument(t)
+func TestRPCDiagnosticContractDiagnosticBoundary(t *testing.T) {
+	doc := diagnosticContractLoadDocument(t)
 	defaults := config.DefaultRPCConfig()
 	require.Contains(t, doc.Info.Title, "consensus diagnostic")
 	require.Equal(t, "tcp://127.0.0.1:26657", defaults.ListenAddress)
@@ -106,7 +106,7 @@ func TestRepairM_1113_DiagnosticBoundary(t *testing.T) {
 	// The production diagnostic route table serves health but owns neither
 	// public node namespaces nor hosted gateway methods.
 	env := &Environment{Config: *defaults}
-	server := repairM1113Server(t, env)
+	server := diagnosticContractServer(t, env)
 	client, err := rpchttp.New(server.URL)
 	require.NoError(t, err)
 	_, err = client.Health(t.Context())
@@ -115,7 +115,7 @@ func TestRepairM_1113_DiagnosticBoundary(t *testing.T) {
 		require.NotContains(t, NewRoutesMap(env, nil), method)
 		request, err := json.Marshal(map[string]any{"jsonrpc": "2.0", "id": 125, "method": method})
 		require.NoError(t, err)
-		status, body, media := repair91Request(t, t.Context(), server, http.MethodPost, "/", string(request))
+		status, body, media := responseContractRequest(t, t.Context(), server, http.MethodPost, "/", string(request))
 		require.Equal(t, http.StatusOK, status)
 		require.Equal(t, "application/json", media)
 		var response rpctypes.RPCResponse
@@ -126,8 +126,8 @@ func TestRepairM_1113_DiagnosticBoundary(t *testing.T) {
 	}
 }
 
-func TestRepairM_1113_AutobahnRefusals(t *testing.T) {
-	doc := repairM1113LoadDocument(t)
+func TestRPCDiagnosticContractAutobahnRefusals(t *testing.T) {
+	doc := diagnosticContractLoadDocument(t)
 	app := kvstore.NewApplication()
 	t.Cleanup(func() { require.NoError(t, app.Close()) })
 	states := sm.NewStore(dbm.NewMemDB())
@@ -136,7 +136,7 @@ func TestRepairM_1113_AutobahnRefusals(t *testing.T) {
 	// CometBFT components are deliberately absent: Autobahn mode must refuse
 	// before accessing any of them. The router and handlers are production code.
 	env := &Environment{Router: router}
-	server := repairM1113Server(t, env)
+	server := diagnosticContractServer(t, env)
 	client, err := rpchttp.New(server.URL)
 	require.NoError(t, err)
 	ctx := t.Context()
@@ -188,7 +188,7 @@ func TestRepairM_1113_AutobahnRefusals(t *testing.T) {
 					require.NoError(t, err)
 					request = string(body)
 				}
-				status, body, media := repair91Request(t, ctx, server, method, path, request)
+				status, body, media := responseContractRequest(t, ctx, server, method, path, request)
 				require.Equal(t, http.StatusOK, status)
 				require.Equal(t, "application/json", media)
 				var fields map[string]json.RawMessage
@@ -213,7 +213,7 @@ func TestRepairM_1113_AutobahnRefusals(t *testing.T) {
 				// production handler can issue its consensus-mode refusal.
 				request, err := json.Marshal(map[string]any{"jsonrpc": "2.0", "id": "invalid-params", "method": route.name})
 				require.NoError(t, err)
-				status, body, media := repair91Request(t, ctx, server, http.MethodPost, "/", string(request))
+				status, body, media := responseContractRequest(t, ctx, server, http.MethodPost, "/", string(request))
 				require.Equal(t, http.StatusOK, status)
 				require.Equal(t, "application/json", media)
 				var response rpctypes.RPCResponse
@@ -236,8 +236,8 @@ func TestRepairM_1113_AutobahnRefusals(t *testing.T) {
 	}
 }
 
-func TestRepairM_1113_MaintainedContractRecovery(t *testing.T) {
-	doc := repairM1113LoadDocument(t)
+func TestRPCDiagnosticContractMaintainedContractRecovery(t *testing.T) {
+	doc := diagnosticContractLoadDocument(t)
 	require.Equal(t, "../../internal/rpc/core/consensus_contract.md", doc.ExternalDocs.URL)
 	contractPath := filepath.Join("../../../rpc/openapi", doc.ExternalDocs.URL)
 	contract, err := os.ReadFile(contractPath)
@@ -285,7 +285,7 @@ func TestRepairM_1113_MaintainedContractRecovery(t *testing.T) {
 		if _, err := application.committed.Subscribe().Wait(ctx, func(height int64) bool { return height >= 1 }); err != nil {
 			return err
 		}
-		server := repairM1113Server(t, env)
+		server := diagnosticContractServer(t, env)
 		client, err := rpchttp.New(server.URL)
 		if err != nil {
 			return err
@@ -319,7 +319,7 @@ func TestRepairM_1113_MaintainedContractRecovery(t *testing.T) {
 	states = sm.NewStore(db)
 	router, _ = newAutobahnTestRouter(t, utils.TestRng(), "repair-m1113-recovery", app, states, 1, 1000)
 	env = &Environment{App: app, Router: router, StateStore: states}
-	server := repairM1113Server(t, env)
+	server := diagnosticContractServer(t, env)
 	client, err := rpchttp.New(server.URL)
 	require.NoError(t, err)
 	height := int64(1)
@@ -337,7 +337,7 @@ func TestRepairM_1113_MaintainedContractRecovery(t *testing.T) {
 	require.Equal(t, coretypes.ErrCommitNotAvailable.Error(), refusal.Data)
 }
 
-func TestRepairM_1113_ValidEvidenceRefused(t *testing.T) {
+func TestRPCDiagnosticContractValidEvidenceRefused(t *testing.T) {
 	const chainID = "repair-m1113-evidence"
 	key := ed25519.TestSecretKey([]byte(chainID))
 	validator := types.NewValidator(key.Public(), 10)
@@ -369,7 +369,7 @@ func TestRepairM_1113_ValidEvidenceRefused(t *testing.T) {
 	result, err := env.BroadcastEvidence(t.Context(), &coretypes.RequestBroadcastEvidence{Evidence: evidence})
 	require.Nil(t, result)
 	require.ErrorIs(t, err, coretypes.ErrEvidenceNotAccepted)
-	server := repairM1113Server(t, env)
+	server := diagnosticContractServer(t, env)
 	client, err := rpchttp.New(server.URL)
 	require.NoError(t, err)
 	result, err = client.BroadcastEvidence(t.Context(), evidence)

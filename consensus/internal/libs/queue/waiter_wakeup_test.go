@@ -9,10 +9,10 @@ import (
 )
 
 // queue-multiple-waiters-not-woken is covered by
-// TestRepairM_1155_MultipleWaitersNotWoken; queue-cancellation-lost-wakeup is
-// covered by TestRepairM_1155_CancellationLostWakeup. No external wiring is needed.
+// TestQueueWakesMultipleWaiters; queue-cancellation-lost-wakeup is
+// covered by TestQueueCancellationWakesWaiters. No external wiring is needed.
 
-func TestRepairM_1155_MultipleWaitersNotWoken(t *testing.T) {
+func TestQueueWakesMultipleWaiters(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		q := mustQueue(t, Options{SoftQuota: 2, HardLimit: 2})
 		defer q.Close()
@@ -58,26 +58,26 @@ func TestRepairM_1155_MultipleWaitersNotWoken(t *testing.T) {
 // This wraps a real cancelable context to cancel precisely after observing a
 // live context at the queue's predicate check, before it enters Cond.Wait.
 // Cancellation state and notifications still come from context.WithCancel.
-type repairM1155CancelAtCheck struct {
+type queueCancelAtCheck struct {
 	context.Context
 	cancel context.CancelFunc
 	once   sync.Once
 }
 
-func (ctx *repairM1155CancelAtCheck) Err() error {
+func (ctx *queueCancelAtCheck) Err() error {
 	err := ctx.Context.Err()
 	ctx.once.Do(ctx.cancel)
 	return err
 }
 
-func TestRepairM_1155_CancellationLostWakeup(t *testing.T) {
+func TestQueueCancellationWakesWaiters(t *testing.T) {
 	t.Run("AtWaitBoundary", func(t *testing.T) {
 		synctest.Test(t, func(t *testing.T) {
 			q := mustQueue(t, Options{HardLimit: 1})
 			defer q.Close()
 			parent, cancel := context.WithCancel(t.Context())
 			defer cancel()
-			ctx := &repairM1155CancelAtCheck{Context: parent, cancel: cancel}
+			ctx := &queueCancelAtCheck{Context: parent, cancel: cancel}
 			finished := false
 			go func() {
 				item, err := q.Wait(ctx)

@@ -1,7 +1,7 @@
 [repair.22.33.1069]
 finding = "22.30.43/f003"
 base_revision = "4299cb15eced23eb9a839162acd11e9a937edd05"
-implementation = "Add real protobuf regression coverage for duplicate singular Block.last_commit and SignedHeader.commit fields whose individually bounded signature lists merge above the production cap. Reuse the committed producer and encrypted P2P channel fixtures from repair_78_test.go."
+implementation = "Add real protobuf regression coverage for duplicate singular Block.last_commit and SignedHeader.commit fields whose individually bounded signature lists merge above the production cap. Reuse the committed producer and encrypted P2P channel fixtures from merged_fields_channel_test.go."
 proving_tests = ["TestRepairM_1069_DuplicateSingularCommitScan", "TestRepairM_1069_DuplicateLastCommitTransport", "TestRepairM_1069_DuplicateSignedHeaderCommitTransport"]
 scan_proof = "Generated protobuf decoding merges two or three singular Commit occurrences to cap+1 signatures; each fragment passes independently, combined bytes fail Scan and WireguardScan, and duplicate occurrences totaling exactly the cap pass. Empty duplicate occurrences are covered."
 transport_proof = "Generated protobuf producer output is preserved by the real Empty unknown-field codec, sent through the encrypted P2P router into the production blocksync channel; at-cap messages arrive with the exact decoded count, over-cap messages disconnect the peer without delivery."

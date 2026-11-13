@@ -10,7 +10,7 @@ import (
 	"testing"
 )
 
-func repairM1158DescriptorCount(t *testing.T, dir string) int {
+func walReaderDescriptorCount(t *testing.T, dir string) int {
 	t.Helper()
 	fds, err := os.ReadDir("/proc/self/fd")
 	if err != nil {
@@ -32,14 +32,14 @@ func repairM1158DescriptorCount(t *testing.T, dir string) int {
 	return count
 }
 
-func repairM1158AssertDescriptors(t *testing.T, dir string, want int) {
+func walReaderAssertDescriptors(t *testing.T, dir string, want int) {
 	t.Helper()
-	if got := repairM1158DescriptorCount(t, dir); got != want {
+	if got := walReaderDescriptorCount(t, dir); got != want {
 		t.Fatalf("WAL descriptors: got %d, want %d", got, want)
 	}
 }
 
-func TestRepairM_1158_RepeatedSegmentSearchEOF(t *testing.T) {
+func TestWALRepeatedSegmentSearchEOF(t *testing.T) {
 	previousGC := debug.SetGCPercent(-1)
 	t.Cleanup(func() { debug.SetGCPercent(previousGC) })
 	dir := t.TempDir()
@@ -50,13 +50,13 @@ func TestRepairM_1158_RepeatedSegmentSearchEOF(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() { l.Close() }()
-	repairM1158AssertDescriptors(t, dir, 2)
+	walReaderAssertDescriptors(t, dir, 2)
 	for range 64 {
 		entries, err := l.ReadFile(0)
 		if err != nil || len(entries) != 0 {
 			t.Fatalf("empty head: entries=%q, err=%v", entries, err)
 		}
-		repairM1158AssertDescriptors(t, dir, 2)
+		walReaderAssertDescriptors(t, dir, 2)
 	}
 	want := [][]byte{[]byte("first"), {}, []byte("third"), []byte("last")}
 	for _, entry := range want {
@@ -77,23 +77,23 @@ func TestRepairM_1158_RepeatedSegmentSearchEOF(t *testing.T) {
 				if len(entries) != 1 || !bytes.Equal(entries[0], want[offset+3]) {
 					t.Fatalf("offset %d: got %q, want %q", offset, entries, want[offset+3])
 				}
-				repairM1158AssertDescriptors(t, dir, 2)
+				walReaderAssertDescriptors(t, dir, 2)
 			}
 		}
 		l.Close()
-		repairM1158AssertDescriptors(t, dir, 0)
+		walReaderAssertDescriptors(t, dir, 0)
 		if phase == 0 {
 			reopened, err := OpenLog(headPath, cfg)
 			if err != nil {
 				t.Fatal(err)
 			}
 			l = reopened
-			repairM1158AssertDescriptors(t, dir, 2)
+			walReaderAssertDescriptors(t, dir, 2)
 		}
 	}
 }
 
-func TestRepairM_1158_RepeatedSegmentSearchCorruption(t *testing.T) {
+func TestWALRepeatedSegmentSearchCorruption(t *testing.T) {
 	previousGC := debug.SetGCPercent(-1)
 	t.Cleanup(func() { debug.SetGCPercent(previousGC) })
 	for _, segment := range []string{"head", "tail"} {
@@ -141,7 +141,7 @@ func TestRepairM_1158_RepeatedSegmentSearchCorruption(t *testing.T) {
 				if err := os.WriteFile(segmentPath, encoded, filePerms); err != nil {
 					t.Fatal(err)
 				}
-				repairM1158AssertDescriptors(t, dir, 2)
+				walReaderAssertDescriptors(t, dir, 2)
 				for search := range 64 {
 					entries, err := l.ReadFile(offset)
 					if !errors.Is(err, errCorrupted) {
@@ -150,17 +150,17 @@ func TestRepairM_1158_RepeatedSegmentSearchCorruption(t *testing.T) {
 					if entries != nil {
 						t.Fatalf("search %d: returned partial entries %q", search, entries)
 					}
-					repairM1158AssertDescriptors(t, dir, 2)
+					walReaderAssertDescriptors(t, dir, 2)
 					if segment == "tail" {
 						headEntries, err := l.ReadFile(0)
 						if err != nil || len(headEntries) != 1 || !bytes.Equal(headEntries[0], []byte("healthy head")) {
 							t.Fatalf("healthy head: entries=%q, err=%v", headEntries, err)
 						}
-						repairM1158AssertDescriptors(t, dir, 2)
+						walReaderAssertDescriptors(t, dir, 2)
 					}
 				}
 				l.Close()
-				repairM1158AssertDescriptors(t, dir, 0)
+				walReaderAssertDescriptors(t, dir, 0)
 			})
 		}
 	}

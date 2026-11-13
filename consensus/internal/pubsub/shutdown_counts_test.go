@@ -13,7 +13,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 )
 
-func repairM1161Subscriptions(t *testing.T, ctx context.Context, server *pubsub.Server) []*pubsub.Subscription {
+func shutdownCountsSubscriptions(t *testing.T, ctx context.Context, server *pubsub.Server) []*pubsub.Subscription {
 	t.Helper()
 	var subs []*pubsub.Subscription
 	for _, args := range []pubsub.SubscribeArgs{
@@ -28,7 +28,7 @@ func repairM1161Subscriptions(t *testing.T, ctx context.Context, server *pubsub.
 	return subs
 }
 
-func repairM1161Deliver(t *testing.T, ctx context.Context, subs []*pubsub.Subscription) {
+func shutdownCountsDeliver(t *testing.T, ctx context.Context, subs []*pubsub.Subscription) {
 	t.Helper()
 	for _, sub := range subs {
 		msg, err := sub.Next(ctx)
@@ -38,14 +38,14 @@ func repairM1161Deliver(t *testing.T, ctx context.Context, subs []*pubsub.Subscr
 	}
 }
 
-func repairM1161Publish(server *pubsub.Server) error {
+func shutdownCountsPublish(server *pubsub.Server) error {
 	return server.PublishWithEvents(types.EventDataString("lifecycle"), []abci.Event{{
 		Type:       "tm",
 		Attributes: []abci.EventAttribute{{Key: []byte("event"), Value: []byte("NewBlock")}},
 	}})
 }
 
-func TestRepairM_1161_CountsAfterShutdown(t *testing.T) {
+func TestPubsubCountsAfterShutdown(t *testing.T) {
 	for _, populated := range []bool{false, true} {
 		name := "empty"
 		if populated {
@@ -62,12 +62,12 @@ func TestRepairM_1161_CountsAfterShutdown(t *testing.T) {
 
 			var subs []*pubsub.Subscription
 			if populated {
-				subs = repairM1161Subscriptions(t, ctx, server)
+				subs = shutdownCountsSubscriptions(t, ctx, server)
 				require.Equal(t, 2, server.NumClients())
 				require.Equal(t, 2, server.NumClientSubscriptions("alice"))
 				require.Equal(t, 1, server.NumClientSubscriptions("bob"))
-				require.NoError(t, repairM1161Publish(server))
-				repairM1161Deliver(t, ctx, subs)
+				require.NoError(t, shutdownCountsPublish(server))
+				shutdownCountsDeliver(t, ctx, subs)
 			}
 			require.Zero(t, server.NumClientSubscriptions("unknown"))
 
@@ -85,12 +85,12 @@ func TestRepairM_1161_CountsAfterShutdown(t *testing.T) {
 	}
 }
 
-func TestRepairM_1161_CountsDuringShutdown(t *testing.T) {
+func TestPubsubCountsDuringShutdown(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
 	server := pubsub.NewServer(pubsub.BufferCapacity(1))
 	require.NoError(t, server.Start(ctx))
-	subs := repairM1161Subscriptions(t, ctx, server)
+	subs := shutdownCountsSubscriptions(t, ctx, server)
 
 	observing := make(chan struct{})
 	release := make(chan struct{})
@@ -104,7 +104,7 @@ func TestRepairM_1161_CountsDuringShutdown(t *testing.T) {
 		}
 		return nil
 	}))
-	require.NoError(t, repairM1161Publish(server))
+	require.NoError(t, shutdownCountsPublish(server))
 	select {
 	case <-observing:
 	case <-ctx.Done():
@@ -163,7 +163,7 @@ func TestRepairM_1161_CountsDuringShutdown(t *testing.T) {
 	for range counters {
 		<-readersDone
 	}
-	repairM1161Deliver(t, t.Context(), subs)
+	shutdownCountsDeliver(t, t.Context(), subs)
 	for _, sub := range subs {
 		_, err := sub.Next(t.Context())
 		require.ErrorIs(t, err, pubsub.ErrTerminated)
