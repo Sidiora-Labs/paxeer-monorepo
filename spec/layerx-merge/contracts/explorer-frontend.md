@@ -1,6 +1,6 @@
 # Explorer frontend contract
 
-The explorer frontend uses the Next.js routes under [pages](../../../apps/explorer/pages). API handlers have their own method validation. Pages for other chain families are subject to frontend feature configuration.
+The explorer frontend uses the Next.js routes under [pages](../../../apps/explorer/pages). The paths below are relative to the `/explorer` base path set in [next.config.js](../../../apps/explorer/next.config.js): `/accounts` is served at `/explorer/accounts`. The [rewrites](../../../apps/explorer/nextjs/rewrites.js) also expose internal `/api/` handlers through `/explorer/node-api/`; `/explorer/node-api/proxy/:slug*` targets `/api/proxy`. API handlers have their own method validation. Pages for other chain families are subject to frontend feature configuration.
 
 ## api-routes
 

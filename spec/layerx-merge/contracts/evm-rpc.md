@@ -455,7 +455,7 @@ The [node RPC implementation](../../../rpc) serves EVM requests over HTTP and We
 | errors | JSON-RPC errors per [error codes](#error-codes); -32601 for any name not served. |
 | events | None emitted on chain; WebSocket subscriptions deliver notifications only. |
 | gas | No gas is charged by the rpc layer; eth_call and eth_estimateGas simulate with the block gas limit. |
-| invariants | Each code is produced by exactly one documented path. |
+| invariants | Error codes identify error classes; unsupported methods and unavailable sequencer receipt service both use -32000. |
 | pause | evm.http_enabled and evm.ws_enabled switch the transports off; evm.deny_list refuses single methods. |
 
 | Field | Rule |

@@ -4,9 +4,11 @@ The [interop deployment files](../../../services/interop/deploy) configure the s
 
 ## cli-deploy-gateway-render
 
+`--check` and `--self-test` are Boolean switches and take no values. `--check` validates configuration from the environment; `--self-test` runs the renderer’s self-tests. Rendering requires `--network-id`, `--receipt-keys-file` and `--out`; the other value-taking options below are optional.
+
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.11.cli-deploy-gateway-render</code> | <code>cli_command</code> | [services/interop/deploy/gateway/render.py](../../../services/interop/deploy/gateway/render.py) | <code>python3 services/interop/deploy/gateway/render.py --check &lt;value&gt; --self-test &lt;value&gt; --network-id &lt;value&gt; --sequencer-public-key-file &lt;value&gt; --beta-roots-file &lt;value&gt; --out &lt;value&gt; --migration-profile-out &lt;value&gt; --repo-root &lt;value&gt;</code> |
+| <code>interface.11.cli-deploy-gateway-render</code> | <code>cli_command</code> | [services/interop/deploy/gateway/render.py](../../../services/interop/deploy/gateway/render.py) | <code>python3 services/interop/deploy/gateway/render.py --network-id &lt;value&gt; --receipt-keys-file &lt;value&gt; --beta-roots-file &lt;value&gt; --out &lt;value&gt; --migration-profile-out &lt;value&gt; --repo-root &lt;value&gt;</code> |
 
 ## cli-deploy-mirror-deploy-ethereum-mirror
 
@@ -24,7 +26,7 @@ The [interop deployment files](../../../services/interop/deploy) configure the s
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.11.cli-deploy-mirror-render-config</code> | <code>cli_command</code> | [services/interop/deploy/mirror/render-config.py](../../../services/interop/deploy/mirror/render-config.py) | <code>python3 services/interop/deploy/mirror/render-config.py --output &lt;value&gt; --state-directory &lt;value&gt; --first-batch-number &lt;value&gt; --status-listen &lt;value&gt; --paxeer-endpoint &lt;value&gt; --paxeer-chain-id &lt;value&gt; --paxeer-genesis-hash &lt;value&gt; --paxeer-confirmations &lt;value&gt; --sequencer-public-key &lt;value&gt; --ethereum-endpoint &lt;value&gt; --ethereum-chain-id &lt;value&gt; --ethereum-genesis-hash &lt;value&gt; --ethereum-archive-contract &lt;value&gt; --ethereum-archive-code-hash &lt;value&gt; --ethereum-signer-key-handle &lt;value&gt; --ethereum-signer-public-key &lt;value&gt; --ethereum-signer-socket &lt;value&gt; --solana-endpoint &lt;value&gt; --solana-genesis-hash &lt;value&gt; --solana-archive-program &lt;value&gt; --solana-upgradeable-loader &lt;value&gt; --solana-program-data-account &lt;value&gt; --solana-program-code-hash &lt;value&gt; --solana-signer-key-handle &lt;value&gt; --solana-signer-public-key &lt;value&gt; --solana-signer-socket &lt;value&gt;</code> |
+| <code>interface.11.cli-deploy-mirror-render-config</code> | <code>cli_command</code> | [services/interop/deploy/mirror/render-config.py](../../../services/interop/deploy/mirror/render-config.py) | <code>python3 services/interop/deploy/mirror/render-config.py --output &lt;value&gt; --state-directory &lt;value&gt; --first-height &lt;value&gt; --status-listen &lt;value&gt; --paxeer-endpoint &lt;value&gt; --paxeer-chain-id &lt;value&gt; --paxeer-genesis-hash &lt;value&gt; --receipt-keys-file &lt;value&gt; --ethereum-endpoint &lt;value&gt; --ethereum-chain-id &lt;value&gt; --ethereum-genesis-hash &lt;value&gt; --ethereum-archive-contract &lt;value&gt; --ethereum-archive-code-hash &lt;value&gt; --ethereum-signer-key-handle &lt;value&gt; --ethereum-signer-public-key &lt;value&gt; --ethereum-signer-socket &lt;value&gt; --solana-endpoint &lt;value&gt; --solana-genesis-hash &lt;value&gt; --solana-archive-program &lt;value&gt; --solana-upgradeable-loader &lt;value&gt; --solana-program-data-account &lt;value&gt; --solana-program-code-hash &lt;value&gt; --solana-signer-key-handle &lt;value&gt; --solana-signer-public-key &lt;value&gt; --solana-signer-socket &lt;value&gt;</code> |
 
 ## cli-deploy-mirror-tests-render-config-check
 
