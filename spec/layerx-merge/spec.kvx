@@ -170037,7 +170037,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.108]
 title = "Move the task records and name the files after what they hold in sdk/integrations"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -205078,7 +205078,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.95]
 title = "Move the task records and name the files after what they hold in programs/porting"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -239326,7 +239326,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.126]
 title = "Move the task records and name the files after what they hold in sdk/x/params and 4 more directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -239454,7 +239454,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.121]
 title = "Move the task records and name the files after what they hold in sdk/version"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -239486,7 +239486,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.120]
 title = "Move the task records and name the files after what they hold in sdk/types"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -239581,7 +239581,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.117]
 title = "Move the task records and name the files after what they hold in sdk/tasks"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -239613,7 +239613,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.116]
 title = "Move the task records and name the files after what they hold in sdk/storev2"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -239836,7 +239836,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.106]
 title = "Move the task records and name the files after what they hold in sdk/crypto"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -239900,7 +239900,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.103]
 title = "Move the task records and name the files after what they hold in sdk/codec"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -240860,7 +240860,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.31]
 title = "Move the task records and name the files after what they hold in consensus/internal/autobahn and 5 more directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -241083,7 +241083,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.1]
 title = "Move the task records and name the files after what they hold in api"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -300344,7 +300344,7 @@ do_9 = "Delete the test signedSharedVectors at sdk/platform/jvm/src/test/java/co
 
 [task.22.43.113]
 title = "Move the task records and name the files after what they hold in sdk/platform/jvm and 1 more directory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373922,7 +373922,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.104]
 title = "Move the task records and name the files after what they hold in sdk/contrib"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373954,7 +373954,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.99]
 title = "Move the task records and name the files after what they hold in scripts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373986,7 +373986,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.97]
 title = "Move the task records and name the files after what they hold in programs/tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
