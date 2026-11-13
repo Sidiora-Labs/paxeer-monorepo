@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepairM_1168_BoundaryIndexRange(t *testing.T) {
+func TestBoundaryIndexRange(t *testing.T) {
 	for _, kind := range []BoundaryType{LowerBound, UpperBound} {
 		t.Run(fmt.Sprint(kind), func(t *testing.T) {
 			for _, index := range []uint32{0, 1, math.MaxUint32 - 1, math.MaxUint32} {
@@ -56,7 +56,7 @@ func TestRepairM_1168_BoundaryIndexRange(t *testing.T) {
 	}
 }
 
-func repairM1168SegmentBytes(t *testing.T, root, name string) map[string][]byte {
+func batchValidationSegmentBytes(t *testing.T, root, name string) map[string][]byte {
 	t.Helper()
 	directory := filepath.Join(root, name, segment.SegmentDirectory)
 	entries, err := os.ReadDir(directory)
@@ -70,7 +70,7 @@ func repairM1168SegmentBytes(t *testing.T, root, name string) map[string][]byte 
 	return contents
 }
 
-func repairM1168Read(t *testing.T, table litt.ManagedTable, expected map[string]string, missing []string) {
+func batchValidationRead(t *testing.T, table litt.ManagedTable, expected map[string]string, missing []string) {
 	t.Helper()
 	for key, want := range expected {
 		value, exists, err := table.Get([]byte(key))
@@ -96,7 +96,7 @@ func repairM1168Read(t *testing.T, table litt.ManagedTable, expected map[string]
 	require.Equal(t, uint64(len(expected)), table.KeyCount())
 }
 
-func TestRepairM_1168_NilBatchRequest(t *testing.T) {
+func TestNilBatchRequest(t *testing.T) {
 	for _, builder := range tableBuilders {
 		t.Run(builder.name, func(t *testing.T) {
 			root := t.TempDir()
@@ -107,7 +107,7 @@ func TestRepairM_1168_NilBatchRequest(t *testing.T) {
 			require.NoError(t, table.Put([]byte("existing"), []byte("original"),
 				&types.SecondaryKey{Key: []byte("existing-alias"), Offset: 1, Length: 3}))
 			require.NoError(t, table.Flush())
-			before := repairM1168SegmentBytes(t, root, name)
+			before := batchValidationSegmentBytes(t, root, name)
 			size := table.Size()
 			expected := map[string]string{"existing": "original", "existing-alias": "rig"}
 			missing := []string{"candidate", "parent", "alias", "end", "trailing"}
@@ -125,37 +125,37 @@ func TestRepairM_1168_NilBatchRequest(t *testing.T) {
 					err = table.PutBatch(batch)
 				})
 				require.ErrorContains(t, err, "nil batch request")
-				repairM1168Read(t, table, expected, missing)
+				batchValidationRead(t, table, expected, missing)
 				table.(*DiskTable).unflushedDataCache.Range(func(key, value any) bool {
 					t.Errorf("rejected batch populated the cache: %v", key)
 					return true
 				})
 				require.Equal(t, size, table.Size())
 				require.NoError(t, table.Flush(), "drain the real writer to expose any wrongly enqueued request")
-				repairM1168Read(t, table, expected, missing)
-				require.Equal(t, before, repairM1168SegmentBytes(t, root, name))
+				batchValidationRead(t, table, expected, missing)
+				require.Equal(t, before, batchValidationSegmentBytes(t, root, name))
 			}
 			require.NoError(t, table.Close())
 			table, err = builder.builder(time.Now, name, []string{root})
 			require.NoError(t, err)
-			repairM1168Read(t, table, expected, missing)
+			batchValidationRead(t, table, expected, missing)
 			require.NoError(t, table.PutBatch([]*types.PutRequest{plain, group, trailing}))
 			expected["candidate"] = "candidate-value"
 			expected["parent"] = "abcdef"
 			expected["alias"] = "bcd"
 			expected["end"] = ""
 			expected["trailing"] = "last"
-			repairM1168Read(t, table, expected, nil)
+			batchValidationRead(t, table, expected, nil)
 			require.NoError(t, table.Flush())
 			require.NoError(t, table.Close())
 			table, err = builder.builder(time.Now, name, []string{root})
 			require.NoError(t, err)
-			repairM1168Read(t, table, expected, nil)
+			batchValidationRead(t, table, expected, nil)
 		})
 	}
 }
 
-func TestRepairM_1168_V3TruncationFixture(t *testing.T) {
+func TestV3TruncationFixture(t *testing.T) {
 	for _, builder := range tableBuilders {
 		t.Run(builder.name, func(t *testing.T) {
 			truncatedValueFileTest(t, builder)

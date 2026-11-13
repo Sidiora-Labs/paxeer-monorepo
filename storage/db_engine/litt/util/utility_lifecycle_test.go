@@ -29,7 +29,7 @@ import (
 	"golang.org/x/crypto/ssh/knownhosts"
 )
 
-func TestRepairM_1164_CacheMetricSeriesCollision(t *testing.T) {
+func TestCacheMetricSeriesCollision(t *testing.T) {
 	previous := otel.GetMeterProvider()
 	reader := sdkmetric.NewManualReader()
 	provider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
@@ -84,7 +84,7 @@ func TestRepairM_1164_CacheMetricSeriesCollision(t *testing.T) {
 	runtime.KeepAlive([]any{tableA, tableB, tableC, write})
 }
 
-func TestRepairM_1164_FlushCoordinatorShutdown(t *testing.T) {
+func TestFlushCoordinatorShutdown(t *testing.T) {
 	for iteration := 0; iteration < 20; iteration++ {
 		monitor := NewErrorMonitor(t.Context(), slog.Default(), nil)
 		path := filepath.Join(t.TempDir(), "drained")
@@ -118,26 +118,26 @@ func TestRepairM_1164_FlushCoordinatorShutdown(t *testing.T) {
 		ok, err := monitor.IsOk()
 		require.False(t, ok)
 		require.Error(t, err)
-		repair1164Wait(t, monitor.DrainRequired())
+		utilityLifecycleWait(t, monitor.DrainRequired())
 		select {
 		case <-monitor.ImmediateShutdownRequired():
 			t.Fatal("drain canceled accepted work")
 		default:
 		}
 		close(accepted)
-		repair1164Wait(t, drained)
+		utilityLifecycleWait(t, drained)
 		require.NoError(t, <-workerErrors)
 		complete := make(chan struct{})
 		go func() { monitor.CompleteShutdown(); close(complete) }()
-		repair1164Wait(t, monitor.ImmediateShutdownRequired())
+		utilityLifecycleWait(t, monitor.ImmediateShutdownRequired())
 		select {
 		case <-complete:
 			t.Fatal("shutdown returned before worker joined")
 		default:
 		}
 		close(release)
-		repair1164Wait(t, complete)
-		repair1164Wait(t, joined)
+		utilityLifecycleWait(t, complete)
+		utilityLifecycleWait(t, joined)
 		require.Error(t, monitor.Go(func() { t.Error("worker admitted after stop") }))
 		monitor.CompleteShutdown()
 		reopened, err := os.Open(path)
@@ -149,7 +149,7 @@ func TestRepairM_1164_FlushCoordinatorShutdown(t *testing.T) {
 	}
 }
 
-func TestRepairM_1164_DeleteRelativeLink(t *testing.T) {
+func TestDeleteRelativeLink(t *testing.T) {
 	root := t.TempDir()
 	cwd := filepath.Join(root, "cwd")
 	links := filepath.Join(root, "links")
@@ -212,7 +212,7 @@ func TestRepairM_1164_DeleteRelativeLink(t *testing.T) {
 	require.FileExists(t, live)
 }
 
-func TestRepairM_1164_PprofNetworkExposure(t *testing.T) {
+func TestPprofNetworkExposure(t *testing.T) {
 	_, err := NewPprofProfilerWithConfig(PprofConfig{Address: "0.0.0.0:0"}, slog.Default())
 	require.Error(t, err)
 	_, err = NewPprofProfilerWithConfig(PprofConfig{Address: "localhost:0"}, slog.Default())
@@ -274,12 +274,12 @@ func TestRepairM_1164_PprofNetworkExposure(t *testing.T) {
 
 // The peer speaks SSH using genuine host/client keys. Command responses are
 // committed protocol transcripts; no process, shell, credential or endpoint is needed.
-type repair1164Response struct {
+type utilityLifecycleResponse struct {
 	stdout, stderr string
 	status         uint32
 	stall, drop    bool
 }
-type repair1164SSHPeer struct {
+type utilityLifecycleSSHPeer struct {
 	listener                             net.Listener
 	key, trust                           string
 	port                                 uint64
@@ -287,32 +287,32 @@ type repair1164SSHPeer struct {
 	authorized                           ssh.PublicKey
 	mu                                   sync.Mutex
 	connections                          map[net.Conn]struct{}
-	responses                            map[string]repair1164Response
+	responses                            map[string]utilityLifecycleResponse
 	stallHandshake, stallOpen, stallExec bool
 	started                              chan string
 	stop                                 chan struct{}
 	workers                              sync.WaitGroup
 }
 
-func repair1164Signer(t *testing.T) (ssh.Signer, []byte) {
+func utilityLifecycleSigner(t *testing.T) (ssh.Signer, []byte) {
 	t.Helper()
 	_, key, err := ed25519.GenerateKey(rand.Reader)
 	require.NoError(t, err)
-	block, err := ssh.MarshalPrivateKey(key, "repair-m1164")
+	block, err := ssh.MarshalPrivateKey(key, "ssh-session")
 	require.NoError(t, err)
 	signer, err := ssh.NewSignerFromKey(key)
 	require.NoError(t, err)
 	return signer, pem.EncodeToMemory(block)
 }
 
-func repair1164Peer(t *testing.T, responses map[string]repair1164Response, stall string) *repair1164SSHPeer {
+func utilityLifecyclePeer(t *testing.T, responses map[string]utilityLifecycleResponse, stall string) *utilityLifecycleSSHPeer {
 	t.Helper()
-	host, _ := repair1164Signer(t)
-	client, key := repair1164Signer(t)
+	host, _ := utilityLifecycleSigner(t)
+	client, key := utilityLifecycleSigner(t)
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 	root := t.TempDir()
-	p := &repair1164SSHPeer{listener: listener, key: filepath.Join(root, "key 'with spaces\n$(literal)"), trust: filepath.Join(root, "known 'hosts\n$(literal)"), port: uint64(listener.Addr().(*net.TCPAddr).Port), host: host, authorized: client.PublicKey(), connections: map[net.Conn]struct{}{}, responses: responses, started: make(chan string, 10), stop: make(chan struct{}), stallHandshake: stall == "handshake", stallOpen: stall == "open", stallExec: stall == "exec"}
+	p := &utilityLifecycleSSHPeer{listener: listener, key: filepath.Join(root, "key 'with spaces\n$(literal)"), trust: filepath.Join(root, "known 'hosts\n$(literal)"), port: uint64(listener.Addr().(*net.TCPAddr).Port), host: host, authorized: client.PublicKey(), connections: map[net.Conn]struct{}{}, responses: responses, started: make(chan string, 10), stop: make(chan struct{}), stallHandshake: stall == "handshake", stallOpen: stall == "open", stallExec: stall == "exec"}
 	require.NoError(t, os.WriteFile(p.key, key, 0600))
 	require.NoError(t, os.WriteFile(p.trust, []byte(knownhosts.Line([]string{listener.Addr().String()}, host.PublicKey())+"\n"), 0600))
 	p.workers.Add(1)
@@ -351,7 +351,7 @@ func repair1164Peer(t *testing.T, responses map[string]repair1164Response, stall
 	return p
 }
 
-func (p *repair1164SSHPeer) serve(connection net.Conn, signer ssh.Signer) {
+func (p *utilityLifecycleSSHPeer) serve(connection net.Conn, signer ssh.Signer) {
 	defer p.workers.Done()
 	defer func() { _ = connection.Close(); p.mu.Lock(); delete(p.connections, connection); p.mu.Unlock() }()
 	if p.stallHandshake {
@@ -416,7 +416,7 @@ func (p *repair1164SSHPeer) serve(connection net.Conn, signer ssh.Signer) {
 				_ = request.Reply(true, nil)
 				response, ok := p.responses[payload.Command]
 				if !ok {
-					response = repair1164Response{stderr: "unrecognized transcript: " + payload.Command, status: 127}
+					response = utilityLifecycleResponse{stderr: "unrecognized transcript: " + payload.Command, status: 127}
 				}
 				if response.drop {
 					_ = server.Close()
@@ -435,7 +435,7 @@ func (p *repair1164SSHPeer) serve(connection net.Conn, signer ssh.Signer) {
 	}
 }
 
-func (p *repair1164SSHPeer) connect(t *testing.T, ctx context.Context, options ...SSHTimeouts) *SSHSession {
+func (p *utilityLifecycleSSHPeer) connect(t *testing.T, ctx context.Context, options ...SSHTimeouts) *SSHSession {
 	t.Helper()
 	session, err := NewSSHSessionContext(ctx, slog.Default(), "backup", "127.0.0.1", p.port, p.key, p.trust, false, options...)
 	require.NoError(t, err)
@@ -443,7 +443,7 @@ func (p *repair1164SSHPeer) connect(t *testing.T, ctx context.Context, options .
 	return session
 }
 
-func repair1164Wait(t *testing.T, done <-chan struct{}) {
+func utilityLifecycleWait(t *testing.T, done <-chan struct{}) {
 	t.Helper()
 	select {
 	case <-done:
@@ -452,8 +452,8 @@ func repair1164Wait(t *testing.T, done <-chan struct{}) {
 	}
 }
 
-func TestRepairM_1164_SSHHostVerification(t *testing.T) {
-	peer := repair1164Peer(t, map[string]repair1164Response{"identity": {stdout: "verified"}}, "")
+func TestSSHHostVerification(t *testing.T) {
+	peer := utilityLifecyclePeer(t, map[string]utilityLifecycleResponse{"identity": {stdout: "verified"}}, "")
 	_, err := NewSSHSession(slog.Default(), "backup", "127.0.0.1", peer.port, peer.key, "", false)
 	require.ErrorContains(t, err, "known-hosts trust source")
 	empty := filepath.Join(t.TempDir(), "empty")
@@ -481,7 +481,7 @@ func TestRepairM_1164_SSHHostVerification(t *testing.T) {
 	dataSession, err := NewSSHSessionContext(t.Context(), slog.Default(), "backup", "127.0.0.1", peer.port, session.keyPath, session.knownHostsPath, false)
 	require.NoError(t, err)
 	require.NoError(t, dataSession.Close())
-	changed, _ := repair1164Signer(t)
+	changed, _ := utilityLifecycleSigner(t)
 	peer.mu.Lock()
 	peer.host = changed
 	peer.mu.Unlock()
@@ -492,9 +492,9 @@ func TestRepairM_1164_SSHHostVerification(t *testing.T) {
 	require.NoDirExists(t, privateDir)
 }
 
-func TestRepairM_1164_SSHCancellation(t *testing.T) {
+func TestSSHCancellation(t *testing.T) {
 	t.Run("handshake", func(t *testing.T) {
-		peer := repair1164Peer(t, nil, "handshake")
+		peer := utilityLifecyclePeer(t, nil, "handshake")
 		ctx, cancel := context.WithTimeout(t.Context(), 80*time.Millisecond)
 		defer cancel()
 		started := time.Now()
@@ -504,7 +504,7 @@ func TestRepairM_1164_SSHCancellation(t *testing.T) {
 	})
 	for _, stall := range []string{"open", "exec", "running"} {
 		t.Run(stall, func(t *testing.T) {
-			peer := repair1164Peer(t, map[string]repair1164Response{"stall": {stall: true}}, stall)
+			peer := utilityLifecyclePeer(t, map[string]utilityLifecycleResponse{"stall": {stall: true}}, stall)
 			session := peer.connect(t, t.Context(), SSHTimeouts{Command: 80 * time.Millisecond})
 			started := time.Now()
 			_, _, err := session.ExecContext(t.Context(), "stall")
@@ -514,7 +514,7 @@ func TestRepairM_1164_SSHCancellation(t *testing.T) {
 		})
 	}
 	t.Run("parent-and-close-join", func(t *testing.T) {
-		peer := repair1164Peer(t, map[string]repair1164Response{"stall": {stall: true}}, "")
+		peer := utilityLifecyclePeer(t, map[string]utilityLifecycleResponse{"stall": {stall: true}}, "")
 		ctx, cancel := context.WithCancel(t.Context())
 		defer cancel()
 		session := peer.connect(t, ctx)
@@ -536,7 +536,7 @@ func TestRepairM_1164_SSHCancellation(t *testing.T) {
 		require.Error(t, session.Rsync("unused", "unused", 0))
 	})
 	t.Run("transfer-context", func(t *testing.T) {
-		peer := repair1164Peer(t, nil, "")
+		peer := utilityLifecyclePeer(t, nil, "")
 		session := peer.connect(t, t.Context())
 		ctx, cancel := context.WithCancel(t.Context())
 		cancel()
@@ -546,11 +546,11 @@ func TestRepairM_1164_SSHCancellation(t *testing.T) {
 	})
 }
 
-func TestRepairM_1164_SSHPathEncoding(t *testing.T) {
+func TestSSHPathEncoding(t *testing.T) {
 	const root = "/srv/space 'quote\" $(touch /tmp/owned)\nroot"
 	const quoted = "'/srv/space '\"'\"'quote\" $(touch /tmp/owned)\nroot'"
 	file := root + "/line\nbreak.values"
-	peer := repair1164Peer(t, map[string]repair1164Response{
+	peer := utilityLifecyclePeer(t, map[string]utilityLifecycleResponse{
 		"mkdir -p -- " + quoted:                     {},
 		"find " + quoted + " -type f -print0":       {stdout: file + "\x00" + root + "/ignored.txt\x00"},
 		"find './-option' -type f -print0":          {},
@@ -603,7 +603,7 @@ func TestRepairM_1164_SSHPathEncoding(t *testing.T) {
 			break
 		}
 	}
-	words := repair1164RsyncWords(t, shell)
+	words := utilityLifecycleRsyncWords(t, shell)
 	require.Equal(t, "ssh", words[0])
 	require.Contains(t, words, "StrictHostKeyChecking=yes")
 	require.Contains(t, words, "GlobalKnownHostsFile=/dev/null")
@@ -612,7 +612,7 @@ func TestRepairM_1164_SSHPathEncoding(t *testing.T) {
 	require.NotContains(t, shell, "StrictHostKeyChecking=no")
 	// The parser receives each local SSH argument intact, even with nested quotes.
 	for _, value := range []string{"", "spaces 'single' \"double\"", "$(literal)\nnew line"} {
-		require.Equal(t, []string{value}, repair1164RsyncWords(t, quoteRsyncArgument(value)))
+		require.Equal(t, []string{value}, utilityLifecycleRsyncWords(t, quoteRsyncArgument(value)))
 	}
 	_, err = session.rsyncCommand(t.Context(), source, "bad\x00path", 0)
 	require.Error(t, err)
@@ -620,7 +620,7 @@ func TestRepairM_1164_SSHPathEncoding(t *testing.T) {
 
 // This is the receiver-side -e grammar, independent of the command producer:
 // quoted words retain whitespace; a doubled delimiter represents one quote.
-func repair1164RsyncWords(t *testing.T, input string) []string {
+func utilityLifecycleRsyncWords(t *testing.T, input string) []string {
 	t.Helper()
 	var words []string
 	for len(input) > 0 {
@@ -658,23 +658,23 @@ func repair1164RsyncWords(t *testing.T, input string) []string {
 	return words
 }
 
-func TestRepairM_1164_SSHDurabilityFailures(t *testing.T) {
+func TestSSHDurabilityFailures(t *testing.T) {
 	const destination = "/backup/space 'quote\nfile"
 	const command = "sync -f -- '/backup/space '\"'\"'quote\nfile' && printf 'litt-durable-v1\\n'"
 	cases := []struct {
 		name      string
-		response  repair1164Response
+		response  utilityLifecycleResponse
 		wantError string
 	}{
-		{"acknowledged", repair1164Response{stdout: "litt-durable-v1\n"}, ""},
-		{"writeback-error", repair1164Response{stderr: "Input/output error", status: 1}, "remote durable commit failed"},
-		{"missing-ack", repair1164Response{}, "missing remote durable acknowledgment"},
-		{"partial-ack", repair1164Response{stdout: "litt-durable-v1"}, "missing remote durable acknowledgment"},
-		{"lost-connection", repair1164Response{drop: true}, "remote durable commit failed"},
+		{"acknowledged", utilityLifecycleResponse{stdout: "litt-durable-v1\n"}, ""},
+		{"writeback-error", utilityLifecycleResponse{stderr: "Input/output error", status: 1}, "remote durable commit failed"},
+		{"missing-ack", utilityLifecycleResponse{}, "missing remote durable acknowledgment"},
+		{"partial-ack", utilityLifecycleResponse{stdout: "litt-durable-v1"}, "missing remote durable acknowledgment"},
+		{"lost-connection", utilityLifecycleResponse{drop: true}, "remote durable commit failed"},
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
-			peer := repair1164Peer(t, map[string]repair1164Response{command: test.response}, "")
+			peer := utilityLifecyclePeer(t, map[string]utilityLifecycleResponse{command: test.response}, "")
 			session := peer.connect(t, t.Context())
 			source := filepath.Join(t.TempDir(), "retained-snapshot")
 			require.NoError(t, os.WriteFile(source, []byte("retain until every acknowledgment succeeds"), 0600))
@@ -694,8 +694,8 @@ func TestRepairM_1164_SSHDurabilityFailures(t *testing.T) {
 	}
 }
 
-func TestRepairM_1164_SSHTestsRunnable(t *testing.T) {
-	peer := repair1164Peer(t, map[string]repair1164Response{"fixture-command": {stdout: "stdout\n", stderr: "stderr\n"}, "failed-command": {stderr: "rejected", status: 42}}, "")
+func TestSSHTestsRunnable(t *testing.T) {
+	peer := utilityLifecyclePeer(t, map[string]utilityLifecycleResponse{"fixture-command": {stdout: "stdout\n", stderr: "stderr\n"}, "failed-command": {stderr: "rejected", status: 42}}, "")
 	session := peer.connect(t, t.Context())
 	out, diagnostic, err := session.Exec("fixture-command")
 	require.NoError(t, err)

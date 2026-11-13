@@ -23,7 +23,7 @@ import (
 	littmetrics "github.com/Sidiora-Labs/Paxeer-X-Network/storage/db_engine/litt/metrics"
 )
 
-type repair118Target struct {
+type dashboardMetricsTarget struct {
 	Expr         string
 	LegendFormat string
 	RefID        string `json:"refId"`
@@ -32,22 +32,22 @@ type repair118Target struct {
 	Hide         bool
 }
 
-type repair118Panel struct {
+type dashboardMetricsPanel struct {
 	Title       string
-	Targets     []repair118Target
+	Targets     []dashboardMetricsTarget
 	FieldConfig struct {
 		Defaults struct{ Unit string }
 	}
 }
 
-type repair118Scrape struct {
+type dashboardMetricsScrape struct {
 	families map[string]*dto.MetricFamily
 	samples  model.Vector
 }
 
-func TestRepair_118_DashboardLatencyShape(t *testing.T) {
-	panels := repair118Panels(t)
-	before, after := repair118Export(t)
+func TestDashboardLatencyShape(t *testing.T) {
+	panels := dashboardMetricsPanels(t)
+	before, after := dashboardMetricsExport(t)
 	cases := []struct {
 		title       string
 		metric      string
@@ -87,11 +87,11 @@ func TestRepair_118_DashboardLatencyShape(t *testing.T) {
 				require.False(t, refs[target.RefID], "duplicate target reference")
 				refs[target.RefID] = true
 				delete(want, target.LegendFormat)
-				repair118AssertSelectors(t, target.Expr, before, after)
+				dashboardMetricsAssertSelectors(t, target.Expr, before, after)
 			}
 			require.Empty(t, want, "missing latency targets")
 			for table, delays := range map[string][]int{"alpha": {1, 2, 4}, "beta": {10, 20, 30, 40, 50}} {
-				for phase, scrape := range []repair118Scrape{before, after} {
+				for phase, scrape := range []dashboardMetricsScrape{before, after} {
 					observations := delays
 					if phase == 0 {
 						observations = delays[:1]
@@ -99,7 +99,7 @@ func TestRepair_118_DashboardLatencyShape(t *testing.T) {
 					family := scrape.families[tc.metric]
 					require.NotNil(t, family, "missing exported histogram %s", tc.metric)
 					require.Equal(t, dto.MetricType_HISTOGRAM, family.GetType())
-					hist := repair118Metric(t, family, table).GetHistogram()
+					hist := dashboardMetricsMetric(t, family, table).GetHistogram()
 					require.NotNil(t, hist)
 					var seconds []float64
 					var sum float64
@@ -133,9 +133,9 @@ func TestRepair_118_DashboardLatencyShape(t *testing.T) {
 	}
 }
 
-func TestRepair_118_DashboardCounterNames(t *testing.T) {
-	panels := repair118Panels(t)
-	before, after := repair118Export(t)
+func TestDashboardCounterNames(t *testing.T) {
+	panels := dashboardMetricsPanels(t)
+	before, after := dashboardMetricsExport(t)
 	cases := []struct {
 		title  string
 		metric string
@@ -163,7 +163,7 @@ func TestRepair_118_DashboardCounterNames(t *testing.T) {
 				require.Equal(t, fmt.Sprintf("rate(%s[$__rate_interval])", tc.metric), target.Expr)
 				require.True(t, target.Range)
 				require.False(t, target.Hide)
-				repair118AssertSelectors(t, target.Expr, before, after)
+				dashboardMetricsAssertSelectors(t, target.Expr, before, after)
 			}
 			require.Equal(t, 1, active)
 			for table, value := range map[string]float64{"alpha": tc.alpha, "beta": tc.beta} {
@@ -172,8 +172,8 @@ func TestRepair_118_DashboardCounterNames(t *testing.T) {
 				require.NotNil(t, initial)
 				require.NotNil(t, final)
 				require.Equal(t, dto.MetricType_COUNTER, final.GetType())
-				first := repair118Metric(t, initial, table).GetCounter()
-				last := repair118Metric(t, final, table).GetCounter()
+				first := dashboardMetricsMetric(t, initial, table).GetCounter()
+				last := dashboardMetricsMetric(t, final, table).GetCounter()
 				require.NotNil(t, first)
 				require.NotNil(t, last)
 				require.Equal(t, value, first.GetValue())
@@ -187,13 +187,13 @@ func TestRepair_118_DashboardCounterNames(t *testing.T) {
 	}
 }
 
-func repair118Panels(t *testing.T) map[string]repair118Panel {
+func dashboardMetricsPanels(t *testing.T) map[string]dashboardMetricsPanel {
 	t.Helper()
 	data, err := os.ReadFile("benchmark-grafana-dashboard.json")
 	require.NoError(t, err)
-	var dashboard struct{ Panels []repair118Panel }
+	var dashboard struct{ Panels []dashboardMetricsPanel }
 	require.NoError(t, json.Unmarshal(data, &dashboard))
-	panels := make(map[string]repair118Panel)
+	panels := make(map[string]dashboardMetricsPanel)
 	for _, panel := range dashboard.Panels {
 		_, exists := panels[panel.Title]
 		require.False(t, exists, "duplicate dashboard panel %s", panel.Title)
@@ -202,7 +202,7 @@ func repair118Panels(t *testing.T) map[string]repair118Panel {
 	return panels
 }
 
-func repair118Export(t *testing.T) (repair118Scrape, repair118Scrape) {
+func dashboardMetricsExport(t *testing.T) (dashboardMetricsScrape, dashboardMetricsScrape) {
 	t.Helper()
 	previous := otel.GetMeterProvider()
 	registry, shutdown, err := commonmetrics.SetupOtelPrometheus()
@@ -226,7 +226,7 @@ func repair118Export(t *testing.T) (repair118Scrape, repair118Scrape) {
 		reporter.ReportReadOperation(table, latency*6, size, false)
 		reporter.ReportReadOperation(table, latency*7, size, true)
 	}
-	scrape := func() repair118Scrape {
+	scrape := func() dashboardMetricsScrape {
 		response, err := server.Client().Get(server.URL + "/metrics")
 		require.NoError(t, err)
 		defer response.Body.Close()
@@ -240,7 +240,7 @@ func repair118Export(t *testing.T) (repair118Scrape, repair118Scrape) {
 		}
 		samples, err := expfmt.ExtractSamples(&expfmt.DecodeOptions{}, all...)
 		require.NoError(t, err)
-		return repair118Scrape{families, samples}
+		return dashboardMetricsScrape{families, samples}
 	}
 	emit("alpha", 1, 1024)
 	emit("beta", 10, 2048)
@@ -254,7 +254,7 @@ func repair118Export(t *testing.T) (repair118Scrape, repair118Scrape) {
 	return before, scrape()
 }
 
-func repair118Metric(t *testing.T, family *dto.MetricFamily, table string) *dto.Metric {
+func dashboardMetricsMetric(t *testing.T, family *dto.MetricFamily, table string) *dto.Metric {
 	t.Helper()
 	var matches []*dto.Metric
 	for _, metric := range family.GetMetric() {
@@ -268,7 +268,7 @@ func repair118Metric(t *testing.T, family *dto.MetricFamily, table string) *dto.
 	return matches[0]
 }
 
-func repair118AssertSelectors(t *testing.T, expr string, scrapes ...repair118Scrape) {
+func dashboardMetricsAssertSelectors(t *testing.T, expr string, scrapes ...dashboardMetricsScrape) {
 	t.Helper()
 	selectors := regexp.MustCompile(`\blitt_[a-z_]+\b`).FindAllString(expr, -1)
 	require.NotEmpty(t, selectors)

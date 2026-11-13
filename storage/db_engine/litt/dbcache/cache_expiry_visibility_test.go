@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepair_113_CacheExpiryVisibility(t *testing.T) {
+func TestCacheExpiryVisibility(t *testing.T) {
 	for _, cache := range []struct {
 		name  string
 		write uint64
@@ -38,14 +38,14 @@ func TestRepair_113_CacheExpiryVisibility(t *testing.T) {
 					name += "/wrapper_gc"
 				}
 				t.Run(name, func(t *testing.T) {
-					repair113ExpiryVisibility(t, cache.write, cache.read, batch, baseGC)
+					cacheExpiryExpiryVisibility(t, cache.write, cache.read, batch, baseGC)
 				})
 			}
 		}
 	}
 }
 
-func repair113ExpiryVisibility(t *testing.T, writeSize, readSize uint64, batch, baseGC bool) {
+func cacheExpiryExpiryVisibility(t *testing.T, writeSize, readSize uint64, batch, baseGC bool) {
 	t.Helper()
 	directory := t.TempDir()
 	start := time.Unix(1_700_000_000, 0)
@@ -61,7 +61,7 @@ func repair113ExpiryVisibility(t *testing.T, writeSize, readSize uint64, batch, 
 		config.MaxSegmentKeyCount = 3
 		runtimeConfig := litt.DefaultRuntimeConfig()
 		runtimeConfig.Clock = clock
-		tableConfig := litt.DefaultTableConfig("repair113")
+		tableConfig := litt.DefaultTableConfig("cacheExpiry")
 		tableConfig.ShardingFactor = 1
 		tableConfig.TTL = 10 * time.Second
 		keymapPath := filepath.Join(directory, tableConfig.Name, keymap.KeymapDirectoryName)
@@ -110,15 +110,15 @@ func repair113ExpiryVisibility(t *testing.T, writeSize, readSize uint64, batch, 
 
 	table, base := open()
 	expired := put(table, "expired")
-	repair113Present(t, table, expired, writeSize > 0, readSize > 0)
+	cacheExpiryPresent(t, table, expired, writeSize > 0, readSize > 0)
 	elapsed.Store(int64(5 * time.Second))
 	live := put(table, "live")
-	repair113Present(t, table, live, writeSize > 0, readSize > 0)
+	cacheExpiryPresent(t, table, live, writeSize > 0, readSize > 0)
 	require.Equal(t, uint64(6), table.KeyCount())
 	elapsed.Store(int64(11 * time.Second))
 
 	// Expiration is lazy: an elapsed TTL alone must not hide retained disk keys.
-	repair113Present(t, table, expired, writeSize > 0 || readSize > 0, readSize > 0)
+	cacheExpiryPresent(t, table, expired, writeSize > 0 || readSize > 0, readSize > 0)
 	if baseGC {
 		require.NoError(t, base.RunGC())
 	} else {
@@ -129,28 +129,28 @@ func repair113ExpiryVisibility(t *testing.T, writeSize, readSize uint64, batch, 
 	} else if readSize > 0 {
 		require.Equal(t, 6, table.readCache.Size(), "the idle cache still holds expired entries")
 	}
-	repair113Absent(t, base, expired)
-	repair113Absent(t, table, expired)
-	repair113Present(t, table, live, writeSize > 0 || readSize > 0, readSize > 0)
-	repair113Iteration(t, base, live)
-	repair113Iteration(t, table, live)
+	cacheExpiryAbsent(t, base, expired)
+	cacheExpiryAbsent(t, table, expired)
+	cacheExpiryPresent(t, table, live, writeSize > 0 || readSize > 0, readSize > 0)
+	cacheExpiryIteration(t, base, live)
+	cacheExpiryIteration(t, table, live)
 	require.NoError(t, table.Close())
 
 	table, base = open()
-	repair113Absent(t, base, expired)
-	repair113Absent(t, table, expired)
-	repair113Present(t, table, live, false, readSize > 0)
-	repair113Iteration(t, table, live)
+	cacheExpiryAbsent(t, base, expired)
+	cacheExpiryAbsent(t, table, expired)
+	cacheExpiryPresent(t, table, live, false, readSize > 0)
+	cacheExpiryIteration(t, table, live)
 
 	// Recovered keys enter the read cache and must disappear when GC removes them too.
 	elapsed.Store(int64(21 * time.Second))
 	require.NoError(t, table.RunGC())
-	repair113Absent(t, base, live)
-	repair113Absent(t, table, live)
-	repair113Iteration(t, table, nil)
+	cacheExpiryAbsent(t, base, live)
+	cacheExpiryAbsent(t, table, live)
+	cacheExpiryIteration(t, table, nil)
 }
 
-func repair113Present(t *testing.T, table litt.ManagedTable, expected map[string][]byte, initiallyHot, readCache bool) {
+func cacheExpiryPresent(t *testing.T, table litt.ManagedTable, expected map[string][]byte, initiallyHot, readCache bool) {
 	t.Helper()
 	for key, want := range expected {
 		exists, err := table.Exists([]byte(key))
@@ -182,7 +182,7 @@ func repair113Present(t *testing.T, table litt.ManagedTable, expected map[string
 	}
 }
 
-func repair113Absent(t *testing.T, table litt.ManagedTable, expected map[string][]byte) {
+func cacheExpiryAbsent(t *testing.T, table litt.ManagedTable, expected map[string][]byte) {
 	t.Helper()
 	for key := range expected {
 		exists, err := table.Exists([]byte(key))
@@ -202,7 +202,7 @@ func repair113Absent(t *testing.T, table litt.ManagedTable, expected map[string]
 	}
 }
 
-func repair113Iteration(t *testing.T, table litt.ManagedTable, expected map[string][]byte) {
+func cacheExpiryIteration(t *testing.T, table litt.ManagedTable, expected map[string][]byte) {
 	t.Helper()
 	require.Equal(t, uint64(len(expected)), table.KeyCount())
 	for _, reverse := range []bool{false, true} {

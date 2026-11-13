@@ -17,14 +17,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const repair110WriterEnv = "LITT_REPAIR_110_WRITER"
+const durableKeysWriterEnv = "LITT_KEY_DURABILITY_WRITER"
 
-type repair110WriterConfig struct {
+type durableKeysWriterConfig struct {
 	Root string
 	Mode string
 }
 
-func repair110Paths(t *testing.T, root string) []*SegmentPath {
+func durableKeysPaths(t *testing.T, root string) []*SegmentPath {
 	t.Helper()
 	paths, err := BuildSegmentPaths([]string{filepath.Join(root, "a"), filepath.Join(root, "b")}, "", "table")
 	require.NoError(t, err)
@@ -34,7 +34,7 @@ func repair110Paths(t *testing.T, root string) []*SegmentPath {
 	return paths
 }
 
-func repair110Request() *types.PutRequest {
+func durableKeysRequest() *types.PutRequest {
 	return &types.PutRequest{
 		Key: []byte("primary"), Value: []byte("prefix-payload-suffix"),
 		SecondaryKeys: []*types.SecondaryKey{
@@ -46,15 +46,15 @@ func repair110Request() *types.PutRequest {
 
 // The child deliberately exits without sealing/closing the segment after an
 // acknowledged flush. Recovery cannot depend on deferred cleanup in this process.
-func repair110CrashWriter(t *testing.T, cfg repair110WriterConfig) {
+func durableKeysCrashWriter(t *testing.T, cfg durableKeysWriterConfig) {
 	t.Helper()
 	logger := slog.Default()
-	paths := repair110Paths(t, cfg.Root)
+	paths := durableKeysPaths(t, cfg.Root)
 	seg, err := CreateSegment(logger, util.NewErrorMonitor(t.Context(), logger, nil), 0, paths, false, 2, true)
 	require.NoError(t, err)
 	require.True(t, seg.keys.fsync)
 	if cfg.Mode != "initial" {
-		_, _, err = seg.Write(repair110Request())
+		_, _, err = seg.Write(durableKeysRequest())
 		require.NoError(t, err)
 	}
 	if cfg.Mode == "seal" {
@@ -84,28 +84,28 @@ func repair110CrashWriter(t *testing.T, cfg repair110WriterConfig) {
 	os.Exit(0)
 }
 
-func repair110RunWriter(t *testing.T, root, mode string) {
+func durableKeysRunWriter(t *testing.T, root, mode string) {
 	t.Helper()
-	cfg, err := json.Marshal(repair110WriterConfig{Root: root, Mode: mode})
+	cfg, err := json.Marshal(durableKeysWriterConfig{Root: root, Mode: mode})
 	require.NoError(t, err)
-	cmd := exec.CommandContext(t.Context(), os.Args[0], "-test.run=^TestRepair_110_KeyDurabilityRestart$", "-test.count=1")
-	cmd.Env = append(os.Environ(), repair110WriterEnv+"="+string(cfg))
+	cmd := exec.CommandContext(t.Context(), os.Args[0], "-test.run=^TestKeyDurabilityRestart$", "-test.count=1")
+	cmd.Env = append(os.Environ(), durableKeysWriterEnv+"="+string(cfg))
 	output, err := cmd.CombinedOutput()
 	require.NoError(t, err, "%s", output)
 }
 
-func TestRepair_110_KeyDurabilityRestart(t *testing.T) {
-	if cfgJSON := os.Getenv(repair110WriterEnv); cfgJSON != "" {
-		var cfg repair110WriterConfig
+func TestKeyDurabilityRestart(t *testing.T) {
+	if cfgJSON := os.Getenv(durableKeysWriterEnv); cfgJSON != "" {
+		var cfg durableKeysWriterConfig
 		require.NoError(t, json.Unmarshal([]byte(cfgJSON), &cfg))
-		repair110CrashWriter(t, cfg)
+		durableKeysCrashWriter(t, cfg)
 		return
 	}
 	for _, mode := range []string{"flush", "seal", "rewrite"} {
 		t.Run(mode, func(t *testing.T) {
 			root := t.TempDir()
-			repair110RunWriter(t, root, mode)
-			paths := repair110Paths(t, root)
+			durableKeysRunWriter(t, root, mode)
+			paths := durableKeysPaths(t, root)
 			logger := slog.Default()
 			monitor := util.NewErrorMonitor(t.Context(), logger, nil)
 			low, high, segments, err := GatherSegmentFiles(logger, monitor, paths, false, time.Now(), true, true)
@@ -176,17 +176,17 @@ func TestRepair_110_KeyDurabilityRestart(t *testing.T) {
 	}
 }
 
-func TestRepair_110_KeySyncFailure(t *testing.T) {
+func TestKeySyncFailure(t *testing.T) {
 	for _, operation := range []string{"flush", "seal"} {
 		t.Run(operation, func(t *testing.T) {
 			logger := slog.Default()
 			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()
 			monitor := util.NewErrorMonitor(ctx, logger, nil)
-			paths := repair110Paths(t, t.TempDir())
+			paths := durableKeysPaths(t, t.TempDir())
 			seg, err := CreateSegment(logger, monitor, 0, paths, false, 2, true)
 			require.NoError(t, err)
-			_, _, err = seg.Write(repair110Request())
+			_, _, err = seg.Write(durableKeysRequest())
 			require.NoError(t, err)
 			wait, err := seg.Flush()
 			require.NoError(t, err)
@@ -223,10 +223,10 @@ func TestRepair_110_KeySyncFailure(t *testing.T) {
 	}
 }
 
-func TestRepair_110_KeyDurabilityMode(t *testing.T) {
+func TestKeyDurabilityMode(t *testing.T) {
 	for _, sync := range []bool{false, true} {
 		t.Run(fmt.Sprint(sync), func(t *testing.T) {
-			paths := repair110Paths(t, t.TempDir())
+			paths := durableKeysPaths(t, t.TempDir())
 			keys, err := createKeyFile(slog.Default(), 0, paths[0], false, sync)
 			require.NoError(t, err)
 			require.Equal(t, sync, keys.fsync)
@@ -245,15 +245,15 @@ func TestRepair_110_KeyDurabilityMode(t *testing.T) {
 	}
 }
 
-func TestRepair_110_InitialSegmentRecovery(t *testing.T) {
+func TestInitialSegmentRecovery(t *testing.T) {
 	// Each bit represents one of metadata, keys, shard 0, and shard 1.
 	// Enumerate every persisted subset, including empty and fully created sets.
 	for mask := 0; mask < 16; mask++ {
 		for _, clean := range []bool{false, true} {
 			t.Run(fmt.Sprintf("files_%04b/clean_%t", mask, clean), func(t *testing.T) {
 				root := t.TempDir()
-				repair110RunWriter(t, root, "initial")
-				paths := repair110Paths(t, root)
+				durableKeysRunWriter(t, root, "initial")
+				paths := durableKeysPaths(t, root)
 				files := []string{
 					filepath.Join(paths[0].SegmentDirectory(), "0"+MetadataFileExtension),
 					filepath.Join(paths[0].SegmentDirectory(), "0"+KeyFileExtension),
@@ -294,7 +294,7 @@ func TestRepair_110_InitialSegmentRecovery(t *testing.T) {
 				require.Empty(t, segments)
 				seg, err := CreateSegment(logger, monitor, 0, paths, false, 2, true)
 				require.NoError(t, err)
-				_, _, err = seg.Write(repair110Request())
+				_, _, err = seg.Write(durableKeysRequest())
 				require.NoError(t, err)
 				keys, err := seg.Seal(time.Now())
 				require.NoError(t, err)
@@ -310,16 +310,16 @@ func TestRepair_110_InitialSegmentRecovery(t *testing.T) {
 	}
 }
 
-func TestRepair_110_HealthySegmentSurvivors(t *testing.T) {
+func TestHealthySegmentSurvivors(t *testing.T) {
 	for _, damaged := range [][]uint32{{0, 2}, {0, 1, 2}, {1}} {
 		t.Run(fmt.Sprint(damaged), func(t *testing.T) {
 			logger := slog.Default()
 			monitor := util.NewErrorMonitor(t.Context(), logger, nil)
-			paths := repair110Paths(t, t.TempDir())
+			paths := durableKeysPaths(t, t.TempDir())
 			for index := uint32(0); index < 3; index++ {
 				seg, err := CreateSegment(logger, monitor, index, paths, false, 2, true)
 				require.NoError(t, err)
-				_, _, err = seg.Write(repair110Request())
+				_, _, err = seg.Write(durableKeysRequest())
 				require.NoError(t, err)
 				_, err = seg.Seal(time.Now())
 				require.NoError(t, err)

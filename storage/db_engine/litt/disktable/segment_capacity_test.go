@@ -18,7 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func repair111Open(t *testing.T, root string, shards uint8) *DiskTable {
+func capacityOpen(t *testing.T, root string, shards uint8) *DiskTable {
 	t.Helper()
 	config, err := litt.DefaultConfig(root)
 	require.NoError(t, err)
@@ -47,7 +47,7 @@ func repair111Open(t *testing.T, root string, shards uint8) *DiskTable {
 // Sparse padding positions the real writer near the format's limit without allocating or writing
 // gigabytes. Only private byte cursors are adjusted; every key, value and address under assertion is
 // subsequently produced by Table.Put and consumed by the real segment, keymap and disk reader.
-func repair111SparseShard(t *testing.T, table *DiskTable, shard int, size uint64) {
+func capacitySparseShard(t *testing.T, table *DiskTable, shard int, size uint64) {
 	t.Helper()
 	require.NoError(t, table.Flush())
 	seg := table.controlLoop.segments[table.controlLoop.threadsafeHighestSegmentIndex.Load()]
@@ -72,7 +72,7 @@ func repair111SparseShard(t *testing.T, table *DiskTable, shard int, size uint64
 	require.Equal(t, int64(size), info.Size())
 }
 
-func repair111Read(t *testing.T, table *DiskTable, expected map[string]string) {
+func capacityRead(t *testing.T, table *DiskTable, expected map[string]string) {
 	t.Helper()
 	require.NoError(t, table.Flush())
 	for key, want := range expected {
@@ -89,7 +89,7 @@ func repair111Read(t *testing.T, table *DiskTable, expected map[string]string) {
 	require.NoError(t, err)
 }
 
-func repair111Address(t *testing.T, table *DiskTable, key string, index uint32, shard uint8,
+func capacityAddress(t *testing.T, table *DiskTable, key string, index uint32, shard uint8,
 	offset uint32, length uint32) {
 	t.Helper()
 	address, exists, err := table.keymap.Get([]byte(key))
@@ -98,10 +98,10 @@ func repair111Address(t *testing.T, table *DiskTable, key string, index uint32, 
 	require.Equal(t, types.NewAddress(index, offset, shard, length), address, key)
 }
 
-func TestRepair_111_SegmentCapacityRollover(t *testing.T) {
+func TestSegmentCapacityRollover(t *testing.T) {
 	root := t.TempDir()
-	table := repair111Open(t, root, 1)
-	repair111SparseShard(t, table, 0, math.MaxUint32-8)
+	table := capacityOpen(t, root, 1)
+	capacitySparseShard(t, table, 0, math.MaxUint32-8)
 	require.NoError(t, table.Put([]byte("prior"), []byte("old!")))
 	require.NoError(t, table.Put([]byte("edge"), []byte("edge"),
 		&types.SecondaryKey{Key: []byte("edge-alias"), Length: 4},
@@ -110,10 +110,10 @@ func TestRepair_111_SegmentCapacityRollover(t *testing.T) {
 		&types.SecondaryKey{Key: []byte("empty-alias")}))
 	require.NoError(t, table.Flush())
 	require.Equal(t, uint32(0), table.controlLoop.threadsafeHighestSegmentIndex.Load())
-	repair111Address(t, table, "prior", 0, 0, math.MaxUint32-8, 4)
-	repair111Address(t, table, "edge", 0, 0, math.MaxUint32-4, 4)
-	repair111Address(t, table, "edge-end", 0, 0, math.MaxUint32, 0)
-	repair111Address(t, table, "empty", 0, 0, math.MaxUint32, 0)
+	capacityAddress(t, table, "prior", 0, 0, math.MaxUint32-8, 4)
+	capacityAddress(t, table, "edge", 0, 0, math.MaxUint32-4, 4)
+	capacityAddress(t, table, "edge-end", 0, 0, math.MaxUint32, 0)
+	capacityAddress(t, table, "empty", 0, 0, math.MaxUint32, 0)
 
 	require.NoError(t, table.PutBatch([]*types.PutRequest{
 		{Key: []byte("group"), Value: []byte("abcdef"), SecondaryKeys: []*types.SecondaryKey{
@@ -128,12 +128,12 @@ func TestRepair_111_SegmentCapacityRollover(t *testing.T) {
 		"empty": "", "empty-alias": "", "group": "abcdef", "suffix": "cdef",
 		"group-end": "", "tail": "tail", "final": "final",
 	}
-	repair111Read(t, table, expected)
+	capacityRead(t, table, expected)
 	require.Equal(t, uint32(1), table.controlLoop.threadsafeHighestSegmentIndex.Load())
-	repair111Address(t, table, "group", 1, 0, 0, 6)
-	repair111Address(t, table, "suffix", 1, 0, 2, 4)
-	repair111Address(t, table, "group-end", 1, 0, 6, 0)
-	repair111Address(t, table, "tail", 1, 0, 6, 4)
+	capacityAddress(t, table, "group", 1, 0, 0, 6)
+	capacityAddress(t, table, "suffix", 1, 0, 2, 4)
+	capacityAddress(t, table, "group-end", 1, 0, 6, 0)
+	capacityAddress(t, table, "tail", 1, 0, 6, 4)
 	old := table.controlLoop.segments[0]
 	require.True(t, old.IsSealed())
 	keys, err := old.GetKeys()
@@ -151,59 +151,59 @@ func TestRepair_111_SegmentCapacityRollover(t *testing.T) {
 	require.Equal(t, []byte("group-end"), newKeys[2].Key)
 	require.Equal(t, types.KeyKindFinalSecondary, newKeys[2].Kind)
 
-	reopened := repair111Open(t, root, 1)
-	repair111Read(t, reopened, expected)
-	repair111Address(t, reopened, "suffix", 1, 0, 2, 4)
+	reopened := capacityOpen(t, root, 1)
+	capacityRead(t, reopened, expected)
+	capacityAddress(t, reopened, "suffix", 1, 0, 2, 4)
 	require.NoError(t, reopened.Put([]byte("after-restart"), []byte("live")))
 	expected["after-restart"] = "live"
-	repair111Read(t, reopened, expected)
+	capacityRead(t, reopened, expected)
 }
 
-func TestRepair_111_SelectedShardRollover(t *testing.T) {
-	table := repair111Open(t, t.TempDir(), 3)
-	repair111SparseShard(t, table, 0, math.MaxUint32-4)
-	repair111SparseShard(t, table, 1, math.MaxUint32-6)
+func TestSelectedShardRollover(t *testing.T) {
+	table := capacityOpen(t, t.TempDir(), 3)
+	capacitySparseShard(t, table, 0, math.MaxUint32-4)
+	capacitySparseShard(t, table, 1, math.MaxUint32-6)
 	require.NoError(t, table.Put([]byte("full-shard"), []byte("full")))
 	require.NoError(t, table.Put([]byte("near-full"), []byte("near")))
 	require.NoError(t, table.Put([]byte("roomy-shard"), []byte("roomy")))
 	require.NoError(t, table.Flush())
 	require.Equal(t, uint32(0), table.controlLoop.threadsafeHighestSegmentIndex.Load(),
 		"a full unrelated shard must not force rotation")
-	repair111Address(t, table, "full-shard", 0, 0, math.MaxUint32-4, 4)
-	repair111Address(t, table, "near-full", 0, 1, math.MaxUint32-6, 4)
-	repair111Address(t, table, "roomy-shard", 0, 2, 0, 5)
+	capacityAddress(t, table, "full-shard", 0, 0, math.MaxUint32-4, 4)
+	capacityAddress(t, table, "near-full", 0, 1, math.MaxUint32-6, 4)
+	capacityAddress(t, table, "roomy-shard", 0, 2, 0, 5)
 	require.NoError(t, table.Put([]byte("rotated"), []byte("rotate"),
 		&types.SecondaryKey{Key: []byte("alias"), Offset: 1, Length: 5}))
 	require.NoError(t, table.Put([]byte("next-shard"), []byte("next")))
-	repair111Read(t, table, map[string]string{
+	capacityRead(t, table, map[string]string{
 		"full-shard": "full", "near-full": "near", "roomy-shard": "roomy",
 		"rotated": "rotate", "alias": "otate", "next-shard": "next",
 	})
 	require.Equal(t, uint32(1), table.controlLoop.threadsafeHighestSegmentIndex.Load())
-	repair111Address(t, table, "rotated", 1, 0, 0, 6)
-	repair111Address(t, table, "alias", 1, 0, 1, 5)
-	repair111Address(t, table, "next-shard", 1, 1, 0, 4)
+	capacityAddress(t, table, "rotated", 1, 0, 0, 6)
+	capacityAddress(t, table, "alias", 1, 0, 1, 5)
+	capacityAddress(t, table, "next-shard", 1, 1, 0, 4)
 	keys, err := table.controlLoop.segments[0].GetKeys()
 	require.NoError(t, err)
 	require.Len(t, keys, 3)
 }
 
-func TestRepair_111_GroupRolloverWithRemainingCapacity(t *testing.T) {
-	table := repair111Open(t, t.TempDir(), 1)
-	repair111SparseShard(t, table, 0, math.MaxUint32-8)
+func TestGroupRolloverWithRemainingCapacity(t *testing.T) {
+	table := capacityOpen(t, t.TempDir(), 1)
+	capacitySparseShard(t, table, 0, math.MaxUint32-8)
 	require.NoError(t, table.Put([]byte("anchor"), []byte("keep")))
 	require.NoError(t, table.Flush())
 	require.Equal(t, uint64(math.MaxUint32-4), table.controlLoop.segments[0].GetMaxShardSize())
 	require.NoError(t, table.Put([]byte("whole"), []byte("abcdef"),
 		&types.SecondaryKey{Key: []byte("prefix"), Length: 3},
 		&types.SecondaryKey{Key: []byte("last-byte"), Offset: 5, Length: 1}))
-	repair111Read(t, table, map[string]string{
+	capacityRead(t, table, map[string]string{
 		"anchor": "keep", "whole": "abcdef", "prefix": "abc", "last-byte": "f",
 	})
 	require.Equal(t, uint32(1), table.controlLoop.threadsafeHighestSegmentIndex.Load())
-	repair111Address(t, table, "whole", 1, 0, 0, 6)
-	repair111Address(t, table, "prefix", 1, 0, 0, 3)
-	repair111Address(t, table, "last-byte", 1, 0, 5, 1)
+	capacityAddress(t, table, "whole", 1, 0, 0, 6)
+	capacityAddress(t, table, "prefix", 1, 0, 0, 3)
+	capacityAddress(t, table, "last-byte", 1, 0, 5, 1)
 	keys, err := table.controlLoop.segments[0].GetKeys()
 	require.NoError(t, err)
 	require.Len(t, keys, 1)
@@ -211,9 +211,9 @@ func TestRepair_111_GroupRolloverWithRemainingCapacity(t *testing.T) {
 	require.Equal(t, uint64(math.MaxUint32-4), table.controlLoop.segments[0].GetMaxShardSize())
 }
 
-func TestRepair_111_CapacityPreflight(t *testing.T) {
-	table := repair111Open(t, t.TempDir(), 2)
-	repair111SparseShard(t, table, 0, math.MaxUint32-4)
+func TestCapacityPreflight(t *testing.T) {
+	table := capacityOpen(t, t.TempDir(), 2)
+	capacitySparseShard(t, table, 0, math.MaxUint32-4)
 	seg := table.controlLoop.segments[0]
 	primaryOverflow := &types.PutRequest{Key: []byte("too-long"), Value: []byte("12345")}
 	secondaryOverflow := &types.PutRequest{Key: []byte("bad-range"), Value: []byte("1234"),
@@ -232,9 +232,9 @@ func TestRepair_111_CapacityPreflight(t *testing.T) {
 	require.True(t, seg.HasCapacity(valid))
 	require.True(t, seg.HasCapacity(valid))
 	require.NoError(t, table.Put(valid.Key, valid.Value, valid.SecondaryKeys...))
-	repair111Read(t, table, map[string]string{"exact-fit": "fits", "end": ""})
-	repair111Address(t, table, "exact-fit", 0, 0, math.MaxUint32-4, 4)
-	repair111Address(t, table, "end", 0, 0, math.MaxUint32, 0)
+	capacityRead(t, table, map[string]string{"exact-fit": "fits", "end": ""})
+	capacityAddress(t, table, "exact-fit", 0, 0, math.MaxUint32-4, 4)
+	capacityAddress(t, table, "end", 0, 0, math.MaxUint32, 0)
 	require.NoError(t, table.Close())
 	require.False(t, seg.HasCapacity(valid), "sealed segments cannot accept writes")
 	keys, err := seg.GetKeys()

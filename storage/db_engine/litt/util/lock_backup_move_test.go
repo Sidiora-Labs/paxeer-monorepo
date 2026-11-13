@@ -28,8 +28,8 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-func TestRepair_114_LockProcess(t *testing.T) {
-	directory := os.Getenv("LITT_REPAIR_114_LOCK_DIR")
+func TestLockProcess(t *testing.T) {
+	directory := os.Getenv("LITT_LOCK_PROCESS_DIR")
 	if directory == "" {
 		return
 	}
@@ -48,18 +48,18 @@ func TestRepair_114_LockProcess(t *testing.T) {
 	os.Exit(0)
 }
 
-type repair114LockProcess struct {
+type fileLifecycleLockProcess struct {
 	cmd    *exec.Cmd
 	input  io.WriteCloser
 	result <-chan string
 }
 
-func repair114StartLockProcess(t *testing.T, directory string) repair114LockProcess {
+func fileLifecycleStartLockProcess(t *testing.T, directory string) fileLifecycleLockProcess {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
 	t.Cleanup(cancel)
-	cmd := exec.CommandContext(ctx, os.Args[0], "-test.run=^TestRepair_114_LockProcess$")
-	cmd.Env = append(os.Environ(), "LITT_REPAIR_114_LOCK_DIR="+directory)
+	cmd := exec.CommandContext(ctx, os.Args[0], "-test.run=^TestLockProcess$")
+	cmd.Env = append(os.Environ(), "LITT_LOCK_PROCESS_DIR="+directory)
 	input, err := cmd.StdinPipe()
 	require.NoError(t, err)
 	output, err := cmd.StdoutPipe()
@@ -75,10 +75,10 @@ func repair114StartLockProcess(t *testing.T, directory string) repair114LockProc
 		line, _ := bufio.NewReader(output).ReadString('\n')
 		result <- strings.TrimSpace(line)
 	}()
-	return repair114LockProcess{cmd: cmd, input: input, result: result}
+	return fileLifecycleLockProcess{cmd: cmd, input: input, result: result}
 }
 
-func repair114LockResult(t *testing.T, process repair114LockProcess) string {
+func fileLifecycleLockResult(t *testing.T, process fileLifecycleLockProcess) string {
 	t.Helper()
 	select {
 	case result := <-process.result:
@@ -89,13 +89,13 @@ func repair114LockResult(t *testing.T, process repair114LockProcess) string {
 	}
 }
 
-func TestRepair_114_StaleLockTakeover(t *testing.T) {
+func TestStaleLockTakeover(t *testing.T) {
 	directory := t.TempDir()
 	path := filepath.Join(directory, "writer.lock")
-	owner := repair114StartLockProcess(t, directory)
+	owner := fileLifecycleStartLockProcess(t, directory)
 	_, err := owner.input.Write([]byte{1})
 	require.NoError(t, err)
-	require.Equal(t, "acquired", repair114LockResult(t, owner))
+	require.Equal(t, "acquired", fileLifecycleLockResult(t, owner))
 	guardBefore, err := os.Stat(path + ".guard")
 	require.NoError(t, err)
 	require.NoError(t, owner.cmd.Process.Kill())
@@ -103,9 +103,9 @@ func TestRepair_114_StaleLockTakeover(t *testing.T) {
 	_, err = os.Stat(path)
 	require.NoError(t, err, "crash must leave metadata for stale recovery")
 
-	processes := make([]repair114LockProcess, 12)
+	processes := make([]fileLifecycleLockProcess, 12)
 	for i := range processes {
-		processes[i] = repair114StartLockProcess(t, directory)
+		processes[i] = fileLifecycleStartLockProcess(t, directory)
 	}
 	for _, process := range processes {
 		_, err := process.input.Write([]byte{1})
@@ -113,7 +113,7 @@ func TestRepair_114_StaleLockTakeover(t *testing.T) {
 	}
 	winner := -1
 	for i, process := range processes {
-		result := repair114LockResult(t, process)
+		result := fileLifecycleLockResult(t, process)
 		switch result {
 		case "acquired":
 			require.Equal(t, -1, winner, "two writers acquired the stale lock")
@@ -152,7 +152,7 @@ func TestRepair_114_StaleLockTakeover(t *testing.T) {
 	require.NoError(t, err, "old release must not unlink successor metadata")
 }
 
-func TestRepair_114_LockReleaseOwnership(t *testing.T) {
+func TestLockReleaseOwnership(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "writer.lock")
 	lock, err := util.NewFileLock(slog.Default(), path, false)
 	require.NoError(t, err)
@@ -165,8 +165,8 @@ func TestRepair_114_LockReleaseOwnership(t *testing.T) {
 	require.Equal(t, "replacement metadata", string(data))
 }
 
-func TestRepair_114_MoveSymlinkContract(t *testing.T) {
-	crossRoot, err := os.MkdirTemp("/dev/shm", "litt-repair-114-")
+func TestMoveSymlinkContract(t *testing.T) {
+	crossRoot, err := os.MkdirTemp("/dev/shm", "litt-move-symlink-")
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, os.RemoveAll(crossRoot)) })
 	localRoot := t.TempDir()
@@ -249,11 +249,11 @@ func TestRepair_114_MoveSymlinkContract(t *testing.T) {
 	}
 }
 
-func repair114WriteSSHKey(t *testing.T, path string) ssh.PublicKey {
+func fileLifecycleWriteSSHKey(t *testing.T, path string) ssh.PublicKey {
 	t.Helper()
 	_, private, err := ed25519.GenerateKey(rand.Reader)
 	require.NoError(t, err)
-	encoded, err := ssh.MarshalPrivateKey(private, "repair-114")
+	encoded, err := ssh.MarshalPrivateKey(private, "durable-backup")
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(path, pem.EncodeToMemory(encoded), 0600))
 	signer, err := ssh.NewSignerFromKey(private)
@@ -261,7 +261,7 @@ func repair114WriteSSHKey(t *testing.T, path string) ssh.PublicKey {
 	return signer.PublicKey()
 }
 
-type repair114Receiver struct {
+type fileLifecycleReceiver struct {
 	root       string
 	config     string
 	key        string
@@ -272,7 +272,7 @@ type repair114Receiver struct {
 	log        *os.File
 }
 
-func repair114NewReceiver(t *testing.T) *repair114Receiver {
+func fileLifecycleNewReceiver(t *testing.T) *fileLifecycleReceiver {
 	t.Helper()
 	for _, binary := range []string{"rsync", "ssh", "sync"} {
 		_, err := exec.LookPath(binary)
@@ -280,9 +280,9 @@ func repair114NewReceiver(t *testing.T) *repair114Receiver {
 	}
 	root := t.TempDir()
 	hostKey := filepath.Join(root, "host-key")
-	hostPublic := repair114WriteSSHKey(t, hostKey)
+	hostPublic := fileLifecycleWriteSSHKey(t, hostKey)
 	key := filepath.Join(root, "client-key")
-	clientPublic := repair114WriteSSHKey(t, key)
+	clientPublic := fileLifecycleWriteSSHKey(t, key)
 	authorized := filepath.Join(root, "authorized_keys")
 	require.NoError(t, os.WriteFile(authorized, ssh.MarshalAuthorizedKey(clientPublic), 0600))
 	currentUser, err := user.Current()
@@ -304,13 +304,13 @@ func repair114NewReceiver(t *testing.T) *repair114Receiver {
 	config := filepath.Join(root, "sshd_config")
 	configText := fmt.Sprintf("ListenAddress 127.0.0.1\nPort %d\nHostKey %s\nPidFile %s/sshd.pid\nAuthorizedKeysFile %s\nStrictModes no\nUsePAM no\nPasswordAuthentication no\nKbdInteractiveAuthentication no\nPermitRootLogin yes\nForceCommand /bin/sh %s\n", port, hostKey, root, authorized, wrapper)
 	require.NoError(t, os.WriteFile(config, []byte(configText), 0600))
-	r := &repair114Receiver{root: root, config: config, key: key, knownHosts: knownHosts, username: currentUser.Username, port: uint64(port)}
+	r := &fileLifecycleReceiver{root: root, config: config, key: key, knownHosts: knownHosts, username: currentUser.Username, port: uint64(port)}
 	t.Cleanup(func() { r.stop() })
 	r.start(t)
 	return r
 }
 
-func (r *repair114Receiver) start(t *testing.T) {
+func (r *fileLifecycleReceiver) start(t *testing.T) {
 	t.Helper()
 	sshd, err := exec.LookPath("sshd")
 	if err != nil {
@@ -337,7 +337,7 @@ func (r *repair114Receiver) start(t *testing.T) {
 	}
 }
 
-func (r *repair114Receiver) stop() {
+func (r *fileLifecycleReceiver) stop() {
 	if r.process != nil {
 		_ = r.process.Process.Kill()
 		_ = r.process.Wait()
@@ -346,15 +346,15 @@ func (r *repair114Receiver) stop() {
 	}
 }
 
-func (r *repair114Receiver) connect(t *testing.T) *util.SSHSession {
+func (r *fileLifecycleReceiver) connect(t *testing.T) *util.SSHSession {
 	t.Helper()
 	session, err := util.NewSSHSession(slog.Default(), r.username, "127.0.0.1", r.port, r.key, r.knownHosts, false)
 	require.NoError(t, err)
 	return session
 }
 
-func TestRepair_114_BackupDurableAck(t *testing.T) {
-	receiver := repair114NewReceiver(t)
+func TestBackupDurableAck(t *testing.T) {
+	receiver := fileLifecycleNewReceiver(t)
 	session := receiver.connect(t)
 	defer func() { _ = session.Close() }()
 	logger := slog.Default()
