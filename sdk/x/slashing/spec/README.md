@@ -37,7 +37,7 @@ In this repository the module is wired into the Paxeer X chain application in [`
 5. **[05_hooks.md](05_hooks.md)**
    - [Hooks](05_hooks.md#hooks)
 6. **[Events](06_events.md)**
-   - [BeginBlocker](06_events.md#beginblocker-handlevalidatorsignature)
+   - [BeginBlocker](06_events.md#beginblocker-handlevalidatorsignatureconcurrent)
    - [MsgServer](06_events.md#msgserver)
 7. **[Staking Tombstone](07_tombstone.md)**
    - [Abstract](07_tombstone.md#abstract)

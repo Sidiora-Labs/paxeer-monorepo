@@ -60,3 +60,4 @@ staking token of the chain.
     - [Handlers](04_events.md#handlers)
 5. **[Future Improvements](05_future_improvements.md)**
 6. **[Parameters](06_params.md)**
+7. **[Client](07_client.md)**

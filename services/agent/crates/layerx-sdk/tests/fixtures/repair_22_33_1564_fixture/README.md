@@ -1,1 +1,3 @@
-This material is generated test data with no production use.
+# TLS trust fixture
+
+`ca.der` contains a generated test CA certificate with no production use.

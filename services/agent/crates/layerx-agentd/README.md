@@ -13,8 +13,9 @@ major 2, and the [MCP README](../layerx-mcp/README.md) for session bindings.
 
 ## Modes
 
-`LAYERX_AGENT_MODE` selects `full` (the default when unset) or `human-owner`.
-Every other value, including an empty value, is refused. The entry point is
+`LAYERX_AGENT_MODE` selects `full` (the default when unset), `human-owner` or
+`inference-market`. Every other value, including an empty value, is refused.
+Mode selection is implemented in
 [`human_owner_mode.rs`](src/human_owner_mode.rs).
 
 Full mode starts the shared Human owner and verified Programs operations.
@@ -27,22 +28,30 @@ also obtains export trust through `LAYERX_AGENT_NODE_CONSENSUS_ENDPOINT`.
 The exact configuration checks are in `config`, `serve` and
 `start_shared_owner` in [`main.rs`](src/main.rs).
 
+Inference-market mode uses the shared owner and Programs configuration and
+loads `InferenceConfig` from [`config.rs`](src/config.rs). Its additional
+settings include `LAYERX_AGENT_INFERENCE_MODEL_DIGEST`,
+`LAYERX_AGENT_INFERENCE_RUNTIME_DIGEST` and `LAYERX_AGENT_INFERENCE_ROOM_PROFILE`.
+`LAYERX_AGENT_INFERENCE_SIGNAL_LISTEN` and `LAYERX_AGENT_INFERENCE_SERVE_LISTEN`
+select its signaling and serving listeners.
+
 Human-owner mode starts the Human owner and a health listener. It does not
 initialize the Programs reader, probe program or deployment journal. It
-refuses a non-empty `LAYERX_AGENT_MCP_BINDING_ROOT`, which requires full mode.
-Both modes still require the Human peer, authority, protected store, session
+refuses a non-empty `LAYERX_AGENT_MCP_BINDING_ROOT`, which needs the Programs
+operations available in full and inference-market modes.
+All modes require the Human peer, authority, protected store, session
 key, Unix socket, limit and frame-bound inputs consumed by `start_shared_owner`.
-`LAYERX_NATIVE_POLICY_SOURCES` must cover the configured Human tenants.
+`LAYERX_NATIVE_POLICY_SOURCES` must cover exactly the configured Human tenants.
 The runtime clock supervisor binding uses `LAYERX_RUNTIME_CLOCK_SOCKET`,
 `LAYERX_RUNTIME_CLOCK_PID` and `LAYERX_RUNTIME_CLOCK_UID`.
 
-Both modes require a chain-checked Human node JSON-RPC connection and an
+All modes require a chain-checked Human node JSON-RPC connection and an
 independently authenticated Human authority registry. No LNI connection is
 required. Configure the Human node connection with:
 
 | Setting | Meaning |
 | --- | --- |
-| `LAYERX_AGENT_NODE_RPC_URL` | Node JSON-RPC URL, for example `https://api1.mainnet-beta.paxeer.network` |
+| `LAYERX_AGENT_NODE_RPC_URL` | Node JSON-RPC root URL |
 | `LAYERX_AGENT_NODE_CHAIN_ID` | Expected EVM chain ID, `125` or `0x7d` on mainnet-beta |
 | `LAYERX_AGENT_HUMAN_NETWORK_ID` | Human network ID; must agree with the node chain ID |
 | `LAYERX_AGENT_HUMAN_PROTOCOL_VERSION` | Current canonical wire protocol version, checked by `HumanNodeEnvironment` |
@@ -76,17 +85,18 @@ chain-ID check and authority registry read for every configured peer succeed.
 Each admitted probe reconnects to the node and queries the registry again;
 successful startup does not cache readiness. The probe short-circuits on
 node failure before contacting the authority. See `dependencies_ready` and
-`serve_health` in [`human_owner_mode.rs`](src/human_owner_mode.rs).
+`serve_health` in [`main.rs`](src/main.rs) and the shared
+[`owner_health` handler](src/human_receipt_frame.rs).
 Dependency failure returns 503 with `{"ready":false}`; owner termination stops
 the process. Other admitted paths return 404. The HTTP reader enforces a
 16 KiB header bound and a five-second request deadline.
 
 ## Outbound TLS
 
-`LAYERX_AGENT_HUMAN_AUTHORITY_CA_DER` is required in both modes and names the
-DER-encoded CA file for the Human authority HTTPS endpoint. Full mode also
-requires `LAYERX_AGENT_AUTHORITY_CA_DER` for its Programs node and authority
-clients. Empty or unreadable CA files are refused. The Programs listener,
+`LAYERX_AGENT_HUMAN_AUTHORITY_CA_DER` is required in all modes and names the
+DER-encoded CA file for the Human authority HTTPS endpoint. Full and
+inference-market modes also require `LAYERX_AGENT_AUTHORITY_CA_DER` for Programs
+node and authority clients. Empty or unreadable CA files are refused. The Programs listener,
 node and authority credentials are separate: `LAYERX_AGENT_PROGRAM_BEARER_TOKEN`
 must differ from `LAYERX_AGENT_NODE_BEARER_TOKEN` and
 `LAYERX_AGENT_AUTHORITY_BEARER_TOKEN`, and each must be at least 32 bytes.
@@ -105,4 +115,6 @@ harness accepts its location through `LAYERX_PAXEER_BOUNDARY_BIN`. It launches
 child probes with `LAYERX_TLS_QUAL_ENDPOINT`, `LAYERX_TLS_QUAL_EXPECT` and
 `LAYERX_TLS_QUAL_CA_DER` for trusted, unrelated-root, wrong-hostname,
 missing-root, empty-root and CA-as-server cases. The separate source file
-`src/outbound_tls/tests.rs` is not registered by the current module.
+[`src/outbound_tls/tests.rs`](src/outbound_tls/tests.rs) is registered as
+`outbound_tls::tests`; its in-process TLS tests are described in the
+[TLS test guide](src/outbound_tls/README.md).

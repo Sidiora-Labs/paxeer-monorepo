@@ -2,7 +2,23 @@
 order: 9
 -->
 
-# CLI
+# Client
+
+## CLI
+
+The examples use a local node with a validator signing record. Obtain its
+consensus address from the signing-info query before using the gRPC and REST
+commands:
+
+```bash
+CONS_ADDRESS=$(paxd query slashing signing-info "$(paxd tendermint show-validator)" \
+  --output json | jq -er '.address')
+```
+
+Consensus addresses use the `paxvalcons` prefix configured in
+[`node/params/config.go`](../../../../node/params/config.go). Output examples
+below show illustrative values; `<consensus address>` denotes the queried
+address. Parameter values depend on the selected node and height.
 
 A user can query and interact with the `slashing` module using the CLI.
 
@@ -11,26 +27,26 @@ A user can query and interact with the `slashing` module using the CLI.
 The `query` commands allow users to query `slashing` state.
 
 ```bash
-simd query slashing --help
+paxd query slashing --help
 ```
 
 #### params
 
-The `params` command allows users to query genesis parameters for the slashing module.
+The `params` command allows users to query current parameters for the slashing module.
 
 ```bash
-simd query slashing params [flags]
+paxd query slashing params [flags]
 ```
 
 Example:
 
 ```bash
-simd query slashing params
+paxd query slashing params
 ```
 
 Example Output:
 
-```bash
+```yaml
 downtime_jail_duration: 600s
 min_signed_per_window: "0.500000000000000000"
 signed_blocks_window: "100"
@@ -43,20 +59,20 @@ slash_fraction_downtime: "0.010000000000000000"
 The `signing-info` command allows users to query signing-info of the validator using consensus public key.
 
 ```bash
-simd query slashing signing-infos [flags]
+paxd query slashing signing-info [validator-conspub] [flags]
 ```
 
 Example:
 
 ```bash
-simd query slashing signing-info '{"@type":"/cosmos.crypto.ed25519.PubKey","key":"Auxs3865HpB/EfssYOzfqNhEJjzys6jD5B6tPgC8="}'
+paxd query slashing signing-info "$(paxd tendermint show-validator)"
 
 ```
 
 Example Output:
 
-```bash
-address: cosmosvalcons1nrqsld3aw6lh6t082frdqc84uwxn0t958c
+```yaml
+address: <consensus address>
 index_offset: "2068"
 jailed_until: "1970-01-01T00:00:00Z"
 missed_blocks_counter: "0"
@@ -69,20 +85,20 @@ tombstoned: false
 The `signing-infos` command allows users to query signing infos of all validators.
 
 ```bash
-simd query slashing signing-infos [flags]
+paxd query slashing signing-infos [flags]
 ```
 
 Example:
 
 ```bash
-simd query slashing signing-infos
+paxd query slashing signing-infos
 ```
 
 Example Output:
 
-```bash
+```yaml
 info:
-- address: cosmosvalcons1nrqsld3aw6lh6t082frdqc84uwxn0t958c
+- address: <consensus address>
   index_offset: "2075"
   jailed_until: "1970-01-01T00:00:00Z"
   missed_blocks_counter: "0"
@@ -98,7 +114,7 @@ pagination:
 The `tx` commands allow users to interact with the `slashing` module.
 
 ```bash
-simd tx slashing --help
+paxd tx slashing --help
 ```
 
 #### unjail
@@ -106,13 +122,13 @@ simd tx slashing --help
 The `unjail` command allows users to unjail a validator previously jailed for downtime.
 
 ```bash
-  simd tx slashing unjail --from mykey [flags]
+paxd tx slashing unjail --from mykey [flags]
 ```
 
 Example:
 
 ```bash
-simd tx slashing unjail --from mykey
+paxd tx slashing unjail --from mykey
 ```
 
 ## gRPC
@@ -123,7 +139,7 @@ A user can query the `slashing` module using gRPC endpoints.
 
 The `Params` endpoint allows users to query the parameters of slashing module.
 
-```bash
+```text
 cosmos.slashing.v1beta1.Query/Params
 ```
 
@@ -135,7 +151,7 @@ grpcurl -plaintext localhost:9090 cosmos.slashing.v1beta1.Query/Params
 
 Example Output:
 
-```bash
+```json
 {
   "params": {
     "signedBlocksWindow": "100",
@@ -151,22 +167,22 @@ Example Output:
 
 The SigningInfo queries the signing info of given cons address.
 
-```bash
+```text
 cosmos.slashing.v1beta1.Query/SigningInfo
 ```
 
 Example:
 
 ```bash
-grpcurl -plaintext -d '{"cons_address":"cosmosvalcons1nrqsld3aw6lh6t082frdqc84uwxn0t958c"}' localhost:9090 cosmos.slashing.v1beta1.Query/SigningInfo
+grpcurl -plaintext -d "{\"cons_address\":\"$CONS_ADDRESS\"}" localhost:9090 cosmos.slashing.v1beta1.Query/SigningInfo
 ```
 
 Example Output:
 
-```bash
+```json
 {
   "valSigningInfo": {
-    "address": "cosmosvalcons1nrqsld3aw6lh6t082frdqc84uwxn0t958c",
+    "address": "<consensus address>",
     "indexOffset": "3493",
     "jailedUntil": "1970-01-01T00:00:00Z"
   }
@@ -177,7 +193,7 @@ Example Output:
 
 The SigningInfos queries signing info of all validators.
 
-```bash
+```text
 cosmos.slashing.v1beta1.Query/SigningInfos
 ```
 
@@ -189,11 +205,11 @@ grpcurl -plaintext localhost:9090 cosmos.slashing.v1beta1.Query/SigningInfos
 
 Example Output:
 
-```bash
+```json
 {
   "info": [
     {
-      "address": "cosmosvalcons1nrqslkwd3pz096lh6t082frdqc84uwxn0t958c",
+      "address": "<consensus address>",
       "indexOffset": "2467",
       "jailedUntil": "1970-01-01T00:00:00Z"
     }
@@ -210,7 +226,7 @@ A user can query the `slashing` module using REST endpoints.
 
 ### Params
 
-```bash
+```text
 /cosmos/slashing/v1beta1/params
 ```
 
@@ -222,7 +238,7 @@ curl "localhost:1317/cosmos/slashing/v1beta1/params"
 
 Example Output:
 
-```bash
+```json
 {
   "params": {
     "signed_blocks_window": "100",
@@ -230,27 +246,28 @@ Example Output:
     "downtime_jail_duration": "600s",
     "slash_fraction_double_sign": "0.050000000000000000",
     "slash_fraction_downtime": "0.010000000000000000"
+  }
 }
 ```
 
 ### signing_info
 
-```bash
+```text
 /cosmos/slashing/v1beta1/signing_infos/%s
 ```
 
 Example:
 
 ```bash
-curl "localhost:1317/cosmos/slashing/v1beta1/signing_infos/cosmosvalcons1nrqslkwd3pz096lh6t082frdqc84uwxn0t958c"
+curl "localhost:1317/cosmos/slashing/v1beta1/signing_infos/$CONS_ADDRESS"
 ```
 
 Example Output:
 
-```bash
+```json
 {
   "val_signing_info": {
-    "address": "cosmosvalcons1nrqslkwd3pz096lh6t082frdqc84uwxn0t958c",
+    "address": "<consensus address>",
     "start_height": "0",
     "index_offset": "4184",
     "jailed_until": "1970-01-01T00:00:00Z",
@@ -262,23 +279,23 @@ Example Output:
 
 ### signing_infos
 
-```bash
+```text
 /cosmos/slashing/v1beta1/signing_infos
 ```
 
 Example:
 
 ```bash
-curl "localhost:1317/cosmos/slashing/v1beta1/signing_infos
+curl "localhost:1317/cosmos/slashing/v1beta1/signing_infos"
 ```
 
 Example Output:
 
-```bash
+```json
 {
   "info": [
     {
-      "address": "cosmosvalcons1nrqslkwd3pz096lh6t082frdqc84uwxn0t958c",
+      "address": "<consensus address>",
       "start_height": "0",
       "index_offset": "4169",
       "jailed_until": "1970-01-01T00:00:00Z",

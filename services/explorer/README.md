@@ -14,9 +14,10 @@ Public node JSON-RPC uses the root URL, for example
 `https://api1.mainnet-beta.paxeer.network/`. The public node names are
 `api1.mainnet-beta.paxeer.network` through `api14.mainnet-beta.paxeer.network`
 and `api-mainnet-beta.paxeer.network`. The node namespaces are `debug`, `echo`,
-`eth`, `net`, `pax`, `px`, `test` and `txpool`. The `px` namespace is served
-at the node root from node state; only `px_register` and `px_requestFunds`
-are hosted operations. The gateway's methods have their own
+`eth`, `net`, `pax`, `px`, `test` and `txpool`. The node registers `px` account,
+balance, receipt and consensus reads at the root; asset and history reads use
+its configured indexer. `px_register` and `px_requestFunds` require hosted
+services. The gateway's methods have their own
 [OpenRPC contract](../platform/hosted/gateway/openrpc.json).
 `node.hyperpaxeer.com` is only the hpx library mirror, not an RPC endpoint.
 
@@ -29,7 +30,8 @@ infrastructure; they do not imply another network or a new node process.
 
 ## Components
 
-Paths in this table are relative to the monorepo root.
+Paths in this table are relative to the monorepo root. Revisions identify the
+upstream imports; the fork includes local changes.
 
 | Part | Upstream | Revision |
 | --- | --- | --- |
@@ -37,8 +39,8 @@ Paths in this table are relative to the monorepo root.
 | [`apps/explorer/`](../../apps/explorer/) | blockscout/frontend | tag `v2.7.2`, `446c409eeb54274aab90ff371a705f9699cd84ef` |
 | [`services/explorer/services/`](services/) | blockscout/blockscout-rs | `934a80f42976bac8e13dc45770104a0ede8bd7d7` |
 
-Only the `smart-contract-verifier` and `sig-provider` services were taken from
-`blockscout-rs`, together with the shared `libs` workspace.
+The Rust tree contains `smart-contract-verifier`, `sig-provider` and the shared
+`libs` workspace.
 
 ## Licence boundary
 
@@ -78,21 +80,22 @@ later upstream releases.
 the pinned Elixir builder image, so a compile, a format check and a test suite
 behave the same wherever they run. Call it from the repository root:
 
-```
+```sh
 services/explorer/deploy/tools/mix-in-builder.sh compile
 services/explorer/deploy/tools/mix-in-builder.sh format --check-formatted
 services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/explorer
 ```
 
-It mounts `apps`, `config`, `rel`, `mix.exs`, `mix.lock`, `.formatter.exs` and
-`.credo.exs` into the container, keeps the compiled artefacts in a named volume
-so a rerun does not recompile the dependencies, starts a disposable PostgreSQL
-16 sidecar and joins the mix container to its network namespace so both reach
-the database over the same loopback interface, waits until the database accepts
-a connection over that interface, installs the headless browser driver when the
-run reaches `block_scout_web`, prints the command it resolved with the database
-password redacted, and exits with the mix exit code. The sidecar and its volume
-are removed when the command finishes and when it is interrupted.
+It mounts the backend
+`apps`, `config`, `rel`, `mix.exs`, `mix.lock`, `README.md`, `.formatter.exs` and
+`.credo.exs`, plus the repository precompiles, into the container. It keeps the
+compiled artefacts in a named volume, starts disposable PostgreSQL
+16 and Redis 7.4 sidecars, and joins them and the mix container to the same
+network namespace. It waits for both services before running Mix and installs the
+headless browser driver when the test selection needs `block_scout_web`. It
+prints the command with the database password redacted and exits with the Mix
+exit code. Sidecars and their anonymous volumes are removed on exit unless
+`--reuse-db` is selected.
 
 The builder image is built on demand from
 [`docker/explorer-elixir-builder/Dockerfile`](../../docker/explorer-elixir-builder/Dockerfile)
@@ -108,15 +111,12 @@ Options come before the mix arguments; `--` ends them.
 
 | Option | What it does |
 | --- | --- |
-| `--reuse-db` | reuse the sidecar a previous `--reuse-db` run left behind and leave it running at exit, so a suite can be run twice against one database |
+| `--reuse-db` | Reuse the PostgreSQL and Redis sidecars from a previous `--reuse-db` run and keep them running at exit |
 | `--image <ref>` | run a different builder image reference |
 | `--check` | resolve the container runtime, the image and the mounts, print the command that would run, and exit without starting anything |
 | `-h`, `--help` | print the usage, including every variable below |
 
-Every other invocation gets its own database on purpose: a second `mix test`
-run against a database an earlier run already migrated trips an upstream
-migration-cache defect, which is exactly what `--reuse-db` opts into when a
-suite is deliberately run twice over one database.
+Without `--reuse-db`, each invocation starts fresh database and Redis sidecars.
 
 | Variable | Default |
 | --- | --- |
@@ -125,16 +125,15 @@ suite is deliberately run twice over one database.
 | `MIX_BUILD_VOLUME` | a name derived from the backend path, so two working trees never share one build |
 | `CHAIN_TYPE` | `paxeer_x` |
 | `ETHEREUM_JSONRPC_VARIANT` | `paxeer_x` |
-| `PGUSER`, `PGPASSWORD` | `postgres`, the credentials `backend/apps/explorer/config/test.exs` expects |
+| `PGUSER`, `PGPASSWORD` | Local test database settings from `backend/apps/explorer/config/test.exs` |
 | `MIX_IN_BUILDER_IMAGE` | the same override as `--image` |
 | `MIX_IN_BUILDER_BROWSER_DRIVER` | unset, which lets the script decide from the mix arguments; `1` always installs the driver, `0` never does |
 
 ## Explorer development gates
 
-Two scripts gate a branch before it lands, and both run from the repository
-root:
+The explorer provides two scripts, callable from the repository root:
 
-```
+```sh
 scripts/explorer/gate-test.sh
 scripts/explorer/gate-lint.sh
 ```
@@ -144,9 +143,10 @@ scripts/explorer/gate-lint.sh
 `deploy/tools/mix-in-builder.sh`, one invocation per umbrella application, so
 each application gets the pinned builder image, a database sidecar and a
 virtual machine of its own, which is what its test helper configures; it then
-runs the frontend dependency install, `yarn lint:tsc` and `yarn test:vitest
-run` from `apps/explorer/`, followed by the `sig-provider` workspace tests.
-The frontend install uses `HUSKY=0`.
+runs the frontend dependency install, `yarn lint:tsc` and `yarn test:vitest:ci`
+from `apps/explorer/`, followed by `cargo test --locked --workspace` in each of
+`libs`, `smart-contract-verifier` and `sig-provider`. Rust database tests use
+`DATABASE_URL`. The frontend install uses `HUSKY=0`.
 
 `scripts/explorer/gate-lint.sh` runs `scripts/explorer/lint-backend.sh`,
 `scripts/explorer/lint-frontend.sh` and `scripts/explorer/lint-services.sh` in that
@@ -162,12 +162,13 @@ code of the gate is the exit code of that leg.
 | `EXPLORER_GATE_LOG_DIR` | directory the logs are written to; the default is `build/explorer-gates/` under the repository root, which the gate prints on every run |
 
 Both gates take `--check`, which validates the gate script itself, the
-container runtime, the builder image recipe, the node toolchain and the three
+container runtime, the builder image recipe, the Node toolchain and the three
 lint scripts, prints the log directory and exits without running a suite or a
 check. This validates toolchain resolution; it does not establish that any
-suite passes:
+suite passes. The test script also resolves Cargo and all three Rust workspace
+manifests and lockfiles:
 
-```
+```sh
 scripts/explorer/gate-lint.sh --check
 scripts/explorer/gate-test.sh --check
 ```
@@ -178,21 +179,24 @@ scripts/explorer/gate-test.sh --check
 frontend, the smart contract verifier and the signature provider. The four
 explorer services run the images `.github/workflows/explorer-images.yml`
 publishes to `ghcr.io/sidiora-labs/`, so nothing is compiled locally;
-`EXPLORER_IMAGE_TAG` picks the tag (`latest` by default, `main`, or
-`sha-<short commit>` to pin one build).
+`EXPLORER_IMAGE_TAG` is required and selects a published image tag, such as
+`main` or `sha-<short commit>`.
 
 | Variable | What it is |
 | --- | --- |
+| `EXPLORER_IMAGE_TAG` | Published explorer image tag; required |
 | `RPC_HTTP_URL` | JSON-RPC HTTP endpoint of the node to index; defaults to port 8545 on the Docker host gateway |
 | `RPC_WS_URL` | JSON-RPC websocket endpoint of the same node; same default |
 | `CHAIN_ID` | EIP-155 chain id; set to `125` for mainnet-beta; no Compose default |
 | `SECRET_KEY_BASE` | Phoenix signing secret, at least 64 bytes; no default, `openssl rand -base64 48` produces one |
 
-```
-RPC_HTTP_URL=https://api1.mainnet-beta.paxeer.network/ \
-RPC_WS_URL=wss://api1.mainnet-beta.paxeer.network/ \
-CHAIN_ID=125 SECRET_KEY_BASE="<generated Phoenix signing secret>" \
-  docker compose -f services/explorer/deploy/docker-compose.local.yml up
+```sh
+: "${EXPLORER_IMAGE_TAG:?Set a published explorer image tag}"
+: "${RPC_HTTP_URL:?Set the node HTTP root URL}"
+: "${RPC_WS_URL:?Set the node WebSocket root URL}"
+: "${SECRET_KEY_BASE:?Set the Phoenix signing secret}"
+export EXPLORER_IMAGE_TAG RPC_HTTP_URL RPC_WS_URL SECRET_KEY_BASE
+CHAIN_ID=125 docker compose -f services/explorer/deploy/docker-compose.local.yml up
 ```
 
 The default published backend port is 4000 and frontend port is 3000. Both
@@ -214,7 +218,7 @@ place of a node; `deploy/tools/tests/compose-smoke-test.sh` brings the
 database, that server and the backend up under it. To check the definition
 without starting anything:
 
-```
+```sh
 docker compose -f services/explorer/deploy/docker-compose.local.yml config
 ```
 
@@ -267,7 +271,7 @@ changes no explorer source file passes whatever else it carries.
 passes the merge base of the base branch and the head commit, which is what the
 three-dot form computes:
 
-```
+```sh
 scripts/explorer/test-ratio.sh origin/main...HEAD
 scripts/explorer/test-ratio.sh HEAD~1..HEAD
 scripts/explorer/test-ratio.sh origin/main HEAD
@@ -286,7 +290,7 @@ shell and documentation change and an empty range.
 One script per language, each running exactly what its leg of `explorer-lint`
 runs, each from anywhere in the repository:
 
-```
+```sh
 scripts/explorer/lint-backend.sh
 scripts/explorer/lint-frontend.sh
 scripts/explorer/lint-services.sh
@@ -302,17 +306,3 @@ and its log. `lint-frontend.sh` installs the frozen lockfile and runs
 `cargo fmt --all --check` and `cargo clippy --all-targets --locked -- -D warnings`
 in each Rust service, installing the protocol-buffer compiler and the OpenAPI
 plugin the builds generate from if they are absent.
-
-### Scoped upstream exemptions
-
-A lint finding in a file this fork owns is fixed in the code. A finding
-inherited from vendored upstream code, where fixing it would mean a mass edit of
-files the fork takes from upstream, is silenced only by a scoped configuration
-entry, and that entry carries three things: the exact upstream path or glob it
-covers, the single rule or check it covers, and a one-line reason recorded in
-the configuration file itself - a `.credo.exs` check exclusion, an eslint
-override with an explicit file glob, a `clippy` attribute on the vendored
-module. A rule is never disabled globally, never disabled on a fork-owned file,
-and a job is never marked `continue-on-error` to carry a finding past the gate.
-The test ratio has no exemption: a source file the fork changes arrives with a
-test that references it.
