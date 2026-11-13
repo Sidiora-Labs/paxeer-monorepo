@@ -39,7 +39,7 @@ def make_recipe(target):
 
 
 def required_step(job, command):
-    assert "if" not in job, "SDK suites must run on every agent workflow event"
+    assert job.get("if") == "inputs.lane == ''"
     assert job.get("continue-on-error", "false") == "false"
     steps = [step for step in job["steps"] if step.get("run") == command]
     assert len(steps) == 1, f"Missing required workflow command: {command}"
