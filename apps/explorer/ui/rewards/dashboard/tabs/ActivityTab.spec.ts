@@ -84,11 +84,11 @@ function mountActivity() {
   unexpectedRequests.length = 0;
   cookies.set(cookies.NAMES.API_TOKEN, 'local-profile-fixture', { path: '/' });
   cookies.set(cookies.NAMES.REWARDS_API_TOKEN, token, { path: '/' });
-  window.__NEXT_DATA__ = { props: {}, page: '/account/merits', query: {}, buildId: 'repair-22-33-452' };
+  window.__NEXT_DATA__ = { props: {}, page: '/account/merits', query: {}, buildId: 'rewards-activity' };
   window.__DEV_MIDDLEWARE_MATCHERS = [];
   const router = new Router('/account/merits', {}, '/account/merits', {
     initialProps: {},
-    pageLoader: new PageLoader('repair-22-33-452', ''),
+    pageLoader: new PageLoader('rewards-activity', ''),
     App,
     Component: ActivityTab,
     wrapApp: (component) => component,
