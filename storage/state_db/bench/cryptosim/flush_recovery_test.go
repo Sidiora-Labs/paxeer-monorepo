@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func repair1196Await(t *testing.T, done <-chan struct{}) {
+func flushRecoveryAwait(t *testing.T, done <-chan struct{}) {
 	t.Helper()
 	select {
 	case <-done:
@@ -21,10 +21,10 @@ func repair1196Await(t *testing.T, done <-chan struct{}) {
 	}
 }
 
-func TestRepairM_1196_CancelFlushRecovery(t *testing.T) {
-	cfg := repair1195Config(t)
-	c := repair1195Prepare(t, cfg, nil)
-	repair1195StartWriter(t, c)
+func TestFlushRecoveryCancelFlushRecovery(t *testing.T) {
+	cfg := persistenceConfig(t)
+	c := persistencePrepare(t, cfg, nil)
+	persistenceStartWriter(t, c)
 	c.database.ResetTransactionCount()
 	c.blockBuilder.nextBlockNumber = int64(c.database.nextBlockNumber)
 	blk := c.blockBuilder.buildBlock()
@@ -66,8 +66,8 @@ func TestRepairM_1196_CancelFlushRecovery(t *testing.T) {
 	default:
 	}
 	require.NoError(t, <-barrier.doneChan)
-	repair1196Await(t, handled)
-	repair1196Await(t, closed)
+	flushRecoveryAwait(t, handled)
+	flushRecoveryAwait(t, closed)
 	require.NoError(t, closeErr)
 	require.NoError(t, c.closeErr)
 	require.Equal(t, blk.TransactionCount(), c.database.TransactionCount())
@@ -105,22 +105,22 @@ func TestRepairM_1196_CancelFlushRecovery(t *testing.T) {
 		require.True(t, found, "missing durable transaction key %x", key)
 		require.Equal(t, value, got, "wrong durable transaction value for %x", key)
 	}
-	require.EqualValues(t, blk.NextAccountID(), repair1195Counter(t, durable, AccountIDCounterKey()))
-	require.EqualValues(t, blk.NextErc20ContractID(), repair1195Counter(t, durable, Erc20IDCounterKey()))
-	require.EqualValues(t, blk.BlockNumber()+1, repair1195Counter(t, durable, BlockNumberCounterKey()))
+	require.EqualValues(t, blk.NextAccountID(), persistenceCounter(t, durable, AccountIDCounterKey()))
+	require.EqualValues(t, blk.NextErc20ContractID(), persistenceCounter(t, durable, Erc20IDCounterKey()))
+	require.EqualValues(t, blk.BlockNumber()+1, persistenceCounter(t, durable, BlockNumberCounterKey()))
 	store, err := receipt.NewReceiptStore(dbconfig.ReceiptStoreConfig{
 		DBDirectory: filepath.Join(cfg.DataDir, "receipts"), Backend: "pebbledb",
 	}, nil)
 	require.NoError(t, err)
 	defer func() { require.NoError(t, store.Close()) }()
-	repair1195AssertReceipt(t, store, blk)
+	persistenceAssertReceipt(t, store, blk)
 	require.Equal(t, blk.BlockNumber(), store.LatestVersion())
 }
 
-func TestRepairM_1196_FlushFailureIsExplicit(t *testing.T) {
-	cfg := repair1195Config(t)
+func TestFlushRecoveryFlushFailureIsExplicit(t *testing.T) {
+	cfg := persistenceConfig(t)
 	cfg.GenerateReceipts = false
-	c := repair1195Prepare(t, cfg, nil)
+	c := persistencePrepare(t, cfg, nil)
 	c.database.ResetTransactionCount()
 	initialHeight := c.database.nextBlockNumber
 	initialVersion := c.database.db.Version()
@@ -142,24 +142,24 @@ func TestRepairM_1196_FlushFailureIsExplicit(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { require.NoError(t, backend.Close()) }()
 	durable := NewDatabase(cfg, backend, nil, 0)
-	require.Equal(t, initialHeight, repair1195Counter(t, durable, BlockNumberCounterKey()))
+	require.Equal(t, initialHeight, persistenceCounter(t, durable, BlockNumberCounterKey()))
 	require.Equal(t, initialVersion, backend.Version())
 }
 
-func TestRepairM_1196_ReceiptWorkloadRecovery(t *testing.T) {
+func TestFlushRecoveryReceiptWorkloadRecovery(t *testing.T) {
 	assertReceiptSimulatorBackendWorkload(t)
 }
 
-func TestRepairM_1196_DatabaseCloseFlushFailure(t *testing.T) {
-	cfg := repair1195Config(t)
+func TestFlushRecoveryDatabaseCloseFlushFailure(t *testing.T) {
+	cfg := persistenceConfig(t)
 	cfg.GenerateReceipts = false
-	c := repair1195Prepare(t, cfg, nil)
+	c := persistencePrepare(t, cfg, nil)
 	initialHeight := c.database.nextBlockNumber
 	initialVersion := c.database.db.Version()
 	require.NoError(t, c.executors[0].Close())
 	c.cancel()
 	c.blockBuilder.Start()
-	repair1196Await(t, c.blockBuilder.done)
+	flushRecoveryAwait(t, c.blockBuilder.done)
 
 	// A failed final barrier must reach the caller, while Close still releases
 	// the real store's directory lock so recovery can open it immediately.
@@ -171,5 +171,5 @@ func TestRepairM_1196_DatabaseCloseFlushFailure(t *testing.T) {
 	defer func() { require.NoError(t, backend.Close()) }()
 	require.Equal(t, initialVersion, backend.Version())
 	durable := NewDatabase(cfg, backend, nil, 0)
-	require.Equal(t, initialHeight, repair1195Counter(t, durable, BlockNumberCounterKey()))
+	require.Equal(t, initialHeight, persistenceCounter(t, durable, BlockNumberCounterKey()))
 }

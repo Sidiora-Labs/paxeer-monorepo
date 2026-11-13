@@ -16,7 +16,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/proto"
 )
 
-func repairM1095Snapshot(t *testing.T, count int) []types.SnapshotNode {
+func importFilterSnapshot(t *testing.T, count int) []types.SnapshotNode {
 	t.Helper()
 	cfg := testConfig()
 	cfg.ImportNumWorkers = 1
@@ -53,7 +53,7 @@ func repairM1095Snapshot(t *testing.T, count int) []types.SnapshotNode {
 	return nodes
 }
 
-func repairM1095Import(t *testing.T, store types.StateStore, version int64, nodes []types.SnapshotNode, capacity int) error {
+func importFilterImport(t *testing.T, store types.StateStore, version int64, nodes []types.SnapshotNode, capacity int) error {
 	t.Helper()
 	input := make(chan types.SnapshotNode, capacity)
 	produced := make(chan int, 1)
@@ -91,10 +91,10 @@ func repairM1095Import(t *testing.T, store types.StateStore, version int64, node
 	return err
 }
 
-func TestRepairM_1095_BackendFailureDrainsAndJoins(t *testing.T) {
+func TestImportFilterBackendFailureDrainsAndJoins(t *testing.T) {
 	// The separate importer flushes at 10,000 nodes; leave substantially more
 	// than the filter's 100-node buffer outstanding when that flush fails.
-	nodes := repairM1095Snapshot(t, 12000)
+	nodes := importFilterSnapshot(t, 12000)
 	for _, capacity := range []int{0, 100} {
 		for _, failure := range []string{"closed", "invalid-version"} {
 			t.Run(fmt.Sprintf("%s/input-buffer=%d", failure, capacity), func(t *testing.T) {
@@ -116,16 +116,16 @@ func TestRepairM_1095_BackendFailureDrainsAndJoins(t *testing.T) {
 				// double: the consumer is a real closed store or a real separate
 				// importer whose Pebble batch rejects the negative version.
 				store := &EVMStateStore{managedDBs: []types.StateStore{backend}}
-				err = repairM1095Import(t, store, version, nodes, capacity)
+				err = importFilterImport(t, store, version, nodes, capacity)
 				require.EqualError(t, err, wantError, "preserve the backend's exact failure")
 			})
 		}
 	}
 }
 
-func TestRepairM_1095_BackendEarlyReturnDrainsAndJoins(t *testing.T) {
+func TestImportFilterBackendEarlyReturnDrainsAndJoins(t *testing.T) {
 	t.Cleanup(leaktest.CheckTimeout(t, 5*time.Second))
-	nodes := repairM1095Snapshot(t, 320)
+	nodes := importFilterSnapshot(t, 320)
 	cfg := testConfig()
 	// The real MVCC importer with zero workers returns before reading input.
 	// Exercise cleanup for early nil returns as well as the failures above.
@@ -133,11 +133,11 @@ func TestRepairM_1095_BackendEarlyReturnDrainsAndJoins(t *testing.T) {
 	store, err := NewEVMStateStore(t.TempDir(), cfg)
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, store.Close()) })
-	require.NoError(t, repairM1095Import(t, store, 7, nodes, 0))
+	require.NoError(t, importFilterImport(t, store, 7, nodes, 0))
 }
 
-func TestRepairM_1095_UnifiedImportFiltersAndReopens(t *testing.T) {
-	nodes := repairM1095Snapshot(t, 320)
+func TestImportFilterUnifiedImportFiltersAndReopens(t *testing.T) {
+	nodes := importFilterSnapshot(t, 320)
 	for _, workers := range []int{1, 4} {
 		t.Run(fmt.Sprintf("workers=%d", workers), func(t *testing.T) {
 			t.Cleanup(leaktest.CheckTimeout(t, 5*time.Second))
@@ -151,7 +151,7 @@ func TestRepairM_1095_UnifiedImportFiltersAndReopens(t *testing.T) {
 					require.NoError(t, store.Close())
 				}
 			})
-			require.NoError(t, repairM1095Import(t, store, 7, nodes, 100))
+			require.NoError(t, importFilterImport(t, store, 7, nodes, 100))
 			check := func() {
 				for _, node := range nodes {
 					if node.StoreKey != EVMStoreKey {

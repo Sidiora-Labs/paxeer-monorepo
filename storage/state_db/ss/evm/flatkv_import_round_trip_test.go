@@ -21,7 +21,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/state_db/ss/composite"
 )
 
-func TestRepairM_1095_CompositeFlatKVRoundTrip(t *testing.T) {
+func TestImportFilterCompositeFlatKVRoundTrip(t *testing.T) {
 	t.Cleanup(leaktest.CheckTimeout(t, 5*time.Second))
 	producer, err := flatkv.NewCommitStore(t.Context(), flatconfig.DefaultTestConfig(t))
 	require.NoError(t, err)

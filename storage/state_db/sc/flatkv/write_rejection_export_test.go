@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func repair124Rows(t *testing.T, s *CommitStore) map[string][]byte {
+func collectRawGlobalRows(t *testing.T, s *CommitStore) map[string][]byte {
 	t.Helper()
 	it, err := s.RawGlobalIterator()
 	require.NoError(t, err)
@@ -26,7 +26,7 @@ func repair124Rows(t *testing.T, s *CommitStore) map[string][]byte {
 	return rows
 }
 
-func TestRepair_124_RejectedWrite(t *testing.T) {
+func TestFlatKVStateRejectedWrite(t *testing.T) {
 	for _, withPending := range []bool{false, true} {
 		name := "committed_only"
 		if withPending {
@@ -92,7 +92,7 @@ func TestRepair_124_RejectedWrite(t *testing.T) {
 			require.Equal(t, nonceBytes(wantNonce), value)
 			require.NoError(t, VerifyLtHash(s))
 			verifyPerDBLtHash(t, s)
-			rows := repair124Rows(t, s)
+			rows := collectRawGlobalRows(t, s)
 			root := s.CommittedRootHash()
 			perDB := fullScanPerDBLtHash(t, s)
 
@@ -119,7 +119,7 @@ func TestRepair_124_RejectedWrite(t *testing.T) {
 			recovered := recoveredStore.(*CommitStore)
 			defer func() { require.NoError(t, recovered.Close()) }()
 			require.Equal(t, int64(2), recovered.Version())
-			require.Equal(t, rows, repair124Rows(t, recovered))
+			require.Equal(t, rows, collectRawGlobalRows(t, recovered))
 			require.Equal(t, root, recovered.CommittedRootHash())
 			require.NoError(t, VerifyLtHash(recovered))
 			verifyPerDBLtHash(t, recovered)
@@ -130,6 +130,6 @@ func TestRepair_124_RejectedWrite(t *testing.T) {
 	}
 }
 
-func TestRepair_124_LatestExport(t *testing.T) {
+func TestFlatKVStateLatestExport(t *testing.T) {
 	testLatestExportRoundTrip(t)
 }

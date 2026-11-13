@@ -86,13 +86,13 @@ func assertReceiptSimulatorBackendWorkload(t *testing.T) {
 	defer otel.SetMeterProvider(previous)
 	defer func() { require.NoError(t, provider.Shutdown(context.Background())) }()
 
-	cfg := repair1195Config(t)
+	cfg := persistenceConfig(t)
 	cfg.ReceiptReadConcurrency, cfg.ReceiptLogFilterReadConcurrency = 2, 2
 	cfg.ReceiptReadsPerSecond, cfg.ReceiptLogFilterReadsPerSecond = 200, 200
 	cfg.ReceiptLogFilterMinBlockRange, cfg.ReceiptLogFilterMaxBlockRange = 1, 2
 	metrics := NewCryptosimMetrics(context.Background(), nil, cfg)
-	c := repair1195Prepare(t, cfg, metrics)
-	repair1195StartWriter(t, c)
+	c := persistencePrepare(t, cfg, metrics)
+	persistenceStartWriter(t, c)
 	require.Equal(t, "pebble", receipt.BackendTypeName(c.receiptSimulator.store))
 	c.blockBuilder.nextBlockNumber = int64(c.database.nextBlockNumber)
 	var blocks []*block
@@ -108,7 +108,7 @@ func assertReceiptSimulatorBackendWorkload(t *testing.T) {
 	// Observe the configured ticker goroutines themselves, rather than
 	// manually invoking the read functions or counting ring samples.
 	require.Eventually(t, func() bool {
-		values := repair1195Metrics(t, reader)
+		values := persistenceMetrics(t, reader)
 		return values["cryptosim_receipt_reads_found_total"] > 0 &&
 			values["cryptosim_receipt_log_filter_unsupported_total"] > 0
 	}, 5*time.Second, time.Millisecond)
@@ -120,7 +120,7 @@ func assertReceiptSimulatorBackendWorkload(t *testing.T) {
 				return err == nil
 			}, 5*time.Second, time.Millisecond)
 		}
-		repair1195AssertReceipt(t, c.receiptSimulator.store, blk)
+		persistenceAssertReceipt(t, c.receiptSimulator.store, blk)
 	}
 
 	// The actual backend's refused shape must be visible as a refusal, never
@@ -136,7 +136,7 @@ func assertReceiptSimulatorBackendWorkload(t *testing.T) {
 	c.blockBuilder.Start()
 	c.teardown()
 	require.NoError(t, c.Close())
-	values := repair1195Metrics(t, reader)
+	values := persistenceMetrics(t, reader)
 	require.EqualValues(t, len(blocks)*cfg.TransactionsPerBlock, values["cryptosim_receipts_written_total"])
 	require.EqualValues(t, len(blocks), values["cryptosim_receipt_block_write_duration_seconds"])
 	require.Positive(t, values["cryptosim_receipt_reads_found_total"])
@@ -155,7 +155,7 @@ func assertReceiptSimulatorBackendWorkload(t *testing.T) {
 	defer func() { require.NoError(t, store.Close()) }()
 	require.Equal(t, last.BlockNumber(), store.LatestVersion())
 	for _, blk := range blocks {
-		repair1195AssertReceipt(t, store, blk)
+		persistenceAssertReceipt(t, store, blk)
 		for _, expected := range blk.reciepts {
 			actual, err := store.GetReceipt(c.receiptSimulator.readContext, common.HexToHash(expected.TxHashHex))
 			require.NoError(t, err)

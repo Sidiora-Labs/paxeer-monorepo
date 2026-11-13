@@ -15,7 +15,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/state_db/sc/types"
 )
 
-func TestRepairM_1200_UnloadedReads(t *testing.T) {
+func TestReadAndExportUnloadedReads(t *testing.T) {
 	cs := NewCommitStore(t.TempDir(), DefaultConfig())
 	require.NoError(t, cs.Initialize([]string{"params"}))
 	for name, store := range map[string]*CommitStore{"nil": nil, "before-load": cs} {
@@ -57,7 +57,7 @@ func TestRepairM_1200_UnloadedReads(t *testing.T) {
 	}
 }
 
-func TestRepairM_1200_UnroutableRead(t *testing.T) {
+func TestReadAndExportUnroutableRead(t *testing.T) {
 	cs := NewCommitStore(t.TempDir(), Config{AsyncCommitBuffer: -1})
 	require.NoError(t, cs.Initialize([]string{"params", "empty", "empty-value"}))
 	reader, err := cs.LoadVersion(0, false)
@@ -153,7 +153,7 @@ func TestRepairM_1200_UnroutableRead(t *testing.T) {
 	}
 }
 
-func repair1200Tree(t *testing.T, leaves int) *Tree {
+func readExportTree(t *testing.T, leaves int) *Tree {
 	t.Helper()
 	tree := New(0)
 	t.Cleanup(func() { require.NoError(t, tree.Close()) })
@@ -165,7 +165,7 @@ func repair1200Tree(t *testing.T, leaves int) *Tree {
 	return tree
 }
 
-func repair1200Await(t *testing.T, done <-chan struct{}, operation string) {
+func readExportAwait(t *testing.T, done <-chan struct{}, operation string) {
 	t.Helper()
 	select {
 	case <-done:
@@ -174,8 +174,8 @@ func repair1200Await(t *testing.T, done <-chan struct{}, operation string) {
 	}
 }
 
-func TestRepairM_1200_ScanStopConvention(t *testing.T) {
-	tree := repair1200Tree(t, 32768)
+func TestReadAndExportScanStopConvention(t *testing.T) {
+	tree := readExportTree(t, 32768)
 	for _, stop := range []int{1, 2, 3, 17, 64} {
 		calls := 0
 		tree.ScanPostOrder(func(node Node) bool {
@@ -201,15 +201,15 @@ func TestRepairM_1200_ScanStopConvention(t *testing.T) {
 	_, err := exporter.Next()
 	require.ErrorIs(t, err, errorutils.ErrorExportDone)
 	for _, leaves := range []int{0, 1} {
-		small := repair1200Tree(t, leaves)
+		small := readExportTree(t, leaves)
 		calls := 0
 		small.ScanPostOrder(func(Node) bool { calls++; return true })
 		require.Equal(t, leaves, calls)
 	}
 }
 
-func TestRepairM_1200_ExportCancellation(t *testing.T) {
-	tree := repair1200Tree(t, 32768)
+func TestReadAndExportExportCancellation(t *testing.T) {
+	tree := readExportTree(t, 32768)
 	var calls atomic.Int64
 	blocked := make(chan struct{})
 	exporter := newExporter(func(callback func(*types.SnapshotNode) bool) {
@@ -221,13 +221,13 @@ func TestRepairM_1200_ExportCancellation(t *testing.T) {
 		})
 	})
 	defer exporter.Close()
-	repair1200Await(t, blocked, "export reaching channel backpressure")
+	readExportAwait(t, blocked, "export reaching channel backpressure")
 	wrote := make(chan struct{})
 	go func() { tree.Set([]byte("after-close"), []byte("written")); close(wrote) }()
 	closed := make(chan struct{})
 	go func() { exporter.Close(); close(closed) }()
-	repair1200Await(t, closed, "canceled export")
-	repair1200Await(t, wrote, "write after canceled export")
+	readExportAwait(t, closed, "canceled export")
+	readExportAwait(t, wrote, "write after canceled export")
 	require.GreaterOrEqual(t, calls.Load(), int64(exportBufferSize+1))
 	require.LessOrEqual(t, calls.Load(), int64(exportBufferSize+2), "cancellation must bound callbacks independently of tree size")
 	require.Equal(t, []byte("written"), tree.Get([]byte("after-close")))
@@ -245,18 +245,18 @@ func TestRepairM_1200_ExportCancellation(t *testing.T) {
 	go func() { tree.Set([]byte("after-direct-close"), []byte("written")); close(wrote) }()
 	closed = make(chan struct{})
 	go func() { direct.Close(); close(closed) }()
-	repair1200Await(t, closed, "Tree.Export close")
-	repair1200Await(t, wrote, "write after Tree.Export close")
+	readExportAwait(t, closed, "Tree.Export close")
+	readExportAwait(t, wrote, "write after Tree.Export close")
 	require.Equal(t, []byte("written"), tree.Get([]byte("after-direct-close")))
 	_, err = direct.Next()
 	require.ErrorIs(t, err, errorutils.ErrorExportDone)
 	direct.Close()
 }
 
-func TestRepairM_1200_SnapshotExportConvention(t *testing.T) {
+func TestReadAndExportSnapshotExportConvention(t *testing.T) {
 	for _, leaves := range []int{0, 1, 32768} {
 		t.Run(fmt.Sprint(leaves), func(t *testing.T) {
-			tree := repair1200Tree(t, leaves)
+			tree := readExportTree(t, leaves)
 			dir := t.TempDir()
 			require.NoError(t, tree.WriteSnapshot(context.Background(), dir))
 			snapshot, err := OpenSnapshot(dir, Options{})
@@ -309,11 +309,11 @@ func TestRepairM_1200_SnapshotExportConvention(t *testing.T) {
 			})
 			defer counted.Close()
 			if total > exportBufferSize {
-				repair1200Await(t, blocked, "snapshot export reaching backpressure")
+				readExportAwait(t, blocked, "snapshot export reaching backpressure")
 			}
 			closed := make(chan struct{})
 			go func() { counted.Close(); close(closed) }()
-			repair1200Await(t, closed, "snapshot export close")
+			readExportAwait(t, closed, "snapshot export close")
 			require.LessOrEqual(t, calls.Load(), int64(exportBufferSize+2))
 			early := persisted.Export()
 			defer early.Close()
@@ -321,7 +321,7 @@ func TestRepairM_1200_SnapshotExportConvention(t *testing.T) {
 			require.NoError(t, err)
 			closed = make(chan struct{})
 			go func() { early.Close(); close(closed) }()
-			repair1200Await(t, closed, "snapshot-backed Tree.Export close")
+			readExportAwait(t, closed, "snapshot-backed Tree.Export close")
 			persisted.Set([]byte("after-snapshot-close"), []byte("written"))
 			require.Equal(t, []byte("written"), persisted.Get([]byte("after-snapshot-close")))
 			_, err = early.Next()

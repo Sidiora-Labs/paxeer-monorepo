@@ -18,7 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func repair1199Buffers(t *testing.T) {
+func resourceLifecycleBuffers(t *testing.T) {
 	t.Helper()
 	nodes, buffer := nodeChanSize, bufIOSize
 	SetPipelineBufferSize(100)
@@ -26,7 +26,7 @@ func repair1199Buffers(t *testing.T) {
 	t.Cleanup(func() { nodeChanSize, bufIOSize = nodes, buffer })
 }
 
-func repair1199Open(t *testing.T, opts Options) *DB {
+func resourceLifecycleOpen(t *testing.T, opts Options) *DB {
 	t.Helper()
 	db, err := OpenDB(0, opts)
 	require.NoError(t, err)
@@ -34,14 +34,14 @@ func repair1199Open(t *testing.T, opts Options) *DB {
 	return db
 }
 
-func repair1199Set(t *testing.T, db *DB, name, value string) {
+func resourceLifecycleSet(t *testing.T, db *DB, name, value string) {
 	t.Helper()
 	require.NoError(t, db.ApplyChangeSet(name, proto.ChangeSet{Pairs: []*proto.KVPair{
 		{Key: []byte("key"), Value: []byte(value)},
 	}}))
 }
 
-func repair1199NoOpenResources(t *testing.T, dir string) {
+func resourceLifecycleNoOpenResources(t *testing.T, dir string) {
 	t.Helper()
 	fds, err := os.ReadDir("/proc/self/fd")
 	require.NoError(t, err)
@@ -58,20 +58,20 @@ func repair1199NoOpenResources(t *testing.T, dir string) {
 	require.NotContains(t, string(maps), dir+string(os.PathSeparator), "failed open retained a mapping")
 }
 
-func TestRepairM_1199_RetirementTestContract(t *testing.T) {
+func TestResourceLifecycleRetirementTestContract(t *testing.T) {
 	TestApplyUpgradesDeletesAnchorTreeAndKeepsMergeTrees(t)
 }
 
-func TestRepairM_1199_DeleteTreeRelease(t *testing.T) {
+func TestResourceLifecycleDeleteTreeRelease(t *testing.T) {
 	TestSnapshotBackedDeletionReleasesOwnership(t)
 }
 
-func TestRepairM_1199_OpenErrorCleanup(t *testing.T) {
-	repair1199Buffers(t)
+func TestResourceLifecycleOpenErrorCleanup(t *testing.T) {
+	resourceLifecycleBuffers(t)
 	t.Run("pruned-target", func(t *testing.T) {
 		dir := t.TempDir()
-		db := repair1199Open(t, Options{Dir: dir, CreateIfMissing: true, InitialVersion: 100, InitialStores: []string{"test"}})
-		repair1199Set(t, db, "test", "survives")
+		db := resourceLifecycleOpen(t, Options{Dir: dir, CreateIfMissing: true, InitialVersion: 100, InitialStores: []string{"test"}})
+		resourceLifecycleSet(t, db, "test", "survives")
 		version, err := db.Commit()
 		require.NoError(t, err)
 		require.Equal(t, int64(100), version)
@@ -82,15 +82,15 @@ func TestRepairM_1199_OpenErrorCleanup(t *testing.T) {
 		failed, err := OpenDB(1, Options{Dir: dir})
 		require.Nil(t, failed)
 		require.ErrorContains(t, err, "target version is pruned")
-		repair1199NoOpenResources(t, dir)
-		reopened := repair1199Open(t, Options{Dir: dir})
+		resourceLifecycleNoOpenResources(t, dir)
+		reopened := resourceLifecycleOpen(t, Options{Dir: dir})
 		require.Equal(t, version, reopened.Version())
 		require.Equal(t, hash, reopened.TreeByName("test").RootHash())
 		require.Equal(t, []byte("survives"), reopened.TreeByName("test").Get([]byte("key")))
 	})
 	t.Run("drifted-rollback", func(t *testing.T) {
 		dir := t.TempDir()
-		db := repair1199Open(t, Options{Dir: dir, CreateIfMissing: true, InitialStores: []string{"test"}})
+		db := resourceLifecycleOpen(t, Options{Dir: dir, CreateIfMissing: true, InitialStores: []string{"test"}})
 		for i := 0; i < 3; i++ {
 			require.NoError(t, db.ApplyChangeSet("test", ChangeSets[i]))
 			_, err := db.Commit()
@@ -114,11 +114,11 @@ func TestRepairM_1199_OpenErrorCleanup(t *testing.T) {
 		failed, err := OpenDB(3, Options{Dir: dir, LoadForOverwriting: true})
 		require.Nil(t, failed)
 		require.ErrorContains(t, err, "index offset is inconsistent")
-		repair1199NoOpenResources(t, dir)
+		resourceLifecycleNoOpenResources(t, dir)
 		current, err := os.Readlink(currentPath(dir))
 		require.NoError(t, err)
 		require.Equal(t, previous, current)
-		reopened := repair1199Open(t, Options{Dir: dir})
+		reopened := resourceLifecycleOpen(t, Options{Dir: dir})
 		require.Equal(t, int64(4), reopened.Version())
 		require.Equal(t, hash, reopened.TreeByName("test").RootHash())
 		last, err := reopened.GetWAL().LastOffset()
@@ -127,9 +127,9 @@ func TestRepairM_1199_OpenErrorCleanup(t *testing.T) {
 	})
 	t.Run("partial-snapshot-load", func(t *testing.T) {
 		dir := t.TempDir()
-		db := repair1199Open(t, Options{Dir: dir, CreateIfMissing: true, InitialStores: []string{"a", "z"}})
+		db := resourceLifecycleOpen(t, Options{Dir: dir, CreateIfMissing: true, InitialStores: []string{"a", "z"}})
 		for _, name := range []string{"a", "z"} {
-			repair1199Set(t, db, name, name)
+			resourceLifecycleSet(t, db, name, name)
 		}
 		_, err := db.Commit()
 		require.NoError(t, err)
@@ -142,17 +142,17 @@ func TestRepairM_1199_OpenErrorCleanup(t *testing.T) {
 		failed, err := OpenDB(0, Options{Dir: dir})
 		require.Nil(t, failed)
 		require.ErrorContains(t, err, "metadata file size")
-		repair1199NoOpenResources(t, dir)
+		resourceLifecycleNoOpenResources(t, dir)
 		require.NoError(t, os.WriteFile(metadataPath, metadata, 0600))
-		reopened := repair1199Open(t, Options{Dir: dir})
+		reopened := resourceLifecycleOpen(t, Options{Dir: dir})
 		for _, name := range []string{"a", "z"} {
 			require.Equal(t, []byte(name), reopened.TreeByName(name).Get([]byte("key")))
 		}
 	})
 	t.Run("wal-open-error", func(t *testing.T) {
 		dir := t.TempDir()
-		db := repair1199Open(t, Options{Dir: dir, CreateIfMissing: true, InitialStores: []string{"test"}})
-		repair1199Set(t, db, "test", "snapshot")
+		db := resourceLifecycleOpen(t, Options{Dir: dir, CreateIfMissing: true, InitialStores: []string{"test"}})
+		resourceLifecycleSet(t, db, "test", "snapshot")
 		_, err := db.Commit()
 		require.NoError(t, err)
 		require.NoError(t, db.RewriteSnapshot(context.Background()))
@@ -163,27 +163,27 @@ func TestRepairM_1199_OpenErrorCleanup(t *testing.T) {
 		failed, err := OpenDB(0, Options{Dir: dir})
 		require.Nil(t, failed)
 		require.ErrorContains(t, err, "failed to open changelog WAL")
-		repair1199NoOpenResources(t, dir)
+		resourceLifecycleNoOpenResources(t, dir)
 		require.NoError(t, os.Remove(logPath))
 		require.NoError(t, os.Rename(logPath+"-saved", logPath))
-		reopened := repair1199Open(t, Options{Dir: dir})
+		reopened := resourceLifecycleOpen(t, Options{Dir: dir})
 		require.Equal(t, []byte("snapshot"), reopened.TreeByName("test").Get([]byte("key")))
 	})
 }
 
-func TestRepairM_1199_StaleCurrentLink(t *testing.T) {
-	repair1199Buffers(t)
+func TestResourceLifecycleStaleCurrentLink(t *testing.T) {
+	resourceLifecycleBuffers(t)
 	dir := t.TempDir()
-	db := repair1199Open(t, Options{Dir: dir, CreateIfMissing: true, InitialStores: []string{"test"}})
-	repair1199Set(t, db, "test", "before")
+	db := resourceLifecycleOpen(t, Options{Dir: dir, CreateIfMissing: true, InitialStores: []string{"test"}})
+	resourceLifecycleSet(t, db, "test", "before")
 	_, err := db.Commit()
 	require.NoError(t, err)
 	require.NoError(t, db.RewriteSnapshot(context.Background()))
 	require.NoError(t, db.Close())
 	require.NoError(t, os.Symlink(snapshotName(999), currentTmpPath(dir)))
-	restarted := repair1199Open(t, Options{Dir: dir})
+	restarted := resourceLifecycleOpen(t, Options{Dir: dir})
 	require.Equal(t, []byte("before"), restarted.TreeByName("test").Get([]byte("key")))
-	repair1199Set(t, restarted, "test", "after")
+	resourceLifecycleSet(t, restarted, "test", "after")
 	_, err = restarted.Commit()
 	require.NoError(t, err)
 	hash := restarted.TreeByName("test").RootHash()
@@ -194,7 +194,7 @@ func TestRepairM_1199_StaleCurrentLink(t *testing.T) {
 	_, err = os.Lstat(currentTmpPath(dir))
 	require.True(t, os.IsNotExist(err))
 	require.NoError(t, restarted.Close())
-	reopened := repair1199Open(t, Options{Dir: dir})
+	reopened := resourceLifecycleOpen(t, Options{Dir: dir})
 	require.Equal(t, int64(2), reopened.SnapshotVersion())
 	require.Equal(t, hash, reopened.TreeByName("test").RootHash())
 	require.Equal(t, []byte("after"), reopened.TreeByName("test").Get([]byte("key")))
@@ -221,7 +221,7 @@ func TestRepairM_1199_StaleCurrentLink(t *testing.T) {
 	require.Equal(t, snapshotName(2), current)
 }
 
-func repair1199WaitImporter(t *testing.T, importer *TreeImporter) {
+func resourceLifecycleWaitImporter(t *testing.T, importer *TreeImporter) {
 	t.Helper()
 	select {
 	case <-importer.done:
@@ -230,8 +230,8 @@ func repair1199WaitImporter(t *testing.T, importer *TreeImporter) {
 	}
 }
 
-func TestRepairM_1199_ImportErrorBackpressure(t *testing.T) {
-	repair1199Buffers(t)
+func TestResourceLifecycleImportErrorBackpressure(t *testing.T) {
+	resourceLifecycleBuffers(t)
 	for _, failure := range []string{"filesystem", "version"} {
 		t.Run(failure, func(t *testing.T) {
 			dir := t.TempDir()
@@ -243,7 +243,7 @@ func TestRepairM_1199_ImportErrorBackpressure(t *testing.T) {
 				path = filepath.Join(path, "child")
 			}
 			importer := NewTreeImporter(context.Background(), path, version)
-			repair1199WaitImporter(t, importer)
+			resourceLifecycleWaitImporter(t, importer)
 			first := importer.err
 			require.Error(t, first)
 			result := make(chan error, 1)
@@ -272,14 +272,14 @@ func TestRepairM_1199_ImportErrorBackpressure(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, os.WriteFile(importer.tmpDir(), []byte("not a directory"), 0600))
 		require.NoError(t, importer.AddModule("test"))
-		repair1199WaitImporter(t, importer.importer)
+		resourceLifecycleWaitImporter(t, importer.importer)
 		first := importer.importer.err
 		require.Error(t, first)
 		for i := 0; i < nodeChanSize+32; i++ {
 			require.ErrorIs(t, importer.Add(&types.SnapshotNode{Key: []byte("key"), Version: 1}), first)
 		}
 		require.ErrorIs(t, importer.Close(), first)
-		repair1199NoOpenResources(t, dir)
+		resourceLifecycleNoOpenResources(t, dir)
 		_, err = os.Lstat(currentPath(dir))
 		require.True(t, os.IsNotExist(err))
 		retry, err := NewMultiTreeImporter(dir, 1)
@@ -287,7 +287,7 @@ func TestRepairM_1199_ImportErrorBackpressure(t *testing.T) {
 		require.NoError(t, retry.AddModule("test"))
 		require.NoError(t, retry.Add(&types.SnapshotNode{Key: []byte("key"), Value: []byte("retried"), Version: 1}))
 		require.NoError(t, retry.Close())
-		db := repair1199Open(t, Options{Dir: dir})
+		db := resourceLifecycleOpen(t, Options{Dir: dir})
 		require.Equal(t, []byte("retried"), db.TreeByName("test").Get([]byte("key")))
 	})
 	t.Run("idle-cancellation", func(t *testing.T) {
@@ -303,17 +303,17 @@ func TestRepairM_1199_ImportErrorBackpressure(t *testing.T) {
 			return err == nil
 		}, 3*time.Second, time.Millisecond)
 		cancel()
-		repair1199WaitImporter(t, importer.importer)
+		resourceLifecycleWaitImporter(t, importer.importer)
 		require.ErrorIs(t, importer.Add(&types.SnapshotNode{Key: []byte("key"), Version: 1}), context.Canceled)
 		require.ErrorIs(t, importer.Close(), context.Canceled)
 		require.ErrorIs(t, importer.Close(), context.Canceled)
 		_, err = os.Lstat(currentPath(dir))
 		require.True(t, os.IsNotExist(err))
-		repair1199NoOpenResources(t, dir)
+		resourceLifecycleNoOpenResources(t, dir)
 	})
 }
 
-func repair1199Export(t *testing.T) (*Tree, []*types.SnapshotNode) {
+func resourceLifecycleExport(t *testing.T) (*Tree, []*types.SnapshotNode) {
 	t.Helper()
 	tree := New(0)
 	t.Cleanup(func() { require.NoError(t, tree.Close()) })
@@ -340,9 +340,9 @@ func repair1199Export(t *testing.T) (*Tree, []*types.SnapshotNode) {
 	return tree, nodes
 }
 
-func TestRepairM_1199_ImportStackValidation(t *testing.T) {
-	repair1199Buffers(t)
-	tree, nodes := repair1199Export(t)
+func TestResourceLifecycleImportStackValidation(t *testing.T) {
+	resourceLifecycleBuffers(t)
+	tree, nodes := resourceLifecycleExport(t)
 	root := len(nodes) - 1
 	require.Positive(t, nodes[root].Height)
 	require.Zero(t, nodes[0].Height)
@@ -393,7 +393,7 @@ func TestRepairM_1199_ImportStackValidation(t *testing.T) {
 				_, err := os.Lstat(path)
 				require.True(t, os.IsNotExist(err), "malformed snapshot published or retained: %s", path)
 			}
-			repair1199NoOpenResources(t, dir)
+			resourceLifecycleNoOpenResources(t, dir)
 		})
 	}
 	t.Run("valid-producer-consumer", func(t *testing.T) {
@@ -405,7 +405,7 @@ func TestRepairM_1199_ImportStackValidation(t *testing.T) {
 			require.NoError(t, importer.Add(node))
 		}
 		require.NoError(t, importer.Close())
-		db := repair1199Open(t, Options{Dir: dir})
+		db := resourceLifecycleOpen(t, Options{Dir: dir})
 		require.Equal(t, tree.Version(), db.Version())
 		require.Equal(t, tree.RootHash(), db.TreeByName("test").RootHash())
 		for _, key := range []string{"a", "b", "d", "e", "f", "g", "h"} {
@@ -418,8 +418,8 @@ func TestRepairM_1199_ImportStackValidation(t *testing.T) {
 	})
 }
 
-func TestRepairM_1199_ZeroRateConfig(t *testing.T) {
-	repair1199Buffers(t)
+func TestResourceLifecycleZeroRateConfig(t *testing.T) {
+	resourceLifecycleBuffers(t)
 	for _, rate := range []int{0, DefaultSnapshotWriteRateMBps, 7} {
 		t.Run(fmt.Sprint(rate), func(t *testing.T) {
 			config := DefaultConfig()
@@ -461,8 +461,8 @@ func TestRepairM_1199_ZeroRateConfig(t *testing.T) {
 	}
 }
 
-func TestRepairM_1199_EmptyMembershipProof(t *testing.T) {
-	repair1199Buffers(t)
+func TestResourceLifecycleEmptyMembershipProof(t *testing.T) {
+	resourceLifecycleBuffers(t)
 	tree := New(0)
 	t.Cleanup(func() { require.NoError(t, tree.Close()) })
 	proof, err := tree.GetMembershipProof([]byte("a"))

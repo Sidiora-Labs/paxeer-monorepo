@@ -14,7 +14,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/wal"
 )
 
-func repair125Open(t *testing.T, opts Options) *DB {
+func walUpgradeOpen(t *testing.T, opts Options) *DB {
 	t.Helper()
 	db, err := OpenDB(0, opts)
 	require.NoError(t, err)
@@ -22,7 +22,7 @@ func repair125Open(t *testing.T, opts Options) *DB {
 	return db
 }
 
-func repair125Set(name, key, value string) *proto.NamedChangeSet {
+func walUpgradeSet(name, key, value string) *proto.NamedChangeSet {
 	return &proto.NamedChangeSet{
 		Name: name,
 		Changeset: proto.ChangeSet{Pairs: []*proto.KVPair{
@@ -31,14 +31,14 @@ func repair125Set(name, key, value string) *proto.NamedChangeSet {
 	}
 }
 
-func repair125Pending(t *testing.T, db *DB) []byte {
+func walUpgradePending(t *testing.T, db *DB) []byte {
 	t.Helper()
 	bz, err := db.pendingLogEntry.Marshal()
 	require.NoError(t, err)
 	return bz
 }
 
-func repair125AssertCommit(t *testing.T, db *DB, expected proto.CommitInfo) {
+func walUpgradeAssertCommit(t *testing.T, db *DB, expected proto.CommitInfo) {
 	t.Helper()
 	require.Equal(t, expected, *db.LastCommitInfo())
 	require.Equal(t, expected.Version, db.Version())
@@ -53,7 +53,7 @@ func repair125AssertCommit(t *testing.T, db *DB, expected proto.CommitInfo) {
 	}
 }
 
-func TestRepair_125_UpgradeIdempotence(t *testing.T) {
+func TestWALUpgradeReplayUpgradeIdempotence(t *testing.T) {
 	for _, initial := range []uint32{0, 100} {
 		t.Run(fmt.Sprint(initial), func(t *testing.T) {
 			cs := NewCommitStore(t.TempDir(), Config{AsyncCommitBuffer: 0})
@@ -64,7 +64,7 @@ func TestRepair_125_UpgradeIdempotence(t *testing.T) {
 			require.NoError(t, err)
 			for _, name := range []string{"bank", "layerxanchor", "legacy"} {
 				require.NoError(t, committer.ApplyChangeSets([]*proto.NamedChangeSet{
-					repair125Set(name, "retained", name),
+					walUpgradeSet(name, "retained", name),
 				}))
 			}
 			_, err = committer.Commit()
@@ -83,7 +83,7 @@ func TestRepair_125_UpgradeIdempotence(t *testing.T) {
 			require.NoError(t, committer.ApplyUpgrades(plan))
 			for _, name := range mergeNames {
 				require.NoError(t, committer.ApplyChangeSets([]*proto.NamedChangeSet{
-					repair125Set(name, "retained", name),
+					walUpgradeSet(name, "retained", name),
 				}))
 			}
 			programs := cs.db.TreeByName(keys.LayerXProgramsStoreKey)
@@ -104,7 +104,7 @@ func TestRepair_125_UpgradeIdempotence(t *testing.T) {
 
 			committer, err = cs.LoadVersion(0, false)
 			require.NoError(t, err)
-			repair125AssertCommit(t, cs.db, expected)
+			walUpgradeAssertCommit(t, cs.db, expected)
 			require.NoError(t, committer.ApplyUpgrades(plan))
 			require.NoError(t, committer.ApplyUpgrades(retire))
 			_, err = committer.Commit()
@@ -123,7 +123,7 @@ func TestRepair_125_UpgradeIdempotence(t *testing.T) {
 			committer, err = cs.LoadVersion(0, false)
 			require.NoError(t, err)
 			require.Equal(t, expected.Version, cs.db.SnapshotVersion())
-			repair125AssertCommit(t, cs.db, expected)
+			walUpgradeAssertCommit(t, cs.db, expected)
 			require.NoError(t, committer.ApplyUpgrades(plan))
 			require.NoError(t, committer.ApplyUpgrades(retire))
 			_, err = committer.Commit()
@@ -132,20 +132,20 @@ func TestRepair_125_UpgradeIdempotence(t *testing.T) {
 			require.NoError(t, cs.Close())
 			_, err = cs.LoadVersion(0, false)
 			require.NoError(t, err)
-			repair125AssertCommit(t, cs.db, expected)
+			walUpgradeAssertCommit(t, cs.db, expected)
 			require.Equal(t, bankHash, cs.db.TreeByName("bank").RootHash())
 			require.Equal(t, legacyHash, cs.db.TreeByName("renamed").RootHash())
 		})
 	}
 }
 
-func TestRepair_125_UpgradePlanAtomicity(t *testing.T) {
-	db := repair125Open(t, Options{
+func TestWALUpgradeReplayUpgradePlanAtomicity(t *testing.T) {
+	db := walUpgradeOpen(t, Options{
 		Dir: t.TempDir(), CreateIfMissing: true,
 		InitialStores: []string{"bank", "layerxanchor", "legacy"},
 	})
 	for _, name := range []string{"bank", "layerxanchor", "legacy"} {
-		require.NoError(t, db.ApplyChangeSets([]*proto.NamedChangeSet{repair125Set(name, "key", name)}))
+		require.NoError(t, db.ApplyChangeSets([]*proto.NamedChangeSet{walUpgradeSet(name, "key", name)}))
 	}
 	_, err := db.Commit()
 	require.NoError(t, err)
@@ -156,7 +156,7 @@ func TestRepair_125_UpgradePlanAtomicity(t *testing.T) {
 		{Name: "bank", RenameFrom: "renamed"},
 	} {
 		before := cloneCommitInfo(db.WorkingCommitInfo())
-		pending := repair125Pending(t, db)
+		pending := walUpgradePending(t, db)
 		bank, anchor, legacy := db.TreeByName("bank"), db.TreeByName("layerxanchor"), db.TreeByName("legacy")
 		err := db.ApplyUpgrades([]*proto.TreeNameUpgrade{
 			{Name: "layerxanchor", Delete: true},
@@ -164,7 +164,7 @@ func TestRepair_125_UpgradePlanAtomicity(t *testing.T) {
 			{Name: "transient"}, failure,
 		})
 		require.Error(t, err)
-		require.Equal(t, pending, repair125Pending(t, db))
+		require.Equal(t, pending, walUpgradePending(t, db))
 		require.Equal(t, before, *db.WorkingCommitInfo())
 		require.Same(t, bank, db.TreeByName("bank"))
 		require.Same(t, anchor, db.TreeByName("layerxanchor"))
@@ -173,24 +173,24 @@ func TestRepair_125_UpgradePlanAtomicity(t *testing.T) {
 		require.Nil(t, db.TreeByName("transient"))
 		require.Nil(t, db.TreeByName("never"))
 	}
-	require.NoError(t, db.ApplyChangeSets([]*proto.NamedChangeSet{repair125Set("bank", "valid", "after-error")}))
+	require.NoError(t, db.ApplyChangeSets([]*proto.NamedChangeSet{walUpgradeSet("bank", "valid", "after-error")}))
 	_, err = db.Commit()
 	require.NoError(t, err)
 	expected := cloneCommitInfo(db.LastCommitInfo())
 	dir := db.dir
 	require.NoError(t, db.Close())
-	db = repair125Open(t, Options{Dir: dir})
-	repair125AssertCommit(t, db, expected)
+	db = walUpgradeOpen(t, Options{Dir: dir})
+	walUpgradeAssertCommit(t, db, expected)
 	require.Equal(t, []byte("after-error"), db.TreeByName("bank").Get([]byte("valid")))
 	require.NotNil(t, db.TreeByName("accepted"))
 	require.NotNil(t, db.TreeByName("layerxanchor"))
 	require.NotNil(t, db.TreeByName("legacy"))
 }
 
-func TestRepair_125_DuplicateStoreReplay(t *testing.T) {
+func TestWALUpgradeReplayDuplicateStoreReplay(t *testing.T) {
 	for _, initial := range []uint32{0, 100} {
 		t.Run(fmt.Sprint(initial), func(t *testing.T) {
-			db := repair125Open(t, Options{
+			db := walUpgradeOpen(t, Options{
 				Dir: t.TempDir(), CreateIfMissing: true, InitialVersion: initial,
 				InitialStores: []string{"bank", "other", "idle"},
 			})
@@ -205,10 +205,10 @@ func TestRepair_125_DuplicateStoreReplay(t *testing.T) {
 			}}}
 			require.Empty(t, db.pendingLogEntry.Changesets)
 			require.NoError(t, db.ApplyChangeSets([]*proto.NamedChangeSet{
-				first, repair125Set("other", "other", "value"), second,
+				first, walUpgradeSet("other", "other", "value"), second,
 			}))
 			require.Len(t, first.Changeset.Pairs, 2, "merging must not mutate the caller's changeset")
-			require.NoError(t, db.ApplyChangeSet("bank", repair125Set("bank", "shared", "last").Changeset))
+			require.NoError(t, db.ApplyChangeSet("bank", walUpgradeSet("bank", "shared", "last").Changeset))
 			version, err := db.Commit()
 			require.NoError(t, err)
 			require.Equal(t, utils.NextVersion(0, initial), version)
@@ -226,8 +226,8 @@ func TestRepair_125_DuplicateStoreReplay(t *testing.T) {
 			dir := db.dir
 			require.Zero(t, db.SnapshotVersion())
 			require.NoError(t, db.Close())
-			db = repair125Open(t, Options{Dir: dir})
-			repair125AssertCommit(t, db, expected)
+			db = walUpgradeOpen(t, Options{Dir: dir})
+			walUpgradeAssertCommit(t, db, expected)
 			require.Equal(t, []byte("last"), db.TreeByName("bank").Get([]byte("shared")))
 			require.Equal(t, []byte("present"), db.TreeByName("bank").Get([]byte("kept")))
 			require.Nil(t, db.TreeByName("bank").Get([]byte("gone")))
@@ -236,30 +236,30 @@ func TestRepair_125_DuplicateStoreReplay(t *testing.T) {
 	}
 }
 
-func TestRepair_125_RejectedChangesetWAL(t *testing.T) {
-	db := repair125Open(t, Options{
+func TestWALUpgradeReplayRejectedChangesetWAL(t *testing.T) {
+	db := walUpgradeOpen(t, Options{
 		Dir: t.TempDir(), CreateIfMissing: true, InitialStores: []string{"bank", "idle"},
 	})
-	require.NoError(t, db.ApplyChangeSets([]*proto.NamedChangeSet{repair125Set("bank", "seed", "original")}))
+	require.NoError(t, db.ApplyChangeSets([]*proto.NamedChangeSet{walUpgradeSet("bank", "seed", "original")}))
 	_, err := db.Commit()
 	require.NoError(t, err)
 	require.NoError(t, db.RewriteSnapshot(context.Background()))
-	require.NoError(t, db.ApplyChangeSets([]*proto.NamedChangeSet{repair125Set("bank", "accepted", "pending")}))
+	require.NoError(t, db.ApplyChangeSets([]*proto.NamedChangeSet{walUpgradeSet("bank", "accepted", "pending")}))
 	before := cloneCommitInfo(db.WorkingCommitInfo())
-	pending := repair125Pending(t, db)
+	pending := walUpgradePending(t, db)
 	batch := []*proto.NamedChangeSet{
-		repair125Set("bank", "seed", "rejected"),
-		repair125Set("unknown", "poison", "rejected"),
+		walUpgradeSet("bank", "seed", "rejected"),
+		walUpgradeSet("unknown", "poison", "rejected"),
 	}
 	require.EqualError(t, db.ApplyChangeSets(batch), "unknown tree name unknown")
 	require.Equal(t, before, *db.WorkingCommitInfo())
-	require.Equal(t, pending, repair125Pending(t, db))
+	require.Equal(t, pending, walUpgradePending(t, db))
 	require.Equal(t, []byte("original"), db.TreeByName("bank").Get([]byte("seed")))
 	require.EqualError(t, db.MultiTree.ApplyChangeSets(batch), "unknown tree name unknown")
 	require.Equal(t, before, *db.WorkingCommitInfo())
 	require.EqualError(t, db.ApplyChangeSet("unknown", batch[1].Changeset), "unknown tree name unknown")
-	require.Equal(t, pending, repair125Pending(t, db))
-	require.NoError(t, db.ApplyChangeSets([]*proto.NamedChangeSet{repair125Set("bank", "valid", "committed")}))
+	require.Equal(t, pending, walUpgradePending(t, db))
+	require.NoError(t, db.ApplyChangeSets([]*proto.NamedChangeSet{walUpgradeSet("bank", "valid", "committed")}))
 	_, err = db.Commit()
 	require.NoError(t, err)
 	last, err := db.GetWAL().LastOffset()
@@ -271,20 +271,20 @@ func TestRepair_125_RejectedChangesetWAL(t *testing.T) {
 	expected := cloneCommitInfo(db.LastCommitInfo())
 	dir := db.dir
 	require.NoError(t, db.Close())
-	db = repair125Open(t, Options{Dir: dir})
+	db = walUpgradeOpen(t, Options{Dir: dir})
 	require.Equal(t, int64(1), db.SnapshotVersion())
-	repair125AssertCommit(t, db, expected)
+	walUpgradeAssertCommit(t, db, expected)
 	require.Equal(t, []byte("original"), db.TreeByName("bank").Get([]byte("seed")))
 	require.Equal(t, []byte("pending"), db.TreeByName("bank").Get([]byte("accepted")))
 	require.Equal(t, []byte("committed"), db.TreeByName("bank").Get([]byte("valid")))
 	require.Nil(t, db.TreeByName("unknown"))
 }
 
-func TestRepair_125_ReplayGap(t *testing.T) {
+func TestWALUpgradeReplayReplayGap(t *testing.T) {
 	for _, initial := range []uint32{0, 100} {
 		for _, missingFirst := range []bool{false, true} {
 			t.Run(fmt.Sprintf("initial_%d/missing_first_%t", initial, missingFirst), func(t *testing.T) {
-				db := repair125Open(t, Options{
+				db := walUpgradeOpen(t, Options{
 					Dir: t.TempDir(), CreateIfMissing: true, InitialVersion: initial,
 					InitialStores: []string{"bank", "idle"},
 				})
@@ -294,7 +294,7 @@ func TestRepair_125_ReplayGap(t *testing.T) {
 						require.NoError(t, db.ApplyUpgrades([]*proto.TreeNameUpgrade{{Name: "future"}}))
 					}
 					require.NoError(t, db.ApplyChangeSets([]*proto.NamedChangeSet{
-						repair125Set("bank", "height", fmt.Sprint(block)),
+						walUpgradeSet("bank", "height", fmt.Sprint(block)),
 					}))
 					_, err := db.Commit()
 					require.NoError(t, err)
@@ -355,19 +355,19 @@ func TestRepair_125_ReplayGap(t *testing.T) {
 	}
 }
 
-func TestRepair_125_ReplayInitialHeightAndDuplicates(t *testing.T) {
+func TestWALUpgradeReplayReplayInitialHeightAndDuplicates(t *testing.T) {
 	for _, initial := range []uint32{0, 1, 100} {
 		t.Run(fmt.Sprint(initial), func(t *testing.T) {
-			db := repair125Open(t, Options{
+			db := walUpgradeOpen(t, Options{
 				Dir: t.TempDir(), CreateIfMissing: true, InitialVersion: initial,
 				InitialStores: []string{"bank", "idle"},
 			})
-			require.NoError(t, db.ApplyChangeSets([]*proto.NamedChangeSet{repair125Set("bank", "height", "first")}))
+			require.NoError(t, db.ApplyChangeSets([]*proto.NamedChangeSet{walUpgradeSet("bank", "height", "first")}))
 			firstVersion, err := db.Commit()
 			require.NoError(t, err)
 			require.Equal(t, utils.NextVersion(0, initial), firstVersion)
 			firstInfo := cloneCommitInfo(db.LastCommitInfo())
-			require.NoError(t, db.ApplyChangeSets([]*proto.NamedChangeSet{repair125Set("bank", "height", "second")}))
+			require.NoError(t, db.ApplyChangeSets([]*proto.NamedChangeSet{walUpgradeSet("bank", "height", "second")}))
 			_, err = db.Commit()
 			require.NoError(t, err)
 			expected := cloneCommitInfo(db.LastCommitInfo())
@@ -386,11 +386,11 @@ func TestRepair_125_ReplayInitialHeightAndDuplicates(t *testing.T) {
 
 			historical, err := OpenDB(firstVersion, Options{Dir: dir, ReadOnly: true})
 			require.NoError(t, err)
-			repair125AssertCommit(t, historical, firstInfo)
+			walUpgradeAssertCommit(t, historical, firstInfo)
 			require.Equal(t, []byte("first"), historical.TreeByName("bank").Get([]byte("height")))
 			require.NoError(t, historical.Close())
-			db = repair125Open(t, Options{Dir: dir})
-			repair125AssertCommit(t, db, expected)
+			db = walUpgradeOpen(t, Options{Dir: dir})
+			walUpgradeAssertCommit(t, db, expected)
 			require.Equal(t, []byte("second"), db.TreeByName("bank").Get([]byte("height")))
 		})
 	}

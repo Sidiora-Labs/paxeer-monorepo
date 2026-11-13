@@ -18,7 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepairM_1198_ReadLifecycle(t *testing.T) {
+func TestFlatKVLifecycleReadLifecycle(t *testing.T) {
 	s := setupTestStore(t)
 	defer func() { require.NoError(t, s.Close()) }()
 	addr, slot := addrN(1), slotN(1)
@@ -81,7 +81,7 @@ func TestRepairM_1198_ReadLifecycle(t *testing.T) {
 	require.NoError(t, raw.Error())
 }
 
-func TestRepairM_1198_ImportDuplicateHash(t *testing.T) {
+func TestFlatKVLifecycleImportDuplicateHash(t *testing.T) {
 	for _, count := range []int{3, importBatchSize + 3} {
 		name := "within_batch"
 		if count > importBatchSize {
@@ -109,13 +109,13 @@ func TestRepairM_1198_ImportDuplicateHash(t *testing.T) {
 	}
 }
 
-func TestRepairM_1198_ImportBatchRelease(t *testing.T) {
+func TestFlatKVLifecycleImportBatchRelease(t *testing.T) {
 	// Retains the real Pebble batches across seven flushes and checks that
 	// their representations were released, then reopens and scans all hashes.
 	TestKVImporter_LargeImportTriggersMultipleFlushes(t)
 }
 
-func TestRepairM_1198_ImportValidation(t *testing.T) {
+func TestFlatKVLifecycleImportValidation(t *testing.T) {
 	valid := translatedStorageNode(t, 7, addrN(1), slotN(1), padLeft32(0x11))
 	accountKey := accountPhysKey(addrN(1))
 	addr := addrN(1)
@@ -248,7 +248,7 @@ func TestRepairM_1198_ImportValidation(t *testing.T) {
 	t.Run("nil_key_rejection", TestImporterNilKeySkipped)
 }
 
-func TestRepairM_1198_ImportProducerRoundTrip(t *testing.T) {
+func TestFlatKVLifecycleImportProducerRoundTrip(t *testing.T) {
 	source := setupTestStore(t)
 	defer func() { require.NoError(t, source.Close()) }()
 	addr := addrN(1)
@@ -268,7 +268,7 @@ func TestRepairM_1198_ImportProducerRoundTrip(t *testing.T) {
 	nodes := drainExporter(t, exp)
 	require.NoError(t, exp.Close())
 	require.Len(t, nodes, 7)
-	root, rows := source.CommittedRootHash(), repair124Rows(t, source)
+	root, rows := source.CommittedRootHash(), collectRawGlobalRows(t, source)
 	target, imp := newKVImporterForTest(t, 2)
 	defer func() { require.NoError(t, target.Close()) }()
 	require.NoError(t, imp.AddModule(keys.FlatKVStoreKey))
@@ -279,14 +279,14 @@ func TestRepairM_1198_ImportProducerRoundTrip(t *testing.T) {
 	require.NoError(t, imp.Close())
 	require.NoError(t, imp.Close())
 	require.Equal(t, root, target.CommittedRootHash())
-	require.Equal(t, rows, repair124Rows(t, target))
+	require.Equal(t, rows, collectRawGlobalRows(t, target))
 	cfg := target.config
 	require.NoError(t, target.Close())
 	reopened := reopenTestStore(t, &cfg)
 	defer func() { require.NoError(t, reopened.Close()) }()
 	require.Equal(t, int64(2), reopened.Version())
 	require.Equal(t, root, reopened.CommittedRootHash())
-	require.Equal(t, rows, repair124Rows(t, reopened))
+	require.Equal(t, rows, collectRawGlobalRows(t, reopened))
 	for _, cs := range changes {
 		for _, pair := range cs.Changeset.Pairs {
 			value, found := reopened.Get(cs.Name, pair.Key)
@@ -298,7 +298,7 @@ func TestRepairM_1198_ImportProducerRoundTrip(t *testing.T) {
 	verifyPerDBLtHash(t, reopened)
 }
 
-func TestRepairM_1198_ImportFixtureShape(t *testing.T) {
+func TestFlatKVLifecycleImportFixtureShape(t *testing.T) {
 	t.Run("idempotent_success_and_reopen", TestKVImporter_CloseIdempotent_HappyPath)
 	t.Run("idempotent_error", TestKVImporter_CloseIdempotent_AfterError)
 	t.Run("error_lifecycle", TestKVImporter_ErrLifecycle)
@@ -309,7 +309,7 @@ func TestRepairM_1198_ImportFixtureShape(t *testing.T) {
 	t.Run("abort_after_close", TestKVImporter_AbortAfterCloseIsNoop)
 }
 
-func TestRepairM_1198_WALRecovery(t *testing.T) {
+func TestFlatKVLifecycleWALRecovery(t *testing.T) {
 	for _, fsync := range []bool{false, true} {
 		name := "pebble_no_fsync"
 		if fsync {
@@ -343,6 +343,6 @@ func TestRepairM_1198_WALRecovery(t *testing.T) {
 	}
 }
 
-func TestRepairM_1198_RejectedWrite(t *testing.T) {
+func TestFlatKVLifecycleRejectedWrite(t *testing.T) {
 	TestApplyChangeSetsErrorRecoveryPartialState(t)
 }

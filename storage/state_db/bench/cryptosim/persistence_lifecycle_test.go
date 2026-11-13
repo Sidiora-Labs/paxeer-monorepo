@@ -24,7 +24,7 @@ import (
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 )
 
-func repair1195Config(t *testing.T) *CryptoSimConfig {
+func persistenceConfig(t *testing.T) *CryptoSimConfig {
 	t.Helper()
 	cfg := DefaultCryptoSimConfig()
 	cfg.DataDir, cfg.LogDir = t.TempDir(), t.TempDir()
@@ -52,7 +52,7 @@ func repair1195Config(t *testing.T) *CryptoSimConfig {
 
 // This harness controls admission only. All generation, setup, execution,
 // finalization, receipt transport, persistence and shutdown use production code.
-func repair1195Prepare(t *testing.T, cfg *CryptoSimConfig, metrics *CryptosimMetrics) *CryptoSim {
+func persistencePrepare(t *testing.T, cfg *CryptoSimConfig, metrics *CryptosimMetrics) *CryptoSim {
 	t.Helper()
 	ctx, cancel := context.WithCancel(context.Background())
 	backend, err := wrappers.NewDBImpl(ctx, cfg.Backend, cfg.DataDir, nil)
@@ -77,7 +77,7 @@ func repair1195Prepare(t *testing.T, cfg *CryptoSimConfig, metrics *CryptosimMet
 	return c
 }
 
-func repair1195StartWriter(t *testing.T, c *CryptoSim) {
+func persistenceStartWriter(t *testing.T, c *CryptoSim) {
 	t.Helper()
 	if c.recieptsChan == nil {
 		c.recieptsChan = make(chan *block, c.config.RecieptChannelCapacity)
@@ -88,14 +88,14 @@ func repair1195StartWriter(t *testing.T, c *CryptoSim) {
 	require.NoError(t, err)
 }
 
-func repair1195Stop(t *testing.T, c *CryptoSim) {
+func persistenceStop(t *testing.T, c *CryptoSim) {
 	t.Helper()
 	c.cancel()
 	c.teardown()
 	require.NoError(t, c.Close())
 }
 
-func repair1195NextBlock(t *testing.T, c *CryptoSim) *block {
+func persistenceNextBlock(t *testing.T, c *CryptoSim) *block {
 	t.Helper()
 	select {
 	case blk := <-c.blockBuilder.blocksChan:
@@ -110,7 +110,7 @@ func repair1195NextBlock(t *testing.T, c *CryptoSim) *block {
 	}
 }
 
-func repair1195Counter(t *testing.T, db *Database, key []byte) uint64 {
+func persistenceCounter(t *testing.T, db *Database, key []byte) uint64 {
 	t.Helper()
 	value, found, err := db.Get(key)
 	require.NoError(t, err)
@@ -119,7 +119,7 @@ func repair1195Counter(t *testing.T, db *Database, key []byte) uint64 {
 	return binary.BigEndian.Uint64(value)
 }
 
-func repair1195AssertReceipt(t *testing.T, store receipt.ReceiptStore, blk *block) {
+func persistenceAssertReceipt(t *testing.T, store receipt.ReceiptStore, blk *block) {
 	t.Helper()
 	ctx := sdk.NewContext(nil, tmproto.Header{}, false)
 	for _, expected := range blk.reciepts {
@@ -129,68 +129,68 @@ func repair1195AssertReceipt(t *testing.T, store receipt.ReceiptStore, blk *bloc
 	}
 }
 
-func repair1195Reopen(t *testing.T) {
+func persistenceReopen(t *testing.T) {
 	t.Helper()
-	cfg := repair1195Config(t)
-	first := repair1195Prepare(t, cfg, nil)
-	repair1195StartWriter(t, first)
+	cfg := persistenceConfig(t)
+	first := persistencePrepare(t, cfg, nil)
+	persistenceStartWriter(t, first)
 	initial := first.database.nextBlockNumber
 	require.Positive(t, initial)
 	first.blockBuilder.Start()
-	blk1 := repair1195NextBlock(t, first)
+	blk1 := persistenceNextBlock(t, first)
 	require.Equal(t, initial, uint64(blk1.BlockNumber()))
-	repair1195Stop(t, first)
+	persistenceStop(t, first)
 
-	second := repair1195Prepare(t, cfg, nil)
+	second := persistencePrepare(t, cfg, nil)
 	require.Equal(t, uint64(blk1.BlockNumber()+1), second.database.nextBlockNumber)
 	require.Equal(t, blk1.NextAccountID(), second.dataGenerator.NextAccountID())
 	require.Equal(t, blk1.NextErc20ContractID(), second.dataGenerator.NextErc20ContractID())
-	require.Equal(t, uint64(blk1.BlockNumber()+1), repair1195Counter(t, second.database, BlockNumberCounterKey()))
-	require.Equal(t, uint64(blk1.NextAccountID()), repair1195Counter(t, second.database, AccountIDCounterKey()))
-	require.Equal(t, uint64(blk1.NextErc20ContractID()), repair1195Counter(t, second.database, Erc20IDCounterKey()))
-	repair1195StartWriter(t, second)
-	repair1195AssertReceipt(t, second.receiptSimulator.store, blk1)
+	require.Equal(t, uint64(blk1.BlockNumber()+1), persistenceCounter(t, second.database, BlockNumberCounterKey()))
+	require.Equal(t, uint64(blk1.NextAccountID()), persistenceCounter(t, second.database, AccountIDCounterKey()))
+	require.Equal(t, uint64(blk1.NextErc20ContractID()), persistenceCounter(t, second.database, Erc20IDCounterKey()))
+	persistenceStartWriter(t, second)
+	persistenceAssertReceipt(t, second.receiptSimulator.store, blk1)
 	second.blockBuilder.Start()
-	blk2 := repair1195NextBlock(t, second)
+	blk2 := persistenceNextBlock(t, second)
 	require.Equal(t, blk1.BlockNumber()+1, blk2.BlockNumber())
 	for _, old := range blk1.reciepts {
 		for _, next := range blk2.reciepts {
 			require.NotEqual(t, old.TxHashHex, next.TxHashHex)
 		}
 	}
-	repair1195Stop(t, second)
+	persistenceStop(t, second)
 
-	third := repair1195Prepare(t, cfg, nil)
+	third := persistencePrepare(t, cfg, nil)
 	require.Equal(t, uint64(blk2.BlockNumber()+1), third.database.nextBlockNumber)
 	require.Equal(t, blk2.NextAccountID(), third.dataGenerator.NextAccountID())
 	require.Equal(t, blk2.NextErc20ContractID(), third.dataGenerator.NextErc20ContractID())
-	repair1195StartWriter(t, third)
-	repair1195AssertReceipt(t, third.receiptSimulator.store, blk1)
-	repair1195AssertReceipt(t, third.receiptSimulator.store, blk2)
+	persistenceStartWriter(t, third)
+	persistenceAssertReceipt(t, third.receiptSimulator.store, blk1)
+	persistenceAssertReceipt(t, third.receiptSimulator.store, blk2)
 	require.Equal(t, blk2.BlockNumber(), third.receiptSimulator.store.LatestVersion())
 	// No workload on this reopen: setup counters must stay unchanged.
 	third.cancel()
 	third.blockBuilder.Start()
-	repair1195Stop(t, third)
+	persistenceStop(t, third)
 }
 
-func TestRepairM_1195_BlockRestart(t *testing.T) {
-	repair1195Reopen(t)
+func TestPersistenceLifecycleBlockRestart(t *testing.T) {
+	persistenceReopen(t)
 }
 
-func TestRepairM_1195_PersistenceDoc(t *testing.T) {
+func TestPersistenceLifecyclePersistenceDoc(t *testing.T) {
 	doc, err := os.ReadFile("README.md")
 	require.NoError(t, err)
-	for _, phrase := range []string{"next unused", "drain", "TestRepairM_1195_PersistenceDoc", "Seed", "CannedRandomSize", "crash"} {
+	for _, phrase := range []string{"next unused", "drain", "TestPersistenceLifecyclePersistenceDoc", "Seed", "CannedRandomSize", "crash"} {
 		require.Contains(t, string(doc), phrase)
 	}
 	// Execute the documented bounded reopen example and check all four durable
 	// counters plus the decoded receipts after both stops.
-	repair1195Reopen(t)
+	persistenceReopen(t)
 }
 
-func TestRepairM_1195_ForceFlush(t *testing.T) {
-	cfg := repair1195Config(t)
+func TestPersistenceLifecycleForceFlush(t *testing.T) {
+	cfg := persistenceConfig(t)
 	backend, err := wrappers.NewDBImpl(context.Background(), cfg.Backend, cfg.DataDir, nil)
 	require.NoError(t, err)
 	db := NewDatabase(cfg, backend, nil, 0)
@@ -223,42 +223,42 @@ func TestRepairM_1195_ForceFlush(t *testing.T) {
 		require.Equal(t, expected, value)
 	}
 	for _, key := range [][]byte{AccountIDCounterKey(), Erc20IDCounterKey(), BlockNumberCounterKey()} {
-		require.EqualValues(t, 1, repair1195Counter(t, durable, key))
+		require.EqualValues(t, 1, persistenceCounter(t, durable, key))
 	}
 }
 
-func TestRepairM_1195_ContractRestart(t *testing.T) {
-	cfg := repair1195Config(t)
-	first := repair1195Prepare(t, cfg, nil)
+func TestPersistenceLifecycleContractRestart(t *testing.T) {
+	cfg := persistenceConfig(t)
+	first := persistencePrepare(t, cfg, nil)
 	contracts := first.dataGenerator.NextErc20ContractID()
 	first.cancel()
 	first.blockBuilder.Start()
-	repair1195Stop(t, first)
+	persistenceStop(t, first)
 
-	second := repair1195Prepare(t, cfg, nil)
+	second := persistencePrepare(t, cfg, nil)
 	require.Equal(t, contracts, second.nextERC20ContractID)
-	repair1195StartWriter(t, second)
+	persistenceStartWriter(t, second)
 	second.blockBuilder.Start()
-	blk := repair1195NextBlock(t, second)
+	blk := persistenceNextBlock(t, second)
 	// Exercise the same suspend/forced-commit path as the main loop, with a
 	// queued resume to bound the pause without a scheduler-dependent sleep.
 	second.Resume()
 	second.suspend()
 	require.Zero(t, second.database.uncommittedBlockCount)
-	repair1195Stop(t, second)
+	persistenceStop(t, second)
 
-	third := repair1195Prepare(t, cfg, nil)
+	third := persistencePrepare(t, cfg, nil)
 	require.Equal(t, contracts, third.nextERC20ContractID)
 	require.Equal(t, contracts, third.dataGenerator.NextErc20ContractID())
 	require.Equal(t, blk.NextAccountID(), third.dataGenerator.NextAccountID())
 	third.cancel()
 	third.blockBuilder.Start()
-	repair1195Stop(t, third)
+	persistenceStop(t, third)
 }
 
-func TestRepairM_1195_ReceiptDrain(t *testing.T) {
-	cfg := repair1195Config(t)
-	c := repair1195Prepare(t, cfg, nil)
+func TestPersistenceLifecycleReceiptDrain(t *testing.T) {
+	cfg := persistenceConfig(t)
+	c := persistencePrepare(t, cfg, nil)
 	c.recieptsChan = make(chan *block, cfg.RecieptChannelCapacity)
 	// Queue finalized, producer-built blocks before the writer starts. The
 	// final block is guaranteed queued when cancellation happens.
@@ -271,9 +271,9 @@ func TestRepairM_1195_ReceiptDrain(t *testing.T) {
 	}
 	require.Len(t, c.recieptsChan, 3)
 	c.cancel()
-	repair1195StartWriter(t, c)
+	persistenceStartWriter(t, c)
 	c.blockBuilder.Start()
-	repair1195Stop(t, c)
+	persistenceStop(t, c)
 	require.Empty(t, c.recieptsChan)
 	select {
 	case <-c.receiptSimulator.done:
@@ -287,14 +287,14 @@ func TestRepairM_1195_ReceiptDrain(t *testing.T) {
 	defer func() { require.NoError(t, store.Close()) }()
 	require.Equal(t, blocks[len(blocks)-1].BlockNumber(), store.LatestVersion())
 	for _, blk := range blocks {
-		repair1195AssertReceipt(t, store, blk)
+		persistenceAssertReceipt(t, store, blk)
 	}
 }
 
-func TestRepairM_1195_ReceiptStorageError(t *testing.T) {
-	cfg := repair1195Config(t)
-	c := repair1195Prepare(t, cfg, nil)
-	repair1195StartWriter(t, c)
+func TestPersistenceLifecycleReceiptStorageError(t *testing.T) {
+	cfg := persistenceConfig(t)
+	c := persistencePrepare(t, cfg, nil)
+	persistenceStartWriter(t, c)
 	// A negative producer height is refused by the real backend's metadata
 	// writer. No fake store or injected error implementation is involved.
 	c.recieptsChan <- NewBlock(cfg, nil, -1, 0)
@@ -311,7 +311,7 @@ func TestRepairM_1195_ReceiptStorageError(t *testing.T) {
 	require.NoError(t, store.Close())
 }
 
-func repair1195Metrics(t *testing.T, reader *otelmetric.ManualReader) map[string]int64 {
+func persistenceMetrics(t *testing.T, reader *otelmetric.ManualReader) map[string]int64 {
 	t.Helper()
 	var data metricdata.ResourceMetrics
 	require.NoError(t, reader.Collect(context.Background(), &data))
@@ -333,7 +333,7 @@ func repair1195Metrics(t *testing.T, reader *otelmetric.ManualReader) map[string
 	return values
 }
 
-func repair1195ReadWorkload(t *testing.T) {
+func persistenceReadWorkload(t *testing.T) {
 	t.Helper()
 	reader := otelmetric.NewManualReader()
 	provider := otelmetric.NewMeterProvider(otelmetric.WithReader(reader))
@@ -341,12 +341,12 @@ func repair1195ReadWorkload(t *testing.T) {
 	otel.SetMeterProvider(provider)
 	defer otel.SetMeterProvider(previous)
 	defer func() { require.NoError(t, provider.Shutdown(context.Background())) }()
-	cfg := repair1195Config(t)
+	cfg := persistenceConfig(t)
 	metrics := NewCryptosimMetrics(context.Background(), nil, cfg)
-	c := repair1195Prepare(t, cfg, metrics)
-	repair1195StartWriter(t, c)
+	c := persistencePrepare(t, cfg, metrics)
+	persistenceStartWriter(t, c)
 	c.blockBuilder.Start()
-	blk := repair1195NextBlock(t, c)
+	blk := persistenceNextBlock(t, c)
 	// Wait for the real write path to publish its query targets, then drive
 	// the same reader functions used by configured ticker goroutines.
 	require.Eventually(t, func() bool {
@@ -356,10 +356,10 @@ func repair1195ReadWorkload(t *testing.T) {
 	rand := crand.NewCannedRandom(4096, cfg.Seed)
 	require.Eventually(t, func() bool {
 		c.receiptSimulator.executeReceiptRead(rand)
-		return repair1195Metrics(t, reader)["cryptosim_receipt_reads_found_total"] > 0
+		return persistenceMetrics(t, reader)["cryptosim_receipt_reads_found_total"] > 0
 	}, 5*time.Second, time.Millisecond)
 	c.receiptSimulator.executeLogFilterRead(rand)
-	values := repair1195Metrics(t, reader)
+	values := persistenceMetrics(t, reader)
 	require.EqualValues(t, cfg.TransactionsPerBlock, values["cryptosim_receipts_written_total"])
 	require.Positive(t, values["cryptosim_receipt_reads_total"])
 	require.Positive(t, values["cryptosim_receipt_read_duration_seconds"])
@@ -375,15 +375,15 @@ func repair1195ReadWorkload(t *testing.T) {
 	_, err := c.receiptSimulator.store.FilterLogs(c.receiptSimulator.readContext,
 		uint64(blk.BlockNumber()), uint64(blk.BlockNumber()), filters.FilterCriteria{})
 	require.True(t, errors.Is(err, receipt.ErrRangeQueryNotSupported))
-	repair1195Stop(t, c)
+	persistenceStop(t, c)
 }
 
-func TestRepairM_1195_CacheObserver(t *testing.T) {
-	repair1195ReadWorkload(t)
+func TestPersistenceLifecycleCacheObserver(t *testing.T) {
+	persistenceReadWorkload(t)
 }
 
-func TestRepairM_1195_CacheWindow(t *testing.T) {
-	cfg := repair1195Config(t)
+func TestPersistenceLifecycleCacheWindow(t *testing.T) {
+	cfg := persistenceConfig(t)
 	cfg.ReceiptReadMode = "cache"
 	require.ErrorContains(t, cfg.Validate(), "ReceiptReadMode")
 	cfg.ReceiptReadMode = "recent"
@@ -391,10 +391,10 @@ func TestRepairM_1195_CacheWindow(t *testing.T) {
 	require.ErrorContains(t, cfg.Validate(), "ReceiptLogFilterReadMode")
 	cfg.ReceiptLogFilterReadMode = "recent"
 	require.NoError(t, cfg.Validate())
-	repair1195ReadWorkload(t)
+	persistenceReadWorkload(t)
 }
 
-func TestRepairM_1195_BuildFailure(t *testing.T) {
+func TestPersistenceLifecycleBuildFailure(t *testing.T) {
 	// The bounded gate is independent of make, bash and a second Go toolchain.
 	// Check the launcher's fail-closed shell contract directly, including the
 	// original status and metadata read from the actual executable.
@@ -413,14 +413,14 @@ func TestRepairM_1195_BuildFailure(t *testing.T) {
 	require.Greater(t, run, logger)
 }
 
-func TestRepairM_1195_ConstructorShutdown(t *testing.T) {
+func TestPersistenceLifecycleConstructorShutdown(t *testing.T) {
 	reader := otelmetric.NewManualReader()
 	provider := otelmetric.NewMeterProvider(otelmetric.WithReader(reader))
 	previous := otel.GetMeterProvider()
 	otel.SetMeterProvider(provider)
 	defer otel.SetMeterProvider(previous)
 	defer func() { require.NoError(t, provider.Shutdown(context.Background())) }()
-	cfg := repair1195Config(t)
+	cfg := persistenceConfig(t)
 	cfg.MaxRuntimeSeconds, cfg.MaxTPS = 1, 10
 	cfg.ReceiptReadConcurrency, cfg.ReceiptLogFilterReadConcurrency = 1, 1
 	c, err := NewCryptoSim(context.Background(), cfg)
@@ -432,7 +432,7 @@ func TestRepairM_1195_ConstructorShutdown(t *testing.T) {
 	}
 	require.NoError(t, c.Close())
 	require.NotNil(t, c.mostRecentBlock)
-	values := repair1195Metrics(t, reader)
+	values := persistenceMetrics(t, reader)
 	require.Positive(t, values["cryptosim_receipt_reads_found_total"])
 	require.Positive(t, values["cryptosim_receipt_log_filter_reads_total"])
 	require.Equal(t, values["cryptosim_receipt_log_filter_reads_total"], values["cryptosim_receipt_log_filter_unsupported_total"])
@@ -441,5 +441,5 @@ func TestRepairM_1195_ConstructorShutdown(t *testing.T) {
 	}, nil)
 	require.NoError(t, err)
 	defer func() { require.NoError(t, store.Close()) }()
-	repair1195AssertReceipt(t, store, c.mostRecentBlock)
+	persistenceAssertReceipt(t, store, c.mostRecentBlock)
 }

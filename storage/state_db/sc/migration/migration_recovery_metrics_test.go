@@ -23,7 +23,7 @@ import (
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 )
 
-func repairM1120Config(t *testing.T) config.StateCommitConfig {
+func migrationRecoveryConfig(t *testing.T) config.StateCommitConfig {
 	t.Helper()
 	cfg := config.DefaultStateCommitConfig()
 	cfg.MemIAVLConfig.AsyncCommitBuffer = 0
@@ -35,13 +35,13 @@ func repairM1120Config(t *testing.T) config.StateCommitConfig {
 }
 
 // These handles are the production stores, using only private temporary disk.
-type repairM1120Stores struct {
+type migrationRecoveryStores struct {
 	mem    *memiavl.CommitStore
 	flat   *flatkv.CommitStore
 	closed bool
 }
 
-func repairM1120Open(t *testing.T, home string, cfg config.StateCommitConfig) *repairM1120Stores {
+func migrationRecoveryOpen(t *testing.T, home string, cfg config.StateCommitConfig) *migrationRecoveryStores {
 	t.Helper()
 	mem := memiavl.NewCommitStore(home, cfg.MemIAVLConfig)
 	require.NoError(t, mem.Initialize([]string{keys.EVMStoreKey, keys.BankStoreKey}))
@@ -53,12 +53,12 @@ func repairM1120Open(t *testing.T, home string, cfg config.StateCommitConfig) *r
 	require.NoError(t, err)
 	_, err = flat.LoadVersion(0, false)
 	require.NoError(t, err)
-	stores := &repairM1120Stores{mem: mem, flat: flat}
+	stores := &migrationRecoveryStores{mem: mem, flat: flat}
 	t.Cleanup(func() { stores.close(t) })
 	return stores
 }
 
-func (s *repairM1120Stores) close(t *testing.T) {
+func (s *migrationRecoveryStores) close(t *testing.T) {
 	t.Helper()
 	if s.closed {
 		return
@@ -68,15 +68,15 @@ func (s *repairM1120Stores) close(t *testing.T) {
 	require.NoError(t, s.flat.Close())
 }
 
-func repairM1120Changes(store string, pairs ...*proto.KVPair) []*proto.NamedChangeSet {
+func migrationRecoveryChanges(store string, pairs ...*proto.KVPair) []*proto.NamedChangeSet {
 	return []*proto.NamedChangeSet{{Name: store, Changeset: proto.ChangeSet{Pairs: pairs}}}
 }
 
-func repairM1120Put(key, value string) *proto.KVPair {
+func migrationRecoveryPut(key, value string) *proto.KVPair {
 	return &proto.KVPair{Key: []byte(key), Value: []byte(value)}
 }
 
-func repairM1120Commit(t *testing.T, s *repairM1120Stores, height int64) {
+func migrationRecoveryCommit(t *testing.T, s *migrationRecoveryStores, height int64) {
 	t.Helper()
 	v, err := s.mem.Commit()
 	require.NoError(t, err)
@@ -86,7 +86,7 @@ func repairM1120Commit(t *testing.T, s *repairM1120Stores, height int64) {
 	require.Equal(t, height, v)
 }
 
-func repairM1120Boundary(t *testing.T, flat *flatkv.CommitStore) m.MigrationBoundary {
+func migrationRecoveryBoundary(t *testing.T, flat *flatkv.CommitStore) m.MigrationBoundary {
 	t.Helper()
 	raw, found := flat.Get(m.MigrationStore, []byte(m.MigrationBoundaryKey))
 	require.True(t, found)
@@ -95,7 +95,7 @@ func repairM1120Boundary(t *testing.T, flat *flatkv.CommitStore) m.MigrationBoun
 	return boundary
 }
 
-func repairM1120Read(t *testing.T, router m.Router, key, want string) {
+func migrationRecoveryRead(t *testing.T, router m.Router, key, want string) {
 	t.Helper()
 	got, found, err := router.Read(keys.EVMStoreKey, []byte(key))
 	require.NoError(t, err)
@@ -103,7 +103,7 @@ func repairM1120Read(t *testing.T, router m.Router, key, want string) {
 	require.Equal(t, []byte(want), got)
 }
 
-func repairM1120Union(t *testing.T, s *repairM1120Stores, want map[string]string) {
+func migrationRecoveryUnion(t *testing.T, s *migrationRecoveryStores, want map[string]string) {
 	t.Helper()
 	union := make(map[string]string)
 	// Iterate each backend's logical EVM view, not physical flatkv bucket counts.
@@ -126,17 +126,17 @@ func repairM1120Union(t *testing.T, s *repairM1120Stores, want map[string]string
 	require.Equal(t, want, union, "compare values and the complete union, including keys beyond the cursor")
 }
 
-func TestRepairM_1120_Partition(t *testing.T) {
-	cfg := repairM1120Config(t)
-	s := repairM1120Open(t, t.TempDir(), cfg)
-	require.NoError(t, s.mem.ApplyChangeSets(repairM1120Changes(keys.EVMStoreKey,
-		repairM1120Put("a", "old-a"), repairM1120Put("b", "old-b"), repairM1120Put("c", "old-c"))))
-	repairM1120Commit(t, s, 1)
+func TestMigrationRecoveryPartition(t *testing.T) {
+	cfg := migrationRecoveryConfig(t)
+	s := migrationRecoveryOpen(t, t.TempDir(), cfg)
+	require.NoError(t, s.mem.ApplyChangeSets(migrationRecoveryChanges(keys.EVMStoreKey,
+		migrationRecoveryPut("a", "old-a"), migrationRecoveryPut("b", "old-b"), migrationRecoveryPut("c", "old-c"))))
+	migrationRecoveryCommit(t, s, 1)
 	router, err := m.BuildRouter(t.Context(), config.MigrateEVM, s.mem, s.flat, 1)
 	require.NoError(t, err)
-	require.NoError(t, router.ApplyChangeSets(repairM1120Changes(keys.EVMStoreKey,
-		repairM1120Put("a", "overlay-a"), repairM1120Put("c", "updated-c"), repairM1120Put("z-new-1", "new-1")), true))
-	boundary := repairM1120Boundary(t, s.flat)
+	require.NoError(t, router.ApplyChangeSets(migrationRecoveryChanges(keys.EVMStoreKey,
+		migrationRecoveryPut("a", "overlay-a"), migrationRecoveryPut("c", "updated-c"), migrationRecoveryPut("z-new-1", "new-1")), true))
+	boundary := migrationRecoveryBoundary(t, s.flat)
 	require.Equal(t, []byte("a"), boundary.Key())
 	require.False(t, boundary.IsMigrated(keys.EVMStoreKey, []byte("z-new-1")))
 	require.Nil(t, s.mem.GetChildStoreByName(keys.EVMStoreKey).Get([]byte("z-new-1")))
@@ -144,12 +144,12 @@ func TestRepairM_1120_Partition(t *testing.T) {
 	require.True(t, found)
 	require.Equal(t, []byte("new-1"), value)
 	for key, want := range map[string]string{"a": "overlay-a", "b": "old-b", "c": "updated-c", "z-new-1": "new-1"} {
-		repairM1120Read(t, router, key, want)
+		migrationRecoveryRead(t, router, key, want)
 	}
-	repairM1120Union(t, s, map[string]string{"a": "overlay-a", "b": "old-b", "c": "updated-c", "z-new-1": "new-1"})
-	require.NoError(t, router.ApplyChangeSets(repairM1120Changes(keys.EVMStoreKey,
-		&proto.KVPair{Key: []byte("z-new-1"), Delete: true}, repairM1120Put("z-new-2", "new-2")), false))
-	unchanged := repairM1120Boundary(t, s.flat)
+	migrationRecoveryUnion(t, s, map[string]string{"a": "overlay-a", "b": "old-b", "c": "updated-c", "z-new-1": "new-1"})
+	require.NoError(t, router.ApplyChangeSets(migrationRecoveryChanges(keys.EVMStoreKey,
+		&proto.KVPair{Key: []byte("z-new-1"), Delete: true}, migrationRecoveryPut("z-new-2", "new-2")), false))
+	unchanged := migrationRecoveryBoundary(t, s.flat)
 	require.True(t, boundary.Equals(unchanged), "later flushes must preserve the cursor")
 	_, found, err = router.Read(keys.EVMStoreKey, []byte("z-new-1"))
 	require.NoError(t, err)
@@ -162,17 +162,17 @@ func TestRepairM_1120_Partition(t *testing.T) {
 	require.Equal(t, uint64(1), binary.BigEndian.Uint64(raw))
 	_, found = s.flat.Get(m.MigrationStore, []byte(m.MigrationBoundaryKey))
 	require.False(t, found, "fresh keys must not extend the migration tail")
-	repairM1120Union(t, s, map[string]string{"a": "overlay-a", "b": "old-b", "c": "updated-c", "z-new-2": "new-2"})
+	migrationRecoveryUnion(t, s, map[string]string{"a": "overlay-a", "b": "old-b", "c": "updated-c", "z-new-2": "new-2"})
 	doc, err := os.ReadFile("OPERATIONS.md")
 	require.NoError(t, err)
 	require.Contains(t, string(doc), "TestApplyChangeSets_BrandNewKeysDoNotExtendMigrationTail")
 	require.Contains(t, string(doc), "logical union and authoritative values")
 }
 
-func TestRepairM_1120_TerminalRouting(t *testing.T) {
+func TestMigrationRecoveryTerminalRouting(t *testing.T) {
 	for _, mode := range []config.WriteMode{config.MemiavlOnly, config.FlatKVOnly} {
 		t.Run(string(mode), func(t *testing.T) {
-			cfg := repairM1120Config(t)
+			cfg := migrationRecoveryConfig(t)
 			cfg.WriteMode = mode
 			home := t.TempDir()
 			cs, err := composite.NewCompositeCommitStore(t.Context(), home, cfg)
@@ -180,7 +180,7 @@ func TestRepairM_1120_TerminalRouting(t *testing.T) {
 			require.NoError(t, cs.Initialize([]string{keys.EVMStoreKey, keys.BankStoreKey}))
 			_, err = cs.LoadVersion(0, false)
 			require.NoError(t, err)
-			require.NoError(t, cs.ApplyChangeSets(repairM1120Changes(keys.BankStoreKey, repairM1120Put("balance", "terminal-value"))))
+			require.NoError(t, cs.ApplyChangeSets(migrationRecoveryChanges(keys.BankStoreKey, migrationRecoveryPut("balance", "terminal-value"))))
 			height, err := cs.Commit()
 			require.NoError(t, err)
 			require.Equal(t, int64(1), height)
@@ -200,7 +200,7 @@ func TestRepairM_1120_TerminalRouting(t *testing.T) {
 				require.NoError(t, err)
 				require.True(t, found)
 				require.Equal(t, []byte("terminal-value"), got)
-				require.NoError(t, router.ApplyChangeSets(repairM1120Changes(keys.BankStoreKey, repairM1120Put("balance", "updated")), false))
+				require.NoError(t, router.ApplyChangeSets(migrationRecoveryChanges(keys.BankStoreKey, migrationRecoveryPut("balance", "updated")), false))
 				require.Equal(t, []byte("updated"), mem.GetChildStoreByName(keys.BankStoreKey).Get([]byte("balance")))
 			} else {
 				fcfg := cfg.FlatKVConfig
@@ -217,7 +217,7 @@ func TestRepairM_1120_TerminalRouting(t *testing.T) {
 				require.NoError(t, err)
 				require.True(t, found)
 				require.Equal(t, []byte("terminal-value"), got)
-				require.NoError(t, router.ApplyChangeSets(repairM1120Changes(keys.BankStoreKey, repairM1120Put("balance", "updated")), false))
+				require.NoError(t, router.ApplyChangeSets(migrationRecoveryChanges(keys.BankStoreKey, migrationRecoveryPut("balance", "updated")), false))
 				got, found = flat.Get(keys.BankStoreKey, []byte("balance"))
 				require.True(t, found)
 				require.Equal(t, []byte("updated"), got)
@@ -230,19 +230,19 @@ func TestRepairM_1120_TerminalRouting(t *testing.T) {
 	require.Contains(t, string(doc), "Neither terminal mode constructs a `MigrationManager`")
 }
 
-func TestRepairM_1120_CrashReopen(t *testing.T) {
-	cfg := repairM1120Config(t)
+func TestMigrationRecoveryCrashReopen(t *testing.T) {
+	cfg := migrationRecoveryConfig(t)
 	cfg.WriteMode = config.MigrateEVM
 	home := t.TempDir()
-	s := repairM1120Open(t, home, cfg)
-	require.NoError(t, s.mem.ApplyChangeSets(repairM1120Changes(keys.EVMStoreKey,
-		repairM1120Put("a", "original-a"), repairM1120Put("b", "original-b"), repairM1120Put("c", "original-c"))))
-	repairM1120Commit(t, s, 1)
+	s := migrationRecoveryOpen(t, home, cfg)
+	require.NoError(t, s.mem.ApplyChangeSets(migrationRecoveryChanges(keys.EVMStoreKey,
+		migrationRecoveryPut("a", "original-a"), migrationRecoveryPut("b", "original-b"), migrationRecoveryPut("c", "original-c"))))
+	migrationRecoveryCommit(t, s, 1)
 	router, err := m.BuildRouter(t.Context(), cfg.WriteMode, s.mem, s.flat, 1)
 	require.NoError(t, err)
-	require.NoError(t, router.ApplyChangeSets(repairM1120Changes(keys.EVMStoreKey, repairM1120Put("z", "uncommitted-z")), true))
+	require.NoError(t, router.ApplyChangeSets(migrationRecoveryChanges(keys.EVMStoreKey, migrationRecoveryPut("z", "uncommitted-z")), true))
 	require.Nil(t, s.mem.GetChildStoreByName(keys.EVMStoreKey).Get([]byte("a")))
-	boundary := repairM1120Boundary(t, s.flat)
+	boundary := migrationRecoveryBoundary(t, s.flat)
 	require.Equal(t, []byte("a"), boundary.Key())
 	// Interrupt the actual ordered commit path after the old commit: do not
 	// commit flatkv. Closing loses its pending batch, preserving version 1.
@@ -262,7 +262,7 @@ func TestRepairM_1120_CrashReopen(t *testing.T) {
 		require.Equal(t, []byte(want), cs.GetChildStoreByName(keys.EVMStoreKey).Get([]byte(key)))
 	}
 	require.Nil(t, cs.GetChildStoreByName(keys.EVMStoreKey).Get([]byte("z")))
-	require.NoError(t, cs.ApplyChangeSets(repairM1120Changes(keys.EVMStoreKey, repairM1120Put("z", "replayed-z"))))
+	require.NoError(t, cs.ApplyChangeSets(migrationRecoveryChanges(keys.EVMStoreKey, migrationRecoveryPut("z", "replayed-z"))))
 	height, err = cs.Commit()
 	require.NoError(t, err)
 	require.Equal(t, int64(2), height)
@@ -270,12 +270,12 @@ func TestRepairM_1120_CrashReopen(t *testing.T) {
 
 	// Inspect recovered durable metadata and the complete logical union, then
 	// reopen once more to prove rollback and resumed progress survive restart.
-	s = repairM1120Open(t, home, cfg)
+	s = migrationRecoveryOpen(t, home, cfg)
 	require.Equal(t, int64(2), s.mem.Version())
 	require.Equal(t, int64(2), s.flat.Version())
-	boundary = repairM1120Boundary(t, s.flat)
+	boundary = migrationRecoveryBoundary(t, s.flat)
 	require.Equal(t, []byte("a"), boundary.Key())
-	repairM1120Union(t, s, map[string]string{"a": "original-a", "b": "original-b", "c": "original-c", "z": "replayed-z"})
+	migrationRecoveryUnion(t, s, map[string]string{"a": "original-a", "b": "original-b", "c": "original-c", "z": "replayed-z"})
 	s.close(t)
 	cs, err = composite.NewCompositeCommitStore(t.Context(), home, cfg)
 	require.NoError(t, err)
@@ -294,12 +294,12 @@ func TestRepairM_1120_CrashReopen(t *testing.T) {
 	require.Contains(t, string(doc), "interruption/reopen")
 }
 
-func TestRepairM_1120_OldWriterFailureStopsDispatch(t *testing.T) {
-	cfg := repairM1120Config(t)
-	s := repairM1120Open(t, t.TempDir(), cfg)
-	require.NoError(t, s.mem.ApplyChangeSets(repairM1120Changes(keys.EVMStoreKey,
-		repairM1120Put("a", "original-a"), repairM1120Put("b", "original-b"))))
-	repairM1120Commit(t, s, 1)
+func TestMigrationRecoveryOldWriterFailureStopsDispatch(t *testing.T) {
+	cfg := migrationRecoveryConfig(t)
+	s := migrationRecoveryOpen(t, t.TempDir(), cfg)
+	require.NoError(t, s.mem.ApplyChangeSets(migrationRecoveryChanges(keys.EVMStoreKey,
+		migrationRecoveryPut("a", "original-a"), migrationRecoveryPut("b", "original-b"))))
+	migrationRecoveryCommit(t, s, 1)
 	handle, err := s.mem.LoadVersion(1, true)
 	require.NoError(t, err)
 	old := handle.(*memiavl.CommitStore)
@@ -329,12 +329,12 @@ func TestRepairM_1120_OldWriterFailureStopsDispatch(t *testing.T) {
 	require.Equal(t, []byte("original-a"), old.GetChildStoreByName(keys.EVMStoreKey).Get([]byte("a")))
 }
 
-func TestRepairM_1120_VersionZeroMigrationEntry(t *testing.T) {
-	cfg := repairM1120Config(t)
+func TestMigrationRecoveryVersionZeroMigrationEntry(t *testing.T) {
+	cfg := migrationRecoveryConfig(t)
 	home := t.TempDir()
-	s := repairM1120Open(t, home, cfg)
-	require.NoError(t, s.mem.ApplyChangeSets(repairM1120Changes(keys.EVMStoreKey,
-		repairM1120Put("a", "original-a"), repairM1120Put("b", "original-b"))))
+	s := migrationRecoveryOpen(t, home, cfg)
+	require.NoError(t, s.mem.ApplyChangeSets(migrationRecoveryChanges(keys.EVMStoreKey,
+		migrationRecoveryPut("a", "original-a"), migrationRecoveryPut("b", "original-b"))))
 	height, err := s.mem.Commit()
 	require.NoError(t, err)
 	require.Equal(t, int64(1), height)
@@ -353,13 +353,13 @@ func TestRepairM_1120_VersionZeroMigrationEntry(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int64(2), height, "fresh flatkv must be seeded for the next commit, not rolled back")
 	require.NoError(t, cs.Close())
-	s = repairM1120Open(t, home, cfg)
+	s = migrationRecoveryOpen(t, home, cfg)
 	require.Equal(t, int64(2), s.mem.Version())
 	require.Equal(t, int64(2), s.flat.Version())
-	repairM1120Union(t, s, map[string]string{"a": "original-a", "b": "original-b"})
+	migrationRecoveryUnion(t, s, map[string]string{"a": "original-a", "b": "original-b"})
 }
 
-func repairM1120Gauges(t *testing.T, reader *sdkmetric.ManualReader) map[string]int64 {
+func migrationRecoveryGauges(t *testing.T, reader *sdkmetric.ManualReader) map[string]int64 {
 	t.Helper()
 	var data metricdata.ResourceMetrics
 	require.NoError(t, reader.Collect(context.Background(), &data))
@@ -382,7 +382,7 @@ func repairM1120Gauges(t *testing.T, reader *sdkmetric.ManualReader) map[string]
 	return gauges
 }
 
-func TestRepairM_1120_BoundaryMetricCardinality(t *testing.T) {
+func TestMigrationRecoveryBoundaryMetricCardinality(t *testing.T) {
 	reader := sdkmetric.NewManualReader()
 	provider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
 	previous := otel.GetMeterProvider()
@@ -391,33 +391,33 @@ func TestRepairM_1120_BoundaryMetricCardinality(t *testing.T) {
 		otel.SetMeterProvider(previous)
 		require.NoError(t, provider.Shutdown(context.Background()))
 	})
-	cfg := repairM1120Config(t)
-	s := repairM1120Open(t, t.TempDir(), cfg)
+	cfg := migrationRecoveryConfig(t)
+	s := migrationRecoveryOpen(t, t.TempDir(), cfg)
 	const count = 4096
 	pairs := make([]*proto.KVPair, count+1)
 	for i := range pairs {
-		pairs[i] = repairM1120Put(fmt.Sprintf("key-%05d", i), "value")
+		pairs[i] = migrationRecoveryPut(fmt.Sprintf("key-%05d", i), "value")
 	}
-	require.NoError(t, s.mem.ApplyChangeSets(repairM1120Changes(keys.EVMStoreKey, pairs...)))
-	repairM1120Commit(t, s, 1)
+	require.NoError(t, s.mem.ApplyChangeSets(migrationRecoveryChanges(keys.EVMStoreKey, pairs...)))
+	migrationRecoveryCommit(t, s, 1)
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	router, err := m.BuildRouter(ctx, config.MigrateEVM, s.mem, s.flat, 1)
 	require.NoError(t, err)
-	initial := repairM1120Gauges(t, reader)
+	initial := migrationRecoveryGauges(t, reader)
 	require.Equal(t, int64(0), initial["paxdb_migration_boundary_snapshot"])
 	for i := range count {
 		require.NoError(t, router.ApplyChangeSets(nil, true))
-		boundary := repairM1120Boundary(t, s.flat)
+		boundary := migrationRecoveryBoundary(t, s.flat)
 		require.Equal(t, pairs[i].Key, boundary.Key(), "each sample must represent a distinct real migrated boundary")
-		got := repairM1120Gauges(t, reader)
+		got := migrationRecoveryGauges(t, reader)
 		require.Equal(t, int64(1), got["paxdb_migration_boundary_snapshot"])
 		require.Equal(t, int64(0), got["paxdb_migration_version"])
 		require.Equal(t, int64(i+1), got["paxdb_migration_keys_migrated"])
 		require.Equal(t, int64((i+1)*14), got["paxdb_migration_bytes_migrated"])
 	}
 	require.NoError(t, router.ApplyChangeSets(nil, true))
-	complete := repairM1120Gauges(t, reader)
+	complete := migrationRecoveryGauges(t, reader)
 	require.Equal(t, int64(2), complete["paxdb_migration_boundary_snapshot"])
 	require.Equal(t, int64(1), complete["paxdb_migration_version"])
 	require.Equal(t, int64(count+1), complete["paxdb_migration_keys_migrated"])
@@ -427,13 +427,13 @@ func TestRepairM_1120_BoundaryMetricCardinality(t *testing.T) {
 	metrics.SetVersion(2)
 	metrics.SetBoundary(m.NewMigrationBoundary(keys.BankStoreKey, []byte{0, 255, 0}))
 	time.Sleep(5 * time.Millisecond)
-	sampled := repairM1120Gauges(t, reader)
+	sampled := migrationRecoveryGauges(t, reader)
 	require.Equal(t, int64(1), sampled["paxdb_migration_boundary_snapshot"])
 	require.Equal(t, int64(2), sampled["paxdb_migration_version"])
 	metrics.SetVersion(3)
 	metrics.SetBoundary(m.MigrationBoundaryComplete)
 	metrics.Close()
-	final := repairM1120Gauges(t, reader)
+	final := migrationRecoveryGauges(t, reader)
 	require.Equal(t, int64(2), final["paxdb_migration_boundary_snapshot"])
 	require.Equal(t, int64(3), final["paxdb_migration_version"])
 }

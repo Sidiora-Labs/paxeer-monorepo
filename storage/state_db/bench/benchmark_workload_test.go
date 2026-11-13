@@ -34,7 +34,7 @@ func requireStoredKeys(t *testing.T, db wrappers.DBWrapper, count int64) {
 	require.False(t, found, "unexpected key beyond the generated stream")
 }
 
-func TestRepairM_1194_LastBlock(t *testing.T) {
+func TestBenchmarkWorkloadLastBlock(t *testing.T) {
 	for _, backend := range []wrappers.DBType{wrappers.MemIAVL, wrappers.FlatKV} {
 		for _, tc := range []struct {
 			name                    string
@@ -80,7 +80,7 @@ func TestRepairM_1194_LastBlock(t *testing.T) {
 	}
 }
 
-func TestRepairM_1194_ProducerCancellation(t *testing.T) {
+func TestBenchmarkWorkloadProducerCancellation(t *testing.T) {
 	scenario := TestScenario{Backend: wrappers.FlatKV, TotalKeys: 1000, NumBlocks: 1000}
 	db, err := scenario.OpenDB(t.Context(), t.TempDir())
 	require.NoError(t, err)
@@ -109,7 +109,7 @@ func TestRepairM_1194_ProducerCancellation(t *testing.T) {
 	requireProducerDone(t, stream)
 }
 
-func TestRepairM_1194_Distributions(t *testing.T) {
+func TestBenchmarkWorkloadDistributions(t *testing.T) {
 	for _, backend := range []wrappers.DBType{wrappers.MemIAVL, wrappers.FlatKV} {
 		scenarios := keyDistributionScenarios(backend, 1000, 10)
 		require.Len(t, scenarios, 4)
@@ -165,7 +165,7 @@ func TestRepairM_1194_Distributions(t *testing.T) {
 	}
 }
 
-func TestRepairM_1194_IterationMetrics(t *testing.T) {
+func TestBenchmarkWorkloadIterationMetrics(t *testing.T) {
 	// This exercises runBenchmark itself, including Go's multi-iteration run,
 	// real FlatKV construction, producer/consumer, final flush and metric output.
 	result := testing.Benchmark(func(b *testing.B) {
@@ -181,12 +181,12 @@ func TestRepairM_1194_IterationMetrics(t *testing.T) {
 	t.Logf("iterations=%d completed blocks=%.0f keys=%.0f elapsed=%fs", result.N, result.Extra["blocks"], result.Extra["keys"], seconds)
 }
 
-func TestRepairM_1194_BackendDocumentation(t *testing.T) {
+func TestBenchmarkWorkloadBackendDocumentation(t *testing.T) {
 	readme, err := os.ReadFile("README.md")
 	require.NoError(t, err)
 	require.Contains(t, string(readme), "TestScenario.OpenDB")
 	require.Contains(t, string(readme), "HistoricalOffloadConfig")
-	require.Contains(t, string(readme), "TestRepairM_1194_")
+	require.Contains(t, string(readme), "TestBenchmarkWorkload")
 	for _, backend := range []wrappers.DBType{
 		wrappers.MemIAVL, wrappers.FlatKV, wrappers.CompositeCosmos,
 		wrappers.CompositeSplit, wrappers.CompositeDual, wrappers.SSComposite,
@@ -223,7 +223,7 @@ func TestRepairM_1194_BackendDocumentation(t *testing.T) {
 	require.ErrorContains(t, err, "requires TestScenario.HistoricalOffloadConfig")
 }
 
-func TestRepairM_1194_ProgressCounts(t *testing.T) {
+func TestBenchmarkWorkloadProgressCounts(t *testing.T) {
 	scenario := TestScenario{Backend: wrappers.FlatKV, TotalKeys: 8, NumBlocks: 4, Distribution: BurstyDistribution(1, 2, 3, 0)}
 	db, err := scenario.OpenDB(t.Context(), t.TempDir())
 	require.NoError(t, err)
