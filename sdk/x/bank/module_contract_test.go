@@ -32,9 +32,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const repairM669Module = "repair-m669"
+const bankContractModule = "repair-m669"
 
-type repairM669Fixture struct {
+type bankContractFixture struct {
 	bank     keeper.BaseKeeper
 	auth     authkeeper.AccountKeeper
 	ctx      sdk.Context
@@ -46,7 +46,7 @@ type repairM669Fixture struct {
 	closed   bool
 }
 
-func repairM669Open(t *testing.T, dir string) *repairM669Fixture {
+func bankContractOpen(t *testing.T, dir string) *bankContractFixture {
 	t.Helper()
 	if _, exists := sdk.GetDenomUnit("uhpx"); !exists {
 		require.NoError(t, sdk.RegisterDenom("uhpx", sdk.OneDec()))
@@ -75,19 +75,19 @@ func repairM669Open(t *testing.T, dir string) *repairM669Fixture {
 	ak := authkeeper.NewAccountKeeper(cdc, authKey,
 		paramtypes.NewSubspace(cdc, amino, paramsKey, transientKey, authtypes.ModuleName),
 		authtypes.ProtoBaseAccount,
-		map[string][]string{repairM669Module: {authtypes.Minter, authtypes.Burner}})
+		map[string][]string{bankContractModule: {authtypes.Minter, authtypes.Burner}})
 	blocked := map[string]bool{}
 	bk := keeper.NewBaseKeeperWithDeferredCache(cdc, bankKey, ak,
 		paramtypes.NewSubspace(cdc, amino, paramsKey, transientKey, types.ModuleName), blocked, deferredKey)
 	cache := ms.CacheMultiStore()
-	f := &repairM669Fixture{bank: bk, auth: ak, store: ms, cache: cache, cdc: cdc,
+	f := &bankContractFixture{bank: bk, auth: ak, store: ms, cache: cache, cdc: cdc,
 		deferred: deferredKey, blocked: blocked,
 		ctx: sdk.NewContext(cache, tmproto.Header{Height: ms.LastCommitID().Version + 1, Time: time.Unix(1, 0)}, false)}
 	t.Cleanup(func() { f.close(t) })
 	return f
 }
 
-func (f *repairM669Fixture) close(t *testing.T) {
+func (f *bankContractFixture) close(t *testing.T) {
 	t.Helper()
 	if !f.closed {
 		require.NoError(t, f.store.Close())
@@ -95,35 +95,35 @@ func (f *repairM669Fixture) close(t *testing.T) {
 	}
 }
 
-func (f *repairM669Fixture) commit() {
+func (f *bankContractFixture) commit() {
 	f.cache.Write()
 	f.store.Commit(true)
 	f.cache = f.store.CacheMultiStore()
 	f.ctx = f.ctx.WithMultiStore(f.cache).WithBlockHeight(f.store.LastCommitID().Version + 1)
 }
 
-func repairM669Address(n byte) sdk.AccAddress {
+func bankContractAddress(n byte) sdk.AccAddress {
 	return sdk.AccAddress(bytes.Repeat([]byte{n}, 20))
 }
 
-func repairM669Coins(denom string, amount int64) sdk.Coins {
+func bankContractCoins(denom string, amount int64) sdk.Coins {
 	return sdk.NewCoins(sdk.NewInt64Coin(denom, amount))
 }
 
-func (f *repairM669Fixture) seed(t *testing.T, coins sdk.Coins) {
+func (f *bankContractFixture) seed(t *testing.T, coins sdk.Coins) {
 	t.Helper()
 	f.auth.SetParams(f.ctx, authtypes.DefaultParams())
 	f.bank.SetParams(f.ctx, types.DefaultParams())
 	for n := byte(1); n <= 3; n++ {
-		addr := repairM669Address(n)
+		addr := bankContractAddress(n)
 		f.auth.SetAccount(f.ctx, f.auth.NewAccountWithAddress(f.ctx, addr))
 	}
-	require.NoError(t, f.bank.MintCoins(f.ctx, repairM669Module, coins))
-	require.NoError(t, f.bank.SendCoinsFromModuleToAccount(f.ctx, repairM669Module, repairM669Address(1), coins))
+	require.NoError(t, f.bank.MintCoins(f.ctx, bankContractModule, coins))
+	require.NoError(t, f.bank.SendCoinsFromModuleToAccount(f.ctx, bankContractModule, bankContractAddress(1), coins))
 	f.ctx = f.ctx.WithEventManager(sdk.NewEventManager())
 }
 
-func repairM669Doc(t *testing.T, path string, claims ...string) string {
+func bankContractDoc(t *testing.T, path string, claims ...string) string {
 	t.Helper()
 	b, err := os.ReadFile(path)
 	require.NoError(t, err)
@@ -133,25 +133,25 @@ func repairM669Doc(t *testing.T, path string, claims ...string) string {
 	return string(b)
 }
 
-func repairM669Healthy(t *testing.T, f *repairM669Fixture) {
+func bankContractHealthy(t *testing.T, f *bankContractFixture) {
 	t.Helper()
 	message, broken := keeper.TotalSupply(f.bank)(f.ctx)
 	require.False(t, broken, message)
 }
 
-func TestRepairM_669_StateStoresRecovery(t *testing.T) {
-	repairM669Doc(t, "spec/01_state.md", "10^12", "0x04 \\| address", "0x11", "CompleteBlock", "before commit", "explicitly stored empty allowlist")
+func TestBankContractStateStoresRecovery(t *testing.T) {
+	bankContractDoc(t, "spec/01_state.md", "10^12", "0x04 \\| address", "0x11", "CompleteBlock", "before commit", "explicitly stored empty allowlist")
 	dir := t.TempDir()
-	f := repairM669Open(t, dir)
-	a, b := repairM669Address(1), repairM669Address(2)
-	f.seed(t, repairM669Coins("uhpx", 10))
+	f := bankContractOpen(t, dir)
+	a, b := bankContractAddress(1), bankContractAddress(2)
+	f.seed(t, bankContractCoins("uhpx", 10))
 	denom := "factory/" + a.String() + "/restricted"
 	list := types.AllowList{Addresses: []string{a.String(), b.String()}}
 	f.bank.SetDenomAllowList(f.ctx, denom, list)
 	require.NoError(t, f.bank.SendCoinsAndWei(f.ctx, a, b, sdk.ZeroInt(), sdk.NewInt(5)))
-	require.NoError(t, f.bank.DeferredSendCoinsFromAccountToModule(f.ctx.WithTxIndex(0), a, repairM669Module, repairM669Coins("uhpx", 2)))
-	require.NoError(t, f.bank.DeferredSendCoinsFromAccountToModule(f.ctx.WithTxIndex(1), a, repairM669Module, repairM669Coins("uhpx", 1)))
-	module := f.auth.GetModuleAddress(repairM669Module)
+	require.NoError(t, f.bank.DeferredSendCoinsFromAccountToModule(f.ctx.WithTxIndex(0), a, bankContractModule, bankContractCoins("uhpx", 2)))
+	require.NoError(t, f.bank.DeferredSendCoinsFromAccountToModule(f.ctx.WithTxIndex(1), a, bankContractModule, bankContractCoins("uhpx", 1)))
+	module := f.auth.GetModuleAddress(bankContractModule)
 	require.Equal(t, sdk.ZeroInt(), f.bank.GetBalance(f.ctx, module, "uhpx").Amount)
 	var pending []sdk.Coin
 	f.bank.IterateDeferredBalances(f.ctx, func(addr sdk.AccAddress, coin sdk.Coin) bool {
@@ -173,25 +173,25 @@ func TestRepairM_669_StateStoresRecovery(t *testing.T) {
 	var storedWei sdk.Int
 	require.NoError(t, storedWei.Unmarshal(f.ctx.KVStore(f.bank.GetStoreKey()).Get(append(types.WeiBalancesPrefix, b...))))
 	require.Equal(t, sdk.NewInt(5), storedWei)
-	repairM669Healthy(t, f)
+	bankContractHealthy(t, f)
 	events := f.bank.WriteDeferredBalances(f.ctx)
-	require.Equal(t, sdk.Events{types.NewCoinReceivedEvent(module, repairM669Coins("uhpx", 3))}.ToABCIEvents(), events)
+	require.Equal(t, sdk.Events{types.NewCoinReceivedEvent(module, bankContractCoins("uhpx", 3))}.ToABCIEvents(), events)
 	count := 0
 	f.bank.IterateDeferredBalances(f.ctx, func(sdk.AccAddress, sdk.Coin) bool { count++; return false })
 	require.Zero(t, count)
 	require.Equal(t, sdk.NewInt(6), f.bank.GetBalance(f.ctx, a, "uhpx").Amount)
 	require.Equal(t, sdk.NewInt(3), f.bank.GetBalance(f.ctx, module, "uhpx").Amount)
-	repairM669Healthy(t, f)
+	bankContractHealthy(t, f)
 	f.commit()
 	f.close(t)
-	reopened := repairM669Open(t, dir)
+	reopened := bankContractOpen(t, dir)
 	require.Equal(t, list, reopened.bank.GetDenomAllowList(reopened.ctx, denom))
 	require.Equal(t, sdk.NewInt(6), reopened.bank.GetBalance(reopened.ctx, a, "uhpx").Amount)
 	require.Equal(t, sdk.NewInt(3), reopened.bank.GetBalance(reopened.ctx, module, "uhpx").Amount)
 	require.Equal(t, keeper.OneUhpxInWei.SubRaw(5), reopened.bank.GetWeiBalance(reopened.ctx, a))
 	require.Equal(t, sdk.NewInt(5), reopened.bank.GetWeiBalance(reopened.ctx, b))
 	require.Empty(t, reopened.bank.WriteDeferredBalances(reopened.ctx), "flushed credits cannot replay on restart")
-	repairM669Healthy(t, reopened)
+	bankContractHealthy(t, reopened)
 	am := bank.NewAppModule(reopened.cdc, reopened.bank, reopened.auth)
 	require.Panics(t, func() { am.ExportGenesis(reopened.ctx, reopened.cdc) }, "normal module export must not lose policy")
 	genesis := reopened.bank.ExportGenesisWithAllowLists(reopened.ctx)
@@ -199,18 +199,18 @@ func TestRepairM_669_StateStoresRecovery(t *testing.T) {
 	require.NoError(t, err)
 	decoded, err := keeper.UnmarshalGenesisJSON(reopened.cdc, encoded)
 	require.NoError(t, err)
-	recovered := repairM669Open(t, t.TempDir())
+	recovered := bankContractOpen(t, t.TempDir())
 	recovered.bank.InitGenesisWithAllowLists(recovered.ctx, decoded)
 	require.Equal(t, *genesis, *recovered.bank.ExportGenesisWithAllowLists(recovered.ctx))
-	repairM669Healthy(t, recovered)
-	empty := repairM669Open(t, t.TempDir())
-	empty.seed(t, repairM669Coins("uhpx", 1))
+	bankContractHealthy(t, recovered)
+	empty := bankContractOpen(t, t.TempDir())
+	empty.seed(t, bankContractCoins("uhpx", 1))
 	empty.bank.SetDenomAllowList(empty.ctx, denom, types.AllowList{})
-	require.True(t, empty.bank.IsInDenomAllowList(empty.ctx, b, repairM669Coins(denom, 1), make(map[string]keeper.AllowedAddresses)))
+	require.True(t, empty.bank.IsInDenomAllowList(empty.ctx, b, bankContractCoins(denom, 1), make(map[string]keeper.AllowedAddresses)))
 	require.Panics(t, func() { empty.bank.ExportGenesis(empty.ctx) })
 }
 
-func repairM669Types(t *testing.T, source string) map[string]string {
+func bankContractTypes(t *testing.T, source string) map[string]string {
 	t.Helper()
 	fset := token.NewFileSet()
 	file, err := parser.ParseFile(fset, "contract.go", source, 0)
@@ -232,26 +232,26 @@ func repairM669Types(t *testing.T, source string) map[string]string {
 	return result
 }
 
-func TestRepairM_669_KeeperCapabilities(t *testing.T) {
-	doc := repairM669Doc(t, "spec/02_keepers.md", "checkNeg = false", "registration order", "one keyed lookup", "scan an account's denominations")
+func TestBankContractKeeperCapabilities(t *testing.T) {
+	doc := bankContractDoc(t, "spec/02_keepers.md", "checkNeg = false", "registration order", "one keyed lookup", "scan an account's denominations")
 	documented := map[string]string{}
 	for _, block := range strings.Split(doc, "```go\n")[1:] {
-		for name, decl := range repairM669Types(t, "package keeper\n"+strings.SplitN(block, "```", 2)[0]) {
+		for name, decl := range bankContractTypes(t, "package keeper\n"+strings.SplitN(block, "```", 2)[0]) {
 			documented[name] = decl
 		}
 	}
 	for name, path := range map[string]string{"Keeper": "keeper/keeper.go", "SendKeeper": "keeper/send.go", "ViewKeeper": "keeper/view.go"} {
 		source, err := os.ReadFile(path)
 		require.NoError(t, err)
-		require.Equal(t, repairM669Types(t, string(source))[name], documented[name], name)
+		require.Equal(t, bankContractTypes(t, string(source))[name], documented[name], name)
 	}
-	f := repairM669Open(t, t.TempDir())
-	a, denied := repairM669Address(1), repairM669Address(3)
+	f := bankContractOpen(t, t.TempDir())
+	a, denied := bankContractAddress(1), bankContractAddress(3)
 	f.seed(t, sdk.NewCoins(sdk.NewInt64Coin("uhpx", 5), sdk.NewInt64Coin("ordinary", 2)))
-	locked := vesting.NewDelayedVestingAccount(authtypes.NewBaseAccountWithAddress(a), repairM669Coins("uhpx", 4), 100, nil)
+	locked := vesting.NewDelayedVestingAccount(authtypes.NewBaseAccountWithAddress(a), bankContractCoins("uhpx", 4), 100, nil)
 	f.auth.SetAccount(f.ctx, locked)
-	require.Equal(t, repairM669Coins("uhpx", 4), f.bank.LockedCoins(f.ctx, a))
-	require.ErrorIs(t, f.bank.SubUnlockedCoins(f.ctx, a, repairM669Coins("uhpx", 2), true), sdkerrors.ErrInsufficientFunds)
+	require.Equal(t, bankContractCoins("uhpx", 4), f.bank.LockedCoins(f.ctx, a))
+	require.ErrorIs(t, f.bank.SubUnlockedCoins(f.ctx, a, bankContractCoins("uhpx", 2), true), sdkerrors.ErrInsufficientFunds)
 	require.Equal(t, sdk.NewInt(5), f.bank.GetBalance(f.ctx, a, "uhpx").Amount)
 	var calls []string
 	var before []sdk.Int
@@ -264,26 +264,26 @@ func TestRepairM_669_KeeperCapabilities(t *testing.T) {
 			return nil
 		})
 	}
-	require.NoError(t, copy.SubUnlockedCoins(f.ctx, a, repairM669Coins("ordinary", 5), false))
+	require.NoError(t, copy.SubUnlockedCoins(f.ctx, a, bankContractCoins("ordinary", 5), false))
 	require.Equal(t, sdk.NewInt(-3), f.bank.GetBalance(f.ctx, a, "ordinary").Amount)
 	require.Equal(t, []string{"first", "second"}, calls)
 	require.Equal(t, []sdk.Int{sdk.NewInt(2), sdk.NewInt(2)}, before)
-	require.ErrorIs(t, copy.AddCoins(f.ctx, a, repairM669Coins("ordinary", 1), true), sdkerrors.ErrInvalidCoins)
+	require.ErrorIs(t, copy.AddCoins(f.ctx, a, bankContractCoins("ordinary", 1), true), sdkerrors.ErrInvalidCoins)
 	require.Equal(t, sdk.NewInt(-3), f.bank.GetBalance(f.ctx, a, "ordinary").Amount)
-	require.NoError(t, copy.AddCoins(f.ctx, a, repairM669Coins("ordinary", 3), true))
+	require.NoError(t, copy.AddCoins(f.ctx, a, bankContractCoins("ordinary", 3), true))
 	require.Equal(t, sdk.ZeroInt(), f.bank.GetBalance(f.ctx, a, "ordinary").Amount)
 	require.Nil(t, f.ctx.KVStore(f.bank.GetStoreKey()).Get(types.CreatePrefixedAccountStoreKey(a, []byte("ordinary"))))
 	require.ErrorIs(t, copy.SubUnlockedCoins(f.ctx, a, sdk.Coins{{Denom: "ordinary", Amount: sdk.NewInt(-1)}}, false), sdkerrors.ErrInvalidCoins)
 	f.bank.RegisterRecipientChecker(func(_ sdk.Context, addr sdk.AccAddress) bool { return !addr.Equals(denied) })
 	require.False(t, copy.CanSendTo(f.ctx, denied))
-	require.ErrorIs(t, copy.AddCoins(f.ctx, denied, repairM669Coins("ordinary", 1), false), sdkerrors.ErrInvalidRecipient)
+	require.ErrorIs(t, copy.AddCoins(f.ctx, denied, bankContractCoins("ordinary", 1), false), sdkerrors.ErrInvalidRecipient)
 	require.ErrorIs(t, copy.AddWei(f.ctx, denied, sdk.OneInt()), sdkerrors.ErrInvalidRecipient)
 	f.bank.RegisterSendEnabledChecker(func(_ sdk.Context, denom string) bool { return denom != "ordinary" })
 	require.ErrorIs(t, copy.IsSendEnabledCoins(f.ctx, sdk.NewInt64Coin("ordinary", 1)), types.ErrSendDisabled)
 	require.NoError(t, copy.IsSendEnabledCoins(f.ctx, sdk.NewInt64Coin("uhpx", 1)))
 	hookErr := errors.New("balance observer refused write")
 	f.bank.RegisterBalanceChangeHook("refuse", func(sdk.Context, sdk.AccAddress, string, func() sdk.Int) error { return hookErr })
-	require.ErrorIs(t, copy.AddCoins(f.ctx, a, repairM669Coins("uhpx", 1), true), hookErr)
+	require.ErrorIs(t, copy.AddCoins(f.ctx, a, bankContractCoins("uhpx", 1), true), hookErr)
 	require.Equal(t, sdk.NewInt(5), copy.GetBalance(f.ctx, a, "uhpx").Amount)
 	countBeforeWei := len(calls)
 	require.NoError(t, copy.AddWei(f.ctx, a, sdk.OneInt()))
@@ -297,14 +297,14 @@ func TestRepairM_669_KeeperCapabilities(t *testing.T) {
 	require.Panics(t, func() { copy.RegisterBalanceChangeHook("nil", nil) })
 	var visited sdk.Coins
 	copy.IterateAccountBalances(f.ctx, a, func(coin sdk.Coin) bool { visited = append(visited, coin); return false })
-	require.Equal(t, repairM669Coins("uhpx", 5), visited)
+	require.Equal(t, bankContractCoins("uhpx", 5), visited)
 	count := 0
 	copy.IterateAllBalances(f.ctx, func(sdk.AccAddress, sdk.Coin) bool { count++; return true })
 	require.Equal(t, 1, count)
-	require.Equal(t, repairM669Coins("uhpx", 1), copy.SpendableCoins(f.ctx, a))
+	require.Equal(t, bankContractCoins("uhpx", 1), copy.SpendableCoins(f.ctx, a))
 }
 
-func repairM669Dispatch(t *testing.T, f *repairM669Fixture, multi bool, inputs []types.Input, outputs []types.Output) error {
+func bankContractDispatch(t *testing.T, f *bankContractFixture, multi bool, inputs []types.Input, outputs []types.Output) error {
 	t.Helper()
 	server := keeper.NewMsgServerImpl(f.bank)
 	if multi {
@@ -321,9 +321,9 @@ func repairM669Dispatch(t *testing.T, f *repairM669Fixture, multi bool, inputs [
 	return err
 }
 
-func TestRepairM_669_MessageAllowlist(t *testing.T) {
-	repairM669Doc(t, "spec/03_messages.md", "missing or empty list allows all addresses", "Carol sending", "Alice sending it to Carol", "every\ninput", "every output")
-	a, b, carol := repairM669Address(1), repairM669Address(2), repairM669Address(3)
+func TestBankContractMessageAllowlist(t *testing.T) {
+	bankContractDoc(t, "spec/03_messages.md", "missing or empty list allows all addresses", "Carol sending", "Alice sending it to Carol", "every\ninput", "every output")
+	a, b, carol := bankContractAddress(1), bankContractAddress(2), bankContractAddress(3)
 	denom := "factory/" + a.String() + "/restricted"
 	for _, multi := range []bool{false, true} {
 		for _, test := range []struct {
@@ -349,8 +349,8 @@ func TestRepairM_669_MessageAllowlist(t *testing.T) {
 				prefix = "MultiSend/"
 			}
 			t.Run(prefix+test.name, func(t *testing.T) {
-				f := repairM669Open(t, t.TempDir())
-				f.seed(t, repairM669Coins(denom, 100))
+				f := bankContractOpen(t, t.TempDir())
+				f.seed(t, bankContractCoins(denom, 100))
 				if test.present {
 					f.bank.SetDenomAllowList(f.ctx, denom, types.AllowList{Addresses: test.list})
 				}
@@ -360,8 +360,8 @@ func TestRepairM_669_MessageAllowlist(t *testing.T) {
 					params.DefaultSendEnabled = false
 					f.bank.SetParams(f.ctx, params)
 				}
-				amt := repairM669Coins(denom, test.amount)
-				err := repairM669Dispatch(t, f, multi, []types.Input{types.NewInput(test.from, amt)}, []types.Output{types.NewOutput(test.to, amt)})
+				amt := bankContractCoins(denom, test.amount)
+				err := bankContractDispatch(t, f, multi, []types.Input{types.NewInput(test.from, amt)}, []types.Output{types.NewOutput(test.to, amt)})
 				if test.want != nil {
 					require.ErrorIs(t, err, test.want)
 					if test.message != "" {
@@ -374,16 +374,16 @@ func TestRepairM_669_MessageAllowlist(t *testing.T) {
 					require.NoError(t, err)
 					require.Equal(t, sdk.NewInt(100-test.amount), f.bank.GetBalance(f.ctx, a, denom).Amount)
 					require.Equal(t, sdk.NewInt(test.amount), f.bank.GetBalance(f.ctx, test.to, denom).Amount)
-					repairM669Healthy(t, f)
+					bankContractHealthy(t, f)
 				}
 			})
 		}
 	}
 	for _, lateInput := range []bool{true, false} {
-		f := repairM669Open(t, t.TempDir())
-		f.seed(t, repairM669Coins(denom, 100))
+		f := bankContractOpen(t, t.TempDir())
+		f.seed(t, bankContractCoins(denom, 100))
 		f.bank.SetDenomAllowList(f.ctx, denom, types.AllowList{Addresses: []string{a.String(), b.String()}})
-		one, two := repairM669Coins(denom, 1), repairM669Coins(denom, 2)
+		one, two := bankContractCoins(denom, 1), bankContractCoins(denom, 2)
 		inputs, outputs := []types.Input{types.NewInput(a, two)}, []types.Output{types.NewOutput(b, one), types.NewOutput(carol, one)}
 		message := carol.String() + " is not allowed to receive funds"
 		if lateInput {
@@ -391,7 +391,7 @@ func TestRepairM_669_MessageAllowlist(t *testing.T) {
 			outputs = []types.Output{types.NewOutput(b, two)}
 			message = carol.String() + " is not allowed to send funds"
 		}
-		err := repairM669Dispatch(t, f, true, inputs, outputs)
+		err := bankContractDispatch(t, f, true, inputs, outputs)
 		require.ErrorIs(t, err, sdkerrors.ErrUnauthorized)
 		require.Contains(t, err.Error(), message)
 		require.Equal(t, sdk.NewInt(100), f.bank.GetBalance(f.ctx, a, denom).Amount)
@@ -399,7 +399,7 @@ func TestRepairM_669_MessageAllowlist(t *testing.T) {
 	}
 }
 
-func repairM669Event(kind string, attributes ...string) sdk.Event {
+func bankContractEvent(kind string, attributes ...string) sdk.Event {
 	e := sdk.NewEvent(kind)
 	for i := 0; i < len(attributes); i += 2 {
 		e = e.AppendAttributes(sdk.NewAttribute(attributes[i], attributes[i+1]))
@@ -407,26 +407,26 @@ func repairM669Event(kind string, attributes ...string) sdk.Event {
 	return e
 }
 
-func TestRepairM_669_WeiEvents(t *testing.T) {
-	repairM669Doc(t, "spec/04_events.md", "999999999995", "2000000000005", "wei_spent", "wei_received", "wei_transfer", "does not emit an additional")
-	f := repairM669Open(t, t.TempDir())
-	a, b := repairM669Address(1), repairM669Address(2)
-	f.seed(t, repairM669Coins("uhpx", 5))
+func TestBankContractWeiEvents(t *testing.T) {
+	bankContractDoc(t, "spec/04_events.md", "999999999995", "2000000000005", "wei_spent", "wei_received", "wei_transfer", "does not emit an additional")
+	f := bankContractOpen(t, t.TempDir())
+	a, b := bankContractAddress(1), bankContractAddress(2)
+	f.seed(t, bankContractCoins("uhpx", 5))
 	require.NoError(t, f.bank.SendCoinsAndWei(f.ctx, a, b, sdk.NewInt(2), sdk.NewInt(5)))
 	require.Equal(t, sdk.Events{
-		repairM669Event("wei_spent", "spender", a.String(), "amount", "5"),
-		repairM669Event("wei_received", "receiver", b.String(), "amount", "5"),
-		repairM669Event("wei_transfer", "recipient", b.String(), "sender", a.String(), "amount", "5"),
-		repairM669Event("coin_spent", "spender", a.String(), "amount", "2uhpx"),
-		repairM669Event("coin_received", "receiver", b.String(), "amount", "2uhpx"),
-		repairM669Event("transfer", "recipient", b.String(), "sender", a.String(), "amount", "2uhpx"),
-		repairM669Event("message", "sender", a.String()),
+		bankContractEvent("wei_spent", "spender", a.String(), "amount", "5"),
+		bankContractEvent("wei_received", "receiver", b.String(), "amount", "5"),
+		bankContractEvent("wei_transfer", "recipient", b.String(), "sender", a.String(), "amount", "5"),
+		bankContractEvent("coin_spent", "spender", a.String(), "amount", "2uhpx"),
+		bankContractEvent("coin_received", "receiver", b.String(), "amount", "2uhpx"),
+		bankContractEvent("transfer", "recipient", b.String(), "sender", a.String(), "amount", "2uhpx"),
+		bankContractEvent("message", "sender", a.String()),
 	}, f.ctx.EventManager().Events())
 	require.Equal(t, sdk.NewInt(2), f.bank.GetBalance(f.ctx, a, "uhpx").Amount)
 	require.Equal(t, keeper.OneUhpxInWei.SubRaw(5), f.bank.GetWeiBalance(f.ctx, a))
 	require.Equal(t, sdk.NewInt(2), f.bank.GetBalance(f.ctx, b, "uhpx").Amount)
 	require.Equal(t, sdk.NewInt(5), f.bank.GetWeiBalance(f.ctx, b))
-	repairM669Healthy(t, f)
+	bankContractHealthy(t, f)
 	f.ctx = f.ctx.WithEventManager(sdk.NewEventManager())
 	require.ErrorIs(t, f.bank.SendCoinsAndWei(f.ctx, a, b, sdk.NewInt(100), sdk.OneInt()), sdkerrors.ErrInsufficientFunds)
 	require.Empty(t, f.ctx.EventManager().Events())
@@ -438,14 +438,14 @@ func TestRepairM_669_WeiEvents(t *testing.T) {
 	require.Empty(t, f.ctx.EventManager().Events())
 	require.NoError(t, f.bank.SendCoinsAndWei(f.ctx, a, b, sdk.OneInt(), sdk.ZeroInt()))
 	require.Equal(t, sdk.Events{
-		repairM669Event("wei_transfer", "recipient", b.String(), "sender", a.String(), "amount", "0"),
-		repairM669Event("coin_spent", "spender", a.String(), "amount", "1uhpx"),
-		repairM669Event("coin_received", "receiver", b.String(), "amount", "1uhpx"),
-		repairM669Event("transfer", "recipient", b.String(), "sender", a.String(), "amount", "1uhpx"),
-		repairM669Event("message", "sender", a.String()),
+		bankContractEvent("wei_transfer", "recipient", b.String(), "sender", a.String(), "amount", "0"),
+		bankContractEvent("coin_spent", "spender", a.String(), "amount", "1uhpx"),
+		bankContractEvent("coin_received", "receiver", b.String(), "amount", "1uhpx"),
+		bankContractEvent("transfer", "recipient", b.String(), "sender", a.String(), "amount", "1uhpx"),
+		bankContractEvent("message", "sender", a.String()),
 	}, f.ctx.EventManager().Events())
-	carry := repairM669Open(t, t.TempDir())
-	carry.seed(t, repairM669Coins("uhpx", 2))
+	carry := bankContractOpen(t, t.TempDir())
+	carry.seed(t, bankContractCoins("uhpx", 2))
 	require.NoError(t, carry.bank.SubWei(carry.ctx, a, sdk.NewInt(5)))
 	require.Equal(t, sdk.OneInt(), carry.bank.GetBalance(carry.ctx, a, "uhpx").Amount)
 	require.Equal(t, keeper.OneUhpxInWei.SubRaw(5), carry.bank.GetWeiBalance(carry.ctx, a))
@@ -453,12 +453,12 @@ func TestRepairM_669_WeiEvents(t *testing.T) {
 	require.Equal(t, sdk.NewInt(2), carry.bank.GetBalance(carry.ctx, a, "uhpx").Amount)
 	require.Equal(t, sdk.ZeroInt(), carry.bank.GetWeiBalance(carry.ctx, a))
 	require.Nil(t, carry.ctx.KVStore(carry.bank.GetStoreKey()).Get(append(types.WeiBalancesPrefix, a...)))
-	require.Equal(t, sdk.Events{repairM669Event("wei_spent", "spender", a.String(), "amount", "5"), repairM669Event("wei_received", "receiver", a.String(), "amount", "5")}, carry.ctx.EventManager().Events())
-	repairM669Healthy(t, carry)
+	require.Equal(t, sdk.Events{bankContractEvent("wei_spent", "spender", a.String(), "amount", "5"), bankContractEvent("wei_received", "receiver", a.String(), "amount", "5")}, carry.ctx.EventManager().Events())
+	bankContractHealthy(t, carry)
 }
 
-func TestRepairM_669_InvariantWiring(t *testing.T) {
-	repairM669Doc(t, "spec/README.md", "no registered all-denomination bank invariant", "light_invariance.supply_enabled", "defaults to `true`", "MockBalancesEnabled", "Malformed changed keys")
+func TestBankContractInvariantWiring(t *testing.T) {
+	bankContractDoc(t, "spec/README.md", "no registered all-denomination bank invariant", "light_invariance.supply_enabled", "defaults to `true`", "MockBalancesEnabled", "Malformed changed keys")
 	require.False(t, app.MockBalancesEnabled)
 	opts := viper.New()
 	defaultCfg, err := app.ReadLightInvarianceConfig(opts)
@@ -473,20 +473,20 @@ func TestRepairM_669_InvariantWiring(t *testing.T) {
 	require.Error(t, err)
 	for _, scenario := range []string{"other-denomination", "native", "wei-remainder"} {
 		t.Run(scenario, func(t *testing.T) {
-			f := repairM669Open(t, t.TempDir())
-			f.seed(t, repairM669Coins("uhpx", 5))
+			f := bankContractOpen(t, t.TempDir())
+			f.seed(t, bankContractCoins("uhpx", 5))
 			f.commit()
 			node := &app.App{BankKeeper: f.bank}
 			bank.NewAppModule(f.cdc, f.bank, f.auth).RegisterInvariants(nil)
-			repairM669Healthy(t, f)
+			bankContractHealthy(t, f)
 			if scenario == "wei-remainder" {
-				require.NoError(t, f.bank.AddWei(f.ctx, repairM669Address(1), sdk.OneInt()))
+				require.NoError(t, f.bank.AddWei(f.ctx, bankContractAddress(1), sdk.OneInt()))
 			} else {
 				denom := "uhpx"
 				if scenario == "other-denomination" {
 					denom = "ordinary"
 				}
-				require.NoError(t, f.bank.AddCoins(f.ctx, repairM669Address(1), repairM669Coins(denom, 1), true))
+				require.NoError(t, f.bank.AddCoins(f.ctx, bankContractAddress(1), bankContractCoins(denom, 1), true))
 			}
 			message, broken := keeper.TotalSupply(f.bank)(f.ctx)
 			require.True(t, broken, message)

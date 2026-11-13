@@ -265,7 +265,7 @@ func (suite *IntegrationTestSuite) TestQueryDenomsMetadataRequest() {
 		{
 			"slash-containing factory denom",
 			func() {
-				metadata := repairM665FactoryMetadata()
+				metadata := bankQueryFactoryMetadata()
 				suite.Require().NoError(metadata.Validate())
 				suite.app.BankKeeper.SetDenomMetaData(suite.ctx, metadata)
 				expMetadata = []types.Metadata{metadata}
@@ -372,7 +372,7 @@ func (suite *IntegrationTestSuite) TestQueryDenomMetadataRequest() {
 		{
 			"slash-containing factory denom",
 			func() {
-				expMetadata = repairM665FactoryMetadata()
+				expMetadata = bankQueryFactoryMetadata()
 				suite.Require().NoError(expMetadata.Validate())
 				suite.app.BankKeeper.SetDenomMetaData(suite.ctx, expMetadata)
 				req = &types.QueryDenomMetadataRequest{Denom: expMetadata.Base}

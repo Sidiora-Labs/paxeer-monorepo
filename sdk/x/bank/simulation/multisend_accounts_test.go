@@ -26,33 +26,33 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-func TestRepairM_667_ZeroAccounts(t *testing.T) {
-	repairM667Operation(t, 0, nil, 0)
+func TestMultisendSimulationZeroAccounts(t *testing.T) {
+	multisendSimulationOperation(t, 0, nil, 0)
 }
 
-func TestRepairM_667_OneAccount(t *testing.T) {
-	repairM667Operation(t, 1, []int{0}, 0)
+func TestMultisendSimulationOneAccount(t *testing.T) {
+	multisendSimulationOperation(t, 1, []int{0}, 0)
 }
 
-func TestRepairM_667_TwoAccounts(t *testing.T) {
-	repairM667Operation(t, 2, []int{0, 1}, 2)
+func TestMultisendSimulationTwoAccounts(t *testing.T) {
+	multisendSimulationOperation(t, 2, []int{0, 1}, 2)
 }
 
-func TestRepairM_667_DuplicateOnlyAccount(t *testing.T) {
-	repairM667Operation(t, 1, []int{0, 0, 0}, 0)
+func TestMultisendSimulationDuplicateOnlyAccount(t *testing.T) {
+	multisendSimulationOperation(t, 1, []int{0, 0, 0}, 0)
 }
 
-func TestRepairM_667_TwoDistinctAccountsWithDuplicates(t *testing.T) {
-	repairM667Operation(t, 2, []int{0, 1, 0, 1}, 2)
+func TestMultisendSimulationTwoDistinctAccountsWithDuplicates(t *testing.T) {
+	multisendSimulationOperation(t, 2, []int{0, 1, 0, 1}, 2)
 }
 
-func TestRepairM_667_SampleWithoutReplacement(t *testing.T) {
-	repairM667Operation(t, 5, []int{0, 1, 2, 3, 4}, 3)
+func TestMultisendSimulationSampleWithoutReplacement(t *testing.T) {
+	multisendSimulationOperation(t, 5, []int{0, 1, 2, 3, 4}, 3)
 }
 
 // Seed 1 requests three inputs in the production operation. All cases drive
 // simulation -> signed protobuf transaction -> BaseApp -> bank MsgServer/store.
-func repairM667Operation(t *testing.T, accountCount int, indices []int, wantInputs int) {
+func multisendSimulationOperation(t *testing.T, accountCount int, indices []int, wantInputs int) {
 	t.Helper()
 	const seed = int64(1)
 	require.Equal(t, 3, rand.New(rand.NewSource(seed)).Intn(3)+1)

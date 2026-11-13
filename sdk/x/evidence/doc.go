@@ -19,7 +19,7 @@ After construction, call mm.RegisterServices with
 module.NewConfigurator(appCodec, app.MsgServiceRouter(), app.GRPCQueryRouter())
 to register the SDK Msg and Query services. Include evidencetypes.ModuleName in
 the manager's genesis initialization order. The following setup is compiled and
-exercised by TestRepairM_605_SetupExample:
+exercised by TestEvidenceContractSetupExample:
 
 	import (
 	    "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec"

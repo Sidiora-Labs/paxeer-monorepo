@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-func TestRepairM_663_BankCLINetworkSignature(t *testing.T) {
+func TestBankCLINetworkSignature(t *testing.T) {
 	entry, err := parser.ParseFile(token.NewFileSet(), "cli_test.go", nil, 0)
 	require.NoError(t, err)
 	var calls int

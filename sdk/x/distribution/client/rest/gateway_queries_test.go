@@ -21,11 +21,11 @@ import (
 
 // distribution-gateway-disabled: execute every restored gateway assertion in the
 // task's focused gate as well as the ordinary TestIntegrationTestSuite entry.
-func TestRepairM_682_DistributionGatewaySuite(t *testing.T) {
+func TestDistributionGatewaySuite(t *testing.T) {
 	suite.Run(t, new(IntegrationTestSuite))
 }
 
-func TestRepairM_682_KeeperUpdatesReachGateway(t *testing.T) {
+func TestDistributionGatewayKeeperUpdatesReachGateway(t *testing.T) {
 	f := newDistributionGatewayFixture(t)
 	getDistributionGatewayResponse(t, f, "/community_pool", &types.QueryCommunityPoolResponse{Pool: sdk.DecCoins{}})
 
@@ -46,7 +46,7 @@ func TestRepairM_682_KeeperUpdatesReachGateway(t *testing.T) {
 	getDistributionGatewayResponse(t, f, "/params", &types.QueryParamsResponse{Params: params})
 }
 
-func TestRepairM_682_RewardQueriesAreIsolated(t *testing.T) {
+func TestDistributionGatewayRewardQueriesAreIsolated(t *testing.T) {
 	f := newDistributionGatewayFixture(t)
 	current := f.keeper.GetValidatorCurrentRewards(f.ctx, f.ValAddress)
 	starting := f.keeper.GetDelegatorStartingInfo(f.ctx, f.ValAddress, f.Address)
@@ -63,7 +63,7 @@ func TestRepairM_682_RewardQueriesAreIsolated(t *testing.T) {
 	}
 }
 
-func TestRepairM_682_BlockHeightHeaders(t *testing.T) {
+func TestDistributionGatewayBlockHeightHeaders(t *testing.T) {
 	f := newDistributionGatewayFixture(t)
 	for _, tc := range []struct {
 		height string

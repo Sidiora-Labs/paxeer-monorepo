@@ -12,7 +12,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/staking/teststaking"
 )
 
-func repair306Slashes(t *testing.T) (types.QueryClient, string, []types.ValidatorSlashEvent) {
+func validatorSlashSlashes(t *testing.T) (types.QueryClient, string, []types.ValidatorSlashEvent) {
 	t.Helper()
 	suite := new(KeeperTestSuite)
 	suite.SetT(t)
@@ -41,8 +41,8 @@ func repair306Slashes(t *testing.T) (types.QueryClient, string, []types.Validato
 	return suite.queryClient, valAddr.String(), events
 }
 
-func TestRepair_306_SlashHeightRange(t *testing.T) {
-	client, validator, events := repair306Slashes(t)
+func TestValidatorSlashHeightRange(t *testing.T) {
+	client, validator, events := validatorSlashSlashes(t)
 	cases := []struct {
 		name       string
 		start, end uint64
@@ -77,8 +77,8 @@ func TestRepair_306_SlashHeightRange(t *testing.T) {
 	}
 }
 
-func TestRepair_306_SlashHeightOffsetPagination(t *testing.T) {
-	client, validator, events := repair306Slashes(t)
+func TestValidatorSlashHeightOffsetPagination(t *testing.T) {
+	client, validator, events := validatorSlashSlashes(t)
 	for _, reverse := range []bool{false, true} {
 		name := "forward"
 		want := []types.ValidatorSlashEvent{events[2], events[3]}
@@ -101,8 +101,8 @@ func TestRepair_306_SlashHeightOffsetPagination(t *testing.T) {
 	}
 }
 
-func TestRepair_306_SlashHeightKeyPagination(t *testing.T) {
-	client, validator, events := repair306Slashes(t)
+func TestValidatorSlashHeightKeyPagination(t *testing.T) {
+	client, validator, events := validatorSlashSlashes(t)
 	for _, reverse := range []bool{false, true} {
 		name := "forward"
 		want := []types.ValidatorSlashEvent{events[1], events[2], events[3], events[4]}

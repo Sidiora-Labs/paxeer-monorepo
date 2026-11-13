@@ -38,7 +38,7 @@ import (
 
 // Run the actual integration methods, including their real query client and
 // per-case keeper setup, within the task's focused test selector.
-func TestRepairM_665_MetadataSuite(t *testing.T) {
+func TestBankQueryMetadataSuite(t *testing.T) {
 	for _, method := range []struct {
 		name string
 		run  func(*IntegrationTestSuite)
@@ -54,7 +54,7 @@ func TestRepairM_665_MetadataSuite(t *testing.T) {
 	}
 }
 
-func repairM665FactoryMetadata() types.Metadata {
+func bankQueryFactoryMetadata() types.Metadata {
 	denom := newFactoryFooCoin(sdk.AccAddress([]byte("metadata____________")), 1).Denom
 	return types.Metadata{
 		Description: "Factory metadata with a slash-containing base denomination",
@@ -63,7 +63,7 @@ func repairM665FactoryMetadata() types.Metadata {
 	}
 }
 
-type repairM665Fixture struct {
+type bankQueryFixture struct {
 	app   *baseapp.BaseApp
 	bank  keeper.BaseKeeper
 	ctx   sdk.Context
@@ -71,7 +71,7 @@ type repairM665Fixture struct {
 	cdc   *codec.ProtoCodec
 }
 
-func repairM665Keeper(t *testing.T) repairM665Fixture {
+func bankQueryKeeper(t *testing.T) bankQueryFixture {
 	t.Helper()
 	amino := codec.NewLegacyAmino()
 	types.RegisterLegacyAminoCodec(amino)
@@ -103,11 +103,11 @@ func repairM665Keeper(t *testing.T) repairM665Fixture {
 	app.QueryRouter().AddRoute(types.QuerierRoute, keeper.NewQuerier(bk, amino))
 	require.NoError(t, app.LoadLatestVersion())
 	ctx := app.NewUncachedContext(false, tmproto.Header{ChainID: app.ChainID, Height: 1})
-	return repairM665Fixture{app: app, bank: bk, ctx: ctx, amino: amino, cdc: cdc}
+	return bankQueryFixture{app: app, bank: bk, ctx: ctx, amino: amino, cdc: cdc}
 }
 
-func TestRepairM_665_InvariantCollectionError(t *testing.T) {
-	f := repairM665Keeper(t)
+func TestBankQueryInvariantCollectionError(t *testing.T) {
+	f := bankQueryKeeper(t)
 	f.ctx, _ = f.ctx.CacheContext()
 	invariant := keeper.TotalSupply(f.bank)
 	message, broken := invariant(f.ctx)
@@ -140,15 +140,15 @@ func TestRepairM_665_InvariantCollectionError(t *testing.T) {
 	require.False(t, broken, message)
 }
 
-func TestRepairM_665_LegacySupplyRESTPages(t *testing.T) {
+func TestBankQueryLegacySupplyRESTPages(t *testing.T) {
 	s := new(IntegrationTestSuite)
 	s.SetT(t)
 	s.TestQuerier_QueryTotalSupplyRESTPagination()
 }
 
-func repairM665SupplyPages(t *testing.T) {
+func bankQuerySupplyPages(t *testing.T) {
 	t.Helper()
-	f := repairM665Keeper(t)
+	f := bankQueryKeeper(t)
 	wantSupply := sdk.NewCoins(
 		sdk.NewInt64Coin("alpha", 11), sdk.NewInt64Coin("bravo", 22),
 		sdk.NewInt64Coin("charlie", 33), sdk.NewInt64Coin("delta", 44),

@@ -68,7 +68,7 @@ func configureEvidence(
 	return evidenceKeeper, mm
 }
 
-type repairM605Harness struct {
+type evidenceContractHarness struct {
 	cdc         *codec.ProtoCodec
 	registry    codectypes.InterfaceRegistry
 	ctx         sdk.Context
@@ -78,7 +78,7 @@ type repairM605Harness struct {
 	queryHelper *baseapp.QueryServiceTestHelper
 }
 
-func repairM605Setup(t *testing.T) repairM605Harness {
+func evidenceContractSetup(t *testing.T) evidenceContractHarness {
 	t.Helper()
 	registry := codectypes.NewInterfaceRegistry()
 	module.NewBasicManager(evidence.AppModuleBasic{}).RegisterInterfaces(registry)
@@ -114,10 +114,10 @@ func repairM605Setup(t *testing.T) repairM605Harness {
 	msgRouter.SetInterfaceRegistry(registry)
 	queryHelper := baseapp.NewQueryServerTestHelper(ctx, registry)
 	manager.RegisterServices(module.NewConfigurator(cdc, msgRouter, queryHelper))
-	return repairM605Harness{cdc, registry, ctx, k, manager, msgRouter, queryHelper}
+	return evidenceContractHarness{cdc, registry, ctx, k, manager, msgRouter, queryHelper}
 }
 
-func repairM605Producer(t *testing.T) abci.Evidence {
+func evidenceContractProducer(t *testing.T) abci.Evidence {
 	t.Helper()
 	// RFC 8032 section 7.1's public test vector, used only as a validator fixture.
 	seed, err := hex.DecodeString("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60")
@@ -131,7 +131,7 @@ func repairM605Producer(t *testing.T) abci.Evidence {
 	}
 }
 
-func repairM605Stored(t *testing.T, h repairM605Harness, producer abci.Evidence) *evidencetypes.Equivocation {
+func evidenceContractStored(t *testing.T, h evidenceContractHarness, producer abci.Evidence) *evidencetypes.Equivocation {
 	t.Helper()
 	source := evidencetypes.FromABCIEvidence(producer)
 	stored, found := h.keeper.GetEvidence(h.ctx, source.Hash())
@@ -142,7 +142,7 @@ func repairM605Stored(t *testing.T, h repairM605Harness, producer abci.Evidence)
 	return decoded
 }
 
-func repairM605Submit(t *testing.T, h repairM605Harness, producer abci.Evidence) *evidencetypes.MsgSubmitEvidenceResponse {
+func evidenceContractSubmit(t *testing.T, h evidenceContractHarness, producer abci.Evidence) *evidencetypes.MsgSubmitEvidenceResponse {
 	t.Helper()
 	msg, err := evidencetypes.NewMsgSubmitEvidence(sdk.AccAddress(producer.Validator.Address), evidencetypes.FromABCIEvidence(producer))
 	require.NoError(t, err)
@@ -157,28 +157,28 @@ func repairM605Submit(t *testing.T, h repairM605Harness, producer abci.Evidence)
 	var response evidencetypes.MsgSubmitEvidenceResponse
 	require.NoError(t, h.cdc.Unmarshal(result.Data, &response))
 	require.Equal(t, evidencetypes.FromABCIEvidence(producer).Hash().Bytes(), response.Hash)
-	repairM605Stored(t, h, producer)
+	evidenceContractStored(t, h, producer)
 	return &response
 }
 
-func repairM605Read(t *testing.T, path string) string {
+func evidenceContractRead(t *testing.T, path string) string {
 	t.Helper()
 	data, err := os.ReadFile(path)
 	require.NoError(t, err)
 	return string(data)
 }
 
-func TestRepairM_605_AtlasPurpose(t *testing.T) {
-	atlas := repairM605Read(t, "atlas/atlas-v0.41.x.md")
+func TestEvidenceContractAtlasPurpose(t *testing.T) {
+	atlas := evidenceContractRead(t, "atlas/atlas-v0.41.x.md")
 	for _, claim := range []string{"stores evidence", "registered in-process handlers", "staking and slashing", "slash, jail and tombstone", "Upstream provenance", "Cosmos SDK v0.41", "empty sealed"} {
 		require.Contains(t, atlas, claim)
 	}
 	require.NotContains(t, atlas, "multi-asset coin transfers")
-	h := repairM605Setup(t)
-	producer := repairM605Producer(t)
+	h := evidenceContractSetup(t)
+	producer := evidenceContractProducer(t)
 	evidence.BeginBlocker(h.ctx, []abci.Misbehavior{abci.Misbehavior(producer)}, *h.keeper)
 	require.Empty(t, h.keeper.GetAllEvidence(h.ctx), "unknown-validator consensus evidence follows the documented ignore path")
-	repairM605Submit(t, h, producer)
+	evidenceContractSubmit(t, h, producer)
 	response, err := evidencetypes.NewQueryClient(h.queryHelper).Evidence(context.Background(), &evidencetypes.QueryEvidenceRequest{
 		EvidenceHash: evidencetypes.FromABCIEvidence(producer).Hash(),
 	})
@@ -188,7 +188,7 @@ func TestRepairM_605_AtlasPurpose(t *testing.T) {
 	require.Equal(t, evidencetypes.FromABCIEvidence(producer), decoded)
 }
 
-func TestRepairM_605_SetupExample(t *testing.T) {
+func TestEvidenceContractSetupExample(t *testing.T) {
 	fset := token.NewFileSet()
 	docFile, err := parser.ParseFile(fset, "doc.go", nil, parser.ParseComments)
 	require.NoError(t, err)
@@ -198,7 +198,7 @@ func TestRepairM_605_SetupExample(t *testing.T) {
 	require.GreaterOrEqual(t, start, 0)
 	example, err := parser.ParseFile(fset, "example.go", "package evidence_test\n"+doc[start:], 0)
 	require.NoError(t, err)
-	compiled, err := parser.ParseFile(fset, "repair_m605_test.go", nil, 0)
+	compiled, err := parser.ParseFile(fset, "module_contract_test.go", nil, 0)
 	require.NoError(t, err)
 	function := func(file *ast.File) *ast.FuncDecl {
 		for _, decl := range file.Decls {
@@ -213,28 +213,28 @@ func TestRepairM_605_SetupExample(t *testing.T) {
 	require.NoError(t, format.Node(&documented, fset, function(example)))
 	require.NoError(t, format.Node(&executable, fset, function(compiled)))
 	require.Equal(t, documented.String(), executable.String(), "the documented setup is the compiled and executed setup")
-	h := repairM605Setup(t)
+	h := evidenceContractSetup(t)
 	require.Contains(t, h.manager.Modules, evidencetypes.ModuleName)
 	require.NotNil(t, h.queryHelper.Route("/cosmos.evidence.v1beta1.Query/Evidence"))
 	require.Panics(t, func() { h.keeper.SetRouter(evidencetypes.NewRouter()) })
-	repairM605Submit(t, h, repairM605Producer(t))
+	evidenceContractSubmit(t, h, evidenceContractProducer(t))
 }
 
-func TestRepairM_605_GenesisFixture(t *testing.T) {
-	h := repairM605Setup(t)
-	producer := repairM605Producer(t)
+func TestEvidenceContractGenesisFixture(t *testing.T) {
+	h := evidenceContractSetup(t)
+	producer := evidenceContractProducer(t)
 	genesis := evidencetypes.NewGenesisState([]exported.Evidence{evidencetypes.FromABCIEvidence(producer)})
 	var decoded evidencetypes.GenesisState
 	require.NoError(t, h.cdc.UnmarshalAsJSON(h.cdc.MustMarshalJSON(genesis), &decoded))
 	require.NoError(t, decoded.Validate())
 	evidence.InitGenesis(h.ctx, *h.keeper, &decoded)
-	repairM605Stored(t, h, producer)
+	evidenceContractStored(t, h, producer)
 	exportedState := evidence.ExportGenesis(h.ctx, *h.keeper)
-	other := repairM605Setup(t)
+	other := evidenceContractSetup(t)
 	var exportedDecoded evidencetypes.GenesisState
 	require.NoError(t, other.cdc.Unmarshal(other.cdc.MustMarshal(exportedState), &exportedDecoded))
 	evidence.InitGenesis(other.ctx, *other.keeper, &exportedDecoded)
-	repairM605Stored(t, other, producer)
+	evidenceContractStored(t, other, producer)
 
 	malformed := evidencetypes.FromABCIEvidence(producer).(*evidencetypes.Equivocation)
 	malformed.ConsensusAddress = hex.EncodeToString(producer.Validator.Address)
@@ -242,16 +242,16 @@ func TestRepairM_605_GenesisFixture(t *testing.T) {
 	var invalidDecoded evidencetypes.GenesisState
 	require.NoError(t, h.cdc.UnmarshalAsJSON(h.cdc.MustMarshalJSON(invalid), &invalidDecoded))
 	require.ErrorIs(t, invalidDecoded.Validate(), evidencetypes.ErrInvalidEvidence)
-	empty := repairM605Setup(t)
+	empty := evidenceContractSetup(t)
 	require.Panics(t, func() { evidence.InitGenesis(empty.ctx, *empty.keeper, &invalidDecoded) })
 	require.Empty(t, empty.keeper.GetAllEvidence(empty.ctx))
 	TestGenesisTestSuite(t)
 }
 
-func TestRepairM_605_HandlerFixture(t *testing.T) {
-	h := repairM605Setup(t)
-	producer := repairM605Producer(t)
-	repairM605Submit(t, h, producer)
+func TestEvidenceContractHandlerFixture(t *testing.T) {
+	h := evidenceContractSetup(t)
+	producer := evidenceContractProducer(t)
+	evidenceContractSubmit(t, h, producer)
 	malformed := evidencetypes.FromABCIEvidence(producer).(*evidencetypes.Equivocation)
 	malformed.ConsensusAddress = hex.EncodeToString(producer.Validator.Address)
 	msg, err := evidencetypes.NewMsgSubmitEvidence(sdk.AccAddress(producer.Validator.Address), malformed)
@@ -259,7 +259,7 @@ func TestRepairM_605_HandlerFixture(t *testing.T) {
 	var decoded evidencetypes.MsgSubmitEvidence
 	require.NoError(t, h.cdc.Unmarshal(h.cdc.MustMarshal(msg), &decoded))
 	require.ErrorIs(t, decoded.ValidateBasic(), evidencetypes.ErrInvalidEvidence)
-	empty := repairM605Setup(t)
+	empty := evidenceContractSetup(t)
 	result, err := evidence.NewHandler(*empty.keeper)(empty.ctx, &decoded)
 	require.ErrorIs(t, err, evidencetypes.ErrInvalidEvidence)
 	require.Nil(t, result)
@@ -268,12 +268,12 @@ func TestRepairM_605_HandlerFixture(t *testing.T) {
 	TestHandlerTestSuite(t)
 }
 
-func repairM605QueryClient(t *testing.T, h repairM605Harness) evidencetypes.QueryClient {
+func evidenceContractQueryClient(t *testing.T, h evidenceContractHarness) evidencetypes.QueryClient {
 	t.Helper()
-	return evidencetypes.NewQueryClient(repairM605QueryConn(t, h))
+	return evidencetypes.NewQueryClient(evidenceContractQueryConn(t, h))
 }
 
-func repairM605QueryConn(t *testing.T, h repairM605Harness) *grpc.ClientConn {
+func evidenceContractQueryConn(t *testing.T, h evidenceContractHarness) *grpc.ClientConn {
 	t.Helper()
 	listener := bufconn.Listen(1024 * 1024)
 	server := grpc.NewServer(grpc.UnaryInterceptor(func(ctx context.Context, req interface{}, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
@@ -294,25 +294,25 @@ func repairM605QueryConn(t *testing.T, h repairM605Harness) *grpc.ClientConn {
 	return conn
 }
 
-func repairM605JSONBlocks(t *testing.T) []string {
+func evidenceContractJSONBlocks(t *testing.T) []string {
 	t.Helper()
-	matches := regexp.MustCompile("(?s)```json\\n(.*?)\\n```").FindAllStringSubmatch(repairM605Read(t, "spec/07_client.md"), -1)
+	matches := regexp.MustCompile("(?s)```json\\n(.*?)\\n```").FindAllStringSubmatch(evidenceContractRead(t, "spec/07_client.md"), -1)
 	require.Len(t, matches, 3)
 	return []string{matches[0][1], matches[1][1], matches[2][1]}
 }
 
-func TestRepairM_605_ResponseShapes(t *testing.T) {
-	h := repairM605Setup(t)
-	producer := repairM605Producer(t)
-	repairM605Submit(t, h, producer)
-	queryClient := repairM605QueryClient(t, h)
+func TestEvidenceContractResponseShapes(t *testing.T) {
+	h := evidenceContractSetup(t)
+	producer := evidenceContractProducer(t)
+	evidenceContractSubmit(t, h, producer)
+	queryClient := evidenceContractQueryClient(t, h)
 	single, err := queryClient.Evidence(context.Background(), &evidencetypes.QueryEvidenceRequest{EvidenceHash: evidencetypes.FromABCIEvidence(producer).Hash()})
 	require.NoError(t, err)
 	all, err := queryClient.AllEvidence(context.Background(), &evidencetypes.QueryAllEvidenceRequest{Pagination: &query.PageRequest{CountTotal: true}})
 	require.NoError(t, err)
 	require.Len(t, all.Evidence, 1)
 	require.Equal(t, uint64(1), all.Pagination.Total)
-	blocks := repairM605JSONBlocks(t)
+	blocks := evidenceContractJSONBlocks(t)
 	var output bytes.Buffer
 	cliCtx := client.Context{}.WithCodec(h.cdc).WithInterfaceRegistry(h.registry).WithOutputFormat("json").WithOutput(&output)
 	require.NoError(t, cliCtx.PrintProto(single.Evidence))
@@ -342,20 +342,20 @@ func TestRepairM_605_ResponseShapes(t *testing.T) {
 		require.Equal(t, evidencetypes.FromABCIEvidence(producer), decoded)
 		require.Equal(t, "/cosmos.evidence.v1beta1.Equivocation", packed.TypeUrl)
 	}
-	empty := repairM605Setup(t)
+	empty := evidenceContractSetup(t)
 	emptyResponse, err := evidencetypes.NewQueryClient(empty.queryHelper).AllEvidence(context.Background(), &evidencetypes.QueryAllEvidenceRequest{Pagination: &query.PageRequest{CountTotal: true}})
 	require.NoError(t, err)
 	require.JSONEq(t, `{"evidence":[],"pagination":{"next_key":null,"total":"0"}}`, string(empty.cdc.MustMarshalJSON(emptyResponse)))
 }
 
-func TestRepairM_605_GRPCHash(t *testing.T) {
-	h := repairM605Setup(t)
-	producer := repairM605Producer(t)
-	repairM605Submit(t, h, producer)
-	doc := repairM605Read(t, "spec/07_client.md")
+func TestEvidenceContractGRPCHash(t *testing.T) {
+	h := evidenceContractSetup(t)
+	producer := evidenceContractProducer(t)
+	evidenceContractSubmit(t, h, producer)
+	doc := evidenceContractRead(t, "spec/07_client.md")
 	match := regexp.MustCompile(`-d '(\{"evidence_hash":"[^"]+"\})'`).FindStringSubmatch(doc)
 	require.Len(t, match, 2)
-	conn := repairM605QueryConn(t, h)
+	conn := evidenceContractQueryConn(t, h)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	reflectionClient := grpcreflect.NewClientAuto(ctx, conn)
@@ -366,7 +366,7 @@ func TestRepairM_605_GRPCHash(t *testing.T) {
 	require.NotNil(t, method)
 	descriptor := method.GetInputType()
 	require.Equal(t, "cosmos.evidence.v1beta1.QueryEvidenceRequest", descriptor.GetFullyQualifiedName())
-	request := repairM605ProtobufJSONRequest(t, descriptor, match[1])
+	request := evidenceContractProtobufJSONRequest(t, descriptor, match[1])
 	source := evidencetypes.FromABCIEvidence(producer)
 	require.Equal(t, source.Hash(), request.EvidenceHash)
 	hexMatch := regexp.MustCompile(`hex: +([0-9A-F]{64})`).FindStringSubmatch(doc)
@@ -386,10 +386,10 @@ func TestRepairM_605_GRPCHash(t *testing.T) {
 	require.NoError(t, h.cdc.UnpackAny(response.Evidence, &decoded))
 	require.Equal(t, source, decoded)
 	require.Equal(t, []byte(producer.Validator.Address), decoded.(*evidencetypes.Equivocation).GetConsensusAddress().Bytes())
-	require.JSONEq(t, repairM605JSONBlocks(t)[2], string(h.cdc.MustMarshalJSON(response)))
+	require.JSONEq(t, evidenceContractJSONBlocks(t)[2], string(h.cdc.MustMarshalJSON(response)))
 	// Hex characters can themselves be legal base64. Prove that reusing the CLI
 	// literal addresses different bytes, rather than silently resolving it.
-	wrong := repairM605ProtobufJSONRequest(t, descriptor, `{"evidence_hash":"`+hexMatch[1]+`"}`)
+	wrong := evidenceContractProtobufJSONRequest(t, descriptor, `{"evidence_hash":"`+hexMatch[1]+`"}`)
 	require.NotEqual(t, request.EvidenceHash, wrong.EvidenceHash)
 	_, err = queryClient.Evidence(context.Background(), &wrong)
 	require.Equal(t, codes.NotFound, status.Code(err))
@@ -398,7 +398,7 @@ func TestRepairM_605_GRPCHash(t *testing.T) {
 // grpcurl uses descriptor-driven protobuf JSON. Resolve the descriptor through
 // the node's gogo reflection service, decode with that same message implementation,
 // then cross protobuf bytes into the generated SDK request.
-func repairM605ProtobufJSONRequest(t *testing.T, descriptor *desc.MessageDescriptor, input string) evidencetypes.QueryEvidenceRequest {
+func evidenceContractProtobufJSONRequest(t *testing.T, descriptor *desc.MessageDescriptor, input string) evidencetypes.QueryEvidenceRequest {
 	t.Helper()
 	message := dynamic.NewMessage(descriptor)
 	require.NoError(t, message.UnmarshalJSON([]byte(input)))

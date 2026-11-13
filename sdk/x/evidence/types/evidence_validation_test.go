@@ -34,7 +34,7 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-type repairM604Harness struct {
+type evidenceValidationHarness struct {
 	cdc    *codec.ProtoCodec
 	ctx    sdk.Context
 	keeper *keeper.Keeper
@@ -42,7 +42,7 @@ type repairM604Harness struct {
 	router *baseapp.MsgServiceRouter
 }
 
-func repairM604Setup(t *testing.T) repairM604Harness {
+func evidenceValidationSetup(t *testing.T) evidenceValidationHarness {
 	t.Helper()
 	registry := codectypes.NewInterfaceRegistry()
 	types.RegisterInterfaces(registry)
@@ -85,10 +85,10 @@ func repairM604Setup(t *testing.T) repairM604Harness {
 	router := baseapp.NewMsgServiceRouter()
 	router.SetInterfaceRegistry(registry)
 	types.RegisterMsgServer(router, keeper.NewMsgServerImpl(*k))
-	return repairM604Harness{cdc: cdc, ctx: ctx, keeper: k, auth: auth, router: router}
+	return evidenceValidationHarness{cdc: cdc, ctx: ctx, keeper: k, auth: auth, router: router}
 }
 
-func repairM604Producer() abci.Evidence {
+func evidenceValidationProducer() abci.Evidence {
 	key := ed25519.GenPrivKeyFromSecret([]byte("repair-m604-validator"))
 	return abci.Evidence{
 		Type:      abci.MisbehaviorType_DUPLICATE_VOTE,
@@ -97,9 +97,9 @@ func repairM604Producer() abci.Evidence {
 	}
 }
 
-func repairM604GenesisRoundTrip(t *testing.T, gs *types.GenesisState) []exported.Evidence {
+func evidenceValidationGenesisRoundTrip(t *testing.T, gs *types.GenesisState) []exported.Evidence {
 	t.Helper()
-	h := repairM604Setup(t)
+	h := evidenceValidationSetup(t)
 	var decoded types.GenesisState
 	require.NoError(t, h.cdc.UnmarshalAsJSON(h.cdc.MustMarshalJSON(gs), &decoded))
 	require.NoError(t, decoded.Validate())
@@ -109,9 +109,9 @@ func repairM604GenesisRoundTrip(t *testing.T, gs *types.GenesisState) []exported
 	return stored
 }
 
-func repairM604MessageRoundTrip(t *testing.T, msg *types.MsgSubmitEvidence) *types.Equivocation {
+func evidenceValidationMessageRoundTrip(t *testing.T, msg *types.MsgSubmitEvidence) *types.Equivocation {
 	t.Helper()
-	h := repairM604Setup(t)
+	h := evidenceValidationSetup(t)
 	var decoded types.MsgSubmitEvidence
 	require.NoError(t, h.cdc.Unmarshal(h.cdc.MustMarshal(msg), &decoded))
 	require.NoError(t, decoded.ValidateBasic())
@@ -124,31 +124,31 @@ func repairM604MessageRoundTrip(t *testing.T, msg *types.MsgSubmitEvidence) *typ
 	return stored.(*types.Equivocation)
 }
 
-func repairM604Encode(t *testing.T, prefix string, address []byte) string {
+func evidenceValidationEncode(t *testing.T, prefix string, address []byte) string {
 	t.Helper()
 	encoded, err := bech32.ConvertAndEncode(prefix, address)
 	require.NoError(t, err)
 	return encoded
 }
 
-func TestRepairM_604_AddressValidation(t *testing.T) {
-	producer := repairM604Producer()
+func TestEvidenceValidationAddressValidation(t *testing.T) {
+	producer := evidenceValidationProducer()
 	valid := types.FromABCIEvidence(producer).(*types.Equivocation)
 	require.NoError(t, valid.ValidateBasic())
 	prefix := sdk.GetConfig().GetBech32ConsensusAddrPrefix()
 	cases := map[string]string{
 		"empty": "", "whitespace": " ", "text": "not-a-consensus-address",
 		"hex": hex.EncodeToString(producer.Validator.Address), "malformed_hex": "0xnothex",
-		"wrong_prefix":  repairM604Encode(t, sdk.GetConfig().GetBech32AccountAddrPrefix(), producer.Validator.Address),
-		"empty_payload": repairM604Encode(t, prefix, nil),
-		"short":         repairM604Encode(t, prefix, producer.Validator.Address[:19]),
-		"long":          repairM604Encode(t, prefix, append(bytes.Clone(producer.Validator.Address), 1)),
-		"32_bytes":      repairM604Encode(t, prefix, bytes.Repeat([]byte{1}, 32)),
+		"wrong_prefix":  evidenceValidationEncode(t, sdk.GetConfig().GetBech32AccountAddrPrefix(), producer.Validator.Address),
+		"empty_payload": evidenceValidationEncode(t, prefix, nil),
+		"short":         evidenceValidationEncode(t, prefix, producer.Validator.Address[:19]),
+		"long":          evidenceValidationEncode(t, prefix, append(bytes.Clone(producer.Validator.Address), 1)),
+		"32_bytes":      evidenceValidationEncode(t, prefix, bytes.Repeat([]byte{1}, 32)),
 		"checksum":      valid.ConsensusAddress[:len(valid.ConsensusAddress)-1] + "!",
 	}
 	for name, address := range cases {
 		t.Run(name, func(t *testing.T) {
-			h := repairM604Setup(t)
+			h := evidenceValidationSetup(t)
 			e := *valid
 			e.ConsensusAddress = address
 			require.ErrorIs(t, e.ValidateBasic(), types.ErrInvalidEvidence)
@@ -175,10 +175,10 @@ func TestRepairM_604_AddressValidation(t *testing.T) {
 	}
 }
 
-func TestRepairM_604_GenesisFixture(t *testing.T) {
-	producer := repairM604Producer()
+func TestEvidenceValidationGenesisFixture(t *testing.T) {
+	producer := evidenceValidationProducer()
 	e := types.FromABCIEvidence(producer)
-	stored := repairM604GenesisRoundTrip(t, types.NewGenesisState([]exported.Evidence{e}))
+	stored := evidenceValidationGenesisRoundTrip(t, types.NewGenesisState([]exported.Evidence{e}))
 	require.Len(t, stored, 1)
 	require.Equal(t, e.Hash(), stored[0].Hash())
 	require.Equal(t, []byte(producer.Validator.Address), stored[0].(*types.Equivocation).GetConsensusAddress().Bytes())
@@ -186,29 +186,29 @@ func TestRepairM_604_GenesisFixture(t *testing.T) {
 	TestGenesisStateValidate(t)
 }
 
-func TestRepairM_604_MessageFixture(t *testing.T) {
-	producer := repairM604Producer()
+func TestEvidenceValidationMessageFixture(t *testing.T) {
+	producer := evidenceValidationProducer()
 	msg, err := types.NewMsgSubmitEvidence(sdk.AccAddress(producer.Validator.Address), types.FromABCIEvidence(producer))
 	require.NoError(t, err)
-	stored := repairM604MessageRoundTrip(t, msg)
+	stored := evidenceValidationMessageRoundTrip(t, msg)
 	require.Equal(t, []byte(producer.Validator.Address), stored.GetConsensusAddress().Bytes())
 	TestMsgSubmitEvidence(t)
 }
 
-func TestRepairM_604_SubmitterValidation(t *testing.T) {
-	producer := repairM604Producer()
+func TestEvidenceValidationSubmitterValidation(t *testing.T) {
+	producer := evidenceValidationProducer()
 	priv := ed25519.GenPrivKeyFromSecret([]byte("repair-m604-submitter"))
 	submitter := sdk.AccAddress(priv.PubKey().Address())
 	cases := map[string]string{
 		"valid_signed": submitter.String(), "empty": "", "whitespace": " ",
 		"text": "not-an-account", "hex": hex.EncodeToString(submitter), "malformed_hex": "0xnothex",
 		"wrong_prefix":  sdk.ConsAddress(submitter).String(),
-		"empty_payload": repairM604Encode(t, sdk.GetConfig().GetBech32AccountAddrPrefix(), nil),
+		"empty_payload": evidenceValidationEncode(t, sdk.GetConfig().GetBech32AccountAddrPrefix(), nil),
 		"checksum":      submitter.String()[:len(submitter.String())-1] + "!",
 	}
 	for name, address := range cases {
 		t.Run(name, func(t *testing.T) {
-			h := repairM604Setup(t)
+			h := evidenceValidationSetup(t)
 			account := h.auth.NewAccountWithAddress(h.ctx, submitter)
 			require.NoError(t, account.SetPubKey(priv.PubKey()))
 			h.auth.SetAccount(h.ctx, account)

@@ -21,9 +21,9 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/evidence/types"
 )
 
-// repairM602Submission is a supplied module command fixture. It uses the SDK's
+// evidenceSubmissionSubmission is a supplied module command fixture. It uses the SDK's
 // evidence codec, message constructor and transaction generation path.
-func repairM602Submission(name string) *cobra.Command {
+func evidenceSubmissionSubmission(name string) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:  name + " [evidence-json]",
 		Args: cobra.ExactArgs(1),
@@ -48,7 +48,7 @@ func repairM602Submission(name string) *cobra.Command {
 	return cmd
 }
 
-func repairM602Context(output *bytes.Buffer) client.Context {
+func evidenceSubmissionContext(output *bytes.Buffer) client.Context {
 	registry := codectypes.NewInterfaceRegistry()
 	std.RegisterInterfaces(registry)
 	types.RegisterInterfaces(registry)
@@ -60,7 +60,7 @@ func repairM602Context(output *bytes.Buffer) client.Context {
 		WithOutput(output)
 }
 
-func repairM602Evidence() *types.Equivocation {
+func evidenceSubmissionEvidence() *types.Equivocation {
 	return &types.Equivocation{
 		Height:           42,
 		Power:            100,
@@ -69,7 +69,7 @@ func repairM602Evidence() *types.Equivocation {
 	}
 }
 
-func repairM602Args(submitter sdk.AccAddress) []string {
+func evidenceSubmissionArgs(submitter sdk.AccAddress) []string {
 	return []string{
 		"--" + flags.FlagFrom, submitter.String(),
 		"--" + flags.FlagChainID, "repair-m602",
@@ -86,13 +86,13 @@ func repairM602Args(submitter sdk.AccAddress) []string {
 	}
 }
 
-func TestRepairM_602_SubmissionThroughCommandTree(t *testing.T) {
+func TestEvidenceSubmissionThroughCommandTree(t *testing.T) {
 	for _, mode := range []string{flags.SignModeDirect, flags.SignModeLegacyAminoJSON} {
 		t.Run(mode, func(t *testing.T) {
 			var output bytes.Buffer
-			clientCtx := repairM602Context(&output)
-			first := repairM602Submission("equivocation")
-			second := repairM602Submission("other-equivocation")
+			clientCtx := evidenceSubmissionContext(&output)
+			first := evidenceSubmissionSubmission("equivocation")
+			second := evidenceSubmissionSubmission("other-equivocation")
 			root := GetTxCmd([]*cobra.Command{first, second})
 			root.SetContext(context.WithValue(context.Background(), client.ClientContextKey, &clientCtx))
 			root.SetOut(&output)
@@ -108,11 +108,11 @@ func TestRepairM_602_SubmissionThroughCommandTree(t *testing.T) {
 			}
 
 			submitter := sdk.AccAddress(bytes.Repeat([]byte{1}, 20))
-			evidence := repairM602Evidence()
+			evidence := evidenceSubmissionEvidence()
 			encoded, err := clientCtx.Codec.MarshalAsJSON(evidence)
 			require.NoError(t, err)
 			args := []string{"submit", second.Name(), string(encoded)}
-			args = append(args, repairM602Args(submitter)...)
+			args = append(args, evidenceSubmissionArgs(submitter)...)
 			args = append(args, "--"+flags.FlagSignMode, mode)
 			root.SetArgs(args)
 			executed, err := root.ExecuteC()
@@ -151,7 +151,7 @@ func TestRepairM_602_SubmissionThroughCommandTree(t *testing.T) {
 	}
 }
 
-func TestRepairM_602_SubmissionValidation(t *testing.T) {
+func TestEvidenceSubmissionValidation(t *testing.T) {
 	for _, tc := range []struct {
 		name string
 		args []string
@@ -163,8 +163,8 @@ func TestRepairM_602_SubmissionValidation(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			var output bytes.Buffer
-			clientCtx := repairM602Context(&output)
-			child := repairM602Submission("equivocation")
+			clientCtx := evidenceSubmissionContext(&output)
+			child := evidenceSubmissionSubmission("equivocation")
 			root := GetTxCmd([]*cobra.Command{child})
 			root.SetContext(context.WithValue(context.Background(), client.ClientContextKey, &clientCtx))
 			root.SetOut(&output)
@@ -172,7 +172,7 @@ func TestRepairM_602_SubmissionValidation(t *testing.T) {
 			root.SilenceErrors = true
 			root.SilenceUsage = true
 			args := append([]string{"submit", child.Name()}, tc.args...)
-			args = append(args, repairM602Args(sdk.AccAddress(bytes.Repeat([]byte{1}, 20)))...)
+			args = append(args, evidenceSubmissionArgs(sdk.AccAddress(bytes.Repeat([]byte{1}, 20)))...)
 			root.SetArgs(args)
 			err := root.Execute()
 			require.ErrorContains(t, err, tc.want)

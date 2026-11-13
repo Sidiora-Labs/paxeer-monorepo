@@ -39,7 +39,7 @@ import (
 	paxdbconfig "github.com/Sidiora-Labs/Paxeer-X-Network/storage/config"
 )
 
-func TestRepairM_664_NetworkSignature(t *testing.T) {
+func TestBankRESTNetworkSignature(t *testing.T) {
 	source, err := os.ReadFile("query_test.go")
 	require.NoError(t, err)
 	require.Contains(t, string(source), "//go:build norace\n// +build norace\n")
@@ -81,7 +81,7 @@ func TestRepairM_664_NetworkSignature(t *testing.T) {
 	require.Equal(t, 1, constructorCalls)
 }
 
-func TestRepairM_664_BankRESTQueries(t *testing.T) {
+func TestBankRESTQueries(t *testing.T) {
 	amino := codec.NewLegacyAmino()
 	types.RegisterLegacyAminoCodec(amino)
 	authtypes.RegisterLegacyAminoCodec(amino)
@@ -165,11 +165,11 @@ func TestRepairM_664_BankRESTQueries(t *testing.T) {
 	}{
 		{"all_balances", "/bank/balances/" + address.String(), &sdk.Coins{}, &coins},
 		{"balances_at_height", "/bank/balances/" + address.String() + "?height=1", &sdk.Coins{}, &coins},
-		{"balance_by_denom", "/bank/balances/" + address.String() + "?denom=stake", &sdk.Coin{}, repairM664Coin("stake", 400)},
-		{"missing_balance", "/bank/balances/" + address.String() + "?denom=foobar", &sdk.Coin{}, repairM664Coin("foobar", 0)},
+		{"balance_by_denom", "/bank/balances/" + address.String() + "?denom=stake", &sdk.Coin{}, bankRESTCoin("stake", 400)},
+		{"missing_balance", "/bank/balances/" + address.String() + "?denom=foobar", &sdk.Coin{}, bankRESTCoin("foobar", 0)},
 		{"total_supply", "/bank/total?height=1", &types.QueryTotalSupplyResponse{}, &types.QueryTotalSupplyResponse{Supply: coins, Pagination: &query.PageResponse{Total: 2}}},
-		{"supply_by_denom", "/bank/total/stake?height=1", &sdk.Coin{}, repairM664Coin("stake", 400)},
-		{"missing_supply", "/bank/total/foobar?height=1", &sdk.Coin{}, repairM664Coin("foobar", 0)},
+		{"supply_by_denom", "/bank/total/stake?height=1", &sdk.Coin{}, bankRESTCoin("stake", 400)},
+		{"missing_supply", "/bank/total/foobar?height=1", &sdk.Coin{}, bankRESTCoin("foobar", 0)},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -188,7 +188,7 @@ func TestRepairM_664_BankRESTQueries(t *testing.T) {
 	}
 }
 
-func repairM664Coin(denom string, amount int64) *sdk.Coin {
+func bankRESTCoin(denom string, amount int64) *sdk.Coin {
 	coin := sdk.NewInt64Coin(denom, amount)
 	return &coin
 }
