@@ -22,9 +22,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const repair19Gas = 30_000_000
+const nativeShareGas = 30_000_000
 
-type repair19Env struct {
+type nativeShareEnv struct {
 	t        *testing.T
 	app      *app.App
 	ctx      sdk.Context
@@ -35,11 +35,11 @@ type repair19Env struct {
 	denom    string
 }
 
-func repair19Address(name string) common.Address {
+func shareTestAddress(name string) common.Address {
 	return common.BytesToAddress(crypto.Keccak256([]byte(name))[12:])
 }
 
-func newRepair19Env(t *testing.T) *repair19Env {
+func newNativeShareEnv(t *testing.T) *nativeShareEnv {
 	t.Helper()
 	a := testkeeper.EVMTestApp
 	ctx := a.GetContextForDeliverTx(nil).WithBlockHeight(1)
@@ -50,9 +50,9 @@ func newRepair19Env(t *testing.T) *repair19Env {
 	k := spotkeeper.NewKeeper(key, a.BankKeeper, &a.EvmKeeper, pricefeed)
 	contract, err := spotabi.Share()
 	require.NoError(t, err)
-	e := &repair19Env{t: t, app: a, ctx: ctx, keeper: k, contract: contract,
-		holder: repair19Address(t.Name() + " holder")}
-	token := repair19Address(t.Name() + " underlying")
+	e := &nativeShareEnv{t: t, app: a, ctx: ctx, keeper: k, contract: contract,
+		holder: shareTestAddress(t.Name() + " holder")}
+	token := shareTestAddress(t.Name() + " underlying")
 	e.denom = k.ShareDenom(token)
 	e.run(func(ctx sdk.Context, evm *vm.EVM) error {
 		var err error
@@ -66,7 +66,7 @@ func newRepair19Env(t *testing.T) *repair19Env {
 	return e
 }
 
-func (e *repair19Env) run(fn func(sdk.Context, *vm.EVM) error) []*ethtypes.Log {
+func (e *nativeShareEnv) run(fn func(sdk.Context, *vm.EVM) error) []*ethtypes.Log {
 	e.t.Helper()
 	var logs []*ethtypes.Log
 	err := e.app.EvmKeeper.RunWithOneOffEVMInstance(e.ctx, func(evm *vm.EVM) error {
@@ -82,20 +82,20 @@ func (e *repair19Env) run(fn func(sdk.Context, *vm.EVM) error) []*ethtypes.Log {
 	return logs
 }
 
-func (e *repair19Env) call(contract abi.ABI, caller common.Address, method string, args ...interface{}) ([]byte, error) {
+func (e *nativeShareEnv) call(contract abi.ABI, caller common.Address, method string, args ...interface{}) ([]byte, error) {
 	e.t.Helper()
 	input, err := contract.Pack(method, args...)
 	require.NoError(e.t, err)
 	var ret []byte
 	err = e.app.EvmKeeper.RunWithOneOffEVMInstance(e.ctx, func(evm *vm.EVM) error {
 		var callErr error
-		ret, _, callErr = evm.Call(caller, e.pointer, input, repair19Gas, uint256.NewInt(0))
+		ret, _, callErr = evm.Call(caller, e.pointer, input, nativeShareGas, uint256.NewInt(0))
 		return callErr
 	}, func(string, string) {})
 	return ret, err
 }
 
-func (e *repair19Env) view(method string, args ...interface{}) interface{} {
+func (e *nativeShareEnv) view(method string, args ...interface{}) interface{} {
 	e.t.Helper()
 	input, err := e.contract.Pack(method, args...)
 	require.NoError(e.t, err)
@@ -107,13 +107,13 @@ func (e *repair19Env) view(method string, args ...interface{}) interface{} {
 	return values[0]
 }
 
-func (e *repair19Env) mint(amount int64) []*ethtypes.Log {
+func (e *nativeShareEnv) mint(amount int64) []*ethtypes.Log {
 	return e.run(func(ctx sdk.Context, evm *vm.EVM) error {
 		return e.keeper.MintShares(ctx, evm, e.denom, e.holder, sdk.NewInt(amount))
 	})
 }
 
-func (e *repair19Env) requireTransferLog(logs []*ethtypes.Log, from, to common.Address, amount int64) {
+func (e *nativeShareEnv) requireTransferLog(logs []*ethtypes.Log, from, to common.Address, amount int64) {
 	e.t.Helper()
 	event := e.contract.Events["Transfer"]
 	var found []*ethtypes.Log
@@ -129,8 +129,8 @@ func (e *repair19Env) requireTransferLog(logs []*ethtypes.Log, from, to common.A
 	require.Equal(e.t, []interface{}{big.NewInt(amount)}, values)
 }
 
-func TestRepair_19_NativeShareDeploymentInterface(t *testing.T) {
-	e := newRepair19Env(t)
+func TestNativeShareDeploymentInterface(t *testing.T) {
+	e := newNativeShareEnv(t)
 	producer := native.GetParsedABI()
 	require.Equal(t, producer.Constructor.Sig, e.contract.Constructor.Sig)
 	require.Equal(t, producer.Methods, e.contract.Methods)
@@ -147,7 +147,7 @@ func TestRepair_19_NativeShareDeploymentInterface(t *testing.T) {
 	e.requireTransferLog(e.mint(100), common.Address{}, e.holder, 100)
 	require.Equal(t, big.NewInt(100), e.view("balanceOf", e.holder))
 	require.Equal(t, big.NewInt(100), e.view("totalSupply"))
-	spender, receiver := repair19Address(t.Name()+" spender"), repair19Address(t.Name()+" receiver")
+	spender, receiver := shareTestAddress(t.Name()+" spender"), shareTestAddress(t.Name()+" receiver")
 	for _, call := range []struct {
 		caller common.Address
 		method string
@@ -176,8 +176,8 @@ func TestRepair_19_NativeShareDeploymentInterface(t *testing.T) {
 		e.app.EvmKeeper.GetPaxAddressOrDefault(e.ctx, e.holder), e.denom).Amount.BigInt())
 }
 
-func TestRepair_19_ShareAdministrationUnserved(t *testing.T) {
-	e := newRepair19Env(t)
+func TestShareAdministrationUnserved(t *testing.T) {
+	e := newNativeShareEnv(t)
 	e.mint(100)
 	historical, err := spotabi.HistoricalSolidityShare()
 	require.NoError(t, err)
@@ -208,12 +208,12 @@ func TestRepair_19_ShareAdministrationUnserved(t *testing.T) {
 	require.Contains(t, historical.Events, "OwnershipTransferred")
 }
 
-func TestRepair_19_ShareBalanceRevert(t *testing.T) {
+func TestShareBalanceRevert(t *testing.T) {
 	for _, method := range []string{"transfer", "transferFrom"} {
 		t.Run(method, func(t *testing.T) {
-			e := newRepair19Env(t)
+			e := newNativeShareEnv(t)
 			e.mint(100)
-			spender, receiver := repair19Address(t.Name()+" spender"), repair19Address(t.Name()+" receiver")
+			spender, receiver := shareTestAddress(t.Name()+" spender"), shareTestAddress(t.Name()+" receiver")
 			caller := e.holder
 			args := []interface{}{receiver, big.NewInt(101)}
 			if method == "transferFrom" {
@@ -242,14 +242,14 @@ func TestRepair_19_ShareBalanceRevert(t *testing.T) {
 	}
 }
 
-func TestRepair_19_ShareBalanceRevertFullWidth(t *testing.T) {
+func TestShareBalanceRevertFullWidth(t *testing.T) {
 	for _, method := range []string{"transfer", "transferFrom"} {
 		t.Run(method, func(t *testing.T) {
-			e := newRepair19Env(t)
+			e := newNativeShareEnv(t)
 			e.mint(100)
 			needed := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 256), big.NewInt(1))
-			spender := repair19Address(t.Name() + " spender")
-			receiver := repair19Address(t.Name() + " receiver")
+			spender := shareTestAddress(t.Name() + " spender")
+			receiver := shareTestAddress(t.Name() + " receiver")
 			caller := e.holder
 			args := []interface{}{receiver, needed}
 			if method == "transferFrom" {
@@ -276,10 +276,10 @@ func TestRepair_19_ShareBalanceRevertFullWidth(t *testing.T) {
 	}
 }
 
-func TestRepair_19_ShareBalanceErrorPrecedence(t *testing.T) {
-	e := newRepair19Env(t)
+func TestShareBalanceErrorPrecedence(t *testing.T) {
+	e := newNativeShareEnv(t)
 	e.mint(100)
-	spender, receiver := repair19Address(t.Name()+" spender"), repair19Address(t.Name()+" receiver")
+	spender, receiver := shareTestAddress(t.Name()+" spender"), shareTestAddress(t.Name()+" receiver")
 	for _, test := range []struct {
 		name   string
 		caller common.Address

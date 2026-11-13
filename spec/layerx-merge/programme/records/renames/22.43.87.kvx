@@ -1,0 +1,84 @@
+[manifest]
+task = "22.43.87"
+records_moved = 3
+files_renamed = 3
+
+[file.1]
+from = "precompiles/spot/repair_m708_test.go"
+to = "precompiles/spot/share_compatibility_test.go"
+
+[file.2]
+from = "precompiles/spot/abi/repair_19_test.go"
+to = "precompiles/spot/abi/native_share_test.go"
+
+[file.3]
+from = "precompiles/spot/abi/repair_m714_test.go"
+to = "precompiles/spot/abi/market_contracts_test.go"
+
+[file.4]
+from = "precompiles/spot/repair_m708.kvx"
+to = "spec/layerx-merge/programme/records/precompiles/spot/repair_m708.kvx"
+
+[file.5]
+from = "precompiles/spot/abi/repair_19.kvx"
+to = "spec/layerx-merge/programme/records/precompiles/spot/abi/repair_19.kvx"
+
+[file.6]
+from = "precompiles/spot/abi/repair_m714.kvx"
+to = "spec/layerx-merge/programme/records/precompiles/spot/abi/repair_m714.kvx"
+
+[reference.1]
+file = "spec/layerx-merge/dispositions/d22-17.kvx"
+name = "precompiles/spot/abi/repair_19_test.go"
+
+[reference.2]
+file = "spec/layerx-merge/dispositions/d22-29.kvx"
+name = "precompiles/spot/repair_m708_test.go"
+
+[reference.3]
+file = "spec/layerx-merge/dispositions/d22-29.kvx"
+name = "precompiles/spot/abi/repair_m714_test.go"
+
+[reference.4]
+file = "spec/layerx-merge/programme/issues/1585.kvx"
+name = "precompiles/spot/abi/repair_m714.kvx"
+
+[reference.5]
+file = "spec/layerx-merge/qualification.kvx"
+name = "precompiles/spot/abi/repair_19_test.go"
+
+[reference.6]
+file = "spec/layerx-merge/qualification.kvx"
+name = "precompiles/spot/repair_m708_test.go"
+
+[reference.7]
+file = "spec/layerx-merge/qualification.kvx"
+name = "precompiles/spot/abi/repair_m714_test.go"
+
+[reference.8]
+file = "spec/layerx-merge/spec.kvx"
+name = "precompiles/spot/abi/repair_19_test.go"
+
+[reference.9]
+file = "spec/layerx-merge/spec.kvx"
+name = "precompiles/spot/repair_m708_test.go"
+
+[reference.10]
+file = "spec/layerx-merge/spec.kvx"
+name = "precompiles/spot/abi/repair_m714_test.go"
+
+[reference.11]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_19_ShareBalanceRevert"
+
+[reference.12]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_19_<case>"
+
+[reference.13]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_708_<case>"
+
+[reference.14]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_714_<case>"
