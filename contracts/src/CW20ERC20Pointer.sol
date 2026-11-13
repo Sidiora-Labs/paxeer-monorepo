@@ -9,7 +9,6 @@ import {IJson} from "./precompiles/IJson.sol";
 import {IAddr} from "./precompiles/IAddr.sol";
 
 contract CW20ERC20Pointer is ERC20 {
-
     address constant WASMD_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000001002;
     address constant JSON_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000001003;
     address constant ADDR_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000001004;
@@ -65,12 +64,14 @@ contract CW20ERC20Pointer is ERC20 {
         if (currentAllowance > amount) {
             string memory spenderAddr = _formatPayload("spender", _doubleQuotes(AddrPrecompile.getPaxAddr(spender)));
             string memory amt = _formatPayload("amount", _doubleQuotes(Strings.toString(currentAllowance - amount)));
-            string memory req = _curlyBrace(_formatPayload("decrease_allowance", _curlyBrace(_join(spenderAddr, amt, ","))));
+            string memory req =
+                _curlyBrace(_formatPayload("decrease_allowance", _curlyBrace(_join(spenderAddr, amt, ","))));
             _execute(bytes(req));
         } else if (currentAllowance < amount) {
             string memory spenderAddr = _formatPayload("spender", _doubleQuotes(AddrPrecompile.getPaxAddr(spender)));
             string memory amt = _formatPayload("amount", _doubleQuotes(Strings.toString(amount - currentAllowance)));
-            string memory req = _curlyBrace(_formatPayload("increase_allowance", _curlyBrace(_join(spenderAddr, amt, ","))));
+            string memory req =
+                _curlyBrace(_formatPayload("increase_allowance", _curlyBrace(_join(spenderAddr, amt, ","))));
             _execute(bytes(req));
         }
         return true;
@@ -90,19 +91,15 @@ contract CW20ERC20Pointer is ERC20 {
         string memory sender = _formatPayload("owner", _doubleQuotes(AddrPrecompile.getPaxAddr(from)));
         string memory recipient = _formatPayload("recipient", _doubleQuotes(AddrPrecompile.getPaxAddr(to)));
         string memory amt = _formatPayload("amount", _doubleQuotes(Strings.toString(amount)));
-        string memory req = _curlyBrace(_formatPayload("transfer_from", _curlyBrace(_join(_join(sender, recipient, ","), amt, ","))));
+        string memory req =
+            _curlyBrace(_formatPayload("transfer_from", _curlyBrace(_join(_join(sender, recipient, ","), amt, ","))));
         _execute(bytes(req));
         return true;
     }
 
     function _execute(bytes memory req) internal returns (bytes memory) {
         (bool success, bytes memory ret) = WASMD_PRECOMPILE_ADDRESS.delegatecall(
-            abi.encodeWithSignature(
-                "execute(string,bytes,bytes)",
-                Cw20Address,
-                bytes(req),
-                bytes("[]")
-            )
+            abi.encodeWithSignature("execute(string,bytes,bytes)", Cw20Address, bytes(req), bytes("[]"))
         );
         require(success, "CosmWasm execute failed");
         return ret;

@@ -13,12 +13,12 @@ contract SstoreGasTest {
     uint256 public slot2;
     uint256 public slot3;
     uint256 public slot4;
-    
+
     // Mapping for additional cold storage writes
     mapping(uint256 => uint256) public data;
-    
+
     event StorageWritten(uint256 indexed count, uint256 gasUsed);
-    
+
     /**
      * @notice Performs a single cold SSTORE operation
      * @param value The value to store
@@ -29,7 +29,7 @@ contract SstoreGasTest {
         uint256 gasAfter = gasleft();
         emit StorageWritten(1, gasBefore - gasAfter);
     }
-    
+
     /**
      * @notice Performs multiple cold SSTORE operations
      * @param value The base value to store
@@ -44,7 +44,7 @@ contract SstoreGasTest {
         uint256 gasAfter = gasleft();
         emit StorageWritten(5, gasBefore - gasAfter);
     }
-    
+
     /**
      * @notice Performs cold SSTORE to mapping slots
      * @param count Number of mapping entries to write
@@ -58,7 +58,7 @@ contract SstoreGasTest {
         uint256 gasAfter = gasleft();
         emit StorageWritten(count, gasBefore - gasAfter);
     }
-    
+
     /**
      * @notice Performs warm SSTORE (re-writing to same slot)
      * @param value The value to store
@@ -69,7 +69,7 @@ contract SstoreGasTest {
         // Second write to same slot (warm)
         slot0 = value + 1;
     }
-    
+
     /**
      * @notice Mixed cold and warm SSTOREs
      * @param value The value to store
@@ -84,7 +84,7 @@ contract SstoreGasTest {
         // More cold writes
         slot2 = value + 2;
     }
-    
+
     /**
      * @notice Reset all slots to zero (for testing clean state)
      */
@@ -95,7 +95,7 @@ contract SstoreGasTest {
         slot3 = 0;
         slot4 = 0;
     }
-    
+
     /**
      * @notice Get current slot values
      */
