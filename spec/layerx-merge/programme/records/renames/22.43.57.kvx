@@ -1,0 +1,80 @@
+[manifest]
+task = "22.43.57"
+records_moved = 4
+files_renamed = 4
+
+[file.1]
+from = "modules/layerxbridge/client/cli/repair_m1268_test.go"
+to = "modules/layerxbridge/client/cli/bridge_proposal_rest_json_test.go"
+
+[file.2]
+from = "modules/layerxbridge/keeper/repair_182_test.go"
+to = "modules/layerxbridge/keeper/sidiora_governance_genesis_test.go"
+
+[file.3]
+from = "modules/layerxbridge/keeper/repair_m1253_test.go"
+to = "modules/layerxbridge/keeper/bridge_safety_test.go"
+
+[file.4]
+from = "modules/layerxbridge/repair_m1269_test.go"
+to = "modules/layerxbridge/attestation_documentation_test.go"
+
+[file.5]
+from = "modules/layerxbridge/client/cli/repair_m1268.kvx"
+to = "spec/layerx-merge/programme/records/modules/layerxbridge/client/cli/repair_m1268.kvx"
+
+[file.6]
+from = "modules/layerxbridge/keeper/repair_182.kvx"
+to = "spec/layerx-merge/programme/records/modules/layerxbridge/keeper/repair_182.kvx"
+
+[file.7]
+from = "modules/layerxbridge/keeper/repair_m1253.kvx"
+to = "spec/layerx-merge/programme/records/modules/layerxbridge/keeper/repair_m1253.kvx"
+
+[file.8]
+from = "modules/layerxbridge/repair_m1269.kvx"
+to = "spec/layerx-merge/programme/records/modules/layerxbridge/repair_m1269.kvx"
+
+[reference.1]
+file = "spec/layerx-merge/dispositions/d22-17.kvx"
+name = "modules/layerxbridge/keeper/repair_182_test.go"
+
+[reference.2]
+file = "spec/layerx-merge/qualification.kvx"
+name = "modules/layerxbridge/keeper/repair_182_test.go"
+
+[reference.3]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_182_test.go"
+
+[reference.4]
+file = "spec/layerx-merge/spec.kvx"
+name = "modules/layerxbridge/client/cli/repair_m1268_test.go"
+
+[reference.5]
+file = "spec/layerx-merge/spec.kvx"
+name = "modules/layerxbridge/keeper/repair_182_test.go"
+
+[reference.6]
+file = "spec/layerx-merge/spec.kvx"
+name = "modules/layerxbridge/keeper/repair_m1253_test.go"
+
+[reference.7]
+file = "spec/layerx-merge/spec.kvx"
+name = "modules/layerxbridge/repair_m1269_test.go"
+
+[reference.8]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_182_test.go"
+
+[reference.9]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1253_test.go"
+
+[reference.10]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1268_test.go"
+
+[reference.11]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1269_test.go"

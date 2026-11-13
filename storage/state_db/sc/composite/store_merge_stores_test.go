@@ -179,15 +179,15 @@ func TestCompositeApplyUpgradesEndsPendingMergeStores(t *testing.T) {
 
 // Unlike the fresh-initialization cases above, this starts from committed
 // legacy state without any merge trees and reopens with the enlarged mount list.
-func runM1197LegacyMergeUpgrade(t *testing.T, mode config.WriteMode) {
+func runCompositeLegacyMergeUpgrade(t *testing.T, mode config.WriteMode) {
 	t.Helper()
 	legacy, err := keys.AllModulesExcept(compositeMergeStoreNames...)
 	require.NoError(t, err)
 	dir := t.TempDir()
-	baseline := seedM1197Predecessor(t, dir, mode, legacy)
-	cs := openM1197Composite(t, dir, mode, keys.MemIAVLStoreKeys)
+	baseline := seedRollbackPredecessor(t, dir, mode, legacy)
+	cs := openRollbackComposite(t, dir, mode, keys.MemIAVLStoreKeys)
 	require.Equal(t, baseline, cloneCommitInfo(cs.LastCommitInfo()))
-	requireM1197Seed(t, cs)
+	requireRollbackSeed(t, cs)
 	checkpoint := cs.Version()
 
 	// The pending empty-view contract is currently memiavl-only. Mixed
@@ -238,9 +238,9 @@ func runM1197LegacyMergeUpgrade(t *testing.T, mode config.WriteMode) {
 		// A failed batch can advance an in-memory migration iterator. Reopen
 		// the committed baseline before continuing the supported upgrade path.
 		require.NoError(t, cs.Close())
-		cs = openM1197Composite(t, dir, mode, keys.MemIAVLStoreKeys)
+		cs = openRollbackComposite(t, dir, mode, keys.MemIAVLStoreKeys)
 		require.Equal(t, baseline, cloneCommitInfo(cs.LastCommitInfo()))
-		requireM1197Seed(t, cs)
+		requireRollbackSeed(t, cs)
 	} else {
 		require.NoError(t, cs.ApplyChangeSets(before))
 		for _, name := range compositeMergeStoreNames {
@@ -272,7 +272,7 @@ func runM1197LegacyMergeUpgrade(t *testing.T, mode config.WriteMode) {
 	check := func(cs *CompositeCommitStore) {
 		t.Helper()
 		require.Equal(t, committed, cloneCommitInfo(cs.LastCommitInfo()))
-		requireM1197Seed(t, cs)
+		requireRollbackSeed(t, cs)
 		require.Empty(t, cs.PendingStores())
 		for _, name := range compositeMergeStoreNames {
 			value, found, err := cs.Get(name, []byte("created"))
@@ -308,6 +308,6 @@ func runM1197LegacyMergeUpgrade(t *testing.T, mode config.WriteMode) {
 	}
 	check(cs)
 	require.NoError(t, cs.Close())
-	cs = openM1197Composite(t, dir, mode, keys.MemIAVLStoreKeys)
+	cs = openRollbackComposite(t, dir, mode, keys.MemIAVLStoreKeys)
 	check(cs)
 }

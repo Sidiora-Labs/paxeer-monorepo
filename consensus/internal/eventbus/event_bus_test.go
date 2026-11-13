@@ -241,8 +241,8 @@ func TestEventBusPublishEventTxDuplicateKeys(t *testing.T) {
 }
 
 func TestEventBusPublishEventTxReservedKeys(t *testing.T) {
-	t.Run("reserved metadata", TestRepairM_1115_ReservedKeys)
-	t.Run("duplicate application attributes", TestRepairM_1115_DuplicateApplicationKeys)
+	t.Run("reserved metadata", TestEventMetadataReservedKeys)
+	t.Run("duplicate application attributes", TestEventMetadataDuplicateApplicationKeys)
 }
 
 // executeEventBusApplicationTx executes and commits a real in-memory application

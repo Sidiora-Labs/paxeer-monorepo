@@ -389,22 +389,22 @@ func TestPrecompileExecutor_submitProposal(t *testing.T) {
 			args: args{
 				caller:           callerEvmAddress,
 				callerPaxAddress: callerPaxAddress,
-				proposal:         repairM1267EmptyTypeProposalJSON,
+				proposal:         emptyTypeProposalJSON,
 				value:            big.NewInt(0),
 			},
 			wantErr: false,
-			verify:  assertRepairM1267TextDefault,
+			verify:  assertGovTextProposalDefault,
 		},
 		{
 			name: "returns proposal id on submit parameter change proposal with multiple changes",
 			args: args{
 				caller:           callerEvmAddress,
 				callerPaxAddress: callerPaxAddress,
-				proposal:         repairM1267ParameterProposalJSON,
+				proposal:         parameterChangeProposalJSON,
 				value:            big.NewInt(1_000_000_000_000_000_000),
 			},
 			wantErr: false,
-			verify:  assertRepairM1267ParameterChange,
+			verify:  assertGovParameterChangeProposal,
 		},
 		{
 			name: "returns proposal id on submit cancel software upgrade proposal",

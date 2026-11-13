@@ -1,0 +1,92 @@
+[manifest]
+task = "22.43.64"
+records_moved = 8
+files_renamed = 2
+
+[file.1]
+from = "modules/lxphost/repair_22_31_595.kvx"
+to = "spec/layerx-merge/programme/records/modules/lxphost/repair_22_31_595.kvx"
+
+[file.2]
+from = "modules/lxphost/repair_22_39_250.kvx"
+to = "spec/layerx-merge/programme/records/modules/lxphost/repair_22_39_250.kvx"
+
+[file.3]
+from = "modules/lxphost/repair_22_39_282.kvx"
+to = "spec/layerx-merge/programme/records/modules/lxphost/repair_22_39_282.kvx"
+
+[file.4]
+from = "modules/lxphost/repair_22_39_379.kvx"
+to = "spec/layerx-merge/programme/records/modules/lxphost/repair_22_39_379.kvx"
+
+[file.5]
+from = "modules/lxphost/repair_22_39_387.kvx"
+to = "spec/layerx-merge/programme/records/modules/lxphost/repair_22_39_387.kvx"
+
+[file.6]
+from = "modules/lxphost/repair_22_39_394.kvx"
+to = "spec/layerx-merge/programme/records/modules/lxphost/repair_22_39_394.kvx"
+
+[file.7]
+from = "modules/lxphost/repair_25.kvx"
+to = "spec/layerx-merge/programme/records/modules/lxphost/repair_25.kvx"
+
+[file.8]
+from = "modules/lxphost/repair_m909.kvx"
+to = "spec/layerx-merge/programme/records/modules/lxphost/repair_m909.kvx"
+
+[file.9]
+from = "modules/lxphost/repair_25_test.go"
+to = "modules/lxphost/payment_reference_migration_test.go"
+
+[file.10]
+from = "modules/lxphost/repair_m909_test.go"
+to = "modules/lxphost/simulation_recovery_test.go"
+
+[reference.1]
+file = "GOTCHA.kvx"
+name = "modules/lxphost/repair_22_39_387.kvx"
+
+[reference.2]
+file = "precompiles/layerxprograms/repair_22_39_232.kvx"
+name = "TestRepairM_909_SimulationReceiptAuthorities"
+
+[reference.3]
+file = "precompiles/layerxprograms/repair_22_39_232.kvx"
+name = "modules/lxphost/repair_m909_test.go"
+
+[reference.4]
+file = "spec/layerx-merge/dispositions/d22-30.kvx"
+name = "modules/lxphost/repair_m909_test.go"
+
+[reference.5]
+file = "spec/layerx-merge/qualification.kvx"
+name = "modules/lxphost/repair_m909_test.go"
+
+[reference.6]
+file = "spec/layerx-merge/spec.kvx"
+name = "modules/lxphost/repair_22_39_250.kvx"
+
+[reference.7]
+file = "spec/layerx-merge/spec.kvx"
+name = "modules/lxphost/repair_22_39_282.kvx"
+
+[reference.8]
+file = "spec/layerx-merge/spec.kvx"
+name = "modules/lxphost/repair_22_39_379.kvx"
+
+[reference.9]
+file = "spec/layerx-merge/spec.kvx"
+name = "modules/lxphost/repair_22_39_387.kvx"
+
+[reference.10]
+file = "spec/layerx-merge/spec.kvx"
+name = "modules/lxphost/repair_22_39_394.kvx"
+
+[reference.11]
+file = "spec/layerx-merge/spec.kvx"
+name = "modules/lxphost/repair_25_test.go"
+
+[reference.12]
+file = "spec/layerx-merge/spec.kvx"
+name = "modules/lxphost/repair_m909_test.go"

@@ -1,0 +1,164 @@
+[manifest]
+task = "22.43.154"
+records_moved = 6
+files_renamed = 13
+
+[file.1]
+from = "services/interop/deploy/gateway/repair_m109_test.go"
+to = "services/interop/deploy/gateway/manifest_conformance_test.go"
+
+[file.2]
+from = "services/interop/deploy/gateway/tests/test_repair_22_31_232.py"
+to = "services/interop/deploy/gateway/tests/test_receipt_key_rotation.py"
+
+[file.3]
+from = "services/interop/deploy/gateway/tests/test_repair_m109.py"
+to = "services/interop/deploy/gateway/tests/test_manifest_conformance.py"
+
+[file.4]
+from = "services/interop/deploy/mirror/repair_m110_test.go"
+to = "services/interop/deploy/mirror/rendered_config_test.go"
+
+[file.5]
+from = "services/interop/deploy/mirror/testdata/repair_m110/receipt-keys.json"
+to = "services/interop/deploy/mirror/testdata/receipt_key_policy/receipt-keys.json"
+
+[file.6]
+from = "services/interop/deploy/mirror/testdata/repair_m110/record.py"
+to = "services/interop/deploy/mirror/testdata/receipt_key_policy/record.py"
+
+[file.7]
+from = "services/interop/deploy/mirror/testdata/repair_m110/rendered.json"
+to = "services/interop/deploy/mirror/testdata/receipt_key_policy/rendered.json"
+
+[file.8]
+from = "services/interop/deploy/mirror/tests/repair_22_31_233/driver.rs"
+to = "services/interop/deploy/mirror/tests/deployment/driver.rs"
+
+[file.9]
+from = "services/interop/deploy/mirror/tests/repair_m111_test.go"
+to = "services/interop/deploy/mirror/tests/rpc_rendering_test.go"
+
+[file.10]
+from = "services/interop/deploy/mirror/tests/test_repair_22_31_233.py"
+to = "services/interop/deploy/mirror/tests/test_deployment_verification.py"
+
+[file.11]
+from = "services/interop/deploy/mirror/tests/testdata/repair_m111/record.py"
+to = "services/interop/deploy/mirror/tests/testdata/rpc_rendering/record.py"
+
+[file.12]
+from = "services/interop/deploy/mirror/tests/testdata/repair_m111/rendered.json"
+to = "services/interop/deploy/mirror/tests/testdata/rpc_rendering/rendered.json"
+
+[file.13]
+from = "services/interop/tests/repair_22_33_95.rs"
+to = "services/interop/tests/portable_receipt_verification.rs"
+
+[file.14]
+from = "services/interop/deploy/gateway/repair_22_31_232.kvx"
+to = "spec/layerx-merge/programme/records/services/interop/deploy/gateway/repair_22_31_232.kvx"
+
+[file.15]
+from = "services/interop/deploy/gateway/repair_m109.kvx"
+to = "spec/layerx-merge/programme/records/services/interop/deploy/gateway/repair_m109.kvx"
+
+[file.16]
+from = "services/interop/deploy/mirror/repair-22.31.233.kvx"
+to = "spec/layerx-merge/programme/records/services/interop/deploy/mirror/repair-22.31.233.kvx"
+
+[file.17]
+from = "services/interop/deploy/mirror/repair-22.33.110.kvx"
+to = "spec/layerx-merge/programme/records/services/interop/deploy/mirror/repair-22.33.110.kvx"
+
+[file.18]
+from = "services/interop/deploy/mirror/tests/repair-22.33.111.kvx"
+to = "spec/layerx-merge/programme/records/services/interop/deploy/mirror/tests/repair-22.33.111.kvx"
+
+[file.19]
+from = "services/interop/specs/conformance/committed/repair_22_31_622.kvx"
+to = "spec/layerx-merge/programme/records/services/interop/specs/conformance/committed/repair_22_31_622.kvx"
+
+[reference.1]
+file = "GOTCHA.kvx"
+name = "services/interop/tests/repair_22_33_95.rs"
+
+[reference.2]
+file = "docker/layerx/Dockerfile.dockerignore"
+name = "services/interop/tests/repair_22_33_95.rs"
+
+[reference.3]
+file = "services/interop/crates/layerx-portable/Cargo.toml"
+name = "repair_22_33_95.rs"
+
+[reference.4]
+file = "services/interop/repair_22_33_95.kvx"
+name = "repair_22_33_95.rs"
+
+[reference.5]
+file = "services/interop/repair_22_39_125.kvx"
+name = "services/interop/specs/conformance/committed/repair_22_31_622.kvx"
+
+[reference.6]
+file = "services/interop/repair_22_39_125.kvx"
+name = "services/interop/tests/repair_22_33_95.rs"
+
+[reference.7]
+file = "services/interop/repair_22_39_404.kvx"
+name = "repair_22_33_95.rs"
+
+[reference.8]
+file = "services/interop/repair_22_39_74.kvx"
+name = "services/interop/tests/repair_22_33_95.rs"
+
+[reference.9]
+file = "spec/layerx-merge/dispositions/d22-17.kvx"
+name = "services/interop/deploy/gateway/tests/test_repair_22_31_232.py"
+
+[reference.10]
+file = "spec/layerx-merge/dispositions/d22-17.kvx"
+name = "services/interop/deploy/mirror/tests/test_repair_22_31_233.py"
+
+[reference.11]
+file = "spec/layerx-merge/dispositions/d22-32.kvx"
+name = "services/interop/tests/repair_22_33_95.rs"
+
+[reference.12]
+file = "spec/layerx-merge/qualification.kvx"
+name = "services/interop/deploy/gateway/tests/test_repair_22_31_232.py"
+
+[reference.13]
+file = "spec/layerx-merge/qualification.kvx"
+name = "services/interop/deploy/mirror/tests/test_repair_22_31_233.py"
+
+[reference.14]
+file = "spec/layerx-merge/qualification.kvx"
+name = "services/interop/tests/repair_22_33_95.rs"
+
+[reference.15]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/interop/deploy/gateway/repair_m109_test.go"
+
+[reference.16]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/interop/deploy/gateway/tests/test_repair_22_31_232.py"
+
+[reference.17]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/interop/deploy/mirror/repair_m110_test.go"
+
+[reference.18]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/interop/deploy/mirror/tests/repair_m111_test.go"
+
+[reference.19]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/interop/deploy/mirror/tests/test_repair_22_31_233.py"
+
+[reference.20]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/interop/specs/conformance/committed/repair_22_31_622.kvx"
+
+[reference.21]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/interop/tests/repair_22_33_95.rs"

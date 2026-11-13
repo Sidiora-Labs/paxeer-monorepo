@@ -8,7 +8,7 @@ import (
 )
 
 func TestClientVersion(t *testing.T) {
-	f := newRepair1291Fixture(t, "rpc-test-network", false)
+	f := newRPCMetadataFixture(t, "rpc-test-network", false)
 	expected := "Geth/" + runtime.GOOS + "-" + runtime.GOARCH + "/" + runtime.Version()
 	for _, ws := range []bool{false, true} {
 		_, consumer := f.server(t, ws)

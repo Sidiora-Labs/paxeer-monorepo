@@ -19,7 +19,7 @@ For `transfer`, the value is exactly `74 72 61 6e 73 66 65 72` in hexadecimal.
 `SetDenomTrace` uses the binary codec to marshal the trace and indexes it by
 `DenomTrace.Hash()`, not by the ASCII hexadecimal hash or the `ibc/` prefix.
 The trace codec boundary is [MarshalDenomTrace / UnmarshalDenomTrace](../keeper/encoding.go);
-`TestRepairM_1206_PortStorage` checks these bytes through the real store and codec.
+`TestTransferContractPortStorage` checks these bytes through the real store and codec.
 See [Denomination Trace](01_concepts.md#denomination-trace) and
 [ADR 001](https://github.com/cosmos/ibc-go/blob/main/docs/architecture/adr-001-coin-source-tracing.md).
 

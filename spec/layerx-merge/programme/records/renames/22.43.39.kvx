@@ -1,0 +1,132 @@
+[manifest]
+task = "22.43.39"
+records_moved = 7
+files_renamed = 9
+
+[file.1]
+from = "consensus/test/e2e/app/repair_122_test.go"
+to = "consensus/test/e2e/app/validator_power_test.go"
+
+[file.2]
+from = "consensus/test/e2e/app/repair_m1187_test.go"
+to = "consensus/test/e2e/app/snapshot_rollback_test.go"
+
+[file.3]
+from = "consensus/test/e2e/generator/repair_m1189_test.go"
+to = "consensus/test/e2e/generator/reproducibility_test.go"
+
+[file.4]
+from = "consensus/test/e2e/node/repair_m1190_test.go"
+to = "consensus/test/e2e/node/application_config_test.go"
+
+[file.5]
+from = "consensus/test/e2e/node/repair_m1190_runner_test.go"
+to = "consensus/test/e2e/node/runner_setup_test.go"
+
+[file.6]
+from = "consensus/test/e2e/node/testdata/repair_m1190_manifest.toml"
+to = "consensus/test/e2e/node/testdata/application_delays.toml"
+
+[file.7]
+from = "consensus/test/e2e/runner/repair_123_test.go"
+to = "consensus/test/e2e/runner/builtin_protocol_test.go"
+
+[file.8]
+from = "consensus/test/e2e/runner/repair_m1191_test.go"
+to = "consensus/test/e2e/runner/cleanup_load_wait_test.go"
+
+[file.9]
+from = "consensus/test/e2e/tests/repair_m1192_test.go"
+to = "consensus/test/e2e/tests/peer_topology_proposals_test.go"
+
+[file.10]
+from = "consensus/test/e2e/app/repair_122.kvx"
+to = "spec/layerx-merge/programme/records/consensus/test/e2e/app/repair_122.kvx"
+
+[file.11]
+from = "consensus/test/e2e/app/repair_m1187.kvx"
+to = "spec/layerx-merge/programme/records/consensus/test/e2e/app/repair_m1187.kvx"
+
+[file.12]
+from = "consensus/test/e2e/generator/repair_m1189.kvx"
+to = "spec/layerx-merge/programme/records/consensus/test/e2e/generator/repair_m1189.kvx"
+
+[file.13]
+from = "consensus/test/e2e/node/repair_m1190.kvx"
+to = "spec/layerx-merge/programme/records/consensus/test/e2e/node/repair_m1190.kvx"
+
+[file.14]
+from = "consensus/test/e2e/runner/repair_123.kvx"
+to = "spec/layerx-merge/programme/records/consensus/test/e2e/runner/repair_123.kvx"
+
+[file.15]
+from = "consensus/test/e2e/runner/repair_m1191.kvx"
+to = "spec/layerx-merge/programme/records/consensus/test/e2e/runner/repair_m1191.kvx"
+
+[file.16]
+from = "consensus/test/e2e/tests/repair_m1192.kvx"
+to = "spec/layerx-merge/programme/records/consensus/test/e2e/tests/repair_m1192.kvx"
+
+[reference.1]
+file = "spec/layerx-merge/dispositions/d22-22.kvx"
+name = "repair_m1191_test.go"
+
+[reference.2]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_m1191_test.go"
+
+[reference.3]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1187_"
+
+[reference.4]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1189_"
+
+[reference.5]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1190_"
+
+[reference.6]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1191_"
+
+[reference.7]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1192_"
+
+[reference.8]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_122_"
+
+[reference.9]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_123_"
+
+[reference.10]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_122_test.go"
+
+[reference.11]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_123_test.go"
+
+[reference.12]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1187_test.go"
+
+[reference.13]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1189_test.go"
+
+[reference.14]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1190_test.go"
+
+[reference.15]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1191_test.go"
+
+[reference.16]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1192_test.go"

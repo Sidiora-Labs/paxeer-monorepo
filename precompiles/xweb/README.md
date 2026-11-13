@@ -16,7 +16,7 @@ This directory holds the Go implementation, embedded ABI, Solidity interfaces an
 - [xweb_test.go](xweb_test.go): contract requests, callbacks, refunds, attestation and Solidity interface tests.
 - [gas_test.go](gas_test.go) and [methods_test.go](methods_test.go): program gas accounting and ABI method checks.
 - [origin_two_flow_test.go](origin_two_flow_test.go), [program_dispatch_test.go](program_dispatch_test.go) and [program_gate_test.go](program_gate_test.go): program result flow, EVM dispatch and activation checks.
-- [program_requested_event_test.go](program_requested_event_test.go), [repair_130_test.go](repair_130_test.go) and [repair_m1282_test.go](repair_m1282_test.go): program event schemas, journal behavior and consumer interoperability tests.
+- [program_requested_event_test.go](program_requested_event_test.go), [program_event_round_trip_test.go](program_event_round_trip_test.go) and [program_event_schema_test.go](program_event_schema_test.go): program event schemas, journal behavior and consumer interoperability tests.
 - [proof_ixweb_test.go](proof_ixweb_test.go) and [proof_xweb_0x1019_test.go](proof_xweb_0x1019_test.go): Solidity selectors and application-level program observation tests across Go, Solidity and Rust.
 
 ## Build and test

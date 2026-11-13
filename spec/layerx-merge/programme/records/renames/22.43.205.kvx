@@ -1,0 +1,1793 @@
+[manifest]
+task = "22.43.205"
+records_moved = 12
+files_renamed = 339
+directories_renamed = 8
+
+[file.1]
+from = "tools/bringup/repair_143_test.go"
+to = "tools/bringup/value_loop_recovery_test.go"
+
+[file.2]
+from = "tools/bringup/repair_m1388_test.go"
+to = "tools/bringup/native_receipt_test.go"
+
+[file.3]
+from = "tools/bringup/repair_m792_test.go"
+to = "tools/bringup/runtime_inventory_test.go"
+
+[file.4]
+from = "tools/bringup/repair_m793_test.go"
+to = "tools/bringup/live_evidence_test.go"
+
+[file.5]
+from = "tools/bringup/repair_m794_test.go"
+to = "tools/bringup/platform_routes_test.go"
+
+[file.6]
+from = "tools/bringup/repair_m795_cli.go"
+to = "tools/bringup/recovery_cli.go"
+
+[file.7]
+from = "tools/bringup/repair_m795_test.go"
+to = "tools/bringup/service_recovery_test.go"
+
+[file.8]
+from = "tools/bringup/repair_m796_test.go"
+to = "tools/bringup/fleet_foundation_test.go"
+
+[file.9]
+from = "tools/bringup/repair_m797_test.go"
+to = "tools/bringup/runtime_contract_test.go"
+
+[file.10]
+from = "tools/bringup/repair_m798_cli.go"
+to = "tools/bringup/upgrade_xweb_cli.go"
+
+[file.11]
+from = "tools/bringup/repair_m798_test.go"
+to = "tools/bringup/upgrade_xweb_test.go"
+
+[file.12]
+from = "tools/bringup/tests/fixtures/repair_22_31_319/cert.pem"
+to = "tools/bringup/tests/fixtures/transport_session/cert.pem"
+
+[file.13]
+from = "tools/bringup/tests/fixtures/repair_22_31_319/key.pem"
+to = "tools/bringup/tests/fixtures/transport_session/key.pem"
+
+[file.14]
+from = "tools/bringup/tests/fixtures/repair_22_31_319/replay.py"
+to = "tools/bringup/tests/fixtures/transport_session/replay.py"
+
+[file.15]
+from = "tools/bringup/tests/fixtures/repair_22_31_319/session.json"
+to = "tools/bringup/tests/fixtures/transport_session/session.json"
+
+[file.16]
+from = "tools/bringup/tests/fixtures/repair_22_39_164/hosts.env"
+to = "tools/bringup/tests/fixtures/hosted_routes/hosts.env"
+
+[file.17]
+from = "tools/bringup/tests/fixtures/repair_m792/expired/ca.der"
+to = "tools/bringup/tests/fixtures/ca_renewal/expired/ca.der"
+
+[file.18]
+from = "tools/bringup/tests/fixtures/repair_m792/expired/ca.pem"
+to = "tools/bringup/tests/fixtures/ca_renewal/expired/ca.pem"
+
+[file.19]
+from = "tools/bringup/tests/fixtures/repair_m792/expired/cert.der"
+to = "tools/bringup/tests/fixtures/ca_renewal/expired/cert.der"
+
+[file.20]
+from = "tools/bringup/tests/fixtures/repair_m792/expired/cert.pem"
+to = "tools/bringup/tests/fixtures/ca_renewal/expired/cert.pem"
+
+[file.21]
+from = "tools/bringup/tests/fixtures/repair_m792/expired/identity.p12"
+to = "tools/bringup/tests/fixtures/ca_renewal/expired/identity.p12"
+
+[file.22]
+from = "tools/bringup/tests/fixtures/repair_m792/expired/key.der"
+to = "tools/bringup/tests/fixtures/ca_renewal/expired/key.der"
+
+[file.23]
+from = "tools/bringup/tests/fixtures/repair_m792/expired/key.pem"
+to = "tools/bringup/tests/fixtures/ca_renewal/expired/key.pem"
+
+[file.24]
+from = "tools/bringup/tests/fixtures/repair_m792/expired/password"
+to = "tools/bringup/tests/fixtures/ca_renewal/expired/password"
+
+[file.25]
+from = "tools/bringup/tests/fixtures/repair_m792/generate.sh"
+to = "tools/bringup/tests/fixtures/ca_renewal/generate.sh"
+
+[file.26]
+from = "tools/bringup/tests/fixtures/repair_m792/issuer/ca.pem"
+to = "tools/bringup/tests/fixtures/ca_renewal/issuer/ca.pem"
+
+[file.27]
+from = "tools/bringup/tests/fixtures/repair_m792/renewed/ca.der"
+to = "tools/bringup/tests/fixtures/ca_renewal/renewed/ca.der"
+
+[file.28]
+from = "tools/bringup/tests/fixtures/repair_m792/renewed/ca.pem"
+to = "tools/bringup/tests/fixtures/ca_renewal/renewed/ca.pem"
+
+[file.29]
+from = "tools/bringup/tests/fixtures/repair_m792/renewed/cert.der"
+to = "tools/bringup/tests/fixtures/ca_renewal/renewed/cert.der"
+
+[file.30]
+from = "tools/bringup/tests/fixtures/repair_m792/renewed/cert.pem"
+to = "tools/bringup/tests/fixtures/ca_renewal/renewed/cert.pem"
+
+[file.31]
+from = "tools/bringup/tests/fixtures/repair_m792/renewed/identity.p12"
+to = "tools/bringup/tests/fixtures/ca_renewal/renewed/identity.p12"
+
+[file.32]
+from = "tools/bringup/tests/fixtures/repair_m792/renewed/key.der"
+to = "tools/bringup/tests/fixtures/ca_renewal/renewed/key.der"
+
+[file.33]
+from = "tools/bringup/tests/fixtures/repair_m792/renewed/key.pem"
+to = "tools/bringup/tests/fixtures/ca_renewal/renewed/key.pem"
+
+[file.34]
+from = "tools/bringup/tests/fixtures/repair_m792/renewed/password"
+to = "tools/bringup/tests/fixtures/ca_renewal/renewed/password"
+
+[file.35]
+from = "tools/bringup/tests/fixtures/repair_m793/assets.json"
+to = "tools/bringup/tests/fixtures/live_evidence/assets.json"
+
+[file.36]
+from = "tools/bringup/tests/fixtures/repair_m793/committed.json"
+to = "tools/bringup/tests/fixtures/live_evidence/committed.json"
+
+[file.37]
+from = "tools/bringup/tests/fixtures/repair_m793/deliveries.json"
+to = "tools/bringup/tests/fixtures/live_evidence/deliveries.json"
+
+[file.38]
+from = "tools/bringup/tests/fixtures/repair_m793/deployment.json"
+to = "tools/bringup/tests/fixtures/live_evidence/deployment.json"
+
+[file.39]
+from = "tools/bringup/tests/fixtures/repair_m793/events.json"
+to = "tools/bringup/tests/fixtures/live_evidence/events.json"
+
+[file.40]
+from = "tools/bringup/tests/fixtures/repair_m793/human.txt"
+to = "tools/bringup/tests/fixtures/live_evidence/human.txt"
+
+[file.41]
+from = "tools/bringup/tests/fixtures/repair_m793/indexer-schema.sql"
+to = "tools/bringup/tests/fixtures/live_evidence/indexer-schema.sql"
+
+[file.42]
+from = "tools/bringup/tests/fixtures/repair_m793/indexer-state.json"
+to = "tools/bringup/tests/fixtures/live_evidence/indexer-state.json"
+
+[file.43]
+from = "tools/bringup/tests/fixtures/repair_m793/indexer.sqlite"
+to = "tools/bringup/tests/fixtures/live_evidence/indexer.sqlite"
+
+[file.44]
+from = "tools/bringup/tests/fixtures/repair_m793/receipted.json"
+to = "tools/bringup/tests/fixtures/live_evidence/receipted.json"
+
+[file.45]
+from = "tools/bringup/tests/fixtures/repair_m793/regional-responses.json"
+to = "tools/bringup/tests/fixtures/live_evidence/regional-responses.json"
+
+[file.46]
+from = "tools/bringup/tests/fixtures/repair_m794/agent-boundary/ca.der"
+to = "tools/bringup/tests/fixtures/service_identities/agent-boundary/ca.der"
+
+[file.47]
+from = "tools/bringup/tests/fixtures/repair_m794/agent-boundary/ca.pem"
+to = "tools/bringup/tests/fixtures/service_identities/agent-boundary/ca.pem"
+
+[file.48]
+from = "tools/bringup/tests/fixtures/repair_m794/agent-boundary/cert.der"
+to = "tools/bringup/tests/fixtures/service_identities/agent-boundary/cert.der"
+
+[file.49]
+from = "tools/bringup/tests/fixtures/repair_m794/agent-boundary/cert.pem"
+to = "tools/bringup/tests/fixtures/service_identities/agent-boundary/cert.pem"
+
+[file.50]
+from = "tools/bringup/tests/fixtures/repair_m794/agent-boundary/identity.p12"
+to = "tools/bringup/tests/fixtures/service_identities/agent-boundary/identity.p12"
+
+[file.51]
+from = "tools/bringup/tests/fixtures/repair_m794/agent-boundary/key.der"
+to = "tools/bringup/tests/fixtures/service_identities/agent-boundary/key.der"
+
+[file.52]
+from = "tools/bringup/tests/fixtures/repair_m794/agent-boundary/key.pem"
+to = "tools/bringup/tests/fixtures/service_identities/agent-boundary/key.pem"
+
+[file.53]
+from = "tools/bringup/tests/fixtures/repair_m794/agent-boundary/password"
+to = "tools/bringup/tests/fixtures/service_identities/agent-boundary/password"
+
+[file.54]
+from = "tools/bringup/tests/fixtures/repair_m794/agentd-client/ca.der"
+to = "tools/bringup/tests/fixtures/service_identities/agentd-client/ca.der"
+
+[file.55]
+from = "tools/bringup/tests/fixtures/repair_m794/agentd-client/ca.pem"
+to = "tools/bringup/tests/fixtures/service_identities/agentd-client/ca.pem"
+
+[file.56]
+from = "tools/bringup/tests/fixtures/repair_m794/agentd-client/cert.der"
+to = "tools/bringup/tests/fixtures/service_identities/agentd-client/cert.der"
+
+[file.57]
+from = "tools/bringup/tests/fixtures/repair_m794/agentd-client/cert.pem"
+to = "tools/bringup/tests/fixtures/service_identities/agentd-client/cert.pem"
+
+[file.58]
+from = "tools/bringup/tests/fixtures/repair_m794/agentd-client/identity.p12"
+to = "tools/bringup/tests/fixtures/service_identities/agentd-client/identity.p12"
+
+[file.59]
+from = "tools/bringup/tests/fixtures/repair_m794/agentd-client/key.der"
+to = "tools/bringup/tests/fixtures/service_identities/agentd-client/key.der"
+
+[file.60]
+from = "tools/bringup/tests/fixtures/repair_m794/agentd-client/key.pem"
+to = "tools/bringup/tests/fixtures/service_identities/agentd-client/key.pem"
+
+[file.61]
+from = "tools/bringup/tests/fixtures/repair_m794/agentd-client/password"
+to = "tools/bringup/tests/fixtures/service_identities/agentd-client/password"
+
+[file.62]
+from = "tools/bringup/tests/fixtures/repair_m794/agentd/ca.der"
+to = "tools/bringup/tests/fixtures/service_identities/agentd/ca.der"
+
+[file.63]
+from = "tools/bringup/tests/fixtures/repair_m794/agentd/ca.pem"
+to = "tools/bringup/tests/fixtures/service_identities/agentd/ca.pem"
+
+[file.64]
+from = "tools/bringup/tests/fixtures/repair_m794/agentd/cert.der"
+to = "tools/bringup/tests/fixtures/service_identities/agentd/cert.der"
+
+[file.65]
+from = "tools/bringup/tests/fixtures/repair_m794/agentd/cert.pem"
+to = "tools/bringup/tests/fixtures/service_identities/agentd/cert.pem"
+
+[file.66]
+from = "tools/bringup/tests/fixtures/repair_m794/agentd/identity.p12"
+to = "tools/bringup/tests/fixtures/service_identities/agentd/identity.p12"
+
+[file.67]
+from = "tools/bringup/tests/fixtures/repair_m794/agentd/key.der"
+to = "tools/bringup/tests/fixtures/service_identities/agentd/key.der"
+
+[file.68]
+from = "tools/bringup/tests/fixtures/repair_m794/agentd/key.pem"
+to = "tools/bringup/tests/fixtures/service_identities/agentd/key.pem"
+
+[file.69]
+from = "tools/bringup/tests/fixtures/repair_m794/agentd/password"
+to = "tools/bringup/tests/fixtures/service_identities/agentd/password"
+
+[file.70]
+from = "tools/bringup/tests/fixtures/repair_m794/approved-roster.tsv"
+to = "tools/bringup/tests/fixtures/service_identities/approved-roster.tsv"
+
+[file.71]
+from = "tools/bringup/tests/fixtures/repair_m794/dashboard-client/ca.der"
+to = "tools/bringup/tests/fixtures/service_identities/dashboard-client/ca.der"
+
+[file.72]
+from = "tools/bringup/tests/fixtures/repair_m794/dashboard-client/ca.pem"
+to = "tools/bringup/tests/fixtures/service_identities/dashboard-client/ca.pem"
+
+[file.73]
+from = "tools/bringup/tests/fixtures/repair_m794/dashboard-client/cert.der"
+to = "tools/bringup/tests/fixtures/service_identities/dashboard-client/cert.der"
+
+[file.74]
+from = "tools/bringup/tests/fixtures/repair_m794/dashboard-client/cert.pem"
+to = "tools/bringup/tests/fixtures/service_identities/dashboard-client/cert.pem"
+
+[file.75]
+from = "tools/bringup/tests/fixtures/repair_m794/dashboard-client/identity.p12"
+to = "tools/bringup/tests/fixtures/service_identities/dashboard-client/identity.p12"
+
+[file.76]
+from = "tools/bringup/tests/fixtures/repair_m794/dashboard-client/key.der"
+to = "tools/bringup/tests/fixtures/service_identities/dashboard-client/key.der"
+
+[file.77]
+from = "tools/bringup/tests/fixtures/repair_m794/dashboard-client/key.pem"
+to = "tools/bringup/tests/fixtures/service_identities/dashboard-client/key.pem"
+
+[file.78]
+from = "tools/bringup/tests/fixtures/repair_m794/dashboard-client/password"
+to = "tools/bringup/tests/fixtures/service_identities/dashboard-client/password"
+
+[file.79]
+from = "tools/bringup/tests/fixtures/repair_m794/developer-client/ca.der"
+to = "tools/bringup/tests/fixtures/service_identities/developer-client/ca.der"
+
+[file.80]
+from = "tools/bringup/tests/fixtures/repair_m794/developer-client/ca.pem"
+to = "tools/bringup/tests/fixtures/service_identities/developer-client/ca.pem"
+
+[file.81]
+from = "tools/bringup/tests/fixtures/repair_m794/developer-client/cert.der"
+to = "tools/bringup/tests/fixtures/service_identities/developer-client/cert.der"
+
+[file.82]
+from = "tools/bringup/tests/fixtures/repair_m794/developer-client/cert.pem"
+to = "tools/bringup/tests/fixtures/service_identities/developer-client/cert.pem"
+
+[file.83]
+from = "tools/bringup/tests/fixtures/repair_m794/developer-client/identity.p12"
+to = "tools/bringup/tests/fixtures/service_identities/developer-client/identity.p12"
+
+[file.84]
+from = "tools/bringup/tests/fixtures/repair_m794/developer-client/key.der"
+to = "tools/bringup/tests/fixtures/service_identities/developer-client/key.der"
+
+[file.85]
+from = "tools/bringup/tests/fixtures/repair_m794/developer-client/key.pem"
+to = "tools/bringup/tests/fixtures/service_identities/developer-client/key.pem"
+
+[file.86]
+from = "tools/bringup/tests/fixtures/repair_m794/developer-client/password"
+to = "tools/bringup/tests/fixtures/service_identities/developer-client/password"
+
+[file.87]
+from = "tools/bringup/tests/fixtures/repair_m794/developer/ca.der"
+to = "tools/bringup/tests/fixtures/service_identities/developer/ca.der"
+
+[file.88]
+from = "tools/bringup/tests/fixtures/repair_m794/developer/ca.pem"
+to = "tools/bringup/tests/fixtures/service_identities/developer/ca.pem"
+
+[file.89]
+from = "tools/bringup/tests/fixtures/repair_m794/developer/cert.der"
+to = "tools/bringup/tests/fixtures/service_identities/developer/cert.der"
+
+[file.90]
+from = "tools/bringup/tests/fixtures/repair_m794/developer/cert.pem"
+to = "tools/bringup/tests/fixtures/service_identities/developer/cert.pem"
+
+[file.91]
+from = "tools/bringup/tests/fixtures/repair_m794/developer/identity.p12"
+to = "tools/bringup/tests/fixtures/service_identities/developer/identity.p12"
+
+[file.92]
+from = "tools/bringup/tests/fixtures/repair_m794/developer/key.der"
+to = "tools/bringup/tests/fixtures/service_identities/developer/key.der"
+
+[file.93]
+from = "tools/bringup/tests/fixtures/repair_m794/developer/key.pem"
+to = "tools/bringup/tests/fixtures/service_identities/developer/key.pem"
+
+[file.94]
+from = "tools/bringup/tests/fixtures/repair_m794/developer/password"
+to = "tools/bringup/tests/fixtures/service_identities/developer/password"
+
+[file.95]
+from = "tools/bringup/tests/fixtures/repair_m794/gateway-client/ca.der"
+to = "tools/bringup/tests/fixtures/service_identities/gateway-client/ca.der"
+
+[file.96]
+from = "tools/bringup/tests/fixtures/repair_m794/gateway-client/ca.pem"
+to = "tools/bringup/tests/fixtures/service_identities/gateway-client/ca.pem"
+
+[file.97]
+from = "tools/bringup/tests/fixtures/repair_m794/gateway-client/cert.der"
+to = "tools/bringup/tests/fixtures/service_identities/gateway-client/cert.der"
+
+[file.98]
+from = "tools/bringup/tests/fixtures/repair_m794/gateway-client/cert.pem"
+to = "tools/bringup/tests/fixtures/service_identities/gateway-client/cert.pem"
+
+[file.99]
+from = "tools/bringup/tests/fixtures/repair_m794/gateway-client/identity.p12"
+to = "tools/bringup/tests/fixtures/service_identities/gateway-client/identity.p12"
+
+[file.100]
+from = "tools/bringup/tests/fixtures/repair_m794/gateway-client/key.der"
+to = "tools/bringup/tests/fixtures/service_identities/gateway-client/key.der"
+
+[file.101]
+from = "tools/bringup/tests/fixtures/repair_m794/gateway-client/key.pem"
+to = "tools/bringup/tests/fixtures/service_identities/gateway-client/key.pem"
+
+[file.102]
+from = "tools/bringup/tests/fixtures/repair_m794/gateway-client/password"
+to = "tools/bringup/tests/fixtures/service_identities/gateway-client/password"
+
+[file.103]
+from = "tools/bringup/tests/fixtures/repair_m794/gateway-redis/ca.der"
+to = "tools/bringup/tests/fixtures/service_identities/gateway-redis/ca.der"
+
+[file.104]
+from = "tools/bringup/tests/fixtures/repair_m794/gateway-redis/ca.pem"
+to = "tools/bringup/tests/fixtures/service_identities/gateway-redis/ca.pem"
+
+[file.105]
+from = "tools/bringup/tests/fixtures/repair_m794/gateway-redis/cert.der"
+to = "tools/bringup/tests/fixtures/service_identities/gateway-redis/cert.der"
+
+[file.106]
+from = "tools/bringup/tests/fixtures/repair_m794/gateway-redis/cert.pem"
+to = "tools/bringup/tests/fixtures/service_identities/gateway-redis/cert.pem"
+
+[file.107]
+from = "tools/bringup/tests/fixtures/repair_m794/gateway-redis/identity.p12"
+to = "tools/bringup/tests/fixtures/service_identities/gateway-redis/identity.p12"
+
+[file.108]
+from = "tools/bringup/tests/fixtures/repair_m794/gateway-redis/key.der"
+to = "tools/bringup/tests/fixtures/service_identities/gateway-redis/key.der"
+
+[file.109]
+from = "tools/bringup/tests/fixtures/repair_m794/gateway-redis/key.pem"
+to = "tools/bringup/tests/fixtures/service_identities/gateway-redis/key.pem"
+
+[file.110]
+from = "tools/bringup/tests/fixtures/repair_m794/gateway-redis/password"
+to = "tools/bringup/tests/fixtures/service_identities/gateway-redis/password"
+
+[file.111]
+from = "tools/bringup/tests/fixtures/repair_m794/generate.sh"
+to = "tools/bringup/tests/fixtures/service_identities/generate.sh"
+
+[file.112]
+from = "tools/bringup/tests/fixtures/repair_m794/human-attestor-client/ca.der"
+to = "tools/bringup/tests/fixtures/service_identities/human-attestor-client/ca.der"
+
+[file.113]
+from = "tools/bringup/tests/fixtures/repair_m794/human-attestor-client/ca.pem"
+to = "tools/bringup/tests/fixtures/service_identities/human-attestor-client/ca.pem"
+
+[file.114]
+from = "tools/bringup/tests/fixtures/repair_m794/human-attestor-client/cert.der"
+to = "tools/bringup/tests/fixtures/service_identities/human-attestor-client/cert.der"
+
+[file.115]
+from = "tools/bringup/tests/fixtures/repair_m794/human-attestor-client/cert.pem"
+to = "tools/bringup/tests/fixtures/service_identities/human-attestor-client/cert.pem"
+
+[file.116]
+from = "tools/bringup/tests/fixtures/repair_m794/human-attestor-client/identity.p12"
+to = "tools/bringup/tests/fixtures/service_identities/human-attestor-client/identity.p12"
+
+[file.117]
+from = "tools/bringup/tests/fixtures/repair_m794/human-attestor-client/key.der"
+to = "tools/bringup/tests/fixtures/service_identities/human-attestor-client/key.der"
+
+[file.118]
+from = "tools/bringup/tests/fixtures/repair_m794/human-attestor-client/key.pem"
+to = "tools/bringup/tests/fixtures/service_identities/human-attestor-client/key.pem"
+
+[file.119]
+from = "tools/bringup/tests/fixtures/repair_m794/human-attestor-client/password"
+to = "tools/bringup/tests/fixtures/service_identities/human-attestor-client/password"
+
+[file.120]
+from = "tools/bringup/tests/fixtures/repair_m794/human-event-client/ca.der"
+to = "tools/bringup/tests/fixtures/service_identities/human-event-client/ca.der"
+
+[file.121]
+from = "tools/bringup/tests/fixtures/repair_m794/human-event-client/ca.pem"
+to = "tools/bringup/tests/fixtures/service_identities/human-event-client/ca.pem"
+
+[file.122]
+from = "tools/bringup/tests/fixtures/repair_m794/human-event-client/cert.der"
+to = "tools/bringup/tests/fixtures/service_identities/human-event-client/cert.der"
+
+[file.123]
+from = "tools/bringup/tests/fixtures/repair_m794/human-event-client/cert.pem"
+to = "tools/bringup/tests/fixtures/service_identities/human-event-client/cert.pem"
+
+[file.124]
+from = "tools/bringup/tests/fixtures/repair_m794/human-event-client/identity.p12"
+to = "tools/bringup/tests/fixtures/service_identities/human-event-client/identity.p12"
+
+[file.125]
+from = "tools/bringup/tests/fixtures/repair_m794/human-event-client/key.der"
+to = "tools/bringup/tests/fixtures/service_identities/human-event-client/key.der"
+
+[file.126]
+from = "tools/bringup/tests/fixtures/repair_m794/human-event-client/key.pem"
+to = "tools/bringup/tests/fixtures/service_identities/human-event-client/key.pem"
+
+[file.127]
+from = "tools/bringup/tests/fixtures/repair_m794/human-event-client/password"
+to = "tools/bringup/tests/fixtures/service_identities/human-event-client/password"
+
+[file.128]
+from = "tools/bringup/tests/fixtures/repair_m794/human-kms-client/ca.der"
+to = "tools/bringup/tests/fixtures/service_identities/human-kms-client/ca.der"
+
+[file.129]
+from = "tools/bringup/tests/fixtures/repair_m794/human-kms-client/ca.pem"
+to = "tools/bringup/tests/fixtures/service_identities/human-kms-client/ca.pem"
+
+[file.130]
+from = "tools/bringup/tests/fixtures/repair_m794/human-kms-client/cert.der"
+to = "tools/bringup/tests/fixtures/service_identities/human-kms-client/cert.der"
+
+[file.131]
+from = "tools/bringup/tests/fixtures/repair_m794/human-kms-client/cert.pem"
+to = "tools/bringup/tests/fixtures/service_identities/human-kms-client/cert.pem"
+
+[file.132]
+from = "tools/bringup/tests/fixtures/repair_m794/human-kms-client/identity.p12"
+to = "tools/bringup/tests/fixtures/service_identities/human-kms-client/identity.p12"
+
+[file.133]
+from = "tools/bringup/tests/fixtures/repair_m794/human-kms-client/key.der"
+to = "tools/bringup/tests/fixtures/service_identities/human-kms-client/key.der"
+
+[file.134]
+from = "tools/bringup/tests/fixtures/repair_m794/human-kms-client/key.pem"
+to = "tools/bringup/tests/fixtures/service_identities/human-kms-client/key.pem"
+
+[file.135]
+from = "tools/bringup/tests/fixtures/repair_m794/human-kms-client/password"
+to = "tools/bringup/tests/fixtures/service_identities/human-kms-client/password"
+
+[file.136]
+from = "tools/bringup/tests/fixtures/repair_m794/human-kms-executor/ca.der"
+to = "tools/bringup/tests/fixtures/service_identities/human-kms-executor/ca.der"
+
+[file.137]
+from = "tools/bringup/tests/fixtures/repair_m794/human-kms-executor/ca.pem"
+to = "tools/bringup/tests/fixtures/service_identities/human-kms-executor/ca.pem"
+
+[file.138]
+from = "tools/bringup/tests/fixtures/repair_m794/human-kms-executor/cert.der"
+to = "tools/bringup/tests/fixtures/service_identities/human-kms-executor/cert.der"
+
+[file.139]
+from = "tools/bringup/tests/fixtures/repair_m794/human-kms-executor/cert.pem"
+to = "tools/bringup/tests/fixtures/service_identities/human-kms-executor/cert.pem"
+
+[file.140]
+from = "tools/bringup/tests/fixtures/repair_m794/human-kms-executor/identity.p12"
+to = "tools/bringup/tests/fixtures/service_identities/human-kms-executor/identity.p12"
+
+[file.141]
+from = "tools/bringup/tests/fixtures/repair_m794/human-kms-executor/key.der"
+to = "tools/bringup/tests/fixtures/service_identities/human-kms-executor/key.der"
+
+[file.142]
+from = "tools/bringup/tests/fixtures/repair_m794/human-kms-executor/key.pem"
+to = "tools/bringup/tests/fixtures/service_identities/human-kms-executor/key.pem"
+
+[file.143]
+from = "tools/bringup/tests/fixtures/repair_m794/human-kms-executor/password"
+to = "tools/bringup/tests/fixtures/service_identities/human-kms-executor/password"
+
+[file.144]
+from = "tools/bringup/tests/fixtures/repair_m794/human-kms/ca.der"
+to = "tools/bringup/tests/fixtures/service_identities/human-kms/ca.der"
+
+[file.145]
+from = "tools/bringup/tests/fixtures/repair_m794/human-kms/ca.pem"
+to = "tools/bringup/tests/fixtures/service_identities/human-kms/ca.pem"
+
+[file.146]
+from = "tools/bringup/tests/fixtures/repair_m794/human-kms/cert.der"
+to = "tools/bringup/tests/fixtures/service_identities/human-kms/cert.der"
+
+[file.147]
+from = "tools/bringup/tests/fixtures/repair_m794/human-kms/cert.pem"
+to = "tools/bringup/tests/fixtures/service_identities/human-kms/cert.pem"
+
+[file.148]
+from = "tools/bringup/tests/fixtures/repair_m794/human-kms/identity.p12"
+to = "tools/bringup/tests/fixtures/service_identities/human-kms/identity.p12"
+
+[file.149]
+from = "tools/bringup/tests/fixtures/repair_m794/human-kms/key.der"
+to = "tools/bringup/tests/fixtures/service_identities/human-kms/key.der"
+
+[file.150]
+from = "tools/bringup/tests/fixtures/repair_m794/human-kms/key.pem"
+to = "tools/bringup/tests/fixtures/service_identities/human-kms/key.pem"
+
+[file.151]
+from = "tools/bringup/tests/fixtures/repair_m794/human-kms/password"
+to = "tools/bringup/tests/fixtures/service_identities/human-kms/password"
+
+[file.152]
+from = "tools/bringup/tests/fixtures/repair_m794/human/ca.der"
+to = "tools/bringup/tests/fixtures/service_identities/human/ca.der"
+
+[file.153]
+from = "tools/bringup/tests/fixtures/repair_m794/human/ca.pem"
+to = "tools/bringup/tests/fixtures/service_identities/human/ca.pem"
+
+[file.154]
+from = "tools/bringup/tests/fixtures/repair_m794/human/cert.der"
+to = "tools/bringup/tests/fixtures/service_identities/human/cert.der"
+
+[file.155]
+from = "tools/bringup/tests/fixtures/repair_m794/human/cert.pem"
+to = "tools/bringup/tests/fixtures/service_identities/human/cert.pem"
+
+[file.156]
+from = "tools/bringup/tests/fixtures/repair_m794/human/identity.p12"
+to = "tools/bringup/tests/fixtures/service_identities/human/identity.p12"
+
+[file.157]
+from = "tools/bringup/tests/fixtures/repair_m794/human/key.der"
+to = "tools/bringup/tests/fixtures/service_identities/human/key.der"
+
+[file.158]
+from = "tools/bringup/tests/fixtures/repair_m794/human/key.pem"
+to = "tools/bringup/tests/fixtures/service_identities/human/key.pem"
+
+[file.159]
+from = "tools/bringup/tests/fixtures/repair_m794/human/password"
+to = "tools/bringup/tests/fixtures/service_identities/human/password"
+
+[file.160]
+from = "tools/bringup/tests/fixtures/repair_m794/identity/ca.der"
+to = "tools/bringup/tests/fixtures/service_identities/identity/ca.der"
+
+[file.161]
+from = "tools/bringup/tests/fixtures/repair_m794/identity/ca.pem"
+to = "tools/bringup/tests/fixtures/service_identities/identity/ca.pem"
+
+[file.162]
+from = "tools/bringup/tests/fixtures/repair_m794/identity/cert.der"
+to = "tools/bringup/tests/fixtures/service_identities/identity/cert.der"
+
+[file.163]
+from = "tools/bringup/tests/fixtures/repair_m794/identity/cert.pem"
+to = "tools/bringup/tests/fixtures/service_identities/identity/cert.pem"
+
+[file.164]
+from = "tools/bringup/tests/fixtures/repair_m794/identity/identity.p12"
+to = "tools/bringup/tests/fixtures/service_identities/identity/identity.p12"
+
+[file.165]
+from = "tools/bringup/tests/fixtures/repair_m794/identity/key.der"
+to = "tools/bringup/tests/fixtures/service_identities/identity/key.der"
+
+[file.166]
+from = "tools/bringup/tests/fixtures/repair_m794/identity/key.pem"
+to = "tools/bringup/tests/fixtures/service_identities/identity/key.pem"
+
+[file.167]
+from = "tools/bringup/tests/fixtures/repair_m794/identity/password"
+to = "tools/bringup/tests/fixtures/service_identities/identity/password"
+
+[file.168]
+from = "tools/bringup/tests/fixtures/repair_m794/indexer/ca.der"
+to = "tools/bringup/tests/fixtures/service_identities/indexer/ca.der"
+
+[file.169]
+from = "tools/bringup/tests/fixtures/repair_m794/indexer/ca.pem"
+to = "tools/bringup/tests/fixtures/service_identities/indexer/ca.pem"
+
+[file.170]
+from = "tools/bringup/tests/fixtures/repair_m794/indexer/cert.der"
+to = "tools/bringup/tests/fixtures/service_identities/indexer/cert.der"
+
+[file.171]
+from = "tools/bringup/tests/fixtures/repair_m794/indexer/cert.pem"
+to = "tools/bringup/tests/fixtures/service_identities/indexer/cert.pem"
+
+[file.172]
+from = "tools/bringup/tests/fixtures/repair_m794/indexer/identity.p12"
+to = "tools/bringup/tests/fixtures/service_identities/indexer/identity.p12"
+
+[file.173]
+from = "tools/bringup/tests/fixtures/repair_m794/indexer/key.der"
+to = "tools/bringup/tests/fixtures/service_identities/indexer/key.der"
+
+[file.174]
+from = "tools/bringup/tests/fixtures/repair_m794/indexer/key.pem"
+to = "tools/bringup/tests/fixtures/service_identities/indexer/key.pem"
+
+[file.175]
+from = "tools/bringup/tests/fixtures/repair_m794/indexer/password"
+to = "tools/bringup/tests/fixtures/service_identities/indexer/password"
+
+[file.176]
+from = "tools/bringup/tests/fixtures/repair_m794/internal-approvals/ca.der"
+to = "tools/bringup/tests/fixtures/service_identities/internal-approvals/ca.der"
+
+[file.177]
+from = "tools/bringup/tests/fixtures/repair_m794/internal-approvals/ca.pem"
+to = "tools/bringup/tests/fixtures/service_identities/internal-approvals/ca.pem"
+
+[file.178]
+from = "tools/bringup/tests/fixtures/repair_m794/internal-approvals/cert.der"
+to = "tools/bringup/tests/fixtures/service_identities/internal-approvals/cert.der"
+
+[file.179]
+from = "tools/bringup/tests/fixtures/repair_m794/internal-approvals/cert.pem"
+to = "tools/bringup/tests/fixtures/service_identities/internal-approvals/cert.pem"
+
+[file.180]
+from = "tools/bringup/tests/fixtures/repair_m794/internal-approvals/identity.p12"
+to = "tools/bringup/tests/fixtures/service_identities/internal-approvals/identity.p12"
+
+[file.181]
+from = "tools/bringup/tests/fixtures/repair_m794/internal-approvals/key.der"
+to = "tools/bringup/tests/fixtures/service_identities/internal-approvals/key.der"
+
+[file.182]
+from = "tools/bringup/tests/fixtures/repair_m794/internal-approvals/key.pem"
+to = "tools/bringup/tests/fixtures/service_identities/internal-approvals/key.pem"
+
+[file.183]
+from = "tools/bringup/tests/fixtures/repair_m794/internal-approvals/password"
+to = "tools/bringup/tests/fixtures/service_identities/internal-approvals/password"
+
+[file.184]
+from = "tools/bringup/tests/fixtures/repair_m794/internal-journeys/ca.der"
+to = "tools/bringup/tests/fixtures/service_identities/internal-journeys/ca.der"
+
+[file.185]
+from = "tools/bringup/tests/fixtures/repair_m794/internal-journeys/ca.pem"
+to = "tools/bringup/tests/fixtures/service_identities/internal-journeys/ca.pem"
+
+[file.186]
+from = "tools/bringup/tests/fixtures/repair_m794/internal-journeys/cert.der"
+to = "tools/bringup/tests/fixtures/service_identities/internal-journeys/cert.der"
+
+[file.187]
+from = "tools/bringup/tests/fixtures/repair_m794/internal-journeys/cert.pem"
+to = "tools/bringup/tests/fixtures/service_identities/internal-journeys/cert.pem"
+
+[file.188]
+from = "tools/bringup/tests/fixtures/repair_m794/internal-journeys/identity.p12"
+to = "tools/bringup/tests/fixtures/service_identities/internal-journeys/identity.p12"
+
+[file.189]
+from = "tools/bringup/tests/fixtures/repair_m794/internal-journeys/key.der"
+to = "tools/bringup/tests/fixtures/service_identities/internal-journeys/key.der"
+
+[file.190]
+from = "tools/bringup/tests/fixtures/repair_m794/internal-journeys/key.pem"
+to = "tools/bringup/tests/fixtures/service_identities/internal-journeys/key.pem"
+
+[file.191]
+from = "tools/bringup/tests/fixtures/repair_m794/internal-journeys/password"
+to = "tools/bringup/tests/fixtures/service_identities/internal-journeys/password"
+
+[file.192]
+from = "tools/bringup/tests/fixtures/repair_m794/internal-kms/ca.der"
+to = "tools/bringup/tests/fixtures/service_identities/internal-kms/ca.der"
+
+[file.193]
+from = "tools/bringup/tests/fixtures/repair_m794/internal-kms/ca.pem"
+to = "tools/bringup/tests/fixtures/service_identities/internal-kms/ca.pem"
+
+[file.194]
+from = "tools/bringup/tests/fixtures/repair_m794/internal-kms/cert.der"
+to = "tools/bringup/tests/fixtures/service_identities/internal-kms/cert.der"
+
+[file.195]
+from = "tools/bringup/tests/fixtures/repair_m794/internal-kms/cert.pem"
+to = "tools/bringup/tests/fixtures/service_identities/internal-kms/cert.pem"
+
+[file.196]
+from = "tools/bringup/tests/fixtures/repair_m794/internal-kms/identity.p12"
+to = "tools/bringup/tests/fixtures/service_identities/internal-kms/identity.p12"
+
+[file.197]
+from = "tools/bringup/tests/fixtures/repair_m794/internal-kms/key.der"
+to = "tools/bringup/tests/fixtures/service_identities/internal-kms/key.der"
+
+[file.198]
+from = "tools/bringup/tests/fixtures/repair_m794/internal-kms/key.pem"
+to = "tools/bringup/tests/fixtures/service_identities/internal-kms/key.pem"
+
+[file.199]
+from = "tools/bringup/tests/fixtures/repair_m794/internal-kms/password"
+to = "tools/bringup/tests/fixtures/service_identities/internal-kms/password"
+
+[file.200]
+from = "tools/bringup/tests/fixtures/repair_m794/internal-payments/ca.der"
+to = "tools/bringup/tests/fixtures/service_identities/internal-payments/ca.der"
+
+[file.201]
+from = "tools/bringup/tests/fixtures/repair_m794/internal-payments/ca.pem"
+to = "tools/bringup/tests/fixtures/service_identities/internal-payments/ca.pem"
+
+[file.202]
+from = "tools/bringup/tests/fixtures/repair_m794/internal-payments/cert.der"
+to = "tools/bringup/tests/fixtures/service_identities/internal-payments/cert.der"
+
+[file.203]
+from = "tools/bringup/tests/fixtures/repair_m794/internal-payments/cert.pem"
+to = "tools/bringup/tests/fixtures/service_identities/internal-payments/cert.pem"
+
+[file.204]
+from = "tools/bringup/tests/fixtures/repair_m794/internal-payments/identity.p12"
+to = "tools/bringup/tests/fixtures/service_identities/internal-payments/identity.p12"
+
+[file.205]
+from = "tools/bringup/tests/fixtures/repair_m794/internal-payments/key.der"
+to = "tools/bringup/tests/fixtures/service_identities/internal-payments/key.der"
+
+[file.206]
+from = "tools/bringup/tests/fixtures/repair_m794/internal-payments/key.pem"
+to = "tools/bringup/tests/fixtures/service_identities/internal-payments/key.pem"
+
+[file.207]
+from = "tools/bringup/tests/fixtures/repair_m794/internal-payments/password"
+to = "tools/bringup/tests/fixtures/service_identities/internal-payments/password"
+
+[file.208]
+from = "tools/bringup/tests/fixtures/repair_m794/internal-programs/ca.der"
+to = "tools/bringup/tests/fixtures/service_identities/internal-programs/ca.der"
+
+[file.209]
+from = "tools/bringup/tests/fixtures/repair_m794/internal-programs/ca.pem"
+to = "tools/bringup/tests/fixtures/service_identities/internal-programs/ca.pem"
+
+[file.210]
+from = "tools/bringup/tests/fixtures/repair_m794/internal-programs/cert.der"
+to = "tools/bringup/tests/fixtures/service_identities/internal-programs/cert.der"
+
+[file.211]
+from = "tools/bringup/tests/fixtures/repair_m794/internal-programs/cert.pem"
+to = "tools/bringup/tests/fixtures/service_identities/internal-programs/cert.pem"
+
+[file.212]
+from = "tools/bringup/tests/fixtures/repair_m794/internal-programs/identity.p12"
+to = "tools/bringup/tests/fixtures/service_identities/internal-programs/identity.p12"
+
+[file.213]
+from = "tools/bringup/tests/fixtures/repair_m794/internal-programs/key.der"
+to = "tools/bringup/tests/fixtures/service_identities/internal-programs/key.der"
+
+[file.214]
+from = "tools/bringup/tests/fixtures/repair_m794/internal-programs/key.pem"
+to = "tools/bringup/tests/fixtures/service_identities/internal-programs/key.pem"
+
+[file.215]
+from = "tools/bringup/tests/fixtures/repair_m794/internal-programs/password"
+to = "tools/bringup/tests/fixtures/service_identities/internal-programs/password"
+
+[file.216]
+from = "tools/bringup/tests/fixtures/repair_m794/internal-redis/ca.der"
+to = "tools/bringup/tests/fixtures/service_identities/internal-redis/ca.der"
+
+[file.217]
+from = "tools/bringup/tests/fixtures/repair_m794/internal-redis/ca.pem"
+to = "tools/bringup/tests/fixtures/service_identities/internal-redis/ca.pem"
+
+[file.218]
+from = "tools/bringup/tests/fixtures/repair_m794/internal-redis/cert.der"
+to = "tools/bringup/tests/fixtures/service_identities/internal-redis/cert.der"
+
+[file.219]
+from = "tools/bringup/tests/fixtures/repair_m794/internal-redis/cert.pem"
+to = "tools/bringup/tests/fixtures/service_identities/internal-redis/cert.pem"
+
+[file.220]
+from = "tools/bringup/tests/fixtures/repair_m794/internal-redis/identity.p12"
+to = "tools/bringup/tests/fixtures/service_identities/internal-redis/identity.p12"
+
+[file.221]
+from = "tools/bringup/tests/fixtures/repair_m794/internal-redis/key.der"
+to = "tools/bringup/tests/fixtures/service_identities/internal-redis/key.der"
+
+[file.222]
+from = "tools/bringup/tests/fixtures/repair_m794/internal-redis/key.pem"
+to = "tools/bringup/tests/fixtures/service_identities/internal-redis/key.pem"
+
+[file.223]
+from = "tools/bringup/tests/fixtures/repair_m794/internal-redis/password"
+to = "tools/bringup/tests/fixtures/service_identities/internal-redis/password"
+
+[file.224]
+from = "tools/bringup/tests/fixtures/repair_m794/interop-client/ca.der"
+to = "tools/bringup/tests/fixtures/service_identities/interop-client/ca.der"
+
+[file.225]
+from = "tools/bringup/tests/fixtures/repair_m794/interop-client/ca.pem"
+to = "tools/bringup/tests/fixtures/service_identities/interop-client/ca.pem"
+
+[file.226]
+from = "tools/bringup/tests/fixtures/repair_m794/interop-client/cert.der"
+to = "tools/bringup/tests/fixtures/service_identities/interop-client/cert.der"
+
+[file.227]
+from = "tools/bringup/tests/fixtures/repair_m794/interop-client/cert.pem"
+to = "tools/bringup/tests/fixtures/service_identities/interop-client/cert.pem"
+
+[file.228]
+from = "tools/bringup/tests/fixtures/repair_m794/interop-client/identity.p12"
+to = "tools/bringup/tests/fixtures/service_identities/interop-client/identity.p12"
+
+[file.229]
+from = "tools/bringup/tests/fixtures/repair_m794/interop-client/key.der"
+to = "tools/bringup/tests/fixtures/service_identities/interop-client/key.der"
+
+[file.230]
+from = "tools/bringup/tests/fixtures/repair_m794/interop-client/key.pem"
+to = "tools/bringup/tests/fixtures/service_identities/interop-client/key.pem"
+
+[file.231]
+from = "tools/bringup/tests/fixtures/repair_m794/interop-client/password"
+to = "tools/bringup/tests/fixtures/service_identities/interop-client/password"
+
+[file.232]
+from = "tools/bringup/tests/fixtures/repair_m794/paxeer-boundary-loopback/ca.der"
+to = "tools/bringup/tests/fixtures/service_identities/paxeer-boundary-loopback/ca.der"
+
+[file.233]
+from = "tools/bringup/tests/fixtures/repair_m794/paxeer-boundary-loopback/ca.pem"
+to = "tools/bringup/tests/fixtures/service_identities/paxeer-boundary-loopback/ca.pem"
+
+[file.234]
+from = "tools/bringup/tests/fixtures/repair_m794/paxeer-boundary-loopback/cert.der"
+to = "tools/bringup/tests/fixtures/service_identities/paxeer-boundary-loopback/cert.der"
+
+[file.235]
+from = "tools/bringup/tests/fixtures/repair_m794/paxeer-boundary-loopback/cert.pem"
+to = "tools/bringup/tests/fixtures/service_identities/paxeer-boundary-loopback/cert.pem"
+
+[file.236]
+from = "tools/bringup/tests/fixtures/repair_m794/paxeer-boundary-loopback/identity.p12"
+to = "tools/bringup/tests/fixtures/service_identities/paxeer-boundary-loopback/identity.p12"
+
+[file.237]
+from = "tools/bringup/tests/fixtures/repair_m794/paxeer-boundary-loopback/key.der"
+to = "tools/bringup/tests/fixtures/service_identities/paxeer-boundary-loopback/key.der"
+
+[file.238]
+from = "tools/bringup/tests/fixtures/repair_m794/paxeer-boundary-loopback/key.pem"
+to = "tools/bringup/tests/fixtures/service_identities/paxeer-boundary-loopback/key.pem"
+
+[file.239]
+from = "tools/bringup/tests/fixtures/repair_m794/paxeer-boundary-loopback/password"
+to = "tools/bringup/tests/fixtures/service_identities/paxeer-boundary-loopback/password"
+
+[file.240]
+from = "tools/bringup/tests/fixtures/repair_m794/paxeer-boundary-public/ca.der"
+to = "tools/bringup/tests/fixtures/service_identities/paxeer-boundary-public/ca.der"
+
+[file.241]
+from = "tools/bringup/tests/fixtures/repair_m794/paxeer-boundary-public/ca.pem"
+to = "tools/bringup/tests/fixtures/service_identities/paxeer-boundary-public/ca.pem"
+
+[file.242]
+from = "tools/bringup/tests/fixtures/repair_m794/paxeer-boundary-public/cert.der"
+to = "tools/bringup/tests/fixtures/service_identities/paxeer-boundary-public/cert.der"
+
+[file.243]
+from = "tools/bringup/tests/fixtures/repair_m794/paxeer-boundary-public/cert.pem"
+to = "tools/bringup/tests/fixtures/service_identities/paxeer-boundary-public/cert.pem"
+
+[file.244]
+from = "tools/bringup/tests/fixtures/repair_m794/paxeer-boundary-public/identity.p12"
+to = "tools/bringup/tests/fixtures/service_identities/paxeer-boundary-public/identity.p12"
+
+[file.245]
+from = "tools/bringup/tests/fixtures/repair_m794/paxeer-boundary-public/key.der"
+to = "tools/bringup/tests/fixtures/service_identities/paxeer-boundary-public/key.der"
+
+[file.246]
+from = "tools/bringup/tests/fixtures/repair_m794/paxeer-boundary-public/key.pem"
+to = "tools/bringup/tests/fixtures/service_identities/paxeer-boundary-public/key.pem"
+
+[file.247]
+from = "tools/bringup/tests/fixtures/repair_m794/paxeer-boundary-public/password"
+to = "tools/bringup/tests/fixtures/service_identities/paxeer-boundary-public/password"
+
+[file.248]
+from = "tools/bringup/tests/fixtures/repair_m794/peers.py"
+to = "tools/bringup/tests/fixtures/service_identities/peers.py"
+
+[file.249]
+from = "tools/bringup/tests/fixtures/repair_m794/pending-core-admin/ca.der"
+to = "tools/bringup/tests/fixtures/service_identities/pending-core-admin/ca.der"
+
+[file.250]
+from = "tools/bringup/tests/fixtures/repair_m794/pending-core-admin/ca.pem"
+to = "tools/bringup/tests/fixtures/service_identities/pending-core-admin/ca.pem"
+
+[file.251]
+from = "tools/bringup/tests/fixtures/repair_m794/pending-core-admin/cert.der"
+to = "tools/bringup/tests/fixtures/service_identities/pending-core-admin/cert.der"
+
+[file.252]
+from = "tools/bringup/tests/fixtures/repair_m794/pending-core-admin/cert.pem"
+to = "tools/bringup/tests/fixtures/service_identities/pending-core-admin/cert.pem"
+
+[file.253]
+from = "tools/bringup/tests/fixtures/repair_m794/pending-core-admin/identity.p12"
+to = "tools/bringup/tests/fixtures/service_identities/pending-core-admin/identity.p12"
+
+[file.254]
+from = "tools/bringup/tests/fixtures/repair_m794/pending-core-admin/key.der"
+to = "tools/bringup/tests/fixtures/service_identities/pending-core-admin/key.der"
+
+[file.255]
+from = "tools/bringup/tests/fixtures/repair_m794/pending-core-admin/key.pem"
+to = "tools/bringup/tests/fixtures/service_identities/pending-core-admin/key.pem"
+
+[file.256]
+from = "tools/bringup/tests/fixtures/repair_m794/pending-core-admin/password"
+to = "tools/bringup/tests/fixtures/service_identities/pending-core-admin/password"
+
+[file.257]
+from = "tools/bringup/tests/fixtures/repair_m794/pending-core/ca.der"
+to = "tools/bringup/tests/fixtures/service_identities/pending-core/ca.der"
+
+[file.258]
+from = "tools/bringup/tests/fixtures/repair_m794/pending-core/ca.pem"
+to = "tools/bringup/tests/fixtures/service_identities/pending-core/ca.pem"
+
+[file.259]
+from = "tools/bringup/tests/fixtures/repair_m794/pending-core/cert.der"
+to = "tools/bringup/tests/fixtures/service_identities/pending-core/cert.der"
+
+[file.260]
+from = "tools/bringup/tests/fixtures/repair_m794/pending-core/cert.pem"
+to = "tools/bringup/tests/fixtures/service_identities/pending-core/cert.pem"
+
+[file.261]
+from = "tools/bringup/tests/fixtures/repair_m794/pending-core/identity.p12"
+to = "tools/bringup/tests/fixtures/service_identities/pending-core/identity.p12"
+
+[file.262]
+from = "tools/bringup/tests/fixtures/repair_m794/pending-core/key.der"
+to = "tools/bringup/tests/fixtures/service_identities/pending-core/key.der"
+
+[file.263]
+from = "tools/bringup/tests/fixtures/repair_m794/pending-core/key.pem"
+to = "tools/bringup/tests/fixtures/service_identities/pending-core/key.pem"
+
+[file.264]
+from = "tools/bringup/tests/fixtures/repair_m794/pending-core/password"
+to = "tools/bringup/tests/fixtures/service_identities/pending-core/password"
+
+[file.265]
+from = "tools/bringup/tests/fixtures/repair_m794/railway.sh"
+to = "tools/bringup/tests/fixtures/service_identities/railway.sh"
+
+[file.266]
+from = "tools/bringup/tests/fixtures/repair_m794/ramp-client/ca.der"
+to = "tools/bringup/tests/fixtures/service_identities/ramp-client/ca.der"
+
+[file.267]
+from = "tools/bringup/tests/fixtures/repair_m794/ramp-client/ca.pem"
+to = "tools/bringup/tests/fixtures/service_identities/ramp-client/ca.pem"
+
+[file.268]
+from = "tools/bringup/tests/fixtures/repair_m794/ramp-client/cert.der"
+to = "tools/bringup/tests/fixtures/service_identities/ramp-client/cert.der"
+
+[file.269]
+from = "tools/bringup/tests/fixtures/repair_m794/ramp-client/cert.pem"
+to = "tools/bringup/tests/fixtures/service_identities/ramp-client/cert.pem"
+
+[file.270]
+from = "tools/bringup/tests/fixtures/repair_m794/ramp-client/identity.p12"
+to = "tools/bringup/tests/fixtures/service_identities/ramp-client/identity.p12"
+
+[file.271]
+from = "tools/bringup/tests/fixtures/repair_m794/ramp-client/key.der"
+to = "tools/bringup/tests/fixtures/service_identities/ramp-client/key.der"
+
+[file.272]
+from = "tools/bringup/tests/fixtures/repair_m794/ramp-client/key.pem"
+to = "tools/bringup/tests/fixtures/service_identities/ramp-client/key.pem"
+
+[file.273]
+from = "tools/bringup/tests/fixtures/repair_m794/ramp-client/password"
+to = "tools/bringup/tests/fixtures/service_identities/ramp-client/password"
+
+[file.274]
+from = "tools/bringup/tests/fixtures/repair_m794/registry-event-client/ca.der"
+to = "tools/bringup/tests/fixtures/service_identities/registry-event-client/ca.der"
+
+[file.275]
+from = "tools/bringup/tests/fixtures/repair_m794/registry-event-client/ca.pem"
+to = "tools/bringup/tests/fixtures/service_identities/registry-event-client/ca.pem"
+
+[file.276]
+from = "tools/bringup/tests/fixtures/repair_m794/registry-event-client/cert.der"
+to = "tools/bringup/tests/fixtures/service_identities/registry-event-client/cert.der"
+
+[file.277]
+from = "tools/bringup/tests/fixtures/repair_m794/registry-event-client/cert.pem"
+to = "tools/bringup/tests/fixtures/service_identities/registry-event-client/cert.pem"
+
+[file.278]
+from = "tools/bringup/tests/fixtures/repair_m794/registry-event-client/identity.p12"
+to = "tools/bringup/tests/fixtures/service_identities/registry-event-client/identity.p12"
+
+[file.279]
+from = "tools/bringup/tests/fixtures/repair_m794/registry-event-client/key.der"
+to = "tools/bringup/tests/fixtures/service_identities/registry-event-client/key.der"
+
+[file.280]
+from = "tools/bringup/tests/fixtures/repair_m794/registry-event-client/key.pem"
+to = "tools/bringup/tests/fixtures/service_identities/registry-event-client/key.pem"
+
+[file.281]
+from = "tools/bringup/tests/fixtures/repair_m794/registry-event-client/password"
+to = "tools/bringup/tests/fixtures/service_identities/registry-event-client/password"
+
+[file.282]
+from = "tools/bringup/tests/fixtures/repair_m794/registry/ca.der"
+to = "tools/bringup/tests/fixtures/service_identities/registry/ca.der"
+
+[file.283]
+from = "tools/bringup/tests/fixtures/repair_m794/registry/ca.pem"
+to = "tools/bringup/tests/fixtures/service_identities/registry/ca.pem"
+
+[file.284]
+from = "tools/bringup/tests/fixtures/repair_m794/registry/cert.der"
+to = "tools/bringup/tests/fixtures/service_identities/registry/cert.der"
+
+[file.285]
+from = "tools/bringup/tests/fixtures/repair_m794/registry/cert.pem"
+to = "tools/bringup/tests/fixtures/service_identities/registry/cert.pem"
+
+[file.286]
+from = "tools/bringup/tests/fixtures/repair_m794/registry/identity.p12"
+to = "tools/bringup/tests/fixtures/service_identities/registry/identity.p12"
+
+[file.287]
+from = "tools/bringup/tests/fixtures/repair_m794/registry/key.der"
+to = "tools/bringup/tests/fixtures/service_identities/registry/key.der"
+
+[file.288]
+from = "tools/bringup/tests/fixtures/repair_m794/registry/key.pem"
+to = "tools/bringup/tests/fixtures/service_identities/registry/key.pem"
+
+[file.289]
+from = "tools/bringup/tests/fixtures/repair_m794/registry/password"
+to = "tools/bringup/tests/fixtures/service_identities/registry/password"
+
+[file.290]
+from = "tools/bringup/tests/fixtures/repair_m795/legacy-mint/dashboard.railway.env"
+to = "tools/bringup/tests/fixtures/secret_migration/legacy-mint/dashboard.railway.env"
+
+[file.291]
+from = "tools/bringup/tests/fixtures/repair_m795/legacy-mint/dashboard.railway.sh"
+to = "tools/bringup/tests/fixtures/secret_migration/legacy-mint/dashboard.railway.sh"
+
+[file.292]
+from = "tools/bringup/tests/fixtures/repair_m795/legacy-mint/identity.railway.env"
+to = "tools/bringup/tests/fixtures/secret_migration/legacy-mint/identity.railway.env"
+
+[file.293]
+from = "tools/bringup/tests/fixtures/repair_m795/legacy-mint/identity.railway.sh"
+to = "tools/bringup/tests/fixtures/secret_migration/legacy-mint/identity.railway.sh"
+
+[file.294]
+from = "tools/bringup/tests/fixtures/repair_m795/legacy-mint/internal-approvals.railway.env"
+to = "tools/bringup/tests/fixtures/secret_migration/legacy-mint/internal-approvals.railway.env"
+
+[file.295]
+from = "tools/bringup/tests/fixtures/repair_m795/legacy-mint/internal-approvals.railway.sh"
+to = "tools/bringup/tests/fixtures/secret_migration/legacy-mint/internal-approvals.railway.sh"
+
+[file.296]
+from = "tools/bringup/tests/fixtures/repair_m795/legacy-mint/internal-journeys.railway.env"
+to = "tools/bringup/tests/fixtures/secret_migration/legacy-mint/internal-journeys.railway.env"
+
+[file.297]
+from = "tools/bringup/tests/fixtures/repair_m795/legacy-mint/internal-journeys.railway.sh"
+to = "tools/bringup/tests/fixtures/secret_migration/legacy-mint/internal-journeys.railway.sh"
+
+[file.298]
+from = "tools/bringup/tests/fixtures/repair_m795/legacy-mint/internal-kms.railway.env"
+to = "tools/bringup/tests/fixtures/secret_migration/legacy-mint/internal-kms.railway.env"
+
+[file.299]
+from = "tools/bringup/tests/fixtures/repair_m795/legacy-mint/internal-kms.railway.sh"
+to = "tools/bringup/tests/fixtures/secret_migration/legacy-mint/internal-kms.railway.sh"
+
+[file.300]
+from = "tools/bringup/tests/fixtures/repair_m795/legacy-mint/internal-payments.railway.env"
+to = "tools/bringup/tests/fixtures/secret_migration/legacy-mint/internal-payments.railway.env"
+
+[file.301]
+from = "tools/bringup/tests/fixtures/repair_m795/legacy-mint/internal-payments.railway.sh"
+to = "tools/bringup/tests/fixtures/secret_migration/legacy-mint/internal-payments.railway.sh"
+
+[file.302]
+from = "tools/bringup/tests/fixtures/repair_m795/legacy-mint/internal-programs.railway.env"
+to = "tools/bringup/tests/fixtures/secret_migration/legacy-mint/internal-programs.railway.env"
+
+[file.303]
+from = "tools/bringup/tests/fixtures/repair_m795/legacy-mint/internal-programs.railway.sh"
+to = "tools/bringup/tests/fixtures/secret_migration/legacy-mint/internal-programs.railway.sh"
+
+[file.304]
+from = "tools/bringup/tests/fixtures/repair_m795/legacy-mint/interop.railway.env"
+to = "tools/bringup/tests/fixtures/secret_migration/legacy-mint/interop.railway.env"
+
+[file.305]
+from = "tools/bringup/tests/fixtures/repair_m795/legacy-mint/interop.railway.sh"
+to = "tools/bringup/tests/fixtures/secret_migration/legacy-mint/interop.railway.sh"
+
+[file.306]
+from = "tools/bringup/tests/fixtures/repair_m795/legacy-mint/keys/wallet_custody_inventory.jwt"
+to = "tools/bringup/tests/fixtures/secret_migration/legacy-mint/keys/wallet_custody_inventory.jwt"
+
+[file.307]
+from = "tools/bringup/tests/fixtures/repair_m795/legacy-mint/keys/wallet_custody_inventory_authority.pem"
+to = "tools/bringup/tests/fixtures/secret_migration/legacy-mint/keys/wallet_custody_inventory_authority.pem"
+
+[file.308]
+from = "tools/bringup/tests/fixtures/repair_m795/legacy-mint/keys/wallet_custody_inventory_signer.pem"
+to = "tools/bringup/tests/fixtures/secret_migration/legacy-mint/keys/wallet_custody_inventory_signer.pem"
+
+[file.309]
+from = "tools/bringup/tests/fixtures/repair_m795/legacy-mint/keys/wallet_identity_binding_key.pem"
+to = "tools/bringup/tests/fixtures/secret_migration/legacy-mint/keys/wallet_identity_binding_key.pem"
+
+[file.310]
+from = "tools/bringup/tests/fixtures/repair_m795/legacy-mint/keys/wallet_identity_binding_public.pem"
+to = "tools/bringup/tests/fixtures/secret_migration/legacy-mint/keys/wallet_identity_binding_public.pem"
+
+[file.311]
+from = "tools/bringup/tests/fixtures/repair_m795/legacy-mint/paxeer-attestor-1.box.env"
+to = "tools/bringup/tests/fixtures/secret_migration/legacy-mint/paxeer-attestor-1.box.env"
+
+[file.312]
+from = "tools/bringup/tests/fixtures/repair_m795/legacy-mint/paxeer-attestor-2.box.env"
+to = "tools/bringup/tests/fixtures/secret_migration/legacy-mint/paxeer-attestor-2.box.env"
+
+[file.313]
+from = "tools/bringup/tests/fixtures/repair_m795/legacy-mint/paxeer-attestor-3.box.env"
+to = "tools/bringup/tests/fixtures/secret_migration/legacy-mint/paxeer-attestor-3.box.env"
+
+[file.314]
+from = "tools/bringup/tests/fixtures/repair_m795/legacy-mint/paxeer-attestor-4.box.env"
+to = "tools/bringup/tests/fixtures/secret_migration/legacy-mint/paxeer-attestor-4.box.env"
+
+[file.315]
+from = "tools/bringup/tests/fixtures/repair_m795/legacy-mint/paxeer-attestor-5.box.env"
+to = "tools/bringup/tests/fixtures/secret_migration/legacy-mint/paxeer-attestor-5.box.env"
+
+[file.316]
+from = "tools/bringup/tests/fixtures/repair_m795/legacy-mint/paxeer-human-service.box.env"
+to = "tools/bringup/tests/fixtures/secret_migration/legacy-mint/paxeer-human-service.box.env"
+
+[file.317]
+from = "tools/bringup/tests/fixtures/repair_m795/legacy-mint/paxeer-program-registry.box.env"
+to = "tools/bringup/tests/fixtures/secret_migration/legacy-mint/paxeer-program-registry.box.env"
+
+[file.318]
+from = "tools/bringup/tests/fixtures/repair_m795/legacy-mint/ramp.railway.env"
+to = "tools/bringup/tests/fixtures/secret_migration/legacy-mint/ramp.railway.env"
+
+[file.319]
+from = "tools/bringup/tests/fixtures/repair_m795/legacy-mint/ramp.railway.sh"
+to = "tools/bringup/tests/fixtures/secret_migration/legacy-mint/ramp.railway.sh"
+
+[file.320]
+from = "tools/bringup/tests/fixtures/repair_m795/legacy-mint/router.railway.env"
+to = "tools/bringup/tests/fixtures/secret_migration/legacy-mint/router.railway.env"
+
+[file.321]
+from = "tools/bringup/tests/fixtures/repair_m795/legacy-mint/router.railway.sh"
+to = "tools/bringup/tests/fixtures/secret_migration/legacy-mint/router.railway.sh"
+
+[file.322]
+from = "tools/bringup/tests/fixtures/repair_m795/legacy-mint/wallet-gateway.railway.env"
+to = "tools/bringup/tests/fixtures/secret_migration/legacy-mint/wallet-gateway.railway.env"
+
+[file.323]
+from = "tools/bringup/tests/fixtures/repair_m795/legacy-mint/wallet-gateway.railway.sh"
+to = "tools/bringup/tests/fixtures/secret_migration/legacy-mint/wallet-gateway.railway.sh"
+
+[file.324]
+from = "tools/bringup/tests/fixtures/repair_m795/legacy-mint/webhooks-ingress.railway.env"
+to = "tools/bringup/tests/fixtures/secret_migration/legacy-mint/webhooks-ingress.railway.env"
+
+[file.325]
+from = "tools/bringup/tests/fixtures/repair_m795/legacy-mint/webhooks-ingress.railway.sh"
+to = "tools/bringup/tests/fixtures/secret_migration/legacy-mint/webhooks-ingress.railway.sh"
+
+[file.326]
+from = "tools/bringup/tests/fixtures/repair_m795/legacy-mint/webhooks-public.railway.env"
+to = "tools/bringup/tests/fixtures/secret_migration/legacy-mint/webhooks-public.railway.env"
+
+[file.327]
+from = "tools/bringup/tests/fixtures/repair_m795/legacy-mint/webhooks-public.railway.sh"
+to = "tools/bringup/tests/fixtures/secret_migration/legacy-mint/webhooks-public.railway.sh"
+
+[file.328]
+from = "tools/bringup/tests/fixtures/repair_m795/record-legacy-mint.sh"
+to = "tools/bringup/tests/fixtures/secret_migration/record-legacy-mint.sh"
+
+[file.329]
+from = "tools/bringup/tests/fixtures/repair_m797/invocations.json"
+to = "tools/bringup/tests/fixtures/foundation_provenance/invocations.json"
+
+[file.330]
+from = "tools/bringup/tests/fixtures/repair_m797/record-foundation.py"
+to = "tools/bringup/tests/fixtures/foundation_provenance/record-foundation.py"
+
+[file.331]
+from = "tools/bringup/tests/fixtures/repair_m797/source-tree.bin"
+to = "tools/bringup/tests/fixtures/foundation_provenance/source-tree.bin"
+
+[file.332]
+from = "tools/bringup/tests/fixtures/repair_m797/source.json"
+to = "tools/bringup/tests/fixtures/foundation_provenance/source.json"
+
+[file.333]
+from = "tools/bringup/tests/fixtures/repair_m798/README.md"
+to = "tools/bringup/tests/fixtures/upgrade_observation/README.md"
+
+[file.334]
+from = "tools/bringup/tests/fixtures/repair_m798/systemd-active.txt"
+to = "tools/bringup/tests/fixtures/upgrade_observation/systemd-active.txt"
+
+[file.335]
+from = "tools/bringup/tests/fixtures/repair_m798/systemd-failed.txt"
+to = "tools/bringup/tests/fixtures/upgrade_observation/systemd-failed.txt"
+
+[file.336]
+from = "tools/bringup/tests/fixtures/repair_m798/systemd-inactive.txt"
+to = "tools/bringup/tests/fixtures/upgrade_observation/systemd-inactive.txt"
+
+[file.337]
+from = "tools/bringup/tests/fixtures/repair_m798/upgrade_peers.py"
+to = "tools/bringup/tests/fixtures/upgrade_observation/upgrade_peers.py"
+
+[file.338]
+from = "tools/bringup/tests/fixtures/repair_m798/xweb-assets.json"
+to = "tools/bringup/tests/fixtures/upgrade_observation/xweb-assets.json"
+
+[file.339]
+from = "tools/bringup/tests/test_repair_22_31_319.py"
+to = "tools/bringup/tests/test_transport_roundtrip.py"
+
+[file.340]
+from = "tools/bringup/repair-22.31.319.kvx"
+to = "spec/layerx-merge/programme/records/tools/bringup/repair-22.31.319.kvx"
+
+[file.341]
+from = "tools/bringup/repair-m1388.kvx"
+to = "spec/layerx-merge/programme/records/tools/bringup/repair-m1388.kvx"
+
+[file.342]
+from = "tools/bringup/repair-m792.kvx"
+to = "spec/layerx-merge/programme/records/tools/bringup/repair-m792.kvx"
+
+[file.343]
+from = "tools/bringup/repair-m793.kvx"
+to = "spec/layerx-merge/programme/records/tools/bringup/repair-m793.kvx"
+
+[file.344]
+from = "tools/bringup/repair-m794.kvx"
+to = "spec/layerx-merge/programme/records/tools/bringup/repair-m794.kvx"
+
+[file.345]
+from = "tools/bringup/repair-m795.kvx"
+to = "spec/layerx-merge/programme/records/tools/bringup/repair-m795.kvx"
+
+[file.346]
+from = "tools/bringup/repair-m796.kvx"
+to = "spec/layerx-merge/programme/records/tools/bringup/repair-m796.kvx"
+
+[file.347]
+from = "tools/bringup/repair-m797.kvx"
+to = "spec/layerx-merge/programme/records/tools/bringup/repair-m797.kvx"
+
+[file.348]
+from = "tools/bringup/repair-m798.kvx"
+to = "spec/layerx-merge/programme/records/tools/bringup/repair-m798.kvx"
+
+[file.349]
+from = "tools/bringup/repair_143.kvx"
+to = "spec/layerx-merge/programme/records/tools/bringup/repair_143.kvx"
+
+[file.350]
+from = "tools/bringup/repair_22_39_274.kvx"
+to = "spec/layerx-merge/programme/records/tools/bringup/repair_22_39_274.kvx"
+
+[file.351]
+from = "tools/bringup/tests/repair_22_39_164.kvx"
+to = "spec/layerx-merge/programme/records/tools/bringup/tests/repair_22_39_164.kvx"
+
+[reference.1]
+file = "GOTCHA.kvx"
+name = "repair-m794.kvx"
+
+[reference.2]
+file = "GOTCHA.kvx"
+name = "repair-m797.kvx"
+
+[reference.3]
+file = "GOTCHA.kvx"
+name = "repair_22_31_319"
+
+[reference.4]
+file = "GOTCHA.kvx"
+name = "repair_m793"
+
+[reference.5]
+file = "GOTCHA.kvx"
+name = "test_repair_22_31_319"
+
+[reference.6]
+file = "GOTCHA.kvx"
+name = "test_repair_22_31_319.py"
+
+[reference.7]
+file = "GOTCHA.kvx"
+name = "tools/bringup/repair-m794.kvx"
+
+[reference.8]
+file = "GOTCHA.kvx"
+name = "tools/bringup/tests/fixtures/repair_m793"
+
+[reference.9]
+file = "GOTCHA.kvx"
+name = "tools/bringup/tests/fixtures/repair_m793/committed.json"
+
+[reference.10]
+file = "services/human/crates/layerx-human-service/tests/support/repair_22_33_44_kms.rs"
+name = "repair_m794"
+
+[reference.11]
+file = "services/human/crates/layerx-human-service/tests/support/repair_22_33_44_kms.rs"
+name = "tools/bringup/tests/fixtures/repair_m794"
+
+[reference.12]
+file = "services/human/crates/layerx-human-service/tests/support/repair_22_33_44_kms.rs"
+name = "tools/bringup/tests/fixtures/repair_m794/human"
+
+[reference.13]
+file = "services/human/crates/layerx-human-service/tests/support/repair_22_33_44_kms.rs"
+name = "tools/bringup/tests/fixtures/repair_m794/human-kms"
+
+[reference.14]
+file = "services/human/crates/layerx-human-service/tests/support/repair_22_33_44_kms.rs"
+name = "tools/bringup/tests/fixtures/repair_m794/human-kms-client"
+
+[reference.15]
+file = "services/human/crates/layerx-human-service/tests/support/repair_22_33_44_kms.rs"
+name = "tools/bringup/tests/fixtures/repair_m794/human-kms-client/cert.der"
+
+[reference.16]
+file = "services/human/crates/layerx-human-service/tests/support/repair_22_33_44_kms.rs"
+name = "tools/bringup/tests/fixtures/repair_m794/human-kms-client/key.der"
+
+[reference.17]
+file = "services/human/crates/layerx-human-service/tests/support/repair_22_33_44_kms.rs"
+name = "tools/bringup/tests/fixtures/repair_m794/human-kms/ca.der"
+
+[reference.18]
+file = "services/human/crates/layerx-human-service/tests/support/repair_22_33_44_kms.rs"
+name = "tools/bringup/tests/fixtures/repair_m794/human-kms/cert.der"
+
+[reference.19]
+file = "services/human/crates/layerx-human-service/tests/support/repair_22_33_44_kms.rs"
+name = "tools/bringup/tests/fixtures/repair_m794/human-kms/key.der"
+
+[reference.20]
+file = "services/platform/hosted/gateway/tests/support/repair_22_33_1335.rs"
+name = "repair_m792"
+
+[reference.21]
+file = "services/platform/hosted/gateway/tests/support/repair_22_33_1335.rs"
+name = "tools/bringup/tests/fixtures/repair_m792"
+
+[reference.22]
+file = "services/platform/hosted/gateway/tests/support/repair_22_33_1335.rs"
+name = "tools/bringup/tests/fixtures/repair_m792/renewed"
+
+[reference.23]
+file = "services/platform/hosted/gateway/tests/support/repair_22_33_1335.rs"
+name = "tools/bringup/tests/fixtures/repair_m792/renewed/identity.p12"
+
+[reference.24]
+file = "services/platform/hosted/gateway/tests/support/repair_22_33_1335.rs"
+name = "tools/bringup/tests/fixtures/repair_m792/renewed/password"
+
+[reference.25]
+file = "services/platform/hosted/paxeer/repair_22_39_338.kvx"
+name = "repair_m796_test.go"
+
+[reference.26]
+file = "services/platform/hosted/paxeer/repair_22_39_338.kvx"
+name = "tools/bringup/repair_m796_test.go"
+
+[reference.27]
+file = "spec/layerx-merge/dispositions/d22-30.kvx"
+name = "repair_m796_test.go"
+
+[reference.28]
+file = "spec/layerx-merge/dispositions/d22-30.kvx"
+name = "tools/bringup/repair_m796_test.go"
+
+[reference.29]
+file = "spec/layerx-merge/programme/docs/review/22.41.38.kvx"
+name = "repair_m798"
+
+[reference.30]
+file = "spec/layerx-merge/programme/docs/review/22.41.38.kvx"
+name = "tools/bringup/tests/fixtures/repair_m798"
+
+[reference.31]
+file = "spec/layerx-merge/programme/docs/review/22.41.38.kvx"
+name = "tools/bringup/tests/fixtures/repair_m798/README.md"
+
+[reference.32]
+file = "spec/layerx-merge/programme/docs/review/22.41.96.kvx"
+name = "repair_m798"
+
+[reference.33]
+file = "spec/layerx-merge/programme/docs/review/22.41.96.kvx"
+name = "tools/bringup/tests/fixtures/repair_m798"
+
+[reference.34]
+file = "spec/layerx-merge/programme/docs/review/22.41.96.kvx"
+name = "tools/bringup/tests/fixtures/repair_m798/README.md"
+
+[reference.35]
+file = "spec/layerx-merge/programme/issues/1622.kvx"
+name = "repair_m793"
+
+[reference.36]
+file = "spec/layerx-merge/programme/issues/1622.kvx"
+name = "repair_m793_test.go"
+
+[reference.37]
+file = "spec/layerx-merge/programme/issues/1622.kvx"
+name = "tools/bringup/repair_m793_test.go"
+
+[reference.38]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_31_319"
+
+[reference.39]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_m796_test.go"
+
+[reference.40]
+file = "spec/layerx-merge/qualification.kvx"
+name = "test_repair_22_31_319"
+
+[reference.41]
+file = "spec/layerx-merge/qualification.kvx"
+name = "tools/bringup/repair_m796_test.go"
+
+[reference.42]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_796_FoundationArtifactInventory"
+
+[reference.43]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-m794.kvx"
+
+[reference.44]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-m797.kvx"
+
+[reference.45]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_143_test.go"
+
+[reference.46]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_31_319"
+
+[reference.47]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_164"
+
+[reference.48]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_164.kvx"
+
+[reference.49]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_274.kvx"
+
+[reference.50]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1388_test.go"
+
+[reference.51]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m792"
+
+[reference.52]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m792_test.go"
+
+[reference.53]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m793"
+
+[reference.54]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m793_test.go"
+
+[reference.55]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m794"
+
+[reference.56]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m794_test.go"
+
+[reference.57]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m795"
+
+[reference.58]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m795_test.go"
+
+[reference.59]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m796_test.go"
+
+[reference.60]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m797"
+
+[reference.61]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m797_test.go"
+
+[reference.62]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m798"
+
+[reference.63]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m798_test.go"
+
+[reference.64]
+file = "spec/layerx-merge/spec.kvx"
+name = "test_repair_22_31_319"
+
+[reference.65]
+file = "spec/layerx-merge/spec.kvx"
+name = "test_repair_22_31_319.py"
+
+[reference.66]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/bringup/repair-m794.kvx"
+
+[reference.67]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/bringup/repair_143_test.go"
+
+[reference.68]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/bringup/repair_22_39_274.kvx"
+
+[reference.69]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/bringup/repair_m1388_test.go"
+
+[reference.70]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/bringup/repair_m792_test.go"
+
+[reference.71]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/bringup/repair_m793_test.go"
+
+[reference.72]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/bringup/repair_m794_test.go"
+
+[reference.73]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/bringup/repair_m795_test.go"
+
+[reference.74]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/bringup/repair_m796_test.go"
+
+[reference.75]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/bringup/repair_m797_test.go"
+
+[reference.76]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/bringup/repair_m798_test.go"
+
+[reference.77]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/bringup/tests/fixtures/repair_m793"
+
+[reference.78]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/bringup/tests/fixtures/repair_m793/committed.json"
+
+[reference.79]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/bringup/tests/repair_22_39_164.kvx"
+
+[reference.80]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/bringup/tests/test_repair_22_31_319.py"
+
+[reference.81]
+file = "tests/ci/data/intentional_copies.txt"
+name = "repair_m793"
+
+[reference.82]
+file = "tests/ci/data/intentional_copies.txt"
+name = "tools/bringup/tests/fixtures/repair_m793"
+
+[reference.83]
+file = "tests/ci/data/intentional_copies.txt"
+name = "tools/bringup/tests/fixtures/repair_m793/committed.json"
+
+[reference.84]
+file = "tests/ci/repair_22_39_152.kvx"
+name = "repair_m793"
+
+[reference.85]
+file = "tests/ci/repair_22_39_152.kvx"
+name = "tools/bringup/tests/fixtures/repair_m793"
+
+[reference.86]
+file = "tests/ci/repair_22_39_152.kvx"
+name = "tools/bringup/tests/fixtures/repair_m793/committed.json"
+
+[reference.87]
+file = "tests/ci/repair_22_39_84.kvx"
+name = "repair_22_31_319"
+
+[reference.88]
+file = "tests/ci/repair_22_39_84.kvx"
+name = "test_repair_22_31_319"
+
+[reference.89]
+file = "tests/ci/repair_22_39_84.kvx"
+name = "test_repair_22_31_319.py"
+
+[reference.90]
+file = "tests/ci/repair_22_39_84.kvx"
+name = "tools/bringup/tests/test_repair_22_31_319.py"
+
+[reference.91]
+file = "tools/qualification/audit_repairs/repair_22_36_2.kvx"
+name = "repair-m794.kvx"
+
+[reference.92]
+file = "tools/qualification/audit_repairs/repair_22_36_2.kvx"
+name = "tools/bringup/repair-m794.kvx"
+
+[reference.93]
+file = "tools/qualification/audit_repairs/test_program_market_and_service_qualification.py"
+name = "repair_m794"
+
+[reference.94]
+file = "tools/qualification/audit_repairs/test_program_market_and_service_qualification.py"
+name = "tools/bringup/tests/fixtures/repair_m794"
+
+[reference.95]
+file = "tools/qualification/audit_repairs/test_program_market_and_service_qualification.py"
+name = "tools/bringup/tests/fixtures/repair_m794/paxeer-boundary-loopback"
+
+[reference.96]
+file = "tools/qualification/audit_repairs/test_program_market_and_service_qualification.py"
+name = "tools/bringup/tests/fixtures/repair_m794/paxeer-boundary-loopback/ca.pem"

@@ -1,0 +1,36 @@
+[manifest]
+task = "22.43.54"
+records_moved = 2
+files_renamed = 2
+
+[file.1]
+from = "modules/layerxagent/keeper/repair_145_test.go"
+to = "modules/layerxagent/keeper/scheduler_recovery_test.go"
+
+[file.2]
+from = "modules/layerxagent/keeper/repair_m1502_test.go"
+to = "modules/layerxagent/keeper/params_reduction_test.go"
+
+[file.3]
+from = "modules/layerxagent/keeper/repair_145.kvx"
+to = "spec/layerx-merge/programme/records/modules/layerxagent/keeper/repair_145.kvx"
+
+[file.4]
+from = "modules/layerxagent/keeper/repair_m1502.kvx"
+to = "spec/layerx-merge/programme/records/modules/layerxagent/keeper/repair_m1502.kvx"
+
+[reference.1]
+file = "spec/layerx-merge/spec.kvx"
+name = "modules/layerxagent/keeper/repair_145_test.go"
+
+[reference.2]
+file = "spec/layerx-merge/spec.kvx"
+name = "modules/layerxagent/keeper/repair_m1502_test.go"
+
+[reference.3]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_145_"
+
+[reference.4]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1502_"
