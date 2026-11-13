@@ -21670,3 +21670,13 @@ fix = "A build command whose verification reaches the node build runs go mod dow
 title = "The node inventory that tools read is the page docs/readme/PUBLIC-RPC.md"
 symptom = "The tools under tools/bringup, a test of consensus/internal/rpc/core and a gate module of tools/paxeer-x read the node names from one Markdown page with a table of nodes. The documentation site under docs/site/paxeer-docs is built from its own sources and holds no table of nodes; the tree docs/site/docs is not in the repository."
 fix = "The inventory page is docs/readme/PUBLIC-RPC.md. A tool or a test reads the node names there, and a page links there for the node names. Tasks 22.41.119 to 22.41.125 bring the readers and the links to that page."
+
+[gotcha.4370]
+title = "A fixture whose name matches an ignore pattern is added by name"
+symptom = "The ignore file of the repository lists patterns such as *.pem and *.p12. A certificate fixture of a test matches such a pattern, so git add of a new directory does not take the fixture with it."
+fix = "After a move of a directory read the output of git status with the flag --ignored, and add a fixture that matches an ignore pattern with git add and the flag -f. The certificate fixtures of the ramps toolkit tests live under services/platform/ramps/toolkit/tests/fixtures/tls."
+
+[gotcha.4371]
+title = "A reader inside a test module is compiled only with the tests"
+symptom = "A Rust line in a test module or in a tests directory that reads a fixture with include_str, include_bytes or include is compiled only by a build with the flag --tests. A build of the member without that flag does not read the fixture."
+fix = "After a rename of a fixture find its readers with git grep over the old name, and run cargo check with the flag --tests for each member that reads it."
