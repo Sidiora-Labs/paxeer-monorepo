@@ -1,7 +1,7 @@
 [repair.22.33.585]
 finding = "prerelease-validator"
 proofs = ["matching_release_beta_and_rc_compiler_versions_are_accepted", "mismatching_release_beta_and_rc_compilers_are_rejected", "prerelease_and_build_metadata_are_normalized_on_both_sides"]
-test = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/tests/repair_22_33_585.rs"
+test = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/tests/compiler_version_validation.rs"
 policy = "Preserve the existing major/minor/patch identity policy by normalizing both requested and executable-reported versions; prerelease, commit and platform metadata do not participate on either side."
 path = "Public standard-JSON request conversion produces DetailedVersion; compiler --version transcripts pass through the semver codec and the production SolcValidator::validate_version consumer called by FileValidator::validate."
 baseline = "No pre-change gate ran: the explicit gate order forbids testing before complete implementation and requires hf-build before hf-done; no pre-change failure is claimed."

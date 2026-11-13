@@ -1,6 +1,6 @@
 [repair.22.33.583]
 audit = "22.30.160"
-test = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/tests/repair_22_33_583.rs"
+test = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/tests/compiler_execution_and_auxdata_bounds.rs"
 baseline = "No pre-change gate ran: the explicit implementation-first order and hf-done-only verification prohibit the baseline run requested by step 6; no pre-change failures are claimed."
 qualification = "hf-build and hf-done retain the exact candidate revision, command, exit and private log in the runner gate ledger; cg spec done records the verified revision."
 

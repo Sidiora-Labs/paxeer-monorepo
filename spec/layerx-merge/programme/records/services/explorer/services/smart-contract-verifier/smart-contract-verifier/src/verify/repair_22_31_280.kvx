@@ -1,7 +1,7 @@
 [repair.22.31.280]
 finding = "absolute-source-path"
 proofs = ["multipart_absolute_source_path_preserves_sentinel", "standard_json_absolute_source_path_preserves_sentinel", "all_request_boundaries_reject_root_prefix_and_parent_components", "relative_nested_sources_keep_their_names_and_contents", "legacy_cli_rejects_multipart_and_json_sources_before_writing", "legacy_cli_rejects_absolute_symlink_destination"]
-test = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/tests/repair_22_31_280.rs"
+test = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/tests/source_path_validation.rs"
 baseline = "No baseline gate run: the explicit gate order requires complete implementation before build and hf-done; no pre-change test result is claimed."
 wiring_requests = []
 

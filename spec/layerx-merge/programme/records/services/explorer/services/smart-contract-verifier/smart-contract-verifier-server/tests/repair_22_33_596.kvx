@@ -2,7 +2,7 @@
 audit = "22.30.161"
 base_revision = "b62af42e449558c1a2b459f07ffcc15659aecb61"
 baseline = "No earlier hf-build/hf-done ledger exists; the repair target did not exist on the unchanged tree. The explicit implementation-first order and prohibition on manual verify override do_7's baseline-run instruction; no pre-change failures are claimed."
-verify_command = "cargo test --locked --manifest-path services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/Cargo.toml --test repair_22_33_596"
+verify_command = "cargo test --locked --manifest-path services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/Cargo.toml --test sourcify_routes_and_nightly_catalogue"
 evidence = "The runner's hf-build/hf-done ledger supplies the exact candidate revision, exit and private log; this record does not claim an unrun service compilation."
 
 [finding.sourcify-route-tests-commented]

@@ -21,7 +21,8 @@ pub const ADDRESS: &str = "0x6da5e8cd88641dd371f3ed7737664ea86b3c3ec8";
 pub const DIRECT: &str = "/api/v2/verifier/sourcify/sources:verify";
 pub const IMPORT: &str = "/api/v2/verifier/sourcify/sources:verify-from-etherscan";
 pub const NIGHTLY: &str = "v0.8.14-nightly.2022.4.13+commit.25923c1f";
-pub const NIGHTLY_LIST: &str = include_str!("../../fixtures/repair_22_33_596/nightly-list.json");
+pub const NIGHTLY_LIST: &str =
+    include_str!("../../fixtures/sourcify_transcripts/nightly-list.json");
 
 pub struct Exchange {
     method: &'static str,
@@ -162,9 +163,9 @@ fn read_request(stream: &mut TcpStream) -> (String, String, Option<Value>) {
 
 pub fn fixture(import: bool) -> Value {
     serde_json::from_str(if import {
-        include_str!("../../fixtures/repair_22_33_596/c1.json")
+        include_str!("../../fixtures/sourcify_transcripts/c1.json")
     } else {
-        include_str!("../../fixtures/repair_22_33_596/storage.json")
+        include_str!("../../fixtures/sourcify_transcripts/storage.json")
     })
     .unwrap()
 }

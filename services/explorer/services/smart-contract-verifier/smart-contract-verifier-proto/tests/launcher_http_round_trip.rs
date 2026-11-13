@@ -28,7 +28,7 @@ impl launcher_router::HttpRouter for HealthRouter {
 }
 
 #[actix_web::test]
-async fn repair_22_31_275_launcher_health_and_probe() {
+async fn launcher_health_and_probe() {
     for mount in [None, Some("/verifier"), Some("/nested/verifier")] {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let address = listener.local_addr().unwrap();
@@ -241,11 +241,11 @@ async fn production_round_trip(mount: Option<&str>) {
 }
 
 #[actix_web::test]
-async fn repair_22_31_275_production_root_round_trip() {
+async fn production_root_round_trip() {
     production_round_trip(None).await;
 }
 
 #[actix_web::test]
-async fn repair_22_31_275_production_verifier_round_trip() {
+async fn production_verifier_round_trip() {
     production_round_trip(Some("/verifier")).await;
 }
