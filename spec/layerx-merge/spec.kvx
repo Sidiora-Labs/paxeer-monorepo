@@ -363349,7 +363349,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.41.52]
 title = "Read page sections 1 to 20 of the review manifest of task 22.41.7 a second time against the tree"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
