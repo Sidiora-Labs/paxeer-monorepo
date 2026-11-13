@@ -18,9 +18,12 @@ For Binary encoding, please refer to the [encoding specification](../spec/core/e
 
 JSON encoding is done using the engine's internal json encoder ([`libs/json`](../libs/json/doc.go)); key types register their type tags with [`internal/jsontypes`](../internal/jsontypes/).
 
-```go
-Example JSON encodings:
+The type-tagged encoding wraps the base64 key bytes in `type` and `value` fields:
 
-ed25519.SecretKey   - {"type":"tendermint/PrivKeyEd25519","value":"EVkqJO/jIXp3rkASXfh9YnyToYXRXhBr6g9cQVxPFnQBP/5povV4HTjvsy530kybxKHwEi85iU8YL0qQhSYVoQ=="}
-ed25519.PublicKey   - {"type":"tendermint/PubKeyEd25519","value":"AT/+aaL1eB0477Mud9JMm8Sh8BIvOYlPGC9KkIUmFaE="}
-```
+| Go type             | JSON type tag               |
+| ------------------- | --------------------------- |
+| `ed25519.SecretKey` | `tendermint/PrivKeyEd25519` |
+| `ed25519.PublicKey` | `tendermint/PubKeyEd25519`  |
+
+The key types' own `MarshalJSON` methods encode just the base64 byte string;
+[`jsontypes.Marshal`](../internal/jsontypes/jsontypes.go) adds the type-tagged wrapper.

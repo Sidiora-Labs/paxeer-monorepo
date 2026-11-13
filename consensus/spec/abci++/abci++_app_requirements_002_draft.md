@@ -29,12 +29,12 @@ records method timings; it supplies neither a global state lock nor a socket or
 gRPC ABCI transport. The draft's four “connections” are useful categories of
 responsibility, not four network connections to provision.
 
-| Responsibility | Current methods |
-| --- | --- |
-| Application information and queries | `Info`, `Query`, `GetValidators` |
-| Transaction admission and scheduling | `CheckTx(context.Context, *RequestCheckTxV2) *ResponseCheckTxV2`, `GetTxPriorityHint`, `EvmNonce`, `EvmBalance` |
-| Initialization, proposal validation and block execution | `InitChain`, `ProcessProposal`, `FinalizeBlock`, `Commit` |
-| Snapshot interface | `ListSnapshots`, `OfferSnapshot`, `LoadSnapshotChunk`, `ApplySnapshotChunk` |
+| Responsibility                                          | Current methods                                                                                                 |
+| ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| Application information and queries                     | `Info`, `Query`, `GetValidators`                                                                                |
+| Transaction admission and scheduling                    | `CheckTx(context.Context, *RequestCheckTxV2) *ResponseCheckTxV2`, `GetTxPriorityHint`, `EvmNonce`, `EvmBalance` |
+| Initialization, proposal validation and block execution | `InitChain`, `ProcessProposal`, `FinalizeBlock`, `Commit`                                                       |
+| Snapshot interface                                      | `ListSnapshots`, `OfferSnapshot`, `LoadSnapshotChunk`, `ApplySnapshotChunk`                                     |
 
 `PrepareProposal`, `ExtendVote` and `VerifyVoteExtension` are absent from this
 interface. Consequently the draft's Requirements 1–5 and 8–12 are not an
@@ -183,20 +183,20 @@ current-network or Autobahn conformance.
 This section specifies what Tendermint expects from the Application. It is structured as a set
 of formal requirements that can be used for testing and verification of the Application's logic.
 
-Let *p* and *q* be two different correct proposers in rounds *r<sub>p</sub>* and *r<sub>q</sub>*
-respectively, in height *h*.
-Let *s<sub>p,h-1</sub>* be *p*'s Application's state committed for height *h-1*.
-Let *v<sub>p</sub>* (resp. *v<sub>q</sub>*) be the block that *p*'s (resp. *q*'s) Tendermint passes
+Let _p_ and _q_ be two different correct proposers in rounds _r<sub>p</sub>_ and _r<sub>q</sub>_
+respectively, in height _h_.
+Let _s<sub>p,h-1</sub>_ be _p_'s Application's state committed for height _h-1_.
+Let _v<sub>p</sub>_ (resp. _v<sub>q</sub>_) be the block that _p_'s (resp. _q_'s) Tendermint passes
 on to the Application
-via `RequestPrepareProposal` as proposer of round *r<sub>p</sub>* (resp *r<sub>q</sub>*), height *h*,
+via `RequestPrepareProposal` as proposer of round _r<sub>p</sub>_ (resp _r<sub>q</sub>_), height _h_,
 also known as the raw proposal.
-Let *v'<sub>p</sub>* (resp. *v'<sub>q</sub>*) the possibly modified block *p*'s (resp. *q*'s) Application
+Let _v'<sub>p</sub>_ (resp. _v'<sub>q</sub>_) the possibly modified block _p_'s (resp. _q_'s) Application
 returns via `ResponsePrepareProposal` to Tendermint, also known as the prepared proposal.
 
-Process *p*'s prepared proposal can differ in two different rounds where *p* is the proposer.
+Process _p_'s prepared proposal can differ in two different rounds where _p_ is the proposer.
 
-* Requirement 1 [`PrepareProposal`, header-changes]: When the blockchain is in same-block execution mode,
-  *p*'s Application provides values for the following parameters in `ResponsePrepareProposal`:
+- Requirement 1 [`PrepareProposal`, header-changes]: When the blockchain is in same-block execution mode,
+  _p_'s Application provides values for the following parameters in `ResponsePrepareProposal`:
   `AppHash`, `TxResults`, `ConsensusParams`, `ValidatorUpdates`. Provided values for
   `ConsensusParams` and `ValidatorUpdates` MAY be empty to denote that the Application
   wishes to keep the current values.
@@ -204,26 +204,26 @@ Process *p*'s prepared proposal can differ in two different rounds where *p* is 
 Parameters `AppHash`, `TxResults`, `ConsensusParams`, and `ValidatorUpdates` are used by Tendermint to
 compute various hashes in the block header that will finally be part of the proposal.
 
-* Requirement 2 [`PrepareProposal`, no-header-changes]: When the blockchain is in next-block execution
-  mode, *p*'s Application does not provide values for the following parameters in `ResponsePrepareProposal`:
+- Requirement 2 [`PrepareProposal`, no-header-changes]: When the blockchain is in next-block execution
+  mode, _p_'s Application does not provide values for the following parameters in `ResponsePrepareProposal`:
   `AppHash`, `TxResults`, `ConsensusParams`, `ValidatorUpdates`.
 
 In practical terms, Requirements 1 and 2 imply that Tendermint will (a) panic if the Application is in
-same-block execution mode and *does not* provide values for
+same-block execution mode and _does not_ provide values for
 `AppHash`, `TxResults`, `ConsensusParams`, and `ValidatorUpdates`, or
-(b) log an error if the Application is in next-block execution mode and *does* provide values for
+(b) log an error if the Application is in next-block execution mode and _does_ provide values for
 `AppHash`, `TxResults`, `ConsensusParams`, or `ValidatorUpdates` (the values provided will be ignored).
 
-* Requirement 3 [`PrepareProposal`, timeliness]: If *p*'s Application fully executes prepared blocks in
-  `PrepareProposal` and the network is in a synchronous period while processes *p* and *q* are in *r<sub>p</sub>*,
-  then the value of *TimeoutPropose* at *q* must be such that *q*'s propose timer does not time out
-  (which would result in *q* prevoting `nil` in *r<sub>p</sub>*).
+- Requirement 3 [`PrepareProposal`, timeliness]: If _p_'s Application fully executes prepared blocks in
+  `PrepareProposal` and the network is in a synchronous period while processes _p_ and _q_ are in _r<sub>p</sub>_,
+  then the value of _TimeoutPropose_ at _q_ must be such that _q_'s propose timer does not time out
+  (which would result in _q_ prevoting `nil` in _r<sub>p</sub>_).
 
 Full execution of blocks at `PrepareProposal` time stands on Tendermint's critical path. Thus,
 Requirement 3 ensures the Application will set a value for `TimeoutPropose` such that the time it takes
 to fully execute blocks in `PrepareProposal` does not interfere with Tendermint's propose timer.
 
-* Requirement 4 [`PrepareProposal`, tx-size]: When *p*'s Application calls `ResponsePrepareProposal`, the
+- Requirement 4 [`PrepareProposal`, tx-size]: When _p_'s Application calls `ResponsePrepareProposal`, the
   total size in bytes of the transactions returned does not exceed `RequestPrepareProposal.max_tx_bytes`.
 
 Busy blockchains might seek to maximize the amount of transactions included in each block. Under those conditions,
@@ -234,28 +234,28 @@ those transactions, it can still return a transaction list whose byte size is as
 transaction list returned by the application will never cause the resulting block to go beyond its byte size
 limit.
 
-* Requirement 5 [`PrepareProposal`, `ProcessProposal`, coherence]: For any two correct processes *p* and *q*,
-  if *q*'s Tendermint calls `RequestProcessProposal` on *v'<sub>p</sub>*,
-  *q*'s Application returns Accept in `ResponseProcessProposal`.
+- Requirement 5 [`PrepareProposal`, `ProcessProposal`, coherence]: For any two correct processes _p_ and _q_,
+  if _q_'s Tendermint calls `RequestProcessProposal` on _v'<sub>p</sub>_,
+  _q_'s Application returns Accept in `ResponseProcessProposal`.
 
-Requirement 5 makes sure that blocks proposed by correct processes *always* pass the correct receiving process's
+Requirement 5 makes sure that blocks proposed by correct processes _always_ pass the correct receiving process's
 `ProcessProposal` check.
 On the other hand, if there is a deterministic bug in `PrepareProposal` or `ProcessProposal` (or in both),
 strictly speaking, this makes all processes that hit the bug byzantine. This is a problem in practice,
-as very often validators are running the Application from the same codebase, so potentially *all* would
+as very often validators are running the Application from the same codebase, so potentially _all_ would
 likely hit the bug at the same time. This would result in most (or all) processes prevoting `nil`, with the
 serious consequences on Tendermint's liveness that this entails. Due to its criticality, Requirement 5 is a
 target for extensive testing and automated verification.
 
-* Requirement 6 [`ProcessProposal`, determinism-1]: `ProcessProposal` is a (deterministic) function of the current
-  state and the block that is about to be applied. In other words, for any correct process *p*, and any arbitrary block *v'*,
-  if *p*'s Tendermint calls `RequestProcessProposal` on *v'* at height *h*,
-  then *p*'s Application's acceptance or rejection **exclusively** depends on *v'* and *s<sub>p,h-1</sub>*.
+- Requirement 6 [`ProcessProposal`, determinism-1]: `ProcessProposal` is a (deterministic) function of the current
+  state and the block that is about to be applied. In other words, for any correct process _p_, and any arbitrary block _v'_,
+  if _p_'s Tendermint calls `RequestProcessProposal` on _v'_ at height _h_,
+  then _p_'s Application's acceptance or rejection **exclusively** depends on _v'_ and _s<sub>p,h-1</sub>_.
 
-* Requirement 7 [`ProcessProposal`, determinism-2]: For any two correct processes *p* and *q*, and any arbitrary
-  block *v'*,
-  if *p*'s (resp. *q*'s) Tendermint calls `RequestProcessProposal` on *v'* at height *h*,
-  then *p*'s Application accepts *v'* if and only if *q*'s Application accepts *v'*.
+- Requirement 7 [`ProcessProposal`, determinism-2]: For any two correct processes _p_ and _q_, and any arbitrary
+  block _v'_,
+  if _p_'s (resp. _q_'s) Tendermint calls `RequestProcessProposal` on _v'_ at height _h_,
+  then _p_'s Application accepts _v'_ if and only if _q_'s Application accepts _v'_.
   Note that this requirement follows from Requirement 6 and the Agreement property of consensus.
 
 Requirements 6 and 7 ensure that all correct processes will react in the same way to a proposed block, even
@@ -269,38 +269,38 @@ the Application designers/implementors must proceed very carefully with the logi
 of `ProcessProposal`. As a general rule `ProcessProposal` SHOULD always accept the block.
 
 According to the Tendermint algorithm, a correct process can broadcast at most one precommit
-message in round *r*, height *h*.
+message in round _r_, height _h_.
 Since, as stated in the [Methods](./abci++_methods_002_draft.md#extendvote) section, `ResponseExtendVote`
 is only called when Tendermint
 is about to broadcast a non-`nil` precommit message, a correct process can only produce one vote extension
-in round *r*, height *h*.
-Let *e<sup>r</sup><sub>p</sub>* be the vote extension that the Application of a correct process *p* returns via
-`ResponseExtendVote` in round *r*, height *h*.
-Let *w<sup>r</sup><sub>p</sub>* be the proposed block that *p*'s Tendermint passes to the Application via `RequestExtendVote`
-in round *r*, height *h*.
+in round _r_, height _h_.
+Let _e<sup>r</sup><sub>p</sub>_ be the vote extension that the Application of a correct process _p_ returns via
+`ResponseExtendVote` in round _r_, height _h_.
+Let _w<sup>r</sup><sub>p</sub>_ be the proposed block that _p_'s Tendermint passes to the Application via `RequestExtendVote`
+in round _r_, height _h_.
 
-* Requirement 8 [`ExtendVote`, `VerifyVoteExtension`, coherence]: For any two correct processes *p* and *q*, if *q*
-receives *e<sup>r</sup><sub>p</sub>*
-  from *p* in height *h*, *q*'s Application returns Accept in `ResponseVerifyVoteExtension`.
+- Requirement 8 [`ExtendVote`, `VerifyVoteExtension`, coherence]: For any two correct processes _p_ and _q_, if _q_
+  receives _e<sup>r</sup><sub>p</sub>_
+  from _p_ in height _h_, _q_'s Application returns Accept in `ResponseVerifyVoteExtension`.
 
 Requirement 8 constrains the creation and handling of vote extensions in a similar way as Requirement 5
 constrains the creation and handling of proposed blocks.
-Requirement 8 ensures that extensions created by correct processes *always* pass the `VerifyVoteExtension`
+Requirement 8 ensures that extensions created by correct processes _always_ pass the `VerifyVoteExtension`
 checks performed by correct processes receiving those extensions.
 However, if there is a (deterministic) bug in `ExtendVote` or `VerifyVoteExtension` (or in both),
 we will face the same liveness issues as described for Requirement 5, as Precommit messages with invalid vote
 extensions will be discarded.
 
-* Requirement 9 [`VerifyVoteExtension`, determinism-1]: `VerifyVoteExtension` is a (deterministic) function of
+- Requirement 9 [`VerifyVoteExtension`, determinism-1]: `VerifyVoteExtension` is a (deterministic) function of
   the current state, the vote extension received, and the prepared proposal that the extension refers to.
-  In other words, for any correct process *p*, and any arbitrary vote extension *e*, and any arbitrary
-  block *w*, if *p*'s (resp. *q*'s) Tendermint calls `RequestVerifyVoteExtension` on *e* and *w* at height *h*,
-  then *p*'s Application's acceptance or rejection **exclusively** depends on *e*, *w* and *s<sub>p,h-1</sub>*.
+  In other words, for any correct process _p_, and any arbitrary vote extension _e_, and any arbitrary
+  block _w_, if _p_'s (resp. _q_'s) Tendermint calls `RequestVerifyVoteExtension` on _e_ and _w_ at height _h_,
+  then _p_'s Application's acceptance or rejection **exclusively** depends on _e_, _w_ and _s<sub>p,h-1</sub>_.
 
-* Requirement 10 [`VerifyVoteExtension`, determinism-2]: For any two correct processes *p* and *q*,
-  and any arbitrary vote extension *e*, and any arbitrary block *w*,
-  if *p*'s (resp. *q*'s) Tendermint calls `RequestVerifyVoteExtension` on *e* and *w* at height *h*,
-  then *p*'s Application accepts *e* if and only if *q*'s Application accepts *e*.
+- Requirement 10 [`VerifyVoteExtension`, determinism-2]: For any two correct processes _p_ and _q_,
+  and any arbitrary vote extension _e_, and any arbitrary block _w_,
+  if _p_'s (resp. _q_'s) Tendermint calls `RequestVerifyVoteExtension` on _e_ and _w_ at height _h_,
+  then _p_'s Application accepts _e_ if and only if _q_'s Application accepts _e_.
   Note that this requirement follows from Requirement 9 and the Agreement property of consensus.
 
 Requirements 9 and 10 ensure that the validation of vote extensions will be deterministic at all
@@ -312,29 +312,29 @@ Requirements 9 and 10 can be violated by a bug inducing non-determinism in
 Extra care should be put in the implementation of `ExtendVote` and `VerifyVoteExtension`.
 As a general rule, `VerifyVoteExtension` SHOULD always accept the vote extension.
 
-* Requirement 11 [*all*, no-side-effects]: *p*'s calls to `RequestPrepareProposal`,
-  `RequestProcessProposal`, `RequestExtendVote`, and `RequestVerifyVoteExtension` at height *h* do
-  not modify *s<sub>p,h-1</sub>*.
+- Requirement 11 [*all*, no-side-effects]: _p_'s calls to `RequestPrepareProposal`,
+  `RequestProcessProposal`, `RequestExtendVote`, and `RequestVerifyVoteExtension` at height _h_ do
+  not modify _s<sub>p,h-1</sub>_.
 
-* Requirement 12 [`ExtendVote`, `FinalizeBlock`, non-dependency]: for any correct process *p*,
-and any vote extension *e* that *p* received at height *h*, the computation of
-*s<sub>p,h</sub>* does not depend on *e*.
+- Requirement 12 [`ExtendVote`, `FinalizeBlock`, non-dependency]: for any correct process _p_,
+  and any vote extension _e_ that _p_ received at height _h_, the computation of
+  _s<sub>p,h</sub>_ does not depend on _e_.
 
-The call to correct process *p*'s `RequestFinalizeBlock` at height *h*, with block *v<sub>p,h</sub>*
-passed as parameter, creates state *s<sub>p,h</sub>*.
+The call to correct process _p_'s `RequestFinalizeBlock` at height _h_, with block _v<sub>p,h</sub>_
+passed as parameter, creates state _s<sub>p,h</sub>_.
 Additionally,
 
-* in next-block execution mode, *p*'s `FinalizeBlock` creates a set of transaction results *T<sub>p,h</sub>*,
-* in same-block execution mode, *p*'s `PrepareProposal` creates a set of transaction results *T<sub>p,h</sub>*
-  if *p* was the proposer of *v<sub>p,h</sub>*. If *p* was not the proposer of *v<sub>p,h</sub>*,
-  `ProcessProposal` creates *T<sub>p,h</sub>*. `FinalizeBlock` MAY re-create *T<sub>p,h</sub>* if it was
-  removed from memory during the execution of height *h*.
+- in next-block execution mode, _p_'s `FinalizeBlock` creates a set of transaction results _T<sub>p,h</sub>_,
+- in same-block execution mode, _p_'s `PrepareProposal` creates a set of transaction results _T<sub>p,h</sub>_
+  if _p_ was the proposer of _v<sub>p,h</sub>_. If _p_ was not the proposer of _v<sub>p,h</sub>_,
+  `ProcessProposal` creates _T<sub>p,h</sub>_. `FinalizeBlock` MAY re-create _T<sub>p,h</sub>_ if it was
+  removed from memory during the execution of height _h_.
 
-* Requirement 13 [`FinalizeBlock`, determinism-1]: For any correct process *p*,
-  *s<sub>p,h</sub>* exclusively depends on *s<sub>p,h-1</sub>* and *v<sub>p,h</sub>*.
+- Requirement 13 [`FinalizeBlock`, determinism-1]: For any correct process _p_,
+  _s<sub>p,h</sub>_ exclusively depends on _s<sub>p,h-1</sub>_ and _v<sub>p,h</sub>_.
 
-* Requirement 14 [`FinalizeBlock`, determinism-2]: For any correct process *p*,
-  the contents of *T<sub>p,h</sub>* exclusively depend on *s<sub>p,h-1</sub>* and *v<sub>p,h</sub>*.
+- Requirement 14 [`FinalizeBlock`, determinism-2]: For any correct process _p_,
+  the contents of _T<sub>p,h</sub>_ exclusively depend on _s<sub>p,h-1</sub>_ and _v<sub>p,h</sub>_.
 
 Note that Requirements 13 and 14, combined with Agreement property of consensus ensure
 state machine replication, i.e., the Application state evolves consistently at all correct processes.
@@ -343,15 +343,15 @@ Finally, notice that neither `PrepareProposal` nor `ExtendVote` have determinism
 requirements associated.
 Indeed, `PrepareProposal` is not required to be deterministic:
 
-* *v'<sub>p</sub>* may depend on *v<sub>p</sub>* and *s<sub>p,h-1</sub>*, but may also depend on other values or operations.
-* *v<sub>p</sub> = v<sub>q</sub> &#8655; v'<sub>p</sub> = v'<sub>q</sub>*.
+- _v'<sub>p</sub>_ may depend on _v<sub>p</sub>_ and _s<sub>p,h-1</sub>_, but may also depend on other values or operations.
+- _v<sub>p</sub> = v<sub>q</sub> &#8655; v'<sub>p</sub> = v'<sub>q</sub>_.
 
 Likewise, `ExtendVote` can also be non-deterministic:
 
-* *e<sup>r</sup><sub>p</sub>* may depend on *w<sup>r</sup><sub>p</sub>* and *s<sub>p,h-1</sub>*,
+- _e<sup>r</sup><sub>p</sub>_ may depend on _w<sup>r</sup><sub>p</sub>_ and _s<sub>p,h-1</sub>_,
   but may also depend on other values or operations.
-* *w<sup>r</sup><sub>p</sub> = w<sup>r</sup><sub>q</sub> &#8655;
-  e<sup>r</sup><sub>p</sub> = e<sup>r</sup><sub>q</sub>*
+- _w<sup>r</sup><sub>p</sub> = w<sup>r</sup><sub>q</sub> &#8655;
+  e<sup>r</sup><sub>p</sub> = e<sup>r</sup><sub>q</sub>_
 
 ## Managing the Application state and related topics
 
@@ -421,22 +421,22 @@ network. In both cases, the proposed block's data
 is disclosed to the Application, in the same conditions as is done in `FinalizeBlock`.
 The block data disclosed the to Application by these three methods are the following:
 
-* the transaction list
-* the `LastCommit` referring to the previous block
-* the block header's hash (except in `PrepareProposal`, where it is not known yet)
-* list of validators that misbehaved
-* the block's timestamp
-* `NextValidatorsHash`
-* Proposer address
+- the transaction list
+- the `LastCommit` referring to the previous block
+- the block header's hash (except in `PrepareProposal`, where it is not known yet)
+- list of validators that misbehaved
+- the block's timestamp
+- `NextValidatorsHash`
+- Proposer address
 
-The Application may decide to *immediately* execute the given block (i.e., upon `PrepareProposal`
+The Application may decide to _immediately_ execute the given block (i.e., upon `PrepareProposal`
 or `ProcessProposal`). There are two main reasons why the Application may want to do this:
 
-* *Avoiding invalid transactions in blocks*.
-  In order to be sure that the block does not contain *any* invalid transaction, there may be
-  no way other than fully executing the transactions in the block as though it was the *decided*
+- _Avoiding invalid transactions in blocks_.
+  In order to be sure that the block does not contain _any_ invalid transaction, there may be
+  no way other than fully executing the transactions in the block as though it was the _decided_
   block.
-* *Quick `FinalizeBlock` execution*.
+- _Quick `FinalizeBlock` execution_.
   Upon reception of the decided block via `FinalizeBlock`, if that same block was executed
   upon `PrepareProposal` or `ProcessProposal` and the resulting state was kept in memory, the
   Application can simply apply that state (faster) to the main state, rather than reexecuting
@@ -445,10 +445,10 @@ or `ProcessProposal`). There are two main reasons why the Application may want t
 `PrepareProposal`/`ProcessProposal` can be called many times for a given height. Moreover,
 it is not possible to accurately predict which of the blocks proposed in a height will be decided,
 being delivered to the Application in that height's `FinalizeBlock`.
-Therefore, the state resulting from executing a proposed block, denoted a *candidate state*, should
+Therefore, the state resulting from executing a proposed block, denoted a _candidate state_, should
 be kept in memory as a possible final state for that height. When `FinalizeBlock` is called, the Application should
 check if the decided block corresponds to one of its candidate states; if so, it will apply it as
-its *ExecuteTxState* (see [Consensus Connection](#consensus-connection) below),
+its _ExecuteTxState_ (see [Consensus Connection](#consensus-connection) below),
 which will be persisted during the upcoming `Commit` call.
 
 Under adverse conditions (e.g., network instability), Tendermint might take many rounds.
@@ -463,24 +463,24 @@ decided block and thus have to be reexecuted upon `FinalizeBlock`.
 
 #### Consensus Connection
 
-The Consensus Connection should maintain an *ExecuteTxState* &mdash; the working state
+The Consensus Connection should maintain an _ExecuteTxState_ &mdash; the working state
 for block execution. It should be updated by the call to `FinalizeBlock`
 during block execution and committed to disk as the "latest
 committed state" during `Commit`. Execution of a proposed block (via `PrepareProposal`/`ProcessProposal`)
-**must not** update the *ExecuteTxState*, but rather be kept as a separate candidate state until `FinalizeBlock`
-confirms which of the candidate states (if any) can be used to update *ExecuteTxState*.
+**must not** update the _ExecuteTxState_, but rather be kept as a separate candidate state until `FinalizeBlock`
+confirms which of the candidate states (if any) can be used to update _ExecuteTxState_.
 
 #### Mempool Connection
 
-The mempool Connection maintains *CheckTxState*. Tendermint sequentially processes an incoming
-transaction (via RPC from client or P2P from the gossip layer) against *CheckTxState*.
+The mempool Connection maintains _CheckTxState_. Tendermint sequentially processes an incoming
+transaction (via RPC from client or P2P from the gossip layer) against _CheckTxState_.
 If the processing does not return any error, the transaction is accepted into the mempool
 and Tendermint starts gossipping it.
-*CheckTxState* should be reset to the latest committed state
+_CheckTxState_ should be reset to the latest committed state
 at the end of every `Commit`.
 
-During the execution of a consensus instance, the *CheckTxState* may be updated concurrently with the
-*ExecuteTxState*, as messages may be sent concurrently on the Consensus and Mempool connections.
+During the execution of a consensus instance, the _CheckTxState_ may be updated concurrently with the
+_ExecuteTxState_, as messages may be sent concurrently on the Consensus and Mempool connections.
 At the end of the consensus instance, as described above, Tendermint locks the mempool and flushes
 the mempool connection before calling `Commit`. This ensures that all pending `CheckTx` calls are
 responded to and no new ones can begin.
@@ -497,7 +497,7 @@ the mempool connection. New transactions are once again able to be processed thr
 Note that `CheckTx` is just a weak filter to keep invalid transactions out of the mempool and,
 utimately, ouf of the blockchain.
 Since the transaction cannot be guaranteed to be checked against the exact same state as it
-will be executed as part of a (potential) decided block, `CheckTx` shouldn't check *everything*
+will be executed as part of a (potential) decided block, `CheckTx` shouldn't check _everything_
 that affects the transaction's validity, in particular those checks whose validity may depend on
 transaction ordering. `CheckTx` is weak because a Byzantine node need not care about `CheckTx`;
 it can propose a block full of invalid transactions if it wants. The mechanism ABCI++ has
@@ -517,13 +517,13 @@ replay protection mechanism with strong guarantees as part of the logic in `Chec
 #### Info/Query Connection
 
 The Info (or Query) Connection should maintain a `QueryState`. This connection has two
-purposes: 1) having the application answer the queries Tenderissued receives from users
+purposes: 1) having the application answer the queries Tendermint receives from users
 (see section [Query](#query)),
 and 2) synchronizing Tendermint and the Application at start up time (see
 [Crash Recovery](#crash-recovery))
 or after state sync (see [State Sync](#state-sync)).
 
-`QueryState` is a read-only copy of *ExecuteTxState* as it was after the last
+`QueryState` is a read-only copy of _ExecuteTxState_ as it was after the last
 `Commit`, i.e.
 after the full block has been processed and the state committed to disk.
 
@@ -552,7 +552,7 @@ are otherwise ignored.
 
 #### Gas
 
-Ethereum introduced the notion of *gas* as an abstract representation of the
+Ethereum introduced the notion of _gas_ as an abstract representation of the
 cost of the resources consumed by nodes when processing a transaction. Every operation in the
 Ethereum Virtual Machine uses some amount of gas.
 Gas has a market-variable price based on which miners can accept or reject to execute a
@@ -575,8 +575,8 @@ or validation should fail before it can use more resources than it requested.
 
 When `MaxGas > -1`, Tendermint enforces the following rules:
 
-* `GasWanted <= MaxGas` for every transaction in the mempool
-* `(sum of GasWanted in a block) <= MaxGas` when proposing a block
+- `GasWanted <= MaxGas` for every transaction in the mempool
+- `(sum of GasWanted in a block) <= MaxGas` when proposing a block
 
 If `MaxGas == -1`, no rules about gas are enforced.
 
@@ -594,7 +594,7 @@ it can use `PrepareProposal` and `ProcessProposal` to enforce that `(sum of GasW
 in all proposed or prevoted blocks,
 we have:
 
-* `(sum of GasUsed in a block) <= MaxGas` for every block
+- `(sum of GasUsed in a block) <= MaxGas` for every block
 
 The `GasUsed` field is ignored by Tendermint.
 
@@ -605,7 +605,7 @@ not broadcasted to other peers and not included in a proposal block.
 
 `Data` contains the result of the `CheckTx` transaction execution, if any. It does not need to be
 deterministic since, given a transaction, nodes' Applications
-might have a different *CheckTxState* values when they receive it and check their validity
+might have a different _CheckTxState_ values when they receive it and check their validity
 via `CheckTx`.
 Tendermint ignores this value in `ResponseCheckTx`.
 
@@ -665,17 +665,17 @@ duplicates, the block execution will fail irrecoverably.
 Structure `ValidatorUpdate` contains a public key, which is used to identify the validator.
 Tendermint now only accepts Ed25519 consensus keys for validators.
 
-Structure `ValidatorUpdate` also contains an `ìnt64` field denoting the validator's new power.
+Structure `ValidatorUpdate` also contains an `int64` field denoting the validator's new power.
 Applications must ensure that
 `ValidatorUpdate` structures abide by the following rules:
 
-* power must be non-negative
-* if power is set to 0, the validator must be in the validator set; it will be removed from the set
-* if power is greater than 0:
-    * if the validator is not in the validator set, it will be added to the
-      set with the given power
-    * if the validator is in the validator set, its power will be adjusted to the given power
-* the total power of the new validator set must not exceed `MaxTotalVotingPower`, where
+- power must be non-negative
+- if power is set to 0, the validator must be in the validator set; it will be removed from the set
+- if power is greater than 0:
+  - if the validator is not in the validator set, it will be added to the
+    set with the given power
+  - if the validator is in the validator set, its power will be adjusted to the given power
+- the total power of the new validator set must not exceed `MaxTotalVotingPower`, where
   `MaxTotalVotingPower = MaxInt64 / 8`
 
 Note the updates returned after processing the block at height `H` will only take effect
@@ -726,7 +726,7 @@ Must have `0 < MaxBytes < 100 MB`.
 ##### BlockParams.MaxGas
 
 The maximum of the sum of `GasWanted` that will be allowed in a proposed block.
-This is *not* enforced by Tendermint consensus.
+This is _not_ enforced by Tendermint consensus.
 It is left to the Application to enforce (ie. if transactions are included past the
 limit, they should return non-zero codes). It is used by Tendermint to limit the
 transactions included in a proposed block.
@@ -910,19 +910,19 @@ The `AppHash` is unique in that it is application specific, and allows for
 application-specific Merkle proofs about the state of the application.
 While some applications keep all relevant state in the transactions themselves
 (like Bitcoin and its UTXOs), others maintain a separated state that is
-computed deterministically *from* transactions, but is not contained directly in
+computed deterministically _from_ transactions, but is not contained directly in
 the transactions themselves (like Ethereum contracts and accounts).
 For such applications, the `AppHash` provides a much more efficient way to verify light-client proofs.
 
 ABCI applications can take advantage of more efficient light-client proofs for
 their state as follows:
 
-* in next block executon mode, return the Merkle root of the deterministic application state in
+- in next block executon mode, return the Merkle root of the deterministic application state in
   `ResponseCommit.Data`. This Merkle root will be included as the `AppHash` in the next block.
-* in same block execution mode, return the Merkle root of the deterministic application state
+- in same block execution mode, return the Merkle root of the deterministic application state
   in `ResponsePrepareProposal.AppHash`. This Merkle root will be included as the `AppHash` in
   the block that is about to be proposed.
-* return efficient Merkle proofs about that application state in `ResponseQuery.Proof`
+- return efficient Merkle proofs about that application state in `ResponseQuery.Proof`
   that can be verified using the `AppHash` of the corresponding block.
 
 For instance, this allows an application's light-client to verify proofs of
@@ -977,10 +977,9 @@ the app.
 ```md
 storeBlockHeight = height of the last block Tendermint saw a commit for
 stateBlockHeight = height of the last block for which Tendermint completed all
-    block processing and saved all ABCI results to disk
+block processing and saved all ABCI results to disk
 appBlockHeight = height of the last block for which ABCI app succesfully
-    completed Commit
-
+completed Commit
 ```
 
 Note we always have `storeBlockHeight >= stateBlockHeight` and `storeBlockHeight >= appBlockHeight`
@@ -1013,16 +1012,16 @@ If `storeBlockHeight == stateBlockHeight+1`
 This happens if we started processing the block but didn't finish.
 
 If `appBlockHeight < stateBlockHeight`
-    replay all blocks in full from `appBlockHeight` to `storeBlockHeight-1`,
-    and replay the block at `storeBlockHeight` using the WAL.
+replay all blocks in full from `appBlockHeight` to `storeBlockHeight-1`,
+and replay the block at `storeBlockHeight` using the WAL.
 This happens if the app forgot the last block it committed.
 
 If `appBlockHeight == stateBlockHeight`,
-    replay the last block (storeBlockHeight) in full.
+replay the last block (storeBlockHeight) in full.
 This happens if we crashed before the app finished Commit
 
 If `appBlockHeight == storeBlockHeight`
-    update the state using the saved ABCI responses but dont run the block against the real app.
+update the state using the saved ABCI responses but dont run the block against the real app.
 This happens if we crashed after the app finished Commit but before Tendermint saved the state.
 
 ### State Sync
@@ -1048,20 +1047,20 @@ Applications that want to support state syncing must take state snapshots at reg
 this is accomplished is entirely up to the application. A snapshot consists of some metadata and
 a set of binary chunks in an arbitrary format:
 
-* `Height (uint64)`: The height at which the snapshot is taken. It must be taken after the given
+- `Height (uint64)`: The height at which the snapshot is taken. It must be taken after the given
   height has been committed, and must not contain data from any later heights.
 
-* `Format (uint32)`: An arbitrary snapshot format identifier. This can be used to version snapshot
+- `Format (uint32)`: An arbitrary snapshot format identifier. This can be used to version snapshot
   formats, e.g. to switch from Protobuf to MessagePack for serialization. The application can use
   this when restoring to choose whether to accept or reject a snapshot.
 
-* `Chunks (uint32)`: The number of chunks in the snapshot. Each chunk contains arbitrary binary
+- `Chunks (uint32)`: The number of chunks in the snapshot. Each chunk contains arbitrary binary
   data, and should be less than 16 MB; 10 MB is a good starting point.
 
-* `Hash ([]byte)`: An arbitrary hash of the snapshot. This is used to check whether a snapshot is
+- `Hash ([]byte)`: An arbitrary hash of the snapshot. This is used to check whether a snapshot is
   the same across nodes when downloading chunks.
 
-* `Metadata ([]byte)`: Arbitrary snapshot metadata, e.g. chunk hashes for verification or any other
+- `Metadata ([]byte)`: Arbitrary snapshot metadata, e.g. chunk hashes for verification or any other
   necessary info.
 
 For a snapshot to be considered the same across nodes, all of these fields must be identical. When
@@ -1072,14 +1071,14 @@ application via the ABCI `ListSnapshots` method to discover available snapshots,
 snapshot chunks via `LoadSnapshotChunk`. The application is free to choose how to implement this
 and which formats to use, but must provide the following guarantees:
 
-* **Consistent:** A snapshot must be taken at a single isolated height, unaffected by
+- **Consistent:** A snapshot must be taken at a single isolated height, unaffected by
   concurrent writes. This can be accomplished by using a data store that supports ACID
   transactions with snapshot isolation.
 
-* **Asynchronous:** Taking a snapshot can be time-consuming, so it must not halt chain progress,
+- **Asynchronous:** Taking a snapshot can be time-consuming, so it must not halt chain progress,
   for example by running in a separate thread.
 
-* **Deterministic:** A snapshot taken at the same height in the same format must be identical
+- **Deterministic:** A snapshot taken at the same height in the same format must be identical
   (at the byte level) across nodes, including all metadata. This ensures good availability of
   chunks, and that they fit together across nodes.
 
@@ -1164,10 +1163,10 @@ Once the snapshots have all been restored, Tendermint gathers additional informa
 bootstrapping the node (e.g. chain ID, consensus parameters, validator sets, and block headers)
 from the genesis file and light client RPC servers. It also calls `Info` to verify the following:
 
-* that the app hash from the snapshot it has delivered to the Application matches the apphash
+- that the app hash from the snapshot it has delivered to the Application matches the apphash
   stored in the next height's block (in next block execution), or the current block's height
   (same block execution)
-* that the version that the Application returns in `ResponseInfo` matches the version in the
+- that the version that the Application returns in `ResponseInfo` matches the version in the
   current height's block header
 
 Once the state machine has been restored and Tendermint has gathered this additional

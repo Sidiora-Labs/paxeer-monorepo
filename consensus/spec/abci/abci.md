@@ -1,6 +1,6 @@
 ---
 order: 1
-title: Method and Types
+title: Methods and Types
 ---
 
 # Methods and Types
@@ -131,11 +131,11 @@ internal consensus/P2P type, not a public API routing service.
 The historical name `EvidenceType` is now `MisbehaviorType` in the current ABCI
 protobuf. Its values remain:
 
-| Name | Value |
-| --- | --- |
-| `UNKNOWN` | 0 |
-| `DUPLICATE_VOTE` | 1 |
-| `LIGHT_CLIENT_ATTACK` | 2 |
+| Name                  | Value |
+| --------------------- | ----- |
+| `UNKNOWN`             | 0     |
+| `DUPLICATE_VOTE`      | 1     |
+| `LIGHT_CLIENT_ATTACK` | 2     |
 
 The classic block executor passes verified block evidence as
 `RequestFinalizeBlock.ByzantineValidators`, a slice of `Misbehavior`. The field is
@@ -183,9 +183,9 @@ Decided block:     FinalizeBlock -> save finalized responses -> Commit
 
 The current paths are:
 
-| Path | Application calls and behavior |
-| --- | --- |
-| Autobahn | `runExecute` reads `Info`, initializes a fresh application with `InitChain`, then calls `FinalizeBlock` and `Commit` for each available global block. It does not call `ProcessProposal` in this execution loop. |
+| Path              | Application calls and behavior                                                                                                                                                                                            |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Autobahn          | `runExecute` reads `Info`, initializes a fresh application with `InitChain`, then calls `FinalizeBlock` and `Commit` for each available global block. It does not call `ProcessProposal` in this execution loop.          |
 | Classic consensus | `ProcessProposal` evaluates a proposal before acceptance. `BlockExecutor.ApplyBlock` finalizes a decided block, saves responses, applies validator/parameter updates, commits the application, and saves consensus state. |
 
 Autobahn constructs a `RequestFinalizeBlock` from the global block's ordered
@@ -250,18 +250,18 @@ there is no ABCI socket queue to flush.
 `Info(context.Context, *RequestInfo) (*ResponseInfo, error)` reports application
 metadata and the last committed state.
 
-| Request field | Go type |
-| --- | --- |
-| `Version`, `AbciVersion` | `string` |
+| Request field                | Go type  |
+| ---------------------------- | -------- |
+| `Version`, `AbciVersion`     | `string` |
 | `BlockVersion`, `P2PVersion` | `uint64` |
 
-| Response field | Meaning |
-| --- | --- |
-| `Data`, `Version` | Application name/information and software version |
-| `AppVersion` | Application protocol version (`uint64`) |
-| `LastBlockHeight` | Committed store version (`int64`) |
-| `LastBlockAppHash` | Hash of that committed version (`[]byte`) |
-| `MinimumGasPrices` | Local minimum gas prices (`string`) |
+| Response field     | Meaning                                           |
+| ------------------ | ------------------------------------------------- |
+| `Data`, `Version`  | Application name/information and software version |
+| `AppVersion`       | Application protocol version (`uint64`)           |
+| `LastBlockHeight`  | Committed store version (`int64`)                 |
+| `LastBlockAppHash` | Hash of that committed version (`[]byte`)         |
+| `MinimumGasPrices` | Local minimum gas prices (`string`)               |
 
 The SDK implementation reads the last commit ID from its multistore. A hash
 calculated during finalization is not yet a new committed height for `Info`.
@@ -271,13 +271,13 @@ calculated during finalization is not yet a new committed height for `Info`.
 `InitChain(context.Context, *RequestInitChain) (*ResponseInitChain, error)`
 initializes application state from genesis.
 
-| Request field | Go type / purpose |
-| --- | --- |
-| `Time` | `time.Time`, genesis time |
-| `ChainId` | `string`, consensus chain ID, distinct from the EVM numeric chain ID |
-| `ConsensusParams` | `*tendermint/types.ConsensusParams` |
-| `AppStateBytes` | `[]byte`, serialized genesis application state |
-| `InitialHeight` | `int64`, first block height |
+| Request field     | Go type / purpose                                                    |
+| ----------------- | -------------------------------------------------------------------- |
+| `Time`            | `time.Time`, genesis time                                            |
+| `ChainId`         | `string`, consensus chain ID, distinct from the EVM numeric chain ID |
+| `ConsensusParams` | `*tendermint/types.ConsensusParams`                                  |
+| `AppStateBytes`   | `[]byte`, serialized genesis application state                       |
+| `InitialHeight`   | `int64`, first block height                                          |
 
 The response has `Validators []ValidatorUpdate` and `AppHash []byte`.
 There is no request `Validators` field and no response `ConsensusParams` field in
@@ -315,15 +315,15 @@ application's admission checks.
 
 The embedded protobuf `ResponseCheckTx` contains:
 
-| Field | Go type | Protobuf number |
-| --- | --- | --- |
-| `Code` | `uint32` | 1 |
-| `Data` | `[]byte` | 2 |
-| `Log` | `string` | 3 |
-| `GasWanted` | `int64` | 5 |
-| `Codespace` | `string` | 8 |
-| `Priority` | `int64` | 10 |
-| `GasEstimated` | `int64` | 12 |
+| Field          | Go type  | Protobuf number |
+| -------------- | -------- | --------------- |
+| `Code`         | `uint32` | 1               |
+| `Data`         | `[]byte` | 2               |
+| `Log`          | `string` | 3               |
+| `GasWanted`    | `int64`  | 5               |
+| `Codespace`    | `string` | 8               |
+| `Priority`     | `int64`  | 10              |
+| `GasEstimated` | `int64`  | 12              |
 
 It has no `Info`, `GasUsed`, or `Events` fields. The V2 wrapper adds local
 mempool metadata: `IsEVM`, `EVMNonce`, `EVMHash`, `EVMSenderAddress`,
@@ -354,21 +354,21 @@ method belongs to the classic proposal path; Autobahn's execution loop invokes
 `FinalizeBlock(context.Context, *RequestFinalizeBlock)` returns
 `(*ResponseFinalizeBlock, error)` for the decided block.
 
-| Request field | Go type |
-| --- | --- |
-| `Txs` | `[][]byte`, in decided order |
-| `DecidedLastCommit` | `CommitInfo` |
-| `ByzantineValidators` | `[]Misbehavior` |
-| `Hash` | `[]byte`, mode-specific block identifier |
-| `Header` | `*tendermint/types.Header` |
+| Request field         | Go type                                  |
+| --------------------- | ---------------------------------------- |
+| `Txs`                 | `[][]byte`, in decided order             |
+| `DecidedLastCommit`   | `CommitInfo`                             |
+| `ByzantineValidators` | `[]Misbehavior`                          |
+| `Hash`                | `[]byte`, mode-specific block identifier |
+| `Header`              | `*tendermint/types.Header`               |
 
-| Response field | Go type | Protobuf number |
-| --- | --- | --- |
-| `Events` | `[]Event` | 1 |
-| `TxResults` | `[]*ExecTxResult` | 2 |
-| `ValidatorUpdates` | `[]ValidatorUpdate` | 3 |
-| `ConsensusParamUpdates` | `*tendermint/types.ConsensusParams` | 4 |
-| `AppHash` | `[]byte` | 5 |
+| Response field          | Go type                             | Protobuf number |
+| ----------------------- | ----------------------------------- | --------------- |
+| `Events`                | `[]Event`                           | 1               |
+| `TxResults`             | `[]*ExecTxResult`                   | 2               |
+| `ValidatorUpdates`      | `[]ValidatorUpdate`                 | 3               |
+| `ConsensusParamUpdates` | `*tendermint/types.ConsensusParams` | 4               |
+| `AppHash`               | `[]byte`                            | 5               |
 
 Return transaction results in the same order as `Txs`. The normal node execution
 path produces block events, execution results, validator updates, parameter
@@ -424,14 +424,14 @@ this Go interface does not specify a universal chunk size limit.
 trusted application hash). `ResponseOfferSnapshot.Result` uses the following
 values from `plain_types.go`:
 
-| Result | Value | State-sync action |
-| --- | --- | --- |
-| `UNKNOWN` | 0 | Invalid/unknown result; abort restoration |
-| `ACCEPT` | 1 | Start applying this snapshot |
-| `ABORT` | 2 | Abort restoration |
-| `REJECT` | 3 | Reject this snapshot |
-| `REJECT_FORMAT` | 4 | Reject snapshots with this format |
-| `REJECT_SENDER` | 5 | Reject snapshots from this sender |
+| Result          | Value | State-sync action                         |
+| --------------- | ----- | ----------------------------------------- |
+| `UNKNOWN`       | 0     | Invalid/unknown result; abort restoration |
+| `ACCEPT`        | 1     | Start applying this snapshot              |
+| `ABORT`         | 2     | Abort restoration                         |
+| `REJECT`        | 3     | Reject this snapshot                      |
+| `REJECT_FORMAT` | 4     | Reject snapshots with this format         |
+| `REJECT_SENDER` | 5     | Reject snapshots from this sender         |
 
 ### ApplySnapshotChunk
 
@@ -439,14 +439,14 @@ values from `plain_types.go`:
 `Sender string`. `ResponseApplySnapshotChunk` contains `Result`,
 `RefetchChunks []uint32`, and `RejectSenders []string`.
 
-| Result | Value | State-sync action |
-| --- | --- | --- |
-| `UNKNOWN` | 0 | Invalid/unknown result; abort restoration |
-| `ACCEPT` | 1 | Accept this chunk |
-| `ABORT` | 2 | Abort restoration |
-| `RETRY` | 3 | Retry the chunk, using refetch/sender instructions |
-| `RETRY_SNAPSHOT` | 4 | Restart this snapshot |
-| `REJECT_SNAPSHOT` | 5 | Reject this snapshot and try another |
+| Result            | Value | State-sync action                                  |
+| ----------------- | ----- | -------------------------------------------------- |
+| `UNKNOWN`         | 0     | Invalid/unknown result; abort restoration          |
+| `ACCEPT`          | 1     | Accept this chunk                                  |
+| `ABORT`           | 2     | Abort restoration                                  |
+| `RETRY`           | 3     | Retry the chunk, using refetch/sender instructions |
+| `RETRY_SNAPSHOT`  | 4     | Restart this snapshot                              |
+| `REJECT_SNAPSHOT` | 5     | Reject this snapshot and try another               |
 
 The SDK snapshot manager returns `RETRY` with the chunk index in `RefetchChunks`
 and the peer in `RejectSenders` on a chunk-hash mismatch. Other restore failures
@@ -460,17 +460,17 @@ use the Go declarations and protobuf links above for exact fork definitions.
 
 ### ExecTxResult
 
-| Field | Go type | Protobuf number |
-| --- | --- | --- |
-| `Code` | `uint32` | 1 |
-| `Data` | `[]byte` | 2 |
-| `Log` | `string` | 3 |
-| `Info` | `string` | 4 |
-| `GasWanted` | `int64` | 5 |
-| `GasUsed` | `int64` | 6 |
-| `Events` | `[]Event` | 7 |
-| `Codespace` | `string` | 8 |
-| `EvmTxInfo` | `*EvmTxInfo` | 9 |
+| Field       | Go type      | Protobuf number |
+| ----------- | ------------ | --------------- |
+| `Code`      | `uint32`     | 1               |
+| `Data`      | `[]byte`     | 2               |
+| `Log`       | `string`     | 3               |
+| `Info`      | `string`     | 4               |
+| `GasWanted` | `int64`      | 5               |
+| `GasUsed`   | `int64`      | 6               |
+| `Events`    | `[]Event`    | 7               |
+| `Codespace` | `string`     | 8               |
+| `EvmTxInfo` | `*EvmTxInfo` | 9               |
 
 `EvmTxInfo` contains `SenderAddress string`, `Nonce uint64`, `TxHash string`, and
 `VmError string`. Its protobuf field spellings are `senderAddress`, `nonce`,

@@ -25,30 +25,33 @@ brand color).
 
 ## The platform contract
 
-Every pattern component resolves its variant from:
+Every pattern component uses its explicit `platform` prop when supplied, otherwise
+the nearest `PlatformProvider` value. Both accept `"mobile"`, `"desktop"`, or
+`"auto"`; the default is `"auto"`.
 
-1. an explicit `platform="mobile" | "desktop"` prop, else
-2. the nearest `<PlatformProvider value="…">`, else
-3. the viewport (`<768px` = mobile).
+`"auto"` follows the viewport query `(max-width: 767px)`, with matching viewports
+rendering the mobile variant. Server rendering and the first client render use
+the desktop variant until the media query is read. An explicit `platform="auto"`
+follows the viewport even inside a provider set to `"mobile"` or `"desktop"`.
 
-| Pattern              | Mobile                                   | Desktop                                        |
-| -------------------- | ---------------------------------------- | ---------------------------------------------- |
-| Navigation           | Bottom tab bar + center action (FAB)     | Left sidebar: approval badge, Explorer, settings footer |
-| Primary action       | Full-width pinned pill at thumb reach    | Fixed-width button in pane footer / page header |
-| Confirmation         | Bottom sheet with consequence copy       | Centered modal, max 440px, Esc + overlay, focus-trapped |
-| Detail / education   | Bottom sheet or pushed screen            | Right drawer or inline expanding section       |
-| Filters              | Sheet with Clear + Apply                 | Popovers on filter chips; calendar range picker |
-| Money lists          | Stacked rows, month bands with subtotals | Sortable table, hover, sticky group rows, export |
-| Multi-step journeys  | Full-screen wizard, one decision/screen  | Split pane: form + live "what will happen" summary |
-| Search               | Pushed search screen                     | Cmd+K command bar with type-ahead              |
-| Code entry           | Tap-per-box kit + on-screen keypad       | Single segmented input, full paste, auto-advance |
-| Notifications        | Pushed screen with recency segments      | Bell popover + full archive page               |
+| Pattern             | Mobile                                   | Desktop                                                 |
+| ------------------- | ---------------------------------------- | ------------------------------------------------------- |
+| Navigation          | Bottom tab bar + center action (FAB)     | Left sidebar: approval badge, Explorer, settings footer |
+| Primary action      | Full-width pinned pill at thumb reach    | Fixed-width button in pane footer / page header         |
+| Confirmation        | Bottom sheet with consequence copy       | Centered modal, max 440px, Esc + overlay, focus-trapped |
+| Detail / education  | Bottom sheet or pushed screen            | Right drawer or inline expanding section                |
+| Filters             | Sheet with Clear + Apply                 | Popovers on filter chips; calendar range picker         |
+| Money lists         | Stacked rows, month bands with subtotals | Sortable table, hover, sticky group rows, export        |
+| Multi-step journeys | Full-screen wizard, one decision/screen  | Split pane: form + live "what will happen" summary      |
+| Search              | Pushed search screen                     | Cmd+K command bar with type-ahead                       |
+| Code entry          | Tap-per-box kit + on-screen keypad       | Single segmented input, full paste, auto-advance        |
+| Notifications       | Pushed screen with recency segments      | Bell popover + full archive page                        |
 
 ## Quick start
 
 ```tsx
 "use client";
-import { AppShell, MoneyList, ConfirmDialog } from "@layerx/ui";
+import { AppShell } from "@layerx/ui";
 
 const nav = [
   { id: "home", label: "Home" },
@@ -73,6 +76,8 @@ export default function Page() {
 - `src/styles/tokens.css` — the design tokens (`@layerx/ui/styles.css`)
 
 ## Build
+
+From `apps/web/packages/layerx-ui`:
 
 ```bash
 npm run build   # tsup → dist/ (ESM + CJS + d.ts), "use client" banner included
