@@ -1,7 +1,7 @@
 [repair.22.33.285]
 finding = "crosschain-transfer-key"
 tests = ["sameSourceRecipientsAndDestinations", "exactDuplicateOccurrences", "stableKeysAcrossListUpdates", "compositeIdentityPreservesFieldBoundaries"]
-test_file = "apps/explorer/ui/crossChain/transfers/repair-22-33-285.spec.ts"
+test_file = "apps/explorer/ui/crossChain/transfers/transferIdentity.spec.ts"
 proof = "Committed transfer fixtures cross JSON serialization into the production key function and both production list/table element producers; assertions inspect the actual row keys and transfer props without replacing components."
 identity = "The producer type has no transfer id or occurrence ordinal; use a fixed-position JSON tuple of bridge name, message, source/destination addresses, amounts, chains, transactions and send timestamp, plus an occurrence ordinal among matching identities within each response."
 stability = "Unrelated insertion, deletion, recipient reordering and loading state preserve keys; indistinguishable duplicates retain ordinal identities in response order because the producer provides no stronger distinction."
@@ -14,7 +14,7 @@ revision = "de02ef0598cc0538965f1ce3c564ef6b060f0195"
 command = "pnpm --dir apps/explorer exec tsc --noEmit -p tsconfig.json"
 exit = 2
 log = "/out/logs/build-1.log"
-observed = "TypeScript cannot resolve ganache in ui/marketplace/essentialDapps/revoke/hooks/repair-22-31-381.spec.ts:2; that existing file and its dependencies are outside the transfer repair scope."
+observed = "TypeScript cannot resolve ganache in ui/marketplace/essentialDapps/revoke/hooks/nftRevocation.spec.ts:2; that existing file and its dependencies are outside the transfer repair scope."
 assumption = "The owning marketplace task must supply its declared ganache dependency; this repair does not alter that test or dependency declarations."
 
 [qualification.formatter_registration]

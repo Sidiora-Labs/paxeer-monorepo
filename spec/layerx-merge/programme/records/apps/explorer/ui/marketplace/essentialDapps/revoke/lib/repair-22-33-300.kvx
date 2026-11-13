@@ -1,6 +1,6 @@
 [repair.22.33.300]
 finding = "log-split-termination"
-test_file = "apps/explorer/ui/marketplace/essentialDapps/revoke/lib/repair-22-33-300.spec.ts"
+test_file = "apps/explorer/ui/marketplace/essentialDapps/revoke/lib/getLogs.spec.ts"
 tests = ["logSplitTerminationReturnsEveryDecodedApprovalInOrder", "logSplitTerminationRejectsInvalidRangesBeforeRpc", "logSplitTerminationDoesNotSplitOrRetryOtherFailures", "logSplitTerminationStopsAtOneBlockAndDiscardsPartialResults", "logSplitTerminationBoundsTotalRequestsBeforeAnIndivisibleRange", "logSplitTerminationCancelsTheInflightHttpRequest"]
 producer_transport_consumer = "Committed in-memory approval log store served over a loopback JSON-RPC HTTP server, real viem transport and ABI codec, production getLogs scan, decoded approvals and terminal errors asserted by the consumer."
 implementation = "Only explicit RPC range/result-limit errors split; one block is terminal; invalid ranges and blockHash/range combinations are rejected; zero transport retries, one active chunk, 1024 total requests and a 60-second deadline bound the scan; HTTP cancellation aborts in-flight fetches; a terminal failure rejects the entire scan with its original cause."
@@ -43,7 +43,7 @@ revision = "f009ac6f5c1cb20987bc0a2bdfe8160494c11fd8"
 command = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
 exit = 2
 log = "/out/logs/build-1.log"
-observed = "hf-build failed with TS2769 in the out-of-scope components/repair-22-33-299.spec.ts:116 because its query fixture lacks coverage, partialAllowances, scanIssues and retry; hf-done and the six regression tests did not run."
+observed = "hf-build failed with TS2769 in the out-of-scope components/approvalsInventory.spec.ts:116 because its query fixture lacks coverage, partialAllowances, scanIssues and retry; hf-done and the six regression tests did not run."
 assumption = "The owning domain must repair the existing component test interface; no task-scoped change can repair that call without widening types or weakening checks, so the unrelated failure is recorded once and not rerun."
 
 [gotcha.fixture-events]

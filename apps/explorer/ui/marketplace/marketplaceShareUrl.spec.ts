@@ -57,11 +57,11 @@ function renderMarketplace(component: React.ReactElement) {
   function MarketplacePage() {
     return component;
   }
-  window.__NEXT_DATA__ = { props: {}, page: '/apps', query: {}, buildId: 'repair-22-33-301' };
+  window.__NEXT_DATA__ = { props: {}, page: '/apps', query: {}, buildId: 'marketplace-share-url' };
   window.__DEV_MIDDLEWARE_MATCHERS = [];
   const router = new Router('/apps', {}, '/apps', {
     initialProps: {},
-    pageLoader: new PageLoader('repair-22-33-301', ''),
+    pageLoader: new PageLoader('marketplace-share-url', ''),
     App,
     Component: MarketplacePage,
     wrapApp: (component) => component,

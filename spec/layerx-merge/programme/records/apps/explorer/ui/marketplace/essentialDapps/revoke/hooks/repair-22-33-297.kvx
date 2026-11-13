@@ -42,7 +42,7 @@ tests = ["nftCurrentOwnerRejectsTransferredAndReapprovedToken"]
 repair = "ownerOf must match the searched owner before getApproved is read or a token permission is displayed."
 
 [proof]
-test_file = "apps/explorer/ui/marketplace/essentialDapps/revoke/hooks/repair-22-33-297.spec.ts"
+test_file = "apps/explorer/ui/marketplace/essentialDapps/revoke/hooks/approvalDiscoveryAndRevocation.spec.ts"
 path = "Production hook callbacks and QueryClient -> real API fetch and viem HTTP/ABI encoders/decoders -> loopback API/RPC transcript -> production permission rows, coverage errors and submission state."
 constraints = "No mocks, native artifacts, subprocesses, environment overrides, credentials or live endpoints; the test owns and closes its loopback server and React Query clients."
 

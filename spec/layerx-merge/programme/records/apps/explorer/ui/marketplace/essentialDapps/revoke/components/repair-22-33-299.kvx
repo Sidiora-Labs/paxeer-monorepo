@@ -1,7 +1,7 @@
 [repair.22.33.299]
 audit = "22.30.135"
 finding = "approvals-error-display"
-proof = "repair-22-33-299.spec.ts: approvalsErrorDisplayRetriesFailedScan, approvalsErrorDisplayRejectsIncompleteEmptyScan, approvalsErrorDisplayPreservesPartialApprovals and approvalsErrorDisplayPreservesDataAfterRefetchFailure drive real React Query observers into production Content, Approvals and DataListDisplay and retry the in-memory inventory store."
+proof = "approvalsInventory.spec.ts: approvalsErrorDisplayRetriesFailedScan, approvalsErrorDisplayRejectsIncompleteEmptyScan, approvalsErrorDisplayPreservesPartialApprovals and approvalsErrorDisplayPreservesDataAfterRefetchFailure drive real React Query observers into production Content, Approvals and DataListDisplay and retry the in-memory inventory store."
 baseline = "Not run: the explicit implementation-first gate order forbids the unchanged-tree verify requested by step 5; no pre-change failure is claimed. The original Content discards error and coverage state and Approvals forces isError=false."
 wiring_request = "Domain 14: apps/explorer/ui/marketplace/essentialDapps/revoke/hooks/useApprovalsQuery.tsx must propagate terminal scan errors instead of returning [], and expose isIncomplete when any scanner returns incomplete coverage; Content now accepts and forwards both states."
 evidence = "The runner-owned hf-build and hf-done ledger records identify the candidate revision, exact command, exit code and private log; no post-qualification candidate edits are made."

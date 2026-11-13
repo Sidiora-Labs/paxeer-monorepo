@@ -10,13 +10,9 @@ import { afterEach, beforeEach, expect, test } from 'vitest';
 
 import { getRevokeContractParameters, verifyNftRevocation } from './revokeApproval';
 
-// Task 22.31.440 fixture source: the MyNFT approval/read/error shapes exercised by
-// repair 22.31.381 against contracts/src/ERC721.sol. Replay uses ABI words and
-// explicit block snapshots, never computes permissions from the hook's writes.
-// Kept: both token IDs, operator isolation, both mismatched-receipt refusals,
-// historical committed-block reads after reapproval, and the burned-token error.
-// Baseline verify was not run: the ordered gates forbid verification before
-// implementation; qualification.kvx finding 22.31.405.1 records the import failure.
+// ERC721 approval and read responses from contracts/src/ERC721.sol use ABI words
+// and explicit block snapshots for token and operator revocation, receipt checks,
+// historical reads after reapproval, and burned-token errors.
 const owner: Address = '0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1';
 const spender: Address = '0xFFcf8FDEE72ac11b5c542428B35EEF5769C409f0';
 const address: Address = '0xe78A0F7E598Cc8b0Bb87894B0F60dD2a88d6a8Ab';

@@ -1,7 +1,7 @@
 [repair.22.33.408]
 base = "de8ab245609a7e0707cc32c502b6dcbe17ce3aca"
 acceptance = "22998.1"
-test_file = "apps/explorer/ui/home/repair-22-33-408.spec.ts"
+test_file = "apps/explorer/ui/home/homepageConfiguration.spec.ts"
 proof = "Production configuration loaders, useApiQuery/useFetch, Chakra/color-mode providers, Next router and rendered homepage components consume committed fixtures over a test-owned loopback HTTP server; no live services or credentials."
 baseline = "No baseline gate ran: the ordered task instructions forbid tests before implementation is complete and prohibit invoking verify_cmd outside hf-done; the starting tree had no repair test or gate ledger. No before-change failures are claimed."
 evidence = "The runner's hf-build/hf-done ledger records the candidate revision, exact command, exit code and private log; completion requires hf-done success."

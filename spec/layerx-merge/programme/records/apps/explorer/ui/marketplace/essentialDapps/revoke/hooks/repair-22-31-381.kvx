@@ -1,7 +1,7 @@
 [repair.22.31.381]
 finding = "nft-token-revoke"
 tests = ["nftTokenRevokeClearsOnlySelectedToken", "nftOperatorRevokeClearsOnlyCollectionPermission", "nftTokenRevokeRejectsSuccessfulOperatorOnlyReceipt", "nftOperatorRevokeRejectsSuccessfulTokenOnlyReceipt", "nftRevocationChecksTheCommittedBlock", "nftRevocationPropagatesReadFailure"]
-test_file = "apps/explorer/ui/marketplace/essentialDapps/revoke/hooks/repair-22-31-381.spec.ts"
+test_file = "apps/explorer/ui/marketplace/essentialDapps/revoke/hooks/nftRevocation.spec.ts"
 producer = "contracts/src/ERC721.sol:MyNFT, compiled and executed on Ganache through viem"
 consumer = "useRevoke uses getRevokeContractParameters and verifyNftRevocation before returning success"
 baseline = "Not executed: the ordered qualification instructions forbid testing before implementation and running verify_cmd outside hf-done. No baseline failures are claimed."

@@ -1,6 +1,6 @@
 [repair.22.33.303]
 base_revision = "117197c811684e097104c96b29e872d45034cebb"
-test_file = "apps/explorer/ui/multichain/searchResults/repair-22-33-303.spec.ts"
+test_file = "apps/explorer/ui/multichain/searchResults/searchRecoveryAndNavigation.spec.ts"
 qualification = "The runner's hf-build and hf-done ledger records the exact candidate revision, command, exit code and private evidence log."
 baseline = "Not run: the explicit implementation-first gate order prohibits the unchanged-tree verification requested by step 6; no baseline failures are claimed."
 wiring_requests = []

@@ -15,7 +15,7 @@ tests = ["nftOperatorOnlyCollectionIsDiscoveredOnceAcrossEventKinds", "nftContra
 repair = "The base already normalizes the union of NFT Approval, ApprovalForAll and Transfer addresses with getAddress and Set. Preserve this production discovery and prove an ApprovalForAll-only collection, mixed-case duplicate contracts across event kinds, and interleaved ERC20 approvals through the real provider and hook."
 
 [proof]
-test_file = "apps/explorer/ui/marketplace/essentialDapps/revoke/hooks/repair-22-33-298.spec.ts"
+test_file = "apps/explorer/ui/marketplace/essentialDapps/revoke/hooks/nftApprovalDiscovery.spec.ts"
 path = "Committed ERC721 log/read transcripts -> loopback JSON-RPC/API server -> real viem transport and ABI codecs -> production NFT hook -> approvalsQueryOptions -> React Query error, retained rows and retry."
 constraints = "No live endpoints, credentials, environment overrides, subprocesses, native artifacts, mocks or fake component implementations. The test closes its loopback server and QueryClient."
 
@@ -36,11 +36,11 @@ revision = "261069222dbf9536537916b35be5f6dd78f444ea"
 command = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
 exit = 2
 log = "/out/logs/build-1.log"
-observed = "Pre-existing TS2769 at ui/marketplace/essentialDapps/revoke/components/repair-22-33-299.spec.ts:116: its query fixture lacks coverage, partialAllowances, scanIssues and retry; the base hook already requires these fields."
+observed = "Pre-existing TS2769 at ui/marketplace/essentialDapps/revoke/components/approvalsInventory.spec.ts:116: its query fixture lacks coverage, partialAllowances, scanIssues and retry; the base hook already requires these fields."
 assumption = "The explorer revoke components domain owns this out-of-scope fixture repair; no task hook error was reported, no check is weakened, and hf-done and the regression tests have not run."
 
 [qualification.eslint-attempt-2]
-command = "cd apps/explorer && yarn eslint --fix ui/marketplace/essentialDapps/revoke/hooks/approvalScan.ts ui/marketplace/essentialDapps/revoke/hooks/useApprovalsQuery.tsx ui/marketplace/essentialDapps/revoke/hooks/useSearchNftAllowances.tsx ui/marketplace/essentialDapps/revoke/hooks/repair-22-33-298.spec.ts"
+command = "cd apps/explorer && yarn eslint --fix ui/marketplace/essentialDapps/revoke/hooks/approvalScan.ts ui/marketplace/essentialDapps/revoke/hooks/useApprovalsQuery.tsx ui/marketplace/essentialDapps/revoke/hooks/useSearchNftAllowances.tsx ui/marketplace/essentialDapps/revoke/hooks/nftApprovalDiscovery.spec.ts"
 exit = 1
 log = "/out/logs/eslint-22-33-298.log"
 observed = "Only the seven required test(namedFunction) registrations report vitest/valid-title and vitest/expect-expect; assertions remain in their named functions."
@@ -63,7 +63,7 @@ observed = "Vitest treats single-argument function registrations as todo; ESLint
 action = "Register each exact test name and its hoisted named callback before its declaration so Vitest executes it and ESLint can find the existing assertions."
 
 [qualification.eslint-final]
-command = "cd apps/explorer && yarn eslint --fix ui/marketplace/essentialDapps/revoke/hooks/repair-22-33-298.spec.ts"
+command = "cd apps/explorer && yarn eslint --fix ui/marketplace/essentialDapps/revoke/hooks/nftApprovalDiscovery.spec.ts"
 exit = 0
 log = "/out/logs/eslint-22-33-298-final.log"
 observed = "The supported registration and declaration order resolve all fourteen lint findings without changing test bodies, weakening assertions or disabling checks."
