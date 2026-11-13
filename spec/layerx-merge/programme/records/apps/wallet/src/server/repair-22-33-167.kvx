@@ -1,7 +1,7 @@
 [repair.22.33.167]
 audit = "22.30.118"
 baseline = "Not run: the explicit implementation-first and hf-build/hf-done-only gate order prohibits unchanged-tree verification; no pre-change failing execution is claimed. The starting tree already locked read/migration and persisted corruption markers from task 22.31.246."
-paths = ["atomic-json-store.ts", "atomic-json-store.test.ts", "push-store.ts", "push-service.ts", "repair-22-33-167.test.ts", "repair-22-33-167.store-fixture.ts", "fixtures/repair-22-33-167"]
+paths = ["atomic-json-store.ts", "atomic-json-store.test.ts", "push-store.ts", "push-service.ts", "push-delivery-lifecycle.test.ts", "atomic-json-store-fixture.ts", "fixtures/push-delivery"]
 wiring_requests = []
 evidence = "The private hf-build/hf-done ledger binds qualification to the exact candidate revision, commands, exit codes and log paths; completion is claimed only after hf-done passes."
 

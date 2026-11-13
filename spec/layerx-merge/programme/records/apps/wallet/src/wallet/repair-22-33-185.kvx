@@ -1,6 +1,6 @@
 [repair.22.33.185]
 audit = "spec/layerx-merge/programme/audit/records/22.30.119.kvx"
-test_path = "apps/wallet/src/wallet/repair-22-33-185.test.ts"
+test_path = "apps/wallet/src/wallet/connected-network-signing.test.ts"
 baseline = "Not run: the explicit gate order prohibits tests before full implementation and requires hf-build before hf-done; no pre-change gate failure is claimed. The provider finding is a coverage gap whose production repair is already present from 22.31.248; the new proof adds successful virtual sends and actual HTTPS routing before and after restart."
 wiring_requests = []
 evidence = "The private runner ledger records the verified candidate revision, exact command, exit code and log; final output copies its final gate line without modifying the qualified tree."

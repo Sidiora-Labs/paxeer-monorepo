@@ -1,6 +1,6 @@
 [repair.22.33.140]
 audit = "22.30.115"
-path = "apps/wallet/src/widgets/tokenDetail/repair-22-33-140.test.ts"
+path = "apps/wallet/src/widgets/tokenDetail/token-detail-market-and-precision.test.ts"
 market-stats-window = "market_stats_window_is_independent_of_chart_period; market_stats_window_reports_missing_coverage"
 wpax-address-detection = "wpax_address_detection_uses_active_chain_and_exact_alias"
 token-detail-zero-decimals = "token_detail_zero_decimals_preserves_units_through_display_and_actions; token_detail_precision_is_null_aware_and_validated"

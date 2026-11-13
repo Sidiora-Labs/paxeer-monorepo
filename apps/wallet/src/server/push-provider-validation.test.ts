@@ -61,7 +61,7 @@ function browserSubscription(endpoint = 'https://fcm.googleapis.com/fcm/send/dev
 }
 
 async function openComponents() {
-  const directory = await mkdtemp(path.join(os.tmpdir(), 'repair-22-33-168-'));
+  const directory = await mkdtemp(path.join(os.tmpdir(), 'push-provider-'));
   cleanup.push(() => rm(directory, { recursive: true, force: true }));
   vi.stubEnv('PUSH_DATA_DIR', directory);
   const vapid = webpush.generateVAPIDKeys();
@@ -84,7 +84,7 @@ async function openComponents() {
 }
 
 async function pushProvider(browser: ReturnType<typeof browserSubscription>) {
-  const fixture = path.join(__dirname, 'fixtures/repair-22-33-168');
+  const fixture = path.join(__dirname, 'fixtures/push-provider');
   const [key, cert] = await Promise.all([
     readFile(path.join(fixture, 'push-provider.key')),
     readFile(path.join(fixture, 'push-provider.crt')),

@@ -1,7 +1,7 @@
 [repair.22.31.248]
 finding = "virtual-network-disconnect"
 tests = ["virtual_network_disconnect_switch_retains_identity_and_validates_sends", "virtual_network_disconnect_reload_and_reconnect_restore_selection", "virtual_network_disconnect_refuses_unsaved_switches_and_stale_selection"]
-path = "apps/wallet/src/wallet/repair-22-31-248.test.ts"
+path = "apps/wallet/src/wallet/virtual-network-lifecycle.test.ts"
 proof = "Real WalletNetworkProvider requests persist the selection and emit chainChanged through WalletInterface into the React WalletProvider; send requests traverse the SDK and HTTP gateway boundary; unmount and fresh IdentitySession/WalletProvider instances restore the saved selection and identity."
 send_boundary = "The existing HTTP gateway recording answers on root chain 125; virtual sends prove the selected chain in the transported request and reject that other-chain response, while switching the same wallet back to root proves a successful send."
 baseline = "Not run: the ordered task instructions prohibit verification before complete implementation and require hf-build before hf-done; no unchanged-tree test failure is claimed."

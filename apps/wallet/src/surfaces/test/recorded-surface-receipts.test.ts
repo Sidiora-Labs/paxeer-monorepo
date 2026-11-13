@@ -23,8 +23,14 @@ import {
 } from './recordedReceipts';
 import { decodePayerGrantIssued } from '../useSurface';
 
-function repair_22_39_55_every_baseline_assertion_has_an_explicit_settlement() {
-  const record = readFileSync(path.resolve(__dirname, '../repair-22-39-55.kvx'), 'utf8');
+function every_baseline_assertion_has_an_explicit_settlement() {
+  const record = readFileSync(
+    path.resolve(
+      __dirname,
+      '../../../../../spec/layerx-merge/programme/records/apps/wallet/src/surfaces/repair-22-39-55.kvx'
+    ),
+    'utf8'
+  );
   const sections = record.split(/(?=^\[baseline\.\d+\]$)/m);
   const metadata = sections.shift()!;
   expect(metadata).toContain('baseline_count = 27');
@@ -63,16 +69,16 @@ function repair_22_39_55_every_baseline_assertion_has_an_explicit_settlement() {
     'apps/wallet/src/surfaces/FeeChoice.test.tsx': 1,
     'apps/wallet/src/surfaces/LaunchpadView.test.tsx': 1,
     'apps/wallet/src/surfaces/test/chain.test.tsx': 1,
-    'apps/wallet/src/surfaces/test/repair-22-33-206.test.ts': 1,
+    'apps/wallet/src/surfaces/test/surface-receipt-contract.test.ts': 1,
   });
 }
 
 test(
-  repair_22_39_55_every_baseline_assertion_has_an_explicit_settlement.name,
-  repair_22_39_55_every_baseline_assertion_has_an_explicit_settlement
+  every_baseline_assertion_has_an_explicit_settlement.name,
+  every_baseline_assertion_has_an_explicit_settlement
 );
 
-async function repair_22_39_55_surface_receipt_fixtures_match_the_live_wallet_sdk_shape() {
+async function surface_receipt_fixtures_match_the_live_wallet_sdk_shape() {
   const exchangeAddress = new ethers.Wallet(EXCHANGE_RECORDING_KEY).address.toLowerCase();
   const entries = [...nodeReceiptVectors(), ...surfaceReceiptVectors()];
   expect(new Set(entries.map((entry) => entry.id)).size).toBe(entries.length);
@@ -135,11 +141,11 @@ async function repair_22_39_55_surface_receipt_fixtures_match_the_live_wallet_sd
 }
 
 test(
-  repair_22_39_55_surface_receipt_fixtures_match_the_live_wallet_sdk_shape.name,
-  repair_22_39_55_surface_receipt_fixtures_match_the_live_wallet_sdk_shape
+  surface_receipt_fixtures_match_the_live_wallet_sdk_shape.name,
+  surface_receipt_fixtures_match_the_live_wallet_sdk_shape
 );
 
-async function repair_22_39_55_missing_surface_calls_have_exact_signed_recordings() {
+async function missing_surface_calls_have_exact_signed_recordings() {
   const entries = surfaceReceiptVectors();
   expect(entries.map(({ id }) => id)).toEqual([
     'perps-approve-50123456',
@@ -249,11 +255,11 @@ async function repair_22_39_55_missing_surface_calls_have_exact_signed_recording
 }
 
 test(
-  repair_22_39_55_missing_surface_calls_have_exact_signed_recordings.name,
-  repair_22_39_55_missing_surface_calls_have_exact_signed_recordings
+  missing_surface_calls_have_exact_signed_recordings.name,
+  missing_surface_calls_have_exact_signed_recordings
 );
 
-function repair_22_39_55_ledger_proof_context_is_bound_to_recorded_payment_and_refusal() {
+function ledger_proof_context_is_bound_to_recorded_payment_and_refusal() {
   const proof = recordedLedgerProof();
   const entries = surfaceReceiptVectors();
   const payment = entries.find((entry) => entry.id === proof.paymentReceiptId)!;
@@ -285,6 +291,6 @@ function repair_22_39_55_ledger_proof_context_is_bound_to_recorded_payment_and_r
 }
 
 test(
-  repair_22_39_55_ledger_proof_context_is_bound_to_recorded_payment_and_refusal.name,
-  repair_22_39_55_ledger_proof_context_is_bound_to_recorded_payment_and_refusal
+  ledger_proof_context_is_bound_to_recorded_payment_and_refusal.name,
+  ledger_proof_context_is_bound_to_recorded_payment_and_refusal
 );

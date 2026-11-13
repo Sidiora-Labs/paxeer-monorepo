@@ -7,7 +7,7 @@ import path from 'node:path';
 import webpush from 'web-push';
 import { expect, test } from 'vitest';
 import { createPushService, type PushServiceOptions } from './push-service';
-import { loopbackAgent } from './fixtures/repair-22-33-167/tls-agent';
+import { loopbackAgent } from './fixtures/push-delivery/tls-agent';
 import {
   CAMPAIGN_MAX_ATTEMPTS,
   INACTIVITY_COOLDOWN_MS,
@@ -21,7 +21,7 @@ import {
   store_migration_and_insertion_serialize_in_separate_processes,
   store_publication_crash_boundaries_reopen_with_verified_generations,
   store_live_holder_dead_takeover_and_late_release_keep_ownership,
-} from './repair-22-33-167.store-fixture';
+} from './atomic-json-store-fixture';
 
 const require = createRequire(import.meta.url);
 const ece = createRequire(require.resolve('web-push'))('http_ece') as {
@@ -39,7 +39,7 @@ interface ReceivedPush {
 async function pushEndpoint(
   handler: (received: ReceivedPush, response: HttpServerResponse) => void
 ) {
-  const fixtureDirectory = path.join(__dirname, 'fixtures/repair-22-33-167');
+  const fixtureDirectory = path.join(__dirname, 'fixtures/push-delivery');
   const cert = await readFile(path.join(fixtureDirectory, 'tls-cert.pem'), 'utf8');
   const key = await readFile(path.join(fixtureDirectory, 'tls-key.pem'), 'utf8');
   const recipients = new Map<string, { curve: ReturnType<typeof createECDH>; auth: string }>();

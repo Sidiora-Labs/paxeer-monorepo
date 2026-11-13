@@ -36,7 +36,7 @@ request = "Domain 12: apps/wallet/src/lib/queries/keys.ts, apps/wallet/src/lib/q
 request = "Domain 12: apps/wallet/src/lib/data/facades/wallet.ts must preserve absent/null token precision instead of defaulting to 18; scoped consumers reject unknown precision that reaches their boundary."
 
 [wiring.legacy-pending-interface]
-request = "Domain 12: apps/wallet/src/lib/optimistic.ts, apps/wallet/src/platform/storage/repositories.ts and apps/wallet/src/widgets/send/repair-22-33-136.test.ts should retire the unscoped pending interface and update its historical producer assertion to the scoped repository; this repair neither infers legacy send ownership nor dual-writes unsafe unscoped events."
+request = "Domain 12: apps/wallet/src/lib/optimistic.ts, apps/wallet/src/platform/storage/repositories.ts and apps/wallet/src/widgets/send/send-network-and-recovery.test.ts should retire the unscoped pending interface and update its historical producer assertion to the scoped repository; this repair neither infers legacy send ownership nor dual-writes unsafe unscoped events."
 
 [gotcha.working-directory]
 observed = "An edit script used repository-relative paths while its command ran from apps/wallet; it failed before writing files and was rerun from the repository root."
