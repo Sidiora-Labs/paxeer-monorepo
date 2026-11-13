@@ -13,7 +13,7 @@ import (
 	yaml "gopkg.in/yaml.v2"
 )
 
-func TestRepairM_1361_ModuleIdentity(t *testing.T) {
+func TestSDKVersionFromBuildInfo(t *testing.T) {
 	const root = "github.com/Sidiora-Labs/Paxeer-X-Network"
 	cases := []struct {
 		name     string
@@ -96,7 +96,7 @@ func TestRepairM_1361_ModuleIdentity(t *testing.T) {
 	}
 }
 
-func TestRepairM_1361_RuntimeMetadata(t *testing.T) {
+func TestNewInfoRuntimeProvenance(t *testing.T) {
 	const root = "github.com/Sidiora-Labs/Paxeer-X-Network"
 	want := "unavailable"
 	if info, ok := debug.ReadBuildInfo(); ok {
@@ -125,7 +125,7 @@ func TestRepairM_1361_RuntimeMetadata(t *testing.T) {
 	}
 }
 
-func TestRepairM_1361_NativeMetadataCommand(t *testing.T) {
+func TestVersionCommandBuildMetadata(t *testing.T) {
 	previous := NewInfo()
 	t.Cleanup(func() {
 		Name, AppName, Version, Commit, BuildTags, NativeArchiveDigest = previous.Name, previous.AppName, previous.Version, previous.GitCommit, previous.BuildTags, previous.NativeArchiveDigest
