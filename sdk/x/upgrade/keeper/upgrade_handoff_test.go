@@ -27,11 +27,11 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-func repairM601Keeper(home string) keeper.Keeper {
+func upgradeHandoffKeeper(home string) keeper.Keeper {
 	return keeper.NewKeeper(nil, sdk.NewKVStoreKey(types.StoreKey), codec.NewProtoCodec(codectypes.NewInterfaceRegistry()), home, nil)
 }
 
-func repairM601Store(home string) (*rootmulti.Store, keeper.Keeper) {
+func upgradeHandoffStore(home string) (*rootmulti.Store, keeper.Keeper) {
 	sc := config.DefaultStateCommitConfig()
 	sc.MemIAVLConfig.AsyncCommitBuffer = 0
 	ss := config.DefaultStateStoreConfig()
@@ -42,9 +42,9 @@ func repairM601Store(home string) (*rootmulti.Store, keeper.Keeper) {
 	return rs, keeper.NewKeeper(nil, key, codec.NewProtoCodec(codectypes.NewInterfaceRegistry()), home, nil)
 }
 
-func TestRepairM_601_AtomicHandoff(t *testing.T) {
+func TestUpgradeHandoff_AtomicHandoff(t *testing.T) {
 	home := t.TempDir()
-	k := repairM601Keeper(home)
+	k := upgradeHandoffKeeper(home)
 	old := types.Plan{Name: "old-plan", Height: 20, Info: "old handoff"}
 	newPlan := types.Plan{Name: "new-plan", Height: 30, Info: strings.Repeat("new handoff\n", 8192)}
 	require.NoError(t, k.DumpUpgradeInfoWithInfoToDisk(old.Height, old.Name, old.Info))
@@ -114,7 +114,7 @@ func TestRepairM_601_AtomicHandoff(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, siblings)
 
-	k = repairM601Keeper(home)
+	k = upgradeHandoffKeeper(home)
 	got, err := k.ReadUpgradeInfoFromDisk()
 	require.NoError(t, err)
 	require.Equal(t, storetypes.UpgradeInfo{Name: newPlan.Name, Height: newPlan.Height}, got)
@@ -125,7 +125,7 @@ func TestRepairM_601_AtomicHandoff(t *testing.T) {
 	require.Equal(t, newPlan, fullPlan)
 }
 
-func TestRepairM_601_InterruptedHandoffStartup(t *testing.T) {
+func TestUpgradeHandoff_InterruptedHandoffStartup(t *testing.T) {
 	old := types.Plan{Name: "1.0.4beta", Height: 2, Info: "old oracle migration"}
 	newPlan := types.Plan{Name: "1.1.1beta", Height: 2, Info: "new tokenfactory migration"}
 	for _, tc := range []struct {
@@ -144,7 +144,7 @@ func TestRepairM_601_InterruptedHandoffStartup(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			home := t.TempDir()
-			rs, k := repairM601Store(home)
+			rs, k := upgradeHandoffStore(home)
 			require.NoError(t, rs.LoadLatestVersion())
 			k.SetDone(sdk.NewContext(rs, tmproto.Header{Height: 1}, false), "persisted-marker")
 			require.Equal(t, int64(1), rs.Commit(true).Version)
@@ -155,7 +155,7 @@ func TestRepairM_601_InterruptedHandoffStartup(t *testing.T) {
 
 			// Fault fixture: retain a prefix (or all) of an actual producer's
 			// output as the temporary sibling left by an interrupted write.
-			producer := repairM601Keeper(t.TempDir())
+			producer := upgradeHandoffKeeper(t.TempDir())
 			require.NoError(t, producer.DumpUpgradeInfoWithInfoToDisk(newPlan.Height, newPlan.Name, newPlan.Info))
 			source, err := producer.GetUpgradeInfoPath()
 			require.NoError(t, err)
@@ -180,7 +180,7 @@ func TestRepairM_601_InterruptedHandoffStartup(t *testing.T) {
 			}
 
 			// Reopen both the disk stores and keeper, as a new binary does.
-			rs, k = repairM601Store(home)
+			rs, k = upgradeHandoffStore(home)
 			bapp := baseapp.NewBaseApp(t.Name(), dbm.NewMemDB(), nil, nil, paxapp.TestAppOpts{})
 			bapp.SetCMS(rs)
 			defer func() { require.NoError(t, bapp.Close()) }()
@@ -220,9 +220,9 @@ func TestRepairM_601_InterruptedHandoffStartup(t *testing.T) {
 	}
 }
 
-func TestRepairM_601_WriteFailureAndCorruptPublishedFile(t *testing.T) {
+func TestUpgradeHandoff_WriteFailureAndCorruptPublishedFile(t *testing.T) {
 	home := t.TempDir()
-	k := repairM601Keeper(home)
+	k := upgradeHandoffKeeper(home)
 	live, err := k.GetUpgradeInfoPath()
 	require.NoError(t, err)
 	// A directory at the destination forces a real rename failure after staging.
@@ -240,18 +240,18 @@ func TestRepairM_601_WriteFailureAndCorruptPublishedFile(t *testing.T) {
 	require.NoError(t, os.Remove(live))
 	require.NoError(t, k.DumpUpgradeInfoToDisk(2, "valid"))
 	require.NoError(t, os.Truncate(live, 1))
-	_, err = repairM601Keeper(home).ReadUpgradeInfoFromDisk()
+	_, err = upgradeHandoffKeeper(home).ReadUpgradeInfoFromDisk()
 	require.Error(t, err, "corruption of an already published file must remain visible")
 }
 
-type repairM601LookupCase struct {
+type upgradeHandoffLookupCase struct {
 	name   string
 	plans  []types.Plan
 	middle string
 }
 
-func repairM601LookupCases() []repairM601LookupCase {
-	return []repairM601LookupCase{
+func upgradeHandoffLookupCases() []upgradeHandoffLookupCase {
+	return []upgradeHandoffLookupCase{
 		{"original_order", []types.Plan{{Name: "upgrade1", Height: 15}, {Name: "upgrade2", Height: 20}, {Name: "upgrade3", Height: 25}}, "upgrade2"},
 		{"z_old_a_new", []types.Plan{{Name: "z-old", Height: 15}, {Name: "a-new", Height: 20}, {Name: "m-last", Height: 25}}, "a-new"},
 		{"reverse_insertion", []types.Plan{{Name: "m-last", Height: 25}, {Name: "a-new", Height: 20}, {Name: "z-old", Height: 15}}, "a-new"},
@@ -262,7 +262,7 @@ func repairM601LookupCases() []repairM601LookupCase {
 	}
 }
 
-func repairM601AssertLookup(t *testing.T, k keeper.Keeper, ctx sdk.Context, tc repairM601LookupCase) {
+func upgradeHandoffAssertLookup(t *testing.T, k keeper.Keeper, ctx sdk.Context, tc upgradeHandoffLookupCase) {
 	t.Helper()
 	first, last := "z-old", "m-last"
 	if tc.name == "original_order" {
@@ -286,11 +286,11 @@ func repairM601AssertLookup(t *testing.T, k keeper.Keeper, ctx sdk.Context, tc r
 	}
 }
 
-func TestRepairM_601_LookupOrdering(t *testing.T) {
-	for _, tc := range repairM601LookupCases() {
+func TestUpgradeHandoff_LookupOrdering(t *testing.T) {
+	for _, tc := range upgradeHandoffLookupCases() {
 		t.Run(tc.name, func(t *testing.T) {
 			home := t.TempDir()
-			rs, k := repairM601Store(home)
+			rs, k := upgradeHandoffStore(home)
 			require.NoError(t, rs.LoadLatestVersion())
 			cache := rs.CacheMultiStore()
 			ctx := sdk.NewContext(cache, tmproto.Header{}, false)
@@ -300,21 +300,21 @@ func TestRepairM_601_LookupOrdering(t *testing.T) {
 			for _, plan := range tc.plans {
 				k.SetDone(ctx.WithBlockHeight(plan.Height), plan.Name)
 			}
-			repairM601AssertLookup(t, k, ctx, tc)
+			upgradeHandoffAssertLookup(t, k, ctx, tc)
 			cache.Write()
 			require.Equal(t, int64(1), rs.Commit(true).Version)
 			require.NoError(t, rs.Close())
-			rs, k = repairM601Store(home)
+			rs, k = upgradeHandoffStore(home)
 			defer func() { require.NoError(t, rs.Close()) }()
 			require.NoError(t, rs.LoadLatestVersion())
-			repairM601AssertLookup(t, k, sdk.NewContext(rs, tmproto.Header{Height: 1}, false), tc)
+			upgradeHandoffAssertLookup(t, k, sdk.NewContext(rs, tmproto.Header{Height: 1}, false), tc)
 		})
 	}
 }
 
-func TestRepairM_601_HistoricalConsumerRestart(t *testing.T) {
+func TestUpgradeHandoff_HistoricalConsumerRestart(t *testing.T) {
 	home := t.TempDir()
-	rs, k := repairM601Store(home)
+	rs, k := upgradeHandoffStore(home)
 	require.NoError(t, rs.LoadLatestVersion())
 	for h := int64(1); h <= 26; h++ {
 		ctx := sdk.NewContext(rs, tmproto.Header{Height: h}, false)
@@ -331,7 +331,7 @@ func TestRepairM_601_HistoricalConsumerRestart(t *testing.T) {
 	}
 	require.NoError(t, rs.Close())
 	for restart := 0; restart < 2; restart++ {
-		rs, k = repairM601Store(home)
+		rs, k = upgradeHandoffStore(home)
 		bapp := baseapp.NewBaseApp(t.Name(), dbm.NewMemDB(), nil, nil, paxapp.TestAppOpts{})
 		bapp.SetCMS(rs)
 		require.NoError(t, bapp.LoadLatestVersion())

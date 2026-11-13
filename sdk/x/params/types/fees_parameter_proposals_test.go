@@ -21,7 +21,7 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-type repairM627Fixture struct {
+type feesProposalFixture struct {
 	ctx      sdk.Context
 	keeper   paramskeeper.Keeper
 	space    types.Subspace
@@ -32,7 +32,7 @@ type repairM627Fixture struct {
 	payer    sdk.AccAddress
 }
 
-func newRepairM627Fixture(t *testing.T) repairM627Fixture {
+func newFeesProposalFixture(t *testing.T) feesProposalFixture {
 	t.Helper()
 	db := dbm.NewMemDB()
 	t.Cleanup(func() { require.NoError(t, db.Close()) })
@@ -64,17 +64,17 @@ func newRepairM627Fixture(t *testing.T) repairM627Fixture {
 	payer := sdk.AccAddress([]byte("repair-m627-payer-01"))
 	accounts.SetAccount(ctx, accounts.NewAccountWithAddress(ctx, payer))
 	k.SetFeesParams(ctx, *types.DefaultFeesParams())
-	return repairM627Fixture{ctx: ctx, keeper: k, space: space, amino: amino, cdc: cdc, accounts: accounts, bank: bank, payer: payer}
+	return feesProposalFixture{ctx: ctx, keeper: k, space: space, amino: amino, cdc: cdc, accounts: accounts, bank: bank, payer: payer}
 }
 
-func (f repairM627Fixture) update(t *testing.T, params types.FeesParams) error {
+func (f feesProposalFixture) update(t *testing.T, params types.FeesParams) error {
 	t.Helper()
 	proposal, err := f.amino.MarshalAsJSON(&params)
 	require.NoError(t, err)
 	return f.space.Update(f.ctx, types.ParamStoreKeyFeesParams, proposal)
 }
 
-func (f repairM627Fixture) tx(t *testing.T, fees sdk.Coins) sdk.Tx {
+func (f feesProposalFixture) tx(t *testing.T, fees sdk.Coins) sdk.Tx {
 	t.Helper()
 	config := authtx.NewTxConfig(f.cdc, authtx.DefaultSignModes)
 	builder := config.NewTxBuilder()
@@ -88,7 +88,7 @@ func (f repairM627Fixture) tx(t *testing.T, fees sdk.Coins) sdk.Tx {
 	return tx
 }
 
-func (f repairM627Fixture) checkConsumers(t *testing.T, tx sdk.Tx, expected sdk.Coins) {
+func (f feesProposalFixture) checkConsumers(t *testing.T, tx sdk.Tx, expected sdk.Coins) {
 	t.Helper()
 	for _, mode := range []struct {
 		name     string
@@ -122,7 +122,7 @@ func (f repairM627Fixture) checkConsumers(t *testing.T, tx sdk.Tx, expected sdk.
 	require.Equal(t, expected, f.bank.GetAllBalances(f.ctx, collector))
 }
 
-func TestRepairM_627_RejectInvalidProposals(t *testing.T) {
+func TestFeesParameterProposal_RejectInvalidProposals(t *testing.T) {
 	for _, tc := range []struct {
 		name      string
 		denoms    []string
@@ -141,7 +141,7 @@ func TestRepairM_627_RejectInvalidProposals(t *testing.T) {
 		{"bond_after_valid", []string{"uother", sdk.DefaultBondDenom}, "duplicate allowed fee denom"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			f := newRepairM627Fixture(t)
+			f := newFeesProposalFixture(t)
 			baseline := *types.DefaultFeesParams()
 			baseline.AllowedFeeDenoms = []string{"uother"}
 			require.NoError(t, f.update(t, baseline))
@@ -160,7 +160,7 @@ func TestRepairM_627_RejectInvalidProposals(t *testing.T) {
 	}
 }
 
-func TestRepairM_627_ValidProposalsReachAnte(t *testing.T) {
+func TestFeesParameterProposal_ValidProposalsReachAnte(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
 		denoms []string
@@ -172,7 +172,7 @@ func TestRepairM_627_ValidProposalsReachAnte(t *testing.T) {
 		{"valid_syntax", []string{"ibc/ABC123", "factory/creator/token", "ABC", strings.Repeat("u", 128)}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			f := newRepairM627Fixture(t)
+			f := newFeesProposalFixture(t)
 			old := *types.DefaultFeesParams()
 			if len(tc.denoms) > 0 {
 				old.AllowedFeeDenoms = []string{"uold"}
@@ -200,8 +200,8 @@ func TestRepairM_627_ValidProposalsReachAnte(t *testing.T) {
 	}
 }
 
-func TestRepairM_627_MinimumGasPriceValidationPreserved(t *testing.T) {
-	f := newRepairM627Fixture(t)
+func TestFeesParameterProposal_MinimumGasPriceValidationPreserved(t *testing.T) {
+	f := newFeesProposalFixture(t)
 	before := append([]byte(nil), f.space.GetRaw(f.ctx, types.ParamStoreKeyFeesParams)...)
 	params := types.FeesParams{
 		GlobalMinimumGasPrices: sdk.DecCoins{{Denom: sdk.DefaultBondDenom, Amount: sdk.NewDec(-1)}},

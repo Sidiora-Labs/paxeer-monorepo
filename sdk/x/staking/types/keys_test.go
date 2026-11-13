@@ -104,9 +104,9 @@ func TestGetValidatorQueueKey(t *testing.T) {
 
 func TestParseValidatorQueueKeyMalformed(t *testing.T) {
 	valid := types.GetValidatorQueueKey(time.Unix(1700000000, 0).UTC(), 1024)
-	for name, key := range repairM688MalformedQueueKeys(valid) {
+	for name, key := range stakingValidationMalformedQueueKeys(valid) {
 		t.Run(name, func(t *testing.T) {
-			repairM688AssertQueueRejected(t, key)
+			stakingValidationAssertQueueRejected(t, key)
 		})
 	}
 }

@@ -37,14 +37,14 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-type repair310Store struct {
+type stakingTransitionStore struct {
 	store   *rootmulti.Store
 	ctx     sdk.Context
 	staking keeper.Keeper
 	bank    bankkeeper.BaseKeeper
 }
 
-func repair310Open(t *testing.T, directory string) repair310Store {
+func stakingTransitionOpen(t *testing.T, directory string) stakingTransitionStore {
 	t.Helper()
 	db, err := dbm.NewGoLevelDB("staking", directory)
 	require.NoError(t, err)
@@ -73,17 +73,17 @@ func repair310Open(t *testing.T, directory string) repair310Store {
 			ak.GetModuleAccount(ctx, name)
 		}
 	}
-	return repair310Store{ms, ctx, sk, bk}
+	return stakingTransitionStore{ms, ctx, sk, bk}
 }
 
-func (f repair310Store) fund(t *testing.T, address sdk.AccAddress, amount sdk.Int) {
+func (f stakingTransitionStore) fund(t *testing.T, address sdk.AccAddress, amount sdk.Int) {
 	t.Helper()
 	coins := sdk.NewCoins(sdk.NewCoin(f.staking.BondDenom(f.ctx), amount))
 	require.NoError(t, f.bank.MintCoins(f.ctx, "mint", coins))
 	require.NoError(t, f.bank.SendCoinsFromModuleToAccount(f.ctx, "mint", address, coins))
 }
 
-func repair310Validator(t *testing.T, k keeper.Keeper, ctx sdk.Context, i int) types.Validator {
+func stakingTransitionValidator(t *testing.T, k keeper.Keeper, ctx sdk.Context, i int) types.Validator {
 	t.Helper()
 	validator := teststaking.NewValidator(t, sdk.ValAddress(PKs[i].Address()), PKs[i])
 	k.SetValidator(ctx, validator)
@@ -92,11 +92,11 @@ func repair310Validator(t *testing.T, k keeper.Keeper, ctx sdk.Context, i int) t
 	return validator
 }
 
-func TestRepair_310_UnbondingRetryRestart(t *testing.T) {
+func TestStakingTransitions_UnbondingRetryRestart(t *testing.T) {
 	directory := t.TempDir()
-	f := repair310Open(t, directory)
+	f := stakingTransitionOpen(t, directory)
 	del := sdk.AccAddress(PKs[200].Address())
-	validator := repair310Validator(t, f.staking, f.ctx, 201)
+	validator := stakingTransitionValidator(t, f.staking, f.ctx, 201)
 	tokens := f.staking.TokensFromConsensusPower(f.ctx, 10)
 	f.fund(t, del, tokens)
 	shares, err := f.staking.Delegate(f.ctx, del, tokens, types.Unbonded, validator, true)
@@ -138,7 +138,7 @@ func TestRepair_310_UnbondingRetryRestart(t *testing.T) {
 	committed := f.store.Commit(true)
 	require.NoError(t, f.store.Close())
 
-	f = repair310Open(t, directory)
+	f = stakingTransitionOpen(t, directory)
 	defer func() { require.NoError(t, f.store.Close()) }()
 	require.Equal(t, committed, f.store.LastCommitID())
 	f.ctx = f.ctx.WithBlockHeight(3).WithBlockTime(completion.Add(time.Second))
@@ -160,11 +160,11 @@ func TestRepair_310_UnbondingRetryRestart(t *testing.T) {
 	require.False(t, broken, message)
 }
 
-func TestRepair_310_UnbondingAtomicFailure(t *testing.T) {
-	f := repair310Open(t, t.TempDir())
+func TestStakingTransitions_UnbondingAtomicFailure(t *testing.T) {
+	f := stakingTransitionOpen(t, t.TempDir())
 	defer func() { require.NoError(t, f.store.Close()) }()
 	del := sdk.AccAddress(PKs[202].Address())
-	validator := repair310Validator(t, f.staking, f.ctx, 203)
+	validator := stakingTransitionValidator(t, f.staking, f.ctx, 203)
 	f.fund(t, del, sdk.NewInt(20))
 	shares, err := f.staking.Delegate(f.ctx, del, sdk.NewInt(20), types.Unbonded, validator, true)
 	require.NoError(t, err)
@@ -194,8 +194,8 @@ func TestRepair_310_UnbondingAtomicFailure(t *testing.T) {
 	require.Equal(t, before, after)
 }
 
-func TestRepair_310_RedelegationPowerCap(t *testing.T) {
-	f := repair310Open(t, t.TempDir())
+func TestStakingTransitions_RedelegationPowerCap(t *testing.T) {
+	f := stakingTransitionOpen(t, t.TempDir())
 	defer func() { require.NoError(t, f.store.Close()) }()
 	del := sdk.AccAddress(PKs[204].Address())
 	f.fund(t, del, f.staking.TokensFromConsensusPower(f.ctx, 2_000_000))
@@ -204,7 +204,7 @@ func TestRepair_310_RedelegationPowerCap(t *testing.T) {
 	f.staking.SetParams(f.ctx, params)
 	validators := make([]types.Validator, 6)
 	for i, power := range []int64{190_000, 172_000, 172_000, 172_000, 172_000, 172_000} {
-		validators[i] = repair310Validator(t, f.staking, f.ctx, 210+i)
+		validators[i] = stakingTransitionValidator(t, f.staking, f.ctx, 210+i)
 		_, err := f.staking.Delegate(f.ctx, del, f.staking.TokensFromConsensusPower(f.ctx, power), types.Unbonded, validators[i], true)
 		require.NoError(t, err)
 	}
@@ -238,14 +238,14 @@ func TestRepair_310_RedelegationPowerCap(t *testing.T) {
 	}
 }
 
-func TestRepair_310_RedelegationFiltersTransports(t *testing.T) {
+func TestStakingTransitions_RedelegationFiltersTransports(t *testing.T) {
 	_, app, ctx := createTestInput(t)
 	ctx = ctx.WithBlockTime(time.Unix(100, 0).UTC()).WithGasMeter(sdk.NewInfiniteGasMeter(1, 1))
 	k := app.StakingKeeper
 	delegators := paxapp.AddTestAddrsIncremental(app, ctx, 2, sdk.NewInt(100_000))
 	validators := make([]types.Validator, 105)
 	for i := range validators {
-		validator := repair310Validator(t, k, ctx, i)
+		validator := stakingTransitionValidator(t, k, ctx, i)
 		validator = validator.UpdateStatus(types.Unbonding)
 		validator.UnbondingTime = ctx.BlockTime().Add(24 * time.Hour)
 		k.SetValidator(ctx, validator)
@@ -294,7 +294,7 @@ func TestRepair_310_RedelegationFiltersTransports(t *testing.T) {
 			if request.DelegatorAddr != "" && request.DelegatorAddr != delegator.String() {
 				continue
 			}
-			expected = append(expected, k.GetAllRedelegations(ctx, delegator, mustRepair310Val(request.SrcValidatorAddr), mustRepair310Val(request.DstValidatorAddr))...)
+			expected = append(expected, k.GetAllRedelegations(ctx, delegator, mustStakingTransitionVal(request.SrcValidatorAddr), mustStakingTransitionVal(request.DstValidatorAddr))...)
 		}
 		require.NotEmpty(t, expected)
 		transports := []string{"grpc", "precompile"}
@@ -406,7 +406,7 @@ func TestRepair_310_RedelegationFiltersTransports(t *testing.T) {
 	}
 }
 
-func mustRepair310Val(address string) sdk.ValAddress {
+func mustStakingTransitionVal(address string) sdk.ValAddress {
 	if address == "" {
 		return nil
 	}

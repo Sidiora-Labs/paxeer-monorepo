@@ -13,15 +13,15 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/staking/types"
 )
 
-func TestRepairM_689_UnbondingRetryRestart(t *testing.T) {
+func TestStakingKeeperBoundaries_UnbondingRetryRestart(t *testing.T) {
 	testUnbondingRetryRestart(t)
 }
 
-func TestRepairM_689_RedelegationPartialFilters(t *testing.T) {
+func TestStakingKeeperBoundaries_RedelegationPartialFilters(t *testing.T) {
 	testRedelegationPartialFilters(t)
 }
 
-func TestRepairM_689_MinimumSelfBacking(t *testing.T) {
+func TestStakingKeeperBoundaries_MinimumSelfBacking(t *testing.T) {
 	for _, tc := range []struct {
 		name        string
 		selfPower   int64
@@ -36,7 +36,7 @@ func TestRepairM_689_MinimumSelfBacking(t *testing.T) {
 		{"minimum_at_unslashed_self_stake", 100, false, 100, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			f := repair310Open(t, t.TempDir())
+			f := stakingTransitionOpen(t, t.TempDir())
 			t.Cleanup(func() { require.NoError(t, f.store.Close()) })
 			f.ctx = f.ctx.WithBlockHeight(1)
 			operator := sdk.AccAddress(PKs[260].Address())
@@ -45,7 +45,7 @@ func TestRepairM_689_MinimumSelfBacking(t *testing.T) {
 			denom := f.staking.BondDenom(f.ctx)
 			server := keeper.NewMsgServerImpl(f.staking)
 			if tc.selfPower == 0 {
-				validator := repair310Validator(t, f.staking, f.ctx, 260)
+				validator := stakingTransitionValidator(t, f.staking, f.ctx, 260)
 				validator, err := validator.SetInitialCommission(types.NewCommissionWithTime(f.staking.MinCommissionRate(f.ctx), sdk.OneDec(), sdk.OneDec(), f.ctx.BlockTime()))
 				require.NoError(t, err)
 				f.staking.SetValidator(f.ctx, validator)
@@ -124,11 +124,11 @@ func TestRepairM_689_MinimumSelfBacking(t *testing.T) {
 	}
 }
 
-func TestRepairM_689_LargeAmountMetrics(t *testing.T) {
+func TestStakingKeeperBoundaries_LargeAmountMetrics(t *testing.T) {
 	testStakingMetricsLargeAmounts(t)
 }
 
-func TestRepairM_689_BenchmarkContext(t *testing.T) {
+func TestStakingKeeperBoundaries_BenchmarkContext(t *testing.T) {
 	result := testing.Benchmark(BenchmarkGetValidator)
 	require.Positive(t, result.N)
 	require.Positive(t, result.T)

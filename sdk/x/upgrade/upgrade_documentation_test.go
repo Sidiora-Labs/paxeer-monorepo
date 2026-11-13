@@ -68,16 +68,16 @@ func configureUpgradeStores(app *baseapp.BaseApp, k keeper.Keeper) error {
 	return nil
 }
 
-func repairM610Read(t *testing.T, path string) string {
+func upgradeDocRead(t *testing.T, path string) string {
 	t.Helper()
 	data, err := os.ReadFile(path)
 	require.NoError(t, err)
 	return string(data)
 }
 
-func repairM610ExamplesCompile(t *testing.T) {
+func upgradeDocExamplesCompile(t *testing.T) {
 	t.Helper()
-	doc := repairM610Read(t, "doc.go")
+	doc := upgradeDocRead(t, "doc.go")
 	blocks := regexp.MustCompile(`(?ms)^\tfunc .*?^\t}`).FindAllString(doc, -1)
 	require.Len(t, blocks, 3)
 	imports := regexp.MustCompile(`(?ms)^\timport \(.*?^\t\)`).FindString(doc)
@@ -92,7 +92,7 @@ func repairM610ExamplesCompile(t *testing.T) {
 	fs := token.NewFileSet()
 	documented, err := parser.ParseFile(fs, "examples.go", source.String(), 0)
 	require.NoError(t, err)
-	compiled, err := parser.ParseFile(fs, "repair_m610_test.go", repairM610Read(t, "repair_m610_test.go"), 0)
+	compiled, err := parser.ParseFile(fs, "upgrade_documentation_test.go", upgradeDocRead(t, "upgrade_documentation_test.go"), 0)
 	require.NoError(t, err)
 	compiledImports := map[string]string{}
 	for _, imp := range compiled.Imports {
@@ -131,14 +131,14 @@ func repairM610ExamplesCompile(t *testing.T) {
 	}
 }
 
-type repairM610State struct {
+type upgradeDocState struct {
 	k        keeper.Keeper
 	ctx      sdk.Context
 	cdc      *codec.ProtoCodec
 	registry codectypes.InterfaceRegistry
 }
 
-func repairM610MemoryState(t *testing.T) repairM610State {
+func upgradeDocMemoryState(t *testing.T) upgradeDocState {
 	t.Helper()
 	registry := codectypes.NewInterfaceRegistry()
 	types.RegisterInterfaces(registry)
@@ -148,7 +148,7 @@ func repairM610MemoryState(t *testing.T) repairM610State {
 	ms.MountStoreWithDB(key, store.StoreTypeIAVL, nil)
 	require.NoError(t, ms.LoadLatestVersion())
 	t.Cleanup(func() { require.NoError(t, ms.Close()) })
-	return repairM610State{
+	return upgradeDocState{
 		k: keeper.NewKeeper(nil, key, cdc, t.TempDir(), nil),
 		ctx: sdk.NewContext(ms.CacheMultiStore(), tmproto.Header{Height: 1}, false).
 			WithConsensusParams(&tmproto.ConsensusParams{Version: &tmproto.VersionParams{}}),
@@ -156,15 +156,15 @@ func repairM610MemoryState(t *testing.T) repairM610State {
 	}
 }
 
-func TestRepairM_610_SetupAPI(t *testing.T) {
-	repairM610ExamplesCompile(t)
+func TestUpgradeDocumentation_SetupAPI(t *testing.T) {
+	upgradeDocExamplesCompile(t)
 	for _, fail := range []bool{false, true} {
 		name := "success"
 		if fail {
 			name = "handler_error"
 		}
 		t.Run(name, func(t *testing.T) {
-			s := repairM610MemoryState(t)
+			s := upgradeDocMemoryState(t)
 			plan := types.Plan{Name: "my-fancy-upgrade", Height: 2}
 			proposalHandler := upgrade.NewSoftwareUpgradeProposalHandler(s.k)
 			require.NoError(t, proposalHandler(s.ctx, &types.SoftwareUpgradeProposal{Title: "Upgrade", Description: "Migrate modules", Plan: plan}))
@@ -202,7 +202,7 @@ func TestRepairM_610_SetupAPI(t *testing.T) {
 		})
 	}
 	t.Run("cancellation", func(t *testing.T) {
-		s := repairM610MemoryState(t)
+		s := upgradeDocMemoryState(t)
 		handler := upgrade.NewSoftwareUpgradeProposalHandler(s.k)
 		require.NoError(t, handler(s.ctx, &types.SoftwareUpgradeProposal{Title: "Upgrade", Description: "Schedule", Plan: types.Plan{Name: "cancel-me", Height: 2}}))
 		require.NoError(t, handler(s.ctx, &types.CancelSoftwareUpgradeProposal{Title: "Cancel", Description: "Cancel pending migration"}))
@@ -213,7 +213,7 @@ func TestRepairM_610_SetupAPI(t *testing.T) {
 	})
 }
 
-func repairM610Open(t *testing.T, home, dataStore string) (*baseapp.BaseApp, *rootmulti.Store, keeper.Keeper, *sdk.KVStoreKey) {
+func upgradeDocOpen(t *testing.T, home, dataStore string) (*baseapp.BaseApp, *rootmulti.Store, keeper.Keeper, *sdk.KVStoreKey) {
 	t.Helper()
 	sc, ss := config.DefaultStateCommitConfig(), config.DefaultStateStoreConfig()
 	sc.MemIAVLConfig.AsyncCommitBuffer = 0
@@ -230,13 +230,13 @@ func repairM610Open(t *testing.T, home, dataStore string) (*baseapp.BaseApp, *ro
 	return app, ms, k, dataKey
 }
 
-func TestRepairM_610_BeginBlockRestart(t *testing.T) {
-	concepts := repairM610Read(t, "spec/01_concepts.md")
+func TestUpgradeDocumentation_BeginBlockRestart(t *testing.T) {
+	concepts := upgradeDocRead(t, "spec/01_concepts.md")
 	require.Contains(t, concepts, "### BeginBlock timing")
 	require.Contains(t, concepts, "The old binary commits through `H - 1`")
 	require.Contains(t, concepts, "It does not commit block `H`")
 	require.Contains(t, concepts, "epoch\nprocessing runs first, then upgrade, capability, distribution, slashing,")
-	ordering := repairM610Read(t, "../../../node/legacyabci/begin_block.go")
+	ordering := upgradeDocRead(t, "../../../node/legacyabci/begin_block.go")
 	last := -1
 	for _, call := range []string{"keepers.EpochKeeper.BeginBlock(ctx)", "upgrade.BeginBlocker(*keepers.UpgradeKeeper, ctx)", "capability.BeginBlocker(", "distribution.BeginBlocker(", "slashing.BeginBlocker(", "evidence.BeginBlocker(", "staking.BeginBlocker(", "ibcclient.BeginBlocker(", "keepers.EvmKeeper.BeginBlock(ctx)"} {
 		at := strings.Index(ordering, call)
@@ -244,7 +244,7 @@ func TestRepairM_610_BeginBlockRestart(t *testing.T) {
 		last = at
 	}
 	home := t.TempDir()
-	app, ms, k, dataKey := repairM610Open(t, home, "foo")
+	app, ms, k, dataKey := upgradeDocOpen(t, home, "foo")
 	cache := ms.CacheMultiStore()
 	ctx := sdk.NewContext(cache, tmproto.Header{Height: 1}, false)
 	plan := types.Plan{Name: "my-fancy-upgrade", Height: 2, Info: "store and module migration"}
@@ -266,7 +266,7 @@ func TestRepairM_610_BeginBlockRestart(t *testing.T) {
 
 	// The replacement process loads the last committed state and real handoff
 	// file, renames the store, then executes the module migration at height H.
-	app, ms, k, dataKey = repairM610Open(t, home, "bar")
+	app, ms, k, dataKey = upgradeDocOpen(t, home, "bar")
 	cache = ms.CacheMultiStore()
 	ctx = sdk.NewContext(cache, tmproto.Header{Height: 2}, false)
 	require.Equal(t, []byte("before upgrade"), ctx.KVStore(dataKey).Get([]byte("retained")))
@@ -293,7 +293,7 @@ func TestRepairM_610_BeginBlockRestart(t *testing.T) {
 	require.Equal(t, int64(2), ms.Commit(true).Version)
 	require.NoError(t, app.Close())
 
-	app, ms, k, dataKey = repairM610Open(t, home, "bar")
+	app, ms, k, dataKey = upgradeDocOpen(t, home, "bar")
 	defer func() { require.NoError(t, app.Close()) }()
 	ctx = sdk.NewContext(ms.CacheMultiStore(), tmproto.Header{Height: 3}, false)
 	registerUpgradeHandler(k, migrate)
@@ -307,7 +307,7 @@ func TestRepairM_610_BeginBlockRestart(t *testing.T) {
 	require.False(t, found)
 }
 
-func repairM610GRPC(t *testing.T, s repairM610State) (*grpc.ClientConn, *grpc.Server) {
+func upgradeDocGRPC(t *testing.T, s upgradeDocState) (*grpc.ClientConn, *grpc.Server) {
 	t.Helper()
 	listener := bufconn.Listen(1 << 20)
 	server := grpc.NewServer(grpc.UnaryInterceptor(func(ctx context.Context, req interface{}, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
@@ -326,7 +326,7 @@ func repairM610GRPC(t *testing.T, s repairM610State) (*grpc.ClientConn, *grpc.Se
 	return conn, server
 }
 
-func repairM610Section(t *testing.T, doc, start, end string) string {
+func upgradeDocSection(t *testing.T, doc, start, end string) string {
 	t.Helper()
 	_, rest, found := strings.Cut(doc, start)
 	require.True(t, found, "section %q", start)
@@ -338,7 +338,7 @@ func repairM610Section(t *testing.T, doc, start, end string) string {
 	return rest
 }
 
-func repairM610Blocks(section, language string) []string {
+func upgradeDocBlocks(section, language string) []string {
 	matches := regexp.MustCompile("(?s)```"+language+"\n(.*?)\n```").FindAllStringSubmatch(section, -1)
 	blocks := make([]string, len(matches))
 	for i, match := range matches {
@@ -347,21 +347,21 @@ func repairM610Blocks(section, language string) []string {
 	return blocks
 }
 
-func TestRepairM_610_CurrentPlanShape(t *testing.T) {
-	s := repairM610MemoryState(t)
+func TestUpgradeDocumentation_CurrentPlanShape(t *testing.T) {
+	s := upgradeDocMemoryState(t)
 	plan := types.Plan{Name: "test-upgrade", Height: 130}
 	require.NoError(t, s.k.ScheduleUpgrade(s.ctx, plan))
-	conn, _ := repairM610GRPC(t, s)
+	conn, _ := upgradeDocGRPC(t, s)
 	query := types.NewQueryClient(conn)
 	response, err := query.CurrentPlan(t.Context(), &types.QueryCurrentPlanRequest{})
 	require.NoError(t, err)
 	require.Equal(t, plan, *response.Plan)
 	apiServer := api.New(client.Context{InterfaceRegistry: s.registry})
 	require.NoError(t, types.RegisterQueryHandlerClient(t.Context(), apiServer.GRPCGatewayRouter, query))
-	doc := repairM610Read(t, "spec/04_client.md")
-	rest := repairM610Section(t, doc, "## REST", "## gRPC")
-	restPlan := repairM610Section(t, rest, "### Current Plan", "### Module versions")
-	restJSON := repairM610Blocks(restPlan, "json")
+	doc := upgradeDocRead(t, "spec/04_client.md")
+	rest := upgradeDocSection(t, doc, "## REST", "## gRPC")
+	restPlan := upgradeDocSection(t, rest, "### Current Plan", "### Module versions")
+	restJSON := upgradeDocBlocks(restPlan, "json")
 	require.Len(t, restJSON, 2, "scheduled and absent REST plan examples")
 	request := httptest.NewRequest(http.MethodGet, "/cosmos/upgrade/v1beta1/current_plan", nil)
 	recorder := httptest.NewRecorder()
@@ -369,8 +369,8 @@ func TestRepairM_610_CurrentPlanShape(t *testing.T) {
 	require.Equal(t, http.StatusOK, recorder.Code)
 	require.JSONEq(t, restJSON[0], recorder.Body.String())
 
-	cli := repairM610Section(t, doc, "#### plan", "## REST")
-	cliJSON, cliYAML := repairM610Blocks(cli, "json"), repairM610Blocks(cli, "yaml")
+	cli := upgradeDocSection(t, doc, "#### plan", "## REST")
+	cliJSON, cliYAML := upgradeDocBlocks(cli, "json"), upgradeDocBlocks(cli, "yaml")
 	require.Len(t, cliJSON, 1)
 	require.Len(t, cliYAML, 1)
 	var printed bytes.Buffer
@@ -381,9 +381,9 @@ func TestRepairM_610_CurrentPlanShape(t *testing.T) {
 	require.NoError(t, clientCtx.WithOutputFormat("text").PrintProto(response.Plan))
 	require.Equal(t, strings.TrimSpace(cliYAML[0]), strings.TrimSpace(printed.String()))
 
-	grpcDoc := repairM610Section(t, doc, "## gRPC", "")
-	grpcPlan := repairM610Section(t, grpcDoc, "### Current Plan", "### Module versions")
-	grpcJSON := repairM610Blocks(grpcPlan, "json")
+	grpcDoc := upgradeDocSection(t, doc, "## gRPC", "")
+	grpcPlan := upgradeDocSection(t, grpcDoc, "### Current Plan", "### Module versions")
+	grpcJSON := upgradeDocBlocks(grpcPlan, "json")
 	require.Len(t, grpcJSON, 1)
 	marshaler := jsonpb.Marshaler{EmitDefaults: true}
 	encoded, err := marshaler.MarshalToString(response)
@@ -408,12 +408,12 @@ func TestRepairM_610_CurrentPlanShape(t *testing.T) {
 	require.Contains(t, grpcPlan, "renders `{}`")
 }
 
-func TestRepairM_610_GRPCService(t *testing.T) {
-	s := repairM610MemoryState(t)
+func TestUpgradeDocumentation_GRPCService(t *testing.T) {
+	s := upgradeDocMemoryState(t)
 	plan := types.Plan{Name: "test-upgrade", Height: 130}
 	require.NoError(t, s.k.ScheduleUpgrade(s.ctx, plan))
 	s.k.SetModuleVersionMap(s.ctx, module.VersionMap{"upgrade": 1})
-	conn, server := repairM610GRPC(t, s)
+	conn, server := upgradeDocGRPC(t, s)
 	service, found := server.GetServiceInfo()["cosmos.upgrade.v1beta1.Query"]
 	require.True(t, found)
 	methods := make([]string, 0, len(service.Methods))
@@ -422,8 +422,8 @@ func TestRepairM_610_GRPCService(t *testing.T) {
 	}
 	require.Contains(t, methods, "CurrentPlan")
 	require.Contains(t, methods, "ModuleVersions")
-	doc := repairM610Read(t, "spec/04_client.md")
-	grpcDoc := repairM610Section(t, doc, "## gRPC", "")
+	doc := upgradeDocRead(t, "spec/04_client.md")
+	grpcDoc := upgradeDocSection(t, doc, "## gRPC", "")
 	require.NotContains(t, grpcDoc, "cosmos.slashing.v1beta1.Query")
 	commands := regexp.MustCompile(`-d '([^']*)'\s*\\?\s*localhost:9090 (\S+)`).FindAllStringSubmatch(grpcDoc, -1)
 	currentPlans, moduleVersions := 0, 0
@@ -449,8 +449,8 @@ func TestRepairM_610_GRPCService(t *testing.T) {
 			marshaler := jsonpb.Marshaler{EmitDefaults: true}
 			encoded, err := marshaler.MarshalToString(&res)
 			require.NoError(t, err)
-			section := repairM610Section(t, grpcDoc, "### Module versions", "")
-			outputs := repairM610Blocks(section, "json")
+			section := upgradeDocSection(t, grpcDoc, "### Module versions", "")
+			outputs := upgradeDocBlocks(section, "json")
 			require.Len(t, outputs, 1)
 			require.JSONEq(t, outputs[0], encoded)
 		}

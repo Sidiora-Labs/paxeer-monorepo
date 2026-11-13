@@ -38,14 +38,14 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-type repair311App struct {
+type stakingContractApp struct {
 	app  *paxapp.App
 	ctx  sdk.Context
 	dir  string
 	stop func()
 }
 
-func repair311Open(t *testing.T, dir string, initialize bool) repair311App {
+func stakingContractOpen(t *testing.T, dir string, initialize bool) stakingContractApp {
 	t.Helper()
 	db, err := dbm.NewGoLevelDB("staking-repair", dir)
 	require.NoError(t, err)
@@ -72,39 +72,39 @@ func repair311Open(t *testing.T, dir string, initialize bool) repair311App {
 		require.Equal(t, int64(1), app.CommitMultiStore().Commit(true).Version)
 	}
 	ctx := sdk.NewContext(app.CommitMultiStore().CacheMultiStore(), header, false)
-	return repair311App{app: app, ctx: ctx, dir: dir, stop: stop}
+	return stakingContractApp{app: app, ctx: ctx, dir: dir, stop: stop}
 }
 
-func (h repair311App) reopen(t *testing.T) repair311App {
+func (h stakingContractApp) reopen(t *testing.T) stakingContractApp {
 	t.Helper()
 	h.ctx.MultiStore().(sdk.CacheMultiStore).Write()
 	committed := h.app.CommitMultiStore().Commit(true)
 	require.Positive(t, committed.Version)
 	h.stop()
-	reopened := repair311Open(t, h.dir, false)
+	reopened := stakingContractOpen(t, h.dir, false)
 	require.Equal(t, committed, reopened.app.CommitMultiStore().LastCommitID())
 	return reopened
 }
 
-func repair311Address(b byte) sdk.AccAddress {
+func stakingContractAddress(b byte) sdk.AccAddress {
 	return sdk.AccAddress(bytes.Repeat([]byte{b}, 20))
 }
 
-func repair311Fund(t *testing.T, h repair311App, addr sdk.AccAddress, amount sdk.Int) {
+func stakingContractFund(t *testing.T, h stakingContractApp, addr sdk.AccAddress, amount sdk.Int) {
 	t.Helper()
 	require.NoError(t, apptesting.FundAccount(h.app.BankKeeper, h.ctx, addr,
 		sdk.NewCoins(sdk.NewCoin(h.app.StakingKeeper.BondDenom(h.ctx), amount))))
 }
 
-func repair311Validator(t *testing.T, h repair311App, addr sdk.AccAddress, power int64) stakingtypes.Validator {
+func stakingContractValidator(t *testing.T, h stakingContractApp, addr sdk.AccAddress, power int64) stakingtypes.Validator {
 	t.Helper()
-	return repair311ValidatorWithKey(t, h, addr, power, ed25519.GenPrivKey().PubKey())
+	return stakingContractValidatorWithKey(t, h, addr, power, ed25519.GenPrivKey().PubKey())
 }
 
-func repair311ValidatorWithKey(t *testing.T, h repair311App, addr sdk.AccAddress, power int64, pubkey cryptotypes.PubKey) stakingtypes.Validator {
+func stakingContractValidatorWithKey(t *testing.T, h stakingContractApp, addr sdk.AccAddress, power int64, pubkey cryptotypes.PubKey) stakingtypes.Validator {
 	t.Helper()
 	amount := h.app.StakingKeeper.PowerReduction(h.ctx).MulRaw(power)
-	repair311Fund(t, h, addr, amount)
+	stakingContractFund(t, h, addr, amount)
 	msg, err := stakingtypes.NewMsgCreateValidator(sdk.ValAddress(addr), pubkey,
 		sdk.NewCoin(h.app.StakingKeeper.BondDenom(h.ctx), amount), stakingtypes.Description{Moniker: "repair-311-validator"},
 		stakingtypes.NewCommissionRates(sdk.NewDecWithPrec(1, 1), sdk.OneDec(), sdk.OneDec()), sdk.OneInt())
@@ -117,7 +117,7 @@ func repair311ValidatorWithKey(t *testing.T, h repair311App, addr sdk.AccAddress
 	return validator
 }
 
-func repair311CLIGrant(t *testing.T, h repair311App, granter, grantee sdk.AccAddress, policy, validator string) {
+func stakingContractCLIGrant(t *testing.T, h stakingContractApp, granter, grantee sdk.AccAddress, policy, validator string) {
 	t.Helper()
 	encoding := paxapp.MakeEncodingConfig()
 	clientCtx := client.Context{}.WithCodec(encoding.Marshaler).WithInterfaceRegistry(encoding.InterfaceRegistry).
@@ -140,7 +140,7 @@ func repair311CLIGrant(t *testing.T, h repair311App, granter, grantee sdk.AccAdd
 	require.NoError(t, err)
 }
 
-func repair311Exec(t *testing.T, h repair311App, grantee sdk.AccAddress, msg sdk.Msg) error {
+func stakingContractExec(t *testing.T, h stakingContractApp, grantee sdk.AccAddress, msg sdk.Msg) error {
 	t.Helper()
 	exec := authz.NewMsgExec(grantee, []sdk.Msg{msg})
 	// Decode the transaction envelope so MsgExec routes unpacked Any messages.
@@ -155,19 +155,19 @@ func repair311Exec(t *testing.T, h repair311App, grantee sdk.AccAddress, msg sdk
 	return err
 }
 
-func TestRepair_311_DenyListGrants(t *testing.T) {
+func TestStakingContracts_DenyListGrants(t *testing.T) {
 	for _, policy := range []string{authzcli.FlagDenyValidators, authzcli.FlagAllowedValidators} {
 		t.Run(policy, func(t *testing.T) {
-			h := repair311Open(t, t.TempDir(), true)
-			granter, grantee := repair311Address(1), repair311Address(2)
-			excluded := repair311Validator(t, h, repair311Address(3), 10)
-			permitted := repair311Validator(t, h, repair311Address(4), 10)
-			repair311Fund(t, h, granter, sdk.NewInt(200))
+			h := stakingContractOpen(t, t.TempDir(), true)
+			granter, grantee := stakingContractAddress(1), stakingContractAddress(2)
+			excluded := stakingContractValidator(t, h, stakingContractAddress(3), 10)
+			permitted := stakingContractValidator(t, h, stakingContractAddress(4), 10)
+			stakingContractFund(t, h, granter, sdk.NewInt(200))
 			listed := excluded.GetOperator().String()
 			if policy == authzcli.FlagAllowedValidators {
 				listed = permitted.GetOperator().String()
 			}
-			repair311CLIGrant(t, h, granter, grantee, policy, listed)
+			stakingContractCLIGrant(t, h, granter, grantee, policy, listed)
 			h = h.reopen(t)
 
 			grants, err := h.app.AuthzKeeper.Grants(sdk.WrapSDKContext(h.ctx), &authz.QueryGrantsRequest{
@@ -189,33 +189,33 @@ func TestRepair_311_DenyListGrants(t *testing.T) {
 			require.Equal(t, sdk.NewInt(100), stake.MaxTokens.Amount)
 			denom := h.app.StakingKeeper.BondDenom(h.ctx)
 			before := h.app.BankKeeper.GetBalance(h.ctx, granter, denom)
-			err = repair311Exec(t, h, grantee, stakingtypes.NewMsgDelegate(granter, excluded.GetOperator(), sdk.NewInt64Coin(denom, 1)))
+			err = stakingContractExec(t, h, grantee, stakingtypes.NewMsgDelegate(granter, excluded.GetOperator(), sdk.NewInt64Coin(denom, 1)))
 			require.ErrorIs(t, err, sdkerrors.ErrUnauthorized)
 			_, found := h.app.StakingKeeper.GetDelegation(h.ctx, granter, excluded.GetOperator())
 			require.False(t, found)
 			require.Equal(t, before, h.app.BankKeeper.GetBalance(h.ctx, granter, denom))
-			require.ErrorIs(t, repair311Exec(t, h, grantee, stakingtypes.NewMsgUndelegate(granter, permitted.GetOperator(), sdk.NewInt64Coin(denom, 1))), sdkerrors.ErrUnauthorized)
+			require.ErrorIs(t, stakingContractExec(t, h, grantee, stakingtypes.NewMsgUndelegate(granter, permitted.GetOperator(), sdk.NewInt64Coin(denom, 1))), sdkerrors.ErrUnauthorized)
 
-			require.NoError(t, repair311Exec(t, h, grantee, stakingtypes.NewMsgDelegate(granter, permitted.GetOperator(), sdk.NewInt64Coin(denom, 60))))
+			require.NoError(t, stakingContractExec(t, h, grantee, stakingtypes.NewMsgDelegate(granter, permitted.GetOperator(), sdk.NewInt64Coin(denom, 60))))
 			delegation, found := h.app.StakingKeeper.GetDelegation(h.ctx, granter, permitted.GetOperator())
 			require.True(t, found)
 			require.True(t, sdk.NewDec(60).Equal(delegation.Shares))
 			saved, _ := h.app.AuthzKeeper.GetCleanAuthorization(h.ctx, grantee, granter, sdk.MsgTypeURL(&stakingtypes.MsgDelegate{}))
 			require.Equal(t, sdk.NewInt(40), saved.(*stakingtypes.StakeAuthorization).MaxTokens.Amount)
 			h = h.reopen(t)
-			require.NoError(t, repair311Exec(t, h, grantee, stakingtypes.NewMsgDelegate(granter, permitted.GetOperator(), sdk.NewInt64Coin(denom, 40))))
+			require.NoError(t, stakingContractExec(t, h, grantee, stakingtypes.NewMsgDelegate(granter, permitted.GetOperator(), sdk.NewInt64Coin(denom, 40))))
 			saved, _ = h.app.AuthzKeeper.GetCleanAuthorization(h.ctx, grantee, granter, sdk.MsgTypeURL(&stakingtypes.MsgDelegate{}))
 			require.Nil(t, saved, "exhausting the token limit must remove the grant")
-			require.ErrorIs(t, repair311Exec(t, h, grantee, stakingtypes.NewMsgDelegate(granter, permitted.GetOperator(), sdk.NewInt64Coin(denom, 1))), sdkerrors.ErrUnauthorized)
+			require.ErrorIs(t, stakingContractExec(t, h, grantee, stakingtypes.NewMsgDelegate(granter, permitted.GetOperator(), sdk.NewInt64Coin(denom, 1))), sdkerrors.ErrUnauthorized)
 			require.Equal(t, sdk.NewInt(100), h.app.BankKeeper.GetBalance(h.ctx, granter, denom).Amount)
 		})
 	}
 }
 
-func TestRepair_311_PrecompileShareUnits(t *testing.T) {
-	h := repair311Open(t, t.TempDir(), true)
-	source := repair311Validator(t, h, repair311Address(11), 100)
-	destination := repair311Validator(t, h, repair311Address(12), 100)
+func TestStakingContracts_PrecompileShareUnits(t *testing.T) {
+	h := stakingContractOpen(t, t.TempDir(), true)
+	source := stakingContractValidator(t, h, stakingContractAddress(11), 100)
+	destination := stakingContractValidator(t, h, stakingContractAddress(12), 100)
 	_, err := h.app.StakingKeeper.ApplyAndReturnValidatorSetUpdates(h.ctx)
 	require.NoError(t, err)
 	destination, found := h.app.StakingKeeper.GetValidator(h.ctx, destination.GetOperator())
@@ -271,17 +271,17 @@ func TestRepair_311_PrecompileShareUnits(t *testing.T) {
 	require.Equal(t, entry.RedelegationEntry.CompletionTime.Unix(), abiEntry.CompletionTime)
 }
 
-func TestRepair_311_HistoricalSortContract(t *testing.T) {
-	h := repair311Open(t, t.TempDir(), true)
+func TestStakingContracts_HistoricalSortContract(t *testing.T) {
+	h := stakingContractOpen(t, t.TempDir(), true)
 	lowKey, highKey := ed25519.GenPrivKey().PubKey(), ed25519.GenPrivKey().PubKey()
 	if bytes.Compare(lowKey.Address(), highKey.Address()) > 0 {
 		lowKey, highKey = highKey, lowKey
 	}
 	validators := []stakingtypes.Validator{
-		repair311Validator(t, h, repair311Address(21), 1),
-		repair311Validator(t, h, repair311Address(22), 7),
-		repair311ValidatorWithKey(t, h, repair311Address(23), 4, highKey),
-		repair311ValidatorWithKey(t, h, repair311Address(24), 4, lowKey),
+		stakingContractValidator(t, h, stakingContractAddress(21), 1),
+		stakingContractValidator(t, h, stakingContractAddress(22), 7),
+		stakingContractValidatorWithKey(t, h, stakingContractAddress(23), 4, highKey),
+		stakingContractValidatorWithKey(t, h, stakingContractAddress(24), 4, lowKey),
 	}
 	_, err := h.app.StakingKeeper.ApplyAndReturnValidatorSetUpdates(h.ctx)
 	require.NoError(t, err)

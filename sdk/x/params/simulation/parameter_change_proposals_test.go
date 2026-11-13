@@ -17,36 +17,36 @@ import (
 	xsimulation "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/simulation"
 )
 
-func TestRepairM_625_SingleEntry(t *testing.T) {
+func TestParameterChangeProposal_SingleEntry(t *testing.T) {
 	for seed := int64(0); seed < 16; seed++ {
-		repairM625CheckProposal(t, 1, seed)
+		parameterChangeCheckProposal(t, 1, seed)
 	}
 }
 
-func TestRepairM_625_FullPool(t *testing.T) {
+func TestParameterChangeProposal_FullPool(t *testing.T) {
 	for _, size := range []int{2, 7, 1000} {
 		t.Run(strconv.Itoa(size), func(t *testing.T) {
 			for _, count := range []int{1, size} {
-				seed := repairM625SeedForCount(t, size, count)
-				repairM625CheckProposal(t, size, seed)
+				seed := parameterChangeSeedForCount(t, size, count)
+				parameterChangeCheckProposal(t, size, seed)
 			}
 		})
 	}
 }
 
-func TestRepairM_625_PoolLimit(t *testing.T) {
+func TestParameterChangeProposal_PoolLimit(t *testing.T) {
 	for _, size := range []int{1001, 1100} {
 		t.Run(strconv.Itoa(size), func(t *testing.T) {
-			seed := repairM625SeedForCount(t, 1000, 1000)
-			repairM625CheckProposal(t, size, seed)
+			seed := parameterChangeSeedForCount(t, 1000, 1000)
+			parameterChangeCheckProposal(t, size, seed)
 			for seed := int64(0); seed < 64; seed++ {
-				repairM625CheckProposal(t, size, seed)
+				parameterChangeCheckProposal(t, size, seed)
 			}
 		})
 	}
 }
 
-func repairM625SeedForCount(t *testing.T, limit, count int) int64 {
+func parameterChangeSeedForCount(t *testing.T, limit, count int) int64 {
 	t.Helper()
 	for seed := int64(0); seed < 20000; seed++ {
 		r := rand.New(rand.NewSource(seed))
@@ -58,7 +58,7 @@ func repairM625SeedForCount(t *testing.T, limit, count int) int64 {
 	return 0
 }
 
-func repairM625CheckProposal(t *testing.T, size int, seed int64) {
+func parameterChangeCheckProposal(t *testing.T, size int, seed int64) {
 	t.Helper()
 	pool := make([]simtypes.ParamChange, size)
 	keys := make(map[string]bool, size)

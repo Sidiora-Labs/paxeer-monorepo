@@ -38,21 +38,21 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-type repair285Query struct {
+type signingInfoRESTQuery struct {
 	request  abci.RequestQuery
 	response abci.ResponseQuery
 }
 
-type repair285Fixture struct {
+type signingInfoRESTFixture struct {
 	amino   *codec.LegacyAmino
 	client  client.Context
 	server  *httptest.Server
-	queries chan repair285Query
+	queries chan signingInfoRESTQuery
 	pubkey  string
 	info    types.ValidatorSigningInfo
 }
 
-func newRepair285Fixture(t *testing.T) *repair285Fixture {
+func newSigningInfoRESTFixture(t *testing.T) *signingInfoRESTFixture {
 	t.Helper()
 	amino := codec.NewLegacyAmino()
 	registry := codectypes.NewInterfaceRegistry()
@@ -100,7 +100,7 @@ func newRepair285Fixture(t *testing.T) *repair285Fixture {
 	require.True(t, found)
 	require.Equal(t, info, stored)
 
-	f := &repair285Fixture{amino: amino, queries: make(chan repair285Query, 8), pubkey: legacybech32.MustMarshalPubKey(legacybech32.ConsPK, pk), info: info}
+	f := &signingInfoRESTFixture{amino: amino, queries: make(chan signingInfoRESTQuery, 8), pubkey: legacybech32.MustMarshalPubKey(legacybech32.ConsPK, pk), info: info}
 	rpcMux := http.NewServeMux()
 	rpcserver.RegisterRPCFuncs(rpcMux, map[string]*rpcserver.RPCFunc{
 		"abci_query": rpcserver.NewRPCFunc(func(ctx context.Context, req *coretypes.RequestABCIQuery) (*coretypes.ResultABCIQuery, error) {
@@ -109,7 +109,7 @@ func newRepair285Fixture(t *testing.T) *repair285Fixture {
 			if err != nil {
 				return nil, err
 			}
-			f.queries <- repair285Query{request: query, response: *response}
+			f.queries <- signingInfoRESTQuery{request: query, response: *response}
 			return &coretypes.ResultABCIQuery{Response: *response}, nil
 		}),
 	})
@@ -125,7 +125,7 @@ func newRepair285Fixture(t *testing.T) *repair285Fixture {
 	return f
 }
 
-func (f *repair285Fixture) get(t *testing.T, publicKey, suffix string) (int, []byte) {
+func (f *signingInfoRESTFixture) get(t *testing.T, publicKey, suffix string) (int, []byte) {
 	t.Helper()
 	resp, err := f.server.Client().Get(f.server.URL + "/slashing/validators/" + url.PathEscape(publicKey) + "/signing_info" + suffix)
 	require.NoError(t, err)
@@ -135,19 +135,19 @@ func (f *repair285Fixture) get(t *testing.T, publicKey, suffix string) (int, []b
 	return resp.StatusCode, body
 }
 
-func (f *repair285Fixture) nextQuery(t *testing.T) repair285Query {
+func (f *signingInfoRESTFixture) nextQuery(t *testing.T) signingInfoRESTQuery {
 	t.Helper()
 	select {
 	case query := <-f.queries:
 		return query
 	case <-time.After(5 * time.Second):
 		t.Fatal("registered REST route did not reach ABCI")
-		return repair285Query{}
+		return signingInfoRESTQuery{}
 	}
 }
 
-func TestRepair_285_SigningInfoHTTPABCI(t *testing.T) {
-	f := newRepair285Fixture(t)
+func TestSigningInfoREST_SigningInfoHTTPABCI(t *testing.T) {
+	f := newSigningInfoRESTFixture(t)
 	for _, suffix := range []string{"", "?height=0", "?height=1"} {
 		t.Run(suffix, func(t *testing.T) {
 			code, body := f.get(t, f.pubkey, suffix)
@@ -183,8 +183,8 @@ func TestRepair_285_SigningInfoHTTPABCI(t *testing.T) {
 	}
 }
 
-func TestRepair_285_UnknownValidator(t *testing.T) {
-	f := newRepair285Fixture(t)
+func TestSigningInfoREST_UnknownValidator(t *testing.T) {
+	f := newSigningInfoRESTFixture(t)
 	pk := ed25519.GenPrivKeyFromSecret([]byte("repair 285 absent validator")).PubKey()
 	addr := sdk.ConsAddress(pk.Address()).String()
 	code, body := f.get(t, legacybech32.MustMarshalPubKey(legacybech32.ConsPK, pk), "?height=1")
@@ -203,8 +203,8 @@ func TestRepair_285_UnknownValidator(t *testing.T) {
 	require.Equal(t, map[string]interface{}{"error": status.Error(codes.Unknown, wantLog).Error()}, result)
 }
 
-func TestRepair_285_InvalidRequests(t *testing.T) {
-	f := newRepair285Fixture(t)
+func TestSigningInfoREST_InvalidRequests(t *testing.T) {
+	f := newSigningInfoRESTFixture(t)
 	_, keyErr := legacybech32.UnmarshalPubKey(legacybech32.ConsPK, "invalid-public-key")
 	require.Error(t, keyErr)
 	for _, tc := range []struct{ name, key, suffix, message string }{

@@ -37,12 +37,12 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-type repairM695Fixture struct {
+type stakingCLIFixture struct {
 	suite    *IntegrationTestSuite
 	requests chan abci.RequestQuery
 }
 
-func repairM695Network(t *testing.T, cfg network.Config) repairM695Fixture {
+func stakingCLINetwork(t *testing.T, cfg network.Config) stakingCLIFixture {
 	t.Helper()
 	db := dbm.NewMemDB()
 	ms := rootmulti.NewStore(db)
@@ -139,10 +139,10 @@ func repairM695Network(t *testing.T, cfg network.Config) repairM695Fixture {
 	s := NewIntegrationTestSuite(cfg)
 	s.SetT(t)
 	s.network = &network.Network{T: t, Config: cfg, Validators: validators}
-	return repairM695Fixture{suite: s, requests: requests}
+	return stakingCLIFixture{suite: s, requests: requests}
 }
 
-func TestRepairM_695_StakingCLIConfig(t *testing.T) {
+func TestStakingCLI_Config(t *testing.T) {
 	// The owning entry point is tagged norace; inspect its call without launching
 	// a subprocess or broadening this task's declared verification command.
 	file, err := parser.ParseFile(token.NewFileSet(), "cli_test.go", nil, 0)
@@ -171,7 +171,7 @@ func TestRepairM_695_StakingCLIConfig(t *testing.T) {
 	cfg := network.DefaultConfig(t)
 	cfg.NumValidators = 2
 	require.NotNil(t, cfg.AppConstructor)
-	f := repairM695Network(t, cfg)
+	f := stakingCLINetwork(t, cfg)
 	f.suite.TestGetCmdQueryParams()
 	require.Len(t, f.requests, 2)
 	for len(f.requests) > 0 {
@@ -179,8 +179,8 @@ func TestRepairM_695_StakingCLIConfig(t *testing.T) {
 	}
 }
 
-func TestRepairM_695_WrongValidatorCLIQuery(t *testing.T) {
-	f := repairM695Network(t, network.DefaultConfig(t))
+func TestStakingCLI_WrongValidatorCLIQuery(t *testing.T) {
+	f := stakingCLINetwork(t, network.DefaultConfig(t))
 	f.suite.TestGetCmdQueryValidatorDelegations()
 	require.Len(t, f.requests, 3)
 	historical, current, account := <-f.requests, <-f.requests, <-f.requests
@@ -197,7 +197,7 @@ func TestRepairM_695_WrongValidatorCLIQuery(t *testing.T) {
 	require.Equal(t, f.suite.network.Validators[1].Address.String(), accountRequest.DelegatorAddr)
 }
 
-func TestRepairM_695_CLIParamsFixture(t *testing.T) {
+func TestStakingCLI_CLIParamsFixture(t *testing.T) {
 	for _, custom := range []bool{false, true} {
 		t.Run(fmt.Sprintf("custom=%t", custom), func(t *testing.T) {
 			cfg := network.DefaultConfig(t)
@@ -208,7 +208,7 @@ func TestRepairM_695_CLIParamsFixture(t *testing.T) {
 				cfg.BondDenom = genesis.Params.BondDenom
 				cfg.GenesisState[types.ModuleName] = cfg.Codec.MustMarshalJSON(&genesis)
 			}
-			f := repairM695Network(t, cfg)
+			f := stakingCLINetwork(t, cfg)
 			f.suite.TestGetCmdQueryParams()
 			require.Len(t, f.requests, 2)
 			if !custom {

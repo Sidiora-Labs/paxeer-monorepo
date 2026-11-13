@@ -19,7 +19,7 @@ wiring_request_2 = "Owning domain 6: replace the equal-value fixture in precompi
 [finding.historical-sort-contract]
 test = "TestRepair_311_HistoricalSortContract"
 proof = "Real keeper-created bonded validators with unequal nonzero powers and opposing operator/consensus tie order, NewHistoricalInfo producer, keeper codec/storage, close/reopen and ValidateBasic consumer with the same explicit power reduction; also tests alternate reduction and rejects reversed/empty sets."
-api = "ValidateBasic requires the producer's powerReduction; all in-tree callers are the in-scope historical_info_test.go and repair_311_test.go and pass it explicitly."
+api = "ValidateBasic requires the producer's powerReduction; all in-tree callers are the in-scope historical_info_test.go and staking_contracts_test.go and pass it explicitly."
 
 [qualification.repair]
 revision = "92c8af6151fecd66c8ce9052612a1012e64cc60e"
