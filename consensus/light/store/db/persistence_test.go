@@ -17,47 +17,47 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 )
 
-func TestRepair_86_DuplicateSaveReopenAndPrune(t *testing.T) {
+func TestStorePersistence_DuplicateSaveReopenAndPrune(t *testing.T) {
 	dir := t.TempDir()
-	disk, trusted := repair86Open(t, dir, false)
-	blocks := []*types.LightBlock{repair86Produce(t, 10), repair86Produce(t, 20), repair86Produce(t, 30)}
+	disk, trusted := openPersistentStore(t, dir, false)
+	blocks := []*types.LightBlock{produceStoredLightBlock(t, 10), produceStoredLightBlock(t, 20), produceStoredLightBlock(t, 30)}
 	for _, block := range blocks {
 		require.NoError(t, trusted.SaveLightBlock(block))
 		require.NoError(t, trusted.SaveLightBlock(block))
 	}
 	// A second delivery at an existing height still replaces its contents.
-	replacement := repair86ProduceWithAppHash(t, 20, []byte("replacement"))
+	replacement := produceStoredLightBlockWithAppHash(t, 20, []byte("replacement"))
 	require.NoError(t, trusted.SaveLightBlock(replacement))
 	blocks[1] = replacement
-	repair86AssertSet(t, trusted, blocks)
+	assertStoredLightBlocks(t, trusted, blocks)
 	require.NoError(t, disk.Close())
 
-	disk, trusted = repair86Open(t, dir, false)
-	repair86AssertSet(t, trusted, blocks)
+	disk, trusted = openPersistentStore(t, dir, false)
+	assertStoredLightBlocks(t, trusted, blocks)
 	require.NoError(t, trusted.Prune(2))
-	repair86AssertSet(t, trusted, blocks[1:])
+	assertStoredLightBlocks(t, trusted, blocks[1:])
 	_, err := trusted.LightBlock(10)
 	require.ErrorIs(t, err, store.ErrLightBlockNotFound)
 	require.NoError(t, disk.Close())
 
-	disk, trusted = repair86Open(t, dir, false)
+	disk, trusted = openPersistentStore(t, dir, false)
 	defer func() { require.NoError(t, disk.Close()) }()
-	repair86AssertSet(t, trusted, blocks[1:])
+	assertStoredLightBlocks(t, trusted, blocks[1:])
 	before, err := trusted.LightBlockBefore(30)
 	require.NoError(t, err)
 	require.Equal(t, replacement.Hash(), before.Hash())
 }
 
-func TestRepair_86_MissingDeleteReopen(t *testing.T) {
+func TestStorePersistence_MissingDeleteReopen(t *testing.T) {
 	dir := t.TempDir()
-	disk, trusted := repair86Open(t, dir, false)
+	disk, trusted := openPersistentStore(t, dir, false)
 	require.NoError(t, trusted.DeleteLightBlock(99))
-	repair86AssertSet(t, trusted, nil)
+	assertStoredLightBlocks(t, trusted, nil)
 	require.NoError(t, disk.Close())
 
-	disk, trusted = repair86Open(t, dir, false)
-	repair86AssertSet(t, trusted, nil)
-	blocks := []*types.LightBlock{repair86Produce(t, 10), repair86Produce(t, 20), repair86Produce(t, 30)}
+	disk, trusted = openPersistentStore(t, dir, false)
+	assertStoredLightBlocks(t, trusted, nil)
+	blocks := []*types.LightBlock{produceStoredLightBlock(t, 10), produceStoredLightBlock(t, 20), produceStoredLightBlock(t, 30)}
 	for _, block := range blocks {
 		require.NoError(t, trusted.SaveLightBlock(block))
 	}
@@ -65,38 +65,38 @@ func TestRepair_86_MissingDeleteReopen(t *testing.T) {
 	require.NoError(t, trusted.DeleteLightBlock(20))
 	require.NoError(t, trusted.DeleteLightBlock(20))
 	want := []*types.LightBlock{blocks[0], blocks[2]}
-	repair86AssertSet(t, trusted, want)
+	assertStoredLightBlocks(t, trusted, want)
 	_, err := trusted.LightBlock(20)
 	require.ErrorIs(t, err, store.ErrLightBlockNotFound)
 	require.NoError(t, disk.Close())
 
-	disk, trusted = repair86Open(t, dir, false)
-	repair86AssertSet(t, trusted, want)
+	disk, trusted = openPersistentStore(t, dir, false)
+	assertStoredLightBlocks(t, trusted, want)
 	require.NoError(t, trusted.Prune(1))
-	repair86AssertSet(t, trusted, blocks[2:])
+	assertStoredLightBlocks(t, trusted, blocks[2:])
 	require.NoError(t, trusted.DeleteLightBlock(30))
 	require.NoError(t, trusted.DeleteLightBlock(30))
-	repair86AssertSet(t, trusted, nil)
+	assertStoredLightBlocks(t, trusted, nil)
 	require.NoError(t, disk.Close())
 
-	disk, trusted = repair86Open(t, dir, false)
+	disk, trusted = openPersistentStore(t, dir, false)
 	defer func() { require.NoError(t, disk.Close()) }()
-	repair86AssertSet(t, trusted, nil)
+	assertStoredLightBlocks(t, trusted, nil)
 }
 
-func TestRepair_86_FailedWriteReopenAndRetry(t *testing.T) {
+func TestStorePersistence_FailedWriteReopenAndRetry(t *testing.T) {
 	for _, operation := range []string{"insert", "overwrite", "delete", "prune"} {
 		t.Run(operation, func(t *testing.T) {
 			dir := t.TempDir()
-			disk, trusted := repair86Open(t, dir, false)
-			blocks := []*types.LightBlock{repair86Produce(t, 10), repair86Produce(t, 20), repair86Produce(t, 30)}
+			disk, trusted := openPersistentStore(t, dir, false)
+			blocks := []*types.LightBlock{produceStoredLightBlock(t, 10), produceStoredLightBlock(t, 20), produceStoredLightBlock(t, 30)}
 			for _, block := range blocks {
 				require.NoError(t, trusted.SaveLightBlock(block))
 			}
 			require.NoError(t, disk.Close())
-			disk, trusted = repair86Open(t, dir, true)
-			replacement := repair86ProduceWithAppHash(t, 20, []byte("replacement"))
-			inserted := repair86Produce(t, 40)
+			disk, trusted = openPersistentStore(t, dir, true)
+			replacement := produceStoredLightBlockWithAppHash(t, 20, []byte("replacement"))
+			inserted := produceStoredLightBlock(t, 40)
 			apply := func(target store.Store) error {
 				switch operation {
 				case "insert":
@@ -111,13 +111,13 @@ func TestRepair_86_FailedWriteReopenAndRetry(t *testing.T) {
 			}
 			// Real LevelDB permits reads and batch staging, then rejects WriteSync.
 			require.ErrorIs(t, apply(trusted), leveldb.ErrReadOnly)
-			repair86AssertSet(t, trusted, blocks)
+			assertStoredLightBlocks(t, trusted, blocks)
 			_, err := trusted.LightBlock(40)
 			require.ErrorIs(t, err, store.ErrLightBlockNotFound)
 			require.NoError(t, disk.Close())
 
-			disk, trusted = repair86Open(t, dir, false)
-			repair86AssertSet(t, trusted, blocks)
+			disk, trusted = openPersistentStore(t, dir, false)
+			assertStoredLightBlocks(t, trusted, blocks)
 			require.NoError(t, apply(trusted))
 			var want []*types.LightBlock
 			switch operation {
@@ -130,42 +130,42 @@ func TestRepair_86_FailedWriteReopenAndRetry(t *testing.T) {
 			case "prune":
 				want = blocks[2:]
 			}
-			repair86AssertSet(t, trusted, want)
+			assertStoredLightBlocks(t, trusted, want)
 			require.NoError(t, disk.Close())
-			disk, trusted = repair86Open(t, dir, false)
+			disk, trusted = openPersistentStore(t, dir, false)
 			defer func() { require.NoError(t, disk.Close()) }()
-			repair86AssertSet(t, trusted, want)
+			assertStoredLightBlocks(t, trusted, want)
 		})
 	}
 }
 
-func TestRepair_86_ReadFailurePreservesSize(t *testing.T) {
+func TestStorePersistence_ReadFailurePreservesSize(t *testing.T) {
 	dir := t.TempDir()
-	disk, trusted := repair86Open(t, dir, false)
-	block := repair86Produce(t, 10)
+	disk, trusted := openPersistentStore(t, dir, false)
+	block := produceStoredLightBlock(t, 10)
 	require.NoError(t, trusted.SaveLightBlock(block))
 	require.NoError(t, disk.Close())
 	require.ErrorIs(t, trusted.SaveLightBlock(block), leveldb.ErrClosed)
 	require.ErrorIs(t, trusted.DeleteLightBlock(10), leveldb.ErrClosed)
 	require.ErrorIs(t, trusted.DeleteLightBlock(99), leveldb.ErrClosed)
 	require.Equal(t, uint16(1), trusted.Size())
-	disk, trusted = repair86Open(t, dir, false)
+	disk, trusted = openPersistentStore(t, dir, false)
 	defer func() { require.NoError(t, disk.Close()) }()
-	repair86AssertSet(t, trusted, []*types.LightBlock{block})
+	assertStoredLightBlocks(t, trusted, []*types.LightBlock{block})
 }
 
-func TestRepair_86_CounterOverflow(t *testing.T) {
+func TestStorePersistence_CounterOverflow(t *testing.T) {
 	backend := dbm.NewMemDB()
 	defer func() { require.NoError(t, backend.Close()) }()
 	trusted := New(backend)
 	for height := int64(1); height <= math.MaxUint16; height++ {
-		require.NoError(t, trusted.SaveLightBlock(repair86Produce(t, height)))
+		require.NoError(t, trusted.SaveLightBlock(produceStoredLightBlock(t, height)))
 	}
 	require.Equal(t, uint16(math.MaxUint16), trusted.Size())
-	last := repair86ProduceWithAppHash(t, math.MaxUint16, []byte("replacement at capacity"))
+	last := produceStoredLightBlockWithAppHash(t, math.MaxUint16, []byte("replacement at capacity"))
 	require.NoError(t, trusted.SaveLightBlock(last))
 	require.Equal(t, uint16(math.MaxUint16), trusted.Size())
-	extra := repair86Produce(t, math.MaxUint16+1)
+	extra := produceStoredLightBlock(t, math.MaxUint16+1)
 	require.Error(t, trusted.SaveLightBlock(extra))
 	require.Equal(t, uint16(math.MaxUint16), trusted.Size())
 	_, err := trusted.LightBlock(extra.Height)
@@ -179,24 +179,24 @@ func TestRepair_86_CounterOverflow(t *testing.T) {
 	require.NoError(t, trusted.SaveLightBlock(extra))
 	require.Equal(t, uint16(math.MaxUint16), trusted.Size())
 	require.NoError(t, trusted.Prune(2))
-	repair86AssertSet(t, trusted, []*types.LightBlock{last, extra})
+	assertStoredLightBlocks(t, trusted, []*types.LightBlock{last, extra})
 	trusted = New(backend)
-	repair86AssertSet(t, trusted, []*types.LightBlock{last, extra})
+	assertStoredLightBlocks(t, trusted, []*types.LightBlock{last, extra})
 }
 
-func repair86Open(t *testing.T, dir string, readOnly bool) (*dbm.GoLevelDB, store.Store) {
+func openPersistentStore(t *testing.T, dir string, readOnly bool) (*dbm.GoLevelDB, store.Store) {
 	t.Helper()
 	disk, err := dbm.NewGoLevelDBWithOpts("repair86", dir, &opt.Options{ReadOnly: readOnly})
 	require.NoError(t, err)
 	return disk, New(disk)
 }
 
-func repair86Produce(t *testing.T, height int64) *types.LightBlock {
+func produceStoredLightBlock(t *testing.T, height int64) *types.LightBlock {
 	t.Helper()
-	return repair86ProduceWithAppHash(t, height, []byte("application state"))
+	return produceStoredLightBlockWithAppHash(t, height, []byte("application state"))
 }
 
-func repair86ProduceWithAppHash(t *testing.T, height int64, appHash []byte) *types.LightBlock {
+func produceStoredLightBlockWithAppHash(t *testing.T, height int64, appHash []byte) *types.LightBlock {
 	t.Helper()
 	const chainID = "repair86"
 	key := ed25519.TestSecretKey([]byte(chainID))
@@ -236,7 +236,7 @@ func repair86ProduceWithAppHash(t *testing.T, height int64, appHash []byte) *typ
 	return decoded
 }
 
-func repair86AssertSet(t *testing.T, trusted store.Store, want []*types.LightBlock) {
+func assertStoredLightBlocks(t *testing.T, trusted store.Store, want []*types.LightBlock) {
 	t.Helper()
 	require.Equal(t, uint16(len(want)), trusted.Size())
 	first, err := trusted.FirstLightBlockHeight()

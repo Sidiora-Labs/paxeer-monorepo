@@ -20,7 +20,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/version"
 )
 
-func repair85Endpoint(t *testing.T) (*kvstore.Application, *httptest.Server, *rpchttp.HTTP) {
+func abciInfoEndpoint(t *testing.T) (*kvstore.Application, *httptest.Server, *rpchttp.HTTP) {
 	t.Helper()
 	app := kvstore.NewApplication()
 	t.Cleanup(func() { require.NoError(t, app.Close()) })
@@ -53,8 +53,8 @@ func repair85Endpoint(t *testing.T) (*kvstore.Application, *httptest.Server, *rp
 	return app, provider, consumer
 }
 
-func TestRepair_85_ABCIInfoRoundTrip(t *testing.T) {
-	app, provider, consumer := repair85Endpoint(t)
+func TestABCIInfo_ABCIInfoRoundTrip(t *testing.T) {
+	app, provider, consumer := abciInfoEndpoint(t)
 	providerClient, err := rpchttp.NewWithTimeout(provider.URL, 5*time.Second)
 	require.NoError(t, err)
 	for height := int64(1); height <= 2; height++ {
@@ -85,8 +85,8 @@ func TestRepair_85_ABCIInfoRoundTrip(t *testing.T) {
 	}
 }
 
-func TestRepair_85_UnavailableProviderRefusal(t *testing.T) {
-	_, provider, consumer := repair85Endpoint(t)
+func TestABCIInfo_UnavailableProviderRefusal(t *testing.T) {
+	_, provider, consumer := abciInfoEndpoint(t)
 	result, err := consumer.ABCIInfo(t.Context())
 	require.NoError(t, err)
 	require.NotNil(t, result)

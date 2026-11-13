@@ -22,7 +22,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/version"
 )
 
-func TestRepairM_1103_MalformedHTTPReplies(t *testing.T) {
+func TestHTTPProvider_MalformedHTTPReplies(t *testing.T) {
 	for _, height := range []int64{42, 0} {
 		for _, tc := range []struct {
 			name   string
@@ -38,7 +38,7 @@ func TestRepairM_1103_MalformedHTTPReplies(t *testing.T) {
 		} {
 			t.Run(fmt.Sprintf("height_%d/%s", height, tc.name), func(t *testing.T) {
 				requests := make(chan rpctypes.RPCRequest, 4)
-				server := repairM1103Server(t, requests, func(req rpctypes.RPCRequest) any {
+				server := httpReplyServer(t, requests, func(req rpctypes.RPCRequest) any {
 					return json.RawMessage(tc.result)
 				})
 				p, err := lighthttp.NewWithOptions("repair-m1103", server.URL, lighthttp.Options{Timeout: time.Second})
@@ -53,13 +53,13 @@ func TestRepairM_1103_MalformedHTTPReplies(t *testing.T) {
 				require.Len(t, requests, 1, "malformed headers must be rejected before fetching validators or retrying")
 				req := <-requests
 				require.Equal(t, "commit", req.Method)
-				repairM1103CheckHeight(t, req, height)
+				checkRequestHeight(t, req, height)
 			})
 		}
 	}
 }
 
-func TestRepairM_1103_ValidHTTPReplies(t *testing.T) {
+func TestHTTPProvider_ValidHTTPReplies(t *testing.T) {
 	const chainID = "repair-m1103"
 	key := ed25519.TestSecretKey([]byte("repair-m1103-signed-http-fixture"))
 	vals := types.NewValidatorSet([]*types.Validator{types.NewValidator(key.Public(), 10)})
@@ -91,7 +91,7 @@ func TestRepairM_1103_ValidHTTPReplies(t *testing.T) {
 	for _, height := range []int64{42, 0, 41} {
 		t.Run(fmt.Sprintf("height_%d", height), func(t *testing.T) {
 			requests := make(chan rpctypes.RPCRequest, 4)
-			server := repairM1103Server(t, requests, func(req rpctypes.RPCRequest) any {
+			server := httpReplyServer(t, requests, func(req rpctypes.RPCRequest) any {
 				if req.Method == "validators" {
 					return &coretypes.ResultValidators{BlockHeight: header.Height, Validators: vals.Validators, Count: 1, Total: 1}
 				}
@@ -116,17 +116,17 @@ func TestRepairM_1103_ValidHTTPReplies(t *testing.T) {
 			}
 			req := <-requests
 			require.Equal(t, "commit", req.Method)
-			repairM1103CheckHeight(t, req, height)
+			checkRequestHeight(t, req, height)
 			if height != 41 {
 				req = <-requests
 				require.Equal(t, "validators", req.Method)
-				repairM1103CheckHeight(t, req, header.Height)
+				checkRequestHeight(t, req, header.Height)
 			}
 		})
 	}
 }
 
-func repairM1103Server(t *testing.T, requests chan<- rpctypes.RPCRequest, result func(rpctypes.RPCRequest) any) *httptest.Server {
+func httpReplyServer(t *testing.T, requests chan<- rpctypes.RPCRequest, result func(rpctypes.RPCRequest) any) *httptest.Server {
 	t.Helper()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req rpctypes.RPCRequest
@@ -145,7 +145,7 @@ func repairM1103Server(t *testing.T, requests chan<- rpctypes.RPCRequest, result
 	return server
 }
 
-func repairM1103CheckHeight(t *testing.T, req rpctypes.RPCRequest, height int64) {
+func checkRequestHeight(t *testing.T, req rpctypes.RPCRequest, height int64) {
 	t.Helper()
 	var params coretypes.RequestBlockInfo
 	require.NoError(t, json.Unmarshal(req.Params, &params))
