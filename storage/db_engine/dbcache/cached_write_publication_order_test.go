@@ -18,52 +18,52 @@ import (
 
 // This timing decorator pauses the first publication; every cache operation
 // still runs through the real standard cache backed by a real Pebble database.
-type repair106PublicationPause struct {
+type publicationPauseCache struct {
 	dbcache.Cache
 	calls   atomic.Int32
 	entered chan struct{}
 	release chan struct{}
 }
 
-func (p *repair106PublicationPause) pause() {
+func (p *publicationPauseCache) pause() {
 	if p.calls.Add(1) == 1 {
 		close(p.entered)
 		<-p.release
 	}
 }
 
-func (p *repair106PublicationPause) Set(key, value []byte) {
+func (p *publicationPauseCache) Set(key, value []byte) {
 	p.pause()
 	p.Cache.Set(key, value)
 }
 
-func (p *repair106PublicationPause) Delete(key []byte) {
+func (p *publicationPauseCache) Delete(key []byte) {
 	p.pause()
 	p.Cache.Delete(key)
 }
 
-func (p *repair106PublicationPause) BatchSet(updates []dbcache.CacheUpdate) error {
+func (p *publicationPauseCache) BatchSet(updates []dbcache.CacheUpdate) error {
 	p.pause()
 	return p.Cache.BatchSet(updates)
 }
 
-func TestRepair_106_SetPublicationOrder(t *testing.T) {
-	repair106PublicationOrder(t, "set")
+func TestSetPublicationOrder(t *testing.T) {
+	assertWritePublicationOrder(t, "set")
 }
 
-func TestRepair_106_DeletePublicationOrder(t *testing.T) {
-	repair106PublicationOrder(t, "delete")
+func TestDeletePublicationOrder(t *testing.T) {
+	assertWritePublicationOrder(t, "delete")
 }
 
-func TestRepair_106_BatchSetPublicationOrder(t *testing.T) {
-	repair106PublicationOrder(t, "batch-set")
+func TestBatchSetPublicationOrder(t *testing.T) {
+	assertWritePublicationOrder(t, "batch-set")
 }
 
-func TestRepair_106_BatchDeletePublicationOrder(t *testing.T) {
-	repair106PublicationOrder(t, "batch-delete")
+func TestBatchDeletePublicationOrder(t *testing.T) {
+	assertWritePublicationOrder(t, "batch-delete")
 }
 
-func repair106Write(t *testing.T, db types.KeyValueDB, operation string, value []byte) func() error {
+func cachedWriteOperation(t *testing.T, db types.KeyValueDB, operation string, value []byte) func() error {
 	t.Helper()
 	key := []byte("shared")
 	opts := types.WriteOptions{Sync: true}
@@ -87,7 +87,7 @@ func repair106Write(t *testing.T, db types.KeyValueDB, operation string, value [
 	}
 }
 
-func repair106PublicationOrder(t *testing.T, firstOperation string) {
+func assertWritePublicationOrder(t *testing.T, firstOperation string) {
 	t.Helper()
 	for _, secondOperation := range []string{"set", "delete", "batch-set", "batch-delete"} {
 		t.Run(secondOperation, func(t *testing.T) {
@@ -104,7 +104,7 @@ func repair106PublicationOrder(t *testing.T, firstOperation string) {
 				ShardCount: 4, MaxSize: 1 << 20, EstimatedOverheadPerEntry: 16,
 			}, pool, pool)
 			require.NoError(t, err)
-			pause := &repair106PublicationPause{
+			pause := &publicationPauseCache{
 				Cache: standard, entered: make(chan struct{}), release: make(chan struct{}),
 			}
 			var releaseOnce sync.Once
@@ -115,8 +115,8 @@ func repair106PublicationOrder(t *testing.T, firstOperation string) {
 			require.NoError(t, err)
 			require.Equal(t, []byte("initial"), initial)
 
-			firstWrite := repair106Write(t, cached, firstOperation, []byte("first"))
-			secondWrite := repair106Write(t, cached, secondOperation, []byte("second"))
+			firstWrite := cachedWriteOperation(t, cached, firstOperation, []byte("first"))
+			secondWrite := cachedWriteOperation(t, cached, secondOperation, []byte("second"))
 			firstDone := make(chan error, 1)
 			go func() { firstDone <- firstWrite() }()
 			select {
@@ -169,14 +169,14 @@ func repair106PublicationOrder(t *testing.T, firstOperation string) {
 			if secondOperation == "delete" || secondOperation == "batch-delete" {
 				expected = nil
 			}
-			repair106AssertState(t, backing, expected)
-			repair106AssertState(t, cached, expected)
+			assertKeyValueDBState(t, backing, expected)
+			assertKeyValueDBState(t, cached, expected)
 			require.False(t, secondFinished, "second writer completed while the first cache publication was paused")
 		})
 	}
 }
 
-func repair106AssertState(t *testing.T, db types.KeyValueDB, expected []byte) {
+func assertKeyValueDBState(t *testing.T, db types.KeyValueDB, expected []byte) {
 	t.Helper()
 	value, err := db.Get([]byte("shared"))
 	if expected == nil {

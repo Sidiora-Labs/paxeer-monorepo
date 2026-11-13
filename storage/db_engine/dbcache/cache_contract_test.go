@@ -16,12 +16,12 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/db_engine/types"
 )
 
-func TestRepairM_1148_ConstructorValidation(t *testing.T) {
+func TestCacheConstructorMetricsValidation(t *testing.T) {
 	defer leaktest.Check(t)()
 	for _, interval := range []time.Duration{0, -time.Nanosecond, -time.Second} {
 		t.Run(interval.String(), func(t *testing.T) {
 			cfg := dbcache.DefaultCacheConfig()
-			cfg.MetricsName = "repair-m1148"
+			cfg.MetricsName = "cache-constructor-validation"
 			cfg.MetricsScrapeInterval = interval
 			expectedErr := cfg.Validate()
 			require.Error(t, expectedErr)
@@ -43,13 +43,13 @@ func TestRepairM_1148_ConstructorValidation(t *testing.T) {
 
 // This adapter translates the batch lifecycle to the real in-memory backend;
 // Set, Delete, errors and storage are provided by its production batch.
-type repairM1148MemBatch struct {
+type memoryBatchAdapter struct {
 	dbm.Batch
 	db    *dbm.MemDB
 	count int
 }
 
-func (b *repairM1148MemBatch) Set(key, value []byte) error {
+func (b *memoryBatchAdapter) Set(key, value []byte) error {
 	if err := b.Batch.Set(key, value); err != nil {
 		return err
 	}
@@ -57,7 +57,7 @@ func (b *repairM1148MemBatch) Set(key, value []byte) error {
 	return nil
 }
 
-func (b *repairM1148MemBatch) Delete(key []byte) error {
+func (b *memoryBatchAdapter) Delete(key []byte) error {
 	if err := b.Batch.Delete(key); err != nil {
 		return err
 	}
@@ -65,16 +65,16 @@ func (b *repairM1148MemBatch) Delete(key []byte) error {
 	return nil
 }
 
-func (b *repairM1148MemBatch) Commit(opts types.WriteOptions) error {
+func (b *memoryBatchAdapter) Commit(opts types.WriteOptions) error {
 	if opts.Sync {
 		return b.Batch.WriteSync()
 	}
 	return b.Batch.Write()
 }
 
-func (b *repairM1148MemBatch) Len() int { return b.count }
+func (b *memoryBatchAdapter) Len() int { return b.count }
 
-func (b *repairM1148MemBatch) Reset() {
+func (b *memoryBatchAdapter) Reset() {
 	if err := b.Batch.Close(); err != nil {
 		panic(err)
 	}
@@ -82,7 +82,7 @@ func (b *repairM1148MemBatch) Reset() {
 	b.count = 0
 }
 
-func repairM1148Cache(t *testing.T, ctx context.Context) dbcache.Cache {
+func newContractTestCache(t *testing.T, ctx context.Context) dbcache.Cache {
 	t.Helper()
 	pool := threading.NewAdHocPool()
 	t.Cleanup(pool.Close)
@@ -93,14 +93,14 @@ func repairM1148Cache(t *testing.T, ctx context.Context) dbcache.Cache {
 	return cache
 }
 
-func TestRepairM_1148_FailedBatchMutations(t *testing.T) {
+func TestCachedBatchRejectsInvalidMutations(t *testing.T) {
 	for _, operation := range []string{"set-nil-value", "set-empty-key", "delete-empty-key"} {
 		t.Run(operation, func(t *testing.T) {
 			backing := dbm.NewMemDB()
 			t.Cleanup(func() { require.NoError(t, backing.Close()) })
 			ctx, cancel := context.WithCancel(context.Background())
 			t.Cleanup(cancel)
-			cache := repairM1148Cache(t, ctx)
+			cache := newContractTestCache(t, ctx)
 			for key, value := range map[string]string{"keep": "original", "delete": "old"} {
 				require.NoError(t, backing.Set([]byte(key), []byte(value)))
 				cache.Set([]byte(key), []byte(value))
@@ -108,8 +108,8 @@ func TestRepairM_1148_FailedBatchMutations(t *testing.T) {
 			// Cache accepts empty keys, whereas the backing batch rejects them.
 			// A rejected delete must not reach even an existing empty-key entry.
 			cache.Set(nil, []byte("empty-key-sentinel"))
-			inner := &repairM1148MemBatch{Batch: backing.NewBatch(), db: backing}
-			batch := dbcache.RepairM1148CachedBatch(inner, cache)
+			inner := &memoryBatchAdapter{Batch: backing.NewBatch(), db: backing}
+			batch := dbcache.NewCachedBatchForTest(inner, cache)
 			t.Cleanup(func() { require.NoError(t, batch.Close()) })
 			probe := backing.NewBatch()
 			t.Cleanup(func() { require.NoError(t, probe.Close()) })
@@ -155,7 +155,7 @@ func TestRepairM_1148_FailedBatchMutations(t *testing.T) {
 	}
 }
 
-func TestRepairM_1148_ValueOwnership(t *testing.T) {
+func TestCachedKeyValueDBValueOwnership(t *testing.T) {
 	for _, mode := range []string{"standard", "passthrough"} {
 		for _, source := range []string{"backing", "set", "batch"} {
 			for _, firstRead := range []string{"get", "batch-get"} {
@@ -167,7 +167,7 @@ func TestRepairM_1148_ValueOwnership(t *testing.T) {
 					t.Cleanup(func() { require.NoError(t, backing.Close()) })
 					cache := dbcache.NewNoOpCache()
 					if mode == "standard" {
-						cache = repairM1148Cache(t, ctx)
+						cache = newContractTestCache(t, ctx)
 					}
 					cached := dbcache.NewCachedKeyValueDB(backing, cache)
 					key := []byte("key")
