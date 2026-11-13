@@ -19,7 +19,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, test, vi } from 'vit
 import { act, cleanup, waitFor } from 'vitest/lib';
 import { createTestSocket } from 'vitest/utils/socketServer';
 
-import { tokenDetailFixtures, tokenSupplyTranscript } from './repair-22-33-314.fixtures';
+import { tokenDetailFixtures, tokenSupplyTranscript } from './LivePageConsumers.fixtures';
 import Token from './Token';
 
 const peer = await vi.hoisted(async function() {
@@ -183,7 +183,7 @@ async function tokenChainCacheKeyDiscardsPendingSupplyWhenTheActiveChainChanges(
   expect(client.getQueryData(rootKey)).toBeUndefined();
 }
 
-describe('repair 22.33.315 token-chain-cache-key', () => {
+describe('Token chain cache isolation', () => {
   beforeEach(async({ task }) => {
     onlineManager.setOnline(true);
     fetchMock.disableMocks();

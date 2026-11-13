@@ -27,7 +27,7 @@ import Address from './Address';
 import PaxeerXFeed from './PaxeerXFeed';
 import PaxeerXFeedMarket, { FEED_HISTORY_WINDOW_LIMIT } from './PaxeerXFeedMarket';
 import PaxeerXReceipt from './PaxeerXReceipt';
-import { addressDetailFixtures, tokenDetailFixtures, tokenSupplyTranscript } from './repair-22-33-314.fixtures';
+import { addressDetailFixtures, tokenDetailFixtures, tokenSupplyTranscript } from './LivePageConsumers.fixtures';
 import Token from './Token';
 
 // Execute the repaired layout, buffering, rejoin and archive regression cases in the declared gate.
@@ -364,7 +364,7 @@ async function tokenSupplyStringsCrossPhoenixLosslesslyIncludingBufferedZero() {
   }
 }
 
-describe('repair 22.33.314 real HTTP and Phoenix consumers', () => {
+describe('Live page HTTP and Phoenix consumers', () => {
   beforeEach(() => {
     onlineManager.setOnline(true);
     fetchMock.disableMocks();
