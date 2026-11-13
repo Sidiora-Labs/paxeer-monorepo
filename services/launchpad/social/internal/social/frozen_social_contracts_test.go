@@ -34,13 +34,13 @@ import (
 
 // Missing production authority must refuse before consulting either legacy
 // tables or room metadata. This boundary needs no external service.
-func TestRepair_68_MissingAuthoritiesFailClosed(t *testing.T) {
+func TestDurableRoutesMissingAuthoritiesFailClosed(t *testing.T) {
 	const wallet = "0x1111111111111111111111111111111111111111"
 	router := chi.NewRouter()
 	New(Deps{}).RegisterContractRoutes(router)
 	server := httptest.NewServer(router)
 	defer server.Close()
-	cases := []repair68ErrorCase{
+	cases := []durableRoutesErrorCase{
 		{Method: "GET", Path: "/v2/profiles/bad/follow-stats", Status: 400, Code: "INVALID_REQUEST", RequestID: uuid.NewString()},
 		{Method: "PUT", Path: "/v2/me/following/" + wallet, Status: 401, Code: "AUTH_REQUIRED", RequestID: uuid.NewString()},
 		{Method: "DELETE", Path: "/v2/me/following/" + wallet, Status: 401, Code: "AUTH_REQUIRED", RequestID: uuid.NewString()},
@@ -53,7 +53,7 @@ func TestRepair_68_MissingAuthoritiesFailClosed(t *testing.T) {
 		{Method: "PUT", Path: "/v2/me/following/" + wallet, Actor: "0x2222222222222222222222222222222222222222", Status: 503, Code: "DEPENDENCY_UNAVAILABLE", RequestID: uuid.NewString()},
 		{Method: "DELETE", Path: "/v2/me/following/" + wallet, Actor: "0x2222222222222222222222222222222222222222", Status: 503, Code: "DEPENDENCY_UNAVAILABLE", RequestID: uuid.NewString()},
 	}
-	repair68SDK(t, server.URL, cases)
+	durableRoutesSDK(t, server.URL, cases)
 	for _, deps := range []Deps{
 		{},
 		{Durable: &fanout.DurableStore{}, AuthenticateChat: fanout.VerifiedRequestAuthenticator(sharedauth.HTTPIdentityAuthority{})},
@@ -89,19 +89,19 @@ func TestRepair_68_MissingAuthoritiesFailClosed(t *testing.T) {
 	}
 }
 
-func repair68Database(t *testing.T) (*pgxpool.Pool, func() *pgxpool.Pool) {
+func durableRoutesDatabase(t *testing.T) (*pgxpool.Pool, func() *pgxpool.Pool) {
 	t.Helper()
-	return newRepair68Database(t)
+	return newDurableRoutesDatabase(t)
 }
 
-func repair68Exec(t *testing.T, db *pgxpool.Pool, query string, args ...any) {
+func durableRoutesExec(t *testing.T, db *pgxpool.Pool, query string, args ...any) {
 	t.Helper()
 	if _, err := db.Exec(context.Background(), query, args...); err != nil {
 		t.Fatalf("fixture SQL: %v", err)
 	}
 }
 
-type repair68ErrorCase struct {
+type durableRoutesErrorCase struct {
 	Method    string `json:"method"`
 	Path      string `json:"path"`
 	Actor     string `json:"actor"`
@@ -113,7 +113,7 @@ type repair68ErrorCase struct {
 // The SDK's generated Go codec consumes the frozen Error schema in-process.
 // It validates required/null fields before decoding, just like the SDK's
 // transport boundary; a DTO-only decode would accept the legacy problem body.
-func repair68SDK(t *testing.T, origin string, cases []repair68ErrorCase) {
+func durableRoutesSDK(t *testing.T, origin string, cases []durableRoutesErrorCase) {
 	t.Helper()
 	if err := v2.ValidateJSON("Error", []byte(`{"type":"about:blank","title":"Unauthorized","status":401,"detail":"missing actor"}`)); err == nil {
 		t.Fatal("SDK codec accepted the legacy problem body")
@@ -146,8 +146,8 @@ func repair68SDK(t *testing.T, origin string, cases []repair68ErrorCase) {
 	}
 }
 
-func TestRepair_68_FollowRefusalsDecodeInSDK(t *testing.T) {
-	db, _ := repair68Database(t)
+func TestDurableRoutesFollowRefusalsDecodeInSDK(t *testing.T) {
+	db, _ := durableRoutesDatabase(t)
 	router := chi.NewRouter()
 	h := New(Deps{Queries: sqlcdb.New(db)})
 	h.RegisterContractRoutes(router)
@@ -155,7 +155,7 @@ func TestRepair_68_FollowRefusalsDecodeInSDK(t *testing.T) {
 	defer server.Close()
 	const alice = "0x1111111111111111111111111111111111111111"
 	const bob = "0x2222222222222222222222222222222222222222"
-	cases := []repair68ErrorCase{
+	cases := []durableRoutesErrorCase{
 		{Method: "GET", Path: "/v2/profiles/bad/follow-stats", Status: 400, Code: "INVALID_REQUEST"},
 		{Method: "PUT", Path: "/v2/me/following/" + bob, Status: 401, Code: "AUTH_REQUIRED"},
 		{Method: "DELETE", Path: "/v2/me/following/" + bob, Status: 401, Code: "AUTH_REQUIRED"},
@@ -168,7 +168,7 @@ func TestRepair_68_FollowRefusalsDecodeInSDK(t *testing.T) {
 	for i := range cases {
 		cases[i].RequestID = uuid.NewString()
 	}
-	repair68SDK(t, server.URL, cases)
+	durableRoutesSDK(t, server.URL, cases)
 	for _, supplied := range []string{"", "bad", uuid.Nil.String(), strings.ReplaceAll(uuid.NewString(), "-", "")} {
 		req := httptest.NewRequest("PUT", "/v2/me/following/"+bob, nil)
 		req.Header.Set("X-Request-ID", supplied)
@@ -188,7 +188,7 @@ func TestRepair_68_FollowRefusalsDecodeInSDK(t *testing.T) {
 	}
 	// The in-memory database peer enforces the restricted fixture role while
 	// the real sqlc producer and handler execute reads and both mutations.
-	repair68Exec(t, db, `CREATE ROLE repair_follow_reader LOGIN; GRANT USAGE ON SCHEMA chat TO repair_follow_reader`)
+	durableRoutesExec(t, db, `CREATE ROLE repair_follow_reader LOGIN; GRANT USAGE ON SCHEMA chat TO repair_follow_reader`)
 	cfg := db.Config().Copy()
 	cfg.ConnConfig.User = "repair_follow_reader"
 	restricted, err := pgxpool.NewWithConfig(context.Background(), cfg)
@@ -200,31 +200,31 @@ func TestRepair_68_FollowRefusalsDecodeInSDK(t *testing.T) {
 	New(Deps{Queries: sqlcdb.New(restricted)}).RegisterContractRoutes(refused)
 	dependencyServer := httptest.NewServer(refused)
 	defer dependencyServer.Close()
-	dependency := []repair68ErrorCase{
+	dependency := []durableRoutesErrorCase{
 		{Method: "GET", Path: "/v2/profiles/" + bob + "/follow-stats", Status: 503, Code: "DEPENDENCY_UNAVAILABLE", RequestID: uuid.NewString()},
 		{Method: "PUT", Path: "/v2/me/following/" + bob, Actor: alice, Status: 503, Code: "DEPENDENCY_UNAVAILABLE", RequestID: uuid.NewString()},
 		{Method: "DELETE", Path: "/v2/me/following/" + bob, Actor: alice, Status: 503, Code: "DEPENDENCY_UNAVAILABLE", RequestID: uuid.NewString()},
 	}
-	repair68SDK(t, dependencyServer.URL, dependency)
+	durableRoutesSDK(t, dependencyServer.URL, dependency)
 	// A column grant lets the first count succeed while the second remains
 	// refused by the authority peer, covering both read failure branches.
-	repair68Exec(t, db, `GRANT SELECT(followee) ON chat.follows TO repair_follow_reader`)
-	repair68SDK(t, dependencyServer.URL, dependency[:1])
+	durableRoutesExec(t, db, `GRANT SELECT(followee) ON chat.follows TO repair_follow_reader`)
+	durableRoutesSDK(t, dependencyServer.URL, dependency[:1])
 	var count int
 	if err := db.QueryRow(context.Background(), `SELECT count(*) FROM follows`).Scan(&count); err != nil || count != 0 {
 		t.Fatalf("refusal changed graph: %d; %v", count, err)
 	}
 }
 
-func TestRepair_68_PrivateVoiceReadAndPromptShareAdmission(t *testing.T) {
-	db, _ := repair68Database(t)
+func TestDurableRoutesPrivateVoiceReadAndPromptShareAdmission(t *testing.T) {
+	db, _ := durableRoutesDatabase(t)
 	const hostWallet = "0x1111111111111111111111111111111111111111"
 	const guestWallet = "0x2222222222222222222222222222222222222222"
 	const poolID = "0x3333333333333333333333333333333333333333"
 	hostID := uuid.NewString()
-	repair68Exec(t, db, `INSERT INTO account_state_v2 VALUES($1,$2,false)`, hostID, hostWallet)
-	repair68Exec(t, db, `INSERT INTO identity_wallet_links_v2 VALUES($1,$2,125,'verified')`, hostID, hostWallet)
-	repair68Exec(t, db, `INSERT INTO indexer_canonical_creations_v1 VALUES($1,$2,$3)`, poolID, guestWallet, hostWallet)
+	durableRoutesExec(t, db, `INSERT INTO account_state_v2 VALUES($1,$2,false)`, hostID, hostWallet)
+	durableRoutesExec(t, db, `INSERT INTO identity_wallet_links_v2 VALUES($1,$2,125,'verified')`, hostID, hostWallet)
+	durableRoutesExec(t, db, `INSERT INTO indexer_canonical_creations_v1 VALUES($1,$2,$3)`, poolID, guestWallet, hostWallet)
 	store := &safety.Store{DB: db}
 	control := &voice.Control{DB: db, Policy: store, Pools: v2VoicePostgresPools{db: db}, Provider: &voice.LiveKit{}}
 	router := chi.NewRouter()
@@ -293,7 +293,7 @@ func TestRepair_68_PrivateVoiceReadAndPromptShareAdmission(t *testing.T) {
 	id := room.Data.Room.RoomId
 	base := "/v2/voice-rooms/" + id
 	recordingID := uuid.NewString()
-	repair68Exec(t, db, `INSERT INTO voice_recordings(id,room_id,state,purpose,policy_version,delete_at) VALUES($1,$2,'consent_pending','Private recording purpose','proof-policy',now()+interval '1 day')`, recordingID, id)
+	durableRoutesExec(t, db, `INSERT INTO voice_recordings(id,room_id,state,purpose,policy_version,delete_at) VALUES($1,$2,'consent_pending','Private recording purpose','proof-policy',now()+interval '1 day')`, recordingID, id)
 	checkViews := func(p safety.Principal, status int) {
 		t.Helper()
 		read := request(p, "GET", base, "", status)
@@ -320,7 +320,7 @@ func TestRepair_68_PrivateVoiceReadAndPromptShareAdmission(t *testing.T) {
 	checkViews(guest, 403)
 	request(guest, "POST", base+"/tickets", `{"role":"listener","clientSessionId":"`+guest.SessionID+`"}`, 403)
 	checkViews(host, 200)
-	repair68Exec(t, db, `INSERT INTO voice_participants(room_id,wallet,role) VALUES($1,$2,'listener')`, id, guestWallet)
+	durableRoutesExec(t, db, `INSERT INTO voice_participants(room_id,wallet,role) VALUES($1,$2,'listener')`, id, guestWallet)
 	checkViews(guest, 200)
 	admitted := request(guest, "GET", base+"/prompt", "", 200)
 	if !bytes.Contains(admitted, []byte(guestWallet)) {
@@ -328,25 +328,25 @@ func TestRepair_68_PrivateVoiceReadAndPromptShareAdmission(t *testing.T) {
 	}
 	// Admission lookup is independent of the bounded roster page.
 	for i := 0; i < 51; i++ {
-		repair68Exec(t, db, `INSERT INTO voice_participants(room_id,wallet,role) VALUES($1,$2,'listener')`, id, fmt.Sprintf("0x%040x", i+1))
+		durableRoutesExec(t, db, `INSERT INTO voice_participants(room_id,wallet,role) VALUES($1,$2,'listener')`, id, fmt.Sprintf("0x%040x", i+1))
 	}
 	checkViews(guest, 200)
 	for _, scope := range []struct{ kind, resource string }{{"voice", id}, {"pool", poolID}, {"global", ""}} {
 		banID := uuid.NewString()
-		repair68Exec(t, db, `INSERT INTO safety_bans(id,wallet,scope,resource,actor) VALUES($1,$2,$3,$4,$5)`, banID, guestWallet, scope.kind, scope.resource, hostWallet)
+		durableRoutesExec(t, db, `INSERT INTO safety_bans(id,wallet,scope,resource,actor) VALUES($1,$2,$3,$4,$5)`, banID, guestWallet, scope.kind, scope.resource, hostWallet)
 		checkViews(guest, 403)
 		request(guest, "POST", base+"/tickets", `{"role":"listener","clientSessionId":"`+guest.SessionID+`"}`, 403)
-		repair68Exec(t, db, `UPDATE safety_bans SET revoked_at=now() WHERE id=$1`, banID)
+		durableRoutesExec(t, db, `UPDATE safety_bans SET revoked_at=now() WHERE id=$1`, banID)
 		checkViews(guest, 200)
 	}
-	repair68Exec(t, db, `UPDATE voice_participants SET revoked=true WHERE room_id=$1 AND wallet=$2`, id, guestWallet)
+	durableRoutesExec(t, db, `UPDATE voice_participants SET revoked=true WHERE room_id=$1 AND wallet=$2`, id, guestWallet)
 	checkViews(guest, 403)
 	checkViews(host, 200)
-	repair68Exec(t, db, `ALTER TABLE safety_bans RENAME TO unavailable_bans`)
+	durableRoutesExec(t, db, `ALTER TABLE safety_bans RENAME TO unavailable_bans`)
 	checkViews(host, 503)
 }
 
-func TestRepair_68_SocketRESTAndRestartUseDurableMessages(t *testing.T) {
+func TestDurableRoutesSocketRESTAndRestartUseDurableMessages(t *testing.T) {
 	db := internaltest.NewPostgres(t)
 	cfg := db.Config().Copy()
 	cfg.ConnConfig.RuntimeParams["search_path"] = "chat,users,public"
@@ -378,15 +378,15 @@ func TestRepair_68_SocketRESTAndRestartUseDurableMessages(t *testing.T) {
 		account, session := uuid.NewString(), uuid.NewString()
 		hash := sha256.Sum256([]byte(session))
 		now := time.Now().UTC()
-		repair68Exec(t, db, `INSERT INTO identity_accounts VALUES($1,0,$2)`, account, now)
-		repair68Exec(t, db, `INSERT INTO identity_wallet_links VALUES($1,$2,125,$3,'private','verified',$4)`, uuid.NewString(), account, wallet, now)
-		repair68Exec(t, db, `INSERT INTO identity_sessions(session_id,account_id,wallet,auth_epoch,access_hash,csrf_hash,issued_at,access_expires_at,refresh_expires_at,reauthenticated_at,last_seen_at,device_label) VALUES($1,$2,$3,0,$4,$4,$5,$6,$6,$5,$5,'repair-proof')`, session, account, wallet, hash[:], now, now.Add(time.Hour))
-		repair68Exec(t, db, `INSERT INTO account_state(account_id,wallet,profile,preferences) VALUES($1,$2,'{}','{}')`, account, wallet)
-		repair68Exec(t, db, `INSERT INTO interaction_preferences(wallet,inbox) VALUES($1,'everyone')`, wallet)
+		durableRoutesExec(t, db, `INSERT INTO identity_accounts VALUES($1,0,$2)`, account, now)
+		durableRoutesExec(t, db, `INSERT INTO identity_wallet_links VALUES($1,$2,125,$3,'private','verified',$4)`, uuid.NewString(), account, wallet, now)
+		durableRoutesExec(t, db, `INSERT INTO identity_sessions(session_id,account_id,wallet,auth_epoch,access_hash,csrf_hash,issued_at,access_expires_at,refresh_expires_at,reauthenticated_at,last_seen_at,device_label) VALUES($1,$2,$3,0,$4,$4,$5,$6,$6,$5,$5,'repair-proof')`, session, account, wallet, hash[:], now, now.Add(time.Hour))
+		durableRoutesExec(t, db, `INSERT INTO account_state(account_id,wallet,profile,preferences) VALUES($1,$2,'{}','{}')`, account, wallet)
+		durableRoutesExec(t, db, `INSERT INTO interaction_preferences(wallet,inbox) VALUES($1,'everyone')`, wallet)
 		sessions[wallet] = session
 	}
 	for logIndex, address := range []string{poolID, otherPool} {
-		repair68Exec(t, db, `INSERT INTO indexer.indexer_canonical_creations(token,pool,creator,factory,optical,nft_id,height,block_hash,transaction_hash,transaction_index,log_index,block_timestamp,provenance,payload) VALUES($1,$1,$2,$3,$4,1,100,$5,$6,0,$8,$7,'{}','{}')`, address, bob, alice, carol, "0x"+strings.Repeat("ab", 32), "0x"+strings.Repeat("cd", 32), time.Now().Unix(), logIndex)
+		durableRoutesExec(t, db, `INSERT INTO indexer.indexer_canonical_creations(token,pool,creator,factory,optical,nft_id,height,block_hash,transaction_hash,transaction_index,log_index,block_timestamp,provenance,payload) VALUES($1,$1,$2,$3,$4,1,100,$5,$6,0,$8,$7,'{}','{}')`, address, bob, alice, carol, "0x"+strings.Repeat("ab", 32), "0x"+strings.Repeat("cd", 32), time.Now().Unix(), logIndex)
 	}
 	redisOptions, err := goredis.ParseURL(internaltest.NewRedisURL(t))
 	if err != nil {
@@ -610,6 +610,6 @@ func TestRepair_68_SocketRESTAndRestartUseDurableMessages(t *testing.T) {
 	if err := db.QueryRow(context.Background(), `SELECT (SELECT count(*) FROM chat_messages),(SELECT count(*) FROM chat_outbox),(SELECT count(*) FROM pool_messages)+(SELECT count(*) FROM dm_messages)`).Scan(&messages, &outbox, &legacy); err != nil || messages != 2 || outbox != 4 || legacy != 0 {
 		t.Fatalf("parallel persistence or duplicate messages: %d %d %d; %v", messages, outbox, legacy, err)
 	}
-	repair68Exec(t, db, `UPDATE identity_sessions SET revoked_at=now() WHERE session_id=$1`, sessions[bob])
+	durableRoutesExec(t, db, `UPDATE identity_sessions SET revoked_at=now() WHERE session_id=$1`, sessions[bob])
 	request(bob, "GET", dmPath, "", "", 401)
 }

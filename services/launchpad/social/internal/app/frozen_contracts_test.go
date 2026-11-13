@@ -34,7 +34,7 @@ import (
 // supplying substitute keepers, databases, ticket authorities or transports.
 // The task record explicitly distinguishes these checks from the external
 // producer/store/restart proofs that this dependency-free gate cannot run.
-func TestRepair_66_ContainerFrozenRoutes(t *testing.T) {
+func TestFrozenContainerRoutes(t *testing.T) {
 	ctx := context.Background()
 	// pgx pools connect lazily. Construct the production stores for route
 	// assembly, but exercise admission and validation before database access.
@@ -130,7 +130,7 @@ func TestRepair_66_ContainerFrozenRoutes(t *testing.T) {
 	}
 }
 
-func TestRepair_66_TicketConsumerDelegates(t *testing.T) {
+func TestFrozenAdaptersTicketConsumerDelegates(t *testing.T) {
 	// Exercise the real app -> shared authenticator rejection path without a
 	// ticket service. A duplicate credential must be refused before redemption.
 	req := httptest.NewRequest("GET", "https://social.private/v2/stream?topics=chat.pool."+addr(1), nil)
@@ -167,7 +167,7 @@ func TestRepair_66_TicketConsumerDelegates(t *testing.T) {
 	}
 }
 
-func TestRepair_66_MessageOverlayCodec(t *testing.T) {
+func TestFrozenAdaptersMessageOverlayCodec(t *testing.T) {
 	original := fanout.DurableMessage{Type: "pool_message", ID: uuid.NewString(), ConversationID: "pool:" + addr(1), PoolAddress: addr(1), Sender: addr(2), Content: "retained original", ReplyTo: uuid.NewString(), Sequence: 3, Revision: 4, ClientID: "client-66", CreatedAt: 100}
 	visibility := safety.Visibility{TargetType: "message", TargetID: original.ID, CaseID: uuid.NewString(), Revision: 1, Status: "removed"}
 	removed, err := projectSafetyMessage(original, visibility, false, 0)
@@ -229,7 +229,7 @@ func TestRepair_66_MessageOverlayCodec(t *testing.T) {
 	}
 }
 
-func TestRepair_66_CommentOverlayCodecAndCache(t *testing.T) {
+func TestFrozenAdaptersCommentOverlayCodecAndCache(t *testing.T) {
 	parent := uuid.NewString()
 	source := interactions.CommentView{ID: uuid.NewString(), Pool: addr(1), Author: addr(2), Parent: &parent, Body: "appealed original", Likes: "2", Revision: "7"}
 	visibility := safety.Visibility{TargetType: "comment", TargetID: source.ID, CaseID: uuid.NewString(), Revision: 1, Status: "removed"}
@@ -305,7 +305,7 @@ func TestRepair_66_CommentOverlayCodecAndCache(t *testing.T) {
 	}
 }
 
-func TestRepair_66_FrozenProducerCodec(t *testing.T) {
+func TestFrozenProducerCodec(t *testing.T) {
 	request := v2.CalloutCreateBody{PoolAddress: addr(1), Body: "new callout", Direction: "bullish", Disclosure: "organic", ClientCalloutId: uuid.NewString()}
 	raw, err := json.Marshal(request)
 	if err != nil {
@@ -326,7 +326,7 @@ func TestRepair_66_FrozenProducerCodec(t *testing.T) {
 	}
 }
 
-func TestRepair_66_FrozenReportContract(t *testing.T) {
+func TestFrozenReportContract(t *testing.T) {
 	for state, want := range map[string]string{"open": "open", "triaged": "reviewing", "actioned": "resolved", "appealed": "reviewing", "dismissed": "dismissed"} {
 		report := safety.Case{ID: uuid.NewString(), TargetType: "comment", TargetID: uuid.NewString(), State: state, Revision: 1}
 		out, err := frozenReport(report, addr(2), "specific report explanation")

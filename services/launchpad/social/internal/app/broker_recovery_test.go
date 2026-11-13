@@ -25,13 +25,13 @@ import (
 	"github.com/nats-io/nats.go"
 )
 
-const repairM1031Subject = "social.repair.events"
+const brokerRecoverySubject = "social.repair.events"
 
-func TestRepairM_1031_BrokerReconnectAndDurableReplay(t *testing.T) {
+func TestBrokerReconnectAndDurableReplay(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	broker := repairM1031NewBroker(t)
-	runtime := repairM1031Runtime(t, broker)
+	broker := brokerRecoveryNewBroker(t)
+	runtime := brokerRecoveryRuntime(t, broker)
 	payload := json.RawMessage(`{"body":"durable social event","revision":"1"}`)
 	event := delivery.Envelope{
 		EventID: "repair_m1031_event", EventType: "social.edge.changed", SchemaVersion: 1,
@@ -39,8 +39,8 @@ func TestRepairM_1031_BrokerReconnectAndDurableReplay(t *testing.T) {
 		EmittedAt: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), TraceID: "repair_m1031_trace",
 		Payload: payload, PayloadHash: delivery.Hash(payload),
 	}
-	policy := delivery.Policy{Subjects: map[string]bool{repairM1031Subject: true}, EventTypes: map[string]bool{event.EventType: true}}
-	wire, err := event.Encode(policy, repairM1031Subject)
+	policy := delivery.Policy{Subjects: map[string]bool{brokerRecoverySubject: true}, EventTypes: map[string]bool{event.EventType: true}}
+	wire, err := event.Encode(policy, brokerRecoverySubject)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -48,18 +48,18 @@ func TestRepairM_1031_BrokerReconnectAndDurableReplay(t *testing.T) {
 	// The PostgreSQL peer replays the committed enqueue, failed lease/retry,
 	// reopened-store claim and persistence-ack transcripts. SQL and immutable
 	// bytes are checked; the keeper, lease logic, codec and publisher are real.
-	claim := func(fence, attempts string) repairM1031SQLStep {
-		return repairM1031SQLStep{
+	claim := func(fence, attempts string) brokerRecoverySQLStep {
+		return brokerRecoverySQLStep{
 			contains: []string{"WITH picked AS", "FOR UPDATE SKIP LOCKED", "RETURNING o.event_id,o.subject,o.envelope,o.fence,o.attempts"},
 			columns:  []uint32{25, 25, 17, 20, 23},
-			rows:     [][]string{{event.EventID, repairM1031Subject, `\x` + hex.EncodeToString(wire), fence, attempts}}, tag: "UPDATE 1",
+			rows:     [][]string{{event.EventID, brokerRecoverySubject, `\x` + hex.EncodeToString(wire), fence, attempts}}, tag: "UPDATE 1",
 		}
 	}
-	budget := func(fence string) repairM1031SQLStep {
-		return repairM1031SQLStep{contains: []string{"RETURNING attempts>", "'" + event.EventID + "'", "'social_repair'", "fence= '" + fence + "'"}, columns: []uint32{16}, rows: [][]string{{"f"}}, tag: "UPDATE 1"}
+	budget := func(fence string) brokerRecoverySQLStep {
+		return brokerRecoverySQLStep{contains: []string{"RETURNING attempts>", "'" + event.EventID + "'", "'social_repair'", "fence= '" + fence + "'"}, columns: []uint32{16}, rows: [][]string{{"f"}}, tag: "UPDATE 1"}
 	}
-	database := repairM1031NewSQLTranscript(t, []repairM1031SQLStep{
-		{contains: []string{`INSERT INTO "repair".delivery_outbox`, "'" + event.EventID + "'", "'" + repairM1031Subject + "'", hex.EncodeToString(wire)}, tag: "INSERT 0 1"},
+	database := brokerRecoveryNewSQLTranscript(t, []brokerRecoverySQLStep{
+		{contains: []string{`INSERT INTO "repair".delivery_outbox`, "'" + event.EventID + "'", "'" + brokerRecoverySubject + "'", hex.EncodeToString(wire)}, tag: "INSERT 0 1"},
 		claim("1", "1"), budget("1"),
 		{contains: []string{"SET state=CASE WHEN attempts >=", "failure_class= 'transient'", "lease_owner=NULL,lease_until=NULL", "fence= '1'"}, tag: "UPDATE 1"},
 		claim("2", "2"), budget("2"),
@@ -71,7 +71,7 @@ func TestRepairM_1031_BrokerReconnectAndDurableReplay(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = store.Enqueue(ctx, tx, repairM1031Subject, event); err != nil {
+	if err = store.Enqueue(ctx, tx, brokerRecoverySubject, event); err != nil {
 		t.Fatal(err)
 	}
 	if err = tx.Commit(ctx); err != nil {
@@ -87,7 +87,7 @@ func TestRepairM_1031_BrokerReconnectAndDurableReplay(t *testing.T) {
 	}
 
 	broker.stop()
-	repairM1031Await(t, func() bool { return !runtime.nc.IsConnected() })
+	brokerRecoveryAwait(t, func() bool { return !runtime.nc.IsConnected() })
 	if err = runtime.ready(ctx); err == nil {
 		t.Fatal("outage remained ready")
 	}
@@ -108,7 +108,7 @@ func TestRepairM_1031_BrokerReconnectAndDurableReplay(t *testing.T) {
 	pool, store = database.open(t, ctx, policy)
 	relay.Store = store
 	broker.start()
-	repairM1031Await(t, runtime.nc.IsConnected)
+	brokerRecoveryAwait(t, runtime.nc.IsConnected)
 	if err = runtime.ready(ctx); !errors.Is(err, failure) {
 		t.Fatalf("reconnect cleared pending durable work: %v", err)
 	}
@@ -131,7 +131,7 @@ func TestRepairM_1031_BrokerReconnectAndDurableReplay(t *testing.T) {
 	}
 	select {
 	case published := <-broker.publications:
-		decoded, decodeErr := delivery.Decode(published, policy, repairM1031Subject)
+		decoded, decodeErr := delivery.Decode(published, policy, brokerRecoverySubject)
 		if decodeErr != nil || decoded.EventID != event.EventID || !bytes.Equal(decoded.Payload, payload) || !bytes.Equal(published, wire) {
 			t.Fatalf("producer -> outbox -> relay -> NATS -> decoder changed replay: %+v %v", decoded, decodeErr)
 		}
@@ -139,7 +139,7 @@ func TestRepairM_1031_BrokerReconnectAndDurableReplay(t *testing.T) {
 		t.Fatal("replay never reached the broker consumer")
 	}
 	runtime.close()
-	reopened := repairM1031Runtime(t, broker)
+	reopened := brokerRecoveryRuntime(t, broker)
 	reopenedPublisher, err := natsdriver.NewPublisher(reopened.nc, "SOCIAL")
 	if err != nil {
 		t.Fatal(err)
@@ -161,9 +161,9 @@ func TestRepairM_1031_BrokerReconnectAndDurableReplay(t *testing.T) {
 	database.assertConsumed(t)
 }
 
-func TestRepairM_1031_ProbeAndCycleRecoverIndependently(t *testing.T) {
-	broker := repairM1031NewBroker(t)
-	runtime := repairM1031Runtime(t, broker)
+func TestBrokerRecoveryProbeAndCycleRecoverIndependently(t *testing.T) {
+	broker := brokerRecoveryNewBroker(t)
+	runtime := brokerRecoveryRuntime(t, broker)
 	ctx, cancelAll := context.WithTimeout(context.Background(), 8*time.Second)
 	defer cancelAll()
 	broker.answerPings.Store(false)
@@ -203,11 +203,11 @@ func TestRepairM_1031_ProbeAndCycleRecoverIndependently(t *testing.T) {
 		t.Fatalf("successful cycle did not clear its own status: %v", err)
 	}
 	broker.stop()
-	repairM1031Await(t, func() bool { return !runtime.nc.IsConnected() })
+	brokerRecoveryAwait(t, func() bool { return !runtime.nc.IsConnected() })
 	// The database peer's successful empty relay cycle cannot clear a broker
 	// outage. Run the real store through its production claim path.
-	policy := delivery.Policy{Subjects: map[string]bool{repairM1031Subject: true}, EventTypes: map[string]bool{"social.edge.changed": true}}
-	db := repairM1031NewSQLTranscript(t, []repairM1031SQLStep{{contains: []string{"WITH picked AS"}, columns: []uint32{25, 25, 17, 20, 23}, tag: "UPDATE 0"}})
+	policy := delivery.Policy{Subjects: map[string]bool{brokerRecoverySubject: true}, EventTypes: map[string]bool{"social.edge.changed": true}}
+	db := brokerRecoveryNewSQLTranscript(t, []brokerRecoverySQLStep{{contains: []string{"WITH picked AS"}, columns: []uint32{25, 25, 17, 20, 23}, tag: "UPDATE 0"}})
 	_, store := db.open(t, ctx, policy)
 	publisher, err := natsdriver.NewPublisher(runtime.nc, "SOCIAL")
 	if err != nil {
@@ -221,16 +221,16 @@ func TestRepairM_1031_ProbeAndCycleRecoverIndependently(t *testing.T) {
 		t.Fatal("successful durable cycle concealed disconnected broker")
 	}
 	broker.start()
-	repairM1031Await(t, runtime.nc.IsConnected)
+	brokerRecoveryAwait(t, runtime.nc.IsConnected)
 	if err = runtime.ready(ctx); err != nil {
 		t.Fatalf("broker did not recover independently: %v", err)
 	}
 	db.assertConsumed(t)
 }
 
-func TestRepairM_1031_TerminalWorkerFailureRequiresRestart(t *testing.T) {
-	broker := repairM1031NewBroker(t)
-	runtime := repairM1031Runtime(t, broker)
+func TestBrokerRecoveryTerminalWorkerFailureRequiresRestart(t *testing.T) {
+	broker := brokerRecoveryNewBroker(t)
+	runtime := brokerRecoveryRuntime(t, broker)
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
 	defer cancel()
 	terminal := errors.New("terminal social worker exit")
@@ -241,9 +241,9 @@ func TestRepairM_1031_TerminalWorkerFailureRequiresRestart(t *testing.T) {
 	}
 	runtime.fail(errors.New("later terminal failure"))
 	broker.stop()
-	repairM1031Await(t, func() bool { return !runtime.nc.IsConnected() })
+	brokerRecoveryAwait(t, func() bool { return !runtime.nc.IsConnected() })
 	broker.start()
-	repairM1031Await(t, runtime.nc.IsConnected)
+	brokerRecoveryAwait(t, runtime.nc.IsConnected)
 	if err := runtime.durableCycle(ctx, runtime.nc.FlushWithContext); err != nil {
 		t.Fatal(err)
 	}
@@ -251,13 +251,13 @@ func TestRepairM_1031_TerminalWorkerFailureRequiresRestart(t *testing.T) {
 		t.Fatalf("recovery cleared original terminal fault: %v", err)
 	}
 	runtime.close()
-	reopened := repairM1031Runtime(t, broker)
+	reopened := brokerRecoveryRuntime(t, broker)
 	if err := reopened.ready(ctx); err != nil {
 		t.Fatalf("restart retained prior lifecycle fault: %v", err)
 	}
 }
 
-func repairM1031Runtime(t *testing.T, broker *repairM1031Broker) *socialConnectedRuntime {
+func brokerRecoveryRuntime(t *testing.T, broker *brokerRecoveryBroker) *socialConnectedRuntime {
 	t.Helper()
 	ctx, stop := context.WithCancel(context.Background())
 	runtime := &socialConnectedRuntime{ctx: ctx, stop: stop}
@@ -268,7 +268,7 @@ func repairM1031Runtime(t *testing.T, broker *repairM1031Broker) *socialConnecte
 	return runtime
 }
 
-func repairM1031Await(t *testing.T, ready func() bool) {
+func brokerRecoveryAwait(t *testing.T, ready func() bool) {
 	t.Helper()
 	deadline := time.NewTimer(2 * time.Second)
 	defer deadline.Stop()
@@ -286,7 +286,7 @@ func repairM1031Await(t *testing.T, ready func() bool) {
 // Loopback NATS protocol fixture: supports connection probes and the exact
 // header publication / persistence-ack exchange used by natsdriver.Publisher.
 // Stop/start closes and reopens the listener and all accepted sockets.
-type repairM1031Broker struct {
+type brokerRecoveryBroker struct {
 	t            *testing.T
 	address      string
 	listener     net.Listener
@@ -299,16 +299,16 @@ type repairM1031Broker struct {
 	persisted    []byte
 }
 
-func repairM1031NewBroker(t *testing.T) *repairM1031Broker {
+func brokerRecoveryNewBroker(t *testing.T) *brokerRecoveryBroker {
 	t.Helper()
-	broker := &repairM1031Broker{t: t, address: "127.0.0.1:0", sockets: map[net.Conn]bool{}, publications: make(chan []byte, 8)}
+	broker := &brokerRecoveryBroker{t: t, address: "127.0.0.1:0", sockets: map[net.Conn]bool{}, publications: make(chan []byte, 8)}
 	broker.answerPings.Store(true)
 	broker.start()
 	t.Cleanup(broker.stop)
 	return broker
 }
 
-func (b *repairM1031Broker) start() {
+func (b *brokerRecoveryBroker) start() {
 	listener, err := net.Listen("tcp", b.address)
 	if err != nil {
 		b.t.Fatal(err)
@@ -338,7 +338,7 @@ func (b *repairM1031Broker) start() {
 	}()
 }
 
-func (b *repairM1031Broker) stop() {
+func (b *brokerRecoveryBroker) stop() {
 	if b.listener == nil {
 		return
 	}
@@ -353,7 +353,7 @@ func (b *repairM1031Broker) stop() {
 	b.listener = nil
 }
 
-func (b *repairM1031Broker) serve(conn net.Conn) {
+func (b *brokerRecoveryBroker) serve(conn net.Conn) {
 	fmt.Fprint(conn, "INFO {\"server_id\":\"repair_m1031\",\"version\":\"2.10.0\",\"proto\":1,\"headers\":true,\"max_payload\":1048576,\"jetstream\":true}\r\n")
 	reader := bufio.NewReader(conn)
 	var inbox, sid string
@@ -387,7 +387,7 @@ func (b *repairM1031Broker) serve(conn net.Conn) {
 			}
 			inbox, sid = fields[1], fields[2]
 		case "HPUB":
-			if len(fields) != 5 || fields[1] != repairM1031Subject || !strings.HasPrefix(fields[2], strings.TrimSuffix(inbox, "*")) {
+			if len(fields) != 5 || fields[1] != brokerRecoverySubject || !strings.HasPrefix(fields[2], strings.TrimSuffix(inbox, "*")) {
 				b.t.Errorf("unexpected publication: %q inbox=%q", line, inbox)
 				return
 			}
@@ -431,30 +431,30 @@ func (b *repairM1031Broker) serve(conn net.Conn) {
 
 // These are committed PostgreSQL wire transcripts, not a replacement Store.
 // Each exchange matches actual production SQL; no SQL engine or binary runs.
-type repairM1031SQLStep struct {
+type brokerRecoverySQLStep struct {
 	contains []string
 	columns  []uint32
 	rows     [][]string
 	tag      string
 }
 
-type repairM1031SQLTranscript struct {
+type brokerRecoverySQLTranscript struct {
 	t        *testing.T
 	listener net.Listener
 	mu       sync.Mutex
 	sockets  map[net.Conn]bool
-	steps    []repairM1031SQLStep
+	steps    []brokerRecoverySQLStep
 	next     int
 	wg       sync.WaitGroup
 }
 
-func repairM1031NewSQLTranscript(t *testing.T, steps []repairM1031SQLStep) *repairM1031SQLTranscript {
+func brokerRecoveryNewSQLTranscript(t *testing.T, steps []brokerRecoverySQLStep) *brokerRecoverySQLTranscript {
 	t.Helper()
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
-	db := &repairM1031SQLTranscript{t: t, listener: listener, sockets: map[net.Conn]bool{}, steps: steps}
+	db := &brokerRecoverySQLTranscript{t: t, listener: listener, sockets: map[net.Conn]bool{}, steps: steps}
 	acceptDone := make(chan struct{})
 	db.wg.Add(1)
 	go func() {
@@ -490,7 +490,7 @@ func repairM1031NewSQLTranscript(t *testing.T, steps []repairM1031SQLStep) *repa
 	return db
 }
 
-func (db *repairM1031SQLTranscript) open(t *testing.T, ctx context.Context, policy delivery.Policy) (*pgxpool.Pool, *delivery.Store) {
+func (db *brokerRecoverySQLTranscript) open(t *testing.T, ctx context.Context, policy delivery.Policy) (*pgxpool.Pool, *delivery.Store) {
 	t.Helper()
 	cfg, err := pgxpool.ParseConfig("postgres://repair:repair@" + db.listener.Addr().String() + "/repair?sslmode=disable")
 	if err != nil {
@@ -510,7 +510,7 @@ func (db *repairM1031SQLTranscript) open(t *testing.T, ctx context.Context, poli
 	return pool, store
 }
 
-func (db *repairM1031SQLTranscript) assertConsumed(t *testing.T) {
+func (db *brokerRecoverySQLTranscript) assertConsumed(t *testing.T) {
 	t.Helper()
 	db.mu.Lock()
 	defer db.mu.Unlock()
@@ -519,7 +519,7 @@ func (db *repairM1031SQLTranscript) assertConsumed(t *testing.T) {
 	}
 }
 
-func (db *repairM1031SQLTranscript) serve(conn net.Conn) {
+func (db *brokerRecoverySQLTranscript) serve(conn net.Conn) {
 	backend := pgproto3.NewBackend(conn, conn)
 	if _, err := backend.ReceiveStartupMessage(); err != nil {
 		db.t.Error(err)

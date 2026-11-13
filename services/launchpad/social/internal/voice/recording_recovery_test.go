@@ -21,47 +21,47 @@ import (
 
 // This committed store fixture implements the same transaction port as Postgres.
 // Reopening reads only committed data, never the old controller's scan state.
-type repairM1030Participant struct {
+type reconciliationRecoveryParticipant struct {
 	Wallet, Grant  string
 	Revision       int64
 	Muted, Revoked bool
 }
-type repairM1030Room struct {
+type reconciliationRecoveryRoom struct {
 	Room         Room
 	Updated      time.Time
-	Participants []repairM1030Participant
+	Participants []reconciliationRecoveryParticipant
 }
-type repairM1030Recording struct {
+type reconciliationRecoveryRecording struct {
 	ID, Room, Provider, State string
 	Revision                  int64
 }
-type repairM1030Data struct {
-	Rooms      map[string]repairM1030Room
-	Recordings map[string]repairM1030Recording
+type reconciliationRecoveryData struct {
+	Rooms      map[string]reconciliationRecoveryRoom
+	Recordings map[string]reconciliationRecoveryRecording
 	Events     []string
 }
-type repairM1030Store struct {
+type reconciliationRecoveryStore struct {
 	sync.Mutex
 	path   string
 	closed bool
-	data   repairM1030Data
+	data   reconciliationRecoveryData
 }
 
-func repairM1030Open(t *testing.T, path string) *repairM1030Store {
+func reconciliationRecoveryOpen(t *testing.T, path string) *reconciliationRecoveryStore {
 	t.Helper()
-	s := &repairM1030Store{path: path}
+	s := &reconciliationRecoveryStore{path: path}
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		if !errors.Is(err, os.ErrNotExist) {
 			t.Fatal(err)
 		}
-		s.data = repairM1030Data{Rooms: make(map[string]repairM1030Room), Recordings: make(map[string]repairM1030Recording)}
+		s.data = reconciliationRecoveryData{Rooms: make(map[string]reconciliationRecoveryRoom), Recordings: make(map[string]reconciliationRecoveryRecording)}
 	} else if err = json.Unmarshal(raw, &s.data); err != nil {
 		t.Fatal(err)
 	}
 	return s
 }
-func (s *repairM1030Store) persist(data repairM1030Data) error {
+func (s *reconciliationRecoveryStore) persist(data reconciliationRecoveryData) error {
 	raw, err := json.Marshal(data)
 	if err != nil {
 		return err
@@ -71,7 +71,7 @@ func (s *repairM1030Store) persist(data repairM1030Data) error {
 	}
 	return os.Rename(s.path+".next", s.path)
 }
-func (s *repairM1030Store) close() error {
+func (s *reconciliationRecoveryStore) close() error {
 	s.Lock()
 	defer s.Unlock()
 	if err := s.persist(s.data); err != nil {
@@ -80,7 +80,7 @@ func (s *repairM1030Store) close() error {
 	s.closed = true
 	return nil
 }
-func (s *repairM1030Store) roomsAfter(ctx context.Context, after string) ([]string, error) {
+func (s *reconciliationRecoveryStore) roomsAfter(ctx context.Context, after string) ([]string, error) {
 	s.Lock()
 	defer s.Unlock()
 	if err := ctx.Err(); err != nil {
@@ -101,7 +101,7 @@ func (s *repairM1030Store) roomsAfter(ctx context.Context, after string) ([]stri
 	}
 	return ids, nil
 }
-func (s *repairM1030Store) beginRoom(ctx context.Context, id string) (reconciliationRoomTx, error) {
+func (s *reconciliationRecoveryStore) beginRoom(ctx context.Context, id string) (reconciliationRoomTx, error) {
 	s.Lock()
 	if err := ctx.Err(); err != nil {
 		s.Unlock()
@@ -112,18 +112,18 @@ func (s *repairM1030Store) beginRoom(ctx context.Context, id string) (reconcilia
 		return nil, errors.New("store closed")
 	}
 	r, exists := s.data.Rooms[id]
-	r.Participants = append([]repairM1030Participant(nil), r.Participants...)
-	return &repairM1030Tx{store: s, id: id, value: r, exists: exists}, nil
+	r.Participants = append([]reconciliationRecoveryParticipant(nil), r.Participants...)
+	return &reconciliationRecoveryTx{store: s, id: id, value: r, exists: exists}, nil
 }
 
-type repairM1030Tx struct {
-	store        *repairM1030Store
+type reconciliationRecoveryTx struct {
+	store        *reconciliationRecoveryStore
 	id           string
-	value        repairM1030Room
+	value        reconciliationRecoveryRoom
 	exists, done bool
 }
 
-func (tx *repairM1030Tx) room(ctx context.Context) (Room, time.Time, error) {
+func (tx *reconciliationRecoveryTx) room(ctx context.Context) (Room, time.Time, error) {
 	if err := ctx.Err(); err != nil {
 		return Room{}, time.Time{}, err
 	}
@@ -132,14 +132,14 @@ func (tx *repairM1030Tx) room(ctx context.Context) (Room, time.Time, error) {
 	}
 	return tx.value.Room, tx.value.Updated, nil
 }
-func (tx *repairM1030Tx) adopt(_ context.Context, session string, at time.Time) error {
+func (tx *reconciliationRecoveryTx) adopt(_ context.Context, session string, at time.Time) error {
 	tx.value.Room.State = "live"
 	tx.value.Room.ProviderSession = session
 	tx.value.Room.Revision++
 	tx.value.Updated = at
 	return nil
 }
-func (tx *repairM1030Tx) end(_ context.Context, at time.Time) error {
+func (tx *reconciliationRecoveryTx) end(_ context.Context, at time.Time) error {
 	for i := range tx.value.Participants {
 		p := &tx.value.Participants[i]
 		if !p.Revoked || p.Grant != "revoked" {
@@ -152,7 +152,7 @@ func (tx *repairM1030Tx) end(_ context.Context, at time.Time) error {
 	tx.value.Updated = at
 	return nil
 }
-func (tx *repairM1030Tx) pendingGrants(context.Context) ([]reconciliationGrant, error) {
+func (tx *reconciliationRecoveryTx) pendingGrants(context.Context) ([]reconciliationGrant, error) {
 	var grants []reconciliationGrant
 	for _, p := range tx.value.Participants {
 		if p.Grant == "granting" || p.Grant == "revoking" {
@@ -165,7 +165,7 @@ func (tx *repairM1030Tx) pendingGrants(context.Context) ([]reconciliationGrant, 
 	}
 	return grants, nil
 }
-func (tx *repairM1030Tx) revokeGrant(_ context.Context, g reconciliationGrant) error {
+func (tx *reconciliationRecoveryTx) revokeGrant(_ context.Context, g reconciliationGrant) error {
 	for i := range tx.value.Participants {
 		p := &tx.value.Participants[i]
 		if p.Wallet == g.wallet && p.Revision == g.revision && (p.Grant == "granting" || p.Grant == "revoking") {
@@ -174,7 +174,7 @@ func (tx *repairM1030Tx) revokeGrant(_ context.Context, g reconciliationGrant) e
 	}
 	return nil
 }
-func (tx *repairM1030Tx) Commit(ctx context.Context) error {
+func (tx *reconciliationRecoveryTx) Commit(ctx context.Context) error {
 	if tx.done {
 		return pgx.ErrTxClosed
 	}
@@ -190,7 +190,7 @@ func (tx *repairM1030Tx) Commit(ctx context.Context) error {
 	}
 	return nil
 }
-func (tx *repairM1030Tx) Rollback(context.Context) error {
+func (tx *reconciliationRecoveryTx) Rollback(context.Context) error {
 	if tx.done {
 		return pgx.ErrTxClosed
 	}
@@ -198,7 +198,7 @@ func (tx *repairM1030Tx) Rollback(context.Context) error {
 	tx.store.Unlock()
 	return nil
 }
-func (s *repairM1030Store) recordingsAfter(ctx context.Context, after string) ([]reconciliationRecording, error) {
+func (s *reconciliationRecoveryStore) recordingsAfter(ctx context.Context, after string) ([]reconciliationRecording, error) {
 	s.Lock()
 	defer s.Unlock()
 	if err := ctx.Err(); err != nil {
@@ -223,7 +223,7 @@ func (s *repairM1030Store) recordingsAfter(ctx context.Context, after string) ([
 	}
 	return recordings, nil
 }
-func (s *repairM1030Store) transitionRecording(ctx context.Context, r reconciliationRecording, to, provider string, actor safety.Principal) error {
+func (s *reconciliationRecoveryStore) transitionRecording(ctx context.Context, r reconciliationRecording, to, provider string, actor safety.Principal) error {
 	s.Lock()
 	defer s.Unlock()
 	if err := ctx.Err(); err != nil {
@@ -258,7 +258,7 @@ func (s *repairM1030Store) transitionRecording(ctx context.Context, r reconcilia
 
 // The loopback peer consumes actual LiveKit requests and keeps provider state
 // across controller restarts. It never implements Provider or reconciliation.
-type repairM1030LiveKit struct {
+type reconciliationRecoveryLiveKit struct {
 	sync.Mutex
 	rooms          map[string]bool
 	participants   map[string]map[string]bool
@@ -270,14 +270,14 @@ type repairM1030LiveKit struct {
 	server         *httptest.Server
 }
 
-func repairM1030Provider(t *testing.T) (*LiveKit, *repairM1030LiveKit) {
+func reconciliationRecoveryProvider(t *testing.T) (*LiveKit, *reconciliationRecoveryLiveKit) {
 	t.Helper()
-	peer := &repairM1030LiveKit{rooms: map[string]bool{}, participants: map[string]map[string]bool{}, recordings: map[string]string{}, recordingRooms: map[string]string{}, recordingPaths: map[string]string{}, failedRooms: map[string]bool{}, calls: map[string]int{}}
+	peer := &reconciliationRecoveryLiveKit{rooms: map[string]bool{}, participants: map[string]map[string]bool{}, recordings: map[string]string{}, recordingRooms: map[string]string{}, recordingPaths: map[string]string{}, failedRooms: map[string]bool{}, calls: map[string]int{}}
 	peer.server = httptest.NewServer(http.HandlerFunc(peer.serveHTTP))
 	t.Cleanup(peer.server.Close)
 	return &LiveKit{Endpoint: peer.server.URL, APIKey: "committed-loopback-key", APISecret: strings.Repeat("s", 32), Client: peer.server.Client(), RecordingOutput: S3RecordingOutput{Bucket: "restricted", Region: "fixture", AccessKey: "fixture", Secret: "fixture"}}, peer
 }
-func (p *repairM1030LiveKit) serveHTTP(w http.ResponseWriter, r *http.Request) {
+func (p *reconciliationRecoveryLiveKit) serveHTTP(w http.ResponseWriter, r *http.Request) {
 	p.Lock()
 	defer p.Unlock()
 	if r.Method != http.MethodPost || !strings.HasPrefix(r.Header.Get("Authorization"), "Bearer ") {
@@ -376,12 +376,12 @@ func (p *repairM1030LiveKit) serveHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "unexpected provider operation", 400)
 	}
 }
-func (p *repairM1030LiveKit) setFailed(room string, failed bool) {
+func (p *reconciliationRecoveryLiveKit) setFailed(room string, failed bool) {
 	p.Lock()
 	defer p.Unlock()
 	p.failedRooms[room] = failed
 }
-func (p *repairM1030LiveKit) addParticipant(room, wallet string) {
+func (p *reconciliationRecoveryLiveKit) addParticipant(room, wallet string) {
 	p.Lock()
 	defer p.Unlock()
 	if p.participants[room] == nil {
@@ -389,30 +389,30 @@ func (p *repairM1030LiveKit) addParticipant(room, wallet string) {
 	}
 	p.participants[room][wallet] = true
 }
-func (p *repairM1030LiveKit) hasRoom(room string) bool {
+func (p *reconciliationRecoveryLiveKit) hasRoom(room string) bool {
 	p.Lock()
 	defer p.Unlock()
 	return p.rooms[room]
 }
-func (p *repairM1030LiveKit) hasParticipant(room, wallet string) bool {
+func (p *reconciliationRecoveryLiveKit) hasParticipant(room, wallet string) bool {
 	p.Lock()
 	defer p.Unlock()
 	return p.participants[room][wallet]
 }
-func (p *repairM1030LiveKit) recordingStatus(id string) string {
+func (p *reconciliationRecoveryLiveKit) recordingStatus(id string) string {
 	p.Lock()
 	defer p.Unlock()
 	return p.recordings[id]
 }
-func (p *repairM1030LiveKit) callCount(method, room string) int {
+func (p *reconciliationRecoveryLiveKit) callCount(method, room string) int {
 	p.Lock()
 	defer p.Unlock()
 	return p.calls[method+":"+room]
 }
-func repairM1030ID(n int) string { return fmt.Sprintf("00000000-0000-0000-0000-%012d", n) }
-func repairM1030SeedRoom(t *testing.T, s *repairM1030Store, p *LiveKit, n int, state string, at time.Time) string {
+func reconciliationRecoveryID(n int) string { return fmt.Sprintf("00000000-0000-0000-0000-%012d", n) }
+func reconciliationRecoverySeedRoom(t *testing.T, s *reconciliationRecoveryStore, p *LiveKit, n int, state string, at time.Time) string {
 	t.Helper()
-	id := repairM1030ID(n)
+	id := reconciliationRecoveryID(n)
 	room := Room{ID: id, StartKey: id, State: state, Revision: 1, HostWallet: host, PoolID: "known-pool"}
 	if state != "draft" {
 		session, err := p.Start(context.Background(), id)
@@ -421,46 +421,46 @@ func repairM1030SeedRoom(t *testing.T, s *repairM1030Store, p *LiveKit, n int, s
 		}
 		room.ProviderSession = session
 	}
-	s.data.Rooms[id] = repairM1030Room{Room: room, Updated: at}
+	s.data.Rooms[id] = reconciliationRecoveryRoom{Room: room, Updated: at}
 	return id
 }
-func repairM1030SeedRecording(t *testing.T, s *repairM1030Store, p *LiveKit, n int, room string) string {
+func reconciliationRecoverySeedRecording(t *testing.T, s *reconciliationRecoveryStore, p *LiveKit, n int, room string) string {
 	t.Helper()
-	id := repairM1030ID(n)
+	id := reconciliationRecoveryID(n)
 	provider, err := p.Record(context.Background(), s.data.Rooms[room].Room.ProviderSession, id)
 	if err != nil {
 		t.Fatal(err)
 	}
-	s.data.Recordings[id] = repairM1030Recording{ID: id, Room: room, Provider: provider, State: "stopping", Revision: 1}
+	s.data.Recordings[id] = reconciliationRecoveryRecording{ID: id, Room: room, Provider: provider, State: "stopping", Revision: 1}
 	return id
 }
-func repairM1030Controller(p *LiveKit, now *time.Time) *Control {
+func reconciliationRecoveryController(p *LiveKit, now *time.Time) *Control {
 	return &Control{Provider: p, Clock: func() time.Time { return *now }, Policy: allowPolicy{}, Gates: Gates{true, true, true, true}}
 }
 
-func TestRepairM_1030_RestartFairCleanup(t *testing.T) {
+func TestReconciliationRecoveryRestartFairCleanup(t *testing.T) {
 	now := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
 	old := now.Add(-time.Hour)
-	store := repairM1030Open(t, filepath.Join(t.TempDir(), "committed.json"))
-	provider, peer := repairM1030Provider(t)
+	store := reconciliationRecoveryOpen(t, filepath.Join(t.TempDir(), "committed.json"))
+	provider, peer := reconciliationRecoveryProvider(t)
 	for n := 1; n <= 120; n++ {
 		state := "live"
 		if n > 110 {
 			state = "draft"
 		}
-		repairM1030SeedRoom(t, store, provider, n, state, old)
+		reconciliationRecoverySeedRoom(t, store, provider, n, state, old)
 	}
-	failed := repairM1030SeedRoom(t, store, provider, 121, "ending", now.Add(-10*time.Minute))
-	ending := repairM1030SeedRoom(t, store, provider, 122, "ending", now.Add(-10*time.Minute))
-	revoking := repairM1030SeedRoom(t, store, provider, 123, "live", now.Add(-time.Minute))
+	failed := reconciliationRecoverySeedRoom(t, store, provider, 121, "ending", now.Add(-10*time.Minute))
+	ending := reconciliationRecoverySeedRoom(t, store, provider, 122, "ending", now.Add(-10*time.Minute))
+	revoking := reconciliationRecoverySeedRoom(t, store, provider, 123, "live", now.Add(-time.Minute))
 	r := store.data.Rooms[revoking]
-	r.Participants = []repairM1030Participant{{Wallet: host, Grant: "revoking", Revision: 2, Revoked: true, Muted: true}}
+	r.Participants = []reconciliationRecoveryParticipant{{Wallet: host, Grant: "revoking", Revision: 2, Revoked: true, Muted: true}}
 	store.data.Rooms[revoking] = r
 	peer.addParticipant(r.Room.ProviderSession, host)
-	failedRecording := repairM1030SeedRecording(t, store, provider, 1, failed)
-	goodRecording := repairM1030SeedRecording(t, store, provider, 2, ending)
+	failedRecording := reconciliationRecoverySeedRecording(t, store, provider, 1, failed)
+	goodRecording := reconciliationRecoverySeedRecording(t, store, provider, 2, ending)
 	peer.setFailed(store.data.Rooms[failed].Room.ProviderSession, true)
-	controller := repairM1030Controller(provider, &now)
+	controller := reconciliationRecoveryController(provider, &now)
 	ctx, cancel := context.WithCancel(context.Background())
 	first, err := controller.reconcileWithStore(ctx, store)
 	if err == nil || first.Examined != 100 || first.Failed != 1 {
@@ -475,8 +475,8 @@ func TestRepairM_1030_RestartFairCleanup(t *testing.T) {
 	}
 	controller = nil
 	// Open the durable state with a fresh controller and a fresh scan cursor.
-	store = repairM1030Open(t, store.path)
-	controller = repairM1030Controller(provider, &now)
+	store = reconciliationRecoveryOpen(t, store.path)
+	controller = reconciliationRecoveryController(provider, &now)
 	first, err = controller.reconcileWithStore(context.Background(), store)
 	if first.Examined != 100 || err == nil {
 		t.Fatalf("restart first page: %+v %v", first, err)
@@ -498,7 +498,7 @@ func TestRepairM_1030_RestartFairCleanup(t *testing.T) {
 		t.Fatal("failed operations lost durable retry intent")
 	}
 	for n := 1; n <= 120; n++ {
-		r := store.data.Rooms[repairM1030ID(n)]
+		r := store.data.Rooms[reconciliationRecoveryID(n)]
 		if !r.Updated.Equal(old) || r.Room.Revision != 1 {
 			t.Fatal("scan modified lifecycle timestamp/revision", r)
 		}
@@ -508,8 +508,8 @@ func TestRepairM_1030_RestartFairCleanup(t *testing.T) {
 	if err = store.close(); err != nil {
 		t.Fatal(err)
 	}
-	store = repairM1030Open(t, store.path)
-	controller = repairM1030Controller(provider, &now)
+	store = reconciliationRecoveryOpen(t, store.path)
+	controller = reconciliationRecoveryController(provider, &now)
 	for batch := 0; batch < 2; batch++ {
 		if _, err = controller.reconcileWithStore(context.Background(), store); err != nil {
 			t.Fatal(err)
@@ -524,21 +524,21 @@ func TestRepairM_1030_RestartFairCleanup(t *testing.T) {
 	if err = store.close(); err != nil {
 		t.Fatal(err)
 	}
-	recovered := repairM1030Open(t, store.path)
+	recovered := reconciliationRecoveryOpen(t, store.path)
 	if recovered.data.Rooms[failed].Room.State != "ended" || len(recovered.data.Events) != 2 {
 		t.Fatal("acknowledged cleanup/audit not durable", recovered.data)
 	}
 }
 
-func TestRepairM_1030_PerRoomRetryAccounting(t *testing.T) {
+func TestReconciliationRecoveryPerRoomRetryAccounting(t *testing.T) {
 	now := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
-	store := repairM1030Open(t, filepath.Join(t.TempDir(), "committed.json"))
-	provider, peer := repairM1030Provider(t)
-	failed := repairM1030SeedRoom(t, store, provider, 1, "ending", now.Add(-time.Hour))
-	healthy := repairM1030SeedRoom(t, store, provider, 2, "live", now.Add(-time.Hour))
+	store := reconciliationRecoveryOpen(t, filepath.Join(t.TempDir(), "committed.json"))
+	provider, peer := reconciliationRecoveryProvider(t)
+	failed := reconciliationRecoverySeedRoom(t, store, provider, 1, "ending", now.Add(-time.Hour))
+	healthy := reconciliationRecoverySeedRoom(t, store, provider, 2, "live", now.Add(-time.Hour))
 	session := store.data.Rooms[failed].Room.ProviderSession
 	peer.setFailed(session, true)
-	controller := repairM1030Controller(provider, &now)
+	controller := reconciliationRecoveryController(provider, &now)
 	ctx := context.Background()
 	first, err := controller.reconcileWithStore(ctx, store)
 	if err == nil || first.Failed != 1 || first.Retried != 0 || first.Examined != 2 {
@@ -585,18 +585,18 @@ func TestRepairM_1030_PerRoomRetryAccounting(t *testing.T) {
 	}
 }
 
-func TestRepairM_1030_RecordingCursorRecovery(t *testing.T) {
+func TestReconciliationRecoveryRecordingCursorRecovery(t *testing.T) {
 	now := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
-	store := repairM1030Open(t, filepath.Join(t.TempDir(), "committed.json"))
-	provider, peer := repairM1030Provider(t)
+	store := reconciliationRecoveryOpen(t, filepath.Join(t.TempDir(), "committed.json"))
+	provider, peer := reconciliationRecoveryProvider(t)
 	for n := 1; n <= 100; n++ {
-		failed := repairM1030SeedRoom(t, store, provider, n, "live", now.Add(-time.Hour))
-		repairM1030SeedRecording(t, store, provider, n, failed)
+		failed := reconciliationRecoverySeedRoom(t, store, provider, n, "live", now.Add(-time.Hour))
+		reconciliationRecoverySeedRecording(t, store, provider, n, failed)
 		peer.setFailed(store.data.Rooms[failed].Room.ProviderSession, true)
 	}
-	healthy := repairM1030SeedRoom(t, store, provider, 101, "live", now.Add(-time.Hour))
-	later := repairM1030SeedRecording(t, store, provider, 101, healthy)
-	controller := repairM1030Controller(provider, &now)
+	healthy := reconciliationRecoverySeedRoom(t, store, provider, 101, "live", now.Add(-time.Hour))
+	later := reconciliationRecoverySeedRecording(t, store, provider, 101, healthy)
+	controller := reconciliationRecoveryController(provider, &now)
 	result, err := controller.reconcileWithStore(context.Background(), store)
 	if err == nil || result.Failed != 200 || store.data.Recordings[later].State != "stopping" {
 		t.Fatal("first bounded recording page", result, err)
@@ -604,8 +604,8 @@ func TestRepairM_1030_RecordingCursorRecovery(t *testing.T) {
 	if err = store.close(); err != nil {
 		t.Fatal(err)
 	}
-	store = repairM1030Open(t, store.path)
-	controller = repairM1030Controller(provider, &now)
+	store = reconciliationRecoveryOpen(t, store.path)
+	controller = reconciliationRecoveryController(provider, &now)
 	if result, err = controller.reconcileWithStore(context.Background(), store); err == nil || result.Failed != 200 {
 		t.Fatal(result, err)
 	}
@@ -620,7 +620,7 @@ func TestRepairM_1030_RecordingCursorRecovery(t *testing.T) {
 	}
 	// Removing completed work must not prevent wraparound and retry of earlier IDs.
 	for n := 1; n <= 100; n++ {
-		peer.setFailed(store.data.Rooms[repairM1030ID(n)].Room.ProviderSession, false)
+		peer.setFailed(store.data.Rooms[reconciliationRecoveryID(n)].Room.ProviderSession, false)
 	}
 	now = now.Add(time.Minute)
 	result, err = controller.reconcileWithStore(context.Background(), store)
@@ -635,7 +635,7 @@ func TestRepairM_1030_RecordingCursorRecovery(t *testing.T) {
 	if err = store.close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened := repairM1030Open(t, store.path)
+	reopened := reconciliationRecoveryOpen(t, store.path)
 	if len(reopened.data.Events) != 101 {
 		t.Fatal("recording recovery was not committed")
 	}
