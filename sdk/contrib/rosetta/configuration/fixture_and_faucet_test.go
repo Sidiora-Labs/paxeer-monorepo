@@ -25,7 +25,7 @@ import (
 	"google.golang.org/protobuf/encoding/protowire"
 )
 
-func repairFixture(t *testing.T) Fixture {
+func readTestFixture(t *testing.T) Fixture {
 	t.Helper()
 	f, err := LoadFixture(".")
 	if err != nil {
@@ -34,7 +34,7 @@ func repairFixture(t *testing.T) Fixture {
 	return f
 }
 
-func repairArchive(t *testing.T) []byte {
+func readTestArchive(t *testing.T) []byte {
 	t.Helper()
 	b, err := readArchive("../node/data.tar.gz")
 	if err != nil {
@@ -43,9 +43,9 @@ func repairArchive(t *testing.T) []byte {
 	return b
 }
 
-func TestRepairM_1356_BootstrapState(t *testing.T) {
-	f := repairFixture(t)
-	got, err := SnapshotMetadata(repairArchive(t), f)
+func TestBootstrapState(t *testing.T) {
+	f := readTestFixture(t)
+	got, err := SnapshotMetadata(readTestArchive(t), f)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,8 +77,8 @@ func TestRepairM_1356_BootstrapState(t *testing.T) {
 	}
 }
 
-func TestRepairM_1356_RegenerationContract(t *testing.T) {
-	f := repairFixture(t)
+func TestSnapshotRegenerationContract(t *testing.T) {
+	f := readTestFixture(t)
 	root := t.TempDir()
 	config := filepath.Join(root, "config")
 	if err := os.Mkdir(config, 0700); err != nil {
@@ -103,7 +103,7 @@ func TestRepairM_1356_RegenerationContract(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !bytes.Equal(reproduced, repairArchive(t)) {
+		if !bytes.Equal(reproduced, readTestArchive(t)) {
 			t.Fatal("restoration changed pinned snapshot identity")
 		}
 		// Restore's snapshot reader is closed; reopen its persisted LevelDB bank root.
@@ -138,30 +138,30 @@ func TestRepairM_1356_RegenerationContract(t *testing.T) {
 			t.Fatalf("refused restore altered existing state: %+v %v", still, err)
 		}
 	}
-	corrupted := append([]byte(nil), repairArchive(t)...)
+	corrupted := append([]byte(nil), readTestArchive(t)...)
 	corrupted[len(corrupted)/2] ^= 1
 	if _, err := SnapshotMetadata(corrupted, f); err == nil {
 		t.Fatal("accepted archive outside explicit fixture identity")
 	}
 	wrong := f
 	wrong.Address = "cosmos19g9cm8ymzchq2qkcdv3zgqtwayj9asv3hjv5u5"
-	if _, err := SnapshotMetadata(repairArchive(t), wrong); err == nil {
+	if _, err := SnapshotMetadata(readTestArchive(t), wrong); err == nil {
 		t.Fatal("accepted a different genesis identity")
 	}
 }
 
-func repairBank(t *testing.T, mode, marker string) BankProcess {
+func testBankProcess(t *testing.T, mode, marker string) BankProcess {
 	t.Helper()
 	binary, err := os.Executable()
 	if err != nil {
 		t.Fatal(err)
 	}
-	return BankProcess{Binary: binary, Prefix: []string{"-test.run=^TestRepairM_1356_ChildPeer$", "--", mode, marker}}
+	return BankProcess{Binary: binary, Prefix: []string{"-test.run=^TestBankCLITranscriptPeer$", "--", mode, marker}}
 }
 
-func repairServer(t *testing.T, bank BankProcess) string {
+func startTestFaucet(t *testing.T, bank BankProcess) string {
 	t.Helper()
-	faucet, err := NewFaucet(repairFixture(t), bank)
+	faucet, err := NewFaucet(readTestFixture(t), bank)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -184,7 +184,7 @@ func repairServer(t *testing.T, bank BankProcess) string {
 	return "http://" + listener.Addr().String()
 }
 
-func repairPost(t *testing.T, url, body string) (int, string) {
+func postFaucetAddress(t *testing.T, url, body string) (int, string) {
 	t.Helper()
 	client := &http.Client{Timeout: 9 * time.Second}
 	response, err := client.Post(url, "text/plain", strings.NewReader(body))
@@ -202,7 +202,7 @@ func repairPost(t *testing.T, url, body string) (int, string) {
 	return response.StatusCode, string(b)
 }
 
-func repairRaw(t *testing.T, url, request string, closeWrite bool) string {
+func sendRawFaucetRequest(t *testing.T, url, request string, closeWrite bool) string {
 	t.Helper()
 	conn, err := net.DialTimeout("tcp", strings.TrimPrefix(url, "http://"), time.Second)
 	if err != nil {
@@ -227,11 +227,11 @@ func repairRaw(t *testing.T, url, request string, closeWrite bool) string {
 	return string(b)
 }
 
-func TestRepairM_1356_FaucetInputAndRequestBounds(t *testing.T) {
-	url := repairServer(t, repairBank(t, "success", "-"))
-	valid := repairFixture(t).Address
+func TestFaucetInputAndRequestBounds(t *testing.T) {
+	url := startTestFaucet(t, testBankProcess(t, "success", "-"))
+	valid := readTestFixture(t).Address
 	for _, body := range []string{"", strings.Repeat("x", MaxAddressBody+1), "--help", strings.ToUpper(valid), valid[:44] + "q", valid + "\n", "cosmosvaloper1w537ue6nmewqqdcqfhcn0jsntg8qjpcss6atca", string([]byte{255, 254})} {
-		status, _ := repairPost(t, url, body)
+		status, _ := postFaucetAddress(t, url, body)
 		expected := http.StatusBadRequest
 		if len(body) > MaxAddressBody {
 			expected = http.StatusRequestEntityTooLarge
@@ -249,32 +249,32 @@ func TestRepairM_1356_FaucetInputAndRequestBounds(t *testing.T) {
 		{"POST / HTTP/1.1\r\nHost: faucet\r\nTransfer-Encoding: chunked\r\n\r\n0\r\n\r\n", "411"},
 		{"POST / HTTP/1.1\r\nHost: faucet\r\nContent-Length: 45\r\n\r\nshort", "400"},
 	} {
-		got := repairRaw(t, url, tc.request, true)
+		got := sendRawFaucetRequest(t, url, tc.request, true)
 		if !strings.HasPrefix(got, "HTTP/1.1 "+tc.status) {
 			t.Fatalf("request framing: %q", got)
 		}
 	}
 	start := time.Now()
-	slow := repairRaw(t, url, "POST / HTTP/1.1\r\nHost: faucet\r\nContent-Length: 45\r\n\r\nc", false)
+	slow := sendRawFaucetRequest(t, url, "POST / HTTP/1.1\r\nHost: faucet\r\nContent-Length: 45\r\n\r\nc", false)
 	if !strings.HasPrefix(slow, "HTTP/1.1 408") || time.Since(start) > 3*time.Second {
 		t.Fatalf("body deadline not enforced: %q", slow)
 	}
 	start = time.Now()
-	_ = repairRaw(t, url, "POST / HTTP/1.1\r\nHost:", false)
+	_ = sendRawFaucetRequest(t, url, "POST / HTTP/1.1\r\nHost:", false)
 	if time.Since(start) > 3*time.Second {
 		t.Fatal("header deadline not enforced")
 	}
-	status, body := repairPost(t, url, valid)
+	status, body := postFaucetAddress(t, url, valid)
 	if status != http.StatusOK || body != "funded\n" {
 		t.Fatalf("server failed after malformed requests: %d %q", status, body)
 	}
 }
 
-func TestRepairM_1356_FaucetTransferOutcome(t *testing.T) {
+func TestFaucetTransferOutcome(t *testing.T) {
 	for _, mode := range []string{"success", "exit", "rejected", "invalid-json", "uncommitted", "overflow", "trailing"} {
 		t.Run(mode, func(t *testing.T) {
-			url := repairServer(t, repairBank(t, mode, "-"))
-			status, body := repairPost(t, url, repairFixture(t).Address)
+			url := startTestFaucet(t, testBankProcess(t, mode, "-"))
+			status, body := postFaucetAddress(t, url, readTestFixture(t).Address)
 			expected := http.StatusBadGateway
 			if mode == "success" {
 				expected = http.StatusOK
@@ -285,13 +285,13 @@ func TestRepairM_1356_FaucetTransferOutcome(t *testing.T) {
 			if strings.Contains(body, "insufficient") || strings.Contains(body, "private diagnostic") {
 				t.Fatal("child diagnostics leaked over HTTP")
 			}
-			if status, _ := repairPost(t, url, "invalid"); status != 400 {
+			if status, _ := postFaucetAddress(t, url, "invalid"); status != 400 {
 				t.Fatal("failed child terminated the server")
 			}
 		})
 	}
-	url := repairServer(t, BankProcess{Binary: filepath.Join(t.TempDir(), "absent-bank")})
-	if status, _ := repairPost(t, url, repairFixture(t).Address); status != http.StatusBadGateway {
+	url := startTestFaucet(t, BankProcess{Binary: filepath.Join(t.TempDir(), "absent-bank")})
+	if status, _ := postFaucetAddress(t, url, readTestFixture(t).Address); status != http.StatusBadGateway {
 		t.Fatal("missing process returned success")
 	}
 }
@@ -308,11 +308,11 @@ func processRunning(pid int) bool {
 	return i < 0 || (b[i+2] != 'Z' && b[i+2] != 'X')
 }
 
-func TestRepairM_1356_FaucetProcessDeadlineAndCleanup(t *testing.T) {
+func TestFaucetProcessDeadlineAndCleanup(t *testing.T) {
 	marker := filepath.Join(t.TempDir(), "processes")
-	url := repairServer(t, repairBank(t, "timeout", marker))
+	url := startTestFaucet(t, testBankProcess(t, "timeout", marker))
 	start := time.Now()
-	status, body := repairPost(t, url, repairFixture(t).Address)
+	status, body := postFaucetAddress(t, url, readTestFixture(t).Address)
 	if status != http.StatusGatewayTimeout || body != "funding timed out\n" || time.Since(start) > 7*time.Second {
 		t.Fatalf("process deadline: %d %q after %v", status, body, time.Since(start))
 	}
@@ -338,15 +338,15 @@ func TestRepairM_1356_FaucetProcessDeadlineAndCleanup(t *testing.T) {
 			t.Fatalf("process %d survived funding deadline", pid)
 		}
 	}
-	if status, _ := repairPost(t, url, "invalid"); status != 400 {
+	if status, _ := postFaucetAddress(t, url, "invalid"); status != 400 {
 		t.Fatal("process timeout terminated server")
 	}
 }
 
-func TestRepairM_1356_FaucetCurrency(t *testing.T) {
-	f := repairFixture(t)
+func TestFaucetCurrency(t *testing.T) {
+	f := readTestFixture(t)
 	dir := t.TempDir()
-	actual, err := SnapshotMetadata(repairArchive(t), f)
+	actual, err := SnapshotMetadata(readTestArchive(t), f)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -367,7 +367,7 @@ func TestRepairM_1356_FaucetCurrency(t *testing.T) {
 	}
 	// The HTTP handler consumes metadata regenerated from the actual bank store;
 	// the transcript peer asserts the exact bank send amount, denom and chain flags.
-	faucet, err := NewFaucet(loaded, repairBank(t, "success", "-"))
+	faucet, err := NewFaucet(loaded, testBankProcess(t, "success", "-"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -379,7 +379,7 @@ func TestRepairM_1356_FaucetCurrency(t *testing.T) {
 	done := make(chan error, 1)
 	go func() { done <- server.Serve(ln) }()
 	defer func() { _ = server.Close(); <-done }()
-	status, body := repairPost(t, "http://"+ln.Addr().String(), loaded.Address)
+	status, body := postFaucetAddress(t, "http://"+ln.Addr().String(), loaded.Address)
 	if status != 200 || body != "funded\n" {
 		t.Fatalf("shared currency funding failed: %d %q", status, body)
 	}
@@ -396,7 +396,7 @@ func TestRepairM_1356_FaucetCurrency(t *testing.T) {
 
 // ChildPeer is a committed bank-CLI transcript peer, executed by the existing
 // native test binary. No interpreter, build subprocess, node or RPC is needed.
-func TestRepairM_1356_ChildPeer(t *testing.T) {
+func TestBankCLITranscriptPeer(t *testing.T) {
 	index := -1
 	for i, arg := range os.Args {
 		if arg == "--" {
@@ -438,7 +438,7 @@ func TestRepairM_1356_ChildPeer(t *testing.T) {
 		if err != nil {
 			os.Exit(93)
 		}
-		child := exec.Command(executable, "-test.run=^TestRepairM_1356_ChildPeer$", "--", "descendant", "-")
+		child := exec.Command(executable, "-test.run=^TestBankCLITranscriptPeer$", "--", "descendant", "-")
 		if err := child.Start(); err != nil {
 			os.Exit(94)
 		}
@@ -476,7 +476,7 @@ func TestRepairM_1356_ChildPeer(t *testing.T) {
 	os.Exit(0)
 }
 
-func repairWireField(t *testing.T, b []byte, want protowire.Number) ([]byte, uint64, bool) {
+func readRecordedWireField(t *testing.T, b []byte, want protowire.Number) ([]byte, uint64, bool) {
 	t.Helper()
 	for len(b) > 0 {
 		number, kind, n := protowire.ConsumeTag(b)
@@ -510,10 +510,10 @@ func repairWireField(t *testing.T, b []byte, want protowire.Number) ([]byte, uin
 	return nil, 0, false
 }
 
-func TestRepairM_1356_RecordedBankTranscript(t *testing.T) {
-	f := repairFixture(t)
+func TestRecordedBankTranscript(t *testing.T) {
+	f := readTestFixture(t)
 	dir := t.TempDir()
-	archive := repairArchive(t)
+	archive := readTestArchive(t)
 	if err := checkArchive(archive, f); err != nil {
 		t.Fatal(err)
 	}
@@ -524,7 +524,7 @@ func TestRepairM_1356_RecordedBankTranscript(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	tx, _, found := repairWireField(t, raw, 3)
+	tx, _, found := readRecordedWireField(t, raw, 3)
 	if !found {
 		t.Fatal("recorded TxResult has no transaction")
 	}
@@ -541,16 +541,16 @@ func TestRepairM_1356_RecordedBankTranscript(t *testing.T) {
 	if !bytes.Equal(raw, stored) {
 		t.Fatal("bank transcript is not from actual committed snapshot")
 	}
-	_, height, found := repairWireField(t, raw, 1)
+	_, height, found := readRecordedWireField(t, raw, 1)
 	if !found {
 		t.Fatal("recorded TxResult has no height")
 	}
-	result, _, found := repairWireField(t, raw, 4)
+	result, _, found := readRecordedWireField(t, raw, 4)
 	if !found {
 		t.Fatal("recorded TxResult has no delivery result")
 	}
-	_, code, _ := repairWireField(t, result, 1)
-	log, _, found := repairWireField(t, result, 3)
+	_, code, _ := readRecordedWireField(t, result, 1)
+	log, _, found := readRecordedWireField(t, result, 3)
 	if !found {
 		t.Fatal("recorded TxResult has no log")
 	}
