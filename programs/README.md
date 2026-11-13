@@ -1,52 +1,37 @@
 # LayerX Programs
 
-**Deterministic guest execution inside Paxeer X Network, with monetary effects applied through `402LXP`.**
+This Cargo workspace provides deterministic WASM guest execution for the LayerX
+kernel inside the Paxeer network. It holds the runtime, receipt-bound program
+registry, C↔Rust kernel bridge, reference programs, developer SDKs, porting kits
+and adversarial tests. Program monetary effects are authenticated `402LXP`
+transfer sets applied by the kernel.
 
-This workspace holds the programs surface of the LayerX kernel: a deterministic WASM
-runtime, the registry that proves what a program deployed and what it holds, the C↔Rust
-bridge into the kernel, reference programs, developer SDKs, porting kits, and the
-adversarial test corpus.
-
-Programs are a **first-class execution surface** of the merged network. The kernel
-modules live in [`src/modules`](../src/modules) and are numbered in
-[`include/layerx/lxp_module.h`](../include/layerx/lxp_module.h). Guest execution is
-dispatched under the programs module (`LXP_MODULE_PROGRAMS = 9`), but a program is not a
-module of its own and writes no balances. Every monetary effect a program produces
-compiles to an authenticated `402LXP` transfer set applied by the kernel - the same
-single money doorway every module uses.
-
-Where the rest of the system fits:
-
-- **Identity and authority are kernel**, not a program concern. A program executes inside
-  the authority of the activity that invoked it and can never widen it.
-- **`402LXP` is the sole balance writer.** Programs emit transfer sets; they do not call
-  `set_balance` (no such function exists).
-- **Oracle reads** use committed perps observations through the ABI-3 `oracle_read`
-  host function ([`host/oracle.rs`](crates/layerx-programs-runtime/src/host/oracle.rs)).
-  A guest state transition never dials out to fetch a price.
-- **Execution and finality** belong to one BFT network: `paxd`, EVM chain ID `125`
-  (`0x7d`). The kernel runs inside `paxd` and participates in block proposal and
-  execution. A receipt is final when its block is committed; a signed execution receipt
-  before commitment is execution evidence, not finality. Programs do not require
-  periodic checkpoint settlement or a separate settlement deployment.
-- **Network access** uses public node JSON-RPC at the root URL; see the
-  [public endpoint reference](../docs/site/docs/reference/public-rpc.md).
-  Hosted gateway `px_` methods have their own
-  [OpenRPC contract](../services/platform/hosted/gateway/openrpc.json).
-- **Tenant domains** are database namespaces within this network. Launching a
-  sub-chain does not require new chain infrastructure.
-
-Normative behavior lives in
-[`spec/layerx-merge/spec.kvx`](../spec/layerx-merge/spec.kvx). This document is the
-human read of the programs workspace and is not a substitute for the spec.
-
----
-
-## Workspace layout
+## Layout
 
 The programs workspace is a Cargo workspace (`programs/Cargo.toml`) with a strict lint
 profile: `unsafe_code` is denied by default, Clippy `all` and `pedantic` are denied, and
 `unwrap_used`, `expect_used`, and float arithmetic are denied across the tree.
+
+| Path | Purpose |
+| --- | --- |
+| `.cargo/` | Cargo source replacement, offline dependency resolution and WASM code-generation configuration |
+| `benches/` | Interpreter benchmarks and their compiled ABI-v2 equivalents |
+| `crates/` | Runtime, registry, interpreter, compute market, AI market, arbiter and sandbox crates |
+| `fixtures/` | Canonical program artifacts, interfaces, registry values, activities and receipts |
+| `fuzz/` | Structure-aware runtime fuzz target and corpus |
+| `porting/` | EVM, Solana and CosmWasm migration crates and guides |
+| `sdk/` | Rust, C and AssemblyScript guest SDKs and the host ABI manifest |
+| `tests/` | Cross-implementation vectors, hostile guests, conservation and differential checks |
+| `vendor/` | Pinned dependency sources for offline builds |
+| `Cargo.toml` | Workspace members, integration-test registration, dependency versions, profiles and lints |
+| `Cargo.lock` | Locked dependency resolution |
+| `abi-frozen.sha256` | Checksums of frozen guest ABI vectors |
+| `clippy.toml` | Clippy configuration and minimum supported Rust version |
+| `deny.toml` | Dependency advisory, license, source and crate policies |
+| `.gitignore` | Build-output exclusions and vendored-source inclusion rules |
+| `README.md` | Programs workspace overview and developer commands |
+
+### Crate and integration layout
 
 | Path | Purpose |
 | --- | --- |
@@ -74,6 +59,41 @@ Consequently `cargo test --workspace` includes the vendored `parity-wasm`,
 packages. A workspace build alone does not execute those tests. The vendored crates
 also remain subject to `../scripts/programs/dependency-policy.sh`.
 
+### Network integration
+
+Programs are a **first-class execution surface** of the merged network. The kernel
+modules live in [`src/modules`](../src/modules) and are numbered in
+[`include/layerx/lxp_module.h`](../include/layerx/lxp_module.h). Guest execution is
+dispatched under the programs module (`LXP_MODULE_PROGRAMS = 9`), but a program is not a
+module of its own and writes no balances. Every monetary effect a program produces
+compiles to an authenticated `402LXP` transfer set applied by the kernel - the same
+single money doorway every module uses.
+
+Where the rest of the system fits:
+
+- **Identity and authority are kernel**, not a program concern. A program executes inside
+  the authority of the activity that invoked it and can never widen it.
+- **`402LXP` is the sole balance writer.** Programs emit transfer sets; they do not call
+  `set_balance` (no such function exists).
+- **Oracle reads** use committed perps observations through the ABI-3 `oracle_read`
+  host function ([`host/oracle.rs`](crates/layerx-programs-runtime/src/host/oracle.rs)).
+  A guest state transition never dials out to fetch a price.
+- **Execution and finality** belong to one BFT network: `paxd`, EVM chain ID `125`
+  (`0x7d`). The kernel runs inside `paxd` and participates in block proposal and
+  execution. A receipt is final when its block is committed; a signed execution receipt
+  before commitment is execution evidence, not finality. Programs do not require
+  periodic checkpoint settlement or a separate settlement deployment.
+- **Network access** uses public node JSON-RPC at the root URL; see the
+  [public endpoint reference](../docs/site/paxeer-docs/public/markdown/public-rpc.md).
+  Hosted gateway `px_` methods have their own
+  [OpenRPC contract](../services/platform/hosted/gateway/openrpc.json).
+- **Tenant domains** are database namespaces within this network. Launching a
+  sub-chain does not require new chain infrastructure.
+
+This workspace targets Paxeer mainnet-beta, chain 125. Public node access and hosted
+gateway method contracts are documented separately; a method's presence in a hosted
+contract does not imply availability on every public node.
+
 ### The core crates
 
 **`layerx-programs-runtime`** is the deterministic WASM foundation for guest programs.
@@ -82,8 +102,9 @@ removed. The module map (see `src/lib.rs`) separates concerns deliberately:
 
 - `validate.rs`, `limits.rs` - static module validation and structural bounds (module
   bytes, function count, stack height, call depth).
-- `budget.rs`, `meter.rs` - caller-declared activity ceilings, the admitted budget token,
-  and per-execution resource metering (CPU fuel, memory, storage read/write, output).
+- `budget.rs`, `meter.rs` and `meter/` - caller-declared activity ceilings, the
+  admitted budget token, and per-execution resource metering (CPU fuel, memory,
+  storage read/write, output).
 - `abi/` - the transaction boundary. `abi/capability.rs` owns capability grants, their
   canonical encoding, and downward-only narrowing; `abi/response.rs` owns response and
   refusal transport; `abi/storage_ops.rs` owns namespaced storage; `abi/codec.rs` owns
@@ -146,12 +167,9 @@ and [`chain_proof`](crates/layerx-programs-registry/src/chain_proof.rs) APIs for
 
 ---
 
-## Kernel surfaces
+### Kernel surfaces
 
-The surfaces below are described as implemented; the authoritative sources are the code
-and [`spec/layerx-merge/spec.kvx`](../spec/layerx-merge/spec.kvx).
-
-### Program-owned accounts
+#### Program-owned accounts
 
 A program can own accounts that no principal can claim. An account id is derived
 deterministically from the program and a seed - a pure function of public inputs, with no
@@ -183,7 +201,7 @@ Deriving an account conveys **no authority**. Program value accounts are registe
 A principal can **fund** a program account (an ordinary `402LXP` credit leg) but can never
 **authorize debits** as if it owned the account.
 
-### Downward-only spending grants
+#### Downward-only spending grants
 
 Spending authority narrows, never widens. The `ProgramSpend` capability
 (`abi/capability.rs`) conveys a bounded grant over accounts the granting program itself
@@ -205,7 +223,7 @@ At transfer time the grant is checked cumulatively against the actual legs, and 
 deriving program's frame is the only frame that may stage a program-account debit. There
 is no silent widen and no partial transfer set survives a refused escalation.
 
-### Occupancy settlement
+#### Occupancy settlement
 
 State that persists is paid for as long as it persists. Occupancy is deterministic,
 batch-indexed rent for persistent program storage - it meters **namespace bytes held
@@ -232,7 +250,7 @@ the admitted payer and root program; a principal-scoped namespace must match tha
 payer. During legacy-storage activation, principal-scoped bytes are assigned to their
 principal and shared bytes to the program owner pending migration.
 
-### Protocol-backed program balances
+#### Protocol-backed program balances
 
 A program's balance is real kernel state, not a registry counter. Registry value
 accounts are the same `LX_ACCOUNT_MODULE_VALUE` accounts that live in the kernel account
@@ -247,7 +265,7 @@ them atomically with the program state transition.
 
 ---
 
-## SDKs and porting kits
+### SDKs and porting kits
 
 The runtime admits guest ABI versions 1 through 5, and the checksums of their frozen
 vectors (`tests/vectors/abi-v1.hex` to `abi-v5.hex`) are pinned in `abi-frozen.sha256`.
@@ -311,7 +329,7 @@ Each has a `MIGRATION.md` written for a developer who already knows the source c
 
 ---
 
-## Fuzzing, tools, and tests
+### Fuzzing, tools, and tests
 
 - **`fuzz/`** - a structure-aware fuzz target (`src/main.rs`) with `validation`,
   `instantiation`, and `execution` corpora.
@@ -341,7 +359,7 @@ Each has a `MIGRATION.md` written for a developer who already knows the source c
 
 ---
 
-## Building and testing
+## Build and test
 
 The programs workspace declares Rust `1.91.1` as its minimum supported version in
 [`Cargo.toml`](Cargo.toml) and builds against vendored dependencies.
@@ -353,11 +371,11 @@ the C and AssemblyScript examples declare their own toolchain requirements.
 From the repository root, these targets provide different levels of coverage:
 
 ```sh
-make programs-build              # locked workspace build, including sandbox host-ffi
-make programs-lint               # module boundaries, Clippy, dependency policy, cargo deny
-make programs-abi-drift           # ABI manifest drift and runtime linker test
-make programs-test               # aggregate native, protocol, runtime, SDK and porting tests
-make programs-fuzz-smoke          # replay validation, instantiation and execution corpora
+make programs-build               # locked workspace build, including sandbox host-ffi
+make programs-lint                # module boundaries, Clippy, dependency policy, cargo deny
+make programs-abi-drift            # ABI manifest drift and runtime linker test
+make programs-test                # aggregate native, protocol, runtime, SDK and porting tests
+make programs-fuzz-smoke           # replay validation, instantiation and execution corpora
 make programs-reference-fixtures  # rebuild naming, LXT721 and swap artifact/interface sets
 ```
 
@@ -375,13 +393,12 @@ chain domain fixed at build time. The workspace release default is `opt-level = 
 the AI package's release override in [`Cargo.toml`](Cargo.toml) selects `"z"`
 automatically. For chain 125, `merged_chain_domain(125)` in
 [`lib.rs`](crates/layerx-programs-ai-market/src/lib.rs) is the SHA-256 of
-`b"PAXAI/chain-domain/v1" || u64_be(125)`:
+`b"PAXAI/chain-domain/v1" || u64_be(125)`.
+
+From the repository root, use the packaging and native host integration target:
 
 ```sh
-cd programs
-PAXAI_CHAIN_DOMAIN=62b6b14734fa769c3e0fbc94de495a3d038be49a2524b1c071d75d0a4eed71f6 \
-  cargo build --locked --release --target wasm32-unknown-unknown \
-  -p layerx-programs-ai-market
+make paxai-host-boundary-build
 ```
 
 `PAXAI_CHAIN_DOMAIN` is a compile-time setting; malformed or foreign domains are
@@ -406,10 +423,52 @@ Runtime and kernel share golden vectors so the C and Rust implementations stay i
 lockstep. Deterministic cross-architecture replay and fault injection are described in
 [`docs/QUALIFICATION.md`](../docs/QUALIFICATION.md).
 
-## Status
+## Configuration
 
-This workspace targets Paxeer mainnet-beta, chain 125. Public node access and hosted
-gateway method contracts are documented separately in the references above; a method's
-presence in a hosted contract does not imply availability on every public node.
-Source is licensed under the Apache License, Version 2.0. The documentation site
+- [`Cargo.toml`](Cargo.toml) and member Cargo manifests define dependencies,
+  feature selection, lints and build profiles; [`Cargo.lock`](Cargo.lock) pins
+  dependency resolution.
+- [`.cargo/config.toml`](.cargo/config.toml) configures vendored sources, offline
+  dependency resolution and WASM compiler flags. Run Cargo inside `programs/`
+  or a descendant to load this configuration.
+- [`clippy.toml`](clippy.toml) configures Clippy;
+  [`deny.toml`](deny.toml) configures dependency policy.
+- `PAXAI_CHAIN_DOMAIN` is read at compile time by the
+  [AI market guest](crates/layerx-programs-ai-market/src/lib.rs). The build fixes
+  the deployment domain; malformed or foreign domains are refused.
+  `PAXAI_AGGREGATION_PROBE` selects the separate aggregation diagnostic entrypoint
+  and fuel sampling.
+- `LAYERX_INTERFACE_PATH`, `LAYERX_INTERFACE_DIGEST`, `LAYERX_PROGRAM_CODE_HASH`
+  and `LAYERX_BINDINGS_DIR` configure the Rust SDK's
+  [binding generator](sdk/rust/build.rs). It reads the canonical interface file
+  named by `LAYERX_INTERFACE_PATH` and checks its digest and program code hash.
+- `LAYERX_INTERPRETER_WASM`, `LAYERX_COMPILED_EQUIVALENT_WASM` and
+  `LAYERX_INTERPRETER_BENCH_SAMPLES` configure the
+  [interpreter benchmark](benches/interpreter.rs).
+- `CARGO`, `CARGO_TARGET_DIR`, `RUSTFLAGS` and `CARGO_ENCODED_RUSTFLAGS` are used
+  by guest build scripts. The AI guest recipe also reads `PROGRAMS_CARGO` and
+  sets the release profile and compiler flags for its deployment artifact.
+- `CLANG`, `HOSTCC` and `STRICT` configure the
+  [C paid-counter build](sdk/c/examples/paid-counter/build.sh).
+- Guest manifests named `layerx-program.json` describe entrypoints, bounds and
+  capabilities for SDK linting, including the
+  [Rust quickstart manifest](sdk/rust/quickstart/layerx-program.json).
+  AssemblyScript compilation reads SDK and example `asconfig.json` files;
+  language toolchain requirements are declared in the SDK `toolchain.json` files.
+
+## Documentation
+
+- [Programs](../docs/wiki/Programs.md): execution, deployment and calls.
+- [Programs workspace](../docs/wiki/ProgramsWorkspace.md): crates, ABI and developer commands.
+- [Payments quickstart](../docs/wiki/PaymentsQuickstart.md) and
+  [Assets](../docs/wiki/Assets.md): program accounts and reference assets.
+- [Porting](../docs/wiki/Porting.md): migration guides.
+- [Sandbox](../docs/wiki/Sandbox.md) and
+  [storage scans](../docs/wiki/StorageScan.md): bounded execution and storage access.
+- [Qualification](../docs/QUALIFICATION.md): deterministic replay and fault injection.
+- Documentation site: [Programs developer workspace](../docs/site/paxeer-docs/src/app/program-workspace/page.tsx),
+  [Programs](../docs/site/paxeer-docs/src/app/programs/page.tsx) and
+  [public RPC](../docs/site/paxeer-docs/src/app/public-rpc/page.tsx).
+
+Source is licensed under the Apache License, Version 2.0. Documentation site
 sources are in [`docs/site`](../docs/site).
