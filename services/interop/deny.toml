@@ -5,7 +5,15 @@ all-features = true
 version = 2
 yanked = "deny"
 unmaintained = "all"
-ignore = []
+ignore = [
+    { id = "RUSTSEC-2026-0387", reason = "2026-11-13: elliptic-curve 0.13 requires crypto-bigint 0.5 for the shared k256 0.13 and p256 0.13 signing APIs" },
+    { id = "RUSTSEC-2026-0002", reason = "2026-11-13: Tantivy 0.25 requires lru 0.12 for its index reader cache" },
+    { id = "RUSTSEC-2026-0253", reason = "2026-11-13: Tantivy 0.25 selects lru 0.12 for its index reader cache; the lru 0.18 API belongs to a different dependency series" },
+    { id = "RUSTSEC-2022-0061", reason = "2026-11-13: wasm-instrument 0.4 pins parity-wasm 0.45 for the shared program runtime" },
+    { id = "RUSTSEC-2024-0436", reason = "2026-11-13: wasmi_core 0.13 uses paste 1.0.15 for compile-time code generation in the shared program runtime" },
+    { id = "RUSTSEC-2026-0486", reason = "2026-11-13: layerx-client, layerx-identity-binding and the platform gateway pin rustix 1.1.4 in their shared manifests" },
+    { id = "RUSTSEC-2026-0459", reason = "2026-11-13: the platform indexer pins rusqlite 0.37.0 with bundled libsqlite3-sys 0.35; libsqlite3-sys 0.39 requires the rusqlite 0.41 dependency series" },
+]
 
 [licenses]
 version = 2
@@ -29,14 +37,36 @@ wildcards = "allow"
 highlight = "all"
 deny = [
     { name = "bindgen", reason = "Private C layouts may not cross the node boundary" },
-    { name = "libsqlite3-sys", reason = "The gateway may not open node projections" },
-    { name = "rusqlite", reason = "The gateway may not open node projections" },
+    { name = "libsqlite3-sys", wrappers = ["rusqlite"], reason = "2026-11-13: SQLite native bindings are used only through rusqlite for the platform gateway store; the dependency policy refuses interop paths outside that gateway" },
+    { name = "rusqlite", wrappers = ["layerx-indexer"], reason = "2026-11-13: the platform gateway uses the indexer SQLite store; the dependency policy refuses every interop path to SQLite that does not pass through that gateway" },
     { name = "sqlx-sqlite", reason = "The gateway may not open node projections" },
     { name = "ctor", reason = "Process-wide initialisation is forbidden" },
     { name = "inventory", reason = "Process-wide registries are forbidden" },
 ]
 skip = [
-    { name = "syn", version = "=2.0.119" },
+    { name = "base64", version = "=0.22.1", reason = "2026-11-13: layerx-client pins base64 0.22.1 and postgres-protocol and Tantivy require 0.22; ureq requires 0.23" },
+    { name = "block-buffer", version = "=0.10.4", reason = "2026-11-13: digest 0.10 requires block-buffer 0.10 while digest 0.11 requires 0.12" },
+    { name = "chacha20", version = "=0.9.1", reason = "2026-11-13: chacha20poly1305 0.10 requires chacha20 0.9 while rand 0.10 requires 0.10" },
+    { name = "const-oid", version = "=0.9.6", reason = "2026-11-13: der 0.7 and digest 0.10 require const-oid 0.9 while digest 0.11 requires 0.10" },
+    { name = "cpufeatures", version = "=0.2.17", reason = "2026-11-13: curve25519-dalek 4 and sha2 0.10 require cpufeatures 0.2 while sha2 0.11 requires 0.3" },
+    { name = "crypto-common", version = "=0.1.6", reason = "2026-11-13: cipher 0.4 and digest 0.10 require crypto-common 0.1 while digest 0.11 requires 0.2" },
+    { name = "digest", version = "=0.10.7", reason = "2026-11-13: k256 0.13 and sha3 0.10 use digest 0.10 while postgres-protocol uses digest 0.11 through sha2 0.11" },
+    { name = "downcast-rs", version = "=1.2.1", reason = "2026-11-13: wasmi_core 0.13 requires downcast-rs 1 while Tantivy 0.25 requires 2" },
+    { name = "fallible-iterator", version = "=0.2.0", reason = "2026-11-13: postgres 0.19 requires fallible-iterator 0.2 while the platform indexer dependency graph also selects 0.3" },
+    { name = "getrandom", version = "=0.2.17", reason = "2026-11-13: ring 0.17 and rand_core 0.6 require getrandom 0.2 while the platform transport uses 0.4" },
+    { name = "getrandom", version = "=0.3.4", reason = "2026-11-13: rand_core 0.9 requires getrandom 0.3 while the platform transport uses 0.4" },
+    { name = "hmac", version = "=0.12.1", reason = "2026-11-13: layerx-crypto pins hmac 0.12.1 while postgres-protocol 0.6 requires 0.13" },
+    { name = "r-efi", version = "=5.3.0", reason = "2026-11-13: getrandom 0.3 requires r-efi 5 while getrandom 0.4 requires 6" },
+    { name = "rand", version = "=0.8.8", reason = "2026-11-13: Tantivy 0.25 uses rand 0.8 through rand_distr 0.4 while postgres-protocol uses rand 0.10" },
+    { name = "rand", version = "=0.9.5", reason = "2026-11-13: tungstenite 0.29 requires rand 0.9 while postgres-protocol 0.6 requires 0.10" },
+    { name = "rand_chacha", version = "=0.3.1", reason = "2026-11-13: rand 0.8 requires rand_chacha 0.3 while rand 0.9 requires 0.9" },
+    { name = "rand_core", version = "=0.6.4", reason = "2026-11-13: ed25519-dalek 2 and elliptic-curve 0.13 require rand_core 0.6 while rand 0.10 requires 0.10" },
+    { name = "rand_core", version = "=0.9.5", reason = "2026-11-13: rand 0.9 requires rand_core 0.9 while rand 0.10 requires 0.10" },
+    { name = "sha2", version = "=0.10.9", reason = "2026-11-13: layerx-proof and k256 0.13 use sha2 0.10 while postgres-protocol 0.6 and tokio-postgres-rustls 0.14 require 0.11" },
+    { name = "syn", version = "=2.0.119", reason = "2026-11-13: curve25519-dalek-derive 0.1 and openssl-macros 0.1 require syn 2 while serde_derive 1.0.229 requires syn 3" },
+    { name = "wasi", version = "=0.11.1+wasi-snapshot-preview1", reason = "2026-11-13: getrandom 0.2 and mio 1 require wasi 0.11 while wasite 1 uses wasi 0.14" },
+    { name = "windows-sys", version = "=0.52.0", reason = "2026-11-13: ring 0.17 requires windows-sys 0.52 while the platform transport uses 0.61" },
+    { name = "windows-sys", version = "=0.59.0", reason = "2026-11-13: fs4 0.13 requires windows-sys 0.59 while the platform transport uses 0.61" },
 ]
 skip-tree = []
 

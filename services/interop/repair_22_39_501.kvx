@@ -1,0 +1,169 @@
+[interop.dependencies]
+rule = "Dependency selections use accepted releases where compatible. Each remaining advisory or duplicate version has one identified, reasoned and dated configuration entry. SQLite is refused on every interop dependency path outside the platform gateway; all other forbidden crates are refused throughout the package list."
+files = ["scripts/interop/dependency-policy.sh", "services/interop/Cargo.toml", "services/interop/Cargo.lock", "services/interop/crates/layerx-gas-station/Cargo.toml", "services/interop/crates/layerx-migrate/Cargo.toml", "services/interop/crates/x-websearch/Cargo.toml", "services/interop/deny.toml", "services/interop/repair_22_39_501.kvx"]
+sqlite = "The resolved graph is traversed from workspace members with the platform gateway node removed. Any SQLite package still reachable is refused."
+search = "Tantivy 0.25.0 provides the persistent search index without typetag or inventory."
+test_runner = "libtest-mimic 0.8.2 shares the clap terminal dependencies."
+updates = "The lockfile selects compatible ctutils, rustls-webpki, Tokio, zstd, zstd-safe and zstd-sys releases."
+build_command = "make -s interop-build"
+command = "test -s services/interop/repair_22_39_501.kvx && make -s interop-lint"
+
+[interop.boundary.libsqlite3_sys]
+identifier = "libsqlite3-sys"
+reviewed = "2026-11-13"
+reason = "SQLite native bindings are used only through rusqlite for the platform gateway store; the dependency policy refuses interop paths outside that gateway"
+
+[interop.boundary.rusqlite]
+identifier = "rusqlite"
+reviewed = "2026-11-13"
+reason = "The platform gateway uses the indexer SQLite store; the dependency policy refuses every interop path to SQLite that does not pass through that gateway"
+
+[interop.duplicate.base64_0_22_1]
+identifier = "base64@0.22.1"
+reviewed = "2026-11-13"
+reason = "layerx-client pins base64 0.22.1 and postgres-protocol and Tantivy require 0.22; ureq requires 0.23"
+
+[interop.duplicate.block_buffer_0_10_4]
+identifier = "block-buffer@0.10.4"
+reviewed = "2026-11-13"
+reason = "digest 0.10 requires block-buffer 0.10 while digest 0.11 requires 0.12"
+
+[interop.duplicate.chacha20_0_9_1]
+identifier = "chacha20@0.9.1"
+reviewed = "2026-11-13"
+reason = "chacha20poly1305 0.10 requires chacha20 0.9 while rand 0.10 requires 0.10"
+
+[interop.duplicate.const_oid_0_9_6]
+identifier = "const-oid@0.9.6"
+reviewed = "2026-11-13"
+reason = "der 0.7 and digest 0.10 require const-oid 0.9 while digest 0.11 requires 0.10"
+
+[interop.duplicate.cpufeatures_0_2_17]
+identifier = "cpufeatures@0.2.17"
+reviewed = "2026-11-13"
+reason = "curve25519-dalek 4 and sha2 0.10 require cpufeatures 0.2 while sha2 0.11 requires 0.3"
+
+[interop.duplicate.crypto_common_0_1_6]
+identifier = "crypto-common@0.1.6"
+reviewed = "2026-11-13"
+reason = "cipher 0.4 and digest 0.10 require crypto-common 0.1 while digest 0.11 requires 0.2"
+
+[interop.duplicate.digest_0_10_7]
+identifier = "digest@0.10.7"
+reviewed = "2026-11-13"
+reason = "k256 0.13 and sha3 0.10 use digest 0.10 while postgres-protocol uses digest 0.11 through sha2 0.11"
+
+[interop.duplicate.downcast_rs_1_2_1]
+identifier = "downcast-rs@1.2.1"
+reviewed = "2026-11-13"
+reason = "wasmi_core 0.13 requires downcast-rs 1 while Tantivy 0.25 requires 2"
+
+[interop.duplicate.fallible_iterator_0_2_0]
+identifier = "fallible-iterator@0.2.0"
+reviewed = "2026-11-13"
+reason = "postgres 0.19 requires fallible-iterator 0.2 while the platform indexer dependency graph also selects 0.3"
+
+[interop.duplicate.getrandom_0_2_17]
+identifier = "getrandom@0.2.17"
+reviewed = "2026-11-13"
+reason = "ring 0.17 and rand_core 0.6 require getrandom 0.2 while the platform transport uses 0.4"
+
+[interop.duplicate.getrandom_0_3_4]
+identifier = "getrandom@0.3.4"
+reviewed = "2026-11-13"
+reason = "rand_core 0.9 requires getrandom 0.3 while the platform transport uses 0.4"
+
+[interop.duplicate.hmac_0_12_1]
+identifier = "hmac@0.12.1"
+reviewed = "2026-11-13"
+reason = "layerx-crypto pins hmac 0.12.1 while postgres-protocol 0.6 requires 0.13"
+
+[interop.duplicate.r_efi_5_3_0]
+identifier = "r-efi@5.3.0"
+reviewed = "2026-11-13"
+reason = "getrandom 0.3 requires r-efi 5 while getrandom 0.4 requires 6"
+
+[interop.duplicate.rand_0_8_8]
+identifier = "rand@0.8.8"
+reviewed = "2026-11-13"
+reason = "Tantivy 0.25 uses rand 0.8 through rand_distr 0.4 while postgres-protocol uses rand 0.10"
+
+[interop.duplicate.rand_0_9_5]
+identifier = "rand@0.9.5"
+reviewed = "2026-11-13"
+reason = "tungstenite 0.29 requires rand 0.9 while postgres-protocol 0.6 requires 0.10"
+
+[interop.duplicate.rand_chacha_0_3_1]
+identifier = "rand_chacha@0.3.1"
+reviewed = "2026-11-13"
+reason = "rand 0.8 requires rand_chacha 0.3 while rand 0.9 requires 0.9"
+
+[interop.duplicate.rand_core_0_6_4]
+identifier = "rand_core@0.6.4"
+reviewed = "2026-11-13"
+reason = "ed25519-dalek 2 and elliptic-curve 0.13 require rand_core 0.6 while rand 0.10 requires 0.10"
+
+[interop.duplicate.rand_core_0_9_5]
+identifier = "rand_core@0.9.5"
+reviewed = "2026-11-13"
+reason = "rand 0.9 requires rand_core 0.9 while rand 0.10 requires 0.10"
+
+[interop.duplicate.sha2_0_10_9]
+identifier = "sha2@0.10.9"
+reviewed = "2026-11-13"
+reason = "layerx-proof and k256 0.13 use sha2 0.10 while postgres-protocol 0.6 and tokio-postgres-rustls 0.14 require 0.11"
+
+[interop.duplicate.syn_2_0_119]
+identifier = "syn@2.0.119"
+reviewed = "2026-11-13"
+reason = "curve25519-dalek-derive 0.1 and openssl-macros 0.1 require syn 2 while serde_derive 1.0.229 requires syn 3"
+
+[interop.duplicate.wasi_0_11_1_wasi_snapshot_preview1]
+identifier = "wasi@0.11.1+wasi-snapshot-preview1"
+reviewed = "2026-11-13"
+reason = "getrandom 0.2 and mio 1 require wasi 0.11 while wasite 1 uses wasi 0.14"
+
+[interop.duplicate.windows_sys_0_52_0]
+identifier = "windows-sys@0.52.0"
+reviewed = "2026-11-13"
+reason = "ring 0.17 requires windows-sys 0.52 while the platform transport uses 0.61"
+
+[interop.duplicate.windows_sys_0_59_0]
+identifier = "windows-sys@0.59.0"
+reviewed = "2026-11-13"
+reason = "fs4 0.13 requires windows-sys 0.59 while the platform transport uses 0.61"
+
+[interop.advisory.RUSTSEC_2026_0387]
+identifier = "RUSTSEC-2026-0387"
+reviewed = "2026-11-13"
+reason = "elliptic-curve 0.13 requires crypto-bigint 0.5 for the shared k256 0.13 and p256 0.13 signing APIs"
+
+[interop.advisory.RUSTSEC_2026_0002]
+identifier = "RUSTSEC-2026-0002"
+reviewed = "2026-11-13"
+reason = "Tantivy 0.25 requires lru 0.12 for its index reader cache"
+
+[interop.advisory.RUSTSEC_2026_0253]
+identifier = "RUSTSEC-2026-0253"
+reviewed = "2026-11-13"
+reason = "Tantivy 0.25 selects lru 0.12 for its index reader cache; the lru 0.18 API belongs to a different dependency series"
+
+[interop.advisory.RUSTSEC_2022_0061]
+identifier = "RUSTSEC-2022-0061"
+reviewed = "2026-11-13"
+reason = "wasm-instrument 0.4 pins parity-wasm 0.45 for the shared program runtime"
+
+[interop.advisory.RUSTSEC_2024_0436]
+identifier = "RUSTSEC-2024-0436"
+reviewed = "2026-11-13"
+reason = "wasmi_core 0.13 uses paste 1.0.15 for compile-time code generation in the shared program runtime"
+
+[interop.advisory.RUSTSEC_2026_0486]
+identifier = "RUSTSEC-2026-0486"
+reviewed = "2026-11-13"
+reason = "layerx-client, layerx-identity-binding and the platform gateway pin rustix 1.1.4 in their shared manifests"
+
+[interop.advisory.RUSTSEC_2026_0459]
+identifier = "RUSTSEC-2026-0459"
+reviewed = "2026-11-13"
+reason = "The platform indexer pins rusqlite 0.37.0 with bundled libsqlite3-sys 0.35; libsqlite3-sys 0.39 requires the rusqlite 0.41 dependency series"
