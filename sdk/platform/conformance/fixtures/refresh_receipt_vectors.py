@@ -226,7 +226,7 @@ def main():
     metadata = {key: value for key, value in v5.items() if key != "bundles"}
     prefix = json.dumps(metadata, indent=2).removesuffix("\n}") + ",\n"
     v5_path.write_text(prefix + '  "bundles": [\n    ' + ",\n    ".join(map(compact, bundles)) + "\n  ]\n}\n")
-    checkpoint_path = root / "sdk/platform/go/testdata/repair_m1384/checkpoint.json"
+    checkpoint_path = root / "sdk/platform/go/testdata/committed_receipt/checkpoint.json"
     checkpoint = _checkpoint(source, v4["provenance"]["source"], v4["provenance"]["sha256"])
     checkpoint_path.write_text(json.dumps(checkpoint, indent=2) + "\n")
 

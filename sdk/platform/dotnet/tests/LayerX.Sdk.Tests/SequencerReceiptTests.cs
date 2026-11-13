@@ -54,7 +54,7 @@ public sealed class SequencerReceiptTests
                 Assert.Equal("0xcfe5297f03a2951065e463e9e0c2e3686bc0204f727eeec1a52357b5dd4a27a0",
                     log.GetProperty("topics")[0].GetString());
                 Assert.Equal(2, log.GetProperty("topics").GetArrayLength());
-                var (native, _) = RepairM1369Native.RecordedCall();
+                var (native, _) = NativeProgramTestVectors.RecordedCall();
                 Assert.Equal(native.ProgramId, Convert.FromHexString(log.GetProperty("topics")[1].GetString()![2..]));
                 Assert.Equal(32, Convert.FromHexString(log.GetProperty("topics")[1].GetString()![2..]).Length);
                 Assert.Equal(13 * 32, Hex(log, "data").Length);
