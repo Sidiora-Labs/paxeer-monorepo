@@ -6,6 +6,7 @@ import (
 	"errors"
 	"strconv"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/checked"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/store"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
 )
@@ -179,7 +180,15 @@ ORDER BY r.height,r.transaction_index,r.log_index LIMIT $5`, low, to, accounting
 		if logIndex < 0 || logIndex > 1<<32-1 || txIndex < 0 || txIndex > 1<<32-1 {
 			return nil, store.ErrIntegrity
 		}
-		candidate.raw.LogIndex, candidate.raw.TransactionIndex = uint32(logIndex), uint32(txIndex)
+		logIndexUint32, conversionErr := checked.Convert[uint32](logIndex)
+		if conversionErr != nil {
+			return nil, conversionErr
+		}
+		txIndexUint32, conversionErr := checked.Convert[uint32](txIndex)
+		if conversionErr != nil {
+			return nil, conversionErr
+		}
+		candidate.raw.LogIndex, candidate.raw.TransactionIndex = logIndexUint32, txIndexUint32
 		if err = json.Unmarshal(topics, &candidate.raw.Topics); err != nil {
 			return nil, store.ErrIntegrity
 		}
@@ -201,6 +210,10 @@ func degradeInventory(ctx context.Context, c store.CanonicalTx, b store.Canonica
 	if err != nil {
 		return err
 	}
-	_, err = c.Tx.Exec(ctx, `INSERT INTO indexer.indexer_capability_degradation(chain_id,stream_id,transaction_hash,log_index,requirement,raw_digest) VALUES(125,$1,$2,$3,$4,$5) ON CONFLICT DO NOTHING`, b.StreamID, raw.TransactionHash, int64(raw.LogIndex), accounting.InventorySubject+":"+code, digest)
+	rawLogIndexInt64, conversionErr := checked.Convert[int64](raw.LogIndex)
+	if conversionErr != nil {
+		return conversionErr
+	}
+	_, err = c.Tx.Exec(ctx, `INSERT INTO indexer.indexer_capability_degradation(chain_id,stream_id,transaction_hash,log_index,requirement,raw_digest) VALUES(125,$1,$2,$3,$4,$5) ON CONFLICT DO NOTHING`, b.StreamID, raw.TransactionHash, rawLogIndexInt64, accounting.InventorySubject+":"+code, digest)
 	return err
 }

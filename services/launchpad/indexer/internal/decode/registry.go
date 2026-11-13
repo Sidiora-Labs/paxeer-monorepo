@@ -458,7 +458,7 @@ func validatePolicies(a abi.ABI, d Deployment) error {
 }
 func (r *Registry) Coverage() []Coverage { return append([]Coverage(nil), r.coverage...) }
 func rawMetadata(l ethtypes.Log) RawLog {
-	return RawLog{Identity: RawIdentity{125, l.BlockHash.Hex(), l.TxHash.Hex(), l.Index}, Emitter: strings.ToLower(l.Address.Hex()), Order: Order{l.BlockNumber, l.TxIndex, l.Index}, Removed: l.Removed}
+	return RawLog{Identity: RawIdentity{125, l.BlockHash.Hex(), l.TxHash.Hex(), l.Index}, Emitter: "0x" + hex.EncodeToString(l.Address[:]), Order: Order{l.BlockNumber, l.TxIndex, l.Index}, Removed: l.Removed}
 }
 func validIdentity(l ethtypes.Log) bool {
 	return l.Address != (common.Address{}) && l.BlockHash != (common.Hash{}) && l.TxHash != (common.Hash{})
@@ -479,16 +479,17 @@ func rawLog(l ethtypes.Log) RawLog {
 	for i, t := range l.Topics {
 		topics[i] = t.Hex()
 	}
-	return RawLog{RawIdentity{125, l.BlockHash.Hex(), l.TxHash.Hex(), l.Index}, strings.ToLower(l.Address.Hex()), Order{l.BlockNumber, l.TxIndex, l.Index}, topics, "0x" + hex.EncodeToString(l.Data), l.Removed}
+	return RawLog{RawIdentity{125, l.BlockHash.Hex(), l.TxHash.Hex(), l.Index}, "0x" + hex.EncodeToString(l.Address[:]), Order{l.BlockNumber, l.TxIndex, l.Index}, topics, "0x" + hex.EncodeToString(l.Data), l.Removed}
 }
 func (r *Registry) Decode(l ethtypes.Log) (*DecodedEnvelope, error) {
-	e := &DecodedEnvelope{Raw: rawMetadata(l), DerivedRevision: "decoder-v1", Status: "opaque", Opaque: true}
+	e := &DecodedEnvelope{DerivedRevision: "decoder-v1", Status: "opaque", Opaque: true}
 	fail := func(reason string, err error) (*DecodedEnvelope, error) {
 		e.Status = valueQuarantined
 		e.FailureReason = reason
 		return e, err
 	}
 	if !rawSizeAllowed(l) {
+		e.Raw = rawMetadata(l)
 		e.RawSummary = summarizeRaw(l)
 		return fail("bounds", fmt.Errorf("raw envelope exceeds bounded admission"))
 	}
@@ -500,7 +501,8 @@ func (r *Registry) Decode(l ethtypes.Log) (*DecodedEnvelope, error) {
 	if l.Removed {
 		return fail("removed_log", fmt.Errorf("removed log on committed-finality chain"))
 	}
-	var active []registryEpoch
+	var firstActive [1]registryEpoch
+	active := firstActive[:0]
 	for _, candidate := range r.epochs[l.Address] {
 		d := candidate.deployment
 		if !e.Raw.Order.less(d.From) && (d.Until == nil || e.Raw.Order.less(*d.Until)) && (!d.Optional || d.Enabled) {
@@ -520,7 +522,7 @@ func (r *Registry) Decode(l ethtypes.Log) (*DecodedEnvelope, error) {
 	}
 	if epoch == nil {
 		if len(l.Topics) > 0 {
-			e.EventSignature = l.Topics[0].Hex()
+			e.EventSignature = e.Raw.Topics[0]
 			if r.known[l.Topics[0]] {
 				return fail("unauthorized_signature", fmt.Errorf("signature not approved for any role at %s", l.Address))
 			}
@@ -536,7 +538,7 @@ func (r *Registry) Decode(l ethtypes.Log) (*DecodedEnvelope, error) {
 		e.FailureReason = valueUnknownSignature
 		return e, nil
 	}
-	e.EventSignature = l.Topics[0].Hex()
+	e.EventSignature = e.Raw.Topics[0]
 	ev, ok := epoch.events[l.Topics[0]]
 	if !ok {
 		if r.known[l.Topics[0]] {
@@ -562,13 +564,12 @@ func (r *Registry) Decode(l ethtypes.Log) (*DecodedEnvelope, error) {
 	if err != nil {
 		return fail(reason, err)
 	}
-	payload, marshalErr := json.Marshal(args)
-	if marshalErr != nil || len(payload) > MaxEnvelopeBytes {
-		return fail("bounds", fmt.Errorf("decoded payload exceeds envelope limit"))
+	if err := validateDecodedPayload(args); err != nil {
+		return fail("bounds", err)
 	}
 	e.Status = valueDecoded
 	e.Opaque = strings.HasPrefix(ev.Name, "EventLog")
-	e.Event = &Event{ev.Name, ev.Sig, args, l.BlockNumber, strings.ToLower(l.TxHash.Hex()), l.Index}
+	e.Event = &Event{ev.Name, ev.Sig, args, l.BlockNumber, e.Raw.Identity.TransactionHash, l.Index}
 	e.Family = &FamilyDTO{eventFamily(abiName, ev.Name), args, abiName == valueEventEmitter && ev.Name == valueSwap, authority(abiName, ev.Name)}
 	if e.Family.EconomicFill || optionalEconomic(e) {
 		e.Actors = eventActors(e)

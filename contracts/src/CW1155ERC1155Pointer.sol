@@ -13,7 +13,6 @@ import {IJson} from "./precompiles/IJson.sol";
 import {IAddr} from "./precompiles/IAddr.sol";
 
 contract CW1155ERC1155Pointer is ERC1155, ERC2981 {
-
     address constant WASMD_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000001002;
     address constant JSON_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000001003;
     address constant ADDR_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000001004;
@@ -38,38 +37,23 @@ contract CW1155ERC1155Pointer is ERC1155, ERC2981 {
     }
 
     //transactions
-    function safeTransferFrom(
-        address from,
-        address to,
-        uint256 id,
-        uint256 amount,
-        bytes memory data
-    ) public override {
+    function safeTransferFrom(address from, address to, uint256 id, uint256 amount, bytes memory data) public override {
         require(to != address(0), "ERC1155: transfer to the zero address");
         require(balanceOf(from, id) >= amount, "ERC1155: insufficient balance for transfer");
-        require(
-            msg.sender == from || isApprovedForAll(from, msg.sender),
-            "ERC1155: caller is not approved to transfer"
-        );
-    
+        require(msg.sender == from || isApprovedForAll(from, msg.sender), "ERC1155: caller is not approved to transfer");
+
         string memory f = _formatPayload("from", _doubleQuotes(AddrPrecompile.getPaxAddr(from)));
         string memory t = _formatPayload("to", _doubleQuotes(AddrPrecompile.getPaxAddr(to)));
         string memory tId = _formatPayload("token_id", _doubleQuotes(Strings.toString(id)));
         string memory amt = _formatPayload("amount", _doubleQuotes(Strings.toString(amount)));
 
-        string memory req = _curlyBrace(
-            _formatPayload("send", _curlyBrace(_join(f, ",", _join(t, ",", _join(tId, ",", amt)))))
-        );
+        string memory req =
+            _curlyBrace(_formatPayload("send", _curlyBrace(_join(f, ",", _join(t, ",", _join(tId, ",", amt))))));
         _execute(bytes(req));
         if (to.code.length > 0) {
             require(
-                IERC1155Receiver(to).onERC1155Received(
-                    msg.sender,
-                    from,
-                    id,
-                    amount,
-                    data
-                ) == IERC1155Receiver.onERC1155Received.selector,
+                IERC1155Receiver(to).onERC1155Received(msg.sender, from, id, amount, data)
+                    == IERC1155Receiver.onERC1155Received.selector,
                 "unsafe transfer"
             );
         }
@@ -83,10 +67,7 @@ contract CW1155ERC1155Pointer is ERC1155, ERC2981 {
         bytes memory data
     ) public override {
         require(to != address(0), "ERC1155: transfer to the zero address");
-        require(
-            msg.sender == from || isApprovedForAll(from, msg.sender),
-            "ERC1155: caller is not approved to transfer"
-        );
+        require(msg.sender == from || isApprovedForAll(from, msg.sender), "ERC1155: caller is not approved to transfer");
         require(ids.length == amounts.length, "ERC1155: ids and amounts length mismatch");
         address[] memory batchFrom = new address[](ids.length);
         for (uint256 i = 0; i < ids.length; i++) {
@@ -116,13 +97,8 @@ contract CW1155ERC1155Pointer is ERC1155, ERC2981 {
         _execute(bytes(payload));
         if (to.code.length > 0) {
             require(
-                IERC1155Receiver(to).onERC1155BatchReceived(
-                    msg.sender,
-                    from,
-                    ids,
-                    amounts,
-                    data
-                ) == IERC1155Receiver.onERC1155BatchReceived.selector,
+                IERC1155Receiver(to).onERC1155BatchReceived(msg.sender, from, ids, amounts, data)
+                    == IERC1155Receiver.onERC1155BatchReceived.selector,
                 "unsafe transfer"
             );
         }
@@ -142,25 +118,21 @@ contract CW1155ERC1155Pointer is ERC1155, ERC2981 {
         require(account != address(0), "ERC1155: cannot burn from the zero address");
         require(balanceOf(account, id) >= amount, "ERC1155: insufficient balance for burning");
         require(
-            msg.sender == account || isApprovedForAll(account, msg.sender),
-            "ERC1155: caller is not approved to burn"
+            msg.sender == account || isApprovedForAll(account, msg.sender), "ERC1155: caller is not approved to burn"
         );
 
         string memory f = _formatPayload("from", _doubleQuotes(AddrPrecompile.getPaxAddr(account)));
         string memory tId = _formatPayload("token_id", _doubleQuotes(Strings.toString(id)));
         string memory amt = _formatPayload("amount", _doubleQuotes(Strings.toString(amount)));
 
-        string memory req = _curlyBrace(
-            _formatPayload("burn", _curlyBrace(_join(f, ",", _join(tId, ",", amt))))
-        );
+        string memory req = _curlyBrace(_formatPayload("burn", _curlyBrace(_join(f, ",", _join(tId, ",", amt)))));
         _execute(bytes(req));
     }
 
     function burnBatch(address account, uint256[] memory ids, uint256[] memory amounts) public virtual {
         require(account != address(0), "ERC1155: cannot burn from the zero address");
         require(
-            msg.sender == account || isApprovedForAll(account, msg.sender),
-            "ERC1155: caller is not approved to burn"
+            msg.sender == account || isApprovedForAll(account, msg.sender), "ERC1155: caller is not approved to burn"
         );
         require(ids.length == amounts.length, "ERC1155: ids and amounts length mismatch");
 
@@ -207,10 +179,12 @@ contract CW1155ERC1155Pointer is ERC1155, ERC2981 {
         return JsonPrecompile.extractAsUint256(response, "balance");
     }
 
-    function balanceOfBatch(
-        address[] memory accounts,
-        uint256[] memory ids
-    ) public view override returns (uint256[] memory balances) {
+    function balanceOfBatch(address[] memory accounts, uint256[] memory ids)
+        public
+        view
+        override
+        returns (uint256[] memory balances)
+    {
         require(accounts.length != 0, "ERC1155: cannot query empty accounts list");
         if (accounts.length != ids.length) {
             revert ERC1155InvalidArrayLength(ids.length, accounts.length);
@@ -267,10 +241,8 @@ contract CW1155ERC1155Pointer is ERC1155, ERC2981 {
     }
 
     function totalSupply(uint256 id) public view virtual returns (uint256) {
-        string memory query = string.concat(
-            string.concat("{\"num_tokens\":{\"token_id\":\"", Strings.toString(id)),
-            "\"}}"
-        );
+        string memory query =
+            string.concat(string.concat("{\"num_tokens\":{\"token_id\":\"", Strings.toString(id)), "\"}}");
         bytes memory response = WasmdPrecompile.query(Cw1155Address, bytes(query));
         return JsonPrecompile.extractAsUint256(response, "count");
     }
@@ -281,10 +253,8 @@ contract CW1155ERC1155Pointer is ERC1155, ERC2981 {
 
     // 2981
     function royaltyInfo(uint256 tokenId, uint256 salePrice) public view override returns (address, uint256) {
-        bytes memory checkRoyaltyResponse = WasmdPrecompile.query(
-            Cw1155Address,
-            bytes("{\"extension\":{\"msg\":{\"check_royalties\":{}}}}")
-        );
+        bytes memory checkRoyaltyResponse =
+            WasmdPrecompile.query(Cw1155Address, bytes("{\"extension\":{\"msg\":{\"check_royalties\":{}}}}"));
         bytes memory isRoyaltyImplemented = JsonPrecompile.extractAsBytes(checkRoyaltyResponse, "royalty_payments");
         if (keccak256(isRoyaltyImplemented) != keccak256("true")) {
             revert NotImplementedOnCosmwasmContract("royalty_info");
@@ -303,21 +273,13 @@ contract CW1155ERC1155Pointer is ERC1155, ERC2981 {
     }
 
     function supportsInterface(bytes4 interfaceId) public pure override(ERC2981, ERC1155) returns (bool) {
-        return
-            interfaceId == type(IERC2981).interfaceId ||
-            interfaceId == type(IERC1155).interfaceId ||
-            interfaceId == type(IERC1155MetadataURI).interfaceId ||
-            interfaceId == type(IERC165).interfaceId;
+        return interfaceId == type(IERC2981).interfaceId || interfaceId == type(IERC1155).interfaceId
+            || interfaceId == type(IERC1155MetadataURI).interfaceId || interfaceId == type(IERC165).interfaceId;
     }
 
     function _execute(bytes memory req) internal returns (bytes memory) {
         (bool success, bytes memory ret) = WASMD_PRECOMPILE_ADDRESS.delegatecall(
-            abi.encodeWithSignature(
-                "execute(string,bytes,bytes)",
-                Cw1155Address,
-                bytes(req),
-                bytes("[]")
-            )
+            abi.encodeWithSignature("execute(string,bytes,bytes)", Cw1155Address, bytes(req), bytes("[]"))
         );
         require(success, "CosmWasm execute failed");
         return ret;
