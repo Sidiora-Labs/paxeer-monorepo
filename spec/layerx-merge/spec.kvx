@@ -170159,7 +170159,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.21]
 title = "Move the task records and name the files after what they hold in apps/wallet/src/server and 3 more directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -170191,7 +170191,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.20]
 title = "Move the task records and name the files after what they hold in apps/wallet/src/domains and 5 more directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -170223,7 +170223,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.19]
 title = "Move the task records and name the files after what they hold in apps/wallet and 5 more directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -170255,7 +170255,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.18]
 title = "Move the task records and name the files after what they hold in apps/perps/tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -170287,7 +170287,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.17]
 title = "Move the task records and name the files after what they hold in apps/perps/src"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -238393,7 +238393,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.214]
 title = "Move the task records and name the files after what they hold in tools/hpx"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -378516,7 +378516,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.28]
 title = "Write the list of the documentation of each system"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.42.1"]
