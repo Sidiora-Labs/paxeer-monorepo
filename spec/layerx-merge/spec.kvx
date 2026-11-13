@@ -13918,6 +13918,12 @@ value = "The build command of task 22.39.511 is make paxeer-tools-install with t
 basis = "Gotcha 4380. The lint target runs cargo clippy with the offline option."
 affects = []
 
+[decision.3468]
+title = "The paths of task 22.43.253 leave out services/platform/ramps"
+value = "The paths of task 22.43.253 are services/platform/hosted, services/platform/middleware and docker/layerx. The directory services/platform/ramps holds no stale reference to a renamed file. The build command, the verification command and the do items of the task stay as they are."
+basis = "Gotcha 4381."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -204594,7 +204600,7 @@ do_2 = "do_2 Find the stale references in the files under the paths of this task
 do_3 = "do_3 A name that is an identifier and not a path or a file name stays as it is: the name of a test function, a module name with no moved file behind it, a record id inside a data file, a title. The present path of a moved record that holds the earlier path as its last part is not stale. Change no assertion beyond the path text, rename no file and delete nothing."
 do_4 = "do_4 Run the build command by hand first. Each line of a source or test file that reads a missing file with include_str, include_bytes or a path attribute, and each target path of a package manifest under the paths that names no file, is a stale reference as well; bring it to the present name. Where the check stops at a line outside the paths of this task, name the line in the final message and change nothing there. Before each commit read the output of git status. Name in the final message the count of references changed for each file and every stale reference left in the paths with its reason. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["services/platform/hosted", "services/platform/middleware", "services/platform/ramps", "docker/layerx"]
+touches = ["services/platform/hosted", "services/platform/middleware", "docker/layerx"]
 tests = []
 planned_paths = []
 build_cmd = "cargo check --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway -p layerx-platform-internal -p layerx-platform-core --tests"
