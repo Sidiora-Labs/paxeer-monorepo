@@ -165,7 +165,7 @@ identifier such as `sdk.MarketBtc`; trade symbols are uppercase, such as `BTC`.
 
 ### Get the current feed price
 
-HTTP 200 may contain {error: No price data available} during cold start. timestamp is candle-bucket start.
+HTTP 200 may contain `{"error": "No price data available"}` during cold start. The timestamp is the candle-bucket start.
 
 | Direction | Type |
 | --- | --- |
@@ -577,7 +577,7 @@ USD-only CoinGecko-compatible local-feed formats.
 
 ### List local CoinGecko-compatible IDs
 
-List local CoinGecko-compatible IDs Unsupported or duplicate query parameters are rejected with 400. This is a local compatibility adapter, not the official provider.
+Unsupported or duplicate query parameters are rejected with 400. This is a local compatibility adapter, not the official provider.
 
 | Direction | Type |
 | --- | --- |
@@ -597,7 +597,7 @@ fmt.Println(coinGecko)
 
 ### Get CoinGecko-compatible market data
 
-Get CoinGecko-compatible market data Unsupported or duplicate query parameters are rejected with 400. This is a local compatibility adapter, not the official provider.
+Unsupported or duplicate query parameters are rejected with 400. This is a local compatibility adapter, not the official provider.
 
 | Direction | Type |
 | --- | --- |
@@ -623,7 +623,7 @@ fmt.Println(coinGecko)
 
 ### Get CoinGecko-compatible coin detail
 
-Get CoinGecko-compatible coin detail Unsupported or duplicate query parameters are rejected with 400. This is a local compatibility adapter, not the official provider.
+Unsupported or duplicate query parameters are rejected with 400. This is a local compatibility adapter, not the official provider.
 
 | Direction | Type |
 | --- | --- |
@@ -676,7 +676,7 @@ USD-only CMC-compatible local-feed formats.
 
 ### Get CMC-compatible latest quotes
 
-Only USD; unknown/duplicate parameters are rejected. Quotes are keyed by uppercase symbol, not numeric provider ID. Missing selected prices fail the whole request. Unsupported metadata is null.
+Only USD; unknown/duplicate parameters are rejected. Quotes are keyed by uppercase symbol; listings contain an array of assets. Missing selected prices fail the whole request. Unsupported metadata is null.
 
 | Direction | Type |
 | --- | --- |
@@ -696,7 +696,7 @@ fmt.Println(coinMarketCap)
 
 ### Get CMC-compatible latest listings
 
-Only USD; unknown/duplicate parameters are rejected. Quotes are keyed by uppercase symbol, not numeric provider ID. Missing selected prices fail the whole request. Unsupported metadata is null.
+Only USD; unknown/duplicate parameters are rejected. Quotes are keyed by uppercase symbol; listings contain an array of assets. Missing selected prices fail the whole request. Unsupported metadata is null.
 
 | Direction | Type |
 | --- | --- |
@@ -720,7 +720,7 @@ fmt.Println(coinMarketCap)
 
 ### Get CMC-compatible latest quotes
 
-Alias of the same path without /api. Only USD; unknown/duplicate parameters are rejected. Quotes are keyed by uppercase symbol, not numeric provider ID. Missing selected prices fail the whole request. Unsupported metadata is null.
+Alias of the same path without `/api`. Only USD; unknown/duplicate parameters are rejected. Quotes are keyed by uppercase symbol; listings contain an array of assets. Missing selected prices fail the whole request. Unsupported metadata is null.
 
 | Direction | Type |
 | --- | --- |
@@ -740,7 +740,7 @@ fmt.Println(coinMarketCap)
 
 ### Get CMC-compatible latest listings
 
-Alias of the same path without /api. Only USD; unknown/duplicate parameters are rejected. Quotes are keyed by uppercase symbol, not numeric provider ID. Missing selected prices fail the whole request. Unsupported metadata is null.
+Alias of the same path without `/api`. Only USD; unknown/duplicate parameters are rejected. Quotes are keyed by uppercase symbol; listings contain an array of assets. Missing selected prices fail the whole request. Unsupported metadata is null.
 
 | Direction | Type |
 | --- | --- |

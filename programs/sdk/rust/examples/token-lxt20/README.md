@@ -34,9 +34,9 @@ storage together. Native activity, receipt and terminal fixtures for deployment,
 account registration, initialization, approvals, transfers and queries are committed
 under `programs/fixtures/pay5/native-token`.
 
-Build:
+## Build
 
-```
+```sh
 cd programs/sdk/rust/examples/token-lxt20
 cargo build --locked --release --target wasm32-unknown-unknown
 ```

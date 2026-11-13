@@ -104,7 +104,7 @@ Per-symbol USD prices, statistics and tapes.
 
 ### Get the current feed price
 
-HTTP 200 may contain {error: No price data available} during cold start. timestamp is candle-bucket start.
+HTTP 200 may contain `{"error": "No price data available"}` during cold start. The timestamp is the candle-bucket start.
 
 | Direction | Type |
 | --- | --- |
@@ -146,7 +146,7 @@ let response = client.price_feeds().list_perpetual_stats(Market::Btc).send().awa
 
 ### Get trade-tape storage status
 
-This path reports tape storage status; use /trades/{symbol} for trade records.
+This path reports tape storage status; use `/api/{market}/trades/{symbol}` for trade records.
 
 | Direction | Type |
 | --- | --- |
@@ -165,7 +165,7 @@ let response = client.price_feeds().list_trade_tape_status(Market::Btc).send().a
 ```rust
 let response = client
     .price_feeds()
-    .retrieve_recent_spot_trades(Market::Btc, "example")
+    .retrieve_recent_spot_trades(Market::Btc, "BTC")
     .send()
     .await?;
 ```
@@ -179,7 +179,7 @@ let response = client
 ```rust
 let response = client
     .price_feeds()
-    .retrieve_recent_perpetual_trades(Market::Btc, "example")
+    .retrieve_recent_perpetual_trades(Market::Btc, "BTC")
     .send()
     .await?;
 ```
@@ -249,7 +249,7 @@ Ascending, inclusive range. Countback limits rows from the START of that range. 
 ```rust
 let response = client
     .trading_view()
-    .list_candle_history(Market::Btc, Symbol::Btc, Resolution::_1, 1, 1)
+    .list_candle_history(Market::Btc, Symbol::Btc, Resolution::_1, 1735689600, 1735693200)
     .send()
     .await?;
 ```
@@ -331,7 +331,7 @@ Unknown, missing or stale prices return HTTP 503, not 404.
 | Response | [`MarketsRetrieveTickerResponse`](./src/models/markets.rs) |
 
 ```rust
-let response = client.markets().retrieve_ticker("example").send().await?;
+let response = client.markets().retrieve_ticker("BTC").send().await?;
 ```
 
 ### Get estimated long/short perpetual open interest
@@ -388,7 +388,7 @@ USD-only CoinGecko-compatible local-feed formats.
 
 ### List local CoinGecko-compatible IDs
 
-List local CoinGecko-compatible IDs Unsupported or duplicate query parameters are rejected with 400. This is a local compatibility adapter, not the official provider.
+Unsupported or duplicate query parameters are rejected with 400. This is a local compatibility adapter, not the official provider.
 
 | Direction | Type |
 | --- | --- |
@@ -400,7 +400,7 @@ let response = client.coin_gecko().list().send().await?;
 
 ### Get CoinGecko-compatible market data
 
-Get CoinGecko-compatible market data Unsupported or duplicate query parameters are rejected with 400. This is a local compatibility adapter, not the official provider.
+Unsupported or duplicate query parameters are rejected with 400. This is a local compatibility adapter, not the official provider.
 
 | Direction | Type |
 | --- | --- |
@@ -412,7 +412,7 @@ let response = client.coin_gecko().list_markets().send().await?;
 
 ### Get CoinGecko-compatible coin detail
 
-Get CoinGecko-compatible coin detail Unsupported or duplicate query parameters are rejected with 400. This is a local compatibility adapter, not the official provider.
+Unsupported or duplicate query parameters are rejected with 400. This is a local compatibility adapter, not the official provider.
 
 | Direction | Type |
 | --- | --- |
@@ -440,7 +440,7 @@ USD-only CMC-compatible local-feed formats.
 
 ### Get CMC-compatible latest quotes
 
-Only USD; unknown/duplicate parameters are rejected. Quotes are keyed by uppercase symbol, not numeric provider ID. Missing selected prices fail the whole request. Unsupported metadata is null.
+Only USD; unknown/duplicate parameters are rejected. Quotes are keyed by uppercase symbol; listings contain an array of assets. Missing selected prices fail the whole request. Unsupported metadata is null.
 
 | Direction | Type |
 | --- | --- |
@@ -452,7 +452,7 @@ let response = client.coin_market_cap().list_quotes().send().await?;
 
 ### Get CMC-compatible latest listings
 
-Only USD; unknown/duplicate parameters are rejected. Quotes are keyed by uppercase symbol, not numeric provider ID. Missing selected prices fail the whole request. Unsupported metadata is null.
+Only USD; unknown/duplicate parameters are rejected. Quotes are keyed by uppercase symbol; listings contain an array of assets. Missing selected prices fail the whole request. Unsupported metadata is null.
 
 | Direction | Type |
 | --- | --- |
@@ -464,7 +464,7 @@ let response = client.coin_market_cap().list_listings().send().await?;
 
 ### Get CMC-compatible latest quotes
 
-Alias of the same path without /api. Only USD; unknown/duplicate parameters are rejected. Quotes are keyed by uppercase symbol, not numeric provider ID. Missing selected prices fail the whole request. Unsupported metadata is null.
+Alias of the same path without `/api`. Only USD; unknown/duplicate parameters are rejected. Quotes are keyed by uppercase symbol; listings contain an array of assets. Missing selected prices fail the whole request. Unsupported metadata is null.
 
 | Direction | Type |
 | --- | --- |
@@ -476,7 +476,7 @@ let response = client.coin_market_cap().list_quotes_api_alias().send().await?;
 
 ### Get CMC-compatible latest listings
 
-Alias of the same path without /api. Only USD; unknown/duplicate parameters are rejected. Quotes are keyed by uppercase symbol, not numeric provider ID. Missing selected prices fail the whole request. Unsupported metadata is null.
+Alias of the same path without `/api`. Only USD; unknown/duplicate parameters are rejected. Quotes are keyed by uppercase symbol; listings contain an array of assets. Missing selected prices fail the whole request. Unsupported metadata is null.
 
 | Direction | Type |
 | --- | --- |
@@ -488,11 +488,14 @@ let response = client.coin_market_cap().list_listings_api_alias().send().await?;
 
 ## `WebSockets`
 
-Upgrade handshakes; application messages are described by x-websocket.
+The `websocket` feature supplies persistent connections. Configure a scoped
+`ws_token` before opening one; minting alone does not update the client. See
+[the README](./README.md#authentication) for a complete token-mint and connection
+example. Use a fresh token for a later handshake after its 300-second lifetime.
 
 ### Open {market} WebSocket
 
-One connection addresses one feed. SYMBOL is the uppercase counterpart of lowercase market; no cross-symbol subscriptions. This upgrades the connection; there is no HTTP JSON response body on success. Standard REST SDK generators cannot implement the stream automatically. Use x-websocket for the protocol.
+One connection addresses one feed. SYMBOL is the uppercase counterpart of lowercase market; no cross-symbol subscriptions. This upgrades the connection; there is no HTTP JSON response body on success. The connection sends and receives `serde_json::Value` frames.
 
 | Direction | Type |
 | --- | --- |
@@ -504,7 +507,7 @@ let _connection = client.web_sockets().connect_price_feed(Market::Btc).open().aw
 
 ### Open markets WebSocket
 
-Aggregate socket. Initial snapshots and full replacements; default broadcast cadence is 5 seconds. This upgrades the connection; there is no HTTP JSON response body on success. Standard REST SDK generators cannot implement the stream automatically. Use x-websocket for the protocol.
+Aggregate socket. Initial snapshots and full replacements; default broadcast cadence is 5 seconds. This upgrades the connection; there is no HTTP JSON response body on success. The connection sends and receives `serde_json::Value` frames.
 
 | Direction | Type |
 | --- | --- |
@@ -516,7 +519,7 @@ let _connection = client.web_sockets().connect_markets().open().await?;
 
 ### Open explorer WebSocket
 
-EVM blocks and a separate activity stream. This upgrades the connection; there is no HTTP JSON response body on success. Standard REST SDK generators cannot implement the stream automatically. Use x-websocket for the protocol.
+EVM blocks and a separate activity stream. This upgrades the connection; there is no HTTP JSON response body on success. The connection sends and receives `serde_json::Value` frames.
 
 | Direction | Type |
 | --- | --- |
@@ -528,7 +531,7 @@ let _connection = client.web_sockets().connect_explorer().open().await?;
 
 ### Open explorer WebSocket
 
-Alias of /ws/explorer. EVM blocks and a separate  activity stream. This upgrades the connection; there is no HTTP JSON response body on success. Standard REST SDK generators cannot implement the stream automatically. Use x-websocket for the protocol.
+Alias of `/ws/explorer`. EVM blocks and a separate activity stream. This upgrades the connection; there is no HTTP JSON response body on success. The connection sends and receives `serde_json::Value` frames.
 
 | Direction | Type |
 | --- | --- |

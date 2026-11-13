@@ -2,12 +2,11 @@
 
 This ABI-v2 guest implements constant-product pool accounting for two LXT-20
 programs and tracks shares backed by a third asset in swap-derived accounts.
-It defines the swap side of composition; the supplied
-[LXT-20 settlement reference](../token-lxt20/README.md) cannot currently serve
-as its pooled token. Liquidity and trading through those token artifacts remain
-blocked by the integration requirements below.
+Pool settlement requires tokens that accept authenticated nested calls. The
+supplied [LXT-20 settlement reference](../token-lxt20/README.md) accepts direct
+calls only and cannot serve as a pooled token.
 
-## Token contract and current blocker
+## Token contract
 
 [`src/lib.rs`](src/lib.rs) moves pooled tokens through `program_call`, using
 canonical SDK `lxt20::Request` calldata assembled by
@@ -52,42 +51,13 @@ followed by the bounded-bytes envelope. The authenticated caller is absent
 from these frames: `TransferFrom.owner` identifies the debited user, not the
 spender. For a push, neither the pool owner nor a spender is supplied in calldata.
 
-The remaining wiring includes the token handler and registry route, allowance
-spender identity, registration of program-owned token recipients, and deployment
-binding of token ids and backing assets. The default token uses `REFERENCE_ASSET`
-(byte `0x44` repeated 32 times), which differs from both swap backing constants.
-The request, codec and grant tests check pull routing with the pool as spender,
-push routing with the pool as debit source, and refusal of noncanonical or
-non-settlement requests. They do not establish native liquidity, trading,
-rollback or persistent balance recovery; those paths remain unproven.
-
-## Compatibility and proof status
-
-The supplied token is **incompatible with swap settlement**. Its committed
-fixture uses program `[0x55; 32]`, while the pool expects tokens `[0x5a; 32]`
-and `[0x5b; 32]`. Its backing asset `[0x44; 32]` also differs from the pool's
-assets. Renaming an artifact or forwarding the original user's identity does
-not satisfy the immediate-pool spender contract. Program-owned pool recipients
-also need a token registration route; the token's direct `approve` registers
-only its invoking user, separately from native account registration.
-
-The [wire, authority and token compatibility tests](tests/repair_22_33_250.rs)
-check this guide against the production `TokenCall` producer, SDK wire and grant
-encoders, and `NestedTokenCall` contract decoder. The token source and registry still expose
-the blockers above. These tests do not execute a native swap or prove rollback
-or restart recovery. The token's `native-token` fixtures cover direct token
-operations; they are not a swap-composition proof.
-
-After the token and registry owners install the authenticated nested route,
-native proof must execute the real bound swap and token artifacts in one native
-transaction: add and remove liquidity, trade in both directions, then refuse an
-output leg after a successful input leg. Check that token balances, allowances,
-backing balances, pool reserves and shares all retain their pre-transaction
-values after refusal. Close and reopen the persistent store and check those
-same values again, including a successful transaction's committed state.
-No such native rollback/restart proof is supplied here. Keep settlement blocked
-until that evidence exists and update this guide with its actual test and
-artifact identities; the codec tests cannot substitute for it.
+The supplied token uses `REFERENCE_ASSET` (byte `0x44` repeated 32 times),
+which differs from both swap backing constants. Its fixture uses program
+`[0x55; 32]`, while the pool expects `[0x5a; 32]` and `[0x5b; 32]`.
+A deployment must bind each token id, backing asset and registered interface
+consistently. Program-owned pool recipients need registration in both token
+storage and the native Programs account module; the supplied token's direct
+`approve` registers only its invoking user in token storage.
 
 ## Accounts and shares
 
@@ -149,8 +119,7 @@ Products use SDK `U256::widening_mul` through `bigint_mul_256`, followed by
 checked-width division in the guest. Products beyond 256 bits and results
 beyond u128 are refused, and reserve/supply updates use checked arithmetic.
 For successful settlement with a compatible token, the stored reserves track
-amounts paid in minus amounts paid out. This accounting is not proof that the
-currently supplied token can execute the settlement path.
+amounts paid in minus amounts paid out.
 
 ## Build
 
@@ -161,8 +130,7 @@ cargo build --locked --release --target wasm32-unknown-unknown
 
 Run Cargo from the example directory so
 [`programs/.cargo/config.toml`](../../../../.cargo/config.toml) applies its
-vendored, offline sources and WebAssembly code-generation flags. Building the
-module does not resolve the token integration blocker.
+vendored, offline sources and WebAssembly code-generation flags.
 
 The registry's [`swap::reference_interface`](../../../../crates/layerx-programs-registry/src/swap.rs)
 binds the module to the five named exports, schemas and capability declarations.
@@ -176,5 +144,5 @@ use a swap program id of byte `0x55` repeated 32 times. From the repository root
 `make programs-reference-fixtures` invokes `scripts/programs/program-fixtures.sh`
 to regenerate the fixture set. It remaps checkout source paths and generates
 the interface and registry state value from the module built in that run.
-Those artifacts establish the bound module/interface pair, not successful
-composition with the supplied token.
+Those artifacts bind the swap module to its interface. Token deployment and
+account registration are separate requirements.

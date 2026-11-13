@@ -43,9 +43,10 @@ client = ChainflowDataGateway(
 )
 ```
 
-The constructor requires `rest_api_key` or `REST_API_KEY` even for WebSocket
-use. Credential fields default from their corresponding environment variables;
-request authentication selects the scheme for each operation:
+The constructor permits any credential subset, including none. Credential
+fields default from their corresponding environment variables; each protected
+operation requires its own credential. Public health is unauthenticated.
+Request authentication selects the scheme for each operation:
 
 - `rest_api_key` (env: `REST_API_KEY`) — REST key; not the WS minting key.
 - `ws_mint_key` (env: `WS_MINT_KEY`) — Separate WS key used ONLY to mint symbol-bound credentials.
@@ -71,10 +72,10 @@ Method names, parameter shapes, and response types are generated from the API de
 
 ## WebSockets
 
-Install the `websockets` extra above. This server-side example requires both
-`REST_API_KEY` and the separate `WS_MINT_KEY`. Mint a token for the same
-lowercase feed used in the connection (`btc`), and send only that short-lived
-token on the WebSocket upgrade. Keep long-lived keys on the server.
+Install the `websockets` extra above. This server-side example requires
+`WS_MINT_KEY`. Mint a token for the same lowercase feed used in the connection
+(`btc`), and send only that short-lived token on the WebSocket upgrade. Keep
+long-lived keys on the server.
 
 ```python
 import os
@@ -86,7 +87,6 @@ from chainflow_data_gateway.types.websocket_reconnection import (
 )
 
 with ChainflowDataGateway(
-    rest_api_key=os.environ["REST_API_KEY"],
     ws_mint_key=os.environ["WS_MINT_KEY"],
 ) as client:
     credential = client.gateway.create_web_socket_token(symbol="btc")

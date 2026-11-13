@@ -1,0 +1,163 @@
+[manifest]
+task = "22.41.26"
+pages = 40
+
+[page.1]
+path = "spec/layerx-merge/contracts/cosmwasm.md"
+status = "corrected"
+
+[page.2]
+path = "spec/layerx-merge/contracts/evm-rpc.md"
+status = "corrected"
+
+[page.3]
+path = "spec/layerx-merge/contracts/evm.md"
+status = "corrected"
+
+[page.4]
+path = "spec/layerx-merge/contracts/explorer-config.md"
+status = "corrected"
+
+[page.5]
+path = "spec/layerx-merge/contracts/explorer-eth-rpc.md"
+status = "corrected"
+
+[page.6]
+path = "spec/layerx-merge/contracts/explorer-frontend-config.md"
+status = "corrected"
+
+[page.7]
+path = "spec/layerx-merge/contracts/explorer-frontend.md"
+status = "corrected"
+
+[page.8]
+path = "spec/layerx-merge/contracts/explorer-http-api.md"
+status = "corrected"
+
+[page.9]
+path = "spec/layerx-merge/contracts/explorer-indexer.md"
+status = "corrected"
+
+[page.10]
+path = "spec/layerx-merge/contracts/explorer-metrics.md"
+status = "corrected"
+
+[page.11]
+path = "spec/layerx-merge/contracts/explorer-services-config.md"
+status = "corrected"
+
+[page.12]
+path = "spec/layerx-merge/contracts/explorer-services.md"
+status = "corrected"
+
+[page.13]
+path = "spec/layerx-merge/contracts/explorer-tests.md"
+status = "corrected"
+
+[page.14]
+path = "spec/layerx-merge/contracts/explorer-ws.md"
+status = "corrected"
+
+[page.15]
+path = "spec/layerx-merge/contracts/ibc.md"
+status = "corrected"
+
+[page.16]
+path = "spec/layerx-merge/contracts/inference-market.md"
+status = "corrected"
+
+[page.17]
+path = "spec/layerx-merge/contracts/interop-ap2.md"
+status = "corrected"
+
+[page.18]
+path = "spec/layerx-merge/contracts/interop-bridge-relayer.md"
+status = "corrected"
+
+[page.19]
+path = "spec/layerx-merge/contracts/interop-committed-proof.md"
+status = "corrected"
+
+[page.20]
+path = "spec/layerx-merge/contracts/interop-deploy.md"
+status = "corrected"
+
+[page.21]
+path = "spec/layerx-merge/contracts/interop-fiat.md"
+status = "corrected"
+
+[page.22]
+path = "spec/layerx-merge/contracts/interop-gas-station.md"
+status = "corrected"
+
+[page.23]
+path = "spec/layerx-merge/contracts/interop-gateway.md"
+status = "corrected"
+
+[page.24]
+path = "spec/layerx-merge/contracts/interop-intent-ingester.md"
+status = "corrected"
+
+[page.25]
+path = "spec/layerx-merge/contracts/interop-migrate.md"
+status = "corrected"
+
+[page.26]
+path = "spec/layerx-merge/contracts/interop-mirror-contracts.md"
+status = "corrected"
+
+[page.27]
+path = "spec/layerx-merge/contracts/interop-mirror-signer.md"
+status = "corrected"
+
+[page.28]
+path = "spec/layerx-merge/contracts/interop-mirror.md"
+status = "corrected"
+
+[page.29]
+path = "spec/layerx-merge/contracts/interop-portable.md"
+status = "corrected"
+
+[page.30]
+path = "spec/layerx-merge/contracts/interop-service.md"
+status = "corrected"
+
+[page.31]
+path = "spec/layerx-merge/contracts/interop-specs.md"
+status = "corrected"
+
+[page.32]
+path = "spec/layerx-merge/contracts/interop-ucp.md"
+status = "corrected"
+
+[page.33]
+path = "spec/layerx-merge/contracts/interop-visa-tap.md"
+status = "corrected"
+
+[page.34]
+path = "spec/layerx-merge/contracts/interop-websearch.md"
+status = "corrected"
+
+[page.35]
+path = "spec/layerx-merge/contracts/interop-x402.md"
+status = "corrected"
+
+[page.36]
+path = "spec/layerx-merge/contracts/interop.md"
+status = "corrected"
+
+[page.37]
+path = "spec/layerx-merge/contracts/kernel.md"
+status = "corrected"
+
+[page.38]
+path = "spec/layerx-merge/contracts/launchpad.md"
+status = "corrected"
+
+[page.39]
+path = "spec/layerx-merge/contracts/layerxanchor.md"
+status = "corrected"
+
+[page.40]
+path = "spec/layerx-merge/contracts/layerxgov.md"
+status = "corrected"

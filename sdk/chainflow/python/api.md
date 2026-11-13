@@ -79,8 +79,9 @@ client = ChainflowDataGateway(
 ```
 
 The constructor also reads `REST_API_KEY`, `WS_MINT_KEY` and `WS_TOKEN` when
-options are omitted; `rest_api_key` is required at construction. REST-only callers
-can omit `ws_mint_key`. REST data requests send the REST key in `X-API-Key`;
+options are omitted. Construction permits any credential subset; each protected
+operation requires its own credential. REST-only callers can omit `ws_mint_key`.
+REST data requests send the REST key in `X-API-Key`;
 `POST /auth/ws-token` selects only the mint key, and stream upgrades select only
 the scoped token in the `token` query parameter. Keep API keys server-side.
 Set `base_url` or `SIDIORALABS_BASE_URL` to change the HTTP gateway;

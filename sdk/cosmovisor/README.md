@@ -2,7 +2,7 @@
 
 `cosmovisor` is a small process manager for Cosmos SDK application binaries such as `paxd`. It runs the binary as a subprocess and scans its output for the upgrade message that the [`x/upgrade`](../x/upgrade/spec/README.md) module logs when an approved upgrade plan is reached:
 
-```
+```text
 UPGRADE "<name>" NEEDED at height: <height>: <info>
 ```
 
@@ -14,7 +14,7 @@ When it sees that line, `cosmovisor` stops the current binary, switches to the b
 
 `cosmovisor` is its own Go module (`github.com/Sidiora-Labs/Paxeer-X-Network/sdk/cosmovisor`, see [`go.mod`](go.mod)). Build it from the repository root:
 
-```
+```sh
 make -C sdk cosmovisor
 ```
 
@@ -26,7 +26,7 @@ All arguments passed to `cosmovisor` are passed to the application binary (as a 
 
 `cosmovisor` reads its configuration from environment variables:
 
-* `DAEMON_HOME` is the location where the `cosmovisor/` directory is kept that contains the genesis binary, the upgrade binaries, and any additional auxiliary files associated with each binary (e.g. `$HOME/.paxd`). It must be an absolute path.
+* `DAEMON_HOME` is the location where the `cosmovisor/` directory is kept that contains the genesis binary, the upgrade binaries, and any additional auxiliary files associated with each binary (e.g. `$HOME/.paxeer`). It must be an absolute path.
 * `DAEMON_NAME` is the name of the binary itself (e.g. `paxd`).
 * `DAEMON_ALLOW_DOWNLOAD_BINARIES` (*optional*), if set to `true`, will enable auto-downloading of new binaries (for security reasons, this is intended for full nodes rather than validators). By default, `cosmovisor` will not auto-download new binaries.
 * `DAEMON_RESTART_AFTER_UPGRADE` (*optional*), if set to `true`, will restart the subprocess with the same command-line arguments and flags (but with the new binary) after a successful upgrade. By default, `cosmovisor` stops running after an upgrade and requires the system administrator to manually restart it. Note that `cosmovisor` will not auto-restart the subprocess if there was an error.
@@ -36,7 +36,7 @@ All arguments passed to `cosmovisor` are passed to the application binary (as a 
 
 `$DAEMON_HOME/cosmovisor` is expected to belong completely to `cosmovisor` and the subprocesses that are controlled by it. The folder content is organized as follows:
 
-```
+```text
 .
 ├── current -> genesis or upgrades/<name>
 ├── genesis
@@ -48,12 +48,12 @@ All arguments passed to `cosmovisor` are passed to the application binary (as a 
             └── $DAEMON_NAME
 ```
 
-The `cosmovisor/` directory includes a subdirectory for each version of the application (i.e. `genesis` or `upgrades/<name>`). Within each subdirectory is the application binary (i.e. `bin/$DAEMON_NAME`) and any additional auxiliary files associated with each binary. `current` is a symbolic link to the currently active directory (i.e. `genesis` or `upgrades/<name>`). The `name` variable in `upgrades/<name>` is the URI-encoded name of the upgrade as specified in the upgrade module plan.
+The `cosmovisor/` directory includes a subdirectory for each version of the application (i.e. `genesis` or `upgrades/<name>`). Within each subdirectory is the application binary (i.e. `bin/$DAEMON_NAME`) and any additional auxiliary files associated with each binary. `current` is a symbolic link to the currently active directory (i.e. `genesis` or `upgrades/<name>`). The `name` variable in `upgrades/<name>` is the URL-path-escaped name of the upgrade as specified in the upgrade module plan.
 
-Please note that `$DAEMON_HOME/cosmovisor` only stores the *application binaries*. The `cosmovisor` binary itself can be stored in any typical location (e.g. `/usr/local/bin`). The application will continue to store its data in the default data directory (`$HOME/.paxd` for `paxd`) or the data directory specified with the `--home` flag. `$DAEMON_HOME` is independent of the data directory and can be set to any location. If you set `$DAEMON_HOME` to the same directory as the data directory, you will end up with a configuration like the following:
+Please note that `$DAEMON_HOME/cosmovisor` only stores the *application binaries*. The `cosmovisor` binary itself can be stored in any typical location (e.g. `/usr/local/bin`). The application will continue to store its data in the default data directory (`$HOME/.paxeer` for `paxd`) or the data directory specified with the `--home` flag. `$DAEMON_HOME` is independent of the data directory and can be set to any location. If you set `$DAEMON_HOME` to the same directory as the data directory, you will end up with a configuration like the following:
 
-```
-.paxd
+```text
+.paxeer
 ├── config
 ├── data
 └── cosmovisor
@@ -69,7 +69,12 @@ The system administrator is responsible for:
 - manually installing the `genesis` folder
 - manually installing the `upgrades/<name>` folders
 
-`cosmovisor` will set the `current` link to point to `genesis` at first start (i.e. when no `current` link exists) and then handle switching binaries at the correct points in time, so the binaries can be placed on disk ahead of the upgrade height.
+`cosmovisor` sets `current` to `genesis` on first initialization and switches it
+at upgrade time, so binaries can be placed on disk ahead of the upgrade height.
+Initialization records `cosmovisor/.initialized`. A missing `current` link is
+refused if that marker or `data/upgrade-info.json` exists; restore the selected
+link before restarting an initialized installation. Upgrade selection publishes
+the replacement symlink atomically.
 
 The application binary's own command-line flags and environment variables work as they do without `cosmovisor`.
 
@@ -91,7 +96,7 @@ If `DAEMON_ALLOW_DOWNLOAD_BINARIES` is set to `true`, and no local binary can be
 
 2. Store a link to a file that contains all information in the above format (e.g. if you want to specify lots of binaries, changelog info, etc. without filling up the blockchain). For example:
 
-```
+```text
 https://<host>/upgrade-info.json?checksum=sha256:<sha256 hex>
 ```
 
@@ -101,7 +106,7 @@ Note that for this mechanism to provide strong security guarantees, all URLs sho
 
 To create a sha256 checksum on Linux, use the `sha256sum` utility. For example, from `sdk/cosmovisor`:
 
-```
+```sh
 sha256sum ./testdata/repo/zip_directory/autod.zip
 ```
 
@@ -111,7 +116,7 @@ You can also use `sha512sum` if you would prefer longer hashes. Whichever you ch
 
 On the Paxeer X chain an upgrade plan is created through governance with the `software-upgrade` proposal from `x/upgrade`:
 
-```
+```sh
 paxd tx gov submit-proposal software-upgrade <name> --upgrade-height <height> --upgrade-info <info> ...
 ```
 

@@ -56,7 +56,9 @@ Complete reference of every operation, grouped by resource. See [the README](./R
 import ChainflowDataGateway from '@sidioralabs/chainflow-data-gateway';
 
 const client = new ChainflowDataGateway({
-  restAPIKey: process.env['REST_API_KEY'], // defaults to the REST_API_KEY env var
+  restAPIKey: process.env['REST_API_KEY'],
+  wsMintKey: null,
+  wsToken: null,
 });
 ```
 
@@ -86,7 +88,12 @@ Authenticate with the separate WS API key, not the REST key. Lifetime is 300 sec
 | Response | [`WsToken`](./src/resources/gateway.ts) |
 
 ```ts
-const wsToken = await client.gateway.createWebSocketToken({ symbol: 'btc' });
+const mintKey = process.env['WS_MINT_KEY'];
+if (!mintKey) throw new Error('WS_MINT_KEY is required');
+const wsToken = await client.gateway.createWebSocketToken(
+  { symbol: 'btc' },
+  { headers: { 'X-API-Key': mintKey } },
+);
 ```
 
 ## `PriceFeeds`
@@ -95,7 +102,7 @@ Per-symbol USD prices, statistics and tapes.
 
 ### Get the current feed price
 
-HTTP 200 may contain {error: No price data available} during cold start. timestamp is candle-bucket start.
+HTTP 200 may contain `{"error": "No price data available"}` during cold start. The timestamp is the candle-bucket start.
 
 | Direction | Type |
 | --- | --- |
@@ -137,7 +144,7 @@ const perpStats = await client.priceFeeds.listPerpetualStats('btc');
 
 ### Get trade-tape storage status
 
-This path reports tape storage status; use /trades/{symbol} for trade records.
+This path reports tape storage status; use `/api/{market}/trades/{symbol}` for trade records.
 
 | Direction | Type |
 | --- | --- |
@@ -155,7 +162,7 @@ const tradeTapeStatus = await client.priceFeeds.listTradeTapeStatus('btc');
 | Response | [`SpotTrades`](./src/resources/price-feeds.ts) |
 
 ```ts
-const spotTrades = await client.priceFeeds.retrieveRecentSpotTrades('symbol', {
+const spotTrades = await client.priceFeeds.retrieveRecentSpotTrades('BTC', {
   market: 'btc',
   limit: 100,
 });
@@ -169,7 +176,7 @@ const spotTrades = await client.priceFeeds.retrieveRecentSpotTrades('symbol', {
 | Response | [`PerpTrades`](./src/resources/price-feeds.ts) |
 
 ```ts
-const perpTrades = await client.priceFeeds.retrieveRecentPerpetualTrades('symbol', {
+const perpTrades = await client.priceFeeds.retrieveRecentPerpetualTrades('BTC', {
   market: 'btc',
   limit: 100,
 });
@@ -245,8 +252,8 @@ Ascending, inclusive range. Countback limits rows from the START of that range. 
 const tradingView = await client.tradingView.listCandleHistory('btc', {
   symbol: 'BTC',
   resolution: '1',
-  from: 1,
-  to: 1,
+  from: 1735689600,
+  to: 1735693200,
   countback: 1000,
 });
 ```
@@ -329,7 +336,7 @@ Unknown, missing or stale prices return HTTP 503, not 404.
 | Response | [`MarketRetrieveTickerResponse`](./src/resources/markets.ts) |
 
 ```ts
-const market = await client.markets.retrieveTicker('symbol');
+const market = await client.markets.retrieveTicker('BTC');
 ```
 
 ### Get estimated long/short perpetual open interest
@@ -392,7 +399,7 @@ USD-only CoinGecko-compatible local-feed formats.
 
 ### List local CoinGecko-compatible IDs
 
-List local CoinGecko-compatible IDs Unsupported or duplicate query parameters are rejected with 400. This is a local compatibility adapter, not the official provider.
+Unsupported or duplicate query parameters are rejected with 400. This is a local compatibility adapter, not the official provider.
 
 | Direction | Type |
 | --- | --- |
@@ -407,7 +414,7 @@ const coinGecko = await client.coinGecko.list({
 
 ### Get CoinGecko-compatible market data
 
-Get CoinGecko-compatible market data Unsupported or duplicate query parameters are rejected with 400. This is a local compatibility adapter, not the official provider.
+Unsupported or duplicate query parameters are rejected with 400. This is a local compatibility adapter, not the official provider.
 
 | Direction | Type |
 | --- | --- |
@@ -428,7 +435,7 @@ const coinGecko = await client.coinGecko.listMarkets({
 
 ### Get CoinGecko-compatible coin detail
 
-Get CoinGecko-compatible coin detail Unsupported or duplicate query parameters are rejected with 400. This is a local compatibility adapter, not the official provider.
+Unsupported or duplicate query parameters are rejected with 400. This is a local compatibility adapter, not the official provider.
 
 | Direction | Type |
 | --- | --- |
@@ -471,7 +478,7 @@ USD-only CMC-compatible local-feed formats.
 
 ### Get CMC-compatible latest quotes
 
-Only USD; unknown/duplicate parameters are rejected. Quotes are keyed by uppercase symbol, not numeric provider ID. Missing selected prices fail the whole request. Unsupported metadata is null.
+Only USD; unknown/duplicate parameters are rejected. Quotes are keyed by uppercase symbol; listings contain an array of assets. Missing selected prices fail the whole request. Unsupported metadata is null.
 
 | Direction | Type |
 | --- | --- |
@@ -486,7 +493,7 @@ const coinMarketCap = await client.coinMarketCap.listQuotes({
 
 ### Get CMC-compatible latest listings
 
-Only USD; unknown/duplicate parameters are rejected. Quotes are keyed by uppercase symbol, not numeric provider ID. Missing selected prices fail the whole request. Unsupported metadata is null.
+Only USD; unknown/duplicate parameters are rejected. Quotes are keyed by uppercase symbol; listings contain an array of assets. Missing selected prices fail the whole request. Unsupported metadata is null.
 
 | Direction | Type |
 | --- | --- |
@@ -505,7 +512,7 @@ const coinMarketCap = await client.coinMarketCap.listListings({
 
 ### Get CMC-compatible latest quotes
 
-Alias of the same path without /api. Only USD; unknown/duplicate parameters are rejected. Quotes are keyed by uppercase symbol, not numeric provider ID. Missing selected prices fail the whole request. Unsupported metadata is null.
+Alias of the same path without `/api`. Only USD; unknown/duplicate parameters are rejected. Quotes are keyed by uppercase symbol; listings contain an array of assets. Missing selected prices fail the whole request. Unsupported metadata is null.
 
 | Direction | Type |
 | --- | --- |
@@ -520,7 +527,7 @@ const coinMarketCap = await client.coinMarketCap.listQuotesAPIAlias({
 
 ### Get CMC-compatible latest listings
 
-Alias of the same path without /api. Only USD; unknown/duplicate parameters are rejected. Quotes are keyed by uppercase symbol, not numeric provider ID. Missing selected prices fail the whole request. Unsupported metadata is null.
+Alias of the same path without `/api`. Only USD; unknown/duplicate parameters are rejected. Quotes are keyed by uppercase symbol; listings contain an array of assets. Missing selected prices fail the whole request. Unsupported metadata is null.
 
 | Direction | Type |
 | --- | --- |
@@ -539,18 +546,31 @@ const coinMarketCap = await client.coinMarketCap.listListingsAPIAlias({
 
 ## `WebSockets`
 
-Upgrade handshakes; application messages are described by x-websocket.
+These server-side Node.js examples use the REST client from Setup. Each
+explicitly mints the matching scope and creates a separate stream client with
+that token. See [the README](./README.md#websockets) for connection and credential
+behavior. Iteration yields connection events; only `message` events below are
+printed. Tokens last 300 seconds for a handshake; mint a fresh one before a new
+handshake after expiry.
 
 ### Open {market} WebSocket
 
-One connection addresses one feed. SYMBOL is the uppercase counterpart of lowercase market; no cross-symbol subscriptions. This upgrades the connection; there is no HTTP JSON response body on success. Standard REST SDK generators cannot implement the stream automatically. Use x-websocket for the protocol.
+One connection addresses one feed. SYMBOL is the uppercase counterpart of lowercase market; no cross-symbol subscriptions. This upgrades the connection; there is no HTTP JSON response body on success. The generated wrapper receives JSON frames and connection events.
 
 ```ts
-const connection = client.webSockets.connectPriceFeed('btc');
+const mintKey = process.env['WS_MINT_KEY'];
+if (!mintKey) throw new Error('WS_MINT_KEY is required');
+const credential = await client.gateway.createWebSocketToken(
+  { symbol: 'btc' },
+  { headers: { 'X-API-Key': mintKey } },
+);
+const streamClient = client.withOptions({ wsToken: credential.token });
+const connection = streamClient.webSockets.connectPriceFeed('btc');
 
 try {
-  for await (const message of connection) {
-    console.log(message);
+  for await (const event of connection) {
+    if (event.type === 'error') throw new Error('WebSocket connection failed');
+    if (event.type === 'message') console.log(event.message);
   }
 } finally {
   connection.close();
@@ -559,14 +579,22 @@ try {
 
 ### Open markets WebSocket
 
-Aggregate socket. Initial snapshots and full replacements; default broadcast cadence is 5 seconds. This upgrades the connection; there is no HTTP JSON response body on success. Standard REST SDK generators cannot implement the stream automatically. Use x-websocket for the protocol.
+Aggregate socket. Initial snapshots and full replacements; default broadcast cadence is 5 seconds. This upgrades the connection; there is no HTTP JSON response body on success. The generated wrapper receives JSON frames and connection events.
 
 ```ts
-const connection = client.webSockets.connectMarkets();
+const mintKey = process.env['WS_MINT_KEY'];
+if (!mintKey) throw new Error('WS_MINT_KEY is required');
+const credential = await client.gateway.createWebSocketToken(
+  { symbol: 'markets' },
+  { headers: { 'X-API-Key': mintKey } },
+);
+const streamClient = client.withOptions({ wsToken: credential.token });
+const connection = streamClient.webSockets.connectMarkets();
 
 try {
-  for await (const message of connection) {
-    console.log(message);
+  for await (const event of connection) {
+    if (event.type === 'error') throw new Error('WebSocket connection failed');
+    if (event.type === 'message') console.log(event.message);
   }
 } finally {
   connection.close();
@@ -575,14 +603,22 @@ try {
 
 ### Open explorer WebSocket
 
-EVM blocks and a separate activity stream. This upgrades the connection; there is no HTTP JSON response body on success. Standard REST SDK generators cannot implement the stream automatically. Use x-websocket for the protocol.
+EVM blocks and a separate activity stream. This upgrades the connection; there is no HTTP JSON response body on success. The generated wrapper receives JSON frames and connection events.
 
 ```ts
-const connection = client.webSockets.connectExplorer();
+const mintKey = process.env['WS_MINT_KEY'];
+if (!mintKey) throw new Error('WS_MINT_KEY is required');
+const credential = await client.gateway.createWebSocketToken(
+  { symbol: 'explorer' },
+  { headers: { 'X-API-Key': mintKey } },
+);
+const streamClient = client.withOptions({ wsToken: credential.token });
+const connection = streamClient.webSockets.connectExplorer();
 
 try {
-  for await (const message of connection) {
-    console.log(message);
+  for await (const event of connection) {
+    if (event.type === 'error') throw new Error('WebSocket connection failed');
+    if (event.type === 'message') console.log(event.message);
   }
 } finally {
   connection.close();
@@ -591,14 +627,22 @@ try {
 
 ### Open explorer WebSocket
 
-Alias of /ws/explorer. EVM blocks and a separate  activity stream. This upgrades the connection; there is no HTTP JSON response body on success. Standard REST SDK generators cannot implement the stream automatically. Use x-websocket for the protocol.
+Alias of `/ws/explorer`. EVM blocks and a separate activity stream. This upgrades the connection; there is no HTTP JSON response body on success. The generated wrapper receives JSON frames and connection events.
 
 ```ts
-const connection = client.webSockets.connectExplorerAlias();
+const mintKey = process.env['WS_MINT_KEY'];
+if (!mintKey) throw new Error('WS_MINT_KEY is required');
+const credential = await client.gateway.createWebSocketToken(
+  { symbol: 'explorer' },
+  { headers: { 'X-API-Key': mintKey } },
+);
+const streamClient = client.withOptions({ wsToken: credential.token });
+const connection = streamClient.webSockets.connectExplorerAlias();
 
 try {
-  for await (const message of connection) {
-    console.log(message);
+  for await (const event of connection) {
+    if (event.type === 'error') throw new Error('WebSocket connection failed');
+    if (event.type === 'message') console.log(event.message);
   }
 } finally {
   connection.close();
