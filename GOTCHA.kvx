@@ -21545,3 +21545,18 @@ fix = "The number is the size measured with the engine version of the lock file,
 title = "The test command of the programs workspace runs the evaluator host cases of the AI market member"
 symptom = "The command make programs-test runs every test target of the members under programs/crates. The target f03_evaluator_host of programs/crates/layerx-programs-ai-market routes its calls through the program and, for one case, through the native harness that the recipe paxai-host-boundary-build of the Makefile writes under build/paxai-host-boundary."
 fix = "Task 22.39.509 carries the test sources of the members under programs/crates; each case prepares the state that the program requires, and the test recipe builds the native harness before the target that reads it."
+
+[gotcha.4345]
+title = "The test command of the agent workspace runs the cases of every member"
+symptom = "The command make agent-test runs every test target of the members under services/agent/crates. The export cases of services/agent/crates/layerx-agentd/tests/audit_export.rs read rows that carry a transaction hash, a nonce and a rung."
+fix = "Task 22.39.498 carries the test sources of every member under services/agent/crates, and a case builds its rows with every field the reader requires."
+
+[gotcha.4346]
+title = "The dependency check of the platform manifests names the SQLite crates and the indexer member keeps its store in SQLite"
+symptom = "The configuration of the dependency check of services/platform and tools/platform lists the two SQLite crates with the reason that the platform does not open the projections of a node. The indexer member under services/platform/hosted keeps a store of its own in SQLite through a direct dependency of its manifest."
+fix = "The entry admits the crate as a direct dependency of the indexer member and of no other package, and the system crate under that crate alone."
+
+[gotcha.4347]
+title = "The SDK check of the platform reads a digest of the generator sources, and the history cases of the indexer run the Go producers"
+symptom = "The file sdk/platform/pipeline.kvx records a digest of the sources of each generator, among them the API generator under services/human/tools/api-gen, so a change of a generator is followed by make platform-sdk-generate. The cases of services/platform/hosted/indexer/tests/history_position.rs run Go tests of the precompiles, which link the native archives that the chain build writes under build and under the target directory of the programs workspace."
+fix = "Task 22.39.504 regenerates the SDK outputs and the digest file, and the test recipe of the platform builds the native archives before the history cases run."

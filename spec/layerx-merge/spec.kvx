@@ -13672,6 +13672,24 @@ value = "Task 22.39.509 may change the test sources and the test support files i
 basis = "The test command is one command over every member, the program is the producer of the values its cases read, and a difference of the program from its terms belongs to the owner of the program."
 affects = ["22.39.509"]
 
+[decision.3427]
+title = "The agent test task carries the test sources of every member of the agent workspace"
+value = "Task 22.39.498 may change the test sources and the test support files of every member under services/agent/crates. A case follows the reader it exercises: it builds its rows and fixtures with every field the reader requires. Outside the store roots and the disclosure of its first item the task changes no behaviour of a member."
+basis = "The test command is one command over every member, and one task brings it in line."
+affects = ["22.39.498"]
+
+[decision.3428]
+title = "The SQLite entry of the platform dependency check admits the store of the indexer member"
+value = "In the configuration of the dependency check of services/platform and tools/platform the SQLite crate is admitted as a direct dependency of the indexer member only, and its system crate as a dependency of that crate only. The third SQLite name of the list stays refused for every package, and the reason of the entry stays. For an advisory the rule of decision 3419 holds: the lock file takes the corrected version where one fits the manifests, task 22.39.503 may raise the version in the manifest of the indexer member where the sources of the member compile unchanged, and otherwise one dated entry names the advisory, the package that holds the version and the reason. The build of task 22.39.503 is the build of the three platform manifests; the SDK check belongs to task 22.39.504."
+basis = "The store of the indexer member is part of that member and opens no projection of a node, and a version held by a package outside the platform manifests is raised by the owner of that package."
+affects = ["22.39.503"]
+
+[decision.3429]
+title = "The platform test task regenerates the SDK outputs and builds the native archives of the Go producers"
+value = "Task 22.39.504 runs make platform-sdk-generate and keeps the generated files and sdk/platform/pipeline.kvx as the generators write them, with no edit by hand. The test recipe of services/platform/Makefile.inc builds the native archives that the Go producers of services/platform/hosted/indexer/tests/history_position.rs link, before the cases run. The task may change the test sources of the indexer member."
+basis = "The generated files and the digest follow the generators, and a case that runs a producer needs what the producer links."
+affects = ["22.39.504"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -197807,7 +197825,7 @@ interfaces = []
 do_1 = "do_1 Gotcha 4337, decision 3418. The command make platform-test passes. The event count cases of services/platform/hosted/indexer/src/abi.rs assert the events that the loader reads from the interface files at the present revision, by name and by count, so that an event added to an interface is stated in the case. The drift cases of sdk/platform/generators/tests/drift.rs build their comparison tree with every generated file that the generators write, including the mirror file of the TypeScript SDK of the agent, and compare it with the committed output; where the committed output differs from the generator, it is produced again by the generator. No case is removed or ignored."
 do_2 = "do_2 Record in services/platform/hosted/indexer/repair_22_39_504.kvx the rule, the changed files and the command. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["services/platform/hosted/indexer/src", "sdk/platform/generators", "services/agent/sdk/typescript/src/generated"]
+touches = ["services/platform/hosted/indexer/src", "services/platform/hosted/indexer/tests", "sdk/platform", "services/agent/sdk/typescript/src/generated", "apps/web/src/api/generated", "services/platform/Makefile.inc"]
 tests = []
 planned_paths = ["services/platform/hosted/indexer/repair_22_39_504.kvx"]
 build_cmd = "make -s platform-build"
@@ -197823,6 +197841,7 @@ time_limit_minutes = 180
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "do_3 Decision 3429, gotcha 4347. Run make platform-sdk-generate and keep the generated files and sdk/platform/pipeline.kvx as the generators write them. In services/platform/Makefile.inc let the test recipe build the native archives that the Go producers of services/platform/hosted/indexer/tests/history_position.rs link, before the cases run. The cases of that file keep their assertions. Add the changed files to the record. Run the build once and the verification once at the final revision."
 
 [task.22.39.503]
 title = "Bring the lint target of the platform workspaces in line"
@@ -197836,10 +197855,10 @@ interfaces = []
 do_1 = "do_1 Gotcha 4337, decisions 3418 and 3419. The command make platform-lint passes. The cases of services/platform/hosted/indexer/tests/store_writers.rs satisfy the lint configuration without an allowance and keep their assertions. The dependency checks of services/platform and tools/platform pass under the rule of decision 3419, with changes in the manifest, the lock file and the configuration of the check of each of the two workspaces only."
 do_2 = "do_2 Record in services/platform/repair_22_39_503.kvx the rule, the changed files, every entry added to a configuration of the dependency check with its reason, and the command. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["services/platform/hosted/indexer/tests/store_writers.rs", "services/platform/Cargo.toml", "services/platform/Cargo.lock", "services/platform/deny.toml", "tools/platform/Cargo.toml", "tools/platform/Cargo.lock", "tools/platform/deny.toml"]
+touches = ["services/platform/hosted/indexer/tests/store_writers.rs", "services/platform/Cargo.toml", "services/platform/Cargo.lock", "services/platform/deny.toml", "tools/platform/Cargo.toml", "tools/platform/Cargo.lock", "tools/platform/deny.toml", "services/platform/hosted/indexer/Cargo.toml"]
 tests = []
 planned_paths = ["services/platform/repair_22_39_503.kvx"]
-build_cmd = "make -s platform-build"
+build_cmd = "cargo build --offline --locked --workspace --manifest-path services/platform/Cargo.toml && cargo build --offline --locked --workspace --manifest-path tools/platform/Cargo.toml && cargo build --offline --locked --workspace --manifest-path sdk/platform/generators/Cargo.toml"
 verify_cmd = "test -s services/platform/repair_22_39_503.kvx && make -s platform-lint"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -197852,6 +197871,7 @@ time_limit_minutes = 180
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "do_3 Decision 3428, gotcha 4346. In the configuration of the dependency check of services/platform and tools/platform admit the SQLite crate as a direct dependency of the indexer member only and its system crate under that crate only; the third SQLite name stays refused for every package and the reason of the entry stays. For each advisory take the corrected version into the lock file where one fits the manifests; raise the version in the manifest of the indexer member where the sources of the member compile unchanged; otherwise write one dated entry that names the advisory, the package that holds the version and the reason. The build of this task is the build of the three platform manifests. List every entry in the record. Run the build once and the verification once at the final revision."
 
 [task.22.39.502]
 title = "Bring the test target of the interop workspace in line"
@@ -197925,7 +197945,7 @@ interfaces = []
 do_1 = "do_1 Gotcha 4337, decision 3418. The command make agent-test passes on the whole agent workspace. The native terminal evidence cases of services/agent/crates/layerx-agentd/src/protocol_evidence_native_tests.rs each open a store root of their own, so that no case meets the writer of another case when the cases run side by side. The daemon disclosure case of services/agent/crates/layerx-sdk/tests/support/audit_22_30_99.rs asserts the operation names that the daemon produces at the present revision; where the daemon and the SDK differ on the name of the prepare operation, the consumer follows the producer and the case asserts the producer value. No case is removed or ignored."
 do_2 = "do_2 Record in services/agent/crates/layerx-sdk/repair_22_39_498.kvx the rule, the changed files and the command. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["services/agent/crates/layerx-agentd/src", "services/agent/crates/layerx-sdk/tests", "services/agent/crates/layerx-sdk/src"]
+touches = ["services/agent/crates"]
 tests = []
 planned_paths = ["services/agent/crates/layerx-sdk/repair_22_39_498.kvx"]
 build_cmd = "make -s agent-build"
@@ -197941,6 +197961,7 @@ time_limit_minutes = 180
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "do_3 Decision 3427, gotcha 4345. The command make agent-test passes over every member under services/agent/crates. The export cases of services/agent/crates/layerx-agentd/tests/audit_export.rs build their rows with the transaction hash, the nonce and the rung that the reader requires, and keep their assertions. Change test sources and test support files only, beyond the changes of do_1. Add the changed files to the record. Run the build once and the verification once at the final revision."
 
 [task.22.39.497]
 title = "Bring the lint target of the agent workspace in line"
