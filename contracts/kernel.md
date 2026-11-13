@@ -1,6 +1,6 @@
 # Kernel and retained archive formats
 
-Paxeer mainnet-beta is one BFT network with EVM chain ID **125** (`0x7d`). The kernel is part of that network and proposes blocks. A transaction receipt is final once its block is committed. Sub-chains are tenant domains in the database; they do not require another execution/settlement stack.
+Paxeer mainnet-beta uses EVM chain ID **125** (`0x7d`). The LayerX kernel inside `paxd` executes and orders each transaction and builds each block; validators check and commit it. A transaction receipt is final once its block is committed. Sub-chains are tenant domains in the database; they do not require another execution/settlement stack.
 
 Node JSON-RPC uses HTTPS at the configured node’s root path. See [node transport and served methods](evm-rpc.md). Node-state `px_*` methods are distinct from the hosted identity and faucet operations in [the gateway OpenRPC contract](../services/platform/hosted/gateway/openrpc.json).
 

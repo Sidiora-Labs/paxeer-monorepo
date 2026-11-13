@@ -1,10 +1,11 @@
 # Native market contracts
 
-Paxeer mainnet-beta is one BFT network running `paxd`, with EVM chain ID
-125 (`0x7d`). The kernel is part of the network and proposes blocks. A
-transaction receipt is final when its block commits. Perpetuals, spot and
-price feeds use chain state; the [data services](perps-data.md) index that
-state for the [trading client](perps-client.md).
+Paxeer mainnet-beta uses EVM chain ID 125 (`0x7d`). The LayerX kernel inside
+`paxd` executes and orders each transaction and builds each block; validators
+check and commit it. A transaction receipt is final when its block commits.
+Perpetuals, spot and price feeds use chain state; the [data
+services](perps-data.md) index that state for the [trading
+client](perps-client.md).
 
 Public node JSON-RPC uses HTTPS at the configured node origin's root path. Node method availability follows the [node RPC contract](rpc.md#public-json-rpc). The `px` namespace answers from node state; `px_register` and
 `px_requestFunds` are operations of the hosted identity and faucet
