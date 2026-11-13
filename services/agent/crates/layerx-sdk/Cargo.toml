@@ -40,7 +40,7 @@ layerx-identity-binding = { path = "../layerx-identity-binding" }
 hex = "=0.4.3"
 getrandom = "=0.3.4"
 native-tls = "=0.2.18"
-openssl = "=0.10.81"
+openssl.workspace = true
 ureq = { version = "=3.4.0", default-features = false, features = ["json", "rustls-no-provider", "_ring"] }
 
 [lints]

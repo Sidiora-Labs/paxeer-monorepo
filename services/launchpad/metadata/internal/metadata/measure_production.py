@@ -132,7 +132,7 @@ def env_headers(entries):
 @lru_cache(maxsize=4)
 def response_validator(name):
     from jsonschema import Draft202012Validator, FormatChecker
-    definitions = json.loads((ROOT / 'launchpad/spec/production-system/integration/contracts/v2/schema-definitions.json').read_bytes(), object_pairs_hook=unique)
+    definitions = json.loads((ROOT / 'sdk/launchpad/packages/sdk-v2/src/schemas.gen.json').read_bytes(), object_pairs_hook=unique)
     require(name in definitions['$defs'], 'known_response_contract')
     return Draft202012Validator({**definitions, '$ref': '#/$defs/' + name}, format_checker=FormatChecker())
 

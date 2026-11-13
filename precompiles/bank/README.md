@@ -19,7 +19,7 @@ This directory implements the bank precompile in the Paxeer node, exposing the n
 - [bank_v6120_test.go](bank_v6120_test.go): agreement between bank and node upgrade plan names.
 - [gas_golden_test.go](gas_golden_test.go): gas charges and invalid-selector checks.
 - [proof_0x1001_bank_test.go](proof_0x1001_bank_test.go): node transaction, receipt, balance and storage-reopening checks.
-- [repair_m1280_test.go](repair_m1280_test.go): committed bank balances after reopening storage.
+- [bank_durable_reopen_test.go](bank_durable_reopen_test.go): committed bank balances after reopening storage.
 - [resolution_reason_test.go](resolution_reason_test.go): address-resolution and ABI refusal checks.
 
 ## Build and test

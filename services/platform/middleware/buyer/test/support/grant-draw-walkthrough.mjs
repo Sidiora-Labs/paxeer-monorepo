@@ -48,7 +48,7 @@ async function close(server) {
 
 // These peers replay the committed conformance wire transcript. They never
 // implement a ledger, sign receipts, or claim to execute the native precompile.
-// See repair-22-33-1477.kvx for the owning ledger domain's missing transcript.
+// Grant draw transcript: ../../../qualification/records/buyer/grant-draw-consumers.kvx.
 async function openPeers(state, required) {
   const node = createServer(async (request, response) => {
     try {

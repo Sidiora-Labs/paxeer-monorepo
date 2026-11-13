@@ -2,37 +2,37 @@
   {
     "package": "github.com/Sidiora-Technologies/KindleLaunch/shared/auth",
     "test": "TestPhase2AuditDurableBridgeAndRealBroker",
-    "reason": "Reads launchpad/spec/production-system/handoffs/L33/schema-proposal.sql, which is not tracked; the production specification pair must be supplied by its owner.",
+    "reason": "Authentication schema inputs are registered in migrations/registry.json; production admission requires reviewed provenance.",
     "retiring_task": "22.39.117"
   },
   {
     "package": "github.com/Sidiora-Technologies/KindleLaunch/shared/auth",
     "test": "TestPhase2AuditRuntimeCannotRewriteHistory",
-    "reason": "Reads launchpad/spec/production-system/handoffs/L33/schema-proposal.sql, which is not tracked; the production specification pair must be supplied by its owner.",
+    "reason": "Authentication schema inputs are registered in migrations/registry.json; production admission requires reviewed provenance.",
     "retiring_task": "22.39.117"
   },
   {
     "package": "github.com/Sidiora-Technologies/KindleLaunch/shared/auth",
     "test": "TestPhase3StoredReplayIntegrityAndCanceledTransaction",
-    "reason": "Reads launchpad/spec/production-system/handoffs/L33/schema-proposal.sql, which is not tracked; the production specification pair must be supplied by its owner.",
+    "reason": "Authentication schema inputs are registered in migrations/registry.json; production admission requires reviewed provenance.",
     "retiring_task": "22.39.117"
   },
   {
     "package": "github.com/Sidiora-Technologies/KindleLaunch/shared/auth",
     "test": "TestPhase2CommittedContractRevocation",
-    "reason": "Reads launchpad/spec/production-system/handoffs/L33/schema-proposal.sql, which is not tracked; the production specification pair must be supplied by its owner.",
+    "reason": "Authentication schema inputs are registered in migrations/registry.json; production admission requires reviewed provenance.",
     "retiring_task": "22.39.117"
   },
   {
     "package": "github.com/Sidiora-Technologies/KindleLaunch/shared/auth",
     "test": "TestPhase2RealHTTPAuthorizationAndReplay",
-    "reason": "Reads launchpad/spec/production-system/handoffs/L33/schema-proposal.sql, which is not tracked; the production specification pair must be supplied by its owner.",
+    "reason": "Authentication schema inputs are registered in migrations/registry.json; production admission requires reviewed provenance.",
     "retiring_task": "22.39.117"
   },
   {
     "package": "github.com/Sidiora-Technologies/KindleLaunch/shared/auth",
     "test": "TestPhase4RealSignedLoadMeasurement",
-    "reason": "Reads launchpad/spec/production-system/handoffs/L33/schema-proposal.sql, which is not tracked; the production specification pair must be supplied by its owner.",
+    "reason": "Authentication schema inputs are registered in migrations/registry.json; production admission requires reviewed provenance.",
     "retiring_task": "22.39.117"
   },
   {

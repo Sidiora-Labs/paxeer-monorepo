@@ -8,11 +8,11 @@ from dispatcher.graph import Graph, GraphError
 from dispatcher.qualification_fixture import normalize_fixture
 
 class FixtureTests(unittest.TestCase):
- root = Path(os.environ.get('PRODUCTION_DISPATCHER_SPEC_ROOT',Path(__file__).resolve().parents[5]/'launchpad'))
+ root = Path(os.environ.get('PRODUCTION_DISPATCHER_SPEC_ROOT',Path(__file__).resolve().parent/'fixtures/repair_22_33_915'))
  def test_live_status_variants_are_private_and_projection_consistent(self):
   root=self.root
-  original=(root/'spec/production-system/spec.kvx').read_text()
-  original_plan=json.loads((root/'spec/production-system/execution-plan.json').read_text())
+  original=(root/'spec.kvx').read_text()
+  original_plan=json.loads((root/'execution-plan.json').read_text())
   import re
   for status in ('pending','in_progress','done'):
    with self.subTest(status=status),tempfile.TemporaryDirectory() as tmp:
@@ -28,4 +28,4 @@ class FixtureTests(unittest.TestCase):
     # Current status projection validation remains enforced by Graph.
     fixture['tasks']['1.01']['status']='done';(path/'plan.json').write_text(json.dumps(fixture))
     with self.assertRaises(GraphError):Graph(path/'spec.kvx',path/'plan.json')
-  self.assertEqual((root/'spec/production-system/spec.kvx').read_text(),original)
+  self.assertEqual((root/'spec.kvx').read_text(),original)
