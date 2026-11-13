@@ -18,7 +18,7 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-type repair196Node struct {
+type genesisHistoryNode struct {
 	ctx    sdk.Context
 	cms    sdk.CommitMultiStore
 	key    sdk.StoreKey
@@ -26,11 +26,11 @@ type repair196Node struct {
 	closed bool
 }
 
-func repair196Open(t *testing.T, dir string) *repair196Node {
+func openGenesisHistoryNode(t *testing.T, dir string) *genesisHistoryNode {
 	t.Helper()
-	db, err := dbm.NewGoLevelDB("repair-196", dir)
+	db, err := dbm.NewGoLevelDB("genesis-history", dir)
 	require.NoError(t, err)
-	n := &repair196Node{cms: store.NewCommitMultiStore(db), key: sdk.NewKVStoreKey(types.StoreKey)}
+	n := &genesisHistoryNode{cms: store.NewCommitMultiStore(db), key: sdk.NewKVStoreKey(types.StoreKey)}
 	t.Cleanup(func() { n.close(t) })
 	n.cms.MountStoreWithDB(n.key, sdk.StoreTypeIAVL, db)
 	require.NoError(t, n.cms.LoadLatestVersion())
@@ -41,7 +41,7 @@ func repair196Open(t *testing.T, dir string) *repair196Node {
 	return n
 }
 
-func (n *repair196Node) close(t *testing.T) {
+func (n *genesisHistoryNode) close(t *testing.T) {
 	t.Helper()
 	if !n.closed {
 		require.NoError(t, n.cms.Close())
@@ -49,7 +49,7 @@ func (n *repair196Node) close(t *testing.T) {
 	}
 }
 
-func repair196Registry(t *testing.T) types.GenesisState {
+func genesisHistoryRegistry(t *testing.T) types.GenesisState {
 	t.Helper()
 	app := testkeeper.EVMTestApp
 	ctx, _ := app.GetContextForDeliverTx(nil).CacheContext()
@@ -69,7 +69,7 @@ func repair196Registry(t *testing.T) types.GenesisState {
 	return *k.ExportGenesis(ctx)
 }
 
-func repair196History(t *testing.T, n *repair196Node, registry types.GenesisState) []keeper.DomainHistory {
+func recordGenesisHistory(t *testing.T, n *genesisHistoryNode, registry types.GenesisState) []keeper.DomainHistory {
 	t.Helper()
 	rows := []keeper.DomainHistory{
 		{DomainID: registry.Domains[0].Id, Height: 7, TxHashes: []common.Hash{common.HexToHash("0x010701"), common.HexToHash("0x010702")}, GasUsed: 500000},
@@ -94,7 +94,7 @@ func repair196History(t *testing.T, n *repair196Node, registry types.GenesisStat
 	return rows
 }
 
-func repair196AssertHistory(t *testing.T, n *repair196Node, rows []keeper.DomainHistory) {
+func assertGenesisHistory(t *testing.T, n *genesisHistoryNode, rows []keeper.DomainHistory) {
 	t.Helper()
 	for _, row := range rows {
 		require.Equal(t, row.TxHashes, n.k.DomainTxs(n.ctx, row.DomainID, row.Height))
@@ -106,12 +106,12 @@ func repair196AssertHistory(t *testing.T, n *repair196Node, rows []keeper.Domain
 	}
 }
 
-func TestRepair_196_ChainHistoryRestartRecovery(t *testing.T) {
-	registry := repair196Registry(t)
+func TestChainHistoryRestartRecovery(t *testing.T) {
+	registry := genesisHistoryRegistry(t)
 	sourceDir, targetDir := t.TempDir(), t.TempDir()
-	source := repair196Open(t, sourceDir)
+	source := openGenesisHistoryNode(t, sourceDir)
 	require.NoError(t, source.k.InitGenesis(source.ctx, registry))
-	rows := repair196History(t, source, registry)
+	rows := recordGenesisHistory(t, source, registry)
 	// Paused domains retain committed history even though RecordDomainTx
 	// refuses new transactions for them.
 	require.NoError(t, source.k.Pause(source.ctx, operator, registry.Domains[1].Id))
@@ -120,8 +120,8 @@ func TestRepair_196_ChainHistoryRestartRecovery(t *testing.T) {
 	require.NoError(t, err)
 	source.cms.Commit(true)
 	source.close(t)
-	source = repair196Open(t, sourceDir)
-	repair196AssertHistory(t, source, rows)
+	source = openGenesisHistoryNode(t, sourceDir)
+	assertGenesisHistory(t, source, rows)
 	reopenedRaw, err := json.Marshal(source.k.ExportGenesisWithHistory(source.ctx))
 	require.NoError(t, err)
 	require.Equal(t, raw, reopenedRaw)
@@ -130,13 +130,13 @@ func TestRepair_196_ChainHistoryRestartRecovery(t *testing.T) {
 	require.NoError(t, json.Unmarshal(raw, &decoded))
 	require.NoError(t, decoded.Validate())
 	require.Equal(t, rows, decoded.DomainHistory)
-	target := repair196Open(t, targetDir)
+	target := openGenesisHistoryNode(t, targetDir)
 	require.NoError(t, target.k.InitGenesisWithHistory(target.ctx, decoded))
 	require.Equal(t, before, snapshot(target.ctx, target.key))
 	target.cms.Commit(true)
 	target.close(t)
-	target = repair196Open(t, targetDir)
-	repair196AssertHistory(t, target, rows)
+	target = openGenesisHistoryNode(t, targetDir)
+	assertGenesisHistory(t, target, rows)
 	importedRaw, err := json.Marshal(target.k.ExportGenesisWithHistory(target.ctx))
 	require.NoError(t, err)
 	require.Equal(t, raw, importedRaw)
@@ -152,15 +152,15 @@ func TestRepair_196_ChainHistoryRestartRecovery(t *testing.T) {
 	rows[0].GasUsed += 17
 	target.cms.Commit(true)
 	target.close(t)
-	target = repair196Open(t, targetDir)
-	repair196AssertHistory(t, target, rows)
+	target = openGenesisHistoryNode(t, targetDir)
+	assertGenesisHistory(t, target, rows)
 }
 
-func TestRepair_196_ValidatesHistoryBeforeImport(t *testing.T) {
-	registry := repair196Registry(t)
-	source := repair196Open(t, t.TempDir())
+func TestGenesisValidatesHistoryBeforeImport(t *testing.T) {
+	registry := genesisHistoryRegistry(t)
+	source := openGenesisHistoryNode(t, t.TempDir())
 	require.NoError(t, source.k.InitGenesis(source.ctx, registry))
-	repair196History(t, source, registry)
+	recordGenesisHistory(t, source, registry)
 	raw, err := json.Marshal(source.k.ExportGenesisWithHistory(source.ctx))
 	require.NoError(t, err)
 	for _, tc := range []struct {
@@ -177,7 +177,7 @@ func TestRepair_196_ValidatesHistoryBeforeImport(t *testing.T) {
 			var gs keeper.GenesisState
 			require.NoError(t, json.Unmarshal(raw, &gs))
 			tc.mutate(&gs)
-			target := repair196Open(t, t.TempDir())
+			target := openGenesisHistoryNode(t, t.TempDir())
 			before := snapshot(target.ctx, target.key)
 			require.ErrorIs(t, gs.Validate(), types.ErrInvalidGenesis)
 			require.ErrorIs(t, target.k.InitGenesisWithHistory(target.ctx, gs), types.ErrInvalidGenesis)
@@ -196,7 +196,7 @@ func TestRepair_196_ValidatesHistoryBeforeImport(t *testing.T) {
 	source.k.RecordDomainTx(source.ctx, registry.Domains[0].Id, 0, common.Hash{}, 0)
 	source.k.RecordDomainTx(source.ctx, registry.Domains[0].Id, math.MaxUint64, common.HexToHash("0xffff"), math.MaxUint64)
 	extremes := source.k.ExportGenesisWithHistory(source.ctx)
-	target := repair196Open(t, t.TempDir())
+	target := openGenesisHistoryNode(t, t.TempDir())
 	require.NoError(t, target.k.InitGenesisWithHistory(target.ctx, *extremes))
 	require.Equal(t, snapshot(source.ctx, source.key), snapshot(target.ctx, target.key))
 	before := snapshot(target.ctx, target.key)
@@ -204,9 +204,9 @@ func TestRepair_196_ValidatesHistoryBeforeImport(t *testing.T) {
 	require.Equal(t, before, snapshot(target.ctx, target.key))
 }
 
-func TestRepair_196_RefusesLossyLegacyExport(t *testing.T) {
-	registry := repair196Registry(t)
-	n := repair196Open(t, t.TempDir())
+func TestGenesisRefusesLossyLegacyExport(t *testing.T) {
+	registry := genesisHistoryRegistry(t)
+	n := openGenesisHistoryNode(t, t.TempDir())
 	require.NoError(t, n.k.InitGenesis(n.ctx, registry))
 	module := chains.NewAppModule(n.k)
 	legacy := module.ExportGenesis(n.ctx, nil)
@@ -222,11 +222,11 @@ func TestRepair_196_RefusesLossyLegacyExport(t *testing.T) {
 	require.Len(t, n.k.ExportGenesisWithHistory(n.ctx).DomainHistory, 1)
 }
 
-func TestRepair_196_RefusesCorruptStoredHistory(t *testing.T) {
-	registry := repair196Registry(t)
+func TestGenesisRefusesCorruptStoredHistory(t *testing.T) {
+	registry := genesisHistoryRegistry(t)
 	for _, name := range []string{"missing-gas", "orphan-gas", "short-gas", "short-hash", "short-tx-key", "short-gas-key", "unknown-domain", "preexisting-history"} {
 		t.Run(name, func(t *testing.T) {
-			n := repair196Open(t, t.TempDir())
+			n := openGenesisHistoryNode(t, t.TempDir())
 			require.NoError(t, n.k.InitGenesis(n.ctx, registry))
 			id := registry.Domains[0].Id
 			n.k.RecordDomainTx(n.ctx, id, 7, common.HexToHash("0x196"), 196)
