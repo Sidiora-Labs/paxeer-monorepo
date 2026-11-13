@@ -5,17 +5,14 @@ The Explorer component of Blockscout stores, processes, and serves blockchain da
 ## Machine Requirements
 
 * Erlang/OTP and Elixir at the versions pinned in `../../.tool-versions`
-* PostgreSQL (the explorer's own Docker setups run version 16)
-
-## Required Accounts
-
-* Github for code storage
+* PostgreSQL (the maintained Paxeer local stack uses version 16; generic Compose presets use version 17)
 
 ## Setup Instructions
 
 ### Development
 
-To get BlockScout up and running locally:
+Run these commands from `services/explorer/backend/apps/explorer` with the
+local PostgreSQL connection configured:
 
 * Install dependencies with `$ mix do deps.get, local.rebar, deps.compile, compile`
 * Create and migrate your database with `$ mix ecto.create && mix ecto.migrate`
@@ -30,7 +27,7 @@ To get BlockScout up and running locally:
 
 ### Benchmarking
 
-#### `Explorer.Chain.Transaction.recent_collated_transactions/0`
+#### `Explorer.Chain.Transaction.recent_collated_transactions/1`
 
 * Reset the test database: `MIX_ENV=test mix do ecto.drop, ecto.create, ecto.migrate`
 * Change `tag` in `benchmarks/explorer/chain/transaction/recent_collated_transactions.exs` to a new value, so that it will compare against the old values saved in `benchmarks/explorer/chain/transaction/recent_collated_transactions.benchee`

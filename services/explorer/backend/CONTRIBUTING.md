@@ -1,4 +1,4 @@
-# Contribution Guidelines: What We Are Looking For
+# Contributing
 
 We welcome contributions that enhance the project and improve the overall quality of our codebase. While we appreciate the effort that goes into making contributions, we kindly ask that contributors focus on the following types of changes:
 - Feature Enhancements: Substantial improvements or new features that add significant value to the project.
@@ -6,9 +6,9 @@ We welcome contributions that enhance the project and improve the overall qualit
 - Documentation Improvements: Comprehensive updates to documentation that clarify usage, installation, or project structure.
 - Performance Improvements: Changes that enhance the performance or efficiency of the application.
 
-# Contributing
+## Contribution workflow
 
-1. Fork it ( <https://github.com/blockscout/blockscout/fork> )
+1. Work from a checkout of this repository.
 2. Create your feature branch (`git checkout -b my-new-feature`)
 3. Write tests that cover your work
 4. Commit your changes (`git commit -am 'Add some feature'`)
@@ -89,7 +89,7 @@ When contributing to the API v2, please adhere to the following naming conventio
 
 - The block number should be returned as a number in the property with the name which ends with `block_number`.
 - All hashes (transaction, block address etc.) should be returned as a hex string in the property which ends with `_hash`.
-- Property name for aggregations like counts and sums should contain plural form of entity and `_count`, `_sum` suffix respecively, e.g. `transactions_count`, `blocks_count`, `withdrawals_sum`.
+- Property name for aggregations like counts and sums should contain plural form of entity and `_count`, `_sum` suffix respectively, e.g. `transactions_count`, `blocks_count`, `withdrawals_sum`.
 - All fields that contain the "index" suffix should be returned as numbers.
 
 ## Environment Configuration Best Practices
@@ -112,7 +112,7 @@ flowchart TD
     A[Add/Modify Configuration Option or Chain Type] --> B{Is it feature-specific behavior of a function?}
     B -->|Yes| C[Use RuntimeEnvHelper or Application.get_env/3 and pattern matching]
     B -->|No| D{Does it need new database tables?}
-    D -->|Yes| E[Create new Ecto.Repo and handle it at runtime in config_helper.ex]
+    D -->|Yes| E[Create new Ecto.Repo and handle it at runtime in config_helper.exs]
     D -->|No| F{Is it an API endpoint?}
     F -->|Yes| G[Use chain_scope macro or CheckFeature plug]
     F -->|No| H{Does it modify existing database schema?}
@@ -159,7 +159,7 @@ If your feature or chain-specific functionality requires new database tables:
 3. Include a runtime check to load this repo conditionally:
 
 ```elixir
-# In config_helper.ex
+# In config_helper.exs
 ext_repos = [
   {parse_bool_env_var("MY_FEATURE_ENABLED"), Explorer.Repo.MyFeature},
   # other feature repos...
@@ -226,8 +226,6 @@ as much as possible.
 This limitation stems from Ecto schemas being defined at compile-time. When
 different chain types need variations in shared tables (additional fields,
 different constraints), these schema differences cannot be modified at runtime.
-We're currently researching approaches for dynamic schema adjustment based on
-runtime configuration.
 
 For reference on which chain types still require compile-time configuration, see
 the [Chain-Specific Environment

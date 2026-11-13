@@ -1,8 +1,7 @@
 # Paxeer X Network Explorer backend
 
-This is the backend of the Paxeer X Network block explorer: a fork of the
-Blockscout Elixir umbrella application, imported from `blockscout/blockscout`
-at tag `v10.2.6` (see [upstream provenance](../../../docs/explorer/UPSTREAM.md)). It indexes
+This is the backend of the Paxeer X Network block explorer, a Blockscout
+Elixir umbrella application with package version `10.2.6`. It indexes
 Paxeer mainnet-beta over node EVM JSON-RPC, stores indexed data in PostgreSQL,
 and serves the explorer frontend in [`apps/explorer`](../../../apps/explorer).
 
@@ -225,7 +224,7 @@ lint scripts and local Docker Compose stack.
 
 ## Contributing
 
-Upstream's contribution guide and code of conduct are kept in
+The contribution guide and code of conduct are in
 [CONTRIBUTING.md](CONTRIBUTING.md) and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
 
 ## License

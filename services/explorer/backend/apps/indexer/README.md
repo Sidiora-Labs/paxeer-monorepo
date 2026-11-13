@@ -1,6 +1,6 @@
 # Indexer
 
-The Indexer component of Blockscout is a backend process built in Elixir using supervised `GenServers`. It fetches blockchain data from Ethereum-based networks using an ETL pipeline that supports both real-time and catch-up indexing. The component buffers and batches incoming data to effectively manage concurrency and memory usage. It transforms raw data such as blocks, transactions, receipts, and logs into structured formats, orchestrating both synchronous and asynchronous processing. The Indexer does not directly interact with the PostgreSQL database via `Ecto`; instead, it passes prepared data to the Explorer component using the Chain.import function. Its design includes specialized fetchers and transformers that support multi-chain environments, handling data from networks like Optimism, Arbitrum, Polygon Edge, zkSync, and others. The component integrates robust error handling and retry mechanisms to ensure data integrity during processing. Multi-chain support is further emphasized through dedicated modules that process chain-specific data and transform it into database-ready structures.
+The Indexer component of Blockscout is a backend process built in Elixir using supervised `GenServers`. It fetches blockchain data from Ethereum-based networks using an ETL pipeline that supports both real-time and catch-up indexing. The component buffers and batches incoming data to effectively manage concurrency and memory usage. It transforms raw data such as blocks, transactions, receipts, and logs into structured formats, orchestrating both synchronous and asynchronous processing. Block imports pass prepared data to `Explorer.Chain.import/2`. Some specialized fetchers also query and update PostgreSQL through `Explorer.Repo` and Ecto. Its design includes specialized fetchers and transformers that support multi-chain environments, handling data from networks like Optimism, Arbitrum, Polygon Edge, zkSync, and others. The component integrates robust error handling and retry mechanisms to ensure data integrity during processing. Multi-chain support is further emphasized through dedicated modules that process chain-specific data and transform it into database-ready structures.
 
 ## Structure
 
@@ -30,8 +30,8 @@ Some data has to be extracted from already fetched data, and there're several tr
 ### Root fetchers
 
 - `pending_transaction`: fetches pending transactions (i.e. not yet collated into a block) every second (`pending_transaction_interval`)
-- `block/realtime`: listens for new blocks from websocket and polls node for new blocks, imports new ones one by one
-- `block/catchup`: gets unfetched ranges of blocks, imports them in batches
+- `Indexer.Block.Realtime.Fetcher`: listens for new blocks from websocket and polls node for new blocks, imports new ones one by one
+- `Indexer.Block.Catchup.Fetcher`: gets unfetched ranges of blocks, imports them in batches
 - `transaction_action`: optionally fetches/rewrites transaction actions for old blocks (in a given range of blocks for given protocols)
 - `optimism/transaction_batch`: fetches transaction batches of Optimism chain
 - `optimism/output_root`: fetches output roots of Optimism chain
@@ -117,9 +117,14 @@ Memory usage is checked once per minute.  If the soft-limit is reached, the shri
 
 If all queues are at their minimum size, then no more memory can be reclaimed and an error will be logged.
 
-## Websocket Keepalive
+## WebSocket subscriptions
 
-This defaults to 150 seconds, but it can be set via adding a configuration to `subscribe_named_arguments` in the appropriate config file (indexer/config/<env>/<variant>.exs) called `:keep_alive`. The value is an integer representing milliseconds.
+The realtime supervisor starts `EthereumJSONRPC.WebSocket.Supervisor` from
+`subscribe_named_arguments[:transport_options]`. Configure `ETHEREUM_JSONRPC_WS_URL`
+and, optionally, `ETHEREUM_JSONRPC_FALLBACK_WS_URL` in the backend environment.
+`ETHEREUM_JSONRPC_WS_RETRY_INTERVAL` controls reconnection retries and defaults
+to `1m`. See the [JSON-RPC configuration](../ethereum_jsonrpc/README.md#configuration)
+for the production HTTP and WebSocket settings.
 
 ## Testing
 
@@ -162,7 +167,12 @@ export ETHEREUM_JSONRPC_CASE=EthereumJSONRPC.Case.Geth.HTTPWebSocket
 mix test --exclude no_geth
 ```
 
-| Protocol  | URL                                               |
-|:----------|:--------------------------------------------------|
-| HTTP      | `https://mainnet.infura.io/8lTvJTKmHPCHazkneJsY`  |
-| WebSocket | `wss://mainnet.infura.io/ws/8lTvJTKmHPCHazkneJsY` |
+| Protocol  | URL                      |
+| :-------- | :----------------------- |
+| HTTP      | `http://127.0.0.1:8545/` |
+| WebSocket | `ws://127.0.0.1:8546/`   |
+
+These are example listeners for a disposable node. Configure the selected test
+case explicitly; the URL variables used by the production indexer do not set
+test-case endpoints. The [JSON-RPC testing guide](../ethereum_jsonrpc/README.md#testing)
+describes the required chain profile and matching HTTP/WebSocket configuration.

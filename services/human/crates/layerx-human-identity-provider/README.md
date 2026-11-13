@@ -12,7 +12,7 @@ local directory provisioning alone is not proof of an on-chain account binding.
 
 Build from the repository root:
 
-```
+```sh
 cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-identity-provider
 ```
 
@@ -78,9 +78,11 @@ From another shell with the same provider socket and deadline settings and UID:
 services/human/target/debug/layerx-human-identity-provider probe
 ```
 
-The administrative commands and `probe` do not attach to the clock themselves;
-readiness still requires the serving provider's clock to answer. Direct
-production launches must inherit all three bindings from the live supervisor.
+`probe`, `bind-device`, `provision-owner` and `provision-account` do not attach
+to the clock themselves. Both `serve` and `validate-account-head` require the
+authenticated clock bindings. Readiness requires the serving provider's clock
+to answer. Direct production launches must inherit all three bindings from
+the live supervisor.
 The [workspace guide](../../README.md) also describes the wrapper.
 
 The recovery file has `root` (array of 32 byte integers), `threshold` (nonzero
@@ -147,12 +149,12 @@ step invokes the current [validator](src/provision_head.rs), after registration,
 before publishing limits or an owner configuration.
 
 Example `account-observation-request.json` (replace the endpoint, CA and identity
-fields with the protected deployment inputs; these identities match the
-committed integration fixture):
+fields with the protected deployment inputs; the identity values below are
+illustrative):
 
 ```json
 {
-  "rpc_url": "https://gateway.example.test/",
+  "rpc_url": "<configured HTTPS gateway origin>",
   "rpc_ca_der_hex": ["<lowercase DER CA certificate hex>"],
   "chain_id": 125,
   "owner_did": "did:layerx:6161616161616161616161616161616161616161616161616161616161616161",
@@ -163,16 +165,15 @@ committed integration fixture):
 ```
 
 ```sh
-services/human/target/debug/layerx-human-identity-provider validate-account-head < account-observation-request.json > account-observation.json
+sh tools/runtime/run-with-clock.sh services/human/target/debug/layerx-human-identity-provider validate-account-head < account-observation-request.json > account-observation.json
 ```
 
 The input is bounded to 1 MiB and rejects unknown fields. Production transport
 requires HTTPS with explicit DER CA trust anchors; HTTP is restricted to a local
 loopback node. The configured endpoint authenticates the observations: this is
 not an offline consensus proof verifier. `chain_id` must match the deployment
-(125 on the merged network); `maximum_age_seconds` is 1–300. The CLI supplies
-the host's current wall time, so that clock must be accurate; callers cannot
-override it with a request timestamp.
+(125 on the merged network); `maximum_age_seconds` is 1–300. The CLI samples Unix
+milliseconds from the authenticated runtime-clock supervisor. Callers cannot override this time with a request timestamp.
 
 Before publishing an owner configuration, require all of these observations:
 
@@ -209,7 +210,7 @@ use; historical receipt compatibility elsewhere cannot provision a current owner
 All integers are unsigned, big endian. Both directions start with a u32 body
 length, excluding that prefix. The body is:
 
-```
+```text
 "LXIP" | version:u8=1 | operation-or-status:u8 | field-count:u32
        | (field-length:u32 | field-bytes)*
 ```
