@@ -488,7 +488,7 @@ example, see the [EVM guide's LXT-20 section](../evm/MIGRATION.md#erc-20-lxt-20-
 | --- | --- |
 | `Err(ContractError::Variant)` | `unreachable` |
 | a `StdError` from storage, serde or an overflow check | `unreachable` |
-| `panic!`, overflow, index out of bounds | `unreachable` |
+| `panic!`, a checked failure mapped to panic, index out of bounds | `unreachable` |
 | an uncaught sub-message failure | `unreachable` |
 | out of gas | metered resource refusal |
 | contract-call depth limit | declared stack bound exhausted |
@@ -496,6 +496,11 @@ example, see the [EVM guide's LXT-20 section](../evm/MIGRATION.md#erc-20-lxt-20-
 Every one of those discards every staged write and every staged effect of the
 whole invocation, which is exactly a CosmWasm transaction's all-or-nothing
 behaviour. `FailureMapping::outcome` returns the mapping.
+
+Preserve checked arithmetic and propagate its failures. Plain integer addition
+and multiplication in WebAssembly can wrap; they do not automatically trap on
+overflow. The donation emitter bounds its arithmetic through `DonationTerms`
+and the per-call and cumulative cap checks.
 
 The ported module checks every host status and traps unless it is zero, so a
 refused write or a refused transfer can never be silently skipped. Note the
@@ -521,9 +526,9 @@ emitter writes for every `?` in the original handler.
 ## The reference port, line by line
 
 `DonationPort::new(DonationTerms { asset, beneficiary, price, cap })`
-takes the translated deployment configuration and pins it into
-the module, because on LayerX each deployment is its own program and its
-configuration is immutable for that program.
+takes the translated deployment configuration and pins it into the emitted
+module. The reference deployment helper selects `UpgradePolicy::Immutable`;
+other programs choose their configuration storage and upgrade policy explicitly.
 
 `DonationPort::code()` emits the module. `DonationPort::code_hash()` is the
 digest the deployment authenticates.
