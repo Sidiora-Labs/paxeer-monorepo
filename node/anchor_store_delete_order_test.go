@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepair_22_31_589_AnchorDeleteRefusesWithoutMerge(t *testing.T) {
+func TestAnchorStoreDeleteRefusesWithoutMerge(t *testing.T) {
 	w := NewTestWrapper(t, time.Now().UTC(), secp256k1.GenPrivKey().PubKey(), false)
 	a, ctx := w.App, w.Ctx.WithBlockHeight(100)
 	t.Cleanup(func() { require.NoError(t, a.Close()) })
@@ -55,7 +55,7 @@ func TestRepair_22_31_589_AnchorDeleteRefusesWithoutMerge(t *testing.T) {
 	}
 }
 
-func TestRepair_22_31_589_AnchorDeleteRunsAfterMerge(t *testing.T) {
+func TestAnchorStoreDeleteRunsAfterMerge(t *testing.T) {
 	w := NewTestWrapper(t, time.Now().UTC(), secp256k1.GenPrivKey().PubKey(), false)
 	a, ctx := w.App, w.Ctx.WithBlockHeight(100)
 	t.Cleanup(func() { require.NoError(t, a.Close()) })

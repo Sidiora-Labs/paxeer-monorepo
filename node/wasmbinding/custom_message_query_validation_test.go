@@ -36,7 +36,7 @@ import (
 	tmdb "github.com/tendermint/tm-db"
 )
 
-type repairM1181Chain struct {
+type customBindingsChain struct {
 	ctx       sdk.Context
 	keys      map[string]*storetypes.KVStoreKey
 	factory   tokenfactorykeeper.Keeper
@@ -46,7 +46,7 @@ type repairM1181Chain struct {
 	querier   func(sdk.Context, json.RawMessage) ([]byte, error)
 }
 
-func newRepairM1181Chain(t *testing.T) repairM1181Chain {
+func newCustomBindingsChain(t *testing.T) customBindingsChain {
 	t.Helper()
 	db := tmdb.NewMemDB()
 	ms := store.NewCommitMultiStore(db)
@@ -85,28 +85,28 @@ func newRepairM1181Chain(t *testing.T) repairM1181Chain {
 		oracleHandler:       *oraclewasm.NewOracleWasmQueryHandler(&oracle),
 		tokenfactoryHandler: *tokenfactorywasm.NewTokenFactoryWasmQueryHandler(&factory),
 	}
-	return repairM1181Chain{ctx: ctx, keys: keys, factory: factory, oracle: oracle, bank: bank, messenger: messenger, querier: CustomQuerier(qp)}
+	return customBindingsChain{ctx: ctx, keys: keys, factory: factory, oracle: oracle, bank: bank, messenger: messenger, querier: CustomQuerier(qp)}
 }
 
-func repairM1181JSON(t *testing.T, value interface{}) json.RawMessage {
+func customBindingsJSON(t *testing.T, value interface{}) json.RawMessage {
 	t.Helper()
 	bz, err := json.Marshal(value)
 	require.NoError(t, err)
 	return bz
 }
 
-func (c repairM1181Chain) dispatch(t *testing.T, sender sdk.AccAddress, payload interface{}) ([]sdk.Event, [][]byte, error) {
+func (c customBindingsChain) dispatch(t *testing.T, sender sdk.AccAddress, payload interface{}) ([]sdk.Event, [][]byte, error) {
 	t.Helper()
-	msg := wasmvmtypes.CosmosMsg{Custom: repairM1181JSON(t, payload)}
+	msg := wasmvmtypes.CosmosMsg{Custom: customBindingsJSON(t, payload)}
 	return c.messenger.DispatchMsg(c.ctx, sender, "", msg, wasmvmtypes.MessageInfo{Sender: sender.String()}, wasmtypes.CodeInfo{})
 }
 
-func (c repairM1181Chain) query(t *testing.T, route string, payload interface{}) ([]byte, error) {
+func (c customBindingsChain) query(t *testing.T, route string, payload interface{}) ([]byte, error) {
 	t.Helper()
-	return c.querier(c.ctx, repairM1181JSON(t, PaxQueryWrapper{Route: route, QueryData: repairM1181JSON(t, payload)}))
+	return c.querier(c.ctx, customBindingsJSON(t, PaxQueryWrapper{Route: route, QueryData: customBindingsJSON(t, payload)}))
 }
 
-func (c repairM1181Chain) state(t *testing.T) map[string]map[string][]byte {
+func (c customBindingsChain) state(t *testing.T) map[string]map[string][]byte {
 	t.Helper()
 	result := make(map[string]map[string][]byte)
 	for name, key := range c.keys {
@@ -121,8 +121,8 @@ func (c repairM1181Chain) state(t *testing.T) map[string]map[string][]byte {
 	return result
 }
 
-func TestRepairM_1181_MessageAmbiguousVariants(t *testing.T) {
-	c := newRepairM1181Chain(t)
+func TestCustomBindingsMessageAmbiguousVariants(t *testing.T) {
+	c := newCustomBindingsChain(t)
 	sender := sdk.AccAddress(bytes.Repeat([]byte{0x31}, 20))
 	denom := "factory/" + sender.String() + "/ambiguous"
 	zero := sdk.ZeroInt()
@@ -169,12 +169,12 @@ func TestRepairM_1181_MessageAmbiguousVariants(t *testing.T) {
 	}
 }
 
-func TestRepairM_1181_MessageKeeperMutationAndAuthorization(t *testing.T) {
-	c := newRepairM1181Chain(t)
+func TestCustomBindingsMessageKeeperMutationAndAuthorization(t *testing.T) {
+	c := newCustomBindingsChain(t)
 	sender := sdk.AccAddress(bytes.Repeat([]byte{0x32}, 20))
 	other := sdk.AccAddress(bytes.Repeat([]byte{0x33}, 20))
 	denom := "factory/" + sender.String() + "/valid"
-	create := PaxWasmMessage{CreateDenom: repairM1181JSON(t, bindings.CreateDenom{Subdenom: "valid"}), MintTokens: json.RawMessage(`null`)}
+	create := PaxWasmMessage{CreateDenom: customBindingsJSON(t, bindings.CreateDenom{Subdenom: "valid"}), MintTokens: json.RawMessage(`null`)}
 	events, data, err := c.dispatch(t, sender, create)
 	require.NoError(t, err)
 	require.NotEmpty(t, events)
@@ -189,32 +189,32 @@ func TestRepairM_1181_MessageKeeperMutationAndAuthorization(t *testing.T) {
 
 	_, _, err = c.dispatch(t, sender, create)
 	require.ErrorIs(t, err, tokenfactorytypes.ErrDenomExists)
-	_, _, err = c.dispatch(t, sender, PaxWasmMessage{MintTokens: repairM1181JSON(t, bindings.MintTokens{Amount: sdk.NewInt64Coin(denom, 100)})})
+	_, _, err = c.dispatch(t, sender, PaxWasmMessage{MintTokens: customBindingsJSON(t, bindings.MintTokens{Amount: sdk.NewInt64Coin(denom, 100)})})
 	require.NoError(t, err)
 	require.Equal(t, sdk.NewInt(100), c.bank.GetBalance(c.ctx, sender, denom).Amount)
-	_, _, err = c.dispatch(t, sender, PaxWasmMessage{BurnTokens: repairM1181JSON(t, bindings.BurnTokens{Amount: sdk.NewInt64Coin(denom, 40)})})
+	_, _, err = c.dispatch(t, sender, PaxWasmMessage{BurnTokens: customBindingsJSON(t, bindings.BurnTokens{Amount: sdk.NewInt64Coin(denom, 40)})})
 	require.NoError(t, err)
 	require.Equal(t, sdk.NewInt(60), c.bank.GetBalance(c.ctx, sender, denom).Amount)
 	require.Equal(t, sdk.NewInt(60), c.bank.GetSupply(c.ctx, denom).Amount)
 
 	for _, paused := range []bool{true, false} {
-		_, _, err = c.dispatch(t, sender, PaxWasmMessage{SetDenomPaused: repairM1181JSON(t, tokenfactorybindings.SetDenomPaused{Denom: denom, Paused: paused})})
+		_, _, err = c.dispatch(t, sender, PaxWasmMessage{SetDenomPaused: customBindingsJSON(t, tokenfactorybindings.SetDenomPaused{Denom: denom, Paused: paused})})
 		require.NoError(t, err)
 		require.Equal(t, paused, c.factory.IsDenomPaused(c.ctx, denom))
 		if paused {
 			before := c.state(t)
-			_, _, err = c.dispatch(t, sender, PaxWasmMessage{MintTokens: repairM1181JSON(t, bindings.MintTokens{Amount: sdk.NewInt64Coin(denom, 1)})})
+			_, _, err = c.dispatch(t, sender, PaxWasmMessage{MintTokens: customBindingsJSON(t, bindings.MintTokens{Amount: sdk.NewInt64Coin(denom, 1)})})
 			require.ErrorIs(t, err, tokenfactorytypes.ErrDenomPaused)
 			require.Equal(t, before, c.state(t))
 		}
 	}
 	metadata.Name = "Validated token"
-	_, _, err = c.dispatch(t, sender, PaxWasmMessage{SetMetadata: repairM1181JSON(t, bindings.SetMetadata{Metadata: metadata})})
+	_, _, err = c.dispatch(t, sender, PaxWasmMessage{SetMetadata: customBindingsJSON(t, bindings.SetMetadata{Metadata: metadata})})
 	require.NoError(t, err)
 	updated, found := c.bank.GetDenomMetaData(c.ctx, denom)
 	require.True(t, found)
 	require.Equal(t, metadata, updated)
-	_, _, err = c.dispatch(t, sender, PaxWasmMessage{ChangeAdmin: repairM1181JSON(t, bindings.ChangeAdmin{Denom: denom, NewAdminAddress: other.String()})})
+	_, _, err = c.dispatch(t, sender, PaxWasmMessage{ChangeAdmin: customBindingsJSON(t, bindings.ChangeAdmin{Denom: denom, NewAdminAddress: other.String()})})
 	require.NoError(t, err)
 	authority, err = c.factory.GetAuthorityMetadata(c.ctx, denom)
 	require.NoError(t, err)
@@ -234,8 +234,8 @@ func TestRepairM_1181_MessageKeeperMutationAndAuthorization(t *testing.T) {
 	require.ErrorIs(t, err, tokenfactorytypes.ErrEncodeTokenFactoryMint)
 }
 
-func TestRepairM_1181_OracleAmbiguousQuery(t *testing.T) {
-	c := newRepairM1181Chain(t)
+func TestCustomBindingsOracleAmbiguousQuery(t *testing.T) {
+	c := newCustomBindingsChain(t)
 	before := c.state(t)
 	for _, lookback := range []uint64{0, 200} {
 		res, err := c.query(t, OracleRoute, oraclebindings.PaxOracleQuery{
@@ -256,8 +256,8 @@ func TestRepairM_1181_OracleAmbiguousQuery(t *testing.T) {
 	require.Nil(t, res)
 }
 
-func TestRepairM_1181_OracleDeclaredResponses(t *testing.T) {
-	c := newRepairM1181Chain(t)
+func TestCustomBindingsOracleDeclaredResponses(t *testing.T) {
+	c := newCustomBindingsChain(t)
 	twapQuery := oraclebindings.PaxOracleQuery{OracleTwaps: &oracletypes.QueryTwapsRequest{LookbackSeconds: 200}}
 	res, err := c.query(t, OracleRoute, twapQuery)
 	require.ErrorIs(t, err, oracletypes.ErrNoTwapData)
@@ -271,7 +271,7 @@ func TestRepairM_1181_OracleDeclaredResponses(t *testing.T) {
 
 	res, err = c.query(t, OracleRoute, oraclebindings.PaxOracleQuery{ExchangeRates: &oracletypes.QueryExchangeRatesRequest{}})
 	require.NoError(t, err)
-	require.JSONEq(t, string(repairM1181JSON(t, oracletypes.QueryExchangeRatesResponse{DenomOracleExchangeRatePairs: oracletypes.DenomOracleExchangeRatePairs{
+	require.JSONEq(t, string(customBindingsJSON(t, oracletypes.QueryExchangeRatesResponse{DenomOracleExchangeRatePairs: oracletypes.DenomOracleExchangeRatePairs{
 		oracletypes.NewDenomOracleExchangeRatePair(oracleutils.MicroAtomDenom, sdk.NewDec(12), sdk.NewInt(11), 3600000),
 	}})), string(res))
 	var rates oracletypes.QueryExchangeRatesResponse
@@ -283,7 +283,7 @@ func TestRepairM_1181_OracleDeclaredResponses(t *testing.T) {
 	expectedTwaps := oracletypes.QueryTwapsResponse{OracleTwaps: oracletypes.OracleTwaps{
 		{Denom: oracleutils.MicroAtomDenom, Twap: sdk.NewDec(20), LookbackSeconds: 100},
 	}}
-	require.JSONEq(t, string(repairM1181JSON(t, expectedTwaps)), string(res))
+	require.JSONEq(t, string(customBindingsJSON(t, expectedTwaps)), string(res))
 	var twaps oracletypes.QueryTwapsResponse
 	require.NoError(t, json.Unmarshal(res, &twaps))
 	require.Equal(t, expectedTwaps, twaps)
@@ -296,13 +296,13 @@ func TestRepairM_1181_OracleDeclaredResponses(t *testing.T) {
 	require.Nil(t, res)
 	res, err = c.query(t, OracleRoute, map[string]interface{}{"exchange_rates": nil, "oracle_twaps": twapQuery.OracleTwaps})
 	require.NoError(t, err)
-	require.JSONEq(t, string(repairM1181JSON(t, expectedTwaps)), string(res))
+	require.JSONEq(t, string(customBindingsJSON(t, expectedTwaps)), string(res))
 }
 
-func TestRepairM_1181_TokenFactoryQueryValidationRetained(t *testing.T) {
-	c := newRepairM1181Chain(t)
+func TestCustomBindingsTokenFactoryQueryValidationRetained(t *testing.T) {
+	c := newCustomBindingsChain(t)
 	sender := sdk.AccAddress(bytes.Repeat([]byte{0x34}, 20))
-	_, _, err := c.dispatch(t, sender, PaxWasmMessage{CreateDenom: repairM1181JSON(t, bindings.CreateDenom{Subdenom: "query"})})
+	_, _, err := c.dispatch(t, sender, PaxWasmMessage{CreateDenom: customBindingsJSON(t, bindings.CreateDenom{Subdenom: "query"})})
 	require.NoError(t, err)
 	denom := "factory/" + sender.String() + "/query"
 	queries := []struct {
@@ -318,7 +318,7 @@ func TestRepairM_1181_TokenFactoryQueryValidationRetained(t *testing.T) {
 		t.Run(first.name, func(t *testing.T) {
 			res, err := c.query(t, TokenFactoryRoute, map[string]interface{}{first.name: first.request})
 			require.NoError(t, err)
-			require.JSONEq(t, string(repairM1181JSON(t, first.response)), string(res))
+			require.JSONEq(t, string(customBindingsJSON(t, first.response)), string(res))
 		})
 		for _, second := range queries[i+1:] {
 			t.Run(fmt.Sprintf("reject_%s_and_%s", first.name, second.name), func(t *testing.T) {

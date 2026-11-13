@@ -42,7 +42,7 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-func repair103Transfer(t *testing.T, a *app.App, sender utils.TestAcct, chainID int64, nonce uint64) []byte {
+func sequencerRecoveryTransfer(t *testing.T, a *app.App, sender utils.TestAcct, chainID int64, nonce uint64) []byte {
 	t.Helper()
 	to := common.HexToAddress("0xde")
 	signed, err := ethtypes.SignTx(ethtypes.NewTx(&ethtypes.LegacyTx{Nonce: nonce, GasPrice: big.NewInt(500_000_000_000), Gas: 21000, To: &to, Value: big.NewInt(1)}), ethtypes.LatestSignerForChainID(big.NewInt(chainID)), sender.EvmPrivateKey)
@@ -59,7 +59,7 @@ func repair103Transfer(t *testing.T, a *app.App, sender utils.TestAcct, chainID 
 	return raw
 }
 
-func repair103Node(t *testing.T, sender utils.TestAcct, mode Mode) (*Node, *consensusFenceHarness) {
+func sequencerRecoveryNode(t *testing.T, sender utils.TestAcct, mode Mode) (*Node, *consensusFenceHarness) {
 	t.Helper()
 	h := newConsensusFenceHarness(t, 42, sender)
 	a := h.src.app
@@ -85,14 +85,14 @@ func repair103Node(t *testing.T, sender utils.TestAcct, mode Mode) (*Node, *cons
 	return n, h
 }
 
-func repair103ClearRuntime(n *Node) {
+func sequencerRecoveryClearRuntime(n *Node) {
 	n.App.SetOpenBlock(nil)
 	n.App.SetSequencerSource(nil)
 	n.App.SetSequencerRPC(evmrpc.SequencerOption{}, evmrpc.SequencerReceiptOption{})
 	n.App.SetCommitListener(nil)
 }
 
-func repair103Finalize(t *testing.T, a *app.App, source tmtypes.SequencerSource, proposer []byte, height int64, block tmtypes.SealedBlock) {
+func sequencerRecoveryFinalize(t *testing.T, a *app.App, source tmtypes.SequencerSource, proposer []byte, height int64, block tmtypes.SealedBlock) {
 	t.Helper()
 	a.SetSequencerSource(source)
 	response, err := a.FinalizeBlock(t.Context(), &abci.RequestFinalizeBlock{
@@ -109,7 +109,7 @@ func repair103Finalize(t *testing.T, a *app.App, source tmtypes.SequencerSource,
 	require.Equal(t, height, a.LastBlockHeight())
 }
 
-func repair103Clone(t *testing.T, a *app.App) *app.App {
+func sequencerRecoveryClone(t *testing.T, a *app.App) *app.App {
 	t.Helper()
 	var snapshot bytes.Buffer
 	require.NoError(t, a.CommitMultiStore().Snapshot(uint64(a.LastBlockHeight()), protoio.NewDelimitedWriter(&snapshot)))
@@ -141,7 +141,7 @@ func repair103Clone(t *testing.T, a *app.App) *app.App {
 	return clone
 }
 
-func TestRepair_103_MicrobatchAdmission(t *testing.T) {
+func TestSequencerRecoveryMicrobatchAdmission(t *testing.T) {
 	for _, limit := range []string{"gas", "wanted", "bytes", "domain-gas", "domain-bytes"} {
 		t.Run(limit, func(t *testing.T) {
 			previous, existed := evmconfig.ChainIDMapping["pax-test"]
@@ -166,7 +166,7 @@ func TestRepair_103_MicrobatchAdmission(t *testing.T) {
 				}
 				// A nonce-gap candidate precedes both valid candidates. Its failed
 				// delivery must not consume any block or tenant reservation.
-				txs = [][]byte{repair103Transfer(t, a, gap, chainID, 2), repair103Transfer(t, a, first, chainID, 0), repair103Transfer(t, a, second, chainID, 0)}
+				txs = [][]byte{sequencerRecoveryTransfer(t, a, gap, chainID, 2), sequencerRecoveryTransfer(t, a, first, chainID, 0), sequencerRecoveryTransfer(t, a, second, chainID, 0)}
 				// Admission precedes execution: even the nonce-gap candidate must
 				// fit individually before delivery can refuse its nonce. Its
 				// protobuf nonce field can make it larger than a nonce-zero send.
@@ -253,7 +253,7 @@ func TestRepair_103_MicrobatchAdmission(t *testing.T) {
 	}
 }
 
-func TestRepair_103_SealedTailRestart(t *testing.T) {
+func TestSequencerRecoverySealedTailRestart(t *testing.T) {
 	for _, mode := range []Mode{ModeSequential, ModeMicroBatch} {
 		for _, committedBeforeCrash := range []bool{false, true} {
 			name := mode.String()
@@ -262,7 +262,7 @@ func TestRepair_103_SealedTailRestart(t *testing.T) {
 			}
 			t.Run(name, func(t *testing.T) {
 				sender := utils.NewSigner()
-				n, h := repair103Node(t, sender, mode)
+				n, h := sequencerRecoveryNode(t, sender, mode)
 				require.NoError(t, n.Start(t.Context()))
 				sends := make(map[common.Hash][]byte)
 				var txs tmtypes.Txs
@@ -279,10 +279,10 @@ func TestRepair_103_SealedTailRestart(t *testing.T) {
 				require.NoError(t, err)
 				if committedBeforeCrash {
 					n.App.SetCommitListener(nil) // crash point: application commit precedes Driver.COMMITTED
-					repair103Finalize(t, n.App, n.ConsensusSource, h.opts.ProposerAddress, 2, block)
+					sequencerRecoveryFinalize(t, n.App, n.ConsensusSource, h.opts.ProposerAddress, 2, block)
 				}
 				require.NoError(t, n.Stop())
-				repair103ClearRuntime(n)
+				sequencerRecoveryClearRuntime(n)
 				reopened, err := NewNode(n.Config, n.App)
 				require.NoError(t, err)
 				t.Cleanup(func() { _ = reopened.Stop() })
@@ -300,7 +300,7 @@ func TestRepair_103_SealedTailRestart(t *testing.T) {
 					require.NoError(t, err)
 					require.Equal(t, block, recovered)
 					require.Equal(t, txs, recovered.Txs)
-					repair103Finalize(t, reopened.App, reopened.ConsensusSource, h.opts.ProposerAddress, 2, recovered)
+					sequencerRecoveryFinalize(t, reopened.App, reopened.ConsensusSource, h.opts.ProposerAddress, 2, recovered)
 				}
 				require.Equal(t, uint64(45), reopened.WAL.LastCommitted().LastSeq)
 				require.Equal(t, int64(2), reopened.App.LastBlockHeight())
@@ -310,9 +310,9 @@ func TestRepair_103_SealedTailRestart(t *testing.T) {
 	}
 }
 
-// repair103Pair uses the production executor, receipt builder, codec, WAL and
+// sequencerRecoveryPair uses the production executor, receipt builder, codec, WAL and
 // authenticated TCP link. Both apps start from the same committed snapshot.
-type repair103Pair struct {
+type sequencerRecoveryPair struct {
 	n      *Node
 	h      *consensusFenceHarness
 	backup *app.App
@@ -324,10 +324,10 @@ type repair103Pair struct {
 	stop   func()
 }
 
-func repair103Replicated(t *testing.T, sender utils.TestAcct) *repair103Pair {
+func sequencerRecoveryReplicated(t *testing.T, sender utils.TestAcct) *sequencerRecoveryPair {
 	t.Helper()
-	n, h := repair103Node(t, sender, ModeSequential)
-	backup := repair103Clone(t, n.App)
+	n, h := sequencerRecoveryNode(t, sender, ModeSequential)
+	backup := sequencerRecoveryClone(t, n.App)
 	// The replica verifies primary receipts; its own key is distinct.
 	secondary := newConsensusFenceHarness(t, 42, sender)
 	exec, err := NewExecutor(backup, h.opts)
@@ -347,7 +347,7 @@ func repair103Replicated(t *testing.T, sender utils.TestAcct) *repair103Pair {
 	ctx, cancel := context.WithCancel(t.Context())
 	sb, err := NewStandby(ctx, cfg)
 	require.NoError(t, err)
-	listener, auth := repair103TLSListener(t)
+	listener, auth := replicationTLSListener(t)
 	done := make(chan error, 1)
 	go func() { done <- sb.Serve(standbyRoleListener{Listener: listener, ctx: ctx, timeout: time.Second}) }()
 	var once sync.Once
@@ -360,12 +360,12 @@ func repair103Replicated(t *testing.T, sender utils.TestAcct) *repair103Pair {
 	backup.SetOpenBlock(exec)
 	backup.SetSequencerSource(source)
 	require.NoError(t, n.Start(t.Context()))
-	return &repair103Pair{n: n, h: h, backup: backup, sb: sb, source: source, replay: replay, cfg: cfg, dir: dir, stop: stop}
+	return &sequencerRecoveryPair{n: n, h: h, backup: backup, sb: sb, source: source, replay: replay, cfg: cfg, dir: dir, stop: stop}
 }
 
-func TestRepair_103_SealWaitsForAcceptWAL(t *testing.T) {
+func TestSequencerRecoverySealWaitsForAcceptWAL(t *testing.T) {
 	sender := utils.NewSigner()
-	p := repair103Replicated(t, sender)
+	p := sequencerRecoveryReplicated(t, sender)
 	n := p.n
 	// Stall the real WAL release after execution has entered L_open.
 	n.Replicator.mu.Lock()
@@ -444,7 +444,7 @@ func TestRepair_103_SealWaitsForAcceptWAL(t *testing.T) {
 	require.Equal(t, result.send.Receipt, recovered.LastAccept.Receipt)
 	require.Equal(t, [][]byte{tx}, replay.batch.Txs)
 	require.NoError(t, n.Stop())
-	repair103ClearRuntime(n)
+	sequencerRecoveryClearRuntime(n)
 	cfg := n.Config
 	cfg.StandbyAddress = ""
 	restarted, err := NewNode(cfg, n.App)
@@ -454,14 +454,14 @@ func TestRepair_103_SealWaitsForAcceptWAL(t *testing.T) {
 	block, err := restarted.ConsensusSource.Seal(t.Context(), 2)
 	require.NoError(t, err)
 	require.Equal(t, seal.block, block)
-	repair103Finalize(t, restarted.App, restarted.ConsensusSource, p.h.opts.ProposerAddress, 2, block)
+	sequencerRecoveryFinalize(t, restarted.App, restarted.ConsensusSource, p.h.opts.ProposerAddress, 2, block)
 }
 
-func TestRepair_103_PromotionDrainsAcknowledgedTail(t *testing.T) {
+func TestSequencerRecoveryPromotionDrainsAcknowledgedTail(t *testing.T) {
 	for _, handover := range []bool{false, true} {
 		t.Run(map[bool]string{false: "failover", true: "handover"}[handover], func(t *testing.T) {
 			sender := utils.NewSigner()
-			p := repair103Replicated(t, sender)
+			p := sequencerRecoveryReplicated(t, sender)
 			tx := consensusFenceTransfer(t, p.n.App, sender, 0)
 			_, err := p.n.Accepter.Accept(tx)
 			require.NoError(t, err)
@@ -472,7 +472,7 @@ func TestRepair_103_PromotionDrainsAcknowledgedTail(t *testing.T) {
 			_, err = p.backup.FinalizeBlock(t.Context(), request)
 			require.NoError(t, err)
 			p.n.App.SetCommitListener(nil)
-			repair103Finalize(t, p.n.App, p.n.ConsensusSource, p.h.opts.ProposerAddress, 2, block)
+			sequencerRecoveryFinalize(t, p.n.App, p.n.ConsensusSource, p.h.opts.ProposerAddress, 2, block)
 			require.NoError(t, p.n.Driver.OnCommit(2, p.n.App.LastCommitID().Hash))
 			next := consensusFenceTransfer(t, p.n.App, sender, 1)
 			issued, err := p.n.Accepter.Accept(next)
@@ -544,9 +544,9 @@ func TestRepair_103_PromotionDrainsAcknowledgedTail(t *testing.T) {
 	}
 }
 
-func TestRepair_103_ReceiptFirstPublicationAfterCommit(t *testing.T) {
+func TestSequencerRecoveryReceiptFirstPublicationAfterCommit(t *testing.T) {
 	sender := utils.NewSigner()
-	n, _ := repair103Node(t, sender, ModeSequential)
+	n, _ := sequencerRecoveryNode(t, sender, ModeSequential)
 	require.NoError(t, n.Start(t.Context()))
 	var sends []*evmrpc.SequencerSend
 	var hashes []common.Hash
@@ -588,13 +588,13 @@ func TestRepair_103_ReceiptFirstPublicationAfterCommit(t *testing.T) {
 	}
 }
 
-func TestRepair_103_ReplicationRejectsForgedACK(t *testing.T) {
+func TestSequencerRecoveryReplicationRejectsForgedACK(t *testing.T) {
 	for _, peer := range []string{"plaintext", "untrusted-root", "wrong-key", "missing-trust"} {
 		t.Run(peer, func(t *testing.T) {
 			sender := utils.NewSigner()
-			n, _ := repair103Node(t, sender, ModeSequential)
+			n, _ := sequencerRecoveryNode(t, sender, ModeSequential)
 			require.NoError(t, n.Start(t.Context()))
-			auth, server := Repair103TLSFixture(t)
+			auth, server := ReplicationTLSFixture(t)
 			var l net.Listener
 			var err error
 			switch peer {
@@ -602,7 +602,7 @@ func TestRepair_103_ReplicationRejectsForgedACK(t *testing.T) {
 				l, err = net.Listen("tcp", "127.0.0.1:0")
 			default:
 				if peer == "untrusted-root" {
-					_, server = Repair103TLSFixture(t)
+					_, server = ReplicationTLSFixture(t)
 				} else {
 					auth.PeerSPKI = hex.EncodeToString(make([]byte, 32))
 				}
@@ -647,12 +647,12 @@ func TestRepair_103_ReplicationRejectsForgedACK(t *testing.T) {
 	}
 }
 
-func TestRepair_103_StandbyRejectsUnauthorizedControl(t *testing.T) {
+func TestSequencerRecoveryStandbyRejectsUnauthorizedControl(t *testing.T) {
 	sender := utils.NewSigner()
-	p := repair103Replicated(t, sender)
+	p := sequencerRecoveryReplicated(t, sender)
 	// The listener uses the same authentication wrapper as StartStandby.
 	// Give each unauthorized peer the valid primary name but an untrusted key/root.
-	auth, server := Repair103TLSFixture(t)
+	auth, server := ReplicationTLSFixture(t)
 	cfg, err := server.TLSConfig(true)
 	require.NoError(t, err)
 	listener, err := tls.Listen("tcp", "127.0.0.1:0", cfg)
@@ -683,7 +683,7 @@ func TestRepair_103_StandbyRejectsUnauthorizedControl(t *testing.T) {
 					client.Certificates = nil
 				}
 				if attack == "unknown-primary" {
-					rogue, _ := Repair103TLSFixture(t)
+					rogue, _ := ReplicationTLSFixture(t)
 					pair, e := tls.LoadX509KeyPair(rogue.CertFile, rogue.KeyFile)
 					require.NoError(t, e)
 					client.Certificates = []tls.Certificate{pair}

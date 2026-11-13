@@ -29,7 +29,7 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-type repair475Restart struct {
+type committedHashRestart struct {
 	a             *app.App
 	n             *sequencer.Node
 	home          string
@@ -40,7 +40,7 @@ type repair475Restart struct {
 	proposer      []byte
 }
 
-func newRepair475Restart(t *testing.T) *repair475Restart {
+func newCommittedHashRestart(t *testing.T) *committedHashRestart {
 	t.Helper()
 	previousOCC := app.EnableOCC
 	app.EnableOCC = false
@@ -53,7 +53,7 @@ func newRepair475Restart(t *testing.T) *repair475Restart {
 		func(ba *baseapp.BaseApp) { ba.SetOccEnabled(false); ba.SetConcurrencyWorkers(1) })
 	info, err := w.App.UpgradeKeeper.GetUpgradeInfoPath()
 	require.NoError(t, err)
-	h := &repair475Restart{a: w.App, home: filepath.Dir(filepath.Dir(info)), hashes: make(map[int64][]byte), blockHashes: make(map[int64][]byte)}
+	h := &committedHashRestart{a: w.App, home: filepath.Dir(filepath.Dir(info)), hashes: make(map[int64][]byte), blockHashes: make(map[int64][]byte)}
 	h.validatorHash = sha256.Sum256(pv.Key.PubKey.Bytes())
 	h.proposer = bytes.Clone(pv.Key.PubKey.Address())
 	t.Cleanup(func() { h.close(t) })
@@ -93,7 +93,7 @@ func newRepair475Restart(t *testing.T) *repair475Restart {
 	return h
 }
 
-func (h *repair475Restart) close(t *testing.T) {
+func (h *committedHashRestart) close(t *testing.T) {
 	t.Helper()
 	if h.n != nil {
 		require.NoError(t, h.n.Stop())
@@ -105,7 +105,7 @@ func (h *repair475Restart) close(t *testing.T) {
 	}
 }
 
-func (h *repair475Restart) commit(t *testing.T, height int64) {
+func (h *committedHashRestart) commit(t *testing.T, height int64) {
 	t.Helper()
 	parent := bytes.Clone(h.a.LastCommitID().Hash)
 	previousID := h.a.LastBlockID()
@@ -148,7 +148,7 @@ func (h *repair475Restart) commit(t *testing.T, height int64) {
 	t.Logf("height=%d header_parent=%X finalized=%X committed=%X", height, parent, finalized.AppHash, committed.AppHash)
 }
 
-func (h *repair475Restart) reopen(t *testing.T) {
+func (h *committedHashRestart) reopen(t *testing.T) {
 	t.Helper()
 	h.a = app.New(dbm.NewMemDB(), nil, true, map[int64]bool{}, h.home, 1, false,
 		tmconfig.TestConfig(), app.MakeEncodingConfig(), nil, app.TestAppOpts{}, app.EmptyWasmOpts, nil,
@@ -158,7 +158,7 @@ func (h *repair475Restart) reopen(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func (h *repair475Restart) restart(t *testing.T, height int64) {
+func (h *committedHashRestart) restart(t *testing.T, height int64) {
 	t.Helper()
 	h.close(t)
 	h.reopen(t)
@@ -173,8 +173,8 @@ func (h *repair475Restart) restart(t *testing.T, height int64) {
 	require.Equal(t, h.hashes[height], pending.BlockHeader().AppHash)
 }
 
-func TestRepair475_CommitHashesSurviveEveryRestart(t *testing.T) {
-	h := newRepair475Restart(t)
+func TestCommitHashesSurviveEveryRestart(t *testing.T) {
+	h := newCommittedHashRestart(t)
 	for height := int64(1); height <= 3; height++ {
 		h.commit(t, height)
 		h.restart(t, height)
@@ -183,7 +183,7 @@ func TestRepair475_CommitHashesSurviveEveryRestart(t *testing.T) {
 
 // Alter the actual producer's last record while preserving valid WAL framing
 // and CRC, so refusal must come from the hash handshake rather than decoding.
-func repair475AlterCommitted(t *testing.T, dir string, height uint64, change func(*wal.Committed), truncate bool) {
+func committedHashAlterCommitted(t *testing.T, dir string, height uint64, change func(*wal.Committed), truncate bool) {
 	t.Helper()
 	files, err := filepath.Glob(filepath.Join(dir, "*.seg"))
 	require.NoError(t, err)
@@ -220,10 +220,10 @@ func repair475AlterCommitted(t *testing.T, dir string, height uint64, change fun
 	require.True(t, found, "production COMMITTED record was not found")
 }
 
-func TestRepair475_RejectCorruptedCommittedHash(t *testing.T) {
+func TestCommittedHashRejectCorruptedCommittedHash(t *testing.T) {
 	for _, corruption := range []string{"parent hash", "changed hash", "changed sequence"} {
 		t.Run(corruption, func(t *testing.T) {
-			h := newRepair475Restart(t)
+			h := newCommittedHashRestart(t)
 			for height := int64(1); height <= 3; height++ {
 				h.commit(t, height)
 				if height < 3 {
@@ -231,7 +231,7 @@ func TestRepair475_RejectCorruptedCommittedHash(t *testing.T) {
 				}
 			}
 			h.close(t)
-			repair475AlterCommitted(t, h.cfg.WALDir, 3, func(record *wal.Committed) {
+			committedHashAlterCommitted(t, h.cfg.WALDir, 3, func(record *wal.Committed) {
 				switch corruption {
 				case "parent hash":
 					record.AppHash = [32]byte(h.hashes[2])
@@ -251,8 +251,8 @@ func TestRepair475_RejectCorruptedCommittedHash(t *testing.T) {
 	}
 }
 
-func TestRepair475_ReconcileSealAfterCommitCrash(t *testing.T) {
-	h := newRepair475Restart(t)
+func TestCommittedHashReconcileSealAfterCommitCrash(t *testing.T) {
+	h := newCommittedHashRestart(t)
 	for height := int64(1); height <= 3; height++ {
 		h.commit(t, height)
 		if height < 3 {
@@ -260,7 +260,7 @@ func TestRepair475_ReconcileSealAfterCommitCrash(t *testing.T) {
 		}
 	}
 	h.close(t)
-	repair475AlterCommitted(t, h.cfg.WALDir, 3, nil, true)
+	committedHashAlterCommitted(t, h.cfg.WALDir, 3, nil, true)
 	h.reopen(t)
 	require.EqualValues(t, 2, h.n.WAL.LastCommitted().Height)
 	require.NoError(t, h.n.Start(context.Background()))
@@ -269,8 +269,8 @@ func TestRepair475_ReconcileSealAfterCommitCrash(t *testing.T) {
 	h.restart(t, 3)
 }
 
-func TestRepair475_DriverRefusesParentHash(t *testing.T) {
-	h := newRepair475Restart(t)
+func TestCommittedHashDriverRefusesParentHash(t *testing.T) {
+	h := newCommittedHashRestart(t)
 	h.commit(t, 1)
 	h.restart(t, 1)
 	h.commit(t, 2)

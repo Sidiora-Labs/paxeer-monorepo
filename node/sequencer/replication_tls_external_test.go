@@ -11,7 +11,7 @@ import (
 
 func listenAuthenticated(t *testing.T) (net.Listener, sequencer.ReplicationTLSConfig) {
 	t.Helper()
-	primary, standby := sequencer.Repair103TLSFixture(t)
+	primary, standby := sequencer.ReplicationTLSFixture(t)
 	cfg, err := standby.TLSConfig(true)
 	require.NoError(t, err)
 	l, err := tls.Listen("tcp", "127.0.0.1:0", cfg)

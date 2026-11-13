@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepairM_1143_V6120KnownPlanList(t *testing.T) {
+func TestHistoricalUpgradeV6120KnownPlanList(t *testing.T) {
 	t.Run("ExactPlansAndHistoricalHandler", TestV6120IsAKnownPlanWithAHandler)
 	t.Run("FinalPlanKeeperState", func(t *testing.T) {
 		wrapper := NewTestWrapper(t, time.Unix(1800000000, 0).UTC(), secp256k1.GenPrivKey().PubKey(), false)
@@ -26,7 +26,7 @@ func TestRepairM_1143_V6120KnownPlanList(t *testing.T) {
 	})
 }
 
-func TestRepairM_1143_XWebHistoricalUpgrade(t *testing.T) {
+func TestHistoricalXWebUpgrade(t *testing.T) {
 	t.Run("CurrentAndHistoricalTags", TestXWebUpgradeIsRegisteredUnderTheLatestTag)
 	t.Run("StoreMigration", TestXWebUpgradeStoreLoaderAddsTheXWebStore)
 	t.Run("PausedGenesisAndPrecompileConsumer", TestXWebUpgradeSetsPausedDefaultsAndServesThePrecompileOnlyAfterIt)

@@ -58,9 +58,9 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-var repair102Time = time.Unix(1_800_000_000, 0).UTC()
+var sequencedExecutionTime = time.Unix(1_800_000_000, 0).UTC()
 
-type repair102Keys struct {
+type sequencedExecutionKeys struct {
 	key       *sequencer.ReceiptKey
 	public    []byte
 	proposer  []byte
@@ -68,7 +68,7 @@ type repair102Keys struct {
 	validator *privval.FilePV
 }
 
-func repair102SigningKeys(t *testing.T) repair102Keys {
+func sequencedExecutionSigningKeys(t *testing.T) sequencedExecutionKeys {
 	t.Helper()
 	dir := t.TempDir()
 	consensus := filepath.Join(dir, "consensus.json")
@@ -84,17 +84,17 @@ func repair102SigningKeys(t *testing.T) repair102Keys {
 		SequencerID: [32]byte(sequencerKeyID), PublicKey: [32]byte(sequencerPublicKey()), FirstBatchNumber: 1, LastBatchNumber: math.MaxUint64,
 	}}, 2)
 	require.NoError(t, err)
-	return repair102Keys{key: key, public: pub.Bytes(), proposer: pub.Address(), pins: pins, validator: pv}
+	return sequencedExecutionKeys{key: key, public: pub.Bytes(), proposer: pub.Address(), pins: pins, validator: pv}
 }
 
-type repair102Chain struct {
+type sequencedExecutionChain struct {
 	a              *app.App
 	home, database string
-	keys           repair102Keys
+	keys           sequencedExecutionKeys
 	close          func()
 }
 
-func (h *repair102Chain) open(t *testing.T) {
+func (h *sequencedExecutionChain) open(t *testing.T) {
 	t.Helper()
 	db, err := dbm.NewGoLevelDB("application", h.database)
 	require.NoError(t, err)
@@ -117,9 +117,9 @@ func (h *repair102Chain) open(t *testing.T) {
 	t.Cleanup(h.close)
 }
 
-func repair102NewChain(t *testing.T, keys repair102Keys, maxWanted int64, sequenced bool) *repair102Chain {
+func newSequencedExecutionChain(t *testing.T, keys sequencedExecutionKeys, maxWanted int64, sequenced bool) *sequencedExecutionChain {
 	t.Helper()
-	h := &repair102Chain{home: t.TempDir(), database: t.TempDir(), keys: keys}
+	h := &sequencedExecutionChain{home: t.TempDir(), database: t.TempDir(), keys: keys}
 	h.open(t)
 	genesis := app.NewDefaultGenesisState(app.MakeEncodingConfig().Marshaler)
 	if sequenced {
@@ -136,7 +136,7 @@ func repair102NewChain(t *testing.T, keys repair102Keys, maxWanted int64, sequen
 	block.MaxGas, block.MaxGasWanted = 4_000_000, maxWanted
 	params.Block = &block
 	_, err = h.a.InitChain(context.Background(), &abci.RequestInitChain{
-		Time: repair102Time, ChainId: chainsBlockChainID, InitialHeight: 1,
+		Time: sequencedExecutionTime, ChainId: chainsBlockChainID, InitialHeight: 1,
 		ConsensusParams: &params, AppStateBytes: encoded,
 	})
 	require.NoError(t, err)
@@ -145,12 +145,12 @@ func repair102NewChain(t *testing.T, keys repair102Keys, maxWanted int64, sequen
 	return h
 }
 
-func (h *repair102Chain) initialContext() sdk.Context {
-	ctx := h.a.NewContext(false, tmproto.Header{ChainID: chainsBlockChainID, Height: 1, Time: repair102Time, ProposerAddress: h.keys.proposer})
+func (h *sequencedExecutionChain) initialContext() sdk.Context {
+	ctx := h.a.NewContext(false, tmproto.Header{ChainID: chainsBlockChainID, Height: 1, Time: sequencedExecutionTime, ProposerAddress: h.keys.proposer})
 	return ctx.WithConsensusParams(h.a.GetConsensusParams(ctx))
 }
 
-func repair102Fund(t *testing.T, a *app.App, ctx sdk.Context, sender utils.TestAcct) {
+func sequencedExecutionFund(t *testing.T, a *app.App, ctx sdk.Context, sender utils.TestAcct) {
 	t.Helper()
 	a.EvmKeeper.SetAddressMapping(ctx, sender.AccountAddress, sender.EvmAddress)
 	coins := sdk.NewCoins(sdk.NewInt64Coin("uhpx", 1_000_000_000_000_000))
@@ -158,14 +158,14 @@ func repair102Fund(t *testing.T, a *app.App, ctx sdk.Context, sender utils.TestA
 	require.NoError(t, a.BankKeeper.SendCoinsFromModuleToAccount(ctx, "mint", sender.AccountAddress, coins))
 }
 
-func (h *repair102Chain) commitInitial(t *testing.T, merged bool, plans ...upgradetypes.Plan) {
+func (h *sequencedExecutionChain) commitInitial(t *testing.T, merged bool, plans ...upgradetypes.Plan) {
 	t.Helper()
 	if merged {
 		h.a.UpgradeKeeper.SetDone(h.initialContext(), app.MergeUpgrade)
 	}
 	hash := sha256.Sum256([]byte("repair-102-canonical-block-one"))
 	_, err := h.a.FinalizeBlock(context.Background(), &abci.RequestFinalizeBlock{
-		Hash: hash[:], Header: &tmproto.Header{ChainID: chainsBlockChainID, Height: 1, Time: repair102Time, ProposerAddress: h.keys.proposer},
+		Hash: hash[:], Header: &tmproto.Header{ChainID: chainsBlockChainID, Height: 1, Time: sequencedExecutionTime, ProposerAddress: h.keys.proposer},
 	})
 	require.NoError(t, err)
 	// Governance schedules during block execution, after the upgrade module's
@@ -180,7 +180,7 @@ func (h *repair102Chain) commitInitial(t *testing.T, merged bool, plans ...upgra
 	require.EqualValues(t, 1, h.a.LastBlockHeight())
 }
 
-func (h *repair102Chain) executor(t *testing.T, height int64) (sequencer.Executor, *sequencer.Receipter, *sequencer.ConsensusSource) {
+func (h *sequencedExecutionChain) executor(t *testing.T, height int64) (sequencer.Executor, *sequencer.Receipter, *sequencer.ConsensusSource) {
 	t.Helper()
 	last, err := h.a.SequencerKeeper.LastSeq(h.a.GetCheckCtx())
 	require.NoError(t, err)
@@ -190,7 +190,7 @@ func (h *repair102Chain) executor(t *testing.T, height int64) (sequencer.Executo
 		ChainID: chainsBlockChainID, ProposerAddress: h.keys.proposer, LastSeq: last, LastSeqHash: hash,
 	})
 	require.NoError(t, err)
-	require.NoError(t, exec.Open(height, repair102Time.Add(time.Duration(height)*time.Second).UnixMilli()))
+	require.NoError(t, exec.Open(height, sequencedExecutionTime.Add(time.Duration(height)*time.Second).UnixMilli()))
 	receipts, err := sequencer.NewReceipter(exec, h.a, &h.a.EvmKeeper, h.keys.key, app.EVMReceiptModuleID)
 	require.NoError(t, err)
 	source, err := sequencer.NewConsensusSource(h.a, exec, h.keys.key)
@@ -199,7 +199,7 @@ func (h *repair102Chain) executor(t *testing.T, height int64) (sequencer.Executo
 	return exec, receipts, source
 }
 
-func repair102Tx(t *testing.T, from utils.TestAcct, chainID *big.Int, typed bool, nonce, gas uint64, to common.Address, data []byte) ([]byte, common.Hash) {
+func sequencedExecutionTx(t *testing.T, from utils.TestAcct, chainID *big.Int, typed bool, nonce, gas uint64, to common.Address, data []byte) ([]byte, common.Hash) {
 	t.Helper()
 	var payload ethtypes.TxData = &ethtypes.LegacyTx{Nonce: nonce, GasPrice: big.NewInt(seqCtxGasPrice), Gas: gas, To: &to, Value: big.NewInt(0), Data: data}
 	if typed {
@@ -220,7 +220,7 @@ func repair102Tx(t *testing.T, from utils.TestAcct, chainID *big.Int, typed bool
 	return bz, signed.Hash()
 }
 
-func repair102Accept(t *testing.T, receipts *sequencer.Receipter, key *sequencer.ReceiptKey, tx []byte) *sequencer.Accepted {
+func sequencedExecutionAccept(t *testing.T, receipts *sequencer.Receipter, key *sequencer.ReceiptKey, tx []byte) *sequencer.Accepted {
 	t.Helper()
 	accepted, receipt, err := receipts.Accept(tx)
 	require.NoError(t, err)
@@ -231,21 +231,21 @@ func repair102Accept(t *testing.T, receipts *sequencer.Receipter, key *sequencer
 	return accepted
 }
 
-func TestRepair_102_GasWantedZero(t *testing.T) {
+func TestSequencedExecutionGasWantedZero(t *testing.T) {
 	for _, bound := range []int64{0, -1, 42_000} {
 		t.Run(fmt.Sprint(bound), func(t *testing.T) {
-			keys := repair102SigningKeys(t)
-			h := repair102NewChain(t, keys, bound, true)
+			keys := sequencedExecutionSigningKeys(t)
+			h := newSequencedExecutionChain(t, keys, bound, true)
 			sender := utils.NewSigner()
-			repair102Fund(t, h.a, h.initialContext(), sender)
+			sequencedExecutionFund(t, h.a, h.initialContext(), sender)
 			params := h.a.GetConsensusParams(h.initialContext())
 			params.Block.MaxGas = 42_000
 			h.a.StoreConsensusParams(h.initialContext(), params)
 			h.commitInitial(t, true)
 			_, receipts, source := h.executor(t, 2)
 			for nonce := uint64(0); nonce < 2; nonce++ {
-				tx, _ := repair102Tx(t, sender, big.NewInt(125), false, nonce, 21_000, common.HexToAddress("0xbeef"), nil)
-				repair102Accept(t, receipts, keys.key, tx)
+				tx, _ := sequencedExecutionTx(t, sender, big.NewInt(125), false, nonce, 21_000, common.HexToAddress("0xbeef"), nil)
+				sequencedExecutionAccept(t, receipts, keys.key, tx)
 			}
 			sealed, err := source.Seal(context.Background(), 2)
 			require.NoError(t, err)
@@ -259,8 +259,8 @@ func TestRepair_102_GasWantedZero(t *testing.T) {
 			}
 			h.a.ClearOptimisticProcessingInfo()
 			// The same receipted block exceeds a separately configured positive validator bound.
-			rejecting := repair102NewChain(t, keys, 21_000, true)
-			repair102Fund(t, rejecting.a, rejecting.initialContext(), sender)
+			rejecting := newSequencedExecutionChain(t, keys, 21_000, true)
+			sequencedExecutionFund(t, rejecting.a, rejecting.initialContext(), sender)
 			rejecting.commitInitial(t, true)
 			response, err = rejecting.a.ProcessProposal(context.Background(), &abci.RequestProcessProposal{Header: header, Txs: txs})
 			require.NoError(t, err)
@@ -269,9 +269,9 @@ func TestRepair_102_GasWantedZero(t *testing.T) {
 	}
 }
 
-func TestRepair_102_CommittedParentRestart(t *testing.T) {
-	keys := repair102SigningKeys(t)
-	h := repair102NewChain(t, keys, 0, true)
+func TestSequencedExecutionCommittedParentRestart(t *testing.T) {
+	keys := sequencedExecutionSigningKeys(t)
+	h := newSequencedExecutionChain(t, keys, 0, true)
 	h.commitInitial(t, true)
 	want := h.a.LastBlockID()
 	require.Len(t, want.Hash, sha256.Size)
@@ -294,11 +294,11 @@ func TestRepair_102_CommittedParentRestart(t *testing.T) {
 	require.Equal(t, header.Time, sealed.OpenTime)
 }
 
-func TestRepair_102_MergeInfoResume(t *testing.T) {
+func TestSequencedExecutionMergeInfoResume(t *testing.T) {
 	for _, governed := range []bool{true, false} {
 		t.Run(fmt.Sprint(governed), func(t *testing.T) {
-			keys := repair102SigningKeys(t)
-			h := repair102NewChain(t, keys, 0, false)
+			keys := sequencedExecutionSigningKeys(t)
+			h := newSequencedExecutionChain(t, keys, 0, false)
 			info, err := json.Marshal(map[string]any{"leaders": [][]byte{keys.public}, "receipt_keys": keys.pins, "activation_height": 3})
 			require.NoError(t, err)
 			plan := upgradetypes.Plan{Name: app.MergeUpgrade, Height: 2, Info: string(info)}
@@ -308,12 +308,12 @@ func TestRepair_102_MergeInfoResume(t *testing.T) {
 				h.commitInitial(t, false)
 			}
 			require.NoError(t, h.a.UpgradeKeeper.DumpUpgradeInfoWithInfoToDisk(plan.Height, plan.Name, plan.Info))
-			before := repair102Stores(t, h.a.GetCheckCtx())
+			before := sequencedExecutionStores(t, h.a.GetCheckCtx())
 			h.close()
 			h.open(t)
-			ctx := sdk.NewContext(h.a.CommitMultiStore().CacheMultiStore(), tmproto.Header{ChainID: chainsBlockChainID, Height: 2, Time: repair102Time.Add(time.Second), ProposerAddress: keys.proposer}, false)
+			ctx := sdk.NewContext(h.a.CommitMultiStore().CacheMultiStore(), tmproto.Header{ChainID: chainsBlockChainID, Height: 2, Time: sequencedExecutionTime.Add(time.Second), ProposerAddress: keys.proposer}, false)
 			ctx = ctx.WithConsensusParams(h.a.GetConsensusParams(ctx))
-			require.Equal(t, before, repair102Stores(t, ctx), "the restart loader must preserve already committed merge stores")
+			require.Equal(t, before, sequencedExecutionStores(t, ctx), "the restart loader must preserve already committed merge stores")
 			if governed {
 				recovered, found := h.a.UpgradeKeeper.GetUpgradePlan(ctx)
 				require.True(t, found)
@@ -333,19 +333,19 @@ func TestRepair_102_MergeInfoResume(t *testing.T) {
 	}
 }
 
-func TestRepair_102_TenantReplay(t *testing.T) {
+func TestSequencedExecutionTenantReplay(t *testing.T) {
 	for _, occ := range []bool{false, true} {
 		t.Run(fmt.Sprint(occ), func(t *testing.T) {
-			keys := repair102SigningKeys(t)
-			producer := repair102NewChain(t, keys, 0, true)
-			consumer := repair102NewChain(t, keys, 0, true)
+			keys := sequencedExecutionSigningKeys(t)
+			producer := newSequencedExecutionChain(t, keys, 0, true)
+			consumer := newSequencedExecutionChain(t, keys, 0, true)
 			sender := utils.NewSigner()
 			var domain chainstypes.Domain
 			contract := common.HexToAddress("0x123456")
 			code := common.FromHex("0x466000554860015500")
-			for _, h := range []*repair102Chain{producer, consumer} {
+			for _, h := range []*sequencedExecutionChain{producer, consumer} {
 				ctx := h.initialContext()
-				repair102Fund(t, h.a, ctx, sender)
+				sequencedExecutionFund(t, h.a, ctx, sender)
 				h.a.EvmKeeper.SetCode(ctx, contract, code)
 				params := h.a.LayerXChainsKeeper.GetParams(ctx)
 				var err error
@@ -362,8 +362,8 @@ func TestRepair_102_TenantReplay(t *testing.T) {
 			initialFee := consumer.a.LayerXChainsKeeper.NextBaseFee(consumer.a.GetCheckCtx(), domain.Id)
 			var hashes []common.Hash
 			for nonce, typed := range []bool{false, true} {
-				tx, hash := repair102Tx(t, sender, chainstypes.ChainIDOf(domain.Id), typed, uint64(nonce), 100_000, contract, nil)
-				repair102Accept(t, receipts, keys.key, tx)
+				tx, hash := sequencedExecutionTx(t, sender, chainstypes.ChainIDOf(domain.Id), typed, uint64(nonce), 100_000, contract, nil)
+				sequencedExecutionAccept(t, receipts, keys.key, tx)
 				hashes = append(hashes, hash)
 			}
 			sealed, err := source.Seal(context.Background(), 2)
@@ -393,18 +393,18 @@ func TestRepair_102_TenantReplay(t *testing.T) {
 	}
 }
 
-func TestRepair_102_ExecutionFailureAtomic(t *testing.T) {
+func TestSequencedExecutionFailureAtomic(t *testing.T) {
 	for _, occ := range []bool{false, true} {
 		t.Run(fmt.Sprint(occ), func(t *testing.T) {
-			keys := repair102SigningKeys(t)
-			h := repair102NewChain(t, keys, 0, false)
+			keys := sequencedExecutionSigningKeys(t)
+			h := newSequencedExecutionChain(t, keys, 0, false)
 			sender := utils.NewSigner()
-			repair102Fund(t, h.a, h.initialContext(), sender)
+			sequencedExecutionFund(t, h.a, h.initialContext(), sender)
 			h.commitInitial(t, false)
 			h.close()
 			h.open(t)
 			h.a.GigaOCCEnabled = occ
-			blockTime := repair102Time.Add(time.Second)
+			blockTime := sequencedExecutionTime.Add(time.Second)
 			ctx := sdk.NewContext(h.a.CommitMultiStore().CacheMultiStore(), tmproto.Header{ChainID: chainsBlockChainID, Height: 2, Time: blockTime, ProposerAddress: keys.proposer}, false)
 			ctx = ctx.WithConsensusParams(h.a.GetConsensusParams(ctx))
 			// Reopening clears the keeper's process-local coinbase cache. Remove
@@ -413,39 +413,39 @@ func TestRepair_102_ExecutionFailureAtomic(t *testing.T) {
 			address, found := h.a.EvmKeeper.GetEVMAddress(ctx, collector)
 			require.True(t, found)
 			h.a.EvmKeeper.DeleteAddressMapping(ctx, collector, address)
-			tx, _ := repair102Tx(t, sender, big.NewInt(125), false, 0, 21_000, common.HexToAddress("0xbeef"), nil)
-			before := repair102Stores(t, ctx)
+			tx, _ := sequencedExecutionTx(t, sender, big.NewInt(125), false, 0, 21_000, common.HexToAddress("0xbeef"), nil)
+			before := sequencedExecutionStores(t, ctx)
 			_, err := h.a.GigaEvmKeeper.GetVMBlockContext(ctx, h.a.GigaEvmKeeper.GetGasPool())
 			require.ErrorContains(t, err, "fee collector's EVM address not found")
 			_, results, _, err := h.a.ProcessBlock(ctx, [][]byte{tx}, &app.BlockProcessRequest{Height: 2, Time: blockTime}, abci.CommitInfo{}, false, nil)
 			require.ErrorContains(t, err, "giga")
 			require.ErrorContains(t, err, "fee collector's EVM address not found")
 			require.Nil(t, results)
-			require.Equal(t, before, repair102Stores(t, ctx), "BeginBlock and every transaction branch must be discarded")
+			require.Equal(t, before, sequencedExecutionStores(t, ctx), "BeginBlock and every transaction branch must be discarded")
 			require.Zero(t, h.a.EvmKeeper.GetNonce(ctx, sender.EvmAddress))
 			for _, incomplete := range [][]*abci.ExecTxResult{nil, {nil}} {
 				_, _, err = h.a.CompleteBlock(ctx, 2, incomplete, []*evmtypes.MsgEVMTransaction{{}})
 				require.Error(t, err)
-				require.Equal(t, before, repair102Stores(t, ctx))
+				require.Equal(t, before, sequencedExecutionStores(t, ctx))
 			}
 		})
 	}
 }
 
-func TestRepair_102_SchedulerFailureAtomic(t *testing.T) {
-	keys := repair102SigningKeys(t)
-	h := repair102NewChain(t, keys, 0, false)
+func TestSequencedExecutionSchedulerFailureAtomic(t *testing.T) {
+	keys := sequencedExecutionSigningKeys(t)
+	h := newSequencedExecutionChain(t, keys, 0, false)
 	sender := utils.NewSigner()
-	repair102Fund(t, h.a, h.initialContext(), sender)
+	sequencedExecutionFund(t, h.a, h.initialContext(), sender)
 	h.commitInitial(t, false)
 	ctx := sdk.NewContext(h.a.CommitMultiStore().CacheMultiStore(), tmproto.Header{
-		ChainID: chainsBlockChainID, Height: 2, Time: repair102Time.Add(time.Second), ProposerAddress: keys.proposer,
+		ChainID: chainsBlockChainID, Height: 2, Time: sequencedExecutionTime.Add(time.Second), ProposerAddress: keys.proposer,
 	}, false)
 	ctx = ctx.WithConsensusParams(h.a.GetConsensusParams(ctx))
 	// Corrupt a real store value consumed only by Cosmos ante. The EVM scheduler
 	// successfully executes first, then Cosmos delivery recovers the codec panic.
 	ctx.KVStore(h.a.GetKey(paramstypes.StoreKey)).Set([]byte(paramstypes.ModuleName+"/"+string(paramstypes.ParamStoreKeyCosmosGasParams)), []byte("invalid JSON"))
-	evm, _ := repair102Tx(t, sender, big.NewInt(125), false, 0, 21_000, common.HexToAddress("0xbeef"), nil)
+	evm, _ := sequencedExecutionTx(t, sender, big.NewInt(125), false, 0, 21_000, common.HexToAddress("0xbeef"), nil)
 	builder := h.a.GetTxConfig().NewTxBuilder()
 	require.NoError(t, builder.SetMsgs(&banktypes.MsgSend{FromAddress: sender.AccountAddress.String(), ToAddress: sender.AccountAddress.String(), Amount: sdk.NewCoins(sdk.NewInt64Coin("uhpx", 1))}))
 	builder.SetGasLimit(100_000)
@@ -457,7 +457,7 @@ func TestRepair_102_SchedulerFailureAtomic(t *testing.T) {
 		typed[i], err = h.a.GetTxConfig().TxDecoder()(tx)
 		require.NoError(t, err)
 	}
-	before := repair102Stores(t, ctx)
+	before := sequencedExecutionStores(t, ctx)
 	// Establish the actual producer failure, with the real V2 handler and codec.
 	failed, _ := ctx.CacheContext()
 	v2 := h.a.DeliverTxWithResult(failed, cosmos, typed[1])
@@ -468,16 +468,16 @@ func TestRepair_102_SchedulerFailureAtomic(t *testing.T) {
 	results, _, err := h.a.ExecuteTxsConcurrently(ctx, txs, typed, 0)
 	require.ErrorContains(t, err, "infrastructure failure")
 	require.Nil(t, results)
-	require.Equal(t, before, repair102Stores(t, ctx))
+	require.Equal(t, before, sequencedExecutionStores(t, ctx))
 	require.Zero(t, h.a.EvmKeeper.GetNonce(ctx, sender.EvmAddress))
 	// The enclosing block must discard BeginBlock as well as the completed EVM half.
 	_, results, _, err = h.a.ProcessBlock(ctx, txs, &app.BlockProcessRequest{Height: 2, Time: ctx.BlockTime()}, abci.CommitInfo{}, false, nil)
 	require.ErrorContains(t, err, "infrastructure failure")
 	require.Nil(t, results)
-	require.Equal(t, before, repair102Stores(t, ctx))
+	require.Equal(t, before, sequencedExecutionStores(t, ctx))
 }
 
-func repair102Stores(t *testing.T, ctx sdk.Context) map[string]map[string][]byte {
+func sequencedExecutionStores(t *testing.T, ctx sdk.Context) map[string]map[string][]byte {
 	t.Helper()
 	stores := map[string]map[string][]byte{}
 	for _, key := range ctx.MultiStore().StoreKeys() {
@@ -495,9 +495,9 @@ func repair102Stores(t *testing.T, ctx sdk.Context) map[string]map[string][]byte
 	return stores
 }
 
-func TestRepair_102_VerifyRetirement(t *testing.T) {
-	keys := repair102SigningKeys(t)
-	h := repair102NewChain(t, keys, 0, false)
+func TestSequencedExecutionVerifyRetirement(t *testing.T) {
+	keys := sequencedExecutionSigningKeys(t)
+	h := newSequencedExecutionChain(t, keys, 0, false)
 	ctx := h.initialContext()
 	require.Zero(t, h.a.UpgradeKeeper.GetDoneHeight(ctx, app.ActivationUpgrade))
 	require.NotContains(t, h.a.UpgradeKeeper.GetModuleVersionMap(ctx), "layerxanchor")
@@ -570,20 +570,20 @@ func TestRepair_102_VerifyRetirement(t *testing.T) {
 	}
 }
 
-func TestRepair_102_MergeFallbackActivation(t *testing.T) {
+func TestSequencedExecutionMergeFallbackActivation(t *testing.T) {
 	for _, activation := range []int64{1, 42} {
 		for _, height := range []int64{activation - 1, activation, activation + 1} {
 			if height < 1 {
 				continue
 			}
 			t.Run(fmt.Sprintf("%d/%d", activation, height), func(t *testing.T) {
-				keys := repair102SigningKeys(t)
-				h := repair102NewChain(t, keys, 0, false)
+				keys := sequencedExecutionSigningKeys(t)
+				h := newSequencedExecutionChain(t, keys, 0, false)
 				ctx := h.initialContext().WithBlockHeight(height)
 				h.a.UpgradeKeeper.SetDone(ctx.WithBlockHeight(activation), app.MergeUpgrade)
 				h.a.RefreshPrecompiles(ctx)
 				payer := utils.NewSigner()
-				repair102Fund(t, h.a, ctx, payer)
+				sequencedExecutionFund(t, h.a, ctx, payer)
 				for _, address := range []string{"0x101A", "0x101B", "0x101C", "0x101D", "0x101E", "0x0901", "0x0902", "0x0903", "0x0904", "0x0905", "0x0906", "0x0907", "0x0908"} {
 					to := common.HexToAddress(address)
 					if height >= activation {
@@ -591,7 +591,7 @@ func TestRepair_102_MergeFallbackActivation(t *testing.T) {
 					} else {
 						require.NotContains(t, h.a.EvmKeeper.CustomPrecompiles(ctx), to)
 					}
-					tx, _ := repair102Tx(t, payer, big.NewInt(125), true, 0, 100_000, to, []byte{0xff, 0xff, 0xff, 0xff})
+					tx, _ := sequencedExecutionTx(t, payer, big.NewInt(125), true, 0, 100_000, to, []byte{0xff, 0xff, 0xff, 0xff})
 					typed, err := h.a.GetTxConfig().TxDecoder()(tx)
 					require.NoError(t, err)
 					ordinary, _ := ctx.CacheContext()
@@ -614,23 +614,23 @@ func TestRepair_102_MergeFallbackActivation(t *testing.T) {
 	}
 }
 
-func TestRepair_102_StrictResultCommitment(t *testing.T) {
+func TestSequencedExecutionStrictResultCommitment(t *testing.T) {
 	for _, enabled := range []bool{false, true} {
 		t.Run(fmt.Sprint(enabled), func(t *testing.T) {
-			keys := repair102SigningKeys(t)
-			h := repair102NewChain(t, keys, 0, true)
+			keys := sequencedExecutionSigningKeys(t)
+			h := newSequencedExecutionChain(t, keys, 0, true)
 			h.a.GigaExecutorEnabled = enabled
 			require.False(t, tmtypes.SkipLastResultsHashValidation.Load())
 			payer := utils.NewSigner()
-			repair102Fund(t, h.a, h.initialContext(), payer)
+			sequencedExecutionFund(t, h.a, h.initialContext(), payer)
 			// Use a non-unit priority normalizer to prove the consensus gas conversion.
 			params := h.a.EvmKeeper.GetParams(h.initialContext())
 			params.PriorityNormalizer = sdk.NewDec(2)
 			h.a.EvmKeeper.SetParams(h.initialContext(), params)
 			h.commitInitial(t, true)
 			_, receipts, source := h.executor(t, 2)
-			tx, _ := repair102Tx(t, payer, big.NewInt(125), true, 0, 50_000, common.HexToAddress("0xbeef"), nil)
-			repair102Accept(t, receipts, keys.key, tx)
+			tx, _ := sequencedExecutionTx(t, payer, big.NewInt(125), true, 0, 50_000, common.HexToAddress("0xbeef"), nil)
+			sequencedExecutionAccept(t, receipts, keys.key, tx)
 			sealed, err := source.Seal(context.Background(), 2)
 			require.NoError(t, err)
 			header := source.Sealed().Context().BlockHeader()
@@ -655,19 +655,19 @@ func TestRepair_102_StrictResultCommitment(t *testing.T) {
 			conflicting.LastResultsHash = bytes.Repeat([]byte{0x42}, 32)
 			evidence := &tmtypes.LightClientAttackEvidence{ConflictingBlock: &tmtypes.LightBlock{SignedHeader: &tmtypes.SignedHeader{Header: &conflicting}}}
 			require.True(t, evidence.ConflictingHeaderIsInvalid(trusted))
-			repair102LightResults(t, keys, results, root)
+			sequencedExecutionLightResults(t, keys, results, root)
 		})
 	}
 }
 
-func repair102LightResults(t *testing.T, keys repair102Keys, results []*abci.ExecTxResult, root []byte) {
+func sequencedExecutionLightResults(t *testing.T, keys sequencedExecutionKeys, results []*abci.ExecTxResult, root []byte) {
 	t.Helper()
 	pub, err := keys.validator.GetPubKey(context.Background())
 	require.NoError(t, err)
 	validators := tmtypes.NewValidatorSet([]*tmtypes.Validator{tmtypes.NewValidator(pub, 1)})
 	block := tmtypes.MakeBlock(3, nil, &tmtypes.Commit{}, nil)
 	block.ChainID = chainsBlockChainID
-	block.Time = repair102Time.Add(3 * time.Second)
+	block.Time = sequencedExecutionTime.Add(3 * time.Second)
 	block.ProposerAddress = pub.Address()
 	block.ValidatorsHash = validators.Hash()
 	block.NextValidatorsHash = validators.Hash()

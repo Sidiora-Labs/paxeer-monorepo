@@ -13,7 +13,7 @@ command = "the exact selected go test command in task 22.39.138 verify_cmd"
 result = "Executed only through hf-done after hf-build; see evidence.verify"
 
 [diagnostic.history]
-observed = "node/repair_22_39_40.kvx is absent and Git cannot resolve d96e5a9eefb2 in this checkout; GOTCHA.kvx gotcha.3523 supplies the historical report"
+observed = "spec/layerx-merge/programme/records/node/repair_22_39_40.kvx is absent and Git cannot resolve d96e5a9eefb2 in this checkout; GOTCHA.kvx gotcha.3523 supplies the historical report"
 comparison = "4526ea1b436d is available; git diff 4526ea1b436d HEAD -- node modules storage/common/keys is empty at task entry"
 abi_comparison = "JSON objects indexed by type, name and ordered input types are identical for all entries in each of the three precompile ABIs at 4526ea1b436d and the task base; none is missing or changed"
 order_dependency = "UNPROVEN: no preceding test was identified by an authorized diagnostic run; independent static contradictions exist at both bases"

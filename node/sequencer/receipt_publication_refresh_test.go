@@ -23,7 +23,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepairM_1145_ConcurrentFirstPublication(t *testing.T) {
+func TestReceiptKeyConcurrentFirstPublication(t *testing.T) {
 	seed := sha256.Sum256([]byte("repair m1145 first publication"))
 	private := ed25519.NewKeyFromSeed(seed[:])
 	key := &ReceiptKey{receiptKeyState: &receiptKeyState{
@@ -91,7 +91,7 @@ func TestRepairM_1145_ConcurrentFirstPublication(t *testing.T) {
 	}
 }
 
-func repairM1145Refresh(t *testing.T, key *ReceiptKey, pins []verify.SequencerAuthorization) (*atomic.Uint64, func()) {
+func refreshReceiptKeyPins(t *testing.T, key *ReceiptKey, pins []verify.SequencerAuthorization) (*atomic.Uint64, func()) {
 	t.Helper()
 	var updates atomic.Uint64
 	stop := make(chan struct{})
@@ -151,13 +151,13 @@ func repairM1145Refresh(t *testing.T, key *ReceiptKey, pins []verify.SequencerAu
 	return &updates, finish
 }
 
-func TestRepairM_1145_RefreshReceiptAndConsensusSeal(t *testing.T) {
+func TestReceiptKeyRefreshReceiptAndConsensusSeal(t *testing.T) {
 	sender := utils.NewSigner()
-	pair := repairM1144Replicated(t, sender)
+	pair := runtimeAdmissionReplicated(t, sender)
 	n, standby := pair.primary, pair.standby
 	server := gethrpc.NewServer()
 	t.Cleanup(server.Stop)
-	require.NoError(t, server.RegisterName("eth", repairM1144API(t, n)))
+	require.NoError(t, server.RegisterName("eth", runtimeAdmissionAPI(t, n)))
 	client := gethrpc.DialInProc(server)
 	t.Cleanup(client.Close)
 	keys, err := n.App.SequencerKeeper.ReceiptKeys(n.App.GetCheckCtx())
@@ -185,7 +185,7 @@ func TestRepairM_1145_RefreshReceiptAndConsensusSeal(t *testing.T) {
 		}
 		pins, err := n.App.SequencerKeeper.ReceiptKeyPins(n.App.GetCheckCtx())
 		require.NoError(t, err)
-		updates, stop := repairM1145Refresh(t, n.ReceiptKey, pins)
+		updates, stop := refreshReceiptKeyPins(t, n.ReceiptKey, pins)
 		before := updates.Load()
 		wantID := old.KeyId
 		if height == 3 {
@@ -194,9 +194,9 @@ func TestRepairM_1145_RefreshReceiptAndConsensusSeal(t *testing.T) {
 		var receipts [][]byte
 		for offset := uint64(0); offset < 4; offset++ {
 			nonce := uint64(height-2)*4 + offset
-			tx, raw := repairM1144Signed(t, n, sender, nonce)
+			tx, raw := runtimeAdmissionSigned(t, n, sender, nonce)
 			var hash common.Hash
-			require.NoError(t, client.CallContext(t.Context(), &hash, "eth_sendRawTransaction", hexutilM1144(raw)))
+			require.NoError(t, client.CallContext(t.Context(), &hash, "eth_sendRawTransaction", runtimeAdmissionHex(raw)))
 			require.Equal(t, tx.Hash(), hash)
 			send, err := n.ReceiptSource.SequencerSend(hash)
 			require.NoError(t, err)

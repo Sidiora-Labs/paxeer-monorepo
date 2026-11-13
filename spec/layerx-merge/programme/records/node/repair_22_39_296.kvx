@@ -37,5 +37,5 @@ reference = "/out/run/gates.jsonl: final kind=build row records candidate revisi
 
 [evidence.verify]
 command = "cg spec done 22.39.296 -f layerx-merge --root /work/paxeer-monorepo"
-verify_cmd = "test -s node/repair_22_39_296.kvx && go test -count=1 ./node/ -run '^TestMergeUpgrade.*Surfaces'"
+verify_cmd = "test -s spec/layerx-merge/programme/records/node/repair_22_39_296.kvx && go test -count=1 ./node/ -run '^TestMergeUpgrade.*Surfaces'"
 reference = "/out/run/gates.jsonl: final kind=verify row names the verified revision, command, exit and private log; qualification requires exit zero and a build on that identical revision"

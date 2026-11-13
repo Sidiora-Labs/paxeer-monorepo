@@ -13,15 +13,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepairM_1141_MigrationBatchConfiguration(t *testing.T) {
-	app.RepairM1141MigrationConfiguration(t)
+func TestNodeLifecycleMigrationBatchConfiguration(t *testing.T) {
+	app.CheckNodeLifecycleMigrationConfiguration(t)
 }
 
-func TestRepairM_1141_UnknownChainAndNativeReceipt(t *testing.T) {
+func TestNodeLifecycleUnknownChainAndNativeReceipt(t *testing.T) {
 	TestProofNodeAbci(t)
 }
 
-func TestRepairM_1141_SequencedSuccessAndMalformedHash(t *testing.T) {
+func TestNodeLifecycleSequencedSuccessAndMalformedHash(t *testing.T) {
 	t.Run("delivery", TestSequencedBlockDeliversBatchAtTxZero)
 	t.Run("refusals", TestSequencedBlockRefusesBadBatch)
 	t.Run("OCC", TestSequencedBlockOCCEqualsSequential)
@@ -30,7 +30,7 @@ func TestRepairM_1141_SequencedSuccessAndMalformedHash(t *testing.T) {
 	t.Run("export", TestSequencedBlockGenesisRoundTrip)
 }
 
-func TestRepairM_1141_HelperPreservesStrictValidation(t *testing.T) {
+func TestNodeLifecycleHelperPreservesStrictValidation(t *testing.T) {
 	require.False(t, tmtypes.SkipLastResultsHashValidation.Load())
 	for _, sc := range []bool{false, true} {
 		t.Run(map[bool]string{false: "ordinary", true: "state-commit"}[sc], func(t *testing.T) {
@@ -53,11 +53,11 @@ func TestRepairM_1141_HelperPreservesStrictValidation(t *testing.T) {
 		})
 		require.False(t, tmtypes.SkipLastResultsHashValidation.Load())
 	}
-	TestRepair_102_StrictResultCommitment(t)
+	TestSequencedExecutionStrictResultCommitment(t)
 }
 
-func TestRepairM_1141_InitializationResultsAndFailures(t *testing.T) {
-	app.RepairM1141InitializationFailure(t)
+func TestNodeLifecycleInitializationResultsAndFailures(t *testing.T) {
+	app.CheckNodeLifecycleInitializationFailure(t)
 	for _, name := range []string{"default-home", "SC", "SC-receipts", "accounts", "validators"} {
 		t.Run(name, func(t *testing.T) {
 			var a *app.App
@@ -88,6 +88,10 @@ func TestRepairM_1141_InitializationResultsAndFailures(t *testing.T) {
 	}
 }
 
-func TestRepairM_1141_ActivationTagsAndOrderedPlans(t *testing.T) { app.RepairM1141UpgradeLifecycle(t) }
-func TestRepairM_1141_ChainsAddressActivation(t *testing.T)       { app.RepairM1141ChainsActivation(t) }
-func TestRepairM_1141_MergedStoresPreserveState(t *testing.T)     { app.RepairM1141MergedStores(t) }
+func TestNodeLifecycleActivationTagsAndOrderedPlans(t *testing.T) {
+	app.CheckNodeLifecycleUpgradeLifecycle(t)
+}
+func TestNodeLifecycleChainsAddressActivation(t *testing.T) {
+	app.CheckNodeLifecycleChainsActivation(t)
+}
+func TestNodeLifecycleMergedStoresPreserveState(t *testing.T) { app.CheckNodeLifecycleMergedStores(t) }

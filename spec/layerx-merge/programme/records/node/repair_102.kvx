@@ -2,7 +2,7 @@
 mode = "BUILD"
 audit = "22.30.50"
 qualification = "The runner records the verified candidate revision, command, exit code and private log; these proofs close findings only when hf-done passes."
-baseline = "No pre-change test gate ran: the task's explicit ordered gate instructions prohibit verification before implementation and allow only hf-build followed by hf-done; repair_102_test.go did not exist in the starting tree."
+baseline = "No pre-change test gate ran: the task's explicit ordered gate instructions prohibit verification before implementation and allow only hf-build followed by hf-done; sequenced_execution_recovery_test.go did not exist in the starting tree."
 
 [qualification.first_attempt]
 revision = "b92c902ee17c643bd632ad14ab668eb9fca9dfd9"

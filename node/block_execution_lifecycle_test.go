@@ -24,28 +24,30 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-func TestRepairM_1140_EmptyBlock(t *testing.T)                 { TestEmptyBlockIdempotency(t) }
-func TestRepairM_1140_UpgradePanicBoundary(t *testing.T)       { TestProcessBlockUpgradePanicLogic(t) }
-func TestRepairM_1140_BenchmarkOutputAndShutdown(t *testing.T) { app.RepairM1140Benchmark(t) }
-func TestRepairM_1140_GigaActivationSets(t *testing.T)         { app.RepairM1140GigaSets(t) }
-func TestRepairM_1140_GigaOrdinaryParity(t *testing.T) {
+func TestBlockExecutionEmptyBlock(t *testing.T)           { TestEmptyBlockIdempotency(t) }
+func TestBlockExecutionUpgradePanicBoundary(t *testing.T) { TestProcessBlockUpgradePanicLogic(t) }
+func TestBlockExecutionBenchmarkOutputAndShutdown(t *testing.T) {
+	app.CheckBenchmarkOutputAndShutdown(t)
+}
+func TestBlockExecutionGigaActivationSets(t *testing.T) { app.CheckGigaActivationSets(t) }
+func TestBlockExecutionGigaOrdinaryParity(t *testing.T) {
 	TestGigaMergeAddressFallsBackToOrdinaryPath(t)
 }
-func TestRepairM_1140_TenantProposalRestart(t *testing.T) {
+func TestBlockExecutionTenantProposalRestart(t *testing.T) {
 	TestOneBlockCarriesRootAndChainTransactions(t)
 	TestChainStateSurvivesRestart(t)
 }
-func TestRepairM_1140_LeaderCommittedBatches(t *testing.T) {
+func TestBlockExecutionLeaderCommittedBatches(t *testing.T) {
 	TestAppLeaderScheduleReadsKeeperList(t)
 	TestAppLeaderScheduleEmptyBeforeActivation(t)
 }
 
 // In addition to handler-originated panic fixtures, drive the SDK's own three
 // supported upgrade halts through the production ProcessBlock boundary.
-func TestRepairM_1140_SDKUpgradeHalts(t *testing.T) {
+func TestBlockExecutionSDKUpgradeHalts(t *testing.T) {
 	for _, which := range []string{"needed", "wrong-version", "early-binary"} {
 		t.Run(which, func(t *testing.T) {
-			w := app.NewTestWrapperWithSc(t, repair102Time, secp256k1.GenPrivKey().PubKey(), false)
+			w := app.NewTestWrapperWithSc(t, sequencedExecutionTime, secp256k1.GenPrivKey().PubKey(), false)
 			t.Cleanup(func() { require.NoError(t, w.App.Close()) })
 			params := w.App.GetConsensusParams(w.Ctx)
 			params.Version = &tmproto.VersionParams{AppVersion: 5}
@@ -63,13 +65,13 @@ func TestRepairM_1140_SDKUpgradeHalts(t *testing.T) {
 				expected = `BINARY UPDATED BEFORE TRIGGER! UPGRADE "v7.0" - in binary but not executed on chain`
 			}
 			require.PanicsWithValue(t, expected, func() {
-				_, _, _, _ = w.App.ProcessBlock(w.Ctx, nil, &app.BlockProcessRequest{Height: 1, Time: repair102Time}, abci.CommitInfo{}, false, nil)
+				_, _, _, _ = w.App.ProcessBlock(w.Ctx, nil, &app.BlockProcessRequest{Height: 1, Time: sequencedExecutionTime}, abci.CommitInfo{}, false, nil)
 			})
 		})
 	}
 }
 
-func TestRepairM_1140_InvarianceCorruption(t *testing.T) {
+func TestBlockExecutionInvarianceCorruption(t *testing.T) {
 	address := sdk.AccAddress(secp256k1.GenPrivKey().PubKey().Address())
 	balanceKey := append(banktypes.CreateAccountBalancesPrefix(address), []byte("uhpx")...)
 	supplyKey := append(append([]byte{}, banktypes.SupplyKey...), []byte("uhpx")...)
@@ -93,7 +95,7 @@ func TestRepairM_1140_InvarianceCorruption(t *testing.T) {
 		{"post-wei", weiKey, zeroInt, false, "failed to unmarshal wei balance"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			w := app.NewTestWrapperWithSc(t, repair102Time, secp256k1.GenPrivKey().PubKey(), false)
+			w := app.NewTestWrapperWithSc(t, sequencedExecutionTime, secp256k1.GenPrivKey().PubKey(), false)
 			a := w.App
 			t.Cleanup(func() { require.NoError(t, a.Close()) })
 			a.SetDeliverStateToCommit()
@@ -125,8 +127,8 @@ func TestRepairM_1140_InvarianceCorruption(t *testing.T) {
 	}
 }
 
-func TestRepairM_1140_InvarianceUnsupportedStore(t *testing.T) {
-	w := app.NewTestWrapper(t, repair102Time, secp256k1.GenPrivKey().PubKey(), false)
+func TestBlockExecutionInvarianceUnsupportedStore(t *testing.T) {
+	w := app.NewTestWrapper(t, sequencedExecutionTime, secp256k1.GenPrivKey().PubKey(), false)
 	t.Cleanup(func() { require.NoError(t, w.App.Close()) })
 	database := dbm.NewMemDB()
 	defer database.Close()
@@ -140,9 +142,9 @@ func TestRepairM_1140_InvarianceUnsupportedStore(t *testing.T) {
 	require.Zero(t, w.App.LastBlockHeight())
 }
 
-func repairM1140ReplayChain(t *testing.T) *repair102Chain {
+func blockExecutionReplayChain(t *testing.T) *sequencedExecutionChain {
 	t.Helper()
-	h := repair102NewChain(t, repair102SigningKeys(t), 0, false)
+	h := newSequencedExecutionChain(t, sequencedExecutionSigningKeys(t), 0, false)
 	h.a.EvmKeeper.SetReplayedHeight(h.initialContext())
 	h.a.EvmKeeper.SetReplayInitialHeight(h.initialContext(), 100)
 	h.commitInitial(t, false)
@@ -150,14 +152,14 @@ func repairM1140ReplayChain(t *testing.T) *repair102Chain {
 	return h
 }
 
-func repairM1140ReplayOptions() app.ReplayOptions {
+func blockExecutionReplayOptions() app.ReplayOptions {
 	return app.ReplayOptions{RequestTimeout: 50 * time.Millisecond, RetryDelay: time.Millisecond, PollInterval: time.Minute, MaxRetries: 1}
 }
 
-func TestRepairM_1140_ReplayRequestDeadlineAndRestart(t *testing.T) {
+func TestBlockExecutionReplayRequestDeadlineAndRestart(t *testing.T) {
 	for _, delayedMethod := range []string{"eth_blockNumber", "eth_getBlockByNumber"} {
 		t.Run(delayedMethod, func(t *testing.T) {
-			h := repairM1140ReplayChain(t)
+			h := blockExecutionReplayChain(t)
 			var delayed atomic.Int32
 			targets := make(chan string, 8)
 			peer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -190,7 +192,7 @@ func TestRepairM_1140_ReplayRequestDeadlineAndRestart(t *testing.T) {
 				before := h.a.LastCommitID()
 				ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
 				started := time.Now()
-				err := app.ReplayContext(ctx, h.a, repairM1140ReplayOptions())
+				err := app.ReplayContext(ctx, h.a, blockExecutionReplayOptions())
 				cancel()
 				require.Error(t, err)
 				require.ErrorIs(t, err, context.DeadlineExceeded)
@@ -213,10 +215,10 @@ func TestRepairM_1140_ReplayRequestDeadlineAndRestart(t *testing.T) {
 	}
 }
 
-func TestRepairM_1140_ReplayCancellation(t *testing.T) {
+func TestBlockExecutionReplayCancellation(t *testing.T) {
 	for _, blockRequest := range []bool{false, true} {
 		t.Run(fmt.Sprint(blockRequest), func(t *testing.T) {
-			h := repairM1140ReplayChain(t)
+			h := blockExecutionReplayChain(t)
 			entered := make(chan struct{}, 1)
 			release := make(chan struct{})
 			peer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -245,7 +247,7 @@ func TestRepairM_1140_ReplayCancellation(t *testing.T) {
 			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()
 			result := make(chan error, 1)
-			opts := repairM1140ReplayOptions()
+			opts := blockExecutionReplayOptions()
 			opts.RequestTimeout = time.Second
 			go func() { result <- app.ReplayContext(ctx, h.a, opts) }()
 			select {
@@ -266,10 +268,10 @@ func TestRepairM_1140_ReplayCancellation(t *testing.T) {
 	}
 }
 
-func TestRepairM_1140_ReplayRetryClassification(t *testing.T) {
+func TestBlockExecutionReplayRetryClassification(t *testing.T) {
 	for _, code := range []int{http.StatusServiceUnavailable, http.StatusTooManyRequests, http.StatusBadRequest} {
 		t.Run(fmt.Sprint(code), func(t *testing.T) {
-			h := repairM1140ReplayChain(t)
+			h := blockExecutionReplayChain(t)
 			var calls atomic.Int32
 			peer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				calls.Add(1)
@@ -277,7 +279,7 @@ func TestRepairM_1140_ReplayRetryClassification(t *testing.T) {
 			}))
 			defer peer.Close()
 			h.a.EvmKeeper.EthReplayConfig.EthRPC = peer.URL
-			err := app.ReplayContext(t.Context(), h.a, repairM1140ReplayOptions())
+			err := app.ReplayContext(t.Context(), h.a, blockExecutionReplayOptions())
 			require.Error(t, err)
 			expected := int32(2)
 			if code == http.StatusBadRequest {
@@ -289,8 +291,8 @@ func TestRepairM_1140_ReplayRetryClassification(t *testing.T) {
 	}
 }
 
-func TestRepairM_1140_ReplayHeadPollingCancellation(t *testing.T) {
-	h := repairM1140ReplayChain(t)
+func TestBlockExecutionReplayHeadPollingCancellation(t *testing.T) {
+	h := blockExecutionReplayChain(t)
 	polled := make(chan struct{}, 1)
 	peer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var request struct {
@@ -308,7 +310,7 @@ func TestRepairM_1140_ReplayHeadPollingCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	result := make(chan error, 1)
-	go func() { result <- app.ReplayContext(ctx, h.a, repairM1140ReplayOptions()) }()
+	go func() { result <- app.ReplayContext(ctx, h.a, blockExecutionReplayOptions()) }()
 	select {
 	case <-polled:
 	case <-time.After(time.Second):
@@ -325,10 +327,10 @@ func TestRepairM_1140_ReplayHeadPollingCancellation(t *testing.T) {
 	require.EqualValues(t, 1, h.a.LastBlockHeight())
 }
 
-func TestRepairM_1140_ReplayRPCRecovery(t *testing.T) {
+func TestBlockExecutionReplayRPCRecovery(t *testing.T) {
 	for _, code := range []int{-32005, -32002, -32602} {
 		t.Run(fmt.Sprint(code), func(t *testing.T) {
-			h := repairM1140ReplayChain(t)
+			h := blockExecutionReplayChain(t)
 			var calls atomic.Int32
 			recovered := make(chan struct{}, 1)
 			peer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -351,7 +353,7 @@ func TestRepairM_1140_ReplayRPCRecovery(t *testing.T) {
 			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()
 			result := make(chan error, 1)
-			go func() { result <- app.ReplayContext(ctx, h.a, repairM1140ReplayOptions()) }()
+			go func() { result <- app.ReplayContext(ctx, h.a, blockExecutionReplayOptions()) }()
 			if code == -32602 {
 				select {
 				case err := <-result:
