@@ -43,7 +43,7 @@ Paxeer mainnet-beta uses EVM chain id `125` (`0x7d`). Its public JSON-RPC uses
 the node's root URL.
 The app reads its default from `NEXT_PUBLIC_PAXEER_RPC_URL`; mention a custom
 endpoint or selected tenant domain if relevant. See the
-[public RPC reference](../../../../docs/site/docs/reference/public-rpc.md).
+[public RPC reference](../../../../docs/readme/PUBLIC-RPC.md).
 
 ## Screenshots
 

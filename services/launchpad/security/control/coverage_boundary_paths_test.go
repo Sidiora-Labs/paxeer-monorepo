@@ -11,7 +11,7 @@ import (
 )
 
 func TestReplayWorkflowRequiresBoundDurablePayload(t *testing.T) {
-	env := repairM1020EnvironmentFor(t, nil)
+	env := workflowRecoveryEnvironmentFor(t, nil)
 	ctx := context.Background()
 	credential := env.credentials["infrastructure"]
 	proposal := ReplayProposal{Key: "durable-bound-replay", Scope: "service", Reason: "restore projection", Expires: time.Now().Add(time.Hour), Payload: ReplayPayload{ChainID: "125", FromHeight: "1", ToHeight: "2", Projection: "candles", DryRun: true}}
@@ -24,7 +24,7 @@ func TestReplayWorkflowRequiresBoundDurablePayload(t *testing.T) {
 	if err != nil || action.PayloadReference != proposal.Key {
 		t.Fatalf("durable proposal: %+v, %v", action, err)
 	}
-	env.store.replay = repairM1020ReplayProvider(t, nil)
+	env.store.replay = workflowRecoveryReplayProvider(t, nil)
 	base := make(map[string]json.RawMessage, len(env.store.local.objects))
 	for key, body := range env.store.local.objects {
 		base[key] = body
@@ -74,7 +74,7 @@ func TestWorkerAndResponseBoundariesRejectMissingInputs(t *testing.T) {
 	if err := (ReconciliationWorker{}).Run(ctx); !errors.Is(err, Invalid) {
 		t.Fatalf("unconfigured reconciliation: %v", err)
 	}
-	env := repairM1020EnvironmentFor(t, nil)
+	env := workflowRecoveryEnvironmentFor(t, nil)
 	worker := ReconciliationWorker{Store: env.store, Credential: env.credentials["finance"], Assets: []Asset{{}}, Interval: time.Second, Observe: func(string, error) {}}
 	if err := worker.Run(ctx); !errors.Is(err, Invalid) {
 		t.Fatalf("invalid reconciliation asset: %v", err)

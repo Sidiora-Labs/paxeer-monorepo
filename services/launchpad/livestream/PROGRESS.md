@@ -56,7 +56,7 @@ Paxeer is one BFT network with EVM chain ID 125 (`0x7d`); its kernel participate
 in the network and proposes blocks. Receipts are final when their blocks commit.
 The connected runtime checks chain ID 125. Public node JSON-RPC uses the root
 path; the
-[public RPC reference](../../../docs/site/docs/reference/public-rpc.md) lists the
+[public RPC reference](../../../docs/readme/PUBLIC-RPC.md) lists the
 node endpoints. Tenant sub-chains are database domains within this network.
 
 ## Current HTTP and lifecycle contract

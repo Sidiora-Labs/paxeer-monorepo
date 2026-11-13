@@ -13,7 +13,7 @@ Paxeer integrations use one BFT network, chain ID 125 (`0x7d`), whose kernel
 proposes blocks. A receipt is final once its block is committed. Public node
 JSON-RPC uses the root path, for example
 `https://api1.mainnet-beta.paxeer.network/`; configure that separately from this
-SDK's data gateway. See the [public RPC reference](../../../docs/site/docs/reference/public-rpc.md).
+SDK's data gateway. See the [public RPC reference](../../../docs/readme/PUBLIC-RPC.md).
 
 ## Install
 

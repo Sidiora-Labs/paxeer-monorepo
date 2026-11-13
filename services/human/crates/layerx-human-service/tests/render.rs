@@ -1,5 +1,5 @@
 mod durable_approval {
-    include!("support/repair_22_33_44_approval.rs");
+    include!("support/approval_session_fixture.rs");
 }
 
 #[path = "retired_crypto_codec_2.rs"]

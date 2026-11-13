@@ -14,7 +14,7 @@ Paxeer mainnet-beta is one BFT network running `paxd`, with EVM chain ID `125`
 final when its block is committed. Human provisioning registers identity and
 recovery state, opens an asset account and funds it on this same chain.
 Use HTTPS JSON-RPC at the node root path and check `eth_chainId` before signing. See
-[Public RPC endpoints](../../../../docs/site/docs/reference/public-rpc.md).
+[Public RPC endpoints](../../../../docs/readme/PUBLIC-RPC.md).
 Node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test` and `txpool`.
 The `px` namespace answers from node state; `px_register` and
 `px_requestFunds` are operations of the hosted identity and faucet

@@ -13876,6 +13876,18 @@ value = "The build command of task 22.38.37 runs the install target of chain.mk 
 basis = "Gotcha 4373. The room reads the node binary from the search path."
 affects = []
 
+[decision.3461]
+title = "The paths of task 22.42.177 hold the rollback page of the wallet gateway"
+value = "The paths of task 22.42.177 hold docs/wallet/service/runbooks/gateway-rollback.md. The task gives the two links to the example environment files of the gateway deployment the full path of the file as text and changes nothing else in the page."
+basis = "Gotcha 4374. The verification of the task runs the test that reads the page."
+affects = []
+
+[decision.3462]
+title = "Task 22.41.123 brings the batch section of TestProofRpcRoutes to the answer for a batch of one request"
+value = "Task 22.41.123 changes the last block of the batch section of TestProofRpcRoutes in consensus/internal/rpc/core/proof_rpc_routes_test.go: a batch of one request returns no error and one result. The task changes no other assertion of the file."
+basis = "Gotcha 4375. The verification of the task runs the tests of the package."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -170120,7 +170132,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.122]
 title = "Move the task records and name the files after what they hold in sdk/wallet"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -170152,7 +170164,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.109]
 title = "Move the task records and name the files after what they hold in sdk/launchpad/packages"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -170854,7 +170866,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.4]
 title = "Move the task records and name the files after what they hold in apps/explorer/nextjs and 3 more directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -194438,7 +194450,7 @@ do_1 = "do_1 Decision 3447, gotcha 4363. An example environment file of a deploy
 do_2 = "do_2 For each file in the paths of this task, find with git log the last revision of the file before the task of the series 22.42 that changed it, and compare that content with the present content. Give every variable that the earlier file held as an assignment its earlier value again, as an assignment and not as a comment, and bring back each comment line of the earlier file that still describes the deployment. Keep every variable that was added since with the value it has now, and keep the file readable: one block for the values of the deployment and one for the added variables. Write no secret value; a variable that was empty in the earlier file stays empty."
 do_3 = "do_3 Find with git grep the tests and the scripts that read these files, tests/ci/test_wallet_service_docs_references.py and services/wallet/gateway/test/deploy-env.test.ts among them, and run them by hand; they pass at the final revision. Where a page under docs/release/variables names a default that differs from a restored value, leave the page as it is and name the variable in the final message. Change only the files in the paths of this task. Delete, rename and move nothing. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["services/wallet/deploy/attestor-1.env.example", "services/wallet/deploy/attestor-2.env.example", "services/wallet/deploy/attestor-3.env.example", "services/wallet/deploy/attestor-4.env.example", "services/wallet/deploy/attestor-5.env.example", "services/wallet/deploy/railway.env.example", "services/wallet/deploy/redis.railway.env.example"]
+touches = ["services/wallet/deploy/attestor-1.env.example", "services/wallet/deploy/attestor-2.env.example", "services/wallet/deploy/attestor-3.env.example", "services/wallet/deploy/attestor-4.env.example", "services/wallet/deploy/attestor-5.env.example", "services/wallet/deploy/railway.env.example", "services/wallet/deploy/redis.railway.env.example", "docs/wallet/service/runbooks/gateway-rollback.md"]
 tests = []
 planned_paths = []
 build_cmd = "python3 -m pip install -q pytest PyYAML"
@@ -194454,6 +194466,7 @@ time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "do_4 Decision 3461, gotcha 4374. The paths of this task now hold docs/wallet/service/runbooks/gateway-rollback.md. The page links the two example environment files of the gateway deployment with the file name alone as text. Give each of the two links the full path of the file from the repository root as its text, inside code marks, and keep the target of the link. Change nothing else in the page. The earlier work of this task stays as it is. Run the build once and the verification once at the final revision."
 
 [task.22.39.513]
 title = "Bring the lock file of the agent workspace in line with the manifests of the members it reads by path"
@@ -204845,7 +204858,7 @@ do_7 = "do_7 Decision 3457, gotcha 4371. One file of services/human/tests reads 
 
 [task.22.43.149]
 title = "Move the task records and name the files after what they hold in services/human/crates/layerx-human-service/tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -205039,7 +205052,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.134]
 title = "Move the task records and name the files after what they hold in services/agent/tests and 1 more directory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -205200,7 +205213,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.128]
 title = "Move the task records and name the files after what they hold in services/agent/crates/layerx-agentd/src"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -238389,6 +238402,7 @@ time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "do_4 Decision 3462, gotcha 4375. The file consensus/internal/rpc/core/proof_rpc_routes_test.go is among the paths of this task. The last block of the batch section of TestProofRpcRoutes sends a batch of one request and holds a type error of the decoder. Read writeRPCResponse in consensus/rpc/jsonrpc/server/http_server.go and unmarshalResponseBytesArray in consensus/rpc/jsonrpc/client/decode.go and state in the final message the shape the server writes for a batch of one request. Bring the block to that behaviour: Send returns no error and one result, and the result is the value that the Status call of the batch returned. Write the comment of the block to match and remove an import that the file no longer uses. Change no other assertion of the file. The earlier work of this task stays as it is. Run the build once and the verification once at the final revision."
 
 [task.22.41.120]
 title = "Read the node inventory of the bring-up tools from docs/readme/PUBLIC-RPC.md"
@@ -238806,7 +238820,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.204]
 title = "Move the task records and name the files after what they hold in tools/benchmark"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -239221,7 +239235,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.173]
 title = "Move the task records and name the files after what they hold in services/platform/perps-data"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -239253,7 +239267,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.164]
 title = "Move the task records and name the files after what they hold in services/launchpad/user"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -239349,7 +239363,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.161]
 title = "Move the task records and name the files after what they hold in services/launchpad/ranking-algo and 1 more directory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -239828,7 +239842,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.118]
 title = "Move the task records and name the files after what they hold in sdk/telemetry"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -239924,7 +239938,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.115]
 title = "Move the task records and name the files after what they hold in sdk/store"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -239988,7 +240002,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.112]
 title = "Move the task records and name the files after what they hold in sdk/platform and 3 more directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -240147,7 +240161,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.105]
 title = "Move the task records and name the files after what they hold in sdk/cosmovisor"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -240211,7 +240225,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.102]
 title = "Move the task records and name the files after what they hold in sdk/client"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -240275,7 +240289,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.100]
 title = "Move the task records and name the files after what they hold in sdk/baseapp"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -240467,7 +240481,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.65]
 title = "Move the task records and name the files after what they hold in modules/mint"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -326301,7 +326315,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.88]
 title = "Move the task records and name the files after what they hold in precompiles/staking"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -326397,7 +326411,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.85]
 title = "Move the task records and name the files after what they hold in precompiles/pointer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -326588,7 +326602,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.77]
 title = "Move the task records and name the files after what they hold in precompiles/ibc"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -326715,7 +326729,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.73]
 title = "Move the task records and name the files after what they hold in precompiles/addr"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -326874,7 +326888,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.62]
 title = "Move the task records and name the files after what they hold in modules/layerxledger"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -326938,7 +326952,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.56]
 title = "Move the task records and name the files after what they hold in modules/layerxauth"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373018,7 +373032,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.41.124]
 title = "Link the pages of apps, contracts, deploy, modules, rpc and programs to the node inventory page"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.41.119"]
@@ -373048,7 +373062,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.41.122]
 title = "Take the earlier translation directory out of the documentation check of tools/jev"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373078,7 +373092,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.41.121]
 title = "Name present pages in the gate files of tools/paxeer-x"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.41.119"]
@@ -373108,7 +373122,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.41.119]
 title = "Give the page docs/readme/PUBLIC-RPC.md the node inventory and the method contracts of the earlier reference page"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373138,7 +373152,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.180]
 title = "Give the example environment files of the deployments under tools/ops the values of the deployment again"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373904,7 +373918,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.211]
 title = "Move the task records and name the files after what they hold in tools/deps"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373999,7 +374013,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.207]
 title = "Move the task records and name the files after what they hold in tools/ci"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -378893,7 +378907,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.30]
 title = "Bring the translated front pages in line with the front page of the repository"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["22.42.29"]
@@ -449247,7 +449261,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.140]
 title = "Move the task records and name the files after what they hold in services/explorer/backend/apps/explorer/test/repair"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -449343,7 +449357,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.137]
 title = "Move the task records and name the files after what they hold in services/explorer/backend/apps/block_scout_web"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
