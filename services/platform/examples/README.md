@@ -8,7 +8,7 @@ is finality. Tenant domains are database namespaces within this network.
 ## Endpoints and prerequisites
 
 Beta profiles use public node JSON-RPC at the root path; see the
-[public RPC reference](../../../docs/site/docs/reference/public-rpc.md). Nodes and
+[public RPC reference](../../../docs/readme/PUBLIC-RPC.md). Nodes and
 hosted application services have different APIs. The node serves `px_*` state
 reads; registration and funding use the
 [hosted gateway](../hosted/gateway/README.md). Human payments and merchant

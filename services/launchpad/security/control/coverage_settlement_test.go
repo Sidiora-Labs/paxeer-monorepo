@@ -14,7 +14,7 @@ import (
 
 func TestSettlementWorkerRetainsProviderStateByObligationKey(t *testing.T) {
 	verifier := chain(t, nil)
-	env := repairM1020EnvironmentFor(t, verifier)
+	env := workflowRecoveryEnvironmentFor(t, verifier)
 	ctx := context.Background()
 	key := "bounty.coverage-settlement"
 	obligation := Obligation{ID: id(), Scope: "service", BountyID: "coverage-settlement", IdempotencyKey: key, Amount: "1000", Destination: beneficiary, AuthorityReference: custody, State: controlPending, Asset: pax, AssetKey: pax.Key(), Created: time.Now(), Revision: 1}
@@ -56,7 +56,7 @@ func TestSettlementWorkerRetainsProviderStateByObligationKey(t *testing.T) {
 		}
 	}))
 	defer server.Close()
-	provider, err := NewPayoutProvider(server.URL, strings.Repeat("p", 32), "settlement controller", custody, repairM1020Transport(server))
+	provider, err := NewPayoutProvider(server.URL, strings.Repeat("p", 32), "settlement controller", custody, workflowRecoveryTransport(server))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -90,7 +90,7 @@ func TestSettlementWorkerRetainsProviderStateByObligationKey(t *testing.T) {
 	if err != nil || result.State != controlPending || result.Revision != 2 || lookups.Load() != 1 || submissions.Load() != 1 {
 		t.Fatalf("retained payout state: %+v, %v, lookup=%d submit=%d", result, err, lookups.Load(), submissions.Load())
 	}
-	attempt := repairM1020Read[payoutAttempt](t, env.store, "payout_attempt", key)
+	attempt := workflowRecoveryRead[payoutAttempt](t, env.store, "payout_attempt", key)
 	if !attempt.Accepted || !attempt.Submitted || attempt.State != controlPending || attempt.Claim != "" {
 		t.Fatalf("retained payout attempt: %+v", attempt)
 	}
@@ -103,7 +103,7 @@ func TestSettlementWorkerRetainsProviderStateByObligationKey(t *testing.T) {
 	if err := env.store.ObserveSettlement(ctx, env.credentials["finance"], "service", key, "unconfirmed chain reference", "0x"+strings.Repeat("1", 64)); err != nil {
 		t.Fatalf("unconfirmed settlement retained: %v", err)
 	}
-	current := repairM1020Read[Obligation](t, env.store, controlSettlement, key)
+	current := workflowRecoveryRead[Obligation](t, env.store, controlSettlement, key)
 	if current.State != controlUnknown || current.Revision != 3 || current.SettlementReference != "" {
 		t.Fatalf("unknown chain proof: %+v", current)
 	}

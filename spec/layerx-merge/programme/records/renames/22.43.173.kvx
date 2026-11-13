@@ -1,0 +1,388 @@
+[manifest]
+task = "22.43.173"
+records_moved = 15
+files_renamed = 23
+
+[file.1]
+from = "services/platform/perps-data/internal/auth/repair_m1485_test.go"
+to = "services/platform/perps-data/internal/auth/challenge_lifecycle_test.go"
+
+[file.2]
+from = "services/platform/perps-data/internal/config/repair_m830_test.go"
+to = "services/platform/perps-data/internal/config/endpoint_validation_test.go"
+
+[file.3]
+from = "services/platform/perps-data/internal/delivery/repair_210_test.go"
+to = "services/platform/perps-data/internal/delivery/transport_budget_test.go"
+
+[file.4]
+from = "services/platform/perps-data/internal/graphql/repair_m829_test.go"
+to = "services/platform/perps-data/internal/graphql/index_price_test.go"
+
+[file.5]
+from = "services/platform/perps-data/internal/graphql/testdata/repair_m829/capture.py"
+to = "services/platform/perps-data/internal/graphql/testdata/index_price/capture.py"
+
+[file.6]
+from = "services/platform/perps-data/internal/graphql/testdata/repair_m829/postgres.json"
+to = "services/platform/perps-data/internal/graphql/testdata/index_price/postgres.json"
+
+[file.7]
+from = "services/platform/perps-data/internal/indexer/repair_209_test.go"
+to = "services/platform/perps-data/internal/indexer/recovery_test.go"
+
+[file.8]
+from = "services/platform/perps-data/internal/indexer/testdata/repair_209_rpc.json"
+to = "services/platform/perps-data/internal/indexer/testdata/recovery_rpc.json"
+
+[file.9]
+from = "services/platform/perps-data/internal/portal/repair_m831_test.go"
+to = "services/platform/perps-data/internal/portal/explorer_links_test.go"
+
+[file.10]
+from = "services/platform/perps-data/internal/publish/repair_m1484_test.go"
+to = "services/platform/perps-data/internal/publish/envelope_budget_test.go"
+
+[file.11]
+from = "services/platform/perps-data/internal/replay/repair_m826_test.go"
+to = "services/platform/perps-data/internal/replay/spot_projection_recovery_test.go"
+
+[file.12]
+from = "services/platform/perps-data/internal/rest/repair_m828_database_test.go"
+to = "services/platform/perps-data/internal/rest/spot_board_database_test.go"
+
+[file.13]
+from = "services/platform/perps-data/internal/rest/repair_m828_schema.sql"
+to = "services/platform/perps-data/internal/rest/spot_board_schema.sql"
+
+[file.14]
+from = "services/platform/perps-data/internal/rest/repair_m828_test.go"
+to = "services/platform/perps-data/internal/rest/price_and_spot_board_test.go"
+
+[file.15]
+from = "services/platform/perps-data/internal/source/repair_m1483_recovery_test.go"
+to = "services/platform/perps-data/internal/source/follower_recovery_test.go"
+
+[file.16]
+from = "services/platform/perps-data/internal/source/repair_m1483_test.go"
+to = "services/platform/perps-data/internal/source/endpoint_security_test.go"
+
+[file.17]
+from = "services/platform/perps-data/internal/source/testdata/repair_m1483_rpc.json"
+to = "services/platform/perps-data/internal/source/testdata/follower_recovery_rpc.json"
+
+[file.18]
+from = "services/platform/perps-data/internal/store/repair_21_test.go"
+to = "services/platform/perps-data/internal/store/spot_recovery_test.go"
+
+[file.19]
+from = "services/platform/perps-data/internal/store/repair_468_test.go"
+to = "services/platform/perps-data/internal/store/spot_board_migration_test.go"
+
+[file.20]
+from = "services/platform/perps-data/internal/store/repair_m827_test.go"
+to = "services/platform/perps-data/internal/store/projection_recovery_test.go"
+
+[file.21]
+from = "services/platform/perps-data/loadtest/repair_m832_memory_test.go"
+to = "services/platform/perps-data/loadtest/production_storage_test.go"
+
+[file.22]
+from = "services/platform/perps-data/loadtest/repair_m832_test.go"
+to = "services/platform/perps-data/loadtest/production_profile_test.go"
+
+[file.23]
+from = "services/platform/perps-data/repair_m833_test.go"
+to = "services/platform/perps-data/setup_requirements_test.go"
+
+[file.24]
+from = "services/platform/perps-data/internal/auth/repair_m1485.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/perps-data/internal/auth/repair_m1485.kvx"
+
+[file.25]
+from = "services/platform/perps-data/internal/config/repair_m830.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/perps-data/internal/config/repair_m830.kvx"
+
+[file.26]
+from = "services/platform/perps-data/internal/delivery/repair_210.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/perps-data/internal/delivery/repair_210.kvx"
+
+[file.27]
+from = "services/platform/perps-data/internal/graphql/repair_m829.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/perps-data/internal/graphql/repair_m829.kvx"
+
+[file.28]
+from = "services/platform/perps-data/internal/indexer/repair_209.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/perps-data/internal/indexer/repair_209.kvx"
+
+[file.29]
+from = "services/platform/perps-data/internal/portal/repair_m831.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/perps-data/internal/portal/repair_m831.kvx"
+
+[file.30]
+from = "services/platform/perps-data/internal/publish/repair_m1484.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/perps-data/internal/publish/repair_m1484.kvx"
+
+[file.31]
+from = "services/platform/perps-data/internal/replay/repair_m826.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/perps-data/internal/replay/repair_m826.kvx"
+
+[file.32]
+from = "services/platform/perps-data/internal/rest/repair_m828.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/perps-data/internal/rest/repair_m828.kvx"
+
+[file.33]
+from = "services/platform/perps-data/internal/source/repair_m1483.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/perps-data/internal/source/repair_m1483.kvx"
+
+[file.34]
+from = "services/platform/perps-data/internal/store/repair_21.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/perps-data/internal/store/repair_21.kvx"
+
+[file.35]
+from = "services/platform/perps-data/internal/store/repair_468.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/perps-data/internal/store/repair_468.kvx"
+
+[file.36]
+from = "services/platform/perps-data/internal/store/repair_m827.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/perps-data/internal/store/repair_m827.kvx"
+
+[file.37]
+from = "services/platform/perps-data/loadtest/repair_m832.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/perps-data/loadtest/repair_m832.kvx"
+
+[file.38]
+from = "services/platform/perps-data/repair_m833.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/perps-data/repair_m833.kvx"
+
+[reference.1]
+file = "spec/layerx-merge/dispositions/d22-17.kvx"
+name = "services/platform/perps-data/internal/indexer/repair_209_test.go"
+
+[reference.2]
+file = "spec/layerx-merge/dispositions/d22-24.kvx"
+name = "services/platform/perps-data/internal/publish/repair_m1484_test.go"
+
+[reference.3]
+file = "spec/layerx-merge/dispositions/d22-24.kvx"
+name = "services/platform/perps-data/internal/source/repair_m1483_test.go"
+
+[reference.4]
+file = "spec/layerx-merge/dispositions/d22-30.kvx"
+name = "services/platform/perps-data/internal/graphql/repair_m829_test.go"
+
+[reference.5]
+file = "spec/layerx-merge/dispositions/d22-30.kvx"
+name = "services/platform/perps-data/internal/replay/repair_m826_test.go"
+
+[reference.6]
+file = "spec/layerx-merge/dispositions/d22-30.kvx"
+name = "services/platform/perps-data/internal/rest/repair_m828_test.go"
+
+[reference.7]
+file = "spec/layerx-merge/dispositions/d22-30.kvx"
+name = "services/platform/perps-data/internal/store/repair_m827_test.go"
+
+[reference.8]
+file = "spec/layerx-merge/dispositions/d22-30.kvx"
+name = "services/platform/perps-data/loadtest/repair_m832_test.go"
+
+[reference.9]
+file = "spec/layerx-merge/programme/issues/1686.kvx"
+name = "services/platform/perps-data/internal/graphql/repair_m829_test.go"
+
+[reference.10]
+file = "spec/layerx-merge/programme/issues/input/1686.md"
+name = "services/platform/perps-data/internal/graphql/repair_m829.kvx"
+
+[reference.11]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_209_test.go"
+
+[reference.12]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_m1483_test.go"
+
+[reference.13]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_m1484_test.go"
+
+[reference.14]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_m826_test.go"
+
+[reference.15]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_m827_test.go"
+
+[reference.16]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_m828_test.go"
+
+[reference.17]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_m829_test.go"
+
+[reference.18]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_m832_test.go"
+
+[reference.19]
+file = "spec/layerx-merge/qualification.kvx"
+name = "services/platform/perps-data/internal/graphql/repair_m829_test.go"
+
+[reference.20]
+file = "spec/layerx-merge/qualification.kvx"
+name = "services/platform/perps-data/internal/indexer/repair_209_test.go"
+
+[reference.21]
+file = "spec/layerx-merge/qualification.kvx"
+name = "services/platform/perps-data/internal/publish/repair_m1484_test.go"
+
+[reference.22]
+file = "spec/layerx-merge/qualification.kvx"
+name = "services/platform/perps-data/internal/replay/repair_m826_test.go"
+
+[reference.23]
+file = "spec/layerx-merge/qualification.kvx"
+name = "services/platform/perps-data/internal/rest/repair_m828_test.go"
+
+[reference.24]
+file = "spec/layerx-merge/qualification.kvx"
+name = "services/platform/perps-data/internal/source/repair_m1483_test.go"
+
+[reference.25]
+file = "spec/layerx-merge/qualification.kvx"
+name = "services/platform/perps-data/internal/store/repair_m827_test.go"
+
+[reference.26]
+file = "spec/layerx-merge/qualification.kvx"
+name = "services/platform/perps-data/loadtest/repair_m832_test.go"
+
+[reference.27]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_209_test.go"
+
+[reference.28]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_210_test.go"
+
+[reference.29]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_21_test.go"
+
+[reference.30]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_468.kvx"
+
+[reference.31]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1484_test.go"
+
+[reference.32]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1485_test.go"
+
+[reference.33]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m826_test.go"
+
+[reference.34]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m827_test.go"
+
+[reference.35]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m828_schema.sql"
+
+[reference.36]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m828_test.go"
+
+[reference.37]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m829_test.go"
+
+[reference.38]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m830_test.go"
+
+[reference.39]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m831_test.go"
+
+[reference.40]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m832_test.go"
+
+[reference.41]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m833_test.go"
+
+[reference.42]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/platform/perps-data/internal/auth/repair_m1485_test.go"
+
+[reference.43]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/platform/perps-data/internal/config/repair_m830_test.go"
+
+[reference.44]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/platform/perps-data/internal/delivery/repair_210_test.go"
+
+[reference.45]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/platform/perps-data/internal/graphql/repair_m829_test.go"
+
+[reference.46]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/platform/perps-data/internal/indexer/repair_209_test.go"
+
+[reference.47]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/platform/perps-data/internal/portal/repair_m831_test.go"
+
+[reference.48]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/platform/perps-data/internal/publish/repair_m1484_test.go"
+
+[reference.49]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/platform/perps-data/internal/replay/repair_m826_test.go"
+
+[reference.50]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/platform/perps-data/internal/rest/repair_m828_schema.sql"
+
+[reference.51]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/platform/perps-data/internal/rest/repair_m828_test.go"
+
+[reference.52]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/platform/perps-data/internal/source/repair_m1483_test.go"
+
+[reference.53]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/platform/perps-data/internal/store/repair_21_test.go"
+
+[reference.54]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/platform/perps-data/internal/store/repair_468.kvx"
+
+[reference.55]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/platform/perps-data/internal/store/repair_468_test.go"
+
+[reference.56]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/platform/perps-data/internal/store/repair_m827_test.go"
+
+[reference.57]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/platform/perps-data/loadtest/repair_m832_test.go"
+
+[reference.58]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/platform/perps-data/repair_m833_test.go"

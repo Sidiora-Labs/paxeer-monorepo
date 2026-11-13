@@ -1,0 +1,760 @@
+[manifest]
+task = "22.43.112"
+records_moved = 19
+files_renamed = 20
+
+[file.1]
+from = "sdk/platform/dotnet/repair_138.go"
+to = "sdk/platform/dotnet/doc.go"
+
+[file.2]
+from = "sdk/platform/dotnet/repair_138_test.go"
+to = "sdk/platform/dotnet/agent_transport_conformance_test.go"
+
+[file.3]
+from = "sdk/platform/dotnet/repair_m1368_test.go"
+to = "sdk/platform/dotnet/sdk_contract_source_test.go"
+
+[file.4]
+from = "sdk/platform/dotnet/repair_m1369_test.go"
+to = "sdk/platform/dotnet/native_program_conformance_test.go"
+
+[file.5]
+from = "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/RepairM1368Tests.cs"
+to = "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/NativeLifecycleAndStreamTests.cs"
+
+[file.6]
+from = "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/RepairM1369Native.cs"
+to = "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/NativeProgramTestVectors.cs"
+
+[file.7]
+from = "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/Fixtures/repair-m1369-discovery-abi.json"
+to = "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/Fixtures/native-program-discovery-abi.json"
+
+[file.8]
+from = "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/Fixtures/repair-m1369-recorded-call.json"
+to = "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/Fixtures/native-program-recorded-call.json"
+
+[file.9]
+from = "sdk/platform/generators/tests/test_repair_22_31_359.py"
+to = "sdk/platform/generators/tests/test_native_prepare_conformance.py"
+
+[file.10]
+from = "sdk/platform/go/repair_141_test.go"
+to = "sdk/platform/go/receipt_transport_conformance_test.go"
+
+[file.11]
+from = "sdk/platform/go/repair_m1384_test.go"
+to = "sdk/platform/go/sdk_contract_conformance_test.go"
+
+[file.12]
+from = "sdk/platform/go/repair_m1385_test.go"
+to = "sdk/platform/go/secret_stream_conformance_test.go"
+
+[file.13]
+from = "sdk/platform/dotnet/tests/Repair138Producer/Cargo.toml"
+to = "sdk/platform/dotnet/tests/AgentTransportProducer/Cargo.toml"
+
+[file.14]
+from = "sdk/platform/dotnet/tests/Repair138Producer/main.rs"
+to = "sdk/platform/dotnet/tests/AgentTransportProducer/main.rs"
+
+[file.15]
+from = "sdk/platform/dotnet/tests/Repair138/Program.cs"
+to = "sdk/platform/dotnet/tests/AgentTransportConformance/Program.cs"
+
+[file.16]
+from = "sdk/platform/dotnet/tests/Repair138/Repair138.csproj"
+to = "sdk/platform/dotnet/tests/AgentTransportConformance/AgentTransportConformance.csproj"
+
+[file.17]
+from = "sdk/platform/go/testdata/repair141/mirror-transcript.json"
+to = "sdk/platform/go/testdata/receipt_transport/mirror-transcript.json"
+
+[file.18]
+from = "sdk/platform/go/testdata/repair141/native-deprecate.json"
+to = "sdk/platform/go/testdata/receipt_transport/native-deprecate.json"
+
+[file.19]
+from = "sdk/platform/go/testdata/repair_m1384/checkpoint.json"
+to = "sdk/platform/go/testdata/committed_receipt/checkpoint.json"
+
+[file.20]
+from = "sdk/platform/go/testdata/repair_m1384/domain-rpc.json"
+to = "sdk/platform/go/testdata/committed_receipt/domain-rpc.json"
+
+[file.21]
+from = "sdk/platform/dotnet/repair_138.kvx"
+to = "spec/layerx-merge/programme/records/sdk/platform/dotnet/repair_138.kvx"
+
+[file.22]
+from = "sdk/platform/dotnet/repair_22_39_342.kvx"
+to = "spec/layerx-merge/programme/records/sdk/platform/dotnet/repair_22_39_342.kvx"
+
+[file.23]
+from = "sdk/platform/dotnet/repair_22_39_354.kvx"
+to = "spec/layerx-merge/programme/records/sdk/platform/dotnet/repair_22_39_354.kvx"
+
+[file.24]
+from = "sdk/platform/dotnet/repair_22_39_361.kvx"
+to = "spec/layerx-merge/programme/records/sdk/platform/dotnet/repair_22_39_361.kvx"
+
+[file.25]
+from = "sdk/platform/dotnet/repair_m1368.kvx"
+to = "spec/layerx-merge/programme/records/sdk/platform/dotnet/repair_m1368.kvx"
+
+[file.26]
+from = "sdk/platform/dotnet/repair_m1369.kvx"
+to = "spec/layerx-merge/programme/records/sdk/platform/dotnet/repair_m1369.kvx"
+
+[file.27]
+from = "sdk/platform/generators/repair_22_31_359.kvx"
+to = "spec/layerx-merge/programme/records/sdk/platform/generators/repair_22_31_359.kvx"
+
+[file.28]
+from = "sdk/platform/go/cmd/conformance/repair_22_39_176.kvx"
+to = "spec/layerx-merge/programme/records/sdk/platform/go/cmd/conformance/repair_22_39_176.kvx"
+
+[file.29]
+from = "sdk/platform/go/repair_141.kvx"
+to = "spec/layerx-merge/programme/records/sdk/platform/go/repair_141.kvx"
+
+[file.30]
+from = "sdk/platform/go/repair_22_39_341.kvx"
+to = "spec/layerx-merge/programme/records/sdk/platform/go/repair_22_39_341.kvx"
+
+[file.31]
+from = "sdk/platform/go/repair_22_39_360.kvx"
+to = "spec/layerx-merge/programme/records/sdk/platform/go/repair_22_39_360.kvx"
+
+[file.32]
+from = "sdk/platform/go/repair_m1384.kvx"
+to = "spec/layerx-merge/programme/records/sdk/platform/go/repair_m1384.kvx"
+
+[file.33]
+from = "sdk/platform/go/repair_m1385.kvx"
+to = "spec/layerx-merge/programme/records/sdk/platform/go/repair_m1385.kvx"
+
+[file.34]
+from = "sdk/platform/repair_22_39_237.kvx"
+to = "spec/layerx-merge/programme/records/sdk/platform/repair_22_39_237.kvx"
+
+[file.35]
+from = "sdk/platform/repair_22_39_294.kvx"
+to = "spec/layerx-merge/programme/records/sdk/platform/repair_22_39_294.kvx"
+
+[file.36]
+from = "sdk/platform/repair_22_39_309.kvx"
+to = "spec/layerx-merge/programme/records/sdk/platform/repair_22_39_309.kvx"
+
+[file.37]
+from = "sdk/platform/repair_22_39_350.kvx"
+to = "spec/layerx-merge/programme/records/sdk/platform/repair_22_39_350.kvx"
+
+[file.38]
+from = "sdk/platform/repair_22_39_358.kvx"
+to = "spec/layerx-merge/programme/records/sdk/platform/repair_22_39_358.kvx"
+
+[file.39]
+from = "sdk/platform/repair_22_39_363.kvx"
+to = "spec/layerx-merge/programme/records/sdk/platform/repair_22_39_363.kvx"
+
+[reference.1]
+file = "GOTCHA.kvx"
+name = "Repair138"
+
+[reference.2]
+file = "GOTCHA.kvx"
+name = "Repair138Producer"
+
+[reference.3]
+file = "GOTCHA.kvx"
+name = "repair_22_39_341.kvx"
+
+[reference.4]
+file = "GOTCHA.kvx"
+name = "repair_22_39_342.kvx"
+
+[reference.5]
+file = "GOTCHA.kvx"
+name = "repair_22_39_354.kvx"
+
+[reference.6]
+file = "GOTCHA.kvx"
+name = "repair_22_39_360.kvx"
+
+[reference.7]
+file = "GOTCHA.kvx"
+name = "repair_22_39_361.kvx"
+
+[reference.8]
+file = "GOTCHA.kvx"
+name = "repair_m1384"
+
+[reference.9]
+file = "GOTCHA.kvx"
+name = "sdk/platform/dotnet/tests/Repair138"
+
+[reference.10]
+file = "GOTCHA.kvx"
+name = "sdk/platform/dotnet/tests/Repair138Producer"
+
+[reference.11]
+file = "GOTCHA.kvx"
+name = "sdk/platform/dotnet/tests/Repair138Producer/Cargo.toml"
+
+[reference.12]
+file = "GOTCHA.kvx"
+name = "sdk/platform/go/repair_22_39_341.kvx"
+
+[reference.13]
+file = "GOTCHA.kvx"
+name = "sdk/platform/go/testdata/repair_m1384"
+
+[reference.14]
+file = "GOTCHA.kvx"
+name = "sdk/platform/go/testdata/repair_m1384/checkpoint.json"
+
+[reference.15]
+file = "docs/release/7.0.0-readiness-matrix.md"
+name = "Repair138"
+
+[reference.16]
+file = "docs/release/7.0.0-readiness-matrix.md"
+name = "Repair138Producer"
+
+[reference.17]
+file = "scripts/workspace/check-paxeer-manifests-test.sh"
+name = "repair_138_test.go"
+
+[reference.18]
+file = "scripts/workspace/check-paxeer-manifests-test.sh"
+name = "sdk/platform/dotnet/repair_138_test.go"
+
+[reference.19]
+file = "services/agent/tools/sdk-gen/src/repair_22_33_1577.kvx"
+name = "repair141"
+
+[reference.20]
+file = "services/agent/tools/sdk-gen/src/repair_22_33_1577.kvx"
+name = "sdk/platform/go/testdata/repair141"
+
+[reference.21]
+file = "services/agent/tools/sdk-gen/src/repair_22_33_1577.kvx"
+name = "sdk/platform/go/testdata/repair141/native-deprecate.json"
+
+[reference.22]
+file = "services/agent/tools/sdk-gen/tests/repair_22_33_1577.rs"
+name = "repair141"
+
+[reference.23]
+file = "services/agent/tools/sdk-gen/tests/repair_22_33_1577.rs"
+name = "sdk/platform/go/testdata/repair141"
+
+[reference.24]
+file = "services/agent/tools/sdk-gen/tests/repair_22_33_1577.rs"
+name = "sdk/platform/go/testdata/repair141/native-deprecate.json"
+
+[reference.25]
+file = "spec/layerx-merge/dispositions/d22-17.kvx"
+name = "repair_141_test.go"
+
+[reference.26]
+file = "spec/layerx-merge/dispositions/d22-17.kvx"
+name = "sdk/platform/go/repair_141_test.go"
+
+[reference.27]
+file = "spec/layerx-merge/dispositions/d22-23.kvx"
+name = "repair_m1368_test.go"
+
+[reference.28]
+file = "spec/layerx-merge/dispositions/d22-23.kvx"
+name = "sdk/platform/dotnet/repair_m1368_test.go"
+
+[reference.29]
+file = "spec/layerx-merge/programme/issues/1854.kvx"
+name = "TestRepairM_1368_agent_envelope_tests"
+
+[reference.30]
+file = "spec/layerx-merge/programme/issues/1854.kvx"
+name = "TestRepairM_1368_agent_probe_registration_gap"
+
+[reference.31]
+file = "spec/layerx-merge/programme/issues/1854.kvx"
+name = "TestRepairM_1368_portable_consensus_test_trust"
+
+[reference.32]
+file = "spec/layerx-merge/programme/issues/1854.kvx"
+name = "TestRepairM_1368_portable_positive_vector_count"
+
+[reference.33]
+file = "spec/layerx-merge/programme/issues/1854.kvx"
+name = "TestRepairM_1368_program_deployment_limit"
+
+[reference.34]
+file = "spec/layerx-merge/programme/issues/1854.kvx"
+name = "TestRepairM_1368_programs_legacy_constructor"
+
+[reference.35]
+file = "spec/layerx-merge/programme/issues/1854.kvx"
+name = "TestRepairM_1368_retired_program_transport_test_path"
+
+[reference.36]
+file = "spec/layerx-merge/programme/issues/1854.kvx"
+name = "TestRepairM_1368_stream_history_growth"
+
+[reference.37]
+file = "spec/layerx-merge/programme/issues/1854.kvx"
+name = "repairM1368Case"
+
+[reference.38]
+file = "spec/layerx-merge/programme/issues/1854.kvx"
+name = "repair_m1368_test.go"
+
+[reference.39]
+file = "spec/layerx-merge/programme/issues/1854.kvx"
+name = "sdk/platform/dotnet/repair_m1368_test.go"
+
+[reference.40]
+file = "spec/layerx-merge/programme/issues/input/1854.md"
+name = "repairM1368Case"
+
+[reference.41]
+file = "spec/layerx-merge/programme/issues/input/1854.md"
+name = "repair_m1368_test.go"
+
+[reference.42]
+file = "spec/layerx-merge/programme/issues/input/1854.md"
+name = "sdk/platform/dotnet/repair_m1368_test.go"
+
+[reference.43]
+file = "spec/layerx-merge/programme/records/daemon/committed-fixture/repair_22_31_486.kvx"
+name = "Repair138"
+
+[reference.44]
+file = "spec/layerx-merge/programme/records/daemon/committed-fixture/repair_22_31_486.kvx"
+name = "repair_141_test.go"
+
+[reference.45]
+file = "spec/layerx-merge/programme/records/daemon/committed-fixture/repair_22_31_486.kvx"
+name = "repair_m1384"
+
+[reference.46]
+file = "spec/layerx-merge/programme/records/daemon/committed-fixture/repair_22_31_486.kvx"
+name = "repair_m1384_test.go"
+
+[reference.47]
+file = "spec/layerx-merge/programme/records/daemon/committed-fixture/repair_22_31_486.kvx"
+name = "sdk/platform/dotnet/tests/Repair138"
+
+[reference.48]
+file = "spec/layerx-merge/programme/records/daemon/committed-fixture/repair_22_31_486.kvx"
+name = "sdk/platform/dotnet/tests/Repair138/Program.cs"
+
+[reference.49]
+file = "spec/layerx-merge/programme/records/daemon/committed-fixture/repair_22_31_486.kvx"
+name = "sdk/platform/go/repair_141_test.go"
+
+[reference.50]
+file = "spec/layerx-merge/programme/records/daemon/committed-fixture/repair_22_31_486.kvx"
+name = "sdk/platform/go/repair_m1384_test.go"
+
+[reference.51]
+file = "spec/layerx-merge/programme/records/daemon/committed-fixture/repair_22_31_486.kvx"
+name = "sdk/platform/go/testdata/repair_m1384"
+
+[reference.52]
+file = "spec/layerx-merge/programme/records/daemon/committed-fixture/repair_22_31_486.kvx"
+name = "sdk/platform/go/testdata/repair_m1384/checkpoint.json"
+
+[reference.53]
+file = "spec/layerx-merge/programme/records/renames/22.43.113.kvx"
+name = "repair_22_39_237.kvx"
+
+[reference.54]
+file = "spec/layerx-merge/programme/records/renames/22.43.113.kvx"
+name = "repair_22_39_294.kvx"
+
+[reference.55]
+file = "spec/layerx-merge/programme/records/renames/22.43.113.kvx"
+name = "repair_22_39_309.kvx"
+
+[reference.56]
+file = "spec/layerx-merge/programme/records/renames/22.43.113.kvx"
+name = "repair_22_39_363.kvx"
+
+[reference.57]
+file = "spec/layerx-merge/programme/records/renames/22.43.113.kvx"
+name = "sdk/platform/repair_22_39_237.kvx"
+
+[reference.58]
+file = "spec/layerx-merge/programme/records/renames/22.43.113.kvx"
+name = "sdk/platform/repair_22_39_294.kvx"
+
+[reference.59]
+file = "spec/layerx-merge/programme/records/renames/22.43.113.kvx"
+name = "sdk/platform/repair_22_39_309.kvx"
+
+[reference.60]
+file = "spec/layerx-merge/programme/records/renames/22.43.113.kvx"
+name = "sdk/platform/repair_22_39_363.kvx"
+
+[reference.61]
+file = "spec/layerx-merge/programme/records/renames/22.43.127.kvx"
+name = "repair_22_39_237.kvx"
+
+[reference.62]
+file = "spec/layerx-merge/programme/records/renames/22.43.127.kvx"
+name = "sdk/platform/repair_22_39_237.kvx"
+
+[reference.63]
+file = "spec/layerx-merge/programme/records/renames/22.43.129.kvx"
+name = "repair_22_39_237.kvx"
+
+[reference.64]
+file = "spec/layerx-merge/programme/records/renames/22.43.129.kvx"
+name = "sdk/platform/repair_22_39_237.kvx"
+
+[reference.65]
+file = "spec/layerx-merge/programme/records/renames/22.43.98.kvx"
+name = "repair_22_39_176.kvx"
+
+[reference.66]
+file = "spec/layerx-merge/programme/records/renames/22.43.98.kvx"
+name = "sdk/platform/go/cmd/conformance/repair_22_39_176.kvx"
+
+[reference.67]
+file = "spec/layerx-merge/programme/records/tests/agent/sdk/python/repair_22_39_119.kvx"
+name = "repair141"
+
+[reference.68]
+file = "spec/layerx-merge/programme/records/tests/agent/sdk/python/repair_22_39_119.kvx"
+name = "sdk/platform/go/testdata/repair141"
+
+[reference.69]
+file = "spec/layerx-merge/programme/records/tests/agent/sdk/python/repair_22_39_119.kvx"
+name = "sdk/platform/go/testdata/repair141/mirror-transcript.json"
+
+[reference.70]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_138_test.go"
+
+[reference.71]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_141_test.go"
+
+[reference.72]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_39_341.kvx"
+
+[reference.73]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_m1368_test.go"
+
+[reference.74]
+file = "spec/layerx-merge/qualification.kvx"
+name = "sdk/platform/dotnet/repair_m1368_test.go"
+
+[reference.75]
+file = "spec/layerx-merge/qualification.kvx"
+name = "sdk/platform/go/repair_141_test.go"
+
+[reference.76]
+file = "spec/layerx-merge/qualification.kvx"
+name = "sdk/platform/go/repair_22_39_341.kvx"
+
+[reference.77]
+file = "spec/layerx-merge/spec.kvx"
+name = "Repair138"
+
+[reference.78]
+file = "spec/layerx-merge/spec.kvx"
+name = "Repair138.csproj"
+
+[reference.79]
+file = "spec/layerx-merge/spec.kvx"
+name = "Repair138Producer"
+
+[reference.80]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1368_agent_envelope_tests"
+
+[reference.81]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1368_agent_probe_registration_gap"
+
+[reference.82]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1368_portable_consensus_test_trust"
+
+[reference.83]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1368_portable_positive_vector_count"
+
+[reference.84]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1368_program_deployment_limit"
+
+[reference.85]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1368_programs_legacy_constructor"
+
+[reference.86]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1368_retired_program_transport_test_path"
+
+[reference.87]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1368_stream_history_growth"
+
+[reference.88]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1384_portable_external_anchor"
+
+[reference.89]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_141_mirror_request_shape"
+
+[reference.90]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair141"
+
+[reference.91]
+file = "spec/layerx-merge/spec.kvx"
+name = "repairM1368Case"
+
+[reference.92]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_138_test.go"
+
+[reference.93]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_141_test.go"
+
+[reference.94]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_176.kvx"
+
+[reference.95]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_237.kvx"
+
+[reference.96]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_294.kvx"
+
+[reference.97]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_309.kvx"
+
+[reference.98]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_341.kvx"
+
+[reference.99]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_342.kvx"
+
+[reference.100]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_350.kvx"
+
+[reference.101]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_354.kvx"
+
+[reference.102]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_358.kvx"
+
+[reference.103]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_360.kvx"
+
+[reference.104]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_361.kvx"
+
+[reference.105]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_363.kvx"
+
+[reference.106]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1368_test.go"
+
+[reference.107]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1369_test.go"
+
+[reference.108]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1384"
+
+[reference.109]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1384_test.go"
+
+[reference.110]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1385_test.go"
+
+[reference.111]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/platform/dotnet/repair_138_test.go"
+
+[reference.112]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/platform/dotnet/repair_22_39_342.kvx"
+
+[reference.113]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/platform/dotnet/repair_22_39_354.kvx"
+
+[reference.114]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/platform/dotnet/repair_22_39_361.kvx"
+
+[reference.115]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/platform/dotnet/repair_m1368_test.go"
+
+[reference.116]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/platform/dotnet/repair_m1369_test.go"
+
+[reference.117]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/platform/dotnet/tests/Repair138"
+
+[reference.118]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/platform/dotnet/tests/Repair138/Repair138.csproj"
+
+[reference.119]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/platform/dotnet/tests/Repair138Producer"
+
+[reference.120]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/platform/dotnet/tests/Repair138Producer/Cargo.toml"
+
+[reference.121]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/platform/generators/tests/test_repair_22_31_359.py"
+
+[reference.122]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/platform/go/cmd/conformance/repair_22_39_176.kvx"
+
+[reference.123]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/platform/go/repair_141_test.go"
+
+[reference.124]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/platform/go/repair_22_39_341.kvx"
+
+[reference.125]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/platform/go/repair_22_39_360.kvx"
+
+[reference.126]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/platform/go/repair_m1384_test.go"
+
+[reference.127]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/platform/go/repair_m1385_test.go"
+
+[reference.128]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/platform/go/testdata/repair_m1384"
+
+[reference.129]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/platform/go/testdata/repair_m1384/checkpoint.json"
+
+[reference.130]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/platform/repair_22_39_237.kvx"
+
+[reference.131]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/platform/repair_22_39_294.kvx"
+
+[reference.132]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/platform/repair_22_39_309.kvx"
+
+[reference.133]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/platform/repair_22_39_350.kvx"
+
+[reference.134]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/platform/repair_22_39_358.kvx"
+
+[reference.135]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/platform/repair_22_39_363.kvx"
+
+[reference.136]
+file = "spec/layerx-merge/spec.kvx"
+name = "test_repair_22_31_359.py"
+
+[reference.137]
+file = "tests/agent/sdk/python/test_mirror_process.py"
+name = "repair141"
+
+[reference.138]
+file = "tests/agent/sdk/python/test_mirror_process.py"
+name = "sdk/platform/go/testdata/repair141"
+
+[reference.139]
+file = "tests/agent/sdk/python/test_mirror_process.py"
+name = "sdk/platform/go/testdata/repair141/mirror-transcript.json"
+
+[reference.140]
+file = "tests/ci/test_runtime_targets_supported.py"
+name = "Repair138"
+
+[reference.141]
+file = "tests/ci/test_runtime_targets_supported.py"
+name = "Repair138.csproj"
+
+[reference.142]
+file = "tests/ci/test_runtime_targets_supported.py"
+name = "sdk/platform/dotnet/tests/Repair138"
+
+[reference.143]
+file = "tests/ci/test_runtime_targets_supported.py"
+name = "sdk/platform/dotnet/tests/Repair138/Repair138.csproj"
+
+[reference.144]
+file = "tools/workspace/paxeer-manifest-roots.txt"
+name = "Repair138"
+
+[reference.145]
+file = "tools/workspace/paxeer-manifest-roots.txt"
+name = "Repair138Producer"
+
+[reference.146]
+file = "tools/workspace/paxeer-manifest-roots.txt"
+name = "repair_138_test.go"
+
+[reference.147]
+file = "tools/workspace/paxeer-manifest-roots.txt"
+name = "sdk/platform/dotnet/repair_138_test.go"
+
+[reference.148]
+file = "tools/workspace/paxeer-manifest-roots.txt"
+name = "sdk/platform/dotnet/tests/Repair138"
+
+[reference.149]
+file = "tools/workspace/paxeer-manifest-roots.txt"
+name = "sdk/platform/dotnet/tests/Repair138Producer"
+
+[reference.150]
+file = "tools/workspace/paxeer-manifest-roots.txt"
+name = "sdk/platform/dotnet/tests/Repair138Producer/Cargo.toml"
