@@ -2,7 +2,7 @@
 audit = "22.30.179"
 base_revision = "4299cb15eced23eb9a839162acd11e9a937edd05"
 inspected_revision = "1faba2c53c2a999494155e1a530557179c2fb5f3"
-baseline = "Not run: the mandatory implementation-first, hf-build-then-hf-done order prohibits the contradictory pre-change verification step. No gate ledger or repair_m825_test.go existed on inspection; no pre-change failing-test result is claimed."
+baseline = "Not run: the mandatory implementation-first, hf-build-then-hf-done order prohibits the contradictory pre-change verification step. No gate ledger or scenarios_documentation_test.go existed on inspection; no pre-change failing-test result is claimed."
 evidence = "hf-build and hf-done record the exact verified candidate revision, command, exit code and private log in /out/run/gates.jsonl."
 wiring_requests = []
 

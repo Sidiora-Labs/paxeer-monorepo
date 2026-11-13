@@ -37,7 +37,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
-func m859Read(t *testing.T, path string) []byte {
+func readFixture(t *testing.T, path string) []byte {
 	t.Helper()
 	raw, err := os.ReadFile(path)
 	if err != nil {
@@ -45,13 +45,13 @@ func m859Read(t *testing.T, path string) []byte {
 	}
 	return raw
 }
-func m859Write(t *testing.T, path string, raw []byte, mode os.FileMode) {
+func writeFixture(t *testing.T, path string, raw []byte, mode os.FileMode) {
 	t.Helper()
 	if err := os.WriteFile(path, raw, mode); err != nil {
 		t.Fatal(err)
 	}
 }
-func m859JSON(t *testing.T, value any) []byte {
+func marshalFixture(t *testing.T, value any) []byte {
 	t.Helper()
 	raw, err := json.Marshal(value)
 	if err != nil {
@@ -59,7 +59,7 @@ func m859JSON(t *testing.T, value any) []byte {
 	}
 	return raw
 }
-func m859Proto(t *testing.T, value interface {
+func marshalProtoFixture(t *testing.T, value interface {
 	Reset()
 	String() string
 	ProtoMessage()
@@ -74,7 +74,7 @@ func m859Proto(t *testing.T, value interface {
 
 // This is the real in-memory keyring producer used by the CLI. The repair's
 // consumer receives its serialized KeyOutput, including the generated mnemonic.
-type m859Keys struct {
+type inMemoryKeyProducer struct {
 	t         *testing.T
 	mutex     sync.Mutex
 	names     map[string]bool
@@ -84,7 +84,7 @@ type m859Keys struct {
 	first     *operations.Account
 }
 
-func (p *m859Keys) Run(ctx context.Context, c operations.Command) ([]byte, error) {
+func (p *inMemoryKeyProducer) Run(ctx context.Context, c operations.Command) ([]byte, error) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 	if err := ctx.Err(); err != nil {
@@ -127,7 +127,7 @@ func (p *m859Keys) Run(ctx context.Context, c operations.Command) ([]byte, error
 	return json.Marshal(output)
 }
 
-func m859Genesis(t *testing.T) (string, string, []byte) {
+func newGenesisFixture(t *testing.T) (string, string, []byte) {
 	t.Helper()
 	home := t.TempDir()
 	if err := os.Mkdir(filepath.Join(home, "config"), 0700); err != nil {
@@ -135,22 +135,22 @@ func m859Genesis(t *testing.T) (string, string, []byte) {
 	}
 	// The bank/auth producer's state shape is retained, including an existing account.
 	raw := []byte(`{"app_state":{"bank":{"balances":[{"address":"existing","coins":[]}]},"auth":{"accounts":[{"address":"existing"}]}},"chain_id":"preserved"}`)
-	m859Write(t, filepath.Join(home, "config", "genesis.json"), raw, 0600)
+	writeFixture(t, filepath.Join(home, "config", "genesis.json"), raw, 0600)
 	return home, filepath.Join(home, "private accounts"), raw
 }
 
-func TestRepairM_859_GenesisAccountCount(t *testing.T) {
+func TestGenesisAccountCount(t *testing.T) {
 	for _, count := range []int{0, 1, 63, 64, 65, 129} {
 		t.Run(strconv.Itoa(count), func(t *testing.T) {
-			home, accounts, _ := m859Genesis(t)
-			peer := &m859Keys{t: t}
+			home, accounts, _ := newGenesisFixture(t)
+			peer := &inMemoryKeyProducer{t: t}
 			options := operations.GenesisOptions{Count: count, Home: home, Accounts: accounts, Paxd: "paxd", Local: true}
 			if err := operations.GenerateGenesis(context.Background(), peer, options); err != nil {
 				t.Fatal(err)
 			}
 			// Decode independently to assert contiguous ordering and preservation.
 			var result map[string]any
-			if err := json.Unmarshal(m859Read(t, filepath.Join(home, "config", "genesis.json")), &result); err != nil {
+			if err := json.Unmarshal(readFixture(t, filepath.Join(home, "config", "genesis.json")), &result); err != nil {
 				t.Fatal(err)
 			}
 			app := result["app_state"].(map[string]any)
@@ -173,7 +173,7 @@ func TestRepairM_859_GenesisAccountCount(t *testing.T) {
 				name := "ta" + strconv.Itoa(index)
 				var saved operations.Account
 				path := filepath.Join(accounts, name+".json")
-				if err := json.Unmarshal(m859Read(t, path), &saved); err != nil {
+				if err := json.Unmarshal(readFixture(t, path), &saved); err != nil {
 					t.Fatal(err)
 				}
 				info, err := os.Stat(path)
@@ -188,8 +188,8 @@ func TestRepairM_859_GenesisAccountCount(t *testing.T) {
 	}
 	for _, kind := range []string{"participant-error", "duplicate-address", "existing-seed"} {
 		t.Run(kind, func(t *testing.T) {
-			home, accounts, before := m859Genesis(t)
-			peer := &m859Keys{t: t}
+			home, accounts, before := newGenesisFixture(t)
+			peer := &inMemoryKeyProducer{t: t}
 			if kind == "participant-error" {
 				peer.fail = "ta17"
 			}
@@ -200,27 +200,27 @@ func TestRepairM_859_GenesisAccountCount(t *testing.T) {
 				if err := os.Mkdir(accounts, 0700); err != nil {
 					t.Fatal(err)
 				}
-				m859Write(t, filepath.Join(accounts, "ta17.json"), []byte("do not overwrite"), 0600)
+				writeFixture(t, filepath.Join(accounts, "ta17.json"), []byte("do not overwrite"), 0600)
 			}
 			err := operations.GenerateGenesis(context.Background(), peer, operations.GenesisOptions{Count: 129, Home: home, Accounts: accounts, Paxd: "paxd", Local: true})
 			if err == nil {
 				t.Fatal("invalid inventory was accepted")
 			}
-			if !bytes.Equal(before, m859Read(t, filepath.Join(home, "config", "genesis.json"))) {
+			if !bytes.Equal(before, readFixture(t, filepath.Join(home, "config", "genesis.json"))) {
 				t.Fatal("failed inventory published genesis")
 			}
 			if len(peer.names) != 129 {
 				t.Fatalf("not all participants were collected: %d", len(peer.names))
 			}
-			if kind == "existing-seed" && string(m859Read(t, filepath.Join(accounts, "ta17.json"))) != "do not overwrite" {
+			if kind == "existing-seed" && string(readFixture(t, filepath.Join(accounts, "ta17.json"))) != "do not overwrite" {
 				t.Fatal("existing seed was overwritten")
 			}
 		})
 	}
 }
 
-func TestRepairM_859_GenesisMnemonicPermissions(t *testing.T) {
-	peer := &m859Keys{t: t}
+func TestGenesisMnemonicPermissions(t *testing.T) {
+	peer := &inMemoryKeyProducer{t: t}
 	raw, err := peer.Run(context.Background(), operations.Command{Args: []string{"paxd", "keys", "add", "seed", "--home", "unused", "--output", "json", "--keyring-backend", "test"}})
 	if err != nil {
 		t.Fatal(err)
@@ -239,7 +239,7 @@ func TestRepairM_859_GenesisMnemonicPermissions(t *testing.T) {
 		t.Fatalf("directory permissions: %v, %v", info, err)
 	}
 	file := filepath.Join(dir, "ta0.json")
-	before := m859Read(t, file)
+	before := readFixture(t, file)
 	info, err = os.Stat(file)
 	if err != nil || info.Mode().Perm() != 0600 {
 		t.Fatalf("file permissions: %v %v", info, err)
@@ -247,18 +247,18 @@ func TestRepairM_859_GenesisMnemonicPermissions(t *testing.T) {
 	if err = operations.SaveAccount(dir, "ta0", account); err == nil {
 		t.Fatal("overwrote an existing seed")
 	}
-	if !bytes.Equal(before, m859Read(t, file)) {
+	if !bytes.Equal(before, readFixture(t, file)) {
 		t.Fatal("existing seed changed")
 	}
 	target := filepath.Join(root, "victim")
-	m859Write(t, target, []byte("untouched"), 0600)
+	writeFixture(t, target, []byte("untouched"), 0600)
 	if err = os.Symlink(target, filepath.Join(dir, "ta1.json")); err != nil {
 		t.Fatal(err)
 	}
 	if err = operations.SaveAccount(dir, "ta1", account); err == nil {
 		t.Fatal("followed seed symlink")
 	}
-	if string(m859Read(t, target)) != "untouched" {
+	if string(readFixture(t, target)) != "untouched" {
 		t.Fatal("symlink target changed")
 	}
 	link := filepath.Join(root, "linked-directory")
@@ -281,24 +281,24 @@ func TestRepairM_859_GenesisMnemonicPermissions(t *testing.T) {
 	if err = operations.SaveAccount(dir, "../escape", account); err == nil {
 		t.Fatal("accepted path traversal")
 	}
-	home, accounts, original := m859Genesis(t)
+	home, accounts, original := newGenesisFixture(t)
 	if err = os.Mkdir(accounts, 0700); err != nil {
 		t.Fatal(err)
 	}
 	if err = os.Symlink(target, filepath.Join(accounts, "ta0.json")); err != nil {
 		t.Fatal(err)
 	}
-	if err = operations.GenerateGenesis(context.Background(), &m859Keys{t: t}, operations.GenesisOptions{Count: 1, Home: home, Accounts: accounts, Paxd: "paxd", Local: true}); err == nil {
+	if err = operations.GenerateGenesis(context.Background(), &inMemoryKeyProducer{t: t}, operations.GenesisOptions{Count: 1, Home: home, Accounts: accounts, Paxd: "paxd", Local: true}); err == nil {
 		t.Fatal("funded an account whose seed could not be stored safely")
 	}
-	if !bytes.Equal(original, m859Read(t, filepath.Join(home, "config", "genesis.json"))) {
+	if !bytes.Equal(original, readFixture(t, filepath.Join(home, "config", "genesis.json"))) {
 		t.Fatal("unsafe seed persistence published funding")
 	}
 }
 
 // This peer replays committed generator output through the generator's actual
 // file transport. No abigen binary, toolchain, or subprocess runs in this gate.
-type m859Bindings struct {
+type bindingGenerator struct {
 	t      *testing.T
 	mode   string
 	called int
@@ -306,7 +306,7 @@ type m859Bindings struct {
 	output []byte
 }
 
-func (p *m859Bindings) Run(ctx context.Context, c operations.Command) ([]byte, error) {
+func (p *bindingGenerator) Run(ctx context.Context, c operations.Command) ([]byte, error) {
 	p.called++
 	if len(c.Args) != 4 || c.Args[0] != "abigen" || c.Args[1] != "--abi="+p.abi || c.Args[2] != "--pkg=erc20" || !strings.HasPrefix(c.Args[3], "--out=") {
 		return nil, fmt.Errorf("invalid generator command %q", c.Args)
@@ -339,7 +339,7 @@ func (p *m859Bindings) Run(ctx context.Context, c operations.Command) ([]byte, e
 	return nil, os.WriteFile(output, p.output, 0600)
 }
 
-func TestRepairM_859_BindingsGeneratorExit(t *testing.T) {
+func TestBindingsGeneratorExit(t *testing.T) {
 	for _, mode := range []string{"success", "exit", "missing", "symlink", "empty", "syntax", "package", "changed-abi"} {
 		t.Run(mode, func(t *testing.T) {
 			root := t.TempDir()
@@ -348,25 +348,25 @@ func TestRepairM_859_BindingsGeneratorExit(t *testing.T) {
 				t.Fatal(err)
 			}
 			abi := filepath.Join(dir, "abi.json")
-			m859Write(t, abi, m859Read(t, "contracts/evm/bindings/erc20/abi.json"), 0600)
+			writeFixture(t, abi, readFixture(t, "contracts/evm/bindings/erc20/abi.json"), 0600)
 			target := filepath.Join(dir, "erc20.go")
 			old := []byte("package erc20\nconst Previous=1\n")
-			m859Write(t, target, old, 0600)
-			generated := m859Read(t, "contracts/evm/bindings/erc20/erc20.go")
-			peer := &m859Bindings{t: t, mode: mode, abi: abi, output: generated}
+			writeFixture(t, target, old, 0600)
+			generated := readFixture(t, "contracts/evm/bindings/erc20/erc20.go")
+			peer := &bindingGenerator{t: t, mode: mode, abi: abi, output: generated}
 			err := operations.RunCLI(context.Background(), []string{"generate-bindings", "--bindings", root, "--abigen", "abigen"}, nil, io.Discard, peer)
 			if mode == "success" {
 				if err != nil {
 					t.Fatal(err)
 				}
-				if !bytes.Equal(m859Read(t, target), generated) {
+				if !bytes.Equal(readFixture(t, target), generated) {
 					t.Fatal("generated output was not published")
 				}
 			} else {
 				if err == nil {
 					t.Fatal("invalid generator result reported success")
 				}
-				if !bytes.Equal(old, m859Read(t, target)) {
+				if !bytes.Equal(old, readFixture(t, target)) {
 					t.Fatal("failed generation replaced the existing binding")
 				}
 			}
@@ -387,23 +387,23 @@ func TestRepairM_859_BindingsGeneratorExit(t *testing.T) {
 		if err := os.Mkdir(filepath.Join(root, "erc20"), 0700); err != nil {
 			t.Fatal(err)
 		}
-		peer := &m859Bindings{}
+		peer := &bindingGenerator{}
 		if err := operations.GenerateBindings(context.Background(), peer, root, "abigen"); err == nil || peer.called != 0 {
 			t.Fatal("missing ABI did not fail before invoking generator")
 		}
 	})
 }
 
-func m859BlockServer(t *testing.T, stamp string) (*httptest.Server, *int) {
+func blockMetricsServer(t *testing.T, stamp string) (*httptest.Server, *int) {
 	t.Helper()
-	template := m859Read(t, "scripts/fixtures/consensus_block_populated.json")
+	template := readFixture(t, "scripts/fixtures/consensus_block_populated.json")
 	var body map[string]any
 	if err := json.Unmarshal(template, &body); err != nil {
 		t.Fatal(err)
 	}
 	block := body["result"].(map[string]any)["block"].(map[string]any)
 	block["header"].(map[string]any)["time"] = stamp
-	raw := m859JSON(t, body)
+	raw := marshalFixture(t, body)
 	calls := new(int)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		*calls++
@@ -414,10 +414,10 @@ func m859BlockServer(t *testing.T, stamp string) (*httptest.Server, *int) {
 	return server, calls
 }
 
-func TestRepairM_859_BenchmarkMetricDeadlines(t *testing.T) {
+func TestBenchmarkMetricDeadlines(t *testing.T) {
 	for _, stamp := range []string{"2026-11-04T02:47:17Z", "2026-11-04T02:47:17.1Z", "2026-11-04T02:47:17.123456789Z", "2026-11-04T04:47:17.123456789+02:00", "2026-11-03T21:17:17.123456789-05:30"} {
 		t.Run(stamp, func(t *testing.T) {
-			server, _ := m859BlockServer(t, stamp)
+			server, _ := blockMetricsServer(t, stamp)
 			client := operations.MetricsClient{RPC: server.URL}
 			info, err := client.BlockInfo(context.Background(), 33716909)
 			if err != nil {
@@ -441,7 +441,7 @@ func TestRepairM_859_BenchmarkMetricDeadlines(t *testing.T) {
 	}
 	for _, stamp := range []string{"2026-11-04T02:47:17", "2026-11-04T02:47:17Zgarbage", "2026-11-04T02:47:17+25:00"} {
 		t.Run("invalid-"+stamp, func(t *testing.T) {
-			server, _ := m859BlockServer(t, stamp)
+			server, _ := blockMetricsServer(t, stamp)
 			if _, err := (operations.MetricsClient{RPC: server.URL}).BlockInfo(context.Background(), 1); err == nil {
 				t.Fatal("invalid complete timestamp accepted")
 			}
@@ -450,7 +450,7 @@ func TestRepairM_859_BenchmarkMetricDeadlines(t *testing.T) {
 	for _, delta := range []time.Duration{0, -time.Second, 100 * time.Nanosecond, 500 * time.Microsecond} {
 		t.Run(delta.String(), func(t *testing.T) {
 			initial := time.Date(2026, 11, 4, 2, 47, 17, 123456789, time.UTC)
-			server, _ := m859BlockServer(t, initial.Add(delta).Format(time.RFC3339Nano))
+			server, _ := blockMetricsServer(t, initial.Add(delta).Format(time.RFC3339Nano))
 			client := operations.MetricsClient{RPC: server.URL}
 			result, err := client.BestStats(context.Background(), []operations.BlockInfo{{Height: 1, Timestamp: initial, NumberOfTxs: 2}})
 			if err != nil {
@@ -496,7 +496,7 @@ func TestRepairM_859_BenchmarkMetricDeadlines(t *testing.T) {
 	}
 	t.Run("summary-unavailable", func(t *testing.T) {
 		stamp := "2026-11-04T02:47:17Z"
-		template := m859Read(t, "scripts/fixtures/consensus_block_populated.json")
+		template := readFixture(t, "scripts/fixtures/consensus_block_populated.json")
 		var body map[string]any
 		if err := json.Unmarshal(template, &body); err != nil {
 			t.Fatal(err)
@@ -512,7 +512,7 @@ func TestRepairM_859_BenchmarkMetricDeadlines(t *testing.T) {
 		}))
 		defer server.Close()
 		hashes := filepath.Join(t.TempDir(), "hashes")
-		m859Write(t, hashes, []byte("1\n2\n3\n"), 0600)
+		writeFixture(t, hashes, []byte("1\n2\n3\n"), 0600)
 		result, err := (operations.MetricsClient{RPC: server.URL, REST: server.URL}).Metrics(context.Background(), hashes)
 		if err != nil {
 			t.Fatal(err)
@@ -525,11 +525,11 @@ func TestRepairM_859_BenchmarkMetricDeadlines(t *testing.T) {
 	})
 }
 
-func TestRepairM_859_MetricEnvelopePreserved(t *testing.T) {
+func TestMetricEnvelopePreserved(t *testing.T) {
 	// Preserve the earlier repair's full envelope and validation guarantees.
 	for _, name := range []string{"empty", "populated", "error"} {
 		t.Run(name, func(t *testing.T) {
-			raw := m859Read(t, "scripts/fixtures/consensus_block_"+name+".json")
+			raw := readFixture(t, "scripts/fixtures/consensus_block_"+name+".json")
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.Write(raw) }))
 			defer server.Close()
 			client := operations.MetricsClient{RPC: server.URL}
@@ -575,7 +575,7 @@ func TestRepairM_859_MetricEnvelopePreserved(t *testing.T) {
 		})
 	}
 	t.Run("null-transactions", func(t *testing.T) {
-		raw := bytes.Replace(m859Read(t, "scripts/fixtures/consensus_block_empty.json"), []byte(`"txs":[]`), []byte(`"txs":null`), 1)
+		raw := bytes.Replace(readFixture(t, "scripts/fixtures/consensus_block_empty.json"), []byte(`"txs":[]`), []byte(`"txs":null`), 1)
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.Write(raw) }))
 		defer server.Close()
 		client := operations.MetricsClient{RPC: server.URL}
@@ -589,7 +589,7 @@ func TestRepairM_859_MetricEnvelopePreserved(t *testing.T) {
 	})
 }
 
-type m859ExchangePeer struct {
+type exchangeCommandPeer struct {
 	t        *testing.T
 	calls    int
 	failAt   int
@@ -599,7 +599,7 @@ type m859ExchangePeer struct {
 	noHash   bool
 }
 
-func (p *m859ExchangePeer) Run(ctx context.Context, c operations.Command) ([]byte, error) {
+func (p *exchangeCommandPeer) Run(ctx context.Context, c operations.Command) ([]byte, error) {
 	if len(c.Args) < 12 || !reflect.DeepEqual(c.Args[:3], []string{"paxd", "tx", "evm"}) {
 		return nil, fmt.Errorf("unexpected exchange command: %q", c.Args)
 	}
@@ -681,10 +681,10 @@ func (p *m859ExchangePeer) Run(ctx context.Context, c operations.Command) ([]byt
 	return []byte("Transaction hash: " + p.hash.Hex() + "\n"), nil
 }
 
-func TestRepairM_859_DexDeployRetired(t *testing.T) {
+func TestNativeExchangeDeployment(t *testing.T) {
 	for _, mode := range []string{"success", "pending-then-success", "cli-failure", "cli-no-hash", "revert", "missing-hash", "uncommitted", "rpc-error"} {
 		t.Run(mode, func(t *testing.T) {
-			peer := &m859ExchangePeer{t: t, noHash: mode == "cli-no-hash"}
+			peer := &exchangeCommandPeer{t: t, noHash: mode == "cli-no-hash"}
 			if mode == "cli-failure" {
 				peer.failAt = 5
 			}
@@ -734,14 +734,14 @@ func TestRepairM_859_DexDeployRetired(t *testing.T) {
 			defer server.Close()
 			config := filepath.Join(t.TempDir(), "config.json")
 			original := []byte(`{"contract_distribution":[{"contract_address":"previous","percentage":"1"}],"unrelated":"preserved"}`)
-			m859Write(t, config, original, 0600)
+			writeFixture(t, config, original, 0600)
 			options := operations.ExchangeOptions{Paxd: "paxd", From: "owner", ChainID: "test-chain", RPC: server.URL, Config: config, Scenario: operations.ExchangeScenario{Stablecoin: "0x0000000000000000000000000000000000001234", Token: "0x0000000000000000000000000000000000005678", Amount: "100", TargetPrice: "1000000000000000000", ExpiresAt: "4102444800"}}
 			err := (operations.ExchangeSetup{Commands: peer, Poll: time.Millisecond}).Deploy(context.Background(), options)
 			if mode != "success" && mode != "pending-then-success" {
 				if err == nil {
 					t.Fatal("unsuccessful exchange setup reported success")
 				}
-				if !bytes.Equal(original, m859Read(t, config)) {
+				if !bytes.Equal(original, readFixture(t, config)) {
 					t.Fatal("unconfirmed setup published contract_distribution")
 				}
 				return
@@ -765,7 +765,7 @@ func TestRepairM_859_DexDeployRetired(t *testing.T) {
 				}
 			}
 			var result map[string]any
-			if err = json.Unmarshal(m859Read(t, config), &result); err != nil {
+			if err = json.Unmarshal(readFixture(t, config), &result); err != nil {
 				t.Fatal(err)
 			}
 			distribution := result["contract_distribution"].([]any)
@@ -795,19 +795,19 @@ func TestRepairM_859_DexDeployRetired(t *testing.T) {
 	}
 }
 
-type m859Step struct {
+type transcriptStep struct {
 	args   []string
 	output []byte
 	err    error
 	after  func()
 }
-type m859Replay struct {
+type transcriptRunner struct {
 	t     *testing.T
-	steps []m859Step
+	steps []transcriptStep
 	index int
 }
 
-func (p *m859Replay) Run(ctx context.Context, c operations.Command) ([]byte, error) {
+func (p *transcriptRunner) Run(ctx context.Context, c operations.Command) ([]byte, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, fmt.Errorf("operation used a canceled cleanup context: %w", err)
 	}
@@ -824,63 +824,63 @@ func (p *m859Replay) Run(ctx context.Context, c operations.Command) ([]byte, err
 	}
 	return step.output, step.err
 }
-func (p *m859Replay) done() {
+func (p *transcriptRunner) done() {
 	p.t.Helper()
 	if p.index != len(p.steps) {
 		p.t.Fatalf("consumed %d of %d transcript commands", p.index, len(p.steps))
 	}
 }
 
-func m859Remote(t *testing.T) map[string]json.RawMessage {
+func readRemoteFixture(t *testing.T) map[string]json.RawMessage {
 	t.Helper()
 	var fixture map[string]json.RawMessage
-	if err := json.Unmarshal(m859Read(t, "testdata/m859/remote.json"), &fixture); err != nil {
+	if err := json.Unmarshal(readFixture(t, "testdata/m859/remote.json"), &fixture); err != nil {
 		t.Fatal(err)
 	}
 	return fixture
 }
-func m859SSH(host string, args ...string) []string {
+func sshCommand(host string, args ...string) []string {
 	return append([]string{"ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", "-i", "identity with spaces;$(false)", "--", "ubuntu@" + host}, args...)
 }
-func m859Q(host string) []string {
-	return m859SSH(host, "sudo", "-n", "tc", "-j", "qdisc", "show", "dev", "ens5")
+func queryTrafficCommand(host string) []string {
+	return sshCommand(host, "sudo", "-n", "tc", "-j", "qdisc", "show", "dev", "ens5")
 }
-func m859Add(host string) []string {
-	return m859SSH(host, "sudo", "-n", "tc", "qdisc", "add", "dev", "ens5", "root", "handle", "1f00:", "netem", "delay", "200ms", "10ms", "25%")
+func addTrafficCommand(host string) []string {
+	return sshCommand(host, "sudo", "-n", "tc", "qdisc", "add", "dev", "ens5", "root", "handle", "1f00:", "netem", "delay", "200ms", "10ms", "25%")
 }
-func m859Del(host string) []string {
-	return m859SSH(host, "sudo", "-n", "tc", "qdisc", "del", "dev", "ens5", "root", "handle", "1f00:")
+func removeTrafficCommand(host string) []string {
+	return sshCommand(host, "sudo", "-n", "tc", "qdisc", "del", "dev", "ens5", "root", "handle", "1f00:")
 }
-func m859Options(t *testing.T) operations.FaultOptions {
+func faultOptions(t *testing.T) operations.FaultOptions {
 	t.Helper()
 	return operations.FaultOptions{Paxd: "paxd", SSHKey: "identity with spaces;$(false)", ChainID: "test-chain", Validators: []string{"validator-a", "validator-b", "validator-c"}, Concurrent: 2, Recovery: filepath.Join(t.TempDir(), "controller", "recovery.json")}
 }
-func m859Applied(t *testing.T, fixture map[string]json.RawMessage, host string) []m859Step {
+func appliedTrafficSteps(t *testing.T, fixture map[string]json.RawMessage, host string) []transcriptStep {
 	t.Helper()
-	return []m859Step{{args: m859Q(host), output: fixture["inactive"]}, {args: m859Add(host)}, {args: m859Q(host), output: fixture["delayed"]}}
+	return []transcriptStep{{args: queryTrafficCommand(host), output: fixture["inactive"]}, {args: addTrafficCommand(host)}, {args: queryTrafficCommand(host), output: fixture["delayed"]}}
 }
-func m859Restored(t *testing.T, fixture map[string]json.RawMessage, host string) []m859Step {
+func restoredTrafficSteps(t *testing.T, fixture map[string]json.RawMessage, host string) []transcriptStep {
 	t.Helper()
-	return []m859Step{{args: m859Q(host), output: fixture["delayed"]}, {args: m859Del(host)}, {args: m859Q(host), output: fixture["inactive"]}}
+	return []transcriptStep{{args: queryTrafficCommand(host), output: fixture["delayed"]}, {args: removeTrafficCommand(host)}, {args: queryTrafficCommand(host), output: fixture["inactive"]}}
 }
 
-func TestRepairM_859_ValidatorFaultCleanup(t *testing.T) {
-	fixture := m859Remote(t)
+func TestValidatorFaultCleanup(t *testing.T) {
+	fixture := readRemoteFixture(t)
 	t.Run("odd-batch-and-finally", func(t *testing.T) {
-		options := m859Options(t)
-		peer := &m859Replay{t: t}
+		options := faultOptions(t)
+		peer := &transcriptRunner{t: t}
 		for _, host := range options.Validators[:2] {
-			peer.steps = append(peer.steps, m859Applied(t, fixture, host)...)
+			peer.steps = append(peer.steps, appliedTrafficSteps(t, fixture, host)...)
 		}
 		for _, host := range []string{"validator-b", "validator-a"} {
-			peer.steps = append(peer.steps, m859Restored(t, fixture, host)...)
+			peer.steps = append(peer.steps, restoredTrafficSteps(t, fixture, host)...)
 		}
-		peer.steps = append(peer.steps, m859Applied(t, fixture, "validator-c")...)
-		peer.steps = append(peer.steps, m859Restored(t, fixture, "validator-c")...)
+		peer.steps = append(peer.steps, appliedTrafficSteps(t, fixture, "validator-c")...)
+		peer.steps = append(peer.steps, restoredTrafficSteps(t, fixture, "validator-c")...)
 		// A successful remote mutation must already have an actionable durable intent.
 		peer.steps[1].after = func() {
 			var record operations.RecoveryRecord
-			if err := json.Unmarshal(m859Read(t, options.Recovery), &record); err != nil {
+			if err := json.Unmarshal(readFixture(t, options.Recovery), &record); err != nil {
 				t.Fatal(err)
 			}
 			if len(record.Actions) != 1 || record.Actions[0].Host != "validator-a" || record.Actions[0].Applied {
@@ -897,10 +897,10 @@ func TestRepairM_859_ValidatorFaultCleanup(t *testing.T) {
 		}
 	})
 	t.Run("partial-application", func(t *testing.T) {
-		options := m859Options(t)
-		peer := &m859Replay{t: t, steps: m859Applied(t, fixture, "validator-a")}
-		peer.steps = append(peer.steps, m859Step{args: m859Q("validator-b"), output: fixture["inactive"]}, m859Step{args: m859Add("validator-b"), err: errors.New("remote operation exited 255")}, m859Step{args: m859Q("validator-b"), output: fixture["inactive"]}, m859Step{args: m859Q("validator-b"), output: fixture["inactive"]})
-		peer.steps = append(peer.steps, m859Restored(t, fixture, "validator-a")...)
+		options := faultOptions(t)
+		peer := &transcriptRunner{t: t, steps: appliedTrafficSteps(t, fixture, "validator-a")}
+		peer.steps = append(peer.steps, transcriptStep{args: queryTrafficCommand("validator-b"), output: fixture["inactive"]}, transcriptStep{args: addTrafficCommand("validator-b"), err: errors.New("remote operation exited 255")}, transcriptStep{args: queryTrafficCommand("validator-b"), output: fixture["inactive"]}, transcriptStep{args: queryTrafficCommand("validator-b"), output: fixture["inactive"]})
+		peer.steps = append(peer.steps, restoredTrafficSteps(t, fixture, "validator-a")...)
 		if err := operations.NewFaultController(peer, options).SlowNetwork(context.Background()); err == nil || !strings.Contains(err.Error(), "255") {
 			t.Fatalf("partial batch did not report original failure: %v", err)
 		}
@@ -910,11 +910,11 @@ func TestRepairM_859_ValidatorFaultCleanup(t *testing.T) {
 		}
 	})
 	t.Run("signal-stop-reopen-recover", func(t *testing.T) {
-		options := m859Options(t)
+		options := faultOptions(t)
 		options.Hold = time.Hour
-		peer := &m859Replay{t: t}
+		peer := &transcriptRunner{t: t}
 		for _, host := range options.Validators[:2] {
-			peer.steps = append(peer.steps, m859Applied(t, fixture, host)...)
+			peer.steps = append(peer.steps, appliedTrafficSteps(t, fixture, host)...)
 		}
 		ctx, stop := operations.SignalContext()
 		defer stop()
@@ -923,8 +923,8 @@ func TestRepairM_859_ValidatorFaultCleanup(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
-		peer.steps = append(peer.steps, m859Step{args: m859Q("validator-b"), output: fixture["delayed"]}, m859Step{args: m859Del("validator-b"), err: errors.New("remote operation exited 255")})
-		peer.steps = append(peer.steps, m859Restored(t, fixture, "validator-a")...)
+		peer.steps = append(peer.steps, transcriptStep{args: queryTrafficCommand("validator-b"), output: fixture["delayed"]}, transcriptStep{args: removeTrafficCommand("validator-b"), err: errors.New("remote operation exited 255")})
+		peer.steps = append(peer.steps, restoredTrafficSteps(t, fixture, "validator-a")...)
 		controller := operations.NewFaultController(peer, options)
 		err := controller.SlowNetwork(ctx)
 		if err == nil || !strings.Contains(err.Error(), "cleanup incomplete") || !strings.Contains(err.Error(), "--recover "+options.Recovery) {
@@ -937,7 +937,7 @@ func TestRepairM_859_ValidatorFaultCleanup(t *testing.T) {
 			t.Fatalf("recovery record is not private: %v %v", info, e)
 		}
 		var record operations.RecoveryRecord
-		if e = json.Unmarshal(m859Read(t, options.Recovery), &record); e != nil {
+		if e = json.Unmarshal(readFixture(t, options.Recovery), &record); e != nil {
 			t.Fatal(e)
 		}
 		if len(record.Actions) != 1 || !record.Actions[0].Applied || record.Actions[0].Host != "validator-b" || record.Options.SSHKey != options.SSHKey {
@@ -947,8 +947,8 @@ func TestRepairM_859_ValidatorFaultCleanup(t *testing.T) {
 		// peer/session and context. No state is copied from the old object.
 		controller = nil
 		peer = nil
-		resumedPeer := &m859Replay{t: t}
-		resumedPeer.steps = append(resumedPeer.steps, m859Restored(t, fixture, "validator-b")...)
+		resumedPeer := &transcriptRunner{t: t}
+		resumedPeer.steps = append(resumedPeer.steps, restoredTrafficSteps(t, fixture, "validator-b")...)
 		reopened, e := operations.OpenRecovery(resumedPeer, options.Recovery)
 		if e != nil {
 			t.Fatal(e)
@@ -962,44 +962,44 @@ func TestRepairM_859_ValidatorFaultCleanup(t *testing.T) {
 		}
 	})
 	t.Run("refuse-existing-record", func(t *testing.T) {
-		options := m859Options(t)
+		options := faultOptions(t)
 		if err := os.Mkdir(filepath.Dir(options.Recovery), 0700); err != nil {
 			t.Fatal(err)
 		}
 		before := []byte("operator recovery data")
-		m859Write(t, options.Recovery, before, 0600)
-		peer := &m859Replay{t: t}
+		writeFixture(t, options.Recovery, before, 0600)
+		peer := &transcriptRunner{t: t}
 		if err := operations.NewFaultController(peer, options).SlowNetwork(context.Background()); err == nil {
 			t.Fatal("overwrote unresolved recovery record")
 		}
 		peer.done()
-		if !bytes.Equal(before, m859Read(t, options.Recovery)) {
+		if !bytes.Equal(before, readFixture(t, options.Recovery)) {
 			t.Fatal("old recovery record changed")
 		}
 	})
 }
 
-func m859Delegation(t *testing.T, admin, validator, amount string) []byte {
+func delegationResponse(t *testing.T, admin, validator, amount string) []byte {
 	t.Helper()
 	value, ok := sdk.NewIntFromString(amount)
 	if !ok {
 		t.Fatal("invalid delegation fixture")
 	}
-	return m859Proto(t, &staking.DelegationResponse{Delegation: staking.Delegation{DelegatorAddress: admin, ValidatorAddress: validator, Shares: sdk.NewDecFromInt(value)}, Balance: sdk.NewCoin("uhpx", value)})
+	return marshalProtoFixture(t, &staking.DelegationResponse{Delegation: staking.Delegation{DelegatorAddress: admin, ValidatorAddress: validator, Shares: sdk.NewDecFromInt(value)}, Balance: sdk.NewCoin("uhpx", value)})
 }
-func m859StakingCommand(operation, validator, amount string) []string {
+func stakingCommand(operation, validator, amount string) []string {
 	return []string{"paxd", "tx", "staking", operation, validator, amount + "uhpx", "--from", "admin", "--chain-id", "test-chain", "--broadcast-mode", "block", "--output", "json", "-y"}
 }
-func m859DelegationQuery(admin, validator string) []string {
+func delegationQueryCommand(admin, validator string) []string {
 	return []string{"paxd", "q", "staking", "delegation", admin, validator, "--chain-id", "test-chain", "--output", "json"}
 }
 
-func TestRepairM_859_ValidatorFaultCommands(t *testing.T) {
-	fixture := m859Remote(t)
+func TestValidatorFaultCommands(t *testing.T) {
+	fixture := readRemoteFixture(t)
 	for _, mode := range []string{"restart", "restart-unconfirmed"} {
 		t.Run(mode, func(t *testing.T) {
-			options := m859Options(t)
-			peer := &m859Replay{t: t}
+			options := faultOptions(t)
+			peer := &transcriptRunner{t: t}
 			var before, after string
 			if err := json.Unmarshal(fixture["restart_before"], &before); err != nil {
 				t.Fatal(err)
@@ -1011,7 +1011,7 @@ func TestRepairM_859_ValidatorFaultCommands(t *testing.T) {
 				after = before
 			}
 			for _, host := range options.Validators {
-				peer.steps = append(peer.steps, m859Step{args: m859SSH(host, "systemctl", "show", "paxd", "--property=InvocationID", "--value"), output: []byte(before)}, m859Step{args: m859SSH(host, "sudo", "-n", "systemctl", "restart", "paxd")}, m859Step{args: m859SSH(host, "systemctl", "is-active", "--quiet", "paxd")}, m859Step{args: m859SSH(host, "systemctl", "show", "paxd", "--property=InvocationID", "--value"), output: []byte(after)})
+				peer.steps = append(peer.steps, transcriptStep{args: sshCommand(host, "systemctl", "show", "paxd", "--property=InvocationID", "--value"), output: []byte(before)}, transcriptStep{args: sshCommand(host, "sudo", "-n", "systemctl", "restart", "paxd")}, transcriptStep{args: sshCommand(host, "systemctl", "is-active", "--quiet", "paxd")}, transcriptStep{args: sshCommand(host, "systemctl", "show", "paxd", "--property=InvocationID", "--value"), output: []byte(after)})
 				if mode == "restart-unconfirmed" {
 					break
 				}
@@ -1024,18 +1024,18 @@ func TestRepairM_859_ValidatorFaultCommands(t *testing.T) {
 		})
 	}
 	t.Run("structured-host-refusal", func(t *testing.T) {
-		options := m859Options(t)
+		options := faultOptions(t)
 		options.Validators = []string{"validator;touch /tmp/unsafe"}
-		peer := &m859Replay{t: t}
+		peer := &transcriptRunner{t: t}
 		if err := operations.NewFaultController(peer, options).Restarts(context.Background()); err == nil {
 			t.Fatal("unsafe SSH host accepted")
 		}
 		peer.done()
 	})
 	t.Run("positive-concurrency", func(t *testing.T) {
-		options := m859Options(t)
+		options := faultOptions(t)
 		options.Concurrent = 0
-		peer := &m859Replay{t: t}
+		peer := &transcriptRunner{t: t}
 		controller := operations.NewFaultController(peer, options)
 		if controller.Restarts(context.Background()) == nil || controller.SlowNetwork(context.Background()) == nil {
 			t.Fatal("nonpositive batch size accepted")
@@ -1044,8 +1044,8 @@ func TestRepairM_859_ValidatorFaultCommands(t *testing.T) {
 	})
 	for _, mode := range []string{"delegation", "delegation-rejected", "delegation-unconfirmed", "delegation-recover", "delegation-large", "delegation-paginated"} {
 		t.Run(mode, func(t *testing.T) {
-			options := m859Options(t)
-			peer := &m859Replay{t: t}
+			options := faultOptions(t)
+			peer := &transcriptRunner{t: t}
 			info, _, err := keyring.NewInMemory().NewMnemonic("admin", keyring.English, sdk.FullFundraiserPath, "", hd.Secp256k1)
 			if err != nil {
 				t.Fatal(err)
@@ -1075,35 +1075,35 @@ func TestRepairM_859_ValidatorFaultCommands(t *testing.T) {
 				responses = append(responses, staking.DelegationResponse{Delegation: staking.Delegation{DelegatorAddress: admin, ValidatorAddress: address, Shares: sdk.NewDecFromInt(baseCoin)}, Balance: sdk.NewCoin("uhpx", baseCoin)})
 			}
 			validator := validators[0]
-			output := m859Proto(t, &staking.QueryDelegatorDelegationsResponse{DelegationResponses: responses})
+			output := marshalProtoFixture(t, &staking.QueryDelegatorDelegationsResponse{DelegationResponses: responses})
 			nextKey := base64.StdEncoding.EncodeToString([]byte("page-two"))
 			if mode == "delegation-paginated" {
-				output = m859Proto(t, &staking.QueryDelegatorDelegationsResponse{DelegationResponses: responses[:4], Pagination: &sdkquery.PageResponse{NextKey: []byte("page-two")}})
+				output = marshalProtoFixture(t, &staking.QueryDelegatorDelegationsResponse{DelegationResponses: responses[:4], Pagination: &sdkquery.PageResponse{NextKey: []byte("page-two")}})
 			}
-			committed := m859Proto(t, &sdk.TxResponse{Height: 11, TxHash: strings.Repeat("1", 64), Code: 0})
-			rejected := m859Proto(t, &sdk.TxResponse{Height: 11, TxHash: strings.Repeat("2", 64), Code: 7})
-			peer.steps = append(peer.steps, m859Step{args: []string{"paxd", "keys", "list", "--output", "json"}, output: m859JSON(t, []keyring.KeyOutput{adminKey})}, m859Step{args: []string{"paxd", "q", "staking", "delegations", admin, "--chain-id", "test-chain", "--output", "json"}, output: output})
+			committed := marshalProtoFixture(t, &sdk.TxResponse{Height: 11, TxHash: strings.Repeat("1", 64), Code: 0})
+			rejected := marshalProtoFixture(t, &sdk.TxResponse{Height: 11, TxHash: strings.Repeat("2", 64), Code: 7})
+			peer.steps = append(peer.steps, transcriptStep{args: []string{"paxd", "keys", "list", "--output", "json"}, output: marshalFixture(t, []keyring.KeyOutput{adminKey})}, transcriptStep{args: []string{"paxd", "q", "staking", "delegations", admin, "--chain-id", "test-chain", "--output", "json"}, output: output})
 			if mode == "delegation-paginated" {
-				peer.steps = append(peer.steps, m859Step{args: []string{"paxd", "q", "staking", "delegations", admin, "--chain-id", "test-chain", "--output", "json", "--page-key", nextKey}, output: m859Proto(t, &staking.QueryDelegatorDelegationsResponse{DelegationResponses: responses[4:]})})
+				peer.steps = append(peer.steps, transcriptStep{args: []string{"paxd", "q", "staking", "delegations", admin, "--chain-id", "test-chain", "--output", "json", "--page-key", nextKey}, output: marshalProtoFixture(t, &staking.QueryDelegatorDelegationsResponse{DelegationResponses: responses[4:]})})
 			}
 			txOutput := committed
 			if mode == "delegation-rejected" {
 				txOutput = rejected
 			}
-			peer.steps = append(peer.steps, m859Step{args: m859StakingCommand("delegate", validator, added), output: txOutput})
+			peer.steps = append(peer.steps, transcriptStep{args: stakingCommand("delegate", validator, added), output: txOutput})
 			if mode == "delegation-rejected" {
-				peer.steps = append(peer.steps, m859Step{args: m859DelegationQuery(admin, validator), output: m859Delegation(t, admin, validator, baseline)})
+				peer.steps = append(peer.steps, transcriptStep{args: delegationQueryCommand(admin, validator), output: delegationResponse(t, admin, validator, baseline)})
 			} else if mode == "delegation-unconfirmed" {
-				peer.steps = append(peer.steps, m859Step{args: m859DelegationQuery(admin, validator), output: m859Delegation(t, admin, validator, baseline)}, m859Step{args: m859DelegationQuery(admin, validator), output: m859Delegation(t, admin, validator, baseline)})
+				peer.steps = append(peer.steps, transcriptStep{args: delegationQueryCommand(admin, validator), output: delegationResponse(t, admin, validator, baseline)}, transcriptStep{args: delegationQueryCommand(admin, validator), output: delegationResponse(t, admin, validator, baseline)})
 			} else {
-				peer.steps = append(peer.steps, m859Step{args: m859DelegationQuery(admin, validator), output: m859Delegation(t, admin, validator, target)}, m859Step{args: m859DelegationQuery(admin, validator), output: m859Delegation(t, admin, validator, target)})
-				unbond := m859Step{args: m859StakingCommand("unbond", validator, added), output: committed}
+				peer.steps = append(peer.steps, transcriptStep{args: delegationQueryCommand(admin, validator), output: delegationResponse(t, admin, validator, target)}, transcriptStep{args: delegationQueryCommand(admin, validator), output: delegationResponse(t, admin, validator, target)})
+				unbond := transcriptStep{args: stakingCommand("unbond", validator, added), output: committed}
 				if mode == "delegation-recover" {
 					unbond.err = errors.New("unbond transport failed")
 				}
 				peer.steps = append(peer.steps, unbond)
 				if mode != "delegation-recover" {
-					peer.steps = append(peer.steps, m859Step{args: m859DelegationQuery(admin, validator), output: m859Delegation(t, admin, validator, baseline)})
+					peer.steps = append(peer.steps, transcriptStep{args: delegationQueryCommand(admin, validator), output: delegationResponse(t, admin, validator, baseline)})
 				}
 			}
 			controller := operations.NewFaultController(peer, options)
@@ -1121,7 +1121,7 @@ func TestRepairM_859_ValidatorFaultCommands(t *testing.T) {
 					t.Fatal("no recovery instructions for retained delegation")
 				}
 				controller = nil
-				resumed := &m859Replay{t: t, steps: []m859Step{{args: m859DelegationQuery(admin, validator), output: m859Delegation(t, admin, validator, target)}, {args: m859StakingCommand("unbond", validator, added), output: committed}, {args: m859DelegationQuery(admin, validator), output: m859Delegation(t, admin, validator, baseline)}}}
+				resumed := &transcriptRunner{t: t, steps: []transcriptStep{{args: delegationQueryCommand(admin, validator), output: delegationResponse(t, admin, validator, target)}, {args: stakingCommand("unbond", validator, added), output: committed}, {args: delegationQueryCommand(admin, validator), output: delegationResponse(t, admin, validator, baseline)}}}
 				reopened, err := operations.OpenRecovery(resumed, options.Recovery)
 				if err != nil {
 					t.Fatal(err)

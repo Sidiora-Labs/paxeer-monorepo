@@ -53,7 +53,7 @@ fn bulk_order_responses(heights: &[u64], mars_address: &str) -> Vec<Response<Pax
 }
 
 #[test]
-fn f044_bulk_order_response_between_periodic_orders() {
+fn bulk_order_response_between_periodic_orders() {
     for response in bulk_order_responses(&[1, 9, 11, 19, 21], "mars-between-orders") {
         assert!(response.messages.is_empty());
         let data = response.data.expect("bulk-order response data is required");
@@ -64,7 +64,7 @@ fn f044_bulk_order_response_between_periodic_orders() {
 }
 
 #[test]
-fn f044_bulk_order_response_survives_periodic_mars_order() {
+fn bulk_order_response_survives_periodic_mars_order() {
     let heights = [9, 10, 11, 19, 20, 21];
     let responses = bulk_order_responses(&heights, "mars-periodic-orders");
     let baseline = responses[0]

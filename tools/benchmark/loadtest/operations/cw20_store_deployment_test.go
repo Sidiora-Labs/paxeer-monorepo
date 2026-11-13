@@ -62,7 +62,7 @@ func (r *cw20StoreRecordingRunner) Run(ctx context.Context, command Command) ([]
 	return raw, nil
 }
 
-func TestRepair22_31_500_CW20StorePaths(t *testing.T) {
+func TestCw20StoreDeploymentPaths(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "repository with spaces")
 	cw20StoreArtifact(t, root)
 	cwd, err := os.Getwd()
@@ -102,7 +102,7 @@ func TestRepair22_31_500_CW20StorePaths(t *testing.T) {
 	}
 }
 
-func TestRepair22_31_500_CW20StoreFailureStopsDeployment(t *testing.T) {
+func TestCw20StoreDeploymentFailureStops(t *testing.T) {
 	for _, failAt := range []int{1, 2, 3, 4} {
 		t.Run(fmt.Sprint(failAt), func(t *testing.T) {
 			stop := errors.New("store command failed")
