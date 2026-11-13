@@ -267,7 +267,7 @@ constraint = "The archive page module and its tests still import this component 
 
 [qualification]
 build_command = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn lint:tsc"
-verify_command = "test -s apps/explorer/repair_22_39_270.kvx && cd apps/explorer && yarn vitest run ui/paxeerX/anchors ui/paxeerX/chains ui/paxeerX/feed ui/paxeerX/receipts && python3 tools/paxeer-x/tests/retired_callers_test.py --path apps/explorer"
+verify_command = "test -s spec/layerx-merge/programme/records/apps/explorer/repair_22_39_270.kvx && cd apps/explorer && yarn vitest run ui/paxeerX/anchors ui/paxeerX/chains ui/paxeerX/feed ui/paxeerX/receipts && python3 tools/paxeer-x/tests/retired_callers_test.py --path apps/explorer"
 build_reference = "Private runner /out/run/gates.jsonl, final kind=build row: revision, command, exit, log."
 verify_reference = "Private runner /out/run/gates.jsonl, final kind=verify row: revision, command, exit, log."
 verified_revision = "By reference: the final kind=verify revision in /out/run/gates.jsonl, only if its exit is zero and its revision matches the passing build; this record is part of that candidate."
