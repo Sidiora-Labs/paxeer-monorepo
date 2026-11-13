@@ -170448,7 +170448,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.263]
 title = "Mark in the systems inventory the interfaces that the upgrade retires"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.43.261"]
@@ -373917,7 +373917,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.290]
 title = "Let the scripts of tools/qualification/paxeer-x take their default locations from the checkout"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374075,7 +374075,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.285]
 title = "Bring the Python tests 71 to 136 of tests/ci to the present pages and paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
