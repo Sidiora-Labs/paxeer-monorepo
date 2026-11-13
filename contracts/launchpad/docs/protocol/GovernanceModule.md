@@ -180,25 +180,25 @@ error ArrayLengthMismatch()
 ### ProposalCreated
 
 ```solidity
-event ProposalCreated(uint256 proposalId, address proposer, string description)
+event ProposalCreated(uint256 indexed proposalId, address indexed proposer, string description)
 ```
 
 ### VoteCast
 
 ```solidity
-event VoteCast(uint256 proposalId, address voter, bool support, uint256 weight)
+event VoteCast(uint256 indexed proposalId, address indexed voter, bool support, uint256 weight)
 ```
 
 ### ProposalExecuted
 
 ```solidity
-event ProposalExecuted(uint256 proposalId)
+event ProposalExecuted(uint256 indexed proposalId)
 ```
 
 ### ProposalCancelled
 
 ```solidity
-event ProposalCancelled(uint256 proposalId)
+event ProposalCancelled(uint256 indexed proposalId)
 ```
 
 ### AdminModeDeactivated
@@ -270,8 +270,9 @@ _Only works while adminModeActive is true_
 function deactivateAdminMode() external
 ```
 
-Permanently deactivate administrative queueing in the voting configuration. Requires `ADMIN_ROLE`;
-reverts in administrative-only mode.
+Deactivate administrative queueing and administrative proposal cancellation in the voting
+configuration. Requires `ADMIN_ROLE`; reverts in administrative-only mode. Role membership remains
+unchanged, and `DEFAULT_ADMIN_ROLE` continues to authorize upgrades.
 
 ### getProposalState
 
