@@ -350,7 +350,7 @@ def test_paxd_genesis_producer_consumer_success_and_reopen(tmp_path):
         binding = harness.bootstrap()
         native = sys.modules["native_runtime"]
         reset = sys.modules["reset_state"]
-        fixtures = ROOT / "services/platform/hosted/node/tests/fixtures/repair_22_31_355"
+        fixtures = ROOT / "services/platform/hosted/node/tests/fixtures/native_lifecycle"
         genesis = (fixtures / "genesis.json").read_bytes()
         expected = json.loads(genesis)
         assert expected["chain_id"] == harness.config["chain_id"]
