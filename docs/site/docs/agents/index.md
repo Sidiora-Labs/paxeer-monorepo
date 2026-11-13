@@ -8,7 +8,7 @@ local policy updates are daemon state and do not themselves prove a chain effect
 
 | Topic | Page |
 | --- | --- |
-| LayerX Node Interface | [LNI](lni.md) |
+| Native node access | [Node connection and evidence](lni.md) |
 | Agent daemon | [Agentd](agentd.md) |
 | Enrolment and MCP host path | [Running an agent](running.md) |
 | Language SDKs | [SDKs](sdks.md) |

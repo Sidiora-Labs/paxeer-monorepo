@@ -21,7 +21,7 @@ the anchor store until the separately coordinated deletion height.
 | Plan | Registered handler | State-machine change |
 | --- | --- | --- |
 | `v7.0` (`MergeUpgrade`) | `mergeUpgradePlan` | Add the sequencer and merged stores, validate sequencer genesis and receipt keys covering the first sequenced height, retire anchor writes, return guarantor bonds and release retired custody balances. |
-| `v7.0-anchor-store-delete` (`AnchorStoreDeleteUpgrade`) | Inline handler calling `app.mm.RunMigrations` | The store loader deletes `layerxanchor`; all anchor methods then refuse. This is a later plan with its own height and evidence. |
+| `v7.0-anchor-store-delete` (`AnchorStoreDeleteUpgrade`) | `app.runAnchorStoreDeleteUpgrade` | Requires a positive applied merge height strictly below the current height, then runs module migrations. The store loader deletes `layerxanchor`; all anchor methods then refuse. |
 
 The v7.0.0 inventory uses
 `68c8887a9520542d2878da3d6a44920ddd71b4b1` (exclusive base). Consensus paths are identified by `tools/ci/consensus_ledger_rows.py`.
