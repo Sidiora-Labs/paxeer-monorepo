@@ -19,7 +19,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 )
 
-func repair121Payload(t *testing.T, height int64) []byte {
+func seenCommitPayload(t *testing.T, height int64) []byte {
 	t.Helper()
 	key := ed25519.TestSecretKey([]byte("scmigrate-repair-121"))
 	dir := t.TempDir()
@@ -47,7 +47,7 @@ func repair121Payload(t *testing.T, height int64) []byte {
 	return bytes.Clone(payload)
 }
 
-func repair121Open(t *testing.T, dir string) dbm.DB {
+func openSeenCommitDB(t *testing.T, dir string) dbm.DB {
 	t.Helper()
 	db, err := dbm.NewGoLevelDB("seen-commit", dir)
 	if err != nil {
@@ -56,23 +56,23 @@ func repair121Open(t *testing.T, dir string) dbm.DB {
 	return db
 }
 
-func repair121Close(t *testing.T, db dbm.DB) {
+func closeSeenCommitDB(t *testing.T, db dbm.DB) {
 	t.Helper()
 	if err := db.Close(); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func repair121Seed(t *testing.T, db dbm.DB, canonicalHeight int64, winnerAtSource bool) []byte {
+func seedMixedSeenCommits(t *testing.T, db dbm.DB, canonicalHeight int64, winnerAtSource bool) []byte {
 	t.Helper()
-	winner := repair121Payload(t, 11)
+	winner := seenCommitPayload(t, 11)
 	batch := db.NewBatch()
 	defer func() { _ = batch.Close() }()
-	if err := batch.Set(makeKeyFromPrefix(prefixSeenCommit), repair121Payload(t, canonicalHeight)); err != nil {
+	if err := batch.Set(makeKeyFromPrefix(prefixSeenCommit), seenCommitPayload(t, canonicalHeight)); err != nil {
 		t.Fatal(err)
 	}
 	for _, height := range []int64{3, 8} {
-		if err := batch.Set(makeKeyFromPrefix(prefixSeenCommit, height), repair121Payload(t, height)); err != nil {
+		if err := batch.Set(makeKeyFromPrefix(prefixSeenCommit, height), seenCommitPayload(t, height)); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -90,7 +90,7 @@ func repair121Seed(t *testing.T, db dbm.DB, canonicalHeight int64, winnerAtSourc
 	return winner
 }
 
-func repair121AssertWinner(t *testing.T, db dbm.DB, winner []byte) {
+func assertHighestSeenCommit(t *testing.T, db dbm.DB, winner []byte) {
 	t.Helper()
 	records, err := getAllSeenCommits(t.Context(), db)
 	if err != nil {
@@ -125,27 +125,27 @@ func repair121AssertWinner(t *testing.T, db dbm.DB, winner []byte) {
 	}
 }
 
-func TestRepair_121_OlderCanonicalNewerLegacy(t *testing.T) {
+func TestSeenCommitMigrationOlderCanonicalNewerLegacy(t *testing.T) {
 	dir := t.TempDir()
-	db := repair121Open(t, dir)
-	winner := repair121Seed(t, db, 7, true)
-	repair121Close(t, db)
+	db := openSeenCommitDB(t, dir)
+	winner := seedMixedSeenCommits(t, db, 7, true)
+	closeSeenCommitDB(t, db)
 	for range 3 {
-		db = repair121Open(t, dir)
+		db = openSeenCommitDB(t, dir)
 		if err := Migrate(t.Context(), db); err != nil {
 			t.Fatal(err)
 		}
-		repair121Close(t, db)
-		db = repair121Open(t, dir)
-		repair121AssertWinner(t, db, winner)
-		repair121Close(t, db)
+		closeSeenCommitDB(t, db)
+		db = openSeenCommitDB(t, dir)
+		assertHighestSeenCommit(t, db, winner)
+		closeSeenCommitDB(t, db)
 	}
 }
 
-func TestRepair_121_InterruptedRepeatedMixedFormats(t *testing.T) {
-	if dir := os.Getenv("SCMIGRATE_REPAIR121_DIR"); dir != "" {
-		db := repair121Open(t, dir)
-		if os.Getenv("SCMIGRATE_REPAIR121_PHASE") == "scanned" {
+func TestSeenCommitMigrationInterruptedRepeatedMixedFormats(t *testing.T) {
+	if dir := os.Getenv("SCMIGRATE_RECOVERY_DIR"); dir != "" {
+		db := openSeenCommitDB(t, dir)
+		if os.Getenv("SCMIGRATE_RECOVERY_PHASE") == "scanned" {
 			records, err := getAllSeenCommits(t.Context(), db)
 			if err != nil {
 				t.Fatal(err)
@@ -172,20 +172,20 @@ func TestRepair_121_InterruptedRepeatedMixedFormats(t *testing.T) {
 	} {
 		t.Run(initial.name, func(t *testing.T) {
 			dir := t.TempDir()
-			db := repair121Open(t, dir)
-			winner := repair121Seed(t, db, initial.canonicalHeight, initial.winnerAtSource)
+			db := openSeenCommitDB(t, dir)
+			winner := seedMixedSeenCommits(t, db, initial.canonicalHeight, initial.winnerAtSource)
 			before, err := getAllSeenCommits(t.Context(), db)
 			if err != nil {
 				t.Fatal(err)
 			}
-			repair121Close(t, db)
+			closeSeenCommitDB(t, db)
 			for _, phase := range []string{"scanned", "written", "written"} {
-				cmd := exec.CommandContext(t.Context(), os.Args[0], "-test.run=^TestRepair_121_InterruptedRepeatedMixedFormats$")
-				cmd.Env = append(os.Environ(), "SCMIGRATE_REPAIR121_DIR="+dir, "SCMIGRATE_REPAIR121_PHASE="+phase)
+				cmd := exec.CommandContext(t.Context(), os.Args[0], "-test.run=^TestSeenCommitMigrationInterruptedRepeatedMixedFormats$")
+				cmd.Env = append(os.Environ(), "SCMIGRATE_RECOVERY_DIR="+dir, "SCMIGRATE_RECOVERY_PHASE="+phase)
 				if output, err := cmd.CombinedOutput(); err != nil {
 					t.Fatalf("interrupted migration (%s): %v\n%s", phase, err, output)
 				}
-				db = repair121Open(t, dir)
+				db = openSeenCommitDB(t, dir)
 				if phase == "scanned" {
 					after, err := getAllSeenCommits(t.Context(), db)
 					if err != nil {
@@ -200,9 +200,9 @@ func TestRepair_121_InterruptedRepeatedMixedFormats(t *testing.T) {
 						}
 					}
 				} else {
-					repair121AssertWinner(t, db, winner)
+					assertHighestSeenCommit(t, db, winner)
 				}
-				repair121Close(t, db)
+				closeSeenCommitDB(t, db)
 			}
 		})
 	}

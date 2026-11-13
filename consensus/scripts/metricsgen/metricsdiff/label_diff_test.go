@@ -11,7 +11,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func repairM1185Exposition(t *testing.T, labels []string) string {
+func metricLabelsExposition(t *testing.T, labels []string) string {
 	t.Helper()
 	pairs := make([]*dto.LabelPair, len(labels))
 	for i, name := range labels {
@@ -31,7 +31,7 @@ func repairM1185Exposition(t *testing.T, labels []string) string {
 	return text.String()
 }
 
-func TestRepairM_1185_ReorderedLabels(t *testing.T) {
+func TestReorderedMetricLabels(t *testing.T) {
 	orders := [][]string{
 		{"host", "method", "zone"},
 		{"host", "zone", "method"},
@@ -44,8 +44,8 @@ func TestRepairM_1185_ReorderedLabels(t *testing.T) {
 		for _, after := range orders {
 			t.Run(strings.Join(before, "_")+"_to_"+strings.Join(after, "_"), func(t *testing.T) {
 				diff, err := metricsdiff.DiffFromReaders(
-					strings.NewReader(repairM1185Exposition(t, before)),
-					strings.NewReader(repairM1185Exposition(t, after)),
+					strings.NewReader(metricLabelsExposition(t, before)),
+					strings.NewReader(metricLabelsExposition(t, after)),
 				)
 				require.NoError(t, err)
 				require.Empty(t, diff.Adds)
@@ -57,7 +57,7 @@ func TestRepairM_1185_ReorderedLabels(t *testing.T) {
 	}
 }
 
-func TestRepairM_1185_ChangedLabels(t *testing.T) {
+func TestChangedMetricLabels(t *testing.T) {
 	for _, tc := range []struct {
 		name    string
 		before  []string
@@ -90,8 +90,8 @@ func TestRepairM_1185_ChangedLabels(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			diff, err := metricsdiff.DiffFromReaders(
-				strings.NewReader(repairM1185Exposition(t, tc.before)),
-				strings.NewReader(repairM1185Exposition(t, tc.after)),
+				strings.NewReader(metricLabelsExposition(t, tc.before)),
+				strings.NewReader(metricLabelsExposition(t, tc.after)),
 			)
 			require.NoError(t, err)
 			require.Empty(t, diff.Adds)
