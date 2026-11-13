@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-func TestRepairM_782_QuotedValues(t *testing.T) {
+func TestParseQuotedValues(t *testing.T) {
 	cases := []struct {
 		name, token, want string
 	}{
@@ -59,7 +59,7 @@ func TestRepairM_782_QuotedValues(t *testing.T) {
 	}
 }
 
-func TestRepairM_782_Lists(t *testing.T) {
+func TestParseListValues(t *testing.T) {
 	cases := []struct {
 		name, token string
 		want        []string
@@ -115,7 +115,7 @@ func TestRepairM_782_Lists(t *testing.T) {
 	}
 }
 
-func TestRepairM_782_ProducerToRenderer(t *testing.T) {
+func TestRenderEscapedStrings(t *testing.T) {
 	root := t.TempDir()
 	write := func(rel, content string) {
 		t.Helper()
@@ -190,7 +190,7 @@ do_1 = "Keep \"# and ,\" in C:\\spec\\"
 	}
 }
 
-func TestRepairM_782_RejectMalformedStrings(t *testing.T) {
+func TestParseRejectsMalformedStrings(t *testing.T) {
 	cases := []string{
 		`"unfinished`,
 		`"dangling\"`,
