@@ -54,8 +54,7 @@ def task_order(tasks: dict) -> list[str]:
 def task_plan(tasks: dict) -> str:
     lines = [
         "# Native source-control implementation plan", "",
-        "Generated from [spec.kvx](spec.kvx); regenerate with "
-        "`python3 spec/hyperfide-source-control/tools/validate_spec.py --render`.", "",
+        "Generated from [source-spec.kvx](source-spec.kvx).", "",
         "Task statuses below record current implementation progress. "
         "Verification drivers are task deliverables; a command being listed is not evidence that it exists or passes.", "",
         "Dependencies determine eligibility. Wave numbers group integration and release obligations. "
@@ -91,7 +90,7 @@ def task_plan(tasks: dict) -> str:
 def traceability(requirements: dict, tasks: dict, cases: dict) -> str:
     lines = [
         "# Native source-control traceability", "",
-        "Generated from [spec.kvx](spec.kvx). A clause `N.M` is `[req.N] ac_M`. "
+        "Generated from [source-spec.kvx](source-spec.kvx). A clause `N.M` is `[req.N] ac_M`. "
         "Mappings describe coverage ownership, not execution evidence. All product cases are UNRUN; focused prerequisite receipts do not close the complete layout case.", "",
         "| Clause | Requirement | Implementation tasks | Product cases | Contract |",
         "|---|---|---|---|---|",

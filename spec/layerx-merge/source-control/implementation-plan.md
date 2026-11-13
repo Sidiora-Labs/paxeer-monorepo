@@ -1,6 +1,6 @@
 # Native source-control implementation plan
 
-Generated from [spec.kvx](spec.kvx); regenerate with `python3 spec/hyperfide-source-control/tools/validate_spec.py --render`.
+Generated from [source-spec.kvx](source-spec.kvx).
 
 Task statuses below record current implementation progress. Verification drivers are task deliverables; a command being listed is not evidence that it exists or passes.
 
