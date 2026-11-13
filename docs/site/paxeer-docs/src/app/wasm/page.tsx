@@ -12,7 +12,7 @@ export default function Wasm() {
         <p className="page-description">CosmWasm contract lifecycle, deployment permissions, and calls between Paxeer’s EVM and WebAssembly runtimes.</p>
       </div>
 
-      <div className="source-note"><strong>Source:</strong> <code>Paxeer-X-Network/wasm/x/wasm/</code>, <code>precompiles/wasmd/</code>, and <code>node/wasmbinding/</code>.</div>
+      <div className="source-note"><strong>Source:</strong> <code>wasm/x/wasm/</code>, <code>precompiles/wasmd/</code>, and <code>node/wasmbinding/</code> at the repository root.</div>
       <h2>Runtime and module</h2>
       <p>Paxeer includes the CosmWasm module for storing WebAssembly code, instantiating contracts, executing messages, querying state, and performing authorized migrations. The <Link href="/wasm-runtime">WASM runtime</Link> executes compiled contract bytecode; the module supplies storage, account, bank, and message integration.</p>
       <p>Contract authors compile Rust to WebAssembly before upload. Contract messages and queries use the individual contract&apos;s JSON schema. Native coin amounts use base-denomination integers, such as <code>uhpx</code>.</p>
@@ -25,7 +25,7 @@ paxd query params subspace wasm instantiateAccess`}</code></pre>
       <p>These are the parameter keys in <code>wasm/x/wasm/types/params.go</code>. A particular code ID also carries its instantiation permissions. Check those permissions and the contract&apos;s administrator before an instantiate or migrate transaction.</p>
 
       <h2>Contract lifecycle</h2>
-      <p>Set your node endpoint, chain ID, and signer in the CLI configuration first. In these command templates, <code>INIT_JSON</code>, <code>EXECUTE_JSON</code>, and <code>QUERY_JSON</code> contain valid JSON matching your contract; <code>CODE_ID</code> and <code>CONTRACT</code> come from confirmed transaction results.</p>
+      <p>Set your node endpoint, Cosmos chain ID, and signer in the CLI configuration first. In these command templates, <code>INIT_JSON</code>, <code>EXECUTE_JSON</code>, and <code>QUERY_JSON</code> are shell variables containing JSON matching your contract; <code>CODE_ID</code> and <code>CONTRACT</code> come from confirmed transaction results. ADMIN is the chosen administrator address, NEW_CODE_ID identifies uploaded replacement code, and MIGRATE_JSON contains its migration message.</p>
       <pre><code>{`# Upload a compiled contract and record its confirmed code_id.
 paxd tx wasm store contract.wasm --from deployer --gas auto
 
@@ -56,7 +56,7 @@ const wasm = new Contract(
 const queryResult = await wasm.query(contractAddress, toUtf8Bytes(JSON.stringify(queryMessage)))
 const decodedJson = JSON.parse(toUtf8String(queryResult))
 
-// 1 PAX = 1,000,000 uhpx = 10^18 wei.
+// 1,000,000 uhpx corresponds to 10^18 wei of EVM value.
 const coins = toUtf8Bytes(JSON.stringify([{ denom: 'uhpx', amount: '1000000' }]))
 const tx = await wasm.execute(
   contractAddress,
@@ -74,7 +74,7 @@ await tx.wait()`}</code></pre>
 
       <h2>Messages, storage, and gas</h2>
       <p>Standard CosmWasm messages handle bank transfers, staking, distribution, and other contract calls; custom bindings add Paxeer-specific module operations. Each contract has isolated byte-keyed storage accessed through host callbacks. Runtime computation and host work consume gas, including when an EVM contract makes a CosmWasm query on-chain.</p>
-      <p>The retained native Oracle query route and the retired EVM Oracle precompile are separate interfaces. Read the <Link href="/modules/oracle">Oracle module guide</Link> before choosing a price-data integration.</p>
+      <p>Custom bindings provide a native Oracle query route for exchange rates and time-weighted prices. Read the <Link href="/modules/oracle">Oracle module guide</Link> for its query fields and available data.</p>
 
       <h2>Implementation references</h2>
       <ul>

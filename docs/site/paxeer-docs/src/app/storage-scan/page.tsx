@@ -9,8 +9,8 @@ export default function StorageScanPage() {
     <div className="page-header"><h1 className="page-title">Bounded Storage Scans</h1><p className="page-description">Iterate Paxeer X program state with deterministic ordering, explicit page budgets, scope-bound continuation cursors, and metered canonical results.</p></div>
     <h2>Read a namespace in bounded pages</h2>
     <p>The guest host function <code>layerx_v2.storage_scan_scoped</code> returns ordered key/value pairs matching a byte prefix. Every call declares an entry ceiling and a complete encoded-page byte ceiling. A portable continuation token resumes after the last returned key across activities without retaining a host iterator or allocator handle.</p>
-    <p>This is a Candidate-V2 host function, validated through the candidate path; the frozen V1 ABI is unchanged. Confirm that your target admits <code>layerx_v2</code> programs before depending on scans in production.</p>
-    <p>Use scans for bounded indexes, application inventories, and paginated state processing. Design keys with stable prefixes and choose page sizes that fit the call&apos;s storage-read and output transport budgets. The function scans one authorized namespace, rather than exposing arbitrary kernel state.</p>
+    <p>This function belongs to the frozen ABI v2 namespace, <code>layerx_v2</code>. The runtime declares its nine i32 parameters and i32 result in the versioned ABI manifest. A program must declare an ABI version that includes this namespace.</p>
+    <p>Use scans for bounded indexes, application inventories, and paginated state processing. Design keys with stable prefixes and choose page sizes that fit the call&apos;s storage-read budget and guest output buffer. Returning scan data as an activity response also consumes the response output budget. The function scans one authorized namespace.</p>
     <h2>Host-call contract</h2>
     <pre><code>{`storage_scan_scoped(
   raw_selector: i32,
@@ -53,7 +53,7 @@ export default function StorageScanPage() {
     <p>Each resumed activity reads its current authorized state. The cursor identifies a position and scan contract; it does not claim that all pages share a frozen historical state. For an application that needs a consistent export, bind the surrounding workflow to its own verified state and mutation policy.</p>
     <h2>Two independent page bounds</h2>
     <p>The scan stops before exceeding the entry count. It also checks the complete encoded size when adding each matching entry. If an entry would exceed the page-byte limit, it is removed and the preceding entries return with a cursor. If no entry can fit, the scan refuses with a bounds status rather than returning an ambiguous empty continuation.</p>
-    <p>For the canonical short-key fixture, three pairs <code>(a,a)</code>, <code>(b,b)</code>, and <code>(c,c)</code> form a 29-byte terminal page. With a fourth pair and limits <code>(64, 101)</code>, the first page contains two entries plus continuation and occupies 101 bytes. A 100-byte limit yields one entry plus continuation at 93 bytes.</p>
+    <p>In a principal-scoped namespace with an empty prefix, three pairs <code>(a,a)</code>, <code>(b,b)</code>, and <code>(c,c)</code> have a 29-byte terminal encoding. With a fourth pair and limits <code>(64, 101)</code>, the first page contains two entries plus continuation and occupies 101 bytes. A 100-byte limit yields one entry plus continuation at 93 bytes. The byte ceiling must allow continuation metadata while the page is assembled.</p>
     <h2>Refusals and unchanged output</h2>
     <table><thead><tr><th>Status</th><th>Meaning</th><th>Response</th></tr></thead><tbody>
       <tr><td><code>-1</code> denied</td><td>Missing matching read authority or access declaration.</td><td>Supply the correct admitted grant and scope.</td></tr>
@@ -66,6 +66,6 @@ export default function StorageScanPage() {
     <p>Storage is ordered by program, scope, and key. Within the chosen namespace, entries return in canonical key order independent of insertion order. Equivalent state and scan inputs produce equivalent pages, usage, and evidence.</p>
     <p>A scan sees writes already staged in the same activity because both use the activity&apos;s storage snapshot. A successful activity commits those writes. A later trap discards the staged mutation and returns the runtime-fault outcome without a successful response. Do not treat a page observed inside a failed guest execution as committed state.</p>
     <p>Read <Link href="/programs">Programs</Link> for call budgets, response transport, and receipt verification, or <Link href="/program-workspace">the developer workspace</Link> for conformance and ABI checks.</p>
-    <div className="source-note"><strong>Technical references:</strong> Storage Scan protocol documentation; runtime host scan, storage scan, scoped storage authorization, and storage-scan conformance tests.</div>
+    <div className="source-note"><strong>Technical references:</strong> programs/crates/layerx-programs-runtime/src/host/scan.rs, src/storage/scan.rs, src/abi/storage_ops.rs, src/abi/manifest.rs, and tests/storage_scan.rs within that runtime crate.</div>
   </DocsLayout>
 }

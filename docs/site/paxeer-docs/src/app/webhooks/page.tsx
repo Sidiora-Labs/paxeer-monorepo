@@ -16,7 +16,7 @@ Idempotency-Key: <stable-registration-key>
 Content-Type: application/json
 
 {
-  "url": "https://merchant.example.com/events/paxeer",
+  "url": "<public-https-receiver-url>",
   "kinds": ["payment", "approval"],
   "minimum_verification": "unverified"
 }`}</code></pre>
@@ -28,7 +28,7 @@ Content-Type: application/json
       <tr><td><code>approval</code></td><td>Approval identity, agent, state, creation time.</td><td>Source facts with optional activity receipt binding.</td></tr>
       <tr><td><code>program</code></td><td>Program identity, lifecycle, version, code hash, receipt digest.</td><td>Source facts with optional activity receipt binding.</td></tr>
     </tbody></table>
-    <p>Webhook verification levels are <code>unverified</code>, <code>receipt-verified</code> and <code>block-committed</code>. Registering an endpoint with any other <code>minimum_verification</code> value is rejected as an invalid request; the legacy stored words <code>checkpoint-finalised</code> and <code>paxeer-finalised</code> are read back as <code>block-committed</code> but cannot be registered. Each fact retains its own level; the event header uses the weakest fact. A payment event can therefore have an unverified header while its settled-state fact carries receipt evidence. A minimum-verification filter applies to that aggregate header. Inspect and verify the facts your decision uses.</p>
+    <p>Webhook verification levels are <code>unverified</code>, <code>receipt-verified</code> and <code>block-committed</code>. Registering an endpoint with any other <code>minimum_verification</code> value is rejected as an invalid request. Each fact retains its own level; the event&apos;s aggregate verification uses the weakest fact. A payment event can therefore be unverified in aggregate while its settled-state fact carries receipt evidence. A minimum-verification filter applies to that aggregate level. Inspect and verify the facts your decision uses.</p>
     <h2>Verify the raw delivery</h2>
     <pre><code>{`layerx-webhook-id: <event-id>
 layerx-webhook-timestamp: <unix-seconds>
@@ -63,6 +63,6 @@ signed_message = UTF8(event_id + "." + timestamp + ".") || raw_body`}</code></pr
     <h2>Rotate keys and monitor receivers</h2>
     <p>Key rotation announces a pending public key before activation; the default overlap is 86,400 seconds. Configure the new public key during the overlap while retaining the old key for eligible deliveries. Signing private keys stay with the signing service.</p>
     <p>Monitor delivery latency, retry age, dead letters, suspension, and receiver signature failures. Return 2xx after durable acceptance. For long processing jobs, commit an inbox record and process it asynchronously. Use <Link href="/subscriptions">agent subscriptions</Link> for tenant-scoped streams with explicit acknowledgement and gap recovery.</p>
-    <div className="source-note"><strong>Reference:</strong> <code>services/platform/hosted/webhooks/src/main.rs</code>, <code>hosted.rs</code>, <code>scheme.rs</code>, <code>events.rs</code>, <code>endpoints.rs</code> in the monorepo.</div>
+    <div className="source-note"><strong>Reference:</strong> <code>services/platform/hosted/webhooks/src/main.rs</code> and its sibling files <code>hosted.rs</code>, <code>scheme.rs</code>, <code>events.rs</code>, <code>endpoints.rs</code>; endpoint management routes are in routes.rs in the same directory.</div>
   </DocsLayout>
 }
