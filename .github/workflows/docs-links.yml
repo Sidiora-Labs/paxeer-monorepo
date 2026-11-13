@@ -28,5 +28,5 @@ jobs:
       - name: Check relative Markdown links
         uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2.9.0
         with:
-          args: --offline --verbose --no-progress --exclude-path explorer './**/*.md'
+          args: --offline --verbose --no-progress --exclude-path apps/explorer --exclude-path services/explorer './**/*.md'
           fail: true
