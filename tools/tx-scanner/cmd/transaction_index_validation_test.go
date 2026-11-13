@@ -26,7 +26,7 @@ import (
 	"google.golang.org/grpc/test/bufconn"
 )
 
-func TestRepairM_881_F034InvalidThroughput(t *testing.T) {
+func TestScanRejectsInvalidThroughput(t *testing.T) {
 	previous := client.GrpcConn
 	client.GrpcConn = nil
 	t.Cleanup(func() { client.GrpcConn = previous })
@@ -60,19 +60,19 @@ func TestRepairM_881_F034InvalidThroughput(t *testing.T) {
 	}
 }
 
-type repairM881BlockFixture struct {
+type canonicalBlockFixture struct {
 	tmservice.UnimplementedServiceServer
 	block *tmproto.Block
 }
 
-func (s *repairM881BlockFixture) GetBlockByHeight(_ context.Context, req *tmservice.GetBlockByHeightRequest) (*tmservice.GetBlockByHeightResponse, error) {
+func (s *canonicalBlockFixture) GetBlockByHeight(_ context.Context, req *tmservice.GetBlockByHeightRequest) (*tmservice.GetBlockByHeightResponse, error) {
 	if req.Height != s.block.Header.Height {
 		return nil, status.Error(codes.NotFound, "block not in fixture")
 	}
 	return &tmservice.GetBlockByHeightResponse{Block: s.block}, nil
 }
 
-type repairM881TxFixture struct {
+type transactionIndexFixture struct {
 	txtypes.UnimplementedServiceServer
 	height     int64
 	txs        []*txtypes.Tx
@@ -85,7 +85,7 @@ type repairM881TxFixture struct {
 	lookups    []string
 }
 
-func (s *repairM881TxFixture) GetTxsEvent(_ context.Context, req *txtypes.GetTxsEventRequest) (*txtypes.GetTxsEventResponse, error) {
+func (s *transactionIndexFixture) GetTxsEvent(_ context.Context, req *txtypes.GetTxsEventRequest) (*txtypes.GetTxsEventResponse, error) {
 	if !reflect.DeepEqual(req.Events, []string{fmt.Sprintf("tx.height=%d", s.height)}) {
 		return nil, status.Error(codes.InvalidArgument, "incorrect height event")
 	}
@@ -122,7 +122,7 @@ func (s *repairM881TxFixture) GetTxsEvent(_ context.Context, req *txtypes.GetTxs
 	}, nil
 }
 
-func (s *repairM881TxFixture) GetTx(_ context.Context, req *txtypes.GetTxRequest) (*txtypes.GetTxResponse, error) {
+func (s *transactionIndexFixture) GetTx(_ context.Context, req *txtypes.GetTxRequest) (*txtypes.GetTxResponse, error) {
 	s.mu.Lock()
 	s.lookups = append(s.lookups, req.Hash)
 	s.mu.Unlock()
@@ -133,13 +133,13 @@ func (s *repairM881TxFixture) GetTx(_ context.Context, req *txtypes.GetTxRequest
 	return response, nil
 }
 
-func repairM881Fixtures(t *testing.T, count int) (*repairM881BlockFixture, *repairM881TxFixture) {
+func newTransactionIndexFixtures(t *testing.T, count int) (*canonicalBlockFixture, *transactionIndexFixture) {
 	t.Helper()
 	const height = 37
-	block := &repairM881BlockFixture{block: &tmproto.Block{Header: tmproto.Header{Height: height}}}
-	index := &repairM881TxFixture{height: height, byHash: make(map[string]*txtypes.GetTxResponse)}
+	block := &canonicalBlockFixture{block: &tmproto.Block{Header: tmproto.Header{Height: height}}}
+	index := &transactionIndexFixture{height: height, byHash: make(map[string]*txtypes.GetTxResponse)}
 	for i := 0; i < count; i++ {
-		tx := &txtypes.Tx{Body: &txtypes.TxBody{Memo: fmt.Sprintf("repair-m881-%d", i)}, AuthInfo: &txtypes.AuthInfo{}}
+		tx := &txtypes.Tx{Body: &txtypes.TxBody{Memo: fmt.Sprintf("transaction-index-%d", i)}, AuthInfo: &txtypes.AuthInfo{}}
 		raw, err := tx.Marshal()
 		if err != nil {
 			t.Fatal(err)
@@ -155,7 +155,7 @@ func repairM881Fixtures(t *testing.T, count int) (*repairM881BlockFixture, *repa
 	return block, index
 }
 
-func repairM881Serve(t *testing.T, block *repairM881BlockFixture, index *repairM881TxFixture) {
+func serveTransactionIndex(t *testing.T, block *canonicalBlockFixture, index *transactionIndexFixture) {
 	t.Helper()
 	listener := bufconn.Listen(1024 * 1024)
 	server := grpc.NewServer()
@@ -165,7 +165,7 @@ func repairM881Serve(t *testing.T, block *repairM881BlockFixture, index *repairM
 	t.Cleanup(func() { server.Stop(); _ = listener.Close() })
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	conn, err := grpc.DialContext(ctx, "passthrough:///repair-m881",
+	conn, err := grpc.DialContext(ctx, "passthrough:///transaction-index",
 		grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) { return listener.Dial() }),
 		grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
 	if err != nil {
@@ -176,11 +176,11 @@ func repairM881Serve(t *testing.T, block *repairM881BlockFixture, index *repairM
 	t.Cleanup(func() { client.GrpcConn = previous; _ = conn.Close() })
 }
 
-func TestRepairM_881_F033CanonicalIndexComparison(t *testing.T) {
+func TestScanComparesCanonicalTransactionIndex(t *testing.T) {
 	for _, tc := range []struct {
 		name        string
 		count       int
-		change      func(*repairM881BlockFixture, *repairM881TxFixture)
+		change      func(*canonicalBlockFixture, *transactionIndexFixture)
 		wantBad     bool
 		wantPages   int
 		wantLookups int
@@ -190,52 +190,52 @@ func TestRepairM_881_F033CanonicalIndexComparison(t *testing.T) {
 		{name: "exact_page_boundary", count: 100, wantPages: 1, wantLookups: 100},
 		{name: "complete_three_pages", count: 205, wantPages: 3, wantLookups: 205},
 		{name: "lowercase_hashes", count: 101, wantPages: 2, wantLookups: 101,
-			change: func(_ *repairM881BlockFixture, index *repairM881TxFixture) { index.lowercase = true }},
+			change: func(_ *canonicalBlockFixture, index *transactionIndexFixture) { index.lowercase = true }},
 		{name: "one_of_one_hundred_indexed", count: 100, wantBad: true, wantPages: 1,
-			change: func(_ *repairM881BlockFixture, index *repairM881TxFixture) {
+			change: func(_ *canonicalBlockFixture, index *transactionIndexFixture) {
 				index.txs = index.txs[:1]
 				index.responses = index.responses[:1]
 			}},
 		{name: "none_indexed", count: 2, wantBad: true, wantPages: 1,
-			change: func(_ *repairM881BlockFixture, index *repairM881TxFixture) {
+			change: func(_ *canonicalBlockFixture, index *transactionIndexFixture) {
 				index.txs = nil
 				index.responses = nil
 			}},
 		{name: "missing_on_last_page", count: 205, wantBad: true, wantPages: 3,
-			change: func(_ *repairM881BlockFixture, index *repairM881TxFixture) {
+			change: func(_ *canonicalBlockFixture, index *transactionIndexFixture) {
 				index.txs = index.txs[:204]
 				index.responses = index.responses[:204]
 			}},
 		{name: "same_count_wrong_hash", count: 2, wantBad: true, wantPages: 1,
-			change: func(block *repairM881BlockFixture, _ *repairM881TxFixture) {
+			change: func(block *canonicalBlockFixture, _ *transactionIndexFixture) {
 				block.block.Data.Txs[1] = block.block.Data.Txs[1][:len(block.block.Data.Txs[1])-1]
 			}},
 		{name: "duplicate_hides_omission", count: 101, wantBad: true, wantPages: 2,
-			change: func(_ *repairM881BlockFixture, index *repairM881TxFixture) {
+			change: func(_ *canonicalBlockFixture, index *transactionIndexFixture) {
 				index.txs[100] = index.txs[0]
 				index.responses[100] = index.responses[0]
 			}},
 		{name: "extra_index_entry", count: 1, wantBad: true, wantPages: 1,
-			change: func(_ *repairM881BlockFixture, index *repairM881TxFixture) {
+			change: func(_ *canonicalBlockFixture, index *transactionIndexFixture) {
 				index.txs = append(index.txs, index.txs[0])
 				index.responses = append(index.responses, index.responses[0])
 			}},
 		{name: "hash_lookup_missing", count: 1, wantBad: true, wantPages: 1, wantLookups: 1,
-			change: func(_ *repairM881BlockFixture, index *repairM881TxFixture) {
+			change: func(_ *canonicalBlockFixture, index *transactionIndexFixture) {
 				delete(index.byHash, index.responses[0].TxHash)
 			}},
 		{name: "hash_lookup_mismatched", count: 2, wantBad: true, wantPages: 1,
-			change: func(_ *repairM881BlockFixture, index *repairM881TxFixture) {
+			change: func(_ *canonicalBlockFixture, index *transactionIndexFixture) {
 				first, second := index.responses[0].TxHash, index.responses[1].TxHash
 				index.byHash[first], index.byHash[second] = index.byHash[second], index.byHash[first]
 			}, wantLookups: 1},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			block, index := repairM881Fixtures(t, tc.count)
+			block, index := newTransactionIndexFixtures(t, tc.count)
 			if tc.change != nil {
 				tc.change(block, index)
 			}
-			repairM881Serve(t, block, index)
+			serveTransactionIndex(t, block, index)
 			bad, err := processBlock(block.block.Header.Height)
 			if err != nil || bad != tc.wantBad {
 				t.Fatalf("processBlock() = (%v, %v), want (%v, nil)", bad, err, tc.wantBad)
@@ -257,11 +257,11 @@ func TestRepairM_881_F033CanonicalIndexComparison(t *testing.T) {
 	}
 }
 
-func TestRepairM_881_F033LaterPageError(t *testing.T) {
-	block, index := repairM881Fixtures(t, 101)
+func TestScanPropagatesLaterPageError(t *testing.T) {
+	block, index := newTransactionIndexFixtures(t, 101)
 	offset := uint64(pagination.DefaultLimit)
 	index.failOffset = &offset
-	repairM881Serve(t, block, index)
+	serveTransactionIndex(t, block, index)
 	bad, err := processBlock(block.block.Header.Height)
 	if bad || status.Code(err) != codes.Unavailable {
 		t.Fatalf("processBlock() = (%v, %v); want the second-page query error", bad, err)

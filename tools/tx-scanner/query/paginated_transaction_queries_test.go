@@ -26,19 +26,19 @@ import (
 // The peers serve a deterministic in-memory transcript through the production
 // protobuf services and transport. The query functions under test are unchanged
 // production entry points, including the legacy scanner calls.
-type repairM882Blocks struct {
+type queryBlockTranscript struct {
 	tmservice.UnimplementedServiceServer
 }
 
-func (*repairM882Blocks) GetLatestBlock(context.Context, *tmservice.GetLatestBlockRequest) (*tmservice.GetLatestBlockResponse, error) {
+func (*queryBlockTranscript) GetLatestBlock(context.Context, *tmservice.GetLatestBlockRequest) (*tmservice.GetLatestBlockResponse, error) {
 	return &tmservice.GetLatestBlockResponse{Block: &tmproto.Block{Header: tmproto.Header{Height: 42}}}, nil
 }
 
-func (*repairM882Blocks) GetBlockByHeight(_ context.Context, req *tmservice.GetBlockByHeightRequest) (*tmservice.GetBlockByHeightResponse, error) {
+func (*queryBlockTranscript) GetBlockByHeight(_ context.Context, req *tmservice.GetBlockByHeightRequest) (*tmservice.GetBlockByHeightResponse, error) {
 	return &tmservice.GetBlockByHeightResponse{Block: &tmproto.Block{Header: tmproto.Header{Height: req.Height}}}, nil
 }
 
-type repairM882Txs struct {
+type queryTransactionTranscript struct {
 	txtypes.UnimplementedServiceServer
 	total   int
 	mode    string
@@ -46,16 +46,16 @@ type repairM882Txs struct {
 	offsets []uint64
 }
 
-func repairM882Entry(index int) (*txtypes.Tx, *sdk.TxResponse) {
+func queryTransactionEntry(index int) (*txtypes.Tx, *sdk.TxResponse) {
 	memo := fmt.Sprintf("transaction-%d", index)
 	return &txtypes.Tx{Body: &txtypes.TxBody{Memo: memo}}, &sdk.TxResponse{
 		Height: 42, TxHash: fmt.Sprintf("%X", sha256.Sum256([]byte(memo))),
 	}
 }
 
-func (s *repairM882Txs) GetTx(_ context.Context, req *txtypes.GetTxRequest) (*txtypes.GetTxResponse, error) {
+func (s *queryTransactionTranscript) GetTx(_ context.Context, req *txtypes.GetTxRequest) (*txtypes.GetTxResponse, error) {
 	for i := 0; i < s.total; i++ {
-		tx, response := repairM882Entry(i)
+		tx, response := queryTransactionEntry(i)
 		if response.TxHash == req.Hash {
 			return &txtypes.GetTxResponse{Tx: tx, TxResponse: response}, nil
 		}
@@ -63,7 +63,7 @@ func (s *repairM882Txs) GetTx(_ context.Context, req *txtypes.GetTxRequest) (*tx
 	return nil, status.Error(codes.NotFound, "transaction absent from transcript")
 }
 
-func (s *repairM882Txs) GetTxsEvent(_ context.Context, req *txtypes.GetTxsEventRequest) (*txtypes.GetTxsEventResponse, error) {
+func (s *queryTransactionTranscript) GetTxsEvent(_ context.Context, req *txtypes.GetTxsEventRequest) (*txtypes.GetTxsEventResponse, error) {
 	if !reflect.DeepEqual(req.Events, []string{"tx.height=42"}) || req.OrderBy != txtypes.OrderBy_ORDER_BY_ASC || req.Pagination == nil || !req.Pagination.CountTotal || len(req.Pagination.Key) != 0 {
 		return nil, status.Error(codes.InvalidArgument, "expected ordered, explicitly paginated height query")
 	}
@@ -80,7 +80,7 @@ func (s *repairM882Txs) GetTxsEvent(_ context.Context, req *txtypes.GetTxsEventR
 	}
 	result := &txtypes.GetTxsEventResponse{Pagination: &pagination.PageResponse{Total: uint64(s.total)}}
 	for i := start; i < min(start+limit, s.total); i++ {
-		tx, response := repairM882Entry(i)
+		tx, response := queryTransactionEntry(i)
 		result.Txs = append(result.Txs, tx)
 		result.TxResponses = append(result.TxResponses, response)
 	}
@@ -98,7 +98,7 @@ func (s *repairM882Txs) GetTxsEvent(_ context.Context, req *txtypes.GetTxsEventR
 		case "mismatched-pairs":
 			result.TxResponses = result.TxResponses[:len(result.TxResponses)-1]
 		case "duplicate":
-			result.Txs[0], result.TxResponses[0] = repairM882Entry(0)
+			result.Txs[0], result.TxResponses[0] = queryTransactionEntry(0)
 		case "missing-hash":
 			result.TxResponses[0].TxHash = ""
 		}
@@ -106,7 +106,7 @@ func (s *repairM882Txs) GetTxsEvent(_ context.Context, req *txtypes.GetTxsEventR
 	return result, nil
 }
 
-func repairM882Serve(t *testing.T, txs *repairM882Txs, interceptor grpc.UnaryServerInterceptor) {
+func serveQueryTranscript(t *testing.T, txs *queryTransactionTranscript, interceptor grpc.UnaryServerInterceptor) {
 	t.Helper()
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -117,7 +117,7 @@ func repairM882Serve(t *testing.T, txs *repairM882Txs, interceptor grpc.UnarySer
 		options = append(options, grpc.UnaryInterceptor(interceptor))
 	}
 	server := grpc.NewServer(options...)
-	tmservice.RegisterServiceServer(server, &repairM882Blocks{})
+	tmservice.RegisterServiceServer(server, &queryBlockTranscript{})
 	txtypes.RegisterServiceServer(server, txs)
 	go server.Serve(listener)
 	dialCtx, cancel := context.WithTimeout(context.Background(), time.Second)
@@ -132,11 +132,11 @@ func repairM882Serve(t *testing.T, txs *repairM882Txs, interceptor grpc.UnarySer
 	t.Cleanup(func() { client.GrpcConn = previous; conn.Close(); server.Stop(); listener.Close() })
 }
 
-func TestRepairM_882_CompletePagination(t *testing.T) {
+func TestQueryCompletePagination(t *testing.T) {
 	for _, count := range []int{0, 100, 101, 200, 205} {
 		t.Run(fmt.Sprint(count), func(t *testing.T) {
-			peer := &repairM882Txs{total: count}
-			repairM882Serve(t, peer, nil)
+			peer := &queryTransactionTranscript{total: count}
+			serveQueryTranscript(t, peer, nil)
 			result, err := GetTxsEvent(42)
 			if err != nil {
 				t.Fatal(err)
@@ -155,7 +155,7 @@ func TestRepairM_882_CompletePagination(t *testing.T) {
 				t.Fatalf("offsets=%v want %v", offsets, expectedOffsets)
 			}
 			for i, response := range result.TxResponses {
-				expectedTx, expectedResponse := repairM882Entry(i)
+				expectedTx, expectedResponse := queryTransactionEntry(i)
 				if response.TxHash != expectedResponse.TxHash || result.Txs[i].Body.Memo != expectedTx.Body.Memo {
 					t.Fatalf("entry %d was lost or reordered", i)
 				}
@@ -168,10 +168,10 @@ func TestRepairM_882_CompletePagination(t *testing.T) {
 	}
 }
 
-func TestRepairM_882_IncompleteSetReturnsError(t *testing.T) {
+func TestQueryIncompleteSetReturnsError(t *testing.T) {
 	for _, mode := range []string{"rpc-error", "missing-pagination", "changed-total", "empty-page", "short-page", "mismatched-pairs", "duplicate", "missing-hash"} {
 		t.Run(mode, func(t *testing.T) {
-			repairM882Serve(t, &repairM882Txs{total: 205, mode: mode}, nil)
+			serveQueryTranscript(t, &queryTransactionTranscript{total: 205, mode: mode}, nil)
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			defer cancel()
 			result, err := GetTxsEventContext(ctx, 42)
@@ -186,29 +186,33 @@ func TestRepairM_882_IncompleteSetReturnsError(t *testing.T) {
 	}
 }
 
-type repairM882Call struct {
+type queryOperation struct {
 	name   string
 	call   func(context.Context) error
 	legacy func() error
 }
 
-func repairM882Calls() []repairM882Call {
-	return []repairM882Call{
+func queryOperations() []queryOperation {
+	return []queryOperation{
 		{"latest-block", func(ctx context.Context) error { _, err := GetLatestBlockContext(ctx); return err }, func() error { _, err := GetLatestBlock(); return err }},
 		{"block-height", func(ctx context.Context) error { _, err := GetBlockByHeightContext(ctx, 42); return err }, func() error { _, err := GetBlockByHeight(42); return err }},
 		{"tx-events", func(ctx context.Context) error { _, err := GetTxsEventContext(ctx, 42); return err }, func() error { _, err := GetTxsEvent(42); return err }},
 		{"tx-hash", func(ctx context.Context) error {
-			_, response := repairM882Entry(0)
+			_, response := queryTransactionEntry(0)
 			_, err := GetTxByHashContext(ctx, response.TxHash)
 			return err
-		}, func() error { _, response := repairM882Entry(0); _, err := GetTxByHash(response.TxHash); return err }},
+		}, func() error {
+			_, response := queryTransactionEntry(0)
+			_, err := GetTxByHash(response.TxHash)
+			return err
+		}},
 	}
 }
 
-func TestRepairM_882_CallerDeadlineAndRetry(t *testing.T) {
+func TestQueryCallerDeadlineAndRetry(t *testing.T) {
 	var stall atomic.Bool
 	canceled := make(chan struct{}, 4)
-	repairM882Serve(t, &repairM882Txs{total: 1}, func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+	serveQueryTranscript(t, &queryTransactionTranscript{total: 1}, func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		if stall.Load() {
 			<-ctx.Done()
 			canceled <- struct{}{}
@@ -216,7 +220,7 @@ func TestRepairM_882_CallerDeadlineAndRetry(t *testing.T) {
 		}
 		return handler(ctx, req)
 	})
-	for _, operation := range repairM882Calls() {
+	for _, operation := range queryOperations() {
 		t.Run(operation.name, func(t *testing.T) {
 			stall.Store(true)
 			ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
@@ -239,14 +243,14 @@ func TestRepairM_882_CallerDeadlineAndRetry(t *testing.T) {
 	}
 }
 
-func TestRepairM_882_ScanCancellation(t *testing.T) {
+func TestQueryScanCancellation(t *testing.T) {
 	entered := make(chan struct{}, 1)
-	repairM882Serve(t, &repairM882Txs{total: 205}, func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+	serveQueryTranscript(t, &queryTransactionTranscript{total: 205}, func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		entered <- struct{}{}
 		<-ctx.Done()
 		return nil, status.FromContextError(ctx.Err()).Err()
 	})
-	for _, operation := range repairM882Calls() {
+	for _, operation := range queryOperations() {
 		t.Run(operation.name, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
@@ -270,9 +274,9 @@ func TestRepairM_882_ScanCancellation(t *testing.T) {
 	}
 }
 
-func TestRepairM_882_DefaultRequestDeadlines(t *testing.T) {
+func TestQueryDefaultRequestDeadlines(t *testing.T) {
 	deadlines := make(chan time.Duration, 4)
-	repairM882Serve(t, &repairM882Txs{total: 1}, func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+	serveQueryTranscript(t, &queryTransactionTranscript{total: 1}, func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		deadline, ok := ctx.Deadline()
 		if !ok {
 			deadlines <- 0
@@ -283,9 +287,9 @@ func TestRepairM_882_DefaultRequestDeadlines(t *testing.T) {
 		return nil, status.FromContextError(ctx.Err()).Err()
 	})
 	var wg sync.WaitGroup
-	for _, operation := range repairM882Calls() {
+	for _, operation := range queryOperations() {
 		wg.Add(1)
-		go func(operation repairM882Call) {
+		go func(operation queryOperation) {
 			defer wg.Done()
 			start := time.Now()
 			if err := operation.legacy(); status.Code(err) != codes.DeadlineExceeded {
@@ -297,7 +301,7 @@ func TestRepairM_882_DefaultRequestDeadlines(t *testing.T) {
 		}(operation)
 	}
 	wg.Wait()
-	for range repairM882Calls() {
+	for range queryOperations() {
 		select {
 		case remaining := <-deadlines:
 			if remaining <= 0 || remaining > requestTimeout {
@@ -309,9 +313,9 @@ func TestRepairM_882_DefaultRequestDeadlines(t *testing.T) {
 	}
 }
 
-func TestRepairM_882_LaterPageDeadline(t *testing.T) {
+func TestQueryLaterPageDeadline(t *testing.T) {
 	var calls atomic.Int32
-	repairM882Serve(t, &repairM882Txs{total: 205}, func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+	serveQueryTranscript(t, &queryTransactionTranscript{total: 205}, func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		if calls.Add(1) == 2 {
 			<-ctx.Done()
 			return nil, status.FromContextError(ctx.Err()).Err()
@@ -330,8 +334,8 @@ func TestRepairM_882_LaterPageDeadline(t *testing.T) {
 	}
 }
 
-func TestRepairM_882_BlockResponses(t *testing.T) {
-	repairM882Serve(t, &repairM882Txs{total: 1}, nil)
+func TestQueryBlockResponses(t *testing.T) {
+	serveQueryTranscript(t, &queryTransactionTranscript{total: 1}, nil)
 	latest, err := GetLatestBlock()
 	if err != nil || latest.GetBlock().Header.Height != 42 {
 		t.Fatalf("latest block response: %v, %v", latest, err)
@@ -344,10 +348,10 @@ func TestRepairM_882_BlockResponses(t *testing.T) {
 	}
 }
 
-func TestRepairM_882_PerPageDeadlines(t *testing.T) {
+func TestQueryPerPageDeadlines(t *testing.T) {
 	var mu sync.Mutex
 	var deadlines []time.Time
-	repairM882Serve(t, &repairM882Txs{total: 205}, func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+	serveQueryTranscript(t, &queryTransactionTranscript{total: 205}, func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		deadline, ok := ctx.Deadline()
 		if !ok || time.Until(deadline) > requestTimeout {
 			return nil, status.Error(codes.Internal, "page has no bounded deadline")
