@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import secrets
+import shutil
 import signal
 import socket
 import stat
@@ -28,7 +29,7 @@ FOUNDRY_VERSION = '1.8.4'
 FOUNDRY_ASSET = 'foundry_v1.8.4_linux_amd64.tar.gz'
 FOUNDRY_SHA256 = '699e2207a6a9b27ca17c48c81e56f1677ed9c58b623b59128b4e15ec9da0625e'
 PLAYWRIGHT_VERSION = '1.62.0'
-EVIDENCE = Path(os.environ.get('WALLET_INJECTED_FIXTURE_ROOT', '/root/lx-ops/paxeer-x-integration-2026-10-03/task-14.8')).absolute()
+EVIDENCE = Path(os.environ.get('WALLET_INJECTED_FIXTURE_ROOT', ROOT / "build/qualification/wallet-injected-fixture")).absolute()
 
 
 def require(value, message):
@@ -127,8 +128,10 @@ def build():
     dependency_value = os.environ.get('WALLET_INJECTED_NODE_MODULES')
     require(dependency_value, 'WALLET_INJECTED_NODE_MODULES must name the wallet node_modules directory (apps/wallet/node_modules)')
     dependency_root = Path(dependency_value).resolve()
-    node = Path(os.environ.get('WALLET_INJECTED_NODE', '/root/lx-toolchains/node24/bin/node')).resolve()
-    require(node.is_file() and os.access(node, os.X_OK), 'actual Node executable required')
+    node = (Path(os.environ['WALLET_INJECTED_NODE']).resolve()
+            if 'WALLET_INJECTED_NODE' in os.environ else shutil.which('node'))
+    require(node is not None and Path(node).is_file() and os.access(node, os.X_OK), 'actual Node executable required')
+    node = Path(node).resolve()
     playwright = dependency_root / '@playwright/test'
     package = json.loads((playwright / 'package.json').read_text())
     require(package['version'] == PLAYWRIGHT_VERSION and package['dependencies']['playwright'] == PLAYWRIGHT_VERSION, 'repository-pinned Playwright required')

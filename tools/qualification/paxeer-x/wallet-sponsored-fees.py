@@ -3,14 +3,15 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import urllib.parse
 import urllib.request
 
 ROOT = Path(__file__).resolve().parents[3]
-NODE = Path('/root/lx-toolchains/node24/bin/node')
-PNPM = Path('/root/lx-toolchains/node24/private-pnpm/corepack/v1/pnpm/9.15.9/bin/pnpm.cjs')
+NODE = 'node'
+PNPM = 'pnpm'
 SOURCES = [
     'apps/wallet/src/surfaces/useSurface.ts', 'apps/wallet/src/surfaces/FeeChoice.tsx',
     'sdk/wallet/src/modules/gas-station.ts', 'sdk/wallet/src/provider.ts',
@@ -65,10 +66,9 @@ def artifacts():
 
 def build():
     evidence = evidence_dir()
-    require(NODE.is_file() and PNPM.is_file(), 'installed official Node24 and pnpm9.15.9 required')
-    require(subprocess.check_output([str(NODE), str(PNPM), '--version'], text=True).strip() == '9.15.9', 'pnpm9.15.9 required')
+    require(shutil.which(NODE) is not None and shutil.which(PNPM) is not None, 'installed official Node24 and pnpm9.15.9 required')
+    require(subprocess.check_output([PNPM, '--version'], text=True).strip() == '9.15.9', 'pnpm9.15.9 required')
     env = os.environ.copy()
-    env['PATH'] = str(NODE.parent) + ':' + env.get('PATH', '')
     env['NEXT_TELEMETRY_DISABLED'] = '1'
     targets = [('sdk', 'sdk/wallet', ['exec', 'tsc', '-p', 'tsconfig.json']),
                ('gateway', 'services/wallet/gateway', ['run', 'build']),
@@ -82,7 +82,7 @@ def build():
             log = evidence / ('wallet-sponsored-build-' + name + '.log')
             with log.open('wb') as output:
                 log.chmod(0o600)
-                result = subprocess.run([str(NODE), str(PNPM), '--dir', directory, *args], cwd=ROOT,
+                result = subprocess.run([PNPM, '--dir', directory, *args], cwd=ROOT,
                                         env=env, stdout=output, stderr=subprocess.STDOUT, timeout=600)
             results.append({'target': name, 'exit_code': result.returncode, 'log_path': str(log)})
             if result.returncode:

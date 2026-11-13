@@ -8,7 +8,7 @@ import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[3]
-EVIDENCE = Path(os.environ.get("LAYERX_BOUNDARY_EVIDENCE", "/root/lx-ops/qualification/runtime-boundary"))
+EVIDENCE = Path(os.environ.get("LAYERX_BOUNDARY_EVIDENCE", ROOT / "build/qualification/runtime-boundary-witness"))
 SCHEMA = "paxeer-x.runtime-boundary-artifacts.v1"
 REQUIRED_CASES = frozenset({
     "integer_boundaries_restore_and_execute_the_real_engine_step",

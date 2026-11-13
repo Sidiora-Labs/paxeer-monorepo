@@ -49,7 +49,7 @@ def evidence_dir():
     path = Path(
         os.environ.get(
             "PAXEER_X_ARBITER_PRESTATE_EVIDENCE",
-            "/root/lx-ops/paxeer-x-integration-2026-10-03/qualification/task1043511",
+            ROOT / "build/qualification/arbiter_prestate",
         )
     )
     path.mkdir(parents=True, mode=0o700, exist_ok=True)
@@ -152,8 +152,11 @@ def build(arguments, evidence):
     manifest_path = evidence / "artifacts.json"
     manifest_path.unlink(missing_ok=True)
     source = inputs()
-    directory = Path(arguments.build_dir).resolve()
-    rust_target = directory / "rust"
+    rust_target = (
+        Path(arguments.build_dir).resolve() / "rust"
+        if arguments.build_dir is not None
+        else Path(os.environ.get("CARGO_TARGET_DIR", ROOT / ".lane-target")).resolve()
+    )
     environment = dict(
         os.environ, CARGO_TARGET_DIR=str(rust_target), CARGO_BUILD_JOBS="4"
     )
@@ -258,7 +261,7 @@ def qualify(evidence):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--build", action="store_true")
-    parser.add_argument("--build-dir", default="/root/lx-target/arbiter-prestate")
+    parser.add_argument("--build-dir", default=None)
     parser.add_argument("--cargo", default="cargo")
     arguments = parser.parse_args()
     evidence = evidence_dir()
