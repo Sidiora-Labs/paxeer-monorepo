@@ -16,12 +16,12 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/proto"
 )
 
-func repair177Key(kind EVMStoreType, first byte) []byte {
+func iteratorRangeKey(kind EVMStoreType, first byte) []byte {
 	key := bytes.Repeat([]byte{first}, commonevm.InternalKeyLen(kind))
 	return commonevm.BuildEVMKey(kind, key)
 }
 
-func repair177Open(t *testing.T, separate bool, versions [][]*proto.KVPair) types.StateStore {
+func iteratorRangeOpen(t *testing.T, separate bool, versions [][]*proto.KVPair) types.StateStore {
 	t.Helper()
 	dir := t.TempDir()
 	cfg := testConfig()
@@ -48,7 +48,7 @@ func repair177Open(t *testing.T, separate bool, versions [][]*proto.KVPair) type
 	return store
 }
 
-func repair177Collect(t *testing.T, store types.StateStore, version int64, start, end []byte, reverse bool, maxKeys int) []*proto.KVPair {
+func iteratorRangeCollect(t *testing.T, store types.StateStore, version int64, start, end []byte, reverse bool, maxKeys int) []*proto.KVPair {
 	t.Helper()
 	var itr dbm.Iterator
 	var err error
@@ -83,17 +83,17 @@ func repair177Collect(t *testing.T, store types.StateStore, version int64, start
 	return pairs
 }
 
-func TestRepair_177_SeparateEVMIteratorRangeReopen(t *testing.T) {
+func TestIteratorRangeSeparateEVMIteratorRangeReopen(t *testing.T) {
 	var initial, updates, future []*proto.KVPair
 	for _, kind := range AllEVMStoreTypes() {
 		if kind == StoreLegacy {
 			continue
 		}
-		first, second := repair177Key(kind, 0x20), repair177Key(kind, 0x40)
+		first, second := iteratorRangeKey(kind, 0x20), iteratorRangeKey(kind, 0x40)
 		initial = append(initial,
 			&proto.KVPair{Key: first, Value: []byte("initial-first")},
 			&proto.KVPair{Key: second, Value: []byte("initial-second")},
-			&proto.KVPair{Key: repair177Key(kind, 0xa0), Value: []byte("live-after-future")},
+			&proto.KVPair{Key: iteratorRangeKey(kind, 0xa0), Value: []byte("live-after-future")},
 		)
 		prefix, ok := commonevm.EVMKeyPrefixByte(kind)
 		require.True(t, ok)
@@ -106,17 +106,17 @@ func TestRepair_177_SeparateEVMIteratorRangeReopen(t *testing.T) {
 		updates = append(updates,
 			&proto.KVPair{Key: first, Value: []byte("updated-first")},
 			&proto.KVPair{Key: second, Delete: true},
-			&proto.KVPair{Key: repair177Key(kind, 0x60), Value: []byte("inserted-second-version")},
+			&proto.KVPair{Key: iteratorRangeKey(kind, 0x60), Value: []byte("inserted-second-version")},
 		)
-		future = append(future, &proto.KVPair{Key: repair177Key(kind, 0x80), Value: []byte("future")})
+		future = append(future, &proto.KVPair{Key: iteratorRangeKey(kind, 0x80), Value: []byte("future")})
 	}
 	for _, key := range [][]byte{{0x01, 0x20}, {0x05, 0x20}, {0x09, 0x20}, {0xf0, 0x20}} {
 		initial = append(initial, &proto.KVPair{Key: key, Value: []byte("legacy")})
 	}
 	updates = append(updates, &proto.KVPair{Key: []byte{0x05, 0x20}, Delete: true})
 	versions := [][]*proto.KVPair{initial, updates, future}
-	unified := repair177Open(t, false, versions)
-	separate := repair177Open(t, true, versions)
+	unified := iteratorRangeOpen(t, false, versions)
+	separate := iteratorRangeOpen(t, true, versions)
 
 	ranges := []struct {
 		name       string
@@ -126,7 +126,7 @@ func TestRepair_177_SeparateEVMIteratorRangeReopen(t *testing.T) {
 		{"nil-start", nil, []byte{0x08}},
 		{"nil-end", []byte{0x07}, nil},
 		{"cross-prefix", []byte{0x03}, []byte{0x0b}},
-		{"cross-full-key", repair177Key(StoreStorage, 0x20), repair177Key(StoreNonce, 0x40)},
+		{"cross-full-key", iteratorRangeKey(StoreStorage, 0x20), iteratorRangeKey(StoreNonce, 0x40)},
 		{"legacy", []byte{0x05}, []byte{0x06}},
 		{"empty-before", []byte{0x00}, []byte{0x01}},
 		{"empty-between", []byte{0x06}, []byte{0x07}},
@@ -185,7 +185,7 @@ func TestRepair_177_SeparateEVMIteratorRangeReopen(t *testing.T) {
 						store types.StateStore
 					}{{"unified", unified}, {"separate", separate}} {
 						t.Run(backend.name, func(t *testing.T) {
-							actual := repair177Collect(t, backend.store, version, bounds.start, bounds.end, reverse, len(state)+1)
+							actual := iteratorRangeCollect(t, backend.store, version, bounds.start, bounds.end, reverse, len(state)+1)
 							require.Equal(t, expected, actual)
 							for _, pair := range actual {
 								value, err := backend.store.Get(EVMStoreKey, version, pair.Key)
@@ -200,14 +200,14 @@ func TestRepair_177_SeparateEVMIteratorRangeReopen(t *testing.T) {
 	}
 }
 
-func TestRepair_177_EmptyRangesAndInvalidBounds(t *testing.T) {
+func TestIteratorRangeEmptyRangesAndInvalidBounds(t *testing.T) {
 	for _, separate := range []bool{false, true} {
 		t.Run(fmt.Sprintf("separate=%t", separate), func(t *testing.T) {
 			for _, reverse := range []bool{false, true} {
 				t.Run(fmt.Sprintf("reverse=%t", reverse), func(t *testing.T) {
 					t.Run("empty", func(t *testing.T) {
-						store := repair177Open(t, separate, nil)
-						require.Empty(t, repair177Collect(t, store, 0, nil, nil, reverse, 1))
+						store := iteratorRangeOpen(t, separate, nil)
+						require.Empty(t, iteratorRangeCollect(t, store, 0, nil, nil, reverse, 1))
 					})
 					for _, bounds := range []struct {
 						name       string
@@ -217,7 +217,7 @@ func TestRepair_177_EmptyRangesAndInvalidBounds(t *testing.T) {
 						{"inverted", []byte{0x0a}, []byte{0x03}},
 					} {
 						t.Run(bounds.name, func(t *testing.T) {
-							store := repair177Open(t, separate, nil)
+							store := iteratorRangeOpen(t, separate, nil)
 							var itr dbm.Iterator
 							var err error
 							if reverse {
@@ -235,7 +235,7 @@ func TestRepair_177_EmptyRangesAndInvalidBounds(t *testing.T) {
 	}
 }
 
-func TestRepair_177_OpenErrors(t *testing.T) {
+func TestIteratorRangeOpenErrors(t *testing.T) {
 	for _, separate := range []bool{false, true} {
 		t.Run(fmt.Sprintf("separate=%t", separate), func(t *testing.T) {
 			for _, field := range []string{"AsyncWriteBuffer", "KeepRecent"} {
@@ -276,18 +276,18 @@ func TestRepair_177_OpenErrors(t *testing.T) {
 				store, err = NewEVMStateStore(dir, cfg)
 				require.NoError(t, err)
 				t.Cleanup(func() { require.NoError(t, store.Close()) })
-				require.Empty(t, repair177Collect(t, store, 0, nil, nil, false, 1))
+				require.Empty(t, iteratorRangeCollect(t, store, 0, nil, nil, false, 1))
 			})
 		})
 	}
 }
 
-func TestRepair_177_IteratorEarlyClose(t *testing.T) {
+func TestIteratorRangeIteratorEarlyClose(t *testing.T) {
 	for _, separate := range []bool{false, true} {
 		t.Run(fmt.Sprintf("separate=%t", separate), func(t *testing.T) {
-			store := repair177Open(t, separate, [][]*proto.KVPair{{
-				{Key: repair177Key(StoreNonce, 0x20), Value: []byte("nonce")},
-				{Key: repair177Key(StoreCode, 0x20), Value: []byte("code")},
+			store := iteratorRangeOpen(t, separate, [][]*proto.KVPair{{
+				{Key: iteratorRangeKey(StoreNonce, 0x20), Value: []byte("nonce")},
+				{Key: iteratorRangeKey(StoreCode, 0x20), Value: []byte("code")},
 			}})
 			for _, reverse := range []bool{false, true} {
 				var itr dbm.Iterator

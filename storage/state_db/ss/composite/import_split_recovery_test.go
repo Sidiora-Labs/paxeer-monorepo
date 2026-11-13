@@ -20,7 +20,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepair_176_FlatKVModuleKeyCollision(t *testing.T) {
+func TestImportAndSplitRecoveryFlatKVModuleKeyCollision(t *testing.T) {
 	producerConfig := flatconfig.DefaultTestConfig(t)
 	producer, err := flatkv.NewCommitStore(t.Context(), producerConfig)
 	require.NoError(t, err)
@@ -96,7 +96,7 @@ func TestRepair_176_FlatKVModuleKeyCollision(t *testing.T) {
 	for _, mode := range []struct{ split, separate bool }{{false, false}, {true, false}, {true, true}} {
 		t.Run(fmt.Sprintf("split=%t/separate=%t", mode.split, mode.separate), func(t *testing.T) {
 			dir := t.TempDir()
-			cfg := repair176Config(dir, mode.separate)
+			cfg := splitRecoveryConfig(dir, mode.separate)
 			cfg.EVMSplit = mode.split
 			consumer, err := NewCompositeStateStore(cfg, dir)
 			require.NoError(t, err)
@@ -136,7 +136,7 @@ func TestRepair_176_FlatKVModuleKeyCollision(t *testing.T) {
 	}
 }
 
-func repair176Config(dir string, separate bool) config.StateStoreConfig {
+func splitRecoveryConfig(dir string, separate bool) config.StateStoreConfig {
 	return config.StateStoreConfig{
 		Backend:           "pebbledb",
 		ImportNumWorkers:  1,
@@ -147,7 +147,7 @@ func repair176Config(dir string, separate bool) config.StateStoreConfig {
 }
 
 // Emit the recovery input through the real commit producer and its on-disk WAL.
-func repair176History(t *testing.T, initialVersion int64) []proto.ChangelogEntry {
+func splitRecoveryHistory(t *testing.T, initialVersion int64) []proto.ChangelogEntry {
 	t.Helper()
 	cfg := flatconfig.DefaultTestConfig(t)
 	producer, err := flatkv.NewCommitStore(t.Context(), cfg)
@@ -188,8 +188,8 @@ func repair176History(t *testing.T, initialVersion int64) []proto.ChangelogEntry
 	return entries
 }
 
-func TestRepair_176_SplitRecoveryIncompleteWAL(t *testing.T) {
-	entries := repair176History(t, 1)
+func TestImportAndSplitRecoverySplitRecoveryIncompleteWAL(t *testing.T) {
+	entries := splitRecoveryHistory(t, 1)
 	for _, separate := range []bool{false, true} {
 		for _, lagging := range []string{"evm", "cosmos"} {
 			for _, tc := range []struct {
@@ -208,7 +208,7 @@ func TestRepair_176_SplitRecoveryIncompleteWAL(t *testing.T) {
 			} {
 				t.Run(fmt.Sprintf("separate=%t/lagging=%s/%s", separate, lagging, tc.name), func(t *testing.T) {
 					dir := t.TempDir()
-					cfg := repair176Config(dir, separate)
+					cfg := splitRecoveryConfig(dir, separate)
 					store, err := NewCompositeStateStore(cfg, dir)
 					require.NoError(t, err)
 					t.Cleanup(func() { require.NoError(t, store.Close()) })
@@ -286,10 +286,10 @@ func TestRepair_176_SplitRecoveryIncompleteWAL(t *testing.T) {
 	}
 }
 
-func TestRepair_176_InitialHeightRecovery(t *testing.T) {
-	entries := repair176History(t, 100)
+func TestImportAndSplitRecoveryInitialHeightRecovery(t *testing.T) {
+	entries := splitRecoveryHistory(t, 100)
 	dir := t.TempDir()
-	cfg := repair176Config(dir, true)
+	cfg := splitRecoveryConfig(dir, true)
 	log, err := wal.NewChangelogWAL(utils.GetChangelogPath(utils.GetStateStorePath(dir, cfg.Backend)), wal.Config{})
 	require.NoError(t, err)
 	for _, entry := range entries {

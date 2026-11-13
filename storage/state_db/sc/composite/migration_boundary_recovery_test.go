@@ -10,16 +10,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepair_119_MigrationBoundaryRollback(t *testing.T) {
-	repair119MigrationRecovery(t, true, true)
+func TestMigrationBoundaryRecoveryMigrationBoundaryRollback(t *testing.T) {
+	migrationBoundaryMigrationRecovery(t, true, true)
 }
 
-func TestRepair_119_MigrationBoundaryReload(t *testing.T) {
-	t.Run("committed", func(t *testing.T) { repair119MigrationRecovery(t, false, true) })
-	t.Run("uncommitted", func(t *testing.T) { repair119MigrationRecovery(t, false, false) })
+func TestMigrationBoundaryRecoveryMigrationBoundaryReload(t *testing.T) {
+	t.Run("committed", func(t *testing.T) { migrationBoundaryMigrationRecovery(t, false, true) })
+	t.Run("uncommitted", func(t *testing.T) { migrationBoundaryMigrationRecovery(t, false, false) })
 }
 
-func repair119Open(t *testing.T, dir string, mode config.WriteMode, mounted []string, version int64) *CompositeCommitStore {
+func migrationBoundaryOpen(t *testing.T, dir string, mode config.WriteMode, mounted []string, version int64) *CompositeCommitStore {
 	t.Helper()
 	cfg := config.DefaultStateCommitConfig()
 	cfg.WriteMode = mode
@@ -34,7 +34,7 @@ func repair119Open(t *testing.T, dir string, mode config.WriteMode, mounted []st
 	return cs
 }
 
-func repair119Recover(t *testing.T, cs *CompositeCommitStore, rollback bool) {
+func migrationBoundaryRecover(t *testing.T, cs *CompositeCommitStore, rollback bool) {
 	t.Helper()
 	if rollback {
 		require.NoError(t, cs.Rollback(1))
@@ -46,7 +46,7 @@ func repair119Recover(t *testing.T, cs *CompositeCommitStore, rollback bool) {
 	require.Equal(t, int64(1), cs.Version())
 }
 
-func repair119MigrationRecovery(t *testing.T, rollback, committed bool) {
+func migrationBoundaryMigrationRecovery(t *testing.T, rollback, committed bool) {
 	t.Helper()
 	mounted := []string{keys.BankStoreKey, keys.EVMStoreKey}
 	seed := []*proto.NamedChangeSet{
@@ -62,7 +62,7 @@ func repair119MigrationRecovery(t *testing.T, rollback, committed bool) {
 	dir, freshDir := t.TempDir(), t.TempDir()
 	var baseline proto.CommitInfo
 	for _, home := range []string{dir, freshDir} {
-		cs := repair119Open(t, home, config.MemiavlOnly, mounted, 0)
+		cs := migrationBoundaryOpen(t, home, config.MemiavlOnly, mounted, 0)
 		require.NoError(t, cs.ApplyChangeSets(seed))
 		v, err := cs.Commit()
 		require.NoError(t, err)
@@ -72,8 +72,8 @@ func repair119MigrationRecovery(t *testing.T, rollback, committed bool) {
 		require.NoError(t, cs.Close())
 	}
 
-	cs := repair119Open(t, dir, config.MigrateEVM, mounted, 0)
-	fresh := repair119Open(t, freshDir, config.MigrateEVM, mounted, 0)
+	cs := migrationBoundaryOpen(t, dir, config.MigrateEVM, mounted, 0)
+	fresh := migrationBoundaryOpen(t, freshDir, config.MigrateEVM, mounted, 0)
 	require.Equal(t, baseline, cloneCommitInfo(cs.LastCommitInfo()))
 	workingBaseline := cloneCommitInfo(fresh.WorkingCommitInfo())
 	require.NoError(t, cs.ApplyChangeSets(nil))
@@ -93,7 +93,7 @@ func repair119MigrationRecovery(t *testing.T, rollback, committed bool) {
 	require.True(t, cs.latticeAppendLatched.Load())
 	require.True(t, cs.migrationAdvancedThisCommit)
 
-	repair119Recover(t, cs, rollback)
+	migrationBoundaryRecover(t, cs, rollback)
 	require.False(t, cs.latticeAppendLatched.Load())
 	require.False(t, cs.migrationAdvancedThisCommit)
 	require.Equal(t, baseline, cloneCommitInfo(cs.LastCommitInfo()))
@@ -142,7 +142,7 @@ func repair119MigrationRecovery(t *testing.T, rollback, committed bool) {
 		// WAL entries. Reopen that selected height and prove buffered writes
 		// did not become committed state; Rollback owns timeline replacement.
 		require.NoError(t, cs.Close())
-		cs = repair119Open(t, dir, config.MigrateEVM, mounted, 1)
+		cs = migrationBoundaryOpen(t, dir, config.MigrateEVM, mounted, 1)
 		require.Equal(t, baseline, cloneCommitInfo(cs.LastCommitInfo()))
 		require.Equal(t, workingBaseline, cloneCommitInfo(cs.WorkingCommitInfo()))
 		require.Equal(t, evmStorageTestValue(0x11), cs.GetChildStoreByName(keys.EVMStoreKey).Get(evmStorageTestKey(1)))
@@ -158,8 +158,8 @@ func repair119MigrationRecovery(t *testing.T, rollback, committed bool) {
 		require.Equal(t, mergeStateSyncCommitHash(working), mergeStateSyncCommitHash(*handle.LastCommitInfo()))
 		require.NoError(t, handle.Close())
 	}
-	cs = repair119Open(t, dir, config.MigrateEVM, mounted, 0)
-	fresh = repair119Open(t, freshDir, config.MigrateEVM, mounted, 0)
+	cs = migrationBoundaryOpen(t, dir, config.MigrateEVM, mounted, 0)
+	fresh = migrationBoundaryOpen(t, freshDir, config.MigrateEVM, mounted, 0)
 	require.Equal(t, cloneCommitInfo(fresh.LastCommitInfo()), cloneCommitInfo(cs.LastCommitInfo()))
 	require.Equal(t, mergeStateSyncCommitHash(working), mergeStateSyncCommitHash(*cs.LastCommitInfo()))
 	require.Equal(t, cloneCommitInfo(fresh.WorkingCommitInfo()), cloneCommitInfo(cs.WorkingCommitInfo()))
@@ -168,7 +168,7 @@ func repair119MigrationRecovery(t *testing.T, rollback, committed bool) {
 	require.Equal(t, []byte("200"), cs.GetChildStoreByName(keys.BankStoreKey).Get([]byte("balance")))
 }
 
-func TestRepair_119_PendingRecovery(t *testing.T) {
+func TestMigrationBoundaryRecoveryPendingRecovery(t *testing.T) {
 	for _, rollback := range []bool{true, false} {
 		name := "reload"
 		if rollback {
@@ -176,7 +176,7 @@ func TestRepair_119_PendingRecovery(t *testing.T) {
 		}
 		t.Run(name, func(t *testing.T) {
 			dir := t.TempDir()
-			seed := repair119Open(t, dir, config.MemiavlOnly, []string{keys.BankStoreKey}, 0)
+			seed := migrationBoundaryOpen(t, dir, config.MemiavlOnly, []string{keys.BankStoreKey}, 0)
 			require.NoError(t, seed.ApplyChangeSets(bankWrite()))
 			_, err := seed.Commit()
 			require.NoError(t, err)
@@ -184,7 +184,7 @@ func TestRepair_119_PendingRecovery(t *testing.T) {
 			require.NoError(t, seed.Close())
 
 			mounted := []string{keys.BankStoreKey, keys.LaunchpadStoreKey, keys.XWebStoreKey}
-			cs := repair119Open(t, dir, config.MemiavlOnly, mounted, 0)
+			cs := migrationBoundaryOpen(t, dir, config.MemiavlOnly, mounted, 0)
 			workingBaseline := cloneCommitInfo(cs.WorkingCommitInfo())
 			pending := cs.PendingStores()
 			require.Len(t, pending, 2)
@@ -198,7 +198,7 @@ func TestRepair_119_PendingRecovery(t *testing.T) {
 			cs.GetChildStoreByName(keys.XWebStoreKey).Set([]byte("discard"), []byte("pending"))
 			require.NotEmpty(t, cs.pendingWrites)
 
-			repair119Recover(t, cs, rollback)
+			migrationBoundaryRecover(t, cs, rollback)
 			require.Equal(t, pending, cs.PendingStores())
 			require.Empty(t, cs.pendingWrites)
 			require.Nil(t, cs.GetChildStoreByName(keys.LaunchpadStoreKey).Get([]byte("params")))
@@ -206,7 +206,7 @@ func TestRepair_119_PendingRecovery(t *testing.T) {
 			require.Equal(t, workingBaseline, cloneCommitInfo(cs.WorkingCommitInfo()))
 			require.NoError(t, cs.Close())
 
-			cs = repair119Open(t, dir, config.MemiavlOnly, mounted, 0)
+			cs = migrationBoundaryOpen(t, dir, config.MemiavlOnly, mounted, 0)
 			require.Equal(t, pending, cs.PendingStores())
 			require.Equal(t, baseline, cloneCommitInfo(cs.LastCommitInfo()))
 			require.Equal(t, workingBaseline, cloneCommitInfo(cs.WorkingCommitInfo()))
@@ -215,7 +215,7 @@ func TestRepair_119_PendingRecovery(t *testing.T) {
 			_, err = cs.Commit()
 			require.NoError(t, err)
 			require.NoError(t, cs.Close())
-			cs = repair119Open(t, dir, config.MemiavlOnly, mounted, 0)
+			cs = migrationBoundaryOpen(t, dir, config.MemiavlOnly, mounted, 0)
 			require.False(t, cs.IsPendingStore(keys.LaunchpadStoreKey))
 			require.True(t, cs.IsPendingStore(keys.XWebStoreKey))
 			require.Equal(t, []byte("paused"), cs.GetChildStoreByName(keys.LaunchpadStoreKey).Get([]byte("params")))

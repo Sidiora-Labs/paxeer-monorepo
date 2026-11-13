@@ -20,23 +20,23 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func repairM1094Config(dir string, separate bool) config.StateStoreConfig {
+func historyMaintenanceConfig(dir string, separate bool) config.StateStoreConfig {
 	return config.StateStoreConfig{
 		Backend: "pebbledb", ImportNumWorkers: 1, EVMSplit: true,
 		SeparateEVMSubDBs: separate, EVMDBDirectory: filepath.Join(dir, "evm_ss"),
 	}
 }
 
-type repairM1094Row struct {
+type historyMaintenanceRow struct {
 	Key, Value string
 	Version    int64
 }
 
-func repairM1094Raw(t *testing.T, store types.StateStore, module string) []repairM1094Row {
+func historyMaintenanceRaw(t *testing.T, store types.StateStore, module string) []historyMaintenanceRow {
 	t.Helper()
-	var rows []repairM1094Row
+	var rows []historyMaintenanceRow
 	stopped, err := store.RawIterate(module, func(key, value []byte, version int64) bool {
-		rows = append(rows, repairM1094Row{string(key), string(value), version})
+		rows = append(rows, historyMaintenanceRow{string(key), string(value), version})
 		return false
 	})
 	require.NoError(t, err)
@@ -45,7 +45,7 @@ func repairM1094Raw(t *testing.T, store types.StateStore, module string) []repai
 }
 
 // FlatKV commits produce both the changesets and the durable recovery stream.
-func repairM1094History(t *testing.T) []proto.ChangelogEntry {
+func historyMaintenanceHistory(t *testing.T) []proto.ChangelogEntry {
 	t.Helper()
 	cfg := flatconfig.DefaultTestConfig(t)
 	producer, err := flatkv.NewCommitStore(t.Context(), cfg)
@@ -94,24 +94,24 @@ func repairM1094History(t *testing.T) []proto.ChangelogEntry {
 	return entries
 }
 
-func TestRepairM_1094_RawHistory(t *testing.T) {
-	entries := repairM1094History(t)
+func TestHistoryAndMaintenanceRawHistory(t *testing.T) {
+	entries := historyMaintenanceHistory(t)
 	for _, mode := range []struct{ split, separate bool }{{false, false}, {true, false}, {true, true}} {
 		t.Run(fmt.Sprintf("split=%t/separate=%t", mode.split, mode.separate), func(t *testing.T) {
 			dir := t.TempDir()
-			cfg := repairM1094Config(dir, mode.separate)
+			cfg := historyMaintenanceConfig(dir, mode.separate)
 			cfg.EVMSplit = mode.split
 			store, err := NewCompositeStateStore(cfg, dir)
 			require.NoError(t, err)
 			t.Cleanup(func() { require.NoError(t, store.Close()) })
-			want := map[string][]repairM1094Row{}
+			want := map[string][]historyMaintenanceRow{}
 			for _, entry := range entries {
 				require.NoError(t, store.ApplyChangesetSync(entry.Version, entry.Changesets))
 				require.NoError(t, store.SetLatestVersion(entry.Version))
 				for _, cs := range entry.Changesets {
 					for _, pair := range cs.Changeset.Pairs {
 						if !pair.Delete {
-							want[cs.Name] = append(want[cs.Name], repairM1094Row{string(pair.Key), string(pair.Value), entry.Version})
+							want[cs.Name] = append(want[cs.Name], historyMaintenanceRow{string(pair.Key), string(pair.Value), entry.Version})
 						}
 					}
 				}
@@ -120,7 +120,7 @@ func TestRepairM_1094_RawHistory(t *testing.T) {
 			require.Len(t, want["bank"], 4)
 			check := func() {
 				for _, module := range []string{"evm", "bank"} {
-					require.ElementsMatch(t, want[module], repairM1094Raw(t, store, module))
+					require.ElementsMatch(t, want[module], historyMaintenanceRaw(t, store, module))
 					for _, row := range want[module] {
 						value, err := store.Get(module, row.Version, []byte(row.Key))
 						require.NoError(t, err)
@@ -135,9 +135,9 @@ func TestRepairM_1094_RawHistory(t *testing.T) {
 				require.NoError(t, err)
 				require.True(t, stopped)
 				require.Equal(t, 1, calls, "stop must propagate across every sub-DB")
-				require.Empty(t, repairM1094Raw(t, store, "missing"))
+				require.Empty(t, historyMaintenanceRaw(t, store, "missing"))
 				if cfg.EVMSplit {
-					require.Empty(t, repairM1094Raw(t, store.cosmosStore, "evm"))
+					require.Empty(t, historyMaintenanceRaw(t, store.cosmosStore, "evm"))
 				}
 			}
 			check()
@@ -149,11 +149,11 @@ func TestRepairM_1094_RawHistory(t *testing.T) {
 	}
 }
 
-func TestRepairM_1094_MaintenanceErrors(t *testing.T) {
+func TestHistoryAndMaintenanceMaintenanceErrors(t *testing.T) {
 	for _, separate := range []bool{false, true} {
 		t.Run(fmt.Sprintf("separate=%t", separate), func(t *testing.T) {
 			dir := t.TempDir()
-			cfg := repairM1094Config(dir, separate)
+			cfg := historyMaintenanceConfig(dir, separate)
 			store, err := NewCompositeStateStore(cfg, dir)
 			require.NoError(t, err)
 			t.Cleanup(func() { require.NoError(t, store.Close()) })
@@ -190,7 +190,7 @@ func TestRepairM_1094_MaintenanceErrors(t *testing.T) {
 			require.Equal(t, int64(3), store.GetLatestVersion())
 			require.Equal(t, int64(1), store.GetEarliestVersion())
 			for _, module := range []string{"bank", "evm"} {
-				require.Len(t, repairM1094Raw(t, store, module), 3)
+				require.Len(t, historyMaintenanceRaw(t, store, module), 3)
 			}
 			require.NoError(t, store.Prune(1))
 			require.Equal(t, int64(2), store.GetEarliestVersion())
@@ -198,13 +198,13 @@ func TestRepairM_1094_MaintenanceErrors(t *testing.T) {
 	}
 }
 
-func TestRepairM_1094_JointProgressAndRecovery(t *testing.T) {
-	entries := repairM1094History(t)
+func TestHistoryAndMaintenanceJointProgressAndRecovery(t *testing.T) {
+	entries := historyMaintenanceHistory(t)
 	for _, separate := range []bool{false, true} {
 		for _, lagging := range []string{"evm", "cosmos"} {
 			t.Run(fmt.Sprintf("separate=%t/lagging=%s", separate, lagging), func(t *testing.T) {
 				dir := t.TempDir()
-				cfg := repairM1094Config(dir, separate)
+				cfg := historyMaintenanceConfig(dir, separate)
 				store, err := NewCompositeStateStore(cfg, dir)
 				require.NoError(t, err)
 				t.Cleanup(func() { require.NoError(t, store.Close()) })
@@ -236,23 +236,23 @@ func TestRepairM_1094_JointProgressAndRecovery(t *testing.T) {
 				require.Equal(t, int64(4), store.GetLatestVersion())
 				require.Equal(t, int64(4), store.cosmosStore.GetLatestVersion())
 				require.Equal(t, int64(4), store.evmStore.GetLatestVersion())
-				require.Len(t, repairM1094Raw(t, store, "evm"), 19)
-				require.Len(t, repairM1094Raw(t, store, "bank"), 4)
+				require.Len(t, historyMaintenanceRaw(t, store, "evm"), 19)
+				require.Len(t, historyMaintenanceRaw(t, store, "bank"), 4)
 				require.NoError(t, store.Close())
 				store, err = NewCompositeStateStore(cfg, dir)
 				require.NoError(t, err)
 				require.Equal(t, int64(4), store.GetLatestVersion())
-				require.Len(t, repairM1094Raw(t, store, "evm"), 19)
+				require.Len(t, historyMaintenanceRaw(t, store, "evm"), 19)
 			})
 		}
 	}
 }
 
-func TestRepairM_1094_JointEarliest(t *testing.T) {
+func TestHistoryAndMaintenanceJointEarliest(t *testing.T) {
 	for _, separate := range []bool{false, true} {
 		t.Run(fmt.Sprintf("separate=%t", separate), func(t *testing.T) {
 			dir := t.TempDir()
-			cfg := repairM1094Config(dir, separate)
+			cfg := historyMaintenanceConfig(dir, separate)
 			store, err := NewCompositeStateStore(cfg, dir)
 			require.NoError(t, err)
 			t.Cleanup(func() { require.NoError(t, store.Close()) })
@@ -274,9 +274,9 @@ func TestRepairM_1094_JointEarliest(t *testing.T) {
 	}
 }
 
-func TestRepairM_1094_SubDBProgress(t *testing.T) {
+func TestHistoryAndMaintenanceSubDBProgress(t *testing.T) {
 	dir := t.TempDir()
-	cfg := repairM1094Config(dir, true)
+	cfg := historyMaintenanceConfig(dir, true)
 	store, err := evm.NewEVMStateStore(cfg.EVMDBDirectory, cfg)
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, store.Close()) })
@@ -299,10 +299,10 @@ func TestRepairM_1094_SubDBProgress(t *testing.T) {
 	require.Equal(t, int64(3), store.GetEarliestVersion())
 }
 
-func TestRepairM_1094_FlatKVCollisions(t *testing.T) {
-	repairM1094FlatKVRoundTrip(t)
+func TestHistoryAndMaintenanceFlatKVCollisions(t *testing.T) {
+	historyMaintenanceFlatKVRoundTrip(t)
 }
 
-func TestRepairM_1094_ImportFailure(t *testing.T) {
-	repairM1094FlatKVImportFailure(t)
+func TestHistoryAndMaintenanceImportFailure(t *testing.T) {
+	historyMaintenanceFlatKVImportFailure(t)
 }

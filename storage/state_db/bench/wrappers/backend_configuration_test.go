@@ -18,7 +18,7 @@ import (
 	flatkvConfig "github.com/Sidiora-Labs/Paxeer-X-Network/storage/state_db/sc/flatkv/config"
 )
 
-func TestRepairM_1193_HelperLocalBackends(t *testing.T) {
+func TestBackendConfigurationHelperLocalBackends(t *testing.T) {
 	for _, backend := range []wrappers.DBType{
 		wrappers.NoOp,
 		wrappers.MemIAVL,
@@ -72,7 +72,7 @@ func TestRepairM_1193_HelperLocalBackends(t *testing.T) {
 	}
 }
 
-func TestRepairM_1193_FactoryRejectsConfigShapes(t *testing.T) {
+func TestBackendConfigurationFactoryRejectsConfigShapes(t *testing.T) {
 	for _, tc := range []struct {
 		backend  wrappers.DBType
 		typedNil any
@@ -122,7 +122,7 @@ func TestRepairM_1193_FactoryRejectsConfigShapes(t *testing.T) {
 	}
 }
 
-func TestRepairM_1193_HelperOffloadConfiguration(t *testing.T) {
+func TestBackendConfigurationHelperOffloadConfiguration(t *testing.T) {
 	for _, tc := range []struct {
 		name string
 		cfg  *wrappers.HistoricalOffloadConfig
@@ -172,7 +172,7 @@ func TestRepairM_1193_HelperOffloadConfiguration(t *testing.T) {
 	})
 }
 
-func TestRepairM_1193_UnknownBackend(t *testing.T) {
+func TestBackendConfigurationUnknownBackend(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "must-not-open")
 	scenario := bench.TestScenario{Backend: wrappers.DBType("unknown")}
 	db, err := scenario.OpenDB(t.Context(), dir)

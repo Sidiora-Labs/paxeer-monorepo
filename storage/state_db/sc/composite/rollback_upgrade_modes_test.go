@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func openM1197Composite(t *testing.T, dir string, mode config.WriteMode, mounted []string) *CompositeCommitStore {
+func openRollbackComposite(t *testing.T, dir string, mode config.WriteMode, mounted []string) *CompositeCommitStore {
 	t.Helper()
 	cfg := config.DefaultStateCommitConfig()
 	cfg.WriteMode = mode
@@ -29,7 +29,7 @@ func openM1197Composite(t *testing.T, dir string, mode config.WriteMode, mounted
 	return cs
 }
 
-func m1197SeedChanges() []*proto.NamedChangeSet {
+func rollbackSeedChanges() []*proto.NamedChangeSet {
 	var changes []*proto.NamedChangeSet
 	for _, name := range []string{keys.AuthStoreKey, keys.BankStoreKey, keys.EVMStoreKey} {
 		ncs := &proto.NamedChangeSet{Name: name}
@@ -47,14 +47,14 @@ func m1197SeedChanges() []*proto.NamedChangeSet {
 
 // Produce each predecessor schema through real commits and completed migrations.
 // No migration metadata or backend files are synthesized by the fixture.
-func seedM1197Predecessor(t *testing.T, dir string, target config.WriteMode, mounted []string) proto.CommitInfo {
+func seedRollbackPredecessor(t *testing.T, dir string, target config.WriteMode, mounted []string) proto.CommitInfo {
 	t.Helper()
 	seedMode := config.MemiavlOnly
 	if target == config.TestOnlyDualWrite {
 		seedMode = target
 	}
-	cs := openM1197Composite(t, dir, seedMode, mounted)
-	require.NoError(t, cs.ApplyChangeSets(m1197SeedChanges()))
+	cs := openRollbackComposite(t, dir, seedMode, mounted)
+	require.NoError(t, cs.ApplyChangeSets(rollbackSeedChanges()))
 	v, err := cs.Commit()
 	require.NoError(t, err)
 	require.Equal(t, int64(1), v)
@@ -75,7 +75,7 @@ func seedM1197Predecessor(t *testing.T, dir string, target config.WriteMode, mou
 	}
 	stages := []config.WriteMode{config.MigrateEVM, config.MigrateAllButBank, config.MigrateBank}
 	for i := 0; i < completed; i++ {
-		cs = openM1197Composite(t, dir, stages[i], mounted)
+		cs = openRollbackComposite(t, dir, stages[i], mounted)
 		done := false
 		for block := 0; block < 32; block++ {
 			require.NoError(t, cs.ApplyChangeSets(nil))
@@ -96,9 +96,9 @@ func seedM1197Predecessor(t *testing.T, dir string, target config.WriteMode, mou
 		// FlatKVOnly no longer contributes the empty memiavl tree roots.
 		previousLattice := storeInfo(info, "evm_lattice")
 		require.NotNil(t, previousLattice)
-		cs = openM1197Composite(t, dir, target, mounted)
+		cs = openRollbackComposite(t, dir, target, mounted)
 		require.Nil(t, cs.memIAVL)
-		requireM1197Seed(t, cs)
+		requireRollbackSeed(t, cs)
 		require.Equal(t, info.Version, cs.Version())
 		require.Equal(t, previousLattice.CommitId.Hash, cs.flatKV.CommittedRootHash())
 		require.NoError(t, cs.ApplyChangeSets(nil))
@@ -114,9 +114,9 @@ func seedM1197Predecessor(t *testing.T, dir string, target config.WriteMode, mou
 	return info
 }
 
-func requireM1197Seed(t *testing.T, cs *CompositeCommitStore) {
+func requireRollbackSeed(t *testing.T, cs *CompositeCommitStore) {
 	t.Helper()
-	for _, change := range m1197SeedChanges() {
+	for _, change := range rollbackSeedChanges() {
 		for _, pair := range change.Changeset.Pairs {
 			value, found, err := cs.Get(change.Name, pair.Key)
 			require.NoError(t, err)
@@ -127,14 +127,14 @@ func requireM1197Seed(t *testing.T, cs *CompositeCommitStore) {
 	}
 }
 
-func requireM1197SameState(t *testing.T, want, got *CompositeCommitStore) {
+func requireRollbackSameState(t *testing.T, want, got *CompositeCommitStore) {
 	t.Helper()
 	require.Equal(t, cloneCommitInfo(want.LastCommitInfo()), cloneCommitInfo(got.LastCommitInfo()))
 	require.Equal(t, cloneCommitInfo(want.WorkingCommitInfo()), cloneCommitInfo(got.WorkingCommitInfo()))
 	require.Equal(t, mergeStateSyncCommitHash(*want.LastCommitInfo()), mergeStateSyncCommitHash(*got.LastCommitInfo()))
 	require.Equal(t, mergeStateSyncCommitHash(*want.WorkingCommitInfo()), mergeStateSyncCommitHash(*got.WorkingCommitInfo()))
 	require.Equal(t, want.PendingStores(), got.PendingStores())
-	for _, change := range m1197SeedChanges() {
+	for _, change := range rollbackSeedChanges() {
 		require.Equal(t, collectIterator(t, want, change.Name, true), collectIterator(t, got, change.Name, true))
 		for _, pair := range change.Changeset.Pairs {
 			wantValue, wantFound, err := want.Get(change.Name, pair.Key)
@@ -155,38 +155,38 @@ func requireM1197SameState(t *testing.T, want, got *CompositeCommitStore) {
 	}
 }
 
-func TestRepairM_1197_SteadyStateRollback(t *testing.T) {
+func TestRollbackUpgradeModesSteadyStateRollback(t *testing.T) {
 	for _, mode := range []config.WriteMode{config.MemiavlOnly, config.EVMMigrated, config.AllMigratedButBank, config.FlatKVOnly, config.TestOnlyDualWrite} {
-		t.Run(string(mode), func(t *testing.T) { runM1197Rollback(t, mode) })
+		t.Run(string(mode), func(t *testing.T) { runCompositeRollback(t, mode) })
 	}
 }
 
-func TestRepairM_1197_FirstMigrationRollback(t *testing.T) {
+func TestRollbackUpgradeModesFirstMigrationRollback(t *testing.T) {
 	for _, mode := range []config.WriteMode{config.MigrateEVM, config.MigrateAllButBank, config.MigrateBank} {
-		t.Run(string(mode), func(t *testing.T) { runM1197Rollback(t, mode) })
+		t.Run(string(mode), func(t *testing.T) { runCompositeRollback(t, mode) })
 	}
 }
 
-func TestRepairM_1197_PendingCreationRollback(t *testing.T) {
-	t.Run("same_handle", func(t *testing.T) { runM1197PendingCreationRollback(t, false) })
-	t.Run("reopen", func(t *testing.T) { runM1197PendingCreationRollback(t, true) })
+func TestRollbackUpgradeModesPendingCreationRollback(t *testing.T) {
+	t.Run("same_handle", func(t *testing.T) { runCompositePendingCreationRollback(t, false) })
+	t.Run("reopen", func(t *testing.T) { runCompositePendingCreationRollback(t, true) })
 }
 
-func TestRepairM_1197_LegacyMergeUpgradeModes(t *testing.T) {
+func TestRollbackUpgradeModesLegacyMergeUpgradeModes(t *testing.T) {
 	for _, mode := range compositeMergeWriteModes {
-		t.Run(string(mode), func(t *testing.T) { runM1197LegacyMergeUpgrade(t, mode) })
+		t.Run(string(mode), func(t *testing.T) { runCompositeLegacyMergeUpgrade(t, mode) })
 	}
 }
 
-func runM1197PendingCreationRollback(t *testing.T, reopen bool) {
+func runCompositePendingCreationRollback(t *testing.T, reopen bool) {
 	t.Helper()
 	dir, cleanDir := t.TempDir(), t.TempDir()
 	mounted := []string{keys.BankStoreKey, keys.AuthStoreKey, keys.EVMStoreKey, keys.LayerXLedgerStoreKey}
 	legacy := mounted[:3]
-	baseline := seedM1197Predecessor(t, dir, config.MemiavlOnly, legacy)
-	require.Equal(t, baseline, seedM1197Predecessor(t, cleanDir, config.MemiavlOnly, legacy))
-	cs := openM1197Composite(t, dir, config.MemiavlOnly, mounted)
-	clean := openM1197Composite(t, cleanDir, config.MemiavlOnly, mounted)
+	baseline := seedRollbackPredecessor(t, dir, config.MemiavlOnly, legacy)
+	require.Equal(t, baseline, seedRollbackPredecessor(t, cleanDir, config.MemiavlOnly, legacy))
+	cs := openRollbackComposite(t, dir, config.MemiavlOnly, mounted)
+	clean := openRollbackComposite(t, cleanDir, config.MemiavlOnly, mounted)
 	name := keys.LayerXLedgerStoreKey
 	upgrades := []*proto.TreeNameUpgrade{{Name: name}}
 	writes := []*proto.NamedChangeSet{{Name: name, Changeset: proto.ChangeSet{Pairs: []*proto.KVPair{
@@ -199,19 +199,19 @@ func runM1197PendingCreationRollback(t *testing.T, reopen bool) {
 	require.NoError(t, err)
 	require.False(t, cs.IsPendingStore(name))
 	require.NoError(t, cs.Rollback(1))
-	requireM1197SameState(t, clean, cs)
-	requireM1197Seed(t, cs)
+	requireRollbackSameState(t, clean, cs)
+	requireRollbackSeed(t, cs)
 	require.True(t, cs.IsPendingStore(name))
 	require.Nil(t, cs.GetChildStoreByName(name).Get([]byte("created")))
 	require.NoError(t, cs.ApplyChangeSets(writes))
 	require.Len(t, cs.HeldPendingWrites(name), 1)
 	if reopen {
 		require.NoError(t, cs.Close())
-		cs = openM1197Composite(t, dir, config.MemiavlOnly, mounted)
+		cs = openRollbackComposite(t, dir, config.MemiavlOnly, mounted)
 	} else {
 		require.NoError(t, cs.Rollback(1))
 	}
-	requireM1197SameState(t, clean, cs)
+	requireRollbackSameState(t, clean, cs)
 	require.Empty(t, cs.HeldPendingWrites(name))
 	for _, handle := range []*CompositeCommitStore{cs, clean} {
 		require.NoError(t, handle.ApplyUpgrades(upgrades))
@@ -226,9 +226,9 @@ func runM1197PendingCreationRollback(t *testing.T, reopen bool) {
 		require.Equal(t, workingHash, mergeStateSyncCommitHash(*handle.LastCommitInfo()))
 		require.NoError(t, handle.Close())
 	}
-	cs = openM1197Composite(t, dir, config.MemiavlOnly, mounted)
-	clean = openM1197Composite(t, cleanDir, config.MemiavlOnly, mounted)
-	requireM1197SameState(t, clean, cs)
+	cs = openRollbackComposite(t, dir, config.MemiavlOnly, mounted)
+	clean = openRollbackComposite(t, cleanDir, config.MemiavlOnly, mounted)
+	requireRollbackSameState(t, clean, cs)
 	require.False(t, cs.IsPendingStore(name))
 	require.Equal(t, []byte("ledger"), cs.GetChildStoreByName(name).Get([]byte("created")))
 }

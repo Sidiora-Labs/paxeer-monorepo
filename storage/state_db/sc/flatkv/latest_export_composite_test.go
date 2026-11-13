@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepair_124_LatestExportComposite(t *testing.T) {
+func TestFlatKVStateLatestExportComposite(t *testing.T) {
 	cfg := config.DefaultTestConfig(t)
 	cfg.SnapshotInterval = 0
 	src, err := flatkv.NewCommitStore(t.Context(), cfg)
