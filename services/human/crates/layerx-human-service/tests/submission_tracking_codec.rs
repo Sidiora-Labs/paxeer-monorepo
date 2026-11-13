@@ -24,7 +24,7 @@ const SUBMISSION_HEX: &str = "ababababababababababababababababababababababababab
 const ACTIVITY_ID: [u8; 32] = [0xcd; 32];
 
 #[test]
-fn repair_22_31_579_decodes_daemon_states_without_receipts() {
+fn decodes_daemon_states_without_receipts() {
     let cases = [
         (OutboxState::Prepared, SubmissionState::Prepared),
         (OutboxState::Signed, SubmissionState::Signed),
@@ -77,7 +77,7 @@ fn repair_22_31_579_decodes_daemon_states_without_receipts() {
 }
 
 #[test]
-fn repair_22_31_579_decodes_executed_and_committed_receipt_digests() {
+fn decodes_executed_and_committed_receipt_digests() {
     let height = 7_u64;
     let mut canonical = 1_u16.to_be_bytes().to_vec();
     canonical.extend_from_slice(&height.to_be_bytes());
@@ -170,7 +170,7 @@ fn repair_22_31_579_decodes_executed_and_committed_receipt_digests() {
 }
 
 #[test]
-fn repair_22_31_579_refuses_length_prefixed_text_references() {
+fn refuses_length_prefixed_text_references() {
     let mut body = Vec::new();
     bytes(&mut body, SUBMISSION_HEX.as_bytes());
     let mut response = ACTIVITY_ID.to_vec();
@@ -193,7 +193,7 @@ fn repair_22_31_579_refuses_length_prefixed_text_references() {
 }
 
 #[test]
-fn repair_22_31_579_refuses_undefined_state_codes() {
+fn refuses_undefined_state_codes() {
     let mut body = Vec::new();
     bytes(&mut body, SUBMISSION_HEX.as_bytes());
     let codes = (0..=u8::MAX).filter(|code| !matches!(code, 0..=3 | 5..=9));

@@ -1,5 +1,4 @@
-//! Repair record: `tests/repair_22_33_44.kvx`.
-//! These modules retain the original nonce, copy, mutation and budget assertions.
+//! Approval and gateway transports use authenticated runtime clock bindings.
 
 #[path = "decide_nonces.rs"]
 mod decide_nonces;
@@ -8,10 +7,10 @@ mod projection_rungs;
 #[path = "render.rs"]
 mod render;
 pub mod runtime_clock {
-    include!("support/repair_22_33_44_clock.rs");
+    include!("support/runtime_clock_authority.rs");
 }
 
-#[path = "support/repair_22_33_44_kms.rs"]
+#[path = "support/kms_gateway_fixture.rs"]
 mod in_process_gateway;
 
 use layerx_client::runtime_clock::{ClockBinding, RuntimeClock};

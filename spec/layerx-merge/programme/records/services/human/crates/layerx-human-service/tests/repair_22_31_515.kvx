@@ -35,7 +35,7 @@ sites = ["SessionOwners::execute / ApprovalService::list", "SessionOwners::execu
 time_source = "Retained from 22.31.527: TestClock::new(HEIGHT) supplies explicit Unix seconds to list and decisions on the held-approval timeline; the catalogue lookup serializes TestClock::new(50).now() as current_time. Clock errors fail the proof."
 
 [consumer.human_asset_domain_repair]
-path = "services/human/crates/layerx-human-service/tests/repair_22_31_159.rs"
+path = "services/human/crates/layerx-human-service/tests/approval_asset_domains.rs"
 sites = ["AgentdBoundary::approval / ApprovalService::get", "round_trip / ApprovalService::get", "round_trip / timed hold creation"]
 time_source = "Retained from 22.31.527: both reads and hold_at creation sample the boundary-owned StepClock at the event timeline's ten-second origin, with the production Clock-to-Unix-seconds conversion and boundary generation check."
 discovery = "The all-test-target build exposed two more callers of the producer signature; this test lies within the authorized Human tests directory."
@@ -45,7 +45,7 @@ revision = "5285f81b73c92c2c61ecb397fac524466108cd8c"
 command = "cargo build --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --tests && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --tests"
 exit = 101
 log = "/out/logs/build-1.log"
-observed = "Two E0061 diagnostics in repair_22_31_159.rs identified additional get consumers missing explicit time."
+observed = "Two E0061 diagnostics in approval_asset_domains.rs identified additional get consumers missing explicit time."
 repair = "Thread the boundary Clock through both consumers and record creation time with the timed hold API; retain every existing assertion."
 
 [consumer.human_decide_nonces]
@@ -80,7 +80,7 @@ command = "cg spec done 22.31.515 -f layerx-merge --root /work/paxeer-monorepo"
 exit = 1
 log = "/out/logs/verify-1.log"
 observed = "The build and dependent-crate checks passed, but approvals.rs:343 failed its unchanged payload amount assertion because production Inbox::consume dispatches ApprovalWaiting with money: None; the verify command stopped before decide and MCP tests executed."
-assumption = "This pre-existing notification wiring conflict is already documented in src/approvals/repair_22_31_159.kvx and requires production changes outside this task's scope; retain the assertion and do not rerun the recorded failure."
+assumption = "This pre-existing notification wiring conflict is already documented in src/approvals/approval_asset_domains.kvx and requires production changes outside this task's scope; retain the assertion and do not rerun the recorded failure."
 
 [repair.notification_binding]
 producer_commit = "0e88a62cab"

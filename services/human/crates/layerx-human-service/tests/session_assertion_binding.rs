@@ -401,7 +401,7 @@ fn device() -> Device {
 }
 
 #[test]
-fn finding_7_interleaved_preparations_have_one_durable_winner() {
+fn interleaved_preparations_have_one_durable_winner() {
     for reverse in [false, true] {
         let mut fixture = Fixture::new();
         let first = required(fixture.prepare(device(), 104), "first preparation");
@@ -435,7 +435,7 @@ fn finding_7_interleaved_preparations_have_one_durable_winner() {
 }
 
 #[test]
-fn finding_7_identical_replay_survives_each_durable_write_and_assertion_expiry() {
+fn identical_replay_survives_each_durable_write_and_assertion_expiry() {
     for reverse in [false, true] {
         let mut fixture = Fixture::new();
         let first = fixture.replayable(1, 11, 104);
@@ -492,7 +492,7 @@ fn finding_7_identical_replay_survives_each_durable_write_and_assertion_expiry()
 }
 
 #[test]
-fn finding_7_preparation_does_not_extend_assertion_expiry() {
+fn preparation_does_not_extend_assertion_expiry() {
     for replayable in [false, true] {
         for at_deadline in [false, true] {
             let mut fixture = Fixture::new();
@@ -521,7 +521,7 @@ fn finding_7_preparation_does_not_extend_assertion_expiry() {
 }
 
 #[test]
-fn finding_7_failed_commit_rolls_back_assertion_device_and_notification() {
+fn failed_commit_rolls_back_assertion_device_and_notification() {
     for pin_notification in [false, true] {
         let mut fixture = Fixture::new();
         let original_device = device();
@@ -600,7 +600,7 @@ fn finding_7_failed_commit_rolls_back_assertion_device_and_notification() {
 }
 
 #[test]
-fn finding_7_legacy_consumption_without_a_binding_cannot_open_another_session() {
+fn legacy_consumption_without_a_binding_cannot_open_another_session() {
     let mut fixture = Fixture::new();
     let prepared = required(
         fixture.prepare(device(), 104),
@@ -637,7 +637,7 @@ fn finding_7_legacy_consumption_without_a_binding_cannot_open_another_session() 
 }
 
 #[test]
-fn finding_7_mixed_preparations_cannot_bypass_the_binding() {
+fn mixed_preparations_cannot_bypass_the_binding() {
     for replayable_wins in [false, true] {
         let mut fixture = Fixture::new();
         let regular = required(fixture.prepare(device(), 104), "prepare regular session");
@@ -661,7 +661,7 @@ fn finding_7_mixed_preparations_cannot_bypass_the_binding() {
 }
 
 #[test]
-fn finding_7_persistence_failure_leaves_no_partial_opening() {
+fn persistence_failure_leaves_no_partial_opening() {
     let mut fixture = Fixture::new();
     let pending = fixture.replayable(6, 66, 104);
     let session_id = pending.session_id().to_owned();

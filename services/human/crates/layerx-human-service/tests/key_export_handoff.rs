@@ -601,7 +601,7 @@ fn assert_acknowledged_export(
 }
 
 #[test]
-fn repair_3_export_handoff() {
+fn key_export_handoff_recovers_and_acknowledges_delivery() {
     let fixture = Fixture::new();
     let (passkeys, _session, mut browser) = fixture.setup(100);
     let trace = checked(TraceId::parse(TRACE));
@@ -924,7 +924,7 @@ fn assert_refused_finish(
 }
 
 #[test]
-fn repair_3_export_challenge_wire() {
+fn key_export_challenge_crosses_browser_and_component_transport() {
     let fixture = Fixture::new();
     let clock: Arc<dyn Clock> =
         Arc::new(layerx_human_test_support::StepClock::new(1_700_000_000_000));

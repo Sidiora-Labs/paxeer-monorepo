@@ -28,12 +28,12 @@ owner_frame = "The owner lookup producer now lives in prerequisite 22.31.539's l
 retained_spellings = "Only explicit schema vocabulary migration and tests refusing historical response labels retain retired spellings in production crate sources; schema source files outside this task remain unchanged."
 
 [sites.tests]
-paths = ["tests/agent_runtime_receipt_frame.rs", "tests/agent_runtime_rungs.rs", "tests/repair_22_31_156.rs", "tests/repair_22_31_579.rs", "../layerx-human-test-support/src/lib.rs", "../layerx-human-test-support/tests/evidence_gate_rungs.rs"]
-current_response_expectations = ["tests/balance_rungs.rs", "tests/receipt_evidence_v2.rs", "tests/projection_rungs.rs", "tests/repair_22_33_41.rs", "tests/repair_22_33_42.rs", "tests/agent_controls.rs", "tests/agent_controls_rungs.rs", "tests/native_lifecycle.rs", "tests/support/approval_owner.rs", "tests/retired_client_modules.rs (source inventory follows the moved module root)"]
+paths = ["tests/agent_runtime_receipt_frame.rs", "tests/agent_runtime_rungs.rs", "tests/activity_receipt_integrity.rs", "tests/submission_tracking_codec.rs", "../layerx-human-test-support/src/lib.rs", "../layerx-human-test-support/tests/evidence_gate_rungs.rs"]
+current_response_expectations = ["tests/balance_rungs.rs", "tests/receipt_evidence_v2.rs", "tests/projection_rungs.rs", "tests/intent_schema_contract.rs", "tests/service_transport_bounds.rs", "tests/agent_controls.rs", "tests/agent_controls_rungs.rs", "tests/native_lifecycle.rs", "tests/support/approval_owner.rs", "tests/retired_client_modules.rs (source inventory follows the moved module root)"]
 shared_support = ["tests/support/committed_receipt.rs extracts the current-main 22.31.156 recorded Go producer receipt/consensus loader, preserving its sourceSha256 assertion and absent-vote checks", "tests/support/budget_proof_replay.rs serves the existing budget-proof-v2 recorded node answers over HTTP"]
 
 [coverage]
-path = "tests/repair_22_31_540.rs"
+path = "tests/committed_verification_projection.rs"
 tests = ["committed_state_is_served_as_committed_and_survives_reopen", "state_proven_state_cannot_promote_served_spend", "committed_budget_proof_is_accepted_and_state_proven_proof_is_refused_at_ingress", "real_committed_receipt_exports_committed_verification_and_statement_label"]
 real_paths = "Recorded HTTP getBudget and consensus -> CommittedReads -> RawStateEvidence::budget_witness -> EvidenceAuthority -> SpendReconciliation -> both shell views and reopened principal store; production budget proof verifier -> observe_budget_proof; recorded Go receipt and consensus -> activity export verifier -> evidence bundle codec -> CSV statement and managed_receipt_material -> executable response schema."
 frame_assertion = "agent_runtime_receipt_frame asserts the shared encoder emits byte 6 for COMMITTED and retains all corrupt evidence refusals."
@@ -52,12 +52,12 @@ external_dependencies = "None: no credential, environment variable or live endpo
 
 [previous_attempt_qualification_repair]
 cycle = 1
-finding = "The carried fixture extraction left repair_22_31_156.rs using RECORDED without importing it; the fixture constant remained private in support/committed_receipt.rs."
+finding = "The carried fixture extraction left activity_receipt_integrity.rs using RECORDED without importing it; the fixture constant remained private in support/committed_receipt.rs."
 repair = "Expose and import the original RECORDED fixture constant; retain the existing signed-refusal assertions and bytes."
 evidence = "The prior attempt ledger records that repaired compile failure; current-attempt qualification is recorded only by the build and verify rows referenced in gates above."
 
 [merge_resolution]
-conflict = "repair_22_31_156.rs retained current-main receipt loader functions beside the seed extraction; keep the current functions in the existing shared support module and remove the duplicate definitions and merge markers."
+conflict = "activity_receipt_integrity.rs retained current-main receipt loader functions beside the seed extraction; keep the current functions in the existing shared support module and remove the duplicate definitions and merge markers."
 assertions = "The current-main sourceSha256 provenance assertion and all absent-commit-vote field assertions survive unchanged; no test is deleted, skipped, ignored or weakened."
 
 [qualification_repair_current]

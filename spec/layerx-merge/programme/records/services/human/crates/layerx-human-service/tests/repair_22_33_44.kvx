@@ -3,7 +3,7 @@ audit = "22.30.105"
 acceptance = "22998.1"
 status = "implemented-awaiting-bounded-gate"
 baseline_revision = "c1bf1e7c8686120d5daf0c95bf1c27e9be3a0417"
-baseline = "Not run: the explicit Order prohibits tests before complete implementation and allows only hf-build followed by hf-done; repair_22_33_44.rs did not exist on the starting tree. No pre-change failing tests are claimed."
+baseline = "Not run: the explicit Order prohibits tests before complete implementation and allows only hf-build followed by hf-done; approval_gateway_clock_binding.rs did not exist on the starting tree. No pre-change failing tests are claimed."
 evidence = "The runner records the exact immutable candidate revision, command, exit and private log in /out/run/gates.jsonl; the final response copies its last gate evidence."
 scope = "Human service sources and tests only; this in-scope file records repairs and external-domain wiring requests without spec edits."
 

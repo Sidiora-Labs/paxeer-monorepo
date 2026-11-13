@@ -1,11 +1,11 @@
-//! Audit 22.30.107 regression paths; finding and evidence record: `repair_22_33_63.kvx`.
+//! Native journeys retain signed producer evidence and recover their durable state.
 
 pub mod bank {
-    include!("support/repair_22_33_63_bank.rs");
+    include!("support/bank_journey_fixture.rs");
 }
 #[path = "native_send_nonces.rs"]
 mod native;
-#[path = "support/repair_22_33_63_rotation.rs"]
+#[path = "support/rotation_custody_fixture.rs"]
 pub mod rotation;
 
 #[test]

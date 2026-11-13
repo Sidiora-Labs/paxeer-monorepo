@@ -4,7 +4,7 @@ acceptance = "22998.1"
 findings = ["human-approval-fixture", "human-decision-fixture"]
 producer = "layerx_agentd::prepare::evm::prepare_activity; UnifiedAgentOwner; durable ApprovalRegistry and BudgetLimiter"
 transport = "SO_PEERCRED-authenticated Unix sockets, serve_one/AcceptedTransport, AgentRuntime; recorded authority input over loopback TLS and recorded node RPC; daemon-written snapshots through managed_agent::record_budget_snapshot and the Human production recovery decoder"
-baseline = "Not run: the ordered task instructions prohibit tests before full implementation and allow verification only through hf-done; repair_22_33_1510.rs did not exist on the unchanged tree. No baseline failures are claimed."
+baseline = "Not run: the ordered task instructions prohibit tests before full implementation and allow verification only through hf-done; budget_snapshot_persistence.rs did not exist on the unchanged tree. No baseline failures are claimed."
 qualification = "hf-build then hf-done; verified revision and private evidence are recorded by the gate ledger."
 
 [finding.human-approval-fixture]
@@ -69,14 +69,14 @@ proof = "daemon_budget_snapshot_survives_reopen_through_human_decoder additional
 evidence = "hf-build and hf-done record the final candidate revision, exact commands, exit codes and private evidence paths in the gate ledger."
 
 [wiring.decision-time-consumers]
-request = "services/human/crates/layerx-human-service/tests/decide_nonces.rs and services/human/crates/layerx-human-service/tests/repair_22_31_159.rs (Human domain 10): supply TimestampSeconds to ApprovalService::get and current_time to DecisionRequest after the shared daemon signature change; 22.31.515 is pending on this base, and these tests are outside this task's scope."
+request = "services/human/crates/layerx-human-service/tests/decide_nonces.rs and services/human/crates/layerx-human-service/tests/approval_asset_domains.rs (Human domain 10): supply TimestampSeconds to ApprovalService::get and current_time to DecisionRequest after the shared daemon signature change; 22.31.515 is pending on this base, and these tests are outside this task's scope."
 
 [qualification.attempt-4-build]
 revision = "2c428406af47f4f4303a583b6d8c5cb81dc35845"
 command = "cargo build --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --tests"
 exit = 101
 log = "/out/logs/build-1.log"
-observed = "Eight pre-existing compile errors outside scope: decide_nonces.rs lines 375, 406, 599 and 627 and repair_22_31_159.rs lines 103 and 278 omit get's TimestampSeconds; decide_nonces.rs lines 455 and 483 omit DecisionRequest.current_time."
+observed = "Eight pre-existing compile errors outside scope: decide_nonces.rs lines 375, 406, 599 and 627 and approval_asset_domains.rs lines 103 and 278 omit get's TimestampSeconds; decide_nonces.rs lines 455 and 483 omit DecisionRequest.current_time."
 assumption = "Record without repairing or rerunning the unrelated failure; hf-done requires a passing hf-build, so verification did not run and neither finding is qualified."
 
 [qualification.attempt-5]
@@ -166,7 +166,7 @@ evidence = "Final candidate evidence is referenced by /out/run/gates.jsonl: buil
 base = "68afb44d49cc4a91857656bdf467ef00cc8bb01d"
 dependency = "22.31.571 is merged at dca8d666c57b63c80c43e281055cb3e9bd825a25; the runner merged it before applying the attempt-9 tree."
 implementation = "Replace the retired NotFound expectation with exact Queued state and release submission identity; assert Granted inbox hydration carries the same tracking, and that tracking survives the final owner reopen. Preserve real producer, authenticated transport, exact disclosure/budget/reservation evidence and foreign-scope refusals."
-evidence = "The final build and verify rows in /out/run/gates.jsonl record the exact candidate revision, command, exit code and private log path; build and verify must name the same revision. The verification row runs cg spec done 22.33.1510 and its declared repair_22_33_1510 integration target. No result is claimed before hf-done passes; this reference avoids changing the candidate after qualification."
+evidence = "The final build and verify rows in /out/run/gates.jsonl record the exact candidate revision, command, exit code and private log path; build and verify must name the same revision. The verification row runs cg spec done 22.33.1510 and its declared budget_snapshot_persistence integration target. No result is claimed before hf-done passes; this reference avoids changing the candidate after qualification."
 
 [wiring.track-response-codec]
 request = "services/agent/crates/layerx-agentd/src/human_runtime.rs:21783 write_submission (Agent domain 9) writes the submission id as fixed 32 bytes (and an executed receipt reference likewise), while services/human/crates/layerx-human-service/src/server/agent_runtime.rs:4408 decode_tracked (Human domain 10) reads length-prefixed UTF-8 text; align the production wire contract without translating fixture responses or weakening the exact Queued/submission-id and inbox hydration assertions. 22.31.571 resolves release lookup, but both real Human consumers still return Corrupt."

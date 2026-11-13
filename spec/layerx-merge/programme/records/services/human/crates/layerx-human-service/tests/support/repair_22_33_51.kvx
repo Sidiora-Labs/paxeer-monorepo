@@ -2,7 +2,7 @@
 audit = "22.30.106"
 finding = "13"
 base_revision = "aefa91aa13a43dff9d0a27098f8280d43fd1ed42"
-proof = "repair_22_33_51::finding13_node_heights_multiple_transactions_and_authenticated_roots; repair_22_33_51::finding13_node_evidence_survives_store_restart_and_transport_replay; repair_22_33_51::finding13_unrecorded_transactions_cannot_receive_fabricated_commitment; repair_22_33_51::finding13_rpc_height_mutation_is_rejected_by_the_production_reader; repair_22_33_51::finding13_receipt_key_identity_and_authority_are_required; repair_22_33_51::finding13_corrupted_node_signature_is_rejected_over_transport"
+proof = "node_consensus_evidence::node_heights_multiple_transactions_and_authenticated_roots; node_consensus_evidence::node_evidence_survives_store_restart_and_transport_replay; node_consensus_evidence::unrecorded_transactions_cannot_receive_fabricated_commitment; node_consensus_evidence::rpc_height_mutation_is_rejected_by_the_production_reader; node_consensus_evidence::receipt_key_identity_and_authority_are_required; node_consensus_evidence::corrupted_node_signature_is_rejected_over_transport"
 source = "daemon/committed-fixture/vectors/vector-v4-committed.json::settlement (actual paxd signed receipt, raw EVM transaction, both Comet block transactions, execution and successor headers, commits, and inclusion proofs)"
 transport = "Recorded node bytes over loopback HTTP into layerx-client authenticated lookup, then human EvidenceBundle consensus verification, Feed projection and PrincipalStore reopen/replay."
 roots = "The two transactions are the node's tx-zero sequence batch and EVM payment. Comet data_hash, successor last_results_hash and app_hash are retained verbatim; no Ethereum trie roots or replacement signatures are generated."
@@ -13,7 +13,7 @@ wiring_2 = "Node RPC domain: daemon/committed-fixture/vector_v4.go must retain e
 
 [continuation.attempt_3]
 base_revision = "57000844c90cca6b33229318d195f087a30c1998"
-prior_failure = "Attempt 2 verify failed in finding13_node_heights_multiple_transactions_and_authenticated_roots and finding13_node_evidence_survives_store_restart_and_transport_replay with SequencerSignature; four other cases passed, per the runner's continuation record."
+prior_failure = "Attempt 2 verify failed in node_heights_multiple_transactions_and_authenticated_roots and node_evidence_survives_store_restart_and_transport_replay with SequencerSignature; four other cases passed, per the runner's continuation record."
 observed = "The inclusion-envelope authorization uses the public key as SequencerID, while the node receipt context_hash and MsgSequenceBatch KeyId use SHA256(public key); replaying the inclusion identifier as a receipt key id prevents the production verifier from selecting the already-correct signing key."
 repair = "Publish the recorded node's SHA256(public key) receipt identity with the independently recorded public key and height range; assert its agreement with the signed receipt and batch, and reject wrong identities, wrong public keys, uncovered heights and corrupted signatures."
 signing = "The unchanged settlement receipt is the output of node/sequencer/receiptkey.go::ReceiptKey.SignReceipt, collected and verified by daemon/committed-fixture/vector_v4.go::v4WaitCommitted; production lookup re-encodes it with layerx_wire::receipt::encode_unsigned and verifies its receipt_digest under the matching pin. No signature, execution field, root or committed byte is replaced."

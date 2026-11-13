@@ -1,7 +1,4 @@
-//! Task 22.31.151, finding native-onboarding-refused: `native_onboarding_identity_producer_transport_and_restart`
-//! proves the chain identity producer, signed-call binding and durable restart interface.
-//! Baseline verification was not run: the gate order requires implementation first.
-//! Wiring request (domain 10): services/human/crates/layerx-human-service/src/server/{agent_creation_native.rs,production_components.rs} must drive `prepare_native_identity` -> `retain_native_identity_submission` -> chain submission/receipt -> `accept_native_identity` before `resume_native`; HTTP creation-to-receipt and restart qualification remains outstanding.
+//! Native identity onboarding binds signed calls and committed receipts across restart.
 
 use std::fmt::Debug;
 use std::fs;

@@ -1,4 +1,4 @@
-#[path = "repair_22_33_44_clock.rs"]
+#[path = "runtime_clock_authority.rs"]
 mod runtime_clock;
 
 use std::net::TcpListener;

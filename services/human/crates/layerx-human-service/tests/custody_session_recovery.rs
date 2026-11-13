@@ -1,15 +1,4 @@
-//! Task record 22.33.38, audit 22.30.103, acceptance 22998.1.
-//! gateway-operation-deadline: `gateway_operation_deadline_bounds_real_delayed_transport`.
-//! custody-read-bound: `custody_read_bound_and_protected_descriptor`.
-//! custody-temp-recovery: `custody_temp_recovery_before_link_rename_and_unlink`.
-//! sessions-state-restart: `sessions_state_restart_recovers_install_suspend_and_revoke`.
-//! session-renewal-orphan: `session_renewal_orphan_resumes_exact_replacement`.
-//! session-second-rotation: `session_second_rotation_and_retry_after_lapse`.
-//! session-production-driver: `session_production_driver_renews_and_recovers_through_maintenance`.
-//! Baseline not run: the explicit gate order forbids verification before implementation.
-//! Wiring request (Human domain 10): `src/server/production_components.rs` must compose the durable `SessionLifecycleDriver` with its `ComponentMaintenance` owner, replacing the dormant non-durable helper; `src/server/agent_runtime.rs` and the agent daemon owner must implement `AgentSessionContract` with authoritative `recover_provision/recover_rotation` and idempotent exact-target suspend/revoke; production daemon scheduling remains outside this scope.
-//! Wiring request (Human domain 10): src/bin/layerx-human-kms-gateway.rs must supply the authenticated `ClientConfig` through `RemoteKmsProvider::with_deadline_transport`; providers without that transport now refuse bounded dispatch.
-//! The user forbids spec edits; this integration module is the finding-to-test task record.
+//! Custody and session maintenance recover durable state across interrupted operations.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
