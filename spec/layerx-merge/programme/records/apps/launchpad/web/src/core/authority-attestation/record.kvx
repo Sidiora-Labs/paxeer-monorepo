@@ -1,7 +1,7 @@
 [repair.22.31.22]
 finding = "surface_authority"
 tests = ["surfaceAuthorityRoundTripsCurrentAttestation", "surfaceAuthorityRejectsUnreviewedIdentities"]
-path = "apps/launchpad/web/src/core/repair-22-31-22.test.ts"
+path = "apps/launchpad/web/src/core/runtime-authority-attestation.test.ts"
 proof = "Current deployment -> real pinned public RPC reader -> deployment.Attest -> ExportRevision -> generated v2 codec -> HTTPS -> loadRuntimeAuthority; altered runtime and implementation identities must be refused."
 continuation_repair = "Prefetch independent current-manifest code, storage and getter reads concurrently through the real PinnedRPCReader at the same block hash, then pass their unchanged results and errors into Attest; prefetch and attestation share the original 10-second read deadline, with no synthetic values or unpinned reads."
 previous_attempt = "revision=e176076cc8137b9b6a6b756c168115c522064d9f command=cg spec done 22.31.22 -f layerx-merge --root /work/paxeer-monorepo exit=1; both proving tests were blocked by beforeAll attestation_canceled during ProtocolConfig reads, before the web consumer executed."

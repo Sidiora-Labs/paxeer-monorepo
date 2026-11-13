@@ -1,6 +1,6 @@
 [repair.22.33.903]
 audit = "spec/layerx-merge/programme/audit/records/22.30.19.kvx"
-proof = "apps/launchpad/web/src/core/clients/repair-22-33-903.test.ts"
+proof = "apps/launchpad/web/src/core/clients/candle-history-and-metadata-cancellation.test.ts"
 qualification = "Bounded hf-build and hf-done receipts identify the exact verified revision, command, exit and private evidence log."
 baseline = "Not executed: the explicit task order prohibits testing before complete implementation and restricts verification to hf-done; no pre-change failures are claimed."
 formatter = "No TypeScript formatter is configured for this application; touched code follows the surrounding TypeScript style."
