@@ -13,16 +13,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepairM_363_ADLBlockAllowanceAndContinuation(t *testing.T) {
+func TestExecutionPolicyADLBlockAllowanceAndContinuation(t *testing.T) {
 	TestEndblockADLSharedAllowanceAndContinuation(t)
 }
 
-func TestRepairM_363_LeverageTierPolicy(t *testing.T) {
+func TestExecutionPolicyLeverageTierPolicy(t *testing.T) {
 	TestMsgSetMarketTierPolicyExecution(t)
 	TestGovernedMaxLeverageRefusesHigherLeverage(t)
 }
 
-func TestRepairM_363_PauseAuthorityBeforeState(t *testing.T) {
+func TestExecutionPolicyPauseAuthorityBeforeState(t *testing.T) {
 	e := openPerpsGovernanceProof(t, t.TempDir())
 	wrong := e.k.ModuleAddress().String()
 	// Without an SDK context, reaching the unwrap itself would panic.
@@ -51,12 +51,12 @@ func TestRepairM_363_PauseAuthorityBeforeState(t *testing.T) {
 	}
 }
 
-func TestRepairM_363_PauseGovernanceProof(t *testing.T) {
+func TestExecutionPolicyPauseGovernanceProof(t *testing.T) {
 	TestProofPerpsGovernanceMalformedAndAuthorization(t)
 	TestProofPerpsGovernanceProducerTransportConsumer(t)
 }
 
-func TestRepairM_363_ProducedOrderRefusalWireIdentity(t *testing.T) {
+func TestExecutionPolicyProducedOrderRefusalWireIdentity(t *testing.T) {
 	env := newOrdersEnv(t)
 	env.fund(t, traderA, 100)
 	order := limitBuy(100, 59_000)
@@ -78,55 +78,55 @@ func TestRepairM_363_ProducedOrderRefusalWireIdentity(t *testing.T) {
 	require.Equal(t, before, storeContents(t, env.ctx.KVStore(env.perpsKey)))
 }
 
-func TestRepairM_363_OpenQuoteExecution(t *testing.T) {
+func TestExecutionPolicyOpenQuoteExecution(t *testing.T) {
 	for _, scenario := range []string{"unaligned_mark", "own_best_bid", "partial_fill", "fee_tier", "multiple_fills"} {
 		t.Run(scenario, func(t *testing.T) {
-			e := newRepair14Env(t, 5_000_000_000)
-			repair14Fresh(e)
+			e := newKeeperPrecompileEnv(t, 5_000_000_000)
+			keeperPrecompileFresh(e)
 			isLong := scenario != "own_best_bid"
 			var ownID uint256.Int
 			if !isLong {
 				e.cancelAsk()
-				e.mustCall(repair14TraderA, "deposit", e.usdl, big.NewInt(4_000_000_000))
-				ownID = e.rest(e.ctx(), repair14TraderA, true, 60_100)
-				e.rest(e.ctx(), repair14BidderC, true, 60_000)
+				e.mustCall(keeperPrecompileTraderA, "deposit", e.usdl, big.NewInt(4_000_000_000))
+				ownID = e.rest(e.ctx(), keeperPrecompileTraderA, true, 60_100)
+				e.rest(e.ctx(), keeperPrecompileBidderC, true, 60_000)
 			}
 			if scenario == "unaligned_mark" {
-				e.setMark(new(big.Int).Add(repair14E18(60_000), big.NewInt(1)))
+				e.setMark(new(big.Int).Add(keeperPrecompileE18(60_000), big.NewInt(1)))
 			}
 			if scenario == "partial_fill" || scenario == "multiple_fills" {
 				e.cancelAsk()
-				base := repair14Word(t, "5000000000000000")
+				base := keeperPrecompileWord(t, "5000000000000000")
 				if scenario == "multiple_fills" {
-					base = repair14Word(t, "10000000000000000")
+					base = keeperPrecompileWord(t, "10000000000000000")
 				}
-				notional := new(big.Int).Mul(base.ToBig(), repair14E18(60_000))
-				notional.Quo(notional, repair14E18(1))
-				_, err := e.k.PlaceOrder(e.ctx(), repair14MakerB, keeper.OrderParams{MarketID: 0, IsLong: false,
+				notional := new(big.Int).Mul(base.ToBig(), keeperPrecompileE18(60_000))
+				notional.Quo(notional, keeperPrecompileE18(1))
+				_, err := e.k.PlaceOrder(e.ctx(), keeperPrecompileMakerB, keeper.OrderParams{MarketID: 0, IsLong: false,
 					OrderType: uint8(types.OrderTypeLimit), TimeInForce: uint8(types.TimeInForceGTC),
-					SizeUsd: *uint256.MustFromBig(notional), LimitPrice: *uint256.MustFromBig(repair14E18(60_000)),
-					Leverage: *uint256.MustFromBig(repair14E18(20))})
+					SizeUsd: *uint256.MustFromBig(notional), LimitPrice: *uint256.MustFromBig(keeperPrecompileE18(60_000)),
+					Leverage: *uint256.MustFromBig(keeperPrecompileE18(20))})
 				require.NoError(t, err)
 				if scenario == "multiple_fills" {
-					e.rest(e.ctx(), repair14BidderC, false, 60_100)
-					e.mustCall(repair14TraderA, "deposit", e.usdl, big.NewInt(1_000_000))
+					e.rest(e.ctx(), keeperPrecompileBidderC, false, 60_100)
+					e.mustCall(keeperPrecompileTraderA, "deposit", e.usdl, big.NewInt(1_000_000))
 				}
 			}
 			state, err := e.k.GetMarketState(e.ctx(), 0)
 			require.NoError(t, err)
 			if scenario != "unaligned_mark" {
-				state.MarkPrice = *uint256.MustFromBig(repair14E18(60_000))
+				state.MarkPrice = *uint256.MustFromBig(keeperPrecompileE18(60_000))
 			}
-			state.IndexPrice = *uint256.MustFromBig(repair14E18(60_000))
+			state.IndexPrice = *uint256.MustFromBig(keeperPrecompileE18(60_000))
 			state.HourlyRate = *uint256.NewInt(12_500_000_000_000)
 			e.k.SetMarketState(e.ctx(), state)
 			params, err := e.k.GetParams(e.ctx())
 			require.NoError(t, err)
 			if scenario == "fee_tier" {
 				volume := params.FeeTiers[1].MinVolumeUsd.Add(sdk.NewIntWithDecimal(1, 18))
-				require.NoError(t, e.k.RecordVolume(e.ctx(), repair14TraderA, repair14KeeperK, *uint256.MustFromBig(volume.BigInt())))
+				require.NoError(t, e.k.RecordVolume(e.ctx(), keeperPrecompileTraderA, keeperPrecompileKeeperK, *uint256.MustFromBig(volume.BigInt())))
 			}
-			tier, err := e.k.FeeTier(e.ctx(), repair14TraderA)
+			tier, err := e.k.FeeTier(e.ctx(), keeperPrecompileTraderA)
 			require.NoError(t, err)
 			if scenario == "fee_tier" {
 				require.Equal(t, uint8(1), tier.Tier)
@@ -137,16 +137,16 @@ func TestRepairM_363_OpenQuoteExecution(t *testing.T) {
 			}
 
 			before := storeContents(t, e.ctx().KVStore(e.perpsKey))
-			wallet, module := e.usdlBalance(repair14TraderA), e.usdlBalance(e.k.ModuleEVMAddress())
+			wallet, module := e.usdlBalance(keeperPrecompileTraderA), e.usdlBalance(e.k.ModuleEVMAddress())
 			logsBefore := len(e.logs())
 			collateralBefore := new(big.Int)
-			if account, err := e.k.GetAccount(e.ctx(), repair14TraderA); err == nil {
+			if account, err := e.k.GetAccount(e.ctx(), keeperPrecompileTraderA); err == nil {
 				collateralBefore.Set(account.Collateral.ToBig())
 			} else {
 				require.ErrorIs(t, err, types.ErrNoAccount)
 			}
-			produced, err := e.k.QuoteOpen(e.ctx(), repair14TraderA, 0, e.usdl, *uint256.NewInt(100_000_000),
-				*uint256.MustFromBig(repair14E18(10)), isLong)
+			produced, err := e.k.QuoteOpen(e.ctx(), keeperPrecompileTraderA, 0, e.usdl, *uint256.NewInt(100_000_000),
+				*uint256.MustFromBig(keeperPrecompileE18(10)), isLong)
 			require.NoError(t, err)
 			quote := e.quoteOpen(isLong)
 			for _, field := range []struct {
@@ -169,34 +169,34 @@ func TestRepairM_363_OpenQuoteExecution(t *testing.T) {
 				require.Equal(t, field.want.String(), field.got.String(), field.name)
 			}
 			require.Equal(t, before, storeContents(t, e.ctx().KVStore(e.perpsKey)))
-			require.Equal(t, wallet, e.usdlBalance(repair14TraderA))
+			require.Equal(t, wallet, e.usdlBalance(keeperPrecompileTraderA))
 			require.Equal(t, module, e.usdlBalance(e.k.ModuleEVMAddress()))
 			require.Len(t, e.logs(), logsBefore)
-			ret := e.mustCall(repair14TraderA, "openPosition", big.NewInt(0), e.usdl, big.NewInt(100_000_000), repair14E18(10), isLong)
+			ret := e.mustCall(keeperPrecompileTraderA, "openPosition", big.NewInt(0), e.usdl, big.NewInt(100_000_000), keeperPrecompileE18(10), isLong)
 			out, err := e.perpsABI.Methods["openPosition"].Outputs.Unpack(ret)
 			require.NoError(t, err)
-			position, ok := e.position(repair14TraderA)
+			position, ok := e.position(keeperPrecompileTraderA)
 			require.True(t, ok)
 			require.Equal(t, out[0], position.ID.ToBig())
 			require.Equal(t, isLong, position.IsLong)
 			require.Equal(t, quote.EntryPrice, position.EntryPrice.ToBig())
 			require.Equal(t, quote.Leverage, position.Leverage.ToBig())
-			require.Equal(t, repair14E18(100), quote.CollateralUsd)
-			require.Equal(t, new(big.Int).Sub(wallet, big.NewInt(100_000_000)), e.usdlBalance(repair14TraderA))
+			require.Equal(t, keeperPrecompileE18(100), quote.CollateralUsd)
+			require.Equal(t, new(big.Int).Sub(wallet, big.NewInt(100_000_000)), e.usdlBalance(keeperPrecompileTraderA))
 			require.Equal(t, new(big.Int).Add(module, big.NewInt(100_000_000)), e.usdlBalance(e.k.ModuleEVMAddress()))
 
 			_, fills := e.perpsLogs("Fill")
 			notional, fee, base := new(big.Int), new(big.Int), new(big.Int)
 			fillCount := 0
 			for _, fill := range fills {
-				if fill["taker"] != repair14TraderA {
+				if fill["taker"] != keeperPrecompileTraderA {
 					continue
 				}
-				require.NotEqual(t, repair14TraderA, fill["maker"])
+				require.NotEqual(t, keeperPrecompileTraderA, fill["maker"])
 				size, price := fill["sizeUsd"].(*big.Int), fill["price"].(*big.Int)
 				notional.Add(notional, size)
 				fee.Add(fee, fill["takerFeeUsd"].(*big.Int))
-				base.Add(base, new(big.Int).Quo(new(big.Int).Mul(size, repair14E18(1)), price))
+				base.Add(base, new(big.Int).Quo(new(big.Int).Mul(size, keeperPrecompileE18(1)), price))
 				expectedFee := new(big.Int).Quo(new(big.Int).Mul(size, new(big.Int).SetUint64(tier.TakerFeePpm)), big.NewInt(1_000_000))
 				require.Equal(t, expectedFee, fill["takerFeeUsd"])
 				fillCount++
@@ -210,11 +210,11 @@ func TestRepairM_363_OpenQuoteExecution(t *testing.T) {
 			require.Equal(t, quote.TradingFeeUsd, fee)
 			require.Equal(t, position.SizeBase.ToBig(), base)
 			if scenario == "partial_fill" {
-				require.Equal(t, repair14Word(t, "5000000000000000"), position.SizeBase)
-				require.Equal(t, repair14E18(300), quote.SizeUsd)
+				require.Equal(t, keeperPrecompileWord(t, "5000000000000000"), position.SizeBase)
+				require.Equal(t, keeperPrecompileE18(300), quote.SizeUsd)
 			}
 			if scenario == "unaligned_mark" {
-				require.Equal(t, repair14Word(t, "16500000000000000"), position.SizeBase)
+				require.Equal(t, keeperPrecompileWord(t, "16500000000000000"), position.SizeBase)
 			}
 			if !isLong {
 				own, err := e.k.GetOrder(e.ctx(), ownID)
@@ -225,7 +225,7 @@ func TestRepairM_363_OpenQuoteExecution(t *testing.T) {
 			feeTokens := new(big.Int)
 			feeLogs, collected := e.perpsLogs("FeeCollected")
 			for i, event := range collected {
-				if feeLogs[i].Topics[2] == common.BytesToHash(repair14TraderA.Bytes()) {
+				if feeLogs[i].Topics[2] == common.BytesToHash(keeperPrecompileTraderA.Bytes()) {
 					feeTokens.Add(feeTokens, event["feeTokens"].(*big.Int))
 				}
 			}
@@ -235,7 +235,7 @@ func TestRepairM_363_OpenQuoteExecution(t *testing.T) {
 			if scenario == "multiple_fills" {
 				expectedCollateral.Add(expectedCollateral, big.NewInt(1_000_000))
 			}
-			collateralAfter := e.collateral(repair14TraderA)
+			collateralAfter := e.collateral(keeperPrecompileTraderA)
 			require.Equal(t, expectedCollateral, collateralAfter.ToBig())
 			liquidation, err := e.k.LiquidationPrice(e.ctx(), position.ID)
 			require.NoError(t, err)
@@ -248,7 +248,7 @@ func TestRepairM_363_OpenQuoteExecution(t *testing.T) {
 			require.Equal(t, big.NewInt(5), quote.MaintenanceMarginBps)
 			funding := new(big.Int).Mul(position.SizeBase.ToBig(), state.IndexPrice.ToBig())
 			funding.Mul(funding, state.HourlyRate.ToBig()).Mul(funding, big.NewInt(24))
-			funding.Quo(funding, new(big.Int).Mul(repair14E18(1), repair14E18(1)))
+			funding.Quo(funding, new(big.Int).Mul(keeperPrecompileE18(1), keeperPrecompileE18(1)))
 			if isLong {
 				funding.Neg(funding)
 			}

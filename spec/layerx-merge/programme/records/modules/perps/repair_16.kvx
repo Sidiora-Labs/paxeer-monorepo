@@ -6,8 +6,8 @@ baseline = "Not run: the ordered implementation-first instructions prohibit pre-
 gotcha = "Error.Wrapf preserves the SDK Cause chain but alone drops errors.As access to the JSON error; genesisDecodeError retains both without changing existing assertions."
 
 [finding.abci-module-genesis]
-tests = ["TestRepair_16_ModuleGenesisABCI", "TestRepair_16_StreamGenesisABCI", "TestRepair_16_InternalErrorDoesNotImpersonateGenesis", "TestRepair_16_ValidGenesis", "TestRepair_16_InvalidGenesisABISelector"]
+tests = ["TestGenesisTransportModuleGenesisABCI", "TestGenesisTransportStreamGenesisABCI", "TestGenesisTransportInternalErrorDoesNotImpersonateGenesis", "TestGenesisTransportValidGenesis", "TestGenesisTransportInvalidGenesisABISelector"]
 proof = "Actual direct and streamed module validation refusals cross SDK ResponseDeliverTx, protobuf Marshal/Unmarshal and ABCIError with perps/39, LXP name, contextual details and sentinel identity; underlying JSON syntax/type errors remain discoverable. Generic internal errors cannot impersonate the registered refusal; valid genesis remains accepted."
 
 [wiring]
-selectors = "precompiles/perps/lxp_registry_test.go; owner domain 3 (markets): pass actual AppModuleBasic.ValidateGenesis and ValidateGenesisStream errors to private revertOf and assert selector d06690f2; this private consumer is outside scope, while TestRepair_16_InvalidGenesisABISelector retains the actual ABI selector contract here."
+selectors = "precompiles/perps/lxp_registry_test.go; owner domain 3 (markets): pass actual AppModuleBasic.ValidateGenesis and ValidateGenesisStream errors to private revertOf and assert selector d06690f2; this private consumer is outside scope, while TestGenesisTransportInvalidGenesisABISelector retains the actual ABI selector contract here."
