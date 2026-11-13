@@ -121,7 +121,8 @@ Execute burn of accumulated fees (BURN strategy only, NFT owner)
 function executeAirdrop(uint256 nftId) external returns (uint256 amount)
 ```
 
-Execute airdrop distribution (AIRDROP strategy only, NFT owner)
+Start a snapshot airdrop epoch (AIRDROP strategy only, NFT owner). Holders receive USDL through
+separate claims.
 
 #### Parameters
 
@@ -133,7 +134,7 @@ Execute airdrop distribution (AIRDROP strategy only, NFT owner)
 
 | Name   | Type    | Description            |
 | ------ | ------- | ---------------------- |
-| amount | uint256 | Total USDL distributed |
+| amount | uint256 | USDL reserved for the new epoch |
 
 ### claimAirdrop
 
@@ -141,7 +142,8 @@ Execute airdrop distribution (AIRDROP strategy only, NFT owner)
 function claimAirdrop(uint256 nftId) external returns (uint256 amount)
 ```
 
-Claim airdrop share as a token holder
+Claim the caller's snapshot share of the latest epoch as a token holder; NFT ownership is not
+required.
 
 #### Parameters
 

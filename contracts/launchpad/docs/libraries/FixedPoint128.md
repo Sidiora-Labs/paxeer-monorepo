@@ -6,6 +6,8 @@ Q128.128 fixed-point arithmetic for precise price calculations
 
 _Uses SidioraMath.mulDiv for overflow-safe operations_
 
+Source: [FixedPoint128.sol](../../contracts/libraries/FixedPoint128.sol).
+
 ### Q128
 
 ```solidity
@@ -61,6 +63,8 @@ function toQ128(uint256 x) internal pure returns (uint256)
 ```
 
 Converts a regular uint256 to Q128.128 format
+
+Multiplies by `2^128`. Inputs above `2^128 - 1` revert on arithmetic overflow.
 
 #### Parameters
 
