@@ -13,8 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepairM_624_GlobalLabelValidation(t *testing.T) {
-	m := repairM624Metrics(t, Config{
+func TestGlobalLabelValidation(t *testing.T) {
+	m := newLabelTestMetrics(t, Config{
 		Enabled:                 true,
 		ServiceName:             "validation",
 		PrometheusRetentionTime: 60,
@@ -52,16 +52,16 @@ func TestRepairM_624_GlobalLabelValidation(t *testing.T) {
 	}
 
 	IncrCounter(4, "after_rejection")
-	series := repairM624Gather(t, m)
+	series := gatherLabelTestMetrics(t, m)
 	require.Contains(t, series, "validation_after_rejection")
 	require.Len(t, series["validation_after_rejection"].Metric, 1)
 	emitted := series["validation_after_rejection"].Metric[0]
 	require.Equal(t, float64(4), emitted.GetCounter().GetValue())
-	repairM624Labels(t, emitted, map[string]string{"chain_id": "valid-chain"})
+	requireMetricLabels(t, emitted, map[string]string{"chain_id": "valid-chain"})
 }
 
-func TestRepairM_624_ValidGlobalLabelPair(t *testing.T) {
-	m := repairM624Metrics(t, Config{
+func TestValidGlobalLabelPair(t *testing.T) {
+	m := newLabelTestMetrics(t, Config{
 		Enabled:                 true,
 		ServiceName:             "valid",
 		PrometheusRetentionTime: 60,
@@ -70,20 +70,20 @@ func TestRepairM_624_ValidGlobalLabelPair(t *testing.T) {
 	IncrCounter(2, "requests")
 	IncrCounter(3, "requests")
 	SetGauge(7, "height")
-	series := repairM624Gather(t, m)
+	series := gatherLabelTestMetrics(t, m)
 	for _, name := range []string{"valid_requests", "valid_height"} {
 		require.Contains(t, series, name)
 		require.Len(t, series[name].Metric, 1)
-		repairM624Labels(t, series[name].Metric[0], map[string]string{"chain_id": "chain-624", "region": "local"})
+		requireMetricLabels(t, series[name].Metric[0], map[string]string{"chain_id": "chain-624", "region": "local"})
 	}
 	require.Equal(t, float64(5), series["valid_requests"].Metric[0].GetCounter().GetValue())
 	require.Equal(t, float64(7), series["valid_height"].Metric[0].GetGauge().GetValue())
 }
 
-func TestRepairM_624_EnableServiceLabel(t *testing.T) {
+func TestEnableServiceLabel(t *testing.T) {
 	for _, enabled := range []bool{true, false} {
 		t.Run(fmt.Sprintf("enabled_%t", enabled), func(t *testing.T) {
-			m := repairM624Metrics(t, Config{
+			m := newLabelTestMetrics(t, Config{
 				Enabled:                 true,
 				ServiceName:             "telemetry624",
 				EnableServiceLabel:      enabled,
@@ -93,7 +93,7 @@ func TestRepairM_624_EnableServiceLabel(t *testing.T) {
 			IncrCounter(2, "requests")
 			IncrCounter(3, "requests")
 			SetGauge(7, "height")
-			series := repairM624Gather(t, m)
+			series := gatherLabelTestMetrics(t, m)
 			labels := map[string]string{"chain_id": "chain-624"}
 			prefix, otherPrefix := "telemetry624_", ""
 			if enabled {
@@ -105,7 +105,7 @@ func TestRepairM_624_EnableServiceLabel(t *testing.T) {
 				require.Contains(t, series, name)
 				require.NotContains(t, series, otherPrefix+key)
 				require.Len(t, series[name].Metric, 1)
-				repairM624Labels(t, series[name].Metric[0], labels)
+				requireMetricLabels(t, series[name].Metric[0], labels)
 			}
 			require.Equal(t, float64(5), series[prefix+"requests"].Metric[0].GetCounter().GetValue())
 			require.Equal(t, float64(7), series[prefix+"height"].Metric[0].GetGauge().GetValue())
@@ -113,7 +113,7 @@ func TestRepairM_624_EnableServiceLabel(t *testing.T) {
 	}
 }
 
-func repairM624Metrics(t *testing.T, cfg Config) *Metrics {
+func newLabelTestMetrics(t *testing.T, cfg Config) *Metrics {
 	t.Helper()
 	previousRegisterer, previousGatherer := prometheus.DefaultRegisterer, prometheus.DefaultGatherer
 	previousLabels := globalLabels
@@ -130,7 +130,7 @@ func repairM624Metrics(t *testing.T, cfg Config) *Metrics {
 	return m
 }
 
-func repairM624Gather(t *testing.T, m *Metrics) map[string]*dto.MetricFamily {
+func gatherLabelTestMetrics(t *testing.T, m *Metrics) map[string]*dto.MetricFamily {
 	t.Helper()
 	response, err := m.Gather(FormatPrometheus)
 	require.NoError(t, err)
@@ -141,7 +141,7 @@ func repairM624Gather(t *testing.T, m *Metrics) map[string]*dto.MetricFamily {
 	return series
 }
 
-func repairM624Labels(t *testing.T, emitted *dto.Metric, expected map[string]string) {
+func requireMetricLabels(t *testing.T, emitted *dto.Metric, expected map[string]string) {
 	t.Helper()
 	actual := make(map[string]string)
 	for _, label := range emitted.Label {
