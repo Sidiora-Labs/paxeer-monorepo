@@ -5,7 +5,7 @@ import { expect, test } from 'vitest';
 import type { TransferLive } from '@/components/bridge/transfer-actions';
 import { phaseOf, settlementPatch } from './settlement';
 import type { BridgeTransfer } from './transfers';
-import { openBridgeRepairFixture } from './fixtures/repair-22-33-265';
+import { openBridgeRepairFixture } from './fixtures/settlement-rpc';
 
 const deposit: BridgeTransfer = {
   id: '0x1234:in',
