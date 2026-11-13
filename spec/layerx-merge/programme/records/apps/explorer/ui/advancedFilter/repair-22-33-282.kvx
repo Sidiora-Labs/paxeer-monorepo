@@ -1,7 +1,7 @@
 [repair.22.33.282]
 audit = "22.30.133"
 acceptance = "22998.1"
-test_file = "apps/explorer/ui/advancedFilter/repair-22-33-282.spec.ts"
+test_file = "apps/explorer/ui/advancedFilter/AdvancedFilterInteraction.spec.ts"
 baseline = "Not run: do_7 requests unchanged-tree verification, but the explicit Order forbids tests before full implementation and forbids running verify_cmd outside hf-done; no pre-change test failure is claimed."
 qualification = "Only hf-build and hf-done; their private evidence records the exact candidate revision, command, exit and log."
 fixtures = "Production controls, Chakra provider, multichain context and API query/fetch/URL codec use committed response fixtures over a loopback HTTP server; the existing layout test wrapper supplies jsdom browser measurement support."

@@ -1,7 +1,7 @@
 [repair.22.33.369]
 finding = "22.30.140/constructor-length"
 tests = ["constructorLengthAcceptsFourAbiWords", "constructorLengthAcceptsDynamicAbiArguments", "constructorLengthAcceptsEmptyArgumentsWithAutodetectionDisabled", "constructorLengthRejectsMalformedHexBeforeSubmission", "constructorLengthUsesBackendPayloadBound"]
-test_file = "apps/explorer/ui/contractVerification/fields/repair-22-33-369.spec.ts"
+test_file = "apps/explorer/ui/contractVerification/fields/ContractVerificationConstructorArgs.spec.ts"
 proof = "ABI encoder -> rendered production constructor field -> React Hook Form -> prepareRequestBody JSON or multipart payload -> ABI decoder; manual mode disables the real autodetection checkbox."
 payload_limit_source = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/smart_contracts_api_v2_router.ex:35: length: 20_000_000"
 baseline = "Not run: the explicit gate order requires complete implementation before hf-build and hf-done and forbids invoking verify_cmd manually. No pre-change test result is claimed."

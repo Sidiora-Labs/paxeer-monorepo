@@ -1,6 +1,6 @@
 [repair.22.33.294]
 finding = "qr_hash_transition"
-tests = ["repair-22-33-294.spec.ts::qrHashTransition", "repair-22-33-294.spec.ts::qrHashTransitionOnReopen"]
+tests = ["AddressQrCodeHashTransition.spec.ts::qrHashTransition", "AddressQrCodeHashTransition.spec.ts::qrHashTransitionOnReopen"]
 change = "Bind each generated SVG to its destination hash and show loading until it matches the visible address."
 baseline = "Not run: the explicit implementation-first order and allowed gate sequence prohibit an unchanged-tree verify; no pre-change failure is claimed."
 wiring_requests = []
@@ -10,7 +10,7 @@ qualification_finding = "The real qrcode Node entry defaults to text output; exp
 continuation_repair = "Wait for the real dialog to unmount and restore trigger focus after closing, then await its asynchronous reopen before asserting the loading state; preserve every loading and generated-destination assertion."
 lint_repair = "Decision 2528: register both unchanged assertion bodies as named test functions with literal string titles, satisfying valid-title and expect-expect without disabling either rule."
 
-lint_command = "cd apps/explorer && yarn eslint --fix ui/address/details/AddressQrCode.tsx ui/address/details/repair-22-33-294.spec.ts"
+lint_command = "cd apps/explorer && yarn eslint --fix ui/address/details/AddressQrCode.tsx ui/address/details/AddressQrCodeHashTransition.spec.ts"
 lint_exit = 0
 lint_log = "/out/logs/repair-22-33-294-eslint.log"
 environment_note = "The sandbox initially has no explorer node_modules, so yarn eslint cannot start until the frozen dependency install completes."
