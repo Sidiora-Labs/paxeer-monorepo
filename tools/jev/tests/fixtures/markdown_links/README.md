@@ -36,5 +36,7 @@
 
 ## Local anchor
 
-The examples above supply Markdown syntax to the link parser, including literal
-anchor tokens and destinations interpreted relative to the repository root.
+The examples above supply Markdown syntax to the link parser. Relative file
+destinations resolve from this page's directory; a leading slash selects the
+repository root. File lookup decodes percent escapes and uses the path portion
+of the destination, with query strings and fragments kept as link syntax.
