@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepair2239367CloseReleasesApplicationStoreBeforeHandler(t *testing.T) {
+func TestCloseReleasesApplicationStoreBeforeHandler(t *testing.T) {
 	home := t.TempDir()
 	app := newBaseApp(t.Name())
 	app.SetCMS(newVersionedTestStore(t, home))

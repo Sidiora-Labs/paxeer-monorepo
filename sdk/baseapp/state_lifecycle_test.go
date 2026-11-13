@@ -14,19 +14,19 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-func TestRepairM_607_SealedRetentionContext(t *testing.T) {
+func TestStateLifecycleSealedRetentionContext(t *testing.T) {
 	TestCommitSealedRetention(t)
 }
 
-func TestRepairM_607_ConcurrentCheckDeliver(t *testing.T) {
+func TestStateLifecycleConcurrentCheckDeliver(t *testing.T) {
 	TestConcurrentCheckDeliver(t)
 }
 
-func TestRepairM_607_MaxBlockGasLimits(t *testing.T) {
+func TestStateLifecycleMaxBlockGasLimits(t *testing.T) {
 	TestMaxBlockGasLimits(t)
 }
 
-func TestRepairM_607_SnapshotRollbackRestoreReopen(t *testing.T) {
+func TestStateLifecycleSnapshotRollbackRestoreReopen(t *testing.T) {
 	source := setupBaseAppWithSnapshots(t, 2, 1)
 	defer func() { require.NoError(t, source.Close()) }()
 	sourceCMS := source.cms.(*storev2rootmulti.Store)
