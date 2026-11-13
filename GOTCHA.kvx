@@ -21540,3 +21540,8 @@ fix = "Task 22.39.502 carries the test sources of every member under services/in
 title = "The pinned cache size case of the runtime library compares against a fixed size"
 symptom = "The metrics case of wasm-runtime/libwasmvm/src/cache.rs compares the size of the pinned memory cache with a fixed number within a fifth. The size is made of the serialized size of the compiled module, an estimate of the engine and the size of the checksum, so it follows the engine version that the lock file pins."
 fix = "The number is the size measured with the engine version of the lock file, and the tolerance stays."
+
+[gotcha.4344]
+title = "The test command of the programs workspace runs the evaluator host cases of the AI market member"
+symptom = "The command make programs-test runs every test target of the members under programs/crates. The target f03_evaluator_host of programs/crates/layerx-programs-ai-market routes its calls through the program and, for one case, through the native harness that the recipe paxai-host-boundary-build of the Makefile writes under build/paxai-host-boundary."
+fix = "Task 22.39.509 carries the test sources of the members under programs/crates; each case prepares the state that the program requires, and the test recipe builds the native harness before the target that reads it."

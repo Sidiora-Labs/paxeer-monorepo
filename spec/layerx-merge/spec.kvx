@@ -13666,6 +13666,12 @@ value = "The metrics case of wasm-runtime/libwasmvm/src/cache.rs compares the si
 basis = "The size follows the engine version, and the case keeps its purpose of noticing a change of size."
 affects = ["22.39.506"]
 
+[decision.3426]
+title = "The programs test task carries the test sources of every member of the programs workspace"
+value = "Task 22.39.509 may change the test sources and the test support files in the tests directories of the members under programs/crates, and the recipes of the Makefile that the command make programs-test runs. A case follows the program: it prepares the state and the order of calls that the program requires and asserts the values the program returns. The task changes no source of a program. Where a case shows that the program differs from its function terms, the case stays as it is and the record names the case, the call and the returned code."
+basis = "The test command is one command over every member, the program is the producer of the values its cases read, and a difference of the program from its terms belongs to the owner of the program."
+affects = ["22.39.509"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -188049,7 +188055,7 @@ interfaces = []
 do_1 = "do_1 Gotcha 4337, decision 3418. The command make programs-test passes from a clean tree. The two cases of programs/sdk/rust/tests/bindgen_conformance.rs that read built artifacts of the quickstart, the response fixture and the examples run after the step that builds those artifacts: either the cases build what they read through the build scripts of programs/sdk/rust, or the targets of the Makefile order the build scripts before the test run of the programs workspace. No case is removed or ignored, and the case that the SDK target runs by name keeps running."
 do_2 = "do_2 Record in programs/sdk/rust/repair_22_39_509.kvx the rule, the changed files and the command. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["programs/sdk/rust", "Makefile"]
+touches = ["programs/sdk/rust", "Makefile", "programs/crates"]
 tests = []
 planned_paths = ["programs/sdk/rust/repair_22_39_509.kvx"]
 build_cmd = "make -s programs-build"
@@ -188066,6 +188072,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "do_3 Decision 3421, gotcha 4339. The two cases of programs/sdk/rust/tests/bindgen_conformance.rs that read the directories named by the variables PAXEER_X_BINDINGS_ARTIFACTS and PAXEER_X_BINDINGS_FIXTURES run every assertion when the variable is set and print one line naming the variable and return when it is not set. They carry no ignore attribute. The Rust SDK target of the Makefile runs the named case without the ignored selector. This item takes the place of the two alternatives of do_1 for these two cases. Add the rule to the record. Run the build once and the verification once at the final revision."
+do_4 = "do_4 Decision 3426, gotcha 4344. The command make programs-test passes over every member under programs/crates. In the target f03_evaluator_host of programs/crates/layerx-programs-ai-market each case prepares the state and the order of calls that the program requires and asserts the values the program returns, and the test recipe of the Makefile builds the native harness with paxai-host-boundary-build before the target that reads build/paxai-host-boundary. Change test sources and test support files only, never a source of a program. Where a case shows that the program differs from its function terms, leave the case, and name the case, the call and the returned code in the record. Run the build once and the verification once at the final revision."
 
 [task.22.39.500]
 title = "Bring the lint target of the human services in line"
