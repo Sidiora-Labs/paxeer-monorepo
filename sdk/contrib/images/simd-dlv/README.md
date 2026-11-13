@@ -1,27 +1,14 @@
-# Retired simd Delve image
+# simd Delve wrapper
 
-Delve (`github.com/go-delve/delve`) is a debugger for the Go programming language.
+Delve (`github.com/go-delve/delve`) is a debugger for Go programs.
+[`wrapper.sh`](wrapper.sh) starts `/simd/$BINARY` (default `simd`) with
+`--home /data/node$ID/simd` (`ID` defaults to `0`). When `DEBUG=1`, it runs the
+binary under `dlv` with `--listen=:2345 --continue --headless=true
+--api-version=2 --accept-multiclient`. A client can attach with
+`dlv connect <host>:2345`.
 
-The inherited Cosmos SDK `simd` Delve image is withdrawn. Its `Dockerfile`
-has been removed: it used Go 1.18, upstream `contrib/` paths and `build/simd`,
-which do not match this repository. The `simd-dlv` and default `all` targets
-in [`sdk/contrib/images/Makefile`](../Makefile) already refuse image builds
-with a retirement diagnostic and a nonzero exit.
-
-This repository has no `simd` binary or `simapp`. Build the Paxeer X chain
-binary, `paxd`, with `make -f chain.mk build` from the repository root.
-This directory does not provide a supported paxd debug image.
-
-## Historical wrapper
-
-`wrapper.sh` remains as inherited tooling, without an image build recipe.
-It runs `/simd/$BINARY` (default `simd`)
-with `--home /data/node$ID/simd`. When `DEBUG=1`, it starts the binary under
-`dlv --listen=:2345 --headless=true --api-version=2 --accept-multiclient`,
-so a debugger can attach on port `2345`. The former image exposed `26656`,
-`26657` and `2345`.
-
-## Historical debugger connection
-
-Attach with `dlv connect <host>:2345`, or with any IDE that can attach to a
-remote Delve server.
+This directory has no image build recipe. The `simd-dlv` and default `all`
+targets in [`sdk/contrib/images/Makefile`](../Makefile) refuse image builds
+with a nonzero exit. This checkout provides `paxd`, built with
+`make -f chain.mk build` from the repository root; it has no `simd` application
+or supported Paxd Delve image.

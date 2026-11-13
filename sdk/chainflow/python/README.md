@@ -81,9 +81,10 @@ See the [API reference](./api.md) for every available operation.
 ## Async
 
 Use `AsyncChainflowDataGateway` for asynchronous REST calls with `await`.
-The example reads `REST_API_KEY` from the environment. Async WebSocket
-connections use `async with` and `async for`; their token-refresh callback is
-synchronous, so arrange token acquisition outside the event loop as needed.
+The client reads configured credentials from the environment. Public health
+needs no credential. Async WebSocket connections use `async with` and
+`async for`; their token-refresh callback is synchronous, so arrange token
+acquisition outside the event loop as needed.
 
 ```python
 import asyncio
@@ -104,10 +105,10 @@ asyncio.run(main())
 
 ## WebSockets
 
-Install the `websockets` extra above. This server-side example requires both
-`REST_API_KEY` and the separate `WS_MINT_KEY`. Mint a token for the same
-lowercase feed used in the connection (`btc`), and send only that short-lived
-token on the WebSocket upgrade. Keep long-lived keys on the server.
+Install the `websockets` extra above. This server-side example requires
+`WS_MINT_KEY`. Mint a token for the same lowercase feed used in the connection
+(`btc`), and send only that short-lived token on the WebSocket upgrade. Keep
+long-lived keys on the server.
 
 ```python
 import os
@@ -119,7 +120,6 @@ from chainflow_data_gateway.types.websocket_reconnection import (
 )
 
 with ChainflowDataGateway(
-    rest_api_key=os.environ["REST_API_KEY"],
     ws_mint_key=os.environ["WS_MINT_KEY"],
 ) as client:
     credential = client.gateway.create_web_socket_token(symbol="btc")
@@ -154,12 +154,13 @@ Never print or cache token responses, tokens or connection URLs.
 
 ## Authentication
 
-The constructor requires `rest_api_key` or `REST_API_KEY`, including when you
-only plan to use WebSockets. It also reads `WS_MINT_KEY` and `WS_TOKEN` if the
-corresponding constructor arguments are omitted. It selects credentials by
-operation: REST uses the REST header, token minting uses the minting header,
-and WebSocket upgrades use the token query. `/health` checks Nginx only and
-sends no auth header by default; it does not prove upstream health.
+The constructor permits REST-key-only, mint-key-only, token-only, mixed and
+unauthenticated clients. It reads `REST_API_KEY`, `WS_MINT_KEY` and `WS_TOKEN`
+if the corresponding constructor arguments are omitted. Each protected
+operation requires its own credential: REST data reads use the REST header,
+token minting uses the minting header, and WebSocket upgrades use the token
+query. `/health` checks Nginx only and sends no auth header by default; it
+does not prove upstream health.
 
 | Option | Type | Default | Description |
 | --- | --- | --- | --- |

@@ -33,7 +33,7 @@ a user-signed Ethereum transaction. See [block.go](block.go), [tx.go](tx.go),
 [filter.go](filter.go) and [utils.go](utils.go).
 
 HTTP also registers `net`, `web3`, `txpool`, `debug`, `echo` and `px`, plus
-the chain-specific APIs below. WebSocket registers `eth`, `net`, `web3`, `echo`,
+the chain-specific APIs below. WebSocket registers `eth`, `net`, `web3`, `txpool`, `echo`,
 `px` and `pax_sequencerReceipt`, including `eth_subscribe` for heads, logs and pending transaction hashes.
 The `test` namespace requires `enable_test_api` and a non-live chain ID.
 An operator's `deny_list` can further restrict methods.

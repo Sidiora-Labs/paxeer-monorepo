@@ -20,14 +20,17 @@ Each `.json` file is an array of vectors:
 {
   "description": "Human-readable description",
   "hex": "Hex-encoded bytes",
-  "expected": "pass" | "reject",
+  "expected": "pass",
   "error": "Expected error code (for reject cases)",
   "note": "Optional explanation"
 }
 ```
 
-A vector may carry `hex_generator` instead of `hex` when its bytes are too large to
-write out; the test runner skips those vectors.
+`expected` is either `pass` or `reject`; `error` and `note` are optional.
+Each vector supplies exactly one of `hex` and `hex_generator`. The runner
+expands `hex_generator` and executes the resulting bytes. Its supported form is
+`layerx_convention + bytes_tag + length(4096) + repeat(0x42, 4096)`;
+unrecognized generators are rejected by the runner.
 
 ## Conventions
 

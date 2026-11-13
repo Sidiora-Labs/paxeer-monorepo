@@ -25,21 +25,21 @@ in the versioned format.
 
 The `file` backend in [`keyring/keyring.go`](keyring/keyring.go) stores its
 entries under `keyring-file` within the configured keyring directory.
-`newRealPrompt` writes a salted bcrypt verifier for the keyring passphrase to
-`keyring-file/keyhash` and checks subsequent passphrases with
-`bcrypt.CompareHashAndPassword`.
+`newRealPrompt` in [`keyring/verifier.go`](keyring/verifier.go) writes a salted
+bcrypt verifier for the keyring passphrase to `keyring-file/keyhash` and checks
+subsequent passphrases with `bcrypt.CompareHashAndPassword`.
 
-The creation call passes `2` as its cost argument, but the effective cost is
-**10**. The `github.com/tendermint/crypto` version pinned in
-[`go.mod`](../../go.mod), `v0.0.0-20191022145703-50d29ede1e15`, defines
-`MinCost = 4` and `DefaultCost = 10`; its
-[`GenerateFromPassword` implementation][bcrypt-source] replaces any cost
-below `MinCost` with `DefaultCost`. The verifier stores its effective cost
-and salt, which are read during comparison. `BcryptSecurityParameter` does
-not control this verifier. The current verifier format is unversioned;
-increasing the armor export cost does not upgrade it. Migrating the verifier
-in an active directory cannot upgrade an older stolen backup: its verifier
-still permits offline guesses at its original work factor.
+New verifiers use bcrypt cost **12**, a random 16-byte salt and a JSON envelope
+with `version = 1`, `kdf = "bcrypt"` and the encoded `hash`. Imports accept
+costs from 4 through 16. After a successful password check, a raw bcrypt verifier
+or a verifier below cost 12 is replaced atomically with a versioned verifier
+using a fresh salt and a cost of at least 12. Higher accepted costs are retained;
+failed password checks do not update the file. `BcryptSecurityParameter` controls
+armored exports separately and does not set this verifier's cost.
+
+Updating the verifier does not re-encrypt the keyring entries or strengthen
+copies of earlier backups. Preserve both the encrypted entries and `keyhash`
+when backing up the file backend.
 
 ## Offline password guessing
 
@@ -47,21 +47,19 @@ An attacker who obtains an armored export can test passphrase guesses
 offline by deriving a key and attempting authenticated decryption. An
 attacker who obtains a copy or backup of `keyring-file`, including `keyhash`,
 can instead test keyring passphrase guesses directly against that verifier
-at cost 10. Neither attack requires continued access to the original
+at its recorded cost. Neither attack requires continued access to the original
 computer, and the prompt's three-attempt limit does not restrict offline
 guessing.
 
 Each increment of bcrypt's effective cost approximately doubles its work.
-Cost 10 therefore takes roughly one quarter of the bcrypt work of cost 12
-under comparable conditions. If the same passphrase protects an export and
-the keyring, the copied verifier provides a cheaper way to discover that
-passphrase; export cost 12 does not make a directory backup equally costly
-to attack.
+Cost 10 takes roughly one quarter of the bcrypt work of cost 12 under comparable
+conditions. A raw verifier using cost 10 remains searchable at that cost in an
+older backup, even after the active verifier is upgraded. The encrypted files
+and armored exports are separate password-checking artifacts with their own
+parameters.
 
 Protection depends on passphrase strength as well as the work factor. Use
 long, difficult-to-guess passphrases and avoid reusing them between the
 keyring and exports. Protect exported keys and keyring backups against
 unauthorized copying; the derived key's 32-byte length does not give a weak
 passphrase equivalent strength.
-
-[bcrypt-source]: https://github.com/tendermint/crypto/blob/50d29ede1e15/bcrypt/bcrypt.go

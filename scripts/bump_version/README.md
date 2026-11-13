@@ -78,7 +78,7 @@ If `precompiles/common/` changed, all discovered modules are selected. If there 
 
 ## Idempotency
 
-The common archive directory can exist while module archives or version registrations are still missing. This partial-archive hazard also applies to archives produced before completion markers were introduced. Directory existence alone is never a safe rerun signal.
+The common archive directory can exist while module archives or version registrations are still missing. Directory existence alone does not establish that publication is complete.
 
 The tool first stages all selected Go files, ABIs and final `versions` files beneath `precompiles/common/legacy/.<folder>.pending/`. Its `manifest.json` records the tag, destination paths, SHA-256 digests and prior registration digests. The pending directory becomes visible only after the entire staged set is written and synced. Publication validates all staged files and destinations, copies archives, atomically replaces registrations, validates the published bytes, and publishes `precompiles/common/legacy/<folder>/.complete.json` last. Only then can setup generation advertise the release. This supports recovery from process interruption; concurrent generator runs in the same checkout are unsupported.
 

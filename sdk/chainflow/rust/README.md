@@ -142,7 +142,7 @@ when overriding the default gateway.
 
 ## Error handling
 
-Fallible operations return [`Error`]. Match on the
+Fallible operations return [`Error`](src/error.rs). Match on the
 result of `send().await` to distinguish API errors (with status and decoded
 body) from transport and decoding failures:
 
