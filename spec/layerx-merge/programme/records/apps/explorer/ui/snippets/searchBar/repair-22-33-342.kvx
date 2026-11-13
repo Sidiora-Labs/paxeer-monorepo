@@ -1,6 +1,6 @@
 [repair.22.33.342]
 audit = "spec/layerx-merge/programme/audit/records/22.30.138.kvx"
-test_file = "apps/explorer/ui/snippets/searchBar/repair-22-33-342.spec.ts"
+test_file = "apps/explorer/ui/snippets/searchBar/useSearchWithClustersTransport.spec.ts"
 baseline = "Not run: the task's ordered bounded-gate protocol forbids testing before complete implementation and requires hf-build before hf-done; no baseline failure is claimed."
 evidence = "The runner's final hf-done ledger row records the verified candidate revision, command, exit and private log; this record is part of that candidate."
 wiring_requests = []

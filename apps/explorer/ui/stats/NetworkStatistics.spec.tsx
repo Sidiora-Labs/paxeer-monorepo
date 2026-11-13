@@ -251,7 +251,7 @@ function networkTokensResolveInBothModes() {
   }
 }
 
-describe('repair 22.35.7 — decision 2587 network pages', () => {
+describe('Network statistics', () => {
   test(networkHeroUsesReturnedMeasurements.name, networkHeroUsesReturnedMeasurements, 30_000);
   test(missingHeroMeasurementsRenderDash.name, missingHeroMeasurementsRenderDash, 30_000);
   test(recentBlocksUsesRealBlockFields.name, recentBlocksUsesRealBlockFields, 30_000);

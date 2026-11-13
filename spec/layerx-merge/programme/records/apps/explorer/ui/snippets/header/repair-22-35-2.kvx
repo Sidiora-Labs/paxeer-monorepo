@@ -13,7 +13,7 @@ gate_results = "exit fields of the build and verify rows in /out/run/gates.jsonl
 ledger = "/out/run/gates.jsonl"
 build_command = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
 verify_command = "cg spec done 22.35.2 -f layerx-merge --root /work/paxeer-monorepo"
-verify_target = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run apps/explorer/ui/snippets/header/repair-22-35-2.spec.tsx"
+verify_target = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run apps/explorer/ui/snippets/header/HeaderNavigation.spec.tsx"
 build_log = "/out/logs/build-1.log (repair reruns increment the suffix)"
 verify_log = "/out/logs/verify-1.log (repair reruns increment the suffix)"
 
