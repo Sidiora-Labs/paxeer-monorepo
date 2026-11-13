@@ -384,7 +384,7 @@ def identity(root, env_path, work, receipt):
     if result["old_bin_sha256"] != old_sha:
         raise ValueError("completed evidence belongs to a different previous binary")
     release = root / "tools/release"
-    tools = {release / "tests/rehearse.test.sh", release / "tests/test_repair_22_33_889.py"}
+    tools = {release / "tests/rehearse.test.sh", release / "tests/test_release_boundaries.py"}
     for directory in (release, release / "rehearsal", release / "env"):
         tools.update(path for path in directory.iterdir()
                      if path.is_file() and path.suffix in (".py", ".sh", ".json", ".example"))
@@ -470,7 +470,7 @@ full_run() {
 }
 
 case_fresh_handoff_reaches_markets() {
-	python3 "$root/tools/release/tests/test_repair_22_33_889.py" --fresh-handoff
+	python3 "$root/tools/release/tests/test_release_boundaries.py" --fresh-handoff
 }
 
 case_plan_applied_at_next_block() {
