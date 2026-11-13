@@ -1,6 +1,5 @@
-//! Task 22.33.236 exercises the port's producer codecs, real scoped WASM host,
-//! transactional storage and canonical storage reopen path. Transfer assertions
-//! concern the real kernel-bound requests; no substitute balance ledger is used.
+//! Integration coverage for account migration, scoped WASM host calls,
+//! shared pool settlement and storage persistence.
 
 use layerx_programs_runtime::storage::{MAX_STORAGE_KEY_BYTES, MAX_STORAGE_VALUE_BYTES};
 use layerx_programs_runtime::{
