@@ -170230,7 +170230,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.133]
 title = "Move the task records and name the files after what they hold in services/agent/crates/layerx-wire and 3 more directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -194662,7 +194662,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.512]
 title = "Build the program members that hold a section for the target wasm32 for both targets"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -204662,7 +204662,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.514]
 title = "Give the environment documentation test of the agent daemon pages of the tree"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -204949,7 +204949,7 @@ do_6 = "do_6 Decision 3457, gotcha 4371. One test file under services/platform/h
 
 [task.22.43.167]
 title = "Move the task records and name the files after what they hold in services/platform/hosted/dashboard and 2 more directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373350,7 +373350,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.250]
 title = "Bring the readers of renamed files under the qualification tools to the present paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []

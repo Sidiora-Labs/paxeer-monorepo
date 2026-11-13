@@ -411,11 +411,11 @@ def test_markdown_link_guard_reads_committed_syntax_examples():
 
 
 def test_markdown_link_guard_detects_existing_drift():
-    page = DRIFT_FIXTURES + "repair_22_33_705/link-drift.md"
+    page = DRIFT_FIXTURES + "decision_transcripts/link-drift.md"
     links = _links((ROOT / page).read_text(encoding="utf-8"))
     assert links == [Link(11, "agent/sdk/python")]
     assert _unresolved(page, links) == [
-        f"{page}:11: agent/sdk/python -> {DRIFT_FIXTURES}repair_22_33_705/agent/sdk/python"
+        f"{page}:11: agent/sdk/python -> {DRIFT_FIXTURES}decision_transcripts/agent/sdk/python"
     ]
 
 

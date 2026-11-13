@@ -19,7 +19,7 @@ const { decodeLedgerTransaction } = await import("../src/ledger-payment.ts");
 const { keccak256, decodeRawEip1559, recoverEip1559Sender } = await import("../src/evm-transaction.ts");
 const { signedDraw } = await import("./record-draw.ts");
 const upstream = new URL("../../../../interop/crates/x-websearch/tests/fixtures/", import.meta.url);
-const output = new URL("./fixtures/repair-22-33-24/", import.meta.url);
+const output = new URL("./fixtures/recorded-payment-evidence/", import.meta.url);
 mkdirSync(output, { recursive: true });
 const read = path => JSON.parse(readFileSync(new URL(path, upstream), "utf8"));
 const hex = value => Buffer.from(value).toString("hex");

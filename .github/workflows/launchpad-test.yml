@@ -438,7 +438,7 @@ jobs:
           if [ "${{ matrix.module }}" = services/launchpad/indexer ]; then
             anvil --version
             test -s internal/internaltest/chainfixture/testdata/paxeer125-market.jsonl.gz
-            test -s internal/receipt/testdata/repair53-producer.json
+            test -s internal/receipt/testdata/producer_receipts.json
             test -s ../../../contracts/launchpad/artifacts/contracts/core/SidioraNFT.sol/SidioraNFT.json
             test -s ../../../contracts/launchpad/artifacts/contracts/core/SidioraERC20.sol/SidioraERC20.json
             # The historical range and NFT tests mine their own chain-125 inputs.
