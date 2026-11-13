@@ -1,11 +1,10 @@
 # Merchant checkout RPC profiles
 
-`layerx.example.json` selects beta JSON-RPC at
-`https://api-mainnet-beta.paxeer.network`, the node root URL on EVM chain 125
+`layerx.example.json` selects beta JSON-RPC at the public node root on EVM chain 125
 (`eip155:125`). Use the root path. `npm run start:beta` selects this profile.
 
-The compatibility emulator profile uses a retired `/rpc` coordinate on
-loopback port 9402. The adapter must supply `eth_getRawTransactionByHash` and
+The emulator profile selects a loopback endpoint on port 9402.
+The adapter must supply `eth_getRawTransactionByHash` and
 `pax_sequencerReceipt` with native transaction bytes and verifiable signed
 receipts; emulator health alone does not establish that compatibility.
 `npm run start:emulator` selects this profile.

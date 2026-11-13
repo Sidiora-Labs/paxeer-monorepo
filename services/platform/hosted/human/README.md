@@ -13,16 +13,12 @@ Paxeer mainnet-beta is one BFT network running `paxd`, with EVM chain ID `125`
 (`0x7d`). The kernel is part of the network and proposes blocks. A receipt is
 final when its block is committed. Human provisioning registers identity and
 recovery state, opens an asset account and funds it on this same chain.
-The pre-merge execution/settlement split, standalone `layerxd` daemon, router and guarantor finality are retired.
-
-Use HTTPS JSON-RPC at the root of `https://api-mainnet-beta.paxeer.network` or
-`api1.mainnet-beta.paxeer.network` through `api14.mainnet-beta.paxeer.network`;
-check `eth_chainId` before signing. See
+Use HTTPS JSON-RPC at the node root path and check `eth_chainId` before signing. See
 [Public RPC endpoints](../../../../docs/site/docs/reference/public-rpc.md).
 Node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test` and `txpool`.
 The `px` namespace answers from node state; `px_register` and
 `px_requestFunds` are operations of the hosted identity and faucet
-services declared in [the gateway OpenRPC contract](../gateway/openrpc.json). `node.hyperpaxeer.com` is only the hpx library mirror.
+services declared in [the gateway OpenRPC contract](../gateway/openrpc.json).
 Sub-chains are tenant domains in the database, launchable without new chain
 infrastructure or a separate public endpoint.
 
@@ -90,9 +86,8 @@ and [journey contract](../../../human/schema/human-api/journeys.kvx).
 [`material.py`](material.py) assembles and verifies the
 `layerx.human.owner-bundle.v3` bundle from protected evidence, the
 network/chain-bound `paxeer/deployment.json` and a version-2 module registry.
-The deployment record is still checked for `network_id` and `chain_id`;
-payment addresses come from the live ledger and payment precompiles, rather
-than vault, checkpoint, withdrawal-claims or emergency-exit contracts.
+The deployment record is checked for `network_id` and `chain_id`.
+Payment addresses are the fixed ledger and payment precompile addresses.
 
 ```sh
 python3 services/platform/hosted/human/material.py --assemble \
@@ -200,8 +195,9 @@ with exactly `schema`, `owner_account`, `authority` and `identity`.
 `schema` is `layerx.human.merged-owner.v1`. The account and authority are nonzero
 lowercase 64-digit hex strings; authority is the owner's Ed25519 public key.
 The account is the ledger's asset-specific account derived from
-`agent:did:layerx:<public key>:asset:<asset id>`, not the old protocol-account
-derivation used for bootstrap counterparty exports.
+`agent:did:layerx:<public key>:asset:<asset id>` using
+`SHA256("LX:ACCOUNT:v1" || u32be(len) || name)`, where `name` is the UTF-8
+account reference and `len` is its byte length.
 
 The identity object has exactly `did`, `authorities`, `revocation_sequence`,
 `frozen`, `evidence`, `capabilities` and `recovery`. It contains one
@@ -330,14 +326,10 @@ output is an adapter projection derived from the verified owner account and
 asset; its exact schema is enforced before bundling. Changing the funder or
 amount requires reconciliation with the original retained transactions.
 
-Pre-merge `trust-history`, `genesis-handover-trust.lxt`, `handover-finality.conf`,
-custody inputs and movement-source files are explicit migration cases. Their
-presence refuses current publication; no history is translated into receipt
-evidence. Preserve those originals with the seal, private keys, encrypted
-provider state, guardian bindings and recovery policy during reconciliation.
-Current material must be built in a separate protected location from
-authenticated chain evidence. A resumed secrets-generation call
-validates the full retained inventory and never regenerates the KMS seal.
+Material publication validates the retained inventory and authenticated chain
+evidence. Preserve the seal, private keys, encrypted provider state, guardian
+bindings and recovery policy together. A resumed secrets-generation call
+validates the full retained inventory and preserves the KMS seal.
 
 `owner_kms.prepare` gives its real `prepare` child ten seconds and at most
 65536 bytes of combined stdout/stderr. It kills and reaps the process group on

@@ -39,10 +39,12 @@ Target records carry `authority`, `path`, `signature_input`, `signature`,
 The tests sign the canonical signature base at runtime using each record's
 deterministic test-key seed; the remaining presentation fields come from data.
 
-One case in that file is not a vector and is not counted:
+The harness also includes tests outside the JSON vector count.
 `binding_is_scoped_non_authoritative_and_success_requires_a_real_receipt`
-drives the binding store and a canonical `LayerX` receipt rather than a
-credential presentation.
+checks principal-scoped credential binding and refusal of invalid receipt bytes.
+The `v2_*` tests verify exact payments against a governed receipt-key list,
+inclusive height bounds and signed ledger logs. They also cover invalid payment
+terms, failed or unverifiable receipts, and missing or duplicate payment logs.
 
 `services/interop/deploy/gateway/render.py` derives the suite identifier, the vector
 count and the SHA-256 the gateway configuration declares from these files.

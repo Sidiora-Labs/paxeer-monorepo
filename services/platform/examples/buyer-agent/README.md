@@ -34,8 +34,6 @@ loader. When it is set, the beta buyer also requires the dedicated
 `LAYERX_TESTNET_HUMAN_URL`; the Human origin must differ from the resulting
 `rpcUrl`. Public beta node hostnames are always refused as Human origins.
 
-The [integration tests](test/) use loopback Human HTTPS and node JSON-RPC peers,
-committed Human API response shapes and the node-produced signed `payExact`
-receipt vector. The test client trusts its loopback certificate and keeps TLS
-verification enabled. The Human bearer is confined to the Human service; it is
-not sent to node RPC or the seller.
+The buyer's Human HTTP transport confines the bearer to the Human service.
+The [response fixtures](test/fixtures/README.md) describe the quote, commit and
+evidence response shapes and the signed `payExact` receipt vector.

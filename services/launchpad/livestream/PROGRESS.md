@@ -11,8 +11,9 @@ supply-chain tools pin Go 1.26.4, Node 24.16.0 and pnpm 9.15.0; see the
 [supply-chain notes](../security/supplychain/README.md). A module's `go` directive
 is distinct from that build-tool pin.
 
-- [../go.work](../go.work) includes this module. Its shared SDK replacement points
-  to `sdk/launchpad/shared` in the monorepo.
+- [../go.work](../go.work) includes this module and the shared SDK. This module's
+  [go.mod](go.mod) replaces the shared SDK with
+  [sdk/launchpad/shared](../../../sdk/launchpad/shared) in the monorepo.
 - [migrations](migrations) embed the initial stream schema and the lifecycle read
   store. [internal/db/sqlcdb](internal/db/sqlcdb) contains generated query bindings;
   lifecycle operations also use PostgreSQL directly.
@@ -43,18 +44,18 @@ authority.
 Broadcasting uses the production connected runtime with
 `LIVESTREAM_CONNECTED_ENABLED=true` and a `container` or `owned_local` profile.
 It requires independently configured Livepeer, identity, Vault, action-signing,
-playback, budget and chain authorities. The provider URL is exactly
-`https://livepeer.studio/api`; `LIVEPEER_PROVIDER_MODE=available`,
+playback, budget and chain authorities. `LIVEPEER_API_URL` must match the Studio
+API endpoint enforced by `ValidateConnected`; `LIVEPEER_PROVIDER_MODE=available`,
 `MAX_GLOBAL_STREAMS`, `LIVESTREAM_VIEWER_TOKEN_KEY`, `LIVESTREAM_VAULT_TRANSIT_*`,
 `IDENTITY_SERVICE_URL`, identity mTLS settings and `RPC_URL` are among the required
 inputs. Startup requires `LIVEPEER_WEBHOOK_TIMESTAMP_UNIT=milliseconds` for the
 Studio webhook decoder. Read `ValidateConnected` and `NewConnectedRuntime` for
-the complete validation contract rather than reusing an old minimal environment.
+the complete validation contract.
 
 Paxeer is one BFT network with EVM chain ID 125 (`0x7d`); its kernel participates
 in the network and proposes blocks. Receipts are final when their blocks commit.
 The connected runtime checks chain ID 125. Public node JSON-RPC uses the root
-path, for example `https://api1.mainnet-beta.paxeer.network/`; the
+path; the
 [public RPC reference](../../../docs/site/docs/reference/public-rpc.md) lists the
 node endpoints. Tenant sub-chains are database domains within this network.
 
