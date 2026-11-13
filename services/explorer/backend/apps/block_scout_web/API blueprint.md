@@ -1,12 +1,10 @@
 FORMAT: 1A
-HOST: http://localhost:4000
 
 # Explorer Account API v2
 
-This blueprint describes the explorer's current account HTTP API. `HOST` is
-the default local backend origin from the explorer Compose stack. For another
-deployment, replace it with the configured explorer backend origin; command
-examples use `EXPLORER_ORIGIN`. Node JSON-RPC URLs are not account API hosts.
+This blueprint describes the explorer's account HTTP API. Command examples
+use `EXPLORER_ORIGIN`, supplied by the deployment, as the explorer backend
+origin. Account routes are served by that backend.
 
 Paxeer mainnet-beta is one BFT `paxd` network on EVM chain id `125` (`0x7d`);
 its kernel participates in the network and proposes blocks. A receipt is final
@@ -46,14 +44,14 @@ For example, after the configured login flow has saved cookies in a local
 cookie jar:
 
 ```sh
-EXPLORER_ORIGIN=http://localhost:4000
 curl --cookie "$EXPLORER_COOKIE_JAR" --cookie-jar "$EXPLORER_COOKIE_JAR" \
   --include "$EXPLORER_ORIGIN/api/account/v2/get_csrf"
 ```
 
-Set `EXPLORER_COOKIE_JAR` to that jar's path and copy the returned token into
+Set `EXPLORER_ORIGIN` to the configured explorer backend origin and
+`EXPLORER_COOKIE_JAR` to that jar's path. Copy the returned token into
 `EXPLORER_CSRF_TOKEN` for subsequent writes. Tokens and cookies are generated
-per session; there are no reusable credentials in this page.
+per session.
 
 # Group Authentication
 
@@ -84,9 +82,10 @@ sensitive-endpoint key **and an existing session**. They return the session
 map; they are not login-by-API-key endpoints. They use the session/CSRF
 pipeline. `GET /api/account/v2/get_csrf` also requires a session.
 
-Additional session routes are `POST /api/account/v2/address/link`,
-`POST /api/account/v2/email/link` and `GET /api/account/v2/email/resend`.
-Their provider-dependent payloads and checks are defined by the
+`POST /api/account/v2/address/link` and `POST /api/account/v2/email/link`
+require an existing session. `GET /api/account/v2/email/resend` uses the
+signed invalid-session cookie for an unverified account. Their payloads
+and checks are defined by the
 [address controller](lib/block_scout_web/controllers/account/api/v2/address_controller.ex)
 and [email controller](lib/block_scout_web/controllers/account/api/v2/email_controller.ex).
 
@@ -133,7 +132,9 @@ address or transaction hashes. Updates accept the fields being changed.
 | DELETE | `/transaction/{id}` | Deletes a tag belonging to this user |
 
 List responses contain `items` and `next_page_params`. Follow the returned
-pagination parameters until `next_page_params` is null. Address tag objects
+pagination parameters until `next_page_params` is null. GET routes containing
+`{id}` invoke the list action with that ID as a paging cursor; they do not
+retrieve one tag. Address tag objects
 contain `id`, `address_hash`, `address` (enriched address information) and `name`;
 transaction tag objects contain `id`, `transaction_hash` and `name`.
 

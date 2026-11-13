@@ -111,7 +111,7 @@ Delete responses are `{"message":"OK"}`.
 {
   "name": "Example user",
   "email": "user@example.com",
-  "avatar": "https://example.com/avatar.png",
+  "avatar": null,
   "nickname": "example",
   "address_hash": null
 }
