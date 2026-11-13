@@ -1,8 +1,8 @@
 # Receipts
 
-A receipt records execution on Paxeer X Network, while a `200`, webhook or dashboard row reports an application outcome. A receipt is final once its block is committed. The separate execution, checkpoint and settlement architecture is retired.
+A receipt records execution on Paxeer X Network, while a `200`, webhook or dashboard row reports an application outcome. A receipt is final once its block is committed. Check the execution result separately: a committed transaction can have reverted.
 
-`layerx receipt verify` and the `layerx-proof` sample are a local compatibility verifier for receipt bytes and caller-supplied batch facts. They do not establish block commitment. For finality, authenticate the block header and CometBFT commit and verify transaction or state inclusion against the authenticated root at the relevant height. See [Committed block evidence](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/abc81fd2cead6b2b9d5612c6e09a6ab56f13c1ed/docs/site/docs/concepts/checkpoints.md#committed-block-evidence).
+`layerx receipt verify` and the Rust sample below provide local compatibility verification for receipt bytes and caller-supplied batch facts. They do not establish block commitment. For finality, authenticate the block header and CometBFT commit and verify transaction or state inclusion against the authenticated root at the relevant height. See [Committed block evidence](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/docs/site/docs/concepts/checkpoints.md#committed-block-evidence).
 
 ## What verification needs
 
@@ -16,7 +16,7 @@ The local compatibility check takes the canonical receipt bytes and the batch fa
 | `resulting_state_root` | The state it produced |
 | `sequencer_public_key` | The independently trusted key for the compatibility signature check |
 
-Verification is a pure function of those inputs. No node, no daemon, no database, no clock and no network connection is involved. This is what makes a receipt portable: you can hand it, and the batch facts, to a counterparty who has never spoken to us, and they can check it for themselves.
+The compatibility check uses only those inputs. It requires no running service, database, clock or network connection. It checks encoding, supported protocol facts, balance invariants, roots and the signature against the supplied facts.
 
 ## Where the batch facts must come from
 
@@ -46,12 +46,12 @@ layerx receipt verify \
   --asset <hex> \
   --previous-state-root <hex> \
   --resulting-state-root <hex> \
-  --sequencer-public-key <hex>
+  --sequencer-public-key <hex> --json
 ```
 
 `receipt get` fetches receipt material; on the merged network its argument is a transaction hash for `pax_sequencerReceipt`. Fetching is not verification. `receipt verify` never touches the network: every fact it checks against is an argument you supplied. The `--receipt` file holds raw compatibility receipt bytes or unprefixed ASCII hex of the same bytes. The native `pax_sequencerReceipt` response uses a different encoding; use the native SDK verifier for that receipt. The command above uses compatibility inputs.
 
-On success it prints the verification level as its wire rank, the receipt digest, the activity id, the batch id, the protocol result code and the canonical byte length. On failure it names the exact check that failed - not a generic error.
+The result contains the verification level as its wire rank, the receipt digest, the activity id, the batch id, the protocol result code and the canonical byte length. `--json` wraps these fields in `data`. A verification failure names the check that refused the receipt. The CLI uses `verify_outcome`, so a verified receipt with a nonzero `result_code` still produces a successful command result. The Rust sample uses `verify_receipt`, which refuses a nonzero protocol result.
 
 ## Verification levels
 
@@ -63,18 +63,18 @@ The current network reports achieved evidence rungs:
 | `receipted` | A signed execution receipt awaiting block commitment |
 | `committed` | The committed block covers the receipt; block commit is finality |
 
-`checkpoint-finalised` and `done-finalised` are retained API names for the `committed` rung. `settlement-anchored` and `paxeer-finalised` are never reached on the merged network. Check the achieved rung explicitly: a signed execution receipt and a local compatibility wire rank do not establish block commitment.
+These are the native transaction rungs. Human-service journey states, such as `done` and `done-finalised`, are separate fields. Check the achieved rung and its supporting evidence explicitly: a signed execution receipt and a local compatibility wire rank do not establish block commitment.
 
 ## `still-checking` is an answer
 
-If a receipt cannot presently be verified, that is reported as itself. It is not an error and it is not a failure, and treating it as either is how double-payments happen. The rule across every LayerX surface is the same: an unknown outcome stays unknown until something resolves it.
+The human-payment service can report a journey as `still-checking` while its outcome remains unresolved. Retain the journey identifier and reconcile its evidence before starting another payment. The local receipt verifier instead returns a verification failure when its checks do not pass.
 
 ## Enforced by
 
 | Capability | Layer | What that means here |
 |---|---|---|
 | Offline receipt verification | `protocol` | Compatibility verification is a pure function of receipt bytes and batch facts; finality requires committed block evidence. |
-| Atomic settlement | `protocol` | A verified receipt describes a payment that applied whole. |
-| Conserved supply | `protocol` | The amounts in a verified receipt are the amounts that moved. |
-| Replay refusal | `protocol` | A receipt cannot be presented twice to settle twice. |
-| Honest verification levels | `agent-layer` | Levels are reported exactly; `still-checking` is first class. |
+| Atomic settlement | `protocol` | A successful payment applies as one state transition; inspect the receipt's result code. |
+| Conserved supply | `protocol` | Receipt verification checks the balance invariants for the supported operation. |
+| Replay refusal | `protocol` | Execution checks activity sequences; the offline verifier does not track receipt consumption. |
+| Honest verification levels | `agent-layer` | Signed execution evidence and committed block evidence carry distinct rungs. |

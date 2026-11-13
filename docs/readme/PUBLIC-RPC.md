@@ -11,8 +11,6 @@ is `hyperpax_125-1`.
 | HTTPS JSON-RPC | `https://api-mainnet-beta.paxeer.network` |
 
 Send requests directly to the node's root path.
-There is no separate public LayerX interface or router.
-The `/rpc`, `/rpc/ws` and `/rpc/schema` routes are retired; use the root path.
 
 ```bash
 curl -s https://api-mainnet-beta.paxeer.network \
@@ -44,11 +42,15 @@ Use `api1` through `api14.mainnet-beta.paxeer.network` or
 | Mainnet beta | `https://api-mainnet-beta.paxeer.network` |
 
 **Retention:** `api2.mainnet-beta.paxeer.network` is the archive node and keeps
-full history; the other thirteen numbered nodes prune. On a pruned node,
-`pax_sequencerReceipt` and state queries for heights outside that node's
-retention return JSON-RPC error `-32000`. This is expected retention behavior,
-not a defect. Send historical receipt and state queries to
+full history; the other thirteen numbered nodes prune. Historical queries
+depend on the node's retained state and receipt availability. Send historical
+receipt and state queries to
 `https://api2.mainnet-beta.paxeer.network` at the root path, on EVM chain ID 125.
+
+Error `-32000` alone does not identify a retention limit. For example,
+`pax_sequencerReceipt` returns that code with `pax_sequencerReceipt served by sequencer`
+when the node has neither a local receipt source nor a forwarding endpoint.
+An unknown transaction hash returns `null` from a configured local receipt source.
 
 Names are numbered, not ranked. Pick any one and fall back to another if it
 stops answering; compare `eth_blockNumber` across two names when you need the
@@ -57,13 +59,16 @@ newest head.
 WebSocket upgrades for `api-mainnet-beta.paxeer.network` and the fourteen
 numbered hosts `api1` through `api14.mainnet-beta.paxeer.network` are served at
 the root of each host, the same path as JSON-RPC.
-There is no WebSocket upgrade at the retired `/rpc/ws` route.
 
 ## The px namespace
 
-The node serves the `px` namespace at the root path beside `debug`, `echo`,
-`eth`, `net`, `pax`, `test` and `txpool`, answering from node state. The
-retired `lx_*` methods are not served. `px_register` and `px_requestFunds`
+The node serves the `px` namespace at the root path, answering from node state.
+HTTP registrations also include `debug`, `echo`, `eth`, `net`, `pax`, `pax2`,
+`txpool` and `web3`; method availability depends on node configuration.
+The `test` API requires `EnableTestAPI` and a non-live chain ID, so it is not
+served on mainnet chain ID `hyperpax_125-1`.
+
+`px_register` and `px_requestFunds`
 validate their parameters and answer `-32004` with error data code
 `hosted_gateway_service_required`: registration and funding are operations of
 the operator-deployed [hosted gateway](../site/docs/platform/gateway-rpc.md),
