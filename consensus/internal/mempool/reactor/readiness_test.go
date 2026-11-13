@@ -14,7 +14,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/utils/require"
 )
 
-func TestRepairM_1088_ShutdownBeforeReadiness(t *testing.T) {
+func TestReactorShutdownBeforeReadiness(t *testing.T) {
 	for _, broadcast := range []bool{true, false} {
 		for _, cancelParent := range []bool{false, true} {
 			t.Run(fmt.Sprintf("broadcast=%v/cancelParent=%v", broadcast, cancelParent), func(t *testing.T) {
@@ -60,7 +60,7 @@ func TestRepairM_1088_ShutdownBeforeReadiness(t *testing.T) {
 	}
 }
 
-func TestRepairM_1088_ReadyReceivesTransactions(t *testing.T) {
+func TestReactorReadyReceivesTransactions(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 	rng := utils.TestRng()

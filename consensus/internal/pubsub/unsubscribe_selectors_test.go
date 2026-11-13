@@ -22,7 +22,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 )
 
-func TestRepair_109_WebsocketUnsubscribeID(t *testing.T) {
+func TestPubsubWebsocketUnsubscribeID(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 	bus := eventbus.NewDefault()
@@ -117,7 +117,7 @@ func TestRepair_109_WebsocketUnsubscribeID(t *testing.T) {
 	assertLive("after unsubscribe all", foreign)
 }
 
-func TestRepair_109_UnsubscribeSelectors(t *testing.T) {
+func TestPubsubUnsubscribeSelectors(t *testing.T) {
 	for _, tc := range []struct {
 		name       string
 		id         string
@@ -193,7 +193,7 @@ func TestRepair_109_UnsubscribeSelectors(t *testing.T) {
 	}
 }
 
-func TestRepair_109_UnsubscribeAllQuery(t *testing.T) {
+func TestPubsubUnsubscribeAllQuery(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
 	s := newTestServer(ctx, t)

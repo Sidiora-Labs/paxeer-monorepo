@@ -12,7 +12,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/utils/scope"
 )
 
-func TestRepairM_1157_ZeroValueLifecycle(t *testing.T) {
+func TestCListZeroValueLifecycle(t *testing.T) {
 	for _, constructor := range []struct {
 		name    string
 		newList func() *clist.CList[int]
@@ -72,25 +72,25 @@ func TestRepairM_1157_ZeroValueLifecycle(t *testing.T) {
 	}
 }
 
-func TestRepairM_1157_ZeroValueWaitFront(t *testing.T) {
+func TestCListZeroValueWaitFront(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		var l clist.CList[int]
 		err := scope.Run(t.Context(), func(ctx context.Context, s scope.Scope) error {
-			if err := repairM1157WaitForPush(ctx, s, &l); err != nil {
+			if err := clistWaitForPush(ctx, s, &l); err != nil {
 				return err
 			}
 			l.Remove(l.Front())
-			if err := repairM1157WaitForPush(ctx, s, &l); err != nil {
+			if err := clistWaitForPush(ctx, s, &l); err != nil {
 				return err
 			}
 			l.Clear()
-			return repairM1157WaitForPush(ctx, s, &l)
+			return clistWaitForPush(ctx, s, &l)
 		})
 		require.NoError(t, err)
 	})
 }
 
-func repairM1157WaitForPush(ctx context.Context, s scope.Scope, l *clist.CList[int]) error {
+func clistWaitForPush(ctx context.Context, s scope.Scope, l *clist.CList[int]) error {
 	type result struct {
 		element *clist.CElement[int]
 		err     error
@@ -132,6 +132,6 @@ func repairM1157WaitForPush(ctx context.Context, s scope.Scope, l *clist.CList[i
 	return nil
 }
 
-func TestRepairM_1157_PropertyStateMachine(t *testing.T) {
+func TestCListPropertyStateMachine(t *testing.T) {
 	TestCListProperties(t)
 }

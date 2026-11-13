@@ -11,14 +11,14 @@ import (
 	bcproto "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/blocksync"
 )
 
-func TestRepairM_1069_DuplicateSingularCommitScan(t *testing.T) {
+func TestWireguardDuplicateSingularCommitScan(t *testing.T) {
 	for _, path := range []struct {
 		name     string
 		message  func(*testing.T, ...int) []byte
 		evidence bool
 	}{
-		{name: "block_last_commit", message: repair78LastCommit},
-		{name: "signed_header_commit", message: repair78SignedHeader, evidence: true},
+		{name: "block_last_commit", message: mergedFieldsLastCommit},
+		{name: "signed_header_commit", message: mergedFieldsSignedHeader, evidence: true},
 	} {
 		t.Run(path.name, func(t *testing.T) {
 			limit := wgtest.MaxCommitSignatures
@@ -39,7 +39,7 @@ func TestRepairM_1069_DuplicateSingularCommitScan(t *testing.T) {
 					payload := path.message(t, split.counts...)
 					var decoded bcproto.Message
 					require.NoError(t, gogoproto.Unmarshal(payload, &decoded))
-					require.Len(t, repair78Commit(t, &decoded, path.evidence).Signatures, limit+1)
+					require.Len(t, mergedFieldsCommit(t, &decoded, path.evidence).Signatures, limit+1)
 					require.Error(t, wireguard.Scan(payload, bcproto.SchemaForMessage))
 					require.Error(t, decoded.WireguardScan(payload))
 
@@ -48,7 +48,7 @@ func TestRepairM_1069_DuplicateSingularCommitScan(t *testing.T) {
 					atCap := path.message(t, boundary...)
 					var accepted bcproto.Message
 					require.NoError(t, gogoproto.Unmarshal(atCap, &accepted))
-					require.Len(t, repair78Commit(t, &accepted, path.evidence).Signatures, limit)
+					require.Len(t, mergedFieldsCommit(t, &accepted, path.evidence).Signatures, limit)
 					require.NoError(t, wireguard.Scan(atCap, bcproto.SchemaForMessage))
 					require.NoError(t, accepted.WireguardScan(atCap))
 				})
@@ -57,16 +57,16 @@ func TestRepairM_1069_DuplicateSingularCommitScan(t *testing.T) {
 	}
 }
 
-func TestRepairM_1069_DuplicateLastCommitTransport(t *testing.T) {
+func TestWireguardDuplicateLastCommitTransport(t *testing.T) {
 	limit := wgtest.MaxCommitSignatures
-	repair78Channel(t,
-		repair78LastCommit(t, limit-1, 1),
-		repair78LastCommit(t, limit-1, 2), false)
+	mergedFieldsChannel(t,
+		mergedFieldsLastCommit(t, limit-1, 1),
+		mergedFieldsLastCommit(t, limit-1, 2), false)
 }
 
-func TestRepairM_1069_DuplicateSignedHeaderCommitTransport(t *testing.T) {
+func TestWireguardDuplicateSignedHeaderCommitTransport(t *testing.T) {
 	limit := wgtest.MaxCommitSignatures
-	repair78Channel(t,
-		repair78SignedHeader(t, limit/2, limit-limit/2, 0),
-		repair78SignedHeader(t, limit/2, limit-limit/2, 1), true)
+	mergedFieldsChannel(t,
+		mergedFieldsSignedHeader(t, limit/2, limit-limit/2, 0),
+		mergedFieldsSignedHeader(t, limit/2, limit-limit/2, 1), true)
 }

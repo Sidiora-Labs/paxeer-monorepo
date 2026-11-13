@@ -37,7 +37,7 @@ import (
 // This peer runs the persistent example application. The adapter honors request
 // cancellation and exposes execution barriers; it never manufactures app state
 // or responses. All blocks, certificates and app hashes come from the router.
-type repairM1182Application struct {
+type statusSyncApplication struct {
 	abci.Application
 	committed   utils.AtomicSend[int64]
 	infoCalls   atomic.Int64
@@ -46,7 +46,7 @@ type repairM1182Application struct {
 	resume      <-chan struct{}
 }
 
-func (app *repairM1182Application) Info(ctx context.Context, req *abci.RequestInfo) (*abci.ResponseInfo, error) {
+func (app *statusSyncApplication) Info(ctx context.Context, req *abci.RequestInfo) (*abci.ResponseInfo, error) {
 	app.infoCalls.Add(1)
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -54,7 +54,7 @@ func (app *repairM1182Application) Info(ctx context.Context, req *abci.RequestIn
 	return app.Application.Info(ctx, req)
 }
 
-func (app *repairM1182Application) FinalizeBlock(ctx context.Context, req *abci.RequestFinalizeBlock) (*abci.ResponseFinalizeBlock, error) {
+func (app *statusSyncApplication) FinalizeBlock(ctx context.Context, req *abci.RequestFinalizeBlock) (*abci.ResponseFinalizeBlock, error) {
 	if req.Header.Height == app.pauseHeight {
 		close(app.entered)
 		select {
@@ -66,7 +66,7 @@ func (app *repairM1182Application) FinalizeBlock(ctx context.Context, req *abci.
 	return app.Application.FinalizeBlock(ctx, req)
 }
 
-func (app *repairM1182Application) Commit(ctx context.Context) (*abci.ResponseCommit, error) {
+func (app *statusSyncApplication) Commit(ctx context.Context) (*abci.ResponseCommit, error) {
 	response, err := app.Application.Commit(ctx)
 	if err != nil {
 		return nil, err
@@ -79,22 +79,22 @@ func (app *repairM1182Application) Commit(ctx context.Context) (*abci.ResponseCo
 	return response, nil
 }
 
-type repairM1182Fixture struct {
+type statusSyncFixture struct {
 	env        *Environment
 	giga       *p2p.GigaRouter
-	app        *repairM1182Application
+	app        *statusSyncApplication
 	appConfig  *e2eapp.Config
-	openRouter func(*repairM1182Application) (*Environment, *p2p.GigaRouter)
+	openRouter func(*statusSyncApplication) (*Environment, *p2p.GigaRouter)
 }
 
-func newRepairM1182Application(t *testing.T, cfg *e2eapp.Config) *repairM1182Application {
+func newStatusSyncApplication(t *testing.T, cfg *e2eapp.Config) *statusSyncApplication {
 	t.Helper()
 	app, err := e2eapp.NewApplication(cfg)
 	require.NoError(t, err)
-	return &repairM1182Application{Application: app, committed: utils.NewAtomicSend[int64](0)}
+	return &statusSyncApplication{Application: app, committed: utils.NewAtomicSend[int64](0)}
 }
 
-func newRepairM1182Fixture(t *testing.T) *repairM1182Fixture {
+func newStatusSyncFixture(t *testing.T) *statusSyncFixture {
 	t.Helper()
 	dir := t.TempDir()
 	rng := utils.TestRng()
@@ -106,8 +106,8 @@ func newRepairM1182Fixture(t *testing.T) *repairM1182Fixture {
 	genDoc := &types.GenesisDoc{ChainID: "repair-m1182", InitialHeight: 1}
 	require.NoError(t, genDoc.ValidateAndComplete())
 	nodeInfo := types.NodeInfo{NodeID: nodeKey.Public().NodeID(), Network: genDoc.ChainID, ListenAddr: addr.String(), Moniker: "repair-m1182"}
-	fixture := &repairM1182Fixture{appConfig: e2eapp.DefaultConfig(filepath.Join(dir, "app"))}
-	fixture.openRouter = func(application *repairM1182Application) (*Environment, *p2p.GigaRouter) {
+	fixture := &statusSyncFixture{appConfig: e2eapp.DefaultConfig(filepath.Join(dir, "app"))}
+	fixture.openRouter = func(application *statusSyncApplication) (*Environment, *p2p.GigaRouter) {
 		t.Helper()
 		app := proxy.New(application, proxy.NopMetrics())
 		states := sm.NewStore(dbm.NewMemDB())
@@ -150,12 +150,12 @@ func newRepairM1182Fixture(t *testing.T) *repairM1182Fixture {
 		require.True(t, ok)
 		return &Environment{App: app, Router: router, StateStore: states, BlockStore: blocks, NodeInfo: nodeInfo}, giga
 	}
-	fixture.app = newRepairM1182Application(t, fixture.appConfig)
+	fixture.app = newStatusSyncApplication(t, fixture.appConfig)
 	fixture.env, fixture.giga = fixture.openRouter(fixture.app)
 	return fixture
 }
 
-func repairM1182Client(t *testing.T, env *Environment, requestContext func(context.Context) (context.Context, context.CancelFunc)) (*rpchttp.HTTP, *httptest.Server) {
+func statusSyncClient(t *testing.T, env *Environment, requestContext func(context.Context) (context.Context, context.CancelFunc)) (*rpchttp.HTTP, *httptest.Server) {
 	t.Helper()
 	mux := http.NewServeMux()
 	rpcserver.RegisterRPCFuncs(mux, NewRoutesMap(env, nil))
@@ -173,7 +173,7 @@ func repairM1182Client(t *testing.T, env *Environment, requestContext func(conte
 	return client, server
 }
 
-func repairM1182Run(t *testing.T, ctx context.Context, env *Environment) func() {
+func statusSyncRun(t *testing.T, ctx context.Context, env *Environment) func() {
 	t.Helper()
 	runCtx, cancel := context.WithCancel(ctx)
 	done := make(chan error, 1)
@@ -186,7 +186,7 @@ func repairM1182Run(t *testing.T, ctx context.Context, env *Environment) func() 
 	return stop
 }
 
-func repairM1182Produce(t *testing.T, ctx context.Context, giga *p2p.GigaRouter, count int) {
+func statusSyncProduce(t *testing.T, ctx context.Context, giga *p2p.GigaRouter, count int) {
 	t.Helper()
 	for i := range count {
 		response, err := giga.InsertTx(ctx, types.Tx(fmt.Sprintf("key%d=value%d", i, i)))
@@ -195,13 +195,13 @@ func repairM1182Produce(t *testing.T, ctx context.Context, giga *p2p.GigaRouter,
 	}
 }
 
-func repairM1182WaitHeight(t *testing.T, ctx context.Context, app *repairM1182Application, height int64) {
+func statusSyncWaitHeight(t *testing.T, ctx context.Context, app *statusSyncApplication, height int64) {
 	t.Helper()
 	_, err := app.committed.Subscribe().Wait(ctx, func(actual int64) bool { return actual >= height })
 	require.NoError(t, err)
 }
 
-func repairM1182RequireRPCError(t *testing.T, err error, details ...string) {
+func statusSyncRequireRPCError(t *testing.T, err error, details ...string) {
 	t.Helper()
 	var rpcError *rpctypes.RPCError
 	require.ErrorAs(t, err, &rpcError, "the client must receive the server's JSON-RPC error, not a transport failure")
@@ -211,9 +211,9 @@ func repairM1182RequireRPCError(t *testing.T, err error, details ...string) {
 	}
 }
 
-func TestRepairM_1182_StartupRPC(t *testing.T) {
-	fixture := newRepairM1182Fixture(t)
-	client, _ := repairM1182Client(t, fixture.env, nil)
+func TestRPCStatusSyncStartupRPC(t *testing.T) {
+	fixture := newStatusSyncFixture(t)
+	client, _ := statusSyncClient(t, fixture.env, nil)
 	before := fixture.app.infoCalls.Load()
 	status, err := client.Status(t.Context())
 	require.NoError(t, err)
@@ -228,15 +228,15 @@ func TestRepairM_1182_StartupRPC(t *testing.T) {
 	require.True(t, status.SyncInfo.CatchingUp)
 }
 
-func TestRepairM_1182_PopulatedHeadRPC(t *testing.T) {
+func TestRPCStatusSyncPopulatedHeadRPC(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), time.Minute)
 	defer cancel()
-	fixture := newRepairM1182Fixture(t)
-	stop := repairM1182Run(t, ctx, fixture.env)
+	fixture := newStatusSyncFixture(t)
+	stop := statusSyncRun(t, ctx, fixture.env)
 	defer stop()
-	repairM1182Produce(t, ctx, fixture.giga, 4)
-	repairM1182WaitHeight(t, ctx, fixture.app, 3)
-	client, _ := repairM1182Client(t, fixture.env, nil)
+	statusSyncProduce(t, ctx, fixture.giga, 4)
+	statusSyncWaitHeight(t, ctx, fixture.app, 3)
+	client, _ := statusSyncClient(t, fixture.env, nil)
 	status, err := client.Status(ctx)
 	require.NoError(t, err)
 	info, err := fixture.app.Info(ctx, &abci.RequestInfo{})
@@ -253,59 +253,59 @@ func TestRepairM_1182_PopulatedHeadRPC(t *testing.T) {
 	require.False(t, fixture.env.ConsensusReactor.IsPresent())
 }
 
-func TestRepairM_1182_MissingLatestBlockRPC(t *testing.T) {
+func TestRPCStatusSyncMissingLatestBlockRPC(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), time.Minute)
 	defer cancel()
-	fixture := newRepairM1182Fixture(t)
-	stop := repairM1182Run(t, ctx, fixture.env)
-	repairM1182Produce(t, ctx, fixture.giga, 4)
-	repairM1182WaitHeight(t, ctx, fixture.app, 3)
+	fixture := newStatusSyncFixture(t)
+	stop := statusSyncRun(t, ctx, fixture.env)
+	statusSyncProduce(t, ctx, fixture.giga, 4)
+	statusSyncWaitHeight(t, ctx, fixture.app, 3)
 	stop()
 	// Reopen the real persisted app with a fresh consensus store, reproducing
 	// an executed head whose block metadata has been lost.
-	app := newRepairM1182Application(t, fixture.appConfig)
-	empty := newRepairM1182Fixture(t)
+	app := newStatusSyncApplication(t, fixture.appConfig)
+	empty := newStatusSyncFixture(t)
 	empty.env.App = proxy.New(app, proxy.NopMetrics())
-	client, _ := repairM1182Client(t, empty.env, func(ctx context.Context) (context.Context, context.CancelFunc) {
+	client, _ := statusSyncClient(t, empty.env, func(ctx context.Context) (context.Context, context.CancelFunc) {
 		return context.WithTimeout(ctx, 100*time.Millisecond)
 	})
 	status, err := client.Status(ctx)
-	repairM1182RequireRPCError(t, err, "load latest Autobahn block at height 3", "context deadline exceeded")
+	statusSyncRequireRPCError(t, err, "load latest Autobahn block at height 3", "context deadline exceeded")
 	require.Nil(t, status)
 }
 
-func TestRepairM_1182_AppInfoFailureRPC(t *testing.T) {
-	fixture := newRepairM1182Fixture(t)
-	client, _ := repairM1182Client(t, fixture.env, func(ctx context.Context) (context.Context, context.CancelFunc) {
+func TestRPCStatusSyncAppInfoFailureRPC(t *testing.T) {
+	fixture := newStatusSyncFixture(t)
+	client, _ := statusSyncClient(t, fixture.env, func(ctx context.Context) (context.Context, context.CancelFunc) {
 		ctx, cancel := context.WithCancel(ctx)
 		cancel()
 		return ctx, cancel
 	})
 	status, err := client.Status(t.Context())
-	repairM1182RequireRPCError(t, err, "load Autobahn application info", "context canceled")
+	statusSyncRequireRPCError(t, err, "load Autobahn application info", "context canceled")
 	require.Nil(t, status)
 	require.Equal(t, int64(1), fixture.app.infoCalls.Load())
 }
 
-func TestRepairM_1182_CatchUpAndRestartRPC(t *testing.T) {
+func TestRPCStatusSyncCatchUpAndRestartRPC(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), time.Minute)
 	defer cancel()
-	fixture := newRepairM1182Fixture(t)
+	fixture := newStatusSyncFixture(t)
 	resume := make(chan struct{})
 	release := sync.OnceFunc(func() { close(resume) })
 	fixture.app.pauseHeight = 4
 	fixture.app.entered = make(chan struct{})
 	fixture.app.resume = resume
-	stop := repairM1182Run(t, ctx, fixture.env)
+	stop := statusSyncRun(t, ctx, fixture.env)
 	defer stop()
 	defer release()
-	repairM1182Produce(t, ctx, fixture.giga, 5)
+	statusSyncProduce(t, ctx, fixture.giga, 5)
 	select {
 	case <-fixture.app.entered:
 	case <-ctx.Done():
 		t.Fatal(ctx.Err())
 	}
-	client, server := repairM1182Client(t, fixture.env, nil)
+	client, server := statusSyncClient(t, fixture.env, nil)
 	catchingUp, err := client.Status(ctx)
 	require.NoError(t, err)
 	require.Equal(t, int64(3), catchingUp.SyncInfo.LatestBlockHeight)
@@ -313,7 +313,7 @@ func TestRepairM_1182_CatchUpAndRestartRPC(t *testing.T) {
 	require.True(t, catchingUp.SyncInfo.CatchingUp)
 	require.False(t, fixture.env.ConsensusReactor.IsPresent())
 	release()
-	repairM1182WaitHeight(t, ctx, fixture.app, 4)
+	statusSyncWaitHeight(t, ctx, fixture.app, 4)
 	converged, err := client.Status(ctx)
 	require.NoError(t, err)
 	require.Equal(t, int64(4), converged.SyncInfo.LatestBlockHeight)
@@ -324,18 +324,18 @@ func TestRepairM_1182_CatchUpAndRestartRPC(t *testing.T) {
 
 	// Reconstruct both producers from their persisted state, then bind a new
 	// handler and client. No old Environment, reactor or in-memory watch is reused.
-	reopenedApp := newRepairM1182Application(t, fixture.appConfig)
+	reopenedApp := newStatusSyncApplication(t, fixture.appConfig)
 	reopenedEnv, reopenedGiga := fixture.openRouter(reopenedApp)
 	require.NotSame(t, fixture.giga, reopenedGiga)
 	require.NotSame(t, fixture.app.Application, reopenedApp.Application)
-	reopenedClient, _ := repairM1182Client(t, reopenedEnv, nil)
+	reopenedClient, _ := statusSyncClient(t, reopenedEnv, nil)
 	recovered, err := reopenedClient.Status(ctx)
 	require.NoError(t, err)
 	require.Equal(t, converged.SyncInfo, recovered.SyncInfo)
 	require.False(t, recovered.SyncInfo.CatchingUp)
 	require.Zero(t, reopenedEnv.BlockStore.Height())
 	require.False(t, reopenedEnv.ConsensusReactor.IsPresent())
-	stopReopened := repairM1182Run(t, ctx, reopenedEnv)
+	stopReopened := statusSyncRun(t, ctx, reopenedEnv)
 	defer stopReopened()
 	afterRestart, err := reopenedClient.Status(ctx)
 	require.NoError(t, err)

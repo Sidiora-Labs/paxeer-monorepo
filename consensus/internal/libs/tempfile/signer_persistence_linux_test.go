@@ -25,7 +25,7 @@ import (
 
 // Ptrace observes actual filesystem operations and injects EIO syscall results
 // without replacing the writer or its signing caller.
-type repair108SyscallInfo struct {
+type signerPersistenceSyscallInfo struct {
 	Operation uint8
 	Padding   [3]byte
 	Arch      uint32
@@ -34,24 +34,24 @@ type repair108SyscallInfo struct {
 	Data      [8]uint64
 }
 
-type repair108SignResult struct {
+type signerPersistenceSignResult struct {
 	Failed    bool
 	IOError   bool
 	Signature []byte
 }
 
-func repair108TraceChild(t *testing.T, dir string) {
+func signerPersistenceTraceChild(t *testing.T, dir string) {
 	t.Helper()
 	pv, err := privval.LoadFilePV(filepath.Join(dir, "key.json"), filepath.Join(dir, "state.json"))
 	require.NoError(t, err)
-	vote := repair108Vote()
+	vote := signerPersistenceVote()
 	runtime.LockOSThread()
 	require.NoError(t, unix.Sendmsg(3, []byte(strconv.Itoa(unix.Gettid())), nil, nil, 0))
 	var start [1]byte
 	_, _, _, _, err = unix.Recvmsg(3, start[:], nil, 0)
 	require.NoError(t, err)
-	err = pv.SignVote(t.Context(), repair108ChainID, vote)
-	result, marshalErr := json.Marshal(repair108SignResult{
+	err = pv.SignVote(t.Context(), signerPersistenceChainID, vote)
+	result, marshalErr := json.Marshal(signerPersistenceSignResult{
 		Failed:    err != nil,
 		IOError:   errors.Is(err, unix.EIO),
 		Signature: vote.Signature,
@@ -61,7 +61,7 @@ func repair108TraceChild(t *testing.T, dir string) {
 	os.Exit(0)
 }
 
-func repair108SetIOError(t *testing.T, tid int) {
+func signerPersistenceSetIOError(t *testing.T, tid int) {
 	t.Helper()
 	// NT_PRSTATUS holds the native general registers. Only the syscall result
 	// register changes; the actual sync/close has already executed.
@@ -79,14 +79,14 @@ func repair108SetIOError(t *testing.T, tid int) {
 	require.Zero(t, errno)
 }
 
-func TestRepair_108_SignerIOFailures(t *testing.T) {
+func TestSignerIOFailures(t *testing.T) {
 	if dir := os.Getenv("REPAIR_108_TRACE_CHILD"); dir != "" {
-		repair108TraceChild(t, dir)
+		signerPersistenceTraceChild(t, dir)
 		return
 	}
 	for _, fault := range []string{"none", "file-sync", "file-close", "directory-sync", "directory-close"} {
 		t.Run(fault, func(t *testing.T) {
-			keyPath, statePath := repair108Signer(t)
+			keyPath, statePath := signerPersistenceSigner(t)
 			dir := filepath.Dir(statePath)
 			before, err := os.ReadFile(statePath)
 			require.NoError(t, err)
@@ -99,7 +99,7 @@ func TestRepair_108_SignerIOFailures(t *testing.T) {
 			require.NoError(t, unix.SetsockoptTimeval(sockets[0], unix.SOL_SOCKET, unix.SO_RCVTIMEO, &unix.Timeval{Sec: 20}))
 			ctx, cancel := context.WithTimeout(t.Context(), 20*time.Second)
 			defer cancel()
-			cmd := exec.CommandContext(ctx, os.Args[0], "-test.run=^TestRepair_108_SignerIOFailures$")
+			cmd := exec.CommandContext(ctx, os.Args[0], "-test.run=^TestSignerIOFailures$")
 			cmd.Env = append(os.Environ(), "REPAIR_108_TRACE_CHILD="+dir)
 			cmd.ExtraFiles = []*os.File{childSocket}
 			var output bytes.Buffer
@@ -140,7 +140,7 @@ func TestRepair_108_SignerIOFailures(t *testing.T) {
 			require.NoError(t, unix.PtraceSyscall(tid, 0))
 			var events []string
 			injected, pending := false, false
-			var result repair108SignResult
+			var result signerPersistenceSignResult
 			for {
 				_, err := unix.Wait4(tid, &status, unix.WALL, nil)
 				if errors.Is(err, unix.EINTR) {
@@ -150,7 +150,7 @@ func TestRepair_108_SignerIOFailures(t *testing.T) {
 				require.True(t, status.Stopped(), "signer must return its result before exit: %v", status)
 				signal := 0
 				if status.StopSignal() == unix.SIGTRAP|0x80 {
-					var info repair108SyscallInfo
+					var info signerPersistenceSyscallInfo
 					_, _, errno := unix.Syscall6(unix.SYS_PTRACE, unix.PTRACE_GET_SYSCALL_INFO, uintptr(tid), unsafe.Sizeof(info), uintptr(unsafe.Pointer(&info)), 0, 0)
 					require.Zero(t, errno)
 					if info.Operation == 1 && (info.Data[0] == unix.SYS_FSYNC || info.Data[0] == unix.SYS_CLOSE) {
@@ -174,7 +174,7 @@ func TestRepair_108_SignerIOFailures(t *testing.T) {
 								require.NoError(t, err)
 								var state privval.FilePVLastSignState
 								require.NoError(t, json.Unmarshal(data, &state))
-								require.Equal(t, repair108Vote().Height, state.Height, "directory sync must follow rename")
+								require.Equal(t, signerPersistenceVote().Height, state.Height, "directory sync must follow rename")
 							}
 							if event == fault && !injected {
 								pending, injected = true, true
@@ -182,7 +182,7 @@ func TestRepair_108_SignerIOFailures(t *testing.T) {
 						}
 					} else if info.Operation == 2 && pending {
 						require.Zero(t, int64(info.Data[0]), "filesystem operation must execute before injecting its EIO result")
-						repair108SetIOError(t, tid)
+						signerPersistenceSetIOError(t, tid)
 						pending = false
 					}
 				} else if status.StopSignal() != unix.SIGSTOP {
@@ -215,9 +215,9 @@ func TestRepair_108_SignerIOFailures(t *testing.T) {
 			require.Equal(t, fault != "none", result.Failed)
 			require.Equal(t, fault != "none", result.IOError, "EIO must reach SignVote")
 			if fault == "none" {
-				vote := repair108Vote()
+				vote := signerPersistenceVote()
 				vote.Signature = result.Signature
-				repair108AssertRecovered(t, keyPath, statePath, vote)
+				signerPersistenceAssertRecovered(t, keyPath, statePath, vote)
 			} else {
 				require.Empty(t, result.Signature, "failed persistence must not return a signature")
 			}
