@@ -3,7 +3,8 @@
 This contract describes the internal consensus diagnostic interface maintained
 with [the OpenAPI document](../../../rpc/openapi/openapi.yaml). Its producers are
 [`Environment`](env.go) and [`NewRoutesMap`](routes.go); request and result types
-live in [`coretypes`](../../../rpc/coretypes/). The merged engine is Autobahn.
+live in [`coretypes`](../../../rpc/coretypes/). The interface distinguishes
+Autobahn from the classic consensus path.
 A legacy environment can still serve CometBFT data when its corresponding
 stores, consensus state, reactor and evidence pool are configured.
 
@@ -17,10 +18,11 @@ The OpenAPI server entry is this local diagnostic listener.
 The public network has EVM chain ID 125 (`0x7d`). Its HTTPS and WebSocket
 JSON-RPC endpoint is at the root of `https://api-mainnet-beta.paxeer.network`.
 The [public endpoint and namespace contract](../../../../docs/site/docs/reference/public-rpc.md#method-contracts)
-maintains the node inventory and the `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test`
-and `txpool` boundary, subject to node configuration. The `px` namespace answers from node state; `px_register` and
-`px_requestFunds` are operations of the hosted identity and faucet
-services declared in [the gateway OpenRPC contract](../../../../services/platform/hosted/gateway/openrpc.json).
+maintains the node inventory. The public node namespaces are `debug`, `echo`,
+`eth`, `net`, `pax`, `test` and `txpool`, subject to node configuration. Hosted
+`px_` methods, including `px_register` and `px_requestFunds`, are declared in
+[the gateway OpenRPC contract](../../../../services/platform/hosted/gateway/openrpc.json).
+Public node availability does not establish hosted gateway availability.
 The diagnostic OpenAPI schema does not describe `eth_` or `px_` methods.
 
 ## Names and encodings
@@ -42,12 +44,12 @@ heights are refusals; an unknown block/header hash returns a null object field.
 
 ## Autobahn refusals
 
-| Route | In-process sentinel | JSON-RPC error `data` |
-| --- | --- | --- |
-| `commit` | `coretypes.ErrCommitNotAvailable` | `commit is not available under autobahn consensus` |
-| `consensus_state` | `coretypes.ErrConsensusStateNotAvailable` | `consensus round state is not available under autobahn consensus` |
+| Route                  | In-process sentinel                       | JSON-RPC error `data`                                             |
+| ---------------------- | ----------------------------------------- | ----------------------------------------------------------------- |
+| `commit`               | `coretypes.ErrCommitNotAvailable`         | `commit is not available under autobahn consensus`                |
+| `consensus_state`      | `coretypes.ErrConsensusStateNotAvailable` | `consensus round state is not available under autobahn consensus` |
 | `dump_consensus_state` | `coretypes.ErrConsensusStateNotAvailable` | `consensus round state is not available under autobahn consensus` |
-| `broadcast_evidence` | `coretypes.ErrEvidenceNotAccepted` | `evidence is not accepted under autobahn consensus` |
+| `broadcast_evidence`   | `coretypes.ErrEvidenceNotAccepted`        | `evidence is not accepted under autobahn consensus`               |
 
 After parameter decoding, these handlers refuse before accessing CometBFT
 components. Even valid CometBFT evidence is refused. In-process callers can use

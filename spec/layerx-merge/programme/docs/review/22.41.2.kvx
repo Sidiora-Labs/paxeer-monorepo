@@ -1,0 +1,183 @@
+[manifest]
+task = "22.41.2"
+pages = 54
+
+[record.1]
+path = "consensus/spec/README.md"
+
+[record.2]
+path = "consensus/spec/abci++/README.md"
+
+[record.3]
+path = "consensus/spec/abci++/abci++_app_requirements_002_draft.md"
+
+[record.4]
+path = "consensus/spec/abci++/abci++_basic_concepts_002_draft.md"
+
+[record.5]
+path = "consensus/spec/abci++/abci++_client_server_002_draft.md"
+
+[record.6]
+path = "consensus/spec/abci++/abci++_methods_002_draft.md"
+
+[record.7]
+path = "consensus/spec/abci++/abci++_tmint_expected_behavior_002_draft.md"
+
+[record.8]
+path = "consensus/spec/abci++/v0.md"
+
+[record.9]
+path = "consensus/spec/abci++/v1.md"
+
+[record.10]
+path = "consensus/spec/abci++/v2.md"
+
+[record.11]
+path = "consensus/spec/abci++/v3.md"
+
+[record.12]
+path = "consensus/spec/abci++/v4.md"
+
+[record.13]
+path = "consensus/spec/abci/README.md"
+
+[record.14]
+path = "consensus/spec/abci/abci.md"
+
+[record.15]
+path = "consensus/spec/abci/apps.md"
+
+[record.16]
+path = "consensus/spec/abci/client-server.md"
+
+[record.17]
+path = "consensus/spec/consensus/bft-time.md"
+
+[record.18]
+path = "consensus/spec/consensus/consensus-paper/README.md"
+
+[record.19]
+path = "consensus/spec/consensus/consensus.md"
+
+[record.20]
+path = "consensus/spec/consensus/creating-proposal.md"
+
+[record.21]
+path = "consensus/spec/consensus/evidence.md"
+
+[record.22]
+path = "consensus/spec/consensus/light-client/README.md"
+
+[record.23]
+path = "consensus/spec/consensus/light-client/accountability.md"
+
+[record.24]
+path = "consensus/spec/consensus/light-client/detection.md"
+
+[record.25]
+path = "consensus/spec/consensus/light-client/verification.md"
+
+[record.26]
+path = "consensus/spec/consensus/proposer-based-timestamp/README.md"
+
+[record.27]
+path = "consensus/spec/consensus/proposer-based-timestamp/pbts-algorithm_002_draft.md"
+
+[record.28]
+path = "consensus/spec/consensus/proposer-based-timestamp/pbts-sysmodel_002_draft.md"
+
+[record.29]
+path = "consensus/spec/consensus/proposer-based-timestamp/v1/pbts-algorithm_001_draft.md"
+
+[record.30]
+path = "consensus/spec/consensus/proposer-based-timestamp/v1/pbts-sysmodel_001_draft.md"
+
+[record.31]
+path = "consensus/spec/consensus/proposer-based-timestamp/v1/pbts_001_draft.md"
+
+[record.32]
+path = "consensus/spec/consensus/proposer-selection.md"
+
+[record.33]
+path = "consensus/spec/consensus/readme.md"
+
+[record.34]
+path = "consensus/spec/consensus/signing.md"
+
+[record.35]
+path = "consensus/spec/consensus/wal.md"
+
+[record.36]
+path = "consensus/spec/core/data_structures.md"
+
+[page.1]
+path = "apps/wallet/config/README.md"
+status = "reviewed"
+
+[page.2]
+path = "apps/wallet/tools/README.md"
+status = "corrected"
+
+[page.3]
+path = "apps/web/packages/layerx-ui/README.md"
+status = "corrected"
+
+[page.4]
+path = "consensus/AGENTS.md"
+status = "corrected"
+
+[page.5]
+path = "consensus/README.md"
+status = "reviewed"
+
+[page.6]
+path = "consensus/abci/README.md"
+status = "reviewed"
+
+[page.7]
+path = "consensus/abci/example/kvstore/README.md"
+status = "corrected"
+
+[page.8]
+path = "consensus/crypto/CHANGELOG.md"
+status = "reviewed"
+
+[page.9]
+path = "consensus/crypto/README.md"
+status = "corrected"
+
+[page.10]
+path = "consensus/crypto/merkle/README.md"
+status = "reviewed"
+
+[page.11]
+path = "consensus/internal/p2p/README.md"
+status = "corrected"
+
+[page.12]
+path = "consensus/internal/rpc/core/CONTRIBUTING.md"
+status = "reviewed"
+
+[page.13]
+path = "consensus/internal/rpc/core/README.md"
+status = "corrected"
+
+[page.14]
+path = "consensus/internal/rpc/core/consensus_contract.md"
+status = "corrected"
+
+[page.15]
+path = "consensus/libs/CHANGELOG.md"
+status = "corrected"
+
+[page.16]
+path = "consensus/networks/remote/README.md"
+status = "reviewed"
+
+[page.17]
+path = "consensus/proto/README.md"
+status = "corrected"
+
+[page.18]
+path = "consensus/scripts/README.md"
+status = "reviewed"
