@@ -18,7 +18,7 @@ import (
 	authtx "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/tx"
 )
 
-func TestRepair463_MintGasAdjustment(t *testing.T) {
+func TestMintGasAdjustment(t *testing.T) {
 	registry := codectypes.NewInterfaceRegistry()
 	std.RegisterInterfaces(registry)
 	types.RegisterInterfaces(registry)
