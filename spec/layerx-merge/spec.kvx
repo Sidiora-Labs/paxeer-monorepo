@@ -373456,7 +373456,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.258]
 title = "Bring the last readers of renamed files to the present paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
