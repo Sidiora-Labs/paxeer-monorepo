@@ -1,43 +1,49 @@
 # Fiat Provider Callback Conformance Vectors
 
-The first-party fiat suite: every vector is either an exact provider token
-reference or one provider-evidence journey, together with the outcome the
-production adapter must reach.
+The first-party fiat suite covers token references, provider-evidence journeys
+and recorded payment evidence consumed by the fiat adapter.
 
 ## Files
 
-- `token-references.json` — the exact token bytes the card-data boundary
-  accepts or refuses
-- `journeys.json` — one provider-evidence journey per record
+- `token-references.json` — exact token bytes and their acceptance or refusal.
+- `journeys.json` — provider facts, payment-plane outcomes and expected journey states.
+- `sequenced-journeys.json` — signed provider facts bound to recorded native payments.
 
-## Vector Format
+## Vector format
 
-Each file holds a JSON array of records. Token records carry `name`, `valid`,
-either `token` (the literal bytes) or `token_hex` (for bytes no text can
-express), the exact `refusal` for an invalid record, and an optional
-`redaction_probe` a debug rendering must not leak.
+Each file holds a JSON array. Token records carry `name`, `valid`, either
+`token` or `token_hex`, the exact `refusal` for an invalid record, and an optional
+`redaction_probe` for debug rendering.
 
-Journey records carry:
+Records in `journeys.json` carry:
 
-- `name`, `principal`, `trace`, `token`, `evidence`, `now`
-- `provider_facts`: the facts the certified provider returns — `provider`,
-  `settlement`, `rail`, `evidence_class`, `amount`, `asset`, `destination`,
-  `observed_at`, `hold_until`, and `fault` for a provider that refuses
-- `plane`: an object whose `outcome` is `pending`, `refused` or `executed`;
-  an executed plane carries the `receipt` fields (`signing_key_seed`, `sequence`, `amount`, `from`, `to`)
-- `replay_at`: when set, the same journey is delivered twice and must return
-  one outcome
-- `expect`: the declared `state` (with `until` or `hold_until`) or the exact
-  `refusal`
+- `name`, `principal`, `trace`, `token`, `evidence` and `now`.
+- `provider_facts`: `provider`, `settlement`, `rail`, `evidence_class`, `amount`,
+  `asset`, `destination`, `observed_at`, `hold_until` and an optional `fault`.
+- `plane`: an `outcome` of `pending`, `refused` or `executed`; executed outcomes
+  include a `receipt` with `signing_key_seed`, `sequence`, `amount`, `from` and `to`.
+- `replay_at`: an optional second delivery time.
+- `expect`: the journey `state`, its time bound when applicable, or an exact `refusal`.
+
+Records in `sequenced-journeys.json` carry `provider_public_key`,
+`provider_signature` and `provider_facts`, including a token digest. Their
+`sequencer` object identifies a producer fixture and case, receipt rung,
+transaction hash, receipt digest and payment reference. `now`, `replay_at` and
+`expect` define replay and outcome checks. These are public test vectors;
+production provider trust is configured separately.
 
 ## Conformance
 
-`services/interop/crates/layerx-fiat/tests/adapter.rs` reads these files with
-`include_str!` and runs every record through the production `TokenReference`,
-`VerifiedProviderFacts` and `FiatAdapter` types against a real `GatewayCore`,
-so the suite the deployment pins is the suite the tests exercise. The canonical
-receipt an executed journey settles against is signed at runtime from the
-record's deterministic test-key seed.
+`services/interop/crates/layerx-fiat/tests/adapter.rs` reads the token and
+`journeys.json` files with `include_str!` and exercises `TokenReference`,
+`VerifiedProviderFacts` and `FiatAdapter` with `GatewayCore`. Executed journey
+receipts are signed at runtime from each record's deterministic test-key seed.
 
-`services/interop/deploy/gateway/render.py` derives the suite identifier, the vector
-count and the SHA-256 the gateway configuration declares from these files.
+`services/interop/crates/layerx-fiat/tests/sequenced_vectors.rs` reads
+`sequenced-journeys.json`, verifies the provider signature and token binding,
+and consumes the named payment evidence from
+`sdk/platform/conformance/fixtures/fiat-receipts-v1.json`. Its cases cover
+receipted payments, submission-only evidence, reverted payments and replay.
+
+`services/interop/deploy/gateway/render.py` derives the suite identifier, vector
+count and SHA-256 from all JSON files in this directory.

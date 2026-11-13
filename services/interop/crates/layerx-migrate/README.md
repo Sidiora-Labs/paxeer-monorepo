@@ -19,9 +19,9 @@ source evidence to the authenticated gateway. Neither a source-verification
 result nor a history record is a network receipt. See
 [PORTABILITY.md](../../../../docs/interop/PORTABILITY.md) for receipt verification.
 
-The authenticated journals require an independent rollback authority through
-`layerx_getMigrationJournalHead` and `layerx_advanceMigrationJournalHead`. This
-tree supplies their client contract, not a production authority server; see
+The authenticated journals require a separately configured independent rollback
+authority implementing `layerx_getMigrationJournalHead` and
+`layerx_advanceMigrationJournalHead`; see
 [the operations contract](OPERATIONS.md#journal-and-rollback-authority).
 
 For development from the monorepo root: `make interop-test-migration`. The ignored live-testnet suite is `make interop-test-migration-testnets`; it needs an operator environment and runs in CI only through the manually dispatched `.github/workflows/interop-migration-testnets.yml`.

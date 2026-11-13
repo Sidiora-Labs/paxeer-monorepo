@@ -24,14 +24,16 @@ This is the Rust workspace in `services/interop/` (members listed in [`Cargo.tom
 | Web search sidecar | `x-websearch`: paid `/search` and `/fetch`, free `/health` | `crates/x-websearch`; deploy files in `deploy/x-websearch/` and `deploy/search-front/` |
 | Other adapters | AP2, UCP, Visa TAP, fiat rails | `crates/layerx-ap2`, `crates/layerx-ucp`, `crates/layerx-visa-tap`, `crates/layerx-fiat` |
 
-There is no standalone `layerx-a2a` crate. A2A is a transport on the gateway and on x402, plus the CLI installer in `tools/platform/cli/`.
+A2A has a gateway ingress label and an x402 JSON binding. The developer CLI in
+`tools/platform/cli/` also provides an A2A installer and runtime.
 
-## Two MCP surfaces
+## MCP integrations
 
 | Surface | Role |
 | --- | --- |
-| `services/agent/crates/layerx-mcp` | Tenant- and scope-bound MCP server that routes every call through `layerx-agentd` |
-| This workspace + `tools/platform/cli/` | MCP as an interop ingress; `layerx install mcp` / `layerx mcp serve` from the developer CLI |
+| `services/agent/crates/layerx-mcp` | Tenant- and scope-bound MCP server backed by `layerx-agentd` |
+| `tools/platform/cli/` | `layerx install mcp` installs a daemon binding; `layerx mcp serve --daemon-binding <binding-file>` exposes that daemon's catalogue over stdio |
+| Interop gateway | HTTP routes under `/v1/mcp/x402/` select the x402 MCP JSON binding |
 
 MCP tool inventory: [`services/agent/crates/layerx-mcp/README.md`](../../services/agent/crates/layerx-mcp/README.md). CLI install copy: [`docs/platform/content/install.md`](../../docs/platform/content/install.md) and [`docs/platform/content/guide/interop.md`](../../docs/platform/content/guide/interop.md).
 
