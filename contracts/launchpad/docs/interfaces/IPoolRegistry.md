@@ -4,6 +4,8 @@
 
 Interface for on-chain pool discovery and metadata storage
 
+Source: [IPoolRegistry.sol](../../contracts/interfaces/IPoolRegistry.sol).
+
 ### Unauthorized
 
 ```solidity
@@ -44,7 +46,7 @@ struct PoolMetadata {
 ### PoolRegistered
 
 ```solidity
-event PoolRegistered(address pool, address token, address creator, address optical, uint256 nftId, uint256 timestamp)
+event PoolRegistered(address indexed pool, address indexed token, address indexed creator, address optical, uint256 nftId, uint256 timestamp)
 ```
 
 ### register
@@ -111,3 +113,24 @@ function isRegisteredPool(address pool) external view returns (bool)
 
 Check if a pool is registered
 
+### DuplicatePool
+
+```solidity
+error DuplicatePool()
+```
+
+### getPoolCountByCreator
+
+```solidity
+function getPoolCountByCreator(address creator) external view returns (uint256)
+```
+
+Returns the number of registered pools for a creator.
+
+### getPoolsByCreatorPage
+
+```solidity
+function getPoolsByCreatorPage(address creator, uint256 offset, uint256 limit) external view returns (address[] memory)
+```
+
+Returns a bounded slice of the creator’s pool list; offsets beyond the list return an empty array.

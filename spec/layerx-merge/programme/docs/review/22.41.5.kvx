@@ -1,0 +1,163 @@
+[manifest]
+task = "22.41.5"
+pages = 40
+
+[page.1]
+path = "contracts/launchpad/docs/data/PoolRegistry.md"
+status = "corrected"
+
+[page.2]
+path = "contracts/launchpad/docs/interfaces/IEventEmitter.md"
+status = "corrected"
+
+[page.3]
+path = "contracts/launchpad/docs/interfaces/IFeeAccumulator.md"
+status = "corrected"
+
+[page.4]
+path = "contracts/launchpad/docs/interfaces/IFeesRouter.md"
+status = "corrected"
+
+[page.5]
+path = "contracts/launchpad/docs/interfaces/IPoolRegistry.md"
+status = "corrected"
+
+[page.6]
+path = "contracts/launchpad/docs/interfaces/IProtocolConfig.md"
+status = "corrected"
+
+[page.7]
+path = "contracts/launchpad/docs/interfaces/IQuoter.md"
+status = "corrected"
+
+[page.8]
+path = "contracts/launchpad/docs/interfaces/IRouter.md"
+status = "corrected"
+
+[page.9]
+path = "contracts/launchpad/docs/interfaces/ISidioraFactory.md"
+status = "corrected"
+
+[page.10]
+path = "contracts/launchpad/docs/interfaces/ISidioraNFT.md"
+status = "corrected"
+
+[page.11]
+path = "contracts/launchpad/docs/interfaces/ISidioraPool.md"
+status = "corrected"
+
+[page.12]
+path = "contracts/launchpad/docs/interfaces/ITreasury.md"
+status = "corrected"
+
+[page.13]
+path = "contracts/launchpad/docs/libraries/BitFlag.md"
+status = "corrected"
+
+[page.14]
+path = "contracts/launchpad/docs/libraries/FeeLib.md"
+status = "corrected"
+
+[page.15]
+path = "contracts/launchpad/docs/libraries/FixedPoint128.md"
+status = "reviewed"
+
+[page.16]
+path = "contracts/launchpad/docs/libraries/PoolAddress.md"
+status = "corrected"
+
+[page.17]
+path = "contracts/launchpad/docs/libraries/ReserveLib.md"
+status = "corrected"
+
+[page.18]
+path = "contracts/launchpad/docs/libraries/SidioraMath.md"
+status = "reviewed"
+
+[page.19]
+path = "contracts/launchpad/docs/libraries/TokenAddress.md"
+status = "corrected"
+
+[page.20]
+path = "contracts/launchpad/docs/libraries/TransferHelper.md"
+status = "reviewed"
+
+[page.21]
+path = "contracts/launchpad/docs/meta-ag/adapters/SidioraAdapter.md"
+status = "corrected"
+
+[page.22]
+path = "contracts/launchpad/docs/meta-ag/adapters/VaultAdapter.md"
+status = "corrected"
+
+[page.23]
+path = "contracts/launchpad/docs/meta-ag/analytics/TransactionTracker.md"
+status = "corrected"
+
+[page.24]
+path = "contracts/launchpad/docs/meta-ag/engine/PECOR.md"
+status = "corrected"
+
+[page.25]
+path = "contracts/launchpad/docs/meta-ag/engine/PECOROrders.md"
+status = "corrected"
+
+[page.26]
+path = "contracts/launchpad/docs/meta-ag/interfaces/IDataFeedAdapter.md"
+status = "corrected"
+
+[page.27]
+path = "contracts/launchpad/docs/meta-ag/interfaces/IERC20Minimal.md"
+status = "corrected"
+
+[page.28]
+path = "contracts/launchpad/docs/meta-ag/interfaces/IMetaAGQuoter.md"
+status = "corrected"
+
+[page.29]
+path = "contracts/launchpad/docs/meta-ag/interfaces/IMetaAGRouter.md"
+status = "corrected"
+
+[page.30]
+path = "contracts/launchpad/docs/meta-ag/interfaces/IOracleHub.md"
+status = "corrected"
+
+[page.31]
+path = "contracts/launchpad/docs/meta-ag/interfaces/IPECOR.md"
+status = "corrected"
+
+[page.32]
+path = "contracts/launchpad/docs/meta-ag/interfaces/IPECOROrders.md"
+status = "corrected"
+
+[page.33]
+path = "contracts/launchpad/docs/meta-ag/interfaces/IPECORVault.md"
+status = "corrected"
+
+[page.34]
+path = "contracts/launchpad/docs/meta-ag/interfaces/IPriceOracle.md"
+status = "corrected"
+
+[page.35]
+path = "contracts/launchpad/docs/meta-ag/interfaces/IProtocolAdapter.md"
+status = "corrected"
+
+[page.36]
+path = "contracts/launchpad/docs/meta-ag/interfaces/ITransactionTracker.md"
+status = "corrected"
+
+[page.37]
+path = "contracts/launchpad/docs/meta-ag/interfaces/IWETH.md"
+status = "corrected"
+
+[page.38]
+path = "contracts/launchpad/docs/meta-ag/mocks/MockFeeOnTransferERC20.md"
+status = "corrected"
+
+[page.39]
+path = "contracts/launchpad/docs/meta-ag/mocks/MockFeedAdapter.md"
+status = "corrected"
+
+[page.40]
+path = "contracts/launchpad/docs/meta-ag/mocks/MockOracleHub.md"
+status = "corrected"

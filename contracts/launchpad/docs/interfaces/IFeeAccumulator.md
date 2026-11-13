@@ -4,6 +4,8 @@
 
 Interface for fee tracking and distribution across pools
 
+Source: [IFeeAccumulator.sol](../../contracts/interfaces/IFeeAccumulator.sol).
+
 ### Unauthorized
 
 ```solidity
@@ -55,37 +57,37 @@ error InsufficientSurplus()
 ### FeeRecorded
 
 ```solidity
-event FeeRecorded(address pool, uint256 feeAmount, uint256 protocolCut, uint256 poolCut)
+event FeeRecorded(address indexed pool, uint256 feeAmount, uint256 protocolCut, uint256 poolCut)
 ```
 
 ### FeesClaimed
 
 ```solidity
-event FeesClaimed(address pool, address recipient, uint256 amount)
+event FeesClaimed(address indexed pool, address indexed recipient, uint256 amount)
 ```
 
 ### FeesBurned
 
 ```solidity
-event FeesBurned(address pool, uint256 amount)
+event FeesBurned(address indexed pool, uint256 amount)
 ```
 
 ### AirdropTriggered
 
 ```solidity
-event AirdropTriggered(address pool, uint256 totalAmount, uint256 epoch)
+event AirdropTriggered(address indexed pool, uint256 totalAmount, uint256 epoch)
 ```
 
 ### AirdropClaimed
 
 ```solidity
-event AirdropClaimed(address pool, address holder, uint256 amount, uint256 epoch)
+event AirdropClaimed(address indexed pool, address indexed holder, uint256 amount, uint256 epoch)
 ```
 
 ### LpRewardsSent
 
 ```solidity
-event LpRewardsSent(address pool, uint256 amount)
+event LpRewardsSent(address indexed pool, uint256 amount)
 ```
 
 ### ProtocolFeeSwept
@@ -97,13 +99,13 @@ event ProtocolFeeSwept(uint256 amount)
 ### OpticalSurplusRecorded
 
 ```solidity
-event OpticalSurplusRecorded(address pool, uint256 amount)
+event OpticalSurplusRecorded(address indexed pool, uint256 amount)
 ```
 
 ### OpticalSurplusClaimed
 
 ```solidity
-event OpticalSurplusClaimed(address pool, address recipient, uint256 amount)
+event OpticalSurplusClaimed(address indexed pool, address indexed recipient, uint256 amount)
 ```
 
 ### recordFee
@@ -116,10 +118,10 @@ Record fees from a swap (pool-only)
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| pool | address | The pool address the fees are from |
-| feeAmount | uint256 | Total fee amount in USDL |
+| Name      | Type    | Description                        |
+| --------- | ------- | ---------------------------------- |
+| pool      | address | The pool address the fees are from |
+| feeAmount | uint256 | Total fee amount in USDL           |
 
 ### claim
 
@@ -127,19 +129,20 @@ Record fees from a swap (pool-only)
 function claim(address pool, address recipient) external returns (uint256 amount)
 ```
 
-Claim accumulated fees for a pool (CLAIM strategy, FeesRouter-only)
+Claim accumulated fees for a pool. Requires FEES_ROUTER_ROLE; FeesRouter enforces the CLAIM
+strategy.
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| pool | address | The pool address |
+| Name      | Type    | Description                 |
+| --------- | ------- | --------------------------- |
+| pool      | address | The pool address            |
 | recipient | address | Address to receive the fees |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name   | Type    | Description                |
+| ------ | ------- | -------------------------- |
 | amount | uint256 | The amount of USDL claimed |
 
 ### burn
@@ -148,18 +151,19 @@ Claim accumulated fees for a pool (CLAIM strategy, FeesRouter-only)
 function burn(address pool) external returns (uint256 amount)
 ```
 
-Burn accumulated fees for a pool (BURN strategy, FeesRouter-only)
+Transfer accumulated fees to the burn address. Requires FEES_ROUTER_ROLE; FeesRouter enforces the
+BURN strategy.
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name | Type    | Description      |
+| ---- | ------- | ---------------- |
 | pool | address | The pool address |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name   | Type    | Description               |
+| ------ | ------- | ------------------------- |
 | amount | uint256 | The amount of USDL burned |
 
 ### triggerAirdrop
@@ -168,18 +172,19 @@ Burn accumulated fees for a pool (BURN strategy, FeesRouter-only)
 function triggerAirdrop(address pool) external returns (uint256 totalAmount)
 ```
 
-Trigger airdrop distribution for a pool (AIRDROP strategy, FeesRouter-only)
+Start a snapshot airdrop epoch. Requires FEES_ROUTER_ROLE; FeesRouter enforces the AIRDROP strategy.
+Eligibility uses the previous block’s token balances and excludes the pool and burn address.
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name | Type    | Description      |
+| ---- | ------- | ---------------- |
 | pool | address | The pool address |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name        | Type    | Description                  |
+| ----------- | ------- | ---------------------------- |
 | totalAmount | uint256 | The total amount distributed |
 
 ### claimAirdrop
@@ -188,19 +193,20 @@ Trigger airdrop distribution for a pool (AIRDROP strategy, FeesRouter-only)
 function claimAirdrop(address pool, address holder) external returns (uint256 amount)
 ```
 
-Claim airdrop share for a token holder
+Claim the latest epoch’s snapshot share for a token holder; payment goes to holder regardless of
+caller. The claim window is 180 days from triggering.
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| pool | address | The pool address |
+| Name   | Type    | Description              |
+| ------ | ------- | ------------------------ |
+| pool   | address | The pool address         |
 | holder | address | The token holder address |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name   | Type    | Description                |
+| ------ | ------- | -------------------------- |
 | amount | uint256 | The amount of USDL claimed |
 
 ### sendLpRewards
@@ -209,18 +215,19 @@ Claim airdrop share for a token holder
 function sendLpRewards(address pool) external returns (uint256 amount)
 ```
 
-Send accumulated fees to pool as LP rewards (LP_REWARDS strategy, FeesRouter-only)
+Donate accumulated fees to pool liquidity. Requires FEES_ROUTER_ROLE; FeesRouter enforces LP_REWARDS
+and synchronizes pool reserves.
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name | Type    | Description      |
+| ---- | ------- | ---------------- |
 | pool | address | The pool address |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name   | Type    | Description             |
+| ------ | ------- | ----------------------- |
 | amount | uint256 | The amount of USDL sent |
 
 ### authorizePool
@@ -233,8 +240,8 @@ Authorize a pool to record fees (Factory-only via FACTORY_ROLE)
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name | Type    | Description                   |
+| ---- | ------- | ----------------------------- |
 | pool | address | The pool address to authorize |
 
 ### getAccumulatedFees
@@ -267,7 +274,7 @@ Get airdrop balance for a pool
 function getLpRewardsBalance(address pool) external view returns (uint256)
 ```
 
-Get LP rewards balance for a pool
+Get cumulative USDL donated to pool liquidity.
 
 ### getAirdropEpoch
 
@@ -291,12 +298,13 @@ Check if holder has claimed for a specific epoch
 function authorizeOptical(address optical) external
 ```
 
-Authorize an optical to claim surplus (OPTICAL_GRANTER_ROLE only)
+Grant OPTICAL_CLAIM_ROLE to an optical; requires OPTICAL_GRANTER_ROLE. claimOpticalSurplus
+authorizes the pool’s attached optical through registry metadata.
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name    | Type    | Description                               |
+| ------- | ------- | ----------------------------------------- |
 | optical | address | The optical contract address to authorize |
 
 ### recordOpticalSurplus
@@ -305,13 +313,14 @@ Authorize an optical to claim surplus (OPTICAL_GRANTER_ROLE only)
 function recordOpticalSurplus(address pool, uint256 amount) external
 ```
 
-Record optical surplus when beforeFeeDistribution returns adjustedFee < feeAmount
+Record additional USDL-backed surplus for the calling registered pool. Requires POOL_ROLE and
+sufficient unaccounted USDL to back the amount.
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| pool | address | The pool address |
+| Name   | Type    | Description                  |
+| ------ | ------- | ---------------------------- |
+| pool   | address | The pool address             |
 | amount | uint256 | The surplus amount to record |
 
 ### claimOpticalSurplus
@@ -320,14 +329,15 @@ Record optical surplus when beforeFeeDistribution returns adjustedFee < feeAmoun
 function claimOpticalSurplus(address pool, uint256 amount, address recipient) external
 ```
 
-Claim optical surplus for a pool (OPTICAL_CLAIM_ROLE only)
+Claim surplus as the optical contract currently attached to the pool in PoolRegistry. The caller
+must contain contract code.
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| pool | address | The pool address |
-| amount | uint256 | Amount to claim |
+| Name      | Type    | Description                 |
+| --------- | ------- | --------------------------- |
+| pool      | address | The pool address            |
+| amount    | uint256 | Amount to claim             |
 | recipient | address | Address to receive the USDL |
 
 ### getOpticalSurplus
@@ -338,3 +348,52 @@ function getOpticalSurplus(address pool) external view returns (uint256)
 
 Get optical surplus balance for a pool
 
+### AirdropClaimWindowOpen
+
+```solidity
+error AirdropClaimWindowOpen()
+```
+
+### AirdropClaimWindowClosed
+
+```solidity
+error AirdropClaimWindowClosed()
+```
+
+### UnsupportedSnapshotToken
+
+```solidity
+error UnsupportedSnapshotToken()
+```
+
+### AirdropExpired
+
+```solidity
+event AirdropExpired(address indexed pool, uint256 indexed epoch, uint256 amount)
+```
+
+### supportsAirdrop
+
+```solidity
+function supportsAirdrop(address pool) external view returns (bool)
+```
+
+Checks whether the pool’s token exposes previous-block total supply and balance checkpoints.
+
+### claimAirdropEpoch
+
+```solidity
+function claimAirdropEpoch(address pool, address holder, uint256 epoch) external returns (uint256 amount)
+```
+
+Claims a specified snapshot epoch for holder and sends payment to that holder. Claims close 180 days
+after the epoch is triggered; the final eligible claimant receives rounding residue.
+
+### sweepExpiredAirdrop
+
+```solidity
+function sweepExpiredAirdrop(address pool, uint256 epoch) external returns (uint256 amount)
+```
+
+After the 180-day claim window, anyone may return the epoch’s unclaimed amount to the pool’s
+accumulated fees.

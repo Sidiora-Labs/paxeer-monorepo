@@ -2,24 +2,19 @@
 
 ## IDataFeedAdapter
 
-Standardized interface for pluggable price feed adapters consumed by OracleHub
+Price feed interface consumed by OracleHub. The included PriceOracleAdapter and SidioraFeedAdapter
+return USD prices with 18 decimal scaling. Missing or stale data is represented by a zero price or
+confidence rather than a stale-data revert.
 
-_Any protocol (PriceOracle, Sidiora pools, Chainlink, etc.) implements this to plug into OracleHub
+Confidence values are 0 for unavailable data, 1–3333 for low confidence, 3334–6666 for medium
+confidence, and 6667–10000 for high confidence. Consumers also validate timestamps and the adapter’s
+`maxStaleness` threshold.
 
-Confidence model:
-  0       = no data / adapter offline
-  1–3333  = low confidence (single source, wide spread, or stale-ish)
-  3334–6666 = medium confidence
-  6667–10000 = high confidence (multiple relayers, fresh, within deviation)
+Timestamps identify the source update. SidioraFeedAdapter uses the current block time for its
+explicitly enabled spot reference; it also requires a fresh USDL/USD price from its configured
+oracle. `sourceId` may read state; `adapterName` is pure.
 
-Invariants (spec §6.2):
-  I7. Never reverts on stale/missing — return confidence=0 or price=0.
-  I8. Confidence monotonic (higher = more trustworthy). Exact banding per
-      adapter; MUST follow the 0/low/medium/high model
-      (0 / 1–3333 / 3334–6666 / 6667–10000).
-  I9. timestamp is source's last update time, NOT block.timestamp.
-      Exception: SidioraFeedAdapter uses block.timestamp because Sidiora
-      pool prices update implicitly on every trade._
+Source: [IDataFeedAdapter.sol](../../../contracts/meta-ag/interfaces/IDataFeedAdapter.sol).
 
 ### FeedPrice
 
@@ -44,14 +39,14 @@ _MUST NOT revert on stale data — return confidence=0 instead_
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name  | Type    | Description                |
+| ----- | ------- | -------------------------- |
 | token | address | The token address to price |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name | Type                              | Description                                       |
+| ---- | --------------------------------- | ------------------------------------------------- |
 | feed | struct IDataFeedAdapter.FeedPrice | The full FeedPrice struct; price=0 if unsupported |
 
 ### supportsToken
@@ -64,14 +59,14 @@ Check whether this adapter supports a given token
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name  | Type    | Description                |
+| ----- | ------- | -------------------------- |
 | token | address | The token address to check |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name      | Type | Description                              |
+| --------- | ---- | ---------------------------------------- |
 | supported | bool | True if this adapter can price the token |
 
 ### getFeedPrices
@@ -84,29 +79,29 @@ Get prices for multiple tokens in one call
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name   | Type      | Description              |
+| ------ | --------- | ------------------------ |
 | tokens | address[] | Array of token addresses |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name  | Type                                | Description                                           |
+| ----- | ----------------------------------- | ----------------------------------------------------- |
 | feeds | struct IDataFeedAdapter.FeedPrice[] | Array of FeedPrice structs (parallel to tokens array) |
 
 ### sourceId
 
 ```solidity
-function sourceId() external pure returns (bytes32 id)
+function sourceId() external view returns (bytes32 id)
 ```
 
 Unique identifier for this adapter source (e.g., keccak256("PriceOracle.v1"))
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| id | bytes32 | The bytes32 identifier |
+| Name | Type    | Description            |
+| ---- | ------- | ---------------------- |
+| id   | bytes32 | The bytes32 identifier |
 
 ### adapterName
 
@@ -118,8 +113,8 @@ Human-readable name for this adapter
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name | Type   | Description             |
+| ---- | ------ | ----------------------- |
 | name | string | The adapter name string |
 
 ### maxStaleness
@@ -132,8 +127,8 @@ Maximum age in seconds before this adapter's prices are considered stale
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name      | Type    | Description                    |
+| --------- | ------- | ------------------------------ |
 | staleness | uint256 | Staleness threshold in seconds |
 
 ### getSupportedTokens
@@ -146,19 +141,18 @@ Get all tokens this adapter currently supports
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name   | Type      | Description                        |
+| ------ | --------- | ---------------------------------- |
 | tokens | address[] | Array of supported token addresses |
 
 ### AdapterRegistered
 
 ```solidity
-event AdapterRegistered(bytes32 sourceId, address adapter)
+event AdapterRegistered(bytes32 indexed sourceId, address indexed adapter)
 ```
 
 ### AdapterPriceServed
 
 ```solidity
-event AdapterPriceServed(bytes32 sourceId, address token, uint256 price, uint256 confidence)
+event AdapterPriceServed(bytes32 indexed sourceId, address indexed token, uint256 price, uint256 confidence)
 ```
-

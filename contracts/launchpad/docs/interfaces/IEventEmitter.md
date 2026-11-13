@@ -2,19 +2,49 @@
 
 ## IEventEmitter
 
-[IEventEmitter.sol](../../contracts/interfaces/IEventEmitter.sol) declares the central event API; [EventEmitter.sol](../../contracts/data/EventEmitter.sol) implements authorization and emission. This reference accompanies the [launchpad overview](../../README.md#layer-2-data--the-memory-of-the-protocol) and [operations runbook](../../operations/README.md).
+[IEventEmitter.sol](../../contracts/interfaces/IEventEmitter.sol) declares the central event API;
+[EventEmitter.sol](../../contracts/data/EventEmitter.sol) implements authorization and emission.
+This reference accompanies the
+[launchpad overview](../../README.md#layer-2-data--the-memory-of-the-protocol) and
+[operations runbook](../../operations/README.md).
 
-These are EVM contract events on Paxeer mainnet-beta (chain ID 125 / `0x7d`). Read receipts and logs through root-path node JSON-RPC, such as `https://api5.mainnet-beta.paxeer.network`. Receipts are final when their block is committed on the single BFT network, whose kernel proposes blocks. Discover the hub proxy and source contracts in the reviewed `deployments/<network>-addresses.json`.
+These are EVM contract events on Paxeer mainnet-beta (chain ID 125 / `0x7d`). Read receipts and logs
+through root-path node JSON-RPC. Receipts are final when their block is committed on the single BFT
+network, whose kernel proposes blocks. Discover the hub proxy and source contracts in the reviewed
+`deployments/<network>-addresses.json`.
 
-The hub is an optional mirror, with coverage determined by each producer and the deployed wiring. Native source logs remain authoritative. Some producers catch mirror failures and emit `MirrorFailed`; other configured hub calls propagate errors. Following only the hub can miss activity. Most activity events append `block.timestamp` and `block.number` inside the emitter rather than accepting those values from callers. `TypedEmitterPermission` is an administrative event without those fields.
+The hub is an optional mirror, with coverage determined by each producer and the deployed wiring.
+Native source logs remain authoritative. Some producers catch mirror failures and emit
+`MirrorFailed`; other configured hub calls propagate errors. Following only the hub can miss
+activity. Most activity events append `block.timestamp` and `block.number` inside the emitter rather
+than accepting those values from callers. `TypedEmitterPermission` is an administrative event
+without those fields.
 
-Payloads are event-specific. Core market, swap and pool-state events use `poolId`, encoded by current callers as `bytes32(uint256(uint160(pool)))`. `TokenTransfer` carries `token`, `from`, `to` and `value`, with no pool ID; use PoolRegistry to resolve pool metadata. Generic `EventData` has no enforced application schema, so consumers must agree on keys and value types with their producer.
+Payloads are event-specific. Core market, swap and pool-state events use `poolId`, encoded by
+current callers as `bytes32(uint256(uint160(pool)))`. `TokenTransfer` carries `token`, `from`, `to`
+and `value`, with no pool ID; use PoolRegistry to resolve pool metadata. Generic `EventData` has no
+enforced application schema, so consumers must agree on keys and value types with their producer.
 
-All emission entrypoints require `isAuthorizedEmitter(msg.sender)`. This generic gate admits explicit allowlisted addresses, the wired pool registry, registered pools, approved opticals, the wired Sidiora factory and locally registered tokens. Failed registry probes do not authorize a caller. Holding `EVENT_EMITTER_ROLE` alone does not authorize emission.
+All emission entrypoints require `isAuthorizedEmitter(msg.sender)`. This generic gate admits
+explicit allowlisted addresses, the wired pool registry, registered pools, approved opticals, the
+wired Sidiora factory and locally registered tokens. Failed registry probes do not authorize a
+caller. Holding `EVENT_EMITTER_ROLE` alone does not authorize emission.
 
-Typed emission has additional checks. Most typed methods require a selector-specific permission set by `setTypedEmitter`; a generic whitelist entry or optical approval alone is insufficient. Factory creation methods also accept the wired factory. Pool swap/state/optical methods also accept registered pool callers with a matching address-derived pool ID; the optical must match registry metadata. Transfer, approval, upgrade and pause mirrors require the caller to be the asset, proxy or paused contract named in the payload. Pool registration mirrors validate the wired registry and stored metadata unless explicitly permitted for that selector. See the implementation for each method’s exact gate.
+Typed emission has additional checks. Most typed methods require a selector-specific permission set
+by `setTypedEmitter`; a generic whitelist entry or optical approval alone is insufficient. Factory
+creation methods also accept the wired factory. Pool swap/state/optical methods also accept
+registered pool callers with a matching address-derived pool ID; the optical must match registry
+metadata. Transfer, approval, upgrade and pause mirrors require the caller to be the asset, proxy or
+paused contract named in the payload. Pool registration mirrors validate the wired registry and
+stored metadata unless explicitly permitted for that selector. See the implementation for each
+method’s exact gate.
 
-`DEFAULT_ADMIN_ROLE` controls upgrades, role administration, pool-registry wiring and typed permissions. `EVENT_EMITTER_ROLE` or default administration permits generic emitter authorization and the optional wiring setters below. Neither role guarantees that all producer contracts have been wired. For existing proxies, follow the [upgrade and migration guidance](../../README.md#operator-safety-and-upgrade-qualification) before changing implementation or permissions.
+`DEFAULT_ADMIN_ROLE` controls upgrades, role administration, pool-registry wiring and typed
+permissions. `EVENT_EMITTER_ROLE` or default administration permits generic emitter authorization
+and the optional wiring setters below. Neither role guarantees that all producer contracts have been
+wired. For existing proxies, follow the
+[upgrade and migration guidance](../../README.md#operator-safety-and-upgrade-qualification) before
+changing implementation or permissions.
 
 ### Unauthorized
 
@@ -22,7 +52,9 @@ Typed emission has additional checks. Most typed methods require a selector-spec
 error Unauthorized()
 ```
 
-Raised when an emission gate, self-identity check or one-time migration guard fails. Administrative role failures may instead use the inherited `MissingRole(address,bytes32)` error, which is not declared by this interface.
+Raised when an emission gate, self-identity check or one-time migration guard fails. Administrative
+role failures may instead use the inherited `MissingRole(address,bytes32)` error, which is not
+declared by this interface.
 
 ### MarketCreated
 
@@ -126,7 +158,8 @@ function emitConfigUpdated(bytes32 key, uint256 oldValue, uint256 newValue) exte
 function isAuthorizedEmitter(address emitter) external view returns (bool)
 ```
 
-Returns the generic authorization result. It does not check a typed method’s selector-specific permission or validate its payload.
+Returns the generic authorization result. It does not check a typed method’s selector-specific
+permission or validate its payload.
 
 ### setAuthorizedEmitter
 
@@ -134,7 +167,9 @@ Returns the generic authorization result. It does not check a typed method’s s
 function setAuthorizedEmitter(address emitter, bool authorized) external
 ```
 
-Sets the explicit generic whitelist flag for a nonzero address. Requires default administration or the emitter role. Revoking this flag does not revoke independent dynamic authorization or typed permissions.
+Sets the explicit generic whitelist flag for a nonzero address. Requires default administration or
+the emitter role. Revoking this flag does not revoke independent dynamic authorization or typed
+permissions.
 
 ### AddressKeyValue
 
@@ -345,7 +380,9 @@ struct EventData {
 event EventLog(address indexed msgSender, bytes32 indexed eventNameHash, string eventName, EventData eventData, uint256 timestamp, uint256 blockNumber)
 ```
 
-Generic payload with caller provenance. For these non-anonymous events, log topic 0 is the ABI event signature, topic 1 is indexed `msgSender`, and topic 2 is `eventNameHash = keccak256(bytes(eventName))`. Filter the name hash at topic 2, not topic 1.
+Generic payload with caller provenance. For these non-anonymous events, log topic 0 is the ABI event
+signature, topic 1 is indexed `msgSender`, and topic 2 is
+`eventNameHash = keccak256(bytes(eventName))`. Filter the name hash at topic 2, not topic 1.
 
 ### EventLog1
 
@@ -353,7 +390,8 @@ Generic payload with caller provenance. For these non-anonymous events, log topi
 event EventLog1(address indexed msgSender, bytes32 indexed eventNameHash, bytes32 indexed topic1, string eventName, EventData eventData, uint256 timestamp, uint256 blockNumber)
 ```
 
-Generic payload with caller and name hash, plus indexed `topic1` at log topic 3 (for example, a user, pool or token identifier).
+Generic payload with caller and name hash, plus indexed `topic1` at log topic 3 (for example, a
+user, pool or token identifier).
 
 ### EventLog2
 
@@ -361,7 +399,9 @@ Generic payload with caller and name hash, plus indexed `topic1` at log topic 3 
 event EventLog2(address indexed msgSender, bytes32 indexed eventNameHash, bytes32 indexed topic1, bytes32 topic2, string eventName, EventData eventData, uint256 timestamp, uint256 blockNumber)
 ```
 
-Generic payload with two application identifiers. Only `topic1` is indexed (log topic 3); `topic2` is unindexed and must be decoded from event data. The caller and name hash occupy log topics 1 and 2.
+Generic payload with two application identifiers. Only `topic1` is indexed (log topic 3); `topic2`
+is unindexed and must be decoded from event data. The caller and name hash occupy log topics 1
+and 2.
 
 ### emitEventLog
 
@@ -591,10 +631,10 @@ function emitPauseToggle(address pausedContract, bool paused) external
 event FeeFlow(uint8 indexed kind, address indexed pool, address indexed party, uint256 amount, uint256 protocolCut, uint256 poolCut, uint256 epoch, uint256 timestamp, uint256 blockNumber)
 ```
 
-Typed channel for FeeAccumulator's mirrored fee activity. The implementation
-uses best-effort emission for this channel; native fee events and liabilities
-remain authoritative. For example, `AirdropExpired` is a native event without
-a corresponding `FeeFlow` emission in the current implementation.
+Typed channel for FeeAccumulator's mirrored fee activity. The implementation uses best-effort
+emission for this channel; native fee events and liabilities remain authoritative. For example,
+`AirdropExpired` is a native event without a corresponding `FeeFlow` emission in the current
+implementation.
 
 ### RouterTrade
 
@@ -656,7 +696,8 @@ function emitTokenDeployed(address token, address pool, address creator, bytes32
 event TypedEmitterPermission(address indexed emitter, bytes4 indexed selector, bool allowed)
 ```
 
-Emitted when default administration changes a selector-specific permission. This administrative event has no timestamp or block-number fields; use receipt metadata.
+Emitted when default administration changes a selector-specific permission. This administrative
+event has no timestamp or block-number fields; use receipt metadata.
 
 ### setTypedEmitter
 
@@ -664,7 +705,9 @@ Emitted when default administration changes a selector-specific permission. This
 function setTypedEmitter(address emitter, bytes4 selector, bool allowed) external
 ```
 
-Requires `DEFAULT_ADMIN_ROLE` and a nonzero emitter. The selector identifies the `emit...` function being permitted, not the emitted event’s topic hash. The generic emission gate still applies, so configure and verify both paths for a producer.
+Requires `DEFAULT_ADMIN_ROLE` and a nonzero emitter. The selector identifies the `emit...` function
+being permitted, not the emitted event’s topic hash. The generic emission gate still applies, so
+configure and verify both paths for a producer.
 
 ### isTypedEmitter
 
@@ -672,7 +715,8 @@ Requires `DEFAULT_ADMIN_ROLE` and a nonzero emitter. The selector identifies the
 function isTypedEmitter(address emitter, bytes4 selector) external view returns (bool)
 ```
 
-Returns the explicit selector permission. It does not evaluate generic or method-specific authorization.
+Returns the explicit selector permission. It does not evaluate generic or method-specific
+authorization.
 
 ### VERSION
 
@@ -680,7 +724,8 @@ Returns the explicit selector permission. It does not evaluate generic or method
 function VERSION() external pure returns (string)
 ```
 
-The current implementation returns `"2.0.0"`. This is a version label, not proof of a particular deployed runtime or permission configuration.
+The current implementation returns `"2.0.0"`. This is a version label, not proof of a particular
+deployed runtime or permission configuration.
 
 ### EVENT_EMITTER_ROLE
 
@@ -688,7 +733,9 @@ The current implementation returns `"2.0.0"`. This is a version label, not proof
 function EVENT_EMITTER_ROLE() external view returns (bytes32)
 ```
 
-`keccak256("EVENT_EMITTER_ROLE")`. Allows generic emitter authorization and optional registry/factory wiring, but does not grant upgrade authority, role administration or selector-specific typed permissions. Those remain with `DEFAULT_ADMIN_ROLE`.
+`keccak256("EVENT_EMITTER_ROLE")`. Allows generic emitter authorization and optional
+registry/factory wiring, but does not grant upgrade authority, role administration or
+selector-specific typed permissions. Those remain with `DEFAULT_ADMIN_ROLE`.
 
 ### setOpticalRegistry
 
@@ -696,7 +743,9 @@ function EVENT_EMITTER_ROLE() external view returns (bytes32)
 function setOpticalRegistry(address registry) external
 ```
 
-Sets the optical registry used by the generic authorization gate. Requires `DEFAULT_ADMIN_ROLE` or `EVENT_EMITTER_ROLE`. This setter can be called again to change or clear the pointer; it is not a one-time initializer.
+Sets the optical registry used by the generic authorization gate. Requires `DEFAULT_ADMIN_ROLE` or
+`EVENT_EMITTER_ROLE`. This setter can be called again to change or clear the pointer; it is not a
+one-time initializer.
 
 ### setMetaAGRouter
 
@@ -704,7 +753,9 @@ Sets the optical registry used by the generic authorization gate. Requires `DEFA
 function setMetaAGRouter(address router) external
 ```
 
-Stores the Meta-AG contract address. The current `_isAuthorized` implementation does not consult this pointer or authorize its adapters; generic and typed permissions must be configured separately. Requires default administration or the emitter role.
+Stores the Meta-AG contract address. The current `_isAuthorized` implementation does not consult
+this pointer or authorize its adapters; generic and typed permissions must be configured separately.
+Requires default administration or the emitter role.
 
 ### setSidioraFactory
 
@@ -712,7 +763,8 @@ Stores the Meta-AG contract address. The current `_isAuthorized` implementation 
 function setSidioraFactory(address factory) external
 ```
 
-Sets the factory identity used by generic authorization and factory-specific creation checks. Requires default administration or the emitter role.
+Sets the factory identity used by generic authorization and factory-specific creation checks.
+Requires default administration or the emitter role.
 
 ### setTokenRegistry
 
@@ -720,7 +772,9 @@ Sets the factory identity used by generic authorization and factory-specific cre
 function setTokenRegistry(address registry) external
 ```
 
-Compatibility setter with a role check only. The current implementation does not store or consult an external token-registry pointer; it uses the local token mapping. Requires default administration or the emitter role.
+Compatibility setter with a role check only. The current implementation does not store or consult an
+external token-registry pointer; it uses the local token mapping. Requires default administration or
+the emitter role.
 
 ### registerToken
 
@@ -728,7 +782,10 @@ Compatibility setter with a role check only. The current implementation does not
 function registerToken(address token, address pool) external
 ```
 
-Registers a nonzero token in the local generic authorization mapping. The wired factory, `DEFAULT_ADMIN_ROLE` or `EVENT_EMITTER_ROLE` may call it. The `pool` argument is currently ignored; no token/pool binding is stored here. Registration does not add transfer mirrors to a token that does not call the hub.
+Registers a nonzero token in the local generic authorization mapping. The wired factory,
+`DEFAULT_ADMIN_ROLE` or `EVENT_EMITTER_ROLE` may call it. The `pool` argument is currently ignored;
+no token/pool binding is stored here. Registration does not add transfer mirrors to a token that
+does not call the hub.
 
 ### deregisterToken
 
@@ -736,7 +793,8 @@ Registers a nonzero token in the local generic authorization mapping. The wired 
 function deregisterToken(address token) external
 ```
 
-Clears local token registration. Requires default administration or the emitter role. Other independent authorization paths, such as the explicit allowlist, can still authorize that address.
+Clears local token registration. Requires default administration or the emitter role. Other
+independent authorization paths, such as the explicit allowlist, can still authorize that address.
 
 ### isRegisteredToken
 
@@ -752,6 +810,11 @@ Returns the local token-registration flag, not the result of the full authorizat
 function reinitializeV2(address adminWithEmitterRole) external
 ```
 
-One-time migration on an initialized proxy, callable only by `DEFAULT_ADMIN_ROLE`. It sets the v2 migration flag, sets the administrator of `EVENT_EMITTER_ROLE` to `DEFAULT_ADMIN_ROLE`, and grants the emitter role to `adminWithEmitterRole` unless that address is zero. A second call reverts with `Unauthorized()`; it is not idempotent. A caller without the default admin role fails the inherited `MissingRole(address,bytes32)` check.
+One-time migration on an initialized proxy, callable only by `DEFAULT_ADMIN_ROLE`. It sets the v2
+migration flag, sets the administrator of `EVENT_EMITTER_ROLE` to `DEFAULT_ADMIN_ROLE`, and grants
+the emitter role to `adminWithEmitterRole` unless that address is zero. A second call reverts with
+`Unauthorized()`; it is not idempotent. A caller without the default admin role fails the inherited
+`MissingRole(address,bytes32)` check.
 
-Reconcile the recorded receipt and role state before retrying an ambiguous migration transaction. Do not schedule this call again merely because a deployment or upgrade is being resumed.
+Reconcile the recorded receipt and role state before retrying an ambiguous migration transaction. Do
+not schedule this call again merely because a deployment or upgrade is being resumed.

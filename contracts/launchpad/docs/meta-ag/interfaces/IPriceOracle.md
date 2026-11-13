@@ -2,15 +2,17 @@
 
 ## IPriceOracle
 
-Interface for the Paxeer Price Oracle — multi-relayer, staleness-protected, TWAP-enabled
+Interface for a UUPS price oracle with authorized relayers, per-token freshness limits, price bounds
+and time-weighted average prices. Prices use 18 decimal scaling (`PRICE_DECIMALS = 18`). Relayers
+publish through `updatePrice` or `batchUpdatePrices`; consumers can read fresh spot prices, batch
+values with staleness flags, or retained price history.
 
-_All prices use 18 decimal precision (PRICE_DECIMALS = 18).
+`DEFAULT_ADMIN_ROLE` controls tokens, relayers, configuration and upgrades. Default administration
+or `PAUSER_ROLE` can pause price publication; pausing does not block reads, and freshness limits
+continue to apply. Default administration can unpause. Heartbeat and deviation values describe
+relayer publication policy; configured price bounds and maximum staleness are enforced on-chain.
 
-Architecture (spec §7.1):
-  - Off-chain relayers push prices via batchUpdatePrices()
-  - On-chain staleness protection reverts getPrice() if data is too old
-  - TWAP (Time-Weighted Average Price) computed on-chain from price history
-  - Price bounds prevent erroneous updates (e.g., relayer bug pushing price to 0)_
+Source: [IPriceOracle.sol](../../../contracts/meta-ag/interfaces/IPriceOracle.sol).
 
 ### PriceData
 
@@ -42,12 +44,12 @@ struct TokenConfig {
 function initialize(address admin) external
 ```
 
-Initialize the UUPS proxy (spec §7.1)
+Initialize the UUPS proxy
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name  | Type    | Description                           |
+| ----- | ------- | ------------------------------------- |
 | admin | address | Timelock — granted DEFAULT_ADMIN_ROLE |
 
 ### getPrice
@@ -62,14 +64,14 @@ _REVERTS if price is stale (older than maxStaleness for that token)_
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name  | Type    | Description                            |
+| ----- | ------- | -------------------------------------- |
 | token | address | The token address to get the price for |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name  | Type    | Description                             |
+| ----- | ------- | --------------------------------------- |
 | price | uint256 | The token price in USD with 18 decimals |
 
 ### getPriceWithTimestamp
@@ -84,17 +86,17 @@ _REVERTS if price is stale_
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name  | Type    | Description       |
+| ----- | ------- | ----------------- |
 | token | address | The token address |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| price | uint256 | The token price (18 decimals) |
-| timestamp | uint256 | When the price was last updated |
-| roundId | uint256 | The round number of this price update |
+| Name      | Type    | Description                           |
+| --------- | ------- | ------------------------------------- |
+| price     | uint256 | The token price (18 decimals)         |
+| timestamp | uint256 | When the price was last updated       |
+| roundId   | uint256 | The round number of this price update |
 
 ### getTWAP
 
@@ -104,19 +106,21 @@ function getTWAP(address token, uint256 period) external view returns (uint256 t
 
 Get the Time-Weighted Average Price over a period
 
-_Uses on-chain price accumulator. Reverts if insufficient history._
+Uses retained cumulative observations and the latest price to cover the exact requested interval.
+Reverts for a zero or invalid period, stale latest data, or a window starting before retained
+history.
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| token | address | The token address |
+| Name   | Type    | Description                                              |
+| ------ | ------- | -------------------------------------------------------- |
+| token  | address | The token address                                        |
 | period | uint256 | The TWAP period in seconds (e.g., 300 for 5-minute TWAP) |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name      | Type    | Description               |
+| --------- | ------- | ------------------------- |
 | twapPrice | uint256 | The TWAP with 18 decimals |
 
 ### isPriceStale
@@ -129,14 +133,14 @@ Check if a token's price is stale
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name  | Type    | Description       |
+| ----- | ------- | ----------------- |
 | token | address | The token address |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name  | Type | Description                                  |
+| ----- | ---- | -------------------------------------------- |
 | stale | bool | True if the price is older than maxStaleness |
 
 ### PRICE_DECIMALS
@@ -149,8 +153,8 @@ Get the price decimals constant
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name     | Type  | Description       |
+| -------- | ----- | ----------------- |
 | decimals | uint8 | Always returns 18 |
 
 ### getPrices
@@ -165,17 +169,17 @@ _Does NOT revert on stale prices — returns staleness flags instead_
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name   | Type      | Description              |
+| ------ | --------- | ------------------------ |
 | tokens | address[] | Array of token addresses |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| prices | uint256[] | Array of prices (18 decimals), 0 if not registered |
-| timestamps | uint256[] | Array of last update timestamps |
-| staleFlags | bool[] | Array of staleness booleans |
+| Name       | Type      | Description                                        |
+| ---------- | --------- | -------------------------------------------------- |
+| prices     | uint256[] | Array of prices (18 decimals), 0 if not registered |
+| timestamps | uint256[] | Array of last update timestamps                    |
+| staleFlags | bool[]    | Array of staleness booleans                        |
 
 ### getPriceHistory
 
@@ -187,15 +191,15 @@ Get recent price history for a token
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| token | address | The token address |
+| Name  | Type    | Description                         |
+| ----- | ------- | ----------------------------------- |
+| token | address | The token address                   |
 | count | uint256 | Number of recent rounds to retrieve |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name    | Type                            | Description                                    |
+| ------- | ------------------------------- | ---------------------------------------------- |
 | history | struct IPriceOracle.PriceData[] | Array of PriceData structs (most recent first) |
 
 ### getLatestRound
@@ -208,14 +212,14 @@ Get the latest round data for a token
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name  | Type    | Description       |
+| ----- | ------- | ----------------- |
 | token | address | The token address |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name | Type                          | Description                 |
+| ---- | ----------------------------- | --------------------------- |
 | data | struct IPriceOracle.PriceData | The latest PriceData struct |
 
 ### getRoundData
@@ -228,15 +232,15 @@ Get the price at a specific round
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| token | address | The token address |
+| Name    | Type    | Description               |
+| ------- | ------- | ------------------------- |
+| token   | address | The token address         |
 | roundId | uint256 | The round number to query |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name | Type                          | Description                  |
+| ---- | ----------------------------- | ---------------------------- |
 | data | struct IPriceOracle.PriceData | The PriceData for that round |
 
 ### getTokenConfig
@@ -249,14 +253,14 @@ Get the configuration for a token
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name  | Type    | Description       |
+| ----- | ------- | ----------------- |
 | token | address | The token address |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name   | Type                            | Description            |
+| ------ | ------------------------------- | ---------------------- |
 | config | struct IPriceOracle.TokenConfig | The TokenConfig struct |
 
 ### getRegisteredTokens
@@ -269,8 +273,8 @@ Get all registered token addresses
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name   | Type      | Description                         |
+| ------ | --------- | ----------------------------------- |
 | tokens | address[] | Array of registered token addresses |
 
 ### isAuthorizedRelayer
@@ -283,14 +287,14 @@ Check if a relayer is authorized
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name    | Type    | Description          |
+| ------- | ------- | -------------------- |
 | relayer | address | The address to check |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name       | Type | Description                                      |
+| ---------- | ---- | ------------------------------------------------ |
 | authorized | bool | True if the relayer is authorized to push prices |
 
 ### updatePrice
@@ -305,9 +309,9 @@ _Only callable by authorized relayers. Validates against price bounds._
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| token | address | The token address |
+| Name  | Type    | Description                 |
+| ----- | ------- | --------------------------- |
+| token | address | The token address           |
 | price | uint256 | The new price (18 decimals) |
 
 ### batchUpdatePrices
@@ -318,13 +322,14 @@ function batchUpdatePrices(address[] tokens, uint256[] prices) external
 
 Update prices for multiple tokens in a single transaction
 
-_Primary method for relayers. Gas is free on Paxeer, so push all tokens every heartbeat._
+Requires `RELAYER_ROLE`. Unregistered tokens are skipped and the emitted token count records applied
+updates. The array lengths must match.
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| tokens | address[] | Array of token addresses |
+| Name   | Type      | Description                       |
+| ------ | --------- | --------------------------------- |
+| tokens | address[] | Array of token addresses          |
 | prices | uint256[] | Array of new prices (18 decimals) |
 
 ### registerToken
@@ -337,14 +342,14 @@ Register a new token with its oracle configuration
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| token | address | The token address to register |
-| heartbeatInterval | uint256 | Max seconds between updates |
+| Name                  | Type    | Description                           |
+| --------------------- | ------- | ------------------------------------- |
+| token                 | address | The token address to register         |
+| heartbeatInterval     | uint256 | Max seconds between updates           |
 | deviationThresholdBps | uint256 | Min deviation to warrant update (BPS) |
-| minPrice | uint256 | Lower price bound (18 decimals) |
-| maxPrice | uint256 | Upper price bound (18 decimals) |
-| maxStaleness | uint256 | Seconds after which price is stale |
+| minPrice              | uint256 | Lower price bound (18 decimals)       |
+| maxPrice              | uint256 | Upper price bound (18 decimals)       |
+| maxStaleness          | uint256 | Seconds after which price is stale    |
 
 ### updateTokenConfig
 
@@ -356,9 +361,9 @@ Update the configuration of an existing token
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| token | address | The token address |
+| Name   | Type                            | Description         |
+| ------ | ------------------------------- | ------------------- |
+| token  | address                         | The token address   |
 | config | struct IPriceOracle.TokenConfig | The new TokenConfig |
 
 ### setRelayer
@@ -371,10 +376,10 @@ Set the authorization status of a relayer
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| relayer | address | The relayer address |
-| authorized | bool | True to authorize, false to revoke |
+| Name       | Type    | Description                        |
+| ---------- | ------- | ---------------------------------- |
+| relayer    | address | The relayer address                |
+| authorized | bool    | True to authorize, false to revoke |
 
 ### pause
 
@@ -382,7 +387,7 @@ Set the authorization status of a relayer
 function pause() external
 ```
 
-Emergency pause; blocks price pushes (spec §7.1).
+Emergency pause; blocks price pushes.
 
 ### unpause
 
@@ -395,36 +400,35 @@ Resume price pushes after pause.
 ### PriceUpdated
 
 ```solidity
-event PriceUpdated(address token, uint256 price, uint256 roundId, address relayer, uint256 timestamp)
+event PriceUpdated(address indexed token, uint256 price, uint256 indexed roundId, address indexed relayer, uint256 timestamp)
 ```
 
 ### BatchPriceUpdate
 
 ```solidity
-event BatchPriceUpdate(address relayer, uint256 tokenCount, uint256 timestamp)
+event BatchPriceUpdate(address indexed relayer, uint256 tokenCount, uint256 timestamp)
 ```
 
 ### TokenRegistered
 
 ```solidity
-event TokenRegistered(address token, uint256 heartbeatInterval, uint256 deviationThresholdBps, uint256 minPrice, uint256 maxPrice, uint256 maxStaleness)
+event TokenRegistered(address indexed token, uint256 heartbeatInterval, uint256 deviationThresholdBps, uint256 minPrice, uint256 maxPrice, uint256 maxStaleness)
 ```
 
 ### TokenConfigUpdated
 
 ```solidity
-event TokenConfigUpdated(address token, uint256 heartbeatInterval, uint256 deviationThresholdBps, uint256 minPrice, uint256 maxPrice, uint256 maxStaleness)
+event TokenConfigUpdated(address indexed token, uint256 heartbeatInterval, uint256 deviationThresholdBps, uint256 minPrice, uint256 maxPrice, uint256 maxStaleness)
 ```
 
 ### RelayerUpdated
 
 ```solidity
-event RelayerUpdated(address relayer, bool authorized)
+event RelayerUpdated(address indexed relayer, bool authorized)
 ```
 
 ### StalePriceDetected
 
 ```solidity
-event StalePriceDetected(address token, uint256 lastUpdateTimestamp, uint256 currentTimestamp, uint256 maxStaleness)
+event StalePriceDetected(address indexed token, uint256 lastUpdateTimestamp, uint256 currentTimestamp, uint256 maxStaleness)
 ```
-

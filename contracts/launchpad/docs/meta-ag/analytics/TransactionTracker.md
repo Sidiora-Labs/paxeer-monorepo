@@ -2,33 +2,21 @@
 
 ## TransactionTracker
 
-Sibling of Sidiora Launchpad's `EventEmitter` (spec §7.12). Authorized
-        emitters (PECOR, PECOROrders, PECORVault, MetaAGRouter) call in via
-        EMITTER_ROLE to record trade / order / liquidity events + aggregate
-        daily/token/user stats. Indexers consume the emitted events off-chain.
+UUPS analytics contract for authorized emitters. `EMITTER_ROLE` controls all recording methods, and
+`DEFAULT_ADMIN_ROLE` controls emitter membership, snapshots and upgrades. `authorizedEmitters`
+mirrors role membership, including changes made through inherited role administration.
 
-_Spec reference: `docs/architecture/pecor-sidiora-aggregator-spec.md` §7.12
-     (FROZEN 2026-04-24). Interface:
-     `contracts/meta-ag/interfaces/ITransactionTracker.sol`.
+`recordTrade` updates daily, token and user totals. It credits half the USD volume to each token,
+counts each token once per trade, and counts each distinct user once per day. Other recording
+methods emit their corresponding events without changing trade totals. A configured producer must
+call the tracker for activity to appear here.
 
-Inheritance (spec §7.12):
-  ITransactionTracker, Initializable, UUPSUpgradeable, AccessControl
+Daily buckets use Unix timestamps floored to one day. `recordTrade` and `forceDaySnapshot` roll a
+bucket forward when the day changes; a snapshot call in the same day leaves the bucket unchanged.
+`getCurrentDayStats` returns an empty bucket dated today if the stored bucket belongs to an earlier
+day.
 
-Roles:
-  - DEFAULT_ADMIN_ROLE → Timelock at deploy (invariant S1)
-  - EMITTER_ROLE       → granted to each authorized emitter via
-                         {setAuthorizedEmitter} (invariant S11)
-
-Storage layout (append-only per S12):
-  slot 0:  AccessControl._roles             (mapping)
-  slot 1:  authorizedEmitters               (mapping) — mirror of EMITTER_ROLE
-  slot 2:  currentDayTimestamp              (uint256)
-  slot 3:  currentDayStats                  (DailyStats, 4 slots: 3..6)
-  slot 7:  dailyStats                       (mapping)
-  slot 8:  tokenStats                       (mapping)
-  slot 9:  userStats                        (mapping)
-  slot 10: dailyTraders                     (nested mapping)
-  slot 11..60: __gap[50]_
+Source: [TransactionTracker.sol](../../../contracts/meta-ag/analytics/TransactionTracker.sol).
 
 ### EMITTER_ROLE
 
@@ -102,15 +90,15 @@ constructor() public
 function initialize(address admin) external
 ```
 
-Initialize the UUPS proxy (spec §7.12)
+Initialize the UUPS proxy with a nonzero administrator.
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| admin | address | Timelock — granted DEFAULT_ADMIN_ROLE |
+| Name  | Type    | Description                              |
+| ----- | ------- | ---------------------------------------- |
+| admin | address | Administrator granted DEFAULT_ADMIN_ROLE |
 
-### _authorizeUpgrade
+### \_authorizeUpgrade
 
 ```solidity
 function _authorizeUpgrade(address) internal
@@ -122,7 +110,7 @@ function _authorizeUpgrade(address) internal
 function setAuthorizedEmitter(address emitter, bool authorized) external
 ```
 
-Grant / revoke EMITTER_ROLE to a contract address (spec §7.12).
+Grant or revoke `EMITTER_ROLE` for a nonzero emitter address.
 
 ### forceDaySnapshot
 
@@ -130,7 +118,8 @@ Grant / revoke EMITTER_ROLE to a contract address (spec §7.12).
 function forceDaySnapshot() external
 ```
 
-Force a daily stats snapshot (e.g., ops-driven day rollover).
+Archive the stored day and start today’s bucket if the day has changed. Requires default
+administration.
 
 ### recordTrade
 
@@ -225,6 +214,17 @@ function getUserStats(address user) external view returns (struct ITransactionTr
 ### getCurrentDayStats
 
 ```solidity
-function getCurrentDayStats() external view returns (struct ITransactionTracker.DailyStats)
+function getCurrentDayStats() external view returns (DailyStats memory stats)
 ```
 
+### \_grantRole
+
+```solidity
+function _grantRole(bytes32 role, address account) internal returns (bool changed)
+```
+
+### \_revokeRole
+
+```solidity
+function _revokeRole(bytes32 role, address account) internal returns (bool changed)
+```

@@ -4,6 +4,8 @@
 
 Interface for the market creation orchestrator
 
+Source: [ISidioraFactory.sol](../../contracts/interfaces/ISidioraFactory.sol).
+
 ### ZeroAddress
 
 ```solidity
@@ -25,7 +27,7 @@ error DuplicateToken()
 ### MarketCreated
 
 ```solidity
-event MarketCreated(address token, address pool, address creator, uint256 nftId, address optical)
+event MarketCreated(address indexed token, address indexed pool, address indexed creator, uint256 nftId, address optical)
 ```
 
 ### createMarket
@@ -38,20 +40,20 @@ Create a new market (token + pool + NFT)
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| name | string | Token name |
-| symbol | string | Token symbol |
-| feeStrategy | uint8 | Initial fee strategy for the pool NFT (0=CLAIM,1=BURN,2=AIRDROP,3=LP_REWARDS) |
-| optical | address | Optional optical hook contract (address(0) for none) |
+| Name        | Type    | Description                                                                   |
+| ----------- | ------- | ----------------------------------------------------------------------------- |
+| name        | string  | Token name                                                                    |
+| symbol      | string  | Token symbol                                                                  |
+| feeStrategy | uint8   | Initial fee strategy for the pool NFT (0=CLAIM,1=BURN,2=AIRDROP,3=LP_REWARDS) |
+| optical     | address | Optional optical hook contract (address(0) for none)                          |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name      | Type    | Description                |
+| --------- | ------- | -------------------------- |
 | tokenAddr | address | The deployed token address |
-| poolAddr | address | The deployed pool address |
-| nftId | uint256 | The minted NFT token ID |
+| poolAddr  | address | The deployed pool address  |
+| nftId     | uint256 | The minted NFT token ID    |
 
 ### createMarketFor
 
@@ -63,21 +65,21 @@ Create a new market on behalf of a creator (Router-only via ROUTER_ROLE)
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| creator | address | The actual creator address (receives NFT, becomes guardian) |
-| name | string | Token name |
-| symbol | string | Token symbol |
-| feeStrategy | uint8 | Initial fee strategy for the pool NFT |
-| optical | address | Optional optical hook contract (address(0) for none) |
+| Name        | Type    | Description                                                 |
+| ----------- | ------- | ----------------------------------------------------------- |
+| creator     | address | The actual creator address (receives NFT, becomes guardian) |
+| name        | string  | Token name                                                  |
+| symbol      | string  | Token symbol                                                |
+| feeStrategy | uint8   | Initial fee strategy for the pool NFT                       |
+| optical     | address | Optional optical hook contract (address(0) for none)        |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name      | Type    | Description                |
+| --------- | ------- | -------------------------- |
 | tokenAddr | address | The deployed token address |
-| poolAddr | address | The deployed pool address |
-| nftId | uint256 | The minted NFT token ID |
+| poolAddr  | address | The deployed pool address  |
+| nftId     | uint256 | The minted NFT token ID    |
 
 ### getNonce
 
@@ -134,4 +136,3 @@ function treasury() external view returns (address)
 ```
 
 Get the treasury address
-

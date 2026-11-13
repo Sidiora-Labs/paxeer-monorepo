@@ -2,17 +2,17 @@
 
 ## IPECOR
 
-Interface for the PECOR engine — oracle-priced swap execution with tiered fees
-        and price-impact against PECORVault v2. Spec §7.6.
+Interface for the UUPS oracle-priced PECOR swap engine using PECORVault. It exposes token swaps,
+market buys and sells, native coin swaps, fee collection and quotes. Users approve the vault for
+token inputs. A zero deadline means no expiry. [IPECOROrders](IPECOROrders.md) describes limit,
+stop-loss and stop-limit orders.
 
-_UUPS-upgradeable, Timelock-admin. Orders (limit, stop-loss, stop-limit) are
-     specified on IPECOROrders — NOT here.
+The effective fee is `swapFeeBps`, plus `tier1FeeBps` at 10,000 USD and `tier2FeeBps` at 100,000
+USD. Volume uses 18 decimal scaling and the sum of all three rates is capped at 200 basis points.
+Price impact is a separate deduction capped at 500 basis points. Retained output is reserved in the
+vault as accrued fees. See [PECOR](../engine/PECOR.md) for role requirements and reservation state.
 
-Fee-tier invariant (spec §7.6):
-  effectiveFeeBps(volumeUSD) = swapFeeBps
-    + (volumeUSD >= TIER1 ? tier1FeeBps : 0)
-    + (volumeUSD >= TIER2 ? tier2FeeBps : 0)
-  Stacking sum capped at MAX_FEE_BPS (200)._
+Source: [IPECOR.sol](../../../contracts/meta-ag/interfaces/IPECOR.sol).
 
 ### initialize
 
@@ -20,17 +20,17 @@ Fee-tier invariant (spec §7.6):
 function initialize(address priceOracle, address vault, address weth, address tracker, address admin) external
 ```
 
-Initialize the UUPS proxy (spec §7.6)
+Initialize the UUPS proxy
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name        | Type    | Description                                                  |
+| ----------- | ------- | ------------------------------------------------------------ |
 | priceOracle | address | IPriceOracle address (source of truth for vault-side prices) |
-| vault | address | IPECORVault v2 address |
-| weth | address | Wrapped native coin (WPAX on Paxeer) |
-| tracker | address | ITransactionTracker address (may be zero at bootstrap) |
-| admin | address | Timelock — granted DEFAULT_ADMIN_ROLE |
+| vault       | address | IPECORVault v2 address                                       |
+| weth        | address | Wrapped native coin (WPAX on Paxeer)                         |
+| tracker     | address | ITransactionTracker address (may be zero at bootstrap)       |
+| admin       | address | Timelock — granted DEFAULT_ADMIN_ROLE                        |
 
 ### setPriceOracle
 
@@ -144,13 +144,13 @@ Full oracle-priced quote with price impact and fee breakdown.
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| grossOut | uint256 | Raw amountOut before fee / impact. |
-| netOut | uint256 | amountOut user actually receives. |
-| priceImpactBps | uint256 | Price impact applied (BPS). |
-| feeBps | uint256 | Effective fee rate after tiered stacking (BPS). |
-| feeAmount | uint256 | Fee deducted from grossOut. |
+| Name           | Type    | Description                                     |
+| -------------- | ------- | ----------------------------------------------- |
+| grossOut       | uint256 | Raw amountOut before fee / impact.              |
+| netOut         | uint256 | amountOut user actually receives.               |
+| priceImpactBps | uint256 | Price impact applied (BPS).                     |
+| feeBps         | uint256 | Effective fee rate after tiered stacking (BPS). |
+| feeAmount      | uint256 | Fee deducted from grossOut.                     |
 
 ### multicall
 
@@ -158,36 +158,36 @@ Full oracle-priced quote with price impact and fee breakdown.
 function multicall(bytes[] data) external returns (bytes[] results)
 ```
 
-Batch multiple calls atomically via delegatecall (spec §7.6).
+Batch multiple calls atomically via delegatecall.
 
 ### SimpleSwap
 
 ```solidity
-event SimpleSwap(address user, address tokenIn, address tokenOut, uint256 amountIn, uint256 amountOut, uint256 executionPrice)
+event SimpleSwap(address indexed user, address indexed tokenIn, address indexed tokenOut, uint256 amountIn, uint256 amountOut, uint256 executionPrice)
 ```
 
 ### MarketOrderExecuted
 
 ```solidity
-event MarketOrderExecuted(address user, address stablecoin, address token, uint256 stablecoinAmount, uint256 tokenAmount, bool isBuy)
+event MarketOrderExecuted(address indexed user, address indexed stablecoin, address indexed token, uint256 stablecoinAmount, uint256 tokenAmount, bool isBuy)
 ```
 
 ### NativeSwap
 
 ```solidity
-event NativeSwap(address user, address tokenOther, uint256 nativeAmount, uint256 tokenAmount, bool nativeIsInput)
+event NativeSwap(address indexed user, address indexed tokenOther, uint256 nativeAmount, uint256 tokenAmount, bool nativeIsInput)
 ```
 
 ### PriceImpactApplied
 
 ```solidity
-event PriceImpactApplied(address user, address tokenOut, uint256 impactBps, uint256 deductedAmount)
+event PriceImpactApplied(address indexed user, address indexed tokenOut, uint256 impactBps, uint256 deductedAmount)
 ```
 
 ### TieredFeeApplied
 
 ```solidity
-event TieredFeeApplied(address user, address tokenOut, uint256 volumeUSD, uint256 feeBps, uint256 feeAmount)
+event TieredFeeApplied(address indexed user, address indexed tokenOut, uint256 volumeUSD, uint256 feeBps, uint256 feeAmount)
 ```
 
 ### SwapFeeUpdated
@@ -211,24 +211,23 @@ event PriceImpactConfigUpdated(bool enabled, uint256 scalarBps)
 ### FeeCollectorUpdated
 
 ```solidity
-event FeeCollectorUpdated(address collector)
+event FeeCollectorUpdated(address indexed collector)
 ```
 
 ### PriceOracleUpdated
 
 ```solidity
-event PriceOracleUpdated(address oracle)
+event PriceOracleUpdated(address indexed oracle)
 ```
 
 ### TransactionTrackerUpdated
 
 ```solidity
-event TransactionTrackerUpdated(address tracker)
+event TransactionTrackerUpdated(address indexed tracker)
 ```
 
 ### FeesCollected
 
 ```solidity
-event FeesCollected(address token, address collector, uint256 amount)
+event FeesCollected(address indexed token, address indexed collector, uint256 amount)
 ```
-
