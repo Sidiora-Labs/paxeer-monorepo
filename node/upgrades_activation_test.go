@@ -340,7 +340,7 @@ func TestActivationServesTheForkPrecompilesOnlyFromItsHeight(t *testing.T) {
 			require.NotContains(t, below, address)
 		}
 	}
-	require.Equal(t, repairM1142Addresses(below), repairM1142Addresses(a.EvmKeeper.CustomPrecompiles(ctx.WithIsTracing(true))))
+	require.Equal(t, mergeUpgradePrecompileAddresses(below), mergeUpgradePrecompileAddresses(a.EvmKeeper.CustomPrecompiles(ctx.WithIsTracing(true))))
 	a.UpgradeKeeper.ApplyUpgrade(ctx, upgradetypes.Plan{Name: ActivationUpgrade, Height: ctx.BlockHeight()})
 	at := a.EvmKeeper.CustomPrecompiles(ctx)
 	// Restoring exchange also satisfies the merge oracle's real dependency;
@@ -357,16 +357,16 @@ func TestActivationServesTheForkPrecompilesOnlyFromItsHeight(t *testing.T) {
 		wantAt[address] = initial[address]
 	}
 	wantAt[oracle] = initial[oracle]
-	require.Equal(t, repairM1142Addresses(wantAt), repairM1142Addresses(at))
+	require.Equal(t, mergeUpgradePrecompileAddresses(wantAt), mergeUpgradePrecompileAddresses(at))
 	for address, contract := range below {
 		require.Same(t, contract, at[address])
 	}
 	for address := range gate.Modules {
 		require.Contains(t, at, address)
 	}
-	require.Equal(t, repairM1142Addresses(at), repairM1142Addresses(a.EvmKeeper.CustomPrecompiles(ctx.WithIsTracing(true))))
+	require.Equal(t, mergeUpgradePrecompileAddresses(at), mergeUpgradePrecompileAddresses(a.EvmKeeper.CustomPrecompiles(ctx.WithIsTracing(true))))
 	for _, tracing := range []bool{false, true} {
-		requireRepairM1142RestoredCalls(t, a, ctx.WithIsTracing(tracing), below, false)
+		requireMergeUpgradeRestoredCalls(t, a, ctx.WithIsTracing(tracing), below, false)
 	}
 	before := ctx.WithBlockHeight(ctx.BlockHeight() - 1)
 	servedBefore := a.EvmKeeper.CustomPrecompiles(before)
@@ -377,8 +377,8 @@ func TestActivationServesTheForkPrecompilesOnlyFromItsHeight(t *testing.T) {
 			wantBefore[address] = contract
 		}
 	}
-	require.Equal(t, repairM1142Addresses(wantBefore), repairM1142Addresses(servedBefore))
-	require.Equal(t, repairM1142Addresses(servedBefore), repairM1142Addresses(a.EvmKeeper.CustomPrecompiles(before.WithIsTracing(true))))
+	require.Equal(t, mergeUpgradePrecompileAddresses(wantBefore), mergeUpgradePrecompileAddresses(servedBefore))
+	require.Equal(t, mergeUpgradePrecompileAddresses(servedBefore), mergeUpgradePrecompileAddresses(a.EvmKeeper.CustomPrecompiles(before.WithIsTracing(true))))
 	for address := range gate.Modules {
 		require.NotContains(t, servedBefore, address)
 	}
@@ -389,7 +389,7 @@ func TestActivationServesTheForkPrecompilesOnlyFromItsHeight(t *testing.T) {
 	require.NotContains(t, a.UpgradeKeeper.GetModuleVersionMap(ctx), layerxanchortypes.ModuleName)
 	for _, tracing := range []bool{false, true} {
 		requireAnchorRetirementRevert(t, a, ctx.WithIsTracing(tracing), anchorprecompile.FinalizeMethod, uint64(1))
-		requireRepairM1142OracleCall(t, a, ctx.WithIsTracing(tracing), true)
+		requireMergeUpgradeOracleCall(t, a, ctx.WithIsTracing(tracing), true)
 	}
 }
 

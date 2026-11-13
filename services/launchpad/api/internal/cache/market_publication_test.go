@@ -76,7 +76,7 @@ func marketTestBroker(t *testing.T) (*nats.Conn, jetstream.JetStream) {
 func marketTestPublication(t *testing.T) (accounting.PublicationV1, accounting.SourcePosition) {
 	t.Helper()
 	position := accounting.SourcePosition{ChainID: "125", Height: "110", TransactionIndex: "0", LogIndex: "0", TransactionHash: "0x" + strings.Repeat("a", 64), BlockHash: "0x" + strings.Repeat("b", 64)}
-	pool := repairM992Pool
+	pool := runtimeAdmissionPool
 	fill := accounting.FillV1{
 		Version: accounting.FillVersion, Position: position, ActualEmitter: pool, PoolAddress: pool,
 		Token:      accounting.Asset{Address: "0x" + strings.Repeat("3", 40), Decimals: 18},
@@ -110,11 +110,11 @@ func TestMarketPublicationInvalidatesCachedRevision(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = client.Close() })
-	config := repairM992Config(t, 0)
+	config := runtimeAdmissionConfig(t, 0)
 	config.Adapter.Budget.Pool = db
 	config.Adapter.Redis = client
 	config.Adapter.RedisTimeout = time.Second
-	runtime := repairM992Runtime(t, config)
+	runtime := runtimeAdmissionRuntime(t, config)
 	publication, position := marketTestPublication(t)
 	payload, err := accounting.CanonicalPublicationV1(publication)
 	if err != nil {
@@ -159,7 +159,7 @@ func TestMarketPublicationInvalidatesCachedRevision(t *testing.T) {
 	if err := runtime.bindings.ConsumeMarket(ctx, messages[0]); err != nil {
 		t.Fatal(err)
 	}
-	key := runtime.bindings.fenceKey(runtime.bindings.config, repairM992Pool)
+	key := runtime.bindings.fenceKey(runtime.bindings.config, runtimeAdmissionPool)
 	floor, found, err := sharedredis.GetPolicySnapshot(ctx, client, key)
 	if err != nil || found || floor.Revision != "1" || string(floor.Body) != "null" || floor.Generation != "g1" {
 		t.Fatalf("market invalidation floor: %+v found=%t err=%v", floor, found, err)

@@ -15,7 +15,10 @@ from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[3]
 README = (ROOT / "README.md").read_text(encoding="utf-8")
-RECORD = Path(__file__).with_name("repair_22_33_313.kvx")
+RECORD = (
+    ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs"
+    / "repair_22_33_313.kvx"
+)
 
 
 def source(path):
@@ -218,5 +221,5 @@ def test_repair_record_maps_finding_to_real_source_proofs():
     assert task["evidence_ledger"] == "/out/run/gates.jsonl"
     assert "same candidate revision" in task["evidence"]
     assert task["verify_cmd"] == (
-        "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_313.py"
+        "python3 -m pytest -q tools/qualification/audit_repairs/test_readme_network_model.py"
     )

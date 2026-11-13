@@ -1,0 +1,36 @@
+[manifest]
+task = "22.43.116"
+records_moved = 2
+files_renamed = 2
+
+[file.1]
+from = "sdk/storev2/rootmulti/repair_283.kvx"
+to = "spec/layerx-merge/programme/records/sdk/storev2/rootmulti/repair_283.kvx"
+
+[file.2]
+from = "sdk/storev2/rootmulti/repair_m608.kvx"
+to = "spec/layerx-merge/programme/records/sdk/storev2/rootmulti/repair_m608.kvx"
+
+[file.3]
+from = "sdk/storev2/rootmulti/repair_283_test.go"
+to = "sdk/storev2/rootmulti/restore_query_test.go"
+
+[file.4]
+from = "sdk/storev2/rootmulti/repair_m608_test.go"
+to = "sdk/storev2/rootmulti/snapshot_height_hash_test.go"
+
+[reference.1]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/storev2/rootmulti/repair_283_test.go"
+
+[reference.2]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/storev2/rootmulti/repair_m608_test.go"
+
+[reference.3]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_283_"
+
+[reference.4]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_608_"

@@ -13,7 +13,7 @@ import (
 )
 
 func TestReconcileLoopObservesActiveProviderOnScheduledSweep(t *testing.T) {
-	f := repair57New(t)
+	f := streamContractNew(t)
 	ctx := context.Background()
 	o, _ := f.create("scheduled-reconciliation")
 	o, err := f.store.BindProvider(ctx, o.ID, "scheduled_provider")

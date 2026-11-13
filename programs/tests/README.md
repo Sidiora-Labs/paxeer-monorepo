@@ -19,7 +19,7 @@ Programs runtime and kernel within the Paxeer network.
   by the runtime isolation and composition suites.
 - [vectors/](vectors/) contains frozen guest ABI bytes, calldata cases, ICS23
   proof vectors, snapshot bindings and terminal outcome encodings.
-- [repair_22_33_238.rs](repair_22_33_238.rs) tests registry membership and
+- [registry_read_bridge.rs](registry_read_bridge.rs) tests registry membership and
   non-membership proofs and the corresponding workspace documentation contract.
 
 ## Build and test

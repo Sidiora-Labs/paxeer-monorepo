@@ -8,12 +8,18 @@ import (
 	"testing"
 )
 
-func TestPlanMigrationExcludesFundedAndMigrated(t *testing.T)       { m160TestPlan(t) }
-func TestPlanMigrationRequiresMigratedColumn(t *testing.T)          { m160TestSchema(t) }
-func TestDeliverMigratesEveryEligibleWallet(t *testing.T)           { m160TestCompleteDelivery(t) }
-func TestDeliverStopsTheRunOnSignatureMismatch(t *testing.T)        { m160TestSignatureMismatch(t) }
-func TestDeliverRefusesEnvelopeAddressMismatch(t *testing.T)        { m160TestEnvelopeMismatch(t) }
-func TestDeliverRefusesReplacementForExternalIdentity(t *testing.T) { m160TestExternalIdentity(t) }
+func TestPlanMigrationExcludesFundedAndMigrated(t *testing.T) { migrationRecoveryTestPlan(t) }
+func TestPlanMigrationRequiresMigratedColumn(t *testing.T)    { migrationRecoveryTestSchema(t) }
+func TestDeliverMigratesEveryEligibleWallet(t *testing.T)     { migrationRecoveryTestCompleteDelivery(t) }
+func TestDeliverStopsTheRunOnSignatureMismatch(t *testing.T) {
+	migrationRecoveryTestSignatureMismatch(t)
+}
+func TestDeliverRefusesEnvelopeAddressMismatch(t *testing.T) {
+	migrationRecoveryTestEnvelopeMismatch(t)
+}
+func TestDeliverRefusesReplacementForExternalIdentity(t *testing.T) {
+	migrationRecoveryTestExternalIdentity(t)
+}
 
 func TestLoadOptionsRequiresProtectedSealingKey(t *testing.T) {
 	root := t.TempDir()

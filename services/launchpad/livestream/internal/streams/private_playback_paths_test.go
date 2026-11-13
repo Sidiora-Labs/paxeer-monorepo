@@ -14,7 +14,7 @@ import (
 )
 
 func TestPrivatePlaybackRequiresOwnerAndCurrentPrivacy(t *testing.T) {
-	f := repair57New(t)
+	f := streamContractNew(t)
 	ctx := context.Background()
 	o, _ := f.create("private-playback")
 	o, err := f.store.BindProvider(ctx, o.ID, "private_provider")

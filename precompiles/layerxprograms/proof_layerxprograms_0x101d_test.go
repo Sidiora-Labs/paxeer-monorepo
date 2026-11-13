@@ -81,7 +81,7 @@ func proofProgramsAuthenticatedTransfer(t *testing.T, h *harness, program [32]by
 		require.Equal(t, []common.Hash{lp.ProgramsABI.Events["ProgramCallOutcome"].ID, common.Hash(program)}, log.Topics)
 		values, err := lp.ProgramsABI.Events["ProgramCallOutcome"].Inputs.NonIndexed().Unpack(log.Data)
 		require.NoError(t, err)
-		require.Equal(t, repair251TransferRoot(t, receipt), values[9])
+		require.Equal(t, programsReceiptTransferRoot(t, receipt), values[9])
 		found = true
 	}
 	// This is a trusted in-process EVM execution backed by the cached host
@@ -90,22 +90,22 @@ func proofProgramsAuthenticatedTransfer(t *testing.T, h *harness, program [32]by
 }
 
 func proofProgramsExecutionConsumer(t *testing.T) {
-	h, args, payload, guest := repair251Responder(t)
+	h, args, payload, guest := programsTransferResponder(t)
 	proofProgramsReopen(t, h)
 	quoteCallFee(t, h, args[7].([7]uint64))
-	receipt, reference := repair251Receipt(t, h, args, payload)
+	receipt, reference := programsReferenceCallReceipt(t, h, args, payload)
 	simulated := simulateCall(t, h, args)
-	repair251AssertResponse(t, simulated, receipt, guest)
+	assertProgramsTransferResponse(t, simulated, receipt, guest)
 	input, err := lp.ProgramsABI.Pack("call", args...)
 	require.NoError(t, err)
 	output, _, err := h.evm.Call(h.caller, lp.Address, input, 20000000, uint256.NewInt(0))
 	require.NoError(t, err)
-	repair251AssertResponse(t, output, receipt, guest)
+	assertProgramsTransferResponse(t, output, receipt, guest)
 	proofProgramsAuthenticatedTransfer(t, h, args[0].([32]byte), receipt)
 	require.Equal(t, simulated, output)
 	require.Equal(t, h.dump(reference), h.dump(h.stateDB.Ctx()))
 	proofProgramsReopen(t, h)
-	repair251AssertResponse(t, output, receipt, guest)
+	assertProgramsTransferResponse(t, output, receipt, guest)
 	quoteCallFee(t, h, args[7].([7]uint64))
 }
 
@@ -128,7 +128,7 @@ func call(t *testing.T, h *harness, input, payload []byte, limit *big.Int) ([]by
 	values, err := method.Outputs.Unpack(output)
 	require.NoError(t, err)
 	require.Equal(t, []interface{}{int32(0), uint8(1), expectedResponse}, values)
-	decoded, err := lp.DecodeProgramExecutionResult(output, 64, repair251TransferRoot(t, receipt))
+	decoded, err := lp.DecodeProgramExecutionResult(output, 64, programsReceiptTransferRoot(t, receipt))
 	require.NoError(t, err)
 	require.Empty(t, decoded.GuestResponse, "the ABI-1 fixture has no guest response")
 	require.Equal(t, expectedResponse, decoded.TerminalFrame)
@@ -180,7 +180,7 @@ func quoteCallFee(t *testing.T, h *harness, budget [7]uint64) {
 	record, err := h.host.ReadFeeSchedule(h.stateDB.Ctx())
 	require.NoError(t, err)
 	asset := [32]byte(record[65:97])
-	schedule := repair251View(t, h, "getCurrentFeeSchedule")
+	schedule := programsStaticView(t, h, "getCurrentFeeSchedule")
 	require.Equal(t, asset, schedule[2])
 	expected := new(big.Int)
 	for i, limit := range budget {

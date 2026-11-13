@@ -105,3 +105,16 @@ func TestFormatTrimsWhitespace(t *testing.T) {
 		t.Fatalf("got %q, want %q", got, "1.00000000")
 	}
 }
+
+func TestFormatVolumeRejectsOutOfDomainValues(t *testing.T) {
+	t.Parallel()
+	for _, raw := range []string{"-1", "1.5", "0x10", "  "} {
+		if _, err := FormatVolume(raw); err == nil {
+			t.Errorf("FormatVolume(%q) accepted a nonnegative integer domain violation", raw)
+		}
+	}
+	got, err := FormatVolume("  1500000000000000000  ")
+	if err != nil || got != "1.50" {
+		t.Fatalf("trimmed volume = %q, %v; want 1.50", got, err)
+	}
+}

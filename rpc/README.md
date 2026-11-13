@@ -254,7 +254,7 @@ through the SDK app root, not Ethereum trie proofs. Pending tracing is also
 refused; use a committed block for historical traces. See [state.go](state.go),
 [simulate.go](simulate.go) and [tracers.go](tracers.go).
 
-Pending consumer behavior is covered in [repair_m1147_test.go](repair_m1147_test.go),
+Pending consumer behavior is covered in [access_list_pending_policy_test.go](access_list_pending_policy_test.go),
 with further open/idle state and header checks in
 [pending_simulate_test.go](pending_simulate_test.go) and
 [pending_state_test.go](pending_state_test.go).
