@@ -1,0 +1,132 @@
+[manifest]
+task = "22.43.177"
+records_moved = 9
+files_renamed = 8
+
+[file.1]
+from = "services/wallet/ceremony/cmd/ceremony/repair_m173_test.go"
+to = "services/wallet/ceremony/cmd/ceremony/protected_configuration_test.go"
+
+[file.2]
+from = "services/wallet/ceremony/internal/archive/repair_m176_test.go"
+to = "services/wallet/ceremony/internal/archive/archive_publication_test.go"
+
+[file.3]
+from = "services/wallet/ceremony/internal/attestor/repair_247_test.go"
+to = "services/wallet/ceremony/internal/attestor/refresh_epoch_recovery_test.go"
+
+[file.4]
+from = "services/wallet/ceremony/internal/migrate/repair_m160_test.go"
+to = "services/wallet/ceremony/internal/migrate/migration_recovery_test.go"
+
+[file.5]
+from = "services/wallet/ceremony/internal/move/repair_245_test.go"
+to = "services/wallet/ceremony/internal/move/table_retirement_test.go"
+
+[file.6]
+from = "services/wallet/ceremony/internal/rehearsal/repair_m174_test.go"
+to = "services/wallet/ceremony/internal/rehearsal/isolation_and_migrations_test.go"
+
+[file.7]
+from = "services/wallet/ceremony/internal/testsupport/repair_m175_test.go"
+to = "services/wallet/ceremony/internal/testsupport/ceremony_nodes_test.go"
+
+[file.8]
+from = "services/wallet/ceremony/legacy-import/test/repair-22-31-369.test.ts"
+to = "services/wallet/ceremony/legacy-import/test/import-receipts.test.ts"
+
+[file.9]
+from = "services/wallet/ceremony/cmd/ceremony/repair_m173.kvx"
+to = "spec/layerx-merge/programme/records/services/wallet/ceremony/cmd/ceremony/repair_m173.kvx"
+
+[file.10]
+from = "services/wallet/ceremony/internal/archive/repair_m176.kvx"
+to = "spec/layerx-merge/programme/records/services/wallet/ceremony/internal/archive/repair_m176.kvx"
+
+[file.11]
+from = "services/wallet/ceremony/internal/attestor/repair_247.kvx"
+to = "spec/layerx-merge/programme/records/services/wallet/ceremony/internal/attestor/repair_247.kvx"
+
+[file.12]
+from = "services/wallet/ceremony/internal/migrate/repair_m160.kvx"
+to = "spec/layerx-merge/programme/records/services/wallet/ceremony/internal/migrate/repair_m160.kvx"
+
+[file.13]
+from = "services/wallet/ceremony/internal/move/repair_245.kvx"
+to = "spec/layerx-merge/programme/records/services/wallet/ceremony/internal/move/repair_245.kvx"
+
+[file.14]
+from = "services/wallet/ceremony/internal/rehearsal/repair_m174.kvx"
+to = "spec/layerx-merge/programme/records/services/wallet/ceremony/internal/rehearsal/repair_m174.kvx"
+
+[file.15]
+from = "services/wallet/ceremony/internal/testsupport/repair_m175.kvx"
+to = "spec/layerx-merge/programme/records/services/wallet/ceremony/internal/testsupport/repair_m175.kvx"
+
+[file.16]
+from = "services/wallet/ceremony/legacy-import/src/repair-22-31-369.kvx"
+to = "spec/layerx-merge/programme/records/services/wallet/ceremony/legacy-import/src/repair-22-31-369.kvx"
+
+[file.17]
+from = "services/wallet/ceremony/repair_22_31_513.kvx"
+to = "spec/layerx-merge/programme/records/services/wallet/ceremony/repair_22_31_513.kvx"
+
+[reference.1]
+file = "spec/layerx-merge/dispositions/d22-25.kvx"
+name = "services/wallet/ceremony/internal/testsupport/repair_m175_test.go"
+
+[reference.2]
+file = "spec/layerx-merge/programme/audit/records/22.30.118.kvx"
+name = "services/wallet/ceremony/legacy-import/test/repair-22-31-369.test.ts"
+
+[reference.3]
+file = "spec/layerx-merge/programme/issues/1613.kvx"
+name = "services/wallet/ceremony/legacy-import/test/repair-22-31-369.test.ts"
+
+[reference.4]
+file = "spec/layerx-merge/programme/issues/1669.kvx"
+name = "services/wallet/ceremony/internal/migrate/repair_m160_test.go"
+
+[reference.5]
+file = "spec/layerx-merge/qualification.kvx"
+name = "services/wallet/ceremony/internal/migrate/repair_m160_test.go"
+
+[reference.6]
+file = "spec/layerx-merge/qualification.kvx"
+name = "services/wallet/ceremony/internal/testsupport/repair_m175_test.go"
+
+[reference.7]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/wallet/ceremony/cmd/ceremony/repair_m173_test.go"
+
+[reference.8]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/wallet/ceremony/internal/archive/repair_m176_test.go"
+
+[reference.9]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/wallet/ceremony/internal/attestor/repair_247_test.go"
+
+[reference.10]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/wallet/ceremony/internal/migrate/repair_m160_test.go"
+
+[reference.11]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/wallet/ceremony/internal/move/repair_245_test.go"
+
+[reference.12]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/wallet/ceremony/internal/rehearsal/repair_m174_test.go"
+
+[reference.13]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/wallet/ceremony/internal/testsupport/repair_m175_test.go"
+
+[reference.14]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/wallet/ceremony/legacy-import/test/repair-22-31-369.test.ts"
+
+[reference.15]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/wallet/ceremony/repair_22_31_513.kvx"

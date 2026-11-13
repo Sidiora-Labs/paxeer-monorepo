@@ -99,9 +99,9 @@ func TestRefreshRecoveryAfterRotation(t *testing.T) {
 			t.Run(fmt.Sprintf("held=%t/adopted=%d", held, adopted), func(t *testing.T) {
 				ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
 				defer cancel()
-				wallet := &m160Wallet{Wallet: Wallet{ID: "rotation-wallet", UserID: "rotation-owner", Address: "0x4444444444444444444444444444444444444444", ChainID: 125, MainAccountID: strings.Repeat("11", 32)}}
+				wallet := &migrationRecoveryWallet{Wallet: Wallet{ID: "rotation-wallet", UserID: "rotation-owner", Address: "0x4444444444444444444444444444444444444444", ChainID: 125, MainAccountID: strings.Repeat("11", 32)}}
 				wallet.original = originalIdentity{KeyID: "held-identity", Owner: wallet.UserID}
-				rpc := m160RPC(t, []*m160Wallet{wallet})
+				rpc := migrationRecoveryRPC(t, []*migrationRecoveryWallet{wallet})
 				authority := testsupport.StartWalletNodes(t, rpc)
 				token := authority.OwnerToken(t, wallet.UserID)
 				claims, err := base64.RawURLEncoding.DecodeString(strings.Split(token, ".")[1])
@@ -595,7 +595,7 @@ func TestRefreshRecoveryAfterRotation(t *testing.T) {
 // its planner, client, binding verification, journal or recovery implementation.
 // They keep wallet rows in memory and serve the attestor HTTP contract over
 // pinned mutual TLS. No database daemon, toolchain subprocess or live RPC is used.
-type m160Wallet struct {
+type migrationRecoveryWallet struct {
 	Wallet
 	original      originalIdentity
 	secp          *ecdsa.PrivateKey
@@ -604,15 +604,15 @@ type m160Wallet struct {
 	attestorID    string
 }
 
-type m160Rows struct {
+type migrationRecoveryRows struct {
 	columns []string
 	values  [][]driver.Value
 	offset  int
 }
 
-func (r *m160Rows) Columns() []string { return r.columns }
-func (r *m160Rows) Close() error      { return nil }
-func (r *m160Rows) Next(out []driver.Value) error {
+func (r *migrationRecoveryRows) Columns() []string { return r.columns }
+func (r *migrationRecoveryRows) Close() error      { return nil }
+func (r *migrationRecoveryRows) Next(out []driver.Value) error {
 	if r.offset == len(r.values) {
 		return io.EOF
 	}
@@ -620,55 +620,55 @@ func (r *m160Rows) Next(out []driver.Value) error {
 	r.offset++
 	return nil
 }
-func m160Result(values ...[]driver.Value) driver.Rows {
+func migrationRecoveryResult(values ...[]driver.Value) driver.Rows {
 	columns := make([]string, 0)
 	if len(values) != 0 {
 		for i := range values[0] {
 			columns = append(columns, fmt.Sprintf("column%d", i))
 		}
 	}
-	return &m160Rows{columns: columns, values: values}
+	return &migrationRecoveryRows{columns: columns, values: values}
 }
 
-type m160Database struct {
+type migrationRecoveryDatabase struct {
 	mu      sync.Mutex
-	wallets []*m160Wallet
+	wallets []*migrationRecoveryWallet
 	schema  bool
 	locks   map[string]bool
 }
-type m160Connector struct{ data *m160Database }
+type migrationRecoveryConnector struct{ data *migrationRecoveryDatabase }
 
-func (c m160Connector) Connect(context.Context) (driver.Conn, error) {
-	return &m160Conn{data: c.data}, nil
+func (c migrationRecoveryConnector) Connect(context.Context) (driver.Conn, error) {
+	return &migrationRecoveryConn{data: c.data}, nil
 }
-func (c m160Connector) Driver() driver.Driver { return m160Driver{} }
+func (c migrationRecoveryConnector) Driver() driver.Driver { return migrationRecoveryDriver{} }
 
-type m160Driver struct{}
+type migrationRecoveryDriver struct{}
 
-func (m160Driver) Open(string) (driver.Conn, error) {
+func (migrationRecoveryDriver) Open(string) (driver.Conn, error) {
 	return nil, errors.New("use the in-memory connector")
 }
 
-type m160Conn struct {
-	data    *m160Database
+type migrationRecoveryConn struct {
+	data    *migrationRecoveryDatabase
 	updates map[string]string
 }
 
-func (c *m160Conn) Prepare(string) (driver.Stmt, error) {
+func (c *migrationRecoveryConn) Prepare(string) (driver.Stmt, error) {
 	return nil, errors.New("fixture supports direct context queries only")
 }
-func (c *m160Conn) Close() error { return nil }
-func (c *m160Conn) Begin() (driver.Tx, error) {
+func (c *migrationRecoveryConn) Close() error { return nil }
+func (c *migrationRecoveryConn) Begin() (driver.Tx, error) {
 	return c.BeginTx(context.Background(), driver.TxOptions{})
 }
-func (c *m160Conn) BeginTx(context.Context, driver.TxOptions) (driver.Tx, error) {
+func (c *migrationRecoveryConn) BeginTx(context.Context, driver.TxOptions) (driver.Tx, error) {
 	if c.updates != nil {
 		return nil, errors.New("nested transaction")
 	}
 	c.updates = map[string]string{}
 	return c, nil
 }
-func (c *m160Conn) Commit() error {
+func (c *migrationRecoveryConn) Commit() error {
 	c.data.mu.Lock()
 	defer c.data.mu.Unlock()
 	for _, w := range c.data.wallets {
@@ -680,15 +680,15 @@ func (c *m160Conn) Commit() error {
 	c.updates = nil
 	return nil
 }
-func (c *m160Conn) Rollback() error { c.updates = nil; return nil }
-func (c *m160Conn) row(w *m160Wallet) []driver.Value {
+func (c *migrationRecoveryConn) Rollback() error { c.updates = nil; return nil }
+func (c *migrationRecoveryConn) row(w *migrationRecoveryWallet) []driver.Value {
 	migrated := w.Migrated
 	if _, ok := c.updates[w.ID]; ok {
 		migrated = true
 	}
 	return []driver.Value{w.ID, w.UserID, w.Address, w.EncryptedPrivateKey, int64(w.KeyVersion), w.ChainID, w.Kind, w.Kind == "funded" || w.fundedAccount, migrated, w.DID, w.MainAccountID, w.OriginalIdentityKeyID}
 }
-func (c *m160Conn) QueryContext(_ context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
+func (c *migrationRecoveryConn) QueryContext(_ context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
 	c.data.mu.Lock()
 	defer c.data.mu.Unlock()
 	switch {
@@ -697,53 +697,53 @@ func (c *m160Conn) QueryContext(_ context.Context, query string, args []driver.N
 		if c.data.schema {
 			n = 1
 		}
-		return m160Result([]driver.Value{n}), nil
+		return migrationRecoveryResult([]driver.Value{n}), nil
 	case strings.Contains(query, "pg_try_advisory_lock"):
 		key := args[0].Value.(string)
 		free := !c.data.locks[key]
 		if free {
 			c.data.locks[key] = true
 		}
-		return m160Result([]driver.Value{free}), nil
+		return migrationRecoveryResult([]driver.Value{free}), nil
 	case strings.Contains(query, "from wallets w order by"):
 		var rows [][]driver.Value
 		for _, w := range c.data.wallets {
 			rows = append(rows, c.row(w))
 		}
-		return m160Result(rows...), nil
+		return migrationRecoveryResult(rows...), nil
 	case strings.Contains(query, "from account_provisioning"):
 		for _, w := range c.data.wallets {
 			if w.ID == args[0].Value && w.UserID == args[1].Value && w.Kind == args[2].Value {
-				return m160Result([]driver.Value{w.original.PublicKey, w.original.KeyID, w.DID, w.MainAccountID, fmt.Sprint(w.original.BindNonce), w.original.BindSignature, "active"}), nil
+				return migrationRecoveryResult([]driver.Value{w.original.PublicKey, w.original.KeyID, w.DID, w.MainAccountID, fmt.Sprint(w.original.BindNonce), w.original.BindSignature, "active"}), nil
 			}
 		}
-		return m160Result(), nil
+		return migrationRecoveryResult(), nil
 	case strings.Contains(query, "from agent_principals"):
 		for _, w := range c.data.wallets {
 			if w.ID == args[0].Value {
-				return m160Result([]driver.Value{w.original.PublicKey, w.UserID}), nil
+				return migrationRecoveryResult([]driver.Value{w.original.PublicKey, w.UserID}), nil
 			}
 		}
-		return m160Result(), nil
+		return migrationRecoveryResult(), nil
 	case strings.Contains(query, "from wallets w where id="):
 		for _, w := range c.data.wallets {
 			if w.ID == args[0].Value {
-				return m160Result(c.row(w)), nil
+				return migrationRecoveryResult(c.row(w)), nil
 			}
 		}
-		return m160Result(), nil
+		return migrationRecoveryResult(), nil
 	case strings.Contains(query, "select coalesce(attestor_key_id"):
 		for _, w := range c.data.wallets {
 			if w.ID == args[0].Value {
-				return m160Result([]driver.Value{w.attestorID, w.OriginalIdentityKeyID}), nil
+				return migrationRecoveryResult([]driver.Value{w.attestorID, w.OriginalIdentityKeyID}), nil
 			}
 		}
-		return m160Result(), nil
+		return migrationRecoveryResult(), nil
 	default:
 		return nil, fmt.Errorf("unsupported fixture query: %s", query)
 	}
 }
-func (c *m160Conn) ExecContext(_ context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
+func (c *migrationRecoveryConn) ExecContext(_ context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
 	c.data.mu.Lock()
 	defer c.data.mu.Unlock()
 	switch {
@@ -772,14 +772,14 @@ func (c *m160Conn) ExecContext(_ context.Context, query string, args []driver.Na
 // Fixture peers persist descriptions between closes. The production consumer
 // must reopen its sealed journal and authenticate each member's base/base+1
 // transition before it can issue a refresh replay.
-type m160PeerKey struct {
+type migrationRecoveryPeerKey struct {
 	Description   attestor.DescribeResponse
 	Imports       int
 	Refreshes     []string
 	Verifications int
 	OwnerSigns    int
 }
-type m160Peers struct {
+type migrationRecoveryPeers struct {
 	mu             sync.Mutex
 	root           string
 	tls            *testsupport.TLSFiles
@@ -787,35 +787,35 @@ type m160Peers struct {
 	certificates   []tls.Certificate
 	config         attestor.Config
 	servers        []*httptest.Server
-	states         []map[string]*m160PeerKey
-	keys           map[string]*m160Wallet
+	states         []map[string]*migrationRecoveryPeerKey
+	keys           map[string]*migrationRecoveryWallet
 	interrupt      string
 	incomplete     string
 	corrupt        string
 	protocolErrors []string
 }
 
-func m160JSON(w http.ResponseWriter, value any) {
+func migrationRecoveryJSON(w http.ResponseWriter, value any) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(value)
 }
-func m160APIError(w http.ResponseWriter, status int, code string) {
+func migrationRecoveryAPIError(w http.ResponseWriter, status int, code string) {
 	w.WriteHeader(status)
-	m160JSON(w, attestor.ErrorBody{Error: attestor.ErrorDetail{Category: "key", Code: code, Message: code}})
+	migrationRecoveryJSON(w, attestor.ErrorBody{Error: attestor.ErrorDetail{Category: "key", Code: code, Message: code}})
 }
-func (p *m160Peers) ids() []string { return []string{"n1", "n2", "n3", "n4", "n5"} }
-func (p *m160Peers) checkpoint(i int) error {
+func (p *migrationRecoveryPeers) ids() []string { return []string{"n1", "n2", "n3", "n4", "n5"} }
+func (p *migrationRecoveryPeers) checkpoint(i int) error {
 	raw, err := json.Marshal(p.states[i])
 	if err != nil {
 		return err
 	}
 	return os.WriteFile(filepath.Join(p.root, fmt.Sprintf("member%d.json", i)), raw, 0600)
 }
-func (p *m160Peers) fail(w http.ResponseWriter, format string, args ...any) {
+func (p *migrationRecoveryPeers) fail(w http.ResponseWriter, format string, args ...any) {
 	p.protocolErrors = append(p.protocolErrors, fmt.Sprintf(format, args...))
-	m160APIError(w, 409, "fixture_contract_mismatch")
+	migrationRecoveryAPIError(w, 409, "fixture_contract_mismatch")
 }
-func (p *m160Peers) serve(i int, w http.ResponseWriter, r *http.Request) {
+func (p *migrationRecoveryPeers) serve(i int, w http.ResponseWriter, r *http.Request) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	id := p.ids()[i]
@@ -855,11 +855,11 @@ func (p *m160Peers) serve(i int, w http.ResponseWriter, r *http.Request) {
 		}
 		if held == nil {
 			digest := sha256.Sum256(raw)
-			held = &m160PeerKey{Description: attestor.DescribeResponse{NodeID: id, KeyID: req.KeyID, Curve: req.Share.Curve, PublicKey: req.PublicKey, Owner: req.Owner, Account: req.Account, Participants: req.Participants, AuditSequence: 1, CeremonyID: req.CeremonyID, ImportSessionID: req.SessionID, ImportDigest: hex.EncodeToString(digest[:])}, Imports: 1}
+			held = &migrationRecoveryPeerKey{Description: attestor.DescribeResponse{NodeID: id, KeyID: req.KeyID, Curve: req.Share.Curve, PublicKey: req.PublicKey, Owner: req.Owner, Account: req.Account, Participants: req.Participants, AuditSequence: 1, CeremonyID: req.CeremonyID, ImportSessionID: req.SessionID, ImportDigest: hex.EncodeToString(digest[:])}, Imports: 1}
 			p.states[i][body.KeyID] = held
 		}
 	} else if held == nil {
-		m160APIError(w, 404, "key_not_found")
+		migrationRecoveryAPIError(w, 404, "key_not_found")
 		return
 	}
 	d := &held.Description
@@ -872,9 +872,9 @@ func (p *m160Peers) serve(i int, w http.ResponseWriter, r *http.Request) {
 			p.fail(w, "checkpoint: %v", err)
 			return
 		}
-		m160JSON(w, response())
+		migrationRecoveryJSON(w, response())
 	case attestor.PathDescribe:
-		m160JSON(w, *d)
+		migrationRecoveryJSON(w, *d)
 	case attestor.PathRefresh:
 		var req attestor.RefreshRequest
 		if strictJSON(raw, &req) != nil || req.ExpectedEpoch == nil || req.CeremonyID == "" || req.ImportSessionID != d.ImportSessionID || req.ExistingKey != (d.ImportSessionID == "") {
@@ -910,10 +910,10 @@ func (p *m160Peers) serve(i int, w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if i == 4 && p.interrupt == req.KeyID {
-			m160APIError(w, 503, "refresh_interrupted")
+			migrationRecoveryAPIError(w, 503, "refresh_interrupted")
 			return
 		}
-		m160JSON(w, response())
+		migrationRecoveryJSON(w, response())
 	case attestor.PathSign:
 		var req attestor.SignRequest
 		if strictJSON(raw, &req) != nil || !reflect.DeepEqual(req.Signers, p.ids()[:attestor.SignQuorum]) || i >= attestor.SignQuorum {
@@ -971,12 +971,12 @@ func (p *m160Peers) serve(i int, w http.ResponseWriter, r *http.Request) {
 			p.fail(w, "checkpoint: %v", err)
 			return
 		}
-		m160JSON(w, out)
+		migrationRecoveryJSON(w, out)
 	default:
 		p.fail(w, "unexpected endpoint %s", r.URL.Path)
 	}
 }
-func (p *m160Peers) start(t *testing.T) {
+func (p *migrationRecoveryPeers) start(t *testing.T) {
 	t.Helper()
 	p.config.Nodes = nil
 	for i, id := range p.ids() {
@@ -993,13 +993,13 @@ func (p *m160Peers) start(t *testing.T) {
 		p.config.Nodes = append(p.config.Nodes, attestor.NodeConfig{ID: id, URL: srv.URL, Pin: attestor.SPKIHash(p.certificates[i].Leaf)})
 	}
 }
-func (p *m160Peers) stop() {
+func (p *migrationRecoveryPeers) stop() {
 	for _, srv := range p.servers {
 		srv.Close()
 	}
 	p.servers = nil
 }
-func (p *m160Peers) reopen(t *testing.T) {
+func (p *migrationRecoveryPeers) reopen(t *testing.T) {
 	t.Helper()
 	p.stop()
 	p.states = nil
@@ -1008,7 +1008,7 @@ func (p *m160Peers) reopen(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		var state map[string]*m160PeerKey
+		var state map[string]*migrationRecoveryPeerKey
 		if err := json.Unmarshal(raw, &state); err != nil {
 			t.Fatal(err)
 		}
@@ -1017,7 +1017,7 @@ func (p *m160Peers) reopen(t *testing.T) {
 	p.interrupt = ""
 	p.start(t)
 }
-func (p *m160Peers) client(t *testing.T) *attestor.Client {
+func (p *migrationRecoveryPeers) client(t *testing.T) *attestor.Client {
 	t.Helper()
 	client, err := attestor.New(p.config)
 	if err != nil {
@@ -1027,29 +1027,29 @@ func (p *m160Peers) client(t *testing.T) *attestor.Client {
 	return client
 }
 
-type m160Fixture struct {
+type migrationRecoveryFixture struct {
 	db      *sql.DB
-	data    *m160Database
-	peers   *m160Peers
+	data    *migrationRecoveryDatabase
+	peers   *migrationRecoveryPeers
 	master  []byte
 	options Options
 }
 
-func m160New(t *testing.T, kinds ...string) *m160Fixture {
+func newMigrationRecoveryFixture(t *testing.T, kinds ...string) *migrationRecoveryFixture {
 	t.Helper()
-	f := &m160Fixture{data: &m160Database{schema: true, locks: map[string]bool{}}, master: bytes.Repeat([]byte{0x46}, 32)}
+	f := &migrationRecoveryFixture{data: &migrationRecoveryDatabase{schema: true, locks: map[string]bool{}}, master: bytes.Repeat([]byte{0x46}, 32)}
 	root := t.TempDir()
 	if err := os.Chmod(root, 0700); err != nil {
 		t.Fatal(err)
 	}
 	f.options = Options{CeremonyID: "repair-m160", JournalDir: root, JournalKey: bytes.Repeat([]byte{0x5a}, 32), RehearsalReceipt: filepath.Join(root, "receipt.sealed")}
-	p := &m160Peers{root: t.TempDir(), tls: testsupport.NewTLSFiles(t), keys: map[string]*m160Wallet{}}
+	p := &migrationRecoveryPeers{root: t.TempDir(), tls: testsupport.NewTLSFiles(t), keys: map[string]*migrationRecoveryWallet{}}
 	p.gateway = testsupport.NewTLSFiles(t)
 	p.config = attestor.Config{CertFile: p.tls.CertFile, KeyFile: p.tls.KeyFile, CAFile: p.tls.CAFile, GatewayCertFile: p.gateway.CertFile, GatewayKeyFile: p.gateway.KeyFile, OwnerTokensFile: filepath.Join(root, "owners.json")}
 	for _, id := range p.ids() {
 		cert, _ := p.tls.ServerCertificate(t, id)
 		p.certificates = append(p.certificates, cert)
-		p.states = append(p.states, map[string]*m160PeerKey{})
+		p.states = append(p.states, map[string]*migrationRecoveryPeerKey{})
 	}
 	tokens := map[string]string{}
 	for i, kind := range kinds {
@@ -1059,7 +1059,7 @@ func m160New(t *testing.T, kinds ...string) *m160Fixture {
 		}
 		identity := ed25519.NewKeyFromSeed(bytes.Repeat([]byte{byte(i + 1)}, 32))
 		pub := hex.EncodeToString(identity.Public().(ed25519.PublicKey))
-		w := &m160Wallet{Wallet: Wallet{ID: fmt.Sprintf("00000000-0000-0000-0000-%012d", i+1), UserID: fmt.Sprintf("10000000-0000-0000-0000-%012d", i+1), Address: crypto.PubkeyToAddress(secp.PublicKey).Hex(), KeyVersion: 1, ChainID: 125, Kind: kind, DID: "did:layerx:" + pub}, secp: secp, identity: identity}
+		w := &migrationRecoveryWallet{Wallet: Wallet{ID: fmt.Sprintf("00000000-0000-0000-0000-%012d", i+1), UserID: fmt.Sprintf("10000000-0000-0000-0000-%012d", i+1), Address: crypto.PubkeyToAddress(secp.PublicKey).Hex(), KeyVersion: 1, ChainID: 125, Kind: kind, DID: "did:layerx:" + pub}, secp: secp, identity: identity}
 		name := []byte("agent:" + w.DID + ":main")
 		hash := sha256.Sum256(append(append([]byte("LX:ACCOUNT:v1"), binary.BigEndian.AppendUint32(nil, uint32(len(name)))...), name...))
 		w.MainAccountID = hex.EncodeToString(hash[:])
@@ -1089,7 +1089,7 @@ func m160New(t *testing.T, kinds ...string) *m160Fixture {
 		tokens[w.UserID] = "owner-" + w.UserID
 		if kind != "agent" {
 			for j, id := range p.ids() {
-				p.states[j][w.original.KeyID] = &m160PeerKey{Description: attestor.DescribeResponse{NodeID: id, KeyID: w.original.KeyID, Curve: attestor.CurveEd25519, PublicKey: pub, DID: w.DID, Owner: w.UserID, Account: w.Address, Participants: p.ids(), AuditSequence: 1}}
+				p.states[j][w.original.KeyID] = &migrationRecoveryPeerKey{Description: attestor.DescribeResponse{NodeID: id, KeyID: w.original.KeyID, Curve: attestor.CurveEd25519, PublicKey: pub, DID: w.DID, Owner: w.UserID, Account: w.Address, Participants: p.ids(), AuditSequence: 1}}
 			}
 		}
 	}
@@ -1109,12 +1109,12 @@ func m160New(t *testing.T, kinds ...string) *m160Fixture {
 	p.start(t)
 	t.Cleanup(p.stop)
 	f.peers = p
-	f.db = sql.OpenDB(m160Connector{data: f.data})
+	f.db = sql.OpenDB(migrationRecoveryConnector{data: f.data})
 	t.Cleanup(func() { _ = f.db.Close() })
-	f.options.RPCURL = m160RPC(t, f.data.wallets)
+	f.options.RPCURL = migrationRecoveryRPC(t, f.data.wallets)
 	return f
 }
-func m160RPC(t *testing.T, wallets []*m160Wallet) string {
+func migrationRecoveryRPC(t *testing.T, wallets []*migrationRecoveryWallet) string {
 	t.Helper()
 	contract, err := abi.JSON(strings.NewReader(`[{"type":"function","name":"getUnifiedAccount","stateMutability":"view","inputs":[{"name":"evm","type":"address"}],"outputs":[{"name":"evm","type":"address"},{"name":"paxAddr","type":"string"},{"name":"didPublicKey","type":"bytes32"},{"name":"layerxMainAccountId","type":"bytes32"}]},{"type":"function","name":"layerXBindNonce","stateMutability":"view","inputs":[{"name":"evm","type":"address"}],"outputs":[{"name":"nonce","type":"uint64"}]}]`))
 	if err != nil {
@@ -1176,12 +1176,12 @@ func m160RPC(t *testing.T, wallets []*m160Wallet) string {
 			http.Error(w, "method", 400)
 			return
 		}
-		m160JSON(w, map[string]any{"jsonrpc": "2.0", "id": req.ID, "result": result})
+		migrationRecoveryJSON(w, map[string]any{"jsonrpc": "2.0", "id": req.ID, "result": result})
 	}))
 	t.Cleanup(srv.Close)
 	return srv.URL
 }
-func (f *m160Fixture) plan(t *testing.T) *Plan {
+func (f *migrationRecoveryFixture) plan(t *testing.T) *Plan {
 	t.Helper()
 	plan, err := PlanMigration(context.Background(), f.db)
 	if err != nil {
@@ -1189,18 +1189,18 @@ func (f *m160Fixture) plan(t *testing.T) *Plan {
 	}
 	return plan
 }
-func (f *m160Fixture) authorize(t *testing.T, client *attestor.Client, plan *Plan) {
+func (f *migrationRecoveryFixture) authorize(t *testing.T, client *attestor.Client, plan *Plan) {
 	t.Helper()
 	// Rehearse against an independent copy using the production delivery path.
 	// The receipt is sealed from the returned counts, never invented by the test.
-	data := &m160Database{schema: true, locks: map[string]bool{}}
+	data := &migrationRecoveryDatabase{schema: true, locks: map[string]bool{}}
 	for _, wallet := range f.data.wallets {
 		copied := *wallet
 		data.wallets = append(data.wallets, &copied)
 	}
-	db := sql.OpenDB(m160Connector{data: data})
+	db := sql.OpenDB(migrationRecoveryConnector{data: data})
 	defer db.Close()
-	peers := &m160Peers{root: t.TempDir(), tls: f.peers.tls, gateway: f.peers.gateway, certificates: f.peers.certificates, config: f.peers.config, keys: f.peers.keys}
+	peers := &migrationRecoveryPeers{root: t.TempDir(), tls: f.peers.tls, gateway: f.peers.gateway, certificates: f.peers.certificates, config: f.peers.config, keys: f.peers.keys}
 	raw, err := json.Marshal(f.peers.states)
 	if err != nil {
 		t.Fatal(err)
@@ -1235,7 +1235,7 @@ func (f *m160Fixture) authorize(t *testing.T, client *attestor.Client, plan *Pla
 		t.Fatalf("rehearsal peer contract: %v", peers.protocolErrors)
 	}
 }
-func (f *m160Fixture) journal(t *testing.T, w Wallet) walletJournal {
+func (f *migrationRecoveryFixture) journal(t *testing.T, w Wallet) walletJournal {
 	t.Helper()
 	raw, err := protectedRead(journalPath(f.options, w.ID), 16<<20)
 	if err != nil {
@@ -1248,24 +1248,24 @@ func (f *m160Fixture) journal(t *testing.T, w Wallet) walletJournal {
 	}
 	return journal
 }
-func (f *m160Fixture) assertProtocol(t *testing.T) {
+func (f *migrationRecoveryFixture) assertProtocol(t *testing.T) {
 	t.Helper()
 	if len(f.peers.protocolErrors) != 0 {
 		t.Fatalf("peer contract: %v", f.peers.protocolErrors)
 	}
 }
 
-func TestRepairM_160_RefreshResumeOrder(t *testing.T) {
-	m160Recovery(t, false)
+func TestMigrationRefreshResumeOrder(t *testing.T) {
+	migrationRecoveryRecovery(t, false)
 }
-func TestRepairM_160_OriginalIdentityRefreshResumeOrder(t *testing.T) {
-	m160Recovery(t, true)
+func TestMigrationOriginalIdentityRefreshResumeOrder(t *testing.T) {
+	migrationRecoveryRecovery(t, true)
 }
 
-func TestRepairM_160_RecoveryPublicKeyEncodings(t *testing.T) {
+func TestMigrationRecoveryPublicKeyEncodings(t *testing.T) {
 	for _, encoding := range []string{"uncompressed", "compressed", "mixed"} {
 		t.Run(encoding, func(t *testing.T) {
-			f := m160New(t, "standard")
+			f := newMigrationRecoveryFixture(t, "standard")
 			client := f.peers.client(t)
 			plan := f.plan(t)
 			f.authorize(t, client, plan)
@@ -1365,9 +1365,9 @@ func TestRepairM_160_RecoveryPublicKeyEncodings(t *testing.T) {
 	}
 }
 
-func m160Recovery(t *testing.T, identity bool) {
+func migrationRecoveryRecovery(t *testing.T, identity bool) {
 	t.Helper()
-	f := m160New(t, "standard")
+	f := newMigrationRecoveryFixture(t, "standard")
 	client := f.peers.client(t)
 	plan := f.plan(t)
 	f.authorize(t, client, plan)
@@ -1440,10 +1440,10 @@ func m160Recovery(t *testing.T, identity bool) {
 	f.assertProtocol(t)
 }
 
-func TestRepairM_160_RequireEveryMemberComplete(t *testing.T) {
+func TestMigrationRequireEveryMemberComplete(t *testing.T) {
 	for _, identity := range []bool{false, true} {
 		t.Run(fmt.Sprint(identity), func(t *testing.T) {
-			f := m160New(t, "standard")
+			f := newMigrationRecoveryFixture(t, "standard")
 			client := f.peers.client(t)
 			plan := f.plan(t)
 			f.authorize(t, client, plan)
@@ -1477,11 +1477,11 @@ func TestRepairM_160_RequireEveryMemberComplete(t *testing.T) {
 	}
 }
 
-func TestRepairM_160_RejectUnrelatedRecovery(t *testing.T) {
+func TestMigrationRejectUnrelatedRecovery(t *testing.T) {
 	for _, identity := range []bool{false, true} {
 		for _, mutation := range []string{"session", "ceremony", "import", "epoch", "public", "decision", "members"} {
 			t.Run(fmt.Sprintf("%t/%s", identity, mutation), func(t *testing.T) {
-				f := m160New(t, "standard")
+				f := newMigrationRecoveryFixture(t, "standard")
 				client := f.peers.client(t)
 				plan := f.plan(t)
 				f.authorize(t, client, plan)
@@ -1540,18 +1540,18 @@ func TestRepairM_160_RejectUnrelatedRecovery(t *testing.T) {
 	}
 }
 
-func TestRepairM_160_MigrationStaleTests(t *testing.T) {
-	t.Run("funded-and-migrated", m160TestPlan)
-	t.Run("schema", m160TestSchema)
-	t.Run("completion-and-original-identity", m160TestCompleteDelivery)
-	t.Run("signature-mismatch-stops-run", m160TestSignatureMismatch)
-	t.Run("envelope-mismatch", m160TestEnvelopeMismatch)
-	t.Run("external-identity-refused", m160TestExternalIdentity)
-	t.Run("mandatory-rehearsal-and-journal", m160TestRehearsal)
+func TestMigrationPlanAndDelivery(t *testing.T) {
+	t.Run("funded-and-migrated", migrationRecoveryTestPlan)
+	t.Run("schema", migrationRecoveryTestSchema)
+	t.Run("completion-and-original-identity", migrationRecoveryTestCompleteDelivery)
+	t.Run("signature-mismatch-stops-run", migrationRecoveryTestSignatureMismatch)
+	t.Run("envelope-mismatch", migrationRecoveryTestEnvelopeMismatch)
+	t.Run("external-identity-refused", migrationRecoveryTestExternalIdentity)
+	t.Run("mandatory-rehearsal-and-journal", migrationRecoveryTestRehearsal)
 }
 
-func m160TestPlan(t *testing.T) {
-	f := m160New(t, "standard", "agent", "standard", "funded", "standard")
+func migrationRecoveryTestPlan(t *testing.T) {
+	f := newMigrationRecoveryFixture(t, "standard", "agent", "standard", "funded", "standard")
 	f.data.wallets[2].fundedAccount = true
 	f.data.wallets[4].Migrated = true
 	f.data.wallets[4].attestorID = SecpKeyID(f.data.wallets[4].ID)
@@ -1583,8 +1583,8 @@ func m160TestPlan(t *testing.T) {
 		t.Fatal("funded account and funded kind are not both excluded")
 	}
 }
-func m160TestSchema(t *testing.T) {
-	f := m160New(t, "standard")
+func migrationRecoveryTestSchema(t *testing.T) {
+	f := newMigrationRecoveryFixture(t, "standard")
 	if _, err := f.db.Exec(`alter table wallets drop column migrated_at`); err != nil {
 		t.Fatal(err)
 	}
@@ -1592,8 +1592,8 @@ func m160TestSchema(t *testing.T) {
 		t.Fatalf("missing column: %v", err)
 	}
 }
-func m160TestCompleteDelivery(t *testing.T) {
-	f := m160New(t, "standard", "standard", "standard", "funded")
+func migrationRecoveryTestCompleteDelivery(t *testing.T) {
+	f := newMigrationRecoveryFixture(t, "standard", "standard", "standard", "funded")
 	client := f.peers.client(t)
 	plan := f.plan(t)
 	f.authorize(t, client, plan)
@@ -1642,8 +1642,8 @@ func m160TestCompleteDelivery(t *testing.T) {
 	}
 	f.assertProtocol(t)
 }
-func m160TestSignatureMismatch(t *testing.T) {
-	f := m160New(t, "standard", "standard", "standard")
+func migrationRecoveryTestSignatureMismatch(t *testing.T) {
+	f := newMigrationRecoveryFixture(t, "standard", "standard", "standard")
 	client := f.peers.client(t)
 	plan := f.plan(t)
 	f.authorize(t, client, plan)
@@ -1673,8 +1673,8 @@ func m160TestSignatureMismatch(t *testing.T) {
 	}
 	f.assertProtocol(t)
 }
-func m160TestEnvelopeMismatch(t *testing.T) {
-	f := m160New(t, "standard", "standard")
+func migrationRecoveryTestEnvelopeMismatch(t *testing.T) {
+	f := newMigrationRecoveryFixture(t, "standard", "standard")
 	// The original identity producer and RPC bind this wallet to its stored
 	// address; only the encrypted EVM envelope belongs to another wallet.
 	f.data.wallets[0].EncryptedPrivateKey = f.data.wallets[1].EncryptedPrivateKey
@@ -1702,8 +1702,8 @@ func m160TestEnvelopeMismatch(t *testing.T) {
 	}
 	f.assertProtocol(t)
 }
-func m160TestExternalIdentity(t *testing.T) {
-	f := m160New(t, "agent")
+func migrationRecoveryTestExternalIdentity(t *testing.T) {
+	f := newMigrationRecoveryFixture(t, "agent")
 	client := f.peers.client(t)
 	plan := f.plan(t)
 	options := f.options
@@ -1719,8 +1719,8 @@ func m160TestExternalIdentity(t *testing.T) {
 	}
 	f.assertProtocol(t)
 }
-func m160TestRehearsal(t *testing.T) {
-	f := m160New(t, "standard")
+func migrationRecoveryTestRehearsal(t *testing.T) {
+	f := newMigrationRecoveryFixture(t, "standard")
 	client := f.peers.client(t)
 	plan := f.plan(t)
 	bad := f.options

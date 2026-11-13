@@ -33,14 +33,14 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/ceremony/internal/testsupport"
 )
 
-type repairM174Isolation struct {
+type rehearsalIsolation struct {
 	options        Options
 	env            map[string]string
 	deliveryCalls  atomic.Int64
 	rehearsalCalls atomic.Int64
 }
 
-func repairM174ProtectedDir(t *testing.T) string {
+func rehearsalProtectedDir(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
 	if err := os.Chmod(dir, 0700); err != nil {
@@ -49,10 +49,10 @@ func repairM174ProtectedDir(t *testing.T) string {
 	return dir
 }
 
-func repairM174IsolationFixture(t *testing.T) *repairM174Isolation {
+func newRehearsalIsolation(t *testing.T) *rehearsalIsolation {
 	t.Helper()
-	f := &repairM174Isolation{}
-	dir := repairM174ProtectedDir(t)
+	f := &rehearsalIsolation{}
+	dir := rehearsalProtectedDir(t)
 	ca, err := newAuthority()
 	if err != nil {
 		t.Fatal(err)
@@ -147,7 +147,7 @@ func repairM174IsolationFixture(t *testing.T) *repairM174Isolation {
 		}
 	}))
 	t.Cleanup(rpc.Close)
-	rehearsalJournal, deliveryJournal := repairM174ProtectedDir(t), repairM174ProtectedDir(t)
+	rehearsalJournal, deliveryJournal := rehearsalProtectedDir(t), rehearsalProtectedDir(t)
 	journalKey := bytes.Repeat([]byte{0x74}, 32)
 	keyFile := filepath.Join(dir, "journal.key")
 	if err := os.WriteFile(keyFile, journalKey, 0600); err != nil {
@@ -178,13 +178,13 @@ func repairM174IsolationFixture(t *testing.T) *repairM174Isolation {
 }
 
 // The external-package loader test shares this fully populated environment.
-func RepairM174Environment(t *testing.T) map[string]string {
+func IsolatedRehearsalEnvironment(t *testing.T) map[string]string {
 	t.Helper()
-	return repairM174IsolationFixture(t).env
+	return newRehearsalIsolation(t).env
 }
 
-func TestRepairM_174_RehearsalStaleOptions(t *testing.T) {
-	f := repairM174IsolationFixture(t)
+func TestRehearsalIsolatedOptions(t *testing.T) {
+	f := newRehearsalIsolation(t)
 	sentinel := []byte("delivery journal must remain untouched")
 	path := filepath.Join(f.options.DeliveryJournalDir, "production.sealed")
 	if err := os.WriteFile(path, sentinel, 0600); err != nil {
@@ -259,8 +259,8 @@ func TestRepairM_174_RehearsalStaleOptions(t *testing.T) {
 	}
 }
 
-func TestRepairM_174_TLSIdentityPins(t *testing.T) {
-	f := repairM174IsolationFixture(t)
+func TestRehearsalTLSIdentityPins(t *testing.T) {
+	f := newRehearsalIsolation(t)
 	config := *f.options.AttestorConfig
 	config.Nodes = append(config.Nodes[:0:0], config.Nodes...)
 	config.Nodes[0].Pin[0] ^= 1
@@ -279,8 +279,8 @@ func TestRepairM_174_TLSIdentityPins(t *testing.T) {
 	}
 }
 
-func TestRepairM_174_IsolationRefusals(t *testing.T) {
-	f := repairM174IsolationFixture(t)
+func TestRehearsalIsolationRefusals(t *testing.T) {
+	f := newRehearsalIsolation(t)
 	cases := []struct {
 		name string
 		edit func(*Options)
@@ -342,7 +342,7 @@ func TestRepairM_174_IsolationRefusals(t *testing.T) {
 	}
 }
 
-type repairM174Exchange struct {
+type migrationProtocolExchange struct {
 	sql        string
 	extended   bool
 	messages   []pgproto3.BackendMessage
@@ -350,12 +350,12 @@ type repairM174Exchange struct {
 	disconnect bool
 }
 
-func repairM174Command(sql, tag string, status byte) repairM174Exchange {
-	return repairM174Exchange{sql: sql, messages: []pgproto3.BackendMessage{&pgproto3.CommandComplete{CommandTag: []byte(tag)}}, status: status}
+func migrationCommandExchange(sql, tag string, status byte) migrationProtocolExchange {
+	return migrationProtocolExchange{sql: sql, messages: []pgproto3.BackendMessage{&pgproto3.CommandComplete{CommandTag: []byte(tag)}}, status: status}
 }
-func repairM174Count(file string, present int) repairM174Exchange {
+func migrationLedgerCountExchange(file string, present int) migrationProtocolExchange {
 	// pgx pads simple-protocol substitutions to keep values separate from SQL tokens.
-	return repairM174Exchange{sql: fmt.Sprintf("select count(*) from _migrations where filename =  '%s' ", file), messages: []pgproto3.BackendMessage{
+	return migrationProtocolExchange{sql: fmt.Sprintf("select count(*) from _migrations where filename =  '%s' ", file), messages: []pgproto3.BackendMessage{
 		&pgproto3.RowDescription{Fields: []pgproto3.FieldDescription{{Name: []byte("count"), DataTypeOID: 20, DataTypeSize: 8, TypeModifier: -1}}},
 		&pgproto3.DataRow{Values: [][]byte{[]byte(fmt.Sprint(present))}}, &pgproto3.CommandComplete{CommandTag: []byte("SELECT 1")}}, status: 'T'}
 }
@@ -363,7 +363,7 @@ func repairM174Count(file string, present int) repairM174Exchange {
 // This peer replays a bounded PostgreSQL protocol exchange. It has no SQL
 // interpreter or simulated durable database; assertions qualify the production
 // migration client's transaction boundaries, including a lost connection.
-func repairM174Connect(t *testing.T, script []repairM174Exchange) *pgx.Conn {
+func connectMigrationProtocol(t *testing.T, script []migrationProtocolExchange) *pgx.Conn {
 	t.Helper()
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -495,7 +495,7 @@ func repairM174Connect(t *testing.T, script []repairM174Exchange) *pgx.Conn {
 	return conn
 }
 
-func repairM174Migration(t *testing.T, sql string) (Migrations, string) {
+func loadTestMigration(t *testing.T, sql string) (Migrations, string) {
 	t.Helper()
 	dir := t.TempDir()
 	file := "001_non_idempotent.sql"
@@ -509,19 +509,19 @@ func repairM174Migration(t *testing.T, sql string) (Migrations, string) {
 	return m, file
 }
 
-func TestRepairM_174_MigrationLedgerAtomicity(t *testing.T) {
+func TestRehearsalMigrationLedgerAtomicity(t *testing.T) {
 	const statement = "insert into repair_events(value) values ('once')"
-	m, file := repairM174Migration(t, statement+";")
+	m, file := loadTestMigration(t, statement+";")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	begin := repairM174Command("begin", "BEGIN", 'T')
-	executed := repairM174Command(statement, "INSERT 0 1", 'T')
+	begin := migrationCommandExchange("begin", "BEGIN", 'T')
+	executed := migrationCommandExchange(statement, "INSERT 0 1", 'T')
 	executed.extended = true
-	record := repairM174Command("insert into _migrations(filename) values ( '"+file+"' )", "INSERT 0 1", 'T')
+	record := migrationCommandExchange("insert into _migrations(filename) values ( '"+file+"' )", "INSERT 0 1", 'T')
 	// Lose the real pgx connection after execution and before any ledger response.
 	interrupted := record
 	interrupted.disconnect = true
-	first := repairM174Connect(t, []repairM174Exchange{begin, repairM174Count(file, 0), executed, interrupted})
+	first := connectMigrationProtocol(t, []migrationProtocolExchange{begin, migrationLedgerCountExchange(file, 0), executed, interrupted})
 	if err := m.apply(ctx, first, file); !errors.Is(err, ErrTarget) || !strings.Contains(err.Error(), "record ") {
 		t.Fatalf("interruption: %v", err)
 	}
@@ -529,7 +529,7 @@ func TestRepairM_174_MigrationLedgerAtomicity(t *testing.T) {
 		t.Fatal("interrupted connection remained usable")
 	}
 	// Reopen the production client against the rollback/retry transcript.
-	second := repairM174Connect(t, []repairM174Exchange{begin, repairM174Count(file, 0), executed, record, repairM174Command("commit", "COMMIT", 'I')})
+	second := connectMigrationProtocol(t, []migrationProtocolExchange{begin, migrationLedgerCountExchange(file, 0), executed, record, migrationCommandExchange("commit", "COMMIT", 'I')})
 	if err := m.apply(ctx, second, file); err != nil {
 		t.Fatalf("reopened migration: %v", err)
 	}
@@ -538,37 +538,37 @@ func TestRepairM_174_MigrationLedgerAtomicity(t *testing.T) {
 	}
 	second.Close(ctx)
 	// A further reopened client sees the committed ledger and never replays SQL.
-	third := repairM174Connect(t, []repairM174Exchange{begin, repairM174Count(file, 1), repairM174Command("rollback", "ROLLBACK", 'I')})
+	third := connectMigrationProtocol(t, []migrationProtocolExchange{begin, migrationLedgerCountExchange(file, 1), migrationCommandExchange("rollback", "ROLLBACK", 'I')})
 	if err := m.apply(ctx, third, file); err != nil {
 		t.Fatalf("committed migration repeated: %v", err)
 	}
 	third.Close(ctx)
 }
 
-func TestRepairM_174_MigrationFailuresRollback(t *testing.T) {
+func TestRehearsalMigrationFailuresRollback(t *testing.T) {
 	const statement = "insert into repair_events(value) values ('once')"
 	for _, stage := range []string{"execute", "record", "commit"} {
 		t.Run(stage, func(t *testing.T) {
-			m, file := repairM174Migration(t, statement)
-			begin := repairM174Command("begin", "BEGIN", 'T')
-			executed := repairM174Command(statement, "INSERT 0 1", 'T')
+			m, file := loadTestMigration(t, statement)
+			begin := migrationCommandExchange("begin", "BEGIN", 'T')
+			executed := migrationCommandExchange(statement, "INSERT 0 1", 'T')
 			executed.extended = true
-			record := repairM174Command("insert into _migrations(filename) values ( '"+file+"' )", "INSERT 0 1", 'T')
-			failure := func(exchange repairM174Exchange, status byte) repairM174Exchange {
+			record := migrationCommandExchange("insert into _migrations(filename) values ( '"+file+"' )", "INSERT 0 1", 'T')
+			failure := func(exchange migrationProtocolExchange, status byte) migrationProtocolExchange {
 				exchange.messages = []pgproto3.BackendMessage{&pgproto3.ErrorResponse{Severity: "ERROR", Code: "40001", Message: "interrupted transaction"}}
 				exchange.status = status
 				return exchange
 			}
-			script := []repairM174Exchange{begin, repairM174Count(file, 0)}
+			script := []migrationProtocolExchange{begin, migrationLedgerCountExchange(file, 0)}
 			switch stage {
 			case "execute":
-				script = append(script, failure(executed, 'E'), repairM174Command("rollback", "ROLLBACK", 'I'))
+				script = append(script, failure(executed, 'E'), migrationCommandExchange("rollback", "ROLLBACK", 'I'))
 			case "record":
-				script = append(script, executed, failure(record, 'E'), repairM174Command("rollback", "ROLLBACK", 'I'))
+				script = append(script, executed, failure(record, 'E'), migrationCommandExchange("rollback", "ROLLBACK", 'I'))
 			case "commit":
-				script = append(script, executed, record, failure(repairM174Command("commit", "COMMIT", 'I'), 'I'))
+				script = append(script, executed, record, failure(migrationCommandExchange("commit", "COMMIT", 'I'), 'I'))
 			}
-			conn := repairM174Connect(t, script)
+			conn := connectMigrationProtocol(t, script)
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 			if err := m.apply(ctx, conn, file); !errors.Is(err, ErrTarget) {
@@ -582,11 +582,11 @@ func TestRepairM_174_MigrationFailuresRollback(t *testing.T) {
 	}
 }
 
-func TestRepairM_174_TransactionControlSQL(t *testing.T) {
+func TestRehearsalTransactionControlSQL(t *testing.T) {
 	cases := []string{"BEGIN; select 1; COMMIT", "select 1; /* comment */ COMMIT", "START TRANSACTION", "END WORK", "ROLLBACK", "ABORT", "SAVEPOINT s", "RELEASE SAVEPOINT s", "PREPARE TRANSACTION 'x'", "EXECUTE unsafe", "select 1; -- line\n /* outer /* nested */ */ CoMmIt AND CHAIN", `select E'escaped\'quote;'; COMMIT`, "select 'backslash\\'; COMMIT"}
 	for _, sql := range cases {
 		t.Run(sql, func(t *testing.T) {
-			m, file := repairM174Migration(t, sql)
+			m, file := loadTestMigration(t, sql)
 			// A nil connection proves refusal precedes all SQL, including BEGIN.
 			if err := m.apply(context.Background(), nil, file); !errors.Is(err, ErrMigrations) {
 				t.Fatalf("transaction control accepted: %v", err)
@@ -611,16 +611,16 @@ func TestRepairM_174_TransactionControlSQL(t *testing.T) {
 	}
 }
 
-func TestRepairM_174_CopyDigests(t *testing.T) {
+func TestRehearsalCopyDigests(t *testing.T) {
 	const data = "1\twallet-one\n2\twallet-two\n"
 	table := Table{Name: "wallets", Columns: []Column{{Name: "id"}, {Name: "address"}}, PrimaryKey: []string{"id"}}
-	copyOut := func(query string, body string) repairM174Exchange {
-		return repairM174Exchange{sql: query, messages: []pgproto3.BackendMessage{
+	copyOut := func(query string, body string) migrationProtocolExchange {
+		return migrationProtocolExchange{sql: query, messages: []pgproto3.BackendMessage{
 			&pgproto3.CopyOutResponse{ColumnFormatCodes: []uint16{0, 0}}, &pgproto3.CopyData{Data: []byte(body)}, &pgproto3.CopyDone{}, &pgproto3.CommandComplete{CommandTag: []byte("COPY 2")}}, status: 'I'}
 	}
-	source := repairM174Connect(t, []repairM174Exchange{copyOut(table.CopyOut(table.Ident(), "s"), data)})
+	source := connectMigrationProtocol(t, []migrationProtocolExchange{copyOut(table.CopyOut(table.Ident(), "s"), data)})
 	// COPY FROM has its own streaming protocol, rather than Query/CommandComplete.
-	target, finish := repairM174CopyTarget(t, table.CopyIn(table.Ident()), []byte(data))
+	target, finish := newCopyProtocolTarget(t, table.CopyIn(table.Ident()), []byte(data))
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	streamed, loaded, digest, err := Stream(ctx, &Source{conn: source}, target.PgConn(), table, table.CopyIn(table.Ident()))
@@ -630,7 +630,7 @@ func TestRepairM_174_CopyDigests(t *testing.T) {
 	finish()
 	target.Close(ctx)
 	source.Close(ctx)
-	copied := repairM174Connect(t, []repairM174Exchange{copyOut(table.CopyOut(table.Ident(), "t"), data), copyOut(table.CopyOut(table.Ident(), "t"), strings.Replace(data, "wallet-two", "wallet-bad", 1))})
+	copied := connectMigrationProtocol(t, []migrationProtocolExchange{copyOut(table.CopyOut(table.Ident(), "t"), data), copyOut(table.CopyOut(table.Ident(), "t"), strings.Replace(data, "wallet-two", "wallet-bad", 1))})
 	targetDigest, n, err := Digest(ctx, copied.PgConn(), table.CopyOut(table.Ident(), "t"))
 	if err != nil {
 		t.Fatal(err)
@@ -654,7 +654,7 @@ func TestRepairM_174_CopyDigests(t *testing.T) {
 	copied.Close(ctx)
 }
 
-func repairM174CopyTarget(t *testing.T, query string, want []byte) (*pgx.Conn, func()) {
+func newCopyProtocolTarget(t *testing.T, query string, want []byte) (*pgx.Conn, func()) {
 	t.Helper()
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -768,7 +768,7 @@ func TestMigrationLedgerAtomicityPostgresAfterInterruption(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	m, file := repairM174Migration(t, `insert into repair_events(value) values ('once');`)
+	m, file := loadTestMigration(t, `insert into repair_events(value) values ('once');`)
 	if err := m.apply(ctx, conn, file); !errors.Is(err, ErrTarget) || !strings.Contains(err.Error(), "record ") {
 		t.Fatalf("real PostgreSQL interruption: %v", err)
 	}
@@ -807,7 +807,7 @@ func TestMigrationLedgerAtomicityPostgresAfterInterruption(t *testing.T) {
 	}
 }
 
-func TestRepairM_174_GatewayMigrationSyntax(t *testing.T) {
+func TestRehearsalGatewayMigrationSyntax(t *testing.T) {
 	m, err := LoadMigrations(testsupport.GatewayMigrationsDir(t))
 	if err != nil {
 		t.Fatal(err)
@@ -826,9 +826,9 @@ func TestRepairM_174_GatewayMigrationSyntax(t *testing.T) {
 	}
 }
 
-func TestRepairM_174_RejectsEnclosingTransaction(t *testing.T) {
-	m, file := repairM174Migration(t, "select 1")
-	conn := repairM174Connect(t, []repairM174Exchange{repairM174Command("begin", "BEGIN", 'T'), repairM174Command("rollback", "ROLLBACK", 'I')})
+func TestRehearsalRejectsEnclosingTransaction(t *testing.T) {
+	m, file := loadTestMigration(t, "select 1")
+	conn := connectMigrationProtocol(t, []migrationProtocolExchange{migrationCommandExchange("begin", "BEGIN", 'T'), migrationCommandExchange("rollback", "ROLLBACK", 'I')})
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if _, err := conn.Exec(ctx, "begin"); err != nil {

@@ -12,7 +12,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/ceremony/internal/rehearsal"
 )
 
-func TestRepair_245_UnrelatedMissingTable(t *testing.T) {
+func TestTableRetirementUnrelatedMissingTable(t *testing.T) {
 	sourceLedger := []string{"001_init.sql", "005_agent_actions.sql"}
 	source := []rehearsal.Table{{Name: "wallets"}, {Name: "wallet_signatures"}, {Name: "funded_tiers"}}
 	target := []rehearsal.Table{{Name: "wallets"}}
@@ -30,7 +30,7 @@ func TestRepair_245_UnrelatedMissingTable(t *testing.T) {
 	}
 }
 
-func TestRepair_245_ExactAppliedRetirements(t *testing.T) {
+func TestTableRetirementExactAppliedRetirements(t *testing.T) {
 	cases := []struct {
 		file   string
 		tables []string
@@ -75,7 +75,7 @@ func TestRepair_245_ExactAppliedRetirements(t *testing.T) {
 	}
 }
 
-func TestRepair_245_SourceAlreadyAppliedRetirement(t *testing.T) {
+func TestTableRetirementSourceAlreadyAppliedRetirement(t *testing.T) {
 	for _, c := range []struct{ table, migration string }{
 		{"funded_tiers", "006_archive_funded.sql"},
 		{"layerx_accounts", "019_drop_retired_layerx_custody.sql"},
@@ -94,14 +94,14 @@ func TestRepair_245_SourceAlreadyAppliedRetirement(t *testing.T) {
 	}
 }
 
-func TestRepair_245_MissingSourceMigration(t *testing.T) {
+func TestTableRetirementMissingSourceMigration(t *testing.T) {
 	later, err := migrationDifference([]string{"001_init.sql", "005_agent_actions.sql"}, []string{"001_init.sql", "006_archive_funded.sql"})
 	if !errors.Is(err, ErrNotMoved) || !strings.Contains(err.Error(), "005_agent_actions.sql") || later != nil {
 		t.Fatalf("incomplete moved ledger accepted: %v %v", later, err)
 	}
 }
 
-func TestRepair_245_PresentTablesArePreserved(t *testing.T) {
+func TestTableRetirementPresentTablesArePreserved(t *testing.T) {
 	tables := []rehearsal.Table{{Name: "wallets"}, {Name: "funded_tiers"}, {Name: "wallet_signatures"}}
 	for _, later := range [][]string{nil, {"006_archive_funded.sql", "019_drop_retired_layerx_custody.sql"}} {
 		present, err := checkTargetTables(tables, tables, later)

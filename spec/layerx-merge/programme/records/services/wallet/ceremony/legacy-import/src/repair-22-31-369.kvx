@@ -1,6 +1,6 @@
 [repair.22.31.369]
 finding = "legacy-conflict-success"
-proof = "test/repair-22-31-369.test.ts: legacy_conflict_success_insert_and_identical_replay, legacy_conflict_success_retains_identity_owner_and_material_conflicts, legacy_conflict_success_requires_verified_receipts"
+proof = "test/import-receipts.test.ts: legacy_conflict_success_insert_and_identical_replay, legacy_conflict_success_retains_identity_owner_and_material_conflicts, legacy_conflict_success_requires_verified_receipts"
 producer = "services/wallet/gateway/src/routes/admin.ts"
 consumer = "services/wallet/ceremony/legacy-import/src/importer.ts"
 behavior = "Only a committed insertion or an exact persisted-material replay emits a record-bound receipt; the importer verifies the receipt before journaling, leaving conflicts retryable."

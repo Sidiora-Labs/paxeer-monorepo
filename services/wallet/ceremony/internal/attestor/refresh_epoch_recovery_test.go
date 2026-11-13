@@ -17,13 +17,13 @@ import (
 
 // The overlay lets this test reuse the real server's cluster harness across Go's
 // internal-package boundary without exporting test hooks or changing other paths.
-func TestRepair_247_RefreshEpochRecovery(t *testing.T) {
-	if raw := os.Getenv("REPAIR247_CONFIG"); raw != "" {
-		repair247Consumer(t, raw, os.Getenv("REPAIR247_PHASE"))
+func TestRefreshEpochRecovery(t *testing.T) {
+	if raw := os.Getenv("REFRESH_EPOCH_RECOVERY_CONFIG"); raw != "" {
+		refreshEpochRecoveryConsumer(t, raw, os.Getenv("REFRESH_EPOCH_RECOVERY_PHASE"))
 		return
 	}
 	dir := t.TempDir()
-	source, err := format.Source([]byte(repair247ServerTest))
+	source, err := format.Source([]byte(refreshEpochRecoveryServerTest))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -51,9 +51,9 @@ func TestRepair_247_RefreshEpochRecovery(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "go", "test", "-overlay", overlayPath, "-count=1", "-run", "^TestRepair247RealServers$", "./internal/server")
+	cmd := exec.CommandContext(ctx, "go", "test", "-overlay", overlayPath, "-count=1", "-run", "^TestRefreshEpochRecoveryRealServers$", "./internal/server")
 	cmd.Dir = root
-	cmd.Env = append(os.Environ(), "REPAIR247_CONSUMER="+binary)
+	cmd.Env = append(os.Environ(), "REFRESH_EPOCH_RECOVERY_CONSUMER="+binary)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("real attestors: %v\n%s", err, out)
@@ -61,7 +61,7 @@ func TestRepair_247_RefreshEpochRecovery(t *testing.T) {
 	t.Logf("%s", out)
 }
 
-func repair247Consumer(t *testing.T, raw, phase string) {
+func refreshEpochRecoveryConsumer(t *testing.T, raw, phase string) {
 	t.Helper()
 	var cfg attestor.Config
 	if err := json.Unmarshal([]byte(raw), &cfg); err != nil {
@@ -177,7 +177,7 @@ func repair247Consumer(t *testing.T, raw, phase string) {
 	}
 }
 
-const repair247ServerTest = `package server
+const refreshEpochRecoveryServerTest = `package server
 import (
  "context"
  "crypto/x509"
@@ -193,7 +193,7 @@ import (
  "github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/transport"
 )
 
-func TestRepair247RealServers(t *testing.T) {
+func TestRefreshEpochRecoveryRealServers(t *testing.T) {
  c := newTestClusterWith(t, 5, true, testPolicy(), func(o *Options) { o.PeerTimeout = 5*time.Second })
  const keyID, session = "repair247-key", "repair247-refresh"
  approveTestKeys(t, c, c.ids, InventoryKey{KeyID:keyID, Curve:"ed25519", PublicKey:"d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a", Owner:testOwner, Operations:[]string{"import","refresh","sign"}})
@@ -204,8 +204,8 @@ func TestRepair247RealServers(t *testing.T) {
  if err != nil { t.Fatal(err) }
  consume := func(phase string) {
   t.Helper()
-  cmd := exec.Command(os.Getenv("REPAIR247_CONSUMER"), "-test.run=^TestRepair_247_RefreshEpochRecovery$", "-test.v")
-  cmd.Env = append(os.Environ(), "REPAIR247_CONFIG="+string(config), "REPAIR247_PHASE="+phase)
+  cmd := exec.Command(os.Getenv("REFRESH_EPOCH_RECOVERY_CONSUMER"), "-test.run=^TestRefreshEpochRecovery$", "-test.v")
+  cmd.Env = append(os.Environ(), "REFRESH_EPOCH_RECOVERY_CONFIG="+string(config), "REFRESH_EPOCH_RECOVERY_PHASE="+phase)
   out, err := cmd.CombinedOutput()
   if err != nil { t.Fatalf("consumer %s: %v\n%s", phase, err, out) }
   t.Logf("%s", out)
