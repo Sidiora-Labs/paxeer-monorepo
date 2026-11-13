@@ -1,6 +1,6 @@
 # Architecture
 
-Hyperfide (`hyperfide version` prints `2.2.0`) has three parts: one local C binary with
+Hyperfide (`core/native/src/version.h` defines version `2.2.0`) has three parts: one local C binary with
 its SQLite graph, a registry of native C components linked into it, and a Node
 control plane under `core/control-plane` that keeps distributed authority in
 PostgreSQL. The local binary is described first and at length, because every
@@ -20,7 +20,7 @@ C11 with GNU extensions (`-std=gnu11`) + POSIX. `core/native/src/cg.h` remains t
 core header; semantic, parser and inspection modules also have focused
 headers.
 
-Implementation paths and build commands on this page are relative to `tools/hyperfide` unless stated otherwise.
+Implementation paths and build commands on this page are relative to `tools/hyperfide` unless stated otherwise. Bare C source and header names refer to `core/native/src/`.
 
 ## Platform layers
 
@@ -138,7 +138,7 @@ runtime dispatch knowledge.
   registries, memories, git history, attempts, runtime history, work
   evidence, and projection builds and findings are never touched. A few
   guarded `ALTER TABLE`s run on *every* open, before the version check,
-  because a database stamped v18 by an earlier build of v18 can lack them:
+  to ensure the required columns exist:
   the `agents` table gains the native-agent columns (`kind`, `host_kind`,
   `agent_id`, `agent_type`, `description`, `model`, `depth`, `state`,
   `started`, `ended`, `transcript`, `cwd`, `task`, `task_source`,
@@ -154,7 +154,7 @@ runtime dispatch knowledge.
   older SQLite is refused with the version named. `body_tri_compat`
   does the same for `body_tri` before the schema runs. `idx_file_base`
   (`files(base, branch_id)`), `idx_file_legacy_time` and `idx_import_target`
-  are created after the upgrade, since a v17 `files` table has no `base`. A database written by
+  are created after schema setup. A database written by
   a *newer* `hyperfide` is refused rather than downgraded, so an old editor
   binary and a new CLI cannot take turns re-indexing the tree.
   It also resolves the project root, which is load-bearing:
@@ -221,7 +221,7 @@ hides or reveals), when the dirty set kept for the next pass outgrew
 a pass that completed. Full contract: [sync.md](sync.md#the-index-at-scale)
 and [config.md](config.md#index-walk).
 
-The write side changed with it. `body_fts` is contentless on SQLite 3.43+
+On the write side, `body_fts` is contentless on SQLite 3.43+
 (see `db.c` above), so snippets and matching lines are read from the file
 on disk. Name lookups in the resolver, the C header lookup, path outlines
 and position lookups use `files.base` behind `idx_file_base` instead of
@@ -245,14 +245,7 @@ Python, TypeScript and Rust with cross-file imports and calls, and one
 unique `scale_marker_<n>` literal per file), and `tools/repository/bench.sh` builds
 it in a scratch git repository, times `hyperfide init`, no-change and one-file
 syncs under each walk mode and the read commands, and prints a markdown
-table. Measured on the development machine (20000 files, 1.95M lines; the
-full table and profile are in [sync.md](sync.md#measured)):
-
-| Operation | Before (v1.4) | Now |
-|---|---|---|
-| `hyperfide init` | 331 s | 30–40 s |
-| database after init | 208.6 MB | 141 MB |
-| `hyperfide sync`, nothing changed | | about 370 ms |
+table.
 
 ## Line search (`grep.c`)
 
@@ -374,7 +367,7 @@ a checkout: the editor's `hyperfide lsp`, `hyperfide watch`, `hyperfide mcp`, an
 CLI calls. Only one writer exists at a time, so the rules are about who
 waits and for how long.
 
-- Every write transaction is `BEGIN IMMEDIATE`, taken through
+- Write transactions use `BEGIN IMMEDIATE`, taken through
   `cg_begin_write`, so a writer either has the lock or knows it does not;
   a deferred `BEGIN` that upgrades mid-transaction would fail with
   `SQLITE_BUSY_SNAPSHOT` and lose the work.
@@ -477,8 +470,8 @@ each phase change and at most every two seconds, terminal or not;
 Recursive inotify with dynamic directory registration and a debounce
 loop; each quiet period triggers an incremental index through the sync
 gate, so the watcher coalesces with hooks rather than racing them. A busy
-database turns into a retry after the next debounce. Non-Linux platforms
-stub out behind the same interface.
+database turns into a retry after the next debounce. Without inotify, fleet watching uses periodic reconciliation; ordinary
+watching requires inotify support.
 
 ## Fleet (`fleet.c`)
 
@@ -540,12 +533,10 @@ is dispatched here and drawn by `orch_tree_status` in
 
 ## Event log (`events.c`)
 
-One append-only `events` table (`seq`, `at`, `kind`, `subject`, `run`,
-`node`, `branch`, `payload`), added without a schema bump. Triggers on the
-durable tables emit inside the writer's own transaction, so an event never
-outlives a rolled-back change and an older binary emits without knowing
-it; they are installed on every open, after the schema upgrade, because
-two of them name columns only v16 adds. The kvx status hook reports task
+One `events` table (`seq`, `at`, `kind`, `subject`, `run`,
+`node`, `branch`, `payload`). Triggers on the
+durable tables emit inside the writer's transaction, so an event commits or
+rolls back with the change it describes. They are installed after schema setup. The kvx status hook reports task
 transitions, which live in `spec.kvx` rather than SQLite, and
 `events_emit` covers what has no row: merges, gates, pull requests,
 supervisor decisions, drift, agent output. `events_since` reads from a
@@ -672,7 +663,7 @@ with badges on the branches involved. Full contract:
 
 ## Jev decisions (`jev.c`)
 
-The one remote call. `jev_ask` builds a canonical request body (sorted
+The Jev client. `jev_ask` builds a canonical request body (sorted
 question names and criteria keys, compact, state verbatim) for `noul`,
 `choice`, and `score` questions, runs the system `curl` through `popen`
 with a private `0600` config file so the key never reaches a command line
@@ -894,10 +885,9 @@ evidence, claims, and tree state.
 line, preserving every other byte; the rewrite takes an advisory `flock`
 on a `<file>.lock` side file, so parallel agents' read-modify-writes on
 the same spec.kvx are atomic across processes. `spec.c` renders IDE
-pointer files and the markdown mirror byte-identically to the original
-Go `specgen` apart from a leading `<!-- hyperfide-owned: generated-spec v1 -->`
-ownership line (locked in by golden fixtures under
-`tests/fixtures/specrepo/`), and drives the task loop: wave-ordered
+pointer files and the Markdown mirror with a
+`<!-- hyperfide-owned: generated-spec v1 -->` ownership line. Golden fixtures
+live under `tests/fixtures/specrepo/`. It drives the task loop: wave-ordered
 `next`, one-in-progress `start`, `verify_cmd`-gated `done`. When the
 repo also has a `.codegraph/`, `done` additionally checks the task's
 declared `symbols` against the graph and its `touches` globs against
@@ -1227,14 +1217,10 @@ wave. The mark is taken at the top of the tick and the frontier is read
 later in it, so a land that reaches main between the two would leave a
 mark that says fresh beside a spec that says landed: `sup_wave_fresh`
 re-asks git for a mark that says fresh at the moment the gate decides,
-after the frontier was read, and a stale *not fresh* only costs a tick.
-The supervisor reads a
-worktree without touching it: `sup_tree_fp`
+after the frontier was read. The supervisor reads a
+worktree without taking optional Git locks: `sup_tree_fp`
 (the stall check's git view) and `fleet.c`'s `tree_clean` run `git
---no-optional-locks status`, because a plain `git status` refreshes the
-index under `index.lock` and, taken while the worker runs `git add` or
-`git commit` in that worktree, fails the worker's command — a qualified
-task that never reached its wave branch was the fleet tests' flake.
+--no-optional-locks status`, to avoid competing with Git writes in the worker's worktree.
 
 Supervision is four named checks: `supervisor_stall_check` (progress is an
 event by or about the agent, log growth, or a git status/HEAD change in its
@@ -1363,7 +1349,7 @@ line:
 
 ```text
 $ echo '{}' | build/hyperfide-native --component 26.1 --action branding.identity.describe
-{"ok":true,"result":{"product":"Hyperfide","version":"2.2.0","canonical_command":"hyperfide","compatibility_commands":["cg"],"native_protocol_version":1,"release_status":"development"}
+{"ok":true,"result":{"product":"Hyperfide","version":"2.2.0","canonical_command":"hyperfide","compatibility_commands":["cg"],"native_protocol_version":1,"release_status":"development"}}
 ```
 
 The native registry includes these thirteen fragments:
@@ -1388,7 +1374,7 @@ Fragments 12.1 and 25.3 are the components that need libcurl and libcrypto.
 
 ### The public binary's front door (`main.c`, `client.c`, `entrypoint.c`)
 
-`main` handles three Hyperfide layers before any local command runs.
+`platform` delegates directly to `cmd_platform`, and `install` has its own dispatcher. Other commands pass through environment alias validation, help handling and the following runtime layers before local graph dispatch.
 
 1. **Environment aliases.** `hyperfide_environment_aliases` (`config.c`)
    pairs each `HYPERFIDE_*` variable with its legacy `CG_*` or `CODIFY_*`
@@ -1410,7 +1396,7 @@ Fragments 12.1 and 25.3 are the components that need libcurl and libcrypto.
 3. **Authority mode.** `hf_client_dispatch` takes the mode from
    `HYPERFIDE_MODE` (`local`, `offline` or `distributed`) together with a
    `HYPERFIDE_AUTHORITY_DESCRIPTOR`. `hyperfide authority mode` reports it.
-   In a scratch directory with neither set, it printed:
+   With neither set and no authority descriptor, the response is:
 
    ```text
    {"ok":true,"mode":"local","remote_ownership":false,"local_fallback":false,"cache":{"store":"local","present":false,"authoritative":false,"freshness":"ABSENT","overwrite_remote":false}}
@@ -1424,8 +1410,10 @@ Fragments 12.1 and 25.3 are the components that need libcurl and libcrypto.
    `submission submit|inspect|revoke` and `graph status|search`. Any other
    command is refused with `DISTRIBUTED_COMMAND_UNSUPPORTED`, and offline mode
    refuses remote ownership. Neither mode falls back to local state.
-   `authority` has no row in the help table in this revision. Task 25.3, which
-   owns this routing, is pending.
+   `docs packet|inspect|check|close`, `fleet status|entities|resources`,
+   qualification, assurance, work and hierarchy operations also have explicit
+   mappings in `hf_routes25`. Each routed call requires explicit operation
+   identities and the configured authenticated transport.
 
 ### Control plane (`core/control-plane`)
 
@@ -1433,8 +1421,8 @@ The control plane is a TypeScript package, `@hyperfide/control-services`
 (version 2.2.0). Its `engines` field pins Node 24.22.0, and it depends
 on `pg`, `ws`, `@blaxel/core` and `railway`. Three `make` targets drive it:
 - `make hyperfide-deps` runs `npm ci --ignore-scripts`.
-- `make hyperfide-services` runs `tsc` into `dist/`.
-- `make hyperfide-check` type-checks only.
+- `make hyperfide-services` runs the package build: it synchronizes fleet contracts, compiles TypeScript into `dist/`, and writes the distribution stamp.
+- `make hyperfide-check` synchronizes fleet contracts and type-checks without emitting JavaScript.
 
 `src/control.ts`, `src/provisioner.ts` and `src/dispatch.ts` are the three
 role entrypoints. Each calls `runService(role)` in
@@ -1449,11 +1437,11 @@ $ node core/control-plane/dist/control.js
 ```
 
 Service components are JSON fragments in `core/control-plane/components/`,
-112 in this tree. Each fragment names its `id`, owning `task`, `roles`,
+124 in this tree. Each fragment names its `id`, owning `task`, `roles`,
 `module`, `entry`, `api_version`, `actions` and `requires`.
 `ComponentRegistry` (`src/components/registry.ts`) loads only the fragments
-whose `roles` include the running service. In this tree 95 fragments include
-`control`, 28 `provisioner` and 10 `dispatch`. The registry refuses a
+whose `roles` include the running service. In this tree 108 fragments include
+`control`, 30 `provisioner` and 11 `dispatch`. The registry refuses a
 dependency that the fragment does not declare, and one whose target lacks the
 role.
 
@@ -1480,7 +1468,7 @@ behind the binary's packaged launchers.
 
 PostgreSQL is the distributed authority, and everything lives in schema
 `hyperfide`. The migrations are `core/control-plane/migrations/NNNN-name.sql`:
-35 files, from `0001-authority.sql` to `0704-graph-query-parity.sql`.
+105 files, from `0001-authority.sql` to `0765-source-control-import-legacy-maps.sql`.
 `src/storage/durability.ts` applies them in ascending order and records each
 one's checksum in `hyperfide.schema_migrations`. An applied migration whose
 bytes changed is refused with `MIGRATION_DRIFT`. A lower version inserted
@@ -1488,8 +1476,8 @@ below an applied one is refused with `MIGRATION_ORDER_INVALID`. Connection
 and pool settings are read by `src/storage/runtime.ts` and
 `src/storage/schema.ts`; [operations.md](hyperfide/operations.md#postgresql-and-migrations)
 lists them. The local SQLite graph stays the store for the local commands.
-Importing its history into PostgreSQL (task 25.1) and cutover (task 25.2)
-are implemented as control components, and both tasks are pending.
+SQLite import and cutover are implemented in
+`core/control-plane/src/migration/sqlite.ts` and `core/control-plane/src/migration/cutover.ts`.
 
 ## Tests
 

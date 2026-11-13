@@ -20,9 +20,9 @@ main
 ```
 
 That is the default. A workflow whose templates leave out `{wave}` and
-`{task}` gets the older shape instead: one **feature manager** per feature
+`{task}` gets the feature-manager shape instead: one **feature manager** per feature
 on `feature/<feature>`, and a worker per wave on a branch cut from it (see
-[The older shape](#the-older-shape)).
+[Feature-manager shape](#feature-manager-shape)).
 
 You can drive every step by hand, or hand the spec to `hyperfide fleet up`:
 a durable supervisor that runs all three levels at once, supervises every
@@ -96,11 +96,10 @@ a manager per wave; a worker branch that names `{task}` gives a worker per
 task, so the tasks of one wave run side by side, each on its own branch and
 worktree.
 
-### The older shape
+### Feature-manager shape
 
-Templates without the placeholders give the hierarchy Codify had before
-v1.5: one feature manager per feature, and a worker per wave that does its
-wave's tasks one after the other on one branch.
+Templates without these placeholders select one feature manager per feature
+and a worker per wave. Each worker runs its wave's tasks in order on one branch.
 
 ```kvx
 [role.feature]
@@ -173,7 +172,7 @@ retries = 2                   # attempts after the first
 | `spend` | USD budget per attempt | none | none | none |
 | `retries` | attempts after the first, per task | 0 | 1 | 2 |
 | `stall` | time without progress before a nudge | 30m | 30m | 15m |
-| `approve` | gates that wait for approval: `land`, `pr`, `drift`, `coverage` | none | none | none |
+| `approve` | gate names: `land`, `pr`, `retry`, `drift`, `coverage` | none | none | none |
 
 Durations take `90s`, `30m`, `2h`, `1d`, or plain seconds; `0` means no
 limit. `approve` may be a list or a single string. Blocking is opt-in:
@@ -246,7 +245,7 @@ and `hyperfide spec status` carries it into the claim:
   2.1      claimed by w-fleet-2.1 [worker under wm-fleet-1] on task/fleet/2.1 (attempt fd4374c04e17, fence 1, 30 min left)
 ```
 
-Attempts persist the branch, worktree, and parent (added in schema v16 — see
+Attempts persist the branch, worktree, and parent (see
 [branches.md](branches.md)), so the ledger answers *which branch was this
 work done on* after the session is gone.
 
@@ -891,7 +890,7 @@ name.
 - `land` runs the gates in the main tree, after the merge, and resets on
   red. It does not run them on the wave branch first.
 - Waves land in the order their managers finish, not strictly by number;
-  a wave's tasks still wait for the tasks they `require`.
+  prerequisite admission follows the configured wave mode described below.
 - `merge-up` reads the task's status from the branch tip, so work that
   qualified but was not committed looks unqualified. That is deliberate;
   `--force` exists for the exceptions.
@@ -916,13 +915,12 @@ name.
 
 ## Waves side by side
 
-By default the supervisor no longer waits for one wave to land before
-starting the next. `[hierarchy] waves` in `spec/workflow.kvx` picks the
+By default the supervisor can start a wave while another wave is active. `[hierarchy] waves` in `spec/workflow.kvx` picks the
 shape:
 
 | Value | Meaning |
 |---|---|
-| `parallel` | A task may start while the tasks it `requires` are still open. The slot gate keeps the file collisions and the agent limit; it ignores `requires`. The default when git is 2.38 or newer. |
+| `parallel` | A prerequisite is ready when it is finished or has a live worker slot. A dependent task may start ahead of an active prerequisite, subject to file-collision and concurrency limits. The default when git is 2.38 or newer. |
 | `sequential` | The waiting gate: a task starts only once its `requires` are done (across waves, once they have landed on main and main has been merged forward into the task's wave branch — a land merges before its gates run, so the supervisor checks the branch, not the declaration). The default on older git, where the projection cannot be built. |
 
 `hyperfide fleet up` prints which one applies and why when it starts.

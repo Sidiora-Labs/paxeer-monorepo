@@ -177,28 +177,19 @@ A branch with a registry base adds `base <name>` at the end of its line.
 and per-branch `id`, `name`, `worktree`, `head`, `base`, `files`,
 `updated`, `current`.
 
-## Durable columns: schema v16 to v18
+## Durable branch and agent state
 
-The graph's schema stamp in this tree is **18** (`SCHEMA_VERSION` in
-`core/native/src/db.c`). `v15` introduced the registry and `files.branch_id`. `v16`
-widened two durable tables in place, with `ALTER TABLE`, so nothing is
-rebuilt:
+The graph schema version is **18** (`SCHEMA_VERSION` in `core/native/src/db.c`).
+The `branches` registry scopes file rows by `files.branch_id`.
 
-| Table | Column | Filled by |
-|---|---|---|
-| `attempts` | `branch` | `hyperfide fleet begin` — the wave branch the work runs on |
-| `attempts` | `worktree` | `hyperfide fleet begin` — the checkout it runs in |
-| `attempts` | `parent` | the agent's `HYPERFIDE_PARENT` (alias `CG_PARENT`) |
-| `memories` | `branch` | `hyperfide remember` — the branch the note was made on |
-| `memories` | `class` | `hyperfide memory classify` — Jev's class for the note |
-| `memories` | `confidence` | `hyperfide memory classify` — how sure it was |
+| Table | Columns | Purpose |
+| --- | --- | --- |
+| `attempts` | `branch`, `worktree`, `parent` | Records where an attempt runs and its parent agent |
+| `memories` | `branch`, `class`, `confidence` | Records the originating branch and memory classification |
+| `agents` | `kind`, `host_kind`, `agent_id`, `agent_type`, `state`, `cwd`, `task`, `task_source`, `last_tool`, `tool_calls` | Records fleet and native sessions |
 
-`v18` widens the durable `agents` table the same way, for native sessions
-and subagents (`kind`, `host_kind`, `agent_id`, `agent_type`, `state`,
-`cwd`, `task`, `task_source`, `last_tool`, `tool_calls`, and more; see
-[events.md](events.md#native-agents-hyperfide-hook-event)). The derived `files`
-table gained `base` (the last path segment) and `mtime_ns` within v18, also
-in place.
+`files.base` stores the last path segment, and `files.mtime_ns` stores
+subsecond modification metadata. See [native agent events](events.md#native-agents-hyperfide-hook-event).
 
 The `attempts` columns are what make a claim answer *which branch was this
 done on* after the session is gone. The `claims:` lines of

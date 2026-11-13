@@ -10,4 +10,4 @@ docker run -p 3000:3000 --env-file <path-to-env-file> blockscout-frontend:local
 
 Open `http://localhost:3000/explorer`. The frontend's base path is `/explorer`.
 
-The Dockerfile prepares configuration assets, the icon sprite and the Next.js standalone output. For a local production build, `yarn build:next` runs the frontend's preparation scripts before `next build`. See the [frontend scripts](../../apps/explorer/package.json) and [environment reference](./ENVS.md).
+The Dockerfile builds the icon sprite and Next.js standalone output. The container entrypoint downloads configuration assets and generates runtime configuration before starting the server. For a local production build, `yarn build:next` runs the frontend's preparation scripts before `next build`. See the [frontend scripts](../../apps/explorer/package.json) and [environment reference](./ENVS.md).

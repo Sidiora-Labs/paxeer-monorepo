@@ -120,7 +120,7 @@ drift for alpha:
   interface: 1 (latest #83)
 ```
 
-The same counts appear in `hyperfide brief` (`drift on alpha: 7 finding(s) — cg
+The same counts appear in `hyperfide brief` (`drift on alpha: 7 finding(s) — hyperfide
 drift summary`) and under the feature manager in `hyperfide fleet tree`. The `#`
 numbers are event sequence numbers: `hyperfide events --since 100 -n 1` shows the
 latest spec finding. Event clients can subscribe to these findings through
