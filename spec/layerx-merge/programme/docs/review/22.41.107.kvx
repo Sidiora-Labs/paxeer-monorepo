@@ -1,0 +1,27 @@
+[manifest]
+task = "22.41.107"
+pages = 6
+
+[page.1]
+path = "docs/site/paxeer-docs/src/app/network-operations/page.tsx"
+status = "corrected"
+
+[page.2]
+path = "docs/site/paxeer-docs/src/app/network-parameters/page.tsx"
+status = "corrected"
+
+[page.3]
+path = "docs/site/paxeer-docs/src/app/node-troubleshooting/page.tsx"
+status = "corrected"
+
+[page.4]
+path = "docs/site/paxeer-docs/src/app/operators/page.tsx"
+status = "corrected"
+
+[page.5]
+path = "docs/site/paxeer-docs/src/app/oracle-risk/page.tsx"
+status = "corrected"
+
+[page.6]
+path = "docs/site/paxeer-docs/src/app/paid-apis/page.tsx"
+status = "corrected"
