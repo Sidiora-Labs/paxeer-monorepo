@@ -18,17 +18,20 @@ use rustls::pki_types::{CertificateDer, PrivateKeyDer, ServerName};
 use rustls::{RootCertStore, ServerConfig, ServerConnection, StreamOwned};
 use zeroize::Zeroizing;
 
-const CA: &[u8] =
-    include_bytes!("../../../../../../tools/bringup/tests/fixtures/repair_m794/human-kms/ca.der");
-const SERVER: &[u8] =
-    include_bytes!("../../../../../../tools/bringup/tests/fixtures/repair_m794/human-kms/cert.der");
-const SERVER_KEY: &[u8] =
-    include_bytes!("../../../../../../tools/bringup/tests/fixtures/repair_m794/human-kms/key.der");
+const CA: &[u8] = include_bytes!(
+    "../../../../../../tools/bringup/tests/fixtures/service_identities/human-kms/ca.der"
+);
+const SERVER: &[u8] = include_bytes!(
+    "../../../../../../tools/bringup/tests/fixtures/service_identities/human-kms/cert.der"
+);
+const SERVER_KEY: &[u8] = include_bytes!(
+    "../../../../../../tools/bringup/tests/fixtures/service_identities/human-kms/key.der"
+);
 const CLIENT: &[u8] = include_bytes!(
-    "../../../../../../tools/bringup/tests/fixtures/repair_m794/human-kms-client/cert.der"
+    "../../../../../../tools/bringup/tests/fixtures/service_identities/human-kms-client/cert.der"
 );
 const CLIENT_KEY: &[u8] = include_bytes!(
-    "../../../../../../tools/bringup/tests/fixtures/repair_m794/human-kms-client/key.der"
+    "../../../../../../tools/bringup/tests/fixtures/service_identities/human-kms-client/key.der"
 );
 const PROVIDER: &str = "gateway-frame-kms";
 

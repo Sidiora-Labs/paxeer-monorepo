@@ -66,8 +66,8 @@ func TestCapacityCompletesWithMeasuredFaultRecoveryAndCertifiedParity(t *testing
 	defer faultNode.Close()
 	options := fopts(node.server.URL)
 	options.Endpoints = map[string]string{"a-live": node.server.URL, "z-recovery": faultNode.URL}
-	live := repair997Open(t, options)
-	repair997Seed(t, live)
+	live := sourceRecoveryOpen(t, options)
+	sourceRecoverySeed(t, live)
 	var endpoint *committedEndpoint
 	for _, candidate := range live.endpoints {
 		if candidate.id == "z-recovery" {

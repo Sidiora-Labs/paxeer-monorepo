@@ -7,7 +7,7 @@ is final when its block is committed. Program execution, storage changes and
 payments belong to that network's transaction processing.
 
 For node access, use the root-path endpoints in the
-[public RPC reference](../../../docs/site/docs/reference/public-rpc.md).
+[public RPC reference](../../../docs/readme/PUBLIC-RPC.md).
 Sub-chains are tenant domains in the database. They do not require a separate
 program execution service.
 

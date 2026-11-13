@@ -33,7 +33,7 @@ func insertTxFull(t *testing.T, ctx context.Context, pool *pgxpool.Pool, id, add
 }
 
 func TestPlatformMetrics(t *testing.T) {
-	repairM1041FeeContract(t)
+	marketAggregationFeeContract(t)
 }
 
 func TestPruneBucketTraders(t *testing.T) {
@@ -61,7 +61,7 @@ func TestPruneBucketTraders(t *testing.T) {
 }
 
 func TestPressureStats(t *testing.T) {
-	repairM1041PressureContract(t)
+	marketAggregationPressureContract(t)
 }
 
 func TestSearch(t *testing.T) {

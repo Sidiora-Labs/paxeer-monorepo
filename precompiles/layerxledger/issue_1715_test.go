@@ -27,7 +27,7 @@ import (
 )
 
 func TestIssue1715WebNextSequence(t *testing.T) {
-	f := newRepair144Fixture(t)
+	f := newLedgerAccountFixture(t)
 	require.NotEqual(t, f.payee.DIDKey, f.to)
 	root, err := filepath.Abs(filepath.Join("..", ".."))
 	require.NoError(t, err)

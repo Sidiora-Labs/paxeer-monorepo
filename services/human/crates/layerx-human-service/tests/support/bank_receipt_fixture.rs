@@ -52,7 +52,7 @@ pub fn hex(bytes: &[u8]) -> String {
 }
 pub fn transcript() -> Value {
     serde_json::from_str(include_str!(
-        "../../src/journeys/repair_22_31_153_transcript.json"
+        "../../src/journeys/bank_commit_transcript.json"
     ))
     .unwrap_or_else(|error| {
         panic!(

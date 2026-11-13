@@ -9,7 +9,7 @@ for the corresponding asynchronous Rust client.
 The default gateway is `https://data.feed.chainflowtrading.com`. This SDK serves
 market data and explorer observations. For Paxeer node JSON-RPC, use the public
 node root path, such as `https://api1.mainnet-beta.paxeer.network/`, with chain ID
-125 (`0x7d`); see [public RPC](../../../docs/site/docs/reference/public-rpc.md).
+125 (`0x7d`); see [public RPC](../../../docs/readme/PUBLIC-RPC.md).
 Paxeer is one BFT network whose kernel proposes blocks; committed blocks make
 receipts final. Sub-chains are tenant domains in the database.
 

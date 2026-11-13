@@ -1,0 +1,132 @@
+[manifest]
+task = "22.43.164"
+records_moved = 9
+files_renamed = 8
+
+[file.1]
+from = "services/launchpad/user/internal/account/repair_471_test.go"
+to = "services/launchpad/user/internal/account/export_size_bound_test.go"
+
+[file.2]
+from = "services/launchpad/user/internal/account/repair_76_test.go"
+to = "services/launchpad/user/internal/account/account_state_recovery_test.go"
+
+[file.3]
+from = "services/launchpad/user/internal/account/repair_m1063_test.go"
+to = "services/launchpad/user/internal/account/export_recovery_and_privacy_test.go"
+
+[file.4]
+from = "services/launchpad/user/internal/app/repair_77_test.go"
+to = "services/launchpad/user/internal/app/notification_eligibility_test.go"
+
+[file.5]
+from = "services/launchpad/user/internal/app/repair_m1062_test.go"
+to = "services/launchpad/user/internal/app/notification_quiet_hours_test.go"
+
+[file.6]
+from = "services/launchpad/user/internal/image/repair_m1065_test.go"
+to = "services/launchpad/user/internal/image/svg_safety_test.go"
+
+[file.7]
+from = "services/launchpad/user/internal/user/repair_m1064_test.go"
+to = "services/launchpad/user/internal/user/signed_legacy_operations_test.go"
+
+[file.8]
+from = "services/launchpad/user/internal/app/testdata/repair_77_consumer/main.go"
+to = "services/launchpad/user/internal/app/testdata/notification_consumer/main.go"
+
+[file.9]
+from = "services/launchpad/user/internal/account/repair_471.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/user/internal/account/repair_471.kvx"
+
+[file.10]
+from = "services/launchpad/user/internal/account/repair_76.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/user/internal/account/repair_76.kvx"
+
+[file.11]
+from = "services/launchpad/user/internal/account/repair_m1063.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/user/internal/account/repair_m1063.kvx"
+
+[file.12]
+from = "services/launchpad/user/internal/app/repair_77.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/user/internal/app/repair_77.kvx"
+
+[file.13]
+from = "services/launchpad/user/internal/app/repair_m1062.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/user/internal/app/repair_m1062.kvx"
+
+[file.14]
+from = "services/launchpad/user/internal/image/repair_m1065.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/user/internal/image/repair_m1065.kvx"
+
+[file.15]
+from = "services/launchpad/user/internal/user/repair_m1064.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/user/internal/user/repair_m1064.kvx"
+
+[file.16]
+from = "services/launchpad/user/repair_22_39_471.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/user/repair_22_39_471.kvx"
+
+[file.17]
+from = "services/launchpad/user/repair_22_39_487.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/user/repair_22_39_487.kvx"
+
+[reference.1]
+file = "GOTCHA.kvx"
+name = "repair_m1062_test.go"
+
+[reference.2]
+file = "services/launchpad/repair_22_39_75.kvx"
+name = "repair_m1062_test.go"
+
+[reference.3]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_m1062_test.go"
+
+[reference.4]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_471.kvx"
+
+[reference.5]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_487.kvx"
+
+[reference.6]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_471.kvx"
+
+[reference.7]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_471_test.go"
+
+[reference.8]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_76_test.go"
+
+[reference.9]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_77_test.go"
+
+[reference.10]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1062_test.go"
+
+[reference.11]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1063_test.go"
+
+[reference.12]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1064_test.go"
+
+[reference.13]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1065_test.go"
+
+[reference.14]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "repair_76_test.go"
+
+[reference.15]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "repair_77_test.go"
