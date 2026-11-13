@@ -17,7 +17,6 @@ DEFAULT_SOURCE = "README.md"
 DEFAULT_TRANSLATIONS = "docs/readme/README.*.md"
 TRANSLATION_CATALOG = (
     (DEFAULT_SOURCE, DEFAULT_TRANSLATIONS),
-    (DEFAULT_SOURCE, "docs/site/docs/overview/i18n/*.md"),
 )
 PREAMBLE_TITLE = "(preamble)"
 PAIRING_QUESTION = "section_pairing"
