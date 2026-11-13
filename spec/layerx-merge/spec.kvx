@@ -374555,7 +374555,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.270]
 title = "Bring the Python tests 133 to 142 of tools/qualification/audit_repairs to the present pages and paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
