@@ -2,7 +2,7 @@
 id = "22.33.194"
 mode = "BUILD"
 acceptance = "22998.1"
-baseline = "Continuation baseline: hf-build passed and hf-done ran the unchanged attempt-5 implementation at 10d1a13027b2964497d0991ece7b706bfb0b437b; f014, f015 and f016 failed with window is not defined during Radix cleanup; the other five tests passed. Exact evidence is in apps/perps/src/repair-22-33-194.kvx."
+baseline = "Continuation baseline: hf-build passed and hf-done ran the unchanged attempt-5 implementation at 10d1a13027b2964497d0991ece7b706bfb0b437b; f014, f015 and f016 failed with window is not defined during Radix cleanup; the other five tests passed. Exact evidence is in spec/layerx-merge/programme/records/apps/perps/src/repair-22-33-194.kvx."
 evidence = "The bounded hf-build/hf-done ledger records the exact candidate revision, command, exit and private log location."
 
 [finding.f023]
