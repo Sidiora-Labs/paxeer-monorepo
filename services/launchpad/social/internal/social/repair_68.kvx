@@ -25,7 +25,7 @@ observed = "The three TestRepair_68 proofs completed without failures, but exist
 assumption = "The coordinator fixture path is outside scope; the private-ticket denial already exists on the base revision, and weakening its contradictory test assertion is forbidden."
 
 [wiring.qualification]
-request = "sdk/launchpad/shared/db/production/coordinatortest/coordinatortest.go (shared database coordinator owner): resolve production migration fixture paths to launchpad/spec/production-system/integration/migrations; preserve the migration inventory and digest checks."
+request = "sdk/launchpad/shared/db/production/coordinatortest/coordinatortest.go (shared database coordinator owner): resolve production migration fixture paths to migrations; preserve the migration inventory and digest checks."
 
 [continuation.2]
 base_revision = "ff6bf6162f496eda36bdb11465eb09d6f21a6fdd"

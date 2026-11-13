@@ -1066,7 +1066,7 @@
   },
   "provenance": {
     "budget": "sdk/launchpad/shared/db/production/allocation_test.go allocationFixture",
-    "readiness": "ExpectedSchema fields with fixture fingerprints; privileges read from committed launchpad/spec/production-system/integration/migrations/grants.json",
+    "readiness": "ExpectedSchema fields with fixture fingerprints; privileges read from committed migrations/grants.json",
     "delivery": "services/launchpad/stats-workers/internal/app/testdata/delivery.production.json; topology binding inputs only"
   }
 }

@@ -117,7 +117,7 @@ producer = "internal/chainreader/historical_test.go:actualAdversarialChain, prox
 package = "github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/processor"
 test = "TestCanonicalProcessorConcurrentFencingPostgres"
 reason = "canonical_test.go line 286: cannot truncate a table referenced in a foreign key constraint; reproduced on PostgreSQL 16 and 18 in gotcha 3646."
-producer = "launchpad/spec/production-system/integration/migrations/60000.sql:indexer_accounting_fills foreign key to indexer_raw_logs; truncate both with existing dependent outbox."
+producer = "migrations/60000.sql:indexer_accounting_fills foreign key to indexer_raw_logs; truncate both with existing dependent outbox."
 
 [repair.17]
 package = "github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/processor"
@@ -165,31 +165,31 @@ producer = "internal/receipt/history.go:historicalEmitterEpochs and internal/int
 package = "github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/processor"
 test = "TestReplayCheckpointAtomicAndLiveCursorIndependent"
 reason = "replay_postgres_test.go line 63: inconsistent types deduced for parameter $10 (SQLSTATE 42P08); reproduced on PostgreSQL 16 and 18 in gotcha 3646."
-producer = "internal/store/replay.go:Store.AdmitReplay -> launchpad/spec/production-system/integration/migrations/60001.sql bigint from_height/progress_height; explicit parameter 10 cast, independently reproduced on pgx v5.10.0 and v5.11.0."
+producer = "internal/store/replay.go:Store.AdmitReplay -> migrations/60001.sql bigint from_height/progress_height; explicit parameter 10 cast, independently reproduced on pgx v5.10.0 and v5.11.0."
 
 [repair.25]
 package = "github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/processor"
 test = "TestReplayCancellationRollbackAndResumePostgres"
 reason = "replay_postgres_test.go line 205: inconsistent types deduced for parameter $10 (SQLSTATE 42P08); reproduced on PostgreSQL 16 and 18 in gotcha 3646."
-producer = "internal/store/replay.go:Store.AdmitReplay -> launchpad/spec/production-system/integration/migrations/60001.sql bigint from_height/progress_height; explicit parameter 10 cast, independently reproduced on pgx v5.10.0 and v5.11.0."
+producer = "internal/store/replay.go:Store.AdmitReplay -> migrations/60001.sql bigint from_height/progress_height; explicit parameter 10 cast, independently reproduced on pgx v5.10.0 and v5.11.0."
 
 [repair.26]
 package = "github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/processor"
 test = "TestReplayPausedOldLeaderCannotPauseReplacementPostgres"
 reason = "replay_postgres_test.go line 247: inconsistent types deduced for parameter $10 (SQLSTATE 42P08); reproduced on PostgreSQL 16 and 18 in gotcha 3646."
-producer = "internal/store/replay.go:Store.AdmitReplay -> launchpad/spec/production-system/integration/migrations/60001.sql bigint from_height/progress_height; explicit parameter 10 cast, independently reproduced on pgx v5.10.0 and v5.11.0."
+producer = "internal/store/replay.go:Store.AdmitReplay -> migrations/60001.sql bigint from_height/progress_height; explicit parameter 10 cast, independently reproduced on pgx v5.10.0 and v5.11.0."
 
 [repair.27]
 package = "github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/processor"
 test = "TestPrivateReplayAuthorizationPostgres"
 reason = "replay_postgres_test.go line 262: inconsistent types deduced for parameter $10 (SQLSTATE 42P08); reproduced on PostgreSQL 16 and 18 in gotcha 3646."
-producer = "internal/store/replay.go:Store.AdmitReplay -> launchpad/spec/production-system/integration/migrations/60001.sql bigint from_height/progress_height; explicit parameter 10 cast, independently reproduced on pgx v5.10.0 and v5.11.0."
+producer = "internal/store/replay.go:Store.AdmitReplay -> migrations/60001.sql bigint from_height/progress_height; explicit parameter 10 cast, independently reproduced on pgx v5.10.0 and v5.11.0."
 
 [repair.28]
 package = "github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/processor"
 test = "TestReplayQuotaAndUnavailableRangePostgres"
 reason = "replay_postgres_test.go line 333: inconsistent types deduced for parameter $10 (SQLSTATE 42P08); reproduced on PostgreSQL 16 and 18 in gotcha 3646."
-producer = "internal/store/replay.go:Store.AdmitReplay -> launchpad/spec/production-system/integration/migrations/60001.sql bigint from_height/progress_height; explicit parameter 10 cast, independently reproduced on pgx v5.10.0 and v5.11.0."
+producer = "internal/store/replay.go:Store.AdmitReplay -> migrations/60001.sql bigint from_height/progress_height; explicit parameter 10 cast, independently reproduced on pgx v5.10.0 and v5.11.0."
 
 [repair.29]
 package = "github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/receipt"

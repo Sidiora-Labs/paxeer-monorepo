@@ -12,7 +12,7 @@ baseline = "Not run: the explicit task gate order prohibits formatting/building/
 evidence = "The runner-owned /out/run/gates.jsonl records the exact candidate revision, command, exit and private log for hf-build and hf-done; the last hf-done record is the qualification authority and is copied verbatim into the final response."
 
 [wiring.inventory_cursor]
-request = "launchpad/spec/production-system/integration/migrations/410000.sql; serial migration coordinator / gateway domain 4: deploy the table defined by Authority.InventoryCursorSchemaDDL (bucket,prefix,continuation with primary key bucket,prefix) with the gateway role permissions before enabling this inventory consumer."
+request = "migrations/410000.sql; serial migration coordinator / gateway domain 4: deploy the table defined by Authority.InventoryCursorSchemaDDL (bucket,prefix,continuation with primary key bucket,prefix) with the gateway role permissions before enabling this inventory consumer."
 
 [wiring.media_observer_unwired]
 request = "services/launchpad/gateway/internal/app/app.go; gateway domain 4: create one MediaObserver, pass it to serve.Deps.Observer and upload.ConnectedDeps.Observer, run RunScannerProbes with validated scanner options and the runtime cancellation context, join the probe loop on shutdown, and publish Health/Snapshot via runtime readiness and protected health/metrics routes; readiness must retain permitted reads during scanner outages."

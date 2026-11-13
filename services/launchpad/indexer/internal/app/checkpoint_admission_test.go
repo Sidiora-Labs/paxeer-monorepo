@@ -37,7 +37,7 @@ func TestRuntimeCheckpointChecksTheSourceAndQuarantinesUnavailableHeads(t *testi
 		t.Fatal(err)
 	}
 	for _, id := range []string{"60001", "190001", "440000"} {
-		body, e := os.ReadFile(filepath.Join("../../../../../launchpad/spec/production-system/integration/migrations", id+".sql"))
+		body, e := os.ReadFile(filepath.Join("../../../../../migrations", id+".sql"))
 		if e != nil {
 			t.Fatal(e)
 		}

@@ -74,7 +74,7 @@ func New(t *testing.T) (string, *pgxpool.Pool) {
 	if !ok {
 		t.Fatal("canonical test: caller path unavailable")
 	}
-	ddl, err := os.ReadFile(filepath.Join(filepath.Dir(file), "../../../../../../launchpad/spec/production-system/integration/migrations/60000.sql"))
+	ddl, err := os.ReadFile(filepath.Join(filepath.Dir(file), "../../../../../../migrations/60000.sql"))
 	if err != nil {
 		t.Fatal(err)
 	}

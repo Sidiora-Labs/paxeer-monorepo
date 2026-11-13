@@ -35,7 +35,7 @@ func productionConstructorSchema(t *testing.T, db internaltest.RuntimeDatabase) 
 	}
 	defer func() { _ = conn.Close(ctx) }()
 	root := internaltest.RepositoryRoot(t)
-	base := filepath.Join(root, "launchpad/spec/production-system/integration/migrations")
+	base := filepath.Join(root, "migrations")
 	registry, err := os.ReadFile(filepath.Join(base, "registry.json"))
 	if err != nil {
 		t.Fatal(err)

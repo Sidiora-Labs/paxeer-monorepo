@@ -13,7 +13,7 @@ import tomllib
 
 
 ROOT = Path(__file__).resolve().parents[3]
-MIGRATIONS = ROOT / "launchpad/spec/production-system/integration/migrations"
+MIGRATIONS = ROOT / "migrations"
 PRODUCTION = ROOT / "sdk/launchpad/shared/db/production"
 RECORD = Path(__file__).with_name("repair_22_33_815.kvx")
 DIGEST = re.compile(r"[0-9a-f]{64}\Z")
@@ -41,7 +41,7 @@ def monorepo_path(relative):
     assert not path.is_absolute()
     assert path.as_posix() == relative
     assert ".." not in path.parts and "." not in path.parts
-    assert path.parts[0] in {"launchpad", "services", "sdk", "deploy"}
+    assert path.parts[0] in {"migrations", "launchpad", "services", "sdk", "deploy"}
     result = ROOT / relative
     assert result.resolve().is_relative_to(ROOT)
     assert not result.is_symlink()
@@ -82,7 +82,9 @@ def test_registered_sql_paths_digests_and_application_order():
         assert sql and DIGEST.fullmatch(migration["sha256"])
         assert checksum(sql) == migration["sha256"], str(path)
     assert seen == set(by_id)
-    assert {int(path.stem) for path in MIGRATIONS.glob("*.sql")} == seen
+    assert {path.name for path in MIGRATIONS.glob("*.sql")} == {
+        f"{migration_id}.sql" for migration_id in seen
+    } | {"0001_genesis_sections.sql", "0001_projection.sql", "0007_history_index.sql"}
     assert inventory_digest(
         [(entry["migration_id"], entry["sha256"]) for entry in entries]
     ) == record()["inventory"]["sql_digest_inventory_sha256"]

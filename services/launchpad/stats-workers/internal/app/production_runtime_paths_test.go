@@ -182,7 +182,7 @@ func TestProductionRuntimeWiresDurableWorkers(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
-		raw, err := os.ReadFile(filepath.Join("../../../../../launchpad/spec/production-system/integration/migrations", id+".sql"))
+		raw, err := os.ReadFile(filepath.Join("../../../../../migrations", id+".sql"))
 		if err != nil {
 			t.Fatal(err)
 		}
