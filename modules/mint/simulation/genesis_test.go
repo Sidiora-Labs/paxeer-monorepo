@@ -16,7 +16,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/module"
 )
 
-func repairM573State(seed int64, timestamp time.Time) *module.SimulationState {
+func newMintSimulationState(seed int64, timestamp time.Time) *module.SimulationState {
 	registry := cdctypes.NewInterfaceRegistry()
 	types.RegisterInterfaces(registry)
 	return &module.SimulationState{
@@ -27,7 +27,7 @@ func repairM573State(seed int64, timestamp time.Time) *module.SimulationState {
 	}
 }
 
-func repairM573Generate(t *testing.T, state *module.SimulationState) types.GenesisState {
+func generateMintSimulationGenesis(t *testing.T, state *module.SimulationState) types.GenesisState {
 	t.Helper()
 	appModule := mint.AppModule{}
 	appModule.GenerateGenesisState(state)
@@ -40,7 +40,7 @@ func repairM573Generate(t *testing.T, state *module.SimulationState) types.Genes
 	return genesis
 }
 
-func TestRepairM_573_NonOverlappingGenesis(t *testing.T) {
+func TestNonOverlappingGenesis(t *testing.T) {
 	timestamps := []time.Time{
 		{},
 		time.Date(2000, time.February, 29, 23, 59, 59, 0, time.UTC),
@@ -49,8 +49,8 @@ func TestRepairM_573_NonOverlappingGenesis(t *testing.T) {
 	for _, seed := range []int64{0, 1, 573, 1<<63 - 1} {
 		for index, timestamp := range timestamps {
 			t.Run(fmt.Sprintf("seed_%d/time_%d", seed, index), func(t *testing.T) {
-				state := repairM573State(seed, timestamp)
-				genesis := repairM573Generate(t, state)
+				state := newMintSimulationState(seed, timestamp)
+				genesis := generateMintSimulationGenesis(t, state)
 				schedule := genesis.Params.TokenReleaseSchedule
 				require.Len(t, schedule, 10)
 				require.Equal(t, types.InitialMinter(), genesis.Minter)
@@ -73,12 +73,12 @@ func TestRepairM_573_NonOverlappingGenesis(t *testing.T) {
 	}
 }
 
-func TestRepairM_573_ReproducibleSeedAndGenesisTime(t *testing.T) {
+func TestReproducibleSeedAndGenesisTime(t *testing.T) {
 	timestamp := time.Date(2040, time.January, 15, 3, 4, 5, 0, time.UTC)
-	first := repairM573State(573, timestamp)
-	firstGenesis := repairM573Generate(t, first)
-	second := repairM573State(573, timestamp)
-	repairM573Generate(t, second)
+	first := newMintSimulationState(573, timestamp)
+	firstGenesis := generateMintSimulationGenesis(t, first)
+	second := newMintSimulationState(573, timestamp)
+	generateMintSimulationGenesis(t, second)
 	require.Equal(t, first.GenState[types.ModuleName], second.GenState[types.ModuleName], "identical simulation inputs must produce identical JSON")
 
 	reference := rand.New(rand.NewSource(573))
@@ -86,14 +86,14 @@ func TestRepairM_573_ReproducibleSeedAndGenesisTime(t *testing.T) {
 	require.Equal(t, provision, firstGenesis.Params.TokenReleaseSchedule[0].TokenReleaseAmount)
 	require.Equal(t, reference.Int63(), first.Rand.Int63(), "generation must consume the simulation's random source")
 
-	differentSeed := repairM573Generate(t, repairM573State(574, timestamp))
+	differentSeed := generateMintSimulationGenesis(t, newMintSimulationState(574, timestamp))
 	require.NotEqual(t, firstGenesis.Params.TokenReleaseSchedule[0].TokenReleaseAmount, differentSeed.Params.TokenReleaseSchedule[0].TokenReleaseAmount)
 	for index, release := range firstGenesis.Params.TokenReleaseSchedule {
 		require.Equal(t, release.StartDate, differentSeed.Params.TokenReleaseSchedule[index].StartDate)
 		require.Equal(t, release.EndDate, differentSeed.Params.TokenReleaseSchedule[index].EndDate)
 	}
 
-	shifted := repairM573Generate(t, repairM573State(573, timestamp.AddDate(0, 0, 7)))
+	shifted := generateMintSimulationGenesis(t, newMintSimulationState(573, timestamp.AddDate(0, 0, 7)))
 	for index, release := range firstGenesis.Params.TokenReleaseSchedule {
 		start, err := time.Parse(types.TokenReleaseDateFormat, release.StartDate)
 		require.NoError(t, err)
@@ -104,13 +104,13 @@ func TestRepairM_573_ReproducibleSeedAndGenesisTime(t *testing.T) {
 		require.Equal(t, release.TokenReleaseAmount, shifted.Params.TokenReleaseSchedule[index].TokenReleaseAmount)
 	}
 
-	sameInstant := repairM573State(573, timestamp.In(time.FixedZone("west", -12*60*60)))
-	repairM573Generate(t, sameInstant)
+	sameInstant := newMintSimulationState(573, timestamp.In(time.FixedZone("west", -12*60*60)))
+	generateMintSimulationGenesis(t, sameInstant)
 	require.Equal(t, first.GenState[types.ModuleName], sameInstant.GenState[types.ModuleName])
 }
 
-func TestRepairM_573_ValidationBeforeSerialization(t *testing.T) {
-	state := repairM573State(573, time.Date(9999, time.January, 1, 0, 0, 0, 0, time.UTC))
+func TestGenesisValidationBeforeSerialization(t *testing.T) {
+	state := newMintSimulationState(573, time.Date(9999, time.January, 1, 0, 0, 0, 0, time.UTC))
 	previous := json.RawMessage(`{"previous":"genesis"}`)
 	state.GenState[types.ModuleName] = previous
 	defer func() {

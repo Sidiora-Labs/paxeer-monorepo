@@ -16,7 +16,7 @@ import (
 	govtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/gov/types"
 )
 
-func repairM570Submit(t *testing.T, proposal *types.UpdateMinterProposal, transport string) *govtypes.MsgSubmitProposal {
+func roundTripMinterProposal(t *testing.T, proposal *types.UpdateMinterProposal, transport string) *govtypes.MsgSubmitProposal {
 	t.Helper()
 	registry := cdctypes.NewInterfaceRegistry()
 	govtypes.RegisterInterfaces(registry)
@@ -63,11 +63,11 @@ func repairM570Submit(t *testing.T, proposal *types.UpdateMinterProposal, transp
 	return &decoded
 }
 
-func TestRepairM_570_MissingMinter(t *testing.T) {
+func TestUpdateMinterProposalMissingMinter(t *testing.T) {
 	for _, transport := range []string{"protobuf", "json", "json_omitted"} {
 		t.Run(transport, func(t *testing.T) {
 			proposal := &types.UpdateMinterProposal{Title: "Update minter", Description: "Set the mint schedule"}
-			msg := repairM570Submit(t, proposal, transport)
+			msg := roundTripMinterProposal(t, proposal, transport)
 			require.Nil(t, msg.GetContent().(*types.UpdateMinterProposal).Minter)
 			for attempt := 0; attempt < 2; attempt++ {
 				var err error
@@ -80,7 +80,7 @@ func TestRepairM_570_MissingMinter(t *testing.T) {
 	}
 }
 
-func TestRepairM_570_AbstractFields(t *testing.T) {
+func TestUpdateMinterProposalAbstractFields(t *testing.T) {
 	cases := []struct {
 		name, title, description, want string
 	}{
@@ -100,7 +100,7 @@ func TestRepairM_570_AbstractFields(t *testing.T) {
 					} else if minterState == "missing" {
 						proposal.Minter = nil
 					}
-					err := repairM570Submit(t, proposal, transport).ValidateBasic()
+					err := roundTripMinterProposal(t, proposal, transport).ValidateBasic()
 					require.ErrorIs(t, err, govtypes.ErrInvalidProposalContent)
 					require.ErrorContains(t, err, tc.want)
 				})
@@ -109,7 +109,7 @@ func TestRepairM_570_AbstractFields(t *testing.T) {
 	}
 }
 
-func TestRepairM_570_MinterValidation(t *testing.T) {
+func TestUpdateMinterProposalMinterValidation(t *testing.T) {
 	cases := []struct {
 		name   string
 		mutate func(*types.Minter)
@@ -125,13 +125,13 @@ func TestRepairM_570_MinterValidation(t *testing.T) {
 				tc.mutate(proposal.Minter)
 				want := types.ValidateMinter(*proposal.Minter)
 				require.Error(t, want)
-				require.EqualError(t, repairM570Submit(t, proposal, transport).ValidateBasic(), want.Error())
+				require.EqualError(t, roundTripMinterProposal(t, proposal, transport).ValidateBasic(), want.Error())
 			})
 		}
 	}
 }
 
-func TestRepairM_570_ValidProposal(t *testing.T) {
+func TestUpdateMinterValidProposal(t *testing.T) {
 	for _, transport := range []string{"protobuf", "json", "json_omitted"} {
 		for _, boundary := range []bool{false, true} {
 			title, description := "Update minter", "Set the mint schedule"
@@ -141,7 +141,7 @@ func TestRepairM_570_ValidProposal(t *testing.T) {
 			}
 			t.Run(transport+"/"+title[:1], func(t *testing.T) {
 				proposal := types.NewUpdateMinterProposalHandler(title, description, types.DefaultInitialMinter())
-				require.NoError(t, repairM570Submit(t, proposal, transport).ValidateBasic())
+				require.NoError(t, roundTripMinterProposal(t, proposal, transport).ValidateBasic())
 			})
 		}
 	}
