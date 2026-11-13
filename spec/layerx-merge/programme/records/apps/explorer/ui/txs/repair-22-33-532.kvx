@@ -1,7 +1,7 @@
 [repair.22.33.532]
 finding = "pending-stat-total"
 implementation = "TxsContent labels pending counts as the number of pending transactions on the current page; general:stats.total_transactions continues to supply the validated heading only. HomeStats has no pending-total field, so the pending heading never claims a global total or extrapolates from a short later page."
-proving_tests = "repair-22-33-532.spec.ts: pendingTitleCountsCurrentPageInsteadOfMinedHistory, pendingTitleUsesShortLaterPageWithoutEstimatingATotal; regression coverage: validatedTitleRetainsMatchingMinedTotal, emptyPendingPageDoesNotAdvertiseMinedHistory."
+proving_tests = "TxsPendingPageCount.spec.ts: pendingTitleCountsCurrentPageInsteadOfMinedHistory, pendingTitleUsesShortLaterPageWithoutEstimatingATotal; regression coverage: validatedTitleRetainsMatchingMinedTotal, emptyPendingPageDoesNotAdvertiseMinedHistory."
 proof_boundary = "The production useApiQuery/useApiFetch/useFetch hooks read recorded stats and transaction fixtures over a test-owned loopback HTTP server; the production TxsContent, ScanTableCard and row components render through the real providers and Next router. The mined count 82258122 differs from the pending page sizes 3 and 1. No production endpoint or credential is required."
 baseline = "No baseline gate was run: the governing order requires complete implementation before hf-build and then hf-done, and prohibits running verify_cmd by hand. No pre-change execution is claimed. Before this repair the two pending-title assertions would receive the mined-history total."
 wiring_requests = "None; the audit proposal is fully implementable inside apps/explorer/ui/txs."

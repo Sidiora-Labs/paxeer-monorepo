@@ -1,6 +1,6 @@
 [repair.22.31.408]
 finding = "address-case"
-test = "repair-22-31-408.spec.ts: addressCaseUpdatesReachFilteredCache"
+test = "useTxsSocketTypeAddress.case.spec.ts: addressCaseUpdatesReachFilteredCache"
 change = "Compare both transaction endpoint hashes and the router address in lowercase, retaining the original URL cache key and lowercase subscription topic."
 proof = "The real Next router, React Query cache, SocketProvider, Phoenix client and address transaction hook receive confirmed and pending updates over a loopback WebSocket connection for lowercase and checksummed URLs and payload addresses."
 baseline = "Not run: the explicit gate order requires complete implementation, hf-build, then hf-done and forbids a manual verify run. Before the change, lowercase URL/checksummed payload and checksummed URL/lowercase payload direction-filter cases compare unequal."

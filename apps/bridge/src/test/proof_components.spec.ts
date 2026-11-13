@@ -10,7 +10,7 @@
  */
 // @vitest-environment jsdom
 
-import { componentReleaseConsumesPersistedSubmissionAndRefusesSignedFieldChanges } from './repair-22-33-266.proofs';
+import { componentReleaseConsumesPersistedSubmissionAndRefusesSignedFieldChanges } from './bridge-lifecycle.proofs';
 
 import { QueryClient, QueryClientProvider, QueryObserver } from '@tanstack/react-query';
 import { createElement, type FunctionComponentElement } from 'react';

@@ -1,6 +1,6 @@
 [repair.22.33.528]
 finding = "address-sorted-cache"
-test = "repair-22-33-528.spec.ts: addressSortedCacheReceivesChannelUpdates"
+test = "useTxsSocketTypeAddress.sorting.spec.ts: addressSortedCacheReceivesChannelUpdates"
 change = "Include the selected sort and order in the address socket cache key using the same typed sorting conversion as useAddressTxsQuery."
 proof = "The real Next router, enabled address query, React Query in-memory cache, SocketProvider, Phoenix client and socket hook receive confirmed and pending updates over a loopback WebSocket; value and fee sorts in both directions preserve filters, replacement, deduplication, pagination metadata and inactive caches."
 baseline = "Not executed: the explicit gate order requires the complete implementation followed by hf-build then hf-done and forbids running verify_cmd by hand; before this repair the first sorted-query channel assertion targets an unchanged cache while the unsorted cache is incorrectly updated. No baseline test failure is claimed."

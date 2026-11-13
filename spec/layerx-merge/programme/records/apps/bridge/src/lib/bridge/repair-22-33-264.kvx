@@ -33,7 +33,7 @@ revision = "cda298073843cc2b9578baa162731d8839c7d578"
 command = "pnpm --dir apps/bridge exec tsc --noEmit -p tsconfig.json"
 exit = 2
 log = "/out/logs/build-1.log"
-observed = "The pre-existing apps/bridge/src/app/layout.tsx:36 LayoutProps error, already recorded in repair-22-31-376.kvx, blocks the declared build; no task-scoped TypeScript error was reported and verification did not run."
+observed = "The pre-existing apps/bridge/src/app/layout.tsx:36 LayoutProps error, already recorded in spec/layerx-merge/programme/records/apps/bridge/src/lib/bridge/repair-22-31-376.kvx, blocks the declared build; no task-scoped TypeScript error was reported and verification did not run."
 assumption = "The application owner must supply the generated Next.js LayoutProps interface; no out-of-scope fix, substitute declaration or additional gate is authorized here."
 
 [gotcha.layout-formatter]

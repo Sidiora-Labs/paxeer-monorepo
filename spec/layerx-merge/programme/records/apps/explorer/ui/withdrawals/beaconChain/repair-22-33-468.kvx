@@ -2,7 +2,7 @@
 id = "22.33.468"
 finding = "mobile-block-withdrawal-value"
 proving_tests = ["mobileBlockWithdrawalValue", "mobileBlockWithdrawalValueLoading"]
-test_file = "apps/explorer/ui/withdrawals/beaconChain/repair-22-33-468.spec.ts"
+test_file = "apps/explorer/ui/withdrawals/beaconChain/BeaconChainWithdrawalsList.mobile.spec.ts"
 path = "Committed withdrawal API fixture -> typed block withdrawal items -> production BeaconChainWithdrawalsList -> BeaconChainWithdrawalsListItem -> NativeCoinValue -> mobile DOM under the real Chakra theme at 375px"
 baseline = "Not run: the ordered instructions require complete implementation before testing and forbid invoking verify_cmd outside hf-done. No pre-change failure is claimed; both tests require the Value row that the original block branch omits."
 wiring_requests = []

@@ -64,7 +64,7 @@ const { 'default': TxsContent } = await import('./TxsContent');
 
 const initialNextData = window.__NEXT_DATA__;
 const initialMatchers = window.__DEV_MIDDLEWARE_MATCHERS;
-window.__NEXT_DATA__ = { props: {}, page: '/txs', query: {}, buildId: 'repair-22-33-532' };
+window.__NEXT_DATA__ = { props: {}, page: '/txs', query: {}, buildId: 'txs-pending-page-count' };
 window.__DEV_MIDDLEWARE_MATCHERS = [];
 const App = ({ Component, pageProps }: AppProps) => React.createElement(Component, pageProps);
 
@@ -132,7 +132,7 @@ function renderTransactionPage(filter: 'pending' | 'validated', overrides: Parti
 
   const router = new Router('/txs', {}, '/txs', {
     initialProps: {},
-    pageLoader: new PageLoader('repair-22-33-532', ''),
+    pageLoader: new PageLoader('txs-pending-page-count', ''),
     App,
     Component: TransactionPage,
     subscription: async() => {},
