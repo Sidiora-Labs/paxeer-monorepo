@@ -2,7 +2,7 @@
 
 The ledger and authority precompiles are implemented components of the merged Paxeer network. `layerxledger` is served at `0x000000000000000000000000000000000000101A`; `layerxauth` is served at `0x000000000000000000000000000000000000101C`, subject to the node's activation gate. Both keepers use one shared `lxphost.Host`. The on-disk host store name is **`lxphost`**, as declared by `LayerXHostStoreKey` in [store_keys.go](../../../storage/common/keys/store_keys.go).
 
-There is one network: the kernel is part of the node and proposes blocks, and a receipt is final once its block is committed. Mainnet-beta uses EVM chain ID **125 (`0x7d`)**. Public JSON-RPC is at the root path of `api-mainnet-beta.paxeer.network` and `api1.mainnet-beta.paxeer.network` through `api14.mainnet-beta.paxeer.network`. Ledger and authority calls use the ordinary EVM transaction and `eth_call` surfaces.
+There is one network: the kernel is part of the node and proposes blocks, and a receipt is final once its block is committed. Mainnet-beta uses EVM chain ID **125 (`0x7d`)**. Ledger and authority calls use ordinary EVM transactions and `eth_call` at the configured node root.
 
 The source contracts are the embedded [ledger ABI](../../../precompiles/layerxledger/abi.json), [auth ABI](../../../precompiles/layerxauth/abi.json), their dispatchers and keepers. Each package registers `NewMergePrecompile` from `init`. [node/upgrades.go](../../../node/upgrades.go) imports both packages and declares `mergePrecompileGate`: upgrade `v7.0`, requiring `layerxledger` for 0x101A and `layerxauth` for 0x101C. Code availability does not establish that a particular node has activated that upgrade.
 
@@ -204,11 +204,11 @@ The ramp toolkit's [evm.rs](../../../services/platform/ramps/toolkit/src/evm.rs)
 | `encode_pay_exact` | `from, to, asset, amount, expires_at, reference` | Supported exact payment; expiry is milliseconds; selector `0x78ea11db` |
 | `encode_draw` | `grant_id, recipient, amount, idempotency_key, sequence, purpose_hash, context_hash` | Compatibility encoding of the retired draw selector `0x2e89490f`; execution refuses |
 
-For `encode_draw`, identifiers and hashes are `[u8; 32]`, `amount` is `u128`, and `sequence` is `u64`. The second argument is the **recipient**, not the asset; the first is the **grant ID**, not the payer. The old keeper `DrawArgs` field names do not change that ABI order. The encoder's presence does not establish usable payer-grant authority.
+For `encode_draw`, identifiers and hashes are `[u8; 32]`, `amount` is `u128`, and `sequence` is `u64`. The second argument is the **recipient**, not the asset; the first is the **grant ID**, not the payer. The keeper `DrawArgs` field names do not change that ABI order. The encoder's presence does not establish usable payer-grant authority.
 
 `decode_ledger_payment(&SequencerLog) -> Option<LedgerPayment>` accepts only the 0x101A emitter, exactly four topics, and the declared `PaymentExact` (64 data bytes) or historical `PaymentDrawn` (128 data bytes) shape, including the uint128 bound. It returns owned `Exact { from, to, reference, asset, amount }` or `Drawn { from, to, grant, asset, amount, idempotency_key, context }` fields. `SequencerLog` is the client type name; decoding proves the log shape, not receipt authenticity or a live draw route.
 
-The toolkit also targets the maintained payment precompile at **0x101B** (`PAY_ADDRESS`) with `encode_budget_spend`, `encode_get_budget` and `decode_budget_spent`. Its customer budget flow uses that ordinary-principal authority path. See [pay](pay.md) and [platform ramps](platform-ramps.md); retained draw encoding and decoding are historical compatibility material.
+The toolkit also targets the maintained payment precompile at **0x101B** (`PAY_ADDRESS`) with `encode_budget_spend`, `encode_get_budget` and `decode_budget_spent`. Its customer budget flow uses that ordinary-principal authority path. See [pay](pay.md) and [platform ramps](platform-ramps.md); retained draw encoding and decoding are compatibility material.
 
 ## layerxauth-0x101c
 
@@ -326,7 +326,7 @@ The successful update response has no fields.
 | 10–13 | `uint32 kind`, `uint64 period_length`, `string max_per_period`, `bytes purpose_hash` |
 | 14–16 | `uint64 not_before`, `uint64 not_after`, `string spent_total` |
 
-The current [Go wire type](../../../modules/layerxauth/types/tx.pb.go) additionally serializes `period_start` at field 17 and `spent_this_period` at 18; these fields are not declared in the current `.proto` source. `Accept` uses them to retain period spending. Consumers and future schema regeneration must account for this source/generated-schema difference.
+The current [Go wire type](../../../modules/layerxauth/types/tx.pb.go) additionally serializes `period_start` at field 17 and `spent_this_period` at 18; these fields are not declared in the current `.proto` source. `Accept` uses them to retain period spending.
 
 [authorization.go](../../../modules/layerxauth/types/authorization.go) implements `authz.Authorization`. `ValidateBasic` requires a nonempty message type, a nonzero module mask within `0x3fe`, kind 2, 3 or 4, ordered uint16 ordinals, a 32-byte grant ID, bounded identifier lengths, an increasing validity interval and canonical decimal u128 budget strings (empty strings represent zero).
 
@@ -344,13 +344,11 @@ The [bank ABI at 0x1001](../../../precompiles/bank/abi.json) also retains the ba
 
 **Generic cached-result idempotency is retired; successful SEND payment-reference protection is active.** The old `layerxauth` module prefixes `0x02` and `0x03` and their key helpers are removed. The removed `resultByIdempotency` keeper/precompile view is not a recovery API. The same activity idempotency key can occur in auth and ledger without a generic cross-module cache, but a successful SEND reference cannot be spent twice.
 
-Decision **2337** is implemented by [ctx.go](../../../modules/lxphost/ctx.go): `checkPaymentReference` checks **host key `0x04 || reference[32]`** for every `LX_ASSET_SEND`; `commitPaymentReference` writes the encoded receipt only when that SEND succeeds. The key has no DID namespace. Grants, revocations and refused sends do not add references. A duplicate returns host code **-302**, even if the caller supplies fresh identity/account/global sequences. The ledger maps it to `LXP_IDEMPOTENT_REPLAY`; it does not return the old payment as a successful new call.
+The successful-SEND reference rule is implemented by [ctx.go](../../../modules/lxphost/ctx.go): `checkPaymentReference` checks **host key `0x04 || reference[32]`** for every `LX_ASSET_SEND`; `commitPaymentReference` writes the encoded receipt only when that SEND succeeds. The key has no DID namespace. Grants, revocations and refused sends do not add references. A duplicate returns host code **-302**, even if the caller supplies fresh identity/account/global sequences. The ledger maps it to `LXP_IDEMPOTENT_REPLAY`; it does not return the old payment as a successful new call.
 
 Reference writes use the caller's KV context and follow cache rollback. Committed records survive a process/store reopen. An abandoned cache leaves no reference in its parent context. This differs from consumed-sequence protection: kernel admission still refuses a reused identity sequence with -301, and SEND validates the source account sequence separately. Clients must keep EVM nonces, kernel identity sequences, SEND account sequences and host global sequences distinct. `payExact` selects the account sequence for the caller but still requires a fresh payment reference for a new payment.
 
 Host [genesis.go](../../../modules/lxphost/genesis.go) exports and validates successful reference records. A reference key must be 33 bytes; its value must decode as a current state-commitment-version successful asset SEND receipt, with positive amount and global sequence in `1..LastSequence`. Its context hash must bind the receipt's `from`, `to`, asset, amount and the key's reference. `InitStoreGenesis` validates before restoring records and the last-sequence counter. Thus payment-reference recovery belongs to **host genesis**, not the params-only ledger/auth exports. It must preserve the successful-reference set rather than clearing it on restart or interpreting the compatibility retention param as permission to prune it.
-
-Existing source tests documenting these paths include `TestPaymentReferenceStaysRefusedAfterReopen` in [idempotency_restart_test.go](../../../modules/lxphost/idempotency_restart_test.go), host genesis tests in [genesis_test.go](../../../modules/lxphost/genesis_test.go), and ledger/auth [shared_host_test.go](../../../modules/layerxauth/keeper/shared_host_test.go).
 
 ## payload-codec
 
@@ -377,36 +375,30 @@ Legacy helpers remain for wire compatibility: `EncodeReceivePayload` builds the 
 
 The implemented execution path is EVM call → precompile dispatcher → bound actor → keeper → shared host → kernel receipt → decoded EVM events and, for ledger transfers, bank mirror. [kernel](kernel.md) describes the host contract; [pay](pay.md) describes ordinary-principal payment authority. The tokenfactory wrapper and authz deletion limitations are stated in [ledger-bank-mirror](#ledger-bank-mirror) and [layerxauth-keeper](#layerxauth-keeper); they are not promised side effects of node-built precompiles.
 
-Useful existing behavior sources include the precompile `abi_test.go`, `activation_test.go`, `pause_test.go`, `client_test.go` and `parity_test.go` files in [ledger](../../../precompiles/layerxledger/) and [auth](../../../precompiles/layerxauth/), plus keeper host-route, mirror, grant and revocation tests.
-
 ## decisions
 
-The earlier version of this page was pinned to **`2a1033aa2`** and described implementation work as planned. That is historical provenance, not an availability statement for the current tree. The original domain-2 decisions below are retained with their current interpretation; later decisions supersede the old generic-idempotency and payer-grant claims.
-
-| Decision | Current application |
+| Area | Behavior |
 |---|---|
-| 201 | One shared host; the mounted on-disk store name is `lxphost`. Base ledger/auth stores hold params, not separate copies of kernel state. |
-| 202 | Keeper-level generic idempotency entries are retired. The later successful-SEND reference rule in 2337 applies to host prefix `0x04`. |
-| 203 | Ledger and auth issuance route pause through the governance scope; `revokeGrant` is an exit. Auth `recordLifecycle` currently bypasses that pause check. |
-| 204 | Native bank mirror denomination `layerx/<asset hex>`; initial cap goes to the issuance account, and receipt transfer legs move mirror balances. |
-| 205 | Host global sequence allocation is shared across keeper activities and differs from identity and SEND account sequences. |
-| 206 | The EVM DID binding supplies verified authority while the kernel retains its remaining authority and context checks. |
-| 207 | Receipts supply events and transfer legs for decoding, EVM logs and bank mirroring. |
-| 208 | Implemented packages self-register merge constructors and use LXP reasons and fixed gas tables. |
-| 209 | Module genesis is params-only; only UpdateParams is a Msg service operation, with no gRPC Query service. |
-| 210 | Capability issuance mirrors supported scopes into authz and the ante decorator supplies revocation epochs. Current revocation does not automatically invoke the deletion helper. |
-| 211 | Scope fields are validated and enforced by `LayerXScopeAuthorization`; see the source/generated-field distinction above. |
-| 212 | Payload encoders live in module types packages. The 346-byte payer-grant codec is historical compatibility only after 2340. |
-| 213 | Address 0x1004 provides DID binding; ledger/auth consume that binding. Bank 0x1001 retains its context-hash send overload. |
-| 2337 | Host prefix `0x04` records exactly successful SEND references, including rollback, restart and host-genesis recovery semantics. |
-| 2340 | Kernel receive and payer-grant issue/revoke activities are retired. Ledger compatibility grant selectors and draw refuse; `payExact` remains a SEND. |
-| 2354 | Describe surfaces at their served symbols and paths; removed auth result-by-idempotency and payer-grant interfaces are retired, not planned features. |
-
+| Shared state | One shared host; the mounted on-disk store name is `lxphost`. Base ledger/auth stores hold params, not separate copies of kernel state. |
+| Idempotency | Keeper-level generic idempotency entries are retired. The successful-SEND reference rule applies to host prefix `0x04`. |
+| Pause | Ledger and auth issuance route pause through the governance scope; `revokeGrant` is an exit. Auth `recordLifecycle` currently bypasses that pause check. |
+| Bank mirror | Native bank mirror denomination `layerx/<asset hex>`; initial cap goes to the issuance account, and receipt transfer legs move mirror balances. |
+| Sequences | Host global sequence allocation is shared across keeper activities and differs from identity and SEND account sequences. |
+| Binding | The EVM DID binding supplies verified authority while the kernel retains its remaining authority and context checks. |
+| Receipts | Receipts supply events and transfer legs for decoding, EVM logs and bank mirroring. |
+| Registration | Implemented packages self-register merge constructors and use LXP reasons and fixed gas tables. |
+| Genesis | Module genesis is params-only; only UpdateParams is a Msg service operation, with no gRPC Query service. |
+| Authz | Capability issuance mirrors supported scopes into authz and the ante decorator supplies revocation epochs. Current revocation does not automatically invoke the deletion helper. |
+| Scope | Scope fields are validated and enforced by `LayerXScopeAuthorization`; see the source/generated-field distinction above. |
+| Payloads | Payload encoders live in module types packages. The 346-byte payer-grant codec is compatibility only. |
+| Address APIs | Address 0x1004 provides DID binding; ledger/auth consume that binding. Bank 0x1001 retains its context-hash send overload. |
+| Payment references | Host prefix `0x04` records exactly successful SEND references, including rollback, restart and host-genesis recovery semantics. |
+| Retained selectors | Kernel receive and payer-grant issue/revoke activities are retired. Ledger compatibility grant selectors and draw refuse; `payExact` remains a SEND. |
+| Surface declarations | Describe surfaces at their served symbols and paths; removed auth result-by-idempotency and payer-grant interfaces are retired, not planned features. |
 
 ## Ramp compatibility registry correction
 
-`interface.8.rs-ramp-toolkit-evm-encode-draw-j41` is retired for execution.
-Its retained Rust codec has the exact signature
+The retained Rust draw codec has the exact signature
 `encode_draw(grant_id: [u8; 32], recipient: [u8; 32], amount: u128,
 idempotency_key: [u8; 32], sequence: u64, purpose_hash: [u8; 32],
 context_hash: [u8; 32]) -> Vec<u8>`. Neither payer nor asset is an argument;
