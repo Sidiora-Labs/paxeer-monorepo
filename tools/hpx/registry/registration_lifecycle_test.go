@@ -17,7 +17,7 @@ import (
 	"time"
 )
 
-func repairM807HTTP(t *testing.T, s *server) *httptest.Server {
+func registryHTTPServer(t *testing.T, s *server) *httptest.Server {
 	t.Helper()
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/register", s.handleRegister)
@@ -30,7 +30,7 @@ func repairM807HTTP(t *testing.T, s *server) *httptest.Server {
 	return transport
 }
 
-func repairM807Request(t *testing.T, transport *httptest.Server, method, path, source string, body []byte) (int, []byte) {
+func registryHTTPRequest(t *testing.T, transport *httptest.Server, method, path, source string, body []byte) (int, []byte) {
 	t.Helper()
 	req, err := http.NewRequest(method, transport.URL+path, bytes.NewReader(body))
 	if err != nil {
@@ -50,9 +50,9 @@ func repairM807Request(t *testing.T, transport *httptest.Server, method, path, s
 	return response.StatusCode, data
 }
 
-func repairM807Challenge(t *testing.T, transport *httptest.Server, source string) registrationChallenge {
+func requestRegistrationChallenge(t *testing.T, transport *httptest.Server, source string) registrationChallenge {
 	t.Helper()
-	code, data := repairM807Request(t, transport, http.MethodGet, "/api/register/challenge", source, nil)
+	code, data := registryHTTPRequest(t, transport, http.MethodGet, "/api/register/challenge", source, nil)
 	if code != http.StatusOK {
 		t.Fatalf("challenge: %d %s", code, data)
 	}
@@ -66,7 +66,7 @@ func repairM807Challenge(t *testing.T, transport *httptest.Server, source string
 	return challenge
 }
 
-func repairM807Proof(t *testing.T, challenge registrationChallenge, node Node, key ed25519.PrivateKey) []byte {
+func signedRegistrationBody(t *testing.T, challenge registrationChallenge, node Node, key ed25519.PrivateKey) []byte {
 	t.Helper()
 	proof := signedRegistration{Node: node, Challenge: challenge.Nonce, PublicKey: key.Public().(ed25519.PublicKey)}
 	proof.Signature = ed25519.Sign(key, registrationMessage(challenge.ChainID, challenge.Nonce, node))
@@ -77,16 +77,16 @@ func repairM807Proof(t *testing.T, challenge registrationChallenge, node Node, k
 	return body
 }
 
-func repairM807Node(key ed25519.PrivateKey, source string) Node {
+func registrationNode(key ed25519.PrivateKey, source string) Node {
 	return Node{NodeID: nodeKeyID(key), IP: source, P2PPort: 26656, Moniker: "repair-node", Type: "fullnode", Version: "v1"}
 }
 
-func repairM807Register(t *testing.T, transport *httptest.Server, key ed25519.PrivateKey, source string) Node {
+func registerNodeOverHTTP(t *testing.T, transport *httptest.Server, key ed25519.PrivateKey, source string) Node {
 	t.Helper()
-	challenge := repairM807Challenge(t, transport, source)
-	node := repairM807Node(key, source)
-	body := repairM807Proof(t, challenge, node, key)
-	code, data := repairM807Request(t, transport, http.MethodPost, "/api/register", source, body)
+	challenge := requestRegistrationChallenge(t, transport, source)
+	node := registrationNode(key, source)
+	body := signedRegistrationBody(t, challenge, node, key)
+	code, data := registryHTTPRequest(t, transport, http.MethodPost, "/api/register", source, body)
 	if code != http.StatusOK {
 		t.Fatalf("register: %d %s", code, data)
 	}
@@ -103,7 +103,7 @@ func repairM807Register(t *testing.T, transport *httptest.Server, key ed25519.Pr
 	return output.Node
 }
 
-func TestRepairM_807_39RetentionRefreshCapacityAndBoundedPeers(t *testing.T) {
+func TestRegistrationRetentionRefreshCapacityAndBoundedPeers(t *testing.T) {
 	dir := t.TempDir()
 	s := newTestServer(t, dir)
 	now := time.Now().UTC()
@@ -123,10 +123,10 @@ func TestRepairM_807_39RetentionRefreshCapacityAndBoundedPeers(t *testing.T) {
 	s.reg = reopened
 	seed := strings.Repeat("f", 40) + "@203.0.113.20:26656"
 	s.cfg.SeedPeers = []string{seed, seed}
-	transport := repairM807HTTP(t, s)
-	challenge := repairM807Challenge(t, transport, "203.0.113.7")
-	rejected := repairM807Node(testNodeKey, "203.0.113.7")
-	code, data := repairM807Request(t, transport, http.MethodPost, "/api/register", rejected.IP, repairM807Proof(t, challenge, rejected, testNodeKey))
+	transport := registryHTTPServer(t, s)
+	challenge := requestRegistrationChallenge(t, transport, "203.0.113.7")
+	rejected := registrationNode(testNodeKey, "203.0.113.7")
+	code, data := registryHTTPRequest(t, transport, http.MethodPost, "/api/register", rejected.IP, signedRegistrationBody(t, challenge, rejected, testNodeKey))
 	if code != http.StatusServiceUnavailable {
 		t.Fatalf("full registry accepted registration: %d %s", code, data)
 	}
@@ -147,7 +147,7 @@ func TestRepairM_807_39RetentionRefreshCapacityAndBoundedPeers(t *testing.T) {
 	s.reg.Nodes[fmt.Sprintf("%040x", 3)].LastSeen = "invalid-time"
 	s.reg.Nodes[fmt.Sprintf("%040x", 4)].LastSeen = now.Add(registryTTL).Format(time.RFC3339Nano)
 	for _, path := range []string{"/api/peers", "/api/peers.txt", "/api/nodes"} {
-		code, data := repairM807Request(t, transport, http.MethodGet, path, "203.0.113.7", nil)
+		code, data := registryHTTPRequest(t, transport, http.MethodGet, path, "203.0.113.7", nil)
 		if code != http.StatusOK {
 			t.Fatalf("%s: %d %s", path, code, data)
 		}
@@ -184,7 +184,7 @@ func TestRepairM_807_39RetentionRefreshCapacityAndBoundedPeers(t *testing.T) {
 			}
 		}
 	}
-	accepted := repairM807Register(t, transport, testNodeKey, "203.0.113.7")
+	accepted := registerNodeOverHTTP(t, transport, testNodeKey, "203.0.113.7")
 	if accepted.NodeID != rejected.NodeID || len(s.reg.Nodes) != registryCapacity-2 {
 		t.Fatal("expired slots were not reclaimed")
 	}
@@ -206,13 +206,13 @@ func TestRepairM_807_39RetentionRefreshCapacityAndBoundedPeers(t *testing.T) {
 	}
 }
 
-func TestRepairM_807_36DurableRegistrationAndInterruptedRecovery(t *testing.T) {
+func TestRegistrationDurabilityAndInterruptedRecovery(t *testing.T) {
 	for _, interrupted := range []string{"partial temporary image", "complete temporary image", "renamed image"} {
 		t.Run(interrupted, func(t *testing.T) {
 			dir := t.TempDir()
 			s := newTestServer(t, dir)
-			transport := repairM807HTTP(t, s)
-			acknowledged := repairM807Register(t, transport, testNodeKey, "203.0.113.7")
+			transport := registryHTTPServer(t, s)
+			acknowledged := registerNodeOverHTTP(t, transport, testNodeKey, "203.0.113.7")
 			transport.Close()
 			original, err := os.ReadFile(s.reg.path)
 			if err != nil {
@@ -266,12 +266,12 @@ func TestRepairM_807_36DurableRegistrationAndInterruptedRecovery(t *testing.T) {
 			if interrupted != "renamed image" && !bytes.Equal(original, committed) {
 				t.Fatal("uncommitted temp replaced acknowledged image")
 			}
-			live := repairM807HTTP(t, recovered)
-			code, data := repairM807Request(t, live, http.MethodGet, "/api/peers.txt", "203.0.113.7", nil)
+			live := registryHTTPServer(t, recovered)
+			code, data := registryHTTPRequest(t, live, http.MethodGet, "/api/peers.txt", "203.0.113.7", nil)
 			if code != http.StatusOK || string(data) != want.Peer() {
 				t.Fatalf("recovered consumer peer state: %d %s", code, data)
 			}
-			repairM807Register(t, live, otherNodeKey, "203.0.113.9")
+			registerNodeOverHTTP(t, live, otherNodeKey, "203.0.113.9")
 			live.Close()
 			again := newTestServer(t, dir)
 			if len(again.reg.list()) != 2 {
@@ -281,14 +281,14 @@ func TestRepairM_807_36DurableRegistrationAndInterruptedRecovery(t *testing.T) {
 	}
 }
 
-func TestRepairM_807_37FailedPersistenceLeavesExactPriorState(t *testing.T) {
+func TestRegistrationPersistenceFailurePreservesPriorState(t *testing.T) {
 	for _, failure := range []string{"create temporary file", "rename image"} {
 		t.Run(failure, func(t *testing.T) {
 			parent := t.TempDir()
 			dir := filepath.Join(parent, "live")
 			s := newTestServer(t, dir)
-			transport := repairM807HTTP(t, s)
-			acknowledged := repairM807Register(t, transport, testNodeKey, "203.0.113.7")
+			transport := registryHTTPServer(t, s)
+			acknowledged := registerNodeOverHTTP(t, transport, testNodeKey, "203.0.113.7")
 			original, err := os.ReadFile(s.reg.path)
 			if err != nil {
 				t.Fatal(err)
@@ -306,9 +306,9 @@ func TestRepairM_807_37FailedPersistenceLeavesExactPriorState(t *testing.T) {
 			}
 			for i, key := range []ed25519.PrivateKey{testNodeKey, otherNodeKey} {
 				source := fmt.Sprintf("203.0.113.%d", 8+i)
-				challenge := repairM807Challenge(t, transport, source)
-				replacement := repairM807Node(key, source)
-				code, data := repairM807Request(t, transport, http.MethodPost, "/api/register", source, repairM807Proof(t, challenge, replacement, key))
+				challenge := requestRegistrationChallenge(t, transport, source)
+				replacement := registrationNode(key, source)
+				code, data := registryHTTPRequest(t, transport, http.MethodPost, "/api/register", source, signedRegistrationBody(t, challenge, replacement, key))
 				if code != http.StatusInternalServerError {
 					t.Fatalf("expected failed persistence, got %d %s", code, data)
 				}
@@ -316,12 +316,12 @@ func TestRepairM_807_37FailedPersistenceLeavesExactPriorState(t *testing.T) {
 					t.Fatalf("failed mutation became visible: %+v", got)
 				}
 			}
-			candidate := repairM807Node(testNodeKey, "203.0.113.99")
+			candidate := registrationNode(testNodeKey, "203.0.113.99")
 			before := candidate
 			if err := s.reg.upsert(&candidate); err == nil || !reflect.DeepEqual(candidate, before) {
 				t.Fatal("failed save mutated caller or did not fail")
 			}
-			code, data := repairM807Request(t, transport, http.MethodGet, "/api/peers.txt", "203.0.113.7", nil)
+			code, data := registryHTTPRequest(t, transport, http.MethodGet, "/api/peers.txt", "203.0.113.7", nil)
 			if code != http.StatusOK || string(data) != acknowledged.Peer() {
 				t.Fatalf("failed registration reached peer consumer: %d %s", code, data)
 			}
@@ -346,16 +346,16 @@ func TestRepairM_807_37FailedPersistenceLeavesExactPriorState(t *testing.T) {
 	}
 }
 
-func TestRepairM_807_38OwnershipTamperReplayAndRestart(t *testing.T) {
+func TestRegistrationOwnershipTamperReplayAndRestart(t *testing.T) {
 	dir := t.TempDir()
 	s := newTestServer(t, dir)
-	transport := repairM807HTTP(t, s)
-	owner := repairM807Register(t, transport, testNodeKey, "203.0.113.7")
+	transport := registryHTTPServer(t, s)
+	owner := registerNodeOverHTTP(t, transport, testNodeKey, "203.0.113.7")
 	for _, attack := range []string{"unsigned copied identity", "different key", "modified port", "modified source", "modified moniker", "modified type", "modified version", "different chain", "expired", "unknown challenge"} {
 		t.Run(attack, func(t *testing.T) {
 			source := "203.0.113.8"
-			challenge := repairM807Challenge(t, transport, source)
-			node := repairM807Node(testNodeKey, source)
+			challenge := requestRegistrationChallenge(t, transport, source)
+			node := registrationNode(testNodeKey, source)
 			key := testNodeKey
 			if attack == "different key" {
 				key = otherNodeKey
@@ -363,7 +363,7 @@ func TestRepairM_807_38OwnershipTamperReplayAndRestart(t *testing.T) {
 			if attack == "different chain" {
 				challenge.ChainID = "another-chain"
 			}
-			body := repairM807Proof(t, challenge, node, key)
+			body := signedRegistrationBody(t, challenge, node, key)
 			var proof signedRegistration
 			if err := json.Unmarshal(body, &proof); err != nil {
 				t.Fatal(err)
@@ -394,7 +394,7 @@ func TestRepairM_807_38OwnershipTamperReplayAndRestart(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			code, data := repairM807Request(t, transport, http.MethodPost, "/api/register", source, body)
+			code, data := registryHTTPRequest(t, transport, http.MethodPost, "/api/register", source, body)
 			if code != http.StatusUnauthorized {
 				t.Fatalf("%s accepted or bypassed proof: %d %s", attack, code, data)
 			}
@@ -405,9 +405,9 @@ func TestRepairM_807_38OwnershipTamperReplayAndRestart(t *testing.T) {
 	}
 	// Move to a fresh source after exhausting a source's admission window.
 	source := "203.0.113.10"
-	challenge := repairM807Challenge(t, transport, source)
-	body := repairM807Proof(t, challenge, repairM807Node(testNodeKey, source), testNodeKey)
-	code, data := repairM807Request(t, transport, http.MethodPost, "/api/register", source, body)
+	challenge := requestRegistrationChallenge(t, transport, source)
+	body := signedRegistrationBody(t, challenge, registrationNode(testNodeKey, source), testNodeKey)
+	code, data := registryHTTPRequest(t, transport, http.MethodPost, "/api/register", source, body)
 	if code != http.StatusOK {
 		t.Fatalf("owner update refused: %d %s", code, data)
 	}
@@ -415,17 +415,17 @@ func TestRepairM_807_38OwnershipTamperReplayAndRestart(t *testing.T) {
 	if updated.IP != source || updated.FirstSeen != owner.FirstSeen {
 		t.Fatal("owner refresh lost stable first_seen")
 	}
-	code, data = repairM807Request(t, transport, http.MethodPost, "/api/register", source, body)
+	code, data = registryHTTPRequest(t, transport, http.MethodPost, "/api/register", source, body)
 	if code != http.StatusUnauthorized {
 		t.Fatalf("replay accepted: %d %s", code, data)
 	}
-	outstanding := repairM807Challenge(t, transport, source)
-	pending := repairM807Proof(t, outstanding, repairM807Node(testNodeKey, source), testNodeKey)
+	outstanding := requestRegistrationChallenge(t, transport, source)
+	pending := signedRegistrationBody(t, outstanding, registrationNode(testNodeKey, source), testNodeKey)
 	transport.Close()
 	restarted := newTestServer(t, dir)
-	recovered := repairM807HTTP(t, restarted)
+	recovered := registryHTTPServer(t, restarted)
 	for _, replay := range [][]byte{body, pending} {
-		code, data = repairM807Request(t, recovered, http.MethodPost, "/api/register", source, replay)
+		code, data = registryHTTPRequest(t, recovered, http.MethodPost, "/api/register", source, replay)
 		if code != http.StatusUnauthorized {
 			t.Fatalf("pre-restart proof accepted: %d %s", code, data)
 		}
@@ -433,30 +433,30 @@ func TestRepairM_807_38OwnershipTamperReplayAndRestart(t *testing.T) {
 	if got := restarted.reg.Nodes[owner.NodeID]; !reflect.DeepEqual(*got, updated) {
 		t.Fatalf("proof rejection changed recovered state: %+v", got)
 	}
-	repairM807Register(t, recovered, testNodeKey, "203.0.113.11")
+	registerNodeOverHTTP(t, recovered, testNodeKey, "203.0.113.11")
 }
 
-func TestRepairM_807_38SourceAndAdmissionBounds(t *testing.T) {
+func TestRegistrationSourceAndAdmissionBounds(t *testing.T) {
 	s := newTestServer(t, t.TempDir())
-	transport := repairM807HTTP(t, s)
+	transport := registryHTTPServer(t, s)
 	for i := 0; i < registerBurst; i++ {
-		code, _ := repairM807Request(t, transport, http.MethodPost, "/api/register", "203.0.113.7", []byte(`{"node_id":"`+testNodeID+`"}`))
+		code, _ := registryHTTPRequest(t, transport, http.MethodPost, "/api/register", "203.0.113.7", []byte(`{"node_id":"`+testNodeID+`"}`))
 		if code != http.StatusUnauthorized {
 			t.Fatalf("unsigned registration %d returned %d", i, code)
 		}
 	}
-	code, _ := repairM807Request(t, transport, http.MethodPost, "/api/register", "203.0.113.7", []byte(`{}`))
+	code, _ := registryHTTPRequest(t, transport, http.MethodPost, "/api/register", "203.0.113.7", []byte(`{}`))
 	if code != http.StatusTooManyRequests {
 		t.Fatalf("registration limit lost: %d", code)
 	}
-	code, _ = repairM807Request(t, transport, http.MethodGet, "/api/register/challenge", "10.1.2.3", nil)
+	code, _ = registryHTTPRequest(t, transport, http.MethodGet, "/api/register/challenge", "10.1.2.3", nil)
 	if code != http.StatusBadRequest {
 		t.Fatalf("private source admitted: %d", code)
 	}
 	for i := 0; i < registerBurst; i++ {
-		repairM807Challenge(t, transport, "203.0.113.8")
+		requestRegistrationChallenge(t, transport, "203.0.113.8")
 	}
-	code, _ = repairM807Request(t, transport, http.MethodGet, "/api/register/challenge", "203.0.113.8", nil)
+	code, _ = registryHTTPRequest(t, transport, http.MethodGet, "/api/register/challenge", "203.0.113.8", nil)
 	if code != http.StatusTooManyRequests {
 		t.Fatalf("challenge rate limit lost: %d", code)
 	}
@@ -466,7 +466,7 @@ func TestRepairM_807_38SourceAndAdmissionBounds(t *testing.T) {
 		s.challenges[nonce] = registrationChallenge{Nonce: nonce, Expires: time.Now().Add(time.Minute)}
 	}
 	s.challengeMu.Unlock()
-	code, _ = repairM807Request(t, transport, http.MethodGet, "/api/register/challenge", "203.0.113.9", nil)
+	code, _ = registryHTTPRequest(t, transport, http.MethodGet, "/api/register/challenge", "203.0.113.9", nil)
 	if code != http.StatusServiceUnavailable || len(s.challenges) != challengeCapacity {
 		t.Fatalf("unbounded challenge cache: %d %d", code, len(s.challenges))
 	}
@@ -476,7 +476,7 @@ func TestRepairM_807_38SourceAndAdmissionBounds(t *testing.T) {
 		s.challenges[nonce] = challenge
 	}
 	s.challengeMu.Unlock()
-	repairM807Challenge(t, transport, "203.0.113.9")
+	requestRegistrationChallenge(t, transport, "203.0.113.9")
 	if len(s.challenges) != 1 {
 		t.Fatalf("expired challenge retention: %d", len(s.challenges))
 	}
@@ -494,11 +494,11 @@ func TestRepairM_807_38SourceAndAdmissionBounds(t *testing.T) {
 	}
 }
 
-func TestRepairM_807_40And41StateSyncTransport(t *testing.T) {
+func TestRegistryStateSyncTransport(t *testing.T) {
 	testStateSyncTransport(t)
 }
 
-func TestRepairM_807_39RejectOversizedPersistedImage(t *testing.T) {
+func TestRegistryRejectsOversizedPersistedImage(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "registry.json"), bytes.Repeat([]byte(" "), registryMaxBytes+1), 0o600); err != nil {
 		t.Fatal(err)
