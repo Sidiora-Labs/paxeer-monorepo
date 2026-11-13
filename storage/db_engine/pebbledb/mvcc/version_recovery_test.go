@@ -21,22 +21,22 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func repair178Changes(store string, pairs ...*proto.KVPair) []*proto.NamedChangeSet {
+func versionRecoveryChanges(store string, pairs ...*proto.KVPair) []*proto.NamedChangeSet {
 	return []*proto.NamedChangeSet{{Name: store, Changeset: proto.ChangeSet{Pairs: pairs}}}
 }
 
-func repair178Pair(key, value string) *proto.KVPair {
+func versionRecoveryPair(key, value string) *proto.KVPair {
 	return &proto.KVPair{Key: []byte(key), Value: []byte(value)}
 }
 
-func repair178Config() config.StateStoreConfig {
+func versionRecoveryConfig() config.StateStoreConfig {
 	cfg := config.DefaultStateStoreConfig()
 	cfg.KeepRecent = 0
 	return cfg
 }
 
 // Seed with the real legacy batch producer, leaving the database unmarked.
-func repair178Legacy(t *testing.T, dir string) {
+func seedVersionRecoveryLegacyDB(t *testing.T, dir string) {
 	t.Helper()
 	raw, err := pebble.Open(dir, &pebble.Options{Comparer: mvcc.MVCCComparer})
 	require.NoError(t, err)
@@ -61,15 +61,15 @@ func repair178Legacy(t *testing.T, dir string) {
 	raw = nil
 }
 
-func TestRepair_178_DurableHeadRegression(t *testing.T) {
+func TestDurableHeadRecovery(t *testing.T) {
 	for _, mode := range []string{"descending", "default-comparer", "legacy", "composite"} {
 		t.Run(mode, func(t *testing.T) {
 			dir := filepath.Join(t.TempDir(), "db")
-			cfg := repair178Config()
+			cfg := versionRecoveryConfig()
 			cfg.DBDirectory = dir
 			cfg.UseDefaultComparer = mode == "default-comparer"
 			if mode == "legacy" {
-				repair178Legacy(t, dir)
+				seedVersionRecoveryLegacyDB(t, dir)
 			}
 			open := func() types.StateStore {
 				if mode == "composite" {
@@ -83,8 +83,8 @@ func TestRepair_178_DurableHeadRegression(t *testing.T) {
 			}
 			store := open()
 			t.Cleanup(func() { _ = store.Close() })
-			require.NoError(t, store.ApplyChangesetSync(10, repair178Changes("bank", repair178Pair("balance", "ten"), repair178Pair("high", "ten"))))
-			require.NoError(t, store.ApplyChangesetSync(5, repair178Changes("bank", repair178Pair("balance", "five"), repair178Pair("low", "five"))))
+			require.NoError(t, store.ApplyChangesetSync(10, versionRecoveryChanges("bank", versionRecoveryPair("balance", "ten"), versionRecoveryPair("high", "ten"))))
+			require.NoError(t, store.ApplyChangesetSync(5, versionRecoveryChanges("bank", versionRecoveryPair("balance", "five"), versionRecoveryPair("low", "five"))))
 			check := func() {
 				require.Equal(t, int64(10), store.GetLatestVersion())
 				for _, read := range []struct {
@@ -100,7 +100,7 @@ func TestRepair_178_DurableHeadRegression(t *testing.T) {
 				require.Nil(t, got)
 			}
 			check()
-			require.Error(t, store.ApplyChangesetSync(-1, repair178Changes("bank", repair178Pair("invalid", "bad"))))
+			require.Error(t, store.ApplyChangesetSync(-1, versionRecoveryChanges("bank", versionRecoveryPair("invalid", "bad"))))
 			require.Error(t, store.SetLatestVersion(-1))
 			check()
 			require.NoError(t, store.Close())
@@ -112,7 +112,7 @@ func TestRepair_178_DurableHeadRegression(t *testing.T) {
 			require.NoError(t, store.Close())
 			store = open()
 			require.Equal(t, int64(4), store.GetLatestVersion())
-			require.NoError(t, store.ApplyChangesetSync(5, repair178Changes("bank", repair178Pair("after-rollback", "five"))))
+			require.NoError(t, store.ApplyChangesetSync(5, versionRecoveryChanges("bank", versionRecoveryPair("after-rollback", "five"))))
 			require.Equal(t, int64(5), store.GetLatestVersion())
 			require.NoError(t, store.Close())
 			store = open()
@@ -121,9 +121,9 @@ func TestRepair_178_DurableHeadRegression(t *testing.T) {
 	}
 }
 
-func TestRepair_178_ConcurrentHeadRecovery(t *testing.T) {
+func TestConcurrentHeadRecovery(t *testing.T) {
 	dir := t.TempDir()
-	store, err := mvcc.OpenDB(dir, repair178Config())
+	store, err := mvcc.OpenDB(dir, versionRecoveryConfig())
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = store.Close() })
 	const count = 32
@@ -135,7 +135,7 @@ func TestRepair_178_ConcurrentHeadRecovery(t *testing.T) {
 		go func(version int64) {
 			defer wg.Done()
 			<-start
-			errors <- store.ApplyChangesetSync(version, repair178Changes("bank", repair178Pair(fmt.Sprint(version), fmt.Sprint(version))))
+			errors <- store.ApplyChangesetSync(version, versionRecoveryChanges("bank", versionRecoveryPair(fmt.Sprint(version), fmt.Sprint(version))))
 		}(version)
 	}
 	close(start)
@@ -146,7 +146,7 @@ func TestRepair_178_ConcurrentHeadRecovery(t *testing.T) {
 	}
 	require.Equal(t, int64(count), store.GetLatestVersion())
 	require.NoError(t, store.Close())
-	store, err = mvcc.OpenDB(dir, repair178Config())
+	store, err = mvcc.OpenDB(dir, versionRecoveryConfig())
 	require.NoError(t, err)
 	require.Equal(t, int64(count), store.GetLatestVersion())
 	for version := int64(1); version <= count; version++ {
@@ -156,7 +156,7 @@ func TestRepair_178_ConcurrentHeadRecovery(t *testing.T) {
 	}
 }
 
-func TestRepair_178_ReceiptHeadRecovery(t *testing.T) {
+func TestReceiptHeadRecovery(t *testing.T) {
 	cfg := config.DefaultReceiptStoreConfig()
 	cfg.DBDirectory = t.TempDir()
 	cfg.KeepRecent = 0
@@ -195,15 +195,15 @@ func TestRepair_178_ReceiptHeadRecovery(t *testing.T) {
 	}
 }
 
-func TestRepair_178_LegacyReverseVisibleKey(t *testing.T) {
+func TestLegacyReverseVisibleKey(t *testing.T) {
 	dir := t.TempDir()
-	repair178Legacy(t, dir)
-	store, err := mvcc.OpenDB(dir, repair178Config())
+	seedVersionRecoveryLegacyDB(t, dir)
+	store, err := mvcc.OpenDB(dir, versionRecoveryConfig())
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = store.Close() })
-	require.NoError(t, store.ApplyChangesetSync(2, repair178Changes("bank", &proto.KVPair{Key: []byte("b")})))
-	require.NoError(t, store.ApplyChangesetSync(3, repair178Changes("bank", repair178Pair("a", "a3"), repair178Pair("c", "c3"), &proto.KVPair{Key: []byte("d")}, repair178Pair("z", "z3"))))
-	require.NoError(t, store.ApplyChangesetSync(4, repair178Changes("bank", repair178Pair("e", "e4"), repair178Pair("d", "d4"))))
+	require.NoError(t, store.ApplyChangesetSync(2, versionRecoveryChanges("bank", &proto.KVPair{Key: []byte("b")})))
+	require.NoError(t, store.ApplyChangesetSync(3, versionRecoveryChanges("bank", versionRecoveryPair("a", "a3"), versionRecoveryPair("c", "c3"), &proto.KVPair{Key: []byte("d")}, versionRecoveryPair("z", "z3"))))
+	require.NoError(t, store.ApplyChangesetSync(4, versionRecoveryChanges("bank", versionRecoveryPair("e", "e4"), versionRecoveryPair("d", "d4"))))
 	visible := []map[string]string{
 		{"b": "b1", "c": "c1", "d": "d1", "z": "z1"},
 		{"c": "c1", "d": "d1", "z": "z1"},
@@ -260,7 +260,7 @@ func TestRepair_178_LegacyReverseVisibleKey(t *testing.T) {
 		}
 		require.NoError(t, store.Close())
 		if reopen == 0 {
-			store, err = mvcc.OpenDB(dir, repair178Config())
+			store, err = mvcc.OpenDB(dir, versionRecoveryConfig())
 			require.NoError(t, err)
 		}
 	}

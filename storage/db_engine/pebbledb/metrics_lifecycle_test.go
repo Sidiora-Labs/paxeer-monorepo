@@ -16,7 +16,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/db_engine/types"
 )
 
-func TestRepairM_1176_TickOverlapsClose(t *testing.T) {
+func TestMetricsTickOverlapsClose(t *testing.T) {
 	entered := make(chan context.Context, 1)
 	release := make(chan struct{})
 	var enterOnce, releaseOnce sync.Once
@@ -132,7 +132,7 @@ func TestRepairM_1176_TickOverlapsClose(t *testing.T) {
 	require.True(t, found, "the completed tick must reach the SDK reader")
 }
 
-func TestRepairM_1176_ParentCancellation(t *testing.T) {
+func TestMetricsParentCancellation(t *testing.T) {
 	for _, cancelBeforeOpen := range []bool{false, true} {
 		name := "after_open"
 		if cancelBeforeOpen {
@@ -169,7 +169,7 @@ func TestRepairM_1176_ParentCancellation(t *testing.T) {
 	}
 }
 
-func TestRepairM_1176_CloseWithoutMetrics(t *testing.T) {
+func TestConcurrentCloseWithoutMetrics(t *testing.T) {
 	cfg := DefaultTestConfig(t)
 	store, err := Open(t.Context(), &cfg)
 	require.NoError(t, err)

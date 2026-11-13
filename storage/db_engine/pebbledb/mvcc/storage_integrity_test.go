@@ -26,7 +26,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/proto"
 )
 
-func repair1174Open(t *testing.T, dir string, cfg config.StateStoreConfig) *Database {
+func openStorageIntegrityDB(t *testing.T, dir string, cfg config.StateStoreConfig) *Database {
 	t.Helper()
 	store, err := OpenDB(dir, cfg)
 	require.NoError(t, err)
@@ -37,7 +37,7 @@ func repair1174Open(t *testing.T, dir string, cfg config.StateStoreConfig) *Data
 	return db
 }
 
-func repair1174SeedLegacy(t *testing.T, dir string) {
+func seedStorageIntegrityLegacyDB(t *testing.T, dir string) {
 	t.Helper()
 	raw, err := pebble.Open(dir, &pebble.Options{Comparer: MVCCComparer})
 	require.NoError(t, err)
@@ -47,7 +47,7 @@ func repair1174SeedLegacy(t *testing.T, dir string) {
 	require.NoError(t, raw.Close())
 }
 
-func repair1174Scraper(t *testing.T) func() map[string]*dto.MetricFamily {
+func storageMetricsScraper(t *testing.T) func() map[string]*dto.MetricFamily {
 	t.Helper()
 	previousProvider, previousMetrics := otel.GetMeterProvider(), otelMetrics
 	registry, shutdown, err := smetrics.SetupOtelPrometheus()
@@ -76,7 +76,7 @@ func repair1174Scraper(t *testing.T) func() map[string]*dto.MetricFamily {
 
 // Pebble's wire batch has a 12-byte header, a kind byte per operation,
 // and varint-length-prefixed keys and values. Metadata uses the same encoding.
-func repair1174EncodedBytes(ops []batchOp, metadata bool) int64 {
+func encodedBatchBytes(ops []batchOp, metadata bool) int64 {
 	var scratch [binary.MaxVarintLen64]byte
 	field := func(n int) int64 {
 		return int64(binary.PutUvarint(scratch[:], uint64(n)) + n)
@@ -94,9 +94,9 @@ func repair1174EncodedBytes(ops []batchOp, metadata bool) int64 {
 	return total
 }
 
-func TestRepairM_1174_BatchBytes(t *testing.T) {
-	scrape := repair1174Scraper(t)
-	db := repair1174Open(t, t.TempDir(), config.DefaultStateStoreConfig())
+func TestBatchSizeMetricsBytes(t *testing.T) {
+	scrape := storageMetricsScraper(t)
+	db := openStorageIntegrityDB(t, t.TempDir(), config.DefaultStateStoreConfig())
 	var total int64
 	var count uint64
 	sizes := make([]int64, 0, 2)
@@ -106,7 +106,7 @@ func TestRepairM_1174_BatchBytes(t *testing.T) {
 		expectedBatch, err := NewBatch(db.storage, int64(i+1), db.descending)
 		require.NoError(t, err)
 		require.NoError(t, expectedBatch.Set("bank", []byte("same"), value))
-		sizeBytes := repair1174EncodedBytes(expectedBatch.ops, true)
+		sizeBytes := encodedBatchBytes(expectedBatch.ops, true)
 		sizes = append(sizes, sizeBytes)
 		require.NoError(t, db.ApplyChangesetSync(int64(i+1), changes))
 		got, err := db.Get("bank", int64(i+1), []byte("same"))
@@ -121,20 +121,20 @@ func TestRepairM_1174_BatchBytes(t *testing.T) {
 	raw, err := NewRawBatch(db.storage, db.descending)
 	require.NoError(t, err)
 	require.NoError(t, raw.Set("bank", []byte("raw"), []byte("value"), 3))
-	total += repair1174EncodedBytes(raw.ops, false)
+	total += encodedBatchBytes(raw.ops, false)
 	require.NoError(t, raw.Write())
 	count++
 	deletion, err := NewBatch(db.storage, 3, db.descending)
 	require.NoError(t, err)
 	require.NoError(t, deletion.HardDelete("bank", []byte("raw")))
-	total += repair1174EncodedBytes(deletion.ops, true)
+	total += encodedBatchBytes(deletion.ops, true)
 	require.NoError(t, deletion.Write())
 	count++
 	histogram := proofNodeHistogram(t, scrape(), "pebble_batch_size_bytes", "", count, smetrics.ByteSizeBuckets)
 	require.Equal(t, float64(total), histogram.GetSampleSum())
 }
 
-func TestRepairM_1174_MetricsCloseRace(t *testing.T) {
+func TestMetricsCollectionJoinsClose(t *testing.T) {
 	store, err := OpenDB(t.TempDir(), config.DefaultStateStoreConfig())
 	require.NoError(t, err)
 	db := store.(*Database)
@@ -181,7 +181,7 @@ func TestRepairM_1174_MetricsCloseRace(t *testing.T) {
 	require.NoError(t, db.Close())
 }
 
-func TestRepairM_1174_MetadataVersions(t *testing.T) {
+func TestMetadataVersionValidation(t *testing.T) {
 	overflow := make([]byte, VersionSize)
 	binary.LittleEndian.PutUint64(overflow, uint64(math.MaxInt64)+1)
 	cases := []struct {
@@ -211,7 +211,7 @@ func TestRepairM_1174_MetadataVersions(t *testing.T) {
 			t.Run(key+"/"+tc.name, func(t *testing.T) {
 				dir := t.TempDir()
 				cfg := config.DefaultStateStoreConfig()
-				db := repair1174Open(t, dir, cfg)
+				db := openStorageIntegrityDB(t, dir, cfg)
 				require.NoError(t, db.Close())
 				raw, err := pebble.Open(dir, &pebble.Options{Comparer: MVCCComparer})
 				require.NoError(t, err)
@@ -250,13 +250,13 @@ func TestRepairM_1174_MetadataVersions(t *testing.T) {
 		}
 	}
 	t.Run("absent", func(t *testing.T) {
-		db := repair1174Open(t, t.TempDir(), config.DefaultStateStoreConfig())
+		db := openStorageIntegrityDB(t, t.TempDir(), config.DefaultStateStoreConfig())
 		require.Zero(t, db.GetLatestVersion())
 		require.Zero(t, db.GetEarliestVersion())
 	})
 }
 
-func repair1174Versions(t *testing.T, db *Database, module string, key []byte) []int64 {
+func storedKeyVersions(t *testing.T, db *Database, module string, key []byte) []int64 {
 	t.Helper()
 	var versions []int64
 	stopped, err := db.iteratePhysical(module, func(got, _ []byte, version int64) (bool, error) {
@@ -270,14 +270,14 @@ func repair1174Versions(t *testing.T, db *Database, module string, key []byte) [
 	return versions
 }
 
-func TestRepairM_1174_PruneDirtyMapRestart(t *testing.T) {
+func TestPruneRetainsVersionsAcrossRestart(t *testing.T) {
 	for _, keepLast := range []bool{true, false} {
 		for _, mode := range []string{"populated", "reopened", "imported"} {
 			t.Run(fmt.Sprintf("%s/keep-last-%t", mode, keepLast), func(t *testing.T) {
 				cfg := config.DefaultStateStoreConfig()
 				cfg.KeepLastVersion = keepLast
 				dir := t.TempDir()
-				db := repair1174Open(t, dir, cfg)
+				db := openStorageIntegrityDB(t, dir, cfg)
 				if mode == "imported" {
 					applyVersion(t, db, "dormant", 1, []byte("k"), []byte("seed"))
 					require.NoError(t, db.Prune(5))
@@ -285,7 +285,7 @@ func TestRepairM_1174_PruneDirtyMapRestart(t *testing.T) {
 				for _, version := range []int64{10, 20, 30} {
 					if mode == "imported" {
 						// The snapshot is produced by a real versioned store and its iterator.
-						source := repair1174Open(t, t.TempDir(), cfg)
+						source := openStorageIntegrityDB(t, t.TempDir(), cfg)
 						for _, module := range []string{"active", "dormant"} {
 							applyVersion(t, source, module, version, []byte("k"), []byte(fmt.Sprint(version)))
 						}
@@ -311,10 +311,10 @@ func TestRepairM_1174_PruneDirtyMapRestart(t *testing.T) {
 				if mode == "imported" && keepLast {
 					initial = append(initial, 1)
 				}
-				require.ElementsMatch(t, initial, repair1174Versions(t, db, "dormant", []byte("k")))
+				require.ElementsMatch(t, initial, storedKeyVersions(t, db, "dormant", []byte("k")))
 				if mode == "reopened" {
 					require.NoError(t, db.Close())
-					db = repair1174Open(t, dir, cfg)
+					db = openStorageIntegrityDB(t, dir, cfg)
 				}
 				applyVersion(t, db, "active", 40, []byte("k"), []byte("40"))
 				require.NoError(t, db.Prune(25))
@@ -322,36 +322,36 @@ func TestRepairM_1174_PruneDirtyMapRestart(t *testing.T) {
 				if keepLast {
 					want = append(want, 20)
 				}
-				require.ElementsMatch(t, want, repair1174Versions(t, db, "dormant", []byte("k")))
+				require.ElementsMatch(t, want, storedKeyVersions(t, db, "dormant", []byte("k")))
 				require.Equal(t, int64(26), db.GetEarliestVersion())
 				require.NoError(t, db.Close())
-				db = repair1174Open(t, dir, cfg)
-				require.ElementsMatch(t, want, repair1174Versions(t, db, "dormant", []byte("k")))
+				db = openStorageIntegrityDB(t, dir, cfg)
+				require.ElementsMatch(t, want, storedKeyVersions(t, db, "dormant", []byte("k")))
 				require.NoError(t, db.Prune(35))
 				var retained []int64
 				if keepLast {
 					retained = []int64{30}
 				}
-				require.ElementsMatch(t, retained, repair1174Versions(t, db, "dormant", []byte("k")))
+				require.ElementsMatch(t, retained, storedKeyVersions(t, db, "dormant", []byte("k")))
 				require.NoError(t, db.Close())
-				db = repair1174Open(t, dir, cfg)
+				db = openStorageIntegrityDB(t, dir, cfg)
 				require.Equal(t, int64(36), db.GetEarliestVersion())
-				require.ElementsMatch(t, retained, repair1174Versions(t, db, "dormant", []byte("k")))
+				require.ElementsMatch(t, retained, storedKeyVersions(t, db, "dormant", []byte("k")))
 			})
 		}
 	}
 }
 
-func TestRepairM_1174_RawExportModuleIdentity(t *testing.T) {
+func TestRawExportPreservesModuleIdentity(t *testing.T) {
 	for _, mode := range []string{"descending", "legacy", "default-comparer"} {
 		t.Run(mode, func(t *testing.T) {
 			cfg := config.DefaultStateStoreConfig()
 			cfg.UseDefaultComparer = mode == "default-comparer"
 			dir := t.TempDir()
 			if mode == "legacy" {
-				repair1174SeedLegacy(t, dir)
+				seedStorageIntegrityLegacyDB(t, dir)
 			}
-			source := repair1174Open(t, dir, cfg)
+			source := openStorageIntegrityDB(t, dir, cfg)
 			key := []byte{'/', 'k', 0, 255}
 			modules := []string{"b", "long_module"}
 			for _, version := range []int64{10, 20} {
@@ -361,9 +361,9 @@ func TestRepairM_1174_RawExportModuleIdentity(t *testing.T) {
 			}
 			targetDir := t.TempDir()
 			if mode == "legacy" {
-				repair1174SeedLegacy(t, targetDir)
+				seedStorageIntegrityLegacyDB(t, targetDir)
 			}
-			target := repair1174Open(t, targetDir, cfg)
+			target := openStorageIntegrityDB(t, targetDir, cfg)
 			raw, err := NewRawBatch(target.storage, target.descending)
 			require.NoError(t, err)
 			snapshots := make(chan types.SnapshotNode, 2)
@@ -391,10 +391,10 @@ func TestRepairM_1174_RawExportModuleIdentity(t *testing.T) {
 			require.NoError(t, raw.Write())
 			require.NoError(t, target.SetLatestVersion(20))
 			close(snapshots)
-			imported := repair1174Open(t, t.TempDir(), cfg)
+			imported := openStorageIntegrityDB(t, t.TempDir(), cfg)
 			require.NoError(t, imported.Import(20, snapshots))
 			require.NoError(t, target.Close())
-			target = repair1174Open(t, targetDir, cfg)
+			target = openStorageIntegrityDB(t, targetDir, cfg)
 			for _, module := range modules {
 				for _, version := range []int64{10, 20} {
 					got, err := target.Get(module, version, key)
@@ -416,7 +416,7 @@ func TestRepairM_1174_RawExportModuleIdentity(t *testing.T) {
 	}
 }
 
-func TestRepairM_1174_RollbackLeavesTombstones(t *testing.T) {
+func TestRollbackRemovesVersionedKeys(t *testing.T) {
 	for _, mode := range []string{"descending", "legacy", "default-comparer"} {
 		for _, count := range []int{1, 49, 50, 51, 101} {
 			t.Run(fmt.Sprintf("%s/keys-%d", mode, count), func(t *testing.T) {
@@ -424,9 +424,9 @@ func TestRepairM_1174_RollbackLeavesTombstones(t *testing.T) {
 				cfg.UseDefaultComparer = mode == "default-comparer"
 				dir := t.TempDir()
 				if mode == "legacy" {
-					repair1174SeedLegacy(t, dir)
+					seedStorageIntegrityLegacyDB(t, dir)
 				}
-				db := repair1174Open(t, dir, cfg)
+				db := openStorageIntegrityDB(t, dir, cfg)
 				initial, changed := make([]*proto.KVPair, 0, count), make([]*proto.KVPair, 0, count)
 				for i := 0; i < count; i++ {
 					key := []byte(fmt.Sprintf("k-%03d", i))
@@ -447,7 +447,7 @@ func TestRepairM_1174_RollbackLeavesTombstones(t *testing.T) {
 					} else {
 						require.Equal(t, []byte("after"), got)
 					}
-					require.Contains(t, repair1174Versions(t, db, "bank", pair.Key), int64(2))
+					require.Contains(t, storedKeyVersions(t, db, "bank", pair.Key), int64(2))
 				}
 				// Physical recovery must not raise a caller's explicitly reset head.
 				require.NoError(t, db.SetLatestVersion(1))
@@ -458,20 +458,20 @@ func TestRepairM_1174_RollbackLeavesTombstones(t *testing.T) {
 				check := func() {
 					require.Equal(t, int64(1), db.GetLatestVersion())
 					for _, pair := range initial {
-						require.ElementsMatch(t, []int64{1}, repair1174Versions(t, db, "bank", pair.Key))
+						require.ElementsMatch(t, []int64{1}, storedKeyVersions(t, db, "bank", pair.Key))
 						got, err := db.Get("bank", 2, pair.Key)
 						require.NoError(t, err)
 						require.Equal(t, pair.Value, got)
-						require.ElementsMatch(t, []int64{2}, repair1174Versions(t, db, "other", pair.Key))
+						require.ElementsMatch(t, []int64{2}, storedKeyVersions(t, db, "other", pair.Key))
 					}
 				}
 				check()
 				require.NoError(t, db.Close())
-				db = repair1174Open(t, dir, cfg)
+				db = openStorageIntegrityDB(t, dir, cfg)
 				check()
 				require.NoError(t, db.DeleteKeysAtVersion("", 2))
 				for _, pair := range initial {
-					require.Empty(t, repair1174Versions(t, db, "other", pair.Key))
+					require.Empty(t, storedKeyVersions(t, db, "other", pair.Key))
 				}
 				require.Equal(t, int64(1), db.GetLatestVersion())
 			})
@@ -479,15 +479,15 @@ func TestRepairM_1174_RollbackLeavesTombstones(t *testing.T) {
 	}
 }
 
-func TestRepairM_1174_RollbackCallbackErrors(t *testing.T) {
+func TestRollbackPropagatesCallbackErrors(t *testing.T) {
 	for _, descending := range []bool{true, false} {
 		t.Run(fmt.Sprint(descending), func(t *testing.T) {
 			dir := t.TempDir()
 			cfg := config.DefaultStateStoreConfig()
 			if !descending {
-				repair1174SeedLegacy(t, dir)
+				seedStorageIntegrityLegacyDB(t, dir)
 			}
-			db := repair1174Open(t, dir, cfg)
+			db := openStorageIntegrityDB(t, dir, cfg)
 			pairs := make([]*proto.KVPair, 2*DeleteCommitBatchSize+1)
 			for i := range pairs {
 				pairs[i] = &proto.KVPair{Key: []byte(fmt.Sprintf("k-%03d", i)), Value: []byte("value")}
@@ -523,9 +523,9 @@ func TestRepairM_1174_RollbackCallbackErrors(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, int64(2), head)
 			require.NoError(t, readonly.Close())
-			db = repair1174Open(t, dir, cfg)
+			db = openStorageIntegrityDB(t, dir, cfg)
 			for _, pair := range pairs {
-				require.Equal(t, []int64{2}, repair1174Versions(t, db, "bank", pair.Key))
+				require.Equal(t, []int64{2}, storedKeyVersions(t, db, "bank", pair.Key))
 				got, err := db.Get("bank", 2, pair.Key)
 				require.NoError(t, err)
 				require.Equal(t, pair.Value, got)
@@ -534,7 +534,7 @@ func TestRepairM_1174_RollbackCallbackErrors(t *testing.T) {
 	}
 }
 
-func repair1174CounterSnapshot(m *pebble.Metrics) map[string]float64 {
+func pebbleCounterSnapshot(m *pebble.Metrics) map[string]float64 {
 	values := map[string]float64{
 		"pebble_compaction_count_total":          float64(m.Compact.Count),
 		"pebble_flush_count_total":               float64(m.Flush.Count),
@@ -549,11 +549,11 @@ func repair1174CounterSnapshot(m *pebble.Metrics) map[string]float64 {
 	return values
 }
 
-func TestRepairM_1174_CounterDoubleCount(t *testing.T) {
-	scrape := repair1174Scraper(t)
+func TestMetricsCounterSnapshots(t *testing.T) {
+	scrape := storageMetricsScraper(t)
 	cfg := config.DefaultStateStoreConfig()
 	dir := t.TempDir()
-	db := repair1174Open(t, dir, cfg)
+	db := openStorageIntegrityDB(t, dir, cfg)
 	activity := func(version int64) {
 		pairs := make([]*proto.KVPair, 32)
 		for i := range pairs {
@@ -587,21 +587,21 @@ func TestRepairM_1174_CounterDoubleCount(t *testing.T) {
 		}
 	}
 	activity(1)
-	first := repair1174CounterSnapshot(db.PebbleMetrics())
+	first := pebbleCounterSnapshot(db.PebbleMetrics())
 	require.Positive(t, first["pebble_cache_hits_total"])
 	require.Positive(t, first["pebble_cache_misses_total"])
 	require.Positive(t, first["pebble_flush_count_total"])
 	require.Positive(t, first["pebble_compaction_bytes_read_bytes_total"])
 	assertCounters(first)
 	activity(2)
-	second := repair1174CounterSnapshot(db.PebbleMetrics())
+	second := pebbleCounterSnapshot(db.PebbleMetrics())
 	require.Greater(t, second["pebble_flush_count_total"], first["pebble_flush_count_total"])
 	require.Greater(t, second["pebble_cache_hits_total"], first["pebble_cache_hits_total"])
 	assertCounters(second)
 	require.NoError(t, db.Close())
-	db = repair1174Open(t, dir, cfg)
+	db = openStorageIntegrityDB(t, dir, cfg)
 	activity(3)
-	reopened := repair1174CounterSnapshot(db.PebbleMetrics())
+	reopened := pebbleCounterSnapshot(db.PebbleMetrics())
 	for name, value := range second {
 		reopened[name] += value
 	}

@@ -11,7 +11,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/config"
 )
 
-func TestRepairM_1175_AscendingPruneDirtyMapRestart(t *testing.T) {
+func TestAscendingPruneRetainsVersionsAcrossRestart(t *testing.T) {
 	for _, keepLast := range []bool{true, false} {
 		t.Run(fmt.Sprintf("keep-last-%t", keepLast), func(t *testing.T) {
 			dir := t.TempDir()
@@ -118,6 +118,6 @@ func TestRepairM_1175_AscendingPruneDirtyMapRestart(t *testing.T) {
 	}
 }
 
-func TestRepairM_1175_MetricsProofAcceptsWrongUnits(t *testing.T) {
+func TestStorageMetricsUnits(t *testing.T) {
 	proofNodeMetrics(t)
 }
