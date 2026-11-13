@@ -114,7 +114,9 @@ event OpticalSurplusClaimed(address indexed pool, address indexed recipient, uin
 function recordFee(address pool, uint256 feeAmount) external
 ```
 
-Record fees from a swap (pool-only)
+Record fees from a swap. The caller must hold POOL_ROLE, be the named pool and be registered in
+PoolRegistry. Accounting must be initialized, and unaccounted USDL already held by the accumulator
+must cover feeAmount.
 
 #### Parameters
 
@@ -185,7 +187,7 @@ Eligibility uses the previous block’s token balances and excludes the pool and
 
 | Name        | Type    | Description                  |
 | ----------- | ------- | ---------------------------- |
-| totalAmount | uint256 | The total amount distributed |
+| totalAmount | uint256 | The USDL reserved for the new epoch |
 
 ### claimAirdrop
 

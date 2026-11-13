@@ -6,6 +6,11 @@ Interface for read-only quote and data access (no state changes)
 
 Source: [IQuoter.sol](../../contracts/interfaces/IQuoter.sol).
 
+The [Quoter implementation](../../contracts/periphery/Quoter.sol) requires registered, unpaused
+pools without optical hooks for `quoteExactInput` and both legs of `quoteMultihop`. It rejects zero
+output and sell output above the pool's real USDL balance. These quotes use the current pool fee;
+they do not reserve a price for a later transaction.
+
 ### QuoteResult
 
 ```solidity
@@ -54,6 +59,8 @@ function quoteExactInput(address pool, uint256 amountIn, bool isBuy) external vi
 ```
 
 Quote exact input amount for a swap
+
+`feeAmount` is denominated in the input asset: USDL for a buy and the pool token for a sell.
 
 #### Parameters
 

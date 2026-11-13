@@ -72,6 +72,10 @@ function swap(uint256 amountIn, uint256 minAmountOut, bool isBuy, address recipi
 
 Execute a swap
 
+Transfer the input tokens to the pool before calling `swap`, atomically in the same transaction.
+The pool checks that its unaccounted input balance covers amountIn. The same funding requirement
+applies to `swapFor`; neither method pulls tokens from the caller.
+
 #### Parameters
 
 | Name         | Type    | Description                           |
@@ -166,7 +170,7 @@ Get the pool's creation timestamp
 function cumulativeVolume() external view returns (uint256)
 ```
 
-Get cumulative volume
+Get cumulative USDL-denominated volume: gross USDL input on buys plus USDL output on sells.
 
 ### getPriceSnapshots
 
@@ -174,7 +178,8 @@ Get cumulative volume
 function getPriceSnapshots() external view returns (uint256[8])
 ```
 
-Get price snapshots for volatility calculation
+Get price snapshots for volatility calculation, ordered from oldest to newest. Unused entries in
+the eight-element array are zero.
 
 ### swapFor
 

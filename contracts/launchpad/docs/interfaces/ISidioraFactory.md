@@ -38,6 +38,9 @@ function createMarket(string name, string symbol, uint8 feeStrategy, address opt
 
 Create a new market (token + pool + NFT)
 
+The factory transfers a nonzero configured creation fee in USDL from the caller to the treasury;
+the caller must approve the factory to spend that amount.
+
 #### Parameters
 
 | Name        | Type    | Description                                                                   |
@@ -63,11 +66,14 @@ function createMarketFor(address creator, string name, string symbol, uint8 feeS
 
 Create a new market on behalf of a creator (Router-only via ROUTER_ROLE)
 
+The factory does not collect the creation fee in this entrypoint. The Router collects it before
+calling the factory.
+
 #### Parameters
 
 | Name        | Type    | Description                                                 |
 | ----------- | ------- | ----------------------------------------------------------- |
-| creator     | address | The actual creator address (receives NFT, becomes guardian) |
+| creator     | address | The creator address (receives NFT, becomes initial guardian) |
 | name        | string  | Token name                                                  |
 | symbol      | string  | Token symbol                                                |
 | feeStrategy | uint8   | Initial fee strategy for the pool NFT                       |
