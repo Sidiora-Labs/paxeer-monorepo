@@ -165917,7 +165917,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.508]
 title = "Bring the compile step of the integration test packages in line"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -199085,7 +199085,7 @@ do_3 = "do_3 Decision 3428, gotcha 4346. In the configuration of the dependency 
 
 [task.22.39.502]
 title = "Bring the test target of the interop workspace in line"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
