@@ -171,5 +171,5 @@ fn malformed_balance_asset_is_refused_before_rpc() {
 }
 
 use layerx_platform_cli::{encoding, http};
-#[path = "repair_22_33_1496.rs"]
-mod audit_22_33_1496;
+#[path = "program_and_wallet_receipts.rs"]
+mod program_and_wallet_receipts;

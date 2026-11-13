@@ -23,7 +23,7 @@ upgrade inputs.
 - [release.sh](release.sh) — resolves release selectors, runs distinct registered gates and writes a release evidence record.
 - [route-catalogue.json](route-catalogue.json) — route declarations used by the gateway and candidate policy.
 - [retired_callers.json](retired_callers.json) — caller inventory used by retirement checks.
-- [repair_m843_test.go](repair_m843_test.go) — Go tests for candidate policy and dependency decisions.
+- [candidate_contract_test.go](candidate_contract_test.go) — Go tests for candidate policy and dependency decisions.
 
 ## Build and test
 

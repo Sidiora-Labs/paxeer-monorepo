@@ -1,0 +1,24 @@
+[manifest]
+task = "22.43.214"
+records_moved = 1
+files_renamed = 1
+
+[file.1]
+from = "tools/hpx/registry/repair_m807.kvx"
+to = "spec/layerx-merge/programme/records/tools/hpx/registry/repair_m807.kvx"
+
+[file.2]
+from = "tools/hpx/registry/repair_m807_test.go"
+to = "tools/hpx/registry/registration_lifecycle_test.go"
+
+[reference.1]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/hpx/registry/repair_m807_test.go"
+
+[reference.2]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m807_test.go"
+
+[reference.3]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_807_"

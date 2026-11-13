@@ -1,0 +1,16 @@
+[manifest]
+task = "22.43.221"
+records_moved = 1
+files_renamed = 1
+
+[file.1]
+from = "tools/pnsdns/repair_m866.kvx"
+to = "spec/layerx-merge/programme/records/tools/pnsdns/repair_m866.kvx"
+
+[file.2]
+from = "tools/pnsdns/repair_m866_test.go"
+to = "tools/pnsdns/transport_contract_test.go"
+
+[reference.1]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/pnsdns/repair_m866_test.go"
