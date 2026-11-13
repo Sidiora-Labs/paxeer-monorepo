@@ -197845,7 +197845,7 @@ do_3 = "do_3 Decision 3429, gotcha 4347. Run make platform-sdk-generate and keep
 
 [task.22.39.503]
 title = "Bring the lint target of the platform workspaces in line"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
