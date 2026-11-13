@@ -4,7 +4,7 @@ Four applications live under `services/platform/examples`: a buyer agent, a paid
 
 ## Build and launch
 
-From the repository root, install and build the JavaScript workspaces:
+Use Node.js 22 or newer. From the repository root, install and build the JavaScript workspaces:
 
 ```sh
 npm ci
@@ -20,7 +20,7 @@ npm run start:beta --workspace @sidiora/layerx-example-merchant-shop
 npm run start:beta --workspace @sidiora/layerx-example-marketplace
 ```
 
-These are separate applications with different prerequisites; starting them does not provision a node, human-payment service, account or signing key. `merchant-checkout` is a compatibility alias for `merchant-shop`. Local profiles use `start:emulator`; their endpoints and services must also be supplied separately.
+These are separate applications with different prerequisites; starting them does not provision a node, human-payment service, account or signing key. `merchant-checkout` is a compatibility alias for `merchant-shop`. Local profiles use `start:emulator`; their endpoints and services must also be supplied separately. The paid API and marketplace local profiles select node port 8545, while the buyer and merchant select port 9402. The CLI emulator provides inspection and prefunding; native payment paths require a node and the corresponding application services.
 
 ## Configuration and evidence
 
@@ -30,7 +30,7 @@ The buyer also needs its configured human-payment service and credential. The pa
 
 Native payment paths bind signed EIP-1559 transaction bytes to signed execution receipts and independently pinned receipt keys. Pending, unknown and refused outcomes remain distinct. A verified signed receipt establishes `receipted`; finality requires authenticated committed-block evidence. See [receipts](receipts.md).
 
-The marketplace program stores listings and consumed receipt digests in program-shared storage. A purchase requires verified, unused receipt evidence matching the listing's asset and price. Receipt consumption, the bounded transfer request, listing deletion and purchase event occur in one atomic program call.
+The marketplace program stores listings and consumed receipt digests in program-shared storage. A purchase requires successful, unused receipt evidence with the listing's asset and an amount at least equal to its price. The program requests a transfer of exactly the listing price. Receipt consumption, the bounded transfer request, listing deletion and purchase event occur in one atomic program call.
 
 ## Enforced by
 

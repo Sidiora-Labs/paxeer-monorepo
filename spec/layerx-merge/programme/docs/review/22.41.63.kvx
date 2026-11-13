@@ -1,0 +1,83 @@
+[manifest]
+task = "22.41.63"
+pages = 20
+
+[page.1]
+path = "docs/platform/content/guide/receipts.md"
+status = "corrected"
+
+[page.2]
+path = "docs/platform/content/guide/reference-applications.md"
+status = "corrected"
+
+[page.3]
+path = "docs/platform/content/guide/seller-middleware.md"
+status = "corrected"
+
+[page.4]
+path = "docs/platform/content/guide/webhooks.md"
+status = "corrected"
+
+[page.5]
+path = "docs/platform/content/index.md"
+status = "corrected"
+
+[page.6]
+path = "docs/platform/content/install.md"
+status = "corrected"
+
+[page.7]
+path = "docs/platform/content/quickstart/csharp.md"
+status = "corrected"
+
+[page.8]
+path = "docs/platform/content/quickstart/go.md"
+status = "corrected"
+
+[page.9]
+path = "docs/platform/content/quickstart/jvm.md"
+status = "corrected"
+
+[page.10]
+path = "docs/platform/content/quickstart/python.md"
+status = "corrected"
+
+[page.11]
+path = "docs/platform/content/quickstart/rust.md"
+status = "corrected"
+
+[page.12]
+path = "docs/platform/content/quickstart/swift.md"
+status = "corrected"
+
+[page.13]
+path = "docs/platform/content/quickstart/typescript.md"
+status = "corrected"
+
+[page.14]
+path = "docs/platform/content/reference/agent-api.md"
+status = "reviewed"
+
+[page.15]
+path = "docs/platform/content/reference/enforcement.md"
+status = "reviewed"
+
+[page.16]
+path = "docs/platform/content/reference/errors.md"
+status = "reviewed"
+
+[page.17]
+path = "docs/platform/content/reference/human-api.md"
+status = "reviewed"
+
+[page.18]
+path = "docs/platform/content/reference/samples.md"
+status = "reviewed"
+
+[page.19]
+path = "docs/readme/PUBLIC-RPC.md"
+status = "corrected"
+
+[page.20]
+path = "docs/readme/README.de.md"
+status = "corrected"

@@ -1,11 +1,11 @@
 # TypeScript quickstart
 
-Add a payment to a Node.js application. Eight lines, no protocol vocabulary, no key handling.
+Use the human-payment client from a Node.js application. The integration region has eight lines; the complete sample supplies configuration and journey polling.
 
 ## Before you start
 
 Use Node.js 22 or newer. Configure an authenticated human-payment service that supports
-`/v1/moves/quote`, `/v1/moves` and journey reads. The local emulator retires
+`/v1/moves/quote`, `/v1/moves` and journey reads. The local emulator does not implement
 these payment-write routes. For native node transactions, follow the
 [reference applications](../guide/reference-applications.md).
 
@@ -33,9 +33,9 @@ export const pay = async (layerx, source, destination, money, paymentKey) => {
 };
 ```
 
-That is all of it. `openLayerX` builds a client over an HTTPS transport that holds your token in a `SecretBytes` container - redacted in logs, zeroed when destroyed. `pay` quotes the move, then commits the quote under an idempotency key you choose.
+`openLayerX` builds a client over an HTTPS transport that holds your token in a `SecretBytes` container, redacted in its string representation and zeroed when destroyed. `pay` quotes the move, then commits the quote under an idempotency key you choose.
 
-Loopback HTTP URLs are allowed for a local human-payment service. Any other `http://` URL is refused before a request is made, so a misconfigured environment cannot leak a bearer token in clear text.
+Loopback HTTP URLs are allowed for a local human-payment service. The transport constructor refuses other `http://` URLs before making a request.
 
 ## Run the whole sample
 
@@ -60,22 +60,27 @@ Derive it from the thing being paid for, not from the attempt. `order-2f9c1b7e4a
 
 ## Handling refusals
 
-Every failure arrives as a `PlatformSdkError` carrying a machine code and a retry class. Switch on `error.code`; do not parse messages.
+SDK errors use `PlatformSdkError` with `code` and `retry` fields. The sample's HTTP transport maps response statuses as shown below. Invalid transport configuration can raise `MiddlewareError` or a URL parsing error before a request is made.
 
 | Code | What to do |
 |---|---|
 | `idempotency-required` | You omitted the key. Fix the call |
-| `idempotency-conflict` | Same key, different body. Reuse the original result |
-| `rate-limit` | Wait for `error.retryAfterMs` |
-| `unknown-outcome` | Do not retry. Resolve by looking up the receipt under your key |
-| `budget-refusal` | The payment exceeded a funded budget. This is a protocol refusal |
+| `idempotency-conflict` | HTTP 409; reconcile the original request |
+| `rate-limit` | HTTP 429; wait for `error.retryAfterMs` when supplied by `Retry-After` |
+| `invalid-argument` | HTTP 400 or 422; correct the request |
+| `capability-refusal` | HTTP 401 or 403; check authentication and authority |
+| `transport-failure` | HTTP 5xx or transport loss; retain the original request and payment key |
+
+After a commit timeout or transport loss, reconcile the original journey and its evidence before creating another payment.
 
 ## Enforced by
 
 | Capability | Layer | What that means here |
 |---|---|---|
 | Atomic settlement | `protocol` | The committed move applies completely or not at all. |
-| Replay refusal | `protocol` | A retried submission cannot apply twice, whatever your key handling does. |
+| Replay refusal | `protocol` | Rebroadcasting the same signed transaction cannot apply twice. |
 | Idempotent money moves | `service` | Repeating the commit with the same key returns the original journey. |
 | Quote then commit | `service` | The fee ceiling and arrival expectation you saw are the ones you committed to. |
 | Done means verified | `service` | The `done` state your poll observes is backed by receipt evidence. |
+
+The sample reports the service's journey state and evidence references. It does not independently verify receipt bytes or block commitment.

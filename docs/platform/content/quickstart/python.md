@@ -1,11 +1,11 @@
 # Python quickstart
 
-Add a payment to a Python application. Seven lines, no protocol vocabulary, no key handling.
+Use the human-payment client from a Python application. The integration region has seven nonblank lines; the complete sample supplies its HTTP transport, configuration and journey polling.
 
 ## Before you start
 
 Use Python 3.11 or newer. Configure an authenticated human-payment service that supports
-`/v1/moves/quote`, `/v1/moves` and journey reads. The local emulator retires
+`/v1/moves/quote`, `/v1/moves` and journey reads. The local emulator does not implement
 these payment-write routes. For native node transactions, follow the
 [reference applications](../guide/reference-applications.md).
 
@@ -34,7 +34,7 @@ def pay(layerx, source, destination, money, payment_key):
 
 `ProductionClient` refuses `move.commit` without an idempotency key before anything reaches the network, so a missing key is a local error rather than a duplicate payment.
 
-> `layerx-sdk` currently ships the client, the operation catalogue and the typed error taxonomy, but not an HTTP transport for the human plane. The sample includes a complete one, `layerx_transport.py`, in a region marked `plumbing`: it validates the endpoint scheme, refuses non-loopback `http://`, holds the token in `SecretBytes`, maps the service's typed error codes onto `SdkErrorCode`, and honours the declared retriability. Copy it as-is until the package ships its own.
+The sample supplies its human API transport in `layerx_transport.py`, in the `plumbing` region. It validates the endpoint scheme, refuses non-loopback `http://`, holds the token in `SecretBytes`, maps the service's typed error codes onto `SdkErrorCode`, and honours the declared retriability. `ProductionClient` receives that transport in `open_layerx`.
 
 ## The transport the sample supplies
 
@@ -206,7 +206,7 @@ It polls `journey.get` up to 40 times at 250 ms intervals, prints a JSON report 
 
 ## Amounts
 
-`ProtocolAmount` is an `int` subclass that refuses anything that is not an exact non-negative integer, including a bool and a leading-zero string. Amounts cross the wire as decimal strings, never as JSON numbers.
+`ProtocolAmount` is an `int` subclass that accepts integers from 0 through 2^128 - 1 or their canonical decimal strings. It refuses booleans, leading-zero strings and values outside that range. The sample supplies `money.amount` as a decimal string so it crosses the wire as a string.
 
 ## Handling refusals
 
@@ -217,15 +217,17 @@ It polls `journey.get` up to 40 times at 250 ms intervals, prints a JSON report 
 | `idempotency-required` | You omitted the key. Fix the call |
 | `idempotency-conflict` | Same key, different body. Reuse the original result |
 | `rate-limit` | Wait for the carried retry timing |
-| `unknown-outcome` | Do not retry. Resolve by receipt lookup under your key |
-| `budget-refusal` | The payment exceeded a funded budget |
+| `unknown-outcome` | Reconcile the original journey and its evidence before another payment |
+| `budget-refusal` | The service reported a budget or limit refusal; inspect its evidence for the enforcement layer |
 
 ## Enforced by
 
 | Capability | Layer | What that means here |
 |---|---|---|
 | Atomic settlement | `protocol` | The committed move applies completely or not at all. |
-| Conserved supply | `protocol` | No transport bug can create or destroy value. |
+| Conserved supply | `protocol` | Payment execution applies the protocol's balance rules. |
 | Idempotent money moves | `service` | Repeating the commit with the same key returns the original journey. |
 | Quote then commit | `service` | The quote you committed is the one that executes. |
 | Done means verified | `service` | The `done` state is backed by receipt evidence. |
+
+The sample reports the service's journey state and evidence references. It does not independently verify receipt bytes or block commitment.

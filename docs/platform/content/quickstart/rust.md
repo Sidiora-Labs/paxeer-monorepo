@@ -1,8 +1,8 @@
 # Rust quickstart
 
-The Rust surface for the LayerX kernel is aimed at the two things Rust callers actually want: talking to the protocol directly through `layerx-client`, and verifying evidence with no service in the path.
+The Rust packages provide native node access through `layerx-client` and local receipt verification through `layerx-sdk` and `layerx-proof`.
 
-> `layerx-sdk` ships the agent-plane client, the typed error taxonomy, the receipt and mirror verifiers, and typed human-plane call construction through `HumanApiCalls`. It does not yet ship an HTTP client for the human plane. Until it does, make the payment with the `layerx` CLI - which is a real Rust client over the same endpoint - and do the part that matters in your own process: verify the receipt.
+`layerx-sdk` provides the agent client, typed errors, receipt and mirror verification, and human API call construction through `HumanApiCalls`. Human-payment transport is provided by the `layerx` CLI. The local verifier below takes compatibility receipt bytes and independently supplied batch facts.
 
 ## Make the payment
 
@@ -12,7 +12,7 @@ layerx payment test --from "$LAYERX_SOURCE" --to "$LAYERX_DESTINATION" \
   --idempotency-key order-2f9c1b7e4a10 --json
 ```
 
-That quotes and commits under a key you chose and prints the journey. Fetch the receipt material it references:
+That quotes and commits through the configured human-payment service under a key you chose and prints the journey. A journey carries evidence references. If you also have the native transaction hash, fetch its node receipt separately:
 
 ```sh
 layerx receipt get "$TX_HASH" --json
@@ -22,9 +22,9 @@ Use the transaction hash for `TX_HASH`. `receipt get` fetches `pax_sequencerRece
 
 ## Verify it yourself
 
-The sample is a local compatibility verifier for receipt bytes and caller-supplied batch facts, like `layerx receipt verify`. Its wire rank does not establish current network finality. A receipt is final once its block is committed. Verify the block header, CometBFT commit and transaction or state inclusion at the relevant height as described in [Committed block evidence](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/abc81fd2cead6b2b9d5612c6e09a6ab56f13c1ed/docs/site/docs/concepts/checkpoints.md#committed-block-evidence).
+The sample is a local compatibility verifier for receipt bytes and caller-supplied batch facts, like `layerx receipt verify`. Its wire rank does not establish current network finality. A receipt is final once its block is committed. Verify the block header, CometBFT commit and transaction or state inclusion at the relevant height as described in [Committed block evidence](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/docs/site/docs/concepts/checkpoints.md#committed-block-evidence).
 
-The network rungs are `submitted`, `receipted` and `committed`. `checkpoint-finalised` and `done-finalised` are retained API names for the `committed` rung. `settlement-anchored` and `paxeer-finalised` are never reached on the merged network.
+The native transaction rungs are `submitted`, `receipted` and `committed`. Human-service journey states, such as `done` and `done-finalised`, are separate fields. Use the evidence supporting a response to determine whether block commitment has been verified.
 
 Use the local `layerx-sdk` and `layerx-proof` dependencies declared in the sample’s `Cargo.toml`.
 
@@ -63,9 +63,9 @@ paths and declares its own Cargo workspace. Preserve or update those dependency
 paths when copying it. Its local verification result does not replace committed
 block evidence.
 
-## Verifying without any LayerX component
+## Reading mirror evidence
 
-`verify_mirror_receipt` checks a compatibility receipt out of an untrusted mirror archive: it validates the archive, checks the batch header against trust you configure, proves inclusion, and returns freshness alongside the result instead of implying it. That local path needs no node, gateway or hosted service; it does not establish the merged network's committed rung.
+`layerx_sdk::production::verify_mirror_receipt_from_sources` reads an archive through `MirrorSources` under a `MirrorReadPolicy` and checks the selected receipt against height-ranged `SequencerAuthorization` keys. Its result includes the source observation and freshness. Source reads use the configured mirror transport. Independently authenticate block commitment and inclusion before relying on a finality claim.
 
 ## Enforced by
 
@@ -73,5 +73,5 @@ block evidence.
 |---|---|---|
 | Offline receipt verification | `protocol` | This program checks compatibility receipt bytes against trusted batch facts; finality requires committed block evidence. |
 | Atomic settlement | `protocol` | The receipt describes a state change that either happened whole or not at all. |
-| Conserved supply | `protocol` | A receipt describing a balance change outside a 402LXP transfer would not verify. |
+| Conserved supply | `protocol` | The verifier checks the balance invariants for the supported receipt operation. |
 | Honest verification levels | `agent-layer` | The level returned is the one the evidence justifies, never a requested one that was not achieved. |

@@ -1,11 +1,11 @@
 # C# quickstart
 
-Add a payment to a .NET application. Four lines, no protocol vocabulary, no key handling.
+Use the human-payment client from a .NET application. The integration region has four lines; the complete sample supplies configuration, response helpers and journey polling.
 
 ## Before you start
 
 Use .NET 10 or newer. Configure an authenticated human-payment service that supports
-`/v1/moves/quote`, `/v1/moves` and journey reads. The local emulator retires
+`/v1/moves/quote`, `/v1/moves` and journey reads. The local emulator does not implement
 these payment-write routes. For native node transactions, follow the
 [reference applications](../guide/reference-applications.md).
 
@@ -48,22 +48,24 @@ The sample polls the journey up to 40 times at 250 ms intervals, prints a JSON r
 
 ## Handling refusals
 
-`PlatformSdkException` carries the machine code and the retry class. Branch on the code; never on the message.
+`PlatformSdkException.Code` is an `SdkErrorCode` enum and `Retry` is a `RetryClass`. Branch on those values. `Code.MachineCode()` returns the string names in the table below.
 
 | Code | What to do |
 |---|---|
 | `idempotency-required` | You omitted the key |
 | `idempotency-conflict` | Same key, different body |
 | `rate-limit` | Wait for the carried retry timing |
-| `unknown-outcome` | Do not retry. Resolve by receipt lookup under your key |
-| `budget-refusal` | The payment exceeded a funded budget |
+| `unknown-outcome` | Reconcile the original journey and its evidence before another payment |
+| `budget-refusal` | The service reported a budget or limit refusal; inspect its evidence for the enforcement layer |
 
 ## Enforced by
 
 | Capability | Layer | What that means here |
 |---|---|---|
 | Atomic settlement | `protocol` | The committed move applies completely or not at all. |
-| Replay refusal | `protocol` | A retried submission cannot apply twice. |
+| Replay refusal | `protocol` | Rebroadcasting the same signed transaction cannot apply twice. |
 | Idempotent money moves | `service` | The commit signature makes the key impossible to omit. |
 | Quote then commit | `service` | The quote you committed is the one that executes. |
 | Done means verified | `service` | The `done` state is backed by receipt evidence. |
+
+The sample reports the service's journey state and evidence references. It does not independently verify receipt bytes or block commitment.
