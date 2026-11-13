@@ -1,28 +1,4 @@
-"""Task 22.33.889 repair record and focused release-boundary regressions.
-
-Finding -> proving Python case (the Go entry points delegate to these same cases):
-build-test-daemon -> test_build_distribution
-reproducible-test-daemon -> test_reproducible_distribution
-verification-fixture-daemon -> test_verification_distribution
-rehearsal-test-reuses-old-success -> test_rehearsal_evidence_binding
-rollback-test-endorses-rewind -> test_rollback_forward_recovery
-set -> test_fresh_handoff_reaches_markets
-programme-test-fixes-old-checklist -> test_programme_merged_scenarios
-
-Wiring request: owner domain 16 / task 22.33.893 must add real merged kernel,
-program, xweb, tenant and restart scenarios to tools/release/rehearsal/programme.py
-and their invocations to tools/release/rehearse-v6120.sh (MERGED_CHECKS contract).
-No out-of-scope files are changed; the missing interface is an explicit failure.
-Baseline execution: not run; the ordered gate contract forbids testing before
-complete implementation. Base 7988614413df79a83ae525988b7636ae368938a2 has the
-retired asset requests, implicit evidence reuse and successful signer rewind.
-No baseline test failure or unexecuted native chain qualification is claimed.
-
-Only Python, the system shell and ordinary filesystem utilities are used. Opaque
-release-byte fixtures are never launched as nodes. Loopback RPC transcripts are
-peers of the real pool recorder, ABI codec and fleet consumer. No Go toolchain,
-paxd build, sidecar, credentials or external service is required by this gate.
-"""
+"""Release distribution, rehearsal evidence and forward recovery contracts."""
 
 import argparse
 import base64
@@ -50,7 +26,7 @@ import upgrade_info
 from rehearsal import pool_parity
 
 programme_spec = importlib.util.spec_from_file_location(
-    "repair889_programme_tests", RELEASE / "tests/test_programme.py"
+    "release_programme_tests", RELEASE / "tests/test_programme.py"
 )
 programme_tests = importlib.util.module_from_spec(programme_spec)
 programme_spec.loader.exec_module(programme_tests)
@@ -75,7 +51,7 @@ def shell_function(path, name):
 
 def run_shell(script, *args, success=True, cwd=ROOT):
     result = subprocess.run(
-        ["bash", "-euo", "pipefail", "-c", script, "repair889", *map(str, args)],
+        ["bash", "-euo", "pipefail", "-c", script, "release-boundaries", *map(str, args)],
         cwd=cwd,
         capture_output=True,
         text=True,
@@ -215,7 +191,7 @@ def binding_functions():
     source = (RELEASE / "tests/rehearse.test.sh").read_text()
     block = re.search(r"<<'PY_BINDING'\n(.*?)\nPY_BINDING", source, re.S)
     assert block, "the rehearsal regression must expose its real evidence binding"
-    namespace = {"__name__": "repair889_binding"}
+    namespace = {"__name__": "rehearsal_evidence_binding"}
     exec(compile(block[1], str(RELEASE / "tests/rehearse.test.sh"), "exec"), namespace)
     return namespace
 
