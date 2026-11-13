@@ -4,14 +4,14 @@ Paxeer mainnet-beta is one BFT network running `paxd`, with the kernel inside
 the network proposing blocks. The EVM chain ID is **125** (`0x7d`); a transaction
 is final once its block is committed.
 
-Public JSON-RPC uses the root path of `https://api1.mainnet-beta.paxeer.network`
-through `https://api14.mainnet-beta.paxeer.network`, and
-`https://api-mainnet-beta.paxeer.network`. Use a node's root WebSocket URL, for
-example `wss://api1.mainnet-beta.paxeer.network`, for subscriptions.
-`node.hyperpaxeer.com` is the hpx library mirror, not an RPC endpoint.
+Public JSON-RPC uses a node's root path. Use the node's root WebSocket URL for
+subscriptions. Select the endpoint from the
+[public RPC reference](../site/docs/reference/public-rpc.md) and set `NODE_RPC_URL`
+to its HTTPS root URL for this shell example. The hpx library mirror distributes
+build libraries and does not serve chain RPC.
 
 ```bash
-curl https://api1.mainnet-beta.paxeer.network/ \
+curl "$NODE_RPC_URL" \
   -H 'Content-Type: application/json' \
   --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'
 ```
@@ -230,11 +230,16 @@ validate their parameters and then answer `-32004` with error data code
 the hosted identity and faucet services, whose method contract is
 [`services/platform/hosted/gateway/openrpc.json`](../../services/platform/hosted/gateway/openrpc.json).
 
-Both `px_getReceiptKeys` and `pax_sequencerReceipt` require a configured local
-receipt source or receipt forwarding URL. Without either, they return code
-`-32000` and the message `<method> served by sequencer`. These are roles within
-the merged network. Receipt progress is `submitted`, `receipted`, or `committed`;
-a signed execution receipt before commitment does not establish block finality.
+`px_getReceiptKeys` reads the local keeper's governed key set and requires an
+explicit empty parameter array, `[]`. Missing, unreadable or invalid key state
+returns code `-32003`, message `Chain read unavailable`, and error data code
+`receipt_keys_unavailable`; a forwarding URL does not supply this state.
+
+`pax_sequencerReceipt` uses a configured local receipt source or a receipt
+forwarding URL. Without either, it returns code `-32000` and the message
+`pax_sequencerReceipt served by sequencer`. These are roles within the merged
+network. Receipt progress is `submitted`, `receipted`, or `committed`; a signed
+execution receipt before commitment does not establish block finality.
 
 ## test
 

@@ -1,6 +1,11 @@
 # Application storage forensics
 
-The runtime registry in `apps/wallet/src/platform/storage/repositories.ts` is authoritative. Every application-owned browser record is a bounded version-1 envelope with a named owner, schema, sensitivity, retention rule, quota, migration, lifecycle reset list, and corruption policy.
+The runtime [registry](../../../../apps/wallet/src/platform/storage/registry.ts)
+defines browser storage ownership, schemas, sensitivity, retention, quotas,
+migrations, lifecycle resets and corruption policies. The records in
+[`repositories.ts`](../../../../apps/wallet/src/platform/storage/repositories.ts)
+use bounded version-1 envelopes. Swap namespaces retain their own serialized
+formats under the same registry.
 
 | Record | Area | Owner | Sensitivity | Retention and reset |
 | --- | --- | --- | --- | --- |
@@ -8,23 +13,31 @@ The runtime registry in `apps/wallet/src/platform/storage/repositories.ts` is au
 | contacts | local | contacts | private metadata | Until user deletion, reset, or uninstall |
 | recent-recipients | local | contacts | private metadata | Five entries; cleared on logout, account removal, reset, or uninstall |
 | preferences | local | preferences | preferences | Currency, language, HTTPS custom RPC, developer display controls, and notification preferences; cleared on reset or uninstall |
-| dapp-tabs | local | dapp | private metadata | Eight HTTPS origins; cleared on revoke, logout, custody switch, account removal, reset, or uninstall |
-| dapp-permissions | local | dapp | security-relevant | Exact HTTPS origins and bounded permission identifiers; corruption fails closed; cleared with the dApp lifecycle |
+| currency-rates | local | preferences | public | USD-based rates for at most 32 currency codes, 4 KiB; cleared on reset or uninstall |
 | portfolio-filters | local | portfolio | private metadata | Dust preference and bounded token-address list; cleared on reset or uninstall |
 | pwa-dismissals | local | pwa | preferences | Install prompt seven days and notification prompt three days |
 | notification-state | local | notifications | private metadata | Bounded counters and timestamps; cleared on logout, account removal, reset, or uninstall |
 | metadata-cache | local | metadata | public | Caller TTL, 200 entries, 512 KiB total |
 | pending-send | session | operations | private metadata | One validated transaction observation, one session, at most two minutes |
 | announcement | local | pwa | preferences | Last acknowledged shipped version until reset |
+| submitted-transfers | local | send | private metadata | At most 100 entries, 256 KiB; cleared on logout, custody switch, account removal, reset, or uninstall |
+| transfer-observations | local | send | private metadata | At most 100 entries of retained transfer evidence, 512 KiB; cleared on logout, custody switch, account removal, reset, or uninstall |
 
-Mnemonic material, private keys, unlock secrets, session capabilities, full approval payloads, push secrets, and authentication credentials are prohibited from every application repository. Self-custody vault state remains exclusively inside wallet-core IndexedDB. Supabase and managed-wallet authentication state remains owned by their reviewed authentication adapters. Wallet-core’s direct local-storage access is restricted to legacy cleanup and its bounded IndexedDB commit notification fallback.
+[`swap-records.ts`](../../../../apps/wallet/src/platform/storage/swap-records.ts)
+registers two local-storage namespaces, both owned by `swap` and classified as
+security-relevant. Each is bounded to 1,000 records and 2 MiB, fails closed on
+corruption, and is cleared on reset or uninstall:
 
-Wallet-core owns one additional `paxport-wallet-session-v1` IndexedDB record
-outside the application repository registry. It contains only a
-structured-cloned non-extractable AES-GCM `CryptoKey` handle, vault identifier,
-and bounded inactivity deadline. It contains no PIN, mnemonic, private key,
-raw key bytes, or step-up state, and is deleted on explicit lock, timeout,
-reset, credential replacement, failed restoration, or cross-context
-revocation.
+| Namespace | Key prefix | Contents |
+| --- | --- | --- |
+| swap-records | `pax:swap:` | Version-1 token and operation records scoped by network and wallet |
+| swap-journal | `paxeer:swap-journal:v1:` | Version-1 intent journals scoped by chain and wallet |
 
-Malformed optional records are removed and surfaced through the background status channel. Corrupt custody choice or dApp permission state fails closed. `resetStorageForLifecycle` deletes only records registered for the requested lifecycle and never deletes another custody product’s authoritative wallet state.
+The embedded wallet's Supabase session is managed by
+[`IdentitySession`](../../../../apps/wallet/src/wallet/identity.ts), outside the
+application record registry.
+
+Malformed optional records are removed and surfaced through the background
+status channel. Corrupt custody choice or swap state fails closed.
+`resetStorageForLifecycle` deletes only records and namespaces registered for
+the requested lifecycle.

@@ -28,7 +28,7 @@ src/app/page.tsx
 | --- | --- | --- |
 | `/` | `src/app/page.tsx` | Shell with the routed widgets below |
 | `/account`, `/account/history`, `/account/deposit`, `/account/plan` | `src/app/account`, `src/account` | Unified account view, history, deposit and value movement for the signed-in wallet |
-| `/surfaces/exchange`, `/surfaces/bridge`, `/surfaces/launchpad`, `/surfaces/fees`, `/surfaces/web-data` | `src/app/surfaces`, `src/surfaces` | Network surfaces listed in `src/surfaces/routes.ts` |
+| `/surfaces/exchange`, `/surfaces/bridge`, `/surfaces/launchpad`, `/surfaces/fees`, `/surfaces/web-data`, `/surfaces/inference` | `src/app/surfaces`, `src/surfaces` | Network surfaces listed in `src/surfaces/routes.ts` |
 | `/auth/callback` | `src/app/auth/callback` | Sign-in return |
 | `/offline` | `src/app/offline` | Offline fallback |
 | `/privacy` | `src/app/privacy` | Privacy information |
