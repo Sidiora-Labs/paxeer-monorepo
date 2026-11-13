@@ -362161,7 +362161,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.41.116]
 title = "Write the source configuration and the environment package of the repository root"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
