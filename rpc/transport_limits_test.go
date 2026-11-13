@@ -202,8 +202,8 @@ func TestBatchRequestLimitEnforced(t *testing.T) {
 	}
 }
 
-// RunRepairM1293LegacyBatchLimit is shared with the bounded repair gate.
-func RunRepairM1293LegacyBatchLimit(t *testing.T) {
+// RunServerLifecycleLegacyBatchLimit is shared with the bounded repair gate.
+func RunServerLifecycleLegacyBatchLimit(t *testing.T) {
 	for _, limit := range []int{1, 2, 4} {
 		t.Run(strconv.Itoa(limit), func(t *testing.T) {
 			api := NewTestAPI()
@@ -247,9 +247,9 @@ func RunRepairM1293LegacyBatchLimit(t *testing.T) {
 	}
 }
 
-func TestLegacyBatchRequestLimitEnforced(t *testing.T) { RunRepairM1293LegacyBatchLimit(t) }
+func TestLegacyBatchRequestLimitEnforced(t *testing.T) { RunServerLifecycleLegacyBatchLimit(t) }
 
-func RepairM1293EnableHTTPAPIsWS(t *testing.T, server *HTTPServer) {
+func ServerLifecycleEnableHTTPAPIsWS(t *testing.T, server *HTTPServer) {
 	t.Helper()
 	require.NoError(t, server.EnableWS(server.apis, WsConfig{
 		Origins: []string{"http://localhost"}, RPCEndpointConfig: server.HTTPConfig.RPCEndpointConfig,
@@ -257,7 +257,7 @@ func RepairM1293EnableHTTPAPIsWS(t *testing.T, server *HTTPServer) {
 	installTxPoolWSScopes(server)
 }
 
-func RepairM1293Baker(t *testing.T, cache *keeper.TraceDB) (*TraceBaker, <-chan struct{}) {
+func ServerLifecycleBaker(t *testing.T, cache *keeper.TraceDB) (*TraceBaker, <-chan struct{}) {
 	t.Helper()
 	serverTraceBakers.Lock()
 	defer serverTraceBakers.Unlock()
@@ -273,7 +273,7 @@ func RepairM1293Baker(t *testing.T, cache *keeper.TraceDB) (*TraceBaker, <-chan 
 	return baker, joined
 }
 
-func RepairM1293ServerStopped(t *testing.T, server *HTTPServer) func() {
+func ServerLifecycleServerStopped(t *testing.T, server *HTTPServer) func() {
 	t.Helper()
 	server.mu.Lock()
 	done := server.serveDone
@@ -289,7 +289,7 @@ func RepairM1293ServerStopped(t *testing.T, server *HTTPServer) func() {
 	}
 }
 
-func RepairM1293SubscriptionStopped(t *testing.T, server *HTTPServer) func() {
+func ServerLifecycleSubscriptionStopped(t *testing.T, server *HTTPServer) func() {
 	t.Helper()
 	var subscriptions []*SubscriptionAPI
 	for _, api := range server.wsAPIs {
@@ -323,7 +323,7 @@ func RepairM1293SubscriptionStopped(t *testing.T, server *HTTPServer) func() {
 	}
 }
 
-func RepairM1293Metrics(t *testing.T) func() map[string]int64 {
+func ServerLifecycleMetrics(t *testing.T) func() map[string]int64 {
 	t.Helper()
 	reader := sdkmetric.NewManualReader()
 	provider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
