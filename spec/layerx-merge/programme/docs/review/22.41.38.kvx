@@ -1,0 +1,163 @@
+[manifest]
+task = "22.41.38"
+pages = 40
+
+[page.1]
+path = "spec/release-v6-12-0/contracts/launchpad.md"
+status = "corrected"
+
+[page.2]
+path = "spec/release-v6-12-0/contracts/perps-markets.md"
+status = "corrected"
+
+[page.3]
+path = "spec/release-v6-12-0/contracts/perps-parameters.md"
+status = "corrected"
+
+[page.4]
+path = "spec/release-v6-12-0/contracts/perps.md"
+status = "corrected"
+
+[page.5]
+path = "spec/release-v6-12-0/contracts/pricefeed.md"
+status = "corrected"
+
+[page.6]
+path = "spec/release-v6-12-0/contracts/release.md"
+status = "corrected"
+
+[page.7]
+path = "spec/release-v6-12-0/contracts/spot.md"
+status = "corrected"
+
+[page.8]
+path = "spec/release-v6-12-0/docs/rollout-runbook.md"
+status = "corrected"
+
+[page.9]
+path = "spec/release-v6-12-0/hyperfide/REPORT.md"
+status = "reviewed"
+
+[page.10]
+path = "src/modules/account/README.md"
+status = "corrected"
+
+[page.11]
+path = "src/modules/asset/README.md"
+status = "corrected"
+
+[page.12]
+path = "storage/README.md"
+status = "corrected"
+
+[page.13]
+path = "storage/db_engine/litt/README.md"
+status = "corrected"
+
+[page.14]
+path = "storage/db_engine/litt/docs/architecture.md"
+status = "corrected"
+
+[page.15]
+path = "storage/db_engine/litt/docs/benchmark-data/8-27-2025/README.md"
+status = "corrected"
+
+[page.16]
+path = "storage/db_engine/litt/docs/filesystem_layout.md"
+status = "corrected"
+
+[page.17]
+path = "storage/db_engine/litt/docs/licenses/README.md"
+status = "corrected"
+
+[page.18]
+path = "storage/db_engine/litt/docs/littdb_cli.md"
+status = "corrected"
+
+[page.19]
+path = "storage/state_db/bench/README.md"
+status = "corrected"
+
+[page.20]
+path = "storage/state_db/bench/cryptosim/README.md"
+status = "corrected"
+
+[page.21]
+path = "storage/state_db/sc/memiavl/README.md"
+status = "corrected"
+
+[page.22]
+path = "storage/state_db/sc/migration/OPERATIONS.md"
+status = "corrected"
+
+[page.23]
+path = "storage/state_db/sc/migration/README.md"
+status = "corrected"
+
+[page.24]
+path = "storage/tools/README.md"
+status = "corrected"
+
+[page.25]
+path = "tests/fixtures/example/contracts/erc20/README.md"
+status = "corrected"
+
+[page.26]
+path = "tests/fixtures/example/contracts/erc721/README.md"
+status = "corrected"
+
+[page.27]
+path = "tests/integration/README.md"
+status = "corrected"
+
+[page.28]
+path = "tests/integration/dapp_tests/README.md"
+status = "corrected"
+
+[page.29]
+path = "tests/integration/evm_module/rpc_io_test/RPC_IO_README.md"
+status = "corrected"
+
+[page.30]
+path = "tests/integration/rpc_tests/README.md"
+status = "corrected"
+
+[page.31]
+path = "tests/integration/rpc_tests/hardhat/README.md"
+status = "reviewed"
+
+[page.32]
+path = "tools/README.md"
+status = "corrected"
+
+[page.33]
+path = "tools/benchmark/AGENTS.md"
+status = "corrected"
+
+[page.34]
+path = "tools/benchmark/loadtest/contracts/evm/VENDORING.md"
+status = "reviewed"
+
+[page.35]
+path = "tools/benchmark/scenarios/README.md"
+status = "reviewed"
+
+[page.36]
+path = "tools/bringup/paxd-initialization.md"
+status = "corrected"
+
+[page.37]
+path = "tools/bringup/tests/fixtures/repair_m798/README.md"
+status = "corrected"
+
+[page.38]
+path = "tools/codebase-map/README.md"
+status = "corrected"
+
+[page.39]
+path = "tools/deps/README.md"
+status = "corrected"
+
+[page.40]
+path = "tools/hpx/README.md"
+status = "corrected"

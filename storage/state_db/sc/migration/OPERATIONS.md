@@ -1,30 +1,24 @@
-# MigrateEVM Operations Roadmap
+# MigrateEVM operations
 
-This is the operational companion to [README.md](README.md), scoped to the
-`MigrateEVM` transition (V0 → V1). It describes the current local storage path,
-recovery limits, existing inspection tools and proposed additions. The proposed
-commands and flags in section 6 are design work, except for the narrower status
-command explicitly identified as implemented. They are not incident runbooks
-that can be executed today.
+This guide describes the local `MigrateEVM` state-commitment transition
+(V0 → V1), its restart behavior and the available database inspection tools.
+See [README.md](README.md) for the full migration state machine.
 
-## 1. Scope
+## Scope and configuration
 
 MigrateEVM moves the `evm` store from memiavl to flatkv. Other registered modules
-remain in memiavl. The version constants are in
-[migration_versions.go](migration_versions.go): `Version0_MemiavlOnly = 0` and
-`Version1_MigrateEVM = 1`. The configuration mode is `MigrateEVM` (`migrate_evm`)
-in [write_mode.go](../../../config/write_mode.go); the batch size is
+remain in memiavl. [migration_versions.go](migration_versions.go) defines
+`Version0_MemiavlOnly = 0` and `Version1_MigrateEVM = 1`. Select `migrate_evm`
+through [WriteMode](../../../config/write_mode.go); configure the batch size with
 `StateCommitConfig.KeysToMigratePerBlock` in
 [sc_config.go](../../../config/sc_config.go).
 
-The `Router`, `ModuleRouter` and `MigrationManager` types discussed here are
-in-process database dispatch code inside the node. They do not introduce a
-network routing service or change the merged network's execution or finality.
-This roadmap does not cover EVM execution semantics or public API behavior.
-MigrateAllButBank and MigrateBank have their own module selection; do not apply
-EVM-only inspections to those transitions without adapting them.
+`Router`, `ModuleRouter` and `MigrationManager` dispatch local storage operations
+inside the node. They do not change the network's execution or consensus rules.
+The `MigrateAllButBank` and `MigrateBank` transitions select different source
+modules; EVM-only inspections apply to `MigrateEVM`.
 
-## 2. Lifecycle Reference
+## Lifecycle and reads
 
 ```mermaid
 flowchart LR
@@ -35,220 +29,93 @@ flowchart LR
     mid -->|source exhausted and completion committed| v1
 ```
 
-[BuildRouter](router_builder.go) constructs storage handles for all modes,
-including terminal `MemiavlOnly` and `FlatKVOnly` passthrough handles. The composite
-store calls it after backend load. Finishing a migration updates metadata; it
-does not change the configured write mode. `MigrateEVM` remains usable at V1,
-including after restart; `EVMMigrated` is the direct steady-state alternative.
+[BuildRouter](router_builder.go) constructs the storage handle after backend
+load. Migration completion changes metadata, while the configured write mode
+stays the same. `MigrateEVM` remains usable at V1 after restart; `EVMMigrated`
+selects direct steady-state dispatch.
 
-Migration metadata lives in flatkv's reserved `MigrationStore` (`migration`).
-For this transition an absent version means the start version, zero. A persisted
-version must match the manager's start or target version; malformed or unexpected
-versions cause initialization errors. A missing boundary means not started,
-unless the target version already establishes completion.
+The metadata store is `migration` in flatkv. An absent migration-version key
+selects the manager's start version, zero. A stored version must match the
+start or target version. An absent boundary means not started unless version 1
+already establishes completion. The manager rejects malformed metadata.
 
-| Stage | memiavl EVM | flatkv EVM | Metadata / access |
+| Stage | memiavl EVM | flatkv EVM | Access |
 |---|---|---|---|
-| V0 with `MemiavlOnly` | All EVM rows | No active flatkv backend | memiavl passthrough handle |
-| `MigrateEVM` in progress | Existing source rows not yet walked | Migrated rows **and new rows regardless of cursor position** | Boundary in flatkv; manager reads/writes as described below |
-| V1 with `MigrateEVM` | Source drained on the normal path | EVM state | Version 1, boundary deleted; completed manager forwards to flatkv |
-| V1 with `EVMMigrated` | Other modules remain here | EVM state | Module dispatch sends EVM directly to flatkv |
+| V0 with `MemiavlOnly` | All EVM rows | No active flatkv backend | memiavl passthrough |
+| `MigrateEVM` in progress | Existing source rows not yet walked | Migrated rows and new rows | Boundary-aware manager |
+| V1 with `MigrateEVM` | Source drained by migration | EVM state | Completed manager forwards to flatkv |
+| V1 with `EVMMigrated` | Other modules remain here | EVM state | Direct module dispatch |
 
-The cursor marks progress through existing source rows, not an exclusive physical
-partition of all rows. [MigrationManager.Read](migration_manager.go) reads flatkv
-for a key at or below the boundary. For a key above it, the manager reads memiavl
-first and falls back to flatkv on a miss. Caller writes to migrated keys go to
-flatkv; writes above the boundary stay in memiavl only if the key still exists
-there. New keys go directly to flatkv so new account/log growth cannot extend
-the source tail forever.
+[MigrationManager.Read](migration_manager.go) reads flatkv at or below the
+boundary. Above the boundary it reads memiavl first, then flatkv on a miss.
+Writes to migrated keys go to flatkv. Above the boundary, writes stay in memiavl
+only while the key exists there; new keys go directly to flatkv. Consequently,
+new flatkv keys may lie beyond the cursor.
 
-The concrete example is
-`TestApplyChangeSets_BrandNewKeysDoNotExtendMigrationTail` in
-[migration_manager_test.go](migration_manager_test.go): source keys `a`, `b`
-migrate with batch size 1 while `z-new-1` and `z-new-2` go directly to flatkv.
-The first new key is readable beyond cursor `a`; migration still completes on
-`b`. `TestRepairM_1120_Partition` repeats this path with real backends, including
-updates and deletes. Validate the logical union and authoritative values at a
-common height against expected state; cursor placement alone cannot prove
-completeness, value correctness or absence of a lost key.
+The boundary compares module names lexicographically and keys bytewise, with
+equality on the migrated side. The EVM module identifier is `evm`.
+[MigrationBoundary](migration_boundary.go) encodes the status byte and, for an
+in-progress cursor, a four-byte big-endian module-name length, the module name
+and raw key bytes.
 
-Within a first flush, the manager advances the iterator, stages migrated values
-and source deletions, then overlays caller changes. A caller update/delete of a
-key in the same batch wins over the copied value. Later flushes route caller
-writes without advancing the cursor. The composite store resets this
-once-per-block gate after a successful commit and on writable load/rollback.
+## Writes and restart
 
-The boundary format and comparison rules are in
-[migration_boundary.go](migration_boundary.go): module name then raw key, with
-equality considered migrated. For EVM the module name is `evm`, not `evm/`.
-Flatkv physical keys/encoded account values are not directly comparable to
-memiavl's logical EVM rows without translation.
+On the first flush in a block, the manager advances the source iterator,
+stages copied values and source deletions, then overlays caller changes.
+A caller update or deletion in that batch takes precedence over the copied
+value. Later flushes route writes without advancing migration. The composite
+store resets this once-per-block state after commit and writable load/rollback.
 
-## 3. Atomicity & Crash-Safety Statement
+[MigrationManager.ApplyChangeSets](migration_manager.go) calls the memiavl
+writer, then the flatkv writer, synchronously. An error from the old writer
+returns before invoking the new writer. The [Router contract](migration_types.go)
+requires shutdown and crash recovery after a write error; the same in-memory
+handle is not reusable for retry.
 
-[MigrationManager.ApplyChangeSets](migration_manager.go) invokes the **old
-(memiavl) writer first, then the new (flatkv) writer**, synchronously. It does not
-launch parallel writer goroutines. If the old writer fails, it returns before
-calling the new writer. A failure from either writer is fatal for that handle:
-the [Router contract](migration_types.go) requires shutdown and crash recovery,
-not retry of `ApplyChangeSets` against its advanced in-memory boundary.
+[ModuleRouter](module_router.go) validates store names before dispatching any
+writes. It invokes route writers sequentially in registration order, including
+routes without caller changes, then joins their errors. The
+[thread-safe wrapper](thread_safe_router.go) excludes reads and proofs during a
+write. These calls do not form an atomic transaction across both backends.
 
-[ModuleRouter](module_router.go) also dispatches sequentially, in route
-registration order, and joins errors after calling the route writers. It first
-validates store names, so an unknown store prevents any route from writing.
-Routes with no caller changes are still invoked, allowing migration to advance
-on empty blocks. The [thread-safe wrapper](thread_safe_router.go) prevents
-external reads/proofs from overlapping a write; it does not make the two
-backends transactional.
+[CompositeCommitStore.Commit](../composite/store.go) commits memiavl before
+flatkv and checks that their returned versions match. Writable
+`LoadVersion(0, false)` loads the latest versions and rolls the ahead backend
+back to the lower nonzero version when both backends have committed.
+Reconciliation depends on retained recovery data and successful rollback.
+When either version is zero, this rollback branch does not run. With fresh
+flatkv and an existing memiavl version, a separate load-latest step seeds the
+next flatkv commit version. Explicit-height loads do not use load-latest
+reconciliation.
 
-Application of change sets is distinct from durable commit:
+The storage handle is rebuilt from loaded metadata, resetting uncommitted
+cursor state. `CleanupCrashArtifacts` removes orphaned flatkv working
+directories before startup. Preserve both backend directories, their snapshots
+and WAL together for recovery. A compatible complete backup or state-sync
+snapshot supplies state when local recovery cannot open a coherent database.
 
-- The manager stages source deletions and source-side caller writes in memiavl.
-- It then stages copied values, destination-side caller writes and metadata in
-  flatkv. Completion stages version 1 and boundary deletion together there.
-- [CompositeCommitStore.Commit](../composite/store.go) commits memiavl first,
-  then flatkv, and checks that their returned versions agree.
-- Writable `LoadVersion(0, false)` reconciles different **nonzero** backend
-  versions by rolling the ahead backend back to the lower version. Fresh flatkv
-  migration entry has a separate initial-version seeding path. Explicit-height
-  loads do not use the load-latest reconciliation branch.
-  In particular, when either backend is at version zero, `reconcileVersions`
-  returns without rollback. A first-ever interrupted commit, or the first
-  migration commit with fresh flatkv still at zero, is outside the nonzero
-  reconciliation guarantee. Seeding the next flatkv version aligns future
-  commit heights; it cannot reconstruct a lost source row or boundary.
-- The storage handle is rebuilt from loaded metadata; uncommitted cursor state
-  and the first-flush gate are reset. `CleanupCrashArtifacts` cleans orphaned
-  flatkv working directories; it is not data reconstruction.
+## Snapshots and state inspection
 
-There is no two-phase commit in `MigrationManager`. The composite recovery path
-handles the version mismatch from an interrupted cross-backend commit, subject
-to the backends' retained recovery data and successful rollback. Do not equate a
-crash between *apply* calls with permanent deletion of a durably committed
-batch. Conversely, equal versions or a status flag do not prove content integrity
-following media corruption or manual modification.
+[SnapshotExporter](../composite/exporter.go) concatenates the memiavl stream
+and the self-describing physical `flatkv` stream. During migration both
+backends participate. [SnapshotImporter](../composite/importer.go) sends the
+`flatkv` section to flatkv and the other module sections to memiavl. Import
+preserves the supplied backend data; it does not synthesize migration completion.
+Use the complete stream and compatible backend configuration at the same height.
 
-## 4. Failure Mode Catalog
+Logical EVM state is the union selected by the manager's read rules, including
+new flatkv rows above the cursor. Flatkv physical keys and packed account values
+need translation before comparison with memiavl's logical EVM rows. Compare
+normalized values at a common committed height with a trusted state source.
+Version 1 and an absent boundary describe completion metadata; content
+comparison establishes state equality.
 
-These cases distinguish normal crash recovery from corruption that requires an
-external state source. Inspections must use the same committed height and the
-configured mode. Preserve a copy of both backends and their metadata before
-investigating damage. The tools proposed in section 6 are not available repairs.
+After migration, the source EVM rows have been removed from memiavl.
+`import-flatkv-from-memiavl` imports the source rows that remain; use a complete
+backup or compatible state-sync source to restore migrated state. Retain
+source and destination data together before any maintenance that changes it.
 
-### A1 -- Interrupted old-to-new write or commit
-
-- **Trigger**: an apply error, or process death between memiavl and flatkv work.
-- **Disk symptom**: uncommitted work may be discarded; death between durable
-  commits can leave memiavl ahead of flatkv. An actual missing batch at a common
-  committed height is a different, stronger corruption signal.
-- **User symptom**: startup recovery/replay may be needed. Missing authoritative
-  EVM rows after recovery can surface as absent state or failed calls.
-- **Self-recoverable?** The composite load-latest path reconciles nonzero version
-  mismatches before rebuilding the handle. Recovery can fail; the manager alone
-  does not reconstruct missing data.
-  If either backend has never committed (version zero), automatic rollback
-  is skipped. The initial-version seeding path is not first-commit recovery.
-- **Detection signal**: recovery errors/version-reconciliation logs; compare
-  logical state to a trusted reference at the recovered height if loss is
-  suspected. An internal two-database scan cannot discover a key absent from both
-  without an external expected set or digest.
-- **Recovery path**: use the normal composite restart path. If rollback or
-  content validation fails, restore a consistent backup or use a compatible
-  state-sync source and replay. Do not retry on the failed in-memory manager or
-  use raw changelog replay as a substitute for cross-backend recovery.
-  Before recommending any destructive repair, require interruption/reopen
-  evidence at the affected commit boundary, retained WAL/snapshot versions,
-  recovered migration metadata and logical values at a common height.
-
-### A2 -- Stale memiavl residue
-
-- **Trigger**: inconsistent restore, manual edits or a backend durability failure
-  can leave a migrated key in both stores. This is not an outcome of two parallel
-  manager goroutines: the current manager has none.
-- **Disk symptom**: source rows at/below the cursor, or source EVM rows at V1.
-  Flatkv rows above the cursor alone are expected new-key traffic, not residue.
-- **User symptom**: reads at/below the cursor go to flatkv; stale source data can
-  therefore be invisible to ordinary queries while still affecting storage
-  inspection or commitment state.
-- **Self-recoverable?** Do not rely on migration to revisit rows behind its cursor.
-- **Detection signal**: translated comparison of both stores at a common height,
-  using boundary/version and provenance rather than a cursor-only partition.
-- **Recovery path**: retain evidence and restore/replay from a consistent state
-  if needed. The source-cleanup tool in T3 is proposed. Deleting source rows can
-  change memiavl's root; it is not an automatically safe disk-only repair.
-  Require a reproduced interruption/reopen trace and trusted union/value
-  comparison before classifying duplicates as safe to delete. Neither the
-  cursor nor a successful metadata-only status check authorizes deletion.
-
-### A3 -- Boundary key corruption
-
-- **Trigger**: damaged or manually changed `migration-boundary` bytes in flatkv.
-- **Disk symptom**: deserialization fails, or a valid encoding describes a cursor
-  inconsistent with source migration progress.
-- **User symptom**: the manager rejects malformed metadata on initialization;
-  plausible but wrong metadata can select the wrong authoritative backend.
-- **Self-recoverable?** No general reconstruction is implemented by the manager.
-- **Detection signal**: startup decode error or disagreement with trusted logical
-  state. The existing status tool prints boundary hex but does not decode it.
-- **Recovery path**: restore trusted metadata with its matching backend state,
-  or restore/state-sync a coherent database. Do not set the cursor to the maximum
-  flatkv key: new keys can exist beyond migration progress. T3 reconstruction
-  needs additional provenance and must refuse ambiguous states.
-
-### B1 -- Mid-migration snapshot creation
-
-- **Current path**: [CompositeCommitStore.Exporter](../composite/store.go)
-  includes each non-nil backend. In MigrateEVM both are present.
-  [SnapshotExporter](../composite/exporter.go) concatenates the memiavl stream
-  and the self-describing physical flatkv stream headed by `flatkv`.
-- **Risk**: a partial export, mixed heights or missing metadata cannot describe
-  equivalent migration state. A layout of “only keys below the cursor in flatkv”
-  is already incorrect because new rows may be beyond it.
-- **Detection / qualification**: restore the complete stream at the same height,
-  verify logical reads, version/boundary bytes and commitment data, then resume
-  migration and compare against the source. Exporter presence alone is not that
-  evidence; this documentation task does not run snapshot qualification.
-- **Recovery path**: keep a known compatible snapshot until the candidate's
-  complete export/import/resume path is qualified for the deployment.
-
-### B2 -- Mid-migration state-sync receive
-
-- **Current path**: [CompositeCommitStore.Importer](../composite/store.go) opens
-  importers for active backends. [SnapshotImporter](../composite/importer.go)
-  sends the `flatkv` section to flatkv and other module sections to memiavl;
-  it does not route logical EVM rows according to the current cursor.
-- **Risk**: wrong backend configuration, an incomplete snapshot or manually
-  importing only EVM cannot establish the intended lifecycle state. The composite
-  importer itself does not synthesize version 1 merely because import ended.
-- **Detection / recovery**: verify the restored metadata, both backend heights,
-  logical state and resumed migration before serving from the restored node.
-  Re-import a compatible complete snapshot if they disagree. Do not use a
-  proposed residue-cleanup command as an assumed state-sync step.
-
-### C1 -- flatkv corruption after V1
-
-After normal completion memiavl no longer has the EVM source data. Loss of the
-flatkv state requires a compatible backup/state-sync source, or a complete
-pre-migration state plus replay. `import-flatkv-from-memiavl` cannot recover
-post-migration EVM state from an already drained source. A failure to open flatkv
-or missing state is evidence to investigate, not permission to reset it.
-
-### C2 -- memiavl evm residue after V1 (lingering A2)
-
-Version 1 makes EVM reads use flatkv, but does not prove memiavl has no EVM rows.
-Inspect both backends at the same height. Residue needs provenance and
-commitment checks before any deletion; the proposed T3 tool is not shipped.
-
-### C3 -- V1 completion audit
-
-The desired invariant is that logical EVM state at V1 equals the pre-migration
-state evolved by all intervening writes and deletes. Version 1 with no boundary
-is a completion signal, not a proof of this invariant. Compare state or a
-canonically computed digest with a trusted source at the same height. Account
-packing and key translation must be normalized; raw physical-key counts are not
-logical-key counts.
-
-## 5. Existing Tooling Inventory
+## Available inspection tools
 
 The command registry is [paxdb/main.go](../../../tools/cmd/paxdb/main.go).
 Relevant implemented commands include:
@@ -263,8 +130,7 @@ Relevant implemented commands include:
 | [`replay-changelog`](../../../tools/cmd/paxdb/operations/replay_changelog.go) | memiavl changelog inspection/reapplication; not joint backend recovery. |
 | [`import-flatkv-from-memiavl`](../../../tools/cmd/paxdb/operations/import_flatkv_from_memiavl.go) | Restore-style EVM-only import; resets the destination, requires `--force` over committed flatkv data, and does not mark migration complete. |
 
-Flatkv size analysis is library code used by `state-size`, not a separate
-registered `flatkv-state-size` subcommand. Snapshot export/import APIs exist in
+Flatkv size analysis is library code used by `state-size`. Snapshot export/import APIs exist in
 [composite/store.go](../composite/store.go) and [flatkv/store.go](../flatkv/store.go);
 they do not constitute a migration-aware operator repair command.
 
@@ -281,8 +147,7 @@ optional `boundary_hex`, and optional `version_raw_hex`. Completion is computed
 as decoded migration version ≥ 1, so it does not distinguish V1 from later
 layouts. Absent version bytes produce zero; a present value of the wrong length
 also leaves decoded version zero but is included in `version_raw_hex`. Inspect
-the raw bytes before interpreting zero as healthy V0. Open/argument failures
-currently panic; this is not the richer typed diagnostic contract proposed below.
+the raw bytes before interpreting zero as healthy V0. The command panics on invalid arguments or an open error.
 
 The [flatkv tooling open path](../../../tools/cmd/paxdb/operations/flatkv_open.go)
 creates a temporary clone inside the database directory, hardlinks snapshot
@@ -290,166 +155,3 @@ files, copies the WAL and opens the clone. It avoids the live writer lock but
 requires temporary disk space and directory write access. “Read-only” here means
 inspection of a cloned database, not success on a read-only mounted source.
 It does not provide a coherent two-backend snapshot or verify boundary encoding.
-
-## 6. Tool Roadmap
-
-The following are **proposals**, not available commands or flags. Acceptance
-criteria describe future implementation work and have not been executed by this
-documentation rewrite. Keep current status JSON compatible if extending it.
-
-### T1 -- `paxdb migrate-evm-status`
-
-The existing command in section 5 supplies metadata-only status. Proposed
-extensions add validated lifecycle classification, source/destination inspection
-at one height and explicit diagnostics for absent, malformed or unexpected
-metadata. A shared migration-package decoder can avoid duplicating private
-`readVersionFromDB` / `readMigrationBoundary` logic.
-
-Proposed inputs include coordinated backend locations and a target height.
-Output should distinguish unknown/invalid state from V0, report logical row
-counts and residue samples when requested, and label unavailable checks. Lost
-keys cannot be counted without trusted expected state. Preserve raw metadata in
-diagnostics. The current `--db-dir` and JSON contract remain the implemented
-interface until an extension lands.
-
-Proposed acceptance criteria:
-
-1. Distinguish clean V0, in-progress and completed V1 using mode, version and
-   decoded boundary rather than absence alone.
-2. Reject malformed version lengths and boundary encodings with explicit errors.
-3. Report logical row counts separately from physical flatkv bucket counts.
-4. Do not flag new flatkv rows above the cursor as migration corruption.
-5. Make diagnostics deterministic and preserve existing JSON consumers.
-6. Leave source state unchanged and document clone-space/write-access needs.
-7. Return a controlled error when either required backend cannot be inspected.
-
-### T2 -- `paxdb migrate-evm-verify`
-
-This command is not registered. Proposed modes are `completion-check`,
-`union-invariant` and `ground-truth`, with explicit common height, optional
-trusted digest and a bounded deterministic divergence sample count.
-
-- **completion-check**: require V1 metadata with no boundary, inspect remaining
-  source EVM rows and report destination logical state. Report residue without
-  implying deletion is safe.
-- **union-invariant**: check source migration progress and authoritative reads
-  across both backends. It must allow new destination keys above the cursor;
-  it must not require flatkv to equal the cursor's lower partition. Duplicates,
-  values and deletes need provenance-aware classification.
-- **ground-truth**: compare normalized logical EVM state at the target height
-  with a trusted reference/digest. Only this external reference can reveal keys
-  missing from both stores.
-
-Potential library dependencies are the boundary decoder, memiavl exporter,
-flatkv raw iteration and import translation. Flatkv's LtHash over physical
-encoded values and a logical EVM digest are different contracts; define the
-normalization before comparing them. Successful inspection alone is not a proof
-of equivalence.
-
-Proposed acceptance criteria:
-
-1. Pass completion checks for a real fully migrated store and identify residue.
-2. Accept healthy in-progress state containing new keys beyond the cursor.
-3. Detect a changed value or missing authoritative row against trusted state.
-4. Reject inconsistent backend heights and incompatible digest formats.
-5. Emit bounded samples in deterministic logical-key order and exit nonzero on
-   failed invariants.
-6. Document each mode's limits, including undetectable loss without a reference.
-7. Perform inspection without modifying either backend's committed state.
-
-### T3 -- `paxdb migrate-evm-reconcile`
-
-This command is not registered. Proposed operations are `clean-stale-memiavl`
-and `recompute-boundary`, with dry-run as the default and explicit `--apply`
-plus destructive confirmation for writes. They would require an offline node,
-verified backup, exclusive writable access and post-repair verification.
-
-`clean-stale-memiavl` would identify obsolete source rows using trusted migration
-state. Deleting memiavl rows changes a committed tree; design must account for
-AppHash, version alignment, replay and restart before this becomes an operator
-procedure. It must not silently treat every duplicate as safe to delete.
-
-`recompute-boundary` cannot infer progress from `max(flatkv keys)` because new
-keys bypass the cursor. It needs trusted batch history or a verified prior
-checkpoint, and must refuse when it cannot prove a unique valid cursor. No
-proposal authorizes overwriting good destination data to fit a guessed cursor.
-
-Proposed acceptance criteria:
-
-1. Dry-run leaves both databases unchanged and emits an exact repair plan.
-2. Apply requires exclusive access, explicit confirmation and a matching backup.
-3. Refuse ambiguous metadata, conflicting values or missing trusted provenance.
-4. Apply only the verified plan; demonstrate idempotence and resumable recovery
-   after an interrupted repair.
-5. Prove commitment/version consistency and logical state after restart.
-6. Verify effects with T2 against trusted state, not merely the same repair logic.
-7. Document refusal and restoration paths before publishing a writable command.
-
-### T4 -- `import-flatkv-from-memiavl` extension flags
-
-The import command exists; the following flags **do not**. Proposed fixture
-extensions are `--mark-as-migrated=evm` and `--up-to-boundary=<hex>`. The current
-flags remain `--home`, `--data-dir`, `--modules`, `--height` and `--force`.
-
-`--mark-as-migrated` would write version 1 and remove any boundary only after a
-successful import. It would not itself remove source EVM rows, so a clean V1
-fixture must also arrange consistent source state and commitments.
-`--up-to-boundary` would construct a partial migration fixture with the matching
-source deletions and destination metadata, rather than merely filtering inserts.
-A realistic fixture must also exercise new destination keys beyond the cursor.
-The two lifecycle fixture modes should be mutually exclusive.
-
-Proposed acceptance criteria:
-
-1. Preserve the existing import behavior when no new flag is supplied.
-2. Mark completion only after the import and its metadata commit succeed.
-3. Never mark a failed or aborted import as completed.
-4. Build partial fixtures with matching source, destination and boundary at a
-   common height; verify reads, deletes, resume and commitment behavior.
-5. Include destination keys above the cursor without misclassifying them.
-6. Reject incompatible flag combinations and overwrites without explicit consent.
-7. Document that fixture creation is not automatic disaster recovery.
-
-## 7. Suggested Sequencing
-
-1. Extend T1 metadata validation and define shared decoding/common-height access
-   while preserving the shipped JSON contract.
-2. Implement T2 completion checks before adding writable repair tools.
-3. Implement T2 in-progress checks with new-key, update and deletion workloads.
-4. Add T4 fixture support and prove stop/reopen/resume on real backends.
-5. Define trusted digest provenance and normalization for T2 ground-truth checks.
-6. Design T3 cleanup with commitment and restart evidence; keep ambiguous cursor
-   reconstruction unavailable until provenance makes it provable.
-
-Each stage needs its own implementation and qualification. These proposed checks
-are not evidence that existing databases have been verified.
-
-## 8. Open Design Questions (deferred to PR-time)
-
-- **Unproven crash boundaries**: which interruption/reopen evidence covers
-  first-commit/version-zero cases, async WAL durability, rollback failure,
-  missing retained history and abrupt host/media failure? The nonzero
-  reconciliation test proves an ordered-commit interruption with synchronous
-  local stores; it does not settle these cases or authorize destructive repair.
-
-- **Snapshot qualification**: which deployment test proves complete two-backend
-  export/import at an in-progress height, metadata preservation and resumed
-  migration against trusted logical state? Snapshot sections must include new
-  destination keys beyond the cursor.
-- **Digest provenance**: who supplies the trusted reference, at which height,
-  with which canonical representation and authentication? Raw physical LtHash
-  cannot silently stand in for a logical-state digest.
-- **Irreconcilable state**: what verified recovery history can disambiguate
-  conflicting duplicates or a lost cursor? Default to refusing mutation when
-  state cannot be proven, rather than choosing a backend by guesswork.
-- **Offline vs online tooling**: metadata-only cloned flatkv status already
-  exists. Coordinated repair requires offline exclusive access; any online
-  two-backend inspection needs a separate consistent-height contract. An
-  RWMutex around routing is not that contract.
-- **Module-level cleanup**: if a future general module cleanup primitive serves
-  later migration phases, define store inventory, commitment and recovery
-  semantics before exposing it as a shared command.
-
-The roadmap changes no Go behavior. Use the current implementation links above
-for available functionality and qualify each proposed tool separately before
-turning its design into an operational procedure.

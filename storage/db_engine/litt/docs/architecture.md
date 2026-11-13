@@ -65,7 +65,7 @@ checks immediate cache invisibility, waits for file removal, and verifies the st
 ## Iteration 3: Add an index
 
 Reading recent values is a lot faster now. But if you miss the cache, things start getting slow. `O(n)` isn't fun
-when you database holds 100TB. To address this, let's add an index that allows us to jump straight to the data we
+when your database holds 100TB. To address this, let's add an index that allows us to jump straight to the data we
 are looking for. For the sake of consistency with other parts of this document, let's call this index a "keymap".
 
 ![](resources/iteration3.png)
@@ -132,7 +132,7 @@ lock that blocks all reads and writes.
 
 ## Iteration 5: Break the file into segments
 
-One of the biggest inefficiencies in design, to this point, is that the deleting values is exceptionally slow. The
+One of the biggest inefficiencies in design, to this point, is that deleting values is exceptionally slow. The
 entire file must be rewritten in order to trim bytes from the beginning. And to make matters worse, we need to hold
 a global lock while we do it. To fix this, let's break apart the data file into multiple data files. We'll call each
 data file a "segment".
@@ -152,7 +152,7 @@ map.
 
 In order to avoid the race condition where a reader is reading data from a segment that is in the process of being
 deleted, use reference counters for each segment. When a reader goes to read data, it first finds the address in the
-keymap, than increments the reference counter for the segment. When the reader is done reading, it decrements the
+keymap, then increments the reference counter for the segment. When the reader is done reading, it decrements the
 reference counter. When the garbage collector goes to delete a segment, it waits to actually delete the file on disk
 until the reference counter is zero. As a result of this strategy, there is now no longer a need for garbage collection
 to hold a global lock.
@@ -180,7 +180,7 @@ segment. Additionally, when we start up the database, we need to rebuild the key
 segment file to find the keys.
 
 From an optimization point of view, we can assume that in general keys will be much smaller than values. During the
-operations described above, we don't care about the values, only the keys. So lets separate the keys from the values
+operations described above, we don't care about the values, only the keys. So let's separate the keys from the values
 to avoid having to read the values when we don't need them.
 
 ![](resources/iteration7.png)

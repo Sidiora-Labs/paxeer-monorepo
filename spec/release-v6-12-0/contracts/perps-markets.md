@@ -1,15 +1,15 @@
 # Perpetuals markets at activation
 
-The eighteen markets that `SeedV6120` (modules/perps/keeper/seed_v6120.go) writes at the v6.12.0 activation height. Market ids and names follow the Hyperpax application's market list (Hyperpax:src/core/perps/config.ts:168-185) so the application's market ids address the same markets. The maximum leverage of every market is 1000x, the venue cap (decision.4); the application's `maxLeverage` values at those lines are updated to 1000 for all eighteen markets (contracts/application.md).
+The eighteen markets that `SeedV6120` (modules/perps/keeper/seed_v6120.go) writes at the v6.12.0 activation height. Market ids and names follow the Hyperpax application's market list (Hyperpax:src/core/perps/config.ts:168-185) so the application's market ids address the same markets. The maximum leverage of every market is 1000x, the venue cap defined by modules/perps/types/tiers.go.
 
 ## 1. Common rules
 
-- Collateral of every market is USDL, the existing ERC20 contract 0x85FcD13735F4309833A503EE804ea32395851479 with 6 decimals (Hyperpax:src/core/perps/config.ts:75-79; Launch-x:contracts/deployments/paxeer-x-network-addresses.json:6), stored in `Params.CollateralToken`; the venue holds it as the ERC20 balance of the perps module EVM address and accepts only that address as a token argument (contracts/perps.md, section 2). There is no bank denom for USDL.
+- Collateral of every market is USDL, the existing ERC20 contract 0x85FcD13735F4309833A503EE804ea32395851479 with 6 decimals (Hyperpax:src/core/perps/config.ts:75-79; Launch-x:contracts/deployments/paxeer-x-network-addresses.json:6), stored in `Params.CollateralToken`; the venue holds it as the ERC20 balance of the perps module EVM address and accepts only that address as a token argument (spec/release-v6-12-0/contracts/perps.md, section 2). There is no bank denom for USDL.
 - Prices and USD amounts on the precompile ABI are 18-decimal fixed point (1e18 = 1 USD), as the application already encodes them (Hyperpax:src/core/perps/amounts.ts:17-19).
-- The oracle symbol string is the key the pricefeed module (modules/pricefeed, precompile 0x1020, contracts/pricefeed.md) publishes; the pricefeed market ids are 0 to 17 in the order of Hyperpax:src/core/perps/config.ts:168-185 (contracts/pricefeed.md#markets-and-chainflow-symbols), the perps market id of each symbol below is the same id, `SeedV6120` writes the same ids, and the perps keeper reads `GetPrice(ctx, marketId)` (contracts/pricefeed.md#freshness-and-read-api).
+- The oracle symbol string is the key the pricefeed module (modules/pricefeed, precompile 0x1020, spec/release-v6-12-0/contracts/pricefeed.md) publishes; the pricefeed market ids are 0 to 17 in the order of Hyperpax:src/core/perps/config.ts:168-185 (spec/release-v6-12-0/contracts/pricefeed.md#markets-and-chainflow-symbols), the perps market id of each symbol below is the same id, `SeedV6120` writes the same ids, and the perps keeper reads `GetPrice(ctx, marketId)` (spec/release-v6-12-0/contracts/pricefeed.md#freshness-and-read-api).
 - `szDecimals` is the number of decimals of the base size; the lot is 10^-szDecimals of the base asset. `pxDecimals` is the number of price decimals and never exceeds 6 - szDecimals; the tick is 10^-pxDecimals USD.
-- Every market's funding cap is 4 percent per hour (contracts/perps-parameters.md, section 3); the impact notional is 20,000 USD for BTC and ETH and 6,000 USD for every other market.
-- The open-interest cap applies to each side separately (contracts/perps-parameters.md, section 4). Long and short open interest of a market are always equal, so the cap bounds both at once. A fixed cap is a market config value; the cap of a class E market follows the listing-age table of section 3.1 from the market's `listedAt` block time, which `SeedV6120` sets to the activation block time.
+- Every market's funding cap is 4 percent per hour (spec/release-v6-12-0/contracts/perps-parameters.md, section 3); the impact notional is 20,000 USD for BTC and ETH and 6,000 USD for every other market.
+- The open-interest cap applies to each side separately (spec/release-v6-12-0/contracts/perps-parameters.md, section 4). Long and short open interest of a market are always equal, so the cap bounds both at once. A fixed cap is a market config value; the cap of a class E market follows the listing-age table of section 3.1 from the market's `listedAt` block time, which `SeedV6120` sets to the activation block time.
 - The maintenance margin rate of a tier is half of the initial margin rate at the tier's maximum leverage: MMR = 0.5 / maxLeverage. The deduction of tier n is deduction(n-1) + lowerBound(n) x (MMR(n) - MMR(n-1)), so maintenance margin is continuous at every tier boundary.
 
 ## 2. Market table
@@ -46,7 +46,7 @@ The eighteen markets that `SeedV6120` (modules/perps/keeper/seed_v6120.go) write
 
 ### 3.1 Class E open-interest cap by listing age
 
-The OI cap per side of a class E market is the row whose age range contains the market's listing age, `floor((blockTime - listedAt) / 86400)` whole UTC days. The table is `Params.ClassEOiCaps` (rows of minimum age in days and cap in USD, ascending); an upgrade handler changes it through `Keeper.UpdateParams`, and `Keeper.SetMarket` resets `listedAt` when a market is listed again. `getMarket(marketId).maxOpenInterest` and `getMarketConfig(marketId).oiCapUsd` return the cap in force at the block of the call.
+The OI cap per side of a class E market is the row whose age range contains the market's listing age, `floor((blockTime - listedAt) / 86400)` whole UTC days. The table is `Params.ClassEOiCaps` (rows of minimum age in days and cap in USD, ascending); governance MsgUpdateParams changes it through `Keeper.UpdateParams`. `Keeper.SetMarket` sets `listedAt` for a newly enabled listing or a disabled-to-enabled transition and otherwise preserves it. `getMarket(marketId).maxOpenInterest` and `getMarketConfig(marketId).oiCapUsd` return the cap in force at the block of the call.
 
 | listing age (UTC days) | OI cap per side (USD) |
 |---|---|
@@ -55,7 +55,7 @@ The OI cap per side of a class E market is the row whose age range contains the 
 | 90 to 179 | 10,000,000 |
 | 180 and above | 25,000,000 |
 
-- A lower cap at a later age never occurs: the caps strictly increase with age, so a cap change never forces a reduce. An opening fill above the cap in force reverts with `PerpsOpenInterestCap()`; reduce-only fills always pass.
+- A lower cap at a later age never occurs: the caps strictly increase with age, so a cap change never forces a reduce. An opening fill above the cap in force reverts with `PerpsOpenInterestCap()`; fills that leave open interest unchanged or reduce it pass this cap check; other admission and execution checks still apply.
 
 ## 4. Margin tier tables
 
@@ -239,7 +239,7 @@ Each row: notional lower bound of the tier in USD, maximum leverage inside the t
 ## 5. Invariants of the table
 
 - Every market's tier 0 maximum leverage is 1000x, equal to its listed max leverage and to the venue cap.
-- At 1000x the initial margin rate is 10 bps and the maintenance rate 5 bps on every market (contracts/perps-parameters.md, section 9).
+- At 1000x the initial margin rate is 10 bps and the maintenance rate 5 bps on every market (spec/release-v6-12-0/contracts/perps-parameters.md, section 9).
 - Maximum leverage strictly decreases and MMR strictly increases with the tier index; lower bounds strictly increase from 0.
 - The worked check of the recurrence: BTC tier 1 deduction = 0 + 1,000,000 x (0.0010 - 0.0005) = 500 USD, so at 1,000,000 USD notional tier 0 gives 500 USD and tier 1 gives 1,000 - 500 = 500 USD; SOL tier 1 deduction = 500,000 x (0.0025 - 0.0005) = 1,000 USD, so at 500,000 USD both tiers give 250 USD.
-- `getMarginTiers(marketId)` on 0x1015 returns these rows exactly (contracts/perps.md, section 4); `getMarket(marketId).maintenanceMarginBps` returns the tier 0 MMR, 5 for every market.
+- `getMarginTiers(marketId)` on 0x1015 returns these rows exactly (spec/release-v6-12-0/contracts/perps.md, section 4); `getMarket(marketId).maintenanceMarginBps` returns the tier 0 MMR, 5 for every market.

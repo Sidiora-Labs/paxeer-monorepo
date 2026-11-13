@@ -19,8 +19,8 @@ Use a Linux host with systemd and an x86-64 or AArch64 CPU. Installation and
 node lifecycle changes require root privileges.
 
 ```bash
-HPX_MIRROR=https://node.hyperpaxeer.com
-curl -fsSL "$HPX_MIRROR/get-hpx.sh" | sudo bash
+export HPX_MIRROR=https://node.hyperpaxeer.com
+curl -fsSL "$HPX_MIRROR/get-hpx.sh" | sudo env HPX_MIRROR="$HPX_MIRROR" bash
 ```
 
 The [web installer](get-hpx.sh) verifies the HPX CLI against `checksums.txt`.
@@ -199,9 +199,17 @@ The [registry implementation](registry/main.go) declares these routes:
 | GET | `/paxd`, `/lib/*.so`, `/genesis.json`, `/config/<type>/<file>` | Explicitly declared node artifacts |
 | GET | `/install`, `/get-hpx.sh`, `/install.sh`, `/hpx`, `/uninstall`, `/uninstall.sh` | Lifecycle scripts and CLI |
 | GET | `/api/myip` | Caller's observed public address |
-| POST | `/api/register` | Announce the caller's observed public peer address |
+| GET | `/api/register/challenge` | Obtain a source-bound node ownership challenge |
+| POST | `/api/register` | Register a peer with its signed ownership proof |
 | GET | `/api/peers`, `/api/peers.txt`, `/api/nodes` | Registry discovery |
 | GET | `/api/statesync` | Current state-sync trust parameters |
+
+Registration requires a fresh challenge, an Ed25519 public key and a signature
+that binds the normalized node record to the chain and challenge. The public
+key must derive the announced CometBFT node ID. Challenges expire after two
+minutes and are consumed by a successful proof; the source address must match
+the address observed when the challenge was issued. When configured, the
+`X-HPX-Token` is required in addition to the ownership proof.
 
 Artifact routes also accept HEAD. The table's library and configuration patterns
 refer only to the explicit allowlist: three library versions for each supported

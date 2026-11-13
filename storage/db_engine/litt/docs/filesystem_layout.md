@@ -24,11 +24,11 @@ in the example below are as follows:
     - `root/root0/tableA`
     - `root/root1/tableA`
     - `root/root2/tableA`
-for `tableB`:
+- for `tableB`:
     - `root/root0/tableB`
     - `root/root1/tableB`
     - `root/root2/tableB`
-for `tableC`:
+- for `tableC`:
     - `root/root0/tableC`
     - `root/root1/tableC`
     - `root/root2/tableC`
@@ -105,7 +105,9 @@ are used for communication between the DB and tooling that manages LittDB snapsh
 ## Lock Files
 
 LittDB writes lock files to each root directory it operates on. This acts as a sanity check to ensure that multiple
-processes do not attempt to access/modify the same file tree in an unsafe way. The lock file is named `litt.lock`.
+processes do not attempt to access/modify the same file tree in an unsafe way. The metadata file is named `litt.lock`. A persistent `litt.lock.guard` file holds the
+advisory lock while metadata is created, recovered or removed. The guard remains after a clean shutdown;
+leave it in place. See [file_lock.go](../util/file_lock.go).
 
 If a LittDB process crashes before cleaning up its lock files, no action is needed. LittDB will automatically
 remove the lock files on the next startup as long as the old process is no longer running. If the old process
@@ -123,7 +125,8 @@ In the example below, lock files can be found at the following paths:
 ## Example Layout
 
 The following is an example file tree for a simple LittDB instance.
-(This example file tree was generated using generate_example_tree_test.go.)
+The segment, keymap and snapshot entries illustrate the layout. Persistent `litt.lock.guard`
+files also exist beside the displayed `litt.lock` metadata files.
 
 ### Root Directories
 
@@ -149,9 +152,9 @@ There are three tables, each with its own namespace. The tables are
 
 A little data has been written to the DB.
 
-- `tableA` has enough data to have three segments
-- `tableB` has enough data to have two segments
-- `tableC` has enough data to have one segment
+- `tableA` has four live segments, three of them sealed
+- `tableB` has three live segments, two of them sealed
+- `tableC` has one live segment
 
 ### Keymap
 
