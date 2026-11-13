@@ -1,0 +1,209 @@
+[manifest]
+task = "22.43.215"
+records_moved = 5
+files_renamed = 20
+directories_renamed = 2
+
+[file.1]
+from = "tools/jev/checks/repair_22_33_704.kvx"
+to = "spec/layerx-merge/programme/records/tools/jev/checks/repair_22_33_704.kvx"
+
+[file.2]
+from = "tools/jev/repair_22_33_706.kvx"
+to = "spec/layerx-merge/programme/records/tools/jev/repair_22_33_706.kvx"
+
+[file.3]
+from = "tools/jev/repair_22_39_276.kvx"
+to = "spec/layerx-merge/programme/records/tools/jev/repair_22_39_276.kvx"
+
+[file.4]
+from = "tools/jev/tests/repair_22_33_705.kvx"
+to = "spec/layerx-merge/programme/records/tools/jev/tests/repair_22_33_705.kvx"
+
+[file.5]
+from = "tools/jev/tests/repair_22_39_156.kvx"
+to = "spec/layerx-merge/programme/records/tools/jev/tests/repair_22_39_156.kvx"
+
+[file.6]
+from = "tools/jev/checks/test_repair_22_33_704.py"
+to = "tools/jev/checks/test_dependency_and_documentation_checks.py"
+
+[file.7]
+from = "tools/jev/tests/test_repair_22_33_705.py"
+to = "tools/jev/tests/test_check_roundtrips.py"
+
+[file.8]
+from = "tools/jev/tests/test_repair_22_33_706.py"
+to = "tools/jev/tests/test_response_validation.py"
+
+[file.9]
+from = "tools/jev/checks/fixtures/repair_22_33_704/agent-advisories.jsonl"
+to = "tools/jev/checks/fixtures/dependency_advisories/agent-advisories.jsonl"
+
+[file.10]
+from = "tools/jev/checks/fixtures/repair_22_33_704/interop-advisories.jsonl"
+to = "tools/jev/checks/fixtures/dependency_advisories/interop-advisories.jsonl"
+
+[file.11]
+from = "tools/jev/tests/fixtures/repair_22_33_705/command-drift.md"
+to = "tools/jev/tests/fixtures/decision_transcripts/command-drift.md"
+
+[file.12]
+from = "tools/jev/tests/fixtures/repair_22_33_705/commit-overclaims.json"
+to = "tools/jev/tests/fixtures/decision_transcripts/commit-overclaims.json"
+
+[file.13]
+from = "tools/jev/tests/fixtures/repair_22_33_705/commit-valid.json"
+to = "tools/jev/tests/fixtures/decision_transcripts/commit-valid.json"
+
+[file.14]
+from = "tools/jev/tests/fixtures/repair_22_33_705/commit.json"
+to = "tools/jev/tests/fixtures/decision_transcripts/commit.json"
+
+[file.15]
+from = "tools/jev/tests/fixtures/repair_22_33_705/deps-triage.json"
+to = "tools/jev/tests/fixtures/decision_transcripts/deps-triage.json"
+
+[file.16]
+from = "tools/jev/tests/fixtures/repair_22_33_705/docs-faithful.json"
+to = "tools/jev/tests/fixtures/decision_transcripts/docs-faithful.json"
+
+[file.17]
+from = "tools/jev/tests/fixtures/repair_22_33_705/docs-stale.json"
+to = "tools/jev/tests/fixtures/decision_transcripts/docs-stale.json"
+
+[file.18]
+from = "tools/jev/tests/fixtures/repair_22_33_705/link-drift.md"
+to = "tools/jev/tests/fixtures/decision_transcripts/link-drift.md"
+
+[file.19]
+from = "tools/jev/tests/fixtures/repair_22_33_705/operations.md"
+to = "tools/jev/tests/fixtures/decision_transcripts/operations.md"
+
+[file.20]
+from = "tools/jev/tests/fixtures/repair_22_33_705/pr-extra.json"
+to = "tools/jev/tests/fixtures/decision_transcripts/pr-extra.json"
+
+[file.21]
+from = "tools/jev/tests/fixtures/repair_22_33_705/pr-missing.json"
+to = "tools/jev/tests/fixtures/decision_transcripts/pr-missing.json"
+
+[file.22]
+from = "tools/jev/tests/fixtures/repair_22_33_705/pr-partial.json"
+to = "tools/jev/tests/fixtures/decision_transcripts/pr-partial.json"
+
+[file.23]
+from = "tools/jev/tests/fixtures/repair_22_33_705/pr-unrelated.json"
+to = "tools/jev/tests/fixtures/decision_transcripts/pr-unrelated.json"
+
+[file.24]
+from = "tools/jev/tests/fixtures/repair_22_33_705/pr-valid.json"
+to = "tools/jev/tests/fixtures/decision_transcripts/pr-valid.json"
+
+[file.25]
+from = "tools/jev/tests/fixtures/repair_22_33_705/url-drift.md"
+to = "tools/jev/tests/fixtures/decision_transcripts/url-drift.md"
+
+[file.26]
+from = "tools/jev/checks/fixtures/repair_22_33_704"
+to = "tools/jev/checks/fixtures/dependency_advisories"
+
+[file.27]
+from = "tools/jev/tests/fixtures/repair_22_33_705"
+to = "tools/jev/tests/fixtures/decision_transcripts"
+
+[reference.1]
+file = "GOTCHA.kvx"
+name = "test_repair_22_33_705.py"
+
+[reference.2]
+file = "spec/layerx-merge/dispositions/d22-29.kvx"
+name = "tools/jev/checks/test_repair_22_33_704.py"
+
+[reference.3]
+file = "spec/layerx-merge/dispositions/d22-29.kvx"
+name = "tools/jev/tests/test_repair_22_33_705.py"
+
+[reference.4]
+file = "spec/layerx-merge/programme/docs/review/22.41.39.kvx"
+name = "tools/jev/tests/fixtures/repair_22_33_705"
+
+[reference.5]
+file = "spec/layerx-merge/programme/docs/review/22.41.39.kvx"
+name = "tools/jev/tests/fixtures/repair_22_33_705/command-drift.md"
+
+[reference.6]
+file = "spec/layerx-merge/programme/docs/review/22.41.39.kvx"
+name = "tools/jev/tests/fixtures/repair_22_33_705/link-drift.md"
+
+[reference.7]
+file = "spec/layerx-merge/programme/docs/review/22.41.39.kvx"
+name = "tools/jev/tests/fixtures/repair_22_33_705/operations.md"
+
+[reference.8]
+file = "spec/layerx-merge/programme/docs/review/22.41.39.kvx"
+name = "tools/jev/tests/fixtures/repair_22_33_705/url-drift.md"
+
+[reference.9]
+file = "spec/layerx-merge/programme/docs/review/22.41.97.kvx"
+name = "tools/jev/tests/fixtures/repair_22_33_705"
+
+[reference.10]
+file = "spec/layerx-merge/programme/docs/review/22.41.97.kvx"
+name = "tools/jev/tests/fixtures/repair_22_33_705/command-drift.md"
+
+[reference.11]
+file = "spec/layerx-merge/programme/docs/review/22.41.97.kvx"
+name = "tools/jev/tests/fixtures/repair_22_33_705/link-drift.md"
+
+[reference.12]
+file = "spec/layerx-merge/programme/docs/review/22.41.97.kvx"
+name = "tools/jev/tests/fixtures/repair_22_33_705/operations.md"
+
+[reference.13]
+file = "spec/layerx-merge/programme/docs/review/22.41.97.kvx"
+name = "tools/jev/tests/fixtures/repair_22_33_705/url-drift.md"
+
+[reference.14]
+file = "spec/layerx-merge/qualification.kvx"
+name = "tools/jev/checks/test_repair_22_33_704.py"
+
+[reference.15]
+file = "spec/layerx-merge/qualification.kvx"
+name = "tools/jev/tests/test_repair_22_33_705.py"
+
+[reference.16]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/jev/checks/fixtures/repair_22_33_704"
+
+[reference.17]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/jev/checks/fixtures/repair_22_33_704/agent-advisories.jsonl"
+
+[reference.18]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/jev/checks/fixtures/repair_22_33_704/interop-advisories.jsonl"
+
+[reference.19]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/jev/checks/test_repair_22_33_704.py"
+
+[reference.20]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/jev/repair_22_39_276.kvx"
+
+[reference.21]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/jev/tests/repair_22_39_156.kvx"
+
+[reference.22]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/jev/tests/test_repair_22_33_705.py"
+
+[reference.23]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/jev/tests/test_repair_22_33_706.py"
+
+[reference.24]
+file = "tests/ci/test_markdown_links_resolve.py"
+name = "repair_22_33_705/link-drift.md"

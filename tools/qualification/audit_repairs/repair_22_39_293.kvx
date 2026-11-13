@@ -121,7 +121,7 @@ assertion = "Task 18.1714.1 replaced the receipt-only predicate with an exact ru
 producer_task = "18.1714.1"
 
 [case.daemon_receipt_reference]
-test_file = "tools/qualification/audit_repairs/test_repair_22_33_626.py"
+test_file = "tools/qualification/audit_repairs/test_typescript_receipt_suite_wiring.py"
 test = "test_039_recorded_daemon_track_transcript_and_strict_decoder_agree"
 producers = ["services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/protocol_evidence.rs", "sdk/integrations/agents/test/fixtures/daemon-submission-transcript.json", "sdk/integrations/agents/src/tools.ts"]
 assertion = "Pin current producer receipt_ref; retain exact legacy consumer recording adaptation and transcript equality; assert task 18.1684.1 removed signed-byte hashing from owner and now decodes/re-encodes unsigned canonical bytes."
@@ -135,7 +135,7 @@ assertion = "Full normalized-document SHA256 re-recorded with exactly the origin
 producer_task = "18.1632.1"
 
 [case.authz_error_translation]
-test_file = "tools/qualification/audit_repairs/test_repair_22_33_738.py"
+test_file = "tools/qualification/audit_repairs/test_authz_committed_execution_evidence.py"
 test = "test_sdk_producer_transport_and_result_contracts"
 producers = ["sdk/baseapp/abci.go", "sdk/client/query.go", "sdk/x/authz/keeper/keeper.go"]
 assertion = "Task 18.1678.1 removed raw gRPC message wrapping; assert absence, exact NotFound mapping, non-debug conversion and trace-only raw log handling; all authorization execution-code and transport checks retained."
