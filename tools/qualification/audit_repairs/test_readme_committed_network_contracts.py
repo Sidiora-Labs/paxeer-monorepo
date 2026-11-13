@@ -11,12 +11,14 @@ from urllib.parse import urlsplit
 
 
 ROOT = Path(__file__).resolve().parents[3]
-README = (ROOT / "README.md").read_text(encoding="utf-8")
+NETWORK_PAGE = ROOT / "docs/readme/NETWORK.md"
+README = NETWORK_PAGE.read_text(encoding="utf-8")
+RPC_REFERENCE = (ROOT / "docs/readme/PUBLIC-RPC.md").read_text(encoding="utf-8")
 
 
 def section(title):
     heading = re.search(rf"^(#{{2,3}}) {re.escape(title)}$", README, re.M)
-    assert heading is not None, f"README.md missing section: {title}"
+    assert heading is not None, f"{NETWORK_PAGE} missing section: {title}"
     remainder = README[heading.end():]
     following = re.search(rf"^#{{2,{len(heading[1])}}} ", remainder, re.M)
     return remainder[:following.start()] if following else remainder
@@ -38,22 +40,20 @@ def test_finding_61_one_paxd_network_and_tenant_namespaces():
 
 def test_finding_61_public_root_hosts_and_chain_probe():
     quickstart = section("Quick start: connect to chain 125")
-    urls = re.findall(r"https://api[^\s`\\]+", quickstart)
+    urls = re.findall(r"https://api[^\s`\\]+", RPC_REFERENCE)
     assert set(urls) == {
         "https://api-mainnet-beta.paxeer.network",
-        "https://api1.mainnet-beta.paxeer.network",
-        "https://api14.mainnet-beta.paxeer.network",
+        *(f"https://api{i}.mainnet-beta.paxeer.network" for i in range(1, 15)),
     }
     assert (
-        "`https://api1.mainnet-beta.paxeer.network` through "
-        "`https://api14.mainnet-beta.paxeer.network`"
-    ) in quickstart
+        "Use `api1` through `api14.mainnet-beta.paxeer.network` or"
+    ) in RPC_REFERENCE
     for url in urls:
         parsed = urlsplit(url)
         assert parsed.scheme == "https"
         assert parsed.path in ("", "/")
         assert not parsed.query and not parsed.fragment
-    assert "root path of these hosts, without a route suffix" in quickstart
+    assert "root path without a route suffix" in quickstart
     payload = re.search(r"-d '([^']+)'", quickstart)
     assert payload is not None
     assert json.loads(payload[1]) == {
@@ -61,7 +61,7 @@ def test_finding_61_public_root_hosts_and_chain_probe():
     }
     assert '# Expected result: "0x7d"' in quickstart
     assert "compare `eth_blockNumber`" in quickstart
-    assert "never a JSON-RPC endpoint" in quickstart
+    assert "never a JSON-RPC endpoint" in RPC_REFERENCE
 
 
 def test_finding_61_hosted_methods_have_an_explicit_server_contract():
