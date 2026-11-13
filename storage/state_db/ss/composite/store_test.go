@@ -1524,7 +1524,7 @@ func TestCompositeIteration_SeparateDBs_EVMSplit(t *testing.T) {
 
 // Full snapshot evidence uses bytes emitted by FlatKV, including opaque keys
 // that collide exactly with every optimized EVM family.
-func repairM1094FlatKVSnapshot(t *testing.T, evmNodes int) (int64, []types.SnapshotNode, []types.SnapshotNode) {
+func historyMaintenanceFlatKVSnapshot(t *testing.T, evmNodes int) (int64, []types.SnapshotNode, []types.SnapshotNode) {
 	t.Helper()
 	cfg := flatconfig.DefaultTestConfig(t)
 	producer, err := flatkv.NewCommitStore(t.Context(), cfg)
@@ -1585,13 +1585,13 @@ func repairM1094FlatKVSnapshot(t *testing.T, evmNodes int) (int64, []types.Snaps
 	return version, exported, expected
 }
 
-func repairM1094FlatKVRoundTrip(t *testing.T) {
+func historyMaintenanceFlatKVRoundTrip(t *testing.T) {
 	t.Helper()
-	version, exported, expected := repairM1094FlatKVSnapshot(t, 4)
+	version, exported, expected := historyMaintenanceFlatKVSnapshot(t, 4)
 	for _, mode := range []struct{ split, separate bool }{{false, false}, {true, false}, {true, true}} {
 		t.Run(fmt.Sprintf("split=%t/separate=%t", mode.split, mode.separate), func(t *testing.T) {
 			dir := t.TempDir()
-			cfg := repairM1094Config(dir, mode.separate)
+			cfg := historyMaintenanceConfig(dir, mode.separate)
 			cfg.EVMSplit = mode.split
 			store, err := NewCompositeStateStore(cfg, dir)
 			require.NoError(t, err)
@@ -1619,26 +1619,26 @@ func repairM1094FlatKVRoundTrip(t *testing.T) {
 				}
 			}
 			for _, module := range []string{"bank", "staking", "auth", "evm"} {
-				var want []repairM1094Row
+				var want []historyMaintenanceRow
 				for _, node := range expected {
 					if node.StoreKey == module {
-						want = append(want, repairM1094Row{string(node.Key), string(node.Value), version})
+						want = append(want, historyMaintenanceRow{string(node.Key), string(node.Value), version})
 					}
 				}
-				require.ElementsMatch(t, want, repairM1094Raw(t, store, module))
+				require.ElementsMatch(t, want, historyMaintenanceRaw(t, store, module))
 			}
 		})
 	}
 }
 
-func repairM1094FlatKVImportFailure(t *testing.T) {
+func historyMaintenanceFlatKVImportFailure(t *testing.T) {
 	t.Helper()
 	// More than both routing buffers combined, sent over an unbuffered transport.
-	version, exported, _ := repairM1094FlatKVSnapshot(t, 600)
+	version, exported, _ := historyMaintenanceFlatKVSnapshot(t, 600)
 	for _, separate := range []bool{false, true} {
 		t.Run(fmt.Sprintf("separate=%t", separate), func(t *testing.T) {
 			dir := t.TempDir()
-			cfg := repairM1094Config(dir, separate)
+			cfg := historyMaintenanceConfig(dir, separate)
 			store, err := NewCompositeStateStore(cfg, dir)
 			require.NoError(t, err)
 			t.Cleanup(func() { require.NoError(t, store.Close()) })

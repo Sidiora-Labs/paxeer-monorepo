@@ -13810,6 +13810,72 @@ value = "The paths of task 22.39.511 hold contracts/src/xweb/examples/ApiConsume
 basis = "The verification of the task runs the target paxeer-manifest-lint, which reads these files."
 affects = []
 
+[decision.3450]
+title = "Task 22.39.514 gives the environment documentation test of the agent daemon pages of the tree"
+value = "Task 22.39.514 changes services/agent/crates/layerx-agentd/tests/proof_agentd_env.rs so that it reads docs/wiki/RunningAnAgent.md and docs/release/variables/service-agent.md, and gives a page one table row for a variable where the test reads one. No case and no assertion of the test is taken out."
+basis = "Gotcha 4366. The documentation site under docs/site/paxeer-docs holds no page of environment variables of the agent daemon; the pages of variables live under docs/wiki and docs/release/variables."
+affects = []
+
+[decision.3451]
+title = "A rename task holds the files that read its fixtures at build time"
+value = "The paths of tasks 22.43.130, 22.43.147, 22.43.150 and 22.43.153 hold the test files of other members that read their fixtures at build time. Each task changes in those files exactly the lines that name a renamed file. Task 22.43.150 follows task 22.43.147."
+basis = "Gotcha 4367. The reading file and the renamed file change in one commit, so the tests of the reading member compile at every revision."
+affects = []
+
+[decision.3452]
+title = "The build command of task 22.39.499 downloads the Go modules"
+value = "The build command of task 22.39.499 runs go mod download before the build target of the area."
+basis = "Gotcha 4368. The verification of the task reaches the node build, which reads the module cache only."
+affects = []
+
+[decision.3453]
+title = "The page docs/readme/PUBLIC-RPC.md is the node inventory of the repository"
+value = "The page docs/readme/PUBLIC-RPC.md holds the table of nodes with the HTTPS and WebSocket columns and the sections Usage, Method contracts and Limits and conduct. Tools and tests read the node names from this page. Task 22.41.119 gives the page that content; tasks 22.41.120, 22.41.121 and 22.41.123 follow it."
+basis = "Gotcha 4369. One page under docs/readme holds the node names for readers and for tools, beside the documentation site."
+affects = []
+
+[decision.3454]
+title = "A file that names a page of the earlier documentation tree names a present page"
+value = "A script, a test or a page that names a path under docs/site/docs names a present page instead: docs/readme/PUBLIC-RPC.md for the node names, a wiki page where the wiki holds the same content. Where a list names an earlier page beside a wiki page with the same content, the earlier page leaves the list. Tasks 22.41.120 to 22.41.125 make the changes by area; task records stay as they are."
+basis = "The documentation site lives under docs/site/paxeer-docs. A path that a tool reads or a reader follows leads to a file of the tree."
+affects = []
+
+[decision.3455]
+title = "The paths of task 22.43.93 hold the files that read its fixture at build time"
+value = "The paths of task 22.43.93 hold services/agent/crates/layerx-agentd/src/read/program_node.rs and the directory services/platform/hosted/registry/tests, which read a fixture of programs/crates/layerx-programs-registry at build time. The task changes in those files exactly the lines that name a renamed file."
+basis = "Gotcha 4367, decision 3451. The reading file and the renamed file change in one commit."
+affects = []
+
+[decision.3456]
+title = "The paths of task 22.39.514 hold the fee policy file of the agent daemon"
+value = "The paths of task 22.39.514 hold services/agent/crates/layerx-agentd/src/budget/fee_policy.rs. The task changes in it exactly the lines that name the fixture directory of the budget preparation corpus, to tests/fixtures/native_budget_preparation of the member."
+basis = "Gotcha 4371. The build of the task compiles the tests of the member, and the test module of that file reads the corpus at build time."
+affects = []
+
+[decision.3457]
+title = "Tasks 22.43.147, 22.43.150 and 22.43.168 bring the build-time readers of their directories to the present names"
+value = "Task 22.43.147 changes the lines of the files under services/human/crates/layerx-human-service/tests that name the bank commit transcript and the service identity fixtures of tools/bringup. Task 22.43.150 changes the line of the file of services/human/tests that names that transcript. Task 22.43.168 changes the line of the file under services/platform/hosted/internal/tests that includes the TLS probe test of services/platform/tests."
+basis = "Gotcha 4367, gotcha 4371. Each file is in the paths of its task, and the tests of its member compile with the present names."
+affects = []
+
+[decision.3458]
+title = "The paths of task 22.39.514 hold the manifest and the tests directory of the agent daemon member"
+value = "The paths of task 22.39.514 hold services/agent/crates/layerx-agentd/Cargo.toml and the directory services/agent/crates/layerx-agentd/tests. The task changes in them exactly the lines that name a file under an earlier name, to the present name."
+basis = "Gotcha 4372, gotcha 4371. The build of the task compiles every test of the member."
+affects = []
+
+[decision.3459]
+title = "Task 22.43.248 brings the test section of programs/Cargo.toml to the present file"
+value = "Task 22.43.248 gives the test section of programs/Cargo.toml the path tests/registry_read_bridge.rs and the name registry_read_bridge."
+basis = "Gotcha 4372. The file of the test has the name programs/tests/registry_read_bridge.rs."
+affects = []
+
+[decision.3460]
+title = "The build command of task 22.38.37 installs the node binary"
+value = "The build command of task 22.38.37 runs the install target of chain.mk before the build of the room."
+basis = "Gotcha 4373. The room reads the node binary from the search path."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -43470,6 +43536,87 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.43.248]
+title = "Bring the test section of programs/Cargo.toml to the present file of the test"
+reqs = ["22998.1"]
+touches = ["programs/Cargo.toml"]
+tests = []
+verification_contract = "cargo check --locked --manifest-path programs/Cargo.toml -p layerx-programs-integration-tests --tests && ! grep -q repair_22_33_238 programs/Cargo.toml"
+do_1 = "do_1 Decision 3459, gotcha 4372. The manifest programs/Cargo.toml holds one test section. Its name key is repair_22_33_238 and its path key is tests/repair_22_33_238.rs; the file of the test now has the name programs/tests/registry_read_bridge.rs."
+symbols = []
+
+[capability.22.41.125]
+title = "Link the pages of sdk and services to the node inventory page"
+reqs = ["22998.1"]
+touches = ["sdk/chainflow/python/SKILL.md", "sdk/chainflow/python/api.md", "sdk/chainflow/rust/README.md", "sdk/chainflow/typescript/README.md", "sdk/launchpad/README.md", "sdk/launchpad/packages/sdk/README.md", "sdk/platform/jvm/README.md", "sdk/platform/jvm/examples/README.md", "services/launchpad/livestream/PROGRESS.md", "services/launchpad/security/control/README.md", "services/platform/examples/README.md", "services/platform/hosted/gateway/README.md", "services/platform/hosted/human/README.md", "services/wallet/demo/README.md"]
+tests = []
+verification_contract = "test -s docs/readme/PUBLIC-RPC.md && ! git grep -q -F docs/site/docs/ -- sdk/chainflow sdk/launchpad/README.md sdk/launchpad/packages/sdk/README.md sdk/platform/jvm services/launchpad/livestream/PROGRESS.md services/launchpad/security/control/README.md services/platform/examples/README.md services/platform/hosted/gateway/README.md services/platform/hosted/human/README.md services/wallet/demo ':!*.kvx'"
+do_1 = "do_1 Decision 3453, decision 3454, gotcha 4369. Each page in the paths of this task links to docs/site/docs/reference/public-rpc.md, which is not a file of the tree. The page of the node names is docs/readme/PUBLIC-RPC.md; after task 22.41.119 it holds the sections of the earlier page."
+symbols = []
+
+[capability.22.41.124]
+title = "Link the pages of apps, contracts, deploy, modules, rpc and programs to the node inventory page"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/mobile/ARCHITECTURE.md", "apps/wallet/.github/ISSUE_TEMPLATE/bug_report.md", "apps/wallet/.github/ISSUE_TEMPLATE/feature_request.md", "apps/wallet/.github/ISSUE_TEMPLATE/question.md", "apps/wallet/.github/PULL_REQUEST_TEMPLATE.md", "contracts/operations.md", "contracts/rpc.md", "deploy/launchpad/production/topology/README.md", "deploy/launchpad/production/topology/phase2/operator-runbook.md", "modules/evm/AGENTS.md", "rpc/AGENTS.md", "programs/porting/cosmwasm/MIGRATION.md", "programs/porting/evm/MIGRATION.md", "programs/porting/solana/MIGRATION.md"]
+tests = []
+verification_contract = "test -s docs/readme/PUBLIC-RPC.md && ! git grep -q -F docs/site/docs/ -- apps/launchpad/mobile/ARCHITECTURE.md apps/wallet/.github contracts/operations.md contracts/rpc.md deploy/launchpad/production/topology modules/evm/AGENTS.md rpc/AGENTS.md programs/porting ':!*.kvx'"
+do_1 = "do_1 Decision 3453, decision 3454, gotcha 4369. Each page in the paths of this task links to docs/site/docs/reference/public-rpc.md, which is not a file of the tree. The page of the node names is docs/readme/PUBLIC-RPC.md; after task 22.41.119 it holds the sections of the earlier page."
+symbols = []
+
+[capability.22.41.123]
+title = "Read the public endpoint contract of the consensus RPC from docs/readme/PUBLIC-RPC.md"
+reqs = ["22998.1"]
+touches = ["consensus/internal/rpc/core", "consensus/rpc/openapi/openapi.yaml", "consensus/spec/light-client/attacks/notes-on-evidence-handling.md", "consensus/spec/light-client/detection/detection_001_reviewed.md"]
+tests = []
+verification_contract = "go test -count=1 ./consensus/internal/rpc/core/ && ! git grep -q -F docs/site/docs/ -- consensus ':!*.kvx'"
+do_1 = "do_1 Decision 3453, decision 3454, gotcha 4369. A test of consensus/internal/rpc/core reads docs/site/docs/reference/public-rpc.md and asserts that the link of consensus/rpc/openapi/openapi.yaml to it leads to a file; the page consensus/internal/rpc/core/consensus_contract.md and two pages under consensus/spec/light-client link to it as well. That page is not a file of the tree. The inventory page is docs/readme/PUBLIC-RPC.md; after task 22.41.119 it holds the section Method contracts."
+symbols = []
+
+[capability.22.41.122]
+title = "Take the earlier translation directory out of the documentation check of tools/jev"
+reqs = ["22998.1"]
+touches = ["tools/jev/checks/docs.py", "tools/jev/checks/test_dependency_and_documentation_checks.py", "tools/jev/tests/test_docs.py"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/jev/checks/test_dependency_and_documentation_checks.py tools/jev/tests/test_docs.py && ! git grep -q -F docs/site/docs/ -- tools/jev ':!*.kvx'"
+do_1 = "do_1 Decision 3454. The catalog TRANSLATION_CATALOG of tools/jev/checks/docs.py pairs README.md with docs/readme/README.*.md and with docs/site/docs/overview/i18n/*.md. The second directory is not in the tree; the translations of the README live under docs/readme."
+symbols = []
+
+[capability.22.41.121]
+title = "Name present pages in the gate files of tools/paxeer-x"
+reqs = ["22998.1"]
+touches = ["tools/paxeer-x/gates/108.0.7.sh", "tools/paxeer-x/gates/onboarding_funding.py", "tools/paxeer-x/sid-snapshot/README.md"]
+tests = []
+verification_contract = "! git grep -q -F docs/site/docs/ -- tools/paxeer-x/gates tools/paxeer-x/sid-snapshot ':!*.kvx' && python3 -m py_compile tools/paxeer-x/gates/onboarding_funding.py && bash -n tools/paxeer-x/gates/108.0.7.sh"
+do_1 = "do_1 Decision 3453, decision 3454, gotcha 4369. The script tools/paxeer-x/gates/108.0.7.sh lists six pages under docs/site/docs beside the wiki pages that hold the same content. The module tools/paxeer-x/gates/onboarding_funding.py reads the node inventory from docs/site/docs/reference/public-rpc.md. The page tools/paxeer-x/sid-snapshot/README.md links to that page. The tree docs/site/docs is not in the repository."
+symbols = []
+
+[capability.22.41.120]
+title = "Read the node inventory of the bring-up tools from docs/readme/PUBLIC-RPC.md"
+reqs = ["22998.1"]
+touches = ["tools/bringup"]
+tests = []
+verification_contract = "go test -count=1 ./tools/bringup/... && ! git grep -q -F docs/site/docs/ -- tools/bringup ':!*.kvx'"
+do_1 = "do_1 Decision 3453, decision 3454, gotcha 4369. The scripts and the tests under tools/bringup read the node inventory from docs/site/docs/reference/public-rpc.md, which is not a file of the tree. The inventory page is docs/readme/PUBLIC-RPC.md; after task 22.41.119 it holds the table of nodes with the HTTPS and WebSocket columns and the sections of the earlier page."
+symbols = []
+
+[capability.22.41.119]
+title = "Give the page docs/readme/PUBLIC-RPC.md the node inventory and the method contracts of the earlier reference page"
+reqs = ["22998.1"]
+touches = ["docs/readme/PUBLIC-RPC.md"]
+tests = []
+verification_contract = "grep -q 'wss://api14.mainnet-beta.paxeer.network' docs/readme/PUBLIC-RPC.md && grep -q '^## Usage' docs/readme/PUBLIC-RPC.md && grep -q '^## Method contracts' docs/readme/PUBLIC-RPC.md && grep -q '^## Limits and conduct' docs/readme/PUBLIC-RPC.md"
+do_1 = "do_1 Decision 3453, gotcha 4369. The page docs/readme/PUBLIC-RPC.md is the node inventory of the repository: after tasks 22.41.120, 22.41.121 and 22.41.123 the tools under tools/bringup, a test of consensus and a gate module of tools/paxeer-x read the node names from it. The earlier reference page docs/site/docs/reference/public-rpc.md held the table of endpoints with a column of WebSocket URLs and the sections Usage, Method contracts and Limits and conduct. Find its last content with git log over that path and git show."
+symbols = []
+
+[capability.22.39.514]
+title = "Give the environment documentation test of the agent daemon pages of the tree"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-agentd/tests/proof_agentd_env.rs", "docs/wiki/RunningAnAgent.md", "docs/release/variables/service-agent.md"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test proof_agentd_env"
+do_1 = "do_1 Decision 3450, gotcha 4366. The function verify_environment_documentation of services/agent/crates/layerx-agentd/tests/proof_agentd_env.rs reads two pages with include_str. The first, docs/site/docs/agents/running.md, is not a page of the tree: the documentation site lives under docs/site/paxeer-docs and holds no page of environment variables of the agent daemon. The second, docs/wiki/RunningAnAgent.md, is in the tree."
+symbols = []
 
 [capability.22.42.180]
 title = "Give the example environment files of the deployments under tools/ops the values of the deployment again"
@@ -169752,7 +169899,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.179]
 title = "Give the example environment files of the deployments under apps/perps and apps/explorer the values of the deployment again"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -169782,7 +169929,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.208]
 title = "Move the task records and name the files after what they hold in tools/codebase-map"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -169814,7 +169961,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.178]
 title = "Move the task records and name the files after what they hold in services/wallet/gateway"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -169846,7 +169993,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.175]
 title = "Move the task records and name the files after what they hold in services/wallet"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -169909,7 +170056,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.165]
 title = "Move the task records and name the files after what they hold in services/platform and 1 more directory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -170037,7 +170184,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.108]
 title = "Move the task records and name the files after what they hold in sdk/integrations"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -170069,7 +170216,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.83]
 title = "Move the task records and name the files after what they hold in precompiles/layerxpay"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -170101,7 +170248,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.23]
 title = "Move the task records and name the files after what they hold in apps/web/src and 1 more directory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -170133,7 +170280,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.22]
 title = "Move the task records and name the files after what they hold in apps/web and 3 more directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -170579,7 +170726,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.8]
 title = "Move the task records and name the files after what they hold in apps/explorer/ui/shared"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -170611,7 +170758,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.7]
 title = "Move the task records and name the files after what they hold in apps/explorer/ui/pages and 2 more directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -170739,7 +170886,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.3]
 title = "Move the task records and name the files after what they hold in apps/explorer and 3 more directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -194250,7 +194397,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.178]
 title = "Give the example environment files of the deployments under services/interop/deploy the values of the deployment again"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -194533,7 +194680,7 @@ symbols = []
 touches = ["services/platform/hosted/human", "services/human/crates/layerx-human-identity-provider", "services/human/crates/layerx-human-service/src/server"]
 tests = []
 planned_paths = ["services/human/crates/layerx-human-identity-provider/repair_22_39_499.kvx"]
-build_cmd = "python3 -m pip install -q -r tests/bridge/requirements.txt pytest PyYAML && make -s human-build"
+build_cmd = "python3 -m pip install -q -r tests/bridge/requirements.txt pytest PyYAML && go mod download && make -s human-build"
 verify_cmd = "test -s services/human/crates/layerx-human-identity-provider/repair_22_39_499.kvx && make -s human-test"
 gate_kind = "planned"
 sandbox_profile = "mixed"
@@ -194547,6 +194694,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "do_3 Decision 3431, gotcha 4349. In the identity entry file of src/server of the member layerx-human-service let the check of the number of answer fields admit each of the operations 0 to 4 with the number of fields that the provider writes for it, and keep the refusal of every other operation and number. Change nothing else under that directory. The client cases of services/human/crates/layerx-human-identity-provider/tests keep their assertions. Add the changed file to the record. Run the build once and the verification once at the final revision."
+do_4 = "do_4 Decision 3452, gotcha 4368. The build command now runs go mod download before the build target, so that the node build of the verification finds every module in the module cache. The change of the page of the member stays as it is. Run the build once and the verification once at the final revision."
 
 [task.22.39.405]
 title = "Keep the terminal vectors of the program ABI in line with the receipt fixture they are taken from"
@@ -195848,7 +195996,7 @@ symbols = ["proof_canary_slash"]
 touches = ["tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py", "apps/inference-peer/src/canary.mjs", "apps/inference-peer/test/canary.test.mjs", "apps/inference-peer/test/fixtures/host-canary-frames.json", "services/agent/crates/layerx-agentd/src/inference_market/canary.rs", "services/agent/crates/layerx-agentd/src/main.rs", "services/agent/crates/layerx-agentd/src/inference_market/laps.rs"]
 tests = []
 planned_paths = ["tools/qualification/paxeer-x/inference_market_room.py"]
-build_cmd = "export PAXEER_X_BUILDER_ID=$(hostname); make -C . build/liblayerx.a && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --bin layerx-agentd && npm --prefix apps/inference-peer install --no-audit --no-fund --ignore-scripts && python3 tools/qualification/paxeer-x/inference_market_room.py --begin-build && python3 tools/qualification/paxeer-x/inference_market_room.py --build"
+build_cmd = "export PAXEER_X_BUILDER_ID=$(hostname); make -f chain.mk install && make -C . build/liblayerx.a && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --bin layerx-agentd && npm --prefix apps/inference-peer install --no-audit --no-fund --ignore-scripts && python3 tools/qualification/paxeer-x/inference_market_room.py --begin-build && python3 tools/qualification/paxeer-x/inference_market_room.py --build"
 verify_cmd = "d=$(mktemp -d) && PAXEER_X_EVIDENCE_DIR=$d PAXEER_X_BUILDER_ID=$(hostname) python3 tools/qualification/paxeer-x/inference_market_room.py --proof canary || { tail -n 150 $d/*/native.log; exit 1; }"
 gate_kind = "planned"
 sandbox_profile = "mixed"
@@ -195867,6 +196015,7 @@ do_4 = "do_4 Decisions 3311 and 3312, gotcha 4241: the record rpc/repair_22_39_3
 do_5 = "do_5 Gotcha 4294, decision 3377. The task no longer requires task 22.38.36. The canary mode is written as additions to the driver that the room proof adds, and the build and the verification of this task run on a base that holds task 22.38.36, so the commit of this task changes only its own paths."
 do_6 = "do_6 Decision 3417, gotcha 4336. In apps/inference-peer/src/canary.mjs compare the answer context of a canary with the chain, the program, the market, the epoch and the configuration of the deal and with the deal and the lap index of the plan, and leave the roster field of the binding out of the comparison. In apps/inference-peer/test/canary.test.mjs give the binding and the deal two different roster values and assert by value that the answer is accepted and that a change of each compared field gives answer_context_mismatch. Run npm --prefix apps/inference-peer test. When the canary proof shows a further difference between the host and the peer, settle it in the paths of decision 3417 and add a case for it; a difference that needs a change under programs is recorded and the task stops there. The driver keeps the modes room, canary and settlement side by side with one argument for the mode."
 do_7 = "do_7 Decision 3430, gotcha 4348. In services/agent/crates/layerx-agentd/src/main.rs and services/agent/crates/layerx-agentd/src/inference_market/laps.rs let the host submit the seal of the evidence of a ready batch inside the commit window of the epoch of the batch whether or not a canary of a lap of the batch is resolved, and let the settlement of the batch and the report of the meter wait until every canary of the batch is resolved. A unit case of the lap engine covers the seal before the resolution and the settlement after it. Change no source of a program. Run the build once and the verification once at the final revision."
+do_8 = "do_8 Decision 3460, gotcha 4373. The build command now installs the node binary with the install target of chain.mk before the build of the room, so the room finds the binary on the search path. The earlier work of this task stays as it is. Where the verification stops at a requirement of the room, read the native log that the command prints, settle the cause inside the paths of this task and leave the requirement as it is."
 
 [task.22.38.36]
 title = "Drive an isolated chain, one host, two native peers and one asker through a room on a synthetic model"
@@ -204182,9 +204331,71 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.43.248]
+title = "Bring the test section of programs/Cargo.toml to the present file of the test"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.43.248"]
+interfaces = []
+do_1 = "do_1 Decision 3459, gotcha 4372. The manifest programs/Cargo.toml holds one test section. Its name key is repair_22_33_238 and its path key is tests/repair_22_33_238.rs; the file of the test now has the name programs/tests/registry_read_bridge.rs."
+do_2 = "do_2 Give the section the path tests/registry_read_bridge.rs and the name registry_read_bridge. Change nothing else in the manifest. Find with git grep over repair_22_33_238 the files outside spec that run the test by the earlier name of the section, and name each in the final message; change none of them."
+do_3 = "do_3 Change only the file in the paths of this task. Delete, rename and move nothing. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["programs/Cargo.toml"]
+tests = []
+planned_paths = []
+build_cmd = "cargo check --locked --manifest-path programs/Cargo.toml -p layerx-programs-integration-tests --tests"
+verify_cmd = "cargo check --locked --manifest-path programs/Cargo.toml -p layerx-programs-integration-tests --tests && ! grep -q repair_22_33_238 programs/Cargo.toml"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-programs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.514]
+title = "Give the environment documentation test of the agent daemon pages of the tree"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.514"]
+interfaces = []
+do_1 = "do_1 Decision 3450, gotcha 4366. The function verify_environment_documentation of services/agent/crates/layerx-agentd/tests/proof_agentd_env.rs reads two pages with include_str. The first, docs/site/docs/agents/running.md, is not a page of the tree: the documentation site lives under docs/site/paxeer-docs and holds no page of environment variables of the agent daemon. The second, docs/wiki/RunningAnAgent.md, is in the tree."
+do_2 = "do_2 Change the function so that it reads only pages of the tree: docs/wiki/RunningAnAgent.md, and docs/release/variables/service-agent.md as the second page. The function reads one table row for each active variable, a row that begins with the name of that one variable, and it reads the name of each retired variable outside such a row. Where a page holds an active variable only in a row shared with other variables, give the page a row for that variable alone with the same true content. Where a page does not name the retired variables, add one short paragraph that names them as retired. Write nothing on a page that the code under services/agent/crates/layerx-agentd/src does not hold. Take no case and no assertion out of the test."
+do_3 = "do_3 Change only the files in the paths of this task. Delete, rename and move nothing. Find with git grep over services, programs, core and tools any other Rust file that reads a page under docs/site/docs with include_str, and name each in the final message; change none of them. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/agent/crates/layerx-agentd/tests", "docs/wiki/RunningAnAgent.md", "docs/release/variables/service-agent.md", "services/agent/crates/layerx-agentd/src/budget/fee_policy.rs", "services/agent/crates/layerx-agentd/Cargo.toml"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test proof_agentd_env"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "do_4 Decision 3456, gotcha 4371. The paths of this task now hold services/agent/crates/layerx-agentd/src/budget/fee_policy.rs. Its test module reads the corpus of the budget preparation at build time under tests/fixtures/repair_22_31_217 of the member; the directory now has the name tests/fixtures/native_budget_preparation. Change in that file exactly the lines that name the directory, to the present name, and nothing else in it. The work on the test and on the two pages stays as it is. Where the build names a further file of the member that reads a file under an earlier name, name it in the final message and change it only when it is in the paths of this task. Run the build once and the verification once at the final revision."
+do_5 = "do_5 Decision 3458, gotcha 4372. The paths of this task now hold services/agent/crates/layerx-agentd/Cargo.toml and the directory services/agent/crates/layerx-agentd/tests. The test section of that manifest with the name repair_22_33_1532 has the path tests/repair_22_33_1532.rs; the file now has the name tests/startup_health_prerequisites.rs. Give the section the present path. Give it the name startup_health_prerequisites as well, unless a file outside the paths of this task runs the test by the earlier name of the section; then keep the name and state that file in the final message. Before the counted build run cargo check with the flag --tests for the member by hand. Where it names a further line of the manifest or of a file under the tests directory that reads a file under an earlier name, change exactly that line to the present name, which the manifests under spec/layerx-merge/programme/records/renames give. Rename no file and change no assertion. The earlier work of this task stays as it is. Run the build once and the verification once at the final revision."
+
 [task.22.42.176]
 title = "Give the example environment files of the deployments under services/platform the values of the deployment again"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -204278,7 +204489,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.174]
 title = "Move the task records and name the files after what they hold in services/platform/ramps and 2 more directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -204310,7 +204521,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.172]
 title = "Move the task records and name the files after what they hold in services/platform/perf-db"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -204342,7 +204553,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.170]
 title = "Move the task records and name the files after what they hold in services/platform/hosted/registry and 3 more directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -204374,7 +204585,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.169]
 title = "Move the task records and name the files after what they hold in services/platform/hosted/node and 1 more directory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -204435,6 +204646,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of this task hold the directory under spec/layerx-merge/programme/records for each directory of this task; move the task records there as do_2 states. Where a file outside the paths of this task names a file that this task renamed or moved, leave that file as it is and add one reference section to the manifest with the keys file and name: the path of that file and the old name it holds. A later task of this series updates those files. Run the build once and the verification once at the final revision."
+do_6 = "do_6 Decision 3457, gotcha 4371. One test file under services/platform/hosted/internal/tests includes the file repair_22_33_1366.rs of services/platform/tests at build time; that file now has the name tls_probe_process.rs. Change the include line to the present name in the same commit as the renames of this task, also where this task gives the including file a new name. Before the build run cargo check with the flag --tests for the member that holds the file by hand, so that its tests compile. Run the build once and the verification once at the final revision."
 
 [task.22.43.167]
 title = "Move the task records and name the files after what they hold in services/platform/hosted/dashboard and 2 more directories"
@@ -204514,7 +204726,7 @@ do_2 = "do_2 Move each task record with git mv to spec/layerx-merge/programme/re
 do_3 = "do_3 Give every other file and directory of the task, with git mv, a name that states what it holds, in the naming style of its neighbours and of its language. In a renamed file give each test function, helper, module, class and test target whose name carries a task number a name that states the behaviour it covers. Keep every case and every assertion as it is, and change no behaviour of a source that is not a test. Search the tree for each old name and update every reference to it: module declarations, test targets of manifests, Makefile targets, scripts of package manifests, lists of workflow files, imports and fixture paths. Where a file of this task refers to a file with such a name outside this task, leave that reference as it is. Leave spec/layerx-merge/spec.kvx, GOTCHA.kvx, CHANGELOG.md and CODEMAP.md as they are. Delete no file."
 do_4 = "do_4 Run the tests of each file you renamed once with the test command of its area, as the Makefile or the manifest of the area gives it, and correct what the rename broke. Write the manifest spec/layerx-merge/programme/records/renames/22.43.153.kvx: a manifest section with the task, the number of records moved and the number of files renamed, and one file section with the keys from and to for each move and each rename. Before each commit read the output of git status and confirm that it names only the files of this task, their references and the manifest. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["services/interop/crates/layerx-mirror-signer", "services/interop/crates/layerx-portable", "services/interop/crates/layerx-ucp", "services/interop/crates/layerx-visa-tap", "services/interop/crates/layerx-x402", "services/interop/crates/x-websearch"]
+touches = ["services/interop/crates/layerx-mirror-signer", "services/interop/crates/layerx-portable", "services/interop/crates/layerx-ucp", "services/interop/crates/layerx-visa-tap", "services/interop/crates/layerx-x402", "services/interop/crates/x-websearch", "services/agent/crates/layerx-agentd-host/tests/support/payer_audit.rs"]
 tests = []
 planned_paths = ["spec/layerx-merge/programme/records/renames/22.43.153.kvx", "spec/layerx-merge/programme/records/services/interop/crates/layerx-mirror-signer", "spec/layerx-merge/programme/records/services/interop/crates/layerx-portable", "spec/layerx-merge/programme/records/services/interop/crates/layerx-ucp", "spec/layerx-merge/programme/records/services/interop/crates/layerx-visa-tap", "spec/layerx-merge/programme/records/services/interop/crates/layerx-x402", "spec/layerx-merge/programme/records/services/interop/crates/x-websearch"]
 build_cmd = "python3 -m py_compile spec/layerx-merge/programme/docs_check.py"
@@ -204531,6 +204743,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of this task hold the directory under spec/layerx-merge/programme/records for each directory of this task; move the task records there as do_2 states. Where a file outside the paths of this task names a file that this task renamed or moved, leave that file as it is and add one reference section to the manifest with the keys file and name: the path of that file and the old name it holds. A later task of this series updates those files. Run the build once and the verification once at the final revision."
+do_6 = "do_6 Decision 3451, gotcha 4367. The paths of this task now hold services/agent/crates/layerx-agentd-host/tests/support/payer_audit.rs, which reads at build time a ledger file of services/interop/crates/x-websearch/src that this task renames. For this file this replaces the rule of do_5 that a file outside the paths stays as it is: change in it exactly the lines that name a renamed file, to the new name, in the same commit as the rename. Change nothing else in it and do not rename it. Find with git grep over the old names any further file that reads a renamed file at build time and name it in the final message. Before the build run cargo check with the flag --tests for the member layerx-agentd-host by hand, so that its tests compile. Run the build once and the verification once at the final revision."
 
 [task.22.43.152]
 title = "Move the task records and name the files after what they hold in services/interop/crates/layerx-fiat and 5 more directories"
@@ -204601,7 +204814,7 @@ title = "Move the task records and name the files after what they hold in servic
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.43.147"]
 reqs = ["22998.1"]
 capabilities = ["22.43.150"]
 interfaces = []
@@ -204610,7 +204823,7 @@ do_2 = "do_2 Move each task record with git mv to spec/layerx-merge/programme/re
 do_3 = "do_3 Give every other file and directory of the task, with git mv, a name that states what it holds, in the naming style of its neighbours and of its language. In a renamed file give each test function, helper, module, class and test target whose name carries a task number a name that states the behaviour it covers. Keep every case and every assertion as it is, and change no behaviour of a source that is not a test. Search the tree for each old name and update every reference to it: module declarations, test targets of manifests, Makefile targets, scripts of package manifests, lists of workflow files, imports and fixture paths. Where a file of this task refers to a file with such a name outside this task, leave that reference as it is. Leave spec/layerx-merge/spec.kvx, GOTCHA.kvx, CHANGELOG.md and CODEMAP.md as they are. Delete no file."
 do_4 = "do_4 Run the tests of each file you renamed once with the test command of its area, as the Makefile or the manifest of the area gives it, and correct what the rename broke. Write the manifest spec/layerx-merge/programme/records/renames/22.43.150.kvx: a manifest section with the task, the number of records moved and the number of files renamed, and one file section with the keys from and to for each move and each rename. Before each commit read the output of git status and confirm that it names only the files of this task, their references and the manifest. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["services/human/crates/layerx-human-test-support", "services/human/crates/layerx-intents", "services/human/crates/layerx-network-gateway", "services/human/schema", "services/human/tests", "services/human/tools"]
+touches = ["services/human/crates/layerx-human-test-support", "services/human/crates/layerx-intents", "services/human/crates/layerx-network-gateway", "services/human/schema", "services/human/tests", "services/human/tools", "services/human/crates/layerx-human-service/tests"]
 tests = []
 planned_paths = ["spec/layerx-merge/programme/records/renames/22.43.150.kvx", "spec/layerx-merge/programme/records/services/human/crates/layerx-human-test-support", "spec/layerx-merge/programme/records/services/human/crates/layerx-intents", "spec/layerx-merge/programme/records/services/human/crates/layerx-network-gateway", "spec/layerx-merge/programme/records/services/human/schema", "spec/layerx-merge/programme/records/services/human/tests", "spec/layerx-merge/programme/records/services/human/tools"]
 build_cmd = "python3 -m py_compile spec/layerx-merge/programme/docs_check.py"
@@ -204627,6 +204840,8 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of this task hold the directory under spec/layerx-merge/programme/records for each directory of this task; move the task records there as do_2 states. Where a file outside the paths of this task names a file that this task renamed or moved, leave that file as it is and add one reference section to the manifest with the keys file and name: the path of that file and the old name it holds. A later task of this series updates those files. Run the build once and the verification once at the final revision."
+do_6 = "do_6 Decision 3451, gotcha 4367. This task follows task 22.43.147. The paths of this task now hold the directory services/human/crates/layerx-human-service/tests. One test file of that directory reads the file repair_22_33_32.rs of services/human/tests with a path attribute at build time; find it with git grep over that file name after the rebase onto main. For that file this replaces the rule of do_5 that a file outside the paths stays as it is: change in it exactly the lines that name a renamed file, to the new name, in the same commit as the rename. Change nothing else in that directory and rename nothing in it. Before the build run cargo check with the flag --tests for the member layerx-human-service by hand, so that its tests compile. Run the build once and the verification once at the final revision."
+do_7 = "do_7 Decision 3457, gotcha 4371. One file of services/human/tests reads the bank commit transcript of the member layerx-human-service at build time under the name repair_22_31_153_transcript.json; the file now has the name bank_commit_transcript.json under src/journeys of that member. Find the line with git grep over the earlier name and change exactly that line to the present name, in the same commit as the renames of this task. Before the build run cargo check with the flag --tests for the member that holds the file by hand, so that its tests compile. Run the build once and the verification once at the final revision."
 
 [task.22.43.149]
 title = "Move the task records and name the files after what they hold in services/human/crates/layerx-human-service/tests"
@@ -204662,7 +204877,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.148]
 title = "Move the task records and name the files after what they hold in services/human/crates/layerx-human-service/src"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -204706,7 +204921,7 @@ do_2 = "do_2 Move each task record with git mv to spec/layerx-merge/programme/re
 do_3 = "do_3 Give every other file and directory of the task, with git mv, a name that states what it holds, in the naming style of its neighbours and of its language. In a renamed file give each test function, helper, module, class and test target whose name carries a task number a name that states the behaviour it covers. Keep every case and every assertion as it is, and change no behaviour of a source that is not a test. Search the tree for each old name and update every reference to it: module declarations, test targets of manifests, Makefile targets, scripts of package manifests, lists of workflow files, imports and fixture paths. Where a file of this task refers to a file with such a name outside this task, leave that reference as it is. Leave spec/layerx-merge/spec.kvx, GOTCHA.kvx, CHANGELOG.md and CODEMAP.md as they are. Delete no file."
 do_4 = "do_4 Run the tests of each file you renamed once with the test command of its area, as the Makefile or the manifest of the area gives it, and correct what the rename broke. Write the manifest spec/layerx-merge/programme/records/renames/22.43.147.kvx: a manifest section with the task, the number of records moved and the number of files renamed, and one file section with the keys from and to for each move and each rename. Before each commit read the output of git status and confirm that it names only the files of this task, their references and the manifest. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["services/human/crates/layerx-human-identity-provider", "services/human/crates/layerx-human-kms", "services/human/crates/layerx-human-security-provider", "services/human/crates/layerx-human-service"]
+touches = ["services/human/crates/layerx-human-identity-provider", "services/human/crates/layerx-human-kms", "services/human/crates/layerx-human-security-provider", "services/human/crates/layerx-human-service", "services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs"]
 tests = []
 planned_paths = ["spec/layerx-merge/programme/records/renames/22.43.147.kvx", "spec/layerx-merge/programme/records/services/human/crates/layerx-human-identity-provider", "spec/layerx-merge/programme/records/services/human/crates/layerx-human-kms", "spec/layerx-merge/programme/records/services/human/crates/layerx-human-security-provider", "spec/layerx-merge/programme/records/services/human/crates/layerx-human-service"]
 build_cmd = "python3 -m py_compile spec/layerx-merge/programme/docs_check.py"
@@ -204723,10 +204938,12 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of this task hold the directory under spec/layerx-merge/programme/records for each directory of this task; move the task records there as do_2 states. Where a file outside the paths of this task names a file that this task renamed or moved, leave that file as it is and add one reference section to the manifest with the keys file and name: the path of that file and the old name it holds. A later task of this series updates those files. Run the build once and the verification once at the final revision."
+do_6 = "do_6 Decision 3451, gotcha 4367. The paths of this task now hold services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs, which reads at build time the fixtures of services/human/crates/layerx-human-kms/src/fixtures that this task renames. For this file this replaces the rule of do_5 that a file outside the paths stays as it is: change in it exactly the lines that name a renamed file or directory, to the new name, in the same commit as the rename. Change nothing else in it and do not rename it. Find with git grep over the old names any further file that reads a renamed file at build time and name it in the final message. Before the build run cargo check with the flag --tests for the member layerx-agentd-host by hand, so that its tests compile. Run the build once and the verification once at the final revision."
+do_7 = "do_7 Decision 3457, gotcha 4371. After the rebase onto main two groups of lines in the directory services/human/crates/layerx-human-service/tests read a file under an earlier name at build time. The first group names repair_22_31_153_transcript.json of src/journeys of the member; the file now has the name bank_commit_transcript.json. The second group, in a file of tests/support, names the directory tools/bringup/tests/fixtures/repair_m794; the directory now has the name tools/bringup/tests/fixtures/service_identities. Find the lines with git grep over the two earlier names and change exactly those lines to the present names, in the same commit as the renames of this task. Before the build run cargo check with the flag --tests for the member layerx-human-service by hand, so that its tests compile. Run the build once and the verification once at the final revision."
 
 [task.22.43.146]
 title = "Move the task records and name the files after what they hold in services/explorer/services/smart-contract-verifier"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -204758,7 +204975,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.145]
 title = "Move the task records and name the files after what they hold in services/explorer/services/sig-provider"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -204790,7 +205007,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.144]
 title = "Move the task records and name the files after what they hold in services/explorer/services/libs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -204930,7 +205147,7 @@ do_2 = "do_2 Move each task record with git mv to spec/layerx-merge/programme/re
 do_3 = "do_3 Give every other file and directory of the task, with git mv, a name that states what it holds, in the naming style of its neighbours and of its language. In a renamed file give each test function, helper, module, class and test target whose name carries a task number a name that states the behaviour it covers. Keep every case and every assertion as it is, and change no behaviour of a source that is not a test. Search the tree for each old name and update every reference to it: module declarations, test targets of manifests, Makefile targets, scripts of package manifests, lists of workflow files, imports and fixture paths. Where a file of this task refers to a file with such a name outside this task, leave that reference as it is. Leave spec/layerx-merge/spec.kvx, GOTCHA.kvx, CHANGELOG.md and CODEMAP.md as they are. Delete no file."
 do_4 = "do_4 Run the tests of each file you renamed once with the test command of its area, as the Makefile or the manifest of the area gives it, and correct what the rename broke. Write the manifest spec/layerx-merge/programme/records/renames/22.43.130.kvx: a manifest section with the task, the number of records moved and the number of files renamed, and one file section with the keys from and to for each move and each rename. Before each commit read the output of git status and confirm that it names only the files of this task, their references and the manifest. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["services/agent/crates/layerx-agentd/tests/approval_ordering", "services/agent/crates/layerx-client"]
+touches = ["services/agent/crates/layerx-agentd/tests/approval_ordering", "services/agent/crates/layerx-client", "services/agent/crates/layerx-agentd/tests/enrolment_receipt_observability.rs", "services/agent/crates/layerx-agentd/tests/receipt_store_v2.rs", "services/agent/crates/layerx-agent-api/tests/fee_snapshot_freshness.rs"]
 tests = []
 planned_paths = ["spec/layerx-merge/programme/records/renames/22.43.130.kvx", "spec/layerx-merge/programme/records/services/agent/crates/layerx-agentd/tests/approval_ordering", "spec/layerx-merge/programme/records/services/agent/crates/layerx-client"]
 build_cmd = "python3 -m py_compile spec/layerx-merge/programme/docs_check.py"
@@ -204947,10 +205164,11 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of this task hold the directory under spec/layerx-merge/programme/records for each directory of this task; move the task records there as do_2 states. Where a file outside the paths of this task names a file that this task renamed or moved, leave that file as it is and add one reference section to the manifest with the keys file and name: the path of that file and the old name it holds. A later task of this series updates those files. Run the build once and the verification once at the final revision."
+do_6 = "do_6 Decision 3451, gotcha 4367. The paths of this task now hold services/agent/crates/layerx-agentd/tests/enrolment_receipt_observability.rs, services/agent/crates/layerx-agentd/tests/receipt_store_v2.rs and services/agent/crates/layerx-agent-api/tests/fee_snapshot_freshness.rs, which name a fixture of services/agent/crates/layerx-client that this task renames; the first two read it at build time. For these files this replaces the rule of do_5 that a file outside the paths stays as it is: change in them exactly the lines that name a renamed file, to the new name, in the same commit as the rename. Change nothing else in them and do not rename them. Before the build run cargo check with the flag --tests for the member layerx-agentd by hand, so that its tests compile. Run the build once and the verification once at the final revision."
 
 [task.22.43.129]
 title = "Move the task records and name the files after what they hold in services/agent/crates/layerx-agentd/tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -205014,7 +205232,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.127]
 title = "Move the task records and name the files after what they hold in services/agent and 3 more directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -205078,7 +205296,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.95]
 title = "Move the task records and name the files after what they hold in programs/porting"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -205154,7 +205372,7 @@ do_2 = "do_2 Move each task record with git mv to spec/layerx-merge/programme/re
 do_3 = "do_3 Give every other file and directory of the task, with git mv, a name that states what it holds, in the naming style of its neighbours and of its language. In a renamed file give each test function, helper, module, class and test target whose name carries a task number a name that states the behaviour it covers. Keep every case and every assertion as it is, and change no behaviour of a source that is not a test. Search the tree for each old name and update every reference to it: module declarations, test targets of manifests, Makefile targets, scripts of package manifests, lists of workflow files, imports and fixture paths. Where a file of this task refers to a file with such a name outside this task, leave that reference as it is. Leave spec/layerx-merge/spec.kvx, GOTCHA.kvx, CHANGELOG.md and CODEMAP.md as they are. Delete no file."
 do_4 = "do_4 Run the tests of each file you renamed once with the test command of its area, as the Makefile or the manifest of the area gives it, and correct what the rename broke. Write the manifest spec/layerx-merge/programme/records/renames/22.43.93.kvx: a manifest section with the task, the number of records moved and the number of files renamed, and one file section with the keys from and to for each move and each rename. Before each commit read the output of git status and confirm that it names only the files of this task, their references and the manifest. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["programs/crates/layerx-programs-arbiter", "programs/crates/layerx-programs-interpreter", "programs/crates/layerx-programs-market", "programs/crates/layerx-programs-registry"]
+touches = ["programs/crates/layerx-programs-arbiter", "programs/crates/layerx-programs-interpreter", "programs/crates/layerx-programs-market", "programs/crates/layerx-programs-registry", "services/agent/crates/layerx-agentd/src/read/program_node.rs", "services/platform/hosted/registry/tests"]
 tests = []
 planned_paths = ["spec/layerx-merge/programme/records/renames/22.43.93.kvx", "spec/layerx-merge/programme/records/programs/crates/layerx-programs-arbiter", "spec/layerx-merge/programme/records/programs/crates/layerx-programs-interpreter", "spec/layerx-merge/programme/records/programs/crates/layerx-programs-market", "spec/layerx-merge/programme/records/programs/crates/layerx-programs-registry"]
 build_cmd = "python3 -m py_compile spec/layerx-merge/programme/docs_check.py"
@@ -205171,6 +205389,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of this task hold the directory under spec/layerx-merge/programme/records for each directory of this task; move the task records there as do_2 states. Where a file outside the paths of this task names a file that this task renamed or moved, leave that file as it is and add one reference section to the manifest with the keys file and name: the path of that file and the old name it holds. A later task of this series updates those files. Run the build once and the verification once at the final revision."
+do_6 = "do_6 Decision 3455, gotcha 4367. The paths of this task now hold services/agent/crates/layerx-agentd/src/read/program_node.rs and the directory services/platform/hosted/registry/tests, which read at build time a fixture of programs/crates/layerx-programs-registry/src that this task renames. For these files this replaces the rule of do_5 that a file outside the paths stays as it is: change in them exactly the lines that name a renamed file, to the new name, in the same commit as the rename. Change nothing else in them and rename nothing in them. Find with git grep over the old names any further file that reads a renamed file at build time and name it in the final message. Before the build run cargo check with the flag --tests for the members layerx-agentd and layerx-platform-registry by hand, so that their tests compile. Run the build once and the verification once at the final revision."
 
 [task.22.43.92]
 title = "Move the task records and name the files after what they hold in programs/crates and 1 more directory"
@@ -205237,7 +205456,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.41]
 title = "Move the task records and name the files after what they hold in contracts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -238141,6 +238360,66 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
 
+[task.22.41.123]
+title = "Read the public endpoint contract of the consensus RPC from docs/readme/PUBLIC-RPC.md"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.41.119"]
+reqs = ["22998.1"]
+capabilities = ["22.41.123"]
+interfaces = []
+do_1 = "do_1 Decision 3453, decision 3454, gotcha 4369. A test of consensus/internal/rpc/core reads docs/site/docs/reference/public-rpc.md and asserts that the link of consensus/rpc/openapi/openapi.yaml to it leads to a file; the page consensus/internal/rpc/core/consensus_contract.md and two pages under consensus/spec/light-client link to it as well. That page is not a file of the tree. The inventory page is docs/readme/PUBLIC-RPC.md; after task 22.41.119 it holds the section Method contracts."
+do_2 = "do_2 Find the places with git grep over docs/site/docs under consensus. Change the link of openapi.yaml, the link of consensus_contract.md and the link definitions of the two pages under consensus/spec/light-client to docs/readme/PUBLIC-RPC.md with the right relative prefix for each file; the anchor method-contracts stays. In the test change the two paths of the page and the asserted link text to the new file name. The test names the page once with three and once with four parent steps: read from which directory each path is resolved and make both right. Change no assertion beyond the path and the file name. Where the test reads text that the page does not hold, name it in the final message. Leave task records as they are."
+do_3 = "do_3 Run the test that names the page by hand; it passes at the final revision. Change only files in the paths of this task. Delete, rename and move nothing. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["consensus/internal/rpc/core", "consensus/rpc/openapi/openapi.yaml", "consensus/spec/light-client/attacks/notes-on-evidence-handling.md", "consensus/spec/light-client/detection/detection_001_reviewed.md"]
+tests = []
+planned_paths = []
+build_cmd = "go build ./consensus/internal/rpc/core/..."
+verify_cmd = "go test -count=1 ./consensus/internal/rpc/core/ && ! git grep -q -F docs/site/docs/ -- consensus ':!*.kvx'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-cosmos-fork"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.41.120]
+title = "Read the node inventory of the bring-up tools from docs/readme/PUBLIC-RPC.md"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.41.119"]
+reqs = ["22998.1"]
+capabilities = ["22.41.120"]
+interfaces = []
+do_1 = "do_1 Decision 3453, decision 3454, gotcha 4369. The scripts and the tests under tools/bringup read the node inventory from docs/site/docs/reference/public-rpc.md, which is not a file of the tree. The inventory page is docs/readme/PUBLIC-RPC.md; after task 22.41.119 it holds the table of nodes with the HTTPS and WebSocket columns and the sections of the earlier page."
+do_2 = "do_2 Change every place under tools/bringup that names the earlier page to docs/readme/PUBLIC-RPC.md: the scripts check-live.sh, docs-names.sh, install-archive.sh and search-front.sh, the Go tests, the shell tests and tests/test_spec_paths.py. Find the places with git grep over docs/site/docs. Keep each relative prefix right for the file it stands in. Where a shell test builds a copy of the tree, it copies the page to the new path. Change no case and no assertion beyond the path. Where a test or the reader of the inventory reads text or a form that the page does not hold, name the test and the text in the final message. Leave task records as they are."
+do_3 = "do_3 Run the Go tests of tools/bringup and the shell tests that name the page by hand; they pass at the final revision. Change only files in the paths of this task. Delete, rename and move nothing. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/bringup"]
+tests = []
+planned_paths = []
+build_cmd = "go vet ./tools/bringup/... && bash -n tools/bringup/check-live.sh tools/bringup/docs-names.sh tools/bringup/install-archive.sh tools/bringup/search-front.sh"
+verify_cmd = "go test -count=1 ./tools/bringup/... && ! git grep -q -F docs/site/docs/ -- tools/bringup ':!*.kvx'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.43.231]
 title = "Move the task records and name the files after what they hold in wasm"
 status = "done"
@@ -238431,7 +238710,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.213]
 title = "Move the task records and name the files after what they hold in tools/flyci"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -238463,7 +238742,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.206]
 title = "Move the task records and name the files after what they hold in tools/chain"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -238495,7 +238774,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.205]
 title = "Move the task records and name the files after what they hold in tools/bringup"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -238559,7 +238838,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.202]
 title = "Move the task records and name the files after what they hold in tests/testutil"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -238622,7 +238901,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.194]
 title = "Move the task records and name the files after what they hold in tests/integration"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -238654,7 +238933,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.186]
 title = "Move the task records and name the files after what they hold in storage/wal"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -238686,7 +238965,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.185]
 title = "Move the task records and name the files after what they hold in storage/tools"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -238718,7 +238997,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.184]
 title = "Move the task records and name the files after what they hold in storage/state_db"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -238750,7 +239029,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.183]
 title = "Move the task records and name the files after what they hold in storage/ledger_db"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -238782,7 +239061,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.182]
 title = "Move the task records and name the files after what they hold in storage/db_engine/pebbledb and 1 more directory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -238814,7 +239093,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.181]
 title = "Move the task records and name the files after what they hold in storage/db_engine/litt"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -238846,7 +239125,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.180]
 title = "Move the task records and name the files after what they hold in storage/db_engine/dbcache"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -238878,7 +239157,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.177]
 title = "Move the task records and name the files after what they hold in services/wallet/ceremony"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -238910,7 +239189,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.176]
 title = "Move the task records and name the files after what they hold in services/wallet/attestor"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -239006,7 +239285,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.163]
 title = "Move the task records and name the files after what they hold in services/launchpad/trading-charts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -239038,7 +239317,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.162]
 title = "Move the task records and name the files after what they hold in services/launchpad/social"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -239102,7 +239381,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.160]
 title = "Move the task records and name the files after what they hold in services/launchpad/pnl-tracker"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -239134,7 +239413,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.159]
 title = "Move the task records and name the files after what they hold in services/launchpad/livestream and 2 more directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -239198,7 +239477,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.157]
 title = "Move the task records and name the files after what they hold in services/launchpad/gateway"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -239230,7 +239509,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.156]
 title = "Move the task records and name the files after what they hold in services/launchpad/api and 1 more directory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -239294,7 +239573,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.135]
 title = "Move the task records and name the files after what they hold in services/bridge"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -239326,7 +239605,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.126]
 title = "Move the task records and name the files after what they hold in sdk/x/params and 4 more directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -239390,7 +239669,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.124]
 title = "Move the task records and name the files after what they hold in sdk/x/bank and 3 more directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -239422,7 +239701,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.123]
 title = "Move the task records and name the files after what they hold in sdk/x/auth and 1 more directory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -239454,7 +239733,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.121]
 title = "Move the task records and name the files after what they hold in sdk/version"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -239486,7 +239765,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.120]
 title = "Move the task records and name the files after what they hold in sdk/types"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -239581,7 +239860,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.117]
 title = "Move the task records and name the files after what they hold in sdk/tasks"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -239613,7 +239892,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.116]
 title = "Move the task records and name the files after what they hold in sdk/storev2"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -239677,7 +239956,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.114]
 title = "Move the task records and name the files after what they hold in sdk/server"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -239741,7 +240020,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.111]
 title = "Move the task records and name the files after what they hold in sdk/launchpad/shared"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -239773,7 +240052,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.110]
 title = "Move the task records and name the files after what they hold in sdk/launchpad/protocol"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -239836,7 +240115,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.106]
 title = "Move the task records and name the files after what they hold in sdk/crypto"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -239900,7 +240179,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.103]
 title = "Move the task records and name the files after what they hold in sdk/codec"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -239964,7 +240243,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.101]
 title = "Move the task records and name the files after what they hold in sdk/chainflow"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -240028,7 +240307,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.71]
 title = "Move the task records and name the files after what they hold in modules/xweb"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -240060,7 +240339,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.69]
 title = "Move the task records and name the files after what they hold in modules/spot"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -240092,7 +240371,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.68]
 title = "Move the task records and name the files after what they hold in modules/pricefeed"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -240156,7 +240435,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.66]
 title = "Move the task records and name the files after what they hold in modules/oracle"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -240188,7 +240467,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.65]
 title = "Move the task records and name the files after what they hold in modules/mint"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -240220,7 +240499,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.61]
 title = "Move the task records and name the files after what they hold in modules/layerxgov"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -240252,7 +240531,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.59]
 title = "Move the task records and name the files after what they hold in modules/layerxcustody"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -240284,7 +240563,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.58]
 title = "Move the task records and name the files after what they hold in modules/layerxchains"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -240316,7 +240595,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.57]
 title = "Move the task records and name the files after what they hold in modules/layerxbridge"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -240348,7 +240627,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.54]
 title = "Move the task records and name the files after what they hold in modules/layerxagent"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -240380,7 +240659,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.53]
 title = "Move the task records and name the files after what they hold in modules/launchpad"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -240412,7 +240691,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.52]
 title = "Move the task records and name the files after what they hold in modules/evm"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -240444,7 +240723,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.49]
 title = "Move the task records and name the files after what they hold in interchain"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -240476,7 +240755,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.47]
 title = "Move the task records and name the files after what they hold in engine"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -240508,7 +240787,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.43]
 title = "Move the task records and name the files after what they hold in daemon"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -240540,7 +240819,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.42]
 title = "Move the task records and name the files after what they hold in custodyproof"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -240572,7 +240851,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.40]
 title = "Move the task records and name the files after what they hold in consensus/types"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -240604,7 +240883,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.39]
 title = "Move the task records and name the files after what they hold in consensus/test"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -240636,7 +240915,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.38]
 title = "Move the task records and name the files after what they hold in consensus/scripts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -240668,7 +240947,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.37]
 title = "Move the task records and name the files after what they hold in consensus/rpc"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -240700,7 +240979,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.36]
 title = "Move the task records and name the files after what they hold in consensus/privval"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -240732,7 +241011,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.35]
 title = "Move the task records and name the files after what they hold in consensus/light"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -240764,7 +241043,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.34]
 title = "Move the task records and name the files after what they hold in consensus/libs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -240796,7 +241075,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.33]
 title = "Move the task records and name the files after what they hold in consensus/internal/state and 1 more directory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -240828,7 +241107,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.32]
 title = "Move the task records and name the files after what they hold in consensus/internal/libs and 5 more directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -240860,7 +241139,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.31]
 title = "Move the task records and name the files after what they hold in consensus/internal/autobahn and 5 more directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -240892,7 +241171,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.30]
 title = "Move the task records and name the files after what they hold in consensus/crypto"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -240924,7 +241203,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.29]
 title = "Move the task records and name the files after what they hold in consensus/config"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -240987,7 +241266,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.27]
 title = "Move the task records and name the files after what they hold in consensus/autobahn"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -241019,7 +241298,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.26]
 title = "Move the task records and name the files after what they hold in consensus/abci"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -241051,7 +241330,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.25]
 title = "Move the task records and name the files after what they hold in consensus"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -241083,7 +241362,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.1]
 title = "Move the task records and name the files after what they hold in api"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -244122,7 +244401,7 @@ do_4 = "Attempt 2 (continue, gotcha 3708, decisions 3010 and 3011): the attempt-
 
 [task.22.39.170]
 title = "Bring the remaining stages of the launchpad Makefile ci target to green and run them from the public launchpad workflow"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["22.39.168", "22.39.154", "22.39.162", "22.39.117", "22.39.458", "22.39.475", "22.39.476", "22.39.477", "22.39.478", "22.39.479", "22.39.480", "22.39.481", "22.39.482", "22.39.483", "22.39.484", "22.39.485", "22.39.486", "22.39.487", "22.39.488", "22.39.489", "22.39.490"]
@@ -300344,7 +300623,7 @@ do_9 = "Delete the test signedSharedVectors at sdk/platform/jvm/src/test/java/co
 
 [task.22.43.113]
 title = "Move the task records and name the files after what they hold in sdk/platform/jvm and 1 more directory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -301877,7 +302156,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.91]
 title = "Move the task records and name the files after what they hold in programs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -325735,7 +326014,7 @@ do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection
 
 [task.22.43.199]
 title = "Move the task records and name the files after what they hold in tests/protocol"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -325798,7 +326077,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.196]
 title = "Move the task records and name the files after what they hold in tests/modules"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -325830,7 +326109,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.195]
 title = "Move the task records and name the files after what they hold in tests/ledger"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -325862,7 +326141,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.187]
 title = "Move the task records and name the files after what they hold in tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -325894,7 +326173,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.179]
 title = "Move the task records and name the files after what they hold in src"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -325926,7 +326205,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.98]
 title = "Move the task records and name the files after what they hold in rpc"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -325958,7 +326237,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.90]
 title = "Move the task records and name the files after what they hold in precompiles/xweb"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -325990,7 +326269,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.89]
 title = "Move the task records and name the files after what they hold in precompiles/wasmd"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -326022,7 +326301,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.88]
 title = "Move the task records and name the files after what they hold in precompiles/staking"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -326054,7 +326333,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.87]
 title = "Move the task records and name the files after what they hold in precompiles/spot"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -326086,7 +326365,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.86]
 title = "Move the task records and name the files after what they hold in precompiles/solo"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -326150,7 +326429,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.84]
 title = "Move the task records and name the files after what they hold in precompiles/layerxprograms"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -326245,7 +326524,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.79]
 title = "Move the task records and name the files after what they hold in precompiles/layerxagent"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -326277,7 +326556,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.78]
 title = "Move the task records and name the files after what they hold in precompiles/launchpad"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -326309,7 +326588,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.77]
 title = "Move the task records and name the files after what they hold in precompiles/ibc"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -326341,7 +326620,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.76]
 title = "Move the task records and name the files after what they hold in precompiles/gov"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -326373,7 +326652,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.75]
 title = "Move the task records and name the files after what they hold in precompiles/distribution"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -326436,7 +326715,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.73]
 title = "Move the task records and name the files after what they hold in precompiles/addr"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -326468,7 +326747,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.72]
 title = "Move the task records and name the files after what they hold in node"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -326531,7 +326810,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.64]
 title = "Move the task records and name the files after what they hold in modules/lxphost"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -326563,7 +326842,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.63]
 title = "Move the task records and name the files after what they hold in modules/layerxpay"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -326595,7 +326874,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.62]
 title = "Move the task records and name the files after what they hold in modules/layerxledger"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -326627,7 +326906,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.60]
 title = "Move the task records and name the files after what they hold in modules/layerxexchange"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -326659,7 +326938,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.56]
 title = "Move the task records and name the files after what they hold in modules/layerxauth"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -326691,7 +326970,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.55]
 title = "Move the task records and name the files after what they hold in modules/layerxanchor"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -326723,7 +327002,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.51]
 title = "Move the task records and name the files after what they hold in modules/epoch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -326755,7 +327034,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.50]
 title = "Move the task records and name the files after what they hold in layerxproof"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -355914,7 +356193,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.201]
 title = "Move the task records and name the files after what they hold in tests/solidity"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -372707,6 +372986,156 @@ do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its t
 do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible): the three programme tests pass and the closure gate exits 1 only because 29 issue tasks are not done; the task now requires every one of them and is re-qualified without change when the last publishes."
 do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; it now requires every open issue task, so it is launched only when all of them are done and its verify can pass. Keep the superseded-task handling and the three regression cases of attempt 2."
 
+[task.22.41.125]
+title = "Link the pages of sdk and services to the node inventory page"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.41.119"]
+reqs = ["22998.1"]
+capabilities = ["22.41.125"]
+interfaces = []
+do_1 = "do_1 Decision 3453, decision 3454, gotcha 4369. Each page in the paths of this task links to docs/site/docs/reference/public-rpc.md, which is not a file of the tree. The page of the node names is docs/readme/PUBLIC-RPC.md; after task 22.41.119 it holds the sections of the earlier page."
+do_2 = "do_2 On each page change each such link to docs/readme/PUBLIC-RPC.md with the right relative prefix for the page. Keep the link text, and keep an anchor where the target holds that heading. Change nothing else on the pages: no other line and no line ending. Confirm for each changed link that the path leads to the file from the directory of the page."
+do_3 = "do_3 Find with git grep the tests that read a changed page and run them by hand. Where a test asserts the earlier path, name the test in the final message and leave it as it is. Change only the files in the paths of this task. Delete, rename and move nothing. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["sdk/chainflow/python/SKILL.md", "sdk/chainflow/python/api.md", "sdk/chainflow/rust/README.md", "sdk/chainflow/typescript/README.md", "sdk/launchpad/README.md", "sdk/launchpad/packages/sdk/README.md", "sdk/platform/jvm/README.md", "sdk/platform/jvm/examples/README.md", "services/launchpad/livestream/PROGRESS.md", "services/launchpad/security/control/README.md", "services/platform/examples/README.md", "services/platform/hosted/gateway/README.md", "services/platform/hosted/human/README.md", "services/wallet/demo/README.md"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q pytest PyYAML"
+verify_cmd = "test -s docs/readme/PUBLIC-RPC.md && ! git grep -q -F docs/site/docs/ -- sdk/chainflow sdk/launchpad/README.md sdk/launchpad/packages/sdk/README.md sdk/platform/jvm services/launchpad/livestream/PROGRESS.md services/launchpad/security/control/README.md services/platform/examples/README.md services/platform/hosted/gateway/README.md services/platform/hosted/human/README.md services/wallet/demo ':!*.kvx'"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 60
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.41.124]
+title = "Link the pages of apps, contracts, deploy, modules, rpc and programs to the node inventory page"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.41.119"]
+reqs = ["22998.1"]
+capabilities = ["22.41.124"]
+interfaces = []
+do_1 = "do_1 Decision 3453, decision 3454, gotcha 4369. Each page in the paths of this task links to docs/site/docs/reference/public-rpc.md, which is not a file of the tree. The page of the node names is docs/readme/PUBLIC-RPC.md; after task 22.41.119 it holds the sections of the earlier page."
+do_2 = "do_2 On each page change each such link to docs/readme/PUBLIC-RPC.md with the right relative prefix for the page. Keep the link text, and keep an anchor where the target holds that heading. Change nothing else on the pages: no other line and no line ending. Confirm for each changed link that the path leads to the file from the directory of the page."
+do_3 = "do_3 Find with git grep the tests that read a changed page and run them by hand. Where a test asserts the earlier path, name the test in the final message and leave it as it is. Change only the files in the paths of this task. Delete, rename and move nothing. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/mobile/ARCHITECTURE.md", "apps/wallet/.github/ISSUE_TEMPLATE/bug_report.md", "apps/wallet/.github/ISSUE_TEMPLATE/feature_request.md", "apps/wallet/.github/ISSUE_TEMPLATE/question.md", "apps/wallet/.github/PULL_REQUEST_TEMPLATE.md", "contracts/operations.md", "contracts/rpc.md", "deploy/launchpad/production/topology/README.md", "deploy/launchpad/production/topology/phase2/operator-runbook.md", "modules/evm/AGENTS.md", "rpc/AGENTS.md", "programs/porting/cosmwasm/MIGRATION.md", "programs/porting/evm/MIGRATION.md", "programs/porting/solana/MIGRATION.md"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q pytest PyYAML"
+verify_cmd = "test -s docs/readme/PUBLIC-RPC.md && ! git grep -q -F docs/site/docs/ -- apps/launchpad/mobile/ARCHITECTURE.md apps/wallet/.github contracts/operations.md contracts/rpc.md deploy/launchpad/production/topology modules/evm/AGENTS.md rpc/AGENTS.md programs/porting ':!*.kvx'"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 60
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.41.122]
+title = "Take the earlier translation directory out of the documentation check of tools/jev"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.41.122"]
+interfaces = []
+do_1 = "do_1 Decision 3454. The catalog TRANSLATION_CATALOG of tools/jev/checks/docs.py pairs README.md with docs/readme/README.*.md and with docs/site/docs/overview/i18n/*.md. The second directory is not in the tree; the translations of the README live under docs/readme."
+do_2 = "do_2 Take the second pair out of the catalog. In tools/jev/checks/test_dependency_and_documentation_checks.py and tools/jev/tests/test_docs.py change the cases that name the second pair so that they assert the catalog as it now stands. A case that tests the refusal of an empty translation directory keeps testing that refusal, with a directory of its own fixture tree. Take no case out."
+do_3 = "do_3 Run python3 -m pytest over the two test files by hand; they pass at the final revision. Change only the files in the paths of this task. Delete, rename and move nothing. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/jev/checks/docs.py", "tools/jev/checks/test_dependency_and_documentation_checks.py", "tools/jev/tests/test_docs.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q pytest PyYAML && python3 -m py_compile tools/jev/checks/docs.py"
+verify_cmd = "python3 -m pytest -q tools/jev/checks/test_dependency_and_documentation_checks.py tools/jev/tests/test_docs.py && ! git grep -q -F docs/site/docs/ -- tools/jev ':!*.kvx'"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 60
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.41.121]
+title = "Name present pages in the gate files of tools/paxeer-x"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.41.119"]
+reqs = ["22998.1"]
+capabilities = ["22.41.121"]
+interfaces = []
+do_1 = "do_1 Decision 3453, decision 3454, gotcha 4369. The script tools/paxeer-x/gates/108.0.7.sh lists six pages under docs/site/docs beside the wiki pages that hold the same content. The module tools/paxeer-x/gates/onboarding_funding.py reads the node inventory from docs/site/docs/reference/public-rpc.md. The page tools/paxeer-x/sid-snapshot/README.md links to that page. The tree docs/site/docs is not in the repository."
+do_2 = "do_2 In 108.0.7.sh take the six pages of the earlier tree out of the two lists; the wiki pages and the pages under docs/platform stay. In onboarding_funding.py the inventory is docs/readme/PUBLIC-RPC.md. In the README the link names docs/readme/PUBLIC-RPC.md with the right relative prefix. Change nothing else in the three files. Find with git grep the tests that import onboarding_funding and run them by hand. Run 108.0.7.sh by hand and name its result in the final message; where one of its checks reads text that a page no longer holds, name the page and the check and change neither."
+do_3 = "do_3 Change only the files in the paths of this task. Delete, rename and move nothing. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/paxeer-x/gates/108.0.7.sh", "tools/paxeer-x/gates/onboarding_funding.py", "tools/paxeer-x/sid-snapshot/README.md"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q pytest PyYAML && python3 -m py_compile tools/paxeer-x/gates/onboarding_funding.py && bash -n tools/paxeer-x/gates/108.0.7.sh"
+verify_cmd = "! git grep -q -F docs/site/docs/ -- tools/paxeer-x/gates tools/paxeer-x/sid-snapshot ':!*.kvx' && python3 -m py_compile tools/paxeer-x/gates/onboarding_funding.py && bash -n tools/paxeer-x/gates/108.0.7.sh"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 60
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.41.119]
+title = "Give the page docs/readme/PUBLIC-RPC.md the node inventory and the method contracts of the earlier reference page"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.41.119"]
+interfaces = []
+do_1 = "do_1 Decision 3453, gotcha 4369. The page docs/readme/PUBLIC-RPC.md is the node inventory of the repository: after tasks 22.41.120, 22.41.121 and 22.41.123 the tools under tools/bringup, a test of consensus and a gate module of tools/paxeer-x read the node names from it. The earlier reference page docs/site/docs/reference/public-rpc.md held the table of endpoints with a column of WebSocket URLs and the sections Usage, Method contracts and Limits and conduct. Find its last content with git log over that path and git show."
+do_2 = "do_2 Keep the present sections of docs/readme/PUBLIC-RPC.md. Add what the earlier page held and the present page lacks: the WebSocket column of the table of nodes together with the row of the canonical alias, and the sections Usage, Method contracts and Limits and conduct under exactly those headings, so that the heading anchors of the earlier page work on this page. Keep the form of the table rows of the earlier page, since tools read them: one row for each node, the node number first, each URL in backticks. Check every statement you add against the tree and leave out a statement that is no longer true; name each one you leave out in the final message. A link in the added text names a file of the tree: a page under docs/wiki or docs/readme, or a Markdown file under docs/site/paxeer-docs/public/markdown."
+do_3 = "do_3 Find with git grep the tests that read docs/readme/PUBLIC-RPC.md and run them by hand; they pass at the final revision. Change only the file in the paths of this task. Delete, rename and move nothing. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docs/readme/PUBLIC-RPC.md"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q pytest PyYAML"
+verify_cmd = "grep -q 'wss://api14.mainnet-beta.paxeer.network' docs/readme/PUBLIC-RPC.md && grep -q '^## Usage' docs/readme/PUBLIC-RPC.md && grep -q '^## Method contracts' docs/readme/PUBLIC-RPC.md && grep -q '^## Limits and conduct' docs/readme/PUBLIC-RPC.md"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.42.180]
 title = "Give the example environment files of the deployments under tools/ops the values of the deployment again"
 status = "pending"
@@ -372867,7 +373296,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.243]
 title = "Move the task records and name the files after what they hold in tools/qualification/audit_repairs, numbers 22.33.1230 to 22.33.1339"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373059,7 +373488,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.237]
 title = "Move the task records and name the files after what they hold in tools/qualification/audit_repairs, numbers 22.33.440 to 22.33.599"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373091,7 +373520,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.236]
 title = "Move the task records and name the files after what they hold in tools/qualification/audit_repairs, numbers 22.33.310 to 22.33.429"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373123,7 +373552,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.235]
 title = "Move the task records and name the files after what they hold in tools/qualification/audit_repairs, numbers 22.33.150 to 22.33.299"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373443,7 +373872,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.212]
 title = "Move the task records and name the files after what they hold in tools/docs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373538,7 +373967,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.209]
 title = "Move the task records and name the files after what they hold in tools/containers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373602,7 +374031,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.203]
 title = "Move the task records and name the files after what they hold in tests/vectors"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373634,7 +374063,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.200]
 title = "Move the task records and name the files after what they hold in tests/qualification"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373666,7 +374095,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.193]
 title = "Move the task records and name the files after what they hold in tests/explorer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373698,7 +374127,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.192]
 title = "Move the task records and name the files after what they hold in tests/daemon"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373730,7 +374159,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.191]
 title = "Move the task records and name the files after what they hold in tests/conformance"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373762,7 +374191,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.190]
 title = "Move the task records and name the files after what they hold in tests/ci"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373794,7 +374223,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.189]
 title = "Move the task records and name the files after what they hold in tests/bridge"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373826,7 +374255,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.188]
 title = "Move the task records and name the files after what they hold in tests/agent"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373858,7 +374287,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.154]
 title = "Move the task records and name the files after what they hold in services/interop/deploy and 2 more directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373890,7 +374319,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.143]
 title = "Move the task records and name the files after what they hold in services/explorer/backend/apps/nft_media_handler and 2 more directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373922,7 +374351,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.104]
 title = "Move the task records and name the files after what they hold in sdk/contrib"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373954,7 +374383,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.99]
 title = "Move the task records and name the files after what they hold in scripts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373986,7 +374415,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.97]
 title = "Move the task records and name the files after what they hold in programs/tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374018,7 +374447,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.48]
 title = "Move the task records and name the files after what they hold in include"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374050,7 +374479,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.46]
 title = "Move the task records and name the files after what they hold in docs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374082,7 +374511,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.45]
 title = "Move the task records and name the files after what they hold in docker"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374114,7 +374543,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.44]
 title = "Move the task records and name the files after what they hold in deploy"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -378493,7 +378922,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.29]
 title = "Write the front page of the repository"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["22.42.28", "22.42.34", "22.42.35", "22.42.36", "22.42.37", "22.42.38", "22.42.39", "22.42.40", "22.42.41", "22.42.42", "22.42.43", "22.42.44", "22.42.45", "22.42.46", "22.42.47", "22.42.48", "22.42.49", "22.42.50", "22.42.51", "22.42.52", "22.42.53", "22.42.54", "22.42.55", "22.42.56", "22.42.57", "22.42.58", "22.42.59", "22.42.60", "22.42.61", "22.42.62", "22.42.63"]
@@ -378552,7 +378981,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.26]
 title = "Write the index of the files of the upgrade to version 7.0.0 and name the new files in the runbooks"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["22.42.1", "22.42.20", "22.42.21", "22.42.22", "22.42.23", "22.42.24", "22.42.25"]
@@ -448754,7 +449183,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.142]
 title = "Move the task records and name the files after what they hold in services/explorer/backend/apps/indexer/test"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -448786,7 +449215,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.141]
 title = "Move the task records and name the files after what they hold in services/explorer/backend/apps/explorer/test/support and 1 more directory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -448850,7 +449279,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.139]
 title = "Move the task records and name the files after what they hold in services/explorer/backend/apps/explorer/lib and 2 more directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -448882,7 +449311,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.138]
 title = "Move the task records and name the files after what they hold in services/explorer/backend/apps/ethereum_jsonrpc and 1 more directory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -448946,7 +449375,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.136]
 title = "Move the task records and name the files after what they hold in services/explorer and 1 more directory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []

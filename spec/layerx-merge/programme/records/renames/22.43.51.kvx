@@ -1,0 +1,20 @@
+[manifest]
+task = "22.43.51"
+records_moved = 1
+files_renamed = 1
+
+[file.1]
+from = "modules/epoch/types/repair_6_test.go"
+to = "modules/epoch/types/genesis_duration_test.go"
+
+[file.2]
+from = "modules/epoch/types/repair_6.kvx"
+to = "spec/layerx-merge/programme/records/modules/epoch/types/repair_6.kvx"
+
+[reference.1]
+file = "spec/layerx-merge/spec.kvx"
+name = "modules/epoch/types/repair_6_test.go"
+
+[reference.2]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_6_<case>"

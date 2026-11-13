@@ -1,0 +1,136 @@
+[manifest]
+task = "22.43.37"
+records_moved = 8
+files_renamed = 8
+
+[file.1]
+from = "consensus/rpc/client/repair_m1110_test.go"
+to = "consensus/rpc/client/tx_search_test.go"
+
+[file.2]
+from = "consensus/rpc/coretypes/repair_90_test.go"
+to = "consensus/rpc/coretypes/event_encoding_test.go"
+
+[file.3]
+from = "consensus/rpc/jsonrpc/client/repair_87_test.go"
+to = "consensus/rpc/jsonrpc/client/batch_response_correlation_test.go"
+
+[file.4]
+from = "consensus/rpc/jsonrpc/client/repair_m1102_test.go"
+to = "consensus/rpc/jsonrpc/client/response_limits_and_reconnect_test.go"
+
+[file.5]
+from = "consensus/rpc/jsonrpc/repair_m1112_test.go"
+to = "consensus/rpc/jsonrpc/documented_server_test.go"
+
+[file.6]
+from = "consensus/rpc/jsonrpc/server/repair_88_test.go"
+to = "consensus/rpc/jsonrpc/server/batch_framing_test.go"
+
+[file.7]
+from = "consensus/rpc/jsonrpc/server/repair_m1109_test.go"
+to = "consensus/rpc/jsonrpc/server/batch_notification_transport_test.go"
+
+[file.8]
+from = "consensus/rpc/jsonrpc/test/repair_m1108_test.go"
+to = "consensus/rpc/jsonrpc/test/example_transport_test.go"
+
+[file.9]
+from = "consensus/rpc/client/repair_m1110.kvx"
+to = "spec/layerx-merge/programme/records/consensus/rpc/client/repair_m1110.kvx"
+
+[file.10]
+from = "consensus/rpc/coretypes/repair_90.kvx"
+to = "spec/layerx-merge/programme/records/consensus/rpc/coretypes/repair_90.kvx"
+
+[file.11]
+from = "consensus/rpc/jsonrpc/client/repair_87.kvx"
+to = "spec/layerx-merge/programme/records/consensus/rpc/jsonrpc/client/repair_87.kvx"
+
+[file.12]
+from = "consensus/rpc/jsonrpc/client/repair_m1102.kvx"
+to = "spec/layerx-merge/programme/records/consensus/rpc/jsonrpc/client/repair_m1102.kvx"
+
+[file.13]
+from = "consensus/rpc/jsonrpc/repair_m1112.kvx"
+to = "spec/layerx-merge/programme/records/consensus/rpc/jsonrpc/repair_m1112.kvx"
+
+[file.14]
+from = "consensus/rpc/jsonrpc/server/repair_88.kvx"
+to = "spec/layerx-merge/programme/records/consensus/rpc/jsonrpc/server/repair_88.kvx"
+
+[file.15]
+from = "consensus/rpc/jsonrpc/server/repair_m1109.kvx"
+to = "spec/layerx-merge/programme/records/consensus/rpc/jsonrpc/server/repair_m1109.kvx"
+
+[file.16]
+from = "consensus/rpc/jsonrpc/test/repair_m1108.kvx"
+to = "spec/layerx-merge/programme/records/consensus/rpc/jsonrpc/test/repair_m1108.kvx"
+
+[reference.1]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1102_"
+
+[reference.2]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1108_"
+
+[reference.3]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1109_"
+
+[reference.4]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1110_"
+
+[reference.5]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1112_"
+
+[reference.6]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_87_"
+
+[reference.7]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_88_"
+
+[reference.8]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_90_"
+
+[reference.9]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_87_test.go"
+
+[reference.10]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_88_test.go"
+
+[reference.11]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_90_test.go"
+
+[reference.12]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1102_test.go"
+
+[reference.13]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1108_test.go"
+
+[reference.14]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1109_test.go"
+
+[reference.15]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1110_test.go"
+
+[reference.16]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1112_test.go"
+
+[reference.17]
+file = "tests/ci/test_go_build_tags_wired.py"
+name = "repairM1102ReconnectWithJitter"

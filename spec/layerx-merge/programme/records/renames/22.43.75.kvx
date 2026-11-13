@@ -1,0 +1,224 @@
+[manifest]
+task = "22.43.75"
+records_moved = 10
+files_renamed = 12
+
+[file.1]
+from = "precompiles/distribution/legacy/v555/repair_m1262_test.go"
+to = "precompiles/distribution/legacy/v555/historical_staticcall_test.go"
+
+[file.2]
+from = "precompiles/distribution/legacy/v562/repair_m1263_test.go"
+to = "precompiles/distribution/legacy/v562/historical_staticcall_test.go"
+
+[file.3]
+from = "precompiles/distribution/legacy/v580/repair_m1254_test.go"
+to = "precompiles/distribution/legacy/v580/rewards_value_test.go"
+
+[file.4]
+from = "precompiles/distribution/legacy/v605/repair_m1255_test.go"
+to = "precompiles/distribution/legacy/v605/rewards_value_test.go"
+
+[file.5]
+from = "precompiles/distribution/legacy/v606/repair_m1256_test.go"
+to = "precompiles/distribution/legacy/v606/rewards_value_test.go"
+
+[file.6]
+from = "precompiles/distribution/legacy/v610/repair_m1257_test.go"
+to = "precompiles/distribution/legacy/v610/rewards_value_test.go"
+
+[file.7]
+from = "precompiles/distribution/legacy/v614/repair_m1258_test.go"
+to = "precompiles/distribution/legacy/v614/rewards_value_test.go"
+
+[file.8]
+from = "precompiles/distribution/legacy/v620/repair_m1259_test.go"
+to = "precompiles/distribution/legacy/v620/rewards_value_test.go"
+
+[file.9]
+from = "precompiles/distribution/legacy/v630/repair_m1260_test.go"
+to = "precompiles/distribution/legacy/v630/rewards_value_test.go"
+
+[file.10]
+from = "precompiles/distribution/legacy/v640/repair_m1261_test.go"
+to = "precompiles/distribution/legacy/v640/rewards_value_test.go"
+
+[file.11]
+from = "precompiles/distribution/repair_183_test.go"
+to = "precompiles/distribution/rewards_value_test.go"
+
+[file.12]
+from = "precompiles/distribution/legacy/v610/repair_m1257.md"
+to = "precompiles/distribution/legacy/v610/HISTORICAL_VALUE.md"
+
+[file.13]
+from = "precompiles/distribution/legacy/v555/repair_m1262.kvx"
+to = "spec/layerx-merge/programme/records/precompiles/distribution/legacy/v555/repair_m1262.kvx"
+
+[file.14]
+from = "precompiles/distribution/legacy/v562/repair_m1263.kvx"
+to = "spec/layerx-merge/programme/records/precompiles/distribution/legacy/v562/repair_m1263.kvx"
+
+[file.15]
+from = "precompiles/distribution/legacy/v580/repair_m1254.kvx"
+to = "spec/layerx-merge/programme/records/precompiles/distribution/legacy/v580/repair_m1254.kvx"
+
+[file.16]
+from = "precompiles/distribution/legacy/v605/repair_m1255.kvx"
+to = "spec/layerx-merge/programme/records/precompiles/distribution/legacy/v605/repair_m1255.kvx"
+
+[file.17]
+from = "precompiles/distribution/legacy/v606/repair_m1256.kvx"
+to = "spec/layerx-merge/programme/records/precompiles/distribution/legacy/v606/repair_m1256.kvx"
+
+[file.18]
+from = "precompiles/distribution/legacy/v614/repair_m1258.kvx"
+to = "spec/layerx-merge/programme/records/precompiles/distribution/legacy/v614/repair_m1258.kvx"
+
+[file.19]
+from = "precompiles/distribution/legacy/v620/repair_m1259.kvx"
+to = "spec/layerx-merge/programme/records/precompiles/distribution/legacy/v620/repair_m1259.kvx"
+
+[file.20]
+from = "precompiles/distribution/legacy/v630/repair_m1260.kvx"
+to = "spec/layerx-merge/programme/records/precompiles/distribution/legacy/v630/repair_m1260.kvx"
+
+[file.21]
+from = "precompiles/distribution/legacy/v640/repair_m1261.kvx"
+to = "spec/layerx-merge/programme/records/precompiles/distribution/legacy/v640/repair_m1261.kvx"
+
+[file.22]
+from = "precompiles/distribution/repair_183.kvx"
+to = "spec/layerx-merge/programme/records/precompiles/distribution/repair_183.kvx"
+
+[reference.1]
+file = "spec/layerx-merge/dispositions/d22-17.kvx"
+name = "precompiles/distribution/repair_183_test.go"
+
+[reference.2]
+file = "spec/layerx-merge/dispositions/d22-23.kvx"
+name = "precompiles/distribution/legacy/v555/repair_m1262_test.go"
+
+[reference.3]
+file = "spec/layerx-merge/dispositions/d22-23.kvx"
+name = "precompiles/distribution/legacy/v562/repair_m1263_test.go"
+
+[reference.4]
+file = "spec/layerx-merge/dispositions/d22-23.kvx"
+name = "precompiles/distribution/legacy/v606/repair_m1256_test.go"
+
+[reference.5]
+file = "spec/layerx-merge/dispositions/d22-23.kvx"
+name = "precompiles/distribution/legacy/v610/repair_m1257_test.go"
+
+[reference.6]
+file = "spec/layerx-merge/dispositions/d22-23.kvx"
+name = "precompiles/distribution/legacy/v614/repair_m1258_test.go"
+
+[reference.7]
+file = "spec/layerx-merge/dispositions/d22-23.kvx"
+name = "precompiles/distribution/legacy/v620/repair_m1259_test.go"
+
+[reference.8]
+file = "spec/layerx-merge/dispositions/d22-23.kvx"
+name = "precompiles/distribution/legacy/v630/repair_m1260_test.go"
+
+[reference.9]
+file = "spec/layerx-merge/dispositions/d22-23.kvx"
+name = "precompiles/distribution/legacy/v640/repair_m1261_test.go"
+
+[reference.10]
+file = "spec/layerx-merge/programme/docs/review/22.41.19.kvx"
+name = "precompiles/distribution/legacy/v610/repair_m1257.md"
+
+[reference.11]
+file = "spec/layerx-merge/programme/docs/review/22.41.76.kvx"
+name = "precompiles/distribution/legacy/v610/repair_m1257.md"
+
+[reference.12]
+file = "spec/layerx-merge/qualification.kvx"
+name = "precompiles/distribution/legacy/v555/repair_m1262_test.go"
+
+[reference.13]
+file = "spec/layerx-merge/qualification.kvx"
+name = "precompiles/distribution/legacy/v562/repair_m1263_test.go"
+
+[reference.14]
+file = "spec/layerx-merge/qualification.kvx"
+name = "precompiles/distribution/legacy/v580/repair_m1254_test.go"
+
+[reference.15]
+file = "spec/layerx-merge/qualification.kvx"
+name = "precompiles/distribution/legacy/v605/repair_m1255_test.go"
+
+[reference.16]
+file = "spec/layerx-merge/qualification.kvx"
+name = "precompiles/distribution/legacy/v606/repair_m1256_test.go"
+
+[reference.17]
+file = "spec/layerx-merge/qualification.kvx"
+name = "precompiles/distribution/legacy/v610/repair_m1257_test.go"
+
+[reference.18]
+file = "spec/layerx-merge/qualification.kvx"
+name = "precompiles/distribution/legacy/v614/repair_m1258_test.go"
+
+[reference.19]
+file = "spec/layerx-merge/qualification.kvx"
+name = "precompiles/distribution/legacy/v620/repair_m1259_test.go"
+
+[reference.20]
+file = "spec/layerx-merge/qualification.kvx"
+name = "precompiles/distribution/legacy/v630/repair_m1260_test.go"
+
+[reference.21]
+file = "spec/layerx-merge/qualification.kvx"
+name = "precompiles/distribution/legacy/v640/repair_m1261_test.go"
+
+[reference.22]
+file = "spec/layerx-merge/qualification.kvx"
+name = "precompiles/distribution/repair_183_test.go"
+
+[reference.23]
+file = "spec/layerx-merge/spec.kvx"
+name = "precompiles/distribution/legacy/v555/repair_m1262_test.go"
+
+[reference.24]
+file = "spec/layerx-merge/spec.kvx"
+name = "precompiles/distribution/legacy/v562/repair_m1263_test.go"
+
+[reference.25]
+file = "spec/layerx-merge/spec.kvx"
+name = "precompiles/distribution/legacy/v580/repair_m1254_test.go"
+
+[reference.26]
+file = "spec/layerx-merge/spec.kvx"
+name = "precompiles/distribution/legacy/v605/repair_m1255_test.go"
+
+[reference.27]
+file = "spec/layerx-merge/spec.kvx"
+name = "precompiles/distribution/legacy/v606/repair_m1256_test.go"
+
+[reference.28]
+file = "spec/layerx-merge/spec.kvx"
+name = "precompiles/distribution/legacy/v610/repair_m1257_test.go"
+
+[reference.29]
+file = "spec/layerx-merge/spec.kvx"
+name = "precompiles/distribution/legacy/v614/repair_m1258_test.go"
+
+[reference.30]
+file = "spec/layerx-merge/spec.kvx"
+name = "precompiles/distribution/legacy/v620/repair_m1259_test.go"
+
+[reference.31]
+file = "spec/layerx-merge/spec.kvx"
+name = "precompiles/distribution/legacy/v630/repair_m1260_test.go"
+
+[reference.32]
+file = "spec/layerx-merge/spec.kvx"
+name = "precompiles/distribution/legacy/v640/repair_m1261_test.go"
+
+[reference.33]
+file = "spec/layerx-merge/spec.kvx"
+name = "precompiles/distribution/repair_183_test.go"

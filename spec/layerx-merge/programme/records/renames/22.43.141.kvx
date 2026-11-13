@@ -1,0 +1,80 @@
+[manifest]
+task = "22.43.141"
+records_moved = 15
+files_renamed = 2
+
+[file.1]
+from = "services/explorer/backend/apps/explorer/test/support/fixture/paxeer_x/repair_22_31_411.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/explorer/test/support/fixture/paxeer_x/repair_22_31_411.kvx"
+
+[file.2]
+from = "services/explorer/backend/apps/explorer/test/support/fixture/vcr_cassettes/repair_22_33_538.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/explorer/test/support/fixture/vcr_cassettes/repair_22_33_538.kvx"
+
+[file.3]
+from = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/utils/repair_22_33_549.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/utils/repair_22_33_549.kvx"
+
+[file.4]
+from = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/workers/batches/repair_22_33_547.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/workers/batches/repair_22_33_547.kvx"
+
+[file.5]
+from = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/workers/repair_22_33_546.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/workers/repair_22_33_546.kvx"
+
+[file.6]
+from = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/blackfort/repair_22_33_514.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/indexer/lib/indexer/fetcher/blackfort/repair_22_33_514.kvx"
+
+[file.7]
+from = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/blackfort/repair_22_33_514_snapshots.json"
+to = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/blackfort/validator_snapshots.json"
+
+[file.8]
+from = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/internal_transaction/repair_22_33_487.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/indexer/lib/indexer/fetcher/internal_transaction/repair_22_33_487.kvx"
+
+[file.9]
+from = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/optimism/interop/repair_22_33_403.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/indexer/lib/indexer/fetcher/optimism/interop/repair_22_33_403.kvx"
+
+[file.10]
+from = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/optimism/repair_22_33_402.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/indexer/lib/indexer/fetcher/optimism/repair_22_33_402.kvx"
+
+[file.11]
+from = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/repair_22_33_316.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/indexer/lib/indexer/fetcher/repair_22_33_316.kvx"
+
+[file.12]
+from = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/repair_22_33_316_blocks.json"
+to = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/empty_block_sanitizer_blocks.json"
+
+[file.13]
+from = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/shibarium/repair_22_33_473.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/indexer/lib/indexer/fetcher/shibarium/repair_22_33_473.kvx"
+
+[file.14]
+from = "services/explorer/backend/apps/indexer/lib/indexer/memory/repair_22_33_422.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/indexer/lib/indexer/memory/repair_22_33_422.kvx"
+
+[file.15]
+from = "services/explorer/backend/apps/indexer/lib/indexer/repair_22_33_472.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/indexer/lib/indexer/repair_22_33_472.kvx"
+
+[file.16]
+from = "services/explorer/backend/apps/indexer/lib/indexer/repair_22_33_512.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/indexer/lib/indexer/repair_22_33_512.kvx"
+
+[file.17]
+from = "services/explorer/backend/apps/indexer/lib/indexer/utils/repair_22_33_513.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/indexer/lib/indexer/utils/repair_22_33_513.kvx"
+
+[reference.1]
+file = "services/explorer/backend/apps/indexer/test/repair/repair_22_33_316_test.exs"
+name = "repair_22_33_316_blocks.json"
+
+[reference.2]
+file = "services/explorer/backend/apps/indexer/test/repair/repair_22_33_514_test.exs"
+name = "repair_22_33_514_snapshots.json"

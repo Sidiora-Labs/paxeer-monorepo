@@ -25,8 +25,8 @@ import (
 
 func TestProviderClientsSendOverVerifiedTLS(t *testing.T) {
 	ctx := context.Background()
-	peer := repair958Authorities(t)
-	options := repair958Credentials(t)
+	peer := notificationDeliveryAuthorities(t)
+	options := notificationDeliveryCredentials(t)
 	pki := testpki.New(t)
 	var oauthCalls, pushCalls, webStatus, oauthStatus atomic.Int64
 	var apnsMissingReceipt, fcmMissingReceipt atomic.Bool
@@ -198,7 +198,7 @@ func TestProviderClientsSendOverVerifiedTLS(t *testing.T) {
 		t.Fatalf("missing FCM receipt: %+v %v", got, err)
 	}
 	fcmMissingReceipt.Store(false)
-	webKey := repair958PEM(t)
+	webKey := notificationDeliveryPEM(t)
 	invalidAccount.Key = webKey
 	invalidJSON, err = json.Marshal(invalidAccount)
 	if err != nil {
@@ -278,8 +278,8 @@ func TestProviderClientsSendOverVerifiedTLS(t *testing.T) {
 		t.Fatalf("provider refusal: %+v %v", got, err)
 	}
 	webStatus.Store(0)
-	db, _ := repair958Open(t, t.TempDir())
-	repair958Schema(t, db)
+	db, _ := notificationDeliveryOpen(t, t.TempDir())
+	notificationDeliverySchema(t, db)
 	t.Setenv("RELEASE_APNS_KEY", webKey)
 	t.Setenv("RELEASE_APNS_KEY_ID", "KEY123")
 	t.Setenv("RELEASE_APNS_TEAM_ID", "TEAM123")

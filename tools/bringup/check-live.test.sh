@@ -980,7 +980,7 @@ expected_ca_services=(pending-core pending-core-admin agent-boundary agentd agen
 	human-kms human-kms-client human-kms-executor gateway-redis gateway-client identity
 	internal-kms internal-journeys internal-payments internal-approvals internal-programs internal-redis
 	registry registry-event-client indexer interop-client developer developer-client dashboard-client ramp-client)
-approved_ca_set="$(awk '{print $1}' "$root/tools/bringup/tests/fixtures/repair_m794/approved-roster.tsv" | sort)"
+approved_ca_set="$(awk '{print $1}' "$root/tools/bringup/tests/fixtures/service_identities/approved-roster.tsv" | sort)"
 expected_ca_set="$(printf '%s\n' "${expected_ca_services[@]}" | sort)"
 want="${#expected_ca_services[@]}"
 LAYERX_CA_DIR="$work/attestor-ca" "$ca" init >/dev/null
@@ -1921,7 +1921,7 @@ unset CHECK_LIVE_TEST_GAS CHECK_LIVE_TEST_MACHINES CHECK_LIVE_GAS_ACCOUNT_KEYSTO
 # owns the real issued Human client; TLS peers require it at each role's name.
 role_bin="$work/role-bin"
 mkdir -p "$role_bin" "$work/roles"
-cp "$root/tools/bringup/tests/fixtures/repair_m794/railway.sh" "$role_bin/railway"
+cp "$root/tools/bringup/tests/fixtures/service_identities/railway.sh" "$role_bin/railway"
 chmod +x "$role_bin/railway"
 export CHECK_LIVE_TEST_ROLE_ROOTS="$work/roles"
 for service in internal-kms internal-journeys internal-payments internal-approvals internal-programs redis-internal webhooks-ingress router ramp; do
@@ -1935,7 +1935,7 @@ done
 start_role_peer() {
 	local mode="$1" state_dir="$2" identity="$3" kind="${4:-}"
 	mkdir -p "$state_dir"
-	python3 "$root/tools/bringup/tests/fixtures/repair_m794/peers.py" "$mode" "$state_dir" "$identity" "$kind" >"$state_dir/server.log" 2>&1 &
+	python3 "$root/tools/bringup/tests/fixtures/service_identities/peers.py" "$mode" "$state_dir" "$identity" "$kind" >"$state_dir/server.log" 2>&1 &
 	internal_pids="$internal_pids $!"
 	for _ in $(seq 50); do [ ! -s "$state_dir/port" ] || return 0; sleep 0.1; done
 	cat "$state_dir/server.log" >&2

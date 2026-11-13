@@ -65,5 +65,5 @@ func TestEmpty(t *testing.T) {
 	statedb.SetCode(addr, []byte{1})
 	require.False(t, statedb.Empty(addr))
 
-	t.Run("persisted empty code", checkEmptyCodeReloadM1127)
+	t.Run("persisted empty code", checkEmptyCodeReload)
 }

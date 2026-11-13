@@ -69,7 +69,7 @@ func TestMsgSubmitEvidence(t *testing.T) {
 
 		if !tc.expectErr {
 			require.Equal(t, tc.msg.GetSigners(), []sdk.AccAddress{tc.submitter}, "unexpected result for tc #%d", i)
-			stored := repairM604MessageRoundTrip(t, tc.msg.(*types.MsgSubmitEvidence))
+			stored := evidenceValidationMessageRoundTrip(t, tc.msg.(*types.MsgSubmitEvidence))
 			require.Equal(t, []byte(pk.PubKey().Address()), stored.GetConsensusAddress().Bytes())
 		}
 	}

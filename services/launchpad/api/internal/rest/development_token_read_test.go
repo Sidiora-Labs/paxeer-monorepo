@@ -10,7 +10,7 @@ import (
 )
 
 func TestDevelopmentTokenReadPreservesPartialOnChainMetadata(t *testing.T) {
-	chain := newRepair58Chain(t)
+	chain := newReceiptRecoveryChain(t)
 	ctx := context.Background()
 	head, err := chain.backend.Client().HeaderByNumber(ctx, nil)
 	if err != nil {

@@ -21,9 +21,9 @@ import (
 
 // The historical integration suite uses real processes. The bounded repair
 // tests use the same configuration boundary with in-process transcript peers.
-func RepairM174DaemonOptions(t *testing.T, bin string) Options {
+func RehearsalDaemonOptions(t *testing.T, bin string) Options {
 	t.Helper()
-	o := repairM174IsolationFixture(t).options
+	o := newRehearsalIsolation(t).options
 	root := filepath.Dir(o.AttestorConfig.CAFile)
 	signer, err := newAuthority()
 	if err != nil {
@@ -145,7 +145,7 @@ func RepairM174DaemonOptions(t *testing.T, bin string) Options {
 	return o
 }
 
-func RepairM174DeliveryDigest(t *testing.T, o Options) [32]byte {
+func DeliveryStoreDigest(t *testing.T, o Options) [32]byte {
 	t.Helper()
 	root := filepath.Join(filepath.Dir(o.DeliveryAttestorConfig.CAFile), "delivery")
 	hash := sha256.New()

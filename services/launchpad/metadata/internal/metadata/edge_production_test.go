@@ -270,8 +270,8 @@ func getBody(t *testing.T, url string) (int, http.Header, []byte) {
 // Paxeer creation, display data and logo from the published document.
 func TestProductionLegacyReadsFromCanonicalStore(t *testing.T) {
 	ctx := context.Background()
-	keypair := repair1007Key(t)
-	f := repair1007Creator(loadCreationFixture(t), keypair)
+	keypair := publicationRecoveryKey(t)
+	f := publicationRecoveryCreator(loadCreationFixture(t), keypair)
 	pool := edgePool(t, "")
 	indexerSchema := edgeSchema(t, pool, "edge_indexer")
 	stream := "paxeer125-canonical"
@@ -326,7 +326,7 @@ func TestProductionLegacyReadsFromCanonicalStore(t *testing.T) {
 	if _, e = pool.Exec(ctx, "INSERT INTO "+store.table("pools")+" VALUES($1,$2,$3)", f.Pool, f.Creator, f.Token); e != nil {
 		t.Fatal(e)
 	}
-	decoded := repair1007PublishApproved(t, store, media.Objects, f, keypair, original, asset, document)
+	decoded := publicationRecoveryPublishApproved(t, store, media.Objects, f, keypair, original, asset, document)
 	variant := decoded.Variants[512]
 	variantHash := sha256.Sum256(variant)
 	key := fmt.Sprintf("approved/%x/512/%x.png", originalHash, variantHash)
