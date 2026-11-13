@@ -271,8 +271,8 @@ func TestAccountValueAgainstRustFixture(t *testing.T) {
 // Consume current registered-host witnesses and the retained twelve-leaf C
 // codec fixture alongside the historical core proofs.
 func TestNativeStateProofsFromCore(t *testing.T) {
-	repairM1CurrentHost(t)
-	repairM1Compatibility(t)
+	checkCurrentHostWitnesses(t)
+	checkReservedModuleWitnesses(t)
 	testHistoricalNativeStateProofsFromCore(t)
 }
 

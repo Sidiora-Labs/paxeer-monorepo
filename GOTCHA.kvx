@@ -21680,3 +21680,13 @@ fix = "After a move of a directory read the output of git status with the flag -
 title = "A reader inside a test module is compiled only with the tests"
 symptom = "A Rust line in a test module or in a tests directory that reads a fixture with include_str, include_bytes or include is compiled only by a build with the flag --tests. A build of the member without that flag does not read the fixture."
 fix = "After a rename of a fixture find its readers with git grep over the old name, and run cargo check with the flag --tests for each member that reads it."
+
+[gotcha.4372]
+title = "A test section of a package manifest names the file of the test"
+symptom = "A Cargo manifest with a test section names the file of the test with the key path. A rename of the test file leaves the section with the earlier name, and a build of the tests of the package does not find the file."
+fix = "The task that renames a test file changes the path key of its section in the manifest of the package in the same commit. Find the sections with git grep over the earlier file name in the files named Cargo.toml."
+
+[gotcha.4373]
+title = "The room of the inference market reads the node binary from the search path"
+symptom = "The room script tools/qualification/paxeer-x/inference_market_room.py looks the node binary up on the search path of the shell."
+fix = "A build command that runs the room installs the node binary first with the install target of chain.mk. The build command of task 22.38.37 does."
