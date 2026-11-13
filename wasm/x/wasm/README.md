@@ -14,13 +14,14 @@ The CosmWasm smart contract module of the Paxeer X chain, vendored from upstream
 query_gas_limit = 300000
 # This defines the memory size for Wasm modules that we can keep cached to speed-up instantiation
 # The value is in MiB not bytes
-memory_cache_size = 300
+memory_cache_size = 100
 # A quoted positive decimal SDK gas limit, or empty for the consensus block limit
 simulation_gas_limit = ""
 ```
 
 When a key is not set, `query_gas_limit` defaults to 3000000 and `memory_cache_size` to 100 MiB.
-The node template uses a query limit of 300000.
+The node template uses a query limit of 300000 and a memory cache of 100 MiB
+(see [`app_config.go`](../../../daemon/paxd/cmd/app_config.go)).
 
 `simulation_gas_limit` is a string in both the node template and the start flag.
 For example, `simulation_gas_limit = "987654"` sets the simulation gas meter to
