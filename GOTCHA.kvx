@@ -21810,3 +21810,8 @@ fix = "Decision 3483. Tasks 22.43.290 and 22.43.291."
 title = "The front page describes the network by its consensus and not by its kernel"
 symptom = "The opening of README.md names the consensus family, the chain identifier and the token, and its diagram places the kernel as the last box behind the modules. A reader does not learn that the kernel executes each transaction on arrival, orders it in one sequence, issues the signed receipt and builds the block that validators then commit."
 fix = "Decision 3484. Task 22.43.292."
+
+[gotcha.4398]
+title = "Other entry pages still open with the consensus family"
+symptom = "The documentation index docs/README.md, the applications page apps/README.md, the abstract of CITATION.cff and the landing page of the documentation site open with the consensus family and name the kernel as a part that takes part in proposal. They do not say that the kernel executes each transaction on arrival, orders it in one sequence, issues the signed receipt and builds the block that validators then commit."
+fix = "Decision 3485. Tasks 22.43.293 and 22.43.294."
