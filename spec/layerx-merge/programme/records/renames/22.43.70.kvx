@@ -1,0 +1,32 @@
+[manifest]
+task = "22.43.70"
+records_moved = 0
+files_renamed = 7
+
+[file.1]
+from = "modules/tokenfactory/repair_m1226.kvx"
+to = "modules/tokenfactory/authority_genesis_integration.kvx"
+
+[file.2]
+from = "modules/tokenfactory/keeper/repair_m1227.kvx"
+to = "modules/tokenfactory/keeper/authority_mint_genesis_integration.kvx"
+
+[file.3]
+from = "modules/tokenfactory/types/repair_m1229.kvx"
+to = "modules/tokenfactory/types/admin_renunciation_integration.kvx"
+
+[file.4]
+from = "modules/tokenfactory/repair_m1226_test.go"
+to = "modules/tokenfactory/authority_genesis_integration_test.go"
+
+[file.5]
+from = "modules/tokenfactory/keeper/repair_m1227_test.go"
+to = "modules/tokenfactory/keeper/authority_mint_genesis_integration_test.go"
+
+[file.6]
+from = "modules/tokenfactory/types/repair_m1229_test.go"
+to = "modules/tokenfactory/types/admin_renunciation_integration_test.go"
+
+[file.7]
+from = "modules/tokenfactory/client/cli/repair_463_test.go"
+to = "modules/tokenfactory/client/cli/mint_gas_adjustment_test.go"
