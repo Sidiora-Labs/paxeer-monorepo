@@ -159,7 +159,7 @@ implementation = "Preserve the attempt-1 findings, the live explorer error handl
 scope_conflict = "Task do_2 requires editing tools/paxeer-x/retired_callers.json, which is outside the explicit task scope; no equivalent rename, generated-file hand edit or check suppression is permitted."
 graph_conflict = "All seven source paths remain declared touches although the required repair belongs to the out-of-scope allowed_references catalogue."
 build_command = "pnpm --dir apps/launchpad/web run typecheck && python3 -m json.tool sdk/launchpad/protocol/catalog/reviewed.json > /dev/null"
-verify_command = "test -s apps/launchpad/repair_22_39_272.kvx && pnpm --dir apps/launchpad/web run typecheck && python3 tools/paxeer-x/tests/retired_callers_test.py --path apps/launchpad --path sdk/launchpad --path contracts/launchpad"
+verify_command = "test -s apps/launchpad/qualification/records/live-fee-accounting.kvx && pnpm --dir apps/launchpad/web run typecheck && python3 tools/paxeer-x/tests/retired_callers_test.py --path apps/launchpad --path sdk/launchpad --path contracts/launchpad"
 qualification = "UNRUN for this continuation; hf-build and hf-done record the exact candidate revision, command, exit and private evidence location in /out/run/gates.jsonl."
 
 [continuation.attempt_3]

@@ -542,7 +542,9 @@ function createServices() {
   return result;
 }
 beforeAll(async () => {
-  directory = await mkdtemp(join(tmpdir(), 'mobile-repair-22-31-30-'));
+  directory = await mkdtemp(
+    join(tmpdir(), 'mobile-signed-account-operations-'),
+  );
   const identity = decodeCurrentIdentity({
     accountId: '33333333-3333-4333-8333-333333333333',
     sessionId: '44444444-4444-4444-8444-444444444444',
@@ -937,7 +939,7 @@ class DiskPublicSnapshots implements PublicSnapshotStorage {
     this.closed = true;
   }
 }
-async function TestRepair_30_MobileLive() {
+async function mobileLiveCachePreservesViewerEvidence() {
   const network = new MobileServices(configuration(live.origin));
   const produced = await network.streams(signal);
   expect(produced.data.items[0].viewerCount).toBeNull();
@@ -1098,6 +1100,9 @@ test(mobileUnwatchWrite, mobileUnwatchWrite);
 test(mobileProfileWrite, mobileProfileWrite);
 test(mobilePreferencesWrite, mobilePreferencesWrite);
 test(mobileDeviceSignatureHeader, mobileDeviceSignatureHeader);
-test(TestRepair_30_MobileLive, TestRepair_30_MobileLive);
+test(
+  mobileLiveCachePreservesViewerEvidence,
+  mobileLiveCachePreservesViewerEvidence,
+);
 test(mobileOperationBoundary, mobileOperationBoundary);
 test(mobileOperationIdentityChange, mobileOperationIdentityChange);
