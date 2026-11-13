@@ -2,7 +2,7 @@
 finding = "captcha_retry_unbounded"
 implementation = "Allow at most one captcha bypass per protected operation; a supplied token exhausts that bypass, and the retry returns the original failure including rate-limit reset data."
 tests = ["captchaRetryUnbounded", "captchaRetryUnboundedErrorCause", "captchaSuppliedTokenDoesNotPromptAgain", "captchaSuccessPreservesResultAndNewOperationBudget"]
-test_path = "apps/explorer/ui/shared/reCaptcha/repair-22-33-330.spec.ts"
+test_path = "apps/explorer/ui/shared/reCaptcha/captchaRetry.spec.ts"
 proof = "Production useReCaptcha and react-google-recaptcha consume a solved-token callback; production useFetch sends it to a loopback HTTP transcript server and produces the subsequent 429 with reset metadata."
 baseline = "Not run: the explicit qualification order prohibits testing before implementation and reserves verification for hf-done; no baseline failures are claimed. The old recursion would leave the regression operation pending on another challenge."
 wiring_requests = ["apps/explorer/ui/marketplace/essentialDapps/revoke/hooks/repair-22-31-381.spec.ts: owning domain 14 must replace the undeclared ganache dependency with an in-process JSON-RPC fixture, as decision 2520 assigns to task 22.31.440; this task changes no out-of-scope files."]

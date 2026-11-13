@@ -11,13 +11,13 @@ gotcha = "The repository assertion linter does not resolve a separately register
 wiring_request = "Domain 14 release qualification: run the restored Playwright cases and review the existing apps/explorer/ui/shared/layout/__screenshots__ baselines, including the corrected error-layout subject; browser gates are outside this task's allowed commands."
 
 [finding.layout_skipped]
-test = "repair-22-33-324.spec.ts: layoutSkipped"
+test = "layoutReadiness.spec.ts: layoutSkipped"
 proof = "Requires all three active screenshot registrations, the xxl viewport, explicit vertical/horizontal navigation, unchanged screenshot assertions and awaited shell, indexing and font readiness; mounts production Layout using the committed wrapper and real query cache."
 
 [finding.error_layout_wrong_subject]
-test = "repair-22-33-324.spec.ts: errorLayoutWrongSubject"
+test = "layoutReadiness.spec.ts: errorLayoutWrongSubject"
 proof = "Requires an active desktop/mobile screenshot of LayoutError with AppError and readiness; mounts both production components, checks the main error content and recovery link, and excludes the homepage hero band."
 
 [finding.home_layout_skipped]
-test = "repair-22-33-324.spec.ts: homeLayoutSkipped"
+test = "layoutReadiness.spec.ts: homeLayoutSkipped"
 proof = "Requires the active desktop/mobile screenshot and observable hero, footer, indexing and font readiness; mounts production LayoutHome and checks those shell markers."

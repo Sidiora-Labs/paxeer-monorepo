@@ -1,6 +1,6 @@
 [repair.22.33.331]
 audit = "22.30.137"
-ladder_test_retired_model = "rung_order_is_three_rungs, registered by rungs.spec.ts and imported into repair-22-33-331.spec.ts; ordering, labels, icons and colors are retained."
+ladder_test_retired_model = "rung_order_is_three_rungs, registered by rungs.spec.ts and imported into statusLadderRefresh.spec.ts; ordering, labels, icons and colors are retained."
 ladder_retired_model = "ladder_retired_model checks both production descriptor families against node submission, receipt availability and committed-block finality."
 ladder_refresh = "ladder_refresh drives the real query hook, API URL builder, HTTP fetch and JSON consumer through a loopback transcript server from submitted through receipted to committed, then checks that polling stops."
 baseline = "Not run: the ordered task instructions prohibit testing before complete implementation and require the single verify invocation through hf-done after hf-build; no pre-change failure is claimed."

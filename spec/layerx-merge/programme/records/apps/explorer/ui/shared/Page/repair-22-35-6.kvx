@@ -33,7 +33,7 @@ gate_results = "exit fields of the build and verify rows in /out/run/gates.jsonl
 ledger = "/out/run/gates.jsonl"
 build_command = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
 verify_command = "cg spec done 22.35.6 -f layerx-merge --root /work/paxeer-monorepo"
-verify_target = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run apps/explorer/ui/shared/Page/repair-22-35-6.spec.tsx"
+verify_target = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run apps/explorer/ui/shared/Page/entityPageComposition.spec.tsx"
 logs = "/out/logs/build-N.log and /out/logs/verify-N.log, with exact locations in the private ledger"
 continuation_build_1_revision = "e4b767ed4c90e8762001d08e004de6763e1388a7"
 continuation_build_1_command = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
@@ -59,7 +59,7 @@ first_verify_observed = "Eight of nine proofs passed; Address tab names omitted 
 [continuation.3]
 base_revision = "5d90e0ff19fda222c1f098bb61f09077d892bc1d"
 integration = "The runner applied the complete attempt-2 tree onto current main without conflicts; retain all implementation and the other eight proofs unchanged."
-focused_command = "cd apps/explorer && yarn vitest run ui/shared/Page/repair-22-35-6.spec.tsx -t addressPageRendersEntityTabSetAndOverview"
+focused_command = "cd apps/explorer && yarn vitest run ui/shared/Page/entityPageComposition.spec.tsx -t addressPageRendersEntityTabSetAndOverview"
 focused_exit = 0
 focused_log = "/out/logs/address-proof-before-gates.log"
 focused_observed = "The enabled History trigger navigates with pathname /address/[hash], the existing address hash and tab history, undefined as, and shallow true; one named proof passed."
