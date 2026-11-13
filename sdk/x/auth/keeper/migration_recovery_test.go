@@ -8,11 +8,11 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-func TestRepairM_657_RegisteredMigrationPreservesGovernance(t *testing.T) {
+func TestRegisteredMigrationPreservesGovernance(t *testing.T) {
 	testMigrationM657Registered(t)
 }
 
-func TestRepairM_657_MigrationRecovery(t *testing.T) {
+func TestMigrationRecovery(t *testing.T) {
 	db := dbm.NewMemDB()
 	fixture := newMigrationM657Fixture(t, db)
 	want := seedMigrationM657LegacyParams(t, fixture)

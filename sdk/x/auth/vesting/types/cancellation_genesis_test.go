@@ -15,14 +15,14 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/vesting/types"
 )
 
-func repairM670Codec() *codec.ProtoCodec {
+func vestingGenesisCodec() *codec.ProtoCodec {
 	registry := codectypes.NewInterfaceRegistry()
 	authtypes.RegisterInterfaces(registry)
 	types.RegisterInterfaces(registry)
 	return codec.NewProtoCodec(registry)
 }
 
-func repairM670Accounts() []struct {
+func vestingGenesisAccounts() []struct {
 	name string
 	acc  authtypes.GenesisAccount
 } {
@@ -47,7 +47,7 @@ func repairM670Accounts() []struct {
 	}
 }
 
-func repairM670Base(t *testing.T, acc authtypes.GenesisAccount) *types.BaseVestingAccount {
+func baseVestingAccount(t *testing.T, acc authtypes.GenesisAccount) *types.BaseVestingAccount {
 	t.Helper()
 	switch acc := acc.(type) {
 	case *types.BaseVestingAccount:
@@ -66,10 +66,10 @@ func repairM670Base(t *testing.T, acc authtypes.GenesisAccount) *types.BaseVesti
 	}
 }
 
-func TestRepairM_670_RejectCancellationMarkers(t *testing.T) {
-	for _, tc := range repairM670Accounts() {
+func TestRejectCancellationMarkers(t *testing.T) {
+	for _, tc := range vestingGenesisAccounts() {
 		t.Run(tc.name, func(t *testing.T) {
-			base := repairM670Base(t, tc.acc)
+			base := baseVestingAccount(t, tc.acc)
 			require.NotEmpty(t, base.Admin)
 			require.NoError(t, tc.acc.Validate())
 			for _, marker := range []int64{-1 << 63, -1, 1, 99, 150, 200, 1<<63 - 1} {
@@ -86,15 +86,15 @@ func TestRepairM_670_RejectCancellationMarkers(t *testing.T) {
 	}
 }
 
-func TestRepairM_670_GenesisTransportRejectsCancellation(t *testing.T) {
-	for _, tc := range repairM670Accounts() {
+func TestGenesisTransportRejectsCancellation(t *testing.T) {
+	for _, tc := range vestingGenesisAccounts() {
 		for _, marker := range []int64{-1, 0, 150} {
 			t.Run(tc.name+"/"+strconv.FormatInt(marker, 10), func(t *testing.T) {
-				repairM670Base(t, tc.acc).CancelledTime = marker
+				baseVestingAccount(t, tc.acc).CancelledTime = marker
 				producer := authtypes.NewGenesisState(authtypes.DefaultParams(), authtypes.GenesisAccounts{tc.acc})
 				for _, transport := range []string{"json", "protobuf"} {
 					t.Run(transport, func(t *testing.T) {
-						writer, reader := repairM670Codec(), repairM670Codec()
+						writer, reader := vestingGenesisCodec(), vestingGenesisCodec()
 						var recovered authtypes.GenesisState
 						if transport == "json" {
 							wire, err := writer.MarshalAsJSON(producer)
@@ -109,9 +109,9 @@ func TestRepairM_670_GenesisTransportRejectsCancellation(t *testing.T) {
 						require.NoError(t, err)
 						require.Len(t, accounts, 1)
 						require.NotSame(t, tc.acc, accounts[0])
-						base := repairM670Base(t, accounts[0])
+						base := baseVestingAccount(t, accounts[0])
 						require.Equal(t, marker, base.CancelledTime)
-						require.Equal(t, repairM670Base(t, tc.acc).Admin, base.Admin)
+						require.Equal(t, baseVestingAccount(t, tc.acc).Admin, base.Admin)
 						require.Equal(t, tc.acc.GetAddress(), accounts[0].GetAddress())
 						if marker == 0 {
 							require.NoError(t, authtypes.ValidateGenesis(recovered))
@@ -125,8 +125,8 @@ func TestRepairM_670_GenesisTransportRejectsCancellation(t *testing.T) {
 	}
 }
 
-func TestRepairM_670_ActiveSchedulesAndDelegationRoundTrip(t *testing.T) {
-	for _, tc := range repairM670Accounts() {
+func TestActiveSchedulesAndDelegationRoundTrip(t *testing.T) {
+	for _, tc := range vestingGenesisAccounts() {
 		if tc.name == "base" {
 			continue // BaseVestingAccount has no schedule; its validation is covered above.
 		}
@@ -136,10 +136,10 @@ func TestRepairM_670_ActiveSchedulesAndDelegationRoundTrip(t *testing.T) {
 			delegation := sdk.NewCoins(sdk.NewInt64Coin("uhpx", 40))
 			account.TrackDelegation(time.Unix(100, 0), coins, delegation)
 			producer := authtypes.NewGenesisState(authtypes.DefaultParams(), authtypes.GenesisAccounts{tc.acc})
-			wire, err := repairM670Codec().MarshalAsJSON(producer)
+			wire, err := vestingGenesisCodec().MarshalAsJSON(producer)
 			require.NoError(t, err)
 			var recovered authtypes.GenesisState
-			require.NoError(t, repairM670Codec().UnmarshalAsJSON(wire, &recovered))
+			require.NoError(t, vestingGenesisCodec().UnmarshalAsJSON(wire, &recovered))
 			require.NoError(t, authtypes.ValidateGenesis(recovered))
 			accounts, err := authtypes.UnpackAccounts(recovered.Accounts)
 			require.NoError(t, err)
@@ -148,7 +148,7 @@ func TestRepairM_670_ActiveSchedulesAndDelegationRoundTrip(t *testing.T) {
 			account = accounts[0].(exported.VestingAccount)
 			require.Equal(t, delegation, account.GetDelegatedVesting())
 			require.True(t, account.GetDelegatedFree().IsZero())
-			require.Equal(t, repairM670Base(t, tc.acc).Admin, repairM670Base(t, accounts[0]).Admin)
+			require.Equal(t, baseVestingAccount(t, tc.acc).Admin, baseVestingAccount(t, accounts[0]).Admin)
 			for _, timestamp := range []int64{99, 100, 149, 150, 199, 200, 201} {
 				vested := int64(0)
 				switch tc.name {

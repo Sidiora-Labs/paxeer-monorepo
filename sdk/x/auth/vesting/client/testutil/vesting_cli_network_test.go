@@ -18,7 +18,7 @@ import (
 	banktypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/types"
 )
 
-func TestRepairM_662_NetworkSignature(t *testing.T) {
+func TestVestingCLINetworkSignature(t *testing.T) {
 	file, err := parser.ParseFile(token.NewFileSet(), "cli_test.go", nil, parser.ParseComments)
 	require.NoError(t, err)
 	var calls int
@@ -45,11 +45,11 @@ func TestRepairM_662_NetworkSignature(t *testing.T) {
 	require.Equal(t, 1, calls)
 }
 
-type repairM662Suite struct {
+type vestingCLINetworkSuite struct {
 	*IntegrationTestSuite
 }
 
-func (s *repairM662Suite) TestNewMsgCreateVestingAccountCmd() {
+func (s *vestingCLINetworkSuite) TestNewMsgCreateVestingAccountCmd() {
 	s.IntegrationTestSuite.TestNewMsgCreateVestingAccountCmd()
 	clientCtx := s.network.Validators[0].ClientCtx
 	for _, tc := range []struct {
@@ -80,8 +80,8 @@ func (s *repairM662Suite) TestNewMsgCreateVestingAccountCmd() {
 	}
 }
 
-func TestRepairM_662_VestingCLINetwork(t *testing.T) {
+func TestVestingCLINetwork(t *testing.T) {
 	cfg := network.DefaultConfig(t)
 	cfg.NumValidators = 1
-	suite.Run(t, &repairM662Suite{IntegrationTestSuite: NewIntegrationTestSuite(cfg)})
+	suite.Run(t, &vestingCLINetworkSuite{IntegrationTestSuite: NewIntegrationTestSuite(cfg)})
 }

@@ -55,7 +55,7 @@ import (
 
 // The fixture uses production keepers, codecs and isolated in-memory KV stores.
 // No node is started and no peer implementation is replaced by a test double.
-type repairM668Fixture struct {
+type authContractFixture struct {
 	ctx                         sdk.Context
 	cdc                         *codec.ProtoCodec
 	registry                    codectypes.InterfaceRegistry
@@ -67,7 +67,7 @@ type repairM668Fixture struct {
 	authKey, bankKey, paramsKey sdk.StoreKey
 }
 
-func newRepairM668Fixture(t *testing.T) *repairM668Fixture {
+func newAuthContractFixture(t *testing.T) *authContractFixture {
 	t.Helper()
 	registry := codectypes.NewInterfaceRegistry()
 	sdk.RegisterInterfaces(registry)
@@ -103,24 +103,24 @@ func newRepairM668Fixture(t *testing.T) *repairM668Fixture {
 	ak.SetModuleAccount(ctx, authtypes.NewEmptyModuleAccount(authtypes.FeeCollectorName))
 	bk := bankkeeper.NewBaseKeeperWithDeferredCache(cdc, bankKey, ak, pk.Subspace(banktypes.ModuleName), nil, deferredKey)
 	bk.SetParams(ctx, banktypes.DefaultParams())
-	return &repairM668Fixture{ctx: ctx, cdc: cdc, registry: registry, config: authtx.NewTxConfig(cdc, authtx.DefaultSignModes),
+	return &authContractFixture{ctx: ctx, cdc: cdc, registry: registry, config: authtx.NewTxConfig(cdc, authtx.DefaultSignModes),
 		ak: ak, bk: bk, pk: pk, fk: feegrantkeeper.NewKeeper(cdc, feegrantKey, ak), authKey: authKey, bankKey: bankKey, paramsKey: paramsKey}
 }
 
-func repairM668Coins(amount int64) sdk.Coins { return sdk.NewCoins(sdk.NewInt64Coin("uhpx", amount)) }
+func authContractCoins(amount int64) sdk.Coins { return sdk.NewCoins(sdk.NewInt64Coin("uhpx", amount)) }
 
-func (f *repairM668Fixture) fund(t *testing.T, addr sdk.AccAddress, amount int64) {
+func (f *authContractFixture) fund(t *testing.T, addr sdk.AccAddress, amount int64) {
 	t.Helper()
 	if !f.ak.HasAccount(f.ctx, addr) {
 		f.ak.SetAccount(f.ctx, f.ak.NewAccountWithAddress(f.ctx, addr))
 	}
 	genesis := f.bk.ExportGenesis(f.ctx)
-	genesis.Balances = append(genesis.Balances, banktypes.Balance{Address: addr.String(), Coins: repairM668Coins(amount)})
-	genesis.Supply = genesis.Supply.Add(repairM668Coins(amount)...)
+	genesis.Balances = append(genesis.Balances, banktypes.Balance{Address: addr.String(), Coins: authContractCoins(amount)})
+	genesis.Supply = genesis.Supply.Add(authContractCoins(amount)...)
 	f.bk.InitGenesis(f.ctx, genesis)
 }
 
-func repairM668Doc(t *testing.T, path string, claims ...string) string {
+func requireAuthDocClaims(t *testing.T, path string, claims ...string) string {
 	t.Helper()
 	data, err := os.ReadFile(path)
 	require.NoError(t, err)
@@ -130,7 +130,7 @@ func repairM668Doc(t *testing.T, path string, claims ...string) string {
 	return string(data)
 }
 
-func (f *repairM668Fixture) wireTx(t *testing.T, builder client.TxBuilder) (sdk.Tx, []byte) {
+func (f *authContractFixture) wireTx(t *testing.T, builder client.TxBuilder) (sdk.Tx, []byte) {
 	t.Helper()
 	wire, err := f.config.TxEncoder()(builder.GetTx())
 	require.NoError(t, err)
@@ -139,13 +139,13 @@ func (f *repairM668Fixture) wireTx(t *testing.T, builder client.TxBuilder) (sdk.
 	return decoded, wire
 }
 
-func (f *repairM668Fixture) signed(t *testing.T, ctx sdk.Context, priv cryptotypes.PrivKey, gas uint64, fee int64, memo string, seq uint64, granter sdk.AccAddress) (sdk.Tx, []byte) {
+func (f *authContractFixture) signed(t *testing.T, ctx sdk.Context, priv cryptotypes.PrivKey, gas uint64, fee int64, memo string, seq uint64, granter sdk.AccAddress) (sdk.Tx, []byte) {
 	t.Helper()
 	addr := sdk.AccAddress(priv.PubKey().Address())
 	builder := f.config.NewTxBuilder()
-	require.NoError(t, builder.SetMsgs(&banktypes.MsgSend{FromAddress: addr.String(), ToAddress: addr.String(), Amount: repairM668Coins(1)}))
+	require.NoError(t, builder.SetMsgs(&banktypes.MsgSend{FromAddress: addr.String(), ToAddress: addr.String(), Amount: authContractCoins(1)}))
 	builder.SetGasLimit(gas)
-	builder.SetFeeAmount(repairM668Coins(fee))
+	builder.SetFeeAmount(authContractCoins(fee))
 	builder.SetMemo(memo)
 	builder.SetFeeGranter(granter)
 	require.NoError(t, builder.SetSignatures(signing.SignatureV2{PubKey: priv.PubKey(), Sequence: seq,
@@ -158,9 +158,9 @@ func (f *repairM668Fixture) signed(t *testing.T, ctx sdk.Context, priv cryptotyp
 	return f.wireTx(t, builder)
 }
 
-func TestRepairM_668_FeePriority(t *testing.T) {
-	repairM668Doc(t, "spec/01_concepts.md", "Union", "2000uhpx", "paxd start", "10^12", "WithPriority")
-	f := newRepairM668Fixture(t)
+func TestFeePriority(t *testing.T) {
+	requireAuthDocClaims(t, "spec/01_concepts.md", "Union", "2000uhpx", "paxd start", "10^12", "WithPriority")
+	f := newAuthContractFixture(t)
 	base, err := sdk.GetBaseDenom()
 	require.NoError(t, err)
 	require.Equal(t, "uhpx", base)
@@ -188,7 +188,7 @@ func TestRepairM_668_FeePriority(t *testing.T) {
 			f.pk.SetFeesParams(f.ctx, paramtypes.NewFeesParams(global))
 			builder := f.config.NewTxBuilder()
 			builder.SetGasLimit(200000)
-			builder.SetFeeAmount(repairM668Coins(tc.fee))
+			builder.SetFeeAmount(authContractCoins(tc.fee))
 			tx, _ := f.wireTx(t, builder)
 			fees, priority, err := ante.CheckTxFeeWithValidatorMinGasPrices(f.ctx.WithIsCheckTx(tc.check).WithMinGasPrices(local), tx, tc.simulate, f.pk)
 			if tc.wantErr {
@@ -196,7 +196,7 @@ func TestRepairM_668_FeePriority(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			require.Equal(t, repairM668Coins(tc.fee), fees)
+			require.Equal(t, authContractCoins(tc.fee), fees)
 			require.Equal(t, tc.priority, priority)
 		})
 	}
@@ -218,10 +218,10 @@ func TestRepairM_668_FeePriority(t *testing.T) {
 	_, priority, err = ante.CheckTxFeeWithValidatorMinGasPrices(f.ctx.WithIsCheckTx(false), tx, false, f.pk)
 	require.NoError(t, err)
 	require.Zero(t, priority)
-	require.Equal(t, int64(math.MaxInt64), ante.GetTxPriority(repairM668Coins(math.MaxInt64), 1))
+	require.Equal(t, int64(math.MaxInt64), ante.GetTxPriority(authContractCoins(math.MaxInt64), 1))
 }
 
-func (f *repairM668Fixture) gateway(t *testing.T) *httptest.Server {
+func (f *authContractFixture) gateway(t *testing.T) *httptest.Server {
 	t.Helper()
 	marshaler := &gateway.JSONPb{OrigName: true, EmitDefaults: true, AnyResolver: f.registry}
 	mux := runtime.NewServeMux(runtime.WithMarshalerOption(runtime.MIMEWildcard, marshaler))
@@ -234,7 +234,7 @@ func (f *repairM668Fixture) gateway(t *testing.T) *httptest.Server {
 	return server
 }
 
-func repairM668Get(t *testing.T, server *httptest.Server, path string, wantStatus int) []byte {
+func getAuthGatewayResponse(t *testing.T, server *httptest.Server, path string, wantStatus int) []byte {
 	t.Helper()
 	response, err := server.Client().Get(server.URL + path)
 	require.NoError(t, err)
@@ -245,10 +245,10 @@ func repairM668Get(t *testing.T, server *httptest.Server, path string, wantStatu
 	return body
 }
 
-func TestRepairM_668_AccountBalances(t *testing.T) {
-	repairM668Doc(t, "spec/02_state.md", "Coin balances belong to `x/bank`", "query.proto", "0x01", "0x02", "0x04")
-	repairM668Doc(t, "types/account.go", "AccountI exposes account identity and signing metadata", "balances are persisted and queried separately by x/bank")
-	f := newRepairM668Fixture(t)
+func TestAccountBalances(t *testing.T) {
+	requireAuthDocClaims(t, "spec/02_state.md", "Coin balances belong to `x/bank`", "query.proto", "0x01", "0x02", "0x04")
+	requireAuthDocClaims(t, "types/account.go", "AccountI exposes account identity and signing metadata", "balances are persisted and queried separately by x/bank")
+	f := newAuthContractFixture(t)
 	addr := sdk.AccAddress([]byte("m668-account-owner__"))
 	to := sdk.AccAddress([]byte("m668-account-target_"))
 	f.fund(t, addr, 100)
@@ -259,14 +259,14 @@ func TestRepairM_668_AccountBalances(t *testing.T) {
 	before := append([]byte(nil), f.ctx.KVStore(f.authKey).Get(authKey)...)
 	require.NotEmpty(t, before)
 	require.NotEmpty(t, f.ctx.KVStore(f.bankKey).Get(bankKey))
-	require.NoError(t, f.bk.SendCoins(f.ctx, addr, to, repairM668Coins(7)))
+	require.NoError(t, f.bk.SendCoins(f.ctx, addr, to, authContractCoins(7)))
 	require.Equal(t, before, f.ctx.KVStore(f.authKey).Get(authKey), "bank transfer preserves signing metadata")
 	require.NoError(t, f.bk.AddWei(f.ctx, addr, sdk.NewInt(123)))
 	require.Equal(t, sdk.NewInt(123), f.bk.GetWeiBalance(f.ctx, addr))
 	require.NotEmpty(t, f.ctx.KVStore(f.bankKey).Get(append([]byte{4}, addr...)))
 	server := f.gateway(t)
 	var account authtypes.QueryAccountResponse
-	require.NoError(t, f.cdc.UnmarshalAsJSON(repairM668Get(t, server, "/cosmos/auth/v1beta1/accounts/"+addr.String(), http.StatusOK), &account))
+	require.NoError(t, f.cdc.UnmarshalAsJSON(getAuthGatewayResponse(t, server, "/cosmos/auth/v1beta1/accounts/"+addr.String(), http.StatusOK), &account))
 	var unpacked authtypes.AccountI
 	require.NoError(t, f.registry.UnpackAny(account.Account, &unpacked))
 	require.Equal(t, f.ak.GetAccount(f.ctx, addr), unpacked)
@@ -278,12 +278,12 @@ func TestRepairM_668_AccountBalances(t *testing.T) {
 	require.NotContains(t, fields, "balance")
 	require.NotContains(t, fields, "balances")
 	var balance banktypes.QueryAllBalancesResponse
-	require.NoError(t, f.cdc.UnmarshalAsJSON(repairM668Get(t, server, "/cosmos/bank/v1beta1/balances/"+addr.String(), http.StatusOK), &balance))
-	require.Equal(t, repairM668Coins(93), balance.Balances, "ordinary bank query excludes separate fractional wei")
+	require.NoError(t, f.cdc.UnmarshalAsJSON(getAuthGatewayResponse(t, server, "/cosmos/bank/v1beta1/balances/"+addr.String(), http.StatusOK), &balance))
+	require.Equal(t, authContractCoins(93), balance.Balances, "ordinary bank query excludes separate fractional wei")
 }
 
-func TestRepairM_668_AnteOrder(t *testing.T) {
-	doc := repairM668Doc(t, "spec/03_antehandlers.md", "DeductFeeDecorator", "UseGrantedFees", "node/ante.go")
+func TestAnteOrder(t *testing.T) {
+	doc := requireAuthDocClaims(t, "spec/03_antehandlers.md", "DeductFeeDecorator", "UseGrantedFees", "node/ante.go")
 	// Pin the full constructor order as well as exercising its fee/signature path below.
 	file, err := parser.ParseFile(token.NewFileSet(), "ante/ante.go", nil, 0)
 	require.NoError(t, err)
@@ -315,7 +315,7 @@ func TestRepairM_668_AnteOrder(t *testing.T) {
 		require.Greater(t, pos, last, name)
 		last = pos
 	}
-	f := newRepairM668Fixture(t)
+	f := newAuthContractFixture(t)
 	priv := secp256k1.GenPrivKeyFromSecret([]byte("m668-ante"))
 	addr := sdk.AccAddress(priv.PubKey().Address())
 	f.fund(t, addr, 100000)
@@ -336,7 +336,7 @@ func TestRepairM_668_AnteOrder(t *testing.T) {
 			tx, wire := f.signed(t, ctx, priv, tc.gas, tc.fee, tc.memo, 0, nil)
 			_, err := handler(ctx.WithTxBytes(wire), tx, false)
 			require.ErrorIs(t, err, tc.want)
-			require.Equal(t, repairM668Coins(100000), f.bk.GetAllBalances(ctx, addr))
+			require.Equal(t, authContractCoins(100000), f.bk.GetAllBalances(ctx, addr))
 			require.Zero(t, f.ak.GetAccount(ctx, addr).GetSequence())
 		})
 	}
@@ -346,8 +346,8 @@ func TestRepairM_668_AnteOrder(t *testing.T) {
 	wrongDomain, wrongWire := f.signed(t, cached.WithChainID("wrong-domain"), priv, 200000, 2000, "", 0, nil)
 	_, err = handler(cached.WithTxBytes(wrongWire), wrongDomain, false)
 	require.ErrorIs(t, err, sdkerrors.ErrUnauthorized)
-	require.Equal(t, repairM668Coins(98000), f.bk.GetAllBalances(cached, addr))
-	require.Equal(t, repairM668Coins(100000), f.bk.GetAllBalances(f.ctx, addr))
+	require.Equal(t, authContractCoins(98000), f.bk.GetAllBalances(cached, addr))
+	require.Equal(t, authContractCoins(100000), f.bk.GetAllBalances(f.ctx, addr))
 	require.Zero(t, f.ak.GetAccount(cached, addr).GetSequence())
 	tx, wire := f.signed(t, f.ctx, priv, 200000, 2000, "", 0, nil)
 	newCtx, err := handler(f.ctx.WithTxBytes(wire), tx, false)
@@ -355,28 +355,28 @@ func TestRepairM_668_AnteOrder(t *testing.T) {
 	require.Equal(t, int64(10000000000), newCtx.Priority())
 	require.Equal(t, uint64(1), f.ak.GetAccount(newCtx, addr).GetSequence())
 	require.Equal(t, priv.PubKey(), f.ak.GetAccount(newCtx, addr).GetPubKey())
-	require.Equal(t, repairM668Coins(98000), f.bk.GetAllBalances(newCtx, addr))
+	require.Equal(t, authContractCoins(98000), f.bk.GetAllBalances(newCtx, addr))
 	f.bk.WriteDeferredBalances(newCtx)
-	require.Equal(t, repairM668Coins(2000), f.bk.GetAllBalances(newCtx, f.ak.GetModuleAddress(authtypes.FeeCollectorName)))
+	require.Equal(t, authContractCoins(2000), f.bk.GetAllBalances(newCtx, f.ak.GetModuleAddress(authtypes.FeeCollectorName)))
 	granter := sdk.AccAddress([]byte("m668-fee-granter____"))
 	f.fund(t, granter, 5000)
-	require.NoError(t, f.fk.GrantAllowance(f.ctx, granter, addr, &feegrant.BasicAllowance{SpendLimit: repairM668Coins(3000)}))
+	require.NoError(t, f.fk.GrantAllowance(f.ctx, granter, addr, &feegrant.BasicAllowance{SpendLimit: authContractCoins(3000)}))
 	tx, wire = f.signed(t, f.ctx, priv, 200000, 2000, "", 1, granter)
 	newCtx, err = handler(f.ctx.WithTxBytes(wire), tx, false)
 	require.NoError(t, err)
-	require.Equal(t, repairM668Coins(98000), f.bk.GetAllBalances(newCtx, addr))
-	require.Equal(t, repairM668Coins(3000), f.bk.GetAllBalances(newCtx, granter))
+	require.Equal(t, authContractCoins(98000), f.bk.GetAllBalances(newCtx, addr))
+	require.Equal(t, authContractCoins(3000), f.bk.GetAllBalances(newCtx, granter))
 	allowance, err := f.fk.GetAllowance(newCtx, granter, addr)
 	require.NoError(t, err)
-	require.Equal(t, repairM668Coins(1000), allowance.(*feegrant.BasicAllowance).SpendLimit)
+	require.Equal(t, authContractCoins(1000), allowance.(*feegrant.BasicAllowance).SpendLimit)
 }
 
-func TestRepairM_668_VestingCreationAndGenesis(t *testing.T) {
-	repairM668Doc(t, "spec/05_vesting.md", "CreateVestingAccount", "must be zero", "rejects nonzero markers", "google.protobuf.Any accounts", "PeriodicVestingAccount", "PermanentLockedAccount")
-	f := newRepairM668Fixture(t)
+func TestVestingCreationAndGenesis(t *testing.T) {
+	requireAuthDocClaims(t, "spec/05_vesting.md", "CreateVestingAccount", "must be zero", "rejects nonzero markers", "google.protobuf.Any accounts", "PeriodicVestingAccount", "PermanentLockedAccount")
+	f := newAuthContractFixture(t)
 	sender := sdk.AccAddress([]byte("m668-vesting-sender_"))
 	f.fund(t, sender, 1000)
-	amount := repairM668Coins(100)
+	amount := authContractCoins(100)
 	for i, delayed := range []bool{false, true} {
 		to := sdk.AccAddress(bytes.Repeat([]byte{byte(90 + i)}, 20))
 		produced := vestingtypes.NewMsgCreateVestingAccount(sender, to, amount, f.ctx.BlockTime().Unix()+100, delayed, sender)
@@ -428,7 +428,7 @@ func TestRepairM_668_VestingCreationAndGenesis(t *testing.T) {
 	require.Contains(t, string(authJSON), "\"cancelled_time\":\"0\"")
 	bankJSON, err := f.cdc.MarshalAsJSON(f.bk.ExportGenesis(f.ctx))
 	require.NoError(t, err)
-	restored := newRepairM668Fixture(t)
+	restored := newAuthContractFixture(t)
 	var authGenesis authtypes.GenesisState
 	require.NoError(t, restored.cdc.UnmarshalAsJSON(authJSON, &authGenesis))
 	require.NoError(t, authtypes.ValidateGenesis(authGenesis))
@@ -471,9 +471,9 @@ func TestRepairM_668_VestingCreationAndGenesis(t *testing.T) {
 	require.ErrorContains(t, authtypes.ValidateGenesis(imported), "cancellation")
 }
 
-func TestRepairM_668_ClientBindings(t *testing.T) {
-	repairM668Doc(t, "spec/07_client.md", "GET /cosmos/auth/v1beta1/accounts/{address}", "paxd tx vesting create-vesting-account", "--delayed --admin", "no registered `create-periodic-vesting-account`")
-	f := newRepairM668Fixture(t)
+func TestClientBindings(t *testing.T) {
+	requireAuthDocClaims(t, "spec/07_client.md", "GET /cosmos/auth/v1beta1/accounts/{address}", "paxd tx vesting create-vesting-account", "--delayed --admin", "no registered `create-periodic-vesting-account`")
+	f := newAuthContractFixture(t)
 	sender := sdk.AccAddress([]byte("m668-client-sender__"))
 	f.fund(t, sender, 1000)
 	commands := vestingcli.GetTxCmd().Commands()
@@ -503,7 +503,7 @@ func TestRepairM_668_ClientBindings(t *testing.T) {
 		require.Equal(t, []sdk.AccAddress{sender}, msg.GetSigners())
 		_, err = vesting.NewMsgServerImpl(f.ak, f.bk).CreateVestingAccount(sdk.WrapSDKContext(f.ctx), msg)
 		require.NoError(t, err)
-		body := repairM668Get(t, server, "/cosmos/auth/v1beta1/accounts/"+to.String(), http.StatusOK)
+		body := getAuthGatewayResponse(t, server, "/cosmos/auth/v1beta1/accounts/"+to.String(), http.StatusOK)
 		var response authtypes.QueryAccountResponse
 		require.NoError(t, f.cdc.UnmarshalAsJSON(body, &response))
 		var account authtypes.AccountI
@@ -514,14 +514,14 @@ func TestRepairM_668_ClientBindings(t *testing.T) {
 		} else {
 			require.IsType(t, &vestingtypes.ContinuousVestingAccount{}, account)
 		}
-		require.Equal(t, repairM668Coins(100), f.bk.GetAllBalances(f.ctx, to))
+		require.Equal(t, authContractCoins(100), f.bk.GetAllBalances(f.ctx, to))
 	}
-	repairM668Get(t, server, "/cosmos/auth/v1beta1/account?address="+sender.String(), http.StatusNotFound)
+	getAuthGatewayResponse(t, server, "/cosmos/auth/v1beta1/account?address="+sender.String(), http.StatusNotFound)
 }
 
-func TestRepairM_668_SequenceParameter(t *testing.T) {
-	repairM668Doc(t, "spec/07_params.md", "`DisableSeqnoCheck`", "`KeyDisableSeqnoCheck` | `bool` | `false`", "auth/KeyDisableSeqnoCheck", "cosmos_checktx.go", "sequence increments")
-	f := newRepairM668Fixture(t)
+func TestSequenceParameter(t *testing.T) {
+	requireAuthDocClaims(t, "spec/07_params.md", "`DisableSeqnoCheck`", "`KeyDisableSeqnoCheck` | `bool` | `false`", "auth/KeyDisableSeqnoCheck", "cosmos_checktx.go", "sequence increments")
+	f := newAuthContractFixture(t)
 	require.False(t, f.ak.GetParams(f.ctx).DisableSeqnoCheck)
 	require.Equal(t, []byte("false"), f.ctx.KVStore(f.paramsKey).Get([]byte("auth/KeyDisableSeqnoCheck")))
 	require.Equal(t, []byte("KeyDisableSeqnoCheck"), authtypes.KeyDisableSeqnoCheck)
@@ -545,7 +545,7 @@ func TestRepairM_668_SequenceParameter(t *testing.T) {
 	require.Equal(t, []byte("true"), f.ctx.KVStore(f.paramsKey).Get([]byte("auth/KeyDisableSeqnoCheck")))
 	server := f.gateway(t)
 	var queried authtypes.QueryParamsResponse
-	require.NoError(t, f.cdc.UnmarshalAsJSON(repairM668Get(t, server, "/cosmos/auth/v1beta1/params", http.StatusOK), &queried))
+	require.NoError(t, f.cdc.UnmarshalAsJSON(getAuthGatewayResponse(t, server, "/cosmos/auth/v1beta1/params", http.StatusOK), &queried))
 	require.True(t, queried.Params.DisableSeqnoCheck)
 	_, err = nodeante.CheckSignatures(f.ctx, f.config, tx, []authtypes.AccountI{account}, f.ak.GetParams(f.ctx))
 	require.NoError(t, err)

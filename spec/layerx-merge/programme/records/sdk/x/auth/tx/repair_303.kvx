@@ -9,12 +9,12 @@ wiring = "spec/layerx-merge/spec.kvx — fm-cosmos-fork: copy the finding-to-tes
 
 [finding.gas-estimate-stale-authinfo]
 test = "TestRepair_303_GasEstimateStaleAuthInfo"
-path = "sdk/x/auth/tx/repair_303_test.go"
+path = "sdk/x/auth/tx/gas_estimate_block_pagination_test.go"
 proof = "Real builder, binary encoder/decoder, JSON codec and direct signing handler agree after encoding, decoding or signing primes the auth cache; repeated changes include zero and maximum uint64."
 
 [finding.block-tx-reverse-pagination]
 test = "TestRepair_303_BlockTxReversePagination"
-path = "sdk/x/auth/tx/repair_303_test.go"
+path = "sdk/x/auth/tx/gas_estimate_block_pagination_test.go"
 proof = "Builder-produced bank transactions pass through the real local consensus block store and client, registered transaction query router and protobuf query client; reverse pages cover one and five transactions including index zero and offsets past the end retain their error."
 
 [gotcha.config-import]

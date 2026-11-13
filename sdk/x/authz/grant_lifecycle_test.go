@@ -35,11 +35,11 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-var repair691Time = time.Date(2030, 1, 1, 0, 0, 0, 0, time.UTC)
+var grantLifecycleTime = time.Date(2030, 1, 1, 0, 0, 0, 0, time.UTC)
 
-func repair691Address(n byte) sdk.AccAddress { return sdk.AccAddress(bytes.Repeat([]byte{n}, 20)) }
+func grantLifecycleAddress(n byte) sdk.AccAddress { return sdk.AccAddress(bytes.Repeat([]byte{n}, 20)) }
 
-type repair691State struct {
+type grantLifecycleState struct {
 	cms      storetypes.CommitMultiStore
 	cache    storetypes.CacheMultiStore
 	ctx      sdk.Context
@@ -54,7 +54,7 @@ type repair691State struct {
 	closed   bool
 }
 
-func repair691Open(t *testing.T, dir string) *repair691State {
+func openGrantLifecycleState(t *testing.T, dir string) *grantLifecycleState {
 	t.Helper()
 	db, err := dbm.NewDB("authz", dbm.GoLevelDBBackend, dir)
 	require.NoError(t, err)
@@ -67,7 +67,7 @@ func repair691Open(t *testing.T, dir string) *repair691State {
 	cms.MountStoreWithDB(tkey, sdk.StoreTypeTransient, db)
 	require.NoError(t, cms.LoadLatestVersion())
 	cache := cms.CacheMultiStore()
-	ctx := sdk.NewContext(cache, tmproto.Header{Height: cms.LastCommitID().Version + 1, Time: repair691Time}, false)
+	ctx := sdk.NewContext(cache, tmproto.Header{Height: cms.LastCommitID().Version + 1, Time: grantLifecycleTime}, false)
 	registry := codectypes.NewInterfaceRegistry()
 	std.RegisterInterfaces(registry)
 	authtypes.RegisterInterfaces(registry)
@@ -94,7 +94,7 @@ func repair691Open(t *testing.T, dir string) *repair691State {
 	authz.RegisterMsgServer(router, k)
 	banktypes.RegisterMsgServer(router, bankkeeper.NewMsgServerImpl(bk))
 	stakingtypes.RegisterMsgServer(router, stakingkeeper.NewMsgServerImpl(sk))
-	s := &repair691State{cms: cms, cache: cache, ctx: ctx, cdc: cdc, registry: registry, key: keys[authz.ModuleName], keeper: k, auth: ak, bank: bk, staking: sk, router: router}
+	s := &grantLifecycleState{cms: cms, cache: cache, ctx: ctx, cdc: cdc, registry: registry, key: keys[authz.ModuleName], keeper: k, auth: ak, bank: bk, staking: sk, router: router}
 	if cms.LastCommitID().Version == 0 {
 		ak.SetParams(ctx, authtypes.DefaultParams())
 		bk.SetParams(ctx, banktypes.DefaultParams())
@@ -111,7 +111,7 @@ func repair691Open(t *testing.T, dir string) *repair691State {
 	return s
 }
 
-func (s *repair691State) stop(t *testing.T) storetypes.CommitID {
+func (s *grantLifecycleState) stop(t *testing.T) storetypes.CommitID {
 	t.Helper()
 	s.cache.Write()
 	id := s.cms.Commit(true)
@@ -120,7 +120,7 @@ func (s *repair691State) stop(t *testing.T) storetypes.CommitID {
 	return id
 }
 
-func repair691Snapshot(ctx sdk.Context, key *sdk.KVStoreKey) map[string]string {
+func grantLifecycleSnapshot(ctx sdk.Context, key *sdk.KVStoreKey) map[string]string {
 	entries := make(map[string]string)
 	it := sdk.KVStorePrefixIterator(ctx.KVStore(key), nil)
 	defer it.Close()
@@ -130,14 +130,14 @@ func repair691Snapshot(ctx sdk.Context, key *sdk.KVStoreKey) map[string]string {
 	return entries
 }
 
-func repair691SendAuthorization() *banktypes.SendAuthorization {
+func grantLifecycleSendAuthorization() *banktypes.SendAuthorization {
 	return banktypes.NewSendAuthorization(sdk.NewCoins(sdk.NewInt64Coin("uhpx", 100)))
 }
 
 // The constructor produces the Any; the real codec transports it to the real server.
-func repair691Grant(t *testing.T, s *repair691State, a authz.Authorization, expiration time.Time) (*authz.MsgGrantResponse, error) {
+func submitLifecycleGrant(t *testing.T, s *grantLifecycleState, a authz.Authorization, expiration time.Time) (*authz.MsgGrantResponse, error) {
 	t.Helper()
-	msg, err := authz.NewMsgGrant(repair691Address(1), repair691Address(2), a, expiration)
+	msg, err := authz.NewMsgGrant(grantLifecycleAddress(1), grantLifecycleAddress(2), a, expiration)
 	require.NoError(t, err)
 	var decoded authz.MsgGrant
 	require.NoError(t, s.cdc.Unmarshal(s.cdc.MustMarshal(msg), &decoded))
@@ -145,80 +145,80 @@ func repair691Grant(t *testing.T, s *repair691State, a authz.Authorization, expi
 	return s.keeper.Grant(sdk.WrapSDKContext(s.ctx), &decoded)
 }
 
-func repair691AssertExpiredExecution(t *testing.T) {
+func assertExpiredGrantExecution(t *testing.T) {
 	t.Helper()
 	dir := t.TempDir()
-	s := repair691Open(t, dir)
+	s := openGrantLifecycleState(t, dir)
 	for _, replacement := range []bool{false, true} {
 		if replacement {
-			_, err := repair691Grant(t, s, repair691SendAuthorization(), repair691Time.Add(time.Hour))
+			_, err := submitLifecycleGrant(t, s, grantLifecycleSendAuthorization(), grantLifecycleTime.Add(time.Hour))
 			require.NoError(t, err)
 		}
-		for _, expiration := range []time.Time{repair691Time.Add(-time.Nanosecond), repair691Time} {
-			before := repair691Snapshot(s.ctx, s.key)
+		for _, expiration := range []time.Time{grantLifecycleTime.Add(-time.Nanosecond), grantLifecycleTime} {
+			before := grantLifecycleSnapshot(s.ctx, s.key)
 			events := append(sdk.Events{}, s.ctx.EventManager().Events()...)
-			response, err := repair691Grant(t, s, repair691SendAuthorization(), expiration)
+			response, err := submitLifecycleGrant(t, s, grantLifecycleSendAuthorization(), expiration)
 			require.Nil(t, response)
 			require.ErrorIs(t, err, authz.ErrInvalidExpirationTime)
 			codespace, code, _ := sdkerrors.ABCIInfo(err, false)
 			require.Equal(t, "authz", codespace)
 			require.Equal(t, uint32(3), code)
-			require.Equal(t, before, repair691Snapshot(s.ctx, s.key))
+			require.Equal(t, before, grantLifecycleSnapshot(s.ctx, s.key))
 			require.EqualValues(t, events, s.ctx.EventManager().Events())
-			require.ErrorIs(t, s.keeper.SaveGrant(s.ctx, repair691Address(2), repair691Address(1), repair691SendAuthorization(), expiration), authz.ErrInvalidExpirationTime)
-			require.Equal(t, before, repair691Snapshot(s.ctx, s.key))
+			require.ErrorIs(t, s.keeper.SaveGrant(s.ctx, grantLifecycleAddress(2), grantLifecycleAddress(1), grantLifecycleSendAuthorization(), expiration), authz.ErrInvalidExpirationTime)
+			require.Equal(t, before, grantLifecycleSnapshot(s.ctx, s.key))
 			require.EqualValues(t, events, s.ctx.EventManager().Events())
 		}
 	}
-	before := repair691Snapshot(s.ctx, s.key)
+	before := grantLifecycleSnapshot(s.ctx, s.key)
 	s.stop(t)
-	reopened := repair691Open(t, dir)
-	require.Equal(t, before, repair691Snapshot(reopened.ctx, reopened.key))
-	a, expiration := reopened.keeper.GetCleanAuthorization(reopened.ctx, repair691Address(2), repair691Address(1), sdk.MsgTypeURL(&banktypes.MsgSend{}))
+	reopened := openGrantLifecycleState(t, dir)
+	require.Equal(t, before, grantLifecycleSnapshot(reopened.ctx, reopened.key))
+	a, expiration := reopened.keeper.GetCleanAuthorization(reopened.ctx, grantLifecycleAddress(2), grantLifecycleAddress(1), sdk.MsgTypeURL(&banktypes.MsgSend{}))
 	require.NotNil(t, a)
-	require.Equal(t, repair691Time.Add(time.Hour), expiration)
+	require.Equal(t, grantLifecycleTime.Add(time.Hour), expiration)
 }
 
-func TestRepairM_691_ExpiredGrantAcceptance(t *testing.T) { repair691AssertExpiredExecution(t) }
+func TestExpiredGrantRejection(t *testing.T) { assertExpiredGrantExecution(t) }
 
-func TestRepairM_691_ExpirationCases(t *testing.T) {
+func TestGrantExpirationCases(t *testing.T) {
 	for _, delta := range []time.Duration{-time.Nanosecond, 0, time.Nanosecond, time.Hour} {
-		g, err := authz.NewGrant(repair691Time, repair691SendAuthorization(), repair691Time.Add(delta))
+		g, err := authz.NewGrant(grantLifecycleTime, grantLifecycleSendAuthorization(), grantLifecycleTime.Add(delta))
 		if delta <= 0 {
 			require.ErrorIs(t, err, authz.ErrInvalidExpirationTime)
 		} else {
 			require.NoError(t, err)
-			require.Equal(t, repair691Time.Add(delta), g.Expiration)
+			require.Equal(t, grantLifecycleTime.Add(delta), g.Expiration)
 		}
 	}
-	s := repair691Open(t, t.TempDir())
-	_, err := repair691Grant(t, s, repair691SendAuthorization(), repair691Time.Add(time.Nanosecond))
+	s := openGrantLifecycleState(t, t.TempDir())
+	_, err := submitLifecycleGrant(t, s, grantLifecycleSendAuthorization(), grantLifecycleTime.Add(time.Nanosecond))
 	require.NoError(t, err)
 	require.Len(t, s.keeper.ExportGenesis(s.ctx).Authorization, 1)
 	require.Len(t, s.ctx.EventManager().Events(), 1)
-	s.ctx = s.ctx.WithBlockTime(repair691Time.Add(time.Nanosecond))
-	a, _ := s.keeper.GetCleanAuthorization(s.ctx, repair691Address(2), repair691Address(1), sdk.MsgTypeURL(&banktypes.MsgSend{}))
+	s.ctx = s.ctx.WithBlockTime(grantLifecycleTime.Add(time.Nanosecond))
+	a, _ := s.keeper.GetCleanAuthorization(s.ctx, grantLifecycleAddress(2), grantLifecycleAddress(1), sdk.MsgTypeURL(&banktypes.MsgSend{}))
 	require.Nil(t, a, "a grant expires exactly at its expiration")
-	require.Empty(t, repair691Snapshot(s.ctx, s.key))
+	require.Empty(t, grantLifecycleSnapshot(s.ctx, s.key))
 }
 
-func TestRepairM_691_PastTimeStructuralValidation(t *testing.T) {
-	msg, err := authz.NewMsgGrant(repair691Address(1), repair691Address(2), repair691SendAuthorization(), repair691Time.Add(-time.Hour))
+func TestPastGrantTimeStructuralValidation(t *testing.T) {
+	msg, err := authz.NewMsgGrant(grantLifecycleAddress(1), grantLifecycleAddress(2), grantLifecycleSendAuthorization(), grantLifecycleTime.Add(-time.Hour))
 	require.NoError(t, err)
 	require.NoError(t, msg.ValidateBasic(), "structural validation has no chain clock")
-	repair691AssertExpiredExecution(t)
+	assertExpiredGrantExecution(t)
 }
 
-func TestRepairM_691_GenesisValidationRestart(t *testing.T) {
+func TestGrantGenesisValidationRestart(t *testing.T) {
 	dir := t.TempDir()
-	s := repair691Open(t, dir)
-	_, err := repair691Grant(t, s, repair691SendAuthorization(), repair691Time.Add(time.Hour))
+	s := openGrantLifecycleState(t, dir)
+	_, err := submitLifecycleGrant(t, s, grantLifecycleSendAuthorization(), grantLifecycleTime.Add(time.Hour))
 	require.NoError(t, err)
-	_, err = repair691Grant(t, s, authz.NewGenericAuthorization(sdk.MsgTypeURL(&authz.MsgRevoke{})), repair691Time.Add(2*time.Hour))
+	_, err = submitLifecycleGrant(t, s, authz.NewGenericAuthorization(sdk.MsgTypeURL(&authz.MsgRevoke{})), grantLifecycleTime.Add(2*time.Hour))
 	require.NoError(t, err)
-	_, err = repair691Grant(t, s, authz.NewGenericAuthorization(sdk.MsgTypeURL(&authz.MsgExec{})), repair691Time.Add(time.Nanosecond))
+	_, err = submitLifecycleGrant(t, s, authz.NewGenericAuthorization(sdk.MsgTypeURL(&authz.MsgExec{})), grantLifecycleTime.Add(time.Nanosecond))
 	require.NoError(t, err)
-	s.ctx = s.ctx.WithBlockTime(repair691Time.Add(time.Second))
+	s.ctx = s.ctx.WithBlockTime(grantLifecycleTime.Add(time.Second))
 	exported := s.keeper.ExportGenesis(s.ctx)
 	require.NoError(t, authz.ValidateGenesis(*exported), "imports preserve expired records for faithful restoration")
 	encoded := s.cdc.MustMarshalJSON(exported)
@@ -226,22 +226,22 @@ func TestRepairM_691_GenesisValidationRestart(t *testing.T) {
 	require.NoError(t, s.cdc.UnmarshalAsJSON(encoded, &decoded))
 	require.NoError(t, authz.ValidateGenesis(decoded))
 	id := s.stop(t)
-	s = repair691Open(t, dir)
+	s = openGrantLifecycleState(t, dir)
 	require.Equal(t, id, s.cms.LastCommitID())
 	require.JSONEq(t, string(encoded), string(s.cdc.MustMarshalJSON(s.keeper.ExportGenesis(s.ctx))))
 
 	importDir := t.TempDir()
-	imported := repair691Open(t, importDir)
+	imported := openGrantLifecycleState(t, importDir)
 	imported.keeper.InitGenesis(imported.ctx, &decoded)
 	require.Empty(t, imported.ctx.EventManager().Events())
 	require.JSONEq(t, string(encoded), string(imported.cdc.MustMarshalJSON(imported.keeper.ExportGenesis(imported.ctx))))
 	imported.stop(t)
-	recovered := repair691Open(t, importDir)
+	recovered := openGrantLifecycleState(t, importDir)
 	require.JSONEq(t, string(encoded), string(recovered.cdc.MustMarshalJSON(recovered.keeper.ExportGenesis(recovered.ctx))))
-	recovered.ctx = recovered.ctx.WithBlockTime(repair691Time.Add(time.Second))
-	a, _ := recovered.keeper.GetCleanAuthorization(recovered.ctx, repair691Address(2), repair691Address(1), sdk.MsgTypeURL(&authz.MsgExec{}))
+	recovered.ctx = recovered.ctx.WithBlockTime(grantLifecycleTime.Add(time.Second))
+	a, _ := recovered.keeper.GetCleanAuthorization(recovered.ctx, grantLifecycleAddress(2), grantLifecycleAddress(1), sdk.MsgTypeURL(&authz.MsgExec{}))
 	require.Nil(t, a)
-	a, _ = recovered.keeper.GetCleanAuthorization(recovered.ctx, repair691Address(2), repair691Address(1), sdk.MsgTypeURL(&banktypes.MsgSend{}))
+	a, _ = recovered.keeper.GetCleanAuthorization(recovered.ctx, grantLifecycleAddress(2), grantLifecycleAddress(1), sdk.MsgTypeURL(&banktypes.MsgSend{}))
 	require.IsType(t, &banktypes.SendAuthorization{}, a)
 
 	valid := decoded.Authorization[0]
@@ -272,35 +272,35 @@ func TestRepairM_691_GenesisValidationRestart(t *testing.T) {
 			change(&entry)
 			bad := authz.NewGenesisState([]authz.GrantAuthorization{valid, entry})
 			require.Error(t, authz.ValidateGenesis(*bad))
-			before := repair691Snapshot(recovered.ctx, recovered.key)
+			before := grantLifecycleSnapshot(recovered.ctx, recovered.key)
 			require.Panics(t, func() { recovered.keeper.InitGenesis(recovered.ctx, bad) })
-			require.Equal(t, before, repair691Snapshot(recovered.ctx, recovered.key))
+			require.Equal(t, before, grantLifecycleSnapshot(recovered.ctx, recovered.key))
 		})
 	}
 	duplicate := valid
 	duplicate.Expiration = duplicate.Expiration.Add(time.Hour)
 	require.ErrorContains(t, authz.ValidateGenesis(*authz.NewGenesisState([]authz.GrantAuthorization{valid, duplicate})), "duplicate storage tuple")
-	fresh := repair691Open(t, t.TempDir())
+	fresh := openGrantLifecycleState(t, t.TempDir())
 	require.Panics(t, func() {
 		fresh.keeper.InitGenesis(fresh.ctx, authz.NewGenesisState([]authz.GrantAuthorization{valid, duplicate}))
 	})
-	require.Empty(t, repair691Snapshot(fresh.ctx, fresh.key), "validate the whole import before the first write")
+	require.Empty(t, grantLifecycleSnapshot(fresh.ctx, fresh.key), "validate the whole import before the first write")
 	require.NoError(t, authz.ValidateGenesis(*authz.DefaultGenesisState()))
 }
 
-func TestRepairM_691_ConceptsDenyOnly(t *testing.T) {
+func TestConceptsDenyOnly(t *testing.T) {
 	dir := t.TempDir()
-	s := repair691Open(t, dir)
-	granter, grantee := repair691Address(1), repair691Address(2)
-	validator, denied := sdk.ValAddress(repair691Address(3)), sdk.ValAddress(repair691Address(4))
+	s := openGrantLifecycleState(t, dir)
+	granter, grantee := grantLifecycleAddress(1), grantLifecycleAddress(2)
+	validator, denied := sdk.ValAddress(grantLifecycleAddress(3)), sdk.ValAddress(grantLifecycleAddress(4))
 	_, err := stakingtypes.NewStakeAuthorization([]sdk.ValAddress{validator}, []sdk.ValAddress{denied}, stakingtypes.AuthorizationType_AUTHORIZATION_TYPE_DELEGATE, nil)
 	require.Error(t, err)
 	authorization, err := stakingtypes.NewStakeAuthorization(nil, []sdk.ValAddress{denied}, stakingtypes.AuthorizationType_AUTHORIZATION_TYPE_DELEGATE, nil)
 	require.NoError(t, err)
-	_, err = repair691Grant(t, s, authorization, repair691Time.Add(time.Hour))
+	_, err = submitLifecycleGrant(t, s, authorization, grantLifecycleTime.Add(time.Hour))
 	require.NoError(t, err)
 	s.stop(t)
-	s = repair691Open(t, dir)
+	s = openGrantLifecycleState(t, dir)
 	stored, _ := s.keeper.GetCleanAuthorization(s.ctx, grantee, granter, sdk.MsgTypeURL(&stakingtypes.MsgDelegate{}))
 	require.Equal(t, []string{denied.String()}, stored.(*stakingtypes.StakeAuthorization).GetDenyList().Address)
 	msg := stakingtypes.NewMsgDelegate(granter, validator, sdk.NewInt64Coin("uhpx", 10))
@@ -342,34 +342,34 @@ func TestRepairM_691_ConceptsDenyOnly(t *testing.T) {
 	require.Contains(t, string(doc), "10 gas")
 }
 
-func TestRepairM_691_MessageExpirationDoc(t *testing.T) {
+func TestMessageExpirationDoc(t *testing.T) {
 	doc, err := os.ReadFile("spec/03_messages.md")
 	require.NoError(t, err)
 	for _, text := range []string{"expiration.After(ctx.BlockTime())", "ErrInvalidExpirationTime", "codespace `authz`", "code `3`", "no grant storage", "no `EventGrant`"} {
 		require.Contains(t, string(doc), text)
 	}
-	repair691AssertExpiredExecution(t)
+	assertExpiredGrantExecution(t)
 }
 
-func TestRepairM_691_ClientNetworkDoc(t *testing.T) {
-	s := repair691Open(t, t.TempDir())
-	_, err := repair691Grant(t, s, repair691SendAuthorization(), repair691Time.Add(time.Hour))
+func TestClientNetworkDoc(t *testing.T) {
+	s := openGrantLifecycleState(t, t.TempDir())
+	_, err := submitLifecycleGrant(t, s, grantLifecycleSendAuthorization(), grantLifecycleTime.Add(time.Hour))
 	require.NoError(t, err)
 	helper := baseapp.NewQueryServerTestHelper(s.ctx, s.registry)
 	authz.RegisterQueryServer(helper, s.keeper)
 	client := authz.NewQueryClient(helper)
-	pair, err := client.Grants(context.Background(), &authz.QueryGrantsRequest{Granter: repair691Address(1).String(), Grantee: repair691Address(2).String(), MsgTypeUrl: sdk.MsgTypeURL(&banktypes.MsgSend{})})
+	pair, err := client.Grants(context.Background(), &authz.QueryGrantsRequest{Granter: grantLifecycleAddress(1).String(), Grantee: grantLifecycleAddress(2).String(), MsgTypeUrl: sdk.MsgTypeURL(&banktypes.MsgSend{})})
 	require.NoError(t, err)
-	byGranter, err := client.GranterGrants(context.Background(), &authz.QueryGranterGrantsRequest{Granter: repair691Address(1).String()})
+	byGranter, err := client.GranterGrants(context.Background(), &authz.QueryGranterGrantsRequest{Granter: grantLifecycleAddress(1).String()})
 	require.NoError(t, err)
-	byGrantee, err := client.GranteeGrants(context.Background(), &authz.QueryGranteeGrantsRequest{Grantee: repair691Address(2).String()})
+	byGrantee, err := client.GranteeGrants(context.Background(), &authz.QueryGranteeGrantsRequest{Grantee: grantLifecycleAddress(2).String()})
 	require.NoError(t, err)
 	require.Len(t, pair.Grants, 1)
 	require.Len(t, byGranter.Grants, 1)
 	require.Len(t, byGrantee.Grants, 1)
 	doc, err := os.ReadFile("spec/05_client.md")
 	require.NoError(t, err)
-	for _, addr := range []sdk.AccAddress{repair691Address(1), repair691Address(2)} {
+	for _, addr := range []sdk.AccAddress{grantLifecycleAddress(1), grantLifecycleAddress(2)} {
 		require.Contains(t, string(doc), addr.String())
 		decoded, err := sdk.AccAddressFromBech32(addr.String())
 		require.NoError(t, err)

@@ -34,9 +34,9 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-var repair693BlockTime = time.Date(2030, 1, 1, 0, 0, 0, 0, time.UTC)
+var grantCLIBlockTime = time.Date(2030, 1, 1, 0, 0, 0, 0, time.UTC)
 
-func repair693CLIGrant(t *testing.T, cfg network.Config, expiration time.Time) (*authz.MsgGrant, []byte) {
+func createCLIGrant(t *testing.T, cfg network.Config, expiration time.Time) (*authz.MsgGrant, []byte) {
 	t.Helper()
 	granter := sdk.AccAddress(bytes.Repeat([]byte{1}, 20))
 	grantee := sdk.AccAddress(bytes.Repeat([]byte{2}, 20))
@@ -75,7 +75,7 @@ func repair693CLIGrant(t *testing.T, cfg network.Config, expiration time.Time) (
 	return msg, wire
 }
 
-func repair693Keeper(t *testing.T, cfg network.Config) (sdk.Context, keeper.Keeper, *sdk.KVStoreKey) {
+func grantCLIKeeper(t *testing.T, cfg network.Config) (sdk.Context, keeper.Keeper, *sdk.KVStoreKey) {
 	t.Helper()
 	db := dbm.NewMemDB()
 	cms := store.NewCommitMultiStore(db)
@@ -87,7 +87,7 @@ func repair693Keeper(t *testing.T, cfg network.Config) (sdk.Context, keeper.Keep
 	cms.MountStoreWithDB(tkey, sdk.StoreTypeTransient, db)
 	require.NoError(t, cms.LoadLatestVersion())
 	t.Cleanup(func() { require.NoError(t, cms.Close()) })
-	ctx := sdk.NewContext(cms, tmproto.Header{Height: 1, Time: repair693BlockTime}, false)
+	ctx := sdk.NewContext(cms, tmproto.Header{Height: 1, Time: grantCLIBlockTime}, false)
 	pk := paramskeeper.NewKeeper(cfg.Codec, cfg.LegacyAmino, keys[paramtypes.StoreKey], tkey)
 	ak := authkeeper.NewAccountKeeper(cfg.Codec, keys[authtypes.StoreKey], pk.Subspace(authtypes.ModuleName), authtypes.ProtoBaseAccount, nil)
 	bk := bankkeeper.NewBaseKeeper(cfg.Codec, keys[banktypes.StoreKey], ak, pk.Subspace(banktypes.ModuleName), nil)
@@ -99,7 +99,7 @@ func repair693Keeper(t *testing.T, cfg network.Config) (sdk.Context, keeper.Keep
 	return ctx, k, keys[authz.ModuleName]
 }
 
-func repair693Grants(t *testing.T, cfg network.Config, ctx sdk.Context, k keeper.Keeper, msg *authz.MsgGrant) *authz.QueryGrantsResponse {
+func queryCLIGrants(t *testing.T, cfg network.Config, ctx sdk.Context, k keeper.Keeper, msg *authz.MsgGrant) *authz.QueryGrantsResponse {
 	t.Helper()
 	transport := baseapp.NewQueryServerTestHelper(ctx, cfg.InterfaceRegistry)
 	authz.RegisterQueryServer(transport, k)
@@ -112,7 +112,7 @@ func repair693Grants(t *testing.T, cfg network.Config, ctx sdk.Context, k keeper
 	return &decoded
 }
 
-func TestRepairM_693_AuthzCLIConfig(t *testing.T) {
+func TestAuthzCLIConfig(t *testing.T) {
 	// The owning suite is tagged; keep its call checked by the untagged gate too.
 	file, err := parser.ParseFile(token.NewFileSet(), "cli_test.go", nil, 0)
 	require.NoError(t, err)
@@ -144,11 +144,11 @@ func TestRepairM_693_AuthzCLIConfig(t *testing.T) {
 	s.SetT(t)
 	require.Same(t, cfg.Codec, s.cfg.Codec)
 	require.NotNil(t, s.cfg.AppConstructor)
-	msg, _ := repair693CLIGrant(t, s.cfg, repair693BlockTime.Add(time.Hour))
-	ctx, k, _ := repair693Keeper(t, s.cfg)
+	msg, _ := createCLIGrant(t, s.cfg, grantCLIBlockTime.Add(time.Hour))
+	ctx, k, _ := grantCLIKeeper(t, s.cfg)
 	_, err = k.Grant(sdk.WrapSDKContext(ctx), msg)
 	require.NoError(t, err)
-	grants := repair693Grants(t, s.cfg, ctx, k, msg)
+	grants := queryCLIGrants(t, s.cfg, ctx, k, msg)
 	require.Len(t, grants.Grants, 1)
 	require.Equal(t, msg.Grant.Expiration, grants.Grants[0].Expiration)
 	require.Equal(t, msg.Grant.Authorization.TypeUrl, grants.Grants[0].Authorization.TypeUrl)
@@ -158,12 +158,12 @@ func TestRepairM_693_AuthzCLIConfig(t *testing.T) {
 	require.Equal(t, &authz.EventGrant{Granter: msg.Granter, Grantee: msg.Grantee, MsgTypeUrl: typeMsgSend}, event)
 }
 
-func TestRepairM_693_ExpiredGrantCLIFixture(t *testing.T) {
+func TestExpiredGrantCLIFixture(t *testing.T) {
 	for _, delta := range []time.Duration{-time.Hour, 0} {
 		t.Run(delta.String(), func(t *testing.T) {
 			cfg := network.DefaultConfig(t)
-			msg, _ := repair693CLIGrant(t, cfg, repair693BlockTime.Add(delta))
-			ctx, k, key := repair693Keeper(t, cfg)
+			msg, _ := createCLIGrant(t, cfg, grantCLIBlockTime.Add(delta))
+			ctx, k, key := grantCLIKeeper(t, cfg)
 			response, err := k.Grant(sdk.WrapSDKContext(ctx), msg)
 			require.Nil(t, response)
 			require.ErrorIs(t, err, authz.ErrInvalidExpirationTime)
@@ -183,7 +183,7 @@ func TestRepairM_693_ExpiredGrantCLIFixture(t *testing.T) {
 			require.Equal(t, "authz", decoded.Codespace)
 			s := NewIntegrationTestSuite(cfg)
 			s.SetT(t)
-			s.assertExpiredGrantRejected(&decoded, repair693Grants(t, cfg, ctx, k, msg))
+			s.assertExpiredGrantRejected(&decoded, queryCLIGrants(t, cfg, ctx, k, msg))
 			require.Empty(t, k.ExportGenesis(ctx).Authorization)
 			for _, event := range decoded.Events {
 				require.NotEqual(t, proto.MessageName(&authz.EventGrant{}), event.Type)

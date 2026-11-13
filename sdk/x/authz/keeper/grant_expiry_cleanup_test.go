@@ -17,7 +17,7 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-func repair692Keeper(t *testing.T, now time.Time) (Keeper, sdk.Context, *codec.ProtoCodec, *sdk.KVStoreKey) {
+func grantExpiryKeeper(t *testing.T, now time.Time) (Keeper, sdk.Context, *codec.ProtoCodec, *sdk.KVStoreKey) {
 	t.Helper()
 	db := dbm.NewMemDB()
 	cms := store.NewCommitMultiStore(db)
@@ -34,7 +34,7 @@ func repair692Keeper(t *testing.T, now time.Time) (Keeper, sdk.Context, *codec.P
 	return NewKeeper(key, cdc, router), sdk.NewContext(cms, tmproto.Header{Height: 1, Time: now}, false), cdc, key
 }
 
-func repair692RoundTrip(t *testing.T, k Keeper, ctx sdk.Context, cdc *codec.ProtoCodec) (Keeper, sdk.Context, *sdk.KVStoreKey) {
+func grantExpiryGenesisRoundTrip(t *testing.T, k Keeper, ctx sdk.Context, cdc *codec.ProtoCodec) (Keeper, sdk.Context, *sdk.KVStoreKey) {
 	t.Helper()
 	exported := k.ExportGenesis(ctx)
 	wire, err := cdc.Marshal(exported)
@@ -42,13 +42,13 @@ func repair692RoundTrip(t *testing.T, k Keeper, ctx sdk.Context, cdc *codec.Prot
 	var decoded authz.GenesisState
 	require.NoError(t, cdc.Unmarshal(wire, &decoded))
 	require.NoError(t, authz.ValidateGenesis(decoded))
-	restored, restoredCtx, _, restoredKey := repair692Keeper(t, ctx.BlockTime())
+	restored, restoredCtx, _, restoredKey := grantExpiryKeeper(t, ctx.BlockTime())
 	restored.InitGenesis(restoredCtx, &decoded)
 	require.Equal(t, exported, restored.ExportGenesis(restoredCtx))
 	return restored, restoredCtx, restoredKey
 }
 
-func TestRepairM_692_ExpiryCleanupAndExportImport(t *testing.T) {
+func TestExpiryCleanupAndExportImport(t *testing.T) {
 	for _, tc := range []struct {
 		name  string
 		after time.Duration
@@ -58,7 +58,7 @@ func TestRepairM_692_ExpiryCleanupAndExportImport(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			now := time.Date(2030, 1, 1, 0, 0, 0, 0, time.UTC)
-			k, ctx, cdc, storeKey := repair692Keeper(t, now)
+			k, ctx, cdc, storeKey := grantExpiryKeeper(t, now)
 			granter := sdk.AccAddress(bytes.Repeat([]byte{1}, 20))
 			grantee := sdk.AccAddress(bytes.Repeat([]byte{2}, 20))
 			grant := &banktypes.SendAuthorization{SpendLimit: sdk.NewCoins(sdk.NewInt64Coin("steak", 100))}
@@ -91,7 +91,7 @@ func TestRepairM_692_ExpiryCleanupAndExportImport(t *testing.T) {
 			require.Equal(t, 2, count)
 			require.Len(t, k.ExportGenesis(expiredCtx).Authorization, 2)
 
-			restored, restoredCtx, restoredKey := repair692RoundTrip(t, k, expiredCtx, cdc)
+			restored, restoredCtx, restoredKey := grantExpiryGenesisRoundTrip(t, k, expiredCtx, cdc)
 			require.False(t, restoredCtx.KVStore(restoredKey).Has(key))
 			stored, expiration = restored.GetCleanAuthorization(restoredCtx, grantee, granter, msgType)
 			require.Nil(t, stored)
@@ -106,9 +106,9 @@ func TestRepairM_692_ExpiryCleanupAndExportImport(t *testing.T) {
 	}
 }
 
-func TestRepairM_692_ExpiredImportIsCleaned(t *testing.T) {
+func TestExpiredImportIsCleaned(t *testing.T) {
 	now := time.Date(2030, 1, 1, 0, 0, 0, 0, time.UTC)
-	k, ctx, cdc, storeKey := repair692Keeper(t, now)
+	k, ctx, cdc, storeKey := grantExpiryKeeper(t, now)
 	granter := sdk.AccAddress(bytes.Repeat([]byte{3}, 20))
 	grantee := sdk.AccAddress(bytes.Repeat([]byte{4}, 20))
 	grant := &banktypes.SendAuthorization{SpendLimit: sdk.NewCoins(sdk.NewInt64Coin("steak", 100))}
@@ -123,7 +123,7 @@ func TestRepairM_692_ExpiredImportIsCleaned(t *testing.T) {
 
 	expiredCtx := ctx.WithBlockTime(expires.Add(time.Nanosecond))
 	require.Len(t, k.ExportGenesis(expiredCtx).Authorization, 1)
-	restored, restoredCtx, restoredKey := repair692RoundTrip(t, k, expiredCtx, cdc)
+	restored, restoredCtx, restoredKey := grantExpiryGenesisRoundTrip(t, k, expiredCtx, cdc)
 	require.True(t, restoredCtx.KVStore(restoredKey).Has(key), "import must actually restore the expired record before cleanup")
 	stored, expiration = restored.GetCleanAuthorization(restoredCtx, grantee, granter, msgType)
 	require.Nil(t, stored)
@@ -131,7 +131,7 @@ func TestRepairM_692_ExpiredImportIsCleaned(t *testing.T) {
 	require.False(t, restoredCtx.KVStore(restoredKey).Has(key))
 	require.Empty(t, restored.ExportGenesis(restoredCtx).Authorization)
 
-	reopened, reopenedCtx, reopenedKey := repair692RoundTrip(t, restored, restoredCtx, cdc)
+	reopened, reopenedCtx, reopenedKey := grantExpiryGenesisRoundTrip(t, restored, restoredCtx, cdc)
 	require.False(t, reopenedCtx.KVStore(reopenedKey).Has(key))
 	stored, expiration = reopened.GetCleanAuthorization(reopenedCtx, grantee, granter, msgType)
 	require.Nil(t, stored)

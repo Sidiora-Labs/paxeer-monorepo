@@ -41,14 +41,14 @@ import (
 	banktypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/types"
 )
 
-type repair660Fixture struct {
+type batchSigningFixture struct {
 	ctx   client.Context
 	codec *codec.ProtoCodec
 	keys  []keyring.Info
 	multi keyring.Info
 }
 
-func repair660Setup(t *testing.T) repair660Fixture {
+func newBatchSigningFixture(t *testing.T) batchSigningFixture {
 	t.Helper()
 	registry := codectypes.NewInterfaceRegistry()
 	std.RegisterInterfaces(registry)
@@ -60,7 +60,7 @@ func repair660Setup(t *testing.T) repair660Fixture {
 	authtypes.RegisterLegacyAminoCodec(amino)
 	banktypes.RegisterLegacyAminoCodec(amino)
 	kb := keyring.NewInMemory()
-	r := repair660Fixture{codec: cdc}
+	r := batchSigningFixture{codec: cdc}
 	for i, name := range []string{"alice", "bob"} {
 		info, err := kb.NewAccount(name, testdata.TestMnemonic, "", hd.CreateHDPath(118, 0, uint32(i)).String(), hd.Secp256k1)
 		require.NoError(t, err)
@@ -77,14 +77,14 @@ func repair660Setup(t *testing.T) repair660Fixture {
 	return r
 }
 
-func repair660File(t *testing.T, data []byte) string {
+func writeBatchSigningFile(t *testing.T, data []byte) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "batch.json")
 	require.NoError(t, os.WriteFile(path, data, 0600))
 	return path
 }
 
-func repair660Execute(cmd *cobra.Command, ctx client.Context, input io.Reader, args ...string) ([]byte, string, error) {
+func executeSigningCommand(cmd *cobra.Command, ctx client.Context, input io.Reader, args ...string) ([]byte, string, error) {
 	var out, stderr bytes.Buffer
 	cmd.SetOut(&out)
 	cmd.SetErr(&stderr)
@@ -101,11 +101,11 @@ func repair660Execute(cmd *cobra.Command, ctx client.Context, input io.Reader, a
 	return out.Bytes(), stderr.String(), err
 }
 
-func repair660OfflineArgs(args ...string) []string {
+func offlineSigningArgs(args ...string) []string {
 	return append(args, "--offline", "--account-number=7", "--sequence=11")
 }
 
-func (r repair660Fixture) unsigned(t *testing.T, multi bool, memos ...string) []byte {
+func (r batchSigningFixture) unsigned(t *testing.T, multi bool, memos ...string) []byte {
 	t.Helper()
 	signer := r.keys[0].GetAddress()
 	if multi {
@@ -128,13 +128,13 @@ func (r repair660Fixture) unsigned(t *testing.T, multi bool, memos ...string) []
 	return batch.Bytes()
 }
 
-func (r repair660Fixture) signatures(t *testing.T, unsigned []byte, multi bool, name string) []byte {
+func (r batchSigningFixture) signatures(t *testing.T, unsigned []byte, multi bool, name string) []byte {
 	t.Helper()
-	args := repair660OfflineArgs(repair660File(t, unsigned), "--from="+name, "--sign-mode=amino-json")
+	args := offlineSigningArgs(writeBatchSigningFile(t, unsigned), "--from="+name, "--sign-mode=amino-json")
 	if multi {
 		args = append(args, "--multisig=multi")
 	}
-	out, _, err := repair660Execute(cli.GetSignBatchCommand(), r.ctx, nil, args...)
+	out, _, err := executeSigningCommand(cli.GetSignBatchCommand(), r.ctx, nil, args...)
 	require.NoError(t, err)
 	for _, line := range bytes.Split(bytes.TrimSpace(out), []byte{'\n'}) {
 		sigs, err := r.ctx.TxConfig.UnmarshalSignatureJSON(line)
@@ -145,16 +145,16 @@ func (r repair660Fixture) signatures(t *testing.T, unsigned []byte, multi bool, 
 	return out
 }
 
-func (r repair660Fixture) signatureFiles(t *testing.T, unsigned []byte) []string {
+func (r batchSigningFixture) signatureFiles(t *testing.T, unsigned []byte) []string {
 	t.Helper()
 	var paths []string
 	for _, key := range r.keys {
-		paths = append(paths, repair660File(t, r.signatures(t, unsigned, true, key.GetName())))
+		paths = append(paths, writeBatchSigningFile(t, r.signatures(t, unsigned, true, key.GetName())))
 	}
 	return paths
 }
 
-func (r repair660Fixture) assertMultisigned(t *testing.T, data []byte, memos ...string) {
+func (r batchSigningFixture) assertMultisigned(t *testing.T, data []byte, memos ...string) {
 	t.Helper()
 	lines := bytes.Split(bytes.TrimSpace(data), []byte{'\n'})
 	require.Len(t, lines, len(memos))
@@ -174,30 +174,30 @@ func (r repair660Fixture) assertMultisigned(t *testing.T, data []byte, memos ...
 	}
 }
 
-func TestRepairM_660_MultisignOutputFile(t *testing.T) {
+func TestMultisignOutputFile(t *testing.T) {
 	for _, batch := range []bool{false, true} {
 		name := "single"
 		if batch {
 			name = "batch"
 		}
 		t.Run(name, func(t *testing.T) {
-			r := repair660Setup(t)
+			r := newBatchSigningFixture(t)
 			memos := []string{"first"}
 			if batch {
 				memos = append(memos, "second")
 			}
 			unsigned := r.unsigned(t, true, memos...)
 			sigFiles := r.signatureFiles(t, unsigned)
-			output := repair660File(t, []byte("previous document contents"))
+			output := writeBatchSigningFile(t, []byte("previous document contents"))
 			var previous bytes.Buffer
 			ctx := r.ctx.WithOutput(&previous)
-			args := append([]string{repair660File(t, unsigned), "multi"}, sigFiles...)
-			args = repair660OfflineArgs(append(args, "--output-document="+output)...)
+			args := append([]string{writeBatchSigningFile(t, unsigned), "multi"}, sigFiles...)
+			args = offlineSigningArgs(append(args, "--output-document="+output)...)
 			cmd := cli.GetMultiSignCommand()
 			if batch {
 				cmd = cli.GetMultiSignBatchCmd()
 			}
-			out, _, err := repair660Execute(cmd, ctx, nil, args...)
+			out, _, err := executeSigningCommand(cmd, ctx, nil, args...)
 			require.NoError(t, err)
 			require.Empty(t, out)
 			require.Empty(t, previous.Bytes())
@@ -207,13 +207,13 @@ func TestRepairM_660_MultisignOutputFile(t *testing.T) {
 		})
 	}
 	t.Run("single signature-only", func(t *testing.T) {
-		r := repair660Setup(t)
+		r := newBatchSigningFixture(t)
 		unsigned := r.unsigned(t, true, "signature")
-		args := append([]string{repair660File(t, unsigned), "multi"}, r.signatureFiles(t, unsigned)...)
-		output := repair660File(t, nil)
+		args := append([]string{writeBatchSigningFile(t, unsigned), "multi"}, r.signatureFiles(t, unsigned)...)
+		output := writeBatchSigningFile(t, nil)
 		var previous bytes.Buffer
-		out, _, err := repair660Execute(cli.GetMultiSignCommand(), r.ctx.WithOutput(&previous), nil,
-			repair660OfflineArgs(append(args, "--signature-only", "--output-document="+output)...)...)
+		out, _, err := executeSigningCommand(cli.GetMultiSignCommand(), r.ctx.WithOutput(&previous), nil,
+			offlineSigningArgs(append(args, "--signature-only", "--output-document="+output)...)...)
 		require.NoError(t, err)
 		require.Empty(t, out)
 		require.Empty(t, previous.Bytes())
@@ -227,14 +227,14 @@ func TestRepairM_660_MultisignOutputFile(t *testing.T) {
 	})
 }
 
-func TestRepairM_660_MultisignBatchCardinality(t *testing.T) {
+func TestMultisignBatchCardinality(t *testing.T) {
 	for _, longer := range []bool{false, true} {
 		name := "shorter"
 		if longer {
 			name = "longer"
 		}
 		t.Run(name, func(t *testing.T) {
-			r := repair660Setup(t)
+			r := newBatchSigningFixture(t)
 			two := r.unsigned(t, true, "first", "second")
 			one := r.unsigned(t, true, "first")
 			sigFiles := r.signatureFiles(t, two)
@@ -244,13 +244,13 @@ func TestRepairM_660_MultisignBatchCardinality(t *testing.T) {
 				input, badSigs, want = one, two, "unused signature for transaction 2"
 			}
 			// Keep the first file valid so the error identifies the second signer file.
-			sigFiles[0] = repair660File(t, r.signatures(t, input, true, "alice"))
-			sigFiles[1] = repair660File(t, r.signatures(t, badSigs, true, "bob"))
-			args := append([]string{repair660File(t, input), "multi"}, sigFiles...)
+			sigFiles[0] = writeBatchSigningFile(t, r.signatures(t, input, true, "alice"))
+			sigFiles[1] = writeBatchSigningFile(t, r.signatures(t, badSigs, true, "bob"))
+			args := append([]string{writeBatchSigningFile(t, input), "multi"}, sigFiles...)
 			var out []byte
 			var err error
 			require.NotPanics(t, func() {
-				out, _, err = repair660Execute(cli.GetMultiSignBatchCmd(), r.ctx, nil, repair660OfflineArgs(args...)...)
+				out, _, err = executeSigningCommand(cli.GetMultiSignBatchCmd(), r.ctx, nil, offlineSigningArgs(args...)...)
 			})
 			require.ErrorContains(t, err, want)
 			require.ErrorContains(t, err, "signature file 2")
@@ -260,7 +260,7 @@ func TestRepairM_660_MultisignBatchCardinality(t *testing.T) {
 	}
 }
 
-func repair660FailingPipe(t *testing.T, prefix []byte, failure error) io.Reader {
+func failingBatchSigningPipe(t *testing.T, prefix []byte, failure error) io.Reader {
 	t.Helper()
 	r, w := io.Pipe()
 	t.Cleanup(func() { _ = r.Close() })
@@ -275,11 +275,11 @@ func repair660FailingPipe(t *testing.T, prefix []byte, failure error) io.Reader 
 	return r
 }
 
-func repair660ReaderCases(t *testing.T, multi bool) {
+func testBatchSigningReaderErrors(t *testing.T, multi bool) {
 	t.Helper()
 	for _, scenario := range []string{"over 64 KiB", "line limit", "reader failure", "JSON failure"} {
 		t.Run(scenario, func(t *testing.T) {
-			r := repair660Setup(t)
+			r := newBatchSigningFixture(t)
 			first := r.unsigned(t, multi, "first")
 			input := first
 			var reader io.Reader
@@ -293,14 +293,14 @@ func repair660ReaderCases(t *testing.T, multi bool) {
 				input = append(append([]byte(nil), first...), r.unsigned(t, multi, strings.Repeat("m", 16*1024*1024))...)
 				wantErr = "token too long"
 			} else if scenario == "reader failure" {
-				reader = repair660FailingPipe(t, first, readErr)
+				reader = failingBatchSigningPipe(t, first, readErr)
 				wantErr = readErr.Error()
 			} else {
 				input = append(append([]byte(nil), first...), []byte("{invalid JSON}\n")...)
 				wantErr = "failed to decode"
 			}
 			cmd := cli.GetSignBatchCommand()
-			args := []string{repair660File(t, input), "--from=alice", "--sign-mode=amino-json"}
+			args := []string{writeBatchSigningFile(t, input), "--from=alice", "--sign-mode=amino-json"}
 			if multi {
 				cmd = cli.GetMultiSignBatchCmd()
 				signInput := first
@@ -312,7 +312,7 @@ func repair660ReaderCases(t *testing.T, multi bool) {
 			if reader != nil {
 				args[0] = "-"
 			}
-			out, _, err := repair660Execute(cmd, r.ctx, reader, repair660OfflineArgs(args...)...)
+			out, _, err := executeSigningCommand(cmd, r.ctx, reader, offlineSigningArgs(args...)...)
 			if wantErr == "" {
 				require.NoError(t, err)
 			} else {
@@ -341,43 +341,43 @@ func repair660ReaderCases(t *testing.T, multi bool) {
 	}
 }
 
-func TestRepairM_660_MultisignBatchReaderErrors(t *testing.T) {
-	repair660ReaderCases(t, true)
+func TestMultisignBatchReaderErrors(t *testing.T) {
+	testBatchSigningReaderErrors(t, true)
 }
 
-func TestRepairM_660_SignBatchReaderErrors(t *testing.T) {
-	repair660ReaderCases(t, false)
+func TestSignBatchReaderErrors(t *testing.T) {
+	testBatchSigningReaderErrors(t, false)
 }
 
-func (r repair660Fixture) signedSingle(t *testing.T) *txtypes.Tx {
+func (r batchSigningFixture) signedSingle(t *testing.T) *txtypes.Tx {
 	t.Helper()
 	unsigned := r.unsigned(t, false, "single")
-	out, _, err := repair660Execute(cli.GetSignCommand(), r.ctx, nil,
-		repair660OfflineArgs(repair660File(t, unsigned), "--from=alice", "--sign-mode=amino-json")...)
+	out, _, err := executeSigningCommand(cli.GetSignCommand(), r.ctx, nil,
+		offlineSigningArgs(writeBatchSigningFile(t, unsigned), "--from=alice", "--sign-mode=amino-json")...)
 	require.NoError(t, err)
 	decoded, err := r.ctx.TxConfig.TxJSONDecoder()(out)
 	require.NoError(t, err)
 	return decoded.(interface{ GetProtoTx() *txtypes.Tx }).GetProtoTx()
 }
 
-func (r repair660Fixture) validate(t *testing.T, tx *txtypes.Tx, online bool, ctx client.Context) (string, error) {
+func (r batchSigningFixture) validate(t *testing.T, tx *txtypes.Tx, online bool, ctx client.Context) (string, error) {
 	t.Helper()
 	bz, err := r.ctx.TxConfig.TxJSONEncoder()(tx)
 	require.NoError(t, err)
-	args := []string{repair660File(t, bz)}
+	args := []string{writeBatchSigningFile(t, bz)}
 	if !online {
-		args = repair660OfflineArgs(args...)
+		args = offlineSigningArgs(args...)
 	}
 	var stderr string
 	require.NotPanics(t, func() {
-		_, stderr, err = repair660Execute(cli.GetValidateSignaturesCommand(), ctx, nil, args...)
+		_, stderr, err = executeSigningCommand(cli.GetValidateSignaturesCommand(), ctx, nil, args...)
 	})
 	return stderr, err
 }
 
-func TestRepairM_660_ValidateOptionalKey(t *testing.T) {
+func TestValidateOptionalKey(t *testing.T) {
 	t.Run("offline omitted key", func(t *testing.T) {
-		r := repair660Setup(t)
+		r := newBatchSigningFixture(t)
 		tx := r.signedSingle(t)
 		tx.AuthInfo.SignerInfos[0].PublicKey = nil
 		stderr, err := r.validate(t, tx, false, r.ctx)
@@ -386,7 +386,7 @@ func TestRepairM_660_ValidateOptionalKey(t *testing.T) {
 		require.Contains(t, stderr, "online account lookup is required")
 	})
 	t.Run("unsigned transaction", func(t *testing.T) {
-		r := repair660Setup(t)
+		r := newBatchSigningFixture(t)
 		decoded, err := r.ctx.TxConfig.TxJSONDecoder()(r.unsigned(t, false, "unsigned"))
 		require.NoError(t, err)
 		stderr, err := r.validate(t, decoded.(interface{ GetProtoTx() *txtypes.Tx }).GetProtoTx(), false, r.ctx)
@@ -395,7 +395,7 @@ func TestRepairM_660_ValidateOptionalKey(t *testing.T) {
 	})
 	for _, scenario := range []string{"established key", "no established key", "wrong established key", "tampered transaction"} {
 		t.Run("online "+scenario, func(t *testing.T) {
-			r := repair660Setup(t)
+			r := newBatchSigningFixture(t)
 			tx := r.signedSingle(t)
 			tx.AuthInfo.SignerInfos[0].PublicKey = nil
 			var publicKey cryptotypes.PubKey = r.keys[0].GetPubKey()
@@ -457,13 +457,13 @@ func TestRepairM_660_ValidateOptionalKey(t *testing.T) {
 	}
 }
 
-func TestRepairM_660_ValidateMalformedMultisig(t *testing.T) {
+func TestValidateMalformedMultisig(t *testing.T) {
 	for _, scenario := range []string{"invalid bytes", "conversion error", "missing member", "missing bit array", "missing outer signature", "missing mode info"} {
 		t.Run(scenario, func(t *testing.T) {
-			r := repair660Setup(t)
+			r := newBatchSigningFixture(t)
 			unsigned := r.unsigned(t, true, "multi")
-			args := append([]string{repair660File(t, unsigned), "multi"}, r.signatureFiles(t, unsigned)...)
-			out, _, err := repair660Execute(cli.GetMultiSignCommand(), r.ctx, nil, repair660OfflineArgs(args...)...)
+			args := append([]string{writeBatchSigningFile(t, unsigned), "multi"}, r.signatureFiles(t, unsigned)...)
+			out, _, err := executeSigningCommand(cli.GetMultiSignCommand(), r.ctx, nil, offlineSigningArgs(args...)...)
 			require.NoError(t, err)
 			parsed, err := r.ctx.TxConfig.TxJSONDecoder()(out)
 			require.NoError(t, err)

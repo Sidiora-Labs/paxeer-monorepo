@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func repair301Dispatch(t *testing.T, a *app.App, ctx sdk.Context, msg sdk.Msg) (*sdk.Result, error) {
+func dispatchVestingMessage(t *testing.T, a *app.App, ctx sdk.Context, msg sdk.Msg) (*sdk.Result, error) {
 	t.Helper()
 	txConfig := app.MakeEncodingConfig().TxConfig
 	builder := txConfig.NewTxBuilder()
@@ -31,7 +31,7 @@ func repair301Dispatch(t *testing.T, a *app.App, ctx sdk.Context, msg sdk.Msg) (
 	return handler(ctx, decoded)
 }
 
-func repair301StoreSnapshot(store sdk.KVStore) map[string]string {
+func vestingStoreSnapshot(store sdk.KVStore) map[string]string {
 	state := make(map[string]string)
 	it := store.Iterator(nil, nil)
 	defer it.Close()
@@ -41,7 +41,7 @@ func repair301StoreSnapshot(store sdk.KVStore) map[string]string {
 	return state
 }
 
-func repair301Forbidden(t *testing.T, forbiddenSender bool) {
+func testForbiddenVestingTransfer(t *testing.T, forbiddenSender bool) {
 	t.Helper()
 	a := app.Setup(t, false, false, false)
 	root := a.NewContext(false, tmproto.Header{Height: a.LastBlockHeight() + 1, Time: time.Unix(1700000000, 0)})
@@ -66,35 +66,35 @@ func repair301Forbidden(t *testing.T, forbiddenSender bool) {
 			a.BankKeeper.SetDenomAllowList(ctx, denom, banktypes.AllowList{Addresses: []string{allowed.String()}})
 			a.BankKeeper.SetDenomAllowList(ctx, otherDenom, banktypes.AllowList{Addresses: []string{from.String(), to.String()}})
 			require.Nil(t, a.AccountKeeper.GetAccount(ctx, to))
-			accounts := repair301StoreSnapshot(ctx.KVStore(a.GetKey(authtypes.StoreKey)))
-			bank := repair301StoreSnapshot(ctx.KVStore(a.GetKey(banktypes.StoreKey)))
+			accounts := vestingStoreSnapshot(ctx.KVStore(a.GetKey(authtypes.StoreKey)))
+			bank := vestingStoreSnapshot(ctx.KVStore(a.GetKey(banktypes.StoreKey)))
 
-			bankResult, bankErr := repair301Dispatch(t, a, ctx, banktypes.NewMsgSend(from, to, amount))
+			bankResult, bankErr := dispatchVestingMessage(t, a, ctx, banktypes.NewMsgSend(from, to, amount))
 			require.ErrorIs(t, bankErr, sdkerrors.ErrUnauthorized)
 			require.Nil(t, bankResult)
 			msg := vestingtypes.NewMsgCreateVestingAccount(from, to, amount, ctx.BlockTime().Unix()+10000, delayed, nil)
-			result, err := repair301Dispatch(t, a, ctx, msg)
+			result, err := dispatchVestingMessage(t, a, ctx, msg)
 			require.ErrorIs(t, err, sdkerrors.ErrUnauthorized)
 			require.EqualError(t, err, bankErr.Error())
 			require.Nil(t, result)
 			require.Nil(t, a.AccountKeeper.GetAccount(ctx, to))
 			require.Equal(t, amount, a.BankKeeper.GetAllBalances(ctx, from))
 			require.True(t, a.BankKeeper.GetAllBalances(ctx, to).IsZero())
-			require.Equal(t, accounts, repair301StoreSnapshot(ctx.KVStore(a.GetKey(authtypes.StoreKey))), "rejection must not allocate an account number or mutate any account")
-			require.Equal(t, bank, repair301StoreSnapshot(ctx.KVStore(a.GetKey(banktypes.StoreKey))), "rejection must not mutate balances, supply or allowlists")
+			require.Equal(t, accounts, vestingStoreSnapshot(ctx.KVStore(a.GetKey(authtypes.StoreKey))), "rejection must not allocate an account number or mutate any account")
+			require.Equal(t, bank, vestingStoreSnapshot(ctx.KVStore(a.GetKey(banktypes.StoreKey))), "rejection must not mutate balances, supply or allowlists")
 		})
 	}
 }
 
-func TestRepair_301_ForbiddenSender(t *testing.T) {
-	repair301Forbidden(t, true)
+func TestForbiddenSender(t *testing.T) {
+	testForbiddenVestingTransfer(t, true)
 }
 
-func TestRepair_301_ForbiddenRecipient(t *testing.T) {
-	repair301Forbidden(t, false)
+func TestForbiddenRecipient(t *testing.T) {
+	testForbiddenVestingTransfer(t, false)
 }
 
-func TestRepair_301_AuthorizedTransfers(t *testing.T) {
+func TestAuthorizedTransfers(t *testing.T) {
 	a := app.Setup(t, false, false, false)
 	root := a.NewContext(false, tmproto.Header{Height: a.LastBlockHeight() + 1, Time: time.Unix(1700000000, 0)})
 	from := sdk.AccAddress([]byte("repair301_sender____"))
@@ -118,7 +118,7 @@ func TestRepair_301_AuthorizedTransfers(t *testing.T) {
 					a.BankKeeper.SetDenomAllowList(ctx, denom, banktypes.AllowList{Addresses: []string{from.String(), to.String()}})
 				}
 				msg := vestingtypes.NewMsgCreateVestingAccount(from, to, amount, ctx.BlockTime().Unix()+10000, delayed, nil)
-				result, err := repair301Dispatch(t, a, ctx, msg)
+				result, err := dispatchVestingMessage(t, a, ctx, msg)
 				require.NoError(t, err)
 				require.NotNil(t, result)
 				account := a.AccountKeeper.GetAccount(ctx, to)
@@ -137,7 +137,7 @@ func TestRepair_301_AuthorizedTransfers(t *testing.T) {
 	}
 }
 
-func TestRepair_301_ModuleTransferPermissions(t *testing.T) {
+func TestModuleTransferPermissions(t *testing.T) {
 	a := app.Setup(t, false, false, false)
 	ctx := a.NewContext(false, tmproto.Header{Height: a.LastBlockHeight() + 1, Time: time.Unix(1700000000, 0)})
 	to := sdk.AccAddress([]byte("repair301_recipient_"))
