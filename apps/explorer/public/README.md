@@ -8,4 +8,4 @@
 
 ## Files
 
-- `openapi.yaml` - OpenAPI document of the explorer backend shown on the REST API tab of the API documentation page. It is the output of [`gen-swagger.py`](../../../services/explorer/deploy/tools/gen-swagger.py) and is regenerated together with the backend routes.
+- `openapi.yaml` - OpenAPI document of the explorer backend shown on the REST API tab of the API documentation page. The backend specification generator is [`gen-swagger.py`](../../../services/explorer/deploy/tools/gen-swagger.py); its `-o` option selects the output file. Its default output is the backend’s `swagger.yaml`.

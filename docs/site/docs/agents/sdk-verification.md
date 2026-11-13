@@ -36,7 +36,7 @@ The fixture keys and validator sets are test trust anchors.
 | --- | --- |
 | `layerxproof/verify/receipt.go` | `ReceiptSignature` authenticates canonical receipt bytes under a supplied key. `ReceiptAtRoot` additionally checks a Merkle path under a supplied receipt root. The caller authenticates the key and root. |
 | `rpc/sequencer_receipt.go` | `SequencerReceiptResult.Verify(pins...)` checks the RPC view against signed bytes and, when supplied, key pins. Callers must supply trusted pins; calling without them checks consistency and signature only. |
-| `sdk/platform/go/verify.go` | `VerifySequencerReceipt(receiptJSON, rawTransaction, keys)` verifies a receipted JSON view, raw transaction hash, key range, sequence predecessor and execution fields. |
+| `sdk/platform/go/verify.go` | `VerifySequencerReceipt(receiptJSON, rawTransaction, keys)` verifies a receipted or committed JSON view, raw transaction hash, key range, sequence predecessor and execution fields. Its verified result remains `receipted` until committed evidence is verified. |
 | `sdk/platform/go/committed.go` | `VerifyCommittedReceipt` adds execution-block and successor-block commits plus transaction, batch and execution-result inclusion. Its `ReceiptInclusion` is the SDK evidence type. |
 | `sdk/platform/go/portable_receipt.go` | `VerifyPortableReceipt(data, keys, trust...)` verifies the Go SDK bundle using caller-supplied receipt pins and, for committed evidence, consensus trust. `ExportPortableReceipt(receiptJSON, rawTransaction, keys, committed, trust...)` constructs and verifies it before export. |
 
@@ -47,12 +47,12 @@ only `receipted`. Both use the format label `layerx-receipt-proof-v2`;
 select the consumer by its complete schema. See
 [Portable receipt verifier](../interop/portable-receipts.md#go-sdk-bundles).
 
-The Go SDK's `VerifySequencerReceipt` accepts the receipted view rather than
-the node's committed result envelope. Follow the adapter in
-`sdk/platform/go/conformance_vectors_test.go` when preparing committed
-inputs: preserve block metadata as separate evidence and verify it through
-`VerifyCommittedReceipt`. Do not discard metadata and then label the
-receipted verification result committed.
+The Go SDK's `VerifySequencerReceipt` accepts the node's committed result
+envelope and retains its block number and hash in `TransportBlock`. Those
+coordinates describe the transport's claimed block; the returned `Rung` and
+`Level` remain `receipted`. Pass the verified receipt and independent chain
+evidence to `VerifyCommittedReceipt`, which binds any retained coordinates to
+the authenticated execution block before returning `committed`.
 
 ## Shared receipt vectors
 
@@ -85,10 +85,13 @@ The mappings and exact encodings are documented in
    protocol, nonzero activity identifier, a present signature and strict
    Ed25519 verification over the receipt digest. It does not authorize the
    supplied key by itself.
-3. Bind the activity identifier to `keccak256(rawTransaction)`. Check the
-   signed transaction's chain, sender and nonce. Bind the global sequence and
-   activity identifier to the trusted predecessor sequence hash; the SDK's
-   `ReceiptKeys.PreviousSequenceHash` supplies that predecessor.
+3. Bind the activity identifier to `keccak256(rawTransaction)`. The caller
+   must also decode the signed transaction and check its chain, sender and
+   nonce against the intended operation. The Go receipt verifier checks the
+   raw transaction hash and the JSON nonce's agreement with the signed
+   receipt. Bind the global sequence and activity identifier to the trusted
+   predecessor sequence hash; the SDK's `ReceiptKeys.PreviousSequenceHash`
+   supplies that predecessor.
 4. Bind the JSON view to the signed fields: status, return-data digest, logs
    and their order, gas and fee fields. Check both constructor logs for the
    daemon V1 recording. For V2, require status zero and result code one,

@@ -11,8 +11,7 @@ and serves facts to hosted consumers. It does not establish a second consensus
 or settlement domain. The pre-merge standalone replica and LNI deployment is
 retired; do not recreate it to obtain network finality.
 
-Public JSON-RPC uses the root path of `api1.mainnet-beta.paxeer.network` through
-`api14.mainnet-beta.paxeer.network`, and `api-mainnet-beta.paxeer.network`.
+Public JSON-RPC uses the root path of the operator-provided node origin.
 See [public RPC](../reference/public-rpc.md). The hosted authority's TLS HTTP
 routes below are an internal service contract, distinct from those public node
 endpoints. Hosted principal and session authentication is described in
@@ -100,16 +99,12 @@ eight-field hosted `AuthorizedBatch` response as its settlement authority.
 ## Deployment
 
 The binary entrypoint is `/usr/local/bin/layerx-receipt-authority`
-(`docker/platform-authority/Dockerfile`). The hosted node manifest
-`services/platform/hosted/node/deployment.yaml` places container
-`receipt-authority` alongside the native node. It runs as user `4021`, group
-`4020`, under the generation client and runtime clock. Service
-`layerx-receipt-authority` maps ClusterIP port `9443` to `authority-tls` on
-container port `9445`.
+(`docker/platform-authority/Dockerfile`). The image runs as user/group
+`4020:4020` through `layerx-runtime-clock`. Deploy the authority separately
+and provision its TLS listener, which defaults to port `9445`.
 
 Supply the node receipt endpoint and protected receipt-key file required by
-`config()` in `src/main.rs`; the manifest's compatibility replica settings alone
-are insufficient. There is no LNI socket requirement. For the chain URL, use a
+`config()` in `src/main.rs`. There is no LNI socket requirement. For the chain URL, use a
 loopback HTTP node endpoint at its root path. This service's loader accepts
 `127.0.0.1`, `localhost`, or `[::1]` with an explicit port.
 

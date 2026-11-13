@@ -1,204 +1,99 @@
-# Next.js production readiness checklist
+# Launchpad web configuration checklist
 
-Planning checks for a Next.js (App Router) frontend. Items marked **[RT]** apply particularly to real-time, financial and trading interfaces. These checks are recommendations, not a statement of deployed capacity.
+The launchpad web app is in [`apps/launchpad/web`](../../apps/launchpad/web).
+Its [package manifest](../../apps/launchpad/web/package.json) pins Next.js
+15.5.28 and declares React 19. The launchpad workspace uses pnpm 9.15.0.
+The checks below cover configuration and behavior present in this application.
 
----
+## Backend and wallet configuration
 
-## 1. Rendering & Architecture
+- [ ] Set `NEXT_PUBLIC_DATA_API_URL`, `NEXT_PUBLIC_GATEWAY_URL`,
+  `NEXT_PUBLIC_METADATA_API_URL` and `NEXT_PUBLIC_PNL_API_URL` for the selected
+  deployment. The [backend resolver](../../apps/launchpad/web/src/core/backend-origins.ts)
+  validates HTTP(S) URLs and requires HTTPS in production. The data, gateway
+  and metadata SDK values must be origins without a path prefix.
+- [ ] Select the public market stream with `NEXT_PUBLIC_STREAM_ORIGIN`, or use
+  the resolver's WebSocket form of the data origin. Optional
+  `NEXT_PUBLIC_PRIVATE_API_ORIGIN` and `NEXT_PUBLIC_PRIVATE_STREAM_ORIGIN`
+  select private transports; absent values use the page origin.
+- [ ] Set the server-side build inputs `WEB_GATEWAY_UPSTREAM`,
+  `WEB_API_UPSTREAM`, `WEB_SOCKETS_UPSTREAM` and `WEB_CHARTS_UPSTREAM`.
+  [`backendRewrites`](../../apps/launchpad/web/src/core/next-build-config.ts)
+  requires all four in production and maps same-origin authentication,
+  control, network, snapshot, stream and chart requests to their backends.
+- [ ] Configure node-root RPC URLs through `NEXT_PUBLIC_RPC_URL`,
+  `NEXT_PUBLIC_RPC_URL_FALLBACK` or `NEXT_PUBLIC_PAXEER_RPC_URL` when overriding
+  the app's default. The [RPC resolver](../../apps/launchpad/web/src/core/rpc.ts)
+  rejects credentials, query strings, fragments and path prefixes. Production
+  RPC URLs require HTTPS. Verify chain ID 125 before a wallet submission.
+- [ ] Set `NEXT_PUBLIC_WALLET_IFRAME_ORIGIN` only for wallet parents that may
+  embed the app. It accepts comma-separated HTTP(S) origins; production values
+  require HTTPS. The same values configure the wallet bridge and frame policy.
+- [ ] Supply `NEXT_PUBLIC_SUPABASE_URL` and
+  `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` together when enabling the embedded
+  wallet. Without both, the sign-in dialog offers browser wallets. Keep private
+  signing and service credentials out of `NEXT_PUBLIC_*` inputs.
+- [ ] Check the root layout with the deployment configuration. Missing or
+  unusable backend configuration renders the
+  [configuration message](../../apps/launchpad/web/src/ui/shared/backend-configuration-error.tsx)
+  instead of mounting the application providers.
 
-- [ ] **Deliberate rendering strategy per route** — know exactly which routes are static (SSG), incrementally regenerated (ISR), server-rendered per request (SSR/dynamic), or client-rendered. Don't let routes go dynamic by accident.
-- [ ] **React Server Components by default** — keep `"use client"` at the leaves, not the root. Every client component ships JS; minimize the client bundle.
-- [ ] **Streaming with Suspense** — stream above-the-fold content first; defer slow data with `<Suspense>` boundaries so TTFB isn't gated by your slowest query.
-- [ ] **Partial Prerendering (PPR)** where supported — static shell + dynamic holes, served from the edge.
-- [ ] **Runtime chosen per route** — Edge runtime for low-latency/geo-distributed reads; Node runtime where you need full Node APIs or heavier compute.
-- [ ] **Route segment config explicit** — `dynamic`, `revalidate`, `runtime`, `fetchCache` set intentionally, not defaulted.
-- [ ] **`loading.tsx`, `error.tsx`, `not-found.tsx`** present for every meaningful segment.
-- [ ] **Server Actions** used judiciously — understand their POST-per-action cost and rate-limit them.
-- [ ] **No giant client trees** — audit with `@next/bundle-analyzer`; split by route and interaction.
+## Security and assets
 
-## 2. Performance & Core Web Vitals
+- [ ] Inspect the headers produced by
+  [`src/middleware.ts`](../../apps/launchpad/web/src/middleware.ts).
+  Matched routes receive HSTS, `X-Content-Type-Options` and `Referrer-Policy`.
+  The main content security policy derives connection and frame origins from
+  the configured backends and wallets; its script and style directives permit
+  inline content. `/charting_library` uses its own policy, including
+  `unsafe-eval`.
+- [ ] Check frame embedding with the selected wallet configuration. The main
+  middleware response sets `X-Frame-Options: SAMEORIGIN` when no wallet parent
+  origin is configured and uses CSP `frame-ancestors` for configured parents.
+- [ ] Check remote images against
+  [`next.config.ts`](../../apps/launchpad/web/next.config.ts). Image patterns
+  include resolved backend image origins and the configured external image
+  services. Remote SVG optimization is disabled; the image response limit is
+  8,388,608 bytes.
+- [ ] Configure `SENTRY_ORG`, `SENTRY_PROJECT` and `SENTRY_AUTH_TOKEN` when
+  uploading source maps. The Next.js Sentry wrapper disables source-map upload
+  without the token and uses `/monitoring` as its ingestion tunnel.
 
-- [ ] **Budgets enforced in CI** — LCP < 2.5s, INP < 200ms, CLS < 0.1, TTFB < 800ms. Fail the build if exceeded.
-- [ ] **JS bundle budget** — set a hard per-route KB limit; track regressions on every PR.
-- [ ] **`next/image`** for all images — sizing, `priority` on LCP image, modern formats (AVIF/WebP), responsive `sizes`.
-- [ ] **`next/font`** — self-hosted, zero layout shift, subset to needed glyphs (subset each configured font).
-- [ ] **Dynamic imports** (`next/dynamic`) for heavy, below-fold, or rarely-used components (charts, modals, editors).
-- [ ] **List virtualization** **[RT]** — `@tanstack/react-virtual` or similar for orderbooks, trade feeds, positions tables. Never render thousands of DOM rows.
-- [ ] **Web Workers** **[RT]** — move decoding, heavy math, CBOR/`.kvx` parsing, and aggregation off the main thread.
-- [ ] **Avoid main-thread jank** **[RT]** — batch high-frequency WS updates with `requestAnimationFrame`; don't `setState` on every tick.
-- [ ] **Memoization where it pays** — `React.memo`, `useMemo`, stable callbacks for hot components; profile before sprinkling.
-- [ ] **Prefetching** — `<Link prefetch>` for likely navigations; avoid over-prefetching on data-heavy pages.
-- [ ] **Third-party scripts** via `next/script` with correct strategy (`lazyOnload`/`afterInteractive`); audit their cost.
-- [ ] **Compression** — Brotli/gzip at the edge/CDN.
-- [ ] **Tree-shaking verified** — no accidental full-library imports (lodash, date libs, icon packs).
+## Market and chain launch
 
-## 3. Caching & Data Fetching
+- [ ] Open `/create/chain` on chain ID 125 and review token details, chain name,
+  size tier and fee share. The [chain adapter](../../apps/launchpad/web/src/widgets/create-chain/chain-adapters.ts)
+  reads registry parameters and name availability, estimates transaction gas,
+  and rechecks the wallet account and chain before sending `launchChain`.
+- [ ] Retain the submitted transaction hash through confirmation. A pending
+  submission is confirmed again before another launch is sent. The adapter
+  checks the receipt's `ChainLaunched` event and reads the launch, registry and
+  token details at the receipt's block.
+- [ ] Use the returned registry number for the domain RPC path and its derived
+  EVM chain ID for signing. See [Launch a market and chain](chain-launch.md)
+  for the ABI, home-chain trading rules and revenue claims.
 
-- [ ] **Explicit cache semantics** — in Next 15, `fetch` is **not** cached by default; opt in per call (`cache`, `next.revalidate`, `use cache`). Document the policy.
-- [ ] **CDN/edge caching** for static and ISR assets with correct `Cache-Control` and `s-maxage`/`stale-while-revalidate`.
-- [ ] **Client data layer** — TanStack Query or SWR for dedup, background refetch, stale-while-revalidate, retry, and cache invalidation.
-- [ ] **Request deduplication & batching** — collapse concurrent identical requests.
-- [ ] **Shared server cache** (Redis/Upstash) for ISR coordination and rate-limit counters across instances.
-- [ ] **Cache invalidation strategy** — `revalidatePath` / `revalidateTag` wired to your data mutations; tags documented.
-- [ ] **Stale data tolerances defined** **[RT]** — prices/balances must never be served stale; static content can be. Be explicit per data type.
+## Build and runtime commands
 
-## 4. State Management
+Run these commands from the repository root when working on this application:
 
-- [ ] **Server state vs client state separated** — server state in TanStack Query; UI state in Zustand/Jotai; URL state in the URL.
-- [ ] **No global store for everything** — scope state to avoid app-wide re-renders.
-- [ ] **URL as source of truth** for shareable/restorable state (filters, selected market, tab).
-- [ ] **Optimistic updates** **[RT]** with rollback on failure (order placement, cancels).
-- [ ] **Hydration-safe** — no `window`/`localStorage` access during render; guard against hydration mismatches.
+```sh
+pnpm --dir apps/launchpad --filter @sidiora/web typecheck
+pnpm --dir apps/launchpad --filter @sidiora/web test
+pnpm --dir apps/launchpad --filter @sidiora/web build
+```
 
-## 5. Real-Time / WebSocket Layer **[RT]**
+The test script prepares its environment before running Vitest. The development
+script uses Next.js with Turbopack on port 3050:
 
-- [ ] **Connection manager** — single multiplexed connection where possible; subscribe/unsubscribe per channel.
-- [ ] **Auto-reconnect with exponential backoff + jitter** and capped retries.
-- [ ] **Heartbeat / ping-pong** and dead-connection detection.
-- [ ] **Resubscribe on reconnect** — restore all active subscriptions automatically.
-- [ ] **Backpressure handling** — drop/coalesce stale ticks; never queue unbounded.
-- [ ] **Sequence/gap detection** — detect missed messages, trigger snapshot resync (critical for orderbooks).
-- [ ] **Snapshot + delta model** — initial REST/snapshot, then apply incremental diffs.
-- [ ] **Page visibility awareness** — throttle or pause updates when the tab is hidden.
-- [ ] **Precision-safe number handling** — use decimal/BigInt for prices and balances; never float arithmetic for money.
-- [ ] **Server-Sent Events fallback** where WS is blocked by corporate proxies.
+```sh
+pnpm --dir apps/launchpad --filter @sidiora/web dev
+```
 
-## 6. Security
+The build uses standalone output unless `VERCEL` is set. `NEXT_DIST_DIR`
+selects an alternate build directory. Set `ANALYZE=true` for the configured
+bundle analyzer when inspecting the production bundle:
 
-- [ ] **Strict Content-Security-Policy** — nonce-based; no `unsafe-inline`/`unsafe-eval`. Review whether the WASM loader requires `wasm-unsafe-eval`.
-- [ ] **Security headers** — HSTS, `X-Frame-Options`/`frame-ancestors`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`. Set in `next.config` headers or middleware.
-- [ ] **Subresource Integrity (SRI)** for any external scripts.
-- [ ] **No secrets in client bundle** — only `NEXT_PUBLIC_*` is exposed; audit for leaked keys.
-- [ ] **Input validation** server-side with a schema lib (Zod); never trust client validation alone.
-- [ ] **XSS prevention** — sanitize any `dangerouslySetInnerHTML`; avoid it.
-- [ ] **CSRF protection** for cookie-based mutations / Server Actions.
-- [ ] **Rate limiting & abuse protection** at the edge (per-IP, per-user).
-- [ ] **DDoS / WAF** at the CDN layer.
-- [ ] **Dependency scanning** — `npm audit`, Dependabot/Renovate, Snyk in CI.
-- [ ] **Wallet/signing safety** **[RT]** — keys never leave the wallet; clear signing prompts; nonce/replay protection; SIWE for auth; show exactly what's being signed.
-- [ ] **Secrets management** — vault/KMS, not `.env` in the repo; rotate regularly.
-
-## 7. Authentication & Authorization
-
-- [ ] **Battle-tested auth** — Auth.js (NextAuth), Clerk, WorkOS, or a hardened custom flow; SIWE for wallet auth.
-- [ ] **Secure session handling** — `httpOnly`, `Secure`, `SameSite` cookies; short-lived access + refresh rotation.
-- [ ] **Authorization enforced server-side** — middleware + per-request checks; never rely on hiding UI.
-- [ ] **RBAC / scopes** defined and tested.
-- [ ] **Token refresh** seamless and race-safe (single-flight refresh).
-- [ ] **Logout invalidates server session**, not just client state.
-- [ ] **Protected routes** via middleware with minimal latency cost.
-
-## 8. Error Handling & Resilience
-
-- [ ] **Error boundaries** at meaningful granularity; one failing widget shouldn't blank the page.
-- [ ] **Graceful degradation** — app remains usable if a non-critical service is down.
-- [ ] **Retry with backoff** for transient failures; circuit breaker for repeated failures.
-- [ ] **Offline / network-loss UX** — clear banners, queued actions where safe.
-- [ ] **User-facing error messages** that are actionable, not stack traces.
-- [ ] **Fallback UI** for failed data, not infinite spinners.
-
-## 9. Observability & Monitoring
-
-- [ ] **Error tracking** — Sentry (or equivalent) with source maps uploaded, release tracking, user/session context.
-- [ ] **Real User Monitoring (RUM)** — Core Web Vitals from the field, not just lab.
-- [ ] **`reportWebVitals`** wired to your analytics.
-- [ ] **Structured logging** with request/trace IDs; distributed tracing across edge → API.
-- [ ] **Uptime + synthetic checks** on critical flows (login, place order, load market).
-- [ ] **Alerting** with sane thresholds and on-call routing — error rate, latency p95/p99, WS disconnect rate **[RT]**.
-- [ ] **Product analytics** (privacy-respecting) for funnels and feature usage.
-- [ ] **Dashboards** — include frontend metrics alongside gateway metrics.
-
-## 10. Testing
-
-- [ ] **Unit tests** — Vitest/Jest for logic, formatters, precision math **[RT]**.
-- [ ] **Component tests** — Testing Library for behavior, not implementation.
-- [ ] **E2E tests** — Playwright for critical paths (auth, order placement, deposits).
-- [ ] **Visual regression** — Chromatic/Playwright snapshots for the design system.
-- [ ] **Accessibility tests** — axe in CI.
-- [ ] **Load / stress testing** — k6/Artillery against SSR endpoints and WS fan-out **[RT]**.
-- [ ] **Contract tests** against your APIs to catch breaking changes.
-- [ ] **Coverage gates** in CI on critical packages.
-
-## 11. CI/CD & Deployment
-
-- [ ] **Automated pipeline** — lint, typecheck, test, build, bundle-size check on every PR.
-- [ ] **Preview deployments** per PR.
-- [ ] **Environment separation** — dev / staging / prod with isolated config and data.
-- [ ] **Canary or blue-green rollout** with automated rollback on error-rate spike.
-- [ ] **Feature flags** (LaunchDarkly/Unleash/self-hosted) to decouple deploy from release.
-- [ ] **Build reproducibility** — locked deps, deterministic builds; Turborepo remote cache if monorepo.
-- [ ] **Source maps** uploaded to error tracker but not publicly served.
-- [ ] **Zero-downtime deploys** — verified, not assumed.
-
-## 12. Infrastructure & Scaling
-
-- [ ] **CDN in front of everything** with global PoPs.
-- [ ] **Multi-region** for static/edge; understand origin proximity for SSR.
-- [ ] **Auto-scaling** for SSR/serverless with cold-start mitigation (provisioned concurrency or always-warm).
-- [ ] **WS fan-out infrastructure** **[RT]** — dedicated, horizontally scalable gateway where supported by the selected deployment; the Next app should not hold long-lived sockets in serverless functions.
-- [ ] **Connection/resource limits** understood — serverless concurrency caps, function timeouts.
-- [ ] **ISR at scale** — shared cache + on-demand revalidation; avoid thundering-herd regeneration.
-- [ ] **Cost monitoring** — watch SSR invocations, bandwidth, image optimization, and edge requests; they scale with users.
-- [ ] **Self-hosted option vetted** if Vercel cost/limits don't fit — Docker + Node server behind your own CDN/LB.
-
-## 13. Internationalization & Localization
-
-- [ ] **i18n routing** — next-intl or equivalent; locale in URL or cookie.
-- [ ] **Locale-aware formatting** — numbers, currencies, dates via `Intl`; critical for prices **[RT]**.
-- [ ] **No hardcoded strings** — 100% extracted; CI check for untranslated keys.
-- [ ] **RTL support** if expanding to Arabic/Hebrew.
-- [ ] **Translation workflow** — CLI extraction, missing-key detection, translator handoff.
-
-## 14. Accessibility (a11y)
-
-- [ ] **WCAG 2.1 AA** as the baseline target.
-- [ ] **Keyboard navigation** for every interactive element, including custom widgets.
-- [ ] **Focus management** — visible focus, focus trapping in modals, restore on close.
-- [ ] **Semantic HTML + ARIA** where needed; live regions for real-time price/status updates **[RT]**.
-- [ ] **Color contrast** meets AA — verify Paxeer Blue (#004CED) combos against text/background.
-- [ ] **Screen reader pass** on critical flows.
-- [ ] **Reduced-motion** support — respect `prefers-reduced-motion` throughout the interface.
-
-## 15. Code Quality & Developer Experience
-
-- [ ] **TypeScript `strict` + `noUncheckedIndexedAccess`** — no `any` in hot paths.
-- [ ] **ESLint + Prettier** enforced; `eslint-config-next` plus custom rules.
-- [ ] **Pre-commit hooks** — Husky + lint-staged.
-- [ ] **Conventional commits** + automated changelog/versioning.
-- [ ] **Design system / component library** — single source of truth (tie to your brand tokens).
-- [ ] **Storybook** for component dev and visual review.
-- [ ] **Monorepo tooling** (Turborepo) with task caching if multi-package.
-- [ ] **Documented architecture** — keep ADRs in maintained architecture documents.
-
-## 16. UX, PWA & Mobile
-
-- [ ] **Responsive** down to mobile; dense data UIs need real mobile layouts, not shrunk desktop **[RT]**.
-- [ ] **PWA** — installable, offline shell, service worker (mind cache invalidation on deploy).
-- [ ] **Loading skeletons** matching final layout to avoid CLS.
-- [ ] **Empty / error / loading states** designed for every data view.
-- [ ] **Theme support** — dark/light with no flash of wrong theme (set before hydration).
-- [ ] **Toasts/notifications** for async outcomes (fills, errors) **[RT]**.
-
-## 17. Compliance & Legal
-
-- [ ] **Cookie consent** + preference management (GDPR/CCPA).
-- [ ] **Privacy policy & Terms** linked and current.
-- [ ] **Audit logging** for sensitive user actions where required.
-- [ ] **Data retention & deletion** flows if you store PII.
-- [ ] **Geo-restrictions / disclaimers** if regulated jurisdictions apply **[RT]**.
-
-## 18. Pre-Launch Hardening
-
-- [ ] **Load test at 2–3× expected peak** including WS fan-out **[RT]**.
-- [ ] **Chaos/failure drills** — kill a region, drop the WS gateway, throttle the API; verify graceful behavior.
-- [ ] **Runbook** for common incidents (deploy rollback, cache purge, WS storm).
-- [ ] **On-call + alerting** validated end to end (alert actually pages someone).
-- [ ] **Lighthouse + WebPageTest** from multiple geographies on real devices.
-- [ ] **Penetration test / security review** before public launch.
-- [ ] **Rollback tested in production**, not just in theory.
-
----
-
-## Quick prioritization for a real-time trading frontend
-
-Prioritize WebSocket reconnection and backpressure, list virtualization, explicit caching and stale-data policy, client bundle size, observability and load testing of WebSocket fan-out. Size limits and deployment capacity should come from measurements of the selected application and infrastructure.
+```sh
+ANALYZE=true pnpm --dir apps/launchpad --filter @sidiora/web build
+```

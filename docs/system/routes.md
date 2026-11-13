@@ -13,12 +13,8 @@ gateway are identified separately below.
 
 ## Public node JSON-RPC
 
-The public node endpoints serve JSON-RPC at the root path:
-
-| Endpoint | HTTPS | WebSocket |
-| --- | --- | --- |
-| Canonical alias | `https://api-mainnet-beta.paxeer.network` | `wss://api-mainnet-beta.paxeer.network` |
-| Numbered nodes | `https://api1.mainnet-beta.paxeer.network` through `https://api14.mainnet-beta.paxeer.network` | The same node names with `wss://` |
+The public node endpoints serve JSON-RPC at the root path over HTTPS and
+WebSocket. Select a node URL from the [public RPC reference](../site/docs/reference/public-rpc.md).
 
 The node registers `debug`, `echo`, `eth`, `net`, `pax`, `pax2`, `px`,
 `txpool` and `web3`. The `test` namespace is opt-in on non-live chains.
@@ -32,7 +28,7 @@ is in [the node installation template](../../tools/bringup/install-archive.sh).
 The old router and its `/rpc`, `/rpc/ws`, `/rpc/schema` and `/rpc/evm/ws` public topology are retired.
 There is no separate LayerX interface, sequencer service or independent guarantor finality.
 The `layerxd` binary is retired.
-`node.hyperpaxeer.com` is the hpx library mirror, never an RPC endpoint.
+The hpx library mirror distributes build libraries; it does not serve chain RPC.
 
 ## Sources and discovery
 
@@ -248,6 +244,7 @@ to `/explorer` with Secure. These routes do not require a generic gateway API ke
 | GET | `/api/v2/transactions/{transaction_hash_param}/internal-transactions` | Explorer origin/header checks |
 | GET | `/api/v2/transactions/{transaction_hash_param}/logs` | Explorer origin/header checks |
 | GET | `/api/v2/transactions/{transaction_hash_param}/raw-trace` | Explorer origin/header checks |
+| GET | `/api/v2/transactions/{transaction_hash_param}/signature` | Explorer origin/header checks |
 | GET | `/api/v2/transactions/{transaction_hash_param}/state-changes` | Explorer origin/header checks |
 | GET | `/api/v2/transactions/{transaction_hash_param}/status` | Explorer origin/header checks |
 | GET | `/api/v2/transactions/{transaction_hash_param}/summary` | Explorer origin/header checks |
@@ -287,7 +284,7 @@ page patterns include:
 | `/explorer/txs`, `/explorer/tx/[hash]` | Transactions |
 | `/explorer/accounts`, `/explorer/address/[hash]` | Accounts and address views |
 | `/explorer/tokens`, `/explorer/token/[hash]` | Tokens |
-| `/explorer/advanced-filter` | Advanced filter page; its additional backend routes are pending admission below |
+| `/explorer/advanced-filter` | Advanced filter page; its backend APIs are listed separately below |
 | `/explorer/account/api-key`, `/explorer/account/watchlist`, `/explorer/account/custom-abi` | Account pages with upstream account authorization |
 | `/explorer/paxeer-x/account/[hash]`, `/explorer/paxeer-x/receipts`, `/explorer/paxeer-x/receipts/[id]`, `/explorer/paxeer-x/anchors` | Retained native/history page registrations; names do not establish a separate network |
 | `/explorer/api/healthz`, `/explorer/node-api/healthz` | Frontend health API registrations, distinct from gateway readiness |
@@ -317,18 +314,17 @@ The overview carries `FeedView` markets and chain head; history carries items an
 `next_page_params`; detail carries the stored type-127 submission, observation
 acceptance flags and exact decimal price strings.
 
-#### Pending explorer route admission
+#### Backend-only explorer APIs
 
-The backend declares the following GET routes, but they are absent from the
-production Rust explorer proxy allowlist. Their hosted paths below are required
-wiring targets, not currently admitted routes.
+The backend declares the following GET routes. The hosted explorer proxy does
+not admit them.
 
-| Method | Required hosted path | Backend action |
+| Method | Backend path | Backend action |
 | --- | --- | --- |
-| GET | `/explorer/backend/api/v2/advanced-filters` | `AdvancedFilterController.list` |
-| GET | `/explorer/backend/api/v2/advanced-filters/csv` | `AdvancedFilterController.list_csv` |
-| GET | `/explorer/backend/api/v2/advanced-filters/methods` | `AdvancedFilterController.list_methods` |
-| GET | `/explorer/backend/api/v2/paxeer-x/feed/updates` | `FeedController.updates` |
+| GET | `/api/v2/advanced-filters` | `AdvancedFilterController.list` |
+| GET | `/api/v2/advanced-filters/csv` | `AdvancedFilterController.list_csv` |
+| GET | `/api/v2/advanced-filters/methods` | `AdvancedFilterController.list_methods` |
+| GET | `/api/v2/paxeer-x/feed/updates` | `FeedController.updates` |
 
 The feed page patterns `/explorer/feed`,
 `/explorer/feed/market/[id]` and `/explorer/feed/update/[hash]` are also absent from

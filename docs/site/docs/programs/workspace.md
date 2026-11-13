@@ -33,7 +33,7 @@ Guest ABI and protocol wire version are separate. Runtime crate-root `ABI_VERSIO
 | 1 | Original `layerx_v1` storage, event, call, transfer and receipt imports. |
 | 2 | Adds `layerx_v2` responses, scoped storage and scans, program-account transfers, context, balance, crypto and bigint imports. |
 | 3 | Adds `layerx_v3.oracle_read`. |
-| 4 | Adds `layerx_v4.web_read`; this is the runtime default. |
+| 4 | Adds `layerx_v4.web_read`; this is the runtime default. The native C web-view hook returns `LXP_ERR_MODULE_DISABLED`; see [X Web](../protocol/xweb.md#the-kernel-path). |
 | 5 | Adds `layerx_v5.market_step_adjudicate`; AI market requires the v5 host route. |
 
 `programs/abi-frozen.sha256` pins the exact bytes of `programs/tests/vectors/abi-v{version}.hex`:
@@ -166,7 +166,7 @@ The Makefile exposes these recipes:
 
 The differential C binary is compiled from `programs/tests/differential/parallel.c`, which includes `tests/programs/test_call_activity.c`, against the kernel and sandbox libraries. It compares sequential and prepared execution: receipt/state roots, canonical receipt bytes and event bytes, including conflict and planning-refusal workloads. Its current Makefile inputs contain no daemon WAL source.
 
-For interpreter conformance and benchmarks, the recipes set artifact paths under `programs/target`; ensure any Cargo target-directory override agrees with those paths.
+For interpreter conformance and benchmarks, `PROGRAMS_INTERPRETER_TARGET_DIR` follows `CARGO_TARGET_DIR`: an absolute override is used directly, a relative override is resolved under `programs/`, and the default is `programs/target`. The recipes derive the WASM artifact paths from that directory.
 
 ## AI-market deployment qualification
 

@@ -19,10 +19,10 @@ Paxeer mainnet-beta の EVM チェーン ID は **125**（`0x7d`）です。カ�
 
 ## 接続を試す
 
-公開 JSON-RPC は、`api1.mainnet-beta.paxeer.network` から `api14.mainnet-beta.paxeer.network`、および `api-mainnet-beta.paxeer.network` のルートで HTTPS により提供されます。次のクエリはチェーン ID とブロック高を読み取るだけです。`PAXEER_RPC_URL` は、この例で使うローカルのシェル変数です。
+運用者からノードの HTTPS ルート URL を取得し、`PAXEER_RPC_URL` に設定してください。次のクエリはチェーン ID とブロック高を読み取ります。
 
 ```sh
-PAXEER_RPC_URL=https://api-mainnet-beta.paxeer.network
+: "${PAXEER_RPC_URL:?}"
 curl --fail --silent --show-error --max-time 30 "$PAXEER_RPC_URL" \
   --header 'Content-Type: application/json' \
   --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'

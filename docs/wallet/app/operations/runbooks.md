@@ -6,7 +6,7 @@ Confirm readiness dependency status without exposing origin details, identify th
 
 ## Corrupt client storage
 
-Capture the public storage failure code and correlation reference. Optional application records are removed automatically and reported in the in-app status. Security-relevant custody choice and dApp permission corruption fails closed. Use the exact registry lifecycle reset for recovery; never clear wallet-core IndexedDB or managed authentication state as a blanket repair.
+Capture the public storage failure code and correlation reference. Optional application records are removed automatically and reported in the in-app status. Custody choice and swap storage corruption fails closed. Reconcile retained swap intents before resetting their storage. Use the exact registry lifecycle reset for recovery and preserve the embedded wallet's authentication state. See the [storage registry reference](../architecture/storage-forensics.md).
 
 ## Push-store failure
 
@@ -14,7 +14,7 @@ Check readiness and the durable store path, lock-file access, bounded file size,
 
 ## Bad release
 
-Stop promotion, preserve the failing artifact and correlation evidence, and activate the last known compatible release. Confirm CSP nonces, service-worker activation, storage schema compatibility, route availability, wallet lock behavior, and one real read-only portfolio flow before reopening actions. Do not force a service-worker skip-waiting transition during an approval or signing operation.
+Select a compatible release. Confirm CSP nonces, service-worker activation, storage schema compatibility, route availability, account/session invalidation, and one real read-only portfolio flow before reopening actions. Do not force a service-worker skip-waiting transition during an approval or signing operation.
 
 ## Transaction reconciliation
 
@@ -24,10 +24,3 @@ Use the submitted hash, selected chain, account, nonce, and durable operation st
 
 Paxeer receipts are final once their block is committed. Retain the transaction hash and block observations when RPC and indexer responses disagree. Recheck the selected chain, committed block and execution result through a current node, and mark derived portfolio or activity data stale while reconciling it. Preserve the signed intent and require a new approval for another payment.
 
-## Compromised dApp origin
-
-Remove the origin from the approved catalog, revoke its registered permissions and tabs, block navigation and native callbacks, and invalidate any pending approvals from that origin. Review telemetry only after recursive redaction. Require a fresh explicit connection and approval after a reviewed release restores the origin.
-
-## Forced permission revocation
-
-Identify the exact origin, account, custody mode, and permission record. Apply the dApp lifecycle reset or remove only that origin; revoke native callbacks and close active browser tabs. Preserve wallet state, preferences, contacts, and unrelated origins. Verify that a subsequent request returns a denial and that reconnection requires explicit consent.

@@ -6,11 +6,12 @@ to `apps/wallet`. Proxies forward only to fixed or configured upstream origins, 
 
 | Route | Methods | Upstream or store | Notes |
 | --- | --- | --- | --- |
-| `/api/wallet/[...path]` | GET, HEAD; POST, PUT, PATCH, DELETE answer 405 | `BLOCKSCOUT_UPSTREAM_BASE` | Explorer v2 API proxy; 600 requests per minute per client; in-process response cache and in-flight deduplication |
+| `/api/wallet/[...path]` | GET, HEAD for explorer reads; portfolio methods below; PUT answers 405 | `BLOCKSCOUT_UPSTREAM_BASE` or `PORTFOLIO_UPSTREAM_BASE` | Explorer v2 reads use an in-process cache and in-flight deduplication; authenticated portfolio responses are uncached; 600 requests per minute per client |
 | `/api/sdk/[...path]` | GET | `SIDIORA_SDK_UPSTREAM`, or the Sidiora SDK default in the route | 120 requests per minute per client |
 | `/api/sidiora/metadata` | GET | Sidiora batch metadata | `?addresses=` with 1 to 100 comma-separated addresses; shared cache 24 hours |
 | `/api/sidiora/logo/[...path]` | GET | Sidiora logo origin | 200 requests per minute per client; cached 30 days, immutable |
-| `/api/candle/[...path]`, `/api/candle/cv/[...path]`, `/api/candle/pax/[...path]`, `/api/candle/sid/[...path]` | GET | Fixed market data origins in each route | JSON proxy through `src/server/json-proxy.ts` |
+| `/api/candle/[...path]` | GET | Unavailable | Answers 503 with `CANDLE_UPSTREAM_RETIRED` |
+| `/api/candle/cv/[...path]`, `/api/candle/pax/[...path]`, `/api/candle/sid/[...path]` | GET | Fixed market data origins in each route | JSON proxy through `src/server/json-proxy.ts` |
 | `/api/pns/api/v1/addresses-lookup`, `/api/pns/api/v1/addresses/[address]`, `/api/pns/api/v1/domains-lookup`, `/api/pns/api/v1/domains/[name]`, `/api/pns/api/v1/domains/[name]/events` | GET | Name service indexer | Fixed routes in `src/server/wallet-read-proxy.ts` |
 | `/api/points/balance/[address]` | GET | Points indexer | `src/server/wallet-read-proxy.ts` |
 | `/api/fx/latest/USD` | GET | Exchange rate origin | `src/server/wallet-read-proxy.ts` |
@@ -21,8 +22,28 @@ to `apps/wallet`. Proxies forward only to fixed or configured upstream origins, 
 | `/api/push/subscribe` | POST, DELETE | Push subscription store under `PUSH_DATA_DIR` | |
 | `/api/push/send` | GET, POST | Push campaigns | Requires `PUSH_ADMIN_KEY` |
 | `/api/push/notify-tx` | POST | Transaction notifications | Requires `PUSH_ADMIN_KEY` |
-| `/api/push/cron` | GET, POST | Campaign scheduler | Requires `PUSH_ADMIN_KEY` |
+| `/api/push/cron` | GET, POST, HEAD | Campaign scheduler | Requires `PUSH_ADMIN_KEY`; HEAD returns `X-Campaign-Count` |
 | `/api/health` | GET | Process, upstream and push configuration checks | `?mode=liveness` or `?mode=readiness` (default) |
+
+## Portfolio watch and webhook routes
+
+The wallet proxy forwards these paths to `PORTFOLIO_UPSTREAM_BASE`, preserving
+the caller's bearer token for upstream authorization and ownership checks.
+Paths below are under `/api/wallet` and the `/wallet` app base path.
+
+| Path | Methods |
+| --- | --- |
+| `/api/v2/watch` | POST |
+| `/api/v2/watch/[address]` | GET, HEAD, DELETE |
+| `/api/v2/webhooks` | GET, HEAD, POST |
+| `/api/v2/webhooks/[id]` | GET, HEAD, PATCH, DELETE |
+| `/api/v2/webhooks/[id]/deliveries` | GET, HEAD |
+
+Addresses are 20-byte hexadecimal addresses; webhook identifiers contain 1 to
+128 letters, digits, underscores or hyphens. Unsupported path/method pairs
+answer 405. An absent bearer token answers 401; an unconfigured portfolio origin
+answers 503. POST and PATCH accept a JSON object of at most 16 KiB. Responses
+use `Cache-Control: no-store`.
 
 ## Rate limiting
 

@@ -43,8 +43,11 @@ make ci
 `make ci` performs the native suite, a reproducible two-build archive comparison,
 consensus symbol checks, and ASan, UBSan and TSan runs. ThreadSanitizer requires
 a host that permits the address-space layout used by the compiler runtime.
-`make test-contracts` uses the root `foundry.toml` and `tests/solidity`;
-the `contracts/src` project instead uses `foundry.paxeer.toml` as described
+`make test-contracts` checks the Solidity state surface, then runs the `names`
+and `governance` profiles in the root `foundry.toml`, selecting
+`tests/solidity/names` and `tests/solidity/governance`. The default profile's
+full `tests/solidity` suite is selected by `forge test --offline`.
+The `contracts/src` project uses `foundry.paxeer.toml` as described
 in [Build and test](paxeer-network.md#build-and-test).
 
 ## Replay qualification

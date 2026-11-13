@@ -1,6 +1,7 @@
 # Development
 
-Run every command from `apps/wallet`.
+Run app commands from `apps/wallet`. The SDK preparation commands below run
+from `services/wallet`.
 
 ## Setup
 
@@ -9,7 +10,7 @@ Run every command from `apps/wallet`.
 
 ```sh
 pnpm install --frozen-lockfile
-pnpm dev                       # http://localhost:3099/wallet
+pnpm dev                       # port 3099, /wallet
 ```
 
 Set the build-time variables listed in the [app README](../../../../apps/wallet/README.md#configuration) in the environment, or in a local `.env.local`, which git ignores.

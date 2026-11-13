@@ -200,14 +200,14 @@ flowchart TB
 
 `layerxchains` 将子链注册为链状态中的租户域，保存域参数与资源额度；执行时按域隔离状态。实现见 [`modules/layerxchains/`](../../modules/layerxchains/)。
 
-跨网络桥是应用层集成。以 Ethereum 为例，中继器观察源链事件，收集证明者签名，并向目标链提交交易。配置要求五名不同的证明者、三签阈值，通过远程签名器与共同签名目录协作；观察结果与签名交易写入持久日志以支持恢复。代码见 [`services/interop/crates/layerx-bridge-relayer/`](../../services/interop/crates/layerx-bridge-relayer/)。
+跨网络桥是应用层集成。以 Ethereum 为例，中继器观察源链事件，收集证明者签名，并向目标链提交交易。未配置 `attestor_set` 时，中继器使用单名证明者；配置该集合时，必须有五名不同的非零地址成员、三签阈值及共同签名目录，且本实例的证明者必须属于该集合。签名通过远程签名器完成；观察结果与签名交易写入持久日志以支持恢复。代码见 [`services/interop/crates/layerx-bridge-relayer/`](../../services/interop/crates/layerx-bridge-relayer/)。
 
 ```mermaid
 flowchart LR
   vault["Ethereum · PaxeerXVault"]
   relayer["layerx-bridge-relayer"]
   signer["远程签名器"]
-  cosign[("共同签名目录 · 三签 / 五名证明者")]
+  cosign[("可选证明者集合 · 共同签名目录 · 三签 / 五名证明者")]
   journal[("持久日志")]
   bridge["Paxeer · layerxBridge · 0x1016"]
   module["layerxbridge 模块"]

@@ -210,6 +210,12 @@ extend that surface:
 | 4 | `layerx_v4.web_read` |
 | 5 | `layerx_v5.market_step_adjudicate` |
 
+The ABI-4 `web_read` import remains frozen. The native C web-view hook returns
+`LXP_ERR_MODULE_DISABLED`, which the runtime maps to invalid encoding;
+the guest receives `HostRefusal::Invalid` (`-2`).
+Read program-origin web answers through the module query or EVM view described
+in [X Web](../protocol/xweb.md#the-kernel-path).
+
 Guest ABIs 2–5 use capability encoding v2 and require an occupancy-capable
 protocol (2 or 3). ABI 1 also supports protocol 1. The C CALL decoder additionally
 requires the guest version to be no greater than the registered module ABI.

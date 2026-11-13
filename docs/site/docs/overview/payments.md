@@ -9,18 +9,18 @@ required committed evidence and payment facts verify. See
 
 ## 1. Configure trusted inputs
 
-Use a public node's root JSON-RPC endpoint:
+Set `RPC_URL` to the operator-provided HTTPS node root:
 
 ```sh
-export RPC_URL=https://api-mainnet-beta.paxeer.network
+: "${RPC_URL:?}"
+export RPC_URL
 curl --fail-with-body --silent --show-error "$RPC_URL" \
   -H 'Content-Type: application/json' \
   --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'
 ```
 
-The expected chain id is `0x7d`. Other public hosts are
-`api1.mainnet-beta.paxeer.network` through `api14.mainnet-beta.paxeer.network`;
-see [Public JSON-RPC](../reference/public-rpc.md). A successful HTTP response
+The expected chain id is `0x7d`; see
+[Public JSON-RPC](../reference/public-rpc.md). A successful HTTP response
 can still contain a JSON-RPC error: inspect `error` and the request `id`.
 
 Obtain these inputs independently of the response you intend to verify:
@@ -51,8 +51,8 @@ submits the on-chain binding. Its implementation is
 Local Ed25519 key management remains available:
 
 ```sh
-layerx key create alice
-layerx key default alice
+layerx key create payment-key
+layerx key default payment-key
 layerx wallet list
 ```
 
@@ -154,7 +154,9 @@ replacement debit with a new reference.
 Use ledger `getAsset`, `balanceOf` and `totalUnits` views through `eth_call`
 for native Asset state. For the hosted gateway, `px_getBalances` returns an
 `account`, snapshot `height`, and `balances` containing `denom` and decimal
-`amount`. `px_listAssets` returns `height`, `assets`, and `joined_limit`.
+`amount`. `px_listAssets` returns `height`, `assets`, `joined_limit`, `next_cursor`
+and `order: "registration"`. It accepts an optional decimal registration-row
+cursor and a limit from 1 to 16, defaulting to 16.
 Those are the shapes implemented by
 `services/platform/hosted/gateway/src/paxeer.rs`; neither a snapshot label
 nor an Asset listing establishes payment commitment.

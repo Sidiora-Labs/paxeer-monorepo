@@ -8,9 +8,12 @@ and [`redis.railway.env.example`](../../../../services/wallet/deploy/redis.railw
 The deployment platform selects and starts the image with those runtime settings.
 
 The gateway applies SQL files from `services/wallet/gateway/migrations` in
-filename order at startup and records them in `_migrations`. It does not revert
-migrations. A rollback selects compatible application code while preserving the
-current database schema and nonce state.
+filename order at startup, followed by `SIGNATURE_ACCOUNTING_MIGRATION` from
+[`signatureAccounting.ts`](../../../../services/wallet/gateway/src/db/signatureAccounting.ts).
+It records both kinds in `_migrations`; the embedded migration uses filename
+`db/001_signature_reservations.sql`. It does not revert migrations. A rollback
+selects compatible application code while preserving the current database schema,
+signature reservations and nonce state.
 
 ## Select a compatible image
 
@@ -19,10 +22,12 @@ Compare the target image's migration files with the applied filenames:
 ```sh
 psql "$DATABASE_URL" -Atc 'select filename from _migrations order by filename'
 git ls-tree -r --name-only "$TARGET_REVISION" services/wallet/gateway/migrations
+git show "${TARGET_REVISION}:services/wallet/gateway/src/db/signatureAccounting.ts"
 ```
 
 `TARGET_REVISION` is the source revision of the candidate image. Every applied
-migration must be present in that image. Its code must support the current
+migration must be supplied by that image's migration runner, either as a SQL
+file or an embedded declaration. Its code must support the current
 schema, including attestor-backed wallets and any durable approval or signing
 states already stored. Preserve `DATABASE_URL`, the shared nonce store,
 authentication settings, attestor configuration and receipt trust material.

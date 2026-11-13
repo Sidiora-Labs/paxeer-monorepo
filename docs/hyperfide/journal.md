@@ -24,7 +24,7 @@ the lock behaviour around it.
 | ------------------------------------------------------------------------------------------- | ------------------- |
 | `hyperfide remember` (including `--supersedes`)                                             | `memory.add`        |
 | the outcome memory of `hyperfide spec done` and of a refusal                                | `memory.add`        |
-| the lease release and attempt finish behind `hyperfide spec done`, `implemented`, `release` | `lease.release`     |
+| the lease release and attempt finish behind `hyperfide spec done`, `implemented`, `release` | `lease.release`, `attempt.finish` |
 | `hyperfide spec heartbeat`                                                                  | `attempt.heartbeat` |
 | `hyperfide handoff`                                                                         | `handoff.add`       |
 | `hyperfide work open` / `hyperfide work update` (the new revision row)                      | `work.update`       |

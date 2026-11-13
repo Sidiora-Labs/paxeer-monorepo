@@ -34,17 +34,17 @@ is kept in [`../../docs/explorer/CUSTOM_BUILD.md`](../../docs/explorer/CUSTOM_BU
 
 ## Paxeer X
 
-This tree is deployed as the Paxeer X Network explorer. Two run-time ENV presets are tracked under [`configs/envs`](./configs/envs):
+Two run-time ENV presets for the Paxeer X Network explorer are tracked under [`configs/envs`](./configs/envs):
 
 - `paxeer-x.env` — the public deployment (https, wss).
 - `paxeer-x-dev.env` — the development deployment (http, ws).
 
-Both describe network `Paxeer X Network` (short name `Paxeer X`, network id `125`, native coin `Paxeer` (`PAX`), 18 decimals) and carry the Paxeer X marks from [`public/static/paxeer-x`](./public/static/paxeer-x). Their navigation links and font resources are declared in the respective presets. `paxeer-x.env` loads its footer links from [`configs/paxeer-x/footer.json`](./configs/paxeer-x/footer.json) on the monorepo's main branch. Marketplace, ads and third-party analytics are off.
+Both describe network `Paxeer X Network` (short name `Paxeer X`, network id `125`, native coin `Paxeer` (`PAX`), 18 decimals) and carry the Paxeer X marks from [`public/static/paxeer-x`](./public/static/paxeer-x). Their navigation links and font resources are declared in the respective presets. `paxeer-x.env` sets a remote footer configuration URL; the local footer data is in [`configs/paxeer-x/footer.json`](./configs/paxeer-x/footer.json). Marketplace and ad providers are disabled in both presets.
 
 Using a preset:
 
 1. Copy it to a dotfile name the container entrypoint understands, e.g. `cp configs/envs/paxeer-x.env configs/envs/.env.paxeer-x`, and build or run with `ENVS_PRESET=paxeer-x`.
-2. `paxeer-x.env` already points at `paxscan.io` and `api.paxscan.io`; in a `paxeer-x-dev.env` copy replace the two deployment inputs: `REPLACE_API_HOST` (Blockscout API host) and `REPLACE_APP_HOST` (host the explorer itself is served from). `NEXT_PUBLIC_APP_*` is on the entrypoint's preset blacklist, so the app host can also be supplied straight from the container environment.
+2. In a development preset copy, replace `REPLACE_API_HOST` with the Blockscout API host and `REPLACE_APP_HOST` with the explorer host. The entrypoint excludes `NEXT_PUBLIC_APP_PROTOCOL`, `NEXT_PUBLIC_APP_HOST`, `NEXT_PUBLIC_APP_PORT`, `NEXT_PUBLIC_APP_ENV` and `NEXT_PUBLIC_API_WEBSOCKET_PROTOCOL` from preset loading. Supply those values through the container environment, including `wss` for a secure API WebSocket connection or `ws` for a local HTTP deployment.
 
 Validating a preset without a full build:
 

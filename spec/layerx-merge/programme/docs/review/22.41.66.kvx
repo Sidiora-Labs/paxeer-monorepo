@@ -1,0 +1,79 @@
+[manifest]
+task = "22.41.66"
+pages = 19
+
+[page.1]
+path = "docs/site/docs/interop/ap2.md"
+status = "reviewed"
+
+[page.2]
+path = "docs/site/docs/interop/index.md"
+status = "corrected"
+
+[page.3]
+path = "docs/site/docs/interop/mirrors.md"
+status = "corrected"
+
+[page.4]
+path = "docs/site/docs/interop/portable-receipts.md"
+status = "corrected"
+
+[page.5]
+path = "docs/site/docs/interop/ramps.md"
+status = "corrected"
+
+[page.6]
+path = "docs/site/docs/interop/ucp.md"
+status = "corrected"
+
+[page.7]
+path = "docs/site/docs/interop/visa-tap.md"
+status = "reviewed"
+
+[page.8]
+path = "docs/site/docs/interop/x402.md"
+status = "corrected"
+
+[page.9]
+path = "docs/site/docs/operators/beta-cluster.md"
+status = "reviewed"
+
+[page.10]
+path = "docs/site/docs/operators/beta-control.md"
+status = "corrected"
+
+[page.11]
+path = "docs/site/docs/operators/guarantor.md"
+status = "corrected"
+
+[page.12]
+path = "docs/site/docs/operators/hosted-internal.md"
+status = "reviewed"
+
+[page.13]
+path = "docs/site/docs/operators/index.md"
+status = "corrected"
+
+[page.14]
+path = "docs/site/docs/operators/porting.md"
+status = "corrected"
+
+[page.15]
+path = "docs/site/docs/operators/qualification.md"
+status = "corrected"
+
+[page.16]
+path = "docs/site/docs/operators/settlement-evidence.md"
+status = "corrected"
+
+[page.17]
+path = "docs/site/docs/overview/getting-started.md"
+status = "corrected"
+
+[page.18]
+path = "docs/site/docs/overview/i18n/de.md"
+status = "corrected"
+
+[page.19]
+path = "docs/site/docs/overview/i18n/es.md"
+status = "corrected"

@@ -5,9 +5,9 @@ The kernel runs inside `paxd` and participates in execution and block proposal.
 A receipt is final when its block commits. Sub-chains are tenant domains in
 the database.
 
-Public node JSON-RPC is served at the root of
-`https://api-mainnet-beta.paxeer.network` and the numbered nodes `api1` through
-`api14.mainnet-beta.paxeer.network`. The node also registers `px` methods;
+Public node JSON-RPC is served at the root of each node endpoint listed in the
+[public RPC reference](site/docs/reference/public-rpc.md). The node registers
+`px` methods for account, inference, history and kernel reads;
 `px_register` and `px_requestFunds` belong to the hosted gateway contract.
 
 | Documentation | Contents |
@@ -31,5 +31,4 @@ Public node JSON-RPC is served at the root of
 | [Interoperability](interop/) | Portability requirements and guidance |
 | [Translations](readme/) | Translations of the root README |
 
-Protocol specifications live under [spec/](../spec/). The hosted documentation
-site is [docs.paxeer.app](https://docs.paxeer.app/).
+Protocol specifications live under [spec/](../spec/).

@@ -241,8 +241,9 @@ Review the embedded node runtime configuration against
 [node/sequencer/config.go](../../node/sequencer/config.go). Under `[sequencer]`,
 `enable`, `role`, `wal-dir`, `receipt-key-file`, `standby-address` and
 `replication-timeout` must match the rehearsed primary/standby roles. Enabled
-nodes need positive `nonce-queue-max-per-sender`, `nonce-queue-max-total` and
-`lease-duration` (or the supported derivation from replication timeout).
+nodes need positive `wal-retain-blocks`, `nonce-queue-max-per-sender`,
+`nonce-queue-max-total` and `lease-duration` (or the supported derivation from
+replication timeout). The total nonce queue limit must be at least the per-sender limit.
 Receipt seeds must have mode `0600`; retain the WAL at its configured path.
 Use `mode = "sequential"` unless microbatch configuration was separately qualified.
 Ordinary nodes keep `enable = false`; review `receipt-forward-url` only when

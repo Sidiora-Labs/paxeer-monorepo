@@ -36,10 +36,8 @@ crate. The CLI installer lives in `tools/platform/cli`.
 
 ## Connecting to the network
 
-Use the public node JSON-RPC at the root of
-`https://api-mainnet-beta.paxeer.network` or the numbered hosts
-`api1.mainnet-beta.paxeer.network` through
-`api14.mainnet-beta.paxeer.network`. Confirm `eth_chainId` returns `0x7d`.
+Use the public node JSON-RPC at the root of the selected node's HTTPS origin.
+Confirm `eth_chainId` returns `0x7d`.
 See [Public RPC endpoints](../reference/public-rpc.md) for node selection.
 The interop service's HTTP routes, such as the [AP2](ap2.md) routes, belong
 to a separately configured edge application; they are not node JSON-RPC

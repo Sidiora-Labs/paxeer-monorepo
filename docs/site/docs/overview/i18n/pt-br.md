@@ -28,12 +28,12 @@ O catálogo também inclui funções de agente em `0x0901` a `0x0908`. Use o ABI
 
 ## Experimente a rede
 
-O JSON-RPC público é servido na raiz de `https://api1.mainnet-beta.paxeer.network` até `https://api14.mainnet-beta.paxeer.network` e pelo alias `https://api-mainnet-beta.paxeer.network`. Consulte os [endpoints públicos](../../reference/public-rpc.md). `node.hyperpaxeer.com` é somente o mirror de bibliotecas hpx usado no build; não é um endpoint de transações.
+Obtenha com o operador a URL HTTPS na raiz do nó e defina `RPC_URL`. Consulte os [endpoints públicos](../../reference/public-rpc.md) para os métodos de conexão.
 
 Com `curl`, confirme o chain ID antes de assinar e consulte a altura do nó. A primeira chamada deve retornar `result: "0x7d"`; a segunda retorna a altura em hexadecimal.
 
 ```sh
-RPC_URL=https://api1.mainnet-beta.paxeer.network
+: "${RPC_URL:?}"
 curl --fail --silent --show-error --max-time 30 "$RPC_URL" \
   --header 'Content-Type: application/json' \
   --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'

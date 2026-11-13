@@ -221,7 +221,7 @@ For every probe, inspect the worktree before archiving it:
 
 ```bash
 THREAD_ID=<probe-thread-id>
-ENV_ID=$(hyperfide-platform thread show "$THREAD_ID" --json | jq -r '.environmentId')
+ENV_ID=$(hyperfide-platform thread show "$THREAD_ID" --json | jq -er '.thread.environmentId')
 ENV_PATH=$(Hyperfide environment show "$ENV_ID" --json | jq -r '.path')
 
 git -C "$ENV_PATH" status --short

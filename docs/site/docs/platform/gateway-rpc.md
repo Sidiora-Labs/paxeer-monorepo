@@ -7,16 +7,15 @@ gateway expose different method contracts over that same network.
 
 ## Public node endpoints
 
-Send JSON-RPC to the root of `https://api-mainnet-beta.paxeer.network` or
-`https://api1.mainnet-beta.paxeer.network` through
-`https://api14.mainnet-beta.paxeer.network`. The public namespaces are `debug`,
+Set `RPC_URL` to the operator-provided HTTPS node root. The public namespaces
+are `debug`,
 `echo`, `eth`, `net`, `pax`, `px`, `test` and `txpool`; individual methods depend on
 node configuration. The full node list and root WebSocket URLs are in
 [Public RPC endpoints](../reference/public-rpc.md).
 
 ```bash
 curl --fail-with-body --max-time 15 \
-  https://api1.mainnet-beta.paxeer.network \
+  "${RPC_URL:?}" \
   -H 'Content-Type: application/json' \
   -d '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'
 ```
@@ -25,9 +24,6 @@ The expected chain ID result is `"0x7d"`. Check it before signing or
 broadcasting, and compare `eth_blockNumber` across nodes when choosing a node
 near the head. An unavailable endpoint does not prove a transaction failed.
 
-The pre-merge router and its `/rpc`, `/rpc/ws` and `/rpc/schema` paths are retired.
-There is no separate LayerX interface to configure.
-`node.hyperpaxeer.com` is only the hpx library mirror, never an RPC endpoint.
 Sub-chains are tenant domains in the database; creating one does not deploy a
 second chain or change the public EVM chain ID.
 
@@ -46,8 +42,8 @@ After parameter validation, node calls to either operation return JSON-RPC
 
 The gateway's method contract is
 `services/platform/hosted/gateway/openrpc.json` (OpenRPC 1.3.2).
-Compatibility handlers for retired prefixed RPC paths remain in the hosted
-source; new clients should use the root. All `lx_*` methods are retired and
+The gateway admits JSON-RPC only at its root; unmatched paths return HTTP 404.
+All `lx_*` methods are retired and
 return `-32601` before any upstream call, including the former activity,
 batch, checkpoint, proof and subscription methods.
 
@@ -65,18 +61,19 @@ Example hosted read, sent to the operator's gateway root:
 
 ## Gateway method schemas
 
-The gateway declares these 17 method names, including reads also served by the
-node. Optional trailing arguments can be omitted; consult OpenRPC for each
-gateway method's exact selectors and schemas.
+The gateway serves these 17 method names and publishes their schema at
+`GET /openrpc.json`. The checked-in OpenRPC document also includes five
+inference methods served by the node and filtered from the gateway schema.
+Optional trailing arguments can be omitted.
 
 | Method | Positional parameters | Result |
 | --- | --- | --- |
-| `px_register` | `[signer_public_key, registration_signature]` | Hosted identity principal record |
+| `px_register` | `[signer_public_key, registration_signature, email_or_verification_token?]` | Hosted identity principal, signup or verification result |
 | `px_requestFunds` | `[did, signer_public_key]` | Confirmed faucet claim with `funded`, `funding_id`, `transaction_id`, decimal-string `amount`, `network` and `starter_credit` |
 | `px_resolveAccount` | `[account]` | `evm_address`, `pax_address`, `layerx_did`, `layerx_account` and `bound` |
 | `px_getAccount` | `[account]` | Resolved `account` and `paxeer` address, hex balance/nonce and integer height; `paxeer` can be null |
 | `px_getBalances` | `[account]` | Resolved `account`, integer `height` and `balances` with `denom` and exact decimal-string `amount` |
-| `px_listAssets` | `[]` | Integer `height`, joined `assets` and `joined_limit` |
+| `px_listAssets` | `[cursor?, limit?]` | Integer `height`, joined `assets`, `joined_limit`, `next_cursor` and `order: "registration"` |
 | `px_getNetwork` | `[]` | `network_id`, `paxeer` chain ID/head and `consensus`; a missing consensus snapshot is null with `reason: "consensus_unavailable"` |
 | `px_getHistory` | `[account, cursor?, limit?, kind?]` | Transfer `items`, `next_cursor`, `indexedHeight`, `chainHeight` and `freshness` for the resolved address |
 | `px_getUnifiedHistory` | `[account, cursor?, limit?, kind?]` | Resolved `account`, queried `accounts`, history `items` tagged with `side: "paxeer"`, cursor and freshness fields |
@@ -94,7 +91,9 @@ Account resolution reads `addr` at
 `0x0000000000000000000000000000000000001001`. Null unbound references do not
 establish zero balances. `px_getBalances` requires a bound EVM address.
 `px_listAssets` joins at most 16 records; `joined_limit` makes that bound
-explicit rather than claiming an unbounded inventory.
+explicit. The cursor is a canonical positive decimal signed-64-bit registration
+row ID. Results follow registration order. The runtime accepts a limit of
+1–16, defaulting to 16; the checked-in schema declares the optional cursor.
 
 History cursors are the indexer's 32 lowercase hexadecimal characters encoding
 its block/transaction/log position. Pass `next_cursor` through unchanged, or
@@ -117,9 +116,13 @@ Public balance, history, capability and consensus reads do not require a
 gateway key. `px_register` proves possession of the Ed25519 signer key: its
 public key is 64 lowercase hex characters and the signature is 128 lowercase
 hex characters, both unprefixed. The signature covers the registration binding
-implemented in `src/rpc_register.rs`. Registration is idempotent for that
-signer and creates a hosted principal; it does not establish an on-chain DID
-binding or complete [Human onboarding](../concepts/identity.md#human-onboarding).
+implemented in `src/rpc_register.rs`: compute SHA-256 over the domain
+`layerx-register-binding-v1`, configured tenant and raw public key, prefixing
+each part with its unsigned 64-bit big-endian byte length. The two-argument
+form creates a hosted principal idempotently for that tenant and signer.
+An optional email starts signup; `vfy_` followed by 64 lowercase hex digits
+selects verification and session issuance. Registration does not establish
+an on-chain DID binding. See [Human onboarding](../concepts/identity.md#human-onboarding).
 
 `px_requestFunds` requires a hosted identity session:
 

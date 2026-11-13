@@ -30,9 +30,12 @@ node endpoint, with the same chain identity as the numbered nodes.
 | 14 | `https://api14.mainnet-beta.paxeer.network` | `wss://api14.mainnet-beta.paxeer.network` |
 
 **Retention:** `api2.mainnet-beta.paxeer.network` is the archive node and keeps
-full history; the other thirteen numbered nodes prune. On a pruned node,
-`pax_sequencerReceipt` and state queries for heights outside that node's
-retention return JSON-RPC error `-32000`. Send historical receipt and state queries to
+full history; the other thirteen numbered nodes prune. Historical query
+availability depends on the node's block, state and receipt stores; see
+[Data availability](../protocol/data-availability.md#retention-and-recovery).
+`pax_sequencerReceipt` returns `null` for an unknown transaction and can return
+`-32000` when no local receipt source or forwarding is configured. Send
+historical receipt and state queries to
 `https://api2.mainnet-beta.paxeer.network` at the root path, on EVM chain ID 125.
 There is no router or separate LayerX interface.
 
@@ -66,16 +69,18 @@ wscat -c wss://api1.mainnet-beta.paxeer.network
 > {"jsonrpc":"2.0","id":1,"method":"eth_subscribe","params":["newHeads"]}
 ```
 
-The node proxy configuration in `tools/bringup/install-archive.sh` also
-supports `/ws`. Prefer root URLs for client configuration. Subscription
-notifications report new heads; consumers requiring finality must verify
-the corresponding committed evidence.
+The node proxy template in `tools/bringup/archive_state.go`, used by
+`tools/bringup/install-archive.sh`, also supports `/ws`. Prefer root URLs for
+client configuration. Subscription notifications report new heads; consumers
+requiring finality must verify the corresponding committed evidence.
 
 ## Method contracts
 
-The public node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test`
-and `txpool`. Availability depends on the node configuration; this list does
-not promise that every upstream Geth method is supported. See
+`rpc/server.go` registers HTTP namespaces `debug`, `echo`, `eth`, `net`,
+`pax`, `pax2`, `px`, `txpool` and `web3`. WebSocket registrations are `echo`,
+`eth`, `net`, `pax`, `px`, `txpool` and `web3`. Method availability depends on
+the node configuration. The optional `test` namespace is restricted to
+non-live chain IDs. See
 [EVM JSON-RPC differences](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/docs/evm_jsonrpc_unsupported.md).
 
 The `px` namespace answers from node state; `px_register` and
@@ -95,6 +100,6 @@ bounded and reconnect subscriptions after disconnects. After a broadcast
 timeout, query the original transaction hash before retrying.
 
 The checked-in node proxy template sets `client_max_body_size 10m` and a
-3600-second read/send timeout on `/ws`. These are template settings, not a
-guarantee of the current limits or availability of every deployed endpoint.
+3600-second read/send timeout on `/ws`, with 300 seconds on the root path.
+Deployed limits and endpoint availability depend on node configuration.
 Use TLS certificate verification and client-side deadlines for all calls.

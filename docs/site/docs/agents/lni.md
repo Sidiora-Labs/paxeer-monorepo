@@ -40,7 +40,7 @@ Sources: `services/agent/crates/layerx-agentd/src/node_rpc.rs`,
 | Submit signed EIP-1559 bytes | `eth_sendRawTransaction` |
 | Standard transaction receipt | `eth_getTransactionReceipt` |
 | Signed native receipt and progress | `pax_sequencerReceipt` |
-| Receipt-key discovery | `px_getReceiptKeys`, produced by the node and relayed by the hosted gateway |
+| Receipt-key discovery | `px_getReceiptKeys` from node state; the hosted gateway separately exports its operator-pinned key list loaded at startup |
 | Blocks and head | `eth_getBlockByNumber`, `eth_blockNumber` |
 
 The node registers native `px_` reads, including `px_getReceiptKeys`,

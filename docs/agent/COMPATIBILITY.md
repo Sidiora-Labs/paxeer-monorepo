@@ -47,7 +47,7 @@ end-to-end readiness.
 From the repository root, `make agent-test-agentd-migration` runs the daemon's
 [`migration`](../../services/agent/crates/layerx-agentd/tests/migration.rs) integration target,
 including `verify_published` and unsupported-tuple refusals, and then
-`agent-test-boundary`. The Makefile passes `AGENT_NODE_RPC_URL` (default
-`http://127.0.0.1:8545`) to the boundary harness as
+`agent-test-boundary`. The Makefile passes `AGENT_NODE_RPC_URL` (default HTTP
+on loopback port `8545`) to the boundary harness as
 `LAYERX_QUALIFY_NODE_RPC_URL`. Use a disposable node with the required boundary
 capabilities; the matrix alone does not attest to a deployment's readiness.

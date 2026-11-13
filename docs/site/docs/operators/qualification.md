@@ -45,7 +45,8 @@ make ci
 
 `make build` produces the native library and supporting tools; it does not build
 the complete node. `make test-contracts` runs the state-surface script followed
-by offline Foundry tests. `make ci` depends on `public-audit`, `test`,
+by offline Foundry tests with the `names` and `governance` profiles.
+`make ci` depends on `public-audit`, `test`,
 `reproducible`, `scan-consensus`, and `test-sanitizers`. ThreadSanitizer needs a
 host compatible with its address-space requirements.
 
@@ -103,9 +104,8 @@ For an upgrade, verify the intended plan and precompile activation against the
 running release. Native replay or fault harness results alone cannot establish
 these deployment properties.
 
-Public JSON-RPC uses the root of `api-mainnet-beta.paxeer.network` or the public
-node names `api1` through `api14.mainnet-beta.paxeer.network`; verify chain ID
-125 before submitting transactions. Hosted `px_` methods have their contract in
+Public JSON-RPC uses the selected node's HTTPS origin at the root path; verify
+chain ID 125 before submitting transactions. Hosted `px_` methods have their contract in
 `services/platform/hosted/gateway/openrpc.json`.
 
 Deployment, validator changes, upgrades, and real-value canaries follow the

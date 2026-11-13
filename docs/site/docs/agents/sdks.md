@@ -43,8 +43,8 @@ For signed receipts returned by `pax_sequencerReceipt`, see
 The developer CLI in `tools/platform/cli` is [CLI](../platform/cli.md).
 See [Public node JSON-RPC](../reference/public-rpc.md) for node access and
 [Gateway JSON-RPC](../platform/gateway-rpc.md) for hosted operations.
-`layerx --rpc` and `--gateway-credential` apply to `wallet`, `token`, and
-`program`.
+`layerx --rpc` and `--gateway-credential` apply to `wallet`, `chains`, `token`,
+`program`, and `receipt get`.
 
 ## Publication (beta)
 

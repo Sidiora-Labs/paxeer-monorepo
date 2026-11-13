@@ -2,7 +2,7 @@
 
 Paxeer is one BFT network, run by `paxd`, with the kernel participating in block proposal. Mainnet-beta uses EVM chain id **125** (`0x7d`). A transaction is final when its block is committed. Sub-chains are tenant domains in the database, launched without separate infrastructure.
 
-Public node JSON-RPC uses the root URL, for example `https://api-mainnet-beta.paxeer.network` or `https://api1.mainnet-beta.paxeer.network` through `https://api14.mainnet-beta.paxeer.network`. `node.hyperpaxeer.com` is only the library mirror used by build scripts. Hosted gateway APIs have their own configured URL; their `px_` contract is [openrpc.json](../../services/platform/hosted/gateway/openrpc.json).
+Public node JSON-RPC uses the root URL; select a node from the [public RPC reference](../site/docs/reference/public-rpc.md). The hpx library mirror distributes build libraries. Hosted gateway APIs have their own configured URL; their `px_` contract is [openrpc.json](../../services/platform/hosted/gateway/openrpc.json).
 
 This reference covers the wallet package, the agent TypeScript and Python SDKs, and the Rust program guest SDK. Export availability is an inventory of source declarations; it does not establish that a backend is configured or that a transport exchange has been verified. See also [EVM JSON-RPC methods](rpc.md), [precompile ABIs](precompiles.md), and the [system index](INDEX.md).
 
@@ -55,7 +55,7 @@ The following are selected exports from the root entry point; each linked source
 | [`types.ts`](../../sdk/wallet/src/types.ts) | Wallet configuration, transaction, account, asset, history, intent, receipt, EIP-1193 and availability types; `assertSendTxResponse`, `PaxeerWalletError`, `FundedUnsupportedError` |
 | [`errors.ts`](../../sdk/wallet/src/errors.ts) | `PROVIDER_ERROR_CODES`, `ProviderRpcError` subclasses, `GATEWAY_REFUSAL_REASONS`, `gatewayRefusal` |
 
-`EndpointClient` accepts `nodeUrl` (or `url`) and optional `hostedUrl`, plus `fetch` and `headers`. The node default is `https://api-mainnet-beta.paxeer.network`. `px_` reads go to the node root; only `px_register` and `px_requestFunds` require `hostedUrl`. Account, asset, balance, capabilities, network and history methods, including `resolveAccount`, `getChainAccount`, `listBankAssets`, `getCapabilities`, `getNetwork`, `getBankBalances`, `getChainHistory`, `historyPages`, and `history`, use the node.
+`EndpointClient` accepts `nodeUrl` (or `url`) and optional `hostedUrl`, plus `fetch` and `headers`. An omitted node URL uses `DEFAULT_ENDPOINT_URL`. `px_` reads go to the node root; only `px_register` and `px_requestFunds` require `hostedUrl`. Account, asset, balance, capabilities, network and history methods, including `resolveAccount`, `getChainAccount`, `listBankAssets`, `getCapabilities`, `getNetwork`, `getBankBalances`, `getChainHistory`, `historyPages`, and `history`, use the node.
 
 `EndpointClient.batch()` follows the same split: `px_register` and `px_requestFunds` go to the configured hosted gateway; all other methods, including `px_getReceiptKeys`, go to the node. Results retain the original call order. Without `hostedUrl`, a batch containing either hosted operation throws `JsonRpcTransportError`. Its legacy error message refers to hosted reads, but read-only batches do not require `hostedUrl`.
 
@@ -651,6 +651,9 @@ The generated Cosmos bindings in [`sdk/js`](../../sdk/js/package.json) are the s
 | `decodeJsonRpcResponse` | function | `services/agent/sdk/typescript/src/rpc.ts` |
 | `listAssetsParams` | function | `services/agent/sdk/typescript/src/rpc.ts` |
 | `walletAccount` | function | `services/agent/sdk/typescript/src/rpc.ts` |
+| `SUBSCRIPTION_MAX_BACKLOG` | const | `services/agent/sdk/typescript/src/rpc-subscription.ts` |
+| `SUBSCRIPTION_MAX_BACKLOG_BYTES` | const | `services/agent/sdk/typescript/src/rpc-subscription.ts` |
+| `SubscriptionReconciliationRequiredError` | class | `services/agent/sdk/typescript/src/rpc-subscription.ts` |
 | `encodeSequencerReceipt` | function | `services/agent/sdk/typescript/src/sequencer-receipt-codec.ts` |
 | `SPOT_ACTIVITY_TYPES` | const | `services/agent/sdk/typescript/src/spot.ts` |
 | `SPOT_MODULE_ID` | const | `services/agent/sdk/typescript/src/spot.ts` |

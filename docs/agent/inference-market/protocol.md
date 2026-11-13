@@ -21,10 +21,12 @@ reaches finality and every peer acknowledges. Unacknowledged peers are dropped
 and the plan is recomputed.
 
 Generation proceeds in laps. The host seals and settles batches, advances the
-stream meter, and splits paid rewards after resolving any challenges. CloseRoom
-refuses with open deals. Bond refunds additionally wait for the peer's last deal
-to close and its challenge window to pass. A local recovery state can pause a
-room without changing the room record's open/closed state.
+stream meter, and splits paid rewards after resolving any challenges. In the
+active room's bond settlement path, CloseRoom checks every deal's completed
+payout and absence of open challenges, then marks those deals settled and the
+room closed. Bond refunds require room closure, settled deals for that peer,
+expired challenge windows and resolved fault accounting. A local recovery state
+can pause a room without changing the room record's open/closed state.
 
 ## F11 operation table and payload layouts
 
@@ -76,15 +78,20 @@ by 10000 basis points, and host plus protocol shares cannot exceed 10000.
 ## Lap receipts and sealed evidence
 
 A LapReceipt carries deal ID, lap index, prompt tokens, generated tokens,
-cumulative tokens, the layer-range digest per peer, host signature, and peer
-countersignatures with a bitmap over the deal roster. A ReceiptBatch carries
-deal ID, first and last lap indices, the final cumulative token count, a Merkle
-root of the receipts and countersign quorum. Its root must already be sealed
-through SealEvidence as an artifact manifest chunk root for the deal task set.
+cumulative tokens, the layer-range digest per peer, host signature, and a peer
+countersignature bitmap over the deal roster. The daemon retains and verifies
+the peer signatures separately. A ReceiptBatch carries deal ID, first and last
+lap indices, the final cumulative token count, a Merkle
+root of the receipts, countersign quorum and missing-countersigner bitmap.
+Its root must already be sealed through SealEvidence as an artifact manifest
+chunk root for the deal task set.
 
-SettleLaps refuses unsealed roots, an index below the last settled index and a
-quorum below roster size minus one. Successful settlement records cumulative
-tokens and the amount owed at the deal price. The host settles before metering.
+SettleLaps refuses unsealed roots, a first lap index at or below the previous
+batch's last index, a regressing cumulative token count and a quorum below
+roster size minus one. The missing-countersigner bitmap must fit the roster,
+and its population plus the quorum must equal roster size.
+Successful settlement records cumulative tokens and the amount owed at the deal
+price. The host settles before metering.
 A peer that misses the countersign deadline twice in a batch is marked for
 slashing and removal. A countersignature proves agreement with receipt bytes;
 it does not establish semantic correctness of every generated token.
@@ -156,5 +163,6 @@ claiming are distinct transitions, each requiring its own evidence.
 LockBond precedes PostBid. A resolved canary miss or missed countersign deadline
 permits SlashBond at the room slash fraction, credited to the other deal peers'
 reward ledger. A second slash for one lap refuses. RefundBond returns the
-remainder only after the last deal closes and the challenge window passes;
-closing a room alone does not bypass that window.
+remainder only after room closure, settlement of all deals involving that peer
+and expiry of their challenge windows. Open challenges and unresolved fault
+accounting keep the bond locked.

@@ -9,6 +9,7 @@ Repository administrators install repository or organization Actions secrets and
 variables supplied by the responsible role below. For jobs with an `environment`,
 that environment's administrator provisions the protected settings: `migration-testnets`
 for migration, `mirror-testnets` for mirrors, `paxeer-x-qualification` for qualification,
+`ramp-sandbox` for ramp journeys, `github-pages` for documentation deployment,
 and `devnet` or `testnet` for dapp checks. Platform and release jobs use repository
 or organization settings unless a job declares an environment. Role names describe
 provisioning responsibility, not a claim

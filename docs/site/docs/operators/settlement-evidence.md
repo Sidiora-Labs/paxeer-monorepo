@@ -2,20 +2,17 @@
 
 Current settlement evidence belongs to Paxeer's committed BFT chain, EVM chain
 id `125` (`0x7d`). The kernel runs inside the network. A successful transaction
-settles when its block is committed; a later custody checkpoint or guarantor
-certificate is not required. See [Paxeer settlement](../concepts/paxeer-settlement.md)
+settles when its block is committed. See [Paxeer settlement](../concepts/paxeer-settlement.md)
 for the receipt lifecycle and the merchant verifier.
 
-This page separates current block/state evidence from historical native witness
-and publication formats. Archive decoding does not enable a retired payout path.
+Block inclusion, application-state membership and native kernel state witnesses
+authenticate different commitments, as described below.
 
 ## Collect evidence at a committed height
 
-Use a node endpoint at its root path, for example
-`https://api1.mainnet-beta.paxeer.network/`, and check `eth_chainId` is `0x7d`.
-The public node set is `api1` through `api14.mainnet-beta.paxeer.network` and
-`api-mainnet-beta.paxeer.network`. `node.hyperpaxeer.com` is a library mirror,
-not an RPC endpoint. The node implements chain-state `px_` reads;
+Use the selected node's HTTPS origin at its root path, and check `eth_chainId`
+is `0x7d`. See [Public RPC endpoints](../reference/public-rpc.md).
+The node implements chain-state `px_` reads;
 application operations such as `px_register` and `px_requestFunds` require
 the hosted gateway's identity and faucet services.
 
@@ -149,56 +146,12 @@ Layer B uses index `module_id` and the module wrapper leaf
 `SHA256("LXP/v1/state-leaf\0" || u32(2) || u32(32) || module_id:u16 || subtree_root32)`.
 The codec accepts 9 through 12 module leaves, bounded by
 `LXP_MODULE_RESERVED_COUNT == 11`; the actual tree extends through its highest
-registered module. Do not hard-code the former 9/10-leaf assumption.
+registered module.
 
 `lxp_state_proof_build` verifies the constructed proof before returning it;
 `lxp_state_proof_encode`, `decode` and `verify` share the representation. Heap
 allocate `lxp_state_witness`, which includes up to one MiB of value storage.
 The canonical account value still binds account identity, asset, balance and
 authority; a caller-supplied recipient cannot override those bindings.
-
-## Historical publication formats
-
-The pre-merge checkpoint/custody publication lifecycle is retired. The following
-information is only for interpreting retained version-2 artifacts, not for
-provisioning a producer, deploying contracts, registering roots or making claims.
-
-Historical vectors used big-endian framing
-`tag || count:u32 || (item_length:u32 || item)*`:
-
-| Tag | Archived item |
-| --- | --- |
-| `LXP/Paxeer/withdrawal-witnesses/v2\0` | `withdrawal_id32`, semantic withdrawal leaf and checkpoint proof |
-| `LXP/Paxeer/balance-witnesses/v2\0` | `account32`, `asset32`, `amount:u128`, `recipient20` and checkpoint proof |
-
-A checkpoint publication digest bound
-`SHA256(abi.encode(checkpointHash,uint16(2),withdrawals,balances))`; a deposit
-publication digest bound
-`SHA256(abi.encode(uint16(2),registration,signature,leafOrdering))`. The
-publication envelope version, native witness version and checkpoint ordering
-version were separate fields, even where each happened to equal 2.
-
-The archived owner authorization preimage was:
-
-```text
-"LX:SETTLE:RECIPIENT:v1" || 0x00 || network_id:u32 || account32 || asset32
-|| recipient20 || request_anchor32
-```
-
-It required the account owner's Ed25519 signature. The archived deposit-root
-signature used a separately provisioned Ed25519 authority and this preimage,
-without a terminating zero after its domain:
-
-```text
-"LX:PAXEER:DEPOSIT:ROOT:v1" || checkpoint_id32 || checkpoint_state_root32
-|| deposit_root32 || custody_reference32 || network_id:u32 || protocol_version:u16
-```
-
-Replay cannot manufacture either authority's signature. Preserve both the
-request anchor and inclusion checkpoint when decoding: one bound the request
-and nullifier, while the other selected the proving root. Archived ancestry,
-recipient, canonical encoding and replay/nullifier checks remain necessary to
-interpret an old claim. Confirmation-depth and publication-contract procedures
-from those artifacts do not define current BFT settlement.
 
 [Home](../index.md)

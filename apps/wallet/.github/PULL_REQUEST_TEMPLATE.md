@@ -37,7 +37,7 @@ See the [wallet README](../README.md), [changelog](../../../docs/wallet/app/CHAN
 - Browser/device/OS and tab or installed PWA, if manually tested:
 - Checks not run and why:
 
-<!-- For network changes, identify the configured endpoint without credentials, chain id, and any selected tenant domain. Paxeer mainnet-beta uses EVM chain id 125 (0x7d) and public node root URLs. See ../../../docs/wallet/app/CHANGELOG.md#network-context. -->
+<!-- For network changes, identify the configured endpoint without credentials, chain id, and any selected tenant domain. Paxeer mainnet-beta uses EVM chain id 125 (0x7d) and public node root URLs. See ../../../docs/site/docs/reference/public-rpc.md. -->
 
 ## Checklist
 
