@@ -30,7 +30,7 @@ test = "mobileDeviceSignatureHeader"
 proof = "Production registration and revocation send X-Kindle-Operation-Signature through the loopback gateway; account fixture verifies the wallet signature and Ed25519 installation/account/session/provider proof; mobile identity and installation disk record are reopened before revocation."
 
 [finding.mobile-live-cache-version]
-test = "TestRepair_30_MobileLive"
+test = "mobileLiveCachePreservesViewerEvidence"
 proof = "Generated-contract-validated v2 producer wire fixtures -> loopback HTTP -> Operations IF_STREAM_LIST -> SnapshotCache disk write/close/reopen; null/unavailable and zero/verified remain distinct; legacy/unknown versions are refused."
 
 [boundary]

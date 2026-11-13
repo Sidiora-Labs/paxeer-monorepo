@@ -7,7 +7,7 @@ evidence = "The runner's hf-done ledger names the exact qualified candidate revi
 
 [finding.mobile-trade-unknown-recovery]
 test = "mobileTradeProcessDeathBeforeWalletResponse"
-path = "apps/launchpad/mobile/test/vitest/repair-22-33-927.test.ts"
+path = "apps/launchpad/mobile/test/vitest/trade-recovery.test.ts"
 implementation = "executeExternalWallet prepares and atomically journals the exact chain125 transaction, sender and nonce before wallet acceptance; the native provider submits that saved nonce. ForegroundLifecycle exposes tradeRecovery and recoverTrade for wallet-activity hash entry, verifies transaction identity and canonical receipt, and reconciles saved hashes on foreground after restart."
 proof = "The real lifecycle, pending journal, session, service client, quote producer and recovery RPC client cross a loopback wallet/chain peer. The wallet signs an EIP1559 transaction and records acceptance before the installation closes; reopening recovers the persisted awaiting-wallet state and clears it only after verifying the wallet activity hash without another submission."
 boundaries = ["mobileTradeUnknownRecovery", "mobileTradeRecoveryIdentityAndCanonicalReceipt", "mobileTradePendingRecoveryAcrossRestart", "mobileTradeRecoveryAuthorityAndReversion", "mobileTradeKnownHashRecovery"]

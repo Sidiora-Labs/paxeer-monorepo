@@ -1,7 +1,7 @@
 [repair.22.33.974]
 finding = "error-beacon-byte-limit"
 implementation = "route.ts counts streamed bytes into a fixed 64 KiB buffer, cancels on overflow, and decodes only accepted bytes."
-proof = "repair-22-33-974.test.ts: errorBeaconByteLimitCancelsChunkedUploads and errorBeaconByteLimitCountsMultibyteBytes prove the repair; the remaining tests preserve boundary delivery, split UTF-8, Sentry metadata, validation and read-error responses."
+proof = "beacon-byte-limit.test.ts: errorBeaconByteLimitCancelsChunkedUploads and errorBeaconByteLimitCountsMultibyteBytes prove the repair; the remaining tests preserve boundary delivery, split UTF-8, Sentry metadata, validation and read-error responses."
 baseline = "Not run: the explicit gate order requires complete implementation before hf-build and hf-done, and forbids a manual verify run; no pre-change failure is claimed."
 evidence = "The runner's hf-done ledger records the exact verified candidate revision, command, exit code and private log path."
 wiring_requests = []
