@@ -13,8 +13,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[3]
 CONTRACTS = ROOT / "tests/integration/contracts"
 RECORD = (
-    ROOT / "spec/layerx-merge/programme/records"
-    / "tools/qualification/audit_repairs/repair_22_33_740.kvx"
+    ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_740.kvx"
 )
 SCRIPTS = (
     "deploy_dex_contract.sh", "deploy_flatkv_evm_fixture.sh",
