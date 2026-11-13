@@ -110,7 +110,7 @@ func newRepair69Path(t *testing.T) *repair69Path {
 	if _, err := pool.Exec(ctx, "CREATE EXTENSION IF NOT EXISTS pg_trgm; CREATE SCHEMA stats_search; CREATE SCHEMA indexer; CREATE SCHEMA repair_source; CREATE SCHEMA repair_source_delivery; CREATE SCHEMA repair_search_delivery"); err != nil {
 		t.Fatal(err)
 	}
-	migrationRoot := "../../../../../launchpad/spec/production-system/integration/migrations/"
+	migrationRoot := "../../../../../migrations/"
 	schema, err := os.ReadFile(migrationRoot + "200001.sql")
 	if err != nil {
 		t.Fatal(err)

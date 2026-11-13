@@ -60,7 +60,7 @@ def phase3_restore(docker, ready, port, image, primary, network, password,
 
     sql('CREATE SCHEMA indexer;CREATE SCHEMA stats;')
     for migration in ('60000.sql', '130000.sql', '80000.sql'):
-        sql((ROOT / 'launchpad/spec/production-system/integration/migrations' / migration).read_text())
+        sql((ROOT / 'migrations' / migration).read_text())
 
     def transaction(number, volume, fee, published):
         transaction_hash = '0x' + f'{number:064x}'

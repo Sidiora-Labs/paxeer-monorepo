@@ -136,7 +136,7 @@ func localAccountingDatabase(t *testing.T, log types.Log) (*pgxpool.Pool, *deliv
 				t.Fatal(err)
 			}
 		}
-		raw, err := os.ReadFile(filepath.Join(root, "launchpad/spec/production-system/integration/migrations", name+".sql"))
+		raw, err := os.ReadFile(filepath.Join(root, "migrations", name+".sql"))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -172,7 +172,7 @@ func localAccountingDatabase(t *testing.T, log types.Log) (*pgxpool.Pool, *deliv
 	if _, err := pool.Exec(ctx, repo.MigrationSQL()); err != nil {
 		t.Fatal(err)
 	}
-	streamDDL, err := os.ReadFile(filepath.Join(root, "launchpad/spec/production-system/integration/migrations/150002.sql"))
+	streamDDL, err := os.ReadFile(filepath.Join(root, "migrations/150002.sql"))
 	if err != nil {
 		t.Fatal(err)
 	}

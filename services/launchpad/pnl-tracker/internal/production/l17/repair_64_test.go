@@ -39,7 +39,7 @@ func TestRepair_64_HistoryRowInsertGrant(t *testing.T) {
 	if !ok {
 		t.Fatal("test source location unavailable")
 	}
-	raw, err := os.ReadFile(filepath.Join(filepath.Dir(file), "../../../../../../launchpad/spec/production-system/integration/migrations/grants.json"))
+	raw, err := os.ReadFile(filepath.Join(filepath.Dir(file), "../../../../../../migrations/grants.json"))
 	if err != nil {
 		t.Fatal(err)
 	}

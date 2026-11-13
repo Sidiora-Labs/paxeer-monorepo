@@ -107,7 +107,7 @@ func newRepair51Fixture(t *testing.T) *repair51Fixture {
 		{"390000.sql", "metadata", names[1]}, {"390001.sql", "metadata", names[1]},
 		{"380000.sql", "chat", names[2]}, {"370001.sql", "chat", names[2]},
 	} {
-		raw, err := os.ReadFile(filepath.Join(root, "launchpad/spec/production-system/integration/migrations", migration.name))
+		raw, err := os.ReadFile(filepath.Join(root, "migrations", migration.name))
 		if err != nil {
 			t.Fatal(err)
 		}

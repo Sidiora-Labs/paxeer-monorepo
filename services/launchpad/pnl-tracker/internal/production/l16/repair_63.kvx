@@ -2,7 +2,7 @@
 id = "22.31.63"
 audit = "22.30.37"
 status = "implemented_not_qualified"
-scope = "launchpad/spec/production-system/integration/migrations; sdk/launchpad/shared/db/production/coordinatortest; services/launchpad/pnl-tracker/internal/production/l16"
+scope = "migrations; sdk/launchpad/shared/db/production/coordinatortest; services/launchpad/pnl-tracker/internal/production/l16"
 baseline = "The supplied attempt-2 evidence reports TestRepair_63_ActiveSnapshotUpdateGrant and TestRepair_63_WalletRangeSchemaMigrated failing before this repair. No earlier gate ledger exists in this sandbox. The unchanged-tree verification was not repeated because the current explicit order requires complete implementation, formatting and hf-build before hf-done."
 evidence = "The runner-owned /out/run/gates.jsonl records the exact candidate revision, command, exit and private log location. The runner creates the candidate revision from this record and sources; no passing gate is claimed in advance."
 

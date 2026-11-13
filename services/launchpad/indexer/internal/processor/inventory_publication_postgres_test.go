@@ -69,7 +69,7 @@ func newInventoryHarnessOnPool(t *testing.T, ctx context.Context, wait int64, po
 	applyProductionSchema(t, ctx, pool)
 	ddl := []string{`CREATE SCHEMA IF NOT EXISTS "pnl"`}
 	for _, id := range []string{"160000", "160001"} {
-		raw, err := os.ReadFile(filepath.Join(repositoryRoot(), "launchpad", "spec", "production-system", "integration", "migrations", id+".sql"))
+		raw, err := os.ReadFile(filepath.Join(repositoryRoot(), "migrations", id+".sql"))
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -22,8 +22,8 @@ func TestRewardRegistryBindsReviewedMigrationAndReader(t *testing.T) {
 		}
 		return raw
 	}
-	source := read("launchpad/spec/production-system/integration/migrations/registry.json")
-	approval := read("launchpad/spec/production-system/integration/migrations/pnl-reward-approval.json")
+	source := read("migrations/registry.json")
+	approval := read("migrations/pnl-reward-approval.json")
 	reader := read("sdk/launchpad/shared/interfaces/v2/validators.gen.go")
 	var document production.MigrationRegistry
 	if err := json.Unmarshal(source, &document); err != nil {

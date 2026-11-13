@@ -15,7 +15,7 @@ wiring = "Domain 4 payout-provider owner: wire the deployed provider endpoint fo
 tests = ["TestRepair_65_RecoveryWithProductionGrants", "TestRepair_65_RecoveryPreservesNewerQuarantine", "TestRepair_65_RecoveryMarkerFailsClosed"]
 proof = "Authenticated HTTP recovery through the real Store and IncidentRecovery runs under a non-owner role granted the exact control_runtime table privileges from the production manifest; actual old credentials are revoked, a replacement is issued, and independent durable recovery evidence is consumed. Check restored operations and approver eligibility, retained history, denial without evidence, and rollback for newer quarantine."
 change = "Recovery updates the current contained quarantine to a recovered marker. Both actor authorization and approval authorization require a matching recovered incident with rotation and integrity references. No DELETE privilege is introduced."
-wiring = "Domain 4 integration owner: launchpad/spec/production-system/integration/migrations/470000.sql and grants.json remain outside scope; deploy the recovered-marker consumer with the existing SELECT, INSERT, UPDATE(body) grants, retaining incident history and without adding DELETE."
+wiring = "Domain 4 integration owner: migrations/470000.sql and grants.json remain outside scope; deploy the recovered-marker consumer with the existing SELECT, INSERT, UPDATE(body) grants, retaining incident history and without adding DELETE."
 evidence_boundary = "Secret/cache adapters are outside scope; successful recovery tests supply their durable completed outbox evidence, while exercising real IncidentWorker credential revocation, independent IncidentRecovery reads and runtime SQL grants."
 
 [finding.policy-write-read-shape]

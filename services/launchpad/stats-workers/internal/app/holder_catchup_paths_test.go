@@ -36,7 +36,7 @@ func TestCanonicalHolderJobAdvancesCommittedTransfers(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
-		ddl, err := os.ReadFile(filepath.Join(root, "launchpad", "spec", "production-system", "integration", "migrations", id+".sql"))
+		ddl, err := os.ReadFile(filepath.Join(root, "migrations", id+".sql"))
 		if err != nil {
 			t.Fatal(err)
 		}
