@@ -1,6 +1,6 @@
 # Source reference: C core: version control
 
-This part of the [source reference](../SOURCE-REFERENCE.md) lists 337 selected declarations in 9 files of the [Hyperfide workspace](../../../tools/hyperfide). Paths are relative to that workspace. Line numbers and quoted declarations refer to the linked source files. The declaration column shows the first source line, shortened to 200 characters where necessary. The tables include implementation helpers as well as public declarations.
+This part of the [source reference](../SOURCE-REFERENCE.md) lists 336 selected declarations in 9 files of the [Hyperfide workspace](../../../tools/hyperfide). Paths are relative to that workspace. Line numbers and quoted declarations refer to the linked source files. The declaration column shows the first source line, shortened to 200 characters where necessary. The tables include implementation helpers as well as public declarations.
 
 ## core/native/src/changelog.c
 
@@ -18,7 +18,7 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists 337 selected d
 | `Boundary`          | typedef  |  281 | <code>typedef struct</code>                                                                                  |
 | `boundaries_load`   | function |  288 | <code>static int boundaries_load(const char &#42;tree, const char &#42;src, Boundary &#42;&#42;out)</code>   |
 | `ADD`               | macro    |  293 | <code>#define ADD(nm, cm, wh) \</code>                                                                       |
-| `Entry`             | typedef  |  281 | <code>typedef struct</code>                                                                                  |
+| `Entry`             | typedef  |  379 | <code>typedef struct</code>                                                                                  |
 | `entry_free`        | function |  389 | <code>static void entry_free(Entry &#42;e)</code>                                                            |
 | `GROUPS`            | variable |  406 | <code>} GROUPS&#91;&#93; = {</code>                                                                          |
 | `NGROUPS`           | macro    |  430 | <code>#define NGROUPS ((int)(sizeof GROUPS / sizeof GROUPS&#91;0&#93;))</code>                               |
@@ -329,7 +329,6 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists 337 selected d
 | `runtime_first_string`       | function |  255 | <code>static char &#42;runtime_first_string(const char &#42;payload,</code>                        |
 | `runtime_first_raw`          | function |  265 | <code>static char &#42;runtime_first_raw(const char &#42;payload,</code>                           |
 | `runtime_kind`               | function |  275 | <code>static char &#42;runtime_kind(const char &#42;payload) {</code>                              |
-| `RuntimeFile`                | typedef  |  355 | <code>typedef struct {</code>                                                                      |
 | `runtime_workspace_revision` | function |  300 | <code>void runtime_workspace_revision(Cg &#42;cg, char out&#91;65&#93;) {</code>                   |
 | `RuntimeEventRow`            | typedef  |  355 | <code>typedef struct {</code>                                                                      |
 | `runtime_event_store`        | function |  364 | <code>static int runtime_event_store(Cg &#42;cg, const RuntimeEventRow &#42;r,</code>              |
@@ -368,7 +367,7 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists 337 selected d
 | `Frame`                   | typedef  |  214 | <code>typedef struct { char rel&#91;4096&#93;; } Frame;</code>                                                           |
 | `man_serialize`           | function |  331 | <code>static char &#42;man_serialize(const Manifest &#42;m, size_t &#42;len) {</code>                                    |
 | `man_load`                | function |  339 | <code>static int man_load(const Cg &#42;cg, const char &#42;tree_hash, Manifest &#42;m) {</code>                         |
-| `Commit`                  | typedef  |  214 | <code>typedef struct { char rel&#91;4096&#93;; } Frame;</code>                                                           |
+| `Commit`                  | typedef  |  359 | <code>typedef struct {</code>                                                           |
 | `commit_load`             | function |  365 | <code>static int commit_load(const Cg &#42;cg, const char &#42;hash, Commit &#42;c) {</code>                             |
 | `cmd_commit_with_options` | function |  381 | <code>int cmd_commit_with_options(Cg &#42;cg, const char &#42;msg, bool quiet,</code>                                    |
 | `cmd_commit`              | function |  452 | <code>int cmd_commit(Cg &#42;cg, const char &#42;msg, bool quiet) {</code>                                               |

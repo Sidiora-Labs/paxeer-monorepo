@@ -120,8 +120,9 @@ newest one.
 The fingerprint is a hash of the base head, every folded branch's name and
 contribution id, every skipped branch and its reason, and `--strict`. When
 it matches the last build and the ref still points at that build's commit,
-`build` prints `projection unchanged` and the stored result, and writes
-nothing. `--force` rebuilds anyway.
+`build` prints `projection unchanged` and the stored result without changing
+the ref or adding a build row. It still emits `projection.built`, and `--index`
+refreshes the projection index when requested. `--force` rebuilds the fold.
 
 ### The lock
 
@@ -238,7 +239,8 @@ branch `codify/projection`. A detached HEAD has no branch name, so the build
 registers the name itself and runs the index pass as that branch, the same
 way a linked worktree's own `hyperfide sync` writes its rows.
 
-From then on every read command answers for the projection:
+Use `--branch codify/projection` on a read command to query the indexed
+projection:
 
 ```text
 hyperfide search Handler --branch codify/projection

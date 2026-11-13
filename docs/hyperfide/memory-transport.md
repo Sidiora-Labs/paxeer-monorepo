@@ -34,13 +34,14 @@ count and the file (`--json`: `{"ok":true,"exported":N,"file":...}`).
 | `--task T`     | memories whose task is `T`, or starts with `T/` — so `--task codify-v12` takes every task of that feature, `--task codify-v12/1.1` one task                     |
 | `--type T`     | memories of that type, exactly                                                                                                                                  |
 | `--branch B`   | memories that carry branch `B`, exactly. The name need not be a branch this graph tracks, and a memory with no branch (visible on every branch) is not selected |
-| `--since DAYS` | memories created in the last `DAYS` days                                                                                                                        |
+| `--since DAYS` | memories created in the last `DAYS` days when positive; `0` applies no time filter                                                                               |
 
 Rows are ordered by `created`, then by row id, and the header carries no
-timestamp, so two exports of the same graph with the same filters are
-byte-identical and can be committed and diffed.
+timestamp. Exports of the same selected rows are byte-identical and can be
+committed and diffed. The cutoff for `--since` is relative to the export time.
 
-Exit status: 0, or 1 when the file cannot be written.
+Exit status: 0, or 1 for a negative `--since`, a graph read error, or an output
+file that cannot be written.
 
 ### `hyperfide memory import <FILE|-> [--dry-run] [--keep-branch] [--retask OLD=NEW]`
 
@@ -147,7 +148,7 @@ value:
 | Key             | Type            | Required on import | Meaning                                                                                                                                       |
 | --------------- | --------------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
 | `id`            | string          | no                 | The memory's content id in the exporting graph (below). Used to resolve `superseded_by` within the file; computed when absent                 |
-| `created`       | integer         | no                 | Unix seconds when the memory was written. Kept as is; the import time when absent                                                             |
+| `created`       | integer         | no                 | Unix seconds when the memory was written. Positive values are kept; absent, null or nonpositive values use the import time                   |
 | `type`          | string          | **yes**            | `decision`, `constraint`, `outcome`, `preference`, `fact`, `handoff`, … — any lowercase word of letters, digits, `_` or `-`, at most 32 bytes |
 | `task`          | string or null  | no                 | The spec task tag, `feature/id`                                                                                                               |
 | `body`          | string          | **yes**            | The note itself; never empty                                                                                                                  |
@@ -158,7 +159,7 @@ value:
 | `class`         | string or null  | no                 | Classification (`skill`, `decision`, `constraint`, `fact`, `noise`), null when unclassified                                                   |
 | `confidence`    | number or null  | no                 | Confidence in `class`; kept only with a class                                                                                                 |
 | `superseded_by` | string or null  | no                 | The content id of the memory that replaced this one                                                                                           |
-| `superseded_at` | integer or null | no                 | Unix seconds when it was replaced                                                                                                             |
+| `superseded_at` | integer or null | no                 | Unix seconds when it was replaced. A restored link uses the import time when this value is absent, null or nonpositive                         |
 
 Readers ignore keys they do not know, so a version-1 file may grow keys
 without breaking an older reader; a change an older reader would
@@ -206,9 +207,10 @@ target and for every incoming memory after `--retask`. A match is skipped;
 the target's row stays as it is. Two identical memories in one file import
 once.
 
-**Kept as written.** `created`, `type`, `task`, `body`, `symbols`, `files`,
-`class`, and `confidence` are stored as they arrive. `hyperfide recall` in the
-target returns the same values the source did.
+**Stored fields.** `type`, `body`, `symbols`, `files`, and `class` are kept as
+written. `task` follows `--retask` when supplied. A positive `created` is kept;
+otherwise it uses the import time. `confidence` is stored only when `class` is
+present. `hyperfide recall` returns the stored values.
 
 **Provenance.** `source` becomes `import:<project>/<original source>` —
 `import:alpha/manual`, `import:alpha/auto` — so where a memory came from and
@@ -220,7 +222,8 @@ was first written, not every graph it passed through.
 linked to it when both ends are in the target after the import: rows that
 were already there, rows arriving in the same file, in any line order, or a
 row an earlier import brought — import the file again once the other end
-has arrived and the link is made. The link keeps `superseded_at`. A link the
+has arrived and the link is made. The link keeps a positive `superseded_at`,
+otherwise it uses the import time. A link the
 target already holds for that memory is the target's own decision and is
 left alone. `relinked` counts the links made.
 

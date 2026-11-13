@@ -393,7 +393,7 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists 735 selected d
 | `S_QFILTER`                 | macro    |  834 | <code>#define S_QFILTER "\"path\":{\"type\":&#91;\"string\",\"array\"&#93;,\"items\":" \</code>                    |
 | `S_QUERY`                   | macro    |  842 | <code>#define S_QUERY "{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"string\"}," \</code>             |
 | `S_CTX`                     | macro    |  845 | <code>#define S_CTX "{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"string\"}," \</code>               |
-| `go`                        | macro    |  849 | <code>#define S_FILES "{\"type\":\"object\",\"properties\":{\"pattern\":{\"type\":" \</code>                       |
+| `S_FILES`                        | macro    |  849 | <code>#define S_FILES "{\"type\":\"object\",\"properties\":{\"pattern\":{\"type\":" \</code>                       |
 | `S_SURVEY`                  | macro    |  858 | <code>#define S_SURVEY "{\"type\":\"object\",\"properties\":{\"scope\":{\"type\":" \</code>                        |
 | `S_ANCHORS`                 | macro    |  862 | <code>#define S_ANCHORS "{\"type\":\"object\",\"properties\":{\"stale\":{\"type\":" \</code>                       |
 | `S_NAME`                    | macro    |  866 | <code>#define S_NAME "{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"}}," \</code>              |
@@ -626,12 +626,12 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists 735 selected d
 | `orch_env_apply`            | function | 1380 | <code>static void orch_env_apply(const FleetNode &#42;n) {</code>                                                           |
 | `orch_agent_record`         | function | 1400 | <code>static void orch_agent_record(Cg &#42;g, const FleetNode &#42;n) {</code>                                             |
 | `orch_fleet_exec`           | function | 1427 | <code>static pid_t orch_fleet_exec(char &#42;&#42;av, const FleetNode &#42;n,</code>                                        |
-| `OrchTask`                  | typedef  | 1362 | <code>typedef struct { char &#42;v&#91;ORCH_ENVN&#93;; } OrchEnv;</code>                                                    |
+| `OrchTask`                  | typedef  | 1478 | <code>typedef struct {</code>                                                    |
 | `orch_tasks_free`           | function | 1491 | <code>static void orch_tasks_free(OrchTask &#42;v, int n) {</code>                                                          |
 | `orch_tasks_wave_trees`     | function | 1501 | <code>static void orch_tasks_wave_trees(Cg &#42;cg, const char &#42;feature, OrchTask &#42;v,</code>                        |
 | `orch_tasks_load`           | function | 1541 | <code>static int orch_tasks_load(Cg &#42;cg, const char &#42;feature, const char &#42;fwt,</code>                           |
 | `orch_task_wave`            | function | 1637 | <code>static long orch_task_wave(Cg &#42;cg, const char &#42;feature, const char &#42;id) {</code>                          |
-| `OrchSubtree`               | typedef  | 1478 | <code>typedef struct {</code>                                                                                               |
+| `OrchSubtree`               | typedef  | 1649 | <code>typedef struct {</code>                                                                                               |
 | `orch_subtree`              | function | 1658 | <code>static void orch_subtree(Cg &#42;cg, const char &#42;feature, long wave,</code>                                       |
 | `OrchPlanCall`              | typedef  | 1679 | <code>typedef struct { Cg &#42;g; const char &#42;feature; } OrchPlanCall;</code>                                           |
 | `orch_call_plan`            | function | 1681 | <code>static int orch_call_plan(void &#42;v) {</code>                                                                       |
@@ -642,12 +642,12 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists 735 selected d
 | `orch_json_into`            | function | 1886 | <code>static void orch_json_into(const char &#42;js, const char &#42;key, char &#42;out,</code>                             |
 | `orch_spawn_worker`         | function | 1893 | <code>int orch_spawn_worker(Cg &#42;cg, const char &#42;feature, const char &#42;id,</code>                                 |
 | `orch_ago`                  | function | 2027 | <code>static void orch_ago(long seen, char &#42;out, size_t cap) {</code>                                                   |
-| `OrchWorkerRow`             | typedef  | 1869 | <code>typedef struct { Cg &#42;g; const char &#42;id; const char &#42;feature; } OrchBeginCall;</code>                      |
+| `OrchWorkerRow`             | typedef  | 2036 | <code>typedef struct {</code>                      |
 | `orch_worker_rows`          | function | 2043 | <code>static int orch_worker_rows(Cg &#42;cg, const char &#42;feature, OrchWorkerRow &#42;&#42;out) {</code>                |
 | `orch_tree_has_wave`        | function | 2100 | <code>static bool orch_tree_has_wave(const long &#42;waves, int n, long wave) {</code>                                      |
 | `orch_tree_status`          | function | 2105 | <code>int orch_tree_status(Cg &#42;cg, const char &#42;feature_ov, bool json) {</code>                                      |
 | `TREE_OWNS`                 | macro    | 2187 | <code>#define TREE_OWNS(i) (!per_wave &#124;&#124; w&#91;i&#93;.wave == wave &#124;&#124; \</code>                          |
-| `OrchFleetSlot`             | typedef  | 2036 | <code>typedef struct {</code>                                                                                               |
+| `OrchFleetSlot`             | typedef  | 2280 | <code>typedef struct {</code>                                                                                               |
 | `orch_live_fleet`           | function | 2297 | <code>static int orch_live_fleet(const OrchFleetSlot &#42;s, int n) {</code>                                                |
 | `orch_finished_id`          | function | 2303 | <code>static bool orch_finished_id(const OrchTask &#42;v, int n, const char &#42;id) {</code>                               |
 | `orch_attempts`             | function | 2326 | <code>static int orch_attempts(char &#42;&#42;tried, int ntried, const char &#42;id) {</code>                               |
@@ -662,8 +662,8 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists 735 selected d
 | `sup_lock_path`             | function | 2494 | <code>static int sup_lock_path(const char &#42;shared, char &#42;out, size_t cap) {</code>                                  |
 | `sup_lock_take`             | function | 2501 | <code>static int sup_lock_take(const char &#42;shared) {</code>                                                             |
 | `fleet_supervisor_alive`    | function | 2510 | <code>bool fleet_supervisor_alive(const char &#42;shared) {</code>                                                          |
-| `SupMgr`                    | typedef  | 2280 | <code>typedef struct {</code>                                                                                               |
-| `Sup`                       | typedef  | 2280 | <code>typedef struct {</code>                                                                                               |
+| `SupMgr`                    | typedef  | 2521 | <code>typedef struct {</code>                                                                                               |
+| `Sup`                       | typedef  | 2532 | <code>typedef struct {</code>                                                                                               |
 | `sup_mgr`                   | function | 2556 | <code>static SupMgr &#42;sup_mgr(Sup &#42;s, long wave) {</code>                                                            |
 | `sup_mgrs_live`             | function | 2569 | <code>static int sup_mgrs_live(const Sup &#42;s) {</code>                                                                   |
 | `sup_mgr_agent`             | function | 2582 | <code>static void sup_mgr_agent(Sup &#42;s, long wave, char &#42;out, size_t cap);</code>                                   |
