@@ -21515,3 +21515,13 @@ fix = "Each area brings its own make targets in line in a task of its own with t
 title = "The lint target of the agent workspace reads the entry file of the daemon together with its tests"
 symptom = "The command make agent-lint compiles every target of the agent workspace, so the argument limit of the lint configuration applies to the function terms of services/agent/crates/layerx-agentd/src/main.rs in the same run that reads the test files."
 fix = "The agent lint task carries the entry file in its paths and moves the inputs of the function into one parameter structure."
+
+[gotcha.4339]
+title = "Two binding cases of the Rust program SDK read directories that the binding program of the qualification tools prepares"
+symptom = "The cases generated_client_guest_and_typescript_are_compiler_inputs and immutable_published_interfaces_generate_all_language_families of programs/sdk/rust/tests/bindgen_conformance.rs read the directories named by the variables PAXEER_X_BINDINGS_ARTIFACTS and PAXEER_X_BINDINGS_FIXTURES. The binding program sets both variables; the test run of the programs workspace does not."
+fix = "The two cases run their assertions when the variable is set and print one line and return when it is not, without an ignore attribute."
+
+[gotcha.4340]
+title = "The interop service member links the platform gateway member, which keeps a SQLite store"
+symptom = "The dependency policy of the interop workspace reads the whole package list of the metadata, so the two SQLite crates that the platform gateway member uses appear in it through services/interop/crates/layerx-interop-service."
+fix = "The policy refuses the two crates on every dependency path that does not pass through the platform gateway member."

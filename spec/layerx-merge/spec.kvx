@@ -13636,6 +13636,18 @@ value = "Task 22.39.497 moves the inputs of the function terms of services/agent
 basis = "The lint target passes as a whole only when the entry file and the tests are in line at one revision, and one task owns the target."
 affects = ["22.39.497", "17.5.7"]
 
+[decision.3421]
+title = "The two producer cases of the Rust program SDK return when their directory variable is not set"
+value = "The two cases of programs/sdk/rust/tests/bindgen_conformance.rs that read the directories of the binding program run every assertion when the variable is set and print one line naming the variable and return when it is not set. They carry no ignore attribute, so the binding program keeps counting them among its passed cases, and the Rust SDK target of the Makefile runs the named case without the ignored selector."
+basis = "The binding program is the run that prepares the directories and states the result of the two cases; the test run of the programs workspace has no such directories."
+affects = ["22.39.509"]
+
+[decision.3422]
+title = "The SQLite refusal of the interop dependency policy follows the dependency path"
+value = "scripts/interop/dependency-policy.sh refuses the two SQLite crates on every dependency path from a member of the interop workspace that does not pass through the platform gateway member, and keeps refusing every other name of its list on every path. The licence part of the script stays as it is."
+basis = "The store of the platform gateway member is part of that member, and the interop members themselves keep no SQLite dependency."
+affects = ["22.39.501"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -188035,6 +188047,7 @@ time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "do_3 Decision 3421, gotcha 4339. The two cases of programs/sdk/rust/tests/bindgen_conformance.rs that read the directories named by the variables PAXEER_X_BINDINGS_ARTIFACTS and PAXEER_X_BINDINGS_FIXTURES run every assertion when the variable is set and print one line naming the variable and return when it is not set. They carry no ignore attribute. The Rust SDK target of the Makefile runs the named case without the ignored selector. This item takes the place of the two alternatives of do_1 for these two cases. Add the rule to the record. Run the build once and the verification once at the final revision."
 
 [task.22.39.500]
 title = "Bring the lint target of the human services in line"
@@ -197855,7 +197868,7 @@ interfaces = []
 do_1 = "do_1 Gotcha 4337, decisions 3418 and 3419. The command make interop-lint passes. The crate that scripts/interop/dependency-policy.sh forbids leaves the dependency tree of services/interop through the feature selection or the version of the dependency that brings it in; the policy file keeps its list. The dependency check of services/interop passes under the rule of decision 3419."
 do_2 = "do_2 Record in services/interop/repair_22_39_501.kvx the rule, the changed files, every entry added to the configuration of the dependency check with its reason, and the command. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["services/interop/Cargo.toml", "services/interop/Cargo.lock", "services/interop/deny.toml", "services/interop/crates"]
+touches = ["services/interop/Cargo.toml", "services/interop/Cargo.lock", "services/interop/deny.toml", "services/interop/crates", "scripts/interop/dependency-policy.sh"]
 tests = []
 planned_paths = ["services/interop/repair_22_39_501.kvx"]
 build_cmd = "make -s interop-build"
@@ -197871,6 +197884,7 @@ time_limit_minutes = 180
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "do_3 Decision 3422, gotcha 4340. In scripts/interop/dependency-policy.sh compute from the resolve graph of the metadata the packages that the members of the interop workspace reach when the platform gateway member is left out of the graph, and refuse the two SQLite crates in that set. Every other name of the list stays refused over the whole package list, and the licence part of the script stays as it is. Where the policy has cases, add one for a path through the gateway member and one for a direct path. Add the script to the record. Run the build once and the verification once at the final revision."
 
 [task.22.39.498]
 title = "Bring the test target of the agent workspace in line"
