@@ -19,7 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func repairM1502Proposal(t *testing.T, h *harness, params types.Params) error {
+func applySchedulerParamsProposal(t *testing.T, h *harness, params types.Params) error {
 	t.Helper()
 	proposal, err := layerxgovtypes.NewLayerXProposal("Scheduler gas limits", "Preserve pending scheduler jobs",
 		&types.MsgUpdateParams{Authority: layerxgovtypes.GovernanceAuthority(), Params: params})
@@ -40,7 +40,7 @@ func repairM1502Proposal(t *testing.T, h *harness, params types.Params) error {
 	return layerxgov.NewProposalHandler(router)(h.ctx, decoded)
 }
 
-func TestRepairM_1502_GovernanceReductionRestart(t *testing.T) {
+func TestSchedulerGovernanceGasReductionRestart(t *testing.T) {
 	for _, tc := range []struct {
 		name       string
 		blockLimit uint64
@@ -51,13 +51,13 @@ func TestRepairM_1502_GovernanceReductionRestart(t *testing.T) {
 		{"future job", 50_000, later},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			d := repair145Open(t)
+			d := openSchedulerDisk(t)
 			h := d.h
 			params := keeper.DefaultParams()
 			params.MaxJobGasLimit = gasLimit
 			params.MaxBlockGas = 120_000
 			params.MaxJobsPerBlock = 1
-			require.NoError(t, repairM1502Proposal(t, h, params))
+			require.NoError(t, applySchedulerParamsProposal(t, h, params))
 			target := h.deploy([]byte{byte(vm.STOP)})
 			collector := authtypes.NewModuleAddress(authtypes.FeeCollectorName)
 			creatorBefore := h.balance(h.ctx, h.creatorAcc)
@@ -77,7 +77,7 @@ func TestRepairM_1502_GovernanceReductionRestart(t *testing.T) {
 			proposed.MaxJobGasLimit = 50_000
 			proposed.MaxBlockGas = tc.blockLimit
 			proposed.Paused = true
-			err = repairM1502Proposal(t, h, proposed)
+			err = applySchedulerParamsProposal(t, h, proposed)
 			require.ErrorIs(t, err, agentcommon.ErrSchedulerInvalidGasLimit)
 			require.ErrorContains(t, err, "job 1 gas limit 100000")
 			require.Equal(t, before, h.keeper.ExportRecoveryGenesis(h.ctx))
@@ -113,7 +113,7 @@ func TestRepairM_1502_GovernanceReductionRestart(t *testing.T) {
 
 				if id == large {
 					proposed.Paused = false
-					require.NoError(t, repairM1502Proposal(t, h, proposed))
+					require.NoError(t, applySchedulerParamsProposal(t, h, proposed))
 					require.Equal(t, proposed, h.keeper.GetParams(h.ctx))
 				}
 				snapshot := h.keeper.ExportRecoveryGenesis(h.ctx)
@@ -137,7 +137,7 @@ func TestRepairM_1502_GovernanceReductionRestart(t *testing.T) {
 	}
 }
 
-func TestRepairM_1502_CompatibleReduction(t *testing.T) {
+func TestSchedulerCompatibleGasReduction(t *testing.T) {
 	h := newHarness(t)
 	target := h.deploy([]byte{byte(vm.STOP)})
 	id := h.schedule(target, later)
@@ -147,7 +147,7 @@ func TestRepairM_1502_CompatibleReduction(t *testing.T) {
 	params := h.keeper.GetParams(h.ctx)
 	params.MaxJobGasLimit = job.GasLimit
 	params.MaxBlockGas = job.GasLimit
-	require.NoError(t, repairM1502Proposal(t, h, params))
+	require.NoError(t, applySchedulerParamsProposal(t, h, params))
 	require.Equal(t, params, h.keeper.GetParams(h.ctx))
 	stored, found := h.keeper.GetJob(h.ctx, id)
 	require.True(t, found)
@@ -159,7 +159,7 @@ func TestRepairM_1502_CompatibleReduction(t *testing.T) {
 	refund, err := h.keeper.Cancel(h.ctx, h.creator, id)
 	require.NoError(t, err)
 	require.Equal(t, deposit, refund.BigInt())
-	require.NoError(t, repairM1502Proposal(t, h, params))
+	require.NoError(t, applySchedulerParamsProposal(t, h, params))
 	require.Equal(t, params, h.keeper.GetParams(h.ctx))
 	require.Zero(t, h.balance(h.ctx, h.keeper.ModuleAddress()).Sign())
 }

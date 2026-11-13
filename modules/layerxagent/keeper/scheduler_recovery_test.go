@@ -23,23 +23,23 @@ import (
 	tmdb "github.com/tendermint/tm-db"
 )
 
-type repair145Disk struct {
+type schedulerDisk struct {
 	h         *harness
 	dir       string
 	committed storetypes.CommitMultiStore
 }
 
-func repair145Open(t *testing.T) *repair145Disk {
+func openSchedulerDisk(t *testing.T) *schedulerDisk {
 	t.Helper()
-	d := &repair145Disk{h: newHarness(t), dir: t.TempDir()}
+	d := &schedulerDisk{h: newHarness(t), dir: t.TempDir()}
 	d.open()
 	t.Cleanup(func() { require.NoError(t, d.committed.Close()) })
 	return d
 }
 
-func (d *repair145Disk) open() {
+func (d *schedulerDisk) open() {
 	t := d.h.t
-	db, err := tmdb.NewGoLevelDB("repair145", d.dir)
+	db, err := tmdb.NewGoLevelDB("scheduler", d.dir)
 	require.NoError(t, err)
 	d.committed = store.NewCommitMultiStore(db)
 	d.committed.MountStoreWithDB(d.h.key, sdk.StoreTypeIAVL, db)
@@ -48,7 +48,7 @@ func (d *repair145Disk) open() {
 	d.h.keeper = keeper.NewKeeper(d.h.key, &testkeeper.EVMTestApp.EvmKeeper, precompiles.MergeUpgrade)
 }
 
-func (d *repair145Disk) restart(ctx sdk.Context) {
+func (d *schedulerDisk) restart(ctx sdk.Context) {
 	d.h.ctx = ctx
 	d.h.ctx.MultiStore().(storetypes.CacheMultiStore).Write()
 	id := d.committed.Commit(true)
@@ -58,7 +58,7 @@ func (d *repair145Disk) restart(ctx sdk.Context) {
 	require.Equal(d.h.t, id, d.committed.LastCommitID())
 }
 
-func repair145Precompile(t *testing.T, h *harness) *scheduler.SchedulerPrecompile {
+func registerSchedulerPrecompile(t *testing.T, h *harness) *scheduler.SchedulerPrecompile {
 	t.Helper()
 	evm := &testkeeper.EVMTestApp.EvmKeeper
 	previous := *evm
@@ -71,30 +71,30 @@ func repair145Precompile(t *testing.T, h *harness) *scheduler.SchedulerPrecompil
 	return p
 }
 
-func repair145Counter() []byte {
+func schedulerCounterCode() []byte {
 	return []byte{byte(vm.PUSH1), 0, byte(vm.SLOAD), byte(vm.PUSH1), 1,
 		byte(vm.ADD), byte(vm.PUSH1), 0, byte(vm.SSTORE), byte(vm.STOP)}
 }
 
-func repair145Move(t *testing.T, h *harness, from, to sdk.AccAddress, amount *big.Int) {
+func transferSchedulerFunds(t *testing.T, h *harness, from, to sdk.AccAddress, amount *big.Int) {
 	t.Helper()
 	coins, wei := state.SplitUhpxWeiAmount(amount)
 	require.NoError(t, testkeeper.EVMTestApp.BankKeeper.SendCoinsAndWei(h.ctx, from, to, coins, wei))
 }
 
-func TestRepair_145_CancelAdmitted(t *testing.T) {
-	repair145Admitted(t, false)
+func TestSchedulerCancelAdmitted(t *testing.T) {
+	checkAdmittedJobMutation(t, false)
 }
 
-func TestRepair_145_RescheduleAdmitted(t *testing.T) {
-	repair145Admitted(t, true)
+func TestSchedulerRescheduleAdmitted(t *testing.T) {
+	checkAdmittedJobMutation(t, true)
 }
 
-func repair145Admitted(t *testing.T, reschedule bool) {
-	d := repair145Open(t)
+func checkAdmittedJobMutation(t *testing.T, reschedule bool) {
+	d := openSchedulerDisk(t)
 	h := d.h
-	p := repair145Precompile(t, h)
-	target := h.deploy(repair145Counter())
+	p := registerSchedulerPrecompile(t, h)
+	target := h.deploy(schedulerCounterCode())
 	collector := authtypes.NewModuleAddress(authtypes.FeeCollectorName)
 	creatorBefore, collectorBefore := h.balance(h.ctx, h.creatorAcc), h.balance(h.ctx, collector)
 	method, args := "cancel", []interface{}{big.NewInt(2)}
@@ -173,7 +173,7 @@ func repair145Admitted(t *testing.T, reschedule bool) {
 	require.Equal(t, []uint64{third}, h.keeper.Pending(h.ctx, other))
 }
 
-func TestRepair_145_SettlementRecovery(t *testing.T) {
+func TestSchedulerSettlementRecovery(t *testing.T) {
 	for _, tc := range []struct {
 		name                string
 		escrow              int64
@@ -185,21 +185,21 @@ func TestRepair_145_SettlementRecovery(t *testing.T) {
 		{"fee refused", 300_000, 1_000_000, false, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			d := repair145Open(t)
+			d := openSchedulerDisk(t)
 			h := d.h
 			params := h.keeper.GetParams(h.ctx)
 			params.MinDepositFactor = 1
 			require.NoError(t, h.keeper.SetParams(h.ctx, params))
 			// The successful target changes real EVM state. Its cost is above
 			// 700k wei, making the 300k balance unable to pay its fee.
-			target := h.deploy(burner(30_000, repair145Counter()))
+			target := h.deploy(burner(30_000, schedulerCounterCode()))
 			id, err := h.keeper.Schedule(h.ctx, h.creatorAcc, h.creator, target, nil, dueAt, gasLimit, big.NewInt(tc.jobDeposit))
 			require.NoError(t, err)
 			collector := authtypes.NewModuleAddress(authtypes.FeeCollectorName)
 			collectorBefore := h.balance(h.ctx, collector)
 			// Drain through the real bank to provoke its insufficient-funds
 			// refusal; neither the bank nor scheduler is replaced.
-			repair145Move(t, h, h.keeper.ModuleAddress(), h.creatorAcc, big.NewInt(tc.jobDeposit-tc.escrow))
+			transferSchedulerFunds(t, h, h.keeper.ModuleAddress(), h.creatorAcc, big.NewInt(tc.jobDeposit-tc.escrow))
 			creatorBefore := h.balance(h.ctx, h.creatorAcc)
 			h.ctx = h.ctx.WithBlockHeight(int64(dueAt)).WithEventManager(sdk.NewEventManager())
 			used, err := h.keeper.RunDue(h.ctx)
@@ -271,7 +271,7 @@ func TestRepair_145_SettlementRecovery(t *testing.T) {
 			require.Empty(t, fresh.keeper.ExportRecoveryGenesis(fresh.ctx).Settlements)
 			// Repair the bank shortfall and pay the original durable record.
 			replenish := new(big.Int).Sub(outstanding, h.balance(h.ctx, h.keeper.ModuleAddress()))
-			repair145Move(t, h, h.creatorAcc, h.keeper.ModuleAddress(), replenish)
+			transferSchedulerFunds(t, h, h.creatorAcc, h.keeper.ModuleAddress(), replenish)
 			creatorFunded := h.balance(h.ctx, h.creatorAcc)
 			params.Paused = true
 			require.NoError(t, h.keeper.SetParams(h.ctx, params))
@@ -301,11 +301,11 @@ func TestRepair_145_SettlementRecovery(t *testing.T) {
 	}
 }
 
-func TestRepair_145_RecoveryGenesisValidation(t *testing.T) {
+func TestSchedulerRecoveryGenesisValidation(t *testing.T) {
 	h := newHarness(t)
-	target := h.deploy(repair145Counter())
+	target := h.deploy(schedulerCounterCode())
 	id := h.schedule(target, dueAt)
-	repair145Move(t, h, h.keeper.ModuleAddress(), h.creatorAcc, deposit)
+	transferSchedulerFunds(t, h, h.keeper.ModuleAddress(), h.creatorAcc, deposit)
 	h.ctx = h.ctx.WithBlockHeight(int64(dueAt))
 	_, err := h.keeper.RunDue(h.ctx)
 	require.ErrorIs(t, err, sdkerrors.ErrInsufficientFunds)
@@ -336,12 +336,12 @@ func TestRepair_145_RecoveryGenesisValidation(t *testing.T) {
 	}
 }
 
-func TestRepair_145_FailedOutcomeRecovery(t *testing.T) {
-	d := repair145Open(t)
+func TestSchedulerFailedOutcomeRecovery(t *testing.T) {
+	d := openSchedulerDisk(t)
 	h := d.h
 	target := h.deploy(reverter(t, 0, "boom"))
 	id := h.schedule(target, dueAt)
-	repair145Move(t, h, h.keeper.ModuleAddress(), h.creatorAcc, deposit)
+	transferSchedulerFunds(t, h, h.keeper.ModuleAddress(), h.creatorAcc, deposit)
 	h.ctx = h.ctx.WithBlockHeight(int64(dueAt)).WithEventManager(sdk.NewEventManager())
 	used, err := h.keeper.RunDue(h.ctx)
 	require.ErrorIs(t, err, sdkerrors.ErrInsufficientFunds)
@@ -356,7 +356,7 @@ func TestRepair_145_FailedOutcomeRecovery(t *testing.T) {
 	recovered, found := h.keeper.GetSettlement(h.ctx, id)
 	require.True(t, found)
 	require.Equal(t, obligation, recovered)
-	repair145Move(t, h, h.creatorAcc, h.keeper.ModuleAddress(), deposit)
+	transferSchedulerFunds(t, h, h.creatorAcc, h.keeper.ModuleAddress(), deposit)
 	h.ctx = h.ctx.WithBlockHeight(int64(later)).WithEventManager(sdk.NewEventManager())
 	collector := authtypes.NewModuleAddress(authtypes.FeeCollectorName)
 	collectorBefore, creatorBefore := h.balance(h.ctx, collector), h.balance(h.ctx, h.creatorAcc)
@@ -370,9 +370,9 @@ func TestRepair_145_FailedOutcomeRecovery(t *testing.T) {
 	require.Empty(t, executedEvents(t, h.ctx))
 }
 
-func TestRepair_145_SelfCancellation(t *testing.T) {
+func TestSchedulerSelfCancellation(t *testing.T) {
 	h := newHarness(t)
-	p := repair145Precompile(t, h)
+	p := registerSchedulerPrecompile(t, h)
 	a := p.GetABI()
 	input, err := a.Pack("cancel", big.NewInt(1))
 	require.NoError(t, err)
