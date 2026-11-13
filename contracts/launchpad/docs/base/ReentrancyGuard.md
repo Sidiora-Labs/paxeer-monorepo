@@ -1,5 +1,7 @@
 # Solidity API
 
+Source: [ReentrancyGuard.sol](../../contracts/base/ReentrancyGuard.sol).
+
 ## ReentrancyGuard
 
 Prevents reentrant calls to protected functions
@@ -15,7 +17,7 @@ error ReentrancyGuardReentrantCall()
 ### constructor
 
 ```solidity
-constructor() internal
+constructor()
 ```
 
 ### nonReentrant
@@ -24,11 +26,10 @@ constructor() internal
 modifier nonReentrant()
 ```
 
-### _initReentrancyGuard
+### \_initReentrancyGuard
 
 ```solidity
 function _initReentrancyGuard() internal
 ```
 
 _Initialize reentrancy guard for proxied contracts (no constructor)_
-

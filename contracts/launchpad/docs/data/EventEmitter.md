@@ -1,5 +1,7 @@
 # Solidity API
 
+Source: [EventEmitter.sol](../../contracts/data/EventEmitter.sol).
+
 ## IOpticalRegistryMinimal
 
 Minimal interface for the optional optical registry auth path.
@@ -12,11 +14,9 @@ function isApproved(address optical) external view returns (bool)
 
 ## IMetaAGRouterMinimal
 
-Minimal interface for the optional Meta-AG router auth path.
-        Adapter authorization is keyed by `bytes32 adapterId` rather than
-        address; v2 keeps the lookup as `isAdapterActive` for parity with
-        the existing MetaAGRouter surface, expecting the router to have
-        been registered via `setAuthorizedEmitter` directly.
+Minimal interface for the optional Meta-AG router auth path. Adapter authorization is keyed by
+`bytes32 adapterId`. The declaration is `isAdapterActive`; generic router authorization uses
+`setAuthorizedEmitter`.
 
 ### isAdapterActive
 
@@ -26,28 +26,15 @@ function isAdapterActive(bytes32 adapterId) external view returns (bool)
 
 ## EventEmitter
 
-Universal protocol event hub. Single source of indexer truth across
-        Sidiora Launchpad, Meta-AG/PECOR, opticals, oracle, treasury,
-        governance, and base-layer lifecycle (roles, upgrades, pause).
+Optional protocol event mirror for launchpad, Meta-AG/PECOR, opticals, oracle, treasury, governance
+and contract lifecycle events. Source-contract logs remain authoritative. The UUPS implementation
+reports `VERSION()` as `"2.0.0"`.
 
-_UUPS-upgradeable. Storage layout is **append-only** vs v1.
-        v1 functions and events are preserved verbatim — same selectors,
-        same topic0 — for backward compatibility with existing call sites
-        in `core/SidioraFactory`, `core/SidioraPool`, `protocol/ProtocolConfig`.
-
-        v2 additions (per `contracts/data/EVENT-EMITTER-V2-PLAN.md`):
-          - Generic schemaless `EventLog{,1,2}` with indexed eventNameHash.
-          - ~30 typed fast-path emitters spanning every protocol domain.
-          - `EVENT_EMITTER_ROLE` separate from `DEFAULT_ADMIN_ROLE`.
-          - `VERSION()` accessor returning `"2.0.0"`.
-          - 5-path authorization mesh:
-              1) static `_authorizedEmitters` mapping
-              2) dynamic `IPoolRegistry.isRegisteredPool`        (Launchpad pools)
-              3) dynamic `IOpticalRegistry.isApproved`           (opticals)
-              4) `sidioraFactory == msg.sender`                  (factory itself)
-              5) `_registeredTokens[msg.sender]`                 (pool tokens)
-
-        Reference: GMX V2 EventEmitter pattern, Synthetix V3 EventLog schema._
+Generic log authorization accepts explicitly authorized emitters, the pool registry, registered
+pools, approved opticals, the configured factory and registered pool tokens. Typed events also
+enforce their selector-specific permission or their canonical pool, factory or token identity.
+Generic logs include caller provenance. `DEFAULT_ADMIN_ROLE` configures typed permissions and
+authorizes upgrades; `EVENT_EMITTER_ROLE` manages supported emitter and registry settings.
 
 ### EMITTER_ADMIN_ROLE
 
@@ -55,7 +42,7 @@ _UUPS-upgradeable. Storage layout is **append-only** vs v1.
 bytes32 EMITTER_ADMIN_ROLE
 ```
 
-v1 — retained for ABI compatibility. Not used as a gate in v2.
+Retained ABI constant; emitter authorization uses the permissions described above.
 
 ### EVENT_EMITTER_ROLE
 
@@ -63,9 +50,9 @@ v1 — retained for ABI compatibility. Not used as a gate in v2.
 bytes32 EVENT_EMITTER_ROLE
 ```
 
-v2 — distinct from DEFAULT_ADMIN_ROLE. Holds permission to
-        authorize emitters and wire registries. Does NOT grant
-        upgrade authority (DEFAULT_ADMIN_ROLE retains that).
+Authorizes emitter and registry settings where accepted by the setter. `setPoolRegistry` and
+`setTypedEmitter` require `DEFAULT_ADMIN_ROLE`; `EVENT_EMITTER_ROLE` does not grant upgrade
+authority.
 
 ### poolRegistry
 
@@ -102,40 +89,36 @@ _slot 5._
 ### constructor
 
 ```solidity
-constructor() public
+constructor()
 ```
 
 ### initialize
 
 ```solidity
-function initialize(address _admin) external
+function initialize(address _admin) external initializer
 ```
 
-v1 initializer — preserved for fresh-deploy compatibility.
-        New deploys SHOULD call this once, then `reinitializeV2`.
+Initializes default administration once. Call `reinitializeV2` to configure the emitter role.
 
 ### reinitializeV2
 
 ```solidity
-function reinitializeV2(address adminWithEmitterRole) external
+function reinitializeV2(address adminWithEmitterRole) external override onlyRole(DEFAULT_ADMIN_ROLE)
 ```
 
-v1 → v2 storage migration. Idempotent.
-
-_Callable only by DEFAULT_ADMIN_ROLE. Safe to call once on the
-     existing deployed proxy `0x6679aF411d534de222C32ed0AF94C3BD67090672`
-     after the impl swap._
+Configures the emitter-role administrator and optionally grants the emitter role. Callable only by
+`DEFAULT_ADMIN_ROLE`, once. Repeated calls revert with `Unauthorized()`.
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| adminWithEmitterRole | address | Address granted EVENT_EMITTER_ROLE.        Pass `address(0)` to skip role grant (admin can do it later        via `grantRole(EVENT_EMITTER_ROLE, ...)`). |
+| Name                 | Type    | Description                                                                                                                                |
+| -------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| adminWithEmitterRole | address | Address granted EVENT_EMITTER_ROLE. Pass `address(0)` to skip role grant (admin can do it later via `grantRole(EVENT_EMITTER_ROLE, ...)`). |
 
-### _authorizeUpgrade
+### \_authorizeUpgrade
 
 ```solidity
-function _authorizeUpgrade(address) internal
+function _authorizeUpgrade(address) internal override onlyRole(DEFAULT_ADMIN_ROLE)
 ```
 
 ### onlyAuthorized
@@ -147,7 +130,7 @@ modifier onlyAuthorized()
 ### isAuthorizedEmitter
 
 ```solidity
-function isAuthorizedEmitter(address emitter) external view returns (bool)
+function isAuthorizedEmitter(address emitter) external view override returns (bool)
 ```
 
 Public auth-check for off-chain probes / dependent contracts.
@@ -155,10 +138,10 @@ Public auth-check for off-chain probes / dependent contracts.
 ### isRegisteredToken
 
 ```solidity
-function isRegisteredToken(address token) external view returns (bool)
+function isRegisteredToken(address token) external view override returns (bool)
 ```
 
-### _isAuthorized
+### \_isAuthorized
 
 ```solidity
 function _isAuthorized(address sender) internal view returns (bool)
@@ -167,74 +150,71 @@ function _isAuthorized(address sender) internal view returns (bool)
 ### setPoolRegistry
 
 ```solidity
-function setPoolRegistry(address _poolRegistry) external
+function setPoolRegistry(address _poolRegistry) external onlyRole(DEFAULT_ADMIN_ROLE)
 ```
 
-v1 — wire the Launchpad pool registry. Retained.
+Sets the pool registry; requires `DEFAULT_ADMIN_ROLE`.
 
 ### setAuthorizedEmitter
 
 ```solidity
-function setAuthorizedEmitter(address emitter, bool authorized) external
+function setAuthorizedEmitter(address emitter, bool authorized) external override
 ```
 
-v1 — preserved for compatibility. v2 prefers EVENT_EMITTER_ROLE
-        (see `setAuthorizedEmitterByRole` below) but DEFAULT_ADMIN_ROLE
-        remains a valid caller.
+Sets generic emitter authorization. Requires `EVENT_EMITTER_ROLE` or `DEFAULT_ADMIN_ROLE`; the
+emitter must be nonzero.
 
 ### setOpticalRegistry
 
 ```solidity
-function setOpticalRegistry(address registry) external
+function setOpticalRegistry(address registry) external override
 ```
 
-Wire dynamic auth registries (one-time admin call after v2 upgrade).
+Sets the optical registry. Requires `EVENT_EMITTER_ROLE` or `DEFAULT_ADMIN_ROLE`.
 
 ### setMetaAGRouter
 
 ```solidity
-function setMetaAGRouter(address router) external
+function setMetaAGRouter(address router) external override
 ```
 
 ### setSidioraFactory
 
 ```solidity
-function setSidioraFactory(address factory) external
+function setSidioraFactory(address factory) external override
 ```
 
 ### setTokenRegistry
 
 ```solidity
-function setTokenRegistry(address) external
+function setTokenRegistry(address ) external override
 ```
 
-Compatibility shim — the interface declares `setTokenRegistry`
-        to allow a future external token registry. v2 uses the local
-        `_registeredTokens` mapping, so this currently no-ops the
-        external pointer; future versions may delegate.
+Checks emitter-management authority without storing an external registry. Token registration uses
+the local mapping through `registerToken`.
 
 ### registerToken
 
 ```solidity
-function registerToken(address token, address) external
+function registerToken(address token, address ) external override
 ```
 
-Register a pool-token deployed by the SidioraFactory so it
-        can mirror Transfer / Approval through this emitter.
+Register a pool-token deployed by the SidioraFactory so it can mirror Transfer / Approval through
+this emitter.
 
-_Callable by the wired factory itself (auto-registration on
-     market creation) or by EVENT_EMITTER_ROLE / DEFAULT_ADMIN_ROLE._
+_Callable by the wired factory itself (auto-registration on market creation) or by
+EVENT_EMITTER_ROLE / DEFAULT_ADMIN_ROLE._
 
 ### deregisterToken
 
 ```solidity
-function deregisterToken(address token) external
+function deregisterToken(address token) external override
 ```
 
 ### VERSION
 
 ```solidity
-function VERSION() external pure returns (string)
+function VERSION() external pure override returns (string memory)
 ```
 
 Semantic version string of the deployed implementation.
@@ -242,198 +222,213 @@ Semantic version string of the deployed implementation.
 ### emitMarketCreated
 
 ```solidity
-function emitMarketCreated(bytes32 poolId, address token, address creator, address pool, address optical) external
+function emitMarketCreated( bytes32 poolId, address token, address creator, address pool, address optical ) external override onlyAuthorized
 ```
 
 ### emitSwap
 
 ```solidity
-function emitSwap(bytes32 poolId, address sender, bool isBuy, uint256 amountIn, uint256 amountOut, uint256 fee, uint256 price) external
+function emitSwap( bytes32 poolId, address sender, bool isBuy, uint256 amountIn, uint256 amountOut, uint256 fee, uint256 price ) external override onlyAuthorized
 ```
 
 ### emitFeeRecorded
 
 ```solidity
-function emitFeeRecorded(bytes32 poolId, uint256 feeAmount, uint256 protocolCut, uint256 poolCut) external
+function emitFeeRecorded( bytes32 poolId, uint256 feeAmount, uint256 protocolCut, uint256 poolCut ) external override onlyAuthorized
 ```
 
 ### emitFeeDistributed
 
 ```solidity
-function emitFeeDistributed(bytes32 poolId, uint256 nftId, uint8 strategy, uint256 amount, address recipient) external
+function emitFeeDistributed( bytes32 poolId, uint256 nftId, uint8 strategy, uint256 amount, address recipient ) external override onlyAuthorized
 ```
 
 ### emitFeeStrategyChanged
 
 ```solidity
-function emitFeeStrategyChanged(bytes32 poolId, uint256 nftId, uint8 oldStrategy, uint8 newStrategy) external
+function emitFeeStrategyChanged( bytes32 poolId, uint256 nftId, uint8 oldStrategy, uint8 newStrategy ) external override onlyAuthorized
 ```
 
 ### emitPoolStateUpdated
 
 ```solidity
-function emitPoolStateUpdated(bytes32 poolId, uint256 virtualReserve, uint256 realReserve, uint256 tokenReserve, uint256 price) external
+function emitPoolStateUpdated( bytes32 poolId, uint256 virtualReserve, uint256 realReserve, uint256 tokenReserve, uint256 price ) external override onlyAuthorized
 ```
 
 ### emitOpticalExecuted
 
 ```solidity
-function emitOpticalExecuted(bytes32 poolId, address optical, string hookName, bytes data) external
+function emitOpticalExecuted( bytes32 poolId, address optical, string calldata hookName, bytes calldata data ) external override onlyAuthorized
 ```
 
 ### emitConfigUpdated
 
 ```solidity
-function emitConfigUpdated(bytes32 key, uint256 oldValue, uint256 newValue) external
+function emitConfigUpdated( bytes32 key, uint256 oldValue, uint256 newValue ) external override onlyAuthorized
 ```
 
 ### emitEventLog
 
 ```solidity
-function emitEventLog(string eventName, struct IEventEmitter.EventData data) external
+function emitEventLog( string calldata eventName, EventData calldata data ) external override onlyAuthorized
 ```
 
 ### emitEventLog1
 
 ```solidity
-function emitEventLog1(string eventName, bytes32 topic1, struct IEventEmitter.EventData data) external
+function emitEventLog1( string calldata eventName, bytes32 topic1, EventData calldata data ) external override onlyAuthorized
 ```
 
 ### emitEventLog2
 
 ```solidity
-function emitEventLog2(string eventName, bytes32 topic1, bytes32 topic2, struct IEventEmitter.EventData data) external
+function emitEventLog2( string calldata eventName, bytes32 topic1, bytes32 topic2, EventData calldata data ) external override onlyAuthorized
 ```
 
 ### emitPecorSwap
 
 ```solidity
-function emitPecorSwap(address user, address tokenIn, address tokenOut, uint256 amountIn, uint256 amountOut, uint256 priceIn, uint256 priceOut, uint256 volumeUSD, uint256 feeBps, uint256 feeAmount, uint256 impactBps, uint8 swapKind) external
+function emitPecorSwap( address user, address tokenIn, address tokenOut, uint256 amountIn, uint256 amountOut, uint256 priceIn, uint256 priceOut, uint256 volumeUSD, uint256 feeBps, uint256 feeAmount, uint256 impactBps, uint8 swapKind ) external override onlyAuthorized
 ```
 
 ### emitPecorOrderCreated
 
 ```solidity
-function emitPecorOrderCreated(uint256 orderId, address user, uint8 orderKind, uint8 orderType, address tokenIn, address tokenOut, uint256 amount, uint256 targetPrice, uint256 stopPrice, uint256 limitPrice) external
+function emitPecorOrderCreated( uint256 orderId, address user, uint8 orderKind, uint8 orderType, address tokenIn, address tokenOut, uint256 amount, uint256 targetPrice, uint256 stopPrice, uint256 limitPrice ) external override onlyAuthorized
 ```
 
 ### emitPecorOrderLifecycle
 
 ```solidity
-function emitPecorOrderLifecycle(uint256 orderId, address user, uint8 orderKind, uint8 phase, uint256 price, bytes payload) external
+function emitPecorOrderLifecycle( uint256 orderId, address user, uint8 orderKind, uint8 phase, uint256 price, bytes calldata payload ) external override onlyAuthorized
 ```
 
 ### emitBestRouteSwap
 
 ```solidity
-function emitBestRouteSwap(address user, address tokenIn, address tokenOut, bytes32 routeId, uint256 amountIn, uint256 amountOut, address[] hops, uint256 protocolFeeBps) external
+function emitBestRouteSwap( address user, address tokenIn, address tokenOut, bytes32 routeId, uint256 amountIn, uint256 amountOut, address[] calldata hops, uint256 protocolFeeBps ) external override onlyAuthorized
 ```
 
 ### emitPriceUpdated
 
 ```solidity
-function emitPriceUpdated(address token, uint256 roundId, address relayer, uint256 price, uint256 confidence, bytes32 sourceId) external
+function emitPriceUpdated( address token, uint256 roundId, address relayer, uint256 price, uint256 confidence, bytes32 sourceId ) external override onlyAuthorized
 ```
 
 ### emitCircuitBreaker
 
 ```solidity
-function emitCircuitBreaker(address token, bytes32 sourceId, uint256 reportedPrice, uint256 referencePrice, uint256 deviationBps) external
+function emitCircuitBreaker( address token, bytes32 sourceId, uint256 reportedPrice, uint256 referencePrice, uint256 deviationBps ) external override onlyAuthorized
 ```
 
 ### emitOracleAdapterLifecycle
 
 ```solidity
-function emitOracleAdapterLifecycle(bytes32 sourceId, address adapter, uint8 phase, uint256 priority) external
+function emitOracleAdapterLifecycle( bytes32 sourceId, address adapter, uint8 phase, uint256 priority ) external override onlyAuthorized
 ```
 
 ### emitVaultFlow
 
 ```solidity
-function emitVaultFlow(uint8 flowType, address token, address party, uint256 amount, uint256 newReserve) external
+function emitVaultFlow( uint8 flowType, address token, address party, uint256 amount, uint256 newReserve ) external override onlyAuthorized
 ```
 
 ### emitGovernance
 
 ```solidity
-function emitGovernance(uint8 action, bytes32 id, address actor, bytes payload) external
+function emitGovernance( uint8 action, bytes32 id, address actor, bytes calldata payload ) external override onlyAuthorized
 ```
 
 ### emitTreasuryFlow
 
 ```solidity
-function emitTreasuryFlow(uint8 direction, address token, address party, uint256 amount) external
+function emitTreasuryFlow( uint8 direction, address token, address party, uint256 amount ) external override onlyAuthorized
 ```
 
 ### emitOpticalLifecycle
 
 ```solidity
-function emitOpticalLifecycle(uint8 action, address optical, address pool, bytes32 name, bytes payload) external
+function emitOpticalLifecycle( uint8 action, address optical, address pool, bytes32 name, bytes calldata payload ) external override onlyAuthorized
 ```
 
 ### emitTokenTransfer
 
 ```solidity
-function emitTokenTransfer(address token, address from, address to, uint256 value) external
+function emitTokenTransfer( address token, address from, address to, uint256 value ) external override onlyAuthorized
 ```
 
 ### emitNftTransfer
 
 ```solidity
-function emitNftTransfer(address nft, address from, address to, uint256 tokenId) external
+function emitNftTransfer( address nft, address from, address to, uint256 tokenId ) external override onlyAuthorized
 ```
 
 ### emitAssetApproval
 
 ```solidity
-function emitAssetApproval(address asset, address owner, address spender, uint256 valueOrTokenId, bool isNft) external
+function emitAssetApproval( address asset, address owner, address spender, uint256 valueOrTokenId, bool isNft ) external override onlyAuthorized
 ```
 
 ### emitRoleChange
 
 ```solidity
-function emitRoleChange(uint8 action, bytes32 role, address account, address sender, bytes32 previousAdminRole) external
+function emitRoleChange( uint8 action, bytes32 role, address account, address sender, bytes32 previousAdminRole ) external override onlyAuthorized
 ```
 
 ### emitUpgraded
 
 ```solidity
-function emitUpgraded(address proxy, address newImplementation, uint8 kind) external
+function emitUpgraded( address proxy, address newImplementation, uint8 kind ) external override onlyAuthorized
 ```
 
 ### emitPauseToggle
 
 ```solidity
-function emitPauseToggle(address pausedContract, bool paused) external
+function emitPauseToggle( address pausedContract, bool paused ) external override onlyAuthorized
 ```
 
 ### emitFeeFlow
 
 ```solidity
-function emitFeeFlow(uint8 kind, address pool, address party, uint256 amount, uint256 protocolCut, uint256 poolCut, uint256 epoch) external
+function emitFeeFlow( uint8 kind, address pool, address party, uint256 amount, uint256 protocolCut, uint256 poolCut, uint256 epoch ) external override onlyAuthorized
 ```
 
 ### emitRouterTrade
 
 ```solidity
-function emitRouterTrade(uint8 kind, address pool, address sender, address tokenIn, address tokenOut, uint256 amountIn, uint256 amountOut, uint256 intermediateUsdl) external
+function emitRouterTrade( uint8 kind, address pool, address sender, address tokenIn, address tokenOut, uint256 amountIn, uint256 amountOut, uint256 intermediateUsdl ) external override onlyAuthorized
 ```
 
 ### emitNftMint
 
 ```solidity
-function emitNftMint(uint256 tokenId, address creator, address pool, uint8 strategy) external
+function emitNftMint( uint256 tokenId, address creator, address pool, uint8 strategy ) external override onlyAuthorized
 ```
 
 ### emitPoolRegistered
 
 ```solidity
-function emitPoolRegistered(address pool, address token, address creator, address optical, uint256 nftId) external
+function emitPoolRegistered( address pool, address token, address creator, address optical, uint256 nftId ) external override onlyAuthorized
 ```
 
 ### emitTokenDeployed
 
 ```solidity
-function emitTokenDeployed(address token, address pool, address creator, bytes32 salt, string name, string symbol, uint8 decimals, uint256 totalSupply) external
+function emitTokenDeployed( address token, address pool, address creator, bytes32 salt, string calldata name, string calldata symbol, uint8 decimals, uint256 totalSupply ) external override onlyAuthorized
 ```
 
+### setTypedEmitter
+
+```solidity
+function setTypedEmitter(address emitter, bytes4 selector, bool allowed) external onlyRole(DEFAULT_ADMIN_ROLE)
+```
+
+Sets a selector-specific permission and emits `TypedEmitterPermission`.
+
+### isTypedEmitter
+
+```solidity
+function isTypedEmitter(address emitter, bytes4 selector) external view returns (bool)
+```
+
+Reads the explicit selector permission.

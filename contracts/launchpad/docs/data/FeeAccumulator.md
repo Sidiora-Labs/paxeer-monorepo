@@ -1,5 +1,7 @@
 # Solidity API
 
+Source: [FeeAccumulator.sol](../../contracts/data/FeeAccumulator.sol).
+
 ## IOpticalFee
 
 _Minimal interface for optical hooks used by FeeAccumulator_
@@ -61,7 +63,7 @@ bytes32 OPTICAL_GRANTER_ROLE
 ### authorizePool
 
 ```solidity
-function authorizePool(address pool) external
+function authorizePool(address pool) external onlyRole(FACTORY_ROLE)
 ```
 
 Authorize a pool to record fees. Called by Factory on market creation.
@@ -105,136 +107,136 @@ address usdlAddress
 ### constructor
 
 ```solidity
-constructor() public
+constructor()
 ```
 
 ### initialize
 
 ```solidity
-function initialize(address _protocolConfig, address _treasury, address _poolRegistry, address _eventEmitter, address _usdlAddress, address _admin) external
+function initialize( address _protocolConfig, address _treasury, address _poolRegistry, address _eventEmitter, address _usdlAddress, address _admin ) external initializer
 ```
 
 ### recordFee
 
 ```solidity
-function recordFee(address pool, uint256 feeAmount) external
+function recordFee(address pool, uint256 feeAmount) external override onlyRole(POOL_ROLE) nonReentrant
 ```
 
 Record fees from a swap (pool-only)
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| pool | address | The pool address the fees are from |
-| feeAmount | uint256 | Total fee amount in USDL |
+| Name      | Type    | Description                        |
+| --------- | ------- | ---------------------------------- |
+| pool      | address | The pool address the fees are from |
+| feeAmount | uint256 | Total fee amount in USDL           |
 
 ### claim
 
 ```solidity
-function claim(address pool, address recipient) external returns (uint256 amount)
+function claim( address pool, address recipient ) external override onlyRole(FEES_ROUTER_ROLE) nonReentrant returns (uint256 amount)
 ```
 
 Claim accumulated fees for a pool (CLAIM strategy, FeesRouter-only)
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| pool | address | The pool address |
+| Name      | Type    | Description                 |
+| --------- | ------- | --------------------------- |
+| pool      | address | The pool address            |
 | recipient | address | Address to receive the fees |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name   | Type    | Description                |
+| ------ | ------- | -------------------------- |
 | amount | uint256 | The amount of USDL claimed |
 
 ### burn
 
 ```solidity
-function burn(address pool) external returns (uint256 amount)
+function burn(address pool) external override onlyRole(FEES_ROUTER_ROLE) nonReentrant returns (uint256 amount)
 ```
 
-Burn accumulated fees for a pool (BURN strategy, FeesRouter-only)
+Transfers accumulated USDL fees to `DEAD_ADDRESS` (BURN strategy, FeesRouter-only).
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name | Type    | Description      |
+| ---- | ------- | ---------------- |
 | pool | address | The pool address |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| amount | uint256 | The amount of USDL burned |
+| Name   | Type    | Description                                    |
+| ------ | ------- | ---------------------------------------------- |
+| amount | uint256 | The amount of USDL transferred to DEAD_ADDRESS |
 
 ### triggerAirdrop
 
 ```solidity
-function triggerAirdrop(address pool) external returns (uint256 totalAmount)
+function triggerAirdrop( address pool ) external override onlyRole(FEES_ROUTER_ROLE) nonReentrant returns (uint256 totalAmount)
 ```
 
 Trigger airdrop distribution for a pool (AIRDROP strategy, FeesRouter-only)
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name | Type    | Description      |
+| ---- | ------- | ---------------- |
 | pool | address | The pool address |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| totalAmount | uint256 | The total amount distributed |
+| Name        | Type    | Description                                         |
+| ----------- | ------- | --------------------------------------------------- |
+| totalAmount | uint256 | The USDL amount reserved for the new snapshot epoch |
 
 ### claimAirdrop
 
 ```solidity
-function claimAirdrop(address pool, address holder) external returns (uint256 amount)
+function claimAirdrop(address pool, address holder) external override nonReentrant returns (uint256 amount)
 ```
 
 Claim airdrop share for a token holder
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| pool | address | The pool address |
+| Name   | Type    | Description              |
+| ------ | ------- | ------------------------ |
+| pool   | address | The pool address         |
 | holder | address | The token holder address |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name   | Type    | Description                |
+| ------ | ------- | -------------------------- |
 | amount | uint256 | The amount of USDL claimed |
 
 ### sendLpRewards
 
 ```solidity
-function sendLpRewards(address pool) external returns (uint256 amount)
+function sendLpRewards( address pool ) external override onlyRole(FEES_ROUTER_ROLE) nonReentrant returns (uint256 amount)
 ```
 
 Send accumulated fees to pool as LP rewards (LP_REWARDS strategy, FeesRouter-only)
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name | Type    | Description      |
+| ---- | ------- | ---------------- |
 | pool | address | The pool address |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name   | Type    | Description             |
+| ------ | ------- | ----------------------- |
 | amount | uint256 | The amount of USDL sent |
 
 ### getAccumulatedFees
 
 ```solidity
-function getAccumulatedFees(address pool) external view returns (uint256)
+function getAccumulatedFees(address pool) external view override returns (uint256)
 ```
 
 Get accumulated fees for a pool
@@ -242,7 +244,7 @@ Get accumulated fees for a pool
 ### getProtocolFeesPending
 
 ```solidity
-function getProtocolFeesPending() external view returns (uint256)
+function getProtocolFeesPending() external view override returns (uint256)
 ```
 
 Get pending protocol fees waiting to be swept
@@ -250,7 +252,7 @@ Get pending protocol fees waiting to be swept
 ### getAirdropBalance
 
 ```solidity
-function getAirdropBalance(address pool) external view returns (uint256)
+function getAirdropBalance(address pool) external view override returns (uint256)
 ```
 
 Get airdrop balance for a pool
@@ -258,15 +260,15 @@ Get airdrop balance for a pool
 ### getLpRewardsBalance
 
 ```solidity
-function getLpRewardsBalance(address pool) external view returns (uint256)
+function getLpRewardsBalance(address pool) external view override returns (uint256)
 ```
 
-Get LP rewards balance for a pool
+Returns cumulative USDL donations sent to the pool, rather than a claimable balance.
 
 ### getAirdropEpoch
 
 ```solidity
-function getAirdropEpoch(address pool) external view returns (uint256)
+function getAirdropEpoch(address pool) external view override returns (uint256)
 ```
 
 Get current airdrop epoch for a pool
@@ -274,18 +276,18 @@ Get current airdrop epoch for a pool
 ### hasClaimedAirdrop
 
 ```solidity
-function hasClaimedAirdrop(address pool, address holder, uint256 epoch) external view returns (bool)
+function hasClaimedAirdrop(address pool, address holder, uint256 epoch) external view override returns (bool)
 ```
 
 Check if holder has claimed for a specific epoch
 
-### _getTokenBalance
+### \_getTokenBalance
 
 ```solidity
 function _getTokenBalance(address token, address account) internal view returns (uint256)
 ```
 
-### _getTokenTotalSupply
+### \_getTokenTotalSupply
 
 ```solidity
 function _getTokenTotalSupply(address token) internal view returns (uint256)
@@ -294,53 +296,79 @@ function _getTokenTotalSupply(address token) internal view returns (uint256)
 ### authorizeOptical
 
 ```solidity
-function authorizeOptical(address optical) external
+function authorizeOptical(address optical) external onlyRole(OPTICAL_GRANTER_ROLE)
 ```
 
-Authorize an optical contract to claim surplus. Callable by OPTICAL_GRANTER_ROLE (e.g. LaunchpadOpticalFactory).
+Authorize an optical contract to claim surplus. Callable by OPTICAL_GRANTER_ROLE (e.g.
+LaunchpadOpticalFactory).
 
 ### recordOpticalSurplus
 
 ```solidity
-function recordOpticalSurplus(address pool, uint256 amount) external
+function recordOpticalSurplus(address pool, uint256 amount) external override onlyRole(POOL_ROLE) nonReentrant
 ```
 
 Record optical surplus when beforeFeeDistribution returns adjustedFee < feeAmount
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| pool | address | The pool address |
+| Name   | Type    | Description                  |
+| ------ | ------- | ---------------------------- |
+| pool   | address | The pool address             |
 | amount | uint256 | The surplus amount to record |
 
 ### claimOpticalSurplus
 
 ```solidity
-function claimOpticalSurplus(address pool, uint256 amount, address recipient) external
+function claimOpticalSurplus(address pool, uint256 amount, address recipient) external override nonReentrant
 ```
 
-Claim optical surplus for a pool (OPTICAL_CLAIM_ROLE only)
+Claims optical surplus for a pool. The caller must be the optical registered for that pool and have
+code; the recipient must be nonzero.
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| pool | address | The pool address |
-| amount | uint256 | Amount to claim |
+| Name      | Type    | Description                 |
+| --------- | ------- | --------------------------- |
+| pool      | address | The pool address            |
+| amount    | uint256 | Amount to claim             |
 | recipient | address | Address to receive the USDL |
 
 ### getOpticalSurplus
 
 ```solidity
-function getOpticalSurplus(address pool) external view returns (uint256)
+function getOpticalSurplus(address pool) external view override returns (uint256)
 ```
 
 Get optical surplus balance for a pool
 
-### _authorizeUpgrade
+### \_authorizeUpgrade
 
 ```solidity
-function _authorizeUpgrade(address) internal
+function _authorizeUpgrade(address) internal override onlyRole(DEFAULT_ADMIN_ROLE)
 ```
 
+### supportsAirdrop
+
+```solidity
+function supportsAirdrop(address pool) public view override returns (bool)
+```
+
+Checks historical balance and supply read support on the pool token.
+
+### claimAirdropEpoch
+
+```solidity
+function claimAirdropEpoch(address pool, address holder, uint256 epoch) external override nonReentrant returns (uint256 amount)
+```
+
+Pays the holder’s share of a specified snapshot epoch to that holder. Snapshot balances exclude the
+pool and dead address; claims close after 180 days.
+
+### sweepExpiredAirdrop
+
+```solidity
+function sweepExpiredAirdrop(address pool, uint256 epoch) external override nonReentrant returns (uint256 amount)
+```
+
+Returns unclaimed expired-epoch USDL to the pool’s accumulated fees.

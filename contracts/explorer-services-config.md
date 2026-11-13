@@ -17,18 +17,18 @@ The following fields are shared by both services. Addresses are IP socket addres
 | Key | Type | Default |
 | --- | --- | --- |
 | `server.http.enabled` | bool | `true` |
-| `server.http.addr` | SocketAddr | `0.0.0.0:8050` |
+| `server.http.addr` | SocketAddr | All IPv4 interfaces, port 8050 |
 | `server.http.max_body_size` | usize | `2097152` |
 | `server.http.base_path` | optional BasePath | absent |
 | `server.grpc.enabled` | bool | `false` |
-| `server.grpc.addr` | SocketAddr | `0.0.0.0:8051` |
+| `server.grpc.addr` | SocketAddr | All IPv4 interfaces, port 8051 |
 | `metrics.enabled` | bool | `false` |
-| `metrics.addr` | SocketAddr | `0.0.0.0:6060` |
+| `metrics.addr` | SocketAddr | All IPv4 interfaces, port 6060 |
 | `metrics.route` | string | `/metrics` |
 | `tracing.enabled` | bool | `true` |
 | `tracing.format` | enum | `default` (also `json`) |
 | `jaeger.enabled` | bool | `false` |
-| `jaeger.agent_endpoint` | string | `127.0.0.1:6831` |
+| `jaeger.agent_endpoint` | string | Loopback, UDP port 6831 |
 
 `base_path` must begin with `/` and must not end with `/`; `/` itself is invalid. Leave it absent for an unprefixed application. [configure_router](../services/explorer/services/libs/blockscout-service-launcher/src/launcher/router.rs) scopes the service's HTTP routes under that prefix. It does not prefix the independent metrics listener or gRPC address. `max_body_size` sets Actix's JSON extractor limit.
 
@@ -53,10 +53,10 @@ Enabled CORS splits origins and methods on commas and trims whitespace. Origin `
 | Key | Type | Default |
 | --- | --- | --- |
 | `sources.precompiles.enabled` | bool | `true` |
-| `sources.fourbyte` | URL | `https://www.4byte.directory/` |
-| `sources.sigeth` | URL | `https://sig.eth.samczsun.com/` |
+| `sources.fourbyte` | URL | Built-in 4byte source in `SourcesSettings::default` |
+| `sources.sigeth` | URL | Built-in signature source in `SourcesSettings::default` |
 | `sources.eth_bytecode_db.enabled` | bool | `true` |
-| `sources.eth_bytecode_db.url` | URL | `https://eth-bytecode-db.services.blockscout.com/` |
+| `sources.eth_bytecode_db.url` | URL | Built-in bytecode source in `EthBytecodeDbSettings::default` |
 
 These upstreams resolve signatures/bytecode metadata. They are not Paxeer node RPC endpoints, nor authoritative proofs of contract behavior.
 
@@ -70,11 +70,10 @@ For example, this TOML uses only signature-provider settings declared in the sou
 
 ```toml
 [server.http]
-addr = "127.0.0.1:8050"
+max_body_size = 2097152
 
 [metrics]
 enabled = true
-addr = "127.0.0.1:6060"
 route = "/metrics"
 
 [tracing]

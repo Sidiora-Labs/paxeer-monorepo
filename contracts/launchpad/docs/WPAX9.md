@@ -1,5 +1,7 @@
 # Solidity API
 
+Source: [WPAX9.sol](../contracts/WPAX9.sol).
+
 ## WPAX9
 
 Wrapped Paxeer — 1:1 wrapped version of the native PAXEER token
@@ -27,25 +29,25 @@ uint8 decimals
 ### Approval
 
 ```solidity
-event Approval(address src, address guy, uint256 wad)
+event Approval(address indexed src, address indexed guy, uint256 wad)
 ```
 
 ### Transfer
 
 ```solidity
-event Transfer(address src, address dst, uint256 wad)
+event Transfer(address indexed src, address indexed dst, uint256 wad)
 ```
 
 ### Deposit
 
 ```solidity
-event Deposit(address dst, uint256 wad)
+event Deposit(address indexed dst, uint256 wad)
 ```
 
 ### Withdrawal
 
 ```solidity
-event Withdrawal(address src, uint256 wad)
+event Withdrawal(address indexed src, uint256 wad)
 ```
 
 ### balanceOf
@@ -107,4 +109,3 @@ function transfer(address dst, uint256 wad) public returns (bool)
 ```solidity
 function transferFrom(address src, address dst, uint256 wad) public returns (bool)
 ```
-
