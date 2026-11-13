@@ -36,7 +36,8 @@ The rehearsal and fleet tools read the release version and plan from
 
 `tools/release/build-paxd.sh` builds the release from the current checkout. Its only flag is
 `--print-tag`; the merged package uses `PAXD_DIST_DIR` (output directory), `PAXD_COMMIT` (version
-metadata and commit-date source) and `SOURCE_DATE_EPOCH` from the environment.
+metadata and commit-date source), `SOURCE_DATE_EPOCH`, `CC` and `CXX` from the environment.
+The compiler defaults are `gcc` and `g++`.
 `PAXD_COMMIT` must resolve to `HEAD`; the builder requires a clean checkout,
 including no untracked source files. Build from the intended tag's checkout.
 
@@ -119,12 +120,12 @@ git clone https://github.com/Sidiora-Labs/paxeer-monorepo.git
 cd paxeer-monorepo
 git checkout paxeer-network/vX.Y.Z
 tools/release/build-paxd.sh
-gh release download paxeer-network/vX.Y.Z --pattern SHA256SUMS --dir published
-diff published/SHA256SUMS dist/paxeer-network/vX.Y.Z/SHA256SUMS
+tools/release/verify-release.sh --tag paxeer-network/vX.Y.Z --dist dist/paxeer-network/vX.Y.Z
 ```
 
-Build on linux/amd64 with the pinned Go, Rust and C toolchains. An empty diff means the published
-files are the ones the tag builds. To check downloaded files without rebuilding, run
+Build on linux/amd64 with the pinned Go, Rust, C and C++ toolchains. The verifier downloads the
+release assets and checks their names, checksum manifests and file hashes against the local
+release package. To check downloaded files without rebuilding, run
 `sha256sum --check SHA256SUMS` in the download directory.
 
 ## Merge plan information

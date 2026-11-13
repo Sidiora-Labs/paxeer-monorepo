@@ -50,7 +50,7 @@ Stop testing at a proof of concept. Never move funds that are not your own, and 
 
 ## Supported versions
 
-The supported line is `main` and the current release named in `tools/release/version.json`. Fixes land on `main` and ship in the next chain node release.
+The supported line is `main` and the current release named in [`tools/release/version.json`](tools/release/version.json). Its `version` field identifies the release package; its `upgrade` field names the on-chain upgrade plan. Fixes land on `main` and ship in the next chain node release.
 
 ## Scope
 
