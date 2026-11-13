@@ -63,7 +63,7 @@ Paxeer X connects EVM applications with LayerX identities, payments, markets, bu
 - [Troubleshoot a Node](https://docs.paxeer.app/node-troubleshooting/): Diagnose Paxeer X sync stalls, peer failures, RPC errors, database locks, and AppHash mismatches before changing node state.
 - [Operators Guide](https://docs.paxeer.app/operators/): Manage Paxeer X node services, validator accounts, monitoring, and recovery.
 - [Oracles & Market Risk](https://docs.paxeer.app/oracle-risk/): Understand how Paxeer X accepts signed price observations, rejects stale or anomalous inputs, and applies market-specific risk limits.
-- [Money. Markets. Machines. One network to build on.](https://docs.paxeer.app/): Paxeer X unites EVM applications, the LayerX agent economy, payments, markets and deterministic programs with verifiable execution and settlement.
+- [Applications. Payments. Programs. Build on Paxeer.](https://docs.paxeer.app/): Paxeer mainnet-beta runs EVM applications and the embedded LayerX kernel on one BFT network, with native payments, markets and deterministic programs.
 - [Paid APIs and x402](https://docs.paxeer.app/paid-apis/): Use x402 version 2 offers, EVM payments, and verified receipts to release paid HTTP resources on Paxeer mainnet-beta.
 - [Design for Parallel Execution](https://docs.paxeer.app/parallelization/): Reduce shared-state contention in Paxeer contracts, preserve on-chain invariants, and measure gas separately from throughput.
 - [Paxeer X and LayerX](https://docs.paxeer.app/paxeer-vs-layerx/): One BFT network combines EVM smart contracts, autonomous agent execution, and programmable finance, with finality at block commit.

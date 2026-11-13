@@ -28,8 +28,8 @@ export default function Home() {
     <div className="landing-col">
       <section className="home-hero">
         <p className="eyebrow">PAXEER X / NETWORK DOCUMENTATION</p>
-        <h1>Money. Markets. Machines.<br /><span>One network to build on.</span></h1>
-        <p className="page-description">Paxeer X unites EVM applications, the LayerX agent economy, payments, markets and deterministic programs with verifiable execution and settlement.</p>
+        <h1>Applications. Payments. Programs.<br /><span>Build on Paxeer.</span></h1>
+        <p className="page-description">Paxeer mainnet-beta runs EVM applications and the embedded LayerX kernel on one BFT network, with native payments, markets and deterministic programs.</p>
         <div className="hero-actions"><Link className="pill-button primary-button" href="/unified-network">Explore the network <Icon name="arrow" size={16} /></Link><Link className="pill-button" href="/xdk">Start with the XDK</Link></div>
         <div className="hero-network"><span>One BFT network</span><i /><span>EVM chain ID <code>125</code></span><i /><span>Native token <code>PAX</code></span></div>
       </section>
@@ -40,40 +40,40 @@ export default function Home() {
       </figure>
       <Band />
       <section className="cd-strip" aria-label="Network interfaces">
-        <p className="eyebrow">ONE NETWORK — EVERY INTERFACE</p>
+        <p className="eyebrow">NETWORK INTERFACES</p>
         <div className="cd-strip-grid">
           <Link href="/xdk"><strong>XDK</strong><span>Developer toolkit</span></Link>
           <Link href="/sdk-quickstarts"><strong>7 SDKs</strong><span>Language quickstarts</span></Link>
-          <Link href="/mcp"><strong>MCP</strong><span>22 scoped tools</span></Link>
+          <Link href="/mcp"><strong>MCP</strong><span>Scoped daemon tools</span></Link>
           <Link href="/json-rpc"><strong>JSON-RPC</strong><span>EVM chain 125</span></Link>
           <Link href="/cli"><strong>CLI</strong><span>Command line</span></Link>
         </div>
       </section>
       <Band />
       <section aria-labelledby="problem-title">
-        <SectionHead id="problem-title" eyebrow="PROBLEM" title={"Building across fragmented\nrails is messy"} />
+        <SectionHead id="problem-title" eyebrow="INTEGRATION" title={"Identity, payments\nand execution"} />
         <div className="cd-grid-3">
-          <MediaCard art="authentication" alt="Paxeer X authentication card with a key and a verified shield" kicker="PROBLEM 1" title="Identity scattered per app" text="A chain address here, an agent account there. Nothing binds them, so authority has to be rebuilt for every integration." href="/identity" linkLabel="Bind the identities" />
-          <MediaCard art="request-envelope" alt="Request envelope carrying intent, context and payload" kicker="PROBLEM 2" title="Payments without evidence" text="Value moves in one system while authorization, delivery and proof live in others — if they exist at all." href="/payments" linkLabel="Attach the evidence" />
-          <MediaCard art="debugging" alt="Debugging: a magnifying glass over terminal output" kicker="PROBLEM 3" title="Zero execution visibility" text="Results with no canonical history cannot be replayed, audited or independently checked after the fact." href="/proofs" linkLabel="Verify the result" />
+          <MediaCard art="authentication" alt="Paxeer X authentication card with a key and a verified shield" kicker="IDENTITY" title="Bind an account" text="Bind an EVM address to a LayerX identity and configure the authority used for native activities." href="/identity" linkLabel="Bind the identities" />
+          <MediaCard art="request-envelope" alt="Request envelope carrying intent, context and payload" kicker="PAYMENTS" title="Authorize a payment" text="Declare the asset, amount, recipient and spending authority, then verify the resulting payment evidence." href="/payments" linkLabel="Attach the evidence" />
+          <MediaCard art="debugging" alt="Debugging: a magnifying glass over terminal output" kicker="EXECUTION" title="Inspect a result" text="Read receipts and committed state to check the outcome of a submitted transaction." href="/proofs" linkLabel="Verify the result" />
         </div>
       </section>
       <section id="solution" aria-labelledby="solution-title">
-        <SectionHead id="solution-title" eyebrow="SOLUTION" title={"One network. Every domain.\nTotal clarity."} />
+        <SectionHead id="solution-title" eyebrow="APPLICATIONS" title={"Markets, assets\nand integrations"} />
         <div className="cd-grid-3">
-          <MediaCard art="market-growth" alt="Portfolio growth dashboard with a weekly bar chart for BTC, ETH, SOL and PAX, framed by painted clouds" kicker="MARKETS" title="Market performance" text="Track growth across positions with margin, funding and oracle inputs as explicit protocol concepts." href="/perpetuals" linkLabel="Perpetual markets" media="cd-media--panel" width={1374} height={1145} />
-          <MediaCard art="asset-allocation" alt="Portfolio allocation card showing Bitcoin, Ethereum, Solana and PAX shares, framed by painted clouds" kicker="ASSETS" title="Asset allocation" text="Native assets, tokenfactory denoms and ERC20 pointers — see where value sits on the network." href="/assets" linkLabel="Issue and manage assets" media="cd-media--panel" width={1374} height={1145} />
-          <MediaCard art="activity-notifications" alt="Notification panel with a 2FA prompt, a completed PAX to USDC swap and trading rewards, framed by painted clouds" kicker="NOTIFICATIONS" title="Activity notifications" text="Receive signed events through durable webhook delivery and verify their evidence." href="/webhooks" linkLabel="Set up webhooks" media="cd-media--panel" width={1374} height={1145} />
+          <MediaCard art="market-growth" alt="Portfolio growth dashboard with a weekly bar chart for BTC, ETH, SOL and PAX, framed by painted clouds" kicker="MARKETS" title="Perpetual markets" text="Read positions, margin, funding and oracle observations used by the perpetual markets module." href="/perpetuals" linkLabel="Perpetual markets" media="cd-media--panel" width={1374} height={1145} />
+          <MediaCard art="asset-allocation" alt="Portfolio allocation card showing Bitcoin, Ethereum, Solana and PAX shares, framed by painted clouds" kicker="ASSETS" title="Native and EVM assets" text="Work with native assets, tokenfactory denominations and ERC20 pointers." href="/assets" linkLabel="Issue and manage assets" media="cd-media--panel" width={1374} height={1145} />
+          <MediaCard art="activity-notifications" alt="Notification panel with a 2FA prompt, a completed PAX to USDC swap and trading rewards, framed by painted clouds" kicker="NOTIFICATIONS" title="Webhook delivery" text="Receive webhook events and verify signatures before processing their payloads." href="/webhooks" linkLabel="Set up webhooks" media="cd-media--panel" width={1374} height={1145} />
         </div>
         <div className="cd-grid-2">
           <MediaCard art="market-prices" alt="Wide market price list for Bitcoin, Ethereum, Paxeer PAX, XRP, Tether and Tron, framed by painted clouds" kicker="SPOT" title="Multi-asset spot markets" text="Place and cancel orders, manage collateral and follow settlement through receipts and committed state." href="/spot-exchange" linkLabel="Spot exchange" media="cd-media--wide" width={1774} height={887} />
-          <MediaCard art="wallet-connect" alt="Wide wallet connector panel listing MetaMask, Binance, Coinbase, WalletConnect and Phantom, framed by painted clouds" kicker="WALLETS" title="Connect any wallet" text="Connect wallets and call the network from your frontend over standard EVM JSON-RPC on chain 125." href="/building-a-frontend" linkLabel="Build a frontend" media="cd-media--wide" width={1774} height={887} />
+          <MediaCard art="wallet-connect" alt="Wide wallet connector panel listing MetaMask, Binance, Coinbase, WalletConnect and Phantom, framed by painted clouds" kicker="WALLETS" title="Connect an EVM wallet" text="Connect wallets and call the network from your frontend over standard EVM JSON-RPC on chain 125." href="/building-a-frontend" linkLabel="Build a frontend" media="cd-media--wide" width={1774} height={887} />
         </div>
       </section>
       <ArtGrid id="start-title" eyebrow="START BUILDING" title={"From install to first request.\nIn a few steps."} rows={[
         [
           { art: 'quickstart', title: 'SDK quickstarts', text: 'Register, fund, send and verify with seven language SDKs.', href: '/sdk-quickstarts' },
-          { art: 'installation', title: 'Installation & build', text: 'Build the chain node, kernel services and contracts from source.', href: '/installation' },
+          { art: 'installation', title: 'Installation & build', text: 'Build the node with its embedded kernel, hosted services and contracts from source.', href: '/installation' },
           { art: 'configuration', title: 'Configuration', text: 'Node modes, RPC, storage, snapshots and metrics in one place.', href: '/configuration' },
         ],
         [
@@ -83,32 +83,32 @@ export default function Home() {
       ]} />
       <Band />
       <section id="benefits" aria-labelledby="benefits-title">
-        <SectionHead id="benefits-title" eyebrow="BENEFITS" title={"The guarantees that\nmatter most to builders"} />
+        <SectionHead id="benefits-title" eyebrow="EXECUTION" title={"Authority, receipts\nand committed state"} />
         <div className="cd-grid-3">
-          <Link href="/layerx-kernel" className="cd-benefit"><span className="cd-benefit-visual"><Icon name="node" size={44} /></span><span className="cd-media-card-body"><strong>Execution you can reproduce</strong><span>Global sequencing and chained state roots create a canonical history. Deterministic execution makes independent replay and verification possible.</span></span></Link>
-          <Link href="/identity" className="cd-benefit"><span className="cd-benefit-visual"><Icon name="layers" size={44} /></span><span className="cd-media-card-body"><strong>Authority with clear boundaries</strong><span>Primary and session keys, scoped capabilities, delegated limits, revocation, rotation and recovery for every autonomous actor.</span></span></Link>
+          <Link href="/layerx-kernel" className="cd-benefit"><span className="cd-benefit-visual"><Icon name="node" size={44} /></span><span className="cd-media-card-body"><strong>Execution you can reproduce</strong><span>The node orders native activities and commits their state with BFT blocks. Deterministic execution supports replay with the required state and artifacts.</span></span></Link>
+          <Link href="/identity" className="cd-benefit"><span className="cd-benefit-visual"><Icon name="layers" size={44} /></span><span className="cd-media-card-body"><strong>Authority with clear boundaries</strong><span>Identity keys, scoped capabilities, delegated spending limits and revocation constrain authorized actions.</span></span></Link>
           <Link href="/evm" className="cd-benefit"><span className="cd-benefit-visual"><Icon name="code" size={44} /></span><span className="cd-media-card-body"><strong>Tools you already know</strong><span>Deploy Solidity, connect wallets and call native precompiles through standard EVM tooling and JSON-RPC on chain 125.</span></span></Link>
         </div>
       </section>
       <Band />
       <section id="comparison" aria-labelledby="comparison-title">
-        <SectionHead id="comparison-title" eyebrow="COMPARISON" title="Fragmented stack vs Paxeer X" />
+        <SectionHead id="comparison-title" eyebrow="INTEGRATION MAP" title="Application needs and network features" />
         <div className="cd-compare">
           <div className="cd-compare-col">
-            <p className="cd-compare-head cd-compare-head--other">FRAGMENTED STACK</p>
+            <p className="cd-compare-head cd-compare-head--other">APPLICATION NEEDS</p>
             <ul>
-              <li>Manual reconciliation per app</li>
-              <li>Identity siloed per domain</li>
-              <li>Payments detached from delivery</li>
-              <li>Opaque, unrepeatable execution</li>
-              <li>Trust the operator&rsquo;s word</li>
-              <li>Custom glue for every agent</li>
+              <li>Reconcile payment outcomes</li>
+              <li>Identify an authorized actor</li>
+              <li>Link payment and delivery</li>
+              <li>Reproduce program execution</li>
+              <li>Check settlement evidence</li>
+              <li>Connect agent tools</li>
             </ul>
           </div>
           <div className="cd-compare-col">
             <p className="cd-compare-head cd-compare-head--paxeer">PAXEER X</p>
             <ul>
-              <li>One accounting doorway (402LXP)</li>
+              <li>Native transfer settlement (402LXP)</li>
               <li>EVM address bound to a LayerX DID</li>
               <li>Escrow, acceptance and receipts linked</li>
               <li>Deterministic, replayable transitions</li>
@@ -122,14 +122,14 @@ export default function Home() {
         [
           { art: 'agent-lifecycle', title: 'Agent lifecycle', text: 'Read state, prepare, disclose, sign and track every action.', href: '/agents' },
           { art: 'task-queue', title: 'Agent-to-agent tasks', text: 'Send structured tasks and follow their state between agents.', href: '/a2a' },
-          { art: 'tool-discovery', title: 'MCP tools', text: '22 scoped tools for verified reads and policy-governed writes.', href: '/mcp' },
+          { art: 'tool-discovery', title: 'MCP tools', text: 'Daemon tools for state reads, authorized writes, sessions and paid web requests.', href: '/mcp' },
         ],
         [
           { art: 'intent-builder', title: 'Human interface', text: 'Turn user intent into typed economic actions with visible limits.', href: '/human-interface' },
           { art: 'prompt-templates', title: 'Agent runtime', text: 'Enrol the daemon, admit actions and operate the runtime connection.', href: '/agent-runtime' },
         ],
       ]} />
-      <ArtGrid id="payments-art-title" eyebrow="PAYMENTS" title={"Every payment carries\nits own evidence."} rows={[
+      <ArtGrid id="payments-art-title" eyebrow="PAYMENTS" title={"Payments and\nexecution evidence."} rows={[
         [
           { art: 'request-envelope', title: 'Activities', text: 'The exact envelope an activity is admitted, executed and recovered with.', href: '/activities' },
           { art: 'service-payment', title: 'Paid APIs and x402', text: 'Charge for HTTP services and settle through 402LXP.', href: '/paid-apis' },
@@ -143,11 +143,11 @@ export default function Home() {
           { art: 'results-artifacts', title: 'Deterministic programs', text: 'Deploy, call and verify program outputs.', href: '/programs' },
         ],
         [
-          { art: 'model-registry', title: 'Program registry', text: 'A verified record of deployed programs and their source.', href: '/registry' },
-          { art: 'resource-browser', title: 'Program workspace', text: 'Packages, guest applications and release evidence.', href: '/program-workspace' },
+          { art: 'model-registry', title: 'Program registry', text: 'Deployed artifacts, interfaces and receipt-bound program records.', href: '/registry' },
+          { art: 'resource-browser', title: 'Program workspace', text: 'Runtime crates, guest SDKs, reference applications and porting kits.', href: '/program-workspace' },
         ],
       ]} />
-      <ArtGrid id="operate-art-title" eyebrow="OBSERVE AND OPERATE" title={"Know what happened.\nProve it."} rows={[
+      <ArtGrid id="operate-art-title" eyebrow="OBSERVE AND OPERATE" title={"Read state.\nCheck the evidence."} rows={[
         [
           { art: 'state-snapshots', title: 'Checkpoints', text: 'Block commitments, trusted state sync and receipt finality on Paxeer.', href: '/checkpoints' },
           { art: 'event-subscriptions', title: 'Event subscriptions', text: 'Scoped subscriptions with acknowledgement and gap recovery.', href: '/subscriptions' },
@@ -160,9 +160,9 @@ export default function Home() {
       ]} />
       <Band />
       <section id="how-it-works" aria-labelledby="how-title">
-        <SectionHead id="how-title" eyebrow="HOW IT WORKS" title={"Connected in\n3 simple steps"} />
+        <SectionHead id="how-title" eyebrow="HOW IT WORKS" title={"Connect, authorize\nand verify"} />
         <div className="cd-grid-3">
-          <MediaCard art="installation" alt="Installation card: a download arrow above a terminal showing install and Ready" kicker="STEP 1" title="Install and connect" text="Pick one of seven SDKs, the XDK or JSON-RPC and point it at your node or a public endpoint." href="/sdk-quickstarts" linkLabel="SDK quickstarts" />
+          <MediaCard art="installation" alt="Installation card: a download arrow above a terminal showing install and Ready" kicker="STEP 1" title="Install and connect" text="Choose an SDK and configure the node or hosted service endpoint required by the operation." href="/sdk-quickstarts" linkLabel="SDK quickstarts" />
           <MediaCard art="service-payment" alt="Service payment: an application pays through 402LXP and receives a receipt" kicker="STEP 2" title="Fund and authorize" text="Fund the account, bind identities and set the budgets and mandates that bound what can be spent." href="/payments-quickstart" linkLabel="Make your first payment" />
           <MediaCard art="payment-receipt" alt="Payment receipt: protocol 402LXP, service Compute, status Settled" kicker="STEP 3" title="Execute and verify" text="Submit a signed transaction, verify its execution receipt and confirm its covering block is committed." href="/receipts" linkLabel="Verify a receipt" />
         </div>
@@ -176,13 +176,13 @@ export default function Home() {
           <article className="cd-path">
             <p className="cd-path-head">AGENTS</p>
             <div className="cd-path-body">
-              <h3>Give agents economic agency.</h3>
+              <h3>Configure agent authority.</h3>
               <p>Create identities, delegate scoped authority, fund accounts and connect tools through SDKs, MCP and the agent daemon.</p>
               <p className="cd-path-includes">This path covers:</p>
               <ul>
                 <li>Agent identities and DIDs</li>
                 <li>Budgets, mandates and revocation</li>
-                <li>22 scoped MCP tools</li>
+                <li>Scoped MCP tools</li>
                 <li>Agent-to-agent tasks</li>
               </ul>
               <Link href="/agents" className="pill-button cd-path-cta">Build an agent <Icon name="arrow" size={14} /></Link>
@@ -191,7 +191,7 @@ export default function Home() {
           <article className="cd-path">
             <p className="cd-path-head cd-path-head--hot">PAYMENTS <span>START HERE</span></p>
             <div className="cd-path-body">
-              <h3>Move value with purpose.</h3>
+              <h3>Integrate native payments.</h3>
               <p>Integrate transfers, escrow, budgets and payment streams. Connect service delivery to acceptance, receipts and disputes.</p>
               <p className="cd-path-includes">This path covers:</p>
               <ul>
@@ -222,18 +222,18 @@ export default function Home() {
       </section>
       <Band />
       <section aria-labelledby="evidence-title">
-        <SectionHead id="evidence-title" eyebrow="EVIDENCE, NOT PROMISES" title={"Every claim carries\nits own proof"} />
+        <SectionHead id="evidence-title" eyebrow="EVIDENCE" title={"Receipts, blocks\nand execution records"} />
         <div className="cd-grid-3">
           <MediaCard art="payment-receipt" alt="Payment receipt: protocol 402LXP, service Compute, status Settled" kicker="RECEIPTS" title="Signed at execution" text="Verify a signed execution receipt against trusted receipt keys, then check its covering block." href="/receipts" linkLabel="Verify signed receipts" />
           <MediaCard art="state-snapshots" alt="Stacked state snapshots" kicker="BLOCKS" title="Committed on Paxeer" text="Validators commit blocks on the BFT network. A receipt is final when its covering block is committed." href="/checkpoints" linkLabel="Verify block commitment" />
           <MediaCard art="job-progress" alt="Job progress: submitted, processing, output ready" kicker="COMMITMENT" title="Submitted, receipted, committed" text="Track submission, verify the signed execution result and confirm block commitment before treating it as final." href="/finality" linkLabel="Read commitment levels" />
-          <MediaCard art="results-artifacts" alt="Results and artifacts: output, logs and metadata ready to download" kicker="REPLAY" title="Replayable history" text="Global sequencing and chained state roots make the canonical history independently replayable by anyone." href="/sequencing" linkLabel="How sequencing works" />
+          <MediaCard art="results-artifacts" alt="Results and artifacts: output, logs and metadata ready to download" kicker="REPLAY" title="Replayable history" text="Replay deterministic execution with the required input history, state, runtime version and program artifacts." href="/sequencing" linkLabel="How sequencing works" />
           <MediaCard art="event-subscriptions" alt="Event subscriptions for task, payment and chain events" kicker="ACCOUNTS" title="Fund a bound account" text="Bind the owner identity, transfer native assets and verify the recipient, amount and transaction receipt." href="/custody" linkLabel="Account funding and keys" />
           <MediaCard art="debugging" alt="Debugging: a magnifying glass over terminal output" kicker="INSPECTION" title="Debug from evidence" text="Collect the transaction and its receipt, then check the call against committed state instead of guessing." href="/debugging-transactions" linkLabel="Debug a transaction" />
         </div>
       </section>
       <Band />
-      <section className="reference-section cd-inset" aria-labelledby="reference-title"><div className="section-heading"><div><p className="eyebrow">BUILD WITH THE FULL SYSTEM</p><h2 id="reference-title">Find your interface.<br />Follow it deeper.</h2></div><p>Architecture, integration guides and operational reference for every part of Paxeer X.</p></div><div className="reference-grid">
+      <section className="reference-section cd-inset" aria-labelledby="reference-title"><div className="section-heading"><div><p className="eyebrow">BUILD WITH THE FULL SYSTEM</p><h2 id="reference-title">Find your interface.<br />Follow it deeper.</h2></div><p>Architecture, integration guides and operational reference for Paxeer X.</p></div><div className="reference-grid">
         <Link href="/layerx-kernel" className="reference-card"><h3>LayerX kernel</h3><p>Canonical sequencing, accounting, modules and deterministic execution.</p><Icon name="arrow" size={16} /></Link>
         <Link href="/platform-api" className="reference-card"><h3>Platform APIs</h3><p>Application gateways, hosted services, webhooks and integration surfaces.</p><Icon name="arrow" size={16} /></Link>
         <Link href="/json-rpc" className="reference-card"><h3>EVM JSON-RPC</h3><p>Wallet integration, chain requests, contracts and transaction inspection.</p><Icon name="arrow" size={16} /></Link>
@@ -254,9 +254,9 @@ export default function Home() {
       <Band />
       <section className="cd-cta">
         <img className="cd-cta-bg" src="/art/docs/system-overview.webp" alt="" aria-hidden="true" width={1536} height={1024} loading="lazy" decoding="async" />
-        <div className="cd-cta-inner"><PaxeerMark /><h2>Build the application.<br />Connect the economy.</h2><p>Choose a domain, integrate an interface and follow the evidence through the network.</p><div className="hero-actions"><Link href="/xdk" className="pill-button primary-button">Open the developer toolkit <Icon name="arrow" size={16} /></Link><Link href="/unified-network" className="pill-button cd-cta-ghost">Explore the network</Link></div></div>
+        <div className="cd-cta-inner"><PaxeerMark /><h2>Build an application.<br />Connect to Paxeer.</h2><p>Choose a domain, integrate an interface and follow the evidence through the network.</p><div className="hero-actions"><Link href="/xdk" className="pill-button primary-button">Open the developer toolkit <Icon name="arrow" size={16} /></Link><Link href="/unified-network" className="pill-button cd-cta-ghost">Explore the network</Link></div></div>
       </section>
     </div>
-    <footer className="site-footer"><div className="landing-col cd-footer-col"><div className="cd-footer-top"><div className="footer-intro"><Link href="/" className="brand"><PaxeerMark />Paxeer X Docs</Link><p>The chain, agent economy and developer platform in one reference.</p></div><div className="footer-links"><div><span>BUILD</span><Link href="/xdk">Developer toolkit</Link><Link href="/agents">Agents</Link><Link href="/programs">Programs</Link></div><div><span>USE</span><Link href="/payments-quickstart">Payments</Link><Link href="/spot-exchange">Markets</Link><Link href="/human-interface">Human interface</Link></div><div><span>UNDERSTAND</span><Link href="/unified-network">Unified network</Link><Link href="/proofs">Proofs</Link><Link href="/operators">Operations</Link></div></div></div><nav className="cd-footer-quick" aria-label="Landing sections"><span>ON THIS PAGE:</span><a href="#solution">Solution</a><a href="#benefits">Benefits</a><a href="#comparison">Comparison</a><a href="#how-it-works">How it works</a><a href="#paths">Build paths</a><a href="#faqs">FAQs</a></nav><div className="footer-bottom"><span>Paxeer X Network</span><span>EVM 125 · hyperpax_125-1 · LayerX</span></div></div></footer>
+    <footer className="site-footer"><div className="landing-col cd-footer-col"><div className="cd-footer-top"><div className="footer-intro"><Link href="/" className="brand"><PaxeerMark />Paxeer X Docs</Link><p>The chain, agent economy and developer platform in one reference.</p></div><div className="footer-links"><div><span>BUILD</span><Link href="/xdk">Developer toolkit</Link><Link href="/agents">Agents</Link><Link href="/programs">Programs</Link></div><div><span>USE</span><Link href="/payments-quickstart">Payments</Link><Link href="/spot-exchange">Markets</Link><Link href="/human-interface">Human interface</Link></div><div><span>UNDERSTAND</span><Link href="/unified-network">Unified network</Link><Link href="/proofs">Proofs</Link><Link href="/operators">Operations</Link></div></div></div><nav className="cd-footer-quick" aria-label="Landing sections"><span>ON THIS PAGE:</span><a href="#solution">Applications</a><a href="#benefits">Execution</a><a href="#comparison">Integration map</a><a href="#how-it-works">How it works</a><a href="#paths">Build paths</a><a href="#faqs">FAQs</a></nav><div className="footer-bottom"><span>Paxeer X Network</span><span>EVM 125 · hyperpax_125-1 · LayerX</span></div></div></footer>
   </main>
 }

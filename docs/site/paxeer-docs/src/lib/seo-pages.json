@@ -228,8 +228,8 @@
     "description": "Understand how Paxeer X accepts signed price observations, rejects stale or anomalous inputs, and applies market-specific risk limits."
   },
   "/": {
-    "title": "Money. Markets. Machines. One network to build on.",
-    "description": "Paxeer X unites EVM applications, the LayerX agent economy, payments, markets and deterministic programs with verifiable execution and settlement."
+    "title": "Applications. Payments. Programs. Build on Paxeer.",
+    "description": "Paxeer mainnet-beta runs EVM applications and the embedded LayerX kernel on one BFT network, with native payments, markets and deterministic programs."
   },
   "/paid-apis": {
     "title": "Paid APIs and x402",
