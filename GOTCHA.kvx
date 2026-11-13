@@ -21790,3 +21790,8 @@ fix = "The file carries a build constraint that only the recording script sets, 
 title = "The streams of the pay module find the asset of a token through the mappings of the custody module"
 symptom = "agentStreamAsset in modules/layerxpay/keeper/stream_agent.go resolves the native token and every pointer token to an asset through the asset mappings of the custody module. From the upgrade height the custody module is retired and takes no new mapping, and the asset records live in the ledger."
 fix = "Where the custody module holds no mapping, the reader resolves the native token to the native asset of the ledger and another token through the record of the ledger. A mapping that exists is used as before. Task 22.39.515."
+
+[gotcha.4394]
+title = "The arbiter cases of the programs workspace take their corpora from two variables that the test target does not set"
+symptom = "The tests verified_step and authority_from_prestate of programs/crates/layerx-programs-arbiter read the manifest of the replay corpus and the manifest of the signed admission corpus from the variables LAYERX_AUTHENTICATED_REPLAY_INPUTS and LAYERX_ARBITER_ADMISSION_INPUTS and have no other source. The recipe of programs-test in the Makefile runs the tests of the whole workspace and sets neither, and the producer scripts under tools/qualification/paxeer-x carry default paths of one machine."
+fix = "The target programs-test produces the corpora before the workspace test and passes the variables to it, and the producer runs in a checkout at any location. Task 22.39.509 makes the change."
