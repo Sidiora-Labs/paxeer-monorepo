@@ -1,4 +1,4 @@
-# <h1 align="center"> Smart-contract Verifier (Server) </h1>
+# Smart-contract verifier server
 
 This service exposes HTTP and gRPC APIs for comparing supplied contract bytecode
 with compiler output, or forwarding verification to Sourcify. It keeps compiler
@@ -173,14 +173,14 @@ configuration. Tracing formats are `default` and `json`. Disabling tracing also
 disables Jaeger tracing initialization. The commented `extensions` entries in
 the shipped examples are not fields of the current `Settings` type.
 
-## Grpc Api
+## gRPC API
 
 The [v2 protobuf directory](../smart-contract-verifier-proto/proto/v2) defines
 SolidityVerifier, VyperVerifier, SourcifyVerifier, ZkSyncSolidityVerifier and
 Health services. HTTP and gRPC register handlers according to the same verifier
 enablement settings.
 
-## Http Api
+## HTTP API
 
 The [HTTP route mapping](../smart-contract-verifier-proto/proto/v2/api_config_http.yaml)
 and [Swagger schema](../smart-contract-verifier-proto/swagger/v2/smart-contract-verifier.swagger.yaml)
@@ -230,7 +230,7 @@ request; they do not cause the local verifier to fetch on-chain bytecode.
 
 Use the compiler's [Standard JSON input](https://docs.soliditylang.org/en/latest/using-the-compiler.html#input-description)
 for `settings.libraries`, optimizer settings, EVM version and other supported
-compiler options. See [Compiler Settings (transition)](#compiler-settings-transition)
+compiler options. See [Compiler settings](#compiler-settings)
 for the difference between input settings and detected library links.
 
 ### Vyper Multi-Part files
@@ -529,7 +529,7 @@ sorted in descending order. Use the listed version strings for verification.
 [v2 contract](../smart-contract-verifier-proto/proto/v2/smart-contract-verifier.proto);
 `GET /health` is registered independently of verifier enablement.
 
-## Compiler Settings (transition)
+## Compiler settings
 
 Clients of the solo API read `source.compilerSettings`, a serialized Standard
 JSON settings object, for optimizer and EVM settings formerly exposed as

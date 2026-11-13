@@ -12,7 +12,7 @@ Describe the change, the affected trust boundary, and why it is necessary.
 List every command run, the verified revision, and its exact outcome. Explain any gate not run.
 Include only reviewed technical evidence; never paste credentials or private logs.
 
-```
+```text
 revision:
 command:
 exit code:

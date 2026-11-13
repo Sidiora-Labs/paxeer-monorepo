@@ -3,8 +3,7 @@
 This page documents the explorer's account REST API, mounted at
 `/api/account/v2` by [ApiRouter](lib/block_scout_web/routers/api_router.ex)
 and [AccountRouter](lib/block_scout_web/routers/account_router.ex). All paths
-below are relative to the explorer's origin. The former account v1 examples
-are obsolete; use the v2 routes and response shapes here.
+below are relative to the explorer's origin.
 
 The explorer indexes Paxeer mainnet-beta, one BFT network with EVM chain ID
 125 (`0x7d`). The kernel is part of the network and proposes blocks; a receipt
@@ -167,8 +166,7 @@ list action; the ID is a paging cursor, not a single-tag lookup.
 | `delete_tag_transaction` | DELETE | `/api/account/v2/user/tags/transaction/:id` |
 
 POST requires `transaction_hash` and `name`. The transaction must exist in the
-explorer database. The hash in these examples is from the committed transaction
-importer recording, not a guarantee that a deployment has indexed it.
+explorer database. Use a transaction hash indexed by the deployment.
 
 <!-- example:transaction-tag -->
 ```json
@@ -403,4 +401,4 @@ characters. API key names allow 1–255. `ACCOUNT_PRIVATE_TAGS_LIMIT` defaults t
 2,000 and `ACCOUNT_WATCHLIST_ADDRESSES_LIMIT` to 15; these are deployment
 settings, while the three-key and 15-ABI limits are module constants. Read
 returned validation errors rather than relying on the illustrative IDs or
-fixed limits from old test captures.
+fixed example values.

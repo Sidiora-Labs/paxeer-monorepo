@@ -22,7 +22,7 @@ transfer sets; guests have no `set_balance` authority.
 | `programs/crates/layerx-programs-sandbox/` | Bounded leases, isolated execution, snapshots and expiry |
 | `programs/sdk/` | Rust, C and AssemblyScript guest SDKs |
 
-See [Sandbox](sandbox.md) for lease execution and its integration limits,
+See [Sandbox](sandbox.md) for lease execution,
 [StorageScan](storage-scan.md) for scoped storage scans, and
 [Payments](../overview/payments.md) and [Assets](../concepts/assets.md) for
 payment integration. Source availability describes implementation in this tree;
@@ -264,21 +264,20 @@ For the AI market, build release with `opt-level = "z"` and set the deployment
 chain domain at build time. `PAXAI_CHAIN_DOMAIN` is a 64-character lowercase hex
 encoding of `SHA-256("PAXAI/chain-domain/v1" || chain_id:u64_be)`, with chain ID
 125. The guest validates this against its merged-chain identity; a malformed
-or foreign setting returns `WRONG_DOMAIN`. An explicit build from the repository
-root is:
+or foreign setting returns `WRONG_DOMAIN`. From the repository root, use the
+shared deployment packager and native host harness:
 
 ```sh
-(cd programs && \
-  PAXAI_CHAIN_DOMAIN=62b6b14734fa769c3e0fbc94de495a3d038be49a2524b1c071d75d0a4eed71f6 \
-  CARGO_PROFILE_RELEASE_OPT_LEVEL=z \
-  cargo build --locked --release --target wasm32-unknown-unknown \
-    -p layerx-programs-ai-market)
+make paxai-host-boundary-build
 ```
 
-The workspace release profile otherwise uses optimization level 3. Package the
-result under the same 524,288-byte deployment payload bound, including the
-104-byte envelope and any interface framing. Host registration, declared guest
-ABI and compiled imports must agree on every registration and call path.
+The recipe defaults to the chain-125 domain and uses Binaryen 133 to package a
+release `cdylib` built with optimization level `z` and LTO. It checks the
+524184-byte WASM budget and records the guest, harness and domain. The complete
+deployment payload is bounded to 524288 bytes, including the 104-byte envelope
+and any interface framing. Host registration, declared guest ABI and compiled
+imports must agree on every registration and call path. See
+[Programs workspace](workspace.md#ai-market-deployment-qualification).
 
 ## LXT-20
 

@@ -318,10 +318,8 @@ gateway, and the developer namespace. Egress admits DNS on port 53; enabling
 SMTP requires an appropriate deployment egress policy. The health listener's
 port is not exposed by that Service.
 
-Bring-up's `identity_provision()` supplies `tenant` for smoke principals, using
-`LAYERX_BETA_HUMAN_TENANT` or `beta`, and mints sessions with the provisioning
-credential. Principal and session producer responses are HTTP 200, even though
-the bring-up helper accepts either 200 or 201.
+Principal and session creation return HTTP 200. Provisioning supplies the
+tenant and uses the provisioning credential.
 
 ## Tests
 
@@ -336,7 +334,6 @@ authentication and tampering.
 
 `make platform-test-identity` runs the crate through
 `tools/runtime/run-with-clock.sh`. `platform-test-trusted-boundary` includes it;
-`platform-hosted-topology-check` checks hosted deployment topology. These are
-available service gates, not claims that they ran for this documentation change.
+`platform-hosted-topology-check` checks hosted deployment topology.
 
 [Hosted authority](hosted-authority.md) · [Home](../index.md)

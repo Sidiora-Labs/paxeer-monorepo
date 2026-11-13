@@ -1,22 +1,40 @@
-# LayerX private beta
+# Beta environments
 
-Private-network only. The beta control, faucet and status surfaces below have
-no public name on Paxeer X Network; the endpoint examples require
-operator-supplied private origins. Public accounts are funded
-through chain transfers on chain 125.
+Paxeer mainnet-beta runs on chain 125 (`0x7d`). The kernel is part of the
+network, and a transaction is final when its block commits. Public node
+JSON-RPC uses the node root path; connection details are in the
+[public RPC guide](../site/docs/reference/public-rpc.md).
 
-This page describes the declared beta deployment, not a service that is currently promised available. The canonical beta contract records `readiness_claim: false` and every hosted surface at rung `source_present` without a release-bound gate record in that contract, so the endpoint, reset and parameter values below are what the beta deployment declares; the scheduled hosted journey is the gate that qualifies them. Do not read any address here as a live availability guarantee.
+## Mainnet-beta
 
-The pending-release beta network runs package release `0.1.0` and LXP wire protocol version `3`, on network ID `402`, on the private network only; it has no public name. Package semantic version and wire version are independent rollout gates: neither is inferred from the other. `GET /v1/parameters` publishes both values. Public node JSON-RPC is served at the root path of `https://api-mainnet-beta.paxeer.network`; accounts are funded through chain transfers on chain 125, and the faucet claims route `/v1/faucet/claims` exists only on the private network. Protocol amounts are integer strings and the public gateway returns typed refusals with retry timing.
+Fund accounts through chain transfers on chain 125. Hosted application
+services use separately configured origins. The
+[mainnet-beta contract](content/beta.md) describes the network and application
+surfaces. A local emulator or private test balance is not a mainnet balance.
 
-State resets at 09:00 UTC on the first Tuesday of every month. The recurring reset calendar is kept as iCalendar at `https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/docs/platform/beta-resets.ics`; clients must treat beta balances and receipts as disposable across that boundary. The reset is an authenticated, idempotent call to the private control service. It is not an emulator snapshot deletion, and the private funding/reset routes are not present on public ingress.
+## Private test environment
 
-The faucet requires a bearer-authenticated developer identity, a unique `Idempotency-Key`, and a destination DID/public key. It derives the network quota key from the transport peer address on a source-IP-preserving load balancer and rejects forwarding or caller-supplied identity/IP headers. Durable, shared quotas apply atomically to identity, destination address and client network across all replicas. A definite funding refusal releases the reservation; an indeterminate upstream result remains `still_checking` under the same idempotency key so a retry cannot fund twice. `429` responses carry `Retry-After`; unavailable core or durable quota storage never reports funding success.
+`services/platform/hosted/testnet` supplies private control and status
+endpoints. Its network identifier is 402 and its EVM chain identifier is 125;
+these are distinct fields. Package semantic version comes from the package
+manifest, and LXP wire version comes from the wire crate. `GET /v1/parameters`
+reports both independently.
 
-The status page consumes `GET /v1/status`, which reports `testnet`, `gateway`, `core` and `paxeer` separately without component URLs, credentials or probe errors. A live control process is only `ready` when the pending package/wire release gates pass and every declared dependency (identity, faucet, core, core admin, receipt authority, program registry, Redis, gateway and the Paxeer boundary) is reachable; `GET /readyz` reports each dependency and each journey (funding, payment, receipt inspection, Programs) separately, and `GET /v1/journeys/<journey>` admits a tester only while that journey's declared dependency set is ready. A gateway outage does not imply a core outage, and Paxeer degradation is not presented as LayerX finality. Faucet audit entries contain hashed identity, address and client-network keys and never authentication values.
+The private reset schedule is 09:00 UTC on the first Tuesday of each month;
+[beta-resets.ics](beta-resets.ics) carries the calendar. Balances and receipts
+in that environment are disposable across a reset. Resetting it is an
+authenticated operation on its private control service.
 
-The scheduled hosted journey uses operator-provisioned private-network testnet, faucet and gateway endpoints, commits a payment, fetches its canonical receipt and batch-authority facts, and invokes the independent local receipt verifier. A health response or an environment compared with itself is not a hosted-journey result.
+The private faucet requires bearer authentication, a unique `Idempotency-Key`
+and the destination identity. Quotas apply to identity, destination and client
+network. An indeterminate funding response stays `still_checking` under the
+same key. A `429` response carries `Retry-After`.
 
-Scheduled CI takes the three private HTTPS origins from operator-managed repository variables. The runner must reach that isolated network. Separate short-lived source and destination identity sessions, the source signing key, the independently pinned sequencer public key and the test asset are mandatory; missing inputs fail the journey. CI builds the canonical hosted-send encoder and reference escrow WASM, then verifies payment and Programs receipts through the retained hosted smoke path. These inputs do not publish or reset any mainnet service.
+`GET /v1/status` reports `testnet`, `gateway`, `core` and `paxeer` separately.
+`GET /readyz` reports readiness. The supported journey routes are
+`/v1/journeys/funding`, `/v1/journeys/payment` and
+`/v1/journeys/receipt-inspection`.
 
-Within the isolated deployment, supply operator-managed origins for control parameters and status, for example `https://OPERATOR-PARAMETERS-ORIGIN/v1/parameters` and `/v1/status`; use `https://OPERATOR-GATEWAY-ORIGIN` for the gateway and `https://OPERATOR-FAUCET-ORIGIN` for the faucet. Replace these placeholders with endpoints reachable over the private network using the provisioned test CA. Network ID is 402; package semantic version and wire version are separate pending-release gates, with wire version 3. The canonical parameters response and reset calendar remain the source for the selected test environment.
+Obtain the private HTTPS origins and authentication from the environment
+operator. Public mainnet node endpoints do not serve private funding or reset
+operations.

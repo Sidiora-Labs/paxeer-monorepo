@@ -56,11 +56,11 @@ The bridge allows outbound access to the data gateway and candle feed.
 nginx waits for the app's image health check on initial startup. After an app
 recreation, nginx must resolve its new address. In the operator-supplied TLS
 server's `location /`, use the DNS resolver reachable from nginx and a variable
-upstream. The documentation address below must be replaced with your resolver
-(for Docker, read the nameserver from the nginx container's `/etc/resolv.conf`):
+upstream. Read the nameserver from the nginx container's `/etc/resolv.conf` and substitute
+it for `<resolver-address>` below:
 
 ```nginx
-resolver 192.0.2.53 valid=5s ipv6=off;
+resolver <resolver-address> valid=5s ipv6=off;
 set $perps_upstream app:3000;
 proxy_pass http://$perps_upstream;
 proxy_set_header Host $host;
@@ -82,12 +82,10 @@ refresh after replacement, then repeat the ingress health checks.
 | [`docker-compose.yml`](docker-compose.yml) | app build/runtime configuration, shared bridge and health-ordered nginx startup |
 | [`.env.production.example`](.env.production.example) | Public build inputs, server runtime inputs and explicit image revision |
 | [`build-args.production.env`](build-args.production.env) | Public build-argument values; Docker does not automatically read an env file as build arguments |
-| [`../ecosystem.config.js`](../ecosystem.config.js) | Host PM2 example with fixed `cwd: /root/Hyperpax-UI`; requires path/process review before use in this monorepo |
+| [`../ecosystem.config.js`](../ecosystem.config.js) | Host PM2 configuration; set `cwd` to the deployed application directory before use |
 
-There is no checked-in `deploy/scripts/deploy.sh`, `server-init.sh`,
-`cloudflare-firewall.sh`, `deploy/CLOUDFLARE.md`, or `deploy/nginx/` configuration
-in this checkout. The Compose mounts refer to nginx config, certificates,
-ACME webroot and DH parameters that an operator must supply. Starting this
+The Compose mounts require operator-supplied nginx config, certificates,
+ACME webroot and DH parameters. Starting this
 Compose file alone is not a production deployment procedure.
 
 ## Step-by-step
@@ -322,8 +320,8 @@ upstream timed out; HTTP 502 means it was unreachable. See the
 Check that both Supabase public values were passed to the build. Docker's
 `.dockerignore` excludes `.env.production`, and runtime `--env-file` cannot
 repair a previously built client bundle. Rebuild with the correct public
-arguments and replace the image. There is no `deploy.sh --no-cache` command in
-this checkout; Docker's own `build --no-cache` option is available when needed.
+arguments and replace the image. Docker's `build --no-cache` option is available
+when needed.
 
 ### Build identity reports `development`
 

@@ -4,9 +4,14 @@ Add a payment to a JVM service. Six lines, no protocol vocabulary, no key handli
 
 ## Before you start
 
+Use JDK 21 and Maven. Configure an authenticated human-payment service that supports
+`/v1/moves/quote`, `/v1/moves` and journey reads. The local emulator retires
+these payment-write routes. For native node transactions, follow the
+[reference applications](../guide/reference-applications.md).
+
 Add the SDK to your build:
 
-```text
+```xml
 <dependency>
   <groupId>com.sidiora.layerx</groupId>
   <artifactId>layerx-sdk</artifactId>
@@ -16,7 +21,7 @@ Add the SDK to your build:
 
 | Variable | What it is |
 |---|---|
-| `LAYERX_API_URL` | The base URL of your environment |
+| `LAYERX_API_URL` | The base URL of your human-payment service |
 | `LAYERX_API_TOKEN` | A bearer token identifying your account |
 
 ## The integration
@@ -40,11 +45,15 @@ Kotlin callers get the same API through the `LayerXKotlin` extensions: `human(op
 
 ## Run the whole sample
 
-```text
+Set `LAYERX_API_URL` and `LAYERX_API_TOKEN` for that service, plus
+`LAYERX_SOURCE`, `LAYERX_DESTINATION`, `LAYERX_AMOUNT`, `LAYERX_CURRENCY`
+and `LAYERX_PAYMENT_KEY` for the payment. Amounts use integer base units;
+reuse the same payment key when reconciling the same operation.
+
+```sh
 cd services/platform/examples/samples/first-payment-jvm
 mvn -q package
-LAYERX_API_URL=http://127.0.0.1:9402 LAYERX_API_TOKEN=$(cat ./token) LAYERX_SOURCE=did:layerx:alice LAYERX_DESTINATION=did:layerx:bob \
-LAYERX_AMOUNT=1250000 LAYERX_CURRENCY=USD LAYERX_PAYMENT_KEY=order-2f9c1b7e4a10 mvn -q exec:java
+mvn -q exec:java
 ```
 
 ## Reading responses safely

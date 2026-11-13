@@ -1,14 +1,12 @@
 # Provider plugin API
 
-This document is the contract for HYPERFIDE's provider plugin surface — what "a
-provider is a plugin" means. Every change that touches this surface keeps it
-true, and a test (`sdk/plugins/src/__tests__/provider-plugin-doc.test.ts`)
-checks its code blocks against the real types. Members that still carry the
-`experimental_` prefix are named with it here; each has an entry in
-[api_to_audit.md](api_to_audit.md) saying why. How to build, test, and ship a
-provider plugin is in the hyperfide-plugin-authoring skill
-(`plugins/hyperfide-guide/skills/hyperfide-plugin-authoring/references/providers.md`); the
-wire grammar is [provider-bridge-protocol.md](provider-bridge-protocol.md).
+This page describes Hyperfide's provider plugin surface. Members with an
+`experimental_` prefix use that spelling in the SDK. See the
+[experimental API reference](api_to_audit.md), the
+[provider authoring guide](../../../tools/hyperfide/plugins/hyperfide-guide/skills/hyperfide-plugin-authoring/references/providers.md),
+and the [wire grammar](provider-bridge-protocol.md).
+
+Source paths below are relative to `tools/hyperfide`.
 
 A "provider" is a coding agent HYPERFIDE can run a thread on (Claude Code, Codex, Pi,
 ACP agents such as Cursor or Amp). The design goal is that **everything a
@@ -152,7 +150,7 @@ resolved with a `null` thread and project and expanded like a session's
 such as Codex behind the Account Pooler, launches its listing process with
 these values so the picker matches what new threads can use.
 
-Still experimental on the declaration (see api_to_audit.md):
+Experimental declaration fields (see [API reference](api_to_audit.md)):
 
 - `experimental_bridgeOptions` — a plain JSON object of at most 64 KiB,
   validated and frozen at registration and carried on every bridge request.
@@ -249,10 +247,11 @@ semantics in [provider-bridge-protocol.md](provider-bridge-protocol.md),
   approvalEnforcedBy: "runtime" | "provider",
   steerMode: "inject" | "queue", // declared and recorded; nothing acts on it yet
   skills: { configure: boolean }, // the bridge handles skills/configure
+  commands: { list: boolean }, // the bridge handles commands/list
 }
 ```
 
-**Runtime → bridge**: `initialize`, `model/list`,
+**Runtime → bridge**: `initialize`, `model/list`, `commands/list`,
 `thread/{start,resume,fork,stop,discard,archive,unarchive,name/set,goal/clear}`,
 `turn/{start,steer}`, `skills/configure {roots}` (only when the handshake
 declares `skills.configure`),
@@ -347,7 +346,7 @@ or one of the plugin's own declared icons by its namespaced glyph
 (`"<pluginId>/<name>"`, an entry of the manifest's
 `hyperfide.branding.experimental_icons`). The server rejects at ingest a namespaced
 glyph that is not the emitting plugin's declared icon (`provider/unhandled`,
-reason naming the glyph); for a `server: "hyperfide platform"` tool row the emitting plugin is
+reason naming the glyph); for a `server: "hyperfide"` tool row the emitting plugin is
 the one that registered the tool, whose presentation the bridge stamps as
 handed to it. Clients resolve the name against the plugin inventory they hold
 and draw the SVG tinted with `currentColor`. If the plugin is gone or the name
@@ -426,18 +425,11 @@ bridge parses it as it would any client-supplied JSON.
 
 ## 5. Projection and rendering
 
-Server-side projection folds every item, including extension items, into one
-row shape:
+Server-side projection folds items into timeline rows typed by item kind.
+Extension rows carry their payload and declarative presentation. Core rows use
+the fields defined for their own kind.
 
-```ts
-TimelineRow { kind: string, payload, presentation }
-```
-
-`payload` is a sketch, not a landed field: rows stay typed per kind and only
-extension rows carry a `payload` today (`provider-plugin-doc.test.ts` keeps
-the gap entry).
-
-No tool-name tables, no arg-field guessing, no `tool_name` virtual column. A
+A
 plugin renders its own extension kinds and the generic `tool` items its
 provider emitted:
 
@@ -480,4 +472,4 @@ plugin, and only on hosts its server instructs.
 
 Helper tasks (thread titles, commit messages, voice transcripts) are
 plugin-served through `hyperfide.experimental_aiServices`, documented in the
-hyperfide-plugin-authoring skill's `backend-cli-agents.md`.
+[AI services guide](../../../tools/hyperfide/plugins/hyperfide-guide/skills/hyperfide-plugin-authoring/references/backend-cli-agents.md).

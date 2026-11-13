@@ -1,0 +1,187 @@
+[manifest]
+task = "22.41.21"
+pages = 57
+
+[record.1]
+path = "sdk/x/README.md"
+
+[record.2]
+path = "sdk/x/auth/atlas/atlas-v0.39.1.md"
+
+[record.3]
+path = "sdk/x/auth/spec/01_concepts.md"
+
+[record.4]
+path = "sdk/x/auth/spec/02_state.md"
+
+[record.5]
+path = "sdk/x/auth/spec/03_antehandlers.md"
+
+[record.6]
+path = "sdk/x/auth/spec/04_keepers.md"
+
+[record.7]
+path = "sdk/x/auth/spec/05_vesting.md"
+
+[record.8]
+path = "sdk/x/auth/spec/07_client.md"
+
+[record.9]
+path = "sdk/x/auth/spec/07_params.md"
+
+[record.10]
+path = "sdk/x/auth/spec/README.md"
+
+[record.11]
+path = "sdk/x/authz/spec/01_concepts.md"
+
+[record.12]
+path = "sdk/x/authz/spec/02_state.md"
+
+[record.13]
+path = "sdk/x/authz/spec/03_messages.md"
+
+[record.14]
+path = "sdk/x/authz/spec/04_events.md"
+
+[record.15]
+path = "sdk/x/authz/spec/05_client.md"
+
+[record.16]
+path = "sdk/x/authz/spec/README.md"
+
+[record.17]
+path = "sdk/x/bank/atlas/atlas-v0.39.1.md"
+
+[record.18]
+path = "sdk/x/bank/spec/01_state.md"
+
+[record.19]
+path = "sdk/x/bank/spec/02_keepers.md"
+
+[record.20]
+path = "sdk/x/bank/spec/03_messages.md"
+
+[record.21]
+path = "sdk/x/bank/spec/04_events.md"
+
+[record.22]
+path = "sdk/x/bank/spec/05_params.md"
+
+[record.23]
+path = "sdk/x/bank/spec/README.md"
+
+[record.24]
+path = "sdk/x/capability/spec/01_concepts.md"
+
+[record.25]
+path = "sdk/x/capability/spec/02_state.md"
+
+[record.26]
+path = "sdk/x/capability/spec/README.md"
+
+[record.27]
+path = "sdk/x/distribution/spec/01_concepts.md"
+
+[record.28]
+path = "sdk/x/distribution/spec/02_state.md"
+
+[record.29]
+path = "sdk/x/distribution/spec/03_begin_block.md"
+
+[record.30]
+path = "sdk/x/distribution/spec/04_messages.md"
+
+[record.31]
+path = "sdk/x/distribution/spec/05_hooks.md"
+
+[record.32]
+path = "sdk/x/distribution/spec/06_events.md"
+
+[record.33]
+path = "sdk/x/distribution/spec/07_params.md"
+
+[record.34]
+path = "sdk/x/distribution/spec/README.md"
+
+[record.35]
+path = "sdk/x/evidence/atlas/atlas-v0.41.x.md"
+
+[record.36]
+path = "sdk/x/evidence/spec/01_concepts.md"
+
+[record.37]
+path = "sdk/x/evidence/spec/02_state.md"
+
+[record.38]
+path = "sdk/x/evidence/spec/03_messages.md"
+
+[record.39]
+path = "sdk/x/evidence/spec/04_events.md"
+
+[record.40]
+path = "sdk/x/evidence/spec/05_params.md"
+
+[record.41]
+path = "sdk/x/evidence/spec/06_begin_block.md"
+
+[record.42]
+path = "sdk/x/evidence/spec/07_client.md"
+
+[record.43]
+path = "sdk/x/evidence/spec/README.md"
+
+[record.44]
+path = "sdk/x/feegrant/spec/01_concepts.md"
+
+[page.1]
+path = "sdk/js/README.md"
+status = "corrected"
+
+[page.2]
+path = "sdk/launchpad/packages/indexer-sdk/README.md"
+status = "corrected"
+
+[page.3]
+path = "sdk/launchpad/packages/sdk/README.md"
+status = "corrected"
+
+[page.4]
+path = "sdk/launchpad/packages/stats-sdk/README.md"
+status = "corrected"
+
+[page.5]
+path = "sdk/platform/conformance/README.md"
+status = "corrected"
+
+[page.6]
+path = "sdk/platform/jvm/README.md"
+status = "corrected"
+
+[page.7]
+path = "sdk/platform/jvm/examples/README.md"
+status = "corrected"
+
+[page.8]
+path = "sdk/scripts/README.md"
+status = "corrected"
+
+[page.9]
+path = "sdk/server/README.md"
+status = "corrected"
+
+[page.10]
+path = "sdk/snapshots/README.md"
+status = "corrected"
+
+[page.11]
+path = "sdk/store/README.md"
+status = "reviewed"
+
+[page.12]
+path = "sdk/types/address/README.md"
+status = "reviewed"
+
+[page.13]
+path = "sdk/wallet/README.md"
+status = "corrected"

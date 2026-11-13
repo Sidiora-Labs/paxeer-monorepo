@@ -1,76 +1,77 @@
 # Interop
 
-The interop plane translates at the edge. Adapters speak someone else's protocol on one side and hand typed, verified results to the LayerX kernel on the other - and they are structurally prevented from constructing LayerX payload bytes themselves. The plane's payload authorities are the only constructors, which is why an adapter bug cannot become a monetary bug.
+The interop plane translates external protocols into typed requests and verification results. Its payload authorities construct LayerX payload bytes; adapters retain responsibility for their protocol's cryptography and validation.
 
 ## Adapters
 
-| Adapter | Speaks | Direction |
-|---|---|---|
-| `layerx-x402` | x402 v2, pinned to an exact upstream spec commit and its SHA-256 | Both - buyer, seller and facilitator |
-| `layerx-ap2` | AP2 mandates over JOSE | Inbound mandate verification, outbound signed evidence |
-| `layerx-ucp` | UCP shopping checkout and order, pinned to a dated spec revision | Inbound |
-| `layerx-visa-tap` | Visa Trusted Agent Protocol HTTP message signatures | Inbound |
-| `layerx-fiat` | Certified fiat rails via opaque provider tokens | Both |
-| `layerx-migrate` | Ethereum and Solana migration boundaries | Inbound |
-| `layerx-mirror` | Ethereum and Solana publication of retrievable batch archives | Outbound |
+| Adapter | Boundary |
+| --- | --- |
+| `layerx-x402` | x402 v2 buyer, seller and facilitator |
+| `layerx-ap2` | AP2 mandate verification and signed evidence |
+| `layerx-ucp` | UCP checkout and order translation |
+| `layerx-visa-tap` | Visa Trusted Agent Protocol HTTP message signatures |
+| `layerx-fiat` | Fiat provider tokens |
+| `layerx-migrate` | Ethereum and Solana migration |
+| `layerx-mirror` | Ethereum and Solana batch-archive publication |
 
-Every adapter carries an `AdapterDescriptor` naming its id, its pinned specification and its conformance suite. Pinning is exact: `layerx-x402` names the upstream commit hash and the SHA-256 of the specification document it was written against. An upstream revision that has not been reviewed does not silently become the behaviour.
+An `AdapterDescriptor` identifies the adapter, pinned specification and declared conformance suite. A descriptor alone does not establish conformance; consult each adapter's compatibility documentation for supported coverage.
 
-## Both directions are typed
+## Receipt export and evidence import
 
-Evidence leaves LayerX as a `PortableReceipt` - exact receipt bytes plus batch claims - which a counterparty verifies against an independently trusted batch authorisation. No node, gateway, daemon, database, clock or network connection is required to check it.
+`PortableReceiptV2` carries exact signed receipt bytes, a receipt digest, key metadata, a height and optional raw transaction bytes. Verification uses independently pinned, height-ranged receipt keys. It can run offline. The exported level is `receipted`, including when the producer supplied a committed answer; proving BFT commit requires additional consensus evidence.
 
-Evidence enters through `verify_external_evidence`. The adapter keeps ownership of its own protocol's cryptography and constraints; `layerx-portable` binds the adapter's typed result to the exact presentation and pinned specification that were verified. The result is that "this AP2 mandate was verified" is a statement about a specific presentation under a specific spec version, not a boolean.
+`verify_external_evidence` binds an adapter's typed verification result to the exact presentation bytes and pinned specification. The caller selects and trusts the adapter and supplies its verification context. The binding digest alone does not authenticate a report from another process.
+
+See the [portable verification guide](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/345655b6e6e4a193455b9aa34fcc9e5961188d42/docs/interop/PORTABILITY.md) for the format and public API.
 
 ## The gateway
 
-`layerx-interop-gateway` is the one contract through which the interop plane reaches LayerX. It carries the principal, the trace and the translation request; it classifies translation status; and it redacts. Adapters do not reach past it.
+The interop workspace contains `layerx-interop-gateway` and `layerx-interop-service`. Its declared core boundary is `layerx-agent-api`. The gateway carries principals, traces and translation requests, classifies translation status and redacts sensitive fields.
 
 ## x402
 
-x402 is the case most people meet first, because it is what the seller and buyer middleware speak over HTTP. The three headers are `PAYMENT-REQUIRED` on the `402`, `PAYMENT-SIGNATURE` on the retry, and `PAYMENT-RESPONSE` on the settled reply. The Rust crate exposes the same three roles - `Buyer`, `Seller`, `Facilitator` - for services that are not Node.
+The HTTP headers are `PAYMENT-REQUIRED` on a `402` response, `PAYMENT-SIGNATURE` on the retry and `PAYMENT-RESPONSE` on the settlement response. The Rust crate exposes `Buyer`, `Seller` and `Facilitator` roles. x402 carries offers and payment evidence; the underlying network transaction performs settlement. Consumers verify the receipt and match its payment facts to the offer.
 
-The relationship between the layers is worth stating plainly: x402 is the transport for the offer and the proof. It is not the settlement. The settlement is the LayerX move, and the thing that makes the settlement true is the receipt carried in the payment's extensions.
+## MCP
 
-## Agent transports: MCP and A2A
+MCP uses an authenticated agent-daemon binding and serves the daemon's tool catalogue over standard input and output:
 
-Two more edges exist for the case where the counterparty is a model rather than a service. Both are served by the CLI and expose the same receipt and canonical-payment tools. Installation targets the hosted beta or production gateway; it does not silently fall back to the emulator, whose route set does not include hosted key provisioning.
-
+```sh
+layerx install mcp --host claude-code --daemon-binding ./daemon-binding.json
+layerx mcp serve --daemon-binding ./daemon-binding.json
 ```
-layerx environment use beta --endpoint https://api-mainnet-beta.paxeer.network --network-id <network-id>
-layerx key create agent-runtime
 
-layerx install mcp --environment beta --key agent-runtime \
-  --host claude-code --source-account <64-hex-funded-account> \
-  --asset <64-hex-asset> --token-stdin
+The supported host names are `layerx`, `claude-code`, `claude-desktop`, `cursor` and `vscode`. The daemon holds the credentials. `--read-only` filters write tools from the catalogue; a read-only binding also enforces that restriction. The MCP installation does not provision a hosted gateway key.
 
+## A2A
+
+A2A publishes an agent card and task interface through a managed local runtime. It uses a configured hosted environment and key:
+
+```sh
 layerx install a2a --environment beta --key agent-runtime \
-  --source-account <64-hex-funded-account> --asset <64-hex-asset> \
-  --listen 127.0.0.1:9433
+  --source-account <64-hex-funded-account> --asset <64-hex-asset>
+layerx a2a status
 ```
 
-Pipe the short-lived hosted identity session to the first command. It is used only to issue a gateway key scoped to `activity:write` and `receipt:read`; the runtime receives an opaque operating-system credential-store alias, never that identity session or the gateway secret. Repeating the command is deterministic. Use `--rotate` when the scoped gateway credential must be replaced.
+Installation accepts `--token-stdin` for hosted key provisioning and `--rotate` for replacement. The runtime uses an operating-system credential-store alias. `layerx a2a start` and `layerx a2a stop` control the installed runtime.
 
-`mcp serve` speaks the model context protocol over standard input and output. The supported host names are `layerx`, `claude-code`, `claude-desktop`, `cursor`, and `vscode`. `a2a serve` publishes a standard agent card and task interface on a loopback endpoint. `install a2a` writes the consumed runtime manifest and starts the managed Linux runtime; `layerx a2a status`, `layerx a2a stop`, and `layerx a2a start` provide its lifecycle. Host documents are snapshotted and restored if an installation step fails.
+| Tool | Input and behavior |
+| --- | --- |
+| `activity.submit` | Only `raw_transaction`: signed EIP-1559 transaction hex. Validates the signature, sender and chain, then calls `eth_sendRawTransaction`. |
+| `receipt.get` | Only `activity_id`: the transaction hash. Retrieves `pax_sequencerReceipt` material for independent verification. |
+| `faucet.request` | Available only with an explicitly configured faucet endpoint. |
 
-| Tool | Kind | Does |
-|---|---|---|
-| `receipt.get` | read | Fetches gateway-verified receipt material for one activity id |
-| `activity.submit` | write | Builds, signs and submits an Asset SEND from the installation-bound source and asset |
-
-`--read-only` serves only the receipt tool. It is not a prompt instruction or a policy note - the write tool is not in the surface at all, so a model that decides to spend money finds nothing to call. Every served tool declares its enforced hosted-gateway scope, whether it mutates, and what evidence it produces.
-
-`activity.submit` never accepts a source account or an asset from a model. Those values are fixed when the runtime is installed. The call supplies the destination, exact integer amount, current account sequence, a validity interval no wider than five minutes, a fee limit and a 32-byte idempotency key. Pending and unknown gateway results remain pending or unknown; a transport failure or protocol refusal is never reported as a completed payment.
+`--read-only` removes write tools. A2A does not construct or sign a payment from model-supplied destination and amount fields. Submitted, pending and unknown outcomes do not establish a completed payment; receipt and commitment verification remain separate checks.
 
 ## Enforced by
 
 | Capability | Layer | What that means here |
-|---|---|---|
-| Interop adapters hold no protocol authority | `protocol` | Adapters translate at the edge; payload authorities are the sole constructors of LayerX payload bytes. |
-| Offline receipt verification | `protocol` | Portable receipts verify against an independently trusted batch authorisation. |
-| Atomic settlement | `protocol` | A translated payment settles whole or not at all. |
-| Replay refusal | `protocol` | Idempotency domains are separated per adapter and bound into the request digest. |
-| Quote then commit | `service` | An x402 offer is accepted before it is paid. |
-| Idempotent money moves | `service` | Fiat and migration boundaries derive keys from the request, not the attempt. |
-| Capability attenuation | `agent-layer` | `--read-only` removes the write tools from the served surface entirely. |
-| Agent tenancy isolation | `agent-layer` | A served transport is bound to one environment and one key. |
+| --- | --- | --- |
+| Interop adapters hold no protocol authority | `protocol` | Payload authorities construct LayerX payload bytes; adapters translate at the boundary. |
+| Offline receipt verification | `protocol` | Signed receipt evidence is checked against independently pinned receipt keys. |
+| Atomic settlement | `protocol` | A network payment applies completely or not at all. |
+| Replay refusal | `protocol` | An applied signed transaction cannot apply again with the same sender nonce. |
+| Quote then commit | `service` | The x402 buyer accepts an offer before paying it. |
+| Idempotent money moves | `service` | Request identity supports reconciliation with the original payment. |
+| Capability attenuation | `agent-layer` | Read-only transport mode removes write tools. |
+| Agent tenancy isolation | `agent-layer` | MCP uses an authenticated daemon binding; A2A uses its configured environment and key. |

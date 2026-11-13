@@ -1,6 +1,6 @@
 # Warning banner variations
 
-Current implementation, captured October 9, 2026. All names and failure states are synthetic fixtures. Machine screenshots show the Settings page; plugin screenshots show the production banner in isolation.
+Machine screenshots show the Settings page; plugin screenshots show the plugin banner in isolation. The images illustrate machine availability, cleanup and plugin status.
 
 Mobile: 390 × 844. Desktop: 1280 × 900.
 

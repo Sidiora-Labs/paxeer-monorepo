@@ -1,4 +1,4 @@
-<h1 align="center">Paxeer X Network</h1>
+# Paxeer X Network
 
 Paxeer X Network は、自律エージェント、決済、プログラム実行を支える単一の BFT ネットワークです。LayerX は Paxeer ノード `paxd` に統合されています。
 

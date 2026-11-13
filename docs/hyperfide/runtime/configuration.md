@@ -10,14 +10,14 @@ hyperfide platform thread list
 
 Runtime data belongs in `~/.hyperfide`. Platform configuration variables use the
 `HYPERFIDE_` prefix. Select a separate data directory and unused ports when running
-an isolated test instance. Keep credentials out of logs and issue reports; use
-secret references when recording workflow evidence.
+an isolated test instance. Keep credentials out of logs and issue reports.
 
 ## Source development
 
-Use Node 24 and pnpm 9.15. From the repository root:
+The Hyperfide workspace pins Node 22.19.0 and pnpm 9.15.0. From the monorepo root:
 
 ```sh
+cd tools/hyperfide
 pnpm install --frozen-lockfile
 pnpm dev
 ```
@@ -37,6 +37,14 @@ before granting access to credentials or external resources. See
 Clients connect to a server you operate. Use a trusted authenticated network and
 restrict listeners to intended operators. Enroll only the host daemons that should
 execute work for that server. See [system overview](system-overview.md).
+
+## Performance diagnostics
+
+The server permits CPU profiling and detailed diagnostic logs when
+`HYPERFIDE_PERF_DIAGNOSTICS=1` is set at startup and the
+`performanceDiagnostics` experiment is enabled. The launcher flag
+`--perf-diagnostics` sets that startup permission. Both switches are required.
+See [runtime diagnostics](debugging-and-qa.md#opt-in-server-performance-diagnostics).
 
 ## Reporting configuration problems
 

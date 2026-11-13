@@ -226,7 +226,7 @@ Successful installation returns kind `install.mcp`, the effective
 `idempotent: true`. Read `tools/list` from the served session to determine
 what this authority can actually invoke. In-process consumers use
 `Server::bind` or `ReadOnly::bind` with shared `SessionControl`; the
-`layerx-mcp` crate itself has no binary.
+`layerx-mcp` crate also supplies a standalone stdio binary; see [MCP serving](mcp.md#serving).
 
 Sources: `tools/platform/cli/src/mcp.rs`, `install/mcp.rs`, `install/mod.rs`,
 `install/binding_shape.rs`, and
@@ -479,10 +479,9 @@ Although `receipt_key_source=px_getReceiptKeys` parses, the current
 that selector. The pinned-file loader still reads its versioned legacy
 policy format, so changing a filename does not convert it to committed-block
 trust. Separately, `Gate::readiness_gate` calls `NodeRpc::receipt_keys`, which
-uses the hosted `px_getReceiptKeys` method through the configured node client.
-A public root node alone cannot satisfy that join. A deployment must supply
-an explicitly authenticated hosted integration and appropriate pinned trust;
-do not disable the gate or attribute the hosted method to the public node.
+calls the node-produced `px_getReceiptKeys` method through the configured node client.
+Readiness compares the response with independently pinned trust. Node key
+discovery does not replace that trust policy or supply hosted credentials.
 Sources: `config.rs`, `boot.rs`, `node_rpc.rs` and `protocol_evidence.rs` under
 `services/agent/crates/layerx-agentd/src/`.
 
@@ -531,11 +530,13 @@ Setting `LAYERX_AGENT_MCP_BINDING_ROOT` enables boot enrolment. Configure:
 
 Optional `LAYERX_AGENT_MCP_WEB_ENDPOINT` enables web configuration. Then
 provide the same prefix's `WEB_NETWORK`, `WEB_RECEIPT_KEY_INDEX`,
-`WEB_TIMEOUT_MS`, `WEB_PENDING_ATTEMPTS` and `WEB_APPROVAL_THRESHOLD`.
+`WEB_TIMEOUT_MS`, `WEB_PENDING_ATTEMPTS`, `WEB_APPROVAL_THRESHOLD`,
+`WEB_PAYER_ADDRESS` and `WEB_RECEIVER_ADDRESS`. The two address values are
+20-byte hexadecimal EVM addresses with the `0x` prefix; the chain ID must be 125.
 The key index selects authenticated receipt-key material; current boot code
 performs that lookup through `NativeReadRoute::signed_authority` on the
-program node endpoint. This requires the hosted key-service join described
-above, not a new public node namespace.
+program node endpoint. Configure that reader and its authority trust separately
+from the Human node RPC connection.
 
 `LAYERX_AGENT_MCP_WEB_SEQUENCER_PUBLIC_KEY`,
 `LAYERX_AGENT_MCP_CORE_SEQUENCE` and `LAYERX_AGENT_MCP_EXPIRY_SEQUENCE`

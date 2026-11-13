@@ -4,11 +4,11 @@ Charge for a FastAPI route. Seven lines mount a payment gate and a verified webh
 
 ## Before you start
 
-```text
+```sh
 python3 -m pip install layerx-fastapi uvicorn
 ```
 
-The integration reads twenty declared keys from the environment: `LAYERX_PRINCIPAL`, `LAYERX_PROTECTED_PATH`, the `LAYERX_RESOURCE_*` description fields, `LAYERX_X402_SCHEME`, `LAYERX_X402_NETWORK`, `LAYERX_PRICE`, `LAYERX_ASSET`, `LAYERX_PAY_TO`, `LAYERX_PAYMENT_TIMEOUT_SECONDS`, `LAYERX_AUTHORIZED_BATCH_JSON`, the four `LAYERX_WEBHOOK_*` values, `LAYERX_HUMAN_URL`, `LAYERX_SOURCE` and `LAYERX_TOKEN`. `LAYERX_TOKEN` is the only secret among them.
+The integration reads twenty declared keys from the environment: `LAYERX_PRINCIPAL`, `LAYERX_PROTECTED_PATH`, the `LAYERX_RESOURCE_*` description fields, `LAYERX_X402_SCHEME`, `LAYERX_X402_NETWORK`, `LAYERX_PRICE`, `LAYERX_ASSET`, `LAYERX_PAY_TO`, `LAYERX_PAYMENT_TIMEOUT_SECONDS`, `LAYERX_RECEIPT_KEYS_JSON`, the four `LAYERX_WEBHOOK_*` values, `LAYERX_HUMAN_URL`, `LAYERX_SOURCE` and `LAYERX_TOKEN`. `LAYERX_TOKEN` is the only secret among them.
 
 Before it configures anything, `read_declared_config` refuses to start if a declared secret has been copied into a variable with a published prefix - `NEXT_PUBLIC_`, `PUBLIC_`, `VITE_`, `REACT_APP_` or `EXPO_PUBLIC_`. A misconfiguration that would leak a token to a browser is a startup failure, not a runtime surprise.
 
@@ -91,11 +91,11 @@ class FileFulfillmentRepository:
         )
 ```
 
-It opens with `xb` so two concurrent settlements cannot both create the record, `fsync`s before returning, and raises `MiddlewareError(FULFILLMENT_CONFLICT)` when the same idempotency key arrives with a different request digest. Replace the directory with shared durable storage before you run more than one worker.
+It creates records with `xb`, syncs before returning, and raises `MiddlewareError(FULFILLMENT_CONFLICT)` for a different request digest. The resource callback runs before record creation. Use an idempotent callback and shared storage that coordinates fulfilment across workers and restarts.
 
 ## Run it
 
-```text
+```sh
 cd services/platform/examples/samples/paid-endpoint-fastapi
 python3 -m pip install -r requirements.txt
 uvicorn app:app --host 127.0.0.1 --port 8080
@@ -107,7 +107,7 @@ uvicorn app:app --host 127.0.0.1 --port 8080
 
 | Capability | Layer | What that means here |
 |---|---|---|
-| Offline receipt verification | `protocol` | The gate verifies the receipt from its own bytes against an authorised batch. |
+| Offline receipt verification | `protocol` | The gate verifies signed receipt bytes against independently pinned receipt keys. |
 | Atomic settlement | `protocol` | The payment behind a released resource happened whole or not at all. |
 | Receipt-gated resource release | `service` | The mount releases only against a verified receipt. |
 | Exactly-once fulfilment | `service` | Only as durable as the repository you supply. |

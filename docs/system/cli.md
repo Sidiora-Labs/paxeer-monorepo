@@ -5,7 +5,7 @@ The developer CLI binary is `layerx`. Its command definitions and dispatch live 
 token, chain-registry and workspace subcommands in the same directory. Run
 `layerx <command> --help` for flags; `--json` selects machine-readable output.
 The catalogue below describes the current handlers, including their availability
-limits. Some help strings still describe the pre-merge system.
+limits.
 
 ## Network and transport
 
@@ -47,9 +47,9 @@ Handlers: [`wallet.rs`](../../tools/platform/cli/src/wallet.rs),
 - `layerx wallet`: Manage native wallet keys, accounts, transfers, and receipts.
   - `layerx wallet create`: Create and prefund an identity/main account only in the legacy emulator profile. Other transports return `wallet_registration_unavailable` before generating a key.
   - `layerx wallet import`: Import a hexadecimal Ed25519 seed from standard input; this does not register an account.
-  - `layerx wallet derive`: Derive an EVM account and native identity from one BIP-39 phrase read from standard input or a file. Private-key export requires `--export-private-keys`; `--bind` attempts an on-chain binding and is subject to the transport limitation above.
+  - `layerx wallet derive`: Derive an EVM account and native identity from one BIP-39 phrase read from standard input or a file. Private-key export requires `--export-private-keys`; `--bind` submits an on-chain binding through the configured node root.
   - `layerx wallet list`: List local wallet public metadata.
-  - `layerx wallet balance`: Read all accounts of the selected DID.
+  - `layerx wallet balance`: Read hosted observations with `--gateway-rpc`, or verify paired `--proof-snapshot` and `--proof-policy` inputs for the selected DID.
   - `layerx wallet send`: Submit a transfer with independent identity and source sequences.
   - `layerx wallet history`: Hidden and unavailable; returns `wallet_history_unavailable` because no authenticated DID activity-history backend is published.
   - `layerx wallet watch`: Read one live notification; use receipt verification to establish commitment.
@@ -66,11 +66,13 @@ Handlers: [`wallet.rs`](../../tools/platform/cli/src/wallet.rs),
 
 Network wallet and token operations depend on the configured transport and the
 backend's published capabilities. Writes use an EVM key export, fee bounds and
-independently pinned receipt policy. The retained wallet `--wait executed` option
-maps to a signed `receipted` result; `--wait batched` maps to `committed`.
-The transaction wait handler refuses `--wait finalised` with a missing-finality-trust
-error. These option names do not introduce another network settlement stage, and
-a live notification alone does not prove block commitment.
+independently pinned receipt policy. Wallet waits accept `submitted`,
+`receipted` (the default) and `committed`.
+The aliases `executed`, `batched` and `finalised` select `receipted`,
+`committed` and `committed`, respectively. A committed result verifies the
+signed receipt and matching successful EVM receipt, reporting
+`trust: "pinned_receipt_key_and_authenticated_node"`. Independent consensus
+verification requires chain proofs. Live notifications remain unverified.
 
 ## Projects, profiles and credentials
 
@@ -112,8 +114,8 @@ submit a chain-creation transaction; they do not deploy a new node.
 - `layerx chains show`: Read a registry record by ID or name.
 - `layerx chains create`: Submit an EIP-1559 registry transaction on chain ID `125`, using `--name`, `--tier`, `--fee-share-bps` and an EVM key export supplied through `--evm-key-file` or `LAYERX_EVM_KEY_FILE`.
 
-These handlers share the transport migration gap above. Treat generated legacy
-`rpcUrl` fields as client output, not as the public node endpoint contract.
+These handlers use the configured node root. Tenant-domain URLs in `rpcUrl`
+identify scoped registry output; public mainnet access uses the node endpoints above.
 
 ## Hosted accounts and payments
 
@@ -129,13 +131,13 @@ The handlers in [`account.rs`](../../tools/platform/cli/src/account.rs) and
 [`payment.rs`](../../tools/platform/cli/src/payment.rs) use hosted REST routes.
 `register` calls `px_register`, which creates an identity principal, not a funded
 native wallet account; `faucet` calls `px_requestFunds`. These require the hosted
-services and their authentication, subject to the transport limitation above.
+service URLs and their authentication.
 A public node URL alone does not supply hosted accounts or payment quotes.
 
 ## Receipts and programs
 
 - `layerx receipt`: Fetch receipt material or verify a receipt independently and locally.
-  - `layerx receipt get`: Fetch the node's `pax_sequencerReceipt` result by its 0x-prefixed, 32-byte transaction hash, subject to the CLI transport limitation.
+  - `layerx receipt get`: Fetch the node's `pax_sequencerReceipt` result by its 0x-prefixed, 32-byte transaction hash at the configured node root.
   - `layerx receipt verify`: Verify a canonical receipt file offline against independently supplied batch ID, asset, previous/resulting state roots and signing public key. This checks receipt evidence; it does not fetch consensus commitment.
 - `layerx program`: Build, deploy, and inspect deterministic protocol programs.
   - `layerx program discover`: Discover one active program from the layerxprograms contract.
@@ -162,8 +164,7 @@ A public node URL alone does not supply hosted accounts or payment quotes.
 [`programs.rs`](../../tools/platform/cli/src/programs.rs) implements these program
 operations through EVM calls, native lifecycle transactions and registry-mirror
 requests. The receipt method name is retained in the merged node; it does not
-denote an external executor. Network program operations still have the transport
-limitation described above.
+denote an external executor. Network program operations use the configured node root.
 
 ## Legacy emulator
 

@@ -4,13 +4,18 @@ Add a payment to a Go service. Nine lines, no protocol vocabulary, no key handli
 
 ## Before you start
 
-```text
+Use Go 1.25 or newer. Configure an authenticated human-payment service that supports
+`/v1/moves/quote`, `/v1/moves` and journey reads. The local emulator retires
+these payment-write routes. For native node transactions, follow the
+[reference applications](../guide/reference-applications.md).
+
+```sh
 go get github.com/Sidiora-Labs/LayerX-Network/sdk/platform/go
 ```
 
 | Variable | What it is |
 |---|---|
-| `LAYERX_API_URL` | The base URL of your environment |
+| `LAYERX_API_URL` | The base URL of your human-payment service |
 | `LAYERX_API_TOKEN` | A bearer token identifying your account |
 
 ## The integration
@@ -33,18 +38,22 @@ The Go SDK ships its own human-plane HTTP transport, so the only thing you suppl
 
 ## Run the whole sample
 
-```text
+Set `LAYERX_API_URL` and `LAYERX_API_TOKEN` for that service, plus
+`LAYERX_SOURCE`, `LAYERX_DESTINATION`, `LAYERX_AMOUNT`, `LAYERX_CURRENCY`
+and `LAYERX_PAYMENT_KEY` for the payment. Amounts use integer base units;
+reuse the same payment key when reconciling the same operation.
+
+```sh
 cd services/platform/examples/samples/first-payment-go
 go mod download
-LAYERX_API_URL=http://127.0.0.1:9402 LAYERX_API_TOKEN=$(cat ./token) LAYERX_SOURCE=did:layerx:alice LAYERX_DESTINATION=did:layerx:bob \
-LAYERX_AMOUNT=1250000 LAYERX_CURRENCY=USD LAYERX_PAYMENT_KEY=order-2f9c1b7e4a10 go run .
+go run .
 ```
 
-The sample declares its own request and response structs so the compiler checks the shapes you care about, polls `HumanOperationJourneyGet` with a path parameter until the journey settles, and prints a report.
+The sample declares its own request and response structs so the compiler checks the shapes you care about, polls `HumanOperationJourneyGet` with a path parameter up to 40 times at 250 ms intervals, and prints a report.
 
 ## Why the count is nine and not four
 
-Go has no exceptions, so `exitOn(err)` appears after each fallible call. That is your error policy, not LayerX code, which is why it sits outside the measured region along with your struct definitions. The [samples page](../reference/samples.md) states the counting rule for every language.
+Go has no exceptions, so `exitOn(err)` appears after each fallible call. The measured region includes the calls to `exitOn`; its implementation and your struct definitions sit outside that region. The [samples page](../reference/samples.md) states the counting rule for every language.
 
 ## Handling refusals
 

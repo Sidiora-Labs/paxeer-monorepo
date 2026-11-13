@@ -1,0 +1,163 @@
+[manifest]
+task = "22.41.15"
+pages = 40
+
+[page.1]
+path = "docs/site/docs/overview/i18n/fr.md"
+status = "corrected"
+
+[page.2]
+path = "docs/site/docs/overview/i18n/ja.md"
+status = "corrected"
+
+[page.3]
+path = "docs/site/docs/overview/i18n/pt-br.md"
+status = "corrected"
+
+[page.4]
+path = "docs/site/docs/overview/i18n/ru.md"
+status = "corrected"
+
+[page.5]
+path = "docs/site/docs/overview/i18n/zh-cn.md"
+status = "corrected"
+
+[page.6]
+path = "docs/site/docs/overview/monorepo.md"
+status = "corrected"
+
+[page.7]
+path = "docs/site/docs/overview/payments.md"
+status = "corrected"
+
+[page.8]
+path = "docs/site/docs/overview/quickstart.md"
+status = "corrected"
+
+[page.9]
+path = "docs/site/docs/overview/translations.md"
+status = "reviewed"
+
+[page.10]
+path = "docs/site/docs/overview/unified-network.md"
+status = "corrected"
+
+[page.11]
+path = "docs/site/docs/platform/agent-boundary.md"
+status = "corrected"
+
+[page.12]
+path = "docs/site/docs/platform/cli.md"
+status = "corrected"
+
+[page.13]
+path = "docs/site/docs/platform/faucet.md"
+status = "corrected"
+
+[page.14]
+path = "docs/site/docs/platform/gateway-rpc.md"
+status = "corrected"
+
+[page.15]
+path = "docs/site/docs/platform/hosted-authority.md"
+status = "corrected"
+
+[page.16]
+path = "docs/site/docs/platform/hosted-core.md"
+status = "reviewed"
+
+[page.17]
+path = "docs/site/docs/platform/hosted-gateway.md"
+status = "corrected"
+
+[page.18]
+path = "docs/site/docs/platform/hosted-node.md"
+status = "corrected"
+
+[page.19]
+path = "docs/site/docs/platform/identity.md"
+status = "corrected"
+
+[page.20]
+path = "docs/site/docs/platform/index.md"
+status = "corrected"
+
+[page.21]
+path = "docs/site/docs/platform/public-api.md"
+status = "corrected"
+
+[page.22]
+path = "docs/site/docs/platform/registry-journal.md"
+status = "corrected"
+
+[page.23]
+path = "docs/site/docs/platform/registry.md"
+status = "corrected"
+
+[page.24]
+path = "docs/site/docs/platform/webhooks.md"
+status = "corrected"
+
+[page.25]
+path = "docs/site/docs/programs/index.md"
+status = "corrected"
+
+[page.26]
+path = "docs/site/docs/programs/sandbox.md"
+status = "corrected"
+
+[page.27]
+path = "docs/site/docs/programs/storage-scan.md"
+status = "reviewed"
+
+[page.28]
+path = "docs/site/docs/programs/workspace.md"
+status = "corrected"
+
+[page.29]
+path = "docs/site/docs/protocol/commitment-levels.md"
+status = "reviewed"
+
+[page.30]
+path = "docs/site/docs/protocol/data-availability.md"
+status = "reviewed"
+
+[page.31]
+path = "docs/site/docs/protocol/finality.md"
+status = "corrected"
+
+[page.32]
+path = "docs/site/docs/protocol/index.md"
+status = "reviewed"
+
+[page.33]
+path = "docs/site/docs/protocol/modules.md"
+status = "corrected"
+
+[page.34]
+path = "docs/site/docs/protocol/sidiora.md"
+status = "reviewed"
+
+[page.35]
+path = "docs/site/docs/protocol/xweb.md"
+status = "corrected"
+
+[page.36]
+path = "docs/site/docs/reference/index.md"
+status = "corrected"
+
+[page.37]
+path = "docs/site/docs/reference/public-rpc.md"
+status = "corrected"
+
+[page.38]
+path = "docs/system/INDEX.md"
+status = "reviewed"
+
+[page.39]
+path = "docs/system/chain-modules.md"
+status = "reviewed"
+
+[page.40]
+path = "docs/system/cli.md"
+status = "corrected"

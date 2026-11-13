@@ -2,14 +2,11 @@
 
 Paxeer X Network moves money between software at machine speed and hands you evidence you can check without trusting the people who ran the transaction. LayerX is the kernel domain inside Paxeer X Network. This site is the developer surface: how to add payments to something you already have, what each guarantee is actually worth, and which layer is holding it up.
 
-## Beta status
+## Integration surfaces
 
-This site documents the platform as it exists in the source revision it is built from, not a qualified release. The canonical beta contract records `readiness_claim: false`, functional surfaces at rung `source_present` without release-bound gate records, so **this site does not establish whole-system runtime qualification**. A capability is only a claim about what the code enforces; the receipt verification, Programs, hosted and deployment behaviour below still have to clear their executed gates before it is a beta. Until a release publishes it, the beta artifact manifest is not emitted and no hosted endpoint, registry package or installer described here is asserted live or installable - treat every URL and package coordinate as a declared beta value, not a ready service.
+The SDKs below provide clients for human-payment services and native transaction or receipt operations. Configure the service and trust policy required by the API you use. Package coordinates identify the packages in this repository; use your release's published artifacts or build from the source directories.
 
-Two numbers bound the integration surface, and they are not the same kind of claim.
-
-- Adding LayerX payments takes **fewer than ten lines** of integration code. The docs build extracts each sample's integration region and fails when it exceeds its declared budget, and the measured count is printed on the [samples page](reference/samples.md).
-- Going from a clean machine to a **verified test payment is the five-minute target**, following only what is published here. This is an acceptance target, not a measured result: it is qualified by a clean-profile run recorded as a gate in the beta evidence ledger, and this page does not supply that gate record.
+The [samples page](reference/samples.md) lists the integration regions and their line counts. The complete applications also supply configuration, transport, error handling and receipt checks.
 
 ## Start in your language
 
@@ -23,9 +20,9 @@ Two numbers bound the integration surface, and they are not the same kind of cla
 | [C#](quickstart/csharp.md) | `LayerX.Sdk` | 4 lines |
 | [Rust](quickstart/rust.md) | `layerx-sdk` and `layerx-proof` | 8 lines |
 
-Every SDK is generated from the same two schemas in the same build. The idiom differs; the wire behaviour, the error taxonomy and the receipt verification do not.
+SDK generation uses the agent and human schemas. Each language package also supplies its own transport and verification support; follow its quickstart for the available operations.
 
-Those package names are the beta artifact set declared in the canonical beta contract. This checkout does not provide a published artifact manifest that verifies their availability; build the SDK you need from its source directory under `services/agent/sdk`, `services/agent/crates` or `sdk/platform` until a release publishes the coordinate.
+SDK sources are under `services/agent/sdk`, `services/agent/crates` and `sdk/platform`.
 
 ## Or start in your framework
 

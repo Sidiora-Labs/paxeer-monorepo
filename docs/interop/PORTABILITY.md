@@ -14,8 +14,8 @@ The portable verification crate supports two directions:
 2. **Import**: bind an adapter's typed verification result to exact external presentation bytes.
 
 The current receipt API is `PortableReceiptV2`. `verify_portable_json` accepts
-only `layerx-receipt-proof-v2`; the historical v1 format and its `AuthorizedBatch`
-verification instructions are retired. There is no v1 reader in this crate.
+only `layerx-receipt-proof-v2`. Other portable format versions return
+`PortableReceiptError::UnsupportedFormat`.
 
 ## Portable Receipt Export
 
@@ -25,11 +25,10 @@ Once receipt keys have been pinned independently, an external verifier needs no
 running gateway, node, database, network connection or wall clock. The carried
 key is evidence to compare with that trust policy, never its source of trust.
 
-Online acquisition uses node JSON-RPC at the root HTTPS path, for example
-`https://api1.mainnet-beta.paxeer.network/`, on chain ID 125. Other public hosts
-are `api2` through `api14.mainnet-beta.paxeer.network` and
-`api-mainnet-beta.paxeer.network`. The node method `pax_sequencerReceipt` reports
-`submitted`, `receipted` or `committed`; those are stages within the same network.
+Online acquisition uses node JSON-RPC at the configured node's root HTTPS path
+on chain ID 125. See the [public RPC guide](../site/docs/reference/public-rpc.md)
+for connection details. `pax_sequencerReceipt` reports `submitted`, `receipted`
+or `committed`; those are stages within the same network.
 
 ### Format: `layerx-receipt-proof-v2`
 
@@ -128,10 +127,8 @@ The public API in [receipt.rs](../../services/interop/crates/layerx-portable/src
   caller's pinned key list; inspect `result_code()` on the verified value.
 
 The following example is also committed as
-[`examples/portable_v2.rs`](../../services/interop/examples/portable_v2.rs). The integration target
-[`repair_22_33_95`](../../services/interop/tests/repair_22_33_95.rs) compiles that exact source against
-the current public API, checks that this snippet matches it, and executes both
-functions with recorded producer receipts and independently pinned keys.
+[`examples/portable_v2.rs`](../../services/interop/examples/portable_v2.rs). It exports a node answer and verifies the portable representation against
+independently pinned keys.
 
 Pass the node's receipted or committed answer to `export_receipt`, then carry the
 returned UTF-8 JSON bytes to `verify_receipt`. Supply `ReceiptKeyEntry::new(key_id,
@@ -325,21 +322,3 @@ performed by the selected adapter under its supplied context.
 - [Migration operations](../../services/interop/crates/layerx-migrate/OPERATIONS.md)
 - [Mirror archives](../../services/interop/crates/layerx-mirror/README.md)
 - [Proof library](../../services/agent/crates/layerx-proof/)
-
-## Historical v1 (unsupported archival context)
-
-Historical `layerx-receipt-proof-v1` documents, base64 examples and the retired
-`PortableReceipt`/`AuthorizedBatch` interface are unsupported archival context.
-The current public consumer rejects the v1 format with
-`PortableReceiptError::UnsupportedFormat`; it does not provide a compatibility
-reader. The `v1` in the recorded fixture filename and in the signed receipt's
-`LXP/v1/receipt\0` digest domain does not select the portable JSON format.
-Re-export the original signed receipt through `PortableReceiptV2` with an
-independently pinned height-ranged key policy instead of relabeling a v1 document.
-
-## Version History
-
-| Version | Status |
-| --- | --- |
-| 1.0 | Historical receipt format; unsupported by the current reader |
-| 2.0 | Current `layerx-receipt-proof-v2`: canonical signed bytes, height-ranged keys and optional raw transaction binding |

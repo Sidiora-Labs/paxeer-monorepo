@@ -1,5 +1,7 @@
 # Forkable built-in plugins
 
+Paths and pnpm commands below are relative to `tools/hyperfide`.
+
 A built-in plugin is forkable when a copy of its directory, taken out of this
 repository, installs, typechecks, tests, and builds with public dependencies
 only:
@@ -22,7 +24,7 @@ built-ins held to this rule. Two checks read it:
   `lint` script, rejects imports of workspace packages (`@hyperfide/*` and any other
   package in this repository except `@hyperfide/plugin-sdk`), relative imports
   that leave the plugin directory, and `@/` paths no registry item provides.
-- `pnpm check:plugin-forks` (CI job "Plugin Fork Check") copies each listed
+- `pnpm check:plugin-forks` copies each listed
   plugin to a temporary directory the way a fork would, with the rewrite in
   [`tools/workspace/lib/plugin-fork.mjs`](../../../tools/hyperfide/tools/workspace/lib/plugin-fork.mjs): it writes
   the registry items the plugin imports into the copy, points `@/*` at `./*`,
@@ -32,16 +34,13 @@ built-ins held to this rule. Two checks read it:
   change how many run at once. Use `--shard=<index>/<count>` (one-based) to
   partition the selected plugins across runners; `--list` prints that shard.
 
-On pull requests, `--changed-from=<sha>` compares the merge commit with the
-comparison base the CI planning job resolves (see
-[ci-performance.md](ci-performance.md)). When every changed path (renames count both paths) belongs to a
+`--changed-from=<sha>` compares changed paths against the specified Git base
+(see [plugin selection](ci-performance.md)). When every changed path (renames count both paths) belongs to a
 listed plugin, only those plugins run; any shared, unknown, or unlisted-plugin
-change, or missing history, runs the full list. Main and manual runs always
-check the full list with fresh resolution of published dependencies. Add
+change, or missing history, runs the full list. With no selection flags, the full list is checked. Add
 `--list` to print the selection, including the `--shard` partition, without
 installing or building. Explicit plugin directories and `--changed-from` are
-mutually exclusive. CI runs three shards with at most four concurrent checks
-each; a shard with nothing selected skips setup.
+mutually exclusive.
 
 ## What a listed plugin looks like
 

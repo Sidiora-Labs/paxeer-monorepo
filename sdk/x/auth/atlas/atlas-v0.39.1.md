@@ -9,7 +9,11 @@ account types for an application, as well as AnteHandler and authentication logi
 
    ```go
    import (
-       "github.com/cosmos/cosmos-sdk/x/auth"
+       "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth"
+       "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/ante"
+       authkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/keeper"
+       authtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/types"
+       authsims "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/simulation"
    )
    ```
 
@@ -20,7 +24,7 @@ account types for an application, as well as AnteHandler and authentication logi
       ModuleBasics = module.NewBasicManager(
         // ...
         auth.AppModuleBasic{},
-      }
+      )
     )
     ```
 
@@ -29,7 +33,7 @@ account types for an application, as well as AnteHandler and authentication logi
    ```go
    func NewApp(...) *App {
      // ...
-     app.subspaces[auth.ModuleName] = app.ParamsKeeper.Subspace(auth.DefaultParamspace)
+     app.ParamsKeeper.Subspace(authtypes.ModuleName)
    }
    ```
 
@@ -38,8 +42,9 @@ account types for an application, as well as AnteHandler and authentication logi
    ```go
    func NewApp(...) *App {
       // ...
-      app.AccountKeeper = auth.NewAccountKeeper(
-       app.cdc, keys[auth.StoreKey], app.subspaces[auth.ModuleName], auth.ProtoBaseAccount,
+      app.AccountKeeper = authkeeper.NewAccountKeeper(
+       appCodec, keys[authtypes.StoreKey], app.GetSubspace(authtypes.ModuleName),
+       authtypes.ProtoBaseAccount, maccPerms,
       )
    }
    ```
@@ -51,7 +56,7 @@ account types for an application, as well as AnteHandler and authentication logi
      // ...
      app.mm = module.NewManager(
        // ...
-       auth.NewAppModule(app.AccountKeeper),
+       auth.NewAppModule(appCodec, app.AccountKeeper, authsims.RandomGenesisAccounts),
        // ...
      )
    }
@@ -62,7 +67,7 @@ account types for an application, as well as AnteHandler and authentication logi
    ```go
    func NewApp(...) *App {
      // ...
-     app.mm.SetOrderInitGenesis(..., auth.ModuleName, ...)
+     app.mm.SetOrderInitGenesis(..., authtypes.ModuleName, ...)
    }
    ```
 
@@ -73,22 +78,28 @@ account types for an application, as well as AnteHandler and authentication logi
      // ...
      app.sm = module.NewSimulationManager(
        // ...
-       auth.NewAppModule(app.AccountKeeper),
+       auth.NewAppModule(appCodec, app.AccountKeeper, authsims.RandomGenesisAccounts),
        // ...
      )
    }
+   ```
 
-8. Set the `AnteHandler` if you're using the default provided by `x/auth`. Note,
-the default `AnteHandler` provided by the `x/auth` module depends on the `x/supply`
-module.
+8. Set the `AnteHandler` using `ante.HandlerOptions`.
 
    ```go
    func NewApp(...) *App {
-     app.SetAnteHandler(ante.NewAnteHandler(
-       app.AccountKeeper,
-       app.SupplyKeeper,
-       auth.DefaultSigVerificationGasConsumer,
-     ))
+     handler, err := ante.NewAnteHandler(ante.HandlerOptions{
+       AccountKeeper: app.AccountKeeper,
+       BankKeeper: app.BankKeeper,
+       FeegrantKeeper: app.FeeGrantKeeper,
+       ParamsKeeper: app.ParamsKeeper,
+       SignModeHandler: app.GetTxConfig().SignModeHandler(),
+       SigGasConsumer: ante.DefaultSigVerificationGasConsumer,
+     })
+     if err != nil {
+       panic(err)
+     }
+     app.SetAnteHandler(handler)
    }
    ```
 
@@ -99,20 +110,21 @@ The `x/auth` modules also defines a few standard vesting account types under the
 these in terms of encoding and decoding, you must register the types with your
 application Amino codec.
 
-Where ever you define the application `Codec`, be sure to register types via:
+Wherever you define the application `Codec`, be sure to register types via:
 
 ```go
 import (
-    "github.com/cosmos/cosmos-sdk/x/auth/vesting"
+    "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec"
+    vestingtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/vesting/types"
 )
 
-func MakeCodec() *codec.Codec {
-  var cdc = codec.New()
-  
+func MakeCodec() *codec.LegacyAmino {
+  cdc := codec.NewLegacyAmino()
+
   // ...
-  vesting.RegisterCodec(cdc)
+  vestingtypes.RegisterLegacyAminoCodec(cdc)
   // ...
-  
+
   return cdc
 }
 ```
@@ -166,19 +178,19 @@ the module itself are defined below:
 1. Query an account.
 
    ```shell
-   app q auth account [address] [...flags]
+   paxd query auth account [address] [...flags]
    ```
 
 2. Sign an unsigned transaction using a single signature.
 
    ```shell
-   app tx auth sign [file]
+   paxd tx sign [file]
    ```
 
 3. Sign an unsigned transaction using a multisig.
 
    ```shell
-   app tx auth multisign [file] [name] [[signature]...]
+   paxd tx multisign [file] [name] [[signature]...]
    ```
 
 ### REST

@@ -7,9 +7,8 @@ in `node/`, `modules/`, `rpc/`, and `contracts/src/`.
 Paxeer mainnet-beta is one BFT network running `paxd`, with EVM chain ID `125`
 (`0x7d`). The merged kernel is part of the network and participates in block
 proposal and execution. A receipt is final when its block is committed. Native
-balances and kernel execution use chain state; separate custody deposits and
-checkpoint settlement are retired. Sub-chains are tenant domains in the database,
-launchable without new infrastructure.
+balances and kernel execution use chain state. Sub-chains are tenant domains in
+the database, launchable without new infrastructure.
 
 | Document | Contents |
 | --- | --- |
@@ -28,15 +27,13 @@ by [`node/app.go`](../node/app.go). Native funds use the
 Transfers to external chains use [`layerxbridge`](../modules/layerxbridge/).
 These are components of the merged network, rather than a second settlement tree.
 
-Public EVM JSON-RPC uses HTTPS at the root of
-`https://api-mainnet-beta.paxeer.network` or the numbered nodes
-`https://api1.mainnet-beta.paxeer.network` through
-`https://api14.mainnet-beta.paxeer.network`. The node namespaces are `debug`,
-`echo`, `eth`, `net`, `pax`, `px`, `test`, and `txpool`; availability depends on node
-configuration. The `px` namespace answers from node state; `px_register` and
+Public EVM JSON-RPC uses HTTPS at the selected node's root path; see the
+[public RPC guide](site/docs/reference/public-rpc.md) for connection details.
+The HTTP server registers `debug`, `echo`, `eth`, `net`, `pax`, `pax2`, `px`,
+`txpool` and `web3`; method availability depends on node configuration. The `test`
+namespace additionally requires `EnableTestAPI` and a non-live chain ID. The `px` namespace answers from node state; `px_register` and
 `px_requestFunds` are operations of the hosted identity and faucet
 services declared in [the gateway OpenRPC contract](../services/platform/hosted/gateway/openrpc.json).
-`node.hyperpaxeer.com` is only the hpx library mirror, never a JSON-RPC endpoint.
 
 Commands below are run from the repository root unless noted.
 

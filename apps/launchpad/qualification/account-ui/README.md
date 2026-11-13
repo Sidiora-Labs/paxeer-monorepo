@@ -1,4 +1,4 @@
-# L31 account UI disclosure and journey checks
+# Account UI disclosure and journey checks
 
 This directory covers the account surfaces in `apps/launchpad/web` and the native account journey described in the [mobile architecture](../../mobile/ARCHITECTURE.md). All commands below start at the repository root and reuse launchpad workspace dependencies in `apps/launchpad/web/node_modules`. These commands document runners; they are not evidence that a candidate passed.
 
@@ -12,7 +12,7 @@ apps/launchpad/web/node_modules/.bin/vitest run --config apps/launchpad/qualific
 apps/launchpad/web/node_modules/.bin/tsc -p apps/launchpad/qualification/account-ui/tsconfig.json
 ```
 
-[disclosure.test.tsx](disclosure.test.tsx) exercises the exported `portfolioLabels` and `sharePreview` functions, exact amounts and account-state primitives with synthetic financial inputs. It asserts the current unavailable marker (`—`), partial-history labels and exact selected-field output directly; these modules export no view component. [rewards-failure.test.tsx](rewards-failure.test.tsx) mounts `RewardsView` with deliberately rejected RPC reads and incomplete synthetic NFT enumeration. Generated partial-account labels and anonymous selected-field preview JSON files are illustrations. These checks provide no successful provider response, chain receipt, live browser/service qualification or production evidence. Historical module-resolution failures remain historical evidence, not a result for the current candidate.
+[disclosure.test.tsx](disclosure.test.tsx) exercises the exported `portfolioLabels` and `sharePreview` functions, exact amounts and account-state primitives with synthetic financial inputs. It asserts the current unavailable marker (`—`), partial-history labels and exact selected-field output directly; these modules export no view component. [rewards-failure.test.tsx](rewards-failure.test.tsx) mounts `RewardsView` with deliberately rejected RPC reads and incomplete synthetic NFT enumeration. Generated partial-account labels and anonymous selected-field preview JSON files are illustrations. These checks provide no successful provider response, chain receipt, live browser/service qualification or production evidence.
 
 The [TypeScript configuration](tsconfig.json) checks disclosure, profile, watchlist, reward, preferences and share integration code against shared generated contracts, including `PortfolioSummary`. This is a scoped strict typecheck, not a complete web/mobile build or release qualification.
 
@@ -28,7 +28,7 @@ The runner requires every environment input listed in its `required` array: serv
 
 The journeys exercise profile revision conflicts, watchlist idempotency, sign-out and replacement-session races, private-field exclusion, expired authorization, selected-field share publication, deposit accounting and buy/full-sell/rebuy basis. They include actual service reads and mutations and do not constitute a physical-device or browser-capacity measurement.
 
-The historical entry point is still available:
+To run all account UI suites:
 
 ```sh
 mkdir -p launchpad/evidence/production-system/L31/phase1
@@ -51,7 +51,7 @@ The paths are operator-supplied examples. Configuration must declare schema vers
 
 The runner reconciles UI accounting and watchlists with authoritative snapshots, observes account recovery and supported reward-claim outcomes, and checks concurrent web/native watchlist edits. Unsupported reward settlement remains explicitly unavailable. Raw responses, screenshots, logs and artifact digests belong in the private output directory; preserve credentials and account data in access-controlled evidence storage.
 
-Runner availability is not a passing result. Even a successful phase-four result leaves `qualificationCapacityClaim` false and shared load and restore acceptance pending separate measurements. The [market UI guide](../market-ui/README.md) describes the corresponding market presentation and measurement boundaries.
+Runner availability is not a passing result. The phase-four result records `qualificationCapacityClaim: false`; it covers account journeys and does not measure shared load or restore capacity. The [market UI guide](../market-ui/README.md) describes the corresponding market presentation and measurement boundaries.
 
 The [README path, runner command, import and qualification-boundary tests](test_repair_22_33_1026.py)
 check that linked files are served, documented commands match the owned runners,

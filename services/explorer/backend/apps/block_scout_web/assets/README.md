@@ -1,9 +1,15 @@
-# Javascript structure files
+# JavaScript assets
 
-## lib
+Paths below are relative to this directory.
 
-* This folder is used to place `component` files, that may span in multiple pages.
+## Shared components
 
-## pages
+[`js/lib`](js/lib) contains components shared by multiple pages.
 
-* This folder is used to place `page` specific files, that won't be reusable in other locations.
+## Page scripts
+
+[`js/pages`](js/pages) contains scripts for individual pages.
+
+The [package scripts](package.json) provide `npm run build` for a development
+Webpack build, `npm run deploy` for a production build, and `npm run eslint`
+for JavaScript linting.

@@ -46,7 +46,11 @@ rootCmd := &cobra.Command{
 			return err
 		}
 
-		customAppTemplate, customAppConfig := initAppConfig()
+		if strings.HasPrefix(cmd.Use, "init") {
+			return nil
+		}
+
+		customAppTemplate, customAppConfig := InitAppConfig()
 
 		return server.InterceptConfigsPreRunHandler(cmd, customAppTemplate, customAppConfig)
 	},
@@ -124,5 +128,5 @@ func newApp(
 
 Note, some of the options provided are exposed via CLI flags in the start
 command and some are also allowed to be set in the application's `app.toml`.
-It is recommended to use the `cast` package for type safety guarantees and due
-to the limitations of CLI flag types.
+The `cast` package converts generic option values to the types consumed by the
+application constructor.

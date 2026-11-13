@@ -62,9 +62,7 @@ Service name does not mean a public network faucet exists.
 The source manifest has no faucet Ingress. The private-cluster renderer in
 `services/platform/hosted/tests/beta-cluster.sh` appends one with a `/` backend
 path, host selected by `LAYERX_BETA_FAUCET_HOST`, and Service
-`layerx-faucet-public`. Its historical public-host default is not a supported
-public faucet endpoint; configure a private hostname before using that
-renderer. Cluster bring-up port-forwards the Service on local port `19445`
+`layerx-faucet-public`. Configure a private hostname when using that renderer. Cluster bring-up port-forwards the Service on local port `19445`
 by default and exports `LAYERX_FAUCET_URL` for private smoke clients.
 
 ## TLS

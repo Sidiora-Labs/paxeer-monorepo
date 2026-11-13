@@ -115,23 +115,14 @@ For an activity, the live verifier:
 The `sequencer` names in this node method and store key are current code
 identifiers for the network's proposer/receipt machinery.
 
-**Deployment examples need additional provisioning.** The checked-in Railway
-example, init script/file table, and Kubernetes webhook manifest do not supply
-the four live node inputs above. Mount the node token and policy through the
-deployment's file provisioning and set their file paths explicitly; the current
-Railway file table has no rows that create them. Without these inputs, ingress
-startup fails. The examples' old component/authority URLs, static
+Configure the four live node inputs above when deploying the ingress. Mount
+the node token and trusted policy through file provisioning and set their paths
+explicitly. The live verifier uses those inputs; component/authority URLs,
 `WEBHOOKS_SEQUENCER_*` files, `LAYERX_WEBHOOKS_NETWORK_ID` and
-`LAYERX_WEBHOOKS_LXP_WIRE_VERSION` do not configure the live verifier. The router
-network-name interpolation in the Railway example is retired and must be
-replaced by the trusted chain policy provisioning described here.
+`LAYERX_WEBHOOKS_LXP_WIRE_VERSION` do not configure its chain trust.
 
-`AuthorityReceiptVerifier` remains a library adapter for component/authority
-documents; it is not selected by the running ingress constructor. The Kubernetes
-ConfigMap now sets its legacy network label to `layerx-testnet`; the previous
-`testnet` versus `layerx-testnet` mismatch is not the current manifest value.
-Neither that label nor the legacy wire-version setting establishes live node
-receipt trust.
+`AuthorityReceiptVerifier` is a library adapter for component/authority
+documents. The running ingress selects the live node verifier.
 
 ### Kubernetes routing
 
@@ -506,9 +497,8 @@ All names in this table have the prefix `LAYERX_WEBHOOKS_`. Values ending in
 
 The crate contains destination IP guard tests in `src/boundary.rs`, verification
 vocabulary tests in `src/events.rs`, and integration tests under `tests/`.
-`plain_listener.rs` covers listener configuration. `repair_22_31_188.rs` includes
-committed node evidence/foreign-chain refusal and authenticated capture restart
-and durable handoff cases.
+The integration tests cover plain listener configuration, committed node
+evidence, foreign-chain refusal, authenticated capture restart and durable handoff.
 
 `tests/fault-injection.sh` exercises a live public service, private mTLS ingress,
 canonical sources and subscriber observation API. It asserts that public
@@ -523,7 +513,6 @@ it is an operator qualification tool with cluster side effects.
 `services/platform/Makefile.inc` exposes `platform-test` for the platform
 workspaces and `platform-test-plain-listeners` for the listener integration
 suite. Both use the repository runtime clock wrapper. The live fault-injection
-script is separate from those targets. Running the documentation checker does
-not qualify the service or exercise a deployed webhook receiver.
+script is separate from those targets.
 
 [Platform](index.md) · [Identity](identity.md) · [Home](../index.md)

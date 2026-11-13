@@ -10,8 +10,7 @@ Sandbox work executes through the same node host as other
 [Programs](index.md). A committed transaction is final with its block.
 Lease settlement is resource accounting within that network, not an external
 finality step. The Rust state machine, chain-proof consumers and native writer
-are distinct integration boundaries; the proof mismatches described below
-remain present in the current source.
+share canonical lease, escrow and usage encodings.
 
 ## Lease states and transitions
 
@@ -145,51 +144,49 @@ sequence before interpreting the receipt.
 live `s` records. They do not expose the `ts` terminal key. A value returned by
 a view is not itself an authenticated state proof.
 
-## Chain-proof evidence and current integration limits
+## Chain-proof evidence
 
-`src/activity.rs` defines `SandboxReceiptEvidence`: full transaction bytes and
-inclusion proof, transaction result and result proof, a state commitment, and
-state proof operations. `SandboxSubmissionReceipt::verify` takes a
-`ChainProofVerifier`, the expected submission, evidence and `now_ms`.
+`SandboxProtocolContext::new` accepts protocol 3 and active Programs
+registration ABI 4. Match that context to the selected host registration;
+it is separate from the guest ABI used by the sandbox image.
 
-The verifier checks signed chain heads, inclusion at height H, a successful
-transaction result proven through the next header at H+1, matching transaction
-indexes, the header link and next-validator hash, and a state proof in
-`lxphost` bound to that result header. H+1 exposes the committed result proof;
-it is not an additional settlement network. Chain-proof code lives in
-`programs/crates/layerx-programs-registry/src/chain_proof/`.
+`AuthenticatedSandboxReceiptEvidence` combines `SandboxReceiptEvidence`
+with `SandboxInvocationEvidence`. The chain evidence carries transaction
+bytes and inclusion proof, a transaction result and result proof, and
+mounted-state proof operations. Invocation evidence carries the signed
+Ethereum transaction, native activity bytes, the signer's pre-state DID
+binding and, for activation or execution, the pre-state lease proof.
+An unbound `SandboxReceiptEvidence` is refused by
+`SandboxSubmissionReceipt::verify`.
 
-The following source mismatches limit use of this consumer with the native
-precompile path:
+The verifier authenticates signed chain heads and transaction inclusion at
+height H, and proves the successful transaction result through the committed
+successor header at H+1. It checks transaction/result indexes, the header
+link and next-validator hash. The invocation verifier binds the included
+node message to the signed EVM transaction, chain, caller, Programs
+precompile, exact selector and canonical calldata. The signer binding and
+prior lease establish the tenant and expected native activity.
 
-- `SandboxProtocolContext::new` accepts exactly protocol 2 and active module
-  ABI 3. The merged precompile submits protocol 3 and the node host uses v4 or
-  v5 registration. The Rust submission helper's context is therefore not a
-  drop-in description of the merged node.
-- `SandboxSubmissionReceipt::verify` requires `evidence.tx` to equal the raw
-  sandbox payload. A real included EVM transaction wraps the precompile call;
-  raw payload bytes do not establish its transaction or method binding.
-- Funding verification reads the kind-0 Funded lease. Every non-funding
-  submission, including activation, instead selects kind 1 and expects
-  `LXUR || canonical_usage_receipt || digest`. The native kind-1 value is
-  escrow, kind 2 is the usage ledger, and activation only updates the lease.
-- `AuthenticatedTerminalRecord::verify` in `src/expiry.rs` expects a 352-byte
-  `LXSD1` terminal at `sandbox_state_key(2, lease)`. The native destroy writer
-  deletes kinds 0–2 and writes that terminal at the separate `ts || lease`
-  key. `getSandbox` cannot supply it.
+Funding and activation prove the resulting kind-0 lease. Execution proves
+the kind-2 canonical `UsageLedger` and authenticates its latest receipt,
+including activity, lease, sequence, prior digest, fee destination and
+prices. `verify_native_usage_frames` compares the `LXUR` event chunks with
+that authenticated receipt. Kind 1 remains the escrow encoding.
 
-These checks must not be bypassed by relabeling escrow as usage or supplying a
-constructed state record. Native transaction decoding, producer keys and
-consumer schemas must agree before this receipt flow can establish end-to-end
-sandbox evidence.
+`AuthenticatedTerminalRecord::verify` uses `sandbox_terminal_key` for the
+mounted `ts || lease_id32` destruction terminal. It verifies chain trust,
+freshness, exact store/key/proof operations and the 352-byte `LXSD1` value.
+The `getSandbox` view reads the live kinds 0–2; terminal verification uses
+the separate mounted-state proof.
 
-`TransitionEvidence::verify_call` in `src/lease.rs` is a separate boundary. It
-takes a `VerifiedChainHead`, prior lease, transition, authorization, canonical
-resulting lease and proof operations. It verifies the mounted kind-0 state,
-matching tenant/request terms, declared state edge, history extension and
-sequence at the proven height. It authenticates that resulting state; it does
-not itself decode the included EVM transaction. Keep transaction inclusion and
-method binding alongside the state evidence.
+`TransitionEvidence::verify_call` verifies the resulting kind-0 lease,
+tenant/request terms, state edge, history extension and sequence. Keep
+transaction inclusion and invocation evidence alongside this state proof.
+
+Source contracts are `src/activity.rs`, `src/invocation.rs`,
+`src/chain_keys.rs` and `src/expiry.rs` under
+`programs/crates/layerx-programs-sandbox/`. Chain-proof verification lives
+under `programs/crates/layerx-programs-registry/src/chain_proof/`.
 
 ## Expiry, destruction and recovery
 
@@ -270,23 +267,14 @@ the persisted snapshot size is insufficient. Candidate lease, storage and meter
 state are used so a refused restoration does not publish a partially restored
 target.
 
-## What the source tests establish
+## Source coverage
 
-The crate tests cover useful boundaries, with different levels of evidence:
-
-| Source | Coverage and limit |
-| --- | --- |
-| `tests/lease.rs` | State edges, replay and tenant refusals, resource bounds and principal concurrency; helpers construct resulting lease records for chain-proof fixtures |
-| `src/execute.rs` | Derived authority and hostile WASM execution through the real runtime |
-| `tests/snapshot.rs` | Capture, serialization, destruction/restoration, continuation equality, ownership and metering bounds; uses constructed transition evidence |
-| `tests/activity_chain.rs` | Signed-header, inclusion, result and mounted-store proof checks; constructs raw-payload transactions and an `LXUR` kind-1 value rather than native writer output |
-| `tests/expiry_chain.rs` | Terminal framing and proof refusals; constructs the kind-2 terminal expected by the consumer rather than the native `ts` key |
-
-Names such as `real_receipts_drive_every_lifecycle_edge_and_destroyed_never_revives`
-describe local test cases. They do not prove the native path from precompile
-call through transaction and store or repair the schema mismatches above. A
-production integration must bind the included transaction and successful result
-to the exact native records, then recover those records after reopen without
-substituting fixture shapes.
+The crate's lease tests cover state edges, tenant and replay refusals,
+resource bounds and principal concurrency. Runtime tests exercise restricted
+capabilities and hostile WASM. Snapshot tests cover capture, serialization,
+restoration, ownership and metering. Chain-evidence tests cover authenticated
+invocations, mounted lease/usage records, native terminal proofs and refusal
+of mismatched evidence. The expiry cases retain terminal state across store
+reopen.
 
 [Programs](index.md) · [Home](../index.md)

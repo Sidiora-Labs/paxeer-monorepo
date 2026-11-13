@@ -2,17 +2,14 @@
 
 `@pax-js/cosmos` provides TypeScript message types, Protobuf codecs, CosmJS
 registries and Cosmos REST query helpers for Paxeer's native modules. The
-package exposes the modules present in its checked-in declarations; it does
-not cover every capability of the network.
+package exports the module subpaths selected by its manifest; it does not
+cover every capability of the network.
 
-## Provenance
+## Package layout
 
-This package was taken from `Paxeer-Network/pax-js` at upstream tag
-`v1.0.6-pax.1`. Its current home and repository are
-[Sidiora-Labs/paxeer-monorepo](https://github.com/Sidiora-Labs/paxeer-monorepo/tree/main/sdk/js).
-The [package manifest](./package.json) declares its distribution exports; this
-checkout does not contain the `dist` artifacts or a `src` build tree. The local
-references below describe the package contract without linking to absent files.
+The [package manifest](./package.json) declares its distribution exports under
+`dist`. This checkout contains the manifest and package tests. Consumers need
+the compiled runtime files and declarations selected by those exports.
 
 ## Network and connection configuration
 
@@ -20,11 +17,8 @@ Paxeer mainnet-beta is one BFT network running `paxd`. The kernel is part of
 the network and proposes blocks. A transaction receipt is final once its
 block is committed.
 
-For EVM clients, the public JSON-RPC endpoints use HTTPS at the root path:
-`https://api-mainnet-beta.paxeer.network` and the numbered hosts
-`https://api1.mainnet-beta.paxeer.network` through
-`https://api14.mainnet-beta.paxeer.network`. The EVM chain ID is `125`
-(`0x7d`). See [Public RPC endpoints](../../docs/site/docs/reference/public-rpc.md)
+For EVM clients, public JSON-RPC uses HTTPS at the node's root path. The EVM
+chain ID is `125` (`0x7d`). See [Public RPC endpoints](../../docs/site/docs/reference/public-rpc.md)
 for the node list and method contracts.
 
 The Cosmos examples below require operator-provided connections to that same
@@ -56,7 +50,6 @@ or package-root entry.
 
 ## Package
 
-This is the maintained package contract for interface-registry consumers.
 The [manifest](./package.json) selects these shipped targets; `*` is the
 module path, for example `cosmos/bank/v1beta1` or `evm`.
 
@@ -68,9 +61,7 @@ module path, for example `cosmos/bank/v1beta1` or `evm`.
 
 `typesVersions` maps `types/*`, `rest` and `encoding` to the same declaration
 files. Runtime imports use the CJS or ESM trees, never the declaration tree.
-The retired `main` and `module` fields do not provide a root entry.
-`VENDOR.kvx` and its `ref`, `sha` and `url` fields are retired; ownership and
-the retained upstream tag are described in [Provenance](#provenance).
+The package has no root entry.
 
 ## Integration contracts
 
@@ -323,7 +314,7 @@ npm --prefix sdk/js test
 ```
 
 The tests exercise the package's exported CommonJS entries, declarations,
-codecs, registries and REST routes, and check its provenance. The package has
+codecs, registries and REST routes. The package has
 no build script. Its manifest selects runtime files and declarations under
 `dist/cjs`, `dist/esm` and `dist/types`, which are absent from this checkout.
 

@@ -2,7 +2,7 @@
 
 ## 0.9.0
 
-*June 24th, 2018*
+_June 24th, 2018_
 
 BREAKING:
 
@@ -24,7 +24,7 @@ FEATURES:
 
 ## 0.8.4
 
-*June 5, 2018*
+_June 5, 2018_
 
 IMPROVEMENTS:
 
@@ -32,7 +32,7 @@ IMPROVEMENTS:
 
 ## 0.8.3
 
-*May 21, 2018*
+_May 21, 2018_
 
 FEATURES:
 
@@ -109,7 +109,7 @@ BREAKING:
 - [common] Remove HTTP functions
 - [common] Heap.Push takes an `int`, new Heap.PushComparable takes the comparable.
 - [logger] Removed. Use `log`
-- [merkle] Major API updade - uses cmn.KVPairs.
+- [merkle] Major API update - uses cmn.KVPairs.
 - [cli] WriteDemoConfig -> WriteConfigValues
 - [all] Remove go-wire dependency!
 
@@ -216,8 +216,8 @@ BREAKING CHANGES:
 - [log] logger functions no longer returns an error
 - [common] NewBaseService takes the new logger
 - [cli] RunCaptureWithArgs now captures stderr and stdout
-    - +func RunCaptureWithArgs(cmd Executable, args []string, env map[string]string) (stdout, stderr string, err error)
-    - -func RunCaptureWithArgs(cmd Executable, args []string, env map[string]string) (output string, err error)
+  - +func RunCaptureWithArgs(cmd Executable, args []string, env map[string]string) (stdout, stderr string, err error)
+  - -func RunCaptureWithArgs(cmd Executable, args []string, env map[string]string) (output string, err error)
 
 FEATURES:
 
@@ -282,168 +282,3 @@ Initial release, combines what were previously independent repos:
 - go-logger
 - go-merkle
 - go-process
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

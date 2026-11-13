@@ -80,11 +80,10 @@ at `0x1013` and checkpoint anchor at `0x1014` are retired onboarding paths.
 
 ## 3. Prepare a client that submits at the node root
 
-The checked-in CLI has local wallet and program build commands, but its
-network transport in `tools/platform/cli/src/rpc.rs` and
-`tools/platform/cli/src/programs.rs` still targets the retired prefixed RPC
-route. For this walkthrough, submit EIP-1559 transactions with an Ethereum
-client configured with `RPC_URL` from step 1.
+The CLI provides local wallet derivation and program builds as well as
+node-root transaction commands. This walkthrough uses an Ethereum client
+configured with `RPC_URL` from step 1 to show binding, payment and deployment
+transactions explicitly.
 
 Install ethers in the temporary directory:
 
@@ -333,8 +332,9 @@ result is `null` for an unknown hash, or an object with the following rungs:
 Quantities such as `nonce`, `height`, `seq`, `status` and `blockNumber` are
 hexadecimal strings. A successful execution has `status: "0x1"`. The helper
 keeps the response and EVM receipt in `<saved-file>.receipt.json`.
-The `eth_getTransactionReceipt` response and subscription notifications can
-be available before commit, so their presence alone is insufficient.
+`eth_getTransactionReceipt` exposes receipts from committed blocks. Check its
+execution status and transaction/block bindings; subscription notifications
+are wake-ups for those reads, rather than independent commitment evidence.
 
 For independent verification, decode the canonical receipt, verify its
 signature, bind every decoded field to the transaction and check its

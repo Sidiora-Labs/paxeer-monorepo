@@ -49,22 +49,18 @@ value and reports that the preference was not saved. A failed read or invalid
 record reports an alert in settings; choosing a preference retries persistence.
 Persistence is local to this browser and origin, without account synchronization.
 
-## Supported behavior and future consumers
+## Scope
 
-There are no switches for hiding PnL or size/margin, risk warnings, fill audio,
-wallet reconnection or skipping confirmations. Those controls previously had
-no runtime consumers. The scoped motion setting replaces the broader low-power
-promise. Adding any of these features requires a shared contract and tests at
-the owning feature before exposing a control. The domain/path wiring requests
-are recorded in [`repair-22-33-11.kvx`](repair-22-33-11.kvx).
+The drawer controls appearance and dialog motion. Charts, polling, transaction
+processing, wallet connection and confirmation behavior use their own application
+controls.
 
 ## Accessible operation and responsive motion
 
 The drawer uses `@radix-ui/react-dialog`: a modal root, portal, overlay, content,
 associated title and description, and a close control labelled “Close settings”.
 Radix supplies initial focus, focus containment, Tab looping, Escape dismissal,
-outside dismissal and scroll management. The custom body-overflow effect is
-removed so Radix coordinates scroll locking with other dialogs.
+outside dismissal and scroll management. Radix coordinates scroll locking with other dialogs.
 
 Launchers use controlled props rather than `Dialog.Trigger`.
 [`useDialogFocus.ts`](useDialogFocus.ts) captures the active launcher when Radix

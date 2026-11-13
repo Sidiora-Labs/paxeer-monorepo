@@ -24,7 +24,7 @@ The current owner of the fee-right NFT can call `pauseLaunchedChain`, `resumeLau
 
 ## Chain launch ABI
 
-These are the chain launch declarations in `ILaunchpad` at the launchpad precompile. `PermitParams` is the existing permit tuple. `chain` is the registry's `uint32` number.
+These are the chain launch declarations in [`ILaunchpad`](../../precompiles/launchpad/Launchpad.sol) at the launchpad precompile; the machine-readable ABI is [`abi.json`](../../precompiles/launchpad/abi.json). `PermitParams` is the existing permit tuple. `chain` is the registry's `uint32` number.
 
 ```solidity
 struct PermitParams {

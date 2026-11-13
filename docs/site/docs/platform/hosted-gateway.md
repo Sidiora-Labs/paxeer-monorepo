@@ -77,18 +77,13 @@ uses addr at `0x0000000000000000000000000000000000001004`; bank reads use
 same chain. History comes from the configured indexer and can trail chain
 state; its cursors must be passed through unchanged. The current history
 implementation orders positions oldest first and dispatches unified history
-with only the resolved EVM side. The OpenRPC prose describing newest-first
-pages and inclusion of every native account overstates this implementation;
-clients must not assume those behaviors.
+with only the resolved EVM side.
 
 The gateway also relays admitted `eth_`, `net_` and `web3_` requests to its
 configured node pool. Node-side signing/account methods are refused, and
-HTTP `eth_subscribe`/`eth_unsubscribe` calls are not relayed. The current
-`src/capabilities.rs::chain_rpc` still rewrites bare upstream origins to a
-retired prefixed path, which conflicts with the public node-root contract.
-This implementation mismatch must be resolved before relying on a gateway
-relay configured with public node roots. Use public
-node WebSockets for node subscriptions. JSON-RPC batches contain at most
+HTTP `eth_subscribe`/`eth_unsubscribe` calls are not relayed. Upstream URLs
+with a bare origin use the root path; explicit configured paths are preserved.
+Use public node WebSockets for node subscriptions. JSON-RPC batches contain at most
 32 entries; a batch containing only notifications returns HTTP 204.
 
 `px_getCapabilities` probes exchange (`0x1015`), bridge (`0x1016`), launchpad
@@ -310,13 +305,9 @@ checks retired-method refusal and the exact OpenRPC method set;
 `src/chain_reads.rs` covers consensus reads; `src/paxeer.rs` covers chain and
 account reads; `src/history.rs` covers indexed pagination; and
 `tests/tap_nonce.rs` covers durable authentication and replay handling.
-Historical scripts that submit to retired ingress are not current integration
-instructions.
-
 Workspace entry points are declared in `services/platform/Makefile.inc`,
 including `platform-build`, `platform-test`, `platform-hosted-smoke` and
-`platform-hosted-topology-check`. Hosted checks require real configured
-services; a source listing does not establish that those checks passed.
+`platform-hosted-topology-check`. Hosted checks require configured services.
 
 ## Version-2 module registry
 
@@ -325,8 +316,7 @@ When kernel backends are configured, startup reads
 nonzero lowercase asset IDs, bounded asset metadata, known module IDs and
 valid activity ordinals. This registry is configuration for hosted
 verification, not a public submission API. Module declarations do not restore
-the retired activity or Programs REST ingress. Do not use the former daemon
-socket preparation procedure as a merged-network bootstrap step.
+the retired activity or Programs REST ingress.
 
 [Developer platform](index.md) ·
 [Commitment levels](../protocol/commitment-levels.md) · [Home](../index.md)

@@ -68,7 +68,7 @@ curl --fail --silent --show-error https://api1.mainnet-beta.paxeer.network \
 make paxd-build
 ```
 
-Эта цель собирает `build/liblayerx.a` и `programs/target/release/liblayerx_programs_sandbox.a`, затем создаёт `build/paxd`. Цель сборки цепочки `make paxeer-build` также собирает нативные зависимости. Рецепты используют `GOPROXY=off`, поэтому зависимости Go должны быть заранее доступны локально.
+Эта цель собирает `build/liblayerx.a`, `programs/target/release/liblayerx_programs_sandbox.a` и evmone, затем создаёт `build/paxd` с версией из `tools/release/version.json`. Цель сборки цепочки `make paxeer-build` также собирает нативные зависимости. Рецепты используют `GOPROXY=off`, поэтому зависимости Go должны быть заранее доступны локально.
 
 Цели для разработки ядра и контрактов:
 

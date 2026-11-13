@@ -62,25 +62,18 @@ curl --fail-with-body https://api1.mainnet-beta.paxeer.network/ \
 ```
 
 The expected `result` is `"0x7d"`. Compare `eth_blockNumber` across nodes
-when a node trails the head. Hosted `px_` methods belong to the gateway;
-`services/platform/hosted/gateway/openrpc.json` declares their contract.
+when a node trails the head. The hosted gateway's `px_` contract is declared in
+`services/platform/hosted/gateway/openrpc.json`; public nodes also expose their
+registered `px_` reads.
 See [Gateway RPC](gateway-rpc.md) for that service's authentication and API.
 The host `node.hyperpaxeer.com` is a library mirror, not an RPC endpoint.
 
-### Deployment prerequisites still needing integration
+### Deployment prerequisites
 
-A source manifest is not evidence of a working published image. The
-node lifecycle's integration record,
-`services/platform/hosted/node/repair_22_31_355.kvx`, records outstanding
-image packaging, authoritative genesis provisioning, gateway transport and
-core readiness wiring. In particular, the image must package `paxd`,
-`native_runtime.py`, its generation/reset helpers and signer dependencies.
-The gateway must reach the native chain, and hosted consumers must use
-committed native reads. Old program/replica HTTP readiness checks cannot
-qualify this deployment. That record's lifecycle qualification used recorded
-native command and RPC peers; it did not certify container startup or a
-live native/core funded transfer. Resolve those integration prerequisites
-before treating the manifest as a deployable stack.
+The node image must package `paxd`, `native_runtime.py`, its generation/reset
+helpers and signer dependencies. Bootstrap requires authoritative native genesis
+and keys. The gateway connects to native chain RPC, and hosted consumers use
+committed native reads. Check chain and application-service readiness separately.
 
 ## Bootstrap inputs
 

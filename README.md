@@ -1,3 +1,5 @@
+# Paxeer X Network
+
 <div align="center">
 
 <img alt="Paxeer X Network" src="https://shieldcn.dev/header/transparent.svg?title=Paxeer+X+Network&subtitle=Distributed+HyperState+Machine+for+payments%2C+code+execution+and+intent+routing&logo=https%3A%2F%2Fwww.paxeer.network%2Fpaxeer.x_darkmode_white.png&mode=dark&image=https%3A%2F%2Fwww.sidioralabs.com%2Fmedia%2Floops%2Fsphere-field.jpg">
@@ -240,7 +242,7 @@ Please follow [SECURITY.md](SECURITY.md) to report vulnerabilities privately. **
 | `spec/` | Feature specifications and the kvx workflow |
 | `scripts/` | CI, qualification, release and workspace scripts |
 
-The node and kernel source trees currently remain at the root: `src`, `include`, `cmd` and `migrations` (kernel sources and tools), `modules`, `precompiles`, `engine`, `consensus`, `node`, `rpc`, `storage`, `wasm`, `wasm-runtime`, `daemon`, `admin`, `custodyproof`, `layerxproof`, `utils`, `interchain`, the framework fork in `sdk`, and `programs`. Source directory names describe code organization, not separate network deployments. [The complete root layout table](docs/MONOREPO.md#root-layout) documents every tracked top-level entry and its configuration; planned destinations under `core/` and `sdk/programs` are specified in [`spec/monorepo-layout/spec.kvx`](spec/monorepo-layout/spec.kvx).
+The node and kernel source trees are at the root: `src`, `include`, `cmd` and `migrations` (kernel sources and tools), `modules`, `precompiles`, `engine`, `consensus`, `node`, `rpc`, `storage`, `wasm`, `wasm-runtime`, `daemon`, `admin`, `custodyproof`, `layerxproof`, `utils`, `interchain`, the framework fork in `sdk`, and `programs`. Source directory names describe code organization, not separate network deployments. [The complete root layout table](docs/MONOREPO.md#root-layout) documents every tracked top-level entry and its configuration.
 
 ## Development and Release Process
 
@@ -315,7 +317,7 @@ make monorepo-ci           # every workspace: build, test and lint
 
 See [CHANGELOG.md](CHANGELOG.md) for release notes. Network upgrades determine which native interfaces are active; refer to the precompile registrations and upgrade definitions when working with version-dependent functionality.
 
-The merged runtime executes kernel activity inside `paxd` and commits it with the BFT chain state. The `v7.0` merge handler activates the merged interfaces and retires the old custody/checkpoint write paths; `v7.0-anchor-store-delete` removes the historical anchor store. Consult the code and the network's recorded upgrade height when interpreting historical blocks. Planned directory moves under `core/` change source organization, not this runtime model.
+The merged runtime executes kernel activity inside `paxd` and commits it with the BFT chain state. The `v7.0` merge handler activates the merged interfaces and retires the old custody/checkpoint write paths; `v7.0-anchor-store-delete` removes the historical anchor store. Consult the code and the network's recorded upgrade height when interpreting historical blocks. Source directories organize the components of this shared runtime.
 
 ## Downloading and Shallow-Cloning the Monorepo
 

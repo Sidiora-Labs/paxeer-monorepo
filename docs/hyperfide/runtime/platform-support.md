@@ -9,9 +9,8 @@
 - Windows via Ubuntu on WSL2
 - Windows 11 x64 native host (alpha)
 
-This repository uses Node 24 and pnpm 9.15. Source validation runs from the
-repository root with `pnpm -C platform`. Test packaged artifacts on each target
-operating system before treating them as supported.
+The Hyperfide workspace is `tools/hyperfide`. It pins Node 22.19.0 and
+pnpm 9.15.0. Run source commands from that directory.
 
 Windows has two host paths. Inside WSL2 the Linux stack runs unchanged:
 
@@ -74,8 +73,8 @@ Android APK; see [configuration.md](configuration.md)).
 ### Command ownership and mode selection
 
 - `@hyperfide/config` is the only source of dev/prod defaults.
-- Repo-root source-development commands such as `pnpm start`, `pnpm hyperfide platform`,
-  `pnpm hyperfide platform:dev`, and `pnpm reset` are thin wrappers around local packages and
+- Workspace source commands such as `pnpm start`, `pnpm hyperfide-platform`,
+  `pnpm hyperfide-platform:dev`, and `pnpm reset` are thin wrappers around local packages and
   scripts.
 - Those wrappers set `NODE_ENV` explicitly so ambient shell state does not
   change which hyperfide platform instance they target.
@@ -87,7 +86,7 @@ Android APK; see [configuration.md](configuration.md)).
 ### WSL2-specific expectations
 
 - Run `hyperfide platform`, source checkout commands such as `pnpm install`,
-  `pnpm dev`, `pnpm hyperfide platform:dev`, and host-daemon commands from a WSL2 shell, not
+  `pnpm dev`, `pnpm hyperfide-platform:dev`, and host-daemon commands from a WSL2 shell, not
   from native Windows terminals.
 - Repositories inside the WSL filesystem are recommended for best behavior.
 - `/mnt/c/...` mounted paths are deliberately supported so WSL2 users can keep
@@ -119,29 +118,9 @@ Native Windows hosts use drive-letter paths for projects and workspaces:
 
 - workspace-owned QA helpers under [`tests/qa/`](../../../tools/hyperfide/tests/qa)
 - dev restart internals that are not part of the shipped product path
-- source-development flows (`pnpm dev`, `pnpm hyperfide platform:dev`) on native Windows
+- source-development flows (`pnpm dev`, `pnpm hyperfide-platform:dev`) on native Windows
 
-## Dependency Policy
-
-We are standardizing on a small set of cross-platform packages:
-
-- `cross-env`
-  - portable environment injection in package scripts
-- `rimraf`
-  - portable recursive cleanup in package scripts
-- `cross-spawn`
-  - shared subprocess launch for portability-sensitive runtime paths
-- `open`
-  - OS-specific file/URL opening behind a repo-local helper
-
-We are explicitly not adopting:
-
-- `shx`
-  - we prefer small Node scripts for copy/create-directory logic
-- generic path helper libraries
-  - `node:path` is sufficient
-- generic filesystem helper libraries
-  - `fs/promises` is sufficient
+## Runtime dependencies
 
 ### Native npm dependencies
 
@@ -180,12 +159,4 @@ rebuild the native dependency, for example `npm rebuild better-sqlite3`.
 - The repository enforces LF checkout for supported text files via
   [.gitattributes](../../../tools/hyperfide/.gitattributes).
 - Supported Linux and WSL2 flows must work with those repository rules applied.
-- A native Windows checkout of this repository must keep those LF rules; the
-  Windows CI jobs build and package from such a checkout.
-
-## CI and validation
-
-Use the repository's Node 24 pin and pnpm workspace scripts. Run package checks
-with directory filters, and use the feature's qualification cases for integration
-proof. See [testing](testing.md) for commands and evidence boundaries and the
-[release process](hyperfide-release-process.md) for publication ownership.
+- Native Windows checkouts use the same LF rules.

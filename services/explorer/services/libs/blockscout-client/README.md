@@ -1,5 +1,4 @@
-Blockscout client
-===
+# Blockscout client
 
 This Rust client consumes the explorer REST API. Its OpenAPI inputs are in
 [swaggers](swaggers), its generator templates in

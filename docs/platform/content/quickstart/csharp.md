@@ -4,13 +4,18 @@ Add a payment to a .NET application. Four lines, no protocol vocabulary, no key 
 
 ## Before you start
 
-```text
+Use .NET 10 or newer. Configure an authenticated human-payment service that supports
+`/v1/moves/quote`, `/v1/moves` and journey reads. The local emulator retires
+these payment-write routes. For native node transactions, follow the
+[reference applications](../guide/reference-applications.md).
+
+```sh
 dotnet add package LayerX.Sdk
 ```
 
 | Variable | What it is |
 |---|---|
-| `LAYERX_API_URL` | The base URL of your environment |
+| `LAYERX_API_URL` | The base URL of your human-payment service |
 | `LAYERX_API_TOKEN` | A bearer token identifying your account |
 
 ## The integration
@@ -28,15 +33,18 @@ var journey = await layerx.HumanMoveCommitAsync(JsonValue.Object(new Dictionary<
 
 ## Run the whole sample
 
-```text
+Set `LAYERX_API_URL` and `LAYERX_API_TOKEN` for that service, plus
+`LAYERX_SOURCE`, `LAYERX_DESTINATION`, `LAYERX_AMOUNT`, `LAYERX_CURRENCY`
+and `LAYERX_PAYMENT_KEY` for the payment. Amounts use integer base units;
+reuse the same payment key when reconciling the same operation.
+
+```sh
 cd services/platform/examples/samples/first-payment-csharp
 dotnet build --configuration Release
-LAYERX_API_URL=http://127.0.0.1:9402 LAYERX_API_TOKEN=$(cat ./token) LAYERX_SOURCE=did:layerx:alice LAYERX_DESTINATION=did:layerx:bob \
-LAYERX_AMOUNT=1250000 LAYERX_CURRENCY=USD LAYERX_PAYMENT_KEY=order-2f9c1b7e4a10 \
 dotnet run --configuration Release
 ```
 
-The sample polls the journey until it settles, prints a JSON report of the journey identifier, state and receipt references, and returns exit code 2 when the journey did not complete.
+The sample polls the journey up to 40 times at 250 ms intervals, prints a JSON report of the journey identifier, state and receipt references, and returns exit code 2 when the journey did not complete.
 
 ## Handling refusals
 

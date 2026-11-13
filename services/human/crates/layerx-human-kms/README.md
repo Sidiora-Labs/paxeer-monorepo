@@ -31,7 +31,7 @@ The following variables use the `LAYERX_HUMAN_KMS_` prefix:
 | `LISTEN` | TCP socket address |
 | `STATE_DIR` | Absolute provider-owned private state directory |
 | `PROVIDER_REFERENCE` | Nonempty provider identity, at most 256 bytes, without NUL |
-| `DEADLINE_SECONDS` | Required integer 1–60 for socket I/O timeouts |
+| `DEADLINE_SECONDS` | Required integer 1–60 for the total connection deadline, including TLS and request handling |
 | `REGISTRY_FILE` | Protected JSON file containing exactly `{"chain_id":125}`; unknown fields and other chain ids are refused |
 | `CLIENT_CA_DER` | DER client CA certificate |
 | `CLIENT_CERT_DER` | DER leaf certificate pinned for the Human service |
@@ -117,7 +117,9 @@ register a new signing authorization.
 
 Responses echo the version and operation, followed by a status byte and any
 success data. Statuses are 0 success, 1 `Refused`, 2 `NotFound`, 3 `Conflict`,
-4 `Unavailable`, 5 `Integrity` and 6 `SelfCustodied`. Framing and TLS failures
+4 `Unavailable`, 5 `Integrity`, 6 `SelfCustodied`, 7 `Capacity` and 8 `Expired`.
+`Capacity` reports a store limit; `Expired` reports an action or assertion outside
+its accepted validity window. Framing and TLS failures
 can close the connection before an operation response is available. In
 particular, operation 13 is refused by the decoder before dispatch: callers
 must handle a closed connection rather than expect a status-1 reply.

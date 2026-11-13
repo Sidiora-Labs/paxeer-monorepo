@@ -236,13 +236,12 @@ verify a particular receipt, its committed block, or a native state proof.
 
 The maintained tests include `tests/chain_receipts.rs` for node receipt lookup,
 unpinned-key refusal, pinned key snapshots, and startup without an LNI socket;
-`tests/repair_22_31_207.rs` exercises committed identity/capability/key-policy
-evidence and receipt-key rotation with retention and replay. Other authority
-tests cover maintenance identity, native outcomes, human TLS, and proof exports.
+other authority tests exercise committed identity, capability and key-policy
+evidence, receipt-key rotation with retention and replay, maintenance identity,
+native outcomes, human TLS and proof exports.
 All paths are under `services/platform/hosted/authority/`.
 
 `make platform-test-authority` runs the crate through
 `tools/runtime/run-with-clock.sh`; `platform-test-trusted-boundary` includes it.
-These are service test entrypoints, not evidence that a deployment is ready.
 
 [Hosted identity](identity.md) · [Home](../index.md)

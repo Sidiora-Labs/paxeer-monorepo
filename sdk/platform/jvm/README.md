@@ -4,7 +4,6 @@ Java and Kotlin SDK (`com.sidiora.layerx:layerx-sdk`, package
 `com.sidiora.layerx.sdk`) for the Agent and Human APIs of Paxeer X Network.
 LayerX is merged into the network. The kernel is part of the `paxd` BFT node
 and proposes blocks; a receipt is final once its block is committed.
-Hosted documentation lives at [docs.paxeer.app](https://docs.paxeer.app/).
 
 ## Features
 
@@ -53,13 +52,9 @@ Once installed locally, depend on it as:
 
 ## Network and API configuration
 
-Public node JSON-RPC uses HTTPS at the root of
-`https://api-mainnet-beta.paxeer.network` or the numbered hosts
-`https://api1.mainnet-beta.paxeer.network` through
-`https://api14.mainnet-beta.paxeer.network`. Check `eth_chainId` for `0x7d`
-(decimal `125`) before signing or broadcasting. See
+Public node JSON-RPC uses HTTPS at the root path. Check `eth_chainId` for
+`0x7d` (decimal `125`) before signing or broadcasting. See
 [Public RPC endpoints](../../../docs/site/docs/reference/public-rpc.md).
-`node.hyperpaxeer.com` is only the hpx library mirror, never an RPC endpoint.
 Sub-chains are tenant domains in the database and share the network.
 
 `ProductionClient` uses schema-defined authenticated service APIs.
@@ -139,8 +134,8 @@ fun quote(humanBaseUri: URI, agentBaseUri: URI, token: String,
 String-named and `Class`/`TypeReference` overloads of `agent` and `human` remain
 available for known operations. Typed `GeneratedSchema` constants keep Agent
 and Human requests, responses and events distinct at the JVM type boundary.
-The historical files in [`examples/`](examples/) contain obsolete endpoint,
-request and verifier usage and are not runnable integration guidance.
+The [examples guide](examples/README.md) describes native PAX payment, offline
+verification and a Kotlin service lifecycle example.
 
 ## Local verification
 
@@ -155,9 +150,8 @@ wire values `receipted` and `committed`.
 For new submissions, sign a raw EIP-1559 transaction locally and retain the exact
 bytes submitted to `eth_sendRawTransaction`, together with its transaction hash.
 Do not substitute calldata, a transaction JSON object or a transaction rebuilt
-after submission for those signed bytes. The verifier also accepts retained
-historical transaction encodings; this does not change the submission guidance.
-Supply the canonical signed receipt bytes and independently trusted key pins,
+after submission for those signed bytes. Supply the canonical signed receipt
+bytes and independently trusted key pins,
 not a key accepted merely because the response carries it. Save the following
 complete Java snippet as `ReceiptExample.java`:
 
@@ -276,10 +270,7 @@ The generated Human API intentionally uses `unverified`, `receipt-verified`
 and `checkpoint-finalised` in `HumanModels.HumanVerificationLevel`.
 `checkpoint-finalised` names the committed rung in that API;
 it does not add another network finality step or change the local verifier enum.
-The [README verifier, transaction binding and independent trust tests](test_repair_22_33_1394.py)
-check these evidence levels and the snippets above against the production
-verifiers and retained producer vectors. The
-[signed receipt tests](src/test/java/com/sidiora/layerx/sdk/SequencerReceiptTest.java)
+The [signed receipt tests](src/test/java/com/sidiora/layerx/sdk/SequencerReceiptTest.java)
 and [portable receipt tests](src/test/java/com/sidiora/layerx/sdk/PortableReceiptTest.java)
 exercise receipt authentication and portable evidence verification.
 

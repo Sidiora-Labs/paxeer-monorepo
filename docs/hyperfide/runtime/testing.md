@@ -1,8 +1,9 @@
 # Platform testing
 
-Use Node 24 and pnpm 9.15 from the repository root:
+Use Node 24 and pnpm 9.15 from the `tools/hyperfide` workspace. Paths below are relative to that workspace:
 
 ```sh
+cd tools/hyperfide
 pnpm install --frozen-lockfile
 pnpm typecheck
 pnpm build
@@ -35,6 +36,4 @@ or explicit availability guards; they are not prerequisites for the unit gate:
 | Sidebar benchmark | `apps/web` script `bench` | Opt-in performance measurement under `HYPERFIDE_SIDEBAR_BENCH=1`. |
 | Composer paste benchmark | `plugins/composer/src/editor/prompt-paste-performance.test.ts` | Opt-in performance measurement under `PROMPTBOX_PERF=1`. |
 
-Former CI helper scripts and their tests were removed because they depended on
-workflow files that are not part of this platform. Repository CI is owned by the
-root workflow, rather than a second workflow tree inside the platform.
+The monorepo workflow `.github/workflows/platform.yml` covers the network platform workspace; the Hyperfide commands above select the separate `tools/hyperfide` workspace.

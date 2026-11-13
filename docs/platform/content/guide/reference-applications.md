@@ -1,32 +1,42 @@
 # Reference applications
 
-Four cloneable applications live under `services/platform/examples`: a buyer agent that pays a metered API through buyer middleware, the paid API protected by seller middleware, a merchant shop with durable receipt-backed orders and signed settlement webhooks, and a marketplace implemented as a LayerX kernel program.
+Four applications live under `services/platform/examples`: a buyer agent, a paid HTTP API, a merchant shop and a marketplace backed by a kernel program. Their packages and launch commands are listed in `services/platform/examples/reference-apps.json`; each application's `layerx.example.json` declares its profile bindings.
 
-The checked-in `services/platform/examples/reference-apps.json` is the launch manifest. It names the exact emulator and beta command for every application. Public endpoints, the receipt protocol version (`protocolVersion`, `3` for both profiles) and the names of required environment variables are declared in each application's `layerx.example.json`; selecting a profile is the only way to select a network. A profile without a selectable `protocolVersion` is refused by name, and `run-reference-apps.mjs --check` refuses a profile whose declared version differs from the version the emulator scenario runs. Tokens remain server-side environment values and are never compiled into browser code.
+## Build and launch
 
-```
+From the repository root, install and build the JavaScript workspaces:
+
+```sh
 npm ci
 npm run build
-npm run start:emulator --workspace @sidiora/layerx-example-buyer-agent
-npm run start:emulator --workspace @sidiora/layerx-example-paid-api
-npm run start:emulator --workspace @sidiora/layerx-example-merchant-shop
-npm run start:emulator --workspace @sidiora/layerx-example-marketplace
 ```
 
-`npm run build` is the one build command for every JavaScript workspace in this repository. It orders the workspaces by their declared dependencies, so the middleware an application imports is compiled before the application that imports it, and it needs no environment variable: the samples read their declared configuration on the first request, not at build time.
+The build orders workspaces by their declared dependencies. Configure the selected application's environment before launching it:
 
-Replace `start:emulator` with `start:beta` to use the beta profile. `merchant-checkout` remains an alias package for existing consumers; `merchant-shop` is the reference manifest name.
+```sh
+npm run start:beta --workspace @sidiora/layerx-example-buyer-agent
+npm run start:beta --workspace @sidiora/layerx-example-paid-api
+npm run start:beta --workspace @sidiora/layerx-example-merchant-shop
+npm run start:beta --workspace @sidiora/layerx-example-marketplace
+```
 
-All successful payment paths resolve live receipt authority and run independent receipt verification. A response declared Pending remains Pending, an indeterminate transport, omitted receipt, or authority response remains Unknown, and an explicit refusal remains Refused. The applications do not use a static `AuthorizedBatch` as their payment path.
+These are separate applications with different prerequisites; starting them does not provision a node, human-payment service, account or signing key. `merchant-checkout` is a compatibility alias for `merchant-shop`. Local profiles use `start:emulator`; their endpoints and services must also be supplied separately.
 
-The marketplace source is in `services/platform/examples/marketplace/program`. It stores listings and consumed receipt digests in program-shared storage and buys one only after the runtime exposes a verified, previously unused receipt matching its asset and minimum price. The transfer is a bounded 402LXP request to the listing's seller, and receipt consumption, listing deletion, transfer, and purchase event emission occur in the same atomic program call.
+## Configuration and evidence
+
+Beta profiles use the mainnet-beta node root on chain ID 125. They select pinned Ed25519 receipt keys through `receiptKeysEnvironment`, rather than a `protocolVersion` setting or static batch authority. The paid API reads `LAYERX_RECEIPT_KEYS_JSON`; the other three profiles read `LAYERX_TESTNET_RECEIPT_KEYS_JSON`. Key IDs, public keys and inclusive height ranges must come from independently trusted configuration.
+
+The buyer also needs its configured human-payment service and credential. The paid API needs the asset, seller, seller account, currency and price bindings declared in its profile; it exposes `GET /paid` on loopback port 8081. The merchant needs its settlement service and webhook verification keys. The marketplace needs a deployed program and the transaction inputs described in its source guide. See the [reference application configuration guide](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/services/platform/examples/README.md) for each binding.
+
+Native payment paths bind signed EIP-1559 transaction bytes to signed execution receipts and independently pinned receipt keys. Pending, unknown and refused outcomes remain distinct. A verified signed receipt establishes `receipted`; finality requires authenticated committed-block evidence. See [receipts](receipts.md).
+
+The marketplace program stores listings and consumed receipt digests in program-shared storage. A purchase requires verified, unused receipt evidence matching the listing's asset and price. Receipt consumption, the bounded transfer request, listing deletion and purchase event occur in one atomic program call.
 
 ## Enforced by
 
 | Capability | Layer | What that means here |
-|---|---|---|
-| Receipt-gated resource release | `service` | Seller and merchant resources are released only after middleware verifies a canonical receipt. |
-| Exactly-once fulfilment | `service` | Durable fulfillment records bind idempotency keys, request digests, receipt bytes, batch authority, and released data. |
-| Verified, replay-protected webhooks | `service` | Merchant settlement webhooks are signature checked, replay claimed, receipt resolved, and independently verified. |
-| Programs never write balances | `protocol` | The marketplace can request only the bounded transfer authority supplied to its call. |
-| Unknown is a real outcome | `agent-layer` | Applications expose Unknown separately and do not turn a transport ambiguity into success or refusal. |
+| --- | --- | --- |
+| Receipt-gated resource release | `service` | Seller middleware checks payment evidence before releasing a resource. |
+| Durable fulfilment | `service` | Stored payment claims prevent a release from being repeated after an uncertain outcome. |
+| Webhook authentication | `service` | The merchant checks signatures and delivery replay claims before handling settlement events. |
+| Bounded program transfers | `protocol` | The marketplace uses the transfer authority supplied to its call. |

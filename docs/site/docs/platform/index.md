@@ -72,13 +72,4 @@ evidence before treating a payment as successful. Payment middleware accepts
 network finality. See [Commitment levels](../protocol/commitment-levels.md)
 for verification and recovery.
 
-## Developer benchmark
-
-`tools/qualification/beta_driver.py` measures payment integration with
-the ten-line middleware benchmark and a verified first payment within
-five minutes from a clean environment. Those are qualification targets;
-this page does not record a passing measurement.
-Use the current node and hosted contracts above when evaluating an
-integration, with independently configured verification trust.
-
 [Home](../index.md)

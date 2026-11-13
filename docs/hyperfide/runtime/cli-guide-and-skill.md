@@ -1,9 +1,19 @@
-# CLI, Guide, And Skill
+# CLI and plugin guides
 
-Keep the discoverable surfaces in sync whenever you add or change a `hyperfide platform` CLI command, flag, or a user-facing configuration knob (env var, `.hyperfide/` workspace file, settings field):
+The platform CLI is available through `hyperfide platform`. Its command help
+lists supported commands and flags:
 
-- The in-CLI guide templates under `lib/templates/src/templates/hyperfide-guide-*.md` are the core CLI manual. Document core commands, flags, and settings there; turbo regenerates `lib/templates/src/generated/templates.generated.ts` (not committed) before every build, typecheck, and test task.
-- The hyperfide-cli skill (`plugins/hyperfide-guide/skills/hyperfide-cli/SKILL.md`) only routes agents to guide chapters and states agent habits and safety rules. Do not copy command documentation into it. Add new core command paths to `plugins/hyperfide-guide/skills/hyperfide-cli/references/command-index.md`.
-- For plugin commands and settings, update the owning plugin's `skills/<name>/SKILL.md` or supporting reference, including built-in plugins. Configuration knobs also belong in `docs/runtime/configuration.md`.
-- Keep maintainer and repository-development instructions (source startup, release and publishing steps) in `docs/` and app READMEs, not in the guide or shipped skills.
-- Match the existing chapter/section style; keep entries concise and accurate against the implementation.
+```sh
+hyperfide platform --help
+```
+
+The workspace contains guide templates in
+[`lib/templates/src/templates`](../../../tools/hyperfide/lib/templates/src/templates).
+The [`hyperfide-cli` skill](../../../tools/hyperfide/plugins/hyperfide-guide/skills/hyperfide-cli/SKILL.md)
+links to guide chapters, and its
+[command index](../../../tools/hyperfide/plugins/hyperfide-guide/skills/hyperfide-cli/references/command-index.md)
+lists core command paths.
+
+The [plugin authoring guide](../../../tools/hyperfide/plugins/hyperfide-guide/skills/hyperfide-plugin-authoring/SKILL.md)
+describes plugin commands, settings and SDK APIs. Runtime startup settings are
+covered in [configuration](configuration.md).
