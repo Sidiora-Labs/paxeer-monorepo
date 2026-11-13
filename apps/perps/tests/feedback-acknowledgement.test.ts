@@ -35,7 +35,7 @@ async function modules() {
   return { FeedbackSubmission, makeError, render };
 }
 
-async function repair_f042_unreportable_feedback_keeps_editable_draft() {
+async function unreportable_feedback_keeps_editable_draft() {
   const { FeedbackSubmission, makeError, render } = await modules();
   const draft = new FeedbackSubmission(makeError("WALLET_USER_REJECTED"));
   assert.equal(draft.error.isReportable, false);
@@ -72,9 +72,9 @@ async function repair_f042_unreportable_feedback_keeps_editable_draft() {
   assert.doesNotMatch(markup, /disabled=""|accepted — thanks|Sent — thanks/);
   unsubscribe();
 }
-test(repair_f042_unreportable_feedback_keeps_editable_draft);
+test(unreportable_feedback_keeps_editable_draft);
 
-async function repair_f042_missing_sentry_client_is_not_receipt() {
+async function missing_sentry_client_is_not_receipt() {
   const { FeedbackSubmission, makeError, render } = await modules();
   const Sentry = await import("@sentry/nextjs");
   assert.equal(Sentry.getClient(), undefined);
@@ -95,9 +95,9 @@ async function repair_f042_missing_sentry_client_is_not_receipt() {
   assert.match(markup, /Please investigate the disconnected order form/);
   assert.doesNotMatch(markup, /disabled=""|accepted — thanks|Sent — thanks/);
 }
-test(repair_f042_missing_sentry_client_is_not_receipt);
+test(missing_sentry_client_is_not_receipt);
 
-async function repair_f042_real_capture_and_retry_require_feedback_acknowledgement() {
+async function real_capture_and_retry_require_feedback_acknowledgement() {
   const { FeedbackSubmission, makeError, render } = await modules();
   const Sentry = await import("@sentry/nextjs");
   const envelopes: string[] = [];
@@ -204,4 +204,4 @@ async function repair_f042_real_capture_and_retry_require_feedback_acknowledgeme
     );
   }
 }
-test(repair_f042_real_capture_and_retry_require_feedback_acknowledgement);
+test(real_capture_and_retry_require_feedback_acknowledgement);

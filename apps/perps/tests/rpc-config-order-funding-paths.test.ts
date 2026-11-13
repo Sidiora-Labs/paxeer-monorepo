@@ -13,7 +13,7 @@ import type { OrderFormState } from "../src/core/perps/orderPlan";
 const WAD = 10n ** 18n;
 const OWNER = "0x1234567890123456789012345678901234567890";
 
-async function repair024AuthoritativeRpcInventoryAndConfiguredTransport() {
+async function authoritativeRpcInventoryAndConfiguredTransport() {
   const { getPaxeerRpcUrls } = await import("../src/core/rpc");
   const { paxeerChain } = await import("../src/core/chain");
   const oldMulti = process.env.NEXT_PUBLIC_PAXEER_RPC_URLS;
@@ -49,7 +49,7 @@ async function repair024AuthoritativeRpcInventoryAndConfiguredTransport() {
   }
 }
 
-async function repair008DecodedConfigAndTiersReachTheChainOrderCodec() {
+async function decodedConfigAndTiersReachTheChainOrderCodec() {
   const fixture = await auditLoopback();
   const { paxeerChain } = await import("../src/core/chain");
   const client = createPublicClient({ chain: paxeerChain, transport: http(fixture.origin, { retryCount: 0 }) });
@@ -82,7 +82,7 @@ async function repair008DecodedConfigAndTiersReachTheChainOrderCodec() {
   } finally { await fixture.close(); }
 }
 
-async function repair023FundingProgressAndGatewayIndexingShareAWallDeadline() {
+async function fundingProgressAndGatewayIndexingShareAWallDeadline() {
   const { fundingVisibleThroughGateway } = await import("./e2e-local-node.test");
   const { paxeerChain } = await import("../src/core/chain");
   const { gqlEndpoint, gqlQuery } = await import("../src/core/graphql/client");
@@ -131,6 +131,6 @@ async function repair023FundingProgressAndGatewayIndexingShareAWallDeadline() {
   }
 }
 
-test(repair024AuthoritativeRpcInventoryAndConfiguredTransport);
-test(repair008DecodedConfigAndTiersReachTheChainOrderCodec);
-test(repair023FundingProgressAndGatewayIndexingShareAWallDeadline);
+test(authoritativeRpcInventoryAndConfiguredTransport);
+test(decodedConfigAndTiersReachTheChainOrderCodec);
+test(fundingProgressAndGatewayIndexingShareAWallDeadline);

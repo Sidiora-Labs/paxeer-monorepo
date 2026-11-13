@@ -16,7 +16,7 @@ import {
 } from "../src/core/wallet/embedded/sdk";
 import * as gatewaySchemas from "../src/core/wallet/gateway";
 
-async function repair_22_31_444_package_identity() {
+async function package_identity() {
   const wallet = new PaxeerWallet({
     apiUrl: "https://wallet.example",
     supabaseUrl: "https://auth.example",
@@ -63,7 +63,7 @@ async function repair_22_31_444_package_identity() {
   }
 }
 
-async function repair_22_31_444_browser_bundle() {
+async function browser_bundle() {
   const result = await build({
     absWorkingDir: fileURLToPath(new URL("..", import.meta.url)),
     entryPoints: [
@@ -90,5 +90,5 @@ async function repair_22_31_444_browser_bundle() {
   assert.ok(result.outputFiles.every((file) => file.contents.length > 0));
 }
 
-test(repair_22_31_444_package_identity);
-test(repair_22_31_444_browser_bundle);
+test(package_identity);
+test(browser_bundle);
