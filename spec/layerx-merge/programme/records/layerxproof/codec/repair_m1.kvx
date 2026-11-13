@@ -1,7 +1,7 @@
 [repair.22.33.1]
 audit = "22.30.1"
 finding = "2"
-tests = ["TestRepairM_1_CurrentHostNativeWitnesses", "TestRepairM_1_TwelveLeafModuleInclusion", "TestRepairM_1_PreservedRefusals"]
+tests = ["TestCurrentHostNativeWitnesses", "TestTwelveLeafModuleInclusion", "TestNativeWitnessHistoricalRefusals"]
 path = "Current production lxphost node creation/reset snapshot (checked against modules/lxphost/host.go) -> real account registry, journal and module KV commits -> C lxp_state_proof_build/encode/decode/verify -> in-memory JSON stream -> Go DecodeStateWitness/Root/Verify -> verify.StateProof/AccountProof."
 coverage = "Current host: all nine registered modules including service 5 and spot 10, three KV leaves each, three funded accounts, balance and sequence at width 11. Retained codec format: production C encode/decode/verify of twelve-leaf fixture state with module 10 and reserved historical module 11 inclusion; no claim that the current host registers module 11."
 refusals = "Historical exact error classes and all core vectors retained; each new witness rejects bad roots, mutated values/siblings, unsupported modules, out-of-range and empty subtrees, malformed widths, excessive depth, missing/extra siblings, forged promotions, truncated and trailing wire. Module 11 also rejects width 11."

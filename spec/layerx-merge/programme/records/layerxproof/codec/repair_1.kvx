@@ -1,7 +1,7 @@
 [repair.22.31.1]
 audit = "22.30.1"
 finding = "1"
-test = "TestRepair_1_NativeProducerTransportConsumer"
+test = "TestNativeStateWitnessProducerTransportConsumer"
 path = "lxphost_reset -> real account registry, journal and module KV commit -> lxp_state_proof_build/encode -> process stdout -> DecodeStateWitness/Verify -> StateProof/AccountProof"
 contract = "include/layerx/lxp_module.h reserves IDs through 11; src/state/lxp_state_root.c retains at least 9 leaves and extends to highest registered ID plus one; src/state/lxp_state_proof.c accepts widths 9 through 12. Current lxphost registers service 5 and spot 10, giving 11 leaves; retired web retains ID 11 for historical decoding."
 coverage = "All nine actual lxphost module registrations, three KV leaves each, three funded account proofs, module-zero balance and sequence; native leaf hashes, all sibling paths and composite roots; account/asset bindings and malformed module/width/index/depth/promotion/root refusals."
