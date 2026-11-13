@@ -14,7 +14,7 @@ La CLI local es C11 puro: un solo binario, una sola base de datos SQLite, sin te
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)](../../../tools/hyperfide/LICENSE)
 [![Language: C11](https://img.shields.io/badge/Language-C11-lightgrey?style=for-the-badge)](#)
-[![CI](https://img.shields.io/badge/CI-passing-brightgreen?style=for-the-badge)](../../../tools/hyperfide/.github/workflows/ci.yml)
+[CI](../../../tools/hyperfide/.github/workflows/ci.yml)
 </div>
 <div align="center">
 
@@ -79,11 +79,7 @@ La CLI no ejecuta servicios en segundo plano que no hayas iniciado ni envía tel
 
 ## La capa de intención
 
-Un parser ve símbolos, llamadas y rutas. No puede ver *por qué* existe una
-función, qué deben garantizar sus llamadores o que `save_tasks` debe ejecutarse
-después de que `load_tasks` lea el disco — esa mitad del código solo vive en
-los comentarios. Hyperfide la indexa ([docs/ANCHORS.md](../ANCHORS.md) es la
-convención completa):
+Hyperfide indexa comentarios de intención que describen el propósito de una función, los contratos de sus llamadores y el orden de las operaciones. La [guía de anclas](../ANCHORS.md) explica los tipos de comentario y su recuperación:
 
 - **Anclas**: comentarios que pasan la prueba de derivabilidad — *si un agente
   pudiera haberlo escrito leyendo el código, no es un ancla.* Cuatro
@@ -233,7 +229,7 @@ Las instantáneas de Hyperfide no sustituyen a git. Se respeta `.gitignore` junt
 
 ### Changelog
 
-`hyperfide changelog` genera notas de versión a partir del historial de git. Una versión empieza en un tag **o** en el commit que cambió la versión del proyecto — `CG_VERSION` en `src/cg.h`, un archivo `VERSION` o `package.json` — así que un proyecto que nunca usa tags obtiene igualmente una sección por versión. Lo que viene después de la última recibe el nombre de la versión que lleva el árbol de trabajo cuando es nueva (la versión en preparación), el de `--tag NAME`, y solo en otro caso `[Unreleased]`. Cada grupo es el prefijo del asunto del commit, y el `[spec:<feature>/<task>]` que añade `hyperfide commit` se convierte en una referencia a la tarea en la viñeta. Los enlaces a commits y comparaciones salen de `git remote get-url origin`; sin remoto, una viñeta se lee `- Add gauge (497c30a)` y los enlaces del pie se omiten.
+`hyperfide changelog` genera notas de versión a partir del historial de git. Una versión empieza en un tag **o** en el commit que cambió la versión del proyecto — `CG_VERSION` en `core/native/src/cg.h`, un archivo `VERSION` o `package.json` — así que un proyecto que nunca usa tags obtiene igualmente una sección por versión. Lo que viene después de la última recibe el nombre de la versión que lleva el árbol de trabajo cuando es nueva (la versión en preparación), el de `--tag NAME`, y solo en otro caso `[Unreleased]`. Cada grupo es el prefijo del asunto del commit, y el `[spec:<feature>/<task>]` que añade `hyperfide commit` se convierte en una referencia a la tarea en la viñeta. Los enlaces a commits y comparaciones salen de `git remote get-url origin`; sin remoto, una viñeta se lee `- Add gauge (497c30a)` y los enlaces del pie se omiten.
 
 ```markdown
 ## [0.3.0] - 2026-09-28
@@ -278,7 +274,9 @@ hyperfide recap --facts                      # the repository facts alone; no ke
 hyperfide recap -o - --agents codex          # to stdout, Codex sessions only
 ```
 
-Ambas llamadas usan `CENTRA_API_KEY` (o `HYPERFIDE_CHANGELOG_KEY`) del entorno o del `.env` del proyecto; sin ella, el comando se detiene con un error claro, ya que ninguna de las dos mitades tiene un sustituto local. El endpoint factura cada pregunta contra todo el estado, así que los bloques son pequeños (6 afirmaciones, `HYPERFIDE_RECAP_CHUNK`) y varios se ejecutan a la vez (`HYPERFIDE_RECAP_PARALLEL`, por defecto 6). El tiempo y el coste dependen de la sesión y de la pasarela; esta revisión no indica ninguna cifra medida. Las decisiones se cachean por bloque en `.codegraph/recap-cache/`, así que una nueva ejecución solo pregunta por las sesiones nuevas. Lo que nunca llega a un modelo: bloques de razonamiento, salida de herramientas, notificaciones y recordatorios del entorno, bloques de código y sesiones de otros proyectos. `HYPERFIDE_RECAP_DECIDE_MODEL`, `HYPERFIDE_RECAP_DECIDE_ENDPOINT` y `HYPERFIDE_RECAP_MODEL` apuntan cualquiera de las dos mitades a otro sitio; `HYPERFIDE_RECAP_CLAUDE_DIR` y `HYPERFIDE_RECAP_CODEX_DIR` dicen dónde buscar. El resumen se escribe en `recap.md` en el directorio de contexto: `.codify/recap.md` por defecto, `.hyperfide/context/recap.md` cuando el proyecto tiene un `hyperfide.kvx`.
+Ambas llamadas usan `CENTRA_API_KEY` (o `HYPERFIDE_CHANGELOG_KEY`) del entorno o del `.env` del proyecto; sin ella, el comando se detiene con un error claro, ya que ninguna de las dos mitades tiene un sustituto local. El endpoint factura cada pregunta contra todo el estado, así que los bloques son pequeños (6 afirmaciones, `HYPERFIDE_RECAP_CHUNK`) y varios se ejecutan a la vez (`HYPERFIDE_RECAP_PARALLEL`, por defecto 6). El tiempo y el coste dependen de la sesión y de la pasarela. Las decisiones se cachean por bloque en `.codegraph/recap-cache/`, así que una nueva ejecución solo pregunta por las sesiones nuevas. Lo que nunca llega a un modelo: bloques de razonamiento, salida de herramientas, notificaciones y recordatorios del entorno, bloques de código y sesiones de otros proyectos. `HYPERFIDE_RECAP_DECIDE_MODEL`, `HYPERFIDE_RECAP_DECIDE_ENDPOINT` y `HYPERFIDE_RECAP_MODEL` apuntan cualquiera de las dos mitades a otro sitio; `HYPERFIDE_RECAP_CLAUDE_DIR` y `HYPERFIDE_RECAP_CODEX_DIR` dicen dónde buscar. El resumen se escribe en `recap.md` en el directorio de contexto: `.codify/recap.md` por defecto, `.hyperfide/context/recap.md` cuando el proyecto tiene un `hyperfide.kvx`.
+
+`hyperfide recap --facts` muestra los hechos del repositorio sin clave ni llamada a un modelo.
 
 ### Mapa de código
 
@@ -322,8 +320,8 @@ Una memoria clasificada lleva su clase allí donde aparece — `class skill 0.82
 | `hyperfide mcp-install` | Alias de compatibilidad de `hyperfide integrate apply` |
 | `hyperfide hook install` | Conecta hooks de agente y de git para que el grafo se mantenga fresco y la deriva de alcance aflore por sí sola |
 | `hyperfide hook post-edit` | El propio hook de edición conectado: lee el payload del host por stdin y hace una sincronización dirigida en segundo plano más un guard de la ruta editada — un proceso por edición, no dos sincronizaciones completas |
-| `hyperfide hook event` | El hook de ciclo de vida conectado (`--host claude\|codex`): registra las sesiones propias del host y los subagentes que lanza su herramienta Agent en el registro de agentes, con su worktree, rama, tarea y última herramienta, emite eventos `agent.native.*` y pasa el payload a `hyperfide event ingest`; siempre sale con 0 |
-| `hyperfide hook pre-bash` | El hook de Bash conectado: cuando un comando ejecuta grep, rg, ag, ack, find, fd o `ls -R` sobre el árbol, responde con el equivalente de `hyperfide grep` o `hyperfide files` como contexto, una vez por sesión y comando; nunca decide permisos, silencioso con `HYPERFIDE_SHELL_ADVICE=0` o `[hooks] shell_advice = false`; siempre sale con 0 |
+| `hyperfide hook event` | El hook de ciclo de vida conectado (`--host claude\|codex`): registra las sesiones propias del host y los subagentes que lanza su herramienta Agent en el registro de agentes, con su worktree, rama, tarea y última herramienta, emite eventos `agent.native.*` y pasa el payload a `hyperfide event ingest`; sale con 0 en modo local |
+| `hyperfide hook pre-bash` | El hook de Bash conectado: cuando un comando ejecuta grep, rg, ag, ack, find, fd o `ls -R` sobre el árbol, responde con el equivalente de `hyperfide grep` o `hyperfide files` como contexto, una vez por sesión y comando; nunca decide permisos, silencioso con `HYPERFIDE_SHELL_ADVICE=0` o `[hooks] shell_advice = false`; sale con 0 en modo local |
 | `hyperfide changelog [-n N] [-o FILE] [--unreleased] [--tag NAME] [--snapshots] [--summarize\|--no-summarize]` | Notas de versión desde el historial de git: una versión por tag o cambio de versión, la más reciente nombrada por la versión del árbol de trabajo, grupos según el prefijo del asunto del commit, `[spec:<feature>/<task>]` convertido en referencia a la tarea y Highlights escritos por un modelo para cada versión cuando `CENTRA_API_KEY` está definida (ver [Changelog](#changelog)). `--snapshots`, o un proyecto sin `.git`, renderiza en cambio desde la cadena de instantáneas, con diffs a nivel de símbolo: funciones añadidas y eliminadas, rutas nuevas |
 | `hyperfide recap [--sessions N] [--since DAYS] [--budget CHARS] [-o FILE] [--agents claude,codex] [--decided] [--facts]` | Resumen para retomar a partir de sesiones pasadas de Claude Code y Codex: Solar Decide (System One, vía la pasarela Centra) elige las afirmaciones que necesita un agente que retoma el trabajo y el modelo de chat de la pasarela escribe `recap.md` en el directorio de contexto; las afirmaciones elegidas quedan en `.codegraph/recap/decided.md`. Necesita `CENTRA_API_KEY` (ver [Recap](#recap)) |
 | `hyperfide agentmd [--write]` | Genera la orientación del grafo como `agent-context.md` en el directorio de contexto (`.codify/` por defecto, `.hyperfide/context/` con un `hyperfide.kvx`); los `AGENTS.md` y `CLAUDE.md` de la raíz siguen siendo propiedad de `hyperfide spec render` |
@@ -361,7 +359,7 @@ La mayoría de los comandos de consulta aceptan `--json`. Ese flag, el servidor 
 
 ## Flujo de trabajo de specs
 
-El flujo de trabajo de specs es la forma en que Hyperfide convierte un plan de funcionalidad en trabajo seguido y verificado. Las specs viven como archivos kvx en texto plano — legibles por humanos, aptos para diff y propiedad de tu repositorio — y Hyperfide los renderiza en archivos de reglas para IDE y espejos en markdown mientras dirige encima el ciclo de tareas. Funciona en cualquier repositorio que contenga `spec/workflow.kvx`, es totalmente independiente de `.codegraph/` y es un reemplazo directo en C del `spec/specgen` de Ion con salida idéntica byte a byte.
+El flujo de trabajo de specs es la forma en que Hyperfide convierte un plan de funcionalidad en trabajo seguido y verificado. Las specs viven como archivos kvx en texto plano — legibles por humanos, aptos para diff y propiedad de tu repositorio — y Hyperfide los renderiza en archivos de reglas para IDE y espejos en markdown mientras dirige encima el ciclo de tareas. Funciona en cualquier repositorio que contenga `spec/workflow.kvx`, es totalmente independiente de `.codegraph/`.
 
 | Comando | Descripción |
 | --- | --- |
@@ -381,7 +379,7 @@ El flujo de trabajo de specs es la forma en que Hyperfide convierte un plan de f
 | `hyperfide spec next` | La tarea pendiente de menor oleada cuyos `requires` están satisfechos (solo `done` en modo standard; `implemented` o `done` en modo Prod), con sus viñetas de pasos y sus criterios de aceptación expandidos |
 | `hyperfide spec start <id>` | Marca una tarea como `in_progress`; impone una a la vez y `requires` cumplidos. `--force` solo salta el límite de una a la vez; `--ahead` reclama una tarea cuyos `requires` siguen abiertos, para construirla contra la proyección, y `done` espera a que aterricen |
 | `hyperfide spec implemented <id>` | En modo Prod, ejecuta las comprobaciones del grafo sobre el código fuente sin ejecutar `verify_cmd` y después marca la codificación como terminada con `implemented` (sin marcar; cualificación pendiente; sin `--force`) |
-| `hyperfide spec done <id>` | Desde `in_progress` o `implemented`, ejecuta el `verify_cmd` de la tarea y las comprobaciones del grafo; la marca `done` solo cuando la cualificación pasa, si no conserva `implemented`, y registra una memoria de resultado en ambos casos. `--force` la marca como done sin cualificar |
+| `hyperfide spec done <id>` | Desde `in_progress` o `implemented`, ejecuta `verify_cmd` y las comprobaciones del grafo y marca `done` cuando pasan. Si se rechaza, conserva el estado previo. Una tarea `implemented` requiere cualificación y no admite `--force` |
 | `hyperfide spec trace [<id>] [--no-sync]` | Traza las tareas hasta el código (tras refrescar el grafo salvo con `--no-sync`): símbolos declarados resueltos en el grafo (ubicación, tipo, referencias), rutas tocadas cotejadas con los cambios reales, los commits etiquetados con la tarea y sus memorias |
 | `hyperfide spec docs <status\|auto\|manual\|off\|start\|block\|reset\|done>` | Inspecciona o configura la etapa reservada de cierre `@docs`. Las specs nuevas usan `auto`; las specs sin sección `[documentation]` conservan el comportamiento de finalización heredado hasta que se active explícitamente |
 
@@ -427,9 +425,9 @@ Los modos standard y Prod ejecutan una tarea a la vez. Los agentes cada vez meno
 ```sh
 hyperfide spec ready                         # the whole frontier: every eligible task, every wave,
                                       # conflicts with live claims marked
-hyperfide spec claim 4.1 --agent alice       # a lease with an owner and an expiry
+hyperfide spec claim 4.1 --agent worker-a    # a lease with an owner and an expiry
 hyperfide spec start 4.1                     # refused if another live task claims the same paths
-hyperfide spec claim-next --agent bob        # or skip the choosing: atomically claim the first
+hyperfide spec claim-next --agent worker-b     # or skip the choosing: atomically claim the first
                                       # conflict-free task and get the full packet back
 ```
 
@@ -499,31 +497,17 @@ approve = ["land"]           # opt-in: wait for `hyperfide fleet approve`
 
 La posición de un agente en el árbol vive en su entorno — `HYPERFIDE_AGENT`, `HYPERFIDE_ROLE`, `HYPERFIDE_PARENT`, `HYPERFIDE_FEATURE`, `HYPERFIDE_WAVE` (y `HYPERFIDE_GH` para nombrar el binario `gh`) — y `hyperfide fleet begin` imprime la línea exacta que hay que exportar (escribe las variables con sus alias `CG_*`, que son equivalentes). Sin rol definido no se registra nada, así que una sesión en solitario no cambia. Con él, `hyperfide brief` nombra el rol y el padre, los claims llevan la rama y el registro de intentos guarda para siempre la rama, el worktree y el padre.
 
-`hyperfide fleet up` dirige el árbol entero por sí solo. Un supervisor desacoplado ejecuta cada funcionalidad que nombres (`--all`: cada funcionalidad con trabajo pendiente, cada una empezando cuando sus `[meta] requires` están hechos), un gestor por oleada vivo junto a sus trabajadores, cada trabajador en su propio worktree con su identidad en el entorno. Un extracto del test de integración `tests/integration/35_fleet_e2e.sh`, que dirige el supervisor con un driver custom guionizado:
+`hyperfide fleet up` ejecuta las funcionalidades seleccionadas bajo un supervisor desacoplado, con un gestor por oleada y trabajadores en sus propios worktrees. `--all` selecciona las funcionalidades con trabajo pendiente; cada una comienza al satisfacer sus `[meta] requires`.
 
-```console
-$ hyperfide fleet up --foreground --all -n 3 --max-fail 5
-[fleet] alpha — a manager per wave (all at once) + 3 worker slot(s), driver custom, 48 wake(s)
-[fleet] waves parallel — a task may start ahead of its requires, on the projection (default, git >= 2.38)
-[fleet] manager wm-alpha-1 on wave/alpha/1 (47 wake(s) left), log .codegraph/agents/alpha-manager-1.log
-[fleet] worker w-alpha-2.1 → 2.1 (wave 1) on task/alpha/2.1, log .codegraph/agents/alpha-2.1.log
-[fleet] worker w-alpha-2.2 → 2.2 (wave 1) on task/alpha/2.2, log .codegraph/agents/alpha-2.2.log
-[fleet] worker w-alpha-2.1 task 2.1 exit 1 → INCOMPLETE
-[fleet] worker w-alpha-2.1 → 2.1 (wave 1) on task/alpha/2.1, log .codegraph/agents/alpha-2.1.log
-[fleet] worker w-alpha-2.1 task 2.1 exit 0 → done
-[fleet] worker w-alpha-2.2 on 2.2: no progress for 2s — nudged
-[fleet] worker w-alpha-2.2 on 2.2: stalled — no progress for 2s after a nudge — stopping it
-[fleet] worker w-alpha-2.2 task 2.2 exit 143 → INCOMPLETE
-...
-[fleet] alpha complete — 4/4 task(s) qualified, wave/alpha/* merged into main, 2 failure(s)
-[fleet] beta complete — 2/2 task(s) qualified, wave/beta/* merged into main, 0 failure(s)
+```sh
+hyperfide fleet up --foreground --all -n 3 --max-fail 5
 ```
 
-Lo que hace entre esas líneas:
+Comportamiento del supervisor:
 
 - **Las ejecuciones son duraderas.** La ejecución y cada nodo — rol, padre, tarea, rama, worktree, pid, intento, fence, reintentos, gasto — viven en la base de datos. Si matas el supervisor, `hyperfide fleet up --resume` adopta a los agentes que siguen vivos (comprobados por pid y hora de inicio) y conserva los recuentos de reintentos; `down`, `down --drain`, `pause` y `resume` detienen, drenan, congelan o continúan una ejecución.
 - **Supervisión.** El progreso es trabajo — eventos, salida de log, cambios en el worktree —, no un heartbeat. Una ventana de estancamiento sin él gana un empujón y una segunda detiene el intento con un handoff. Los presupuestos `wall` y `spend` detienen un intento; una tarea fallida se reintenta con lo que salió mal en su prompt; cuando se agotan los reintentos escala al gestor, luego al principal y después se marca como bloqueada mientras el resto de la ejecución continúa.
-- **Tres niveles a la vez.** Un bloqueo de merge por funcionalidad sustituye a los turnos, así que gestores y trabajadores corren juntos; con una plantilla de rama `{task}` las tareas de una oleada corren en paralelo en sus propias ramas, salvo las parejas que se predice que chocarán. `[hierarchy] main_agent = true` ejecuta también a Main Gideon como proceso.
+- **Tres niveles a la vez.** Un bloqueo de merge por funcionalidad sustituye a los turnos, así que gestores y trabajadores corren juntos; con una plantilla de rama `{task}` las tareas de una oleada corren en paralelo en sus propias ramas, salvo las parejas que se predice que chocarán. `[hierarchy] main_agent = true` ejecuta también a main como proceso.
 - **Briefings desde el grafo.** El prompt de un trabajador lleva sus criterios, las definiciones actuales de sus símbolos declarados con llamadores y llamados, lo que sus prerrequisitos produjeron realmente en la rama de la funcionalidad y lo que tocan sus hermanos, ajustado a un presupuesto de tokens; `hyperfide work update` informa de los símbolos fusionados aguas arriba desde que empezó el intento.
 - **Bloquear es opcional.** Las puertas listadas en el `approve` de un rol detienen `land`, `pr`, un `merge-up` con deriva o un aterrizaje con criterios sin cubrir hasta `hyperfide fleet approve`. Sin ellas, nada espera a una persona.
 
@@ -566,10 +550,10 @@ Tres comandos hacen una pregunta propia e imprimen la respuesta junto a su vered
 | Cuándo | Lo que añade Jev |
 | --- | --- |
 | `hyperfide spec done` y `verify_cmd` falla | `jev triage: test_failure (confidence 0.82) → fix_test (confidence 0.82)` — una categoría y una siguiente acción a partir del final de la salida, añadidas también a la memoria de resultado |
-| `hyperfide guard` | `[jev 3.80 Blocking]` por hallazgo, y los hallazgos ordenados del más grave al menos grave — puntuados en una sola llamada sea cual sea su número |
+| `hyperfide guard` | `[jev <score> <level>]` — por hallazgo, hasta 50 hallazgos en una llamada |
 | `hyperfide fleet pr` | `Jev readiness: 0.95 (high) — 2/3 tasks qualified, 4 commits` en el cuerpo del pull request |
 
-Los tres comparten una puerta, así que el modo de fallo es el mismo en todas partes: `jev: OPENROUTER_API_KEY is not set — failure triage skipped`, una vez, en stderr, con el veredicto y el código de salida propios del comando intactos. `hyperfide guard --strict` sigue fallando exactamente en lo que fallaba antes; un `verify_cmd` en rojo sigue en rojo.
+Sin clave o sin una respuesta utilizable, el aviso de stderr nombra la operación que no recibió anotación. El veredicto y el código de salida siguen dependiendo de las comprobaciones deterministas.
 
 Aparte de los highlights opcionales del changelog y de `hyperfide recap`, esta es la única llamada remota que hace la CLI local, y el principio lo dice: el grafo, la memoria y el flujo de trabajo se quedan en local, Jev es **obligatorio** para las funciones construidas sobre él — `hyperfide memory classify` sin `OPENROUTER_API_KEY` es un error claro, nunca un respaldo silencioso — y **nunca autoritativo**: acota, ordena y señala, mientras `verify_cmd` y las comprobaciones del grafo deciden. La clave nunca llega a una línea de comandos (`curl` se maneja mediante un archivo de configuración privado `0600`), los `429` y `529` esperan y reintentan, y cada llamada queda registrada. Ver [docs/jev.md](../jev.md).
 
@@ -634,17 +618,9 @@ lista, y `hyperfide check` las informa como aviso. Ver
 
 `hyperfide spec run` convierte una spec paralela en sesiones de agente en marcha. Repite las mismas primitivas que usaría una flota humana — `claim-next` elige una tarea sin conflictos, `resume --prompt` escribe su briefing — y después lanza un proceso driver por slot, pasándole el prompt por stdin y capturando su salida en un log por tarea:
 
-```console
-$ hyperfide spec run -n 1
-[run] task 1.1 → custom (agent run-1, log .codegraph/agents/drv-1.1.log)
-[run] task 1.1 exit 0 → status done
-[run] task 2.1 → custom (agent run-1, log .codegraph/agents/drv-2.1.log)
-[run] task 2.1 exit 0 → status done
-...
-[run] frontier empty — 0 failure(s) this run
+```sh
+hyperfide spec run -n 1
 ```
-
-(Salida de `tests/integration/18_orchestrate.sh`, que usa un driver custom guionizado; con el driver por defecto cada línea nombra `codex`.)
 
 La configuración vive en `spec/workflow.kvx`, junto a todo lo demás que posee el flujo de trabajo:
 
@@ -672,7 +648,7 @@ La aplicación de plataforma contiene las tareas, Asks y vistas de flota. La ext
 
 ## El plano de control de Hyperfide
 
-Todo lo anterior corre en una sola máquina: un grafo SQLite, un supervisor por proyecto. Hyperfide 2.0 añade un modelo operativo distribuido para ejecuciones demasiado grandes para eso — muchos gestores de funcionalidad, sandboxes remotos, verificación independiente — descrito en [docs/hyperfide/operations.md](../hyperfide/operations.md) y en la [visión general del diseño](../../../tools/hyperfide/spec/hyperfide/design.body.md). Es un árbol de desarrollo, no una versión publicada: las interfaces de abajo existen en el código fuente y su cualificación se sigue tarea por tarea.
+Todo lo anterior corre en una sola máquina: un grafo SQLite, un supervisor por proyecto. Hyperfide 2.0 añade un modelo operativo distribuido para ejecuciones demasiado grandes para eso — muchos gestores de funcionalidad, sandboxes remotos, verificación independiente — descrito en [docs/hyperfide/operations.md](../hyperfide/operations.md) y en la [visión general del diseño](../../../tools/hyperfide/spec/hyperfide/design.body.md).
 
 ```mermaid
 flowchart TD
@@ -705,11 +681,13 @@ make hyperfide-check      # type-check only
 
 `core/control-plane/dist/control.js`, `provisioner.js` y `dispatch.js` son los puntos de entrada. Cada uno necesita un archivo de política aprobado explícitamente y la revisión exacta de la especificación que aprueba (`--policy FILE --spec-revision REV`, más los opcionales `--components`, `--module-root`, `--mode stdio|https|daemon`, `--host`, `--port`, `--tls-cert`, `--tls-key`), y rechaza cualquier otra cosa:
 
-```text
-$ node core/control-plane/dist/control.js
-{"ok":false,"error":{"code":"INVALID_ARGS","message":"Explicit trusted policy and pinned specification revision required"}}
-$ node core/control-plane/dist/control.js --policy /nonexistent --spec-revision X
-{"ok":false,"error":{"code":"POLICY_INVALID","message":"Trusted policy file is unavailable"}}
+El directorio de componentes suministrado registra `14.1`. Para servir solicitudes firmadas, use `--mode https`, la configuración de identidad `HF_IDENTITY_CONFIG_FILE` y un certificado y una clave TLS. Configure el listener y la revisión desde el entorno protegido del despliegue.
+
+```sh
+node core/control-plane/dist/control.js \
+  --mode https --host "$HYPERFIDE_LISTEN_HOST" --port "$HYPERFIDE_LISTEN_PORT" \
+  --tls-cert /etc/hyperfide/control.crt --tls-key /etc/hyperfide/control.key \
+  --policy /etc/hyperfide/control-policy.json --spec-revision "$HYPERFIDE_SPEC_REVISION"
 ```
 
 Lo que esto cambia para quien lea el resto de esta página:
@@ -803,23 +781,23 @@ tools/repository/    install/uninstall scripts,
                      release construction, native component discovery
 spec/hyperfide/      the Hyperfide 2.0 specification, design and contracts
 artifacts/hyperfide/ per-task evidence indexes
-../ARCHITECTURE.md how the pieces fit together
-../hyperfide/operations.md  the control plane: build, start, PostgreSQL,
+../../docs/hyperfide/ARCHITECTURE.md how the pieces fit together
+../../docs/hyperfide/hyperfide/operations.md  the control plane: build, start, PostgreSQL,
                      providers, verification, recovery, migration
-../sync.md         the sync gate, freshness, slots, incremental resolution
-../config.md       project configuration: relocated spec/context/skills paths, auto-sync
-../journal.md      the write journal: what is queued when the database is busy, replay,
+../../docs/hyperfide/sync.md         the sync gate, freshness, slots, incremental resolution
+../../docs/hyperfide/config.md       project configuration: relocated spec/context/skills paths, auto-sync
+../../docs/hyperfide/journal.md      the write journal: what is queued when the database is busy, replay,
                      hyperfide journal
-../retrieval.md    declarations, phrase ranking, path outlines, the budget
-../hierarchy.md    roles, branch flow, the supervisor, supervision, approvals,
+../../docs/hyperfide/retrieval.md    declarations, phrase ranking, path outlines, the budget
+../../docs/hyperfide/hierarchy.md    roles, branch flow, the supervisor, supervision, approvals,
                      briefings
-../drift.md        spec, collision, interface, and coverage drift
-../events.md       the event log, hyperfide serve, drivers, steering
-../branches.md     the unified multi-branch graph and its schema
-../jev.md          typed decisions: types, transport, configuration, limits
+../../docs/hyperfide/drift.md        spec, collision, interface, and coverage drift
+../../docs/hyperfide/events.md       the event log, hyperfide serve, drivers, steering
+../../docs/hyperfide/branches.md     the unified multi-branch graph and its schema
+../../docs/hyperfide/jev.md          typed decisions: types, transport, configuration, limits
 ```
 
-Las salidas doradas del renderizado de specs se generaron con el specgen original en Go, así que la paridad del renderizado queda garantizada por `make test`. La CI (`.github/workflows/ci.yml`) compila y ejecuta las suites unitaria y de integración en los push a `main` y en los pull requests.
+Los tests de renderizado de specs comparan los resultados con archivos de referencia y comprueban `--check`. La CI (`.github/workflows/ci.yml`) compila y ejecuta las suites unitaria y de integración en los push a `main` y en los pull requests.
 
 ## Compartir el grafo entre el editor y los agentes
 
@@ -838,7 +816,6 @@ El lock de la base de datos decide quién *escribe*. Una puerta aparte decide qu
 - Jev necesita red y `OPENROUTER_API_KEY`. Nada del ciclo principal depende de él, y ninguna respuesta de Jev cambia un código de salida.
 - La detección de deriva es a nivel de línea y de grafo: se pierden los cambios de comportamiento dentro de líneas sin cambios, las llamadas a través de una tercera función y las referencias que el indexador no puede ver ([docs/drift.md](../drift.md#limitations)).
 - Los highlights del changelog necesitan red y una clave; sin ella, las notas son el registro derivado simple.
-- El plano de control distribuido no está cualificado en esta revisión: sus casos de aceptación completos, las ejecuciones con proveedores reales y las campañas de fallos están pendientes, así que no se le aplica ninguna cifra de capacidad, rendimiento ni disponibilidad ([Estado en esta revisión](#el-plano-de-control-de-hyperfide)).
 
 ## Comunidad
 

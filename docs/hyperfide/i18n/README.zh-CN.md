@@ -14,7 +14,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)](../../../tools/hyperfide/LICENSE)
 [![Language: C11](https://img.shields.io/badge/Language-C11-lightgrey?style=for-the-badge)](#)
-[![CI](https://img.shields.io/badge/CI-passing-brightgreen?style=for-the-badge)](../../../tools/hyperfide/.github/workflows/ci.yml)
+[CI](../../../tools/hyperfide/.github/workflows/ci.yml)
 </div>
 <div align="center">
 
@@ -79,9 +79,7 @@ CLI 不运行任何你未曾启动的后台服务,也不发送遥测——fleet 
 
 ## 意图层
 
-解析器能看到符号、调用和路由。它看不到函数*为什么*存在、调用者必须保证什么,
-或者 `save_tasks` 必须在 `load_tasks` 读盘之后运行——代码库的这一半只存在于
-注释中。Hyperfide 将其索引起来(完整约定见 [docs/ANCHORS.md](../ANCHORS.md)):
+Hyperfide 索引描述函数用途、调用者契约和操作顺序的意图注释。[锚点指南](../ANCHORS.md)介绍注释类型和检索方式：
 
 - **锚点(anchor)** 是通过"可推导性测试"的注释——*如果智能体读代码就能写出来,
   它就不是锚点。* 有价值的四类是:**目的(purpose)**、**契约(contract)**、
@@ -227,7 +225,7 @@ Hyperfide 的快照并不取代 git。`.gitignore` 与 `.cgignore` 一同生效,
 
 ### 变更日志
 
-`hyperfide changelog` 基于 git 历史生成发布说明。一个发布从某个 tag **或**项目版本号发生变化的那次提交开始——`src/cg.h` 中的 `CG_VERSION`、`VERSION` 文件或 `package.json`——所以从不打 tag 的项目也能每个版本得到一节。最后一个发布之后的内容,若工作树携带的版本号是新的(即正在准备的发布),就以它命名;也可用 `--tag NAME` 指定;否则才是 `[Unreleased]`。分组来自提交标题前缀,`hyperfide commit` 追加的 `[spec:<feature>/<task>]` 会成为条目上的任务引用。提交链接和比较链接来自 `git remote get-url origin`;没有 remote 时,条目写作 `- Add gauge (497c30a)`,页脚链接被省略。
+`hyperfide changelog` 基于 git 历史生成发布说明。一个发布从某个 tag **或**项目版本号发生变化的那次提交开始——`core/native/src/cg.h` 中的 `CG_VERSION`、`VERSION` 文件或 `package.json`——所以从不打 tag 的项目也能每个版本得到一节。最后一个发布之后的内容,若工作树携带的版本号是新的(即正在准备的发布),就以它命名;也可用 `--tag NAME` 指定;否则才是 `[Unreleased]`。分组来自提交标题前缀,`hyperfide commit` 追加的 `[spec:<feature>/<task>]` 会成为条目上的任务引用。提交链接和比较链接来自 `git remote get-url origin`;没有 remote 时,条目写作 `- Add gauge (497c30a)`,页脚链接被省略。
 
 ```markdown
 ## [0.3.0] - 2026-09-28
@@ -272,7 +270,9 @@ hyperfide recap --facts                      # the repository facts alone; no ke
 hyperfide recap -o - --agents codex          # to stdout, Codex sessions only
 ```
 
-两次调用都使用环境变量或项目 `.env` 中的 `CENTRA_API_KEY`(或 `HYPERFIDE_CHANGELOG_KEY`);没有它时命令会以明确的错误停止,因为两半都没有本地替代品。该端点会针对整个状态为每个问题计费,所以分块很小(6 条陈述,`HYPERFIDE_RECAP_CHUNK`),并且多块同时运行(`HYPERFIDE_RECAP_PARALLEL`,默认 6)。耗时和费用取决于会话和网关;本修订版不给出实测数字。决定按块缓存在 `.codegraph/recap-cache/` 下,因此重新运行时只会询问新的会话。永远不会发给模型的内容:思考块、工具输出、宿主框架的通知和提醒、代码围栏,以及其他项目的会话。`HYPERFIDE_RECAP_DECIDE_MODEL`、`HYPERFIDE_RECAP_DECIDE_ENDPOINT` 和 `HYPERFIDE_RECAP_MODEL` 可让任一半指向别处;`HYPERFIDE_RECAP_CLAUDE_DIR` 和 `HYPERFIDE_RECAP_CODEX_DIR` 指定去哪里查找。简报写入上下文目录中的 `recap.md`:默认是 `.codify/recap.md`,项目有 `hyperfide.kvx` 时是 `.hyperfide/context/recap.md`。
+两次调用都使用环境变量或项目 `.env` 中的 `CENTRA_API_KEY`(或 `HYPERFIDE_CHANGELOG_KEY`);没有它时命令会以明确的错误停止,因为两半都没有本地替代品。该端点会针对整个状态为每个问题计费,所以分块很小(6 条陈述,`HYPERFIDE_RECAP_CHUNK`),并且多块同时运行(`HYPERFIDE_RECAP_PARALLEL`,默认 6)。耗时和费用取决于会话和网关。决定按块缓存在 `.codegraph/recap-cache/` 下,因此重新运行时只会询问新的会话。永远不会发给模型的内容:思考块、工具输出、宿主框架的通知和提醒、代码围栏,以及其他项目的会话。`HYPERFIDE_RECAP_DECIDE_MODEL`、`HYPERFIDE_RECAP_DECIDE_ENDPOINT` 和 `HYPERFIDE_RECAP_MODEL` 可让任一半指向别处;`HYPERFIDE_RECAP_CLAUDE_DIR` 和 `HYPERFIDE_RECAP_CODEX_DIR` 指定去哪里查找。简报写入上下文目录中的 `recap.md`:默认是 `.codify/recap.md`,项目有 `hyperfide.kvx` 时是 `.hyperfide/context/recap.md`。
+
+`hyperfide recap --facts` 无需密钥，也不调用模型，只显示仓库事实。
 
 ### 代码地图
 
@@ -316,8 +316,8 @@ hyperfide codemap --json      # the same map as structured data
 | `hyperfide mcp-install` | `hyperfide integrate apply` 的兼容别名 |
 | `hyperfide hook install` | 接入智能体与 git 钩子,让图保持新鲜、范围漂移自动浮现 |
 | `hyperfide hook post-edit` | 接入的编辑钩子本身:从 stdin 读取宿主的负载,做一次定向后台同步,并对被编辑的路径做一次 guard——每次编辑一个进程,而不是两次完整同步 |
-| `hyperfide hook event` | 接入的生命周期钩子(`--host claude\|codex`):把宿主自己的会话及其 Agent 工具派生的子智能体连同 worktree、分支、任务和最后一次工具调用记入智能体注册表,发出 `agent.native.*` 事件,并把负载交给 `hyperfide event ingest`;总是以 0 退出 |
-| `hyperfide hook pre-bash` | 接入的 Bash 钩子:当命令在代码树上运行 grep、rg、ag、ack、find、fd 或 `ls -R` 时,以上下文形式给出对应的 `hyperfide grep` 或 `hyperfide files` 写法,每个会话每条命令一次;从不做权限决定,在 `HYPERFIDE_SHELL_ADVICE=0` 或 `[hooks] shell_advice = false` 下静默;总是以 0 退出 |
+| `hyperfide hook event` | 接入的生命周期钩子(`--host claude\|codex`):把宿主自己的会话及其 Agent 工具派生的子智能体连同 worktree、分支、任务和最后一次工具调用记入智能体注册表,发出 `agent.native.*` 事件,并把负载交给 `hyperfide event ingest`;在本地模式下以 0 退出 |
+| `hyperfide hook pre-bash` | 接入的 Bash 钩子:当命令在代码树上运行 grep、rg、ag、ack、find、fd 或 `ls -R` 时,以上下文形式给出对应的 `hyperfide grep` 或 `hyperfide files` 写法,每个会话每条命令一次;从不做权限决定,在 `HYPERFIDE_SHELL_ADVICE=0` 或 `[hooks] shell_advice = false` 下静默;在本地模式下以 0 退出 |
 | `hyperfide changelog [-n N] [-o FILE] [--unreleased] [--tag NAME] [--snapshots] [--summarize\|--no-summarize]` | 基于 git 历史的发布说明:每个 tag 或版本号变更一个发布,最新一个以工作树的版本号命名,分组来自提交标题前缀,`[spec:<feature>/<task>]` 渲染为任务引用,设置 `CENTRA_API_KEY` 时每个发布附带模型撰写的 Highlights(见[变更日志](#变更日志))。`--snapshots`,或没有 `.git` 的项目,改为基于快照链渲染,给出符号级差异:新增和删除的函数、新路由 |
 | `hyperfide recap [--sessions N] [--since DAYS] [--budget CHARS] [-o FILE] [--agents claude,codex] [--decided] [--facts]` | 基于过往 Claude Code 和 Codex 会话的接手简报:Solar Decide(System One,经由 Centra 网关)挑选接手的智能体所需的陈述,网关聊天模型在上下文目录中写出 `recap.md`;挑选出的陈述保留在 `.codegraph/recap/decided.md`。需要 `CENTRA_API_KEY`(见[回顾](#回顾)) |
 | `hyperfide agentmd [--write]` | 在上下文目录中生成图导览 `agent-context.md`(默认是 `.codify/`,有 `hyperfide.kvx` 时是 `.hyperfide/context/`);根目录的 `AGENTS.md` 与 `CLAUDE.md` 仍归 `hyperfide spec render` 所有 |
@@ -355,7 +355,7 @@ Hyperfide 明确区分四个相互独立的权威来源:Git 状态、Hyperfide �
 
 ## Spec 工作流
 
-Spec 工作流是 Hyperfide 将特性计划转化为可跟踪、经过验证的工作的方式。Spec 以纯文本 kvx 文件的形式存在——人类可读、可 diff、归你的仓库所有——Hyperfide 将它们渲染成 IDE 规则文件和 markdown 镜像,同时在其之上驱动任务循环。它适用于任何包含 `spec/workflow.kvx` 的仓库,完全独立于 `.codegraph/`,并且是 Ion 的 `spec/specgen` 的即插即用 C 语言替代品,输出逐字节相同。
+Spec 工作流是 Hyperfide 将特性计划转化为可跟踪、经过验证的工作的方式。Spec 以纯文本 kvx 文件的形式存在——人类可读、可 diff、归你的仓库所有——Hyperfide 将它们渲染成 IDE 规则文件和 markdown 镜像,同时在其之上驱动任务循环。它适用于任何包含 `spec/workflow.kvx` 的仓库,完全独立于 `.codegraph/`。
 
 | 命令 | 说明 |
 | --- | --- |
@@ -375,7 +375,7 @@ Spec 工作流是 Hyperfide 将特性计划转化为可跟踪、经过验证的�
 | `hyperfide spec next` | `requires` 已满足的最低 wave 中的待办任务(standard 模式下只认 `done`;Prod 模式下认 `implemented` 或 `done`),附其 do 条目和展开的验收标准 |
 | `hyperfide spec start <id>` | 将任务标记为 `in_progress`;强制同一时刻只有一个,且 `requires` 已满足。`--force` 只覆盖"同一时刻一个"的限制;`--ahead` 认领一个 `requires` 仍未完成的任务,基于投影进行构建,`done` 会等到这些前置任务落地 |
 | `hyperfide spec implemented <id>` | 在 Prod 模式下,运行源码图检查而不执行 `verify_cmd`,然后将编码完成标记为 `implemented`(不打勾;资格确认待定;没有 `--force`) |
-| `hyperfide spec done <id>` | 从 `in_progress` 或 `implemented` 出发,运行任务的 `verify_cmd` 和图检查;只有资格确认通过才标记为 `done`,否则保留 `implemented`,无论哪种情况都记录一条结果记忆。`--force` 不经资格确认直接标记为完成 |
+| `hyperfide spec done <id>` | 从 `in_progress` 或 `implemented` 出发，运行 `verify_cmd` 和图检查，通过后标记为 `done`。拒绝时保留原状态。`implemented` 任务必须通过资格确认，不接受 `--force` |
 | `hyperfide spec trace [<id>] [--no-sync]` | 将任务追溯到代码(除非指定 `--no-sync`,否则先刷新图):声明的符号在图中解析的结果(位置、种类、引用)、涉及的路径与实际改动的匹配、带有该任务标签的提交,以及它的记忆 |
 | `hyperfide spec docs <status\|auto\|manual\|off\|start\|block\|reset\|done>` | 查看或配置保留的 `@docs` 收尾阶段。新 spec 使用 `auto`;没有 `[documentation]` 小节的 spec 保持旧的完成行为,直到被显式启用 |
 
@@ -421,9 +421,9 @@ Standard 和 Prod 模式都是一次运行一个任务。智能体却越来越�
 ```sh
 hyperfide spec ready                         # the whole frontier: every eligible task, every wave,
                                       # conflicts with live claims marked
-hyperfide spec claim 4.1 --agent alice       # a lease with an owner and an expiry
+hyperfide spec claim 4.1 --agent worker-a    # a lease with an owner and an expiry
 hyperfide spec start 4.1                     # refused if another live task claims the same paths
-hyperfide spec claim-next --agent bob        # or skip the choosing: atomically claim the first
+hyperfide spec claim-next --agent worker-b     # or skip the choosing: atomically claim the first
                                       # conflict-free task and get the full packet back
 ```
 
@@ -493,31 +493,17 @@ approve = ["land"]           # opt-in: wait for `hyperfide fleet approve`
 
 智能体在树中的位置存在于它的环境变量中——`HYPERFIDE_AGENT`、`HYPERFIDE_ROLE`、`HYPERFIDE_PARENT`、`HYPERFIDE_FEATURE`、`HYPERFIDE_WAVE`(以及用于指定 `gh` 二进制的 `HYPERFIDE_GH`)——`hyperfide fleet begin` 会打印需要 export 的确切命令行(它用这些变量的 `CG_*` 别名来书写,两者等价)。没有设置角色时不会注册任何东西,因此单人会话不受影响。设置之后,`hyperfide brief` 会说明角色和父级,认领会携带分支,尝试账本会永久记录分支、worktree 和父级。
 
-`hyperfide fleet up` 独立驱动整棵树。一个脱离终端的监督进程运行你指定的每个特性(`--all`:每个还有剩余工作的特性,各自在其 `[meta] requires` 完成后开始),每个 wave 一个管理者与其工作者同时存活,每个工作者在自己的 worktree 中,身份写在环境变量里。下面摘自集成测试 `tests/integration/35_fleet_e2e.sh`,它用一个脚本化的自定义驱动来驱动监督进程:
+`hyperfide fleet up` 在独立监督进程下运行选定功能，每个波次有一个管理者，工作者使用各自的 worktree。`--all` 选择有待完成工作的功能；每个功能在满足其 `[meta] requires` 后启动。
 
-```console
-$ hyperfide fleet up --foreground --all -n 3 --max-fail 5
-[fleet] alpha — a manager per wave (all at once) + 3 worker slot(s), driver custom, 48 wake(s)
-[fleet] waves parallel — a task may start ahead of its requires, on the projection (default, git >= 2.38)
-[fleet] manager wm-alpha-1 on wave/alpha/1 (47 wake(s) left), log .codegraph/agents/alpha-manager-1.log
-[fleet] worker w-alpha-2.1 → 2.1 (wave 1) on task/alpha/2.1, log .codegraph/agents/alpha-2.1.log
-[fleet] worker w-alpha-2.2 → 2.2 (wave 1) on task/alpha/2.2, log .codegraph/agents/alpha-2.2.log
-[fleet] worker w-alpha-2.1 task 2.1 exit 1 → INCOMPLETE
-[fleet] worker w-alpha-2.1 → 2.1 (wave 1) on task/alpha/2.1, log .codegraph/agents/alpha-2.1.log
-[fleet] worker w-alpha-2.1 task 2.1 exit 0 → done
-[fleet] worker w-alpha-2.2 on 2.2: no progress for 2s — nudged
-[fleet] worker w-alpha-2.2 on 2.2: stalled — no progress for 2s after a nudge — stopping it
-[fleet] worker w-alpha-2.2 task 2.2 exit 143 → INCOMPLETE
-...
-[fleet] alpha complete — 4/4 task(s) qualified, wave/alpha/* merged into main, 2 failure(s)
-[fleet] beta complete — 2/2 task(s) qualified, wave/beta/* merged into main, 0 failure(s)
+```sh
+hyperfide fleet up --foreground --all -n 3 --max-fail 5
 ```
 
-在这些输出行之间,它做了这些事:
+监督进程的行为：
 
 - **运行是持久的。** 运行本身及其每个节点——角色、父级、任务、分支、worktree、pid、尝试、fence、重试次数、花费——都存放在数据库中。杀掉监督进程后,`hyperfide fleet up --resume` 会接管仍然存活的智能体(按 pid 和启动时间核对)并保留重试计数;`down`、`down --drain`、`pause` 和 `resume` 分别停止、排空、冻结或继续一次运行。
 - **监督。** 进展指的是工作——事件、日志输出、worktree 中的改动——而不是心跳。一个停滞窗口内没有进展会换来一次催促,第二个窗口则会以一次 handoff 停止该尝试。`wall` 和 `spend` 预算会停止尝试;失败的任务会带着失败原因写进提示词再重试;重试次数用尽后,先升级给管理者,再升级给 main,然后标记为 blocked,而运行的其余部分继续进行。
-- **三个层级同时进行。** 特性合并锁取代了轮流执行,因此管理者和工作者一起运行;使用 `{task}` 分支模板时,同一 wave 的任务在各自的分支上并行运行,预测会相互冲突的任务对除外。`[hierarchy] main_agent = true` 会让 Main Gideon 也作为一个进程运行。
+- **三个层级同时进行。** 特性合并锁取代了轮流执行,因此管理者和工作者一起运行;使用 `{task}` 分支模板时,同一 wave 的任务在各自的分支上并行运行,预测会相互冲突的任务对除外。`[hierarchy] main_agent = true` 会让 main 也作为一个进程运行。
 - **来自图的简报。** 工作者的提示词携带它的标准、所声明符号的当前定义及其调用者和被调用者、它的前置任务在特性分支上实际产出了什么,以及它的兄弟任务正在涉及什么,并适配到 token 预算;`hyperfide work update` 会报告自尝试开始以来在上游合并的符号。
 - **阻断需主动启用。** 在某个角色的 `approve` 中列出的关卡会让 `land`、`pr`、发生漂移的 `merge-up`,或带有未覆盖标准的落地停下,直到 `hyperfide fleet approve`。没有这些关卡时,没有任何东西会等人。
 
@@ -560,10 +546,10 @@ $ hyperfide branches
 | 时机 | Jev 补充的内容 |
 | --- | --- |
 | `hyperfide spec done` 且 `verify_cmd` 失败 | `jev triage: test_failure (confidence 0.82) → fix_test (confidence 0.82)`——根据输出末尾给出一个类别和下一步动作,同时追加到结果记忆中 |
-| `hyperfide guard` | 每条发现附 `[jev 3.80 Blocking]`,发现按严重程度从高到低排序——无论数量多少都在一次调用中完成评分 |
+| `hyperfide guard` | `[jev <score> <level>]` — 每条发现的评分，一次调用最多处理 50 条发现 |
 | `hyperfide fleet pr` | 拉取请求正文中的 `Jev readiness: 0.95 (high) — 2/3 tasks qualified, 4 commits` |
 
-三者共用同一个关卡,所以失败模式处处相同:在 stderr 上打印一次 `jev: OPENROUTER_API_KEY is not set — failure triage skipped`,命令自身的结论和退出码不受影响。`hyperfide guard --strict` 失败的情形与之前完全相同;红色的 `verify_cmd` 仍然是红色。
+没有密钥或可用响应时，stderr 提示会指出未获得注释的操作。命令结果和退出码仍由确定性检查决定。
 
 除了需主动启用的变更日志 highlights 和 `hyperfide recap`,这是本地 CLI 唯一的远程调用,原则也是这样规定的:图、记忆和工作流留在本地,Jev 对构建于其上的功能是**必需的**——没有 `OPENROUTER_API_KEY` 时 `hyperfide memory classify` 会给出明确的错误,绝不会悄悄回退——并且**从不具有权威性**:它负责缩小范围、排序和标记,而由 `verify_cmd` 和图检查做决定。密钥永远不会出现在命令行上(`curl` 通过一个私有的 `0600` 配置文件驱动),`429` 和 `529` 会退避重试,每次调用都会记录日志。见 [docs/jev.md](../jev.md)。
 
@@ -624,17 +610,9 @@ codemap = "CODEMAP.md"      # written by cg codemap
 
 `hyperfide spec run` 把一个并行 spec 变成正在运行的智能体会话。它循环使用人工 fleet 也会使用的同一组原语——`claim-next` 挑选一个无冲突的任务,`resume --prompt` 写出它的简报——然后每个槽位 fork 一个驱动进程,通过 stdin 把提示词喂给它,并把它的输出捕获到每个任务各自的日志中:
 
-```console
-$ hyperfide spec run -n 1
-[run] task 1.1 → custom (agent run-1, log .codegraph/agents/drv-1.1.log)
-[run] task 1.1 exit 0 → status done
-[run] task 2.1 → custom (agent run-1, log .codegraph/agents/drv-2.1.log)
-[run] task 2.1 exit 0 → status done
-...
-[run] frontier empty — 0 failure(s) this run
+```sh
+hyperfide spec run -n 1
 ```
-
-(输出来自 `tests/integration/18_orchestrate.sh`,它使用脚本化的自定义驱动;使用默认驱动时,每一行写的都是 `codex`。)
 
 配置位于 `spec/workflow.kvx`,与工作流拥有的其他一切放在一起:
 
@@ -662,7 +640,7 @@ model       = ""             # optional model passed to the driver
 
 ## Hyperfide 控制面
 
-上面的一切都在一台机器上运行:一个 SQLite 图,每个项目一个监督进程。Hyperfide 2.0 为超出这一规模的运行增加了一个分布式运行模型——许多特性管理者、远程沙箱、独立验证——详见 [docs/hyperfide/operations.md](../hyperfide/operations.md) 和[设计概览](../../../tools/hyperfide/spec/hyperfide/design.body.md)。这是一棵开发中的代码树,而不是一个发布:下面的接口存在于源码中,其资格确认按任务逐一跟踪。
+上面的一切都在一台机器上运行:一个 SQLite 图,每个项目一个监督进程。Hyperfide 2.0 为超出这一规模的运行增加了一个分布式运行模型——许多特性管理者、远程沙箱、独立验证——详见 [docs/hyperfide/operations.md](../hyperfide/operations.md) 和[设计概览](../../../tools/hyperfide/spec/hyperfide/design.body.md)。
 
 ```mermaid
 flowchart TD
@@ -695,11 +673,13 @@ make hyperfide-check      # type-check only
 
 `core/control-plane/dist/control.js`、`provisioner.js` 和 `dispatch.js` 是入口点。每个入口都需要一个经过显式批准的策略文件,以及它所批准的确切规格修订版(`--policy FILE --spec-revision REV`,外加可选的 `--components`、`--module-root`、`--mode stdio|https|daemon`、`--host`、`--port`、`--tls-cert`、`--tls-key`),其他任何情况都会被拒绝:
 
-```text
-$ node core/control-plane/dist/control.js
-{"ok":false,"error":{"code":"INVALID_ARGS","message":"Explicit trusted policy and pinned specification revision required"}}
-$ node core/control-plane/dist/control.js --policy /nonexistent --spec-revision X
-{"ok":false,"error":{"code":"POLICY_INVALID","message":"Trusted policy file is unavailable"}}
+提供的组件目录注册了 `14.1`。处理签名请求时，使用 `--mode https`、由 `HF_IDENTITY_CONFIG_FILE` 指定的身份配置以及 TLS 证书和私钥。监听参数和版本绑定使用部署的受保护环境配置。
+
+```sh
+node core/control-plane/dist/control.js \
+  --mode https --host "$HYPERFIDE_LISTEN_HOST" --port "$HYPERFIDE_LISTEN_PORT" \
+  --tls-cert /etc/hyperfide/control.crt --tls-key /etc/hyperfide/control.key \
+  --policy /etc/hyperfide/control-policy.json --spec-revision "$HYPERFIDE_SPEC_REVISION"
 ```
 
 这对本页其余内容的读者意味着什么:
@@ -793,23 +773,23 @@ tools/repository/    install/uninstall scripts,
                      release construction, native component discovery
 spec/hyperfide/      the Hyperfide 2.0 specification, design and contracts
 artifacts/hyperfide/ per-task evidence indexes
-../ARCHITECTURE.md how the pieces fit together
-../hyperfide/operations.md  the control plane: build, start, PostgreSQL,
+../../docs/hyperfide/ARCHITECTURE.md how the pieces fit together
+../../docs/hyperfide/hyperfide/operations.md  the control plane: build, start, PostgreSQL,
                      providers, verification, recovery, migration
-../sync.md         the sync gate, freshness, slots, incremental resolution
-../config.md       project configuration: relocated spec/context/skills paths, auto-sync
-../journal.md      the write journal: what is queued when the database is busy, replay,
+../../docs/hyperfide/sync.md         the sync gate, freshness, slots, incremental resolution
+../../docs/hyperfide/config.md       project configuration: relocated spec/context/skills paths, auto-sync
+../../docs/hyperfide/journal.md      the write journal: what is queued when the database is busy, replay,
                      hyperfide journal
-../retrieval.md    declarations, phrase ranking, path outlines, the budget
-../hierarchy.md    roles, branch flow, the supervisor, supervision, approvals,
+../../docs/hyperfide/retrieval.md    declarations, phrase ranking, path outlines, the budget
+../../docs/hyperfide/hierarchy.md    roles, branch flow, the supervisor, supervision, approvals,
                      briefings
-../drift.md        spec, collision, interface, and coverage drift
-../events.md       the event log, hyperfide serve, drivers, steering
-../branches.md     the unified multi-branch graph and its schema
-../jev.md          typed decisions: types, transport, configuration, limits
+../../docs/hyperfide/drift.md        spec, collision, interface, and coverage drift
+../../docs/hyperfide/events.md       the event log, hyperfide serve, drivers, steering
+../../docs/hyperfide/branches.md     the unified multi-branch graph and its schema
+../../docs/hyperfide/jev.md          typed decisions: types, transport, configuration, limits
 ```
 
-spec 渲染的黄金输出由最初的 Go 版 specgen 生成,因此渲染一致性由 `make test` 锁定。CI(`.github/workflows/ci.yml`)会在推送到 `main` 以及拉取请求时构建并运行单元测试和集成测试套件。
+Spec 渲染测试将结果与参考文件比较，并验证 `--check`。CI (`.github/workflows/ci.yml`) 在推送到 `main` 以及拉取请求时构建并运行单元测试和集成测试套件。
 
 ## 在编辑器与智能体之间共享图
 
@@ -828,7 +808,6 @@ spec 渲染的黄金输出由最初的 Go 版 specgen 生成,因此渲染一致�
 - Jev 需要网络和 `OPENROUTER_API_KEY`。核心循环中没有任何东西依赖它,Jev 的任何回答都不会改变退出码。
 - 漂移检测是行级和图级的:未改动的行内部的行为变化、经由第三个函数的调用,以及索引器看不到的引用都会被遗漏([docs/drift.md](../drift.md#limitations))。
 - 变更日志 highlights 需要网络和密钥;没有密钥时,说明只是朴素的派生记录。
-- 分布式控制面在本修订版中未通过资格确认:其完整的验收用例、实际提供方运行和故障演练都还待完成,因此没有任何容量、吞吐量或可用性数字适用于它([本修订版的状态](#hyperfide-控制面))。
 
 ## 社区
 

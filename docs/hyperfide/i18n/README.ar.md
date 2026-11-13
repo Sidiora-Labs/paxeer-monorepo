@@ -14,7 +14,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)](../../../tools/hyperfide/LICENSE)
 [![Language: C11](https://img.shields.io/badge/Language-C11-lightgrey?style=for-the-badge)](#)
-[![CI](https://img.shields.io/badge/CI-passing-brightgreen?style=for-the-badge)](../../../tools/hyperfide/.github/workflows/ci.yml)
+[CI](../../../tools/hyperfide/.github/workflows/ci.yml)
 </div>
 <div align="center">
 
@@ -79,10 +79,7 @@ Hyperfide محرك لسير عمل الوكلاء في ملف تنفيذي وا�
 
 ## طبقة النية
 
-يرى المحلِّل الرموز والاستدعاءات والمسارات. لكنه لا يرى *لماذا* توجد دالة،
-أو ما يجب أن يضمنه مستدعوها، أو أن `save_tasks` يجب أن تعمل
-بعد أن تقرأ `load_tasks` القرص — ذلك النصف من قاعدة الشيفرة لا يعيش إلا في
-التعليقات. ويفهرسه Hyperfide (الاصطلاح الكامل في [docs/ANCHORS.md](../ANCHORS.md)):
+يفهرس Hyperfide تعليقات النية التي تصف سبب وجود الدالة، وعقود المستدعين وترتيب العمليات. يشرح [دليل المرتكزات](../ANCHORS.md) أنواع هذه التعليقات وكيفية استرجاعها:
 
 - **المرتكزات** تعليقات تجتاز اختبار الاشتقاق — *إن كان وكيل يستطيع
   كتابتها بقراءة الشيفرة فليست مرتكزًا.* وأربعة
@@ -232,7 +229,7 @@ hyperfide init
 
 ### سجل التغييرات
 
-يصيّر `hyperfide changelog` ملاحظات الإصدار من تاريخ git. يبدأ الإصدار عند وسم **أو** عند الالتزام الذي غيّر إصدار المشروع — `CG_VERSION` في `src/cg.h`، أو ملف `VERSION`، أو `package.json` — فيحصل المشروع الذي لا يستخدم الوسوم أبدًا على قسم لكل إصدار. وما جاء بعد آخر إصدار يُسمّى بالإصدار الذي تحمله شجرة العمل حين يكون جديدًا (الإصدار قيد التحضير)، أو بـ `--tag NAME`، وإلا فقط فـ `[Unreleased]`. المجموعة هي بادئة عنوان الالتزام، ويصبح `[spec:<feature>/<task>]` الذي يُلحقه `hyperfide commit` مرجع مهمة على البند. وتأتي روابط الالتزامات والمقارنات من `git remote get-url origin`؛ وبلا مستودع بعيد، يُقرأ البند `- Add gauge (497c30a)` وتُترك روابط التذييل.
+يصيّر `hyperfide changelog` ملاحظات الإصدار من تاريخ git. يبدأ الإصدار عند وسم **أو** عند الالتزام الذي غيّر إصدار المشروع — `CG_VERSION` في `core/native/src/cg.h`، أو ملف `VERSION`، أو `package.json` — فيحصل المشروع الذي لا يستخدم الوسوم أبدًا على قسم لكل إصدار. وما جاء بعد آخر إصدار يُسمّى بالإصدار الذي تحمله شجرة العمل حين يكون جديدًا (الإصدار قيد التحضير)، أو بـ `--tag NAME`، وإلا فقط فـ `[Unreleased]`. المجموعة هي بادئة عنوان الالتزام، ويصبح `[spec:<feature>/<task>]` الذي يُلحقه `hyperfide commit` مرجع مهمة على البند. وتأتي روابط الالتزامات والمقارنات من `git remote get-url origin`؛ وبلا مستودع بعيد، يُقرأ البند `- Add gauge (497c30a)` وتُترك روابط التذييل.
 
 ```markdown
 ## [0.3.0] - 2026-09-28
@@ -277,7 +274,9 @@ hyperfide recap --facts                      # the repository facts alone; no ke
 hyperfide recap -o - --agents codex          # to stdout, Codex sessions only
 ```
 
-يستخدم الاستدعاءان كلاهما `CENTRA_API_KEY` (أو `HYPERFIDE_CHANGELOG_KEY`) من البيئة أو من `.env` الخاص بالمشروع؛ وبدونه يتوقف الأمر بخطأ واضح، إذ لا بديل محليًا لأي من النصفين. وتحاسب نقطة النهاية على كل سؤال مقابل الحالة كلها، لذا فالدفعات صغيرة (6 عبارات، `HYPERFIDE_RECAP_CHUNK`) ويعمل عدة منها معًا (`HYPERFIDE_RECAP_PARALLEL`، الافتراضي 6). ويعتمد الوقت والكلفة على الجلسة والبوابة؛ ولا تذكر هذه المراجعة رقمًا مقاسًا. وتُخزَّن القرارات مؤقتًا لكل دفعة تحت `.codegraph/recap-cache/`، فلا تسأل إعادة التشغيل إلا عن الجلسات الجديدة. وما لا يصل إلى أي نموذج أبدًا: كتل التفكير، ومخرجات الأدوات، وإشعارات بيئة التشغيل وتذكيراتها، وكتل الشيفرة، وجلسات المشاريع الأخرى. ويوجّه `HYPERFIDE_RECAP_DECIDE_MODEL` و`HYPERFIDE_RECAP_DECIDE_ENDPOINT` و`HYPERFIDE_RECAP_MODEL` أيًّا من النصفين إلى مكان آخر؛ ويحدد `HYPERFIDE_RECAP_CLAUDE_DIR` و`HYPERFIDE_RECAP_CODEX_DIR` أين يُبحث. ويُكتب الموجز في `recap.md` داخل مجلد السياق: `.codify/recap.md` افتراضيًا، و`.hyperfide/context/recap.md` حين يكون للمشروع ملف `hyperfide.kvx`.
+يستخدم الاستدعاءان كلاهما `CENTRA_API_KEY` (أو `HYPERFIDE_CHANGELOG_KEY`) من البيئة أو من `.env` الخاص بالمشروع؛ وبدونه يتوقف الأمر بخطأ واضح، إذ لا بديل محليًا لأي من النصفين. وتحاسب نقطة النهاية على كل سؤال مقابل الحالة كلها، لذا فالدفعات صغيرة (6 عبارات، `HYPERFIDE_RECAP_CHUNK`) ويعمل عدة منها معًا (`HYPERFIDE_RECAP_PARALLEL`، الافتراضي 6). ويعتمد الوقت والكلفة على الجلسة والبوابة. وتُخزَّن القرارات مؤقتًا لكل دفعة تحت `.codegraph/recap-cache/`، فلا تسأل إعادة التشغيل إلا عن الجلسات الجديدة. وما لا يصل إلى أي نموذج أبدًا: كتل التفكير، ومخرجات الأدوات، وإشعارات بيئة التشغيل وتذكيراتها، وكتل الشيفرة، وجلسات المشاريع الأخرى. ويوجّه `HYPERFIDE_RECAP_DECIDE_MODEL` و`HYPERFIDE_RECAP_DECIDE_ENDPOINT` و`HYPERFIDE_RECAP_MODEL` أيًّا من النصفين إلى مكان آخر؛ ويحدد `HYPERFIDE_RECAP_CLAUDE_DIR` و`HYPERFIDE_RECAP_CODEX_DIR` أين يُبحث. ويُكتب الموجز في `recap.md` داخل مجلد السياق: `.codify/recap.md` افتراضيًا، و`.hyperfide/context/recap.md` حين يكون للمشروع ملف `hyperfide.kvx`.
+
+`hyperfide recap --facts` يعرض حقائق المستودع دون مفتاح أو استدعاء نموذج.
 
 ### خريطة الشيفرة
 
@@ -321,8 +320,8 @@ hyperfide codemap --json      # the same map as structured data
 | `hyperfide mcp-install` | اسم بديل للتوافق لـ `hyperfide integrate apply` |
 | `hyperfide hook install` | يربط خطافات الوكلاء وgit كي يبقى الرسم البياني حديثًا ويظهر انجراف النطاق من تلقاء نفسه |
 | `hyperfide hook post-edit` | خطاف التعديل المربوط نفسه: يقرأ حمولة المضيف من stdin ويُجري مزامنة خلفية موجّهة واحدة إضافة إلى حراسة للمسار المعدَّل — عملية واحدة لكل تعديل، لا مزامنتين كاملتين |
-| `hyperfide hook event` | خطاف دورة الحياة المربوط (`--host claude\|codex`): يسجّل جلسات المضيف نفسه والوكلاء الفرعيين الذين تطلقهم أداة Agent الخاصة به في سجل الوكلاء مع شجرة عملهم وفرعهم ومهمتهم وآخر أداة، ويُصدر أحداث `agent.native.*`، ويمرّر الحمولة إلى `hyperfide event ingest`؛ ويخرج دائمًا بالرمز 0 |
-| `hyperfide hook pre-bash` | خطاف Bash المربوط: حين يشغّل أمرٌ grep أو rg أو ag أو ack أو find أو fd أو `ls -R` على الشجرة، يجيب بما يكافئه من `hyperfide grep` أو `hyperfide files` كسياق، مرة واحدة لكل جلسة لكل أمر؛ وليس قرار إذن أبدًا، وصامت مع `HYPERFIDE_SHELL_ADVICE=0` أو `[hooks] shell_advice = false`؛ ويخرج دائمًا بالرمز 0 |
+| `hyperfide hook event` | خطاف دورة الحياة المربوط (`--host claude\|codex`): يسجّل جلسات المضيف نفسه والوكلاء الفرعيين الذين تطلقهم أداة Agent الخاصة به في سجل الوكلاء مع شجرة عملهم وفرعهم ومهمتهم وآخر أداة، ويُصدر أحداث `agent.native.*`، ويمرّر الحمولة إلى `hyperfide event ingest`؛ ويخرج بالرمز 0 في الوضع المحلي |
+| `hyperfide hook pre-bash` | خطاف Bash المربوط: حين يشغّل أمرٌ grep أو rg أو ag أو ack أو find أو fd أو `ls -R` على الشجرة، يجيب بما يكافئه من `hyperfide grep` أو `hyperfide files` كسياق، مرة واحدة لكل جلسة لكل أمر؛ وليس قرار إذن أبدًا، وصامت مع `HYPERFIDE_SHELL_ADVICE=0` أو `[hooks] shell_advice = false`؛ ويخرج بالرمز 0 في الوضع المحلي |
 | `hyperfide changelog [-n N] [-o FILE] [--unreleased] [--tag NAME] [--snapshots] [--summarize\|--no-summarize]` | ملاحظات الإصدار من تاريخ git: إصدار لكل وسم أو رفع للإصدار، والأحدث مسمّى بإصدار شجرة العمل، ومجموعات من بادئة عنوان الالتزام، و`[spec:<feature>/<task>]` مُصيَّرًا مرجعَ مهمة، وأبرز النقاط يكتبها نموذج لكل إصدار عند ضبط `CENTRA_API_KEY` (انظر [سجل التغييرات](#سجل-التغييرات)). و`--snapshots`، أو مشروع بلا `.git`، يصيّر من سلسلة اللقطات بدلًا من ذلك، بفروق على مستوى الرموز: الدوال المضافة والمحذوفة، والمسارات الجديدة |
 | `hyperfide recap [--sessions N] [--since DAYS] [--budget CHARS] [-o FILE] [--agents claude,codex] [--decided] [--facts]` | موجز استئناف من جلسات Claude Code وCodex السابقة: يختار Solar Decide (System One، عبر بوابة Centra) العبارات التي يحتاجها وكيل مستأنِف، ويكتب نموذج الدردشة في البوابة `recap.md` في مجلد السياق؛ وتبقى العبارات المختارة في `.codegraph/recap/decided.md`. يحتاج إلى `CENTRA_API_KEY` (انظر [موجز الاستئناف](#موجز-الاستئناف)) |
 | `hyperfide agentmd [--write]` | يولّد توجيه الرسم البياني بصيغة `agent-context.md` في مجلد السياق (`.codify/` افتراضيًا، و`.hyperfide/context/` مع `hyperfide.kvx`)؛ ويبقى `AGENTS.md` و`CLAUDE.md` في الجذر ملكًا لـ `hyperfide spec render` |
@@ -360,7 +359,7 @@ hyperfide codemap --json      # the same map as structured data
 
 ## سير عمل المواصفات
 
-سير عمل المواصفات هو الطريقة التي يحوّل بها Hyperfide خطة ميزة إلى عمل متتبَّع ومُتحقَّق منه. تعيش المواصفات كملفات kvx نصية — يقرؤها البشر، وتقبل المقارنة، ويملكها مستودعك — ويصيّرها Hyperfide إلى ملفات قواعد لبيئات التطوير ومرايا markdown بينما يدير حلقة المهام فوقها. يعمل في أي مستودع يحتوي على `spec/workflow.kvx`، وهو مستقل تمامًا عن `.codegraph/`، وبديل مباشر بلغة C لـ `spec/specgen` الخاص بـ Ion بمخرجات متطابقة بايتًا ببايت.
+سير عمل المواصفات هو الطريقة التي يحوّل بها Hyperfide خطة ميزة إلى عمل متتبَّع ومُتحقَّق منه. تعيش المواصفات كملفات kvx نصية — يقرؤها البشر، وتقبل المقارنة، ويملكها مستودعك — ويصيّرها Hyperfide إلى ملفات قواعد لبيئات التطوير ومرايا markdown بينما يدير حلقة المهام فوقها. يعمل في أي مستودع يحتوي على `spec/workflow.kvx`، وهو مستقل تمامًا عن `.codegraph/`.
 
 | الأمر | الوصف |
 | --- | --- |
@@ -380,7 +379,7 @@ hyperfide codemap --json      # the same map as structured data
 | `hyperfide spec next` | المهمة المعلّقة ذات أدنى موجة التي استوفيت `requires` الخاصة بها (`done` فقط في الوضع standard؛ و`implemented` أو `done` في وضع Prod)، مع بنود do ومعايير القبول الموسّعة |
 | `hyperfide spec start <id>` | يعلّم مهمة `in_progress`؛ ويفرض مهمة واحدة في كل مرة واستيفاء `requires`. و`--force` يتجاوز حد المهمة الواحدة فقط؛ و`--ahead` يحجز مهمة ما زالت `requires` الخاصة بها مفتوحة، لتُبنى مقابل الإسقاط، وينتظر `done` حتى تهبط |
 | `hyperfide spec implemented <id>` | في وضع Prod، يشغّل فحوص الرسم البياني للمصدر دون تنفيذ `verify_cmd`، ثم يعلّم اكتمال البرمجة بـ `implemented` (غير مؤشَّر؛ والتأهيل معلّق؛ ولا `--force`) |
-| `hyperfide spec done <id>` | من `in_progress` أو `implemented`، يشغّل `verify_cmd` الخاص بالمهمة وفحوص الرسم البياني؛ ولا يعلّمها `done` إلا حين ينجح التأهيل، وإلا يحافظ على `implemented`، ويسجّل ذكرى نتيجة في الحالتين. و`--force` يعلّمها منجزة دون تأهيل |
+| `hyperfide spec done <id>` | من `in_progress` أو `implemented`، يشغّل `verify_cmd` وفحوص الرسم البياني ويعلّم المهمة `done` عند نجاحها. عند الرفض تبقى الحالة السابقة. لا تقبل المهمة `implemented` الخيار `--force`؛ يجب أن تنجح في التأهيل |
 | `hyperfide spec trace [<id>] [--no-sync]` | يتتبع المهام إلى الشيفرة (بعد تحديث الرسم البياني ما لم يُمرَّر `--no-sync`): الرموز المعلنة محلولةً في الرسم البياني (الموقع والنوع والمراجع)، والمسارات الممسوسة مطابَقةً مع التغييرات الفعلية، والالتزامات الموسومة بالمهمة، وذكرياتها |
 | `hyperfide spec docs <status\|auto\|manual\|off\|start\|block\|reset\|done>` | يفحص أو يضبط مرحلة الإغلاق المحجوزة `@docs`. تستخدم المواصفات الجديدة `auto`؛ والمواصفات التي بلا قسم `[documentation]` تحتفظ بسلوك الإكمال القديم حتى تُفعَّل صراحةً |
 
@@ -426,9 +425,9 @@ targets   = ["README.md", "docs/**", "CONTRIBUTING.md", "CHANGELOG.md"]
 ```sh
 hyperfide spec ready                         # the whole frontier: every eligible task, every wave,
                                       # conflicts with live claims marked
-hyperfide spec claim 4.1 --agent alice       # a lease with an owner and an expiry
+hyperfide spec claim 4.1 --agent worker-a    # a lease with an owner and an expiry
 hyperfide spec start 4.1                     # refused if another live task claims the same paths
-hyperfide spec claim-next --agent bob        # or skip the choosing: atomically claim the first
+hyperfide spec claim-next --agent worker-b     # or skip the choosing: atomically claim the first
                                       # conflict-free task and get the full packet back
 ```
 
@@ -498,31 +497,17 @@ approve = ["land"]           # opt-in: wait for `hyperfide fleet approve`
 
 يعيش موقع الوكيل في الشجرة في بيئته — `HYPERFIDE_AGENT` و`HYPERFIDE_ROLE` و`HYPERFIDE_PARENT` و`HYPERFIDE_FEATURE` و`HYPERFIDE_WAVE` (و`HYPERFIDE_GH` لتسمية الملف التنفيذي `gh`) — ويطبع `hyperfide fleet begin` السطر الدقيق للتصدير (ويكتب المتغيرات بأسمائها البديلة `CG_*`، وهي مكافئة). وبلا دور مضبوط لا يُسجَّل شيء، فتبقى الجلسة المنفردة كما هي. ومعه، يسمّي `hyperfide brief` الدور والأب، وتحمل الحجوزات الفرع، ويسجّل دفتر المحاولات الفرع وشجرة العمل والأب على نحو دائم.
 
-يقود `hyperfide fleet up` الشجرة كلها وحده. يشغّل مشرف منفصل كل ميزة تسمّيها (`--all`: كل ميزة بقي فيها عمل، وكلٌّ تبدأ حين تُنجز `[meta] requires` الخاصة بها)، ومديرًا لكل موجة وعمّاله أحياء معًا، وكل عامل في شجرة عمله وهويته في بيئته. مقتطف من اختبار التكامل `tests/integration/35_fleet_e2e.sh`، الذي يقود المشرف بمشغّل مخصص مكتوب نصيًا:
+`hyperfide fleet up` يشغّل الميزات المختارة تحت مشرف منفصل، مع مدير لكل موجة وعمّال في أشجار عملهم. يختار `--all` الميزات ذات العمل المعلّق، وتبدأ كل ميزة بعد استيفاء `[meta] requires`.
 
-```console
-$ hyperfide fleet up --foreground --all -n 3 --max-fail 5
-[fleet] alpha — a manager per wave (all at once) + 3 worker slot(s), driver custom, 48 wake(s)
-[fleet] waves parallel — a task may start ahead of its requires, on the projection (default, git >= 2.38)
-[fleet] manager wm-alpha-1 on wave/alpha/1 (47 wake(s) left), log .codegraph/agents/alpha-manager-1.log
-[fleet] worker w-alpha-2.1 → 2.1 (wave 1) on task/alpha/2.1, log .codegraph/agents/alpha-2.1.log
-[fleet] worker w-alpha-2.2 → 2.2 (wave 1) on task/alpha/2.2, log .codegraph/agents/alpha-2.2.log
-[fleet] worker w-alpha-2.1 task 2.1 exit 1 → INCOMPLETE
-[fleet] worker w-alpha-2.1 → 2.1 (wave 1) on task/alpha/2.1, log .codegraph/agents/alpha-2.1.log
-[fleet] worker w-alpha-2.1 task 2.1 exit 0 → done
-[fleet] worker w-alpha-2.2 on 2.2: no progress for 2s — nudged
-[fleet] worker w-alpha-2.2 on 2.2: stalled — no progress for 2s after a nudge — stopping it
-[fleet] worker w-alpha-2.2 task 2.2 exit 143 → INCOMPLETE
-...
-[fleet] alpha complete — 4/4 task(s) qualified, wave/alpha/* merged into main, 2 failure(s)
-[fleet] beta complete — 2/2 task(s) qualified, wave/beta/* merged into main, 0 failure(s)
+```sh
+hyperfide fleet up --foreground --all -n 3 --max-fail 5
 ```
 
-ما يفعله بين تلك الأسطر:
+سلوك المشرف:
 
 - **التشغيلات دائمة.** التشغيل وكل عقدة — الدور والأب والمهمة والفرع وشجرة العمل وpid والمحاولة والسياج وإعادات المحاولة والإنفاق — تعيش في قاعدة البيانات. أوقف المشرف وسيتبنى `hyperfide fleet up --resume` الوكلاء الذين ما زالوا أحياء (بالتحقق من pid ووقت البدء) ويحتفظ بأعداد إعادات المحاولة؛ و`down` و`down --drain` و`pause` و`resume` توقف التشغيل أو تصرّفه أو تجمّده أو تواصله.
 - **الإشراف.** التقدم عمل — أحداث، ومخرجات سجل، وتغييرات في شجرة العمل — لا نبض قلب. نافذة توقف واحدة بلا تقدم تستحق حثًّا، والثانية توقف المحاولة مع تسليم. وتوقف ميزانيتا `wall` و`spend` المحاولة؛ وتُعاد المهمة الفاشلة مع ما حدث من خطأ في موجّهها؛ وحين تنفد إعادات المحاولة تُصعَّد إلى المدير، ثم إلى main، ثم تُعلَّم محجوبة بينما يواصل بقية التشغيل.
-- **ثلاثة مستويات معًا.** قفل دمج الميزة يحل محل تبادل الأدوار، فيعمل المديرون والعمّال معًا؛ ومع قالب فرع `{task}` تعمل مهام الموجة الواحدة بالتوازي على فروعها، إلا الأزواج المتوقع تصادمها. ويشغّل `[hierarchy] main_agent = true` Main Gideon كعملية أيضًا.
+- **ثلاثة مستويات معًا.** قفل دمج الميزة يحل محل تبادل الأدوار، فيعمل المديرون والعمّال معًا؛ ومع قالب فرع `{task}` تعمل مهام الموجة الواحدة بالتوازي على فروعها، إلا الأزواج المتوقع تصادمها. ويشغّل `[hierarchy] main_agent = true` main كعملية أيضًا.
 - **إحاطات من الرسم البياني.** يحمل موجّه العامل معاييره، والتعريفات الحالية لرموزه المعلنة مع مستدعيها ومستدعَيها، وما أنتجته متطلباته فعلًا على فرع الميزة، وما يمسّه أشقاؤه، ضمن ميزانية رموز؛ ويبلّغ `hyperfide work update` عن الرموز المدموجة في المنبع منذ بدء المحاولة.
 - **المنع اختياري.** البوابات المدرجة في `approve` لدور ما توقف `land` و`pr` و`merge-up` المنجرف أو الهبوط بمعايير غير مغطاة حتى `hyperfide fleet approve`. ودونها لا ينتظر شيء أي شخص.
 
@@ -565,10 +550,10 @@ $ hyperfide branches
 | متى | ما يضيفه Jev |
 | --- | --- |
 | `hyperfide spec done` و`verify_cmd` يفشل | `jev triage: test_failure (confidence 0.82) → fix_test (confidence 0.82)` — فئة وإجراء تالٍ من ذيل المخرجات، يُلحقان أيضًا بذكرى النتيجة |
-| `hyperfide guard` | `[jev 3.80 Blocking]` لكل نتيجة، والنتائج مرتبة من الأشد خطورة أولًا — تُقيَّم في استدعاء واحد مهما كان عددها |
+| `hyperfide guard` | `[jev <score> <level>]` — لكل نتيجة ضمن حد 50 نتيجة، في استدعاء واحد |
 | `hyperfide fleet pr` | `Jev readiness: 0.95 (high) — 2/3 tasks qualified, 4 commits` في نص طلب السحب |
 
-تتشارك الثلاثة بوابة واحدة، فنمط الفشل واحد في كل مكان: `jev: OPENROUTER_API_KEY is not set — failure triage skipped`، مرة واحدة، على stderr، مع بقاء حكم الأمر نفسه ورمز خروجه دون مساس. ويبقى `hyperfide guard --strict` يفشل على ما كان يفشل عليه من قبل بالضبط؛ و`verify_cmd` الأحمر يبقى أحمر.
+عند غياب المفتاح أو تعذّر الحصول على إجابة قابلة للاستخدام، يسمّي تنبيه stderr العملية التي لم تتلقَّ تعليقًا. يظل حكم الأمر ورمز خروجه ناتجين عن الفحوص الحتمية.
 
 فيما عدا أبرز نقاط سجل التغييرات الاختيارية و`hyperfide recap`، هذا هو الاستدعاء البعيد الوحيد الذي تُجريه واجهة سطر الأوامر المحلية، والمبدأ يقول ذلك: الرسم البياني والذاكرة وسير العمل تبقى محلية، وJev **إلزامي** للميزات المبنية عليه — `hyperfide memory classify` بلا `OPENROUTER_API_KEY` خطأ واضح، لا بديل صامت أبدًا — و**ليس صاحب القرار أبدًا**: يضيّق ويرتّب وينبّه، بينما يحسم `verify_cmd` وفحوص الرسم البياني. لا يصل المفتاح أبدًا إلى سطر أوامر (يُقاد `curl` عبر ملف إعداد خاص بصلاحيات `0600`)، و`429` و`529` تتراجع وتعيد المحاولة، وكل استدعاء مُسجَّل. انظر [docs/jev.md](../jev.md).
 
@@ -633,17 +618,9 @@ codemap = "CODEMAP.md"      # written by cg codemap
 
 يحوّل `hyperfide spec run` مواصفة متوازية إلى جلسات وكلاء جارية. يكرر اللبنات نفسها التي يستخدمها أسطول بشري — يختار `claim-next` مهمة خالية من التعارض، ويكتب `resume --prompt` إحاطتها — ثم يطلق عملية مشغّل واحدة لكل فتحة، مغذّيًا كلًّا منها بالموجّه على stdin وملتقطًا مخرجاتها في سجل لكل مهمة:
 
-```console
-$ hyperfide spec run -n 1
-[run] task 1.1 → custom (agent run-1, log .codegraph/agents/drv-1.1.log)
-[run] task 1.1 exit 0 → status done
-[run] task 2.1 → custom (agent run-1, log .codegraph/agents/drv-2.1.log)
-[run] task 2.1 exit 0 → status done
-...
-[run] frontier empty — 0 failure(s) this run
+```sh
+hyperfide spec run -n 1
 ```
-
-(مخرجات من `tests/integration/18_orchestrate.sh`، الذي يستخدم مشغّلًا مخصصًا مكتوبًا نصيًا؛ ومع المشغّل الافتراضي يسمّي كل سطر `codex`.)
 
 يعيش الإعداد في `spec/workflow.kvx`، إلى جانب كل ما يملكه سير العمل:
 
@@ -671,7 +648,7 @@ model       = ""             # optional model passed to the driver
 
 ## مستوى التحكم في Hyperfide
 
-كل ما سبق يعمل على جهاز واحد: رسم بياني SQLite واحد، ومشرف واحد لكل مشروع. ويضيف Hyperfide 2.0 نموذج تشغيل موزّعًا للتشغيلات الأكبر من ذلك — مديرو ميزات كثيرون، وصناديق عزل بعيدة، وتحقق مستقل — موصوفًا في [docs/hyperfide/operations.md](../hyperfide/operations.md) و[نظرة التصميم العامة](../../../tools/hyperfide/spec/hyperfide/design.body.md). إنها شجرة تطوير لا إصدار: الواجهات أدناه موجودة في المصدر، وتأهيلها متتبَّع مهمةً مهمة.
+كل ما سبق يعمل على جهاز واحد: رسم بياني SQLite واحد، ومشرف واحد لكل مشروع. ويضيف Hyperfide 2.0 نموذج تشغيل موزّعًا للتشغيلات الأكبر من ذلك — مديرو ميزات كثيرون، وصناديق عزل بعيدة، وتحقق مستقل — موصوفًا في [docs/hyperfide/operations.md](../hyperfide/operations.md) و[نظرة التصميم العامة](../../../tools/hyperfide/spec/hyperfide/design.body.md).
 
 ```mermaid
 flowchart TD
@@ -704,11 +681,13 @@ make hyperfide-check      # type-check only
 
 نقاط الدخول هي `core/control-plane/dist/control.js` و`provisioner.js` و`dispatch.js`. وكلٌّ منها يحتاج إلى ملف سياسة معتمد صراحةً وإلى مراجعة المواصفة الدقيقة التي يعتمدها (`--policy FILE --spec-revision REV`، إضافة إلى `--components` و`--module-root` و`--mode stdio|https|daemon` و`--host` و`--port` و`--tls-cert` و`--tls-key` الاختيارية)، ويرفض أي شيء آخر:
 
-```text
-$ node core/control-plane/dist/control.js
-{"ok":false,"error":{"code":"INVALID_ARGS","message":"Explicit trusted policy and pinned specification revision required"}}
-$ node core/control-plane/dist/control.js --policy /nonexistent --spec-revision X
-{"ok":false,"error":{"code":"POLICY_INVALID","message":"Trusted policy file is unavailable"}}
+يسجّل دليل المكوّنات المورّد المكوّن `14.1`. لخدمة الطلبات الموقّعة استخدم `--mode https`، وملف إعداد الهوية `HF_IDENTITY_CONFIG_FILE`، وشهادة TLS ومفتاحها. اضبط قيم الاستماع والمراجعة من إعداد النشر المحمي.
+
+```sh
+node core/control-plane/dist/control.js \
+  --mode https --host "$HYPERFIDE_LISTEN_HOST" --port "$HYPERFIDE_LISTEN_PORT" \
+  --tls-cert /etc/hyperfide/control.crt --tls-key /etc/hyperfide/control.key \
+  --policy /etc/hyperfide/control-policy.json --spec-revision "$HYPERFIDE_SPEC_REVISION"
 ```
 
 ما يغيّره ذلك لقارئ بقية هذه الصفحة:
@@ -761,7 +740,7 @@ make hyperfide-services  # build the TypeScript control services (after make hyp
 make hyperfide-check     # type-check them
 ```
 
-يشغّل `make release` الملف `tools/repository/release.sh`، الذي يبني إصدارًا مع مجاميع تحقق على منفّذ بعيد ولا ينشره أبدًا. ويحتاج إلى `tools/repository/release.sh --output DIR` و`HYPERFIDE_BUILD_PLACEMENT=remote`، إضافة إلى سلسلة أدوات Node وnpm وPython المثبّتة التي يتحقق منها؛ و`make release` العادي لا يمرّر `--output` ويتوقف بـ `hyperfide release: --output is required`.
+`make release` يشغّل `tools/repository/release.sh --output "$(RELEASE_DIR)"`؛ والقيمة الافتراضية لـ `RELEASE_DIR` هي `build/release`. يحتاج إلى `HYPERFIDE_BUILD_PLACEMENT=remote` وسلسلة الأدوات المثبّتة، ويبني حزمة مع مجاميع تحقق دون نشرها.
 
 تخطيط المستودع:
 
@@ -802,23 +781,23 @@ tools/repository/    install/uninstall scripts,
                      release construction, native component discovery
 spec/hyperfide/      the Hyperfide 2.0 specification, design and contracts
 artifacts/hyperfide/ per-task evidence indexes
-../ARCHITECTURE.md how the pieces fit together
-../hyperfide/operations.md  the control plane: build, start, PostgreSQL,
+../../docs/hyperfide/ARCHITECTURE.md how the pieces fit together
+../../docs/hyperfide/hyperfide/operations.md  the control plane: build, start, PostgreSQL,
                      providers, verification, recovery, migration
-../sync.md         the sync gate, freshness, slots, incremental resolution
-../config.md       project configuration: relocated spec/context/skills paths, auto-sync
-../journal.md      the write journal: what is queued when the database is busy, replay,
+../../docs/hyperfide/sync.md         the sync gate, freshness, slots, incremental resolution
+../../docs/hyperfide/config.md       project configuration: relocated spec/context/skills paths, auto-sync
+../../docs/hyperfide/journal.md      the write journal: what is queued when the database is busy, replay,
                      hyperfide journal
-../retrieval.md    declarations, phrase ranking, path outlines, the budget
-../hierarchy.md    roles, branch flow, the supervisor, supervision, approvals,
+../../docs/hyperfide/retrieval.md    declarations, phrase ranking, path outlines, the budget
+../../docs/hyperfide/hierarchy.md    roles, branch flow, the supervisor, supervision, approvals,
                      briefings
-../drift.md        spec, collision, interface, and coverage drift
-../events.md       the event log, hyperfide serve, drivers, steering
-../branches.md     the unified multi-branch graph and its schema
-../jev.md          typed decisions: types, transport, configuration, limits
+../../docs/hyperfide/drift.md        spec, collision, interface, and coverage drift
+../../docs/hyperfide/events.md       the event log, hyperfide serve, drivers, steering
+../../docs/hyperfide/branches.md     the unified multi-branch graph and its schema
+../../docs/hyperfide/jev.md          typed decisions: types, transport, configuration, limits
 ```
 
-مخرجات spec-render المرجعية ولّدها specgen الأصلي المكتوب بـ Go، فتكافؤ التصيير مقفل بـ `make test`. ويبني CI (`.github/workflows/ci.yml`) مجموعتي الاختبارات الوحدوية والتكاملية ويشغّلهما عند الدفع إلى `main` وعلى طلبات السحب.
+تقارن اختبارات تصيير المواصفات المخرجات بالملفات المرجعية وتتحقق من `--check`. ويبني CI (`.github/workflows/ci.yml`) مجموعتي الاختبارات الوحدوية والتكاملية ويشغّلهما عند الدفع إلى `main` وعلى طلبات السحب.
 
 ## مشاركة الرسم البياني بين المحرر والوكلاء
 
@@ -837,7 +816,6 @@ artifacts/hyperfide/ per-task evidence indexes
 - يحتاج Jev إلى الشبكة و`OPENROUTER_API_KEY`. ولا شيء في الحلقة الأساسية يعتمد عليه، ولا تغيّر أي إجابة من Jev رمز خروج.
 - كشف الانجراف على مستوى الأسطر والرسم البياني: تغييرات السلوك داخل أسطر لم تتغير، والاستدعاءات عبر دالة ثالثة، والمراجع التي لا يراها المفهرس كلها تفوته ([docs/drift.md](../drift.md#limitations)).
 - تحتاج أبرز نقاط سجل التغييرات إلى الشبكة ومفتاح؛ وبدونه تكون الملاحظات هي السجل المشتق العادي.
-- مستوى التحكم الموزّع غير مؤهل في هذه المراجعة: حالات قبوله الكاملة وتشغيلات المزوّدين الحية وحملات الأعطال معلّقة، فلا ينطبق عليه أي رقم للسعة أو الإنتاجية أو الإتاحة ([الحالة في هذه المراجعة](#مستوى-التحكم-في-hyperfide)).
 
 ## المجتمع
 
