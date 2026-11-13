@@ -1,5 +1,4 @@
-//! Companion runtime proof for the documented registry path. The task's declared
-//! qualification gate is the Python documentation test, not a Cargo invocation.
+//! Registry membership and non-membership proofs for the documented read bridge.
 
 #[path = "../crates/layerx-programs-registry/tests/support/chain.rs"]
 mod chain;
@@ -14,7 +13,7 @@ use layerx_programs::{
 const README: &str = include_str!("../README.md");
 
 #[test]
-fn repair_22_33_238_registry_read_bridge() -> Result<(), ChainProofError> {
+fn registry_read_bridge_authenticates_membership() -> Result<(), ChainProofError> {
     let key = programs_state_key(b"documented-read");
     let value = b"committed-program-state";
     let fixture = ChainFixture::new(
@@ -60,7 +59,7 @@ fn repair_22_33_238_registry_read_bridge() -> Result<(), ChainProofError> {
 }
 
 #[test]
-fn repair_22_33_238_registry_absent_read() -> Result<(), ChainProofError> {
+fn registry_read_bridge_authenticates_non_membership() -> Result<(), ChainProofError> {
     let fixture = ChainFixture::new(
         "paxeer-documentation-test",
         &[[1; 32], [2; 32], [3; 32], [4; 32]],
