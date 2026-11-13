@@ -156,7 +156,7 @@ def test_f060_manifest_refusals(tmp_path, mutation):
 
 
 def chain_recording():
-    path = ROOT / 'services/human/crates/layerx-human-service/src/journeys/repair_22_31_153_transcript.json'
+    path = ROOT / 'services/human/crates/layerx-human-service/src/journeys/bank_commit_transcript.json'
     document = json.loads(path.read_text())
     assert 'consensus/types header, votes and transaction proof' in document['producer']
     record = document['records'][0]

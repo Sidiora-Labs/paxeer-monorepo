@@ -21680,3 +21680,128 @@ fix = "After a move of a directory read the output of git status with the flag -
 title = "A reader inside a test module is compiled only with the tests"
 symptom = "A Rust line in a test module or in a tests directory that reads a fixture with include_str, include_bytes or include is compiled only by a build with the flag --tests. A build of the member without that flag does not read the fixture."
 fix = "After a rename of a fixture find its readers with git grep over the old name, and run cargo check with the flag --tests for each member that reads it."
+
+[gotcha.4372]
+title = "A test section of a package manifest names the file of the test"
+symptom = "A Cargo manifest with a test section names the file of the test with the key path. A rename of the test file leaves the section with the earlier name, and a build of the tests of the package does not find the file."
+fix = "The task that renames a test file changes the path key of its section in the manifest of the package in the same commit. Find the sections with git grep over the earlier file name in the files named Cargo.toml."
+
+[gotcha.4373]
+title = "The room of the inference market reads the node binary from the search path"
+symptom = "The room script tools/qualification/paxeer-x/inference_market_room.py looks the node binary up on the search path of the shell."
+fix = "A build command that runs the room installs the node binary first with the install target of chain.mk. The build command of task 22.38.37 does."
+
+[gotcha.4374]
+title = "A test of the wallet service pages reads the full path of a deployment file inside code marks"
+symptom = "The test tests/ci/test_wallet_service_docs_references.py reads in the page docs/wallet/service/runbooks/gateway-rollback.md the full path of the image file and of the two example environment files of the gateway deployment, each inside code marks. A link whose text is the file name alone does not hold the full path."
+fix = "A page that links such a file gives the full path from the repository root as the text of the link, inside code marks. Run the test after a change to a page under docs/wallet/service."
+
+[gotcha.4375]
+title = "A batch of one request returns one result"
+symptom = "The client of consensus/rpc/jsonrpc decodes the answer to a batch of one request into one result. The batch section of TestProofRpcRoutes in consensus/internal/rpc/core holds the shape of that answer."
+fix = "A test of the batch path asserts for a batch of one request that Send returns no error and one result. A task that changes the shape the server writes for a batch brings the tests under consensus that hold the shape to it in the same commit."
+
+[gotcha.4376]
+title = "The inventory files under tools/workspace name each package manifest by its path"
+symptom = "The files tools/workspace/paxeer-manifest-roots.txt and tools/workspace/platform-dependency-roots.txt hold one line for each package manifest and name the test file that covers it. The scripts scripts/workspace/check-paxeer-manifests.sh and scripts/workspace/check-platform-dependencies.sh compare the lines with the manifests in the tree, and the target paxeer-manifest-lint of the Makefile runs them."
+fix = "A task that renames a directory holding a package manifest, or a test file that an inventory line names, brings the inventory line to the present path in the same commit and runs both scripts. A workflow under .github and a test under tests/ci that name the directory follow in the same commit."
+
+[gotcha.4377]
+title = "A rename leaves readers under other directories"
+symptom = "A task that renames a file changes the readers inside its own paths. A reader under another directory keeps the earlier name: a path string of a test, a line of a data file that lists file names, a workflow step, a build-time reader of Rust or a target path of a package manifest. A search of the text does not find the last two; a check that compiles the tests does."
+fix = "A task that renames a file names in its manifest every reader that git grep finds outside its paths. A later task for the area of the reader brings the reference to the present name, and runs for Rust the check that compiles the tests of the area."
+
+[gotcha.4378]
+title = "The target agent-test of the Makefile reaches the node build"
+symptom = "The target agent-test of the Makefile runs the target agent-test-native-prerequisites first, and that target builds the node binary with the target paxeer-build. The build of the node reads its Go modules from the module cache. The target agent-build does not fill that cache."
+fix = "The build command of a task whose verification runs make agent-test runs go mod download first, as the build command of task 22.39.499 does for the human service. The build command of task 22.39.498 does."
+
+[gotcha.4379]
+title = "One library test of the agent daemon runs a Python file that imports cryptography"
+symptom = "The library test receipt_reference_reaches_recovery_consumer of services/agent/crates/layerx-agentd runs tools/qualification/paxeer-x/mcp_daemon_revocation.py with python3. That file imports the package cryptography. The target agent-build of the Makefile installs no Python package."
+fix = "The build command of a task whose verification runs make agent-test installs the packages of tests/bridge/requirements.txt with pip first; that file names cryptography. The build command of task 22.39.498 does."
+
+[gotcha.4380]
+title = "The target paxeer-manifest-lint reads Rust and Go packages that the tools install does not fetch"
+symptom = "The target paxeer-manifest-lint of the Makefile runs cargo clippy with the offline option over the thirteen package manifests of the list PAXEER_LOCKED_RUST_MANIFESTS, and go vet with the module proxy off in the three directories of the list PAXEER_NESTED_GO_DIRS. The manifest tests/fixtures/example/cosmwasm/cw1155/Cargo.toml names two packages by a git address. The target paxeer-tools-install fetches none of these packages."
+fix = "The build command of a task whose verification runs make paxeer-manifest-lint fetches the packages first: cargo fetch with the locked option for each manifest of the first list and go mod download in each directory of the second. The target paxeer-manifest-install does both and installs the npm packages as well. The build command of task 22.39.511 fetches them."
+
+[gotcha.4381]
+title = "The check of the paths asks for a change under every path of a task"
+symptom = "The spec tool closes a task only when each path of the task holds a change of the task. A task that brings readers to present names and lists a directory where no reference is stale cannot close. The file services/platform/ramps/toolkit/tests/native_payment_settlement.rs holds three file names with an earlier record name; they are names of files that the test writes into a copy of the tree, not paths of renamed files."
+fix = "The paths of a task that brings readers to present names list only directories where the search finds a stale reference. Where the task finds none under a path, the path leaves the list. The paths of task 22.43.253 leave out services/platform/ramps."
+
+[gotcha.4382]
+title = "The target human-test runs the tests of every member of the workspace of the human services"
+symptom = "The target human-test of the Makefile runs its prerequisite targets, exports the variables PAXD and LAYERX_TEST_NATIVE_BIN_DIR and then runs cargo test over every member of services/human/Cargo.toml. A task whose verification runs that target and whose paths hold only some members cannot bring a test of another member in line. A hand run of cargo test without the prerequisite targets and the two variables reports tests that the target itself passes."
+fix = "The paths of a task whose verification runs make human-test hold services/human/crates. A hand run of the tests builds the prerequisite targets first and sets the same two variables as the Makefile. The paths of task 22.39.499 hold the directory."
+
+[gotcha.4383]
+title = "The target paxeer-manifest-lint runs forge fmt before its Rust and Go checks"
+symptom = "The first lines of the target paxeer-manifest-lint of the Makefile run forge fmt with the check option over the contracts of the repository and of tools/benchmark/loadtest/contracts/evm. The target paxeer-tools-install installs the Go lint program only."
+fix = "The build command of a task whose verification runs make paxeer-manifest-lint starts with forge --version, so that a missing contract tool shows in the build and not in the verification. The build command of task 22.39.511 does."
+
+[gotcha.4384]
+title = "Record files moved after the readers of their directory were brought to present paths"
+symptom = "Task 22.43.239 moved the record files of tools/qualification/audit_repairs under spec/layerx-merge/programme/records. Eighteen test files of that directory read a record by the earlier path. One test under tools/qualification/paxeer-x/tests, two patterns of tools/paxeer-x/retired_callers.json with the lines of its test, one list entry of tests/bridge/retired/test_retired_checkpoint_settlement.py and one line of .gitignore name a file or a directory by a path from before a rename."
+fix = "Task 22.43.258 brings these readers to the present paths. A search for stale references runs once more after the last task that moves files."
+
+[gotcha.4385]
+title = "The notice page of a fixture directory with key material is one line"
+symptom = "The test tests/ci/test_key_material_only_in_fixtures.py reads the page README.md of every fixture directory that the section package.metadata.test-fixtures of four manifests names. It accepts a page of one line that holds the words generated test data and no production use. Five such pages hold a heading and a paragraph."
+fix = "Task 22.43.259 brings the five pages to the one-line form. A task that rewrites pages leaves the notice page of a fixture directory with key material in that form."
+
+[gotcha.4386]
+title = "Tests under tools/qualification read sections and sentences of the front page of the repository"
+symptom = "Test files under tools/qualification/audit_repairs read README.md of the repository root and look for sections and sentences of the text it held before task 22.42.29 wrote the short front page: the overview of the network, the quick start for chain 125, the build and test sections and others."
+fix = "The earlier text lives on as the page docs/readme/NETWORK.md, brought to the present paths, and the front page links to it. A task that shortens a page first searches the tests for readers of its sections and sentences and names the page where each fact lives afterwards."
+
+[gotcha.4387]
+title = "Pages and records written or moved after the register of retired interfaces name symbols it does not list"
+symptom = "The scan tools/paxeer-x/tests/retired_callers_test.py reads the files of the tree for the symbols of retired interfaces and admits the references that the register tools/paxeer-x/retired_callers.json lists. Pages of the documentation site under docs/site/paxeer-docs with their generated copies, three directory pages, one record under apps/launchpad/qualification/records and four other files name such symbols on lines the register does not list. The pages read so far state that the interface is disabled or retired."
+fix = "Task 22.43.261 reads each reported line and admits in the register the lines that state a retirement or record an earlier state. A task that writes or moves a file that names a retired interface adds the reference to the register in the same change."
+
+[gotcha.4388]
+title = "A budget with no spend in its period is revoked and its unused funds are returned"
+symptom = "Since task 22.31.99 the kernel budget module keeps the configured period limit in the record when a budget is closed or revoked, so a budget whose period holds no spend is revoked and its unused funds are returned. The case of modules/layerxpay/keeper/budget_revoke_precompile_test.go covers the revocation without spend and with spend. The end-to-end proof precompiles/layerxpay/proof_layerxpay_0x101b_test.go dates from before that task, and the history case of the indexer under services/platform runs it."
+fix = "A proof that walks the revocation of a budget expects the revocation to pass with and without spend. Task 22.39.504 takes precompiles/layerxpay into its paths and brings the end-to-end proof to that rule."
+
+[gotcha.4389]
+title = "The fixture of the isolated chain writes an asset record of the custody module for the native denomination"
+symptom = "tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py adds to the genesis of the isolated chain an asset record of the custody module for the native denomination before the streams of the pay module open. On the network that record comes from the state at the upgrade height, and the readiness checklist under docs/release is the page where an operator looks for such a condition."
+fix = "The readiness checklist names the record, the query that reads it from a node, and the step that writes it where it is absent. Task 22.43.262 adds the item."
+
+[gotcha.4390]
+title = "The systems inventory of the release has three values for the change of a system"
+symptom = "docs/release/7.0.0-systems.kvx gives each system one of the values new, changed and unchanged, and the page of the inventory, the generator of the documentation site and its system map read them. docs/release/7.0.0-upgrade-plan.md states that the precompiles at 0x1012 and 0x1013 refuse every method from the upgrade height and that the one at 0x1014 refuses writes and keeps reads; their trees stay in the build. The inventory lists these systems as changed, and precompiles/README.md and the module list of the SDK page of the site name them without the statement of the plan."
+fix = "The inventory takes a fourth value, retired, for the systems whose interface the plan retires; the page of the inventory defines it, the site shows it, and the two pages say what the plan says. Task 22.43.263."
+
+[gotcha.4391]
+title = "Python tests under tools/qualification and tests/ci pin the text and the paths of pages as they stood when each test was written"
+symptom = "Test files under tools/qualification and tests/ci read sections and sentences of pages and the paths of files as they stood when each test was written. Later tasks shortened the front page, rewrote pages under docs, replaced the documentation site and renamed files, and the reference text of the front page lives in docs/readme/NETWORK.md since task 22.43.260."
+fix = "The tests follow the present pages and paths: tasks 22.43.264 to 22.43.289 bring them along in groups selected by position in the sorted list of each directory. A task that rewrites, moves or shortens a page searches the tests for readers first and brings them along in the same task."
+
+[gotcha.4392]
+title = "A Go file that is compiled only through an overlay lies in the package tree of the root module"
+symptom = "services/human/crates/layerx-human-security-provider/tests/support/recording/recovery.go declares package main and uses symbols of daemon/committed-fixture. The script record.py beside it adds the file to that package with the overlay option of the go command. Read as a directory of the root module the file is a package of its own whose symbols are undefined, so the lint run and go vet over the whole module stop at it, and a path exclusion of the lint configuration does not keep the package from being loaded."
+fix = "The file carries a build constraint that only the recording script sets, so the commands that walk the module skip it and the script compiles it as before. Task 22.39.511 makes the change."
+
+[gotcha.4393]
+title = "The streams of the pay module find the asset of a token through the mappings of the custody module"
+symptom = "agentStreamAsset in modules/layerxpay/keeper/stream_agent.go resolves the native token and every pointer token to an asset through the asset mappings of the custody module. From the upgrade height the custody module is retired and takes no new mapping, and the asset records live in the ledger."
+fix = "Where the custody module holds no mapping, the reader resolves the native token to the native asset of the ledger and another token through the record of the ledger. A mapping that exists is used as before. Task 22.39.515."
+
+[gotcha.4394]
+title = "The arbiter cases of the programs workspace take their corpora from two variables that the test target does not set"
+symptom = "The tests verified_step and authority_from_prestate of programs/crates/layerx-programs-arbiter read the manifest of the replay corpus and the manifest of the signed admission corpus from the variables LAYERX_AUTHENTICATED_REPLAY_INPUTS and LAYERX_ARBITER_ADMISSION_INPUTS and have no other source. The recipe of programs-test in the Makefile runs the tests of the whole workspace and sets neither, and the producer scripts under tools/qualification/paxeer-x carry default paths of one machine."
+fix = "The target programs-test produces the corpora before the workspace test and passes the variables to it, and the producer runs in a checkout at any location. Task 22.39.509 makes the change."
+
+[gotcha.4395]
+title = "The programs that wrote the corpora of the arbiter cases left the tree with the earlier daemon"
+symptom = "The replay corpus and the admission corpus that the tests verified_step and authority_from_prestate of programs/crates/layerx-programs-arbiter read were written by two native test programs of the earlier daemon. Those programs were removed with it, and tools/qualification/paxeer-x/replay-authority.py states that it no longer produces. A third test file of the member reads a corpus of the market profile from a variable in the same way."
+fix = "Decision 3482. The cases run every assertion where the variable names a corpus and return with one printed line where it does not, as decision 3421 rules for the binding cases. Task 22.39.509 makes the change."
+
+[gotcha.4396]
+title = "Tool scripts carry default locations of one machine"
+symptom = "Scripts under tools/qualification/paxeer-x and tools/paxeer-x/gates and make fragments under tools/paxeer-x/build take the location of cargo, of build directories and of output directories from fixed paths under the home directory of one user where no variable is set, so they run unchanged on that one machine only."
+fix = "Decision 3483. Tasks 22.43.290 and 22.43.291."

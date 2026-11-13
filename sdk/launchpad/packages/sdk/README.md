@@ -2,7 +2,7 @@
 
 `@kindle/sdk` is the private TypeScript client for launchpad HTTP operations and snapshot/replay streams. Its entry point is [src/index.ts](src/index.ts); v1 DTOs are exported there, and versioned v2 DTOs come from `@kindle/sdk-v2/types`.
 
-Paxeer mainnet-beta is one BFT network with EVM chain ID **125** (`0x7d`). The kernel is part of the network and proposes blocks; a transaction receipt is final when its block commits. Sub-chains are tenant domains in the database. The SDK's API, identity, media and stream origins identify launchpad application services. For chain JSON-RPC, use the root path of a public node, described in the [public RPC reference](../../../../docs/site/docs/reference/public-rpc.md). Do not use a node JSON-RPC origin as the launchpad API origin.
+Paxeer mainnet-beta is one BFT network with EVM chain ID **125** (`0x7d`). The kernel is part of the network and proposes blocks; a transaction receipt is final when its block commits. Sub-chains are tenant domains in the database. The SDK's API, identity, media and stream origins identify launchpad application services. For chain JSON-RPC, use the root path of a public node, described in the [public RPC reference](../../../../docs/readme/PUBLIC-RPC.md). Do not use a node JSON-RPC origin as the launchpad API origin.
 
 ## Contracts and generation
 

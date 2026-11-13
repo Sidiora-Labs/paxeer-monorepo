@@ -50,8 +50,8 @@ func TestRankingPaginationDefaultsAndBounds(t *testing.T) {
 }
 
 func TestSnapshotInspectionUsesRetainedRevision(t *testing.T) {
-	repository, visibility := repair33MemoryStore(t)
-	server, _ := repair33Server(t, repository, visibility)
+	repository, visibility := snapshotSDKMemoryStore(t)
+	server, _ := snapshotSDKServer(t, repository, visibility)
 	runID := repository.headers["trending"].RunID
 	response, err := server.Client().Get(server.URL + "/rankings/runs/" + runID + "/trending")
 	if err != nil {
@@ -66,7 +66,7 @@ func TestSnapshotInspectionUsesRetainedRevision(t *testing.T) {
 	if decodeErr != nil || closeErr != nil || response.StatusCode != http.StatusOK || body.RunID != runID || body.Category != "trending" {
 		t.Fatalf("retained snapshot inspection = %+v, status %d, decode %v, close %v", body, response.StatusCode, decodeErr, closeErr)
 	}
-	server, _ = repair33Server(t, repository, repair33Visibility{observed: time.Now().Add(-2 * time.Minute)})
+	server, _ = snapshotSDKServer(t, repository, snapshotSDKVisibility{observed: time.Now().Add(-2 * time.Minute)})
 	response, err = server.Client().Get(server.URL + "/rankings/runs/" + runID + "/trending")
 	if err != nil {
 		t.Fatal(err)
@@ -79,8 +79,8 @@ func TestSnapshotInspectionUsesRetainedRevision(t *testing.T) {
 }
 
 func TestSnapshotReadUsesCacheAndValidatesContinuation(t *testing.T) {
-	repository, visibility := repair33MemoryStore(t)
-	server, handler := repair33Server(t, repository, visibility)
+	repository, visibility := snapshotSDKMemoryStore(t)
+	server, handler := snapshotSDKServer(t, repository, visibility)
 	rdb := internaltest.NewRedis(t)
 	cache, err := store.NewSnapshotCache(rdb, "ranking-http")
 	if err != nil {

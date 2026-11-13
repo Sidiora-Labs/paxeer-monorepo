@@ -13,7 +13,9 @@ from urllib.parse import urlsplit
 
 
 ROOT = Path(__file__).resolve().parents[3]
-README = (ROOT / "README.md").read_text(encoding="utf-8")
+NETWORK_PATH = ROOT / "docs/readme/NETWORK.md"
+README = NETWORK_PATH.read_text(encoding="utf-8")
+PUBLIC_RPC = (ROOT / "docs/readme/PUBLIC-RPC.md").read_text(encoding="utf-8")
 RECORD = ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_1033.kvx"
 
 
@@ -42,6 +44,9 @@ def section(heading, level=3):
 
 def test_merged_network_merged_paxd_network_and_block_finality():
     overview = section("What is Paxeer X Network?", 2)
+    assert "There is no separate LayerX interface, router, or unified `/rpc` endpoint." in source(
+        "docs/wiki/Protocol.md"
+    )
     for fact in (
         "one BFT network", "chain ID **125** (`0x7d`)",
         "kernel is embedded in the node", "proposes blocks inside `paxd`",
@@ -49,7 +54,6 @@ def test_merged_network_merged_paxd_network_and_block_finality():
         "A receipt is final once its block is committed",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
         "External checkpoint settlement is retired",
-        "no router and no separate LayerX interface",
         "Sub-chains are tenant domains stored in the database",
     ):
         assert fact in overview, fact
@@ -68,23 +72,17 @@ def test_merged_network_merged_paxd_network_and_block_finality():
 
 def test_merged_network_public_rpc_hosts_and_chain_probe():
     quickstart = section("Quick start: connect to chain 125")
-    assert "Public node JSON-RPC uses the root URL" in quickstart
-    assert "root path of these hosts, without a route suffix" in quickstart
-    assert (
-        "`https://api1.mainnet-beta.paxeer.network` through "
-        "`https://api14.mainnet-beta.paxeer.network`"
-    ) in quickstart
+    assert "Use `api1` through `api14.mainnet-beta.paxeer.network` or" in PUBLIC_RPC
+    assert "`api-mainnet-beta.paxeer.network`, all at the root path." in PUBLIC_RPC
+    assert "Send HTTPS JSON-RPC requests to the root path without a route suffix" in quickstart
+    assert "Set `PAXEER_RPC_URL` to a node root URL" in quickstart
     hosts = {"api-mainnet-beta.paxeer.network"} | {
         f"api{i}.mainnet-beta.paxeer.network" for i in range(1, 15)
     }
-    urls = re.findall(r"https?://[^\s`<>)]+", quickstart)
+    urls = re.findall(r"https?://[^\s`<>)]+", PUBLIC_RPC)
     public_urls = [urlsplit(url) for url in urls if urlsplit(url).hostname in hosts]
-    assert {url.hostname for url in public_urls} == {
-        "api-mainnet-beta.paxeer.network",
-        "api1.mainnet-beta.paxeer.network",
-        "api14.mainnet-beta.paxeer.network",
-    }
-    for url in re.findall(r"https?://[^\s`<>)]+", README):
+    assert {url.hostname for url in public_urls} == hosts
+    for url in re.findall(r"https?://[^\s`<>)]+", PUBLIC_RPC):
         parsed = urlsplit(url)
         if parsed.hostname and parsed.hostname.endswith("mainnet-beta.paxeer.network"):
             assert parsed.hostname in hosts
@@ -96,15 +94,15 @@ def test_merged_network_public_rpc_hosts_and_chain_probe():
     assert argv[0] == "curl"
     assert argv[argv.index("--max-time") + 1] == "10"
     assert argv[argv.index("-H") + 1] == "Content-Type: application/json"
-    assert [arg for arg in argv if arg.startswith("https://")] == [
-        "https://api1.mainnet-beta.paxeer.network"
+    assert [arg for arg in argv if arg.startswith(("https://", "http://", "$"))] == [
+        "$PAXEER_RPC_URL"
     ]
     assert json.loads(argv[argv.index("-d") + 1]) == {
         "jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": []
     }
     assert '# Expected result: "0x7d"' in blocks[0]
-    assert "node.hyperpaxeer.com` is only the hpx library mirror" in quickstart
-    assert "never a JSON-RPC endpoint" in quickstart
+    assert "node.hyperpaxeer.com` is only the hpx library mirror" in PUBLIC_RPC
+    assert "never a JSON-RPC endpoint" in PUBLIC_RPC
     assert "gateway contract does not establish method availability at public node URLs" in quickstart
     assert 'if path == "" {\n\t\treturn r.URL.Path == "/"' in source("rpc/rpcstack.go")
 
@@ -197,10 +195,11 @@ def test_merged_network_node_bringup_is_distinct_from_kernel_library_development
         "docs/site/paxeer-docs/src/app/public-rpc/page.tsx", "docs/wiki/Getting-Started-Beta.md",
         "docs/site/paxeer-docs/src/app/checkpoints/page.tsx", "#build",
     ):
-        assert f"]({target})" in docs, target
+        link = target if target.startswith("#") else f"../../{target}"
+        assert f"]({link})" in docs, target
     for target in re.findall(r"\]\(([^)]+)\)", docs + build):
         if not target.startswith(("https:", "http:", "#")):
-            assert (ROOT / target.split("#", 1)[0]).exists(), target
+            assert (NETWORK_PATH.parent / target.split("#", 1)[0]).exists(), target
     release = section("Releases and Network Upgrades")
     assert "executes kernel activity inside `paxd`" in release
     assert "commits it with the BFT chain state" in release

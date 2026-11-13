@@ -314,7 +314,7 @@ func TestEndblockADLSharedAllowanceAndContinuation(t *testing.T) {
 	for _, bound := range []uint64{1, 2} {
 		t.Run(fmt.Sprintf("bound_%d", bound), func(t *testing.T) {
 			e := newEndblockEnv(t, 0)
-			restart := repair14DurableEndblock(t, e)
+			restart := keeperPrecompileDurableEndblock(t, e)
 			e.setMark(usdAmount(60_000))
 			state := e.marketState(0)
 			state.LastIndexHour = endblockHour
@@ -395,7 +395,7 @@ func TestEndblockADLSharedAllowanceAndContinuation(t *testing.T) {
 			e.ctx = e.ctx.WithBlockHeight(e.ctx.BlockHeight() + 1).WithBlockTime(e.ctx.BlockTime().Add(time.Second)).WithEventManager(sdk.NewEventManager())
 			e.setAggregate(0, 60_000, e.ctx.BlockTime().UnixMilli())
 			records = e.k.EndBlock(e.ctx)
-			repair14InsuranceScanRefusal(t, e)
+			keeperPrecompileInsuranceScanRefusal(t, e)
 			assertReceipt(records)
 			after := e.readAccount(fund)
 			require.True(t, after.DeficitUsd.Lt(&before.DeficitUsd), "the next block resumes retained debt")

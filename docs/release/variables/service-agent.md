@@ -337,10 +337,7 @@ The startup-config library API reads one explicit protected UTF-8 `key=value` fi
 | `LAYERX_AGENT_INFERENCE_SERVE_LISTEN` | Inference completion listener; inference-market mode | IPv4 loopback, TCP port 8791 | No | `crates/layerx-agentd/src/config.rs` |
 | `LAYERX_AGENT_INFERENCE_SIGNAL_LISTEN` | Inference signal listener; inference-market mode | IPv4 loopback, TCP port 8790 | No | `crates/layerx-agentd/src/config.rs` |
 | `LAYERX_AGENT_MCP_BINDING_ROOT` | Absolute path to the MCP binding directory; enables MCP enrolment; full and inference-market modes | MCP enrolment disabled | No | `crates/layerx-agentd/src/main.rs` |
-| `LAYERX_AGENT_MCP_CORE_SEQUENCE` | Presence is rejected at startup; leave unset | Unset | No | `crates/layerx-agentd/src/node_rpc.rs` |
-| `LAYERX_AGENT_MCP_EXPIRY_SEQUENCE` | Presence is rejected at startup; leave unset | Unset | No | `crates/layerx-agentd/src/node_rpc.rs` |
 | `LAYERX_AGENT_MCP_WEB_ENDPOINT` | Enables the MCP web sidecar and selects its endpoint; MCP enrolment | No web sidecar | No | `crates/layerx-agentd/src/main.rs` |
-| `LAYERX_AGENT_MCP_WEB_SEQUENCER_PUBLIC_KEY` | Presence is rejected at startup; leave unset | Unset | No | `crates/layerx-agentd/src/node_rpc.rs` |
 | `LAYERX_AGENT_MODE` | Selects full, human-owner or inference-market | `full` | No | `crates/layerx-agentd/src/human_owner_mode.rs` |
 | `LAYERX_AGENT_REGISTRY_SOURCE_CONFIG` | Absolute path to protected registry-source JSON configuration | Registry-source enrichment disabled | No | `crates/layerx-agentd/src/main.rs` |
 | `LAYERX_AGENT_SEQUENCER_TRUST_HISTORY` | Presence is rejected at startup; leave unset | Unset | No | `crates/layerx-agentd/src/node_rpc.rs` |
@@ -361,3 +358,5 @@ The startup-config library API reads one explicit protected UTF-8 `key=value` fi
 | `MCP binding JSON passed to layerx-mcp or LAYERX_AGENTD_MCP_BINDINGS` / web / `sequencer_public_key` | Rejected setting; omit the declaration | Absent | No | `crates/layerx-mcp/src/binding.rs` |
 | `startup file passed to config::load` / root (no sections) / `expected_protocol_version` | Rejected setting; omit the declaration | Absent | No | `crates/layerx-agentd/src/config.rs` |
 | `startup file passed to config::load` / root (no sections) / `sequencer_authority_source` | Rejected setting; omit the declaration | Absent | No | `crates/layerx-agentd/src/config.rs` |
+
+`LAYERX_AGENT_MCP_CORE_SEQUENCE`, `LAYERX_AGENT_MCP_EXPIRY_SEQUENCE`, and `LAYERX_AGENT_MCP_WEB_SEQUENCER_PUBLIC_KEY` are retired. The daemon rejects their presence at startup, including empty values; leave them unset. See `crates/layerx-agentd/src/node_rpc.rs`.

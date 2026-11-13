@@ -655,10 +655,10 @@ fn chain_bundle_records_deployment_and_survives_rotation() {
 }
 
 #[allow(dead_code)]
-#[path = "support/repair_22_33_221.rs"]
-mod repair_22_33_221;
+#[path = "support/chain_deployment_support.rs"]
+mod chain_deployment_support;
 
 #[test]
 fn node_upgrade_survives_hosted_envelope_restart() {
-    repair_22_33_221::restart_recovery(true);
+    chain_deployment_support::restart_recovery(true);
 }

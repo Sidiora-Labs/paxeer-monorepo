@@ -1,5 +1,5 @@
 #[allow(dead_code)]
-#[path = "support/repair_22_33_221.rs"]
+#[path = "support/chain_deployment_support.rs"]
 mod repair;
 
 #[test]

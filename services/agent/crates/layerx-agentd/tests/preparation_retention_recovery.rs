@@ -1,4 +1,4 @@
-//! Finding-to-test mapping and deferred domain wiring: `prepare/repair_22_33_1543.kvx`.
+//! Finding-to-test mapping and deferred domain wiring: `spec/layerx-merge/programme/records/services/agent/crates/layerx-agentd/src/prepare/repair_22_33_1543.kvx`.
 
 fn require_ok<T, E: std::fmt::Debug>(result: Result<T, E>, message: &str) -> T {
     result.unwrap_or_else(|error| panic!("{message}: {error:?}"))

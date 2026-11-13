@@ -666,7 +666,7 @@ def source_binding(path,checksum):
             raise ValueError('native source differs from admitted candidate')
     required = {str(p.relative_to(ROOT)) for p in (ROOT/'services/launchpad/security/policy').glob('*.go')}
     required |= {str(p.relative_to(ROOT)) for p in (ROOT/'sdk/launchpad/shared/secrets').glob('*.go')}
-    required |= {'services/launchpad/security/policy/release_harness.py','services/launchpad/security/policy/test_release_harness.py','services/launchpad/security/policy/test_repair_22_33_1021.py','services/launchpad/security/go.mod','services/launchpad/security/go.sum','sdk/launchpad/shared/go.mod','sdk/launchpad/shared/go.sum','services/launchpad/go.work','tools/launchpad/production/load/capture.py','tools/launchpad/production/load/phase2_types.py','tools/launchpad/production/load/workload.py','tools/launchpad/production/load/final-shared-capture.schema.json'}
+    required |= {'services/launchpad/security/policy/release_harness.py','services/launchpad/security/policy/test_release_harness.py','services/launchpad/security/policy/test_native_capture.py','services/launchpad/security/go.mod','services/launchpad/security/go.sum','sdk/launchpad/shared/go.mod','sdk/launchpad/shared/go.sum','services/launchpad/go.work','tools/launchpad/production/load/capture.py','tools/launchpad/production/load/phase2_types.py','tools/launchpad/production/load/workload.py','tools/launchpad/production/load/final-shared-capture.schema.json'}
     required |= {str(p.relative_to(ROOT)) for p in (ROOT/'sdk/launchpad/shared/auth').glob('*.go')}
     if not required.issubset(value['files']):
         raise ValueError('security implementation/test binding incomplete')

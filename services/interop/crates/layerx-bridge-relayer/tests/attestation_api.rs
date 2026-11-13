@@ -502,10 +502,10 @@ fn an_unobserved_release_answers_nothing() {
 }
 
 #[allow(dead_code)]
-#[path = "support/repair_22_33_68.rs"]
-mod repair_22_33_68_support;
+#[path = "support/attestation_policy.rs"]
+mod attestation_policy_support;
 
 #[test]
-fn repair_22_33_68_policy_restart_and_rotation() {
-    repair_22_33_68_support::policy_restart_and_rotation();
+fn attestation_policy_restart_and_rotation() {
+    attestation_policy_support::policy_restart_and_rotation();
 }
