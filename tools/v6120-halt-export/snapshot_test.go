@@ -30,7 +30,7 @@ import (
 
 // The peer serves reads from a real keeper over loopback HTTP. Identity fields
 // are a fixed transcript; gates never contact a live node.
-type repairRPC867 struct {
+type snapshotRPC struct {
 	source  *fetcher
 	chain   uint64
 	head    uint64
@@ -41,7 +41,7 @@ type repairRPC867 struct {
 	reads   atomic.Int64
 }
 
-func (s *repairRPC867) wait(ctx context.Context, method string) error {
+func (s *snapshotRPC) wait(ctx context.Context, method string) error {
 	if s.stall != method {
 		return nil
 	}
@@ -52,19 +52,19 @@ func (s *repairRPC867) wait(ctx context.Context, method string) error {
 		return fmt.Errorf("peer stopped")
 	}
 }
-func (s *repairRPC867) ChainId(ctx context.Context) (hexutil.Uint64, error) {
+func (s *snapshotRPC) ChainId(ctx context.Context) (hexutil.Uint64, error) {
 	if err := s.wait(ctx, "eth_chainId"); err != nil {
 		return 0, err
 	}
 	return hexutil.Uint64(s.chain), nil
 }
-func (s *repairRPC867) BlockNumber(ctx context.Context) (hexutil.Uint64, error) {
+func (s *snapshotRPC) BlockNumber(ctx context.Context) (hexutil.Uint64, error) {
 	if err := s.wait(ctx, "eth_blockNumber"); err != nil {
 		return 0, err
 	}
 	return hexutil.Uint64(s.head), nil
 }
-func (s *repairRPC867) GetBlockByNumber(ctx context.Context, number string, full bool) (map[string]interface{}, error) {
+func (s *snapshotRPC) GetBlockByNumber(ctx context.Context, number string, full bool) (map[string]interface{}, error) {
 	if err := s.wait(ctx, "eth_getBlockByNumber"); err != nil {
 		return nil, err
 	}
@@ -73,7 +73,7 @@ func (s *repairRPC867) GetBlockByNumber(ctx context.Context, number string, full
 	}
 	return map[string]interface{}{"number": hexutil.EncodeUint64(s.number), "hash": s.hash}, nil
 }
-func (s *repairRPC867) checkBlock(block rpc.BlockNumberOrHash) error {
+func (s *snapshotRPC) checkBlock(block rpc.BlockNumberOrHash) error {
 	hash, ok := block.Hash()
 	if !ok || hash != s.hash || !block.RequireCanonical {
 		return fmt.Errorf("unbound read: %v", block)
@@ -81,20 +81,20 @@ func (s *repairRPC867) checkBlock(block rpc.BlockNumberOrHash) error {
 	s.reads.Add(1)
 	return nil
 }
-func (s *repairRPC867) GetCode(ctx context.Context, addr common.Address, block rpc.BlockNumberOrHash) (hexutil.Bytes, error) {
+func (s *snapshotRPC) GetCode(ctx context.Context, addr common.Address, block rpc.BlockNumberOrHash) (hexutil.Bytes, error) {
 	if err := s.checkBlock(block); err != nil {
 		return nil, err
 	}
 	return s.source.a.EvmKeeper.GetCode(s.source.base, addr), nil
 }
-func (s *repairRPC867) GetStorageAt(ctx context.Context, addr common.Address, slot common.Hash, block rpc.BlockNumberOrHash) (hexutil.Bytes, error) {
+func (s *snapshotRPC) GetStorageAt(ctx context.Context, addr common.Address, slot common.Hash, block rpc.BlockNumberOrHash) (hexutil.Bytes, error) {
 	if err := s.checkBlock(block); err != nil {
 		return nil, err
 	}
 	return s.source.a.EvmKeeper.GetState(s.source.base, addr, slot).Bytes(), nil
 }
 
-func repairPeer867(t *testing.T, peer *repairRPC867, stallBatch int, badBatch bool) *rpc.Client {
+func newSnapshotRPCClient(t *testing.T, peer *snapshotRPC, stallBatch int, badBatch bool) *rpc.Client {
 	t.Helper()
 	peer.release = make(chan struct{})
 	server := rpc.NewServer()
@@ -155,7 +155,7 @@ func repairPeer867(t *testing.T, peer *repairRPC867, stallBatch int, badBatch bo
 	return client
 }
 
-func repairFixture867(t *testing.T) ([]byte, []byte, snapshotBinding) {
+func snapshotFixture(t *testing.T) ([]byte, []byte, snapshotBinding) {
 	t.Helper()
 	codec := app.MakeEncodingConfig().Marshaler
 	genesis := app.NewDefaultGenesisState(codec)
@@ -178,13 +178,13 @@ func repairFixture867(t *testing.T) ([]byte, []byte, snapshotBinding) {
 	return raw, heights, binding
 }
 
-func repairLoad867(t *testing.T, path string, expected snapshotBinding, client *rpc.Client) *fetcher {
+func loadSnapshotFetcher(t *testing.T, path string, expected snapshotBinding, client *rpc.Client) *fetcher {
 	t.Helper()
 	pub := newPublication(path)
 	raw, recordRaw, heights, err := pub.open()
 	require.NoError(t, err)
 	if len(heights) == 0 {
-		_, heights, _ = repairFixture867(t)
+		_, heights, _ = snapshotFixture(t)
 	}
 	expected.ExportDigest = digest(raw)
 	rec, err := readRecord(recordRaw, expected)
@@ -209,14 +209,14 @@ func repairLoad867(t *testing.T, path string, expected snapshotBinding, client *
 	return f
 }
 
-func repairStart867(t *testing.T, raw []byte, binding snapshotBinding, client *rpc.Client) *fetcher {
+func newSnapshotFetcher(t *testing.T, raw []byte, binding snapshotBinding, client *rpc.Client) *fetcher {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "halt.json")
 	require.NoError(t, os.WriteFile(path, raw, 0o644))
-	return repairLoad867(t, path, binding, client)
+	return loadSnapshotFetcher(t, path, binding, client)
 }
 
-func repairRecordBytes867(t *testing.T, raw, heights []byte, binding snapshotBinding) []byte {
+func snapshotRecordBytes(t *testing.T, raw, heights []byte, binding snapshotBinding) []byte {
 	t.Helper()
 	binding.ExportDigest = digest(raw)
 	binding.HeightsDigest = digest(heights)
@@ -225,13 +225,13 @@ func repairRecordBytes867(t *testing.T, raw, heights []byte, binding snapshotBin
 	return append(record, '\n')
 }
 
-func TestRepairM_867_RPCPathAndPinnedSnapshot(t *testing.T) {
+func TestRPCPathAndPinnedSnapshot(t *testing.T) {
 	endpoint, err := url.Parse(defaultRPC)
 	require.NoError(t, err)
 	require.Equal(t, "https://api-mainnet-beta.paxeer.network", defaultRPC)
 	require.Empty(t, endpoint.Path)
 	require.Equal(t, uint64(125), uint64(defaultChainID))
-	raw, _, binding := repairFixture867(t)
+	raw, _, binding := snapshotFixture(t)
 	for _, tc := range []struct {
 		name                string
 		chain, head, number uint64
@@ -245,8 +245,8 @@ func TestRepairM_867_RPCPathAndPinnedSnapshot(t *testing.T) {
 		{"wrong-number", 125, 45, 43, binding.BlockHash, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			peer := &repairRPC867{chain: tc.chain, head: tc.head, number: tc.number, hash: tc.hash}
-			client := repairPeer867(t, peer, 0, false)
+			peer := &snapshotRPC{chain: tc.chain, head: tc.head, number: tc.number, hash: tc.hash}
+			client := newSnapshotRPCClient(t, peer, 0, false)
 			err := validateSnapshot(context.Background(), client, binding, time.Second)
 			if tc.wantError {
 				require.Error(t, err)
@@ -254,10 +254,10 @@ func TestRepairM_867_RPCPathAndPinnedSnapshot(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			source := repairStart867(t, raw, binding, nil)
+			source := newSnapshotFetcher(t, raw, binding, nil)
 			defer source.a.Close()
 			peer.source = source
-			target := repairStart867(t, raw, binding, client)
+			target := newSnapshotFetcher(t, raw, binding, client)
 			defer target.a.Close()
 			addr := common.HexToAddress("0x8671")
 			slot := common.HexToHash("0x03")
@@ -273,13 +273,13 @@ func TestRepairM_867_RPCPathAndPinnedSnapshot(t *testing.T) {
 	}
 }
 
-func TestRepairM_867_SnapshotBindingRestart(t *testing.T) {
-	raw, _, binding := repairFixture867(t)
-	source := repairStart867(t, raw, binding, nil)
+func TestSnapshotBindingRestart(t *testing.T) {
+	raw, _, binding := snapshotFixture(t)
+	source := newSnapshotFetcher(t, raw, binding, nil)
 	defer source.a.Close()
-	peer := &repairRPC867{source: source, chain: 125, head: 42, number: 42, hash: binding.BlockHash}
-	client := repairPeer867(t, peer, 0, false)
-	target := repairStart867(t, raw, binding, client)
+	peer := &snapshotRPC{source: source, chain: 125, head: 42, number: 42, hash: binding.BlockHash}
+	client := newSnapshotRPCClient(t, peer, 0, false)
+	target := newSnapshotFetcher(t, raw, binding, client)
 	addr := common.HexToAddress("0x8672")
 	slot := common.HexToHash("0x02")
 	absent := common.HexToAddress("0x8673")
@@ -289,7 +289,7 @@ func TestRepairM_867_SnapshotBindingRestart(t *testing.T) {
 	require.NoError(t, target.fetch(context.Background(), keys))
 	path := target.publication.paths[0]
 	require.NoError(t, target.a.Close())
-	reopened := repairLoad867(t, path, binding, client)
+	reopened := loadSnapshotFetcher(t, path, binding, client)
 	defer reopened.a.Close()
 	require.Equal(t, []byte{0x60, 0x02, 0x00}, reopened.a.EvmKeeper.GetCode(reopened.base, addr))
 	require.Equal(t, common.HexToHash("0x34"), reopened.a.EvmKeeper.GetState(reopened.base, addr, slot))
@@ -323,12 +323,12 @@ func TestRepairM_867_SnapshotBindingRestart(t *testing.T) {
 	require.ErrorContains(t, err, "unbound")
 }
 
-func TestRepairM_867_NetworkDeadlinesAndRecovery(t *testing.T) {
-	raw, _, binding := repairFixture867(t)
+func TestNetworkDeadlinesAndRecovery(t *testing.T) {
+	raw, _, binding := snapshotFixture(t)
 	for _, method := range []string{"eth_chainId", "eth_blockNumber", "eth_getBlockByNumber"} {
 		t.Run(method, func(t *testing.T) {
-			peer := &repairRPC867{chain: 125, head: 42, number: 42, hash: binding.BlockHash, stall: method}
-			client := repairPeer867(t, peer, 0, false)
+			peer := &snapshotRPC{chain: 125, head: 42, number: 42, hash: binding.BlockHash, stall: method}
+			client := newSnapshotRPCClient(t, peer, 0, false)
 			start := time.Now()
 			err := validateSnapshot(context.Background(), client, binding, 40*time.Millisecond)
 			require.ErrorIs(t, err, context.DeadlineExceeded)
@@ -337,11 +337,11 @@ func TestRepairM_867_NetworkDeadlinesAndRecovery(t *testing.T) {
 	}
 	for _, overall := range []bool{false, true} {
 		t.Run(fmt.Sprintf("batch-overall-%v", overall), func(t *testing.T) {
-			source := repairStart867(t, raw, binding, nil)
+			source := newSnapshotFetcher(t, raw, binding, nil)
 			defer source.a.Close()
-			peer := &repairRPC867{source: source, chain: 125, head: 42, number: 42, hash: binding.BlockHash}
-			client := repairPeer867(t, peer, 2, false)
-			target := repairStart867(t, raw, binding, client)
+			peer := &snapshotRPC{source: source, chain: 125, head: 42, number: 42, hash: binding.BlockHash}
+			client := newSnapshotRPCClient(t, peer, 2, false)
+			target := newSnapshotFetcher(t, raw, binding, client)
 			var keys []readKey
 			// First batch contains both durable positive values and negative reads;
 			// the second batch stalls before it can mutate the keeper or record.
@@ -377,9 +377,9 @@ func TestRepairM_867_NetworkDeadlinesAndRecovery(t *testing.T) {
 			require.False(t, target.done[keys[batchSize]])
 			path := target.publication.paths[0]
 			require.NoError(t, target.a.Close())
-			resumedPeer := &repairRPC867{source: source, chain: 125, head: 42, number: 42, hash: binding.BlockHash}
-			resumedClient := repairPeer867(t, resumedPeer, 0, false)
-			reopened := repairLoad867(t, path, binding, resumedClient)
+			resumedPeer := &snapshotRPC{source: source, chain: 125, head: 42, number: 42, hash: binding.BlockHash}
+			resumedClient := newSnapshotRPCClient(t, resumedPeer, 0, false)
+			reopened := loadSnapshotFetcher(t, path, binding, resumedClient)
 			defer reopened.a.Close()
 			require.Len(t, reopened.pending(keys), 1)
 			require.NoError(t, validateSnapshot(context.Background(), resumedClient, reopened.binding, time.Second))
@@ -396,11 +396,11 @@ func TestRepairM_867_NetworkDeadlinesAndRecovery(t *testing.T) {
 	}
 }
 
-func TestRepairM_867_RejectInvalidBatchWithoutProgress(t *testing.T) {
-	raw, _, binding := repairFixture867(t)
-	peer := &repairRPC867{chain: 125, head: 42, number: 42, hash: binding.BlockHash}
-	client := repairPeer867(t, peer, 0, true)
-	target := repairStart867(t, raw, binding, client)
+func TestRejectInvalidBatchWithoutProgress(t *testing.T) {
+	raw, _, binding := snapshotFixture(t)
+	peer := &snapshotRPC{chain: 125, head: 42, number: 42, hash: binding.BlockHash}
+	client := newSnapshotRPCClient(t, peer, 0, true)
+	target := newSnapshotFetcher(t, raw, binding, client)
 	defer target.a.Close()
 	require.NoError(t, target.save())
 	before, err := os.Readlink(target.publication.current)
@@ -414,19 +414,19 @@ func TestRepairM_867_RejectInvalidBatchWithoutProgress(t *testing.T) {
 	require.Equal(t, before, after)
 }
 
-func TestRepairM_867_AtomicPublicationInterruption(t *testing.T) {
-	raw, heights, binding := repairFixture867(t)
-	source := repairStart867(t, raw, binding, nil)
+func TestAtomicPublicationInterruption(t *testing.T) {
+	raw, heights, binding := snapshotFixture(t)
+	source := newSnapshotFetcher(t, raw, binding, nil)
 	defer source.a.Close()
 	source.a.EvmKeeper.SetCode(source.base, common.HexToAddress("0x8674"), []byte{0x60, 0x04, 0x00})
-	peer := &repairRPC867{source: source, chain: 125, head: 42, number: 42, hash: binding.BlockHash}
-	client := repairPeer867(t, peer, 0, false)
-	producer := repairStart867(t, raw, binding, client)
+	peer := &snapshotRPC{source: source, chain: 125, head: 42, number: 42, hash: binding.BlockHash}
+	client := newSnapshotRPCClient(t, peer, 0, false)
+	producer := newSnapshotFetcher(t, raw, binding, client)
 	require.NoError(t, producer.fetch(context.Background(), []readKey{{addr: common.HexToAddress("0x8674"), code: true}}))
 	nextExport, nextRecord, nextHeights, err := producer.publication.open()
 	require.NoError(t, err)
 	require.NoError(t, producer.a.Close())
-	firstRecord := repairRecordBytes867(t, raw, heights, binding)
+	firstRecord := snapshotRecordBytes(t, raw, heights, binding)
 	for _, phase := range []string{"staged-before-commit", "bootstrap-after-pointer", "update-after-pointer"} {
 		t.Run(phase, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "halt.json")
@@ -458,7 +458,7 @@ func TestRepairM_867_AtomicPublicationInterruption(t *testing.T) {
 				require.Equal(t, nextExport, got)
 				require.Equal(t, nextRecord, record)
 				require.Equal(t, nextHeights, gotHeights)
-				reopened := repairLoad867(t, path, binding, client)
+				reopened := loadSnapshotFetcher(t, path, binding, client)
 				require.Equal(t, []byte{0x60, 0x04, 0x00}, reopened.a.EvmKeeper.GetCode(reopened.base, common.HexToAddress("0x8674")))
 				require.NoError(t, reopened.a.Close())
 			}
@@ -476,7 +476,7 @@ func TestRepairM_867_AtomicPublicationInterruption(t *testing.T) {
 		require.NoError(t, p.publish(raw, firstRecord, heights))
 		changed := binding
 		changed.BlockHash = common.HexToHash("0xbad")
-		different := repairRecordBytes867(t, nextExport, nextHeights, changed)
+		different := snapshotRecordBytes(t, nextExport, nextHeights, changed)
 		_, err := p.stage(nextExport, different, nextHeights)
 		require.ErrorContains(t, err, "different snapshot")
 		got, record, _, err := newPublication(path).open()
