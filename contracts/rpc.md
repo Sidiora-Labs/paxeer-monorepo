@@ -15,7 +15,7 @@ finality.
 
 Set `RPC_URL` to the configured node's HTTPS root origin. Use the operator's
 configured WSS root origin for WebSocket calls. The
-[public endpoint reference](../docs/site/docs/reference/public-rpc.md)
+[public endpoint reference](../docs/readme/PUBLIC-RPC.md)
 describes the node transports and deployment settings.
 
 ```bash
