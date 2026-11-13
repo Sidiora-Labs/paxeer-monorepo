@@ -1,13 +1,27 @@
 # Inference peer
 
-Standalone ES module npm package for the Paxeer inference peer. It has its own
-lockfile, no build step and no runtime npm dependencies. Its tests use `jsdom`
-as a development dependency. Use Node.js 22 or newer:
+This directory holds the standalone ES module package `@paxeer/inference-peer`,
+its pinned Pooled WebGPU engine, browser page and native CLI. Peers provide
+compute to the Paxeer inference market: the runtime executes assigned model
+layers over WebRTC and countersigns contributed laps, while the host keeps
+embedding and head and the chain verifies records and settles payment. Paxeer
+identity, signalling, transport and deal integration live in `src/`.
 
-```sh
-npm --prefix apps/inference-peer install --no-audit --no-fund --ignore-scripts
-node --test apps/inference-peer/test/vendored_engine.test.mjs
-```
+## Layout
+
+- [bin/](bin/): native CLI entry point, `inference-peer.mjs`.
+- [engine/](engine/): vendored Pooled engine, WGSL shader modules, room and harness helpers, and tokenizer reference data.
+- [scripts/](scripts/): browser development server, `serve.mjs`.
+- [src/](src/): identity, signalling, binary wire codec, WebRTC transport, deal execution, laps, canaries, browser page and CLI integration.
+- [test/](test/): Node regression tests, host signalling support and protocol fixtures in `fixtures/`.
+- [tests/](tests/): scripted attention model and runtime used by the deal tests.
+- [index.html](index.html): browser peer page.
+- [package.json](package.json): package exports, Node requirement, dependency and script declarations.
+- [package-lock.json](package-lock.json): npm dependency lockfile.
+- [LICENSE-ENGINE](LICENSE-ENGINE): complete MIT notice for the vendored engine.
+- [NOTICE](NOTICE): engine source pin and SHA-256 hashes.
+
+### Engine and package exports
 
 The `engine/` directory vendors [Pooled](https://github.com/Nehanth/pooled) at
 commit `45b5ee275a8754a37fce4a6ce174f31e4a216ef4` under the MIT licence.
@@ -24,10 +38,8 @@ The snapshot preserves upstream paths beneath `engine/`:
 | `engine/tests/unit/tokenizer_llamacpp.json` | Upstream reference corpus, vocabulary subsets and token IDs generated using llama.cpp                                                                               |
 
 Every vendored JavaScript file differs only by its first-line origin comment.
-The fixture is byte-identical to upstream. Do not format or edit the snapshot;
-put local runtime integration in `src/`. To update it, copy the dependency
-closure from one upstream commit, refresh the origin comments, NOTICE hashes
-and pinned test revision together, and retain its complete MIT notice.
+The fixture is byte-identical to upstream. Local runtime integration lives in
+`src/`, outside the vendored snapshot.
 
 The package manifest, regression tests and integration documentation are covered
 by the repository's Apache-2.0 licence. Paxeer identity, signalling, WebRTC room
@@ -41,13 +53,59 @@ include `@paxeer/inference-peer/dense`, `/qwen35`, `/gguf`, `/tokenizer`,
 
 Importing the core modules and shaders and running the tokenizer needs no GPU.
 Executing the vendored GPU engines needs a WebGPU device and compatible model
-weights, which are downloaded separately and carry their own licences. Some experimental
-Qwen4 modules also require WebGPU globals at import time. The declared Node
-test imports the core engines, loaders, generation loop and shader modules,
-checks the snapshot hashes, and verifies the tokenizer against upstream's
-reference IDs and exact Unicode round trips. It does not qualify GPU inference.
+weights, which are downloaded separately and carry their own licences. Some
+experimental Qwen4 modules also require WebGPU globals at import time. The
+vendored-engine Node test imports the core engines, loaders, generation loop and
+shader modules, checks the snapshot hashes, and verifies the tokenizer against
+upstream's reference IDs and exact Unicode round trips. These tests exercise
+imports and tokenization without running GPU inference.
 
-## Room signalling
+## Build and test
+
+The package runs directly as ES modules and has no build step or runtime npm
+dependencies. It has its own lockfile and uses `jsdom` as a development
+dependency. Use Node.js 22 or newer. From the repository root:
+
+```sh
+npm --prefix apps/inference-peer install --no-audit --no-fund --ignore-scripts
+npm --prefix apps/inference-peer test
+npm --prefix apps/inference-peer run serve
+```
+
+The `test` script in [package.json](package.json) runs
+`node --test test/*.test.mjs`; the `serve` script runs `node scripts/serve.mjs`.
+The vendored engine tests can also be selected from the repository root:
+
+```sh
+node --test apps/inference-peer/test/vendored_engine.test.mjs
+```
+
+### Browser and native entry points
+
+From this directory, `npm run serve` serves [index.html](index.html), `src/` and
+`engine/` on loopback port 4173. `PORT` overrides that port. The server sets the
+cross-origin isolation headers needed by the browser runtime.
+
+The native entry point is [bin/inference-peer.mjs](bin/inference-peer.mjs).
+Invoke it with `node`; the package manifest does not register a command in `bin`.
+`join` uses a supplied native v2 manifest and exposes `/status` on loopback port
+8788 by default (`--status-port` overrides it). Execution requires a chain-checked
+`--deal`, `--host-key` and `--model-manifest-url`.
+
+`serve --host <host>` forwards `/v1/chat/completions` and `/v1/completions` on
+loopback port 8787 by default (`--port` overrides it). It reads the host's ask
+bearer through `PAXAI_ASK_BEARER` or `--ask-bearer`. `status --port <port>` reads a
+running join session's status.
+
+### Protocol fixtures
+
+`test/fixtures/host-signal-frames.json` contains eleven directional signalling
+vectors for connection setup, relay and deal acknowledgement, a deterministic
+signing identity, and the exact hello and deal acknowledgement signing bytes and
+signatures. Tests use real loopback WebSockets and verify hello bytes
+independently of the client's signing helper.
+
+### Room signalling
 
 Signalling uses the host listener's WebSocket request target `/`.
 [`SignalClient`](src/transport.mjs)
@@ -109,33 +167,47 @@ a missing length 411, an oversized body
 relay failures 502, and missing host enrolment settings or unavailable chain
 state 503. `test/fixtures/host-enrol-route.json` is shared by host and peer tests.
 
-The host enables relaying with its existing enrolment settings, including
-`LAYERX_AGENT_INFERENCE_ENROLMENT` and `LAYERX_AGENT_INFERENCE_ENROLMENT_JOURNAL`;
-without them the route refuses with `enrolment_not_configured`. Preparing the
-signed document is the peer owner's responsibility. The CLI relays the supplied
-transactions. An owner supplies the correct proposal, peer consent/publication
-and quote records for current chain state.
+The host relays the supplied transactions through its configured enrolment
+service. The peer owner prepares the signed proposal, peer consent/publication
+and quote records for current chain state. Host configuration is described in
+the [operator guide](../../docs/agent/inference-market/operator.md).
 
-## Protocol fixtures
+## Configuration
 
-`test/fixtures/host-signal-frames.json` contains eleven directional signalling
-vectors for connection setup, relay and deal acknowledgement, a public deterministic test seed/key, and the exact hello and deal
-acknowledgement signing bytes and signatures. Tests use real loopback WebSockets
-and verify hello bytes independently of the client's signing helper.
+| Environment variable | Reader and purpose                                                                                                                |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `PORT`               | [scripts/serve.mjs](scripts/serve.mjs): browser development server port.                                                          |
+| `PAXAI_ASK_BEARER`   | [src/cli.mjs](src/cli.mjs): host ask bearer for `serve`, also accepted through `--ask-bearer`.                                    |
+| `PREFILL_MATH`       | [engine/engine/qwen35.js](engine/engine/qwen35.js): prefill arithmetic selection when running under Deno with environment access. |
 
-## Browser and native entry points
+The CLI reads these user-supplied files and model sources:
 
-From this directory, `npm run serve` serves [index.html](index.html), `src/` and
-`engine/` on loopback port 4173. `PORT` overrides that port. The server sets the
-cross-origin isolation headers needed by the browser runtime.
+| Option                 | Input                                                                                                                          |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `--manifest`           | Native participant manifest v2 bytes.                                                                                          |
+| `--enrolment`          | Signed enrolment JSON document.                                                                                                |
+| `--attestation`        | PXVE attestation binding envelope, checked locally.                                                                            |
+| `--deal`               | JSON deal terms checked against chain state by the caller.                                                                     |
+| `--identity`           | Persistent native identity file in PKCS#8 format.                                                                              |
+| `--model-manifest-url` | Model JSON manifest and its referenced weight shards; `DealClient` accepts the same source through `modelSource.manifest_url`. |
 
-The native entry point is [bin/inference-peer.mjs](bin/inference-peer.mjs).
-Invoke it with `node`; the package manifest does not register a command in `bin`.
-`join` uses a supplied native v2 manifest and exposes `/status` on loopback port
-8788 by default (`--status-port` overrides it). Execution requires a chain-checked
-`--deal`, `--host-key` and `--model-manifest-url`.
+[src/identity.mjs](src/identity.mjs) stores native identity in
+`~/.paxeer/inference-peer/identity.pkcs8` unless a path is supplied. Browser
+identity uses the IndexedDB database `paxeer-inference-peer`.
+The browser page accepts participant manifest v1 bytes, region, bandwidth probe,
+signalling host and room through its form. The CLI also accepts `--model-digest`,
+`--runtime-digest` and `--host-key` for its local binding checks, plus
+`--status-port` and `--port` for its local listeners.
 
-`serve --host <host>` forwards `/v1/chat/completions` and `/v1/completions` on
-loopback port 8787 by default (`--port` overrides it). It requires the host's ask
-bearer through `PAXAI_ASK_BEARER` or `--ask-bearer`. Keep that credential outside
-public files. `status --port <port>` reads a running join session's status.
+Host enrolment settings are separate from the peer's inputs. The host reads
+`LAYERX_AGENT_INFERENCE_ENROLMENT` and
+`LAYERX_AGENT_INFERENCE_ENROLMENT_JOURNAL`; its enrolment route returns
+`enrolment_not_configured` when the service is not configured.
+
+## Documentation
+
+- [Inference market](../../docs/agent/inference-market/README.md): network roles and the protocol, orchestration and inference planes.
+- [Protocol](../../docs/agent/inference-market/protocol.md): deals, lap evidence, canaries, payouts and bonds.
+- [Operator guide](../../docs/agent/inference-market/operator.md): host configuration, enrolment and recovery.
+- [Client guide](../../docs/agent/inference-market/client.md): SDK calls, completion routes, wallet and explorer surfaces.
+- [Threat statement](../../docs/agent/inference-market/threats.md): attestation, model correctness, liveness and privacy.
