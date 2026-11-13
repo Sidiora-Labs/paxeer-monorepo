@@ -203,7 +203,7 @@ CREATE VIEW users.identity_sessions AS SELECT * FROM gateway_identity.identity_s
 CREATE VIEW users.identity_reauth AS SELECT * FROM gateway_identity.identity_reauth;
 CREATE VIEW users.identity_outbox AS SELECT * FROM gateway_identity.identity_outbox;`)
 	repair48Must(t, err)
-	functions, err := os.ReadFile(filepath.Join(root, "launchpad/spec/production-system/integration/migrations/330001.sql"))
+	functions, err := os.ReadFile(filepath.Join(root, "migrations/330001.sql"))
 	repair48Must(t, err)
 	_, ddl, found := strings.Cut(string(functions), "CREATE FUNCTION users.consume_account_deletion_reauth")
 	if !found {

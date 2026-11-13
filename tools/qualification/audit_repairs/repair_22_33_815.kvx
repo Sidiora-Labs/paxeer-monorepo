@@ -62,9 +62,9 @@ interface_digest = "b8d400593ea9184337a6ab66ae5be49da1676708a4ffcbdb31ce0c4732a0
 reader_min_version = 1
 estimated_lock_ms = 2000
 approval_manifest_digest = "110858de197f4dfdc519666936dfbebf984a86fa5e076eaa89ea0f91617e173f"
-source = "launchpad/spec/production-system/integration/migrations/pnl-reward-approval.json"
+source = "migrations/pnl-reward-approval.json"
 reason = "These are retained proposal inputs, not complete combined PostgreSQL qualification: the predecessor source provenance is unresolved and the approval_manifest_digest names the withdrawn registry approval. Runtime admission fields are null until the full registry is qualified; the original approval document is retained unchanged."
-wiring_request = "launchpad/spec/production-system/integration/migrations/pnl-reward-approval.json | owning launchpad/domain 16, task 22.33.917 | Reconcile proposed reward-storage admission inputs with the current complete registry and real PostgreSQL lock/reader/interface evidence before reissuing migration 180001 approval; do not treat the retained proposal as full-registry qualification."
+wiring_request = "migrations/pnl-reward-approval.json | owning launchpad/domain 16, task 22.33.917 | Reconcile proposed reward-storage admission inputs with the current complete registry and real PostgreSQL lock/reader/interface evidence before reissuing migration 180001 approval; do not treat the retained proposal as full-registry qualification."
 
 [qualification.repair_1]
 revision = "ad07233ac86cd82d9c78da88147d9cf554dfaf34"

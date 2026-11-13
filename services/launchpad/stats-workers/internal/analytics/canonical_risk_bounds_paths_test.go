@@ -43,7 +43,7 @@ func TestCanonicalRiskInputsValidatePersistedSourceFacts(t *testing.T) {
 			}
 			exec(ddl)
 		}
-		raw, err := os.ReadFile(filepath.Join(root, "launchpad/spec/production-system/integration/migrations", id+".sql"))
+		raw, err := os.ReadFile(filepath.Join(root, "migrations", id+".sql"))
 		if err != nil {
 			t.Fatal(err)
 		}

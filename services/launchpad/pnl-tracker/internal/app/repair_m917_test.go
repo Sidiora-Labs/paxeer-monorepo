@@ -163,7 +163,7 @@ func repairM917ValidateMigrationPlan(t *testing.T, existing []int64) {
 	var roles struct {
 		Roles []production.RoleManifest `json:"roles"`
 	}
-	if err := json.Unmarshal(repairM917Read(t, "launchpad/spec/production-system/integration/migrations/grants.json"), &roles); err != nil {
+	if err := json.Unmarshal(repairM917Read(t, "migrations/grants.json"), &roles); err != nil {
 		t.Fatal(err)
 	}
 	found := false
@@ -324,8 +324,8 @@ func repairM917ValidateMigrationPlan(t *testing.T, existing []int64) {
 }
 
 func TestRepairM_917_ApprovalBindings(t *testing.T) {
-	source := repairM917Read(t, "launchpad/spec/production-system/integration/migrations/registry.json")
-	approval := repairM917Read(t, "launchpad/spec/production-system/integration/migrations/pnl-reward-approval.json")
+	source := repairM917Read(t, "migrations/registry.json")
+	approval := repairM917Read(t, "migrations/pnl-reward-approval.json")
 	reader := repairM917Read(t, "sdk/launchpad/shared/interfaces/v2/validators.gen.go")
 	for _, bad := range []struct {
 		name                     string

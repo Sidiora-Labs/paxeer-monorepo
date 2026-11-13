@@ -14,7 +14,7 @@ import (
 
 func connectedProductionView(t *testing.T, a *Authority, migration, prefix, original, replacement string) {
 	t.Helper()
-	raw, err := os.ReadFile("../../../../../launchpad/spec/production-system/integration/migrations/" + migration)
+	raw, err := os.ReadFile("../../../../../migrations/" + migration)
 	if err != nil {
 		t.Fatal(err)
 	}

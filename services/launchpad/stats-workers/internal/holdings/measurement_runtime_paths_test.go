@@ -286,7 +286,7 @@ func TestPhase4RuntimeMeasuresAcceptedRequests(t *testing.T) {
 
 func mustPhase4Migration(t *testing.T, name string) []byte {
 	t.Helper()
-	raw, err := os.ReadFile(filepath.Join("../../../../../launchpad/spec/production-system/integration/migrations", name+".sql"))
+	raw, err := os.ReadFile(filepath.Join("../../../../../migrations", name+".sql"))
 	if err != nil {
 		t.Fatal(err)
 	}

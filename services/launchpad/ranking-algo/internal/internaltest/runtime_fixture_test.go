@@ -61,10 +61,10 @@ func TestRankingRuntimeDatabaseProvidesReadRole(t *testing.T) {
 
 func TestReadSchemaAndRedisFixtures(t *testing.T) {
 	root := RepositoryRoot(t)
-	if _, err := os.Stat(filepath.Join(root, "launchpad/spec/production-system/integration/migrations/registry.json")); err != nil {
+	if _, err := os.Stat(filepath.Join(root, "migrations/registry.json")); err != nil {
 		t.Fatal(err)
 	}
-	if raw := readBound(t, root, "spec/production-system/integration/migrations/registry.json", ""); len(raw) == 0 {
+	if raw := readBound(t, root, "migrations/registry.json", ""); len(raw) == 0 {
 		t.Fatal("migration registry is empty")
 	}
 	if raw := readBound(t, root, "core/ranking-algo/go.mod", ""); !strings.Contains(string(raw), "module github.com/Sidiora-Technologies/KindleLaunch/core/ranking-algo") {
