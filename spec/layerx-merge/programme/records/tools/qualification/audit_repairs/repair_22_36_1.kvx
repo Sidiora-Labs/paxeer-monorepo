@@ -10,7 +10,7 @@ proof = "The declared pytest gate checks the exact documentation inventory, ever
 
 [qualification]
 build_cmd = "python3 --version"
-verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_36_1.py"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_hyperfide_relocation.py"
 done_cmd = "cg spec done 22.36.1 -f layerx-merge --root /work/paxeer-monorepo"
 gate_ledger = "/out/run/gates.jsonl"
 verified_revision_source = "The final passing kind=verify row in the private gate ledger names the verified revision, command, exit and log. Its revision must equal the final passing kind=build revision. The final hf-done JSON repeats those four fields."

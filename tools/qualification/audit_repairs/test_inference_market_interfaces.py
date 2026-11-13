@@ -15,7 +15,7 @@ from programme.interfaces_reconcile import _symbol, interfaces_reconcile
 from programme.kvx import load
 
 
-RECORD = load(ROOT / "tools/qualification/audit_repairs/repair_22_38_39.kvx")["series"]
+RECORD = load(ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_38_39.kvx")["series"]
 REGISTRY = load(SPEC / "interfaces.kvx")
 INTERFACES = {
     name: row

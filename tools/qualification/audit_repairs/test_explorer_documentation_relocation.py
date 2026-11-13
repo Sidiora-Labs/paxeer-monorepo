@@ -164,7 +164,7 @@ def test_no_tracked_references_to_retired_explorer_documentation_paths():
             "-e", "apps/explorer/RELEASE_NOTES.md",
             "-e", "services/explorer/UPSTREAM.md",
             "--", ".", ":(exclude)spec/**", ":(exclude)GOTCHA.kvx",
-            ":(exclude)tools/qualification/audit_repairs/test_repair_22_36_4.py",
+            ":(exclude)tools/qualification/audit_repairs/test_explorer_documentation_relocation.py",
         ],
         cwd=ROOT,
         capture_output=True,

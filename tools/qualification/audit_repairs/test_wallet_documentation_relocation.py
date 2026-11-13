@@ -150,7 +150,7 @@ def test_no_tracked_references_to_retired_wallet_documentation_paths():
             "-e", "apps/wallet/docs", "-e", "services/wallet/docs",
             "--", ".", ":(exclude)spec/**", ":(exclude)GOTCHA.kvx",
             ":(exclude)**/repair*.kvx", ":(exclude)**/CHANGELOG*",
-            ":(exclude)tools/qualification/audit_repairs/test_repair_22_36_3.py",
+            ":(exclude)tools/qualification/audit_repairs/test_wallet_documentation_relocation.py",
         ],
         cwd=ROOT,
         capture_output=True,

@@ -142,7 +142,7 @@ assertion = "Task 18.1678.1 removed raw gRPC message wrapping; assert absence, e
 producer_task = "18.1678.1"
 
 [case.vendored_source]
-test_file = "tools/qualification/audit_repairs/test_repair_22_36_1.py"
+test_file = "tools/qualification/audit_repairs/test_hyperfide_relocation.py"
 test = "test_code_specs_dot_directories_and_assets_are_preserved"
 producers = ["tools/hyperfide/.gitignore", "tools/hyperfide/package.json"]
 assertion = "Re-pin live source tree at input main revision; retain every original relocation file, exact Git blob/mode checks, more than 10000 files and restored hook inclusion."
