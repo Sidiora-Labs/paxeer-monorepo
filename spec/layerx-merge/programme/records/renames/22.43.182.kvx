@@ -1,0 +1,92 @@
+[manifest]
+task = "22.43.182"
+records_moved = 5
+files_renamed = 5
+
+[file.1]
+from = "storage/db_engine/pebbledb/repair_m1176_test.go"
+to = "storage/db_engine/pebbledb/metrics_lifecycle_test.go"
+
+[file.2]
+from = "storage/db_engine/pebbledb/mvcc/repair_178_test.go"
+to = "storage/db_engine/pebbledb/mvcc/version_recovery_test.go"
+
+[file.3]
+from = "storage/db_engine/pebbledb/mvcc/repair_m1174_test.go"
+to = "storage/db_engine/pebbledb/mvcc/storage_integrity_test.go"
+
+[file.4]
+from = "storage/db_engine/pebbledb/mvcc/repair_m1175_test.go"
+to = "storage/db_engine/pebbledb/mvcc/ascending_prune_metrics_test.go"
+
+[file.5]
+from = "storage/db_engine/rocksdb/mvcc/repair_m1072_test.go"
+to = "storage/db_engine/rocksdb/mvcc/write_lifecycle_test.go"
+
+[file.6]
+from = "storage/db_engine/pebbledb/mvcc/repair_178.kvx"
+to = "spec/layerx-merge/programme/records/storage/db_engine/pebbledb/mvcc/repair_178.kvx"
+
+[file.7]
+from = "storage/db_engine/pebbledb/mvcc/repair_m1174.kvx"
+to = "spec/layerx-merge/programme/records/storage/db_engine/pebbledb/mvcc/repair_m1174.kvx"
+
+[file.8]
+from = "storage/db_engine/pebbledb/mvcc/repair_m1175.kvx"
+to = "spec/layerx-merge/programme/records/storage/db_engine/pebbledb/mvcc/repair_m1175.kvx"
+
+[file.9]
+from = "storage/db_engine/pebbledb/repair_m1176.kvx"
+to = "spec/layerx-merge/programme/records/storage/db_engine/pebbledb/repair_m1176.kvx"
+
+[file.10]
+from = "storage/db_engine/rocksdb/mvcc/repair_m1072.kvx"
+to = "spec/layerx-merge/programme/records/storage/db_engine/rocksdb/mvcc/repair_m1072.kvx"
+
+[reference.1]
+file = "spec/layerx-merge/dispositions/d22-22.kvx"
+name = "repair_m1072_test.go"
+
+[reference.2]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_m1072_test.go"
+
+[reference.3]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_178_test.go"
+
+[reference.4]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1072_test.go"
+
+[reference.5]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1174_test.go"
+
+[reference.6]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1175_test.go"
+
+[reference.7]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1176_test.go"
+
+[reference.8]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_178_"
+
+[reference.9]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1072_"
+
+[reference.10]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1174_"
+
+[reference.11]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1175_"
+
+[reference.12]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1176_"
