@@ -17,9 +17,7 @@ RECEIPT_PAGES = (
     "environments/emulator.md",
 )
 COMMITTED_EVIDENCE = (
-    "https://github.com/Sidiora-Labs/paxeer-monorepo/blob/"
-    "abc81fd2cead6b2b9d5612c6e09a6ab56f13c1ed/"
-    "docs/site/docs/concepts/checkpoints.md#committed-block-evidence"
+    "https://docs.paxeer.app/checkpoints/"
 )
 
 

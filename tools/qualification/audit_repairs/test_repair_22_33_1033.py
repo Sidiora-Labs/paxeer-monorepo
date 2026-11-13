@@ -194,8 +194,8 @@ def test_f23_node_bringup_is_distinct_from_kernel_library_development():
     assert "-o ./build/paxd ./daemon/paxd" in source("chain.mk")
     docs = section("Documentation", 2)
     for target in (
-        "docs/site/docs/reference/public-rpc.md", "docs/wiki/Getting-Started-Beta.md",
-        "docs/site/docs/concepts/checkpoints.md", "#build",
+        "docs/site/paxeer-docs/src/app/public-rpc/page.tsx", "docs/wiki/Getting-Started-Beta.md",
+        "docs/site/paxeer-docs/src/app/checkpoints/page.tsx", "#build",
     ):
         assert f"]({target})" in docs, target
     for target in re.findall(r"\]\(([^)]+)\)", docs + build):

@@ -101,7 +101,7 @@ def test_wiki_asset_receive_marked_historical():
     historical = re.split(r"^## ", historical, maxsplit=1, flags=re.MULTILINE)[0]
     assert (
         "[Historical payment payloads]"
-        "(../site/docs/concepts/assets.md#historical-payment-payloads)"
+        "(../site/paxeer-docs/src/app/assets/page.tsx)"
     ) in historical
     prose = " ".join(historical.split())
     assert "retained only for decoding archived artifacts" in prose

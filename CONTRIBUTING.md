@@ -44,7 +44,7 @@ history in contributor records rather than product guides. Test filenames may
 remain in code spans and commands so readers can locate and run them.
 
 Specification references belong here and in the
-[reference index](docs/site/docs/reference/index.md). Product guides should link
+[specifications](spec/). Product guides should link
 the relevant implementation, API contract or user-facing guide instead.
 
 ## Commits

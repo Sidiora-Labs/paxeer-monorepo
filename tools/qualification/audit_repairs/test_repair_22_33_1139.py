@@ -171,7 +171,7 @@ def test_native_funding_and_proof_guidance():
         "`committed` rung requires coverage", "`MsgSequenceBatch`",
         "authenticate the block header and CometBFT commit",
         "trusted validator information", "authenticated root at the relevant height and key",
-        "docs/site/docs/concepts/checkpoints.md",
+        "docs/site/paxeer-docs/src/app/checkpoints/page.tsx",
     ))
     for target in re.findall(r"\]\(([^)]+)\)", funding + proof):
         assert (ROOT / target).exists(), target

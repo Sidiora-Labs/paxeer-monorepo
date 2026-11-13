@@ -14,14 +14,14 @@ gateway are identified separately below.
 ## Public node JSON-RPC
 
 The public node endpoints serve JSON-RPC at the root path over HTTPS and
-WebSocket. Select a node URL from the [public RPC reference](../site/docs/reference/public-rpc.md).
+WebSocket. Select a node URL from the [public RPC reference](../site/paxeer-docs/src/app/public-rpc/page.tsx).
 
 The node registers `debug`, `echo`, `eth`, `net`, `pax`, `pax2`, `px`,
 `txpool` and `web3`. The `test` namespace is opt-in on non-live chains.
 Transport and legacy-method settings are described in [EVM JSON-RPC](rpc.md).
 Check `eth_chainId` for `0x7d` and compare `eth_blockNumber` across configured nodes.
 Node availability does not imply that every method in an upstream Geth namespace
-is supported. See [Public RPC endpoints](../site/docs/reference/public-rpc.md)
+is supported. See [Public RPC endpoints](../site/paxeer-docs/src/app/public-rpc/page.tsx)
 for the individual URLs and client examples. The root HTTP/WebSocket proxy mapping
 is in [the node installation template](../../tools/bringup/install-archive.sh).
 

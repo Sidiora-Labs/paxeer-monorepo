@@ -26,7 +26,7 @@ running gateway, node, database, network connection or wall clock. The carried
 key is evidence to compare with that trust policy, never its source of trust.
 
 Online acquisition uses node JSON-RPC at the configured node's root HTTPS path
-on chain ID 125. See the [public RPC guide](../site/docs/reference/public-rpc.md)
+on chain ID 125. See the [public RPC guide](../site/paxeer-docs/src/app/public-rpc/page.tsx)
 for connection details. `pax_sequencerReceipt` reports `submitted`, `receipted`
 or `committed`; those are stages within the same network.
 

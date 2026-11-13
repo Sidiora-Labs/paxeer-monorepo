@@ -6,7 +6,7 @@ is final once its block is committed.
 
 Public JSON-RPC uses a node's root path. Use the node's root WebSocket URL for
 subscriptions. Select the endpoint from the
-[public RPC reference](../site/docs/reference/public-rpc.md) and set `NODE_RPC_URL`
+[public RPC reference](../site/paxeer-docs/src/app/public-rpc/page.tsx) and set `NODE_RPC_URL`
 to its HTTPS root URL for this shell example. The hpx library mirror distributes
 build libraries and does not serve chain RPC.
 

@@ -10,7 +10,7 @@ topics share this gateway; separate per-asset ports are not required.
 Paxeer mainnet-beta is one BFT network with EVM chain ID **125 (`0x7d`)**. Its
 kernel participates in block proposal and receipts are final when their block
 commits. Public node JSON-RPC uses the node root path; see the
-[public RPC guide](../site/docs/reference/public-rpc.md) for connection details.
+[public RPC guide](../site/paxeer-docs/src/app/public-rpc/page.tsx) for connection details.
 Those node endpoints are
 separate from the application data gateway described here. Tenant sub-chains
 are database domains, not additional networks to deploy for this UI.

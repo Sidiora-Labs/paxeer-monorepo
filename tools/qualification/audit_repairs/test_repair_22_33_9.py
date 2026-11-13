@@ -92,7 +92,7 @@ def test_f39_binding_preserves_domain_separated_dual_consent():
     assert "message = append(message, evmAddress[:]...)" in message
     assert "binary.BigEndian.AppendUint64(message, nonce)" in message
     assert "EIP-712/HKDF-SHA256" in accounts and "original derivation context" in accounts
-    assert "docs/site/docs/concepts/one-account.md" in accounts
+    assert "docs/site/paxeer-docs/src/app/accounts/page.tsx" in accounts
 
 
 def test_f39_native_funding_matches_abi_dispatch_and_keeper():

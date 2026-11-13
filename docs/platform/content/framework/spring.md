@@ -47,7 +47,7 @@ layerx:
 
 The `receipt-keys.entries` configuration supplies the independently trusted receipt keys. Signed receipt verification authenticates execution; finality additionally requires committed block evidence.
 
-A receipt is final once its block is committed. The network rungs are `submitted`, `receipted` and `committed`; `checkpoint-finalised` and `done-finalised` are retained API names for the `committed` rung. `settlement-anchored` and `paxeer-finalised` are never reached on the merged network. For finality, authenticate the block header and CometBFT commit, then verify transaction or state inclusion at the relevant height. See [Committed block evidence](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/docs/site/docs/concepts/checkpoints.md#committed-block-evidence).
+A receipt is final once its block is committed. The network rungs are `submitted`, `receipted` and `committed`; `checkpoint-finalised` and `done-finalised` are retained API names for the `committed` rung. `settlement-anchored` and `paxeer-finalised` are never reached on the merged network. For finality, authenticate the block header and CometBFT commit, then verify transaction or state inclusion at the relevant height. See [Committed block evidence](https://docs.paxeer.app/checkpoints/).
 
 ## The integration
 

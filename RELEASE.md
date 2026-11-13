@@ -4,7 +4,7 @@ A Paxeer X Network release is one git tag, one [`tools/release/version.json`](to
 and a set of files built from that tag and recorded in `SHA256SUMS`. The merged network runs the
 kernel inside `paxd`, including block proposal and execution. A receipt is final when its block is
 committed. The EVM chain ID is `125` (`0x7d`); public node JSON-RPC uses the root URLs listed in
-[Public RPC endpoints](docs/site/docs/reference/public-rpc.md).
+[Public RPC endpoints](docs/site/paxeer-docs/src/app/public-rpc/page.tsx).
 
 Applying a release to a running network requires the matching governance upgrade plan and node
 handler. The release tooling lives in [`tools/release`](tools/release). Release **v7.0.0** carries

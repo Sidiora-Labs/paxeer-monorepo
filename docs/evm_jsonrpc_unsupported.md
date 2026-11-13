@@ -1,6 +1,6 @@
 # Pax EVM JSON-RPC: explicitly unsupported methods
 
-This page documents the EVM JSON-RPC handlers in this monorepo. Paxeer is one network: the kernel runs inside the node and proposes blocks, and a receipt is final once its block is committed. Mainnet-beta uses chain ID **125** (`0x7d`). Send public JSON-RPC requests to the root of the configured node URL. See [public RPC endpoints](site/docs/reference/public-rpc.md) for the node list.
+This page documents the EVM JSON-RPC handlers in this monorepo. Paxeer is one network: the kernel runs inside the node and proposes blocks, and a receipt is final once its block is committed. Mainnet-beta uses chain ID **125** (`0x7d`). Send public JSON-RPC requests to the root of the configured node URL. See [public RPC endpoints](site/paxeer-docs/src/app/public-rpc/page.tsx) for the node list.
 
 Some Ethereum JSON-RPC methods are **registered** on Pax's EVM endpoint but return a **JSON-RPC error** instead of a result, so clients and tools get a stable, documented failure (code **`-32000`**) rather than “method not found” (`-32601`). This code identifies an explicit refusal here; other execution or lookup errors can also use `-32000`, so inspect `error.message`.
 

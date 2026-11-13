@@ -42,7 +42,7 @@ Este monorepo reúne o nó, o kernel, contratos, SDKs e serviços para agentes, 
 
 ## Experimentar a rede
 
-Para conectar uma carteira ou aplicação à mainnet-beta, use o JSON-RPC de um nó público por HTTPS no caminho raiz. O alias é `https://api-mainnet-beta.paxeer.network`; os nós numerados vão de `https://api1.mainnet-beta.paxeer.network` a `https://api14.mainnet-beta.paxeer.network`. A lista de URLs HTTPS e WebSocket está em [endpoints públicos](../site/docs/reference/public-rpc.md).
+Para conectar uma carteira ou aplicação à mainnet-beta, use o JSON-RPC de um nó público por HTTPS no caminho raiz. O alias é `https://api-mainnet-beta.paxeer.network`; os nós numerados vão de `https://api1.mainnet-beta.paxeer.network` a `https://api14.mainnet-beta.paxeer.network`. A lista de URLs HTTPS e WebSocket está em [endpoints públicos](../site/paxeer-docs/src/app/public-rpc/page.tsx).
 
 Confira o ID da cadeia antes de assinar ou transmitir transações. Esta consulta deve retornar `"0x7d"`:
 
@@ -110,7 +110,7 @@ Os alvos `make paxeer-build`, `make paxeer-lint` e `make paxeer-test` encaminham
 - Índice da wiki: [Home](../wiki/Home.md)
 - Primeiros passos: [Getting-Started-Beta](../wiki/Getting-Started-Beta.md)
 - Pagamentos: [PaymentsQuickstart](../wiki/PaymentsQuickstart.md)
-- Endpoints públicos: [Public RPC endpoints](../site/docs/reference/public-rpc.md)
+- Endpoints públicos: [Public RPC endpoints](../site/paxeer-docs/src/app/public-rpc/page.tsx)
 - Métodos JSON-RPC: [PublicRpc](../wiki/PublicRpc.md)
 - Ativos e tokens: [Assets](../wiki/Assets.md)
 - Níveis de compromisso: [CommitmentLevels](../wiki/CommitmentLevels.md)

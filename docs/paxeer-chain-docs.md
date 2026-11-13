@@ -14,7 +14,7 @@ the database, launchable without new infrastructure.
 | --- | --- |
 | [`paxeer-network.md`](paxeer-network.md) | Node source layout and build entrypoints |
 | [`evm_jsonrpc_unsupported.md`](evm_jsonrpc_unsupported.md) | EVM JSON-RPC methods that return documented errors |
-| [Public RPC endpoints](site/docs/reference/public-rpc.md) | Root-path node endpoints and chain connection details |
+| [Public RPC endpoints](site/paxeer-docs/src/app/public-rpc/page.tsx) | Root-path node endpoints and chain connection details |
 | This page (below) | Regenerating and serving the node's OpenAPI / Swagger UI |
 | [`../docker/README.md`](../docker/README.md) | Local Docker node and cluster |
 | [`../contracts/README.md`](../contracts/README.md) | Foundry / Hardhat for chain contracts |
@@ -28,7 +28,7 @@ Transfers to external chains use [`layerxbridge`](../modules/layerxbridge/).
 These are components of the merged network, rather than a second settlement tree.
 
 Public EVM JSON-RPC uses HTTPS at the selected node's root path; see the
-[public RPC guide](site/docs/reference/public-rpc.md) for connection details.
+[public RPC guide](site/paxeer-docs/src/app/public-rpc/page.tsx) for connection details.
 The HTTP server registers `debug`, `echo`, `eth`, `net`, `pax`, `pax2`, `px`,
 `txpool` and `web3`; method availability depends on node configuration. The `test`
 namespace additionally requires `EnableTestAPI` and a non-live chain ID. The `px` namespace answers from node state; `px_register` and

@@ -53,7 +53,7 @@ export const navStructure = [
   {
     section: 'Build applications',
     items: [
-      { title: 'XDK', href: '/xdk' },
+      { title: 'SDKs & developer tools', href: '/xdk' },
       { title: 'SDK quickstarts', href: '/sdk-quickstarts' },
       { title: 'Local emulator', href: '/emulator' },
       { title: 'Developer funding', href: '/developer-funding' },
@@ -91,11 +91,11 @@ export const navStructure = [
   {
     section: 'Network architecture',
     items: [
-      { title: 'LayerX kernel', href: '/layerx-kernel' },
-      { title: 'Sequencing', href: '/sequencing' },
+      { title: 'Embedded LayerX kernel', href: '/layerx-kernel' },
+      { title: 'Block proposal & execution', href: '/sequencing' },
       { title: 'Consensus', href: '/consensus' },
       { title: 'Finality', href: '/finality' },
-      { title: 'Checkpoints', href: '/checkpoints' },
+      { title: 'Checkpoint compatibility', href: '/checkpoints' },
       { title: 'XWeb', href: '/xweb' },
       { title: 'Sidiora', href: '/sidiora' },
       { title: 'Engine', href: '/engine' },
@@ -142,11 +142,11 @@ export const navStructure = [
       { title: 'Configuration', href: '/configuration' },
       { title: 'Operators guide', href: '/operators' },
       { title: 'Network operations', href: '/network-operations' },
-      { title: 'Relay archive', href: '/relay-archive' },
+      { title: 'Relay archive (retired)', href: '/relay-archive' },
       { title: 'Troubleshoot a node', href: '/node-troubleshooting' },
       { title: 'Docker', href: '/docker' },
       { title: 'Security', href: '/security' },
-      { title: 'Guarantors', href: '/guarantors' },
+      { title: 'Guarantors (retired)', href: '/guarantors' },
       { title: 'Governance', href: '/governance' },
       { title: 'Admin & HPX', href: '/admin-hpx' },
     ],

@@ -48,7 +48,7 @@ The node integrates the following components:
 - **Node and consensus.** `paxd` is built from [`daemon/paxd`](daemon/paxd/), with the application in [`node/`](node/), BFT consensus in [`consensus/`](consensus/), state machine modules in [`modules/`](modules/) and JSON-RPC servers in [`rpc/`](rpc/).
 - **Kernel and programs.** The C17 kernel in `src/` and `include/` runs inside `paxd` through [`modules/lxphost`](modules/lxphost/). The node links `build/liblayerx.a` and the programs sandbox from [`programs/`](programs/). [`node/sequencer`](node/sequencer/) supplies execution ordering and the consensus block source within the node.
 
-A receipt is final once its block is committed. A signed execution receipt can arrive before that commitment; [`pax_sequencerReceipt`](rpc/sequencer_receipt.go) distinguishes `submitted`, `receipted` and `committed`. See [committed block evidence](docs/site/docs/concepts/checkpoints.md) for verification. There is no separate kernel daemon, sequencer service or checkpoint deployment. External checkpoint settlement is retired.
+A receipt is final once its block is committed. A signed execution receipt can arrive before that commitment; [`pax_sequencerReceipt`](rpc/sequencer_receipt.go) distinguishes `submitted`, `receipted` and `committed`. See [committed block evidence](docs/site/paxeer-docs/src/app/checkpoints/page.tsx) for verification. There is no separate kernel daemon, sequencer service or checkpoint deployment. External checkpoint settlement is retired.
 
 Sub-chains are tenant domains stored in the database, managed by [`modules/layerxchains`](modules/layerxchains/). Creating a domain namespaces state within the shared network and does not require new node infrastructure.
 
@@ -79,15 +79,15 @@ The public API reaches the node directly at the root path on EVM chain ID 125. T
 ## Documentation
 
 - To build on Paxeer X Network, start with the [Paxeer documentation](https://docs.paxeer.app/) and the [developer wiki](docs/wiki/Home.md).
-- To connect to the chain, see the [public JSON-RPC endpoints](docs/site/docs/reference/public-rpc.md) and [beta endpoint checklist](docs/wiki/Getting-Started-Beta.md).
+- To connect to the chain, see the [public JSON-RPC endpoints](docs/site/paxeer-docs/src/app/public-rpc/page.tsx) and [beta endpoint checklist](docs/wiki/Getting-Started-Beta.md).
 - For wallets, funding and payments, follow the [Payments Quickstart](docs/wiki/PaymentsQuickstart.md).
 - For hosted tooling and disposable integration environments, see the [hosted quickstart](docs/wiki/Quickstart.md). Build the merged node using the [commands below](#build).
-- For protocol references, see [assets](docs/wiki/Assets.md), [committed block evidence](docs/site/docs/concepts/checkpoints.md) and [hosted gateway methods](docs/site/docs/platform/gateway-rpc.md). Hosted payment examples are in the [payment API guide](docs/wiki/PublicAPI.md).
+- For protocol references, see [assets](docs/wiki/Assets.md), [committed block evidence](docs/site/paxeer-docs/src/app/checkpoints/page.tsx) and [hosted gateway methods](docs/site/paxeer-docs/src/app/platform-api/page.tsx). Hosted payment examples are in the [payment API guide](docs/wiki/PublicAPI.md).
 - Component guides include the [launchpad production checklist](docs/launchpad/production-checklist.md), [perps data API](docs/perps/data-api.md), [agent compatibility matrix](docs/agent/COMPATIBILITY.md) and [portable verification guide](docs/interop/PORTABILITY.md).
 
 ### Quick start: connect to chain 125
 
-Set `PAXEER_RPC_URL` to a node root URL from the [public RPC reference](docs/site/docs/reference/public-rpc.md). Send HTTPS JSON-RPC requests to the root path without a route suffix. Node API families include `debug`, `echo`, `eth`, `net`, `pax`, `px` and `txpool`; `test` is restricted to non-live chain IDs. The [node registrations](rpc/server.go) also include `web3`, `pax2` and native `px_` account/history and receipt-key methods. Method availability depends on node configuration and the queried domain. Confirm the chain ID before signing or broadcasting:
+Set `PAXEER_RPC_URL` to a node root URL from the [public RPC reference](docs/site/paxeer-docs/src/app/public-rpc/page.tsx). Send HTTPS JSON-RPC requests to the root path without a route suffix. Node API families include `debug`, `echo`, `eth`, `net`, `pax`, `px` and `txpool`; `test` is restricted to non-live chain IDs. The [node registrations](rpc/server.go) also include `web3`, `pax2` and native `px_` account/history and receipt-key methods. Method availability depends on node configuration and the queried domain. Confirm the chain ID before signing or broadcasting:
 
 ```sh
 curl --max-time 10 -sS "$PAXEER_RPC_URL" \
@@ -136,7 +136,7 @@ An EVM address uses a secp256k1 key; a LayerX DID is `did:layerx:<64 lowercase h
 "LX:PAXEER-BIND:v1" || chainId:uint256be || evmAddress:20 || nonce:uint64be
 ```
 
-The EVM transaction supplies the address owner's consent; the 64-byte Ed25519 signature supplies the DID's consent. After commit, confirm the binding with `getLayerXDid(address)` and `getUnifiedAccount(address)`. Binding does not fund an account. The [one-account guide](docs/site/docs/concepts/one-account.md) retains mnemonic derivation, external-wallet EIP-712/HKDF-SHA256 derivation and recovery details; preserve the original derivation context when recovering an identity.
+The EVM transaction supplies the address owner's consent; the 64-byte Ed25519 signature supplies the DID's consent. After commit, confirm the binding with `getLayerXDid(address)` and `getUnifiedAccount(address)`. Binding does not fund an account. The [one-account guide](docs/site/paxeer-docs/src/app/accounts/page.tsx) retains mnemonic derivation, external-wallet EIP-712/HKDF-SHA256 derivation and recovery details; preserve the original derivation context when recovering an identity.
 
 Native sub-accounts map to derived bank addresses inside the node; see [`modules/lxphost/accountmap.go`](modules/lxphost/accountmap.go). For each registered Asset, the bound owner opens a per-asset account at the [`layerxledger` precompile](precompiles/layerxledger/abi.json), `0x101A`. Its funding and balance calls are:
 
@@ -154,7 +154,7 @@ Account ID derivation alone does not open or fund an account. Submit ledger writ
 
 The node produces signed ProtocolReceipt v2 bytes through [`node/sequencer/receipt.go`](node/sequencer/receipt.go). Its [Ed25519 receipt key](node/sequencer/receiptkey.go) is separate from the validator consensus key and must be pinned for the receipt height. Verify canonical receipt bytes and their signature using [`layerxproof/verify/receipt.go`](layerxproof/verify/receipt.go); a public key supplied beside an untrusted receipt does not establish trust. A valid signature proves execution evidence, while the `committed` rung requires coverage by the committed block's `MsgSequenceBatch`.
 
-For independent committed proofs, authenticate the block header and CometBFT commit against trusted validator information, then verify transaction or state inclusion against the authenticated root at the relevant height and key. The [chain proof verifier](programs/crates/layerx-programs-registry/src/chain_proof/) implements those checks. Neither a transaction hash nor a signed execution receipt alone establishes block commitment; the [committed block evidence guide](docs/site/docs/concepts/checkpoints.md) explains the current proof model.
+For independent committed proofs, authenticate the block header and CometBFT commit against trusted validator information, then verify transaction or state inclusion against the authenticated root at the relevant height and key. The [chain proof verifier](programs/crates/layerx-programs-registry/src/chain_proof/) implements those checks. Neither a transaction hash nor a signed execution receipt alone establishes block commitment; the [committed block evidence guide](docs/site/paxeer-docs/src/app/checkpoints/page.tsx) explains the current proof model.
 
 ### Client SDKs
 
@@ -204,7 +204,7 @@ The `v6.12.0` set built by `v6120Contracts` in [`node/app.go`](node/app.go) serv
 
 The pre-merge `layerxVerify` (`0x1012`) and `layerxCustody` (`0x1013`) interfaces are retired at the merge. `layerxAnchor` (`0x1014`) rejects writes after the merge; its remaining historical views retire at `v7.0-anchor-store-delete`. See the retirement gates in [`precompiles/layerxverify`](precompiles/layerxverify/), [`precompiles/layerxcustody`](precompiles/layerxcustody/) and [`precompiles/layerxanchor`](precompiles/layerxanchor/). These are retired refusal surfaces retained for compatibility, not active funding or checkpoint executors. They return retirement errors (including `LXP_MODULE_DISABLED`) at their applicable upgrade gates. Historical anchor reads before store deletion are archive-only; they do not provide current funding or finality paths. The external native bridge at `0x1016` remains distinct from retired kernel custody: outward transfers use its native `bridgeOut` interface.
 
-The retained [batch-header codec](layerxproof/codec/batch.go) and [archived settlement witness formats](docs/site/docs/operators/settlement-evidence.md) support historical interpretation. External checkpoint registration, guarantor attestations and the L0–L4 settlement ladder are retired; archived formats add no settlement step to current block finality.
+The retained [batch-header codec](layerxproof/codec/batch.go) and [archived settlement witness formats](docs/site/paxeer-docs/src/app/proofs/page.tsx) support historical interpretation. External checkpoint registration, guarantor attestations and the L0–L4 settlement ladder are retired; archived formats add no settlement step to current block finality.
 
 ## Community
 

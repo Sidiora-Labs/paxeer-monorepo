@@ -13,7 +13,7 @@ translation state and receipt verification. The executable composes that library
 with adapters and the payment relay.
 
 Public node JSON-RPC uses the root URL listed in the
-[public RPC reference](../site/docs/reference/public-rpc.md).
+[public RPC reference](../site/paxeer-docs/src/app/public-rpc/page.tsx).
 Interop's versioned HTTP routes below belong to the configured interop service;
 their presence in the code does not make them routes on every public node.
 Hosted `px_` methods have their own

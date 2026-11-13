@@ -2,7 +2,7 @@
 
 A receipt records execution on Paxeer X Network, while a `200`, webhook or dashboard row reports an application outcome. A receipt is final once its block is committed. Check the execution result separately: a committed transaction can have reverted.
 
-`layerx receipt verify` and the Rust sample below provide local compatibility verification for receipt bytes and caller-supplied batch facts. They do not establish block commitment. For finality, authenticate the block header and CometBFT commit and verify transaction or state inclusion against the authenticated root at the relevant height. See [Committed block evidence](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/docs/site/docs/concepts/checkpoints.md#committed-block-evidence).
+`layerx receipt verify` and the Rust sample below provide local compatibility verification for receipt bytes and caller-supplied batch facts. They do not establish block commitment. For finality, authenticate the block header and CometBFT commit and verify transaction or state inclusion against the authenticated root at the relevant height. See [Committed block evidence](https://docs.paxeer.app/checkpoints/).
 
 ## What verification needs
 

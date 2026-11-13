@@ -2,7 +2,7 @@
 
 A receipt records protocol execution. A receipt is final once its block is committed. Paxeer is one BFT network.
 
-For independent finality verification, authenticate the block header and CometBFT commit, then verify transaction or state inclusion against the authenticated root at the relevant height. See [Committed block evidence](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/docs/site/docs/concepts/checkpoints.md#committed-block-evidence).
+For independent finality verification, authenticate the block header and CometBFT commit, then verify transaction or state inclusion against the authenticated root at the relevant height. See [Committed block evidence](https://docs.paxeer.app/checkpoints/).
 
 The batch-based Rust sample and `layerx receipt verify` below are a local compatibility verifier. They check receipt bytes against caller-supplied batch facts without a network connection. Their success does not establish the merged network's committed rung or qualify a deployed service.
 

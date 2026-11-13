@@ -237,8 +237,8 @@ def test_readme_links_actual_node_and_hosted_contracts():
         "daemon/paxd/", "modules/lxphost/", "node/sequencer/",
         "rpc/server.go", "rpc/send.go", "rpc/sequencer_receipt.go",
         "services/platform/hosted/gateway/openrpc.json",
-        "docs/site/docs/platform/gateway-rpc.md",
-        "docs/site/docs/reference/public-rpc.md",
+        "docs/site/paxeer-docs/src/app/platform-api/page.tsx",
+        "docs/site/paxeer-docs/src/app/public-rpc/page.tsx",
     }
     assert expected <= links
     for path in expected:
