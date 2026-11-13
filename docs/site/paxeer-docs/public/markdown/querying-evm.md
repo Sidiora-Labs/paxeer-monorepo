@@ -8,33 +8,33 @@ Read-only queries work without a signer or a PAX balance. Choose an EVM JSON-RPC
 
 ## Verify the endpoint
 
-Set `PAXEER_RPC_URL` to your EVM endpoint. For `hyperpax_125-1` the result of this request must be `0x7d`, which is decimal 125. Other networks return their own ID (`pacific-1` is 1329; unmapped local chains default to 713714); the examples below assume 125, so adjust the checks to your endpoint's value.
+Set `PAXEER_RPC_URL` to your EVM endpoint. For `hyperpax_125-1` the result of this request must be `0x7d`, which is decimal 125. The node defaults unmapped chain identifiers to 125 as well. Confirm the intended genesis and network independently; a matching numeric chain ID alone does not distinguish deployments.
 
 ```
 : "${PAXEER_RPC_URL:?Set your Paxeer EVM RPC URL}"
 curl --fail-with-body --silent --show-error "$PAXEER_RPC_URL"   -H 'Content-Type: application/json'   --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'
 ```
 
-HTTP 200 can still contain a JSON-RPC `error`. Check both the HTTP result and the response body. A Cosmos RPC server exposes routes such as `/status`; it is not interchangeable with the EVM service.
+HTTP 200 can still contain a JSON-RPC `error`. Check both the HTTP result and the response body. The consensus RPC server exposes routes such as `/status`; it is not interchangeable with the EVM JSON-RPC listener.
 
 ## Inspect accounts and contracts with Cast
 
-Set `ACCOUNT_ADDRESS` and `CONTRACT_ADDRESS` to addresses from your application or deployment records. Use an explicit function signature to encode and decode a call.
+Set `ACCOUNT_ADDRESS` and `CONTRACT_ADDRESS` to addresses from your application or deployment records. The contract example assumes an ERC-20 token implementing `balanceOf` and `transfer`. Use its published ABI to encode and decode calls.
 
 ```
 cast block-number --rpc-url "$PAXEER_RPC_URL"
 cast balance "$ACCOUNT_ADDRESS" --rpc-url "$PAXEER_RPC_URL"
 cast nonce "$ACCOUNT_ADDRESS" --rpc-url "$PAXEER_RPC_URL"
 cast code "$CONTRACT_ADDRESS" --rpc-url "$PAXEER_RPC_URL"
-cast call "$CONTRACT_ADDRESS" 'number()(uint256)'   --rpc-url "$PAXEER_RPC_URL"
-cast calldata 'setNumber(uint256)' 42
+cast call "$CONTRACT_ADDRESS" 'balanceOf(address)(uint256)' "$ACCOUNT_ADDRESS"   --rpc-url "$PAXEER_RPC_URL"
+cast calldata 'transfer(address,uint256)' "$ACCOUNT_ADDRESS" 42
 ```
 
 The final command only encodes calldata. It does not submit a transaction. `cast balance` returns native base units by default. A missing contract, wrong ABI, or unavailable historical state can make a read fail even when the RPC endpoint is healthy.
 
 ## Read token data at one block
 
-Install `viem` in a Node project and save this as `read-token.mjs`. Set `TOKEN_ADDRESS` and `ACCOUNT_ADDRESS` to the EVM addresses you want to query, then run `node read-token.mjs`.
+Install `viem` in your Node project with `npm install viem` and save this example as `read-token.mjs`. The repository’s wallet client also declares viem in `apps/wallet/package.json`. Set `TOKEN_ADDRESS` and `ACCOUNT_ADDRESS` to the EVM addresses you want to query, then run `node read-token.mjs`.
 
 ```
 import { createPublicClient, formatUnits, getAddress, http, parseAbi } from "viem";
@@ -97,8 +97,8 @@ Start with 500-block chunks and reduce the size if your provider returns a range
 
 `eth_` methods provide the EVM view and exclude shell receipts and bank transfers. The `pax_` namespace additionally includes shell receipts, and `pax2_` additionally includes bank transfers, so the same block can list different transactions and indices per namespace; availability is configured by the node. Keep one namespace throughout an indexer and use hashes for lookup. See [JSON-RPC namespaces](https://docs.paxeer.app/json-rpc).
 
-For historical reads, the provider must retain state at that height. A recent balance read can work while an older `eth_call` fails. For a submitted transaction, inspect the receipt’s `status`, not just whether a hash exists.
+For historical reads, the provider must retain state at that height. A recent balance read can work while an older `eth_call` fails. Inspect the receipt’s `status` for success or a revert. Open-block receipts can precede commitment; require `pax_sequencerReceipt` to report `committed` when finality is required.
 
 References: [viem contract reads](https://viem.sh/docs/contract/readContract), [event logs](https://viem.sh/docs/actions/public/getLogs), and [Ethereum JSON-RPC](https://ethereum.org/en/developers/docs/apis/json-rpc/).
 
-**Paxeer source:** `Paxeer-X-Network/` — rpc/state.go (StateAPI), rpc/filter.go (FilterAPI), and rpc/tx.go (TransactionAPI).
+**Paxeer source:** `rpc/state.go` (StateAPI), `rpc/filter.go` (FilterAPI), `rpc/tx.go` (TransactionAPI), and `rpc/config/config.go` (query limits).

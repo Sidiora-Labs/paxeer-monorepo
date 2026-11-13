@@ -2,13 +2,13 @@
 
 # Program Registry
 
-Publish receipt-verified program deployments, versioned interfaces and reproducible source across Paxeer X.
+Resolve proof-verified program deployments, versioned interfaces and reproducible source in the hosted registry.
 
 ## A verified record of deployed programs
 
 The Paxeer X registry connects a program identity to its deployment receipts, executable code hashes, ABI versions, upgrade policy, lifecycle and value accounts. Applications resolve the current verified version before preparing calls. Publishers attach source that the registry rebuilds in a pinned environment and compares with the registered artifact.
 
-Registry records derive from signed activities, signed receipts and committed program state. A successful admission acknowledgement starts the deployment workflow; the verified execution evidence establishes the published deployment.
+Registry records derive from authenticated deployment proofs and committed program state. Deploy the program on chain, then submit its canonical deployment evidence. Registration verifies that evidence and records the deployment; it does not submit a deployment transaction.
 
 ## Registry API
 
@@ -17,26 +17,26 @@ Registry records derive from signed activities, signed receipts and committed pr
 | `GET /v1/programs/registry` | List registered program IDs with current verified head and freshness information. |
 | `GET /v1/programs/registry/{program_id}` | Resolve deployment history, current version, lifecycle and accounts. |
 | `GET /v1/programs/registry/{program_id}/interface` | Read the interface bound to the current verified version. |
-| `POST /v1/programs/registry/{program_id}/source` | Verify mirrored source against the deployed program. |
-| `POST /__registry/deployments` | Register an already-deployed chain transaction by hash; the registry reads the deployment from the chain and journals it. |
+| `POST /v1/programs/registry/{program_id}/source` | Rebuild mirrored source and compare its artifact with the verified deployed program. |
+| `POST /__registry/deployments` | Verify canonical deployment admission evidence against chain trust and journal the accepted deployment. |
 | `POST /__registry/sources` | Publish an encoded source archive, build plan and source URI. |
-| `POST /__registry/head` | Refresh the journal head from independently verified protocol state. |
+| `POST /__registry/head` | Refresh the journal head for the supplied program_id using the configured chain RPC. |
 
 Program IDs contain 32 hexadecimal-encoded bytes. Direct registry access requires mutual TLS and the appropriate Bearer credential. Request and source-publication credentials are separate. Source publication also resolves the `LayerX-Key` header to an authorized principal.
 
 ## Deploy and register
 
 1. Build the program and deploy it on chain through the ordinary Programs deployment path.
-2. Send the deployment transaction hash to `POST /__registry/deployments`, either as a raw 32-byte body or as JSON `{"transaction_hash": "0x…"}`. Any other body is refused with `400 invalid_argument` (*request must carry a bytes32 transaction_hash*).
-3. The registry reads the deployment back from the chain RPC configured in `LAYERX_REGISTRY_CHAIN_RPC_URL`. It never submits an activity itself; with no chain RPC configured the route returns `503 deployment_proof_unavailable`.
-4. A refused chain read returns `422 deployment_proof_refused`; an unavailable one returns `503 deployment_proof_unavailable`. On success the deployment is journaled — a journal failure returns `503 journal_unavailable` — and the route answers `200`.
+2. Send canonical `DeploymentProof` bytes to `POST /__registry/deployments`, either as the raw body or in a JSON object whose `admission` member is the canonical proof as an array of byte values. A malformed or refused proof returns `422 deployment_proof_refused` (*deployment evidence must authenticate the registered program*).
+3. The registry authenticates a current chain head and verifies the submitted proof under its persisted chain trust. `LAYERX_REGISTRY_CHAIN_RPC_URL` is required at startup for chain RPC access; registration does not submit an activity.
+4. Invalid deployment evidence or version history returns `422 deployment_proof_refused`. The accepted record is journaled and the registry projection is rebuilt; persistence or rebuild failure returns `503 journal_unavailable`. Success returns `200`.
 5. Resolve the program and its current interface before enabling application calls.
 
-The success response carries `transaction_hash`, `program_id`, `code_hash`, `abi_version`, `version`, `policy`, `authority`, `block_hash`, `block_number` and `state: "deployed"`, all read from chain state. Upgrades are registered the same way, after the upgrade transaction has landed on chain.
+The success response carries `transaction_hash`, `program_id`, `code_hash`, `abi_version`, `version` and `state: "deployed"`, derived from verified evidence. Register upgrades after their on-chain execution and retain the verified predecessor deployment.
 
-### Legacy deployment proofs
+### Deployment proof validation
 
-The sealed-envelope journal and its native deployment proofs (signed activity and receipt inclusion paths, batch header, Programs subtree witnesses) now replay legacy stored units: on rebuild the registry re-verifies each stored proof against node state and regenerates its export. New registrations through `POST /__registry/deployments` are chain-ingested and do not create a native proof.
+The registry verifies the deployment’s chain commitment, transaction execution and program-state evidence against a current authenticated head. It records the verified deployment in a sealed envelope. On rebuild, stored proofs are verified again against node state and their consumer exports are regenerated.
 
 ## Read a program record
 
@@ -49,7 +49,7 @@ The sealed-envelope journal and its native deployment proofs (signed activity an
 | `state_root`, `observed_sequence`, `observed_at`, `valid_through` | The authenticated state and permitted freshness window. |
 | `receipt`, `source` | Deployment evidence and source verification status. |
 
-ABI 1 programs with no value accounts report `account-incapable-abi1`. ABI 2 account reads require current account-primary and state proofs matching the program, lifecycle, bindings and registry head. Account profile 2 additionally identifies the verified owner.
+ABI 1 programs with no value accounts report `account-incapable-abi1`. Account-capable ABIs require current account-primary and state proofs matching the program, lifecycle, bindings and registry head. ABI 2 uses the account-primary profile; ABIs 3–5 use account profile 2, which additionally identifies the verified owner.
 
 ## Publish and verify source
 
@@ -86,20 +86,20 @@ Restart replay re-verifies complete records, rebuilds the registry projection an
 
 The journal's `pairs/` directory exports matching `<unsigned-receipt-digest>.admission` and `.deployment` files. These use canonical DeploymentProof and DeploymentRecord encodings. Startup replay regenerates interrupted exports from committed envelopes; a consumer refuses an incomplete pair.
 
-Point evidence assemblers at the exported pair directory. Preserve owner-only file modes and materialize exports through an authorized process when consumers run under another identity. Keep journal, mirror, verification state and sequencer trust history in protected durable storage.
+Configure evidence consumers to read the exported pair directory. Preserve owner-only file modes and materialize exports through an authorized process when consumers run under another identity. Keep the journal, source mirror, verification state and chain trust in protected durable storage.
 
 ## Operate and troubleshoot
 
-`GET /healthz` reports listener health. Verify actual program reads and a current independently authenticated head to establish usable registry state. The default freshness bound is 300 seconds and is configurable through `LAYERX_REGISTRY_MAX_STALENESS_SECONDS`.
+`GET /healthz` reports registry readiness. Verify actual program reads and a current independently authenticated head before relying on registry data. The default freshness bound is 300 seconds and is configurable through `LAYERX_REGISTRY_MAX_STALENESS_SECONDS`.
 
 | Refusal | Action |
 | --- | --- |
-| `deployment_proof_unavailable`, `receipt_authority_unavailable` | Reconcile the signed deployment and restore its evidence dependencies. |
+| `deployment_proof_refused`, `journal_unavailable` | Supply valid deployment evidence and restore the required journal and node-state dependencies. |
 | `stale_read`, `protocol_head_unavailable` | Restore head synchronization before using the record for a new call. |
 | `source_mismatch`, `build_not_reproducible` | Correct source or build inputs and publish a new verification request. |
 | `publication_principal_unresolved` | Resolve the publication key to its authorized identity. |
-| `journal_export_unavailable` | Recover export storage while retaining the committed envelope. |
+| `protocol_state_unavailable` | Restore authenticated program-state reads and retain the committed deployment evidence. |
 
 Continue with [program discovery and safe resolution](https://docs.paxeer.app/discovery), or [identity and ownership](https://docs.paxeer.app/identity).
 
-**Technical references:** registry routes, deployment journal, node-state verifier, head attestation and isolated source builder.
+**Technical references:** `services/platform/hosted/registry/src/` contains `routes.rs`, `journal.rs`, `node_state.rs`, `head_attestation.rs` and `builder.rs`.

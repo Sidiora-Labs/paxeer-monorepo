@@ -4,11 +4,11 @@
 
 Connect to Paxeer with web3.py, read PAX balances and ERC-20 state, and inspect transaction receipts without a signing key.
 
-Python is useful for application backends, data analysis, and operational scripts. This guide reads the Paxeer EVM through HTTP using web3.py. Every example is read-only and expects chain ID 125, which is the ID for `hyperpax_125-1`; against a local or other network, expect its own ID instead (unmapped chains default to 713714) and adjust the check below.
+Python is useful for application backends, data analysis, and operational scripts. This guide reads the Paxeer EVM through HTTP using web3.py. Every example is read-only and expects EVM chain ID 125, the mapping for `hyperpax_125-1`. The node also defaults unmapped chain identifiers to 125, so confirm the intended network and its genesis independently of this numeric check.
 
 ## Install in an isolated environment
 
-These examples use the web3.py 7 API. Create a virtual environment and keep the resulting dependency versions with your project.
+These examples use web3.py 7 as a client dependency in your own Python project. Create a virtual environment and keep the resulting dependency versions with that project.
 
 ```
 python3 -m venv .venv
@@ -16,7 +16,7 @@ source .venv/bin/activate
 python -m pip install "web3>=7,<8"
 ```
 
-On Windows PowerShell, activate with `.venv\Scripts\Activate.ps1`. Supply `PAXEER_RPC_URL` and `ACCOUNT_ADDRESS` through your shell or deployment environment.
+On Windows PowerShell, activate with `.venv\Scripts\Activate.ps1`. Supply `PAXEER_RPC_URL` and `ACCOUNT_ADDRESS` through your shell or deployment environment. These variables are inputs to this example, not node configuration keys; the RPC URL uses the node endpoint’s root path.
 
 ## Read the chain and account
 
@@ -81,7 +81,7 @@ Use the token’s own decimals rather than PAX’s decimals. A missing method or
 
 ## Inspect a transaction receipt
 
-Set `TX_HASH` to a transaction hash from the same network. Append this block to distinguish a successful execution from a revert or a transaction the endpoint has not indexed.
+Set `TX_HASH` to a transaction hash from the same network. Append this block to inspect execution status. A missing receipt can mean an unknown transaction or an unavailable indexed result. The node can expose a receipt from the open block, so use `pax_sequencerReceipt` and require its `committed` rung when finality matters.
 
 ```
 from web3.exceptions import TransactionNotFound
@@ -89,7 +89,7 @@ from web3.exceptions import TransactionNotFound
 try:
     receipt = w3.eth.get_transaction_receipt(os.environ["TX_HASH"])
 except TransactionNotFound:
-    print("No receipt yet. Verify the network and transaction hash before retrying.")
+    print("No receipt returned. Verify the network and transaction hash before retrying.")
 else:
     print("Execution:", "success" if receipt["status"] == 1 else "reverted")
     print("Block:", receipt["blockNumber"])
@@ -109,4 +109,4 @@ else:
 
 References: [web3.py 7 quickstart](https://web3py.readthedocs.io/en/v7.14.0/quickstart.html) and [contract calls](https://web3py.readthedocs.io/en/v7.14.0/contracts.html).
 
-**Paxeer source:** `Paxeer-X-Network/` — rpc/state.go (GetBalance and GetCode), rpc/tx.go (GetTransactionReceipt), and modules/evm/config/config.go (ChainIDMapping).
+**Paxeer source:** `rpc/state.go` (GetBalance and GetCode), `rpc/tx.go` (GetTransactionReceipt), `rpc/sequencer_receipt.go` (receipt rungs), and `modules/evm/config/config.go` (ChainIDMapping and DefaultChainID).

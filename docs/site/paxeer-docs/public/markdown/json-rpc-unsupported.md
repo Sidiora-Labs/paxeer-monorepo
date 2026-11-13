@@ -20,9 +20,9 @@ Some Ethereum JSON-RPC methods are **registered** on Paxeer's EVM endpoint but r
 | `debug_getRawHeader` | "debug_getRawHeader is not supported on Pax EVM RPC" | Raw RLP header payloads not served |
 | `debug_getRawReceipts` | "debug_getRawReceipts is not supported on Pax EVM RPC" | Raw RLP receipt payloads not served |
 
-### Now implemented
+### Synchronization and raw transactions
 
-Two methods that previously returned this error are implemented. `eth_syncing` returns `false` when consensus reports the node caught up, and otherwise a progress object with `startingBlock`, `currentBlock` and `highestBlock`. `debug_getRawTransaction` returns the raw transaction bytes for a hash, or a *transaction not found* error. Only `debug_getRawHeader`, `debug_getRawBlock` and `debug_getRawReceipts` remain explicitly unsupported.
+`eth_syncing` returns `false` when consensus reports the node caught up, and otherwise a progress object with `startingBlock`, `currentBlock` and `highestBlock`. `debug_getRawTransaction` returns raw transaction bytes by hash, or a *transaction not found* error. The raw header, block and receipt-list methods in the table return explicit unsupported errors.
 
 ## Error Response Format
 
@@ -63,7 +63,7 @@ Beyond explicitly unsupported methods, Paxeer's RPC diverges from Ethereum in se
 
 ### Block Tags and Pending Nonces
 
-- Block-number helpers resolve `latest`, `safe`, `finalized` and `pending` to the latest height; endpoint watermarks can further limit the readable state.
+- Committed reads resolve `latest`, `safe` and `finalized` through publication watermarks. Supported `pending` reads use the open execution layer when configured; `eth_getProof` refuses pending state.
 
 - Pending nonce queries have a separate path. Do not assume `pending` and `latest` return the same nonce.
 
@@ -73,7 +73,7 @@ Beyond explicitly unsupported methods, Paxeer's RPC diverges from Ethereum in se
 
 - `eth_getProof` is implemented by `StateAPI.GetProof`.
 
-- Its result contains `address`, `hexValues` and `storageProof`. Storage proofs contain IAVL proof operations rather than Ethereum Merkle Patricia trie proofs.
+- Its result contains `address`, `hexValues` and `storageProof`. Storage proofs contain ICS23 proof operations through the application root rather than Ethereum Merkle Patricia trie proofs.
 
 - The response excludes Ethereum per-account proof fields because the store has no Ethereum per-account root. Ethereum proof verifiers cannot consume this response unchanged.
 
@@ -87,9 +87,9 @@ Beyond explicitly unsupported methods, Paxeer's RPC diverges from Ethereum in se
 
 See [JSON-RPC API](https://docs.paxeer.app/json-rpc) for full compatibility details.
 
-## Implementation Checks
+## Implementation references
 
-The node repository contains focused checks for these RPC contracts:
+The node sources and contract checks are in this repository:
 
 ```
 rpc/info_test.go

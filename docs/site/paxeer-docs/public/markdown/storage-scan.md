@@ -8,9 +8,9 @@ Iterate Paxeer X program state with deterministic ordering, explicit page budget
 
 The guest host function `layerx_v2.storage_scan_scoped` returns ordered key/value pairs matching a byte prefix. Every call declares an entry ceiling and a complete encoded-page byte ceiling. A portable continuation token resumes after the last returned key across activities without retaining a host iterator or allocator handle.
 
-This is a Candidate-V2 host function, validated through the candidate path; the frozen V1 ABI is unchanged. Confirm that your target admits `layerx_v2` programs before depending on scans in production.
+This function belongs to the frozen ABI v2 namespace, `layerx_v2`. The runtime declares its nine i32 parameters and i32 result in the versioned ABI manifest. A program must declare an ABI version that includes this namespace.
 
-Use scans for bounded indexes, application inventories, and paginated state processing. Design keys with stable prefixes and choose page sizes that fit the call's storage-read and output transport budgets. The function scans one authorized namespace, rather than exposing arbitrary kernel state.
+Use scans for bounded indexes, application inventories, and paginated state processing. Design keys with stable prefixes and choose page sizes that fit the call's storage-read budget and guest output buffer. Returning scan data as an activity response also consumes the response output budget. The function scans one authorized namespace.
 
 ## Host-call contract
 
@@ -79,7 +79,7 @@ Each resumed activity reads its current authorized state. The cursor identifies 
 
 The scan stops before exceeding the entry count. It also checks the complete encoded size when adding each matching entry. If an entry would exceed the page-byte limit, it is removed and the preceding entries return with a cursor. If no entry can fit, the scan refuses with a bounds status rather than returning an ambiguous empty continuation.
 
-For the canonical short-key fixture, three pairs `(a,a)`, `(b,b)`, and `(c,c)` form a 29-byte terminal page. With a fourth pair and limits `(64, 101)`, the first page contains two entries plus continuation and occupies 101 bytes. A 100-byte limit yields one entry plus continuation at 93 bytes.
+In a principal-scoped namespace with an empty prefix, three pairs `(a,a)`, `(b,b)`, and `(c,c)` have a 29-byte terminal encoding. With a fourth pair and limits `(64, 101)`, the first page contains two entries plus continuation and occupies 101 bytes. A 100-byte limit yields one entry plus continuation at 93 bytes. The byte ceiling must allow continuation metadata while the page is assembled.
 
 ## Refusals and unchanged output
 
@@ -100,4 +100,4 @@ A scan sees writes already staged in the same activity because both use the acti
 
 Read [Programs](https://docs.paxeer.app/programs) for call budgets, response transport, and receipt verification, or [the developer workspace](https://docs.paxeer.app/program-workspace) for conformance and ABI checks.
 
-**Technical references:** Storage Scan protocol documentation; runtime host scan, storage scan, scoped storage authorization, and storage-scan conformance tests.
+**Technical references:** programs/crates/layerx-programs-runtime/src/host/scan.rs, src/storage/scan.rs, src/abi/storage_ops.rs, src/abi/manifest.rs, and tests/storage_scan.rs within that runtime crate.

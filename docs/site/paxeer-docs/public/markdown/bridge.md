@@ -1,23 +1,23 @@
 <!-- Source: https://docs.paxeer.app/bridge/ -->
 
-# Bridging and custody
+# Bridging and balances
 
-Move assets between external chains, Paxeer X settlement, and LayerX execution with explicit proofs, replay protection, and withdrawal guarantees.
+Move assets between registered external chains and Paxeer with attestor signatures, asset limits, and replay protection.
 
 ## Choose the asset path
 
-Paxeer X connects two distinct asset boundaries. External-chain bridging moves value between a foreign vault and a Paxeer X representation. The LayerX custody bridge moves value between Paxeer X custody and the LayerX execution ledger. An application can compose these paths while retaining a separate identifier and acceptance proof for each step.
+External-chain bridging moves value between a foreign vault and a Paxeer bank denomination. Paxeer mainnet-beta is one BFT chain with EVM chain ID 125; its kernel executes within the network. A successful Paxeer receipt is final when its block is committed. An external payout also requires the destination chain receipt.
 
 | Boundary | Asset backing | Acceptance evidence |
 | --- | --- | --- |
 | External chain ↔ Paxeer X | Foreign-chain vault or Solana custody program | Threshold attestor signatures, registered chain and asset, caps, unique source event |
-| Paxeer X ↔ LayerX | Paxeer X custody with a LayerX reserve mirror | Tendermint light-client proof for deposits; finalised checkpoint and membership evidence for withdrawals |
+| Transfers within Paxeer | Native bank balances and derived sub-accounts | Successful transaction execution in a committed block |
 
 ## External-chain connectors
 
 The external bridge uses `PaxeerXVault` on EVM chains and a custody program on Solana. Its Paxeer X interface is the `LayerXBridge` precompile at `0x0000000000000000000000000000000000001016`. Governance controls chain registration, vault identity, finality depth, attestor sets, per-asset limits, and pause state.
 
-The bridge ships dormant. Its default genesis registers no chains, sets no attestors, and sets no caps; only a governance registration brings a chain up. The nine connectors below are the chains the deployment tooling is built for, not chains a deposit can use today. The chain configurations committed with that tooling also carry placeholder owner, attestor, and program-id values by design, and the deployability gate refuses them until the owner supplies real values. Confirm the chain, asset, attestor set, and caps are registered on-chain before treating any connector as a live deposit path.
+Default bridge genesis contains no registered chains, attestors or asset caps. Governance registers and enables each chain, sets the attestor threshold, and registers asset limits before deposits can be accepted. The connector configurations are under contracts/bridge/evm/chains/ and contracts/bridge/solana/chains/solana/. Read the active on-chain configuration for the selected chain before depositing.
 
 | Connector | Chain identifier | Native counterpart |
 | --- | --- | --- |
@@ -31,13 +31,13 @@ The bridge ships dormant. Its default genesis registers no chains, sets no attes
 | HyperEVM | 999 | HYPE |
 | Solana | 91600046870081 | SOL; also Sidiora (SID) |
 
-Resolve the registered vault and asset configuration for the selected connector before depositing. Solana uses the bridge's mapped handles for its keys, mints, and transaction identities. Do not treat a Solana chain identifier as an EVM RPC chain ID.
+Resolve the registered vault and asset configuration for the selected connector before depositing. Solana uses chain-specific encodings for its keys, mints, and transaction identities; the SID asset identifier is declared explicitly in its connector configuration. Do not treat a Solana chain identifier as an EVM RPC chain ID.
 
 ### Deposit from an external chain
 
 Each step below presumes the chain and asset have been registered by governance.
 
-1. Choose the registered chain, asset, amount, and Paxeer X recipient. Check pause state and the asset's per-transaction and in-flight limits.
+1. Choose the registered chain, asset, amount, and Paxeer EVM recipient encoded as a left-padded bytes32 value. Check pause state and the asset's per-transaction and in-flight limits.
 2. Lock the asset in the configured foreign vault. EVM native-coin deposits use `depositNative(bytes32 paxeerRecipient)`.
 3. The relayer observes the deposit after the connector's configured finality depth. Attestors sign the deposit digest binding chain, vault, transaction hash, log index, recipient, asset, and amount.
 4. Submit `bridgeIn` with the event and threshold signatures. The precompile credits the bridged denomination and emits `BridgeIn`.
@@ -62,42 +62,42 @@ interface ILayerXBridge {
 
 Use `getChain`, `getAttestors`, `getCap`, `isPaused`, and `isNullified` for preflight and reconciliation. Inbound signatures are 65-byte `r || s || v` signatures over the raw bridge digest, with low s, v equal to 27 or 28, and strictly ascending signer addresses. Signing a prefixed personal message produces different evidence.
 
-## Deposit into LayerX execution
+## Read bridge configuration
 
-Paxeer X holds custody while LayerX maintains the reserve mirror. A successful deposit credit moves value from the reserve to the beneficiary on the LayerX ledger.
+The bridge ABI is in precompiles/layerxbridge/LayerXBridge.sol. Its view methods expose the chain registration, attestor set, caps and replay state used by the keeper.
 
-1. Create the custody deposit with the intended asset, beneficiary, owner key, amount, and nonce.
-2. Obtain a proof of the custody `Deposit` record against a trusted Paxeer X header.
-3. Build the `LXDC3` credit head and attach its `LXLB1` light-client bundle.
-4. Submit the signed credit activity and verify its LayerX receipt. Keep the deposit identifier for idempotent reconciliation.
+1. Read the registered vault, finality depth and enabled flag for the selected chain.
+2. Read the current attestor identities and signature threshold.
+3. Read the asset denomination, per-transaction cap and in-flight supply cap.
+4. Check pause and source-event replay state before submitting a deposit.
 
-### Proof acceptance
+### Signature acceptance
 
-The credit head is 363 bytes. `LXDC3` occupies its first five bytes, the SHA-256 of the attached proof bundle sits at bytes 327–359, and the `LXLB1` bundle begins at byte 363. The head also binds the network, protocol version, deposit identifier, asset, beneficiary, owner key, depositor, amount, and nonce, and verification checks the Tendermint proof in the bundle.
+The inbound digest binds the remote chain, registered vault, source transaction hash, log index, Paxeer recipient, asset and amount. The recipient is a nonzero EVM address in the low 20 bytes of a bytes32 value, with its high 12 bytes zero.
 
-The proof binds state height H to signed header H+1, its application root, and validator hash. These fields describe consensus state evidence. This custody path proves the deposit record directly; it does not accept an external bridge attestor signature as a substitute. Reused deposit identifiers, mismatched assets, incorrect beneficiaries, invalid signatures, and non-final proofs are refused.
+The signature format is specified in modules/layerxbridge/ATTESTATION.md. The inbound domain is PAXEERX_BRIDGE_IN_V1; the EVM outbound domain is PAXEERX_BRIDGE_OUT_V1. Attestors sign the raw Keccak-256 digest. Each accepted signature must recover a current attestor, and the recovered addresses must be strictly ascending.
 
-## Withdraw from LayerX custody
+## Track an external withdrawal
 
-A withdrawal request debits the LayerX account into the withdrawals holding account before payout and binds the asset recorded at request time. Finalisation requires a finalised checkpoint, guarantor certificate, membership proof, and a closed challenge window.
+A successful bridgeOut burns the caller's bridged denomination and advances the registered chain's outbound nonce. The foreign vault releases the corresponding asset after checking its outbound signatures, cap, pause state and replay protection.
 
-1. Submit the withdrawal request and preserve its receipt and requested destination.
-2. Obtain checkpoint and membership evidence for the request.
-3. Wait for checkpoint finality and challenge-window closure.
-4. Finalise on Paxeer X and reconcile the payout with the request's nullifier.
+1. Preserve the Paxeer transaction hash, chain, asset, recipient, amount and outbound nonce.
+2. Obtain signatures for that exact transfer using the registered foreign custody configuration.
+3. Submit the release and wait for the destination chain receipt.
+4. Reconcile the Paxeer burn with the foreign release event before reporting payout.
 
 | Condition | Result |
 | --- | --- |
-| Challenge window remains open | Finalisation is refused until the window closes |
-| Claim is cancelled | Finalisation is refused |
-| Nullifier has already settled | A second payout is refused |
-| Caller supplies a different asset | Request is refused without a transfer |
+| Bridge is paused | Inbound and outbound transfers are refused |
+| Chain is unregistered or disabled | Transfers for that chain are refused |
+| Source event has already been credited | A second inbound credit is refused |
+| Transfer exceeds its per-transaction cap | The transfer is refused |
 
-## Emergency exit and reconciliation
+## Recovery and reconciliation
 
-When the sequencer is unavailable or its liveness bound is exceeded, emergency exit uses the last finalised checkpoint, a balance proof, and recorded guarantor signatures. The library exposes `lxp_exit_eligibility` for the eligibility decision. Emergency exit is a dedicated recovery path rather than another bridge activity.
+Reconcile a timed-out deposit against its original source event. The bridge exposes `isNullified` to check whether the inbound event has been consumed. For EVM withdrawals, the foreign vault consumes a nullifier derived from the Paxeer transaction hash and outbound nonce.
 
-Keep source evidence, admission acknowledgement, execution receipt, checkpoint evidence, and payout receipt as distinct records. A retry first looks up the deposit identifier, operation receipt, or withdrawal nullifier; it does not create a fresh claim for the same economic transfer.
+Keep the foreign deposit, Paxeer credit, Paxeer burn and destination release as separate records. Inspect the existing transfer before retrying. Native account funding uses bank transfers within Paxeer; it does not require a separate custody deposit or checkpoint settlement step.
 
 ## Continue building
 

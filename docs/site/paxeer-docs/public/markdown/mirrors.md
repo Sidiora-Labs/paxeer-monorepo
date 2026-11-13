@@ -8,7 +8,7 @@ Publish Paxeer X batch archives to external chains and verify committed receipt 
 
 The mirror system builds committed batch archives, publishes them to Ethereum or Solana, and retrieves them through independently configured chain sources. A consumer can then verify an archived receipt under its own sequencer key configuration without contacting the Paxeer X gateway.
 
-Mirror publication distributes evidence. Paxeer custody and settlement remain governed by their own checkpoint authority and contracts. An external chain's publication confirmation alone does not authorize a Paxeer withdrawal.
+Mirror publication distributes evidence. Paxeer receipts are final once their blocks are committed by the BFT network. External-chain publication confirms archive availability under that chain's rules; it does not authorize a Paxeer transfer.
 
 ## Publisher and verifier roles
 
@@ -33,8 +33,8 @@ Retain target-chain identity and canonical position with each observation. On Et
 ## Publish an archive
 
 ```
-layerx-mirror-publisher /etc/layerx/mirror-publisher.json
-layerx-mirror-publisher --probe 127.0.0.1:<status-port>
+layerx-mirror-publisher <publisher-config.json>
+layerx-mirror-publisher --probe <configured-status-listener>
 ```
 
 The second form probes the publisher's status listener for readiness instead of starting the service. Any other argument shape exits with a usage error.
@@ -45,13 +45,13 @@ The second form probes the publisher's status listener for readiness instead of 
 4. Observe configured chain confirmation or rooting, retrieve the published archive and verify the bytes.
 5. Advance the durable publication cursor only through the recorded publication workflow.
 
-Publisher configuration includes the state directory, first height, polling interval, checkpoint freshness budget in blocks, status listener address, and the Paxeer committed-source section. The Ethereum target is configured explicitly; the Solana section is optional and validated when present.
+Publisher configuration includes the state directory, first height, polling interval, committed-block freshness budget, status listener address, and the Paxeer committed-source section. The Ethereum target is configured explicitly; the Solana section is optional and validated when present.
 
 ### Recover publication safely
 
 The publication journal distinguishes prepared, pre-broadcast failure, signed, broadcast-unknown, pending, finalized, and retrieved-verified states, alongside permanent refusal, reorganization, and expired broadcast. When broadcast status is unknown, resolve chain history before issuing a replacement nonce or blockhash.
 
-Readiness includes checkpoint freshness against the configured block budget. A healthy process and a completed historical publication do not by themselves establish that every target is current.
+Readiness includes committed-block freshness against the configured block budget. A healthy process and a completed historical publication do not by themselves establish that every target is current.
 
 ## Read policies
 
@@ -61,11 +61,11 @@ Readiness includes checkpoint freshness against the configured block budget. A h
 | `ordered-preference` | Use an explicit ordered candidate set | Controlled source failover |
 | `agreement` | Require a configured minimum agreement among candidates | Cross-source corroboration |
 
-A candidate identifies the configured source index and exact archive commitment. Source divergence, insufficient agreement, missing data, RPC divergence and rate limits remain distinct outcomes.
+A candidate identifies the configured source index and exact archive commitment. The command reports source or RPC divergence as divergent, alongside insufficient-agreement, missing, rate-limited and unavailable outcomes.
 
 ## Verify from a mirror
 
-Prepare a verifier configuration with your independent network and source pins, then supply a JSON request on standard input. A receipt request names the archived receipt by its index within the batch. Replace the commitment placeholder with the 32-byte archive commitment:
+Prepare a verifier configuration with your independent network and source pins, then save the JSON request below as receipt-request.json and supply it on standard input. A receipt request names the archived receipt by its index within the batch. Replace the commitment placeholder with the 32-byte archive commitment:
 
 ```
 {
@@ -85,7 +85,7 @@ Prepare a verifier configuration with your independent network and source pins, 
 ```
 
 ```
-layerx-mirror-verify /etc/layerx/mirror-verifier.json < receipt-request.json
+layerx-mirror-verify <verifier-config.json> < receipt-request.json
 ```
 
 The verifier fetches the archive from the pinned source, checks its commitment and batch, and verifies the sequencer signature over the archived receipt bytes against the receipt key whose height window covers the batch. It does not take receipt bytes from the caller: a request carrying fields such as `canonical_hex` is refused, because unknown request members are denied. There is no state-proof request in this command; the only other evidence kind is `committed`, which verifies the archive's committed coordinate without selecting a receipt.
@@ -96,14 +96,14 @@ Batch numbers are nonzero canonical decimal strings without leading zeros. Recei
 
 On success the verifier prints `{ "ok": true, "verification": { ... } }`. The verification object contains `level`, `evidenceDigest`, `sourceId`, `target`, `canonicalPosition`, `provenance`, `latestBatch`, `batchLag`, `failoverCount`, `agreeingSources`, `committedHeight`, and `committedBlockHash`. Failures print `ok: false` with an error code.
 
-The only evidence level is `Committed`: the archive was admitted under the pinned source commitment and, for a receipt request, the receipt's sequencer signature verified. The report carries no checkpoint level and no signed-header digest. Freshness is reported separately through `latestBatch` and `batchLag` and can be unknown. Store the observation and trust configuration with the evidence so later readers can distinguish historical validity from current coverage.
+The only evidence level is `Committed`: the archive was admitted under the pinned source commitment and, for a receipt request, the receipt's sequencer signature verified. The report identifies the admitted committed height and block hash. Freshness is reported separately through `latestBatch` and `batchLag` and can be unknown. Store the observation and trust configuration with the evidence so later readers can distinguish historical validity from current coverage.
 
 ## Library verifier
 
-In Rust, `MirrorVerifier::from_committed_source` or `admit_committed` admits archive bytes against an observation, refusing a mismatched source commitment or batch. `committed()` returns the committed height and block hash retained in the archive. `committed_receipt(index, keys)` verifies one archived receipt under the supplied sequencer height-range keys. Admission of a committed archive does not require a signed batch header, and this verifier surface does not establish native checkpoint assurance; applications requiring that assurance must obtain it through the checkpoint path, not from a mirror report or external-chain finality.
+In Rust, `MirrorVerifier::from_committed_source` or `admit_committed` admits archive bytes against an observation, refusing a mismatched source commitment or batch. `committed()` returns the committed height and block hash retained in the archive. `committed_receipt(index, keys)` verifies one archived receipt under the supplied sequencer height-range keys. Admission checks the archive against its independently observed source commitment. To verify BFT consensus or application state independently, use native block-commit evidence and the relevant state proofs in addition to the mirror report.
 
 ## Archive retention and audit
 
-Keep the archive commitment, canonical archive bytes, trusted sequencer key windows, target identity, canonical chain position and evidence verification result together. For settlement audits retain native certificates and independently authorized checkpoint policy as well.
+Keep the archive commitment, canonical archive bytes, trusted sequencer key windows, target identity, canonical chain position and evidence verification result together. For independent settlement verification, retain native block-commit evidence and the trusted validator configuration as well.
 
 Continue with [Relay & Archive Nodes](https://docs.paxeer.app/relay-archive) for public history endpoints, [Receipts & Proofs](https://docs.paxeer.app/proofs) for portable verification, and [Data Availability](https://docs.paxeer.app/data-availability) for authenticated replay bundles.

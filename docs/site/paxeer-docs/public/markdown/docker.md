@@ -8,19 +8,19 @@ Local Docker clusters, state-sync RPC nodes, and monitoring for Paxeer X develop
 
 ## Containers for the complete Paxeer X stack
 
-Chain development containers cover EVM and Cosmos execution. The monorepo also provides images for the kernel, hosted gateway and core, receipt authority, registry, agent boundary, Human services, bridge relayer, and application surfaces. There is no `docker/relay-archive/` image; relay/archive is retired (see [relay/archive status](https://docs.paxeer.app/relay-archive)).
+Chain development containers cover EVM and Cosmos execution. The monorepo also provides images for the kernel, hosted gateway and core, receipt authority, registry, agent boundary, Human services, bridge relayer, and application surfaces. See [archive access](https://docs.paxeer.app/relay-archive) for retained evidence and mirrors.
 
 | Image source | Role |
 | --- | --- |
-| `docker/platform-node/` | Hosted node, genesis tooling, bootstrap, and supervisor |
+| `docker/localnode/` | Local chain node, genesis tooling and process supervision |
 | `docker/platform-gateway/` and `docker/platform-core/` | Public receipt-verifying ingress and internal core boundary |
 | `docker/platform-authority/` and `docker/platform-agent-boundary/` | Receipt authority and agent authorization boundary |
 | `docker/platform-registry/` and `docker/human-service/` | Discovery registry and Human service components |
 | `docker/bridge-relayer/` | Bridge delivery |
 
-Hosted manifests under `services/platform/hosted/` define the service topology, persistent storage, probes, and infrastructure boundaries. The chain Docker Compose files below run their declared development topology; assembling the full product also requires the kernel, gateway, registry, and user-service dependencies.
+Hosted manifests under `services/platform/hosted/` define the service topology, persistent storage, probes, and infrastructure boundaries. The chain Docker Compose files below run their declared development topology; hosted services have their own configuration and dependencies.
 
-Mount persistent state separately from runtime sockets and credentials. Pin image revisions and matching genesis artifacts. Publish the gateway through TLS ingress and keep core administration, signer channels, and node-local listeners private. Check `/readyz` and `/livez` where the selected service defines them, then verify an application receipt and its settlement lifecycle. See [operator roles](https://docs.paxeer.app/operators) and [settlement](https://docs.paxeer.app/settlement).
+Mount persistent state separately from runtime sockets and credentials. Pin image revisions and matching genesis artifacts. Publish the gateway through TLS ingress and keep core administration, signer channels, and node-local listeners private. Check `/readyz` and `/livez` where the selected service defines them, then verify an application receipt and its block-commit evidence. See [operator roles](https://docs.paxeer.app/operators) and [settlement](https://docs.paxeer.app/settlement).
 
 ## Prerequisites
 
@@ -38,89 +38,89 @@ Install Docker Engine and Docker Compose:
 
 ## Four-Node Local Cluster
 
-The standard development setup runs a four-validator Paxeer cluster on a private network (`192.168.10.0/24`).
+The base Compose file declares four validators on the `localnet` bridge. Each local node process requires `LOCALNODE_DISPOSABLE=1` and the same fresh `LOCALNODE_RUN_ID`, a 16–128 character identifier starting with a letter or digit and containing only letters, digits, hyphens and underscores. Supply these through the container environment in your local deployment configuration.
 
-### Start Cluster
+### Cluster Recipes
 
 ```
-# Build and start (first time or after code changes)
+# Cluster recipe: rebuild the localnode image and initialize node state
 make docker-cluster-start
 
-# Quick start (skip build if paxd binary exists)
+# Rebuild the image but reuse an existing paxd binary
 make docker-cluster-start-skipbuild
 ```
 
-This launches four `pax-node-*` containers plus a fifth compose service, `x-websearch` (`pax-x-websearch`, image `pax-chain/x-websearch`). Genesis files and logs are generated under `build/generated/`.
+The recipes invoke `docker/docker-compose.yml`, which declares four `pax-node-*` containers and `x-websearch` (`pax-x-websearch`). Set `X_WEBSEARCH_HOME` to its configured data directory. Image selection uses `LOCALNODE_IMAGE_TAG` and `X_WEBSEARCH_IMAGE_TAG`. The node coordinator stores genesis, node homes and logs under `build/localnode-runs/<run-id>/`. These recipes stop the cluster and remove `build/generated/` before starting.
 
-### Node Ports
+### Published Host Ports
 
-| Node | P2P | RPC | gRPC | EVM RPC | IP |
+| Node | P2P | RPC | gRPC / gRPC-web | EVM RPC | Additional TCP port |
 | --- | --- | --- | --- | --- | --- |
-| node0 | 26656-26658 | 26657 | 9090-9091 | 8545-8546 | 192.168.10.10 |
-| node1 | 26659-26661 | 26660 | 9092-9093 | 8547-8548 | 192.168.10.11 |
-| node2 | 26662-26664 | 26663 | 9094-9095 | 8549-8550 | 192.168.10.12 |
-| node3 | 26665-26667 | 26666 | 9096-9097 | 8551-8552 | 192.168.10.13 |
+| node0 | 26656 | 26657 | 9090-9091 | 8545-8546 | 26658 |
+| node1 | 26659 | 26660 | 9092-9093 | 8547-8548 | 26661 |
+| node2 | 26662 | 26663 | 9094-9095 | 8549-8550 | 26664 |
+| node3 | 26665 | 26666 | 9096-9097 | 8551-8552 | 26667 |
 
 ### Monitor Logs
 
 ```
 # Tail logs for node 0
-tail -f build/generated/logs/paxd-0.log
+tail -f "build/localnode-runs/$LOCALNODE_RUN_ID/logs/paxd-0.log"
 
 # View all logs
-ls -l build/generated/logs/
+ls -l "build/localnode-runs/$LOCALNODE_RUN_ID/logs/"
 ```
 
-### SSH Into Container
+### Open a Container Shell
 
 ```
 # List containers
 docker ps -a
 
-# SSH into a node
+# Open a shell in a node
 docker exec -it pax-node-0 /bin/bash
 ```
 
 ### Environment Variables
 
-The cluster supports environment variable configuration:
+The Compose file passes the following settings to the nodes. The Make cluster recipes set `NUM_ACCOUNTS=10`; the initialization script defaults to 5 when it is unset.
 
 | Variable | Purpose |
 | --- | --- |
-| `NUM_ACCOUNTS` | Number of test accounts to create |
+| `NUM_ACCOUNTS` | Number of development accounts to create |
 | `SKIP_BUILD` | Skip binary rebuild |
 | `INVARIANT_CHECK_INTERVAL` | State invariant check frequency |
-| `UPGRADE_VERSION_LIST` | Chain upgrade version schedule |
+| `UPGRADE_VERSION_LIST` | Upgrade version list passed through the node environment |
 | `MOCK_BALANCES` | Use mock balance data |
 | `GIGA_EXECUTOR` | Enable Giga executor backend |
 | `GIGA_OCC` | Enable optimistic concurrency control |
 | `RECEIPT_BACKEND` | Receipt storage backend |
 | `AUTOBAHN` | Enable Autobahn optimizations |
-| `GIGA_STORAGE` | Enable Giga storage engine |
-| `GIGA_MIGRATE_FROM_MEMIAVL` | Migrate from MEMIAVL to Giga |
-| `GIGA_FLATKV_ONLY` | Use flat key-value storage only |
+| `GIGA_STORAGE` | Use test_only_dual_write with the EVM state-store split |
+| `GIGA_MIGRATE_FROM_MEMIAVL` | Start in memiavl_only mode for a migration scenario |
+| `GIGA_FLATKV_ONLY` | Start in flatkv_only mode; cannot combine with GIGA_MIGRATE_FROM_MEMIAVL |
 
 ## Single Node (Not Recommended)
 
-For minimal testing only:
+The single-node recipe builds its image and launches one container. Its node process requires the same explicit disposable-run environment described above:
 
 ```
-make build-docker-node && make run-local-node
+make run-local-node
 ```
 
-The four-node cluster is preferred for realistic consensus behavior.
+Use multiple validators when examining consensus behavior.
 
 ## Compose Files
 
 | File | Purpose |
 | --- | --- |
-| `docker-compose.yml` | Four-node cluster (base configuration) |
-| `docker-compose.monitoring.yml` | Prometheus + Grafana monitoring overlay |
-| `docker-compose.giga-mixed.yml` | Mixed Giga/legacy storage testing overlay |
+| `docker/docker-compose.yml` | Four-node cluster (base configuration) |
+| `docker/docker-compose.monitoring.yml` | Prometheus + Grafana monitoring overlay |
+| `docker/docker-compose.giga-mixed.yml` | Giga executor with OCC on node0 and standard execution on nodes1–3 |
 
 ## Monitoring with Prometheus & Grafana
 
-Start the cluster with monitoring containers:
+The monitoring overlay requires `GRAFANA_ADMIN_PASSWORD_FILE` to name a private password file. These recipes start and stop the cluster with the monitoring overlay:
 
 ```
 # Start cluster + monitoring together
@@ -130,7 +130,7 @@ make docker-cluster-start-monitoring
 make docker-cluster-stop-monitoring
 ```
 
-Or run monitoring scripts independently:
+The standalone monitoring scripts use separate configuration under `docker/monitornode/`. Their Prometheus listener uses port 9091; select them separately from the Compose overlay, whose Prometheus host port is 9099:
 
 ```
 # Start Prometheus
@@ -146,38 +146,35 @@ Or run monitoring scripts independently:
 
 ### Access UIs
 
-- **Grafana:** `http://localhost:3000` (login: `admin` / `admin`)
+- **Grafana:** `3000`, using the configured password
 
-- **Prometheus:** `http://localhost:9090`
+- **Prometheus:** `9099` for the Compose overlay; `9091` for the standalone script
 
 ## State Sync RPC Node
 
-Test state-sync by starting an additional RPC node that syncs from the four-node cluster:
+RPC initialization requires `STATE_SYNC_RPC_SERVERS`, `STATE_SYNC_TRUST_HEIGHT` and `STATE_SYNC_TRUST_HASH` in the RPC container environment, plus a matching genesis at `build/generated/genesis.json`. It validates the selected checkpoint against the configured providers:
 
 ```
-# Prerequisite: Start a 4-node cluster
-make docker-cluster-start
+# Build the RPC-node image
+make build-rpc-node
 
-# Wait until block height exceeds 500 (configurable via app.toml)
-paxd status | jq
-
-# Start state-sync RPC node
+# RPC-node recipe, after supplying its container configuration
 make run-rpc-node
 ```
 
-The RPC node bootstraps from a recent snapshot instead of replaying full history.
+State sync restores a trusted snapshot and then replays subsequent blocks. Select a retained snapshot height and matching 32-byte hexadecimal trust hash; there is no fixed 500-block startup threshold.
 
 **Scripts:** `docker/rpcnode/scripts/`
 
 ## Fast Iteration & Local Development
 
-Docker mounts local source directories, so you can edit code and rebuild without re-pulling dependencies:
+The node containers mount the source tree and Go caches. The declared image and cluster recipes support this workflow:
 
 1. Edit code at the monorepo root (modules, consensus, SDK, storage, WASM)
 2. Rebuild the node image: `make build-docker-node`
 3. Restart the cluster: `make docker-cluster-start`
 
-No `go.mod` replacements or sibling repositories required. The monorepo includes all dependencies.
+The root `go.mod` declares module dependencies and replacements. External Go modules, base images and system libraries must also be available to the build.
 
 ### Volumes
 
@@ -223,8 +220,8 @@ Each node type has a multi-step initialization flow:
 
 ## Docker Image
 
-The cluster uses the `pax-chain/localnode` image built from `docker/localnode/Dockerfile` (there is no root `Dockerfile`). Platform defaults to `linux/amd64` but can be overridden with `DOCKER_PLATFORM`.
+The `build-docker-node` target builds `docker/localnode/Dockerfile` and tags the image for local use and the Compose reference. `chain.mk` selects `linux/arm64` when `uname -m` reports arm64, otherwise `linux/amd64`. `DOCKER_PLATFORM` overrides that selection.
 
 ## Network Configuration
 
-The cluster creates a `localnet` bridge network with subnet `192.168.10.0/24`. Each node has a static IP for deterministic peer configuration.
+The base Compose file declares a `localnet` bridge with fixed per-node addresses for peer configuration. Its published host port ranges map to the same internal node ports; application clients select the appropriate published RPC port.

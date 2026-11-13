@@ -6,7 +6,7 @@ Discover registered programs and resolve current interfaces, lifecycle, accounts
 
 ## Resolve evidence before execution
 
-Paxeer X discovery lets wallets, agents and applications find registered programs and inspect the version they are about to call. Discovery combines the program registry, a verified current protocol head, published interfaces and optional sequencer-signed discovery attestations. Each resolved program carries identity, version and freshness information that the client can bind to its preparation.
+Paxeer X discovery lets wallets, agents and applications find registered programs and inspect the version they are about to call. The hosted registry combines deployment records, a verified current protocol head and published interfaces. Each resolved program carries identity, version and freshness information that the client can bind to its preparation.
 
 A program ID is a stable 32-byte identifier. The latest code hash, ABI, lifecycle and account bindings describe its current verified execution context. An application preserves both the stable identity and the version-specific evidence when presenting an action to its user.
 
@@ -50,28 +50,28 @@ The first response includes versions, current lifecycle, upgrade policy, account
 
 Resolve related records against compatible current evidence. If an upgrade or lifecycle change occurs between reads, fetch the program and interface again before preparing a call. Keep the canonical interface digest and code hash attached to the user-facing disclosure or internal execution record.
 
-## Signed discovery attestations — current status
+## Node discovery with the CLI
 
-The signed-discovery format is defined on the client side: an attested tuple of program ID, version, code hash, ABI version, observed sequence, observation time, validity bound and state root, with the expected head receipt digest and an independently authenticated sequencer authority.
+The CLI reads the programs precompile through `eth_call` at `pending`. `layerx program discover` returns the program ID, upgrade policy, authority, code hash, ABI version, version and active status. Discovery refuses an inactive program.
 
-| Field consumed by clients | Meaning |
+| Node discovery field | Meaning |
 | --- | --- |
-| `receipt_digest` | Digest of the program discovery head attestation. |
-| `discovery_public_key` | The verified 32-byte sequencer public key. |
-| `discovery_signature` | The 64-byte signature over the discovery proof digest. |
+| `policy` | The program's upgrade policy value. |
+| `authority` | The 32-byte program authority. |
+| `code_hash` | The code hash returned for the selected program. |
 
-The registry's program read response does not currently emit `discovery_public_key` or `discovery_signature`; its receipt object carries `deployment_receipt_digest` only. The CLI's program-call head verification requires all three discovery fields and fails with *program discovery omitted public key* (or *signature*) when they are absent. Signed discovery as a registry-published feature is therefore not yet servable: a client whose policy requires it will refuse to proceed against the current registry, while the receipt-and-current-head verification above remains available.
+The hosted registry returns `deployment_receipt_digest` with current-head metadata. The CLI's node read returns `source: eth_call` and `block_tag: pending`. Keep these evidence types distinct when presenting an action.
 
-### Missing proof fields
+### Evidence requirements
 
-A registry record carries verified deployment information without the discovery signature fields. A client that requires signed discovery must withhold execution until a registry build publishes them. Display the verification level supported by the returned evidence.
+A pending node view describes the state available for preparation. Establish a committed result from the execution receipt and independently verified block-commit evidence. Display the verification level established by the returned evidence.
 
 ## Application journey
 
 1. Fetch the registry index and retain its observed head and validity bound.
 2. Resolve the chosen program and inspect its current version, lifecycle and upgrade authority.
 3. Fetch the matching interface and validate its program, ABI, code hash and interface digest.
-4. Verify discovery signatures when required by the application's trust policy.
+4. When using the CLI, resolve the active program and matching interface through the selected node.
 5. Resolve program accounts and source provenance relevant to the intended action.
 6. Prepare the activity and disclose the target program, action, amounts, counterparties and fees.
 7. Track execution and retain the resulting receipt alongside the discovery evidence.
@@ -92,7 +92,7 @@ Use the [registry source workflow](https://docs.paxeer.app/registry) to publish 
 
 ## Operate a discovery service
 
-Back discovery with the canonical deployment journal, authenticated node-state connection and independent receipt authority. Keep sequencer trust history current. Synchronization persists verified program state before advancing its cursor, and refuses regressions or incompatible state. Restart replay reconstructs the projection from committed evidence and refreshes its current head.
+Back discovery with the canonical deployment journal, authenticated node-state connection and independent receipt authority. Keep the node receipt authority and its trust history current. Synchronization persists verified program state before advancing its cursor, and refuses regressions or incompatible state. Restart replay reconstructs the projection from committed evidence and refreshes its current head.
 
 The default registry staleness bound is 300 seconds. Cache records with their `valid_through`, state root and version; revalidate before an economic action. A healthy HTTP listener does not itself establish fresh program evidence.
 
@@ -102,8 +102,8 @@ The default registry staleness bound is 300 seconds. Cache records with their `v
 | `404 interface_absent` | Do not invent an interface; require published current-version metadata. |
 | `503 stale_read`, `protocol_head_unavailable` | Refresh evidence before preparing a new action. |
 | `interface_registry_mismatch`, `balance_registry_mismatch` | Reject inconsistent records and resolve matching evidence. |
-| Missing discovery signature | Apply the client's required verification policy explicitly. |
+| Inactive node discovery result | The CLI refuses discovery when `active` is false. |
 
 Continue with [registry deployment and journals](https://docs.paxeer.app/registry), [owner identity](https://docs.paxeer.app/identity) or [agent spending controls](https://docs.paxeer.app/agent-budgets).
 
-**Technical references:** `services/platform/hosted/registry/src/routes.rs`, `head_attestation.rs`, `node_state.rs` and the deployment journal contract in the monorepo.
+**Technical references:** `services/platform/hosted/registry/src/routes.rs`, `services/platform/hosted/registry/src/head_attestation.rs`, `services/platform/hosted/registry/src/node_state.rs` and `tools/platform/cli/src/programs.rs`.

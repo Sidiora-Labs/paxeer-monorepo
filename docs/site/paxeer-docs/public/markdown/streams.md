@@ -58,7 +58,7 @@ Submit authenticated readings, then settle the accrued amount. Meter readings ac
 | Settle / claim | Pay accrued, unsettled value to the fixed recipient, limited to the funded balance. |
 | Pause | Payer checkpoints time accrual and stops further earning while paused. |
 | Resume | Payer restarts from the current batch timestamp without charging paused time. |
-| Rate change | Replace the rate for subsequent accrual under a fresh idempotency key, without reopening the stream. |
+| Rate change | Payer settles accrued value at the existing rate, then replaces the rate for subsequent accrual under a fresh idempotency key. |
 | Close / cancel | Payer settles payable accrued value, refunds the excess balance, and permanently closes the stream. |
 
 ### Underfunding
@@ -86,13 +86,13 @@ Streams are module `4`, with payload version `1`. The version prefix is two byte
 | `LX_STREAM_CLOSE` | `0x00040007` | 66 |
 | `LX_STREAM_RATE_CHANGE` | `0x00040008` | 82 |
 
-The rate-change payload carries the stream ID, a new rate as an unsigned 128-bit integer, and an idempotency key. It changes the rate applied to subsequent accrual; already-accrued and settled amounts are not recomputed.
+The rate-change payload carries the stream ID, a positive new rate as an unsigned 128-bit integer, and a nonzero idempotency key. The operation settles payable accrued value before storing the new rate. It preserves the stream's cap and rate unit.
 
 ### Retries and Validation
 
 Settle and close include a nonzero idempotency key. Retry the same economic operation with its original key and retain the result receipt. A key cannot identify a different stream or operation. Reject malformed versions, trailing payload bytes, meter regressions, unauthorized meters, and operations against a closed stream.
 
-Funding, draws, and refunds use published transfer assets and follow asset pause and asset-match rules. The stream account only permits its protocol-authorized draw and refund paths.
+Funding, draws, and refunds use published transfer assets and follow asset pause and asset-match rules. The stream account only permits its protocol-authorized draw and refund paths. Payloads are defined in `include/layerx/lx_stream.h` and `modules/layerxpay/types/payload_stream.go`; execution is implemented in `src/modules/stream/`.
 
 ## Related Guides
 

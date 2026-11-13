@@ -4,7 +4,7 @@
 
 Reduce shared-state contention in Paxeer contracts, preserve on-chain invariants, and measure gas separately from throughput.
 
-When the Giga executor is enabled, Paxeer executes transactions with optimistic concurrency control (OCC): independent work proceeds concurrently, while conflicting access is detected and resolved in a deterministic order. OCC runs only when `giga_executor.enabled` and `giga_executor.occ_enabled` are both set (both default to `true`) and the block is not processed synchronously. Otherwise execution falls back to the V2 OCC path (`ProcessTXsWithOCCV2`) or synchronous processing. Contract storage layout influences how much work is independent in any of these paths. See the [execution engine](https://docs.paxeer.app/engine) and [SDK integration](https://docs.paxeer.app/sdk).
+Paxeer supports optimistic concurrency control (OCC): independent work proceeds concurrently, while conflicting access is detected and resolved in a deterministic order. In `node/app.go`, tenant-domain transactions use synchronous V2 processing. Other transactions use Giga OCC when `giga_executor.enabled` and `giga_executor.occ_enabled` are both `true` and synchronous processing is not selected. Both flags default to `true`. With Giga enabled, the remaining path is synchronous Giga execution. With Giga disabled, the context OCC setting and synchronous-processing decision select V2 OCC (`ProcessTXsWithOCCV2`) or synchronous V2 execution. Contract storage layout influences how much work is independent in any of these paths. See the [execution engine](https://docs.paxeer.app/engine) and [SDK integration](https://docs.paxeer.app/sdk).
 
 ## Find the shared writes
 
@@ -19,11 +19,11 @@ Start by listing the state each entry point reads and writes, including state to
 
 ## Partition state by the unit of work
 
-This small notes contract partitions quantities by caller and position ID, giving each pair its own storage entry.
+The following illustrative Solidity contract partitions quantities by caller and position ID, giving each pair its own storage entry.
 
 ```
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.28;
+pragma solidity ^0.8.0;
 
 contract PositionNotes {
     mapping(address => mapping(uint256 => int256)) public quantities;
@@ -79,4 +79,4 @@ Keep a storage-access sketch beside benchmark results: which keys are independen
 
 Continue with [transaction diagnostics](https://docs.paxeer.app/debugging-transactions) to inspect execution failures and [storage architecture](https://docs.paxeer.app/storage) for the underlying state engines.
 
-**Paxeer source:** `Paxeer-X-Network/` — engine/executor/config/config.go (OCCEnabled), node/app.go (ProcessTXsWithOCCGiga), and modules/evm/types/params.go (DefaultPaxSstoreSetGasEIP2200).
+**Paxeer source:** `engine/executor/config/config.go` (OCCEnabled), node/app.go (ExecuteTxsConcurrently and ProcessTXsWithOCCGiga), and modules/evm/types/params.go (DefaultPaxSstoreSetGasEIP2200).

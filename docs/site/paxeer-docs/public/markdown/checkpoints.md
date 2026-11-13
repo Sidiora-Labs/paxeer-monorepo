@@ -2,61 +2,61 @@
 
 # Checkpoints
 
-The LayerX checkpoint anchor at 0x1014: its historical ABI, and its retirement at the layerx-merge upgrade.
+Block commitment, trusted state-sync checkpoints, and the disabled checkpoint anchor interface.
 
-## Retired at layerx-merge (v7.0)
+## Block commitment
 
-The checkpoint anchor is retired. Do not build new flows on checkpoint submission, finalisation, challenges, or guarantor attestation against it.
+Paxeer mainnet-beta is one BFT chain with EVM chain ID 125. Its kernel proposes blocks within the network. A receipt is final when its block is committed; a separate checkpoint submission is not part of application settlement.
 
-- `SubmitCheckpoint`, `SubmitAvailabilityAttestation`, and `SubmitEquivocation` in the anchor keeper unconditionally return a module-retired error.
+- `SubmitCheckpoint`, `SubmitAvailabilityAttestation`, and `SubmitEquivocation` in modules/layerxanchor/keeper/ unconditionally return a module-retired error.
 
-- Non-view selectors of the `0x1014` precompile were retired at the `v7.0` merge upgrade. Between that upgrade and the later `v7.0-anchor-store-delete` upgrade, view selectors return zero values; after it, all 21 selectors are retired.
+- The `0x1014` precompile disables writes when `v7.0` is active and disables every selector when `v7.0-anchor-store-delete` is active.
 
-- The ABI below is retained for reading historical data and verifying old evidence. A submitted or finalised status from this surface is not a live settlement step.
+- The ABI below declares the checkpoint read signatures. These calls do not provide a settlement path on the merged network.
 
 For the live ordering and evidence path, see [Sequencing & Finality](https://docs.paxeer.app/sequencing). Custody operations are covered under [Custody](https://docs.paxeer.app/custody).
 
-## What the header binds
+## What a block header binds
 
-A checkpoint committed an ordered range of LayerX activity and its resulting state. The registration carried header commitments; individual activity envelopes, payloads, and receipts remained in the replayable batch and its availability material.
+Consensus headers identify the chain and block, link the block history, and commit transaction, validator and application data. The header and commit types are defined in consensus/types/block.go.
 
 | Commitment | Fields | What a consumer checks |
 | --- | --- | --- |
-| Domain | Protocol version and network ID | The header belongs to the expected network and supported protocol. |
-| Ordering | Epoch, batch number, first sequence, last sequence | Authority term, consecutive batch order, and an uninterrupted activity range. |
-| State transition | Previous state root and resulting state root | The batch continues the accepted history and commits its resulting state. |
-| Record commitments | Activity, receipt, event, and oracle roots | The relevant ordered records reproduce their independent roots. |
-| Availability | Data-availability root | Metadata-bound ordered chunks reconstruct the complete availability bundle. |
-| Producer | Timestamp and sequencer ID | Header-relative freshness and an authorized sequencer signature. |
+| Domain | Chain ID and block version | The header belongs to the expected chain and block format. |
+| Ordering | Height and previous block ID | The height and previous-block reference continue the trusted chain. |
+| State transition | Previous-height application hash and result hash | The commitment covers the state after the preceding height; match the proof height accordingly. |
+| Record commitments | Transaction data hash and evidence hash | The block data and evidence match their header commitments. |
+| Validator authority | Validator and next-validator hashes | The validator sets agree with the trusted consensus history. |
+| Consensus | Timestamp, proposer and last commit | Header time and validator signatures satisfy the consensus verification rules. |
 
-The native anchor accepted the canonical 354-byte batch header and its 64-byte Ed25519 sequencer signature. Obtain commitments from verified canonical header bytes; copying a root from an unverified JSON response loses the signature binding.
+Obtain commitments from verified block headers and validator commits. A root copied from an unverified response is not a trust anchor. The light client in consensus/light/ verifies headers against a trusted validator set and trust period.
 
-## Historical flow
+## Transaction and block flow
 
-1. Activities were accepted, deterministic transitions executed, and receipts issued.
-2. The batch was sealed and the canonical header signed, fixing the activity order and committed roots.
-3. Guarantors downloaded the complete batch and availability bundle, verified signatures and authority, and independently replayed every transition.
-4. Guarantors recomputed all committed roots and attested matching results. A mismatch withheld the attestation.
-5. A submitter presented the header, signature, and guarantor certificate to the Paxeer anchor.
-6. The anchor finalised after threshold, continuity, availability, and challenge conditions cleared.
+1. A signed transaction is submitted to the node and checked for mempool admission.
+2. The kernel proposes a block within the Paxeer consensus network.
+3. Validators evaluate the proposal under the configured consensus protocol.
+4. The application executes the ordered transactions and records their results.
+5. Consensus commits the block and the application commits its state.
+6. Applications read the transaction receipt and check its status and committed block identity.
 
 | Stage | Evidence | Established property |
 | --- | --- | --- |
-| Accepted / L0 | Execution receipt | Activity execution and ordering in the current history. |
-| Sealed / L1 | Signed canonical header | Fixed commitments from an identified sequencer. |
-| Distributed / L2 | Verifiable availability material | Batch bytes can be retrieved and reconstructed. |
-| Attested / L3 (retired) | Guarantor certificate | Bonded guarantors attested matching independent execution. |
-| Settled / L4 (retired) | Finalised Paxeer checkpoint | The checkpoint satisfied settlement admission and finality rules. |
+| Submitted | Transaction hash | The transaction has a reconciliation identity. |
+| Proposed | Proposed block | The transaction has a proposed position in the block. |
+| Executed | Application result | The transaction has an execution outcome. |
+| Committed | Consensus commit | The block and its receipts are final. |
+| Successful | Successful transaction receipt | The committed transaction executed successfully. |
 
-## Guarantor certificates and availability (ABI reference)
+## Validator signatures and state sync
 
-A guarantor signature attested correctness and possession of the required data classes. The certificate carried the header, validity-proof field, ordered attestations, threshold, and settlement reference. The native anchor supported up to 32 attestations in ascending guarantor-identifier order. Threshold attestations were a bonded economic guarantee; they did not replace independent verification with a cryptographic validity proof.
+The light client verifies headers using trusted validator information. Non-adjacent verification checks trusted-set overlap and requires more than two-thirds of the new validator voting power to sign the new header. Trust-period and clock-drift checks also apply.
 
-The availability commitment covered five classes: activities and oracle inputs, tagged receipts and events, canonical state differences, and recovery metadata. Chunks used the canonical size of 65,536 bytes and bound class, ordering, and metadata. Activity, receipt, event, and oracle roots remained independent commitments, so a matching availability root alone did not establish correct execution.
+State sync uses an independently trusted block height and hash with application snapshots. Snapshot production is configured in app.toml under [state-sync]; snapshot consumption is configured in config.toml under [statesync]. Configure the joining node with trusted RPC servers and a valid trust period.
 
-## Read the Paxeer anchor (historical)
+## Checkpoint read ABI
 
-The checkpoint anchor is `0x0000000000000000000000000000000000001014`. Read methods return both identities and status so applications can bind proofs to the intended checkpoint. After the store-delete upgrade these selectors are retired; before it, views return zero values.
+The checkpoint anchor address is `0x0000000000000000000000000000000000001014`. These signatures are declared in precompiles/layerxanchor/LayerXAnchor.sol. With the store-delete upgrade active, every selector returns a disabled-module error.
 
 ```
 interface ICheckpointReads {
@@ -73,24 +73,24 @@ interface ICheckpointReads {
 }
 ```
 
-Status `0` meant unknown, `1` submitted, and `2` final. `checkpoint(batchNumber)` returned roots, sequence range, sequencer, signer count, availability mask, open challenges, and submitted/finalized heights. `checkpointGuarantors(batchNumber)` returned admitted guarantor identities in certificate order. Use the complete `LayerXAnchor.sol` ABI for bindings.
+The ABI declares status values `0`, `1`, and `2` for unknown, submitted and final. The declarations `checkpoint(batchNumber)` and `checkpointGuarantors(batchNumber)` describe checkpoint records. They do not supply live block finality. The interface file is `precompiles/layerxanchor/LayerXAnchor.sol`.
 
-## Challenges and bonded accountability (retired)
+## Checkpoint write availability
 
-`openChallenge(batchNumber, kind, evidenceHash)` required the challenge bond and distinguished fraud (`0`) from data availability (`1`). Open challenges prevented finalisation. `finalize(batchNumber)` advanced a submitted checkpoint only when its challenge and timing conditions permitted. The keeper's finalisable check covered status, the declared threshold, the bonded guarantor count, open challenges, the challenge window, and that the batch was exactly the latest finalised batch plus one.
+The anchor ABI declares `openChallenge(batchNumber, kind, evidenceHash)` with kind `0` for fraud and `1` for availability, and declares `finalize(batchNumber)`. These write selectors are disabled on the merged network; application receipt finality comes from the BFT block commit.
 
-Conflicting 274-byte attestations by the same guarantor for different checkpoints in one batch supported `submitEquivocation(evidenceA, evidenceB)`. That submission path is retired along with the rest of the anchor write surface.
+The anchor declaration `submitEquivocation(evidenceA, evidenceB)` is also disabled. Validator equivocation is handled by the consensus evidence and slashing modules.
 
-## Consumer verification checklist (historical evidence)
+## Consumer verification checklist
 
-1. Verify endpoint TLS trust, the expected LayerX network, and supported encoding versions.
-2. Decode the canonical header and verify its sequencer signature and authority range.
-3. Check checkpoint identity, sequential history, roots, and the registered certificate.
-4. Read the checkpoint's finality status and the finality flag accompanying the required root.
-5. Verify native Merkle paths with exact counts, indices, positional siblings, and account authority bindings.
-6. Apply the custody claim's debit, delay, limit, eligibility, and nullifier rules.
-7. Retain the verified proof and confirm payout events and consumed claim state.
+1. Verify endpoint TLS trust and the expected Paxeer chain identity.
+2. Verify the block header and validator commit against an independent trust anchor.
+3. Check the transaction hash, block identity and committed height.
+4. Read the transaction receipt and check whether execution succeeded.
+5. Verify state proofs against the application commitment for the requested height.
+6. Check application authorization, asset units and replay protection for the operation.
+7. Retain verified evidence and reconcile the resulting events and balances.
 
-Public activity commitments use `executed`, `batched`, and `finalised`. Preserve these meanings in application interfaces. Process readiness, a wallet signature, or a historically submitted checkpoint does not justify presenting a claim as settled through the retired anchor.
+For EVM transactions, read `eth_getTransactionReceipt` and inspect `status` and `blockHash`. A submission hash identifies a transaction; successful execution in a committed block establishes the application result.
 
-Continue with [settlement evidence encodings](https://docs.paxeer.app/settlement), [custody and exit workflows](https://docs.paxeer.app/custody), [Paxeer consensus](https://docs.paxeer.app/consensus), and [native EVM interfaces](https://docs.paxeer.app/precompiles).
+Continue with [settlement evidence encodings](https://docs.paxeer.app/settlement), [native account funding](https://docs.paxeer.app/custody), [Paxeer consensus](https://docs.paxeer.app/consensus), and [native EVM interfaces](https://docs.paxeer.app/precompiles).

@@ -6,12 +6,12 @@ Connect merchant checkout, trusted shopping agents, delegated authorization, and
 
 ## One commerce journey, explicit authority at every step
 
-Paxeer X brings the LayerX commerce plane into a single workflow: a merchant advertises its capabilities, an agent identifies the intended operation, the payer supplies bounded authorization, and the payment plane produces verifiable settlement evidence. Checkout and order experiences use that evidence to report a completed purchase.
+The commerce adapters under services/interop/crates/ connect protocol requests to the network payment path: a merchant advertises its capabilities, an agent identifies the intended operation, the payer supplies bounded authorization, and the payment plane produces verifiable settlement evidence. Checkout and order experiences use that evidence to report a completed purchase.
 
 | Protocol or integration | Role | Result |
 | --- | --- | --- |
 | UCP | Merchant profiles, capability negotiation, checkout completion, and order reads. | A checkout outcome and an order tied to verified payment evidence. |
-| AP2 | Signed payment and checkout mandates with evaluated constraints. | An authorized payment mapped to a typed LayerX intent. |
+| AP2 | Signed payment and checkout mandates with evaluated constraints. | An authorized payment mapped to a typed payment intent. |
 | Visa Trusted Agent Protocol | Signed agent identity and browse or pay intent verification. | A verified agent credential handed to the merchant authority path. |
 | Express and FastAPI | Paid-resource release, fulfillment persistence, and webhook processing. | A resource associated with its canonical receipt and request digest. |
 
@@ -23,13 +23,13 @@ Publish a merchant profile with the supported protocol revision and HTTPS servic
 
 ## Complete a checkout
 
-1. Prepare the checkout identifier, uppercase three-letter currency, and positive total in ISO-4217 minor units.
+1. Prepare the checkout identifier, uppercase three-letter currency, and positive total in ISO-4217 minor units. Configure the merchant currency-to-asset binding and exact conversion to atomic asset units.
 2. Bind the checkout to the LayerX asset and recipient, negotiated payment handler, and a stable UCP idempotency key.
 3. Submit completion through `POST /v1/http/ucp/checkouts/complete`.
 4. The payment plane executes the typed payment intent. Pending or refused execution produces the corresponding checkout outcome.
-5. For executed payment, verify the canonical receipt against the authorized batch and checkout binding. Return the completed order only after settlement evidence passes verification.
+5. For executed payment, verify the signed canonical receipt, transaction identity, logs and checkout binding. Return the completed order only after that evidence passes verification.
 
-At the adapter boundary, the completion request has the following fields. This is the Rust submission type, rather than an HTTP JSON example:
+At the adapter boundary, the completion request has the following fields. These fields are declared by the Rust submission type in services/interop/crates/layerx-ucp/src/lib.rs:
 
 ```
 CheckoutSubmission {
@@ -60,20 +60,20 @@ The gateway binds an idempotency key to a digest of the submitted request. Repea
 
 ## Read an order with its evidence
 
-An order combines merchant-owned metadata, including its order identifier and HTTPS permalink, with verified settlement evidence. `UcpAdapter::read_order` checks the negotiated order capability, validates metadata, and re-verifies the stored canonical receipt against its authorized batch and original checkout. Reading an order is a read operation; it does not debit balances or execute a second payment.
+An order combines merchant-owned metadata, including its order identifier and HTTPS permalink, with verified settlement evidence. `UcpAdapter::read_order_with_config` checks the negotiated order capability, validates metadata and the merchant currency binding, and re-verifies the stored signed receipt and logs against the transaction and original checkout. Reading an order is a read operation; it does not debit balances or execute a second payment.
 
 ## Release paid resources
 
-The Express and FastAPI integrations connect settlement to merchant fulfillment. Their fulfillment repository receives a proposed record and a resource-release function. Persist the idempotency key, request digest, canonical receipt, and returned resource together. On repeat delivery, return the existing record only when its request digest matches; a different digest produces a fulfillment conflict.
+The Express and FastAPI integrations connect settlement to merchant fulfillment. The integrations live in sdk/integrations/express/ and sdk/integrations/fastapi/. Their fulfillment repository receives a proposed record and a resource-release function. Persist the idempotency key, request digest, canonical receipt, and returned resource together. On repeat delivery, return the existing record only when its request digest matches; a different digest produces a fulfillment conflict.
 
-The seller fulfillment store creates records with exclusive file creation (`wx`) so a concurrent duplicate cannot overwrite the first record. Webhook delivery tracking is a separate responsibility: use a durable delivery store for a merchant service that runs across restarts or multiple workers. Keep fulfillment identity consistent with the payment operation so retries return the same purchased resource.
+The Express example uses exclusive file creation (`wx`) for fulfillment records. The FastAPI example serializes fulfillment by key and persists records through atomic replacement. Choose a durable fulfillment repository and webhook delivery store for services that run across restarts or multiple workers. Keep fulfillment identity consistent with the payment operation.
 
 ## Plan the merchant integration
 
 1. Define the merchant profile, payment handler, asset mapping, and recipient.
 2. Choose the buying-agent credential and [mandate authorization](https://docs.paxeer.app/mandates) policy.
 3. Persist checkout submissions, idempotency keys, and merchant order metadata.
-4. Store canonical receipts and authorized batches for checkout completion and order reads.
+4. Store signed canonical receipts, transaction hashes, logs, receipt-key authorizations and merchant currency bindings for checkout completion and order reads.
 5. Connect fulfillment and webhook delivery to durable application records.
 
-Use [EVM applications](https://docs.paxeer.app/evm) for contract-facing experiences and [the SDK](https://docs.paxeer.app/sdk) for network integration. Commerce adapters preserve protocol-specific identities while sending payment execution through the typed LayerX plane.
+Use [EVM applications](https://docs.paxeer.app/evm) for contract-facing experiences and [the SDK](https://docs.paxeer.app/sdk) for network integration. Commerce adapters preserve protocol-specific identities while submitting typed payment operations. Paxeer mainnet-beta is one BFT chain, and its receipts are final when their blocks are committed.

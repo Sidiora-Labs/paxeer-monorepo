@@ -6,35 +6,35 @@ Paxeer's EVM JSON-RPC interface with standard Ethereum compatibility and Paxeer-
 
 For complete read-only examples, follow [Query the EVM](https://docs.paxeer.app/querying-evm) or the [Python Quickstart](https://docs.paxeer.app/python). Use [Debug Transactions](https://docs.paxeer.app/debugging-transactions) to work from a failed receipt to a reproducible diagnosis.
 
-**Source:** `rpc/server.go` (registration), `tx.go` (pending nonces), `state.go` (proofs), and `subscribe.go` (subscriptions) in the monorepo
+**Source:** `rpc/server.go` (registration), `rpc/tx.go` (pending nonces), `rpc/state.go` (proofs), and `rpc/subscribe.go` and `rpc/send.go` (subscriptions)
 
 ## Architecture Overview
 
-Paxeer provides a comprehensive RPC interface that combines standard [Ethereum JSON-RPC](https://ethereum.org/en/developers/docs/apis/json-rpc/) compatibility with Paxeer-specific enhancements. The API includes these namespaces:
+Paxeer serves [Ethereum JSON-RPC](https://ethereum.org/en/developers/docs/apis/json-rpc/) at the node's root path. Mainnet-beta uses EVM chain ID 125 (`0x7d`) and BFT block commitment. The source registers the namespaces below; availability on a particular endpoint depends on its configuration and enabled capabilities.
 
 ### Namespace Summary
 
 | Namespace | Transaction Visibility | Use Case |
 | --- | --- | --- |
-| `eth_` | EVM transactions only | Pure EVM applications, Ethereum tooling compatibility |
-| `pax_` | EVM + Cosmos transactions (synthetic receipts) | Full chain visibility, cross-chain event indexing |
+| `eth_` | EVM view and native venue receipts | Pure EVM applications, Ethereum tooling compatibility |
+| `pax_` | Extended EVM/Cosmos views and signed receipts | Allowlisted Cosmos helpers and `pax_sequencerReceipt` |
 | `pax2_` | EVM + Cosmos + bank transfers | Complete transaction view including native transfers |
 | `debug_` | EVM tracing and debugging | Transaction replay, gas profiling, state inspection |
-| `px_` | Sequencer receipt keys | `px_getReceiptKeys` for local receipt verification (HTTP only) |
+| `px_` | Native account, kernel and receipt data | Node methods and `px_getReceiptKeys`; hosted gateway methods have their own contract |
 | `echo_`, `net_`, `web3_` | Liveness, network identity, client version | Standard utility namespaces |
-| `txpool_` | Mempool inspection | Pending/queued transaction views (HTTP only) |
+| `txpool_` | Mempool inspection | Pending/queued transaction views on HTTP and WebSocket |
 
-Transport coverage differs. HTTP registers `echo`, `eth`, `pax`, `pax2`, `px`, `net`, `txpool`, `web3` and `debug`. WebSocket registers only `echo`, `net`, `web3` and `eth` — there is no `pax_`, `pax2_`, `debug_`, `txpool_` or `px_` on WebSocket connections.
+HTTP registers `echo`, `eth`, `pax`, `pax2`, `px`, `net`, `txpool`, `web3` and `debug`. WebSocket registers `echo`, `eth`, `net`, `web3`, `txpool`, `px` and the signed-receipt method in `pax`. The `test` namespace is HTTP-only and requires explicit enablement on a non-live chain. The hosted gateway's `px_` contract is declared in `services/platform/hosted/gateway/openrpc.json`.
 
 ## eth_ Endpoints
 
-The `eth_` prefixed endpoints provide a pure EVM-compatible view:
+The `eth_` prefixed endpoints provide the EVM-compatible view, including chain-generated venue receipts where present:
 
-- **EVM-only:** Only process and return EVM transactions
+- **Transaction selection:** EVM transactions and native venue receipts; Cosmos contract activity uses the extended view
 
 - **Ethereum tooling:** Use ethers.js, viem, web3.js, Hardhat, and Foundry with the method-specific differences below
 
-- **Transaction view:** EVM transactions and their emitted logs
+- **Transaction view:** EVM transactions, their emitted logs, and supported native venue receipt logs
 
 - **Method contracts:** Standard request shapes with documented Paxeer differences
 
@@ -62,7 +62,7 @@ The `pax_` prefixed endpoints provide an enhanced view that includes both EVM an
 
 - **Synthetic transactions:** Cosmos events (CW20, CW721) exposed as EVM logs
 
-- **Full visibility:** See both EVM and Cosmos activity
+- **Extended visibility:** EVM transactions and eligible Cosmos contract activity with synthetic receipts
 
 - **Cross-chain events:** Index pointer contracts and token transfers
 
@@ -80,7 +80,7 @@ These endpoints bridge Cosmos and EVM by exposing Cosmos-native events as EVM-co
 
 - `pax_getBlockReceipts` — Include receipts for synthetic transactions
 
-**Receipt lookup:** Use `eth_getTransactionReceipt` with the synthetic transaction hash.
+**Receipt lookup:** Use the allowlisted `pax_getTransactionReceipt` for Cosmos synthetic receipts. `eth_getTransactionReceipt` also serves native venue receipts by hash.
 
 ### Trace Failure Filtering
 
@@ -106,17 +106,17 @@ The `pax2_` namespace exposes the same block shape as `pax_` but includes **bank
 
 - HTTP only (not WebSocket)
 
-### Legacy API Gating
+### Extended API Gating
 
-Both `pax_*` and `pax2_*` are **legacy APIs** gated by `[evm].enabled_legacy_pax_apis` in `app.toml`:
+Extended `pax_*` and `pax2_*` methods on HTTP are gated by `[evm].enabled_legacy_pax_apis` in `app.toml`. The signed-receipt lookup `pax_sequencerReceipt` is exempt from this allowlist:
 
-- **Deprecated:** Scheduled for removal
+- **New integrations:** Prefer standard EVM methods and the native receipt APIs
 
 - **Allow list:** Only methods in the config array are enabled
 
 - **Default config:** Three `pax_*` address/Cosmos helpers pre-filled (`pax_getPaxAddress`, `pax_getEVMAddress`, `pax_getCosmosTx`)
 
-- **Disabled response:** JSON-RPC error `-32601`, message explains deprecation
+- **Disabled response:** JSON-RPC error `-32601` with the method's enablement requirement
 
 **Coverage:** `rpc/pax_legacy_test.go`
 
@@ -126,7 +126,7 @@ Both `pax_*` and `pax2_*` are **legacy APIs** gated by `[evm].enabled_legacy_pax
 
 ### Example
 
-Consider a block with:
+Consider a block with two EVM transactions and an eligible Cosmos contract transaction, without additional venue receipts:
 
 1. EVM Transaction 1
 2. Cosmos Transaction 1
@@ -142,7 +142,7 @@ Returns only EVM transactions with sequential indices:
 
 #### pax_getBlockReceipts
 
-Returns all transactions (EVM + Cosmos) with sequential indices:
+Includes the eligible Cosmos transaction and returns these indices:
 
 - EVM Transaction 1 (tx index: 0)
 
@@ -154,9 +154,9 @@ Returns all transactions (EVM + Cosmos) with sequential indices:
 
 - **EVM-originating:** Synthetic events included in both `eth_getLogs` and `eth_getTransactionReceipt`
 
-- **Cosmos-originating:** Synthetic events *not* in `eth_` methods; use `pax_getLogs` and `pax_getBlockReceipts`
+- **Cosmos contract transactions:** Their synthetic events are *not* in the ordinary `eth_` transaction view; use `pax_getLogs` and `pax_getBlockReceipts`
 
-- **logIndex values:** Strictly increasing and consistent within each namespace
+- **Native venue receipts:** Chain-generated venue receipts can appear in both views; their transaction indices use fixed slots after the block's transaction count
 
 ### Best Practice
 
@@ -190,7 +190,7 @@ Paxeer's RPC deviates from Ethereum in several areas:
 
 ### Block Tags and Pending Nonces
 
-- Committed-state reads resolve supported latest, safe, and finalized tags through the RPC publication watermarks
+- Committed-state reads resolve supported latest, safe, and finalized tags through the RPC publication watermarks; supported pending reads use a configured open execution layer
 
 - Pending account nonces have a separate path: `eth_getTransactionCount(address, "pending")` uses the mempool’s next nonce or a configured proxy
 
@@ -206,9 +206,9 @@ Paxeer's RPC deviates from Ethereum in several areas:
 
 - `eth_getProof` is implemented for proof-capable stores
 
-- The result contains `address`, `hexValues`, and IAVL `storageProof` operations; it is not Ethereum’s Merkle Patricia account-proof shape
+- The result contains `address`, `hexValues`, and ICS23 `storageProof` operations through the application root; it is not Ethereum’s Merkle Patricia account-proof shape
 
-- Use an IAVL proof verifier and an endpoint retaining proof-capable state at the requested height
+- Use a verifier for the returned application-store proof operations and an endpoint retaining the requested committed state; pending proofs are refused
 
 ### No Proof-of-Work
 
@@ -234,8 +234,8 @@ Paxeer RPC supports WebSocket for:
 
 - `eth_subscribe` for `newHeads` and `logs`
 
-- Pending-transaction subscriptions are not implemented by `SubscriptionAPI`
+- `newPendingTransactions` is served by `SendAPI` when the node has the receipt-backed pending feed; it emits hashes in receipt order and a `lagged` notification if its buffer drops hashes
 
 - `eth_unsubscribe`
 
-Legacy `pax2_*` endpoints are HTTP-only, as are `pax_`, `debug_`, `txpool_` and `px_`. WebSocket serves the `echo`, `net`, `web3` and `eth` namespaces.
+Extended `pax_*` block/filter helpers, `pax2_*` and `debug_` are HTTP-only. WebSocket also serves `pax_sequencerReceipt`, `px_` node APIs and `txpool_`. Use receipt lookup to reconcile notifications with execution results, and verify block commitment for finality.

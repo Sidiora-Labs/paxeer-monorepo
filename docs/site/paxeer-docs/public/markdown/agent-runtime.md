@@ -4,7 +4,7 @@
 
 Run the agent daemon, enrol an identity, connect MCP runtimes, and preserve policy and receipt continuity across restarts.
 
-The Paxeer X agent runtime connects autonomous software to LayerX activity execution through a controlled daemon boundary. `layerx-agentd` owns sessions, capabilities, approval holds, local limits, and durable evidence. MCP exposes those controls as tools; the hosted agent boundary carries signed activities to the node and serves execution receipts.
+The Paxeer X agent runtime connects autonomous software to LayerX activity execution through a controlled daemon boundary. `layerx-agentd` owns sessions, capabilities, approval holds, local limits, and durable evidence. MCP exposes those controls as tools. Actions reach the node as signed EIP-1559 transactions that call native precompiles; the hosted agent boundary serves verified execution receipts.
 
 ## Runtime components
 
@@ -13,11 +13,11 @@ The Paxeer X agent runtime connects autonomous software to LayerX activity execu
 | `layerx-agentd` | Identity enrolment, session authentication, capability checks, local policy, and evidence verification. | Protected tenant store, human owner, and daemon credentials. |
 | `layerx-mcp` | Daemon-bound tool catalogue for reads and actions. | One session and capability; no separate MCP write authority. |
 | `layerx mcp serve` | Serve the bound catalogue over standard input and output. | Protected daemon binding document. |
-| `layerx-agent-boundary` | TLS submission, durable request journal, receipt lookup, and program evidence. | Separate gateway, registry, and webhook credential planes. |
+| `layerx-agent-boundary` | TLS receipt lookup and signed deployment evidence. | Separate gateway, registry, and webhook credential planes. |
 
 ## 1. Configure the network profile
 
-Only the profile name is positional. The endpoint, network identifier, and sequencer trust anchor flags are each optional; supply the release-provided values for the network you intend to join. The CLI retains the implementation name `layerx`.
+Only the profile name is positional. To configure a profile, supply the endpoint, network identifier, and receipt trust anchor together. Omitting all three reuses a configured profile. Supply either a literal trust anchor or a trust-anchor file. The CLI retains the implementation name `layerx`.
 
 ```
 layerx environment use beta \
@@ -29,7 +29,7 @@ layerx environment use beta \
 #   --sequencer-trust-anchor-file <path>
 ```
 
-The profile names are `emulator`, `beta`, and `production`. Non-loopback endpoints use HTTPS. A profile controls CLI network access; the daemon library configuration separately uses a normalized absolute node endpoint path.
+The profile names are `emulator`, `beta`, and `production`. Non-loopback endpoints use HTTPS. A profile controls CLI network access. The daemon configuration uses `node_endpoint` or `LAYERX_NODE_ENDPOINT` for the node root HTTP(S) URL.
 
 ## 2. Enrol the daemon identity
 
@@ -69,26 +69,26 @@ Each action passes session authentication, capability evaluation, policy, rate a
 
 Use the [agent action lifecycle](https://docs.paxeer.app/agents) to prepare, review, sign, submit, and track. Requests carry stable idempotency keys. Repeating an identical mutation returns its original result; changing the body under the same key produces an idempotency conflict.
 
-## Hosted submission and recovery
+## Submission and receipt recovery
 
-The hosted agent boundary accepts canonical signed activities using `application/octet-stream`. Submission requires `Idempotency-Key`; activity bodies are limited to one MiB (`MAX_ACTIVITY_BYTES = 1_048_576`). A durable journal binds the key, route, and activity digest so retries and restarts preserve the original submission identity.
+Submit the signed EIP-1559 transaction to the node with `eth_sendRawTransaction`. Retain its transaction hash and the daemon preparation and submission references. The hosted boundary retrieves signed receipts by transaction hash and verifies them against its configured receipt keys.
 
-| HTTP route family | Use |
+| Interface | Use |
 | --- | --- |
-| `POST /v1/activities` | Submit a signed native activity. |
-| `GET /v1/receipts/{id}` | Retrieve the result associated with an activity identifier. |
-| `GET /v1/receipts/{id}/account-state` | Retrieve account state for a receipt. |
-| `POST /v1/programs/deploy`, `/upgrade`, `/wind-down` | Submit signed native program lifecycle activities. |
-| `POST /v1/programs/simulate`, `/call`, `/read` | Simulate without committing, execute a program call, or read program state. |
-| `GET /v1/programs/activities/{id}` | Retrieve the journaled program activity. |
-| `GET /v1/programs/receipts/by-idempotency/{key}` | Resolve a program outcome using its original key. |
-| Program account-state, state-proof, and head-attestation routes | Serve program account state and its proof material. |
+| `eth_sendRawTransaction` | Submit a signed EVM transaction to the node. |
+| `GET /v1/receipts/{id}` | Retrieve the signed receipt associated with a transaction hash. |
+| `pax_sequencerReceipt` | Read the node receipt and its reported evidence rung. |
+| `eth_getTransactionReceipt` | Read the EVM execution status, logs, and block reference. |
+| `eth_call` | Read or simulate a precompile or contract call without committing it. |
+| `eth_getProof` | Retrieve account and storage proof material at a block. |
+| `eth_getBlockByNumber` | Retrieve a block for a selected height or tag. |
+| `eth_chainId` | Check the EVM chain identifier, `0x7d` for chain 125. |
 
-These are the agent boundary's HTTP interfaces. Its Bearer planes are separate from daemon sessions and from CLI gateway credentials. Keep transport-specific credentials with their intended boundary.
+The receipt route is served by the hosted agent boundary; the JSON-RPC methods are served by the node. The boundary's Bearer planes are separate from daemon sessions and from CLI gateway credentials. Keep transport-specific credentials with their intended boundary.
 
 ## Evidence and write readiness
 
-The daemon loads trusted sequencer policy independently of incoming proof data. Receipt verification binds the network, protocol version, authorized sequencer range, epoch, batch identity, sequence range, Merkle inclusion, and execution outcome.
+Receipt trust keys are configured independently of incoming proof data. The hosted boundary verifies the receipt signature, its authorized key interval, transaction hash, and signing identity. The Agent API distinguishes execution evidence from committed-block evidence; a receipt is final when its block is committed by the BFT network.
 
 `tenant.readiness` reports `transport_ready`, `verified_reads_ready`, `writes_admitted`, and an optional recovery reason. Writes are admitted exactly when no recovery reason is present, which requires transport and a genuine state-proven account read for the authenticated tenant. Readiness is tenant-scoped; an HTTP connection alone does not establish recovered spending authority.
 
@@ -96,7 +96,7 @@ After a process failure, restore durable holds, verify receipts, and resolve unc
 
 ## Operate and revoke
 
-Monitor preparation age, open approvals, held budget, unresolved submissions, stream gaps, and verification failures. The hosted boundary's `/livez` reports process liveness; `/readyz` additionally checks node connectivity and handshake identity. Loss of the node can leave liveness healthy while readiness fails.
+Monitor preparation age, open approvals, held budget, unresolved submissions, stream gaps, and verification failures. The hosted boundary's `/livez` reports process liveness; `/readyz` additionally probes node receipt lookup. Loss of the node can leave liveness healthy while readiness fails.
 
 Revoke a capability or close a session to withdraw agent access. Revoking a capability revokes its whole parent subtree and fails its unsubmitted preparations. Preserve audit and receipt records so a revoked agent's historical actions remain traceable.
 

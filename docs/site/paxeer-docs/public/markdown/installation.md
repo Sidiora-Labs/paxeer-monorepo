@@ -4,11 +4,11 @@
 
 Build the Paxeer X node, deterministic LayerX kernel, hosted services, agent tools and Programs from the unified monorepo.
 
-**Source:** `paxeer-monorepo/Makefile`, `chain.mk`, and `paxeer-monorepo/README.md`
+**Source:** `Makefile`, `chain.mk`, and `README.md` at the repository root
 
 ## Build the complete network stack
 
-The monorepo contains the Go chain node, the C17 kernel, Rust service workspaces, SDKs, and program tooling. The running network entry point is `paxd`. The kernel runs inside `paxd`. There is no standalone kernel daemon to build or run. That daemon is retired.
+The monorepo contains the Go chain node, the C17 kernel, Rust service workspaces, SDKs, and program tooling. The network entry point is `paxd`, which embeds the kernel and proposes blocks. A receipt is final when its block commits.
 
 | Component | Build surface | Purpose |
 | --- | --- | --- |
@@ -16,10 +16,10 @@ The monorepo contains the Go chain node, the C17 kernel, Rust service workspaces
 | Kernel library and tools | `make build` | Kernel archive, genesis builder, and module registry, without rebuilding the node |
 | Agent services | `make agent-build` | Agent runtime and its service boundaries |
 | Human services | `make human-build` | Human API, providers, owner and security components |
-| Platform services | `make platform-build-all` | Gateway, core boundary, registry, and hosted services |
+| Platform services | `make platform-build-all` | Hosted services, SDKs, integrations, and samples |
 | Programs and porting | `make programs-build` | Programs workspace and porting kits |
 
-These commands run from the repository root. Use the Rust toolchain and dependency locks declared by each workspace, and the C compiler and native dependencies declared by the kernel build. Program guests target WebAssembly; install the target required by the selected guest before compiling it.
+These commands run from the repository root. Use the Rust toolchain and dependency locks declared by each workspace, and the C compiler and native dependencies declared by the kernel build. Program guests target WebAssembly; install the target required by the selected guest before compiling it. The platform target also requires Node.js, Python, Maven/JVM, .NET and Swift, with dependencies prepared as declared in `services/platform/Makefile.inc`.
 
 Installation provides binaries and images. Joining a network also requires its genesis, network identity, and role-specific credentials. Retain build provenance and artifact checksums with the deployment record. Continue with [node startup](https://docs.paxeer.app/run-node) and [operator roles](https://docs.paxeer.app/operators).
 
@@ -31,17 +31,17 @@ Installation provides binaries and images. Joining a network also requires its g
 
 - **C compiler:** C17 compiler for the kernel, via the root `Makefile`
 
-- **Make:** Standard build tool
+- **Build tools:** Make and jq; the node also builds the native EVM library through `make evmone-lib` in `chain.mk`
 
 - **Git:** For cloning the repository
 
 - **Solidity:** 0.8.27 with Foundry, for contract builds
 
-- **Native toolchain:** GCC and the native libraries required by the selected build. Use `LEDGER_ENABLED=false` to disable the optional Ledger build tag.
+- **Native toolchain:** GCC, a C++ compiler and CMake for the native EVM library. The `evmone-lib` target builds that library on Linux/amd64 and fetches its declared source dependencies. Use `LEDGER_ENABLED=false` to disable the optional Ledger build tag.
 
 ## Repository Location
 
-Clone the unified [Sidiora-Labs/paxeer-monorepo](https://github.com/Sidiora-Labs/paxeer-monorepo) repository. Chain sources, kernel sources, workspaces, and build configurations share this repository root. The name `Paxeer-X-Network` survives only as the Go module path.
+Clone the [Sidiora-Labs/paxeer-monorepo](https://github.com/Sidiora-Labs/paxeer-monorepo) repository. Chain sources, kernel sources, workspaces, and build configurations share this repository root. The root Go module is `github.com/Sidiora-Labs/Paxeer-X-Network`.
 
 ```
 git clone https://github.com/Sidiora-Labs/paxeer-monorepo.git
@@ -50,7 +50,7 @@ cd paxeer-monorepo
 
 ## Build the Chain Node
 
-Build the merged node from the repository root. `make paxd-build` is the primary entry point. It builds `build/liblayerx.a` and `programs/target/release/liblayerx_programs_sandbox.a` before invoking `chain.mk`, and stamps the version from `tools/release/version.json`.
+Build the node from the repository root. `make paxd-build` builds `build/liblayerx.a`, `programs/target/release/liblayerx_programs_sandbox.a`, and the native EVM library before invoking `chain.mk`, and stamps the version from `tools/release/version.json`. The root node build disables Go module proxy downloads, so populate the declared dependency cache before using it.
 
 ```
 make paxd-build        # build/paxd, linked native libraries and release version stamp
@@ -60,7 +60,7 @@ make paxeer-test
 make paxeer-ci
 ```
 
-`make paxeer-build` and `make -f chain.mk build` also build the linked native prerequisites and produce `build/paxd`, using the chain makefile's version defaults. Root `make build` builds only the kernel archive, genesis builder, and module registry. It does not produce a kernel daemon. Select the chain explicitly with `chain.mk`:
+`make paxeer-build` and `make -f chain.mk build` also build the linked native prerequisites and produce `build/paxd`, using the chain makefile's version resolver. Root `make build` builds the kernel archive, genesis builder, and module registry. Select the chain explicitly with `chain.mk`:
 
 ```
 make -f chain.mk build
@@ -105,7 +105,7 @@ make -f chain.mk install-bench
 
 ## Version Information
 
-The Makefile resolves version from Git tags or branch names. The chain version resolver retains its historical namespaced tag pattern:
+The chain version resolver compares matching Git tags and versioned branch names, and uses `tools/release/version.json` when no matching tag exists. Its tag pattern is:
 
 ```
 paxeer-network/vX.Y.Z
@@ -117,7 +117,7 @@ Version information is embedded in the binary at build time via linker flags:
 
 - `AppName`: paxd
 
-- `Version`: Resolved from tag/branch
+- `Version`: The selected version; `make paxd-build` selects it from `tools/release/version.json`
 
 - `Commit`: Git commit SHA
 
@@ -129,7 +129,7 @@ paxd version
 
 ## Static Linking
 
-To build a statically-linked binary:
+Request static external linking for the Go binary with the flag below. The native EVM loader in `engine/executor/lib/evmlib.go` still loads a platform-specific shared library:
 
 ```
 make paxeer-build LINK_STATICALLY=true

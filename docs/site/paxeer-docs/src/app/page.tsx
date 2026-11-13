@@ -31,12 +31,12 @@ export default function Home() {
         <h1>Money. Markets. Machines.<br /><span>One network to build on.</span></h1>
         <p className="page-description">Paxeer X unites EVM applications, the LayerX agent economy, payments, markets and deterministic programs with verifiable execution and settlement.</p>
         <div className="hero-actions"><Link className="pill-button primary-button" href="/unified-network">Explore the network <Icon name="arrow" size={16} /></Link><Link className="pill-button" href="/xdk">Start with the XDK</Link></div>
-        <div className="hero-network"><span>Two execution domains</span><i /><span>EVM chain ID <code>125</code></span><i /><span>Native token <code>PAX</code></span></div>
+        <div className="hero-network"><span>One BFT network</span><i /><span>EVM chain ID <code>125</code></span><i /><span>Native token <code>PAX</code></span></div>
       </section>
       <Band />
       <figure className="cd-hero-panel">
         <img src="/art/docs/system-overview.webp" alt="Paxeer Docs: explore the connected system" width={1536} height={1024} decoding="async" />
-        <figcaption><span>Paxeer X chain and LayerX kernel: connected through identity, evidence and settlement.</span><span>EVM 125 · PAX</span></figcaption>
+        <figcaption><span>Paxeer mainnet-beta: EVM applications and the LayerX kernel execute on one BFT network.</span><span>EVM 125 · PAX</span></figcaption>
       </figure>
       <Band />
       <section className="cd-strip" aria-label="Network interfaces">
@@ -44,7 +44,7 @@ export default function Home() {
         <div className="cd-strip-grid">
           <Link href="/xdk"><strong>XDK</strong><span>Developer toolkit</span></Link>
           <Link href="/sdk-quickstarts"><strong>7 SDKs</strong><span>Language quickstarts</span></Link>
-          <Link href="/mcp"><strong>MCP</strong><span>21 scoped tools</span></Link>
+          <Link href="/mcp"><strong>MCP</strong><span>22 scoped tools</span></Link>
           <Link href="/json-rpc"><strong>JSON-RPC</strong><span>EVM chain 125</span></Link>
           <Link href="/cli"><strong>CLI</strong><span>Command line</span></Link>
         </div>
@@ -62,8 +62,8 @@ export default function Home() {
         <SectionHead id="solution-title" eyebrow="SOLUTION" title={"One network. Every domain.\nTotal clarity."} />
         <div className="cd-grid-3">
           <MediaCard art="market-growth" alt="Portfolio growth dashboard with a weekly bar chart for BTC, ETH, SOL and PAX, framed by painted clouds" kicker="MARKETS" title="Market performance" text="Track growth across positions with margin, funding and oracle inputs as explicit protocol concepts." href="/perpetuals" linkLabel="Perpetual markets" media="cd-media--panel" width={1374} height={1145} />
-          <MediaCard art="asset-allocation" alt="Portfolio allocation card showing Bitcoin, Ethereum, Solana and PAX shares, framed by painted clouds" kicker="ASSETS" title="Asset allocation" text="Native assets, tokenfactory denoms and ERC20 pointers — see exactly where value sits across both domains." href="/assets" linkLabel="Issue and manage assets" media="cd-media--panel" width={1374} height={1145} />
-          <MediaCard art="activity-notifications" alt="Notification panel with a 2FA prompt, a completed PAX to USDC swap and trading rewards, framed by painted clouds" kicker="NOTIFICATIONS" title="Activity notifications" text="Swaps, rewards and security events pushed to your application the moment they settle." href="/webhooks" linkLabel="Set up webhooks" media="cd-media--panel" width={1374} height={1145} />
+          <MediaCard art="asset-allocation" alt="Portfolio allocation card showing Bitcoin, Ethereum, Solana and PAX shares, framed by painted clouds" kicker="ASSETS" title="Asset allocation" text="Native assets, tokenfactory denoms and ERC20 pointers — see where value sits on the network." href="/assets" linkLabel="Issue and manage assets" media="cd-media--panel" width={1374} height={1145} />
+          <MediaCard art="activity-notifications" alt="Notification panel with a 2FA prompt, a completed PAX to USDC swap and trading rewards, framed by painted clouds" kicker="NOTIFICATIONS" title="Activity notifications" text="Receive signed events through durable webhook delivery and verify their evidence." href="/webhooks" linkLabel="Set up webhooks" media="cd-media--panel" width={1374} height={1145} />
         </div>
         <div className="cd-grid-2">
           <MediaCard art="market-prices" alt="Wide market price list for Bitcoin, Ethereum, Paxeer PAX, XRP, Tether and Tron, framed by painted clouds" kicker="SPOT" title="Multi-asset spot markets" text="Place and cancel orders, manage collateral and follow settlement through receipts and committed state." href="/spot-exchange" linkLabel="Spot exchange" media="cd-media--wide" width={1774} height={887} />
@@ -77,7 +77,7 @@ export default function Home() {
           { art: 'configuration', title: 'Configuration', text: 'Node modes, RPC, storage, snapshots and metrics in one place.', href: '/configuration' },
         ],
         [
-          { art: 'authentication', title: 'Authentication and signing', text: 'Bearer [REDACTED], LayerX keys and signed canonical requests for the platform API.', href: '/platform-api' },
+          { art: 'authentication', title: 'Authentication and signing', text: 'Scoped credentials, LayerX keys and signed requests for the hosted platform API.', href: '/platform-api' },
           { art: 'chain-configuration', title: 'Network parameters', text: 'Chain identifiers, denominations, gas limits and endpoints for EVM 125.', href: '/network-parameters' },
         ],
       ]} />
@@ -112,7 +112,7 @@ export default function Home() {
               <li>EVM address bound to a LayerX DID</li>
               <li>Escrow, acceptance and receipts linked</li>
               <li>Deterministic, replayable transitions</li>
-              <li>Signed receipts, batches and checkpoints</li>
+              <li>Signed receipts and committed blocks</li>
               <li>Scoped MCP tools and agent budgets</li>
             </ul>
           </div>
@@ -122,7 +122,7 @@ export default function Home() {
         [
           { art: 'agent-lifecycle', title: 'Agent lifecycle', text: 'Read state, prepare, disclose, sign and track every action.', href: '/agents' },
           { art: 'task-queue', title: 'Agent-to-agent tasks', text: 'Send structured tasks and follow their state between agents.', href: '/a2a' },
-          { art: 'tool-discovery', title: 'MCP tools', text: '21 scoped tools for verified reads and policy-governed writes.', href: '/mcp' },
+          { art: 'tool-discovery', title: 'MCP tools', text: '22 scoped tools for verified reads and policy-governed writes.', href: '/mcp' },
         ],
         [
           { art: 'intent-builder', title: 'Human interface', text: 'Turn user intent into typed economic actions with visible limits.', href: '/human-interface' },
@@ -149,7 +149,7 @@ export default function Home() {
       ]} />
       <ArtGrid id="operate-art-title" eyebrow="OBSERVE AND OPERATE" title={"Know what happened.\nProve it."} rows={[
         [
-          { art: 'state-snapshots', title: 'Checkpoints', text: 'Compact commitments to complete execution, settled on Paxeer X.', href: '/checkpoints' },
+          { art: 'state-snapshots', title: 'Checkpoints', text: 'Block commitments, trusted state sync and receipt finality on Paxeer.', href: '/checkpoints' },
           { art: 'event-subscriptions', title: 'Event subscriptions', text: 'Scoped subscriptions with acknowledgement and gap recovery.', href: '/subscriptions' },
           { art: 'debugging', title: 'Debug transactions', text: 'Collect the transaction and receipt, then check the call.', href: '/debugging-transactions' },
         ],
@@ -164,7 +164,7 @@ export default function Home() {
         <div className="cd-grid-3">
           <MediaCard art="installation" alt="Installation card: a download arrow above a terminal showing install and Ready" kicker="STEP 1" title="Install and connect" text="Pick one of seven SDKs, the XDK or JSON-RPC and point it at your node or a public endpoint." href="/sdk-quickstarts" linkLabel="SDK quickstarts" />
           <MediaCard art="service-payment" alt="Service payment: an application pays through 402LXP and receives a receipt" kicker="STEP 2" title="Fund and authorize" text="Fund the account, bind identities and set the budgets and mandates that bound what can be spent." href="/payments-quickstart" linkLabel="Make your first payment" />
-          <MediaCard art="payment-receipt" alt="Payment receipt: protocol 402LXP, service Compute, status Settled" kicker="STEP 3" title="Execute and verify" text="Send the activity, then follow its signed receipt through batch sealing to checkpoint settlement." href="/receipts" linkLabel="Verify a receipt" />
+          <MediaCard art="payment-receipt" alt="Payment receipt: protocol 402LXP, service Compute, status Settled" kicker="STEP 3" title="Execute and verify" text="Submit a signed transaction, verify its execution receipt and confirm its covering block is committed." href="/receipts" linkLabel="Verify a receipt" />
         </div>
         <div className="cd-center-cta"><Link className="pill-button primary-button" href="/xdk">Start with the XDK <Icon name="arrow" size={16} /></Link></div>
         <div className="cd-inset"><DeveloperQuickstart /></div>
@@ -182,7 +182,7 @@ export default function Home() {
               <ul>
                 <li>Agent identities and DIDs</li>
                 <li>Budgets, mandates and revocation</li>
-                <li>21 scoped MCP tools</li>
+                <li>22 scoped MCP tools</li>
                 <li>Agent-to-agent tasks</li>
               </ul>
               <Link href="/agents" className="pill-button cd-path-cta">Build an agent <Icon name="arrow" size={14} /></Link>
@@ -207,7 +207,7 @@ export default function Home() {
             <p className="cd-path-head">EVM APPLICATIONS</p>
             <div className="cd-path-body">
               <h3>Use the tools you know.</h3>
-              <p>Deploy Solidity, connect wallets and call native precompiles for account binding, custody, checkpoints, exchange and asset launches.</p>
+              <p>Deploy Solidity, connect wallets and call native precompiles for account binding, native payments, exchange and asset launches.</p>
               <p className="cd-path-includes">This path covers:</p>
               <ul>
                 <li>Solidity with Foundry and Hardhat</li>
@@ -224,11 +224,11 @@ export default function Home() {
       <section aria-labelledby="evidence-title">
         <SectionHead id="evidence-title" eyebrow="EVIDENCE, NOT PROMISES" title={"Every claim carries\nits own proof"} />
         <div className="cd-grid-3">
-          <MediaCard art="payment-receipt" alt="Payment receipt: protocol 402LXP, service Compute, status Settled" kicker="RECEIPTS" title="Signed at execution" text="Every activity returns a signed receipt you can verify against committed state — no operator statement required." href="/receipts" linkLabel="Verify signed receipts" />
-          <MediaCard art="state-snapshots" alt="Stacked state snapshots" kicker="CHECKPOINTS" title="Sealed on Paxeer X" text="Batches of execution compact into checkpoints settled on the chain, with guarantor attestations behind them." href="/checkpoints" linkLabel="Follow a checkpoint" />
-          <MediaCard art="job-progress" alt="Job progress: submitted, processing, output ready" kicker="COMMITMENT" title="Instant, sealed, final" text="Distinguish instant execution, sealed batches and final settlement, and match the level to the economic action." href="/finality" linkLabel="Read commitment levels" />
+          <MediaCard art="payment-receipt" alt="Payment receipt: protocol 402LXP, service Compute, status Settled" kicker="RECEIPTS" title="Signed at execution" text="Verify a signed execution receipt against trusted receipt keys, then check its covering block." href="/receipts" linkLabel="Verify signed receipts" />
+          <MediaCard art="state-snapshots" alt="Stacked state snapshots" kicker="BLOCKS" title="Committed on Paxeer" text="Validators commit blocks on the BFT network. A receipt is final when its covering block is committed." href="/checkpoints" linkLabel="Verify block commitment" />
+          <MediaCard art="job-progress" alt="Job progress: submitted, processing, output ready" kicker="COMMITMENT" title="Submitted, receipted, committed" text="Track submission, verify the signed execution result and confirm block commitment before treating it as final." href="/finality" linkLabel="Read commitment levels" />
           <MediaCard art="results-artifacts" alt="Results and artifacts: output, logs and metadata ready to download" kicker="REPLAY" title="Replayable history" text="Global sequencing and chained state roots make the canonical history independently replayable by anyone." href="/sequencing" linkLabel="How sequencing works" />
-          <MediaCard art="event-subscriptions" alt="Event subscriptions for task, payment and chain events" kicker="CUSTODY EXITS" title="A verifiable way out" text="Withdrawals and forced exits use verified receipt or state evidence, recipient authorization and nullifiers." href="/custody" linkLabel="Custody and exits" />
+          <MediaCard art="event-subscriptions" alt="Event subscriptions for task, payment and chain events" kicker="ACCOUNTS" title="Fund a bound account" text="Bind the owner identity, transfer native assets and verify the recipient, amount and transaction receipt." href="/custody" linkLabel="Account funding and keys" />
           <MediaCard art="debugging" alt="Debugging: a magnifying glass over terminal output" kicker="INSPECTION" title="Debug from evidence" text="Collect the transaction and its receipt, then check the call against committed state instead of guessing." href="/debugging-transactions" linkLabel="Debug a transaction" />
         </div>
       </section>
@@ -243,12 +243,12 @@ export default function Home() {
       <section id="faqs" aria-labelledby="faq-title">
         <SectionHead id="faq-title" eyebrow="FAQS" title="Frequently asked questions" />
         <div className="cd-faq">
-          <details><summary>What is the difference between Paxeer X and LayerX?<span className="cd-faq-toggle" aria-hidden="true" /></summary><p>Paxeer X is the EVM chain supplying execution, custody and settlement. LayerX is the kernel that orders agent activities and produces deterministic state transitions, signed receipts and checkpoints. Native precompiles connect the two domains through verifiable evidence. <Link href="/paxeer-vs-layerx">Compare the domains</Link></p></details>
+          <details><summary>What is the difference between Paxeer X and LayerX?<span className="cd-faq-toggle" aria-hidden="true" /></summary><p>Paxeer mainnet-beta is one BFT network. LayerX is its embedded kernel for native activities and deterministic execution. EVM transactions call native precompiles, and receipt finality comes from the covering block commit. <Link href="/paxeer-vs-layerx">Explore the network architecture</Link></p></details>
           <details><summary>Which chain ID and token does the network use?<span className="cd-faq-toggle" aria-hidden="true" /></summary><p>EVM chain ID <code>125</code> (<code>hyperpax_125-1</code>) with native token <code>PAX</code>. Denominations, gas limits and endpoints are listed with the network parameters. <Link href="/network-parameters">Network parameters</Link></p></details>
           <details><summary>How does an agent get authority to spend?<span className="cd-faq-toggle" aria-hidden="true" /></summary><p>Through scoped, revocable delegation: primary and session keys, budget limits and mandates define exactly what an agent may do with money, and owners can revoke or rotate that authority. <Link href="/agent-budgets">Agent budgets</Link></p></details>
-          <details><summary>How do I verify a payment actually settled?<span className="cd-faq-toggle" aria-hidden="true" /></summary><p>Verify the signed receipt, confirm its inclusion in a sealed batch, then check the checkpoint settled on Paxeer X: receipt → batch → checkpoint → finalized settlement. <Link href="/receipts">Receipts and proofs</Link></p></details>
-          <details><summary>Can I use my existing EVM tooling?<span className="cd-faq-toggle" aria-hidden="true" /></summary><p>Yes. Deploy Solidity with Foundry or Hardhat, connect wallets over JSON-RPC, and call native precompiles for account binding, custody, checkpoints and markets on chain 125. <Link href="/evm">Build on the EVM</Link></p></details>
-          <details><summary>How do I run a node or operate the network?<span className="cd-faq-toggle" aria-hidden="true" /></summary><p>Start with installation and configuration, then the operator guides for chain nodes, sequencers, replicas, guarantors and archive services. <Link href="/run-node">Run a node</Link></p></details>
+          <details><summary>How do I verify a payment actually settled?<span className="cd-faq-toggle" aria-hidden="true" /></summary><p>Verify the signed execution receipt against trusted receipt keys, check its transaction and outcome, and confirm the covering BFT block is committed. <Link href="/receipts">Receipts and proofs</Link></p></details>
+          <details><summary>Can I use my existing EVM tooling?<span className="cd-faq-toggle" aria-hidden="true" /></summary><p>Yes. Deploy Solidity with Foundry or Hardhat, connect wallets over JSON-RPC, and call native precompiles for account binding, native payments and markets on chain 125. <Link href="/evm">Build on the EVM</Link></p></details>
+          <details><summary>How do I run a node or operate the network?<span className="cd-faq-toggle" aria-hidden="true" /></summary><p>Start with installation and configuration, then the operator guides for BFT nodes, validators, RPC endpoints and retained chain history. <Link href="/run-node">Run a node</Link></p></details>
         </div>
       </section>
       <Band />
