@@ -18,7 +18,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[3]
 GOV = ROOT / "tools/paxeer-x/gov"
-RECORD = Path(__file__).with_name("repair_22_31_428.kvx")
+RECORD = (ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_31_428.kvx")
 CONFIG = ROOT / "services/bridge/deploy/proposals/testdata/solana.json"
 GENERATOR = ROOT / "services/bridge/deploy/proposals/proposals.go"
 

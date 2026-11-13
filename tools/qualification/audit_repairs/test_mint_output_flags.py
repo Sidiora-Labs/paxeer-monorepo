@@ -234,7 +234,7 @@ def test_mint_output_flags_real_consumer_rejects_wrong_value(
 
 
 def test_mint_output_flags_record_names_proofs_and_limits():
-    record = tomllib.loads(Path(__file__).with_name("repair_22_31_422.kvx").read_text())
+    record = tomllib.loads((ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_31_422.kvx").read_text())
     task = record["task"]["22"]["31"]["422"]
     assert task["audit"] == "22.30.172"
     assert task["finding"] == "mint-output-flags"

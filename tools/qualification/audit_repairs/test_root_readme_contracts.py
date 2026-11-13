@@ -14,7 +14,7 @@ from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[3]
 README = (ROOT / "README.md").read_text(encoding="utf-8")
-RECORD_PATH = Path(__file__).with_name("repair_22_31_470.kvx")
+RECORD_PATH = (ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_31_470.kvx")
 
 
 def source(path):
@@ -334,7 +334,7 @@ def test_repair_record_covers_every_medium_root_finding_and_names_its_proofs():
         mapped.update(entry["tests"])
     assert mapped == declared - {"test_repair_record_covers_every_medium_root_finding_and_names_its_proofs"}
     assert task["base_revision"] == "76bd4ca9414014055f61431cd0c7be0dc9ac5fe2"
-    assert task["verify_cmd"] == "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_31_470.py"
+    assert task["verify_cmd"] == "python3 -m pytest -q tools/qualification/audit_repairs/test_root_readme_contracts.py"
     assert task["evidence_ledger"] == "/out/run/gates.jsonl"
     assert "same candidate revision" in task["evidence"]
     assert "not executed" in task["review_only"]

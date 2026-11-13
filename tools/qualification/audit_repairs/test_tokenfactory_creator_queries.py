@@ -17,7 +17,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[3]
 SCRIPT = ROOT / "tests/integration/contracts/create_tokenfactory_denoms.sh"
-RECORD = ROOT / "tools/qualification/audit_repairs/repair_22_31_421.kvx"
+RECORD = ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_31_421.kvx"
 # Existing tokenfactory genesis fixture, not an invented address spelling.
 CREATOR = "pax1y3pxq5dp900czh0mkudhjdqjq5m8cpmmsnt288"
 BINARY = "/a directory with spaces/paxd"

@@ -23,7 +23,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[3]
 BACKUP = ROOT / "tools/ops/backup"
-RECORD = Path(__file__).with_name("repair_22_31_424.kvx")
+RECORD = (ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_31_424.kvx")
 
 
 @pytest.fixture

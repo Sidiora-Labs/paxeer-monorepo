@@ -23,7 +23,7 @@ HERE = Path(__file__).parent
 SCRIPT = ROOT / "scripts/ci/beta-qualify.sh"
 CONSUMER = ROOT / "scripts/ci/beta-ledger-check.sh"
 FIXTURE = HERE / "focused_tasks_22_31_426.kvx"
-RECORD = HERE / "repair_22_31_426.kvx"
+RECORD = ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_31_426.kvx"
 
 
 def embedded_python(path, delimiter):

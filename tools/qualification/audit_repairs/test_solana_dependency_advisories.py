@@ -49,7 +49,7 @@ def task_record():
 
 
 @pytest.mark.parametrize("ghsa,crate,minimum", ADVISORY_MINIMUMS)
-def test_repair_22_31_449_advisory_minimums(packages, task_record, ghsa, crate, minimum):
+def test_solana_advisory_minimums(packages, task_record, ghsa, crate, minimum):
     advisory = next(a for a in task_record["advisories"] if a["ghsa_id"] == ghsa)
     assert advisory["html_url"] == f"https://github.com/advisories/{ghsa}"
     vulnerabilities = [
@@ -82,7 +82,7 @@ def test_repair_22_31_449_advisory_minimums(packages, task_record, ghsa, crate, 
         )
 
 
-def test_repair_22_31_449_record_covers_all_alerts(task_record):
+def test_solana_dependency_record_covers_all_alerts(task_record):
     alerts = {
         alert for decision in task_record["decisions"] for alert in decision["alerts"]
     }
@@ -94,7 +94,7 @@ def test_repair_22_31_449_record_covers_all_alerts(task_record):
     assert "Remove the dependency path" in atty["action"]
 
 
-def test_repair_22_31_449_backports_are_the_compiled_requirers(packages, task_record):
+def test_solana_backports_are_the_compiled_requirers(packages, task_record):
     with (WORKSPACE / "Cargo.toml").open("rb") as source:
         workspace = tomllib.load(source)
     assert {p["name"] for p in task_record["vendored_packages"]} == {
