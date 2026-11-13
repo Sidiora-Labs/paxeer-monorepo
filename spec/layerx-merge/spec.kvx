@@ -205357,7 +205357,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.94]
 title = "Move the task records and name the files after what they hold in programs/crates/layerx-programs-runtime"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
