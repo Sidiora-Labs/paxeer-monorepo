@@ -1,7 +1,7 @@
 [task.22.33.574]
 finding = "upgrade-reader-contract"
 repair = "Declare GetDoneHeight on types.UpgradeKeeper and call it directly when producing the retirement diagnostic."
-proof_tests = ["TestRepairM_574_PersistedUpgradeReaderContract", "TestRepairM_574_ApplicationUpgradeDependency"]
+proof_tests = ["TestPersistedUpgradeReaderContract", "TestApplicationUpgradeDependency"]
 proof_path = "SDK SetDone -> committed store close/reopen -> declared UpgradeKeeper reader -> exchange intent and message handlers -> SDK ABCI protobuf transport -> registered code-14 classification."
 preserved = "Existing persisted done-height tests and application dependency assertions remain unchanged; the repair tests also assert the concrete application upgrade dependency and code-12 missing wiring."
 baseline_revision = "de8ab245609a7e0707cc32c502b6dcbe17ce3aca"
