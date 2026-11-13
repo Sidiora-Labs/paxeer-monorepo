@@ -85,7 +85,7 @@ def _commands(loop, expected, timeout=None):
     assert commands == expected
 
 
-def test_finding_27_readonly_builds_all_four_nested_modules():
+def test_readonly_builds_all_four_nested_modules():
     function = _function("test_go_root_checksums.py", "test_go_root_nested_checksums")
     modules = _assignment(function.body, "modules")
     assert isinstance(modules, ast.Tuple)
@@ -117,7 +117,7 @@ def test_finding_27_readonly_builds_all_four_nested_modules():
     assert "packages.stdout.strip()" in _assertions(loop.body)
 
 
-def test_finding_28_readonly_builds_both_database_modules_and_keeps_imports():
+def test_readonly_builds_both_database_modules_and_keeps_imports():
     function = _function("test_vendored_checksums.py", "test_vendored_database_checksums")
     modules = _assignment(function.body, "modules")
     assert isinstance(modules, ast.Dict)
@@ -177,9 +177,7 @@ def test_finding_28_readonly_builds_both_database_modules_and_keeps_imports():
         ),
     ],
 )
-def test_findings_27_28_keep_checksum_and_exact_manifest_guards(
-    filename, name, snapshots, original
-):
+def test_checksum_and_exact_manifest_guards(filename, name, snapshots, original):
     function = _function(filename, name)
     assert ast.literal_eval(_assignment(function.body, snapshots)) == {}
     snapshot_loops = [node for node in function.body if isinstance(node, ast.For)]

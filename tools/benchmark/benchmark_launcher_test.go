@@ -17,7 +17,7 @@ import (
 
 // Run the production start block unchanged. Initialization (and its build,
 // Python and jq dependencies) is deliberately outside this launcher's proof.
-func repairM858StartBlock(t *testing.T) string {
+func launcherStartBlock(t *testing.T) string {
 	t.Helper()
 	data, err := os.ReadFile("benchmark.sh")
 	if err != nil {
@@ -35,7 +35,7 @@ func repairM858StartBlock(t *testing.T) string {
 	return "set -e\n" + script[start:]
 }
 
-func repairM858Command(t *testing.T, home, peer, mode string) *exec.Cmd {
+func launcherCommand(t *testing.T, home, peer, mode string) *exec.Cmd {
 	t.Helper()
 	fixture, err := filepath.Abs(filepath.Join("testdata", "m858", peer+".sh"))
 	if err != nil {
@@ -45,7 +45,7 @@ func repairM858Command(t *testing.T, home, peer, mode string) *exec.Cmd {
 	// shell. No node binary or subprocess toolchain is built or invoked.
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	t.Cleanup(cancel)
-	cmd := exec.CommandContext(ctx, "/bin/bash", "--noprofile", "--norc", "-c", repairM858StartBlock(t))
+	cmd := exec.CommandContext(ctx, "/bin/bash", "--noprofile", "--norc", "-c", launcherStartBlock(t))
 	cmd.Env = []string{
 		"PATH=", "LC_ALL=C", "BENCHMARK_PHASE=start", "PORT_OFFSET=0",
 		"PAXD=" + fixture, "PAX_HOME=" + home,
@@ -65,7 +65,7 @@ func repairM858Command(t *testing.T, home, peer, mode string) *exec.Cmd {
 	return cmd
 }
 
-func repairM858Status(t *testing.T, err error) int {
+func launcherStatus(t *testing.T, err error) int {
 	t.Helper()
 	if err == nil {
 		return 0
@@ -77,7 +77,7 @@ func repairM858Status(t *testing.T, err error) int {
 	return exit.ExitCode()
 }
 
-func repairM858AssertInvocation(t *testing.T, home string, pid int) {
+func assertLauncherInvocation(t *testing.T, home string, pid int) {
 	t.Helper()
 	data, err := os.ReadFile(filepath.Join(home, "invocation"))
 	want := "start\n--chain-id\npax-chain\n--home\n" + home + "\nfixture scenario with spaces.json\n19\n"
@@ -90,16 +90,16 @@ func repairM858AssertInvocation(t *testing.T, home string, pid int) {
 	}
 }
 
-func TestRepairM_858_NodeFailureAfterMatchingLine(t *testing.T) {
+func TestNodeFailureAfterMatchingLine(t *testing.T) {
 	for _, mode := range []string{"filtered", "debug", "file"} {
 		t.Run(mode, func(t *testing.T) {
 			home := t.TempDir()
-			cmd := repairM858Command(t, home, "matching-failure", mode)
+			cmd := launcherCommand(t, home, "matching-failure", mode)
 			output, err := cmd.CombinedOutput()
-			if status := repairM858Status(t, err); status != 37 {
+			if status := launcherStatus(t, err); status != 37 {
 				t.Fatalf("exit = %d, want 37; output: %s", status, output)
 			}
-			repairM858AssertInvocation(t, home, cmd.Process.Pid)
+			assertLauncherInvocation(t, home, cmd.Process.Pid)
 			if mode == "file" {
 				output, err = os.ReadFile(filepath.Join(home, "node.log"))
 				if err != nil {
@@ -119,19 +119,19 @@ func TestRepairM_858_NodeFailureAfterMatchingLine(t *testing.T) {
 	}
 }
 
-func TestRepairM_858_NodeExitWithoutMatchingLines(t *testing.T) {
+func TestNodeExitWithoutMatchingLines(t *testing.T) {
 	for _, tc := range []struct {
 		peer   string
 		status int
 	}{{"quiet-success", 0}, {"quiet-failure", 29}} {
 		t.Run(tc.peer, func(t *testing.T) {
 			home := t.TempDir()
-			cmd := repairM858Command(t, home, tc.peer, "filtered")
+			cmd := launcherCommand(t, home, tc.peer, "filtered")
 			output, err := cmd.CombinedOutput()
-			if status := repairM858Status(t, err); status != tc.status {
+			if status := launcherStatus(t, err); status != tc.status {
 				t.Fatalf("exit = %d, want %d; output: %s", status, tc.status, output)
 			}
-			repairM858AssertInvocation(t, home, cmd.Process.Pid)
+			assertLauncherInvocation(t, home, cmd.Process.Pid)
 			for _, line := range []string{"ordinary node output", "fatal: startup failed"} {
 				if bytes.Contains(output, []byte(line)) {
 					t.Fatalf("unmatched line leaked: %s", output)
@@ -141,11 +141,11 @@ func TestRepairM_858_NodeExitWithoutMatchingLines(t *testing.T) {
 	}
 }
 
-func TestRepairM_858_LogTransport(t *testing.T) {
+func TestLauncherLogTransport(t *testing.T) {
 	for _, mode := range []string{"filtered", "debug", "file"} {
 		t.Run(mode, func(t *testing.T) {
 			home := t.TempDir()
-			cmd := repairM858Command(t, home, "log-transcript", mode)
+			cmd := launcherCommand(t, home, "log-transcript", mode)
 			output, err := cmd.CombinedOutput()
 			if err != nil {
 				t.Fatalf("launcher: %v; output: %s", err, output)
@@ -173,7 +173,7 @@ func TestRepairM_858_LogTransport(t *testing.T) {
 	}
 }
 
-func TestRepairM_858_SignalsReachNode(t *testing.T) {
+func TestSignalsReachNode(t *testing.T) {
 	for _, mode := range []string{"filtered", "debug", "file"} {
 		for _, tc := range []struct {
 			signal syscall.Signal
@@ -182,7 +182,7 @@ func TestRepairM_858_SignalsReachNode(t *testing.T) {
 		}{{syscall.SIGTERM, "TERM", 143}, {syscall.SIGINT, "INT", 130}} {
 			t.Run(mode+"/"+tc.name, func(t *testing.T) {
 				home := t.TempDir()
-				cmd := repairM858Command(t, home, "signal", mode)
+				cmd := launcherCommand(t, home, "signal", mode)
 				input, err := cmd.StdinPipe()
 				if err != nil {
 					t.Fatal(err)
@@ -214,13 +214,13 @@ func TestRepairM_858_SignalsReachNode(t *testing.T) {
 					case <-ticker.C:
 					}
 				}
-				repairM858AssertInvocation(t, home, cmd.Process.Pid)
+				assertLauncherInvocation(t, home, cmd.Process.Pid)
 				if err := cmd.Process.Signal(tc.signal); err != nil {
 					t.Fatal(err)
 				}
 				select {
 				case err := <-done:
-					if status := repairM858Status(t, err); status != tc.status {
+					if status := launcherStatus(t, err); status != tc.status {
 						t.Fatalf("exit = %d, want %d; output: %s", status, tc.status, output.Bytes())
 					}
 				case <-timer.C:
@@ -235,8 +235,8 @@ func TestRepairM_858_SignalsReachNode(t *testing.T) {
 	}
 }
 
-func TestRepairM_858_CustomHomeProducerConsumer(t *testing.T) {
-	f := repair430NewFixture(t)
+func TestCustomHomeProducerConsumer(t *testing.T) {
+	f := newBenchmarkHomeFixture(t)
 	output, err := f.run(f.target, "")
 	if err != nil {
 		t.Fatal(err)
@@ -283,12 +283,12 @@ func TestRepairM_858_CustomHomeProducerConsumer(t *testing.T) {
 	}
 	// The launch consumer must receive the same path emitted by the real home
 	// producer, including spaces, rather than a late-moved default node home.
-	cmd := repairM858Command(t, home, "quiet-success", "filtered")
+	cmd := launcherCommand(t, home, "quiet-success", "filtered")
 	nodeOutput, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("start: %v; output: %s", err, nodeOutput)
 	}
-	repairM858AssertInvocation(t, home, cmd.Process.Pid)
+	assertLauncherInvocation(t, home, cmd.Process.Pid)
 	f.assertProtected(t)
 
 	for _, forbidden := range []string{"~/.pax", "$HOME/.pax/config", `mv "$HOME/.pax"`, `mv ~/.pax`} {

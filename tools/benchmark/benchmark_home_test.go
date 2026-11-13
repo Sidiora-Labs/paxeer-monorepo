@@ -10,17 +10,17 @@ import (
 	benchmarkhome "github.com/Sidiora-Labs/Paxeer-X-Network/tools/benchmark"
 )
 
-type repair430Fixture struct {
+type benchmarkHomeFixture struct {
 	home   string
 	repo   string
 	target string
 	state  map[string]string
 }
 
-func repair430NewFixture(t *testing.T) repair430Fixture {
+func newBenchmarkHomeFixture(t *testing.T) benchmarkHomeFixture {
 	t.Helper()
 	base := t.TempDir()
-	f := repair430Fixture{
+	f := benchmarkHomeFixture{
 		home:   filepath.Join(base, "user"),
 		repo:   filepath.Join(base, "repository"),
 		target: filepath.Join(base, "benchmark with spaces", "node"),
@@ -34,13 +34,13 @@ func repair430NewFixture(t *testing.T) repair430Fixture {
 	for _, name := range []string{"config/priv_validator_key.json", "data/priv_validator_state.json", "keyring-test/admin", "data/application.db/CURRENT"} {
 		path := filepath.Join(f.home, ".pax", name)
 		value := "unrelated node: " + name
-		repair430Write(t, path, value)
+		writeBenchmarkFixture(t, path, value)
 		f.state[path] = value
 	}
 	return f
 }
 
-func repair430Write(t *testing.T, path, value string) {
+func writeBenchmarkFixture(t *testing.T, path, value string) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		t.Fatal(err)
@@ -50,13 +50,13 @@ func repair430Write(t *testing.T, path, value string) {
 	}
 }
 
-func (f repair430Fixture) run(target, reset string) (string, error) {
+func (f benchmarkHomeFixture) run(target, reset string) (string, error) {
 	var output bytes.Buffer
 	err := benchmarkhome.RunHome([]string{"--home", target, "--user-home", f.home, "--protected", f.repo, "--reset", reset}, &output)
 	return output.String(), err
 }
 
-func (f repair430Fixture) assertProtected(t *testing.T) {
+func (f benchmarkHomeFixture) assertProtected(t *testing.T) {
 	t.Helper()
 	for path, want := range f.state {
 		data, err := os.ReadFile(path)
@@ -66,8 +66,8 @@ func (f repair430Fixture) assertProtected(t *testing.T) {
 	}
 }
 
-func TestRepair_430_DedicatedHomePreservesDefaultNode(t *testing.T) {
-	f := repair430NewFixture(t)
+func TestDedicatedHomePreservesDefaultNode(t *testing.T) {
+	f := newBenchmarkHomeFixture(t)
 	output, err := f.run(f.target, "")
 	if err != nil {
 		t.Fatal(err)
@@ -92,8 +92,8 @@ func TestRepair_430_DedicatedHomePreservesDefaultNode(t *testing.T) {
 	f.assertProtected(t)
 }
 
-func TestRepair_430_RejectsUnsafeHomes(t *testing.T) {
-	f := repair430NewFixture(t)
+func TestRejectsUnsafeHomes(t *testing.T) {
+	f := newBenchmarkHomeFixture(t)
 	link := filepath.Join(filepath.Dir(f.home), "default-link")
 	if err := os.Symlink(filepath.Join(f.home, ".pax"), link); err != nil {
 		t.Fatal(err)
@@ -119,14 +119,14 @@ func TestRepair_430_RejectsUnsafeHomes(t *testing.T) {
 		})
 	}
 	file := filepath.Join(filepath.Dir(f.home), "not-a-directory")
-	repair430Write(t, file, "protected file")
+	writeBenchmarkFixture(t, file, "protected file")
 	for _, target := range []string{file, filepath.Join(file, "child")} {
 		if output, err := f.run(target, target); err == nil || output != "" {
 			t.Fatalf("accepted file as home: %q, %v", output, err)
 		}
 	}
 	ordinary := filepath.Join(filepath.Dir(f.home), "ordinary-node")
-	repair430Write(t, filepath.Join(ordinary, "data", "state"), "ordinary node")
+	writeBenchmarkFixture(t, filepath.Join(ordinary, "data", "state"), "ordinary node")
 	alias := filepath.Join(filepath.Dir(f.home), "ordinary-alias")
 	if err := os.Symlink(ordinary, alias); err != nil {
 		t.Fatal(err)
@@ -142,13 +142,13 @@ func TestRepair_430_RejectsUnsafeHomes(t *testing.T) {
 	}
 }
 
-func TestRepair_430_ExistingStateRequiresBoundedReset(t *testing.T) {
-	f := repair430NewFixture(t)
+func TestExistingStateRequiresBoundedReset(t *testing.T) {
+	f := newBenchmarkHomeFixture(t)
 	if _, err := f.run(f.target, ""); err != nil {
 		t.Fatal(err)
 	}
 	oldState := filepath.Join(f.target, "data", "application.db", "CURRENT")
-	repair430Write(t, oldState, "old benchmark database")
+	writeBenchmarkFixture(t, oldState, "old benchmark database")
 	for _, reset := range []string{"", "true", filepath.Dir(f.target), f.target + "/data", f.target + "/"} {
 		output, err := f.run(f.target, reset)
 		if err == nil || output != "" {
@@ -174,19 +174,19 @@ func TestRepair_430_ExistingStateRequiresBoundedReset(t *testing.T) {
 	f.assertProtected(t)
 }
 
-func TestRepair_430_RefusesUnownedState(t *testing.T) {
+func TestRefusesUnownedState(t *testing.T) {
 	for _, marker := range []string{"absent", "wrong-path", "symlink", "directory"} {
 		t.Run(marker, func(t *testing.T) {
-			f := repair430NewFixture(t)
+			f := newBenchmarkHomeFixture(t)
 			state := filepath.Join(f.target, "keyring-test", "admin")
-			repair430Write(t, state, "existing account key")
+			writeBenchmarkFixture(t, state, "existing account key")
 			markerPath := filepath.Join(f.target, ".pax-benchmark-home")
 			switch marker {
 			case "wrong-path":
-				repair430Write(t, markerPath, "pax-benchmark-home-v1\n"+f.target+"-other\n")
+				writeBenchmarkFixture(t, markerPath, "pax-benchmark-home-v1\n"+f.target+"-other\n")
 			case "symlink":
 				outside := filepath.Join(f.home, "marker")
-				repair430Write(t, outside, "pax-benchmark-home-v1\n"+f.target+"\n")
+				writeBenchmarkFixture(t, outside, "pax-benchmark-home-v1\n"+f.target+"\n")
 				if err := os.Symlink(outside, markerPath); err != nil {
 					t.Fatal(err)
 				}
@@ -208,8 +208,8 @@ func TestRepair_430_RefusesUnownedState(t *testing.T) {
 	}
 }
 
-func TestRepair_430_ResetCannotFollowLinksOutsideHome(t *testing.T) {
-	f := repair430NewFixture(t)
+func TestResetCannotFollowLinksOutsideHome(t *testing.T) {
+	f := newBenchmarkHomeFixture(t)
 	if _, err := f.run(f.target, ""); err != nil {
 		t.Fatal(err)
 	}
@@ -227,7 +227,7 @@ func TestRepair_430_ResetCannotFollowLinksOutsideHome(t *testing.T) {
 	if _, err := f.run(sibling, ""); err != nil {
 		t.Fatal(err)
 	}
-	repair430Write(t, filepath.Join(sibling, "data", "state"), "sibling database")
+	writeBenchmarkFixture(t, filepath.Join(sibling, "data", "state"), "sibling database")
 	output, err := f.run(f.target, f.target)
 	if err != nil || output != f.target+"\n" {
 		t.Fatalf("bounded reset: %q, %v", output, err)
@@ -244,8 +244,8 @@ func TestRepair_430_ResetCannotFollowLinksOutsideHome(t *testing.T) {
 	f.assertProtected(t)
 }
 
-func TestRepair_430_DefaultHomeAliasIsProtected(t *testing.T) {
-	f := repair430NewFixture(t)
+func TestDefaultHomeAliasIsProtected(t *testing.T) {
+	f := newBenchmarkHomeFixture(t)
 	target := filepath.Join(f.home, ".pax", "data")
 	otherUser := filepath.Join(filepath.Dir(f.home), "other-user")
 	if err := os.Mkdir(otherUser, 0700); err != nil {
@@ -263,7 +263,7 @@ func TestRepair_430_DefaultHomeAliasIsProtected(t *testing.T) {
 	f.assertProtected(t)
 }
 
-func TestRepair_430_ScriptConsumesValidatedHome(t *testing.T) {
+func TestScriptConsumesValidatedHome(t *testing.T) {
 	data, err := os.ReadFile("benchmark.sh")
 	if err != nil {
 		t.Fatal(err)
@@ -298,11 +298,11 @@ func TestRepair_430_ScriptConsumesValidatedHome(t *testing.T) {
 		}
 	}
 	// Drive exactly the helper's CLI transport into the filesystem consumer.
-	f := repair430NewFixture(t)
+	f := newBenchmarkHomeFixture(t)
 	output, err := f.run(f.target, "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	repair430Write(t, filepath.Join(strings.TrimSuffix(output, "\n"), "config", "genesis.json"), "dedicated genesis")
+	writeBenchmarkFixture(t, filepath.Join(strings.TrimSuffix(output, "\n"), "config", "genesis.json"), "dedicated genesis")
 	f.assertProtected(t)
 }

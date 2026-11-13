@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestRepairM_825_BenchmarkReadmeCommand(t *testing.T) {
+func TestScenarioReadmeCommand(t *testing.T) {
 	doc, err := os.ReadFile("scenarios/README.md")
 	if err != nil {
 		t.Fatal(err)
@@ -74,7 +74,7 @@ func TestRepairM_825_BenchmarkReadmeCommand(t *testing.T) {
 	}
 }
 
-func TestRepairM_825_BenchmarkReadmeDeploymentAndChainIDs(t *testing.T) {
+func TestScenarioReadmeDeploymentAndChainIDs(t *testing.T) {
 	doc, err := os.ReadFile("scenarios/README.md")
 	if err != nil {
 		t.Fatal(err)
