@@ -20,7 +20,7 @@ import (
 	tmdb "github.com/tendermint/tm-db"
 )
 
-func repair6Keeper(t *testing.T) (*keeper.Keeper, sdk.Context, *codec.ProtoCodec, *sdk.KVStoreKey) {
+func genesisDurationKeeper(t *testing.T) (*keeper.Keeper, sdk.Context, *codec.ProtoCodec, *sdk.KVStoreKey) {
 	t.Helper()
 	db := tmdb.NewMemDB()
 	t.Cleanup(func() { require.NoError(t, db.Close()) })
@@ -39,10 +39,10 @@ func repair6Keeper(t *testing.T) (*keeper.Keeper, sdk.Context, *codec.ProtoCodec
 	return k, ctx, cdc, storeKey
 }
 
-func TestRepair_6_NonPositiveGenesisRejected(t *testing.T) {
+func TestGenesisState_NonPositiveDurationRejected(t *testing.T) {
 	for _, duration := range []time.Duration{time.Duration(-1 << 63), -time.Minute, -time.Nanosecond, 0} {
 		t.Run(duration.String(), func(t *testing.T) {
-			k, ctx, cdc, storeKey := repair6Keeper(t)
+			k, ctx, cdc, storeKey := genesisDurationKeeper(t)
 			basic := epoch.NewAppModuleBasic(cdc)
 			genesis := types.DefaultGenesis()
 			genesis.Epoch.EpochDuration = duration
@@ -74,10 +74,10 @@ func TestRepair_6_NonPositiveGenesisRejected(t *testing.T) {
 	}
 }
 
-func TestRepair_6_PositiveGenesisBoundedCatchup(t *testing.T) {
+func TestGenesisState_PositiveDurationBoundedCatchup(t *testing.T) {
 	for _, duration := range []time.Duration{time.Nanosecond, time.Minute} {
 		t.Run(duration.String(), func(t *testing.T) {
-			k, ctx, cdc, _ := repair6Keeper(t)
+			k, ctx, cdc, _ := genesisDurationKeeper(t)
 			genesis := types.DefaultGenesis()
 			genesis.Epoch.EpochDuration = duration
 			raw := cdc.MustMarshalJSON(genesis)
