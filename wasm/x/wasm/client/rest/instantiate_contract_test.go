@@ -24,7 +24,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func repairM1287Route(t *testing.T) (*mux.Router, client.Context, *atomic.Int64) {
+func instantiateContractRoute(t *testing.T) (*mux.Router, client.Context, *atomic.Int64) {
 	t.Helper()
 	requests := new(atomic.Int64)
 	node := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -53,7 +53,7 @@ func repairM1287Route(t *testing.T) (*mux.Router, client.Context, *atomic.Int64)
 	return router, ctx, requests
 }
 
-func repairM1287Request() instantiateContractReq {
+func instantiateContractRequest() instantiateContractReq {
 	return instantiateContractReq{
 		BaseReq: sdkrest.BaseReq{
 			From:    sdk.AccAddress(bytes.Repeat([]byte{1}, 20)).String(),
@@ -67,7 +67,7 @@ func repairM1287Request() instantiateContractReq {
 	}
 }
 
-func repairM1287Post(t *testing.T, router *mux.Router, ctx client.Context, codeID string, req instantiateContractReq) *httptest.ResponseRecorder {
+func postInstantiateContract(t *testing.T, router *mux.Router, ctx client.Context, codeID string, req instantiateContractReq) *httptest.ResponseRecorder {
 	t.Helper()
 	body, err := ctx.LegacyAmino.MarshalAsJSON(req)
 	require.NoError(t, err)
@@ -78,14 +78,14 @@ func repairM1287Post(t *testing.T, router *mux.Router, ctx client.Context, codeI
 	return w
 }
 
-func TestRepairM_1287_InvalidCodeIDs(t *testing.T) {
+func TestInstantiateContractInvalidCodeIDs(t *testing.T) {
 	for _, codeID := range []string{"not-a-number", "18446744073709551616", "-1"} {
 		for _, simulate := range []bool{false, true} {
 			t.Run(codeID+"/simulate="+strconv.FormatBool(simulate), func(t *testing.T) {
-				router, ctx, requests := repairM1287Route(t)
-				req := repairM1287Request()
+				router, ctx, requests := instantiateContractRoute(t)
+				req := instantiateContractRequest()
 				req.BaseReq.Simulate = simulate
-				w := repairM1287Post(t, router, ctx, codeID, req)
+				w := postInstantiateContract(t, router, ctx, codeID, req)
 				require.Equal(t, http.StatusBadRequest, w.Code, w.Body.String())
 				require.Equal(t, "application/json", w.Header().Get("Content-Type"))
 				_, parseErr := strconv.ParseUint(codeID, 10, 64)
@@ -103,12 +103,12 @@ func TestRepairM_1287_InvalidCodeIDs(t *testing.T) {
 	}
 }
 
-func TestRepairM_1287_ValidCodeIDsGenerateTransaction(t *testing.T) {
+func TestInstantiateContractValidCodeIDsGenerateTransaction(t *testing.T) {
 	for _, codeID := range []uint64{1, math.MaxUint64} {
 		t.Run(strconv.FormatUint(codeID, 10), func(t *testing.T) {
-			router, ctx, requests := repairM1287Route(t)
-			req := repairM1287Request()
-			w := repairM1287Post(t, router, ctx, strconv.FormatUint(codeID, 10), req)
+			router, ctx, requests := instantiateContractRoute(t)
+			req := instantiateContractRequest()
+			w := postInstantiateContract(t, router, ctx, strconv.FormatUint(codeID, 10), req)
 			require.Equal(t, http.StatusOK, w.Code, w.Body.String())
 			require.Equal(t, "application/json", w.Header().Get("Content-Type"))
 			var generated legacytx.StdTx

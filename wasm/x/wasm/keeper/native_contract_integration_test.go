@@ -19,7 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepairM_1288_GasOverflow(t *testing.T) {
+func TestKeeperGasOverflow(t *testing.T) {
 	for _, multiplier := range []uint64{1, 3, keeper.DefaultGasMultiplier, math.MaxUint64} {
 		t.Run(fmt.Sprint(multiplier), func(t *testing.T) {
 			cfg := keeper.DefaultGasRegisterConfig()
@@ -43,7 +43,7 @@ func TestRepairM_1288_GasOverflow(t *testing.T) {
 	require.Panics(t, func() { (keeper.WasmGasRegister{}).ToWasmVMGas(0) })
 }
 
-func TestRepairM_1288_GovEncoderOverride(t *testing.T) {
+func TestKeeperGovEncoderOverride(t *testing.T) {
 	var calls int
 	var contract sdk.AccAddress
 	recipient := keeper.RandomAccountAddress(t)
@@ -86,20 +86,20 @@ func TestRepairM_1288_GovEncoderOverride(t *testing.T) {
 	}
 }
 
-func TestRepairM_1288_HistoryQuery(t *testing.T) {
+func TestKeeperHistoryQuery(t *testing.T) {
 	// Reuse the committed real instantiate/migrate/commit/reopen lifecycle.
-	TestRepair_184_HistorySequence(t)
+	TestContractHistorySequence(t)
 	ctx, keepers := keeper.CreateTestInput(t, false, keeper.SupportedFeatures)
 	var history types.QueryContractHistoryResponse
-	repair184Query(t, ctx, keepers, "ContractHistory", &types.QueryContractHistoryRequest{Address: keeper.RandomBech32AccountAddress(t)}, &history)
+	queryContractGRPC(t, ctx, keepers, "ContractHistory", &types.QueryContractHistoryRequest{Address: keeper.RandomBech32AccountAddress(t)}, &history)
 	require.Empty(t, history.Entries, "unknown addresses have an empty history, not a fabricated error")
 }
 
-func TestRepairM_1288_IBCBeforeMetadata(t *testing.T) {
+func TestKeeperIBCBeforeMetadata(t *testing.T) {
 	dir := t.TempDir()
-	ctx, keepers, closeStore := repair184Open(t, dir)
+	ctx, keepers, closeStore := openPersistentContractStore(t, dir)
 	admin := keeper.RandomAccountAddress(t)
-	id, err := keepers.ContractKeeper.Create(ctx, admin, repair184Code(t, "testdata/repair_m1288_ibc.wasm"), nil)
+	id, err := keepers.ContractKeeper.Create(ctx, admin, readContractCode(t, "testdata/ibc_prebinding_query.wasm"), nil)
 	require.NoError(t, err)
 	explicit := channeltypes.Channel{State: channeltypes.OPEN, Ordering: channeltypes.ORDERED, Counterparty: channeltypes.Counterparty{PortId: "remote", ChannelId: "channel-9"}, ConnectionHops: []string{"connection-0"}, Version: "m1288"}
 	keepers.IBCKeeper.ChannelKeeper.SetChannel(ctx, "transfer", "channel-0", explicit)
@@ -154,20 +154,20 @@ func TestRepairM_1288_IBCBeforeMetadata(t *testing.T) {
 	checkBound()
 	keepers.MultiStore.Commit(true)
 	closeStore()
-	ctx, keepers, closeStore = repair184Open(t, dir)
+	ctx, keepers, closeStore = openPersistentContractStore(t, dir)
 	defer closeStore()
 	checkBound()
 }
 
-func TestRepairM_1288_IBCGas(t *testing.T) {
-	TestRepair_184_IBCGasUnits(t)
+func TestKeeperIBCGas(t *testing.T) {
+	TestContractIBCGasUnits(t)
 }
 
-func TestRepairM_1288_SnapshotRecovery(t *testing.T) {
-	repairM1288SnapshotRecovery(t)
+func TestKeeperSnapshotRecovery(t *testing.T) {
+	assertContractSnapshotRecovery(t)
 }
 
-func TestRepairM_1288_HandlerResponses(t *testing.T) {
+func TestKeeperHandlerResponses(t *testing.T) {
 	ctx, keepers := keeper.CreateTestInput(t, false, keeper.SupportedFeatures)
 	admin := keeper.RandomAccountAddress(t)
 	router := baseapp.NewMsgServiceRouter()
@@ -190,7 +190,7 @@ func TestRepairM_1288_HandlerResponses(t *testing.T) {
 		}
 		return reference
 	}
-	store := &types.MsgStoreCode{Sender: admin.String(), WASMByteCode: repair184Code(t, "testdata/reflect.wasm")}
+	store := &types.MsgStoreCode{Sender: admin.String(), WASMByteCode: readContractCode(t, "testdata/reflect.wasm")}
 	var stored types.MsgStoreCodeResponse
 	compare(store, &stored)
 	require.Equal(t, uint64(1), stored.CodeID)
@@ -205,14 +205,14 @@ func TestRepairM_1288_HandlerResponses(t *testing.T) {
 	addr, err := sdk.AccAddressFromBech32(instantiated.Address)
 	require.NoError(t, err)
 	nextOwner := keeper.RandomAccountAddress(t)
-	change := &types.MsgExecuteContract{Sender: admin.String(), Contract: addr.String(), Msg: repair184JSON(t, map[string]interface{}{"change_owner": map[string]string{"owner": nextOwner.String()}})}
+	change := &types.MsgExecuteContract{Sender: admin.String(), Contract: addr.String(), Msg: marshalContractJSON(t, map[string]interface{}{"change_owner": map[string]string{"owner": nextOwner.String()}})}
 	var executed types.MsgExecuteContractResponse
 	compare(change, &executed)
 
 	// Real reflect submessages store the protobuf responses in native replies.
 	queryReply := func(id uint64, response proto.Message, expected []byte) {
 		t.Helper()
-		replyBz, err := keepers.WasmKeeper.QuerySmart(ctx, addr, repair184JSON(t, map[string]interface{}{"sub_msg_result": map[string]uint64{"id": id}}))
+		replyBz, err := keepers.WasmKeeper.QuerySmart(ctx, addr, marshalContractJSON(t, map[string]interface{}{"sub_msg_result": map[string]uint64{"id": id}}))
 		require.NoError(t, err)
 		var reply vmtypes.Reply
 		require.NoError(t, json.Unmarshal(replyBz, &reply))
@@ -225,10 +225,10 @@ func TestRepairM_1288_HandlerResponses(t *testing.T) {
 	dispatch := func(id uint64, msg vmtypes.CosmosMsg) {
 		t.Helper()
 		submessage := vmtypes.SubMsg{ID: id, ReplyOn: vmtypes.ReplySuccess, Msg: msg}
-		_, err := keepers.ContractKeeper.Execute(ctx, addr, admin, repair184JSON(t, map[string]interface{}{"reflect_sub_msg": map[string]interface{}{"msgs": []vmtypes.SubMsg{submessage}}}), nil)
+		_, err := keepers.ContractKeeper.Execute(ctx, addr, admin, marshalContractJSON(t, map[string]interface{}{"reflect_sub_msg": map[string]interface{}{"msgs": []vmtypes.SubMsg{submessage}}}), nil)
 		require.NoError(t, err)
 	}
-	code := &types.MsgStoreCode{Sender: addr.String(), WASMByteCode: repair184Code(t, "../../../../wasm-runtime/testdata/hackatom.wasm")}
+	code := &types.MsgStoreCode{Sender: addr.String(), WASMByteCode: readContractCode(t, "../../../../wasm-runtime/testdata/hackatom.wasm")}
 	var replyStore types.MsgStoreCodeResponse
 	expectedStore := compare(code, &replyStore)
 	dispatch(1288, vmtypes.CosmosMsg{Stargate: &vmtypes.StargateMsg{TypeURL: sdk.MsgTypeURL(code), Value: keepers.EncodingConfig.Marshaler.MustMarshal(code)}})
@@ -236,7 +236,7 @@ func TestRepairM_1288_HandlerResponses(t *testing.T) {
 	require.Equal(t, uint64(2), replyStore.CodeID)
 
 	keepers.Faucet.Fund(ctx, addr, sdk.NewInt64Coin("denom", 5))
-	initMsg := repair184JSON(t, map[string]string{"verifier": addr.String(), "beneficiary": admin.String()})
+	initMsg := marshalContractJSON(t, map[string]string{"verifier": addr.String(), "beneficiary": admin.String()})
 	childInit := &types.MsgInstantiateContract{Sender: addr.String(), CodeID: replyStore.CodeID, Label: "native reply child", Msg: initMsg, Funds: sdk.NewCoins(sdk.NewInt64Coin("denom", 3))}
 	var replyInit types.MsgInstantiateContractResponse
 	expectedInit := compare(childInit, &replyInit)

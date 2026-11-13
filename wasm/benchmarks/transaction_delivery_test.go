@@ -17,7 +17,7 @@ import (
 	wasmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/wasm/x/wasm/types"
 )
 
-func TestRepairM_1271_SelectedDatabaseAndOptions(t *testing.T) {
+func TestBenchmarkSelectedDatabaseAndOptions(t *testing.T) {
 	for _, tc := range []struct {
 		name     string
 		database func(testing.TB) benchmarkDatabase
@@ -80,7 +80,7 @@ func TestRepairM_1271_SelectedDatabaseAndOptions(t *testing.T) {
 	}
 }
 
-func TestRepairM_1271_BenchmarkInitialization(t *testing.T) {
+func TestBenchmarkBenchmarkInitialization(t *testing.T) {
 	benchtime := flag.Lookup("test.benchtime")
 	require.NotNil(t, benchtime)
 	previous := benchtime.Value.String()
@@ -97,7 +97,7 @@ func TestRepairM_1271_BenchmarkInitialization(t *testing.T) {
 	}
 }
 
-func TestRepairM_1271_AllTransactionsIncludingPartialBlocks(t *testing.T) {
+func TestBenchmarkAllTransactionsIncludingPartialBlocks(t *testing.T) {
 	info := InitializeWasmApp(t, buildPebbleDB(t), 2)
 	for _, tc := range []struct{ count, blockSize int }{{0, 20}, {1, 20}, {19, 20}, {20, 20}, {21, 20}, {43, 20}, {1001, 1000}} {
 		t.Run(fmt.Sprintf("count_%d_block_%d", tc.count, tc.blockSize), func(t *testing.T) {
@@ -133,7 +133,7 @@ func TestRepairM_1271_AllTransactionsIncludingPartialBlocks(t *testing.T) {
 	}
 }
 
-func TestRepairM_1271_BlockLifecycleAndCommittedHeights(t *testing.T) {
+func TestBenchmarkBlockLifecycleAndCommittedHeights(t *testing.T) {
 	info := InitializeWasmApp(t, buildPebbleDB(t), 2)
 	first := info.App.LastBlockHeight() + 1
 	var committed []int64
@@ -155,7 +155,7 @@ func TestRepairM_1271_BlockLifecycleAndCommittedHeights(t *testing.T) {
 	}
 }
 
-func TestRepairM_1271_CW20PartialBlockDelivery(t *testing.T) {
+func TestBenchmarkCW20PartialBlockDelivery(t *testing.T) {
 	info := InitializeWasmApp(t, buildPebbleDB(t), 2)
 	contract, err := sdk.AccAddressFromBech32(info.ContractAddr)
 	require.NoError(t, err)

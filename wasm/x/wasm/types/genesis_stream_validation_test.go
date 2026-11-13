@@ -10,9 +10,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// repairM1290ValidateStream sends real protobuf codec output through the
+// validateGenesisProtobufStream sends real protobuf codec output through the
 // typed channel consumed by the module's production validation boundary.
-func repairM1290ValidateStream(t *testing.T, states ...GenesisState) error {
+func validateGenesisProtobufStream(t *testing.T, states ...GenesisState) error {
 	t.Helper()
 	registry := codectypes.NewInterfaceRegistry()
 	RegisterInterfaces(registry)
@@ -39,7 +39,7 @@ func repairM1290ValidateStream(t *testing.T, states ...GenesisState) error {
 	return err
 }
 
-func repairM1290ValidateJSONStream(t *testing.T, states ...GenesisState) error {
+func validateGenesisJSONStream(t *testing.T, states ...GenesisState) error {
 	t.Helper()
 	registry := codectypes.NewInterfaceRegistry()
 	RegisterInterfaces(registry)
@@ -51,17 +51,17 @@ func repairM1290ValidateJSONStream(t *testing.T, states ...GenesisState) error {
 		require.NoError(t, cdc.UnmarshalAsJSON(encoded, &decoded[i]))
 		require.Equal(t, states[i].Params, decoded[i].Params)
 	}
-	return repairM1290ValidateStream(t, decoded...)
+	return validateGenesisProtobufStream(t, decoded...)
 }
 
-func TestRepairM_1290_EmptyGenesisStream(t *testing.T) {
-	err := repairM1290ValidateStream(t)
+func TestGenesisStreamEmptyGenesisStream(t *testing.T) {
+	err := validateGenesisProtobufStream(t)
 	require.ErrorIs(t, err, ErrEmpty)
 	require.EqualError(t, err, "missing params: empty")
-	require.EqualError(t, repairM1290ValidateJSONStream(t), "missing params: empty")
+	require.EqualError(t, validateGenesisJSONStream(t), "missing params: empty")
 }
 
-func TestRepairM_1290_InvalidOnlyStreams(t *testing.T) {
+func TestGenesisStreamInvalidOnlyStreams(t *testing.T) {
 	address := sdk.AccAddress(make([]byte, SDKAddrLen)).String()
 	cases := map[string]Params{
 		"zero params":                  {},
@@ -96,19 +96,19 @@ func TestRepairM_1290_InvalidOnlyStreams(t *testing.T) {
 				{{Params: params}},
 				{{}, {Params: params}},
 			} {
-				err := repairM1290ValidateStream(t, states...)
+				err := validateGenesisProtobufStream(t, states...)
 				require.EqualError(t, err, want.Error())
 				// Unknown enum values are intentionally normalized to Unspecified
 				// by AccessType's JSON marshaler; binary protobuf preserves them.
 				if params.InstantiateDefaultPermission != AccessType(1111) && params.CodeUploadAccess.Permission != AccessType(1111) {
-					require.EqualError(t, repairM1290ValidateJSONStream(t, states...), want.Error())
+					require.EqualError(t, validateGenesisJSONStream(t, states...), want.Error())
 				}
 			}
 		})
 	}
 }
 
-func TestRepairM_1290_ValidStreams(t *testing.T) {
+func TestGenesisStreamValidStreams(t *testing.T) {
 	address := sdk.AccAddress(make([]byte, SDKAddrLen))
 	for _, params := range []Params{
 		DefaultParams(),
@@ -124,13 +124,13 @@ func TestRepairM_1290_ValidStreams(t *testing.T) {
 			{data, valid, {}},
 			{data, {}, valid},
 		} {
-			require.NoError(t, repairM1290ValidateStream(t, states...))
-			require.NoError(t, repairM1290ValidateJSONStream(t, states...))
+			require.NoError(t, validateGenesisProtobufStream(t, states...))
+			require.NoError(t, validateGenesisJSONStream(t, states...))
 		}
 	}
 }
 
-func TestRepairM_1290_ChunkChecksPreserved(t *testing.T) {
+func TestGenesisStreamChunkChecksPreserved(t *testing.T) {
 	cases := map[string]struct {
 		state GenesisState
 		want  error
@@ -162,8 +162,8 @@ func TestRepairM_1290_ChunkChecksPreserved(t *testing.T) {
 				{valid, tc.state, valid},
 				{withParams, valid, {}},
 			} {
-				require.EqualError(t, repairM1290ValidateStream(t, states...), tc.want.Error())
-				require.EqualError(t, repairM1290ValidateJSONStream(t, states...), tc.want.Error())
+				require.EqualError(t, validateGenesisProtobufStream(t, states...), tc.want.Error())
+				require.EqualError(t, validateGenesisJSONStream(t, states...), tc.want.Error())
 			}
 		})
 	}

@@ -9,23 +9,23 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-func Repair184PersistentInput(t testing.TB, db dbm.DB, opts ...Option) (sdk.Context, TestKeepers) {
+func CreatePersistentTestInput(t testing.TB, db dbm.DB, opts ...Option) (sdk.Context, TestKeepers) {
 	return createTestInput(t, false, SupportedFeatures, types.DefaultWasmConfig(), db, opts...)
 }
 
-func Repair184ImportState(k *Keeper, ctx sdk.Context, addr sdk.AccAddress, models []types.Model) error {
+func ImportContractStateForTest(k *Keeper, ctx sdk.Context, addr sdk.AccAddress, models []types.Model) error {
 	return k.importContractState(ctx, addr, models)
 }
 
-func Repair184Store(k *Keeper, ctx sdk.Context) sdk.KVStore {
+func ContractStoreForTest(k *Keeper, ctx sdk.Context) sdk.KVStore {
 	return ctx.KVStore(k.storeKey)
 }
 
-func Repair184AppendHistory(k *Keeper, ctx sdk.Context, addr sdk.AccAddress, entries ...types.ContractCodeHistoryEntry) {
+func AppendContractHistoryForTest(k *Keeper, ctx sdk.Context, addr sdk.AccAddress, entries ...types.ContractCodeHistoryEntry) {
 	k.appendToContractHistory(ctx, addr, entries...)
 }
 
-func Repair184NativeQuery(k *Keeper, ctx sdk.Context, addr sdk.AccAddress, msg []byte, q wasmvm.Querier, limit uint64) ([]byte, uint64, error) {
+func NativeContractQueryForTest(k *Keeper, ctx sdk.Context, addr sdk.AccAddress, msg []byte, q wasmvm.Querier, limit uint64) ([]byte, uint64, error) {
 	_, code, store, err := k.contractInstance(ctx, addr)
 	if err != nil {
 		return nil, 0, err
