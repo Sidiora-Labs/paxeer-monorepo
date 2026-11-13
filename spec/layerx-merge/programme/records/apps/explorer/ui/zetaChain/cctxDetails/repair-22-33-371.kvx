@@ -1,7 +1,7 @@
 [repair.22.33.371]
 finding = "zeta-outbound-gas"
 tests = ["outboundMinedGasUnits", "revertedGasUnits"]
-test_path = "apps/explorer/ui/zetaChain/cctxDetails/repair-22-33-371.spec.ts"
+test_path = "apps/explorer/ui/zetaChain/cctxDetails/ZetaChainCCTXDetailsLifecycleOut.gas.spec.ts"
 path = "Production lifecycle component rendered with the real Chakra and query providers, committed transaction and chain-config fixtures, and an in-memory query cache; assert mined and reverted gas counts, zero, safe-integer maximum, and destination link/config selection."
 baseline = "Not run: the explicit gate order requires complete implementation before hf-build and hf-done and forbids running verify_cmd by hand; the former decimal division contradicts the nonzero integer expectations in both proving tests."
 wiring = "None: this component displays gas counts and transferred amounts, with no destination transaction fee display requiring separate fee metadata."

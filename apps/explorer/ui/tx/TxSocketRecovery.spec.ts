@@ -107,11 +107,11 @@ afterAll(async() => {
 });
 
 function createWrapper(hash: string, client: QueryClient) {
-  window.__NEXT_DATA__ = { props: {}, page: '/tx/[hash]', query: { hash }, buildId: 'repair-22-31-405' };
+  window.__NEXT_DATA__ = { props: {}, page: '/tx/[hash]', query: { hash }, buildId: 'tx-socket-recovery' };
   window.__DEV_MIDDLEWARE_MATCHERS = [];
   const router = new Router('/tx/[hash]', { hash }, `/tx/${ hash }`, {
     initialProps: {},
-    pageLoader: new PageLoader('repair-22-31-405', ''),
+    pageLoader: new PageLoader('tx-socket-recovery', ''),
     App,
     Component: TransactionTracePanel,
     wrapApp: (component) => component,

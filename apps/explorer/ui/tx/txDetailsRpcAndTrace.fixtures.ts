@@ -153,10 +153,10 @@ const clients: Array<QueryClient> = [];
 export function renderTransaction(ui: React.ReactElement, hash = nodeHash) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } } });
   clients.push(client);
-  window.__NEXT_DATA__ = { props: {}, page: '/tx/[hash]', query: { hash }, buildId: 'repair-22-33-519' };
+  window.__NEXT_DATA__ = { props: {}, page: '/tx/[hash]', query: { hash }, buildId: 'tx-details-rpc-and-trace' };
   window.__DEV_MIDDLEWARE_MATCHERS = [];
   const router = new Router('/tx/[hash]', { hash }, `/tx/${ hash }`, {
-    initialProps: {}, pageLoader: new PageLoader('repair-22-33-519', ''), App, Component: TransactionPage,
+    initialProps: {}, pageLoader: new PageLoader('tx-details-rpc-and-trace', ''), App, Component: TransactionPage,
     wrapApp: (component) => component, subscription: async() => {}, isFallback: false,
   });
   disposers.push(() => window.removeEventListener('popstate', router.onPopState));
@@ -164,7 +164,7 @@ export function renderTransaction(ui: React.ReactElement, hash = nodeHash) {
     React.createElement(RouterContext.Provider, { value: router },
       React.createElement(QueryClientProvider, { client },
         React.createElement(AppContextProvider, {
-          pageProps: { cookies: '', referrer: '', query: { hash }, adBannerProvider: null, apiData: null, uuid: 'repair-22-33-519' },
+          pageProps: { cookies: '', referrer: '', query: { hash }, adBannerProvider: null, apiData: null, uuid: 'tx-details-rpc-and-trace' },
           children: React.createElement(GrowthBookProvider, {
             children: React.createElement(SocketProvider, {
               url: `ws://127.0.0.1:${ port }/socket`, options,
