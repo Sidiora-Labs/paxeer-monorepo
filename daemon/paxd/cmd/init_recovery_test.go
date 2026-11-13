@@ -21,7 +21,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepair_175_InitRecoveryMnemonicRestart(t *testing.T) {
+func TestInitRecoveryMnemonicRestart(t *testing.T) {
 	// Re-execute the test binary with paxd's production entry path, without an
 	// extra build or a replacement command, input reader, or validator store.
 	if len(os.Args) > 3 && os.Args[2] == "--" {
@@ -39,7 +39,7 @@ func TestRepair_175_InitRecoveryMnemonicRestart(t *testing.T) {
 		ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
 		defer cancel()
 		process := exec.CommandContext(ctx, executable,
-			"-test.run=^TestRepair_175_InitRecoveryMnemonicRestart$", "--",
+			"-test.run=^TestInitRecoveryMnemonicRestart$", "--",
 			"init", "recovered-validator", "--recover", "--mode", "validator",
 			"--home", home, "--chain-id", "repair-175")
 		for _, env := range os.Environ() {
