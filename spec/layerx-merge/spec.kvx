@@ -326849,7 +326849,7 @@ do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection
 
 [task.22.39.515]
 title = "Let the streams of the pay module find the asset of a token without a mapping of the custody module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.43.262"]
