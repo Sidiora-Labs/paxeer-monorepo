@@ -1,14 +1,39 @@
 # KindleLaunch contracts
 
 KindleLaunch is the USDL-paired launchpad AMM implemented by the `Sidiora*` Solidity contracts in
-this directory. This page describes those contracts, their optional Meta-AG/PECOR integration, and
-the authority and recovery model used by the deployment scripts.
+this directory. It holds the core contracts, optical hooks, optional Meta-AG/PECOR integration,
+Hardhat tooling and deployment records for Solidity execution on the Paxeer network. The network's
+active module and precompile are described in
+[native launchpad execution](../launchpad.md#native-execution). The deployment scripts here deploy
+the Solidity contracts in this directory.
 
-The network's active module and precompile are described in
-[native launchpad execution](../launchpad.md#native-execution). The deployment
-scripts on this page deploy the Solidity contracts in this directory.
+## Layout
 
-## Network
+- [contracts/](contracts/) — Solidity core, protocol, data, periphery, optical, Meta-AG, library,
+  base, interface and test contracts.
+- [deployments/](deployments/) — network deployment manifests, token inventories, transaction
+  journals and explorer verification records.
+- [docs/](docs/) — Solidity API references grouped by source directory.
+- [operations/](operations/) — deployment, governance, oracle, incident response and recovery
+  runbook.
+- [scripts/](scripts/) — deployment, verification, upgrade, health, integration generation and
+  release scripts.
+- [storage-layout/](storage-layout/) — core, Meta-AG and production storage-layout baselines.
+- [test/](test/) — Hardhat contract, integration, remediation and gas tests.
+- [hardhat.config.js](hardhat.config.js) — compiler, network, gas reporter, explorer and
+  documentation settings.
+- [package.json](package.json) — package scripts, dependencies and runtime requirements.
+- [pnpm-lock.yaml](pnpm-lock.yaml) — locked package dependencies.
+- [pnpm-workspace.yaml](pnpm-workspace.yaml) — dependency build permissions for this pnpm project.
+- [requirements-audit.txt](requirements-audit.txt) — pinned Slither dependency.
+- [slither.config.json](slither.config.json) — static analysis path and dependency filters.
+- [.solhint.json](.solhint.json) — Solidity lint configuration.
+- [.eslintrc.js](.eslintrc.js) — JavaScript lint configuration.
+- [.prettierrc](.prettierrc) — source and Markdown formatting settings.
+- [.editorconfig](.editorconfig) — editor whitespace settings.
+- [.gitignore](.gitignore) — generated output and local-file exclusions.
+
+### Network
 
 Paxeer mainnet-beta is one BFT network running `paxd`; its kernel participates in the network and
 proposes blocks. EVM chain ID is **125** (`0x7d`). A transaction receipt is final when its block is
@@ -18,7 +43,7 @@ Node JSON-RPC uses the configured [root endpoint](../evm-rpc.md#http-endpoint). 
 [Hardhat configuration](hardhat.config.js) selects the endpoint for `paxeer-x-network`. `Router` and
 `MetaAGRouter` below are on-chain trading contracts.
 
-## Responsibilities
+### Responsibilities
 
 A launchpad needs market creation, pricing, fee accounting and controls that operators and
 integrators can inspect. These contracts separate those responsibilities, but their safety still
@@ -26,14 +51,14 @@ depends on deployed implementations, token behavior, attached hooks and the actu
 configuration. Local tests establish behavior of the checked-out code; they do not certify an
 existing deployment.
 
-## Design
+### Design
 
 The design combines a core/periphery split, optical lifecycle hooks, separate fee accounting and
 virtual reserves. Its actual entrypoints and types are defined under [contracts/](contracts/);
 contract names, event signatures and deployment records should be taken from that source and the
 matching compiled artifacts.
 
-## Pool instances
+### Pool instances
 
 The core AMM uses a separate beacon proxy for each USDL/token pool. Each pool has its own reserves
 and state, while pools sharing a beacon share its upgrade authority and implementation. A shared
@@ -46,7 +71,7 @@ implements `swapTokenForToken` as token → USDL → token through two registere
 amount. The optional PECOR layer also has its own custody vault; the per-pool statement applies to
 the core AMM.
 
-## The Virtual Reserve Model
+### The Virtual Reserve Model
 
 [ProtocolConfig](contracts/protocol/ProtocolConfig.sol) initializes the virtual USDL default to
 10,000 USDL and the token supply default to one billion six-decimal tokens. Each newly created pool
@@ -65,13 +90,13 @@ are USDL sent to FeeAccumulator; sell fees remain in the pool as tokens. A sell 
 real USDL reverts with `VirtualFloorBreached()`. Virtual reserves provide pricing depth, not
 redeemable USDL backing.
 
-## Contract groups
+### Contract groups
 
 The source groups protocol configuration, data, pool logic, optical extensions, periphery and shared
 libraries. The sections below describe responsibilities; calls also cross these groups for registry
 lookup, configuration, hooks and event emission.
 
-### Protocol configuration
+#### Protocol configuration
 
 **ProtocolConfig** stores virtual defaults, fee settings and the creation fee. Fresh deployments
 charge **1 USDL per pool creation** (1,000,000 base units), excluding network gas. Direct factory
@@ -108,7 +133,7 @@ path disables bootstrap administrator decisions at handoff. It is not an automat
 of an administrator-only deployment. See
 [mainnet deployment](operations/README.md#launchpad-mainnet-deployment).
 
-### Data and fee accounting
+#### Data and fee accounting
 
 **EventEmitter** provides central typed and generic event channels. It is not a complete substitute
 for source-contract logs: some callers emit mirrors on a best-effort basis, while other configured
@@ -126,7 +151,7 @@ registration requires `FACTORY_ROLE`; periphery contracts query it for discovery
 the selected fee-distribution path and optical fee hooks. Sell-side token fees remain in the pool
 instead of becoming USDL fee claims.
 
-### Core AMM
+#### Core AMM
 
 **SidioraFactory** creates the token with CREATE2 and a pool beacon proxy, authorizes fee recording,
 mints the fee-rights NFT, registers metadata, binds the token to the pool and transfers the initial
@@ -148,7 +173,7 @@ control of those rights, including fees still accumulated for that pool. Ownersh
 pool guardian authority. The NFT supports strategy changes by approved callers or its
 strategy-setter role, with additional owner checks at FeesRouter entrypoints.
 
-### Optical hooks
+#### Optical hooks
 
 The [IOptical interface](contracts/opticals/interfaces/IOptical.sol) exposes `beforeSwap`,
 `afterSwap`, `beforeFeeDistribution` and `afterFeeDistribution`, selected by hook flags. The current
@@ -173,7 +198,7 @@ OpticalRegistry provides optional approval signaling tied to observed runtime id
 approval can become invalid and must be renewed after review. Deregistration does not detach a
 pool’s hooks. See [optical review identity](operations/README.md#optical-review-identity).
 
-### Periphery
+#### Periphery
 
 **Router** provides market creation, buy, sell and two-pool token swaps, including permit variants
 and multicall. It validates registry membership and transfers input before invoking pools. Direct
@@ -186,14 +211,14 @@ consume gas. Quotes reflect current state and can change before execution.
 **FeesRouter** checks NFT ownership and selected strategy for fee management. Holder airdrop claims
 use a separate path without NFT ownership requirements.
 
-### Libraries and bases
+#### Libraries and bases
 
 The core Solidity primitives are implemented in this tree: SidioraMath, FeeLib, ReserveLib,
 TransferHelper and BitFlag, with in-house ERC20/ERC721, access control, reentrancy, pause and proxy
 bases. Build and deployment tooling has package dependencies listed in [package.json](package.json).
 In-house implementations still require review and qualification.
 
-## Upgrade authority
+### Upgrade authority
 
 Core singleton contracts use UUPS proxies; upgrade authorization requires `DEFAULT_ADMIN_ROLE`.
 Finalized deployment assigns that role to Timelock. Pool instances share PoolBeacon, whose ownership
@@ -205,7 +230,7 @@ proxy upgrade path. Existing deployment authority must be inspected: temporary d
 and pending beacon acceptance are real powers until handoff completes. Timelock delays provide
 review time; they do not guarantee a safe proposal or a multisig decision maker.
 
-## Fee strategies
+### Fee strategies
 
 Fee strategy values in the NFT and FeesRouter are:
 
@@ -225,7 +250,7 @@ Snapshot allocations are fixed for their epoch. Transferring tokens after the sn
 transfer that epoch’s entitlement. See [FeeAccumulator](contracts/data/FeeAccumulator.sol) and
 [FeesRouter](contracts/periphery/FeesRouter.sol) for claims and migration entrypoints.
 
-## Dynamic Fees
+### Dynamic Fees
 
 [SidioraPool](contracts/core/SidioraPool.sol) calculates fees from the configured base, pool age in
 seconds and RMS relative price movement across up to eight chronological observations. Snapshot
@@ -236,28 +261,95 @@ ProtocolConfig rejects nonzero concentration weights. Holder concentration does 
 fees. Fresh defaults are a 30 bps base (0.30%), clamped between 10 bps (0.10%) and 300 bps (3.00%).
 Age and volatility contributions can raise the actual fee above the base.
 
-## Deployment Details
-
-- **Chain**: Paxeer mainnet-beta, EVM chain ID 125 (`0x7d`)
-- **Hardhat network**: `paxeer-x-network`, using root-path JSON-RPC
-- **Solidity**: 0.8.27 with viaIR; compiler settings are in [hardhat.config.js](hardhat.config.js)
-- **Upgrade authority after handoff**: Timelock, with GovernanceModule as proposer
-- **Default decisions**: `GOVERNANCE_MODE=admin`; configured administrator or deployment wallet,
-  with no SID requirement
-- **Optional token governance**: `GOVERNANCE_MODE=token` with `SID_ADDRESS` providing historical
-  voting checkpoints
-- **Multisig**: supplied explicitly through `GOVERNANCE_ADMIN_ADDRESS`; not created or guaranteed by
-  deployment
-- **Addresses**: read the reviewed `deployments/<network>-addresses.json`; this overview does not
-  establish live contract addresses
-
-## Integration
+### Integration
 
 The core launchpad creates USDL-paired markets with fee-rights NFTs and optional optical policy. Its
 two-pool swaps and the optional adapter layer extend trading routes. They do not change the core
 pool’s USDL pairing or establish oracle price quality. Integrators should use the matching deployed
 ABI, current authority inventory and [operations runbook](operations/README.md) when evaluating a
 deployment.
+
+## Build and test
+
+Run from `contracts/launchpad/` with the Node.js range and pnpm version declared in
+[package.json](package.json). Install dependencies with `pnpm install --frozen-lockfile` using
+[pnpm-lock.yaml](pnpm-lock.yaml).
+
+| Command                     | Purpose                                                                          |
+| --------------------------- | -------------------------------------------------------------------------------- |
+| `pnpm compile`              | Compile Solidity contracts with Hardhat.                                         |
+| `pnpm test`                 | Run the complete Hardhat test suite.                                             |
+| `pnpm test:coverage`        | Run Solidity coverage.                                                           |
+| `pnpm test:gas`             | Run tests with gas reporting.                                                    |
+| `pnpm meta-ag:test`         | Run the Meta-AG test selection.                                                  |
+| `pnpm meta-ag:coverage`     | Collect coverage for the Meta-AG test files.                                     |
+| `pnpm meta-ag:gas`          | Run the Meta-AG test selection with gas reporting.                               |
+| `pnpm meta-ag:layout:check` | Compile and compare tracked storage layouts with core and Meta-AG baselines.     |
+| `pnpm lint:sol`             | Lint Solidity sources with Solhint.                                              |
+| `pnpm lint:js`              | Lint JavaScript scripts and tests with ESLint.                                   |
+| `pnpm slither`              | Run static analysis using `slither.config.json`.                                 |
+| `pnpm release:check`        | Check compiler inputs, artifacts, runtime size and production storage baselines. |
+
+These commands are declared in [package.json](package.json). Slither uses the dependency pinned in
+[requirements-audit.txt](requirements-audit.txt), installed in an isolated Python environment.
+Documentation generation is opt-in through `RUN_DOCGEN` during compilation. Local tests, static
+analysis and code review establish properties of the source and build; deployed state is inspected
+separately through the [operations runbook](operations/README.md).
+
+## Configuration
+
+[hardhat.config.js](hardhat.config.js) loads `.env` through `dotenv/config` and reads `PRIVATE_KEY`,
+`REPORT_GAS` and `RUN_DOCGEN`. It configures Solidity 0.8.27 with viaIR, optimizer settings, storage
+layout output, and the `paxeer-x-network` and `hardhat-network` connections. Network connection
+settings live in that file.
+
+The scripts and tests read the following environment variables; names are grouped by use:
+
+| Use                                    | Environment variables                                                                                                                                                                                                                                                                    |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Core deployment and governance         | `USDL_ADDRESS`, `SID_ADDRESS`, `GUARDIAN_ADDRESS`, `TIMELOCK_DELAY`, `GOVERNANCE_MODE`, `GOVERNANCE_ADMIN_ADDRESS`, `ADMIN_ADDRESS`, `NETWORK_TYPE`, `RESUME_DEPLOYMENT`                                                                                                                 |
+| Meta-AG deployment                     | `WPAX_ADDRESS`, `RELAYER_ADDRESS`, `KEEPER_ADDRESS`, `FEE_COLLECTOR`, `INCIDENT_GUARDIAN_ADDRESS`, `TRANSFER_ADMIN_TO_TIMELOCK`, `VAULT_ADAPTER_FEE_BPS`, `ORACLE_DEVIATION_BPS`, `SIDIORA_MIN_LIQUIDITY_RAW`, `ENABLE_SIDIORA_SPOT_REFERENCE`, `USDL_USD_ORACLE_ADDRESS`, `SEED_PRICES` |
+| Upgrade plans and event-emitter wiring | `UPGRADE_PLAN`, `LAUNCHPAD_MANIFEST`, `CONTRACT`, `BEACON`, `PROXY_ADDRESS`, `IMPL_ADDRESS`, `TIMELOCK_ADDRESS`, `ADMIN_WITH_EMITTER_ROLE`, `BUFFER_SECONDS`, `ALLOW_EARLY`, `FORCE_REDEPLOY`, `SKIP_VERIFY`, `SKIP_OPTICAL`, `SKIP_ROUTER`, `SKIP_FACTORY`                              |
+| Native launchpad tooling               | `LAUNCHPAD_AUTHORITY`, `LAUNCHPAD_PARAMS_JSON`                                                                                                                                                                                                                                           |
+| Integration generation                 | `TEMPLATE_MODE`                                                                                                                                                                                                                                                                          |
+| Health and verification                | `RPC_URL`, `VERIFY_DRY_RUN`                                                                                                                                                                                                                                                              |
+| Token deployment and liquidity seeding | `INITIAL_MINT`, `EXTRA_RECIPIENTS`, `OUTPUT_FILE`, `DRY_RUN`, `TOP_UP`, `ONLY`, `SKIP`, `FORCE_LEGACY_TX`, `GAS_PRICE`, `TX_WAIT_TIMEOUT_MS`, `TX_POLL_MS`, `PROVIDER_POLL_MS`                                                                                                           |
+| Test reports                           | `UPDATE_GAS_SNAPSHOTS`, `PECOR_COVERAGE_OUTPUT`, `LAUNCHPAD_PROOF_NODE_TEST`                                                                                                                                                                                                             |
+
+The generated integration examples use `ROUTER_ADDRESS` and `NEXT_PUBLIC_ROUTER_ADDRESS`. Liquidity
+seeding also reads per-symbol `SEED_RAW_${symbol}` and `SEED_${symbol}` names. Oracle registration
+reads `ORACLE_HEARTBEAT_${symbol}`, `ORACLE_DEVIATION_BPS_${symbol}`, `ORACLE_MIN_PRICE_${symbol}`,
+`ORACLE_MAX_PRICE_${symbol}` and `ORACLE_MAX_STALENESS_${symbol}`. The symbol comes from the token
+inventory.
+
+Scripts read network manifests and journals in [deployments/](deployments/), including
+[paxeer-x-network-addresses.json](deployments/paxeer-x-network-addresses.json) and
+[hardhat-network-addresses.json](deployments/hardhat-network-addresses.json). Meta-AG helpers also
+read the network token inventory. Upgrade preflight reads the JSON plan selected by `UPGRADE_PLAN`,
+the optional `LAUNCHPAD_MANIFEST`, and the baseline, simulation and token-inventory files named by
+the plan. Native parameter updates read the JSON file selected by `LAUNCHPAD_PARAMS_JSON`. Health
+inspection accepts a manifest and an optional policy JSON file as command-line arguments. Release
+checks read [production storage baselines](storage-layout/production/), including their
+[manifest](storage-layout/production/manifest.json).
+
+Development tools use [.solhint.json](.solhint.json), [.eslintrc.js](.eslintrc.js),
+[.prettierrc](.prettierrc), [.editorconfig](.editorconfig),
+[slither.config.json](slither.config.json) and [pnpm-workspace.yaml](pnpm-workspace.yaml).
+
+### Deployment and recovery
+
+- **Chain**: Paxeer mainnet-beta, EVM chain ID 125 (`0x7d`)
+- **Hardhat network**: `paxeer-x-network`, using root-path JSON-RPC
+- **Solidity**: 0.8.27 with viaIR; compiler settings are in [hardhat.config.js](hardhat.config.js)
+- **Upgrade authority after handoff**: Timelock, with GovernanceModule as proposer
+- **Default decisions**: administrator-only governance through `GOVERNANCE_MODE`; configured
+  administrator or deployment wallet, with no SID requirement
+- **Optional token governance**: token governance through `GOVERNANCE_MODE` with `SID_ADDRESS`
+  providing historical voting checkpoints
+- **Multisig**: supplied explicitly through `GOVERNANCE_ADMIN_ADDRESS`; not created or guaranteed by
+  deployment
+- **Addresses**: read the reviewed manifest in [deployments/](deployments/); this overview does not
+  establish live contract addresses
 
 ### Operator safety and upgrade qualification
 
@@ -267,7 +359,7 @@ inspection, and reproducible release qualification. Existing deployments require
 wiring and the documented migration checks before these capabilities are operational.
 
 Run scripts with the connected Hardhat network; `NETWORK_TYPE`, if supplied, must agree. The
-canonical manifest is `deployments/<network>-addresses.json`, with flat `Name_proxy`/`Name_impl`
+canonical network manifest is in [deployments/](deployments/), with flat `Name_proxy`/`Name_impl`
 keys and `_meta.network` as the chain ID. Legacy manifests require an explicit operator migration;
 no implicit network fallback is safe.
 
@@ -291,12 +383,6 @@ fork simulation and migration assertions. Retain baseline layouts and prior arti
 layouts require a separately designed migration, not a refreshed baseline. Storage gaps are
 conservatively immutable in the automated checker.
 
-Documentation generation is opt-in: `RUN_DOCGEN=true` enables compile-time docgen. Install the
-pinned static analyzer in an isolated environment with `python -m venv .venv-audit`,
-`.venv-audit/bin/pip install -r requirements-audit.txt`, then
-`.venv-audit/bin/slither . --config-file slither.config.json`. Local tests, static analysis and code
-review do not constitute live deployment qualification.
-
 Beacon upgrade plans additionally require `tokenInventory: {file, sha256}` on the pool entry. The
 JSON inventory must cover every registered pool and contain `pool`, `token`, `runtimeHash`, and
 reviewed `transferHookSimulation` evidence. Preflight verifies token identity, pool binding, and
@@ -314,12 +400,12 @@ upgrades through the governed proposal lifecycle.
 
 MetaAG deployment defaults the Sidiora spot adapter to disabled. `SIDIORA_MIN_LIQUIDITY_RAW` must be
 a positive USDL amount in token base units; default is 1,000 USDL scaled using its live decimals.
-Explicit `ENABLE_SIDIORA_SPOT_REFERENCE=true` additionally requires an independent
+Enabling `ENABLE_SIDIORA_SPOT_REFERENCE` additionally requires an independent
 `USDL_USD_ORACLE_ADDRESS` implementing a fresh positive `getPrice(USDL)`; this opts into
 instantaneous manipulable pool prices, not manipulation resistance. The adapter's disabled default
 is not evidence of healthy price availability.
 
-Interrupted deployments can resume with the same environment and `RESUME_DEPLOYMENT=true`. The
+Interrupted deployments can resume with the same environment and `RESUME_DEPLOYMENT` enabled. The
 manifest binds configuration, chain, deployer, constructor bytecode, confirmed transaction
 identities and runtime hashes. Confirmed implementations, proxies and immutable contracts are
 reused; wiring and administrative handoffs reconcile exact on-chain postconditions. Proxy and beacon
@@ -329,16 +415,27 @@ deployment. Ambiguous pending or failed creation receipts require explicit opera
 rather than automatic resubmission. Keep the original checkpoint; do not replace it with a newly
 generated manifest. Expired beacon acceptance requires a reviewed governance cancellation/requeue.
 
-From `contracts/launchpad/`, for an existing checkpoint on the configured local `hardhat-network`
-(chain ID 31337), retain the original deployment variables and run:
-
-```sh
-RESUME_DEPLOYMENT=true node node_modules/hardhat/internal/cli/cli.js run scripts/deploy.js --network hardhat-network
-RESUME_DEPLOYMENT=true node node_modules/hardhat/internal/cli/cli.js run scripts/meta-ag/deploy-pecor-meta-ag.js --network hardhat-network
-```
+For an existing checkpoint on the configured local `hardhat-network` (chain ID 31337), retain the
+original deployment variables and use the core or Meta-AG deployment script with `RESUME_DEPLOYMENT`
+enabled. The [operations runbook](operations/README.md) describes the core invocation and delayed
+ownership acceptance.
 
 Select the intended connected network explicitly. Core and layered plans occupy separate
 `_deployment` and `_metaAgDeployment` sections of the same manifest; layered recovery preserves the
 inherited core identity. The layered repair script delegates to the bound deployment plan when
 present. An unknown broadcast, missing or failed receipt, configuration mismatch, or implementation
 drift stops recovery for review instead of creating replacement contracts.
+
+## Documentation
+
+- [Solidity API reference](docs/) and [IEventEmitter payloads](docs/interfaces/IEventEmitter.md).
+- [Production operations](operations/README.md) for deployment, governance, upgrades and recovery.
+- [Native launchpad execution](../launchpad.md#native-execution) for the network module and
+  precompile.
+- [Launch a market and chain](../../docs/launchpad/chain-launch.md) for the native chain-launch
+  flow.
+- [Launchpad web configuration checklist](../../docs/launchpad/production-checklist.md) for the
+  application.
+- [Launchpad documentation site page](../../docs/site/paxeer-docs/src/app/launchpad/page.tsx) and
+  its [Markdown content](../../docs/site/paxeer-docs/public/markdown/launchpad.md) for the native
+  launchpad interface.
