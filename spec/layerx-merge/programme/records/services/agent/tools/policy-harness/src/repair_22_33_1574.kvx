@@ -1,6 +1,6 @@
 [repair.22.33.1574]
 finding = "policy-harness-evidence-gap"
-test_path = "services/agent/tools/policy-harness/tests/repair_22_33_1574.rs"
+test_path = "services/agent/tools/policy-harness/tests/constraint_evidence.rs"
 proving_tests = ["policy_harness_evidence_gap_real_owner_rpc_proves_each_constraint", "policy_harness_evidence_gap_labels_and_unrelated_denials_cannot_claim_coverage", "policy_harness_evidence_gap_stale_budget_cannot_turn_missing_context_into_coverage", "policy_harness_evidence_gap_owner_codec_refuses_corrupt_and_inactive_evidence", "policy_harness_evidence_gap_cumulative_probe_uses_protocol_spend_at_the_boundary", "policy_harness_evidence_gap_recording_matches_the_owner_transcript"]
 baseline = "No baseline gate was run: the explicit ordered instructions prohibit verification before complete implementation and require hf-build before hf-done; the integration target was absent on the starting tree. No pre-change failing tests are claimed."
 evidence = "The runner's hf-build/hf-done ledger records the exact candidate revision, command, exit and private log; the final report copies the terminating gate's evidence."
