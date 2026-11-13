@@ -11,7 +11,7 @@ import (
 	"testing"
 )
 
-func repairM884Read(t *testing.T, dir string, want State) {
+func checkCheckpointState(t *testing.T, dir string, want State) {
 	t.Helper()
 	got, err := ReadState(dir)
 	if err != nil {
@@ -22,7 +22,7 @@ func repairM884Read(t *testing.T, dir string, want State) {
 	}
 }
 
-func repairM884Backup(t *testing.T, dir string, want State) {
+func checkPreviousCheckpoint(t *testing.T, dir string, want State) {
 	t.Helper()
 	// Reopen the backup through the production reader in a recovery directory.
 	data, err := os.ReadFile(filepath.Join(dir, checkpointName+".previous"))
@@ -33,17 +33,17 @@ func repairM884Backup(t *testing.T, dir string, want State) {
 	if err := os.WriteFile(filepath.Join(recovery, checkpointName), data, 0600); err != nil {
 		t.Fatal(err)
 	}
-	repairM884Read(t, recovery, want)
+	checkCheckpointState(t, recovery, want)
 }
 
-func TestRepairM_884_RestartAtomicReplacement(t *testing.T) {
+func TestCheckpointRestartAtomicReplacement(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "checkpoints")
 	previous := State{LastProcessedHeight: 128, BlocksMissingTxs: []int64{7, 39, 127}}
 	current := State{LastProcessedHeight: 256, BlocksMissingTxs: []int64{7, 39, 127, 191}}
 	if err := WriteState(dir, previous); err != nil {
 		t.Fatal(err)
 	}
-	repairM884Read(t, dir, previous)
+	checkCheckpointState(t, dir, previous)
 	filename := filepath.Join(dir, checkpointName)
 	before, err := os.ReadFile(filename)
 	if err != nil {
@@ -69,21 +69,21 @@ func TestRepairM_884_RestartAtomicReplacement(t *testing.T) {
 	if err := openBeforeReplace.Close(); err != nil {
 		t.Fatal(err)
 	}
-	repairM884Read(t, dir, current)
-	repairM884Backup(t, dir, previous)
+	checkCheckpointState(t, dir, current)
+	checkPreviousCheckpoint(t, dir, previous)
 	next := State{LastProcessedHeight: 512, BlocksMissingTxs: []int64{7, 39, 127, 191, 300}}
 	if err := WriteState(dir, next); err != nil {
 		t.Fatal(err)
 	}
-	repairM884Read(t, dir, next)
-	repairM884Backup(t, dir, current)
+	checkCheckpointState(t, dir, next)
+	checkPreviousCheckpoint(t, dir, current)
 	matches, err := filepath.Glob(filepath.Join(dir, ".tx-scanner-state-*.tmp"))
 	if err != nil || len(matches) != 0 {
 		t.Fatalf("temporary checkpoints after success: %v, %v", matches, err)
 	}
 }
 
-func TestRepairM_884_InterruptedCheckpointRestart(t *testing.T) {
+func TestCheckpointInterruptedWriteRestart(t *testing.T) {
 	dir := t.TempDir()
 	previous := State{LastProcessedHeight: 70, BlocksMissingTxs: []int64{9, 55}}
 	current := State{LastProcessedHeight: 90, BlocksMissingTxs: []int64{9, 55, 81}}
@@ -110,8 +110,8 @@ func TestRepairM_884_InterruptedCheckpointRestart(t *testing.T) {
 	if err := pending.Close(); err != nil {
 		t.Fatal(err)
 	}
-	repairM884Read(t, dir, current)
-	repairM884Backup(t, dir, previous)
+	checkCheckpointState(t, dir, current)
+	checkPreviousCheckpoint(t, dir, previous)
 	// Corruption after restart must be explicit, leaving operator recovery intact.
 	filename := filepath.Join(dir, checkpointName)
 	if err := os.WriteFile(filename, data[:len(data)/2], 0600); err != nil {
@@ -123,19 +123,19 @@ func TestRepairM_884_InterruptedCheckpointRestart(t *testing.T) {
 	if err := WriteState(dir, State{LastProcessedHeight: 999}); !errors.Is(err, ErrRecoveryRequired) {
 		t.Fatalf("write over corrupt state = %v", err)
 	}
-	repairM884Backup(t, dir, previous)
+	checkPreviousCheckpoint(t, dir, previous)
 	if err := os.Rename(filename+".previous", filename); err != nil {
 		t.Fatal(err)
 	}
-	repairM884Read(t, dir, previous)
+	checkCheckpointState(t, dir, previous)
 	if err := WriteState(dir, current); err != nil {
 		t.Fatal(err)
 	}
-	repairM884Read(t, dir, current)
-	repairM884Backup(t, dir, previous)
+	checkCheckpointState(t, dir, current)
+	checkPreviousCheckpoint(t, dir, previous)
 }
 
-func TestRepairM_884_PublicationFailurePreservesCheckpoint(t *testing.T) {
+func TestCheckpointPublicationFailurePreservesState(t *testing.T) {
 	dir := t.TempDir()
 	previous := State{LastProcessedHeight: 120, BlocksMissingTxs: []int64{10, 100}}
 	if err := WriteState(dir, previous); err != nil {
@@ -158,7 +158,7 @@ func TestRepairM_884_PublicationFailurePreservesCheckpoint(t *testing.T) {
 	if err != nil || !bytes.Equal(before, after) {
 		t.Fatalf("failed update changed current checkpoint: %s, %v", after, err)
 	}
-	repairM884Read(t, dir, previous)
+	checkCheckpointState(t, dir, previous)
 	matches, err := filepath.Glob(filepath.Join(dir, ".tx-scanner-state-*.tmp"))
 	if err != nil || len(matches) != 0 {
 		t.Fatalf("temporary checkpoints after failure: %v, %v", matches, err)
@@ -169,11 +169,11 @@ func TestRepairM_884_PublicationFailurePreservesCheckpoint(t *testing.T) {
 	if err := WriteState(dir, current); err != nil {
 		t.Fatal(err)
 	}
-	repairM884Read(t, dir, current)
-	repairM884Backup(t, dir, previous)
+	checkCheckpointState(t, dir, current)
+	checkPreviousCheckpoint(t, dir, previous)
 }
 
-func TestRepairM_884_AbsentVersusLostCheckpoint(t *testing.T) {
+func TestCheckpointAbsentVersusLostState(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "new")
 	if _, err := ReadState(dir); !errors.Is(err, os.ErrNotExist) || errors.Is(err, ErrRecoveryRequired) {
 		t.Fatalf("first start = %v", err)
@@ -198,14 +198,14 @@ func TestRepairM_884_AbsentVersusLostCheckpoint(t *testing.T) {
 	if _, err := os.Stat(filename); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("failed write published a fresh checkpoint: %v", err)
 	}
-	repairM884Backup(t, dir, previous)
+	checkPreviousCheckpoint(t, dir, previous)
 	if err := os.Rename(filename+".previous", filename); err != nil {
 		t.Fatal(err)
 	}
-	repairM884Read(t, dir, previous)
+	checkCheckpointState(t, dir, previous)
 }
 
-func TestRepairM_884_CorruptCheckpointRefused(t *testing.T) {
+func TestCheckpointCorruptStateRefused(t *testing.T) {
 	for _, payload := range []string{"", "{", "null", "{}", `{"last_processed_height":42}`, `{"blocks_missing_txs":[4]}`, `{"last_processed_height":null,"blocks_missing_txs":[4]}`, `{"last_processed_height":42,"blocks_missing_txs":"lost"}`, `{"last_processed_height":42,"blocks_missing_txs":[4]} trailing`} {
 		t.Run(payload, func(t *testing.T) {
 			dir := t.TempDir()
@@ -230,6 +230,6 @@ func TestRepairM_884_CorruptCheckpointRefused(t *testing.T) {
 		if err := WriteState(dir, s); err != nil {
 			t.Fatal(err)
 		}
-		repairM884Read(t, dir, s)
+		checkCheckpointState(t, dir, s)
 	}
 }

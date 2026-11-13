@@ -18,7 +18,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func repairM883Reset(t *testing.T) {
+func resetGRPCClient(t *testing.T) {
 	t.Helper()
 	if err := CloseGRPCClient(); err != nil {
 		t.Fatal(err)
@@ -30,7 +30,7 @@ func repairM883Reset(t *testing.T) {
 	})
 }
 
-func repairM883Server(t *testing.T) (string, int) {
+func serveGRPCHealth(t *testing.T) (string, int) {
 	t.Helper()
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -57,7 +57,7 @@ func repairM883Server(t *testing.T) (string, int) {
 	return addr.IP.String(), addr.Port
 }
 
-func repairM883CheckServing(t *testing.T, conn *grpc.ClientConn) {
+func checkGRPCServing(t *testing.T, conn *grpc.ClientConn) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
@@ -70,7 +70,7 @@ func repairM883CheckServing(t *testing.T, conn *grpc.ClientConn) {
 	}
 }
 
-func repairM883WaitStopped(t *testing.T, lifecycle *grpcConnectionLifecycle, conn *grpc.ClientConn) {
+func waitForGRPCShutdown(t *testing.T, lifecycle *grpcConnectionLifecycle, conn *grpc.ClientConn) {
 	t.Helper()
 	select {
 	case <-lifecycle.done:
@@ -85,8 +85,8 @@ func repairM883WaitStopped(t *testing.T, lifecycle *grpcConnectionLifecycle, con
 	}
 }
 
-func TestRepairM_883_BoundedStartup(t *testing.T) {
-	repairM883Reset(t)
+func TestGRPCConnectionBoundedStartup(t *testing.T) {
+	resetGRPCClient(t)
 	// A real TCP listener that never speaks HTTP/2 stalls the handshake.
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -119,8 +119,8 @@ func TestRepairM_883_BoundedStartup(t *testing.T) {
 	}
 }
 
-func TestRepairM_883_CancelStartupAndRetry(t *testing.T) {
-	repairM883Reset(t)
+func TestGRPCConnectionCancelStartupAndRetry(t *testing.T) {
+	resetGRPCClient(t)
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
@@ -139,23 +139,23 @@ func TestRepairM_883_CancelStartupAndRetry(t *testing.T) {
 	if GrpcConn != nil || grpcLifecycle != nil {
 		t.Fatal("canceled dial published a connection or lifecycle")
 	}
-	host, port := repairM883Server(t)
+	host, port := serveGRPCHealth(t)
 	if err := InitializeGRPCClient(host, port); err != nil {
 		t.Fatal(err)
 	}
-	repairM883CheckServing(t, GrpcConn)
+	checkGRPCServing(t, GrpcConn)
 }
 
-func TestRepairM_883_CommandCleanup(t *testing.T) {
-	repairM883Reset(t)
-	host, port := repairM883Server(t)
+func TestGRPCConnectionCommandCleanup(t *testing.T) {
+	resetGRPCClient(t)
+	host, port := serveGRPCHealth(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	if err := InitializeGRPCClientContext(ctx, host, port); err != nil {
 		t.Fatal(err)
 	}
 	conn, lifecycle := GrpcConn, grpcLifecycle
-	repairM883CheckServing(t, conn)
+	checkGRPCServing(t, conn)
 	if err := InitializeGRPCClientContext(ctx, host, port); err != nil {
 		t.Fatal(err)
 	}
@@ -179,7 +179,7 @@ func TestRepairM_883_CommandCleanup(t *testing.T) {
 	if err := CloseGRPCClient(); err != nil {
 		t.Fatal(err)
 	}
-	repairM883WaitStopped(t, lifecycle, conn)
+	waitForGRPCShutdown(t, lifecycle, conn)
 	if GrpcConn != nil || grpcLifecycle != nil {
 		t.Fatal("command cleanup retained the active connection")
 	}
@@ -199,21 +199,21 @@ func TestRepairM_883_CommandCleanup(t *testing.T) {
 	if GrpcConn == conn || grpcLifecycle == lifecycle {
 		t.Fatal("initialization reused a closed connection or lifecycle")
 	}
-	repairM883CheckServing(t, GrpcConn)
+	checkGRPCServing(t, GrpcConn)
 }
 
-func TestRepairM_883_CommandCancellation(t *testing.T) {
-	repairM883Reset(t)
-	host, port := repairM883Server(t)
+func TestGRPCConnectionCommandCancellation(t *testing.T) {
+	resetGRPCClient(t)
+	host, port := serveGRPCHealth(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	if err := InitializeGRPCClientContext(ctx, host, port); err != nil {
 		t.Fatal(err)
 	}
 	conn, lifecycle := GrpcConn, grpcLifecycle
-	repairM883CheckServing(t, conn)
+	checkGRPCServing(t, conn)
 	cancel()
-	repairM883WaitStopped(t, lifecycle, conn)
+	waitForGRPCShutdown(t, lifecycle, conn)
 	if err := InitializeGRPCClientContext(ctx, host, port); !errors.Is(err, context.Canceled) {
 		t.Fatalf("canceled command reused a connection: %v", err)
 	}
@@ -223,26 +223,26 @@ func TestRepairM_883_CommandCancellation(t *testing.T) {
 	if GrpcConn == conn || grpcLifecycle == lifecycle {
 		t.Fatal("new command reused the canceled lifecycle")
 	}
-	repairM883CheckServing(t, GrpcConn)
+	checkGRPCServing(t, GrpcConn)
 }
 
-func TestRepairM_883_ConnectionShutdown(t *testing.T) {
-	repairM883Reset(t)
-	host, port := repairM883Server(t)
+func TestGRPCConnectionShutdown(t *testing.T) {
+	resetGRPCClient(t)
+	host, port := serveGRPCHealth(t)
 	if err := InitializeGRPCClient(host, port); err != nil {
 		t.Fatal(err)
 	}
 	conn, lifecycle := GrpcConn, grpcLifecycle
-	repairM883CheckServing(t, conn)
+	checkGRPCServing(t, conn)
 	if err := conn.Close(); err != nil {
 		t.Fatal(err)
 	}
-	repairM883WaitStopped(t, lifecycle, conn)
+	waitForGRPCShutdown(t, lifecycle, conn)
 	if err := InitializeGRPCClient(host, port); err != nil {
 		t.Fatal(err)
 	}
 	if GrpcConn == conn || grpcLifecycle == lifecycle {
 		t.Fatal("initialization reused the shutdown connection")
 	}
-	repairM883CheckServing(t, GrpcConn)
+	checkGRPCServing(t, GrpcConn)
 }
