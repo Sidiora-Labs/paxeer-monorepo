@@ -74,7 +74,8 @@ Keep imports at file scope and place the setup and operation calls inside your
 application function. Include only the imports each example uses. All REST
 methods accept trailing
 `option.RequestOption` arguments. Set deadlines through the context or
-`option.WithRequestTimeout`.
+`option.WithRequestTimeout`. Response tables name decoded payload types;
+the generated REST methods return pointers to those types alongside an error.
 
 ## `Gateway`
 
@@ -94,7 +95,7 @@ if err != nil {
 	panic(err)
 }
 
-fmt.Println(gateway)
+fmt.Println(*gateway)
 ```
 
 ### Mint a scoped WebSocket token
@@ -311,7 +312,7 @@ if err != nil {
 	panic(err)
 }
 
-fmt.Println(tradingView)
+fmt.Println(*tradingView)
 ```
 
 ### Resolve UDF symbol metadata
@@ -357,7 +358,9 @@ fmt.Println(tradingView)
 
 ### Get OHLCV history
 
-Ascending, inclusive range. Countback limits rows from the START of that range. Request subsequent windows starting at the last returned timestamp plus one interval; do not assume backward-fill semantics. Open candles can change. UDF unknown-symbol/resolution errors use HTTP 200; malformed parameters use HTTP 400.
+Ascending, inclusive range. `Countback` limits rows from the start of that range;
+values above 5000 are clamped to 5000, and live-candle merging can add one row.
+Request subsequent windows starting at the last returned timestamp plus one interval; do not assume backward-fill semantics. Open candles can change. UDF unknown-symbol/resolution errors use HTTP 200; malformed parameters use HTTP 400.
 
 | Direction | Type |
 | --- | --- |

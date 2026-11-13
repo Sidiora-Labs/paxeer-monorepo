@@ -228,8 +228,10 @@ client = ChainflowDataGateway(
 
 ## Retries and Timeouts
 
-Generated clients support request timeouts and retry temporary failures such as network errors, 408, 409, 429, and 5xx responses. Retry delays honor `Retry-After` headers when present. Tune the retry and timeout client options shown above, or override them per request.
+Generated clients support request timeouts and retry temporary failures such as network errors, 408, 409, 429, and 5xx responses. Tune the retry and timeout client options shown above, or override them per request.
 HTTP timeouts apply per attempt, not to the combined duration of all retries.
+The client uses a parsed `Retry-After` delay only when it is greater than zero
+and at most 60 seconds; otherwise it uses exponential backoff with jitter.
 WebSocket retries use the separate connection options and callback described above.
 
 <br />
@@ -247,9 +249,10 @@ WebSocket retries use the separate connection options and callback described abo
 
 - Set the `SIDIORALABS_LOG` environment variable to `info` or `debug` to enable HTTP logging.
 - Logs use the standard `logging` module under `chainflow_data_gateway` and `httpx`.
-  Debug logging in the WebSocket transport includes the connection URL, which
-  contains `token`. Keep credential-bearing debug logging disabled unless you
-  have installed redaction filters; never log tokens, API keys or mint responses.
+  The SDK redacts the `token` query parameter in WebSocket connection logs and
+  recognized credential fields in connection-option logs. Received WebSocket
+  message bytes are logged at debug level. Review message content and logging
+  from transport libraries separately; never log tokens, API keys or mint responses.
 - `SIDIORALABS_CUSTOM_HEADERS` reads newline-separated `Header: value` entries.
   Avoid supplying authentication there; operation-specific credentials should
   come from the constructor fields.

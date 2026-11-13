@@ -1,0 +1,75 @@
+[manifest]
+task = "22.41.77"
+pages = 18
+
+[page.1]
+path = "programs/sdk/rust/examples/swap-cpmm/README.md"
+status = "corrected"
+
+[page.2]
+path = "programs/sdk/rust/examples/token-lxt20/README.md"
+status = "corrected"
+
+[page.3]
+path = "programs/tests/vectors/calldata/README.md"
+status = "corrected"
+
+[page.4]
+path = "rpc/AGENTS.md"
+status = "corrected"
+
+[page.5]
+path = "rpc/README.md"
+status = "corrected"
+
+[page.6]
+path = "rpc/tests/README.md"
+status = "reviewed"
+
+[page.7]
+path = "scripts/bump_version/README.md"
+status = "corrected"
+
+[page.8]
+path = "sdk/README.md"
+status = "corrected"
+
+[page.9]
+path = "sdk/chainflow/go/.claude/skills/chainflow-data-gateway-go-sdk/SKILL.md"
+status = "reviewed"
+
+[page.10]
+path = "sdk/chainflow/go/README.md"
+status = "reviewed"
+
+[page.11]
+path = "sdk/chainflow/go/SECURITY.md"
+status = "reviewed"
+
+[page.12]
+path = "sdk/chainflow/go/SKILL.md"
+status = "reviewed"
+
+[page.13]
+path = "sdk/chainflow/go/api.md"
+status = "corrected"
+
+[page.14]
+path = "sdk/chainflow/python/.claude/skills/chainflow-data-gateway-python-sdk/SKILL.md"
+status = "corrected"
+
+[page.15]
+path = "sdk/chainflow/python/README.md"
+status = "corrected"
+
+[page.16]
+path = "sdk/chainflow/python/SECURITY.md"
+status = "reviewed"
+
+[page.17]
+path = "sdk/chainflow/python/SKILL.md"
+status = "corrected"
+
+[page.18]
+path = "sdk/chainflow/python/api.md"
+status = "corrected"

@@ -8,7 +8,7 @@ register its derived account in token storage. The deployment authority must
 separately register that account with the native Programs account module before
 it can receive backing units. Arbitrary external recipient accounts are refused.
 
-The example configuration lives in `programs/sdk/rust/src/lxt20.rs`: the issuer is
+The example configuration lives in [`programs/sdk/rust/src/lxt20.rs`](../../src/lxt20.rs): the issuer is
 `did:lxp:token-issuer`, the backing asset is `REFERENCE_ASSET`, the fixed supply is
 `REFERENCE_SUPPLY`, and each payment is bounded by `REFERENCE_CEILING`. Configure
 these source constants for another deployment and regenerate its interface.
@@ -35,6 +35,10 @@ account registration, initialization, approvals, transfers and queries are commi
 under `programs/fixtures/pay5/native-token`.
 
 ## Build
+
+The [package manifest](Cargo.toml) requires Rust 1.91.1 or newer and the
+`wasm32-unknown-unknown` target. Its release profile uses `opt-level = "z"`,
+LTO and one code-generation unit.
 
 ```sh
 cd programs/sdk/rust/examples/token-lxt20

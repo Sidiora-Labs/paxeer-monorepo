@@ -53,7 +53,10 @@ unauthenticated.
 Keep both API keys server-side. Tokens are opaque credentials bound to one feed
 or the `markets` or `explorer` scope, with a 300-second handshake lifetime. The
 SDK does not mint or renew them automatically. Do not log tokens or connection
-URLs containing them; Python WebSocket debug logging includes the connection URL.
+URLs containing them. The SDK redacts the `token` query parameter in WebSocket
+connection logs and recognized credential fields in connection-option logs.
+Received message bytes are logged at debug level; review message content and
+transport-library logging separately.
 
 Set `base_url` explicitly or use `SIDIORALABS_BASE_URL` to override the gateway.
 `websocket_base_url` overrides the stream base; otherwise HTTP becomes WS and
