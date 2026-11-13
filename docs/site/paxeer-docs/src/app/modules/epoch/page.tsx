@@ -15,7 +15,7 @@ export default function Epoch() {
       </div>
 
       <div className="source-note">
-        <strong>Source:</strong> <code>Paxeer-X-Network/modules/epoch/</code>
+        <strong>Source:</strong> <code>modules/epoch/</code>
       </div>
 
       <h2>Overview</h2>
@@ -31,16 +31,16 @@ export default function Epoch() {
       <h2>State</h2>
 
       <p>
-        The epoch module maintains a single state object:
+        The epoch module maintains a single epoch state object. Query it with the command below; the JSON illustrates default genesis values before initialization. Initialization replaces these default timestamps with consensus block time; a running chain returns its stored epoch:
       </p>
 
-      <pre><code>{`> paxd q epoch epoch --output json
+      <pre><code>{`paxd query epoch epoch --output json
 {
   "epoch": {
-    "genesis_time": "2023-04-27T19:08:11.958027Z",
+    "genesis_time": "1970-01-01T00:00:01Z",
     "epoch_duration": "60s",
     "current_epoch": "0",
-    "current_epoch_start_time": "2023-04-27T19:08:11.958027Z",
+    "current_epoch_start_time": "1970-01-01T00:00:01Z",
     "current_epoch_height": "0"
   }
 }`}</code></pre>
@@ -128,7 +128,7 @@ export default function Epoch() {
       <h2>Parameters</h2>
 
       <p>
-        The epoch module has no runtime parameters: <code>Params</code> is empty and validation rejects any non-empty value. The epoch duration lives in the epoch genesis state.
+        The epoch module has no runtime parameter fields: <code>Params</code> is empty. The epoch duration lives in the epoch genesis state.
       </p>
 
       <h2>Use Cases</h2>

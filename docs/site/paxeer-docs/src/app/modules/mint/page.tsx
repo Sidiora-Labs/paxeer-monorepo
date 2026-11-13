@@ -10,12 +10,12 @@ export default function Mint() {
       <div className="page-header">
         <h1 className="page-title">Mint Module</h1>
         <p className="page-description">
-          Scheduled native token release: a fixed amount minted daily through the epoch hook, under governance-controlled schedules.
+          Scheduled native token release through epoch hooks, with daily amounts derived from the remaining supply and governed release dates.
         </p>
       </div>
 
       <div className="source-note">
-        <strong>Source:</strong> <code>Paxeer-X-Network/modules/mint/</code>
+        <strong>Source:</strong> <code>modules/mint/</code>
       </div>
 
       <h2>Overview</h2>
@@ -47,14 +47,14 @@ export default function Mint() {
       <h3>Example</h3>
 
       <p>
-        If <code>total_mint_amount = 1,000,000</code> tokens and the period is 100 days:
+        For an illustrative schedule with <code>total_mint_amount = 1,000,000</code> base units and 100 days between the initial release date and the end date:
       </p>
 
       <ul>
-        <li>Initial daily mint: <code>1,000,000 / 100 = 10,000</code> tokens/day</li>
-        <li>After 50 days: <code>500,000 remaining / 50 days = 10,000</code> tokens/day (unchanged if no downtime)</li>
-        <li>If the chain was down for 1 day at day 50: <code>500,000 remaining / 49 days = 10,204</code> tokens/day (adjusted)</li>
-        <li>If the chain is still down past the end date, the first epoch end after recovery releases the entire remainder at once (rule 2)</li>
+        <li>Initial daily mint: <code>1,000,000 / 100 = 10,000</code> base units/day</li>
+        <li>After 50 days: <code>500,000 remaining / 50 days = 10,000</code> base units/day (unchanged if no downtime)</li>
+        <li>If a daily release is missed and the next evaluated epoch date is one day later: <code>500,000 remaining / 49 days = 10,204</code> base units/day (adjusted)</li>
+        <li>When the evaluated epoch start date reaches the end date, the hook releases the entire remainder (rule 2). Epochs advance at most once per block, so recovery follows the epoch schedule</li>
       </ul>
 
       <h2>State</h2>
@@ -119,11 +119,11 @@ type ScheduledTokenRelease struct {
       <h3>Update Minter Proposal</h3>
 
       <p>
-        The minter can be replaced via governance to change the mint schedule. The proposal is stored <em>verbatim</em> after validation (<code>HandleUpdateMinterProposal</code> calls <code>ValidateMinter</code> then <code>SetMinter</code>), so every field must be set explicitly. In particular:
+        The minter can be replaced via governance to change the mint schedule. The proposal is stored <em>verbatim</em> after validation (<code>HandleUpdateMinterProposal</code> calls <code>ValidateContent</code> then <code>SetMinter</code>), so every field must be set explicitly. In particular:
       </p>
 
       <ul>
-        <li><code>remaining_mint_amount</code> is not derived from <code>total_mint_amount</code>. Setting it to <code>0</code> means no ongoing release and no further mints</li>
+        <li><code>remaining_mint_amount</code> is not derived from <code>total_mint_amount</code>. Setting it to <code>0</code> ends that release; another eligible schedule can then supply a new minter</li>
         <li><code>last_mint_date</code> must be a parseable <code>yyyy-mm-dd</code> date; an empty string fails validation. A fresh minter uses <code>0001-01-01</code></li>
         <li><code>denom</code> must be <code>uhpx</code>, and <code>last_mint_amount</code> must not exceed <code>total_mint_amount - remaining_mint_amount</code></li>
       </ul>
@@ -144,26 +144,27 @@ type ScheduledTokenRelease struct {
 }`}</code></pre>
 
       <p>
-        Submit the proposal:
+        Save the example JSON as minter_prop.json and submit it with your network deposit and fee:
       </p>
 
       <pre><code>{`paxd tx gov submit-proposal update-minter ./minter_prop.json \\
-  --deposit 20pax --from admin -b block -y \\
-  --gas 200000 --fees 2000uhpx`}</code></pre>
+  --deposit <deposit-coin> --from <key-name> -b block -y \\
+  --gas 200000 --fees <fee-coin>`}</code></pre>
 
       <p>
-        After the proposal passes, <code>paxd q mint minter</code> returns exactly the stored minter above until the next daily release updates it.
+        The amounts above are base units of the configured denom. Choose a deposit, fee, and signing key for your network. After the proposal executes, <code>paxd q mint minter</code> returns the stored minter; subsequent epoch processing can update it.
       </p>
 
       <h3>Update Params Proposal</h3>
 
       <p>
-        Parameters can be updated to define new token release schedules:
+        Parameters can be updated to define new token release schedules. Save the example below as param_change_prop.json and set its deposit to the amount required by your network:
       </p>
 
       <pre><code>{`{
   "title": "Param Change Proposal",
   "description": "Update token release schedule",
+  "deposit": "20000000uhpx",
   "changes": [
     {
       "subspace": "mint",
@@ -194,7 +195,7 @@ type ScheduledTokenRelease struct {
       </p>
 
       <pre><code>{`paxd tx gov submit-proposal param-change ./param_change_prop.json \\
-  --from admin -b block -y --gas 200000 --fees 200000uhpx`}</code></pre>
+  --from <key-name> -b block -y --gas 200000 --fees <fee-coin>`}</code></pre>
 
       <div className="source-note">
         <strong>Note:</strong> Changes to <code>total_mint_amount</code> or <code>remaining_mint_amount</code> after the start date do not affect tokens already minted.
