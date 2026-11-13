@@ -50,7 +50,7 @@ guarded_role_hash = "0xe67f4b121cfa00710e9a74cd027b8d56f7ca67d14ebe357a8c080f8c2
 
 [qualification.gates]
 build_command = "go build ./precompiles/launchpad/... && go test -count=1 -run '^$' ./precompiles/launchpad/..."
-verify_command = "test -s precompiles/launchpad/repair_22_39_325.kvx && go test -count=1 -timeout 30m ./precompiles/launchpad/..."
+verify_command = "test -s spec/layerx-merge/programme/records/precompiles/launchpad/repair_22_39_325.kvx && go test -count=1 -timeout 30m ./precompiles/launchpad/..."
 wrapper_command = "cg spec done 22.39.325 -f layerx-merge --root /work/paxeer-monorepo"
 evidence = "Copy revision, command, exit and log from the final hf-done receipt; build and verification must qualify the unchanged candidate."
 scope = "Root gotcha/spec bookkeeping and publication belong to the runner; only precompiles/launchpad source records and tests are changed."

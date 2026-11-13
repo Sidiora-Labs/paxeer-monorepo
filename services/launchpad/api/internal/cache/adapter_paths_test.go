@@ -54,7 +54,7 @@ func TestAdapterServesAndInvalidatesDatabaseProjection(t *testing.T) {
 		t.Fatal("admission limit has no stable error")
 	}
 	for _, check := range []struct {
-		name string
+		name   string
 		change func(*AdapterConfig)
 	}{
 		{"namespace", func(c *AdapterConfig) { c.Namespace = "invalid namespace" }},

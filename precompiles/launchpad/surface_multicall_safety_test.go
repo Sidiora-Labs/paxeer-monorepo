@@ -17,7 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepair_36_NativeValueLoss(t *testing.T) {
+func TestSurfaceRejectsNativeValue(t *testing.T) {
 	s := newSurfaceHarness(t)
 	s.stateDB.AddBalance(s.alice, uint256.NewInt(1_000_000_000_000_000_000), tracing.BalanceChangeUnspecified)
 	s.stateDB.AddBalance(s.creator, uint256.NewInt(1_000_000_000_000_000_000), tracing.BalanceChangeUnspecified)
@@ -58,7 +58,7 @@ func TestRepair_36_NativeValueLoss(t *testing.T) {
 			check(t, pool, s.creator, s.encode(types.RolePool, "pause"))
 		})
 	}
-	role := repair36Grant(t, s, "repair 36 value role")
+	role := grantRouterSurfaceRole(t, s, "repair 36 value role")
 	t.Run("role write", func(t *testing.T) {
 		check(t, surfaceAt(types.RoleRouter), s.alice, s.encode(types.RoleRouter, "renounceRole", role, s.alice))
 	})
@@ -67,7 +67,7 @@ func TestRepair_36_NativeValueLoss(t *testing.T) {
 	})
 }
 
-func TestRepair_36_MulticallCumulativeGas(t *testing.T) {
+func TestMulticallCumulativeGas(t *testing.T) {
 	s := newSurfaceHarness(t)
 	view := s.encode(types.RoleRouter, "usdlAddress")
 	inner := s.encode(types.RoleRouter, "multicall", [][]byte{view, view})
@@ -88,7 +88,7 @@ func TestRepair_36_MulticallCumulativeGas(t *testing.T) {
 	require.Zero(t, left)
 }
 
-func repair36Grant(t *testing.T, s *surfaceHarness, label string) [32]byte {
+func grantRouterSurfaceRole(t *testing.T, s *surfaceHarness, label string) [32]byte {
 	t.Helper()
 	role := [32]byte(crypto.Keccak256Hash([]byte(label)))
 	granted, err := s.keeper.GovernanceGrant(s.ctx(), s.keeper.Authority(), surfaceAt(types.RoleRouter), role, s.alice)
@@ -97,10 +97,10 @@ func repair36Grant(t *testing.T, s *surfaceHarness, label string) [32]byte {
 	return role
 }
 
-func TestRepair_36_MulticallWriteGasRollback(t *testing.T) {
+func TestMulticallWriteGasRollback(t *testing.T) {
 	s := newSurfaceHarness(t)
-	roleA := repair36Grant(t, s, "repair 36 first role")
-	roleB := repair36Grant(t, s, "repair 36 second role")
+	roleA := grantRouterSurfaceRole(t, s, "repair 36 first role")
+	roleB := grantRouterSurfaceRole(t, s, "repair 36 second role")
 	a := s.encode(types.RoleRouter, "renounceRole", roleA, s.alice)
 	b := s.encode(types.RoleRouter, "renounceRole", roleB, s.alice)
 	input := s.encode(types.RoleRouter, "multicall", [][]byte{a, b})
@@ -127,9 +127,9 @@ func TestRepair_36_MulticallWriteGasRollback(t *testing.T) {
 	require.Len(t, s.stateDB.GetAllLogs(), logs+2)
 }
 
-func TestRepair_36_MulticallDepthRollback(t *testing.T) {
+func TestMulticallDepthRollback(t *testing.T) {
 	s := newSurfaceHarness(t)
-	role := repair36Grant(t, s, "repair 36 depth role")
+	role := grantRouterSurfaceRole(t, s, "repair 36 depth role")
 	revoke := s.encode(types.RoleRouter, "renounceRole", role, s.alice)
 	batch := s.method(types.RoleRouter, "multicall")
 	pack := func(entries ...[]byte) []byte {
