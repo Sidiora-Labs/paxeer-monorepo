@@ -204910,7 +204910,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.168]
 title = "Move the task records and name the files after what they hold in services/platform/hosted/human and 4 more directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -205072,7 +205072,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.151]
 title = "Move the task records and name the files after what they hold in services/interop and 5 more directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -205364,7 +205364,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.132]
 title = "Move the task records and name the files after what they hold in services/agent/crates/layerx-proof and 2 more directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
