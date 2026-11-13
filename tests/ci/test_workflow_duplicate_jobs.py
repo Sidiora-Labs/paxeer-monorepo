@@ -12,6 +12,8 @@ TOOLCHAIN_ACTION = "./.github/actions/release-toolchain"
 # Native archives are prerequisites of independent Go checks, rather than a lane.
 DUPLICATE_TARGET_ALLOWLIST = {
     ("Makefile", "paxd-native-libs"),
+    # Both workflows build the shared kernel archive before independent checks.
+    ("Makefile", "build/liblayerx.a"),
     # Like paxd-native-libs, this is a dependency install that the cross-arch
     # build and eth blocktests workflows both run before their own lanes.
     ("chain.mk", "install"),

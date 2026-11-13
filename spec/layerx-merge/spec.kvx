@@ -14026,6 +14026,36 @@ value = "The rule of decision 3484 holds for every page a reader meets first: th
 basis = "Gotcha 4398, decision 3484."
 affects = []
 
+[decision.3486]
+title = "Cases of the human workspace start their input from the tree or run where a variable names it"
+value = "A case that needs an attestor quorum starts the local quorum that the test support of the workspace already provides. A case that reads an input no target writes follows the rule of decisions 3421 and 3482: with the variable set it runs every assertion; without it it prints one line that names the variable and returns. No case gets an ignore attribute and no assertion changes for this reason. Where a test and the present source disagree on an interface, the side that agrees with the pages of the member and with the callers on main stands and the other side is brought to it. The paths of task 22.39.499 take in the lock file of the workspace."
+basis = "Gotcha 4399, decisions 3421 and 3482."
+affects = ["22.39.499"]
+
+[decision.3487]
+title = "A refusal case of the agent workspace and the source it reads agree"
+value = "A task that brings a workspace test target to pass runs the target by hand over every member to its end before the counted runs. Where a refusal case builds its input in a form that the present reader no longer takes as changed or malformed, the case is brought to the present form and keeps its assertion. Where the case is right about what must be refused, the case stands and the source is brought to it with the smallest change, and the record names the place."
+basis = "Gotcha 4400, decisions 3427 and 3486."
+affects = ["22.39.498"]
+
+[decision.3488]
+title = "Lines of the root lint run outside the paths of a task get a rule by exact path and linter"
+value = "A task that brings the root lint run to pass repairs the lines in files inside its paths. For a file outside its paths the configuration takes one rule by exact path and linter, in the form task 22.39.4 set, and the record of the task lists it as a wiring request for the owner of the file. No linter is switched off and no rule names a directory. The rules are removed by the tasks that repair the files."
+basis = "Gotcha 4401, decisions 3418 and 3479."
+affects = ["22.39.511"]
+
+[decision.3489]
+title = "Cases of the PaxAI participant member build their market by the present operations of the program"
+value = "The operations of the member layerx-programs-ai-market at the present revision stand. A case of the platform workspaces that creates a market, funds it, schedules or opens an epoch does so in the form the present program takes and keeps its assertions. Where a case shows that the program no longer refuses what its page says it refuses, the case stands, the task changes nothing there and names the place. The paths of task 22.39.504 take in the test directory of the PaxAI participant member, and the task runs the target by hand over every member first, as decision 3487 says."
+basis = "Gotchas 4400 and 4402, decisions 3486 and 3487."
+affects = ["22.39.504"]
+
+[decision.3490]
+title = "No page calls the network one BFT network whose kernel participates in proposal"
+value = "The rule of decisions 3484 and 3485 holds for every page of the repository. Where a page states the network in one sentence, the sentence says what the code shows: the LayerX kernel runs inside every paxd node, executes each transaction when it arrives, gives it the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it. Every other sentence of a page stays word for word. A test that read the old sentence reads the new one, and no assertion on another fact changes. The copies that the documentation site generates follow their pages."
+basis = "Gotcha 4403, decisions 3484 and 3485."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -43686,6 +43716,87 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.43.303]
+title = "Bring the pages of the documentation site to the kernel sentence"
+reqs = ["22998.1"]
+touches = ["docs/site/paxeer-docs/src/app", "docs/site/paxeer-docs/src/lib/seo-pages.json", "docs/site/paxeer-docs/public", "docs/site/paxeer-docs/.generated"]
+tests = []
+verification_contract = "test $(git grep -c -i -E 'one BFT network|participates in block (proposal|production)' -- docs/site/paxeer-docs/src/app docs/site/paxeer-docs/public/markdown docs/site/paxeer-docs/src/lib/seo-pages.json | wc -l) -eq 0 && git grep -q -F 'LayerX kernel' -- docs/site/paxeer-docs/src/app/unified-network/page.tsx && npm --prefix docs/site/paxeer-docs run build && test -s docs/site/paxeer-docs/out/index.html"
+do_1 = "do_1 Decision 3490, gotcha 4403. Read the code before writing, not the pages: in node/sequencer the files executor.go, accepter.go, receipt.go and seal.go; the function CreateProposalBlock in consensus/internal/state/execution.go; the function ProcessProposalHandler in node/app.go with node/process_proposal_order.go and node/process_proposal_proposer.go; rpc/sequencer_receipt.go. Then read the opening of README.md at the root, which says the same at full length. Read the landing page of the site as task 22.43.294 left it; the other pages say the same in the voice of the site."
+symbols = []
+
+[capability.22.43.302]
+title = "Bring the pages of the node, the modules, the RPC and the storage to the kernel sentence"
+reqs = ["22998.1"]
+touches = ["node/README.md", "daemon/README.md", "modules/README.md", "modules/evm/AGENTS.md", "modules/layerxanchor/README.md", "modules/oracle/README.md", "modules/xweb/ATTESTATION.md", "rpc/README.md", "rpc/AGENTS.md", "storage/README.md", "storage/db_engine/litt/README.md", "precompiles/layerxverify/README.md", "programs/porting/solana/MIGRATION.md", ".codify/agent-context.md"]
+tests = []
+verification_contract = "test $(git grep -c -i -E 'one BFT network|participates in block (proposal|production)' -- node/README.md daemon/README.md modules/README.md modules/evm/AGENTS.md modules/layerxanchor/README.md modules/oracle/README.md modules/xweb/ATTESTATION.md rpc/README.md rpc/AGENTS.md storage/README.md storage/db_engine/litt/README.md precompiles/layerxverify/README.md programs/porting/solana/MIGRATION.md .codify/agent-context.md | wc -l) -eq 0 && git grep -q -F 'LayerX kernel' -- node/README.md"
+do_1 = "do_1 Decision 3490, gotcha 4403. Read the code before writing, not the pages: in node/sequencer the files executor.go, accepter.go, receipt.go and seal.go; the function CreateProposalBlock in consensus/internal/state/execution.go; the function ProcessProposalHandler in node/app.go with node/process_proposal_order.go and node/process_proposal_proposer.go; rpc/sequencer_receipt.go. Then read the opening of README.md at the root, which says the same at full length."
+symbols = []
+
+[capability.22.43.301]
+title = "Bring the pages of the kits and the applications to the kernel sentence"
+reqs = ["22998.1"]
+touches = ["sdk/README.md", "sdk/chainflow", "sdk/js/README.md", "sdk/launchpad/packages/sdk/README.md", "sdk/platform/README.md", "sdk/wallet/README.md", "apps/bridge/README.md", "apps/explorer/README.md", "apps/launchpad/README.md", "apps/launchpad/mobile/ARCHITECTURE.md", "apps/perps/README.md"]
+tests = []
+verification_contract = "test $(git grep -c -i -E 'one BFT network|participates in block (proposal|production)' -- sdk/README.md sdk/chainflow sdk/js/README.md sdk/launchpad/packages/sdk/README.md sdk/platform/README.md sdk/wallet/README.md apps/bridge/README.md apps/explorer/README.md apps/launchpad/README.md apps/launchpad/mobile/ARCHITECTURE.md apps/perps/README.md | wc -l) -eq 0 && git grep -q -F 'LayerX kernel' -- sdk/README.md"
+do_1 = "do_1 Decision 3490, gotcha 4403. Read the code before writing, not the pages: in node/sequencer the files executor.go, accepter.go, receipt.go and seal.go; the function CreateProposalBlock in consensus/internal/state/execution.go; the function ProcessProposalHandler in node/app.go with node/process_proposal_order.go and node/process_proposal_proposer.go; rpc/sequencer_receipt.go. Then read the opening of README.md at the root, which says the same at full length."
+symbols = []
+
+[capability.22.43.300]
+title = "Bring the pages of the services, the deployment files, the tools and the test directories to the kernel sentence"
+reqs = ["22998.1"]
+touches = ["services/explorer", "services/wallet", "services/human", "services/interop", "services/launchpad", "services/platform", "deploy/launchpad", "tools/paxeer-x", "tools/launchpad/production/integration/README.md", "tools/loadtest/README.md", "tools/README.md", "tests/integration", "tests/README.md", "migrations/README.md"]
+tests = []
+verification_contract = "test $(git grep -c -i -E 'one BFT network|participates in block (proposal|production)' -- services/explorer services/wallet services/human services/interop services/launchpad services/platform deploy/launchpad tools/paxeer-x tools/launchpad/production/integration/README.md tools/loadtest/README.md tools/README.md tests/integration tests/README.md migrations/README.md | wc -l) -eq 0 && git grep -q -F 'LayerX kernel' -- services/interop"
+do_1 = "do_1 Decision 3490, gotcha 4403. Read the code before writing, not the pages: in node/sequencer the files executor.go, accepter.go, receipt.go and seal.go; the function CreateProposalBlock in consensus/internal/state/execution.go; the function ProcessProposalHandler in node/app.go with node/process_proposal_order.go and node/process_proposal_proposer.go; rpc/sequencer_receipt.go. Then read the opening of README.md at the root, which says the same at full length."
+symbols = []
+
+[capability.22.43.299]
+title = "Bring the system, release, platform and remaining documentation pages to the kernel sentence"
+reqs = ["22998.1"]
+touches = ["docs/system", "docs/release", "docs/platform", "docs/runbooks/paxeer-x-fork.md", "docs/perps/data-api.md", "docs/explorer/RELEASE_NOTES.md", "docs/interop/PORTABILITY.md", "docs/paxeer-chain-docs.md", "docs/QUALIFICATION.md"]
+tests = []
+verification_contract = "test $(git grep -c -i -E 'one BFT network|participates in block (proposal|production)' -- docs/system docs/release docs/platform docs/runbooks/paxeer-x-fork.md docs/perps/data-api.md docs/explorer/RELEASE_NOTES.md docs/interop/PORTABILITY.md docs/paxeer-chain-docs.md docs/QUALIFICATION.md | wc -l) -eq 0 && git grep -q -F 'LayerX kernel' -- docs/system"
+do_1 = "do_1 Decision 3490, gotcha 4403. Read the code before writing, not the pages: in node/sequencer the files executor.go, accepter.go, receipt.go and seal.go; the function CreateProposalBlock in consensus/internal/state/execution.go; the function ProcessProposalHandler in node/app.go with node/process_proposal_order.go and node/process_proposal_proposer.go; rpc/sequencer_receipt.go. Then read the opening of README.md at the root, which says the same at full length."
+symbols = []
+
+[capability.22.43.298]
+title = "Bring the contract pages to the kernel sentence"
+reqs = ["22998.1"]
+touches = ["contracts"]
+tests = []
+verification_contract = "test $(git grep -c -i -E 'one BFT network|participates in block (proposal|production)' -- contracts | wc -l) -eq 0 && git grep -q -F 'LayerX kernel' -- contracts"
+do_1 = "do_1 Decision 3490, gotcha 4403. Read the code before writing, not the pages: in node/sequencer the files executor.go, accepter.go, receipt.go and seal.go; the function CreateProposalBlock in consensus/internal/state/execution.go; the function ProcessProposalHandler in node/app.go with node/process_proposal_order.go and node/process_proposal_proposer.go; rpc/sequencer_receipt.go. Then read the opening of README.md at the root, which says the same at full length."
+symbols = []
+
+[capability.22.43.297]
+title = "Bring the wiki pages to the kernel sentence"
+reqs = ["22998.1"]
+touches = ["docs/wiki"]
+tests = []
+verification_contract = "test $(git grep -c -i -E 'one BFT network|participates in block (proposal|production)' -- docs/wiki | wc -l) -eq 0 && git grep -q -F 'LayerX kernel' -- docs/wiki"
+do_1 = "do_1 Decision 3490, gotcha 4403. Read the code before writing, not the pages: in node/sequencer the files executor.go, accepter.go, receipt.go and seal.go; the function CreateProposalBlock in consensus/internal/state/execution.go; the function ProcessProposalHandler in node/app.go with node/process_proposal_order.go and node/process_proposal_proposer.go; rpc/sequencer_receipt.go. Then read the opening of README.md at the root, which says the same at full length."
+symbols = []
+
+[capability.22.43.296]
+title = "Bring the pages of upstream specification to the kernel sentence"
+reqs = ["22998.1"]
+touches = ["consensus/spec", "sdk/x", "interchain/modules/apps/transfer/spec/01_concepts.md"]
+tests = []
+verification_contract = "test $(git grep -c -i -E 'one BFT network|participates in block (proposal|production)' -- consensus/spec sdk/x interchain/modules/apps/transfer/spec/01_concepts.md | wc -l) -eq 0 && git grep -q -F 'LayerX kernel' -- consensus/spec"
+do_1 = "do_1 Decision 3490, gotcha 4403. Read the code before writing, not the pages: in node/sequencer the files executor.go, accepter.go, receipt.go and seal.go; the function CreateProposalBlock in consensus/internal/state/execution.go; the function ProcessProposalHandler in node/app.go with node/process_proposal_order.go and node/process_proposal_proposer.go; rpc/sequencer_receipt.go. Then read the opening of README.md at the root, which says the same at full length."
+symbols = []
+
+[capability.22.43.295]
+title = "Bring the network page, the overview page and the page of the programs to the kernel sentence, with the tests that read them"
+reqs = ["22998.1"]
+touches = ["docs/readme/NETWORK.md", "docs/paxeer-network.md", "programs/README.md", "tests/ci/test_docs_readme_current_pages.py", "tools/qualification/audit_repairs"]
+tests = []
+verification_contract = "python3 -m pytest -q -m 'not native' tests/ci/test_docs_readme_current_pages.py tools/qualification/audit_repairs/test_program_packaging_and_chain_proof_guidance.py tools/qualification/audit_repairs/test_programs_readme_retired_adapter.py tools/qualification/audit_repairs/test_readme_binding_and_funding_contract.py tools/qualification/audit_repairs/test_readme_execution_domains.py tools/qualification/audit_repairs/test_readme_integrated_node_contract.py tools/qualification/audit_repairs/test_readme_kernel_lifecycle_contracts.py tools/qualification/audit_repairs/test_readme_network_commit_coverage.py tools/qualification/audit_repairs/test_readme_network_receipt_finality.py tools/qualification/audit_repairs/test_readme_retired_daemon.py tools/qualification/audit_repairs/test_readme_retired_network.py tools/qualification/audit_repairs/test_readme_retired_runtime.py tools/qualification/audit_repairs/test_root_readme_programs_precompile.py && test $(git grep -c -i -E 'one BFT network|participates in block (proposal|production)' -- docs/readme/NETWORK.md docs/paxeer-network.md programs/README.md tests/ci/test_docs_readme_current_pages.py tools/qualification/audit_repairs | wc -l) -eq 0 && git grep -q -F 'LayerX kernel' -- docs/readme/NETWORK.md && git grep -q -F 'LayerX kernel' -- docs/paxeer-network.md"
+do_1 = "do_1 Decision 3490, gotcha 4403. Read the code before writing, not the pages: in node/sequencer the files executor.go, accepter.go, receipt.go and seal.go; the function CreateProposalBlock in consensus/internal/state/execution.go; the function ProcessProposalHandler in node/app.go with node/process_proposal_order.go and node/process_proposal_proposer.go; rpc/sequencer_receipt.go. Then read the opening of README.md at the root, which says the same at full length."
+symbols = []
 
 [capability.22.43.294]
 title = "Lead the landing page of the documentation site with the kernel"
@@ -170470,9 +170581,40 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.43.303]
+title = "Bring the pages of the documentation site to the kernel sentence"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.43.294"]
+reqs = ["22998.1"]
+capabilities = ["22.43.303"]
+interfaces = []
+do_1 = "do_1 Decision 3490, gotcha 4403. Read the code before writing, not the pages: in node/sequencer the files executor.go, accepter.go, receipt.go and seal.go; the function CreateProposalBlock in consensus/internal/state/execution.go; the function ProcessProposalHandler in node/app.go with node/process_proposal_order.go and node/process_proposal_proposer.go; rpc/sequencer_receipt.go. Then read the opening of README.md at the root, which says the same at full length. Read the landing page of the site as task 22.43.294 left it; the other pages say the same in the voice of the site."
+do_2 = "do_2 Under docs/site/paxeer-docs/src/app change the text and nothing of the layout, the components, the links or the class names. On every page other than the landing page find the clause that calls the network one BFT network and the clause that says the kernel participates in block proposal or block production; the pages finality, network-operations, network-parameters, public-rpc, security, paxeer-vs-layerx, unified-network, xdk, guarantors and operators hold them, and git grep with the option for any case finds any other. A page that opens with the consensus family opens with the kernel instead: the LayerX kernel runs inside every paxd node, executes each transaction when it arrives, gives it the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it. In the body of a page one sentence is enough: The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it. The description of a page in its metadata follows its new opening. Keep the chain identifier, the token, what a page says on the finality of a receipt and every other sentence word for word."
+do_3 = "do_3 The site keeps generated copies of the page text. Run npm run prepare:docs in docs/site/paxeer-docs after the change and commit what it writes under src/lib, public and .generated, and nothing that only reorders. Read the diff of the generated files: only entries of the changed pages change."
+do_4 = "do_4 State nothing that the code read under do_1 does not show, no figure of speed or volume and no comparison with other networks. Before changing a sentence search tests/ci and tools/qualification for it; a test that reads one of the two clauses on a page of the site is named in the final message with its file and line. Change no file outside the paths of this task. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docs/site/paxeer-docs/src/app", "docs/site/paxeer-docs/src/lib/seo-pages.json", "docs/site/paxeer-docs/public", "docs/site/paxeer-docs/.generated"]
+tests = []
+planned_paths = []
+build_cmd = "npm ci --prefix docs/site/paxeer-docs"
+verify_cmd = "test $(git grep -c -i -E 'one BFT network|participates in block (proposal|production)' -- docs/site/paxeer-docs/src/app docs/site/paxeer-docs/public/markdown docs/site/paxeer-docs/src/lib/seo-pages.json | wc -l) -eq 0 && git grep -q -F 'LayerX kernel' -- docs/site/paxeer-docs/src/app/unified-network/page.tsx && npm --prefix docs/site/paxeer-docs run build && test -s docs/site/paxeer-docs/out/index.html"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.43.294]
 title = "Lead the landing page of the documentation site with the kernel"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.43.292"]
@@ -195379,7 +195521,7 @@ interfaces = []
 do_1 = "do_1 Gotcha 4337, decision 3418. The command make human-test passes. The program read refusal case of services/platform/hosted/human/test_repair_22_33_1402.py asserts the form in which the web client refuses at the present revision, a rejected promise, and keeps asserting that the refusal happens before any request leaves. The producer path case and the two account head cases of services/human/crates/layerx-human-identity-provider/tests pass against the recording that the producer writes at the present revision: where a recorded digest is derived from producer output, the recording is produced again by its own generator and never edited by hand, and the configuration that the account head cases give the identity provider is the one the provider accepts. No case is removed or ignored."
 do_2 = "do_2 Record in services/human/crates/layerx-human-identity-provider/repair_22_39_499.kvx the rule, the changed files and the command. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["services/platform/hosted/human", "services/human/crates"]
+touches = ["services/platform/hosted/human", "services/human/crates", "services/human/Cargo.lock"]
 tests = []
 planned_paths = ["services/human/crates/layerx-human-identity-provider/repair_22_39_499.kvx"]
 build_cmd = "python3 -m pip install -q -r tests/bridge/requirements.txt pytest PyYAML && go mod download && make -s human-build"
@@ -195397,6 +195539,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "do_3 Decision 3431, gotcha 4349. In the identity entry file of src/server of the member layerx-human-service let the check of the number of answer fields admit each of the operations 0 to 4 with the number of fields that the provider writes for it, and keep the refusal of every other operation and number. Change nothing else under that directory. The client cases of services/human/crates/layerx-human-identity-provider/tests keep their assertions. Add the changed file to the record. Run the build once and the verification once at the final revision."
 do_4 = "do_4 Decision 3452, gotcha 4368. The build command now runs go mod download before the build target, so that the node build of the verification finds every module in the module cache. The change of the page of the member stays as it is. Run the build once and the verification once at the final revision."
+do_5 = "do_5 Decision 3486, gotcha 4399. The paths of this task now take in services/human/Cargo.lock, so a test dependency between members of the workspace can be recorded there; add no package from outside the workspace and change no version. A case that needs an attestor quorum starts the local quorum of the test support of the member layerx-human-kms. A case that reads an input named by a variable which no target of the Makefile writes, an assertion file or a chain snapshot document among them, runs every assertion where the variable is set and prints one line that names the variable and returns where it is not. No case gets an ignore attribute and no assertion changes for this reason. Where a test and the present source disagree on an interface, read the page of the member and the callers on main: the side that agrees with them stands, and the other side is brought to it with the smallest change; name each such place in the record. Every test binary of the workspace runs to its result. Run the test target by hand over every member to its end, with the option of cargo that does not stop at the first failing member, before the counted runs. Add the rule to the record. Run the build once and the verification once at the final revision."
 
 [task.22.39.405]
 title = "Keep the terminal vectors of the program ABI in line with the receipt fixture they are taken from"
@@ -206386,7 +206529,7 @@ interfaces = []
 do_1 = "do_1 Gotcha 4337, decision 3418. The command make platform-test passes. The event count cases of services/platform/hosted/indexer/src/abi.rs assert the events that the loader reads from the interface files at the present revision, by name and by count, so that an event added to an interface is stated in the case. The drift cases of sdk/platform/generators/tests/drift.rs build their comparison tree with every generated file that the generators write, including the mirror file of the TypeScript SDK of the agent, and compare it with the committed output; where the committed output differs from the generator, it is produced again by the generator. No case is removed or ignored."
 do_2 = "do_2 Record in services/platform/hosted/indexer/repair_22_39_504.kvx the rule, the changed files and the command. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["services/platform/hosted/indexer/src", "services/platform/hosted/indexer/tests", "sdk/platform", "services/agent/sdk/typescript/src/generated", "apps/web/src/api/generated", "services/platform/Makefile.inc", "precompiles/layerxpay"]
+touches = ["services/platform/hosted/indexer/src", "services/platform/hosted/indexer/tests", "sdk/platform", "services/agent/sdk/typescript/src/generated", "apps/web/src/api/generated", "services/platform/Makefile.inc", "precompiles/layerxpay", "services/platform/hosted/paxai-worker/tests"]
 tests = []
 planned_paths = ["services/platform/hosted/indexer/repair_22_39_504.kvx"]
 build_cmd = "make -s platform-build"
@@ -206404,6 +206547,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "do_3 Decision 3429, gotcha 4347. Run make platform-sdk-generate and keep the generated files and sdk/platform/pipeline.kvx as the generators write them. In services/platform/Makefile.inc let the test recipe build the native archives that the Go producers of services/platform/hosted/indexer/tests/history_position.rs link, before the cases run. The cases of that file keep their assertions. Add the changed files to the record. Run the build once and the verification once at the final revision."
 do_4 = "do_4 Decision 3475, gotcha 4388. Read the revocation in src/modules/budget/lx_budget_close.c and the case of modules/layerxpay/keeper/budget_revoke_precompile_test.go: the kernel revokes a budget whose period holds no spend and returns its unused funds. In precompiles/layerxpay/proof_layerxpay_0x101b_test.go the step that expects a refusal of the revocation by the owner before any spend follows that rule: remove the step or turn it into an assertion of the present rule on a budget of its own, and let the comment at the site say what the kernel does. Keep the refusal for the wrong signer, the spend, the funding, the revocation with its event and the recorded blocks, so that the history case of the indexer reads the same sequence of blocks. Change no other file under precompiles/layerxpay and no product code. Where another producer of the history case stops for a like reason, name the file and the line in the final message and leave the file as it is."
+do_5 = "do_5 Decision 3489, gotcha 4402. The paths of this task now take in the test directory of the PaxAI participant member under services/platform/hosted. Run the test line of the target platform-test by hand over every member to its end, with the option of cargo that does not stop at the first member, before the counted runs. The cases of tests/job_admission.rs of that member build their market by the operations of the member layerx-programs-ai-market: read the present operations and bring the steps of the cases that create, fund, schedule and open to the form the program takes now. Every assertion of the cases stays and no case gets an ignore attribute. Where a case shows that the program no longer refuses what its page says it refuses, change nothing there and name the place in the record. Any other case the hand run names is handled the same way where its file lies inside the paths, and is named in the record where it does not. Add the rule to the record. Run the build once and the verification once at the final revision."
 
 [task.22.39.503]
 title = "Bring the lint target of the platform workspaces in line"
@@ -206524,6 +206668,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "do_3 Decision 3427, gotcha 4345. The command make agent-test passes over every member under services/agent/crates. The export cases of services/agent/crates/layerx-agentd/tests/audit_export.rs build their rows with the transaction hash, the nonce and the rung that the reader requires, and keep their assertions. Change test sources and test support files only, beyond the changes of do_1. Add the changed files to the record. Run the build once and the verification once at the final revision."
+do_4 = "do_4 Decision 3487, gotcha 4400. Run the test target by hand over every member under services/agent/crates to its end, with the option of cargo that does not stop at the first member, in the target directory and with the profile that make agent-test uses, before the counted runs. Bring every case the hand run names to pass under the items above. For a refusal case of the member layerx-agentd, read each input of the case against the present reader. Where the case builds an input in a form the present reader no longer takes as changed or malformed, bring the case to the present form and keep its assertion. Where the case is right about what must be refused, the case stands: bring the source to it with the smallest change, which this item allows beyond the limit of do_3, and name the place in the record. No case gets an ignore attribute and no assertion is removed. Add the rule to the record. Run the build once and the verification once at the final revision."
 
 [task.22.39.497]
 title = "Bring the lint target of the agent workspace in line"
@@ -328016,6 +328161,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "do_3 Decision 3449, gotcha 4365. The paths of this task now hold contracts/src/xweb/examples/ApiConsumer.sol and contracts/test/XWebConsumer.t.sol. Format both with forge fmt under the configuration foundry.paxeer.toml and change nothing else in them, so that the format check of the target paxeer-manifest-lint passes; the contract build and the contract tests stay as they are. Where the format check names a further contract file, name it in the final message. Run the build once and the verification once at the final revision."
 do_4 = "do_4 Decision 3479, gotcha 4392. The paths of this task now hold services/human/crates/layerx-human-security-provider/tests/support/recording. Give recovery.go of that directory a build constraint with a tag of its own as its first line, and let record.py pass that tag to the go run command beside the overlay option. Change no other line of recovery.go and nothing in the recorded transcript. Check that go vet and go build over the whole root module no longer load the directory, and that go vet with the tag and the overlay of record.py still type-checks the file inside daemon/committed-fixture. An exclusion of the lint configuration for that directory is not needed after this; keep the configuration to what the other directories need. Record the rule in the repair file of do_2."
+do_5 = "do_5 Decision 3488, gotcha 4401. With the constraint of do_4 in place the lint run of the root reads every Go package. Run it by hand with the limits on reported lines switched off and take the full list. A line in a file inside the paths of this task is repaired in the file. For a file outside the paths the configuration .golangci.yml takes one rule by exact path and linter, in the form the file already holds for task 22.39.4, with a comment that names the record of this task, and the record lists each such path and linter as a wiring request for the owner of the file. No linter is switched off, no rule names a directory and no rule covers a file inside the paths. Then run the format check, the vet run and the module check of the recipe by hand to their end before the counted runs. Add the rule to the record. Run the build once and the verification once at the final revision."
 
 [task.22.39.496]
 title = "Admit a call of another principal within the standing occupancy responsibility of the program owner"
@@ -373909,9 +374055,250 @@ do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its t
 do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible): the three programme tests pass and the closure gate exits 1 only because 29 issue tasks are not done; the task now requires every one of them and is re-qualified without change when the last publishes."
 do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; it now requires every open issue task, so it is launched only when all of them are done and its verify can pass. Keep the superseded-task handling and the three regression cases of attempt 2."
 
+[task.22.43.302]
+title = "Bring the pages of the node, the modules, the RPC and the storage to the kernel sentence"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.43.302"]
+interfaces = []
+do_1 = "do_1 Decision 3490, gotcha 4403. Read the code before writing, not the pages: in node/sequencer the files executor.go, accepter.go, receipt.go and seal.go; the function CreateProposalBlock in consensus/internal/state/execution.go; the function ProcessProposalHandler in node/app.go with node/process_proposal_order.go and node/process_proposal_proposer.go; rpc/sequencer_receipt.go. Then read the opening of README.md at the root, which says the same at full length."
+do_2 = "do_2 In every page under the paths of this task find the clause that calls the network one BFT network and the clause that says the kernel participates in block proposal or block production; git grep with the option for any case finds them. Replace the two clauses with what the code shows, in the fewest words that fit the page: the LayerX kernel runs inside every paxd node, executes each transaction when it arrives, gives it the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it. Where the page gave the clauses one line, one sentence is enough: The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it. Keep the chain identifier, the token, what the page says on the finality of a receipt and every other sentence of the page word for word."
+do_3 = "do_3 State nothing that the code read under do_1 does not show, no figure of speed or volume and no comparison with other networks. Change no code, no link, no table and no heading. Before changing a sentence search tests/ci and tools/qualification for it; a test that reads one of the two clauses on a page of this task is named in the final message with its file and line. Change no file outside the paths of this task. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["node/README.md", "daemon/README.md", "modules/README.md", "modules/evm/AGENTS.md", "modules/layerxanchor/README.md", "modules/oracle/README.md", "modules/xweb/ATTESTATION.md", "rpc/README.md", "rpc/AGENTS.md", "storage/README.md", "storage/db_engine/litt/README.md", "precompiles/layerxverify/README.md", "programs/porting/solana/MIGRATION.md", ".codify/agent-context.md"]
+tests = []
+planned_paths = []
+build_cmd = "test -s README.md"
+verify_cmd = "test $(git grep -c -i -E 'one BFT network|participates in block (proposal|production)' -- node/README.md daemon/README.md modules/README.md modules/evm/AGENTS.md modules/layerxanchor/README.md modules/oracle/README.md modules/xweb/ATTESTATION.md rpc/README.md rpc/AGENTS.md storage/README.md storage/db_engine/litt/README.md precompiles/layerxverify/README.md programs/porting/solana/MIGRATION.md .codify/agent-context.md | wc -l) -eq 0 && git grep -q -F 'LayerX kernel' -- node/README.md"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.43.301]
+title = "Bring the pages of the kits and the applications to the kernel sentence"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.43.301"]
+interfaces = []
+do_1 = "do_1 Decision 3490, gotcha 4403. Read the code before writing, not the pages: in node/sequencer the files executor.go, accepter.go, receipt.go and seal.go; the function CreateProposalBlock in consensus/internal/state/execution.go; the function ProcessProposalHandler in node/app.go with node/process_proposal_order.go and node/process_proposal_proposer.go; rpc/sequencer_receipt.go. Then read the opening of README.md at the root, which says the same at full length."
+do_2 = "do_2 In every page under the paths of this task find the clause that calls the network one BFT network and the clause that says the kernel participates in block proposal or block production; git grep with the option for any case finds them. Replace the two clauses with what the code shows, in the fewest words that fit the page: the LayerX kernel runs inside every paxd node, executes each transaction when it arrives, gives it the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it. Where the page gave the clauses one line, one sentence is enough: The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it. Keep the chain identifier, the token, what the page says on the finality of a receipt and every other sentence of the page word for word. Only pages of text change under these paths."
+do_3 = "do_3 State nothing that the code read under do_1 does not show, no figure of speed or volume and no comparison with other networks. Change no code, no link, no table and no heading. Before changing a sentence search tests/ci and tools/qualification for it; a test that reads one of the two clauses on a page of this task is named in the final message with its file and line. Change no file outside the paths of this task. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["sdk/README.md", "sdk/chainflow", "sdk/js/README.md", "sdk/launchpad/packages/sdk/README.md", "sdk/platform/README.md", "sdk/wallet/README.md", "apps/bridge/README.md", "apps/explorer/README.md", "apps/launchpad/README.md", "apps/launchpad/mobile/ARCHITECTURE.md", "apps/perps/README.md"]
+tests = []
+planned_paths = []
+build_cmd = "test -s README.md"
+verify_cmd = "test $(git grep -c -i -E 'one BFT network|participates in block (proposal|production)' -- sdk/README.md sdk/chainflow sdk/js/README.md sdk/launchpad/packages/sdk/README.md sdk/platform/README.md sdk/wallet/README.md apps/bridge/README.md apps/explorer/README.md apps/launchpad/README.md apps/launchpad/mobile/ARCHITECTURE.md apps/perps/README.md | wc -l) -eq 0 && git grep -q -F 'LayerX kernel' -- sdk/README.md"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.43.300]
+title = "Bring the pages of the services, the deployment files, the tools and the test directories to the kernel sentence"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.43.300"]
+interfaces = []
+do_1 = "do_1 Decision 3490, gotcha 4403. Read the code before writing, not the pages: in node/sequencer the files executor.go, accepter.go, receipt.go and seal.go; the function CreateProposalBlock in consensus/internal/state/execution.go; the function ProcessProposalHandler in node/app.go with node/process_proposal_order.go and node/process_proposal_proposer.go; rpc/sequencer_receipt.go. Then read the opening of README.md at the root, which says the same at full length."
+do_2 = "do_2 In every page under the paths of this task find the clause that calls the network one BFT network and the clause that says the kernel participates in block proposal or block production; git grep with the option for any case finds them. Replace the two clauses with what the code shows, in the fewest words that fit the page: the LayerX kernel runs inside every paxd node, executes each transaction when it arrives, gives it the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it. Where the page gave the clauses one line, one sentence is enough: The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it. Keep the chain identifier, the token, what the page says on the finality of a receipt and every other sentence of the page word for word. Only pages of text change under these paths; no source, no manifest and no template."
+do_3 = "do_3 State nothing that the code read under do_1 does not show, no figure of speed or volume and no comparison with other networks. Change no code, no link, no table and no heading. Before changing a sentence search tests/ci and tools/qualification for it; a test that reads one of the two clauses on a page of this task is named in the final message with its file and line. Change no file outside the paths of this task. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/explorer", "services/wallet", "services/human", "services/interop", "services/launchpad", "services/platform", "deploy/launchpad", "tools/paxeer-x", "tools/launchpad/production/integration/README.md", "tools/loadtest/README.md", "tools/README.md", "tests/integration", "tests/README.md", "migrations/README.md"]
+tests = []
+planned_paths = []
+build_cmd = "test -s README.md"
+verify_cmd = "test $(git grep -c -i -E 'one BFT network|participates in block (proposal|production)' -- services/explorer services/wallet services/human services/interop services/launchpad services/platform deploy/launchpad tools/paxeer-x tools/launchpad/production/integration/README.md tools/loadtest/README.md tools/README.md tests/integration tests/README.md migrations/README.md | wc -l) -eq 0 && git grep -q -F 'LayerX kernel' -- services/interop"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.43.299]
+title = "Bring the system, release, platform and remaining documentation pages to the kernel sentence"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.43.299"]
+interfaces = []
+do_1 = "do_1 Decision 3490, gotcha 4403. Read the code before writing, not the pages: in node/sequencer the files executor.go, accepter.go, receipt.go and seal.go; the function CreateProposalBlock in consensus/internal/state/execution.go; the function ProcessProposalHandler in node/app.go with node/process_proposal_order.go and node/process_proposal_proposer.go; rpc/sequencer_receipt.go. Then read the opening of README.md at the root, which says the same at full length."
+do_2 = "do_2 In every page under the paths of this task find the clause that calls the network one BFT network and the clause that says the kernel participates in block proposal or block production; git grep with the option for any case finds them. Replace the two clauses with what the code shows, in the fewest words that fit the page: the LayerX kernel runs inside every paxd node, executes each transaction when it arrives, gives it the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it. Where the page gave the clauses one line, one sentence is enough: The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it. Keep the chain identifier, the token, what the page says on the finality of a receipt and every other sentence of the page word for word. In docs/release the variable values, the step lists and the tables stay exactly as they are."
+do_3 = "do_3 State nothing that the code read under do_1 does not show, no figure of speed or volume and no comparison with other networks. Change no code, no link, no table and no heading. Before changing a sentence search tests/ci and tools/qualification for it; a test that reads one of the two clauses on a page of this task is named in the final message with its file and line. Change no file outside the paths of this task. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docs/system", "docs/release", "docs/platform", "docs/runbooks/paxeer-x-fork.md", "docs/perps/data-api.md", "docs/explorer/RELEASE_NOTES.md", "docs/interop/PORTABILITY.md", "docs/paxeer-chain-docs.md", "docs/QUALIFICATION.md"]
+tests = []
+planned_paths = []
+build_cmd = "test -s README.md"
+verify_cmd = "test $(git grep -c -i -E 'one BFT network|participates in block (proposal|production)' -- docs/system docs/release docs/platform docs/runbooks/paxeer-x-fork.md docs/perps/data-api.md docs/explorer/RELEASE_NOTES.md docs/interop/PORTABILITY.md docs/paxeer-chain-docs.md docs/QUALIFICATION.md | wc -l) -eq 0 && git grep -q -F 'LayerX kernel' -- docs/system"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.43.298]
+title = "Bring the contract pages to the kernel sentence"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.43.298"]
+interfaces = []
+do_1 = "do_1 Decision 3490, gotcha 4403. Read the code before writing, not the pages: in node/sequencer the files executor.go, accepter.go, receipt.go and seal.go; the function CreateProposalBlock in consensus/internal/state/execution.go; the function ProcessProposalHandler in node/app.go with node/process_proposal_order.go and node/process_proposal_proposer.go; rpc/sequencer_receipt.go. Then read the opening of README.md at the root, which says the same at full length."
+do_2 = "do_2 In every page under the paths of this task find the clause that calls the network one BFT network and the clause that says the kernel participates in block proposal or block production; git grep with the option for any case finds them. Replace the two clauses with what the code shows, in the fewest words that fit the page: the LayerX kernel runs inside every paxd node, executes each transaction when it arrives, gives it the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it. Where the page gave the clauses one line, one sentence is enough: The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it. Keep the chain identifier, the token, what the page says on the finality of a receipt and every other sentence of the page word for word. Only pages of text change; no Solidity source, no interface file and no script."
+do_3 = "do_3 State nothing that the code read under do_1 does not show, no figure of speed or volume and no comparison with other networks. Change no code, no link, no table and no heading. Before changing a sentence search tests/ci and tools/qualification for it; a test that reads one of the two clauses on a page of this task is named in the final message with its file and line. Change no file outside the paths of this task. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["contracts"]
+tests = []
+planned_paths = []
+build_cmd = "test -s README.md"
+verify_cmd = "test $(git grep -c -i -E 'one BFT network|participates in block (proposal|production)' -- contracts | wc -l) -eq 0 && git grep -q -F 'LayerX kernel' -- contracts"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.43.297]
+title = "Bring the wiki pages to the kernel sentence"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.43.297"]
+interfaces = []
+do_1 = "do_1 Decision 3490, gotcha 4403. Read the code before writing, not the pages: in node/sequencer the files executor.go, accepter.go, receipt.go and seal.go; the function CreateProposalBlock in consensus/internal/state/execution.go; the function ProcessProposalHandler in node/app.go with node/process_proposal_order.go and node/process_proposal_proposer.go; rpc/sequencer_receipt.go. Then read the opening of README.md at the root, which says the same at full length."
+do_2 = "do_2 In every page under the paths of this task find the clause that calls the network one BFT network and the clause that says the kernel participates in block proposal or block production; git grep with the option for any case finds them. Replace the two clauses with what the code shows, in the fewest words that fit the page: the LayerX kernel runs inside every paxd node, executes each transaction when it arrives, gives it the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it. Where the page gave the clauses one line, one sentence is enough: The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it. Keep the chain identifier, the token, what the page says on the finality of a receipt and every other sentence of the page word for word."
+do_3 = "do_3 State nothing that the code read under do_1 does not show, no figure of speed or volume and no comparison with other networks. Change no code, no link, no table and no heading. Before changing a sentence search tests/ci and tools/qualification for it; a test that reads one of the two clauses on a page of this task is named in the final message with its file and line. Change no file outside the paths of this task. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docs/wiki"]
+tests = []
+planned_paths = []
+build_cmd = "test -s README.md"
+verify_cmd = "test $(git grep -c -i -E 'one BFT network|participates in block (proposal|production)' -- docs/wiki | wc -l) -eq 0 && git grep -q -F 'LayerX kernel' -- docs/wiki"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.43.296]
+title = "Bring the pages of upstream specification to the kernel sentence"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.43.296"]
+interfaces = []
+do_1 = "do_1 Decision 3490, gotcha 4403. Read the code before writing, not the pages: in node/sequencer the files executor.go, accepter.go, receipt.go and seal.go; the function CreateProposalBlock in consensus/internal/state/execution.go; the function ProcessProposalHandler in node/app.go with node/process_proposal_order.go and node/process_proposal_proposer.go; rpc/sequencer_receipt.go. Then read the opening of README.md at the root, which says the same at full length."
+do_2 = "do_2 In every page under the paths of this task find the clause that calls the network one BFT network and the clause that says the kernel participates in block proposal or block production; git grep with the option for any case finds them. Replace the two clauses with what the code shows, in the fewest words that fit the page: the LayerX kernel runs inside every paxd node, executes each transaction when it arrives, gives it the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it. Where the page gave the clauses one line, one sentence is enough: The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it. Keep the chain identifier, the token, what the page says on the finality of a receipt and every other sentence of the page word for word. These pages come from upstream specification, and the sentence was added to them: where it has no bearing on what the page specifies, one short sentence in its place is enough."
+do_3 = "do_3 State nothing that the code read under do_1 does not show, no figure of speed or volume and no comparison with other networks. Change no code, no link, no table and no heading. Before changing a sentence search tests/ci and tools/qualification for it; a test that reads one of the two clauses on a page of this task is named in the final message with its file and line. Change no file outside the paths of this task. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["consensus/spec", "sdk/x", "interchain/modules/apps/transfer/spec/01_concepts.md"]
+tests = []
+planned_paths = []
+build_cmd = "test -s README.md"
+verify_cmd = "test $(git grep -c -i -E 'one BFT network|participates in block (proposal|production)' -- consensus/spec sdk/x interchain/modules/apps/transfer/spec/01_concepts.md | wc -l) -eq 0 && git grep -q -F 'LayerX kernel' -- consensus/spec"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.43.295]
+title = "Bring the network page, the overview page and the page of the programs to the kernel sentence, with the tests that read them"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.43.295"]
+interfaces = []
+do_1 = "do_1 Decision 3490, gotcha 4403. Read the code before writing, not the pages: in node/sequencer the files executor.go, accepter.go, receipt.go and seal.go; the function CreateProposalBlock in consensus/internal/state/execution.go; the function ProcessProposalHandler in node/app.go with node/process_proposal_order.go and node/process_proposal_proposer.go; rpc/sequencer_receipt.go. Then read the opening of README.md at the root, which says the same at full length."
+do_2 = "do_2 In docs/readme/NETWORK.md, docs/paxeer-network.md and programs/README.md replace the clause that calls the network one BFT network and the clause that says the kernel is embedded in the node and participates in block proposal and deterministic execution, or runs inside paxd and participates in block proposal and execution. The new sentences read, with the code marks and the bold marks the page already uses for paxd and for the chain identifier: The LayerX kernel runs inside every paxd node. It executes each transaction when it arrives, assigns the next position in one global sequence, returns a signed execution receipt and builds each block. Validators check that block and commit it. Keep the chain identifier 125 with 0x7d in its present form on each page, and keep every other sentence word for word, the sentences that the kernel proposes blocks inside paxd and that validators commit those blocks among them."
+do_3 = "do_3 Thirteen test files read the old clauses: tests/ci/test_docs_readme_current_pages.py, which reads docs/README.md and docs/paxeer-network.md, and twelve files under tools/qualification/audit_repairs, which git grep finds by the two clauses. In each, an assertion that reads one of the two old clauses reads the new sentences instead, on the page it reads today; for docs/README.md that is the opening as it stands on main. An assertion on the chain identifier and on any other fact stays as it is. No assertion goes and no case gets a mark of expected failure or a skip."
+do_4 = "do_4 State nothing that the code read under do_1 does not show. Change no code, no link, no table and no heading of the three pages. Change no file outside the paths of this task. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docs/readme/NETWORK.md", "docs/paxeer-network.md", "programs/README.md", "tests/ci/test_docs_readme_current_pages.py", "tools/qualification/audit_repairs"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m pytest -q -m 'not native' tests/ci/test_docs_readme_current_pages.py tools/qualification/audit_repairs/test_program_packaging_and_chain_proof_guidance.py tools/qualification/audit_repairs/test_programs_readme_retired_adapter.py tools/qualification/audit_repairs/test_readme_binding_and_funding_contract.py tools/qualification/audit_repairs/test_readme_execution_domains.py tools/qualification/audit_repairs/test_readme_integrated_node_contract.py tools/qualification/audit_repairs/test_readme_kernel_lifecycle_contracts.py tools/qualification/audit_repairs/test_readme_network_commit_coverage.py tools/qualification/audit_repairs/test_readme_network_receipt_finality.py tools/qualification/audit_repairs/test_readme_retired_daemon.py tools/qualification/audit_repairs/test_readme_retired_network.py tools/qualification/audit_repairs/test_readme_retired_runtime.py tools/qualification/audit_repairs/test_root_readme_programs_precompile.py && test $(git grep -c -i -E 'one BFT network|participates in block (proposal|production)' -- docs/readme/NETWORK.md docs/paxeer-network.md programs/README.md tests/ci/test_docs_readme_current_pages.py tools/qualification/audit_repairs | wc -l) -eq 0 && git grep -q -F 'LayerX kernel' -- docs/readme/NETWORK.md && git grep -q -F 'LayerX kernel' -- docs/paxeer-network.md"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.43.293]
 title = "Lead the documentation index, the applications page and the citation abstract with the kernel"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.43.292"]
@@ -373943,7 +374330,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.292]
 title = "Rewrite the opening and the diagram of the front page around the kernel"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373974,7 +374361,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.291]
 title = "Let the gate scripts and the make fragments of tools/paxeer-x take their default locations from the checkout"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374034,7 +374421,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.289]
 title = "Bring the Python tests 1 to 27 of tools/qualification/paxeer-x, its tests directory and tools/qualification/tests to the present pages and paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374098,7 +374485,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.287]
 title = "Bring the Python tests 158 to 179 of tests/ci to the present pages and paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374194,7 +374581,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.284]
 title = "Bring the Python tests 50 to 70 of tests/ci to the present pages and paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374258,7 +374645,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.282]
 title = "Bring the Python tests 18 to 29 of tests/ci to the present pages and paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374386,7 +374773,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.278]
 title = "Bring the Python tests 221 to 230 of tools/qualification/audit_repairs to the present pages and paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374418,7 +374805,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.277]
 title = "Bring the Python tests 209 to 220 of tools/qualification/audit_repairs to the present pages and paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374450,7 +374837,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.276]
 title = "Bring the Python tests 193 to 208 of tools/qualification/audit_repairs to the present pages and paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374546,7 +374933,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.273]
 title = "Bring the Python tests 163 to 172 of tools/qualification/audit_repairs to the present pages and paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374674,7 +375061,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.269]
 title = "Bring the Python tests 119 to 132 of tools/qualification/audit_repairs to the present pages and paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374706,7 +375093,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.268]
 title = "Bring the Python tests 87 to 118 of tools/qualification/audit_repairs to the present pages and paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374802,7 +375189,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.265]
 title = "Bring the Python tests 31 to 45 of tools/qualification/audit_repairs to the present pages and paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []

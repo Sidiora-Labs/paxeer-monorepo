@@ -6,7 +6,7 @@ if (($#)); then
 fi
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 cd "$root"
-target="${CARGO_TARGET_DIR:-/root/lx-target/interop}"
+target="${CARGO_TARGET_DIR:-$root/services/interop/target}"
 test_name=migration_v2_connected_runs_authenticated_mapping_and_funded_settlement
 complete='MIGRATION_V2_CONNECTED_COMPLETE ethereum=1 solana=1 funded=2 skipped=0'
 if [[ ! -d "$target/debug/deps" ]]; then
