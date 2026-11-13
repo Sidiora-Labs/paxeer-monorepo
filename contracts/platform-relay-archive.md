@@ -6,7 +6,9 @@ Use [hosted history and indexing](platform-hosted.md#indexer-http-routes) for ap
 
 ## Relay archive config keys
 
-Node history retention is configured in `config/app.toml`. [State-store configuration](../storage/config/ss_config.go) defines retained historical state; `state-store.ss-keep-recent` defaults to 100000 versions, and zero retains all versions. The emitted key names are declared in the [TOML template](../storage/config/toml.go). [Receipt-store configuration](../storage/config/receipt_config.go) selects the receipt database independently. Configure the hosted indexer through its own [configuration reader](../services/platform/hosted/indexer/src/config.rs).
+Node history retention is configured in `config/app.toml`. [State-store configuration](../storage/config/ss_config.go) defines retained historical state; `state-store.ss-keep-recent` defaults to 100000 versions, and zero retains all versions. The pruning interval `state-store.ss-prune-interval` defaults to 600 seconds,
+and the `StateStoreConfig.KeepLastVersion` field defaults to true. The emitted key names
+are declared in the [TOML template](../storage/config/toml.go). [Receipt-store configuration](../storage/config/receipt_config.go) selects the receipt database independently. Configure the hosted indexer through its own [configuration reader](../services/platform/hosted/indexer/src/config.rs).
 
 ## Relay archive CLI commands
 

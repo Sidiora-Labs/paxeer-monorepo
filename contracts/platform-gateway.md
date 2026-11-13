@@ -6,7 +6,7 @@ Paxeer mainnet-beta has EVM chain ID **125** (`0x7d`). Its kernel is part of the
 
 ## Gateway HTTP routes
 
-The current [HTTP dispatcher](../services/platform/hosted/gateway/src/main.rs) accepts JSON-RPC at `POST /`, with `Content-Type: application/json`. The hosted method schema is available at `GET /openrpc.json` and in the checked-in [OpenRPC document](../services/platform/hosted/gateway/openrpc.json).
+The current [HTTP dispatcher](../services/platform/hosted/gateway/src/main.rs) accepts JSON-RPC at `POST /`, with `Content-Type: application/json`. The hosted method schema is available at `GET /openrpc.json`. The checked-in [OpenRPC document](../services/platform/hosted/gateway/openrpc.json) also contains node inference declarations; the gateway serves a filtered schema.
 
 | Route | Meaning |
 | --- | --- |
@@ -27,7 +27,7 @@ Additional product and proxy routes are admitted through [routes.rs](../services
 
 The [dispatcher](../services/platform/hosted/gateway/src/rpc.rs) checks JSON-RPC 2.0 envelopes, permits batches of **1–32** entries, and omits responses to valid notifications. An all-notification request returns HTTP 204. JSON-RPC errors otherwise travel in a JSON response, commonly with HTTP 200; callers must inspect `error` as well as HTTP status. The `lx_` namespace is rejected with method-not-found.
 
-The OpenRPC contract declares these hosted methods:
+The served OpenRPC schema declares these hosted methods:
 
 | Family | Methods |
 | --- | --- |
@@ -37,11 +37,15 @@ The OpenRPC contract declares these hosted methods:
 | History and holders | `px_getHistory`, `px_getUnifiedHistory`, `px_listHolderRecords` |
 | Discovery | `px_getNetwork`, `px_getCapabilities`, `px_getRouteCatalogue` |
 
+The gateway omits `px_getInferenceRooms`, `px_getInferenceRoom`,
+`px_getInferenceDeal`, `px_getInferencePeer` and `px_getInferenceReceipts` from
+its served schema and does not dispatch them. The node owns those inference reads.
+
 Submit native writes directly to the node with `eth_sendRawTransaction`; read precompile views with `eth_call`. Program reads use the [Programs precompile](programs.md#layerxprograms-0x101d). Proof-backed records follow the [registry evidence contract](programs.md#registry-evidence). Verify the block commit rather than relying on a separate checkpoint or settlement service.
 
 Preserve method-specific parameter and result types from OpenRPC. For example, registration takes `signer_public_key` and `registration_signature`; receipt lookup takes `txHash`; history requires `account` and accepts `cursor`, `limit` and `kind`. History uses the [indexer's position order](../services/platform/hosted/gateway/src/history.rs), `(blockHeight, txIndex, logIndex)`, with opaque 32-character lowercase hexadecimal cursors, a default limit of 50 and a maximum of 100. Pass returned cursors through unchanged.
 
-Public node JSON-RPC uses HTTPS at the configured node origin's root path. Node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test` and `txpool`. The `px` namespace answers from node state; `px_register` and `px_requestFunds` are operations of the hosted identity and faucet services declared in `services/platform/hosted/gateway/openrpc.json`.
+Public node JSON-RPC uses HTTPS at the configured node origin's root path. Node method availability follows the [node RPC contract](rpc.md#public-json-rpc). The `px` namespace answers from node state; `px_register` and `px_requestFunds` are operations of the hosted identity and faucet services declared in `services/platform/hosted/gateway/openrpc.json`.
 
 ## Gateway WS routes
 

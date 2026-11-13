@@ -1,7 +1,6 @@
 # Platform SDK contract
 
-This contract describes the platform clients in [`sdk/platform`](../sdk/platform)
-and supplies the stable section anchors used by the interface registry. Public
+This contract describes the platform clients in [`sdk/platform`](../sdk/platform). Public
 names retain `LayerX` where that is the package or wire-format name. The clients
 connect to Paxeer X Network: one BFT chain, with its kernel participating in the
 network and proposing blocks. A transaction receipt is final when its block is
@@ -11,8 +10,7 @@ infrastructure.
 ## Network and transport
 
 The EVM chain ID is **125** (`0x7d`). Configure the node's HTTPS origin
-explicitly, use its root path for JSON-RPC and check `eth_chainId` before signing. The node namespaces are
-`debug`, `echo`, `eth`, `net`, `pax`, `px`, `test` and `txpool`.
+explicitly, use its root path for JSON-RPC and check `eth_chainId` before signing. Node method availability follows the [node RPC contract](rpc.md#public-json-rpc).
 
 The `px` namespace answers from node state; `px_register` and
 `px_requestFunds` are operations of the hosted identity and faucet

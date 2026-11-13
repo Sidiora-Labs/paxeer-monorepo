@@ -33,7 +33,9 @@ validated pool for the deployment.
 
 [chain.ts](../apps/perps/src/core/chain.ts) fixes chain ID 125 and PAX at
 18 decimals. The transport uses viem fallback with endpoint ranking, ten-second
-HTTP timeouts and a shared fallback retry budget.
+HTTP timeouts and a shared fallback retry budget of two retries, with a
+200 ms retry delay. Endpoint ranking samples three observations every thirty
+seconds, with a one-second ranking timeout.
 
 | Variable                                                    | Reader and behavior                                                                                                                      |
 | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
@@ -147,9 +149,10 @@ polling interval.
 
 `loadPerpsMarkets()` returns `{ catalog, tradeable }` after decoding the gateway
 GraphQL `MARKETS_QUERY` through `decodeGatewayMarketsResult` and
-`catalogFromGateway`. A failed query
-exposes `error` and empty arrays; consumers must check loading and error before
-treating an empty catalog as a successful empty market set.
+`catalogFromGateway`. The loader rejects on query or decoding failure;
+`usePerpsMarkets()` exposes that rejection through `error` and returns empty
+arrays. Consumers check loading and error before treating an empty catalog as
+a successful empty market set.
 
 [`useFeeTier(address: string | undefined)`](../apps/perps/src/hooks/perps/useFeeTier.ts)
 returns `{ view, isLoading, error }`. `view` contains `tier`, `takerBps`,
