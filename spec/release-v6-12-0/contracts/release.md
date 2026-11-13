@@ -59,7 +59,7 @@ The `price-sidecar` binary is built with `cargo build --locked --release` from t
 
 The data services start after fresh venue prices are available: `perps-data-indexer` with `PERPS_START_HEIGHT=H1`, then `perps-gateway`, `perps-explorer` and `perps-portal`, checking readiness between services. Chainflow supplies charts and market data; venue logs supply fills, book and account state.
 
-The Hyperpax application deployment uses `Hyperpax:deploy/scripts/deploy.sh`. Its `/api/build-id` identifies the build. The spot route, navigation entry and markets mode use `NEXT_PUBLIC_RELEASE_SPOT_OPEN`; the spot-enabled build is deployed after post-rollout verification.
+The Hyperpax application deployment uses `apps/perps/deploy/docker-compose.yml`; `apps/perps/deploy/README.md` describes the configuration and Compose commands. `BUILD_COMMIT_SHA` identifies the image and the `/api/build-id` response. The spot route, navigation entry and markets mode use `NEXT_PUBLIC_RELEASE_SPOT_OPEN`; the spot-enabled build is deployed after post-rollout verification.
 
 ## Operator inputs
 

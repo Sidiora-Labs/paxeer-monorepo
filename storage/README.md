@@ -44,7 +44,7 @@ The SC layer provides:
 
 The memiavl implementation is a fork of MemIAVL from [Cronos](https://github.com/crypto-org-chain/cronos). To stay compatible with Cosmos SDK chains, it uses the same data structure (a Merkleized AVL tree), but represents the tree as memory-mapped flat files instead of persisting it as key/values in a database engine. See [`state_db/sc/memiavl/README.md`](state_db/sc/memiavl/README.md).
 
-EVM state can live in flatkv instead; the `write_mode` setting (see [`config/write_mode.go`](config/write_mode.go)) selects memiavl only, flatkv only, or one of the migration stages between them.
+The `write_mode` setting (see [`config/write_mode.go`](config/write_mode.go)) routes module state between memiavl and flatkv. Its migration stages move EVM state first, then other modules except bank, then bank; the endpoint modes are `memiavl_only` and `flatkv_only`.
 
 ## State Store (SS) Layer
 

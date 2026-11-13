@@ -1,0 +1,83 @@
+[manifest]
+task = "22.41.95"
+pages = 20
+
+[page.1]
+path = "spec/release-v6-12-0/contracts/launchpad.md"
+status = "corrected"
+
+[page.2]
+path = "spec/release-v6-12-0/contracts/perps-markets.md"
+status = "corrected"
+
+[page.3]
+path = "spec/release-v6-12-0/contracts/perps-parameters.md"
+status = "reviewed"
+
+[page.4]
+path = "spec/release-v6-12-0/contracts/perps.md"
+status = "corrected"
+
+[page.5]
+path = "spec/release-v6-12-0/contracts/pricefeed.md"
+status = "corrected"
+
+[page.6]
+path = "spec/release-v6-12-0/contracts/release.md"
+status = "corrected"
+
+[page.7]
+path = "spec/release-v6-12-0/contracts/spot.md"
+status = "corrected"
+
+[page.8]
+path = "spec/release-v6-12-0/docs/rollout-runbook.md"
+status = "corrected"
+
+[page.9]
+path = "spec/release-v6-12-0/hyperfide/REPORT.md"
+status = "reviewed"
+
+[page.10]
+path = "src/modules/account/README.md"
+status = "reviewed"
+
+[page.11]
+path = "src/modules/asset/README.md"
+status = "corrected"
+
+[page.12]
+path = "storage/README.md"
+status = "corrected"
+
+[page.13]
+path = "storage/db_engine/litt/README.md"
+status = "corrected"
+
+[page.14]
+path = "storage/db_engine/litt/docs/architecture.md"
+status = "reviewed"
+
+[page.15]
+path = "storage/db_engine/litt/docs/benchmark-data/8-27-2025/README.md"
+status = "reviewed"
+
+[page.16]
+path = "storage/db_engine/litt/docs/filesystem_layout.md"
+status = "corrected"
+
+[page.17]
+path = "storage/db_engine/litt/docs/licenses/README.md"
+status = "reviewed"
+
+[page.18]
+path = "storage/db_engine/litt/docs/littdb_cli.md"
+status = "reviewed"
+
+[page.19]
+path = "storage/state_db/bench/README.md"
+status = "corrected"
+
+[page.20]
+path = "storage/state_db/bench/cryptosim/README.md"
+status = "reviewed"

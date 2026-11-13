@@ -19,7 +19,7 @@ Fill these fields in the access-controlled copy of this runbook before step 0. T
 
 ## Local values
 
-Every command reads its values from an untracked env file, `.env.rollout`, a filled copy of `tools/release/env/rollout.env.example` kept in access-controlled storage and copied to each host for the window. Quote space-separated list values when sourcing this file; the lists of homes, units and operator keys of one host are in the same order. Keys:
+Node rollout commands read their values from an untracked env file, `.env.rollout`, a filled copy of `tools/release/env/rollout.env.example` kept in access-controlled storage and copied to each host for the window. Quote space-separated list values when sourcing this file; the lists of homes, units and operator keys of one host are in the same order. Keys:
 
 ```sh
 RELEASE_ID=             # suffix of the retained previous binary
@@ -137,7 +137,7 @@ H1=$((HALT_HEIGHT + 1))
 
 ## 4. Freeze the validators at H (every validator host)
 
-Freeze one validator home at a time, so at least three of the four validators stay online. `halt-height` is the app.toml key of sdk/server/config/toml.go; at H the node commits the block and stops itself (sdk/baseapp/abci.go, sdk/baseapp/abci.go).
+Configure the halt one validator home at a time, retaining more than two-thirds of the bonded voting power online until H. `halt-height` is the app.toml key of sdk/server/config/toml.go; at H the node commits the block and stops itself (sdk/baseapp/abci.go).
 
 1. For each index `i` of `V_HOMES`, one at a time:
    ```sh
@@ -205,12 +205,12 @@ Every full node is on v7.0.0 before any validator restarts, so no full node exec
 2. ```sh
    for u in "${V_UNITS[@]}"; do journalctl -u "$u" --since "-10m" | grep -F "applying upgrade" | grep -F "name=v7.0" || exit 1; done; echo applied
    ```
-   Verify: each validator log carries `applying upgrade` with `name=v7.0` (node/upgrades.go) once at least three of the four validators run.
+   Verify: each validator log carries `applying upgrade` with `name=v7.0` (node/upgrades.go) once more than two-thirds of the bonded voting power is running.
 3. Verify (operations host):
    ```sh
    python3 tools/release/fleet_check.py --env-file .env.rollout --phase validators --receipt "$RECEIPT_DIR/validators.json"
    ```
-   Verify: exit 0; four validators on version `v7.0.0`, `q upgrade applied v7.0` at H1, one block hash at H1 on every node. On a failure go to step 13.
+   Verify: exit 0; every validator in the configured inventory on version `v7.0.0`, `q upgrade applied v7.0` at H1, one block hash at H1 on every node. On a failure go to step 13.
 
 ## 8. Register the feed keys and start the price sidecars (every validator host)
 
@@ -246,7 +246,11 @@ Each validator needs a registered feed key before its sidecar starts. Register a
 ## 9. Cut over the data services and the application (operations host)
 
 1. Deploy `perps-data-indexer` with `PERPS_START_HEIGHT` = H1 (spec/release-v6-12-0/contracts/data-services.md), wait for its `/healthz/ready` 200, then deploy `perps-gateway`, `perps-explorer` and `perps-portal` in that order, each only after the previous answers `/healthz/ready` 200. Charts and market data come from Chainflow; the gateway streams the venue's own fills, book and account state.
-2. Deploy the Hyperpax release build with `Hyperpax:deploy/scripts/deploy.sh`, `NEXT_PUBLIC_RELEASE_SPOT_OPEN` empty and the build id `APP_BUILD_ID`; the script's health check reads `/api/build-id` (Hyperpax:deploy/scripts/deploy.sh:147).
+2. Configure the application and ingress as described in [the application deployment guide](../../../apps/perps/deploy/README.md). From `apps/perps`, set `BUILD_COMMIT_SHA` in `.env.production` to `APP_BUILD_ID`, leave `NEXT_PUBLIC_RELEASE_SPOT_OPEN` blank, and build and start the Compose services:
+   ```sh
+   docker compose --env-file .env.production -f deploy/docker-compose.yml up -d --build
+   ```
+   The image health check reads `/api/build-id`.
 3. Verify:
    ```sh
    python3 tools/release/fleet_check.py --env-file .env.rollout --phase services --receipt "$RECEIPT_DIR/services.json"
@@ -285,7 +289,7 @@ A node that had not reached H keeps the previous binary until it has executed H,
    python3 tools/release/fleet_check.py --env-file .env.rollout --phase post --receipt "$RECEIPT_DIR/post-rollout.json"
    ```
    Verify: exit 0; on every node: version `v7.0.0` in the ABCI info (sdk/baseapp/abci.go), plan applied at H1, one block hash at H1, every served address of spec/release-v6-12-0/contracts/address-table.md answering and 0x1026 and 0x1027 without code, the launchpad pool count equal to the rehearsal count, eighteen markets at 0x1015 and 0x1020, a fresh price for every market, one feed key per validator, the uhpx and SID pointers through 0x100A and USDL `decimals()` 6. On a failure go to step 13.
-2. Deploy the Hyperpax spot-open build with `NEXT_PUBLIC_RELEASE_SPOT_OPEN=1` through `Hyperpax:deploy/scripts/deploy.sh` and check `/api/build-id` again.
+2. Set `NEXT_PUBLIC_RELEASE_SPOT_OPEN=1` in the application's `.env.production`, rebuild and deploy with the Compose command in step 9.2, and check `/api/build-id` again.
 3. Publish the completion notice. Keep `paxd.pre-<RELEASE_ID>` and the snapshots until the next release.
 
 ## 13. Forward recovery

@@ -21,7 +21,7 @@ Each Go benchmark iteration creates a new temporary database and executes all
 `NumBlocks` generated blocks. `-benchtime=1x` requests one complete scenario per
 selected sub-benchmark. Construction and snapshot import are outside the timer;
 generation, commit work and the final close/flush are timed. The command above
-selects a single benchmark scenario.
+selects all six block-size sub-benchmarks. Each uses 100,000 nominal keys, with 1, 2, 10, 20, 100 or 200 keys per block.
 
 ### Backend configuration
 

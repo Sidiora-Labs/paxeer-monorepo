@@ -4,22 +4,22 @@ The interface of the perpetuals venue served by the precompile at 0x000000000000
 
 ## 1. Shared rules
 
-- Address: 0x0000000000000000000000000000000000001015, the address of `ExchangeAddress` (modules/layerxexchange/types/ids.go, precompiles/layerxexchange/layerxexchange.go). From the v6.12.0 done height the address serves `precompiles/perps` `NewPrecompile`; below it the v6.9 exchange precompile (section 22).
-- Caller: every state-changing method acts for `msg.sender` (the EVM caller of the precompile). The views getBalance, getLockedBalance, getAccountSummary and getMarginMode each have two overloads: the one without an account resolves the caller of the `eth_call`, and the one whose first argument is `address account` reads that account. The application reads through the account overloads, because its reads carry no `from` (Hyperpax:src/hooks/perps/useContract.ts:8-16) and a Multicall3 batch makes the multicall contract the caller (Hyperpax:src/hooks/perps/usePortfolioStats.ts:153-161). The account key is the EVM address.
-- The perps account of a caller is called a vault on this interface for compatibility with the Hyperpax application: `createVault` and `getVault` return the precompile address 0x0000000000000000000000000000000000001015, so the application's calls to the vault address reach the precompile (Hyperpax:src/hooks/perps/useVault.ts:28-58).
+- Address: 0x0000000000000000000000000000000000001015, the address of `ExchangeAddress` (modules/layerxexchange/types/ids.go, precompiles/layerxexchange/layerxexchange.go). From the v6.12.0 activation height the address serves `precompiles/perps` `NewPrecompile`; below it the v6.9 exchange precompile (section 22).
+- Caller: every state-changing method acts for `msg.sender` (the EVM caller). The views getBalance, getLockedBalance, getAccountSummary and getMarginMode each have caller and explicit-account overloads. Use the explicit-account form when a read has no `from` or runs through Multicall3. The account key is the EVM address. The application account reader uses `getAccount(account)` through `apps/perps/src/hooks/perps/useAccount.ts`.
+- The compatibility methods `createVault` and `getVault` identify an account using the precompile address 0x0000000000000000000000000000000000001015. `getVault` returns the zero address when the account does not exist; no separate vault contract is deployed.
 - Value: every method is nonpayable; a call with value fails `ValidateNonPayable` (precompiles/common/precompiles.go) before any state change.
 - Static call: a state-changing method under STATICCALL reverts with `PerpsStaticCall()`. Delegatecall: every method under DELEGATECALL reverts with `PerpsDelegatecall()`, as the existing exchange precompile refuses both (precompiles/layerxexchange/layerxexchange.go, 213-214).
-- Revert data: a failed call returns the 4-byte selector of its custom error of section 19 (every error is parameterless, so the data is exactly the selector). The precompile is built without `WithLXPReasons`, its Run reuses `Prepare` (precompiles/common/precompiles.go) and keeps the custom error data the executor returns beside the error before the error becomes vm.ErrExecutionReverted (precompiles/common/precompiles.go). An internal error that has no ABI error packs as Error(string) through `RevertReason` (precompiles/common/precompiles.go). A selector absent from the perps ABI fails in `Prepare` and reverts with empty return data; this covers every v6.9 exchange selector the perps ABI does not declare, including `pushOracle(bytes,bytes)` , from the done height on. The contract spot.md heading "Revert encoding" uses the same rule.
+- Revert data: a failed call returns the 4-byte selector of its custom error of section 19 (every error is parameterless, so the data is exactly the selector). The precompile is built without `WithLXPReasons`, its Run reuses `Prepare` (precompiles/common/precompiles.go) and keeps the custom error data the executor returns beside the error before the error becomes vm.ErrExecutionReverted (precompiles/common/precompiles.go). An internal error that has no ABI error packs as Error(string) through `RevertReason` (precompiles/common/precompiles.go). A selector absent from the perps ABI fails in `Prepare` and reverts with empty return data; this covers every v6.9 exchange selector the perps ABI does not declare, including `pushOracle(bytes,bytes)` , from the activation height on. The contract spot.md heading "Revert encoding" uses the same rule.
 - Atomicity: a call either applies every state change and log or none; the precompile runs inside the EVM state snapshot and writes keeper state through the cached context of the call.
 - Pause: when `Params.Paused` is true every state-changing method outside the exit set reverts with `PerpsPaused()`. The exit set is closePosition, partialClose, closePositionWithParams, cancelOrder, cancelByCloid, deposit, addCollateral and topUpPosition, so an account can close, cancel and add margin while trading is stopped. Every opening or increasing order (placeOrder with reduceOnly false, placeLimitOrder, placeStopLimitOrder, placeTakeProfitOrder, placeStopLossOrder, setPositionTpSl, executeOrder, openPosition, addSize) reverts, and so do withdraw, emergencyWithdraw, removeCollateral, transferCollateral, createVault, setMarginMode, transferMargin and liquidate called as a transaction. Views, EndBlock liquidation, backstop, ADL, funding settlement, trigger evaluation of reduce-only orders and expiry keep running.
 - Determinism: arithmetic uses integers and exact rational calculations; no floating point, map iteration order or wall-clock time enters state. Block time is `ctx.BlockTime()`.
 
 ## 2. Units and encodings
 
-- Prices, USD notionals (`sizeUsd`), PnL and fees in USD: unsigned or signed 18-decimal fixed point (1e18 = 1 USD), as the application encodes them (Hyperpax:src/core/perps/amounts.ts:17-19).
-- Leverage has two scales, stated per field. Every method argument named `leverage` and the `leverage` fields of `OrderParams`, `OrderDetails`, `PositionDetails`, `OpenPositionQuote`, `getOrder` and the PositionOpened event are 18-decimal fixed point (10e18 is 10x), as the application sends them (Hyperpax:src/core/perps/amounts.ts:17-19, Hyperpax:src/widgets/trading/PerpsOrderForm.tsx:326-327); the minimum is 1e18 and the maximum the market's tier cap (spec/release-v6-12-0/contracts/perps-markets.md, section 4). Every field named `maxLeverage` (`MarginTier`, `MarketConfig`, `MarketQuote`, `getMarket`) is a plain integer (1000 is 1000x), as the application's market list holds it (Hyperpax:src/core/perps/config.ts:168-185) and fills the quote from it (Hyperpax:src/hooks/perps/useQuoter.ts:108).
-- Collateral: USDL stays the existing ERC20 contract 0x85FcD13735F4309833A503EE804ea32395851479 with 6 decimals (Hyperpax:src/core/perps/config.ts:75-79; Launch-x:contracts/deployments/paxeer-x-network-addresses.json:6), stored in `Params.CollateralToken`. Token amounts (`amount`, `collateralAmount`, balances) are USDL units of 6 decimals (1,000,000 = 1 USDL). The only accepted token argument is that address; any other token, the zero address included, reverts with `PerpsUnsupportedCollateral()`. There is no bank denom for USDL on this venue and no pointer at the USDL address.
-- Custody: all collateral of all accounts, the fee recipient balance and the insurance fund are one ERC20 balance of USDL held by the perps module EVM address (GetEVMAddressOrDefault, modules/evm/keeper/address.go, of authtypes.NewModuleAddress("perps"); spec/release-v6-12-0/contracts/address-table.md, module accounts) and split per account in the store (section 20). Inside a transaction the precompile moves USDL by nested calls, the pattern of precompiles/xweb/xweb.go: a deposit leg is `evm.Call(p.address, usdl, input, gas, uint256.NewInt(0))` with the precompile address as msg.sender calling `transferFrom(caller, perps module EVM address, amount)`, which needs the caller's ERC20 allowance to 0x1015 (the application approves the spender as it approves the Diamond today, Hyperpax:src/hooks/perps/usePosition.ts:13-22, Hyperpax:src/hooks/perps/useVault.ts:68, :78), and a withdrawal leg is a nested `evm.Call` with the perps module EVM address as caller calling `transfer(to, amount)`. In module context (EndBlock, genesis, the upgrade handler) the keeper uses `EVMKeeper.CallEVM(ctx, perps module EVM address, &usdl, nil, data)` (modules/evm/keeper/evm.go), which refuses to run inside an EVM call (modules/evm/keeper/evm.go), and reads balances with `EVMKeeper.StaticCallEVM` (modules/evm/keeper/evm.go). A token leg runs with a fixed gas cap of 100,000 and succeeds only if the call does not revert, returns true or no data, and the balance of the receiving side changes by exactly the amount; otherwise the whole call reverts with `PerpsTokenTransferFailed()`. A deposit whose amount exceeds the caller's USDL balance or allowance to 0x1015 reverts with `PerpsInsufficientCollateral()` before the token call.
+- Prices, USD notionals (`sizeUsd`), PnL and fees in USD: unsigned or signed 18-decimal fixed point (1e18 = 1 USD), as the application encodes them (apps/perps/src/core/perps/amounts.ts).
+- Leverage has two scales, stated per field. Every method argument named `leverage` and the `leverage` fields of `OrderParams`, `OrderDetails`, `PositionDetails`, `OpenPositionQuote`, `getOrder` and the PositionOpened event are 18-decimal fixed point (10e18 is 10x), as the application sends them (apps/perps/src/core/perps/amounts.ts, apps/perps/src/widgets/trading/PerpsOrderForm.tsx); the minimum is 1e18 and the maximum the market's tier cap (spec/release-v6-12-0/contracts/perps-markets.md, section 4). Every field named `maxLeverage` (`MarginTier`, `MarketConfig`, `MarketQuote`, `getMarket`) is a plain integer (1000 is 1000x), as the application's market list holds it (apps/perps/src/core/perps/config.ts) and fills the quote from it (apps/perps/src/hooks/perps/useQuoter.ts).
+- Collateral: USDL stays the existing ERC20 contract 0x85FcD13735F4309833A503EE804ea32395851479 with 6 decimals (apps/perps/src/core/perps/config.ts; contracts/launchpad/deployments/paxeer-x-network-addresses.json), stored in `Params.CollateralToken`. Token amounts (`amount`, `collateralAmount`, balances) are USDL units of 6 decimals (1,000,000 = 1 USDL). The only accepted token argument is that address; any other token, the zero address included, reverts with `PerpsUnsupportedCollateral()`. There is no bank denom for USDL on this venue and no pointer at the USDL address.
+- Custody: all collateral of all accounts, the fee recipient balance and the insurance fund are one ERC20 balance of USDL held by the perps module EVM address (GetEVMAddressOrDefault, modules/evm/keeper/address.go, of authtypes.NewModuleAddress("perps"); spec/release-v6-12-0/contracts/address-table.md, module accounts) and split per account in the store (section 20). Inside a transaction the precompile moves USDL by nested calls, the pattern of precompiles/xweb/xweb.go: a deposit leg is `evm.Call(p.address, usdl, input, gas, uint256.NewInt(0))` with the precompile address as msg.sender calling `transferFrom(caller, perps module EVM address, amount)`, which needs the caller's ERC20 allowance to 0x1015 (apps/perps/src/hooks/perps/useAccount.ts), and a withdrawal leg is a nested `evm.Call` with the perps module EVM address as caller calling `transfer(to, amount)`. In module context (EndBlock, genesis, the upgrade handler) the keeper uses `EVMKeeper.CallEVM(ctx, perps module EVM address, &usdl, nil, data)` (modules/evm/keeper/evm.go), which refuses to run inside an EVM call (modules/evm/keeper/evm.go), and reads balances with `EVMKeeper.StaticCallEVM` (modules/evm/keeper/evm.go). A token leg runs with a fixed gas cap of 100,000 and succeeds only if the call does not revert, returns true or no data, and the balance of the receiving side changes by exactly the amount; otherwise the whole call reverts with `PerpsTokenTransferFailed()`. A deposit whose amount exceeds the caller's USDL balance or allowance to 0x1015 reverts with `PerpsInsufficientCollateral()` before the token call.
 - Converting USD to USDL units divides by 1e12. Credits to an account round down and debits round up; the remainder of every conversion and every rounded product is booked to `residueUsd` (18-decimal USD, held in the USDL balance of the perps module EVM address, section 24), so no rounding leaves the books.
 - Rates: ppm (parts per million) for fees; funding rates per second are 18-decimal signed fractions; hourly rates are 18-decimal fractions.
 - Base sizes (`sizeBase`, `filledBase`): 18-decimal fixed point in base asset units, always a multiple of the market lot (10^-szDecimals).
@@ -29,12 +29,12 @@ Enumerations:
 
 | enum | values |
 |---|---|
-| orderType | LIMIT 0, STOP_LIMIT 1, TAKE_PROFIT 2, STOP_LOSS 3, MARKET 4, STOP_MARKET 5; 0 to 3 are the values and labels of Hyperpax:src/core/perps/config.ts:212-217, 4 and 5 are added to the application labels (spec/release-v6-12-0/contracts/application.md) |
+| orderType | LIMIT 0, STOP_LIMIT 1, TAKE_PROFIT 2, STOP_LOSS 3, MARKET 4, STOP_MARKET 5; 0 to 3 are the values and labels of apps/perps/src/core/perps/config.ts, 4 and 5 are added to the application labels (spec/release-v6-12-0/contracts/application.md) |
 | timeInForce | GTC 0, IOC 1, FOK 2, POST_ONLY 3 (include/layerx/lx_perps.h) |
-| margin mode | Cross 0 (Hyperpax:src/types/perps.ts:319-322); Isolated 1 is refused |
+| margin mode | Cross 0 (apps/perps/src/types/perps.ts); Isolated 1 is refused |
 | order status | UNTRIGGERED 0, RESTING 1, FILLED 2, CANCELLED 3, EXPIRED 4 |
-| tradeType (TradeSettled) | OPEN 0, CLOSE 1, LIQUIDATION 2, REDUCE 3, INCREASE 4, ADL 5, BACKSTOP 6; 0 to 3 are the values of Hyperpax:src/core/perps/config.ts:270-275 (3 is its PartialClose), 4 to 6 are added to the application labels |
-| feeType (FeeCollected) | TRADING 0 (a taker or maker fee charged), MAKER_REBATE 4 (a rebate paid); 0 is the Trading value of Hyperpax:src/core/perps/config.ts:262-267, values 1 to 3 are the application's other labels and are never emitted, 4 is added to the application labels |
+| tradeType (TradeSettled) | OPEN 0, CLOSE 1, LIQUIDATION 2, REDUCE 3, INCREASE 4, ADL 5, BACKSTOP 6; 0 to 3 are the values of apps/perps/src/core/perps/config.ts (3 is its PartialClose), 4 to 6 are added to the application labels |
+| feeType (FeeCollected) | TRADING 0 (a taker or maker fee charged), MAKER_REBATE 4 (a rebate paid); 0 is the Trading value of apps/perps/src/core/perps/config.ts, values 1 to 3 are the application's other labels and are never emitted, 4 is added to the application labels |
 | insurance source | TRADING_FEE 0, BACKSTOP_MARGIN 1, BACKSTOP_PROFIT 2 |
 
 Structures (declared in `precompiles/perps/Perps.sol` and encoded as ABI tuples in this field order):
@@ -174,9 +174,9 @@ struct ClosePositionQuote {
 }
 ```
 
-- Funding sign: every funding amount on this interface (`PositionDetails.fundingOwedUsd`, `ClosePositionQuote.fundingOwed`, getPositionFunding, TradeSettled.fundingPaidUsd, FundingSettled, PositionFundingApplied) is negative when the position pays and positive when it receives; the application reads `fundingOwed` with that sign (Hyperpax:src/hooks/perps/useQuoter.ts:25).
+- Funding sign: every funding amount on this interface (`PositionDetails.fundingOwedUsd`, `ClosePositionQuote.fundingOwed`, getPositionFunding, TradeSettled.fundingPaidUsd, FundingSettled, PositionFundingApplied) is negative when the position pays and positive when it receives; the application reads `fundingOwed` with that sign (apps/perps/src/hooks/perps/useQuoter.ts).
 - `MarketConfig.oiCapUsd` is the cap in force at the block of the call and `listedAt` the listing block time that the class E cap table reads (spec/release-v6-12-0/contracts/perps-markets.md, section 3.1).
-- The three quote structures keep the field order the application decodes (Hyperpax:src/hooks/perps/useQuoter.ts:7-42); `AccountSummary` and `PositionMargin` keep the order of Hyperpax:src/hooks/perps/useMarginMode.ts:121 and :241.
+- Quote and margin tuples use the field order in `precompiles/perps/abi/abi.json`; application call builders are in `apps/perps/src/core/perps/calls.ts`.
 - `OrderParams.deadline` 0 means no deadline; `cloid` 0 means no client order id; `acceptablePrice` 0 means the default slippage bound (spec/release-v6-12-0/contracts/perps-parameters.md, section 8); `takeProfitPrice` and `stopLossPrice` 0 mean none.
 
 ## 3. Account and collateral
@@ -195,7 +195,6 @@ function createVault() external returns (address vault);
 
 - Mutability: state-changing; refused under static call.
 - Gas: DefaultGasCost(input, true) + 20,000 (section 21).
-- Application call site: Hyperpax:src/hooks/perps/useVault.ts:21.
 - Normative example: Given account 0x00000000000000000000000000000000000A11CE with no perps account, when it calls createVault, then the precompile stores an empty cross account, returns 0x0000000000000000000000000000000000001015 and emits VaultCreated(0x00000000000000000000000000000000000A11CE, 0x0000000000000000000000000000000000001015); a second call returns the same address and emits nothing.
 - Test: `precompiles/perps/account_test.go` TestAccountCreateVaultIsIdempotent.
 
@@ -207,7 +206,6 @@ function getVault(address user) external view returns (address vault);
 
 - Mutability: view; served under eth_call and static call.
 - Gas: DefaultGasCost(input, false) + 0 (section 21).
-- Application call site: Hyperpax:src/hooks/perps/useVault.ts:12.
 - Normative example: Given account A created its account and account B did not, when getVault(A) and getVault(B) run, then they return 0x0000000000000000000000000000000000001015 and the zero address, so the application's vault-address calls reach the precompile.
 - Test: `precompiles/perps/views_test.go` TestViewsGetVaultReturnsPrecompileOrZero.
 
@@ -219,7 +217,6 @@ function deposit(address token, uint256 amount) external;
 
 - Mutability: state-changing; refused under static call.
 - Gas: DefaultGasCost(input, true) + 130,000 (section 21; 100,000 of it is the token leg).
-- Application call site: Hyperpax:src/hooks/perps/useVault.ts:48.
 - Normative example: Given account A holds 1,000,000,000 USDL units and has an allowance of 250,000,000 to 0x0000000000000000000000000000000000001015, when A calls deposit(usdl, 250000000), then the precompile calls transferFrom(A, perps module EVM address, 250000000) on the USDL contract, balanceOf(perps module EVM address) rises by 250,000,000, A's collateral becomes 250,000,000 and the receipt holds the USDL Transfer(A, perps module EVM address, 250000000) log followed by CollateralDeposited(A, 250000000, 250000000); with allowance 249,999,999 the call reverts with PerpsInsufficientCollateral() and with any other token with PerpsUnsupportedCollateral().
 - Test: `precompiles/perps/account_test.go` TestAccountDepositPullsUsdlByTransferFrom.
 
@@ -231,7 +228,6 @@ function withdraw(address token, uint256 amount) external;
 
 - Mutability: state-changing; refused under static call.
 - Gas: DefaultGasCost(input, true) + 130,000 (section 21; 100,000 of it is the token leg).
-- Application call site: Hyperpax:src/hooks/perps/useVault.ts:58.
 - Normative example: Given account A with 250,000,000 USDL units of collateral and one 1,000 USD BTC position at 10x (initial margin 100 USD, equal to 10 percent of its notional) and zero unrealised PnL, when A calls withdraw(usdl, 150000000), then the precompile calls transfer(A, 150000000) on the USDL contract, the receipt holds the USDL Transfer(perps module EVM address, A, 150000000) log and CollateralWithdrawn(A, 150000000, 100000000); withdraw(usdl, 150000001) reverts with PerpsInsufficientMargin().
 - Test: `precompiles/perps/account_test.go` TestAccountWithdrawHonoursTransferMargin.
 
@@ -243,7 +239,6 @@ function emergencyWithdraw(address token) external;
 
 - Mutability: state-changing; refused under static call.
 - Gas: DefaultGasCost(input, true) + 130,000 (section 21; 100,000 of it is the token leg).
-- Application call site: Hyperpax:src/hooks/perps/useMarginMode.ts:283.
 - Normative example: Given account A with 40,000,000 USDL units of collateral, no position and two resting limit orders, when A calls emergencyWithdraw(usdl), then both orders are cancelled with OrderCancelled, 40,000,000 USDL units return to A by the transfer leg and A's collateral is 0; with an open position the call reverts with PerpsInsufficientMargin().
 - Test: `precompiles/perps/account_test.go` TestAccountEmergencyWithdrawCancelsOrdersAndDrains.
 
@@ -267,7 +262,6 @@ function getBalance(address account, address token) external view returns (uint2
 
 - Mutability: view; served under eth_call and static call.
 - Gas: DefaultGasCost(input, false) + 0 for each overload (section 21; the gas table rows are keyed `getBalance` and `getBalance0`, the method names go-ethereum gives the two overloads in declaration order).
-- Application call sites: Hyperpax:src/hooks/perps/useVault.ts:30 and Hyperpax:src/hooks/perps/usePortfolioStats.ts:154, which move to the account overload (spec/release-v6-12-0/contracts/application.md).
 - Normative example: Given account A whose collateral is 250,000,000 USDL units, when getBalance(A, usdl) runs from any caller, Multicall3 included, then it returns 250000000; getBalance(usdl) in an eth_call from A returns the same value, and getBalance(usdl) in an eth_call without `from` returns the zero account's 0.
 - Test: `precompiles/perps/views_test.go`.
 
@@ -280,7 +274,6 @@ function getLockedBalance(address account, address token) external view returns 
 
 - Mutability: view; served under eth_call and static call.
 - Gas: DefaultGasCost(input, false) + 0 for each overload (section 21, rows `getLockedBalance` and `getLockedBalance0`).
-- Application call sites: Hyperpax:src/hooks/perps/useVault.ts:39 and Hyperpax:src/hooks/perps/usePortfolioStats.ts:155, which move to the account overload.
 - Normative example: Given account A whose positions and resting orders need 100,000,000 USDL units of initial margin, when getLockedBalance(A, usdl) runs, then it returns 100000000; getLockedBalance(usdl) in an eth_call from A returns the same value.
 - Test: `precompiles/perps/views_test.go`.
 
@@ -293,7 +286,6 @@ function getAccountSummary(address account, address token) external view returns
 
 - Mutability: view; served under eth_call and static call.
 - Gas: DefaultGasCost(input, false) + 0 for each overload (section 21, rows `getAccountSummary` and `getAccountSummary0`).
-- Application call site: Hyperpax:src/hooks/perps/useMarginMode.ts:239, which moves to the account overload.
 - Normative example: Given account A with 250,000,000 USDL units of collateral, 100,000,000 locked initial margin and two positions, when getAccountSummary(A, usdl) runs, then it returns idle 150000000, totalLocked 100000000 and positionCount 2; the caller overload in an eth_call from A returns the same tuple.
 - Test: `precompiles/perps/views_test.go`.
 
@@ -325,7 +317,6 @@ function setMarginMode(uint8 mode) external;
 
 - Mutability: state-changing; refused under static call.
 - Gas: DefaultGasCost(input, true) + 5,000 (section 21).
-- Application call site: Hyperpax:src/hooks/perps/useMarginMode.ts:80.
 - Normative example: Given account A, when it calls setMarginMode(0), then the call succeeds and changes nothing; setMarginMode(1) reverts with PerpsCrossMarginOnly().
 - Test: `precompiles/perps/account_test.go` TestAccountSetMarginModeAcceptsCrossOnly.
 
@@ -338,8 +329,7 @@ function getMarginMode(address account) external view returns (uint8 mode);
 
 - Mutability: view; served under eth_call and static call.
 - Gas: DefaultGasCost(input, false) + 0 for each overload (section 21, rows `getMarginMode` and `getMarginMode0`).
-- Application call site: Hyperpax:src/hooks/perps/useMarginMode.ts:41, which moves to the account overload.
-- Normative example: Given any caller and any account A, when getMarginMode() and getMarginMode(A) run, then both return 0, the value of MarginMode.Cross in Hyperpax:src/types/perps.ts:319-322.
+- Normative example: Given any caller and any account A, when getMarginMode() and getMarginMode(A) run, then both return 0, the value of MarginMode.Cross in apps/perps/src/types/perps.ts.
 - Test: `precompiles/perps/views_test.go`.
 
 ### topUpPosition
@@ -350,7 +340,6 @@ function topUpPosition(uint256 positionId, uint256 amount) external;
 
 - Mutability: state-changing; refused under static call.
 - Gas: DefaultGasCost(input, true) + 130,000 (section 21; 100,000 of it is the token leg).
-- Application call site: Hyperpax:src/hooks/perps/useMarginMode.ts:164.
 - Normative example: Given account A holds position 7, 50,000,000 USDL units in its wallet and an allowance of 50,000,000 to 0x1015, when A calls topUpPosition(7, 50000000), then transferFrom(A, perps module EVM address, 50000000) moves the tokens, A's cross collateral rises by 50,000,000 and CollateralDeposited is emitted; topUpPosition(8, 1) on a position of account B reverts with PerpsNotPositionHolder(); while the venue is paused the call still succeeds.
 - Test: `precompiles/perps/account_test.go` TestAccountTopUpPositionDepositsIntoCrossAccount.
 
@@ -362,7 +351,6 @@ function transferMargin(uint256 fromPositionId, uint256 toPositionId, uint256 am
 
 - Mutability: state-changing; refused under static call.
 - Gas: DefaultGasCost(input, true) + 5,000 (section 21).
-- Application call site: Hyperpax:src/hooks/perps/useMarginMode.ts:197.
 - Normative example: Given account A owns positions 7 and 9, when A calls transferMargin(7, 9, 1000000), then the call reverts with PerpsCrossMarginOnly() because every position already draws on the one cross account.
 - Test: `precompiles/perps/account_test.go` TestAccountTransferMarginRefusedUnderCross.
 
@@ -374,7 +362,6 @@ function getPositionMargin(uint256 positionId) external view returns (PositionMa
 
 - Mutability: view; served under eth_call and static call.
 - Gas: DefaultGasCost(input, false) + 0 (section 21).
-- Application call site: Hyperpax:src/hooks/perps/useMarginMode.ts:119.
 - Normative example: Given position 7 is a 10,000 USD BTC long at 100x, when getPositionMargin(7) runs, then it returns token = the USDL ERC20 address, lockedAmount 100000000 (100 USD initial margin in USDL units), marketId 0 and isLong true.
 - Test: `precompiles/perps/views_test.go` TestViewsGetPositionMarginIsInitialMargin.
 
@@ -406,7 +393,7 @@ function checkLiquidatable(uint256 positionId) external view returns (bool liqui
 - Validation order: pause (`PerpsPaused()`), account, market exists (`PerpsUnknownMarket()`) and enabled (`PerpsMarketDisabled()`), fresh price for opening orders (`PerpsPriceStale()`), order type and time in force, tick (`PerpsTickSize()`) and lot (`PerpsLotSize()`), minimum and maximum order value, leverage, open-order limit, cloid uniqueness, reduce-only, margin.
 - `sizeUsd` converts to base size at the limit price (LIMIT, STOP_LIMIT) or at mark (MARKET, STOP_MARKET, TAKE_PROFIT, STOP_LOSS) and rounds down to the lot; a size that rounds to zero reverts with `PerpsLotSize()`. The order's notional is its base size times that sizing price, rounded down to 1e-18 USD; `OrderPlaced.sizeUsd`, `getOrder` and `OrderDetails.sizeUsd` carry that notional.
 - Margin of an order: an order is accepted only if account equity minus the taker fee on the order notional at the account's taker rate (the fee reserve) is at least the initial margin of all positions and resting orders after the order (spec/release-v6-12-0/contracts/perps-parameters.md, section 2).
-- The Hyperpax compatibility methods `placeLimitOrder` and `placeStopLimitOrder` run the deposit leg for `collateralAmount` first and then behave as `placeOrder` with GTC; `collateralToken` must be the USDL ERC20 address. Their notional is min(sizeUsd, collateralAmount x leverage / (1 + leverage x taker rate)), rounded down before the lot conversion, so the collateral the application derives as sizeUsd / leverage (Hyperpax:src/core/perps/amounts.ts:58-66) covers the initial margin plus the fee reserve and the margin rule holds for an account that holds nothing else.
+- The Hyperpax compatibility methods `placeLimitOrder` and `placeStopLimitOrder` run the deposit leg for `collateralAmount` first and then behave as `placeOrder` with GTC; `collateralToken` must be the USDL ERC20 address. Their notional is min(sizeUsd, collateralAmount x leverage / (1 + leverage x taker rate)), rounded down before the lot conversion, so the collateral the application derives as sizeUsd / leverage (apps/perps/src/core/perps/amounts.ts) covers the initial margin plus the fee reserve and the margin rule holds for an account that holds nothing else.
 - Reduce-only orders may only shrink the account's position; an opening reduce-only order reverts with `PerpsReduceOnlyViolation()`, and a resting reduce-only order larger than the position after a fill is shrunk to the position size or cancelled.
 
 Methods:
@@ -430,7 +417,6 @@ function placeLimitOrder(uint256 marketId, bool isLong, uint256 triggerPrice, ui
 
 - Mutability: state-changing; refused under static call.
 - Gas: DefaultGasCost(input, true) + 350,000 (section 21; 100,000 of it is the token leg).
-- Application call site: Hyperpax:src/hooks/perps/usePerpsOrders.ts:36.
 - Normative example: Given account A with no other margin use, BTC tier 0 taker rate 450 ppm and an allowance of 300,000,000 to 0x1015, when the application encodes placeLimitOrder(0, true, 59000e18, 6000e18, 20e18, usdl, 300000000), then transferFrom(A, perps module EVM address, 300000000) runs first, the notional is min(6,000, 300 x 20 / 1.009) = 5,946.4816650… USD, the base size is 0.10078 BTC, and a GTC limit buy rests at 59,000 USD for 5,946.02 USD with initial margin 297.301 USD and fee reserve 2.675709 USD, together 299.976709 USD of the 300 deposited; triggerPrice is the limit price as the application uses it.
 - Test: `precompiles/perps/orders_test.go` TestOrdersPlaceLimitOrderCompat.
 
@@ -442,7 +428,6 @@ function placeStopLimitOrder(uint256 marketId, bool isLong, uint256 triggerPrice
 
 - Mutability: state-changing; refused under static call.
 - Gas: DefaultGasCost(input, true) + 350,000 (section 21; 100,000 of it is the token leg).
-- Application call site: Hyperpax:src/hooks/perps/usePerpsOrders.ts:58.
 - Normative example: Given BTC mark 60,000 USD, when the application calls placeStopLimitOrder(0, true, 61000e18, 61100e18, 6000e18, 20e18, usdl, 300000000), then 300,000,000 USDL units are pulled by transferFrom, a STOP_LIMIT order of 0.09732 BTC (5,946.252 USD at 61,100) is stored untriggered and OrderPlaced carries orderType 1 and triggerPrice 61,000e18; it rests as a limit at 61,100 only after mark reaches 61,000.
 - Test: `precompiles/perps/orders_test.go` TestOrdersPlaceStopLimitOrderCompat.
 
@@ -454,7 +439,6 @@ function cancelOrder(uint256 orderId) external;
 
 - Mutability: state-changing; refused under static call.
 - Gas: DefaultGasCost(input, true) + 20,000 (section 21).
-- Application call site: Hyperpax:src/hooks/perps/usePerpsOrders.ts:71.
 - Normative example: Given order 1 of account A rests in the BTC book, when A calls cancelOrder(1), then the order leaves the book, its reserved initial margin is released and OrderCancelled(1, A) is emitted; cancelOrder(1) by account B reverts with PerpsNotOrderHolder() and a second cancel by A reverts with PerpsUnknownOrder(); while the venue is paused the cancel still succeeds.
 - Test: `precompiles/perps/orders_test.go` TestOrdersCancelOrderHolderOnly.
 
@@ -477,7 +461,6 @@ function getOrder(uint256 orderId) external view returns (address user, uint256 
 
 - Mutability: view; served under eth_call and static call.
 - Gas: DefaultGasCost(input, false) + 0 (section 21).
-- Application call site: Hyperpax:src/hooks/perps/usePerpsOrders.ts:10.
 - Normative example: Given order 1 is the resting limit buy of placeLimitOrder above, when getOrder(1) runs, then it returns (A, 0, true, 0, 59000e18, 59000e18, 5946.02e18, 20e18, usdl, 300000000, true) in the eleven-field order the application decodes, orderType 0 being the application's Limit label.
 - Test: `precompiles/perps/views_test.go` TestViewsGetOrderCompatTuple.
 
@@ -500,7 +483,6 @@ function getUserOrderIds(address user) external view returns (uint256[] memory o
 
 - Mutability: view; served under eth_call and static call.
 - Gas: DefaultGasCost(input, false) + 0 (section 21).
-- Application call site: Hyperpax:src/hooks/perps/usePerpsOrders.ts:19.
 - Normative example: Given account A has open orders 1, 4 and 9 and order 2 was cancelled, when getUserOrderIds(A) runs, then it returns [1, 4, 9] in ascending order.
 - Test: `precompiles/perps/views_test.go` TestViewsGetUserOrderIdsOpenOnly.
 
@@ -508,7 +490,7 @@ function getUserOrderIds(address user) external view returns (uint256[] memory o
 
 - One central limit order book per market, price-time priority. Bids sort by descending price, asks by ascending price, then by the global placement sequence.
 - An incoming taker order matches resting orders at the maker's price while the price crosses its bound; each match emits `Fill` and settles both fill parties' positions at the fill price (section 8).
-- One slippage rule for every taker order. The bound is the limit price for a LIMIT order and, for a MARKET order, a triggered market order and every compatibility method, `acceptablePrice` when it is non-zero, otherwise the default bound mark x (1 + 5,000 ppm) for a buy and mark x (1 - 5,000 ppm) for a sell, rounded to the tick toward the mark (spec/release-v6-12-0/contracts/perps-parameters.md, section 8; the application's 50 bps of Hyperpax:src/core/perps/config.ts:354). Matching stops at the first resting price beyond the bound and the IOC remainder is cancelled, so a partial fill inside the bound stands. A taker order whose opposite side is empty reverts with `PerpsNoLiquidity()`; an order whose opposite side is not empty but that fills nothing inside its bound reverts with `PerpsSlippageExceeded()`. No volume-weighted price check is made after matching.
+- One slippage rule for every taker order. The bound is the limit price for a LIMIT order and, for a MARKET order, a triggered market order and every compatibility method, `acceptablePrice` when it is non-zero, otherwise the default bound mark x (1 + 5,000 ppm) for a buy and mark x (1 - 5,000 ppm) for a sell, rounded to the tick toward the mark (spec/release-v6-12-0/contracts/perps-parameters.md, section 8; the application's 50 bps of apps/perps/src/core/perps/config.ts). Matching stops at the first resting price beyond the bound and the IOC remainder is cancelled, so a partial fill inside the bound stands. A taker order whose opposite side is empty reverts with `PerpsNoLiquidity()`; an order whose opposite side is not empty but that fills nothing inside its bound reverts with `PerpsSlippageExceeded()`. No volume-weighted price check is made after matching.
 - A FOK order that cannot fill completely inside its bound reverts with `PerpsFokNotFilled()` and changes nothing; a POST_ONLY order that would cross reverts with `PerpsPostOnlyWouldCross()`.
 - At most 32 fills per taker order; the remainder of an IOC order beyond 32 fills is cancelled.
 - Self-trade prevention cancels the resting order of the same account and continues matching.
@@ -518,7 +500,7 @@ function getUserOrderIds(address user) external view returns (uint256[] memory o
 ## 7. Triggers and attached TP/SL
 
 - Trigger condition at mark: STOP_MARKET and STOP_LIMIT buy trigger at mark >= trigger, sell at mark <= trigger; TAKE_PROFIT of a long triggers at mark >= trigger and STOP_LOSS of a long at mark <= trigger, mirrored for a short.
-- Triggered orders are evaluated in EndBlock after the mark update, at most 256 per block, in the key order of the trigger index (section 20): per market in ascending market id, per direction the trigger prices the mark crossed in crossing order (buy-side triggers from the lowest trigger price up, sell-side triggers from the highest down), and for equal prices ascending placement sequence; an order that does not fit the 256 cap stays in the index and is evaluated first in the next block (spec/release-v6-12-0/contracts/perps-parameters.md, section 8). `executeOrder` lets any caller trigger an order whose condition holds at the current mark.
+- Triggered orders are evaluated in EndBlock after the mark update, at most 256 per block, in the key order of the trigger index (section 20): per market in ascending market id, per direction the trigger prices the mark crossed in crossing order (rising-direction triggers from the lowest trigger price up, falling-direction triggers from the highest down), and for equal prices ascending placement sequence; an order that does not fit the 256 cap stays in the index and is evaluated first in the next block (spec/release-v6-12-0/contracts/perps-parameters.md, section 8). `executeOrder` lets any caller trigger an order whose condition holds at the current mark.
 - An attached TP/SL pair set by `setPositionTpSl` or by `OrderParams.takeProfitPrice`/`stopLossPrice` is a pair of reduce-only trigger orders for the whole position; when one fills the other is cancelled, and both are cancelled when the position closes.
 
 Methods:
@@ -531,7 +513,6 @@ function placeTakeProfitOrder(uint256 positionId, uint256 triggerPrice) external
 
 - Mutability: state-changing; refused under static call.
 - Gas: DefaultGasCost(input, true) + 60,000 (section 21).
-- Application call site: Hyperpax:src/hooks/perps/usePerpsOrders.ts:81.
 - Normative example: Given account A holds BTC long position 7 with entry 60,000 USD, when A calls placeTakeProfitOrder(7, 66000e18), then a reduce-only TAKE_PROFIT order for the whole position is stored and OrderPlaced carries orderType 2; triggerPrice 59,000e18 reverts with PerpsInvalidTriggerPrice() because a long take-profit sits above mark.
 - Test: `precompiles/perps/orders_test.go` TestOrdersPlaceTakeProfitOrderOnPosition.
 
@@ -543,7 +524,6 @@ function placeStopLossOrder(uint256 positionId, uint256 triggerPrice) external r
 
 - Mutability: state-changing; refused under static call.
 - Gas: DefaultGasCost(input, true) + 60,000 (section 21).
-- Application call site: Hyperpax:src/hooks/perps/usePerpsOrders.ts:91.
 - Normative example: Given A's BTC long position 7 and mark 60,000 USD, when A calls placeStopLossOrder(7, 57000e18), then a reduce-only STOP_LOSS order for the whole position is stored with orderType 3; triggerPrice 61,000e18 reverts with PerpsInvalidTriggerPrice().
 - Test: `precompiles/perps/orders_test.go` TestOrdersPlaceStopLossOrderOnPosition.
 
@@ -590,7 +570,6 @@ function openPosition(uint256 marketId, address collateralToken, uint256 collate
 
 - Mutability: state-changing; refused under static call.
 - Gas: DefaultGasCost(input, true) + 350,000 (section 21; 100,000 of it is the token leg).
-- Application call site: Hyperpax:src/hooks/perps/usePosition.ts:63.
 - Normative example: Given A holds 100,000,000 USDL units with an allowance of 100,000,000 to 0x1015, BTC mark 60,000 USD, best ask 60,000 USD with 1 BTC resting and A's taker rate 450 ppm, when the application calls openPosition(0, usdl, 100000000, 10e18, true), then transferFrom pulls 100 USDL, N = 100 x 10 / 1.0045 = 995.5201592… USD, the default bound is 60,300, the base size is 0.01650 BTC, the buy fills at 60,000 for 990 USD, initial margin is 99 USD and the taker fee 0.4455 USD, collateral after the fee is 99,554,500 USDL units, PositionOpened(7, A, 0, true, 990e18, 10e18, 60000e18, usdl, 100000000) and Fill are emitted and the returned id is A's market position 7.
 - Test: `precompiles/perps/positions_test.go` TestPositionsOpenPositionCompatMarketOrder.
 
@@ -602,7 +581,6 @@ function addSize(uint256 positionId, uint256 additionalCollateral, uint256 lever
 
 - Mutability: state-changing; refused under static call.
 - Gas: DefaultGasCost(input, true) + 350,000 (section 21; 100,000 of it is the token leg).
-- Application call site: Hyperpax:src/hooks/perps/usePosition.ts:121.
 - Normative example: Given A's BTC long position 7 of 0.01650 BTC at entry and reference 60,000 USD, when A calls addSize(7, 50000000, 10e18) with mark and best ask 62,000, then 50 USDL is pulled, N = 50 x 10 / 1.0045 = 497.7600796… USD, the bound is 62,310, 0.00798 BTC is bought at 62,000 for 494.76 USD with taker fee 0.222642 USD, position 7 is first settled at 62,000 (+33 USD realised into collateral, reference reset to 62,000), the size becomes 0.02448 BTC, the displayed entry becomes the size-weighted 60,651.960784313725490196 USD and PositionEntryPriceChanged(7, 60000e18, 60651960784313725490196) is emitted.
 - Test: `precompiles/perps/positions_test.go` TestPositionsAddSizeReweightsEntry.
 
@@ -614,7 +592,6 @@ function addCollateral(uint256 positionId, uint256 amount) external;
 
 - Mutability: state-changing; refused under static call.
 - Gas: DefaultGasCost(input, true) + 130,000 (section 21; 100,000 of it is the token leg).
-- Application call site: Hyperpax:src/hooks/perps/usePosition.ts:100.
 - Normative example: Given A owns position 7, when A calls addCollateral(7, 20000000), then transferFrom(A, perps module EVM address, 20000000) moves 20 USDL from A's wallet into its cross account and CollateralDeposited is emitted; the position's size and entry are unchanged; while the venue is paused the call still succeeds.
 - Test: `precompiles/perps/positions_test.go` TestPositionsAddCollateralDepositsCross.
 
@@ -626,7 +603,6 @@ function removeCollateral(uint256 positionId, uint256 amount) external;
 
 - Mutability: state-changing; refused under static call.
 - Gas: DefaultGasCost(input, true) + 130,000 (section 21; 100,000 of it is the token leg).
-- Application call site: Hyperpax:src/hooks/perps/usePosition.ts:110.
 - Normative example: Given A holds position 7 and has 30 USD withdrawable, when A calls removeCollateral(7, 30000000), then transfer(A, 30000000) returns 30 USDL to A's wallet; removeCollateral(7, 30000001) reverts with PerpsInsufficientMargin().
 - Test: `precompiles/perps/positions_test.go` TestPositionsRemoveCollateralBoundedByWithdrawable.
 
@@ -638,7 +614,6 @@ function closePosition(uint256 positionId) external;
 
 - Mutability: state-changing; refused under static call.
 - Gas: DefaultGasCost(input, true) + 250,000 (section 21).
-- Application call site: Hyperpax:src/hooks/perps/usePosition.ts:79.
 - Normative example: Given A's BTC long 7 of 0.01650 BTC at entry and reference 60,000 and best bid 61,000 USD, when A calls closePosition(7), then a reduce-only IOC sell of 0.01650 BTC fills at 61,000 for 1,006.5 USD, realised PnL +16.5 USD less the taker fee 0.452925 USD is credited to A's collateral, PositionClosed(7, A, 0, 1006.5e18, 61000e18, 16.5e18, true) and TradeSettled are emitted, the position is removed and no token leaves 0x1015; the call also succeeds while the venue is paused.
 - Test: `precompiles/perps/positions_test.go` TestPositionsClosePositionRealisesPnl.
 
@@ -650,7 +625,6 @@ function partialClose(uint256 positionId, uint256 closeSizeUsd) external;
 
 - Mutability: state-changing; refused under static call.
 - Gas: DefaultGasCost(input, true) + 250,000 (section 21).
-- Application call site: Hyperpax:src/hooks/perps/usePosition.ts:89.
 - Normative example: Given A's BTC long 7 of 0.01650 BTC and mark 61,000 USD, when A calls partialClose(7, 500e18), then 0.00819 BTC (500 USD at mark rounded down to the lot) is sold reduce-only and PositionClosed carries isFullClose false; closeSizeUsd above the position notional reverts with PerpsCloseSizeExceedsPosition().
 - Test: `precompiles/perps/positions_test.go` TestPositionsPartialCloseRoundsToLot.
 
@@ -673,7 +647,6 @@ function getPosition(uint256 positionId) external view returns (address user, ui
 
 - Mutability: view; served under eth_call and static call.
 - Gas: DefaultGasCost(input, false) + 0 (section 21).
-- Application call site: Hyperpax:src/hooks/perps/usePosition.ts:29.
 - Normative example: Given A's BTC long 7 of 0.01650 BTC at entry 60,000 USD with mark 61,000, when getPosition(7) runs, then it returns (A, 0, true, 1006.5e18 at mark, the position's share of account equity in USD, usdl, that share in USDL units, 60000e18, open time, true) in the ten-field order the application decodes.
 - Test: `precompiles/perps/views_test.go` TestViewsGetPositionCompatTuple.
 
@@ -696,7 +669,6 @@ function getUserPositionIds(address user) external view returns (uint256[] memor
 
 - Mutability: view; served under eth_call and static call.
 - Gas: DefaultGasCost(input, false) + 0 (section 21).
-- Application call site: Hyperpax:src/hooks/perps/usePosition.ts:38.
 - Normative example: Given A holds positions 7 (BTC) and 9 (ETH), when getUserPositionIds(A) runs, then it returns [7, 9].
 - Test: `precompiles/perps/views_test.go` TestViewsGetUserPositionIds.
 
@@ -737,7 +709,7 @@ function getMarketConfig(uint256 marketId) external view returns (MarketConfig m
 
 - Mutability: view; served under eth_call and static call.
 - Gas: DefaultGasCost(input, false) + 0 (section 21).
-- Normative example: Given market 11 (PAX), when getMarketConfig(11) runs, then it returns oracleSymbol PAX, szDecimals 0, pxDecimals 5, tickSize 1e13 (0.00001 USD in 18 dp), lotSize 1, maxLeverage 1000, impactNotionalUsd 6000e18, oiCapUsd 2000000e18 at a listing age below 30 days, fundingCapPpmPerHour 40000, enabled true and listedAt the activation block time.
+- Normative example: Given market 11 (PAX), when getMarketConfig(11) runs, then it returns oracleSymbol PAX, szDecimals 0, pxDecimals 5, tickSize 1e13 (0.00001 USD in 18 dp), lotSize 1e18 (one PAX), maxLeverage 1000, impactNotionalUsd 6000e18, oiCapUsd 2000000e18 at a listing age below 30 days, fundingCapPpmPerHour 40000, enabled true and listedAt the activation block time.
 - Test: `precompiles/perps/views_test.go` TestViewsGetMarketConfig.
 
 ### getActiveMarketIds
@@ -776,7 +748,7 @@ function isMarketActive(uint256 marketId) external view returns (bool active);
 ## 10. Fees
 
 - Fees follow spec/release-v6-12-0/contracts/perps-parameters.md section 1: the tier is set by the volume of the 14 UTC days d-13 to d inclusive, where d is the UTC day of the block, so a fill counts toward the tier of the next order on the same day; maker rebate tiers by maker share; fees rounded up, rebates rounded down.
-- `getFees` returns the tier 0 taker and maker rates, liquidation fee 0 and `Params.InsuranceSharePpm` (0 at activation) in ppm, the unit its output names state; the Diamond `getFees` of Hyperpax:src/core/network/abi/MarketRegistryFacet.json:214 names bps outputs and no application hook calls it (section 25). `getFeeTier` returns the account-specific tier.
+- `getFees` returns the tier 0 taker and maker rates, liquidation fee 0 and `Params.InsuranceSharePpm` (0 at activation) in ppm. `getFeeTier` returns the account-specific tier.
 
 Methods:
 
@@ -818,7 +790,7 @@ function getProtocolAccounts() external view returns (address feeRecipient, addr
 - The keeper reads `GetPrice(ctx, marketId)` of `modules/pricefeed/keeper` (spec/release-v6-12-0/contracts/pricefeed.md#freshness-and-read-api) once per market per block, with the market ids 0 to 17 shared with the pricefeed, and stores index price, the pricefeed mark price, the timestamp and the freshness flag in market state.
 - Mark = median(Index + EMA150s(mid - Index), median(best bid, best ask, last trade), pricefeed Mark), where a component that is undefined (an order side with no resting order, or no trade yet in the market) is set to Index (spec/release-v6-12-0/contracts/perps-parameters.md, section 5); the pricefeed Mark is defined by spec/release-v6-12-0/contracts/pricefeed.md#mark-price.
 - A market whose price is not fresh refuses opening orders, market closes and liquidations with `PerpsPriceStale()`; `isMarketActive` returns false for it.
-- `getMarkPrice` keeps the one-output shape of the Diamond facets (Hyperpax:src/core/network/abi/PriceFeedFacet.json:77, VirtualAMMFacet.json:91); `getMarkPriceDetails` returns the components.
+- `getMarkPrice` returns one mark-price value; `getMarkPriceDetails` also returns index price, mid price and freshness.
 
 Methods:
 
@@ -852,7 +824,6 @@ function quoteMarket(uint256 marketId) external view returns (MarketQuote memory
 
 - Mutability: view; served under eth_call and static call.
 - Gas: DefaultGasCost(input, false) + 0 (section 21).
-- Application call site: Hyperpax:src/hooks/perps/useQuoter.ts:119.
 - Normative example: Given market 0 with mark 60,012, index 60,000 and open interest of 4,000,000 USD on each side, when the application calls quoteMarket(0), then the eleven-field tuple returns indexPrice, markPrice, oracleTWAP (the hourly premium-sample average price), fundingRatePerSecond, fundingRate24h, longOI 4000000e18, shortOI 4000000e18, maxLeverage 1000, maintenanceMarginBps 5, enabled true and priceStale false.
 - Test: `precompiles/perps/quote_market_test.go` TestQuoteMarketHandlerMatchesKeeperQuote.
 
@@ -860,7 +831,7 @@ function quoteMarket(uint256 marketId) external view returns (MarketQuote memory
 
 - Premium sampling every 5 seconds of block time; at each whole hour of block time the hourly rate is fixed from the samples (cap 4 percent per hour) and the market's cumulative funding index per unit of base advances by oracle x hourly rate; no position is visited at the hour (spec/release-v6-12-0/contracts/perps-parameters.md, section 3).
 - Funding of a position is lazy: its funding is side x size x (index now - index at its last settlement), part of its account's equity at every read and settled into collateral at each settlement of the position (section 8) or a successful EndBlock cursor-sweep visit (section 23); amounts a position pays round up and amounts it receives round down, the remainder going to `residueUsd` (section 24).
-- `getFundingState` keeps the tuple of the Diamond facet (Hyperpax:src/core/network/abi/FundingRateFacet.json:73); `getFundingDetails` returns the sampling state.
+- `getFundingState` returns the funding tuple declared below; `getFundingDetails` returns the sampling state.
 
 Methods:
 
@@ -922,7 +893,6 @@ function getOpenInterest(uint256 marketId) external view returns (uint256 longOI
 
 - Mutability: view; served under eth_call and static call.
 - Gas: DefaultGasCost(input, false) + 0 (section 21).
-- Application call site: Hyperpax:src/hooks/perps/usePosition.ts:47.
 - Normative example: Given market 0 with longs totalling 2 BTC and shorts totalling 2 BTC at mark 60,000 USD, when getOpenInterest(0) runs, then it returns (120000e18, 120000e18).
 - Test: `precompiles/perps/views_test.go` TestViewsGetOpenInterestAtMark.
 
@@ -954,7 +924,7 @@ function getLiquidationPrice(uint256 positionId) external view returns (uint256 
 - Mutability: view; served under eth_call and static call.
 - Gas: DefaultGasCost(input, false) + 0 (section 21).
 - Normative example: Given A's only position is long 1 BTC at mark 60,000 USD with 600 USD margin available above maintenance and maintenance leverage 2000 (MMR 0.05 percent), when getLiquidationPrice(7) runs, then it returns 60000 - 1 x 600 / 1 / (1 - 0.0005) = 59399699849924962481240 (59,399.699849924962481240 USD, rounded down to 1e-18).
-- The Diamond `getLiquidationPrice` of Hyperpax:src/core/network/abi/PriceFeedFacet.json:58 takes a market id; this method takes a position id and no application hook calls the Diamond form (section 25).
+- `getLiquidationPrice` takes a position id.
 - Test: `precompiles/perps/views_test.go` TestViewsGetLiquidationPriceFormula.
 
 ## 15. Backstop and insurance
@@ -1006,7 +976,6 @@ function quoteOpenPosition(uint256 marketId, address collateralToken, uint256 co
 
 - Mutability: view; served under eth_call and static call.
 - Gas: DefaultGasCost(input, false) + 0 (section 21).
-- Application call site: Hyperpax:src/hooks/perps/useQuoter.ts:136.
 - Normative example: Given BTC mark 60,000, asks of 0.01 BTC at 60,000 and 0.01 BTC at 60,100 USD and taker rate 450 ppm, when quoteOpenPosition(0, usdl, 100000000, 10e18, true) runs, then the sizing rule of section 8 gives N = 995.5201592… USD and 0.01650 BTC at the 60,300 bound, the walk fills 0.01 at 60,000 and 0.0065 at 60,100 for 990.65 USD, entryPrice is the volume-weighted 60039393939393939393939 (60,039.393939393939393939, rounded down to 1e-18), sizeUsd 990.65e18, collateralUsd 100e18, leverage 10e18, tradingFee 445793 USDL units, tradingFeeUsd 0.4457925e18, priceImpact in bps against mark, liquidationPrice by the formula of section 14 and maintenanceMarginBps 5; initial margin 99.065 USD plus the fee is within 100 USD, so openPosition with the same arguments fills the same 0.01650 BTC; no state changes.
 - Test: `precompiles/perps/quotes_test.go` TestQuotesQuoteOpenPositionWalksBook.
 
@@ -1018,7 +987,6 @@ function quoteClosePosition(uint256 positionId) external view returns (ClosePosi
 
 - Mutability: view; served under eth_call and static call.
 - Gas: DefaultGasCost(input, false) + 0 (section 21).
-- Application call site: Hyperpax:src/hooks/perps/useQuoter.ts:146.
 - Normative example: Given A's BTC long 7 and bids deep enough at 61,000 USD, when quoteClosePosition(7) runs, then exitPrice 61000e18, unrealizedPnl, tradingFeeUsd at A's taker rate, fundingOwed (negative when A pays), netPnl and estimatedPayout in USDL units are returned without state change.
 - Test: `precompiles/perps/quotes_test.go` TestQuotesQuoteClosePosition.
 
@@ -1159,7 +1127,7 @@ Examples:
 - `PerpsMarketDisabled()` (LXP_PERPS_MARKET_DISABLED): Given market 16 disabled, when placeOrder names it with reduceOnly false, then the call reverts with PerpsMarketDisabled(); a reduce-only close still passes.
 - `PerpsPriceStale()` (LXP_PERPS_PRICE_STALE): Given pricefeed reports fresh false for market 5, when openPosition(5, ...) runs, then it reverts with PerpsPriceStale() and EndBlock skips liquidation of market 5 for that block.
 - `PerpsZeroAmount()` (LXP_PERPS_ZERO_AMOUNT): Given account A, when deposit(usdl, 0) runs, then it reverts with PerpsZeroAmount().
-- `PerpsUnsupportedCollateral()` (LXP_PERPS_UNSUPPORTED_COLLATERAL): Given token 0x4b29871681c95DFB2c7824BC4b0326B80217bCe8 (the perps USDC collateral entry of Hyperpax:src/core/perps/config.ts:66), when deposit(token, 1) runs, then it reverts with PerpsUnsupportedCollateral().
+- `PerpsUnsupportedCollateral()` (LXP_PERPS_UNSUPPORTED_COLLATERAL): Given token 0x4b29871681c95DFB2c7824BC4b0326B80217bCe8 (the perps USDC collateral entry of apps/perps/src/core/perps/config.ts), when deposit(token, 1) runs, then it reverts with PerpsUnsupportedCollateral().
 - `PerpsInsufficientCollateral()` (LXP_PERPS_INSUFFICIENT_COLLATERAL): Given A holds 10 USDL units with an allowance of 1,000,000 to 0x1015, when deposit(usdl, 11) runs, then it reverts with PerpsInsufficientCollateral() before any token call and no state changes; with a balance of 1,000,000 and an allowance of 10, deposit(usdl, 11) reverts the same way.
 - `PerpsInsufficientMargin()` (LXP_PERPS_INSUFFICIENT_MARGIN): Given A with 100 USD equity and an order needing 120 USD initial margin, when placeOrder runs, then it reverts with PerpsInsufficientMargin().
 - `PerpsLeverageTooHigh()` (LXP_PERPS_LEVERAGE_TOO_HIGH): Given market 4 (LINK) with max leverage 1000, when openPosition(4, usdl, 1000000, 1001e18, true) runs, then it reverts with PerpsLeverageTooHigh().
@@ -1219,21 +1187,26 @@ The module keeps one KV store under store key `perps`; parameters are JSON as in
 | 0x0C | Expiry: deadline (8 bytes), orderId | empty |
 | 0x0D | Volume: address, day (8 bytes) | taker and maker volume in USD |
 | 0x0E | VenueVolume: day | venue volume in USD |
-| 0x0F | LiquidationCooldown: positionId | block time of the last slice |
+| 0x0F | LiquidationCooldown: positionId | block time of the last slice (8 bytes) and slice basis in base units (32 bytes) |
 | 0x10 | Sequence: name (1 byte) | next order id, next position id, global placement sequence |
 | 0x11 | AttachedTpSl: positionId | take-profit and stop-loss order ids |
 | 0x12 | MarginRatioIndex: bucket (2 bytes), address | empty; bucket = min(65535, floor(100 x equity / maintenance margin)) at the account's last settlement, 0 for equity at or below 0; one entry per account with a position |
 | 0x13 | AdlRankIndex: marketId, side (1 byte), 2^256-1 minus rank score (32 bytes), positionId | empty; rank score of section 16 at the position's last settlement; one entry per position |
 | 0x14 | SweepCursor | next position id the EndBlock sweep settles |
 | 0x15 | VenueBooks | `residueUsd` (USD, 18 decimals) and the sum of account deficits (USD) |
+| 0x16 | PreviousMark: marketId | block height (8 bytes) and mark before the block's update (32 bytes) |
+| 0x17 | ADL continuation: deficit positionId | last visited ADL rank key |
+| 0x18 | ADL block budget | height, examined entries and matches (8 bytes each) |
+| 0x19 | ProtectiveTrigger: marketId, direction, trigger price key, sequence | reduce-only orderId, used while paused |
+| 0x1A | ADL deficit continuation | last visited deficit positionId |
 
-- Genesis exports and imports every prefix; `ValidateGenesis` rejects duplicate ids, orders without a book entry, index entries without their account or position, and counters below the highest stored id with `LXP_PERPS_INVALID_GENESIS`.
+- Genesis exports venue records and rebuilds derived book, cloid, trigger, expiry, margin-ratio and ADL-rank indexes on import; `ValidateGenesis` rejects duplicate ids, orders without a book entry, index entries without their account or position, and counters below the highest stored id with `LXP_PERPS_INVALID_GENESIS`.
 - Every position write rewrites its AdlRankIndex entry, and every account settlement rewrites its MarginRatioIndex entry, in the same cached context.
 - Custody: the one USDL ERC20 balance of the perps module EVM address backs every store balance. `perps_fees` (fee recipient) and `perps_insurance` (insurance fund) are store accounts keyed by the EVM form of their module addresses (`authtypes.NewModuleAddress`); they hold no bank coins and no USDL of their own, and the module needs no bank permission. No bank coin of USDL exists.
 
 ## 21. Gas
 
-Gas is fixed per method under `WithGasTable` (precompiles/common/precompiles.go): `MethodGas.Gas(args)` = `DefaultGasCost(args, write)` + surcharge (precompiles/common/precompiles.go, 441-447), with KV costs read 1000 + 3 per input byte and write 2000 + 30 per input byte (sdk/store/types/gas.go). A method without a row is refused. The EVM still charges the gas of the logs it records. Overloads are keyed by the go-ethereum overload names of `precompiles/perps/abi/abi.json`: the first declared form keeps the plain name and the next gets the suffix 0 (getBalance, getBalance0), in abi.json declaration order. A method with a token leg carries 100,000 of its surcharge for the nested USDL call, whose gas is capped at 100,000 (section 2). Because the charge is the table value and does not depend on state, `eth_estimateGas` returns the exact charge of a call apart from the gas of its logs and of the USDL contract's Transfer log.
+Gas is fixed per method under `WithGasTable` (precompiles/common/precompiles.go): `MethodGas.Gas(args)` = `DefaultGasCost(args, write)` + surcharge (precompiles/common/precompiles.go, 441-447), with KV costs read 1000 + 3 per input byte and write 2000 + 30 per input byte (sdk/store/types/gas.go). A method without a row is refused. The EVM still charges the gas of the logs it records. Overloads are keyed by the go-ethereum overload names of `precompiles/perps/abi/abi.json`: the first declared form keeps the plain name and the next gets the suffix 0 (getBalance, getBalance0), in abi.json declaration order. A method with a token leg carries 100,000 of its surcharge for the nested USDL call, whose gas is capped at 100,000 (section 2). These rows specify the precompile charge. Transaction gas estimates also include intrinsic gas and the EVM execution costs of the call, including logs.
 
 | method | write | surcharge |
 |---|---|---|
@@ -1319,12 +1292,12 @@ Gas is fixed per method under `WithGasTable` (precompiles/common/precompiles.go)
 
 ## 23. EndBlock
 
-`modules/perps/abci.go` `EndBlocker(ctx sdk.Context, k keeper.Keeper)` runs once per block; the node calls it from `EndBlock` in node/legacyabci/end_block.go before `EvmKeeper.EndBlock`. EndBlock moves no token: every step books store entries over the one USDL balance of the perps module EVM address, and only transactions run token legs. Every step has a fixed per-block bound, so the work of a block does not grow with the number of accounts or positions. Steps in order:
+`modules/perps/abci.go` `EndBlocker(ctx sdk.Context, k keeper.Keeper)` runs once per block; the node calls it from `EndBlock` in node/legacyabci/end_block.go before `EvmKeeper.EndBlock`. EndBlock moves no token: every step books store entries over the one USDL balance of the perps module EVM address, and only transactions run token legs. Order, sweep, liquidation and ADL scans use per-block limits. Market updates visit every enabled market, and settling a selected account visits all its positions, so total work also depends on those counts. Steps in order:
 
 1. Read `GetPrice` for every enabled market, update market state and the mark (section 11); emit `MarkPriceUpdated` when the mark changes.
 2. Record a premium sample for each market whose last sample is 5 or more seconds of block time old (section 12).
 3. On a new whole hour of block time: fix each market's hourly rate and advance its cumulative funding index (`FundingRateUpdated`, `FundingSettled`); no position is visited.
-4. Evaluate triggers in key order (market id ascending; per direction in crossing order, buy-side triggers from the lowest trigger price up and sell-side from the highest down; then placement sequence), at most 256 per block, the rest carried to the next block (`OrderTriggered`, then the fills of the triggered orders).
+4. Evaluate triggers in key order (market id ascending; per direction in crossing order, rising-direction triggers from the lowest trigger price up and falling-direction triggers from the highest down; then placement sequence; while paused, only the protective reduce-only index is scanned), at most 256 per block, the rest carried to the next block (`OrderTriggered`, then the fills of the triggered orders).
 5. Expire resting orders whose deadline is below block time in Expiry key order, at most 256 per block, the rest carried (`OrderExpired`).
 6. Sweep: read at most Params.SweepPositionsPerBlock position entries (512 at activation) from the persisted cursor, wrapping at the end. Settle each distinct account once at mark; settling an account visits all its positions and updates its margin and ADL indexes. A skipped market or failed settlement waits for a later visit (modules/perps/keeper/endblock.go).
 7. Liquidation: walk the MarginRatioIndex from bucket 0 upward, recompute and re-bucket visited accounts, with at most Params.LiquidationScanPerBlock entries (1,024 at activation), 64 liquidated accounts and 256 slices per block. Backstop accounts below 2/3 of maintenance. Each pass starts at the beginning of the index; skipped entries and stale buckets do not have a fixed refresh deadline.
@@ -1349,19 +1322,13 @@ Gas is fixed per method under `WithGasTable` (precompiles/common/precompiles.go)
 
 The invariants are registered as crisis invariants in `modules/perps/keeper/invariants.go` on the pattern of modules/launchpad/keeper/invariants.go and asserted after every scenario in `modules/perps/keeper/scenario_test.go`.
 
-## 25. Divergences from the Hyperpax Diamond interface
+## 25. Application integration
 
-- Vault contracts are replaced by one account per address inside the precompile; `getVault` returns 0x0000000000000000000000000000000000001015 for an account and the zero address otherwise, so the application's vault-address reads and writes (Hyperpax:src/hooks/perps/useVault.ts:28-58, Hyperpax:src/hooks/perps/useMarginMode.ts:39-283) land on the precompile with the same selectors.
-- ERC20 approval stays: every deposit leg pulls USDL by `transferFrom(caller, perps module EVM address, amount)`, so the user approves 0x0000000000000000000000000000000000001015 as spender, the step the application already runs for the Diamond (Hyperpax:src/hooks/perps/useVault.ts:68 approve, :78 allowance; Hyperpax:src/hooks/perps/usePosition.ts:13-22 ensureDiamondAllowance), retargeted to 0x1015 (spec/release-v6-12-0/contracts/application.md).
-- Isolated margin is not offered; `setMarginMode(1)` and `transferMargin` revert with `PerpsCrossMarginOnly()`; the application removes its transfer-margin flow (spec/release-v6-12-0/contracts/application.md).
-- Prices come from the order book and the pricefeed module, not a vAMM; there is no `updateFundingRate` or `autoDeleverage` entry point, because EndBlock runs funding and ADL.
-- Administrative setters of the Diamond (market creation, fee setters, delegates) have no precompile method; governance changes use the registered Msg service (section 22).
-- Events of the Diamond that describe vault-local accounting (MarginLocked, MarginReleased, MarginTransferred, MarginModeChanged, LedgerEntryRecorded, VaultBalanceChanged) are not emitted; the events of section 18 carry the same information for the order book venue.
-- Reshaped or added against the Diamond ABIs, each a required application change of spec/release-v6-12-0/contracts/application.md, where `precompiles/perps/abi/abi.json` replaces the Diamond facet ABIs of Hyperpax:src/core/network/abi:
-  - `MarkPriceChanged` (Hyperpax:src/core/network/abi/OrderBookFacet.json:110, PositionFacet.json:141) is not emitted; `MarkPriceUpdated(marketId, markPrice, indexPrice, midPrice)` on the EndBlock receipt replaces it.
-  - `getFees` returns ppm under Ppm output names; the Diamond form (MarketRegistryFacet.json:214) names bps outputs.
-  - `getLiquidationPrice` takes a position id; the Diamond form (PriceFeedFacet.json:58) takes a market id.
-  - `getMarkPrice` and `getFundingState` keep the Diamond output shapes (PriceFeedFacet.json:77, FundingRateFacet.json:73); `getMarkPriceDetails` and `getFundingDetails` are added for the extended fields.
-  - `getBorrowingFeeRate` and `getPendingBorrowingFee` of the Diamond (Hyperpax:src/core/network/abi/PositionFacet.ts:576, :619) are not declared: the venue charges no borrowing fee and keeps no borrowing index, funding being the only carry (spec/release-v6-12-0/contracts/perps-parameters.md, sections 3 and 4); no application hook calls them and their selectors revert with empty data (section 1).
-  - getBalance, getLockedBalance, getAccountSummary and getMarginMode gain the `address account` overloads of sections 3 and 4, which the application calls.
-  - Every revert is a custom error of section 19, which the application decodes from abi.json.
+- Application call builders in `apps/perps/src/core/perps/calls.ts` use `apps/perps/src/core/network/abi/PerpsPrecompile.ts` at 0x1015.
+- `apps/perps/src/hooks/perps/useAccount.ts` reads `getAccount(account)`, approves USDL to the perps spender and submits deposits and withdrawals. Collateral custody is the perps module EVM address.
+- Account overloads let reads identify the account explicitly. `apps/perps/src/hooks/perps/useMarginMode.ts` reads the account summary and position margin and submits position top-ups.
+- Cross margin is the supported mode. `setMarginMode(1)` and `transferMargin` revert with `PerpsCrossMarginOnly()`.
+- Prices use the order book and pricefeed. Funding and ADL run in EndBlock; the public ABI has no `updateFundingRate` or `autoDeleverage` method.
+- Governance changes parameters, markets and pause state through the registered Msg service (section 22).
+- `getFees` names its outputs in ppm. `getLiquidationPrice` takes a position id. The venue charges funding and no borrowing fee.
+- The events and custom errors in sections 18 and 19 are encoded by `precompiles/perps/abi/abi.json`.
