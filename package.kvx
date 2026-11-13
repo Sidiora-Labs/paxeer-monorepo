@@ -1,0 +1,255 @@
+# Repository environment package v1.
+# Unresolved installation values: environment identity and generation, image digest,
+# installer version and digest, source configuration digest, every tool artifact and
+# dependency lockfile digest, runtime configuration reference, catalogue digest and
+# source revision. Installation resolves these example values before readiness.
+
+[meta]
+format = "hyperfide.sandbox-package"
+schema_version = 1
+name = "paxeer-monorepo-environment"
+version = "0.1.0"
+example = true
+
+[environment]
+environment_id = "example-paxeer-environment"
+environment_generation = 1
+platform = "linux-amd64"
+image_digest = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+root = "/sandbox"
+
+[bootstrap]
+installer_path = "/opt/hyperfide/bin/hyperfide"
+installer_version = "prerequisite-v1-proposed"
+installer_sha256 = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+delivery = "image"
+
+[source]
+config = ".neron"
+config_digest = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+adapter_contract = "source-manifest-v1"
+
+[mount.code]
+kind = "source"
+source = "primary"
+paths = ["admin/**", "api/**", "apps/**", "cmd/**", "consensus/**", "contracts/**", "core/**", "custodyproof/**", "daemon/**", "deploy/**", "docker/**", "docs/**", "engine/**", "include/**", "interchain/**", "launchpad/**", "layerxproof/**", "migrations/**", "modules/**", "node/**", "precompiles/**", "programs/**", "rpc/**", "scripts/**", "sdk/**", "services/**", "spec/**", "src/**", "storage/**", "tests/**", "tools/**", "utils/**", "wasm-runtime/**", "wasm/**", ".devcontainer/**", ".github/**", ".editorconfig", ".gitattributes", ".gitignore", ".gitmodules", ".golangci.yml", ".markdownlint.yaml", ".pre-commit-config.yaml", ".yamllint.yaml", "Makefile", "chain.mk", "foundry.toml", "foundry.paxeer.toml", "go.mod", "go.sum", "package.json", "package-lock.json", "rust-toolchain.toml", "buf.yaml", "buf.gen.yaml", "buf.lock", "buf.baseline.binpb", "README.md", "LICENSE", "NOTICE", ".neron", "package.kvx"]
+target = "/sandbox/source"
+access = "read_only"
+mode = "sparse"
+
+[toolchain.node]
+kind = "node"
+version = "24.22.0"
+delivery = "image"
+artifact_digest = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+executable = "/opt/node/bin/node"
+
+[toolchain.pnpm]
+kind = "pnpm"
+version = "9.15.0"
+delivery = "image"
+artifact_digest = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+executable = "/opt/pnpm/bin/pnpm"
+
+[toolchain.npm]
+kind = "npm"
+version = "11.19.1"
+delivery = "image"
+artifact_digest = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+executable = "/opt/npm/bin/npm"
+
+[toolchain.go]
+kind = "go"
+version = "1.25.8"
+delivery = "image"
+artifact_digest = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+executable = "/opt/go/bin/go"
+
+[toolchain.rust]
+kind = "rust"
+version = "1.91.1"
+delivery = "image"
+artifact_digest = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+executable = "/opt/rust/bin/rustc"
+
+[toolchain.cargo]
+kind = "cargo"
+version = "1.91.1"
+delivery = "image"
+artifact_digest = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+executable = "/opt/rust/bin/cargo"
+
+[toolchain.gcc]
+kind = "gcc"
+version = "13.3.0"
+delivery = "image"
+artifact_digest = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+executable = "/opt/gcc/bin/gcc"
+
+[dependency.node]
+manager = "npm"
+version = "11.19.1"
+mount = "code"
+lockfile = "package-lock.json"
+lockfile_digest = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+include = ["paxeer-x-protocol"]
+argv = ["/opt/npm/bin/npm", "ci", "--no-audit", "--no-fund"]
+script_policy = "approved-plan"
+
+[dependency.hyperfide]
+manager = "pnpm"
+version = "9.15.0"
+mount = "code"
+lockfile = "tools/hyperfide/pnpm-lock.yaml"
+lockfile_digest = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+include = ["@hyperfide/host-daemon..."]
+argv = ["/opt/pnpm/bin/pnpm", "--dir", "tools/hyperfide", "install", "--frozen-lockfile", "--filter", "@hyperfide/host-daemon..."]
+script_policy = "approved-plan"
+
+[dependency.go]
+manager = "go"
+version = "1.25.8"
+mount = "code"
+lockfile = "go.sum"
+lockfile_digest = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+include = ["github.com/Sidiora-Labs/Paxeer-X-Network"]
+argv = ["/opt/go/bin/go", "mod", "download"]
+script_policy = "approved-plan"
+
+[dependency.programs]
+manager = "cargo"
+version = "1.91.1"
+mount = "code"
+lockfile = "programs/Cargo.lock"
+lockfile_digest = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+include = ["*"]
+argv = ["/opt/rust/bin/cargo", "fetch", "--locked", "--manifest-path", "programs/Cargo.toml"]
+script_policy = "approved-plan"
+
+[dependency.agent]
+manager = "cargo"
+version = "1.91.1"
+mount = "code"
+lockfile = "services/agent/Cargo.lock"
+lockfile_digest = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+include = ["*"]
+argv = ["/opt/rust/bin/cargo", "fetch", "--locked", "--manifest-path", "services/agent/Cargo.toml"]
+script_policy = "approved-plan"
+
+[dependency.human]
+manager = "cargo"
+version = "1.91.1"
+mount = "code"
+lockfile = "services/human/Cargo.lock"
+lockfile_digest = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+include = ["*"]
+argv = ["/opt/rust/bin/cargo", "fetch", "--locked", "--manifest-path", "services/human/Cargo.toml"]
+script_policy = "approved-plan"
+
+[dependency.interop]
+manager = "cargo"
+version = "1.91.1"
+mount = "code"
+lockfile = "services/interop/Cargo.lock"
+lockfile_digest = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+include = ["*"]
+argv = ["/opt/rust/bin/cargo", "fetch", "--locked", "--manifest-path", "services/interop/Cargo.toml"]
+script_policy = "approved-plan"
+
+[dependency.platform]
+manager = "cargo"
+version = "1.91.1"
+mount = "code"
+lockfile = "services/platform/Cargo.lock"
+lockfile_digest = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+include = ["*"]
+argv = ["/opt/rust/bin/cargo", "fetch", "--locked", "--manifest-path", "services/platform/Cargo.toml"]
+script_policy = "approved-plan"
+
+[dependency.platform_tools]
+manager = "cargo"
+version = "1.91.1"
+mount = "code"
+lockfile = "tools/platform/Cargo.lock"
+lockfile_digest = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+include = ["*"]
+argv = ["/opt/rust/bin/cargo", "fetch", "--locked", "--manifest-path", "tools/platform/Cargo.toml"]
+script_policy = "approved-plan"
+
+[configuration.runtime]
+kind = "config-ref"
+reference = "config-ref:paxeer-runtime"
+target = "/sandbox/workers/{slot}/home/.config/hyperfide/runtime.json"
+mode = "0600"
+required = true
+
+[interfaces]
+catalogue = "spec/layerx-merge/interfaces.kvx"
+catalogue_digest = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+source_revision = "git:0000000000000000000000000000000000000000"
+selected_ids = ["interface.16.mk-workspace-install", "interface.16.mk-paxeer-npm-install"]
+output = "/sandbox/context/interfaces.kvx"
+max_blocks = 16
+max_bytes = 65536
+
+[install]
+scope = "environment_generation"
+stages = ["bootstrap-preflight", "authority-resolution", "plan-resolution", "source-preparation", "toolchain-preparation", "dependency-preparation", "configuration-preparation", "interface-preparation", "readiness-probes", "ready-publication"]
+reuse_policy = "exact-input-clean"
+dirty_policy = "refuse-overwrite"
+
+[probe.node]
+argv = ["/opt/node/bin/node", "--version"]
+cwd = "/sandbox/source"
+timeout_seconds = 30
+expected_exit = 0
+
+[probe.pnpm]
+argv = ["/opt/pnpm/bin/pnpm", "--version"]
+cwd = "/sandbox/source"
+timeout_seconds = 30
+expected_exit = 0
+
+[probe.npm]
+argv = ["/opt/npm/bin/npm", "--version"]
+cwd = "/sandbox/source"
+timeout_seconds = 30
+expected_exit = 0
+
+[probe.go]
+argv = ["/opt/go/bin/go", "version"]
+cwd = "/sandbox/source"
+timeout_seconds = 30
+expected_exit = 0
+
+[probe.rust]
+argv = ["/opt/rust/bin/rustc", "--version"]
+cwd = "/sandbox/source"
+timeout_seconds = 30
+expected_exit = 0
+
+[probe.cargo]
+argv = ["/opt/rust/bin/cargo", "--version"]
+cwd = "/sandbox/source"
+timeout_seconds = 30
+expected_exit = 0
+
+[probe.gcc]
+argv = ["/opt/gcc/bin/gcc", "-dumpfullversion"]
+cwd = "/sandbox/source"
+timeout_seconds = 30
+expected_exit = 0
+
+[workers]
+slots = 2
+source_template = "/sandbox/workers/{slot}/source"
+home_template = "/sandbox/workers/{slot}/home"
+build_template = "/sandbox/workers/{slot}/build"
+temporary_template = "/sandbox/workers/{slot}/tmp"
+dirty_template = "/sandbox/workers/{slot}/dirty"
+isolation = "private-overlay"
+
+[readiness]
+require_stages = ["bootstrap-preflight", "authority-resolution", "plan-resolution", "source-preparation", "toolchain-preparation", "dependency-preparation", "configuration-preparation", "interface-preparation", "readiness-probes"]
+require_probes = ["node", "pnpm", "npm", "go", "rust", "cargo", "gcc"]
+receipt = "/sandbox/state/install-receipt.kvx"
