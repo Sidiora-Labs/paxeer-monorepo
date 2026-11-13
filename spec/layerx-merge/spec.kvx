@@ -165831,7 +165831,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.41.113]
 title = "Build the documentation site in its workflow and correct the references to the former generator"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -362254,7 +362254,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.41.110]
 title = "Correct the text of pages 78 to 85 of the documentation site against the tree"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -362285,7 +362285,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.41.109]
 title = "Correct the text of pages 68 to 77 of the documentation site against the tree"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -362378,7 +362378,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.41.106]
 title = "Correct the text of pages 43 to 52 of the documentation site against the tree"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -362409,7 +362409,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.41.105]
 title = "Correct the text of pages 35 to 42 of the documentation site against the tree"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -362440,7 +362440,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.41.104]
 title = "Correct the text of pages 26 to 34 of the documentation site against the tree"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -362471,7 +362471,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.41.103]
 title = "Correct the text of pages 17 to 25 of the documentation site against the tree"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -362502,7 +362502,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.41.102]
 title = "Correct the text of pages 9 to 16 of the documentation site against the tree"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -362533,7 +362533,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.41.101]
 title = "Correct the text of pages 1 to 8 of the documentation site against the tree"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
