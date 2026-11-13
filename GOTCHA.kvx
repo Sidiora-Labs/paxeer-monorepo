@@ -21665,3 +21665,8 @@ fix = "Find the readers with git grep over the old file name before a rename. Th
 title = "The node build of the Makefile reads the module cache only"
 symptom = "The Makefile runs the node build with GOPROXY=off, so the Go build takes every module from the local module cache."
 fix = "A build command whose verification reaches the node build runs go mod download first. The build command of task 22.39.499 does."
+
+[gotcha.4369]
+title = "The node inventory that tools read is the page docs/readme/PUBLIC-RPC.md"
+symptom = "The tools under tools/bringup, a test of consensus/internal/rpc/core and a gate module of tools/paxeer-x read the node names from one Markdown page with a table of nodes. The documentation site under docs/site/paxeer-docs is built from its own sources and holds no table of nodes; the tree docs/site/docs is not in the repository."
+fix = "The inventory page is docs/readme/PUBLIC-RPC.md. A tool or a test reads the node names there, and a page links there for the node names. Tasks 22.41.119 to 22.41.125 bring the readers and the links to that page."
