@@ -14026,6 +14026,12 @@ value = "The rule of decision 3484 holds for every page a reader meets first: th
 basis = "Gotcha 4398, decision 3484."
 affects = []
 
+[decision.3486]
+title = "Cases of the human workspace start their input from the tree or run where a variable names it"
+value = "A case that needs an attestor quorum starts the local quorum that the test support of the workspace already provides. A case that reads an input no target writes follows the rule of decisions 3421 and 3482: with the variable set it runs every assertion; without it it prints one line that names the variable and returns. No case gets an ignore attribute and no assertion changes for this reason. Where a test and the present source disagree on an interface, the side that agrees with the pages of the member and with the callers on main stands and the other side is brought to it. The paths of task 22.39.499 take in the lock file of the workspace."
+basis = "Gotcha 4399, decisions 3421 and 3482."
+affects = ["22.39.499"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -195379,7 +195385,7 @@ interfaces = []
 do_1 = "do_1 Gotcha 4337, decision 3418. The command make human-test passes. The program read refusal case of services/platform/hosted/human/test_repair_22_33_1402.py asserts the form in which the web client refuses at the present revision, a rejected promise, and keeps asserting that the refusal happens before any request leaves. The producer path case and the two account head cases of services/human/crates/layerx-human-identity-provider/tests pass against the recording that the producer writes at the present revision: where a recorded digest is derived from producer output, the recording is produced again by its own generator and never edited by hand, and the configuration that the account head cases give the identity provider is the one the provider accepts. No case is removed or ignored."
 do_2 = "do_2 Record in services/human/crates/layerx-human-identity-provider/repair_22_39_499.kvx the rule, the changed files and the command. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["services/platform/hosted/human", "services/human/crates"]
+touches = ["services/platform/hosted/human", "services/human/crates", "services/human/Cargo.lock"]
 tests = []
 planned_paths = ["services/human/crates/layerx-human-identity-provider/repair_22_39_499.kvx"]
 build_cmd = "python3 -m pip install -q -r tests/bridge/requirements.txt pytest PyYAML && go mod download && make -s human-build"
@@ -195397,6 +195403,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "do_3 Decision 3431, gotcha 4349. In the identity entry file of src/server of the member layerx-human-service let the check of the number of answer fields admit each of the operations 0 to 4 with the number of fields that the provider writes for it, and keep the refusal of every other operation and number. Change nothing else under that directory. The client cases of services/human/crates/layerx-human-identity-provider/tests keep their assertions. Add the changed file to the record. Run the build once and the verification once at the final revision."
 do_4 = "do_4 Decision 3452, gotcha 4368. The build command now runs go mod download before the build target, so that the node build of the verification finds every module in the module cache. The change of the page of the member stays as it is. Run the build once and the verification once at the final revision."
+do_5 = "do_5 Decision 3486, gotcha 4399. The paths of this task now take in services/human/Cargo.lock, so a test dependency between members of the workspace can be recorded there; add no package from outside the workspace and change no version. A case that needs an attestor quorum starts the local quorum of the test support of the member layerx-human-kms. A case that reads an input named by a variable which no target of the Makefile writes, an assertion file or a chain snapshot document among them, runs every assertion where the variable is set and prints one line that names the variable and returns where it is not. No case gets an ignore attribute and no assertion changes for this reason. Where a test and the present source disagree on an interface, read the page of the member and the callers on main: the side that agrees with them stands, and the other side is brought to it with the smallest change; name each such place in the record. Every test binary of the workspace runs to its result. Run the test target by hand over every member to its end, with the option of cargo that does not stop at the first failing member, before the counted runs. Add the rule to the record. Run the build once and the verification once at the final revision."
 
 [task.22.39.405]
 title = "Keep the terminal vectors of the program ABI in line with the receipt fixture they are taken from"

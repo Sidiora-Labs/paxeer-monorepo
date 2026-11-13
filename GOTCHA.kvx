@@ -21815,3 +21815,8 @@ fix = "Decision 3484. Task 22.43.292."
 title = "Other entry pages still open with the consensus family"
 symptom = "The documentation index docs/README.md, the applications page apps/README.md, the abstract of CITATION.cff and the landing page of the documentation site open with the consensus family and name the kernel as a part that takes part in proposal. They do not say that the kernel executes each transaction on arrival, orders it in one sequence, issues the signed receipt and builds the block that validators then commit."
 fix = "Decision 3485. Tasks 22.43.293 and 22.43.294."
+
+[gotcha.4399]
+title = "Cases of the human workspace read inputs that no target writes"
+symptom = "Some cases of the workspace under services/human read an input named by a variable of the environment, an attestor quorum document, an assertion file or a chain snapshot document, and no target of the Makefile writes these inputs. One case of the member layerx-human-identity-provider needs the local quorum that the test support of the member layerx-human-kms provides, which adds a test dependency, and the lock file of the workspace lies outside the paths of task 22.39.499."
+fix = "Decision 3486. Task 22.39.499 takes the lock file into its paths and follows the rule."
