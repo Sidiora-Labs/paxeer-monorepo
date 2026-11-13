@@ -2,7 +2,7 @@
 
 These are source-contract proofs. They do not execute a JVM or substitute a
 Python implementation for Android transport, receipt verification, or tracking.
-The execution gap is recorded in repair_22_31_418.kvx.
+The execution gap is recorded in spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_31_418.kvx.
 """
 
 import hashlib
@@ -263,7 +263,7 @@ def test_finding_031_recorded_node_receipt_digest_contract():
 
 
 def test_finding_031_record_names_proofs_and_execution_limit():
-    record = Path(__file__).with_name("repair_22_31_418.kvx")
+    record = (ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_31_418.kvx")
     task = section(record, "task.22.31.418")
     assert task["finding"] == "031"
     declared = set(task["proofs"])

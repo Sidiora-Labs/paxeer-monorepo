@@ -24,7 +24,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[3]
 OPS = ROOT / "tools/ops"
 SCRIPT = OPS / "keyring-migrate.sh"
-RECORD = Path(__file__).with_name("repair_22_31_425.kvx")
+RECORD = (ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_31_425.kvx")
 ROWS = [
     ("alice", "address-alice", b"private-alice"),
     ("bob", "address-bob", b"private-bob"),

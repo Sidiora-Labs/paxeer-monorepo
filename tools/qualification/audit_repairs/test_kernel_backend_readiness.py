@@ -2,7 +2,7 @@
 
 The peer replays committed node-owner RPC fixtures. It is not a paxd emulator;
 actual paxd compilation, BFT startup and backend recovery remain review/owner
-qualification obligations recorded in repair_22_31_427.kvx.
+qualification obligations recorded in spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_31_427.kvx.
 """
 
 import ast
@@ -30,7 +30,7 @@ ROOT = Path(__file__).resolve().parents[3]
 KERNEL = ROOT / 'docker/kernel'
 NODE_OWNER = ROOT / 'services/platform/hosted/node'
 FIXTURES = NODE_OWNER / 'tests/fixtures/repair_22_31_355'
-RECORD = Path(__file__).with_name('repair_22_31_427.kvx')
+RECORD = (ROOT / 'spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_31_427.kvx')
 CAPTURE = json.loads((FIXTURES / 'native_configuration.json').read_text())
 GENESIS = hashlib.sha256((FIXTURES / 'genesis.json').read_bytes()).hexdigest()
 COMMIT_TIME = datetime.fromisoformat(
@@ -44,7 +44,7 @@ def runtime():
     # source directly, without bytecode or a subprocess/native toolchain.
     sys.path.insert(0, str(NODE_OWNER))
     module = importlib.util.module_from_spec(
-        importlib.util.spec_from_file_location('kernel_runtime_427', KERNEL / 'kernel_runtime.py')
+        importlib.util.spec_from_file_location('kernel_readiness_runtime', KERNEL / 'kernel_runtime.py')
     )
     old = sys.dont_write_bytecode
     try:

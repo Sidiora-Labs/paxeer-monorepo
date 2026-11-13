@@ -104,7 +104,7 @@ def test_bridge_all_rejected_source_contract():
 
 def assert_manifest_guard_passed(result):
     path = DEPLOY.with_name("check-attestor-manifest.py")
-    spec = importlib.util.spec_from_file_location("bridge_manifest_guard_623", path)
+    spec = importlib.util.spec_from_file_location("bridge_manifest_guard", path)
     checker = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(checker)
     manifest = DEPLOY.with_name("attestors.json")
