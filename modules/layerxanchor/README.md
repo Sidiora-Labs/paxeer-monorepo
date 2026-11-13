@@ -2,7 +2,9 @@
 
 This directory holds the anchor module's retained checkpoint, guarantor bond,
 availability, challenge, and genesis types, together with its state keeper and
-retirement handling in `paxd`. Paxeer is one BFT network: a receipt is final when
+retirement handling in `paxd`. The LayerX kernel inside every `paxd` node executes
+and orders each transaction and builds each block; validators check and commit
+it; a receipt is final when
 its block commits. `SubmitCheckpoint`, `SubmitAvailabilityAttestation`, and
 `SubmitEquivocation` return `ErrModuleRetired`. The registered `MsgUpdateParams`
 route also returns that error when `v7.0` is active. The anchor precompile retains
