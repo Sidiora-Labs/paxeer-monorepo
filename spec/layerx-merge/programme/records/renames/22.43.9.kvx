@@ -1,0 +1,448 @@
+[manifest]
+task = "22.43.9"
+records_moved = 20
+files_renamed = 21
+
+[file.1]
+from = "apps/explorer/ui/snippets/auth/linkEmail/repair-22-33-345.spec.ts"
+to = "apps/explorer/ui/snippets/auth/linkEmail/applyLinkEmailUpdate.spec.ts"
+
+[file.2]
+from = "apps/explorer/ui/snippets/auth/repair-22-33-346.spec.ts"
+to = "apps/explorer/ui/snippets/auth/useWalletSignInSession.spec.ts"
+
+[file.3]
+from = "apps/explorer/ui/snippets/header/repair-22-35-2.spec.tsx"
+to = "apps/explorer/ui/snippets/header/HeaderNavigation.spec.tsx"
+
+[file.4]
+from = "apps/explorer/ui/snippets/navigation/horizontal/repair-22-33-340.spec.ts"
+to = "apps/explorer/ui/snippets/navigation/horizontal/NavigationDestinations.spec.ts"
+
+[file.5]
+from = "apps/explorer/ui/snippets/navigation/vertical/repair-22-33-341.spec.ts"
+to = "apps/explorer/ui/snippets/navigation/vertical/NavigationDesktopAuthScene.spec.ts"
+
+[file.6]
+from = "apps/explorer/ui/snippets/searchBar/SearchBarSuggest/repair-22-33-343.spec.ts"
+to = "apps/explorer/ui/snippets/searchBar/SearchBarSuggest/SearchBarSuggestCategories.spec.ts"
+
+[file.7]
+from = "apps/explorer/ui/snippets/searchBar/repair-22-33-342.spec.ts"
+to = "apps/explorer/ui/snippets/searchBar/useSearchWithClustersTransport.spec.ts"
+
+[file.8]
+from = "apps/explorer/ui/snippets/searchBar/repair-22-35-10.spec.tsx"
+to = "apps/explorer/ui/snippets/searchBar/SearchBarAssistant.spec.tsx"
+
+[file.9]
+from = "apps/explorer/ui/snippets/searchBar/repair-22-35-3.spec.tsx"
+to = "apps/explorer/ui/snippets/searchBar/SearchBarVariants.spec.tsx"
+
+[file.10]
+from = "apps/explorer/ui/snippets/topBar/repair-22-35-13.spec.tsx"
+to = "apps/explorer/ui/snippets/topBar/TopBarMarketPrices.spec.tsx"
+
+[file.11]
+from = "apps/explorer/ui/snippets/topBar/settings/repair-22-33-344.spec.ts"
+to = "apps/explorer/ui/snippets/topBar/settings/SettingsColorTheme.spec.ts"
+
+[file.12]
+from = "apps/explorer/ui/stats/repair-22-33-467.spec.ts"
+to = "apps/explorer/ui/stats/NumberWidgetsCounterSemantics.spec.ts"
+
+[file.13]
+from = "apps/explorer/ui/stats/repair-22-35-15.spec.tsx"
+to = "apps/explorer/ui/stats/ExplorerStatistics.spec.tsx"
+
+[file.14]
+from = "apps/explorer/ui/stats/repair-22-35-17.spec.tsx"
+to = "apps/explorer/ui/stats/ExplorerChartResources.spec.tsx"
+
+[file.15]
+from = "apps/explorer/ui/stats/repair-22-35-7.spec.tsx"
+to = "apps/explorer/ui/stats/NetworkStatistics.spec.tsx"
+
+[file.16]
+from = "apps/explorer/ui/token/TokenHolders/repair-22-33-529.spec.ts"
+to = "apps/explorer/ui/token/TokenHolders/TokenHoldersPagination.spec.ts"
+
+[file.17]
+from = "apps/explorer/ui/token/TokenTransfer/repair-22-33-530.spec.ts"
+to = "apps/explorer/ui/token/TokenTransfer/useTokenTransferPages.spec.ts"
+
+[file.18]
+from = "apps/explorer/ui/token/repair-22-33-531.spec.ts"
+to = "apps/explorer/ui/token/TokenInventoryPagination.spec.ts"
+
+[file.19]
+from = "apps/explorer/ui/tokenInstance/repair-22-33-465.spec.ts"
+to = "apps/explorer/ui/tokenInstance/TokenInstanceMetadataRefresh.spec.ts"
+
+[file.20]
+from = "apps/explorer/ui/tokens/repair-22-33-466.spec.ts"
+to = "apps/explorer/ui/tokens/TokenMarketCapAndSorting.spec.ts"
+
+[file.21]
+from = "apps/explorer/ui/tokens/repair-22-35-5.spec.tsx"
+to = "apps/explorer/ui/tokens/TokensMarketTable.spec.tsx"
+
+[file.22]
+from = "apps/explorer/ui/snippets/auth/linkEmail/repair-22-33-345.kvx"
+to = "spec/layerx-merge/programme/records/apps/explorer/ui/snippets/auth/linkEmail/repair-22-33-345.kvx"
+
+[file.23]
+from = "apps/explorer/ui/snippets/auth/repair-22-33-346.kvx"
+to = "spec/layerx-merge/programme/records/apps/explorer/ui/snippets/auth/repair-22-33-346.kvx"
+
+[file.24]
+from = "apps/explorer/ui/snippets/header/repair-22-35-2.kvx"
+to = "spec/layerx-merge/programme/records/apps/explorer/ui/snippets/header/repair-22-35-2.kvx"
+
+[file.25]
+from = "apps/explorer/ui/snippets/navigation/horizontal/repair-22-33-340.kvx"
+to = "spec/layerx-merge/programme/records/apps/explorer/ui/snippets/navigation/horizontal/repair-22-33-340.kvx"
+
+[file.26]
+from = "apps/explorer/ui/snippets/navigation/vertical/repair-22-33-341.kvx"
+to = "spec/layerx-merge/programme/records/apps/explorer/ui/snippets/navigation/vertical/repair-22-33-341.kvx"
+
+[file.27]
+from = "apps/explorer/ui/snippets/searchBar/SearchBarSuggest/repair-22-33-343.kvx"
+to = "spec/layerx-merge/programme/records/apps/explorer/ui/snippets/searchBar/SearchBarSuggest/repair-22-33-343.kvx"
+
+[file.28]
+from = "apps/explorer/ui/snippets/searchBar/repair-22-33-342.kvx"
+to = "spec/layerx-merge/programme/records/apps/explorer/ui/snippets/searchBar/repair-22-33-342.kvx"
+
+[file.29]
+from = "apps/explorer/ui/snippets/searchBar/repair-22-35-10.kvx"
+to = "spec/layerx-merge/programme/records/apps/explorer/ui/snippets/searchBar/repair-22-35-10.kvx"
+
+[file.30]
+from = "apps/explorer/ui/snippets/searchBar/repair-22-35-3.kvx"
+to = "spec/layerx-merge/programme/records/apps/explorer/ui/snippets/searchBar/repair-22-35-3.kvx"
+
+[file.31]
+from = "apps/explorer/ui/snippets/topBar/settings/repair-22-33-344.kvx"
+to = "spec/layerx-merge/programme/records/apps/explorer/ui/snippets/topBar/settings/repair-22-33-344.kvx"
+
+[file.32]
+from = "apps/explorer/ui/stats/repair-22-33-467.kvx"
+to = "spec/layerx-merge/programme/records/apps/explorer/ui/stats/repair-22-33-467.kvx"
+
+[file.33]
+from = "apps/explorer/ui/stats/repair-22-35-15.kvx"
+to = "spec/layerx-merge/programme/records/apps/explorer/ui/stats/repair-22-35-15.kvx"
+
+[file.34]
+from = "apps/explorer/ui/stats/repair-22-35-17.kvx"
+to = "spec/layerx-merge/programme/records/apps/explorer/ui/stats/repair-22-35-17.kvx"
+
+[file.35]
+from = "apps/explorer/ui/stats/repair-22-35-7.kvx"
+to = "spec/layerx-merge/programme/records/apps/explorer/ui/stats/repair-22-35-7.kvx"
+
+[file.36]
+from = "apps/explorer/ui/token/TokenHolders/repair-22-33-529.kvx"
+to = "spec/layerx-merge/programme/records/apps/explorer/ui/token/TokenHolders/repair-22-33-529.kvx"
+
+[file.37]
+from = "apps/explorer/ui/token/TokenTransfer/repair-22-33-530.kvx"
+to = "spec/layerx-merge/programme/records/apps/explorer/ui/token/TokenTransfer/repair-22-33-530.kvx"
+
+[file.38]
+from = "apps/explorer/ui/token/repair-22-33-531.kvx"
+to = "spec/layerx-merge/programme/records/apps/explorer/ui/token/repair-22-33-531.kvx"
+
+[file.39]
+from = "apps/explorer/ui/tokenInstance/repair-22-33-465.kvx"
+to = "spec/layerx-merge/programme/records/apps/explorer/ui/tokenInstance/repair-22-33-465.kvx"
+
+[file.40]
+from = "apps/explorer/ui/tokens/repair-22-33-466.kvx"
+to = "spec/layerx-merge/programme/records/apps/explorer/ui/tokens/repair-22-33-466.kvx"
+
+[file.41]
+from = "apps/explorer/ui/tokens/repair-22-35-5.kvx"
+to = "spec/layerx-merge/programme/records/apps/explorer/ui/tokens/repair-22-35-5.kvx"
+
+[reference.1]
+file = "GOTCHA.kvx"
+name = "apps/explorer/ui/snippets/searchBar/repair-22-35-10.spec.tsx"
+
+[reference.2]
+file = "apps/explorer/lib/repair-22-31-474.kvx"
+name = "apps/explorer/ui/snippets/auth/linkEmail/repair-22-33-345.spec.ts"
+
+[reference.3]
+file = "apps/explorer/lib/repair-22-31-474.kvx"
+name = "apps/explorer/ui/snippets/auth/repair-22-33-346.spec.ts"
+
+[reference.4]
+file = "apps/explorer/lib/repair-22-31-474.kvx"
+name = "apps/explorer/ui/snippets/navigation/horizontal/repair-22-33-340.spec.ts"
+
+[reference.5]
+file = "apps/explorer/lib/repair-22-31-474.kvx"
+name = "apps/explorer/ui/snippets/navigation/vertical/repair-22-33-341.spec.ts"
+
+[reference.6]
+file = "apps/explorer/lib/repair-22-31-474.kvx"
+name = "apps/explorer/ui/snippets/searchBar/repair-22-33-342.spec.ts"
+
+[reference.7]
+file = "apps/explorer/lib/repair-22-31-474.kvx"
+name = "apps/explorer/ui/token/TokenHolders/repair-22-33-529.spec.ts"
+
+[reference.8]
+file = "apps/explorer/lib/repair-22-31-474.kvx"
+name = "apps/explorer/ui/token/TokenTransfer/repair-22-33-530.spec.ts"
+
+[reference.9]
+file = "apps/explorer/lib/repair-22-31-474.kvx"
+name = "apps/explorer/ui/token/repair-22-33-531.spec.ts"
+
+[reference.10]
+file = "apps/explorer/lib/repair-22-31-474.kvx"
+name = "apps/explorer/ui/tokenInstance/repair-22-33-465.spec.ts"
+
+[reference.11]
+file = "apps/explorer/repair-22-31-512.kvx"
+name = "apps/explorer/ui/snippets/searchBar/repair-22-35-10.spec.tsx"
+
+[reference.12]
+file = "apps/explorer/repair-22-31-512.spec.ts"
+name = "apps/explorer/ui/snippets/searchBar/repair-22-35-10.spec.tsx"
+
+[reference.13]
+file = "spec/layerx-merge/dispositions/d22-27.kvx"
+name = "apps/explorer/ui/snippets/auth/linkEmail/repair-22-33-345.spec.ts"
+
+[reference.14]
+file = "spec/layerx-merge/dispositions/d22-27.kvx"
+name = "apps/explorer/ui/snippets/navigation/horizontal/repair-22-33-340.spec.ts"
+
+[reference.15]
+file = "spec/layerx-merge/dispositions/d22-27.kvx"
+name = "apps/explorer/ui/snippets/navigation/vertical/repair-22-33-341.spec.ts"
+
+[reference.16]
+file = "spec/layerx-merge/dispositions/d22-27.kvx"
+name = "apps/explorer/ui/snippets/searchBar/SearchBarSuggest/repair-22-33-343.spec.ts"
+
+[reference.17]
+file = "spec/layerx-merge/dispositions/d22-27.kvx"
+name = "apps/explorer/ui/snippets/searchBar/repair-22-33-342.spec.ts"
+
+[reference.18]
+file = "spec/layerx-merge/dispositions/d22-27.kvx"
+name = "apps/explorer/ui/snippets/topBar/settings/repair-22-33-344.spec.ts"
+
+[reference.19]
+file = "spec/layerx-merge/dispositions/d22-28.kvx"
+name = "apps/explorer/ui/stats/repair-22-33-467.spec.ts"
+
+[reference.20]
+file = "spec/layerx-merge/dispositions/d22-28.kvx"
+name = "apps/explorer/ui/tokens/repair-22-33-466.spec.ts"
+
+[reference.21]
+file = "spec/layerx-merge/dispositions/d22-34.kvx"
+name = "apps/explorer/ui/snippets/searchBar/repair-22-35-10.spec.tsx"
+
+[reference.22]
+file = "spec/layerx-merge/dispositions/d22-34.kvx"
+name = "apps/explorer/ui/snippets/searchBar/repair-22-35-3.spec.tsx"
+
+[reference.23]
+file = "spec/layerx-merge/programme/issues/1717.kvx"
+name = "apps/explorer/ui/snippets/header/repair-22-35-2.spec.tsx"
+
+[reference.24]
+file = "spec/layerx-merge/programme/issues/1718.kvx"
+name = "apps/explorer/ui/snippets/header/repair-22-35-2.spec.tsx"
+
+[reference.25]
+file = "spec/layerx-merge/programme/issues/1718.kvx"
+name = "apps/explorer/ui/snippets/searchBar/repair-22-35-3.kvx"
+
+[reference.26]
+file = "spec/layerx-merge/programme/issues/1718.kvx"
+name = "apps/explorer/ui/snippets/searchBar/repair-22-35-3.spec.tsx"
+
+[reference.27]
+file = "spec/layerx-merge/programme/issues/1719.kvx"
+name = "apps/explorer/ui/tokens/repair-22-35-5.spec.tsx"
+
+[reference.28]
+file = "spec/layerx-merge/programme/issues/input/1717.md"
+name = "apps/explorer/ui/snippets/header/repair-22-35-2.spec.tsx"
+
+[reference.29]
+file = "spec/layerx-merge/programme/issues/input/1718.md"
+name = "apps/explorer/ui/snippets/header/repair-22-35-2.spec.tsx"
+
+[reference.30]
+file = "spec/layerx-merge/programme/issues/input/1718.md"
+name = "apps/explorer/ui/snippets/searchBar/repair-22-35-3.kvx"
+
+[reference.31]
+file = "spec/layerx-merge/programme/issues/input/1719.md"
+name = "apps/explorer/ui/tokens/repair-22-35-5.spec.tsx"
+
+[reference.32]
+file = "spec/layerx-merge/qualification.kvx"
+name = "apps/explorer/ui/snippets/auth/linkEmail/repair-22-33-345.spec.ts"
+
+[reference.33]
+file = "spec/layerx-merge/qualification.kvx"
+name = "apps/explorer/ui/snippets/header/repair-22-35-2.spec.tsx"
+
+[reference.34]
+file = "spec/layerx-merge/qualification.kvx"
+name = "apps/explorer/ui/snippets/navigation/horizontal/repair-22-33-340.spec.ts"
+
+[reference.35]
+file = "spec/layerx-merge/qualification.kvx"
+name = "apps/explorer/ui/snippets/navigation/vertical/repair-22-33-341.spec.ts"
+
+[reference.36]
+file = "spec/layerx-merge/qualification.kvx"
+name = "apps/explorer/ui/snippets/searchBar/SearchBarSuggest/repair-22-33-343.spec.ts"
+
+[reference.37]
+file = "spec/layerx-merge/qualification.kvx"
+name = "apps/explorer/ui/snippets/searchBar/repair-22-33-342.spec.ts"
+
+[reference.38]
+file = "spec/layerx-merge/qualification.kvx"
+name = "apps/explorer/ui/snippets/searchBar/repair-22-35-3.spec.tsx"
+
+[reference.39]
+file = "spec/layerx-merge/qualification.kvx"
+name = "apps/explorer/ui/snippets/topBar/settings/repair-22-33-344.spec.ts"
+
+[reference.40]
+file = "spec/layerx-merge/qualification.kvx"
+name = "apps/explorer/ui/stats/repair-22-33-467.spec.ts"
+
+[reference.41]
+file = "spec/layerx-merge/qualification.kvx"
+name = "apps/explorer/ui/tokenInstance/repair-22-33-465.spec.ts"
+
+[reference.42]
+file = "spec/layerx-merge/qualification.kvx"
+name = "apps/explorer/ui/tokens/repair-22-33-466.spec.ts"
+
+[reference.43]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/explorer/ui/snippets/auth/linkEmail/repair-22-33-345.spec.ts"
+
+[reference.44]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/explorer/ui/snippets/auth/repair-22-33-346.spec.ts"
+
+[reference.45]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/explorer/ui/snippets/header/repair-22-35-2.kvx"
+
+[reference.46]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/explorer/ui/snippets/header/repair-22-35-2.spec.tsx"
+
+[reference.47]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/explorer/ui/snippets/navigation/horizontal/repair-22-33-340.spec.ts"
+
+[reference.48]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/explorer/ui/snippets/navigation/vertical/repair-22-33-341.spec.ts"
+
+[reference.49]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/explorer/ui/snippets/searchBar/SearchBarSuggest/repair-22-33-343.spec.ts"
+
+[reference.50]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/explorer/ui/snippets/searchBar/repair-22-33-342.spec.ts"
+
+[reference.51]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/explorer/ui/snippets/searchBar/repair-22-35-10.kvx"
+
+[reference.52]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/explorer/ui/snippets/searchBar/repair-22-35-10.spec.tsx"
+
+[reference.53]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/explorer/ui/snippets/searchBar/repair-22-35-3.kvx"
+
+[reference.54]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/explorer/ui/snippets/searchBar/repair-22-35-3.spec.tsx"
+
+[reference.55]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/explorer/ui/snippets/topBar/repair-22-35-13.spec.tsx"
+
+[reference.56]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/explorer/ui/snippets/topBar/settings/repair-22-33-344.spec.ts"
+
+[reference.57]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/explorer/ui/stats/repair-22-33-467.spec.ts"
+
+[reference.58]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/explorer/ui/stats/repair-22-35-15.kvx"
+
+[reference.59]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/explorer/ui/stats/repair-22-35-15.spec.tsx"
+
+[reference.60]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/explorer/ui/stats/repair-22-35-17.kvx"
+
+[reference.61]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/explorer/ui/stats/repair-22-35-17.spec.tsx"
+
+[reference.62]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/explorer/ui/stats/repair-22-35-7.kvx"
+
+[reference.63]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/explorer/ui/stats/repair-22-35-7.spec.tsx"
+
+[reference.64]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/explorer/ui/token/TokenHolders/repair-22-33-529.spec.ts"
+
+[reference.65]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/explorer/ui/token/TokenTransfer/repair-22-33-530.spec.ts"
+
+[reference.66]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/explorer/ui/token/repair-22-33-531.spec.ts"
+
+[reference.67]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/explorer/ui/tokenInstance/repair-22-33-465.spec.ts"
+
+[reference.68]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/explorer/ui/tokens/repair-22-33-466.spec.ts"
+
+[reference.69]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/explorer/ui/tokens/repair-22-35-5.kvx"
+
+[reference.70]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/explorer/ui/tokens/repair-22-35-5.spec.tsx"
