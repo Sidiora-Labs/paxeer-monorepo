@@ -1,6 +1,6 @@
 [repair.22.33.466]
 audit = "22.30.149"
-test_file = "apps/explorer/ui/tokens/repair-22-33-466.spec.ts"
+test_file = "apps/explorer/ui/tokens/TokenMarketCapAndSorting.spec.ts"
 token-market-cap-unknown-decimals = ["tokenMarketCapUnknownDecimals", "tokenMarketCapInvalidDecimals", "tokenMarketCapZeroDecimals", "tokenMarketCapKnownDecimals"]
 token-sort-label = ["tokenSortLabelMatchesApiField"]
 baseline = "UNRUN: the task's ordered implementation-first instructions and bounded hf-build/hf-done gates prohibit a separate unchanged-tree verification; no pre-change test failure is claimed."

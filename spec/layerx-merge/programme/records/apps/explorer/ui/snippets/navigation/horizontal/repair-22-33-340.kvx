@@ -1,6 +1,6 @@
 [repair.22.33.340]
 finding = "retired-navigation-contract"
-test = "repair-22-33-340.spec.ts:retiredNavigationContractUsesNativeDestinations"
+test = "NavigationDestinations.spec.ts:retiredNavigationContractUsesNativeDestinations"
 tests = ["retiredNavigationContractUsesNativeDestinations", "nativeBlockNavigationSelectsBlockchain", "nativeTransactionNavigationSelectsBlockchain", "nativeAccountNavigationSelectsBlockchain", "retiredAnchorNavigationIsAbsent", "retiredReceiptNavigationIsAbsent"]
 baseline_revision = "de8ab245609a7e0707cc32c502b6dcbe17ce3aca"
 baseline = "No unchanged-tree verification was run: the explicit gate order requires complete implementation first, and this attempt resumes the five repair files already applied by attempt 1. Its recorded build failed before any navigation tests could execute; no baseline test failure is claimed."

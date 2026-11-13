@@ -1,7 +1,7 @@
 [repair.22.33.344]
 finding = "theme-settings-stale"
 base_revision = "aefa91aa13a43dff9d0a27098f8280d43fd1ed42"
-proof = "repair-22-33-344.spec.ts: themeSettingsStaleTracksTopBarAndReload"
+proof = "SettingsColorTheme.spec.ts: themeSettingsStaleTracksTopBarAndReload"
 behavior = "Settings follows the real color-mode provider while closed; the theme label, current swatch, document variables and persisted state follow top-bar changes and provider restarts."
 qualification = "The private hf-build/hf-done ledger and final evidence line name the exact candidate revision, command, exit and log."
 baseline = "No pre-change verification was run: the explicit gate order requires full implementation before formatting, build and hf-done."

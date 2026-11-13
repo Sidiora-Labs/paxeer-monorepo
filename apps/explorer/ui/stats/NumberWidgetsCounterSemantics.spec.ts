@@ -9,7 +9,7 @@ import { renderNumberWidgets, startCountersServer } from './numberWidgetsTestSer
 
 import './NumberWidgetsList.spec';
 
-describe('repair 22.33.467', () => {
+describe('Number widget counter semantics', () => {
   let server: Awaited<ReturnType<typeof startCountersServer>>;
 
   beforeAll(async() => {

@@ -16,7 +16,7 @@ ledger = "/out/run/gates.jsonl"
 build_command = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
 build_log = "/out/logs/build-1.log (repair reruns increment the suffix)"
 verify_command = "cg spec done 22.35.3 -f layerx-merge --root /work/paxeer-monorepo"
-verify_target = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run apps/explorer/ui/snippets/searchBar/repair-22-35-3.spec.tsx"
+verify_target = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run apps/explorer/ui/snippets/searchBar/SearchBarVariants.spec.tsx"
 verify_log = "/out/logs/verify-1.log (repair reruns increment the suffix)"
 
 [gotcha]

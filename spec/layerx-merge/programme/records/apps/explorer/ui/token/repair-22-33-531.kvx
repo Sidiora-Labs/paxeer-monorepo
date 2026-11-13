@@ -1,7 +1,7 @@
 [repair.22.33.531]
 audit = "22.30.155"
 base_revision = "9e535b4932ba8111a729a5cef10e0ca2370ca435"
-tests = "apps/explorer/ui/token/repair-22-33-531.spec.ts"
+tests = "apps/explorer/ui/token/TokenInventoryPagination.spec.ts"
 path = "Loopback HTTP inventory store -> useApiFetch JSON transport -> useQueryWithPages -> TokenInventory -> real selector, NFT cards and pagination controls; token metadata passes through useApiQuery and Next RouterContext uses an in-memory route history."
 baseline = "Not executed: the explicit ordered gate instructions require complete implementation before any test and prohibit running verify_cmd by hand; no baseline test failure is claimed."
 registration_repair = "The first gate at fd63609090ed0211a1388d23d4bbfb75a5807620 returned zero but executed no tests: Vitest treated test(function, options) as todo because the body was absent. Pass each named function as both title and executable body; the final gate must report three executed tests. The first gate is not behavioral qualification."

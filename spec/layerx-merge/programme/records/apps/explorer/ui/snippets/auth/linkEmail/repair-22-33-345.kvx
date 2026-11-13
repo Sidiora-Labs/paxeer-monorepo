@@ -1,7 +1,7 @@
 [repair.22.33.345]
 finding = "dynamic-email-rejection"
 tests = ["dynamicEmailSuccessPreservesProfileFields", "dynamicEmailCancellationIsNotAProviderError", "dynamicEmailProviderRejectionsAreHandledAndRetryable", "dynamicEmailRejectionDoesNotCreateAProfile"]
-path = "apps/explorer/ui/snippets/auth/linkEmail/repair-22-33-345.spec.ts"
+path = "apps/explorer/ui/snippets/auth/linkEmail/applyLinkEmailUpdate.spec.ts"
 proof = "Production hook passes the SDK update promise to applyLinkEmailUpdate; the tests replay committed SDK result contracts through this production completion path into the real QueryClient and Chakra toaster store."
 contract = "SDK 4.74.1 useUpdateUserWithModal resolves UserFields, rejects validation/verification strings; UserFieldEditorModal rejects the exact string User cancelled on unmount. provider-results.json retains these result values."
 baseline = "Not run: the numbered gate order requires full implementation before hf-build and hf-done and forbids running verify_cmd by hand; this takes precedence over step 5's contradictory unchanged-tree run. No pre-change failure is claimed."
