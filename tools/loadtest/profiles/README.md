@@ -1,6 +1,6 @@
 # Chain-125 qualification profiles
 
-All seven JSON profiles in this directory intentionally sign for EVM chain
+All seven JSON profiles in this directory sign for EVM chain
 **125** (`0x7d`). Their `qualification-chain-125-*` metric labels identify that
 environment. The autobake name describes the workload. These are qualification
 workloads for an operator-controlled, isolated chain-125 deployment, using root RPC URLs.
@@ -58,6 +58,22 @@ docker run --rm --network host --user "$(id -u):$(id -g)" \
 Create `reports` first and ensure its permissions permit the selected user to
 write. Stop a run with SIGINT/SIGTERM to write the final report and evaluate its
 performance bounds. Dry-run performance describes local simulation only.
-The repair tests execute the production CLI in process, with real signing,
-loopback JSON-RPC transport, collection, and JSON reporting from independent local
-and mounted-directory layouts; they do not build or launch a container image.
+
+## Profile settings
+
+| Profile | Workload | Workers per endpoint | Minimum accepted TPS | Maximum send p99 |
+| --- | --- | --- | --- | --- |
+| `autobake_evm_transfer.json` | EVMTransfer | 500 | 50 | 10000 ms |
+| `conflict.json` | ERC20Conflict | 1 | 5 | 5000 ms |
+| `evm_transfer.json` | EVMTransfer | 1 | 5 | 5000 ms |
+| `evm_transfer_write_file.json` | EVMTransfer to transaction files | 1 | 5 | 5000 ms |
+| `loadtest_default.json` | ERC20, EVMTransfer, ERC20Noop, ERC20Conflict, ERC721 | 1 | 5 | 5000 ms |
+| `local.json` | ERC20, EVMTransfer, ERC20Noop, ERC20Conflict, ERC721 | 1 | 5 | 5000 ms |
+| `local_docker.json` | ERC20 across four endpoints | 1 | 5 | 5000 ms |
+
+Every profile uses a five-second statistics interval, a buffer size of 1000 and
+unlimited sending (`tps: 0`). The file-writing profile selects 1000 batches with
+a target gas budget of 30000000 per batch. Set `--txs-dir` to a writable output
+directory when using it. File output does not collect accepted-send samples;
+disable the submission bounds explicitly for that mode with
+`--min-tps 0 --max-p99-latency 0s --min-total-txs 0`.

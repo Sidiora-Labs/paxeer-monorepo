@@ -1,12 +1,11 @@
 # Paxeer node operations (`seictl`)
 
-This is the audited Paxeer adaptation of paxctl, vendored in the Paxeer
-monorepo. The executable is still named `seictl`; the Go import path, `SEI_*`
+This directory builds the Paxeer node operations executable `seictl` in the
+monorepo. The Go import path, `SEI_*`
 environment variables, `sei.io/v1alpha1` CRDs and annotation keys retain their
 inherited spelling. These names do not select the chain. Use an explicit Paxeer
 chain ID, home, pinned `paxd` image and isolated Kubernetes context.
-[VENDOR.kvx](VENDOR.kvx) records the upstream import, not the revision of the
-subsequent monorepo repairs.
+[go.mod](go.mod) declares the module and its local dependencies.
 
 ## Installation and provenance
 
@@ -78,8 +77,7 @@ root so local Go replacements resolve:
 docker build -f tools/paxctl/Dockerfile -t paxctl:local .
 ```
 
-The `seictl.sei.io/version` annotation is diagnostic provenance. Anyone allowed
-to edit a CR can forge it; it is not an authorization or integrity boundary.
+The renderers write the build version to the `seictl.sei.io/version` annotation.
 
 ## Commands and prerequisites
 
@@ -117,9 +115,9 @@ Required environment: `SEI_CHAIN_ID`, `SEI_GENESIS_BUCKET`, `SEI_GENESIS_REGION`
 `SEI_KEYRING_BACKEND=file` requires `SEI_KEYRING_PASSPHRASE`; `SEI_KEYRING_DIR`
 selects its directory. Keep credentials in deployment secret mechanisms.
 
-Local patch commands honor `--home` / `SEI_HOME`. No automatic `~/.sei` default
-is configured by the root command; pass a disposable Paxeer home explicitly.
-`serve` falls back to `/sei` if home is omitted. Generic editing examples:
+Local patch commands honor `--home` / `SEI_HOME`. `config patch` and
+`genesis patch` fall back to `~/.sei` when home is omitted; `serve` falls back to
+`/sei`. Pass the intended Paxeer home explicitly. Generic editing examples:
 
 ```sh
 seictl --home /tmp/paxeer-smoke config --target config patch patch.toml
