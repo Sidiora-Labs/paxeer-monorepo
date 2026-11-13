@@ -1,0 +1,63 @@
+[manifest]
+task = "22.41.41"
+pages = 20
+
+[record.1]
+path = "tools/wasm-tools/crates/wasm-compose/example/README.md"
+
+[record.2]
+path = "tools/wasm-tools/crates/wasm-encoder/README.md"
+
+[record.3]
+path = "tools/wasm-tools/crates/wasm-metadata/README.md"
+
+[record.4]
+path = "tools/wasm-tools/crates/wasm-mutate/README.md"
+
+[record.5]
+path = "tools/wasm-tools/crates/wasm-shrink/README.md"
+
+[record.6]
+path = "tools/wasm-tools/crates/wasm-smith/README.md"
+
+[record.7]
+path = "tools/wasm-tools/crates/wasm-wave/README.md"
+
+[record.8]
+path = "tools/wasm-tools/crates/wasm-wave/contrib/vscode/README.md"
+
+[record.9]
+path = "tools/wasm-tools/crates/wasm-wave/tests/ui/README.md"
+
+[record.10]
+path = "tools/wasm-tools/crates/wasm-wave/wave_ebnf.md"
+
+[record.11]
+path = "tools/wasm-tools/crates/wasmparser/README.md"
+
+[record.12]
+path = "tools/wasm-tools/crates/wasmprinter/README.md"
+
+[record.13]
+path = "tools/wasm-tools/crates/wast/README.md"
+
+[record.14]
+path = "tools/wasm-tools/crates/wat/README.md"
+
+[record.15]
+path = "tools/wasm-tools/crates/wit-component/README.md"
+
+[record.16]
+path = "tools/wasm-tools/crates/wit-dylib/README.md"
+
+[record.17]
+path = "tools/wasm-tools/crates/wit-dylib/ffi/README.md"
+
+[record.18]
+path = "tools/wasm-tools/crates/wit-parser/README.md"
+
+[record.19]
+path = "tools/wasm-tools/examples/README.md"
+
+[record.20]
+path = "tools/wasm-tools/playground/README.md"

@@ -1,6 +1,6 @@
 # UI ("golden files") Tests
 
-Each `.waves` (WAVE Script) file in this directory contains a set of test inputs; corresponding outputs are in the matching `.out` file (e.g. `test.wave` &rarr; `test.out`).
+Each `.waves` (WAVE Script) file in this directory contains a set of test inputs; corresponding outputs are in the matching `.out` file (e.g. `accept-chars.waves` &rarr; `accept-chars.out`).
 
 Each test input looks like `<func-name>(<WAVE value>, ...);\n` where `<func-name>` is a function defined in the `ui.wit` file. For each input the WAVE value arguments are parsed and type-checked against the function parameter types.  The result of this parsing - either a re-encoded copy of the input or an error - is written to the output.
 
