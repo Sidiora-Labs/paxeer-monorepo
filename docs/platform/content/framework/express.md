@@ -4,11 +4,11 @@ Charge for a route you already have. Eight lines mount a payment gate in front o
 
 ## Before you start
 
-```text
+```sh
 npm install @sidiora/layerx-express express
 ```
 
-The integration reads its whole configuration from the environment, so nothing is hard-coded into your source. The declared keys are `LAYERX_PRINCIPAL`, `LAYERX_PROTECTED_PATH`, the `LAYERX_RESOURCE_*` description fields, `LAYERX_PROTOCOL_VERSION` (the receipt protocol version to verify against; `3` on the beta network), `LAYERX_X402_SCHEME`, `LAYERX_X402_NETWORK`, `LAYERX_PRICE`, `LAYERX_ASSET`, `LAYERX_PAY_TO`, `LAYERX_PAYMENT_TIMEOUT_SECONDS`, `LAYERX_AUTHORIZED_BATCH_JSON`, and the four `LAYERX_WEBHOOK_*` values. `LAYERX_TOKEN` is the only declared secret.
+The integration reads its declared configuration from the environment. The declared keys are `LAYERX_PRINCIPAL`, `LAYERX_PROTECTED_PATH`, the `LAYERX_RESOURCE_*` description fields, `LAYERX_PROTOCOL_VERSION` (the selected receipt compatibility version), `LAYERX_X402_SCHEME`, `LAYERX_X402_NETWORK`, `LAYERX_PRICE`, `LAYERX_ASSET`, `LAYERX_PAY_TO`, `LAYERX_PAYMENT_TIMEOUT_SECONDS`, `LAYERX_RECEIPT_KEYS_JSON`, and the four `LAYERX_WEBHOOK_*` values. Optional buyer settings use `LAYERX_HUMAN_URL`, `LAYERX_SOURCE` and `LAYERX_TOKEN`. `LAYERX_TOKEN` is the only declared secret.
 
 ## The integration
 
@@ -36,14 +36,14 @@ const layerx = mountLayerX(app, {
 
 1. An unpaid request gets `402` with a `PAYMENT-REQUIRED` header describing exactly what is owed.
 2. The client pays and retries with a `PAYMENT-SIGNATURE` header.
-3. The middleware verifies the receipt behind that header against an authorised batch. Only then does it call your `resources.release`.
+3. The middleware verifies the signed receipt and transaction against the pinned receipt keys and matches the payment facts. Only then does it call your `resources.release`.
 4. The response carries a `PAYMENT-RESPONSE` header stating what settled.
 
 A payment that is still settling returns `202`, not a guess. A payment that was refused returns the refusal, not a `500`.
 
 ## Fulfilment storage is yours
 
-The sample ships a real durable repository rather than a map, because an in-memory store loses the exactly-once guarantee on restart:
+The sample stores receipt bytes and response content in files:
 
 ```js sample=paid-endpoint-express file=fulfillments.mjs region=storage
 import { mkdir, open, readFile } from "node:fs/promises";
@@ -97,11 +97,11 @@ export class FileFulfillmentRepository {
 }
 ```
 
-It writes with `wx` so two concurrent settlements cannot both create the record, `fsync`s before returning, and raises `fulfillment-conflict` when the same idempotency key arrives with a different request digest.
+It creates one record per key with `wx`, syncs it before returning, and raises `fulfillment-conflict` for a different request digest. The resource callback runs before record creation; use an idempotent callback and storage that coordinates concurrent requests and restarts when fulfilment has side effects.
 
 ## Run it
 
-```text
+```sh
 cd services/platform/examples/samples/paid-endpoint-express
 npm install
 node index.mjs
@@ -113,8 +113,8 @@ It prints the port, the paid path and the webhook path, and exposes `/settlement
 
 | Capability | Layer | What that means here |
 |---|---|---|
-| Offline receipt verification | `protocol` | The gate verifies the receipt from its own bytes against an authorised batch. |
+| Offline receipt verification | `protocol` | The gate verifies signed receipt bytes against independently pinned receipt keys. |
 | Atomic settlement | `protocol` | The payment behind a released resource happened whole or not at all. |
 | Receipt-gated resource release | `service` | Your middleware releases only against a verified receipt. It binds requests arriving through the middleware. |
-| Exactly-once fulfilment | `service` | Only as durable as the repository you supply. The sample's is a real one. |
+| Exactly-once fulfilment | `service` | Fulfilment persistence and concurrency follow the repository supplied by the application. |
 | Verified, replay-protected webhooks | `service` | Signature-checked, age-checked and lease-claimed in your process. |

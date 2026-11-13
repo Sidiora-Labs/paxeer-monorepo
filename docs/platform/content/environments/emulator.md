@@ -8,14 +8,14 @@ The emulator has no compiled-in signing authority. `layerx emulator provision` g
 
 Secure provisioning is supported on Linux, Android and Apple hosts. Other host targets fail closed before writing profile material because they do not provide the atomic owner-only directory publication this command requires.
 
-```
+```sh
 layerx emulator provision
 layerx emulator up --sequencer-seed-file "$HOME/.config/layerx/emulator/sequencer.seed"
 ```
 
 Defaults: listen on `127.0.0.1:9402`, network id `402`, clock at `1700000000000` milliseconds. Override any of them:
 
-```
+```sh
 layerx emulator up \
   --sequencer-seed-file "$HOME/.config/layerx/emulator/sequencer.seed" \
   --listen 127.0.0.1:9402 \
@@ -26,9 +26,9 @@ layerx emulator up \
 
 `--prefund` may be repeated. Its format is `did,64-hex-public-key,amount`, where the amount is either a plain integer or `high:low` for values beyond 64 bits.
 
-Point your app at it and nothing else changes:
+Configure the local compatibility endpoint:
 
-```
+```sh
 export LAYERX_API_URL=http://127.0.0.1:9402
 layerx environment use emulator --endpoint http://127.0.0.1:9402 --network-id 402 \
   --sequencer-trust-anchor-file "$HOME/.config/layerx/emulator/sequencer.anchor"
@@ -38,7 +38,7 @@ The CLI reads the published anchor, fetches the identity the running emulator ad
 
 ## Starting it from the reference applications
 
-`node services/platform/examples/run-reference-apps.mjs --scenario emulator` does all of the above for you on a host that has the CLI built. It resolves the binary from the first of `$LAYERX_BIN`, `build/bin/layerx`, and `layerx` on `PATH`, provisions the sequencer identity into a scratch profile directory, creates its signing keys with `layerx key create`, starts `layerx emulator up` with `--protocol-version 3` (the protocol version production runs and `layerx program deploy` signs; the emulator's own default stays `2`), `--time-ms` set to the current clock and one `--prefund` per DID, polls `GET /healthz` until it reports `ready`, and terminates the emulator and removes the scratch profile when the run ends, including on failure. Every `LAYERX_EMULATOR_*` value the applications need is then read back out of that emulator - the asset from a real transfer receipt, the account identifiers from `GET /v1/state` - rather than being hand-set. Set any of those variables yourself to override one input, or `LAYERX_EMULATOR_SEED_FILE` to start from a seed you already provisioned. The reference application [README](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/services/platform/examples/README.md) lists every derived input.
+`node services/platform/examples/run-reference-apps.mjs --scenario emulator` does all of the above for you on a host that has the CLI built. It resolves the binary from the first of `$LAYERX_BIN`, `build/bin/layerx`, and `layerx` on `PATH`, provisions the sequencer identity into a scratch profile directory, creates its signing keys with `layerx key create`, starts `layerx emulator up` with `--protocol-version 3` (the compatibility activity version selected by the reference runner; the emulator default is `2`), `--time-ms` set to the current clock and one `--prefund` per DID, polls `GET /healthz` until it reports `ready`, and terminates the emulator and removes the scratch profile when the run ends, including on failure. Every `LAYERX_EMULATOR_*` value the applications need is then read back out of that emulator - the asset from a real transfer receipt, the account identifiers from `GET /v1/state` - rather than being hand-set. Set any of those variables yourself to override one input, or `LAYERX_EMULATOR_SEED_FILE` to start from a seed you already provisioned. The reference application [README](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/345655b6e6e4a193455b9aa34fcc9e5961188d42/services/platform/examples/README.md) lists every derived input.
 
 Loopback `http://` is accepted here and only here. Every non-loopback endpoint must be `https://`, in the CLI and in the middleware transport alike, and that is a refusal rather than a warning.
 
@@ -87,9 +87,9 @@ It is a single local process holding state in memory, with no consensus or other
 
 A receipt is final once its block is committed. The merged network reports `submitted`, `receipted` and `committed`; `checkpoint-finalised` and `done-finalised` are retained API names for the `committed` rung. `settlement-anchored` and `paxeer-finalised` are never reached on the merged network. External anchoring is not a later finality rung for either environment.
 
-For network finality, authenticate the block header and CometBFT commit, then verify transaction or state inclusion at the relevant height. See [Committed block evidence](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/abc81fd2cead6b2b9d5612c6e09a6ab56f13c1ed/docs/site/docs/concepts/checkpoints.md#committed-block-evidence).
+For network finality, authenticate the block header and CometBFT commit, then verify transaction or state inclusion at the relevant height. See [Committed block evidence](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/345655b6e6e4a193455b9aa34fcc9e5961188d42/docs/site/docs/concepts/checkpoints.md#committed-block-evidence).
 
-For an environment with real finality and other participants, use the [beta quickstart](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/docs/wiki/Quickstart.md).
+For an environment with real finality and other participants, use the [beta quickstart](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/345655b6e6e4a193455b9aa34fcc9e5961188d42/docs/wiki/Quickstart.md).
 
 ## Enforced by
 
@@ -101,4 +101,4 @@ For an environment with real finality and other participants, use the [beta quic
 | Replay refusal | `protocol` | Resubmitting a canonical activity is refused here as it is in production. |
 | Unknown is a real outcome | `agent-layer` | `drop_receipt` produces a genuine unknown, so you can test that you keep it unknown. |
 | Beta faucet funding | `hosted-surface` | Not present locally - `--prefund` and the prefund endpoint replace it. |
-| Scheduled beta resets | `hosted-surface` | The emulator keeps its state until restarted; the hosted beta network is reset on its published calendar. |
+| Scheduled beta resets | `hosted-surface` | The private test environment has a reset calendar; the emulator keeps its in-memory state until restarted. |

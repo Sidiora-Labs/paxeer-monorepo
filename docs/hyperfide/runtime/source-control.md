@@ -4,9 +4,10 @@ The source runtime package contains the control service and migration catalog, N
 
 ## Build and verify
 
-On the release builder, compile the current native and service inputs, then assemble the package:
+From the monorepo root, enter `tools/hyperfide` before compiling and assembling the package. Source paths and subsequent builder commands on this page are relative to that directory:
 
 ```sh builder
+cd tools/hyperfide
 make hyperfide hyperfide-native CFLAGS='-O2 -Werror'
 npm --prefix core/control-plane run build
 python3 deploy/hyperfide/source-control/package.py --node /path/to/node --output /path/to/empty-output
@@ -26,7 +27,7 @@ Run the packaged component profile with an owned PostgreSQL instance:
 python3 tests/hyperfide/cases/source_control/7_1.py
 ```
 
-The driver explicitly builds `hyperfide-native` on the release builder, then assembles twice, compares the archives, extracts one, checks its complete inventory, and uses its Node, service, SDK, host modules and native executables. `make all` supplies the main CLI; the separate component build records its command output in `native-components-build.log`. The assembler still refuses stale or missing native outputs. The profile starts the actual `bin/source-control` launcher and verifies migration upgrades preserve existing Git source rows. It exercises API-only source access, sparse materialization, a durable checkpoint, independently checked acceptance, and publication to a disposable local Git destination with independent content readback. `--package-only` performs the archive checks without starting PostgreSQL or source operations; `--package-dir` checks an existing assembled package without rebuilding its native executable.
+The packaged component profile builds `hyperfide-native` on the release builder, then assembles twice, compares the archives, extracts one, checks its complete inventory, and uses its Node, service, SDK, host modules and native executables. `make all` supplies the main CLI; the separate component build records its command output in the native component build output. The assembler still refuses stale or missing native outputs. The profile starts the actual `bin/source-control` launcher and verifies migration upgrades preserve existing Git source rows. The profile exercises API-only source access, sparse materialization, a durable checkpoint, independently checked acceptance, and publication to a disposable local Git destination with independent content readback. `--package-only` performs the archive checks without starting PostgreSQL or source operations; `--package-dir` checks an existing assembled package without rebuilding its native executable.
 
 ## Install and start
 
@@ -74,7 +75,7 @@ fenced even when its source credentials and capabilities are still valid.
 
 The `git-source-pre-native-0736-v1` upgrade profile starts with the exact migration catalog preceding 0736. The packaged migration coordinator upgrades that database, preserves legacy Git object rows and specification source bindings byte for byte, verifies migration checksums, and proves a repeated application performs no migration. Git SHA-1 IDs and native SHA-256 IDs retain distinct namespaces. This proves the declared schema upgrade component; a deployment cutover, retained evidence adoption and remote writer isolation still require their own qualified migration campaign. Rollback to an older writer after acknowledged native writes is refused.
 
-The package contains the recovery-profile schema. The driver checks complete declarations and probes missing fields, unsupported failure models, absent synchronous replicas and backup age beyond retention. Its owned PostgreSQL/SigV4 profile remains UNQUALIFIED for disaster recovery; component observations include actual metadata settings and measured conditional create/read/delete behavior. Consult the [profile table and restore procedure](../hyperfide/source-control.md#profile-qualification) before selecting a deployment profile.
+The package contains the recovery-profile schema. The driver checks complete declarations and probes missing fields, unsupported failure models, absent synchronous replicas and backup age beyond retention. Recovery settings include metadata replication and conditional object create, read and delete behavior. Consult the [profile table and restore procedure](../hyperfide/source-control.md#profile-qualification) when selecting a deployment profile.
 
 ## Executable documentation and evidence
 
@@ -88,7 +89,7 @@ The driver compares the carried source specification’s case inventory with `re
   "source_refs": [
     {
       "path": "tools/hyperfide/tests/hyperfide/source-control/registry.json",
-      "sha256": "5379f8bfbf1bfd71546fc127263da683819d91dba66234aa028b695170b58874"
+      "sha256": "082f41fff8be19a89b0593349d376a15fc7f9c0c60a211a4012213dd56e85d0f"
     },
     {
       "path": "tools/hyperfide/tests/hyperfide/source-control/claims.json",
@@ -100,7 +101,7 @@ The driver compares the carried source specification’s case inventory with `re
     },
     {
       "path": "tools/hyperfide/core/control-plane/src/source_control/contracts.ts",
-      "sha256": "d916cbde34b3410b024a503cc12c90a487f504999e356a7104603c9d1f72571b"
+      "sha256": "3b5e07ce2d65a10293ae78660aac10dd31310ee813e35b09cf0414e6fdd3aa7d"
     },
     {
       "path": "tools/hyperfide/core/control-plane/src/source_control/graph-adapter.ts",

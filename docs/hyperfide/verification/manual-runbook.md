@@ -55,9 +55,12 @@ commands.
 
 ## Prerequisites
 
+Run the commands from the `tools/hyperfide` workspace. Paths below are relative to that workspace.
+
 Build the server, daemon, and CLI:
 
 ```bash
+cd tools/hyperfide
 pnpm build
 ```
 
@@ -812,11 +815,11 @@ test -n "$APPROVAL_INTERACTION_ID"
 
 hyperfide-platform thread interactions show "$APPROVAL_INTERACTION_ID" "$APPROVAL_THREAD_ID"
 
-if hyperfide-platform thread tell "$APPROVAL_THREAD_ID" "This should be blocked while an interaction is pending"; then
-  echo "expected tell to be blocked while the interaction is pending"
+hyperfide-platform thread tell "$APPROVAL_THREAD_ID" "Say exactly: HELD MESSAGE DELIVERED"
+# The message is held until the pending interaction settles.
+if hyperfide-platform thread tell "$APPROVAL_THREAD_ID" "Start immediately" --mode start; then
+  echo "expected explicit start to be refused while an interaction is pending"
   false
-else
-  echo "tell was blocked while the interaction was pending"
 fi
 
 hyperfide-platform thread interactions approve "$APPROVAL_INTERACTION_ID" "$APPROVAL_THREAD_ID"
@@ -909,9 +912,9 @@ Expected result:
 
 Record each pass with:
 
-- Date and operator
+- Date
 - Gate name: Real-provider CLI/API E2E
-- Standalone state path
+- Standalone configuration identifier
 - Provider(s) used
 - Credential mode: default subscription-backed path, or explicitly opt-in API-key route path
 - Thread IDs and environment IDs

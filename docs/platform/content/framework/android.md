@@ -12,7 +12,7 @@ Identical to [iOS](ios.md), and for the same reason: anything in an APK is publi
 
 ## Before you start
 
-```text
+```xml
 <dependency>
   <groupId>com.sidiora.layerx</groupId>
   <artifactId>layerx-android</artifactId>
@@ -29,6 +29,7 @@ Identical to [iOS](ios.md), and for the same reason: anything in an APK is publi
 | `layerx.event_public_key.<key-id>` | `LAYERX_EVENT_PUBLIC_KEY_<KEY_ID>` |
 | `layerx.event_max_age_seconds` | `LAYERX_EVENT_MAX_AGE_SECONDS` |
 | `layerx.request_timeout_seconds` | `LAYERX_REQUEST_TIMEOUT_SECONDS` |
+| `layerx.receipt_keys` | `LAYERX_RECEIPT_KEYS_JSON` |
 
 ## The integration
 
@@ -48,9 +49,13 @@ static JsonNode pay(LayerXAndroid layerx, ObjectNode move, String paymentKey) {
 
 `layerx.client()` covers the same human-plane surface as iOS: `version`, `profile`, `activity`, `activityEntry`, `journeys`, `journey`, `quote`, `commit` and a resumable stream. Every call returns a `CompletionStage`, so it composes with whatever concurrency your app already uses.
 
+## Receipt checks
+
+Configure `LAYERX_RECEIPT_KEYS_JSON` independently of received proofs before using `gate()`. It verifies signed receipt evidence and matches payment facts before the app treats a journey as paid.
+
 ## Verified push and webhook events
 
-`layerx.consume(rawBody, headerFields, handler)` verifies the envelope against your configured public keys, refuses stale deliveries and claims each delivery under a lease so a redelivery runs your handler once.
+`layerx.consume(rawBody, headerFields, handler)` verifies the envelope against your configured public keys, refuses stale deliveries and claims each delivery under a lease. The default `FileEventDeliveryStore` retains delivery state on disk; Android callers can supply a `Context` to select app-private storage.
 
 ## Never ship a secret
 
@@ -58,7 +63,7 @@ static JsonNode pay(LayerXAndroid layerx, ObjectNode move, String paymentKey) {
 
 ## Run the sample
 
-```text
+```sh
 cd services/platform/examples/samples/mobile-payment-android
 mvn -q package
 LAYERX_SERVICE_URL=http://127.0.0.1:9402 LAYERX_SESSION_BROKER_URL=http://127.0.0.1:9410 \

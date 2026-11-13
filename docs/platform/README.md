@@ -1,13 +1,12 @@
 # Developer documentation site
 
 This directory is the source of the static developer documentation site for
-the LayerX domain of Paxeer X Network (`site.kvx` names it "LayerX Developer
-Documentation"). The hosted Paxeer X Network documentation is at
-[docs.paxeer.app](https://docs.paxeer.app/).
+Paxeer X Network (`site.kvx` names it "LayerX Developer
+Documentation").
 
 `build/build_site.py` renders `site.kvx` and the pages under `content/` into a static site under `site/`. It has no dependencies beyond Python 3. Run it from this directory:
 
-```
+```sh
 python3 build/build_site.py ../..
 python3 build/build_site.py --check ../..
 ```

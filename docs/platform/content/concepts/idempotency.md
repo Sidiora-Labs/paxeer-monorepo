@@ -1,6 +1,6 @@
 # Retries and unknown outcomes
 
-Networks time out in the middle of payments. Paxeer X Network is built so that the obvious reaction - retry - is safe, and so that the case where nobody can yet say what happened is a first-class answer rather than a silence.
+A payment request can time out after submission. Keep its idempotency key and transaction reference so the outcome can be reconciled without creating a second payment.
 
 ## Idempotency keys
 
@@ -8,7 +8,7 @@ Every mutation on the human plane that could move money requires an `Idempotency
 
 The SDKs enforce this before the request leaves your process. Calling `move.commit` without a key fails locally with `idempotency-required`; you do not discover the problem from a duplicate payment. Sending the same key with a different body is a conflict, not a silent overwrite.
 
-Choose a key that is stable for the payment, not for the attempt. A good key is derived from the thing being paid for - an order identifier, a cart digest - so that a retry after a crash reuses it naturally. A UUID generated at the call site is the classic mistake: the retry generates a new one and pays twice.
+Choose a key that is stable for the payment, not for the attempt. A good key is derived from the thing being paid for - an order identifier, a cart digest - so that a retry after a crash reuses it naturally. Persist a generated key before submission and reuse it for every attempt at that payment.
 
 ## What a retry is allowed to do
 
@@ -28,14 +28,14 @@ Sometimes a submission genuinely cannot be classified: the request left, the res
 `Unknown` is terminal-pending, not an error. The correct handling is:
 
 1. Do not retry the payment. The idempotency key already protects you, but a retry does not answer the question either.
-2. Resolve it by looking up the receipt under your idempotency key. That is what `track` and `wait` do on the agent plane.
+2. Resolve it using the stored payment identity. The human plane reconciles by idempotency key; agent `track` and `wait` use the submission reference for the signed transaction.
 3. Keep every duplicate-capable control locked while it lasts. The human plane does this for you; do it in your own UI too.
 
 What you must not do is render it as either a success or a failure. A payment that might have happened is a different fact from one that did not, and the whole system is built to preserve that distinction rather than round it away.
 
 ## Protocol-level replay
 
-Underneath all of this, each principal's activity sequence is consumed exactly once. Even if every layer above the protocol were bypassed, an already-applied activity cannot apply again. Idempotency keys are how you get a useful answer; sequence consumption is why a wrong answer cannot cost you money twice.
+At the EVM boundary, the sender nonce prevents an applied signed transaction from applying again. Kernel activities additionally carry their protocol sequence. Reusing an application idempotency key resolves the original request; constructing a new transaction with a new nonce can create a separate payment.
 
 ## Enforced by
 
@@ -45,5 +45,5 @@ Underneath all of this, each principal's activity sequence is consumed exactly o
 | Atomic settlement | `protocol` | A timed-out call left either a whole payment or none of one behind. |
 | Unknown is a real outcome | `agent-layer` | An unclassifiable submission is reported as `Unknown` and resolved by tracking. |
 | Idempotent money moves | `service` | The human service requires the key and returns the original journey on repeat. |
-| Exactly-once fulfilment | `service` | A repeated payment returns the stored fulfilment; a different request digest under the same key is a conflict. |
+| Exactly-once fulfilment | `service` | Middleware can retain fulfilment under the payment identity; the application must coordinate its side effect with durable storage. |
 | Hosted rate limits | `hosted-surface` | The gateway refuses excess traffic with honest retry timing. |

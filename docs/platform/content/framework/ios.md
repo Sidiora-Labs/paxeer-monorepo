@@ -14,7 +14,7 @@ A phone is not a server. Anything you ship in the binary is public, so the iOS b
 
 ## Before you start
 
-```text
+```swift
 .package(path: "sdk/integrations/ios")
 ```
 
@@ -25,6 +25,7 @@ A phone is not a server. Anything you ship in the binary is public, so the iOS b
 | `LAYERX_EVENT_PUBLIC_KEY_<key-id>` | An event signing public key you trust |
 | `LAYERX_EVENT_MAX_AGE_SECONDS` | Optional. How stale an event may be |
 | `LAYERX_REQUEST_TIMEOUT_SECONDS` | Optional |
+| `LAYERX_RECEIPT_KEYS_JSON` | Pinned receipt keys required by `gate()` |
 
 In a real app these come from your build configuration rather than the process environment; `PublishableConfiguration(declaredKeys:)` and `PublishableConfiguration(contentsOfJSONFile:)` exist for exactly that.
 
@@ -40,9 +41,13 @@ var journey = try await layerx.client.commit(.object(["quote_id": .string(quoteI
 
 `layerx.client` covers the human plane an app actually needs: `version`, `profile`, `activity`, `activityEntry(id:)`, `journeys`, `journey(id:)`, `quote`, `commit(_:idempotencyKey:)` and a resumable event stream. Path values are validated before they reach a URL, so an identifier containing a slash or a query character is refused rather than used to build a request.
 
+## Receipt checks
+
+Configure `LAYERX_RECEIPT_KEYS_JSON` independently of received proofs before using `gate()`. It verifies signed receipt evidence and matches payment facts before the app treats a journey as paid.
+
 ## Verified push and webhook events
 
-`layerx.consume(rawBody:headerFields:handle:)` verifies an event envelope against your configured public keys, refuses it if it is stale, and claims the delivery under a lease so a redelivery runs your handler once. The claim store is pluggable; the default is in-process.
+`layerx.consume(rawBody:headerFields:handle:)` verifies an event envelope against your configured public keys, refuses it if it is stale, and claims the delivery under a lease. The claim store is pluggable; the default `FileEventDeliveryStore` retains delivery state in application support storage.
 
 ## Never ship a secret
 
@@ -50,7 +55,7 @@ The package includes `layerx-ios-secret-scan`, which walks a built product and r
 
 ## Run the sample
 
-```text
+```sh
 cd services/platform/examples/samples/mobile-payment-ios
 swift build
 LAYERX_SERVICE_URL=http://127.0.0.1:9402 LAYERX_SESSION_BROKER_URL=http://127.0.0.1:9410 \

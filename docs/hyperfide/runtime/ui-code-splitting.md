@@ -1,6 +1,6 @@
 # UI code splitting
 
-Use `apps/web/src/lib/define-split.tsx` for every app UI boundary. This is an
+Work from `tools/hyperfide`; source paths and build commands below are relative to that workspace. Use `apps/web/src/lib/define-split.tsx` for app UI boundaries. This is an
 app-local contract, not a Plugin SDK API. App code sorts into three tiers:
 
 | Tier      | What belongs here                                                       | Mechanism                          |

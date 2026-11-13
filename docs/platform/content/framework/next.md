@@ -4,7 +4,7 @@ Charge for a route handler in the App Router. Eight lines, plus a bundle scanner
 
 ## Before you start
 
-```text
+```sh
 npm install @sidiora/layerx-next next react react-dom
 ```
 
@@ -62,7 +62,7 @@ Both must be `runtime = "nodejs"` and `dynamic = "force-dynamic"`. The Edge runt
 
 The package ships `layerx-scan-bundle`. Run it after `next build`:
 
-```text
+```sh
 npx layerx-scan-bundle
 ```
 
@@ -133,7 +133,7 @@ export class FileFulfillmentRepository {
 }
 ```
 
-In production put this on shared durable storage, not on a function's local disk.
+The resource callback runs before the file record is created. Use an idempotent callback and shared storage that coordinates concurrent fulfilment across requests and cold starts.
 
 ## Run it
 
@@ -141,7 +141,7 @@ For this sample, the `dev` script first runs the matching `predev` hook, which i
 the repository-root `build:dependencies` script for `@sidiora/layerx-doc-paid-route-next`
 before starting the Next.js development server.
 
-```text
+```sh
 cd services/platform/examples/samples/paid-route-next
 npm install
 npm run dev

@@ -1,39 +1,25 @@
-# Perps ABI change history
+# Perps precompile ABI
 
 The perps precompile ABI is defined in
 [`precompiles/perps/abi/abi.json`](../precompiles/perps/abi/abi.json).
 Callers must use its selectors, argument types and argument order.
 
-## v6.12.0: embedded precompile ABI
+## Opening a position
 
-Commit `3f12216b2b955ef232cb3e2c4b8b860e2c87d3a2` declares `IPerps` in
-`Perps.sol` and embeds its ABI under `precompiles/perps/abi`. The
-position-opening signature is `openPosition(uint256,address,uint256,uint256,bool)`:
-market ID, collateral token, collateral amount, leverage and direction. Order
-cancellation uses `cancelOrder(uint256)` with the order ID.
+`openPosition(uint256,address,uint256,uint256,bool)` takes the market ID,
+collateral token, collateral amount, leverage and direction, in that order.
+It returns a `uint256` position ID.
 
-## TypeScript SDK 0.1.0: open and cancel encoding
+The TypeScript SDK's
+[`perpsOpenPositionCall`](../services/agent/sdk/typescript/src/perps.ts)
+encodes these arguments as a bigint market ID, token address, bigint collateral
+amount, bigint leverage and boolean direction.
 
-Commit `c31ded3a33b5c890e15e40b05be99c5b763307e9` aligns the SDK's
-[`perpsOpenPositionCall` and `perpsCancelOrderCall`](../services/agent/sdk/typescript/src/perps.ts)
-with the embedded precompile ABI.
+## Cancelling an order
 
-The open-position helper previously encoded
-`openPosition(bytes32,bytes32,uint8,uint256,uint256)`, using market and
-account IDs, side, size and leverage. It now encodes
-`openPosition(uint256,address,uint256,uint256,bool)`, using a bigint market
-ID, collateral token address, bigint collateral amount, bigint leverage and
-boolean direction. The cancel helper previously encoded
-`cancelOrder(bytes32,bytes32)` with order and account IDs. It now encodes
-`cancelOrder(uint256)` with a single bigint order ID.
+`cancelOrder(uint256)` takes one order ID. The SDK's `perpsCancelOrderCall`
+encodes that ID as a bigint.
 
-The same commit updates
-[`perps-v2.test.ts`](../services/agent/sdk/typescript/test/perps-v2.test.ts)
-and the precompile-call tests. They derive selectors from the embedded ABI,
-assert encoded argument words and reject invalid inputs. The SDK package
-version remains `0.1.0`; use the commit to distinguish the corrected encoders
-from earlier code carrying the same package version.
-
-Commit `c1f5f4d31ef0f4885db9b4203821d350fd249cb1` changes programme metadata
-only. It makes no ABI or caller implementation change and is not evidence of
-SDK, wallet or web compatibility.
+The SDK's [perps tests](../services/agent/sdk/typescript/test/perps-v2.test.ts)
+derive selectors from the embedded ABI, check encoded argument words and
+reject invalid inputs.
