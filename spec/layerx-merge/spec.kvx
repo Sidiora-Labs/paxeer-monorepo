@@ -374742,7 +374742,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.140]
 title = "Write the page of the directory tools/jev"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374772,7 +374772,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.139]
 title = "Write the page of the directory tools/hpx"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374802,7 +374802,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.138]
 title = "Write the page of the directory tools/flyci"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374832,7 +374832,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.137]
 title = "Write the page of the directory tools/deps"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -375972,7 +375972,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.99]
 title = "Write the page of the directory modules/spot"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -376002,7 +376002,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.98]
 title = "Write the page of the directory modules/sequencer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -376032,7 +376032,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.97]
 title = "Write the page of the directory modules/pricefeed"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -376062,7 +376062,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.96]
 title = "Write the page of the directory modules/perps"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -376092,7 +376092,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.95]
 title = "Write the page of the directory modules/oracle"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -376122,7 +376122,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.94]
 title = "Write the page of the directory modules/mint"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -376152,7 +376152,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.93]
 title = "Write the page of the directory modules/lxphost"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -376182,7 +376182,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.92]
 title = "Write the page of the directory modules/layerxpay"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -376212,7 +376212,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.91]
 title = "Write the page of the directory modules/layerxledger"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -376242,7 +376242,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.90]
 title = "Write the page of the directory modules/layerxgov"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -376302,7 +376302,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.88]
 title = "Write the page of the directory modules/layerxcustody"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -376332,7 +376332,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.87]
 title = "Write the page of the directory modules/layerxchains"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -376392,7 +376392,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.85]
 title = "Write the page of the directory modules/layerxauth"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -376482,7 +376482,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.82]
 title = "Write the page of the directory modules/launchpad"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -376572,7 +376572,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.79]
 title = "Write the page of the directory apps/web"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -376602,7 +376602,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.78]
 title = "Write the page of the directory apps/wallet"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -376632,7 +376632,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.77]
 title = "Write the page of the directory apps/perps"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -376662,7 +376662,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.76]
 title = "Write the page of the directory apps/names"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -376692,7 +376692,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.75]
 title = "Write the page of the directory apps/launchpad"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -376722,7 +376722,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.74]
 title = "Write the page of the directory apps/inference-peer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -378545,7 +378545,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.9]
 title = "Write the page of variables of the service under services/platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -378575,7 +378575,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.8]
 title = "Write the page of variables of the service under services/launchpad"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
