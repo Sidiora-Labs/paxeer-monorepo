@@ -1,0 +1,41 @@
+{
+  "body": {
+    "messages": [
+      {
+        "@type": "/cosmos.gov.v1beta1.MsgSubmitProposal",
+        "content": {
+          "@type": "/cosmos.upgrade.v1beta1.SoftwareUpgradeProposal",
+          "title": "PLACEHOLDER: Paxeer v7.0.0 software upgrade",
+          "description": "PLACEHOLDER: Replace with the release description, chosen upgrade height and binary identity. Replace the zero height, checksum, public-key placeholders and placeholder deposit before submission.",
+          "plan": {
+            "name": "v7.0",
+            "height": "0",
+            "info": "{\"leaders\":[\"REPLACE_WITH_BASE64_CONSENSUS_PUBLIC_KEY\"],\"receipt_keys\":[{\"key_id\":\"REPLACE_WITH_BASE64_RECEIPT_KEY_ID\",\"public_key\":\"REPLACE_WITH_BASE64_RECEIPT_PUBLIC_KEY\",\"first_height\":1,\"last_height\":18446744073709551615}],\"last_seq\":0,\"last_seq_hash\":\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\",\"activation_height\":0,\"binaries\":{\"linux/amd64\":\"https://github.com/Sidiora-Labs/paxeer-monorepo/releases/download/paxeer-network/v7.0.0/paxd-v7.0.0-linux-amd64?checksum=sha256:0000000000000000000000000000000000000000000000000000000000000000\"}}"
+          }
+        },
+        "initial_deposit": [
+          {
+            "denom": "placeholder",
+            "amount": "0"
+          }
+        ],
+        "proposer": "REPLACE_WITH_PROPOSER_ADDRESS",
+        "is_expedited": false
+      }
+    ],
+    "memo": "",
+    "timeout_height": "0",
+    "extension_options": [],
+    "non_critical_extension_options": []
+  },
+  "auth_info": {
+    "signer_infos": [],
+    "fee": {
+      "amount": [],
+      "gas_limit": "0",
+      "payer": "",
+      "granter": ""
+    }
+  },
+  "signatures": []
+}

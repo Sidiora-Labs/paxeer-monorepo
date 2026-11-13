@@ -17,7 +17,7 @@ and `Decompress` APIs now return `(*CommitmentProof, error)` so callers must
 handle malformed variants and compressed indexes explicitly. `CombineProofs`
 and `Calculate` propagate those errors; boolean verifiers return false.
 
-`repair_m1359_test.go` contains recorded producer Merkle-store vectors with
+`proof_verification_test.go` contains recorded producer Merkle-store vectors with
 committed keys, values and roots, serialized by the real protobuf codec and consumed
 by this implementation. It also covers decoded malformed indexes and entries,
 partial verifier inputs, size errors, and non-membership neighbor paths.

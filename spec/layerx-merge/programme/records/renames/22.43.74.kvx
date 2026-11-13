@@ -1,0 +1,8 @@
+[manifest]
+task = "22.43.74"
+records_moved = 0
+files_renamed = 1
+
+[file.1]
+from = "precompiles/bank/repair_m1280_test.go"
+to = "precompiles/bank/bank_durable_reopen_test.go"

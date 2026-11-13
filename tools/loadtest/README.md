@@ -1,202 +1,131 @@
 # pax-load
 
-A Go load generator that signs EVM transactions, distributes them across configured
-node endpoints, and collects submission, receipt, and block metrics.
+`tools/loadtest` holds the Go `paxload` generator, its workload contracts and profiles, and its tests. It signs EVM transactions, distributes them across configured node endpoints, and collects submission, receipt, and block metrics for Paxeer mainnet-beta, one BFT network with EVM chain ID **125** (`0x7d`). The kernel participates in block proposal and execution; receipts are final when their block is committed, and the tool connects to the node's root JSON-RPC surface.
 
-Paxeer mainnet-beta is one BFT network with EVM chain ID **125** (`0x7d`). Its kernel
-participates in block proposal and execution; receipts are final when their block
-is committed. Public JSON-RPC uses the root URL of
-`https://api1.mainnet-beta.paxeer.network` through
-`https://api14.mainnet-beta.paxeer.network`, or
-`https://api-mainnet-beta.paxeer.network`. See the
-[public RPC reference](../../docs/site/docs/reference/public-rpc.md).
+## Layout
 
-The checked-in [profiles](profiles/) target operator-owned loopback nodes on chain
-125. A different chain ID requires an isolated node and a matching profile.
-Before any deployment or traffic, the executable calls `eth_chainId` on **every**
-configured endpoint, including entries excluded by `--nodes`, and refuses a
-mismatch. The CLI has no chain-ID override flag. All endpoints must serve the
-configured signing chain.
+- [config/](config/) — JSON profile types, validation, settings, gas pickers, and the CLI implementation.
+- [generator/](generator/) — weighted workload generation, account prewarming, Solidity contracts, bindings, and transaction scenarios.
+- [internal/](internal/) — the embedded scaffold renderer and compiled scenario fixtures.
+- [profiles/](profiles/) — JSON workload profiles, the executable's chain identity preflight, and profile tests.
+- [scripts/](scripts/) — scenario-template and factory generation through the compiled scaffold command.
+- [sender/](sender/) — endpoint dispatch, workers, rate limiting, receipt tracking, ramp-up, and transaction-file output.
+- [stats/](stats/) — submission, block, gas, and user-latency collection, logging, bounds, and JSON reporting.
+- [types/](types/) — accounts, account pools, signed workload transactions, and JSON-RPC payloads.
+- [utils/](utils/) — endpoint conversion, channels, synchronization, protobuf, and service lifecycle helpers.
+- [main.go](main.go) — executable entry point using the profile command.
+- [main_test.go](main_test.go) — CLI bounds and shipped-profile tests.
+- [repair_321_test.go](repair_321_test.go) — executable shutdown, reporting, and bounds tests.
+- [repair_m817_test.go](repair_m817_test.go) — toolchain, bindings, CLI lifecycle, configuration, and scaffold tests.
+- [go.mod](go.mod) — nested Go module and dependency versions.
+- [go.sum](go.sum) — Go dependency checksums.
+- [Makefile](Makefile) — build, test, lint, binding generation, tool installation, and dependency targets.
+- [Dockerfile](Dockerfile) — static executable build and non-root runtime image.
+- [.gitignore](.gitignore) — build, coverage, tool, and editor exclusions.
+- [LICENSE.md](LICENSE.md) — Apache License text.
+- [VENDOR.kvx](VENDOR.kvx) — upstream source and license metadata.
 
-## Quick Start
+## Build and test
 
-### 1. Build
-
-From the repository root, enter this directory. Use the pinned Go **1.25.8** toolchain; the nested module keeps its
-`go 1.25.0` language directive in [go.mod](go.mod). Then build:
+Run these [Makefile](Makefile) targets from `tools/loadtest` with the Go **1.25.8** toolchain used by the [Dockerfile](Dockerfile). The nested module keeps its `go 1.25.0` language directive in [go.mod](go.mod):
 
 ```bash
-cd tools/loadtest
 make build
+make test
+make lint
 ```
 
-The [Makefile](Makefile) writes **`build/paxload`** using the Go contract
-bindings. This build does not require regenerating Solidity bindings. All commands
-below assume the working directory is `tools/loadtest`.
+`make build` is an alias for `make build-cli` and writes **`build/paxload`** using the checked-in Go contract bindings; it does not require regenerating Solidity bindings. `make install` copies that executable into the selected Go bin directory.
 
-### 2. Create Config
+`make test` runs the Go packages with race detection and coverage. `make lint`
+requires `golangci-lint`. `make clean` removes both `build/` and
+`generator/bindings/`; rebuilding after cleaning requires restoring the committed
+bindings or regenerating them with `make generate` and the Makefile's Solidity and
+`abigen` tools. `make build` uses `-mod=readonly` and never installs binding tools
+or tidies dependencies; `make tidy` is a separate maintenance operation.
 
-Save this as `my-config.json`. It describes a local chain-125 node; replace the
-endpoint for your environment. The initial run below simulates sending.
+For deliberate regeneration, `make install-tools` installs abigen v1.17.0 and
+SHA-256-verified Solidity 0.8.19 release bytes into `.tools/`. The
+`setup-node` target installs only native solc; no Node or nvm download is needed.
+`make generate` refuses missing or changed tools and records compiler/generator
+versions, tool hashes, and ABI/bytecode/binding hashes in per-binding `.provenance`
+files. It renders scenario constructors with `config.Scenario` and updates the
+factory using the compiled `build/paxload scaffold` commands. Replace every
+constructor and transaction placeholder that the scaffold emits before building a
+new scenario.
 
-```json
-{
-  "endpoints": ["http://127.0.0.1:8545"],
-  "chainId": 125,
-  "paxChainID": "local-chain-125",
-  "scenarios": [
-    {"name": "EVMTransfer", "weight": 100}
-  ],
-  "accounts": {
-    "count": 100,
-    "newAccountRate": 0
-  },
-  "bounds": {
-    "minAverageTps": 5,
-    "maxP99LatencyMs": 5000,
-    "minTotalTxs": 100
-  },
-  "settings": {
-    "workers": 5,
-    "tps": 100,
-    "statsInterval": "10s",
-    "bufferSize": 1000,
-    "reportPath": "loadtest-report.json"
-  }
-}
-```
-
-For an isolated local run, copy `profiles/local.json` and use a node whose
-`eth_chainId` matches its configured chain ID 125.
-
-### 3. Run
-
-```bash
-./build/paxload --config my-config.json --dry-run
-```
-
-Let several statistics intervals elapse, then press Ctrl+C. SIGINT or SIGTERM
-requests graceful shutdown, final reporting, and evaluation of the configured
-bounds. A minimum transaction count is an assertion at shutdown, not a stop limit;
-there is no duration flag.
-
-Dry-run skips real contract deployment and transaction submission. Its throughput
-measures the local simulation. Block tracking, ramp-up, user-latency tracking, and
-transaction-file mode can still contact nodes, so dry-run is not an offline
-connectivity check.
-
-For a live run, omit `--dry-run` in an environment that can fund the generated
-accounts and deployer. The generator creates fresh random keys on every run and
-does not import wallet keys or fund accounts. An ordinary fee-paying node will
-reject unfunded transactions; changing the endpoint to mainnet does not provide
-funding.
-
-## Command Line Options
-
-Defaults below are effective settings from
-[config/settings.go](config/settings.go), before profile values or explicit flags.
-The `settings` column gives the nested JSON key.
-
-| Flag | Default | `settings` key | Description |
-| --- | --- | --- | --- |
-| `--config`, `-c` | Required | — | JSON profile path |
-| `--workers`, `-w` | `1` | `workers` | Sending goroutines per endpoint |
-| `--nodes`, `-n` | `0` | — | Use the first N endpoints; 0 uses all |
-| `--tps`, `-t` | `0` | `tps` | Shared sending rate across all workers; 0 is unlimited |
-| `--stats-interval`, `-s` | `10s` | `statsInterval` | Periodic log interval; use a positive duration |
-| `--buffer-size`, `-b` | `1000` | `bufferSize` | Queue capacity for each endpoint's worker group |
-| `--dry-run` | `false` | `dryRun` | Simulate deployments and sends |
-| `--debug` | `false` | `debug` | Enable detailed transaction and endpoint logging |
-| `--track-receipts` | `false` | `trackReceipts` | Poll submitted transaction receipts |
-| `--track-blocks` | `false` | `trackBlocks` | Subscribe to new heads using the first endpoint |
-| `--track-user-latency` | `false` | `trackUserLatency` | Start a receipt-observation loop on the first endpoint |
-| `--prewarm` | `false` | `prewarm` | Queue account self-transactions before the main workload |
-| `--ramp-up` | `false` | `rampUp` | Adjust the shared limiter using the built-in ramp curve and block observations |
-| `--metricsListenAddr` | `0.0.0.0:9090` | — | Prometheus HTTP listener; serves `/metrics` |
-| `--report-path` | Empty | `reportPath` | Write final statistics as JSON |
-| `--min-tps` | `0` | `minTps` | Minimum overall average submission TPS; 0 disables |
-| `--max-p99-latency` | `0s` | `maxP99Latency` | Maximum send p99 per reported endpoint; 0 disables |
-| `--min-total-txs` | `0` | `minTotalTxs` | Minimum accepted submissions; 0 disables |
-| `--txs-dir` | Empty | `txsDir` | Dispatch transactions to files instead of the sender |
-| `--target-gas` | `10000000` | `targetGas` | Gas budget per transaction-file batch |
-| `--num-blocks-to-write` | `100` | `numBlocksToWrite` | Transaction-file batch limit |
-
-## Examples
-
-### Basic Load Test
-
-On an operator-owned chain-125 node, this invocation evaluates
-the existing EVM transfer profile's bounds (minimum 5 TPS, maximum p99 5000 ms),
-adds a minimum total, and writes a JSON report after graceful shutdown:
-
-```bash
-./build/paxload --config profiles/evm_transfer.json \
-  --workers 5 --tps 100 --min-total-txs 100 \
-  --report-path fixture-report.json
-```
-
-It requires the fixture's funding behavior described above. Thresholds are
-examples, not network guarantees.
-
-For a simulation, provide the profile's local chain-125 RPC node and run:
-
-```bash
-./build/paxload --config profiles/evm_transfer.json --dry-run \
-  --workers 2 --buffer-size 8 --stats-interval 20ms --tps 100 \
-  --min-tps 0 --max-p99-latency 0s --min-total-txs 1 \
-  --report-path fixture-report.json --metricsListenAddr 127.0.0.1:0
-```
-
-After a statistics interval, Ctrl+C requests shutdown and bound evaluation.
-Dry-run statistics describe simulated sends; the executable still checks chain
-identity before generation.
-
-### High Throughput Test
-
-For the same isolated fixture, explicitly request unlimited sending:
-
-```bash
-./build/paxload --config profiles/evm_transfer.json \
-  --workers 20 --buffer-size 2000 --tps 0
-```
-
-### Debug Mode
-
-```bash
-./build/paxload --config my-config.json --debug --dry-run
-```
-
-### With Receipt Tracking
-
-For a live fixture run, enable receipt polling and block subscriptions:
-
-```bash
-./build/paxload --config profiles/evm_transfer.json --tps 100 \
-  --track-receipts --track-blocks
-```
-
-Block tracking and ramp-up derive a WebSocket URL from the first endpoint:
-`http` becomes `ws`, `https` becomes `wss`, and port `8545` becomes `8546`.
-The helper also replaces `evm-rpc` with `evm-ws` in fixture hostnames. Public nodes
-use the root WebSocket URL. See [utils/endpoint.go](utils/endpoint.go).
-
-### User Latency Monitoring
-
-```bash
-./build/paxload --config profiles/evm_transfer.json --tps 100 \
-  --track-user-latency --stats-interval 5s
-```
-
-The [tracker](stats/user_latency_tracker.go) measures elapsed time from a
-registered send to observation of its committed receipt, checking the receipt's
-block and transaction index. Only hashes registered with `TrackTransaction`
-contribute samples; transaction values do not supply timing data.
+The image uses digest-pinned stages, disables automatic toolchain downloads and
+checks the compiler identity before building.
 
 ## Configuration
 
-### Basic Structure
+### Files and environment variables
 
-The complete quick-start JSON shows the structure. The CLI admits 1–256 HTTP(S) `endpoints` and 1–256 `scenarios`, a positive
+The executable reads the JSON file selected by `--config`. The bundled files are:
+
+- [profiles/autobake_evm_transfer.json](profiles/autobake_evm_transfer.json)
+- [profiles/conflict.json](profiles/conflict.json)
+- [profiles/evm_transfer.json](profiles/evm_transfer.json)
+- [profiles/evm_transfer_write_file.json](profiles/evm_transfer_write_file.json)
+- [profiles/loadtest_default.json](profiles/loadtest_default.json)
+- [profiles/local.json](profiles/local.json)
+- [profiles/local_docker.json](profiles/local_docker.json)
+
+The executable configures workloads through JSON and flags; it does not read runtime environment variables. The [Makefile](Makefile) uses `GOPATH` and `HOME` to select the installation directory and sets `GOBIN` when installing the binding tool. The [Dockerfile](Dockerfile) sets `GOTOOLCHAIN` and `CGO_ENABLED` for the build.
+
+### Command line options
+
+The `settings` column names the nested JSON key from
+[config/settings.go](config/settings.go). Flags are declared in
+[config/cli/command.go](config/cli/command.go).
+
+| Flag | `settings` key | Description |
+| --- | --- | --- |
+| `--config`, `-c` | — | JSON profile path |
+| `--workers`, `-w` | `workers` | Sending goroutines per endpoint |
+| `--nodes`, `-n` | — | Use the first N endpoints; 0 uses all |
+| `--tps`, `-t` | `tps` | Shared sending rate across all workers; 0 is unlimited |
+| `--stats-interval`, `-s` | `statsInterval` | Periodic log interval; use a positive duration |
+| `--buffer-size`, `-b` | `bufferSize` | Queue capacity for each endpoint's worker group |
+| `--dry-run` | `dryRun` | Simulate deployments and sends |
+| `--debug` | `debug` | Enable detailed transaction and endpoint logging |
+| `--track-receipts` | `trackReceipts` | Poll submitted transaction receipts |
+| `--track-blocks` | `trackBlocks` | Subscribe to new heads using the first endpoint |
+| `--track-user-latency` | `trackUserLatency` | Start a receipt-observation loop on the first endpoint |
+| `--prewarm` | `prewarm` | Queue account self-transactions before the main workload |
+| `--ramp-up` | `rampUp` | Adjust the shared limiter using the built-in ramp curve and block observations |
+| `--metricsListenAddr` | — | Prometheus HTTP listener; serves `/metrics` |
+| `--report-path` | `reportPath` | Write final statistics as JSON |
+| `--min-tps` | `minTps` | Minimum overall average submission TPS; 0 disables |
+| `--max-p99-latency` | `maxP99Latency` | Maximum send p99 per reported endpoint; 0 disables |
+| `--min-total-txs` | `minTotalTxs` | Minimum accepted submissions; 0 disables |
+| `--txs-dir` | `txsDir` | Dispatch transactions to files instead of the sender |
+| `--target-gas` | `targetGas` | Gas budget per transaction-file batch |
+| `--num-blocks-to-write` | `numBlocksToWrite` | Transaction-file batch limit |
+
+### Running a workload
+
+The checked-in [profiles](profiles/) target operator-owned loopback nodes on chain 125. A different chain ID requires an isolated node and a matching profile. Before any deployment or traffic, the executable calls `eth_chainId` on **every** configured endpoint, including entries excluded by `--nodes`, and refuses a mismatch. The CLI has no chain-ID override flag. All endpoints must serve the configured signing chain.
+
+After building, run a checked-in profile from `tools/loadtest`:
+
+```sh
+./build/paxload --config profiles/autobake_evm_transfer.json --dry-run
+```
+
+For an isolated local run, use `profiles/local.json` with a node whose `eth_chainId` matches the profile. Let several statistics intervals elapse, then press Ctrl+C. SIGINT or SIGTERM requests graceful shutdown, final reporting, and evaluation of the configured bounds. A minimum transaction count is an assertion at shutdown, not a stop limit; there is no duration flag.
+
+Dry-run skips real contract deployment and transaction submission. Its throughput measures the local simulation. Block tracking, ramp-up, user-latency tracking, and transaction-file mode can still contact nodes, so dry-run is not an offline connectivity check. Chain identity is checked even in dry-run.
+
+For a live run, omit `--dry-run` in an environment that can fund the generated accounts and deployer. The generator creates fresh random keys on every run and does not import wallet keys or fund accounts. An ordinary fee-paying node rejects unfunded transactions; selecting a different endpoint does not provide funding.
+
+Use `--workers` and `--buffer-size` to adjust concurrency and queues, `--tps` to select a shared sending rate, and `--debug` for detailed logging. `--track-receipts` polls submitted receipts, and `--track-blocks` subscribes to new heads. Block tracking and ramp-up derive a WebSocket URL from the first endpoint: `http` becomes `ws`, `https` becomes `wss`, and port `8545` becomes `8546`. The helper also replaces `evm-rpc` with `evm-ws` in fixture hostnames. Public nodes use the root WebSocket URL. See [utils/endpoint.go](utils/endpoint.go).
+
+The [user-latency tracker](stats/user_latency_tracker.go) measures elapsed time from a registered send to observation of its committed receipt, checking the receipt's block and transaction index. Only hashes registered with `TrackTransaction` contribute samples; transaction values do not supply timing data.
+
+### Basic structure
+
+The required `--config` (`-c`) option selects a JSON file. The CLI admits 1–256 HTTP(S) `endpoints` and 1–256 `scenarios`, a positive
 `chainId`, and known scenario names before constructing generators or services.
 Weights must be nonnegative with a positive total no greater than 2147483647.
 Provide account settings either at the top level or within each scenario. `settings` is optional; omitted settings use
@@ -210,31 +139,12 @@ Use `--dry-run` for a simulation.
 
 ### Scenarios
 
-Names are case-insensitive and weights select the workload mix:
-
-```json
-{
-  "scenarios": [
-    {"name": "EVMTransfer", "weight": 50},
-    {"name": "ERC20", "weight": 30},
-    {"name": "ERC721", "weight": 20}
-  ]
-}
-```
+Names are case-insensitive and weights select the workload mix.
 
 Each entry creates a separate scenario instance. Use positive weights for active
 entries; zero-weight entries still go through setup before selection excludes them.
 
-### Account Management
-
-```json
-{
-  "accounts": {
-    "count": 100,
-    "newAccountRate": 0.1
-  }
-}
-```
+### Account management
 
 Scenarios share the top-level pool unless they provide their own `accounts` object.
 `newAccountRate` is the probability of generating a new account for a pool request;
@@ -249,29 +159,17 @@ For each setting, an explicitly supplied CLI flag overrides the nested `settings
 value, which overrides the default. Explicit flags can set `--tps 0` or
 `--dry-run=false`; merely omitting a flag does not override the profile. Zero-valued
 JSON settings are omitted when loaded into Viper and generally fall back to
-defaults. Duration settings use strings such as `"10s"` or `"250ms"`. The resolved statistics
+defaults. Duration settings use strings parsed by `time.ParseDuration`. The resolved statistics
 interval must be positive. Workers must be in 1–1024 with at most 4096 total
 participants; buffers must be in 1–100000 with at most 1000000 queued transactions
 across endpoints. TPS must be finite and nonnegative. Transaction-file mode
 requires positive `targetGas` and `numBlocksToWrite`. Gas ranges must be positive
 and ordered, and minimum fee caps must cover maximum tip caps before sampling.
 
-### Performance Bounds and Reports
+### Performance bounds and reports
 
-Bounds may be placed in the top-level profile object:
-
-```json
-{
-  "bounds": {
-    "minAverageTps": 5,
-    "maxP99LatencyMs": 5000,
-    "minTotalTxs": 100
-  },
-  "settings": {
-    "reportPath": "report.json"
-  }
-}
-```
+Bounds may be placed in the top-level profile object under `bounds`, using
+`minAverageTps`, `maxP99LatencyMs`, and `minTotalTxs`.
 
 For each bound independently, precedence is **explicit CLI flag > nonzero nested
 setting > top-level bound > disabled default**. The nested equivalents are
@@ -295,7 +193,7 @@ with `performance bounds violated` and the limit and observed value for each
 failed bound (`min_average_tps`, `min_total_txs`, or
 `max_p99_latency:<endpoint>`). The report is written before bound enforcement, so a
 failing performance run can still leave its statistics for inspection. Successful
-shutdown with satisfied bounds and no run/report error returns exit **0**.
+shutdown with satisfied bounds and no run/report error returns exit status 0.
 
 `load_test_statistics.total_txs` and scenario counts include failed submission
 attempts. `overall_performance.total_transactions` and average TPS count
@@ -310,7 +208,7 @@ finalization failures, and report write failures. Inspect errors and sample coun
 alongside bounds when judging a live run. Dry-run samples measure simulated sends;
 file-writing mode does not collect sender throughput samples.
 
-## Available Scenarios
+### Available scenarios
 
 The [scenario factory](generator/scenarios/factory.go) registers:
 
@@ -327,34 +225,30 @@ Contract scenarios deploy their own test contracts unless deployment is simulate
 These are workload contracts, not production token or module addresses. Scenario
 gas and fee selections are declared in [config/gas.go](config/gas.go).
 
-## Output
+### Output
 
-### Standard Metrics
+#### Standard metrics
 
-Periodic output includes submission TPS and latency, for example:
-
-```text
-throughput tps=133.00, txs=1330, latency(avg=8ms p50=5ms p99=27ms max=494ms)
-```
+Periodic output includes submission TPS and average, p50, p99, and maximum latency.
 
 The final console summary includes scenario counts, endpoint performance, and
 overall performance. Prometheus metrics are served at `/metrics` on the listener
 selected by `--metricsListenAddr`.
 
-### User Latency (with --track-user-latency)
+#### User latency (with --track-user-latency)
 
 The observation log reports the scope, sample count, missing receipts and
 per-endpoint outcomes. The scope is
 `full_run_send_to_committed_receipt_observation`; an empty sample set is reported
 as `insufficient_samples=true`.
 
-### Block Stats (with --track-blocks)
+#### Block stats (with --track-blocks)
 
 The final block statistics report committed-header timestamp intervals, gas
 usage and delivery lag separately. The collector backfills missing heights and
 checks parent hashes. Its scope is `full_run_committed_headers`.
 
-### JSON Report
+#### JSON report
 
 Reports contain `required_endpoints`, `outcomes`, `throughput_basis`,
 `commit_evidence`, `incomplete`, `load_test_statistics`, `scenario_distribution`,
@@ -366,51 +260,28 @@ Reports contain `required_endpoints`, `outcomes`, `throughput_basis`,
 `load_test_statistics.start_time` is a timestamp string. The report is final statistics, not a list of
 bound verdicts. See [stats/logger.go](stats/logger.go) for the exact schema.
 
-## Development
+### Troubleshooting
 
-Run these from `tools/loadtest`:
-
-```bash
-make build
-make test
-make lint
-```
-
-`make test` runs the Go packages with race detection and coverage. `make lint`
-requires `golangci-lint`. `make clean` removes both `build/` and
-`generator/bindings/`; rebuilding after cleaning requires restoring the committed
-bindings or regenerating them with `make generate` and the Makefile's Solidity and
-`abigen` tools. `make build` uses `-mod=readonly` and never installs binding tools
-or tidies dependencies; `make tidy` is a separate maintenance operation.
-
-For deliberate regeneration, `make install-tools` installs abigen v1.17.0 and
-SHA-256-verified Solidity 0.8.19 release bytes into private `.tools/`. The
-`setup-node` target installs only native solc; no Node or nvm download is needed.
-`make generate` refuses missing or changed tools and records compiler/generator
-versions, tool hashes, and ABI/bytecode/binding hashes in per-binding `.provenance`
-files. It renders scenario constructors with `config.Scenario` and updates the
-factory using the compiled `build/paxload scaffold` commands. Replace every
-constructor and transaction placeholder that the scaffold emits before building a
-new scenario.
-The image uses digest-pinned stages, disables automatic toolchain downloads and
-checks the compiler identity before building.
-
-## Troubleshooting
-
-### Connection Issues
+#### Connection issues
 
 - Check root endpoint URLs and confirm `eth_chainId` matches the signing ID.
 - For block tracking or ramp-up, check the derived WebSocket endpoint and new-head subscription support.
 - Check send errors, JSON-RPC responses, and receipt status; dry-run does not prove live admission or funding.
 
-### Low Performance
+#### Low performance
 
 - Inspect send failures and endpoint sample counts before tuning concurrency.
 - Increase `--workers` or `--buffer-size` as needed, and check whether `--tps` limits the shared rate.
 - Keep comparison runs on the same workload and duration; average TPS includes elapsed setup time.
 
-### Memory Issues
+#### Memory use
 
 - Reduce `--buffer-size` and worker count.
 - Disable receipt tracking when receipt metrics are unnecessary.
 - Account for the number of endpoints and generated account pools when sizing a run.
+
+## Documentation
+
+- [Profile guide](profiles/README.md) — workload profiles, chain identity checks, funding, and report output.
+- [Public RPC reference](../../docs/readme/PUBLIC-RPC.md) — node JSON-RPC and WebSocket surfaces.
+- [Documentation-site JSON-RPC page](../../docs/site/paxeer-docs/public/markdown/json-rpc.md) — the EVM methods used for submission, receipt lookup, and block tracking.
