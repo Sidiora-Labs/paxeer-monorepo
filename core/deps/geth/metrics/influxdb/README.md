@@ -12,15 +12,21 @@ Usage
 -----
 
 ```go
-import "github.com/vrischmann/go-metrics-influxdb"
+import (
+    "time"
+
+    "github.com/ethereum/go-ethereum/metrics"
+    "github.com/ethereum/go-ethereum/metrics/influxdb"
+)
 
 go influxdb.InfluxDB(
     metrics.DefaultRegistry, // metrics registry
     time.Second * 10,        // interval
     "http://localhost:8086", // the InfluxDB url
-    "mydb",                  // your InfluxDB database
-    "myuser",                // your InfluxDB user
-    "mypassword",            // your InfluxDB password
+    database,                // your InfluxDB database
+    username,                // your InfluxDB user
+    password,                // your InfluxDB password
+    "app.",                  // metric namespace
 )
 ```
 

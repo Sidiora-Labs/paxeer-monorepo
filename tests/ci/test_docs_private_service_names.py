@@ -16,7 +16,7 @@ BETA_AND_FAUCET_ENDPOINTS = {
         "https://OPERATOR-GATEWAY-ORIGIN",
         "https://OPERATOR-FAUCET-ORIGIN",
     ),
-    "docs/site/docs/platform/faucet.md": (
+    "docs/site/paxeer-docs/src/app/developer-funding/page.tsx": (
         "`LAYERX_IDENTITY_INTROSPECTION_URL` | "
         "`https://OPERATOR-IDENTITY-ORIGIN:9443/v1/introspect`",
         "`LAYERX_TESTNET_FUNDING_URL` | "
@@ -47,7 +47,7 @@ INTEROP_GATEWAY_ENDPOINTS = {
     ),
 }
 HOSTED_INTERNAL_ENDPOINTS = {
-    "docs/site/docs/operators/hosted-internal.md": (
+    "docs/site/paxeer-docs/src/app/operators/page.tsx": (
         "<kms-origin>",
         "<human-service-origin>",
         "<gateway-origin>",

@@ -51,3 +51,4 @@ In this repository the module is wired into the Paxeer X chain application in [`
     - [EndBlocker](07_events.md#endblocker)
     - [Msg's](07_events.md#msgs)
 8. **[Parameters](08_params.md)**
+9. **[Client](09_client.md)**

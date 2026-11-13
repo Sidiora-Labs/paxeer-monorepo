@@ -1,7 +1,7 @@
 # Utils
 
-The Blockscout `Utils` component, provides utility modules that enhance code clarity and maintainability.
+The Blockscout `Utils` application provides shared configuration and media helpers.
 
-- It includes the `CompileTimeEnvHelper` module, which manages compile-time environment variables and selectively recompiles modules when runtime values differ. This module leverages metaprogramming to generate module attributes dynamically.
-- The `TokenInstanceHelper` module determines NFT media types by checking file extensions and performing HTTP HEAD requests.
-- Additionally, the `Credo.Checks.CompileEnvUsage` custom check enforces that only `CompileTimeEnvHelper` accesses compile-time environment variables by scanning the code's AST for direct usages.
+- [`Utils.CompileTimeEnvHelper`](lib/utils/compile_time_env_helper.ex) creates module attributes from application configuration and a `__mix_recompile__?/0` callback that compares the captured values with current application settings.
+- [`Utils.TokenInstanceHelper`](lib/utils/token_instance_helper.ex) determines media types from file extensions, uses an HTTP HEAD request when an extension is absent, and recognizes image/video data URLs when enabled by the caller.
+- [`Utils.Credo.Checks.CompileEnvUsage`](lib/credo/checks/compile_env_usage.ex) reports direct `Application.compile_env` and `Application.compile_env!` AST references, except in the compile-time helper file.

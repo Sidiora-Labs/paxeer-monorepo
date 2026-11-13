@@ -20,9 +20,9 @@ message MsgUnjail {
 }
 ```
 
-Below is a pseudocode of the `MsgSrv/Unjail` RPC:
+Below is a pseudocode of the `Msg/Unjail` RPC:
 
-```
+```text
 unjail(tx MsgUnjail)
     validator = getValidator(tx.ValidatorAddr)
     if validator == nil
@@ -34,7 +34,8 @@ unjail(tx MsgUnjail)
     if !validator.Jailed
       fail with "Validator not jailed, cannot unjail"
 
-    info = GetValidatorSigningInfo(operator)
+    consensusAddress = validator.GetConsAddr()
+    info = GetValidatorSigningInfo(consensusAddress)
     if info.Tombstoned
       fail with "Tombstoned validator cannot be unjailed"
     if block time < info.JailedUntil
@@ -46,6 +47,6 @@ unjail(tx MsgUnjail)
     return
 ```
 
-If the validator has enough stake to be in the top `n = MaximumBondedValidators`, it will be automatically rebonded,
+If the validator has enough stake to be in the top `n = MaxValidators`, it will be automatically rebonded,
 and all delegators still delegated to the validator will be rebonded and begin to again collect
 provisions and rewards.

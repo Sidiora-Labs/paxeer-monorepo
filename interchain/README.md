@@ -1,6 +1,6 @@
 # interchain (ibc-go)
 
-This directory is the vendored copy of [ibc-go](https://github.com/cosmos/ibc-go), the Golang implementation of the Inter-Blockchain Communication protocol (IBC), as used by the Paxeer X chain (`paxd`). Packages are imported as `github.com/Sidiora-Labs/Paxeer-X-Network/interchain/...`.
+This directory is the vendored copy of [ibc-go](https://github.com/cosmos/ibc-go), the Golang implementation of the Inter-Blockchain Communication protocol (IBC), as used by Paxeer mainnet-beta (`paxd`). Packages are imported as `github.com/Sidiora-Labs/Paxeer-X-Network/interchain/...`.
 
 IBC allows blockchains to talk to each other. It handles transport across different sovereign blockchains: an end-to-end, connection-oriented, stateful protocol that provides reliable, ordered, and authenticated communication between heterogeneous blockchains. This implementation is built as a Cosmos SDK module.
 
@@ -34,7 +34,7 @@ In this repo, `node/app.go` wires the IBC core module and the ICS 20 transfer ap
 
     3.2 [ICS 06 Solo Machine](modules/light-clients/06-solomachine)
 
-    3.3 [ICS 09 Localhost](modules/light-clients/09-localhost) (non-functional)
+    3.3 [ICS 09 Localhost](modules/light-clients/09-localhost) (local-store verification implementation)
 
 Also here: [`proto`](proto) definitions, the [`testing`](testing) package with its simapp, and [`third_party`](third_party) proto dependencies.
 

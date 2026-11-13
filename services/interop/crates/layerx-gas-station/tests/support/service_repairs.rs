@@ -35,7 +35,7 @@ fn producer_revert_harness() -> Result<Harness, Box<dyn std::error::Error>> {
     let clock = Arc::new(AtomicU64::new(
         captured["now"].as_u64().ok_or("captured service clock")?,
     ));
-    let log = SharedLog(Arc::new(Mutex::new(vec![])));
+    let log = SharedLog::new();
     let _guard = DID_GAS_LIMIT_ENV
         .lock()
         .unwrap_or_else(PoisonError::into_inner);

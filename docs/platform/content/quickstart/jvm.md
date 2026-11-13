@@ -1,12 +1,17 @@
 # Java and Kotlin quickstart
 
-Add a payment to a JVM service. Six lines, no protocol vocabulary, no key handling.
+Use the human-payment client from a JVM service. The integration region has six lines; the complete sample supplies configuration and journey polling.
 
 ## Before you start
 
+Use JDK 21 and Maven. Configure an authenticated human-payment service that supports
+`/v1/moves/quote`, `/v1/moves` and journey reads. The local emulator does not implement
+these payment-write routes. For native node transactions, follow the
+[reference applications](../guide/reference-applications.md).
+
 Add the SDK to your build:
 
-```text
+```xml
 <dependency>
   <groupId>com.sidiora.layerx</groupId>
   <artifactId>layerx-sdk</artifactId>
@@ -16,7 +21,7 @@ Add the SDK to your build:
 
 | Variable | What it is |
 |---|---|
-| `LAYERX_API_URL` | The base URL of your environment |
+| `LAYERX_API_URL` | The base URL of your human-payment service |
 | `LAYERX_API_TOKEN` | A bearer token identifying your account |
 
 ## The integration
@@ -40,11 +45,15 @@ Kotlin callers get the same API through the `LayerXKotlin` extensions: `human(op
 
 ## Run the whole sample
 
-```text
+Set `LAYERX_API_URL` and `LAYERX_API_TOKEN` for that service, plus
+`LAYERX_SOURCE`, `LAYERX_DESTINATION`, `LAYERX_AMOUNT`, `LAYERX_CURRENCY`
+and `LAYERX_PAYMENT_KEY` for the payment. Amounts use integer base units;
+reuse the same payment key when reconciling the same operation.
+
+```sh
 cd services/platform/examples/samples/first-payment-jvm
 mvn -q package
-LAYERX_API_URL=http://127.0.0.1:9402 LAYERX_API_TOKEN=$(cat ./token) LAYERX_SOURCE=did:layerx:alice LAYERX_DESTINATION=did:layerx:bob \
-LAYERX_AMOUNT=1250000 LAYERX_CURRENCY=USD LAYERX_PAYMENT_KEY=order-2f9c1b7e4a10 mvn -q exec:java
+mvn -q exec:java
 ```
 
 ## Reading responses safely
@@ -53,22 +62,24 @@ Use `path` rather than `get` when reading a field out of a response node. `path`
 
 ## Handling refusals
 
-`PlatformSdkException` carries the machine code and the retry class.
+`PlatformSdkException` exposes `code()` and `retry()` enum values. `code().wire()` returns the strings in the table. When joining a stage, unwrap `CompletionException` to recover the SDK exception.
 
 | Code | What to do |
 |---|---|
 | `idempotency-required` | Pass `Options.idempotent(...)` |
 | `idempotency-conflict` | Same key, different body |
 | `rate-limit` | Wait for the carried retry timing |
-| `unknown-outcome` | Do not retry. Resolve by receipt lookup under your key |
-| `budget-refusal` | The payment exceeded a funded budget |
+| `unknown-outcome` | Reconcile the original journey and its evidence before another payment |
+| `budget-refusal` | The service reported a budget or limit refusal; inspect its evidence for the enforcement layer |
 
 ## Enforced by
 
 | Capability | Layer | What that means here |
 |---|---|---|
 | Atomic settlement | `protocol` | The committed move applies completely or not at all. |
-| Replay refusal | `protocol` | A retried submission cannot apply twice. |
+| Replay refusal | `protocol` | Rebroadcasting the same signed transaction cannot apply twice. |
 | Idempotent money moves | `service` | Repeating the commit with the same key returns the original journey. |
 | Quote then commit | `service` | The quote you committed is the one that executes. |
 | Done means verified | `service` | The `done` state is backed by receipt evidence. |
+
+The sample reports the service's journey state and evidence references. It does not independently verify receipt bytes or block commitment.

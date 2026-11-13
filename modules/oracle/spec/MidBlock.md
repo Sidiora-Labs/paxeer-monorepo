@@ -31,9 +31,8 @@ is:
 
 The proposer also calls `CompleteBlock` when sealing an already executed block
 through [`node/sequencer/seal.go`](../../../node/sequencer/seal.go).
-There is no oracle-only transaction phase before ordinary transactions in this
-path. The earlier proposal to partition votes, tally them, and then execute
-other transactions does not describe the current implementation.
+Oracle votes execute through the ordinary transaction path. The tally follows
+transaction execution.
 
 ### Tally and cleanup
 

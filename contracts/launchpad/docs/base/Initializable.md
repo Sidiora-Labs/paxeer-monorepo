@@ -1,10 +1,12 @@
 # Solidity API
 
+Source: [Initializable.sol](../../contracts/base/Initializable.sol).
+
 ## Initializable
 
 Initialization guard for proxied contracts. Replaces constructors.
 
-_Supports versioned reinitializers and disableInitializers for implementations._
+_Supports versioned reinitializers and \_disableInitializers for implementations._
 
 ### InitializableStorage
 
@@ -51,7 +53,7 @@ modifier reinitializer(uint64 version)
 modifier onlyInitializing()
 ```
 
-### _disableInitializers
+### \_disableInitializers
 
 ```solidity
 function _disableInitializers() internal virtual
@@ -61,15 +63,14 @@ Locks the contract, preventing any future initialization
 
 _Call in the constructor of implementation contracts_
 
-### _getInitializedVersion
+### \_getInitializedVersion
 
 ```solidity
 function _getInitializedVersion() internal view returns (uint64)
 ```
 
-### _isInitializing
+### \_isInitializing
 
 ```solidity
 function _isInitializing() internal view returns (bool)
 ```
-

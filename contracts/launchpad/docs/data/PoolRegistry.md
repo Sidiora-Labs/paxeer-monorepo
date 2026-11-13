@@ -6,6 +6,8 @@ On-chain pool discovery and metadata storage
 
 _UUPS proxy. Only FACTORY_ROLE can register pools._
 
+Source: [PoolRegistry.sol](../../contracts/data/PoolRegistry.sol).
+
 ### FACTORY_ROLE
 
 ```solidity
@@ -35,6 +37,10 @@ function initialize(address _eventEmitter, address _admin) external
 ```solidity
 function register(address pool, address token, address creator, address optical, uint256 nftId) external
 ```
+
+Requires FACTORY_ROLE and nonzero pool, token and creator addresses. Each token and pool may be
+registered only once. Emits PoolRegistered locally; an optional mirror error emits MirrorFailed
+without undoing registration.
 
 Register a new pool (factory-only)
 
@@ -94,9 +100,31 @@ function isRegisteredPool(address pool) external view returns (bool)
 
 Check if a pool is registered
 
-### _authorizeUpgrade
+### \_authorizeUpgrade
 
 ```solidity
 function _authorizeUpgrade(address) internal
 ```
 
+### MirrorFailed
+
+```solidity
+event MirrorFailed(bytes4 indexed selector)
+```
+
+### getPoolCountByCreator
+
+```solidity
+function getPoolCountByCreator(address creator) external view returns (uint256)
+```
+
+Returns the number of pools registered for the creator.
+
+### getPoolsByCreatorPage
+
+```solidity
+function getPoolsByCreatorPage(address creator, uint256 offset, uint256 limit) external view returns (address[] memory result)
+```
+
+Returns up to limit pools beginning at offset in the creator’s list. An offset at or beyond the list
+length returns an empty array.

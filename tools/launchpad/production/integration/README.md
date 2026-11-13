@@ -27,8 +27,8 @@ receipts, deployed ABI/code provenance and complete log ranges independently;
 normalized models cannot authenticate their own inputs or establish activation.
 Paxeer is one network: its kernel participates in block proposal and block commit
 establishes finality. Disagreement quarantines the stream; ordinary committed
-blocks are not rolled back. Public JSON-RPC uses node root URLs such as
-`https://api1.mainnet-beta.paxeer.network/` with chain ID 125 (`0x7d`).
+blocks are not rolled back. Public node JSON-RPC uses the root path with chain
+ID 125 (`0x7d`).
 
 `Ledger` uses remaining weighted cost, integer-floor partial allocation and the
 full residual cost on complete disposal. Quantities and prices are raw token and
@@ -38,8 +38,9 @@ Pool execution volume and fee-inclusive wallet cashflow are distinct facts.
 The buy recipient owns new inventory. A sell needs an explicit `inventory_owner`,
 independent of the proceeds recipient; never infer it from the transaction sender.
 Realized proceeds belong to the disposed position for economic accounting even
-when another beneficiary receives the cash. Unknown transfer basis blocks
-disposal attribution until authoritative lot selection is supplied.
+when another beneficiary receives the cash. `transfer_in` records transferred
+quantity as unknown basis. `apply` rejects sells for a position with unknown
+quantity, and `unrealized` returns `None` for that position.
 `unrealized` accepts an exact `Fraction` of raw USDL per raw token; convert human
 prices by multiplying by `10^6 / 10^tokenDecimals`. This is an assurance model,
 not a replacement PnL service.
@@ -82,8 +83,9 @@ extends to existing shared bootstrap resources merely because their names match.
 
 The executable tests below run their phase's boundaries and actual runtime journey.
 For each phase N, set `PHASEN_CONFIG_FILE` to the reviewed configuration file,
-`PHASEN_CONFIG_SHA256` to its SHA-256 and `PHASEN_OUTPUT_DIR` to a private owned
-output location. The actual variable names are listed explicitly here:
+`PHASEN_CONFIG_SHA256` to its SHA-256 and `PHASEN_OUTPUT_DIR` to a new private
+output directory. The harness creates that directory and requires it to be
+absent at startup. The actual variable names are listed explicitly here:
 
 | Phase | Required configuration variables | Command |
 | --- | --- | --- |

@@ -1,0 +1,163 @@
+[manifest]
+task = "22.41.13"
+pages = 40
+
+[page.1]
+path = "docs/platform/content/guide/receipts.md"
+status = "corrected"
+
+[page.2]
+path = "docs/platform/content/guide/reference-applications.md"
+status = "corrected"
+
+[page.3]
+path = "docs/platform/content/guide/seller-middleware.md"
+status = "corrected"
+
+[page.4]
+path = "docs/platform/content/guide/webhooks.md"
+status = "corrected"
+
+[page.5]
+path = "docs/platform/content/index.md"
+status = "corrected"
+
+[page.6]
+path = "docs/platform/content/install.md"
+status = "corrected"
+
+[page.7]
+path = "docs/platform/content/quickstart/csharp.md"
+status = "corrected"
+
+[page.8]
+path = "docs/platform/content/quickstart/go.md"
+status = "corrected"
+
+[page.9]
+path = "docs/platform/content/quickstart/jvm.md"
+status = "corrected"
+
+[page.10]
+path = "docs/platform/content/quickstart/python.md"
+status = "corrected"
+
+[page.11]
+path = "docs/platform/content/quickstart/rust.md"
+status = "corrected"
+
+[page.12]
+path = "docs/platform/content/quickstart/swift.md"
+status = "corrected"
+
+[page.13]
+path = "docs/platform/content/quickstart/typescript.md"
+status = "corrected"
+
+[page.14]
+path = "docs/platform/content/reference/agent-api.md"
+status = "reviewed"
+
+[page.15]
+path = "docs/platform/content/reference/enforcement.md"
+status = "reviewed"
+
+[page.16]
+path = "docs/platform/content/reference/errors.md"
+status = "reviewed"
+
+[page.17]
+path = "docs/platform/content/reference/human-api.md"
+status = "reviewed"
+
+[page.18]
+path = "docs/platform/content/reference/samples.md"
+status = "reviewed"
+
+[page.19]
+path = "docs/readme/PUBLIC-RPC.md"
+status = "reviewed"
+
+[page.20]
+path = "docs/readme/README.de.md"
+status = "corrected"
+
+[page.21]
+path = "docs/readme/README.es.md"
+status = "corrected"
+
+[page.22]
+path = "docs/readme/README.fr.md"
+status = "corrected"
+
+[page.23]
+path = "docs/readme/README.ja.md"
+status = "corrected"
+
+[page.24]
+path = "docs/readme/README.pt-BR.md"
+status = "corrected"
+
+[page.25]
+path = "docs/readme/README.ru.md"
+status = "corrected"
+
+[page.26]
+path = "docs/readme/README.zh-CN.md"
+status = "corrected"
+
+[page.27]
+path = "docs/release/7.0.0-candidate-report.md"
+status = "corrected"
+
+[page.28]
+path = "docs/release/7.0.0-readiness-checklist.md"
+status = "corrected"
+
+[page.29]
+path = "docs/release/7.0.0-readiness-matrix.md"
+status = "corrected"
+
+[page.30]
+path = "docs/release/7.0.0-service-operator-runbook.md"
+status = "corrected"
+
+[page.31]
+path = "docs/release/7.0.0-upgrade-plan.md"
+status = "corrected"
+
+[page.32]
+path = "docs/release/7.0.0-validator-runbook.md"
+status = "corrected"
+
+[page.33]
+path = "docs/release/consensus-commits.md"
+status = "corrected"
+
+[page.34]
+path = "docs/runbooks/paxeer-x-fork.md"
+status = "corrected"
+
+[page.35]
+path = "docs/site/README.md"
+status = "corrected"
+
+[page.36]
+path = "docs/site/docs/agents/agentd.md"
+status = "corrected"
+
+[page.37]
+path = "docs/site/docs/agents/index.md"
+status = "corrected"
+
+[page.38]
+path = "docs/site/docs/agents/lni.md"
+status = "corrected"
+
+[page.39]
+path = "docs/site/docs/agents/mcp.md"
+status = "corrected"
+
+[page.40]
+path = "docs/site/docs/agents/running.md"
+status = "corrected"

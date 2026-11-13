@@ -9,8 +9,7 @@ See [Agentd](Agentd.md) for trust and recovery, and [MCP](Mcp.md) for tool routi
 
 Paxeer mainnet-beta is one BFT network, with EVM chain id **125 (`0x7d`)**.
 The kernel is part of the network and proposes blocks. Public node JSON-RPC
-uses the root URL, for example `https://api-mainnet-beta.paxeer.network/` or
-`https://api1.mainnet-beta.paxeer.network/` (numbered nodes run through `api14`).
+uses the node root URL; select an endpoint from [Public RPC](PublicRpc.md).
 The hosted gateway's `px_` contract is declared separately in
 `services/platform/hosted/gateway/openrpc.json`; do not assume every node
 serves those methods. Sub-chains are tenant domains in the database.
@@ -165,9 +164,8 @@ unsubmitted preparations bound to them.
 Budgets distinguish `ProtocolBudget` from `DaemonLimit`. Bypassing the daemon
 bypasses a DaemonLimit. Protocol creation uses the signed pay-precompile call,
 a successful committed receipt and matching committed budget state; it can
-return a verified `ProtocolBudget`. The low-level creation function does not
-persist through its unused store argument; durable owner bookkeeping and
-restart reconciliation are separate responsibilities.
+return a verified `ProtocolBudget`. The owner retains durable budget and
+transaction state and reconciles it on restart.
 
 Operations are `budget.create`, `budget.fund`, `budget.list`,
 `budget.reconciliation`, `budget.state`, and `budget.revoke`. Protocol mutations

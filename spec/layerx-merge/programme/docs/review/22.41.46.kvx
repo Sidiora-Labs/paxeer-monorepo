@@ -1,0 +1,83 @@
+[manifest]
+task = "22.41.46"
+pages = 20
+
+[page.1]
+path = "contracts/bridge/evm/chains/bnb/README.md"
+status = "corrected"
+
+[page.2]
+path = "contracts/bridge/evm/chains/ethereum/README.md"
+status = "corrected"
+
+[page.3]
+path = "contracts/bridge/evm/chains/hyperevm/README.md"
+status = "corrected"
+
+[page.4]
+path = "contracts/bridge/evm/chains/optimism/README.md"
+status = "corrected"
+
+[page.5]
+path = "contracts/bridge/evm/chains/polygon/README.md"
+status = "corrected"
+
+[page.6]
+path = "contracts/bridge/solana/chains/solana/README.md"
+status = "corrected"
+
+[page.7]
+path = "contracts/clients.md"
+status = "corrected"
+
+[page.8]
+path = "contracts/consensus-fork.md"
+status = "corrected"
+
+[page.9]
+path = "contracts/cosmos-fork.md"
+status = "corrected"
+
+[page.10]
+path = "contracts/evm-rpc.md"
+status = "corrected"
+
+[page.11]
+path = "contracts/explorer-config.md"
+status = "corrected"
+
+[page.12]
+path = "contracts/explorer-frontend-config.md"
+status = "corrected"
+
+[page.13]
+path = "contracts/explorer-http-api.md"
+status = "corrected"
+
+[page.14]
+path = "contracts/explorer-metrics.md"
+status = "corrected"
+
+[page.15]
+path = "contracts/explorer-services-config.md"
+status = "corrected"
+
+[page.16]
+path = "contracts/explorer-ws.md"
+status = "corrected"
+
+[page.17]
+path = "contracts/kernel.md"
+status = "corrected"
+
+[page.18]
+path = "contracts/launchpad.md"
+status = "corrected"
+
+[page.19]
+path = "contracts/launchpad/README.md"
+status = "corrected"
+
+[page.20]
+path = "contracts/launchpad/docs/WPAX9.md"
+status = "corrected"

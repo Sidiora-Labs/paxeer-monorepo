@@ -2319,6 +2319,17 @@ impl InferenceLapRuntime {
     }
 }
 struct InferenceLapTransport<'a>(&'a InferenceDealRuntime);
+
+struct InferenceLapTermInputs<'a> {
+    signer: &'a layerx_human_kms::attestor::AttestorSigner,
+    actor_did: &'a str,
+    nonce: u64,
+    expiry: u64,
+    request: [u8; 32],
+    capabilities: &'a [u8],
+    access_declaration: &'a [u8],
+}
+
 fn lap_market_call_terms(
     operation: layerx_client::ai_market::market_program::dispatch::Operation,
     program: [u8; 32],
@@ -2496,26 +2507,20 @@ impl InferenceLapTransport<'_> {
     }
     fn terms<'a>(
         &'a self,
-        signer: &'a layerx_human_kms::attestor::AttestorSigner,
-        actor_did: &'a str,
-        nonce: u64,
-        expiry: u64,
-        request: [u8; 32],
-        capabilities: &'a [u8],
-        access_declaration: &'a [u8],
+        inputs: &InferenceLapTermInputs<'a>,
     ) -> layerx_client::ai_market::NativeTerms<'a> {
         let terms = &self.0.terms;
         layerx_client::ai_market::NativeTerms {
             network_id: 125,
-            actor_did: actor_did.as_bytes(),
-            owner_public_key: signer.public_key(),
-            account_sequence: nonce,
-            idempotency_key: request,
+            actor_did: inputs.actor_did.as_bytes(),
+            owner_public_key: inputs.signer.public_key(),
+            account_sequence: inputs.nonce,
+            idempotency_key: inputs.request,
             not_before: 0,
-            not_after: expiry,
+            not_after: inputs.expiry,
             fee_limit: terms.fee_limit,
-            capabilities,
-            access_declaration,
+            capabilities: inputs.capabilities,
+            access_declaration: inputs.access_declaration,
             response_capacity: 16_384,
             resources: layerx_types::program_call::Resources(terms.resources),
             gas_limit: terms.gas_limit,
@@ -2600,15 +2605,15 @@ impl inference_signal::deals::laps::LapTransport for InferenceLapTransport<'_> {
             Ok(inference_wait(
                 layerx_client::ai_market::sign_market_envelope(
                     &envelope,
-                    &self.terms(
+                    &self.terms(&InferenceLapTermInputs {
                         signer,
-                        &actor_did,
+                        actor_did: &actor_did,
                         nonce,
                         expiry,
                         request,
-                        &call_terms.capabilities,
-                        &call_terms.access_declaration,
-                    ),
+                        capabilities: &call_terms.capabilities,
+                        access_declaration: &call_terms.access_declaration,
+                    }),
                     &InferenceDealSigner(signer),
                 ),
             )?)
@@ -2643,15 +2648,15 @@ impl inference_signal::deals::laps::LapTransport for InferenceLapTransport<'_> {
             Ok(inference_wait(
                 layerx_client::ai_market::inference_market::sign_stream_meter(
                     &calldata,
-                    &self.terms(
+                    &self.terms(&InferenceLapTermInputs {
                         signer,
-                        &self.0.terms.actor_did,
+                        actor_did: &self.0.terms.actor_did,
                         nonce,
                         expiry,
                         request,
-                        &[],
-                        &[],
-                    ),
+                        capabilities: &[],
+                        access_declaration: &[],
+                    }),
                     &InferenceDealSigner(signer),
                 ),
             )?)

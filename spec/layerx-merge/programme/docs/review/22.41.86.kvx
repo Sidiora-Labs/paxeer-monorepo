@@ -1,0 +1,83 @@
+[manifest]
+task = "22.41.86"
+pages = 20
+
+[page.1]
+path = "spec/layerx-merge/contracts/agent-errors.md"
+status = "reviewed"
+
+[page.2]
+path = "spec/layerx-merge/contracts/agent-formats.md"
+status = "corrected"
+
+[page.3]
+path = "spec/layerx-merge/contracts/agent-functions.md"
+status = "reviewed"
+
+[page.4]
+path = "spec/layerx-merge/contracts/agent-http.md"
+status = "corrected"
+
+[page.5]
+path = "spec/layerx-merge/contracts/agent-human-peer.md"
+status = "reviewed"
+
+[page.6]
+path = "spec/layerx-merge/contracts/agent-lni.md"
+status = "reviewed"
+
+[page.7]
+path = "spec/layerx-merge/contracts/agent-mcp.md"
+status = "reviewed"
+
+[page.8]
+path = "spec/layerx-merge/contracts/agent-metrics.md"
+status = "reviewed"
+
+[page.9]
+path = "spec/layerx-merge/contracts/agent-observability.md"
+status = "reviewed"
+
+[page.10]
+path = "spec/layerx-merge/contracts/agent-python-sdk.md"
+status = "reviewed"
+
+[page.11]
+path = "spec/layerx-merge/contracts/agent-rust-api.md"
+status = "corrected"
+
+[page.12]
+path = "spec/layerx-merge/contracts/agent-ts-sdk.md"
+status = "corrected"
+
+[page.13]
+path = "spec/layerx-merge/contracts/bridge-client.md"
+status = "corrected"
+
+[page.14]
+path = "spec/layerx-merge/contracts/bridge-deploy.md"
+status = "corrected"
+
+[page.15]
+path = "spec/layerx-merge/contracts/bridge-solana.md"
+status = "reviewed"
+
+[page.16]
+path = "spec/layerx-merge/contracts/bridge-vectors.md"
+status = "reviewed"
+
+[page.17]
+path = "spec/layerx-merge/contracts/chain-launchpad.md"
+status = "corrected"
+
+[page.18]
+path = "spec/layerx-merge/contracts/clients.md"
+status = "reviewed"
+
+[page.19]
+path = "spec/layerx-merge/contracts/consensus-fork.md"
+status = "corrected"
+
+[page.20]
+path = "spec/layerx-merge/contracts/cosmos-fork.md"
+status = "corrected"

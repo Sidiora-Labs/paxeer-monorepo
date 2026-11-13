@@ -1362,7 +1362,6 @@
           "tools/launchpad/production/interfaces/*.py",
           "tools/launchpad/production/interfaces/contracts/*.cjs",
           "tools/launchpad/production/interfaces/contracts/run.sh",
-          "launchpad/spec/production-system/integration/contracts/v1/inputs",
           "sdk/launchpad/shared/go.mod",
           "sdk/launchpad/shared/go.sum",
           "apps/launchpad/package.json",
@@ -1375,12 +1374,11 @@
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
-          "launchpad/spec/production-system/integration/contracts/v1/*.json",
-          "launchpad/spec/production-system/integration/contracts/v1/chain",
+          "sdk/launchpad/protocol/contracts/v1/*.json",
+          "sdk/launchpad/protocol/contracts/v1/chain",
           "sdk/launchpad/shared/interfaces/v1",
           "sdk/launchpad/packages/production-contracts/src",
-          "launchpad/spec/production-system/integration/contracts/v1/examples.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas",
+          "sdk/launchpad/protocol/contracts/v1/examples.json",
           "apps/launchpad/web/src/core/network/deployment.ts"
         ],
         "expected_sha256": "2c395c9d054965c4fb57d1fdc7432122fbd820d3f0973e9f8120589b441a6925"
@@ -1478,7 +1476,6 @@
           "tools/launchpad/production/interfaces/*.py",
           "tools/launchpad/production/interfaces/contracts/*.cjs",
           "tools/launchpad/production/interfaces/contracts/run.sh",
-          "launchpad/spec/production-system/integration/contracts/v1/inputs",
           "sdk/launchpad/shared/go.mod",
           "sdk/launchpad/shared/go.sum",
           "apps/launchpad/package.json",
@@ -1491,12 +1488,11 @@
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
-          "launchpad/spec/production-system/integration/contracts/v1/*.json",
-          "launchpad/spec/production-system/integration/contracts/v1/chain",
+          "sdk/launchpad/protocol/contracts/v1/*.json",
+          "sdk/launchpad/protocol/contracts/v1/chain",
           "sdk/launchpad/shared/interfaces/v1",
           "sdk/launchpad/packages/production-contracts/src",
-          "launchpad/spec/production-system/integration/contracts/v1/examples.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas",
+          "sdk/launchpad/protocol/contracts/v1/examples.json",
           "apps/launchpad/web/src/core/network/deployment.ts"
         ],
         "expected_sha256": "2c395c9d054965c4fb57d1fdc7432122fbd820d3f0973e9f8120589b441a6925"
@@ -1598,7 +1594,6 @@
           "tools/launchpad/production/interfaces/*.py",
           "tools/launchpad/production/interfaces/contracts/*.cjs",
           "tools/launchpad/production/interfaces/contracts/run.sh",
-          "launchpad/spec/production-system/integration/contracts/v1/inputs",
           "sdk/launchpad/shared/go.mod",
           "sdk/launchpad/shared/go.sum",
           "apps/launchpad/package.json",
@@ -1611,12 +1606,11 @@
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
-          "launchpad/spec/production-system/integration/contracts/v1/*.json",
-          "launchpad/spec/production-system/integration/contracts/v1/chain",
+          "sdk/launchpad/protocol/contracts/v1/*.json",
+          "sdk/launchpad/protocol/contracts/v1/chain",
           "sdk/launchpad/shared/interfaces/v1",
           "sdk/launchpad/packages/production-contracts/src",
-          "launchpad/spec/production-system/integration/contracts/v1/examples.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas",
+          "sdk/launchpad/protocol/contracts/v1/examples.json",
           "apps/launchpad/web/src/core/network/deployment.ts"
         ],
         "expected_sha256": "2c395c9d054965c4fb57d1fdc7432122fbd820d3f0973e9f8120589b441a6925"
@@ -1736,7 +1730,6 @@
           "tools/launchpad/production/interfaces/*.py",
           "tools/launchpad/production/interfaces/contracts/*.cjs",
           "tools/launchpad/production/interfaces/contracts/run.sh",
-          "launchpad/spec/production-system/integration/contracts/v1/inputs",
           "sdk/launchpad/shared/go.mod",
           "sdk/launchpad/shared/go.sum",
           "apps/launchpad/package.json",
@@ -1749,12 +1742,11 @@
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
-          "launchpad/spec/production-system/integration/contracts/v1/*.json",
-          "launchpad/spec/production-system/integration/contracts/v1/chain",
+          "sdk/launchpad/protocol/contracts/v1/*.json",
+          "sdk/launchpad/protocol/contracts/v1/chain",
           "sdk/launchpad/shared/interfaces/v1",
           "sdk/launchpad/packages/production-contracts/src",
-          "launchpad/spec/production-system/integration/contracts/v1/examples.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas",
+          "sdk/launchpad/protocol/contracts/v1/examples.json",
           "apps/launchpad/web/src/core/network/deployment.ts"
         ],
         "expected_sha256": "2c395c9d054965c4fb57d1fdc7432122fbd820d3f0973e9f8120589b441a6925"
@@ -1853,7 +1845,6 @@
           "tools/launchpad/production/interfaces/*.py",
           "tools/launchpad/production/interfaces/contracts/*.cjs",
           "tools/launchpad/production/interfaces/contracts/run.sh",
-          "launchpad/spec/production-system/integration/contracts/v1/inputs",
           "sdk/launchpad/shared/go.mod",
           "sdk/launchpad/shared/go.sum",
           "apps/launchpad/package.json",
@@ -1866,12 +1857,11 @@
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
-          "launchpad/spec/production-system/integration/contracts/v1/*.json",
-          "launchpad/spec/production-system/integration/contracts/v1/chain",
+          "sdk/launchpad/protocol/contracts/v1/*.json",
+          "sdk/launchpad/protocol/contracts/v1/chain",
           "sdk/launchpad/shared/interfaces/v1",
           "sdk/launchpad/packages/production-contracts/src",
-          "launchpad/spec/production-system/integration/contracts/v1/examples.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas",
+          "sdk/launchpad/protocol/contracts/v1/examples.json",
           "apps/launchpad/web/src/core/network/deployment.ts"
         ],
         "expected_sha256": "2c395c9d054965c4fb57d1fdc7432122fbd820d3f0973e9f8120589b441a6925"
@@ -2046,7 +2036,6 @@
           "tools/launchpad/production/interfaces/*.py",
           "tools/launchpad/production/interfaces/contracts/*.cjs",
           "tools/launchpad/production/interfaces/contracts/run.sh",
-          "launchpad/spec/production-system/integration/contracts/v1/inputs",
           "sdk/launchpad/shared/go.mod",
           "sdk/launchpad/shared/go.sum",
           "apps/launchpad/package.json",
@@ -2059,12 +2048,11 @@
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
-          "launchpad/spec/production-system/integration/contracts/v1/*.json",
-          "launchpad/spec/production-system/integration/contracts/v1/chain",
+          "sdk/launchpad/protocol/contracts/v1/*.json",
+          "sdk/launchpad/protocol/contracts/v1/chain",
           "sdk/launchpad/shared/interfaces/v1",
           "sdk/launchpad/packages/production-contracts/src",
-          "launchpad/spec/production-system/integration/contracts/v1/examples.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas",
+          "sdk/launchpad/protocol/contracts/v1/examples.json",
           "apps/launchpad/web/src/core/network/deployment.ts"
         ],
         "expected_sha256": "2c395c9d054965c4fb57d1fdc7432122fbd820d3f0973e9f8120589b441a6925"
@@ -2190,7 +2178,6 @@
           "tools/launchpad/production/interfaces/*.py",
           "tools/launchpad/production/interfaces/contracts/*.cjs",
           "tools/launchpad/production/interfaces/contracts/run.sh",
-          "launchpad/spec/production-system/integration/contracts/v1/inputs",
           "sdk/launchpad/shared/go.mod",
           "sdk/launchpad/shared/go.sum",
           "apps/launchpad/package.json",
@@ -2203,12 +2190,11 @@
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
-          "launchpad/spec/production-system/integration/contracts/v1/*.json",
-          "launchpad/spec/production-system/integration/contracts/v1/chain",
+          "sdk/launchpad/protocol/contracts/v1/*.json",
+          "sdk/launchpad/protocol/contracts/v1/chain",
           "sdk/launchpad/shared/interfaces/v1",
           "sdk/launchpad/packages/production-contracts/src",
-          "launchpad/spec/production-system/integration/contracts/v1/examples.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas",
+          "sdk/launchpad/protocol/contracts/v1/examples.json",
           "apps/launchpad/web/src/core/network/deployment.ts"
         ],
         "expected_sha256": "2c395c9d054965c4fb57d1fdc7432122fbd820d3f0973e9f8120589b441a6925"
@@ -2303,7 +2289,6 @@
           "tools/launchpad/production/interfaces/*.py",
           "tools/launchpad/production/interfaces/contracts/*.cjs",
           "tools/launchpad/production/interfaces/contracts/run.sh",
-          "launchpad/spec/production-system/integration/contracts/v1/inputs",
           "sdk/launchpad/shared/go.mod",
           "sdk/launchpad/shared/go.sum",
           "apps/launchpad/package.json",
@@ -2316,12 +2301,11 @@
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
-          "launchpad/spec/production-system/integration/contracts/v1/*.json",
-          "launchpad/spec/production-system/integration/contracts/v1/chain",
+          "sdk/launchpad/protocol/contracts/v1/*.json",
+          "sdk/launchpad/protocol/contracts/v1/chain",
           "sdk/launchpad/shared/interfaces/v1",
           "sdk/launchpad/packages/production-contracts/src",
-          "launchpad/spec/production-system/integration/contracts/v1/examples.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas",
+          "sdk/launchpad/protocol/contracts/v1/examples.json",
           "apps/launchpad/web/src/core/network/deployment.ts"
         ],
         "expected_sha256": "2c395c9d054965c4fb57d1fdc7432122fbd820d3f0973e9f8120589b441a6925"
@@ -2511,7 +2495,6 @@
           "tools/launchpad/production/interfaces/*.py",
           "tools/launchpad/production/interfaces/contracts/*.cjs",
           "tools/launchpad/production/interfaces/contracts/run.sh",
-          "launchpad/spec/production-system/integration/contracts/v1/inputs",
           "sdk/launchpad/shared/go.mod",
           "sdk/launchpad/shared/go.sum",
           "apps/launchpad/package.json",
@@ -2524,12 +2507,11 @@
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
-          "launchpad/spec/production-system/integration/contracts/v1/*.json",
-          "launchpad/spec/production-system/integration/contracts/v1/chain",
+          "sdk/launchpad/protocol/contracts/v1/*.json",
+          "sdk/launchpad/protocol/contracts/v1/chain",
           "sdk/launchpad/shared/interfaces/v1",
           "sdk/launchpad/packages/production-contracts/src",
-          "launchpad/spec/production-system/integration/contracts/v1/examples.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas",
+          "sdk/launchpad/protocol/contracts/v1/examples.json",
           "apps/launchpad/web/src/core/network/deployment.ts"
         ],
         "expected_sha256": "2c395c9d054965c4fb57d1fdc7432122fbd820d3f0973e9f8120589b441a6925"
@@ -2634,7 +2616,6 @@
           "tools/launchpad/production/interfaces/*.py",
           "tools/launchpad/production/interfaces/contracts/*.cjs",
           "tools/launchpad/production/interfaces/contracts/run.sh",
-          "launchpad/spec/production-system/integration/contracts/v1/inputs",
           "sdk/launchpad/shared/go.mod",
           "sdk/launchpad/shared/go.sum",
           "apps/launchpad/package.json",
@@ -2647,12 +2628,11 @@
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
-          "launchpad/spec/production-system/integration/contracts/v1/*.json",
-          "launchpad/spec/production-system/integration/contracts/v1/chain",
+          "sdk/launchpad/protocol/contracts/v1/*.json",
+          "sdk/launchpad/protocol/contracts/v1/chain",
           "sdk/launchpad/shared/interfaces/v1",
           "sdk/launchpad/packages/production-contracts/src",
-          "launchpad/spec/production-system/integration/contracts/v1/examples.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas",
+          "sdk/launchpad/protocol/contracts/v1/examples.json",
           "apps/launchpad/web/src/core/network/deployment.ts"
         ],
         "expected_sha256": "2c395c9d054965c4fb57d1fdc7432122fbd820d3f0973e9f8120589b441a6925"
@@ -2771,7 +2751,6 @@
           "tools/launchpad/production/interfaces/*.py",
           "tools/launchpad/production/interfaces/contracts/*.cjs",
           "tools/launchpad/production/interfaces/contracts/run.sh",
-          "launchpad/spec/production-system/integration/contracts/v1/inputs",
           "sdk/launchpad/shared/go.mod",
           "sdk/launchpad/shared/go.sum",
           "apps/launchpad/package.json",
@@ -2784,12 +2763,11 @@
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
-          "launchpad/spec/production-system/integration/contracts/v1/*.json",
-          "launchpad/spec/production-system/integration/contracts/v1/chain",
+          "sdk/launchpad/protocol/contracts/v1/*.json",
+          "sdk/launchpad/protocol/contracts/v1/chain",
           "sdk/launchpad/shared/interfaces/v1",
           "sdk/launchpad/packages/production-contracts/src",
-          "launchpad/spec/production-system/integration/contracts/v1/examples.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas",
+          "sdk/launchpad/protocol/contracts/v1/examples.json",
           "apps/launchpad/web/src/core/network/deployment.ts"
         ],
         "expected_sha256": "2c395c9d054965c4fb57d1fdc7432122fbd820d3f0973e9f8120589b441a6925"
@@ -2944,7 +2922,6 @@
           "tools/launchpad/production/interfaces/*.py",
           "tools/launchpad/production/interfaces/contracts/*.cjs",
           "tools/launchpad/production/interfaces/contracts/run.sh",
-          "launchpad/spec/production-system/integration/contracts/v1/inputs",
           "sdk/launchpad/shared/go.mod",
           "sdk/launchpad/shared/go.sum",
           "apps/launchpad/package.json",
@@ -2957,12 +2934,11 @@
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
-          "launchpad/spec/production-system/integration/contracts/v1/*.json",
-          "launchpad/spec/production-system/integration/contracts/v1/chain",
+          "sdk/launchpad/protocol/contracts/v1/*.json",
+          "sdk/launchpad/protocol/contracts/v1/chain",
           "sdk/launchpad/shared/interfaces/v1",
           "sdk/launchpad/packages/production-contracts/src",
-          "launchpad/spec/production-system/integration/contracts/v1/examples.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas",
+          "sdk/launchpad/protocol/contracts/v1/examples.json",
           "apps/launchpad/web/src/core/network/deployment.ts"
         ],
         "expected_sha256": "2c395c9d054965c4fb57d1fdc7432122fbd820d3f0973e9f8120589b441a6925"
@@ -3099,7 +3075,6 @@
           "tools/launchpad/production/interfaces/*.py",
           "tools/launchpad/production/interfaces/contracts/*.cjs",
           "tools/launchpad/production/interfaces/contracts/run.sh",
-          "launchpad/spec/production-system/integration/contracts/v1/inputs",
           "sdk/launchpad/shared/go.mod",
           "sdk/launchpad/shared/go.sum",
           "apps/launchpad/package.json",
@@ -3112,12 +3087,11 @@
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
-          "launchpad/spec/production-system/integration/contracts/v1/*.json",
-          "launchpad/spec/production-system/integration/contracts/v1/chain",
+          "sdk/launchpad/protocol/contracts/v1/*.json",
+          "sdk/launchpad/protocol/contracts/v1/chain",
           "sdk/launchpad/shared/interfaces/v1",
           "sdk/launchpad/packages/production-contracts/src",
-          "launchpad/spec/production-system/integration/contracts/v1/examples.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas",
+          "sdk/launchpad/protocol/contracts/v1/examples.json",
           "apps/launchpad/web/src/core/network/deployment.ts"
         ],
         "expected_sha256": "2c395c9d054965c4fb57d1fdc7432122fbd820d3f0973e9f8120589b441a6925"
@@ -3244,7 +3218,6 @@
           "tools/launchpad/production/interfaces/*.py",
           "tools/launchpad/production/interfaces/contracts/*.cjs",
           "tools/launchpad/production/interfaces/contracts/run.sh",
-          "launchpad/spec/production-system/integration/contracts/v1/inputs",
           "sdk/launchpad/shared/go.mod",
           "sdk/launchpad/shared/go.sum",
           "apps/launchpad/package.json",
@@ -3257,12 +3230,11 @@
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
-          "launchpad/spec/production-system/integration/contracts/v1/*.json",
-          "launchpad/spec/production-system/integration/contracts/v1/chain",
+          "sdk/launchpad/protocol/contracts/v1/*.json",
+          "sdk/launchpad/protocol/contracts/v1/chain",
           "sdk/launchpad/shared/interfaces/v1",
           "sdk/launchpad/packages/production-contracts/src",
-          "launchpad/spec/production-system/integration/contracts/v1/examples.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas",
+          "sdk/launchpad/protocol/contracts/v1/examples.json",
           "apps/launchpad/web/src/core/network/deployment.ts"
         ],
         "expected_sha256": "2c395c9d054965c4fb57d1fdc7432122fbd820d3f0973e9f8120589b441a6925"
@@ -3396,7 +3368,6 @@
           "tools/launchpad/production/interfaces/*.py",
           "tools/launchpad/production/interfaces/contracts/*.cjs",
           "tools/launchpad/production/interfaces/contracts/run.sh",
-          "launchpad/spec/production-system/integration/contracts/v1/inputs",
           "sdk/launchpad/shared/go.mod",
           "sdk/launchpad/shared/go.sum",
           "apps/launchpad/package.json",
@@ -3409,12 +3380,11 @@
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
-          "launchpad/spec/production-system/integration/contracts/v1/*.json",
-          "launchpad/spec/production-system/integration/contracts/v1/chain",
+          "sdk/launchpad/protocol/contracts/v1/*.json",
+          "sdk/launchpad/protocol/contracts/v1/chain",
           "sdk/launchpad/shared/interfaces/v1",
           "sdk/launchpad/packages/production-contracts/src",
-          "launchpad/spec/production-system/integration/contracts/v1/examples.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas",
+          "sdk/launchpad/protocol/contracts/v1/examples.json",
           "apps/launchpad/web/src/core/network/deployment.ts"
         ],
         "expected_sha256": "2c395c9d054965c4fb57d1fdc7432122fbd820d3f0973e9f8120589b441a6925"
@@ -3542,7 +3512,6 @@
           "tools/launchpad/production/interfaces/*.py",
           "tools/launchpad/production/interfaces/contracts/*.cjs",
           "tools/launchpad/production/interfaces/contracts/run.sh",
-          "launchpad/spec/production-system/integration/contracts/v1/inputs",
           "sdk/launchpad/shared/go.mod",
           "sdk/launchpad/shared/go.sum",
           "apps/launchpad/package.json",
@@ -3555,12 +3524,11 @@
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
-          "launchpad/spec/production-system/integration/contracts/v1/*.json",
-          "launchpad/spec/production-system/integration/contracts/v1/chain",
+          "sdk/launchpad/protocol/contracts/v1/*.json",
+          "sdk/launchpad/protocol/contracts/v1/chain",
           "sdk/launchpad/shared/interfaces/v1",
           "sdk/launchpad/packages/production-contracts/src",
-          "launchpad/spec/production-system/integration/contracts/v1/examples.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas",
+          "sdk/launchpad/protocol/contracts/v1/examples.json",
           "apps/launchpad/web/src/core/network/deployment.ts"
         ],
         "expected_sha256": "2c395c9d054965c4fb57d1fdc7432122fbd820d3f0973e9f8120589b441a6925"
@@ -3676,7 +3644,6 @@
           "tools/launchpad/production/interfaces/*.py",
           "tools/launchpad/production/interfaces/contracts/*.cjs",
           "tools/launchpad/production/interfaces/contracts/run.sh",
-          "launchpad/spec/production-system/integration/contracts/v1/inputs",
           "sdk/launchpad/shared/go.mod",
           "sdk/launchpad/shared/go.sum",
           "apps/launchpad/package.json",
@@ -3689,12 +3656,11 @@
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
-          "launchpad/spec/production-system/integration/contracts/v1/*.json",
-          "launchpad/spec/production-system/integration/contracts/v1/chain",
+          "sdk/launchpad/protocol/contracts/v1/*.json",
+          "sdk/launchpad/protocol/contracts/v1/chain",
           "sdk/launchpad/shared/interfaces/v1",
           "sdk/launchpad/packages/production-contracts/src",
-          "launchpad/spec/production-system/integration/contracts/v1/examples.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas",
+          "sdk/launchpad/protocol/contracts/v1/examples.json",
           "apps/launchpad/web/src/core/network/deployment.ts"
         ],
         "expected_sha256": "2c395c9d054965c4fb57d1fdc7432122fbd820d3f0973e9f8120589b441a6925"
@@ -3837,7 +3803,6 @@
           "tools/launchpad/production/interfaces/*.py",
           "tools/launchpad/production/interfaces/contracts/*.cjs",
           "tools/launchpad/production/interfaces/contracts/run.sh",
-          "launchpad/spec/production-system/integration/contracts/v1/inputs",
           "sdk/launchpad/shared/go.mod",
           "sdk/launchpad/shared/go.sum",
           "apps/launchpad/package.json",
@@ -3850,12 +3815,11 @@
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
-          "launchpad/spec/production-system/integration/contracts/v1/*.json",
-          "launchpad/spec/production-system/integration/contracts/v1/chain",
+          "sdk/launchpad/protocol/contracts/v1/*.json",
+          "sdk/launchpad/protocol/contracts/v1/chain",
           "sdk/launchpad/shared/interfaces/v1",
           "sdk/launchpad/packages/production-contracts/src",
-          "launchpad/spec/production-system/integration/contracts/v1/examples.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas",
+          "sdk/launchpad/protocol/contracts/v1/examples.json",
           "apps/launchpad/web/src/core/network/deployment.ts"
         ],
         "expected_sha256": "2c395c9d054965c4fb57d1fdc7432122fbd820d3f0973e9f8120589b441a6925"
@@ -3975,7 +3939,6 @@
           "tools/launchpad/production/interfaces/*.py",
           "tools/launchpad/production/interfaces/contracts/*.cjs",
           "tools/launchpad/production/interfaces/contracts/run.sh",
-          "launchpad/spec/production-system/integration/contracts/v1/inputs",
           "sdk/launchpad/shared/go.mod",
           "sdk/launchpad/shared/go.sum",
           "apps/launchpad/package.json",
@@ -3988,12 +3951,11 @@
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
-          "launchpad/spec/production-system/integration/contracts/v1/*.json",
-          "launchpad/spec/production-system/integration/contracts/v1/chain",
+          "sdk/launchpad/protocol/contracts/v1/*.json",
+          "sdk/launchpad/protocol/contracts/v1/chain",
           "sdk/launchpad/shared/interfaces/v1",
           "sdk/launchpad/packages/production-contracts/src",
-          "launchpad/spec/production-system/integration/contracts/v1/examples.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas",
+          "sdk/launchpad/protocol/contracts/v1/examples.json",
           "apps/launchpad/web/src/core/network/deployment.ts"
         ],
         "expected_sha256": "2c395c9d054965c4fb57d1fdc7432122fbd820d3f0973e9f8120589b441a6925"
@@ -4107,7 +4069,6 @@
           "tools/launchpad/production/interfaces/*.py",
           "tools/launchpad/production/interfaces/contracts/*.cjs",
           "tools/launchpad/production/interfaces/contracts/run.sh",
-          "launchpad/spec/production-system/integration/contracts/v1/inputs",
           "sdk/launchpad/shared/go.mod",
           "sdk/launchpad/shared/go.sum",
           "apps/launchpad/package.json",
@@ -4120,12 +4081,11 @@
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
-          "launchpad/spec/production-system/integration/contracts/v1/*.json",
-          "launchpad/spec/production-system/integration/contracts/v1/chain",
+          "sdk/launchpad/protocol/contracts/v1/*.json",
+          "sdk/launchpad/protocol/contracts/v1/chain",
           "sdk/launchpad/shared/interfaces/v1",
           "sdk/launchpad/packages/production-contracts/src",
-          "launchpad/spec/production-system/integration/contracts/v1/examples.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas",
+          "sdk/launchpad/protocol/contracts/v1/examples.json",
           "apps/launchpad/web/src/core/network/deployment.ts"
         ],
         "expected_sha256": "2c395c9d054965c4fb57d1fdc7432122fbd820d3f0973e9f8120589b441a6925"
@@ -4265,7 +4225,6 @@
           "tools/launchpad/production/interfaces/*.py",
           "tools/launchpad/production/interfaces/contracts/*.cjs",
           "tools/launchpad/production/interfaces/contracts/run.sh",
-          "launchpad/spec/production-system/integration/contracts/v1/inputs",
           "sdk/launchpad/shared/go.mod",
           "sdk/launchpad/shared/go.sum",
           "apps/launchpad/package.json",
@@ -4278,12 +4237,11 @@
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
-          "launchpad/spec/production-system/integration/contracts/v1/*.json",
-          "launchpad/spec/production-system/integration/contracts/v1/chain",
+          "sdk/launchpad/protocol/contracts/v1/*.json",
+          "sdk/launchpad/protocol/contracts/v1/chain",
           "sdk/launchpad/shared/interfaces/v1",
           "sdk/launchpad/packages/production-contracts/src",
-          "launchpad/spec/production-system/integration/contracts/v1/examples.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas",
+          "sdk/launchpad/protocol/contracts/v1/examples.json",
           "apps/launchpad/web/src/core/network/deployment.ts"
         ],
         "expected_sha256": "2c395c9d054965c4fb57d1fdc7432122fbd820d3f0973e9f8120589b441a6925"
@@ -4415,7 +4373,6 @@
           "tools/launchpad/production/interfaces/*.py",
           "tools/launchpad/production/interfaces/contracts/*.cjs",
           "tools/launchpad/production/interfaces/contracts/run.sh",
-          "launchpad/spec/production-system/integration/contracts/v1/inputs",
           "sdk/launchpad/shared/go.mod",
           "sdk/launchpad/shared/go.sum",
           "apps/launchpad/package.json",
@@ -4428,12 +4385,11 @@
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
-          "launchpad/spec/production-system/integration/contracts/v1/*.json",
-          "launchpad/spec/production-system/integration/contracts/v1/chain",
+          "sdk/launchpad/protocol/contracts/v1/*.json",
+          "sdk/launchpad/protocol/contracts/v1/chain",
           "sdk/launchpad/shared/interfaces/v1",
           "sdk/launchpad/packages/production-contracts/src",
-          "launchpad/spec/production-system/integration/contracts/v1/examples.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas",
+          "sdk/launchpad/protocol/contracts/v1/examples.json",
           "apps/launchpad/web/src/core/network/deployment.ts"
         ],
         "expected_sha256": "2c395c9d054965c4fb57d1fdc7432122fbd820d3f0973e9f8120589b441a6925"
@@ -4601,7 +4557,6 @@
           "tools/launchpad/production/interfaces/*.py",
           "tools/launchpad/production/interfaces/contracts/*.cjs",
           "tools/launchpad/production/interfaces/contracts/run.sh",
-          "launchpad/spec/production-system/integration/contracts/v1/inputs",
           "sdk/launchpad/shared/go.mod",
           "sdk/launchpad/shared/go.sum",
           "apps/launchpad/package.json",
@@ -4614,12 +4569,11 @@
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
-          "launchpad/spec/production-system/integration/contracts/v1/*.json",
-          "launchpad/spec/production-system/integration/contracts/v1/chain",
+          "sdk/launchpad/protocol/contracts/v1/*.json",
+          "sdk/launchpad/protocol/contracts/v1/chain",
           "sdk/launchpad/shared/interfaces/v1",
           "sdk/launchpad/packages/production-contracts/src",
-          "launchpad/spec/production-system/integration/contracts/v1/examples.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas",
+          "sdk/launchpad/protocol/contracts/v1/examples.json",
           "apps/launchpad/web/src/core/network/deployment.ts"
         ],
         "expected_sha256": "2c395c9d054965c4fb57d1fdc7432122fbd820d3f0973e9f8120589b441a6925"
@@ -4738,7 +4692,6 @@
           "tools/launchpad/production/interfaces/*.py",
           "tools/launchpad/production/interfaces/contracts/*.cjs",
           "tools/launchpad/production/interfaces/contracts/run.sh",
-          "launchpad/spec/production-system/integration/contracts/v1/inputs",
           "sdk/launchpad/shared/go.mod",
           "sdk/launchpad/shared/go.sum",
           "apps/launchpad/package.json",
@@ -4751,12 +4704,11 @@
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
-          "launchpad/spec/production-system/integration/contracts/v1/*.json",
-          "launchpad/spec/production-system/integration/contracts/v1/chain",
+          "sdk/launchpad/protocol/contracts/v1/*.json",
+          "sdk/launchpad/protocol/contracts/v1/chain",
           "sdk/launchpad/shared/interfaces/v1",
           "sdk/launchpad/packages/production-contracts/src",
-          "launchpad/spec/production-system/integration/contracts/v1/examples.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas",
+          "sdk/launchpad/protocol/contracts/v1/examples.json",
           "apps/launchpad/web/src/core/network/deployment.ts"
         ],
         "expected_sha256": "2c395c9d054965c4fb57d1fdc7432122fbd820d3f0973e9f8120589b441a6925"
@@ -4869,7 +4821,6 @@
           "tools/launchpad/production/interfaces/*.py",
           "tools/launchpad/production/interfaces/contracts/*.cjs",
           "tools/launchpad/production/interfaces/contracts/run.sh",
-          "launchpad/spec/production-system/integration/contracts/v1/inputs",
           "sdk/launchpad/shared/go.mod",
           "sdk/launchpad/shared/go.sum",
           "apps/launchpad/package.json",
@@ -4882,12 +4833,11 @@
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
-          "launchpad/spec/production-system/integration/contracts/v1/*.json",
-          "launchpad/spec/production-system/integration/contracts/v1/chain",
+          "sdk/launchpad/protocol/contracts/v1/*.json",
+          "sdk/launchpad/protocol/contracts/v1/chain",
           "sdk/launchpad/shared/interfaces/v1",
           "sdk/launchpad/packages/production-contracts/src",
-          "launchpad/spec/production-system/integration/contracts/v1/examples.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas",
+          "sdk/launchpad/protocol/contracts/v1/examples.json",
           "apps/launchpad/web/src/core/network/deployment.ts"
         ],
         "expected_sha256": "2c395c9d054965c4fb57d1fdc7432122fbd820d3f0973e9f8120589b441a6925"
@@ -5019,7 +4969,6 @@
           "tools/launchpad/production/interfaces/*.py",
           "tools/launchpad/production/interfaces/contracts/*.cjs",
           "tools/launchpad/production/interfaces/contracts/run.sh",
-          "launchpad/spec/production-system/integration/contracts/v1/inputs",
           "sdk/launchpad/shared/go.mod",
           "sdk/launchpad/shared/go.sum",
           "apps/launchpad/package.json",
@@ -5032,12 +4981,11 @@
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
-          "launchpad/spec/production-system/integration/contracts/v1/*.json",
-          "launchpad/spec/production-system/integration/contracts/v1/chain",
+          "sdk/launchpad/protocol/contracts/v1/*.json",
+          "sdk/launchpad/protocol/contracts/v1/chain",
           "sdk/launchpad/shared/interfaces/v1",
           "sdk/launchpad/packages/production-contracts/src",
-          "launchpad/spec/production-system/integration/contracts/v1/examples.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas",
+          "sdk/launchpad/protocol/contracts/v1/examples.json",
           "apps/launchpad/web/src/core/network/deployment.ts"
         ],
         "expected_sha256": "2c395c9d054965c4fb57d1fdc7432122fbd820d3f0973e9f8120589b441a6925"
@@ -5142,7 +5090,6 @@
           "tools/launchpad/production/interfaces/*.py",
           "tools/launchpad/production/interfaces/contracts/*.cjs",
           "tools/launchpad/production/interfaces/contracts/run.sh",
-          "launchpad/spec/production-system/integration/contracts/v1/inputs",
           "sdk/launchpad/shared/go.mod",
           "sdk/launchpad/shared/go.sum",
           "apps/launchpad/package.json",
@@ -5155,12 +5102,11 @@
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
-          "launchpad/spec/production-system/integration/contracts/v1/*.json",
-          "launchpad/spec/production-system/integration/contracts/v1/chain",
+          "sdk/launchpad/protocol/contracts/v1/*.json",
+          "sdk/launchpad/protocol/contracts/v1/chain",
           "sdk/launchpad/shared/interfaces/v1",
           "sdk/launchpad/packages/production-contracts/src",
-          "launchpad/spec/production-system/integration/contracts/v1/examples.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas",
+          "sdk/launchpad/protocol/contracts/v1/examples.json",
           "apps/launchpad/web/src/core/network/deployment.ts"
         ],
         "expected_sha256": "2c395c9d054965c4fb57d1fdc7432122fbd820d3f0973e9f8120589b441a6925"
@@ -5294,7 +5240,6 @@
           "tools/launchpad/production/interfaces/*.py",
           "tools/launchpad/production/interfaces/contracts/*.cjs",
           "tools/launchpad/production/interfaces/contracts/run.sh",
-          "launchpad/spec/production-system/integration/contracts/v1/inputs",
           "sdk/launchpad/shared/go.mod",
           "sdk/launchpad/shared/go.sum",
           "apps/launchpad/package.json",
@@ -5307,12 +5252,11 @@
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
-          "launchpad/spec/production-system/integration/contracts/v1/*.json",
-          "launchpad/spec/production-system/integration/contracts/v1/chain",
+          "sdk/launchpad/protocol/contracts/v1/*.json",
+          "sdk/launchpad/protocol/contracts/v1/chain",
           "sdk/launchpad/shared/interfaces/v1",
           "sdk/launchpad/packages/production-contracts/src",
-          "launchpad/spec/production-system/integration/contracts/v1/examples.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas",
+          "sdk/launchpad/protocol/contracts/v1/examples.json",
           "apps/launchpad/web/src/core/network/deployment.ts"
         ],
         "expected_sha256": "2c395c9d054965c4fb57d1fdc7432122fbd820d3f0973e9f8120589b441a6925"
@@ -5472,7 +5416,6 @@
           "tools/launchpad/production/interfaces/*.py",
           "tools/launchpad/production/interfaces/contracts/*.cjs",
           "tools/launchpad/production/interfaces/contracts/run.sh",
-          "launchpad/spec/production-system/integration/contracts/v1/inputs",
           "sdk/launchpad/shared/go.mod",
           "sdk/launchpad/shared/go.sum",
           "apps/launchpad/package.json",
@@ -5485,12 +5428,11 @@
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
-          "launchpad/spec/production-system/integration/contracts/v1/*.json",
-          "launchpad/spec/production-system/integration/contracts/v1/chain",
+          "sdk/launchpad/protocol/contracts/v1/*.json",
+          "sdk/launchpad/protocol/contracts/v1/chain",
           "sdk/launchpad/shared/interfaces/v1",
           "sdk/launchpad/packages/production-contracts/src",
-          "launchpad/spec/production-system/integration/contracts/v1/examples.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas",
+          "sdk/launchpad/protocol/contracts/v1/examples.json",
           "apps/launchpad/web/src/core/network/deployment.ts"
         ],
         "expected_sha256": "2c395c9d054965c4fb57d1fdc7432122fbd820d3f0973e9f8120589b441a6925"
@@ -5675,7 +5617,6 @@
           "tools/launchpad/production/interfaces/*.py",
           "tools/launchpad/production/interfaces/contracts/*.cjs",
           "tools/launchpad/production/interfaces/contracts/run.sh",
-          "launchpad/spec/production-system/integration/contracts/v1/inputs",
           "sdk/launchpad/shared/go.mod",
           "sdk/launchpad/shared/go.sum",
           "apps/launchpad/package.json",
@@ -5688,12 +5629,11 @@
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
-          "launchpad/spec/production-system/integration/contracts/v1/*.json",
-          "launchpad/spec/production-system/integration/contracts/v1/chain",
+          "sdk/launchpad/protocol/contracts/v1/*.json",
+          "sdk/launchpad/protocol/contracts/v1/chain",
           "sdk/launchpad/shared/interfaces/v1",
           "sdk/launchpad/packages/production-contracts/src",
-          "launchpad/spec/production-system/integration/contracts/v1/examples.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas",
+          "sdk/launchpad/protocol/contracts/v1/examples.json",
           "apps/launchpad/web/src/core/network/deployment.ts"
         ],
         "expected_sha256": "2c395c9d054965c4fb57d1fdc7432122fbd820d3f0973e9f8120589b441a6925"
@@ -5820,7 +5760,6 @@
           "tools/launchpad/production/interfaces/*.py",
           "tools/launchpad/production/interfaces/contracts/*.cjs",
           "tools/launchpad/production/interfaces/contracts/run.sh",
-          "launchpad/spec/production-system/integration/contracts/v1/inputs",
           "sdk/launchpad/shared/go.mod",
           "sdk/launchpad/shared/go.sum",
           "apps/launchpad/package.json",
@@ -5833,12 +5772,11 @@
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
-          "launchpad/spec/production-system/integration/contracts/v1/*.json",
-          "launchpad/spec/production-system/integration/contracts/v1/chain",
+          "sdk/launchpad/protocol/contracts/v1/*.json",
+          "sdk/launchpad/protocol/contracts/v1/chain",
           "sdk/launchpad/shared/interfaces/v1",
           "sdk/launchpad/packages/production-contracts/src",
-          "launchpad/spec/production-system/integration/contracts/v1/examples.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas",
+          "sdk/launchpad/protocol/contracts/v1/examples.json",
           "apps/launchpad/web/src/core/network/deployment.ts"
         ],
         "expected_sha256": "2c395c9d054965c4fb57d1fdc7432122fbd820d3f0973e9f8120589b441a6925"
@@ -5943,7 +5881,6 @@
           "tools/launchpad/production/interfaces/*.py",
           "tools/launchpad/production/interfaces/contracts/*.cjs",
           "tools/launchpad/production/interfaces/contracts/run.sh",
-          "launchpad/spec/production-system/integration/contracts/v1/inputs",
           "sdk/launchpad/shared/go.mod",
           "sdk/launchpad/shared/go.sum",
           "apps/launchpad/package.json",
@@ -5956,12 +5893,11 @@
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
-          "launchpad/spec/production-system/integration/contracts/v1/*.json",
-          "launchpad/spec/production-system/integration/contracts/v1/chain",
+          "sdk/launchpad/protocol/contracts/v1/*.json",
+          "sdk/launchpad/protocol/contracts/v1/chain",
           "sdk/launchpad/shared/interfaces/v1",
           "sdk/launchpad/packages/production-contracts/src",
-          "launchpad/spec/production-system/integration/contracts/v1/examples.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas",
+          "sdk/launchpad/protocol/contracts/v1/examples.json",
           "apps/launchpad/web/src/core/network/deployment.ts"
         ],
         "expected_sha256": "2c395c9d054965c4fb57d1fdc7432122fbd820d3f0973e9f8120589b441a6925"
@@ -6088,7 +6024,6 @@
           "tools/launchpad/production/interfaces/*.py",
           "tools/launchpad/production/interfaces/contracts/*.cjs",
           "tools/launchpad/production/interfaces/contracts/run.sh",
-          "launchpad/spec/production-system/integration/contracts/v1/inputs",
           "sdk/launchpad/shared/go.mod",
           "sdk/launchpad/shared/go.sum",
           "apps/launchpad/package.json",
@@ -6101,12 +6036,11 @@
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
-          "launchpad/spec/production-system/integration/contracts/v1/*.json",
-          "launchpad/spec/production-system/integration/contracts/v1/chain",
+          "sdk/launchpad/protocol/contracts/v1/*.json",
+          "sdk/launchpad/protocol/contracts/v1/chain",
           "sdk/launchpad/shared/interfaces/v1",
           "sdk/launchpad/packages/production-contracts/src",
-          "launchpad/spec/production-system/integration/contracts/v1/examples.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas",
+          "sdk/launchpad/protocol/contracts/v1/examples.json",
           "apps/launchpad/web/src/core/network/deployment.ts"
         ],
         "expected_sha256": "2c395c9d054965c4fb57d1fdc7432122fbd820d3f0973e9f8120589b441a6925"
@@ -6318,7 +6252,6 @@
           "tools/launchpad/production/interfaces/*.py",
           "tools/launchpad/production/interfaces/contracts/*.cjs",
           "tools/launchpad/production/interfaces/contracts/run.sh",
-          "launchpad/spec/production-system/integration/contracts/v1/inputs",
           "sdk/launchpad/shared/go.mod",
           "sdk/launchpad/shared/go.sum",
           "apps/launchpad/package.json",
@@ -6331,12 +6264,11 @@
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
-          "launchpad/spec/production-system/integration/contracts/v1/*.json",
-          "launchpad/spec/production-system/integration/contracts/v1/chain",
+          "sdk/launchpad/protocol/contracts/v1/*.json",
+          "sdk/launchpad/protocol/contracts/v1/chain",
           "sdk/launchpad/shared/interfaces/v1",
           "sdk/launchpad/packages/production-contracts/src",
-          "launchpad/spec/production-system/integration/contracts/v1/examples.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas",
+          "sdk/launchpad/protocol/contracts/v1/examples.json",
           "apps/launchpad/web/src/core/network/deployment.ts"
         ],
         "expected_sha256": "2c395c9d054965c4fb57d1fdc7432122fbd820d3f0973e9f8120589b441a6925"
@@ -6470,7 +6402,6 @@
           "tools/launchpad/production/interfaces/*.py",
           "tools/launchpad/production/interfaces/contracts/*.cjs",
           "tools/launchpad/production/interfaces/contracts/run.sh",
-          "launchpad/spec/production-system/integration/contracts/v1/inputs",
           "sdk/launchpad/shared/go.mod",
           "sdk/launchpad/shared/go.sum",
           "apps/launchpad/package.json",
@@ -6483,12 +6414,11 @@
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
-          "launchpad/spec/production-system/integration/contracts/v1/*.json",
-          "launchpad/spec/production-system/integration/contracts/v1/chain",
+          "sdk/launchpad/protocol/contracts/v1/*.json",
+          "sdk/launchpad/protocol/contracts/v1/chain",
           "sdk/launchpad/shared/interfaces/v1",
           "sdk/launchpad/packages/production-contracts/src",
-          "launchpad/spec/production-system/integration/contracts/v1/examples.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas",
+          "sdk/launchpad/protocol/contracts/v1/examples.json",
           "apps/launchpad/web/src/core/network/deployment.ts"
         ],
         "expected_sha256": "2c395c9d054965c4fb57d1fdc7432122fbd820d3f0973e9f8120589b441a6925"
@@ -6739,7 +6669,6 @@
           "tools/launchpad/production/interfaces/*.py",
           "tools/launchpad/production/interfaces/contracts/*.cjs",
           "tools/launchpad/production/interfaces/contracts/run.sh",
-          "launchpad/spec/production-system/integration/contracts/v1/inputs",
           "sdk/launchpad/shared/go.mod",
           "sdk/launchpad/shared/go.sum",
           "apps/launchpad/package.json",
@@ -6752,12 +6681,11 @@
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
-          "launchpad/spec/production-system/integration/contracts/v1/*.json",
-          "launchpad/spec/production-system/integration/contracts/v1/chain",
+          "sdk/launchpad/protocol/contracts/v1/*.json",
+          "sdk/launchpad/protocol/contracts/v1/chain",
           "sdk/launchpad/shared/interfaces/v1",
           "sdk/launchpad/packages/production-contracts/src",
-          "launchpad/spec/production-system/integration/contracts/v1/examples.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas",
+          "sdk/launchpad/protocol/contracts/v1/examples.json",
           "apps/launchpad/web/src/core/network/deployment.ts"
         ],
         "expected_sha256": "2c395c9d054965c4fb57d1fdc7432122fbd820d3f0973e9f8120589b441a6925"
@@ -6880,7 +6808,6 @@
           "tools/launchpad/production/interfaces/*.py",
           "tools/launchpad/production/interfaces/contracts/*.cjs",
           "tools/launchpad/production/interfaces/contracts/run.sh",
-          "launchpad/spec/production-system/integration/contracts/v1/inputs",
           "sdk/launchpad/shared/go.mod",
           "sdk/launchpad/shared/go.sum",
           "apps/launchpad/package.json",
@@ -6893,12 +6820,11 @@
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
-          "launchpad/spec/production-system/integration/contracts/v1/*.json",
-          "launchpad/spec/production-system/integration/contracts/v1/chain",
+          "sdk/launchpad/protocol/contracts/v1/*.json",
+          "sdk/launchpad/protocol/contracts/v1/chain",
           "sdk/launchpad/shared/interfaces/v1",
           "sdk/launchpad/packages/production-contracts/src",
-          "launchpad/spec/production-system/integration/contracts/v1/examples.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas",
+          "sdk/launchpad/protocol/contracts/v1/examples.json",
           "apps/launchpad/web/src/core/network/deployment.ts"
         ],
         "expected_sha256": "2c395c9d054965c4fb57d1fdc7432122fbd820d3f0973e9f8120589b441a6925"
@@ -7086,7 +7012,6 @@
           "tools/launchpad/production/interfaces/*.py",
           "tools/launchpad/production/interfaces/contracts/*.cjs",
           "tools/launchpad/production/interfaces/contracts/run.sh",
-          "launchpad/spec/production-system/integration/contracts/v1/inputs",
           "sdk/launchpad/shared/go.mod",
           "sdk/launchpad/shared/go.sum",
           "apps/launchpad/package.json",
@@ -7099,12 +7024,11 @@
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
-          "launchpad/spec/production-system/integration/contracts/v1/*.json",
-          "launchpad/spec/production-system/integration/contracts/v1/chain",
+          "sdk/launchpad/protocol/contracts/v1/*.json",
+          "sdk/launchpad/protocol/contracts/v1/chain",
           "sdk/launchpad/shared/interfaces/v1",
           "sdk/launchpad/packages/production-contracts/src",
-          "launchpad/spec/production-system/integration/contracts/v1/examples.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas",
+          "sdk/launchpad/protocol/contracts/v1/examples.json",
           "apps/launchpad/web/src/core/network/deployment.ts"
         ],
         "expected_sha256": "2c395c9d054965c4fb57d1fdc7432122fbd820d3f0973e9f8120589b441a6925"
@@ -7371,7 +7295,6 @@
           "tools/launchpad/production/interfaces/*.py",
           "tools/launchpad/production/interfaces/contracts/*.cjs",
           "tools/launchpad/production/interfaces/contracts/run.sh",
-          "launchpad/spec/production-system/integration/contracts/v1/inputs",
           "sdk/launchpad/shared/go.mod",
           "sdk/launchpad/shared/go.sum",
           "apps/launchpad/package.json",
@@ -7384,12 +7307,11 @@
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
-          "launchpad/spec/production-system/integration/contracts/v1/*.json",
-          "launchpad/spec/production-system/integration/contracts/v1/chain",
+          "sdk/launchpad/protocol/contracts/v1/*.json",
+          "sdk/launchpad/protocol/contracts/v1/chain",
           "sdk/launchpad/shared/interfaces/v1",
           "sdk/launchpad/packages/production-contracts/src",
-          "launchpad/spec/production-system/integration/contracts/v1/examples.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas",
+          "sdk/launchpad/protocol/contracts/v1/examples.json",
           "apps/launchpad/web/src/core/network/deployment.ts"
         ],
         "expected_sha256": "2c395c9d054965c4fb57d1fdc7432122fbd820d3f0973e9f8120589b441a6925"
@@ -7579,7 +7501,6 @@
           "tools/launchpad/production/interfaces/*.py",
           "tools/launchpad/production/interfaces/contracts/*.cjs",
           "tools/launchpad/production/interfaces/contracts/run.sh",
-          "launchpad/spec/production-system/integration/contracts/v1/inputs",
           "sdk/launchpad/shared/go.mod",
           "sdk/launchpad/shared/go.sum",
           "apps/launchpad/package.json",
@@ -7592,12 +7513,11 @@
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
-          "launchpad/spec/production-system/integration/contracts/v1/*.json",
-          "launchpad/spec/production-system/integration/contracts/v1/chain",
+          "sdk/launchpad/protocol/contracts/v1/*.json",
+          "sdk/launchpad/protocol/contracts/v1/chain",
           "sdk/launchpad/shared/interfaces/v1",
           "sdk/launchpad/packages/production-contracts/src",
-          "launchpad/spec/production-system/integration/contracts/v1/examples.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas",
+          "sdk/launchpad/protocol/contracts/v1/examples.json",
           "apps/launchpad/web/src/core/network/deployment.ts"
         ],
         "expected_sha256": "2c395c9d054965c4fb57d1fdc7432122fbd820d3f0973e9f8120589b441a6925"
@@ -7734,7 +7654,6 @@
           "tools/launchpad/production/interfaces/*.py",
           "tools/launchpad/production/interfaces/contracts/*.cjs",
           "tools/launchpad/production/interfaces/contracts/run.sh",
-          "launchpad/spec/production-system/integration/contracts/v1/inputs",
           "sdk/launchpad/shared/go.mod",
           "sdk/launchpad/shared/go.sum",
           "apps/launchpad/package.json",
@@ -7747,12 +7666,11 @@
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
-          "launchpad/spec/production-system/integration/contracts/v1/*.json",
-          "launchpad/spec/production-system/integration/contracts/v1/chain",
+          "sdk/launchpad/protocol/contracts/v1/*.json",
+          "sdk/launchpad/protocol/contracts/v1/chain",
           "sdk/launchpad/shared/interfaces/v1",
           "sdk/launchpad/packages/production-contracts/src",
-          "launchpad/spec/production-system/integration/contracts/v1/examples.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas",
+          "sdk/launchpad/protocol/contracts/v1/examples.json",
           "apps/launchpad/web/src/core/network/deployment.ts"
         ],
         "expected_sha256": "2c395c9d054965c4fb57d1fdc7432122fbd820d3f0973e9f8120589b441a6925"
@@ -7931,7 +7849,6 @@
           "tools/launchpad/production/interfaces/*.py",
           "tools/launchpad/production/interfaces/contracts/*.cjs",
           "tools/launchpad/production/interfaces/contracts/run.sh",
-          "launchpad/spec/production-system/integration/contracts/v1/inputs",
           "sdk/launchpad/shared/go.mod",
           "sdk/launchpad/shared/go.sum",
           "apps/launchpad/package.json",
@@ -7944,12 +7861,11 @@
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
-          "launchpad/spec/production-system/integration/contracts/v1/*.json",
-          "launchpad/spec/production-system/integration/contracts/v1/chain",
+          "sdk/launchpad/protocol/contracts/v1/*.json",
+          "sdk/launchpad/protocol/contracts/v1/chain",
           "sdk/launchpad/shared/interfaces/v1",
           "sdk/launchpad/packages/production-contracts/src",
-          "launchpad/spec/production-system/integration/contracts/v1/examples.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas",
+          "sdk/launchpad/protocol/contracts/v1/examples.json",
           "apps/launchpad/web/src/core/network/deployment.ts"
         ],
         "expected_sha256": "2c395c9d054965c4fb57d1fdc7432122fbd820d3f0973e9f8120589b441a6925"
@@ -8076,7 +7992,6 @@
           "tools/launchpad/production/interfaces/*.py",
           "tools/launchpad/production/interfaces/contracts/*.cjs",
           "tools/launchpad/production/interfaces/contracts/run.sh",
-          "launchpad/spec/production-system/integration/contracts/v1/inputs",
           "sdk/launchpad/shared/go.mod",
           "sdk/launchpad/shared/go.sum",
           "apps/launchpad/package.json",
@@ -8089,12 +8004,11 @@
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
-          "launchpad/spec/production-system/integration/contracts/v1/*.json",
-          "launchpad/spec/production-system/integration/contracts/v1/chain",
+          "sdk/launchpad/protocol/contracts/v1/*.json",
+          "sdk/launchpad/protocol/contracts/v1/chain",
           "sdk/launchpad/shared/interfaces/v1",
           "sdk/launchpad/packages/production-contracts/src",
-          "launchpad/spec/production-system/integration/contracts/v1/examples.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas",
+          "sdk/launchpad/protocol/contracts/v1/examples.json",
           "apps/launchpad/web/src/core/network/deployment.ts"
         ],
         "expected_sha256": "2c395c9d054965c4fb57d1fdc7432122fbd820d3f0973e9f8120589b441a6925"
@@ -8206,7 +8120,6 @@
           "tools/launchpad/production/interfaces/*.py",
           "tools/launchpad/production/interfaces/contracts/*.cjs",
           "tools/launchpad/production/interfaces/contracts/run.sh",
-          "launchpad/spec/production-system/integration/contracts/v1/inputs",
           "sdk/launchpad/shared/go.mod",
           "sdk/launchpad/shared/go.sum",
           "apps/launchpad/package.json",
@@ -8219,12 +8132,11 @@
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
-          "launchpad/spec/production-system/integration/contracts/v1/*.json",
-          "launchpad/spec/production-system/integration/contracts/v1/chain",
+          "sdk/launchpad/protocol/contracts/v1/*.json",
+          "sdk/launchpad/protocol/contracts/v1/chain",
           "sdk/launchpad/shared/interfaces/v1",
           "sdk/launchpad/packages/production-contracts/src",
-          "launchpad/spec/production-system/integration/contracts/v1/examples.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas",
+          "sdk/launchpad/protocol/contracts/v1/examples.json",
           "apps/launchpad/web/src/core/network/deployment.ts"
         ],
         "expected_sha256": "2c395c9d054965c4fb57d1fdc7432122fbd820d3f0973e9f8120589b441a6925"
@@ -8488,7 +8400,6 @@
           "tools/launchpad/production/interfaces/*.py",
           "tools/launchpad/production/interfaces/contracts/*.cjs",
           "tools/launchpad/production/interfaces/contracts/run.sh",
-          "launchpad/spec/production-system/integration/contracts/v1/inputs",
           "sdk/launchpad/shared/go.mod",
           "sdk/launchpad/shared/go.sum",
           "apps/launchpad/package.json",
@@ -8501,12 +8412,11 @@
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
-          "launchpad/spec/production-system/integration/contracts/v1/*.json",
-          "launchpad/spec/production-system/integration/contracts/v1/chain",
+          "sdk/launchpad/protocol/contracts/v1/*.json",
+          "sdk/launchpad/protocol/contracts/v1/chain",
           "sdk/launchpad/shared/interfaces/v1",
           "sdk/launchpad/packages/production-contracts/src",
-          "launchpad/spec/production-system/integration/contracts/v1/examples.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas",
+          "sdk/launchpad/protocol/contracts/v1/examples.json",
           "apps/launchpad/web/src/core/network/deployment.ts"
         ],
         "expected_sha256": "2c395c9d054965c4fb57d1fdc7432122fbd820d3f0973e9f8120589b441a6925"
@@ -8608,7 +8518,6 @@
           "tools/launchpad/production/interfaces/*.py",
           "tools/launchpad/production/interfaces/contracts/*.cjs",
           "tools/launchpad/production/interfaces/contracts/run.sh",
-          "launchpad/spec/production-system/integration/contracts/v1/inputs",
           "sdk/launchpad/shared/go.mod",
           "sdk/launchpad/shared/go.sum",
           "apps/launchpad/package.json",
@@ -8621,12 +8530,11 @@
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
-          "launchpad/spec/production-system/integration/contracts/v1/*.json",
-          "launchpad/spec/production-system/integration/contracts/v1/chain",
+          "sdk/launchpad/protocol/contracts/v1/*.json",
+          "sdk/launchpad/protocol/contracts/v1/chain",
           "sdk/launchpad/shared/interfaces/v1",
           "sdk/launchpad/packages/production-contracts/src",
-          "launchpad/spec/production-system/integration/contracts/v1/examples.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas",
+          "sdk/launchpad/protocol/contracts/v1/examples.json",
           "apps/launchpad/web/src/core/network/deployment.ts"
         ],
         "expected_sha256": "2c395c9d054965c4fb57d1fdc7432122fbd820d3f0973e9f8120589b441a6925"
@@ -8736,7 +8644,6 @@
           "tools/launchpad/production/interfaces/*.py",
           "tools/launchpad/production/interfaces/contracts/*.cjs",
           "tools/launchpad/production/interfaces/contracts/run.sh",
-          "launchpad/spec/production-system/integration/contracts/v1/inputs",
           "sdk/launchpad/shared/go.mod",
           "sdk/launchpad/shared/go.sum",
           "apps/launchpad/package.json",
@@ -8749,12 +8656,11 @@
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
-          "launchpad/spec/production-system/integration/contracts/v1/*.json",
-          "launchpad/spec/production-system/integration/contracts/v1/chain",
+          "sdk/launchpad/protocol/contracts/v1/*.json",
+          "sdk/launchpad/protocol/contracts/v1/chain",
           "sdk/launchpad/shared/interfaces/v1",
           "sdk/launchpad/packages/production-contracts/src",
-          "launchpad/spec/production-system/integration/contracts/v1/examples.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas",
+          "sdk/launchpad/protocol/contracts/v1/examples.json",
           "apps/launchpad/web/src/core/network/deployment.ts"
         ],
         "expected_sha256": "2c395c9d054965c4fb57d1fdc7432122fbd820d3f0973e9f8120589b441a6925"
@@ -8885,7 +8791,6 @@
           "tools/launchpad/production/interfaces/*.py",
           "tools/launchpad/production/interfaces/contracts/*.cjs",
           "tools/launchpad/production/interfaces/contracts/run.sh",
-          "launchpad/spec/production-system/integration/contracts/v1/inputs",
           "sdk/launchpad/shared/go.mod",
           "sdk/launchpad/shared/go.sum",
           "apps/launchpad/package.json",
@@ -8898,12 +8803,11 @@
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
-          "launchpad/spec/production-system/integration/contracts/v1/*.json",
-          "launchpad/spec/production-system/integration/contracts/v1/chain",
+          "sdk/launchpad/protocol/contracts/v1/*.json",
+          "sdk/launchpad/protocol/contracts/v1/chain",
           "sdk/launchpad/shared/interfaces/v1",
           "sdk/launchpad/packages/production-contracts/src",
-          "launchpad/spec/production-system/integration/contracts/v1/examples.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas",
+          "sdk/launchpad/protocol/contracts/v1/examples.json",
           "apps/launchpad/web/src/core/network/deployment.ts"
         ],
         "expected_sha256": "2c395c9d054965c4fb57d1fdc7432122fbd820d3f0973e9f8120589b441a6925"
@@ -9039,7 +8943,6 @@
           "tools/launchpad/production/interfaces/*.py",
           "tools/launchpad/production/interfaces/contracts/*.cjs",
           "tools/launchpad/production/interfaces/contracts/run.sh",
-          "launchpad/spec/production-system/integration/contracts/v1/inputs",
           "sdk/launchpad/shared/go.mod",
           "sdk/launchpad/shared/go.sum",
           "apps/launchpad/package.json",
@@ -9052,12 +8955,11 @@
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
-          "launchpad/spec/production-system/integration/contracts/v1/*.json",
-          "launchpad/spec/production-system/integration/contracts/v1/chain",
+          "sdk/launchpad/protocol/contracts/v1/*.json",
+          "sdk/launchpad/protocol/contracts/v1/chain",
           "sdk/launchpad/shared/interfaces/v1",
           "sdk/launchpad/packages/production-contracts/src",
-          "launchpad/spec/production-system/integration/contracts/v1/examples.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas",
+          "sdk/launchpad/protocol/contracts/v1/examples.json",
           "apps/launchpad/web/src/core/network/deployment.ts"
         ],
         "expected_sha256": "2c395c9d054965c4fb57d1fdc7432122fbd820d3f0973e9f8120589b441a6925"
@@ -9434,7 +9336,6 @@
           "tools/launchpad/production/interfaces/*.py",
           "tools/launchpad/production/interfaces/contracts/*.cjs",
           "tools/launchpad/production/interfaces/contracts/run.sh",
-          "launchpad/spec/production-system/integration/contracts/v1/inputs",
           "sdk/launchpad/shared/go.mod",
           "sdk/launchpad/shared/go.sum",
           "apps/launchpad/package.json",
@@ -9447,12 +9348,11 @@
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
-          "launchpad/spec/production-system/integration/contracts/v1/*.json",
-          "launchpad/spec/production-system/integration/contracts/v1/chain",
+          "sdk/launchpad/protocol/contracts/v1/*.json",
+          "sdk/launchpad/protocol/contracts/v1/chain",
           "sdk/launchpad/shared/interfaces/v1",
           "sdk/launchpad/packages/production-contracts/src",
-          "launchpad/spec/production-system/integration/contracts/v1/examples.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas",
+          "sdk/launchpad/protocol/contracts/v1/examples.json",
           "apps/launchpad/web/src/core/network/deployment.ts"
         ],
         "expected_sha256": "2c395c9d054965c4fb57d1fdc7432122fbd820d3f0973e9f8120589b441a6925"
@@ -9472,15 +9372,6 @@
           "apps/launchpad/pnpm-lock.yaml",
           "sdk/launchpad/shared/go.mod",
           "sdk/launchpad/shared/go.sum",
-          "launchpad/spec/production-system/integration/contracts/v1/inputs/README.md",
-          "launchpad/spec/production-system/integration/contracts/v1/inputs/asyncapi-3.0.0-document.schema.json",
-          "launchpad/spec/production-system/integration/contracts/v1/inputs/catalog.json",
-          "launchpad/spec/production-system/integration/contracts/v1/inputs/openapi-3.1-document.schema.json",
-          "launchpad/spec/production-system/integration/contracts/v1/inputs/standards-provenance.json",
-          "launchpad/spec/production-system/integration/contracts/v1/inputs/supplementary.json",
-          "launchpad/spec/production-system/integration/contracts/v2/catalog.json",
-          "launchpad/spec/production-system/integration/contracts/v2/migration-register.json",
-          "launchpad/spec/production-system/integration/contracts/v2/supplementary.json",
           "tools/launchpad/production/interfaces/accounting_check.py",
           "tools/launchpad/production/interfaces/capability_check.py",
           "tools/launchpad/production/interfaces/codegen.py",
@@ -9524,150 +9415,13 @@
           "sdk/launchpad/shared/interfaces/v1/validators.gen.go",
           "sdk/launchpad/shared/interfaces/v2/types.gen.go",
           "sdk/launchpad/shared/interfaces/v2/validators.gen.go",
-          "launchpad/spec/production-system/integration/contracts/v1/accounting-cases.json",
-          "launchpad/spec/production-system/integration/contracts/v1/asyncapi.json",
-          "launchpad/spec/production-system/integration/contracts/v1/capabilities.json",
-          "launchpad/spec/production-system/integration/contracts/v1/catalog-map.json",
-          "launchpad/spec/production-system/integration/contracts/v1/chain/abi-catalog.json",
-          "launchpad/spec/production-system/integration/contracts/v1/chain/client-deployment.json",
-          "launchpad/spec/production-system/integration/contracts/v1/chain/event-authorities.json",
-          "launchpad/spec/production-system/integration/contracts/v1/chain/files-manifest.json",
-          "launchpad/spec/production-system/integration/contracts/v1/chain/golden-fixtures.json",
-          "launchpad/spec/production-system/integration/contracts/v1/chain/mainnet-attestation.json",
-          "launchpad/spec/production-system/integration/contracts/v1/codegen-manifest.json",
-          "launchpad/spec/production-system/integration/contracts/v1/compatibility.json",
-          "launchpad/spec/production-system/integration/contracts/v1/examples.json",
-          "launchpad/spec/production-system/integration/contracts/v1/migration-register.json",
-          "launchpad/spec/production-system/integration/contracts/v1/openapi.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schema-definitions.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas/IF_ACCOUNT_JOB.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas/IF_ALERT.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas/IF_ASSET.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas/IF_ASSET_REF.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas/IF_AUTHCHALLENGE.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas/IF_AUTOMATION_CAMPAIGN.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas/IF_BOUNTY.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas/IF_BOUNTYSUBMISSION.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas/IF_CALLOUT.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas/IF_CANDLE.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas/IF_CHAINPOSITION.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas/IF_COMMENT.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas/IF_CONVENTIONS.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas/IF_CONVERSATION.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas/IF_CURSOR.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas/IF_ERROR.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas/IF_FUNDING_INTENT.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas/IF_FUNDING_RAIL.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas/IF_HEALTH_SNAPSHOT.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas/IF_LEADERBOARD.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas/IF_MESSAGE.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas/IF_MODERATIONACTION.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas/IF_NARRATIVE.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas/IF_NOTIFICATION.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas/IF_OPERATOR_JOB.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas/IF_ORDER.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas/IF_POOL.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas/IF_POOLSTATS.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas/IF_PORTFOLIOPOSITION.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas/IF_PORTFOLIOSUMMARY.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas/IF_PORTFOLIO_UPDATE.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas/IF_PREFERENCES.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas/IF_PRICE.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas/IF_PRICE_SOURCE.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas/IF_PROFILE.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas/IF_PUSH_DEVICE.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas/IF_QUOTE.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas/IF_RANKINGENTRY.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas/IF_RANKING_SNAPSHOT.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas/IF_RATIO.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas/IF_REPORT.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas/IF_RESPONSE_ENVELOPE.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas/IF_RESUME_CURSOR.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas/IF_REWARD.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas/IF_SESSION.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas/IF_SQUAD.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas/IF_STREAM.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas/IF_STREAM_CONTROL.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas/IF_STREAM_EVENT.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas/IF_SUBSCRIBE.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas/IF_TOKEN.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas/IF_TOPIC_SNAPSHOT.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas/IF_TRADE.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas/IF_VOICE_ROOM.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas/IF_WALLET_LINK.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas/IF_WALLET_PROOF.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas/IF_WATCHLISTENTRY.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas/IF_WATERMARK.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas/IF_WITHDRAWAL_PREPARATION.json",
-          "launchpad/spec/production-system/integration/contracts/v2/asyncapi.json",
-          "launchpad/spec/production-system/integration/contracts/v2/capabilities.json",
-          "launchpad/spec/production-system/integration/contracts/v2/catalog-map.json",
-          "launchpad/spec/production-system/integration/contracts/v2/codegen-manifest.json",
-          "launchpad/spec/production-system/integration/contracts/v2/compatibility.json",
-          "launchpad/spec/production-system/integration/contracts/v2/examples.json",
-          "launchpad/spec/production-system/integration/contracts/v2/openapi.json",
-          "launchpad/spec/production-system/integration/contracts/v2/schema-definitions.json",
-          "launchpad/spec/production-system/integration/contracts/v2/schemas/IF_ACCOUNT_JOB.json",
-          "launchpad/spec/production-system/integration/contracts/v2/schemas/IF_ALERT.json",
-          "launchpad/spec/production-system/integration/contracts/v2/schemas/IF_ASSET.json",
-          "launchpad/spec/production-system/integration/contracts/v2/schemas/IF_ASSET_REF.json",
-          "launchpad/spec/production-system/integration/contracts/v2/schemas/IF_AUTHCHALLENGE.json",
-          "launchpad/spec/production-system/integration/contracts/v2/schemas/IF_AUTOMATION_CAMPAIGN.json",
-          "launchpad/spec/production-system/integration/contracts/v2/schemas/IF_BOUNTY.json",
-          "launchpad/spec/production-system/integration/contracts/v2/schemas/IF_BOUNTYSUBMISSION.json",
-          "launchpad/spec/production-system/integration/contracts/v2/schemas/IF_CALLOUT.json",
-          "launchpad/spec/production-system/integration/contracts/v2/schemas/IF_CANDLE.json",
-          "launchpad/spec/production-system/integration/contracts/v2/schemas/IF_CHAINPOSITION.json",
-          "launchpad/spec/production-system/integration/contracts/v2/schemas/IF_COMMENT.json",
-          "launchpad/spec/production-system/integration/contracts/v2/schemas/IF_CONVENTIONS.json",
-          "launchpad/spec/production-system/integration/contracts/v2/schemas/IF_CONVERSATION.json",
-          "launchpad/spec/production-system/integration/contracts/v2/schemas/IF_CURSOR.json",
-          "launchpad/spec/production-system/integration/contracts/v2/schemas/IF_ERROR.json",
-          "launchpad/spec/production-system/integration/contracts/v2/schemas/IF_FUNDING_INTENT.json",
-          "launchpad/spec/production-system/integration/contracts/v2/schemas/IF_FUNDING_RAIL.json",
-          "launchpad/spec/production-system/integration/contracts/v2/schemas/IF_HEALTH_SNAPSHOT.json",
-          "launchpad/spec/production-system/integration/contracts/v2/schemas/IF_LEADERBOARD.json",
-          "launchpad/spec/production-system/integration/contracts/v2/schemas/IF_MESSAGE.json",
-          "launchpad/spec/production-system/integration/contracts/v2/schemas/IF_MODERATIONACTION.json",
-          "launchpad/spec/production-system/integration/contracts/v2/schemas/IF_NARRATIVE.json",
-          "launchpad/spec/production-system/integration/contracts/v2/schemas/IF_NOTIFICATION.json",
-          "launchpad/spec/production-system/integration/contracts/v2/schemas/IF_OFFCHAINMETADATA.json",
-          "launchpad/spec/production-system/integration/contracts/v2/schemas/IF_OPERATOR_JOB.json",
-          "launchpad/spec/production-system/integration/contracts/v2/schemas/IF_ORDER.json",
-          "launchpad/spec/production-system/integration/contracts/v2/schemas/IF_POOL.json",
-          "launchpad/spec/production-system/integration/contracts/v2/schemas/IF_POOLSTATS.json",
-          "launchpad/spec/production-system/integration/contracts/v2/schemas/IF_PORTFOLIOPOSITION.json",
-          "launchpad/spec/production-system/integration/contracts/v2/schemas/IF_PORTFOLIOSUMMARY.json",
-          "launchpad/spec/production-system/integration/contracts/v2/schemas/IF_PORTFOLIO_UPDATE.json",
-          "launchpad/spec/production-system/integration/contracts/v2/schemas/IF_PREFERENCES.json",
-          "launchpad/spec/production-system/integration/contracts/v2/schemas/IF_PRICE.json",
-          "launchpad/spec/production-system/integration/contracts/v2/schemas/IF_PRICE_SOURCE.json",
-          "launchpad/spec/production-system/integration/contracts/v2/schemas/IF_PROFILE.json",
-          "launchpad/spec/production-system/integration/contracts/v2/schemas/IF_PUSH_DEVICE.json",
-          "launchpad/spec/production-system/integration/contracts/v2/schemas/IF_QUOTE.json",
-          "launchpad/spec/production-system/integration/contracts/v2/schemas/IF_RANKINGENTRY.json",
-          "launchpad/spec/production-system/integration/contracts/v2/schemas/IF_RANKING_SNAPSHOT.json",
-          "launchpad/spec/production-system/integration/contracts/v2/schemas/IF_RATIO.json",
-          "launchpad/spec/production-system/integration/contracts/v2/schemas/IF_REPORT.json",
-          "launchpad/spec/production-system/integration/contracts/v2/schemas/IF_RESPONSE_ENVELOPE.json",
-          "launchpad/spec/production-system/integration/contracts/v2/schemas/IF_RESUME_CURSOR.json",
-          "launchpad/spec/production-system/integration/contracts/v2/schemas/IF_REWARD.json",
-          "launchpad/spec/production-system/integration/contracts/v2/schemas/IF_SESSION.json",
-          "launchpad/spec/production-system/integration/contracts/v2/schemas/IF_SQUAD.json",
-          "launchpad/spec/production-system/integration/contracts/v2/schemas/IF_STREAM.json",
-          "launchpad/spec/production-system/integration/contracts/v2/schemas/IF_STREAMOPERATION.json",
-          "launchpad/spec/production-system/integration/contracts/v2/schemas/IF_STREAM_CONTROL.json",
-          "launchpad/spec/production-system/integration/contracts/v2/schemas/IF_STREAM_EVENT.json",
-          "launchpad/spec/production-system/integration/contracts/v2/schemas/IF_SUBSCRIBE.json",
-          "launchpad/spec/production-system/integration/contracts/v2/schemas/IF_TOKEN.json",
-          "launchpad/spec/production-system/integration/contracts/v2/schemas/IF_TOPIC_SNAPSHOT.json",
-          "launchpad/spec/production-system/integration/contracts/v2/schemas/IF_TRADE.json",
-          "launchpad/spec/production-system/integration/contracts/v2/schemas/IF_VOICE_ROOM.json",
-          "launchpad/spec/production-system/integration/contracts/v2/schemas/IF_WALLET_LINK.json",
-          "launchpad/spec/production-system/integration/contracts/v2/schemas/IF_WALLET_PROOF.json",
-          "launchpad/spec/production-system/integration/contracts/v2/schemas/IF_WATCHLISTENTRY.json",
-          "launchpad/spec/production-system/integration/contracts/v2/schemas/IF_WATERMARK.json",
-          "launchpad/spec/production-system/integration/contracts/v2/schemas/IF_WITHDRAWAL_PREPARATION.json"
+          "sdk/launchpad/protocol/contracts/v1/accounting-cases.json",
+          "sdk/launchpad/protocol/contracts/v1/capabilities.json",
+          "sdk/launchpad/protocol/contracts/v1/chain/abi-catalog.json",
+          "sdk/launchpad/protocol/contracts/v1/chain/client-deployment.json",
+          "sdk/launchpad/protocol/contracts/v1/chain/event-authorities.json",
+          "sdk/launchpad/protocol/contracts/v1/chain/golden-fixtures.json",
+          "sdk/launchpad/protocol/contracts/v1/examples.json"
         ]
       },
       "policy_sha256": "8f331c4a9e2e3547978ea143b369cb54fd7596d10ca626418ae3807be301a424",

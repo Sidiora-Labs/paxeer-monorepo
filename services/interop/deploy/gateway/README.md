@@ -1,18 +1,17 @@
-# Interop gateway runtime additions
+# Interop gateway deployment
 
 The `layerx-interop-gateway` binary is the hosted protocol adapter service for
 one Paxeer network. `paxd` includes the kernel that proposes blocks; EVM chain
-id 125 (`0x7d`) identifies mainnet-beta. Public node JSON-RPC uses root URLs
-such as `https://api1.mainnet-beta.paxeer.network/`. Hosted `px_` methods belong
-to `services/platform/hosted/gateway`; their contract is its `openrpc.json`.
+id 125 (`0x7d`) identifies mainnet-beta. Public node JSON-RPC uses the root
+path. The hosted gateway in `services/platform/hosted/gateway` supplies the
+`px_*` methods, registration and funding; its contract is `openrpc.json`.
 Sub-chains are tenant domains in the database, not additional node deployments.
 
 The service relays payer-signed ledger transactions through the merged node
 using `eth_sendRawTransaction` and reads `pax_sequencerReceipt`. Its Redis relay
 journal retains the transaction before submission, rejects replacement bytes
 for the same idempotency key, and resumes receipt lookup or submission on retry.
-The legacy configuration name `LAYERX_INTEROP_SEQUENCER_URL` selects that node
-endpoint. It does not prescribe a separate consensus process.
+`LAYERX_INTEROP_SEQUENCER_URL` selects the transaction and receipt endpoint.
 
 Signed receipt and log verification establish execution authenticity. The
 relay reports `committed` only when the receipt response also names a block
@@ -25,7 +24,7 @@ wire validation and recorded proof coverage, and the
 program-relay configuration.
 
 `runtime.env.example` lists the protocol scope and TAP clock inputs that the
-interop service now requires. `LAYERX_INTEROP_MODULE_REGISTRY_FILE` must point
+interop service requires. `LAYERX_INTEROP_MODULE_REGISTRY_FILE` must point
 to the authoritative module registry mounted from the same core declaration as
 the hosted gateway;
 [module-registry.example.json](module-registry.example.json) documents its
@@ -65,7 +64,9 @@ idempotency. The service verifies against its own clock with zero skew and
 tries only the deployment-owned audience and exponent pairs for the
 authenticated principal. Exactly one verified pair whose currency matches its
 binding is required. The hosted execution key is derived from the canonical
-authenticated principal and both verified mandate references.
+authenticated principal and both verified mandate references. AP2 execution and
+receipt export also require the protected signer file selected by
+`LAYERX_INTEROP_AP2_RECEIPT_SIGNERS_FILE`.
 
 ## Image, configuration and cluster bring-up
 
@@ -87,7 +88,8 @@ from 1 through 30000.
 `LAYERX_INTEROP_SEQUENCER_URL` selects the merged node endpoint. Use HTTPS;
 the client also allows loopback HTTP. Setting
 `LAYERX_INTEROP_ALLOW_RAILWAY_PRIVATE_NETWORK=1` additionally allows
-plain HTTP to an operator's private network host. The Redis URL requires `rediss`.
+plain HTTP to a validated Railway-private endpoint with an explicit port. The
+Redis URL requires `rediss`.
 
 `LAYERX_INTEROP_RECEIPT_KEYS_FILE` selects a nonempty JSON array of objects
 with exactly these camelCase fields:
@@ -113,42 +115,35 @@ published key to be pinned. Deploy the complete signer set needed for current
 and retained receipts, and render `x402_supported` from that same file. The
 service binds its advertised signer list to the distinct public keys in its
 local pins. A key-list lookup failure or any absent or differing pin refuses
-startup. Provision an endpoint that implements this lookup; do not assume
-that every public node exposes the hosted `px_` namespace.
+startup. Configure a node or hosted endpoint that serves `px_getReceiptKeys`
+with the pinned receipt-key entries.
 
-`services/platform/hosted/interop/deployment.yaml` supplies the Kubernetes
-listener, runtime secret, receipt-key secret and network policies. Its
-receipt-key file is mounted separately at
-`/run/layerx/receipt-keys/receipt-keys.json`. The authority-token and single-key
-mounts still present in that template are retired configuration; the current
-service loader uses the receipt-key array instead. Treat the template's
-protocol network id and trust material as deployment inputs, not mainnet
-facts.
+[`services/platform/hosted/interop/deployment.yaml`](../../../platform/hosted/interop/deployment.yaml)
+provides the Kubernetes listener, runtime secret, receipt-key secret and network
+policies. It mounts the receipt-key array separately at
+`/run/layerx/receipt-keys/receipt-keys.json`. Set the protocol network id and
+trust material for the deployment.
 
-The image's `layerx-env-files` entrypoint materializes base64 file
-variables according to `docker/interop-gateway/files.tsv`. The checked-in
-environment example and file map are incomplete deployment examples:
-`LAYERX_INTEROP_SEQUENCER_URL` must be supplied, and the map currently omits
-`INTEROP_RECEIPT_KEYS`. Provision the file selected by
-`LAYERX_INTEROP_RECEIPT_KEYS_FILE` (the environment example uses
-`/run/layerx/authority/receipt-keys.json`) before starting the service. The old
-router and authority-token/single-key settings in those examples are retired;
-they do not supply the merged node relay configuration. Copying these examples
-unchanged is not a working bring-up procedure.
+The image's `layerx-env-files` entrypoint stages file variables listed in
+`docker/interop-gateway/files.tsv`. Supply `LAYERX_INTEROP_SEQUENCER_URL` and
+provision the file selected by `LAYERX_INTEROP_RECEIPT_KEYS_FILE` before startup.
+Mount the receipt-key array at the configured path independently of the
+entrypoint's listed mappings. The [environment example](runtime.env.example)
+lists protocol network, module-registry and TAP-skew settings.
 
 [config.example.json](config.example.json) illustrates the manifest shape.
-Its suite counts and digests are generated by the current renderer from this
-checkout for all five adapters and three transport bindings. The explicit
-inputs are [trust-inputs.example.json](trust-inputs.example.json) and
+Derive suite counts and digests for all five adapters and three transport
+bindings from the checkout being deployed. The example trust inputs are
+[trust-inputs.example.json](trust-inputs.example.json) and
 [receipt-keys.example.json](receipt-keys.example.json); the latter combines
-two public keys from committed producer recordings in disjoint windows.
+two public fixture keys in disjoint windows.
 These identities, keys, principals and accounts are examples, not production
 trust. Generate pins from the checkout that will be deployed, using authenticated
 counterparty material. The `layerx-beta-*` roots authenticate the network's own
 test clients only.
 
-To reproduce the example from the repository root without inherited manifest
-or conformance overrides:
+To render from the example trust inputs at the repository root without
+inherited manifest or conformance overrides:
 
 ```sh
 env -i PATH="$PATH" \
@@ -160,7 +155,7 @@ env -i PATH="$PATH" \
 ```
 
 Rendering derives metadata; it does not establish that the conformance suites
-passed. Retain qualification evidence separately for the deployed revision.
+passed. Run the adapter suites separately to check their behavior.
 
 [render.py](render.py) derives specification and conformance pins and combines
 them with deployment trust roots. From the repository root, after provisioning
@@ -180,12 +175,9 @@ from the receipt-key file and advertises it as `did:layerx:<lowercase-hex>` on
 against those inputs, so an override cannot silently select another authority.
 
 `render.py --check` validates environment and manifest inputs without rendering
-a deployed network or loading beta roots into that check. It reports missing
-or malformed external roots by variable name; it is not the full render or a
-service startup check. The current `interop_runtime_render` in
-`services/platform/hosted/tests/beta-cluster.sh` still passes the retired
-`--sequencer-public-key-file` option. The renderer accepts
-`--receipt-keys-file`; that script cannot perform the current render unchanged.
+a deployment or loading beta roots into that check. It reports missing or
+malformed external roots by variable name. Full rendering uses the
+`--receipt-keys-file` argument shown above.
 
 ### Derived by `render.py`, never a deployment input
 
@@ -199,15 +191,15 @@ service startup check. The current `interop_runtime_render` in
 | `http`, `mcp` and `a2a` binding version `2` and specification digests | `services/interop/specs/vendor/x402/transports/*.md`, the x402 v2 transport bindings vendored at the same pinned commit |
 | `x402` suite `layerx-x402-conformance-v1`, its vector count and digest | `services/interop/specs/conformance/x402`, the model vectors read by `services/interop/crates/layerx-x402/tests/vectors.rs` and settlement vectors read by `sequenced_vectors.rs` |
 | `ap2` suite `layerx-ap2-conformance-v1`, its vector count and digest | `services/interop/specs/conformance/ap2`, the vector files `services/interop/crates/layerx-ap2/tests/mandates.rs` runs through `MandateVerifier` |
-| `ucp` suite `layerx-ucp-conformance-v1`, its vector count and digest | `services/interop/specs/conformance/ucp`, the vector files `services/interop/crates/layerx-ucp/tests/conformance_vectors.rs` runs through the production checkout types |
+| `ucp` suite `layerx-ucp-conformance-v1`, its vector count and digest | `services/interop/specs/conformance/ucp`, the JSON files under that directory; model and receipt harnesses are described in its README |
 | `visa-tap` suite `layerx-visa-tap-conformance-v1`, its vector count and digest | `services/interop/specs/conformance/visa-tap`, the vector files `services/interop/crates/layerx-visa-tap/tests/conformance.rs` runs through `TapRequest` and credential verification |
-| `fiat` suite `layerx-fiat-conformance-v1`, its vector count and digest | `services/interop/specs/conformance/fiat`, the vector files `services/interop/crates/layerx-fiat/tests/adapter.rs` runs through `TokenReference` and `FiatAdapter` |
+| `fiat` suite `layerx-fiat-conformance-v1`, its vector count and digest | `services/interop/specs/conformance/fiat`, the token and journey files read by `adapter.rs` and `sequenced_vectors.rs` under `services/interop/crates/layerx-fiat/tests/` |
 | `http`, `mcp` and `a2a` binding conformance digests | `services/interop/specs/conformance/transport-{http,mcp,a2a}`, the role-message vector files `services/interop/crates/layerx-x402/tests/transports.rs` runs through the production encoders and decoders |
 | every adapter's `evidence_policy` | the policy the service already requires per adapter |
 | `x402_supported` | this cluster's own facilitator declaration: the CAIP-2 form of the network the deployment serves, the `exact` scheme, and all distinct public keys in `--receipt-keys-file` as its signers |
 | `ucp_payment_handler` | the `layerx-ucp-handler` declaration of the vendored UCP revision |
 
-A first-party suite is derived from the files the adapter's own tests read
+A first-party suite is derived from the JSON files in its conformance directory
 and tied to those files by its pin: the identifier is
 `layerx-<adapter>-conformance-v1`, the count is the number of vector records
 under `services/interop/specs/conformance/<adapter>` (a transport binding's suite lives
@@ -220,19 +212,18 @@ count individually; a non-array document counts once. Rendering computes
 metadata and does not run the adapter tests. `--self-test` contains source
 inclusion assertions for the test harnesses it names; it is a separate check.
 
-All eight suites are first party. A few cases cannot be expressed as data
-because they exercise a live signer or the protocol's own encoders, so they stay
-in Rust and are not counted in any suite: the fault-injected settlement cases in
+All eight suites are first party. Additional Rust cases are outside the JSON
+record count: the fault-injected settlement cases in
 `services/interop/crates/layerx-x402/tests/transports.rs`, which drive a receipt
 signer and the canonical receipt encoder; the credential-binding case
 `binding_is_scoped_non_authoritative_and_success_requires_a_real_receipt` in
 `services/interop/crates/layerx-visa-tap/tests/conformance.rs`, which drives the binding
-store and a canonical receipt; and the crate descriptor and vendored-revision
-checks in `services/interop/crates/layerx-ucp/tests/conformance_vectors.rs`, which assert
-against constants compiled into the crate. Where a vector's own signature is a
-live signer's output — the Visa TAP presentations and the fiat settlement
-receipts — the case shape, keys and expected outcome are data and only the
-signing happens in Rust.
+store and a canonical receipt; and the descriptor, exported identifier,
+vendored-revision and receipt checks in
+`services/interop/crates/layerx-ucp/tests/conformance_vectors.rs`.
+Visa TAP presentations and the `journeys.json` fiat receipts are signed in Rust
+from the declared vector inputs. Fiat's `sequenced-journeys.json` instead names
+recorded producer evidence.
 
 `x402_supported` and `ucp_payment_handler` default to the configured receipt
 signers and the pinned UCP handler declaration. `LAYERX_BETA_INTEROP_X402_SUPPORTED`
@@ -290,31 +281,22 @@ produces:
 | `LAYERX_BETA_INTEROP_UCP_PAYMENT_HANDLER` | JSON object | the declaration of a different UCP payment handler |
 | `LAYERX_BETA_INTEROP_MANIFEST_FILE` | path to a JSON document | overrides any rendered field, field by field |
 
-No upstream publishes a conformance suite for UCP, Visa TAP, the fiat provider
-callbacks or the x402 transport bindings — `services/interop/specs/vendor/CONFORMANCE.md`
-records the tree each protocol publishes at its pinned commit and what was found
-there — so this repository carries its own vectors for each of them and derives
-the pin from the files the adapter's tests read. A declared variable still wins,
-and the checks that make a pin mean something are unchanged: the renderer
-refuses a suite with no vectors, a zero digest, a malformed pin and an
-out-of-charset identifier rather than inventing any of them, and
-`ConformanceSuite` records the declared suite metadata. Retain separate test-run
-evidence for the deployed revision; a digest and count do not show that a suite
-passed. Declaring a trust root replaces the generated beta root; the operator
-must authenticate that counterparty material. The render still refuses a root that is empty or malformed, and refuses by name
-when no beta material is supplied either.
+The repository carries first-party vectors for all eight suites.
+`services/interop/specs/vendor/CONFORMANCE.md` describes the vendored upstream
+conformance material. The renderer refuses a suite with no vectors, a zero
+digest, a malformed pin or an out-of-charset identifier. `ConformanceSuite`
+records the declared suite metadata. Rendering computes pins; the adapter test
+harnesses define the behavior exercised against their inputs. Declaring a trust
+root replaces the generated beta root; authenticate that counterparty material.
+The renderer refuses empty or malformed roots, and names required roots when
+neither explicit inputs nor beta material supply them.
 
-`LAYERX_BETA_INTEROP_MANIFEST_FILE` stays available for a deployment that
-keeps its pins in one document. It is applied last and wins field by field, in
-the shape:
-
-    {
-      "adapters": {"x402": {"conformance_suite": ..., "conformance_vectors": ..., "conformance_sha256": ...}, ...},
-      "transports": {"http": {"conformance_sha256": ...}, ...},
-      "x402_supported": {...}, "ap2_keys": [...], "ap2_assets": [...],
-      "ucp_payment_handler": {...}, "visa_agents": [...], "visa_targets": [...],
-      "fiat_providers": [...]
-    }
+`LAYERX_BETA_INTEROP_MANIFEST_FILE` accepts a JSON document with optional
+`adapters`, `transports`, `x402_supported`, `ap2_keys`, `ap2_assets`,
+`ucp_payment_handler`, `visa_agents`, `visa_targets` and `fiat_providers` fields.
+Each `adapters` entry can override `conformance_suite`, `conformance_vectors`
+and `conformance_sha256`; each `transports` entry can override
+`conformance_sha256`. The document is applied last, field by field.
 
 Every field it sets is validated exactly as a variable is, and an unknown
 adapter, transport or field is refused rather than ignored.

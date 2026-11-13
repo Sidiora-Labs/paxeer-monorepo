@@ -359,11 +359,11 @@ func proveLaunchpadPnLTracker(t *testing.T) {
 type proofLaunchpadFixture struct{ Pool, Alice, Bob string }
 
 func proofLaunchpadRewardRegistry(root string) (production.MigrationRegistry, error) {
-	raw, err := os.ReadFile(filepath.Join(root, "launchpad/spec/production-system/integration/migrations/registry.json"))
+	raw, err := os.ReadFile(filepath.Join(root, "migrations/registry.json"))
 	if err != nil {
 		return production.MigrationRegistry{}, err
 	}
-	approval, err := os.ReadFile(filepath.Join(root, "launchpad/spec/production-system/integration/migrations/pnl-reward-approval.json"))
+	approval, err := os.ReadFile(filepath.Join(root, "migrations/pnl-reward-approval.json"))
 	if err != nil {
 		return production.MigrationRegistry{}, err
 	}

@@ -210,15 +210,20 @@ fn human_completion_retired_surfaces_absent() -> Result<(), Box<dyn Error>> {
         .into_iter()
         .filter(|id| {
             let interface = inventory.get(id).unwrap_or_else(|| panic!("missing {id}"));
-            quoted(field(interface, "status")) == "retire"
+            matches!(
+                quoted(field(interface, "status")).as_str(),
+                "retire" | "retired"
+            )
         })
         .collect();
     assert_eq!(retired.len(), 52, "incomplete retired-interface inventory");
     let schema_routes: BTreeSet<_> = inventory
         .iter()
         .filter(|(_, interface)| {
-            quoted(field(interface, "status")) == "retire"
-                && quoted(field(interface, "kind")) == "http_route"
+            matches!(
+                quoted(field(interface, "status")).as_str(),
+                "retire" | "retired"
+            ) && quoted(field(interface, "kind")) == "http_route"
                 && quoted(field(interface, "path")).starts_with("services/human/schema/human-api/")
         })
         .map(|(id, _)| id.clone())

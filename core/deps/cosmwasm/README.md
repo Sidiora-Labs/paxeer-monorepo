@@ -15,7 +15,7 @@
 The following Rust crates are maintained in this repository:
 
 | Crate                              | Usage                | Download                                                                                            | Docs                                                                                                 | Coverage                                                        |
-|------------------------------------|----------------------|-----------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------|
+| ---------------------------------- | -------------------- | --------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
 | cosmwasm&#8209;check               | Contract development | [![cosmwasm-check][crates-badge-cosmwasm-check]][crates-url-cosmwasm-check]                         | [![docs-cosmwasm-check][docs-badge-cosmwasm-check]][docs-url-cosmwasm-check]                         | ![cov-cosmwasm-check][cov-badge-cosmwasm-check]                 |
 | cosmwasm&#8209;core                | Internal use only    | [![cosmwasm-core][crates-badge-cosmwasm-core]][crates-url-cosmwasm-core]                            | [![docs-cosmwasm-core][docs-badge-cosmwasm-core]][docs-url-cosmwasm-core]                            | ![cov-cosmwasm-core][cov-badge-cosmwasm-core]                   |
 | cosmwasm&#8209;crypto              | Internal use only    | [![cosmwasm-crypto][crates-badge-cosmwasm-crypto]][crates-url-cosmwasm-crypto]                      | [![docs-cosmwasm-crypto][docs-badge-cosmwasm-crypto]][docs-url-cosmwasm-crypto]                      | ![cov-cosmwasm-crypto][cov-badge-cosmwasm-crypto]               |
@@ -33,67 +33,56 @@ The following Rust crates are maintained in this repository:
 [docs-badge-cosmwasm-check]: https://docs.rs/cosmwasm-check/badge.svg
 [docs-url-cosmwasm-check]: https://docs.rs/cosmwasm-check
 [cov-badge-cosmwasm-check]: https://img.shields.io/badge/coverage-98%25%20%E2%94%82%20100%25%20%E2%94%82%20100%25-21b577.svg
-
 [crates-badge-cosmwasm-core]: https://img.shields.io/crates/v/cosmwasm-core.svg
 [crates-url-cosmwasm-core]: https://crates.io/crates/cosmwasm-core
 [docs-badge-cosmwasm-core]: https://docs.rs/cosmwasm-core/badge.svg
 [docs-url-cosmwasm-core]: https://docs.rs/cosmwasm-core
 [cov-badge-cosmwasm-core]: https://img.shields.io/badge/coverage-%E2%80%94%20%E2%94%82%20%E2%80%94%20%E2%94%82%20%E2%80%94-21b577.svg
-
 [crates-badge-cosmwasm-crypto]: https://img.shields.io/crates/v/cosmwasm-crypto.svg
 [crates-url-cosmwasm-crypto]: https://crates.io/crates/cosmwasm-crypto
 [docs-badge-cosmwasm-crypto]: https://docs.rs/cosmwasm-crypto/badge.svg
 [docs-url-cosmwasm-crypto]: https://docs.rs/cosmwasm-crypto
 [cov-badge-cosmwasm-crypto]: https://img.shields.io/badge/coverage-81%25%20%E2%94%82%2084%25%20%E2%94%82%2092%25-21b577.svg
-
 [crates-badge-cosmwasm-derive]: https://img.shields.io/crates/v/cosmwasm-derive.svg
 [crates-url-cosmwasm-derive]: https://crates.io/crates/cosmwasm-derive
 [docs-badge-cosmwasm-derive]: https://docs.rs/cosmwasm-derive/badge.svg
 [docs-url-cosmwasm-derive]: https://docs.rs/cosmwasm-derive
 [cov-badge-cosmwasm-derive]: https://img.shields.io/badge/coverage-84%25%20%E2%94%82%2085%25%20%E2%94%82%2094%25-21b577.svg
-
 [crates-badge-cosmwasm-schema]: https://img.shields.io/crates/v/cosmwasm-schema.svg
 [crates-url-cosmwasm-schema]: https://crates.io/crates/cosmwasm-schema
 [docs-badge-cosmwasm-schema]: https://docs.rs/cosmwasm-schema/badge.svg
 [docs-url-cosmwasm-schema]: https://docs.rs/cosmwasm-schema
 [cov-badge-cosmwasm-schema]: https://img.shields.io/badge/coverage-61%25%20%E2%94%82%2047%25%20%E2%94%82%2065%25-f52020.svg
-
 [crates-badge-cosmwasm-schema-derive]: https://img.shields.io/crates/v/cosmwasm-schema-derive.svg
 [crates-url-cosmwasm-schema-derive]: https://crates.io/crates/cosmwasm-schema-derive
 [docs-badge-cosmwasm-schema-derive]: https://docs.rs/cosmwasm-schema-derive/badge.svg
 [docs-url-cosmwasm-schema-derive]: https://docs.rs/cosmwasm-schema-derive
 [cov-badge-cosmwasm-schema-derive]: https://img.shields.io/badge/coverage-76%25%20%E2%94%82%2087%25%20%E2%94%82%2091%25-f4b01b.svg
-
 [crates-badge-cosmwasm-std]: https://img.shields.io/crates/v/cosmwasm-std.svg
 [crates-url-cosmwasm-std]: https://crates.io/crates/cosmwasm-std
 [docs-badge-cosmwasm-std]: https://docs.rs/cosmwasm-std/badge.svg
 [docs-url-cosmwasm-std]: https://docs.rs/cosmwasm-std
 [cov-badge-cosmwasm-std]: https://img.shields.io/badge/coverage-92%25%20%E2%94%82%2091%25%20%E2%94%82%2094%25-21b577.svg
-
 [crates-badge-cosmwasm-vm]: https://img.shields.io/crates/v/cosmwasm-vm.svg
 [crates-url-cosmwasm-vm]: https://crates.io/crates/cosmwasm-vm
 [docs-badge-cosmwasm-vm]: https://docs.rs/cosmwasm-vm/badge.svg
 [docs-url-cosmwasm-vm]: https://docs.rs/cosmwasm-vm
-[cov-badge-cosmwasm-vm]: https://img.shields.io/badge/coverage-79%25%20%E2%94%82%2083%25%20%E2%94%82%2090%25-f4b01b.svg 
-
+[cov-badge-cosmwasm-vm]: https://img.shields.io/badge/coverage-79%25%20%E2%94%82%2083%25%20%E2%94%82%2090%25-f4b01b.svg
 [crates-badge-cosmwasm-vm-derive]: https://img.shields.io/crates/v/cosmwasm-vm-derive.svg
 [crates-url-cosmwasm-vm-derive]: https://crates.io/crates/cosmwasm-vm-derive
 [docs-badge-cosmwasm-vm-derive]: https://docs.rs/cosmwasm-vm-derive/badge.svg
 [docs-url-cosmwasm-vm-derive]: https://docs.rs/cosmwasm-vm-derive
 [cov-badge-cosmwasm-vm-derive]: https://img.shields.io/badge/coverage-0%25%20%E2%94%82%200%25%20%E2%94%82%200%25-f52020.svg
-
 [crates-badge-cw-schema]: https://img.shields.io/crates/v/cw-schema.svg
 [crates-url-cw-schema]: https://crates.io/crates/cw-schema
 [docs-badge-cw-schema]: https://docs.rs/cw-schema/badge.svg
 [docs-url-cw-schema]: https://docs.rs/cw-schema
 [cov-badge-cw-schema]: https://img.shields.io/badge/coverage-63%25%20%E2%94%82%2069%25%20%E2%94%82%2065%25-f4b01b.svg
-
 [crates-badge-cw-schema-derive]: https://img.shields.io/crates/v/cw-schema-derive.svg
 [crates-url-cw-schema-derive]: https://crates.io/crates/cw-schema-derive
 [docs-badge-cw-schema-derive]: https://docs.rs/cw-schema-derive/badge.svg
 [docs-url-cw-schema-derive]: https://docs.rs/cw-schema-derive
 [cov-badge-cw-schema-derive]: https://img.shields.io/badge/coverage-0%25%20%E2%94%82%200%25%20%E2%94%82%200%25-f52020.svg
-
 [cov-badge-crypto]: https://codecov.io/gh/CosmWasm/cosmwasm/branch/main/graph/badge.svg?flag=cosmwasm-crypto
 [cov-badge-derive]: https://codecov.io/gh/CosmWasm/cosmwasm/branch/main/graph/badge.svg?flag=cosmwasm-derive
 [cov-badge-schema]: https://codecov.io/gh/CosmWasm/cosmwasm/branch/main/graph/badge.svg?flag=cosmwasm-schema
@@ -120,37 +109,37 @@ config:
 graph BT
     A("`**cosmwasm-core**
         3.0.2`")
- 
+
     B("`**cosmwasm-std**
         3.0.2`")
- 
+
     C("`**cosmwasm-crypto**
         3.0.2`")
-        
+
     D("`**cosmwasm-vm**
         3.0.2`")
-        
+
     E("`**cosmwasm-vm-derive**
         3.0.2`")
-        
+
     F("`**cosmwasm-derive**
-        3.0.2`")    
-        
+        3.0.2`")
+
     G("`**cosmwasm-schema**
         3.0.2`")
 
     H("`**cosmwasm-schema-derive**
         3.0.2`")
-        
+
     I("`**cosmwasm-check**
         3.0.2`")
-        
+
     J("`**cw-schema**
         3.0.2`")
 
     K("`**cw-schema-derive**
         3.0.2`")
-        
+
     A --> B
     A --> C
     A --> D
@@ -265,7 +254,7 @@ points, and no access to the outside world by default. To make them useful, we
 need to add a few elements.
 
 If you haven't worked with WebAssembly before, please read an overview on
-[how to create imports and exports](docs/IDL.md) in general.
+[the CosmWasm imports and exports](docs/USING_COSMWASM_STD.md) in general.
 
 ### Exports
 
@@ -419,7 +408,7 @@ pub struct Region {
 
 ## Implementing the Smart Contract
 
-If you followed the [instructions above](#Creating-a-smart-contract), you should
+If you followed the [instructions above](#creating-a-smart-contract), you should
 have a runnable smart contract. You may notice that all the Wasm exports are
 taken care of by `lib.rs`, which you shouldn't need to modify. What you need to
 do is simply look in `contract.rs` and implement `instantiate` and `execute`
@@ -565,8 +554,8 @@ like hashing or signature verification.
 ## Developing
 
 For manually building this repo locally during development, here are a few
-commands. They assume you use a stable Rust version by default and have a
-nightly toolchain installed as well.
+commands, run from `core/deps/cosmwasm`. They assume you use a stable Rust
+version by default and have a nightly toolchain installed as well.
 
 **Workspace**
 
@@ -581,7 +570,7 @@ nightly toolchain installed as well.
 **Contracts**
 
 | Step | Description                      | Command                                |
-|------|----------------------------------|----------------------------------------|
+| ---- | -------------------------------- | -------------------------------------- |
 | 1    | fast checks, rebuilds lock files | `./devtools/check_contracts_fast.sh`   |
 | 2    | medium fast checks               | `./devtools/check_contracts_medium.sh` |
 | 3    | slower checks                    | `./devtools/check_contracts_full.sh`   |

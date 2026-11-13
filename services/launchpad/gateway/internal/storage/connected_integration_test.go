@@ -51,8 +51,8 @@ func connectedAuthority(t *testing.T) (*Authority, context.Context) {
 		t.Fatal(e)
 	}
 	for _, migration := range []struct{ path, from, to string }{
-		{"../../../../../launchpad/spec/production-system/integration/migrations/390000.sql", `"metadata"`, pgx.Identifier{metadata}.Sanitize()},
-		{"../../../../../launchpad/spec/production-system/integration/migrations/380000.sql", `"chat"`, pgx.Identifier{safety}.Sanitize()},
+		{"../../../../../migrations/390000.sql", `"metadata"`, pgx.Identifier{metadata}.Sanitize()},
+		{"../../../../../migrations/380000.sql", `"chat"`, pgx.Identifier{safety}.Sanitize()},
 	} {
 		raw, e := os.ReadFile(migration.path)
 		if e != nil {

@@ -9,7 +9,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[3]
 NODE_DOCS = (
     "services/platform/hosted/gateway/README.md",
-    "docs/site/docs/agents/running.md",
+    "docs/site/paxeer-docs/src/app/agent-runtime/page.tsx",
     "services/explorer/README.md",
     "docs/paxeer-network.md",
     "docs/runbooks/paxeer-x-fork.md",

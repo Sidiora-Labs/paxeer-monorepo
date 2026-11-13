@@ -44,7 +44,8 @@ The response has this shape (timestamps below are placeholders):
 | `current_epoch_height` | `CurrentEpochHeight` | Block height at which this epoch was entered; initially zero in default genesis. |
 
 [Default genesis](types/genesis.go) sets the duration to one minute. During
-[genesis initialization](genesis.go), default placeholder timestamps are replaced
+[genesis initialization](genesis.go), when both `GenesisTime` and
+`CurrentEpochStartTime` equal the default placeholder, both are replaced
 with the consensus block time; explicitly configured timestamps are preserved.
 Later transitions preserve `GenesisTime` and `EpochDuration`.
 
@@ -129,9 +130,5 @@ module registration, and epoch transitions. They require no external inputs.
 
 ```sh
 CGO_ENABLED=1 go vet ./modules/epoch/
-CGO_ENABLED=1 go test -count=1 -timeout 35m -v ./modules/epoch/
+CGO_ENABLED=1 go test -count=1 -v ./modules/epoch/
 ```
-
-The inventory timeout did not reproduce at revision
-`cea04b0a20fed9621b2f2580398024b38b76ff2e`: the package tests passed in 3.984
-seconds without product or test changes.

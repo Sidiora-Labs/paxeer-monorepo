@@ -91,7 +91,7 @@ to install `cargo component` locally.
 > and may not work with other versions of `cargo component`.
 
 Additionally, it is assumed that `wasm-tools` has been installed from the
-root of this repository.
+vendored project root at `tools/wasm-tools` in this repository.
 
 ## Building the components
 
@@ -167,7 +167,7 @@ component without rebuilding any of the previously built components.
 The `server/config.yml` file contains the configuration needed to compose a new
 component from the `service` and `middleware` components.
 
-Run `wasm-compose` to compose the new component:
+Run `wasm-tools compose` to compose the new component:
 
 ```sh
 cd server

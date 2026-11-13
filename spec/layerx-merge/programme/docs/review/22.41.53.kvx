@@ -1,0 +1,83 @@
+[manifest]
+task = "22.41.53"
+pages = 20
+
+[page.1]
+path = "contracts/launchpad/docs/test/TokenAddressWrapper.md"
+status = "corrected"
+
+[page.2]
+path = "contracts/launchpad/docs/test/TransferHelperWrapper.md"
+status = "corrected"
+
+[page.3]
+path = "contracts/launchpad/operations/README.md"
+status = "corrected"
+
+[page.4]
+path = "contracts/markets.md"
+status = "corrected"
+
+[page.5]
+path = "contracts/operations.md"
+status = "corrected"
+
+[page.6]
+path = "contracts/perps-client.md"
+status = "corrected"
+
+[page.7]
+path = "contracts/perps-data.md"
+status = "corrected"
+
+[page.8]
+path = "contracts/platform-cli.md"
+status = "corrected"
+
+[page.9]
+path = "contracts/platform-gateway.md"
+status = "corrected"
+
+[page.10]
+path = "contracts/platform-hosted.md"
+status = "corrected"
+
+[page.11]
+path = "contracts/platform-middleware.md"
+status = "corrected"
+
+[page.12]
+path = "contracts/platform-ramps.md"
+status = "corrected"
+
+[page.13]
+path = "contracts/platform-relay-archive.md"
+status = "corrected"
+
+[page.14]
+path = "contracts/platform-sdk.md"
+status = "corrected"
+
+[page.15]
+path = "contracts/programs.md"
+status = "corrected"
+
+[page.16]
+path = "contracts/proto-api.md"
+status = "corrected"
+
+[page.17]
+path = "contracts/rpc.md"
+status = "corrected"
+
+[page.18]
+path = "contracts/sdk-js.md"
+status = "corrected"
+
+[page.19]
+path = "contracts/sequencer.md"
+status = "corrected"
+
+[page.20]
+path = "contracts/services.md"
+status = "corrected"

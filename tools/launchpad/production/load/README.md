@@ -20,7 +20,8 @@ python3 -m unittest discover \
 Only this selection has the loopback-only transport boundary: it opens ports
 24800/24801, failing on occupied ports rather than reusing peers. It collects
 actual monotonic sender/receiver timestamps, retains every scheduled arrival,
-and exercises a real two-second receiver pause and RFC6455 masked subscription.
+and exercises a two-second delay before each receiver response and an RFC6455
+masked subscription.
 The receiver is a calibration echo, not an application gateway or chain fixture.
 
 Broad `test_*.py` discovery also includes live phase-2 through phase-4 provider
@@ -38,8 +39,8 @@ clocks from different hosts. Missing arrivals remain explicit failures rather
 than fabricated latency samples.
 
 `calibration.evaluate` checks raw sample digest and counters, resource deltas,
-expiry, four distinct host labels and candidate/topology/generator bindings. It
-validates metrics; host identity and clock attestation require independently
+expiry, at least four distinct host labels and candidate/topology/generator
+bindings. It validates metrics; host identity and clock attestation require independently
 authenticated host/clock/NIC telemetry. It always returns `capacity_qualified`
 false. CPU readings are host aggregates, so shared hardware requires dedicated
 generator/cgroup sampling. Measure NIC speed from actual hardware; loopback
@@ -51,8 +52,10 @@ Provision the actual owned application, receiver, generator, browser, account an
 chain resources required by the phase configuration before running these commands.
 Each configuration file and SHA-256 must be reviewed; generator source identity
 must match `source_digest()` in `phase2_types.py`. The binding set includes the
-candidate, interface, topology and generator. Outputs belong in private owned
-capture directories, not in the source tree as invented execution evidence.
+candidate, interface, topology and generator. For phase N, the
+`LOAD_PHASEN_OUTPUT_DIR` value selects a new directory under the repository's
+`launchpad/evidence/production-system/L48/phaseN/` directory. `Artifacts` creates
+the selected directory and rejects an existing destination.
 
 | Phase | Required variables | Command |
 | --- | --- | --- |
@@ -99,9 +102,8 @@ runtime authority. It is distinct from the final shared capacity scenarios.
 
 Paxeer is one network on chain ID 125, where a receipt is final after block commit.
 Application replay and local EVM fixtures do not prove Paxeer consensus throughput.
-Use the node root URL for public JSON-RPC, for example
-`https://api1.mainnet-beta.paxeer.network/`; provider-backed qualification must
-still use its explicitly admitted targets and accounts.
+Public node JSON-RPC uses the root path. Provider-backed qualification uses its
+explicitly admitted targets and accounts.
 
 ## Qualification limits
 
@@ -119,7 +121,7 @@ remain false without actual final evidence. The root programme owns the reviewed
 freeze/final task mapping.
 
 The [workload accounting, calibration and loopback transport tests](test_load.py)
-check scheduled-arrival accounting, capacity refusal, receiver pauses and masked
+check scheduled-arrival accounting, capacity refusal, delayed responses and masked
 subscriptions. The [contract and final-admission tests](repair_m965_cases.py),
 `test_v1_contract`, `test_v2_contract`, `test_final_admission` and
 `test_phase4_qualification`, check schema authority and coordinator admission.
