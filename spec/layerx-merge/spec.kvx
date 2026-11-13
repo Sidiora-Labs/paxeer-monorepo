@@ -238686,7 +238686,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.41.123]
 title = "Read the public endpoint contract of the consensus RPC from docs/readme/PUBLIC-RPC.md"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.41.119"]
