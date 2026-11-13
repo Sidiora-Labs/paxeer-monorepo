@@ -5,15 +5,15 @@ baseline = "Not executed: the explicit gate order prohibits verification before 
 evidence = "The runner's hf-build/hf-done ledger records the exact qualified candidate revision, command, exit code and private log location."
 
 [finding.network-app-config]
-test = "TestRepairM_672_AppConfigRestart"
+test = "TestNetwork_AppConfigRestart"
 repair = "Construct the real uninitialized application with Validator.Dir, persistent application metadata, AppConfig startup/storage options and the supplied encoding; close application resources after consensus shutdown. Prove committed custom balances, distribution parameters, configured directories, gas prices and encoding survive close/reopen."
 
 [finding.network-test-config]
-test = "TestRepairM_672_DefaultConfigLiveness"
+test = "TestNetwork_DefaultConfigLiveness"
 repair = "Pass s.T() to DefaultConfig in the norace suite and retain its height-10 assertion; the focused gate also starts a real default network and asserts height 10."
 
 [finding.network-genesis]
-test = "TestRepairM_672_SharedGenesis"
+test = "TestNetwork_SharedGenesis"
 repair = "Generate the full validator list once, derive power from BondedTokens, persist the canonical genesis for all nodes and consume it without per-node replacement. Prove three-validator progress, identical disk and RPC genesis hashes, and identical committed blocks with the shared validator hash."
 
 [wiring]
@@ -40,7 +40,7 @@ resolution = "Use consensus/libs/json.Unmarshal for the real RPC output and expl
 [continuation.main]
 base = "4b4896072f927b28618921285b3e3ae758bc467e"
 previous_revision = "440b5dd664a07674c47078d4365ebd563b575518"
-previous_result = "Attempt 2 could not compile because auth, staking and tokenfactory CLI callers still used the former single-value tx.NewFactoryCLI interface; no TestRepairM_672_ test result was obtained in that attempt."
+previous_result = "Attempt 2 could not compile because auth, staking and tokenfactory CLI callers still used the former single-value tx.NewFactoryCLI interface; no TestNetwork_ test result was obtained in that attempt."
 repair = "Task 22.31.463 repaired those callers on main; preserve the supplied network implementation and tests and qualify them on this base."
 baseline = "No extra baseline verification: the supplied prior failure is retained, and the explicit gate order permits only hf-build followed by hf-done after implementation."
 evidence = "The final hf-build/hf-done ledger supplies the exact current candidate revision, command, exit code and private log location without changing the candidate between gates."

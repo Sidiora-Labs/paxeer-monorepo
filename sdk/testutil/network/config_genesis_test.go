@@ -28,7 +28,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepairM_672_AppConfigRestart(t *testing.T) {
+func TestNetwork_AppConfigRestart(t *testing.T) {
 	cfg := DefaultConfig(t)
 	encoding := app.MakeEncodingConfig()
 	constructor := NewAppConstructor(t, encoding)
@@ -118,7 +118,7 @@ func TestRepairM_672_AppConfigRestart(t *testing.T) {
 	}, 5*time.Second, 10*time.Millisecond, "custom genesis balances and parameters must survive reopening the configured stores")
 }
 
-func TestRepairM_672_DefaultConfigLiveness(t *testing.T) {
+func TestNetwork_DefaultConfigLiveness(t *testing.T) {
 	cfg := DefaultConfig(t)
 	cfg.TimeoutCommit = 100 * time.Millisecond
 	n := New(t, cfg)
@@ -128,7 +128,7 @@ func TestRepairM_672_DefaultConfigLiveness(t *testing.T) {
 	require.GreaterOrEqual(t, height, int64(10))
 }
 
-func TestRepairM_672_SharedGenesis(t *testing.T) {
+func TestNetwork_SharedGenesis(t *testing.T) {
 	cfg := DefaultConfig(t)
 	cfg.NumValidators = 3
 	cfg.TimeoutCommit = 100 * time.Millisecond
