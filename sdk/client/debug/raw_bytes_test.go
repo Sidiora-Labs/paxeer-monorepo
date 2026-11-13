@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-func executeRepairM1459RawBytes(t *testing.T, input string) (string, error) {
+func executeRawBytesCommand(t *testing.T, input string) (string, error) {
 	t.Helper()
 
 	reader, writer, err := os.Pipe()
@@ -46,7 +46,7 @@ func executeRepairM1459RawBytes(t *testing.T, input string) (string, error) {
 	return string(output), commandErr
 }
 
-func TestRepairM_1459_UnsignedByteRange(t *testing.T) {
+func TestRawBytesUnsignedByteRange(t *testing.T) {
 	for _, tc := range []struct {
 		name  string
 		input string
@@ -60,7 +60,7 @@ func TestRepairM_1459_UnsignedByteRange(t *testing.T) {
 		{name: "advertised_example", input: "[10 21 13 255]", want: "0A150DFF\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			output, err := executeRepairM1459RawBytes(t, tc.input)
+			output, err := executeRawBytesCommand(t, tc.input)
 			if err != nil {
 				t.Fatalf("raw-bytes %q: %v", tc.input, err)
 			}
@@ -71,7 +71,7 @@ func TestRepairM_1459_UnsignedByteRange(t *testing.T) {
 	}
 }
 
-func TestRepairM_1459_RejectInvalidBytes(t *testing.T) {
+func TestRawBytesRejectInvalidBytes(t *testing.T) {
 	for _, tc := range []struct {
 		name    string
 		input   string
@@ -84,7 +84,7 @@ func TestRepairM_1459_RejectInvalidBytes(t *testing.T) {
 		{name: "overflow_after_valid", input: "[127 256 128]", element: "256", wantErr: strconv.ErrRange},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			output, err := executeRepairM1459RawBytes(t, tc.input)
+			output, err := executeRawBytesCommand(t, tc.input)
 			if err == nil {
 				t.Fatalf("raw-bytes %q accepted an invalid byte", tc.input)
 			}

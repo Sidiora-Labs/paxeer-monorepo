@@ -14,7 +14,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client/flags"
 )
 
-func TestRepairM_1460_StringRoundTrip(t *testing.T) {
+func TestClientConfigStringRoundTrip(t *testing.T) {
 	fields := []struct {
 		key string
 		set func(*ClientConfig, string)
@@ -57,7 +57,7 @@ func TestRepairM_1460_StringRoundTrip(t *testing.T) {
 	}
 }
 
-func TestRepairM_1460_InvalidStringPreservesConfig(t *testing.T) {
+func TestClientConfigInvalidStringPreservesConfig(t *testing.T) {
 	for _, key := range []string{flags.FlagChainID, flags.FlagKeyringBackend, tmcli.OutputFlag, flags.FlagNode, flags.FlagBroadcastMode} {
 		t.Run(key, func(t *testing.T) {
 			path := t.TempDir()
@@ -88,7 +88,7 @@ func TestRepairM_1460_InvalidStringPreservesConfig(t *testing.T) {
 	}
 }
 
-func TestRepairM_1460_AtomicReplacementRecovery(t *testing.T) {
+func TestClientConfigAtomicReplacementRecovery(t *testing.T) {
 	home := t.TempDir()
 	path := filepath.Join(home, "config")
 	require.NoError(t, ensureConfigPath(path))
@@ -140,7 +140,7 @@ func TestRepairM_1460_AtomicReplacementRecovery(t *testing.T) {
 	require.Empty(t, keys)
 }
 
-func TestRepairM_1460_RefusedReplacementRecovery(t *testing.T) {
+func TestClientConfigRefusedReplacementRecovery(t *testing.T) {
 	path := t.TempDir()
 	// A nonempty directory refuses rename even when the test runs as root.
 	// Its existing configuration must remain usable after the refused update.

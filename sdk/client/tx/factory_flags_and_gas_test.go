@@ -50,7 +50,7 @@ func makeTxEncodingConfig() txTestEncodingConfig {
 	}
 }
 
-func repairM1462Command(clientCtx client.Context) *cobra.Command {
+func newFactoryFlagsCommand(clientCtx client.Context) *cobra.Command {
 	cmd := &cobra.Command{
 		Use: "send", SilenceUsage: true, SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -63,7 +63,7 @@ func repairM1462Command(clientCtx client.Context) *cobra.Command {
 	return cmd
 }
 
-func TestRepairM_1462_FactoryInvalidFlags(t *testing.T) {
+func TestTxFactoryInvalidFlags(t *testing.T) {
 	cfg := makeTxEncodingConfig()
 	for _, tc := range []struct {
 		flag, value string
@@ -89,7 +89,7 @@ func TestRepairM_1462_FactoryInvalidFlags(t *testing.T) {
 		t.Run(tc.flag+"/"+tc.value, func(t *testing.T) {
 			var output bytes.Buffer
 			clientCtx := client.Context{TxConfig: cfg.TxConfig, ChainID: "repair-1462", GenerateOnly: true, Output: &output}
-			cmd := repairM1462Command(clientCtx)
+			cmd := newFactoryFlagsCommand(clientCtx)
 			require.NoError(t, cmd.Flags().Set(tc.flag, tc.value))
 			factory, err := clienttx.NewFactoryCLI(clientCtx, cmd.Flags())
 			require.ErrorContains(t, err, "--"+tc.flag)
@@ -108,7 +108,7 @@ func TestRepairM_1462_FactoryInvalidFlags(t *testing.T) {
 	}
 }
 
-func TestRepairM_1462_FactoryValidFlags(t *testing.T) {
+func TestTxFactoryValidFlags(t *testing.T) {
 	cfg := makeTxEncodingConfig()
 	for _, tc := range []struct {
 		name string
@@ -124,7 +124,7 @@ func TestRepairM_1462_FactoryValidFlags(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			var output bytes.Buffer
 			clientCtx := client.Context{TxConfig: cfg.TxConfig, ChainID: "repair-1462", GenerateOnly: true, Output: &output}
-			cmd := repairM1462Command(clientCtx)
+			cmd := newFactoryFlagsCommand(clientCtx)
 			cmd.SetArgs(tc.args)
 			require.NoError(t, cmd.Execute())
 			decoded, err := cfg.TxConfig.TxJSONDecoder()(output.Bytes())
@@ -144,7 +144,7 @@ func TestRepairM_1462_FactoryValidFlags(t *testing.T) {
 			}
 		})
 	}
-	cmd := repairM1462Command(client.Context{})
+	cmd := newFactoryFlagsCommand(client.Context{})
 	require.NoError(t, cmd.Flags().Set(flags.FlagGas, "auto"))
 	factory, err := clienttx.NewFactoryCLI(client.Context{}, cmd.Flags())
 	require.NoError(t, err)
@@ -153,7 +153,7 @@ func TestRepairM_1462_FactoryValidFlags(t *testing.T) {
 	require.Equal(t, flags.DefaultGasAdjustment, factory.GasAdjustment())
 }
 
-func repairM1462Simulation(t *testing.T, cfg txTestEncodingConfig, gasUsed uint64) (*grpc.ClientConn, <-chan sdk.Tx, *atomic.Uint32) {
+func serveGasSimulation(t *testing.T, cfg txTestEncodingConfig, gasUsed uint64) (*grpc.ClientConn, <-chan sdk.Tx, *atomic.Uint32) {
 	t.Helper()
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
@@ -186,7 +186,7 @@ func repairM1462Simulation(t *testing.T, cfg txTestEncodingConfig, gasUsed uint6
 	return conn, received, calls
 }
 
-func TestRepairM_1462_GasAdjustmentBounds(t *testing.T) {
+func TestCalculateGasAdjustmentBounds(t *testing.T) {
 	cfg := makeTxEncodingConfig()
 	for _, tc := range []struct {
 		name   string
@@ -213,7 +213,7 @@ func TestRepairM_1462_GasAdjustmentBounds(t *testing.T) {
 		{"largest-float-below-boundary", 1, math.Nextafter(math.Exp2(64), 0), math.MaxUint64 - 2047, ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			conn, received, calls := repairM1462Simulation(t, cfg, tc.gas)
+			conn, received, calls := serveGasSimulation(t, cfg, tc.gas)
 			factory := clienttx.Factory{}.WithTxConfig(cfg.TxConfig).WithChainID("repair-1462").WithGas(19).
 				WithMemo("simulation producer").WithGasAdjustment(tc.factor).WithSignMode(cfg.TxConfig.SignModeHandler().DefaultMode())
 			response, adjusted, err := clienttx.CalculateGas(conn, factory, msg0)

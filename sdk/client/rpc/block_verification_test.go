@@ -29,7 +29,7 @@ import (
 
 // The peer produces real blocks, part sets and Ed25519 precommit signatures,
 // served by the production JSON-RPC codec over a loopback HTTP connection.
-type repairM1466Peer struct {
+type blockCommandPeer struct {
 	block  *coretypes.ResultBlock
 	signed *coretypes.ResultCommit
 	trust  rpc.BlockTrust
@@ -37,7 +37,7 @@ type repairM1466Peer struct {
 	calls  []string
 }
 
-func repairM1466Fixture(t *testing.T) *repairM1466Peer {
+func newBlockCommandPeer(t *testing.T) *blockCommandPeer {
 	t.Helper()
 	keys := make(map[string]ed25519.SecretKey)
 	var validators []*tmtypes.Validator
@@ -65,14 +65,14 @@ func repairM1466Fixture(t *testing.T) *repairM1466Peer {
 	}
 	require.NoError(t, vals.VerifyCommitLightAllSignatures(block.ChainID, id, block.Height, commit))
 	header := block.Header
-	return &repairM1466Peer{
+	return &blockCommandPeer{
 		block:  &coretypes.ResultBlock{BlockID: id, Block: block},
 		signed: &coretypes.ResultCommit{SignedHeader: tmtypes.SignedHeader{Header: &header, Commit: commit}, CanonicalCommit: true},
 		trust:  rpc.BlockTrust{ChainID: block.ChainID, Height: block.Height, ValidatorSet: vals},
 	}
 }
 
-func (p *repairM1466Peer) record(method string, req *coretypes.RequestBlockInfo) {
+func (p *blockCommandPeer) record(method string, req *coretypes.RequestBlockInfo) {
 	height := "latest"
 	if req.Height != nil {
 		height = fmt.Sprint(*req.Height)
@@ -82,7 +82,7 @@ func (p *repairM1466Peer) record(method string, req *coretypes.RequestBlockInfo)
 	p.calls = append(p.calls, method+":"+height)
 }
 
-func (p *repairM1466Peer) serve(t *testing.T) client.Context {
+func (p *blockCommandPeer) serve(t *testing.T) client.Context {
 	t.Helper()
 	mux := http.NewServeMux()
 	rpcserver.RegisterRPCFuncs(mux, map[string]*rpcserver.RPCFunc{
@@ -102,7 +102,7 @@ func (p *repairM1466Peer) serve(t *testing.T) client.Context {
 	return client.Context{}.WithClient(node).WithChainID(p.trust.ChainID)
 }
 
-func repairM1466TrustFile(t *testing.T, trust rpc.BlockTrust) string {
+func writeBlockTrustFile(t *testing.T, trust rpc.BlockTrust) string {
 	t.Helper()
 	data, err := tmjson.Marshal(trust)
 	require.NoError(t, err)
@@ -111,7 +111,7 @@ func repairM1466TrustFile(t *testing.T, trust rpc.BlockTrust) string {
 	return path
 }
 
-func repairM1466Command(ctx client.Context, trustPath string, args ...string) (string, error) {
+func executeBlockCommand(ctx client.Context, trustPath string, args ...string) (string, error) {
 	cmd := rpc.BlockCommand()
 	var out, diagnostic bytes.Buffer
 	cmd.SetOut(&out)
@@ -128,7 +128,7 @@ func repairM1466Command(ctx client.Context, trustPath string, args ...string) (s
 	return out.String(), err
 }
 
-func TestRepairM_1466_HeightConventions(t *testing.T) {
+func TestBlockCommandHeightConventions(t *testing.T) {
 	for _, tc := range []struct {
 		name    string
 		args    []string
@@ -142,9 +142,9 @@ func TestRepairM_1466_HeightConventions(t *testing.T) {
 		{name: "overflow", args: []string{"9223372036854775808"}, invalid: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			peer := repairM1466Fixture(t)
+			peer := newBlockCommandPeer(t)
 			ctx := peer.serve(t)
-			output, err := repairM1466Command(ctx, repairM1466TrustFile(t, peer.trust), tc.args...)
+			output, err := executeBlockCommand(ctx, writeBlockTrustFile(t, peer.trust), tc.args...)
 			peer.mu.Lock()
 			calls := append([]string(nil), peer.calls...)
 			peer.mu.Unlock()
@@ -168,51 +168,51 @@ func TestRepairM_1466_HeightConventions(t *testing.T) {
 	}
 }
 
-func TestRepairM_1466_RejectUnauthenticatedBlocks(t *testing.T) {
+func TestBlockCommandRejectUnauthenticatedBlocks(t *testing.T) {
 	for _, tc := range []struct {
 		name    string
-		alter   func(*repairM1466Peer)
+		alter   func(*blockCommandPeer)
 		message string
 	}{
-		{"altered_header", func(p *repairM1466Peer) { p.block.Block.AppHash = []byte("altered") }, "does not match"},
-		{"altered_signed_header", func(p *repairM1466Peer) { p.signed.Header.AppHash = []byte("altered") }, "invalid signed header"},
-		{"missing_commit", func(p *repairM1466Peer) { p.signed.Commit = nil }, "missing commit"},
-		{"missing_signed_header", func(p *repairM1466Peer) { p.signed.Header = nil }, "missing header"},
-		{"missing_block", func(p *repairM1466Peer) { p.block.Block = nil }, "missing block"},
-		{"wrong_height", func(p *repairM1466Peer) { p.block.Block.Height++ }, "height"},
-		{"wrong_commit_height", func(p *repairM1466Peer) { p.signed.Commit.Height++ }, "height mismatch"},
-		{"wrong_chain", func(p *repairM1466Peer) { p.signed.Header.ChainID = "another-chain" }, "another chain"},
-		{"altered_transactions", func(p *repairM1466Peer) { p.block.Block.Txs[0] = []byte("forged transaction") }, "DataHash"},
-		{"wrong_block_id", func(p *repairM1466Peer) { p.block.BlockID.PartSetHeader.Total++ }, "does not match"},
-		{"invalid_signature", func(p *repairM1466Peer) {
+		{"altered_header", func(p *blockCommandPeer) { p.block.Block.AppHash = []byte("altered") }, "does not match"},
+		{"altered_signed_header", func(p *blockCommandPeer) { p.signed.Header.AppHash = []byte("altered") }, "invalid signed header"},
+		{"missing_commit", func(p *blockCommandPeer) { p.signed.Commit = nil }, "missing commit"},
+		{"missing_signed_header", func(p *blockCommandPeer) { p.signed.Header = nil }, "missing header"},
+		{"missing_block", func(p *blockCommandPeer) { p.block.Block = nil }, "missing block"},
+		{"wrong_height", func(p *blockCommandPeer) { p.block.Block.Height++ }, "height"},
+		{"wrong_commit_height", func(p *blockCommandPeer) { p.signed.Commit.Height++ }, "height mismatch"},
+		{"wrong_chain", func(p *blockCommandPeer) { p.signed.Header.ChainID = "another-chain" }, "another chain"},
+		{"altered_transactions", func(p *blockCommandPeer) { p.block.Block.Txs[0] = []byte("forged transaction") }, "DataHash"},
+		{"wrong_block_id", func(p *blockCommandPeer) { p.block.BlockID.PartSetHeader.Total++ }, "does not match"},
+		{"invalid_signature", func(p *blockCommandPeer) {
 			p.signed.Commit.Signatures[0].Signature = utils.Some(ed25519.TestSecretKey([]byte("attacker")).Sign([]byte("invalid")))
 		}, "verify block commit"},
-		{"insufficient_quorum", func(p *repairM1466Peer) { p.signed.Commit.Signatures[0] = tmtypes.NewCommitSigAbsent() }, "verify block commit"},
-		{"self_consistent_forgery", func(p *repairM1466Peer) {
+		{"insufficient_quorum", func(p *blockCommandPeer) { p.signed.Commit.Signatures[0] = tmtypes.NewCommitSigAbsent() }, "verify block commit"},
+		{"self_consistent_forgery", func(p *blockCommandPeer) {
 			p.block.Block.AppHash = []byte("forged state")
 			p.block.BlockID.Hash = p.block.Block.Header.Hash()
 			header := p.block.Block.Header
 			p.signed.Header = &header
 			p.signed.Commit.BlockID = p.block.BlockID
 		}, "verify block commit"},
-		{"untrusted_validators", func(p *repairM1466Peer) {
+		{"untrusted_validators", func(p *blockCommandPeer) {
 			p.trust.ValidatorSet = tmtypes.NewValidatorSet([]*tmtypes.Validator{tmtypes.NewValidator(ed25519.TestSecretKey([]byte("untrusted")).Public(), 30)})
 		}, "trusted validator set"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			peer := repairM1466Fixture(t)
+			peer := newBlockCommandPeer(t)
 			tc.alter(peer)
-			output, err := repairM1466Command(peer.serve(t), repairM1466TrustFile(t, peer.trust), "7")
+			output, err := executeBlockCommand(peer.serve(t), writeBlockTrustFile(t, peer.trust), "7")
 			require.ErrorContains(t, err, tc.message)
 			require.Empty(t, output, "verification failure must not publish block data")
 		})
 	}
 }
 
-func TestRepairM_1466_RequireIndependentTrust(t *testing.T) {
+func TestBlockCommandRequireIndependentTrust(t *testing.T) {
 	for _, name := range []string{"missing_flag", "missing_file", "malformed_file", "missing_validator_set", "missing_chain", "wrong_client_chain", "wrong_trusted_height", "zero_trusted_height"} {
 		t.Run(name, func(t *testing.T) {
-			peer := repairM1466Fixture(t)
+			peer := newBlockCommandPeer(t)
 			ctx := peer.serve(t)
 			path := ""
 			switch name {
@@ -233,9 +233,9 @@ func TestRepairM_1466_RequireIndependentTrust(t *testing.T) {
 				peer.trust.Height = 0
 			}
 			if name != "missing_flag" && path == "" {
-				path = repairM1466TrustFile(t, peer.trust)
+				path = writeBlockTrustFile(t, peer.trust)
 			}
-			output, err := repairM1466Command(ctx, path, "7")
+			output, err := executeBlockCommand(ctx, path, "7")
 			require.Error(t, err)
 			require.Empty(t, output)
 			peer.mu.Lock()

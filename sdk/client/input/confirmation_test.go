@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepairM_1458_ExactAffirmatives(t *testing.T) {
+func TestConfirmationExactAffirmatives(t *testing.T) {
 	for _, response := range []string{"y", "Y", "yes", "yeS", "yEs", "yES", "Yes", "YeS", "YEs", "YES"} {
 		for _, ending := range []string{"\n", "\r\n", ""} {
 			t.Run(response+"/"+strings.ReplaceAll(strings.ReplaceAll(ending, "\r", "CR"), "\n", "LF"), func(t *testing.T) {
@@ -24,7 +24,7 @@ func TestRepairM_1458_ExactAffirmatives(t *testing.T) {
 	}
 }
 
-func TestRepairM_1458_RejectPrefixLookalikes(t *testing.T) {
+func TestConfirmationRejectPrefixLookalikes(t *testing.T) {
 	for _, response := range []string{
 		"yesterday", "YESTERDAY", "yellow", "yeah", "yep", "yesplease", "YESPLEASE",
 		"yes!", "yes no", "y es", "y\tno", "y0", "yes\x00", "y\u200b", "no", "n", "1",
@@ -41,7 +41,7 @@ func TestRepairM_1458_RejectPrefixLookalikes(t *testing.T) {
 	}
 }
 
-func TestRepairM_1458_BlankAndEOF(t *testing.T) {
+func TestConfirmationBlankAndEOF(t *testing.T) {
 	for _, response := range []string{"\n", "\r\n", " \t\n", " \t\u2003"} {
 		t.Run(response, func(t *testing.T) {
 			var output bytes.Buffer
@@ -62,7 +62,7 @@ func TestRepairM_1458_BlankAndEOF(t *testing.T) {
 	})
 }
 
-func TestRepairM_1458_BufferedTranscript(t *testing.T) {
+func TestConfirmationBufferedTranscript(t *testing.T) {
 	reader := bufio.NewReader(strings.NewReader("yesterday\ny\nyesplease\n YeS \n\nno\nY"))
 	var output bytes.Buffer
 	for i, expected := range []bool{false, true, false, true, false, false, true} {
