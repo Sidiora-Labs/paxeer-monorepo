@@ -1,7 +1,7 @@
 # Translations
 
-The root README is the English reference. Localized copies live in
-`docs/readme/` and are mirrored here. When a localized file and the English
+The root README is the English reference. Translations are available in
+`docs/readme/` and on this site. When a localized file and the English
 README differ, the English README is authoritative.
 
 - [Español](i18n/es.md)

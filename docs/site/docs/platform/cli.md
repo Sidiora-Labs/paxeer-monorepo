@@ -10,9 +10,7 @@ The kernel participates in block proposal inside the network. A transaction's
 receipt is final when its block is committed. Sub-chains are tenant domains
 in the database; creating a domain does not require another node deployment.
 
-Public node JSON-RPC uses the root URL of
-`https://api-mainnet-beta.paxeer.network` or `https://api1.mainnet-beta.paxeer.network`
-through `https://api14.mainnet-beta.paxeer.network`. See
+Public node JSON-RPC uses the operator-provided node root URL. See
 [Public RPC endpoints](../reference/public-rpc.md) for node selection and
 WebSocket access. Hosted `px_` methods belong to the
 [hosted gateway contract](gateway-rpc.md), declared in
@@ -80,7 +78,7 @@ pinned policy. Token reads use the SDK's paginated asset contract and do not ind
 | `token burn` | `--asset`, `--amount`, and write inputs. Burn from the selected wallet's asset account. |
 | `token transfer` | Same inputs and implementation as `wallet send`. |
 | `token info <asset>` | Read native token metadata through the SDK. Asset identifiers are 32-byte hex values. Backend or method errors are reported rather than replaced with fabricated metadata. |
-| `token list` | Optional `--cursor <asset>` and `--limit <1–256>`; backend default page size is `64`. Follow `next_cursor` to continue the asset list. |
+| `token list` | Optional `--cursor <registration-row-id>` and `--limit <1–16>`; default page size is `16`. The cursor is a canonical positive decimal signed-64-bit row ID. Follow `next_cursor` in registration order. |
 
 Native writes require `--evm-key-file`, `--receipt-policy`, and `--fee-limit`;
 `--key` selects the local Ed25519 key, otherwise the configured default is used.
@@ -151,7 +149,7 @@ artifact compatibility rather than accepting an arbitrary interface document.
 | `key list`, `key show <name>` | Read public key metadata. |
 | `key default <name>`, `key delete <name>` | Select the default key or permanently remove its stored secret and metadata. |
 | `auth set`, `auth status`, `auth delete` | Optional `--environment`, otherwise active profile. Set reads a token from stdin; status reports presence without printing it. |
-| `register` | Required `--gateway-endpoint`; optional `--key`, otherwise default. Sign the hosted `px_register` tenant binding, fixed to tenant `beta`, and validate the returned subject and signer. It does not create a native main account. |
+| `register` | Required `--gateway-endpoint`; optional `--key`, otherwise default. Sign the hosted `px_register` tenant binding, fixed to tenant `beta` (the gateway must configure the same tenant), and validate the returned subject and signer. It does not create a native main account. |
 | `faucet` | Required `--service-endpoint`; optional `--key`, otherwise default; requires a stored bearer identity session. Calls hosted `px_requestFunds`, validates the funded result, and preserves the funding transaction ID. |
 | `account create` | Emulator uses a local key (`--key` or default) and optional `--initial-amount` (default `0`). Hosted creation requires `--email`, `--display-name`, `--idempotency-key`, and zero initial amount. |
 | `account get` | Emulator requires `--did`; hosted mode reads the active account profile. |
@@ -284,7 +282,8 @@ routes and their bearer tokens are distinct from public node JSON-RPC.
 To check public chain identity directly, use a root-path JSON-RPC client:
 
 ```bash
-curl --max-time 15 -sS https://api1.mainnet-beta.paxeer.network \
+: "${RPC_URL:?}"
+curl --max-time 15 -sS "$RPC_URL" \
   -H 'content-type: application/json' \
   -d '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'
 ```
@@ -292,7 +291,6 @@ curl --max-time 15 -sS https://api1.mainnet-beta.paxeer.network \
 The expected chain ID is `"0x7d"`. For the method inventory and other nodes,
 see [Public RPC endpoints](../reference/public-rpc.md). The public namespaces
 are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test`, and `txpool`.
-`node.hyperpaxeer.com` is the hpx library mirror, never an RPC endpoint.
 
 ## Refusals
 

@@ -68,11 +68,8 @@ not an independently deployed network. Chain sources span root directories
 and shared subpaths, so inspect the workflow's path filters rather than
 assuming all chain changes live under one directory.
 
-The public JSON-RPC uses the numbered mainnet-beta node hosts and the
-unnumbered node host at their root path, as listed in
+Node JSON-RPC uses the root path of the operator-provided origin; see
 [Public JSON-RPC](../reference/public-rpc.md).
-`node.hyperpaxeer.com` is only the hpx library mirror used by build scripts,
-not an RPC endpoint.
 
 ## Further reading
 

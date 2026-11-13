@@ -28,12 +28,12 @@ EVM-контракты обращаются к нативным модулям �
 
 ## Подключение к сети
 
-Публичный JSON-RPC обслуживается по корневому пути на узлах от `https://api1.mainnet-beta.paxeer.network` до `https://api14.mainnet-beta.paxeer.network`, а также по адресу `https://api-mainnet-beta.paxeer.network`. См. [Публичные адреса](../../reference/public-rpc.md). `node.hyperpaxeer.com` — зеркало библиотек hpx (mirror) для сборки, а не адрес для отправки транзакций.
+Получите у оператора корневой HTTPS URL узла и задайте `RPC_URL`. См. [Подключение к узлам](../../reference/public-rpc.md).
 
 С помощью `curl` проверьте chain ID до подписания транзакций и запросите высоту узла. Первый вызов должен вернуть `result: "0x7d"`, второй — высоту в шестнадцатеричном виде.
 
 ```sh
-RPC_URL=https://api1.mainnet-beta.paxeer.network
+: "${RPC_URL:?}"
 curl --fail --silent --show-error --max-time 30 "$RPC_URL" \
   --header 'Content-Type: application/json' \
   --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'

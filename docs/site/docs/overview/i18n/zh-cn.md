@@ -28,12 +28,12 @@ EVM 合约通过预编译合约访问原生模块。`precompiles/setup.go` 中�
 
 ## 连接网络
 
-公共 JSON-RPC 在节点 `https://api1.mainnet-beta.paxeer.network` 至 `https://api14.mainnet-beta.paxeer.network` 的根路径提供服务，也可使用别名 `https://api-mainnet-beta.paxeer.network`。参见[公共端点](../../reference/public-rpc.md)。`node.hyperpaxeer.com` 仅是构建所用的 hpx 库镜像（mirror），不是发送交易的端点。
+从运营方获取节点的 HTTPS 根 URL，并设置 `RPC_URL`。连接方式参见[公共端点](../../reference/public-rpc.md)。
 
 使用 `curl` 在签名前核对 chain ID，并查询节点区块高度。第一次调用应返回 `result: "0x7d"`，第二次返回十六进制高度。
 
 ```sh
-RPC_URL=https://api1.mainnet-beta.paxeer.network
+: "${RPC_URL:?}"
 curl --fail --silent --show-error --max-time 30 "$RPC_URL" \
   --header 'Content-Type: application/json' \
   --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'
