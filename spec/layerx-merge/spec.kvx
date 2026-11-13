@@ -376181,7 +376181,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.89]
 title = "Write the page of the directory modules/layerxexchange"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -376271,7 +376271,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.86]
 title = "Write the page of the directory modules/layerxbridge"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -376331,7 +376331,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.84]
 title = "Write the page of the directory modules/layerxanchor"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -376361,7 +376361,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.83]
 title = "Write the page of the directory modules/layerxagent"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -376421,7 +376421,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.81]
 title = "Write the page of the directory modules/evm"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -376451,7 +376451,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.80]
 title = "Write the page of the directory modules/epoch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -377321,7 +377321,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.51]
 title = "Write the page of the directory precompiles"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -377381,7 +377381,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.49]
 title = "Write the page of the directory modules"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -377411,7 +377411,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.48]
 title = "Write the page of the directory layerxproof"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -377441,7 +377441,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.47]
 title = "Write the page of the directory interchain"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -377501,7 +377501,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.45]
 title = "Write the page of the directory engine"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -377531,7 +377531,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.44]
 title = "Write the page of the directory docker"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -377561,7 +377561,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.43]
 title = "Write the page of the directory deploy"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -377591,7 +377591,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.42]
 title = "Write the page of the directory daemon"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -377651,7 +377651,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.40]
 title = "Write the page of the directory core"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -377681,7 +377681,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.39]
 title = "Write the page of the directory contracts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -377711,7 +377711,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.38]
 title = "Write the page of the directory consensus"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -377801,7 +377801,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.35]
 title = "Write the page of the directory api"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -378184,7 +378184,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.18]
 title = "Write the page of variables of the application under apps/web"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
