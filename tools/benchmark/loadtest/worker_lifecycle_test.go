@@ -27,13 +27,13 @@ import (
 	"golang.org/x/sync/semaphore"
 )
 
-type m766Request struct {
+type rpcRequest struct {
 	ID     json.RawMessage   `json:"id"`
 	Method string            `json:"method"`
 	Params []json.RawMessage `json:"params"`
 }
 
-func m766Reset(t *testing.T) {
+func resetLoadtestState(t *testing.T) {
 	t.Helper()
 	oldProduced, oldSent, oldPrev := producedCountPerMsgType, sentCountPerMsgType, prevSentCounterPerMsgType
 	oldHeights, oldHashes := BlockHeightsWithTxs, EvmTxHashes
@@ -48,12 +48,12 @@ func m766Reset(t *testing.T) {
 	})
 }
 
-func m766WriteRPC(w http.ResponseWriter, req m766Request, result any) {
+func writeRPCResponse(w http.ResponseWriter, req rpcRequest, result any) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{"jsonrpc": "2.0", "id": req.ID, "result": result})
 }
 
-func m766Await(t *testing.T, done <-chan error) error {
+func awaitLoadtest(t *testing.T, done <-chan error) error {
 	t.Helper()
 	select {
 	case err := <-done:
@@ -64,11 +64,11 @@ func m766Await(t *testing.T, done <-chan error) error {
 	}
 }
 
-func m766Block(w http.ResponseWriter, height string) {
+func writeBlockResponse(w http.ResponseWriter, height string) {
 	fmt.Fprintf(w, `{"result":{"block":{"header":{"height":%q,"time":"2026-01-01T00:00:00Z"},"data":{"txs":["dHg="]}}}}`, height)
 }
 
-type m766Runtime struct {
+type loadtestRuntime struct {
 	config     Config
 	client     *LoadTestClient
 	entered    chan struct{}
@@ -82,9 +82,9 @@ type m766Runtime struct {
 	server     *httptest.Server
 }
 
-func m766NewRuntime(t *testing.T, stall bool) *m766Runtime {
+func newLoadtestRuntime(t *testing.T, stall bool) *loadtestRuntime {
 	t.Helper()
-	fixture := &m766Runtime{entered: make(chan struct{}, 128), stall: stall, release: make(chan struct{}), queryCalls: map[string]int{}, accepted: map[common.Hash]bool{}}
+	fixture := &loadtestRuntime{entered: make(chan struct{}, 128), stall: stall, release: make(chan struct{}), queryCalls: map[string]int{}, accepted: map[common.Hash]bool{}}
 	fixture.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/blockchain":
@@ -95,21 +95,21 @@ func m766NewRuntime(t *testing.T, stall bool) *m766Runtime {
 				http.Error(w, "scrape unavailable", http.StatusServiceUnavailable)
 				return
 			}
-			m766Block(w, r.URL.Query().Get("height"))
+			writeBlockResponse(w, r.URL.Query().Get("height"))
 			return
 		}
-		var req m766Request
+		var req rpcRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			t.Error(err)
 			return
 		}
 		switch req.Method {
 		case "eth_getTransactionCount":
-			m766WriteRPC(w, req, "0x0")
+			writeRPCResponse(w, req, "0x0")
 		case "eth_getTransactionByHash":
-			m766WriteRPC(w, req, nil)
+			writeRPCResponse(w, req, nil)
 		case "net_version":
-			m766WriteRPC(w, req, "125")
+			writeRPCResponse(w, req, "125")
 		case "eth_sendRawTransaction":
 			var raw string
 			if len(req.Params) != 1 || json.Unmarshal(req.Params[0], &raw) != nil {
@@ -146,7 +146,7 @@ func m766NewRuntime(t *testing.T, stall bool) *m766Runtime {
 			fixture.accepted[tx.Hash()] = true
 			fixture.queryMu.Unlock()
 			fixture.submitted.Add(1)
-			m766WriteRPC(w, req, tx.Hash())
+			writeRPCResponse(w, req, tx.Hash())
 		case "eth_getBlockByNumber":
 			fixture.queryMu.Lock()
 			fixture.queryCalls[req.Method]++
@@ -168,7 +168,7 @@ func m766NewRuntime(t *testing.T, stall bool) *m766Runtime {
 			block["hash"] = header.Hash()
 			block["uncles"] = []string{}
 			block["transactions"] = []any{}
-			m766WriteRPC(w, req, block)
+			writeRPCResponse(w, req, block)
 		case "eth_getTransactionReceipt":
 			fixture.queryMu.Lock()
 			fixture.queryCalls[req.Method]++
@@ -184,12 +184,12 @@ func m766NewRuntime(t *testing.T, stall bool) *m766Runtime {
 			if !accepted {
 				t.Errorf("receipt queried an unsubmitted hash %s", hash)
 			}
-			m766WriteRPC(w, req, &ethtypes.Receipt{Status: 1, CumulativeGasUsed: 21000, GasUsed: 21000, TxHash: hash, BlockNumber: big.NewInt(10), Logs: []*ethtypes.Log{}})
+			writeRPCResponse(w, req, &ethtypes.Receipt{Status: 1, CumulativeGasUsed: 21000, GasUsed: 21000, TxHash: hash, BlockNumber: big.NewInt(10), Logs: []*ethtypes.Log{}})
 		case "eth_getLogs":
 			fixture.queryMu.Lock()
 			fixture.queryCalls[req.Method]++
 			fixture.queryMu.Unlock()
-			m766WriteRPC(w, req, []*ethtypes.Log{})
+			writeRPCResponse(w, req, []*ethtypes.Log{})
 		default:
 			t.Errorf("unexpected RPC method %s", req.Method)
 			http.Error(w, "unexpected method", 500)
@@ -210,9 +210,9 @@ func m766NewRuntime(t *testing.T, stall bool) *m766Runtime {
 	return fixture
 }
 
-func TestRepairM_766_Participant(t *testing.T) {
-	m766Reset(t)
-	fixture := m766NewRuntime(t, false)
+func TestWorkerParticipation(t *testing.T) {
+	resetLoadtestState(t)
+	fixture := newLoadtestRuntime(t, false)
 	ticks := make(chan time.Time, 1)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -234,7 +234,7 @@ waitForAccepted:
 		}
 	}
 	ticks <- time.Now()
-	if err := m766Await(t, result); err != nil {
+	if err := awaitLoadtest(t, result); err != nil {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(BlockHeightsWithTxs, []int{10}) {
@@ -265,9 +265,9 @@ waitForAccepted:
 	}
 }
 
-func TestRepairM_766_ScrapeCancellation(t *testing.T) {
-	m766Reset(t)
-	fixture := m766NewRuntime(t, true)
+func TestScrapeCancellation(t *testing.T) {
+	resetLoadtestState(t)
+	fixture := newLoadtestRuntime(t, true)
 	ticks := make(chan time.Time, 1)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -280,7 +280,7 @@ func TestRepairM_766_ScrapeCancellation(t *testing.T) {
 	}
 	fixture.failBlock.Store(true)
 	ticks <- time.Now()
-	err := m766Await(t, result)
+	err := awaitLoadtest(t, result)
 	if err == nil || !strings.Contains(err.Error(), "height 10") || !strings.Contains(err.Error(), "503") {
 		t.Fatalf("missing detailed scrape failure: %v", err)
 	}
@@ -294,11 +294,11 @@ func TestRepairM_766_ScrapeCancellation(t *testing.T) {
 	}
 }
 
-func TestRepairM_766_Signals(t *testing.T) {
+func TestSignalShutdown(t *testing.T) {
 	for _, sig := range []syscall.Signal{syscall.SIGINT, syscall.SIGTERM} {
 		t.Run(sig.String(), func(t *testing.T) {
-			m766Reset(t)
-			fixture := m766NewRuntime(t, true)
+			resetLoadtestState(t)
+			fixture := newLoadtestRuntime(t, true)
 			result := make(chan error, 1)
 			go func() { result <- startLoadtestWorkers(fixture.client, fixture.config) }()
 			select {
@@ -309,15 +309,15 @@ func TestRepairM_766_Signals(t *testing.T) {
 			if err := syscall.Kill(os.Getpid(), sig); err != nil {
 				t.Fatal(err)
 			}
-			if err := m766Await(t, result); !errors.Is(err, context.Canceled) {
+			if err := awaitLoadtest(t, result); !errors.Is(err, context.Canceled) {
 				t.Fatalf("signal did not cancel positive-tick benchmark: %v", err)
 			}
 		})
 	}
 }
 
-func TestRepairM_766_DuplicateStatisticsHeight(t *testing.T) {
-	m766Reset(t)
+func TestDuplicateStatisticsHeight(t *testing.T) {
+	resetLoadtestState(t)
 	var height atomic.Int64
 	height.Store(10)
 	var fail atomic.Bool
@@ -336,7 +336,7 @@ func TestRepairM_766_DuplicateStatisticsHeight(t *testing.T) {
 			http.Error(w, "unavailable", 503)
 			return
 		}
-		m766Block(w, strconv.Itoa(h))
+		writeBlockResponse(w, strconv.Itoa(h))
 	}))
 	defer server.Close()
 	next := 10
@@ -370,7 +370,7 @@ func TestRepairM_766_DuplicateStatisticsHeight(t *testing.T) {
 	}
 }
 
-func TestRepairM_766_UnboundedRPCInput(t *testing.T) {
+func TestRPCInputValidation(t *testing.T) {
 	for _, tc := range []struct {
 		name, body string
 		status     int
@@ -441,9 +441,9 @@ func TestRepairM_766_UnboundedRPCInput(t *testing.T) {
 	})
 }
 
-func TestRepairM_766_PostQueryObservations(t *testing.T) {
-	m766Reset(t)
-	fixture := m766NewRuntime(t, false)
+func TestPostQueryObservations(t *testing.T) {
+	resetLoadtestState(t)
+	fixture := newLoadtestRuntime(t, false)
 	ticks := make(chan time.Time, 1)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -458,7 +458,7 @@ func TestRepairM_766_PostQueryObservations(t *testing.T) {
 		}
 	}
 	ticks <- time.Now()
-	if err := m766Await(t, result); err != nil {
+	if err := awaitLoadtest(t, result); err != nil {
 		t.Fatal(err)
 	}
 	config := fixture.config
@@ -513,17 +513,17 @@ func TestRepairM_766_PostQueryObservations(t *testing.T) {
 	}
 }
 
-func TestRepairM_766_PostQueryBoundsAndErrors(t *testing.T) {
-	m766Reset(t)
+func TestPostQueryBoundsAndErrors(t *testing.T) {
+	resetLoadtestState(t)
 	var active, peak, completed atomic.Int64
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var req m766Request
+		var req rpcRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			t.Error(err)
 			return
 		}
 		if req.Method == "net_version" {
-			m766WriteRPC(w, req, "125")
+			writeRPCResponse(w, req, "125")
 			return
 		}
 		current := active.Add(1)
@@ -535,7 +535,7 @@ func TestRepairM_766_PostQueryBoundsAndErrors(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 		active.Add(-1)
 		completed.Add(1)
-		m766WriteRPC(w, req, []*ethtypes.Log{})
+		writeRPCResponse(w, req, []*ethtypes.Log{})
 	}))
 	defer server.Close()
 	config := Config{EvmRpcEndpoints: server.URL, EVMAddresses: &EVMAddresses{ERC20: common.HexToAddress("0x1")}, PostTxEvmQueries: PostTxEvmQueries{Filters: postQueryConcurrency * 3}}
@@ -546,13 +546,13 @@ func TestRepairM_766_PostQueryBoundsAndErrors(t *testing.T) {
 		t.Fatalf("query concurrency/count: peak=%d completed=%d", peak.Load(), completed.Load())
 	}
 	failures := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var req m766Request
+		var req rpcRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			t.Error(err)
 			return
 		}
 		if req.Method == "net_version" {
-			m766WriteRPC(w, req, "125")
+			writeRPCResponse(w, req, "125")
 			return
 		}
 		_ = json.NewEncoder(w).Encode(map[string]any{"jsonrpc": "2.0", "id": req.ID, "error": map[string]any{"code": -32000, "message": "query unavailable"}})
@@ -563,13 +563,13 @@ func TestRepairM_766_PostQueryBoundsAndErrors(t *testing.T) {
 		t.Fatalf("query error was reported as a measurement: %v", err)
 	}
 	stalled := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var req m766Request
+		var req rpcRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			t.Error(err)
 			return
 		}
 		if req.Method == "net_version" {
-			m766WriteRPC(w, req, "125")
+			writeRPCResponse(w, req, "125")
 			return
 		}
 		<-r.Context().Done()

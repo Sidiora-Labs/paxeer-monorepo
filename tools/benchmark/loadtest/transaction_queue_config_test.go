@@ -29,20 +29,20 @@ import (
 	"golang.org/x/time/rate"
 )
 
-type m880EthPeer struct {
+type receiptQueryPeer struct {
 	mu      sync.Mutex
 	txs     map[common.Hash]*ethtypes.Transaction
 	queries []common.Hash
 	sent    []common.Hash
 }
 
-func (p *m880EthPeer) Version() string { return "125" }
+func (p *receiptQueryPeer) Version() string { return "125" }
 
-func (p *m880EthPeer) GetTransactionCount(context.Context, common.Address, string) hexutil.Uint64 {
+func (p *receiptQueryPeer) GetTransactionCount(context.Context, common.Address, string) hexutil.Uint64 {
 	return 0
 }
 
-func (p *m880EthPeer) GetTransactionReceipt(_ context.Context, hash common.Hash) (*ethtypes.Receipt, error) {
+func (p *receiptQueryPeer) GetTransactionReceipt(_ context.Context, hash common.Hash) (*ethtypes.Receipt, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.queries = append(p.queries, hash)
@@ -57,7 +57,7 @@ func (p *m880EthPeer) GetTransactionReceipt(_ context.Context, hash common.Hash)
 	}, nil
 }
 
-func (p *m880EthPeer) SendRawTransaction(_ context.Context, raw hexutil.Bytes) (common.Hash, error) {
+func (p *receiptQueryPeer) SendRawTransaction(_ context.Context, raw hexutil.Bytes) (common.Hash, error) {
 	var tx ethtypes.Transaction
 	if err := tx.UnmarshalBinary(raw); err != nil {
 		return common.Hash{}, err
@@ -72,9 +72,9 @@ func (p *m880EthPeer) SendRawTransaction(_ context.Context, raw hexutil.Bytes) (
 	return tx.Hash(), nil
 }
 
-func m880Peer(t *testing.T) (*m880EthPeer, *ethclient.Client, string) {
+func newReceiptQueryPeer(t *testing.T) (*receiptQueryPeer, *ethclient.Client, string) {
 	t.Helper()
-	peer := &m880EthPeer{txs: make(map[common.Hash]*ethtypes.Transaction)}
+	peer := &receiptQueryPeer{txs: make(map[common.Hash]*ethtypes.Transaction)}
 	server := rpc.NewServer()
 	if err := server.RegisterName("eth", peer); err != nil {
 		t.Fatal(err)
@@ -93,11 +93,11 @@ func m880Peer(t *testing.T) (*m880EthPeer, *ethclient.Client, string) {
 	return peer, client, httpServer.URL
 }
 
-func m880EvmClient(client *ethclient.Client) *EvmTxClient {
+func newReceiptQueryClient(client *ethclient.Client) *EvmTxClient {
 	return NewEvmTxClient(secp256k1.GenPrivKey(), big.NewInt(125), big.NewInt(1), []*ethclient.Client{client}, nil, false)
 }
 
-func m880Store(t *testing.T, capacity int) *evmTxHashStore {
+func newHashStore(t *testing.T, capacity int) *evmTxHashStore {
 	t.Helper()
 	previous := EvmTxHashes
 	EvmTxHashes = newEvmTxHashStore(capacity)
@@ -105,7 +105,7 @@ func m880Store(t *testing.T, capacity int) *evmTxHashStore {
 	return EvmTxHashes
 }
 
-func m880CheckReceiptQueries(t *testing.T, peer *m880EthPeer, endpoint string, want []common.Hash) {
+func checkReceiptQueries(t *testing.T, peer *receiptQueryPeer, endpoint string, want []common.Hash) {
 	t.Helper()
 	peer.mu.Lock()
 	peer.queries = nil
@@ -132,13 +132,13 @@ func m880CheckReceiptQueries(t *testing.T, peer *m880EthPeer, endpoint string, w
 	}
 }
 
-func TestRepairM_880_F042ConcurrentProducersAndReceiptQueries(t *testing.T) {
+func TestConcurrentProducersAndReceiptQueries(t *testing.T) {
 	const workers, perWorker = 8, 64
-	store := m880Store(t, workers*perWorker)
-	peer, ethClient, endpoint := m880Peer(t)
+	store := newHashStore(t, workers*perWorker)
+	peer, ethClient, endpoint := newReceiptQueryPeer(t)
 	client := &LoadTestClient{LoadTestConfig: Config{MessageTypes: []string{EVM}}}
 	for i := 0; i < workers; i++ {
-		client.EvmTxClients = append(client.EvmTxClients, m880EvmClient(ethClient))
+		client.EvmTxClients = append(client.EvmTxClients, newReceiptQueryClient(ethClient))
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -235,7 +235,7 @@ func TestRepairM_880_F042ConcurrentProducersAndReceiptQueries(t *testing.T) {
 			t.Fatalf("store retained a hash not emitted by BuildTxs: %s", hash)
 		}
 	}
-	m880CheckReceiptQueries(t, peer, endpoint, snapshot)
+	checkReceiptQueries(t, peer, endpoint, snapshot)
 	client.EvmTxClients[0].EnsureTxSuccess(snapshot[0])
 	select {
 	case err := <-readerErrors:
@@ -255,11 +255,11 @@ func TestRepairM_880_F042ConcurrentProducersAndReceiptQueries(t *testing.T) {
 	})
 }
 
-func TestRepairM_880_F042BoundedIndependentSnapshot(t *testing.T) {
+func TestBoundedIndependentSnapshot(t *testing.T) {
 	const capacity = 4
-	store := m880Store(t, capacity)
-	peer, ethClient, endpoint := m880Peer(t)
-	client := m880EvmClient(ethClient)
+	store := newHashStore(t, capacity)
+	peer, ethClient, endpoint := newReceiptQueryPeer(t)
+	client := newReceiptQueryClient(ethClient)
 	var emitted []common.Hash
 	var retainedSnapshot []common.Hash
 	for i := 0; i < 5*capacity; i++ {
@@ -293,11 +293,11 @@ func TestRepairM_880_F042BoundedIndependentSnapshot(t *testing.T) {
 	if store.Snapshot()[0] == (common.Hash{}) {
 		t.Fatal("snapshot mutation changed the retained store")
 	}
-	m880CheckReceiptQueries(t, peer, endpoint, emitted[len(emitted)-capacity:])
+	checkReceiptQueries(t, peer, endpoint, emitted[len(emitted)-capacity:])
 	client.EnsureTxSuccess(emitted[len(emitted)-1])
 
 	t.Run("empty receipt source", func(t *testing.T) {
-		m880Store(t, capacity)
+		newHashStore(t, capacity)
 		peer.mu.Lock()
 		before := len(peer.queries)
 		peer.mu.Unlock()
@@ -312,12 +312,12 @@ func TestRepairM_880_F042BoundedIndependentSnapshot(t *testing.T) {
 	})
 }
 
-func m880Metrics(t *testing.T) *sdkmetric.ManualReader {
+func newMetricsReader(t *testing.T) *sdkmetric.ManualReader {
 	t.Helper()
 	previous := loadtestMetrics
 	reader := sdkmetric.NewManualReader()
 	provider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
-	meter := provider.Meter("repair-m880")
+	meter := provider.Meter("loadtest-queue")
 	loadtestMetrics.produceCount = must(meter.Int64Counter("produce"))
 	loadtestMetrics.consumeCount = must(meter.Int64Counter("consume"))
 	t.Cleanup(func() {
@@ -329,7 +329,7 @@ func m880Metrics(t *testing.T) *sdkmetric.ManualReader {
 	return reader
 }
 
-func m880Consumed(t *testing.T, reader *sdkmetric.ManualReader) int64 {
+func consumedMetricCount(t *testing.T, reader *sdkmetric.ManualReader) int64 {
 	t.Helper()
 	var result metricdata.ResourceMetrics
 	if err := reader.Collect(context.Background(), &result); err != nil {
@@ -356,7 +356,7 @@ func m880Consumed(t *testing.T, reader *sdkmetric.ManualReader) int64 {
 	return count
 }
 
-func m880SendClosedQueue(t *testing.T, client *LoadTestClient, queue chan SignedTx, counts map[string]*int64) {
+func sendClosedQueue(t *testing.T, client *LoadTestClient, queue chan SignedTx, counts map[string]*int64) {
 	t.Helper()
 	close(queue)
 	sem := semaphore.NewWeighted(1)
@@ -379,16 +379,16 @@ func m880SendClosedQueue(t *testing.T, client *LoadTestClient, queue chan Signed
 	sem.Release(1)
 }
 
-func TestRepairM_880_F026ClosedQueueShutdown(t *testing.T) {
-	reader := m880Metrics(t)
+func TestClosedQueueShutdown(t *testing.T) {
+	reader := newMetricsReader(t)
 	counts := map[string]*int64{EVM: new(int64)}
-	m880SendClosedQueue(t, &LoadTestClient{}, make(chan SignedTx), counts)
-	if *counts[EVM] != 0 || len(counts) != 1 || m880Consumed(t, reader) != 0 {
+	sendClosedQueue(t, &LoadTestClient{}, make(chan SignedTx), counts)
+	if *counts[EVM] != 0 || len(counts) != 1 || consumedMetricCount(t, reader) != 0 {
 		t.Fatal("empty closed queue changed sent counters or emitted a consumed metric")
 	}
 
-	peer, ethClient, _ := m880Peer(t)
-	client := &LoadTestClient{EvmTxClients: []*EvmTxClient{m880EvmClient(ethClient)}}
+	peer, ethClient, _ := newReceiptQueryPeer(t)
+	client := &LoadTestClient{EvmTxClients: []*EvmTxClient{newReceiptQueryClient(ethClient)}}
 	queue := make(chan SignedTx, 3)
 	var want []common.Hash
 	for i := 0; i < cap(queue); i++ {
@@ -402,8 +402,8 @@ func TestRepairM_880_F026ClosedQueueShutdown(t *testing.T) {
 	previous := producedCountPerMsgType
 	producedCountPerMsgType = map[string]*int64{EVM: new(int64)}
 	t.Cleanup(func() { producedCountPerMsgType = previous })
-	m880SendClosedQueue(t, client, queue, counts)
-	if *counts[EVM] != 3 || *producedCountPerMsgType[EVM] != 0 || m880Consumed(t, reader) != 3 {
+	sendClosedQueue(t, client, queue, counts)
+	if *counts[EVM] != 3 || *producedCountPerMsgType[EVM] != 0 || consumedMetricCount(t, reader) != 3 {
 		t.Fatalf("closed buffered queue must send exactly three transactions without changing production count: sent=%d produced=%d", *counts[EVM], *producedCountPerMsgType[EVM])
 	}
 	peer.mu.Lock()
@@ -413,7 +413,7 @@ func TestRepairM_880_F026ClosedQueueShutdown(t *testing.T) {
 	}
 }
 
-func m880Config() Config {
+func validConfig() Config {
 	return Config{
 		MessageTypes:  []string{WasmMintNft},
 		PriceDistr:    NumericDistribution{Min: sdk.NewDec(2), Max: sdk.NewDec(4), NumDistinct: 4},
@@ -421,7 +421,7 @@ func m880Config() Config {
 	}
 }
 
-func m880ExpectConfigFailure(t *testing.T, key string, admit func()) {
+func expectConfigFailure(t *testing.T, key string, admit func()) {
 	t.Helper()
 	defer func() {
 		failure := recover()
@@ -434,11 +434,11 @@ func m880ExpectConfigFailure(t *testing.T, key string, admit func()) {
 	t.Fatal("admitted invalid numeric distribution")
 }
 
-func TestRepairM_880_F027ConfigurationAdmission(t *testing.T) {
+func TestConfigurationAdmission(t *testing.T) {
 	for _, key := range []string{"price_distribution", "quantity_distribution"} {
 		for _, defect := range []string{"zero", "negative", "missing min", "missing max", "reversed"} {
 			t.Run(key+"/"+defect, func(t *testing.T) {
-				config := m880Config()
+				config := validConfig()
 				dist := &config.PriceDistr
 				if key == "quantity_distribution" {
 					dist = &config.QuantityDistr
@@ -462,12 +462,12 @@ func TestRepairM_880_F027ConfigurationAdmission(t *testing.T) {
 				if err := config.Validate(); err == nil || !strings.Contains(err.Error(), key+suffix) {
 					t.Fatalf("configuration validation did not report %s%s: %v", key, suffix, err)
 				}
-				m880ExpectConfigFailure(t, key+suffix, func() { run(&config) })
+				expectConfigFailure(t, key+suffix, func() { run(&config) })
 				if config.EVMAddresses != nil {
 					t.Fatal("invalid distribution reached startup before rejection")
 				}
 				// Drive the JSON admission path as well, preserving missing fields.
-				raw, err := json.Marshal(m880Config())
+				raw, err := json.Marshal(validConfig())
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -503,7 +503,7 @@ func TestRepairM_880_F027ConfigurationAdmission(t *testing.T) {
 				if err := os.WriteFile(path, raw, 0600); err != nil {
 					t.Fatal(err)
 				}
-				m880ExpectConfigFailure(t, key+suffix, func() { ReadConfig(path) })
+				expectConfigFailure(t, key+suffix, func() { ReadConfig(path) })
 			})
 		}
 	}
@@ -514,8 +514,8 @@ func TestRepairM_880_F027ConfigurationAdmission(t *testing.T) {
 	}
 }
 
-func TestRepairM_880_F027ValidDistributionSampling(t *testing.T) {
-	config := m880Config()
+func TestValidDistributionSampling(t *testing.T) {
+	config := validConfig()
 	raw, err := json.Marshal(config)
 	if err != nil {
 		t.Fatal(err)

@@ -46,7 +46,7 @@ import (
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
 
-func m879JSON(t *testing.T, value any) []byte {
+func marshalTestJSON(t *testing.T, value any) []byte {
 	t.Helper()
 	raw, err := json.Marshal(value)
 	if err != nil {
@@ -54,7 +54,7 @@ func m879JSON(t *testing.T, value any) []byte {
 	}
 	return raw
 }
-func m879Read(t *testing.T, path string) []byte {
+func readTestFixture(t *testing.T, path string) []byte {
 	t.Helper()
 	raw, err := os.ReadFile(path)
 	if err != nil {
@@ -62,12 +62,12 @@ func m879Read(t *testing.T, path string) []byte {
 	}
 	return raw
 }
-func m879Response(t *testing.T, code uint32, event, key, value string, rawLog bool) []byte {
+func transactionResponse(t *testing.T, code uint32, event, key, value string, rawLog bool) []byte {
 	t.Helper()
 	logs := sdk.ABCIMessageLogs{{Events: []sdk.StringEvent{{Type: event, Attributes: []sdk.Attribute{{Key: key, Value: value}, {Key: "note", Value: "quoted \"value\" and C:\\path with spaces"}}}}}}
 	response := &sdk.TxResponse{Code: code, Height: 42, TxHash: strings.Repeat("a", 64), Logs: logs}
 	if rawLog {
-		response.RawLog = string(m879JSON(t, logs))
+		response.RawLog = string(marshalTestJSON(t, logs))
 		response.Logs = nil
 	}
 	raw, err := codec.ProtoMarshalJSON(response, nil)
@@ -77,7 +77,7 @@ func m879Response(t *testing.T, code uint32, event, key, value string, rawLog bo
 	return raw
 }
 
-func TestRepairM_879_TransactionParser(t *testing.T) {
+func TestTransactionParser(t *testing.T) {
 	address := sdk.AccAddress(bytes.Repeat([]byte{7}, 20)).String()
 	for _, tc := range []struct{ kind, event, key, value string }{
 		{"code_id", "store_code", "code_id", "47"},
@@ -85,7 +85,7 @@ func TestRepairM_879_TransactionParser(t *testing.T) {
 		{"contract_address", "instantiate", "_contract_address", address},
 	} {
 		for _, rawLog := range []bool{false, true} {
-			raw := m879Response(t, 0, tc.event, tc.key, tc.value, rawLog)
+			raw := transactionResponse(t, 0, tc.event, tc.key, tc.value, rawLog)
 			var output bytes.Buffer
 			if err := operations.RunCLI(context.Background(), []string{"parse-transaction", tc.kind}, bytes.NewReader(raw), &output, nil); err != nil {
 				t.Fatal(err)
@@ -94,11 +94,11 @@ func TestRepairM_879_TransactionParser(t *testing.T) {
 				t.Fatalf("identifier = %q", output.String())
 			}
 			for _, bad := range [][]byte{
-				m879Response(t, 9, tc.event, tc.key, tc.value, rawLog),
-				m879Response(t, 0, "other", tc.key, tc.value, rawLog),
-				m879Response(t, 0, tc.event, tc.key, "", rawLog),
-				m879Response(t, 0, tc.event, tc.key, "-1", rawLog),
-				m879Response(t, 0, tc.event, tc.key, "not an identifier", rawLog),
+				transactionResponse(t, 9, tc.event, tc.key, tc.value, rawLog),
+				transactionResponse(t, 0, "other", tc.key, tc.value, rawLog),
+				transactionResponse(t, 0, tc.event, tc.key, "", rawLog),
+				transactionResponse(t, 0, tc.event, tc.key, "-1", rawLog),
+				transactionResponse(t, 0, tc.event, tc.key, "not an identifier", rawLog),
 				[]byte(`{"code":0,"raw_log":"not JSON"}`), []byte(`{`), []byte(`{"logs":[]}`),
 			} {
 				output.Reset()
@@ -110,25 +110,25 @@ func TestRepairM_879_TransactionParser(t *testing.T) {
 		}
 	}
 	for _, invalid := range []string{"0", "01", "1.1", "18446744073709551616"} {
-		if _, err := operations.TransactionIdentifier(m879Response(t, 0, "store_code", "code_id", invalid, true), "code_id"); err == nil {
+		if _, err := operations.TransactionIdentifier(transactionResponse(t, 0, "store_code", "code_id", invalid, true), "code_id"); err == nil {
 			t.Fatalf("accepted id %q", invalid)
 		}
 	}
 }
 
-type m879CommandStep struct {
+type commandStep struct {
 	args  []string
 	raw   []byte
 	err   error
 	check func(operations.Command)
 }
-type m879Transcript struct {
+type commandTranscript struct {
 	t     *testing.T
-	steps []m879CommandStep
+	steps []commandStep
 	used  int
 }
 
-func (p *m879Transcript) Run(ctx context.Context, cmd operations.Command) ([]byte, error) {
+func (p *commandTranscript) Run(ctx context.Context, cmd operations.Command) ([]byte, error) {
 	p.t.Helper()
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -146,16 +146,16 @@ func (p *m879Transcript) Run(ctx context.Context, cmd operations.Command) ([]byt
 	}
 	return step.raw, step.err
 }
-func (p *m879Transcript) done() {
+func (p *commandTranscript) done() {
 	p.t.Helper()
 	if p.used != len(p.steps) {
 		p.t.Fatalf("consumed %d of %d transcript commands", p.used, len(p.steps))
 	}
 }
 
-func m879WasmSteps(t *testing.T, options operations.WasmDeployment) []m879CommandStep {
+func wasmDeploymentSteps(t *testing.T, options operations.WasmDeployment) []commandStep {
 	t.Helper()
-	steps := []m879CommandStep{
+	steps := []commandStep{
 		{args: []string{options.Paxd, "tx", "wasm", "store", "--help"}, raw: []byte("store [wasm file]")},
 		{args: []string{options.Paxd, "tx", "wasm", "instantiate", "--help"}, raw: []byte("instantiate [code_id_int64]")},
 	}
@@ -163,32 +163,32 @@ func m879WasmSteps(t *testing.T, options operations.WasmDeployment) []m879Comman
 		argv := append([]string{options.Paxd, "tx", "wasm"}, args...)
 		argv = append(argv, "-y", "--from="+options.Key, "--chain-id="+options.Chain,
 			"--gas=5000000", "--fees=1000000uhpx", "--broadcast-mode=block", "--output=json")
-		steps = append(steps, m879CommandStep{args: argv, raw: raw})
+		steps = append(steps, commandStep{args: argv, raw: raw})
 	}
 	for i := 1; i <= 2; i++ {
-		tx(m879Response(t, 0, "store_code", "code_id", fmt.Sprint(i), true), "store", filepath.Join(options.Root, "contracts", "wasm", "cw20_base.wasm"))
+		tx(transactionResponse(t, 0, "store_code", "code_id", fmt.Sprint(i), true), "store", filepath.Join(options.Root, "contracts", "wasm", "cw20_base.wasm"))
 	}
 	for i := 1; i <= 2; i++ {
 		address := sdk.AccAddress(bytes.Repeat([]byte{byte(i)}, 20)).String()
 		msg := `{"name":"TestToken","symbol":"TTK","decimals":6,"initial_balances":[]}`
-		tx(m879Response(t, 0, "instantiate", "_contract_address", address, false), "instantiate", fmt.Sprint(i), msg, "--no-admin", "--label=cw20-loadtest")
+		tx(transactionResponse(t, 0, "instantiate", "_contract_address", address, false), "instantiate", fmt.Sprint(i), msg, "--no-admin", "--label=cw20-loadtest")
 	}
 	return steps
 }
 
-func TestRepairM_879_WasmDeployment(t *testing.T) {
+func TestWasmDeployment(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "checkout with spaces")
 	artifact := filepath.Join(root, "contracts", "wasm", "cw20_base.wasm")
 	if err := os.MkdirAll(filepath.Dir(artifact), 0700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(artifact, m879Read(t, "../../../contracts/wasm/cw20_base.wasm"), 0600); err != nil {
+	if err := os.WriteFile(artifact, readTestFixture(t, "../../../contracts/wasm/cw20_base.wasm"), 0600); err != nil {
 		t.Fatal(err)
 	}
 	options := operations.WasmDeployment{Root: root, Paxd: "/binary with spaces/paxd", Key: "admin key", Chain: "benchmark-chain"}
-	steps := m879WasmSteps(t, options)
+	steps := wasmDeploymentSteps(t, options)
 	output := new(bytes.Buffer)
-	peer := &m879Transcript{t: t, steps: steps}
+	peer := &commandTranscript{t: t, steps: steps}
 	if err := operations.DeployWasm(context.Background(), peer, options, output); err != nil {
 		t.Fatal(err)
 	}
@@ -202,9 +202,9 @@ func TestRepairM_879_WasmDeployment(t *testing.T) {
 	}
 	for index := range steps {
 		t.Run(fmt.Sprintf("failed-command-%d", index), func(t *testing.T) {
-			prefix := append([]m879CommandStep(nil), steps[:index+1]...)
+			prefix := append([]commandStep(nil), steps[:index+1]...)
 			prefix[index].err = errors.New("recorded command failure")
-			peer := &m879Transcript{t: t, steps: prefix}
+			peer := &commandTranscript{t: t, steps: prefix}
 			var output bytes.Buffer
 			err := operations.DeployWasm(context.Background(), peer, options, &output)
 			if err == nil || output.Len() != 0 {
@@ -220,9 +220,9 @@ func TestRepairM_879_WasmDeployment(t *testing.T) {
 		})
 		if index >= 2 {
 			t.Run(fmt.Sprintf("refused-transaction-%d", index), func(t *testing.T) {
-				prefix := append([]m879CommandStep(nil), steps[:index+1]...)
-				prefix[index].raw = m879Response(t, 7, "message", "action", "refused", false)
-				peer := &m879Transcript{t: t, steps: prefix}
+				prefix := append([]commandStep(nil), steps[:index+1]...)
+				prefix[index].raw = transactionResponse(t, 7, "message", "action", "refused", false)
+				peer := &commandTranscript{t: t, steps: prefix}
 				if operations.DeployWasm(context.Background(), peer, options, io.Discard) == nil {
 					t.Fatal("refused transaction accepted")
 				}
@@ -231,9 +231,9 @@ func TestRepairM_879_WasmDeployment(t *testing.T) {
 		}
 	}
 	for _, index := range []int{2, 3, 4, 5} {
-		prefix := append([]m879CommandStep(nil), steps[:index+1]...)
-		prefix[index].raw = m879Response(t, 0, "store_code", "code_id", "-1", true)
-		peer := &m879Transcript{t: t, steps: prefix}
+		prefix := append([]commandStep(nil), steps[:index+1]...)
+		prefix[index].raw = transactionResponse(t, 0, "store_code", "code_id", "-1", true)
+		peer := &commandTranscript{t: t, steps: prefix}
 		if operations.DeployWasm(context.Background(), peer, options, io.Discard) == nil {
 			t.Fatal("invalid identifier used")
 		}
@@ -241,10 +241,10 @@ func TestRepairM_879_WasmDeployment(t *testing.T) {
 	}
 }
 
-func m879EVMDeployment(t *testing.T, kind string) {
+func evmDeployment(t *testing.T, kind string) {
 	t.Helper()
 	options := operations.EVMDeployment{Root: "/checkout with spaces/contracts/evm", Endpoint: "http://127.0.0.1:8545", Key: "fixture key", Contract: kind, Paxd: "/binary with spaces/paxd"}
-	fixture := m879Read(t, "testdata/m879/forge-create.json")
+	fixture := readTestFixture(t, "testdata/m879/forge-create.json")
 	account := "0x1234567890123456789012345678901234567890"
 	source := "src/NoopToken.sol:NoopToken"
 	if kind == "erc721" {
@@ -254,13 +254,13 @@ func m879EVMDeployment(t *testing.T, kind string) {
 	if kind == "erc20" {
 		forge = append(forge, "--constructor-args", "NoopToken", "NT")
 	}
-	steps := []m879CommandStep{
+	steps := []commandStep{
 		{args: []string{filepath.Join(options.Root, "setup.sh")}},
 		{args: []string{"cast", "wallet", "address", "--private-key", options.Key}, raw: []byte(account + "\n")},
 		{args: []string{"cast", "balance", account, "--rpc-url", options.Endpoint}, raw: []byte("100000000000000000000\n")},
 		{args: forge, raw: fixture},
 	}
-	peer := &m879Transcript{t: t, steps: steps}
+	peer := &commandTranscript{t: t, steps: steps}
 	address, err := operations.DeployEVM(context.Background(), peer, options)
 	if err != nil || address != "0x9876543210987654321098765432109876543210" {
 		t.Fatalf("address %q, err %v", address, err)
@@ -268,9 +268,9 @@ func m879EVMDeployment(t *testing.T, kind string) {
 	peer.done()
 	for index := range steps {
 		t.Run(fmt.Sprintf("command-%d", index), func(t *testing.T) {
-			prefix := append([]m879CommandStep(nil), steps[:index+1]...)
+			prefix := append([]commandStep(nil), steps[:index+1]...)
 			prefix[index].err = errors.New("recorded subprocess failure")
-			peer := &m879Transcript{t: t, steps: prefix}
+			peer := &commandTranscript{t: t, steps: prefix}
 			if address, err := operations.DeployEVM(context.Background(), peer, options); err == nil || address != "" {
 				t.Fatal("failed command admitted deployment")
 			}
@@ -278,41 +278,41 @@ func m879EVMDeployment(t *testing.T, kind string) {
 		})
 	}
 	for _, bad := range []string{`{}`, `{"deployedTo":null}`, `{"deployedTo":"0x0000000000000000000000000000000000000000"}`, `{"deployedTo":"garbage"}`, `{"deployedTo":"0x1234"}`, `{`, string(fixture) + `{}`} {
-		changed := append([]m879CommandStep(nil), steps...)
+		changed := append([]commandStep(nil), steps...)
 		changed[3].raw = []byte(bad)
-		peer := &m879Transcript{t: t, steps: changed}
+		peer := &commandTranscript{t: t, steps: changed}
 		if address, err := operations.DeployEVM(context.Background(), peer, options); err == nil || address != "" {
 			t.Fatalf("invalid forge response admitted: %s", bad)
 		}
 		peer.done()
 	}
 	for _, badBalance := range []string{"not a balance", "-1"} {
-		prefix := append([]m879CommandStep(nil), steps[:3]...)
+		prefix := append([]commandStep(nil), steps[:3]...)
 		prefix[2].raw = []byte(badBalance)
-		peer := &m879Transcript{t: t, steps: prefix}
+		peer := &commandTranscript{t: t, steps: prefix}
 		if _, err := operations.DeployEVM(context.Background(), peer, options); err == nil {
 			t.Fatal("malformed balance accepted")
 		}
 		peer.done()
 	}
-	prefix := append([]m879CommandStep(nil), steps[:3]...)
+	prefix := append([]commandStep(nil), steps[:3]...)
 	prefix[2].raw = []byte("0")
-	prefix = append(prefix, m879CommandStep{args: []string{options.Paxd, "tx", "evm", "send", account, "100000000000000000000", "--from", "admin", "--evm-rpc", options.Endpoint, "-y"}, err: errors.New("funding refused")})
-	peer = &m879Transcript{t: t, steps: prefix}
+	prefix = append(prefix, commandStep{args: []string{options.Paxd, "tx", "evm", "send", account, "100000000000000000000", "--from", "admin", "--evm-rpc", options.Endpoint, "-y"}, err: errors.New("funding refused")})
+	peer = &commandTranscript{t: t, steps: prefix}
 	if _, err := operations.DeployEVM(context.Background(), peer, options); err == nil {
 		t.Fatal("refused funding admitted forge")
 	}
 	peer.done()
 }
-func TestRepairM_879_ERC20Deployment(t *testing.T)  { m879EVMDeployment(t, "erc20") }
-func TestRepairM_879_ERC721Deployment(t *testing.T) { m879EVMDeployment(t, "erc721") }
+func TestERC20Deployment(t *testing.T)  { evmDeployment(t, "erc20") }
+func TestERC721Deployment(t *testing.T) { evmDeployment(t, "erc721") }
 
-func TestRepairM_879_CompleteABI(t *testing.T) {
+func TestCompleteABI(t *testing.T) {
 	for _, pair := range []struct{ path, binding string }{
 		{"contracts/evm/bindings/erc20/abi.json", erc20.Erc20MetaData.ABI},
 		{"contracts/evm/bindings/erc721/abi.json", erc721.Erc721MetaData.ABI},
 	} {
-		original := m879Read(t, pair.path)
+		original := readTestFixture(t, pair.path)
 		expected, err := operations.CanonicalABI(original)
 		if err != nil {
 			t.Fatal(err)
@@ -331,7 +331,7 @@ func TestRepairM_879_CompleteABI(t *testing.T) {
 		for i, j := 0, len(entries)-1; i < j; i, j = i+1, j-1 {
 			entries[i], entries[j] = entries[j], entries[i]
 		}
-		reordered, err := operations.CanonicalABI(m879JSON(t, entries))
+		reordered, err := operations.CanonicalABI(marshalTestJSON(t, entries))
 		if err != nil || !reflect.DeepEqual(expected, reordered) {
 			t.Fatal("top-level ordering changed ABI")
 		}
@@ -400,7 +400,7 @@ func TestRepairM_879_CompleteABI(t *testing.T) {
 					t.Fatalf("no %s fixture changed", change)
 				}
 				var result bytes.Buffer
-				if err := operations.RunCLI(context.Background(), []string{"canonical-abi"}, bytes.NewReader(m879JSON(t, entries)), &result, nil); err != nil {
+				if err := operations.RunCLI(context.Background(), []string{"canonical-abi"}, bytes.NewReader(marshalTestJSON(t, entries)), &result, nil); err != nil {
 					t.Fatal(err)
 				}
 				var actual []string
@@ -415,13 +415,13 @@ func TestRepairM_879_CompleteABI(t *testing.T) {
 	}
 }
 
-type m879CA struct {
+type certificateAuthority struct {
 	certificate *x509.Certificate
 	key         *ecdsa.PrivateKey
 	pem         []byte
 }
 
-func m879CertificateAuthority(t *testing.T) m879CA {
+func newCertificateAuthority(t *testing.T) certificateAuthority {
 	t.Helper()
 	key, err := ecdsa.GenerateKey(elliptic.P256(), crand.Reader)
 	if err != nil {
@@ -436,9 +436,9 @@ func m879CertificateAuthority(t *testing.T) m879CA {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return m879CA{certificate: cert, key: key, pem: pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: raw})}
+	return certificateAuthority{certificate: cert, key: key, pem: pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: raw})}
 }
-func m879TLSLeaf(t *testing.T, ca m879CA, matching bool) tls.Certificate {
+func tlsLeafCertificate(t *testing.T, ca certificateAuthority, matching bool) tls.Certificate {
 	t.Helper()
 	key, err := ecdsa.GenerateKey(elliptic.P256(), crand.Reader)
 	if err != nil {
@@ -455,7 +455,7 @@ func m879TLSLeaf(t *testing.T, ca m879CA, matching bool) tls.Certificate {
 	}
 	return tls.Certificate{Certificate: [][]byte{raw, ca.certificate.Raw}, PrivateKey: key}
 }
-func m879GRPCServer(t *testing.T, certificate *tls.Certificate) string {
+func grpcHealthServer(t *testing.T, certificate *tls.Certificate) string {
 	t.Helper()
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -474,7 +474,7 @@ func m879GRPCServer(t *testing.T, certificate *tls.Certificate) string {
 	t.Cleanup(func() { server.Stop(); _ = listener.Close(); <-joined })
 	return listener.Addr().String()
 }
-func m879Health(t *testing.T, conn *grpc.ClientConn) {
+func assertHealth(t *testing.T, conn *grpc.ClientConn) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
@@ -483,16 +483,16 @@ func m879Health(t *testing.T, conn *grpc.ClientConn) {
 		t.Fatalf("real gRPC health response: %v %v", result, err)
 	}
 }
-func TestRepairM_879_TLSAuthenticatesEndpoint(t *testing.T) {
-	trusted := m879CertificateAuthority(t)
-	unrelated := m879CertificateAuthority(t)
+func TestTLSAuthenticatesEndpoint(t *testing.T) {
+	trusted := newCertificateAuthority(t)
+	unrelated := newCertificateAuthority(t)
 	caFile := filepath.Join(t.TempDir(), "trust.pem")
 	if err := os.WriteFile(caFile, trusted.pem, 0600); err != nil {
 		t.Fatal(err)
 	}
 	for _, tc := range []struct {
 		name     string
-		ca       m879CA
+		ca       certificateAuthority
 		matching bool
 		file     string
 		want     bool
@@ -503,8 +503,8 @@ func TestRepairM_879_TLSAuthenticatesEndpoint(t *testing.T) {
 		{"system-roots-reject-private-CA", trusted, true, "", false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			leaf := m879TLSLeaf(t, tc.ca, tc.matching)
-			endpoint := m879GRPCServer(t, &leaf)
+			leaf := tlsLeafCertificate(t, tc.ca, tc.matching)
+			endpoint := grpcHealthServer(t, &leaf)
 			ctx, cancel := context.WithTimeout(context.Background(), 400*time.Millisecond)
 			defer cancel()
 			clients, conns, err := buildGrpcClients(ctx, &Config{GrpcEndpoints: endpoint, TLS: true, TLSCAFile: tc.file})
@@ -513,7 +513,7 @@ func TestRepairM_879_TLSAuthenticatesEndpoint(t *testing.T) {
 					t.Fatalf("trusted endpoint failed: %v", err)
 				}
 				defer conns[0].Close()
-				m879Health(t, conns[0])
+				assertHealth(t, conns[0])
 			} else {
 				if err == nil || len(clients) != 0 || len(conns) != 0 {
 					t.Fatal("unauthenticated endpoint admitted")
@@ -533,7 +533,7 @@ func TestRepairM_879_TLSAuthenticatesEndpoint(t *testing.T) {
 	}
 }
 
-func TestRepairM_879_GRPCDeadlineAndClose(t *testing.T) {
+func TestGRPCDeadlineAndClose(t *testing.T) {
 	// This listener never speaks HTTP/2. The public constructor must fail before
 	// it starts signer/account discovery, rather than blocking forever in Dial.
 	blackhole, err := net.Listen("tcp", "127.0.0.1:0")
@@ -549,13 +549,13 @@ func TestRepairM_879_GRPCDeadlineAndClose(t *testing.T) {
 	if elapsed := time.Since(start); elapsed > grpcStartupTimeout+time.Second {
 		t.Fatalf("startup was not bounded: %s", elapsed)
 	}
-	endpoint := m879GRPCServer(t, nil)
+	endpoint := grpcHealthServer(t, nil)
 	clients, conns, err := BuildGrpcClients(&Config{GrpcEndpoints: endpoint + "," + endpoint})
 	if err != nil || len(clients) != 2 || len(conns) != 2 {
 		t.Fatalf("gRPC startup: %v", err)
 	}
 	for _, conn := range conns {
-		m879Health(t, conn)
+		assertHealth(t, conn)
 	}
 	owner := &LoadTestClient{GrpcConns: conns}
 	owner.startGrpcMonitors()
@@ -597,17 +597,17 @@ func TestRepairM_879_GRPCDeadlineAndClose(t *testing.T) {
 	}
 }
 
-type m879RPCUncertain struct{}
+type rpcUncertainError struct{}
 
-func (m879RPCUncertain) Error() string  { return "server request timed out" }
-func (m879RPCUncertain) ErrorCode() int { return -32002 }
+func (rpcUncertainError) Error() string  { return "server request timed out" }
+func (rpcUncertainError) ErrorCode() int { return -32002 }
 
-type m879RPCRefusal struct{}
+type rpcRefusalError struct{}
 
-func (m879RPCRefusal) Error() string  { return "transaction refused by fee policy" }
-func (m879RPCRefusal) ErrorCode() int { return -32000 }
+func (rpcRefusalError) Error() string  { return "transaction refused by fee policy" }
+func (rpcRefusalError) ErrorCode() int { return -32000 }
 
-type m879EthNode struct {
+type ethereumPeer struct {
 	mutex        sync.Mutex
 	account      common.Address
 	chain        *big.Int
@@ -619,7 +619,7 @@ type m879EthNode struct {
 	failLookup   bool
 }
 
-func (n *m879EthNode) GetTransactionCount(ctx context.Context, address common.Address, block string) (hexutil.Uint64, error) {
+func (n *ethereumPeer) GetTransactionCount(ctx context.Context, address common.Address, block string) (hexutil.Uint64, error) {
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
 	if n.failNonce {
@@ -630,7 +630,7 @@ func (n *m879EthNode) GetTransactionCount(ctx context.Context, address common.Ad
 	}
 	return hexutil.Uint64(n.nonce), nil
 }
-func (n *m879EthNode) GetTransactionByHash(ctx context.Context, hash common.Hash) (*ethtypes.Transaction, error) {
+func (n *ethereumPeer) GetTransactionByHash(ctx context.Context, hash common.Hash) (*ethtypes.Transaction, error) {
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
 	if n.failLookup {
@@ -638,7 +638,7 @@ func (n *m879EthNode) GetTransactionByHash(ctx context.Context, hash common.Hash
 	}
 	return n.transactions[hash], nil
 }
-func (n *m879EthNode) SendRawTransaction(ctx context.Context, raw hexutil.Bytes) (common.Hash, error) {
+func (n *ethereumPeer) SendRawTransaction(ctx context.Context, raw hexutil.Bytes) (common.Hash, error) {
 	var tx ethtypes.Transaction
 	if err := tx.UnmarshalBinary(raw); err != nil {
 		return common.Hash{}, err
@@ -653,12 +653,12 @@ func (n *m879EthNode) SendRawTransaction(ctx context.Context, raw hexutil.Bytes)
 	if mode == "rpc-uncertain" {
 		n.mode = "accepted"
 		n.mutex.Unlock()
-		return common.Hash{}, m879RPCUncertain{}
+		return common.Hash{}, rpcUncertainError{}
 	}
 	if mode == "refused" {
 		n.mode = "accepted"
 		n.mutex.Unlock()
-		return common.Hash{}, m879RPCRefusal{}
+		return common.Hash{}, rpcRefusalError{}
 	}
 	if mode == "uncertain-absent" || mode == "uncertain-accepted" {
 		if mode == "uncertain-accepted" {
@@ -676,21 +676,21 @@ func (n *m879EthNode) SendRawTransaction(ctx context.Context, raw hexutil.Bytes)
 	}
 	if tx.Nonce() != n.nonce {
 		n.mutex.Unlock()
-		return common.Hash{}, m879RPCRefusal{}
+		return common.Hash{}, rpcRefusalError{}
 	}
 	n.transactions[tx.Hash()] = &tx
 	n.nonce++
 	n.mutex.Unlock()
 	return tx.Hash(), nil
 }
-func m879EVMClient(t *testing.T, mode string) (*EvmTxClient, *m879EthNode) {
+func newEVMClient(t *testing.T, mode string) (*EvmTxClient, *ethereumPeer) {
 	t.Helper()
 	key, err := crypto.HexToECDSA(strings.Repeat("01", 32))
 	if err != nil {
 		t.Fatal(err)
 	}
 	account := crypto.PubkeyToAddress(key.PublicKey)
-	node := &m879EthNode{account: account, chain: big.NewInt(125), nonce: 7, mode: mode, transactions: make(map[common.Hash]*ethtypes.Transaction)}
+	node := &ethereumPeer{account: account, chain: big.NewInt(125), nonce: 7, mode: mode, transactions: make(map[common.Hash]*ethtypes.Transaction)}
 	rpcServer := rpc.NewServer()
 	if err := rpcServer.RegisterName("eth", node); err != nil {
 		t.Fatal(err)
@@ -707,8 +707,8 @@ func m879EVMClient(t *testing.T, mode string) (*EvmTxClient, *m879EthNode) {
 	return client, node
 }
 
-func TestRepairM_879_EVMRefusalReconcilesQueue(t *testing.T) {
-	client, node := m879EVMClient(t, "refused")
+func TestEVMRefusalReconcilesQueue(t *testing.T) {
+	client, node := newEVMClient(t, "refused")
 	first, queued := client.GenerateSendFundsTx(), client.GenerateSendFundsTx()
 	if first.Nonce() != 7 || queued.Nonce() != 8 {
 		t.Fatal("producer did not reserve sequential nonces")
@@ -739,10 +739,10 @@ func TestRepairM_879_EVMRefusalReconcilesQueue(t *testing.T) {
 		t.Fatal("stale work reached the real RPC transport")
 	}
 }
-func TestRepairM_879_EVMUncertainSend(t *testing.T) {
+func TestEVMUncertainSend(t *testing.T) {
 	for _, mode := range []string{"uncertain-accepted", "uncertain-absent", "rpc-uncertain"} {
 		t.Run(mode, func(t *testing.T) {
-			client, node := m879EVMClient(t, mode)
+			client, node := newEVMClient(t, mode)
 			first, queued := client.GenerateSendFundsTx(), client.GenerateSendFundsTx()
 			accepted := 0
 			start := time.Now()
@@ -800,8 +800,8 @@ func TestRepairM_879_EVMUncertainSend(t *testing.T) {
 		})
 	}
 }
-func TestRepairM_879_EVMReconciliationFailure(t *testing.T) {
-	client, node := m879EVMClient(t, "refused")
+func TestEVMReconciliationFailure(t *testing.T) {
+	client, node := newEVMClient(t, "refused")
 	tx := client.GenerateSendFundsTx()
 	node.mutex.Lock()
 	node.failNonce = true
@@ -823,8 +823,8 @@ func TestRepairM_879_EVMReconciliationFailure(t *testing.T) {
 	}
 }
 
-func TestRepairM_879_EVMAcceptedThroughput(t *testing.T) {
-	client, node := m879EVMClient(t, "refused")
+func TestEVMAcceptedThroughput(t *testing.T) {
+	client, node := newEVMClient(t, "refused")
 	first, stale := client.GenerateSendFundsTx(), client.GenerateSendFundsTx()
 	queue := make(chan SignedTx, 3)
 	queue <- SignedTx{EvmTx: first, MsgType: EVM}
@@ -851,8 +851,8 @@ func TestRepairM_879_EVMAcceptedThroughput(t *testing.T) {
 	}
 }
 
-func TestRepairM_879_EVMProducerResumesAfterReconciliation(t *testing.T) {
-	client, node := m879EVMClient(t, "uncertain-absent")
+func TestEVMProducerResumesAfterReconciliation(t *testing.T) {
+	client, node := newEVMClient(t, "uncertain-absent")
 	tx := client.GenerateSendFundsTx()
 	if err := client.SendEvmTx(tx, nil); err == nil {
 		t.Fatal("uncertain send accepted")
@@ -891,9 +891,9 @@ func TestRepairM_879_EVMProducerResumesAfterReconciliation(t *testing.T) {
 	}
 }
 
-func TestRepairM_879_EVMMessageNoncePaths(t *testing.T) {
+func TestEVMMessageNoncePaths(t *testing.T) {
 	for _, dynamic := range []bool{false, true} {
-		client, _ := m879EVMClient(t, "accepted")
+		client, _ := newEVMClient(t, "accepted")
 		client.useEip1559 = dynamic
 		client.evmAddresses = &EVMAddresses{ERC20: common.HexToAddress("0x1234567890123456789012345678901234567890"), ERC721: common.HexToAddress("0x9876543210987654321098765432109876543210")}
 		for i, kind := range []string{EVM, ERC20, ERC721} {
@@ -914,8 +914,8 @@ func TestRepairM_879_EVMMessageNoncePaths(t *testing.T) {
 	}
 }
 
-func TestRepairM_879_EVMTransientLookupFailure(t *testing.T) {
-	client, node := m879EVMClient(t, "refused")
+func TestEVMTransientLookupFailure(t *testing.T) {
+	client, node := newEVMClient(t, "refused")
 	tx := client.GenerateSendFundsTx()
 	node.mutex.Lock()
 	node.failLookup = true
@@ -945,38 +945,38 @@ func TestRepairM_879_EVMTransientLookupFailure(t *testing.T) {
 	}
 }
 
-type m879FundingNode struct{ receipt *ethtypes.Receipt }
+type fundingPeer struct{ receipt *ethtypes.Receipt }
 
-func (n *m879FundingNode) GetTransactionReceipt(ctx context.Context, hash common.Hash) (*ethtypes.Receipt, error) {
+func (n *fundingPeer) GetTransactionReceipt(ctx context.Context, hash common.Hash) (*ethtypes.Receipt, error) {
 	if hash != n.receipt.TxHash {
 		return nil, errors.New("unexpected funding hash")
 	}
 	return n.receipt, nil
 }
-func TestRepairM_879_DeploymentFundingReceipt(t *testing.T) {
+func TestDeploymentFundingReceipt(t *testing.T) {
 	for _, status := range []uint64{0, 1} {
 		t.Run(fmt.Sprintf("receipt-%d", status), func(t *testing.T) {
-			producer, _ := m879EVMClient(t, "accepted")
+			producer, _ := newEVMClient(t, "accepted")
 			tx := producer.GenerateSendFundsTx()
 			receipt := &ethtypes.Receipt{Type: tx.Type(), Status: status, TxHash: tx.Hash(), BlockHash: common.HexToHash("0x1234"), BlockNumber: big.NewInt(10), Logs: []*ethtypes.Log{}, GasUsed: 21000, CumulativeGasUsed: 21000}
 			rpcServer := rpc.NewServer()
-			if err := rpcServer.RegisterName("eth", &m879FundingNode{receipt: receipt}); err != nil {
+			if err := rpcServer.RegisterName("eth", &fundingPeer{receipt: receipt}); err != nil {
 				t.Fatal(err)
 			}
 			server := httptest.NewServer(rpcServer)
 			defer server.Close()
 			options := operations.EVMDeployment{Root: "/contract root/evm", Endpoint: server.URL, Key: "fixture key", Contract: "erc20", Paxd: "paxd"}
 			account := producer.accountAddress.Hex()
-			steps := []m879CommandStep{
+			steps := []commandStep{
 				{args: []string{filepath.Join(options.Root, "setup.sh")}},
 				{args: []string{"cast", "wallet", "address", "--private-key", options.Key}, raw: []byte(account)},
 				{args: []string{"cast", "balance", account, "--rpc-url", options.Endpoint}, raw: []byte("0")},
 				{args: []string{"paxd", "tx", "evm", "send", account, "100000000000000000000", "--from", "admin", "--evm-rpc", options.Endpoint, "-y"}, raw: []byte("Transaction hash: " + tx.Hash().Hex() + "\n")},
 			}
 			if status == 1 {
-				steps = append(steps, m879CommandStep{args: []string{"forge", "create", "--root", options.Root, "--broadcast", "-r", options.Endpoint, "--private-key", options.Key, "src/NoopToken.sol:NoopToken", "--json", "--constructor-args", "NoopToken", "NT"}, raw: m879Read(t, "testdata/m879/forge-create.json")})
+				steps = append(steps, commandStep{args: []string{"forge", "create", "--root", options.Root, "--broadcast", "-r", options.Endpoint, "--private-key", options.Key, "src/NoopToken.sol:NoopToken", "--json", "--constructor-args", "NoopToken", "NT"}, raw: readTestFixture(t, "testdata/m879/forge-create.json")})
 			}
-			peer := &m879Transcript{t: t, steps: steps}
+			peer := &commandTranscript{t: t, steps: steps}
 			address, err := operations.DeployEVM(context.Background(), peer, options)
 			if status == 1 {
 				if err != nil || address == "" {
@@ -992,16 +992,16 @@ func TestRepairM_879_DeploymentFundingReceipt(t *testing.T) {
 	}
 }
 
-func TestRepairM_879_DeploymentConsumer(t *testing.T) {
+func TestDeploymentConsumer(t *testing.T) {
 	// Drive the same address printer and command-output consumer used by the
 	// scripts and benchmark startup, with the committed forge response as input.
-	address, err := operations.DeploymentAddress(m879Read(t, "testdata/m879/forge-create.json"))
+	address, err := operations.DeploymentAddress(readTestFixture(t, "testdata/m879/forge-create.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	config := &Config{EvmRpcEndpoints: "http://127.0.0.1:8545"}
 	for _, output := range []string{address + "\n", "", "null", "0x0000000000000000000000000000000000000000", "0x1234", address + "\nextra output"} {
-		peer := &m879Transcript{t: t, steps: []m879CommandStep{{args: []string{"/deployment script with spaces", config.EVMRpcEndpoint()}, raw: []byte(output)}}}
+		peer := &commandTranscript{t: t, steps: []commandStep{{args: []string{"/deployment script with spaces", config.EVMRpcEndpoint()}, raw: []byte(output)}}}
 		got, err := deployEvmContractWithCommands(context.Background(), peer, "/deployment script with spaces", config)
 		if output == address+"\n" {
 			if err != nil || got != common.HexToAddress(address) {
@@ -1014,7 +1014,7 @@ func TestRepairM_879_DeploymentConsumer(t *testing.T) {
 		}
 		peer.done()
 	}
-	peer := &m879Transcript{t: t, steps: []m879CommandStep{{args: []string{"deploy", config.EVMRpcEndpoint()}, raw: []byte(address), err: errors.New("deployment failed despite stdout")}}}
+	peer := &commandTranscript{t: t, steps: []commandStep{{args: []string{"deploy", config.EVMRpcEndpoint()}, raw: []byte(address), err: errors.New("deployment failed despite stdout")}}}
 	if address, err := deployEvmContractWithCommands(context.Background(), peer, "deploy", config); err == nil || address != (common.Address{}) {
 		t.Fatal("failed deployment admitted load generation")
 	}
