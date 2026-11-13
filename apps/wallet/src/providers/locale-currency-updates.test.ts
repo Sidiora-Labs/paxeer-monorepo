@@ -47,7 +47,7 @@ afterEach(() => {
   localStorage.clear();
 });
 
-async function repair_9_refreshes_mounted_portfolio_after_currency_rates_event() {
+async function mounted_portfolio_refreshes_after_currency_rates_event() {
   const preferences = preferencesRepository.read();
   const events: string[] = [];
   const onRates = (event: Event) => events.push(event.type);
@@ -93,7 +93,7 @@ async function repair_9_refreshes_mounted_portfolio_after_currency_rates_event()
   }
 }
 
-async function repair_9_refreshes_mounted_portfolio_when_display_currency_changes() {
+async function mounted_portfolio_refreshes_when_display_currency_changes() {
   const view = await mount(
     createElement(LocaleProvider, null, createElement(SubscribedPortfolio, portfolio))
   );
@@ -128,10 +128,10 @@ async function repair_9_refreshes_mounted_portfolio_when_display_currency_change
 }
 
 test(
-  repair_9_refreshes_mounted_portfolio_after_currency_rates_event.name,
-  repair_9_refreshes_mounted_portfolio_after_currency_rates_event
+  mounted_portfolio_refreshes_after_currency_rates_event.name,
+  mounted_portfolio_refreshes_after_currency_rates_event
 );
 test(
-  repair_9_refreshes_mounted_portfolio_when_display_currency_changes.name,
-  repair_9_refreshes_mounted_portfolio_when_display_currency_changes
+  mounted_portfolio_refreshes_when_display_currency_changes.name,
+  mounted_portfolio_refreshes_when_display_currency_changes
 );

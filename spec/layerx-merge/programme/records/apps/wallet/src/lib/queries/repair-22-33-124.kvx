@@ -1,7 +1,7 @@
 [repair.22.33.124]
 audit = "22.30.114"
 base_revision = "9fda5aafcf8b4dba3d79ad6d650ea1272c960511"
-test_file = "apps/wallet/src/lib/queries/repair-22-33-124.test.ts"
+test_file = "apps/wallet/src/lib/queries/network-scoped-queries.test.ts"
 qualification = "The runner hf-build/hf-done ledger records the exact qualified candidate revision, commands, exits and private evidence paths."
 baseline = "Not run: the explicit ordered gate rules require complete implementation before either gate and prohibit a separate verify_cmd invocation; no pre-change test failures are claimed."
 

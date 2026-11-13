@@ -2,7 +2,7 @@
 audit_record = "22.30.117"
 finding = 9
 repair = "LocaleProvider exposes currencyRevision and includes it in the memoized context dependencies so currency-rate events notify useLocale subscribers without a locale change."
-tests = ["repair_9_refreshes_mounted_portfolio_after_currency_rates_event", "repair_9_refreshes_mounted_portfolio_when_display_currency_changes"]
+tests = ["mounted_portfolio_refreshes_after_currency_rates_event", "mounted_portfolio_refreshes_when_display_currency_changes"]
 proof = "Real storage repositories supply fresh cached rates and display preferences; the currency service loads those rates and emits CURRENCY_RATES_EVENT through announceCurrencyChanged; a memoized context subscriber renders the production HeroBalance with constant props and asserts updated balance, PnL and spot amounts on the same mounted DOM node."
 proof_boundary = "SubscribedPortfolio is a test consumer demonstrating the subscription contract; production fiat-widget subscription changes are outside this task's paths."
 baseline = "Not run: the explicit implementation-first order and bounded hf-build/hf-done gates prohibit the baseline verification requested by step 5. No pre-change failing execution is claimed."
