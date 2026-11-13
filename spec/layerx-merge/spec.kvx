@@ -13876,6 +13876,12 @@ value = "The build command of task 22.38.37 runs the install target of chain.mk 
 basis = "Gotcha 4373. The room reads the node binary from the search path."
 affects = []
 
+[decision.3461]
+title = "The paths of task 22.42.177 hold the rollback page of the wallet gateway"
+value = "The paths of task 22.42.177 hold docs/wallet/service/runbooks/gateway-rollback.md. The task gives the two links to the example environment files of the gateway deployment the full path of the file as text and changes nothing else in the page."
+basis = "Gotcha 4374. The verification of the task runs the test that reads the page."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -194438,7 +194444,7 @@ do_1 = "do_1 Decision 3447, gotcha 4363. An example environment file of a deploy
 do_2 = "do_2 For each file in the paths of this task, find with git log the last revision of the file before the task of the series 22.42 that changed it, and compare that content with the present content. Give every variable that the earlier file held as an assignment its earlier value again, as an assignment and not as a comment, and bring back each comment line of the earlier file that still describes the deployment. Keep every variable that was added since with the value it has now, and keep the file readable: one block for the values of the deployment and one for the added variables. Write no secret value; a variable that was empty in the earlier file stays empty."
 do_3 = "do_3 Find with git grep the tests and the scripts that read these files, tests/ci/test_wallet_service_docs_references.py and services/wallet/gateway/test/deploy-env.test.ts among them, and run them by hand; they pass at the final revision. Where a page under docs/release/variables names a default that differs from a restored value, leave the page as it is and name the variable in the final message. Change only the files in the paths of this task. Delete, rename and move nothing. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["services/wallet/deploy/attestor-1.env.example", "services/wallet/deploy/attestor-2.env.example", "services/wallet/deploy/attestor-3.env.example", "services/wallet/deploy/attestor-4.env.example", "services/wallet/deploy/attestor-5.env.example", "services/wallet/deploy/railway.env.example", "services/wallet/deploy/redis.railway.env.example"]
+touches = ["services/wallet/deploy/attestor-1.env.example", "services/wallet/deploy/attestor-2.env.example", "services/wallet/deploy/attestor-3.env.example", "services/wallet/deploy/attestor-4.env.example", "services/wallet/deploy/attestor-5.env.example", "services/wallet/deploy/railway.env.example", "services/wallet/deploy/redis.railway.env.example", "docs/wallet/service/runbooks/gateway-rollback.md"]
 tests = []
 planned_paths = []
 build_cmd = "python3 -m pip install -q pytest PyYAML"
@@ -194454,6 +194460,7 @@ time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "do_4 Decision 3461, gotcha 4374. The paths of this task now hold docs/wallet/service/runbooks/gateway-rollback.md. The page links the two example environment files of the gateway deployment with the file name alone as text. Give each of the two links the full path of the file from the repository root as its text, inside code marks, and keep the target of the link. Change nothing else in the page. The earlier work of this task stays as it is. Run the build once and the verification once at the final revision."
 
 [task.22.39.513]
 title = "Bring the lock file of the agent workspace in line with the manifests of the members it reads by path"
