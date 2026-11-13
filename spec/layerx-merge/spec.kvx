@@ -361820,7 +361820,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.41.25]
 title = "Review the documentation pages of lines 1518 to 1557 of the page list against the tree"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
