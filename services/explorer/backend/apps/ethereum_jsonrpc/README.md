@@ -9,12 +9,9 @@ in [lib/ethereum_jsonrpc](lib/ethereum_jsonrpc).
 
 Paxeer mainnet-beta is one BFT network, EVM chain ID 125 (`0x7d`). Its kernel
 is part of the network and proposes blocks; receipts are final when their
-blocks commit. Public HTTP JSON-RPC uses the root path on
-`api1.mainnet-beta.paxeer.network` through
-`api14.mainnet-beta.paxeer.network`, and
-`api-mainnet-beta.paxeer.network`, for example
-`https://api1.mainnet-beta.paxeer.network/`. The explorer's
-[account REST API](../block_scout_web/API.md) is served by the explorer origin.
+blocks commit. Public HTTP JSON-RPC uses the configured node's root URL.
+The explorer's [account REST API](../block_scout_web/API.md) is served by
+the explorer origin.
 
 ## Configuration
 
@@ -28,7 +25,7 @@ Set the Paxeer chain identity and variant for the backend:
 export CHAIN_TYPE=paxeer_x
 export ETHEREUM_JSONRPC_VARIANT=paxeer_x
 export ETHEREUM_JSONRPC_TRANSPORT=http
-export ETHEREUM_JSONRPC_HTTP_URLS=https://api1.mainnet-beta.paxeer.network/,https://api2.mainnet-beta.paxeer.network/
+export ETHEREUM_JSONRPC_HTTP_URLS="${ETHEREUM_JSONRPC_HTTP_URLS:?Supply the node HTTP URL list}"
 ```
 
 The selected profile sets `config :explorer, json_rpc_named_arguments: [...]` with
@@ -67,10 +64,9 @@ Subscriptions use the separate `subscribe_named_arguments` entry with
 EthereumJSONRPC.WebSocket.WebSocketClient`, `url` from
 `ETHEREUM_JSONRPC_WS_URL`, and `fallback_url` from
 `ETHEREUM_JSONRPC_FALLBACK_WS_URL`. Set those to paired WebSocket endpoints
-provided by your node deployment. For a disposable local Paxeer node, use
-`ETHEREUM_JSONRPC_HTTP_URLS=http://127.0.0.1:8545/` and
-`ETHEREUM_JSONRPC_WS_URL=ws://127.0.0.1:8546/`; both listeners must serve the
-same chain-125 node. These are example local endpoints that you must supply.
+provided by your node deployment. Both listeners must serve the same
+chain-125 node. Set `ETHEREUM_JSONRPC_HTTP_URLS` to the deployment's
+HTTP endpoint list before running the shell example above.
 Keep request transport as `http` when using
 subscriptions: runtime transport selection accepts only `http` or `ipc`.
 WebSocket URLs in HTTP URL lists are rejected. IPC uses `IPC_PATH`.
@@ -199,17 +195,18 @@ mix test --exclude no_geth
 These are transport-isolated unit profiles. Other-client profiles are optional
 compatibility checks, not the Paxeer production variant. For integration,
 configure a disposable node explicitly; production URL variables do not
-configure the test case modules. In test configuration, for example:
+configure the test case modules automatically. The following test
+configuration reads explicit HTTP and WebSocket environment inputs:
 
 ```elixir
 config :ethereum_jsonrpc, EthereumJSONRPC.Case.Geth.HTTPWebSocket,
-  http_url: "http://127.0.0.1:8545/",
-  websocket_url: "ws://127.0.0.1:8546/",
+  http_url: System.fetch_env!("ETHEREUM_JSONRPC_HTTP_URL"),
+  websocket_url: System.fetch_env!("ETHEREUM_JSONRPC_WS_URL"),
   profile: :paxeer_x
 
 config :ethereum_jsonrpc, EthereumJSONRPC.WebSocket.Case.Geth,
-  http_url: "http://127.0.0.1:8545/",
-  web_socket_url: "ws://127.0.0.1:8546/",
+  http_url: System.fetch_env!("ETHEREUM_JSONRPC_HTTP_URL"),
+  web_socket_url: System.fetch_env!("ETHEREUM_JSONRPC_WS_URL"),
   profile: :paxeer_x
 ```
 
@@ -220,8 +217,9 @@ and its explicit positive `chain_id`. The standalone WebSocket case modules
 require `profile: :paxeer_x`, or `profile: :compatibility` plus an explicit
 positive `chain_id`. Both transports validate chain identity; the standalone
 WebSocket cases also compare the same block over HTTP and WebSocket. Keep
-HTTP and WebSocket endpoints on the same node host and supply no embedded
-credentials.
+HTTP and WebSocket endpoints on the same node host, with matching
+HTTP/WS or HTTPS/WSS schemes and no URL credentials or fragments. The
+Paxeer profile requires loopback endpoints.
 
 From the repository root, this focused transport test runs through the builder
 without a supplied node or credentials:

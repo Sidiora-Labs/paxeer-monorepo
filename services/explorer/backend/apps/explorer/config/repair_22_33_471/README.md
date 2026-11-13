@@ -1,28 +1,21 @@
 # Database TLS
 
-Database TLS authenticates each server before Postgrex sends its startup message,
-credentials or explorer data. The primary, replica and auxiliary repositories all
-use `verify_peer` and HTTPS hostname matching. Postgrex derives SNI and the expected
-certificate hostname from each repository's database endpoint; do not disable SNI
-or set a shared hostname when repositories use different hosts.
+The shared [database TLS policy](../database_tls.exs) configures
+`ssl_opts` for the primary, replica, account, auxiliary and chain-specific
+Explorer repositories. It sets `verify: :verify_peer` and HTTPS hostname
+matching through `:public_key.pkix_verify_hostname_match_fun(:https)`.
 
-Mount a PEM bundle containing the issuing CA trust roots into the running service
-and set `DATABASE_SSL_CA_CERT_FILE` to its absolute path. The shared policy is
-reevaluated by `config/runtime/prod.exs` at startup, after the umbrella database
-configuration. With the variable unset, the system bundle at
-`/etc/ssl/certs/ca-certificates.crt` supplies trust roots. A private database CA must
-be installed in that bundle or supplied through the variable. Include the issuing
-root and any required intermediate CA material; the server should send its leaf
-and intermediate chain. The leaf must be valid for the hostname in that database's
-URL. An empty, missing, unreadable or invalid bundle causes TLS connection failure;
-it does not select another bundle or disable verification. Restart after changing
-the bundle selection. Existing `ECTO_USE_SSL` behavior is preserved; remote
-production database connections must keep TLS enabled.
+`DATABASE_SSL_CA_CERT_FILE` selects the CA bundle. When unset, the policy uses
+`/etc/ssl/certs/ca-certificates.crt`. The configured path is converted to a
+character list and passed as `cacertfile`; the policy does not inspect the
+bundle or substitute another path when a supplied path cannot be loaded.
+The database certificate must validate against the selected trust roots and
+the database endpoint's hostname when TLS is enabled.
 
-The PEM private keys under `fixtures/` are public, disposable test identities.
-Their certificates cover localhost, an unrelated hostname, and an untrusted CA.
-Never use these keys or the fixture CA for a deployed database. `new_head_full.json`
-is copied unchanged from the committed EthereumJSONRPC PaxeerX fixture; the test
-runs its block through the real RPC decoder, block schema, Postgrex TLS transport,
-and disposable PostgreSQL database. The loopback TLS proxy forwards PostgreSQL
-bytes unchanged and provides no simulated database responses.
+[config/runtime/prod.exs](../runtime/prod.exs) loads this policy at startup
+after the database configuration. `ECTO_USE_SSL` controls whether the
+repositories use SSL. Changing the bundle selection requires restarting the
+service so configuration is read again.
+
+[fixtures/new_head_full.json](fixtures/new_head_full.json) contains a Paxeer
+block notification used as input data by the database integration tests.

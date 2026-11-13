@@ -1,0 +1,83 @@
+[manifest]
+task = "22.41.81"
+pages = 20
+
+[page.1]
+path = "services/explorer/backend/CHANGELOG.md"
+status = "corrected"
+
+[page.2]
+path = "services/explorer/backend/CODE_OF_CONDUCT.md"
+status = "reviewed"
+
+[page.3]
+path = "services/explorer/backend/CONTRIBUTING.md"
+status = "corrected"
+
+[page.4]
+path = "services/explorer/backend/PULL_REQUEST_TEMPLATE.md"
+status = "reviewed"
+
+[page.5]
+path = "services/explorer/backend/README.md"
+status = "corrected"
+
+[page.6]
+path = "services/explorer/backend/apps/block_scout_web/API blueprint.md"
+status = "corrected"
+
+[page.7]
+path = "services/explorer/backend/apps/block_scout_web/API.md"
+status = "corrected"
+
+[page.8]
+path = "services/explorer/backend/apps/block_scout_web/README.md"
+status = "corrected"
+
+[page.9]
+path = "services/explorer/backend/apps/block_scout_web/assets/README.md"
+status = "reviewed"
+
+[page.10]
+path = "services/explorer/backend/apps/block_scout_web/rate_limits.md"
+status = "corrected"
+
+[page.11]
+path = "services/explorer/backend/apps/ethereum_jsonrpc/README.md"
+status = "corrected"
+
+[page.12]
+path = "services/explorer/backend/apps/explorer/README.md"
+status = "corrected"
+
+[page.13]
+path = "services/explorer/backend/apps/explorer/config/repair_22_33_471/README.md"
+status = "corrected"
+
+[page.14]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/arbitrum/reader/README.md"
+status = "corrected"
+
+[page.15]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/heavy_db_index_operation/README.md"
+status = "corrected"
+
+[page.16]
+path = "services/explorer/backend/apps/indexer/README.md"
+status = "corrected"
+
+[page.17]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/da/README.md"
+status = "corrected"
+
+[page.18]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/utils/db/README.md"
+status = "corrected"
+
+[page.19]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/workers/batches/README.md"
+status = "corrected"
+
+[page.20]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/workers/confirmations/README.md"
+status = "corrected"
