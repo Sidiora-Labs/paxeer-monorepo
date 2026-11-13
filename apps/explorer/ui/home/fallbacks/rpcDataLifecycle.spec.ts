@@ -27,7 +27,7 @@ interface RpcRequest {
   params: Array<string | boolean>;
 }
 
-const transcript = JSON.parse(gunzipSync(new Uint8Array(readFileSync(join(__dirname, 'repair-22-33-407.rpc.json.gz')))).toString()) as Transcript;
+const transcript = JSON.parse(gunzipSync(new Uint8Array(readFileSync(join(__dirname, 'rpcData.rpc.json.gz')))).toString()) as Transcript;
 const receipts = new Map(transcript.receipts.map((receipt) => [ receipt.transactionHash, receipt ]));
 let currentBlock = transcript.blocks[0];
 let blockRequests = 0;
@@ -81,12 +81,12 @@ window.__envs = {
   NEXT_PUBLIC_IS_ACCOUNT_SUPPORTED: 'false',
   NEXT_PUBLIC_MARKETPLACE_CONFIG_URL: '',
 };
-window.__NEXT_DATA__ = { buildId: 'repair-22-33-407', page: '/', query: {}, props: {} };
+window.__NEXT_DATA__ = { buildId: 'rpc-data-lifecycle', page: '/', query: {}, props: {} };
 window.__DEV_MIDDLEWARE_MATCHERS = [];
 const renderPage: ConstructorParameters<typeof Router>[3]['App'] = ({ Component }) => React.createElement(Component);
 const router = new Router('/', {}, '/', {
   initialProps: {},
-  pageLoader: new PageLoader('repair-22-33-407', ''),
+  pageLoader: new PageLoader('rpc-data-lifecycle', ''),
   App: renderPage,
   Component: Probe,
   wrapApp: (App) => App,

@@ -13,7 +13,7 @@ import * as statsFixtures from 'mocks/stats/index';
 import * as mainStatsFixtures from 'mocks/stats/main';
 import { afterAll, afterEach, beforeEach, expect, test as registerTest, vi } from 'vitest';
 
-import { HIGHLIGHTS_CONFIG, HIGHLIGHTS_CONFIG_URL, IMAGE_URL_1, IMAGE_URL_2, IMAGE_URL_3 } from './repair-22-33-408.fixtures';
+import { HIGHLIGHTS_CONFIG, HIGHLIGHTS_CONFIG_URL, IMAGE_URL_1, IMAGE_URL_2, IMAGE_URL_3 } from './homepageConfiguration.fixtures';
 
 fetchMock.disableMocks();
 
@@ -106,14 +106,14 @@ const { 'default': Stats } = await import('./Stats');
 const { 'default': LatestBlocks } = await import('./LatestBlocks');
 const { HomeRpcDataContextProvider } = await import('./fallbacks/rpcDataContext');
 
-window.__NEXT_DATA__ = { props: { pageProps: {} }, page: '/', query: {}, buildId: 'repair-22-33-408' };
+window.__NEXT_DATA__ = { props: { pageProps: {} }, page: '/', query: {}, buildId: 'homepage-configuration' };
 window.__DEV_MIDDLEWARE_MATCHERS = [];
 window.__SSG_MANIFEST = new Set();
 
 const FixtureApp = ({ Component, pageProps }: AppProps) => React.createElement(Component, pageProps);
 const router = new Router('/', {}, '/', {
   initialProps: {},
-  pageLoader: new PageLoader('repair-22-33-408', ''),
+  pageLoader: new PageLoader('homepage-configuration', ''),
   App: FixtureApp,
   Component: HeroBanner,
   subscription: async() => undefined,

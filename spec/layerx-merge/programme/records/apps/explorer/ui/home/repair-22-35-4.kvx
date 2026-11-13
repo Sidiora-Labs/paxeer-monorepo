@@ -4,7 +4,7 @@ decision = "2587"
 acceptance = "22998.1"
 implementation = "API-backed token ticker, display hero and prompt search, five stat tiles, honest network chart, and dense latest tables with mobile and RPC fallbacks in both colour modes."
 data = "Prices use exchange_rate; price_change_percentage_24h is read only if returned (the current token API omits it); missing values remain muted dashes. Counters use stats fields, not block height; chart samples with absent values are excluded."
-test = "apps/explorer/ui/home/repair-22-35-4.spec.tsx"
+test = "apps/explorer/ui/home/homepageLayout.spec.tsx"
 
 [gate.build]
 command = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
@@ -12,7 +12,7 @@ result = "The final build entry in the private runner ledger /out/run/gates.json
 
 [gate.verify]
 command = "cg spec done 22.35.4 -f layerx-merge --root /work/paxeer-monorepo"
-verify_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run apps/explorer/ui/home/repair-22-35-4.spec.tsx"
+verify_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run apps/explorer/ui/home/homepageLayout.spec.tsx"
 result = "The final verify entry in the private runner ledger /out/run/gates.jsonl supplies the verified revision, exit code and log path; qualification requires exit zero and the same revision as build. This reference is written before gates to preserve the qualified candidate (gotcha 3142)."
 gates = "Only hf-build and hf-done; no aggregate or browser gate (gotcha 2962)."
 

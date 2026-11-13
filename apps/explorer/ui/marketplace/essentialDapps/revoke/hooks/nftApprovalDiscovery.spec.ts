@@ -23,7 +23,7 @@ import { approvalsQueryOptions } from './useApprovalsQuery';
 import useSearchErc20Allowances from './useSearchErc20Allowances';
 import useSearchNftAllowances from './useSearchNftAllowances';
 
-// Replay the ERC721 approval/read shapes committed in repair-22-31-381 through
+// Replay the ERC721 approval/read shapes committed in nftRevocation.spec.ts through
 // the production HTTP transport, ABI codecs, API fetch, hooks and QueryClient.
 const owner = getAddress('0x90f8bf6a479f320ead074411a4b0e7944ea8c9c1');
 const spender = getAddress('0xffcf8fdee72ac11b5c542428b35eef5769c409f0');

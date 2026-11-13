@@ -28,11 +28,11 @@ revision = "d20b7d78e54a5875d423a1d485b6b2c8160e2fb5"
 command = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
 exit = 2
 log = "/out/logs/build-1.log"
-observed = "Unrelated TS2769 at ui/marketplace/essentialDapps/revoke/components/repair-22-33-299.spec.ts:116: query value lacks coverage, partialAllowances, scanIssues and retry; hf-done and the focused tests did not run."
+observed = "Unrelated TS2769 at ui/marketplace/essentialDapps/revoke/components/approvalsInventory.spec.ts:116: query value lacks coverage, partialAllowances, scanIssues and retry; hf-done and the focused tests did not run."
 assumption = "The owning domain must repair the out-of-scope test interface before qualification can proceed; no completed status or verified revision is claimed."
 
 [continuation.attempt_4]
 base_revision = "2a8418f3ce46275830d68ea57514c30466a3493f"
 change = "Preserve the prior implementation and rendered-output assertions; register each named test with a string title and assertions in its body for decision 2528."
 gotcha = "Task 22.31.474 is done on this base; spec lint must run before hf-build and hf-done, whose ledger supplies final qualification evidence."
-spec_lint = "Passed: yarn eslint ui/multichain/home/ChainIndicators.tsx ui/multichain/home/useChartDataQuery.ts ui/multichain/home/useFetchParentChainApi.tsx ui/multichain/home/repair-22-33-302.spec.ts --fix; exit 0; private log /out/logs/eslint-22-33-302.log."
+spec_lint = "Passed: yarn eslint ui/multichain/home/ChainIndicators.tsx ui/multichain/home/useChartDataQuery.ts ui/multichain/home/useFetchParentChainApi.tsx ui/multichain/home/parentChainMarketData.spec.ts --fix; exit 0; private log /out/logs/eslint-22-33-302.log."

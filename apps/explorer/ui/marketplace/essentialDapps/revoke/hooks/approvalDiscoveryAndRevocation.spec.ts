@@ -33,7 +33,7 @@ import useSearchErc20Allowances from './useSearchErc20Allowances';
 import useSearchNftAllowances from './useSearchNftAllowances';
 
 // The NFT addresses and receipt envelope are the MyNFT/Ganache transcript used by
-// repair-22-31-381. Logs and read payloads pass through viem's production ABI codecs
+// nftRevocation.spec.ts. Logs and read payloads pass through viem's production ABI codecs
 // and a loopback JSON-RPC transport before reaching the real discovery hooks.
 const owner = getAddress('0x90f8bf6a479f320ead074411a4b0e7944ea8c9c1');
 const spender = getAddress('0xffcf8fdee72ac11b5c542428b35eef5769c409f0');
