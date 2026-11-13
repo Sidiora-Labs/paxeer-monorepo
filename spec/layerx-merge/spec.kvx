@@ -14074,6 +14074,12 @@ value = "The page spec/layerx-merge/contracts/inference-market.md keeps its tabl
 basis = "Gotcha 4406, decision 3491."
 affects = ["22.43.319"]
 
+[decision.3494]
+title = "A page description of the documentation site holds 50 to 160 characters and leads with the kernel"
+value = "The lead paragraph of a page of the documentation site is its description and holds 50 to 160 characters. On a page that describes the network it says first what the LayerX kernel does: it executes and orders each transaction and builds each block, and validators check and commit it. A fact the longer text held stays on the page in the first paragraph of the body."
+basis = "Gotcha 4407, decision 3490."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -43734,6 +43740,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.43.321]
+title = "Bring four page descriptions of the documentation site to the recommended length"
+reqs = ["22998.1"]
+touches = ["docs/site/paxeer-docs/src/app", "docs/site/paxeer-docs/src/lib/seo-pages.json", "docs/site/paxeer-docs/public", "docs/site/paxeer-docs/.generated"]
+tests = []
+verification_contract = "npm --prefix docs/site/paxeer-docs run build && test -s docs/site/paxeer-docs/out/index.html && SEO_STRICT=1 npm --prefix docs/site/paxeer-docs run audit:seo && git grep -q -F 'LayerX kernel' -- docs/site/paxeer-docs/src/app/page.tsx && git grep -q -F 'LayerX kernel' -- docs/site/paxeer-docs/src/app/unified-network/page.tsx && test $(git grep -c -i -E 'one BFT network|participates in block (proposal|production)' -- docs/site/paxeer-docs/src/app docs/site/paxeer-docs/public/markdown docs/site/paxeer-docs/src/lib/seo-pages.json | wc -l) -eq 0"
+do_1 = "do_1 Decision 3494, gotcha 4407. Build the documentation site and write down the lines of the audit that name a description: the front page, paxeer-vs-layerx, public-rpc and unified-network, each longer than 160 characters. The description of a page is the lead paragraph under its title in the page file under docs/site/paxeer-docs/src/app."
+symbols = []
 
 [capability.22.43.320]
 title = "Give the fixture answers of the wallet live check the block and application hashes"
@@ -170748,6 +170763,36 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.43.321]
+title = "Bring four page descriptions of the documentation site to the recommended length"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.43.321"]
+interfaces = []
+do_1 = "do_1 Decision 3494, gotcha 4407. Build the documentation site and write down the lines of the audit that name a description: the front page, paxeer-vs-layerx, public-rpc and unified-network, each longer than 160 characters. The description of a page is the lead paragraph under its title in the page file under docs/site/paxeer-docs/src/app."
+do_2 = "do_2 Give each of the four pages a lead paragraph of 50 to 160 characters. It says first what the LayerX kernel does: the kernel inside paxd executes and orders each transaction and builds each block, and validators check and commit it. The page public-rpc keeps the chain identifier 125 in its lead. A fact the longer paragraph held and the shorter one does not, such as the one global sequence or the signed execution receipt, moves into the first paragraph of the body of the same page, so nothing the page stated is lost. No page calls the network one BFT network and none says the kernel takes part in proposal."
+do_3 = "do_3 Do not write the generated copies by hand. The build runs the generators of the site before it compiles; commit what they write under the paths of this task and nothing else. Change no other page and no script. Run the audit in its strict mode by hand until it reports no warning. Before each commit read the output of git status. Then run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docs/site/paxeer-docs/src/app", "docs/site/paxeer-docs/src/lib/seo-pages.json", "docs/site/paxeer-docs/public", "docs/site/paxeer-docs/.generated"]
+tests = []
+planned_paths = []
+build_cmd = "npm ci --prefix docs/site/paxeer-docs"
+verify_cmd = "npm --prefix docs/site/paxeer-docs run build && test -s docs/site/paxeer-docs/out/index.html && SEO_STRICT=1 npm --prefix docs/site/paxeer-docs run audit:seo && git grep -q -F 'LayerX kernel' -- docs/site/paxeer-docs/src/app/page.tsx && git grep -q -F 'LayerX kernel' -- docs/site/paxeer-docs/src/app/unified-network/page.tsx && test $(git grep -c -i -E 'one BFT network|participates in block (proposal|production)' -- docs/site/paxeer-docs/src/app docs/site/paxeer-docs/public/markdown docs/site/paxeer-docs/src/lib/seo-pages.json | wc -l) -eq 0"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."

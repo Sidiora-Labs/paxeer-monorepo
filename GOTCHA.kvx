@@ -21855,3 +21855,8 @@ fix = "Decision 3492. Task 22.43.295 gets do_5, the path tests/ci and a verifica
 title = "A case reads a table form the contract page no longer holds"
 symptom = "The case test_contract_matches_the_served_registry of tools/qualification/audit_repairs/test_inference_market_interfaces.py reads rows of six cells with a task and a status and two count lines on spec/layerx-merge/contracts/inference-market.md. The page holds one table per section with the four columns Interface, Kind, Source and Signature."
 fix = "Decision 3493. Task 22.43.319 gets do_4: the case reads the present form of the page."
+
+[gotcha.4407]
+title = "Four page descriptions of the documentation site run past the recommended length"
+symptom = "The audit that follows the build of the documentation site reports the description of the front page and of the pages paxeer-vs-layerx, public-rpc and unified-network as longer than 160 characters. The description of a page is its lead paragraph, and the generated copies of the site carry it."
+fix = "Decision 3494. Task 22.43.321 shortens the four descriptions and keeps their facts in the body of the page."
