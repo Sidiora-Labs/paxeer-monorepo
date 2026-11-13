@@ -39,13 +39,12 @@ parameter.
 From the `wasm/` directory:
 
 ```sh
-docker run -it -v "$(pwd)/contrib/prometheus:/prometheus" -p 9091:9090 prom/prometheus --config.file=/prometheus/prometheus.yaml
+docker run -it -v "$(pwd)/contrib/prometheus:/prometheus" -p 9092:9090 prom/prometheus --config.file=/prometheus/prometheus.yaml
 ```
 
-This publishes the Prometheus console on port 9091, leaving the node's default
-gRPC port 9090 available. The scrape target uses Docker's
-`host.docker.internal` name to reach the host instrumentation listener; the
-container must be able to resolve and reach that host mapping.
+This publishes the Prometheus console on port 9092. The node's default gRPC
+and gRPC-web ports are 9090 and 9091. Configure the supplied scrape target so
+that the container can resolve and reach the host instrumentation listener.
 
 ## Local Grafana
 
@@ -53,7 +52,7 @@ container must be able to resolve and reach that host mapping.
 docker run -it -p 3000:3000 grafana/grafana
 ```
 
-Open Grafana on port 3000 and add the Prometheus server on port 9091 as a data
+Open Grafana on port 3000 and add the Prometheus server on port 9092 as a data
 source reachable from the Grafana container.
 
 ## Wasm timings
