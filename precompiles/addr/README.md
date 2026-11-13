@@ -16,7 +16,7 @@ This directory holds the Go implementation, Solidity interface, embedded ABI and
 - `abi_freeze_test.go` — method selector, event topic and embedded ABI assertions.
 - `gas_golden_test.go` — gas charges, outputs and state changes through constructed and application-served precompiles.
 - `resolution_reason_test.go` — binding revert encoding at the merge activation height.
-- `repair_m1266_test.go` — execution of the gas assertions in `TestAddrGasGolden`.
+- `gas_execution_test.go` — execution of the gas assertions in `TestAddrGasGolden`.
 
 ## Build and test
 

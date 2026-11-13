@@ -47,3 +47,30 @@ func TestDynamicOffsetsCannotAliasTheirHead(t *testing.T) {
 		t.Fatal("canonical empty bytes rejected")
 	}
 }
+
+func TestArgumentsBoundedFixedAndNestedArrayWidths(t *testing.T) {
+	fixed, err := abi.NewType("uint256[2]", "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ArgumentsBounded(abi.Arguments{{Type: fixed}}, make([]byte, 32)) {
+		t.Fatal("truncated fixed array accepted")
+	}
+	if !ArgumentsBounded(abi.Arguments{{Type: fixed}}, make([]byte, 64)) {
+		t.Fatal("complete fixed array rejected")
+	}
+
+	nested, err := abi.NewType("uint256[2][]", "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data := make([]byte, 128)
+	data[31] = 32
+	data[63] = 1
+	if !ArgumentsBounded(abi.Arguments{{Type: nested}}, data) {
+		t.Fatal("complete dynamic array of fixed arrays rejected")
+	}
+	if ArgumentsBounded(abi.Arguments{{Type: nested}}, data[:96]) {
+		t.Fatal("truncated nested array accepted")
+	}
+}

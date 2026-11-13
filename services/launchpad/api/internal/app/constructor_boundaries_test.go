@@ -23,7 +23,7 @@ func TestGatewayConstructorValidatesRuntimeDependencies(t *testing.T) {
 	redisURL := internaltest.NewRedisURL(t)
 	baseline := config.Config{DatabaseURL: dsn, RedisURL: redisURL, NodeEnv: "test", APIRole: "rest", Port: 3000, RateLimitMax: 100, RateLimitWindowSec: 60, MaxInFlightRequests: 100, WSMaxConnections: 10, WSMaxPerIP: 10, SSEMaxConnections: 10, SSEMaxPerIP: 10, ClientSendBuffer: 16, CoalesceFlushMS: 20}
 	for _, tc := range []struct {
-		name string
+		name   string
 		change func(*config.Config)
 	}{
 		{"environment", func(c *config.Config) { c.NodeEnv = "invalid" }},

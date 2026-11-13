@@ -1,0 +1,12 @@
+[manifest]
+task = "22.43.25"
+records_moved = 1
+files_renamed = 0
+
+[file.1]
+from = "consensus/repair_22_39_82.kvx"
+to = "spec/layerx-merge/programme/records/consensus/repair_22_39_82.kvx"
+
+[reference.1]
+file = "spec/layerx-merge/spec.kvx"
+name = "consensus/repair_22_39_82.kvx"

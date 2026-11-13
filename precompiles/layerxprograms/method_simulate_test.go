@@ -60,23 +60,23 @@ func TestProgramsSimulateCallMatchesCallOutput(t *testing.T) {
 }
 
 func programsSimulationResponseOracle(t *testing.T) {
-	h, args, _, guest := repair251Responder(t)
+	h, args, _, guest := programsTransferResponder(t)
 	proofProgramsReopen(t, h)
 	for _, calldata := range [][]byte{nil, {0, 0xff}, bytes.Repeat([]byte{0xa5}, 64)} {
 		args[3] = calldata
 		payload, err := lp.EncodeCallPayload(args[0].([32]byte), args[1].(uint16), args[2].(string), calldata,
 			args[4].([]byte), args[5].([]byte), args[6].(uint32), args[7].([7]uint64))
 		require.NoError(t, err)
-		receipt, reference := repair251Receipt(t, h, args, payload)
-		before := repair251Stores(h.stateDB.Ctx())
+		receipt, reference := programsReferenceCallReceipt(t, h, args, payload)
+		before := programsPersistentAndTransientStores(h.stateDB.Ctx())
 		simulated := simulateCall(t, h, args)
-		repair251AssertResponse(t, simulated, receipt, guest)
-		require.Equal(t, before, repair251Stores(h.stateDB.Ctx()))
+		assertProgramsTransferResponse(t, simulated, receipt, guest)
+		require.Equal(t, before, programsPersistentAndTransientStores(h.stateDB.Ctx()))
 		input, err := lp.ProgramsABI.Pack("call", args...)
 		require.NoError(t, err)
 		output, _, err := h.evm.Call(h.caller, lp.Address, input, 20000000, uint256.NewInt(0))
 		require.NoError(t, err)
-		repair251AssertResponse(t, output, receipt, guest)
+		assertProgramsTransferResponse(t, output, receipt, guest)
 		require.Equal(t, simulated, output)
 		require.Equal(t, h.dump(reference), h.dump(h.stateDB.Ctx()))
 		proofProgramsAuthenticatedTransfer(t, h, args[0].([32]byte), receipt)

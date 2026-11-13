@@ -166,5 +166,5 @@ func TestVectorV2RecordsPrimaryStandby(t *testing.T) {
 	v := value.(*vectorV2)
 	require.Len(t, v.ReceiptKeys, 2)
 	require.GreaterOrEqual(t, uint64(v.Receipt.Height), uint64(3))
-	repairM1092VerifyV2Copies(t, v)
+	verifyVectorV2Copies(t, v)
 }

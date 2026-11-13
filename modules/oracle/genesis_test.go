@@ -81,5 +81,5 @@ func TestExportInitGenesis(t *testing.T) {
 	require.Equal(t, sdk.NewDec(123), rate)
 	require.Equal(t, sdk.NewInt(7), height)
 	require.Equal(t, observed.UnixMilli(), timestamp)
-	t.Run("resumed-period", func(t *testing.T) { repairM252Recovery(t, false) })
+	t.Run("resumed-period", func(t *testing.T) { oracleContractRecovery(t, false) })
 }

@@ -20,7 +20,7 @@ import generation_transport as transport
 from reset_state import Store, StoreError, canonical, decode
 
 # These fixtures publish native artifacts with the production generation producer.
-from test_repair_22_31_355 import (
+from test_native_lifecycle import (
     ForkedProcess, broker, client, native, paths, recorded_generation, staged_store,
     tls, wait_until,
 )

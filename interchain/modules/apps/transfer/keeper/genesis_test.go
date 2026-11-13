@@ -21,10 +21,10 @@ import (
 )
 
 func (suite *KeeperTestSuite) TestGenesis() {
-	repairM1205GenesisRecovery(suite.T())
+	transferStateGenesisRecovery(suite.T())
 }
 
-func repairM1205Reopen(t *testing.T, app *simapp.SimApp) *simapp.SimApp {
+func transferStateReopen(t *testing.T, app *simapp.SimApp) *simapp.SimApp {
 	t.Helper()
 	info, err := app.UpgradeKeeper.GetUpgradeInfoPath()
 	require.NoError(t, err)
@@ -43,12 +43,12 @@ func repairM1205Reopen(t *testing.T, app *simapp.SimApp) *simapp.SimApp {
 	return reopened
 }
 
-func repairM1205GenesisRecovery(t *testing.T) {
+func transferStateGenesisRecovery(t *testing.T) {
 	t.Helper()
-	s := repairM1205Suite(t)
+	s := transferStateSuite(t)
 	traces := types.Traces{
-		repairM1205Produce(t, s, sdk.DefaultBondDenom),
-		repairM1205Produce(t, s, "factory/creator/subdenom"),
+		transferStateProduce(t, s, sdk.DefaultBondDenom),
+		transferStateProduce(t, s, "factory/creator/subdenom"),
 	}
 	producer := s.chainC.GetSimApp()
 	receiver := s.chainC.SenderAccount.GetAddress()
@@ -62,7 +62,7 @@ func repairM1205GenesisRecovery(t *testing.T) {
 	balances := producer.BankKeeper.ExportGenesis(s.chainC.GetContext())
 	bankJSON := producer.AppCodec().MustMarshalJSON(balances)
 	// Close the actual channel producer and reopen its persisted commitment store.
-	producer = repairM1205Reopen(t, producer)
+	producer = transferStateReopen(t, producer)
 	s.chainC.App = ibctesting.NewTestingAppDecorator(t, producer)
 	pctx := producer.NewUncachedContext(true, tmproto.Header{Height: producer.LastBlockHeight()})
 	require.Equal(t, genesis, transfer.NewAppModule(producer.TransferKeeper).ExportGenesis(pctx, producer.AppCodec()))
@@ -80,7 +80,7 @@ func repairM1205GenesisRecovery(t *testing.T) {
 	consumer.SetDeliverStateToCommit()
 	_, err := consumer.Commit(context.Background())
 	require.NoError(t, err)
-	consumer = repairM1205Reopen(t, consumer)
+	consumer = transferStateReopen(t, consumer)
 	t.Cleanup(func() { require.NoError(t, consumer.Close()) })
 	cctx = consumer.NewUncachedContext(true, tmproto.Header{Height: consumer.LastBlockHeight()})
 	require.Equal(t, balances, consumer.BankKeeper.ExportGenesis(cctx))
