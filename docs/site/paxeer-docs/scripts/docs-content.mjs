@@ -101,7 +101,29 @@ export async function loadPages() {
     }
     collectHeadings(contentRoot)
     body = markdown(contentRoot)
-    pages.push({route,file,title,description,headings,body:body.replace(/[ \t]+$/gm,'').replace(/\n[ \t]+\n/g,'\n\n').replace(/\n{3,}/g,'\n\n').trim()+'\n'})
+    const systems = route === '/system-map' ? JSON.parse(await readFile(path.join(root, 'src/lib/systems.json'), 'utf8')) : []
+    if (systems.length) {
+      const kinds = [...new Set(systems.map(system => system.kind))]
+      for (const kind of kinds) {
+        headings.push({ title: kind, id: `kind-${kind}` })
+        body += `\n\n## ${kind}\n\n`
+        for (const system of systems.filter(system => system.kind === kind)) {
+          headings.push({ title: system.title, id: `system-${system.id}` })
+          body += [
+            `### ${system.title}`, '',
+            `Identifier: ${system.id}`, `Change in 7.0.0: ${system.change}`, '',
+            `Directory: ${system.path}`, '', 'Build command:', '', '```sh', system.build, '```', '',
+            `Build output: ${system.artefact}`, '', `Configuration: ${system.configuration}`, '',
+            `Ports: ${system.ports.join(', ') || 'None listed'}`, '', `Health check: ${system.health}`, '',
+            `Depends on: ${system.depends.map(id => `[${systems.find(item => item.id === id).title}](/system-map#system-${id})`).join(', ') || 'None'}`, '',
+            `Site pages: ${system.siteDocs.map(href => `[${href}](${href})`).join(', ') || 'See repository references.'}`, '',
+            `Repository references: ${system.docs.filter(reference => !reference.startsWith('/')).join(', ')}`, '',
+            ...system.unpublishedDocs.map(route => `Additional inventory reference: ${route} (no published site page)`), '',
+          ].join('\n')
+        }
+      }
+    }
+    pages.push({route,file,title,description,headings,systems,body:body.replace(/[ \t]+$/gm,'').replace(/\n[ \t]+\n/g,'\n\n').replace(/\n{3,}/g,'\n\n').trim()+'\n'})
   }
   return pages
 }

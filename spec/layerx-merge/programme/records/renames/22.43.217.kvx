@@ -1,0 +1,196 @@
+[manifest]
+task = "22.43.217"
+records_moved = 10
+files_renamed = 12
+
+[file.1]
+from = "tools/loadtest/config/repair_322.kvx"
+to = "spec/layerx-merge/programme/records/tools/loadtest/config/repair_322.kvx"
+
+[file.2]
+from = "tools/loadtest/config/repair_m816.kvx"
+to = "spec/layerx-merge/programme/records/tools/loadtest/config/repair_m816.kvx"
+
+[file.3]
+from = "tools/loadtest/generator/scenarios/repair_m820.kvx"
+to = "spec/layerx-merge/programme/records/tools/loadtest/generator/scenarios/repair_m820.kvx"
+
+[file.4]
+from = "tools/loadtest/profiles/repair_m823.kvx"
+to = "spec/layerx-merge/programme/records/tools/loadtest/profiles/repair_m823.kvx"
+
+[file.5]
+from = "tools/loadtest/repair_321.kvx"
+to = "spec/layerx-merge/programme/records/tools/loadtest/repair_321.kvx"
+
+[file.6]
+from = "tools/loadtest/repair_m817.kvx"
+to = "spec/layerx-merge/programme/records/tools/loadtest/repair_m817.kvx"
+
+[file.7]
+from = "tools/loadtest/sender/repair_324.kvx"
+to = "spec/layerx-merge/programme/records/tools/loadtest/sender/repair_324.kvx"
+
+[file.8]
+from = "tools/loadtest/sender/repair_m821.kvx"
+to = "spec/layerx-merge/programme/records/tools/loadtest/sender/repair_m821.kvx"
+
+[file.9]
+from = "tools/loadtest/stats/repair_m822.kvx"
+to = "spec/layerx-merge/programme/records/tools/loadtest/stats/repair_m822.kvx"
+
+[file.10]
+from = "tools/loadtest/types/repair_m818.kvx"
+to = "spec/layerx-merge/programme/records/tools/loadtest/types/repair_m818.kvx"
+
+[file.11]
+from = "tools/loadtest/config/repair_322_test.go"
+to = "tools/loadtest/config/report_path_cli_test.go"
+
+[file.12]
+from = "tools/loadtest/config/repair_m816_test.go"
+to = "tools/loadtest/config/gas_and_bounds_cli_test.go"
+
+[file.13]
+from = "tools/loadtest/generator/repair_m819_test.go"
+to = "tools/loadtest/generator/prewarm_weighted_test.go"
+
+[file.14]
+from = "tools/loadtest/generator/scenarios/repair_323_test.go"
+to = "tools/loadtest/generator/scenarios/gas_picker_profile_test.go"
+
+[file.15]
+from = "tools/loadtest/generator/scenarios/repair_m820_test.go"
+to = "tools/loadtest/generator/scenarios/contract_execution_test.go"
+
+[file.16]
+from = "tools/loadtest/profiles/repair_m823_test.go"
+to = "tools/loadtest/profiles/chain_preflight_report_test.go"
+
+[file.17]
+from = "tools/loadtest/repair_321_test.go"
+to = "tools/loadtest/profile_bounds_cli_test.go"
+
+[file.18]
+from = "tools/loadtest/repair_m817_test.go"
+to = "tools/loadtest/cli_lifecycle_test.go"
+
+[file.19]
+from = "tools/loadtest/sender/repair_324_test.go"
+to = "tools/loadtest/sender/writer_rpc_test.go"
+
+[file.20]
+from = "tools/loadtest/sender/repair_m821_test.go"
+to = "tools/loadtest/sender/worker_ramper_writer_test.go"
+
+[file.21]
+from = "tools/loadtest/stats/repair_m822_test.go"
+to = "tools/loadtest/stats/committed_evidence_test.go"
+
+[file.22]
+from = "tools/loadtest/types/repair_m818_test.go"
+to = "tools/loadtest/types/account_pool_admission_test.go"
+
+[reference.1]
+file = "spec/layerx-merge/dispositions/d22-30.kvx"
+name = "tools/loadtest/generator/scenarios/repair_m820_test.go"
+
+[reference.2]
+file = "spec/layerx-merge/qualification.kvx"
+name = "tools/loadtest/generator/scenarios/repair_m820_test.go"
+
+[reference.3]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_816_"
+
+[reference.4]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_817_"
+
+[reference.5]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_818_"
+
+[reference.6]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_819_"
+
+[reference.7]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_820_"
+
+[reference.8]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_821_"
+
+[reference.9]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_822_"
+
+[reference.10]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_823_"
+
+[reference.11]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_321_"
+
+[reference.12]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_322_"
+
+[reference.13]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_323_"
+
+[reference.14]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_324_"
+
+[reference.15]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/loadtest/config/repair_322_test.go"
+
+[reference.16]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/loadtest/config/repair_m816_test.go"
+
+[reference.17]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/loadtest/generator/repair_m819_test.go"
+
+[reference.18]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/loadtest/generator/scenarios/repair_323_test.go"
+
+[reference.19]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/loadtest/generator/scenarios/repair_m820_test.go"
+
+[reference.20]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/loadtest/profiles/repair_m823_test.go"
+
+[reference.21]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/loadtest/repair_321_test.go"
+
+[reference.22]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/loadtest/repair_m817_test.go"
+
+[reference.23]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/loadtest/sender/repair_324_test.go"
+
+[reference.24]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/loadtest/sender/repair_m821_test.go"
+
+[reference.25]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/loadtest/stats/repair_m822_test.go"
+
+[reference.26]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/loadtest/types/repair_m818_test.go"

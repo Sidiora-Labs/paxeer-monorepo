@@ -15,8 +15,8 @@
 - [utils/](utils/) — endpoint conversion, channels, synchronization, protobuf, and service lifecycle helpers.
 - [main.go](main.go) — executable entry point using the profile command.
 - [main_test.go](main_test.go) — CLI bounds and shipped-profile tests.
-- [repair_321_test.go](repair_321_test.go) — executable shutdown, reporting, and bounds tests.
-- [repair_m817_test.go](repair_m817_test.go) — toolchain, bindings, CLI lifecycle, configuration, and scaffold tests.
+- [profile_bounds_cli_test.go](profile_bounds_cli_test.go) — executable shutdown, reporting, and bounds tests.
+- [cli_lifecycle_test.go](cli_lifecycle_test.go) — toolchain, bindings, CLI lifecycle, configuration, and scaffold tests.
 - [go.mod](go.mod) — nested Go module and dependency versions.
 - [go.sum](go.sum) — Go dependency checksums.
 - [Makefile](Makefile) — build, test, lint, binding generation, tool installation, and dependency targets.

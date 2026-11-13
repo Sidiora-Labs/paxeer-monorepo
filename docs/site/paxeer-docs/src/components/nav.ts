@@ -4,6 +4,7 @@ export const navStructure = [
     items: [
       { title: 'Introduction', href: '/' },
       { title: 'Unified network', href: '/unified-network' },
+      { title: 'System map', href: '/system-map' },
       { title: 'Paxeer X & LayerX', href: '/paxeer-vs-layerx' },
       { title: 'Accounts', href: '/accounts' },
       { title: 'Activities', href: '/activities' },
