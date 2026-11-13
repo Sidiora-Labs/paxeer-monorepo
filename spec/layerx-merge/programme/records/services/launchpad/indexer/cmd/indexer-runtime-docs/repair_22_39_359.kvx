@@ -57,7 +57,7 @@ result = "Executed only through hf-build; authoritative result in private eviden
 file = "spec/layerx-merge/spec.kvx"
 line = 225014
 also_at = "spec/layerx-merge/spec.kvx:42249"
-command = "test -s services/launchpad/indexer/cmd/indexer-runtime-docs/repair_22_39_359.kvx && cd services/launchpad/indexer && go test -count=1 ./cmd/indexer-runtime-docs/ -run 'TestInputPathsResolveCommittedInputs|TestRepair_22_39_359'"
+command = "test -s spec/layerx-merge/programme/records/services/launchpad/indexer/cmd/indexer-runtime-docs/repair_22_39_359.kvx && cd services/launchpad/indexer && go test -count=1 ./cmd/indexer-runtime-docs/ -run 'TestInputPathsResolveCommittedInputs|TestRepair_22_39_359'"
 flags = "-count=1 and the declared focused -run expression; no runtime invocation."
 result = "Executed only through hf-done; authoritative result in private evidence ledger."
 

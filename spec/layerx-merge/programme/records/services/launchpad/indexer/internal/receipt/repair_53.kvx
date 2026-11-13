@@ -33,7 +33,7 @@ request = "services/launchpad/indexer/internal/publisher/durable.go and sdk/laun
 [continuation]
 status = "qualification_pending"
 baseline = "Attempt 2 at e351b22abf3758b88e935499db278a48f37b4c5b already failed all three finding tests because proofproducer was excluded from the launchpad Go workspace; the unchanged gate is not repeated."
-producer = "The prohibited subprocess helper module was removed. Tests require testdata/repair53-producer.json, an immutable packet of actual producer RPC replies; the inherited tree did not contain that transcript. No native receipt or committed registry state is manufactured; attempt 5 records the missing packet from the production keeper and EVM."
+producer = "The prohibited subprocess helper module was removed. Tests require testdata/producer_receipts.json, an immutable packet of actual producer RPC replies; the inherited tree did not contain that transcript. No native receipt or committed registry state is manufactured; attempt 5 records the missing packet from the production keeper and EVM."
 recovery = "SQLite now runs in-process through the existing goose dependency graph. Each call closes its database; reopening scans the unchanged canonical columns through canonicalMarketRow.decode before the production receipt authority reattests them."
 transport = "The fixture transport stores exact production delivery envelopes in a real SQLite file, closes and reopens it, then invokes production delivery.Decode and accounting.DecodePublicationV1; this does not claim NATS or transactional-outbox qualification."
 gotcha_workspace = "The enclosing launchpad Go workspace excludes the inherited producer module; running a Go subprocess would violate this task's revised in-process gate even if its workspace were corrected."
@@ -41,13 +41,13 @@ gotcha_decoder = "Registry.DecodeTransactionReceipt independently requires signi
 gotcha_fixture = "The committed historical RPC archive covers heights around 33963716, below current activation 37220320, and contains no native or tenant-signed swap transcript; it cannot establish post-upgrade native execution."
 
 [wiring.producer-transcript]
-request = "precompiles/launchpad/pool.go and node fixture capture, owner domain 8 merged node: supply an authentic packet for receipt/testdata/repair53-producer.json containing native/root and registry-admitted tenant swaps, parent registry state, approved historical creation and all pinned code/metadata reads across activation 37220320; the receipt gate may only replay this committed capture."
+request = "precompiles/launchpad/pool.go and node fixture capture, owner domain 8 merged node: supply an authentic packet for receipt/testdata/producer_receipts.json containing native/root and registry-admitted tenant swaps, parent registry state, approved historical creation and all pinned code/metadata reads across activation 37220320; the receipt gate may only replay this committed capture."
 
 [wiring.actor-decoder]
 request = "services/launchpad/indexer/internal/decode/correlation.go:269, owner domain 22 launchpad: parameterize DecodeTransactionReceipt with an authority-admitted signed domain and recover with that signer while preserving parent chain 125 raw identities; retain all actor binding and receipt checks."
 
 [test.inputs]
-packet = "testdata/repair53-producer.json must contain actual producer RPC replies and approved runtime options. Its absence is a hard test failure, never a skip, synthetic substitute, live-RPC fallback or subprocess invocation."
+packet = "testdata/producer_receipts.json must contain actual producer RPC replies and approved runtime options. Its absence is a hard test failure, never a skip, synthetic substitute, live-RPC fallback or subprocess invocation."
 history = "The expected real archived creation at height 33963716 retains its qualified provenance and must resume trading after activation 37220320 under root and tenant signatures."
 missing_read = "The loopback RPC server serves only the exact committed producer replies and fails closed on every unrecorded read."
 
@@ -62,8 +62,8 @@ repair = "Normalize omitted RPC params to the archive's empty argument list and 
 [continuation.attempt-4]
 base_revision = "5c06a9cfa23f88d328fc7e91545e90609e8cd0c0"
 inherited = "The runner supplied eight receipt source paths from attempt 3; no current gate ledger existed at inspection. Existing .cgignore and spec changes remain untouched."
-fixture = "testdata/repair53-historical.jsonl.gz is a byte-for-byte copy of internal/internaltest/chainfixture/testdata/paxeer125-market.jsonl.gz; no signed transaction, receipt, emitter, runtime, or block was altered. The archive restart test now reads the scoped capture."
-native_capture = "At attempt-4 inspection the inherited tree contained no actual native/root or tenant producer packet. The public chain-125 endpoint returned no 0x1017 or 0x101e logs over blocks 42520010 through 42522009; that observation is not evidence that such traffic never existed. No producer receipt was fabricated and testdata/repair53-producer.json remained required for attempt 5."
+fixture = "testdata/producer_historical.jsonl.gz is a byte-for-byte copy of internal/internaltest/chainfixture/testdata/paxeer125-market.jsonl.gz; no signed transaction, receipt, emitter, runtime, or block was altered. The archive restart test now reads the scoped capture."
+native_capture = "At attempt-4 inspection the inherited tree contained no actual native/root or tenant producer packet. The public chain-125 endpoint returned no 0x1017 or 0x101e logs over blocks 42520010 through 42522009; that observation is not evidence that such traffic never existed. No producer receipt was fabricated and testdata/producer_receipts.json remained required for attempt 5."
 historical_authority = "The authentic creation at 33963716 contains a known-signature log from Treasury 0xBb82d74E071e03d8E68F1d78Fae9EFe8b6b7A723. The approved historical manifest at activation 32226215 has no Treasury role, and NewRPCQualification rejects extra roles; the current manifest's Treasury cannot establish historical authorization."
 scope_limit = "The three end-to-end tests and the archive restart test retain all assertions. Missing producer capture, historical Treasury authority, and the chain125-only actor decoder are external interfaces; bypassing those checks would weaken qualification."
 
@@ -82,7 +82,7 @@ gotcha_source = "The normalized historical manifest omitted Treasury even though
 root_transaction = "0x54b068cfc507b07aa6c26babb1c9d59a2ac1c56d09ef75ef15798f7c5a323d31"
 tenant_transaction = "0xd53104d4eb0555b591caaa62165394d908ebdf132b5aef78c3f49532c8753a9c"
 producer = "The real MigrateV6120 keeper over node/testdata/v6120-halt-export.json funded a signed fixture account through TreasuryWithdraw; real Router.buy executions produced seven logs each through precompiles/launchpad/pool.go at 0x1017; the concrete layerxchains Keeper.Create and precompile getChain encoder produced tenant 1 admission."
-historical_state = "The historical receipts and original capture remain unchanged; repair53-history-state.json completes omitted Treasury/NFT/fee-contract identity reads from the immutable real node export, with Treasury proxy/implementation hashes and slot checked against the exact approved deployment source before recording."
+historical_state = "The historical receipts and original capture remain unchanged; producer_history_state.json completes omitted Treasury/NFT/fee-contract identity reads from the immutable real node export, with Treasury proxy/implementation hashes and slot checked against the exact approved deployment source before recording."
 gotcha_prepaid = "SidioraPool.swap consumes prepaid input; the recorder uses the real Router.buy funding path so ERC20 transfers and native economic emission are produced together."
 gotcha_funding = "Migration sweeps contract-held quote balances into booked custody; fixture funding must use the production TreasuryWithdraw path rather than transferring a depleted pre-migration fee-contract balance."
 
@@ -90,7 +90,7 @@ gotcha_funding = "Migration sweeps contract-held quote balances into booked cust
 status = "implementation_complete_qualification_pending"
 evidence_ledger = "/out/run/gates.jsonl"
 evidence_logs = "/out/logs/build-1.log and /out/logs/verify-1.log; a repair rerun increments the corresponding suffix"
-recorded_packet = "testdata/repair53-producer.json contains 611 exact RPC reply entries plus approved current/historical runtime documents and the creation provenance issued by the production RPCQualification API; the packet recorder was removed before qualification."
+recorded_packet = "testdata/producer_receipts.json contains 611 exact RPC reply entries plus approved current/historical runtime documents and the creation provenance issued by the production RPCQualification API; the packet recorder was removed before qualification."
 gate_policy = "Only hf-build and hf-done qualify this candidate; the final gate ledger and final response record the exact verified candidate revision, command, exit and private log. No source changes follow a passing hf-done."
 
 [qualification.attempt-5.first-pass]

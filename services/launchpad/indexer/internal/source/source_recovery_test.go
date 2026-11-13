@@ -21,7 +21,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 )
 
-type repair997Node struct {
+type sourceRecoveryNode struct {
 	server                                              *httptest.Server
 	invalid, wrongChain, conflicting, pruned, holdProbe atomic.Bool
 	head                                                atomic.Uint64
@@ -31,9 +31,9 @@ type repair997Node struct {
 	requests                                            atomic.Int64
 }
 
-func repair997Serve(t *testing.T) *repair997Node {
+func sourceRecoveryServe(t *testing.T) *sourceRecoveryNode {
 	t.Helper()
-	n := &repair997Node{entered: make(chan struct{}, 256), release: make(chan struct{})}
+	n := &sourceRecoveryNode{entered: make(chan struct{}, 256), release: make(chan struct{})}
 	n.head.Store(256)
 	n.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var q struct {
@@ -110,7 +110,7 @@ func repair997Serve(t *testing.T) *repair997Node {
 	return n
 }
 
-func repair997Open(t *testing.T, options CommittedOptions) *CommittedSource {
+func sourceRecoveryOpen(t *testing.T, options CommittedOptions) *CommittedSource {
 	t.Helper()
 	s, err := NewCommittedSource(context.Background(), options)
 	if err != nil {
@@ -124,7 +124,7 @@ func repair997Open(t *testing.T, options CommittedOptions) *CommittedSource {
 	return s
 }
 
-func repair997Seed(t *testing.T, s *CommittedSource) {
+func sourceRecoverySeed(t *testing.T, s *CommittedSource) {
 	t.Helper()
 	result, err := s.FetchCommitted(context.Background(), FetchOptions{FromBlock: 1, ToBlock: 128}, false, nil)
 	if err != nil || !result.Complete || len(result.Blocks) != 128 {
@@ -132,7 +132,7 @@ func repair997Seed(t *testing.T, s *CommittedSource) {
 	}
 }
 
-func repair997Kind(t *testing.T, err error, kind ErrorKind) {
+func sourceRecoveryKind(t *testing.T, err error, kind ErrorKind) {
 	t.Helper()
 	var failure *SourceError
 	if !errors.As(err, &failure) || failure.Kind != kind {
@@ -140,16 +140,16 @@ func repair997Kind(t *testing.T, err error, kind ErrorKind) {
 	}
 }
 
-func TestRepairM_997_ArchiveCapacityBounds(t *testing.T) {
+func TestSourceRecoveryArchiveCapacityBounds(t *testing.T) {
 	for _, requested := range []int{0, 24, 96} {
 		t.Run(fmt.Sprintf("concurrency_%d", requested), func(t *testing.T) {
-			primary, archive := repair997Serve(t), repair997Serve(t)
+			primary, archive := sourceRecoveryServe(t), sourceRecoveryServe(t)
 			primary.pruned.Store(true)
 			options := fopts(primary.server.URL)
 			options.HistoricalEndpoints = map[string]string{"archive": archive.server.URL}
 			options.HistoricalConcurrency = requested
 			options.HistoricalReadahead = -1
-			s := repair997Open(t, options)
+			s := sourceRecoveryOpen(t, options)
 			limit := requested
 			if limit == 0 {
 				limit = defaultHistoricalConcurrency
@@ -195,7 +195,7 @@ func TestRepairM_997_ArchiveCapacityBounds(t *testing.T) {
 			var chain string
 			err := s.rpcOnce(ctx, endpoint, true, "eth_chainId", []any{}, &chain, 0)
 			cancel()
-			repair997Kind(t, err, TimeoutError)
+			sourceRecoveryKind(t, err, TimeoutError)
 			select {
 			case <-archive.entered:
 				t.Fatal("archive accepted work beyond configured concurrency")
@@ -219,7 +219,7 @@ func TestRepairM_997_ArchiveCapacityBounds(t *testing.T) {
 				case "primary":
 					bad.EndpointInFlight["fixture"] = 17
 				}
-				repair997Kind(t, s.validateCapacityMeasurement(bad, ^uint64(0)), OverloadError)
+				sourceRecoveryKind(t, s.validateCapacityMeasurement(bad, ^uint64(0)), OverloadError)
 			}
 			close(archive.release)
 			released = true
@@ -238,10 +238,10 @@ func TestRepairM_997_ArchiveCapacityBounds(t *testing.T) {
 	}
 }
 
-func TestRepairM_997_QuarantineRuntimeRejoin(t *testing.T) {
-	node := repair997Serve(t)
-	s := repair997Open(t, fopts(node.server.URL))
-	repair997Seed(t, s)
+func TestSourceRecoveryQuarantineRuntimeRejoin(t *testing.T) {
+	node := sourceRecoveryServe(t)
+	s := sourceRecoveryOpen(t, fopts(node.server.URL))
+	sourceRecoverySeed(t, s)
 	node.invalid.Store(true)
 	for i := 0; i < 3; i++ {
 		if _, err := s.ObserveHead(context.Background(), 128); err == nil {
@@ -256,10 +256,10 @@ func TestRepairM_997_QuarantineRuntimeRejoin(t *testing.T) {
 	}
 	node.invalid.Store(false)
 	node.wrongChain.Store(true)
-	repair997Kind(t, s.RecoverEndpoints(context.Background()), IdentityError)
+	sourceRecoveryKind(t, s.RecoverEndpoints(context.Background()), IdentityError)
 	node.wrongChain.Store(false)
 	node.conflicting.Store(true)
-	repair997Kind(t, s.RecoverEndpoints(context.Background()), IntegrityError)
+	sourceRecoveryKind(t, s.RecoverEndpoints(context.Background()), IntegrityError)
 	if s.EndpointHealth()[0].QuarantineReason == "" {
 		t.Fatal("identity mismatch bypassed rejoin")
 	}
@@ -286,15 +286,15 @@ func TestRepairM_997_QuarantineRuntimeRejoin(t *testing.T) {
 	if err := s.Close(); err != nil {
 		t.Fatal(err)
 	}
-	repair997Kind(t, s.RecoverEndpoints(context.Background()), ClosedError)
+	sourceRecoveryKind(t, s.RecoverEndpoints(context.Background()), ClosedError)
 }
 
-func TestRepairM_997_RecoveryRotationAndDeadline(t *testing.T) {
-	first, second := repair997Serve(t), repair997Serve(t)
+func TestSourceRecoveryRecoveryRotationAndDeadline(t *testing.T) {
+	first, second := sourceRecoveryServe(t), sourceRecoveryServe(t)
 	options := fopts(first.server.URL)
 	options.Endpoints = map[string]string{"a-primary": first.server.URL, "b-primary": second.server.URL}
-	s := repair997Open(t, options)
-	repair997Seed(t, s)
+	s := sourceRecoveryOpen(t, options)
+	sourceRecoverySeed(t, s)
 	first.invalid.Store(true)
 	second.invalid.Store(true)
 	for i := 0; i < 3; i++ {
@@ -323,7 +323,7 @@ func TestRepairM_997_RecoveryRotationAndDeadline(t *testing.T) {
 	started := time.Now()
 	err := s.RecoverEndpoints(ctx)
 	cancel()
-	repair997Kind(t, err, TimeoutError)
+	sourceRecoveryKind(t, err, TimeoutError)
 	if time.Since(started) > time.Second {
 		t.Fatal("probe exceeded shutdown deadline")
 	}
@@ -339,7 +339,7 @@ func TestRepairM_997_RecoveryRotationAndDeadline(t *testing.T) {
 	}
 }
 
-func repair997Signed(t *testing.T, auth SourceSelectionAuthorization, requester, approver ed25519.PrivateKey) SignedSourceSelection {
+func sourceRecoverySigned(t *testing.T, auth SourceSelectionAuthorization, requester, approver ed25519.PrivateKey) SignedSourceSelection {
 	t.Helper()
 	wire, err := json.Marshal(auth)
 	if err != nil {
@@ -348,7 +348,7 @@ func repair997Signed(t *testing.T, auth SourceSelectionAuthorization, requester,
 	return SignedSourceSelection{Authorization: auth, RequestSignature: ed25519.Sign(requester, wire), ApprovalSignature: ed25519.Sign(approver, wire)}
 }
 
-func repair997Post(t *testing.T, url string, signed SignedSourceSelection) int {
+func sourceRecoveryPost(t *testing.T, url string, signed SignedSourceSelection) int {
 	t.Helper()
 	body, err := json.Marshal(signed)
 	if err != nil {
@@ -363,7 +363,7 @@ func repair997Post(t *testing.T, url string, signed SignedSourceSelection) int {
 	return response.StatusCode
 }
 
-func TestRepairM_997_AuthorizedIncidentSelection(t *testing.T) {
+func TestSourceRecoveryAuthorizedIncidentSelection(t *testing.T) {
 	requesterKey := ed25519.NewKeyFromSeed(bytes.Repeat([]byte{1}, ed25519.SeedSize))
 	approverKey := ed25519.NewKeyFromSeed(bytes.Repeat([]byte{2}, ed25519.SeedSize))
 	keys := map[string][]byte{"requester": requesterKey.Public().(ed25519.PublicKey), "approver": approverKey.Public().(ed25519.PublicKey)}
@@ -371,12 +371,12 @@ func TestRepairM_997_AuthorizedIncidentSelection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	first, second := repair997Serve(t), repair997Serve(t)
+	first, second := sourceRecoveryServe(t), sourceRecoveryServe(t)
 	options := fopts(first.server.URL)
 	options.Endpoints = map[string]string{"a-primary": first.server.URL, "b-primary": second.server.URL}
 	options.SelectionAuthority = authority
-	s := repair997Open(t, options)
-	repair997Seed(t, s)
+	s := sourceRecoveryOpen(t, options)
+	sourceRecoverySeed(t, s)
 	second.conflicting.Store(true)
 	second.head.Store(128)
 	if _, err := s.ObserveHead(context.Background(), 128); err == nil {
@@ -397,7 +397,7 @@ func TestRepairM_997_AuthorizedIncidentSelection(t *testing.T) {
 	defer api.Close()
 	auth := SourceSelectionAuthorization{ID: "incident-128", Kind: "incident_recovery", Scope: "canonical", Reason: "verified canonical history", RequestedBy: "requester", ApprovedBy: "approver", State: "approved", Revision: 1, Expires: time.Now().Add(time.Hour), SourceID: "b-primary", Height: 128, Hash: committedFixtureHash(128)}
 	auth.PayloadHash = SourceSelectionPayloadHash(auth.Scope, auth.SourceID, auth.Height, auth.Hash)
-	signed := repair997Signed(t, auth, requesterKey, approverKey)
+	signed := sourceRecoverySigned(t, auth, requesterKey, approverKey)
 	for _, mode := range []string{"signature", "scope", "expired", "self", "payload", "source", "hash"} {
 		bad := signed
 		switch mode {
@@ -406,22 +406,22 @@ func TestRepairM_997_AuthorizedIncidentSelection(t *testing.T) {
 		case "scope":
 			bad.Authorization.Scope = "other"
 			bad.Authorization.PayloadHash = SourceSelectionPayloadHash("other", auth.SourceID, auth.Height, auth.Hash)
-			bad = repair997Signed(t, bad.Authorization, requesterKey, approverKey)
+			bad = sourceRecoverySigned(t, bad.Authorization, requesterKey, approverKey)
 		case "expired":
 			bad.Authorization.Expires = time.Now().Add(-time.Minute)
-			bad = repair997Signed(t, bad.Authorization, requesterKey, approverKey)
+			bad = sourceRecoverySigned(t, bad.Authorization, requesterKey, approverKey)
 		case "self":
 			bad.Authorization.ApprovedBy = "requester"
-			bad = repair997Signed(t, bad.Authorization, requesterKey, requesterKey)
+			bad = sourceRecoverySigned(t, bad.Authorization, requesterKey, requesterKey)
 		case "payload":
 			bad.Authorization.PayloadHash = strings.Repeat("0", 64)
-			bad = repair997Signed(t, bad.Authorization, requesterKey, approverKey)
+			bad = sourceRecoverySigned(t, bad.Authorization, requesterKey, approverKey)
 		case "source":
 			bad.Authorization.SourceID = "a-primary"
 		case "hash":
 			bad.Authorization.Hash = common.HexToHash("0xbad")
 		}
-		if status := repair997Post(t, api.URL, bad); status != http.StatusForbidden {
+		if status := sourceRecoveryPost(t, api.URL, bad); status != http.StatusForbidden {
 			t.Fatalf("%s authorization status=%d", mode, status)
 		}
 	}
@@ -430,11 +430,11 @@ func TestRepairM_997_AuthorizedIncidentSelection(t *testing.T) {
 	}
 	// Approved selection still cannot rejoin a source serving the wrong chain.
 	second.wrongChain.Store(true)
-	if status := repair997Post(t, api.URL, signed); status != http.StatusConflict {
+	if status := sourceRecoveryPost(t, api.URL, signed); status != http.StatusConflict {
 		t.Fatalf("wrong-chain rejoin status=%d", status)
 	}
 	second.wrongChain.Store(false)
-	if status := repair997Post(t, api.URL, signed); status != http.StatusNoContent {
+	if status := sourceRecoveryPost(t, api.URL, signed); status != http.StatusNoContent {
 		t.Fatalf("approved selection status=%d", status)
 	}
 	if health := s.EndpointHealth()[1]; health.QuarantineReason != "" || health.RecoveryChecks != 128 {
@@ -467,7 +467,7 @@ func TestRepairM_997_AuthorizedIncidentSelection(t *testing.T) {
 	}
 }
 
-func TestRepairM_997_MixedRPCSourceSelection(t *testing.T) {
+func TestSourceRecoveryMixedRPCSourceSelection(t *testing.T) {
 	for _, logMode := range []string{config.SourceRPC, config.SourceRPCGetLogs} {
 		t.Run(logMode, func(t *testing.T) {
 			var singleLogs, poolLogs, singleHeads, poolHeads atomic.Int64

@@ -84,7 +84,7 @@ func TestLegacyExplorerRejectsUnavailableQueriesAndMalformedRows(t *testing.T) {
 func TestCommittedExplorerConfigurationMatchesApprovedEpochsAndReader(t *testing.T) {
 	ctx := context.Background()
 	node := newCapacityChain(t)
-	live := repair997Open(t, fopts(node.server.URL))
+	live := sourceRecoveryOpen(t, fopts(node.server.URL))
 	dsn, pool := canonicaltest.New(t)
 	explorer := capacityExplorer(t, dsn, pool, live, 100)
 	for _, tc := range []struct {

@@ -2,7 +2,7 @@
 finding = "native-swap-actors"
 tests = ["TestRepairM_995_NativeReceiptAttribution", "TestRepairM_995_NativeRoleProvenance", "TestRepairM_995_ConservativeEvidence", "TestRepairM_995_ReceiptIdentity"]
 change = "Select decoded primary economic Swap families from registry-verified provenance while retaining exact receipt identity, active pool admission and unique output-transfer checks."
-producer = "Committed receipt/testdata/repair53-producer.json; immutable JSON-RPC replay through RPCQualification, receipt correlation and QualifiedReceipt.QualifiedEvents/Fills."
+producer = "Committed receipt/testdata/producer_receipts.json; immutable JSON-RPC replay through RPCQualification, receipt correlation and QualifiedReceipt.QualifiedEvents/Fills."
 baseline = "Not run: the explicit implementation-first gate order forbids running verify_cmd manually or before implementation; no pre-change test failure is claimed."
 wiring_requests = []
 evidence = "The runner records the qualified candidate revision, command, exit code and private gate log; no qualification is claimed before hf-done succeeds."

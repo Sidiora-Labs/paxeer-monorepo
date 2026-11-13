@@ -39,12 +39,12 @@ import (
 
 // The inventory peer stores ordered creation identities on disk. Every page
 // opens and closes the snapshot, so recovery cannot reuse a process cache.
-type repair55DiskInventory struct {
+type marketRecoveryDiskInventory struct {
 	path                         string
 	pages, maxPage, maxArguments int
 }
 
-func (s *repair55DiskInventory) Page(ctx context.Context, addresses []common.Address, through uint64, after string) ([]receipt.DiscoveredMarket, error) {
+func (s *marketRecoveryDiskInventory) Page(ctx context.Context, addresses []common.Address, through uint64, after string) ([]receipt.DiscoveredMarket, error) {
 	if len(addresses) == 0 || len(addresses) > marketRecoveryPageSize {
 		return nil, errors.New("unbounded inventory lookup")
 	}
@@ -83,16 +83,16 @@ func (s *repair55DiskInventory) Page(ctx context.Context, addresses []common.Add
 	return markets, nil
 }
 
-func repair55Inventory(t *testing.T) *repair55DiskInventory {
+func marketRecoveryInventory(t *testing.T) *marketRecoveryDiskInventory {
 	t.Helper()
-	s := &repair55DiskInventory{path: filepath.Join(t.TempDir(), "canonical.jsonl")}
+	s := &marketRecoveryDiskInventory{path: filepath.Join(t.TempDir(), "canonical.jsonl")}
 	if err := os.WriteFile(s.path, nil, 0600); err != nil {
 		t.Fatal(err)
 	}
 	return s
 }
 
-func (s *repair55DiskInventory) insert(ctx context.Context, markets []receipt.DiscoveredMarket) error {
+func (s *marketRecoveryDiskInventory) insert(ctx context.Context, markets []receipt.DiscoveredMarket) error {
 	file, err := os.Open(s.path)
 	if err != nil {
 		return err
@@ -137,10 +137,10 @@ func (s *repair55DiskInventory) insert(ctx context.Context, markets []receipt.Di
 // Supplement the committed producer transcript with exact historical eth_call
 // responses recorded for this recovery path. Unknown calls still fail through
 // chainfixture; the proxy never connects to a live endpoint.
-func repair55Serve(t *testing.T, fixture *chainfixture.Fixture) string {
+func marketRecoveryServe(t *testing.T, fixture *chainfixture.Fixture) string {
 	t.Helper()
 	_, file, _, _ := runtime.Caller(0)
-	transcript, err := os.Open(filepath.Join(filepath.Dir(file), "testdata/repair_55_rpc.jsonl"))
+	transcript, err := os.Open(filepath.Join(filepath.Dir(file), "testdata/market_recovery_rpc.jsonl"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -204,7 +204,7 @@ func repair55Serve(t *testing.T, fixture *chainfixture.Fixture) string {
 	return server.URL
 }
 
-func repair55Markets(count int) []receipt.DiscoveredMarket {
+func marketRecoveryMarkets(count int) []receipt.DiscoveredMarket {
 	markets := make([]receipt.DiscoveredMarket, count)
 	for i := range markets {
 		markets[i] = receipt.DiscoveredMarket{Token: common.HexToAddress(fmt.Sprintf("0x%040x", 2*i+100000)), Pool: common.HexToAddress(fmt.Sprintf("0x%040x", 2*i+100001)), Height: 33963716, TransactionIndex: uint(i % 7)}
@@ -212,17 +212,17 @@ func repair55Markets(count int) []receipt.DiscoveredMarket {
 	return markets
 }
 
-func TestRepair_55_DurableInventoryCrossesLifetimeBounds(t *testing.T) {
+func TestMarketRecoveryDurableInventoryCrossesLifetimeBounds(t *testing.T) {
 	ctx := context.Background()
-	inventory := repair55Inventory(t)
+	inventory := marketRecoveryInventory(t)
 	// 4,200 markets imply 8,400 historical code epochs. Recovery admits only
 	// the markets of each operation; neither old lifetime boundary applies.
-	want := repair55Markets(4200)
+	want := marketRecoveryMarkets(4200)
 	if err := inventory.insert(ctx, want); err != nil {
 		t.Fatal(err)
 	}
 	for restart := 0; restart < 2; restart++ {
-		inventory = &repair55DiskInventory{path: inventory.path}
+		inventory = &marketRecoveryDiskInventory{path: inventory.path}
 		for start := 0; start < len(want); start += 128 {
 			end := min(start+128, len(want))
 			addresses := make([]common.Address, 0, 2*(end-start))
@@ -253,7 +253,7 @@ func TestRepair_55_DurableInventoryCrossesLifetimeBounds(t *testing.T) {
 	}
 }
 
-func repair55Options(t *testing.T) receipt.RPCOptions {
+func marketRecoveryOptions(t *testing.T) receipt.RPCOptions {
 	t.Helper()
 	_, file, _, _ := runtime.Caller(0)
 	root := filepath.Clean(filepath.Join(filepath.Dir(file), "../../../../.."))
@@ -310,7 +310,7 @@ func repair55Options(t *testing.T) receipt.RPCOptions {
 	return o
 }
 
-type repair55Runtime struct {
+type marketRecoveryRuntime struct {
 	source      *recoveringQualifiedSource
 	client      *ethclient.Client
 	closeClient func()
@@ -319,7 +319,7 @@ type repair55Runtime struct {
 	hashes      map[uint64]common.Hash
 }
 
-func repair55Open(t *testing.T, ctx context.Context, url string, options receipt.RPCOptions, inventory marketInventory, height uint64, hash common.Hash) *repair55Runtime {
+func marketRecoveryOpen(t *testing.T, ctx context.Context, url string, options receipt.RPCOptions, inventory marketInventory, height uint64, hash common.Hash) *marketRecoveryRuntime {
 	t.Helper()
 	client, closeClient, err := receipt.NewBoundedRPCClient(ctx, url, "")
 	if err != nil {
@@ -335,7 +335,7 @@ func repair55Open(t *testing.T, ctx context.Context, url string, options receipt
 		closeClient()
 		t.Fatal(err)
 	}
-	r := &repair55Runtime{client: client, closeClient: closeClient, height: height, hashes: map[uint64]common.Hash{height: hash}}
+	r := &marketRecoveryRuntime{client: client, closeClient: closeClient, height: height, hashes: map[uint64]common.Hash{height: hash}}
 	factory := func(c context.Context) (*receipt.RPCQualification, error) {
 		a, err := receipt.NewRPCQualification(c, client, options)
 		if err != nil {
@@ -358,7 +358,7 @@ func repair55Open(t *testing.T, ctx context.Context, url string, options receipt
 	return r
 }
 
-func (r *repair55Runtime) close() {
+func (r *marketRecoveryRuntime) close() {
 	if r.source != nil {
 		_ = r.source.history.Close()
 		r.source = nil
@@ -369,16 +369,16 @@ func (r *repair55Runtime) close() {
 	}
 }
 
-func TestRepair_55_RestartRecoversRealMarketBeyondLifetimeBounds(t *testing.T) {
+func TestMarketRecoveryRestartRecoversRealMarketBeyondLifetimeBounds(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 	if os.Getenv(chainfixture.RecordEnv) != "" {
 		t.Fatal("this gate must use recorded producer traffic without a live endpoint")
 	}
-	url := repair55Serve(t, chainfixture.New(t))
-	options := repair55Options(t)
-	inventory := repair55Inventory(t)
-	r := repair55Open(t, ctx, url, options, inventory, options.Anchor.Height, options.Anchor.Hash)
+	url := marketRecoveryServe(t, chainfixture.New(t))
+	options := marketRecoveryOptions(t)
+	inventory := marketRecoveryInventory(t)
+	r := marketRecoveryOpen(t, ctx, url, options, inventory, options.Anchor.Height, options.Anchor.Hash)
 	created, qualified, err := r.source.FetchQualifiedBatch(ctx, 33963716, 33963716)
 	if err != nil {
 		t.Fatal(err)
@@ -449,16 +449,16 @@ func TestRepair_55_RestartRecoversRealMarketBeyondLifetimeBounds(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	originalIdentities := repair55TradeIdentities(t, ctx, originalTrades, originalReceipts)
-	if err = inventory.insert(ctx, repair55Markets(4200)); err != nil {
+	originalIdentities := marketRecoveryTradeIdentities(t, ctx, originalTrades, originalReceipts)
+	if err = inventory.insert(ctx, marketRecoveryMarkets(4200)); err != nil {
 		t.Fatal(err)
 	}
 	creationHash := common.HexToHash(created.Blocks[0].Hash)
 	r.close()
 	// Discard every authority, decoder, source and inventory reader; only the
 	// durable inventory and recorded chain survive this component restart.
-	inventory = &repair55DiskInventory{path: inventory.path}
-	r = repair55Open(t, ctx, url, options, inventory, 33963716, creationHash)
+	inventory = &marketRecoveryDiskInventory{path: inventory.path}
+	r = marketRecoveryOpen(t, ctx, url, options, inventory, 33963716, creationHash)
 	buy, receipts, err := r.source.FetchQualifiedBatch(ctx, 33963717, 33963733)
 	if err != nil {
 		t.Fatal(err)
@@ -539,7 +539,7 @@ func TestRepair_55_RestartRecoversRealMarketBeyondLifetimeBounds(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	replayedIdentities := repair55TradeIdentities(t, ctx, replayedTrades, replayedReceipts)
+	replayedIdentities := marketRecoveryTradeIdentities(t, ctx, replayedTrades, replayedReceipts)
 	if !reflect.DeepEqual(originalTrades, replayedTrades) || !reflect.DeepEqual(originalIdentities, replayedIdentities) {
 		t.Fatal("receipt identities or canonical records changed across lifetime growth and restart")
 	}
@@ -555,7 +555,7 @@ func TestRepair_55_RestartRecoversRealMarketBeyondLifetimeBounds(t *testing.T) {
 	}
 }
 
-func repair55TradeIdentities(t *testing.T, ctx context.Context, batch store.CanonicalBatch, receipts []*receipt.QualifiedReceipt) []string {
+func marketRecoveryTradeIdentities(t *testing.T, ctx context.Context, batch store.CanonicalBatch, receipts []*receipt.QualifiedReceipt) []string {
 	t.Helper()
 	if err := receipt.ValidateBindings(ctx, batch, receipts); err != nil {
 		t.Fatal(err)
@@ -594,7 +594,7 @@ func repair55TradeIdentities(t *testing.T, ctx context.Context, batch store.Cano
 	return identities
 }
 
-func TestRepair_55_ReceiptHintsRejectTampering(t *testing.T) {
+func TestMarketRecoveryReceiptHintsRejectTampering(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 	if os.Getenv(chainfixture.RecordEnv) != "" {
@@ -620,10 +620,10 @@ func TestRepair_55_ReceiptHintsRejectTampering(t *testing.T) {
 		changed.Store(true)
 		return altered
 	}
-	url := repair55Serve(t, fixture)
-	options := repair55Options(t)
-	inventory := repair55Inventory(t)
-	r := repair55Open(t, ctx, url, options, inventory, options.Anchor.Height, options.Anchor.Hash)
+	url := marketRecoveryServe(t, fixture)
+	options := marketRecoveryOptions(t)
+	inventory := marketRecoveryInventory(t)
+	r := marketRecoveryOpen(t, ctx, url, options, inventory, options.Anchor.Height, options.Anchor.Hash)
 	if _, _, err := r.source.FetchQualifiedBatch(ctx, 33963716, 33963716); !errors.Is(err, receipt.ErrBinding) {
 		t.Fatalf("altered receipt became a recovery hint: %v", err)
 	}
@@ -632,8 +632,8 @@ func TestRepair_55_ReceiptHintsRejectTampering(t *testing.T) {
 	}
 }
 
-func TestRepair_55_PersistedIdentityValidation(t *testing.T) {
-	valid := repair55Markets(1)[0]
+func TestMarketRecoveryPersistedIdentityValidation(t *testing.T) {
+	valid := marketRecoveryMarkets(1)[0]
 	for _, test := range []struct {
 		token, pool   string
 		height, index int64
@@ -652,7 +652,7 @@ func TestRepair_55_PersistedIdentityValidation(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	if _, err := recoverBatchMarkets(ctx, repair55Inventory(t), []common.Address{valid.Token}, 1); !errors.Is(err, context.Canceled) {
+	if _, err := recoverBatchMarkets(ctx, marketRecoveryInventory(t), []common.Address{valid.Token}, 1); !errors.Is(err, context.Canceled) {
 		t.Fatalf("cancelled recovery continued: %v", err)
 	}
 }

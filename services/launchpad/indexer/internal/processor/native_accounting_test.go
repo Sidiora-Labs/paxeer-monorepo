@@ -41,7 +41,7 @@ import (
 // ReceiptOptions' trimmed catalog predates historical Treasury admission.
 // Supply its exact approved identity and ABI from the committed source; native
 // generations continue to use their separately reviewed document.
-func repairM1000ReceiptOptions(t *testing.T, inputs runtimedocs.Inputs) receipt.RPCOptions {
+func nativeAccountingReceiptOptions(t *testing.T, inputs runtimedocs.Inputs) receipt.RPCOptions {
 	t.Helper()
 	options, _, err := runtimedocs.ReceiptOptions(inputs)
 	if err != nil {
@@ -96,7 +96,7 @@ func repairM1000ReceiptOptions(t *testing.T, inputs runtimedocs.Inputs) receipt.
 	return options
 }
 
-type repairM1000Recorded struct {
+type nativeAccountingRecorded struct {
 	Key    string          `json:"k"`
 	Result json.RawMessage `json:"result"`
 	Error  json.RawMessage `json:"error"`
@@ -105,24 +105,24 @@ type repairM1000Recorded struct {
 // Replay source-owned responses, never generating state reads. Log queries
 // can select a different approved address set only over complete recorded
 // blocks whose every transaction has its original receipt in this packet.
-func repairM1000RecordedRPC(t *testing.T, latest ...uint64) string {
+func nativeAccountingRecordedRPC(t *testing.T, latest ...uint64) string {
 	t.Helper()
-	raw, err := os.ReadFile(filepath.Join(repositoryRoot(), "services/launchpad/indexer/internal/processor/testdata/repair_m1000_batches.json"))
+	raw, err := os.ReadFile(filepath.Join(repositoryRoot(), "services/launchpad/indexer/internal/processor/testdata/native_accounting_batches.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	var packet struct {
-		Responses map[string]repairM1000Recorded
+		Responses map[string]nativeAccountingRecorded
 	}
 	if err = json.Unmarshal(raw, &packet); err != nil {
 		t.Fatal(err)
 	}
-	raw, err = os.ReadFile(filepath.Join(repositoryRoot(), "services/launchpad/indexer/internal/processor/testdata/repair_m1000_treasury.json"))
+	raw, err = os.ReadFile(filepath.Join(repositoryRoot(), "services/launchpad/indexer/internal/processor/testdata/native_accounting_treasury.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	var treasury struct {
-		Responses map[string]repairM1000Recorded
+		Responses map[string]nativeAccountingRecorded
 	}
 	if err = json.Unmarshal(raw, &treasury); err != nil {
 		t.Fatal(err)
@@ -144,7 +144,7 @@ func repairM1000RecordedRPC(t *testing.T, latest ...uint64) string {
 		}
 		return chainfixture.Key(method, params)
 	}
-	responses := map[string]repairM1000Recorded{}
+	responses := map[string]nativeAccountingRecorded{}
 	headers := map[uint64][]common.Hash{}
 	receipts := map[common.Hash]*types.Receipt{}
 	for encoded, response := range packet.Responses {
@@ -291,7 +291,7 @@ func repairM1000RecordedRPC(t *testing.T, latest ...uint64) string {
 
 // PostgreSQL's WASI engine is the persistence peer. The production Store,
 // generated queries, transaction handling and durable publisher are unchanged.
-func repairM1000Database(t *testing.T) (*pgxpool.Pool, func() *pgxpool.Pool) {
+func nativeAccountingDatabase(t *testing.T) (*pgxpool.Pool, func() *pgxpool.Pool) {
 	t.Helper()
 	ctx := context.Background()
 	dir := t.TempDir()
@@ -337,14 +337,14 @@ func repairM1000Database(t *testing.T) (*pgxpool.Pool, func() *pgxpool.Pool) {
 	}
 }
 
-func TestRepairM_1000_NativeFeeFlow(t *testing.T) { repairM1000NativeFeeFlow(t) }
+func TestNativeFeeFlow(t *testing.T) { nativeAccountingNativeFeeFlow(t) }
 
-func repairM1000NativeFeeFlow(t *testing.T) {
+func nativeAccountingNativeFeeFlow(t *testing.T) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
-	pool, reopen := repairM1000Database(t)
-	inputs := repair54ReceiptInputs(t)
+	pool, reopen := nativeAccountingDatabase(t)
+	inputs := nativeProjectionReceiptInputs(t)
 	inputs.Manifest = deployment.Current()
 	reviewed, err := os.ReadFile(filepath.Join(repositoryRoot(), "sdk/launchpad/protocol/catalog/reviewed.json"))
 	if err != nil {
@@ -536,11 +536,11 @@ func repairM1000NativeFeeFlow(t *testing.T) {
 	}
 }
 
-func TestRepairM_1000_TreasuryCodeEpoch(t *testing.T) {
+func TestNativeAccountingTreasuryCodeEpoch(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
-	options := repairM1000ReceiptOptions(t, repair54ReceiptInputs(t))
-	url := repairM1000RecordedRPC(t)
+	options := nativeAccountingReceiptOptions(t, nativeProjectionReceiptInputs(t))
+	url := nativeAccountingRecordedRPC(t)
 	client, closeClient, err := receipt.NewBoundedRPCClient(ctx, url, "")
 	if err != nil {
 		t.Fatal(err)
@@ -586,7 +586,7 @@ func TestRepairM_1000_TreasuryCodeEpoch(t *testing.T) {
 	}
 }
 
-func TestRepairM_1000_LiveGeneration(t *testing.T) {
+func TestNativeAccountingLiveGeneration(t *testing.T) {
 	current := deployment.Current()
 	ranges, err := liveGenerationRanges(realAnchor.Height+1, current.ActivationHeight+1)
 	if err != nil || len(ranges) != 2 {
@@ -604,10 +604,10 @@ func TestRepairM_1000_LiveGeneration(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
-	pool, _ := repairM1000Database(t)
+	pool, _ := nativeAccountingDatabase(t)
 	applyProductionSchema(t, ctx, pool)
 	t.Setenv(chainfixture.RecordEnv, "")
-	url := repairM1000RecordedRPC(t)
+	url := nativeAccountingRecordedRPC(t)
 	l := newLiveIngestor(t, ctx, pool, url, url, realAnchor)
 	// Replay the original capture boundaries: creation first, then the buy.
 	// The authority retains the creation metadata across the canonical commits.
@@ -622,11 +622,11 @@ func TestRepairM_1000_LiveGeneration(t *testing.T) {
 	}
 }
 
-func TestRepairM_1000_InventoryDurableFrames(t *testing.T) {
+func TestNativeAccountingInventoryDurableFrames(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 	t.Setenv(chainfixture.RecordEnv, "")
-	pool, reopen := repairM1000Database(t)
+	pool, reopen := nativeAccountingDatabase(t)
 	h := newInventoryHarnessOnPool(t, ctx, 0, pool)
 	h.batch(t, ctx, 33963716, 33963716)
 	baseline := h.issueBaseline(t, ctx, realMarketTrader, realMarketToken)
@@ -666,7 +666,7 @@ func TestRepairM_1000_InventoryDurableFrames(t *testing.T) {
 	}
 }
 
-func repairM1000MeasurementSpec(t *testing.T) IngestMeasurementSpec {
+func nativeAccountingMeasurementSpec(t *testing.T) IngestMeasurementSpec {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "candidate.go")
 	_, ownFile, _, _ := runtime.Caller(0)
@@ -689,16 +689,16 @@ func repairM1000MeasurementSpec(t *testing.T) IngestMeasurementSpec {
 	return IngestMeasurementSpec{CaptureMaxBytes: 16 << 20, RunID: "missing-real-providers", CandidateSHA256: delivery.Hash([]byte(fmt.Sprintf("%d:%s:%s\n", len(path), path, digest))), Profile: "steady", Region: "local-fixture", SourceFiles: map[string]string{path: digest}, Duration: 5 * time.Minute, BatchBlocks: 1, MaxMemoryBytes: 1 << 30, MaxDatabaseConnections: 1, DeliverySchema: "indexer", HotPool: airdropPool, OutputPath: filepath.Join(t.TempDir(), "capture.ndjson"), TopologyPath: topologyPath, TopologySHA256: delivery.Hash(topology)}
 }
 
-func TestRepairM_1000_MeasurementRefusals(t *testing.T) { repairM1000MeasurementRefusals(t) }
+func TestNativeAccountingMeasurementRefusals(t *testing.T) { nativeAccountingMeasurementRefusals(t) }
 
-func repairM1000MeasurementRefusals(t *testing.T) {
+func nativeAccountingMeasurementRefusals(t *testing.T) {
 	t.Helper()
 	ctx := context.Background()
-	spec := repairM1000MeasurementSpec(t)
+	spec := nativeAccountingMeasurementSpec(t)
 	if err := validateMeasurementSource(spec); err != nil {
 		t.Fatal("valid pinned source:", err)
 	}
-	pool, _ := repairM1000Database(t)
+	pool, _ := nativeAccountingDatabase(t)
 	guard, err := queue.NewEpochGuard("recovery", 1, "railway-prod")
 	if err != nil {
 		t.Fatal(err)
@@ -708,8 +708,8 @@ func repairM1000MeasurementRefusals(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Setenv(chainfixture.RecordEnv, "")
-	url := repairM1000RecordedRPC(t)
-	options := repairM1000ReceiptOptions(t, repair54ReceiptInputs(t))
+	url := nativeAccountingRecordedRPC(t)
+	options := nativeAccountingReceiptOptions(t, nativeProjectionReceiptInputs(t))
 	committed, err := runtimedocs.CommittedOptions(options)
 	if err != nil {
 		t.Fatal(err)
@@ -803,9 +803,9 @@ func repairM1000MeasurementRefusals(t *testing.T) {
 	}
 }
 
-func TestRepairM_1000_ChangedCandidate(t *testing.T) { repairM1000ChangedCandidate(t) }
-func repairM1000ChangedCandidate(t *testing.T) {
-	spec := repairM1000MeasurementSpec(t)
+func TestNativeAccountingChangedCandidate(t *testing.T) { nativeAccountingChangedCandidate(t) }
+func nativeAccountingChangedCandidate(t *testing.T) {
+	spec := nativeAccountingMeasurementSpec(t)
 	if err := validateMeasurementSource(spec); err != nil {
 		t.Fatal(err)
 	}

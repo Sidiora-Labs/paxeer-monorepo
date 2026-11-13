@@ -14,7 +14,7 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/config/deployment"
 )
 
-func TestRepair_22_39_328(t *testing.T) {
+func TestTrimCatalogBindsCurrentDeployment(t *testing.T) {
 	root := repoRoot(t)
 	raw, err := os.ReadFile(filepath.Join(root, "sdk", "launchpad", "protocol", "catalog", "reviewed.json"))
 	if err != nil {

@@ -99,7 +99,7 @@ func TestGenerationApplicationRejectsChangedRawAndUnavailableTables(t *testing.T
 }
 
 func TestMeasurementFilesRejectUnavailableAndUnpinnedInputs(t *testing.T) {
-	spec := repairM1000MeasurementSpec(t)
+	spec := nativeAccountingMeasurementSpec(t)
 	if err := validateCandidateFiles(nil, spec.CandidateSHA256); err == nil {
 		t.Fatal("empty source inventory accepted")
 	}
