@@ -2,7 +2,7 @@
 audit = "22.30.153"
 base_revision = "79d99a9cd334a5da02f3a4aac2a324549c9a0d5e"
 verified_revision = "The authoritative candidate revision is emitted by hf-done and retained in its private gate evidence; no qualification is claimed before that command passes."
-verify_cmd = "cargo test --locked --manifest-path services/explorer/services/libs/sourcify/Cargo.toml --test repair_22_33_521"
+verify_cmd = "cargo test --locked --manifest-path services/explorer/services/libs/sourcify/Cargo.toml --test verification_workflows"
 baseline = "Not executed: the explicit implementation-first order and prohibition on invoking verify_cmd by hand take precedence over the contradictory baseline instruction; no baseline failures are claimed. The integration target did not exist at the base revision."
 peer = "Disposable loopback HTTP service in test_service.rs pins the v2 request/response contract at base_revision; it checks methods, complete prefixed routes, field selectors and submission JSON while exercising the real Client, retry middleware and source decoder without external tools or live services."
 wiring_requests = []

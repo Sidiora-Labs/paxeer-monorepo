@@ -30,7 +30,7 @@ request = "Domain 14 owns services/explorer/services/libs/blockscout-client/swag
 [constraints]
 scope = "Only the allowed tests subtree was edited. Inherited .cgignore and spec status edits belong to runner bookkeeping; no spec edit, commit or push is performed by this worker."
 gotcha = "ApiClient::Configuration.request_timeout overrides reqwest client defaults at each generated request, so transport deadline tests and the shared fixture set both explicitly."
-producer = "fixtures/repair_22_33_568.json is labelled as a transcription of committed backend schema/controller branches, not a fresh response recording; retained upstream fixture metadata does not establish the deployed backend version or Paxeer chain identity."
+producer = "fixtures/api_refusals.json is labelled as a transcription of committed backend schema/controller branches, not a fresh response recording; retained upstream fixture metadata does not establish the deployed backend version or Paxeer chain identity."
 
 [qualification.build_repair_1]
 revision = "48dc1f23efd7677cf443356a933fd8852d804ae9"

@@ -1,8 +1,7 @@
-//! Task 22.33.428: production model serializers -> loopback HTTP -> ApiClient
-//! -> both typed response consumers. Backend recordings supply the envelopes;
-//! model-produced branch probes cover distinct heights and every action kind.
-//! This gate does not execute the Elixir backend. See the in-scope repair record
-//! in src/models/repair_22_33_428.kvx for provenance and schema wiring requests.
+//! Production model serializers cross loopback HTTP into ApiClient and both
+//! typed response consumers. Backend recordings supply the envelopes; model
+//! probes cover distinct heights and every action kind.
+//! Provenance: spec/layerx-merge/programme/records/services/explorer/services/libs/blockscout-client/crate/src/models/repair_22_33_428.kvx.
 
 use blockscout_client::{
     apis::transactions_api::GetTxParams, models::*, Api, ApiClient, Configuration,

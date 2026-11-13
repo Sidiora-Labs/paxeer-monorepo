@@ -1,6 +1,6 @@
 [repair.22.33.385]
 findings = ["auth-http-unbounded-wait", "auth-fixtures-hide-session-variants"]
-baseline = "Base aefa91aa13a43dff9d0a27098f8280d43fd1ed42 has no repair_22_33_385 test target; the inherited gate ledger has no build or verify runs. No baseline test failure is claimed: the task's ordered qualification instructions forbid pre-implementation verification."
+baseline = "Base aefa91aa13a43dff9d0a27098f8280d43fd1ed42 has no account_http_deadlines test target; the inherited gate ledger has no build or verify runs. No baseline test failure is claimed: the task's ordered qualification instructions forbid pre-implementation verification."
 evidence = "The private runner ledger /out/run/gates.jsonl records the exact candidate revision, command, exit and log. Qualification requires hf-build and hf-done on the unchanged candidate."
 
 [finding.auth-http-unbounded-wait]

@@ -48,19 +48,19 @@ request = "Domain 14 owns services/explorer/backend/apps/block_scout_web/test/bl
 [constraint.scope]
 observed = "The inherited .cgignore and spec task-status edits are runner bookkeeping and were not edited by this attempt; only allowed crate sources, tests and fixtures were changed. No commit or push is performed by the worker."
 gotcha = "The current base already includes the main address, ABI and lifecycle decoder fixes from earlier repairs. Original regression source must explicitly unwrap nullable transfer totals and compare Option token IDs without weakening its original identity and quantity assertions."
-fixture = "repair_22_31_279_cases.json documents the production views and schemas behind each nullable/lifecycle/standard branch; existing HTTP recordings remain unchanged."
+fixture = "api_response_cases.json documents the production views and schemas behind each nullable/lifecycle/standard branch; existing HTTP recordings remain unchanged."
 
 [qualification.seed_build]
 revision = "0a539a6d9a70d3a1b54d3439259fdc934371aaed"
 command = "cargo build --locked --manifest-path services/explorer/services/libs/blockscout-client/crate/Cargo.toml --tests"
 exit = 101
 log = "/out/logs/build-1.log"
-observed = "Carried attempt-3 evidence, not a gate run in this session: pre-existing repair_22_31_273.rs:747,761 matches TransactionFeedItem against the transaction API's FeedItem, causing two E0308 compiler errors; the task's repair_22_31_279 test target compiled."
+observed = "Carried attempt-3 evidence, not a gate run in this session: pre-existing model_wire_contracts.rs:747,761 matches TransactionFeedItem against the transaction API's FeedItem, causing two E0308 compiler errors; the task's api_response_preservation test target compiled."
 assumption = "Task instruction 7 forbids chasing this inherited sibling-test mismatch; hf-done requires a passing build, so verification has not run and no completion is claimed."
 
 [continuation.current_base]
 base_revision = "8a5302e1b13ed685ab2cd21b29cd69052c2a8f6a"
-observed = "The prerequisite 22.31.445 is published: repair_22_31_273 uses the production FeedItem type. The inherited seed conflicted with the current per-request timeout at 21 paginated request sites."
+observed = "The prerequisite 22.31.445 is published: model_wire_contracts uses the production FeedItem type. The inherited seed conflicted with the current per-request timeout at 21 paginated request sites."
 repair = "Retain the current request_timeout at every conflict site and integrate the seed per-operation cursor override beside it; retain all inherited decoder repairs and regression assertions."
 qualification = "No baseline or earlier gate is repeated; the current hf-build and hf-done ledger records qualification of the final combined candidate."
 
@@ -69,5 +69,5 @@ revision = "25a02e6ceaaa46ef9bdd663941d081297e0ae14f"
 command = "cargo build --locked --manifest-path services/explorer/services/libs/blockscout-client/crate/Cargo.toml --tests"
 exit = 101
 log = "/out/logs/build-1.log"
-observed = "The nullable actions interface requires repair_22_33_428 to explicitly require its populated fixture actions before retaining its exact variant, payload and round-trip assertions."
+observed = "The nullable actions interface requires health_and_action_models to explicitly require its populated fixture actions before retaining its exact variant, payload and round-trip assertions."
 assumption = "This consumer is inside the allowed tests scope; adapting it preserves every assertion and qualifies the complete transaction lifecycle interface."

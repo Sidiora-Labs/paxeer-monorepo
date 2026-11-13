@@ -1,5 +1,5 @@
 // Reuse the committed backend session transcripts and all verified-session assertions.
-include!("repair_22_31_271.rs");
+include!("session_optionality.rs");
 
 use blockscout_auth::{get_user_info_from_metadata, AccountClient};
 use std::{future::Future, time::Instant};

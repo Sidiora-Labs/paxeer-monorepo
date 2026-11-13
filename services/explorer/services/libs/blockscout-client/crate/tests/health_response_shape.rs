@@ -132,7 +132,7 @@ async fn request_health(
 #[tokio::test]
 async fn health_response_shape_preserves_controller_lifecycle() {
     let responses: Vec<Value> =
-        serde_json::from_str(include_str!("health/repair_22_31_269.json")).unwrap();
+        serde_json::from_str(include_str!("health/controller_lifecycle.json")).unwrap();
     assert_eq!(responses.len(), 5, "every controller branch must execute");
 
     let mut cases = Vec::new();
@@ -235,5 +235,5 @@ async fn assert_controller_case(response: Value, expected_case: &str) {
     assert_preserved(produced, &consume_health(status, &body), case);
 }
 
-#[path = "../../../tests/repair_22_31_269.rs"]
+#[path = "../../../tests/health_model_completeness.rs"]
 mod completeness;

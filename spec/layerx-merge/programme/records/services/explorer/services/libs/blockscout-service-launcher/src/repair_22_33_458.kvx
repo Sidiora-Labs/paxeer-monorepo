@@ -1,6 +1,6 @@
 [repair.22.33.458]
 findings = ["postgres-component-encoding"]
-baseline = "The start tree has no repair_22_33_458 test target and /out/run/gates.jsonl did not exist at inspection. No baseline failures are claimed: the explicit implementation-first gate order forbids the conflicting pre-change verification step."
+baseline = "The start tree has no postgres_component_encoding test target and /out/run/gates.jsonl did not exist at inspection. No baseline failures are claimed: the explicit implementation-first gate order forbids the conflicting pre-change verification step."
 evidence = "Exact candidate revision, command, exit and private log are recorded by hf-build/hf-done in /out/run/gates.jsonl; qualification requires both gates on the same unchanged candidate."
 
 [finding.postgres-component-encoding]

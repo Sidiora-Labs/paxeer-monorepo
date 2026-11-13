@@ -17,7 +17,7 @@ use tokio::{
 
 const README: &str = include_str!("../blockscout-client/README.md");
 const SAMPLES: &str =
-    include_str!("../blockscout-client/crate/tests/fixtures/repair_22_33_430.json");
+    include_str!("../blockscout-client/crate/tests/fixtures/client_generation_examples.json");
 const HEALTH: &str =
     include_str!("../blockscout-client/crate/tests/recorded/eth_blockscout_com/_api_health.json");
 const TRANSACTIONS: &str = include_str!(

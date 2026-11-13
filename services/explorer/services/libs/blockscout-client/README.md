@@ -177,23 +177,23 @@ The existing [it_works.rs](crate/tests/it_works.rs) suite starts an owned loopba
 `tests/recorded/eth_blockscout_com`. These are **upstream samples**, not evidence
 that the current Paxeer producer agrees with the client. It checks that `health_v1()` returns `UnsupportedCapability` and decodes the
 v1 recording separately as a compatibility fixture.
-[repair_22_31_273.rs](crate/tests/repair_22_31_273.rs) checks model codecs.
-[repair_22_31_274.rs](crate/tests/repair_22_31_274.rs) exercises client transport
+[model_wire_contracts.rs](crate/tests/model_wire_contracts.rs) checks model codecs.
+[api_pagination.rs](crate/tests/api_pagination.rs) exercises client transport
 with recordings and explicitly labeled producer-view examples.
-[repair_22_33_430.rs](../tests/repair_22_33_430.rs) is registered in the crate
+[client_generation_contract.rs](../tests/client_generation_contract.rs) is registered in the crate
 manifest and tests the documented origin, healthy/error handling and mixed
 native/EVM feed through the production `ApiClient` over loopback HTTP. Its
 fixtures distinguish upstream recordings from source-derived examples. Run its
 focused offline check from the repository root:
 
 ```sh
-cargo test --locked --manifest-path services/explorer/services/libs/Cargo.toml --test repair_22_33_430
+cargo test --locked --manifest-path services/explorer/services/libs/Cargo.toml --test client_generation_contract
 ```
 
 These offline checks need no credentials, live backend or external toolchain
 process. They do not execute the Elixir producer or certify a deployment.
 
-The focused [doc-13 regression](../tests/repair_22_33_360.rs) is registered in
+The focused [doc-13 regression](../tests/health_client_contract.rs) is registered in
 the crate manifest. It replays the committed upstream health transcript and
 source-derived controller lifecycle cases over loopback HTTP through the real
 `ApiClient`, checks both success consumers and typed HTTP 500 errors, and

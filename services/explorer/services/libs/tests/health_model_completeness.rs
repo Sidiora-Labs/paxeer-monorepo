@@ -5,7 +5,7 @@ fn health_response_shape_requires_complete_models() {
     use blockscout_client::models::{HealthCheckResponse, UnhealthyHealthCheckResponse};
 
     let responses: Vec<Value> = serde_json::from_str(include_str!(
-        "../blockscout-client/crate/tests/health/repair_22_31_269.json"
+        "../blockscout-client/crate/tests/health/controller_lifecycle.json"
     ))
     .unwrap();
     let healthy = &responses[0]["body"];

@@ -252,7 +252,7 @@ fn transcript(name: &str) -> Value {
 }
 
 fn producer_cases() -> Value {
-    serde_json::from_str(include_str!("repair_22_31_279_cases.json")).unwrap()
+    serde_json::from_str(include_str!("api_response_cases.json")).unwrap()
 }
 
 struct Exchange {

@@ -350,7 +350,7 @@ fn client_for_resume(origin: &str) -> ApiClient {
 }
 
 fn refusal_cases() -> Value {
-    serde_json::from_str(include_str!("fixtures/repair_22_33_568.json")).unwrap()
+    serde_json::from_str(include_str!("fixtures/api_refusals.json")).unwrap()
 }
 
 #[tokio::test]

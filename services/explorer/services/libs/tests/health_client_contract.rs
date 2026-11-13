@@ -14,7 +14,7 @@ use tokio::{
 const RECORDED: &str =
     include_str!("../blockscout-client/crate/tests/recorded/eth_blockscout_com/_api_health.json");
 const LIFECYCLE: &str =
-    include_str!("../blockscout-client/crate/tests/health/repair_22_31_269.json");
+    include_str!("../blockscout-client/crate/tests/health/controller_lifecycle.json");
 
 fn assert_preserved(produced: &Value, consumed: &Value) {
     if let Value::Object(fields) = produced {
