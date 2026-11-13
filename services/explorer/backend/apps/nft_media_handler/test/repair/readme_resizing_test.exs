@@ -1,4 +1,4 @@
-defmodule NFTMediaHandler.Repair2233489Test do
+defmodule NFTMediaHandler.ReadmeResizingTest do
   use ExUnit.Case, async: true
 
   alias NFTMediaHandler.Image.Resizer

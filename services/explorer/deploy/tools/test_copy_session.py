@@ -27,7 +27,7 @@ def load_module(name, filename):
     return module
 
 
-copy = load_module("copy_session_m310", "copy_session.py")
+copy = load_module("copy_session_protocol", "copy_session.py")
 
 
 class TranscriptPeer:
@@ -172,7 +172,7 @@ def prepare(run):
 
 
 @pytest.mark.parametrize("phase", ["stage_creation", "copy", "progress_commit"])
-def test_TestRepairM_310_copy_stage_concurrency(phase):
+def test_copy_stage_concurrency(phase):
     source, destination = acquire_steps()
     stage = 'CREATE UNLOGGED TABLE public."paxeer_x_copy_stage" AS SELECT "hash", "block_number", "balance" FROM public."balances" WITH NO DATA'
     commit = ('WITH inserted AS (INSERT INTO public."balances" ("hash", "block_number", "balance") '
@@ -234,7 +234,7 @@ def test_TestRepairM_310_copy_stage_concurrency(phase):
 
 
 @pytest.mark.parametrize("destination_rows", ["rows", "same_key_changed", "wrong_key"])
-def test_TestRepairM_310_restart_recovers_snapshot_and_content(destination_rows):
+def test_restart_recovers_snapshot_and_content(destination_rows):
     source, destination = acquire_steps()
     source += probes() + probes() + [(TRANSCRIPT["fingerprint_sql"], "".join(TRANSCRIPT["rows"]))]
     destination += boundary_steps() + prepare_steps()
@@ -261,7 +261,7 @@ def test_TestRepairM_310_restart_recovers_snapshot_and_content(destination_rows)
 
 
 @pytest.mark.parametrize("rows", ["same_key_changed", "wrong_key"])
-def test_TestRepairM_310_restart_refuses_changed_source(rows):
+def test_restart_refuses_changed_source(rows):
     source, destination = acquire_steps()
     source += probes() + probes() + [(TRANSCRIPT["fingerprint_sql"], "".join(TRANSCRIPT["rows"]))]
     destination += boundary_steps() + prepare_steps()
@@ -281,7 +281,7 @@ def test_TestRepairM_310_restart_refuses_changed_source(rows):
 
 
 @pytest.mark.parametrize("rows", ["same_key_changed", "wrong_key"])
-def test_TestRepairM_310_equal_counts_do_not_verify_divergence(rows):
+def test_equal_counts_do_not_verify_divergence(rows):
     source, destination = acquire_steps()
     source += probes() + probes() + [(TRANSCRIPT["fingerprint_sql"], "".join(TRANSCRIPT["rows"]))] + probes()
     destination += boundary_steps() + prepare_steps() + probes()
@@ -293,7 +293,7 @@ def test_TestRepairM_310_equal_counts_do_not_verify_divergence(rows):
         assert result == dict(source=2, target=2, matches=False)
 
 
-def test_TestRepairM_310_success_allows_a_new_boundary():
+def test_success_allows_a_new_boundary():
     source, destination = acquire_steps()
     source += probes() + probes() + [(TRANSCRIPT["fingerprint_sql"], "".join(TRANSCRIPT["rows"]))] + probes() + probes()
     destination += boundary_steps() + prepare_steps() + probes()
@@ -315,7 +315,7 @@ def test_TestRepairM_310_success_allows_a_new_boundary():
 
 
 @pytest.mark.parametrize("field,value", [("source", "different-source"), ("tables", "different-table")])
-def test_TestRepairM_310_restart_refuses_a_different_owner_boundary(field, value):
+def test_restart_refuses_a_different_owner_boundary(field, value):
     previous = boundary()
     previous[field] = value
     source, destination = acquire_steps(TRANSCRIPT["snapshot_reopened"])
@@ -328,7 +328,7 @@ def test_TestRepairM_310_restart_refuses_a_different_owner_boundary(field, value
         assert store.seen[-1].startswith("SELECT boundary")
 
 
-def test_TestRepairM_310_derived_projection_hashes_copied_values():
+def test_derived_projection_hashes_copied_values():
     projection = '\"hash\", \"block_number\", COALESCE(\"balance\", 0) AS \"balance\"'
     sql = TRANSCRIPT["fingerprint_sql"].replace(TRANSCRIPT["columns"], projection)
     with peers([(sql, "".join(TRANSCRIPT["rows"]))],
@@ -339,7 +339,7 @@ def test_TestRepairM_310_derived_projection_hashes_copied_values():
         assert source["count"] == 2
 
 
-def test_TestRepairM_310_session_loss_refuses_progress():
+def test_session_loss_refuses_progress():
     source, destination = acquire_steps()
     source += [("SELECT 1", None)]
     with peers(source, destination) as (run, _, store):
@@ -351,7 +351,7 @@ def test_TestRepairM_310_session_loss_refuses_progress():
         assert len(store.seen) == 1
 
 
-def test_TestRepairM_310_failed_copy_cannot_commit_progress():
+def test_failed_copy_cannot_commit_progress():
     source, destination = acquire_steps()
     source += probes() + [(TRANSCRIPT["copy_sql"], "".join(TRANSCRIPT["copy_rows"]))]
     destination += probes() + [(TRANSCRIPT["copy_from_sql"], None, TRANSCRIPT["copy_rows"])]
@@ -365,7 +365,7 @@ def test_TestRepairM_310_failed_copy_cannot_commit_progress():
         assert len(store.seen) == 3
 
 
-def test_TestRepairM_310_rpc_uses_production_sessions(tmp_path):
+def test_rpc_uses_production_sessions(tmp_path):
     source, destination = acquire_steps()
     source += probes()
     destination += probes() + [("SELECT 42", "42\n")]
@@ -394,7 +394,7 @@ def test_TestRepairM_310_rpc_uses_production_sessions(tmp_path):
         assert not errors
 
 
-def test_TestRepairM_310_shell_routes_every_write_through_owner():
+def test_shell_routes_every_write_through_owner():
     script = (HERE / "copy-blockscout-11-to-10.sh").read_text()
     assert 'session_request src "$1"' in script
     assert 'session_request dst "$1"' in script
@@ -408,8 +408,8 @@ def test_TestRepairM_310_shell_routes_every_write_through_owner():
     assert "--dbname" not in script  # No independent, unlocked SQL/COPY session.
 
 
-def test_TestRepairM_310_swagger_retained_surfaces():
-    swagger = load_module("swagger_m310", "gen-swagger.py")
+def test_swagger_retained_surfaces():
+    swagger = load_module("swagger_publication", "gen-swagger.py")
     args = SimpleNamespace(chain_type="paxeer_x", include_admin=False, include_web=False,
                            spex=[], version="10.2.6")
     document, _, __, ___ = swagger.build(args)
