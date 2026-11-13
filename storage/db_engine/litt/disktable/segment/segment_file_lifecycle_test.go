@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func repairM1162Path(t *testing.T) *SegmentPath {
+func segmentFilesPath(t *testing.T) *SegmentPath {
 	t.Helper()
 	p, err := NewSegmentPath(t.TempDir(), "", "table")
 	require.NoError(t, err)
@@ -24,7 +24,7 @@ func repairM1162Path(t *testing.T) *SegmentPath {
 	return p
 }
 
-func repairM1162DescriptorCount(t *testing.T, p *SegmentPath) int {
+func segmentFilesDescriptorCount(t *testing.T, p *SegmentPath) int {
 	t.Helper()
 	entries, err := os.ReadDir("/proc/self/fd")
 	require.NoError(t, err)
@@ -42,10 +42,10 @@ func repairM1162DescriptorCount(t *testing.T, p *SegmentPath) int {
 	return count
 }
 
-func TestRepairM_1162_Rotation(t *testing.T) {
+func TestRotation(t *testing.T) {
 	for _, durable := range []bool{false, true} {
 		t.Run(fmt.Sprint(durable), func(t *testing.T) {
-			p := repairM1162Path(t)
+			p := segmentFilesPath(t)
 			paths := []*SegmentPath{p}
 			logger := slog.Default()
 			monitor := util.NewErrorMonitor(t.Context(), logger, nil)
@@ -55,7 +55,7 @@ func TestRepairM_1162_Rotation(t *testing.T) {
 				require.NoError(t, err)
 				handle := seg.keys.file
 				handles = append(handles, handle)
-				require.Equal(t, 3, repairM1162DescriptorCount(t, p))
+				require.Equal(t, 3, segmentFilesDescriptorCount(t, p))
 				request := &types.PutRequest{
 					Key: []byte(fmt.Sprintf("primary-%d", index)), Value: []byte("payload"),
 					SecondaryKeys: []*types.SecondaryKey{
@@ -83,7 +83,7 @@ func TestRepairM_1162_Rotation(t *testing.T) {
 					_, err := owned.Stat()
 					require.ErrorIs(t, err, os.ErrClosed)
 				}
-				require.Zero(t, repairM1162DescriptorCount(t, p))
+				require.Zero(t, segmentFilesDescriptorCount(t, p))
 				reopened, err := LoadSegment(logger, monitor, index, paths, false, time.Now(), durable)
 				require.NoError(t, err)
 				keys, err := reopened.GetKeys()
@@ -95,16 +95,16 @@ func TestRepairM_1162_Rotation(t *testing.T) {
 					require.NoError(t, err)
 					require.Equal(t, []byte(value), actual)
 				}
-				require.Zero(t, repairM1162DescriptorCount(t, p))
+				require.Zero(t, segmentFilesDescriptorCount(t, p))
 			}
 		})
 	}
 }
 
-func TestRepairM_1162_SealErrors(t *testing.T) {
+func TestSealErrors(t *testing.T) {
 	for _, fault := range []string{"flush", "sync", "close"} {
 		t.Run(fault, func(t *testing.T) {
-			p := repairM1162Path(t)
+			p := segmentFilesPath(t)
 			keys, err := createKeyFile(slog.Default(), 0, p, false, fault == "sync")
 			require.NoError(t, err)
 			require.NoError(t, keys.file.Close())
@@ -129,12 +129,12 @@ func TestRepairM_1162_SealErrors(t *testing.T) {
 			require.ErrorContains(t, keys.write(&types.ScopedKey{Key: []byte("later")}), "sealed")
 			require.ErrorContains(t, keys.flush(), "sealed")
 			require.ErrorContains(t, keys.seal(), "already sealed")
-			require.Zero(t, repairM1162DescriptorCount(t, p))
+			require.Zero(t, segmentFilesDescriptorCount(t, p))
 		})
 	}
 }
 
-func TestRepairM_1162_ConstructorErrors(t *testing.T) {
+func TestConstructorErrors(t *testing.T) {
 	previousGCPercent := debug.SetGCPercent(-1)
 	defer debug.SetGCPercent(previousGCPercent)
 
@@ -150,7 +150,7 @@ func TestRepairM_1162_ConstructorErrors(t *testing.T) {
 				t.Run(fmt.Sprintf("shards_%d/conflict_%d/durable_%t/paths_%d", conflict.shardingFactor, conflict.shard, durable, pathCount), func(t *testing.T) {
 					paths := make([]*SegmentPath, pathCount)
 					for i := range paths {
-						paths[i] = repairM1162Path(t)
+						paths[i] = segmentFilesPath(t)
 					}
 					for attempt := 0; attempt < 32; attempt++ {
 						index++
@@ -162,7 +162,7 @@ func TestRepairM_1162_ConstructorErrors(t *testing.T) {
 						require.Nil(t, seg)
 						require.EqualError(t, err, fmt.Sprintf("failed to open value file: value file %s already exists", valuePath))
 						for _, segmentPath := range paths {
-							require.Zero(t, repairM1162DescriptorCount(t, segmentPath), "failed segment construction must release every key and value handle in %s", segmentPath.SegmentDirectory())
+							require.Zero(t, segmentFilesDescriptorCount(t, segmentPath), "failed segment construction must release every key and value handle in %s", segmentPath.SegmentDirectory())
 						}
 						actual, err := os.ReadFile(valuePath)
 						require.NoError(t, err)
@@ -174,8 +174,8 @@ func TestRepairM_1162_ConstructorErrors(t *testing.T) {
 	}
 }
 
-func TestRepairM_1162_TruncatedKeys(t *testing.T) {
-	p := repairM1162Path(t)
+func TestTruncatedKeys(t *testing.T) {
+	p := segmentFilesPath(t)
 	inputs := []*types.ScopedKey{
 		{Key: []byte{}, Kind: types.KeyKindStandalone, Address: types.NewAddress(1, 2, 3, 4)},
 		{Key: []byte{0, 255, 0, 128}, Kind: types.KeyKindPrimary, Address: types.NewAddress(12345, 67890, 254, 65537)},

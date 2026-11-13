@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepairM_1171_LauncherHandoff(t *testing.T) {
+func TestLauncherHandoff(t *testing.T) {
 	script, err := os.ReadFile("run.sh")
 	require.NoError(t, err)
 	// Inspect the production shell boundary without requiring a shell or a built
@@ -24,7 +24,7 @@ func TestRepairM_1171_LauncherHandoff(t *testing.T) {
 	require.Equal(t, `exec "$BINARY_PATH" "$CONFIG_PATH"`, lines[len(lines)-1])
 }
 
-func TestRepairM_1171_ConfigPaths(t *testing.T) {
+func TestConfigPaths(t *testing.T) {
 	launchDir := filepath.Join(t.TempDir(), "benchmark launch [1171] * ?")
 	require.NoError(t, os.MkdirAll(launchDir, 0700))
 	t.Chdir(launchDir)
@@ -70,7 +70,7 @@ func TestRepairM_1171_ConfigPaths(t *testing.T) {
 	}
 }
 
-func TestRepairM_1171_ArgumentContract(t *testing.T) {
+func TestArgumentContract(t *testing.T) {
 	for _, args := range [][]string{nil, {"first.json", "second.json"}} {
 		var stderr bytes.Buffer
 		require.Equal(t, 1, RunCLI(args, &stderr))

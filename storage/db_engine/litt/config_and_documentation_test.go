@@ -28,14 +28,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func repairM1166Read(t *testing.T, filename string) []byte {
+func configDocRead(t *testing.T, filename string) []byte {
 	t.Helper()
 	data, err := os.ReadFile(filename)
 	require.NoError(t, err)
 	return data
 }
 
-func repairM1166Block(t *testing.T, section, language string) string {
+func configDocBlock(t *testing.T, section, language string) string {
 	t.Helper()
 	_, rest, ok := strings.Cut(section, "```"+language+"\n")
 	require.True(t, ok, "missing %s code block", language)
@@ -44,15 +44,15 @@ func repairM1166Block(t *testing.T, section, language string) string {
 	return block
 }
 
-func repairM1166Runtime() *litt.RuntimeConfig {
+func configDocRuntime() *litt.RuntimeConfig {
 	runtime := litt.DefaultRuntimeConfig()
 	runtime.Logger = slog.New(slog.NewTextHandler(io.Discard, nil))
 	return runtime
 }
 
-func repairM1166Open(t *testing.T, config *litt.Config, tableConfig litt.TableConfig) (litt.DB, litt.Table) {
+func configDocOpen(t *testing.T, config *litt.Config, tableConfig litt.TableConfig) (litt.DB, litt.Table) {
 	t.Helper()
-	database, err := littbuilder.NewDB(config, repairM1166Runtime())
+	database, err := littbuilder.NewDB(config, configDocRuntime())
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, database.Close()) })
 	table, err := database.BuildTable(tableConfig)
@@ -60,7 +60,7 @@ func repairM1166Open(t *testing.T, config *litt.Config, tableConfig litt.TableCo
 	return database, table
 }
 
-func repairM1166Get(t *testing.T, table litt.Table, key, expected []byte) {
+func configDocGet(t *testing.T, table litt.Table, key, expected []byte) {
 	t.Helper()
 	value, exists, err := table.Get(key)
 	require.NoError(t, err)
@@ -68,12 +68,12 @@ func repairM1166Get(t *testing.T, table litt.Table, key, expected []byte) {
 	require.Equal(t, expected, value)
 }
 
-func TestRepairM_1166_CLIDocInvalidJSON(t *testing.T) {
-	doc := string(repairM1166Read(t, "docs/littdb_cli.md"))
+func TestCLIDocInvalidJSON(t *testing.T) {
+	doc := string(configDocRead(t, "docs/littdb_cli.md"))
 	_, section, ok := strings.Cut(doc, "## `litt benchmark`")
 	require.True(t, ok)
-	documented := []byte(repairM1166Block(t, section, "json"))
-	fixture := repairM1166Read(t, "benchmark/config/basic-config.json")
+	documented := []byte(configDocBlock(t, section, "json"))
+	fixture := configDocRead(t, "benchmark/config/basic-config.json")
 	// Compare the actual published bytes, allowing only whitespace at the block edges.
 	require.Equal(t, bytes.TrimSpace(fixture), bytes.TrimSpace(documented))
 	filename := filepath.Join(t.TempDir(), "documented benchmark.json")
@@ -90,7 +90,7 @@ func TestRepairM_1166_CLIDocInvalidJSON(t *testing.T) {
 	require.NoError(t, loaded.LittConfig.Validate())
 }
 
-func TestRepairM_1166_ConfigSignedBounds(t *testing.T) {
+func TestConfigSignedBounds(t *testing.T) {
 	minInt := -int(^uint(0)>>1) - 1
 	for _, tc := range []struct {
 		name  string
@@ -119,7 +119,7 @@ func TestRepairM_1166_ConfigSignedBounds(t *testing.T) {
 			tc.set(config)
 			require.ErrorContains(t, config.Validate(), tc.field)
 			// A direct caller must get a validation error before directories, locks or metrics start.
-			database, err := littbuilder.NewDB(config, repairM1166Runtime())
+			database, err := littbuilder.NewDB(config, configDocRuntime())
 			if database != nil {
 				t.Cleanup(func() { require.NoError(t, database.Close()) })
 			}
@@ -173,17 +173,17 @@ func TestRepairM_1166_ConfigSignedBounds(t *testing.T) {
 			config.MinimumFlushInterval = 0 // documented immediate-flush mode remains valid
 			require.NoError(t, config.Validate())
 			tableConfig := litt.DefaultTableConfig("disabled")
-			database, table := repairM1166Open(t, config, tableConfig)
+			database, table := configDocOpen(t, config, tableConfig)
 			require.NoError(t, table.Put([]byte("key"), []byte("value")))
 			require.NoError(t, table.Flush())
 			require.NoError(t, database.Close())
-			_, reopened := repairM1166Open(t, config, tableConfig)
-			repairM1166Get(t, reopened, []byte("key"), []byte("value"))
+			_, reopened := configDocOpen(t, config, tableConfig)
+			configDocGet(t, reopened, []byte("key"), []byte("value"))
 		})
 	}
 }
 
-func repairM1166FieldDoc(t *testing.T, filename, typeName, fieldName string) string {
+func configDocFieldDoc(t *testing.T, filename, typeName, fieldName string) string {
 	t.Helper()
 	file, err := parser.ParseFile(token.NewFileSet(), filename, nil, parser.ParseComments)
 	require.NoError(t, err)
@@ -214,18 +214,18 @@ func repairM1166FieldDoc(t *testing.T, filename, typeName, fieldName string) str
 	return doc
 }
 
-func TestRepairM_1166_TableAPISizeDoc(t *testing.T) {
+func TestTableAPISizeDoc(t *testing.T) {
 	for _, method := range []string{"Put", "PutBatch", "Get"} {
-		doc := repairM1166FieldDoc(t, "table.go", "Table", method)
+		doc := configDocFieldDoc(t, "table.go", "Table", method)
 		require.Contains(t, doc, "65,535 bytes (math.MaxUint16)")
 		require.Contains(t, doc, "4,294,967,295 bytes (math.MaxUint32)")
 	}
 	for _, field := range []string{"Key", "SecondaryKeys"} {
-		require.Contains(t, repairM1166FieldDoc(t, "types/put_request.go", "PutRequest", field), "65,535 bytes (math.MaxUint16)")
+		require.Contains(t, configDocFieldDoc(t, "types/put_request.go", "PutRequest", field), "65,535 bytes (math.MaxUint16)")
 	}
-	require.Contains(t, repairM1166FieldDoc(t, "types/put_request.go", "PutRequest", "Value"), "4,294,967,295 bytes (math.MaxUint32)")
-	require.Contains(t, repairM1166FieldDoc(t, "types/secondary_key.go", "SecondaryKey", "Key"), "65,535 bytes (math.MaxUint16)")
-	readme := string(repairM1166Read(t, "README.md"))
+	require.Contains(t, configDocFieldDoc(t, "types/put_request.go", "PutRequest", "Value"), "4,294,967,295 bytes (math.MaxUint32)")
+	require.Contains(t, configDocFieldDoc(t, "types/secondary_key.go", "SecondaryKey", "Key"), "65,535 bytes (math.MaxUint16)")
+	readme := string(configDocRead(t, "README.md"))
 	require.Contains(t, readme, "primary and secondary keys up to 65,535 bytes (2^16 - 1)")
 	require.Contains(t, readme, "values up to 4,294,967,295 bytes (2^32 - 1, `math.MaxUint32`)")
 	require.Contains(t, readme, "Key           []byte // at most 65,535 bytes (math.MaxUint16)")
@@ -245,7 +245,7 @@ func TestRepairM_1166_TableAPISizeDoc(t *testing.T) {
 			require.NoError(t, err)
 			config.KeymapType = keymapType
 			tableConfig := litt.DefaultTableConfig("limits")
-			database, table := repairM1166Open(t, config, tableConfig)
+			database, table := configDocOpen(t, config, tableConfig)
 			value := []byte("primary-value")
 			primary := bytes.Repeat([]byte("p"), math.MaxUint16)
 			alias := bytes.Repeat([]byte("s"), math.MaxUint16)
@@ -270,27 +270,27 @@ func TestRepairM_1166_TableAPISizeDoc(t *testing.T) {
 				require.False(t, exists)
 			}
 			require.NoError(t, table.Flush())
-			repairM1166Get(t, table, primary, value)
-			repairM1166Get(t, table, alias, value[2:6])
+			configDocGet(t, table, primary, value)
+			configDocGet(t, table, alias, value[2:6])
 			require.NoError(t, database.Close())
-			_, reopened := repairM1166Open(t, config, tableConfig)
+			_, reopened := configDocOpen(t, config, tableConfig)
 			require.Equal(t, uint64(4), reopened.KeyCount())
 			for _, key := range [][]byte{primary, batchKey} {
-				repairM1166Get(t, reopened, key, value)
+				configDocGet(t, reopened, key, value)
 			}
 			for _, key := range [][]byte{alias, batchAlias} {
-				repairM1166Get(t, reopened, key, value[2:6])
+				configDocGet(t, reopened, key, value[2:6])
 			}
 		})
 	}
 }
 
-func TestRepairM_1166_CLIDocRestoreMode(t *testing.T) {
-	doc := string(repairM1166Read(t, "docs/littdb_cli.md"))
+func TestCLIDocRestoreMode(t *testing.T) {
+	doc := string(configDocRead(t, "docs/littdb_cli.md"))
 	_, section, ok := strings.Cut(doc, "### Restoring from a Backup\n")
 	require.True(t, ok)
 	section, _, _ = strings.Cut(section, "\n### ")
-	command := strings.Fields(strings.ReplaceAll(repairM1166Block(t, section, "bash"), "\\\n", " "))
+	command := strings.Fields(strings.ReplaceAll(configDocBlock(t, section, "bash"), "\\\n", " "))
 	require.Equal(t, []string{"litt", "push"}, command[:2])
 	var sources, destinations []string
 	noGC := false
@@ -316,7 +316,7 @@ func TestRepairM_1166_CLIDocRestoreMode(t *testing.T) {
 	require.Contains(t, section, "Keep the target stopped until the transfer succeeds")
 	require.Contains(t, section, "preserves every archive source file")
 	// Tie the documented option to the real CLI's admission and deletion branches.
-	pushSource := string(repairM1166Read(t, "cli/push.go"))
+	pushSource := string(configDocRead(t, "cli/push.go"))
 	require.Contains(t, pushSource, `deleteAfterTransfer := !ctx.Bool("no-gc")`)
 	require.Contains(t, pushSource, "} else if deleteAfterTransfer {\n\t\treturn fmt.Errorf(\"--no-gc is required when pushing a non-snapshot table\")")
 	require.Contains(t, pushSource, "if deleteAfterTransfer {\n\t\tutil.True(isSnapshot")
@@ -334,7 +334,7 @@ func TestRepairM_1166_CLIDocRestoreMode(t *testing.T) {
 	config.MaxSegmentKeyCount = 4
 	tableConfig := litt.DefaultTableConfig("archive")
 	tableConfig.ShardingFactor = 3
-	database, table := repairM1166Open(t, config, tableConfig)
+	database, table := configDocOpen(t, config, tableConfig)
 	expected := make(map[string][]byte)
 	for i := 0; i < 6; i++ {
 		key := []byte(fmt.Sprintf("primary-%d", i))
@@ -350,8 +350,8 @@ func TestRepairM_1166_CLIDocRestoreMode(t *testing.T) {
 	// Discover the actual ordinary segment archive using the same scanner as pushTable.
 	paths, err := segment.BuildSegmentPaths(sources, "", tableConfig.Name)
 	require.NoError(t, err)
-	monitor := util.NewErrorMonitor(context.Background(), repairM1166Runtime().Logger, nil)
-	_, _, segments, err := segment.GatherSegmentFiles(repairM1166Runtime().Logger, monitor, paths, false, time.Now(), false, true)
+	monitor := util.NewErrorMonitor(context.Background(), configDocRuntime().Logger, nil)
+	_, _, segments, err := segment.GatherSegmentFiles(configDocRuntime().Logger, monitor, paths, false, time.Now(), false, true)
 	require.NoError(t, err)
 	require.NotEmpty(t, segments)
 	archiveHashes := make(map[string][sha256.Size]byte)
@@ -362,7 +362,7 @@ func TestRepairM_1166_CLIDocRestoreMode(t *testing.T) {
 		require.NoError(t, err)
 		require.False(t, isSnapshot, "a received archive consists of ordinary files")
 		for _, filename := range seg.GetFilePaths() {
-			archiveHashes[filename] = sha256.Sum256(repairM1166Read(t, filename))
+			archiveHashes[filename] = sha256.Sum256(configDocRead(t, filename))
 			usedSources[filepath.Dir(filepath.Dir(filepath.Dir(filename)))] = true
 			info, err := os.Lstat(filename)
 			require.NoError(t, err)
@@ -382,14 +382,14 @@ func TestRepairM_1166_CLIDocRestoreMode(t *testing.T) {
 	require.NoError(t, err)
 	restoredConfig.KeymapType = keymap.MemKeymapType
 	for restart := 0; restart < 2; restart++ {
-		restoredDB, restoredTable := repairM1166Open(t, restoredConfig, tableConfig)
+		restoredDB, restoredTable := configDocOpen(t, restoredConfig, tableConfig)
 		require.Equal(t, uint64(len(expected)), restoredTable.KeyCount())
 		for key, value := range expected {
-			repairM1166Get(t, restoredTable, []byte(key), value)
+			configDocGet(t, restoredTable, []byte(key), value)
 		}
 		require.NoError(t, restoredDB.Close())
 	}
 	for filename, hash := range archiveHashes {
-		require.Equal(t, hash, sha256.Sum256(repairM1166Read(t, filename)), "archive remains retained: %s", filename)
+		require.Equal(t, hash, sha256.Sum256(configDocRead(t, filename)), "archive remains retained: %s", filename)
 	}
 }

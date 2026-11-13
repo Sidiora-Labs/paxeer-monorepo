@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func repair115OpenDB(t *testing.T, config *litt.Config) litt.DB {
+func tableBuilderOpenDB(t *testing.T, config *litt.Config) litt.DB {
 	t.Helper()
 	database, err := littbuilder.NewDB(config)
 	require.NoError(t, err)
@@ -18,32 +18,32 @@ func repair115OpenDB(t *testing.T, config *litt.Config) litt.DB {
 	return database
 }
 
-func repair115RejectTable(t *testing.T, database litt.DB, name string) {
+func tableBuilderRejectTable(t *testing.T, database litt.DB, name string) {
 	t.Helper()
 	table, err := database.BuildTable(litt.DefaultTableConfig(name))
 	require.ErrorContains(t, err, "database is closing or closed")
 	require.Nil(t, table, "a stopped database must not return a writable handle")
 }
 
-func TestRepair_115_BuildAfterClose(t *testing.T) {
+func TestBuildAfterClose(t *testing.T) {
 	config, err := litt.DefaultConfig(t.TempDir(), t.TempDir())
 	require.NoError(t, err)
-	database := repair115OpenDB(t, config)
+	database := tableBuilderOpenDB(t, config)
 	table, err := database.BuildTable(litt.DefaultTableConfig("existing"))
 	require.NoError(t, err)
 	require.NoError(t, table.Put([]byte("key"), []byte("value")))
 	require.NoError(t, table.Flush())
 	require.NoError(t, database.Close())
 
-	repair115RejectTable(t, database, "existing")
-	repair115RejectTable(t, database, "after_close")
+	tableBuilderRejectTable(t, database, "existing")
+	tableBuilderRejectTable(t, database, "after_close")
 	for _, root := range config.Paths {
 		_, err := os.Stat(filepath.Join(root, "after_close"))
 		require.ErrorIs(t, err, os.ErrNotExist, "rejected builds must not create table files")
 	}
 	require.NoError(t, database.Close())
 
-	reopened := repair115OpenDB(t, config)
+	reopened := tableBuilderOpenDB(t, config)
 	recovered, err := reopened.BuildTable(litt.DefaultTableConfig("existing"))
 	require.NoError(t, err)
 	value, exists, err := recovered.Get([]byte("key"))
@@ -52,19 +52,19 @@ func TestRepair_115_BuildAfterClose(t *testing.T) {
 	require.Equal(t, []byte("value"), value)
 }
 
-func TestRepair_115_BuildAfterCloseWithReopenedDB(t *testing.T) {
+func TestBuildAfterCloseWithReopenedDB(t *testing.T) {
 	config, err := litt.DefaultConfig(t.TempDir(), t.TempDir())
 	require.NoError(t, err)
-	old := repair115OpenDB(t, config)
+	old := tableBuilderOpenDB(t, config)
 	table, err := old.BuildTable(litt.DefaultTableConfig("existing"))
 	require.NoError(t, err)
 	require.NoError(t, table.Put([]byte("before"), []byte("original")))
 	require.NoError(t, table.Flush())
 	require.NoError(t, old.Close())
 
-	owner := repair115OpenDB(t, config)
+	owner := tableBuilderOpenDB(t, config)
 	// Even before the new owner opens this table, the old handle cannot reopen it.
-	repair115RejectTable(t, old, "existing")
+	tableBuilderRejectTable(t, old, "existing")
 	active, err := owner.BuildTable(litt.DefaultTableConfig("existing"))
 	require.NoError(t, err)
 	value, exists, err := active.Get([]byte("before"))
@@ -72,7 +72,7 @@ func TestRepair_115_BuildAfterCloseWithReopenedDB(t *testing.T) {
 	require.True(t, exists)
 	require.Equal(t, []byte("original"), value)
 
-	repair115RejectTable(t, old, "after_reopen")
+	tableBuilderRejectTable(t, old, "after_reopen")
 	for _, root := range config.Paths {
 		_, err := os.Stat(filepath.Join(root, "after_reopen"))
 		require.ErrorIs(t, err, os.ErrNotExist)
@@ -93,7 +93,7 @@ func TestRepair_115_BuildAfterCloseWithReopenedDB(t *testing.T) {
 	require.NoError(t, active.Put([]byte("after"), []byte("new owner")))
 	require.NoError(t, active.Flush())
 	require.NoError(t, owner.Close())
-	recoveredDB := repair115OpenDB(t, config)
+	recoveredDB := tableBuilderOpenDB(t, config)
 	recovered, err := recoveredDB.BuildTable(litt.DefaultTableConfig("existing"))
 	require.NoError(t, err)
 	for key, expected := range map[string]string{"before": "original", "after": "new owner"} {

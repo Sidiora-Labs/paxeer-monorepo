@@ -2,7 +2,7 @@
 audit = "22.30.53"
 acceptance = "22998.1"
 change = "Align the public DB root-membership contract with offline restart/rebase, retain the corrected README/CLI/cache contracts, add exact key examples and checked Close handling, and prove all eight documentation claims against production storage paths."
-baseline = "Not run: the explicit gate order requires the entire implementation before hf-build then hf-done and prohibits running verify_cmd by hand. There was no repair_m1165_test.go or prior gate ledger on the unchanged tree, so no pre-change failing test is claimed."
+baseline = "Not run: the explicit gate order requires the entire implementation before hf-build then hf-done and prohibits running verify_cmd by hand. There was no table_limits_and_lifecycle_test.go or prior gate ledger on the unchanged tree, so no pre-change failing test is claimed."
 evidence = "hf-build and hf-done record the exact candidate revision, command, exit code and private evidence location in the runner gate ledger; the final response copies the last hf-done evidence line."
 wiring_requests = []
 

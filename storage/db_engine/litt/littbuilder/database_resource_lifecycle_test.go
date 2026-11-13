@@ -24,7 +24,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/db_engine/litt/disktable/segment"
 )
 
-func repair1167Config(t *testing.T, enabled bool) *litt.Config {
+func databaseLifecycleConfig(t *testing.T, enabled bool) *litt.Config {
 	t.Helper()
 	config, err := litt.DefaultConfig(t.TempDir())
 	require.NoError(t, err)
@@ -34,7 +34,7 @@ func repair1167Config(t *testing.T, enabled bool) *litt.Config {
 	return config
 }
 
-func repair1167Open(t *testing.T, config *litt.Config, rc ...*litt.RuntimeConfig) *db {
+func databaseLifecycleOpen(t *testing.T, config *litt.Config, rc ...*litt.RuntimeConfig) *db {
 	t.Helper()
 	database, err := NewDB(config, rc...)
 	require.NoError(t, err)
@@ -43,7 +43,7 @@ func repair1167Open(t *testing.T, config *litt.Config, rc ...*litt.RuntimeConfig
 	return result
 }
 
-func repair1167Table(t *testing.T, database *db, name string) litt.Table {
+func databaseLifecycleTable(t *testing.T, database *db, name string) litt.Table {
 	t.Helper()
 	config := litt.DefaultTableConfig(name)
 	config.ShardingFactor = 1
@@ -52,13 +52,13 @@ func repair1167Table(t *testing.T, database *db, name string) litt.Table {
 	return table
 }
 
-func repair1167Write(t *testing.T, table litt.Table, key, value string) {
+func databaseLifecycleWrite(t *testing.T, table litt.Table, key, value string) {
 	t.Helper()
 	require.NoError(t, table.Put([]byte(key), []byte(value)))
 	require.NoError(t, table.Flush())
 }
 
-func repair1167Read(t *testing.T, table litt.Table, key, expected string) {
+func databaseLifecycleRead(t *testing.T, table litt.Table, key, expected string) {
 	t.Helper()
 	value, found, err := table.Get([]byte(key))
 	require.NoError(t, err)
@@ -66,19 +66,19 @@ func repair1167Read(t *testing.T, table litt.Table, key, expected string) {
 	require.Equal(t, expected, string(value))
 }
 
-func repair1167Coordinators() int {
+func databaseLifecycleCoordinators() int {
 	stack := make([]byte, 4<<20)
 	n := runtime.Stack(stack, true)
 	return strings.Count(string(stack[:n]), "disktable.(*flushCoordinator).controlLoop(")
 }
 
-func TestRepairM_1167_TableConstructorUnwind(t *testing.T) {
+func TestTableConstructorUnwind(t *testing.T) {
 	for _, stage := range []string{"segment_directories", "segment_gather"} {
 		t.Run(stage, func(t *testing.T) {
-			config := repair1167Config(t, false)
-			original := repair1167Open(t, config)
-			table := repair1167Table(t, original, "recovered")
-			repair1167Write(t, table, "before", "durable before failure")
+			config := databaseLifecycleConfig(t, false)
+			original := databaseLifecycleOpen(t, config)
+			table := databaseLifecycleTable(t, original, "recovered")
+			databaseLifecycleWrite(t, table, "before", "durable before failure")
 			require.NoError(t, original.Close())
 
 			// Keep the initialized Pebble keymap intact so a retry cannot hide
@@ -87,8 +87,8 @@ func TestRepairM_1167_TableConstructorUnwind(t *testing.T) {
 			_, err := os.Stat(initialized)
 			require.NoError(t, err)
 			config.MinimumFlushInterval = time.Millisecond
-			database := repair1167Open(t, config)
-			baseline := repair1167Coordinators()
+			database := databaseLifecycleOpen(t, config)
+			baseline := databaseLifecycleCoordinators()
 			segments := filepath.Join(config.Paths[0], "recovered", segment.SegmentDirectory)
 			var restore func()
 			if stage == "segment_directories" {
@@ -120,37 +120,37 @@ func TestRepairM_1167_TableConstructorUnwind(t *testing.T) {
 				require.NoError(t, err)
 				require.True(t, found)
 				require.NoError(t, keys.Stop())
-				require.Eventually(t, func() bool { return repair1167Coordinators() == baseline }, 3*time.Second, time.Millisecond,
+				require.Eventually(t, func() bool { return databaseLifecycleCoordinators() == baseline }, 3*time.Second, time.Millisecond,
 					"failed construction must cancel its coordinator")
 			}
 			restore()
-			retried := repair1167Table(t, database, "recovered")
-			repair1167Read(t, retried, "before", "durable before failure")
-			repair1167Write(t, retried, "after", "durable after retry")
-			require.Eventually(t, func() bool { return repair1167Coordinators() == baseline+1 }, 3*time.Second, time.Millisecond,
+			retried := databaseLifecycleTable(t, database, "recovered")
+			databaseLifecycleRead(t, retried, "before", "durable before failure")
+			databaseLifecycleWrite(t, retried, "after", "durable after retry")
+			require.Eventually(t, func() bool { return databaseLifecycleCoordinators() == baseline+1 }, 3*time.Second, time.Millisecond,
 				"the real successful table must start a coordinator")
 			require.NoError(t, database.Close())
-			reopened := repair1167Open(t, config)
-			recovered := repair1167Table(t, reopened, "recovered")
-			repair1167Read(t, recovered, "before", "durable before failure")
-			repair1167Read(t, recovered, "after", "durable after retry")
+			reopened := databaseLifecycleOpen(t, config)
+			recovered := databaseLifecycleTable(t, reopened, "recovered")
+			databaseLifecycleRead(t, recovered, "before", "durable before failure")
+			databaseLifecycleRead(t, recovered, "after", "durable after retry")
 			// Drop also releases the construction context after segment deletion.
 			require.NoError(t, recovered.Drop())
 		})
 	}
 }
 
-func TestRepairM_1167_KeymapInitializedFailure(t *testing.T) {
-	config := repair1167Config(t, false)
-	original := repair1167Open(t, config)
-	table := repair1167Table(t, original, "initialized")
-	repair1167Write(t, table, "before", "preserved")
+func TestKeymapInitializedFailure(t *testing.T) {
+	config := databaseLifecycleConfig(t, false)
+	original := databaseLifecycleOpen(t, config)
+	table := databaseLifecycleTable(t, original, "initialized")
+	databaseLifecycleWrite(t, table, "before", "preserved")
 	require.NoError(t, original.Close())
 	keymapDirectory := filepath.Join(config.Paths[0], "initialized", keymap.KeymapDirectoryName)
 	marker := filepath.Join(keymapDirectory, keymap.KeymapInitializedFileName)
 	require.NoError(t, os.Remove(marker))
 	require.NoError(t, os.Mkdir(marker, 0750))
-	database := repair1167Open(t, config)
+	database := databaseLifecycleOpen(t, config)
 	failed, err := database.BuildTable(litt.DefaultTableConfig("initialized"))
 	require.ErrorContains(t, err, "failed to create keymap initialized file")
 	require.Nil(t, failed)
@@ -164,18 +164,18 @@ func TestRepairM_1167_KeymapInitializedFailure(t *testing.T) {
 	require.NoError(t, keys.Stop())
 	require.NoError(t, os.Remove(marker))
 	require.NoError(t, os.WriteFile(marker, nil, 0600))
-	repair1167Read(t, repair1167Table(t, database, "initialized"), "before", "preserved")
+	databaseLifecycleRead(t, databaseLifecycleTable(t, database, "initialized"), "before", "preserved")
 }
 
-func repair1167Address(database *db) string {
+func databaseLifecycleAddress(database *db) string {
 	port := database.metricsServer.address.(*net.TCPAddr).Port
 	return fmt.Sprintf("127.0.0.1:%d", port)
 }
 
-func repair1167Scrape(t *testing.T, database *db) map[string]*dto.MetricFamily {
+func databaseLifecycleScrape(t *testing.T, database *db) map[string]*dto.MetricFamily {
 	t.Helper()
 	client := &http.Client{Timeout: 3 * time.Second}
-	response, err := client.Get("http://" + repair1167Address(database) + "/metrics")
+	response, err := client.Get("http://" + databaseLifecycleAddress(database) + "/metrics")
 	require.NoError(t, err)
 	defer response.Body.Close()
 	defer client.CloseIdleConnections()
@@ -186,7 +186,7 @@ func repair1167Scrape(t *testing.T, database *db) map[string]*dto.MetricFamily {
 	return families
 }
 
-func repair1167Counter(t *testing.T, families map[string]*dto.MetricFamily, name, table string, expected float64) {
+func databaseLifecycleCounter(t *testing.T, families map[string]*dto.MetricFamily, name, table string, expected float64) {
 	t.Helper()
 	family := families[name]
 	require.NotNil(t, family, "missing metric %s", name)
@@ -206,31 +206,31 @@ func repair1167Counter(t *testing.T, families map[string]*dto.MetricFamily, name
 	t.Fatalf("missing sample %s table=%s", name, table)
 }
 
-func TestRepairM_1167_GlobalMetricsProvider(t *testing.T) {
+func TestGlobalMetricsProvider(t *testing.T) {
 	for _, order := range []string{"first", "second"} {
 		t.Run("close_"+order, func(t *testing.T) {
-			first := repair1167Open(t, repair1167Config(t, true))
+			first := databaseLifecycleOpen(t, databaseLifecycleConfig(t, true))
 			provider := otel.GetMeterProvider()
-			nodeName := "repair_m1167_node_" + order
-			nodeWrites, err := otel.Meter("repair-m1167-node").Int64Counter(nodeName)
+			nodeName := "database_lifecycle_node_" + order
+			nodeWrites, err := otel.Meter("database-lifecycle-node").Int64Counter(nodeName)
 			require.NoError(t, err)
 			nodeWrites.Add(context.Background(), 1)
 			firstName, secondName := "m1167_first_"+order, "m1167_second_"+order
-			firstTable := repair1167Table(t, first, firstName)
-			repair1167Write(t, firstTable, "before", "first")
-			repair1167Counter(t, repair1167Scrape(t, first), "litt_keys_written_total", firstName, 1)
+			firstTable := databaseLifecycleTable(t, first, firstName)
+			databaseLifecycleWrite(t, firstTable, "before", "first")
+			databaseLifecycleCounter(t, databaseLifecycleScrape(t, first), "litt_keys_written_total", firstName, 1)
 
-			second := repair1167Open(t, repair1167Config(t, true))
+			second := databaseLifecycleOpen(t, databaseLifecycleConfig(t, true))
 			require.Same(t, provider, otel.GetMeterProvider(), "opening a DB must preserve existing instruments")
-			secondTable := repair1167Table(t, second, secondName)
-			repair1167Write(t, secondTable, "before", "second")
-			repair1167Write(t, firstTable, "during", "first after second opened")
+			secondTable := databaseLifecycleTable(t, second, secondName)
+			databaseLifecycleWrite(t, secondTable, "before", "second")
+			databaseLifecycleWrite(t, firstTable, "during", "first after second opened")
 			nodeWrites.Add(context.Background(), 1)
 			for _, database := range []*db{first, second} {
-				families := repair1167Scrape(t, database)
-				repair1167Counter(t, families, "litt_keys_written_total", firstName, 2)
-				repair1167Counter(t, families, "litt_keys_written_total", secondName, 1)
-				repair1167Counter(t, families, nodeName+"_total", "", 2)
+				families := databaseLifecycleScrape(t, database)
+				databaseLifecycleCounter(t, families, "litt_keys_written_total", firstName, 2)
+				databaseLifecycleCounter(t, families, "litt_keys_written_total", secondName, 1)
+				databaseLifecycleCounter(t, families, nodeName+"_total", "", 2)
 			}
 			closed, survivor, survivorTable, survivorName, expected := first, second, secondTable, secondName, float64(2)
 			if order == "second" {
@@ -238,23 +238,23 @@ func TestRepairM_1167_GlobalMetricsProvider(t *testing.T) {
 			}
 			require.NoError(t, closed.Close())
 			require.Same(t, provider, otel.GetMeterProvider())
-			repair1167Write(t, survivorTable, "after", "survives peer close")
+			databaseLifecycleWrite(t, survivorTable, "after", "survives peer close")
 			nodeWrites.Add(context.Background(), 1)
-			families := repair1167Scrape(t, survivor)
-			repair1167Counter(t, families, "litt_keys_written_total", survivorName, expected)
-			repair1167Counter(t, families, nodeName+"_total", "", 3)
+			families := databaseLifecycleScrape(t, survivor)
+			databaseLifecycleCounter(t, families, "litt_keys_written_total", survivorName, expected)
+			databaseLifecycleCounter(t, families, nodeName+"_total", "", 3)
 			require.NoError(t, survivor.Close())
 
 			// The same process provider remains usable across a period with no open DBs.
-			reopened := repair1167Open(t, repair1167Config(t, true))
+			reopened := databaseLifecycleOpen(t, databaseLifecycleConfig(t, true))
 			require.Same(t, provider, otel.GetMeterProvider())
 			nodeWrites.Add(context.Background(), 1)
-			repair1167Counter(t, repair1167Scrape(t, reopened), nodeName+"_total", "", 4)
+			databaseLifecycleCounter(t, databaseLifecycleScrape(t, reopened), nodeName+"_total", "", 4)
 		})
 	}
 }
 
-func repair1167AssertClosed(t *testing.T, database *db) {
+func databaseLifecycleAssertClosed(t *testing.T, database *db) {
 	t.Helper()
 	select {
 	case <-database.metricsServer.done:
@@ -266,20 +266,20 @@ func repair1167AssertClosed(t *testing.T, database *db) {
 	default:
 		t.Fatal("Close must join periodic collection without waiting for its ticker")
 	}
-	connection, err := net.DialTimeout("tcp", repair1167Address(database), time.Second)
+	connection, err := net.DialTimeout("tcp", databaseLifecycleAddress(database), time.Second)
 	if connection != nil {
 		connection.Close()
 	}
 	require.Error(t, err, "closed DB must release its endpoint")
 }
 
-func TestRepairM_1167_MetricsServerClose(t *testing.T) {
-	config := repair1167Config(t, true)
+func TestMetricsServerClose(t *testing.T) {
+	config := databaseLifecycleConfig(t, true)
 	rc := litt.DefaultRuntimeConfig()
-	database := repair1167Open(t, config, rc)
-	table := repair1167Table(t, database, "m1167_endpoint")
-	repair1167Write(t, table, "before", "persist through endpoint restart")
-	repair1167Scrape(t, database)
+	database := databaseLifecycleOpen(t, config, rc)
+	table := databaseLifecycleTable(t, database, "m1167_endpoint")
+	databaseLifecycleWrite(t, table, "before", "persist through endpoint restart")
+	databaseLifecycleScrape(t, database)
 	closeDone := make(chan error, 1)
 	go func() { closeDone <- database.Close() }()
 	select {
@@ -288,28 +288,28 @@ func TestRepairM_1167_MetricsServerClose(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("Close must not wait for the one-hour collection ticker")
 	}
-	repair1167AssertClosed(t, database)
+	databaseLifecycleAssertClosed(t, database)
 	require.NoError(t, rc.CTX.Err(), "Close must not cancel the caller's context")
 	config.MetricsPort = database.metricsServer.address.(*net.TCPAddr).Port
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", config.MetricsPort))
 	require.NoError(t, err, "Close must free the port before returning")
 	require.NoError(t, listener.Close())
 	require.NoError(t, database.Close())
-	reopened := repair1167Open(t, config, rc)
-	recovered := repair1167Table(t, reopened, "m1167_endpoint")
-	repair1167Read(t, recovered, "before", "persist through endpoint restart")
-	repair1167Write(t, recovered, "after", "new instance")
-	repair1167Counter(t, repair1167Scrape(t, reopened), "litt_keys_written_total", "m1167_endpoint", 2)
+	reopened := databaseLifecycleOpen(t, config, rc)
+	recovered := databaseLifecycleTable(t, reopened, "m1167_endpoint")
+	databaseLifecycleRead(t, recovered, "before", "persist through endpoint restart")
+	databaseLifecycleWrite(t, recovered, "after", "new instance")
+	databaseLifecycleCounter(t, databaseLifecycleScrape(t, reopened), "litt_keys_written_total", "m1167_endpoint", 2)
 	require.NoError(t, reopened.Destroy())
-	repair1167AssertClosed(t, reopened)
+	databaseLifecycleAssertClosed(t, reopened)
 	require.NoError(t, rc.CTX.Err())
 }
 
-func TestRepairM_1167_MetricsBindingFailure(t *testing.T) {
+func TestMetricsBindingFailure(t *testing.T) {
 	listener, err := net.Listen("tcp", ":0")
 	require.NoError(t, err)
 	defer listener.Close()
-	config := repair1167Config(t, true)
+	config := databaseLifecycleConfig(t, true)
 	config.MetricsPort = listener.Addr().(*net.TCPAddr).Port
 	database, err := NewDB(config)
 	if database != nil {
@@ -319,19 +319,19 @@ func TestRepairM_1167_MetricsBindingFailure(t *testing.T) {
 	require.ErrorIs(t, err, syscall.EADDRINUSE)
 	require.Nil(t, database, "NewDB cannot report success when its endpoint is unavailable")
 	require.NoError(t, listener.Close())
-	retried := repair1167Open(t, config)
-	repair1167Write(t, repair1167Table(t, retried, "m1167_bind_retry"), "key", "retry succeeded")
-	repair1167Counter(t, repair1167Scrape(t, retried), "litt_keys_written_total", "m1167_bind_retry", 1)
+	retried := databaseLifecycleOpen(t, config)
+	databaseLifecycleWrite(t, databaseLifecycleTable(t, retried, "m1167_bind_retry"), "key", "retry succeeded")
+	databaseLifecycleCounter(t, databaseLifecycleScrape(t, retried), "litt_keys_written_total", "m1167_bind_retry", 1)
 }
 
-func TestRepairM_1167_MetricsParentCancellation(t *testing.T) {
-	config := repair1167Config(t, true)
+func TestMetricsParentCancellation(t *testing.T) {
+	config := databaseLifecycleConfig(t, true)
 	rc := litt.DefaultRuntimeConfig()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	rc.CTX = ctx
-	database := repair1167Open(t, config, rc)
-	repair1167Scrape(t, database)
+	database := databaseLifecycleOpen(t, config, rc)
+	databaseLifecycleScrape(t, database)
 	cancel()
 	select {
 	case <-database.metricsServer.done:
@@ -339,21 +339,21 @@ func TestRepairM_1167_MetricsParentCancellation(t *testing.T) {
 		t.Fatal("parent cancellation must release the listener")
 	}
 	require.NoError(t, database.Close())
-	repair1167AssertClosed(t, database)
+	databaseLifecycleAssertClosed(t, database)
 	failed, err := NewDB(config, rc)
 	require.ErrorIs(t, err, context.Canceled)
 	require.Nil(t, failed)
 	// A failed startup also releases the storage locks on this path.
-	retried := repair1167Open(t, config)
-	repair1167Scrape(t, retried)
+	retried := databaseLifecycleOpen(t, config)
+	databaseLifecycleScrape(t, retried)
 }
 
-func TestRepairM_1167_MetricsInvalidInterval(t *testing.T) {
-	config := repair1167Config(t, true)
+func TestMetricsInvalidInterval(t *testing.T) {
+	config := databaseLifecycleConfig(t, true)
 	config.MetricsUpdateInterval = -time.Second
 	database, err := NewDB(config)
 	require.ErrorContains(t, err, "metrics update interval must be positive")
 	require.Nil(t, database)
 	config.MetricsUpdateInterval = time.Hour
-	repair1167Scrape(t, repair1167Open(t, config))
+	databaseLifecycleScrape(t, databaseLifecycleOpen(t, config))
 }
