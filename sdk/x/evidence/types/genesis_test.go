@@ -133,7 +133,7 @@ func TestGenesisStateValidate(t *testing.T) {
 
 			if tc.expPass {
 				require.NoError(t, genesisState.Validate())
-				stored := repairM604GenesisRoundTrip(t, genesisState)
+				stored := evidenceValidationGenesisRoundTrip(t, genesisState)
 				require.Len(t, stored, len(testEvidence))
 				for _, evi := range stored {
 					require.Equal(t, []byte(pk.PubKey().Address()), evi.(*types.Equivocation).GetConsensusAddress().Bytes())

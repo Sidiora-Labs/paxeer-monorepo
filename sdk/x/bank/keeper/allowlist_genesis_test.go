@@ -25,7 +25,7 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-type repair302Fixture struct {
+type allowlistGenesisFixture struct {
 	bank   keeper.BaseKeeper
 	auth   authkeeper.AccountKeeper
 	ctx    sdk.Context
@@ -34,7 +34,7 @@ type repair302Fixture struct {
 	closed bool
 }
 
-func repair302Open(t *testing.T, dir string) *repair302Fixture {
+func allowlistGenesisOpen(t *testing.T, dir string) *allowlistGenesisFixture {
 	t.Helper()
 	db, err := dbm.NewDB("bank", dbm.GoLevelDBBackend, dir)
 	require.NoError(t, err)
@@ -55,7 +55,7 @@ func repair302Open(t *testing.T, dir string) *repair302Fixture {
 	bankParams := paramtypes.NewSubspace(cdc, amino, paramsKey, transientKey, types.ModuleName)
 	authParams := paramtypes.NewSubspace(cdc, amino, paramsKey, transientKey, authtypes.ModuleName)
 	ak := authkeeper.NewAccountKeeper(cdc, authKey, authParams, authtypes.ProtoBaseAccount, map[string][]string{})
-	f := &repair302Fixture{
+	f := &allowlistGenesisFixture{
 		bank:  keeper.NewBaseKeeper(cdc, bankKey, ak, bankParams, map[string]bool{}),
 		auth:  ak,
 		ctx:   sdk.NewContext(cms, tmproto.Header{Height: 1, Time: time.Unix(1, 0)}, false),
@@ -65,7 +65,7 @@ func repair302Open(t *testing.T, dir string) *repair302Fixture {
 	return f
 }
 
-func (f *repair302Fixture) close(t *testing.T) {
+func (f *allowlistGenesisFixture) close(t *testing.T) {
 	t.Helper()
 	if !f.closed {
 		require.NoError(t, f.store.Close())
@@ -73,13 +73,13 @@ func (f *repair302Fixture) close(t *testing.T) {
 	}
 }
 
-func repair302Addresses() (sdk.AccAddress, sdk.AccAddress, sdk.AccAddress) {
+func allowlistGenesisAddresses() (sdk.AccAddress, sdk.AccAddress, sdk.AccAddress) {
 	return sdk.AccAddress(bytes.Repeat([]byte{1}, 20)), sdk.AccAddress(bytes.Repeat([]byte{2}, 20)), sdk.AccAddress(bytes.Repeat([]byte{3}, 20))
 }
 
-func repair302Seed(t *testing.T, f *repair302Fixture) (string, string, string) {
+func allowlistGenesisSeed(t *testing.T, f *allowlistGenesisFixture) (string, string, string) {
 	t.Helper()
-	a, b, denied := repair302Addresses()
+	a, b, denied := allowlistGenesisAddresses()
 	restricted := "factory/" + a.String() + "/restricted"
 	empty := "factory/" + a.String() + "/empty"
 	absent := "factory/" + a.String() + "/absent"
@@ -99,9 +99,9 @@ func repair302Seed(t *testing.T, f *repair302Fixture) (string, string, string) {
 	return restricted, empty, absent
 }
 
-func repair302Transfers(t *testing.T, f *repair302Fixture, restricted, empty, absent string) {
+func allowlistGenesisTransfers(t *testing.T, f *allowlistGenesisFixture, restricted, empty, absent string) {
 	t.Helper()
-	a, b, denied := repair302Addresses()
+	a, b, denied := allowlistGenesisAddresses()
 	for _, tc := range []struct {
 		name     string
 		from, to sdk.AccAddress
@@ -149,11 +149,11 @@ func repair302Transfers(t *testing.T, f *repair302Fixture, restricted, empty, ab
 	}
 }
 
-func TestRepair_302_AllowlistGenesisRecovery(t *testing.T) {
+func TestAllowlistGenesisAllowlistGenesisRecovery(t *testing.T) {
 	dir := t.TempDir()
-	source := repair302Open(t, dir)
-	restricted, empty, absent := repair302Seed(t, source)
-	repair302Transfers(t, source, restricted, empty, absent)
+	source := allowlistGenesisOpen(t, dir)
+	restricted, empty, absent := allowlistGenesisSeed(t, source)
+	allowlistGenesisTransfers(t, source, restricted, empty, absent)
 	expected := source.bank.ExportGenesisWithAllowLists(source.ctx)
 	require.Equal(t, keeper.DenomAllowListsVersion, expected.DenomAllowListsVersion)
 	require.Len(t, expected.DenomAllowLists, 3)
@@ -165,20 +165,20 @@ func TestRepair_302_AllowlistGenesisRecovery(t *testing.T) {
 	source.close(t)
 
 	// Reopen the original component to prove the producer's durable KV policy.
-	reopened := repair302Open(t, dir)
+	reopened := allowlistGenesisOpen(t, dir)
 	require.Equal(t, expected, reopened.bank.ExportGenesisWithAllowLists(reopened.ctx))
-	repair302Transfers(t, reopened, restricted, empty, absent)
+	allowlistGenesisTransfers(t, reopened, restricted, empty, absent)
 	reopened.close(t)
 
 	// Recover through JSON into a different database, with no producer KV state.
 	freshDir := t.TempDir()
-	fresh := repair302Open(t, freshDir)
+	fresh := allowlistGenesisOpen(t, freshDir)
 	require.Empty(t, fresh.bank.GetDenomAllowList(fresh.ctx, restricted).Addresses)
 	data, err := os.ReadFile(transport)
 	require.NoError(t, err)
 	recovered, err := keeper.UnmarshalGenesisJSON(fresh.cdc, data)
 	require.NoError(t, err)
-	a, b, denied := repair302Addresses()
+	a, b, denied := allowlistGenesisAddresses()
 	for _, address := range []sdk.AccAddress{a, b, denied} {
 		fresh.auth.SetAccount(fresh.ctx, fresh.auth.NewAccountWithAddress(fresh.ctx, address))
 	}
@@ -187,17 +187,17 @@ func TestRepair_302_AllowlistGenesisRecovery(t *testing.T) {
 	for _, entry := range expected.DenomAllowLists {
 		require.Equal(t, entry.AllowList, fresh.bank.GetDenomAllowList(fresh.ctx, entry.Denom))
 	}
-	repair302Transfers(t, fresh, restricted, empty, absent)
+	allowlistGenesisTransfers(t, fresh, restricted, empty, absent)
 	fresh.store.Commit(true)
 	fresh.close(t)
-	restarted := repair302Open(t, freshDir)
+	restarted := allowlistGenesisOpen(t, freshDir)
 	require.Equal(t, expected, restarted.bank.ExportGenesisWithAllowLists(restarted.ctx))
-	repair302Transfers(t, restarted, restricted, empty, absent)
+	allowlistGenesisTransfers(t, restarted, restricted, empty, absent)
 }
 
-func TestRepair_302_RejectInvalidPoliciesBeforeMutation(t *testing.T) {
-	f := repair302Open(t, t.TempDir())
-	repair302Seed(t, f)
+func TestAllowlistGenesisRejectInvalidPoliciesBeforeMutation(t *testing.T) {
+	f := allowlistGenesisOpen(t, t.TempDir())
+	allowlistGenesisSeed(t, f)
 	before := f.bank.ExportGenesisWithAllowLists(f.ctx)
 	encoded, err := keeper.MarshalGenesisJSON(f.cdc, before)
 	require.NoError(t, err)
@@ -212,11 +212,11 @@ func TestRepair_302_RejectInvalidPoliciesBeforeMutation(t *testing.T) {
 		{"invalid_denom", func(gs *keeper.GenesisState) { gs.DenomAllowLists[0].Denom = "x" }, "invalid allowlist denom"},
 		{"invalid_address", func(gs *keeper.GenesisState) { gs.DenomAllowLists[0].AllowList.Addresses = []string{"not-an-address"} }, "invalid allowlist address"},
 		{"duplicate_address", func(gs *keeper.GenesisState) {
-			a, _, _ := repair302Addresses()
+			a, _, _ := allowlistGenesisAddresses()
 			gs.DenomAllowLists[0].AllowList.Addresses = []string{a.String(), a.String()}
 		}, "duplicate allowlist address"},
 		{"noncanonical_address", func(gs *keeper.GenesisState) {
-			a, _, _ := repair302Addresses()
+			a, _, _ := allowlistGenesisAddresses()
 			gs.DenomAllowLists[0].AllowList.Addresses = []string{strings.ToUpper(a.String())}
 		}, "non-canonical allowlist address"},
 	} {
@@ -242,8 +242,8 @@ func TestRepair_302_RejectInvalidPoliciesBeforeMutation(t *testing.T) {
 	require.Equal(t, before, f.bank.ExportGenesisWithAllowLists(f.ctx))
 }
 
-func TestRepair_302_LegacyCompatibilityAndLossPrevention(t *testing.T) {
-	f := repair302Open(t, t.TempDir())
+func TestAllowlistGenesisLegacyCompatibilityAndLossPrevention(t *testing.T) {
+	f := allowlistGenesisOpen(t, t.TempDir())
 	f.bank.InitGenesis(f.ctx, types.DefaultGenesisState())
 	legacy := f.bank.ExportGenesis(f.ctx)
 	data := f.cdc.MustMarshalJSON(legacy)
@@ -251,10 +251,10 @@ func TestRepair_302_LegacyCompatibilityAndLossPrevention(t *testing.T) {
 	require.NoError(t, err)
 	require.Zero(t, recovered.DenomAllowListsVersion)
 	require.Empty(t, recovered.DenomAllowLists)
-	fresh := repair302Open(t, t.TempDir())
+	fresh := allowlistGenesisOpen(t, t.TempDir())
 	fresh.bank.InitGenesisWithAllowLists(fresh.ctx, recovered)
 	require.Equal(t, legacy, fresh.bank.ExportGenesis(fresh.ctx))
-	a, _, _ := repair302Addresses()
+	a, _, _ := allowlistGenesisAddresses()
 	// Even an explicitly empty policy is never silently dropped by the old API.
 	f.bank.SetDenomAllowList(f.ctx, "factory/"+a.String()+"/empty", types.AllowList{})
 	require.PanicsWithValue(t, "bank genesis contains denom allowlists: use ExportGenesisWithAllowLists and InitGenesisWithAllowLists", func() { f.bank.ExportGenesis(f.ctx) })

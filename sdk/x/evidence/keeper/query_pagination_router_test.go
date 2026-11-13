@@ -25,17 +25,17 @@ import (
 )
 
 // Count calls while retaining the production codec's complete decoding path.
-type repairM603DecodeCounter struct {
+type evidenceQueryDecodeCounter struct {
 	codec.BinaryCodec
 	decodes int
 }
 
-func (c *repairM603DecodeCounter) UnmarshalInterface(bz []byte, ptr interface{}) error {
+func (c *evidenceQueryDecodeCounter) UnmarshalInterface(bz []byte, ptr interface{}) error {
 	c.decodes++
 	return c.BinaryCodec.UnmarshalInterface(bz, ptr)
 }
 
-func repairM603Evidence(height int64) exported.Evidence {
+func evidenceQueryEvidence(height int64) exported.Evidence {
 	return types.FromABCIEvidence(abci.Evidence{
 		Type: abci.MisbehaviorType_DUPLICATE_VOTE,
 		Validator: abci.Validator{
@@ -48,10 +48,10 @@ func repairM603Evidence(height int64) exported.Evidence {
 	})
 }
 
-func TestRepairM_603_Pagination(t *testing.T) {
+func TestEvidenceQueryPagination(t *testing.T) {
 	registry := codectypes.NewInterfaceRegistry()
 	types.RegisterInterfaces(registry)
-	cdc := &repairM603DecodeCounter{BinaryCodec: codec.NewProtoCodec(registry)}
+	cdc := &evidenceQueryDecodeCounter{BinaryCodec: codec.NewProtoCodec(registry)}
 	key := sdk.NewKVStoreKey(types.StoreKey)
 	db := dbm.NewMemDB()
 	cms := store.NewCommitMultiStore(db)
@@ -63,7 +63,7 @@ func TestRepairM_603_Pagination(t *testing.T) {
 	const collectionSize = 2048
 	evidence := make([]exported.Evidence, collectionSize)
 	for i := range evidence {
-		evidence[i] = repairM603Evidence(int64(i + 1))
+		evidence[i] = evidenceQueryEvidence(int64(i + 1))
 		require.NoError(t, evidence[i].ValidateBasic())
 		k.SetEvidence(ctx, evidence[i])
 	}
@@ -115,11 +115,11 @@ func TestRepairM_603_Pagination(t *testing.T) {
 	}
 }
 
-func TestRepairM_603_NodeRouter(t *testing.T) {
+func TestEvidenceQueryNodeRouter(t *testing.T) {
 	app := paxapp.Setup(t, true, false, false)
 	t.Cleanup(func() { require.NoError(t, app.Close()) })
 	ctx := app.NewUncachedContext(true, tmproto.Header{Height: 1, ChainID: "pax-test"})
-	evidence := repairM603Evidence(1)
+	evidence := evidenceQueryEvidence(1)
 	msg, err := types.NewMsgSubmitEvidence(sdk.AccAddress(bytes.Repeat([]byte{0x60}, 20)), evidence)
 	require.NoError(t, err)
 	wire, err := app.AppCodec().Marshal(msg)
@@ -146,7 +146,7 @@ func TestRepairM_603_NodeRouter(t *testing.T) {
 	require.Panics(t, func() { app.EvidenceKeeper.SetRouter(types.NewRouter()) }, "node startup must explicitly configure its routing policy")
 }
 
-func TestRepairM_603_RouterPolicy(t *testing.T) {
+func TestEvidenceQueryRouterPolicy(t *testing.T) {
 	registry := codectypes.NewInterfaceRegistry()
 	types.RegisterInterfaces(registry)
 	k := keeper.NewKeeper(codec.NewProtoCodec(registry), sdk.NewKVStoreKey(types.StoreKey), nil, nil)

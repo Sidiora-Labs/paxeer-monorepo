@@ -33,7 +33,7 @@ import (
 	paramtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/params/types"
 )
 
-func repair304SupplyServer(t *testing.T) (*mux.Router, client.Context, keeper.BaseKeeper, sdk.Context, sdk.Coins) {
+func totalSupplyRESTSupplyServer(t *testing.T) (*mux.Router, client.Context, keeper.BaseKeeper, sdk.Context, sdk.Coins) {
 	t.Helper()
 	legacyAmino := codec.NewLegacyAmino()
 	types.RegisterLegacyAminoCodec(legacyAmino)
@@ -92,8 +92,8 @@ func repair304SupplyServer(t *testing.T) (*mux.Router, client.Context, keeper.Ba
 	return router, clientCtx, bk, ctx, supply
 }
 
-func TestRepair_304_TotalSupplyPagination(t *testing.T) {
-	router, clientCtx, bk, ctx, supply := repair304SupplyServer(t)
+func TestTotalSupplyRESTTotalSupplyPagination(t *testing.T) {
+	router, clientCtx, bk, ctx, supply := totalSupplyRESTSupplyServer(t)
 	testCases := []struct {
 		name   string
 		args   string
@@ -154,8 +154,8 @@ func TestRepair_304_TotalSupplyPagination(t *testing.T) {
 	}
 }
 
-func TestRepair_304_InvalidPagination(t *testing.T) {
-	router, _, _, _, _ := repair304SupplyServer(t)
+func TestTotalSupplyRESTInvalidPagination(t *testing.T) {
+	router, _, _, _, _ := totalSupplyRESTSupplyServer(t)
 	testCases := []struct {
 		args    string
 		message string

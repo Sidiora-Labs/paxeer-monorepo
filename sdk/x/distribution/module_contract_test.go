@@ -40,7 +40,7 @@ import (
 
 // All collaborators are production keepers over isolated in-memory stores.
 // BaseApp supplies the real protobuf Msg-service routing and message.action event.
-type repairM685Fixture struct {
+type distributionContractFixture struct {
 	app          *baseapp.BaseApp
 	ctx          sdk.Context
 	cdc          *codec.ProtoCodec
@@ -52,7 +52,7 @@ type repairM685Fixture struct {
 	paramHandler govtypes.Handler
 }
 
-func newRepairM685Fixture(t *testing.T) *repairM685Fixture {
+func newDistributionContractFixture(t *testing.T) *distributionContractFixture {
 	t.Helper()
 	db := dbm.NewMemDB()
 	app := baseapp.NewBaseApp(t.Name(), db, nil, nil, testutil.TestAppOpts{})
@@ -103,19 +103,21 @@ func newRepairM685Fixture(t *testing.T) *repairM685Fixture {
 	stakingParams.BondDenom = "uhpx"
 	sk.SetParams(ctx, stakingParams)
 	dk.InitGenesis(ctx, *types.DefaultGenesisState())
-	return &repairM685Fixture{app: app, ctx: ctx, cdc: cdc, ak: ak, bk: bk, sk: sk, dk: dk, key: distKey, paramHandler: dk.ParamChangeProposalHandler(params.NewParamChangeProposalHandler(pk))}
+	return &distributionContractFixture{app: app, ctx: ctx, cdc: cdc, ak: ak, bk: bk, sk: sk, dk: dk, key: distKey, paramHandler: dk.ParamChangeProposalHandler(params.NewParamChangeProposalHandler(pk))}
 }
 
-func repairM685Coins(n int64) sdk.Coins  { return sdk.NewCoins(sdk.NewInt64Coin("uhpx", n)) }
-func repairM685Dec(n int64) sdk.DecCoins { return sdk.NewDecCoinsFromCoins(repairM685Coins(n)...) }
+func distributionContractCoins(n int64) sdk.Coins { return sdk.NewCoins(sdk.NewInt64Coin("uhpx", n)) }
+func distributionContractDec(n int64) sdk.DecCoins {
+	return sdk.NewDecCoinsFromCoins(distributionContractCoins(n)...)
+}
 
-func (f *repairM685Fixture) fundModule(t *testing.T, name string, n int64) {
+func (f *distributionContractFixture) fundModule(t *testing.T, name string, n int64) {
 	t.Helper()
-	require.NoError(t, f.bk.MintCoins(f.ctx, "repair_m685_mint", repairM685Coins(n)))
-	require.NoError(t, f.bk.SendCoinsFromModuleToModule(f.ctx, "repair_m685_mint", name, repairM685Coins(n)))
+	require.NoError(t, f.bk.MintCoins(f.ctx, "repair_m685_mint", distributionContractCoins(n)))
+	require.NoError(t, f.bk.SendCoinsFromModuleToModule(f.ctx, "repair_m685_mint", name, distributionContractCoins(n)))
 }
 
-func (f *repairM685Fixture) validator(t *testing.T, id byte, tokens int64, commission sdk.Dec) (stakingtypes.Validator, sdk.ConsAddress) {
+func (f *distributionContractFixture) validator(t *testing.T, id byte, tokens int64, commission sdk.Dec) (stakingtypes.Validator, sdk.ConsAddress) {
 	t.Helper()
 	pub := ed25519.GenPrivKeyFromSecret([]byte{id}).PubKey()
 	val, err := stakingtypes.NewValidator(sdk.ValAddress(bytes.Repeat([]byte{id}, 20)), pub, stakingtypes.Description{})
@@ -131,7 +133,7 @@ func (f *repairM685Fixture) validator(t *testing.T, id byte, tokens int64, commi
 	return val, sdk.ConsAddress(pub.Address())
 }
 
-func repairM685Doc(t *testing.T, name string, claims ...string) string {
+func distributionContractDoc(t *testing.T, name string, claims ...string) string {
 	t.Helper()
 	data, err := os.ReadFile("spec/" + name + ".md")
 	require.NoError(t, err)
@@ -141,20 +143,20 @@ func repairM685Doc(t *testing.T, name string, claims ...string) string {
 	return string(data)
 }
 
-func TestRepairM_685_State(t *testing.T) {
-	repairM685Doc(t, "02_state", "one-byte address length", "eight-byte little-endian", "eight-byte big-endian", "Genesis import and export", "0x08", "0x0102030405060708")
-	f := newRepairM685Fixture(t)
+func TestDistributionContractState(t *testing.T) {
+	distributionContractDoc(t, "02_state", "one-byte address length", "eight-byte little-endian", "eight-byte big-endian", "Genesis import and export", "0x08", "0x0102030405060708")
+	f := newDistributionContractFixture(t)
 	v := sdk.ValAddress(bytes.Repeat([]byte{0x11}, 32))
 	d := sdk.AccAddress(bytes.Repeat([]byte{0x22}, 20))
 	w := sdk.AccAddress(bytes.Repeat([]byte{0x33}, 20))
 	proposer := sdk.ConsAddress(bytes.Repeat([]byte{0x44}, 20))
 	const period uint64 = 0x0102030405060708
 	const height uint64 = 0x1112131415161718
-	pool := types.FeePool{CommunityPool: repairM685Dec(7)}
-	outstanding := types.ValidatorOutstandingRewards{Rewards: repairM685Dec(13)}
-	current := types.NewValidatorCurrentRewards(repairM685Dec(9), period+1)
-	historical := types.NewValidatorHistoricalRewards(repairM685Dec(2), 2)
-	commission := types.ValidatorAccumulatedCommission{Commission: repairM685Dec(4)}
+	pool := types.FeePool{CommunityPool: distributionContractDec(7)}
+	outstanding := types.ValidatorOutstandingRewards{Rewards: distributionContractDec(13)}
+	current := types.NewValidatorCurrentRewards(distributionContractDec(9), period+1)
+	historical := types.NewValidatorHistoricalRewards(distributionContractDec(2), 2)
+	commission := types.ValidatorAccumulatedCommission{Commission: distributionContractDec(4)}
 	starting := types.NewDelegatorStartingInfo(period, sdk.NewDec(100), height-1)
 	slash := types.NewValidatorSlashEvent(period, sdk.NewDecWithPrec(2, 1))
 	f.dk.SetFeePool(f.ctx, pool)
@@ -191,7 +193,7 @@ func TestRepairM_685_State(t *testing.T) {
 	wire := f.cdc.MustMarshal(exported)
 	var imported types.GenesisState
 	require.NoError(t, f.cdc.Unmarshal(wire, &imported))
-	g := newRepairM685Fixture(t)
+	g := newDistributionContractFixture(t)
 	g.fundModule(t, types.ModuleName, 20)
 	g.dk.InitGenesis(g.ctx, imported)
 	require.Equal(t, wire, g.cdc.MustMarshal(g.dk.ExportGenesis(g.ctx)))
@@ -207,8 +209,8 @@ func TestRepairM_685_State(t *testing.T) {
 	require.Equal(t, []uint64{height}, seen)
 }
 
-func TestRepairM_685_Proposer(t *testing.T) {
-	repairM685Doc(t, "03_begin_block", "totalPreviousPower == 0", "100uhpx", "60uhpx", "40uhpx", "54uhpx", "empty `DecidedLastCommit`", "zero-amount")
+func TestDistributionContractProposer(t *testing.T) {
+	distributionContractDoc(t, "03_begin_block", "totalPreviousPower == 0", "100uhpx", "60uhpx", "40uhpx", "54uhpx", "empty `DecidedLastCommit`", "zero-amount")
 	// The internal consensus package cannot be imported here. Inspect its actual
 	// request literal, then exercise the header codec and the in-process ABCI consumer.
 	source, err := parser.ParseFile(token.NewFileSet(), "../../../consensus/internal/p2p/giga_router.go", nil, 0)
@@ -240,12 +242,12 @@ func TestRepairM_685_Proposer(t *testing.T) {
 		return false
 	})
 	require.True(t, emptyCommit, "Autobahn must still supply the documented empty commit")
-	f := newRepairM685Fixture(t)
+	f := newDistributionContractFixture(t)
 	v, cons := f.validator(t, 1, 100, sdk.NewDecWithPrec(1, 1))
 	f.ctx = f.ctx.WithBlockHeader(tmproto.Header{Height: 1, ProposerAddress: cons})
 	f.fundModule(t, authtypes.FeeCollectorName, 100)
 	distribution.BeginBlocker(f.ctx, nil, f.dk)
-	require.Equal(t, repairM685Coins(100), f.bk.GetAllBalances(f.ctx, f.ak.GetModuleAddress(authtypes.FeeCollectorName)))
+	require.Equal(t, distributionContractCoins(100), f.bk.GetAllBalances(f.ctx, f.ak.GetModuleAddress(authtypes.FeeCollectorName)))
 	// FinalizeBlock requests are plain Go values passed in process. Only their
 	// header is protobuf; preserve that round trip before consuming the request.
 	header := &tmproto.Header{Height: 2, ProposerAddress: cons}
@@ -258,17 +260,17 @@ func TestRepairM_685_Proposer(t *testing.T) {
 	require.Empty(t, received.DecidedLastCommit.Votes)
 	f.ctx = f.ctx.WithBlockHeader(*received.Header).WithEventManager(sdk.NewEventManager())
 	distribution.BeginBlocker(f.ctx, received.DecidedLastCommit.Votes, f.dk)
-	require.Equal(t, repairM685Dec(100), f.dk.GetFeePool(f.ctx).CommunityPool)
+	require.Equal(t, distributionContractDec(100), f.dk.GetFeePool(f.ctx).CommunityPool)
 	require.True(t, f.dk.GetValidatorOutstandingRewards(f.ctx, v.GetOperator()).Rewards.IsZero())
-	require.Empty(t, repairM685AllocationEvents(f.ctx.EventManager().ABCIEvents()))
-	transfers := repairM685EventsOfType(f.ctx.EventManager().ABCIEvents(), banktypes.EventTypeTransfer)
+	require.Empty(t, distributionContractAllocationEvents(f.ctx.EventManager().ABCIEvents()))
+	transfers := distributionContractEventsOfType(f.ctx.EventManager().ABCIEvents(), banktypes.EventTypeTransfer)
 	require.Len(t, transfers, 1)
-	require.Equal(t, map[string]string{"recipient": f.ak.GetModuleAddress(types.ModuleName).String(), "sender": f.ak.GetModuleAddress(authtypes.FeeCollectorName).String(), "amount": "100uhpx"}, repairM685Attributes(transfers[0]))
+	require.Equal(t, map[string]string{"recipient": f.ak.GetModuleAddress(types.ModuleName).String(), "sender": f.ak.GetModuleAddress(authtypes.FeeCollectorName).String(), "amount": "100uhpx"}, distributionContractAttributes(transfers[0]))
 	require.True(t, f.bk.GetAllBalances(f.ctx, f.ak.GetModuleAddress(authtypes.FeeCollectorName)).IsZero())
-	require.Equal(t, repairM685Coins(100), f.bk.GetAllBalances(f.ctx, f.ak.GetModuleAddress(types.ModuleName)))
+	require.Equal(t, distributionContractCoins(100), f.bk.GetAllBalances(f.ctx, f.ak.GetModuleAddress(types.ModuleName)))
 	require.Equal(t, cons, f.dk.GetPreviousProposerConsAddr(f.ctx))
 	// Contrast the retained nonzero-power calculation at exactly the same defaults.
-	g := newRepairM685Fixture(t)
+	g := newDistributionContractFixture(t)
 	a, ca := g.validator(t, 1, 60, sdk.NewDecWithPrec(1, 1))
 	b, cb := g.validator(t, 2, 40, sdk.ZeroDec())
 	g.dk.SetPreviousProposerConsAddr(g.ctx, ca)
@@ -276,20 +278,20 @@ func TestRepairM_685_Proposer(t *testing.T) {
 	votes := []abci.VoteInfo{{Validator: abci.Validator{Address: ca, Power: 60}, SignedLastBlock: true}, {Validator: abci.Validator{Address: cb, Power: 40}, SignedLastBlock: false}}
 	g.ctx = g.ctx.WithBlockHeight(2).WithEventManager(sdk.NewEventManager())
 	distribution.BeginBlocker(g.ctx, votes, g.dk)
-	defaultEvents := repairM685AllocationEvents(g.ctx.EventManager().ABCIEvents())
+	defaultEvents := distributionContractAllocationEvents(g.ctx.EventManager().ABCIEvents())
 	require.Len(t, defaultEvents, 7)
 	require.Equal(t, "proposer_reward", defaultEvents[0].Type)
-	require.Equal(t, map[string]string{"amount": "", "validator": a.GetOperator().String()}, repairM685Attributes(defaultEvents[0]))
-	require.Equal(t, repairM685Dec(60), g.dk.GetValidatorOutstandingRewards(g.ctx, a.GetOperator()).Rewards)
-	require.Equal(t, repairM685Dec(40), g.dk.GetValidatorOutstandingRewards(g.ctx, b.GetOperator()).Rewards)
-	require.Equal(t, repairM685Dec(6), g.dk.GetValidatorAccumulatedCommission(g.ctx, a.GetOperator()).Commission)
-	require.Equal(t, repairM685Dec(54), g.dk.GetValidatorCurrentRewards(g.ctx, a.GetOperator()).Rewards)
+	require.Equal(t, map[string]string{"amount": "", "validator": a.GetOperator().String()}, distributionContractAttributes(defaultEvents[0]))
+	require.Equal(t, distributionContractDec(60), g.dk.GetValidatorOutstandingRewards(g.ctx, a.GetOperator()).Rewards)
+	require.Equal(t, distributionContractDec(40), g.dk.GetValidatorOutstandingRewards(g.ctx, b.GetOperator()).Rewards)
+	require.Equal(t, distributionContractDec(6), g.dk.GetValidatorAccumulatedCommission(g.ctx, a.GetOperator()).Commission)
+	require.Equal(t, distributionContractDec(54), g.dk.GetValidatorCurrentRewards(g.ctx, a.GetOperator()).Rewards)
 	require.True(t, g.dk.GetFeePool(g.ctx).CommunityPool.IsZero())
 }
 
-func TestRepairM_685_Slash(t *testing.T) {
-	repairM685Doc(t, "04_messages", "1 - event.Fraction", "rewards +=", "100000000", "80000000", "40000000", "38uhpx")
-	f := newRepairM685Fixture(t)
+func TestDistributionContractSlash(t *testing.T) {
+	distributionContractDoc(t, "04_messages", "1 - event.Fraction", "rewards +=", "100000000", "80000000", "40000000", "38uhpx")
+	f := newDistributionContractFixture(t)
 	v, cons := f.validator(t, 1, 100000000, sdk.ZeroDec())
 	d := sdk.AccAddress(v.GetOperator())
 	f.dk.Hooks().BeforeDelegationCreated(f.ctx, d, v.GetOperator())
@@ -300,7 +302,7 @@ func TestRepairM_685_Slash(t *testing.T) {
 	f.fundModule(t, stakingtypes.BondedPoolName, 100000000)
 	f.fundModule(t, types.ModuleName, 38)
 	f.ctx = f.ctx.WithBlockHeight(3)
-	f.dk.AllocateTokensToValidator(f.ctx, v, repairM685Dec(10))
+	f.dk.AllocateTokensToValidator(f.ctx, v, distributionContractDec(10))
 	f.sk.Slash(f.ctx, cons, 3, 100, sdk.NewDecWithPrec(2, 1))
 	v, found := f.sk.GetValidator(f.ctx, v.GetOperator())
 	require.True(t, found)
@@ -310,7 +312,7 @@ func TestRepairM_685_Slash(t *testing.T) {
 	require.Equal(t, sdk.NewDecWithPrec(2, 1), first.Fraction)
 	require.Equal(t, sdk.MustNewDecFromStr("0.0000001"), f.dk.GetValidatorHistoricalRewards(f.ctx, v.GetOperator(), 2).CumulativeRewardRatio.AmountOf("uhpx"))
 	f.ctx = f.ctx.WithBlockHeight(5)
-	f.dk.AllocateTokensToValidator(f.ctx, v, repairM685Dec(16))
+	f.dk.AllocateTokensToValidator(f.ctx, v, distributionContractDec(16))
 	f.sk.Slash(f.ctx, cons, 5, 80, sdk.NewDecWithPrec(5, 1))
 	v, found = f.sk.GetValidator(f.ctx, v.GetOperator())
 	require.True(t, found)
@@ -320,11 +322,11 @@ func TestRepairM_685_Slash(t *testing.T) {
 	require.Equal(t, sdk.NewDecWithPrec(5, 1), second.Fraction)
 	require.Equal(t, sdk.MustNewDecFromStr("0.0000003"), f.dk.GetValidatorHistoricalRewards(f.ctx, v.GetOperator(), 3).CumulativeRewardRatio.AmountOf("uhpx"))
 	f.ctx = f.ctx.WithBlockHeight(7)
-	f.dk.AllocateTokensToValidator(f.ctx, v, repairM685Dec(12))
+	f.dk.AllocateTokensToValidator(f.ctx, v, distributionContractDec(12))
 	got, err := f.dk.WithdrawDelegationRewards(f.ctx, d, v.GetOperator())
 	require.NoError(t, err)
-	require.Equal(t, repairM685Coins(38), got)
-	require.Equal(t, repairM685Coins(38), f.bk.GetAllBalances(f.ctx, d))
+	require.Equal(t, distributionContractCoins(38), got)
+	require.Equal(t, distributionContractCoins(38), f.bk.GetAllBalances(f.ctx, d))
 	require.True(t, f.dk.GetValidatorOutstandingRewards(f.ctx, v.GetOperator()).Rewards.IsZero())
 	start := f.dk.GetDelegatorStartingInfo(f.ctx, v.GetOperator(), d)
 	require.Equal(t, sdk.NewDec(40000000), start.Stake)
@@ -334,7 +336,7 @@ func TestRepairM_685_Slash(t *testing.T) {
 	require.True(t, f.dk.CalculateDelegationRewards(f.ctx, v, del, 4).IsZero(), "same-block reinitialization has no new rewards")
 }
 
-func repairM685Attributes(event abci.Event) map[string]string {
+func distributionContractAttributes(event abci.Event) map[string]string {
 	attrs := map[string]string{}
 	for _, a := range event.Attributes {
 		attrs[string(a.Key)] = string(a.Value)
@@ -342,7 +344,7 @@ func repairM685Attributes(event abci.Event) map[string]string {
 	return attrs
 }
 
-func repairM685EventsOfType(events []abci.Event, kind string) []abci.Event {
+func distributionContractEventsOfType(events []abci.Event, kind string) []abci.Event {
 	var selected []abci.Event
 	for _, e := range events {
 		if e.Type == kind {
@@ -352,7 +354,7 @@ func repairM685EventsOfType(events []abci.Event, kind string) []abci.Event {
 	return selected
 }
 
-func repairM685AllocationEvents(events []abci.Event) []abci.Event {
+func distributionContractAllocationEvents(events []abci.Event) []abci.Event {
 	var selected []abci.Event
 	for _, e := range events {
 		switch e.Type {
@@ -363,9 +365,9 @@ func repairM685AllocationEvents(events []abci.Event) []abci.Event {
 	return selected
 }
 
-func TestRepairM_685_Events(t *testing.T) {
-	doc := repairM685Doc(t, "06_events", "| proposer_reward | amount |", "proposer_reward.amount = 5.000000000000000000uhpx", "Non-default", "message.action")
-	f := newRepairM685Fixture(t)
+func TestDistributionContractEvents(t *testing.T) {
+	doc := distributionContractDoc(t, "06_events", "| proposer_reward | amount |", "proposer_reward.amount = 5.000000000000000000uhpx", "Non-default", "message.action")
+	f := newDistributionContractFixture(t)
 	v, cons := f.validator(t, 1, 100, sdk.NewDecWithPrec(1, 1))
 	p := types.DefaultParams()
 	p.CommunityTax = sdk.NewDecWithPrec(2, 2)
@@ -375,17 +377,17 @@ func TestRepairM_685_Events(t *testing.T) {
 	f.fundModule(t, authtypes.FeeCollectorName, 100)
 	f.ctx = f.ctx.WithEventManager(sdk.NewEventManager())
 	f.dk.AllocateTokens(f.ctx, 100, 100, cons, []abci.VoteInfo{{Validator: abci.Validator{Address: cons, Power: 100}, SignedLastBlock: true}})
-	events := repairM685AllocationEvents(f.ctx.EventManager().ABCIEvents())
+	events := distributionContractAllocationEvents(f.ctx.EventManager().ABCIEvents())
 	require.Len(t, events, 5)
 	for i, want := range []struct{ kind, amount string }{{"proposer_reward", "5.000000000000000000uhpx"}, {"commission", "0.500000000000000000uhpx"}, {"rewards", "5.000000000000000000uhpx"}, {"commission", "9.300000000000000000uhpx"}, {"rewards", "93.000000000000000000uhpx"}} {
 		require.Equal(t, want.kind, events[i].Type)
-		require.Equal(t, map[string]string{"amount": want.amount, "validator": v.GetOperator().String()}, repairM685Attributes(events[i]))
+		require.Equal(t, map[string]string{"amount": want.amount, "validator": v.GetOperator().String()}, distributionContractAttributes(events[i]))
 		require.Contains(t, doc, want.kind+".amount = "+want.amount)
 	}
-	require.Equal(t, repairM685Dec(2), f.dk.GetFeePool(f.ctx).CommunityPool)
+	require.Equal(t, distributionContractDec(2), f.dk.GetFeePool(f.ctx).CommunityPool)
 	require.Equal(t, sdk.MustNewDecFromStr("9.8"), f.dk.GetValidatorAccumulatedCommission(f.ctx, v.GetOperator()).Commission.AmountOf("uhpx"))
 	require.Equal(t, sdk.MustNewDecFromStr("88.2"), f.dk.GetValidatorCurrentRewards(f.ctx, v.GetOperator()).Rewards.AmountOf("uhpx"))
-	require.Equal(t, repairM685Dec(98), f.dk.GetValidatorOutstandingRewards(f.ctx, v.GetOperator()).Rewards)
+	require.Equal(t, distributionContractDec(98), f.dk.GetValidatorOutstandingRewards(f.ctx, v.GetOperator()).Rewards)
 	d := sdk.AccAddress(v.GetOperator())
 	w := sdk.AccAddress(bytes.Repeat([]byte{3}, 20))
 	f.dk.Hooks().BeforeDelegationCreated(f.ctx, d, v.GetOperator())
@@ -395,7 +397,7 @@ func TestRepairM_685_Events(t *testing.T) {
 		&types.MsgSetWithdrawAddress{DelegatorAddress: d.String(), WithdrawAddress: w.String()},
 		&types.MsgWithdrawDelegatorReward{DelegatorAddress: d.String(), ValidatorAddress: v.GetOperator().String()},
 		&types.MsgWithdrawValidatorCommission{ValidatorAddress: v.GetOperator().String()},
-		&types.MsgFundCommunityPool{Depositor: w.String(), Amount: repairM685Coins(1)},
+		&types.MsgFundCommunityPool{Depositor: w.String(), Amount: distributionContractCoins(1)},
 	}
 	for _, msg := range messages {
 		// The message codec and BaseApp are the real producer and consumer of action events.
@@ -409,11 +411,11 @@ func TestRepairM_685_Events(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEmpty(t, result.Events)
 		require.Equal(t, "message", result.Events[0].Type)
-		require.Equal(t, map[string]string{"action": sdk.MsgTypeURL(msg)}, repairM685Attributes(result.Events[0]))
+		require.Equal(t, map[string]string{"action": sdk.MsgTypeURL(msg)}, distributionContractAttributes(result.Events[0]))
 		require.Contains(t, doc, sdk.MsgTypeURL(msg))
 		moduleMessage := false
 		for _, event := range result.Events[1:] {
-			if event.Type == "message" && repairM685Attributes(event)["module"] == "distribution" {
+			if event.Type == "message" && distributionContractAttributes(event)["module"] == "distribution" {
 				sender := d.String()
 				if _, ok := msg.(*types.MsgWithdrawValidatorCommission); ok {
 					sender = v.GetOperator().String()
@@ -421,42 +423,42 @@ func TestRepairM_685_Events(t *testing.T) {
 				if _, ok := msg.(*types.MsgFundCommunityPool); ok {
 					sender = w.String()
 				}
-				require.Equal(t, map[string]string{"module": "distribution", "sender": sender}, repairM685Attributes(event))
+				require.Equal(t, map[string]string{"module": "distribution", "sender": sender}, distributionContractAttributes(event))
 				moduleMessage = true
 			}
 		}
 		require.True(t, moduleMessage)
 		switch msg.(type) {
 		case *types.MsgSetWithdrawAddress:
-			specific := repairM685EventsOfType(result.Events, "set_withdraw_address")
+			specific := distributionContractEventsOfType(result.Events, "set_withdraw_address")
 			require.Len(t, specific, 1)
-			require.Equal(t, map[string]string{"withdraw_address": w.String()}, repairM685Attributes(specific[0]))
+			require.Equal(t, map[string]string{"withdraw_address": w.String()}, distributionContractAttributes(specific[0]))
 		case *types.MsgWithdrawDelegatorReward:
-			specific := repairM685EventsOfType(result.Events, "withdraw_rewards")
+			specific := distributionContractEventsOfType(result.Events, "withdraw_rewards")
 			require.Len(t, specific, 1)
 			denom, _ := sdk.GetBaseDenom()
 			if denom == "" {
 				denom = sdk.DefaultBondDenom
 			}
-			require.Equal(t, map[string]string{"amount": "0" + denom, "validator": v.GetOperator().String()}, repairM685Attributes(specific[0]))
+			require.Equal(t, map[string]string{"amount": "0" + denom, "validator": v.GetOperator().String()}, distributionContractAttributes(specific[0]))
 		case *types.MsgWithdrawValidatorCommission:
-			specific := repairM685EventsOfType(result.Events, "withdraw_commission")
+			specific := distributionContractEventsOfType(result.Events, "withdraw_commission")
 			require.Len(t, specific, 1)
-			require.Equal(t, map[string]string{"amount": "9uhpx"}, repairM685Attributes(specific[0]))
+			require.Equal(t, map[string]string{"amount": "9uhpx"}, distributionContractAttributes(specific[0]))
 		case *types.MsgFundCommunityPool:
-			transfers := repairM685EventsOfType(result.Events, banktypes.EventTypeTransfer)
+			transfers := distributionContractEventsOfType(result.Events, banktypes.EventTypeTransfer)
 			require.Len(t, transfers, 1)
-			require.Equal(t, map[string]string{"amount": "1uhpx", "sender": w.String(), "recipient": f.ak.GetModuleAddress(types.ModuleName).String()}, repairM685Attributes(transfers[0]))
+			require.Equal(t, map[string]string{"amount": "1uhpx", "sender": w.String(), "recipient": f.ak.GetModuleAddress(types.ModuleName).String()}, distributionContractAttributes(transfers[0]))
 		}
 	}
 	require.Equal(t, w, f.dk.GetDelegatorWithdrawAddr(f.ctx, d))
-	require.Equal(t, repairM685Coins(8), f.bk.GetAllBalances(f.ctx, w))
-	require.Equal(t, repairM685Dec(3), f.dk.GetFeePool(f.ctx).CommunityPool)
+	require.Equal(t, distributionContractCoins(8), f.bk.GetAllBalances(f.ctx, w))
+	require.Equal(t, distributionContractDec(3), f.dk.GetFeePool(f.ctx).CommunityPool)
 }
 
-func TestRepairM_685_Params(t *testing.T) {
-	repairM685Doc(t, "07_params", "[0, 1]", "Zero is valid", "Non-default", "ParamChangeProposalHandler", "SetParams", "0.02", "0.01", "0.04")
-	f := newRepairM685Fixture(t)
+func TestDistributionContractParams(t *testing.T) {
+	distributionContractDoc(t, "07_params", "[0, 1]", "Zero is valid", "Non-default", "ParamChangeProposalHandler", "SetParams", "0.02", "0.01", "0.04")
+	f := newDistributionContractFixture(t)
 	defaults := types.DefaultParams()
 	require.True(t, defaults.CommunityTax.IsZero())
 	require.True(t, defaults.BaseProposerReward.IsZero())
