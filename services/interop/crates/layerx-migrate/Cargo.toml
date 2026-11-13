@@ -34,7 +34,7 @@ subtle.workspace = true
 zeroize.workspace = true
 
 [dev-dependencies]
-libtest-mimic = "=0.8.1"
+libtest-mimic.workspace = true
 layerx-types.workspace = true
 
 [lints]

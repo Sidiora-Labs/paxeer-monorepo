@@ -19,17 +19,19 @@ contract MockBank {
 
     // subset of IBank functions
     function balance(address account, string memory denom) public view returns (uint256) {
-        require(keccak256(abi.encodePacked(denom)) == keccak256(abi.encodePacked("uhpx")), "MockBank: denom not supported");
+        require(
+            keccak256(abi.encodePacked(denom)) == keccak256(abi.encodePacked("uhpx")), "MockBank: denom not supported"
+        );
         return balances[account];
     }
 
-    function send(
-        address fromAddress,
-        address toAddress,
-        string memory denom,
-        uint256 amount
-    ) external returns (bool success) {
-        require(keccak256(abi.encodePacked(denom)) == keccak256(abi.encodePacked("uhpx")), "MockBank: denom not supported");
+    function send(address fromAddress, address toAddress, string memory denom, uint256 amount)
+        external
+        returns (bool success)
+    {
+        require(
+            keccak256(abi.encodePacked(denom)) == keccak256(abi.encodePacked("uhpx")), "MockBank: denom not supported"
+        );
         balances[fromAddress] -= amount;
         balances[toAddress] += amount;
         return true;
@@ -37,7 +39,6 @@ contract MockBank {
 }
 
 contract NativePaxTokensERC20Test is Test {
-
     event Transfer(address indexed from, address indexed to, uint256 value);
     event Approval(address indexed owner, address indexed spender, uint256 value);
 
@@ -67,7 +68,11 @@ contract NativePaxTokensERC20Test is Test {
     }
 
     function testBalanceOf() public {
-        vm.mockCall(BANK_PRECOMPILE_ADDRESS, abi.encodeWithSelector(IBank.balance.selector, address(this), "uhpx"), abi.encode(123));
+        vm.mockCall(
+            BANK_PRECOMPILE_ADDRESS,
+            abi.encodeWithSelector(IBank.balance.selector, address(this), "uhpx"),
+            abi.encode(123)
+        );
         assertEq(paxERC20.balanceOf(address(this)), 123);
     }
 

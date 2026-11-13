@@ -45,25 +45,46 @@ interface ILayerXAnchor {
         bool eligible;
     }
 
-    event CheckpointSubmitted(uint64 indexed batchNumber, bytes32 indexed checkpointId, bytes32 stateRoot, bytes32 receiptRoot, uint8 signers);
-    event CheckpointFinalized(uint64 indexed batchNumber, bytes32 indexed checkpointId, bytes32 stateRoot, bytes32 receiptRoot);
-    event AvailabilityAttested(uint64 indexed batchNumber, bytes32 indexed guarantorId, uint8 classMask, uint8 availabilityMask);
-    event GuarantorRegistered(bytes32 indexed guarantorId, address indexed signer, address operator, uint256 bond, uint8 status);
+    event CheckpointSubmitted(
+        uint64 indexed batchNumber, bytes32 indexed checkpointId, bytes32 stateRoot, bytes32 receiptRoot, uint8 signers
+    );
+    event CheckpointFinalized(
+        uint64 indexed batchNumber, bytes32 indexed checkpointId, bytes32 stateRoot, bytes32 receiptRoot
+    );
+    event AvailabilityAttested(
+        uint64 indexed batchNumber, bytes32 indexed guarantorId, uint8 classMask, uint8 availabilityMask
+    );
+    event GuarantorRegistered(
+        bytes32 indexed guarantorId, address indexed signer, address operator, uint256 bond, uint8 status
+    );
     event GuarantorActivated(bytes32 indexed guarantorId);
     event BondIncreased(bytes32 indexed guarantorId, uint256 amount, uint256 bond);
     event UnbondBegun(bytes32 indexed guarantorId, uint256 amount, uint64 completionTime);
     event UnbondCompleted(bytes32 indexed guarantorId, uint256 amount);
-    event GuarantorSlashed(bytes32 indexed guarantorId, uint8 reason, uint64 batchNumber, uint256 amount, address reporter, uint256 reporterReward);
-    event ChallengeOpened(uint64 indexed challengeId, uint64 indexed batchNumber, uint8 kind, bytes32 evidenceHash, address challenger);
+    event GuarantorSlashed(
+        bytes32 indexed guarantorId,
+        uint8 reason,
+        uint64 batchNumber,
+        uint256 amount,
+        address reporter,
+        uint256 reporterReward
+    );
+    event ChallengeOpened(
+        uint64 indexed challengeId, uint64 indexed batchNumber, uint8 kind, bytes32 evidenceHash, address challenger
+    );
     event ChallengeResolved(uint64 indexed challengeId, uint64 indexed batchNumber, bool upheld);
-    event SequencerAuthorized(bytes32 indexed sequencerId, bytes32 publicKey, uint64 firstBatchNumber, uint64 lastBatchNumber);
+    event SequencerAuthorized(
+        bytes32 indexed sequencerId, bytes32 publicKey, uint64 firstBatchNumber, uint64 lastBatchNumber
+    );
 
     /// header: canonical 354-byte batch header. headerSignature: the 64-byte
     /// Ed25519 sequencer signature. certificate: the guarantor checkpoint
     /// certificate (header, validity proof, up to 32 attestations ascending by
     /// guarantor identifier, threshold, settlement reference).
     /// status: 1 submitted, 2 final.
-    function submitCheckpoint(bytes calldata header, bytes calldata headerSignature, bytes calldata certificate) external returns (bytes32 checkpointId, uint8 status);
+    function submitCheckpoint(bytes calldata header, bytes calldata headerSignature, bytes calldata certificate)
+        external
+        returns (bytes32 checkpointId, uint8 status);
 
     /// attestation: one 274-byte guarantor attestation over a known checkpoint.
     function submitAvailabilityAttestation(bytes calldata attestation) external returns (uint8 availabilityMask);
@@ -84,7 +105,10 @@ interface ILayerXAnchor {
     function submitEquivocation(bytes calldata evidenceA, bytes calldata evidenceB) external returns (uint256 slashed);
 
     /// kind: 0 fraud, 1 data availability. The value must be the challenge bond.
-    function openChallenge(uint64 batchNumber, uint8 kind, bytes32 evidenceHash) external payable returns (uint64 challengeId);
+    function openChallenge(uint64 batchNumber, uint8 kind, bytes32 evidenceHash)
+        external
+        payable
+        returns (uint64 challengeId);
 
     /// Authority only.
     function resolveChallenge(uint64 challengeId, bool upheld) external returns (bool);
@@ -93,7 +117,12 @@ interface ILayerXAnchor {
     function activateGuarantor(bytes32 guarantorId) external returns (bool);
 
     /// Authority only.
-    function setSequencerAuthorization(bytes32 sequencerId, bytes32 publicKey, uint64 firstBatchNumber, uint64 lastBatchNumber) external returns (bool);
+    function setSequencerAuthorization(
+        bytes32 sequencerId,
+        bytes32 publicKey,
+        uint64 firstBatchNumber,
+        uint64 lastBatchNumber
+    ) external returns (bool);
 
     function latestFinalized() external view returns (uint64 batchNumber, bool exists);
 

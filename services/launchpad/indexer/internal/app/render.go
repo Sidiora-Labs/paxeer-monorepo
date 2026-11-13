@@ -7,6 +7,7 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/checked"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/config"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/processor"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/publisher"
@@ -90,6 +91,10 @@ func RenderRuntimeDocuments(in runtimedocs.Inputs, p DeliveryParameters) (map[st
 		deliveryDoc.Policy.EventTypes[accounting.InventorySubject] = true
 		deliveryDoc.Subjects[accounting.InventorySubject] = accounting.InventorySubject
 	}
+	anchorHeightInt64, conversionErr := checked.Convert[int64](in.Anchor.Height)
+	if conversionErr != nil {
+		return nil, conversionErr
+	}
 	lifecycleDoc := lifecycleRuntimeDocument{
 		Version: 2, Committed: committed,
 		EndpointSecretReferences: map[string]string{runtimedocs.PrimaryEndpointID: "RPC_URL"},
@@ -97,7 +102,7 @@ func RenderRuntimeDocuments(in runtimedocs.Inputs, p DeliveryParameters) (map[st
 		Webhooks:                 lifecycleWebhookDocument{Targets: []delivery.WebhookTarget{}},
 		ReplayBatchSize:          32, WorkConcurrency: 4, WorkBurst: 32, EventsPerSecond: 200,
 		ReplayRequests: []store.ReplayRequest{}, Rebuilds: []lifecycleRebuildDocument{}, Operations: map[string]store.OperationScope{},
-		InitialCheckpointHeight: int64(in.Anchor.Height), InitialCheckpointHash: strings.ToLower(in.Anchor.Hash.Hex()), //nolint:gosec // anchor height uses the existing signed runtime document field
+		InitialCheckpointHeight: anchorHeightInt64, InitialCheckpointHash: strings.ToLower(in.Anchor.Hash.Hex()),
 	}
 	if err = bindRuntimeAnchor(&lifecycleDoc, authority); err != nil {
 		return nil, err

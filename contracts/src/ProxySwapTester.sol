@@ -154,12 +154,10 @@ contract CallbackPool {
      *      in the state BEFORE the first STATICCALL read. The giga KV store's
      *      snapshot/cache behavior must handle this correctly.
      */
-    function swap(
-        address recipient,
-        bool zeroForOne,
-        uint256 amountIn,
-        bytes calldata data
-    ) external returns (int256 amount0, int256 amount1) {
+    function swap(address recipient, bool zeroForOne, uint256 amountIn, bytes calldata data)
+        external
+        returns (int256 amount0, int256 amount1)
+    {
         // Calculate output (simplified: 99% of input for a ~1:1 pool)
         uint256 amountOut = amountIn * 99 / 100;
 
@@ -168,16 +166,12 @@ contract CallbackPool {
 
         // Step 1: Send output tokens to recipient FIRST — state mutation before any reads
         // (Real V3 pools transfer output before checking input balance)
-        (bool ok1,) = tokenOut.call(
-            abi.encodeWithSignature("transfer(address,uint256)", recipient, amountOut)
-        );
+        (bool ok1,) = tokenOut.call(abi.encodeWithSignature("transfer(address,uint256)", recipient, amountOut));
         require(ok1, "output transfer failed");
 
         // Step 2: Check balance of input token AFTER the output transfer
         // This read happens with dirty state from step 1 already in the snapshot
-        (bool ok0, bytes memory bal0) = tokenIn.staticcall(
-            abi.encodeWithSignature("balanceOf(address)", address(this))
-        );
+        (bool ok0, bytes memory bal0) = tokenIn.staticcall(abi.encodeWithSignature("balanceOf(address)", address(this)));
         require(ok0, "balanceOf failed");
         uint256 balanceBefore = abi.decode(bal0, (uint256));
 
@@ -193,9 +187,7 @@ contract CallbackPool {
 
         // Step 4: Verify we received the input tokens (balance check via staticcall)
         // This read must see the callback's state mutations
-        (bool ok2, bytes memory bal1) = tokenIn.staticcall(
-            abi.encodeWithSignature("balanceOf(address)", address(this))
-        );
+        (bool ok2, bytes memory bal1) = tokenIn.staticcall(abi.encodeWithSignature("balanceOf(address)", address(this)));
         require(ok2, "balanceOf after failed");
         uint256 balanceAfter = abi.decode(bal1, (uint256));
         require(balanceAfter >= balanceBefore + amountIn, "insufficient input received");
@@ -217,8 +209,14 @@ contract SimpleV2Pool {
     uint112 public reserve0;
     uint112 public reserve1;
 
-    event Swap(address indexed sender, uint256 amount0In, uint256 amount1In,
-               uint256 amount0Out, uint256 amount1Out, address indexed to);
+    event Swap(
+        address indexed sender,
+        uint256 amount0In,
+        uint256 amount1In,
+        uint256 amount0Out,
+        uint256 amount1Out,
+        address indexed to
+    );
     event Sync(uint112 reserve0, uint112 reserve1);
 
     constructor(address _token0, address _token1) {
@@ -227,12 +225,8 @@ contract SimpleV2Pool {
     }
 
     function addLiquidity() external {
-        (bool ok0, bytes memory b0) = token0.staticcall(
-            abi.encodeWithSignature("balanceOf(address)", address(this))
-        );
-        (bool ok1, bytes memory b1) = token1.staticcall(
-            abi.encodeWithSignature("balanceOf(address)", address(this))
-        );
+        (bool ok0, bytes memory b0) = token0.staticcall(abi.encodeWithSignature("balanceOf(address)", address(this)));
+        (bool ok1, bytes memory b1) = token1.staticcall(abi.encodeWithSignature("balanceOf(address)", address(this)));
         require(ok0 && ok1, "balanceOf failed");
         reserve0 = uint112(abi.decode(b0, (uint256)));
         reserve1 = uint112(abi.decode(b1, (uint256)));
@@ -247,15 +241,11 @@ contract SimpleV2Pool {
         require(amount0Out > 0 || amount1Out > 0, "insufficient output");
 
         if (amount0Out > 0) {
-            (bool ok,) = token0.call(
-                abi.encodeWithSignature("transfer(address,uint256)", to, amount0Out)
-            );
+            (bool ok,) = token0.call(abi.encodeWithSignature("transfer(address,uint256)", to, amount0Out));
             require(ok, "transfer0 failed");
         }
         if (amount1Out > 0) {
-            (bool ok,) = token1.call(
-                abi.encodeWithSignature("transfer(address,uint256)", to, amount1Out)
-            );
+            (bool ok,) = token1.call(abi.encodeWithSignature("transfer(address,uint256)", to, amount1Out));
             require(ok, "transfer1 failed");
         }
 
@@ -263,12 +253,8 @@ contract SimpleV2Pool {
     }
 
     function _updateReserves() internal {
-        (bool ok0, bytes memory b0) = token0.staticcall(
-            abi.encodeWithSignature("balanceOf(address)", address(this))
-        );
-        (bool ok1, bytes memory b1) = token1.staticcall(
-            abi.encodeWithSignature("balanceOf(address)", address(this))
-        );
+        (bool ok0, bytes memory b0) = token0.staticcall(abi.encodeWithSignature("balanceOf(address)", address(this)));
+        (bool ok1, bytes memory b1) = token1.staticcall(abi.encodeWithSignature("balanceOf(address)", address(this)));
         require(ok0 && ok1, "balanceOf failed");
         uint256 balance0 = abi.decode(b0, (uint256));
         uint256 balance1 = abi.decode(b1, (uint256));
@@ -315,9 +301,8 @@ contract CallbackRouter is ISwapCallback {
         }
 
         // Transfer the owed tokens to the pool
-        (bool ok,) = _pendingSwap.tokenIn.call(
-            abi.encodeWithSignature("transfer(address,uint256)", msg.sender, amountOwed)
-        );
+        (bool ok,) =
+            _pendingSwap.tokenIn.call(abi.encodeWithSignature("transfer(address,uint256)", msg.sender, amountOwed));
         require(ok, "callback transfer failed");
     }
 
@@ -338,9 +323,10 @@ contract CallbackRouter is ISwapCallback {
         address recipient
     ) external returns (uint256 finalAmount) {
         // Pull tokenA from sender
-        _safeCall(tokenA, abi.encodeWithSignature(
-            "transferFrom(address,address,uint256)", msg.sender, address(this), amountIn
-        ));
+        _safeCall(
+            tokenA,
+            abi.encodeWithSignature("transferFrom(address,address,uint256)", msg.sender, address(this), amountIn)
+        );
 
         // Hop 1: V3 callback swap (tokenA → proxyToken)
         uint256 hop1Out = _v3Swap(v3Pool1, tokenA, amountIn);
@@ -352,9 +338,7 @@ contract CallbackRouter is ISwapCallback {
         uint256 hop3Out = _v2Swap(v2Pool, tokenB, tokenA, hop2Out);
 
         // Transfer final output to recipient
-        _safeCall(tokenA, abi.encodeWithSignature(
-            "transfer(address,uint256)", recipient, hop3Out
-        ));
+        _safeCall(tokenA, abi.encodeWithSignature("transfer(address,uint256)", recipient, hop3Out));
 
         finalAmount = hop3Out;
     }
@@ -365,19 +349,19 @@ contract CallbackRouter is ISwapCallback {
     }
 
     function _v3Swap(address pool, address tokenIn, uint256 amountIn) internal returns (uint256 amountOut) {
-        _pendingSwap = SwapState({ tokenIn: tokenIn, pool: pool, amountIn: amountIn });
+        _pendingSwap = SwapState({tokenIn: tokenIn, pool: pool, amountIn: amountIn});
         (bool ok, bytes memory ret) = pool.call(
-            abi.encodeWithSignature(
-                "swap(address,bool,uint256,bytes)",
-                address(this), true, amountIn, bytes("")
-            )
+            abi.encodeWithSignature("swap(address,bool,uint256,bytes)", address(this), true, amountIn, bytes(""))
         );
         require(ok, "v3 swap failed");
         (, int256 amount1) = abi.decode(ret, (int256, int256));
         amountOut = amount1 < 0 ? uint256(-amount1) : uint256(amount1);
     }
 
-    function _v2Swap(address pool, address tokenIn, address tokenOut, uint256 amountIn) internal returns (uint256 amountOut) {
+    function _v2Swap(address pool, address tokenIn, address tokenOut, uint256 amountIn)
+        internal
+        returns (uint256 amountOut)
+    {
         // Send input tokens to pool
         _safeCall(tokenIn, abi.encodeWithSignature("transfer(address,uint256)", pool, amountIn));
 
@@ -403,8 +387,11 @@ contract CallbackRouter is ISwapCallback {
             amount0Out = amountOut;
         }
 
-        _safeCall(pool, abi.encodeWithSignature(
-            "swap(uint256,uint256,address,bytes)", amount0Out, amount1Out, address(this), bytes("")
-        ));
+        _safeCall(
+            pool,
+            abi.encodeWithSignature(
+                "swap(uint256,uint256,address,bytes)", amount0Out, amount1Out, address(this), bytes("")
+            )
+        );
     }
 }

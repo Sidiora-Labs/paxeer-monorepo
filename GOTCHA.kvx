@@ -21465,3 +21465,98 @@ fix = "The advisory settings carry one entry with its reason for the big integer
 title = "The payload rule of the human boundary check lets only the intents crate call the payload encoders"
 symptom = "The rule payload-encoding-entry-point of services/human/tools/boundary-check reports every file outside services/human/crates/layerx-intents that calls a payload encoding entry point. The production reads file of the service member and one of its tests build receipt payloads for fields that the intents crate offers no constructor for."
 fix = "The intents crate gains the constructors those two files need, and the files call them."
+
+[gotcha.4329]
+title = "The platform dependency inventory lists the resolved package files of the Swift samples"
+symptom = "The inventory check of scripts/workspace/check-platform-dependencies.sh compares the tracked manifests and resolved package files under services/platform with the rows of tools/workspace/platform-dependency-roots.txt. The Swift samples first-payment-swift and mobile-payment-ios each track a Package.resolved file next to their Package.swift."
+fix = "The inventory carries one row for every tracked Package.resolved file of the samples."
+
+[gotcha.4330]
+title = "The decoder burst case of the indexer module schedules its complete workload in every test stage"
+symptom = "The case of services/launchpad/indexer/internal/decode that schedules the complete five minute workload asserts that no delivery is dropped and that the latency bound holds. The race stage of the launchpad Makefile runs the same case with the race detector, under which the process runs several times slower on any machine."
+fix = "Under the race detector the case schedules a declared fraction of the rate and keeps every assertion."
+
+[gotcha.4331]
+title = "The source capacity cases of the indexer module read commit timestamps of the database"
+symptom = "The capacity measurement of services/launchpad/indexer/internal/source reads the setting track_commit_timestamp of PostgreSQL and refuses a database where it is off. Its cases run against the database of the test stage."
+fix = "The database of the test stage runs with track_commit_timestamp on, and the record of the module names the prerequisite."
+
+[gotcha.4332]
+title = "The retired reference catalogue lists the live names that share a retired word"
+symptom = "The check of tools/paxeer-x/tests/retired_callers_test.py reads the genesis key layerxcustody in tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py and the import of the receipt authority fixture module in tools/qualification/paxeer-x/inference_market_room.py. Both names belong to live code, the custody module of the node and a fixture module of the qualification tools."
+fix = "The catalogue tools/paxeer-x/retired_callers.json carries one allowed reference with its citation for each live name."
+
+[gotcha.4333]
+title = "The web client under apps/web/src/api/generated is the output of the API generator"
+symptom = "The build of the human workspace compares the committed client with a fresh run of the generator of services/human/tools/api-gen over the API schema directory, so the committed client follows every change of the schema."
+fix = "The client is regenerated with the generator target of the Makefile after a schema change and committed without a hand edit."
+
+[gotcha.4334]
+title = "The lint recipe of the agent workspace bounds a function at seven inputs"
+symptom = "The recipe counts the receiver with the inputs. A function of the agent daemon that needs more values takes them one by one only up to that bound."
+fix = "A function with more values takes one parameter structure."
+
+[gotcha.4335]
+title = "The source capacity measurement bounds the round trip of its database clock sample"
+symptom = "RunSourceCapacity of services/launchpad/indexer/internal/source/capacity.go reads the database clock between two readings of the local clock and accepts the sample only when the two local readings lie within five milliseconds. The measurement takes one sample at each of its two points."
+fix = "The measurement takes up to three samples at each point and uses the first one within the bound."
+
+[gotcha.4336]
+title = "The answer context of a canary carries the roster of the frozen binding and the deal carries the admission roster"
+symptom = "The host builds the answer context of a canary in services/agent/crates/layerx-agentd/src/inference_market/canary.rs from the frozen binding of the epoch, whose roster field is the digest of the captured roster. The deal frame carries the admission roster digest of the current epoch (decision 3169). The check of apps/inference-peer/src/canary.mjs compares the first 184 bytes of the context with the fields of its deal, and the cases of apps/inference-peer/test/canary.test.mjs build the context and the deal from one roster value."
+fix = "Decision 3417: the peer compares the fields of the context that its deal states, and its cases take the two roster values as two values."
+
+[gotcha.4337]
+title = "The aggregate commands of wave 6 span every area and each area keeps its own targets current"
+symptom = "The wave 6 gate runs the build, test and lint targets of every area of the repository in one pass. A lint limit, a dependency check, a generated file comparison or a test fixture of one area applies to files that lie outside the paths of the gate task."
+fix = "Each area brings its own make targets in line in a task of its own with the paths of that area, and the gate task requires those tasks and then runs the six wave commands once."
+
+[gotcha.4338]
+title = "The lint target of the agent workspace reads the entry file of the daemon together with its tests"
+symptom = "The command make agent-lint compiles every target of the agent workspace, so the argument limit of the lint configuration applies to the function terms of services/agent/crates/layerx-agentd/src/main.rs in the same run that reads the test files."
+fix = "The agent lint task carries the entry file in its paths and moves the inputs of the function into one parameter structure."
+
+[gotcha.4339]
+title = "Two binding cases of the Rust program SDK read directories that the binding program of the qualification tools prepares"
+symptom = "The cases generated_client_guest_and_typescript_are_compiler_inputs and immutable_published_interfaces_generate_all_language_families of programs/sdk/rust/tests/bindgen_conformance.rs read the directories named by the variables PAXEER_X_BINDINGS_ARTIFACTS and PAXEER_X_BINDINGS_FIXTURES. The binding program sets both variables; the test run of the programs workspace does not."
+fix = "The two cases run their assertions when the variable is set and print one line and return when it is not, without an ignore attribute."
+
+[gotcha.4340]
+title = "The interop service member links the platform gateway member, which keeps a SQLite store"
+symptom = "The dependency policy of the interop workspace reads the whole package list of the metadata, so the two SQLite crates that the platform gateway member uses appear in it through services/interop/crates/layerx-interop-service."
+fix = "The policy refuses the two crates on every dependency path that does not pass through the platform gateway member."
+
+[gotcha.4341]
+title = "The test target of the agent workspace starts a local chain for its native cases"
+symptom = "The command make agent-test prepares its native cases through services/agent/tools/run-real-node-tests.sh, which looks for forge, cast, anvil and go on the path before it builds the node."
+fix = "The verification of the agent test task names the local chain tool first, so that the gate shell provides the contract tools before the target runs."
+
+[gotcha.4342]
+title = "The test command of the interop workspace compiles and runs the cases of every member"
+symptom = "The command make interop-test runs the cases of every member under services/interop/crates. The payment cases of the fiat member convert a signature error with the question mark operator, the relay and server cases of the interop service member start a local store server from the path, and the receipt cases of the portable member run a Python verifier."
+fix = "Task 22.39.502 carries the test sources of every member under services/interop/crates, and the signature error is converted through a type that implements the standard error trait."
+
+[gotcha.4343]
+title = "The pinned cache size case of the runtime library compares against a fixed size"
+symptom = "The metrics case of wasm-runtime/libwasmvm/src/cache.rs compares the size of the pinned memory cache with a fixed number within a fifth. The size is made of the serialized size of the compiled module, an estimate of the engine and the size of the checksum, so it follows the engine version that the lock file pins."
+fix = "The number is the size measured with the engine version of the lock file, and the tolerance stays."
+
+[gotcha.4344]
+title = "The test command of the programs workspace runs the evaluator host cases of the AI market member"
+symptom = "The command make programs-test runs every test target of the members under programs/crates. The target f03_evaluator_host of programs/crates/layerx-programs-ai-market routes its calls through the program and, for one case, through the native harness that the recipe paxai-host-boundary-build of the Makefile writes under build/paxai-host-boundary."
+fix = "Task 22.39.509 carries the test sources of the members under programs/crates; each case prepares the state that the program requires, and the test recipe builds the native harness before the target that reads it."
+
+[gotcha.4345]
+title = "The test command of the agent workspace runs the cases of every member"
+symptom = "The command make agent-test runs every test target of the members under services/agent/crates. The export cases of services/agent/crates/layerx-agentd/tests/audit_export.rs read rows that carry a transaction hash, a nonce and a rung."
+fix = "Task 22.39.498 carries the test sources of every member under services/agent/crates, and a case builds its rows with every field the reader requires."
+
+[gotcha.4346]
+title = "The dependency check of the platform manifests names the SQLite crates and the indexer member keeps its store in SQLite"
+symptom = "The configuration of the dependency check of services/platform and tools/platform lists the two SQLite crates with the reason that the platform does not open the projections of a node. The indexer member under services/platform/hosted keeps a store of its own in SQLite through a direct dependency of its manifest."
+fix = "The entry admits the crate as a direct dependency of the indexer member and of no other package, and the system crate under that crate alone."
+
+[gotcha.4347]
+title = "The SDK check of the platform reads a digest of the generator sources, and the history cases of the indexer run the Go producers"
+symptom = "The file sdk/platform/pipeline.kvx records a digest of the sources of each generator, among them the API generator under services/human/tools/api-gen, so a change of a generator is followed by make platform-sdk-generate. The cases of services/platform/hosted/indexer/tests/history_position.rs run Go tests of the precompiles, which link the native archives that the chain build writes under build and under the target directory of the programs workspace."
+fix = "Task 22.39.504 regenerates the SDK outputs and the digest file, and the test recipe of the platform builds the native archives before the history cases run."
