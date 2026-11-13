@@ -18,7 +18,7 @@ import (
 	rpctypes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/rpc/jsonrpc/types"
 )
 
-func repairM1108Server(t *testing.T) (string, *http.Client) {
+func startExampleServer(t *testing.T) (string, *http.Client) {
 	t.Helper()
 	config := rpcserver.DefaultConfig()
 	listener, err := rpcserver.Listen("tcp://127.0.0.1:0", config.MaxOpenConnections)
@@ -47,7 +47,7 @@ func repairM1108Server(t *testing.T) (string, *http.Client) {
 	return "http://" + listener.Addr().String(), client
 }
 
-func repairM1108HTTP(t *testing.T, client *http.Client, method, endpoint string, body []byte, status int, contentType string) []byte {
+func requestExampleHTTP(t *testing.T, client *http.Client, method, endpoint string, body []byte, status int, contentType string) []byte {
 	t.Helper()
 	req, err := http.NewRequestWithContext(t.Context(), method, endpoint, bytes.NewReader(body))
 	if err != nil {
@@ -71,7 +71,7 @@ func repairM1108HTTP(t *testing.T, client *http.Client, method, endpoint string,
 	return data
 }
 
-func repairM1108JSONEqual(t *testing.T, actual []byte, expected string) {
+func assertExampleJSONEqual(t *testing.T, actual []byte, expected string) {
 	t.Helper()
 	var got, want any
 	if err := json.Unmarshal(actual, &got); err != nil {
@@ -85,7 +85,7 @@ func repairM1108JSONEqual(t *testing.T, actual []byte, expected string) {
 	}
 }
 
-func repairM1108Request(t *testing.T, id int, params any) []byte {
+func newHelloWorldRequest(t *testing.T, id int, params any) []byte {
 	t.Helper()
 	req := rpctypes.NewRequest(id)
 	if err := req.SetMethodAndParams("hello_world", params); err != nil {
@@ -98,8 +98,8 @@ func repairM1108Request(t *testing.T, id int, params any) []byte {
 	return data
 }
 
-func TestRepairM_1108_TypedTransports(t *testing.T) {
-	endpoint, client := repairM1108Server(t)
+func TestHelloWorldTypedTransports(t *testing.T) {
+	endpoint, client := startExampleServer(t)
 	caller, err := rpcclient.NewWithHTTPClient(endpoint, client)
 	if err != nil {
 		t.Fatal(err)
@@ -130,18 +130,18 @@ func TestRepairM_1108_TypedTransports(t *testing.T) {
 				t.Fatal(err)
 			}
 			query := url.Values{"name": {string(name)}, "num": {string(num)}}
-			body := repairM1108HTTP(t, client, http.MethodGet, endpoint+"/hello_world?"+query.Encode(), nil, http.StatusOK, "application/json")
+			body := requestExampleHTTP(t, client, http.MethodGet, endpoint+"/hello_world?"+query.Encode(), nil, http.StatusOK, "application/json")
 			want, err := json.Marshal(Result{Result: tc.want})
 			if err != nil {
 				t.Fatal(err)
 			}
-			repairM1108JSONEqual(t, body, string(want))
+			assertExampleJSONEqual(t, body, string(want))
 		})
 	}
 }
 
-func TestRepairM_1108_TransportContracts(t *testing.T) {
-	endpoint, client := repairM1108Server(t)
+func TestHelloWorldTransportContracts(t *testing.T) {
+	endpoint, client := startExampleServer(t)
 	for _, tc := range []struct {
 		name  string
 		query url.Values
@@ -153,28 +153,28 @@ func TestRepairM_1108_TransportContracts(t *testing.T) {
 		{"unquoted", url.Values{"name": {"abcd"}, "num": {"123"}}, `{"Result":"hi abcd 123"}`},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			body := repairM1108HTTP(t, client, http.MethodGet, endpoint+"/hello_world?"+tc.query.Encode(), nil, http.StatusOK, "application/json")
-			repairM1108JSONEqual(t, body, tc.want)
+			body := requestExampleHTTP(t, client, http.MethodGet, endpoint+"/hello_world?"+tc.query.Encode(), nil, http.StatusOK, "application/json")
+			assertExampleJSONEqual(t, body, tc.want)
 		})
 	}
 	fixture, err := os.ReadFile("data.json")
 	if err != nil {
 		t.Fatal(err)
 	}
-	body := repairM1108HTTP(t, client, http.MethodPost, endpoint+"/", fixture, http.StatusOK, "application/json")
-	repairM1108JSONEqual(t, body, `{"jsonrpc":"2.0","id":"","result":{"Result":"hi my_world 5"}}`)
+	body := requestExampleHTTP(t, client, http.MethodPost, endpoint+"/", fixture, http.StatusOK, "application/json")
+	assertExampleJSONEqual(t, body, `{"jsonrpc":"2.0","id":"","result":{"Result":"hi my_world 5"}}`)
 
-	body = repairM1108HTTP(t, client, http.MethodPost, endpoint+"/", repairM1108Request(t, 8, []any{"positional", 12}), http.StatusOK, "application/json")
-	repairM1108JSONEqual(t, body, `{"jsonrpc":"2.0","id":8,"result":{"Result":"hi positional 12"}}`)
+	body = requestExampleHTTP(t, client, http.MethodPost, endpoint+"/", newHelloWorldRequest(t, 8, []any{"positional", 12}), http.StatusOK, "application/json")
+	assertExampleJSONEqual(t, body, `{"jsonrpc":"2.0","id":8,"result":{"Result":"hi positional 12"}}`)
 
-	body = repairM1108HTTP(t, client, http.MethodPost, endpoint+"/", repairM1108Request(t, 9, &HelloWorldRequest{}), http.StatusOK, "application/json")
-	repairM1108JSONEqual(t, body, `{"jsonrpc":"2.0","id":9,"result":{"Result":"hi  0"}}`)
+	body = requestExampleHTTP(t, client, http.MethodPost, endpoint+"/", newHelloWorldRequest(t, 9, &HelloWorldRequest{}), http.StatusOK, "application/json")
+	assertExampleJSONEqual(t, body, `{"jsonrpc":"2.0","id":9,"result":{"Result":"hi  0"}}`)
 }
 
-func TestRepairM_1108_TypedRefusals(t *testing.T) {
-	endpoint, client := repairM1108Server(t)
+func TestHelloWorldTypedRefusals(t *testing.T) {
+	endpoint, client := startExampleServer(t)
 	query := url.Values{"name": {`"abcd"`}, "num": {"0xabcd"}}
-	uriBody := repairM1108HTTP(t, client, http.MethodGet, endpoint+"/hello_world?"+query.Encode(), nil, http.StatusOK, "application/json")
+	uriBody := requestExampleHTTP(t, client, http.MethodGet, endpoint+"/hello_world?"+query.Encode(), nil, http.StatusOK, "application/json")
 	var uriError rpctypes.RPCError
 	if err := json.Unmarshal(uriBody, &uriError); err != nil {
 		t.Fatal(err)
@@ -186,13 +186,13 @@ func TestRepairM_1108_TypedRefusals(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	repairM1108JSONEqual(t, uriBody, string(encoded))
+	assertExampleJSONEqual(t, uriBody, string(encoded))
 
 	params := struct {
 		Name string `json:"name"`
 		Num  string `json:"num"`
 	}{Name: "abcd", Num: "0xabcd"}
-	body := repairM1108HTTP(t, client, http.MethodPost, endpoint+"/", repairM1108Request(t, 7, params), http.StatusOK, "application/json")
+	body := requestExampleHTTP(t, client, http.MethodPost, endpoint+"/", newHelloWorldRequest(t, 7, params), http.StatusOK, "application/json")
 	var response rpctypes.RPCResponse
 	if err := json.Unmarshal(body, &response); err != nil {
 		t.Fatal(err)
@@ -200,7 +200,7 @@ func TestRepairM_1108_TypedRefusals(t *testing.T) {
 	if response.ID() != "7" || len(response.Result) != 0 || response.Error == nil || *response.Error != uriError {
 		t.Fatalf("JSON-RPC refusal=%s; URI error=%+v", body, uriError)
 	}
-	repairM1108JSONEqual(t, body, `{"jsonrpc":"2.0","id":7,"error":`+string(encoded)+`}`)
+	assertExampleJSONEqual(t, body, `{"jsonrpc":"2.0","id":7,"error":`+string(encoded)+`}`)
 
 	caller, err := rpcclient.NewWithHTTPClient(endpoint, client)
 	if err != nil {
@@ -213,7 +213,7 @@ func TestRepairM_1108_TypedRefusals(t *testing.T) {
 		t.Fatalf("consumer error=%v, want typed error %+v", err, uriError)
 	}
 	malformed := url.Values{"name": {"0xZZ"}, "num": {"123"}}
-	badBody := repairM1108HTTP(t, client, http.MethodGet, endpoint+"/hello_world?"+malformed.Encode(), nil, http.StatusBadRequest, "text/plain")
+	badBody := requestExampleHTTP(t, client, http.MethodGet, endpoint+"/hello_world?"+malformed.Encode(), nil, http.StatusBadRequest, "text/plain")
 	if len(bytes.TrimSpace(badBody)) == 0 || json.Valid(badBody) {
 		t.Fatalf("malformed URI must have a nonempty plain-text refusal: %s", badBody)
 	}

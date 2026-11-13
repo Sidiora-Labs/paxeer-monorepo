@@ -10,9 +10,9 @@ import "testing"
 
 func TestWSClientReconnectWithJitter(t *testing.T) {
 	t.Run("configured_retries", func(t *testing.T) {
-		repairM1102ReconnectWithJitter(t, 8, 3)
+		assertReconnectWithJitter(t, 8, 3)
 	})
 	t.Run("first_retry_exhausted", func(t *testing.T) {
-		repairM1102ReconnectWithJitter(t, 8, 0)
+		assertReconnectWithJitter(t, 8, 0)
 	})
 }

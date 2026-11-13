@@ -74,9 +74,9 @@ func main() {
 	}
 }
 
-// repairM1112Blocks reads the published examples rather than maintaining separate
+// documentedCodeBlocks reads the published examples rather than maintaining separate
 // request fixtures that could silently drift away from the documentation.
-func repairM1112Blocks(t *testing.T) []string {
+func documentedCodeBlocks(t *testing.T) []string {
 	t.Helper()
 	file, err := parser.ParseFile(token.NewFileSet(), "doc.go", nil, parser.ParseComments)
 	require.NoError(t, err)
@@ -91,9 +91,9 @@ func repairM1112Blocks(t *testing.T) []string {
 	return blocks
 }
 
-func TestRepairM_1112_DocumentedProgram(t *testing.T) {
+func TestRPCExampleDocumentedProgram(t *testing.T) {
 	var program string
-	for _, block := range repairM1112Blocks(t) {
+	for _, block := range documentedCodeBlocks(t) {
 		if strings.HasPrefix(block, "package main\n") {
 			require.Empty(t, program, "exactly one complete server program")
 			program = block
@@ -102,7 +102,7 @@ func TestRepairM_1112_DocumentedProgram(t *testing.T) {
 	require.NotEmpty(t, program, "publish a complete runnable server example")
 	documented, err := parser.ParseFile(token.NewFileSet(), "example.go", program, 0)
 	require.NoError(t, err)
-	compiled, err := parser.ParseFile(token.NewFileSet(), "repair_m1112_test.go", nil, 0)
+	compiled, err := parser.ParseFile(token.NewFileSet(), "documented_server_test.go", nil, 0)
 	require.NoError(t, err)
 
 	render := func(node ast.Node) string {
@@ -136,7 +136,7 @@ func TestRepairM_1112_DocumentedProgram(t *testing.T) {
 	require.Len(t, checked, 5, "request, result, handler, serving function and main")
 }
 
-func repairM1112Server(t *testing.T) (string, func()) {
+func startDocumentedServer(t *testing.T) (string, func()) {
 	t.Helper()
 	ctx, cancel := context.WithCancel(context.Background())
 	config := rpcserver.DefaultConfig()
@@ -159,13 +159,13 @@ func repairM1112Server(t *testing.T) (string, func()) {
 	return listener.Addr().String(), stop
 }
 
-func TestRepairM_1112_DocumentedTransports(t *testing.T) {
-	address, stop := repairM1112Server(t)
+func TestRPCExampleDocumentedTransports(t *testing.T) {
+	address, stop := startDocumentedServer(t)
 	httpClient := &http.Client{Timeout: 5 * time.Second}
 	t.Cleanup(httpClient.CloseIdleConnections)
 	var uri string
 	var body []byte
-	for _, block := range repairM1112Blocks(t) {
+	for _, block := range documentedCodeBlocks(t) {
 		if strings.HasPrefix(block, "curl 'http://localhost:8008/hello_world?") {
 			uri = strings.TrimSuffix(strings.TrimPrefix(strings.TrimSpace(block), "curl '"), "'")
 		}

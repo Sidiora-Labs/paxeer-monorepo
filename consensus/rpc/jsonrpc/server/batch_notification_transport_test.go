@@ -16,11 +16,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepairM_1109_BatchArrays(t *testing.T) {
+func TestHTTPBatchTransportBatchArrays(t *testing.T) {
 	TestRPCNotificationInBatch(t)
 }
 
-func TestRepairM_1109_RequestBatchNotifications(t *testing.T) {
+func TestHTTPBatchTransportRequestBatchNotifications(t *testing.T) {
 	for _, tc := range rpcNotificationBatchCases() {
 		t.Run(fmt.Sprintf("responses_%d", tc.expectCount), func(t *testing.T) {
 			var template []rpctypes.RPCRequest

@@ -21,7 +21,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func repairM1102HTTP(t *testing.T, mode string) (*Client, <-chan int) {
+func newResponseLimitClient(t *testing.T, mode string) (*Client, <-chan int) {
 	t.Helper()
 	mux := http.NewServeMux()
 	funcs := make(map[string]*rpcserver.RPCFunc)
@@ -66,11 +66,11 @@ func repairM1102HTTP(t *testing.T, mode string) (*Client, <-chan int) {
 	return c, sizes
 }
 
-func TestRepairM_1102_ResponseBounds(t *testing.T) {
+func TestHTTPResponseBounds(t *testing.T) {
 	for _, mode := range []string{"known", "chunked", "gzip", "stalled"} {
 		for _, batch := range []bool{false, true} {
 			t.Run(mode+"/batch="+strconv.FormatBool(batch), func(t *testing.T) {
-				c, sizes := repairM1102HTTP(t, mode)
+				c, sizes := newResponseLimitClient(t, mode)
 				require.NoError(t, c.SetResponseLimits(ResponseLimits{Default: 128, Block: 128, Genesis: 128, Batch: 128}))
 				ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
 				defer cancel()
@@ -96,8 +96,8 @@ func TestRepairM_1102_ResponseBounds(t *testing.T) {
 	}
 }
 
-func TestRepairM_1102_ResponseLimitConfiguration(t *testing.T) {
-	c, sizes := repairM1102HTTP(t, "known")
+func TestHTTPResponseLimitConfiguration(t *testing.T) {
+	c, sizes := newResponseLimitClient(t, "known")
 	defaults := DefaultResponseLimits()
 	require.Positive(t, defaults.Default)
 	require.Greater(t, defaults.Block, defaults.Default)
@@ -137,22 +137,22 @@ func TestRepairM_1102_ResponseLimitConfiguration(t *testing.T) {
 	}
 }
 
-type repairM1102Event struct {
+type subscriptionGenerationEvent struct {
 	Query      string `json:"query"`
 	Generation int    `json:"generation"`
 }
 
-type repairM1102Peer struct {
+type subscriptionPeer struct {
 	server      *httptest.Server
 	connections chan *websocket.Conn
 	generation  int
 }
 
-func repairM1102Server(t *testing.T, address string, generation int) *repairM1102Peer {
+func newSubscriptionPeer(t *testing.T, address string, generation int) *subscriptionPeer {
 	t.Helper()
 	listener, err := net.Listen("tcp", address)
 	require.NoError(t, err)
-	peer := &repairM1102Peer{connections: make(chan *websocket.Conn, 16), generation: generation}
+	peer := &subscriptionPeer{connections: make(chan *websocket.Conn, 16), generation: generation}
 	upgrade := websocket.Upgrader{}
 	peer.server = httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := upgrade.Upgrade(w, r, nil)
@@ -178,7 +178,7 @@ func repairM1102Server(t *testing.T, address string, generation int) *repairM110
 				t.Errorf("decode subscription: %v", err)
 				return
 			}
-			if err := conn.WriteJSON(req.MakeResponse(repairM1102Event{Query: params.Query, Generation: peer.generation})); err != nil {
+			if err := conn.WriteJSON(req.MakeResponse(subscriptionGenerationEvent{Query: params.Query, Generation: peer.generation})); err != nil {
 				return
 			}
 		}
@@ -189,7 +189,7 @@ func repairM1102Server(t *testing.T, address string, generation int) *repairM110
 	return peer
 }
 
-func repairM1102Await[T any](t *testing.T, ch <-chan T) T {
+func awaitLifecycleObservation[T any](t *testing.T, ch <-chan T) T {
 	t.Helper()
 	select {
 	case value, ok := <-ch:
@@ -202,7 +202,7 @@ func repairM1102Await[T any](t *testing.T, ch <-chan T) T {
 	}
 }
 
-func repairM1102Start(t *testing.T, peer *repairM1102Peer, reconnect func(*WSClient, context.Context)) (*WSClient, context.Context) {
+func startSubscriptionClient(t *testing.T, peer *subscriptionPeer, reconnect func(*WSClient, context.Context)) (*WSClient, context.Context) {
 	t.Helper()
 	ctx, cancel := context.WithCancel(t.Context())
 	c, err := NewWS(peer.server.URL, "/websocket")
@@ -215,27 +215,27 @@ func repairM1102Start(t *testing.T, peer *repairM1102Peer, reconnect func(*WSCli
 		cancel()
 		stopped := make(chan error, 1)
 		go func() { stopped <- c.Stop() }()
-		require.NoError(t, repairM1102Await(t, stopped))
+		require.NoError(t, awaitLifecycleObservation(t, stopped))
 	})
 	return c, ctx
 }
 
-func TestRepairM_1102_ServerRestartRestoresSubscription(t *testing.T) {
+func TestWSClientServerRestartRestoresSubscription(t *testing.T) {
 	for _, code := range []int{websocket.CloseNormalClosure, websocket.CloseGoingAway, websocket.CloseProtocolError, websocket.CloseAbnormalClosure} {
 		t.Run(strconv.Itoa(code), func(t *testing.T) {
-			peer := repairM1102Server(t, "127.0.0.1:0", 1)
+			peer := newSubscriptionPeer(t, "127.0.0.1:0", 1)
 			callbacks := make(chan error, 4)
 			const query = "tm.event='NewBlock'"
-			c, ctx := repairM1102Start(t, peer, func(c *WSClient, ctx context.Context) { callbacks <- c.Subscribe(ctx, query) })
+			c, ctx := startSubscriptionClient(t, peer, func(c *WSClient, ctx context.Context) { callbacks <- c.Subscribe(ctx, query) })
 			require.Zero(t, c.pingPeriod)
-			conn := repairM1102Await(t, peer.connections)
+			conn := awaitLifecycleObservation(t, peer.connections)
 			require.NoError(t, c.Subscribe(ctx, query))
 			check := func(generation int) {
-				resp := repairM1102Await(t, c.ResponsesCh)
+				resp := awaitLifecycleObservation(t, c.ResponsesCh)
 				require.Nil(t, resp.Error)
-				var event repairM1102Event
+				var event subscriptionGenerationEvent
 				require.NoError(t, tmjson.Unmarshal(resp.Result, &event))
-				require.Equal(t, repairM1102Event{Query: query, Generation: generation}, event)
+				require.Equal(t, subscriptionGenerationEvent{Query: query, Generation: generation}, event)
 			}
 			check(1)
 			address := peer.server.Listener.Addr().String()
@@ -244,29 +244,29 @@ func TestRepairM_1102_ServerRestartRestoresSubscription(t *testing.T) {
 				require.NoError(t, conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(code, "restart"), time.Now().Add(time.Second)))
 			}
 			require.NoError(t, conn.Close())
-			reopened := repairM1102Server(t, address, 2)
+			reopened := newSubscriptionPeer(t, address, 2)
 			// No caller request or ping wakes the idle writer: recovery must do so.
-			require.NoError(t, repairM1102Await(t, callbacks))
+			require.NoError(t, awaitLifecycleObservation(t, callbacks))
 			check(2)
-			replacement := repairM1102Await(t, reopened.connections)
+			replacement := awaitLifecycleObservation(t, reopened.connections)
 			t.Cleanup(func() { _ = replacement.Close() })
 		})
 	}
 }
 
-type repairM1102Dial struct {
+type reconnectDialObservation struct {
 	started, finished time.Time
 	err               error
 }
 
-func repairM1102ReconnectWithJitter(t *testing.T, clients int, maxAttempts uint) {
+func assertReconnectWithJitter(t *testing.T, clients int, maxAttempts uint) {
 	t.Helper()
-	peer := repairM1102Server(t, "127.0.0.1:0", 1)
+	peer := newSubscriptionPeer(t, "127.0.0.1:0", 1)
 	type observedClient struct {
 		client   *WSClient
 		conn     *websocket.Conn
 		mu       sync.Mutex
-		attempts []repairM1102Dial
+		attempts []reconnectDialObservation
 		closedAt time.Time
 	}
 	observed := make([]*observedClient, clients)
@@ -280,14 +280,14 @@ func repairM1102ReconnectWithJitter(t *testing.T, clients int, maxAttempts uint)
 			start := time.Now()
 			conn, err := dial(network, address)
 			o.mu.Lock()
-			o.attempts = append(o.attempts, repairM1102Dial{start, time.Now(), err})
+			o.attempts = append(o.attempts, reconnectDialObservation{start, time.Now(), err})
 			o.mu.Unlock()
 			return conn, err
 		}
 		ctx, cancel := context.WithCancel(t.Context())
 		require.NoError(t, c.Start(ctx))
 		o.client = c
-		o.conn = repairM1102Await(t, peer.connections)
+		o.conn = awaitLifecycleObservation(t, peer.connections)
 		t.Cleanup(func() { cancel(); require.NoError(t, c.Stop()) })
 		observed[i] = o
 	}
@@ -314,7 +314,7 @@ func repairM1102ReconnectWithJitter(t *testing.T, clients int, maxAttempts uint)
 	count := 0
 	for _, o := range observed {
 		o.mu.Lock()
-		attempts := append([]repairM1102Dial(nil), o.attempts...)
+		attempts := append([]reconnectDialObservation(nil), o.attempts...)
 		o.mu.Unlock()
 		require.Len(t, attempts, int(maxAttempts)+2, "initial dial plus every completed retry")
 		require.NoError(t, attempts[0].err)
@@ -340,19 +340,19 @@ func repairM1102ReconnectWithJitter(t *testing.T, clients int, maxAttempts uint)
 	require.Greater(t, len(seen), 1, "qualification must observe multiple actual delays")
 }
 
-func TestRepairM_1102_ReconnectWithJitter(t *testing.T) {
-	repairM1102ReconnectWithJitter(t, 4, 1)
+func TestWSClientReconnectJitterBounds(t *testing.T) {
+	assertReconnectWithJitter(t, 4, 1)
 }
 
-func TestRepairM_1102_CancelDuringReconnect(t *testing.T) {
-	peer := repairM1102Server(t, "127.0.0.1:0", 1)
+func TestWSClientCancelDuringReconnect(t *testing.T) {
+	peer := newSubscriptionPeer(t, "127.0.0.1:0", 1)
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	c, err := NewWS(peer.server.URL, "/websocket")
 	require.NoError(t, err)
 	c.maxReconnectAttempts = 0
 	require.NoError(t, c.Start(ctx))
-	conn := repairM1102Await(t, peer.connections)
+	conn := awaitLifecycleObservation(t, peer.connections)
 	peer.server.Close()
 	require.NoError(t, conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "stop"), time.Now().Add(time.Second)))
 	require.NoError(t, conn.Close())
@@ -360,7 +360,7 @@ func TestRepairM_1102_CancelDuringReconnect(t *testing.T) {
 	cancel()
 	stopped := make(chan error, 1)
 	go func() { stopped <- c.Stop() }()
-	require.NoError(t, repairM1102Await(t, stopped))
+	require.NoError(t, awaitLifecycleObservation(t, stopped))
 	require.NoError(t, c.Stop(), "waiting for shutdown is safe more than once")
 	_, open := <-c.ResponsesCh
 	require.False(t, open)
