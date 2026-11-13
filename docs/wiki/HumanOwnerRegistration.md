@@ -5,10 +5,8 @@ The kernel runs inside `paxd` and participates in block proposal; a receipt is
 final when its block commits. Registration, funding and recovery are transactions
 on this one chain.
 
-Use the public JSON-RPC at the root of
-`https://api-mainnet-beta.paxeer.network` or
-`https://api1.mainnet-beta.paxeer.network` through
-`https://api14.mainnet-beta.paxeer.network`, with EVM chain ID 125 (`0x7d`).
+Use a root node URL from [Public JSON-RPC](PublicRpc.md), with EVM chain ID
+125 (`0x7d`).
 Method availability depends on the node's configuration and upgrade state.
 Sub-chains are tenant domains in the database; keep the tenant and principal
 bound to every hosted identity request.
@@ -117,6 +115,7 @@ The basic owner forms are:
 | Operation | Payload, with big-endian integers |
 | --- | --- |
 | Identity registration, ordinal 1 | `71 01 00 02 || did_id32 || primary_key32` |
+| Rotation announcement, ordinal 2 | `71 02 00 04 || did_id32 || next_key32 || begin_ms:u64 || end_ms:u64 || effective_sequence:u64` |
 | Recovery commitment, ordinal 3 | `71 03 00 03 || did_id32 || recovery_root32 || threshold:u16` |
 | Recovery commitment with delays, ordinal 3 | `71 03 00 05 || did_id32 || recovery_root32 || threshold:u16 || required_delay_seconds:u64 || maximum_delay_seconds:u64` |
 
@@ -128,11 +127,14 @@ Recovery roots and thresholds must be nonzero. These encodings are implemented
 in [`lxp_governance.c`](../../src/modules/governance/lxp_governance.c), with the
 EVM adapter in [`lifecycle.go`](../../precompiles/layerxauth/lifecycle.go).
 
-`recordLifecycle` accepts only identity and recovery ordinals. Rotation ordinal
-2 is not exposed by that method. Sponsored onboarding has a separate signed
-consent format in
-[`lxp_governance_onboarding.c`](../../src/modules/governance/lxp_governance_onboarding.c);
-it must not be replaced with the basic identity-registration payload.
+`recordLifecycle` accepts identity and recovery ordinals, plus rotation ordinal
+2 in its 92-byte version-zero form. Rotation requires a canonical new key,
+no pending rotation, a future beginning, an end after that beginning and an
+effective sequence greater than the current sequence. The caller's current
+primary key authorizes the announcement. See
+[`keeper/lifecycle.go`](../../modules/layerxauth/keeper/lifecycle.go).
+Sponsored onboarding uses a separate signed consent format in
+[`lxp_governance_onboarding.c`](../../src/modules/governance/lxp_governance_onboarding.c).
 
 Session authorization uses the dedicated `grantSession(bytes,uint64,bytes32)`
 and `revokeGrant(bytes32,uint8,uint64)` methods from the
@@ -141,7 +143,7 @@ The version-1 native session payload begins `71 05 01 03` and contains a
 length-prefixed canonical grant, expiry sequence and length-prefixed 32-byte
 action key. Version zero is refused. The canonical grant is stored at
 `05 || grant_id`; its 209-byte `LXGS2` summary is stored at `15 || grant_id`
-and emitted as event `7145`. The ABI also exposes successor-session and
+and emitted as event `0x7145`. The ABI also exposes successor-session and
 capability operations; use their declared methods and verify the scope and
 revocation state before authorizing a spend.
 
@@ -172,16 +174,11 @@ custody directories, the published key manifest and rotation signatures.
 Separate directories on one host do not demonstrate independent operators.
 Never publish seeds or copy them into registration JSON.
 
-The old cluster bootstrap through `LAYERX_NODE_IDENTITIES`, a separate daemon,
-custody credit and checkpoint certificates is retired. The retained
-[`owner_native.py`](../../services/platform/hosted/human/owner_native.py)
-producer still invokes socket-based receipt reads and obsolete CLI arguments;
-`provision.py --produce-owner-registration` is not a working merged-node
-onboarding recipe. In the Human service's current production dispatcher,
-`advance_native_onboarding` can finalize the configured sponsor from retained
-evidence, but returns `operation_retired` for other unfinished principals.
-Do not infer general onboarding availability from the lower-level registration
-and guardian helpers.
+In the Human service, `advance_native_onboarding` finalizes the configured
+sponsor from retained evidence. Other unfinished principals receive
+`operation-retired`; complete or refused journeys retain their current status.
+See
+[`production_onboarding.rs`](../../services/human/crates/layerx-human-service/src/server/production_onboarding.rs).
 
 ## Submission and retained evidence
 

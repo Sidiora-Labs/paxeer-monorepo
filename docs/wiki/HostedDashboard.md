@@ -5,8 +5,9 @@ for keys, quota, the gateway request log, webhook delivery health, and
 receipt-backed test payments
 (`services/platform/hosted/dashboard/src/main.rs`;
 `services/platform/hosted/dashboard/src/model.rs`). The crate is
-`layerx-platform-dashboard`. A companion Next.js process,
-`layerx-dashboard-web`, is the browser UI, served as its own Fly app.
+`layerx-platform-dashboard`. The companion Next.js package
+`@layerx/developer-dashboard` provides the browser UI; its Fly configuration
+is checked in separately.
 
 It does not accept writes. Every path except `GET /healthz` requires a
 developer session. Protocol facts that the dashboard renders carry the
@@ -24,32 +25,22 @@ Webhook registration and delivery live on
 
 The browser UI, dashboard API and webhooks use separate services:
 
-- `paxeer-dashboard-web` remains a Fly app
-  (`services/platform/hosted/dashboard/web/fly.toml`), built from
-  `docker/platform-dashboard-web/Dockerfile` and served on port `3000`.
-  Its `/v1/dashboard/*` rewrite targets
-  `http://OPERATOR_HOST:9445`
-  (`services/platform/hosted/dashboard/web/next.config.ts`).
-- Railway service `dashboard` is built from
-  `docker/platform-dashboard/Dockerfile`. Its configuration is
-  `services/platform/hosted/dashboard/railway.env.example`, with
+- The browser UI's Fly template names app `paxeer-dashboard-web`, uses
+  `docker/platform-dashboard-web/Dockerfile`, and serves port `3000`
+  (`services/platform/hosted/dashboard/web/fly.toml`). Its
+  `next.config.ts` rewrites `/v1/dashboard/*` to `DASHBOARD_API_ORIGIN`,
+  which is required in production. Development defaults to loopback HTTP
+  port `9445`.
+- The dashboard API image uses `docker/platform-dashboard/Dockerfile`.
+  `services/platform/hosted/dashboard/railway.env.example` selects
   `PORT=9445`, `LAYERX_DASHBOARD_LISTEN=[::]:9445` and
   `LAYERX_DASHBOARD_LISTENER=plain`. The API and `GET /healthz` share
-  that plain HTTP listener. It reads webhook state from
-  `rediss://OPERATOR_HOST:6379`, gateway keys, quota
-  and request logs from `rediss://OPERATOR_HOST:6379`,
-  and developer sessions from `https://OPERATOR_HOST:9443`.
-- Railway services `webhooks-public` and `webhooks-ingress` use the
-  `env-init-prebuilt` or `env-init` target of
-  `docker/platform-webhooks/Dockerfile`, with settings from
+  that listener. Webhook state and gateway state use separately configured
+  Redis TLS stores; developer sessions use the identity service.
+- Webhooks has separate public and ingress roles, configured through
+  `services/platform/hosted/webhooks/env-init.sh` and
   `services/platform/hosted/webhooks/railway.env.example`.
-  The `layerx-env-files` entrypoint runs
-  `services/platform/hosted/webhooks/env-init.sh` to select the role's
-  listener, health listener and credential paths from `LAYERX_ROLE`,
-  and its instance id from the replica id or hostname; see
-  [Hosted webhooks](HostedWebhooks.md).
-
-Replace `OPERATOR_HOST` with the operator-supplied hostname for each URL's dashboard API, webhook Redis, gateway Redis or identity service.
+  See [Hosted webhooks](HostedWebhooks.md).
 
 The dashboard image starts `layerx-env-files` before `layerx-dashboard`
 as uid `65532`. The file variables in the dashboard env example hold

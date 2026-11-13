@@ -20,26 +20,12 @@ See [Assets and tokens](Assets.md) for bank and pointer funding,
 
 ## Deployment
 
-The Docker image is `ghcr.io/sidiora-labs/layerx-agent-boundary:0.1.0`, with
-entrypoint `/usr/local/bin/layerx-agent-boundary`. The image defaults to user
-`4020:4020`; the checked-in node pod overrides this to uid `4021`, gid `4020`.
-See the [Dockerfile](../../docker/platform-agent-boundary/Dockerfile) and
-[node manifest](../../services/platform/hosted/node/deployment.yaml).
-
-The default listener is `0.0.0.0:9446`. The manifest declares the
-`layerx-agent-boundary` ClusterIP Service on port `9443`, targeting the
-`agent-tls` container port `9446`. Its NetworkPolicy admits that port from
-the gateway and program registry, and from the `layerx-developer` namespace's
-webhooks and dashboard API pods. Network admission does not grant HTTP
-entitlements.
-
-The checked-in pod environment is incomplete for the current binary: it
-omits required `LAYERX_AGENT_BOUNDARY_CHAIN_RPC_URL` and
-`LAYERX_AGENT_BOUNDARY_RECEIPT_KEYS_FILE`. Supply both and mount the governed
-receipt-key file before expecting startup to succeed. The old node URL,
-node bearer, protocol-network-id, and state-directory variables still in
-that manifest are not read by the current configuration function. They
-cannot replace the required receipt configuration below.
+The [Dockerfile](../../docker/platform-agent-boundary/Dockerfile) builds the
+binary and starts `/usr/local/bin/layerx-agent-boundary` as user `4020:4020`.
+The default listener is `0.0.0.0:9446`. Configure inbound TLS, all three service
+credentials, the network label, chain JSON-RPC URL and governed receipt-key
+file listed below. Configure this service separately from the native node
+described in [Hosted node](HostedNode.md).
 
 ## TLS
 
@@ -51,8 +37,7 @@ When `LAYERX_AGENT_BOUNDARY_CLIENT_CA_DER` is set, a presented client
 certificate must chain to that CA. The verifier permits clients that present
 no certificate (`allow_unauthenticated`); the Bearer token remains required
 for receipt routes. Without the CA variable the listener uses no TLS client
-authentication. The node manifest sets the CA path to
-`/run/layerx/trust/ca.crt.der`.
+authentication.
 
 Outbound HTTPS to the chain RPC validates server certificates using
 `/etc/ssl/certs/ca-certificates.crt`. The receipt client accepts HTTP or
@@ -114,10 +99,8 @@ receive `404 not_found`. It does not execute a deployment.
 
 ## Chain transactions and receipt verification
 
-Use node JSON-RPC at the root of
-`https://api1.mainnet-beta.paxeer.network` through
-`https://api14.mainnet-beta.paxeer.network`, or
-`https://api-mainnet-beta.paxeer.network`. Chain transactions use
+Use node JSON-RPC at the root URL listed in [Public JSON-RPC](PublicRpc.md).
+Chain transactions use
 `eth_sendRawTransaction`; `eth_getTransactionReceipt` reports the EVM
 execution outcome in a block. Hosted `px_` methods are separately declared
 in the gateway's [`OpenRPC contract`](../../services/platform/hosted/gateway/openrpc.json).
@@ -203,8 +186,7 @@ transaction hash. A valid absent result is sufficient; success is:
 ```
 
 A lookup error returns `503 node_unavailable`. Readiness does not prove block
-progress or successful execution of a payment. The manifest probes readiness
-every 5 seconds and liveness every 15 seconds. Losing chain access makes
+progress or successful execution of a payment. Losing chain access makes
 readiness fail while liveness can remain `200`.
 
 The active configuration creates no submission journal or activity index.

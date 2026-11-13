@@ -1,8 +1,6 @@
 # LayerX Node Interface (LNI)
 
-LNI is retired. Its canonical-binary frames, version negotiation, message
-tags, and NodeInfo handshake are historical interfaces. Current agents use
-native chain JSON-RPC through `NodeRpc` and `SequencerEndpoint`.
+Agents use native chain JSON-RPC through `NodeRpc` and `SequencerEndpoint`.
 
 Sources: `services/agent/crates/layerx-agentd/src/node_rpc.rs`,
 `services/agent/crates/layerx-client/src/sequencer.rs`,
