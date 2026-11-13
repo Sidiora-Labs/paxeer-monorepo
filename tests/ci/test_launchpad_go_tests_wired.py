@@ -556,7 +556,7 @@ def test_launchpad_go_job_provides_indexer_services():
     assert steps.index(fixtures) < steps.index(test)
     for artifact in (
         "internal/internaltest/chainfixture/testdata/paxeer125-market.jsonl.gz",
-        "internal/receipt/testdata/repair53-producer.json",
+        "internal/receipt/testdata/producer_receipts.json",
         "../../../contracts/launchpad/artifacts/contracts/core/SidioraNFT.sol/SidioraNFT.json",
         "../../../contracts/launchpad/artifacts/contracts/core/SidioraERC20.sol/SidioraERC20.json",
     ):
