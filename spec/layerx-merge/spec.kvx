@@ -13960,6 +13960,12 @@ value = "Task 22.43.261 runs the scan for retired interfaces, reads every report
 basis = "Gotcha 4387."
 affects = []
 
+[decision.3475]
+title = "Task 22.39.504 brings the end-to-end proof of the pay precompile to the present revocation rule"
+value = "The test target of the platform workspaces runs the end-to-end proof under precompiles/layerxpay through the history case of the indexer. Task 22.39.504 takes precompiles/layerxpay into its paths and brings the proof to the rule of gotcha 4388: the revocation of a budget without spend passes. The task changes the proof file only, keeps every other assertion of it, and changes no product code under that path."
+basis = "Gotcha 4388."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -205949,7 +205955,7 @@ interfaces = []
 do_1 = "do_1 Gotcha 4337, decision 3418. The command make platform-test passes. The event count cases of services/platform/hosted/indexer/src/abi.rs assert the events that the loader reads from the interface files at the present revision, by name and by count, so that an event added to an interface is stated in the case. The drift cases of sdk/platform/generators/tests/drift.rs build their comparison tree with every generated file that the generators write, including the mirror file of the TypeScript SDK of the agent, and compare it with the committed output; where the committed output differs from the generator, it is produced again by the generator. No case is removed or ignored."
 do_2 = "do_2 Record in services/platform/hosted/indexer/repair_22_39_504.kvx the rule, the changed files and the command. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["services/platform/hosted/indexer/src", "services/platform/hosted/indexer/tests", "sdk/platform", "services/agent/sdk/typescript/src/generated", "apps/web/src/api/generated", "services/platform/Makefile.inc"]
+touches = ["services/platform/hosted/indexer/src", "services/platform/hosted/indexer/tests", "sdk/platform", "services/agent/sdk/typescript/src/generated", "apps/web/src/api/generated", "services/platform/Makefile.inc", "precompiles/layerxpay"]
 tests = []
 planned_paths = ["services/platform/hosted/indexer/repair_22_39_504.kvx"]
 build_cmd = "make -s platform-build"
@@ -205966,6 +205972,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "do_3 Decision 3429, gotcha 4347. Run make platform-sdk-generate and keep the generated files and sdk/platform/pipeline.kvx as the generators write them. In services/platform/Makefile.inc let the test recipe build the native archives that the Go producers of services/platform/hosted/indexer/tests/history_position.rs link, before the cases run. The cases of that file keep their assertions. Add the changed files to the record. Run the build once and the verification once at the final revision."
+do_4 = "do_4 Decision 3475, gotcha 4388. Read the revocation in src/modules/budget/lx_budget_close.c and the case of modules/layerxpay/keeper/budget_revoke_precompile_test.go: the kernel revokes a budget whose period holds no spend and returns its unused funds. In precompiles/layerxpay/proof_layerxpay_0x101b_test.go the step that expects a refusal of the revocation by the owner before any spend follows that rule: remove the step or turn it into an assertion of the present rule on a budget of its own, and let the comment at the site say what the kernel does. Keep the refusal for the wrong signer, the spend, the funding, the revocation with its event and the recorded blocks, so that the history case of the indexer reads the same sequence of blocks. Change no other file under precompiles/layerxpay and no product code. Where another producer of the history case stops for a like reason, name the file and the line in the final message and leave the file as it is."
 
 [task.22.39.503]
 title = "Bring the lint target of the platform workspaces in line"
