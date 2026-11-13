@@ -21,7 +21,7 @@ import (
 	"time"
 )
 
-func m798Read(t *testing.T, path string) []byte {
+func upgradeXwebRead(t *testing.T, path string) []byte {
 	t.Helper()
 	raw, e := os.ReadFile(path)
 	if e != nil {
@@ -29,7 +29,7 @@ func m798Read(t *testing.T, path string) []byte {
 	}
 	return raw
 }
-func m798JSON(t *testing.T, value any) []byte {
+func upgradeXwebJSON(t *testing.T, value any) []byte {
 	t.Helper()
 	raw, e := json.Marshal(value)
 	if e != nil {
@@ -37,15 +37,15 @@ func m798JSON(t *testing.T, value any) []byte {
 	}
 	return raw
 }
-func m798CLI(t *testing.T, args []string, raw []byte) ([]byte, error) {
+func upgradeXwebCLI(t *testing.T, args []string, raw []byte) ([]byte, error) {
 	t.Helper()
 	var output bytes.Buffer
 	e := RunInspector(context.Background(), args, bytes.NewReader(raw), &output)
 	return output.Bytes(), e
 }
-func m798Wire(t *testing.T, path string, terms ...string) {
+func upgradeXwebWire(t *testing.T, path string, terms ...string) {
 	t.Helper()
-	raw := m798Read(t, path)
+	raw := upgradeXwebRead(t, path)
 	for _, term := range terms {
 		if !bytes.Contains(raw, []byte(term)) {
 			t.Fatalf("%s lacks production wiring %q", path, term)
@@ -53,7 +53,7 @@ func m798Wire(t *testing.T, path string, terms ...string) {
 	}
 }
 
-type m798Native struct {
+type upgradeXwebNative struct {
 	Node, Comet string
 	Client      *http.Client
 	mu          sync.Mutex
@@ -62,7 +62,7 @@ type m798Native struct {
 	exchanges   map[string]json.RawMessage
 }
 
-func m798NativePeer(t *testing.T) *m798Native {
+func upgradeXwebNativePeer(t *testing.T) *upgradeXwebNative {
 	t.Helper()
 	var fixture struct {
 		Exchanges []struct {
@@ -70,10 +70,10 @@ func m798NativePeer(t *testing.T) *m798Native {
 			Result json.RawMessage `json:"result"`
 		} `json:"rpc_exchanges"`
 	}
-	if e := json.Unmarshal(m798Read(t, "../../services/platform/hosted/node/tests/fixtures/repair_22_31_355/native_configuration.json"), &fixture); e != nil {
+	if e := json.Unmarshal(upgradeXwebRead(t, "../../services/platform/hosted/node/tests/fixtures/repair_22_31_355/native_configuration.json"), &fixture); e != nil {
 		t.Fatal(e)
 	}
-	peer := &m798Native{calls: map[string]int{}, exchanges: map[string]json.RawMessage{}}
+	peer := &upgradeXwebNative{calls: map[string]int{}, exchanges: map[string]json.RawMessage{}}
 	for _, exchange := range fixture.Exchanges {
 		peer.exchanges[exchange.Method] = exchange.Result
 	}
@@ -142,12 +142,12 @@ func m798NativePeer(t *testing.T) *m798Native {
 	peer.Client = node.Client()
 	return peer
 }
-func (p *m798Native) set(mode string) { p.mu.Lock(); defer p.mu.Unlock(); p.mode = mode }
-func m798Observe(t *testing.T, peer *m798Native, unit, binary, state string) UpgradeObservation {
+func (p *upgradeXwebNative) set(mode string) { p.mu.Lock(); defer p.mu.Unlock(); p.mode = mode }
+func upgradeXwebObserve(t *testing.T, peer *upgradeXwebNative, unit, binary, state string) UpgradeObservation {
 	t.Helper()
-	transcript := m798Read(t, "tests/fixtures/repair_m798/systemd-"+state+".txt")
+	transcript := upgradeXwebRead(t, "tests/fixtures/upgrade_observation/systemd-"+state+".txt")
 	transcript = bytes.ReplaceAll(transcript, []byte("{{PID}}"), []byte(strconv.Itoa(os.Getpid())))
-	raw, e := m798CLI(t, []string{"upgrade-observe", unit, binary, peer.Node, peer.Comet, "v6.12.0", "23869862"}, transcript)
+	raw, e := upgradeXwebCLI(t, []string{"upgrade-observe", unit, binary, peer.Node, peer.Comet, "v6.12.0", "23869862"}, transcript)
 	if e != nil {
 		t.Fatal("production observation failed", e)
 	}
@@ -157,7 +157,7 @@ func m798Observe(t *testing.T, peer *m798Native, unit, binary, state string) Upg
 	}
 	return o
 }
-func m798Plan(t *testing.T, peer *m798Native, binary string, count int) UpgradePlan {
+func upgradeXwebPlan(t *testing.T, peer *upgradeXwebNative, binary string, count int) UpgradePlan {
 	t.Helper()
 	executable, e := os.Executable()
 	if e != nil {
@@ -173,18 +173,18 @@ func m798Plan(t *testing.T, peer *m798Native, binary string, count int) UpgradeP
 	}
 	return plan
 }
-func m798Begin(t *testing.T, path string, plan UpgradePlan) {
+func upgradeXwebBegin(t *testing.T, path string, plan UpgradePlan) {
 	t.Helper()
 	var lines strings.Builder
 	for _, u := range plan.Units {
 		fmt.Fprintln(&lines, u.ID, u.Destination, u.Unit, u.Binary, u.Node, u.Comet)
 	}
-	raw, e := m798CLI(t, []string{"upgrade-state", path, "begin", plan.Version, plan.Name, plan.SHA256, strconv.FormatUint(plan.Height, 10), strconv.FormatInt(plan.RecoverySeconds, 10)}, []byte(lines.String()))
+	raw, e := upgradeXwebCLI(t, []string{"upgrade-state", path, "begin", plan.Version, plan.Name, plan.SHA256, strconv.FormatUint(plan.Height, 10), strconv.FormatInt(plan.RecoverySeconds, 10)}, []byte(lines.String()))
 	if e != nil || len(raw) != 0 {
 		t.Fatalf("plan producer/consumer failed: %s %v", raw, e)
 	}
 }
-func m798Open(t *testing.T, path string) *UpgradeState {
+func upgradeXwebOpen(t *testing.T, path string) *UpgradeState {
 	t.Helper()
 	s, e := OpenUpgradeState(path)
 	if e != nil {
@@ -192,20 +192,20 @@ func m798Open(t *testing.T, path string) *UpgradeState {
 	}
 	return s
 }
-func m798Next(t *testing.T, path, id string, o UpgradeObservation, want string) {
+func upgradeXwebNext(t *testing.T, path, id string, o UpgradeObservation, want string) {
 	t.Helper()
-	raw, e := m798CLI(t, []string{"upgrade-state", path, "next", id}, m798JSON(t, o))
+	raw, e := upgradeXwebCLI(t, []string{"upgrade-state", path, "next", id}, upgradeXwebJSON(t, o))
 	if e != nil || strings.TrimSpace(string(raw)) != want {
 		t.Fatalf("unit %s action=%s want=%s error=%v", id, raw, want, e)
 	}
 }
-func m798Applied(t *testing.T, path, id, action string) {
+func upgradeXwebApplied(t *testing.T, path, id, action string) {
 	t.Helper()
-	if raw, e := m798CLI(t, []string{"upgrade-state", path, "applied", id, action}, nil); e != nil {
+	if raw, e := upgradeXwebCLI(t, []string{"upgrade-state", path, "applied", id, action}, nil); e != nil {
 		t.Fatal(string(raw), e)
 	}
 }
-func m798InstallExecutable(t *testing.T, path string) {
+func upgradeXwebInstallExecutable(t *testing.T, path string) {
 	t.Helper()
 	executable, e := os.Executable()
 	if e != nil {
@@ -232,21 +232,21 @@ func m798InstallExecutable(t *testing.T, path string) {
 	}
 }
 
-func TestRepairM_798_UpgradeActiveState(t *testing.T) {
+func TestUpgradeActiveState(t *testing.T) {
 	for _, state := range []string{"inactive", "failed"} {
 		t.Run(state, func(t *testing.T) {
-			peer := m798NativePeer(t)
+			peer := upgradeXwebNativePeer(t)
 			dir := t.TempDir()
 			binary := filepath.Join(dir, "paxd")
-			m798InstallExecutable(t, binary)
-			plan := m798Plan(t, peer, binary, 2)
+			upgradeXwebInstallExecutable(t, binary)
+			plan := upgradeXwebPlan(t, peer, binary, 2)
 			path := filepath.Join(dir, "upgrade.json")
-			m798Begin(t, path, plan)
-			o := m798Observe(t, peer, plan.Units[0].Unit, binary, state)
+			upgradeXwebBegin(t, path, plan)
+			o := upgradeXwebObserve(t, peer, plan.Units[0].Unit, binary, state)
 			if o.Active != state || o.Ready || o.PID != 0 || !o.Halt || o.DiskSHA != plan.SHA256 {
 				t.Fatalf("producer lost inactive evidence: %+v", o)
 			}
-			s := m798Open(t, path)
+			s := upgradeXwebOpen(t, path)
 			now := time.Unix(1700000000, 0)
 			action, e := s.Next("unit-0", o, now)
 			if e != nil || action != "restart" {
@@ -260,13 +260,13 @@ func TestRepairM_798_UpgradeActiveState(t *testing.T) {
 				t.Fatal("inactive unit passed recovery", action, e)
 			}
 			s.Close()
-			s = m798Open(t, path)
+			s = upgradeXwebOpen(t, path)
 			defer s.Close()
 			r := s.document.Progress["unit-0"]
 			if r.Phase != "failed" || len(r.Failures) != 1 || r.Failures[0].Observation.Active != state || r.Failures[0].Reason != "recovery deadline exceeded" {
 				t.Fatalf("failure evidence not retained: %+v", r)
 			}
-			other := m798Observe(t, peer, plan.Units[1].Unit, binary, "inactive")
+			other := upgradeXwebObserve(t, peer, plan.Units[1].Unit, binary, "inactive")
 			action, e = s.Next("unit-1", other, now.Add(time.Duration(plan.RecoverySeconds+2)*time.Second))
 			if e != nil || action != "blocked" || s.document.Progress["unit-1"].Phase != "waiting" {
 				t.Fatal("later swap escaped failed recovery", action, e)
@@ -277,19 +277,19 @@ func TestRepairM_798_UpgradeActiveState(t *testing.T) {
 			}
 		})
 	}
-	m798Wire(t, "upgrade-fleet.sh", `upgrade_record next "unit-$k"`, `recover_unit "$k" || return 1`, `timeout 20s ssh`, `upgrade_record applied "unit-$k" restart`)
+	upgradeXwebWire(t, "upgrade-fleet.sh", `upgrade_record next "unit-$k"`, `recover_unit "$k" || return 1`, `timeout 20s ssh`, `upgrade_record applied "unit-$k" restart`)
 }
 
-func TestRepairM_798_UpgradeBoundedCommittedRecovery(t *testing.T) {
+func TestUpgradeBoundedCommittedRecovery(t *testing.T) {
 	for _, mode := range []string{"unreachable", "chain", "catching", "noncanonical", "mismatch", "stalled", "old-running"} {
 		t.Run(mode, func(t *testing.T) {
-			peer := m798NativePeer(t)
+			peer := upgradeXwebNativePeer(t)
 			dir := t.TempDir()
 			binary := filepath.Join(dir, "paxd")
-			m798InstallExecutable(t, binary)
-			plan := m798Plan(t, peer, binary, 2)
+			upgradeXwebInstallExecutable(t, binary)
+			plan := upgradeXwebPlan(t, peer, binary, 2)
 			path := filepath.Join(dir, "journal.json")
-			m798Begin(t, path, plan)
+			upgradeXwebBegin(t, path, plan)
 			if mode == "old-running" {
 				f, e := os.OpenFile(binary, os.O_APPEND|os.O_WRONLY, 0)
 				if e != nil {
@@ -306,18 +306,18 @@ func TestRepairM_798_UpgradeBoundedCommittedRecovery(t *testing.T) {
 				plan.SHA256 = digest
 				// A separately named journal binds this target's actual installed bytes.
 				path = filepath.Join(dir, "old-running.json")
-				m798Begin(t, path, plan)
+				upgradeXwebBegin(t, path, plan)
 			} else if mode != "stalled" {
 				peer.set(mode)
 			}
-			o := m798Observe(t, peer, plan.Units[0].Unit, binary, "active")
+			o := upgradeXwebObserve(t, peer, plan.Units[0].Unit, binary, "active")
 			if mode != "stalled" && mode != "old-running" && o.Ready {
 				t.Fatalf("bad canonical readiness accepted: %+v", o)
 			}
 			if mode == "old-running" && (o.RunningSHA == o.DiskSHA || o.RunningSHA == plan.SHA256) {
 				t.Fatal("producer hashed path instead of live process")
 			}
-			s := m798Open(t, path)
+			s := upgradeXwebOpen(t, path)
 			now := time.Unix(1700000000, 0)
 			action, e := s.Next("unit-0", o, now)
 			if e != nil {
@@ -338,13 +338,13 @@ func TestRepairM_798_UpgradeBoundedCommittedRecovery(t *testing.T) {
 				t.Fatal("failed/stalled target marked current", action, e)
 			}
 			s.Close()
-			reopened := m798Open(t, path)
+			reopened := upgradeXwebOpen(t, path)
 			defer reopened.Close()
 			retained := reopened.document.Progress["unit-0"]
 			if len(retained.Failures) != 1 || retained.Failures[0].Observation != o || retained.Phase != "failed" {
 				t.Fatal("readiness failure evidence changed on reopen")
 			}
-			other := m798Observe(t, peer, plan.Units[1].Unit, binary, "active")
+			other := upgradeXwebObserve(t, peer, plan.Units[1].Unit, binary, "active")
 			action, e = reopened.Next("unit-1", other, now.Add(time.Duration(plan.RecoverySeconds+2)*time.Second))
 			if e != nil || action != "blocked" {
 				t.Fatal("later unit was not stopped", action, e)
@@ -353,103 +353,103 @@ func TestRepairM_798_UpgradeBoundedCommittedRecovery(t *testing.T) {
 	}
 }
 
-func TestRepairM_798_UpgradeHashOnlyRestartRecovery(t *testing.T) {
-	peer := m798NativePeer(t)
+func TestUpgradeHashOnlyRestartRecovery(t *testing.T) {
+	peer := upgradeXwebNativePeer(t)
 	dir := t.TempDir()
 	binary := filepath.Join(dir, "paxd")
 	if e := os.WriteFile(binary, []byte("old generation"), 0700); e != nil {
 		t.Fatal(e)
 	}
-	plan := m798Plan(t, peer, binary, 1)
+	plan := upgradeXwebPlan(t, peer, binary, 1)
 	path := filepath.Join(dir, "journal.json")
-	m798Begin(t, path, plan)
-	o := m798Observe(t, peer, plan.Units[0].Unit, binary, "inactive")
-	m798Next(t, path, "unit-0", o, "swap")
+	upgradeXwebBegin(t, path, plan)
+	o := upgradeXwebObserve(t, peer, plan.Units[0].Unit, binary, "inactive")
+	upgradeXwebNext(t, path, "unit-0", o, "swap")
 	// Stop after intent and reopen before mv. The unperformed swap remains due.
-	s := m798Open(t, path)
+	s := upgradeXwebOpen(t, path)
 	if s.document.Progress["unit-0"].Phase != "installing" {
 		t.Fatal("swap intent not durable")
 	}
 	s.Close()
-	m798Begin(t, path, plan)
-	m798Next(t, path, "unit-0", o, "swap")
+	upgradeXwebBegin(t, path, plan)
+	upgradeXwebNext(t, path, "unit-0", o, "swap")
 	// Stop after atomic installation, before either acknowledgement or restart.
-	m798InstallExecutable(t, binary)
-	s = m798Open(t, path)
+	upgradeXwebInstallExecutable(t, binary)
+	s = upgradeXwebOpen(t, path)
 	s.Close()
-	m798Begin(t, path, plan)
-	installed := m798Observe(t, peer, plan.Units[0].Unit, binary, "inactive")
+	upgradeXwebBegin(t, path, plan)
+	installed := upgradeXwebObserve(t, peer, plan.Units[0].Unit, binary, "inactive")
 	if installed.DiskSHA != plan.SHA256 || installed.RunningSHA != "" {
 		t.Fatal("installation fixture not observed through producer")
 	}
-	m798Next(t, path, "unit-0", installed, "restart")
+	upgradeXwebNext(t, path, "unit-0", installed, "restart")
 	// Stop after actual activation but before acknowledgement. The running test
 	// process supplies real /proc executable bytes and start identity.
 	peer.set("catching")
-	active := m798Observe(t, peer, plan.Units[0].Unit, binary, "active")
+	active := upgradeXwebObserve(t, peer, plan.Units[0].Unit, binary, "active")
 	if active.RunningSHA != plan.SHA256 || active.StartTicks == 0 || active.Ready {
 		t.Fatalf("activation producer invalid: %+v", active)
 	}
-	s = m798Open(t, path)
+	s = upgradeXwebOpen(t, path)
 	s.Close()
-	m798Begin(t, path, plan)
-	m798Next(t, path, "unit-0", active, "recover")
+	upgradeXwebBegin(t, path, plan)
+	upgradeXwebNext(t, path, "unit-0", active, "recover")
 	// Stop and reopen the recovering component. Canonical progress now clears
 	// the original halt baseline, without a duplicate restart.
-	s = m798Open(t, path)
+	s = upgradeXwebOpen(t, path)
 	s.Close()
-	m798Begin(t, path, plan)
+	upgradeXwebBegin(t, path, plan)
 	peer.set("")
-	recovered := m798Observe(t, peer, plan.Units[0].Unit, binary, "active")
+	recovered := upgradeXwebObserve(t, peer, plan.Units[0].Unit, binary, "active")
 	if !recovered.Ready || recovered.Height != 23869863 {
 		t.Fatalf("recorded committed transport not consumed: %+v", recovered)
 	}
-	m798Next(t, path, "unit-0", recovered, "current")
-	s = m798Open(t, path)
+	upgradeXwebNext(t, path, "unit-0", recovered, "current")
+	s = upgradeXwebOpen(t, path)
 	if s.document.Progress["unit-0"].Phase != "current" || s.document.Progress["unit-0"].Last != recovered {
 		t.Fatal("recovered target not durable")
 	}
 	s.Close()
 	// A successful prior run cannot substitute for fresh progress on reopen.
-	m798Begin(t, path, plan)
-	m798Next(t, path, "unit-0", recovered, "recover")
-	m798Wire(t, "upgrade-fleet.sh", `upgrade_record begin`, `systemctl restart --no-block`, `upgrade-observe`, `/var/lib/paxeer-bringup/upgrade-$version.json`)
+	upgradeXwebBegin(t, path, plan)
+	upgradeXwebNext(t, path, "unit-0", recovered, "recover")
+	upgradeXwebWire(t, "upgrade-fleet.sh", `upgrade_record begin`, `systemctl restart --no-block`, `upgrade-observe`, `/var/lib/paxeer-bringup/upgrade-$version.json`)
 }
 
-func TestRepairM_798_UpgradeSharedBinaryPerUnit(t *testing.T) {
-	peer := m798NativePeer(t)
+func TestUpgradeSharedBinaryPerUnit(t *testing.T) {
+	peer := upgradeXwebNativePeer(t)
 	dir := t.TempDir()
 	binary := filepath.Join(dir, "paxd")
-	m798InstallExecutable(t, binary)
-	plan := m798Plan(t, peer, binary, 2)
+	upgradeXwebInstallExecutable(t, binary)
+	plan := upgradeXwebPlan(t, peer, binary, 2)
 	// Both units are on the same host/path, with independent per-unit RPCs.
-	second := m798NativePeer(t)
+	second := upgradeXwebNativePeer(t)
 	plan.Units[1].Destination = plan.Units[0].Destination
 	plan.Units[1].Node = second.Node
 	plan.Units[1].Comet = second.Comet
 	path := filepath.Join(dir, "journal.json")
-	m798Begin(t, path, plan)
-	firstStopped := m798Observe(t, peer, plan.Units[0].Unit, binary, "inactive")
-	m798Next(t, path, "unit-0", firstStopped, "restart")
-	m798Applied(t, path, "unit-0", "restart")
-	beforeFirstRecovered := m798Observe(t, second, plan.Units[1].Unit, binary, "inactive")
-	m798Next(t, path, "unit-1", beforeFirstRecovered, "blocked")
-	firstActive := m798Observe(t, peer, plan.Units[0].Unit, binary, "active")
-	m798Next(t, path, "unit-0", firstActive, "current")
-	secondStopped := m798Observe(t, second, plan.Units[1].Unit, binary, "inactive")
+	upgradeXwebBegin(t, path, plan)
+	firstStopped := upgradeXwebObserve(t, peer, plan.Units[0].Unit, binary, "inactive")
+	upgradeXwebNext(t, path, "unit-0", firstStopped, "restart")
+	upgradeXwebApplied(t, path, "unit-0", "restart")
+	beforeFirstRecovered := upgradeXwebObserve(t, second, plan.Units[1].Unit, binary, "inactive")
+	upgradeXwebNext(t, path, "unit-1", beforeFirstRecovered, "blocked")
+	firstActive := upgradeXwebObserve(t, peer, plan.Units[0].Unit, binary, "active")
+	upgradeXwebNext(t, path, "unit-0", firstActive, "current")
+	secondStopped := upgradeXwebObserve(t, second, plan.Units[1].Unit, binary, "inactive")
 	if secondStopped.DiskSHA != firstActive.DiskSHA {
 		t.Fatal("not a shared installed generation")
 	}
-	m798Next(t, path, "unit-1", secondStopped, "restart")
+	upgradeXwebNext(t, path, "unit-1", secondStopped, "restart")
 	// A crash with unit 1's pending restart cannot erase unit 0's completion.
-	s := m798Open(t, path)
+	s := upgradeXwebOpen(t, path)
 	if s.document.Progress["unit-0"].Phase != "current" || s.document.Progress["unit-1"].Phase != "restarting" {
 		t.Fatal("shared path collapsed unit progress")
 	}
 	s.Close()
-	secondActive := m798Observe(t, second, plan.Units[1].Unit, binary, "active")
-	m798Next(t, path, "unit-1", secondActive, "current")
-	s = m798Open(t, path)
+	secondActive := upgradeXwebObserve(t, second, plan.Units[1].Unit, binary, "active")
+	upgradeXwebNext(t, path, "unit-1", secondActive, "current")
+	s = upgradeXwebOpen(t, path)
 	defer s.Close()
 	if s.document.Progress["unit-0"].Last.Unit == s.document.Progress["unit-1"].Last.Unit {
 		t.Fatal("unit identities collapsed")
@@ -462,15 +462,15 @@ func TestRepairM_798_UpgradeSharedBinaryPerUnit(t *testing.T) {
 	}
 }
 
-func TestRepairM_798_UpgradeJournalRefusals(t *testing.T) {
-	peer := m798NativePeer(t)
+func TestUpgradeJournalRefusals(t *testing.T) {
+	peer := upgradeXwebNativePeer(t)
 	dir := t.TempDir()
 	binary := filepath.Join(dir, "paxd")
-	m798InstallExecutable(t, binary)
-	plan := m798Plan(t, peer, binary, 1)
+	upgradeXwebInstallExecutable(t, binary)
+	plan := upgradeXwebPlan(t, peer, binary, 1)
 	path := filepath.Join(dir, "journal.json")
-	m798Begin(t, path, plan)
-	s := m798Open(t, path)
+	upgradeXwebBegin(t, path, plan)
+	s := upgradeXwebOpen(t, path)
 	changed := plan
 	changed.SHA256 = strings.Repeat("a", 64)
 	if s.Begin(changed) == nil {
@@ -482,7 +482,7 @@ func TestRepairM_798_UpgradeJournalRefusals(t *testing.T) {
 	if s.Begin(changed) == nil {
 		t.Fatal("foreign inventory adopted journal")
 	}
-	o := m798Observe(t, peer, plan.Units[0].Unit, binary, "active")
+	o := upgradeXwebObserve(t, peer, plan.Units[0].Unit, binary, "active")
 	o.Unit = "wrong.service"
 	if _, e := s.Next("unit-0", o, time.Now()); e == nil {
 		t.Fatal("cross-unit evidence admitted")
@@ -491,7 +491,7 @@ func TestRepairM_798_UpgradeJournalRefusals(t *testing.T) {
 	if s.Begin(plan) == nil {
 		t.Fatal("closed component accepted work")
 	}
-	raw := m798Read(t, path)
+	raw := upgradeXwebRead(t, path)
 	if e := os.WriteFile(path, bytes.Replace(raw, []byte(`"waiting"`), []byte(`"unrecorded"`), 1), 0600); e != nil {
 		t.Fatal(e)
 	}
@@ -514,7 +514,7 @@ func TestRepairM_798_UpgradeJournalRefusals(t *testing.T) {
 	}
 }
 
-type m798Hosted struct {
+type upgradeXwebHosted struct {
 	URL        string
 	Client     *http.Client
 	mu         sync.Mutex
@@ -524,9 +524,9 @@ type m798Hosted struct {
 	assets     []byte
 }
 
-func m798HostedPeer(t *testing.T) *m798Hosted {
+func upgradeXwebHostedPeer(t *testing.T) *upgradeXwebHosted {
 	t.Helper()
-	peer := &m798Hosted{calls: map[string]int{}, principals: map[string]string{}, assets: m798Read(t, "tests/fixtures/repair_m798/xweb-assets.json")}
+	peer := &upgradeXwebHosted{calls: map[string]int{}, principals: map[string]string{}, assets: upgradeXwebRead(t, "tests/fixtures/upgrade_observation/xweb-assets.json")}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		peer.mu.Lock()
 		defer peer.mu.Unlock()
@@ -628,8 +628,8 @@ func m798HostedPeer(t *testing.T) *m798Hosted {
 	peer.Client = server.Client()
 	return peer
 }
-func (p *m798Hosted) set(mode string) { p.mu.Lock(); defer p.mu.Unlock(); p.mode = mode }
-func m798XwebOptions(t *testing.T, hosted *m798Hosted, node *m798Native) XwebOptions {
+func (p *upgradeXwebHosted) set(mode string) { p.mu.Lock(); defer p.mu.Unlock(); p.mode = mode }
+func upgradeXwebXwebOptions(t *testing.T, hosted *upgradeXwebHosted, node *upgradeXwebNative) XwebOptions {
 	t.Helper()
 	values := map[string]string{"XWEB_GATEWAY_ENDPOINT": hosted.URL, "XWEB_EVM_ENDPOINT": node.Node, "XWEB_SEEDS": "https://example.com/"}
 	var assets struct {
@@ -652,14 +652,14 @@ func m798XwebOptions(t *testing.T, hosted *m798Hosted, node *m798Native) XwebOpt
 	}
 	return options
 }
-func TestRepairM_798_XwebHostedAndNodeTransports(t *testing.T) {
-	hosted := m798HostedPeer(t)
-	node := m798NativePeer(t)
-	options := m798XwebOptions(t, hosted, node)
+func TestXwebHostedAndNodeTransports(t *testing.T) {
+	hosted := upgradeXwebHostedPeer(t)
+	node := upgradeXwebNativePeer(t)
+	options := upgradeXwebXwebOptions(t, hosted, node)
 	// The trust record and receipt below come from the actual native chain-125
 	// conformance producer; never synthesize a signature to match the consumer.
-	chain := m793RecordedChain(t)
-	node.exchanges["px_getReceiptKeys"] = m798JSON(t, map[string]any{"keys": []any{chain.key}})
+	chain := liveEvidenceRecordedChain(t)
+	node.exchanges["px_getReceiptKeys"] = upgradeXwebJSON(t, map[string]any{"keys": []any{chain.key}})
 	prices, e := XwebPrices(context.Background(), hosted.Client, options)
 	if e != nil {
 		t.Fatal(e)
@@ -690,7 +690,7 @@ func TestRepairM_798_XwebHostedAndNodeTransports(t *testing.T) {
 			t.Fatal("renderer lost consumers", kind, len(files))
 		}
 		for index, file := range files {
-			raw := m798Read(t, filepath.Join(outputDir, file.Name()))
+			raw := upgradeXwebRead(t, filepath.Join(outputDir, file.Name()))
 			var config struct {
 				Gateway struct {
 					Endpoint string           `json:"endpoint"`
@@ -732,8 +732,8 @@ func TestRepairM_798_XwebHostedAndNodeTransports(t *testing.T) {
 				t.Fatal("loaded gateway transport failed", e)
 			}
 			key := config.Gateway.Keys[0]
-			transported := m798JSON(t, map[string]any{"keys": []any{map[string]any{"keyId": "0x" + key.ID, "publicKey": "0x" + key.Public, "firstHeight": key.First, "lastHeight": key.Last}}})
-			if e = VerifyCommittedReceipt(m798JSON(t, chain.native), transported, chain.hash); e != nil {
+			transported := upgradeXwebJSON(t, map[string]any{"keys": []any{map[string]any{"keyId": "0x" + key.ID, "publicKey": "0x" + key.Public, "firstHeight": key.First, "lastHeight": key.Last}}})
+			if e = VerifyCommittedReceipt(upgradeXwebJSON(t, chain.native), transported, chain.hash); e != nil {
 				t.Fatal("actual receipt consumer refused rendered trust", e)
 			}
 			if bytes.Contains(raw, []byte(`"kernel"`)) || bytes.Contains(raw, []byte("sequencer_public_key")) {
@@ -754,13 +754,13 @@ func TestRepairM_798_XwebHostedAndNodeTransports(t *testing.T) {
 	}
 	// The native integration path still imports and invokes the real Rust
 	// loader. No Rust execution is claimed by this Go-only gate.
-	m798Wire(t, "tests/xweb-loader/src/main.rs", "services/interop/crates/x-websearch/src/config.rs", "config::load")
-	m798Wire(t, "tests/test_xweb_config.py", "load_config(path)", "load_config(altered, accepted=False)", `["gateway"]["endpoint"]`)
-	m798Wire(t, "xweb-config.sh", `xweb_gateway="${XWEB_GATEWAY_ENDPOINT:-}"`, `xweb-config render "$kind"`, `xweb-config prices`, `xweb-config register`, "never append /rpc")
+	upgradeXwebWire(t, "tests/xweb-loader/src/main.rs", "services/interop/crates/x-websearch/src/config.rs", "config::load")
+	upgradeXwebWire(t, "tests/test_xweb_config.py", "load_config(path)", "load_config(altered, accepted=False)", `["gateway"]["endpoint"]`)
+	upgradeXwebWire(t, "xweb-config.sh", `xweb_gateway="${XWEB_GATEWAY_ENDPOINT:-}"`, `xweb-config render "$kind"`, `xweb-config prices`, `xweb-config register`, "never append /rpc")
 }
 
-func TestRepairM_798_XwebRegistration(t *testing.T) {
-	hosted := m798HostedPeer(t)
+func TestXwebRegistration(t *testing.T) {
+	hosted := upgradeXwebHostedPeer(t)
 	directory := t.TempDir()
 	path := filepath.Join(directory, "ed25519.key")
 	seed := "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60"
@@ -825,10 +825,10 @@ func TestRepairM_798_XwebRegistration(t *testing.T) {
 	}
 }
 
-func TestRepairM_798_XwebRetiredRouteAndMetadataRefusals(t *testing.T) {
-	hosted := m798HostedPeer(t)
-	node := m798NativePeer(t)
-	options := m798XwebOptions(t, hosted, node)
+func TestXwebRetiredRouteAndMetadataRefusals(t *testing.T) {
+	hosted := upgradeXwebHostedPeer(t)
+	node := upgradeXwebNativePeer(t)
+	options := upgradeXwebXwebOptions(t, hosted, node)
 	for _, mode := range []string{"paused", "decimals", "symbol", "unverified", "missing", "duplicate", "nested", "unavailable"} {
 		t.Run(mode, func(t *testing.T) {
 			hosted.set(mode)
@@ -874,9 +874,9 @@ func TestRepairM_798_XwebRetiredRouteAndMetadataRefusals(t *testing.T) {
 	if _, e := XwebPrices(context.Background(), hosted.Client, options); e == nil {
 		t.Fatal("gateway failure hidden")
 	}
-	source := string(m798Read(t, "xweb-config.sh"))
+	source := string(upgradeXwebRead(t, "xweb-config.sh"))
 	if strings.Contains(source, "https://api-mainnet-beta.paxeer.network/rpc") || strings.Contains(source, "gateway's /rpc") {
 		t.Fatal("retired default/help retained")
 	}
-	m798Wire(t, "xweb-config.sh", `rpc(node, "eth_call"`, `gateway, node, prices, *names = sys.argv[1:]`, `' "$xweb_gateway" "$xweb_evm" "$prices"`)
+	upgradeXwebWire(t, "xweb-config.sh", `rpc(node, "eth_call"`, `gateway, node, prices, *names = sys.argv[1:]`, `' "$xweb_gateway" "$xweb_evm" "$prices"`)
 }

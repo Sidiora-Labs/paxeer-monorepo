@@ -17,7 +17,7 @@ proof = "Real HTTP release producer and SSH transport against loopback peers: su
 [finding.fleet-test-missing-interruption-recovery]
 task_alias = "set (test-gap)"
 test = "TestRepairM_796_FleetInterruptionRecovery"
-integration_target = "tools/bringup/repair_m796_test.go; the declared Go gate runs the service lifecycle cases directly, without the historical shell harness's always-active systemctl stand-in."
+integration_target = "tools/bringup/fleet_foundation_test.go; the declared Go gate runs the service lifecycle cases directly, without the historical shell harness's always-active systemctl stand-in."
 repair = "FleetOwner journals original source and target active states and binary hashes before source stop; streams data through bounded SSH; retains rollback material before swap; restores source and original target generation on reopen. State qualification binds active MainPID's /proc executable hash to its installed binary. Failed recovery blocks new admission."
 proof = "Real owner/store/flock/SSH/tar path with disposable service generations: stop owner mid-copy and mid-swap, close outstanding streams, reopen, restore source and original target executable/data, preserve originally inactive targets, then complete a new generation and reopen again; refuse competing owners and failed restoration."
 

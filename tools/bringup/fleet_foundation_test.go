@@ -39,7 +39,7 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-func m796Read(t *testing.T, p string) []byte {
+func fleetFoundationRead(t *testing.T, p string) []byte {
 	t.Helper()
 	b, e := os.ReadFile(p)
 	if e != nil {
@@ -47,7 +47,7 @@ func m796Read(t *testing.T, p string) []byte {
 	}
 	return b
 }
-func m796Write(t *testing.T, p string, b []byte) {
+func fleetFoundationWrite(t *testing.T, p string, b []byte) {
 	t.Helper()
 	if e := os.MkdirAll(filepath.Dir(p), 0700); e != nil {
 		t.Fatal(e)
@@ -56,16 +56,16 @@ func m796Write(t *testing.T, p string, b []byte) {
 		t.Fatal(e)
 	}
 }
-func m796SHA(b []byte) string { s := sha256.Sum256(b); return hex.EncodeToString(s[:]) }
-func m796CLI(t *testing.T, args []string, input []byte) (string, error) {
+func fleetFoundationSHA(b []byte) string { s := sha256.Sum256(b); return hex.EncodeToString(s[:]) }
+func fleetFoundationCLI(t *testing.T, args []string, input []byte) (string, error) {
 	t.Helper()
 	var out bytes.Buffer
 	e := RunInspector(context.Background(), args, bytes.NewReader(input), &out)
 	return out.String(), e
 }
-func m796Wire(t *testing.T, p string, terms ...string) {
+func fleetFoundationWire(t *testing.T, p string, terms ...string) {
 	t.Helper()
-	raw := string(m796Read(t, p))
+	raw := string(fleetFoundationRead(t, p))
 	for _, term := range terms {
 		if !strings.Contains(raw, term) {
 			t.Fatalf("%s missing production wiring %s", p, term)
@@ -73,7 +73,7 @@ func m796Wire(t *testing.T, p string, terms ...string) {
 	}
 }
 
-func TestRepairM_796_FleetTransportDeadlines(t *testing.T) {
+func TestFleetTransportDeadlines(t *testing.T) {
 	limits := FleetLimits{Connect: 150 * time.Millisecond, Transfer: 400 * time.Millisecond, Recovery: time.Second}
 	payload := []byte("source-bound disposable paxd release\n")
 	asset := "paxd-v796-linux-amd64"
@@ -85,7 +85,7 @@ func TestRepairM_796_FleetTransportDeadlines(t *testing.T) {
 					return
 				}
 				if r.URL.Path == "/SHA256SUMS" {
-					line := m796SHA(payload) + "  " + asset + "\n"
+					line := fleetFoundationSHA(payload) + "  " + asset + "\n"
 					if fault == "duplicate" {
 						line += line
 					}
@@ -114,7 +114,7 @@ func TestRepairM_796_FleetTransportDeadlines(t *testing.T) {
 			start := time.Now()
 			path, sha, e := FetchFleetRelease(context.Background(), limits, server.URL, "v796", directory)
 			if fault == "" {
-				if e != nil || sha != m796SHA(payload) || !bytes.Equal(m796Read(t, path), payload) {
+				if e != nil || sha != fleetFoundationSHA(payload) || !bytes.Equal(fleetFoundationRead(t, path), payload) {
 					t.Fatalf("release producer -> checksum -> publication: %s %v", sha, e)
 				}
 			} else {
@@ -145,7 +145,7 @@ func TestRepairM_796_FleetTransportDeadlines(t *testing.T) {
 		}
 	}()
 	transport := FleetSSH{Limits: limits, Config: func(string) (*ssh.ClientConfig, error) {
-		return &ssh.ClientConfig{User: "source", HostKeyCallback: ssh.FixedHostKey(m796SSHKey(t).PublicKey())}, nil
+		return &ssh.ClientConfig{User: "source", HostKeyCallback: ssh.FixedHostKey(fleetFoundationSSHKey(t).PublicKey())}, nil
 	}}
 	start := time.Now()
 	if e = transport.Run(context.Background(), listener.Addr().String(), "true", nil, io.Discard); e == nil {
@@ -155,7 +155,7 @@ func TestRepairM_796_FleetTransportDeadlines(t *testing.T) {
 		t.Fatal("connection deadline not enforced")
 	}
 	(<-accepted).Close()
-	peer := m796FleetPeer(t, "command", true)
+	peer := fleetFoundationFleetPeer(t, "command", true)
 	transport = peer.transport(limits)
 	start = time.Now()
 	if e = transport.Run(context.Background(), "source@"+peer.address, fleetScript("command", FleetResyncPlan{}, "sleep 100"), nil, io.Discard); e == nil {
@@ -169,11 +169,11 @@ func TestRepairM_796_FleetTransportDeadlines(t *testing.T) {
 	if e = transport.Run(ctx, "source@"+peer.address, "true", nil, io.Discard); e == nil {
 		t.Fatal("canceled transfer admitted")
 	}
-	m796Wire(t, "sync-fleet.sh", "fleet-release", "fleet-resync", "fleet-recover", "fleet_scp", "timeout --signal=TERM")
-	m796Wire(t, "cmd/bringup-inspect/main.go", "signal.NotifyContext")
+	fleetFoundationWire(t, "sync-fleet.sh", "fleet-release", "fleet-resync", "fleet-recover", "fleet_scp", "timeout --signal=TERM")
+	fleetFoundationWire(t, "cmd/bringup-inspect/main.go", "signal.NotifyContext")
 }
 
-func m796SSHKey(t *testing.T) ssh.Signer {
+func fleetFoundationSSHKey(t *testing.T) ssh.Signer {
 	t.Helper()
 	_, private, e := ed25519.GenerateKey(rand.Reader)
 	if e != nil {
@@ -190,12 +190,12 @@ func m796SSHKey(t *testing.T) ssh.Signer {
 // FleetOwner and SSH transport produce every request, stream real tar bytes,
 // journal before mutation and recover by reopening their actual durable store.
 // Only the remote systemd/SSH host is a peer; the owner is never substituted.
-type m796Service struct {
+type fleetFoundationService struct {
 	dir    string
 	server *httptest.Server
 }
 
-func (s *m796Service) start() error {
+func (s *fleetFoundationService) start() error {
 	if s.server != nil {
 		return nil
 	}
@@ -207,23 +207,23 @@ func (s *m796Service) start() error {
 	if e != nil {
 		return e
 	}
-	generation := m796SHA(binary)
+	generation := fleetFoundationSHA(binary)
 	s.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/running" {
 			w.WriteHeader(404)
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]string{"executable": generation, "committed": m796SHA(data)})
+		json.NewEncoder(w).Encode(map[string]string{"executable": generation, "committed": fleetFoundationSHA(data)})
 	}))
 	return nil
 }
-func (s *m796Service) stop() {
+func (s *fleetFoundationService) stop() {
 	if s.server != nil {
 		s.server.Close()
 		s.server = nil
 	}
 }
-func (s *m796Service) running() (string, error) {
+func (s *fleetFoundationService) running() (string, error) {
 	if s.server == nil {
 		return "-", nil
 	}
@@ -240,27 +240,27 @@ func (s *m796Service) running() (string, error) {
 	return wire.Executable, e
 }
 
-type m796Peer struct {
+type fleetFoundationPeer struct {
 	t         *testing.T
 	address   string
 	key       ssh.Signer
 	mu        sync.Mutex
-	services  map[string]*m796Service
+	services  map[string]*fleetFoundationService
 	block     string
 	entered   chan struct{}
 	once      sync.Once
 	denyStart bool
 }
 
-func m796FleetPeer(t *testing.T, block string, targetActive bool) *m796Peer {
+func fleetFoundationFleetPeer(t *testing.T, block string, targetActive bool) *fleetFoundationPeer {
 	t.Helper()
-	p := &m796Peer{t: t, key: m796SSHKey(t), services: map[string]*m796Service{}, block: block, entered: make(chan struct{})}
+	p := &fleetFoundationPeer{t: t, key: fleetFoundationSSHKey(t), services: map[string]*fleetFoundationService{}, block: block, entered: make(chan struct{})}
 	for _, role := range []string{"source", "target"} {
 		dir := filepath.Join(t.TempDir(), role)
-		m796Write(t, filepath.Join(dir, "binary"), []byte("old-"+role))
-		m796Write(t, filepath.Join(dir, "data"), []byte("committed-"+role))
+		fleetFoundationWrite(t, filepath.Join(dir, "binary"), []byte("old-"+role))
+		fleetFoundationWrite(t, filepath.Join(dir, "data"), []byte("committed-"+role))
 		active := role == "source" || targetActive
-		service := &m796Service{dir: dir}
+		service := &fleetFoundationService{dir: dir}
 		p.services[role] = service
 		if active {
 			if e := service.start(); e != nil {
@@ -330,7 +330,7 @@ func m796FleetPeer(t *testing.T, block string, targetActive bool) *m796Peer {
 	}()
 	return p
 }
-func (p *m796Peer) transport(l FleetLimits) FleetSSH {
+func (p *fleetFoundationPeer) transport(l FleetLimits) FleetSSH {
 	return FleetSSH{Limits: l, Config: func(dest string) (*ssh.ClientConfig, error) {
 		role, _, ok := strings.Cut(dest, "@")
 		if !ok {
@@ -339,7 +339,7 @@ func (p *m796Peer) transport(l FleetLimits) FleetSSH {
 		return &ssh.ClientConfig{User: role, HostKeyCallback: ssh.FixedHostKey(p.key.PublicKey())}, nil
 	}}
 }
-func (p *m796Peer) execute(role, command string, ch ssh.Channel, closed <-chan struct{}) error {
+func (p *fleetFoundationPeer) execute(role, command string, ch ssh.Channel, closed <-chan struct{}) error {
 	prefix, quoted, ok := strings.Cut(command, " sh -c ")
 	if !ok || !strings.HasPrefix(prefix, "timeout --signal=TERM --kill-after=5s ") {
 		return errors.New("unbounded remote descendants")
@@ -393,7 +393,7 @@ func (p *m796Peer) execute(role, command string, ch ssh.Channel, closed <-chan s
 				break
 			}
 		}
-		_, e = fmt.Fprintf(ch, "%s\n%s\n%s\n", state, m796SHA(binary), running)
+		_, e = fmt.Fprintf(ch, "%s\n%s\n%s\n", state, fleetFoundationSHA(binary), running)
 	case "stop":
 		s.stop()
 	case "start":
@@ -459,7 +459,7 @@ func (p *m796Peer) execute(role, command string, ch ssh.Channel, closed <-chan s
 			e = err
 			break
 		}
-		if m796SHA(data) != request.Plan.SHA256 {
+		if fleetFoundationSHA(data) != request.Plan.SHA256 {
 			e = errors.New("wrong staged binary")
 			break
 		}
@@ -529,7 +529,7 @@ func (p *m796Peer) execute(role, command string, ch ssh.Channel, closed <-chan s
 	p.mu.Unlock()
 	return e
 }
-func m796Owner(t *testing.T, root string, peer *m796Peer) *FleetOwner {
+func fleetFoundationOwner(t *testing.T, root string, peer *fleetFoundationPeer) *FleetOwner {
 	t.Helper()
 	owner, e := OpenFleetOwner(root, peer.transport(FleetLimits{Connect: time.Second, Transfer: 4 * time.Second, Recovery: 2 * time.Second}))
 	if e != nil {
@@ -537,36 +537,36 @@ func m796Owner(t *testing.T, root string, peer *m796Peer) *FleetOwner {
 	}
 	return owner
 }
-func m796Plan(t *testing.T, peer *m796Peer) FleetResyncPlan {
+func fleetFoundationPlan(t *testing.T, peer *fleetFoundationPeer) FleetResyncPlan {
 	t.Helper()
 	asset := filepath.Join(t.TempDir(), "paxd")
 	raw := []byte("new-qualified-release")
-	m796Write(t, asset, raw)
-	return FleetResyncPlan{Source: "source@" + peer.address, Target: "target@" + peer.address, Home: "/var/lib/paxd", Binary: "/usr/local/bin/paxd", Asset: asset, SHA256: m796SHA(raw), ID: "repair796"}
+	fleetFoundationWrite(t, asset, raw)
+	return FleetResyncPlan{Source: "source@" + peer.address, Target: "target@" + peer.address, Home: "/var/lib/paxd", Binary: "/usr/local/bin/paxd", Asset: asset, SHA256: fleetFoundationSHA(raw), ID: "repair796"}
 }
-func m796ServiceState(t *testing.T, peer *m796Peer, role string, active bool, binary, data string) {
+func fleetFoundationServiceState(t *testing.T, peer *fleetFoundationPeer, role string, active bool, binary, data string) {
 	t.Helper()
 	peer.mu.Lock()
 	defer peer.mu.Unlock()
 	s := peer.services[role]
-	if (s.server != nil) != active || string(m796Read(t, filepath.Join(s.dir, "binary"))) != binary || string(m796Read(t, filepath.Join(s.dir, "data"))) != data {
+	if (s.server != nil) != active || string(fleetFoundationRead(t, filepath.Join(s.dir, "binary"))) != binary || string(fleetFoundationRead(t, filepath.Join(s.dir, "data"))) != data {
 		t.Fatalf("%s lost its running state/version/data: %+v", role, s)
 	}
 	if active {
 		running, e := s.running()
-		if e != nil || running != m796SHA([]byte(binary)) {
+		if e != nil || running != fleetFoundationSHA([]byte(binary)) {
 			t.Fatalf("%s running service exposes a different executable: %s %v", role, running, e)
 		}
 	}
 }
-func TestRepairM_796_FleetInterruptionRecovery(t *testing.T) {
+func TestFleetInterruptionRecovery(t *testing.T) {
 	for _, phase := range []string{"copy-source", "swap"} {
 		for _, active := range []bool{true, false} {
 			t.Run(fmt.Sprintf("%s/target-active-%t", phase, active), func(t *testing.T) {
-				peer := m796FleetPeer(t, phase, active)
+				peer := fleetFoundationFleetPeer(t, phase, active)
 				root := filepath.Join(t.TempDir(), "owner")
-				owner := m796Owner(t, root, peer)
-				plan := m796Plan(t, peer)
+				owner := fleetFoundationOwner(t, root, peer)
+				plan := fleetFoundationPlan(t, peer)
 				if _, e := OpenFleetOwner(root, peer.transport(owner.ssh.Limits)); e == nil {
 					t.Fatal("second live owner admitted")
 				}
@@ -599,12 +599,12 @@ func TestRepairM_796_FleetInterruptionRecovery(t *testing.T) {
 						t.Fatal("case did not stop the source")
 					}
 				}
-				reopened := m796Owner(t, root, peer)
+				reopened := fleetFoundationOwner(t, root, peer)
 				if e := reopened.Recover(context.Background()); e != nil {
 					t.Fatal(e)
 				}
-				m796ServiceState(t, peer, "source", true, "old-source", "committed-source")
-				m796ServiceState(t, peer, "target", active, "old-target", "committed-target")
+				fleetFoundationServiceState(t, peer, "source", true, "old-source", "committed-source")
+				fleetFoundationServiceState(t, peer, "target", active, "old-target", "committed-target")
 				if _, e := os.Stat(filepath.Join(root, "pending.json")); !errors.Is(e, os.ErrNotExist) {
 					t.Fatal("reconciled journal retained", e)
 				}
@@ -618,22 +618,22 @@ func TestRepairM_796_FleetInterruptionRecovery(t *testing.T) {
 				if e := reopened.Close(); e != nil {
 					t.Fatal(e)
 				}
-				reopened = m796Owner(t, root, peer)
+				reopened = fleetFoundationOwner(t, root, peer)
 				defer reopened.Close()
 				if e := reopened.Recover(context.Background()); e != nil {
 					t.Fatal(e)
 				}
-				m796ServiceState(t, peer, "source", true, "old-source", "committed-source")
-				m796ServiceState(t, peer, "target", active, "new-qualified-release", "committed-source")
+				fleetFoundationServiceState(t, peer, "source", true, "old-source", "committed-source")
+				fleetFoundationServiceState(t, peer, "target", active, "new-qualified-release", "committed-source")
 			})
 		}
 	}
 	// Refused source restoration leaves the durable operation for the next
 	// owner and prevents admitting an unrelated replacement plan.
-	peer := m796FleetPeer(t, "", true)
+	peer := fleetFoundationFleetPeer(t, "", true)
 	root := filepath.Join(t.TempDir(), "owner")
-	owner := m796Owner(t, root, peer)
-	plan := m796Plan(t, peer)
+	owner := fleetFoundationOwner(t, root, peer)
+	plan := fleetFoundationPlan(t, peer)
 	if _, e := owner.prepare(context.Background(), plan); e != nil {
 		t.Fatal(e)
 	}
@@ -641,7 +641,7 @@ func TestRepairM_796_FleetInterruptionRecovery(t *testing.T) {
 	peer.mu.Lock()
 	peer.denyStart = true
 	peer.mu.Unlock()
-	owner = m796Owner(t, root, peer)
+	owner = fleetFoundationOwner(t, root, peer)
 	defer owner.Close()
 	if e := owner.Recover(context.Background()); e == nil {
 		t.Fatal("failed recovery accepted")
@@ -655,27 +655,27 @@ func TestRepairM_796_FleetInterruptionRecovery(t *testing.T) {
 	}
 	// A real running service retains the executable it started with even
 	// when another actor replaces the file on disk. State admission detects it.
-	versionPeer := m796FleetPeer(t, "", true)
-	versionOwner := m796Owner(t, filepath.Join(t.TempDir(), "owner"), versionPeer)
+	versionPeer := fleetFoundationFleetPeer(t, "", true)
+	versionOwner := fleetFoundationOwner(t, filepath.Join(t.TempDir(), "owner"), versionPeer)
 	defer versionOwner.Close()
-	versionPlan := m796Plan(t, versionPeer)
+	versionPlan := fleetFoundationPlan(t, versionPeer)
 	versionPeer.mu.Lock()
 	binaryPath := filepath.Join(versionPeer.services["source"].dir, "binary")
 	versionPeer.mu.Unlock()
-	m796Write(t, binaryPath, []byte("replacement-on-disk"))
+	fleetFoundationWrite(t, binaryPath, []byte("replacement-on-disk"))
 	if _, _, e := versionOwner.state(context.Background(), versionPlan.Source, versionPlan); e == nil {
 		t.Fatal("old running executable hidden by updated on-disk binary")
 	}
-	m796Wire(t, "sync-fleet.sh", "fleet-resync", "fleet-recover")
+	fleetFoundationWire(t, "sync-fleet.sh", "fleet-resync", "fleet-recover")
 }
 
-func TestRepairM_796_CAApprovedRoster(t *testing.T) {
-	approved := m796Read(t, "tests/fixtures/repair_m794/approved-roster.tsv")
+func TestCAApprovedRoster(t *testing.T) {
+	approved := fleetFoundationRead(t, "tests/fixtures/service_identities/approved-roster.tsv")
 	rows, e := ReadServiceRoster(bytes.NewReader(approved))
 	if e != nil {
 		t.Fatal(e)
 	}
-	base, e := ReadServiceRoster(bytes.NewReader(m796Read(t, "ca-services.tsv")))
+	base, e := ReadServiceRoster(bytes.NewReader(fleetFoundationRead(t, "ca-services.tsv")))
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -683,7 +683,7 @@ func TestRepairM_796_CAApprovedRoster(t *testing.T) {
 		t.Fatal("independently approved identity membership differs")
 	}
 	names := map[string]string{}
-	for _, line := range strings.Split(string(m796Read(t, "railway-names.env")), "\n") {
+	for _, line := range strings.Split(string(fleetFoundationRead(t, "railway-names.env")), "\n") {
 		if strings.HasPrefix(line, "#") || line == "" {
 			continue
 		}
@@ -711,7 +711,7 @@ func TestRepairM_796_CAApprovedRoster(t *testing.T) {
 		}
 		bundle := IdentityBundle{}
 		for _, file := range identityFiles {
-			bundle[file.File] = m796Read(t, filepath.Join("tests/fixtures/repair_m794", row.Name, file.File))
+			bundle[file.File] = fleetFoundationRead(t, filepath.Join("tests/fixtures/service_identities", row.Name, file.File))
 		}
 		if e = BundleConsistent(bundle); e != nil {
 			t.Fatalf("actual CA issuance %s: %v", row.Name, e)
@@ -748,11 +748,11 @@ func TestRepairM_796_CAApprovedRoster(t *testing.T) {
 			t.Fatal("malformed/retired identity roster accepted")
 		}
 	}
-	m796Wire(t, "tests/ca.test.sh", "approved-roster.tsv", "diff -u", "NF != 6", "openssl")
+	fleetFoundationWire(t, "tests/ca.test.sh", "approved-roster.tsv", "diff -u", "NF != 6", "openssl")
 }
 
-func TestRepairM_796_EdgeAggregateRoutes(t *testing.T) {
-	inventory, e := ReadPublicInventory(bytes.NewReader(m796Read(t, "../../docs/site/docs/reference/public-rpc.md")))
+func TestEdgeAggregateRoutes(t *testing.T) {
+	inventory, e := ReadPublicInventory(bytes.NewReader(fleetFoundationRead(t, "../../docs/site/docs/reference/public-rpc.md")))
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -764,37 +764,37 @@ func TestRepairM_796_EdgeAggregateRoutes(t *testing.T) {
 	for _, url := range inventory.Nodes {
 		nodeNames = append(nodeNames, strings.TrimPrefix(url, "https://"))
 	}
-	m796Write(t, pool, []byte(strings.Join(nodeNames, "\n")+"\n"))
+	fleetFoundationWrite(t, pool, []byte(strings.Join(nodeNames, "\n")+"\n"))
 	down := filepath.Join(t.TempDir(), "down")
-	m796Write(t, down, nil)
+	fleetFoundationWrite(t, down, nil)
 	var manifest, sites strings.Builder
 	for _, item := range [][]string{{"gateway.paxeer.network", "railway", "gateway-beta.up.railway.app:443", "-"}, {"hooks.paxeer.network", "box", "10.20.0.6:8443", "hooks.box.test"}, {"machine.paxeer.network", "stream", "10.20.0.7:9454", "-"}} {
-		line, e := m796CLI(t, append([]string{"edge-map"}, item...), nil)
+		line, e := fleetFoundationCLI(t, append([]string{"edge-map"}, item...), nil)
 		if e != nil {
 			t.Fatal(e)
 		}
 		manifest.WriteString(line)
 		if item[1] != "stream" {
-			body, e := m796CLI(t, []string{"edge-http", item[0], item[1], item[2], item[3], "tls", "/var/www/certbot", "/etc/letsencrypt/live", "127.0.0.53", "1"}, nil)
+			body, e := fleetFoundationCLI(t, []string{"edge-http", item[0], item[1], item[2], item[3], "tls", "/var/www/certbot", "/etc/letsencrypt/live", "127.0.0.53", "1"}, nil)
 			if e != nil {
 				t.Fatal(e)
 			}
 			sites.WriteString(body)
 		}
 	}
-	stream, e := m796CLI(t, []string{"edge-stream", "9454", "127.0.0.53"}, []byte(manifest.String()))
+	stream, e := fleetFoundationCLI(t, []string{"edge-stream", "9454", "127.0.0.53"}, []byte(manifest.String()))
 	if e != nil {
 		t.Fatal(e)
 	}
 	sites.WriteString(stream)
-	rpc, e := m796CLI(t, []string{"edge-rpc", "api-mainnet-beta.paxeer.network", "tls", "/var/www/certbot", "/etc/letsencrypt/live", "127.0.0.53", "1", pool, down}, nil)
+	rpc, e := fleetFoundationCLI(t, []string{"edge-rpc", "api-mainnet-beta.paxeer.network", "tls", "/var/www/certbot", "/etc/letsencrypt/live", "127.0.0.53", "1", pool, down}, nil)
 	if e != nil {
 		t.Fatal(e)
 	}
 	sites.WriteString(rpc)
 	manifest.WriteString("api-mainnet-beta.paxeer.network rpc - 443 rpc -\n")
 	frame := manifest.String() + "@@sites\n" + sites.String()
-	members, e := m796CLI(t, []string{"edge-contract", "api-mainnet-beta.paxeer.network", "443"}, []byte(frame))
+	members, e := fleetFoundationCLI(t, []string{"edge-contract", "api-mainnet-beta.paxeer.network", "443"}, []byte(frame))
 	if e != nil || members != strings.Join(nodeNames, "\n")+"\n" {
 		t.Fatalf("render -> manifest -> current consumer %s %v", members, e)
 	}
@@ -809,15 +809,15 @@ func TestRepairM_796_EdgeAggregateRoutes(t *testing.T) {
 		}
 	}
 	for _, bad := range []string{strings.Replace(frame, "proxy_ssl_verify on;", "proxy_ssl_verify off;", 1), strings.Replace(frame, "gateway-beta.up.railway.app:443 443 railway -", "gateway-app 443", 1), strings.ReplaceAll(frame, "max_fails=2 fail_timeout=10s;", "max_fails=2 fail_timeout=10s down;")} {
-		if _, e = m796CLI(t, []string{"edge-contract"}, []byte(bad)); e == nil {
+		if _, e = fleetFoundationCLI(t, []string{"edge-contract"}, []byte(bad)); e == nil {
 			t.Fatal("legacy or unsafe rendered route accepted")
 		}
 	}
-	m796Wire(t, "tests/edge.test.sh", "rpc-names", "api-mainnet-beta.paxeer.network", "gateway-beta.up.railway.app", "edge-contract", "edge_aggregate_headers")
+	fleetFoundationWire(t, "tests/edge.test.sh", "rpc-names", "api-mainnet-beta.paxeer.network", "gateway-beta.up.railway.app", "edge-contract", "edge_aggregate_headers")
 }
 
-func TestRepairM_796_FoundationArtifactInventory(t *testing.T) {
-	wire, e := m796CLI(t, []string{"runtime-plan"}, nil)
+func TestFoundationArtifactInventory(t *testing.T) {
+	wire, e := fleetFoundationCLI(t, []string{"runtime-plan"}, nil)
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -831,7 +831,7 @@ func TestRepairM_796_FoundationArtifactInventory(t *testing.T) {
 	if e = ValidateRuntimeSources(plan, "../.."); e != nil {
 		t.Fatal("actual transitive source closure", e)
 	}
-	if _, e = m796CLI(t, []string{"runtime-sources", "../.."}, nil); e != nil {
+	if _, e = fleetFoundationCLI(t, []string{"runtime-sources", "../.."}, nil); e != nil {
 		t.Fatal(e)
 	}
 	var graph runtimeSourceGraph
@@ -883,7 +883,7 @@ func TestRepairM_796_FoundationArtifactInventory(t *testing.T) {
 			}
 		})
 	}
-	m796Wire(t, "tests/runtime-dependencies.py", "'list', '-deps', '-json'", "package['ImportPath']", "'services/wallet/attestor'")
+	fleetFoundationWire(t, "tests/runtime-dependencies.py", "'list', '-deps', '-json'", "package['ImportPath']", "'services/wallet/attestor'")
 	altered := plan
 	altered.GoPaths = nil
 	for _, path := range plan.GoPaths {
@@ -902,21 +902,21 @@ func TestRepairM_796_FoundationArtifactInventory(t *testing.T) {
 			t.Fatal("legacy artifact/source inventory accepted")
 		}
 	}
-	m796Wire(t, "tests/foundation-artifacts.py", "runtime-bundle.json", "runtime-sources", "source_binding(selected_revision, PATHS[name]) == binding", "record.get(\"sha256\") == sha256(path)")
-	m796Wire(t, "tests/paxeer-x-fixture-foundation.py", "ART.validate(", "artifact_manifest_sha256")
+	fleetFoundationWire(t, "tests/foundation-artifacts.py", "runtime-bundle.json", "runtime-sources", "source_binding(selected_revision, PATHS[name]) == binding", "record.get(\"sha256\") == sha256(path)")
+	fleetFoundationWire(t, "tests/paxeer-x-fixture-foundation.py", "ART.validate(", "artifact_manifest_sha256")
 }
 
-func m796Genesis(t *testing.T) (NativeGenesis, []byte, []byte, tmed.SecretKey) {
+func fleetFoundationGenesis(t *testing.T) (NativeGenesis, []byte, []byte, tmed.SecretKey) {
 	t.Helper()
 	const fixture = "../../services/platform/hosted/node/tests/fixtures/repair_22_31_355/"
-	raw := m796Read(t, fixture+"genesis.json")
+	raw := fleetFoundationRead(t, fixture+"genesis.json")
 	var config struct {
 		Seed      string `json:"receipt_seed"`
 		Validator struct {
 			Private struct{ Value string } `json:"priv_key"`
 		} `json:"validator_key"`
 	}
-	if e := json.Unmarshal(m796Read(t, fixture+"native_configuration.json"), &config); e != nil {
+	if e := json.Unmarshal(fleetFoundationRead(t, fixture+"native_configuration.json"), &config); e != nil {
 		t.Fatal(e)
 	}
 	genesis, e := ReadNativeGenesis(raw, []byte(config.Seed))
@@ -933,7 +933,7 @@ func m796Genesis(t *testing.T) (NativeGenesis, []byte, []byte, tmed.SecretKey) {
 	}
 	return genesis, raw, []byte(config.Seed), key
 }
-func m796Commit(t *testing.T, g NativeGenesis, key tmed.SecretKey, height int64, app byte) coretypes.ResultCommit {
+func fleetFoundationCommit(t *testing.T, g NativeGenesis, key tmed.SecretKey, height int64, app byte) coretypes.ResultCommit {
 	t.Helper()
 	hash := bytes.Repeat([]byte{app}, 32)
 	block := tmtypes.MakeBlock(height, nil, &tmtypes.Commit{}, nil)
@@ -958,8 +958,8 @@ func m796Commit(t *testing.T, g NativeGenesis, key tmed.SecretKey, height int64,
 	}
 	return result
 }
-func TestRepairM_796_NativeGenesisInputs(t *testing.T) {
-	genesis, raw, seed, key := m796Genesis(t)
+func TestNativeGenesisInputs(t *testing.T) {
+	genesis, raw, seed, key := fleetFoundationGenesis(t)
 	var report bytes.Buffer
 	if e := WriteNativeGenesisReport(&report, genesis); e != nil {
 		t.Fatal(e)
@@ -969,9 +969,9 @@ func TestRepairM_796_NativeGenesisInputs(t *testing.T) {
 	}
 	path := filepath.Join(t.TempDir(), "genesis.json")
 	seedPath := filepath.Join(t.TempDir(), "receipt.key")
-	m796Write(t, path, raw)
-	m796Write(t, seedPath, seed)
-	if out, e := m796CLI(t, []string{"native-genesis-check", path, seedPath}, nil); e != nil || out != report.String() {
+	fleetFoundationWrite(t, path, raw)
+	fleetFoundationWrite(t, seedPath, seed)
+	if out, e := fleetFoundationCLI(t, []string{"native-genesis-check", path, seedPath}, nil); e != nil || out != report.String() {
 		t.Fatal("file transport -> native codec", out, e)
 	}
 	var original map[string]any
@@ -1009,19 +1009,19 @@ func TestRepairM_796_NativeGenesisInputs(t *testing.T) {
 			}
 		})
 	}
-	result := m796Commit(t, genesis, key, 1, 7)
+	result := fleetFoundationCommit(t, genesis, key, 1, 7)
 	if e := result.SignedHeader.ValidateBasic(genesis.Doc.ChainID); e != nil {
 		t.Fatal(e)
 	}
 	if bank := original["app_state"].(map[string]any)["bank"].(map[string]any); len(bank["balances"].([]any)) == 0 {
 		t.Fatal("native asset balances lost")
 	}
-	m796Wire(t, "tests/kernel-genesis.test.sh", "validate-genesis", "native-genesis-check", "foundation-observe", "bad-asset", "bad-range", "retired-module")
+	fleetFoundationWire(t, "tests/kernel-genesis.test.sh", "validate-genesis", "native-genesis-check", "foundation-observe", "bad-asset", "bad-range", "retired-module")
 }
 
-func TestRepairM_796_FoundationCommittedRestart(t *testing.T) {
-	genesis, raw, seed, key := m796Genesis(t)
-	result := m796Commit(t, genesis, key, 3, 9)
+func TestFoundationCommittedRestart(t *testing.T) {
+	genesis, raw, seed, key := fleetFoundationGenesis(t)
+	result := fleetFoundationCommit(t, genesis, key, 3, 9)
 	fault := ""
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var q struct {
@@ -1081,7 +1081,7 @@ func TestRepairM_796_FoundationCommittedRestart(t *testing.T) {
 	if e != nil || first.Height != 3 {
 		t.Fatal("real signed commit consumer", e)
 	}
-	saved := m796Read(t, filepath.Join(root, "committed.json"))
+	saved := fleetFoundationRead(t, filepath.Join(root, "committed.json"))
 	if e = state.Close(); e != nil {
 		t.Fatal(e)
 	}
@@ -1094,32 +1094,32 @@ func TestRepairM_796_FoundationCommittedRestart(t *testing.T) {
 	}
 	for _, bad := range []string{"rollback", "divergence", "signature", "chain", "evm"} {
 		t.Run(bad, func(t *testing.T) {
-			result = m796Commit(t, genesis, key, 3, 9)
+			result = fleetFoundationCommit(t, genesis, key, 3, 9)
 			fault = bad
 			if bad == "rollback" {
-				result = m796Commit(t, genesis, key, 2, 9)
+				result = fleetFoundationCommit(t, genesis, key, 2, 9)
 			}
 			if bad == "divergence" {
-				result = m796Commit(t, genesis, key, 3, 10)
+				result = fleetFoundationCommit(t, genesis, key, 3, 10)
 			}
 			if _, e = state.Observe(context.Background(), server.Client(), server.URL, server.URL); e == nil {
 				t.Fatal("uncommitted/divergent observation accepted")
 			}
-			if !bytes.Equal(saved, m796Read(t, filepath.Join(root, "committed.json"))) {
+			if !bytes.Equal(saved, fleetFoundationRead(t, filepath.Join(root, "committed.json"))) {
 				t.Fatal("refused observation advanced durable floor")
 			}
 		})
 	}
 	fault = ""
-	result = m796Commit(t, genesis, key, 4, 11)
+	result = fleetFoundationCommit(t, genesis, key, 4, 11)
 	if _, e = state.Observe(context.Background(), server.Client(), server.URL, server.URL); e != nil {
 		t.Fatal(e)
 	}
 	state.Close()
 	genesisPath, seedPath := filepath.Join(t.TempDir(), "genesis.json"), filepath.Join(t.TempDir(), "receipt.key")
-	m796Write(t, genesisPath, raw)
-	m796Write(t, seedPath, seed)
-	if _, e = m796CLI(t, []string{"foundation-observe", root, genesisPath, seedPath, server.URL, server.URL}, nil); e != nil {
+	fleetFoundationWrite(t, genesisPath, raw)
+	fleetFoundationWrite(t, seedPath, seed)
+	if _, e = fleetFoundationCLI(t, []string{"foundation-observe", root, genesisPath, seedPath, server.URL, server.URL}, nil); e != nil {
 		t.Fatal("production CLI did not reopen real checkpoint", e)
 	}
 	// Drive the native manifest producer output through the same provenance
@@ -1130,31 +1130,31 @@ func TestRepairM_796_FoundationCommittedRestart(t *testing.T) {
 	if e = WriteNativeGenesisReport(&report, genesis); e != nil {
 		t.Fatal(e)
 	}
-	material := map[string][]byte{inputs["native_genesis"]: raw, inputs["receipt_key"]: seed, inputs["initialization"]: report.Bytes(), inputs["committed"]: m796Read(t, filepath.Join(root, "committed.json"))}
+	material := map[string][]byte{inputs["native_genesis"]: raw, inputs["receipt_key"]: seed, inputs["initialization"]: report.Bytes(), inputs["committed"]: fleetFoundationRead(t, filepath.Join(root, "committed.json"))}
 	artifacts := map[string]FoundationArtifact{}
 	for name, value := range material {
-		m796Write(t, filepath.Join(directory, name), value)
-		artifacts[name] = FoundationArtifact{SHA256: m796SHA(value), Size: int64(len(value))}
+		fleetFoundationWrite(t, filepath.Join(directory, name), value)
+		artifacts[name] = FoundationArtifact{SHA256: fleetFoundationSHA(value), Size: int64(len(value))}
 	}
 	var committed FoundationCheckpoint
 	if e = json.Unmarshal(material[inputs["committed"]], &committed); e != nil {
 		t.Fatal(e)
 	}
 	var invocations []FoundationInvocation
-	if e = json.Unmarshal(m796Read(t, "tests/fixtures/repair_m797/invocations.json"), &invocations); e != nil {
+	if e = json.Unmarshal(fleetFoundationRead(t, "tests/fixtures/foundation_provenance/invocations.json"), &invocations); e != nil {
 		t.Fatal(e)
 	}
 	artifact := filepath.Join(directory, "artifact-manifest.json")
-	bundle := m796Read(t, "runtime-bundle.json")
-	m796Write(t, artifact, bundle)
-	revision, binding := strings.Repeat("a", 40), m796SHA(raw)
-	manifest := map[string]any{"version": 2, "stage": "dependency-foundation", "purpose": "disposable-test-only", "source_revision": revision, "source_binding": binding, "source_paths": []string{"tools/bringup"}, "producers": invocations, "inputs": inputs, "generated_artifacts": artifacts, "artifact_manifest": artifact, "artifact_manifest_sha256": m796SHA(bundle), "chain_id": 125, "network_id": 125, "cosmos_chain_id": genesis.Doc.ChainID, "committed": committed}
+	bundle := fleetFoundationRead(t, "runtime-bundle.json")
+	fleetFoundationWrite(t, artifact, bundle)
+	revision, binding := strings.Repeat("a", 40), fleetFoundationSHA(raw)
+	manifest := map[string]any{"version": 2, "stage": "dependency-foundation", "purpose": "disposable-test-only", "source_revision": revision, "source_binding": binding, "source_paths": []string{"tools/bringup"}, "producers": invocations, "inputs": inputs, "generated_artifacts": artifacts, "artifact_manifest": artifact, "artifact_manifest_sha256": fleetFoundationSHA(bundle), "chain_id": 125, "network_id": 125, "cosmos_chain_id": genesis.Doc.ChainID, "committed": committed}
 	encoded, e := json.Marshal(manifest)
 	if e != nil {
 		t.Fatal(e)
 	}
 	args := []string{"native-foundation-provenance", directory, revision, binding, "foundation"}
-	accepted, e := m796CLI(t, args, encoded)
+	accepted, e := fleetFoundationCLI(t, args, encoded)
 	if e != nil || accepted != string(encoded) {
 		t.Fatal("native foundation provenance consumer", e)
 	}
@@ -1182,19 +1182,19 @@ func TestRepairM_796_FoundationCommittedRestart(t *testing.T) {
 			if e != nil {
 				t.Fatal(e)
 			}
-			if _, e = m796CLI(t, args, altered); e == nil {
+			if _, e = fleetFoundationCLI(t, args, altered); e == nil {
 				t.Fatal("invalid native handoff accepted")
 			}
 		})
 	}
-	m796Wire(t, "tests/foundation_provenance.py", "native-foundation-provenance")
+	fleetFoundationWire(t, "tests/foundation_provenance.py", "native-foundation-provenance")
 	badGenesis := genesis
 	badGenesis.Digest = strings.Repeat("a", 64)
 	if _, e = OpenFoundationState(root, badGenesis); e == nil {
 		t.Fatal("checkpoint replayed against foreign initialization")
 	}
-	m796Wire(t, "tests/paxeer-x-fixture-foundation.py", "'version': 2", "native-genesis-check", "validate-genesis", "foundation-observe", "restart_preserved", "committed", "PAXEER_X_NATIVE_INPUTS")
-	source := string(m796Read(t, "tests/paxeer-x-fixture-foundation.py"))
+	fleetFoundationWire(t, "tests/paxeer-x-fixture-foundation.py", "'version': 2", "native-genesis-check", "validate-genesis", "foundation-observe", "restart_preserved", "committed", "PAXEER_X_NATIVE_INPUTS")
+	source := string(fleetFoundationRead(t, "tests/paxeer-x-fixture-foundation.py"))
 	for _, retired := range []string{"custody-genesis.py", "anchor-genesis.py", "init-chain.sh", "--layerxd", "app_state.layerxcustody"} {
 		if strings.Contains(source, retired) {
 			t.Fatalf("retired producer %s", retired)
@@ -1202,7 +1202,7 @@ func TestRepairM_796_FoundationCommittedRestart(t *testing.T) {
 	}
 }
 
-func m796MintInputs(t *testing.T) MintInputs {
+func fleetFoundationMintInputs(t *testing.T) MintInputs {
 	t.Helper()
 	now := time.Now().UTC()
 	issuerKey, e := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
@@ -1210,7 +1210,7 @@ func m796MintInputs(t *testing.T) MintInputs {
 		t.Fatal(e)
 	}
 	authority := &x509.Certificate{SerialNumber: big.NewInt(796), Subject: pkix.Name{CommonName: "disposable attestor CA"}, NotBefore: now.Add(-time.Hour), NotAfter: now.Add(48 * time.Hour), IsCA: true, BasicConstraintsValid: true, KeyUsage: x509.KeyUsageCertSign}
-	input := MintInputs{Issuer: "https://supabase.paxeer.app/auth/v1", Tenant: "paxeer-x-mainnet-beta", Now: now, Modules: m796Read(t, "../../services/interop/deploy/gateway/module-registry.example.json")}
+	input := MintInputs{Issuer: "https://supabase.paxeer.app/auth/v1", Tenant: "paxeer-x-mainnet-beta", Now: now, Modules: fleetFoundationRead(t, "../../services/interop/deploy/gateway/module-registry.example.json")}
 	for i := 1; i <= 5; i++ {
 		key, e := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 		if e != nil {
@@ -1225,8 +1225,8 @@ func m796MintInputs(t *testing.T) MintInputs {
 	}
 	return input
 }
-func TestRepairM_796_MintCurrentConsumers(t *testing.T) {
-	input := m796MintInputs(t)
+func TestMintCurrentConsumers(t *testing.T) {
+	input := fleetFoundationMintInputs(t)
 	out := filepath.Join(t.TempDir(), "mint")
 	paths, e := MintSecrets(out, input)
 	if e != nil {
@@ -1242,13 +1242,13 @@ func TestRepairM_796_MintCurrentConsumers(t *testing.T) {
 		if strings.HasPrefix(service, "paxeer-") {
 			suffix = ".box.env"
 		}
-		raw := m796Read(t, filepath.Join(out, service+suffix))
+		raw := fleetFoundationRead(t, filepath.Join(out, service+suffix))
 		values, e := ReadMintEnvironment(service, bytes.NewReader(raw))
 		if e != nil || len(values) != count {
 			t.Fatalf("%s actual delivery consumer: %v", service, e)
 		}
 		consumed[service] = values
-		if _, e = m796CLI(t, []string{"mint-consume", service}, raw); e != nil {
+		if _, e = fleetFoundationCLI(t, []string{"mint-consume", service}, raw); e != nil {
 			t.Fatal("CLI delivery consumer", e)
 		}
 		if _, e = ReadMintEnvironment(service, bytes.NewReader(append(append([]byte(nil), raw...), []byte("ENDPOINT_AUTHORITY_TOKEN=retired\n")...))); e == nil {
@@ -1306,7 +1306,7 @@ func TestRepairM_796_MintCurrentConsumers(t *testing.T) {
 			table = "../../docker/wallet-gateway/files.tsv"
 		}
 		if table != "" {
-			mapped, e := MintFileDestinations(files, bytes.NewReader(m796Read(t, table)), role)
+			mapped, e := MintFileDestinations(files, bytes.NewReader(fleetFoundationRead(t, table)), role)
 			if e != nil || len(mapped) != len(files) {
 				t.Fatalf("%s actual image entrypoint table: %v", service, e)
 			}
@@ -1420,14 +1420,14 @@ func TestRepairM_796_MintCurrentConsumers(t *testing.T) {
 	// API calls, with real generated certificates and maintained issuer files.
 	certDir := t.TempDir()
 	for i, cert := range input.Certificates {
-		m796Write(t, filepath.Join(certDir, fmt.Sprintf("attestor-%d.crt", i+1)), cert)
+		fleetFoundationWrite(t, filepath.Join(certDir, fmt.Sprintf("attestor-%d.crt", i+1)), cert)
 	}
 	cliOut := filepath.Join(t.TempDir(), "mint")
-	printed, e := m796CLI(t, []string{"mint", cliOut, certDir, "../../services/interop/deploy/gateway/module-registry.example.json", "../../services/wallet/deploy"}, nil)
+	printed, e := fleetFoundationCLI(t, []string{"mint", cliOut, certDir, "../../services/interop/deploy/gateway/module-registry.example.json", "../../services/wallet/deploy"}, nil)
 	if e != nil || len(strings.Fields(printed)) != 31 {
 		t.Fatal("production deployment producer", e)
 	}
-	if !strings.Contains(string(m796Read(t, filepath.Join(cliOut, "gateway.railway.sh"))), "--service router --environment") {
+	if !strings.Contains(string(fleetFoundationRead(t, filepath.Join(cliOut, "gateway.railway.sh"))), "--service router --environment") {
 		t.Fatal("mint ignored the actual gateway rollout consumer")
 	}
 	for _, value := range byBoundary {
@@ -1435,7 +1435,7 @@ func TestRepairM_796_MintCurrentConsumers(t *testing.T) {
 			t.Fatal("secret reached stdout")
 		}
 	}
-	m796Wire(t, "mint-secrets.sh", "mint", "ATTESTOR_CERT_DIR", "MODULE_REGISTRY_FILE")
-	m796Wire(t, "tests/mint-secrets.test.sh", "mint-consume", "gateway.railway.env", "loadWalletInventory", "malformed", "distinct")
-	m796Wire(t, "../../services/platform/hosted/identity/env-init.sh", "for service in gateway registry webhooks", `variable="IDENTITY_`, `>"$tokens_dir/$service.new"`)
+	fleetFoundationWire(t, "mint-secrets.sh", "mint", "ATTESTOR_CERT_DIR", "MODULE_REGISTRY_FILE")
+	fleetFoundationWire(t, "tests/mint-secrets.test.sh", "mint-consume", "gateway.railway.env", "loadWalletInventory", "malformed", "distinct")
+	fleetFoundationWire(t, "../../services/platform/hosted/identity/env-init.sh", "for service in gateway registry webhooks", `variable="IDENTITY_`, `>"$tokens_dir/$service.new"`)
 }

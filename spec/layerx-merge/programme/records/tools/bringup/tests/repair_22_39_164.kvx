@@ -16,26 +16,26 @@ rule = "Only a passing hf-done at the built revision qualifies this repair; pre-
 [environment]
 public_job = ".github/workflows/ci.yml:61 tools-python installs nginx and libnginx-mod-stream through apt alongside openssh-server and the existing native prerequisites."
 qualification = "The disposable qualification environment installs nginx and libnginx-mod-stream through apt in the same way as the public job; private installation evidence is /out/logs/prerequisite-apt.log. The native library, loadtest, bringup-inspect, xweb loader, pinned Solidity compiler and localhost SSH prerequisites follow the job's declared preparation commands."
-producer = "tools/bringup/tests/test_repair_22_31_319.py:test_edge_manifest_roundtrip_both_consumers_over_ssh requires nginx and loads /usr/lib/nginx/modules/ngx_stream_module.so; tools/bringup/edge.sh:397 names libnginx-mod-stream."
+producer = "tools/bringup/tests/test_transport_roundtrip.py:test_edge_manifest_roundtrip_both_consumers_over_ssh requires nginx and loads /usr/lib/nginx/modules/ngx_stream_module.so; tools/bringup/edge.sh:397 names libnginx-mod-stream."
 assertion = "tests/ci/test_tools_python_suites_wired.py:test_ci_runs_tools_python_target requires both apt packages before the native prerequisite build and suite execution."
 
 [assertion.search_front]
-test = "tools/bringup/tests/test_repair_22_31_319.py:test_search_front_roundtrip_primary_backup_and_refusals"
+test = "tools/bringup/tests/test_transport_roundtrip.py:test_search_front_roundtrip_primary_backup_and_refusals"
 producer = "tools/bringup/search-front.sh:118 calls load_hosts before discovery; tools/bringup/check-live.sh:323-342 reads BRINGUP_HOSTS_FILE and requires every declared role; tools/bringup/check-live.sh:545-561 discovers the nginx site through rpc_unit."
-repair = "Supply tests/fixtures/repair_22_39_164/hosts.env, render each discovery site's real configuration with edge.sh, and translate the nginx directory to those fixture directories over real OpenSSH. Assert discovery equals the serving/validator listing before the original primary, backup, malformed and readiness refusal assertions."
+repair = "Supply tests/fixtures/hosted_routes/hosts.env, render each discovery site's real configuration with edge.sh, and translate the nginx directory to those fixture directories over real OpenSSH. Assert discovery equals the serving/validator listing before the original primary, backup, malformed and readiness refusal assertions."
 
 [assertion.xweb_rotation]
-test = "tools/bringup/tests/test_repair_22_31_319.py:test_xweb_config_roundtrip_rotation_and_refusals"
+test = "tools/bringup/tests/test_transport_roundtrip.py:test_xweb_config_roundtrip_rotation_and_refusals"
 producer = "tools/bringup/xweb_transport.go:59-64 validates separate hosted gateway and node roots; tools/bringup/upgrade_state.go:75 requires a root-only node URL; tools/bringup/xweb_transport.go:97-113 decodes flat committed asset records."
 repair = "Serve hosted px_listAssets at /gateway with its declared flat asset records and px_getReceiptKeys at the node root /. Retain every loader, rotation and malformed-history refusal assertion and assert both methods reach their declared paths."
 
 [assertion.kernel_credential]
-test = "tools/bringup/tests/test_repair_22_31_319.py:test_internal_probe_kernel_identity_over_private_route_over_ssh"
+test = "tools/bringup/tests/test_transport_roundtrip.py:test_internal_probe_kernel_identity_over_private_route_over_ssh"
 producer = "tools/bringup/check-live.sh:2360-2374 dispatches on the role group using the kernel's Human identity; tools/bringup/repair_cli.go:208-231 reads the protected bundle and prints the typed success line; tools/bringup/bundle.go:141 checks PEM/DER consistency."
 repair = "Require exact refusal after DER key corruption and missing custody, restore the real key and prove readiness recovers, and assert the current group-based probe remains ready for an unused app argument. Count actual mTLS requests and retain the identity confinement assertions."
 
 [assertion.kernel_private_route]
-test = "tools/bringup/tests/test_repair_22_31_319.py:test_internal_probe_kernel_identity_over_private_route"
+test = "tools/bringup/tests/test_transport_roundtrip.py:test_internal_probe_kernel_identity_over_private_route"
 producer = "tools/bringup/check-live.sh:2365-2373 sends bringup-inspect internal-readiness over SSH and maps remote refusal to @@<group> 1 000 refused; tools/bringup/live_repair.go:506 validates private connect targets inside the remote inspector."
 repair = "Update the existing transcript to the inspector command and typed response. Require every transcript exchange to equal a real OpenSSH/inspector/private TLS exchange in this test before replaying it. Missing identity and malformed routing must produce exact refusals without additional HTTP requests."
 
@@ -153,7 +153,7 @@ severity = "blocker"
 [repair.faucet_identifier]
 producer = "Before the 22.30.177 repair, tools/bringup/docs-names.sh used git grep -w for FAUCET_URL (6fce495bf8); GOTCHA.kvx:995-997 and decision 2933 preserve the whole-identifier boundary."
 repair = "ValidateDocumentNames rejects FAUCET_URL only when neither adjacent character is a letter, digit or underscore. LAYERX_FAUCET_URL, LAYERX_GATEWAY_FAUCET_URL and LAYERX_SCHEDULED_FAUCET_URL retain their documented meaning."
-assertion = "tools/bringup/repair_m794_test.go:TestRepairM_794_DocsNamePolicy and tools/bringup/tests/test_spec_paths.py:test_docs_names_checks_documentation_policy accept prefixed and suffixed identifiers and refuse the bare identifier at text edges and punctuation boundaries."
+assertion = "tools/bringup/platform_routes_test.go:TestRepairM_794_DocsNamePolicy and tools/bringup/tests/test_spec_paths.py:test_docs_names_checks_documentation_policy accept prefixed and suffixed identifiers and refuse the bare identifier at text edges and punctuation boundaries."
 
 [repair.node_parent_names]
 producer = "docs/site/docs/reference/public-rpc.md declares the node endpoints; spec/layerx-merge/spec.kvx:3546-3549 public_names publishes api1 through api14.mainnet-beta.paxeer.network; decision 2933 permits describing their shared parent and placeholder first labels."

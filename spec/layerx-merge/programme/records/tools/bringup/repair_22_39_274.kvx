@@ -66,7 +66,7 @@ action = "allowed-reference"
 repair = "Keep the explicit retired genesis module rejection and reject duplicate JSON keys before decoding; these refusal literals are covered by the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json under decision 3125."
 
 [finding.8]
-path = "tools/bringup/repair-m797.kvx"
+path = "spec/layerx-merge/programme/records/tools/bringup/repair-m797.kvx"
 line = 43
 component = "layerxctl-port"
 symbol = "lni"
@@ -74,7 +74,7 @@ action = "allowed-reference"
 repair = "Preserve this historical repair record outside task scope; its heading describes transport removal and is covered by documentation_paths pattern tools/bringup/repair-*.kvx in tools/paxeer-x/retired_callers.json under decisions 3104 and 3125."
 
 [finding.9]
-path = "tools/bringup/repair-m797.kvx"
+path = "spec/layerx-merge/programme/records/tools/bringup/repair-m797.kvx"
 line = 43
 component = "lni"
 symbol = "lni"

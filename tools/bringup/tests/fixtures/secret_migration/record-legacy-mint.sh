@@ -3,7 +3,7 @@
 set -euo pipefail
 root=$(git rev-parse --show-toplevel)
 cd "$root"
-fixture=tools/bringup/tests/fixtures/repair_m795
+fixture=tools/bringup/tests/fixtures/secret_migration
 producer=tools/bringup/.record-legacy-m795.sh
 certs=$fixture/.certificates
 trap 'rm -rf "$producer" "$certs"' EXIT

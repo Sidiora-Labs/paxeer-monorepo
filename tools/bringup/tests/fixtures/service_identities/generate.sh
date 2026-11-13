@@ -3,7 +3,7 @@ set -euo pipefail
 # Disposable conformance recordings from the actual ca.sh signing and encoding
 # producer. No issuer private key is retained, and these keys are never deployed.
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../../.." && pwd)
-fixture="$root/tools/bringup/tests/fixtures/repair_m794"
+fixture="$root/tools/bringup/tests/fixtures/service_identities"
 . "$root/tools/bringup/ca.sh"
 issuer=$(mktemp -d)
 trap 'rm -rf "$issuer"' EXIT

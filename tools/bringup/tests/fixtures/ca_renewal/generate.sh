@@ -2,7 +2,7 @@
 set -euo pipefail
 # Disposable, committed peer recordings. Never use these keys for deployment.
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../../.." && pwd)
-fixture="$root/tools/bringup/tests/fixtures/repair_m792"
+fixture="$root/tools/bringup/tests/fixtures/ca_renewal"
 . "$root/tools/bringup/ca.sh"
 issuer="$fixture/issuer"
 mkdir -m 0700 "$issuer"

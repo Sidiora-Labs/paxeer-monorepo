@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-func runM798Inspector(ctx context.Context, args []string, input io.Reader, output io.Writer) (bool, error) {
+func runUpgradeXwebInspector(ctx context.Context, args []string, input io.Reader, output io.Writer) (bool, error) {
 	invalid := errors.New("invalid bringup upgrade/xweb arguments")
 	client := &http.Client{Timeout: 10 * time.Second}
 	switch args[0] {

@@ -19,9 +19,9 @@ import (
 // The peer replays the committed native RPC recording, including the original
 // transaction, receipt signature, key range and block identity. Only negative
 // cases alter evidence. The inspector and its codecs run in this process.
-func m1388Peer(t *testing.T, variant string) (*httptest.Server, m793Chain, string, *[]string) {
+func nativeReceiptPeer(t *testing.T, variant string) (*httptest.Server, liveEvidenceChain, string, *[]string) {
 	t.Helper()
-	c := m793RecordedChain(t)
+	c := liveEvidenceRecordedChain(t)
 	var tx types.Transaction
 	if err := tx.UnmarshalBinary(c.raw); err != nil {
 		t.Fatal(err)
@@ -98,8 +98,8 @@ func m1388Peer(t *testing.T, variant string) (*httptest.Server, m793Chain, strin
 	return server, c, chain, &calls
 }
 
-func TestRepairM_1388_NativeSubmissionAndCommittedReceipt(t *testing.T) {
-	server, c, chain, calls := m1388Peer(t, "")
+func TestNativeSubmissionAndCommittedReceipt(t *testing.T) {
+	server, c, chain, calls := nativeReceiptPeer(t, "")
 	params, err := json.Marshal([]string{"0x" + hex.EncodeToString(c.raw)})
 	if err != nil {
 		t.Fatal(err)
@@ -127,10 +127,10 @@ func TestRepairM_1388_NativeSubmissionAndCommittedReceipt(t *testing.T) {
 	}
 }
 
-func TestRepairM_1388_RejectUnboundOrUncommittedEvidence(t *testing.T) {
+func TestRejectUnboundOrUncommittedEvidence(t *testing.T) {
 	for _, variant := range []string{"wrong-chain", "chain-changed", "reverted", "not-in-block", "uncommitted", "signature", "key-range", "head-behind", "wrong-signed-chain", "wrong-hash", "malformed-transaction", "missing-transaction", "oversized-transaction", "tenant-rpc", "noncanonical-chain"} {
 		t.Run(variant, func(t *testing.T) {
-			server, c, chain, calls := m1388Peer(t, variant)
+			server, c, chain, calls := nativeReceiptPeer(t, variant)
 			raw, hash, endpoint := c.raw, c.hash, server.URL
 			switch variant {
 			case "wrong-signed-chain":
@@ -160,7 +160,7 @@ func TestRepairM_1388_RejectUnboundOrUncommittedEvidence(t *testing.T) {
 	}
 }
 
-func TestRepairM_1388_ScriptUsesNativeChainEvidence(t *testing.T) {
+func TestScriptUsesNativeChainEvidence(t *testing.T) {
 	raw, err := os.ReadFile("value-loop.sh")
 	if err != nil {
 		t.Fatal(err)
