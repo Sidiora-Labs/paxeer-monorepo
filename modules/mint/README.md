@@ -1,8 +1,33 @@
-# modules/mint
+# Mint module
 
-## Overview
+This directory holds the Go mint module, its query and governance clients, state types, simulation support and tests. It creates `uhpx` according to governed token release schedules inside `paxd`, through the [epoch module](../epoch/README.md), and sends minted coins to the `fee_collector` module account for distribution with transaction fees on the Paxeer network. Mint state becomes final with the block that commits it.
 
-The mint module creates `uhpx` according to governed token release schedules on the Paxeer network. It runs inside `paxd`, through the [epoch module](../epoch/README.md), and sends minted coins to the `fee_collector` module account for distribution with transaction fees. Mint state becomes final with the block that commits it.
+## Layout
+
+- [client/](client/) — CLI queries, governance proposal submission and REST proposal handling.
+- [keeper/](keeper/) — persisted minter state, parameters, epoch hooks, queries, genesis handling, migrations and tests.
+- [simulation/](simulation/) — randomized genesis generation, store decoding and tests.
+- [types/](types/) — minter calculations, parameter validation, governance types, generated protobuf bindings, events, metrics and tests.
+- [module.go](module.go) — module registration, genesis import and export, query services, migrations and simulation wiring.
+- [gov.go](gov.go) — validates and stores a governance replacement minter.
+- [module_test.go](module_test.go) — module route and governance handler tests.
+- [repair_m571_test.go](repair_m571_test.go) — proposal validation, serialization and README proposal example tests.
+- [README.md](README.md) — module behavior and usage.
+
+## Build and test
+
+The module belongs to the root [Go module](../../go.mod) and has no separate build manifest or Makefile. From the repository root, use the targets in the [Makefile](../../Makefile), which delegate to [chain.mk](../../chain.mk):
+
+```sh
+make paxeer-build
+make paxeer-test
+```
+
+`paxeer-build` builds `paxd`, including the mint module and the node's native libraries. `paxeer-test` runs the root Go package tests, including the mint packages, through the split test groups in `chain.mk`.
+
+## Configuration
+
+The module receives its minter and parameters through mint genesis state and the parameter store. It reads no module-specific environment variables or standalone configuration files. The [governance CLI](client/cli/tx.go) reads the JSON proposal file supplied as its `proposal-file` argument; the examples below show the supported fields.
 
 The module stores one current minter and a list of scheduled releases. The default minter has zero issuance and the default schedule is empty. Once the current release is exhausted, minting resumes only when another scheduled release becomes eligible or governance replaces the minter.
 
@@ -34,9 +59,9 @@ Governance provides two distinct updates: an `UpdateMinter` proposal replaces th
 
 Replacing the minter changes future issuance; it does not undo coins already minted. The handler does not derive remaining issuance from `total_mint_amount` or preserve omitted fields. An ongoing release must carry forward the intended remaining amount and last-mint metadata explicitly.
 
-## State
+### State
 
-### Minter
+#### Minter
 
 The [Minter type](types/mint.pb.go) is persisted under `MinterKey` (`0x00`) in the `mint` store. Dates use `YYYY-MM-DD` in UTC and amounts count base units of `uhpx`.
 
@@ -53,7 +78,7 @@ The [Minter type](types/mint.pb.go) is persisted under `MinterKey` (`0x00`) in t
 
 [ValidateMinter](types/minter.go) requires valid start, end and last-mint dates, with the end on or after the start. Total and last-mint amounts must fit in a signed 64-bit integer; remaining must not exceed total; last-mint amount must not exceed `total_mint_amount - remaining_mint_amount`.
 
-### Params
+#### Params
 
 The [Params type](types/params.go) uses these parameter-store keys:
 
@@ -142,7 +167,7 @@ Immediately after execution, before a further mint, that is the resulting state.
 
 Omitting `last_mint_date` supplies an empty date and fails validation. Omitting `remaining_mint_amount` supplies zero, so the proposed minter has no remaining issuance; setting only `total_mint_amount` does not initialize it.
 
-### Params Governance Proposal
+#### Params Governance Proposal
 
 Parameter changes use the `mint` subspace and the exact keys `MintDenom` and `TokenReleaseSchedule`. For example, save this as `param_change_prop.json`, adjusting the dates, amounts and deposit to the intended update:
 
@@ -187,13 +212,13 @@ paxd tx gov submit-proposal param-change ./param_change_prop.json \
 
 This replaces the schedule parameter. It does not top up the current minter or restart an exhausted release with the same date pair. Query `paxd query mint params` after execution to inspect the stored schedule.
 
-## Epoch hook
+### Epoch hook
 
 Epoch duration defaults to 60 seconds in [epoch genesis](../epoch/types/genesis.go). The mint hook uses the ending epoch's `current_epoch_start_time`, rather than the wall clock or the next epoch's start. For a normal ongoing release, only the first successful mint on a UTC date records that day's share; later hooks on the same date return zero. The remaining state and last-mint date persist across restarts.
 
-### Minting events
+#### Minting events
 
-#### Type: mint
+##### Type: mint
 
 [RecordSuccessfulMint](types/minter.go) emits the lowercase event type `mint` with these string attributes:
 
@@ -204,3 +229,9 @@ Epoch duration defaults to 60 seconds in [epoch genesis](../epoch/types/genesis.
 ### Metrics
 
 Each successful mint records the telemetry gauge `pax_mint_coins{denom}` and the OpenTelemetry gauge `mint_coins_minted` with attribute `denom`. These gauges report the latest mint amount, rather than cumulative issuance. See [mint metrics](types/metrics.go) and the [telemetry helper](../../utils/metrics/metrics_util.go).
+
+## Documentation
+
+- [Chain modules reference](../../docs/system/chain-modules.md#mint) — mint parameters and governance proposal type.
+- [Mint documentation page](../../docs/site/paxeer-docs/public/markdown/modules/mint.md) — release schedules, queries, governance, events and metrics.
+- [Mint documentation site source](../../docs/site/paxeer-docs/src/app/modules/mint/page.tsx) — the site's mint module page.

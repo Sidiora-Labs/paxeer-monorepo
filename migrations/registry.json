@@ -102,10 +102,6 @@
       "approval_manifest_digest": null,
       "source_inputs": [
         {
-          "path": "launchpad/spec/production-system/handoffs/L06/ingestion.sql",
-          "sha256": "d5188ea2e0e8ab2912178fd3bf482e7b88db439fec5f2983ba0e24591030f4cc"
-        },
-        {
           "path": "services/launchpad/indexer/internal/store/canonical.go",
           "sha256": "9826dbf4a4b68ab4e3a9560314e93bb96edc311962391b4b5bf2f9ecdb46ed02"
         }
@@ -459,12 +455,7 @@
       "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
       "destructive": false,
       "approval_manifest_digest": null,
-      "source_inputs": [
-        {
-          "path": "launchpad/spec/production-system/handoffs/L33/schema-proposal.sql",
-          "sha256": "1b8f0d98b93e23485267c801ef25ffbacff139eb80f33058d879eb12e6c8dd1e"
-        }
-      ],
+      "source_inputs": [],
       "legacy_predecessors": [
         {
           "service": "media/user",
@@ -790,12 +781,7 @@
       "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
       "destructive": false,
       "approval_manifest_digest": null,
-      "source_inputs": [
-        {
-          "path": "launchpad/spec/production-system/handoffs/L19/phase1/190000_ranking_snapshots.sql",
-          "sha256": "8cb682bc4dfcb2ff8e4852609feb9a21ae6761d6d6398d28df1b9d262b828baa"
-        }
-      ],
+      "source_inputs": [],
       "legacy_predecessors": []
     },
     {
@@ -857,12 +843,7 @@
       "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
       "destructive": false,
       "approval_manifest_digest": null,
-      "source_inputs": [
-        {
-          "path": "launchpad/spec/production-system/handoffs/L36/phase1/schema.sql",
-          "sha256": "000c8153e73bdd885e03b3dc2826cf7bbf1c7fdb4c5fb3005bb6c92020a1818a"
-        }
-      ],
+      "source_inputs": [],
       "legacy_predecessors": [
         {
           "service": "media/social",
@@ -1096,12 +1077,7 @@
       "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
       "destructive": false,
       "approval_manifest_digest": null,
-      "source_inputs": [
-        {
-          "path": "launchpad/spec/production-system/handoffs/L35/schema.sql",
-          "sha256": "db25874f12135a61820dabdddefed537593b2390a53046005b925b80ada4b991"
-        }
-      ],
+      "source_inputs": [],
       "legacy_predecessors": [
         {
           "service": "media/user",
@@ -1133,12 +1109,7 @@
       "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
       "destructive": false,
       "approval_manifest_digest": null,
-      "source_inputs": [
-        {
-          "path": "launchpad/spec/production-system/handoffs/L37/phase1/schema-proposal.sql",
-          "sha256": "59766e7b3182e377c6532467cbc1473aec41dc00378286f98eff85adf0584705"
-        }
-      ],
+      "source_inputs": [],
       "legacy_predecessors": [
         {
           "service": "media/social",
@@ -1208,12 +1179,7 @@
       "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
       "destructive": false,
       "approval_manifest_digest": null,
-      "source_inputs": [
-        {
-          "path": "launchpad/spec/production-system/handoffs/L38/schema-proposal.sql",
-          "sha256": "1ef4a883fbde4d1ff4bfebfa34bce8c7ce9eb9a3472f3672edac2ffe877b3f55"
-        }
-      ],
+      "source_inputs": [],
       "legacy_predecessors": [
         {
           "service": "media/social",
@@ -1429,10 +1395,6 @@
       "approval_manifest_digest": null,
       "source_inputs": [
         {
-          "path": "launchpad/spec/production-system/handoffs/L06/phase2/ingestion.sql",
-          "sha256": "56966cba56b1f82aa8723be540e9e7c0d029ff0b7c5151f32a58a2b2dc9c8c3c"
-        },
-        {
           "path": "services/launchpad/indexer/internal/store/quarantine.go",
           "sha256": "9101424ac98280680881dad1a45f4aebaba66aab4cb6b7002a9037e472778120"
         }
@@ -1576,10 +1538,6 @@
       "destructive": false,
       "approval_manifest_digest": null,
       "source_inputs": [
-        {
-          "path": "launchpad/spec/production-system/handoffs/L16/phase2/schema-proposal.sql",
-          "sha256": "5a2c2602dd55387ed8b8ea03ef20c36650d5709d03c3e91a0a894ec98cdaf13c"
-        },
         {
           "path": "services/launchpad/pnl-tracker/internal/production/l16/queries.go",
           "sha256": "6baff8a48286a7d8dd458998ee8f992600d7d2d6a393171f331430df268dc0a4"
@@ -1746,10 +1704,6 @@
       "approval_manifest_digest": null,
       "source_inputs": [
         {
-          "path": "launchpad/spec/production-system/handoffs/L33/phase2/schema-proposal.sql",
-          "sha256": "bf71461dbf8931101e2ed3d0f6e59292ee6ef8be02efda0ce6793e07d8a5565b"
-        },
-        {
           "path": "services/launchpad/gateway/internal/auth/identity_lifecycle.go",
           "sha256": "f457d0bbc539a8a1344b5c105e0e4de13cdb15ee4096ef85ada6af9c0062440f"
         }
@@ -1780,10 +1734,6 @@
         {
           "path": "migrations/330000.sql",
           "sha256": "632b472ce11f3c4bd30e9e10feffb12e890feba34df1decd5683a8bd46015596"
-        },
-        {
-          "path": "launchpad/spec/production-system/handoffs/L35/phase2/schema.sql",
-          "sha256": "48b123f6a094117f4a4ba5a5496538bf64cda2ca3ff83a8a68cb58823b976bb8"
         }
       ]
     },
@@ -1844,12 +1794,7 @@
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
       "approval_manifest_digest": null,
-      "source_inputs": [
-        {
-          "path": "launchpad/spec/production-system/handoffs/L37/phase2/schema-proposal.sql",
-          "sha256": "4e584e5c97bf6d01dc2eb18b75593ddf0d599a135c05a85d03a044eb92c33af2"
-        }
-      ]
+      "source_inputs": []
     },
     {
       "migration_id": 380001,
@@ -1871,12 +1816,7 @@
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
       "approval_manifest_digest": null,
-      "source_inputs": [
-        {
-          "path": "launchpad/spec/production-system/handoffs/L38/phase2/schema-proposal.sql",
-          "sha256": "65477590f367d1f44229b8783cba0b4c55bd6e6b07a6c8c539503593aa9f7919"
-        }
-      ]
+      "source_inputs": []
     },
     {
       "migration_id": 390001,
@@ -2057,12 +1997,7 @@
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
       "approval_manifest_digest": null,
-      "source_inputs": [
-        {
-          "path": "launchpad/spec/production-system/handoffs/L18/phase2/migration-proposal.sql",
-          "sha256": "3c59768c0f496bb8b15dbaf84371ec5433b0e25ed41ae596de9aaec3d7b9facc"
-        }
-      ]
+      "source_inputs": []
     },
     {
       "migration_id": 340004,
@@ -2085,12 +2020,7 @@
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
       "approval_manifest_digest": null,
-      "source_inputs": [
-        {
-          "path": "launchpad/spec/production-system/handoffs/L34/staged-schema.sql",
-          "sha256": "d8ca03bfa2ce1dc2ab2f3d352c44a15defc0f9c86f1c5c087872a05667bad13a"
-        }
-      ]
+      "source_inputs": []
     },
     {
       "migration_id": 340005,
@@ -2112,12 +2042,7 @@
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
       "approval_manifest_digest": null,
-      "source_inputs": [
-        {
-          "path": "launchpad/spec/production-system/handoffs/L34/staged-schema.sql",
-          "sha256": "d8ca03bfa2ce1dc2ab2f3d352c44a15defc0f9c86f1c5c087872a05667bad13a"
-        }
-      ]
+      "source_inputs": []
     },
     {
       "migration_id": 340006,
@@ -2139,12 +2064,7 @@
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
       "approval_manifest_digest": null,
-      "source_inputs": [
-        {
-          "path": "launchpad/spec/production-system/handoffs/L34/staged-schema.sql",
-          "sha256": "d8ca03bfa2ce1dc2ab2f3d352c44a15defc0f9c86f1c5c087872a05667bad13a"
-        }
-      ]
+      "source_inputs": []
     },
     {
       "migration_id": 340007,
@@ -2166,12 +2086,7 @@
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
       "approval_manifest_digest": null,
-      "source_inputs": [
-        {
-          "path": "launchpad/spec/production-system/handoffs/L34/staged-schema.sql",
-          "sha256": "d8ca03bfa2ce1dc2ab2f3d352c44a15defc0f9c86f1c5c087872a05667bad13a"
-        }
-      ]
+      "source_inputs": []
     },
     {
       "migration_id": 410000,

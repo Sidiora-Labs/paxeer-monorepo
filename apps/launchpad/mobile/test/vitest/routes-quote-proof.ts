@@ -22,7 +22,7 @@ const quoteAbi = parseAbi([
 export async function routeQuoteUsesChain125Interface() {
   const recorded = JSON.parse(
     readFileSync(
-      new URL('./fixtures/repair-22-33-929-v2.json', import.meta.url),
+      new URL('./fixtures/market-route-v2.json', import.meta.url),
       'utf8',
     ),
   ) as {

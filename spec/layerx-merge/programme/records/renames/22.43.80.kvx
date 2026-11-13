@@ -1,0 +1,28 @@
+[manifest]
+task = "22.43.80"
+records_moved = 0
+files_renamed = 6
+
+[file.1]
+from = "precompiles/layerxauth/repair_146.kvx"
+to = "precompiles/layerxauth/lifecycle_receipts.kvx"
+
+[file.2]
+from = "precompiles/layerxauth/repair_22_39_323.kvx"
+to = "precompiles/layerxauth/precompile_conformance.kvx"
+
+[file.3]
+from = "precompiles/layerxauth/repair_m1503.kvx"
+to = "precompiles/layerxauth/session_fee_persistence.kvx"
+
+[file.4]
+from = "precompiles/layerxauth/repair_146_test.go"
+to = "precompiles/layerxauth/lifecycle_receipts_test.go"
+
+[file.5]
+from = "precompiles/layerxauth/repair_m1503_test.go"
+to = "precompiles/layerxauth/authority_integration_test.go"
+
+[file.6]
+from = "precompiles/layerxauth/internal/repair1503/native.go"
+to = "precompiles/layerxauth/internal/nativefixtures/native.go"
