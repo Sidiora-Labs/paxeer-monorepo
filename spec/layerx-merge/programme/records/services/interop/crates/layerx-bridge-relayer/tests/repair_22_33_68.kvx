@@ -3,7 +3,7 @@ id = "22.33.68"
 audit = "22.30.108"
 acceptance = "22998.1"
 base_revision = "4edaf4fff3f943e154c8337c0bcc16fe4dd9dd3c"
-verify_cmd = "cargo test --locked --manifest-path services/interop/crates/layerx-bridge-relayer/Cargo.toml --test repair_22_33_68"
+verify_cmd = "cargo test --locked --manifest-path services/interop/crates/layerx-bridge-relayer/Cargo.toml --test attestation_policy_and_transport"
 evidence = "The private hf-build/hf-done ledger binds the candidate revision, exact command, exit code and log; the final response copies its last evidence line."
 baseline = "No prior gate ledger or repair test existed. No baseline execution is claimed: the ordered implementation-first and hf-build/hf-done-only instructions prohibit running verify_cmd on the unchanged tree."
 

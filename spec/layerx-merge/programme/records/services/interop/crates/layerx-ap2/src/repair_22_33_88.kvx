@@ -1,7 +1,7 @@
 [repair.22.33.88]
 audit = "22.30.110"
 acceptance = "22998.1"
-verify_cmd = "cargo test --locked --manifest-path services/interop/crates/layerx-ap2/Cargo.toml --test repair_22_33_88"
+verify_cmd = "cargo test --locked --manifest-path services/interop/crates/layerx-ap2/Cargo.toml --test mandate_replay_and_time_claims"
 evidence = "The runner records the exact candidate revision, command, exit and private log in /out/run/gates.jsonl and the task done record."
 baseline = "Not run: the ordered task instructions prohibit testing before complete implementation and prohibit running verify_cmd outside hf-done; no pre-change failure is claimed."
 

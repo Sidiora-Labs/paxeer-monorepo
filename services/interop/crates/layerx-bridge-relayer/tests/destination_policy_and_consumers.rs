@@ -90,7 +90,7 @@ struct VaultNode {
 impl VaultNode {
     fn new() -> Self {
         let mut child = Command::new("node")
-            .arg(Path::new(env!("CARGO_MANIFEST_DIR")).join("src/repair_22_31_160_vault.cjs"))
+            .arg(Path::new(env!("CARGO_MANIFEST_DIR")).join("src/vault_test_host.cjs"))
             .arg(root())
             .env("NODE_PATH", evm_dependencies::node_modules())
             .stdin(Stdio::piped())

@@ -1,7 +1,7 @@
 [task.22.31.231]
 finding = "mirror_manifest_event"
 repair = "Use the producer's seven-field ManifestOpened ABI in the production Ethereum receipt verifier, including committed blockHash."
-proving_tests = ["Repair2231231Test.testManifestOpenedSevenFieldReceiptAndStoredCoordinate", "Repair2231231Test.testManifestReceiptPublisherProcessRestartAndResumeChunks"]
+proving_tests = ["ManifestReceiptRecoveryTest.testManifestOpenedSevenFieldReceiptAndStoredCoordinate", "ManifestReceiptRecoveryTest.testManifestReceiptPublisherProcessRestartAndResumeChunks"]
 producer_transport_consumer = "Foundry deploys LayerXMirrorArchive; two independent Anvil nodes deploy identical creation code; the production publisher uses HTTPS quorum RPC and the production UDS signer, exits after begin, reopens its actual journal, verifies the original begin receipt, resumes chunks, exits/reopens again, finalizes and retrieves the exact recorded producer archive."
 baseline = "Not run: the ordered instructions prohibit testing before complete implementation and require the sole verify invocation through hf-done; the planned Foundry file is absent at the starting revision, so no pre-change failing test is claimed."
 evidence = "The runner's hf-build/hf-done ledger records the exact candidate revision, command, exit and private log location; this record does not claim a gate outcome before qualification."
