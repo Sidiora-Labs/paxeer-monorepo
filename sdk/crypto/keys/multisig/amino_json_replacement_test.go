@@ -14,12 +14,12 @@ import (
 	cryptotypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/types"
 )
 
-func TestRepair_136_ReplaceKeys(t *testing.T) {
+func TestLegacyAminoPubKeyJSONReplaceKeys(t *testing.T) {
 	a := secp256k1.GenPrivKeyFromSecret([]byte("repair-136-a")).PubKey()
 	b := secp256k1.GenPrivKeyFromSecret([]byte("repair-136-b")).PubKey()
 	c := ed25519.GenPrivKeyFromSecret([]byte("repair-136-c")).PubKey()
 	nested := kmultisig.NewLegacyAminoPubKey(1, []cryptotypes.PubKey{b, c})
-	repair136RoundTrip(t,
+	checkAminoJSONKeyReplacement(t,
 		kmultisig.NewLegacyAminoPubKey(1, []cryptotypes.PubKey{a, a}),
 		kmultisig.NewLegacyAminoPubKey(2, []cryptotypes.PubKey{b, b}),
 		kmultisig.NewLegacyAminoPubKey(1, []cryptotypes.PubKey{c, b}),
@@ -28,27 +28,27 @@ func TestRepair_136_ReplaceKeys(t *testing.T) {
 	)
 }
 
-func TestRepair_136_GrowKeys(t *testing.T) {
+func TestLegacyAminoPubKeyJSONGrowKeys(t *testing.T) {
 	a := secp256k1.GenPrivKeyFromSecret([]byte("repair-136-grow-a")).PubKey()
 	b := ed25519.GenPrivKeyFromSecret([]byte("repair-136-grow-b")).PubKey()
-	repair136RoundTrip(t,
+	checkAminoJSONKeyReplacement(t,
 		kmultisig.NewLegacyAminoPubKey(1, []cryptotypes.PubKey{a}),
 		kmultisig.NewLegacyAminoPubKey(2, []cryptotypes.PubKey{b, a}),
 		kmultisig.NewLegacyAminoPubKey(3, []cryptotypes.PubKey{a, b, a}),
 	)
 }
 
-func TestRepair_136_ShrinkKeys(t *testing.T) {
+func TestLegacyAminoPubKeyJSONShrinkKeys(t *testing.T) {
 	a := secp256k1.GenPrivKeyFromSecret([]byte("repair-136-shrink-a")).PubKey()
 	b := ed25519.GenPrivKeyFromSecret([]byte("repair-136-shrink-b")).PubKey()
-	repair136RoundTrip(t,
+	checkAminoJSONKeyReplacement(t,
 		kmultisig.NewLegacyAminoPubKey(3, []cryptotypes.PubKey{a, b, a}),
 		kmultisig.NewLegacyAminoPubKey(2, []cryptotypes.PubKey{b, a}),
 		kmultisig.NewLegacyAminoPubKey(1, []cryptotypes.PubKey{b}),
 	)
 }
 
-func repair136RoundTrip(t *testing.T, values ...*kmultisig.LegacyAminoPubKey) {
+func checkAminoJSONKeyReplacement(t *testing.T, values ...*kmultisig.LegacyAminoPubKey) {
 	t.Helper()
 	for _, transport := range []string{"callbacks", "codec"} {
 		t.Run(transport, func(t *testing.T) {

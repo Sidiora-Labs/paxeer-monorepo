@@ -13,7 +13,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/address"
 )
 
-func repairM1342Key(t *testing.T, scalar *big.Int) *secp256r1.PrivKey {
+func newP256ScalarKey(t *testing.T, scalar *big.Int) *secp256r1.PrivKey {
 	t.Helper()
 	key, err := secp256r1.GenPrivKey()
 	require.NoError(t, err)
@@ -22,7 +22,7 @@ func repairM1342Key(t *testing.T, scalar *big.Int) *secp256r1.PrivKey {
 	return key
 }
 
-func TestRepairM_1342_PrivateScalarProtobuf(t *testing.T) {
+func TestECDSAPrivateScalarProtobuf(t *testing.T) {
 	order := elliptic.P256().Params().N
 	for _, tc := range []struct {
 		name   string
@@ -36,7 +36,7 @@ func TestRepairM_1342_PrivateScalarProtobuf(t *testing.T) {
 		{"N_minus_one", new(big.Int).Sub(order, big.NewInt(1)), true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			producer := repairM1342Key(t, tc.scalar)
+			producer := newP256ScalarKey(t, tc.scalar)
 			wire, err := proto.Marshal(producer)
 			require.NoError(t, err)
 
@@ -69,8 +69,8 @@ func TestRepairM_1342_PrivateScalarProtobuf(t *testing.T) {
 	}
 }
 
-func TestRepairM_1342_PrivateStatePreserved(t *testing.T) {
-	producer := repairM1342Key(t, big.NewInt(2))
+func TestECDSAPrivateStatePreserved(t *testing.T) {
+	producer := newP256ScalarKey(t, big.NewInt(2))
 	wire, err := proto.Marshal(producer)
 	require.NoError(t, err)
 	var decoded secp256r1.PrivKey
@@ -83,9 +83,9 @@ func TestRepairM_1342_PrivateStatePreserved(t *testing.T) {
 		name string
 		data []byte
 	}{
-		{"zero", repairM1342Key(t, new(big.Int)).Bytes()},
-		{"N", repairM1342Key(t, order).Bytes()},
-		{"N_plus_one", repairM1342Key(t, new(big.Int).Add(order, big.NewInt(1))).Bytes()},
+		{"zero", newP256ScalarKey(t, new(big.Int)).Bytes()},
+		{"N", newP256ScalarKey(t, order).Bytes()},
+		{"N_plus_one", newP256ScalarKey(t, new(big.Int).Add(order, big.NewInt(1))).Bytes()},
 		{"short", beforeBytes[:31]},
 		{"long", append(append([]byte{}, beforeBytes...), 0)},
 	} {
@@ -101,11 +101,11 @@ func TestRepairM_1342_PrivateStatePreserved(t *testing.T) {
 	}
 }
 
-func TestRepairM_1342_AddressCache(t *testing.T) {
+func TestECDSAAddressCache(t *testing.T) {
 	var receiver ecdsa.PubKey
 	var firstAddress []byte
 	for _, scalar := range []int64{1, 2} {
-		producer := repairM1342Key(t, big.NewInt(scalar))
+		producer := newP256ScalarKey(t, big.NewInt(scalar))
 		public := producer.PubKey().(*secp256r1.PubKey)
 		wire, err := proto.Marshal(public)
 		require.NoError(t, err)

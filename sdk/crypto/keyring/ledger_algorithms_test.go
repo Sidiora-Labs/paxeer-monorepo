@@ -16,7 +16,7 @@ import (
 	banktypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/types"
 )
 
-func TestRepair_134_LedgerSupportedAlgorithms(t *testing.T) {
+func TestKeyringLedgerSupportedAlgorithms(t *testing.T) {
 	for _, tc := range []struct {
 		name string
 		opts []keyring.Option
@@ -61,7 +61,7 @@ func TestRepair_134_LedgerSupportedAlgorithms(t *testing.T) {
 	}
 }
 
-func TestRepair_134_LedgerRejectsSr25519BeforeDevice(t *testing.T) {
+func TestKeyringLedgerRejectsSr25519BeforeDevice(t *testing.T) {
 	for _, configured := range []bool{false, true} {
 		name := "default"
 		var opts []keyring.Option
@@ -94,7 +94,7 @@ func TestRepair_134_LedgerRejectsSr25519BeforeDevice(t *testing.T) {
 	}
 }
 
-func TestRepair_134_LedgerRejectsUnsupportedDespiteAdvertisedListMutation(t *testing.T) {
+func TestKeyringLedgerRejectsUnsupportedDespiteAdvertisedListMutation(t *testing.T) {
 	kr := keyring.NewInMemory()
 	_, hardware := kr.SupportedAlgorithms()
 	require.Len(t, hardware, 1)
@@ -107,7 +107,7 @@ func TestRepair_134_LedgerRejectsUnsupportedDespiteAdvertisedListMutation(t *tes
 	require.Empty(t, keys)
 }
 
-func TestRepair_134_LedgerRespectsDisabledSecp256k1(t *testing.T) {
+func TestKeyringLedgerRespectsDisabledSecp256k1(t *testing.T) {
 	kr := keyring.NewInMemory(func(options *keyring.Options) {
 		options.SupportedAlgosLedger = nil
 	})
@@ -116,7 +116,7 @@ func TestRepair_134_LedgerRespectsDisabledSecp256k1(t *testing.T) {
 	require.Nil(t, info)
 }
 
-func TestRepair_134_LedgerCreateReopenSign(t *testing.T) {
+func TestKeyringLedgerCreateReopenSign(t *testing.T) {
 	dir := t.TempDir()
 	created := func() keyring.Info {
 		kr, err := keyring.New(t.Name(), keyring.BackendTest, dir, nil)

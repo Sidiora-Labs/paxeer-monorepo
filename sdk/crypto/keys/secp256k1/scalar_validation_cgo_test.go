@@ -14,10 +14,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepairM_1343_Libsecp256k1ScalarBoundaries(t *testing.T) {
+func TestSecp256k1Libsecp256k1ScalarBoundaries(t *testing.T) {
 	msg := []byte("canonical imported secp256k1 key")
 	hash := sha256.Sum256(msg)
-	for _, tc := range repairM1343ScalarCases() {
+	for _, tc := range privateScalarCases() {
 		t.Run(tc.name, func(t *testing.T) {
 			var key secp256k1.PrivKey
 			importErr := key.UnmarshalAmino(tc.key)

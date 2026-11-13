@@ -13,7 +13,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/keys/ed25519"
 )
 
-func TestRepairM_1344_RejectInconsistentImports(t *testing.T) {
+func TestEd25519RejectInconsistentImports(t *testing.T) {
 	cdc := codec.NewLegacyAmino()
 	source := ed25519.GenPrivKeyFromSecret([]byte("repair m1344 source"))
 	other := ed25519.GenPrivKeyFromSecret([]byte("repair m1344 other"))
@@ -62,7 +62,7 @@ func TestRepairM_1344_RejectInconsistentImports(t *testing.T) {
 	}
 }
 
-func TestRepairM_1344_ImportSignVerify(t *testing.T) {
+func TestEd25519ImportSignVerify(t *testing.T) {
 	// RFC 8032 section 7.1, test vector 1: seed followed by its public key.
 	fixture, err := hex.DecodeString("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60" +
 		"d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a")
@@ -111,7 +111,7 @@ func TestRepairM_1344_ImportSignVerify(t *testing.T) {
 	}
 }
 
-func TestRepairM_1344_ImportOwnsValidatedBytes(t *testing.T) {
+func TestEd25519ImportOwnsValidatedBytes(t *testing.T) {
 	source := ed25519.GenPrivKeyFromSecret([]byte("repair m1344 validated bytes"))
 	for _, json := range []bool{false, true} {
 		t.Run(fmt.Sprintf("json_%t", json), func(t *testing.T) {
@@ -138,7 +138,7 @@ func TestRepairM_1344_ImportOwnsValidatedBytes(t *testing.T) {
 	}
 }
 
-func TestRepairM_1344_RejectInvalidLengths(t *testing.T) {
+func TestEd25519RejectInvalidLengths(t *testing.T) {
 	for _, size := range []int{0, 31, 32, 63, 65, 128} {
 		for _, json := range []bool{false, true} {
 			t.Run(fmt.Sprintf("size_%d/json_%t", size, json), func(t *testing.T) {

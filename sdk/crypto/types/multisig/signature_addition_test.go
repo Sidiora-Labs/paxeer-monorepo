@@ -14,9 +14,9 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/tx/signing"
 )
 
-var repairM1347Message = []byte("multisig-add-index production signing path")
+var signatureAdditionMessage = []byte("multisig-add-index production signing path")
 
-func repairM1347Signatures(t *testing.T, size int) ([]cryptotypes.PubKey, []signing.SignatureData) {
+func newSignatureAdditionData(t *testing.T, size int) ([]cryptotypes.PubKey, []signing.SignatureData) {
 	t.Helper()
 	keys := make([]cryptotypes.PubKey, size)
 	data := make([]signing.SignatureData, size)
@@ -25,9 +25,9 @@ func repairM1347Signatures(t *testing.T, size int) ([]cryptotypes.PubKey, []sign
 		keyBytes[len(keyBytes)-1] = byte(i + 1)
 		privateKey := &secp256k1.PrivKey{Key: keyBytes}
 		keys[i] = privateKey.PubKey()
-		signature, err := privateKey.Sign(repairM1347Message)
+		signature, err := privateKey.Sign(signatureAdditionMessage)
 		require.NoError(t, err)
-		require.True(t, keys[i].VerifySignature(repairM1347Message, signature))
+		require.True(t, keys[i].VerifySignature(signatureAdditionMessage, signature))
 		data[i] = &signing.SingleSignatureData{
 			SignMode: signing.SignMode_SIGN_MODE_LEGACY_AMINO_JSON, Signature: signature,
 		}
@@ -35,7 +35,7 @@ func repairM1347Signatures(t *testing.T, size int) ([]cryptotypes.PubKey, []sign
 	return keys, data
 }
 
-func repairM1347RejectUnchanged(t *testing.T, target *signing.MultiSignatureData, add func() error) {
+func requireRejectedSignatureUnchanged(t *testing.T, target *signing.MultiSignatureData, add func() error) {
 	t.Helper()
 	var before *signing.MultiSignatureData
 	var backing []signing.SignatureData
@@ -61,8 +61,8 @@ func repairM1347RejectUnchanged(t *testing.T, target *signing.MultiSignatureData
 	}
 }
 
-func TestRepairM_1347_MismatchedKeySets(t *testing.T) {
-	keys, data := repairM1347Signatures(t, 18)
+func TestMultisigAddSignatureMismatchedKeySets(t *testing.T) {
+	keys, data := newSignatureAdditionData(t, 18)
 	for _, tc := range []struct{ size, keyCount, index int }{
 		{1, 2, 1}, {7, 8, 7}, {8, 9, 8}, {8, 17, 16}, {16, 17, 16},
 		{1, 9, 0}, {7, 9, 0}, {8, 9, 0}, {9, 8, 0}, {9, 10, 8}, {17, 9, 0}, {17, 16, 15},
@@ -74,7 +74,7 @@ func TestRepairM_1347_MismatchedKeySets(t *testing.T) {
 					if populated {
 						require.NoError(t, multisig.AddSignature(target, data[0], 0))
 					}
-					repairM1347RejectUnchanged(t, target, func() error {
+					requireRejectedSignatureUnchanged(t, target, func() error {
 						if api == "pubkey" {
 							return multisig.AddSignatureFromPubKey(target, data[tc.index], keys[tc.index], keys[:tc.keyCount])
 						}
@@ -86,14 +86,14 @@ func TestRepairM_1347_MismatchedKeySets(t *testing.T) {
 	}
 }
 
-func TestRepairM_1347_InvalidIndices(t *testing.T) {
-	_, data := repairM1347Signatures(t, 1)
+func TestMultisigAddSignatureInvalidIndices(t *testing.T) {
+	_, data := newSignatureAdditionData(t, 1)
 	for _, size := range []int{1, 7, 8, 9, 16, 17} {
 		for _, index := range []int{-1, size, size + 8, int(^uint(0) >> 1)} {
 			t.Run(fmt.Sprintf("%d-bits/index-%d", size, index), func(t *testing.T) {
 				target := multisig.NewMultisig(size)
 				require.NoError(t, multisig.AddSignature(target, data[0], 0))
-				repairM1347RejectUnchanged(t, target, func() error {
+				requireRejectedSignatureUnchanged(t, target, func() error {
 					return multisig.AddSignature(target, data[0], index)
 				})
 			})
@@ -101,8 +101,8 @@ func TestRepairM_1347_InvalidIndices(t *testing.T) {
 	}
 }
 
-func TestRepairM_1347_InvalidTargets(t *testing.T) {
-	keys, data := repairM1347Signatures(t, 9)
+func TestMultisigAddSignatureInvalidTargets(t *testing.T) {
+	keys, data := newSignatureAdditionData(t, 9)
 	for name, corrupt := range map[string]func(*signing.MultiSignatureData) *signing.MultiSignatureData{
 		"nil-target": func(_ *signing.MultiSignatureData) *signing.MultiSignatureData { return nil },
 		"nil-array":  func(m *signing.MultiSignatureData) *signing.MultiSignatureData { m.BitArray = nil; return m },
@@ -137,7 +137,7 @@ func TestRepairM_1347_InvalidTargets(t *testing.T) {
 				target := multisig.NewMultisig(9)
 				require.NoError(t, multisig.AddSignature(target, data[0], 0))
 				target = corrupt(target)
-				repairM1347RejectUnchanged(t, target, func() error {
+				requireRejectedSignatureUnchanged(t, target, func() error {
 					switch api {
 					case "index":
 						return multisig.AddSignature(target, data[0], 0)
@@ -153,7 +153,7 @@ func TestRepairM_1347_InvalidTargets(t *testing.T) {
 	for _, api := range []string{"index", "pubkey", "v2"} {
 		t.Run("nil-signature/"+api, func(t *testing.T) {
 			target := multisig.NewMultisig(9)
-			repairM1347RejectUnchanged(t, target, func() error {
+			requireRejectedSignatureUnchanged(t, target, func() error {
 				switch api {
 				case "index":
 					return multisig.AddSignature(target, nil, 0)
@@ -167,14 +167,14 @@ func TestRepairM_1347_InvalidTargets(t *testing.T) {
 	}
 	t.Run("unknown-key", func(t *testing.T) {
 		target := multisig.NewMultisig(8)
-		repairM1347RejectUnchanged(t, target, func() error {
+		requireRejectedSignatureUnchanged(t, target, func() error {
 			return multisig.AddSignatureFromPubKey(target, data[8], keys[8], keys[:8])
 		})
 	})
 }
 
-func TestRepairM_1347_SignEncodeVerify(t *testing.T) {
-	keys, data := repairM1347Signatures(t, 18)
+func TestMultisigAddSignatureSignEncodeVerify(t *testing.T) {
+	keys, data := newSignatureAdditionData(t, 18)
 	for _, size := range []int{1, 7, 8, 9, 16, 17} {
 		t.Run(fmt.Sprintf("%d-keys", size), func(t *testing.T) {
 			publicKey := multisigkeys.NewLegacyAminoPubKey(size, keys[:size])
@@ -212,7 +212,7 @@ func TestRepairM_1347_SignEncodeVerify(t *testing.T) {
 				require.Len(t, target.Signatures, size)
 				require.Same(t, &replacement, target.Signatures[index], "replacement must store the new signature")
 			}
-			repairM1347RejectUnchanged(t, target, func() error {
+			requireRejectedSignatureUnchanged(t, target, func() error {
 				return multisig.AddSignatureV2(target, signing.SignatureV2{PubKey: keys[0], Data: data[0]}, keys[:size+1])
 			})
 			wire, err := signing.SignatureDataToProto(target).Marshal()
@@ -224,7 +224,7 @@ func TestRepairM_1347_SignEncodeVerify(t *testing.T) {
 			require.Equal(t, target, recovered)
 			require.NoError(t, publicKey.VerifyMultisignature(func(mode signing.SignMode) ([]byte, error) {
 				require.Equal(t, signing.SignMode_SIGN_MODE_LEGACY_AMINO_JSON, mode)
-				return repairM1347Message, nil
+				return signatureAdditionMessage, nil
 			}, recovered))
 			require.ErrorContains(t, publicKey.VerifyMultisignature(func(signing.SignMode) ([]byte, error) {
 				return []byte("different signed message"), nil

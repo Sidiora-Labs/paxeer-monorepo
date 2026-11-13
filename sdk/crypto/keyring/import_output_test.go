@@ -16,26 +16,26 @@ import (
 	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 )
 
-const repairM1340Mnemonic = "alcohol woman abuse must during monitor noble actual mixed trade anger aisle"
+const importOutputMnemonic = "alcohol woman abuse must during monitor noble actual mixed trade anger aisle"
 
-func repairM1340Store(t *testing.T, dir string) Keyring {
+func openImportOutputKeyring(t *testing.T, dir string) Keyring {
 	t.Helper()
 	kr, err := New("repair-m1340", BackendTest, dir, nil)
 	require.NoError(t, err)
 	return kr
 }
 
-func TestRepairM_1340_WrongPassword(t *testing.T) {
+func TestKeyringImportWrongPassword(t *testing.T) {
 	for _, algo := range []SignatureAlgo{hd.Secp256k1, hd.Sr25519} {
 		t.Run(string(algo.Name()), func(t *testing.T) {
-			source := repairM1340Store(t, t.TempDir())
-			created, err := source.NewAccount("source", repairM1340Mnemonic, "", sdk.FullFundraiserPath, algo)
+			source := openImportOutputKeyring(t, t.TempDir())
+			created, err := source.NewAccount("source", importOutputMnemonic, "", sdk.FullFundraiserPath, algo)
 			require.NoError(t, err)
 			armor, err := source.ExportPrivKeyArmorByAddress(created.GetAddress(), "correct-password")
 			require.NoError(t, err)
 
 			dir := t.TempDir()
-			target := repairM1340Store(t, dir)
+			target := openImportOutputKeyring(t, dir)
 			_, _, err = target.NewMnemonic("existing", English, sdk.FullFundraiserPath, "", hd.Secp256k1)
 			require.NoError(t, err)
 			before, err := target.List()
@@ -55,7 +55,7 @@ func TestRepairM_1340_WrongPassword(t *testing.T) {
 			after, err := target.List()
 			require.NoError(t, err)
 			require.Equal(t, before, after)
-			target = repairM1340Store(t, dir)
+			target = openImportOutputKeyring(t, dir)
 			after, err = target.List()
 			require.NoError(t, err)
 			require.Equal(t, before, after)
@@ -65,7 +65,7 @@ func TestRepairM_1340_WrongPassword(t *testing.T) {
 			require.ErrorIs(t, err, sdkerrors.ErrKeyNotFound)
 
 			require.NoError(t, target.ImportPrivKey("imported", armor, "correct-password"))
-			target = repairM1340Store(t, dir)
+			target = openImportOutputKeyring(t, dir)
 			restored, err := target.Key("imported")
 			require.NoError(t, err)
 			require.True(t, created.GetPubKey().Equals(restored.GetPubKey()))
@@ -85,20 +85,20 @@ func TestRepairM_1340_WrongPassword(t *testing.T) {
 	t.Run("existing-address-export", TestAltKeyring_ImportExportPrivKey_ByAddress)
 }
 
-func TestRepairM_1340_OfflineShape(t *testing.T) {
+func TestKeyringOfflineKeyShape(t *testing.T) {
 	// Execute the updated legacy test as part of the bounded repair gate too.
 	t.Run("existing-save-public-key", TestAltKeyring_SavePubKey)
 	for _, pub := range []cryptotypes.PubKey{ed25519.GenPrivKey().PubKey(), secp256k1.GenPrivKey().PubKey()} {
 		t.Run(pub.Type(), func(t *testing.T) {
 			dir := t.TempDir()
-			kr := repairM1340Store(t, dir)
+			kr := openImportOutputKeyring(t, dir)
 			wrong := hd.Secp256k1Type
 			if pub.Type() == string(wrong) {
 				wrong = hd.Ed25519Type
 			}
 			_, err := kr.SavePubKey("bad-label", pub, wrong)
 			require.ErrorIs(t, err, ErrUnsupportedSigningAlgo)
-			kr = repairM1340Store(t, dir)
+			kr = openImportOutputKeyring(t, dir)
 			list, err := kr.List()
 			require.NoError(t, err)
 			require.Empty(t, list)
@@ -109,7 +109,7 @@ func TestRepairM_1340_OfflineShape(t *testing.T) {
 
 			saved, err := kr.SavePubKey("watch", pub, hd.PubKeyType(pub.Type()))
 			require.NoError(t, err)
-			kr = repairM1340Store(t, dir)
+			kr = openImportOutputKeyring(t, dir)
 			restored, err := kr.KeyByAddress(saved.GetAddress())
 			require.NoError(t, err)
 			require.True(t, pub.Equals(restored.GetPubKey()))
@@ -135,10 +135,10 @@ func TestRepairM_1340_OfflineShape(t *testing.T) {
 	}
 }
 
-func TestRepairM_1340_PublicAddress(t *testing.T) {
+func TestKeyringOutputPublicAddress(t *testing.T) {
 	dir := t.TempDir()
-	kr := repairM1340Store(t, dir)
-	created, err := kr.NewAccount("local", repairM1340Mnemonic, "", sdk.FullFundraiserPath, hd.Secp256k1)
+	kr := openImportOutputKeyring(t, dir)
+	created, err := kr.NewAccount("local", importOutputMnemonic, "", sdk.FullFundraiserPath, hd.Secp256k1)
 	require.NoError(t, err)
 	require.IsType(t, &LocalInfo{}, created)
 	secretHex, err := NewUnsafe(kr).UnsafeExportPrivKeyHex("local")
@@ -148,23 +148,23 @@ func TestRepairM_1340_PublicAddress(t *testing.T) {
 	expectedAddress := ethcrypto.PubkeyToAddress(secret.PublicKey).Hex()
 	require.NotEmpty(t, expectedAddress)
 
-	reopened, err := repairM1340Store(t, dir).Key("local")
+	reopened, err := openImportOutputKeyring(t, dir).Key("local")
 	require.NoError(t, err)
 	require.IsType(t, LocalInfo{}, reopened)
 	watchDir := t.TempDir()
-	watch, err := repairM1340Store(t, watchDir).SavePubKey("watch", created.GetPubKey(), hd.Secp256k1Type)
+	watch, err := openImportOutputKeyring(t, watchDir).SavePubKey("watch", created.GetPubKey(), hd.Secp256k1Type)
 	require.NoError(t, err)
-	reopenedWatch, err := repairM1340Store(t, watchDir).Key("watch")
+	reopenedWatch, err := openImportOutputKeyring(t, watchDir).Key("watch")
 	require.NoError(t, err)
 
 	// Exercise the production persisted Ledger-reference producer; display does
 	// not discover or sign with a device and needs only the cached public key.
 	ledgerDir := t.TempDir()
-	ledgerStore := repairM1340Store(t, ledgerDir)
+	ledgerStore := openImportOutputKeyring(t, ledgerDir)
 	path := *hd.NewFundraiserParams(0, sdk.CoinType, 0)
 	hardware, err := ledgerStore.(keystore).writeLedgerKey("hardware", created.GetPubKey(), path, hd.Secp256k1Type)
 	require.NoError(t, err)
-	reopenedHardware, err := repairM1340Store(t, ledgerDir).Key("hardware")
+	reopenedHardware, err := openImportOutputKeyring(t, ledgerDir).Key("hardware")
 	require.NoError(t, err)
 	require.Equal(t, TypeLedger, reopenedHardware.GetType())
 	restoredPath, err := reopenedHardware.GetPath()
@@ -202,11 +202,11 @@ func TestRepairM_1340_PublicAddress(t *testing.T) {
 	}
 }
 
-func TestRepairM_1340_SR25519Output(t *testing.T) {
+func TestKeyringSR25519Output(t *testing.T) {
 	dir := t.TempDir()
-	created, err := repairM1340Store(t, dir).NewAccount("sr-wallet", repairM1340Mnemonic, "", sdk.FullFundraiserPath, hd.Sr25519)
+	created, err := openImportOutputKeyring(t, dir).NewAccount("sr-wallet", importOutputMnemonic, "", sdk.FullFundraiserPath, hd.Sr25519)
 	require.NoError(t, err)
-	restored, err := repairM1340Store(t, dir).Key("sr-wallet")
+	restored, err := openImportOutputKeyring(t, dir).Key("sr-wallet")
 	require.NoError(t, err)
 	require.IsType(t, LocalInfo{}, restored)
 	multi, err := NewMultiInfo("multi", multisig.NewLegacyAminoPubKey(1, []cryptotypes.PubKey{created.GetPubKey()}))
