@@ -40,7 +40,7 @@ The chain application that wires these modules together is [`node/app.go`](../no
 
 ```bash
 make -f chain.mk build      # writes ./build/paxd
-make -f chain.mk install    # installs paxd into $GOPATH/bin
+make -f chain.mk install    # installs paxd using Go's GOBIN/GOPATH settings
 ```
 
 The SDK package build and install targets also run from `sdk/`, using the root Go manifests and fork linker packages:

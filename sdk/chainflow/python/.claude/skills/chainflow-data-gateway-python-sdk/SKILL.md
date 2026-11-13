@@ -133,8 +133,10 @@ except APIStatusError as err:
 
 Transport failures raise `APIConnectionError` or `APITimeoutError`. HTTP 200
 feed and UDF results can contain application errors. Avoid logging whole errors,
-raw bodies or URLs. WebSocket debug logs include the token-bearing URL: disable
-credential-bearing debug output unless redaction filters are installed.
+raw bodies or URLs. The SDK redacts the `token` query parameter in WebSocket
+connection logs and recognized credential fields in connection-option logs.
+Received message bytes are logged at debug level; review message content and
+transport-library logging before enabling it.
 `/health` tests Nginx liveness only, not the auth helper or data services.
 
 ## Requirements

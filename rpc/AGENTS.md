@@ -24,9 +24,16 @@ that capability and latest on a full node without it:
   latest queryable committed height and its state/header. They resume using
   open state when a block opens. See [watermark_manager.go](watermark_manager.go),
   [state.go](state.go) and [simulate.go](simulate.go).
-- **Nonce and acceptance:** Pending `eth_getTransactionCount` uses `PendingContext`;
-  expiration of that wait returns `ErrPendingBlockClosed`, JSON-RPC `-32000`,
-  `no block is open; retry`. The local acceptance path for
+- **Nonce and acceptance:** With the node's committed-state context provider,
+  pending `eth_getTransactionCount` uses `pendingSnapshot`: it reads the open
+  nonce, waits for a block during an idle interval, then reads the latest
+  queryable committed nonce if the wait expires. A caller without a
+  committed-state context provider uses `PendingContext` and receives
+  `ErrPendingBlockClosed` (`-32000`, `no block is open; retry`) on expiry.
+  Without an open-state provider, the nonce request uses the account's
+  `EvmProxy` route or returns `ErrPendingServedBySequencer` if no route exists.
+  Held future nonces do not advance the open-block nonce.
+  The local acceptance path for
   `eth_sendRawTransaction` waits the same way after `ErrLayerNotOpen` and retries
   acceptance once. It returns the transaction hash on success. See
   [tx.go](tx.go) and [send.go](send.go).

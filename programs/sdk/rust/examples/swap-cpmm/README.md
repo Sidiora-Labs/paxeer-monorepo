@@ -123,6 +123,10 @@ amounts paid in minus amounts paid out.
 
 ## Build
 
+The [package manifest](Cargo.toml) requires Rust 1.91.1 or newer and the
+`wasm32-unknown-unknown` target. The release profile uses `opt-level = "z"`,
+LTO and one code-generation unit.
+
 ```sh
 cd programs/sdk/rust/examples/swap-cpmm
 cargo build --locked --release --target wasm32-unknown-unknown
