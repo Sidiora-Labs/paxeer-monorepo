@@ -38,7 +38,7 @@ import (
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 )
 
-func TestRepair_179_PayablePrecompileValue(t *testing.T) {
+func TestPayablePrecompileValue(t *testing.T) {
 	initializeCallPrecompileRegistry(t)
 	keys := keyring.NewInMemory()
 	info, _, err := keys.NewMnemonic("payer", keyring.English, "", "", hd.Secp256k1)

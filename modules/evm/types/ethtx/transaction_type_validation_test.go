@@ -21,7 +21,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func repairM1247Producer(t *testing.T, blob bool) (ethtx.EthereumTxData, *ethtypes.Transaction) {
+func signedTransactionEnvelope(t *testing.T, blob bool) (ethtx.EthereumTxData, *ethtypes.Transaction) {
 	t.Helper()
 	key, err := crypto.HexToECDSA(strings.Repeat("01", 32))
 	require.NoError(t, err)
@@ -51,7 +51,7 @@ func repairM1247Producer(t *testing.T, blob bool) (ethtx.EthereumTxData, *ethtyp
 	return data, tx
 }
 
-func repairM1247Transport(t *testing.T, data ethtx.TxData) []*evmtypes.MsgEVMTransaction {
+func transportTransactionEnvelope(t *testing.T, data ethtx.TxData) []*evmtypes.MsgEVMTransaction {
 	t.Helper()
 	msg, err := evmtypes.NewMsgEVMTransaction(data)
 	require.NoError(t, err)
@@ -63,7 +63,7 @@ func repairM1247Transport(t *testing.T, data ethtx.TxData) []*evmtypes.MsgEVMTra
 	return []*evmtypes.MsgEVMTransaction{msg, &received}
 }
 
-func repairM1247Admission(t *testing.T, msg *evmtypes.MsgEVMTransaction) error {
+func admitTransactionEnvelope(t *testing.T, msg *evmtypes.MsgEVMTransaction) error {
 	t.Helper()
 	packed, err := codectypes.NewAnyWithValue(msg)
 	require.NoError(t, err)
@@ -71,28 +71,28 @@ func repairM1247Admission(t *testing.T, msg *evmtypes.MsgEVMTransaction) error {
 	return ante.EvmStatelessChecks(sdk.Context{}, tx, big.NewInt(125))
 }
 
-func repairM1247Rejected(t *testing.T, data ethtx.TxData, want string) {
+func assertTransactionEnvelopeRejected(t *testing.T, data ethtx.TxData, want string) {
 	t.Helper()
 	require.NotPanics(t, func() { require.ErrorContains(t, data.Validate(), want) })
-	for i, msg := range repairM1247Transport(t, data) {
+	for i, msg := range transportTransactionEnvelope(t, data) {
 		t.Run([]string{"cached", "protobuf"}[i], func(t *testing.T) {
 			require.NotPanics(t, func() { require.ErrorContains(t, msg.ValidateBasic(), want) })
-			require.NotPanics(t, func() { require.ErrorContains(t, repairM1247Admission(t, msg), want) })
+			require.NotPanics(t, func() { require.ErrorContains(t, admitTransactionEnvelope(t, msg), want) })
 		})
 	}
 }
 
-func TestRepairM_1247_025_SetCodeDestination(t *testing.T) {
+func TestTransactionEnvelopeSetCodeDestination(t *testing.T) {
 	for _, to := range []string{"", "0x12", "0x" + strings.Repeat("g", 40)} {
 		t.Run(to, func(t *testing.T) {
-			data, _ := repairM1247Producer(t, false)
+			data, _ := signedTransactionEnvelope(t, false)
 			data.(*ethtx.SetCodeTx).To = to
-			repairM1247Rejected(t, data, "invalid to address")
+			assertTransactionEnvelopeRejected(t, data, "invalid to address")
 		})
 	}
 }
 
-func TestRepairM_1247_026_BlobDimensions(t *testing.T) {
+func TestTransactionEnvelopeBlobDimensions(t *testing.T) {
 	type blobCase struct {
 		name   string
 		mutate func(*ethtx.BlobTx)
@@ -148,14 +148,14 @@ func TestRepairM_1247_026_BlobDimensions(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			data, _ := repairM1247Producer(t, true)
+			data, _ := signedTransactionEnvelope(t, true)
 			tc.mutate(data.(*ethtx.BlobTx))
-			repairM1247Rejected(t, data, tc.want)
+			assertTransactionEnvelopeRejected(t, data, tc.want)
 		})
 	}
 }
 
-func repairM1247NumericFields(data ethtx.EthereumTxData) map[string]**sdk.Int {
+func transactionEnvelopeNumericFields(data ethtx.EthereumTxData) map[string]**sdk.Int {
 	if tx, ok := data.(*ethtx.BlobTx); ok {
 		return map[string]**sdk.Int{"chain ID": &tx.ChainID, "gas tip cap": &tx.GasTipCap, "gas fee cap": &tx.GasFeeCap, "amount": &tx.Amount, "blob fee cap": &tx.BlobFeeCap}
 	}
@@ -163,22 +163,22 @@ func repairM1247NumericFields(data ethtx.EthereumTxData) map[string]**sdk.Int {
 	return map[string]**sdk.Int{"chain ID": &tx.ChainID, "gas tip cap": &tx.GasTipCap, "gas fee cap": &tx.GasFeeCap, "amount": &tx.Amount, "auth list chain id": &tx.AuthList[0].ChainID}
 }
 
-func TestRepairM_1247_025_026_MandatoryUint256(t *testing.T) {
+func TestTransactionEnvelopeMandatoryUint256(t *testing.T) {
 	for _, blob := range []bool{false, true} {
-		data, _ := repairM1247Producer(t, blob)
-		for name := range repairM1247NumericFields(data) {
+		data, _ := signedTransactionEnvelope(t, blob)
+		for name := range transactionEnvelopeNumericFields(data) {
 			for _, invalid := range []string{"missing", "negative", "uninitialized", "overflow"} {
 				t.Run(proto.MessageName(data)+"/"+name+"/"+invalid, func(t *testing.T) {
-					data, _ := repairM1247Producer(t, blob)
-					field := repairM1247NumericFields(data)[name]
+					data, _ := signedTransactionEnvelope(t, blob)
+					field := transactionEnvelopeNumericFields(data)[name]
 					switch invalid {
 					case "missing":
 						*field = nil
-						repairM1247Rejected(t, data, name)
+						assertTransactionEnvelopeRejected(t, data, name)
 					case "negative":
 						value := sdk.NewInt(-1)
 						*field = &value
-						repairM1247Rejected(t, data, name)
+						assertTransactionEnvelopeRejected(t, data, name)
 					case "uninitialized":
 						// Protobuf normalizes an uninitialized Int to zero; exercise the cached input before marshaling.
 						msg, err := evmtypes.NewMsgEVMTransaction(data)
@@ -186,16 +186,16 @@ func TestRepairM_1247_025_026_MandatoryUint256(t *testing.T) {
 						*field = &sdk.Int{}
 						require.ErrorContains(t, data.Validate(), name)
 						require.ErrorContains(t, msg.ValidateBasic(), name)
-						require.ErrorContains(t, repairM1247Admission(t, msg), name)
+						require.ErrorContains(t, admitTransactionEnvelope(t, msg), name)
 					case "overflow":
 						integer := big.NewInt(1)
 						value := sdk.NewIntFromBigInt(integer)
 						integer.Lsh(integer, 256)
 						*field = &value
 						require.ErrorContains(t, data.Validate(), name)
-						for _, msg := range repairM1247Transport(t, data) {
+						for _, msg := range transportTransactionEnvelope(t, data) {
 							require.Error(t, msg.ValidateBasic())
-							require.Error(t, repairM1247Admission(t, msg))
+							require.Error(t, admitTransactionEnvelope(t, msg))
 						}
 					}
 				})
@@ -204,29 +204,29 @@ func TestRepairM_1247_025_026_MandatoryUint256(t *testing.T) {
 	}
 }
 
-func TestRepairM_1247_025_026_ValidRoundTrip(t *testing.T) {
+func TestTransactionEnvelopeValidRoundTrip(t *testing.T) {
 	for _, blob := range []bool{false, true} {
-		data, original := repairM1247Producer(t, blob)
+		data, original := signedTransactionEnvelope(t, blob)
 		t.Run(proto.MessageName(data), func(t *testing.T) {
-			for _, msg := range repairM1247Transport(t, data) {
+			for _, msg := range transportTransactionEnvelope(t, data) {
 				require.NoError(t, msg.ValidateBasic())
 				converted, _ := msg.AsTransaction()
 				require.Equal(t, original.Hash(), converted.Hash())
 				require.Equal(t, original.To(), converted.To())
 				if blob {
 					require.Equal(t, original.BlobTxSidecar(), converted.BlobTxSidecar())
-					require.ErrorIs(t, repairM1247Admission(t, msg), sdkerrors.ErrUnsupportedTxType)
+					require.ErrorIs(t, admitTransactionEnvelope(t, msg), sdkerrors.ErrUnsupportedTxType)
 				} else {
 					require.Equal(t, original.SetCodeAuthorizations(), converted.SetCodeAuthorizations())
-					require.NoError(t, repairM1247Admission(t, msg))
+					require.NoError(t, admitTransactionEnvelope(t, msg))
 				}
 			}
 		})
 	}
-	data, _ := repairM1247Producer(t, true)
+	data, _ := signedTransactionEnvelope(t, true)
 	data.(*ethtx.BlobTx).Sidecar = nil
-	for _, msg := range repairM1247Transport(t, data) {
+	for _, msg := range transportTransactionEnvelope(t, data) {
 		require.NoError(t, msg.ValidateBasic())
-		require.ErrorIs(t, repairM1247Admission(t, msg), sdkerrors.ErrUnsupportedTxType)
+		require.ErrorIs(t, admitTransactionEnvelope(t, msg), sdkerrors.ErrUnsupportedTxType)
 	}
 }

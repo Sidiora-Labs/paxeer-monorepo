@@ -20,14 +20,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type repair180Block struct {
+type domainFeeBlock struct {
 	app     *app.App
 	ctx     sdk.Context
 	msgs    []*types.MsgEVMTransaction
 	results []*abci.ExecTxResult
 }
 
-func repair180CreateDomain(t *testing.T, a *app.App, ctx sdk.Context, name string, gas uint64, bps uint16) chainstypes.Domain {
+func createFeeSettlementDomain(t *testing.T, a *app.App, ctx sdk.Context, name string, gas uint64, bps uint16) chainstypes.Domain {
 	t.Helper()
 	params := a.LayerXChainsKeeper.GetParams(ctx)
 	params.MaxFeeShareBps = 10000
@@ -41,7 +41,7 @@ func repair180CreateDomain(t *testing.T, a *app.App, ctx sdk.Context, name strin
 	return domain
 }
 
-func (b *repair180Block) execute(t *testing.T, id uint32, tip int64, feeDenom string, revert bool) sdk.Int {
+func (b *domainFeeBlock) execute(t *testing.T, id uint32, tip int64, feeDenom string, revert bool) sdk.Int {
 	t.Helper()
 	k := &b.app.EvmKeeper
 	collector := b.app.AccountKeeper.GetModuleAddress(authtypes.FeeCollectorName)
@@ -126,7 +126,7 @@ func (b *repair180Block) execute(t *testing.T, id uint32, tip int64, feeDenom st
 	return gas
 }
 
-func TestRepair_180_011_ExactCoinAndWeiShare(t *testing.T) {
+func TestDomainFeeExactCoinAndWeiShare(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
 		base   string
@@ -143,7 +143,7 @@ func TestRepair_180_011_ExactCoinAndWeiShare(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			a, ctx := domainFeeContext(t)
-			domain := repair180CreateDomain(t, a, ctx, "exact-share", 40000, tc.bps)
+			domain := createFeeSettlementDomain(t, a, ctx, "exact-share", 40000, tc.bps)
 			fee := sdk.MustNewDecFromStr(tc.base)
 			params := a.EvmKeeper.GetParams(ctx)
 			params.MaximumFeePerGas = sdk.NewDec(1_000_000_000_000)
@@ -160,7 +160,7 @@ func TestRepair_180_011_ExactCoinAndWeiShare(t *testing.T) {
 			operator := a.EvmKeeper.GetPaxAddressOrDefault(ctx, domain.Operator)
 			before := sdk.NewIntFromBigInt(a.EvmKeeper.GetBalance(ctx, operator))
 			collectorBefore := sdk.NewIntFromBigInt(a.EvmKeeper.GetBalance(ctx, collector))
-			block := repair180Block{app: a, ctx: ctx}
+			block := domainFeeBlock{app: a, ctx: ctx}
 			gas := block.execute(t, domain.Id, 7, denom, tc.revert)
 			require.Equal(t, before.String(), sdk.NewIntFromBigInt(a.EvmKeeper.GetBalance(ctx, operator)).String())
 			baseFees := fee.TruncateInt().Mul(gas)
@@ -177,11 +177,11 @@ func TestRepair_180_011_ExactCoinAndWeiShare(t *testing.T) {
 	}
 }
 
-func TestRepair_180_012_EmptyCollectorSettlesPaidDenominations(t *testing.T) {
+func TestDomainFeeEmptyCollectorSettlesPaidDenominations(t *testing.T) {
 	a, ctx := domainFeeContext(t)
 	k := &a.EvmKeeper
-	domain := repair180CreateDomain(t, a, ctx, "mixed-fees", 60000, 3333)
-	other := repair180CreateDomain(t, a, ctx, "other-fees", 40000, 10000)
+	domain := createFeeSettlementDomain(t, a, ctx, "mixed-fees", 60000, 3333)
+	other := createFeeSettlementDomain(t, a, ctx, "other-fees", 40000, 10000)
 	fee := sdk.MustNewDecFromStr("1000000003.999")
 	a.LayerXChainsKeeper.SetNextBaseFee(ctx, domain.Id, fee)
 	a.LayerXChainsKeeper.SetNextBaseFee(ctx, other.Id, sdk.NewDec(10))
@@ -197,7 +197,7 @@ func TestRepair_180_012_EmptyCollectorSettlesPaidDenominations(t *testing.T) {
 	nativeBefore := sdk.NewIntFromBigInt(k.GetBalance(ctx, operator))
 	otherBefore := sdk.NewIntFromBigInt(k.GetBalance(ctx, otherOperator))
 	tokenBefore := a.BankKeeper.GetBalance(ctx, operator, "usid").Amount
-	block := repair180Block{app: a, ctx: ctx}
+	block := domainFeeBlock{app: a, ctx: ctx}
 	tokenGas := block.execute(t, domain.Id, 3_000_000_000, "usid", false)
 	nativeGas := block.execute(t, domain.Id, 7, k.GetBaseDenom(ctx), false)
 	rootGas := block.execute(t, 0, 7, k.GetBaseDenom(ctx), false)

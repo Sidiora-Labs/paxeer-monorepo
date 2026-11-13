@@ -25,15 +25,15 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-type repair181Binding struct {
+type genesisRecoveryBinding struct {
 	address common.Address
 	key     [32]byte
 	private ed25519.PrivateKey
 }
 
-func repair181Bind(t *testing.T, k *keeper.Keeper, ctx sdk.Context, id byte) repair181Binding {
+func createGenesisRecoveryBinding(t *testing.T, k *keeper.Keeper, ctx sdk.Context, id byte) genesisRecoveryBinding {
 	t.Helper()
-	binding := repair181Binding{address: common.BytesToAddress([]byte{id})}
+	binding := genesisRecoveryBinding{address: common.BytesToAddress([]byte{id})}
 	binding.private = ed25519.NewKeyFromSeed(bytes.Repeat([]byte{id}, ed25519.SeedSize))
 	copy(binding.key[:], binding.private.Public().(ed25519.PublicKey))
 	message, err := types.LayerXBindMessage(k.ChainID(ctx), binding.address, 0)
@@ -46,15 +46,15 @@ func repair181Bind(t *testing.T, k *keeper.Keeper, ctx sdk.Context, id byte) rep
 	return binding
 }
 
-func repair181Export(t *testing.T) (codec.Codec, json.RawMessage, []json.RawMessage, []repair181Binding) {
+func exportGenesisRecoveryBindings(t *testing.T) (codec.Codec, json.RawMessage, []json.RawMessage, []genesisRecoveryBinding) {
 	t.Helper()
 	a := app.Setup(t, false, false, false)
 	ctx := a.GetContextForDeliverTx(nil)
 	k := &a.EvmKeeper
-	bindings := []repair181Binding{
-		repair181Bind(t, k, ctx, 1),
-		repair181Bind(t, k, ctx, 2),
-		repair181Bind(t, k, ctx, 3),
+	bindings := []genesisRecoveryBinding{
+		createGenesisRecoveryBinding(t, k, ctx, 1),
+		createGenesisRecoveryBinding(t, k, ctx, 2),
+		createGenesisRecoveryBinding(t, k, ctx, 3),
 	}
 	_, nonce, err := k.UnbindLayerX(ctx, bindings[2].address)
 	require.NoError(t, err)
@@ -75,7 +75,7 @@ func repair181Export(t *testing.T) (codec.Codec, json.RawMessage, []json.RawMess
 	return cdc, ordinary, chunks, bindings
 }
 
-func repair181Channel(chunks []json.RawMessage) <-chan json.RawMessage {
+func genesisRecoveryChunks(chunks []json.RawMessage) <-chan json.RawMessage {
 	ch := make(chan json.RawMessage, len(chunks))
 	for _, chunk := range chunks {
 		ch <- chunk
@@ -84,7 +84,7 @@ func repair181Channel(chunks []json.RawMessage) <-chan json.RawMessage {
 	return ch
 }
 
-func repair181AssertRecovered(t *testing.T, k *keeper.Keeper, ctx sdk.Context, bindings []repair181Binding) {
+func assertGenesisBindingsRecovered(t *testing.T, k *keeper.Keeper, ctx sdk.Context, bindings []genesisRecoveryBinding) {
 	t.Helper()
 	require.NoError(t, k.ValidateLayerXBindings(ctx))
 	for _, binding := range bindings[:2] {
@@ -114,20 +114,20 @@ func repair181AssertRecovered(t *testing.T, k *keeper.Keeper, ctx sdk.Context, b
 	require.Equal(t, uint64(2), k.GetLayerXBindNonce(ctx, released.address))
 }
 
-func repair181Open(db dbm.DB, home string) *app.App {
+func openGenesisRecoveryApp(db dbm.DB, home string) *app.App {
 	return app.New(db, nil, true, map[int64]bool{}, home, 1, false,
 		config.TestConfig(), app.MakeEncodingConfig(), wasm.EnableAllProposals,
 		app.TestAppOpts{}, app.EmptyWasmOpts, nil)
 }
 
-func repair181RestartRecovery(t *testing.T, streamed bool) {
+func proveGenesisBindingRestartRecovery(t *testing.T, streamed bool) {
 	t.Helper()
-	cdc, ordinary, chunks, bindings := repair181Export(t)
+	cdc, ordinary, chunks, bindings := exportGenesisRecoveryBindings(t)
 	dir := t.TempDir()
 	db, err := dbm.NewGoLevelDB("recovery", dir)
 	require.NoError(t, err)
 	home := t.TempDir()
-	a := repair181Open(db, home)
+	a := openGenesisRecoveryApp(db, home)
 	genesis, err := json.Marshal(app.NewDefaultGenesisState(a.AppCodec()))
 	require.NoError(t, err)
 	_, err = a.InitChain(context.Background(), &abci.RequestInitChain{
@@ -140,11 +140,11 @@ func repair181RestartRecovery(t *testing.T, streamed bool) {
 	_, bound := a.EvmKeeper.GetLayerXDid(ctx, bindings[0].address)
 	require.False(t, bound)
 	if streamed {
-		require.NotPanics(t, func() { module.InitGenesisStream(ctx, cdc, repair181Channel(chunks)) })
+		require.NotPanics(t, func() { module.InitGenesisStream(ctx, cdc, genesisRecoveryChunks(chunks)) })
 	} else {
 		require.NotPanics(t, func() { module.InitGenesis(ctx, cdc, ordinary) })
 	}
-	repair181AssertRecovered(t, &a.EvmKeeper, ctx, bindings)
+	assertGenesisBindingsRecovered(t, &a.EvmKeeper, ctx, bindings)
 	// Persist the decided identity through the production pre-commit hook,
 	// just as BaseApp.Commit does before committing the multistore.
 	validators := tmtypes.NewValidatorSet([]*tmtypes.Validator{tmtypes.NewValidator(tmed25519.GenerateSecretKey().Public(), 1)})
@@ -163,24 +163,24 @@ func repair181RestartRecovery(t *testing.T, streamed bool) {
 
 	db, err = dbm.NewGoLevelDB("recovery", dir)
 	require.NoError(t, err)
-	reopened := repair181Open(db, home)
+	reopened := openGenesisRecoveryApp(db, home)
 	t.Cleanup(func() { require.NoError(t, reopened.Close()) })
 	require.Equal(t, commit, reopened.LastCommitID())
 	require.Equal(t, []byte(blockHash), reopened.LastBlockID().Hash)
 	ctx = reopened.NewUncachedContext(false, tmproto.Header{ChainID: "pax-test", Height: commit.Version})
-	repair181AssertRecovered(t, &reopened.EvmKeeper, ctx, bindings)
+	assertGenesisBindingsRecovered(t, &reopened.EvmKeeper, ctx, bindings)
 }
 
-func TestRepair_181_OrdinaryRestartRecovery(t *testing.T) {
-	repair181RestartRecovery(t, false)
+func TestGenesisBindingsOrdinaryRestartRecovery(t *testing.T) {
+	proveGenesisBindingRestartRecovery(t, false)
 }
 
-func TestRepair_181_StreamRestartRecovery(t *testing.T) {
-	repair181RestartRecovery(t, true)
+func TestGenesisBindingsStreamRestartRecovery(t *testing.T) {
+	proveGenesisBindingRestartRecovery(t, true)
 }
 
-func TestRepair_181_RejectInconsistentRecovery(t *testing.T) {
-	cdc, ordinary, chunks, bindings := repair181Export(t)
+func TestGenesisBindingsRejectInconsistentRecovery(t *testing.T) {
+	cdc, ordinary, chunks, bindings := exportGenesisRecoveryBindings(t)
 	a := app.Setup(t, false, false, false)
 	t.Cleanup(func() { require.NoError(t, a.Close()) })
 	origin := a.GetContextForDeliverTx(nil)
@@ -230,7 +230,7 @@ func TestRepair_181_RejectInconsistentRecovery(t *testing.T) {
 				require.Equal(t, 1, replaced)
 				require.PanicsWithError(t, types.ErrLayerXGenesisBinding.Error(), func() {
 					if streamed {
-						module.InitGenesisStream(ctx, cdc, repair181Channel(mutated))
+						module.InitGenesisStream(ctx, cdc, genesisRecoveryChunks(mutated))
 					} else {
 						module.InitGenesis(ctx, cdc, mutated[0])
 					}

@@ -19,7 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepair_22_39_210(t *testing.T) {
+func TestExecutionResponseMatchesReceiptErrors(t *testing.T) {
 	precompile := common.HexToAddress(bank.BankAddress)
 	recipient := common.HexToAddress("0x123456")
 	for _, tc := range []struct {

@@ -2,7 +2,7 @@
 
 Run from the repository root:
 uv run --with eth-account==0.13.7 --with cryptography==46.0.3 \
-    modules/evm/config/generate_repair_476.py
+    modules/evm/config/generate_chain_config_vectors.py
 """
 
 import json
@@ -93,7 +93,7 @@ def regenerate_account_fixture():
         )
         update_resolution(vector, derived)
     fixture["resolution_provenance"] = (
-        "Regenerated for chain 125 by modules/evm/config/generate_repair_476.py "
+        "Regenerated for chain 125 by modules/evm/config/generate_chain_config_vectors.py "
         "using the production Python account derivation and binding code; "
         "expected getEvmAddrByLayerX ABI answers, no live-chain execution claim."
     )
@@ -121,7 +121,7 @@ def regenerate_attestation_doc():
         "Origin-1 vectors below are regenerated for Paxeer chain `125`; origin-2\n"
         "network id `1` is a fixture value. Live signing uses chain state and governed\n"
         "configuration. The generator is\n"
-        "[`generate_repair_476.py`](../evm/config/generate_repair_476.py).",
+        "[`generate_chain_config_vectors.py`](../evm/config/generate_chain_config_vectors.py).",
     )
     legacy = []
     for vector in vectors:

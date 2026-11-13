@@ -26,7 +26,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepair476_DefaultAndMappings(t *testing.T) {
+func TestChainConfigDefaultAndMappings(t *testing.T) {
 	require.Equal(t, int64(125), config.DefaultChainID)
 	require.Equal(t, map[string]int64{"hyperpax_125-1": 125}, config.ChainIDMapping)
 	require.Equal(t, map[int64]string{125: "hyperpax_125-1"}, config.EVMChainIDMapping)
@@ -45,7 +45,7 @@ func TestRepair476_DefaultAndMappings(t *testing.T) {
 	}
 }
 
-func TestRepair476_ProductionSigner(t *testing.T) {
+func TestChainConfigProductionSigner(t *testing.T) {
 	// Published Anvil key, used only for local signatures.
 	key, err := crypto.HexToECDSA("ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80")
 	require.NoError(t, err)
@@ -91,7 +91,7 @@ func TestRepair476_ProductionSigner(t *testing.T) {
 	}
 }
 
-type repair476Account struct {
+type chainConfigAccountVector struct {
 	Index           int    `json:"index"`
 	EVMAddress      string `json:"evm_address"`
 	LayerXPublicKey string `json:"layerx_public_key"`
@@ -112,17 +112,17 @@ type repair476Account struct {
 	} `json:"bind"`
 }
 
-func TestRepair476_RegeneratedFixture(t *testing.T) {
+func TestChainConfigRegeneratedFixture(t *testing.T) {
 	raw, err := os.ReadFile("../../../sdk/platform/conformance/fixtures/account-derivation-v1.json")
 	require.NoError(t, err)
 	var fixture struct {
 		ChainID   int64 `json:"chain_id"`
 		Mnemonics []struct {
-			Accounts []repair476Account `json:"accounts"`
+			Accounts []chainConfigAccountVector `json:"accounts"`
 		} `json:"mnemonic_vectors"`
 		Wallet struct {
 			Vectors []struct {
-				repair476Account
+				chainConfigAccountVector
 				TypedData  apitypes.TypedData `json:"typed_data"`
 				Hash       string             `json:"eip712_hash"`
 				Signature  string             `json:"signature"`
@@ -133,7 +133,7 @@ func TestRepair476_RegeneratedFixture(t *testing.T) {
 	require.NoError(t, json.Unmarshal(raw, &fixture))
 	require.Equal(t, int64(125), fixture.ChainID)
 	require.Len(t, fixture.Mnemonics, 2)
-	checkResolution := func(account repair476Account) {
+	checkResolution := func(account chainConfigAccountVector) {
 		t.Helper()
 		require.Equal(t, int64(125), account.Resolution.ChainID)
 		require.Equal(t, "did:layerx:"+account.LayerXPublicKey, account.DID)
@@ -168,7 +168,7 @@ func TestRepair476_RegeneratedFixture(t *testing.T) {
 	}
 	require.Len(t, fixture.Wallet.Vectors, 2)
 	for _, vector := range fixture.Wallet.Vectors {
-		checkResolution(vector.repair476Account)
+		checkResolution(vector.chainConfigAccountVector)
 		require.Equal(t, int64(125), (*big.Int)(vector.TypedData.Domain.ChainId).Int64())
 		digest, _, err := apitypes.TypedDataAndHash(vector.TypedData)
 		require.NoError(t, err)
@@ -211,7 +211,7 @@ func TestRepair476_RegeneratedFixture(t *testing.T) {
 	}
 }
 
-func TestRepair476_AttestationDocumentation(t *testing.T) {
+func TestChainConfigAttestationDocumentation(t *testing.T) {
 	var corpus struct {
 		Vectors []struct {
 			Origin   uint8  `json:"origin"`

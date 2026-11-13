@@ -2,7 +2,7 @@
 task = "22.33.1244"
 audit_record = "spec/layerx-merge/programme/audit/records/22.30.60.kvx"
 acceptance = "22998.1"
-test_file = "modules/evm/repair_m1244_test.go"
+test_file = "modules/evm/genesis_and_ante_recovery_test.go"
 continuation = "Attempt 4 preserves the five implementation paths from attempt 3 and supplies the missing declared repair record (gotcha 3027)."
 
 [finding.020]

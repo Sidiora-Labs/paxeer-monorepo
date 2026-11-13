@@ -25,7 +25,7 @@ import (
 
 // The fixture uses the application's production keepers and codec, with their
 // committed genesis stores copied into a private, reopenable Go LevelDB.
-type repairM1246Fixture struct {
+type balanceLifecycleFixture struct {
 	k    *keeper.Keeper
 	ctx  sdk.Context
 	root sdk.CommitMultiStore
@@ -33,11 +33,11 @@ type repairM1246Fixture struct {
 	dir  string
 }
 
-func newRepairM1246Fixture(t *testing.T) *repairM1246Fixture {
+func newBalanceLifecycleFixture(t *testing.T) *balanceLifecycleFixture {
 	t.Helper()
 	app := testkeeper.EVMTestApp
 	source := app.GetContextForDeliverTx(nil)
-	f := &repairM1246Fixture{
+	f := &balanceLifecycleFixture{
 		k:    &app.EvmKeeper,
 		ctx:  source.WithBlockTime(time.Unix(1000, 0)).WithTxIndex(1246).WithChainID("repair-m1246"),
 		keys: []*sdk.KVStoreKey{app.GetKey(types.StoreKey), app.GetKey(authtypes.StoreKey), app.GetKey(banktypes.StoreKey)},
@@ -59,7 +59,7 @@ func newRepairM1246Fixture(t *testing.T) *repairM1246Fixture {
 	return f
 }
 
-func (f *repairM1246Fixture) open(t *testing.T) {
+func (f *balanceLifecycleFixture) open(t *testing.T) {
 	t.Helper()
 	database, err := dbm.NewGoLevelDB("state", f.dir)
 	require.NoError(t, err)
@@ -71,7 +71,7 @@ func (f *repairM1246Fixture) open(t *testing.T) {
 	f.ctx = f.ctx.WithMultiStore(f.root).WithEventManager(sdk.NewEventManager()).WithEvmEventManager(sdk.NewEVMEventManager())
 }
 
-func (f *repairM1246Fixture) commitAndReopen(t *testing.T) {
+func (f *balanceLifecycleFixture) commitAndReopen(t *testing.T) {
 	t.Helper()
 	id := f.root.Commit(true)
 	require.NoError(t, f.root.Close())
@@ -81,14 +81,14 @@ func (f *repairM1246Fixture) commitAndReopen(t *testing.T) {
 	f.ctx = f.ctx.WithBlockHeight(id.Version)
 }
 
-func repairM1246Fund(t *testing.T, k *keeper.Keeper, ctx sdk.Context, addr sdk.AccAddress, coins int64, wei int64) {
+func fundBalanceLifecycleAccount(t *testing.T, k *keeper.Keeper, ctx sdk.Context, addr sdk.AccAddress, coins int64, wei int64) {
 	t.Helper()
 	amount := sdk.NewCoins(sdk.NewInt64Coin(k.GetBaseDenom(ctx), coins+1))
 	require.NoError(t, k.BankKeeper().MintCoins(ctx, types.ModuleName, amount))
 	require.NoError(t, k.BankKeeper().SendCoinsAndWei(ctx, k.AccountKeeper().GetModuleAddress(types.ModuleName), addr, sdk.NewInt(coins), sdk.NewInt(wei)))
 }
 
-func repairM1246StoreImage(ctx sdk.Context, keys []*sdk.KVStoreKey) map[string]map[string]string {
+func balanceLifecycleStoreImage(ctx sdk.Context, keys []*sdk.KVStoreKey) map[string]map[string]string {
 	image := make(map[string]map[string]string)
 	for _, key := range keys {
 		values := make(map[string]string)
@@ -104,8 +104,8 @@ func repairM1246StoreImage(ctx sdk.Context, keys []*sdk.KVStoreKey) map[string]m
 	return image
 }
 
-func TestRepairM_1246_LiveChainMintingBoundary(t *testing.T) {
-	f := newRepairM1246Fixture(t)
+func TestBalanceLifecycleLiveChainMintingBoundary(t *testing.T) {
+	f := newBalanceLifecycleFixture(t)
 	for chainID := range config.ChainIDMapping {
 		t.Run(chainID, func(t *testing.T) {
 			ctx := f.ctx.WithChainID(chainID)
@@ -116,8 +116,8 @@ func TestRepairM_1246_LiveChainMintingBoundary(t *testing.T) {
 					addr := common.HexToAddress("0x12460001")
 					pax := sdk.AccAddress(addr[:])
 					db := state.NewMockBalancesDBForTest(ctx, f.k)
-					before := repairM1246StoreImage(db.Ctx(), f.keys)
-					parent := repairM1246StoreImage(ctx, f.keys)
+					before := balanceLifecycleStoreImage(db.Ctx(), f.keys)
+					parent := balanceLifecycleStoreImage(ctx, f.keys)
 					events := len(db.Ctx().EventManager().Events())
 					require.Panics(t, func() {
 						switch path {
@@ -131,8 +131,8 @@ func TestRepairM_1246_LiveChainMintingBoundary(t *testing.T) {
 							db.Copy().SubBalance(addr, uint256.NewInt(1), tracing.BalanceChangeTransfer)
 						}
 					})
-					require.Equal(t, before, repairM1246StoreImage(db.Ctx(), f.keys))
-					require.Equal(t, parent, repairM1246StoreImage(ctx, f.keys))
+					require.Equal(t, before, balanceLifecycleStoreImage(db.Ctx(), f.keys))
+					require.Equal(t, parent, balanceLifecycleStoreImage(ctx, f.keys))
 					require.Len(t, db.Ctx().EventManager().Events(), events)
 				})
 			}
@@ -141,7 +141,7 @@ func TestRepairM_1246_LiveChainMintingBoundary(t *testing.T) {
 	// The ordinary build must still read and debit real funds on live chains.
 	ctx := f.ctx.WithChainID("hyperpax_125-1")
 	addr := common.HexToAddress("0x12460002")
-	repairM1246Fund(t, f.k, ctx, sdk.AccAddress(addr[:]), 2, 7)
+	fundBalanceLifecycleAccount(t, f.k, ctx, sdk.AccAddress(addr[:]), 2, 7)
 	db := state.NewDBImpl(ctx, f.k, false)
 	require.Equal(t, uint256.NewInt(2_000_000_000_007), db.GetBalance(addr))
 	db.SubBalance(addr, uint256.NewInt(1), tracing.BalanceChangeTransfer)
@@ -149,8 +149,8 @@ func TestRepairM_1246_LiveChainMintingBoundary(t *testing.T) {
 	require.Equal(t, uint256.NewInt(2_000_000_000_006), db.GetBalance(addr))
 }
 
-func TestRepairM_1246_DisposableChainTopOff(t *testing.T) {
-	f := newRepairM1246Fixture(t)
+func TestBalanceLifecycleDisposableChainTopOff(t *testing.T) {
+	f := newBalanceLifecycleFixture(t)
 	require.NoError(t, config.ValidateMockBalancesChainID(f.ctx))
 	addr := common.HexToAddress("0x12460003")
 	db := state.NewMockBalancesDBForTest(f.ctx, f.k)
@@ -169,19 +169,19 @@ func TestRepairM_1246_DisposableChainTopOff(t *testing.T) {
 	require.Equal(t, state.TopOffAmount, state.NewDBImpl(f.ctx, f.k, false).GetBalance(addr).ToBig())
 }
 
-func TestRepairM_1246_AssociatedDestruction(t *testing.T) {
+func TestBalanceLifecycleAssociatedDestruction(t *testing.T) {
 	for _, historical := range []bool{false, true} {
 		name := "delivery"
 		if historical {
 			name = "historical"
 		}
 		t.Run(name, func(t *testing.T) {
-			f := newRepairM1246Fixture(t)
+			f := newBalanceLifecycleFixture(t)
 			pax, addr := testkeeper.MockAddressPair()
 			cast := sdk.AccAddress(addr[:])
 			require.False(t, pax.Equals(cast))
 			f.k.SetAddressMapping(f.ctx, pax, addr)
-			repairM1246Fund(t, f.k, f.ctx, pax, 10, 37)
+			fundBalanceLifecycleAccount(t, f.k, f.ctx, pax, 10, 37)
 			f.k.SetCode(f.ctx, addr, []byte{0x60, 0x00})
 			key, value := common.HexToHash("0x1246"), common.HexToHash("0x29")
 			f.k.SetState(f.ctx, addr, key, value)
@@ -220,14 +220,14 @@ func TestRepairM_1246_AssociatedDestruction(t *testing.T) {
 	}
 }
 
-func TestRepairM_1246_AssociatedDestructionAssertions(t *testing.T) {
+func TestBalanceLifecycleAssociatedDestructionAssertions(t *testing.T) {
 	TestSelfDestructAssociated(t)
 }
 
-func TestRepairM_1246_ResidualSettlementAtomic(t *testing.T) {
+func TestBalanceLifecycleResidualSettlementAtomic(t *testing.T) {
 	for _, failure := range []string{"locked-debit", "collector-credit"} {
 		t.Run(failure, func(t *testing.T) {
-			f := newRepairM1246Fixture(t)
+			f := newBalanceLifecycleFixture(t)
 			pax, addr := testkeeper.MockAddressPair()
 			f.k.SetAddressMapping(f.ctx, pax, addr)
 			f.k.SetCode(f.ctx, addr, []byte{0x60, 0x01})
@@ -240,7 +240,7 @@ func TestRepairM_1246_ResidualSettlementAtomic(t *testing.T) {
 			require.NoError(t, db.Error())
 			require.True(t, db.HasSelfDestructed(addr))
 			cast := sdk.AccAddress(addr[:])
-			repairM1246Fund(t, f.k, db.Ctx(), cast, 3, 19)
+			fundBalanceLifecycleAccount(t, f.k, db.Ctx(), cast, 3, 19)
 			wantErr := sdkerrors.ErrInvalidRecipient
 			if failure == "locked-debit" {
 				base := f.k.AccountKeeper().GetAccount(db.Ctx(), cast)
@@ -273,15 +273,15 @@ func TestRepairM_1246_ResidualSettlementAtomic(t *testing.T) {
 			require.NoError(t, db.Error())
 			db.Snapshot()
 			db.SetTransientState(addr, key, value)
-			before := repairM1246StoreImage(db.Ctx(), f.keys)
-			parent := repairM1246StoreImage(f.ctx, f.keys)
+			before := balanceLifecycleStoreImage(db.Ctx(), f.keys)
+			parent := balanceLifecycleStoreImage(f.ctx, f.keys)
 			events := len(db.Ctx().EventManager().Events())
 			parentEvents := len(f.ctx.EventManager().Events())
 			_, err := db.Finalize()
 			require.ErrorIs(t, err, wantErr)
 			require.ErrorIs(t, db.Error(), wantErr)
-			require.Equal(t, before, repairM1246StoreImage(db.Ctx(), f.keys), "failed settlement rolls back both balances")
-			require.Equal(t, parent, repairM1246StoreImage(f.ctx, f.keys), "failed finalization never publishes execution")
+			require.Equal(t, before, balanceLifecycleStoreImage(db.Ctx(), f.keys), "failed settlement rolls back both balances")
+			require.Equal(t, parent, balanceLifecycleStoreImage(f.ctx, f.keys), "failed finalization never publishes execution")
 			require.Len(t, db.Ctx().EventManager().Events(), events)
 			require.Len(t, f.ctx.EventManager().Events(), parentEvents)
 			require.Equal(t, value, db.GetState(addr, key), "account state is not cleared on error")
@@ -292,7 +292,7 @@ func TestRepairM_1246_ResidualSettlementAtomic(t *testing.T) {
 			require.Zero(t, f.k.GetBalance(db.Ctx(), state.GetCoinbaseAddress(db.TxIndex())).Sign())
 			db.Cleanup()
 			f.commitAndReopen(t)
-			require.Equal(t, parent, repairM1246StoreImage(f.ctx, f.keys))
+			require.Equal(t, parent, balanceLifecycleStoreImage(f.ctx, f.keys))
 			reloaded := state.NewDBImpl(f.ctx, f.k, false)
 			mapped, exists := f.k.GetPaxAddress(reloaded.Ctx(), addr)
 			require.True(t, exists)
