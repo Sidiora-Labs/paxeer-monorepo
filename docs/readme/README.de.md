@@ -82,7 +82,7 @@ Bauen Sie den integrierten Knoten aus dem Repository-Root:
 make paxd-build
 ```
 
-Dieses Target baut zuerst die Kernel-Bibliothek und die Programs-Runtime, die `paxd` einbindet, und erzeugt dann `build/paxd` über `chain.mk`. `make paxeer-build` reicht nur den Go-Build weiter und ersetzt diese Vorbereitung nicht. Beide verwenden `GOPROXY=off`; die benötigten Go-Abhängigkeiten müssen bereits verfügbar sein. Die Kernel-Bibliothek und die vorhandenen Test-Targets können separat bearbeitet werden:
+Dieses Target baut zuerst die Kernel-Bibliothek, die Programs-Runtime und evmone, die `paxd` einbindet, und erzeugt dann `build/paxd` über `chain.mk`. `make paxeer-build` ruft den Build in `chain.mk` auf und bereitet ebenfalls die nativen Abhängigkeiten vor; `make paxd-build` setzt zusätzlich die Version aus `tools/release/version.json`. Beide verwenden `GOPROXY=off`; die benötigten Go-Abhängigkeiten müssen bereits verfügbar sein. Die Kernel-Bibliothek und die vorhandenen Test-Targets können separat bearbeitet werden:
 
 ```sh
 make build

@@ -69,7 +69,7 @@ Execute na raiz do repositório:
 make paxd-build
 ```
 
-Esse alvo prepara `build/liblayerx.a` e o sandbox de Programs em `programs/target/release/`, depois compila o nó em `build/paxd`. As dependências nativas são ligadas pelo host cgo. O `Makefile` e [`chain.mk`](../../chain.mk) definem os detalhes de compilação; os alvos Go usam `GOPROXY=off`, portanto as dependências precisam estar disponíveis no ambiente.
+Esse alvo prepara `build/liblayerx.a`, o sandbox de Programs em `programs/target/release/` e evmone, depois compila o nó em `build/paxd` com a versão de `tools/release/version.json`. As dependências nativas são ligadas pelo host cgo. O `Makefile` e [`chain.mk`](../../chain.mk) definem os detalhes de compilação; os alvos Go usam `GOPROXY=off`, portanto as dependências precisam estar disponíveis no ambiente.
 
 Para trabalhar na biblioteca do kernel, os alvos existentes incluem:
 

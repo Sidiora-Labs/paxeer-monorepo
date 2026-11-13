@@ -82,7 +82,7 @@ Compile el nodo integrado desde la raíz del repositorio:
 make paxd-build
 ```
 
-Este target compila primero la biblioteca del kernel y el runtime de Programs que enlaza `paxd`, y después genera `build/paxd` mediante `chain.mk`. `make paxeer-build` solo delega la compilación Go y no sustituye esa preparación. Ambos usan `GOPROXY=off`; las dependencias Go necesarias deben estar disponibles de antemano. La biblioteca del kernel y los targets de pruebas existentes se pueden trabajar por separado:
+Este target compila primero la biblioteca del kernel, el runtime de Programs y evmone que enlaza `paxd`, y después genera `build/paxd` mediante `chain.mk`. `make paxeer-build` delega a `chain.mk` y también prepara las dependencias nativas; `make paxd-build` fija además la versión de `tools/release/version.json`. Ambos usan `GOPROXY=off`; las dependencias Go necesarias deben estar disponibles de antemano. La biblioteca del kernel y los targets de pruebas existentes se pueden trabajar por separado:
 
 ```sh
 make build

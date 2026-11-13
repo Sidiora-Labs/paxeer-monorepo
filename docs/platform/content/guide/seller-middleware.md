@@ -1,6 +1,6 @@
 # Seller middleware
 
-`@sidiora/layerx-seller-middleware` is the piece that turns an HTTP resource into a paid one. The framework integrations for [Express](../framework/express.md), [Next.js](../framework/next.md), [FastAPI](../framework/fastapi.md) and [Spring Boot](../framework/spring.md) are thin mounts over it. Use it directly when your framework is not one of those, or when you want the decision without the routing.
+`@sidiora/layerx-seller-middleware` is the piece that turns an HTTP resource into a paid one. [Express](../framework/express.md) and [Next.js](../framework/next.md) mount the TypeScript implementation. [FastAPI](../framework/fastapi.md) and [Spring Boot](../framework/spring.md) have separate language bindings and configuration. Use `SellerMiddleware` directly for a decision without framework routing.
 
 ## The shape
 
@@ -11,30 +11,30 @@
 | `paymentRequired()` | The `402` decision and its `PAYMENT-REQUIRED` header, for a request that carried no payment |
 | `handle(...)` | One of four decisions for a request that did |
 
-The four decisions are total. There is no fallthrough.
+Successful calls return one of these decisions. Invalid inputs or unverifiable evidence raise a typed error.
 
 | Decision | HTTP | Meaning |
 |---|---|---|
 | `payment-required` | `402` | Pay this, exactly this |
-| `pending` | `202` | The payment is real and still settling. Not a guess, not a failure |
-| `refused` | The refusal | The payment was refused, and the settlement response says why |
+| `pending` | `202` | The authority reports a pending outcome |
+| `refused` | `402` or `409` | The payment was refused, and the settlement response says why |
 | `released` | `200` | The receipt verified. Here is the resource, and here is the settlement header |
 
 ## What `handle` actually does
 
 1. Decodes the `PAYMENT-SIGNATURE` header into a payment payload.
 2. Matches the payload's accepted requirements against your declared requirements. A mismatch is `requirements-mismatch`, not a discount.
-3. Asks the payment authority to settle. `ReceiptPayloadAuthority` extracts the receipt evidence carried in the payload and verifies it against an authorised batch resolved for that payment.
-4. On a verified settlement, computes the request digest and hands it to your fulfilment repository together with a `release` callback. The repository decides whether to call it.
+3. Asks the payment authority to settle. `ReceiptPayloadAuthority` verifies the signed receipt, raw transaction and receipt digest against independently pinned keys. The middleware then checks the payment event against the declared requirements and verifies the requested commitment level.
+4. Computes a request digest, binds the verified transaction to a fulfilment claim and supplies a `release` callback to the fulfilment repository. Stored fulfilments can be returned without another release; reusing a payment for a different request is refused.
 5. Returns the released resource and the `PAYMENT-RESPONSE` header.
 
-Your resource handler runs at step 4 and only at step 4. There is no code path that releases the resource before verification.
+Your resource handler runs only after payment verification and a fulfilment claim.
 
-## The three things you supply
+## Configuration
 
-**The declared protocol version.** `protocolVersion` selects the receipt protocol the middleware verifies against, and it has no default. A configuration that omits it, or names a version the SDK cannot select, is refused at construction with `missing-protocol-version`. The beta network runs protocol `3`; a receipt of any other version is a `verification-failure`, not a downgrade.
+**The payment requirements.** `paymentRequired` declares the resource and accepted payment terms using x402 version `2`. Requirements bind the scheme, network, asset, amount and recipient. The middleware does not take a `protocolVersion` setting.
 
-**The authorised batch resolver.** Verification is meaningless if the facts you verify against come from the same party that gave you the receipt. `staticAuthorizedBatches` is right for a single-batch test; in production resolve the batch from a source you trust independently.
+**The receipt authority and pinned keys.** Supply `receiptKeys` and an `authority`. `ReceiptPayloadAuthority(receiptKeys)` verifies portable native receipt evidence against pinned key IDs, public keys and height ranges. Obtain those pins independently of the receipt supplier. Requirements select `receipted` by default; set `extra.layerx.commitment` to `committed` to require finality. For `committed` payment requirements, also supply a `commitments` resolver that authenticates the block commit, validator set and transaction inclusion.
 
 **The fulfilment repository.** This is where exactly-once lives:
 
@@ -42,17 +42,17 @@ Your resource handler runs at step 4 and only at step 4. There is no code path t
 - Same idempotency key, different request digest: raise `fulfillment-conflict`.
 - New key: call `release`, store the result durably, return it.
 
-An in-memory implementation is correct and not durable. On restart it forgets, and a buyer who already paid gets charged again or gets nothing. Both are your bug, not the protocol's.
+Use a durable repository in production. `DurableFulfillmentRepository` persists a claim before release; an uncertain release remains unresolved and raises `fulfillment-outcome-unknown` rather than running the callback again. The release operation must honour the supplied idempotency key.
 
 ## Errors
 
-`MiddlewareError` carries one of a closed set of codes: `invalid-payment-required`, `invalid-payment-payload`, `requirements-mismatch`, `unsupported-payment`, `payment-pending`, `payment-refused`, `verification-failure`, `fulfillment-conflict`, `fulfillment-outcome-unknown`, `invalid-webhook`, `webhook-replay`, `missing-protocol-version`. Map them to status codes once, centrally.
+`MiddlewareError` carries one of a closed set of codes: `invalid-payment-required`, `invalid-payment-payload`, `requirements-mismatch`, `unsupported-payment`, `payment-pending`, `payment-refused`, `verification-failure`, `fulfillment-conflict`, `fulfillment-outcome-unknown`, `invalid-webhook`, `webhook-replay`. Map them to status codes once, centrally.
 
 ## Enforced by
 
 | Capability | Layer | What that means here |
 |---|---|---|
-| Offline receipt verification | `protocol` | The authority verifies receipt bytes against a batch header, with no Paxeer X Network service in the path. |
+| Offline receipt verification | `protocol` | Signed execution receipts are checked locally against pinned keys; committed evidence also requires a commitment resolver. |
 | Atomic settlement | `protocol` | A verified receipt describes a payment that happened whole. |
 | Receipt-gated resource release | `service` | Binds requests that reach your service through this middleware, and nothing else. |
 | Exactly-once fulfilment | `service` | As durable as the repository you supply. |

@@ -38,8 +38,8 @@ fn settlement(receipt: &[u8], batch: &BatchFacts) -> Result<Settlement, String> 
 
 ## Verifying from the command line
 
-```
-layerx receipt get <receipt-id> --json
+```text
+layerx receipt get <tx-hash> --json
 layerx receipt verify \
   --receipt ./receipt.hex \
   --batch-id <hex> \
@@ -49,7 +49,7 @@ layerx receipt verify \
   --sequencer-public-key <hex>
 ```
 
-`receipt get` fetches receipt material; on the merged network its argument is a transaction hash for `pax_sequencerReceipt`. Fetching is not verification. `receipt verify` never touches the network: every fact it checks against is an argument you supplied. The `--receipt` file may hold the canonical bytes raw, or the same bytes as ASCII hex - the CLI accepts either, so piping a hex field out of a JSON response into a file works without a conversion step. The retained command example above uses compatibility inputs.
+`receipt get` fetches receipt material; on the merged network its argument is a transaction hash for `pax_sequencerReceipt`. Fetching is not verification. `receipt verify` never touches the network: every fact it checks against is an argument you supplied. The `--receipt` file holds raw compatibility receipt bytes or unprefixed ASCII hex of the same bytes. The native `pax_sequencerReceipt` response uses a different encoding; use the native SDK verifier for that receipt. The command above uses compatibility inputs.
 
 On success it prints the verification level as its wire rank, the receipt digest, the activity id, the batch id, the protocol result code and the canonical byte length. On failure it names the exact check that failed - not a generic error.
 

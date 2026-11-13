@@ -68,7 +68,7 @@ Paxeer X チェーン（チェーン ID 125）に接続するには、[`docs/sit
 make paxd-build
 ```
 
-このターゲットは `build/liblayerx.a` と `programs/target/release/liblayerx_programs_sandbox.a` を構築してから、`build/paxd` を生成します。チェーンのビルドターゲット `make paxeer-build` もネイティブ依存関係を構築します。レシピは `GOPROXY=off` を使用するため、Go の依存関係は事前にローカルへ用意する必要があります。
+このターゲットは `build/liblayerx.a`、`programs/target/release/liblayerx_programs_sandbox.a`、evmone を構築してから、`tools/release/version.json` のバージョンで `build/paxd` を生成します。チェーンのビルドターゲット `make paxeer-build` もネイティブ依存関係を構築します。レシピは `GOPROXY=off` を使用するため、Go の依存関係は事前にローカルへ用意する必要があります。
 
 カーネルとコントラクトの開発用ターゲット:
 

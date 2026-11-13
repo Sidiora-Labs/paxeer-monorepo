@@ -68,7 +68,7 @@ Depuis la racine, construisez le nœud intégré :
 make paxd-build
 ```
 
-Cette cible construit `build/liblayerx.a` et `programs/target/release/liblayerx_programs_sandbox.a`, puis le binaire `build/paxd`. `make paxeer-build` reste la cible de compilation de la chaîne et construit aussi ses dépendances natives. Les recettes utilisent `GOPROXY=off` : les dépendances Go doivent déjà être disponibles localement.
+Cette cible construit `build/liblayerx.a`, `programs/target/release/liblayerx_programs_sandbox.a` et evmone, puis le binaire `build/paxd` avec la version de `tools/release/version.json`. `make paxeer-build` reste la cible de compilation de la chaîne et construit aussi ses dépendances natives. Les recettes utilisent `GOPROXY=off` : les dépendances Go doivent déjà être disponibles localement.
 
 Pour développer le noyau et les contrats :
 
