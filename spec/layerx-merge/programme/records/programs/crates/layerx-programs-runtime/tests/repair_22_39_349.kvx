@@ -16,7 +16,7 @@ log = "/out/logs/build-1.log"
 result = "The C archive and all feature-disabled runtime test targets built successfully at the recorded revision; this later evidence-only update was not rebuilt."
 
 [qualification.verify]
-command = "test -s programs/crates/layerx-programs-runtime/tests/repair_22_39_349.kvx && cargo test --locked --manifest-path programs/crates/layerx-programs-runtime/Cargo.toml --test repair_22_33_259 && cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --features host-ffi --tests"
+command = "test -s spec/layerx-merge/programme/records/programs/crates/layerx-programs-runtime/tests/repair_22_39_349.kvx && cargo test --locked --manifest-path programs/crates/layerx-programs-runtime/Cargo.toml --test pre_entry_capabilities_and_linkers && cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --features host-ffi --tests"
 revision = "b80fd4967a508c920bc2290476a5396d2cd6c4ea"
 runner_command = "cg spec done 22.39.349 -f layerx-merge --root /work/paxeer-monorepo"
 runner_exit = 7
