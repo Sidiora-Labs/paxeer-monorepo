@@ -11,8 +11,8 @@ import { readGeneratedSnapshot, registerMapTests, setupSnapshot } from "./map.te
 
 const toolRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const repositoryRoot = resolve(toolRoot, "../..");
-const fixtures = join(toolRoot, "test/fixtures/repair-22-33-800");
-const priorFixtures = join(toolRoot, "test/fixtures/repair-22-33-799");
+const fixtures = join(toolRoot, "test/fixtures/snapshot-setup");
+const priorFixtures = join(toolRoot, "test/fixtures/delivery-snapshot");
 const graph = JSON.parse(readFileSync(join(fixtures, "graph.json"), "utf8"));
 const git = JSON.parse(readFileSync(join(fixtures, "git.json"), "utf8"));
 

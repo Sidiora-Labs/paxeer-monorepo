@@ -12,7 +12,7 @@ import { createMapServer } from "../serve.mjs";
 
 const toolRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const repositoryRoot = resolve(toolRoot, "../..");
-const fixtures = join(toolRoot, "test/fixtures/repair-22-33-799");
+const fixtures = join(toolRoot, "test/fixtures/delivery-snapshot");
 const fixtureRoot = join(fixtures, "repository");
 const transcript = JSON.parse(readFileSync(join(fixtures, "git.json"), "utf8"));
 const colors = { task: "#8695a8", in_progress: "#efb45e", pending: "#5e6b7b" };
@@ -102,7 +102,7 @@ async function sectionBoundariesSurviveTransport(t) {
     id: "repair.1201", title: "Deliver repair 1201", status: "in_progress", wave: 0,
     section: null, requires: ["repair.1200"], reqs: ["22998.1"],
     symbols: ["parsePlatformSpec"], touches: ["tools/codebase-map/generate.mjs"],
-    verifyCommand: "node --test tools/codebase-map/test/repair-22-33-799.test.mjs", deliverable: true,
+    verifyCommand: "node --test tools/codebase-map/test/delivery-snapshot.test.mjs", deliverable: true,
   });
   assert.equal(snapshot.tasks.length, 2487);
   assert.equal(snapshot.coverage.tasks, 2486);
