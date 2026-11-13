@@ -15,17 +15,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type repairM1422Chain struct {
-	*repair193Chain
+type scopeAuthorizationRoutingChain struct {
+	*scopeAuthorizationChain
 }
 
-func newRepairM1422Chain(t *testing.T) *repairM1422Chain {
-	f := &repairM1422Chain{newRepair193Chain(t)}
+func newScopeAuthorizationRoutingChain(t *testing.T) *scopeAuthorizationRoutingChain {
+	f := &scopeAuthorizationRoutingChain{newScopeAuthorizationChain(t)}
 	authz.RegisterMsgServer(f.router, f.keeper)
 	return f
 }
 
-func (f *repairM1422Chain) grant(a types.LayerXScopeAuthorization) {
+func (f *scopeAuthorizationRoutingChain) grant(a types.LayerXScopeAuthorization) {
 	f.t.Helper()
 	require.NoError(f.t, a.ValidateBasic())
 	// Keep SDK expiration later than the scope interval so refusals at NotAfter
@@ -49,7 +49,7 @@ func (f *repairM1422Chain) grant(a types.LayerXScopeAuthorization) {
 	require.Equal(f.t, expiration, storedExpiration)
 }
 
-func (f *repairM1422Chain) exec(ctx sdk.Context, msgs ...sdk.Msg) error {
+func (f *scopeAuthorizationRoutingChain) exec(ctx sdk.Context, msgs ...sdk.Msg) error {
 	f.t.Helper()
 	msg := authz.NewMsgExec(f.grantee, msgs)
 	decoded := f.signed(&msg, f.granteeKey)
@@ -96,11 +96,11 @@ func (f *repairM1422Chain) exec(ctx sdk.Context, msgs ...sdk.Msg) error {
 	return err
 }
 
-func (f *repairM1422Chain) liveContext() sdk.Context {
+func (f *scopeAuthorizationRoutingChain) liveContext() sdk.Context {
 	return types.WithGrantorRevocation(f.ctx, f.granter, f.authorization().RevocationEpoch)
 }
 
-func (f *repairM1422Chain) assertSpending(total, period string, start uint64, transferred int64) {
+func (f *scopeAuthorizationRoutingChain) assertSpending(total, period string, start uint64, transferred int64) {
 	f.t.Helper()
 	stored := f.stored()
 	require.Equal(f.t, total, stored.SpentTotal)
@@ -111,10 +111,10 @@ func (f *repairM1422Chain) assertSpending(total, period string, start uint64, tr
 	require.True(f.t, sdk.NewInt(1000-transferred).Equal(f.bank.GetBalance(f.ctx, f.granter, denom).Amount), "granter balance differs")
 }
 
-func TestRepairM_1422_RuntimeRefusal(t *testing.T) {
+func TestScopeAuthorizationRoutingRuntimeRefusal(t *testing.T) {
 	cases := []struct {
 		name   string
-		change func(*repairM1422Chain, *types.LayerXScopeAuthorization, *banktypes.MsgSend)
+		change func(*scopeAuthorizationRoutingChain, *types.LayerXScopeAuthorization, *banktypes.MsgSend)
 		offset int64
 		want   error
 		reason string
@@ -123,41 +123,41 @@ func TestRepairM_1422_RuntimeRefusal(t *testing.T) {
 		{name: "last_valid_millisecond", offset: 999},
 		{name: "before_validity", offset: -1, want: types.ErrAuthScope, reason: "outside validity interval"},
 		{name: "exclusive_not_after", offset: 1000, want: types.ErrAuthScope, reason: "outside validity interval"},
-		{name: "module", change: func(_ *repairM1422Chain, a *types.LayerXScopeAuthorization, _ *banktypes.MsgSend) {
+		{name: "module", change: func(_ *scopeAuthorizationRoutingChain, a *types.LayerXScopeAuthorization, _ *banktypes.MsgSend) {
 			a.ModuleMask = 1 << 2
 		}, want: types.ErrAuthScope, reason: "outside module mask"},
-		{name: "ordinal", change: func(_ *repairM1422Chain, a *types.LayerXScopeAuthorization, _ *banktypes.MsgSend) {
+		{name: "ordinal", change: func(_ *scopeAuthorizationRoutingChain, a *types.LayerXScopeAuthorization, _ *banktypes.MsgSend) {
 			a.OrdinalMin++
 			a.OrdinalMax++
 		}, want: types.ErrAuthScope, reason: "outside"},
-		{name: "asset", change: func(_ *repairM1422Chain, a *types.LayerXScopeAuthorization, _ *banktypes.MsgSend) {
+		{name: "asset", change: func(_ *scopeAuthorizationRoutingChain, a *types.LayerXScopeAuthorization, _ *banktypes.MsgSend) {
 			a.AssetId = bytes.Repeat([]byte{0x24}, 32)
 		}, want: types.ErrAuthScope, reason: "activity asset differs"},
-		{name: "per_activity", change: func(_ *repairM1422Chain, a *types.LayerXScopeAuthorization, _ *banktypes.MsgSend) {
+		{name: "per_activity", change: func(_ *scopeAuthorizationRoutingChain, a *types.LayerXScopeAuthorization, _ *banktypes.MsgSend) {
 			a.MaxPerActivity = "4"
 		}, want: types.ErrAuthScope, reason: "above max per activity"},
-		{name: "purpose_amount", change: func(f *repairM1422Chain, a *types.LayerXScopeAuthorization, msg *banktypes.MsgSend) {
+		{name: "purpose_amount", change: func(f *scopeAuthorizationRoutingChain, a *types.LayerXScopeAuthorization, msg *banktypes.MsgSend) {
 			purpose, err := types.BankSendPurpose(msg)
 			require.NoError(f.t, err)
 			a.PurposeHash = purpose[:]
 			msg.Amount = f.send(6).Amount
 		}, want: types.ErrAuthScope, reason: "activity purpose differs"},
-		{name: "purpose_recipient", change: func(f *repairM1422Chain, a *types.LayerXScopeAuthorization, msg *banktypes.MsgSend) {
+		{name: "purpose_recipient", change: func(f *scopeAuthorizationRoutingChain, a *types.LayerXScopeAuthorization, msg *banktypes.MsgSend) {
 			purpose, err := types.BankSendPurpose(msg)
 			require.NoError(f.t, err)
 			a.PurposeHash = purpose[:]
 			msg.ToAddress = sdk.AccAddress(bytes.Repeat([]byte{0x25}, 20)).String()
 		}, want: types.ErrAuthScope, reason: "activity purpose differs"},
-		{name: "unmapped_denomination", change: func(_ *repairM1422Chain, _ *types.LayerXScopeAuthorization, msg *banktypes.MsgSend) {
+		{name: "unmapped_denomination", change: func(_ *scopeAuthorizationRoutingChain, _ *types.LayerXScopeAuthorization, msg *banktypes.MsgSend) {
 			msg.Amount = sdk.NewCoins(sdk.NewInt64Coin("upax", 5))
 		}, want: types.ErrAuthScope, reason: "no canonical kernel asset"},
-		{name: "multiple_assets", change: func(_ *repairM1422Chain, _ *types.LayerXScopeAuthorization, msg *banktypes.MsgSend) {
+		{name: "multiple_assets", change: func(_ *scopeAuthorizationRoutingChain, _ *types.LayerXScopeAuthorization, msg *banktypes.MsgSend) {
 			msg.Amount = msg.Amount.Add(sdk.NewInt64Coin("upax", 1))
 		}, want: types.ErrAuthScope, reason: "requires one asset"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			f := newRepairM1422Chain(t)
+			f := newScopeAuthorizationRoutingChain(t)
 			a := f.authorization()
 			msg := f.send(5)
 			if tc.change != nil {
@@ -165,7 +165,7 @@ func TestRepairM_1422_RuntimeRefusal(t *testing.T) {
 			}
 			f.grant(a)
 			before := proto.Clone(f.stored())
-			f.ctx = f.ctx.WithBlockTime(time.UnixMilli(repair193Now + tc.offset))
+			f.ctx = f.ctx.WithBlockTime(time.UnixMilli(scopeAuthorizationNow + tc.offset))
 			err := f.exec(f.liveContext(), msg)
 			if tc.want == nil {
 				require.NoError(t, err)
@@ -185,8 +185,8 @@ func TestRepairM_1422_RuntimeRefusal(t *testing.T) {
 	}
 }
 
-func TestRepairM_1422_PersistedSpendingAndRollover(t *testing.T) {
-	f := newRepairM1422Chain(t)
+func TestScopeAuthorizationRoutingPersistedSpendingAndRollover(t *testing.T) {
+	f := newScopeAuthorizationRoutingChain(t)
 	a := f.authorization()
 	a.PeriodLength = 100
 	a.MaxPerPeriod = "10"
@@ -199,40 +199,40 @@ func TestRepairM_1422_PersistedSpendingAndRollover(t *testing.T) {
 	f.assertSpending("10", "10", a.NotBefore, 10)
 	f.reopen()
 	f.assertSpending("10", "10", a.NotBefore, 10)
-	f.ctx = f.ctx.WithBlockTime(time.UnixMilli(repair193Now + 99))
+	f.ctx = f.ctx.WithBlockTime(time.UnixMilli(scopeAuthorizationNow + 99))
 	require.ErrorIs(t, f.exec(f.liveContext(), f.send(1)), types.ErrAuthScope)
 	f.assertSpending("10", "10", a.NotBefore, 10)
-	f.ctx = f.ctx.WithBlockTime(time.UnixMilli(repair193Now + 100))
+	f.ctx = f.ctx.WithBlockTime(time.UnixMilli(scopeAuthorizationNow + 100))
 	require.NoError(t, f.exec(f.liveContext(), f.send(6)))
 	f.assertSpending("16", "6", a.NotBefore+100, 16)
 	require.NoError(t, f.exec(f.liveContext(), f.send(4)))
 	f.assertSpending("20", "10", a.NotBefore+100, 20)
-	f.ctx = f.ctx.WithBlockTime(time.UnixMilli(repair193Now + 300))
+	f.ctx = f.ctx.WithBlockTime(time.UnixMilli(scopeAuthorizationNow + 300))
 	err := f.exec(f.liveContext(), f.send(1))
 	require.ErrorIs(t, err, types.ErrAuthScope)
 	require.ErrorContains(t, err, "above max total")
 	f.assertSpending("20", "10", a.NotBefore+100, 20)
 
 	t.Run("whole_elapsed_periods", func(t *testing.T) {
-		f := newRepairM1422Chain(t)
+		f := newScopeAuthorizationRoutingChain(t)
 		a := f.authorization()
 		a.PeriodLength = 100
 		a.MaxPerPeriod = "10"
 		f.grant(a)
 		require.NoError(t, f.exec(f.liveContext(), f.send(7)))
-		f.ctx = f.ctx.WithBlockTime(time.UnixMilli(repair193Now + 350))
+		f.ctx = f.ctx.WithBlockTime(time.UnixMilli(scopeAuthorizationNow + 350))
 		require.NoError(t, f.exec(f.liveContext(), f.send(8)))
 		f.assertSpending("15", "8", a.NotBefore+300, 15)
 		f.reopen()
-		f.ctx = f.ctx.WithBlockTime(time.UnixMilli(repair193Now + 399))
+		f.ctx = f.ctx.WithBlockTime(time.UnixMilli(scopeAuthorizationNow + 399))
 		f.assertSpending("15", "8", a.NotBefore+300, 15)
 		require.ErrorIs(t, f.exec(f.liveContext(), f.send(3)), types.ErrAuthScope)
 		f.assertSpending("15", "8", a.NotBefore+300, 15)
 	})
 }
 
-func TestRepairM_1422_PurposeRoutingAndAtomicity(t *testing.T) {
-	f := newRepairM1422Chain(t)
+func TestScopeAuthorizationPurposeRoutingAndAtomicity(t *testing.T) {
+	f := newScopeAuthorizationRoutingChain(t)
 	a := f.authorization()
 	a.PeriodLength = 100
 	a.MaxPerPeriod = "10"
@@ -262,7 +262,7 @@ func TestRepairM_1422_PurposeRoutingAndAtomicity(t *testing.T) {
 	f.assertSpending("6", "6", a.NotBefore, 6)
 
 	t.Run("bank_refusal_rolls_back_spending", func(t *testing.T) {
-		f := newRepairM1422Chain(t)
+		f := newScopeAuthorizationRoutingChain(t)
 		a := f.authorization()
 		a.MaxPerActivity = "2000"
 		a.MaxTotal = "3000"

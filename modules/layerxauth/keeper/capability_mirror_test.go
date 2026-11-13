@@ -19,18 +19,18 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func repair192Addresses(t *testing.T, f *authViewFixture) (sdk.AccAddress, sdk.AccAddress) {
+func capabilityMirrorAddresses(t *testing.T, f *authViewFixture) (sdk.AccAddress, sdk.AccAddress) {
 	t.Helper()
 	private := ed25519.NewKeyFromSeed(bytes.Repeat([]byte{74}, ed25519.SeedSize))
 	return sdk.AccAddress(common.Address{0x26, 0x64, 1}.Bytes()), sdk.AccAddress(bindCapabilityKey(t, f, private).Bytes())
 }
 
-func TestRepair_192_CapabilityMessageURLMsgExec(t *testing.T) {
+func TestCapabilityMirrorMessageURLMsgExec(t *testing.T) {
 	f := newAuthViewFixture(t)
 	actor := authExecuteActor(t, f)
 	az, _ := capabilityAuthz(t, f)
 	payload, grantID := executableCapabilityPayload(t, f)
-	granter, grantee := repair192Addresses(t, f)
+	granter, grantee := capabilityMirrorAddresses(t, f)
 	ctx := *f.Context()
 	bank := testkeeper.EVMTestApp.BankKeeper
 	recipient := sdk.AccAddress(bytes.Repeat([]byte{0x92}, 20))
@@ -89,12 +89,12 @@ func TestRepair_192_CapabilityMessageURLMsgExec(t *testing.T) {
 	require.Nil(t, absent)
 }
 
-func TestRepair_192_OverlappingCapabilitiesAreAtomic(t *testing.T) {
+func TestCapabilityMirrorOverlappingCapabilitiesAreAtomic(t *testing.T) {
 	f := newAuthViewFixture(t)
 	actor := authExecuteActor(t, f)
 	az, azKey := capabilityAuthz(t, f)
 	payload, firstID := executableCapabilityPayload(t, f)
-	granter, grantee := repair192Addresses(t, f)
+	granter, grantee := capabilityMirrorAddresses(t, f)
 	ctx := *f.Context()
 	_, err := f.Keeper().GrantCapability(ctx, actor, payload[8:], [32]byte{0x19, 0x21})
 	require.NoError(t, err)
@@ -142,7 +142,7 @@ func TestRepair_192_OverlappingCapabilitiesAreAtomic(t *testing.T) {
 	require.Nil(t, missing)
 }
 
-func TestRepair_192_UnsupportedScopesDoNotPublish(t *testing.T) {
+func TestCapabilityMirrorUnsupportedScopesDoNotPublish(t *testing.T) {
 	for _, check := range []struct {
 		name       string
 		moduleMask uint64
@@ -157,7 +157,7 @@ func TestRepair_192_UnsupportedScopesDoNotPublish(t *testing.T) {
 			actor := authExecuteActor(t, f)
 			_, azKey := capabilityAuthz(t, f)
 			payload, _ := executableCapabilityPayload(t, f)
-			repair192Addresses(t, f)
+			capabilityMirrorAddresses(t, f)
 			body := bytes.Clone(payload[8:])
 			binary.BigEndian.PutUint64(body[114:122], check.moduleMask)
 			binary.BigEndian.PutUint16(body[122:124], check.min)

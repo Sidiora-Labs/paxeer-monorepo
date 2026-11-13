@@ -15,11 +15,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Recording command: hf-done (the Rust compiled_key_rotation_binds_exact_payload_and_idempotency_key
-// test emits compiled_key_rotation_hex and compares its compiler output with this constant).
-const repair2231496RotationHex = "71020004f10a99b0747f5f086b7300447f26f27e3ee30d10d34828e00c377b8484fdaf287ea0e3bd52e207c9d3b0eba65c0704e66fca2d8e165a175218b174fc4160e413000001a3185c53e8000001a3185c57d00000000000000064"
+// The compiler key-rotation test compares its output with this payload.
+const compiledKeyRotationHex = "71020004f10a99b0747f5f086b7300447f26f27e3ee30d10d34828e00c377b8484fdaf287ea0e3bd52e207c9d3b0eba65c0704e66fca2d8e165a175218b174fc4160e413000001a3185c53e8000001a3185c57d00000000000000064"
 
-func repair2231496Fixture(t *testing.T) (*keeper.Harness, keeper.Actor) {
+func compiledKeyRotationFixture(t *testing.T) (*keeper.Harness, keeper.Actor) {
 	t.Helper()
 	f := newHarness(t)
 	*f.Context() = f.Context().WithChainID("hyperpax_125-1")
@@ -47,9 +46,9 @@ func repair2231496Fixture(t *testing.T) (*keeper.Harness, keeper.Actor) {
 	return f, actor
 }
 
-func TestRepair_22_31_496_CompiledRotationReachesKernel(t *testing.T) {
-	f, actor := repair2231496Fixture(t)
-	payload, err := hex.DecodeString(repair2231496RotationHex)
+func TestCompiledKeyRotationReachesKernel(t *testing.T) {
+	f, actor := compiledKeyRotationFixture(t)
+	payload, err := hex.DecodeString(compiledKeyRotationHex)
 	require.NoError(t, err)
 	require.Len(t, payload, 92)
 	require.Equal(t, []byte{0x71, 2, 0, 4}, payload[:4])
@@ -87,9 +86,9 @@ func TestRepair_22_31_496_CompiledRotationReachesKernel(t *testing.T) {
 	require.Equal(t, after.RevocationSequence, revocation)
 }
 
-func TestRepair_22_31_496_RotationWrongLengthIsNonCanonical(t *testing.T) {
-	f, actor := repair2231496Fixture(t)
-	payload, err := hex.DecodeString(repair2231496RotationHex)
+func TestCompiledKeyRotationWrongLengthIsNonCanonical(t *testing.T) {
+	f, actor := compiledKeyRotationFixture(t)
+	payload, err := hex.DecodeString(compiledKeyRotationHex)
 	require.NoError(t, err)
 	before := authViewStores(*f.Context(), f.HostKey(), f.StoreKey())
 	for _, length := range []int{4, 68, 70, 86, 91, 93, 1024, 1025} {

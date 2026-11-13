@@ -23,7 +23,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type repair194Fixture struct {
+type grantorRevocationFixture struct {
 	app       *app.App
 	ctx       sdk.Context
 	grantors  [2]sdk.AccAddress
@@ -33,14 +33,14 @@ type repair194Fixture struct {
 	grants    [2][32]byte
 }
 
-func newRepair194Fixture(t *testing.T) repair194Fixture {
+func newGrantorRevocationFixture(t *testing.T) grantorRevocationFixture {
 	t.Helper()
 	a := app.Setup(t, false, true, false)
 	t.Cleanup(func() { require.NoError(t, a.Close()) })
 	ctx, _ := a.NewContext(false, tmproto.Header{
 		ChainID: "hyperpax_125-1", Height: 11, Time: time.Unix(1_800_000_000, 0).UTC(),
 	}).CacheContext()
-	f := repair194Fixture{app: a, ctx: ctx,
+	f := grantorRevocationFixture{app: a, ctx: ctx,
 		grantors: [2]sdk.AccAddress{bytes.Repeat([]byte{0x81}, 20), bytes.Repeat([]byte{0x82}, 20)},
 		grantee:  bytes.Repeat([]byte{0x83}, 20), recipient: bytes.Repeat([]byte{0x84}, 20)}
 	var delegate [32]byte
@@ -78,7 +78,7 @@ func newRepair194Fixture(t *testing.T) repair194Fixture {
 		sequence, err := a.LayerXAuthKeeper.RevocationSequence(ctx, f.actors[i].DIDKey)
 		require.NoError(t, err)
 		require.Equal(t, uint64(41+10*i), sequence)
-		body := repair194GrantBody(f.actors[i].Authority.Actor, delegate, uint64(ctx.BlockTime().UnixMilli()), sequence)
+		body := grantorRevocationGrantBody(f.actors[i].Authority.Actor, delegate, uint64(ctx.BlockTime().UnixMilli()), sequence)
 		result, err := a.LayerXAuthKeeper.GrantCapability(ctx, f.actors[i], body, [32]byte{0x94, byte(i + 1)})
 		require.NoError(t, err)
 		require.Equal(t, lxphost.Code(0), result.ResultCode)
@@ -95,7 +95,7 @@ func newRepair194Fixture(t *testing.T) repair194Fixture {
 	return f
 }
 
-func repair194GrantBody(actor, delegate [32]byte, timestamp, epoch uint64) []byte {
+func grantorRevocationGrantBody(actor, delegate [32]byte, timestamp, epoch uint64) []byte {
 	body := []byte{0, 1, 0x20, 1, 1}
 	field := func(value []byte) {
 		body = binary.BigEndian.AppendUint32(body, uint32(len(value)))
@@ -128,11 +128,11 @@ func repair194GrantBody(actor, delegate [32]byte, timestamp, epoch uint64) []byt
 	return body
 }
 
-func (f repair194Fixture) send(grantor sdk.AccAddress) *banktypes.MsgSend {
+func (f grantorRevocationFixture) send(grantor sdk.AccAddress) *banktypes.MsgSend {
 	return banktypes.NewMsgSend(grantor, f.recipient, sdk.NewCoins(sdk.NewInt64Coin(sdk.DefaultBondDenom, 1)))
 }
 
-func (f repair194Fixture) deliver(t *testing.T, ctx sdk.Context, messages ...sdk.Msg) (sdk.Context, error) {
+func (f grantorRevocationFixture) deliver(t *testing.T, ctx sdk.Context, messages ...sdk.Msg) (sdk.Context, error) {
 	t.Helper()
 	encoding := app.MakeEncodingConfig()
 	builder := encoding.TxConfig.NewTxBuilder()
@@ -159,13 +159,13 @@ func (f repair194Fixture) deliver(t *testing.T, ctx sdk.Context, messages ...sdk
 	return anteCtx, nil
 }
 
-func (f repair194Fixture) assertBalance(t *testing.T, address sdk.AccAddress, amount int64) {
+func (f grantorRevocationFixture) assertBalance(t *testing.T, address sdk.AccAddress, amount int64) {
 	t.Helper()
 	require.Equal(t, sdk.NewInt(amount), f.app.BankKeeper.GetBalance(f.ctx, address, sdk.DefaultBondDenom).Amount)
 }
 
-func TestRepair_194_MixedGrantors(t *testing.T) {
-	f := newRepair194Fixture(t)
+func TestGrantorRevocationMixedGrantors(t *testing.T) {
+	f := newGrantorRevocationFixture(t)
 	for _, order := range [][2]int{{0, 1}, {1, 0}} {
 		exec := authz.NewMsgExec(f.grantee, []sdk.Msg{f.send(f.grantors[order[0]]), f.send(f.grantors[order[1]])})
 		_, err := f.deliver(t, f.ctx, &exec)
@@ -180,8 +180,8 @@ func TestRepair_194_MixedGrantors(t *testing.T) {
 	f.assertBalance(t, f.recipient, 6)
 }
 
-func TestRepair_194_MixedBoundUnbound(t *testing.T) {
-	f := newRepair194Fixture(t)
+func TestGrantorRevocationMixedBoundUnbound(t *testing.T) {
+	f := newGrantorRevocationFixture(t)
 	for i, associated := range []bool{false, true} {
 		unbound := sdk.AccAddress(bytes.Repeat([]byte{byte(0x85 + i)}, 20))
 		if associated {
@@ -207,8 +207,8 @@ func TestRepair_194_MixedBoundUnbound(t *testing.T) {
 	f.assertBalance(t, f.recipient, 10)
 }
 
-func TestRepair_194_NestedMsgExec(t *testing.T) {
-	f := newRepair194Fixture(t)
+func TestGrantorRevocationNestedMsgExec(t *testing.T) {
+	f := newGrantorRevocationFixture(t)
 	inner := authz.NewMsgExec(f.grantee, []sdk.Msg{f.send(f.grantors[1]), f.send(f.grantors[0])})
 	middle := authz.NewMsgExec(f.grantee, []sdk.Msg{&inner, f.send(f.grantors[1])})
 	outer := authz.NewMsgExec(f.grantee, []sdk.Msg{f.send(f.grantors[0]), &middle, f.send(f.grantors[1])})
@@ -219,8 +219,8 @@ func TestRepair_194_NestedMsgExec(t *testing.T) {
 	f.assertBalance(t, f.recipient, 5)
 }
 
-func TestRepair_194_DetachedContextsAndRevocation(t *testing.T) {
-	f := newRepair194Fixture(t)
+func TestGrantorRevocationDetachedContexts(t *testing.T) {
+	f := newGrantorRevocationFixture(t)
 	decorator := layerxante.NewRevocationDecorator(f.app.LayerXAuthKeeper, &f.app.EvmKeeper)
 	parent, err := decorator.WithGrantorRevocation(f.ctx, f.grantors[0])
 	require.NoError(t, err)

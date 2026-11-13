@@ -3,7 +3,7 @@ audit = "22.30.8"
 mode = "BUILD"
 qualification = "hf-build followed by hf-done; the gate runner records the exact candidate revision, command, exit code and private evidence location."
 baseline = "No earlier hf-build/hf-done ledger or in-scope edits existed. The requested unchanged-tree verification conflicts with the explicit implementation-first gate order and single hf-done allowance, so no baseline run occurred and no baseline failures are claimed."
-scope = "Only repair_m1422_test.go and this task record are added; production enforcement was supplied by prerequisite 22.31.193 and existing stateless validation cases remain intact."
+scope = "Only scope_authorization_routing_test.go and this task record are added; production enforcement was supplied by prerequisite 22.31.193 and existing stateless validation cases remain intact."
 
 [finding.scope-tests-use-only-test-message]
 tests = ["TestRepairM_1422_RuntimeRefusal", "TestRepairM_1422_PersistedSpendingAndRollover", "TestRepairM_1422_PurposeRoutingAndAtomicity"]
