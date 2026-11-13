@@ -7,7 +7,7 @@ import pytest
 
 CI = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location(
-    "consensus_commit_gate_22_33_731", CI / "consensus_commit_gate.py"
+    "consensus_merge_evidence_gate", CI / "consensus_commit_gate.py"
 )
 GATE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(GATE)
