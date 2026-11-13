@@ -26,35 +26,35 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var repair322Completed = regexp.MustCompile(`throughput tps=[^,]+, txs=[1-9][0-9]*,`)
+var reportPathCompleted = regexp.MustCompile(`throughput tps=[^,]+, txs=[1-9][0-9]*,`)
 
 // Observe completed work from the real collector before cancelling the command.
 // Cancellation exercises the same final-report writer as signal shutdown.
-type repair322Output struct {
+type reportPathOutput struct {
 	mu        sync.Mutex
 	data      bytes.Buffer
 	cancel    context.CancelFunc
 	completed bool
 }
 
-func (o *repair322Output) Write(p []byte) (int, error) {
+func (o *reportPathOutput) Write(p []byte) (int, error) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	n, err := o.data.Write(p)
-	if repair322Completed.Match(p) {
+	if reportPathCompleted.Match(p) {
 		o.completed = true
 		o.cancel()
 	}
 	return n, err
 }
 
-func (o *repair322Output) snapshot() (string, bool) {
+func (o *reportPathOutput) snapshot() (string, bool) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	return o.data.String(), o.completed
 }
 
-func repair322RunCLI(t *testing.T, profile config.LoadConfig, flags ...string) error {
+func reportPathRunCLI(t *testing.T, profile config.LoadConfig, flags ...string) error {
 	t.Helper()
 	viper.Reset()
 	t.Cleanup(viper.Reset)
@@ -92,7 +92,7 @@ func repair322RunCLI(t *testing.T, profile config.LoadConfig, flags ...string) e
 	cmd.SetArgs(append(args, flags...))
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	output := &repair322Output{cancel: cancel}
+	output := &reportPathOutput{cancel: cancel}
 	previousOutput := log.Writer()
 	log.SetOutput(output)
 	defer log.SetOutput(previousOutput)
@@ -104,7 +104,7 @@ func repair322RunCLI(t *testing.T, profile config.LoadConfig, flags ...string) e
 	return err
 }
 
-func TestRepair_322_ReportPathPrecedence(t *testing.T) {
+func TestCLIReportPathPrecedence(t *testing.T) {
 	for _, tc := range []struct {
 		name      string
 		top       bool
@@ -156,7 +156,7 @@ func TestRepair_322_ReportPathPrecedence(t *testing.T) {
 				}
 				flags = []string{"--report-path=" + value}
 			}
-			err := repair322RunCLI(t, profile, flags...)
+			err := reportPathRunCLI(t, profile, flags...)
 			require.ErrorIs(t, err, context.Canceled)
 			require.Equal(t, paths[tc.want], config.ResolveSettings().ReportPath)
 			for key, path := range paths {
@@ -183,7 +183,7 @@ func TestRepair_322_ReportPathPrecedence(t *testing.T) {
 	}
 }
 
-func TestRepair_322_ReportWriteError(t *testing.T) {
+func TestCLIReportWriteError(t *testing.T) {
 	for _, source := range []string{"top", "nested", "flag"} {
 		t.Run(source, func(t *testing.T) {
 			dir := t.TempDir()
@@ -200,7 +200,7 @@ func TestRepair_322_ReportWriteError(t *testing.T) {
 				profile.Settings = &config.Settings{ReportPath: lower}
 				flags = []string{"--report-path=" + missing}
 			}
-			err := repair322RunCLI(t, profile, flags...)
+			err := reportPathRunCLI(t, profile, flags...)
 			require.ErrorIs(t, err, os.ErrNotExist)
 			require.Contains(t, err.Error(), "write report "+missing+": ")
 			var pathErr *os.PathError

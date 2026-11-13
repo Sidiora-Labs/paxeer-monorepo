@@ -40,10 +40,10 @@ import (
 	"github.com/paxeer-network/pax-load/types"
 )
 
-// Repair820EVM is a loopback JSON-RPC peer backed by geth's real state database,
+// ContractExecutionEVM is a loopback JSON-RPC peer backed by geth's real state database,
 // transaction admission, EVM and receipt producer. No receipts or storage writes
 // are synthesized: even constructor calls execute the committed binding bytecode.
-type Repair820EVM struct {
+type ContractExecutionEVM struct {
 	mu           sync.Mutex
 	state        *state.StateDB
 	chain        *params.ChainConfig
@@ -54,7 +54,7 @@ type Repair820EVM struct {
 	entered      chan struct{}
 }
 
-func (p *Repair820EVM) evm(db *state.StateDB) *vm.EVM {
+func (p *ContractExecutionEVM) evm(db *state.StateDB) *vm.EVM {
 	return vm.NewEVM(vm.BlockContext{
 		CanTransfer: core.CanTransfer, Transfer: core.Transfer,
 		GetHash:     func(uint64) common.Hash { return common.Hash{} },
@@ -64,7 +64,7 @@ func (p *Repair820EVM) evm(db *state.StateDB) *vm.EVM {
 	}, db, p.chain, vm.Config{})
 }
 
-func (p *Repair820EVM) SendRawTransaction(ctx context.Context, raw hexutil.Bytes) (common.Hash, error) {
+func (p *ContractExecutionEVM) SendRawTransaction(ctx context.Context, raw hexutil.Bytes) (common.Hash, error) {
 	select {
 	case p.entered <- struct{}{}:
 	default:
@@ -96,7 +96,7 @@ func (p *Repair820EVM) SendRawTransaction(ctx context.Context, raw hexutil.Bytes
 	return tx.Hash(), nil
 }
 
-func (p *Repair820EVM) GetTransactionReceipt(hash common.Hash) *ethtypes.Receipt {
+func (p *ContractExecutionEVM) GetTransactionReceipt(hash common.Hash) *ethtypes.Receipt {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if p.holdReceipts {
@@ -105,20 +105,20 @@ func (p *Repair820EVM) GetTransactionReceipt(hash common.Hash) *ethtypes.Receipt
 	return p.receipts[hash]
 }
 
-func (p *Repair820EVM) GetCode(address common.Address, block string) hexutil.Bytes {
+func (p *ContractExecutionEVM) GetCode(address common.Address, block string) hexutil.Bytes {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	return common.CopyBytes(p.state.GetCode(address))
 }
 
-type repair820CallArgs struct {
+type contractExecutionCallArgs struct {
 	From  common.Address
 	To    common.Address
 	Input hexutil.Bytes
 	Data  hexutil.Bytes
 }
 
-func (p *Repair820EVM) Call(args repair820CallArgs, block string) (hexutil.Bytes, error) {
+func (p *ContractExecutionEVM) Call(args contractExecutionCallArgs, block string) (hexutil.Bytes, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	input := args.Input
@@ -134,24 +134,24 @@ func (p *Repair820EVM) Call(args repair820CallArgs, block string) (hexutil.Bytes
 
 // Observe the client's socket EOF, including while an RPC handler is blocked.
 // Geth waits for active handlers before closing its server-side socket.
-type repair820Listener struct {
+type contractExecutionListener struct {
 	net.Listener
 	closed chan struct{}
 }
-type repair820Conn struct {
+type contractExecutionConn struct {
 	net.Conn
 	closed chan struct{}
 	once   sync.Once
 }
 
-func (l repair820Listener) Accept() (net.Conn, error) {
+func (l contractExecutionListener) Accept() (net.Conn, error) {
 	conn, err := l.Listener.Accept()
 	if err != nil {
 		return nil, err
 	}
-	return &repair820Conn{Conn: conn, closed: l.closed}, nil
+	return &contractExecutionConn{Conn: conn, closed: l.closed}, nil
 }
-func (c *repair820Conn) Read(buffer []byte) (int, error) {
+func (c *contractExecutionConn) Read(buffer []byte) (int, error) {
 	n, err := c.Conn.Read(buffer)
 	if errors.Is(err, io.EOF) {
 		c.once.Do(func() {
@@ -164,7 +164,7 @@ func (c *repair820Conn) Read(buffer []byte) (int, error) {
 	return n, err
 }
 
-func repair820Peer(t *testing.T) (*Repair820EVM, string, <-chan struct{}) {
+func contractExecutionPeer(t *testing.T) (*ContractExecutionEVM, string, <-chan struct{}) {
 	t.Helper()
 	db := state.NewDatabaseForTesting()
 	t.Cleanup(func() {
@@ -178,7 +178,7 @@ func repair820Peer(t *testing.T) (*Repair820EVM, string, <-chan struct{}) {
 	}
 	chain := *params.AllDevChainProtocolChanges
 	chain.ChainID = big.NewInt(125)
-	peer := &Repair820EVM{state: statedb, chain: &chain,
+	peer := &ContractExecutionEVM{state: statedb, chain: &chain,
 		header:   &ethtypes.Header{Number: big.NewInt(1), Time: 1, GasLimit: 30000000, BaseFee: new(big.Int), Difficulty: new(big.Int)},
 		receipts: make(map[common.Hash]*ethtypes.Receipt), entered: make(chan struct{}, 10)}
 	server := rpc.NewServer()
@@ -194,19 +194,19 @@ func repair820Peer(t *testing.T) (*Repair820EVM, string, <-chan struct{}) {
 		}
 	}))
 	closed := make(chan struct{}, 20)
-	httpServer.Listener = repair820Listener{Listener: httpServer.Listener, closed: closed}
+	httpServer.Listener = contractExecutionListener{Listener: httpServer.Listener, closed: closed}
 	httpServer.Start()
 	t.Cleanup(func() { server.Stop(); httpServer.Close() })
 	return peer, httpServer.URL, closed
 }
 
-func (p *Repair820EVM) fund(account *types.Account) {
+func (p *ContractExecutionEVM) fund(account *types.Account) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.state.SetBalance(account.Address, uint256.MustFromBig(new(big.Int).Lsh(big.NewInt(1), 240)), tracing.BalanceChangeUnspecified)
 }
 
-func repair820Account(t *testing.T) *types.Account {
+func contractExecutionAccount(t *testing.T) *types.Account {
 	t.Helper()
 	account, err := types.NewAccount()
 	if err != nil {
@@ -215,7 +215,7 @@ func repair820Account(t *testing.T) *types.Account {
 	return account
 }
 
-func repair820Config(t *testing.T, name, selections string) *config.LoadConfig {
+func contractExecutionConfig(t *testing.T, name, selections string) *config.LoadConfig {
 	t.Helper()
 	var cfg config.LoadConfig
 	profile := fmt.Sprintf(`{"chainId":125,"mockDeploy":true,"accounts":{"count":2},"scenarios":[{"name":%q,"weight":1%s}]}`, name, selections)
@@ -225,9 +225,9 @@ func repair820Config(t *testing.T, name, selections string) *config.LoadConfig {
 	return &cfg
 }
 
-func repair820Deploy(t *testing.T, url, name, selections string, account *types.Account) (scenarios.ContextTxGenerator, *config.LoadConfig) {
+func contractExecutionDeploy(t *testing.T, url, name, selections string, account *types.Account) (scenarios.ContextTxGenerator, *config.LoadConfig) {
 	t.Helper()
-	cfg := repair820Config(t, name, selections)
+	cfg := contractExecutionConfig(t, name, selections)
 	cfg.MockDeploy, cfg.Endpoints = false, []string{url}
 	scenario := scenarios.CreateScenario(cfg.Scenarios[0]).(scenarios.ContextTxGenerator)
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
@@ -238,17 +238,17 @@ func repair820Deploy(t *testing.T, url, name, selections string, account *types.
 	return scenario, cfg
 }
 
-func repair820Generate(t *testing.T, scenario scenarios.ContextTxGenerator, sender *types.Account, receiver common.Address) *types.LoadTx {
+func contractExecutionGenerate(t *testing.T, scenario scenarios.ContextTxGenerator, sender *types.Account, receiver common.Address) *types.LoadTx {
 	t.Helper()
 	load, err := scenario.GenerateWithError(&types.TxScenario{Name: scenario.Name(), Sender: sender, Receiver: receiver})
 	if err != nil {
 		t.Fatal(err)
 	}
-	repair323Decode(t, load)
+	gasProfileDecode(t, load)
 	return load
 }
 
-func repair820Submit(t *testing.T, url string, load *types.LoadTx) *ethtypes.Receipt {
+func contractExecutionSubmit(t *testing.T, url string, load *types.LoadTx) *ethtypes.Receipt {
 	t.Helper()
 	response, err := http.Post(url, "application/json", bytes.NewReader(load.JSONRPCPayload))
 	if err != nil {
@@ -286,16 +286,16 @@ func repair820Submit(t *testing.T, url string, load *types.LoadTx) *ethtypes.Rec
 	return receipt
 }
 
-func repair820Successful(t *testing.T, url string, load *types.LoadTx) *ethtypes.Receipt {
+func contractExecutionSuccessful(t *testing.T, url string, load *types.LoadTx) *ethtypes.Receipt {
 	t.Helper()
-	receipt := repair820Submit(t, url, load)
+	receipt := contractExecutionSubmit(t, url, load)
 	if receipt.Status != ethtypes.ReceiptStatusSuccessful {
 		t.Fatalf("generated transaction reverted: gas %d/%d", receipt.GasUsed, load.EthTx.Gas())
 	}
 	return receipt
 }
 
-func TestRepairM_820_DisperseValue(t *testing.T) {
+func TestContractDisperseValue(t *testing.T) {
 	for _, tc := range []struct {
 		name, options string
 		batch         int
@@ -304,11 +304,11 @@ func TestRepairM_820_DisperseValue(t *testing.T) {
 		{"bounded_override", `,"gasPicker":{"Name":"fixed","Gas":106000}`, 2},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			peer, url, _ := repair820Peer(t)
-			sender := repair820Account(t)
+			peer, url, _ := contractExecutionPeer(t)
+			sender := contractExecutionAccount(t)
 			peer.fund(sender)
-			scenario, _ := repair820Deploy(t, url, scenarios.Disperse, tc.options, sender)
-			load := repair820Generate(t, scenario, sender, common.Address{})
+			scenario, _ := contractExecutionDeploy(t, url, scenarios.Disperse, tc.options, sender)
+			load := contractExecutionGenerate(t, scenario, sender, common.Address{})
 			abi, err := bindings.DisperseMetaData.GetAbi()
 			if err != nil {
 				t.Fatal(err)
@@ -326,7 +326,7 @@ func TestRepairM_820_DisperseValue(t *testing.T) {
 					t.Fatal("recipient was not fresh")
 				}
 			}
-			repair820Successful(t, url, load)
+			contractExecutionSuccessful(t, url, load)
 			for _, recipient := range recipients {
 				if peer.state.GetBalance(recipient).CmpUint64(1) != 0 {
 					t.Fatalf("recipient %s did not receive one wei", recipient)
@@ -340,8 +340,8 @@ func TestRepairM_820_DisperseValue(t *testing.T) {
 	// Existing deployments can use a different fixed amount. Read the actual
 	// contract setting while attaching rather than assuming the constructor default.
 	t.Run("attached_amount", func(t *testing.T) {
-		peer, url, _ := repair820Peer(t)
-		sender := repair820Account(t)
+		peer, url, _ := contractExecutionPeer(t)
+		sender := contractExecutionAccount(t)
 		peer.fund(sender)
 		client, err := ethclient.Dial(url)
 		if err != nil {
@@ -361,17 +361,17 @@ func TestRepairM_820_DisperseValue(t *testing.T) {
 		if receipt, err := client.TransactionReceipt(context.Background(), deployment.Hash()); err != nil || receipt.Status != 1 {
 			t.Fatalf("deployment: %v / %v", receipt, err)
 		}
-		cfg := repair820Config(t, scenarios.Disperse, "")
+		cfg := contractExecutionConfig(t, scenarios.Disperse, "")
 		cfg.MockDeploy, cfg.Endpoints = false, []string{url}
 		scenario := scenarios.CreateScenario(cfg.Scenarios[0]).(scenarios.ContextTxGenerator)
 		if err := scenario.AttachContext(context.Background(), cfg, address); err != nil {
 			t.Fatal(err)
 		}
-		load := repair820Generate(t, scenario, sender, common.Address{})
+		load := contractExecutionGenerate(t, scenario, sender, common.Address{})
 		if load.EthTx.Value().Cmp(big.NewInt(7*scenarios.DisperseBatchSize)) != 0 {
 			t.Fatal("attached contract's payable amount was ignored")
 		}
-		repair820Successful(t, url, load)
+		contractExecutionSuccessful(t, url, load)
 		abi, _ := bindings.DisperseMetaData.GetAbi()
 		args, err := abi.Methods["disperseEtherFixed"].Inputs.Unpack(load.EthTx.Data()[4:])
 		if err != nil {
@@ -384,19 +384,19 @@ func TestRepairM_820_DisperseValue(t *testing.T) {
 		}
 	})
 	t.Run("insufficient_gas_refused", func(t *testing.T) {
-		cfg := repair820Config(t, scenarios.Disperse, `,"gasPicker":{"Name":"fixed","Gas":21000}`)
+		cfg := contractExecutionConfig(t, scenarios.Disperse, `,"gasPicker":{"Name":"fixed","Gas":21000}`)
 		scenario := scenarios.CreateScenario(cfg.Scenarios[0]).(scenarios.ContextTxGenerator)
 		if err := scenario.Attach(cfg, common.HexToAddress("0x820")); err != nil {
 			t.Fatal(err)
 		}
-		load, err := scenario.GenerateWithError(&types.TxScenario{Sender: repair820Account(t)})
+		load, err := scenario.GenerateWithError(&types.TxScenario{Sender: contractExecutionAccount(t)})
 		if load != nil || err == nil || !strings.Contains(err.Error(), "cannot fund one recipient") {
 			t.Fatalf("underfunded batch: %v / %v", load, err)
 		}
 	})
 }
 
-func TestRepairM_820_ConflictUnderGas(t *testing.T) {
+func TestContractConflictUnderGas(t *testing.T) {
 	for _, tc := range []struct {
 		name, options string
 		gas           uint64
@@ -407,20 +407,20 @@ func TestRepairM_820_ConflictUnderGas(t *testing.T) {
 		{"small_override", `,"gasPicker":{"Name":"fixed","Gas":22460}`, 22460, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			peer, url, _ := repair820Peer(t)
-			sender, receiver := repair820Account(t), repair820Account(t)
+			peer, url, _ := contractExecutionPeer(t)
+			sender, receiver := contractExecutionAccount(t), contractExecutionAccount(t)
 			peer.fund(sender)
-			scenario, _ := repair820Deploy(t, url, scenarios.ERC20Conflict, tc.options, sender)
+			scenario, _ := contractExecutionDeploy(t, url, scenarios.ERC20Conflict, tc.options, sender)
 			client, err := ethclient.Dial(url)
 			if err != nil {
 				t.Fatal(err)
 			}
 			defer client.Close()
-			load := repair820Generate(t, scenario, sender, receiver.Address)
+			load := contractExecutionGenerate(t, scenario, sender, receiver.Address)
 			if load.EthTx.Gas() != tc.gas {
 				t.Fatalf("gas = %d, want %d", load.EthTx.Gas(), tc.gas)
 			}
-			receipt := repair820Submit(t, url, load)
+			receipt := contractExecutionSubmit(t, url, load)
 			contract, err := bindings.NewERC20Conflict(*load.EthTx.To(), client)
 			if err != nil {
 				t.Fatal(err)
@@ -442,8 +442,8 @@ func TestRepairM_820_ConflictUnderGas(t *testing.T) {
 			if receipt.Status != 1 || counter.Cmp(big.NewInt(1)) != 0 || balance.Cmp(big.NewInt(1)) != 0 {
 				t.Fatalf("receipt/counter/balance = %d/%s/%s", receipt.Status, counter, balance)
 			}
-			load = repair820Generate(t, scenario, sender, receiver.Address)
-			repair820Successful(t, url, load)
+			load = contractExecutionGenerate(t, scenario, sender, receiver.Address)
+			contractExecutionSuccessful(t, url, load)
 			counter, err = contract.Counter(nil)
 			if err != nil {
 				t.Fatal(err)
@@ -464,7 +464,7 @@ func TestRepairM_820_ConflictUnderGas(t *testing.T) {
 	}
 }
 
-func TestRepairM_820_NFTUnderGas(t *testing.T) {
+func TestContractNFTUnderGas(t *testing.T) {
 	for _, tc := range []struct {
 		name, options string
 		gas           uint64
@@ -475,20 +475,20 @@ func TestRepairM_820_NFTUnderGas(t *testing.T) {
 		{"small_override", `,"gasPicker":{"Name":"fixed","Gas":22460}`, 22460, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			peer, url, _ := repair820Peer(t)
-			sender, receiver := repair820Account(t), repair820Account(t)
+			peer, url, _ := contractExecutionPeer(t)
+			sender, receiver := contractExecutionAccount(t), contractExecutionAccount(t)
 			peer.fund(sender)
-			scenario, _ := repair820Deploy(t, url, scenarios.ERC721, tc.options, sender)
+			scenario, _ := contractExecutionDeploy(t, url, scenarios.ERC721, tc.options, sender)
 			client, err := ethclient.Dial(url)
 			if err != nil {
 				t.Fatal(err)
 			}
 			defer client.Close()
-			load := repair820Generate(t, scenario, sender, receiver.Address)
+			load := contractExecutionGenerate(t, scenario, sender, receiver.Address)
 			if load.EthTx.Gas() != tc.gas {
 				t.Fatalf("gas = %d, want %d", load.EthTx.Gas(), tc.gas)
 			}
-			receipt := repair820Submit(t, url, load)
+			receipt := contractExecutionSubmit(t, url, load)
 			contract, err := bindings.NewERC721(*load.EthTx.To(), client)
 			if err != nil {
 				t.Fatal(err)
@@ -510,7 +510,7 @@ func TestRepairM_820_NFTUnderGas(t *testing.T) {
 			if receipt.Status != 1 || owner != receiver.Address || balance.Cmp(big.NewInt(1)) != 0 || len(receipt.Logs) != 1 {
 				t.Fatalf("mint did not produce owner/balance/Transfer: %d/%s/%s", receipt.Status, owner, balance)
 			}
-			repair820Successful(t, url, repair820Generate(t, scenario, sender, receiver.Address))
+			contractExecutionSuccessful(t, url, contractExecutionGenerate(t, scenario, sender, receiver.Address))
 			owner, err = contract.OwnerOf(nil, big.NewInt(2))
 			if err != nil {
 				t.Fatal(err)
@@ -526,7 +526,7 @@ func TestRepairM_820_NFTUnderGas(t *testing.T) {
 	}
 }
 
-func repair820FundGenerator(t *testing.T, peer *Repair820EVM, gen generator.Generator) {
+func contractExecutionFundGenerator(t *testing.T, peer *ContractExecutionEVM, gen generator.Generator) {
 	t.Helper()
 	for _, pool := range gen.GetAccountPools() {
 		fixed, ok := pool.(generator.FixedAccountPool)
@@ -539,37 +539,37 @@ func repair820FundGenerator(t *testing.T, peer *Repair820EVM, gen generator.Gene
 	}
 }
 
-func TestRepairM_820_FeeCapSignConversion(t *testing.T) {
+func TestContractFeeCapSignConversion(t *testing.T) {
 	for _, name := range []string{scenarios.EVMTransfer, scenarios.EVMTransferNoop} {
 		t.Run(name, func(t *testing.T) {
 			for _, tc := range []struct{ tip, fee uint64 }{{math.MaxInt64 + 1, math.MaxUint64}, {math.MaxUint64, math.MaxUint64}, {0, 0}} {
-				peer, url, _ := repair820Peer(t)
-				cfg := repair820Config(t, name, fmt.Sprintf(`,"gasTipCapPicker":{"Name":"fixed","Gas":%d},"gasFeeCapPicker":{"Name":"fixed","Gas":%d}`, tc.tip, tc.fee))
+				peer, url, _ := contractExecutionPeer(t)
+				cfg := contractExecutionConfig(t, name, fmt.Sprintf(`,"gasTipCapPicker":{"Name":"fixed","Gas":%d},"gasFeeCapPicker":{"Name":"fixed","Gas":%d}`, tc.tip, tc.fee))
 				gen, err := generator.NewConfigBasedGenerator(cfg)
 				if err != nil {
 					t.Fatal(err)
 				}
-				repair820FundGenerator(t, peer, gen)
+				contractExecutionFundGenerator(t, peer, gen)
 				load, ok := gen.Generate()
 				if !ok || load == nil {
 					t.Fatal("generator emitted no signed transfer")
 				}
-				tx := repair323Decode(t, load)
+				tx := gasProfileDecode(t, load)
 				if tx.GasTipCap().Cmp(new(big.Int).SetUint64(tc.tip)) != 0 || tx.GasFeeCap().Cmp(new(big.Int).SetUint64(tc.fee)) != 0 {
 					t.Fatal("unsigned fee conversion changed transaction caps")
 				}
-				repair820Successful(t, url, load)
+				contractExecutionSuccessful(t, url, load)
 			}
 			for _, selection := range []string{
 				`,"gasTipCapPicker":{"Name":"fixed","Gas":5},"gasFeeCapPicker":{"Name":"fixed","Gas":4}`,
 				`,"gasTipCapPicker":{"Name":"fixed","Gas":18446744073709551615},"gasFeeCapPicker":{"Name":"fixed","Gas":9223372036854775808}`,
 			} {
-				gen, err := generator.NewConfigBasedGenerator(repair820Config(t, name, selection))
+				gen, err := generator.NewConfigBasedGenerator(contractExecutionConfig(t, name, selection))
 				if gen != nil || err == nil || !strings.Contains(err.Error(), "fee cap must be at least") {
 					t.Fatalf("constructor lost fee admission error: %v / %v", gen, err)
 				}
 			}
-			cfg := repair820Config(t, name, `,"gasTipCapPicker":{"Name":"fixed","Gas":2},"gasFeeCapPicker":{"Name":"fixed","Gas":3}`)
+			cfg := contractExecutionConfig(t, name, `,"gasTipCapPicker":{"Name":"fixed","Gas":2},"gasFeeCapPicker":{"Name":"fixed","Gas":3}`)
 			scenario := scenarios.CreateScenario(cfg.Scenarios[0]).(scenarios.ContextTxGenerator)
 			if err := scenario.Attach(cfg, common.Address{}); err != nil {
 				t.Fatal(err)
@@ -577,7 +577,7 @@ func TestRepairM_820_FeeCapSignConversion(t *testing.T) {
 			if err := json.Unmarshal([]byte(`{"Name":"fixed","Gas":1}`), cfg.Scenarios[0].GasFeeCapPicker); err != nil {
 				t.Fatal(err)
 			}
-			sender := repair820Account(t)
+			sender := contractExecutionAccount(t)
 			load, err := scenario.GenerateWithError(&types.TxScenario{Sender: sender})
 			if load != nil || err == nil || sender.Nonce != 0 {
 				t.Fatalf("signing error not returned before nonce allocation: %v / %v / %d", load, err, sender.Nonce)
@@ -586,18 +586,18 @@ func TestRepairM_820_FeeCapSignConversion(t *testing.T) {
 	}
 }
 
-func TestRepairM_820_NoopScenarioName(t *testing.T) {
-	peer, url, _ := repair820Peer(t)
-	cfg := repair820Config(t, scenarios.EVMTransfer, "")
+func TestContractNoopScenarioName(t *testing.T) {
+	peer, url, _ := contractExecutionPeer(t)
+	cfg := contractExecutionConfig(t, scenarios.EVMTransfer, "")
 	cfg.Scenarios = append(cfg.Scenarios, config.Scenario{Name: scenarios.EVMTransferNoop, Weight: 1})
 	gen, err := generator.NewConfigBasedGenerator(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
-	repair820FundGenerator(t, peer, gen)
+	contractExecutionFundGenerator(t, peer, gen)
 	collector := stats.NewCollector()
 	for _, load := range gen.GenerateN(8) {
-		repair820Successful(t, url, load)
+		contractExecutionSuccessful(t, url, load)
 		switch load.Scenario.Name {
 		case scenarios.EVMTransferNoop:
 			if load.EthTx.Value().Sign() != 0 || *load.EthTx.To() != load.Scenario.Sender.Address {
@@ -636,7 +636,7 @@ func TestRepairM_820_NoopScenarioName(t *testing.T) {
 	}
 }
 
-func repair820Closed(t *testing.T, closed <-chan struct{}) {
+func contractExecutionClosed(t *testing.T, closed <-chan struct{}) {
 	t.Helper()
 	select {
 	case <-closed:
@@ -645,19 +645,19 @@ func repair820Closed(t *testing.T, closed <-chan struct{}) {
 	}
 }
 
-func TestRepairM_820_DeploymentLifecycle(t *testing.T) {
+func TestContractDeploymentLifecycle(t *testing.T) {
 	t.Run("successful_client_closed_and_offline_signing", func(t *testing.T) {
-		peer, url, closed := repair820Peer(t)
-		sender := repair820Account(t)
+		peer, url, closed := contractExecutionPeer(t)
+		sender := contractExecutionAccount(t)
 		peer.fund(sender)
-		scenario, _ := repair820Deploy(t, "ws"+strings.TrimPrefix(url, "http"), scenarios.Disperse, "", sender)
-		repair820Closed(t, closed)
-		repair820Successful(t, url, repair820Generate(t, scenario, sender, common.Address{}))
+		scenario, _ := contractExecutionDeploy(t, "ws"+strings.TrimPrefix(url, "http"), scenarios.Disperse, "", sender)
+		contractExecutionClosed(t, closed)
+		contractExecutionSuccessful(t, url, contractExecutionGenerate(t, scenario, sender, common.Address{}))
 	})
 	for _, stage := range []string{"send", "receipt"} {
 		t.Run(stage+"_deadline", func(t *testing.T) {
-			peer, url, closed := repair820Peer(t)
-			sender := repair820Account(t)
+			peer, url, closed := contractExecutionPeer(t)
+			sender := contractExecutionAccount(t)
 			peer.fund(sender)
 			release := make(chan struct{})
 			defer close(release)
@@ -666,7 +666,7 @@ func TestRepairM_820_DeploymentLifecycle(t *testing.T) {
 			} else {
 				peer.holdReceipts = true
 			}
-			cfg := repair820Config(t, scenarios.ERC721, "")
+			cfg := contractExecutionConfig(t, scenarios.ERC721, "")
 			cfg.MockDeploy, cfg.Endpoints = false, []string{"ws" + strings.TrimPrefix(url, "http")}
 			scenario := scenarios.CreateScenario(cfg.Scenarios[0]).(scenarios.ContextTxGenerator)
 			ctx, cancel := context.WithTimeout(context.Background(), 150*time.Millisecond)
@@ -681,30 +681,30 @@ func TestRepairM_820_DeploymentLifecycle(t *testing.T) {
 			default:
 				t.Fatal("deadline test never reached the real deployment send")
 			}
-			repair820Closed(t, closed)
+			contractExecutionClosed(t, closed)
 			if load, err := scenario.GenerateWithError(&types.TxScenario{Sender: sender}); load != nil || err == nil || !strings.Contains(err.Error(), "not deployed") {
 				t.Fatal("failed startup admitted transaction generation")
 			}
 		})
 	}
 	t.Run("real_admission_error", func(t *testing.T) {
-		_, url, closed := repair820Peer(t)
-		cfg := repair820Config(t, scenarios.ERC721, "")
+		_, url, closed := contractExecutionPeer(t)
+		cfg := contractExecutionConfig(t, scenarios.ERC721, "")
 		cfg.MockDeploy, cfg.Endpoints = false, []string{"ws" + strings.TrimPrefix(url, "http")}
 		scenario := scenarios.CreateScenario(cfg.Scenarios[0]).(scenarios.ContextTxGenerator)
-		address, err := scenario.DeployContext(context.Background(), cfg, repair820Account(t))
+		address, err := scenario.DeployContext(context.Background(), cfg, contractExecutionAccount(t))
 		if address != (common.Address{}) || err == nil || !strings.Contains(err.Error(), "insufficient funds") {
 			t.Fatalf("deployment admission error was lost: %s / %v", address, err)
 		}
-		repair820Closed(t, closed)
+		contractExecutionClosed(t, closed)
 	})
 	t.Run("cancel_before_dial", func(t *testing.T) {
-		cfg := repair820Config(t, scenarios.ERC721, "")
+		cfg := contractExecutionConfig(t, scenarios.ERC721, "")
 		cfg.MockDeploy, cfg.Endpoints = false, []string{"unsupported://deployment"}
 		scenario := scenarios.CreateScenario(cfg.Scenarios[0]).(scenarios.ContextTxGenerator)
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
-		if _, err := scenario.DeployContext(ctx, cfg, repair820Account(t)); !errors.Is(err, context.Canceled) {
+		if _, err := scenario.DeployContext(ctx, cfg, contractExecutionAccount(t)); !errors.Is(err, context.Canceled) {
 			t.Fatalf("cancellation not preserved: %v", err)
 		}
 		if err := scenario.AttachContext(ctx, cfg, common.Address{}); !errors.Is(err, context.Canceled) {
@@ -712,14 +712,14 @@ func TestRepairM_820_DeploymentLifecycle(t *testing.T) {
 		}
 	})
 	t.Run("attach_reads_actual_contract", func(t *testing.T) {
-		_, url, closed := repair820Peer(t)
-		cfg := repair820Config(t, scenarios.Disperse, "")
+		_, url, closed := contractExecutionPeer(t)
+		cfg := contractExecutionConfig(t, scenarios.Disperse, "")
 		cfg.MockDeploy, cfg.Endpoints = false, []string{"ws" + strings.TrimPrefix(url, "http")}
 		scenario := scenarios.CreateScenario(cfg.Scenarios[0]).(scenarios.ContextTxGenerator)
 		err := scenario.AttachContext(context.Background(), cfg, common.HexToAddress("0x820"))
 		if !errors.Is(err, bind.ErrNoCode) {
 			t.Fatalf("missing deployed contract not refused: %v", err)
 		}
-		repair820Closed(t, closed)
+		contractExecutionClosed(t, closed)
 	})
 }

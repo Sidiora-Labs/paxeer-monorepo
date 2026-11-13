@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepairM_816_RandomGasUint64Boundary(t *testing.T) {
+func TestBoundsAndGasRandomGasUint64Boundary(t *testing.T) {
 	for _, field := range []string{"gasPicker", "gasFeeCapPicker", "gasTipCapPicker"} {
 		for _, bounds := range []struct {
 			name     string
@@ -98,14 +98,14 @@ func TestRepairM_816_RandomGasUint64Boundary(t *testing.T) {
 	}
 }
 
-func TestRepairM_816_ProfileCLI(t *testing.T) {
+func TestBoundsAndGasProfileCLI(t *testing.T) {
 	if proofBoundsCLIChild(t) {
 		return
 	}
 	TestProofPaxloadBoundsCallerGap(t)
 }
 
-func TestRepairM_816_ConfigurationPrecisionAndPrecedence(t *testing.T) {
+func TestBoundsAndGasConfigurationPrecisionAndPrecedence(t *testing.T) {
 	t.Run("precision and precedence", TestProofPaxloadBounds)
 	t.Run("JSON keys", TestProofPaxloadBoundsJSONKeys)
 	t.Run("malformed producer", TestProofPaxloadBoundsRefusesMalformedProducer)

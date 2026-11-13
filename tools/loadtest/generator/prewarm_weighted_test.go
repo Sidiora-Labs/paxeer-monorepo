@@ -1,19 +1,6 @@
 package generator
 
-// Task 22.33.819 repair record:
-// prewarm-coverage: TestRepairM_819_PrewarmCoverage,
-// TestRepairM_819_FreshOnly, TestRepairM_819_PrewarmReceipts.
-// weighted-empty: TestRepairM_819_WeightAdmission,
-// TestRepairM_819_ConfigAdmission, TestRepairM_819_CumulativeWeights.
-// Baseline tests were not run: the explicit order requires a complete implementation
-// before hf-build and hf-done and forbids running verify_cmd manually.
-// Wiring request (domain 16): tools/loadtest/sender/dispatcher.go must fail on any
-// prewarm send/cancellation error and call PrewarmGenerator.Wait with its RPC client.
-// Wiring request (domain 16): tools/loadtest/config/cli/command.go must reset the
-// measurement collectors only after successful receipt waiting, before measured traffic.
-// Wiring request (domain 16): tools/loadtest/types/account_pool.go should expose
-// FixedAccounts for externally constructed pools; config-based pools expose it here.
-// Gate revision and private logs are recorded by hf-build/hf-done, not guessed here.
+// Tests cover prewarm account coverage, receipt waiting and weighted scenario admission.
 
 import (
 	"bytes"
@@ -41,7 +28,7 @@ import (
 	"github.com/paxeer-network/pax-load/types"
 )
 
-func repair819Config() *config.LoadConfig {
+func prewarmWeightedConfig() *config.LoadConfig {
 	return &config.LoadConfig{ChainID: 125, Accounts: &config.AccountConfig{Accounts: 3}, Scenarios: []config.Scenario{
 		{Name: scenarios.EVMTransfer, Weight: 2},
 		{Name: scenarios.EVMTransfer, Weight: 3},
@@ -51,7 +38,7 @@ func repair819Config() *config.LoadConfig {
 	}}
 }
 
-func repair819Generator(t *testing.T, cfg *config.LoadConfig) Generator {
+func prewarmWeightedGenerator(t *testing.T, cfg *config.LoadConfig) Generator {
 	t.Helper()
 	gen, err := NewConfigBasedGenerator(cfg)
 	if err != nil {
@@ -60,14 +47,14 @@ func repair819Generator(t *testing.T, cfg *config.LoadConfig) Generator {
 	return gen
 }
 
-func repair819Scenario(t *testing.T) Generator {
+func prewarmWeightedScenario(t *testing.T) Generator {
 	t.Helper()
 	cfg := &config.LoadConfig{ChainID: 125, Accounts: &config.AccountConfig{Accounts: 1}, Scenarios: []config.Scenario{{Name: scenarios.EVMTransfer, Weight: 1}}}
-	return repair819Generator(t, cfg)
+	return prewarmWeightedGenerator(t, cfg)
 }
 
-// Repair819RPC is a loopback protocol peer retaining the real submitted signed transactions.
-type Repair819RPC struct {
+// PrewarmRPCPeer is a loopback protocol peer retaining the real submitted signed transactions.
+type PrewarmRPCPeer struct {
 	mu           sync.Mutex
 	txs          map[common.Hash]*ethtypes.Transaction
 	mined        bool
@@ -76,7 +63,7 @@ type Repair819RPC struct {
 	queried      chan struct{}
 }
 
-func (r *Repair819RPC) SendRawTransaction(raw hexutil.Bytes) (common.Hash, error) {
+func (r *PrewarmRPCPeer) SendRawTransaction(raw hexutil.Bytes) (common.Hash, error) {
 	var tx ethtypes.Transaction
 	if err := tx.UnmarshalBinary(raw); err != nil {
 		return common.Hash{}, err
@@ -100,7 +87,7 @@ func (r *Repair819RPC) SendRawTransaction(raw hexutil.Bytes) (common.Hash, error
 	return tx.Hash(), nil
 }
 
-func (r *Repair819RPC) GetTransactionReceipt(hash common.Hash) (*ethtypes.Receipt, error) {
+func (r *PrewarmRPCPeer) GetTransactionReceipt(hash common.Hash) (*ethtypes.Receipt, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	select {
@@ -122,9 +109,9 @@ func (r *Repair819RPC) GetTransactionReceipt(hash common.Hash) (*ethtypes.Receip
 		TxHash: hash, BlockHash: common.HexToHash("0x819"), BlockNumber: big.NewInt(1), Logs: []*ethtypes.Log{}}, nil
 }
 
-func repair819Server(t *testing.T) (*Repair819RPC, *httptest.Server, *ethclient.Client) {
+func prewarmWeightedServer(t *testing.T) (*PrewarmRPCPeer, *httptest.Server, *ethclient.Client) {
 	t.Helper()
-	peer := &Repair819RPC{txs: make(map[common.Hash]*ethtypes.Transaction), queried: make(chan struct{}, 1)}
+	peer := &PrewarmRPCPeer{txs: make(map[common.Hash]*ethtypes.Transaction), queried: make(chan struct{}, 1)}
 	server := rpc.NewServer()
 	if err := server.RegisterName("eth", peer); err != nil {
 		t.Fatal(err)
@@ -139,7 +126,7 @@ func repair819Server(t *testing.T) (*Repair819RPC, *httptest.Server, *ethclient.
 	return peer, httpServer, client
 }
 
-func repair819Submit(t *testing.T, url string, tx *types.LoadTx) {
+func prewarmWeightedSubmit(t *testing.T, url string, tx *types.LoadTx) {
 	t.Helper()
 	response, err := http.Post(url, "application/json", bytes.NewReader(tx.JSONRPCPayload))
 	if err != nil {
@@ -162,9 +149,9 @@ func repair819Submit(t *testing.T, url string, tx *types.LoadTx) {
 	}
 }
 
-func TestRepairM_819_PrewarmCoverage(t *testing.T) {
-	cfg := repair819Config()
-	main := repair819Generator(t, cfg)
+func TestWeightedGeneratorPrewarmCoverage(t *testing.T) {
+	cfg := prewarmWeightedConfig()
+	main := prewarmWeightedGenerator(t, cfg)
 	pools := main.GetAccountPools()
 	if len(pools) != 4 {
 		t.Fatalf("got %d pools, want 4 distinct pools", len(pools))
@@ -191,7 +178,7 @@ func TestRepairM_819_PrewarmCoverage(t *testing.T) {
 		t.Fatal(err)
 	}
 	prewarm := NewPrewarmGenerator(cfg, combined)
-	peer, server, client := repair819Server(t)
+	peer, server, client := prewarmWeightedServer(t)
 	txs := prewarm.GenerateN(20)
 	if len(txs) != 6 {
 		t.Fatalf("got %d prewarm transactions, want 6", len(txs))
@@ -204,7 +191,7 @@ func TestRepairM_819_PrewarmCoverage(t *testing.T) {
 			t.Fatalf("unexpected/repeated account or nonce: %s/%d", address, tx.EthTx.Nonce())
 		}
 		seen[address] = true
-		repair819Submit(t, server.URL, tx)
+		prewarmWeightedSubmit(t, server.URL, tx)
 	}
 	for range 3 {
 		if tx, ok := prewarm.Generate(); tx != nil || ok {
@@ -238,10 +225,10 @@ func TestRepairM_819_PrewarmCoverage(t *testing.T) {
 	}
 }
 
-func TestRepairM_819_FreshOnly(t *testing.T) {
+func TestWeightedGeneratorFreshOnly(t *testing.T) {
 	for _, count := range []int{0, 3} {
 		cfg := &config.LoadConfig{ChainID: 125, Accounts: &config.AccountConfig{Accounts: count, NewAccountRate: 1}, Scenarios: []config.Scenario{{Name: scenarios.EVMTransfer, Weight: 1}}}
-		main := repair819Generator(t, cfg)
+		main := prewarmWeightedGenerator(t, cfg)
 		prewarm := NewPrewarmGenerator(cfg, main)
 		if got := prewarm.GenerateN(5); len(got) != 0 {
 			t.Fatal("fresh-only pool has no finite population to prewarm")
@@ -256,16 +243,16 @@ func TestRepairM_819_FreshOnly(t *testing.T) {
 	}
 }
 
-func TestRepairM_819_PrewarmReceipts(t *testing.T) {
+func TestWeightedGeneratorPrewarmReceipts(t *testing.T) {
 	cfg := &config.LoadConfig{ChainID: 125, Accounts: &config.AccountConfig{Accounts: 2}, Scenarios: []config.Scenario{{Name: scenarios.EVMTransfer, Weight: 1}}}
-	prewarm := NewPrewarmGenerator(cfg, repair819Generator(t, cfg))
-	peer, server, client := repair819Server(t)
+	prewarm := NewPrewarmGenerator(cfg, prewarmWeightedGenerator(t, cfg))
+	peer, server, client := prewarmWeightedServer(t)
 	if err := prewarm.Wait(context.Background(), client); err == nil {
 		t.Fatal("incomplete generation accepted")
 	}
 	txs := prewarm.GenerateN(2)
 	for _, tx := range txs {
-		repair819Submit(t, server.URL, tx)
+		prewarmWeightedSubmit(t, server.URL, tx)
 	}
 	if err := prewarm.Wait(context.Background(), nil); err == nil {
 		t.Fatal("missing receipt reader accepted")
@@ -315,8 +302,8 @@ func TestRepairM_819_PrewarmReceipts(t *testing.T) {
 	}
 }
 
-func TestRepairM_819_WeightAdmission(t *testing.T) {
-	gen := repair819Scenario(t)
+func TestWeightedGeneratorWeightAdmission(t *testing.T) {
+	gen := prewarmWeightedScenario(t)
 	var typedNil *scenarioGenerator
 	cases := []struct {
 		name string
@@ -350,7 +337,7 @@ func TestRepairM_819_WeightAdmission(t *testing.T) {
 	}
 }
 
-func TestRepairM_819_ConfigAdmission(t *testing.T) {
+func TestWeightedGeneratorConfigAdmission(t *testing.T) {
 	if gen, err := NewConfigBasedGenerator(nil); err == nil || gen != nil {
 		t.Fatal("nil configuration accepted")
 	}
@@ -366,8 +353,8 @@ func TestRepairM_819_ConfigAdmission(t *testing.T) {
 	}
 }
 
-func TestRepairM_819_CumulativeWeights(t *testing.T) {
-	first, second := repair819Scenario(t), repair819Scenario(t)
+func TestWeightedGeneratorCumulativeWeights(t *testing.T) {
+	first, second := prewarmWeightedScenario(t), prewarmWeightedScenario(t)
 	gen, err := NewWeightedGenerator(WeightedConfig(2, first), WeightedConfig(0, second), WeightedConfig(3, second))
 	if err != nil {
 		t.Fatal(err)

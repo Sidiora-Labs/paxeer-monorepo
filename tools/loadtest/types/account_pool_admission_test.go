@@ -16,7 +16,7 @@ import (
 	"github.com/paxeer-network/pax-load/types"
 )
 
-func TestRepairM_818_RejectInvalidPoolConfiguration(t *testing.T) {
+func TestAccountPoolRejectInvalidPoolConfiguration(t *testing.T) {
 	accounts := types.GenerateAccounts(2)
 	cases := []struct {
 		name string
@@ -44,7 +44,7 @@ func TestRepairM_818_RejectInvalidPoolConfiguration(t *testing.T) {
 	}
 }
 
-func TestRepairM_818_AdmittedPoolTransactionRoundTrip(t *testing.T) {
+func TestAccountPoolAdmittedPoolTransactionRoundTrip(t *testing.T) {
 	cases := []struct {
 		name    string
 		profile string
@@ -116,7 +116,7 @@ func TestRepairM_818_AdmittedPoolTransactionRoundTrip(t *testing.T) {
 	}
 }
 
-func TestRepairM_818_AdmissionSurvivesConfigMutation(t *testing.T) {
+func TestAccountPoolAdmissionSurvivesConfigMutation(t *testing.T) {
 	accounts := types.GenerateAccounts(2)
 	expected := append([]*types.Account(nil), accounts...)
 	cfg := &types.AccountConfig{Accounts: accounts}

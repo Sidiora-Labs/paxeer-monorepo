@@ -26,7 +26,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func repair324Tx(t *testing.T, nonce uint64) *types.LoadTx {
+func writerRPCTx(t *testing.T, nonce uint64) *types.LoadTx {
 	t.Helper()
 	key, err := crypto.HexToECDSA(strings.Repeat("01", 32))
 	require.NoError(t, err)
@@ -35,7 +35,7 @@ func repair324Tx(t *testing.T, nonce uint64) *types.LoadTx {
 	return types.CreateTxFromEthTx(tx, &types.TxScenario{Name: "repair-324"})
 }
 
-func repair324Batch(t *testing.T, txs ...*types.LoadTx) []byte {
+func writerRPCBatch(t *testing.T, txs ...*types.LoadTx) []byte {
 	t.Helper()
 	batch := TxWriteData{TxPayloads: make([][]byte, 0, len(txs))}
 	for _, tx := range txs {
@@ -46,11 +46,11 @@ func repair324Batch(t *testing.T, txs ...*types.LoadTx) []byte {
 	return data
 }
 
-func repair324ReadBatch(t *testing.T, path string, txs ...*types.LoadTx) {
+func writerRPCReadBatch(t *testing.T, path string, txs ...*types.LoadTx) {
 	t.Helper()
 	data, err := os.ReadFile(path)
 	require.NoError(t, err)
-	require.Equal(t, repair324Batch(t, txs...), data)
+	require.Equal(t, writerRPCBatch(t, txs...), data)
 	var batch TxWriteData
 	require.NoError(t, json.Unmarshal(data, &batch))
 	require.Len(t, batch.TxPayloads, len(txs))
@@ -61,12 +61,12 @@ func repair324ReadBatch(t *testing.T, path string, txs ...*types.LoadTx) {
 	}
 }
 
-func TestRepair_324_WriterErrorDataLoss(t *testing.T) {
+func TestWriterTransportWriterErrorDataLoss(t *testing.T) {
 	for _, failure := range []string{"directory", "publication"} {
 		t.Run(failure, func(t *testing.T) {
 			dir := filepath.Join(t.TempDir(), "batches")
 			writer := NewTxsWriter(21000, dir, 41, 10)
-			first, second := repair324Tx(t, 0), repair324Tx(t, 1)
+			first, second := writerRPCTx(t, 0), writerRPCTx(t, 1)
 			require.NoError(t, writer.Send(t.Context(), first))
 			var restore func()
 			if failure == "directory" {
@@ -90,7 +90,7 @@ func TestRepair_324_WriterErrorDataLoss(t *testing.T) {
 			require.Equal(t, []*types.LoadTx{first}, writer.txBuffer)
 			restore()
 			require.NoError(t, writer.Send(t.Context(), second))
-			repair324ReadBatch(t, writer.batchPath(41), first)
+			writerRPCReadBatch(t, writer.batchPath(41), first)
 			require.Equal(t, uint64(42), writer.nextHeight)
 			require.Equal(t, uint64(1), writer.blocksGenerated)
 			require.Equal(t, []*types.LoadTx{second}, writer.txBuffer)
@@ -100,20 +100,20 @@ func TestRepair_324_WriterErrorDataLoss(t *testing.T) {
 			require.NoError(t, reopened.resume())
 			require.Equal(t, uint64(43), reopened.nextHeight)
 			require.Equal(t, uint64(2), reopened.blocksGenerated)
-			repair324ReadBatch(t, reopened.batchPath(41), first)
-			repair324ReadBatch(t, reopened.batchPath(42), second)
+			writerRPCReadBatch(t, reopened.batchPath(41), first)
+			writerRPCReadBatch(t, reopened.batchPath(42), second)
 		})
 	}
 }
 
-func TestRepair_324_WriterRestartRecovery(t *testing.T) {
+func TestWriterTransportWriterRestartRecovery(t *testing.T) {
 	for _, linked := range []bool{false, true} {
 		t.Run(fmt.Sprintf("published_%t", linked), func(t *testing.T) {
 			dir := t.TempDir()
 			writer := NewTxsWriter(42000, dir, 70, 10)
-			first, second := repair324Tx(t, 0), repair324Tx(t, 1)
+			first, second := writerRPCTx(t, 0), writerRPCTx(t, 1)
 			require.NoError(t, writer.Send(t.Context(), first))
-			require.NoError(t, writer.stageBatch(repair324Batch(t, first)))
+			require.NoError(t, writer.stageBatch(writerRPCBatch(t, first)))
 			require.NoFileExists(t, writer.batchPath(70))
 			if linked {
 				// Crash after exclusive publication, before pending-file cleanup.
@@ -127,10 +127,10 @@ func TestRepair_324_WriterRestartRecovery(t *testing.T) {
 			require.NoError(t, reopened.Send(t.Context(), second))
 			require.Equal(t, uint64(71), reopened.nextHeight)
 			require.Equal(t, uint64(1), reopened.blocksGenerated)
-			repair324ReadBatch(t, reopened.batchPath(70), first)
+			writerRPCReadBatch(t, reopened.batchPath(70), first)
 			require.NoFileExists(t, reopened.pendingPath(70))
 			require.NoError(t, reopened.Flush())
-			repair324ReadBatch(t, reopened.batchPath(71), second)
+			writerRPCReadBatch(t, reopened.batchPath(71), second)
 			reopened = nil
 			again := NewTxsWriter(42000, dir, 70, 10)
 			require.NoError(t, again.resume())
@@ -140,9 +140,9 @@ func TestRepair_324_WriterRestartRecovery(t *testing.T) {
 	}
 }
 
-func TestRepair_324_WriterDuplicateHeight(t *testing.T) {
+func TestWriterTransportWriterDuplicateHeight(t *testing.T) {
 	dir := t.TempDir()
-	first, other := repair324Tx(t, 0), repair324Tx(t, 1)
+	first, other := writerRPCTx(t, 0), writerRPCTx(t, 1)
 	original := NewTxsWriter(42000, dir, 9, 10)
 	stale := NewTxsWriter(42000, dir, 9, 10)
 	require.NoError(t, original.Send(t.Context(), first))
@@ -152,33 +152,33 @@ func TestRepair_324_WriterDuplicateHeight(t *testing.T) {
 	require.Equal(t, uint64(9), stale.nextHeight)
 	require.Equal(t, uint64(21000), stale.bufferGas)
 	require.Equal(t, []*types.LoadTx{other}, stale.txBuffer)
-	repair324ReadBatch(t, original.batchPath(9), first)
+	writerRPCReadBatch(t, original.batchPath(9), first)
 	// Refusal must not leave a conflicting recovery record behind.
 	require.NoFileExists(t, stale.pendingPath(9))
 	reopened := NewTxsWriter(42000, dir, 9, 10)
 	require.NoError(t, reopened.resume())
-	repair324ReadBatch(t, original.batchPath(9), first)
+	writerRPCReadBatch(t, original.batchPath(9), first)
 	wrongStart := NewTxsWriter(42000, dir, 10, 10)
 	require.ErrorIs(t, wrongStart.Send(t.Context(), other), os.ErrExist)
 	require.NoError(t, reopened.resume())
 	require.Equal(t, uint64(10), reopened.nextHeight)
 	require.NoError(t, reopened.Send(t.Context(), other))
 	require.NoError(t, reopened.Flush())
-	repair324ReadBatch(t, reopened.batchPath(10), other)
+	writerRPCReadBatch(t, reopened.batchPath(10), other)
 	// Legacy output cannot be silently adopted by a new workload.
 	legacyDir := t.TempDir()
 	legacyPath := filepath.Join(legacyDir, "9_txs.json")
-	require.NoError(t, os.WriteFile(legacyPath, repair324Batch(t, first), 0644))
+	require.NoError(t, os.WriteFile(legacyPath, writerRPCBatch(t, first), 0644))
 	require.ErrorIs(t, NewTxsWriter(42000, legacyDir, 9, 10).Send(t.Context(), other), os.ErrExist)
-	repair324ReadBatch(t, legacyPath, first)
+	writerRPCReadBatch(t, legacyPath, first)
 }
 
-func TestRepair_324_WriterRejectsCorruptRecovery(t *testing.T) {
+func TestWriterTransportWriterRejectsCorruptRecovery(t *testing.T) {
 	for _, corruption := range []string{"manifest", "batch", "gap", "pending_conflict"} {
 		t.Run(corruption, func(t *testing.T) {
 			dir := t.TempDir()
 			writer := NewTxsWriter(42000, dir, 2, 10)
-			tx := repair324Tx(t, 0)
+			tx := writerRPCTx(t, 0)
 			require.NoError(t, writer.Send(t.Context(), tx))
 			require.NoError(t, writer.Flush())
 			switch corruption {
@@ -189,9 +189,9 @@ func TestRepair_324_WriterRejectsCorruptRecovery(t *testing.T) {
 			case "gap":
 				require.NoError(t, os.Rename(writer.batchPath(2), writer.batchPath(3)))
 			case "pending_conflict":
-				require.NoError(t, writer.stageBatch(repair324Batch(t, tx)))
+				require.NoError(t, writer.stageBatch(writerRPCBatch(t, tx)))
 				require.NoError(t, os.Rename(writer.pendingPath(3), writer.pendingPath(2)))
-				require.NoError(t, os.WriteFile(writer.pendingPath(2), repair324Batch(t, repair324Tx(t, 1)), 0644))
+				require.NoError(t, os.WriteFile(writer.pendingPath(2), writerRPCBatch(t, writerRPCTx(t, 1)), 0644))
 			}
 			writer = nil
 			reopened := NewTxsWriter(42000, dir, 2, 10)
@@ -204,13 +204,13 @@ func TestRepair_324_WriterRejectsCorruptRecovery(t *testing.T) {
 // This committed peer fixture exposes the SendAPI hash/error contract from
 // rpc/send_test.go over the production JSON-RPC server codec. It has no node or
 // mempool implementation; only the exact signed input in the fixture is accepted.
-type Repair324RPCTranscript struct {
+type WriterRPCTranscript struct {
 	Input  hexutil.Bytes
 	Hash   common.Hash
 	Reject bool
 }
 
-func (f *Repair324RPCTranscript) SendRawTransaction(input hexutil.Bytes) (common.Hash, error) {
+func (f *WriterRPCTranscript) SendRawTransaction(input hexutil.Bytes) (common.Hash, error) {
 	if !bytes.Equal(input, f.Input) {
 		return common.Hash{}, fmt.Errorf("request does not match the committed transaction fixture")
 	}
@@ -220,13 +220,13 @@ func (f *Repair324RPCTranscript) SendRawTransaction(input hexutil.Bytes) (common
 	return f.Hash, nil
 }
 
-func TestRepair_324_RPCProducerTransportConsumer(t *testing.T) {
+func TestWriterTransportRPCProducerTransportConsumer(t *testing.T) {
 	for _, reject := range []bool{false, true} {
 		t.Run(fmt.Sprintf("rejected_%t", reject), func(t *testing.T) {
-			tx := repair324Tx(t, 0)
+			tx := writerRPCTx(t, 0)
 			rpcServer := gethrpc.NewServer()
 			t.Cleanup(rpcServer.Stop)
-			require.NoError(t, rpcServer.RegisterName("eth", &Repair324RPCTranscript{Input: tx.Payload, Hash: tx.EthTx.Hash(), Reject: reject}))
+			require.NoError(t, rpcServer.RegisterName("eth", &WriterRPCTranscript{Input: tx.Payload, Hash: tx.EthTx.Hash(), Reject: reject}))
 			server := httptest.NewServer(rpcServer)
 			t.Cleanup(server.Close)
 			worker := NewWorker(1, "125", server.URL, 4, 1, nil)
@@ -265,8 +265,8 @@ func TestRepair_324_RPCProducerTransportConsumer(t *testing.T) {
 	}
 }
 
-func TestRepair_324_RPCInvalidResponses(t *testing.T) {
-	tx := repair324Tx(t, 0)
+func TestWriterTransportRPCInvalidResponses(t *testing.T) {
+	tx := writerRPCTx(t, 0)
 	valid := fmt.Sprintf(`{"jsonrpc":"2.0","id":0,"result":%q}`, tx.EthTx.Hash().Hex())
 	cases := map[string]string{
 		"empty":            "",
@@ -306,7 +306,7 @@ func TestRepair_324_RPCInvalidResponses(t *testing.T) {
 	t.Run("real_codec_invalid_params", func(t *testing.T) {
 		serverCodec := gethrpc.NewServer()
 		defer serverCodec.Stop()
-		require.NoError(t, serverCodec.RegisterName("eth", &Repair324RPCTranscript{Input: tx.Payload, Hash: tx.EthTx.Hash()}))
+		require.NoError(t, serverCodec.RegisterName("eth", &WriterRPCTranscript{Input: tx.Payload, Hash: tx.EthTx.Hash()}))
 		server := httptest.NewServer(serverCodec)
 		defer server.Close()
 		badRequest := *tx

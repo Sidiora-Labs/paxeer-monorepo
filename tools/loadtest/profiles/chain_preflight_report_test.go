@@ -31,7 +31,7 @@ import (
 
 // The peer implements JSON-RPC over a real loopback HTTP transport. It decodes
 // and verifies transactions produced by the production generator and sender.
-type repair823RPC struct {
+type shippedProfileRPC struct {
 	mu           sync.Mutex
 	chainCalls   int
 	transactions int
@@ -40,9 +40,9 @@ type repair823RPC struct {
 	server       *httptest.Server
 }
 
-func repair823Endpoint(t *testing.T, chainResult any) *repair823RPC {
+func shippedProfileEndpoint(t *testing.T, chainResult any) *shippedProfileRPC {
 	t.Helper()
-	peer := &repair823RPC{}
+	peer := &shippedProfileRPC{}
 	peer.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		peer.mu.Lock()
 		defer peer.mu.Unlock()
@@ -107,7 +107,7 @@ func repair823Endpoint(t *testing.T, chainResult any) *repair823RPC {
 	return peer
 }
 
-func (p *repair823RPC) assert(t *testing.T, chainCalls int, sent bool) {
+func (p *shippedProfileRPC) assert(t *testing.T, chainCalls int, sent bool) {
 	t.Helper()
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -121,7 +121,7 @@ func (p *repair823RPC) assert(t *testing.T, chainCalls int, sent bool) {
 	}
 }
 
-func repair823Command(t *testing.T, cfg *config.LoadConfig, flags ...string) *cobra.Command {
+func shippedProfileCommand(t *testing.T, cfg *config.LoadConfig, flags ...string) *cobra.Command {
 	t.Helper()
 	viper.Reset()
 	t.Cleanup(viper.Reset)
@@ -138,7 +138,7 @@ func repair823Command(t *testing.T, cfg *config.LoadConfig, flags ...string) *co
 	return cmd
 }
 
-func repair823Profile(t *testing.T, name string) *config.LoadConfig {
+func shippedProfileProfile(t *testing.T, name string) *config.LoadConfig {
 	t.Helper()
 	cfg, err := cli.LoadConfig(name + ".json")
 	require.NoError(t, err)
@@ -150,24 +150,24 @@ func repair823Profile(t *testing.T, name string) *config.LoadConfig {
 	return cfg
 }
 
-func repair823ProveProfile(t *testing.T, name string) {
+func shippedProfileProveProfile(t *testing.T, name string) {
 	t.Helper()
-	shipped := repair823Profile(t, name)
+	shipped := shippedProfileProfile(t, name)
 	for badAt := range shipped.Endpoints {
 		t.Run(fmt.Sprintf("mismatch_at_endpoint_%d", badAt+1), func(t *testing.T) {
 			cfg := *shipped
 			cfg.Endpoints = nil
-			var peers []*repair823RPC
+			var peers []*shippedProfileRPC
 			for i := range shipped.Endpoints {
 				chain := "0x7d"
 				if i == badAt {
 					chain = "0xae3f2" // The former fixture chain 713714.
 				}
-				peer := repair823Endpoint(t, chain)
+				peer := shippedProfileEndpoint(t, chain)
 				peers = append(peers, peer)
 				cfg.Endpoints = append(cfg.Endpoints, peer.server.URL)
 			}
-			cmd := repair823Command(t, &cfg, "--nodes=1")
+			cmd := shippedProfileCommand(t, &cfg, "--nodes=1")
 			err := cmd.ExecuteContext(context.Background())
 			require.ErrorContains(t, err, "eth_chainId mismatch: configured 125, actual 713714")
 			require.ErrorContains(t, err, fmt.Sprintf("endpoint %d (%s)", badAt+1, cfg.Endpoints[badAt]))
@@ -183,9 +183,9 @@ func repair823ProveProfile(t *testing.T, name string) {
 	t.Run("all_endpoints_match", func(t *testing.T) {
 		cfg := *shipped
 		cfg.Endpoints = nil
-		var peers []*repair823RPC
+		var peers []*shippedProfileRPC
 		for range shipped.Endpoints {
-			peer := repair823Endpoint(t, "0x7d")
+			peer := shippedProfileEndpoint(t, "0x7d")
 			peers = append(peers, peer)
 			cfg.Endpoints = append(cfg.Endpoints, peer.server.URL)
 		}
@@ -198,35 +198,35 @@ func repair823ProveProfile(t *testing.T, name string) {
 	})
 }
 
-func TestRepairM_823_ProfileChainAutobakeEVMTransfer(t *testing.T) {
-	repair823ProveProfile(t, "autobake_evm_transfer")
+func TestShippedProfileChainAutobakeEVMTransfer(t *testing.T) {
+	shippedProfileProveProfile(t, "autobake_evm_transfer")
 }
 
-func TestRepairM_823_ProfileChainConflict(t *testing.T) {
-	repair823ProveProfile(t, "conflict")
+func TestShippedProfileChainConflict(t *testing.T) {
+	shippedProfileProveProfile(t, "conflict")
 }
 
-func TestRepairM_823_ProfileChainEVMTransfer(t *testing.T) {
-	repair823ProveProfile(t, "evm_transfer")
+func TestShippedProfileChainEVMTransfer(t *testing.T) {
+	shippedProfileProveProfile(t, "evm_transfer")
 }
 
-func TestRepairM_823_ProfileChainEVMTransferWriteFile(t *testing.T) {
-	repair823ProveProfile(t, "evm_transfer_write_file")
+func TestShippedProfileChainEVMTransferWriteFile(t *testing.T) {
+	shippedProfileProveProfile(t, "evm_transfer_write_file")
 }
 
-func TestRepairM_823_ProfileChainLoadtestDefault(t *testing.T) {
-	repair823ProveProfile(t, "loadtest_default")
+func TestShippedProfileChainLoadtestDefault(t *testing.T) {
+	shippedProfileProveProfile(t, "loadtest_default")
 }
 
-func TestRepairM_823_ProfileChainLocal(t *testing.T) {
-	repair823ProveProfile(t, "local")
+func TestShippedProfileChainLocal(t *testing.T) {
+	shippedProfileProveProfile(t, "local")
 }
 
-func TestRepairM_823_ProfileChainLocalDocker(t *testing.T) {
-	repair823ProveProfile(t, "local_docker")
+func TestShippedProfileChainLocalDocker(t *testing.T) {
+	shippedProfileProveProfile(t, "local_docker")
 }
 
-func TestRepairM_823_PreflightErrors(t *testing.T) {
+func TestShippedPreflightErrors(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
 		result any
@@ -239,20 +239,20 @@ func TestRepairM_823_PreflightErrors(t *testing.T) {
 		{"oversized_chain", "0x100000000000000000000000000000000000000000000007d"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			cfg := repair823Profile(t, "evm_transfer")
-			peer := repair823Endpoint(t, tc.result)
+			cfg := shippedProfileProfile(t, "evm_transfer")
+			peer := shippedProfileEndpoint(t, tc.result)
 			cfg.Endpoints = []string{peer.server.URL}
-			cmd := repair823Command(t, cfg, "--dry-run")
+			cmd := shippedProfileCommand(t, cfg, "--dry-run")
 			require.ErrorContains(t, cmd.ExecuteContext(context.Background()), "eth_chainId")
 			peer.assert(t, 1, false)
 		})
 	}
 	for _, chainID := range []int64{0, -1} {
 		t.Run(fmt.Sprintf("invalid_configured_chain_%d", chainID), func(t *testing.T) {
-			cfg := repair823Profile(t, "evm_transfer")
-			peer := repair823Endpoint(t, "0x7d")
+			cfg := shippedProfileProfile(t, "evm_transfer")
+			peer := shippedProfileEndpoint(t, "0x7d")
 			cfg.ChainID, cfg.Endpoints = chainID, []string{peer.server.URL}
-			require.ErrorContains(t, repair823Command(t, cfg).Execute(), "chainId must be positive")
+			require.ErrorContains(t, shippedProfileCommand(t, cfg).Execute(), "chainId must be positive")
 			peer.assert(t, 0, false)
 		})
 	}
@@ -278,7 +278,7 @@ func TestRepairM_823_PreflightErrors(t *testing.T) {
 					"error": map[string]any{"code": -32601, "message": "chain identity unavailable"}})
 			}))
 			defer endpoint.Close()
-			cfg := repair823Profile(t, "evm_transfer")
+			cfg := shippedProfileProfile(t, "evm_transfer")
 			cfg.Endpoints = []string{endpoint.URL}
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
@@ -288,7 +288,7 @@ func TestRepairM_823_PreflightErrors(t *testing.T) {
 			if mode == "unreachable" {
 				endpoint.Close()
 			}
-			err := repair823Command(t, cfg).ExecuteContext(ctx)
+			err := shippedProfileCommand(t, cfg).ExecuteContext(ctx)
 			require.ErrorContains(t, err, "chain preflight: endpoint 1")
 			if mode == "canceled" {
 				require.ErrorIs(t, err, context.Canceled)
@@ -297,19 +297,19 @@ func TestRepairM_823_PreflightErrors(t *testing.T) {
 	}
 }
 
-var repair823Completed = regexp.MustCompile(`throughput tps=[^,]+, txs=([0-9]+),`)
+var shippedProfileCompleted = regexp.MustCompile(`throughput tps=[^,]+, txs=([0-9]+),`)
 
-type repair823Output struct {
+type shippedProfileOutput struct {
 	mu        sync.Mutex
 	cancel    context.CancelFunc
 	ready     func() bool
 	completed bool
 }
 
-func (o *repair823Output) Write(p []byte) (int, error) {
+func (o *shippedProfileOutput) Write(p []byte) (int, error) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
-	if match := repair823Completed.FindSubmatch(p); match != nil {
+	if match := shippedProfileCompleted.FindSubmatch(p); match != nil {
 		count, err := strconv.Atoi(string(match[1]))
 		if err == nil && count >= 10 && o.ready() {
 			o.completed = true
@@ -319,7 +319,7 @@ func (o *repair823Output) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-func repair823RunTransfers(t *testing.T, cfg *config.LoadConfig, flags ...string) error {
+func shippedProfileRunTransfers(t *testing.T, cfg *config.LoadConfig, flags ...string) error {
 	t.Helper()
 	registerer, gatherer := prometheus.DefaultRegisterer, prometheus.DefaultGatherer
 	registry := prometheus.NewRegistry()
@@ -327,17 +327,17 @@ func repair823RunTransfers(t *testing.T, cfg *config.LoadConfig, flags ...string
 	defer func() {
 		prometheus.DefaultRegisterer, prometheus.DefaultGatherer = registerer, gatherer
 	}()
-	first, second := repair823Endpoint(t, "0x7d"), repair823Endpoint(t, "0x7d")
+	first, second := shippedProfileEndpoint(t, "0x7d"), shippedProfileEndpoint(t, "0x7d")
 	cfg.Endpoints = []string{first.server.URL, second.server.URL}
 	// Each transfer advances the round-robin pool twice (sender and receiver).
 	// An odd pool visits every account as a sender instead of pinning one sender.
 	cfg.Accounts = &config.AccountConfig{Accounts: 129}
 	cfg.Settings.Workers, cfg.Settings.BufferSize = 1, 16
-	cmd := repair823Command(t, cfg, append([]string{"--tps=1000", "--stats-interval=20ms"}, flags...)...)
+	cmd := shippedProfileCommand(t, cfg, append([]string{"--tps=1000", "--stats-interval=20ms"}, flags...)...)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	output := &repair823Output{cancel: cancel, ready: func() bool {
-		for _, peer := range []*repair823RPC{first, second} {
+	output := &shippedProfileOutput{cancel: cancel, ready: func() bool {
+		for _, peer := range []*shippedProfileRPC{first, second} {
 			peer.mu.Lock()
 			count := peer.transactions
 			peer.mu.Unlock()
@@ -362,7 +362,7 @@ func repair823RunTransfers(t *testing.T, cfg *config.LoadConfig, flags ...string
 	return err
 }
 
-func TestRepairM_823_ProfileOutputPath(t *testing.T) {
+func TestShippedProfileOutputPath(t *testing.T) {
 	profile, err := filepath.Abs("autobake_evm_transfer.json")
 	require.NoError(t, err)
 	for _, layout := range []string{"local-workdir", "container-mounted-workdir"} {
@@ -374,7 +374,7 @@ func TestRepairM_823_ProfileOutputPath(t *testing.T) {
 			cwd := filepath.Join(t.TempDir(), layout)
 			require.NoError(t, os.Mkdir(cwd, 0o700))
 			t.Chdir(cwd)
-			err = repair823RunTransfers(t, cfg)
+			err = shippedProfileRunTransfers(t, cfg)
 			require.ErrorIs(t, err, context.Canceled)
 			require.False(t, errors.Is(err, cli.ErrPerformanceBounds), "%v", err)
 			data, err := os.ReadFile(cfg.Settings.ReportPath)
@@ -396,11 +396,11 @@ func TestRepairM_823_ProfileOutputPath(t *testing.T) {
 	}
 }
 
-func TestRepairM_823_ReportParentError(t *testing.T) {
-	cfg := repair823Profile(t, "autobake_evm_transfer")
+func TestShippedReportParentError(t *testing.T) {
+	cfg := shippedProfileProfile(t, "autobake_evm_transfer")
 	t.Chdir(t.TempDir())
 	missing := filepath.Join("missing-parent", "report.json")
-	err := repair823RunTransfers(t, cfg, "--report-path="+missing)
+	err := shippedProfileRunTransfers(t, cfg, "--report-path="+missing)
 	require.ErrorIs(t, err, os.ErrNotExist)
 	require.ErrorContains(t, err, "write report "+missing)
 	require.False(t, strings.Contains(err.Error(), "/home/ubuntu"))

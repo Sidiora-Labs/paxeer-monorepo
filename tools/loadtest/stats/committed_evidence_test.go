@@ -34,7 +34,7 @@ import (
 // This committed peer fixture serves signed transactions, linked headers and
 // receipts through geth's real HTTP/WebSocket JSON-RPC codecs. Only peers of the
 // repaired stats components are fixtures; the sender and collectors are real.
-type RepairM822Node struct {
+type CommittedEvidenceNode struct {
 	mu             sync.Mutex
 	blocks         []*ethtypes.Block
 	head           uint64
@@ -46,19 +46,19 @@ type RepairM822Node struct {
 	reject         bool
 	requests       int
 	subscriptions  int
-	notifiers      []repairM822Subscription
+	notifiers      []committedEvidenceSubscription
 	codec          *rpc.Server
 	server         *httptest.Server
 }
 
-type repairM822Subscription struct {
+type committedEvidenceSubscription struct {
 	notifier *rpc.Notifier
 	id       rpc.ID
 }
 
-func repairM822Node(t *testing.T, blocks []*ethtypes.Block, head uint64) *RepairM822Node {
+func committedEvidenceNode(t *testing.T, blocks []*ethtypes.Block, head uint64) *CommittedEvidenceNode {
 	t.Helper()
-	node := &RepairM822Node{blocks: blocks, head: head, missing: make(map[uint64]bool), receipts: make(map[common.Hash]*ethtypes.Receipt), hiddenReceipts: make(map[common.Hash]bool), blockReads: make(map[common.Hash]int), accepted: make(map[common.Hash][]byte)}
+	node := &CommittedEvidenceNode{blocks: blocks, head: head, missing: make(map[uint64]bool), receipts: make(map[common.Hash]*ethtypes.Receipt), hiddenReceipts: make(map[common.Hash]bool), blockReads: make(map[common.Hash]int), accepted: make(map[common.Hash][]byte)}
 	node.codec = rpc.NewServer()
 	require.NoError(t, node.codec.RegisterName("eth", node))
 	node.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
@@ -75,7 +75,7 @@ func repairM822Node(t *testing.T, blocks []*ethtypes.Block, head uint64) *Repair
 	return node
 }
 
-func (node *RepairM822Node) NewHeads(ctx context.Context) (*rpc.Subscription, error) {
+func (node *CommittedEvidenceNode) NewHeads(ctx context.Context) (*rpc.Subscription, error) {
 	notifier, ok := rpc.NotifierFromContext(ctx)
 	if !ok {
 		return nil, errors.New("subscription transport unavailable")
@@ -83,24 +83,24 @@ func (node *RepairM822Node) NewHeads(ctx context.Context) (*rpc.Subscription, er
 	subscription := notifier.CreateSubscription()
 	node.mu.Lock()
 	node.subscriptions++
-	node.notifiers = append(node.notifiers, repairM822Subscription{notifier, subscription.ID})
+	node.notifiers = append(node.notifiers, committedEvidenceSubscription{notifier, subscription.ID})
 	node.mu.Unlock()
 	return subscription, nil
 }
 
-func (node *RepairM822Node) publish(t *testing.T, height uint64) {
+func (node *CommittedEvidenceNode) publish(t *testing.T, height uint64) {
 	t.Helper()
 	node.mu.Lock()
 	node.head = height
 	header := node.blocks[height-1].Header()
-	subscribers := append([]repairM822Subscription(nil), node.notifiers...)
+	subscribers := append([]committedEvidenceSubscription(nil), node.notifiers...)
 	node.mu.Unlock()
 	for _, subscriber := range subscribers {
 		_ = subscriber.notifier.Notify(subscriber.id, header)
 	}
 }
 
-func (node *RepairM822Node) restart(t *testing.T, height uint64) {
+func (node *CommittedEvidenceNode) restart(t *testing.T, height uint64) {
 	t.Helper()
 	codec := rpc.NewServer()
 	require.NoError(t, codec.RegisterName("eth", node))
@@ -113,7 +113,7 @@ func (node *RepairM822Node) restart(t *testing.T, height uint64) {
 	old.Stop()
 }
 
-func (node *RepairM822Node) GetBlockByNumber(number string, full bool) (json.RawMessage, error) {
+func (node *CommittedEvidenceNode) GetBlockByNumber(number string, full bool) (json.RawMessage, error) {
 	node.mu.Lock()
 	defer node.mu.Unlock()
 	height := node.head
@@ -127,22 +127,22 @@ func (node *RepairM822Node) GetBlockByNumber(number string, full bool) (json.Raw
 	if height == 0 || height > node.head || height > uint64(len(node.blocks)) || node.missing[height] {
 		return json.RawMessage("null"), nil
 	}
-	return repairM822BlockJSON(node.blocks[height-1], full)
+	return committedEvidenceBlockJSON(node.blocks[height-1], full)
 }
 
-func (node *RepairM822Node) GetBlockByHash(hash common.Hash, full bool) (json.RawMessage, error) {
+func (node *CommittedEvidenceNode) GetBlockByHash(hash common.Hash, full bool) (json.RawMessage, error) {
 	node.mu.Lock()
 	defer node.mu.Unlock()
 	node.blockReads[hash]++
 	for _, block := range node.blocks {
 		if block.Hash() == hash && block.NumberU64() <= node.head {
-			return repairM822BlockJSON(block, full)
+			return committedEvidenceBlockJSON(block, full)
 		}
 	}
 	return json.RawMessage("null"), nil
 }
 
-func (node *RepairM822Node) GetTransactionReceipt(hash common.Hash) (*ethtypes.Receipt, error) {
+func (node *CommittedEvidenceNode) GetTransactionReceipt(hash common.Hash) (*ethtypes.Receipt, error) {
 	node.mu.Lock()
 	defer node.mu.Unlock()
 	if node.hiddenReceipts[hash] {
@@ -151,7 +151,7 @@ func (node *RepairM822Node) GetTransactionReceipt(hash common.Hash) (*ethtypes.R
 	return node.receipts[hash], nil
 }
 
-func (node *RepairM822Node) SendRawTransaction(input hexutil.Bytes) (common.Hash, error) {
+func (node *CommittedEvidenceNode) SendRawTransaction(input hexutil.Bytes) (common.Hash, error) {
 	node.mu.Lock()
 	defer node.mu.Unlock()
 	node.requests++
@@ -169,7 +169,7 @@ func (node *RepairM822Node) SendRawTransaction(input hexutil.Bytes) (common.Hash
 	return tx.Hash(), nil
 }
 
-func repairM822BlockJSON(block *ethtypes.Block, full bool) (json.RawMessage, error) {
+func committedEvidenceBlockJSON(block *ethtypes.Block, full bool) (json.RawMessage, error) {
 	data, err := json.Marshal(block.Header())
 	if err != nil || !full {
 		return data, err
@@ -194,7 +194,7 @@ func repairM822BlockJSON(block *ethtypes.Block, full bool) (json.RawMessage, err
 	return json.Marshal(fields)
 }
 
-func repairM822Blocks(count int) []*ethtypes.Block {
+func committedEvidenceBlocks(count int) []*ethtypes.Block {
 	blocks := make([]*ethtypes.Block, 0, count)
 	timestamp := uint64(time.Now().Add(-4 * time.Hour).Unix())
 	var parent common.Hash
@@ -215,7 +215,7 @@ func repairM822Blocks(count int) []*ethtypes.Block {
 	return blocks
 }
 
-func repairM822RunCollector(t *testing.T, collector *stats.BlockCollector, endpoint string) (context.CancelFunc, <-chan error) {
+func committedEvidenceRunCollector(t *testing.T, collector *stats.BlockCollector, endpoint string) (context.CancelFunc, <-chan error) {
 	t.Helper()
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan error, 1)
@@ -224,12 +224,12 @@ func repairM822RunCollector(t *testing.T, collector *stats.BlockCollector, endpo
 	return cancel, done
 }
 
-func repairM822Height(t *testing.T, collector *stats.BlockCollector, height uint64) {
+func committedEvidenceHeight(t *testing.T, collector *stats.BlockCollector, height uint64) {
 	t.Helper()
 	require.Eventually(t, func() bool { return collector.GetBlockStats().MaxBlockNumber == height }, 5*time.Second, time.Millisecond)
 }
 
-func repairM822ReadReport(t *testing.T, collector *stats.Collector) (*stats.FinalStats, error) {
+func committedEvidenceReadReport(t *testing.T, collector *stats.Collector) (*stats.FinalStats, error) {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "report.json")
 	_, reportErr := stats.NewLogger(collector, time.Second, path, false).LogFinalStats()
@@ -240,7 +240,7 @@ func repairM822ReadReport(t *testing.T, collector *stats.Collector) (*stats.Fina
 	return &result, reportErr
 }
 
-func repairM822BoundNames(violations []stats.Violation) []string {
+func committedEvidenceBoundNames(violations []stats.Violation) []string {
 	result := make([]string, 0, len(violations))
 	for _, violation := range violations {
 		result = append(result, violation.Bound)
@@ -248,23 +248,23 @@ func repairM822BoundNames(violations []stats.Violation) []string {
 	return result
 }
 
-func TestRepairM_822_BlockSubscriptionRecovery(t *testing.T) {
-	node := repairM822Node(t, repairM822Blocks(8), 1)
+func TestStatsBlockSubscriptionRecovery(t *testing.T) {
+	node := committedEvidenceNode(t, committedEvidenceBlocks(8), 1)
 	path := filepath.Join(t.TempDir(), "blocks.json")
 	collector, err := stats.OpenBlockCollector("125", path)
 	require.NoError(t, err)
-	cancel, done := repairM822RunCollector(t, collector, node.server.URL)
-	repairM822Height(t, collector, 1)
+	cancel, done := committedEvidenceRunCollector(t, collector, node.server.URL)
+	committedEvidenceHeight(t, collector, 1)
 	node.publish(t, 2)
-	repairM822Height(t, collector, 2)
+	committedEvidenceHeight(t, collector, 2)
 	// A node restart loses heights 3 and 4 from the subscription. The same
 	// collector must reconnect and obtain every committed header over RPC.
 	node.restart(t, 5)
-	repairM822Height(t, collector, 5)
+	committedEvidenceHeight(t, collector, 5)
 	node.publish(t, 5)
 	node.publish(t, 5)
 	node.publish(t, 6)
-	repairM822Height(t, collector, 6)
+	committedEvidenceHeight(t, collector, 6)
 	require.Equal(t, 6, collector.GetBlockStats().GasSampleCount)
 	require.Equal(t, 5, collector.GetBlockStats().SampleCount)
 	require.False(t, collector.GetBlockStats().Incomplete)
@@ -277,8 +277,8 @@ func TestRepairM_822_BlockSubscriptionRecovery(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, uint64(6), reopened.GetBlockStats().MaxBlockNumber)
 	node.restart(t, 8)
-	cancelReopened, reopenedDone := repairM822RunCollector(t, reopened, node.server.URL)
-	repairM822Height(t, reopened, 8)
+	cancelReopened, reopenedDone := committedEvidenceRunCollector(t, reopened, node.server.URL)
+	committedEvidenceHeight(t, reopened, 8)
 	cancelReopened()
 	require.ErrorIs(t, <-reopenedDone, context.Canceled)
 	result := reopened.GetBlockStats()
@@ -297,13 +297,13 @@ func TestRepairM_822_BlockSubscriptionRecovery(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestRepairM_822_UnrecoverableGap(t *testing.T) {
-	node := repairM822Node(t, repairM822Blocks(3), 1)
+func TestStatsUnrecoverableGap(t *testing.T) {
+	node := committedEvidenceNode(t, committedEvidenceBlocks(3), 1)
 	path := filepath.Join(t.TempDir(), "blocks.json")
 	blocks, err := stats.OpenBlockCollector("125", path)
 	require.NoError(t, err)
-	_, done := repairM822RunCollector(t, blocks, node.server.URL)
-	repairM822Height(t, blocks, 1)
+	_, done := committedEvidenceRunCollector(t, blocks, node.server.URL)
+	committedEvidenceHeight(t, blocks, 1)
 	node.mu.Lock()
 	node.missing[2] = true
 	node.mu.Unlock()
@@ -316,28 +316,28 @@ func TestRepairM_822_UnrecoverableGap(t *testing.T) {
 	}
 	collector := stats.NewCollector()
 	collector.SetBlockCollector(blocks)
-	report, err := repairM822ReadReport(t, collector)
+	report, err := committedEvidenceReadReport(t, collector)
 	require.ErrorContains(t, err, "incomplete load test evidence")
 	require.True(t, report.Incomplete)
 	require.Equal(t, uint64(1), report.BlockStatistics.MaxBlockNumber)
 	require.Contains(t, report.BlockStatistics.RecoveryError, "height 2")
-	require.Contains(t, repairM822BoundNames((stats.Bounds{MaxP99Latency: time.Second}).Check(report)), "incomplete_run")
+	require.Contains(t, committedEvidenceBoundNames((stats.Bounds{MaxP99Latency: time.Second}).Check(report)), "incomplete_run")
 	reopened, err := stats.OpenBlockCollector("125", path)
 	require.NoError(t, err)
 	require.True(t, reopened.GetBlockStats().Incomplete)
 	require.Equal(t, report.BlockStatistics.RecoveryError, reopened.GetBlockStats().RecoveryError)
 }
 
-func TestRepairM_822_BlockStatisticsSemantics(t *testing.T) {
+func TestStatsBlockStatisticsSemantics(t *testing.T) {
 	const count = 1106
-	node := repairM822Node(t, repairM822Blocks(count), 1)
+	node := committedEvidenceNode(t, committedEvidenceBlocks(count), 1)
 	blocks := stats.NewBlockCollector("125")
-	cancel, done := repairM822RunCollector(t, blocks, node.server.URL)
-	repairM822Height(t, blocks, 1)
+	cancel, done := committedEvidenceRunCollector(t, blocks, node.server.URL)
+	committedEvidenceHeight(t, blocks, 1)
 	// A burst of delayed delivery must preserve the ordered chain intervals,
 	// including the outlier and gas maximum beyond the old 1000-sample cap.
 	node.publish(t, count-1)
-	repairM822Height(t, blocks, count-1)
+	committedEvidenceHeight(t, blocks, count-1)
 	full := blocks.GetBlockStats()
 	require.Equal(t, count-2, full.SampleCount)
 	require.Equal(t, count-1, full.GasSampleCount)
@@ -349,7 +349,7 @@ func TestRepairM_822_BlockStatisticsSemantics(t *testing.T) {
 	require.Greater(t, full.P50DeliveryLag, time.Hour)
 	blocks.ResetWindowStats()
 	node.publish(t, count)
-	repairM822Height(t, blocks, count)
+	committedEvidenceHeight(t, blocks, count)
 	cancel()
 	require.ErrorIs(t, <-done, context.Canceled)
 	require.Equal(t, 1, blocks.GetWindowBlockStats().SampleCount)
@@ -357,7 +357,7 @@ func TestRepairM_822_BlockStatisticsSemantics(t *testing.T) {
 	require.Equal(t, "reporting_window_committed_headers", blocks.GetWindowBlockStats().Scope)
 	collector := stats.NewCollector()
 	collector.SetBlockCollector(blocks)
-	report, err := repairM822ReadReport(t, collector)
+	report, err := committedEvidenceReadReport(t, collector)
 	require.NoError(t, err)
 	require.Equal(t, count-1, report.BlockStatistics.SampleCount)
 	require.Equal(t, "full_run_committed_headers", report.BlockStatistics.Scope)
@@ -366,13 +366,13 @@ func TestRepairM_822_BlockStatisticsSemantics(t *testing.T) {
 	require.Contains(t, report.String(), "Delivery lag")
 }
 
-func TestRepairM_822_ConflictingCommittedHash(t *testing.T) {
-	node := repairM822Node(t, repairM822Blocks(3), 1)
+func TestStatsConflictingCommittedHash(t *testing.T) {
+	node := committedEvidenceNode(t, committedEvidenceBlocks(3), 1)
 	blocks := stats.NewBlockCollector("125")
-	_, done := repairM822RunCollector(t, blocks, node.server.URL)
-	repairM822Height(t, blocks, 1)
+	_, done := committedEvidenceRunCollector(t, blocks, node.server.URL)
+	committedEvidenceHeight(t, blocks, 1)
 	node.publish(t, 2)
-	repairM822Height(t, blocks, 2)
+	committedEvidenceHeight(t, blocks, 2)
 	node.mu.Lock()
 	alternate := node.blocks[0].Header()
 	alternate.Extra = []byte("conflicting committed block")
@@ -389,33 +389,33 @@ func TestRepairM_822_ConflictingCommittedHash(t *testing.T) {
 	require.Equal(t, 2, blocks.GetBlockStats().GasSampleCount)
 }
 
-func TestRepairM_822_LatencyBoundRequiresEvidence(t *testing.T) {
+func TestStatsLatencyBoundRequiresEvidence(t *testing.T) {
 	bounds := stats.Bounds{MaxP99Latency: 20 * time.Millisecond}
-	require.Equal(t, []string{"insufficient_samples:max_p99_latency"}, repairM822BoundNames(bounds.Check(&stats.FinalStats{})))
-	require.Equal(t, []string{"insufficient_samples:max_p99_latency"}, repairM822BoundNames(bounds.Check(nil)))
+	require.Equal(t, []string{"insufficient_samples:max_p99_latency"}, committedEvidenceBoundNames(bounds.Check(&stats.FinalStats{})))
+	require.Equal(t, []string{"insufficient_samples:max_p99_latency"}, committedEvidenceBoundNames(bounds.Check(nil)))
 	collector := stats.NewCollector("required-idle", "sampled")
 	collector.RecordTransaction("transfer", "sampled", 30*time.Millisecond, true)
-	report, err := repairM822ReadReport(t, collector)
+	report, err := committedEvidenceReadReport(t, collector)
 	require.NoError(t, err)
 	require.Equal(t, []string{"required-idle", "sampled"}, report.RequiredEndpoints)
 	require.Zero(t, report.EndpointPerformance["required-idle"].SampleCount)
-	require.Equal(t, []string{"insufficient_samples:required-idle", "max_p99_latency:sampled"}, repairM822BoundNames(bounds.Check(report)))
+	require.Equal(t, []string{"insufficient_samples:required-idle", "max_p99_latency:sampled"}, committedEvidenceBoundNames(bounds.Check(report)))
 	// Required membership survives a missing endpoint row in a report.
 	delete(report.EndpointPerformance, "required-idle")
-	require.Equal(t, []string{"insufficient_samples:required-idle", "max_p99_latency:sampled"}, repairM822BoundNames(bounds.Check(report)))
+	require.Equal(t, []string{"insufficient_samples:required-idle", "max_p99_latency:sampled"}, committedEvidenceBoundNames(bounds.Check(report)))
 	require.Equal(t, []stats.Violation{{Bound: "max_p99_latency:sampled", Limit: "20ms", Observed: "30ms"}}, bounds.Check(&stats.FinalStats{EndpointPerformance: map[string]stats.EndpointPerformance{"sampled": report.EndpointPerformance["sampled"]}}))
 	require.Empty(t, (stats.Bounds{MaxP99Latency: 30 * time.Millisecond}).Check(&stats.FinalStats{EndpointPerformance: map[string]stats.EndpointPerformance{"sampled": report.EndpointPerformance["sampled"]}}))
 	report.Incomplete = true
 	require.Empty(t, (stats.Bounds{}).Check(report))
 }
 
-func repairM822Generated(t *testing.T, name string) *loadtypes.LoadTx {
+func committedEvidenceGenerated(t *testing.T, name string) *loadtypes.LoadTx {
 	t.Helper()
 	var cfg config.LoadConfig
 	require.NoError(t, json.Unmarshal([]byte(`{"chainId":125}`), &cfg))
 	// Contract scenarios attach through the production RPC client. Supply a
 	// loopback peer even though generation signs locally without broadcasting.
-	cfg.Endpoints = []string{repairM822Node(t, nil, 0).server.URL}
+	cfg.Endpoints = []string{committedEvidenceNode(t, nil, 0).server.URL}
 	scenario := scenarios.CreateScenario(config.Scenario{Name: name})
 	require.NoError(t, scenario.Attach(&cfg, common.HexToAddress("0x822")))
 	account, err := loadtypes.NewAccount()
@@ -423,7 +423,7 @@ func repairM822Generated(t *testing.T, name string) *loadtypes.LoadTx {
 	return scenario.Generate(&loadtypes.TxScenario{Name: name, Sender: account, Receiver: common.HexToAddress("0x1234")})
 }
 
-func repairM822Send(t *testing.T, collector *stats.Collector, endpoint string, transactions ...*loadtypes.LoadTx) {
+func committedEvidenceSend(t *testing.T, collector *stats.Collector, endpoint string, transactions ...*loadtypes.LoadTx) {
 	t.Helper()
 	worker := sender.NewWorker(822, "125", endpoint, len(transactions)+1, 1, nil)
 	worker.SetStatsCollector(collector, nil)
@@ -440,11 +440,11 @@ func repairM822Send(t *testing.T, collector *stats.Collector, endpoint string, t
 	require.ErrorIs(t, <-done, context.Canceled)
 }
 
-func TestRepairM_822_FailedAttemptThroughput(t *testing.T) {
-	tx := repairM822Generated(t, scenarios.EVMTransfer)
+func TestStatsFailedAttemptThroughput(t *testing.T) {
+	tx := committedEvidenceGenerated(t, scenarios.EVMTransfer)
 	for _, failure := range []string{"node_rejection", "connection_failure"} {
 		t.Run(failure, func(t *testing.T) {
-			node := repairM822Node(t, repairM822Blocks(1), 1)
+			node := committedEvidenceNode(t, committedEvidenceBlocks(1), 1)
 			endpoint := node.server.URL
 			node.accepted[tx.EthTx.Hash()] = tx.Payload
 			if failure == "node_rejection" {
@@ -453,8 +453,8 @@ func TestRepairM_822_FailedAttemptThroughput(t *testing.T) {
 				node.server.Close()
 			}
 			collector := stats.NewCollector(endpoint)
-			repairM822Send(t, collector, endpoint, tx, tx, tx)
-			report, err := repairM822ReadReport(t, collector)
+			committedEvidenceSend(t, collector, endpoint, tx, tx, tx)
+			report, err := committedEvidenceReadReport(t, collector)
 			require.NoError(t, err)
 			require.Equal(t, stats.OutcomeCounts{Attempted: 3, Failed: 3}, report.Outcomes)
 			require.Equal(t, report.Outcomes, report.EndpointPerformance[endpoint].Outcomes)
@@ -474,7 +474,7 @@ func TestRepairM_822_FailedAttemptThroughput(t *testing.T) {
 			require.Zero(t, performance.SampleCount)
 			require.Equal(t, "node_accepted_submissions", report.ThroughputBasis)
 			require.Equal(t, "unobserved", report.CommitEvidence)
-			names := repairM822BoundNames((stats.Bounds{MinAverageTPS: 0.1, MinTotalTxs: 1, MaxP99Latency: time.Second}).Check(report))
+			names := committedEvidenceBoundNames((stats.Bounds{MinAverageTPS: 0.1, MinTotalTxs: 1, MaxP99Latency: time.Second}).Check(report))
 			require.Equal(t, []string{"min_average_tps", "min_total_txs", "insufficient_samples:accepted_submissions", "insufficient_samples:" + endpoint}, names)
 			node.mu.Lock()
 			requests := node.requests
@@ -488,13 +488,13 @@ func TestRepairM_822_FailedAttemptThroughput(t *testing.T) {
 	}
 }
 
-func TestRepairM_822_AcceptedSubmissionEvidence(t *testing.T) {
-	node := repairM822Node(t, repairM822Blocks(1), 1)
-	tx := repairM822Generated(t, scenarios.EVMTransferNoop)
+func TestStatsAcceptedSubmissionEvidence(t *testing.T) {
+	node := committedEvidenceNode(t, committedEvidenceBlocks(1), 1)
+	tx := committedEvidenceGenerated(t, scenarios.EVMTransferNoop)
 	node.accepted[tx.EthTx.Hash()] = tx.Payload
 	collector := stats.NewCollector(node.server.URL)
-	repairM822Send(t, collector, node.server.URL, tx)
-	report, err := repairM822ReadReport(t, collector)
+	committedEvidenceSend(t, collector, node.server.URL, tx)
+	report, err := committedEvidenceReadReport(t, collector)
 	require.NoError(t, err)
 	require.Equal(t, stats.OutcomeCounts{Attempted: 1, Accepted: 1}, report.Outcomes)
 	require.Equal(t, uint64(1), report.OverallPerformance.TotalTransactions)
@@ -508,7 +508,7 @@ func TestRepairM_822_AcceptedSubmissionEvidence(t *testing.T) {
 	require.Equal(t, "unobserved", report.CommitEvidence)
 }
 
-func repairM822Payment(t *testing.T, nonce uint64, value *big.Int) *ethtypes.Transaction {
+func committedEvidencePayment(t *testing.T, nonce uint64, value *big.Int) *ethtypes.Transaction {
 	t.Helper()
 	key, err := crypto.HexToECDSA(strings.Repeat("02", 32))
 	require.NoError(t, err)
@@ -517,7 +517,7 @@ func repairM822Payment(t *testing.T, nonce uint64, value *big.Int) *ethtypes.Tra
 	return tx
 }
 
-func repairM822CommittedBlock(transactions []*ethtypes.Transaction) (*ethtypes.Block, []*ethtypes.Receipt) {
+func committedEvidenceCommittedBlock(transactions []*ethtypes.Transaction) (*ethtypes.Block, []*ethtypes.Receipt) {
 	receipts := make([]*ethtypes.Receipt, len(transactions))
 	for i, tx := range transactions {
 		status := uint64(ethtypes.ReceiptStatusSuccessful)
@@ -527,8 +527,8 @@ func repairM822CommittedBlock(transactions []*ethtypes.Transaction) (*ethtypes.B
 		receipts[i] = &ethtypes.Receipt{Type: tx.Type(), Status: status, CumulativeGasUsed: uint64(i+1) * 21000, GasUsed: 21000, Logs: []*ethtypes.Log{}}
 	}
 	header := &ethtypes.Header{Number: big.NewInt(1), Difficulty: new(big.Int), Time: uint64(time.Now().Unix()), GasLimit: 30000000, GasUsed: uint64(len(transactions)) * 21000}
-	header.TxHash = repairM822ListRoot(ethtypes.Transactions(transactions))
-	header.ReceiptHash = repairM822ListRoot(ethtypes.Receipts(receipts))
+	header.TxHash = committedEvidenceListRoot(ethtypes.Transactions(transactions))
+	header.ReceiptHash = committedEvidenceListRoot(ethtypes.Receipts(receipts))
 	header.UncleHash = ethtypes.EmptyUncleHash
 	block := ethtypes.NewBlockWithHeader(header).WithBody(ethtypes.Body{Transactions: transactions})
 	for i, tx := range transactions {
@@ -540,25 +540,25 @@ func repairM822CommittedBlock(transactions []*ethtypes.Transaction) (*ethtypes.B
 	return block, receipts
 }
 
-func TestRepairM_822_UserLatencyUnrelatedTransactions(t *testing.T) {
+func TestStatsUserLatencyUnrelatedTransactions(t *testing.T) {
 	tracker := stats.NewUserLatencyTracker(time.Millisecond)
 	workload := []*loadtypes.LoadTx{
-		repairM822Generated(t, scenarios.EVMTransfer),
-		repairM822Generated(t, scenarios.EVMTransferNoop),
-		repairM822Generated(t, scenarios.ERC20),
+		committedEvidenceGenerated(t, scenarios.EVMTransfer),
+		committedEvidenceGenerated(t, scenarios.EVMTransferNoop),
+		committedEvidenceGenerated(t, scenarios.ERC20),
 	}
 	ordinary := []*ethtypes.Transaction{
-		repairM822Payment(t, 0, big.NewInt(1)),
-		repairM822Payment(t, 1, new(big.Int).Lsh(big.NewInt(1), 200)),
-		repairM822Payment(t, 2, big.NewInt(time.Now().Add(-time.Minute).Unix())),
+		committedEvidencePayment(t, 0, big.NewInt(1)),
+		committedEvidencePayment(t, 1, new(big.Int).Lsh(big.NewInt(1), 200)),
+		committedEvidencePayment(t, 2, big.NewInt(time.Now().Add(-time.Minute).Unix())),
 	}
 	transactions := make([]*ethtypes.Transaction, 0, len(workload)+len(ordinary))
 	for _, load := range workload {
 		transactions = append(transactions, load.EthTx)
 	}
 	transactions = append(transactions, ordinary...)
-	block, receipts := repairM822CommittedBlock(transactions)
-	node := repairM822Node(t, []*ethtypes.Block{block}, 1)
+	block, receipts := committedEvidenceCommittedBlock(transactions)
+	node := committedEvidenceNode(t, []*ethtypes.Block{block}, 1)
 	for i, load := range workload {
 		node.accepted[load.EthTx.Hash()] = load.Payload
 		node.receipts[load.EthTx.Hash()] = receipts[i]
@@ -568,10 +568,10 @@ func TestRepairM_822_UserLatencyUnrelatedTransactions(t *testing.T) {
 	for _, load := range workload {
 		require.NoError(t, tracker.TrackTransaction(load.EthTx.Hash(), node.server.URL, time.Now()))
 	}
-	missing := repairM822Generated(t, scenarios.EVMTransferNoop)
+	missing := committedEvidenceGenerated(t, scenarios.EVMTransferNoop)
 	require.NoError(t, tracker.TrackTransaction(missing.EthTx.Hash(), node.server.URL, time.Now()))
 	// Drive the real sender with the generated workload before receipt polling.
-	repairM822Send(t, collector, node.server.URL, workload...)
+	committedEvidenceSend(t, collector, node.server.URL, workload...)
 	client, err := ethclient.DialContext(t.Context(), node.server.URL)
 	require.NoError(t, err)
 	defer client.Close()
@@ -601,7 +601,7 @@ func TestRepairM_822_UserLatencyUnrelatedTransactions(t *testing.T) {
 	reads := node.blockReads[block.Hash()]
 	node.mu.Unlock()
 	require.Equal(t, 1, reads)
-	report, err := repairM822ReadReport(t, collector)
+	report, err := committedEvidenceReadReport(t, collector)
 	require.ErrorContains(t, err, "missing committed receipts: 1")
 	require.True(t, report.Incomplete)
 	require.Equal(t, uint64(3), report.Outcomes.Accepted)
@@ -615,9 +615,9 @@ func TestRepairM_822_UserLatencyUnrelatedTransactions(t *testing.T) {
 	require.Equal(t, 3, report.UserLatency.Endpoints[node.server.URL].SampleCount)
 }
 
-func TestRepairM_822_UserLatencyMissingAndInvalidEvidence(t *testing.T) {
+func TestStatsUserLatencyMissingAndInvalidEvidence(t *testing.T) {
 	tracker := stats.NewUserLatencyTracker(time.Millisecond)
-	tx := repairM822Generated(t, scenarios.EVMTransfer)
+	tx := committedEvidenceGenerated(t, scenarios.EVMTransfer)
 	endpoint := "workload-endpoint"
 	sentAt := time.Now()
 	require.Error(t, tracker.TrackTransaction(common.Hash{}, endpoint, sentAt))
@@ -626,8 +626,8 @@ func TestRepairM_822_UserLatencyMissingAndInvalidEvidence(t *testing.T) {
 	require.NoError(t, tracker.TrackTransaction(tx.EthTx.Hash(), endpoint, sentAt))
 	require.NoError(t, tracker.TrackTransaction(tx.EthTx.Hash(), endpoint, sentAt))
 	require.Error(t, tracker.TrackTransaction(tx.EthTx.Hash(), "other", sentAt))
-	block, receipts := repairM822CommittedBlock([]*ethtypes.Transaction{tx.EthTx})
-	node := repairM822Node(t, []*ethtypes.Block{block}, 1)
+	block, receipts := committedEvidenceCommittedBlock([]*ethtypes.Transaction{tx.EthTx})
+	node := committedEvidenceNode(t, []*ethtypes.Block{block}, 1)
 	client, err := ethclient.DialContext(t.Context(), node.server.URL)
 	require.NoError(t, err)
 	defer client.Close()
@@ -642,7 +642,7 @@ func TestRepairM_822_UserLatencyMissingAndInvalidEvidence(t *testing.T) {
 	require.Contains(t, tracker.GetStats().LastError, "invalid committed receipt")
 	collector := stats.NewCollector(endpoint)
 	collector.SetUserLatencyTracker(tracker)
-	report, err := repairM822ReadReport(t, collector)
+	report, err := committedEvidenceReadReport(t, collector)
 	require.Error(t, err)
 	require.Contains(t, report.EvidenceErrors, "insufficient user latency samples")
 	node.mu.Lock()
@@ -657,16 +657,16 @@ func TestRepairM_822_UserLatencyMissingAndInvalidEvidence(t *testing.T) {
 // Fixture generation uses the canonical RLP-indexed hexary Patricia tree. This
 // keeps a full node/database dependency out of the stats gate while producing
 // genuine transaction and receipt roots for the signed fixture contents.
-type repairM822TrieEntry struct {
+type committedEvidenceTrieEntry struct {
 	path  []byte
 	value []byte
 }
 
-func repairM822ListRoot(list ethtypes.DerivableList) common.Hash {
+func committedEvidenceListRoot(list ethtypes.DerivableList) common.Hash {
 	if list.Len() == 0 {
 		return ethtypes.EmptyRootHash
 	}
-	entries := make([]repairM822TrieEntry, 0, list.Len())
+	entries := make([]committedEvidenceTrieEntry, 0, list.Len())
 	for index := 0; index < list.Len(); index++ {
 		key := rlp.AppendUint64(nil, uint64(index))
 		path := make([]byte, 0, 2*len(key))
@@ -675,12 +675,12 @@ func repairM822ListRoot(list ethtypes.DerivableList) common.Hash {
 		}
 		var value bytes.Buffer
 		list.EncodeIndex(index, &value)
-		entries = append(entries, repairM822TrieEntry{path, append([]byte(nil), value.Bytes()...)})
+		entries = append(entries, committedEvidenceTrieEntry{path, append([]byte(nil), value.Bytes()...)})
 	}
-	return crypto.Keccak256Hash(repairM822TrieNode(entries, 0))
+	return crypto.Keccak256Hash(committedEvidenceTrieNode(entries, 0))
 }
 
-func repairM822RLP(value any) []byte {
+func committedEvidenceRLP(value any) []byte {
 	encoded, err := rlp.EncodeToBytes(value)
 	if err != nil {
 		panic(err)
@@ -688,7 +688,7 @@ func repairM822RLP(value any) []byte {
 	return encoded
 }
 
-func repairM822Compact(path []byte, leaf bool) []byte {
+func committedEvidenceCompact(path []byte, leaf bool) []byte {
 	flag := byte(0)
 	if leaf {
 		flag = 2
@@ -705,16 +705,16 @@ func repairM822Compact(path []byte, leaf bool) []byte {
 	return result
 }
 
-func repairM822TrieReference(encoded []byte) any {
+func committedEvidenceTrieReference(encoded []byte) any {
 	if len(encoded) < 32 {
 		return rlp.RawValue(encoded)
 	}
 	return crypto.Keccak256(encoded)
 }
 
-func repairM822TrieNode(entries []repairM822TrieEntry, depth int) []byte {
+func committedEvidenceTrieNode(entries []committedEvidenceTrieEntry, depth int) []byte {
 	if len(entries) == 1 {
-		return repairM822RLP([]any{repairM822Compact(entries[0].path[depth:], true), entries[0].value})
+		return committedEvidenceRLP([]any{committedEvidenceCompact(entries[0].path[depth:], true), entries[0].value})
 	}
 	commonEnd := depth
 	for commonEnd < len(entries[0].path) {
@@ -731,15 +731,15 @@ func repairM822TrieNode(entries []repairM822TrieEntry, depth int) []byte {
 		commonEnd++
 	}
 	if commonEnd > depth {
-		child := repairM822TrieNode(entries, commonEnd)
-		return repairM822RLP([]any{repairM822Compact(entries[0].path[depth:commonEnd], false), repairM822TrieReference(child)})
+		child := committedEvidenceTrieNode(entries, commonEnd)
+		return committedEvidenceRLP([]any{committedEvidenceCompact(entries[0].path[depth:commonEnd], false), committedEvidenceTrieReference(child)})
 	}
 	branches := make([]any, 17)
 	for i := range branches {
 		branches[i] = []byte{}
 	}
 	for nibble := byte(0); nibble < 16; nibble++ {
-		var children []repairM822TrieEntry
+		var children []committedEvidenceTrieEntry
 		for _, entry := range entries {
 			if len(entry.path) == depth {
 				branches[16] = entry.value
@@ -748,8 +748,8 @@ func repairM822TrieNode(entries []repairM822TrieEntry, depth int) []byte {
 			}
 		}
 		if len(children) > 0 {
-			branches[nibble] = repairM822TrieReference(repairM822TrieNode(children, depth+1))
+			branches[nibble] = committedEvidenceTrieReference(committedEvidenceTrieNode(children, depth+1))
 		}
 	}
-	return repairM822RLP(branches)
+	return committedEvidenceRLP(branches)
 }
