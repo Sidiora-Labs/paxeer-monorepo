@@ -93,7 +93,7 @@ func rebuildReadyDatabase(t *testing.T) string {
 			{Schema: "recovery", Object: "current_epoch", ObjectKind: "function", Privileges: []string{"EXECUTE"}},
 		},
 	}
-	repair1052Bind(t, "EXPECTED_SCHEMA", expected, true)
+	rebuildRuntimeBind(t, "EXPECTED_SCHEMA", expected, true)
 	parsed, err := url.Parse(dsn)
 	if err != nil {
 		t.Fatal(err)
@@ -103,7 +103,7 @@ func rebuildReadyDatabase(t *testing.T) string {
 }
 
 func TestRebuildUsesOwnedProvidersForArchiveAdmission(t *testing.T) {
-	repair1052Environment(t, true)
+	rebuildRuntimeEnvironment(t, true)
 	t.Setenv("DATABASE_URL", rebuildReadyDatabase(t))
 	rpc, first, rpcURL := internaltest.NewChainSpanAtWithURL(t, 1703980800, 8*24*time.Hour)
 	t.Setenv("RPC_URL", rpcURL)
@@ -131,7 +131,7 @@ func TestRebuildUsesOwnedProvidersForArchiveAdmission(t *testing.T) {
 	if err := os.WriteFile(manifest, []byte("[]"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	if err := runArgs(repair1052Args(manifest)); err == nil || !strings.Contains(err.Error(), "reconstruction failed") {
+	if err := runArgs(rebuildRuntimeArgs(manifest)); err == nil || !strings.Contains(err.Error(), "reconstruction failed") {
 		t.Fatalf("archive reconstruction admission: %v", err)
 	}
 	for _, tc := range []struct {
@@ -143,7 +143,7 @@ func TestRebuildUsesOwnedProvidersForArchiveAdmission(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Setenv(tc.variable, tc.value)
-			if err := runArgs(repair1052Args(manifest)); err == nil || !strings.Contains(err.Error(), tc.want) {
+			if err := runArgs(rebuildRuntimeArgs(manifest)); err == nil || !strings.Contains(err.Error(), tc.want) {
 				t.Fatalf("provider admission: %v", err)
 			}
 		})
@@ -168,13 +168,13 @@ func TestRebuildUsesOwnedProvidersForArchiveAdmission(t *testing.T) {
 			if err := os.WriteFile(manifest, wire, 0600); err != nil {
 				t.Fatal(err)
 			}
-			if err := runArgs(repair1052Args(manifest)); err == nil || !strings.Contains(err.Error(), store.ErrIntegrity.Error()) {
+			if err := runArgs(rebuildRuntimeArgs(manifest)); err == nil || !strings.Contains(err.Error(), store.ErrIntegrity.Error()) {
 				t.Fatalf("canonical archive block authority: %v", err)
 			}
 		})
 	}
 	t.Setenv("S3_ENDPOINT", " ")
-	if err := runArgs(repair1052Args(manifest)); err == nil || !strings.Contains(err.Error(), "archive object reader configuration unavailable") {
+	if err := runArgs(rebuildRuntimeArgs(manifest)); err == nil || !strings.Contains(err.Error(), "archive object reader configuration unavailable") {
 		t.Fatalf("archive provider admission: %v", err)
 	}
 }

@@ -10,7 +10,7 @@ recovery = "The bootstrap reads unclaimed committed swaps in bounded batches; pr
 
 [sites.schema]
 migration = "migrations/00003_development_state.sql is the next embedded goose migration and mirrors engine.DevelopmentSchemaDDL; internal/migrate.Up owns application before development ingestion. DDL is idempotent for existing development fixtures."
-request_closed = "internal/engine/repair_m1051.kvx wiring.schema, wiring.source_order, wiring.relay and wiring.consumer record the resolved development wiring."
+request_closed = "spec/layerx-merge/programme/records/services/launchpad/trading-charts/internal/engine/repair_m1051.kvx wiring.schema, wiring.source_order, wiring.relay and wiring.consumer record the resolved development wiring."
 
 [sites.candles]
 commit = "internal/engine/development.go retains the actual open/high/low/close source swaps with persisted ChainOrder, candle totals, trader membership, claim and outbox in the existing developmentSQLStore transaction."
@@ -42,7 +42,7 @@ severity = "blocker"
 
 [qualification.redis_peer]
 task = "22.39.314"
-file = "services/launchpad/trading-charts/internal/engine/repair_m1051_test.go"
+file = "services/launchpad/trading-charts/internal/engine/development_transactions_test.go"
 symbol = "TestRepairM_1051_ConcurrentDistinctSwaps; TestRepairM_1051_RollbackAndRedisRestart; TestRepairM_1051_CommittedOutboxRetry; TestRepairM_1051_LateSourceOrder"
 observed = "Revision 509927b9541f88cd5905161ee9bf19b5dd8e5d2d, command cg spec done 22.39.314 -f layerx-merge --root /work/paxeer-monorepo, exit 1, private log /out/logs/verify-1.log: four existing engine tests fail because the existing test peer returns invalid Redis integer replies with a lone newline."
 assumption = "The existing test peer and its assertions remain unchanged; repairing that unrelated transport fixture is outside this task."
