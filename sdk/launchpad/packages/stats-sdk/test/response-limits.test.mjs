@@ -5,12 +5,6 @@ import { gzipSync } from 'node:zlib';
 import { StatsHttpClient, StatsHttpError, StatsResponseError } from '../dist/index.js';
 import { poolStatsFields } from '../dist/types.js';
 
-// Task 22.33.1060, finding 37: repair37OversizedSingle, repair37OversizedBatch,
-// repair37OversizedError prove refusal and transport cancellation before EOF.
-// Baseline was not run: the ordered gate instructions require implementation
-// before any testing. The old response.text() path would consume EOF and either
-// return the oversized valid DTO or propagate the full oversized HTTP error.
-// Wiring requests: none; the repair and proof are entirely within this task.
 const pool = '0x' + 'a'.repeat(40);
 const otherPool = '0x' + 'b'.repeat(40);
 const singleLimit = 64 * 1024;
@@ -86,13 +80,13 @@ async function proveOversizedCancellation(status, batch, limitBytes) {
   });
 }
 
-async function repair37OversizedSingle() {
+async function oversizedSingle() {
   await proveOversizedCancellation(200, false, singleLimit);
 }
-async function repair37OversizedBatch() {
+async function oversizedBatch() {
   await proveOversizedCancellation(200, true, batchLimit);
 }
-async function repair37OversizedError() {
+async function oversizedErrorCancelled() {
   await proveOversizedCancellation(503, false, errorLimit);
 }
 
@@ -107,7 +101,7 @@ function paddedStats(size, batch = false) {
   return { body, row };
 }
 
-async function repair37ExactByteBoundariesAndUtf8() {
+async function exactByteBoundariesAndUtf8() {
   for (const [batch, limit] of [[false, singleLimit], [true, batchLimit]]) {
     const { body, row } = paddedStats(limit, batch);
     const split = body.indexOf(Buffer.from('€')) + 1;
@@ -127,7 +121,7 @@ async function repair37ExactByteBoundariesAndUtf8() {
   }
 }
 
-async function repair37CompressedResponseCountsDecodedBytes() {
+async function compressedResponseCountsDecodedBytes() {
   const body = gzipSync(paddedStats(singleLimit + 1).body);
   assert.ok(body.length < singleLimit);
   await serve((_request, response) => {
@@ -138,7 +132,7 @@ async function repair37CompressedResponseCountsDecodedBytes() {
   });
 }
 
-async function repair37PreservesHttpStatusAndBody() {
+async function preservesHttpStatusAndBody() {
   for (const [status, body] of [[429, 'slow down'], [503, '€'.repeat(errorLimit / 4) + 'x'.repeat(errorLimit / 4)], [404, '']]) {
     await serve((_request, response) => {
       response.writeHead(status);
@@ -154,7 +148,7 @@ async function repair37PreservesHttpStatusAndBody() {
   }
 }
 
-async function repair37PreservesDtoValidation() {
+async function preservesDtoValidation() {
   const missing = { ...fixture };
   delete missing.price;
   const bodies = ['{', 'null', '[]', JSON.stringify(missing),
@@ -177,7 +171,7 @@ async function repair37PreservesDtoValidation() {
   });
 }
 
-async function repair37PreservesDeadlineDuringBodyRead() {
+async function preservesDeadlineDuringBodyRead() {
   let received = false;
   await serve((_request, response) => {
     received = true;
@@ -194,7 +188,7 @@ async function repair37PreservesDeadlineDuringBodyRead() {
   });
 }
 
-async function repair37PreservesCallerAbortDuringBodyRead() {
+async function preservesCallerAbortDuringBodyRead() {
   const controller = new AbortController();
   let resolveReceived;
   const received = new Promise(resolve => { resolveReceived = resolve; });
@@ -218,12 +212,12 @@ async function repair37PreservesCallerAbortDuringBodyRead() {
   });
 }
 
-test(repair37OversizedSingle);
-test(repair37OversizedBatch);
-test(repair37OversizedError);
-test(repair37ExactByteBoundariesAndUtf8);
-test(repair37CompressedResponseCountsDecodedBytes);
-test(repair37PreservesHttpStatusAndBody);
-test(repair37PreservesDtoValidation);
-test(repair37PreservesDeadlineDuringBodyRead);
-test(repair37PreservesCallerAbortDuringBodyRead);
+test(oversizedSingle);
+test(oversizedBatch);
+test(oversizedErrorCancelled);
+test(exactByteBoundariesAndUtf8);
+test(compressedResponseCountsDecodedBytes);
+test(preservesHttpStatusAndBody);
+test(preservesDtoValidation);
+test(preservesDeadlineDuringBodyRead);
+test(preservesCallerAbortDuringBodyRead);

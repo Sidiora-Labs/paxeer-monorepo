@@ -30,7 +30,7 @@ function readRoleAbi(role) {
   return JSON.parse(readFileSync(path, 'utf8'));
 }
 
-function finding29RejectsWireLayoutDrift() {
+function rejectsWireLayoutDrift() {
   const tupleSides = new Set();
   for (const [name] of roles) {
     const original = abis[name];
@@ -75,7 +75,7 @@ function finding29RejectsWireLayoutDrift() {
   assert.deepEqual(tupleSides, new Set(['inputs', 'outputs']), 'exercise both request and response tuple layouts');
 }
 
-function finding28RejectsSourceAndExportDrift() {
+function rejectsSourceAndExportDrift() {
   for (const [name, role, directory] of roles) {
     const sourcePath = `contracts/launchpad/contracts/${directory}/${role}.sol`;
     const path = containedProvenanceFile(repositoryRoot, sourcePath, `${name}: source`);
@@ -101,7 +101,7 @@ function finding28RejectsSourceAndExportDrift() {
   }
 }
 
-async function finding29And28LaunchpadWalkthroughOverHttp(t) {
+async function launchpadWalkthroughOverHttp(t) {
   const sourceUrl = new URL('../src/index.ts', import.meta.url).href;
   const hooks = registerHooks({
     resolve(specifier, context, nextResolve) {
@@ -190,6 +190,6 @@ async function finding29And28LaunchpadWalkthroughOverHttp(t) {
   }
 }
 
-test(finding29RejectsWireLayoutDrift);
-test(finding28RejectsSourceAndExportDrift);
-test(finding29And28LaunchpadWalkthroughOverHttp);
+test(rejectsWireLayoutDrift);
+test(rejectsSourceAndExportDrift);
+test(launchpadWalkthroughOverHttp);

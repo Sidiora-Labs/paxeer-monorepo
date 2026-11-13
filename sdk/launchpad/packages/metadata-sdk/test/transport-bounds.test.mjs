@@ -58,7 +58,7 @@ function assertNoListeners(signal) {
   assert.equal(getEventListeners(signal, 'abort').length, 0, 'caller abort listener must be released');
 }
 
-async function Repair31DefaultDeadlineBoundsStalledHeaders() {
+async function defaultDeadlineBoundsStalledHeaders() {
   assert.equal(METADATA_DEFAULT_TIMEOUT_MS, 10_000);
   await withServer(req => req.resume(), async baseUrl => {
     const started = performance.now();
@@ -69,7 +69,7 @@ async function Repair31DefaultDeadlineBoundsStalledHeaders() {
   });
 }
 
-async function Repair31ConfiguredDeadlineCoversHeadersAndBodies() {
+async function configuredDeadlineCoversHeadersAndBodies() {
   for (const endpoint of endpoints) {
     for (const phase of ['headers', 'body', 'error-body']) {
       let closed;
@@ -93,7 +93,7 @@ async function Repair31ConfiguredDeadlineCoversHeadersAndBodies() {
   }
 }
 
-async function Repair31CallerCancellationAndListenerCleanup() {
+async function callerCancellationAndListenerCleanup() {
   for (const phase of ['headers', 'body']) {
     let arrived;
     const requestArrived = new Promise(resolve => { arrived = resolve; });
@@ -132,7 +132,7 @@ async function Repair31CallerCancellationAndListenerCleanup() {
   });
 }
 
-async function Repair31StreamedByteCapsRefuseBeforeFullBody() {
+async function streamedByteCapsRefuseBeforeFullBody() {
   assert.deepEqual(METADATA_RESPONSE_LIMITS, { metadata: 262144, batch: 4194304, upload: 65536, error: 16384 });
   for (const endpoint of endpoints) {
     for (const status of [200, 503]) {
@@ -163,7 +163,7 @@ async function Repair31StreamedByteCapsRefuseBeforeFullBody() {
   }
 }
 
-async function Repair31DeclaredAndDecompressedByteCaps() {
+async function declaredAndDecompressedByteCaps() {
   for (const encoding of ['declared', 'gzip', 'utf8']) {
     let closed;
     const connectionClosed = new Promise(resolve => { closed = resolve; });
@@ -193,7 +193,7 @@ async function Repair31DeclaredAndDecompressedByteCaps() {
   }
 }
 
-async function Repair31PreservesTypedErrorsShapesAndBoundaryResponses() {
+async function preservesTypedErrorsShapesAndBoundaryResponses() {
   let payload = metadata;
   let status = 200;
   let body;
@@ -252,7 +252,7 @@ async function Repair31PreservesTypedErrorsShapesAndBoundaryResponses() {
   });
 }
 
-function Repair31RejectsUnboundedDeadlinesAtomically() {
+function rejectsUnboundedDeadlinesAtomically() {
   const baseUrl = 'http://127.0.0.1';
   assert.equal(METADATA_MAX_TIMEOUT_MS, 120_000);
   const client = createMetadataClient({ baseUrl, timeoutMs: 150 });
@@ -263,10 +263,10 @@ function Repair31RejectsUnboundedDeadlinesAtomically() {
   client.configure({ baseUrl, timeoutMs: METADATA_MAX_TIMEOUT_MS });
 }
 
-test(Repair31DefaultDeadlineBoundsStalledHeaders);
-test(Repair31ConfiguredDeadlineCoversHeadersAndBodies);
-test(Repair31CallerCancellationAndListenerCleanup);
-test(Repair31StreamedByteCapsRefuseBeforeFullBody);
-test(Repair31DeclaredAndDecompressedByteCaps);
-test(Repair31PreservesTypedErrorsShapesAndBoundaryResponses);
-test(Repair31RejectsUnboundedDeadlinesAtomically);
+test(defaultDeadlineBoundsStalledHeaders);
+test(configuredDeadlineCoversHeadersAndBodies);
+test(callerCancellationAndListenerCleanup);
+test(streamedByteCapsRefuseBeforeFullBody);
+test(declaredAndDecompressedByteCaps);
+test(preservesTypedErrorsShapesAndBoundaryResponses);
+test(rejectsUnboundedDeadlinesAtomically);

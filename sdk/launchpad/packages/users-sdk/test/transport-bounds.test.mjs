@@ -8,7 +8,6 @@ import {
   USERS_DEFAULT_TIMEOUT_MS, USERS_MAX_TIMEOUT_MS, USERS_RESPONSE_LIMITS,
 } from '../dist/index.js';
 
-// Audit 22.30.41 finding 33: each named test exercises the production HTTP client.
 const wallet = '0x' + 'a'.repeat(40);
 const pool = '0x' + 'b'.repeat(40);
 const auth = { signature: 'caller-signed-value', message: 'caller-message' };
@@ -68,7 +67,7 @@ function noCallerListeners(signal) {
   assert.deepEqual(getEventListeners(signal, 'abort'), []);
 }
 
-async function finding33_configuredDeadlineAndValidation(t) {
+async function configuredDeadlineAndValidation(t) {
   const baseUrl = await loopback(t, (_req, res) => res.end(JSON.stringify(profile)));
   assert.equal(USERS_DEFAULT_TIMEOUT_MS, 10_000);
   assert.equal(USERS_MAX_TIMEOUT_MS, 120_000);
@@ -86,7 +85,7 @@ async function finding33_configuredDeadlineAndValidation(t) {
   assert.throws(() => client.configure({ baseUrl: 'ftp://invalid.example' }), TypeError);
 }
 
-async function finding33_defaultDeadlineWithoutCallerSignal(t) {
+async function defaultDeadlineWithoutCallerSignal(t) {
   const closed = deferred();
   let received = false;
   const baseUrl = await loopback(t, (_req, res) => {
@@ -101,7 +100,7 @@ async function finding33_defaultDeadlineWithoutCallerSignal(t) {
   await bounded(closed.promise, 'default deadline did not close the HTTP response');
 }
 
-async function finding33_deadlineCoversHeadersAndSuccessAndErrorBodies(t) {
+async function deadlineCoversHeadersAndSuccessAndErrorBodies(t) {
   for (const stage of ['headers', 'body', 'error-body']) {
     await t.test(stage, async t => {
       const closed = deferred();
@@ -124,7 +123,7 @@ async function finding33_deadlineCoversHeadersAndSuccessAndErrorBodies(t) {
   }
 }
 
-async function finding33_combinesCallerCancellationAndCleansListeners(t) {
+async function combinesCallerCancellationAndCleansListeners(t) {
   let requests = 0;
   const arrived = deferred();
   const closed = deferred();
@@ -171,7 +170,7 @@ async function finding33_combinesCallerCancellationAndCleansListeners(t) {
   await bounded(waitingClosed.promise, 'headers cancellation did not close the response');
 }
 
-async function finding33_endpointCapsAndExactBoundaries(t) {
+async function endpointCapsAndExactBoundaries(t) {
   for (const route of routes) {
     await t.test(route.name, async t => {
       let oversize = false;
@@ -208,7 +207,7 @@ async function finding33_endpointCapsAndExactBoundaries(t) {
   }
 }
 
-async function finding33_streamingOversizeClosesBeforeEnd(t) {
+async function streamingOversizeClosesBeforeEnd(t) {
   for (const status of [200, 503]) {
     await t.test(String(status), async t => {
       const closed = deferred();
@@ -233,7 +232,7 @@ async function finding33_streamingOversizeClosesBeforeEnd(t) {
   }
 }
 
-async function finding33_countsUtf8AndDecompressedBytes(t) {
+async function countsUtf8AndDecompressedBytes(t) {
   // Fewer UTF-16 characters than the cap, but more UTF-8 bytes, with valid DTO shape.
   const payload = JSON.stringify({ ...profile, bio: 'é'.repeat(600_000) });
   assert.ok(payload.length < 1024 * 1024);
@@ -255,7 +254,7 @@ async function finding33_countsUtf8AndDecompressedBytes(t) {
   }
 }
 
-async function finding33_preservesErrorsShapesAndListenerCleanup(t) {
+async function preservesErrorsShapesAndListenerCleanup(t) {
   let status = 200;
   let payload = JSON.stringify(profile);
   const baseUrl = await loopback(t, (_req, res) => {
@@ -306,7 +305,7 @@ async function finding33_preservesErrorsShapesAndListenerCleanup(t) {
   caller.abort(new Error('finished requests'));
 }
 
-async function finding33_networkFailureCleansListeners(t) {
+async function networkFailureCleansListeners(t) {
   const baseUrl = await loopback(t, (_req, res) => {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.write('{');
@@ -318,12 +317,12 @@ async function finding33_networkFailureCleansListeners(t) {
   noCallerListeners(caller.signal);
 }
 
-test(finding33_configuredDeadlineAndValidation);
-test(finding33_defaultDeadlineWithoutCallerSignal, { timeout: 15_000 });
-test(finding33_deadlineCoversHeadersAndSuccessAndErrorBodies, { timeout: 5000 });
-test(finding33_combinesCallerCancellationAndCleansListeners, { timeout: 5000 });
-test(finding33_endpointCapsAndExactBoundaries, { timeout: 15_000 });
-test(finding33_streamingOversizeClosesBeforeEnd, { timeout: 10_000 });
-test(finding33_countsUtf8AndDecompressedBytes, { timeout: 5000 });
-test(finding33_preservesErrorsShapesAndListenerCleanup, { timeout: 10_000 });
-test(finding33_networkFailureCleansListeners, { timeout: 5000 });
+test(configuredDeadlineAndValidation);
+test(defaultDeadlineWithoutCallerSignal, { timeout: 15_000 });
+test(deadlineCoversHeadersAndSuccessAndErrorBodies, { timeout: 5000 });
+test(combinesCallerCancellationAndCleansListeners, { timeout: 5000 });
+test(endpointCapsAndExactBoundaries, { timeout: 15_000 });
+test(streamingOversizeClosesBeforeEnd, { timeout: 10_000 });
+test(countsUtf8AndDecompressedBytes, { timeout: 5000 });
+test(preservesErrorsShapesAndListenerCleanup, { timeout: 10_000 });
+test(networkFailureCleansListeners, { timeout: 5000 });
