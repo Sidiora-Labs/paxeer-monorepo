@@ -22,7 +22,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func repairM1269Documents(t *testing.T) []string {
+func readAttestationDocuments(t *testing.T) []string {
 	t.Helper()
 	var docs []string
 	for _, path := range []string{"ATTESTATION.md", "../../contracts/bridge/evm/ATTESTATION.md"} {
@@ -33,8 +33,8 @@ func repairM1269Documents(t *testing.T) []string {
 	return docs
 }
 
-func TestRepairM_1269_DenomDocumentationAndKeeper(t *testing.T) {
-	for _, doc := range repairM1269Documents(t) {
+func TestAttestationDocumentationMatchesDenomRegistrationAndTransfers(t *testing.T) {
+	for _, doc := range readAttestationDocuments(t) {
 		text := strings.Join(strings.Fields(doc), " ")
 		for _, fact := range []string{
 			"factory/{bridge module address}/lxb{hex(keccak256(uint64 chainId || asset)[:20])}",
@@ -164,8 +164,8 @@ func TestRepairM_1269_DenomDocumentationAndKeeper(t *testing.T) {
 	require.False(t, found, "the canonical pair must never create a generic denom")
 }
 
-func TestRepairM_1269_DigestDomainParity(t *testing.T) {
-	docs := repairM1269Documents(t)
+func TestAttestationDocumentationMatchesDigestDomainsAndVectors(t *testing.T) {
+	docs := readAttestationDocuments(t)
 	vault := types.Address20(common.HexToAddress("0x1111111111111111111111111111111111111111"))
 	hash := types.Hash32(common.HexToHash("0x2222222222222222222222222222222222222222222222222222222222222222"))
 	asset := types.Address20(common.HexToAddress("0x4444444444444444444444444444444444444444"))

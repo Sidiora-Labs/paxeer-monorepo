@@ -46,7 +46,7 @@ func assertExhaustedReleaseUnchanged(t *testing.T, s *suite) {
 	}
 }
 
-func TestRepairM_1253_ReleaseNonceOverflow(t *testing.T) {
+func TestBridgeReleaseNonceOverflow(t *testing.T) {
 	for _, initial := range []uint64{math.MaxUint64 - 1, math.MaxUint64} {
 		t.Run(fmt.Sprint(initial), func(t *testing.T) {
 			genesis := types.DefaultGenesis()
@@ -92,20 +92,20 @@ func TestRepairM_1253_ReleaseNonceOverflow(t *testing.T) {
 	}
 }
 
-func TestRepairM_1253_SidioraReopenProof(t *testing.T) {
+func TestSidioraTransfersSurviveReopenAndImport(t *testing.T) {
 	testSidioraPersistentRecovery(t)
 }
 
-func TestRepairM_1253_GeneralReopenProof(t *testing.T) {
+func TestBridgeTransfersSurviveReopenAndImport(t *testing.T) {
 	testBridgePersistentRecovery(t)
 }
 
-func TestRepairM_1253_CapFirstInvariant(t *testing.T) {
+func TestSidioraLegacyCapMappingRefusesRegistration(t *testing.T) {
 	// Also retain the former producer's persisted-mapping refusal assertions.
 	TestSidioraPairIsRefusedOnceACapBoundItElsewhere(t)
 }
 
-func TestRepairM_1253_SidioraHelperHome(t *testing.T) {
+func TestSidioraDenomRequiresCanonicalHomeChain(t *testing.T) {
 	p := newPersistentBridgeApp(t, nil, 1)
 	s := p.s
 	router := s.router()
@@ -138,7 +138,7 @@ func TestRepairM_1253_SidioraHelperHome(t *testing.T) {
 	}
 }
 
-func TestRepairM_1253_SidioraFixtureChain(t *testing.T) {
+func TestSidioraCanonicalChainTransfersAndRefusals(t *testing.T) {
 	t.Run("metadata", TestSidioraDenomAndMetadata)
 	t.Run("mint_burn_admin", TestSidioraBridgeMintBurnAndAdmin)
 	t.Run("bridge_refusals", TestSidioraBridgeRefusals)
