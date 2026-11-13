@@ -18,8 +18,8 @@ import (
 func TestProvisionWorkerRecordsProviderFailureAtTheFailedStage(t *testing.T) {
 	for _, stage := range []string{"lookup", "create", "policy", "vault"} {
 		t.Run(stage, func(t *testing.T) {
-			f := repair57New(t)
-			f.transit = repair57Vault(t)
+			f := streamContractNew(t)
+			f.transit = streamContractVault(t)
 			ctx := context.Background()
 			o, _ := f.create("provider-" + stage)
 			var calls atomic.Int32
@@ -79,7 +79,7 @@ func TestProvisionWorkerRecordsProviderFailureAtTheFailedStage(t *testing.T) {
 }
 
 func TestReconcileWorkerReportsDisagreementAndProviderOutage(t *testing.T) {
-	f := repair57New(t)
+	f := streamContractNew(t)
 	ctx := context.Background()
 	o, _ := f.create("provider-disagreement")
 	o, err := f.store.BindProvider(ctx, o.ID, "disagreement_provider")
@@ -137,7 +137,7 @@ func TestReconcileWorkerReportsDisagreementAndProviderOutage(t *testing.T) {
 }
 
 func TestReconcileWorkerRetainsRestrictedStreamUntilProviderRevokesIt(t *testing.T) {
-	f := repair57New(t)
+	f := streamContractNew(t)
 	ctx := context.Background()
 	o, _ := f.create("restricted-provider-retry")
 	o, err := f.store.BindProvider(ctx, o.ID, "restricted_provider")

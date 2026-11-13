@@ -19,7 +19,7 @@ import (
 )
 
 func TestAccountingRuntimeLifecycleAndPublicErrors(t *testing.T) {
-	runtime := repairM992Runtime(t, repairM992Config(t, 0))
+	runtime := runtimeAdmissionRuntime(t, runtimeAdmissionConfig(t, 0))
 	if err := runtime.Ready(context.Background()); !errors.Is(err, store.ErrAccountingNotReady) {
 		t.Fatalf("runtime ready before consumer: %v", err)
 	}
@@ -37,7 +37,7 @@ func TestAccountingRuntimeLifecycleAndPublicErrors(t *testing.T) {
 		t.Fatal(err)
 	}
 	response := httptest.NewRecorder()
-	router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/v2/pools/"+repairM992Pool+"/trades", nil))
+	router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/v2/pools/"+runtimeAdmissionPool+"/trades", nil))
 	if response.Code != http.StatusServiceUnavailable || !strings.Contains(response.Body.String(), `"code":"DEPENDENCY_UNAVAILABLE"`) {
 		t.Fatalf("unready runtime response: %d %s", response.Code, response.Body.String())
 	}
@@ -69,7 +69,7 @@ func TestAccountingRuntimeLifecycleAndPublicErrors(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			record := httptest.NewRecorder()
-			accountingRuntimeError(record, httptest.NewRequest(http.MethodGet, "/v2/pools/"+repairM992Pool+"/trades"+tc.query, nil), tc.err)
+			accountingRuntimeError(record, httptest.NewRequest(http.MethodGet, "/v2/pools/"+runtimeAdmissionPool+"/trades"+tc.query, nil), tc.err)
 			var body rest.APIError
 			if err := json.Unmarshal(record.Body.Bytes(), &body); err != nil || record.Code != tc.status || body.Code != tc.code {
 				t.Fatalf("public error: status=%d body=%+v parse=%v", record.Code, body, err)
@@ -79,8 +79,8 @@ func TestAccountingRuntimeLifecycleAndPublicErrors(t *testing.T) {
 }
 
 func TestAccountingRuntimeStartsConsumerAndStopsCleanly(t *testing.T) {
-	config := repairM992Config(t, 0)
-	runtime := repairM992Runtime(t, config)
+	config := runtimeAdmissionConfig(t, 0)
+	runtime := runtimeAdmissionRuntime(t, config)
 	connection, js := marketTestBroker(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()

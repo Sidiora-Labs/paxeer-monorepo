@@ -57,7 +57,7 @@ func TestReceiptLatencyP99UnderBound(t *testing.T) {
 		CommittedHeight: 1, LastSeq: secondary.opts.LastSeq,
 	})
 	require.NoError(t, err)
-	listener, auth := repair103TLSListener(t)
+	listener, auth := replicationTLSListener(t)
 	served := make(chan error, 1)
 	go func() { served <- standby.Serve(listener) }()
 	t.Cleanup(func() {

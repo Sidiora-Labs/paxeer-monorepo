@@ -450,7 +450,7 @@ and allowance; `08-transfer_from` refuses missing spend authority,
 succeeds after unpausing. `11-transfer` returns 15 units, `12` through `15`
 query state and metadata, and `16`/`17` revoke and refuse further allowance
 spending. These recorded fixtures do not certify a live deployment. The
-integration tests in [`tests/repair_22_33_239.rs`](tests/repair_22_33_239.rs)
+integration tests in [`tests/custody_lxt20_guide.rs`](tests/custody_lxt20_guide.rs)
 execute the committed guest in-process using the real SDK codec and the
 runtime's authenticated ABI-v5 calls, and compare its
 ABI-v2 registry interface to the fixture. They do not run the native C replay

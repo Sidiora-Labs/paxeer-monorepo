@@ -1,0 +1,312 @@
+[manifest]
+task = "22.43.162"
+records_moved = 10
+files_renamed = 11
+
+[file.1]
+from = "services/launchpad/social/internal/app/repair_66_test.go"
+to = "services/launchpad/social/internal/app/frozen_contracts_test.go"
+
+[file.2]
+from = "services/launchpad/social/internal/app/repair_m1031_test.go"
+to = "services/launchpad/social/internal/app/broker_recovery_test.go"
+
+[file.3]
+from = "services/launchpad/social/internal/devsocial/repair_m1028_test.go"
+to = "services/launchpad/social/internal/devsocial/policy_report_recovery_test.go"
+
+[file.4]
+from = "services/launchpad/social/internal/fanout/repair_m1027_peer_test.go"
+to = "services/launchpad/social/internal/fanout/protocol_peer_test.go"
+
+[file.5]
+from = "services/launchpad/social/internal/fanout/repair_m1027_test.go"
+to = "services/launchpad/social/internal/fanout/protocol_limits_test.go"
+
+[file.6]
+from = "services/launchpad/social/internal/interactions/repair_67_sdk.mjs"
+to = "services/launchpad/social/internal/interactions/frozen_error_sdk.mjs"
+
+[file.7]
+from = "services/launchpad/social/internal/interactions/repair_67_test.go"
+to = "services/launchpad/social/internal/interactions/frozen_error_sdk_test.go"
+
+[file.8]
+from = "services/launchpad/social/internal/social/repair_68_peer_test.go"
+to = "services/launchpad/social/internal/social/durable_social_peer_test.go"
+
+[file.9]
+from = "services/launchpad/social/internal/social/repair_68_test.go"
+to = "services/launchpad/social/internal/social/frozen_social_contracts_test.go"
+
+[file.10]
+from = "services/launchpad/social/internal/social/repair_m1029_test.go"
+to = "services/launchpad/social/internal/social/moderation_voice_recovery_test.go"
+
+[file.11]
+from = "services/launchpad/social/internal/voice/repair_m1030_test.go"
+to = "services/launchpad/social/internal/voice/recording_recovery_test.go"
+
+[file.12]
+from = "services/launchpad/social/internal/app/repair_66.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/social/internal/app/repair_66.kvx"
+
+[file.13]
+from = "services/launchpad/social/internal/app/repair_m1031.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/social/internal/app/repair_m1031.kvx"
+
+[file.14]
+from = "services/launchpad/social/internal/devsocial/repair_m1028.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/social/internal/devsocial/repair_m1028.kvx"
+
+[file.15]
+from = "services/launchpad/social/internal/fanout/repair_m1027.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/social/internal/fanout/repair_m1027.kvx"
+
+[file.16]
+from = "services/launchpad/social/internal/interactions/repair_67.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/social/internal/interactions/repair_67.kvx"
+
+[file.17]
+from = "services/launchpad/social/internal/social/repair_68.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/social/internal/social/repair_68.kvx"
+
+[file.18]
+from = "services/launchpad/social/internal/social/repair_m1029.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/social/internal/social/repair_m1029.kvx"
+
+[file.19]
+from = "services/launchpad/social/internal/voice/repair_m1030.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/social/internal/voice/repair_m1030.kvx"
+
+[file.20]
+from = "services/launchpad/social/repair_22_39_470.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/social/repair_22_39_470.kvx"
+
+[file.21]
+from = "services/launchpad/social/repair_22_39_486.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/social/repair_22_39_486.kvx"
+
+[reference.1]
+file = "services/launchpad/repair_22_39_168.kvx"
+name = "TestRepairM_1027"
+
+[reference.2]
+file = "services/launchpad/repair_22_39_168.kvx"
+name = "TestRepairM_1027_DefaultAndConfiguredMessageLimits"
+
+[reference.3]
+file = "services/launchpad/repair_22_39_168.kvx"
+name = "TestRepairM_1027_MessageLengthBoundaries"
+
+[reference.4]
+file = "services/launchpad/repair_22_39_168.kvx"
+name = "TestRepairM_1027_PlatformSocketAdmission"
+
+[reference.5]
+file = "services/launchpad/repair_22_39_168.kvx"
+name = "TestRepairM_1027_RestartWindowRecovery"
+
+[reference.6]
+file = "services/launchpad/repair_22_39_168.kvx"
+name = "TestRepairM_1027_SharedAbuseLimiter"
+
+[reference.7]
+file = "services/launchpad/repair_22_39_168.kvx"
+name = "TestRepair_68"
+
+[reference.8]
+file = "services/launchpad/repair_22_39_168.kvx"
+name = "TestRepair_68_SocketRESTAndRestartUseDurableMessages"
+
+[reference.9]
+file = "spec/layerx-merge/dispositions/d22-22.kvx"
+name = "services/launchpad/social/internal/devsocial/repair_m1028_test.go"
+
+[reference.10]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_m1028_test.go"
+
+[reference.11]
+file = "spec/layerx-merge/qualification.kvx"
+name = "services/launchpad/social/internal/devsocial/repair_m1028_test.go"
+
+[reference.12]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1027"
+
+[reference.13]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1028"
+
+[reference.14]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1029"
+
+[reference.15]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1030"
+
+[reference.16]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1031"
+
+[reference.17]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_66"
+
+[reference.18]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_67"
+
+[reference.19]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_68"
+
+[reference.20]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_66_test.go"
+
+[reference.21]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_67_test.go"
+
+[reference.22]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_68_peer_test.go"
+
+[reference.23]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_68_test.go"
+
+[reference.24]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1027_test.go"
+
+[reference.25]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1028_test.go"
+
+[reference.26]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1029_test.go"
+
+[reference.27]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1030_test.go"
+
+[reference.28]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1031_test.go"
+
+[reference.29]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/launchpad/social/internal/app/repair_66_test.go"
+
+[reference.30]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/launchpad/social/internal/app/repair_m1031_test.go"
+
+[reference.31]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/launchpad/social/internal/devsocial/repair_m1028_test.go"
+
+[reference.32]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/launchpad/social/internal/fanout/repair_m1027_test.go"
+
+[reference.33]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/launchpad/social/internal/interactions/repair_67_test.go"
+
+[reference.34]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/launchpad/social/internal/social/repair_68_test.go"
+
+[reference.35]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/launchpad/social/internal/social/repair_m1029_test.go"
+
+[reference.36]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/launchpad/social/internal/voice/repair_m1030_test.go"
+
+[reference.37]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/launchpad/social/repair_22_39_470.kvx"
+
+[reference.38]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/launchpad/social/repair_22_39_486.kvx"
+
+[reference.39]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_66"
+
+[reference.40]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_66_CommentOverlayCodecAndCache"
+
+[reference.41]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_66_ContainerFrozenRoutes"
+
+[reference.42]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_66_FrozenProducerCodec"
+
+[reference.43]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_66_FrozenReportContract"
+
+[reference.44]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_66_MessageOverlayCodec"
+
+[reference.45]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_66_TicketConsumerDelegates"
+
+[reference.46]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_67"
+
+[reference.47]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_67_FrozenErrorsDriveSDK"
+
+[reference.48]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_68"
+
+[reference.49]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_68_FollowRefusalsDecodeInSDK"
+
+[reference.50]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_68_MissingAuthoritiesFailClosed"
+
+[reference.51]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_68_PrivateVoiceReadAndPromptShareAdmission"
+
+[reference.52]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_68_SocketRESTAndRestartUseDurableMessages"
+
+[reference.53]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "services/launchpad/social/internal/app/repair_66_test.go"
+
+[reference.54]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "services/launchpad/social/internal/interactions/repair_67_test.go"
+
+[reference.55]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "services/launchpad/social/internal/social/repair_68_peer_test.go"
+
+[reference.56]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "services/launchpad/social/internal/social/repair_68_test.go"

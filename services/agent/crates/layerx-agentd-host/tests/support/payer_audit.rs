@@ -78,7 +78,7 @@ fn hex(bytes: &[u8]) -> String {
 
 fn exact_case() -> Value {
     let recordings: Value = must(serde_json::from_str(include_str!(
-        "../../src/repair_22_31_363_receipts.json"
+        "../../src/payer_payment_receipts.json"
     )));
     assert_eq!(
         recordings["provenance"]["generator"],
@@ -316,7 +316,7 @@ fn draw_case() -> (Value, GrantTerms, [u8; 32], Vec<u8>, Value) {
         "../../../../../interop/crates/x-websearch/tests/fixtures/gateway/metered.json"
     )));
     let authority: Value = must(serde_json::from_str(include_str!(
-        "../../../../../interop/crates/x-websearch/src/repair_22_31_169_ledger.json"
+        "../../../../../interop/crates/x-websearch/src/metered_payment_ledger.json"
     )));
     let exchanges = {
         let Some(expected_value) = recorded["endpoints"]["gateway"]["*"].as_array() else {

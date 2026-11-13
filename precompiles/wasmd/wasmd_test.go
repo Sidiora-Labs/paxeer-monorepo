@@ -257,7 +257,7 @@ func TestQuery(t *testing.T) {
 	require.Equal(t, "{\"message\":\"query test\"}", string(outputs[0].([]byte)))
 	require.NotZero(t, g)
 
-	beforeState := repairM1275StoreSnapshot(t, statedb.Ctx().KVStore(testApp.GetKey(wasmtypes.StoreKey)))
+	beforeState := snapshotWasmStore(t, statedb.Ctx().KVStore(testApp.GetKey(wasmtypes.StoreKey)))
 	beforeEvents := append(sdk.Events{}, statedb.Ctx().EventManager().Events()...)
 	beforeLogs := statedb.GetAllLogs()
 	_, addressErr := sdk.AccAddressFromBech32("not bech32")
@@ -277,7 +277,7 @@ func TestQuery(t *testing.T) {
 			require.ErrorIs(t, err, vm.ErrExecutionReverted)
 			require.ErrorContains(t, statedb.GetPrecompileError(), tc.reason)
 			require.Zero(t, remaining)
-			require.Equal(t, beforeState, repairM1275StoreSnapshot(t, statedb.Ctx().KVStore(testApp.GetKey(wasmtypes.StoreKey))))
+			require.Equal(t, beforeState, snapshotWasmStore(t, statedb.Ctx().KVStore(testApp.GetKey(wasmtypes.StoreKey))))
 			require.Equal(t, beforeEvents, statedb.Ctx().EventManager().Events())
 			require.Equal(t, beforeLogs, statedb.GetAllLogs())
 		})

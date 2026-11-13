@@ -1,0 +1,28 @@
+[manifest]
+task = "22.43.179"
+records_moved = 3
+files_renamed = 0
+
+[file.1]
+from = "src/ledger/repair_22_39_395.kvx"
+to = "spec/layerx-merge/programme/records/src/ledger/repair_22_39_395.kvx"
+
+[file.2]
+from = "src/modules/programs/repair_22_39_336.kvx"
+to = "spec/layerx-merge/programme/records/src/modules/programs/repair_22_39_336.kvx"
+
+[file.3]
+from = "src/modules/repair_22_39_247.kvx"
+to = "spec/layerx-merge/programme/records/src/modules/repair_22_39_247.kvx"
+
+[reference.1]
+file = "spec/layerx-merge/spec.kvx"
+name = "src/ledger/repair_22_39_395.kvx"
+
+[reference.2]
+file = "spec/layerx-merge/spec.kvx"
+name = "src/modules/programs/repair_22_39_336.kvx"
+
+[reference.3]
+file = "spec/layerx-merge/spec.kvx"
+name = "src/modules/repair_22_39_247.kvx"

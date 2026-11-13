@@ -1,0 +1,168 @@
+[manifest]
+task = "22.43.139"
+records_moved = 30
+files_renamed = 1
+
+[file.1]
+from = "services/explorer/backend/apps/explorer/lib/explorer/account/notifier/repair_22_33_492.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/explorer/lib/explorer/account/notifier/repair_22_33_492.kvx"
+
+[file.2]
+from = "services/explorer/backend/apps/explorer/lib/explorer/account/repair_22_31_399.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/explorer/lib/explorer/account/repair_22_31_399.kvx"
+
+[file.3]
+from = "services/explorer/backend/apps/explorer/lib/explorer/account/repair_22_33_491.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/explorer/lib/explorer/account/repair_22_33_491.kvx"
+
+[file.4]
+from = "services/explorer/backend/apps/explorer/lib/explorer/chain/fetcher/addresses_blacklist/repair_22_33_390.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/explorer/lib/explorer/chain/fetcher/addresses_blacklist/repair_22_33_390.kvx"
+
+[file.5]
+from = "services/explorer/backend/apps/explorer/lib/explorer/chain/optimism/repair_22_33_536.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/explorer/lib/explorer/chain/optimism/repair_22_33_536.kvx"
+
+[file.6]
+from = "services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/repair_22_31_400.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/repair_22_31_400.kvx"
+
+[file.7]
+from = "services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/repair_22_33_497.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/repair_22_33_497.kvx"
+
+[file.8]
+from = "services/explorer/backend/apps/explorer/lib/explorer/chain/repair_22_33_469.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/explorer/lib/explorer/chain/repair_22_33_469.kvx"
+
+[file.9]
+from = "services/explorer/backend/apps/explorer/lib/explorer/chain/repair_22_33_496.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/explorer/lib/explorer/chain/repair_22_33_496.kvx"
+
+[file.10]
+from = "services/explorer/backend/apps/explorer/lib/explorer/market/fetcher/repair_22_33_376.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/explorer/lib/explorer/market/fetcher/repair_22_33_376.kvx"
+
+[file.11]
+from = "services/explorer/backend/apps/explorer/lib/explorer/market/source/repair_22_35_11.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/explorer/lib/explorer/market/source/repair_22_35_11.kvx"
+
+[file.12]
+from = "services/explorer/backend/apps/explorer/lib/explorer/market/source/repair_22_35_16.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/explorer/lib/explorer/market/source/repair_22_35_16.kvx"
+
+[file.13]
+from = "services/explorer/backend/apps/explorer/lib/explorer/market/source/repair_22_35_18.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/explorer/lib/explorer/market/source/repair_22_35_18.kvx"
+
+[file.14]
+from = "services/explorer/backend/apps/explorer/lib/explorer/market/source/repair_22_35_19.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/explorer/lib/explorer/market/source/repair_22_35_19.kvx"
+
+[file.15]
+from = "services/explorer/backend/apps/explorer/lib/explorer/paxeer_x/repair_22_31_389.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/explorer/lib/explorer/paxeer_x/repair_22_31_389.kvx"
+
+[file.16]
+from = "services/explorer/backend/apps/explorer/lib/explorer/repair_22_33_511.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/explorer/lib/explorer/repair_22_33_511.kvx"
+
+[file.17]
+from = "services/explorer/backend/apps/explorer/lib/explorer/third_party_integrations/auth0/repair_22_33_533.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/explorer/lib/explorer/third_party_integrations/auth0/repair_22_33_533.kvx"
+
+[file.18]
+from = "services/explorer/backend/apps/explorer/lib/explorer/third_party_integrations/repair_22_33_534.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/explorer/lib/explorer/third_party_integrations/repair_22_33_534.kvx"
+
+[file.19]
+from = "services/explorer/backend/apps/explorer/lib/explorer/token/repair_22_33_464.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/explorer/lib/explorer/token/repair_22_33_464.kvx"
+
+[file.20]
+from = "services/explorer/backend/apps/explorer/lib/explorer/utility/repair_22_31_398.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/explorer/lib/explorer/utility/repair_22_31_398.kvx"
+
+[file.21]
+from = "services/explorer/backend/apps/explorer/lib/explorer/utility/repair_22_33_463.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/explorer/lib/explorer/utility/repair_22_33_463.kvx"
+
+[file.22]
+from = "services/explorer/backend/apps/explorer/lib/mix/tasks/repair_22_31_404.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/explorer/lib/mix/tasks/repair_22_31_404.kvx"
+
+[file.23]
+from = "services/explorer/backend/apps/explorer/lib/mix/tasks/repair_22_33_509.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/explorer/lib/mix/tasks/repair_22_33_509.kvx"
+
+[file.24]
+from = "services/explorer/backend/apps/explorer/priv/repo/migrations/repair_22_31_406.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/explorer/priv/repo/migrations/repair_22_31_406.kvx"
+
+[file.25]
+from = "services/explorer/backend/apps/explorer/priv/repo/migrations/repair_22_33_518.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/explorer/priv/repo/migrations/repair_22_33_518.kvx"
+
+[file.26]
+from = "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/repair_22_31_407.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/repair_22_31_407.kvx"
+
+[file.27]
+from = "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/repair_22_33_523.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/repair_22_33_523.kvx"
+
+[file.28]
+from = "services/explorer/backend/apps/explorer/test/explorer/migrator/repair_22_31_410.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/explorer/test/explorer/migrator/repair_22_31_410.kvx"
+
+[file.29]
+from = "services/explorer/backend/apps/explorer/test/explorer/migrator/repair_22_33_537.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/explorer/test/explorer/migrator/repair_22_33_537.kvx"
+
+[file.30]
+from = "services/explorer/backend/apps/explorer/test/explorer/smart_contract/repair_22_33_544.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/explorer/test/explorer/smart_contract/repair_22_33_544.kvx"
+
+[file.31]
+from = "services/explorer/backend/apps/explorer/test/explorer/smart_contract/repair_22_33_544_fixtures.exs"
+to = "services/explorer/backend/apps/explorer/test/explorer/smart_contract/binary_getter_fixture.exs"
+
+[reference.1]
+file = "services/explorer/backend/apps/explorer/test/repair/repair_22_33_544_test.exs"
+name = "Repair2233544Fixtures"
+
+[reference.2]
+file = "services/explorer/backend/apps/explorer/test/repair/repair_22_33_544_test.exs"
+name = "repair_22_33_544_fixtures.exs"
+
+[reference.3]
+file = "spec/layerx-merge/programme/issues/1677.kvx"
+name = "services/explorer/backend/apps/explorer/test/explorer/migrator/repair_22_33_537.kvx"
+
+[reference.4]
+file = "spec/layerx-merge/programme/issues/input/1640.md"
+name = "services/explorer/backend/apps/explorer/priv/repo/migrations/repair_22_31_406.kvx"
+
+[reference.5]
+file = "spec/layerx-merge/programme/issues/input/1674.md"
+name = "services/explorer/backend/apps/explorer/lib/explorer/chain/optimism/repair_22_33_536.kvx"
+
+[reference.6]
+file = "spec/layerx-merge/programme/issues/input/1677.md"
+name = "services/explorer/backend/apps/explorer/test/explorer/migrator/repair_22_33_537.kvx"
+
+[reference.7]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/explorer/backend/apps/explorer/lib/explorer/market/source/repair_22_35_11.kvx"
+
+[reference.8]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/explorer/backend/apps/explorer/lib/explorer/market/source/repair_22_35_16.kvx"
+
+[reference.9]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/explorer/backend/apps/explorer/lib/explorer/market/source/repair_22_35_18.kvx"
+
+[reference.10]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/explorer/backend/apps/explorer/lib/explorer/market/source/repair_22_35_19.kvx"

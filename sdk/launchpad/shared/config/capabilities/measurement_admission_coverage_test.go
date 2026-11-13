@@ -16,7 +16,7 @@ import (
 func TestMeasurementCasesRejectUnboundInputs(t *testing.T) {
 	for _, mode := range []string{"pin", "export addresses", "export network", "creation paths", "unknown case"} {
 		t.Run(mode, func(t *testing.T) {
-			chain := repair38OpenChain(t, true)
+			chain := preflightFixtureOpenChain(t, true)
 			block := chain.peer.blocks[1]
 			probe := MeasurementCase{Kind: valueExports, BlockHash: block, BlockNumber: chain.peer.headers[block].Number.Uint64()}
 			plan := MeasurementPlan{
@@ -62,7 +62,7 @@ func TestMeasurementCasesRejectUnboundInputs(t *testing.T) {
 func TestPinnedQuoteRejectsInvalidContextAndTuple(t *testing.T) {
 	for _, mode := range []string{"amount", "context", "tuple", "zero output", "read unavailable"} {
 		t.Run(mode, func(t *testing.T) {
-			chain := repair38OpenChain(t, true)
+			chain := preflightFixtureOpenChain(t, true)
 			block, pool, quoter := chain.peer.blocks[1], chain.peer.epoch.Pool, chain.peer.address(valueQuoter)
 			amount := "1000000"
 			want := ""

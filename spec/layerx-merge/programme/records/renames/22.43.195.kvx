@@ -1,0 +1,16 @@
+[manifest]
+task = "22.43.195"
+records_moved = 2
+files_renamed = 0
+
+[file.1]
+from = "tests/ledger/repair_22_31_505.kvx"
+to = "spec/layerx-merge/programme/records/tests/ledger/repair_22_31_505.kvx"
+
+[file.2]
+from = "tests/ledger/repair_22_33_1136.kvx"
+to = "spec/layerx-merge/programme/records/tests/ledger/repair_22_33_1136.kvx"
+
+[reference.1]
+file = "spec/layerx-merge/spec.kvx"
+name = "tests/ledger/repair_22_31_505.kvx"

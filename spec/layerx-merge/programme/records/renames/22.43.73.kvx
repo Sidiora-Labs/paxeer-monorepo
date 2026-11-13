@@ -1,0 +1,52 @@
+[manifest]
+task = "22.43.73"
+records_moved = 3
+files_renamed = 2
+
+[file.1]
+from = "precompiles/addr/legacy/v575/repair_m1264.kvx"
+to = "spec/layerx-merge/programme/records/precompiles/addr/legacy/v575/repair_m1264.kvx"
+
+[file.2]
+from = "precompiles/addr/repair_22_39_324.kvx"
+to = "spec/layerx-merge/programme/records/precompiles/addr/repair_22_39_324.kvx"
+
+[file.3]
+from = "precompiles/addr/repair_m1266.kvx"
+to = "spec/layerx-merge/programme/records/precompiles/addr/repair_m1266.kvx"
+
+[file.4]
+from = "precompiles/addr/legacy/v575/repair_m1264_test.go"
+to = "precompiles/addr/legacy/v575/association_replay_test.go"
+
+[file.5]
+from = "precompiles/addr/repair_m1266_test.go"
+to = "precompiles/addr/gas_execution_test.go"
+
+[reference.1]
+file = "spec/layerx-merge/dispositions/d22-23.kvx"
+name = "repair_m1264_test.go"
+
+[reference.2]
+file = "spec/layerx-merge/programme/issues/1682.kvx"
+name = "repair_m1264_test.go"
+
+[reference.3]
+file = "spec/layerx-merge/programme/issues/1683.kvx"
+name = "repair_m1264_test.go"
+
+[reference.4]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_m1264_test.go"
+
+[reference.5]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_324.kvx"
+
+[reference.6]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1264_test.go"
+
+[reference.7]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1266_test.go"

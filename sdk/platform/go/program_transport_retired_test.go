@@ -172,7 +172,7 @@ func TestProgramOperationsNeverCallProgramsRestIngress(t *testing.T) {
 }
 
 func TestProgramWindDownPreparesBroadcastsAndObservesNativeActivity(t *testing.T) {
-	data, err := os.ReadFile("testdata/repair141/native-deprecate.json")
+	data, err := os.ReadFile("testdata/receipt_transport/native-deprecate.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -186,7 +186,7 @@ func TestProgramWindDownPreparesBroadcastsAndObservesNativeActivity(t *testing.T
 	signed := sequencerFixtureBytes(t, fixture.RawTransaction)
 	expectedHash := receiptKeccak256(signed)
 	var methods []string
-	programs := repair141Programs(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	programs := receiptTransportPrograms(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" || r.Method != http.MethodPost || strings.HasPrefix(r.URL.Path, "/v1/programs") {
 			t.Error("retired or unexpected ingress")
 			http.Error(w, "route", 400)

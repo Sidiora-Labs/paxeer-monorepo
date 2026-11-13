@@ -1,0 +1,84 @@
+[manifest]
+task = "22.43.34"
+records_moved = 4
+files_renamed = 4
+
+[file.1]
+from = "consensus/libs/bits/repair_m1090_test.go"
+to = "consensus/libs/bits/bit_array_operations_test.go"
+
+[file.2]
+from = "consensus/libs/json/repair_173_test.go"
+to = "consensus/libs/json/named_string_map_test.go"
+
+[file.3]
+from = "consensus/libs/json/repair_m1091_test.go"
+to = "consensus/libs/json/codec_contract_test.go"
+
+[file.4]
+from = "consensus/libs/service/repair_m1089_test.go"
+to = "consensus/libs/service/startup_lifecycle_test.go"
+
+[file.5]
+from = "consensus/libs/bits/repair_m1090.kvx"
+to = "spec/layerx-merge/programme/records/consensus/libs/bits/repair_m1090.kvx"
+
+[file.6]
+from = "consensus/libs/json/repair_173.kvx"
+to = "spec/layerx-merge/programme/records/consensus/libs/json/repair_173.kvx"
+
+[file.7]
+from = "consensus/libs/json/repair_m1091.kvx"
+to = "spec/layerx-merge/programme/records/consensus/libs/json/repair_m1091.kvx"
+
+[file.8]
+from = "consensus/libs/service/repair_m1089.kvx"
+to = "spec/layerx-merge/programme/records/consensus/libs/service/repair_m1089.kvx"
+
+[reference.1]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1089_"
+
+[reference.2]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1090_"
+
+[reference.3]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1091_"
+
+[reference.4]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_173_"
+
+[reference.5]
+file = "spec/layerx-merge/spec.kvx"
+name = "consensus/libs/bits/repair_m1090_test.go"
+
+[reference.6]
+file = "spec/layerx-merge/spec.kvx"
+name = "consensus/libs/json/repair_173_test.go"
+
+[reference.7]
+file = "spec/layerx-merge/spec.kvx"
+name = "consensus/libs/json/repair_m1091_test.go"
+
+[reference.8]
+file = "spec/layerx-merge/spec.kvx"
+name = "consensus/libs/service/repair_m1089_test.go"
+
+[reference.9]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_173_test.go"
+
+[reference.10]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1089_test.go"
+
+[reference.11]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1090_test.go"
+
+[reference.12]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1091_test.go"

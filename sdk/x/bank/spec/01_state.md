@@ -113,7 +113,7 @@ with no deferred credits to replay. The `TotalSupply` helper includes pending
 credits before the flush and ordinary module balances afterwards.
 
 The executable recovery example is
-`TestRepairM_669_StateStoresRecovery` in [repair_m669_test.go](../repair_m669_test.go).
+`TestBankContractStateStoresRecovery` in [module_contract_test.go](../module_contract_test.go).
 It closes and reopens the production commitment store and also round-trips the
 extended genesis JSON. Even an explicitly stored empty allowlist makes legacy
 genesis export panic: unrestricted policy does not mean the entry is absent.

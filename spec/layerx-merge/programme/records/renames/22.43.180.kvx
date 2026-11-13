@@ -1,0 +1,40 @@
+[manifest]
+task = "22.43.180"
+records_moved = 2
+files_renamed = 3
+
+[file.1]
+from = "storage/db_engine/dbcache/repair_106_test.go"
+to = "storage/db_engine/dbcache/cached_write_publication_order_test.go"
+
+[file.2]
+from = "storage/db_engine/dbcache/repair_m1148_export_test.go"
+to = "storage/db_engine/dbcache/cached_batch_export_test.go"
+
+[file.3]
+from = "storage/db_engine/dbcache/repair_m1148_test.go"
+to = "storage/db_engine/dbcache/cache_contract_test.go"
+
+[file.4]
+from = "storage/db_engine/dbcache/repair_106.kvx"
+to = "spec/layerx-merge/programme/records/storage/db_engine/dbcache/repair_106.kvx"
+
+[file.5]
+from = "storage/db_engine/dbcache/repair_m1148.kvx"
+to = "spec/layerx-merge/programme/records/storage/db_engine/dbcache/repair_m1148.kvx"
+
+[reference.1]
+file = "spec/layerx-merge/spec.kvx"
+name = "storage/db_engine/dbcache/repair_106_test.go"
+
+[reference.2]
+file = "spec/layerx-merge/spec.kvx"
+name = "storage/db_engine/dbcache/repair_m1148_test.go"
+
+[reference.3]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_106_"
+
+[reference.4]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1148_"

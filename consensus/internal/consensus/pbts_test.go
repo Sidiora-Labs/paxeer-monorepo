@@ -725,11 +725,11 @@ func TestTooFarInTheFutureProposal(t *testing.T) {
 	require.Nil(t, results.height2.prevote.BlockID.Hash)
 }
 
-func testRepairM1082NonzeroProposerTimeout(t *testing.T) {
+func testConsensusNetworkNonzeroProposerTimeout(t *testing.T) {
 	t.Helper()
 	synctest.Test(t, func(t *testing.T) {
 		future := time.Now().Add(250 * time.Millisecond)
-		f := newRepairM1082Fixture(t, false, future)
+		f := newConsensusNetworkFixture(t, false, future)
 		local := f.honest[0]
 		cs, _ := f.state(t, local)
 		pin, err := cstypes.NewLeaderPin(1, []crypto.PubKey{f.keys[f.leader].Public(), f.keys[local].Public()})
@@ -761,7 +761,7 @@ func testRepairM1082NonzeroProposerTimeout(t *testing.T) {
 			require.True(t, ok)
 			require.EqualValues(t, 1, scheduled.Round)
 			require.Equal(t, cstypes.RoundStepPropose, scheduled.Step)
-			first := repair80NextMessage(t, cs)
+			first := proposalReplayNextMessage(t, cs)
 			message, ok := first.Msg.(*ProposalMessage)
 			require.True(t, ok)
 			proposal := message.Proposal
@@ -770,14 +770,14 @@ func testRepairM1082NonzeroProposerTimeout(t *testing.T) {
 			require.NoError(t, waiting.Leader().Verify(types.ProposalSignBytes(f.genesis.ChainID, proposal.ToProto()), proposal.Signature))
 			messages := []msgInfo{first}
 			for range proposal.BlockID.PartSetHeader.Total {
-				messages = append(messages, repair80NextMessage(t, cs))
+				messages = append(messages, proposalReplayNextMessage(t, cs))
 			}
 			for _, mi := range messages {
-				cs.handleMsg(ctx, repairM1082Transport(t, mi), false)
+				cs.handleMsg(ctx, consensusNetworkTransport(t, mi), false)
 			}
 			require.Equal(t, cstypes.RoundStepPrevote, cs.GetRoundState().Step)
 			require.NotNil(t, cs.GetRoundState().ProposalBlock)
-			vote := repair80NextMessage(t, cs).Msg.(*VoteMessage).Vote
+			vote := proposalReplayNextMessage(t, cs).Msg.(*VoteMessage).Vote
 			require.EqualValues(t, 1, vote.Round)
 			require.True(t, proposal.BlockID.Equals(vote.BlockID))
 			require.NoError(t, vote.Verify(f.genesis.ChainID, f.keys[local].Public()))
@@ -788,5 +788,5 @@ func testRepairM1082NonzeroProposerTimeout(t *testing.T) {
 }
 
 func TestPBTSStandbyProposerResumesScheduledRound(t *testing.T) {
-	testRepairM1082NonzeroProposerTimeout(t)
+	testConsensusNetworkNonzeroProposerTimeout(t)
 }

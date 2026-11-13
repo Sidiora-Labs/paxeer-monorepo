@@ -35,7 +35,7 @@ func createValidators(t *testing.T) []types.Validator {
 	return []types.Validator{validators[3], validators[1], validators[2], validators[0]}
 }
 
-func repairM688AssertHistoricalOrder(t *testing.T, hi types.HistoricalInfo) {
+func stakingValidationAssertHistoricalOrder(t *testing.T, hi types.HistoricalInfo) {
 	t.Helper()
 	require.Len(t, hi.Valset, 4)
 	for i, power := range []int64{30, 30, 20, 10} {
@@ -58,15 +58,15 @@ func repairM688AssertHistoricalOrder(t *testing.T, hi types.HistoricalInfo) {
 
 func TestHistoricalInfo(t *testing.T) {
 	hi := types.NewHistoricalInfo(header, createValidators(t), sdk.DefaultPowerReduction)
-	repairM688AssertHistoricalOrder(t, hi)
+	stakingValidationAssertHistoricalOrder(t, hi)
 	require.NoError(t, types.ValidateBasic(hi, sdk.DefaultPowerReduction))
-	h := repairM688Open(t, t.TempDir(), true)
+	h := stakingValidationOpen(t, t.TempDir(), true)
 	h.staking.SetHistoricalInfo(h.ctx, header.Height, &hi)
 	recv, found := h.staking.GetHistoricalInfo(h.ctx, header.Height)
 	require.True(t, found)
 	require.True(t, hi.Equal(&recv))
 	require.Equal(t, hi.Header, recv.Header)
-	repairM688AssertHistoricalOrder(t, recv)
+	stakingValidationAssertHistoricalOrder(t, recv)
 	require.NoError(t, types.ValidateBasic(recv, sdk.DefaultPowerReduction))
 }
 

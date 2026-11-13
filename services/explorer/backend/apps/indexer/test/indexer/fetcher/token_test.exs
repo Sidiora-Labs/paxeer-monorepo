@@ -1,4 +1,4 @@
-Code.require_file("repair_22_33_555_support.exs", __DIR__)
+Code.require_file("recorded_fetcher_support.exs", __DIR__)
 
 defmodule Indexer.Fetcher.TokenTest do
   use EthereumJSONRPC.Case
@@ -30,11 +30,11 @@ defmodule Indexer.Fetcher.TokenTest do
 
           EthereumJSONRPC.HTTP ->
             http = json_rpc_named_arguments |> Keyword.fetch!(:transport_options) |> Keyword.fetch!(:http)
-            Indexer.Fetcher.Repair2233555.catalog_arguments(http)
+            Indexer.Fetcher.RecordedFetcherSupport.catalog_arguments(http)
         end
 
-      Indexer.Fetcher.Repair2233555.put_env(:explorer, :json_rpc_named_arguments, json_rpc_named_arguments)
-      address = insert(:address, hash: Indexer.Fetcher.Repair2233555.fixture("catalog")["address"])
+      Indexer.Fetcher.RecordedFetcherSupport.put_env(:explorer, :json_rpc_named_arguments, json_rpc_named_arguments)
+      address = insert(:address, hash: Indexer.Fetcher.RecordedFetcherSupport.fixture("catalog")["address"])
 
       token =
         insert(:token,
@@ -103,3 +103,4 @@ defmodule Indexer.Fetcher.TokenTest do
     end
   end
 end
+

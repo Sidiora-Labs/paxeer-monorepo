@@ -16,8 +16,9 @@ use layerx_types::rung::Rung;
 use serde_json::{json, Value};
 use sha2::{Digest as _, Sha256};
 
-const COMMITTED: &str = include_str!("../fixtures/repair_22_33_50/conformance-v4-committed.json");
-const RECORDED: &str = include_str!("../fixtures/repair_22_33_50/paxd-v4-committed.json");
+const COMMITTED: &str =
+    include_str!("../fixtures/committed_node_receipts/conformance-v4-committed.json");
+const RECORDED: &str = include_str!("../fixtures/committed_node_receipts/paxd-v4-committed.json");
 pub fn recorded_rpc_receipt() -> Value {
     let source: Value = serde_json::from_str(RECORDED).or_fail("paxd recorder output");
     let normalized: Value = serde_json::from_str(COMMITTED).or_fail("conformance recording");
