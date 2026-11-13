@@ -21630,3 +21630,23 @@ fix = "After a change of a dependency version in a manifest, refresh the lock fi
 title = "A task that moves a file names the destination among its paths"
 symptom = "A task moves files to a directory outside the paths it declares. The destination is then not among the paths of the task."
 fix = "Name the destination directory among the planned paths of the task. The open tasks of the series 22.43 name the directories under spec/layerx-merge/programme/records for the records they move."
+
+[gotcha.4362]
+title = "The verification of a task that names files reads the names"
+symptom = "The verification of a task of the series 22.43 reads the names of the files under the directories of the task. It does not read where a record lies."
+fix = "A record that keeps a directory of the tree after its task is moved by the later task of the series that reads the manifests. Read the manifest of a task for the place of each record."
+
+[gotcha.4363]
+title = "An example environment file of a deployment keeps the values of that deployment"
+symptom = "An example environment file under a deploy directory is read by the tests and the scripts of that deployment, and they read the values of the deployment in it: listen addresses, file paths, ports, the chain id, sample hosts and placeholder values. The pages under docs/release/variables hold the names and the defaults."
+fix = "Add a variable to such a file as a new line and keep every line the file holds. Tasks 22.42.176 to 22.42.180 bring the files in line with this rule."
+
+[gotcha.4364]
+title = "The guest of a program member stays under the size limit of a deployment"
+symptom = "The target paxai-host-boundary-build builds the guest of the member layerx-programs-ai-market and compares its size with the limit of a deployment, 524184 bytes. The size follows from the sources, the dependencies and the recipe of the guest."
+fix = "After a change of a member that a guest is built from, build the guest and read its size. Task 22.39.512 holds the manifest of the member, the manifest and the lock file of the workspace and the fixtures directory of the member among its paths."
+
+[gotcha.4365]
+title = "The format check of the contracts reads every contract file of the tree"
+symptom = "The target paxeer-manifest-lint runs the format check of the contracts with the configuration foundry.paxeer.toml over every contract file of the tree, with the version of the formatter that the environment holds."
+fix = "Format a contract file with that formatter before the commit, and format the files again after a change of the formatter version. Task 22.39.511 formats contracts/src/xweb/examples/ApiConsumer.sol and contracts/test/XWebConsumer.t.sol."

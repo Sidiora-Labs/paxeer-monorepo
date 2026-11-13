@@ -1,0 +1,36 @@
+[manifest]
+task = "22.43.224"
+records_moved = 2
+files_renamed = 2
+
+[file.1]
+from = "tools/rollout/repair-22.31.315.kvx"
+to = "spec/layerx-merge/programme/records/tools/rollout/repair-22.31.315.kvx"
+
+[file.2]
+from = "tools/rollout/repair-22.33.729.kvx"
+to = "spec/layerx-merge/programme/records/tools/rollout/repair-22.33.729.kvx"
+
+[file.3]
+from = "tools/rollout/repair_m729_test.go"
+to = "tools/rollout/ledger_deployment_policy_test.go"
+
+[file.4]
+from = "tools/rollout/tests/test_repair_22_31_315.py"
+to = "tools/rollout/tests/test_box_apply_recovery.py"
+
+[reference.1]
+file = "spec/layerx-merge/dispositions/d22-29.kvx"
+name = "tools/rollout/repair_m729_test.go"
+
+[reference.2]
+file = "spec/layerx-merge/qualification.kvx"
+name = "tools/rollout/repair_m729_test.go"
+
+[reference.3]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/rollout/repair_m729_test.go"
+
+[reference.4]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/rollout/tests/test_repair_22_31_315.py"

@@ -96,6 +96,7 @@ Paxeer X connects EVM applications with LayerX identities, payments, markets, bu
 - [Storage](https://docs.paxeer.app/storage/): State commitment, historical queries, receipt retention, and backend configuration in Paxeer.
 - [Streaming Payments](https://docs.paxeer.app/streams/): Pay for elapsed time or verified usage with funded, capped streams, deterministic accrual, settlement, and cancellation.
 - [Event subscriptions](https://docs.paxeer.app/subscriptions/): Build durable agent consumers with scoped visibility, acknowledged cursors, explicit gap recovery, and verified receipt references.
+- [System map](https://docs.paxeer.app/system-map/): Explore every Paxeer 7.0.0 system by kind, release change, and name, with build commands, configuration, health checks, dependencies, and documentation.
 - [Unified Network Architecture](https://docs.paxeer.app/unified-network/): How Paxeer X combines EVM and Cosmos execution with LayerX activities, identity, programs, and receipts in one BFT network.
 - [WASM Runtime](https://docs.paxeer.app/wasm-runtime/): Understand Paxeer’s in-tree CosmWasm virtual machine, Go and Rust boundary, native library builds, and gas accounting.
 - [WASM](https://docs.paxeer.app/wasm/): CosmWasm contract lifecycle, deployment permissions, and calls between Paxeer’s EVM and WebAssembly runtimes.
