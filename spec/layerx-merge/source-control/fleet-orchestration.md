@@ -50,7 +50,7 @@ Eligibility queries expose their pagination, excluded candidates and observation
 
 An assignment can reference one or several tasks when admitted policy permits grouping. Every task still has its own accepted definition, attempt identity, scope, status and qualification obligations. Grouping cannot turn one worker exit code into completion of all tasks or hide conflicting writes. A worker can execute sequential or independent grouped work only as declared; native child workers require separately admitted identities and accounting.
 
-The environment manifest's semantic contract includes schema version, environment/profile identity, exact code inputs, pinned dependency and toolchain inputs, configuration references, interface-contract identities and installation actions. Exact KVX section/key spelling is owned by task `0.10`; illustrative terminology in this document does not create a competing schema.
+The environment manifest's semantic contract includes schema version, environment/profile identity, exact code inputs, pinned dependency and toolchain inputs, configuration references, interface-contract identities and installation actions. The [fleet contracts](../../../tools/hyperfide/contracts/fleet/index.mjs) define the exact KVX sections and keys.
 
 ## 5. `hyperfide install` and environment readiness
 
@@ -66,7 +66,7 @@ Installation stages source and dependencies in an isolated destination and expos
 
 ## 6. Source-provider transition without a dependency cycle
 
-Installation identifies its source provider explicitly. A legacy adapter pins Git-backed revision/tree inputs and their admitted transfer format. A native adapter reads immutable native source through the shared installation/source interface. `.neron` identifies the adapter and actual source authority.
+Installation identifies its source provider explicitly. A legacy adapter pins Git-backed revision/tree inputs and their admitted transfer format. A native adapter reads immutable native source through the shared installation/source interface. Native fleet installation accepts regular files with modes `100644` and `100755`, with explicit file, byte and tree-node budgets; other entry kinds are refused. `.neron` identifies the adapter and actual source authority.
 
 Switching providers updates the approved configuration and environment generation together. Native-mode errors remain native-mode errors; the installer does not silently change backend. Existing installations and assignments retain their original source identities and receipts.
 
@@ -90,7 +90,11 @@ The following logical operations share the hierarchy, scheduler, provider and su
 
 Observations expose at most 100 compact entries per historical effect/coordination collection, with a 512-byte summary target, original canonical payload digest and byte count. `history` explicitly marks omitted details and continuation; omission does not acknowledge a message. Coordination remains advisory. Current accepted dependencies, ownership, provider uncertainty and reservation holds retain their admission meaning, and incomplete current-state observations still refuse reasoning.
 
-An authorized agent reads exact history through the existing `REPLAN` action with input `{history_request:{collection,cursor,limit,entry_id?,offset?}}`, mutually exclusive with `proposal`. `collection` is `effect_receipts` or `coordination`; start with `cursor:null` and integer `limit` from 1 to 8. Pages use descending `(created_at,id)` order and return `has_more`, `next_cursor:{created_at,id}|null`, canonical content digests and `details_complete`. The aggregate page budget is 49,152 bytes. An oversized item returns `CHUNK_READ_REQUIRED`; request that exact `entry_id` with `cursor:null`, `limit:1` and UTF-8 byte `offset` (initially `0`, at most 1,048,576). Entry reads return up to 16,384 bytes of canonical JSON text, the full content digest/byte count and `next_offset|null`; follow returned offsets to preserve UTF-8 boundaries.
+An authorized agent reads history through `REPLAN` with input `{history_request:{collection,cursor,limit,entry_id?,offset?,attempt_id?}}`, mutually exclusive with `proposal`. Collections are `effect_receipts`, `coordination`, `worker_feedback`, `worker_events`, `worker_checkpoints` and `findings`; start with `cursor:null` and integer `limit` from 1 to 8. Pages use descending `(created_at,id)` order with `has_more` and `next_cursor:{created_at,id}|null`, within a 49,152-byte budget.
+
+Effect receipt and coordination pages include canonical content digests and `details_complete`. An oversized item returns `CHUNK_READ_REQUIRED`; request that exact `entry_id` with `cursor:null`, `limit:1` and UTF-8 byte `offset` (initially `0`, at most 1,048,576). Entry reads return up to 16,384 bytes of canonical JSON text, the full content digest/byte count and `next_offset|null`; follow returned offsets to preserve UTF-8 boundaries.
+
+Worker collections and findings return bounded metadata pages with explicit omitted-detail indicators. Worker events and worker checkpoints require `attempt_id` and resolve only the current scoped attempt. They do not accept `entry_id` or `offset`.
 
 The admitted page appears in the next observation as `history.last_read`, bound to its actor, authority epoch, leader generation and current delegation/manager generation. Managers read their own effect receipts and coordination addressed to their current package; the Primary reads authorized same-run history. History reads preserve normal admitted-decision generation, scope, budget and idempotency checks, grant no execution authority and never mark coordination handled implicitly.
 

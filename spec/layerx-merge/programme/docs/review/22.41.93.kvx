@@ -1,0 +1,51 @@
+[manifest]
+task = "22.41.93"
+pages = 12
+
+[page.1]
+path = "spec/layerx-merge/source-control/README.md"
+status = "reviewed"
+
+[page.2]
+path = "spec/layerx-merge/source-control/SOURCE-README.md"
+status = "corrected"
+
+[page.3]
+path = "spec/layerx-merge/source-control/decisions.md"
+status = "corrected"
+
+[page.4]
+path = "spec/layerx-merge/source-control/design.body.md"
+status = "corrected"
+
+[page.5]
+path = "spec/layerx-merge/source-control/fleet-orchestration.md"
+status = "corrected"
+
+[page.6]
+path = "spec/layerx-merge/source-control/git-interop.md"
+status = "corrected"
+
+[page.7]
+path = "spec/layerx-merge/source-control/hyperfide-integration.md"
+status = "corrected"
+
+[page.8]
+path = "spec/layerx-merge/source-control/identity-security.md"
+status = "corrected"
+
+[page.9]
+path = "spec/layerx-merge/source-control/implementation-plan.md"
+status = "reviewed"
+
+[page.10]
+path = "spec/layerx-merge/source-control/interface-contracts.md"
+status = "corrected"
+
+[page.11]
+path = "spec/layerx-merge/source-control/migration.md"
+status = "corrected"
+
+[page.12]
+path = "spec/layerx-merge/source-control/protocol.md"
+status = "corrected"

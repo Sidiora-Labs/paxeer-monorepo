@@ -23,32 +23,17 @@
 | P01 | TypeScript source service and host integration using existing product seams; C CLI as façade | Profiling of object processing, API throughput, host filesystem behavior and cancellation. A new low-level runtime is not assumed. |
 | P02 | PostgreSQL initial metadata authority with routed partitions | Within-repository partition splits, failure fencing, hot-key limits, and measured single-trunk ordering throughput. |
 | P03 | Versioned SHA-256 type-tagged canonical object IDs and bounded radix trees | Cross-implementation canonical vectors, huge-directory behavior, path compatibility, hash agility and migration. |
-| P04 | Native path names use exact validated UTF-8 bytes | Explicit rejection or reversible conversion for Git histories with non-UTF-8 names; collisions cannot be silently normalized. |
+| P04 | Native path names use exact validated UTF-8 bytes | Git import rejects non-UTF-8 names and case-folded or Unicode-normalized collisions. |
 | P05 | Authorization-domain-scoped deduplication and shared host caches | Cross-domain probing, cache revocation, object-grant expiry, and isolation checks. |
 | P06 | Qualification targets in verification.md | Recorded workload dimensions, real backend runs, cost/latency evidence and live fleet journeys. No provider quota or entitlement is implied. |
-| P07 | Single accepted trunk per repository for initial rollout, optional named channels | Bounded acceptance transaction and contention results; no promise of unlimited throughput through one ordered trunk. |
-| P08 | Per-task Git export grouped by the existing wave publication policy | Exact projection/parent mapping and native/publication separation, including tasks that cross project export boundaries. |
+| P07 | Explicit integration domains holding accepted revision/root and generation | Candidate acceptance compares the expected domain revision and generation before advancing it. |
+| P08 | Git publication of an accepted revision to an explicit destination and ref | Exact projection/parent mapping and separate native acceptance and remote publication receipts. |
 
 ## Deployment inputs
 
 Deployment regions, S3 account/bucket configuration, credential references, metadata HA topology, source residency, exact recovery objectives, retention periods, cache quotas, supported filesystem/OS profiles, and external remote protection policies are deployment inputs. None is guessed from repository contents.
 
 Schema and source formats are versioned before persistent writes. Compatibility adapters preserve identity types across source-format transitions.
-
-The first campaign freezes its workload and service objectives before measurement. A failing result cannot be turned into a pass by weakening the same campaign's limits after execution. Proposed SLOs can be revised in a new recorded profile with the original result retained.
-
-## Relationship to earlier specifications
-
-| Earlier contract | New contract for migrated native-source repositories |
-|---|---|
-| hyperfide req4: Git owns source objects | Native S3 objects and revision metadata own source; Git becomes a projection. |
-| hyperfide-v21 req6 / D7: Git object model default and offline local snapshot store | Versioned native objects are authoritative online; existing snapshots are imported or remain explicitly legacy. |
-| hyperfide-v22 req6: result Git branches and merge collection | Native revisions, custody and accepted-source receipts drive result collection. |
-| hyperfide-v22 req8: initial slice provider with Git publication | Native workspace adapter consumes server snapshots, retaining remote export through a separate adapter. |
-| workflow hierarchy: full manager worktrees and branch-based roles | Source scopes and integration APIs replace mandatory full manager checkouts after explicit workflow migration. Role authority remains with Hyperfide. |
-| workflow local-first graph/source assumptions | Online source is mandatory in native mode; local non-authoritative caches and legacy modes remain explicitly identified. |
-
-Native-source activation uses an explicit repository authority transition; other source modes keep their own contracts.
 
 ## Repository-layout prerequisite
 
@@ -68,7 +53,7 @@ D17: v1 ordinary content uses a 4 MiB blob threshold and 4 MiB chunks, with enco
 
 D18: source metadata envelopes are bounded at 1 MiB. The `source.objects.put` and `source.objects.read` codecs have an explicit 12 MiB wire allowance for an encoded bounded content object; decoding still validates the action and storage verifies the decoded 8 MiB object limit. Native fleet manifest responses have a separate 96 MiB envelope cap for at most 64 MiB of selected file content plus descriptor metadata; callers supply explicit file, byte and node budgets. Other actions cannot borrow those allowances. Public provenance accepts only author name/email, message and a canonical UTC timestamp. Runtime authority and managed-task bindings stay outside exported source provenance.
 
-D19: the SDK contract is authoritative in `tools/hyperfide/sdk/source-control/src/contracts.ts`; the control-plane build copies it into its source compilation root through `sync-fleet-contracts.mjs`. The executable `0_1.py` case imports the built SDK package and the server codec and checks independent cross-language golden bytes in `fixtures/contracts-v1.json`, version negotiation, strict decoding, scoped identities, path/type/mode preservation, operation transitions and content-transfer bounds.
+D19: the SDK contract is authoritative in `tools/hyperfide/sdk/source-control/src/contracts.ts`; the control-plane build copies it into its source compilation root through `sync-fleet-contracts.mjs`. Client and server codecs share version negotiation, strict decoding, scoped identities, path/type/mode preservation, operation transitions and content-transfer bounds.
 
 D20: native transformations use `hyperfide-three-way-v1` and require an explicit maximal common ancestor when several merge bases exist. Rename detection remains explicitly unperformed. Ordered linear rebase stacks retain per-step progress, conflict resolutions and stable change mappings. A replay that reproduces an existing revision preserves its original membership and records `unchanged: true`, avoiding self-predecessors or fabricated provenance. New source revisions receive no inherited qualification or acceptance.
 
@@ -86,4 +71,4 @@ D26: source selection advances through immutable accepted-descendant receipts an
 
 ## Required remote destination
 
-GitHub is the required remote integration for this release. GitLab remains an optional adapter with separate execution evidence if it is adopted. This supersedes the earlier requirement to supply both hosted providers for release closure.
+GitHub is the required remote integration for this release. GitLab remains an optional adapter with separate execution evidence if it is adopted. Both adapters use explicitly configured source scopes and remote destinations.
