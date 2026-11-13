@@ -21825,3 +21825,13 @@ fix = "Decision 3486. Task 22.39.499 takes the lock file into its paths and foll
 title = "A workspace test target visits one member at a time"
 symptom = "The targets agent-test and human-test of the Makefile call cargo so that a run ends at the first member that holds a case to repair. One counted run therefore shows one member, and a workspace with cases in several members needs a hand pass over every member before the counted run."
 fix = "Decision 3487. Task 22.39.498 runs the target by hand over every member first, as decision 3486 says for task 22.39.499."
+
+[gotcha.4401]
+title = "The lint run of the root reads every Go package of the root module"
+symptom = "With the constraint of decision 3479 in place the lint run of the root reads every Go package of the root module. It lists lines in files that lie outside the paths of task 22.39.511, and its report holds a limit per linter, so one run does not show the full list."
+fix = "Decision 3488. Task 22.39.511 takes the full list by hand and follows the rule."
+
+[gotcha.4402]
+title = "The test target of the platform workspaces reaches the cases of the PaxAI participant member"
+symptom = "The target platform-test visits one member at a time, as gotcha 4400 says for the agent workspace. Behind the members inside the paths of task 22.39.504 it reaches the file tests/job_admission.rs of the PaxAI participant member. The cases of that file build their market through the operations of the member layerx-programs-ai-market in a form that predates the present operations, and the file lies outside the paths of the task."
+fix = "Decision 3489. Task 22.39.504 takes the test directory of that member into its paths and follows the rule."
