@@ -31,15 +31,15 @@ use std::time::Duration;
 type TestResult<T = ()> = Result<T, Box<dyn Error>>;
 const PROVIDER: &str = "repair-22-33-62";
 const PREFIX: &str = "LAYERX_HUMAN_KMS_GATEWAY";
-const CA: &[u8] = include_bytes!("../../layerx-human-kms/tests/fixtures/repair_22_33_27/ca.der");
+const CA: &[u8] = include_bytes!("../../layerx-human-kms/tests/fixtures/wallet_mtls/ca.der");
 const SERVER: &[u8] =
-    include_bytes!("../../layerx-human-kms/tests/fixtures/repair_22_33_27/server.der");
+    include_bytes!("../../layerx-human-kms/tests/fixtures/wallet_mtls/server.der");
 const SERVER_KEY: &[u8] =
-    include_bytes!("../../layerx-human-kms/tests/fixtures/repair_22_33_27/server.pk8");
+    include_bytes!("../../layerx-human-kms/tests/fixtures/wallet_mtls/server.pk8");
 const CLIENT: &[u8] =
-    include_bytes!("../../layerx-human-kms/tests/fixtures/repair_22_33_27/client.der");
+    include_bytes!("../../layerx-human-kms/tests/fixtures/wallet_mtls/client.der");
 const CLIENT_KEY: &[u8] =
-    include_bytes!("../../layerx-human-kms/tests/fixtures/repair_22_33_27/client.pk8");
+    include_bytes!("../../layerx-human-kms/tests/fixtures/wallet_mtls/client.pk8");
 
 fn checked<T, E: std::fmt::Debug>(result: Result<T, E>) -> TestResult<T> {
     result.map_err(|error| format!("{error:?}").into())

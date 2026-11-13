@@ -32,7 +32,7 @@ func TestCommittedExplorerRejectsMalformedDurableRows(t *testing.T) {
 			ctx := context.Background()
 			node := newCapacityChain(t)
 			node.head.Store(101)
-			live := repair997Open(t, fopts(node.server.URL))
+			live := sourceRecoveryOpen(t, fopts(node.server.URL))
 			dsn, pool := canonicaltest.New(t)
 			explorer := capacityExplorer(t, dsn, pool, live, 101, node.logs...)
 			if _, err := pool.Exec(ctx, tc.sql); err != nil {
@@ -48,7 +48,7 @@ func TestCommittedExplorerRejectsMalformedDurableRows(t *testing.T) {
 	ctx := context.Background()
 	node := newCapacityChain(t)
 	node.head.Store(101)
-	live := repair997Open(t, fopts(node.server.URL))
+	live := sourceRecoveryOpen(t, fopts(node.server.URL))
 	dsn, pool := canonicaltest.New(t)
 	explorer := capacityExplorer(t, dsn, pool, live, 101, node.logs...)
 	for _, bounds := range [][2]int64{{-1, 101}, {102, 101}, {0, 2000}} {

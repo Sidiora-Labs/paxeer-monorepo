@@ -4,7 +4,7 @@
 
 The `modules/evm` module integrates Ethereum transaction execution into the Pax SDK chain, with bidirectional Pax/EVM address association and interoperability between CosmWasm (CW) and EVM contracts through pointers.
 
-Paxeer mainnet-beta is one BFT network running `paxd`. The kernel is part of that network and proposes blocks; a receipt is final once its block commits. The root EVM chain ID is **125** (`0x7d`). Public JSON-RPC uses the root URL of the public nodes; see the [public RPC reference](../../docs/site/docs/reference/public-rpc.md). Sub-chains are tenant domains in the database, with their own registered EVM chain IDs and state namespaces.
+Paxeer mainnet-beta is one BFT network running `paxd`. The kernel is part of that network and proposes blocks; a receipt is final once its block commits. The root EVM chain ID is **125** (`0x7d`). Public JSON-RPC uses the root URL of the public nodes; see the [public RPC reference](../../docs/readme/PUBLIC-RPC.md). Sub-chains are tenant domains in the database, with their own registered EVM chain IDs and state namespaces.
 
 ---
 

@@ -144,7 +144,7 @@ Paxeer is one BFT network whose kernel proposes blocks as part of the network.
 Receipts are final once their blocks commit; there is no additional execution
 or periodic settlement chain. Public node JSON-RPC is at the root path,
 with chain ID 125 (`0x7d`); see the
-[public RPC reference](../../../../docs/site/docs/reference/public-rpc.md).
+[public RPC reference](../../../../docs/readme/PUBLIC-RPC.md).
 Private Anvil fixtures prove adapter behavior, not Paxeer consensus or current
 mainnet custody authority.
 

@@ -110,7 +110,7 @@ func TestReactionStorageRejectionsRollBackVoteAndOutbox(t *testing.T) {
 func TestAnalyticsProjectionStorageFailuresPreserveCommittedSnapshots(t *testing.T) {
 	a := phase2Authority(t)
 	ctx := context.Background()
-	fill := repair1038Fixture(t).Source[0]
+	fill := riskInputsFixture(t).Source[0]
 	projector, err := analytics.NewProjector(a, risk.ProjectionModelV1{}, analytics.PostgresRiskInputs{Authority: a})
 	if err != nil {
 		t.Fatal(err)

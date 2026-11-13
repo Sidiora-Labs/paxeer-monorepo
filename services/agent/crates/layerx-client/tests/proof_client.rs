@@ -7,7 +7,7 @@
 //! captured execution height. Malformed bytes come from the real binding encoder.
 //! The retired `CheckpointFinality` path is exercised as a refusal, not reintroduced.
 //! RPC production replays the registered gateway contract examples in
-//! `tests/fixtures/repair_22_33_1546_gateway.json` over a loopback listener.
+//! `tests/fixtures/gateway_observations.json` over a loopback listener.
 //! The public HTTP/JSON-RPC transport and consumer decoders run on every read;
 //! only refusal cases damage a producer result. No URL comes from the environment.
 //! Inventory finding: `interfaces.kvx::rs-client-ai-market-checkpointfinality-j44`

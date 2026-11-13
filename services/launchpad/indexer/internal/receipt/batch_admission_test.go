@@ -12,8 +12,8 @@ import (
 
 func TestIssuedReceiptsRequireCompleteUniqueBatchBindings(t *testing.T) {
 	ctx := context.Background()
-	input := repair53InputsFromProducer(t)
-	a, closeClient := repair53Open(t, ctx, input)
+	input := receiptReplayInputsFromProducer(t)
+	a, closeClient := receiptReplayOpen(t, ctx, input)
 	defer closeClient()
 	if err := a.Rehydrate(ctx, input.Markets); err != nil {
 		t.Fatal(err)

@@ -108,10 +108,8 @@ fn unhex(text: &str) -> Vec<u8> {
 // Recorded once using node/sequencer's signing/receipt codecs, node RPC view
 // validation, and Comet's header, vote, batch and transaction-proof producers.
 fn transcript() -> Value {
-    serde_json::from_str(include_str!(
-        "../src/journeys/repair_22_31_153_transcript.json"
-    ))
-    .or_fail("committed Go producer transcript")
+    serde_json::from_str(include_str!("../src/journeys/bank_commit_transcript.json"))
+        .or_fail("committed Go producer transcript")
 }
 
 struct BankNode {
