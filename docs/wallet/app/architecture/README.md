@@ -1,6 +1,6 @@
 # Wallet app architecture
 
-The wallet app is a Next.js App Router application built as a standalone server and served under the base path `/wallet` (`next.config.mjs`). This page maps the source tree; the code under `src/` is authoritative.
+The wallet app is a Next.js App Router application built as a standalone server and served under the base path `/wallet` (`next.config.mjs`). This page maps the source tree; source paths on this page are relative to `apps/wallet`.
 
 ## Entry point
 
@@ -10,7 +10,7 @@ src/app/layout.tsx
     QueryProvider
       ErrorBoundary
         page content
-    Toaster
+      Toaster
 src/app/page.tsx
   SplashScreen
     LocaleProvider

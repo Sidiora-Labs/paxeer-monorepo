@@ -1,102 +1,69 @@
-# RPC pool failure
+# RPC pool availability
 
-The gateway broadcasts, estimates gas, simulates and allocates nonces through
-its RPC pool (`services/wallet/gateway/src/rpc/pool.ts`). The pool is configured
-by `RPC_URLS` (comma-separated chain RPC URLs, defaulting to the public
-mainnet hosts listed in `docs/site/docs/reference/public-rpc.md`),
-`RPC_LAG_THRESHOLD_BLOCKS` (default 20), `RPC_HEALTH_INTERVAL_MS` (default
-5000) and `RPC_TIMEOUT_MS` (default 8000). Every health interval it reads
-each endpoint's head; an endpoint that errors is `down`, one that trails the
-best head by more than the lag threshold is `lagging`, and only `healthy`
-endpoints serve requests, with failover between them. Balance and chain reads
-in `src/chainReads.ts` and `src/chain.ts` still use the single
-`HYPERPAXEER_RPC_URL`. The attestors read binding nonces
-through `ATTESTOR_RPC_URL`, and the shared endpoint relays `eth_` methods to
-the first answering name of `LAYERX_GATEWAY_PAXEER_RPC_URLS`.
+The [gateway RPC pool](../../../../services/wallet/gateway/src/rpc/pool.ts)
+separates node reads from submission. `RPC_URLS` is a comma-separated list of
+read endpoints; its default is the canonical public mainnet-beta node alias.
+`RPC_LAG_THRESHOLD_BLOCKS` defaults to `20`, `RPC_HEALTH_INTERVAL_MS` to `5000`
+and `RPC_TIMEOUT_MS` to `8000`.
 
-## Trigger
+Health probes check chain ID and head. An endpoint that trails the best head
+beyond the threshold is `lagging`; an endpoint that cannot answer is `down`.
+Healthy endpoints are selected by latency, with transport failover for reads.
+Unknown endpoints remain eligible before their first probe. A JSON-RPC error
+is returned to the caller rather than retried on another endpoint.
 
-- `curl -sS https://<gateway-base>/readyz` answers 503 with
-  `components.rpc_pool.state` `down` and reason `rpc_pool_unavailable`, or
-  with `healthy` of one and the other endpoints `down` or `lagging`.
-- Sign routes answer the pool's `no healthy RPC endpoint` error.
-- Reads fail while the pool is healthy: `HYPERPAXEER_RPC_URL` is failing.
+`eth_sendRawTransaction` and `pax_sequencerReceipt` go to `SEQUENCER_RPC_URL`,
+which defaults to the first `RPC_URLS` entry. That setting names the node
+submission endpoint within the merged network. Submission sends once to that
+endpoint; read-pool failover does not rebroadcast a transaction. Balance and
+chain reads in `src/chainReads.ts` and `src/chain.ts` use
+`HYPERPAXEER_RPC_URL`; attestor binding reads use `ATTESTOR_RPC_URL`.
 
-## Preconditions
+## Diagnose
 
-- The chain itself is producing blocks: at least one RPC you control answers
-  a rising `eth_blockNumber`.
-- The candidate endpoints answer chain id 125.
-
-## Commands
-
-1. Read the pool's own view of every endpoint.
-
-   ```sh
-   curl -sS https://<gateway-base>/readyz | python3 -c 'import json,sys; r=json.load(sys.stdin)["components"]["rpc_pool"]; print(r["state"], r["healthy"]); [print(e["state"], e["head"], e["error"]) for e in r["endpoints"]]'
-   ```
-
-   Expected: one line with the pool state and healthy count, then one line per
-   endpoint with its state, head and last error.
-
-2. Check each candidate endpoint directly for chain id and head.
-
-   ```sh
-   curl -sS -X POST -H 'content-type: application/json' --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}' <rpc-url>
-   curl -sS -X POST -H 'content-type: application/json' --data '{"jsonrpc":"2.0","id":1,"method":"eth_blockNumber","params":[]}' <rpc-url>
-   ```
-
-   Expected: `"result":"0x7d"`, then a head within the lag threshold of the
-   highest head among the candidates. Individual nodes can trail the head by
-   thousands of blocks; keep only those within the threshold.
-
-3. Replace the pool with the endpoints that passed step 2, at least two. The
-   secret change restarts the gateway machines one by one.
-
-   ```sh
-   flyctl secrets set RPC_URLS=<rpc-url-1>,<rpc-url-2>,<rpc-url-3> --app paxeer-wallet-gateway
-   ```
-
-   Expected: `Secrets are deployed` and a rolling restart of every machine.
-
-4. When reads fail, point `HYPERPAXEER_RPC_URL` at one endpoint that passed
-   step 2.
-
-   ```sh
-   flyctl secrets set HYPERPAXEER_RPC_URL=<rpc-url-1> --app paxeer-wallet-gateway
-   ```
-
-   Expected: `Secrets are deployed`.
-
-5. When binding nonce reads at the attestors fail (policy refusals for
-   `lx_bind` naming the RPC), set `ATTESTOR_RPC_URL` on each attestor, one at a
-   time, with the attestor check between each.
-
-   ```sh
-   flyctl secrets set ATTESTOR_RPC_URL=<rpc-url-1> --app paxeer-attestor-<N>
-   scripts/wallet/check-live.sh attestors
-   ```
-
-   Expected: `Secrets are deployed`, then `pass quorum` after each node.
-
-## Readiness check that proves recovery
+Public `/readyz` reports component states and reasons. The RPC component is
+`up` when at least one configured read endpoint is healthy. Detailed endpoint
+states and counts require the authenticated admin route. `GATEWAY_URL` below
+is the operator-supplied gateway base:
 
 ```sh
-curl -sS https://<gateway-base>/readyz
+curl --silent --show-error --max-time 10 \
+  -H "Authorization: Bearer $GATEWAY_ADMIN_TOKEN" \
+  "$GATEWAY_URL/v1/admin/readiness"
 ```
 
-The route answers 200 with `components.rpc_pool.state` `up` and `healthy` of
-two or more, and `scripts/wallet/check-live.sh gateway`
-passes. Record revision, command, exit code and log path in
-the operator's change record, with the count of endpoints and no
-URL.
+Inspect `components.rpc_pool.healthy` and `endpoints`. Endpoint errors are
+redacted as `rpc_endpoint_unavailable`. A healthy read pool alone does not
+establish that the submission endpoint or the separately configured read
+clients can answer.
 
-## Rollback
-
-Set `RPC_URLS`, `HYPERPAXEER_RPC_URL` or `ATTESTOR_RPC_URL` back to the value
-the operator held before step 3 (`flyctl secrets list` shows only digests), or unset `RPC_URLS` to return the pool to its default
-list.
+For each candidate node, set the operator variable `RPC_CANDIDATE` and check:
 
 ```sh
-flyctl secrets unset RPC_URLS --app paxeer-wallet-gateway
+curl --silent --show-error --max-time 10 "$RPC_CANDIDATE" \
+  -H 'Content-Type: application/json' \
+  --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'
+curl --silent --show-error --max-time 10 "$RPC_CANDIDATE" \
+  -H 'Content-Type: application/json' \
+  --data '{"jsonrpc":"2.0","id":1,"method":"eth_blockNumber","params":[]}'
 ```
+
+Require chain ID `0x7d` and compare the head with current nodes on the same
+chain. For submission, also check the configured node's receipt support.
+
+## Recover
+
+Update `RPC_URLS` in the gateway runtime configuration to verified nodes and
+restart the gateway with its database and nonce store preserved. Set
+`SEQUENCER_RPC_URL` explicitly when submission should use a different node.
+Update `HYPERPAXEER_RPC_URL` or `ATTESTOR_RPC_URL` separately when those clients
+need a different endpoint; roll attestors one at a time while preserving quorum.
+
+If a broadcast returns `outcome_unknown`, retain its hash and nonce and follow
+`retry: poll_receipt`. Query `eth_getTransactionReceipt` for that hash. Do not
+prepare or sign another transaction to resolve an uncertain broadcast.
+
+Confirm admin diagnostics show a healthy pool and public `/readyz` answers
+200 with `ready: true`. Verify reads and a consented transaction separately.
+Restoring a prior endpoint configuration does not reverse a submitted payment
+or release its allocated nonce.

@@ -39,15 +39,18 @@ A DID binding does not supply gas or create a ledger balance.
 
 For a wallet whose EVM key and DID derive from one secret, follow
 [One account](../site/docs/concepts/one-account.md). The CLI can derive the pair from
-standard input and bind it through the node:
+standard input:
 
 ```sh
 layerx wallet derive --index 0 < phrase.txt
-layerx wallet derive --bind --rpc "$RPC_URL" < phrase.txt
 ```
 
-Keep the phrase file private. The bind transaction needs native funding and
-must commit before a later operation relies on the binding. Custody-credit
+Keep the phrase file private. For binding, the TypeScript SDK exports
+`autoBindLayerX` and signed bind transaction helpers in
+[`account-derivation.ts`](../../services/agent/sdk/typescript/src/account-derivation.ts).
+Use a node transport supporting their EVM calls; see [CLI transport](Cli.md#emulator-hosted-gateway-and-node).
+The bind transaction needs native funding and must commit before a later
+operation relies on the binding. Custody-credit
 scripts and deposit-based account opening are retired; funding and ledger
 account opening use the current chain operations described below.
 

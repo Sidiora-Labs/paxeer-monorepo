@@ -1,298 +1,135 @@
 # Disposable beta cluster
 
-Paxeer mainnet-beta is one BFT network with EVM chain ID `125` (`0x7d`).
-The kernel runs inside `paxd` and participates in block proposal and execution.
-A receipt is final when its block is committed. Hosted services provide APIs,
-indexing, identity and user interfaces around that chain. Sub-chains are tenant
-domains in the database and do not require another node deployment.
+The Kubernetes harness starts a disposable Paxeer BFT chain with EVM chain ID
+`125` (`0x7d`) and Comet chain ID `hyperpax_125-1`. The kernel runs inside
+`paxd`; a transaction is final when its block is committed. This local chain
+has its own genesis and trust material, even though its EVM chain ID matches
+mainnet-beta. Sub-chains are tenant domains within a chain.
 
-The disposable Kubernetes harness is
-`services/platform/hosted/tests/beta-cluster.sh`. It retains pre-merge bootstrap
-and service wiring in this checkout: `beta_cluster_up` still calls
-`wait_for_node_genesis`, `mirror_publish` and `settlement_publish`, and
-`node_exec` still targets the retired `layerxd` container. These are migration
-limitations of the harness, not the topology of the merged network. Do not use
-its full `up` flow as a qualified merged-network deployment procedure.
+The entry point is
+[`beta-cluster.sh`](../../services/platform/hosted/tests/beta-cluster.sh).
+Its `up` and `render` flows delegate to
+[`beta-native.sh`](../../services/platform/hosted/tests/beta-native.sh).
 
-## Make goals
+## Commands
 
-`services/platform/Makefile.inc`, included by the root Makefile, exposes these
-operator entry points:
+Run these Make goals from the repository root:
 
-| Goal | Behavior in this checkout |
+| Goal | Behavior |
 | --- | --- |
-| `make platform-test-tooling` | Runs the CLI tooling tests and script syntax checks; it does not start a cluster. |
-| `make platform-beta-cluster-up` | Calls `beta-cluster.sh up $(PLATFORM_BETA_CLUSTER_FLAGS)`; subject to the migration limitations above. |
-| `make platform-hosted-smoke` | Sources `PLATFORM_BETA_CLUSTER_ENV` (default `build/beta-cluster/env`), requires the smoke inputs, then calls `hosted-smoke.sh`. |
-| `make platform-beta-cluster-down` | Calls `beta-cluster.sh down`; deletes disposable resources as described below. |
-
-Make serializes the cluster up/down goals. A smoke environment file or a
-successful image build does not establish that the merged node and its hosted
-consumers are ready.
+| `make platform-test-tooling` | CLI tooling tests and script syntax checks |
+| `make platform-beta-cluster-up` | Native cluster bring-up with `PLATFORM_BETA_CLUSTER_FLAGS` |
+| `make platform-hosted-smoke` | Hosted-service checks using `PLATFORM_BETA_CLUSTER_ENV`, default `build/beta-cluster/env` |
+| `make platform-beta-cluster-down` | Disposable cluster teardown |
 
 The script also accepts `render`, `images` and `publish-images <mode>`.
-`render` writes manifests and material without applying Kubernetes resources;
-it still needs the image used by `module_registry_generate` and the required
-owner inputs. It is not a dependency-free preview. Image commands and their
-publication modes are described below.
+Native `up` checks committed-receipt readiness and applies the node manifest.
+Hosted services are separately configured consumers; the native environment
+file alone does not supply their smoke inputs. `--boundary-checks` is refused
+by the native bring-up command.
 
-## Bring-up order
+## Bring-up
 
-For a merged deployment, prepare and validate the chain genesis and node home,
-start `paxd`, check the root JSON-RPC and committed chain progress, and then
-configure hosted consumers against that chain. Receipt verification must use
-the governed native signing keys and their valid block-height ranges.
+`up` requires Docker, curl, Python 3, git, Go, jq, OpenSSL and tar. It installs
+the pinned cluster tools, prepares and loads images, creates or selects the
+cluster, prepares native material, applies the native Secret and node manifest,
+waits for node readiness, then checks a committed transaction receipt.
 
-The chain executable is built from `daemon/paxd`.
-`docker/paxeer/Dockerfile.paxd-node` builds the kernel and program sandbox
-libraries, links them into `paxd` through `modules/lxphost`, and supplies the
-runtime libraries. `node/app.go` installs the host and the native sequencing
-integration. The `paxd` image extends that node image with the disposable-chain
-initializer; see `services/platform/hosted/tests/beta-images.sh` for the image
-recipes and dependency order.
+Without `LAYERX_BETA_KUBECONFIG`, it uses a local kind cluster named by
+`LAYERX_BETA_CLUSTER_NAME` (default `layerx-beta`). A configured kubeconfig
+selects owner-cluster mode. Working material is under `build/beta-cluster`.
+`LAYERX_BETA_READY_TIMEOUT` defaults to `900` seconds.
 
-For an already prepared home, the primary container in
-`services/platform/hosted/paxeer/deployment.yaml` runs:
+The default genesis preparation initializes a validator with:
 
-```bash
+```sh
+paxd init layerx-beta --chain-id hyperpax_125-1 --mode validator
+```
+
+The harness then funds validator and treasury accounts in native genesis,
+collects the validator gentx, generates a receipt-signing key, configures the
+native runtime and validates genesis. `LAYERX_BETA_NATIVE_HOME` instead imports
+a prepared home after validation and requires `LAYERX_BETA_TREASURY_KEY_FILE`.
+Keep validator, treasury and receipt keys private.
+
+## Node and retained material
+
+The [native deployment](../../services/platform/hosted/node/deployment.yaml)
+runs one `layerx-node` StatefulSet replica with a `40Gi` data PVC mounted at
+`/data`. The `paxd` container runs:
+
+```sh
 python3 /opt/layerx/kernel_runtime.py --home /data/layerx/node
 ```
 
-The merged network replaces the pre-merge independent execution and settlement
-flow. The retired `layerxd --custody-profile` launch, standalone receipt-replica
-bootstrap, GuarantorBond/CheckpointRegistry deployment and archived-batch
-settlement are not steps in merged-node bring-up.
-
-Hosted components remain independently deployable consumers. See
-[Hosted gateway](HostedGateway.md), [Hosted identity](HostedIdentity.md),
-[Hosted registry](HostedRegistry.md), [Hosted Human](HostedHuman.md),
-[Hosted webhooks](HostedWebhooks.md) and [Hosted internal](HostedInternal.md)
-for their service-specific configuration. A service manifest or image name does
-not introduce another consensus or finality authority.
-
-## Ordinary-genesis bootstrap
-
-`services/platform/hosted/paxeer/init-chain.sh` is a compatibility entry
-point for the disposable Paxeer StatefulSet. It refuses any `LAYERX_PAXEER_*`
-variable and the retired `--custody-genesis`, `--deposit-root` and
-`--sequencer-authorizations` arguments with exit 2, and otherwise runs
-`paxeer-native-tool bootstrap` with
-[`services/platform/hosted/node/bootstrap.sh`](../../services/platform/hosted/node/bootstrap.sh).
-Supply that bootstrap's `--data-dir`, `--native-inputs` and signing-file
-arguments explicitly; native bank and ledger genesis funding belongs to it.
-Preserve the native chain's configured genesis and upgrade state; do not copy
-old separate-node genesis artifacts into a new merged deployment.
-
-The harness configuration uses these local listeners in `config.toml` and `app.toml`:
-
-| Listener | Default | Configuration |
+| Listener | Container port | Local forward |
 | --- | --- | --- |
-| Comet RPC | `127.0.0.1:26657` | `config.toml` `[rpc].laddr` |
-| P2P | `127.0.0.1:26656` | `config.toml` `[p2p].laddr` |
-| gRPC | `127.0.0.1:9090` | `app.toml` `[grpc].address` |
-| EVM HTTP | `127.0.0.1:8545` | `app.toml` `[evm].http_enabled`, `http_address`, `http_port` |
+| P2P | `26656` | None |
+| EVM JSON-RPC | `8545` | `19446` |
+| Comet RPC | `26657` | `19461` |
+| Health (`/readyz`) | `9460` | None |
 
-The primary TLS
-boundary listens on `0.0.0.0:9443`, proxies root JSON-RPC to
-`http://127.0.0.1:8545`, and uses `LAYERX_PAXEER_COMET_URL` set to
-`http://127.0.0.1:26657` for genesis reads. These are local deployment settings,
-not public-node addresses.
+The init container validates native material before populating the home. The
+material manifest binds genesis, configuration, validator and node keys,
+receipt key, validator state, treasury policy and receipt-key list. On a retained
+home it compares the manifest and immutable files; validator state may advance.
+It refuses partial state or changed chain and treasury material.
 
-## Custody and module ownership
+`LAYERX_BETA_RETAIN_MATERIAL=1` reopens the saved native material and requires
+the retained readiness transaction. Reuse preserves the original chain and
+trust roots; it does not initialize another validator over the retained home.
 
-Ledger, authority, payments and program execution belong to the merged native
-chain. The old custody-profile and LNI bootstrap procedure is retired as a way
-to start an independent executor. Do not generate a separate trust history or
-mount a custody profile to establish merged-network finality.
+## Readiness and client environment
 
-The harness still records the legacy custody address
-`0x0000000000000000000000000000000000001013` and anchor address
-`0x0000000000000000000000000000000000001014`. Their presence in configuration
-does not make them active settlement services. The merge retirement gates are
-implemented in `precompiles/layerxcustody/layerxcustody.go` and
-`precompiles/layerxanchor/layerxanchor.go`: retired custody calls and anchor
-writes refuse with `LXP_MODULE_DISABLED`; anchor reads also depend on the later
-store-deletion gate. Do not use a legacy custody deposit or checkpoint write as
-a readiness test for the merged chain.
+The harness forwards the node root RPC to local port `19446` and Comet RPC to
+`19461`. It submits a zero-value treasury transaction when there is no retained
+readiness transaction. The native readiness checker verifies signed receipt
+and committed block evidence against the saved chain and key material. A
+successful chain-ID response alone is insufficient.
 
-## Primary node and observer node
+On success, `build/beta-cluster/env` exports `LAYERX_NODE_URL`,
+`LAYERX_PAXEER_RPC_URL` and `LAYERX_CHAIN_ID=125` for the local node. Use the
+exported root URL for JSON-RPC:
 
-The Paxeer StatefulSet declares one primary replica and a 40Gi `data` PVC mounted at `/data`.
-
-`paxeer_observer_render` appends an observer with its own
-`observer-data` PVC and home `/var/lib/paxeer-observer`. Its init container copies
-and compares the primary genesis, sets mode `full`, and connects to the primary
-node ID at `127.0.0.1:26656` as a persistent peer.
-
-The observer runs `paxd start --home /var/lib/paxeer-observer`. Its Comet
-RPC/P2P ports are `26667`/`26666`, and its EVM HTTP port is `8555`.
-`observer-boundary` listens on `9444` and proxies to that EVM listener; Service
-`paxeer-observer-boundary` exposes port `9443` targeting `observer-https`.
-Both nodes follow the same chain and genesis. The observer is not an additional
-execution or settlement network.
-
-## TLS origins, CA bundle and root JSON-RPC
-
-For the local harness, `paxeer_origins_write` records these values in
-`build/beta-cluster/paxeer/rpc-origins.json`:
-
-| Field | Local value |
-| --- | --- |
-| `rpc_origins` | `https://localhost:19449`, `https://localhost:19452` |
-| `ca_bundle` | `build/beta-cluster/ca/ca.pem` |
-| `key_file` | `build/beta-cluster/secrets/paxeer-deployer.key` |
-| `backends` | Primary and observer container names and their separate homes |
-
-The forwards are primary `19449:9443` and observer `19452:9443`.
-`paxeer-identity.py` checks both origins with that CA, rejects redirects,
-requires byte-identical genesis bodies, validates the
-`X-LayerX-Genesis-SHA256` header, compares the Comet chain ID and requires
-`eth_chainId` to return `125`. It records `genesis_sha256`, `comet_chain_id`,
-`chain_id` and `ca_sha256`. Chain ID alone cannot distinguish this disposable
-chain from mainnet-beta. These genesis routes belong to the local boundary;
-do not assume the public nodes expose them.
-
-After starting the local node and boundary, confirm the chain at the root:
-
-```bash
-curl --fail --silent --show-error --max-time 20 \
-  --cacert build/beta-cluster/ca/ca.pem \
-  https://localhost:19449 \
+```sh
+. build/beta-cluster/env
+curl --fail --silent --show-error --max-time 20 "$LAYERX_NODE_URL" \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'
+  --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'
 ```
 
-The expected result is `"0x7d"`. Compare `eth_blockNumber` and committed block
-evidence on the primary and observer before relying on indexed results or
-receipts. Keep private keys, generated credentials and local inventories out of
-published documentation and application bundles.
+The expected result is `0x7d`. Public mainnet-beta endpoints are listed in the
+[public RPC reference](../site/docs/reference/public-rpc.md); their genesis and
+receipt trust material are distinct from this disposable chain. The node's
+registered namespaces and methods are described in [EVM JSON-RPC](../system/rpc.md).
 
-Public mainnet-beta JSON-RPC uses the root of
-`https://api-mainnet-beta.paxeer.network` or the numbered hosts
-`https://api1.mainnet-beta.paxeer.network` through
-`https://api14.mainnet-beta.paxeer.network`. The public node namespaces are
-`debug`, `echo`, `eth`, `net`, `pax`, `px`, `test` and `txpool`.
-The `px` namespace answers from node state; `px_register` and
-`px_requestFunds` are operations of the hosted identity and faucet
-services declared in `services/platform/hosted/gateway/openrpc.json`.
-The former router and prefixed RPC endpoints are retired.
-`node.hyperpaxeer.com` is only the hpx library mirror, never an RPC endpoint.
-See the site's [public RPC reference](../site/docs/reference/public-rpc.md)
-for the node list and client examples.
+## Rendering and images
 
-## Image source, GHCR pull and publication
+`render` writes native material and manifests without applying Kubernetes
+resources. It requires Docker, Python 3, git, Go, jq and OpenSSL, and uses the
+native image for genesis preparation. It is not an image-free preview.
 
-`IMAGE_NAMES` and `image_source` in
-`services/platform/hosted/tests/beta-images.sh` are the shared image inventory.
-They cover `paxd-node`, `paxd`, the hosted services, bridge, explorer, wallet and
-supporting workloads. Use that table instead of maintaining a copied list.
-Some entries still belong to the pre-merge harness; the inventory is not a list
-of processes required for consensus. The reference ramp image is selected only
-when the optional ramp is enabled.
+[Image recipes](../../services/platform/hosted/tests/beta-images.sh) define the
+shared inventory and build dependencies. `LAYERX_BETA_IMAGE_SOURCE=build` is the
+default. `ghcr` mode uses the configured image tag, release candidate and
+publication directory to verify and pull the expected registry digests. The
+image inventory also contains independently deployable hosted consumers.
 
-`LAYERX_BETA_IMAGE_SOURCE=build` is the default. `build_images` packages tracked
-working-tree files and builds the selected images, recording their IDs in
-`build/beta-cluster/images` and logs in `build/beta-cluster/logs`.
-`LAYERX_BETA_IMAGE_SOURCE=ghcr` uses `LAYERX_BETA_IMAGE_TAG` (default `beta`),
-requires `LAYERX_BETA_RELEASE_CANDIDATE` and `LAYERX_BETA_PUBLICATION_DIR`,
-verifies the publication, and pulls by the expected registry digest before
-retagging locally. A moving tag alone is insufficient.
-
-`beta-cluster.sh images` prepares images without creating a cluster.
-`beta-cluster.sh publish-images check` validates the local inventory without
-publishing. Publication requires every entry in `IMAGE_NAMES`, all from one
-revision and matching the local image IDs; a partial workload inventory is
-refused. The wrapper also accepts `dry-run`, `push`, `verify`, `promote` and
-`self-test`, forwarding options to `publish-images.sh`. Push publishes immutable
-revision tags with signed release evidence; promotion verifies signatures,
-SBOM attestations and provenance before moving release tags. Image publication
-is a separate release operation from starting or checking a disposable node.
-
-## Builder environment and sealed upload
-
-`LAYERX_BETA_BUILDER_ENVIRONMENT_DIR` can name a hermetic builder root with
-`bin/layerx-build`. Otherwise `require_builder_environment` constructs it with
-`services/platform/hosted/registry/builder-environment/build-env.sh` from the
-committed `programs/vendor` and recipe trees. Construction requires Docker,
-git, tar, Python and sha256sum, and refuses uncommitted changes to those trees.
-
-`LAYERX_BETA_BUILDER_ENVIRONMENT_CACHE_DIR` defaults to
-`build/builder-environment`. Entries are keyed by a SHA-256 over the committed
-vendor and recipe tree IDs. Reuse checks `environment-tree-digest`; fresh builds
-use a staging directory renamed into place only on success. Teardown of the
-cluster leaves this cache intact.
-
-`builder_release_publish` records the environment, bwrap and cgroup-exec
-digests, applies PVC `layerx-program-builder-release`, and starts
-`layerx-program-builder-loader` with a pinned image. It copies the rootfs,
-removes write permissions and creates `/opt/layerx-builder/.sealed`. The loader
-must finish successfully before it is deleted. Builder readiness is distinct
-from chain readiness.
-
-## Registry and retained material
-
-`module_registry_generate` still invokes `layerx-module-registry` in the
-`layerx-node` image. `module_registry_verify` still reads the old LNI socket;
-this is pre-merge harness wiring, not a merged public interface. Do not use an
-example registry or successful LNI preparation as proof of the merged chain's
-module configuration.
-
-The harness supports `LAYERX_BETA_RETAIN_MATERIAL=1` for reuse against a live
-cluster. `material_prepare` checks the inventory, ownership and permissions,
-configured profile, regenerated registry and live KMS seal. It also requires
-saved context and the native `receipt-keys.json` list. Missing or inconsistent
-material refuses reuse. Retained `render` performs those live checks too.
-This mechanism preserves an existing harness installation; it does not migrate
-its pre-merge architecture into the merged network.
-
-Fresh gateway material requires `LAYERX_BETA_RECEIPT_KEYS_FILE`, an export of the
-native governed ReceiptKeys list. `sequencer-pins.py` validates nonzero base64
-32-byte key IDs and public keys and inclusive `first_height`/`last_height`
-ranges, then mounts the normalized list through Secret
-`layerx-gateway-receipt-keys` and `LAYERX_GATEWAY_RECEIPT_KEYS_FILE`.
-The gateway manifest removes the old single-key and batch-range pins. Do not
-substitute a generated local trust history for the governed list.
-
-## Explorer read principal
-
-`explorer_read_principal_generate` creates an Ed25519 key and seed with the
-other service credentials; the explorer read key is not an owner input.
-The registry deployment mounts it through `LAYERX_EXPLORER_READ_KEY_FILE` at
-`/run/layerx/explorer-read/read-key`, together with a verification key and CA.
-These credentials are part of the retained material inventory.
-
-The checked-in registry manifest still points `LAYERX_EXPLORER_READ_ENDPOINT`
-at the pre-merge pending-core service and names a receipt-authority upstream.
-Those bindings need migration with the harness. A generated read principal,
-rendered explorer manifest or populated index alone does not prove that reads
-come from the merged native chain. Verify the read consumer against its actual
-chain producer before exposing the explorer as ready.
+`beta-cluster.sh images` prepares images without starting a cluster.
+`publish-images` supports `check`, `dry-run`, `push`, `verify`, `promote` and
+`self-test`, forwarding publication options to
+[`publish-images.sh`](../../services/platform/hosted/tests/publish-images.sh).
+Publication verifies the complete inventory and its source and image identities;
+it is separate from node bring-up.
 
 ## Teardown
 
-Without `LAYERX_BETA_KUBECONFIG`, the harness selects kind mode with
-`LAYERX_BETA_CLUSTER_NAME` defaulting to `layerx-beta`. A nonempty kubeconfig
-selects owner mode. Work products, material, logs and state live under
-`build/beta-cluster`.
-
-`beta-cluster.sh down` stops port-forwards. With recorded kind mode (or no
-recorded mode) it deletes the named kind cluster when the kind tool and cluster
-are present. In owner mode, with executable `build/bin/kubectl` and a readable
-owner kubeconfig, it deletes namespaces `layerx-testnet`, `layerx-developer`
-and `layerx-internal`. It removes inventoried and cluster-labeled images and
-`build/beta-cluster`; `LAYERX_BETA_KEEP_TOOLS=1` preserves the pinned tools.
-Retained-material mode does not survive deletion of the cluster, its volumes
-and local material. Confirm the target context before using this destructive
-operator command.
-
-## Not covered
-
-This page documents the merged chain behavior and the remaining limits of the
-checked-in disposable harness. Image preparation, rendering and legacy hosted
-smoke results do not qualify a merged deployment, production upgrade, bridge
-funding path or explorer index. Those require evidence from the actual native
-producer, transport and consumer against committed chain state, including
-recovery where state persists. The site operator page also retains pre-merge
-instructions and must not override the merged topology described here.
+`beta-cluster.sh down` stops port-forwards. In kind mode it deletes the selected
+disposable kind cluster. In owner mode it deletes the managed testnet,
+developer and internal namespaces using the recorded owner context. It removes
+the harness work directory and inventoried or cluster-labeled images.
+`LAYERX_BETA_KEEP_TOOLS=1` preserves the pinned tools. Confirm the selected
+cluster before teardown; retained-material mode does not preserve volumes or
+material after their deletion.
 
 [Home](Home.md)
