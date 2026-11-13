@@ -31,7 +31,7 @@ fn committed_document(config: Arc<Config>, path: &str, export: bool) -> Value {
 }
 
 #[test]
-fn repair_22_31_535_producers_emit_committed_documents() {
+fn producers_emit_committed_documents() {
     let fixture = Arc::new(Fixture::new(false));
     let node = Node::start(fixture.clone());
     let directory = Directory::new();

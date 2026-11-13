@@ -378,7 +378,7 @@ fn corpus() -> &'static Value {
                 .current_dir(&repository)
                 .args([
                     "run",
-                    "services/platform/hosted/authority/src/repair_22_31_207/producer.go",
+                    "services/platform/hosted/authority/src/native_receipt_producer/producer.go",
                 ])
                 .env("CGO_ENABLED", "1")
                 .env(

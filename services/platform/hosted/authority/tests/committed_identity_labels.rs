@@ -24,7 +24,7 @@ fn assert_committed_label(config: Arc<Config>, path: &str) -> Value {
 }
 
 #[test]
-fn repair_22_31_549_policy_identity_emits_committed_label_through_tls() {
+fn policy_identity_emits_committed_label_through_tls() {
     for capability in [false, true] {
         let fixture = Arc::new(identity_fixture(capability));
         let node = Node::start(Arc::clone(&fixture));
@@ -169,7 +169,7 @@ fn dynamic_identity_fixture() -> Fixture {
 }
 
 #[test]
-fn repair_22_31_549_dynamic_identity_and_context_emit_committed_label_through_tls() {
+fn dynamic_identity_and_context_emit_committed_label_through_tls() {
     let fixture = Arc::new(dynamic_identity_fixture());
     let node = Node::start(Arc::clone(&fixture));
     let directory = Directory::new();

@@ -10,7 +10,7 @@ const SENDER: &str = "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266";
 const KEY: &str = "native-recovery";
 
 fn transcripts() -> Value {
-    serde_json::from_str(include_str!("../../src/repair_22_31_354_transcripts.json"))
+    serde_json::from_str(include_str!("../../src/native_chain_transcripts.json"))
         .unwrap_or_else(|error| panic!("required value: {error:?}"))
 }
 

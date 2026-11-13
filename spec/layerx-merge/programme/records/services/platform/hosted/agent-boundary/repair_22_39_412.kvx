@@ -11,11 +11,11 @@ files = ["src/chain_receipt.rs"]
 product = "Receipt key decoding and response bounds use checked conversions."
 
 [lint.too_many_lines]
-files = ["src/chain_receipt.rs", "src/lifecycle_tests.rs", "tests/chain_receipt.rs", "tests/repair_22_31_191.rs"]
+files = ["src/chain_receipt.rs", "src/lifecycle_tests.rs", "tests/chain_receipt.rs", "tests/chain_receipt_lifecycle.rs"]
 product = "Receipt connection, key loading, and test setup use focused functions."
 
 [lint.unwrap_used]
-files = ["tests/repair_22_31_191.rs"]
+files = ["tests/chain_receipt_lifecycle.rs"]
 product = "Receipt fixtures require their declared fields and prefixes."
 
 [lint.expect_used]

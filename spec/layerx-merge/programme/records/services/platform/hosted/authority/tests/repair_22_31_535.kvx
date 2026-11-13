@@ -26,12 +26,12 @@ daemon = "repair_22_31_535_remote_consumers_require_committed_producer_documents
 proof = "The daemon integration target includes the production budget_proof module, executing its in-crate tests: the existing signed-checkpoint/export transcript accepts COMMITTED, rejects ranks 4 and 5 plus all declared non-committed cases, and retains tamper, owner and freshness assertions. The retired fixture label and expected verification level are migrated to COMMITTED in the in-crate fixture loader."
 proof_boundary = "Current native authority exports include native_account_proof and receipt_sequence_proof; the budget-proof verifier still expects the earlier account_join.layerx.accounts representation and a signed ServedCheckpoint. This task proves its label through the in-crate replay tests, without changing that separate proof-format interface or using a live chain."
 fixtures = "tests/human_approval_budget_actor.rs and tests/human_projection_facts.rs are unchanged; task 22.31.516 owns their committed-label migration."
-harness = "Unchanged helper implementations from repair_22_33_1471.rs are shared via tests/support/committed_human_fixture.rs; every existing test and assertion remains in place."
+harness = "Unchanged helper implementations from committed_budget_exports.rs are shared via tests/support/committed_human_fixture.rs; every existing test and assertion remains in place."
 
 [gates]
 build_command = "hf-build: cargo build --locked --manifest-path services/platform/hosted/authority/Cargo.toml --tests && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --test repair_22_31_535"
 verify_command = "hf-done: cg spec done 22.31.535 -f layerx-merge --root /work/paxeer-monorepo"
-verify_cmd = "cargo test --locked --manifest-path services/platform/hosted/authority/Cargo.toml --test repair_22_31_535 && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test repair_22_31_535"
+verify_cmd = "cargo test --locked --manifest-path services/platform/hosted/authority/Cargo.toml --test committed_human_documents && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test repair_22_31_535"
 results = "Exact candidate revision, command, exit and private log path are the build/verify rows of /out/run/gates.jsonl, written by hf-build/hf-done after this record is frozen; the final response copies the last gate evidence verbatim. No unrun gate is claimed here."
 
 [repair_cycle.1]

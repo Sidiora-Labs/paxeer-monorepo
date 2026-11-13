@@ -1,7 +1,7 @@
 include!("../src/main.rs");
 
 #[cfg(test)]
-mod repair_22_33_1451 {
+mod funding_and_receipt_authentication {
     use super::*;
     use layerx_client::rpc::receipt::{Lookup, Rung};
     use layerx_platform_core::{SeedSigner, TreasurySigner as _};
@@ -13,7 +13,7 @@ mod repair_22_33_1451 {
     const EVM_KEY: &str = "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
 
     fn transcripts() -> Value {
-        serde_json::from_str(include_str!("../src/repair_22_31_354_transcripts.json"))
+        serde_json::from_str(include_str!("../src/native_chain_transcripts.json"))
             .unwrap_or_else(|error| panic!("required value: {error:?}"))
     }
 
