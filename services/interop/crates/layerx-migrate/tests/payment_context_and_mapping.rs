@@ -46,8 +46,8 @@ use serde_json::{json, Value};
 use sha3::{Digest as _, Keccak256};
 
 const OPERATIONS: &str = include_str!("../OPERATIONS.md");
-const CERT: &[u8] = include_bytes!("fixtures/repair_22_31_163/tls-cert.der");
-const KEY: &[u8] = include_bytes!("fixtures/repair_22_31_163/tls-key.der");
+const CERT: &[u8] = include_bytes!("fixtures/history_transfer/tls-cert.der");
+const KEY: &[u8] = include_bytes!("fixtures/history_transfer/tls-key.der");
 static NEXT: AtomicU64 = AtomicU64::new(0);
 
 fn docs_contain(text: &str) {

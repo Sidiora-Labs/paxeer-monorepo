@@ -2,7 +2,7 @@
 id = "22.33.104"
 audit = "22.30.111"
 base_revision = "0ba7cfa54c7f07b37201b1f12fcc2f1dd7ed0ed7"
-verify_cmd = "cargo test --locked --manifest-path services/interop/crates/layerx-mirror/Cargo.toml --test repair_22_33_104"
+verify_cmd = "cargo test --locked --manifest-path services/interop/crates/layerx-mirror/Cargo.toml --test root_receipt_acquisition"
 verified_revision_record = "The runner records the exact candidate revision, command, exit and private log in /out/run/gates.jsonl and the final gate JSON."
 baseline = "No pre-change test failure claimed: the earlier attempt stopped in the dependent-crate check before this task's verify (qualification finding 22.33.104.1, gotcha 2974). This checkout has no carried implementation or repair test and an empty gate ledger. The ordered gate contract forbids direct verify runs and testing before implementation, so no additional baseline gate is run."
 
