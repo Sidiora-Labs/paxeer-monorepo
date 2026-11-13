@@ -22,7 +22,7 @@ import (
 	wasmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/wasm/x/wasm/types"
 )
 
-func TestRepair_293_NormalizedCoinsBankGenesis(t *testing.T) {
+func TestNormalizedCoinsBankGenesis(t *testing.T) {
 	sdk.Repair293RegisterDenoms(t)
 	cases := []struct {
 		name  string
@@ -63,16 +63,16 @@ func TestRepair_293_NormalizedCoinsBankGenesis(t *testing.T) {
 	require.Error(t, err, "duplicate input denominations must remain invalid")
 }
 
-type repair293Numbers struct {
+type canonicalJSONNumbers struct {
 	Positive json.Number   `json:"positive"`
 	Negative json.Number   `json:"negative"`
 	Decimal  json.Number   `json:"decimal"`
 	Nested   []json.Number `json:"nested"`
 }
 
-func repair293NumberPayload(t *testing.T) (repair293Numbers, []byte) {
+func canonicalJSONNumberPayload(t *testing.T) (canonicalJSONNumbers, []byte) {
 	t.Helper()
-	numbers := repair293Numbers{
+	numbers := canonicalJSONNumbers{
 		Positive: "9007199254740993",
 		Negative: "-9007199254740993",
 		Decimal:  "0.123456789012345678901234567890123456789",
@@ -90,8 +90,8 @@ func repair293NumberPayload(t *testing.T) (repair293Numbers, []byte) {
 	return numbers, payload
 }
 
-func TestRepair_293_CanonicalJSONSignBytes(t *testing.T) {
-	want, payload := repair293NumberPayload(t)
+func TestCanonicalJSONSignBytes(t *testing.T) {
+	want, payload := canonicalJSONNumberPayload(t)
 	key := secp256k1.GenPrivKeyFromSecret([]byte("repair-293-signing"))
 	msg := wasmtypes.MsgExecuteContract{
 		Sender:   sdk.AccAddress(key.PubKey().Address()).String(),
@@ -103,7 +103,7 @@ func TestRepair_293_CanonicalJSONSignBytes(t *testing.T) {
 	messageBytes := msg.GetSignBytes()
 	var messageConsumer wasmtypes.MsgExecuteContract
 	require.NoError(t, wasmtypes.ModuleCdc.UnmarshalAsJSON(messageBytes, &messageConsumer))
-	var messageNumbers repair293Numbers
+	var messageNumbers canonicalJSONNumbers
 	require.NoError(t, json.Unmarshal(messageConsumer.Msg, &messageNumbers))
 	require.Equal(t, want, messageNumbers)
 
@@ -125,15 +125,15 @@ func TestRepair_293_CanonicalJSONSignBytes(t *testing.T) {
 	var consumer wasmtypes.MsgExecuteContract
 	require.NoError(t, wasmtypes.ModuleCdc.UnmarshalAsJSON(signDoc.Msgs[0], &consumer))
 	require.NoError(t, consumer.ValidateBasic())
-	var got repair293Numbers
+	var got canonicalJSONNumbers
 	require.NoError(t, json.Unmarshal(consumer.Msg, &got))
 	require.Equal(t, want, got)
 	require.Equal(t, msg.Sender, consumer.Sender)
 	require.Equal(t, msg.Contract, consumer.Contract)
 }
 
-func TestRepair_293_CanonicalJSONGenesis(t *testing.T) {
-	want, payload := repair293NumberPayload(t)
+func TestCanonicalJSONGenesis(t *testing.T) {
+	want, payload := canonicalJSONNumberPayload(t)
 	appState, err := json.Marshal(map[string]json.RawMessage{"repair293": payload})
 	require.NoError(t, err)
 	producer := tmtypes.GenesisDoc{
@@ -157,14 +157,14 @@ func TestRepair_293_CanonicalJSONGenesis(t *testing.T) {
 	require.NoError(t, os.WriteFile(outputPath, canonical, 0600))
 	recovered, genDoc, err := genutiltypes.GenesisStateFromGenFile(outputPath)
 	require.NoError(t, err)
-	var got repair293Numbers
+	var got canonicalJSONNumbers
 	require.NoError(t, json.Unmarshal(recovered["repair293"], &got))
 	require.Equal(t, want, got)
 	require.Equal(t, producer.ChainID, genDoc.ChainID)
 	require.Equal(t, producer.InitialHeight, genDoc.InitialHeight)
 }
 
-func TestRepair_293_CanonicalJSONStrictInput(t *testing.T) {
+func TestCanonicalJSONStrictInput(t *testing.T) {
 	for _, input := range []string{
 		`{"amount":9007199254740993} {"second":1}`,
 		`{"amount":9007199254740993} null`,

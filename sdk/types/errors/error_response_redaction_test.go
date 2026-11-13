@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepairM_647_RecoveredPanic(t *testing.T) {
+func TestRecoveredPanicResponses(t *testing.T) {
 	const secret = "private panic: database password=p647-secret"
 	err := func() (err error) {
 		defer Recover(&err)
@@ -34,14 +34,14 @@ func TestRepairM_647_RecoveredPanic(t *testing.T) {
 				// The existing code resolver recognizes Cause, not stdlib Unwrap.
 				code = 1
 			} else {
-				require.Contains(t, fmt.Sprintf("%+v", tc.err), "repair_m647_test.go")
+				require.Contains(t, fmt.Sprintf("%+v", tc.err), "error_response_redaction_test.go")
 			}
-			repairM647Responses(t, tc.err, space, code, "internal error", secret)
+			errorResponses(t, tc.err, space, code, "internal error", secret)
 		})
 	}
 }
 
-func TestRepairM_647_UnknownInternalErrors(t *testing.T) {
+func TestUnknownInternalErrorResponses(t *testing.T) {
 	const secret = "private-db-password=p647-secret"
 	_, parseErr := strconv.ParseUint(secret, 10, 64)
 	require.Error(t, parseErr)
@@ -62,12 +62,12 @@ func TestRepairM_647_UnknownInternalErrors(t *testing.T) {
 		{"unregistered_coder", customErr{}, "extern", 999},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			repairM647Responses(t, tc.err, tc.space, tc.code, "internal error", "")
+			errorResponses(t, tc.err, tc.space, tc.code, "internal error", "")
 		})
 	}
 }
 
-func TestRepairM_647_RegisteredErrors(t *testing.T) {
+func TestRegisteredErrorResponses(t *testing.T) {
 	for _, tc := range []struct {
 		name string
 		err  error
@@ -77,18 +77,18 @@ func TestRepairM_647_RegisteredErrors(t *testing.T) {
 		{"wrapped_registered", Wrap(Wrap(ErrUnauthorized, "missing signer"), "request rejected"), "request rejected: missing signer: unauthorized"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			repairM647Responses(t, tc.err, "sdk", 4, tc.log, "")
+			errorResponses(t, tc.err, "sdk", 4, tc.log, "")
 		})
 	}
 }
 
-func TestRepairM_647_Success(t *testing.T) {
+func TestSuccessfulResponses(t *testing.T) {
 	for _, err := range []error{nil, (*Error)(nil)} {
-		repairM647Responses(t, err, "", 0, "", "")
+		errorResponses(t, err, "", 0, "", "")
 	}
 }
 
-func repairM647Responses(t *testing.T, err error, space string, code uint32, publicLog, secret string) {
+func errorResponses(t *testing.T, err error, space string, code uint32, publicLog, secret string) {
 	t.Helper()
 	events := []abci.Event{{Type: "repair-m647", Attributes: []abci.EventAttribute{{Key: []byte("operation"), Value: []byte("transaction"), Index: true}}}}
 	for _, debug := range []bool{false, true} {
@@ -120,7 +120,7 @@ func repairM647Responses(t *testing.T, err error, space string, code uint32, pub
 						require.NoError(t, marshalErr)
 						require.NoError(t, json.Unmarshal(wire, &decoded))
 					}
-					repairM647Consumer(t, decoded.Codespace, decoded.Code, decoded.Log, space, code, wantLog)
+					errorResponseConsumer(t, decoded.Codespace, decoded.Code, decoded.Log, space, code, wantLog)
 					if !debug && secret != "" {
 						require.NotContains(t, string(wire), secret)
 					}
@@ -139,7 +139,7 @@ func repairM647Responses(t *testing.T, err error, space string, code uint32, pub
 							require.NoError(t, marshalErr)
 							require.NoError(t, json.Unmarshal(wire, &decodedTx))
 						}
-						repairM647Consumer(t, decodedTx.Codespace, decodedTx.Code, decodedTx.Log, space, code, wantLog)
+						errorResponseConsumer(t, decodedTx.Codespace, decodedTx.Code, decodedTx.Log, space, code, wantLog)
 						require.Equal(t, int64(17), decodedTx.GasWanted)
 						require.Equal(t, int64(9), decodedTx.GasUsed)
 						if transport == "json" && tx.Events == nil {
@@ -161,7 +161,7 @@ func repairM647Responses(t *testing.T, err error, space string, code uint32, pub
 	}
 }
 
-func repairM647Consumer(t *testing.T, space string, code uint32, log, wantSpace string, wantCode uint32, wantLog string) {
+func errorResponseConsumer(t *testing.T, space string, code uint32, log, wantSpace string, wantCode uint32, wantLog string) {
 	t.Helper()
 	require.Equal(t, wantSpace, space)
 	require.Equal(t, wantCode, code)

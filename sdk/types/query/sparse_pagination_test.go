@@ -17,7 +17,7 @@ import (
 	govtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/gov/types"
 )
 
-func TestRepair_296_CallbackSparseContinuation(t *testing.T) {
+func TestCallbackSparseContinuation(t *testing.T) {
 	app, ctx, _ := setupTest(t)
 	last := query.MaxScanLimit + 6
 	for id := uint64(1); id <= last; id++ {
@@ -79,7 +79,7 @@ func TestRepair_296_CallbackSparseContinuation(t *testing.T) {
 	}
 }
 
-func TestRepair_296_GenericSparseContinuation(t *testing.T) {
+func TestGenericSparseContinuation(t *testing.T) {
 	app, ctx, _ := setupTest(t)
 	last := query.MaxScanLimit + 6
 	target := sdk.AccAddress(make([]byte, 20))

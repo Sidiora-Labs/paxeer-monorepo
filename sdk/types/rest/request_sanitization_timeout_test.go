@@ -19,7 +19,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/wasm/app"
 )
 
-func TestRepair_297_SanitizePreservesFields(t *testing.T) {
+func TestSanitizePreservesFields(t *testing.T) {
 	enc := app.MakeEncodingConfig()
 	from := sdk.AccAddress(bytes.Repeat([]byte{1}, 20)).String()
 	for _, height := range []uint64{0, 987654, ^uint64(0)} {
@@ -49,7 +49,7 @@ func TestRepair_297_SanitizePreservesFields(t *testing.T) {
 	}
 }
 
-func TestRepair_297_BankSendTimeout(t *testing.T) {
+func TestBankSendTimeout(t *testing.T) {
 	enc := app.MakeEncodingConfig()
 	clientCtx := client.Context{}.WithLegacyAmino(enc.Amino).WithTxConfig(enc.TxConfig)
 	router := mux.NewRouter()

@@ -26,7 +26,7 @@ import (
 	banktypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/types"
 )
 
-func repairM650Handler() (*codec.LegacyAmino, *mux.Router, bankrest.SendReq, string) {
+func boundedRequestHandler() (*codec.LegacyAmino, *mux.Router, bankrest.SendReq, string) {
 	amino := codec.NewLegacyAmino()
 	registry := codectypes.NewInterfaceRegistry()
 	std.RegisterLegacyAminoCodec(amino)
@@ -50,7 +50,7 @@ func repairM650Handler() (*codec.LegacyAmino, *mux.Router, bankrest.SendReq, str
 	return amino, router, producer, "/bank/accounts/" + to.String() + "/transfers"
 }
 
-func repairM650AssertTx(t *testing.T, amino *codec.LegacyAmino, body []byte, producer bankrest.SendReq, fees sdk.Coins) {
+func assertBoundedTransaction(t *testing.T, amino *codec.LegacyAmino, body []byte, producer bankrest.SendReq, fees sdk.Coins) {
 	t.Helper()
 	var unsigned legacytx.StdTx
 	require.NoError(t, amino.UnmarshalAsJSON(body, &unsigned))
@@ -66,8 +66,8 @@ func repairM650AssertTx(t *testing.T, amino *codec.LegacyAmino, body []byte, pro
 	require.Empty(t, unsigned.Signatures)
 }
 
-func TestRepairM_650_InvalidFees(t *testing.T) {
-	amino, router, original, path := repairM650Handler()
+func TestInvalidFees(t *testing.T) {
+	amino, router, original, path := boundedRequestHandler()
 	for _, representation := range []string{"fees", "gas_prices"} {
 		for _, simulate := range []bool{false, true} {
 			for _, defect := range []string{"invalid_denom", "negative", "zero", "unsorted", "duplicate", "missing_amount", "missing_second_amount", "null_amount", "invalid_amount_encoding"} {
@@ -149,8 +149,8 @@ func TestRepairM_650_InvalidFees(t *testing.T) {
 	}
 }
 
-func TestRepairM_650_FeeRepresentations(t *testing.T) {
-	amino, router, original, path := repairM650Handler()
+func TestFeeRepresentations(t *testing.T) {
+	amino, router, original, path := boundedRequestHandler()
 	for _, representation := range []string{"fees", "gas_prices", "neither", "both"} {
 		t.Run(representation, func(t *testing.T) {
 			producer := original
@@ -180,13 +180,13 @@ func TestRepairM_650_FeeRepresentations(t *testing.T) {
 				return
 			}
 			require.Equal(t, http.StatusOK, response.Code, response.Body.String())
-			repairM650AssertTx(t, amino, response.Body.Bytes(), producer, wantFees)
+			assertBoundedTransaction(t, amino, response.Body.Bytes(), producer, wantFees)
 		})
 	}
 }
 
 func TestReadRESTReqReportsEffectiveBodyLimit(t *testing.T) {
-	amino, router, producer, path := repairM650Handler()
+	amino, router, producer, path := boundedRequestHandler()
 	wire, err := amino.MarshalAsJSON(producer)
 	require.NoError(t, err)
 	for _, configuredLimit := range []int64{500_000, 1_000_000, 2_000_000, 0} {
@@ -226,7 +226,7 @@ func TestReadRESTReqReportsEffectiveBodyLimit(t *testing.T) {
 							return
 						}
 						require.Equal(t, http.StatusOK, response.StatusCode, string(body))
-						repairM650AssertTx(t, amino, body, producer, producer.BaseReq.Fees)
+						assertBoundedTransaction(t, amino, body, producer, producer.BaseReq.Fees)
 					})
 				}
 			}
@@ -234,8 +234,8 @@ func TestReadRESTReqReportsEffectiveBodyLimit(t *testing.T) {
 	}
 }
 
-func TestRepairM_650_StreamedBodyLimit(t *testing.T) {
-	amino, router, producer, path := repairM650Handler()
+func TestStreamedBodyLimit(t *testing.T) {
+	amino, router, producer, path := boundedRequestHandler()
 	wire, err := amino.MarshalAsJSON(producer)
 	require.NoError(t, err)
 	require.Equal(t, 1_000_000, rest.MaxRequestBodyBytes)
@@ -261,13 +261,13 @@ func TestRepairM_650_StreamedBodyLimit(t *testing.T) {
 				return
 			}
 			require.Equal(t, http.StatusOK, response.StatusCode, string(body))
-			repairM650AssertTx(t, amino, body, producer, producer.BaseReq.Fees)
+			assertBoundedTransaction(t, amino, body, producer, producer.BaseReq.Fees)
 		})
 	}
 }
 
-func TestRepairM_650_BoundedRead(t *testing.T) {
-	amino, router, producer, path := repairM650Handler()
+func TestBoundedRead(t *testing.T) {
+	amino, router, producer, path := boundedRequestHandler()
 	wire, err := amino.MarshalAsJSON(producer)
 	require.NoError(t, err)
 	for _, knownLength := range []bool{false, true} {

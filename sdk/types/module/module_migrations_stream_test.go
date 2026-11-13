@@ -27,25 +27,25 @@ import (
 )
 
 // Task 22.33.648 record:
-// migration-downgrade-version: TestRepairM_648_DowngradeRestartRecovery and
-// TestRepairM_648_ForwardAndUnchangedVersions.
-// stream-validation-forwarder: TestRepairM_648_StreamRejectsChunk,
-// TestRepairM_648_StreamEOF, TestRepairM_648_StreamCancellationBetweenChunks,
-// TestRepairM_648_StreamCancellationDuringForwarding, and
-// TestRepairM_648_StreamCancellationPreservesError.
+// migration-downgrade-version: TestModuleDowngradeRestartRecovery and
+// TestModuleForwardAndUnchangedVersions.
+// stream-validation-forwarder: TestRejectInvalidModuleStreamChunk,
+// TestModuleStreamEOF, TestCancelModuleStreamBetweenChunks,
+// TestCancelModuleStreamDuringForwarding, and
+// TestPreserveModuleStreamError.
 // No out-of-path wiring is required. The explicit implementation-first gate
 // order forbids the embedded unchanged-tree verification; no baseline result
 // is claimed. The runner's gate ledger records the qualified revision.
 
-type repairM648State struct {
-	*repair295State
+type moduleMigrationState struct {
+	*genesisImportState
 	upgrade      upgradekeeper.Keeper
 	authModule   auth.AppModule
 	paramsModule params.AppModule
 	manager      *module.Manager
 }
 
-func repairM648Open(t *testing.T, directory string) *repairM648State {
+func openModuleMigration(t *testing.T, directory string) *moduleMigrationState {
 	t.Helper()
 	db, err := dbm.NewDB("repairM648", dbm.GoLevelDBBackend, directory)
 	require.NoError(t, err)
@@ -69,8 +69,8 @@ func repairM648Open(t *testing.T, directory string) *repairM648State {
 	am := auth.NewAppModule(cdc, ak, nil)
 	pm := params.NewAppModule(pk)
 	mm := module.NewManager(pm, am, upgrade.NewAppModule(uk))
-	s := &repairM648State{
-		repair295State: &repair295State{
+	s := &moduleMigrationState{
+		genesisImportState: &genesisImportState{
 			ctx: sdk.NewContext(cms, tmproto.Header{ChainID: "repairM648", Height: 1}, false),
 			cms: cms, cdc: cdc, params: pk, auth: ak, manager: mm,
 			keys: []sdk.StoreKey{paramsKey, authKey, upgradeKey},
@@ -81,7 +81,7 @@ func repairM648Open(t *testing.T, directory string) *repairM648State {
 	return s
 }
 
-func (s *repairM648State) configurator(t *testing.T) module.Configurator {
+func (s *moduleMigrationState) configurator(t *testing.T) module.Configurator {
 	t.Helper()
 	cfg := module.NewConfigurator(s.cdc, nil, nil)
 	require.NoError(t, cfg.RegisterMigration(paramstypes.ModuleName, 1, paramskeeper.NewMigrator(s.params).Migrate1to2))
@@ -91,7 +91,7 @@ func (s *repairM648State) configurator(t *testing.T) module.Configurator {
 	return cfg
 }
 
-func TestRepairM_648_DowngradeRestartRecovery(t *testing.T) {
+func TestModuleDowngradeRestartRecovery(t *testing.T) {
 	for _, tc := range []struct {
 		name       string
 		regressing string
@@ -104,7 +104,7 @@ func TestRepairM_648_DowngradeRestartRecovery(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			directory := t.TempDir()
-			original := repairM648Open(t, directory)
+			original := openModuleMigration(t, directory)
 			original.seed(7, 9)
 			versions := original.manager.GetVersionMap()
 			versions[tc.regressing]++
@@ -118,7 +118,7 @@ func TestRepairM_648_DowngradeRestartRecovery(t *testing.T) {
 			before := original.snapshot(t)
 			original.close(t)
 
-			recovered := repairM648Open(t, directory)
+			recovered := openModuleMigration(t, directory)
 			require.Equal(t, versions, recovered.upgrade.GetModuleVersionMap(recovered.ctx))
 			require.Equal(t, before, recovered.snapshot(t))
 			recovered.manager.SetOrderMigrations(paramstypes.ModuleName, authtypes.ModuleName, upgradetypes.ModuleName)
@@ -144,18 +144,18 @@ func TestRepairM_648_DowngradeRestartRecovery(t *testing.T) {
 			recovered.cms.Commit(true)
 			recovered.close(t)
 
-			after := repairM648Open(t, directory)
+			after := openModuleMigration(t, directory)
 			require.Equal(t, before, after.snapshot(t))
 			require.Equal(t, versions, after.upgrade.GetModuleVersionMap(after.ctx))
 			require.Equal(t, uint64(9), after.params.GetCosmosGasParams(after.ctx).CosmosGasMultiplierDenominator)
-			require.Equal(t, uint64(7), after.auth.GetAccount(after.ctx, repair295Address(7)).GetSequence())
+			require.Equal(t, uint64(7), after.auth.GetAccount(after.ctx, genesisImportAddress(7)).GetSequence())
 		})
 	}
 }
 
-func TestRepairM_648_ForwardAndUnchangedVersions(t *testing.T) {
+func TestModuleForwardAndUnchangedVersions(t *testing.T) {
 	directory := t.TempDir()
-	s := repairM648Open(t, directory)
+	s := openModuleMigration(t, directory)
 	s.seed(7, 9)
 	versions := s.manager.GetVersionMap()
 	cfg := s.configurator(t)
@@ -174,14 +174,14 @@ func TestRepairM_648_ForwardAndUnchangedVersions(t *testing.T) {
 	require.Equal(t, *paramstypes.DefaultCosmosGasParams(), s.params.GetCosmosGasParams(s.ctx))
 	s.cms.Commit(true)
 	s.close(t)
-	recovered := repairM648Open(t, directory)
+	recovered := openModuleMigration(t, directory)
 	require.Equal(t, recovered.manager.GetVersionMap(), recovered.upgrade.GetModuleVersionMap(recovered.ctx))
 	require.Equal(t, *paramstypes.DefaultCosmosGasParams(), recovered.params.GetCosmosGasParams(recovered.ctx))
 }
 
 // This observer always delegates validation to the production module. Its
 // barriers expose worker lifetime and let the tests control scheduling.
-type repairM648ObservedModule struct {
+type observedModuleStream struct {
 	module.AppModuleBasic
 	started       chan struct{}
 	exited        chan struct{}
@@ -190,7 +190,7 @@ type repairM648ObservedModule struct {
 	returnRelease <-chan struct{}
 }
 
-func (m repairM648ObservedModule) ValidateGenesisStream(cdc codec.JSONCodec, config client.TxEncodingConfig, ch <-chan json.RawMessage) error {
+func (m observedModuleStream) ValidateGenesisStream(cdc codec.JSONCodec, config client.TxEncodingConfig, ch <-chan json.RawMessage) error {
 	defer close(m.exited)
 	close(m.started)
 	if m.release != nil {
@@ -206,11 +206,11 @@ func (m repairM648ObservedModule) ValidateGenesisStream(cdc codec.JSONCodec, con
 	return err
 }
 
-func repairM648Observe(basic module.AppModuleBasic) repairM648ObservedModule {
-	return repairM648ObservedModule{AppModuleBasic: basic, started: make(chan struct{}), exited: make(chan struct{})}
+func observeModuleStream(basic module.AppModuleBasic) observedModuleStream {
+	return observedModuleStream{AppModuleBasic: basic, started: make(chan struct{}), exited: make(chan struct{})}
 }
 
-func repairM648Wait(t *testing.T, ch <-chan struct{}) {
+func waitForStream(t *testing.T, ch <-chan struct{}) {
 	t.Helper()
 	select {
 	case <-ch:
@@ -219,7 +219,7 @@ func repairM648Wait(t *testing.T, ch <-chan struct{}) {
 	}
 }
 
-func repairM648Start(s *repairM648State, observed repairM648ObservedModule, input <-chan json.RawMessage, cancel <-chan struct{}, errors chan<- error) <-chan struct{} {
+func startModuleStream(s *moduleMigrationState, observed observedModuleStream, input <-chan json.RawMessage, cancel <-chan struct{}, errors chan<- error) <-chan struct{} {
 	completed := make(chan struct{})
 	go func() {
 		defer close(completed)
@@ -228,9 +228,9 @@ func repairM648Start(s *repairM648State, observed repairM648ObservedModule, inpu
 	return completed
 }
 
-func repairM648Joined(t *testing.T, observed repairM648ObservedModule, completed <-chan struct{}) {
+func joinModuleStream(t *testing.T, observed observedModuleStream, completed <-chan struct{}) {
 	t.Helper()
-	repairM648Wait(t, completed)
+	waitForStream(t, completed)
 	select {
 	case <-observed.exited:
 	default:
@@ -238,7 +238,7 @@ func repairM648Joined(t *testing.T, observed repairM648ObservedModule, completed
 	}
 }
 
-func repairM648InvalidExport(t *testing.T, s *repairM648State) json.RawMessage {
+func invalidModuleExport(t *testing.T, s *moduleMigrationState) json.RawMessage {
 	t.Helper()
 	// Persist a corrupt parameter through the real subspace and export it
 	// through the module, so validation sees the actual producer's encoding.
@@ -255,11 +255,11 @@ func repairM648InvalidExport(t *testing.T, s *repairM648State) json.RawMessage {
 	return chunk
 }
 
-func TestRepairM_648_StreamRejectsChunk(t *testing.T) {
-	s := repairM648Open(t, t.TempDir())
+func TestRejectInvalidModuleStreamChunk(t *testing.T) {
+	s := openModuleMigration(t, t.TempDir())
 	s.seed(7, 9)
 	valid := s.paramsModule.ExportGenesis(s.ctx, s.cdc)
-	invalid := repairM648InvalidExport(t, s)
+	invalid := invalidModuleExport(t, s)
 	expected := s.paramsModule.ValidateGenesis(s.cdc, nil, invalid)
 	require.EqualError(t, expected, "cosmos gas multiplier denominator can not be 0")
 	input := make(chan json.RawMessage, 3)
@@ -268,45 +268,45 @@ func TestRepairM_648_StreamRejectsChunk(t *testing.T) {
 	input <- valid
 	defer close(input)
 	errors := make(chan error, 1)
-	observed := repairM648Observe(s.paramsModule)
-	completed := repairM648Start(s, observed, input, nil, errors)
-	repairM648Joined(t, observed, completed)
+	observed := observeModuleStream(s.paramsModule)
+	completed := startModuleStream(s, observed, input, nil, errors)
+	joinModuleStream(t, observed, completed)
 	require.Len(t, errors, 1)
 	require.EqualError(t, <-errors, expected.Error())
 }
 
-func TestRepairM_648_StreamEOF(t *testing.T) {
-	s := repairM648Open(t, t.TempDir())
+func TestModuleStreamEOF(t *testing.T) {
+	s := openModuleMigration(t, t.TempDir())
 	s.seed(7, 9)
 	for _, am := range []module.AppModule{s.authModule, s.paramsModule, upgrade.NewAppModule(s.upgrade)} {
 		t.Run(am.Name(), func(t *testing.T) {
-			observed := repairM648Observe(am)
+			observed := observeModuleStream(am)
 			errors := make(chan error, 1)
-			completed := repairM648Start(s, observed, am.ExportGenesisStream(s.ctx, s.cdc), nil, errors)
-			repairM648Joined(t, observed, completed)
+			completed := startModuleStream(s, observed, am.ExportGenesisStream(s.ctx, s.cdc), nil, errors)
+			joinModuleStream(t, observed, completed)
 			require.Empty(t, errors)
 		})
 	}
 	t.Run("empty", func(t *testing.T) {
 		input := make(chan json.RawMessage)
 		close(input)
-		observed := repairM648Observe(s.authModule)
+		observed := observeModuleStream(s.authModule)
 		errors := make(chan error, 1)
-		repairM648Joined(t, observed, repairM648Start(s, observed, input, nil, errors))
+		joinModuleStream(t, observed, startModuleStream(s, observed, input, nil, errors))
 		require.Empty(t, errors)
 	})
 }
 
-func TestRepairM_648_StreamCancellationBetweenChunks(t *testing.T) {
-	s := repairM648Open(t, t.TempDir())
+func TestCancelModuleStreamBetweenChunks(t *testing.T) {
+	s := openModuleMigration(t, t.TempDir())
 	s.seed(7, 9)
 	input := make(chan json.RawMessage)
 	defer close(input)
 	cancel := make(chan struct{})
 	errors := make(chan error, 1)
-	observed := repairM648Observe(s.authModule)
-	completed := repairM648Start(s, observed, input, cancel, errors)
-	repairM648Wait(t, observed.started)
+	observed := observeModuleStream(s.authModule)
+	completed := startModuleStream(s, observed, input, cancel, errors)
+	waitForStream(t, observed.started)
 	chunk := s.authModule.ExportGenesis(s.ctx, s.cdc)
 	for i := 0; i < 2; i++ {
 		select {
@@ -316,22 +316,22 @@ func TestRepairM_648_StreamCancellationBetweenChunks(t *testing.T) {
 		}
 	}
 	close(cancel)
-	repairM648Joined(t, observed, completed)
+	joinModuleStream(t, observed, completed)
 	require.Empty(t, errors)
 }
 
-func TestRepairM_648_StreamCancellationDuringForwarding(t *testing.T) {
-	s := repairM648Open(t, t.TempDir())
+func TestCancelModuleStreamDuringForwarding(t *testing.T) {
+	s := openModuleMigration(t, t.TempDir())
 	s.seed(7, 9)
 	input := make(chan json.RawMessage)
 	defer close(input)
 	cancel := make(chan struct{})
 	release := make(chan struct{})
-	observed := repairM648Observe(s.authModule)
+	observed := observeModuleStream(s.authModule)
 	observed.release = release
 	errors := make(chan error, 1)
-	completed := repairM648Start(s, observed, input, cancel, errors)
-	repairM648Wait(t, observed.started)
+	completed := startModuleStream(s, observed, input, cancel, errors)
+	waitForStream(t, observed.started)
 	select {
 	case input <- s.authModule.ExportGenesis(s.ctx, s.cdc):
 	case <-time.After(3 * time.Second):
@@ -345,23 +345,23 @@ func TestRepairM_648_StreamCancellationDuringForwarding(t *testing.T) {
 	case <-time.After(20 * time.Millisecond):
 	}
 	close(release)
-	repairM648Joined(t, observed, completed)
+	joinModuleStream(t, observed, completed)
 	require.Empty(t, errors)
 }
 
-func TestRepairM_648_StreamCancellationPreservesError(t *testing.T) {
-	s := repairM648Open(t, t.TempDir())
+func TestPreserveModuleStreamError(t *testing.T) {
+	s := openModuleMigration(t, t.TempDir())
 	s.seed(7, 9)
 	input := make(chan json.RawMessage, 1)
-	input <- repairM648InvalidExport(t, s)
+	input <- invalidModuleExport(t, s)
 	defer close(input)
 	cancel := make(chan struct{})
 	release := make(chan struct{})
-	observed := repairM648Observe(s.paramsModule)
+	observed := observeModuleStream(s.paramsModule)
 	observed.result = make(chan error, 1)
 	observed.returnRelease = release
 	errors := make(chan error, 1)
-	completed := repairM648Start(s, observed, input, cancel, errors)
+	completed := startModuleStream(s, observed, input, cancel, errors)
 	select {
 	case err := <-observed.result:
 		require.EqualError(t, err, "cosmos gas multiplier denominator can not be 0")
@@ -370,7 +370,7 @@ func TestRepairM_648_StreamCancellationPreservesError(t *testing.T) {
 	}
 	close(cancel)
 	close(release)
-	repairM648Joined(t, observed, completed)
+	joinModuleStream(t, observed, completed)
 	require.Len(t, errors, 1)
 	require.EqualError(t, <-errors, "cosmos gas multiplier denominator can not be 0")
 }

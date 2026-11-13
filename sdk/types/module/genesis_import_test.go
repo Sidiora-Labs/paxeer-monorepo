@@ -33,15 +33,15 @@ import (
 )
 
 // Task 22.31.295 record: stream-import-invalid-lines is proved by
-// TestRepair_295_RoundTripRestartRecovery, TestRepair_295_RejectCorruptionAtomically,
-// TestRepair_295_RejectIncompleteTransport, and TestRepair_295_RejectSourceErrors.
+// TestGenesisImportRoundTripRestart, TestRejectCorruptedGenesisAtomically,
+// TestRejectIncompleteGenesisTransport, and TestRejectGenesisSourceErrors.
 // No out-of-path wiring is required.
 // The inherited attempt failed in RejectCorruptionAtomically while constructing
 // missing_data; RoundTripRestartRecovery and RejectSourceErrors passed there.
 // The explicit implementation-first gate order forbids the embedded baseline
 // verification step; no unchanged-tree test result is claimed.
 
-type repair295State struct {
+type genesisImportState struct {
 	ctx     sdk.Context
 	cms     storetypes.CommitMultiStore
 	cdc     *codec.ProtoCodec
@@ -52,7 +52,7 @@ type repair295State struct {
 	closed  bool
 }
 
-func repair295Open(t *testing.T, directory string) *repair295State {
+func openGenesisImport(t *testing.T, directory string) *genesisImportState {
 	t.Helper()
 	db, err := dbm.NewDB("repair295", dbm.GoLevelDBBackend, directory)
 	require.NoError(t, err)
@@ -74,7 +74,7 @@ func repair295Open(t *testing.T, directory string) *repair295State {
 	mm := module.NewManager(auth.NewAppModule(cdc, ak, nil), params.NewAppModule(pk))
 	mm.SetOrderInitGenesis(paramstypes.ModuleName, authtypes.ModuleName)
 	mm.SetOrderExportGenesis(authtypes.ModuleName, paramstypes.ModuleName)
-	state := &repair295State{
+	state := &genesisImportState{
 		ctx: sdk.NewContext(cms, tmproto.Header{ChainID: "repair295", Height: 1}, false),
 		cms: cms, cdc: cdc, params: pk, auth: ak, manager: mm,
 		keys: []sdk.StoreKey{paramsKey, authKey, transientKey},
@@ -83,7 +83,7 @@ func repair295Open(t *testing.T, directory string) *repair295State {
 	return state
 }
 
-func (s *repair295State) close(t *testing.T) {
+func (s *genesisImportState) close(t *testing.T) {
 	t.Helper()
 	if !s.closed {
 		require.NoError(t, s.cms.Close())
@@ -91,16 +91,16 @@ func (s *repair295State) close(t *testing.T) {
 	}
 }
 
-func repair295Address(value byte) sdk.AccAddress {
+func genesisImportAddress(value byte) sdk.AccAddress {
 	return sdk.AccAddress(bytes.Repeat([]byte{value}, 20))
 }
 
-func (s *repair295State) seed(account byte, denominator uint64) {
+func (s *genesisImportState) seed(account byte, denominator uint64) {
 	pg := paramstypes.DefaultGenesis()
 	pg.FeesParams.GlobalMinimumGasPrices = sdk.DecCoins{sdk.NewDecCoinFromDec("uhpx", sdk.NewDecWithPrec(125, 3))}
 	pg.CosmosGasParams.CosmosGasMultiplierDenominator = denominator
 	ag := authtypes.NewGenesisState(authtypes.DefaultParams(), authtypes.GenesisAccounts{
-		authtypes.NewBaseAccount(repair295Address(account), nil, 0, uint64(account)),
+		authtypes.NewBaseAccount(genesisImportAddress(account), nil, 0, uint64(account)),
 	})
 	s.manager.InitGenesis(s.ctx, s.cdc, map[string]json.RawMessage{
 		paramstypes.ModuleName: s.cdc.MustMarshalJSON(pg),
@@ -108,7 +108,7 @@ func (s *repair295State) seed(account byte, denominator uint64) {
 	}, genesis.GenesisImportConfig{})
 }
 
-func (s *repair295State) records(t *testing.T) []string {
+func (s *genesisImportState) records(t *testing.T) []string {
 	t.Helper()
 	var records []string
 	require.NoError(t, s.manager.ProcessGenesisPerModule(s.ctx, s.cdc, func(name string, data json.RawMessage) error {
@@ -121,11 +121,11 @@ func (s *repair295State) records(t *testing.T) []string {
 	return records
 }
 
-func repair295Records(t *testing.T) []string {
+func genesisImportRecords(t *testing.T) []string {
 	t.Helper()
-	first := repair295Open(t, t.TempDir())
+	first := openGenesisImport(t, t.TempDir())
 	first.seed(1, 9)
-	second := repair295Open(t, t.TempDir())
+	second := openGenesisImport(t, t.TempDir())
 	second.seed(2, 9)
 	firstRecords := first.records(t)
 	secondRecords := second.records(t)
@@ -143,7 +143,7 @@ func repair295Records(t *testing.T) []string {
 	return []string{firstRecords[0], firstRecords[1], secondRecords[1], string(header)}
 }
 
-func repair295File(t *testing.T, records []string, trailingNewline bool) string {
+func genesisImportFile(t *testing.T, records []string, trailingNewline bool) string {
 	t.Helper()
 	data := strings.Join(records, "\n")
 	if trailingNewline {
@@ -154,13 +154,13 @@ func repair295File(t *testing.T, records []string, trailingNewline bool) string 
 	return filename
 }
 
-func (s *repair295State) importFile(filename string) {
+func (s *genesisImportState) importFile(filename string) {
 	s.manager.InitGenesis(s.ctx, s.cdc, nil, genesis.GenesisImportConfig{
 		StreamGenesisImport: true, GenesisStreamFile: filename,
 	})
 }
 
-func (s *repair295State) snapshot(t *testing.T) map[string]map[string]string {
+func (s *genesisImportState) snapshot(t *testing.T) map[string]map[string]string {
 	t.Helper()
 	result := make(map[string]map[string]string)
 	for _, key := range s.keys {
@@ -175,8 +175,8 @@ func (s *repair295State) snapshot(t *testing.T) map[string]map[string]string {
 	return result
 }
 
-func TestRepair_295_RoundTripRestartRecovery(t *testing.T) {
-	records := repair295Records(t)
+func TestGenesisImportRoundTripRestart(t *testing.T) {
+	records := genesisImportRecords(t)
 	for _, trailingNewline := range []bool{false, true} {
 		name := "metadata_without_newline"
 		if trailingNewline {
@@ -184,15 +184,15 @@ func TestRepair_295_RoundTripRestartRecovery(t *testing.T) {
 		}
 		t.Run(name, func(t *testing.T) {
 			directory := t.TempDir()
-			target := repair295Open(t, directory)
-			require.NotPanics(t, func() { target.importFile(repair295File(t, records, trailingNewline)) })
+			target := openGenesisImport(t, directory)
+			require.NotPanics(t, func() { target.importFile(genesisImportFile(t, records, trailingNewline)) })
 			target.cms.Commit(true)
 			before := target.snapshot(t)
 			target.close(t)
-			recovered := repair295Open(t, directory)
+			recovered := openGenesisImport(t, directory)
 			require.Equal(t, before, recovered.snapshot(t))
 			for _, account := range []byte{1, 2} {
-				got := recovered.auth.GetAccount(recovered.ctx, repair295Address(account))
+				got := recovered.auth.GetAccount(recovered.ctx, genesisImportAddress(account))
 				require.NotNil(t, got, "account from chunk %d must survive import and restart", account)
 				require.Equal(t, uint64(account), got.GetSequence())
 			}
@@ -202,7 +202,7 @@ func TestRepair_295_RoundTripRestartRecovery(t *testing.T) {
 	}
 }
 
-func repair295Replace(t *testing.T, record string, path []string, value json.RawMessage) string {
+func replaceGenesisRecord(t *testing.T, record string, path []string, value json.RawMessage) string {
 	t.Helper()
 	var fields map[string]interface{}
 	decoder := json.NewDecoder(strings.NewReader(record))
@@ -226,10 +226,10 @@ func repair295Replace(t *testing.T, record string, path []string, value json.Raw
 	return string(result)
 }
 
-func TestRepair_295_RejectCorruptionAtomically(t *testing.T) {
-	r := repair295Records(t)
+func TestRejectCorruptedGenesisAtomically(t *testing.T) {
+	r := genesisImportRecords(t)
 	replace := func(record string, path []string, value string) string {
-		return repair295Replace(t, record, path, json.RawMessage(value))
+		return replaceGenesisRecord(t, record, path, json.RawMessage(value))
 	}
 	cases := map[string][]string{
 		"empty":                        {},
@@ -269,30 +269,30 @@ func TestRepair_295_RejectCorruptionAtomically(t *testing.T) {
 	for name, records := range cases {
 		t.Run(name, func(t *testing.T) {
 			directory := t.TempDir()
-			target := repair295Open(t, directory)
+			target := openGenesisImport(t, directory)
 			target.seed(7, 3)
 			target.cms.Commit(true)
 			before := target.snapshot(t)
 			events := append(sdk.Events{}, target.ctx.EventManager().Events()...)
-			require.Panics(t, func() { target.importFile(repair295File(t, records, false)) })
+			require.Panics(t, func() { target.importFile(genesisImportFile(t, records, false)) })
 			require.Equal(t, before, target.snapshot(t), "a rejected stream must not publish any store writes")
 			require.Equal(t, events, target.ctx.EventManager().Events())
 			target.cms.Commit(true)
 			target.close(t)
-			recovered := repair295Open(t, directory)
+			recovered := openGenesisImport(t, directory)
 			require.Equal(t, before, recovered.snapshot(t), "rejection must preserve state across restart")
 			require.Equal(t, uint64(3), recovered.params.GetCosmosGasParams(recovered.ctx).CosmosGasMultiplierDenominator)
-			require.NotNil(t, recovered.auth.GetAccount(recovered.ctx, repair295Address(7)))
-			require.Nil(t, recovered.auth.GetAccount(recovered.ctx, repair295Address(1)))
-			require.Nil(t, recovered.auth.GetAccount(recovered.ctx, repair295Address(2)))
+			require.NotNil(t, recovered.auth.GetAccount(recovered.ctx, genesisImportAddress(7)))
+			require.Nil(t, recovered.auth.GetAccount(recovered.ctx, genesisImportAddress(1)))
+			require.Nil(t, recovered.auth.GetAccount(recovered.ctx, genesisImportAddress(2)))
 		})
 	}
 }
 
-func TestRepair_295_RejectSourceErrors(t *testing.T) {
+func TestRejectGenesisSourceErrors(t *testing.T) {
 	for _, name := range []string{"missing_file", "unreadable_directory"} {
 		t.Run(name, func(t *testing.T) {
-			target := repair295Open(t, t.TempDir())
+			target := openGenesisImport(t, t.TempDir())
 			target.seed(7, 3)
 			before := target.snapshot(t)
 			filename := t.TempDir()
@@ -305,10 +305,10 @@ func TestRepair_295_RejectSourceErrors(t *testing.T) {
 	}
 }
 
-func TestRepair_295_RejectIncompleteTransport(t *testing.T) {
-	records := repair295Records(t)
+func TestRejectIncompleteGenesisTransport(t *testing.T) {
+	records := genesisImportRecords(t)
 	directory := t.TempDir()
-	target := repair295Open(t, directory)
+	target := openGenesisImport(t, directory)
 	target.seed(7, 3)
 	target.cms.Commit(true)
 	before := target.snapshot(t)
@@ -339,10 +339,10 @@ func TestRepair_295_RejectIncompleteTransport(t *testing.T) {
 	require.Equal(t, events, target.ctx.EventManager().Events())
 	target.cms.Commit(true)
 	target.close(t)
-	recovered := repair295Open(t, directory)
+	recovered := openGenesisImport(t, directory)
 	require.Equal(t, before, recovered.snapshot(t))
 	require.Equal(t, uint64(3), recovered.params.GetCosmosGasParams(recovered.ctx).CosmosGasMultiplierDenominator)
-	require.NotNil(t, recovered.auth.GetAccount(recovered.ctx, repair295Address(7)))
-	require.Nil(t, recovered.auth.GetAccount(recovered.ctx, repair295Address(1)))
-	require.Nil(t, recovered.auth.GetAccount(recovered.ctx, repair295Address(2)))
+	require.NotNil(t, recovered.auth.GetAccount(recovered.ctx, genesisImportAddress(7)))
+	require.Nil(t, recovered.auth.GetAccount(recovered.ctx, genesisImportAddress(1)))
+	require.Nil(t, recovered.auth.GetAccount(recovered.ctx, genesisImportAddress(2)))
 }

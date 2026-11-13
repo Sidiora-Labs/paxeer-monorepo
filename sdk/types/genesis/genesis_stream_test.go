@@ -33,7 +33,7 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-type repair294Fixture struct {
+type genesisStreamFixture struct {
 	ctx     sdk.Context
 	keeper  paramkeeper.Keeper
 	cdc     *codec.ProtoCodec
@@ -42,7 +42,7 @@ type repair294Fixture struct {
 	closed  bool
 }
 
-func repair294Open(t *testing.T, dir string) *repair294Fixture {
+func openGenesisStreamFixture(t *testing.T, dir string) *genesisStreamFixture {
 	t.Helper()
 	db, err := dbm.NewDB("params", dbm.GoLevelDBBackend, dir)
 	require.NoError(t, err)
@@ -54,7 +54,7 @@ func repair294Open(t *testing.T, dir string) *repair294Fixture {
 	require.NoError(t, cms.LoadLatestVersion())
 	cdc := codec.NewProtoCodec(codectypes.NewInterfaceRegistry())
 	keeper := paramkeeper.NewKeeper(cdc, codec.NewLegacyAmino(), key, tkey)
-	f := &repair294Fixture{
+	f := &genesisStreamFixture{
 		ctx:    sdk.NewContext(cms, tmproto.Header{Height: 1, Time: time.Unix(1, 0)}, false),
 		keeper: keeper, cdc: cdc, manager: module.NewManager(params.NewAppModule(keeper)), store: cms,
 	}
@@ -62,7 +62,7 @@ func repair294Open(t *testing.T, dir string) *repair294Fixture {
 	return f
 }
 
-func (f *repair294Fixture) close(t *testing.T) {
+func (f *genesisStreamFixture) close(t *testing.T) {
 	t.Helper()
 	if !f.closed {
 		require.NoError(t, f.store.Close())
@@ -70,13 +70,13 @@ func (f *repair294Fixture) close(t *testing.T) {
 	}
 }
 
-func (f *repair294Fixture) seed(denominator uint64) {
+func (f *genesisStreamFixture) seed(denominator uint64) {
 	gs := paramtypes.DefaultGenesis()
 	gs.CosmosGasParams.CosmosGasMultiplierDenominator = denominator
 	f.keeper.InitGenesis(f.ctx, gs)
 }
 
-func (f *repair294Fixture) export(t *testing.T) []byte {
+func (f *genesisStreamFixture) export(t *testing.T) []byte {
 	t.Helper()
 	var out bytes.Buffer
 	enc := json.NewEncoder(&out)
@@ -94,20 +94,20 @@ func (f *repair294Fixture) export(t *testing.T) []byte {
 	return out.Bytes()
 }
 
-func repair294Write(t *testing.T, data []byte) string {
+func writeGenesisStream(t *testing.T, data []byte) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "genesis.stream")
 	require.NoError(t, os.WriteFile(path, data, 0600))
 	return path
 }
 
-func (f *repair294Fixture) init(path string) {
+func (f *genesisStreamFixture) init(path string) {
 	f.manager.InitGenesis(f.ctx, f.cdc, nil, genesis.GenesisImportConfig{
 		StreamGenesisImport: true, GenesisStreamFile: path,
 	})
 }
 
-func repair294Panic(t *testing.T, action func()) error {
+func genesisStreamPanic(t *testing.T, action func()) error {
 	t.Helper()
 	var caught interface{}
 	func() {
@@ -120,7 +120,7 @@ func repair294Panic(t *testing.T, action func()) error {
 	return err
 }
 
-func (f *repair294Fixture) validate(t *testing.T, path string) (string, error) {
+func (f *genesisStreamFixture) validate(t *testing.T, path string) (string, error) {
 	t.Helper()
 	clientCtx := client.Context{}.WithCodec(f.cdc)
 	serverCtx := server.NewContext(viper.New(), tmcfg.DefaultConfig().SetRoot(t.TempDir()))
@@ -139,8 +139,8 @@ func (f *repair294Fixture) validate(t *testing.T, path string) (string, error) {
 	return output.String(), err
 }
 
-func TestRepair_294_ConsumersRejectIncompleteSources(t *testing.T) {
-	source := repair294Open(t, t.TempDir())
+func TestRejectIncompleteGenesisSources(t *testing.T) {
+	source := openGenesisStreamFixture(t, t.TempDir())
 	source.seed(7)
 	exported := source.export(t)
 	firstLineEnd := bytes.IndexByte(exported, '\n') + 1
@@ -148,15 +148,15 @@ func TestRepair_294_ConsumersRejectIncompleteSources(t *testing.T) {
 	cases := []struct{ name, path string }{
 		{"missing", filepath.Join(t.TempDir(), "missing")},
 		{"unreadable_directory", t.TempDir()},
-		{"empty", repair294Write(t, nil)},
-		{"truncated_record", repair294Write(t, exported[:len(exported)-1])},
-		{"prefix_without_header", repair294Write(t, exported[:firstLineEnd])},
-		{"header_before_truncated_module", repair294Write(t, append(append(bytes.Clone(exported[firstLineEnd:]), '\n'), exported[:firstLineEnd-2]...))},
+		{"empty", writeGenesisStream(t, nil)},
+		{"truncated_record", writeGenesisStream(t, exported[:len(exported)-1])},
+		{"prefix_without_header", writeGenesisStream(t, exported[:firstLineEnd])},
+		{"header_before_truncated_module", writeGenesisStream(t, append(append(bytes.Clone(exported[firstLineEnd:]), '\n'), exported[:firstLineEnd-2]...))},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := t.TempDir()
-			target := repair294Open(t, dir)
+			target := openGenesisStreamFixture(t, dir)
 			target.seed(4)
 			target.store.Commit(true)
 			require.Panics(t, func() { target.init(tc.path) })
@@ -165,7 +165,7 @@ func TestRepair_294_ConsumersRejectIncompleteSources(t *testing.T) {
 			// of the rejected initialization may survive a real disk restart.
 			target.store.Commit(true)
 			target.close(t)
-			reopened := repair294Open(t, dir)
+			reopened := openGenesisStreamFixture(t, dir)
 			require.Equal(t, uint64(4), reopened.keeper.GetCosmosGasParams(reopened.ctx).CosmosGasMultiplierDenominator)
 			doc, err := server.LoadStreamingGenesisDoc(context.Background(), tc.path)
 			require.Error(t, err)
@@ -177,12 +177,12 @@ func TestRepair_294_ConsumersRejectIncompleteSources(t *testing.T) {
 	}
 }
 
-func TestRepair_294_MidReadFailureDiscardsModuleState(t *testing.T) {
-	source := repair294Open(t, t.TempDir())
+func TestDiscardStateOnGenesisReadFailure(t *testing.T) {
+	source := openGenesisStreamFixture(t, t.TempDir())
 	source.seed(7)
 	exported := source.export(t)
 	dir := t.TempDir()
-	target := repair294Open(t, dir)
+	target := openGenesisStreamFixture(t, dir)
 	target.seed(4)
 	target.store.Commit(true)
 	reader, writer := io.Pipe()
@@ -195,7 +195,7 @@ func TestRepair_294_MidReadFailureDiscardsModuleState(t *testing.T) {
 		_ = writer.CloseWithError(readFailure)
 		producerDone <- err
 	}()
-	err := repair294Panic(t, func() { target.manager.InitGenesisStream(target.ctx, target.cdc, stream) })
+	err := genesisStreamPanic(t, func() { target.manager.InitGenesisStream(target.ctx, target.cdc, stream) })
 	require.ErrorIs(t, err, readFailure)
 	require.ErrorIs(t, stream.Wait(), readFailure)
 	require.ErrorIs(t, stream.Wait(), readFailure, "completion must be repeatable")
@@ -203,15 +203,15 @@ func TestRepair_294_MidReadFailureDiscardsModuleState(t *testing.T) {
 	require.Equal(t, uint64(4), target.keeper.GetCosmosGasParams(target.ctx).CosmosGasMultiplierDenominator)
 	target.store.Commit(true)
 	target.close(t)
-	reopened := repair294Open(t, dir)
+	reopened := openGenesisStreamFixture(t, dir)
 	require.Equal(t, uint64(4), reopened.keeper.GetCosmosGasParams(reopened.ctx).CosmosGasMultiplierDenominator)
 }
 
-func TestRepair_294_ExportImportAndRestart(t *testing.T) {
-	source := repair294Open(t, t.TempDir())
+func TestGenesisExportImportRestart(t *testing.T) {
+	source := openGenesisStreamFixture(t, t.TempDir())
 	source.seed(7)
 	exported := source.export(t)
-	path := repair294Write(t, exported)
+	path := writeGenesisStream(t, exported)
 	doc, err := server.LoadStreamingGenesisDoc(context.Background(), path)
 	require.NoError(t, err)
 	require.Equal(t, "repair-294", doc.ChainID)
@@ -219,17 +219,17 @@ func TestRepair_294_ExportImportAndRestart(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, output, "is a valid genesis file")
 	dir := t.TempDir()
-	target := repair294Open(t, dir)
+	target := openGenesisStreamFixture(t, dir)
 	target.init(path)
 	require.Equal(t, source.keeper.ExportGenesis(source.ctx), target.keeper.ExportGenesis(target.ctx))
 	target.store.Commit(true)
 	target.close(t)
-	reopened := repair294Open(t, dir)
+	reopened := openGenesisStreamFixture(t, dir)
 	require.Equal(t, source.keeper.ExportGenesis(source.ctx), reopened.keeper.ExportGenesis(reopened.ctx))
 	require.Equal(t, exported, reopened.export(t))
 }
 
-func TestRepair_294_CancellationUnblocksReadAndSend(t *testing.T) {
+func TestCancelGenesisStream(t *testing.T) {
 	for _, blockedSend := range []bool{false, true} {
 		t.Run(map[bool]string{false: "read", true: "send"}[blockedSend], func(t *testing.T) {
 			reader, writer := io.Pipe()
@@ -260,9 +260,9 @@ func TestRepair_294_CancellationUnblocksReadAndSend(t *testing.T) {
 	}
 }
 
-func TestRepair_294_CompletionAndEarlyConsumerError(t *testing.T) {
+func TestGenesisStreamCompletionAndConsumerError(t *testing.T) {
 	longLine := strings.Repeat("x", 250000)
-	path := repair294Write(t, []byte("first\n\n"+longLine+"\nfinal"))
+	path := writeGenesisStream(t, []byte("first\n\n"+longLine+"\nfinal"))
 	stream := genesis.IngestGenesisFileLineByLine(path)
 	var lines []string
 	require.NoError(t, stream.Consume(func(line string) error { lines = append(lines, line); return nil }))
