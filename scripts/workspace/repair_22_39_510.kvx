@@ -1,0 +1,4 @@
+[inventory]
+rule = "The Paxeer inventory lists the source manifests in the chain roots. The platform inventory lists source dependency manifests and Swift resolution locks, excluding target, node_modules, build, .build and dashboard .next output directories."
+changed_files = ["scripts/workspace/check-platform-dependencies.sh", "tools/workspace/platform-dependency-roots.txt", "scripts/workspace/repair_22_39_510.kvx"]
+command = "make -s workspace-inventory-check"
