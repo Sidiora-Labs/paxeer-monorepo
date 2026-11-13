@@ -184,10 +184,12 @@ def test_relative_markdown_links_resolve(document):
 
 def test_tools_index_contains_the_project_and_documentation_row():
     rows = (ROOT / "tools/README.md").read_text().splitlines()
-    row = next(line for line in rows if line.startswith("| [`hyperfide/`]"))
-    assert "(hyperfide/README.md)" in row
-    assert "(../docs/hyperfide/DOCUMENTATION.md)" in row
-    for link in markdown_links(row):
+    row = next(line for line in rows if line.startswith("| [hyperfide/]"))
+    assert "(hyperfide/)" in row
+    documentation = next(line for line in rows if line.startswith("- [Hyperfide]"))
+    assert "(hyperfide/README.md)" in documentation
+    assert "(../docs/hyperfide/DOCUMENTATION.md)" in documentation
+    for link in markdown_links(row + "\n" + documentation):
         assert (ROOT / "tools" / link).exists(), link
 
 
