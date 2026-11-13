@@ -1,12 +1,14 @@
 # Solidity API
 
+Source: [Proxy.sol](../../contracts/base/Proxy.sol).
+
 ## Proxy
 
-Base delegatecall proxy. Subclasses must implement _implementation().
+Base delegatecall proxy. Subclasses must implement \_implementation().
 
 _All calls are forwarded to the implementation via delegatecall._
 
-### _implementation
+### \_implementation
 
 ```solidity
 function _implementation() internal view virtual returns (address)
@@ -14,7 +16,7 @@ function _implementation() internal view virtual returns (address)
 
 Returns the current implementation address
 
-### _delegate
+### \_delegate
 
 ```solidity
 function _delegate(address implementation) internal virtual
@@ -37,4 +39,3 @@ receive() external payable virtual
 ```
 
 Receive function delegates to the implementation
-

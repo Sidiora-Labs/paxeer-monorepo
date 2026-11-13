@@ -39,6 +39,7 @@ getrandom = "=0.4.3"
 keyring = "=4.1.6"
 keyring-core = "=1.0.0"
 native-tls = "=0.2.18"
+# The agent daemon shares this exact filesystem primitive version.
 rustix = { version = "=1.1.4", features = ["fs", "process"] }
 layerx-fiat = { path = "../../services/interop/crates/layerx-fiat" }
 layerx-proof = { path = "../../services/agent/crates/layerx-proof" }

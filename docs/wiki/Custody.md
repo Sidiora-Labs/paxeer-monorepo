@@ -1,25 +1,22 @@
-# Custody credit retirement
+# Custody
 
-The kernel custody credit activity and its light client are retired.
-Bridge module 8 no longer offers this activity. Its former deposit
-verification, execution, genesis profile, payload and issuance procedures
-are no longer supported funding paths.
+Managed signing and owner self-custody operate on the same Paxeer network,
+with EVM chain ID `125`. A transaction is final when its block is committed.
+The application's login credential, protocol identity and transaction signing
+key have distinct roles.
 
-The Human web app's custodial keystore, wallet-binding boundary, and
-journey verification levels are a separate surface. See
-[Human custody](HumanCustody.md) and [Human journeys](HumanJourneys.md).
+[Human custody](HumanCustody.md) describes managed signing, key-provider
+boundaries and owner handover. [Human journeys](HumanJourneys.md) describes
+the application operations and their evidence levels.
 
 ## Funding and payments
 
-The local custody funding procedure and local custody evidence production
-are also retired. Profile generation, evidence production, signing and
-submission of custody funding activities, and their standalone qualification
-steps are no longer an operator funding path.
-
-For current ledger payments, use the
+For service-managed ledger payments, use the
 [Human service payment path](PaymentsQuickstart.md).
+Funding an EVM wallet for gas and funding a per-asset ledger account affect
+different balances; a DID binding alone does not fund either one.
 
-Natively issued tokens and per-asset accounts are documented separately in
-[Assets](Assets.md).
+Native denominations, registered assets, issuance and per-asset accounts are
+documented in [Assets](Assets.md).
 
 [Home](Home.md)

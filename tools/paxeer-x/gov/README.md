@@ -7,7 +7,7 @@ proposal stops the render; successful output contains unsigned transactions.
 
 Paxeer is one BFT network: the kernel is part of the network and proposes blocks,
 and a receipt is final when its block is committed. These are native chain
-governance proposals. The kit retains the `v6.12.0` plan name from
+governance proposals. The renderer uses the `v6.12.0` plan name declared in
 [`node/upgrades_v6120.go`](../../../node/upgrades_v6120.go).
 
 ## Render
@@ -17,11 +17,11 @@ Run from the repository root with Bash, `jq`, Python 3, `realpath` and a compati
 shows the required arguments followed by optional arguments in brackets:
 
 ```text
-tools/paxeer-x/gov/render.sh --out DIR --paxd build/paxd \
+tools/paxeer-x/gov/render.sh --out DIR \
   --height H --release-url URL --release-sha256 HEX --deposit COINS --pax-usd PRICE \
   --kernel-network-id N [--rate-update-height H] \
   [--bridge-config FILE]... [--bridge-manifest FILE] \
-  [--from BECH32] [--chain-id ID]
+  [--paxd BIN] [--from BECH32] [--chain-id ID]
 ```
 
 `--paxd` overrides `PAXD`, which otherwise defaults to `paxd` on `PATH`.
@@ -32,6 +32,9 @@ overriding `--from` does not change that message authority.
 
 `--kernel-network-id` is a positive uint32 used by the xweb proposal; use `125`
 for mainnet-beta.
+
+The renderer resolves the bridge manifest path before generating proposals.
+Bridge generation reads that manifest when `--bridge-config` is supplied.
 
 ## Outputs
 

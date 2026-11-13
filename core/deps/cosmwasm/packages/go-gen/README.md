@@ -6,8 +6,9 @@ response types. These types can then be used in
 
 ## Usage
 
-Adjust the query / response type you want to generate in `src/main.rs` and run:
-`cargo run -p go-gen`
+Adjust the query / response type in
+[`src/main.rs`](src/main.rs), then run `cargo run -p go-gen` from
+`core/deps/cosmwasm`.
 
 ## Limitations
 

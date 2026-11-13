@@ -1,6 +1,6 @@
 # config
 
-Shared configuration fragments kept beside the wallet app.
+Configuration files kept beside the wallet app.
 
-- `env/schema.ts` declares an `EnvSchema` interface and a `validateEnv()` reader for a small set of variables. The app does not import it; the variables the app reads are listed in the [app README](../README.md#configuration).
-- `typescript/base.json` holds base TypeScript compiler options. The app's own `tsconfig.json` does not extend it.
+- [`env/schema.ts`](env/schema.ts) declares `EnvSchema` and reads values through `validateEnv(source)`, which defaults to `process.env`. It also exports the result as `env`. The app does not import this module; the variables the app reads are listed in the [app README](../README.md#configuration).
+- [`typescript/base.json`](typescript/base.json) holds base TypeScript compiler options. The app's own [`tsconfig.json`](../tsconfig.json) does not extend it.

@@ -9,8 +9,9 @@ public JSON-RPC client in this package.
 
 No `px_register` wrapper. Generated
 `PlatformClient.agentAgentRegister` / `mutate(.agentAgentRegister, …)`
-sends `"agent:agent.register"`. `AgentHTTPTransport` is
-programs-only. Use [Public JSON-RPC](PublicRpc.md) or the Rust SDK
+selects the catalog entry `"agent:agent.register"`, whose wire operation
+name is `"agent.register"`. `AgentHTTPTransport` refuses calls;
+`AgentEnvelopeTransport` implements hosted agent-envelope calls. Use [Public JSON-RPC](PublicRpc.md) or the Rust SDK
 for self-service principal creation.
 
 ---
@@ -78,15 +79,28 @@ This package has no public JSON-RPC wrapper; use an HTTP client as above.
 import Foundation
 import LayerXSDK
 
-func verify(canonicalReceipt: Data, authorized: AuthorizedReceiptBatch) async throws -> ReceiptVerification {
-    try await LocalVerifier.verifyReceipt(canonicalReceipt, authorized: authorized)
+func verify(
+    canonicalReceipt: Data,
+    rawTransaction: Data,
+    keys: [ReceiptKeys],
+    receiptJSON: [String: JSONValue],
+    previousSequenceHash: Data
+) throws -> SequencerReceiptVerification {
+    try LocalVerifier.verifySequencerReceipt(
+        canonicalReceipt, rawTransaction: rawTransaction, keys: keys,
+        receiptJSON: receiptJSON, prevSeqHash: previousSequenceHash)
 }
 ```
 
-`AuthorizedReceiptBatch` is
-`(batchID: Data, asset: Data, previousStateRoot: Data, resultingStateRoot: Data, sequencerPublicKey: Data)`.
-Those facts must come from a source you already trust.
-`verifyReceiptOutcome` returns the decoded outcome without requiring
-result code 0. Default `protocolVersion` is `2`.
+Each `ReceiptKeys` value has `keyId`, `publicKey`, `firstHeight` and
+`lastHeight`. Authenticate these inclusive height-bounded pins and the
+previous sequence hash independently of the response. Retain the exact signed
+EVM transaction and the decoded `pax_sequencerReceipt` result object.
+
+The verifier checks the signature, transaction, JSON fields, logs and sequence
+continuity. Inspect `status` and `revert` for execution success. The returned
+level is `receipted`; reported block coordinates alone do not prove consensus
+commitment. See [`Committed.swift`](../../sdk/platform/swift/Sources/LayerXSDK/Committed.swift)
+for the committed-evidence and trust interfaces.
 
 [SDK quickstarts](SdkQuickstarts.md) · [Home](Home.md)

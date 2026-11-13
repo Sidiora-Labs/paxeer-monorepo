@@ -1,0 +1,35 @@
+[manifest]
+task = "22.41.102"
+pages = 8
+
+[page.1]
+path = "docs/site/paxeer-docs/src/app/bridge/page.tsx"
+status = "corrected"
+
+[page.2]
+path = "docs/site/paxeer-docs/src/app/building-a-frontend/page.tsx"
+status = "corrected"
+
+[page.3]
+path = "docs/site/paxeer-docs/src/app/checkpoints/page.tsx"
+status = "corrected"
+
+[page.4]
+path = "docs/site/paxeer-docs/src/app/cli/page.tsx"
+status = "corrected"
+
+[page.5]
+path = "docs/site/paxeer-docs/src/app/commerce/page.tsx"
+status = "corrected"
+
+[page.6]
+path = "docs/site/paxeer-docs/src/app/configuration/page.tsx"
+status = "corrected"
+
+[page.7]
+path = "docs/site/paxeer-docs/src/app/consensus/page.tsx"
+status = "corrected"
+
+[page.8]
+path = "docs/site/paxeer-docs/src/app/contracts/page.tsx"
+status = "corrected"

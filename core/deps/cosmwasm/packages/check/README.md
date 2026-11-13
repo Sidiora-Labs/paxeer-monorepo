@@ -17,7 +17,7 @@ Get help and info:
 cosmwasm-check -h
 ```
 
-Check some contracts:
+From `core/deps/cosmwasm`, check contracts built into `artifacts`:
 
 ```sh
 cosmwasm-check artifacts/hackatom.wasm artifacts/burner.wasm

@@ -19,7 +19,7 @@ To build from source first [install Rust for your
 platform](https://www.rust-lang.org/tools/install) and then use the included
 Cargo package manager to install:
 
-```
+```sh
 $ cargo install --locked wasm-tools
 ```
 
@@ -27,19 +27,19 @@ Alternatively if you use [`cargo
 binstall`](https://github.com/cargo-bins/cargo-binstall) then that can be used
 to install [the precompiled artifacts][artifacts] instead:
 
-```
+```sh
 $ cargo binstall wasm-tools
 ```
 
 Installation can be confirmed with:
 
-```
+```sh
 $ wasm-tools --version
 ```
 
 Subcommands can be explored with:
 
-```
+```sh
 $ wasm-tools help
 ```
 
@@ -56,7 +56,7 @@ $ wasm-tools validate foo.wasm
 $ wasm-tools validate foo.wat
 
 # Validate a WebAssembly file enabling an off-by-default feature
-$ wasm-tools validate foo.wasm --features=exception-handling
+$ wasm-tools validate foo.wasm --features=custom-page-sizes
 
 # Validate a WebAssembly file with a default-enabled feature disabled
 $ wasm-tools validate foo.wasm --features=-simd
@@ -110,7 +110,7 @@ $ wasm-tools component new my-core.wasm -o my-component.wasm
 $ wasm-tools component new my-core.wasm -o my-component.wasm --adapt wasi_snapshot_preview1.reactor.wasm
 ```
 
-### CLI Conventions
+## CLI Conventions
 
 There are a few conventions that all CLI commands adhere to:
 
@@ -130,8 +130,8 @@ There are a few conventions that all CLI commands adhere to:
 # Tools included
 
 The `wasm-tools` binary internally contains a number of subcommands for working
-with wasm modules and component. Many subcommands also come with Rust crates
-that can be use programmatically as well:
+with wasm modules and components. Many subcommands also come with Rust crates
+that can be used programmatically as well:
 
 | CLI | Rust Crate | Playground | Description |
 |------|------|--------|------------|
@@ -271,7 +271,7 @@ repository looks like:
 Note that the `Y` of all the versions above will also match for any release of
 this repository. This versioning scheme is intended to reflect the stable nature
 of the CLI and the `wat` crate in terms of API stability. Other crates, however,
-all receive a major version bump that are not automatically considered API
+all receive major version bumps that are not automatically considered API
 compatible on all releases. This reflects how WebAssembly itself is an evolving
 standard which is not an unchanging foundation. All of the crates in this
 repository are suitable for "production use" but be aware that API stability is
@@ -312,7 +312,7 @@ time. The basic idea is the same though as a normal release:
   breaking changes in any crate have landed.
 * If `N` is not the latest version on `main`, then create a new branch in the
   repository named `release-N` starting from the `v1.N.0` tag. Next land changes
-  as PRs against this branch, and note that CI may not have been run in awhile
+  as PRs against this branch, and note that CI may not have been run in a while
   so it may need some fixes. Then run the same workflow as above against the
   `release-N` branch with the `bump-patch` argument. Again double-check that no
   breaking changes have been made.
@@ -328,17 +328,19 @@ to this repository.
 
 # License
 
-This project is triple licenced under the Apache 2/ Apache 2 with LLVM exceptions/ MIT licences. The reasoning for this is:
+This project is triple licensed under the Apache 2/ Apache 2 with LLVM exceptions/ MIT licenses. The reasoning for this is:
+
 - Apache 2/ MIT is common in the rust ecosystem.
 - Apache 2/ MIT is used in the rust compiler, and some of this code may be migrated there.
-- Some of this code may be used in compiler output, and the Apache 2 with LLVM exceptions licence is useful for this.
+- Some of this code may be used in compiler output, and the Apache 2 with LLVM exceptions license is useful for this.
 
 For more details see
+
 - [Apache 2 Licence](LICENSE-APACHE)
 - [Apache 2 Licence with LLVM exceptions](LICENSE-Apache-2.0_WITH_LLVM-exception)
 - [MIT Licence](LICENSE-MIT)
 
-### Contribution
+## Contribution
 
 Unless you explicitly state otherwise, any contribution intentionally submitted
 for inclusion in this project by you, as defined in the Apache 2/ Apache 2 with LLVM exceptions/ MIT licenses,

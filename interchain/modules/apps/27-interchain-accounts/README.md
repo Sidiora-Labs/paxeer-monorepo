@@ -20,11 +20,6 @@ commands. Use them only with an application that explicitly wires ICA. The
 does not imply that mainnet accepts ICA packets. No mainnet ICA CLI command or
 endpoint is promised by this package.
 
-Enabling ICA later requires a chain/module owner decision, all of the wiring
-listed above, and real controller-to-host transaction and restart/recovery
-proofs. The current repair chooses the documented unsupported surface and does
-not activate ICA.
-
 ICA genesis export captures and marshals state before `ExportGenesisStream`
 returns. The returned channel contains one message and is closed, so consumers
 may advance or close the source store, or abandon the stream. Imported state

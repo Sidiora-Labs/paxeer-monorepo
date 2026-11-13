@@ -369,7 +369,7 @@ func repair46PriceSource(t *testing.T, h *repair46HTTP) {
 		}
 	}
 	exec(`CREATE SCHEMA stats`)
-	migrations := filepath.Join("..", "..", "..", "launchpad", "spec", "production-system", "integration", "migrations")
+	migrations := filepath.Join("..", "..", "..", "migrations")
 	raw, err := os.ReadFile(filepath.Join(migrations, "130000.sql"))
 	if err != nil {
 		t.Fatal(err)

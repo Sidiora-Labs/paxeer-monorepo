@@ -22,4 +22,4 @@ Every fuzz source file has a `//go:build gofuzz` constraint, so `-tags=gofuzz` i
 
 See the [Go fuzzing introduction](https://go.dev/doc/fuzz/) for corpus management and replaying failing inputs.
 
-[`oss-fuzz-build.sh`](oss-fuzz-build.sh) is the inherited upstream OSS-Fuzz build script. It compiles under the upstream `github.com/tendermint/tendermint` module path and uses upstream-relative corpus paths. It does not apply to this monorepo as-is; use the tagged native commands above.
+Use the tagged native commands above for this repository. The targets and their seed corpora are under [`tests/`](tests/).

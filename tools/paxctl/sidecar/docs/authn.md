@@ -1,18 +1,25 @@
 # Sidecar HTTP API authentication
 
-The sidecar exposes its task API over plain HTTP. Authentication is
-controlled by a single environment variable; the runtime trust
+The sidecar exposes its task API over plain HTTP behind the pod's TLS proxy.
+Authentication defaults to `trusted-header`; the runtime trust
 boundary is the pod, not the loopback interface.
 
 ## Environment contract
 
 | Env | Values | Default | Behavior |
 |---|---|---|---|
-| `SEI_SIDECAR_AUTHN_MODE` | unset \| `unauthenticated` \| `trusted-header` | unset | unset/`unauthenticated`: bind all interfaces, no auth. `trusted-header`: bind loopback, require `X-Remote-User` on non-probe paths. |
+| `SEI_SIDECAR_AUTHN_MODE` | `trusted-header` \| `unauthenticated` | `trusted-header` | Unset selects `trusted-header`: bind loopback and require `X-Remote-User` on non-probe paths. |
+| `SEI_SIDECAR_ISOLATED_DEVELOPMENT` | `true` | unset | Required to select the low-level `unauthenticated` development mode. |
 
-Parsing is strict: any non-empty value other than `unauthenticated`
-or `trusted-header` is a startup error so a typo cannot silently
-degrade a hardened deployment.
+The `serve` command requires `trusted-header` because it registers signing and
+destructive handlers. The low-level development server can bind all interfaces
+in `unauthenticated` mode only with the explicit development setting; it rejects
+task writes. See [the authentication implementation](../server/auth.go) and
+[the production command](../../serve.go).
+
+Parsing trims surrounding whitespace and lowercases the mode. An empty value
+selects `trusted-header`; any other value besides `unauthenticated` and
+`trusted-header` is a startup error.
 
 ## `trusted-header` mode
 
@@ -23,9 +30,7 @@ then forwards passed requests to `127.0.0.1:7777` with `X-Remote-User`
 naming the authenticated identity.
 
 The sidecar requires exactly one non-empty `X-Remote-User` value per
-request. Two values fail closed — that would mean the proxy is
-appending rather than overwriting, which would let an attacker-
-supplied header arrive first.
+request. The proxy overwrites that header with the authenticated identity.
 
 ### Bypass paths
 
@@ -51,22 +56,10 @@ common misconfigurations.
 
 ### Pod-level isolation requirements
 
-The trust boundary is the pod. Pods running in `trusted-header` mode
-MUST NOT enable any of:
-
-- `hostNetwork: true` — collapses loopback into the host's network
-  namespace, exposing `127.0.0.1:7777` to every other `hostNetwork`
-  pod on the node.
-- `hostPID: true` — lets off-pod processes attach.
-- `hostIPC: true` — exposes SysV IPC across the pod boundary.
-
-A colocated container in the pod can still reach `127.0.0.1:7777`
-directly and forge `X-Remote-User`. With `shareProcessNamespace:
-true` (the current `SeiNode` default) it can also read
-`/proc/<sidecar>/mem` and exfiltrate the unlocked keyring — memory
-read is the load-bearing threat, not header forgery. The middleware
-does not defend against either; the controller-side configuration of
-the pod is what establishes the boundary.
+The trust boundary is the pod. The sidecar, proxy and any colocated containers
+share its network namespace and belong to the same trusted deployment.
+Configure `hostNetwork`, `hostPID` and `hostIPC` as false. Process visibility
+within the pod must support the sidecar's node-management tasks.
 
 ## Controller-side contract
 

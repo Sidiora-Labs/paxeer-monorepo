@@ -1,36 +1,8 @@
-<div align="center">
+# PerfDB
 
-<h3>Embedded Rust database engine for high-frequency trading systems</h3>
+Embedded Rust database engine for trading applications.
 
-<p>
-Time series storage · real-time state · relational data · event sourcing unified into a single in process library, replacing a four database stack with<br/>
-<strong>zero network hops</strong> and <strong>native Rust types on the hot path</strong>.
-</p>
-
-<p align="center">
-  <img src="https://img.shields.io/badge/Project-PerfDB-FFFFFF?style=for-the-badge&amp;labelColor=004CED" alt="Project: PerfDB" />
-  <img src="https://img.shields.io/badge/Built_by-Sidiora_Labs-004CED?style=for-the-badge&amp;labelColor=000000" alt="Built by Sidiora Labs" />
-  <a href="#license"><img src="https://img.shields.io/badge/License-Apache--2.0-004CED?style=for-the-badge&amp;labelColor=000000" alt="License: Apache-2.0" /></a>
-  <img src="https://img.shields.io/badge/Status-Pre--release-FF6B35?style=for-the-badge&amp;labelColor=000000" alt="Status: Pre-release" />
-</p>
-
-<p align="center">
-  <img src="https://img.shields.io/badge/Rust-1.85%2B-004CED?style=for-the-badge&amp;labelColor=000000&amp;logo=rust&amp;logoColor=white" alt="Rust 1.85+" />
-  <img src="https://img.shields.io/badge/Engine-Zero_Network_Hops-00C896?style=for-the-badge&amp;labelColor=000000" alt="Zero network hops" />
-  <img src="https://img.shields.io/badge/Concurrency-Lock--free-004CED?style=for-the-badge&amp;labelColor=000000" alt="Lock-free reads" />
-</p>
-
-<p align="center">
-  <img src="https://img.shields.io/badge/Latest_Read-1.1ns-00C896?style=for-the-badge&amp;labelColor=000000" alt="Latest read: 1.1ns" />
-  <img src="https://img.shields.io/badge/Candle_Query-54--95ns-00C896?style=for-the-badge&amp;labelColor=000000" alt="Candle range query: 54-95ns" />
-  <img src="https://img.shields.io/badge/Tick_Ingest-~1.6M%2Fsec-00C896?style=for-the-badge&amp;labelColor=000000" alt="Tick ingestion: ~1.6M/sec" />
-</p>
-
-</div>
-
----
-
-## Table of Contents
+## Contents
 
 - [Overview](#overview)
 - [Performance](#performance)
@@ -49,89 +21,32 @@ Time series storage · real-time state · relational data · event sourcing unif
 
 ## Overview
 
-PerfDB is a purpose-built, embedded Rust database engine for high-frequency
-trading (HFT) and DeFi infrastructure. It consolidates four separate
-database systems into a single, zero-copy, lock-free engine optimized for
-the access patterns of a trading platform: append-only price ticks,
-pre-aggregated candles, hot in-memory state, and an immutable event log.
+PerfDB is an embedded Rust database library for trading applications. It
+coordinates mmap-backed price ticks and candles, in-memory state tables,
+relational stores, event indexes and typed broadcast channels. Engine mutations
+are serialized; position and order reads use read/write locks, balance reads
+use a sharded map, and latest-price reads use atomics.
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              BEFORE: 4 DATABASES                            │
-├─────────────────────────────────────────────────────────────────────────────┤
-│  PostgreSQL     QuestDB        ScyllaDB         DragonflyDB                 │
-│  (relational)   (time-series)  (event log)      (real-time cache)           │
-│       ↓              ↓              ↓                 ↓                     │
-│   Network hop    Network hop    Network hop      Network hop                │
-│   + JSON ser.    + ILP proto    + CQL driver     + RESP proto               │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                    ↓
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              AFTER: PerfDB                                  │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                     Single embedded library                                 │
-│                     Zero network hops                                       │
-│                     Native Rust types (no serialization)                    │
-│                     Lock-free concurrent reads                              │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
-| Challenge | Traditional approach | PerfDB |
-|---|---|---|
-| Network latency | ~500µs per Redis `GET` over TCP | <100ns direct memory access |
-| Serialization overhead | JSON encode/decode per operation | Zero-copy native Rust types |
-| Operational complexity | Four databases to deploy and scale | Single embedded library |
-| Data durability | In-memory cache lost on restart | WAL-backed with crash recovery |
-| Time-series performance | External `SAMPLE BY` queries | Pre-computed candles in-process |
-| Pub/sub | Separate Redis connection | Built-in `tokio::broadcast` channels |
+See [the architecture](ARCHITECTURE.md) for storage layouts and concurrency.
 
 ## Performance
 
-| Operation | Measured | Target | Legacy stack (typical) |
-|---|---|---|---|
-| Latest price read | 1.1ns | <100ns | ~500µs (Redis `GET`) |
-| Candle range query | 54–95ns | <50µs | ~5ms (QuestDB PG wire) |
-| Position lookup by ID | 97–102ns | <200ns | ~300µs (Redis `GET`) |
-| Position list by user | ~1.6µs | <1µs | ~2ms (Redis `SMEMBERS`) |
-| Tick ingestion, multi-market | ~1M/sec | >2M/sec | ~10K/sec (QuestDB ILP) |
-| Tick ingestion, single-market | ~1.6M/sec | >2M/sec | ~10K/sec (QuestDB ILP) |
-
-Run `cargo bench` to reproduce these numbers on your own hardware; see
-[Benchmarks](#benchmarks) for details. Figures above were captured on a
-commodity VPS without NVMe storage — expect better throughput on
-dedicated hardware.
+The benchmark suite measures latest-price reads, candle queries, position
+lookups and tick ingestion. Run it on the target hardware to assess those
+workloads; see [Benchmarks](#benchmarks) for the available commands.
 
 ## Architecture
 
-PerfDB is organized into four specialized storage engines, each replacing a component of the legacy stack:
+`PerfDb` coordinates these components:
 
-```
-PerfDB
-├── TimeSeriesEngine        ← replaces QuestDB
-│   ├── TickStore           (mmap append-only, per-market files)
-│   ├── CandleStore         (fixed-record, per-market-per-timeframe)
-│   └── FundingStore        (append-only funding rate history)
-│
-├── StateEngine             ← replaces DragonflyDB/Redis
-│   ├── PositionTable       (in-memory HashMap, WAL-backed)
-│   ├── OrderTable          (in-memory HashMap + sorted sets for orderbook)
-│   ├── MarketState         (prices, funding rates, OI — atomic updates)
-│   ├── BalanceCache        (per-user-per-token balances)
-│   └── PubSubBus           (in-process broadcast channels)
-│
-├── RelationalEngine        ← replaces PostgreSQL
-│   ├── UserStore           (B-tree indexed by address)
-│   ├── TraderStatsStore    (in-memory with periodic flush)
-│   ├── DailyStatsStore     (date-partitioned)
-│   ├── ReferralStore       (relational lookups)
-│   ├── CompetitionStore    (small dataset, in-memory)
-│   └── CheckpointStore     (singleton, WAL-backed)
-│
-└── EventLogEngine          ← replaces ScyllaDB
-    ├── EventsByMarket      (append-only, partitioned by market_id)
-    ├── EventsByTrader      (append-only, partitioned by trader address)
-    └── TradeLog            (append-only, dual-indexed)
-```
+| Workload | Components |
+| --- | --- |
+| Time series | `TickStore`, `CandleStore`, `CandleBuilder` |
+| Market and account state | `MarketStateTable`, `PositionTable`, `OrderTable`, `BalanceCache` |
+| Relational state | `UserStore`, `ReferralEngine`, `CheckpointStore`, `AlertStore`, `ApiKeyStore`, `CompetitionStore` |
+| Statistics | `TraderStatsStore`, `DailyStatsStore`, `Leaderboard` |
+| Events and streaming | `EventStore`, `PubSubBus` |
+| Persistence | WAL segments, engine snapshots and mmap files |
 
 ## Quick Start
 
@@ -168,7 +83,7 @@ The example creates `./data`; start with an empty directory for its single-tick 
 
 ## Installation
 
-PerfDB is not yet published to crates.io. Its source lives at
+PerfDB source lives at
 `services/platform/perf-db` in the monorepo. Use it as a git dependency
 (Cargo finds the `perfdb` package in that directory):
 
@@ -196,7 +111,7 @@ cargo build --release
 ### System requirements
 
 - Rust 1.85 or newer (stable), with edition 2024 support
-- Linux (kernel 4.15+) or macOS 10.15+
+- Unix writer locking via `flock`; opening a writer on a non-Unix platform returns an error
 - SSD recommended for WAL and mmap performance
 
 ## Usage
@@ -291,20 +206,23 @@ let candles = db.candles(market_id, Timeframe::Min15);
 
 ## Durability and Recovery
 
-**Write path**: every mutation is appended to the write-ahead log before it
-is applied to in-memory state, so an acknowledged write survives a crash.
+`ingest_tick` and `process_event` append to the WAL before applying updates.
+The default `SyncPolicy::Interval` checks for a sync on append at a 10 ms
+interval; it has no background timer. Acknowledged writes can be lost on a crash
+before sync. `SyncPolicy::EveryWrite` syncs each append; `SyncPolicy::None`
+relies on explicit syncing and rotation. Direct mutations of public state
+stores do not automatically append engine WAL entries.
 
-**Recovery on `PerfDb::open`**:
+`PerfDb::open` acquires an exclusive writer lease, restores the latest usable
+snapshot and recovery cursors, validates stores, rewinds uncommitted time-series
+suffixes, and replays WAL entries. It repairs a damaged final append; corruption
+before later valid records is refused. `PerfDb::open_read_only` inspects an
+existing database without acquiring a writer lease or modifying its files.
 
-1. Load the most recent snapshot, if one exists.
-2. Restore all stores from that snapshot.
-3. Replay WAL entries written after the snapshot's checkpoint.
-4. Seed the candle builder from the latest stored candles.
-
-`PerfDb::snapshot()` can be called periodically to bound WAL replay time;
-`PerfDb::shutdown()` flushes the candle builder, syncs the WAL, and writes
-a final snapshot. Recovery behavior is covered by `tests/recovery.rs`,
-including truncated and CRC-corrupted WAL segments.
+Call `sync_wal()` to sync the WAL and mmap stores and persist the tick checkpoint.
+`snapshot()` publishes an engine snapshot; `shutdown()` also upserts live candles,
+flushes stores and syncs the WAL. The embedding application schedules these
+operations. Recovery cases are in [`tests/recovery.rs`](tests/recovery.rs).
 
 ## Benchmarks
 
@@ -316,8 +234,8 @@ cargo bench --bench position_lookup
 cargo bench --bench price_read
 ```
 
-Results are written to `target/criterion/` with HTML reports. See
-[Performance](#performance) for the latest recorded numbers.
+Criterion writes reports under the Cargo target directory, normally
+`target/criterion/`.
 
 ## Project Status
 
@@ -359,7 +277,7 @@ Licensed under Apache-2.0 (Apache License, Version 2.0). See the repository
 
 ## Related
 
-- [Paxeer Network](https://paxeer.app) — Sovereign L1 (Chain ID 125), 400ms blocks and finality, purpose-built for high-frequency and agentic workloads.
+- [Paxeer Network](https://paxeer.app) — BFT network with EVM chain ID 125. A receipt is final when its block is committed.
 
 ---
 

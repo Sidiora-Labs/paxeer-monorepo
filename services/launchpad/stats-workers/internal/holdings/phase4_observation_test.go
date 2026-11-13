@@ -15,7 +15,7 @@ import (
 
 func TestPhase4ObservationReadsCanonicalSourceAndBroker(t *testing.T) {
 	ctx, pool, transfer := canonicalLocalFixture(t)
-	ddl, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "..", "launchpad", "spec", "production-system", "integration", "migrations", "60001.sql"))
+	ddl, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "..", "migrations", "60001.sql"))
 	if err != nil {
 		t.Fatal(err)
 	}
