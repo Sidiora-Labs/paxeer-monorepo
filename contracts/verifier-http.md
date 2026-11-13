@@ -2,10 +2,10 @@
 
 The explorer's smart-contract verifier compares supplied or retrieved source
 compilation output with contract bytecode. It is an explorer service, not a
-consensus or transaction-finality service. Paxeer is one BFT network with EVM
-chain ID `125` (`0x7d`); the kernel participates in block proposal, and
-receipts are final when their block commits. A source match does not change
-that lifecycle.
+consensus or transaction-finality service. Paxeer uses EVM chain ID `125`
+(`0x7d`). The LayerX kernel inside `paxd` executes and orders each transaction
+and builds each block; validators check and commit it, and receipts are final
+when their block commits. A source match does not change that lifecycle.
 
 See [node RPC](rpc.md) to read chain bytecode and
 [JavaScript SDK](sdk-js.md) for native-module clients. The SDK REST `Querier`

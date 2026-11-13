@@ -68,7 +68,7 @@ go test -count=1 ./contracts/bridge/vectors/... ./services/bridge/deploy/...
 
 ## Configuration
 
-Paxeer is one BFT network running `paxd`, with the kernel participating in execution and block proposal. Its EVM chain id is `125` (`0x7d`); a receipt is final when its block is committed. Paxeer EVM reads use the public node JSON-RPC at the root path. The [public RPC reference](../../docs/site/paxeer-docs/public/markdown/public-rpc.md) describes node access. `PAXEER_BRIDGE_PAXEER_RPC_URL` selects the Paxeer endpoint for the checklist. Foreign-chain finality depths remain separate configuration values for observing deposits.
+The LayerX kernel inside `paxd` executes and orders each transaction and builds each block; validators check and commit it. Its EVM chain id is `125` (`0x7d`); a receipt is final when its block is committed. Paxeer EVM reads use the public node JSON-RPC at the root path. The [public RPC reference](../../docs/site/paxeer-docs/public/markdown/public-rpc.md) describes node access. `PAXEER_BRIDGE_PAXEER_RPC_URL` selects the Paxeer endpoint for the checklist. Foreign-chain finality depths remain separate configuration values for observing deposits.
 
 The operator runbook below covers deployment order, environment inputs, governance configuration and readbacks before opening the bridge. The Paxeer side is the [layerxbridge module](../../modules/layerxbridge) and its [precompile](../../precompiles/layerxbridge).
 
