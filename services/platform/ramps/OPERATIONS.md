@@ -3,8 +3,8 @@
 Use this with the [toolkit overview](README.md),
 [configuration example](config.example.json) and
 [deployment template](deployment.yaml). The reference service has production
-integration prerequisites; a valid configuration does not establish a working
-provider or a complete off-ramp submission path.
+integration prerequisites; provider, signer and node boundaries must be
+configured for the enabled payment paths.
 
 ## Enablement
 
@@ -71,7 +71,7 @@ creating the order; the old input names are compatibility aliases.
 The reconciler performs status and receipt reads for pending and unknown states;
 it does not submit again. An authenticated worker sends a strict object to
 `POST /internal/v1/work`: `order_digest` (32-byte array), `action`, and optional
-`account_sequence`.
+`account_sequence` and `raw_transaction`.
 
 1. Use `compliance` to obtain a signed order-bound decision. A manual-review
    result is non-terminal.
@@ -82,10 +82,10 @@ it does not submit again. An authenticated worker sends a strict object to
    and fee caps before signing the exact native ledger payment.
 4. The HTTP handler requires `account_sequence` for off-ramp `submit_layerx`,
    but operator preparation refuses that path with `PayerGrantRequired`.
-   Supplying a sequence cannot authorise a customer debit. The toolkit supports
-   customer-signed `budgetSpend` through `submit_customer_payment`; the reference
-   HTTP service does not expose that submission operation. Integrate and qualify
-   it before enabling off-ramp orders.
+   Supplying a sequence cannot authorise a customer debit. For a customer-signed
+   off-ramp `budgetSpend`, use `submit_customer_payment` with `raw_transaction`
+   containing the signed bytes as a JSON byte array of 1 to 131072 bytes.
+   Omit `account_sequence` or send JSON `null` for this action.
 5. Use `resolve_layerx` for the persisted transaction hash. Leave transport loss
    unknown and let reconciliation establish its outcome.
 
@@ -102,13 +102,14 @@ Current request bodies (replace the digest with the bound order's 32-byte array)
 For off-ramp order creation use `customer_budget_id` and
 `customer_budget_purpose` as shown in the README. The customer must sign a
 chain-id-125 `budgetSpend` transaction bound to that budget, purpose, asset,
-amount and operator recipient. Call `RampEngine::submit_customer_payment` with
-the exact signed bytes through an authenticated customer integration. There is
-currently no reference HTTP request that submits these bytes: keep off-ramp
-enablement closed until that integration is implemented and qualified. A
-legacy grant identifier or receiver sequence cannot supply this authority.
+amount and operator recipient. The authenticated operator worker sends those
+exact bytes to `POST /internal/v1/work` with action `submit_customer_payment`;
+the handler calls `RampEngine::submit_customer_payment`. A legacy grant
+identifier or receiver sequence cannot supply customer signing authority.
 
-`account_sequence` on other work actions is rejected with 400 `work_invalid`;
+`raw_transaction` is required and nonempty for `submit_customer_payment` and
+is rejected on other actions when non-null. Non-null `account_sequence` on
+actions other than `submit_layerx` is rejected with 400 `work_invalid`;
 on-ramp submission with it is also rejected. The operator bearer is distinct
 from customer credentials. NetworkPolicy limits callers by pod/port and does
 not distinguish public and internal paths on the same TLS listener.

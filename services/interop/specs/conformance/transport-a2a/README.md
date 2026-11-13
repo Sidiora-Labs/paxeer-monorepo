@@ -26,11 +26,10 @@ Each file holds a JSON array of records:
 
 This binding carries JSON on every message.
 
-The eight original records retain their documents and representation verdicts.
-The opaque `authorization` in `payment_payload` and `facilitator_request` is
-intentional role coverage. It cannot settle a payment. Their expectations name
-`typed_intent_required` at the payment plane; the mounted facilitator refuses
-verification with `transaction_form`, and settlement with
+The opaque `authorization` in `payment_payload` and `facilitator_request` covers
+role representation. Payment admission requires typed signed payer bytes.
+Their expectations name `typed_intent_required` at the payment plane; the mounted
+facilitator refuses verification with `transaction_form`, and settlement with
 `protocol_idempotency_required` before reaching that plane.
 
 The `recorded_native_*` records bind the offer, payload and facilitator request
@@ -49,10 +48,10 @@ requires the account and currency profile on `eip155:125`.
 
 ## Conformance
 
-`services/interop/crates/layerx-x402/tests/transports.rs` reads these files with
-`include_str!` and runs every record through the production x402 model types
-and the production encoder and decoder for this transport, so the suite the
-deployment pins is the suite the tests exercise.
+`services/interop/crates/layerx-x402/tests/transports.rs` reads the top-level role
+records with `include_str!` and exercises the production x402 model types and
+this transport's encoder and decoder. `expectations` and `provenance` describe
+additional payment and ingress conditions separately from the codec assertions.
 
 Ingress expectations apply after authentication and operation admission with a
 configured x402 adapter and supported kind. Each body is the record's document,
@@ -61,9 +60,8 @@ the fixed observation time. Runtime settlement must use the committed receipt
 and key pin through a loopback peer, never fabricate a successful response from
 an opaque authorization or a transaction hash alone.
 
-The fault-injected settlement cases in that file are not vectors and are not
-counted: they drive a live sequencer signer and a canonical receipt encoder
-rather than a transport representation.
+Additional settlement cases in that file use a local receipt signer and
+canonical receipt encoder. They are outside the JSON vector count.
 
 `services/interop/deploy/gateway/render.py` derives the vector count and the SHA-256
 the gateway configuration declares from these files.

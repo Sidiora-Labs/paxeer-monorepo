@@ -1,9 +1,10 @@
 # Identity verification delivery
 
-The identity service runs its built-in outbox consumer every five seconds.
+The identity service runs its built-in outbox consumer at startup and waits
+five seconds after each pass before running it again.
 The single replica owns delivery and durable acknowledgement. `pending: true`
-acknowledges a queued signup, not receipt of mail. `/readyz` checks the identity store, not SMTP delivery. Delivery is an
-explicitly operated consumer rather than a dependency of the readiness probe.
+acknowledges a queued signup, not receipt of mail. `/readyz` checks the identity
+store; delivery runs independently of that readiness probe.
 
 The [deployment](deployment.yaml) requires these objects in `layerx-testnet`:
 
@@ -30,26 +31,24 @@ recipient delivery belong to the relay operator. Do not substitute STARTTLS on
 The producer and consumer share
 `/var/lib/layerx/identity/signup-outbox` on the identity state PVC. Startup
 reconciles pending durable delivery records before accepting requests. Each
-consumer pass reconciles that state, then sends JSON verification messages;
+consumer pass reconciles that state, then sends plain-text verification mail
+from JSON queue records;
 successful SMTP acceptance is durably recorded before the file is removed.
-Errors leave deliveries for retry at the next 5-second pass. Expired deliveries
+Errors leave deliveries for retry on a later pass. Expired deliveries
 are retired by reconciliation. Preserve the PVC and store key during recovery;
 do not manually remove queue files. An interrupted SMTP acknowledgement can
 produce duplicate messages, so SMTP acceptance is not an exactly-once promise.
 
 Monitor `layerx-identity mailer failed:` in
-identity logs and queue count/oldest age on the state volume. Page when the
-oldest unexpired queued message exceeds 60 seconds or delivery errors persist
-for 60 seconds. Inspect metadata only; queue contents contain verification
-tokens and email addresses. During a sustained incident, pause new signup at
-the provisioning caller, repair relay connectivity/TLS/authentication or sender
-authorization, and let the built-in consumer retry. Confirm that the queue
-drains; request a fresh signup if the original code expired. Do not restart the
-service repeatedly to mask the error or treat a green `/readyz` as delivery proof.
+identity logs and queue count/oldest age on the state volume. Inspect metadata
+only; queue contents contain verification tokens and email addresses. The
+consumer retries retained deliveries after relay connectivity, TLS,
+authentication and sender authorization are restored. Expired codes require a
+fresh signup.
 
 Before enabling signup after deployment or rotation, the operator must send
 one signup through the authenticated provisioning caller to `/v1/signup` using
-an operator-controlled mailbox and a unique subject. Confirm `pending: true`,
+an operator-controlled mailbox and a unique `sub`. Confirm `pending: true`,
 receipt of the verification message from the configured sender, and successful
 `/v1/signup/verify` with the delivered code. Confirm that the corresponding
 outbox entry disappears after relay acceptance. In a controlled staging check,

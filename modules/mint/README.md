@@ -20,7 +20,7 @@ A new minter takes its dates and total from that release, uses `mint_denom`, set
 - Before `end_date`, the amount is `remaining_mint_amount / days_left`, using integer division. `days_left` counts UTC calendar-day boundaries from the current date to the end date.
 - On or after `end_date`, the amount is the entire remaining balance, provided nothing has already been minted on that date.
 
-The calculation runs again at each epoch hook. A zero result does not record a mint. Rounding and missed days therefore affect later calculations; an outage does not trigger one separate mint for every missed day.
+Each epoch hook calculates one amount using the ending epoch's UTC start date. A zero result does not record a mint, so rounding affects later calculations. Epoch catch-up advances one scheduled epoch per block and can process elapsed dates over successive blocks; an individual hook does not iterate over missed dates.
 
 For example, with `500000uhpx` remaining and 49 days left, the next mint is `10204uhpx`, leaving `489796uhpx`. The following eligible day uses its new remaining amount and days left. Any balance still remaining on or after the end date is released at the next eligible hook.
 

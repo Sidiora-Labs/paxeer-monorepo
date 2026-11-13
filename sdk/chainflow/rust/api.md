@@ -4,10 +4,10 @@ Complete reference of every operation, grouped by resource. See [the README](./R
 
 ## Contents
 
-- [`Gateway`](#gateway)
+- [`GatewayResource`](#gatewayresource)
   - [Check gateway liveness](#check-gateway-liveness)
   - [Mint a scoped WebSocket token](#mint-a-scoped-websocket-token)
-- [`PriceFeeds`](#pricefeeds)
+- [`PriceFeedsResource`](#pricefeedsresource)
   - [Get the current feed price](#get-the-current-feed-price)
   - [Get feed](#get-feed)
   - [Get spot-style market statistics](#get-spot-style-market-statistics)
@@ -15,14 +15,14 @@ Complete reference of every operation, grouped by resource. See [the README](./R
   - [Get trade-tape storage status](#get-trade-tape-storage-status)
   - [Get recent spot trades](#get-recent-spot-trades)
   - [Get recent perpetual trades](#get-recent-perpetual-trades)
-- [`TradingView`](#tradingview)
+- [`TradingViewResource`](#tradingviewresource)
   - [Get UDF feed capabilities](#get-udf-feed-capabilities)
   - [Get server Unix time](#get-server-unix-time)
   - [Resolve UDF symbol metadata](#resolve-udf-symbol-metadata)
   - [Search within one feed](#search-within-one-feed)
   - [Get OHLCV history](#get-ohlcv-history)
   - [Get UDF quotes](#get-udf-quotes)
-- [`Markets`](#markets)
+- [`MarketsResource`](#marketsresource)
   - [Get aggregator health](#get-aggregator-health)
   - [List display-scaled market summaries](#list-display-scaled-market-summaries)
   - [Get one display-scaled market summary](#get-one-display-scaled-market-summary)
@@ -30,21 +30,21 @@ Complete reference of every operation, grouped by resource. See [the README](./R
   - [List fresh unscaled tickers](#list-fresh-unscaled-tickers)
   - [Get one fresh unscaled ticker](#get-one-fresh-unscaled-ticker)
   - [Get estimated long/short perpetual open interest](#get-estimated-longshort-perpetual-open-interest)
-- [`Explorer`](#explorer)
+- [`ExplorerResource`](#explorerresource)
   - [Get EVM explorer health](#get-evm-explorer-health)
   - [Get recent EVM blocks](#get-recent-evm-blocks)
   - [Get recent explorer activity](#get-recent-explorer-activity)
-- [`CoinGecko`](#coingecko)
+- [`CoinGeckoResource`](#coingeckoresource)
   - [List local CoinGecko-compatible IDs](#list-local-coingecko-compatible-ids)
   - [Get CoinGecko-compatible market data](#get-coingecko-compatible-market-data)
   - [Get CoinGecko-compatible coin detail](#get-coingecko-compatible-coin-detail)
   - [Get compact USD quotes](#get-compact-usd-quotes)
-- [`CoinMarketCap`](#coinmarketcap)
+- [`CoinMarketCapResource`](#coinmarketcapresource)
   - [Get CMC-compatible latest quotes](#get-cmc-compatible-latest-quotes)
   - [Get CMC-compatible latest listings](#get-cmc-compatible-latest-listings)
   - [Get CMC-compatible latest quotes](#get-cmc-compatible-latest-quotes-1)
   - [Get CMC-compatible latest listings](#get-cmc-compatible-latest-listings-1)
-- [`WebSockets`](#websockets)
+- [`WebSocketsResource`](#websocketsresource)
   - [Open {market} WebSocket](#open-market-websocket)
   - [Open markets WebSocket](#open-markets-websocket)
   - [Open explorer WebSocket](#open-explorer-websocket)
@@ -65,13 +65,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-## `Gateway`
+## `GatewayResource`
 
 Gateway health and WebSocket credential issuance.
 
 ### Check gateway liveness
 
-Checks Nginx only; does not probe the auth helper, database or market services.
+Checks Nginx liveness. The result is raw bytes. Set an explicit `.timeout(...)`
+to apply a body-read deadline as well as the deadline for response headers.
 
 | Direction | Type |
 | --- | --- |
@@ -98,7 +99,7 @@ let response = client
     .await?;
 ```
 
-## `PriceFeeds`
+## `PriceFeedsResource`
 
 Per-symbol USD prices, statistics and tapes.
 
@@ -184,7 +185,7 @@ let response = client
     .await?;
 ```
 
-## `TradingView`
+## `TradingViewResource`
 
 TradingView UDF configuration, metadata, quotes and candles.
 
@@ -200,7 +201,9 @@ let response = client.trading_view().list_datafeed_config(Market::Btc).send().aw
 
 ### Get server Unix time
 
-An integer encoded as a text response, in seconds. Express currently serves text/html, not JSON.
+An integer encoded as a text response, in seconds, with media type `text/html`.
+The SDK returns raw bytes. Set an explicit `.timeout(...)` to apply a body-read
+deadline as well as the deadline for response headers.
 
 | Direction | Type |
 | --- | --- |
@@ -266,7 +269,7 @@ Omitting symbols returns an empty d array. Bid and ask both equal candle close; 
 let response = client.trading_view().list_quotes(Market::Btc).send().await?;
 ```
 
-## `Markets`
+## `MarketsResource`
 
 Cross-market summaries and ticker adapters.
 
@@ -344,7 +347,7 @@ let response = client.markets().retrieve_ticker("BTC").send().await?;
 let response = client.markets().list_open_interest().send().await?;
 ```
 
-## `Explorer`
+## `ExplorerResource`
 
 EVM blocks and activity.
 
@@ -382,7 +385,7 @@ Explorer activity.
 let response = client.explorer().list_transactions().send().await?;
 ```
 
-## `CoinGecko`
+## `CoinGeckoResource`
 
 USD-only CoinGecko-compatible local-feed formats.
 
@@ -434,7 +437,7 @@ Response keys are local IDs unless symbols was supplied, in which case keys are 
 let response = client.coin_gecko().list_simple_prices().send().await?;
 ```
 
-## `CoinMarketCap`
+## `CoinMarketCapResource`
 
 USD-only CMC-compatible local-feed formats.
 
@@ -486,7 +489,7 @@ Alias of the same path without `/api`. Only USD; unknown/duplicate parameters ar
 let response = client.coin_market_cap().list_listings_api_alias().send().await?;
 ```
 
-## `WebSockets`
+## `WebSocketsResource`
 
 The `websocket` feature supplies persistent connections. Configure a scoped
 `ws_token` before opening one; minting alone does not update the client. See

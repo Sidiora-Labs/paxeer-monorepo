@@ -25,13 +25,13 @@ blockscout-client = { path = "<path to>/services/explorer/services/libs/blocksco
 Set `Configuration::builder().base_path(...)` to an explicit explorer REST
 origin (scheme, host and optional port), without credentials, query, fragment,
 `/api` or `/api/v2`. There is no usable default origin; generated operations
-append their full API paths. For example, with a backend listening locally:
+append their full API paths. For example, with `REST_ORIGIN` set to the backend origin:
 
 ```rust
 use blockscout_client::{ApiClient, Configuration};
 
 let client = ApiClient::new(
-    Configuration::builder().base_path("http://127.0.0.1:4000").build(),
+    Configuration::builder().base_path(std::env::var("REST_ORIGIN")?).build(),
 );
 ```
 
@@ -57,7 +57,8 @@ automatically read by the Rust client or the recorder.
 
 ```sh
 yarn install --frozen-lockfile
-export REST_ORIGIN=http://127.0.0.1:4000
+: "${REST_ORIGIN:?Set a loopback explorer REST origin}"
+export REST_ORIGIN
 curl --fail --show-error --silent "$REST_ORIGIN/api/v2/openapi" \
   --output swaggers/paxeer-local-openapi.json
 node <<'JS'
@@ -172,10 +173,10 @@ RFC 3339 timestamps; preserve this when refreshing the schema.
 
 ## Tests
 
-The existing [it_works.rs](crate/tests/it_works.rs) suite starts Stubr against
+The existing [it_works.rs](crate/tests/it_works.rs) suite starts an owned loopback recording server against
 `tests/recorded/eth_blockscout_com`. These are **upstream samples**, not evidence
-that the current Paxeer producer agrees with the client. Its legacy v1 health
-case is unsupported by the current backend.
+that the current Paxeer producer agrees with the client. It checks that `health_v1()` returns `UnsupportedCapability` and decodes the
+v1 recording separately as a compatibility fixture.
 [repair_22_31_273.rs](crate/tests/repair_22_31_273.rs) checks model codecs.
 [repair_22_31_274.rs](crate/tests/repair_22_31_274.rs) exercises client transport
 with recordings and explicitly labeled producer-view examples.
@@ -224,9 +225,9 @@ console (or use the equivalent release `eval` command), then invoke:
 
 ```elixir
 Code.require_file("/absolute/path/to/blockscout-client/scripts/export_contract_state.exs")
-BlockscoutClient.ContractState.export("http://127.0.0.1:4000", "/private/healthy.json", "FULL_RUNNING_BACKEND_GIT_SHA")
-# In the empty backend's console, with its own origin:
-BlockscoutClient.ContractState.export("http://127.0.0.1:4001", "/private/empty.json", "FULL_RUNNING_BACKEND_GIT_SHA")
+BlockscoutClient.ContractState.export(System.fetch_env!("REST_ORIGIN"), "/private/healthy.json", "FULL_RUNNING_BACKEND_GIT_SHA")
+# In the empty backend's console, with REST_ORIGIN set to its own origin:
+BlockscoutClient.ContractState.export(System.fetch_env!("REST_ORIGIN"), "/private/empty.json", "FULL_RUNNING_BACKEND_GIT_SHA")
 ```
 
 Use the full 40-character backend Git SHA, obtained from the running build's
@@ -238,9 +239,8 @@ HTTP 500 with typed error 5002 and its original message, and an empty blocks
 page with HTTP 200. Both success decoding methods must agree. Any mismatch,
 missing scenario or transport failure exits nonzero. Output is a new private
 JSON evidence file containing source revision, origin, paths, actual statuses,
-full response bodies and typed results. This operational command is separate
-from the source-only pytest qualification gate; no actual backend run is claimed
-by that gate.
+full response bodies and typed results. The command sends requests to both running backends and compares them with
+the exported state.
 
 For actual-producer validation, start the target backend revision against a
 controlled indexed database containing both an EVM transaction and a native
@@ -268,16 +268,16 @@ database, not identifiers copied from upstream recordings. Check:
 Record the backend revision, database scenario, schema snapshot, request path
 and query, actual status/content type/body, and assertions for each case.
 Sanitize recordings before committing them; only this actual-producer run can
-establish agreement with that backend revision. The offline gate makes no claim
-that this operational validation has run.
+establish agreement with that backend revision. The offline tests use retained responses and source-derived examples.
 
 ### Recording responses
 
 [ts-src/record-stubs.ts](ts-src/record-stubs.ts) requires an explicit loopback
-origin, full source backend revision and new output directory. For example:
+origin, full source backend revision and an output directory with no conflicting
+recording files. For example:
 
 ```sh
-yarn record-stubs http://127.0.0.1:4001 FULL_RUNNING_BACKEND_GIT_SHA /private/recorded-empty /api/health /api/v2/blocks
+yarn record-stubs "$REST_ORIGIN" FULL_RUNNING_BACKEND_GIT_SHA /private/recorded-empty /api/health /api/v2/blocks
 ```
 
 With no paths it requests `/api/health` and `/api/v2/blocks`. It preserves

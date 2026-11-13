@@ -99,9 +99,15 @@ token responses, connection URLs or complete connection events; events may
 contain transport errors. Use a separate stream client so its token does not
 also become a query parameter on REST calls.
 
+HTTP calls accept asynchronous `AuthTokenProvider` functions. WebSocket
+upgrades resolve the REST key and token synchronously, so use strings or
+synchronous providers for a stream client.
+
 ## Error handling
 
-Non-success responses throw generated API errors. Error objects expose status, headers, response body, and request metadata where the target runtime supports it.
+Non-success HTTP responses throw `APIError` instances with `status`, `headers`
+and the decoded JSON payload in `error`. Non-JSON response text contributes
+to the error message. Transport errors may have no HTTP status or headers.
 
 ```ts
 import { APIError } from '@sidioralabs/chainflow-data-gateway';
@@ -122,7 +128,9 @@ contain application errors.
 
 ## Requirements
 
-- Node.js 20+ with `fetch` and the `ws` transport for the default entry point.
+- The default entry point uses Node.js and the `ws` transport. HTTP calls need
+  global `fetch` or a custom `fetch` option, plus Fetch API types such as
+  `Headers`, `Request` and `Response`.
 
 ## Reference files
 

@@ -58,14 +58,14 @@ rootCmd := &cobra.Command{
 ```
 
 The `SetCmdClientContextHandler` call reads persistent flags via
-`ReadPersistentCommandFlags`, which creates a `client.Context` and sets that
-on the root command's `Context`.
+`ReadPersistentCommandFlags`, which updates the supplied `client.Context`,
+then updates the client context already attached to the command.
 
-The `InterceptConfigsPreRunHandler` call creates a viper literal, a default
-`server.Context` and a logger, and sets them on the root command's `Context`.
-The `server.Context` will be modified and saved to disk via the internal
-`interceptConfigs` call, which either reads or creates a Tendermint
-configuration based on the home path provided. In addition,
+The `InterceptConfigsPreRunHandler` call creates a Viper instance and a default
+`server.Context`, then updates the server context already attached to the
+command. `server.Context` contains `Viper` and `Config`; logging uses the
+package's logger. The internal `interceptConfigs` call reads or creates
+`config/config.toml` under the home path provided. In addition,
 `interceptConfigs` also reads and loads the application configuration,
 `app.toml` (written from the custom template and config the application
 passes in), and binds that to the `server.Context` viper literal. This is
@@ -93,7 +93,7 @@ process support via socket or gRPC has been removed.
 
 Under the hood, `StartCmd` will call `GetServerContextFromCmd`, which provides
 the command access to a `server.Context`. This context provides access to the
-viper literal, the Tendermint config and logger. This allows flags to be bound
+Viper instance and the Tendermint config. This allows flags to be bound
 to the viper literal and passed to the application construction.
 
 The `paxd` `AppCreator` is `newApp` in

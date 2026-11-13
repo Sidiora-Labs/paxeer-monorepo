@@ -22,6 +22,10 @@ This selects `transfer/paxeerTransfer.json/transferValid` and requires
 transfer of 123 wei with sender/recipient balances, nonces, code, storage and the
 empty RLP logs hash.
 
+`STATE_TEST_ROOT` is optional. When unset, the loader uses
+`data/GeneralStateTests`, extracting `data/fixtures_general_state_tests.tgz`
+when that directory is absent. An explicit root selects that directory directly.
+
 `STATE_TEST_DIR`, `STATE_TEST_NAME`, `STATE_TEST_FORK` and `STATE_TEST_COUNT` are
 required. The name is a literal substring of the full loader/post-case name.
 A name ending in `/` followed by a decimal post index must match the complete
@@ -30,6 +34,8 @@ Only `Cancun` post selections are supported. Missing posts, empty selections,
 count mismatches and Go subtest filters that prevent execution cause an error.
 Each selected identifier is printed as `Nonexcluded fixture`, followed by
 selected, executed, required and skipped counts.
+The loader adds a post index only when a fixture has multiple posts for the
+selected fork; a single-post fixture is selected without a trailing `/0`.
 
 Both `IGNORE_SKIP_LIST` and `VERIFY_ETHEREUM_SPEC` must be the literal `true`.
 Category and case exclusions are not consulted by this entry point.
@@ -37,14 +43,15 @@ Category and case exclusions are not consulted by this entry point.
 
 ## Execution configuration
 
-Local `pax-test` transactions are re-signed for chain ID `713714`, matching the
-local keeper. Public `hyperpax_125-1` maps to EVM chain ID `125`; the local
-fixture is a separate test configuration.
+Local `pax-test` transactions are re-signed for EVM chain ID `125`, matching the
+keeper's default chain ID. Public `hyperpax_125-1` also maps to EVM chain ID
+`125`. The fixtures execute in local test state.
 
 `NewStateTestContext` sets `MinimumFeePerGas` to zero in both EVM keepers.
-The harness otherwise uses the node's fork schedule, opcode gas costs and
-selected state store. Selecting `Cancun` posts does not override the fork
-schedule or block environment.
+Execution uses the fixed block time `time.Unix(1_800_000_000, 0).UTC()` and the
+node test wrapper's block header. The fixture's `env` fields do not configure
+that execution context. The node's fork schedule, opcode gas costs and selected
+state store apply; selecting `Cancun` chooses fixture posts.
 
 ## Fixture oracle
 

@@ -73,7 +73,7 @@ It runs on relevant pushes to `main` or manual dispatch:
 - `plan` checks the configured base-image digest pins and selects rows that pass
   the image table's checks. Failed rows are reported as unbuilt.
 - `images` depends on `plan`. Its matrix builds and pushes selected images to
-  `ghcr.io/sidiora-labs`, tagged with the 12-character source revision and
+  the workflow's configured GHCR namespace, tagged with the 12-character source revision and
   `git describe`. It has `contents: read` and `packages: write`, logs into GHCR
   with the workflow token and uses `push: true`.
 - `digests` depends on `plan` and `images`. After a successful plan, when the run
@@ -83,13 +83,11 @@ It runs on relevant pushes to `main` or manual dispatch:
 Missing rows remain
 absent so rollout cannot treat them as published images.
 
-This workflow does not depend on four preceding verification jobs and does not
-invoke the six-check release admission policy above. A pushed image or a
-`digests.json` entry proves neither policy admission nor deployment approval.
-The workflow has no pull-request trigger; its publication authority is scoped
-to its push/manual execution. Manual dispatch can publish images, but it does
-not satisfy the admission policies' independent requirement for push evidence.
-External actions are pinned to full revisions.
+Image publication and release admission are separate operations. A
+`digests.json` entry identifies a published image; policy admission consumes
+the independently authenticated evidence described above. Publication runs on
+push or manual dispatch, while admission requires push evidence. External
+actions are pinned to full revisions.
 
 ## Reviewed toolchain and container builds
 

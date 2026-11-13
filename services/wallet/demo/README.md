@@ -11,14 +11,14 @@ Use pnpm and Node matching the wallet workspace's `engines` requirement (`>=22.0
 ```sh
 pnpm install
 pnpm --filter @paxeer/wallet build
-pnpm --filter @paxeer/demo dev      # http://localhost:3000
+pnpm --filter @paxeer/demo dev      # serves on port 3000
 ```
 
 The SDK build also installs and builds its agent SDK dependency. Configure the demo before opening it. Set these variables in the environment or in an ignored `demo/.env.local`:
 
 | Variable | Purpose |
 | --- | --- |
-| `NEXT_PUBLIC_PAXEER_WALLET_API` | Required API origin used by the wallet SDK and panel; HTTPS, or loopback HTTP (`localhost`, `127.0.0.1`, `[::1]`), without a path, credentials, query or fragment |
+| `NEXT_PUBLIC_PAXEER_WALLET_API` | Required API origin used by the wallet SDK and panel; HTTPS, or loopback HTTP, without a path, credentials, query or fragment |
 | `NEXT_PUBLIC_SUPABASE_URL` | Required Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Required browser publishable key for that project |
 | `NEXT_PUBLIC_AUTH_REDIRECT_URL` | Optional OAuth and magic-link return URL; defaults to `<browser origin>/auth/callback` |
@@ -80,5 +80,3 @@ unavailable when the consensus head is null or still catching up.
 | [`src/components/SendTxForm.tsx`](src/components/SendTxForm.tsx) | Unused alternative form; no demo source imports it, and the modal uses `SupportedWalletPanel` |
 | [`src/app/auth/callback/page.tsx`](src/app/auth/callback/page.tsx) | Reads or waits for the Supabase session, then returns to `/`; shows an error if sign-in does not complete |
 | [`public/icons/`](public/icons/) | Sign-in provider icons |
-
-Use the modal and panel above as the integration reference. The landing page's “Three components” copy still names the unused `SendTxForm`; the rendered flow is the one documented here.

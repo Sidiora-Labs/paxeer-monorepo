@@ -1,30 +1,22 @@
 # Wallet gateway load test
 
-`wallet.js` is a k6 script for the wallet gateway. Run it from `services/wallet`. `API_BASE` sets the gateway base (default `http://localhost:8787`).
-
-## Health only
-
-```sh
-k6 run --vus 50 --duration 30s gateway/loadtest/wallet.js
-```
-
-Without `PAXEER_JWT` the script calls only `/healthz`.
-
-## Authenticated
-
-```sh
-PAXEER_JWT="<Supabase access token>" k6 run --vus 100 --duration 60s gateway/loadtest/wallet.js
-```
-
-With a token it also calls `/v1/wallet/me` with that bearer token.
-
-## Ramp
+[`wallet.js`](wallet.js) is a k6 script for the wallet gateway. Run it from
+`services/wallet`. `API_BASE` sets the gateway base; the default is local HTTP
+on port 8787.
 
 ```sh
 k6 run gateway/loadtest/wallet.js
 ```
 
-Runs 30 s at 10 VUs, 60 s at 100, 60 s at 500 and 30 s at 10. k6 exits non-zero when a threshold fails:
+The `ramp` scenario starts at zero VUs and ramps to 10 over 30 seconds, to 100
+over 60 seconds, to 500 over 60 seconds and back to 10 over 30 seconds. It allows
+10 seconds for graceful ramp-down.
+
+Without `PAXEER_JWT`, each iteration calls only `/healthz`. To include
+`/v1/wallet/me`, supply a valid Supabase access token in the `PAXEER_JWT`
+environment variable; the script sends it as a bearer token.
+
+k6 exits non-zero when a threshold fails:
 
 | Metric | Threshold |
 | --- | --- |

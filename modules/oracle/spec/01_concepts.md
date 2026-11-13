@@ -31,7 +31,7 @@ median - spread <= vote <= median + spread
 
 For non-reference denoms, this comparison uses cross rates. `StandardDeviation` computes the voting-power-weighted root mean square distance from the weighted median, excluding zero-power entries. It uses an integer square root, rounded down to the SDK decimal precision. The median is also power-weighted. `RewardBand` defaults to `0.02`, giving a nominal one-percent spread on either side before any widening.
 
-Winning entries increment `WinCount` and add voting power to the claim's `Weight`; every entry processed by `Tally` sets `DidVote`. These claims drive penalty counters. The current block hooks do not pay token rewards to ballot winners.
+Only entries with positive voting power inside the interval win. Winning entries increment `WinCount` and add voting power to the claim's `Weight`; every entry processed by `Tally` sets `DidVote`. These claims drive penalty counters. The current block hooks do not pay token rewards to ballot winners.
 
 ## Slashing
 

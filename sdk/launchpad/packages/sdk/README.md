@@ -6,11 +6,11 @@ Paxeer mainnet-beta is one BFT network with EVM chain ID **125** (`0x7d`). The k
 
 ## Contracts and generation
 
-Keep generated DTOs, schemas and operation definitions under generator control. [scripts/generate.py](scripts/generate.py) consumes authoritative v1 and v2 contract bundles. Each bundle must contain `codegen-manifest.json`, `schema-definitions.json`, `openapi.json` and `asyncapi.json`. Select the matching bundle with `--contracts <directory>`. The checked-in schemas and [release-manifest.json](release-manifest.json) describe the generated package.
+Keep generated DTOs, schemas and operation definitions under generator control. [scripts/generate.py](scripts/generate.py) consumes authoritative v1 and v2 contract bundles. Each bundle must contain `codegen-manifest.json`, `schema-definitions.json`, `openapi.json` and `asyncapi.json`. The generator accepts `--contracts <directory>` within its repository contract-bundle allowlist and defaults to the selected major's bundle. The checked-in schemas and [release-manifest.json](release-manifest.json) describe the generated package.
 
 The pinned emitter and validator template live at [tools/launchpad/production/interfaces](../../../../tools/launchpad/production/interfaces/). Generation checks their digests, schema inputs, output inventory and output digests. Frozen v1 reproduction uses `python3 scripts/generate.py --reproduce-v1`; plain `generate` does not select that mode. `generate:operations` selects major 2 and derives the operation catalog from OpenAPI 3.1, checking shared definitions against JSON Schema and AsyncAPI 3.0. `generate:examples` selects the v2 OpenAPI document. Both require the v2 bundle. Explicit v2 DTO generation uses `python3 scripts/generate.py --major 2` and writes to the sibling `sdk-v2` package.
 
-[scripts/compatibility.py](scripts/compatibility.py) compares schemas. Breaking changes require a new major and an explicit window with matching `fromMajor`/`toMajor`, ordered timezone-aware `startsAt`/`endsAt`, and both majors in `retainedVersions`. A major increase alone does not establish compatibility.
+[scripts/compatibility.py](scripts/compatibility.py) compares schemas. Breaking changes require a new major and an explicit window with matching `fromMajor`/`toMajor`, ordered timezone-aware `startsAt`/`endsAt`, and `retainedVersions` equal to `[fromMajor, toMajor]` in that order. A major increase alone does not establish compatibility.
 
 ## Client and operations
 

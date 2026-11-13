@@ -1,0 +1,67 @@
+[manifest]
+task = "22.41.80"
+pages = 16
+
+[page.1]
+path = "services/agent/README.md"
+status = "corrected"
+
+[page.2]
+path = "services/agent/crates/layerx-agent-api/tests/support/independent/PROVENANCE.md"
+status = "corrected"
+
+[page.3]
+path = "services/agent/crates/layerx-agentd/README.md"
+status = "reviewed"
+
+[page.4]
+path = "services/agent/crates/layerx-agentd/src/outbound_tls/README.md"
+status = "corrected"
+
+[page.5]
+path = "services/agent/crates/layerx-crypto/src/api-contract.md"
+status = "reviewed"
+
+[page.6]
+path = "services/agent/crates/layerx-mcp/README.md"
+status = "corrected"
+
+[page.7]
+path = "services/agent/crates/layerx-sdk/tests/fixtures/repair_22_31_227_fixture/README.md"
+status = "reviewed"
+
+[page.8]
+path = "services/agent/crates/layerx-sdk/tests/fixtures/repair_22_33_1564_fixture/README.md"
+status = "reviewed"
+
+[page.9]
+path = "services/agent/crates/layerx-types/tests/support/independent/PROVENANCE.md"
+status = "corrected"
+
+[page.10]
+path = "services/agent/sdk/COMPATIBILITY.md"
+status = "reviewed"
+
+[page.11]
+path = "services/agent/sdk/python/TESTING.md"
+status = "corrected"
+
+[page.12]
+path = "services/agent/sdk/python/layerx_sdk/generated/guarantees.md"
+status = "reviewed"
+
+[page.13]
+path = "services/agent/sdk/typescript/TESTING.md"
+status = "corrected"
+
+[page.14]
+path = "services/agent/sdk/typescript/src/generated/guarantees.md"
+status = "reviewed"
+
+[page.15]
+path = "services/explorer/README.md"
+status = "corrected"
+
+[page.16]
+path = "services/explorer/backend/.devcontainer/README.md"
+status = "corrected"

@@ -21,7 +21,8 @@ dependencies first; the asset package uses Phoenix from `../../deps`.
 * Install Node.js dependencies with `$ cd assets && npm install && cd ..`
 * Start Phoenix with `$ mix phx.server` (This can be run from this directory or the project root: the project root is recommended.)
 
-Now you can visit `http://localhost:4000` from your browser.
+Open the configured backend origin in your browser. The local Compose
+backend listens on port `4000`.
 
 You can also run IEx (Interactive Elixir): `$ iex -S mix phx.server` (This can be run from this directory or the project root: the project root is recommended.)
 

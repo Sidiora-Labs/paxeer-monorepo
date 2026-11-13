@@ -102,7 +102,10 @@ https://<host>/upgrade-info.json?checksum=sha256:<sha256 hex>
 
 When `cosmovisor` is triggered to download the new binary, `cosmovisor` will parse the `"binaries"` field, download the new binary with HashiCorp `go-getter`, and unpack the new binary in the `upgrades/<name>` folder so that it can be run as if it was installed manually.
 
-Note that for this mechanism to provide strong security guarantees, all URLs should include a SHA 256/512 checksum. This ensures that no false binary is run, even if someone hacks the server or hijacks the DNS. `go-getter` will always ensure the downloaded file matches the checksum if it is provided. `go-getter` will also handle unpacking archives into directories (in this case the download link should point to a `zip` file of all data in the `bin` directory).
+Include a SHA-256 or SHA-512 checksum in each download URL. `go-getter`
+checks the downloaded content against the supplied digest and unpacks supported
+archives. An archive can contain `bin/$DAEMON_NAME` or the binary at its root.
+Obtain the expected digest from a trusted source along with the upgrade plan.
 
 To create a sha256 checksum on Linux, use the `sha256sum` utility. For example, from `sdk/cosmovisor`:
 

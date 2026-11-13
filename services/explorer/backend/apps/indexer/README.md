@@ -1,6 +1,6 @@
 # Indexer
 
-The Indexer component of Blockscout is a backend process built in Elixir using supervised `GenServers`. It fetches blockchain data from Ethereum-based networks using an ETL pipeline that supports both real-time and catch-up indexing. The component buffers and batches incoming data to effectively manage concurrency and memory usage. It transforms raw data such as blocks, transactions, receipts, and logs into structured formats, orchestrating both synchronous and asynchronous processing. Block imports pass prepared data to `Explorer.Chain.import/2`. Some specialized fetchers also query and update PostgreSQL through `Explorer.Repo` and Ecto. Its design includes specialized fetchers and transformers that support multi-chain environments, handling data from networks like Optimism, Arbitrum, Polygon Edge, zkSync, and others. The component integrates robust error handling and retry mechanisms to ensure data integrity during processing. Multi-chain support is further emphasized through dedicated modules that process chain-specific data and transform it into database-ready structures.
+The Indexer component of Blockscout is a backend process built in Elixir using supervised `GenServers`. It fetches blockchain data from Ethereum-based networks using an ETL pipeline that supports both real-time and catch-up indexing. The component buffers and batches incoming data to effectively manage concurrency and memory usage. It transforms raw data such as blocks, transactions, receipts, and logs into structured formats, orchestrating both synchronous and asynchronous processing. Block imports pass prepared data to `Explorer.Chain.import/2`. Some specialized fetchers also query and update PostgreSQL through `Explorer.Repo` and Ecto. Its design includes specialized fetchers and transformers that support multi-chain environments, handling data from networks like Optimism, Arbitrum and zkSync. The component integrates robust error handling and retry mechanisms to ensure data integrity during processing. Multi-chain support is further emphasized through dedicated modules that process chain-specific data and transform it into database-ready structures.
 
 ## Structure
 
@@ -25,7 +25,8 @@ Some data has to be extracted from already fetched data, and there're several tr
 - `address_token_balances`: creates token balance entities for further fetching, based on detected token transfers
 - `blocks`: extracts block signer hash from additional data for Clique chains
 - `optimism_withdrawals`: parses logs to extract L2 withdrawal messages
-- `paxeer_x_logs`: decodes Paxeer X kernel precompile logs into the `lx_*` rows the `Explorer.Chain.PaxeerX` import runners accept
+- `paxeer_x_logs`: decodes kernel precompile logs into `lx_account_bindings`
+  and `lx_market_events`, and reports `undecoded_log_count`
 
 ### Root fetchers
 
@@ -91,31 +92,27 @@ Most of them are based off `BufferedTask`, and the basic algorithm goes like thi
 - `uncle_block`: blocks for `block_second_degree_relations` with null `uncle_fetched_at`
 - `internal_transaction`: for either `blocks` (Nethermind) or `transactions` with null `internal_transactions_indexed_at`
 - `coin_balance`: for `address_coin_balances` with null `value_fetched_at`
-- `token_balance`: for `address_token_balances` with null `value_fetched_at`. Also upserts `address_current_token_balances`
+- [token_balance/historical.ex](lib/indexer/fetcher/token_balance/historical.ex): fetches historical token balances
+- [token_balance/current.ex](lib/indexer/fetcher/token_balance/current.ex): updates current token balances; shared request
+  handling lives in [token_balance/helper.ex](lib/indexer/fetcher/token_balance/helper.ex)
 - `token`: for `tokens` with `cataloged == false`
 - `contract_code`: for `transactions` with non-null `created_contract_address_hash` and null `created_contract_code_indexed_at`
 
 Additionally:
 
-- `token_updater` is run every 2 days to update token metadata
+- `token_updater` selects cataloged tokens whose metadata age exceeds
+  `TOKEN_METADATA_UPDATE_INTERVAL` (default `48h`)
 - `coin_balance_on_demand` is triggered from web UI to ensure address balance is as up-to-date as possible
-
-### Temporary workers
-
-These workers are created for fetching information, which previously wasn't fetched in existing fetchers, or was fetched incorrectly.
-After all deployed instances get all needed data, these fetchers should be deprecated and removed.
-
-- `uncataloged_token_transfers`: extracts token transfers from logs, which weren't parsed due to an unknown format
-- `uncles_without_index`: adds previously unfetched `index` field for unfetched blocks in `block_second_degree_relations`
-- `blocks_transactions_mismatch`: refetches each block once and revokes consensus for those whose transaction number mismatches with the number currently stored. This is meant to force the correction of a race condition that caused successfully fetched transactions to be overwritten by a following non-consensus block: [#1911](https://github.com/blockscout/blockscout/issues/1911).
 
 ## Memory Usage
 
 The work queues for building the index of all blocks, balances (coin and token), and internal transactions can grow quite large.  The soft-limit is `INDEXER_MEMORY_LIMIT` when that variable is set. When it is not set, the limit is a share of the memory the host reports: `INDEXER_SYSTEM_MEMORY_PERCENTAGE` of total system memory, 60 by default, or 100 percent of it in `indexer` mode. A host whose total memory `:memsup` cannot report falls back to a fixed 4 GiB.
 
-Memory usage is checked once per minute.  If the soft-limit is reached, the shrinkable work queues will shed half their load.  The shed load will be restored from the database, the same as when a restart of the server occurs, so rebuilding the work queue will be slower, but use less memory.
-
-If all queues are at their minimum size, then no more memory can be reclaimed and an error will be logged.
+`Indexer.Memory.Monitor` checks VM memory once per minute. Above the
+soft limit, it orders shrinkable queues by process memory and tries them
+from largest to smallest until one shrinks. Shed entries can be rebuilt
+from database state. Below 40 percent of the limit, the monitor permits
+previously shrunk queues to expand. If none can shrink, it logs that result.
 
 ## WebSocket subscriptions
 
@@ -146,10 +143,8 @@ export ETHEREUM_JSONRPC_CASE=EthereumJSONRPC.Case.Nethermind.HTTPWebSocket
 mix test --exclude no_nethermind
 ```
 
-| Protocol  | URL                                |
-|:----------|:-----------------------------------|
-| HTTP      | `http://localhost:8545`  |
-| WebSocket | `ws://localhost:8546`    |
+Configure the selected case with explicit paired HTTP and WebSocket endpoints
+for a disposable node; see the [JSON-RPC testing guide](../ethereum_jsonrpc/README.md#testing).
 
 ### Geth
 
@@ -167,12 +162,6 @@ export ETHEREUM_JSONRPC_CASE=EthereumJSONRPC.Case.Geth.HTTPWebSocket
 mix test --exclude no_geth
 ```
 
-| Protocol  | URL                      |
-| :-------- | :----------------------- |
-| HTTP      | `http://127.0.0.1:8545/` |
-| WebSocket | `ws://127.0.0.1:8546/`   |
-
-These are example listeners for a disposable node. Configure the selected test
-case explicitly; the URL variables used by the production indexer do not set
-test-case endpoints. The [JSON-RPC testing guide](../ethereum_jsonrpc/README.md#testing)
-describes the required chain profile and matching HTTP/WebSocket configuration.
+Configure this case explicitly as described in the
+[JSON-RPC testing guide](../ethereum_jsonrpc/README.md#testing). Production
+URL settings do not automatically configure the test-case modules.

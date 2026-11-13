@@ -15,10 +15,7 @@ are submitted as exact bytes through `eth_sendRawTransaction`; only the network
 applies protocol state. Local policy and approval decisions cannot grant
 protocol authority.
 
-Public JSON-RPC uses HTTPS at the root path of
-`api1.mainnet-beta.paxeer.network` through
-`api14.mainnet-beta.paxeer.network`, and
-[`api-mainnet-beta.paxeer.network`](https://api-mainnet-beta.paxeer.network/).
+Public JSON-RPC uses HTTPS at the node's root path.
 The EVM chain ID is **125** (`0x7d`). Node
 namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test` and `txpool`.
 The agent service reads precompile views through `eth_call` at a specified height.
@@ -26,8 +23,6 @@ The node registers `px` reads for account, balance, receipt and consensus data;
 asset and history queries use its configured indexer. `px_register` and
 `px_requestFunds` require the hosted identity and faucet services declared in
 [the gateway OpenRPC contract](../platform/hosted/gateway/openrpc.json).
-
-`node.hyperpaxeer.com` is only the hpx library mirror, never a JSON-RPC endpoint.
 
 Write evidence uses the rungs `submitted` (transaction hash known), `receipted`
 (receipt signature verified against an authorized receipt key), and `committed`
@@ -76,7 +71,7 @@ linkage and mirrored layouts. Its explicit exceptions are declared in
 [`unsafe-allowlist.toml`](unsafe-allowlist.toml) and
 [`nondeterminism-allowlist.toml`](nondeterminism-allowlist.toml), not in source
 comments. The node boundary harness uses `AGENT_NODE_RPC_URL`, defaulting to
-`http://127.0.0.1:8545`.
+the local node's HTTP listener on port 8545.
 
 The boundary scanner traverses all Rust sources and Cargo manifests under
 `crates/`, including integration tests, host tests and `src/bin/`, excluding

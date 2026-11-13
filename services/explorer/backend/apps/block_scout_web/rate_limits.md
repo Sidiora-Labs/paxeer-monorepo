@@ -51,19 +51,17 @@ The config must contain a `default` key that defines the default API rate limit 
 Each rate limit entry can contain the following keys:
 
 ### Rate Limit Methods
-- `account_api_key` - Allows using API key emitted in My Account
-  > **Important**: When overriding `account_api_key`, ensure your limits are much lower than the default ones
+- `account_api_key` - Allows using an API key issued through the account API
 - `whitelisted_ip` - Allows rate limiting by whitelisted IP
 - `static_api_key` - Allows rate limiting by static API key
 - `temporary_token` - Allows rate limiting by temporary token (cookie) issued by `/api/v2/key`
 - `ip` - Allows rate limiting by IP address
 
 ### Additional Options
-- `cost` - Integer value used to decrease allowed limit (default: `1`)
 - `ignore` - If `true`, the endpoint won't be rate limited
 - `recaptcha_to_bypass_429` - If `true`, allows passing recaptcha header with response to bypass 429 errors. 
 - `bypass_token_scope` - Scope of recaptcha bypass token (currently only supports `token_instance_refetch_metadata`)
-- `isolate_rate_limit?` - If `true`, creates a separate rate limit bucket for this endpoint. Instead of using the shared rate limit key, it prepends the endpoint path to create an isolated bucket (e.g., `api/v2/address_127.0.0.1` for the `/api/v2/address` endpoint with IP-based rate limiting).
+- `isolate_rate_limit?` - If `true`, creates a separate rate limit bucket for this endpoint. Instead of using the shared rate limit key, it prepends the endpoint path to create an isolated bucket using the configured path followed by an underscore and the selected identity.
 
 ⚠️ It is recommended to use either `recaptcha_to_bypass_429` or `temporary_token`, not both.
 
@@ -74,6 +72,12 @@ Each rate limit method can have one of these values:
 - Map with configuration:
   - `limit` - Integer value representing max requests allowed per period
   - `period` - Rate limit time period in [time format](https://docs.blockscout.com/setup/env-variables/backend-env-variables#time-format)
+  - `cost` - Request cost charged to this method's bucket (default `1`)
+
+Methods are evaluated in order: temporary token, static API key, account API
+key, whitelisted IP, then IP. The first applicable method supplies the result.
+A successful ReCAPTCHA check can admit a denied request when configured and
+a user-agent header is present.
 
 ## ReCAPTCHA Implementation
 

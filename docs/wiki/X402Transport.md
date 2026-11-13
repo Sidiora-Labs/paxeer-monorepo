@@ -28,7 +28,9 @@ of signed receipt evidence.
 2. The buyer selects the first offer whose `(scheme, network)` is in its
    configured support list, preserves the selected requirements and required
    extensions, and asks its payment plane to construct a JSON object payload.
-   The buyer returns that value in `PAYMENT-SIGNATURE`.
+   The payload must contain a nonzero 32-byte hexadecimal `idempotencyKey`
+   matching the key supplied to `Buyer::build_payment`. The buyer returns the
+   resulting `PaymentPayload` in `PAYMENT-SIGNATURE`.
 3. The seller matches `accepted` against an issued offer before requesting
    payment. The facilitator's `/verify` operation is read-only; `/settle`
    crosses the payment-plane boundary.
@@ -36,7 +38,8 @@ of signed receipt evidence.
    matching signed receipt evidence and a gateway `ReceiptVerified` record.
    Fulfillment requiring finality must additionally verify committed evidence.
 5. The buyer verifies the returned `PAYMENT-RESPONSE` locally, including payment
-   facts, transaction identity, receipt digest and the requested evidence level.
+   facts, transaction identity, receipt digest and the returned evidence level.
+   Consumers requiring finality must require the captured rung to be `committed`.
 
 The role implementations are
 [seller.rs](../../services/interop/crates/layerx-x402/src/seller.rs),
@@ -198,7 +201,7 @@ establishes successful payment.
 
 [TRANSPORT_MATRIX](../../services/interop/crates/layerx-x402/src/transport.rs)
 declares all three roles for HTTP, MCP and A2A. The versioned hosted routes are
-listed on [Interop](Interop.md#gateway-routes). Only the x402 settle routes
+listed on [Interop](Interop.md#gateway-routes). Within x402, the settle routes
 perform payment settlement. Route aliases share handlers; they do not bypass
 authentication, idempotency or evidence checks.
 
@@ -217,6 +220,7 @@ The Rust `X402Error` vocabulary includes:
 | --- | --- |
 | `Decode`, `Encode`, `Bounds`, `WrongVersion` | Wire representation, serialization, size or version refusal |
 | `InvalidAmount`, `InvalidRequirements`, `InvalidPayload` | Noncanonical amount, invalid offer or invalid payment object |
+| `PaymentIdentityMissing`, `PaymentIdentityMalformed`, `PaymentIdentityMismatch` | Buyer construction payload omits a native `idempotencyKey`, encodes an invalid or zero key, or supplies a different key |
 | `ProfileMissing`, `ProfileMismatch` | Missing or inconsistent account/currency/payee terms |
 | `UnsupportedOffer` | No supported scheme/network combination |
 | `RequirementsMismatch`, `ExtensionsMismatch` | Selected terms or required extensions changed |
@@ -283,12 +287,12 @@ validator material cannot replace that anchor. The buyer verifies inclusion,
 commit, block identity, payment terms, network, payer and receipt digest; a
 committed label without proof is refused.
 
-The hosted relay checks a reported committed block hash against a node block
-read, but its current x402 plane does not supply a `FacilitatorCommitment` proof.
-The Rust seller refuses a committed response without that proof. Consequently,
-a hosted settle call cannot be assumed to return committed success merely
-because a node reports that rung. Consumers needing committed fulfillment must
-use a producer supplying the required proof and independently configured trust.
+The hosted relay exports `receipted` evidence even when the node reports
+`committed`. It checks the reported block hash against a node block read to
+manage journal retention; that observation is separate from portable commitment
+evidence. Hosted x402 settlement therefore returns receipt-level success.
+Committed fulfillment requires a producer supplying a `FacilitatorCommitment`
+proof and a consumer with independently configured consensus trust.
 
 Keep retry identity independent of delivery transport. Facilitator
 `SettlementIdentity::derive` binds principal, caller's stable identity, canonical

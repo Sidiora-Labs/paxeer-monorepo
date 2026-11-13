@@ -1,24 +1,21 @@
-# Arbitrum Reader Modules
+# Arbitrum reader modules
 
-This directory contains modules that provide structured access to Arbitrum-specific data stored in the Blockscout database.
+These modules query the explorer's Arbitrum rollup data. They support the
+Arbitrum chain configuration; native Paxeer finality follows committed BFT
+blocks as described in the [backend overview](../../../../../../../README.md).
 
-## Module Overview
+| Source | Queries |
+| --- | --- |
+| [api/messages.ex](api/messages.ex) | Cross-chain messages for API responses |
+| [api/settlement.ex](api/settlement.ex) | Batches, DA records and rollup block associations |
+| [api/general.ex](api/general.ex) | Transaction logs for API responses |
+| [common.ex](common.ex) | Queries shared by API and indexer readers, with repository selection |
+| [indexer/messages.ex](indexer/messages.ex) | Message progress and missing message data |
+| [indexer/parent_chain_transactions.ex](indexer/parent_chain_transactions.ex) | Parent-chain transaction lifecycle records |
+| [indexer/settlement.ex](indexer/settlement.ex) | Batch, confirmation and DA data |
+| [indexer/general.ex](indexer/general.ex) | Rollup blocks and blocks with missing fields |
 
-- `api/` - API endpoint-specific functions:
-  - `messages.ex` - Cross-chain message queries
-  - `settlement.ex` - Batch management, DA blob data, and rollup blocks
-  - `general.ex` - General utility functions like transaction log queries
-- `common.ex` - Core query functionality shared between different components (API, Indexer) with configurable database selection
-- `indexer/messages.ex` - Cross-chain message handling
-- `indexer/parent_chain_transactions.ex` - L1 transaction lifecycle
-- `indexer/settlement.ex` - Batch and state confirmation data
-- `indexer/general.ex` - Chain-agnostic functions
-
-## Important Usage Note
-
-Functions in the `indexer/` modules should not be called directly. Instead, use the corresponding wrapper functions provided in the `Indexer.Fetcher.Arbitrum.Utils.Db.*` modules (`apps/indexer/lib/indexer/fetcher/arbitrum/utils/db/`). The wrapper functions provide:
-
-- Additional data transformation specific to indexer needs
-- Enhanced error handling
-
-This separation ensures that database operations are properly handled and maintains a clear boundary between raw database access and indexer-specific business logic.
+The indexer calls these readers through
+[Indexer.Fetcher.Arbitrum.Utils.Db](../../../../../../indexer/lib/indexer/fetcher/arbitrum/utils/db/README.md)
+wrappers. The wrappers convert database records into the maps required by
+indexer consumers and prepare import data.

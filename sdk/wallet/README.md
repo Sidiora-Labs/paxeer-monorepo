@@ -33,7 +33,9 @@ const paxeer = new PaxeerWallet({
 });
 
 // Start sign-in; resume wallet operations after the magic link establishes a session.
-const { error } = await paxeer.signInWithEmail('alice@example.com');
+const email = document.querySelector<HTMLInputElement>('input[type="email"]')?.value;
+if (!email) throw new Error('Enter your email address');
+const { error } = await paxeer.signInWithEmail(email);
 if (error) throw error;
 ```
 
@@ -59,7 +61,7 @@ Use `getStandardSelf()` for a passive read: it returns `null` when the authentic
 
 ## EVM review and approval
 
-Configure `evmReview.storage` with persistent `getItem` and `setItem` methods before using this flow. Browser `localStorage` satisfies that interface; other environments must supply their own storage. Reviews are retained under the authenticated user's ID and reused when the client is recreated with the same storage.
+Configure `evmReview.storage` with persistent `getItem` and `setItem` methods before using this flow. Browser `localStorage` satisfies that interface; other environments must supply their own storage. Reviews are retained under the gateway origin and authenticated user's ID, and reused when the client is recreated with the same origin, user and storage.
 
 The SDK accepts an unsigned EIP-1559 transaction with a destination and no signature fields. Supply the pending nonce, gas and fee limits for the intended transaction. It serializes the transaction and checks the returned destination, value, calldata, signing hash, chain and principal against the request before retaining the review.
 
@@ -95,7 +97,7 @@ The wire API and exported types retain the names `pax_sequencerReceipt` and `Seq
 - `receipted`: signed execution evidence, including status, logs and fees.
 - `committed`: execution evidence plus block number and block hash.
 
-The [receipt helpers](src/receipt.ts) check transaction identity, signed receipt bytes, decoded execution fields, the Ed25519 signature, and the signing key's governed height range. They obtain key pins from the node's `px_getReceiptKeys` method. Authentication failure throws; it must not be displayed as successful execution. Execution status `0x0` means failure even when the transaction is committed.
+The [receipt helpers](src/receipt.ts) check transaction identity, signed receipt bytes, decoded execution fields, the Ed25519 signature, and the signing key's governed height range. They obtain key pins from the node's `px_getReceiptKeys` method and the signed transaction from `eth_getRawTransactionByHash`, then bind the receipt to that transaction on chain `125`. Authentication failure throws; it must not be displayed as successful execution. Execution status `0x0` means failure even when the transaction is committed.
 
 Continue the vanilla send example to wait for commitment with bounded polling:
 

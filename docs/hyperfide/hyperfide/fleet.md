@@ -118,7 +118,7 @@ Mechanical install, completion and TEST delivery isolates definitive RPC refusal
 
 Admission inventory refresh is bounded to 32 stale candidates, four concurrent provider reads and a ten-second observation window. A completed partial pass returns `SAME_SCOPE_NEW_RPC`: another call under the same scope continues through stale candidates while skipping fresh exact-policy/scope evidence. Transport uncertainty still reconciles the original operation. A completed pass does not establish complete provider inventory or release uncertain physical presence.
 
-Catalog 70 adds automatic provisioner maintenance over retained inventory and unresolved orphan identities, even without a provisioning intent. It rotates approved account/environment/region scopes, records typed append-only observations and refreshes stale attribution before expiry. UNKNOWN reads preserve prior positive presence and its charges. Maintenance selects no compute, creates no provisioning intent and changes no declared budget.
+The provisioner performs automatic maintenance over retained inventory and unresolved orphan identities, even without a provisioning intent. It rotates approved account/environment/region scopes, records typed append-only observations and refreshes stale attribution before expiry. UNKNOWN reads preserve prior positive presence and its charges. Maintenance selects no compute, creates no provisioning intent and changes no declared budget.
 
 ## Source adapter boundary
 
@@ -126,37 +126,15 @@ The executable prerequisite uses [Git source manifests](../../../tools/hyperfide
 
 The fleet environment contract keeps source selection and revision pins separate from task assignments. A future native source-control adapter must supply equivalent pinned inventory and installation evidence through that contract while preserving authority, scopes and generation fencing. The [source-control specification](../../../tools/hyperfide/spec/hyperfide-source-control/README.md) describes that target; remote Git publication and native source storage remain separate concerns.
 
-## Prerequisite handoff
+## Recovery inputs
 
-Carried source-control task 0.14 is qualified in two scopes. Decision 2700 makes the
-bounded merge gate run `0_14.py --component` through `support/withpg.py`. Its private
-`build/fleet/0.14/component-receipt.json` (also `receipt.json`) records the measured
-signed actor, PostgreSQL, registration and local supervisor recovery checks. All live
-cases remain UNRUN. Missing execution evidence is tested as a refusal; that check
-does not establish provider ambiguity, an interrupted installation or a failed
-implementing agent run. Local SIGKILL restoration does not establish provider host loss.
+Retain provider, install, worker and reasoning operation identities during recovery.
+Reconcile UNKNOWN outcomes before resubmitting effects. Rebind a replacement cohort
+under current authority, recover interrupted installation with signed
+failure/quiescence evidence, and independently qualify the captured worker result
+before acceptance. Model unavailability leaves the session waiting. See
+[recovery and adoption](#recovery-and-adoption) for the supported operations.
 
-The owner supplies a configured provider pool, model backend, object-store credentials,
-private native profile and the trusted live database target. Follow the exact journey
-commands and input requirements in [operations](operations.md#fleet-campaign-configuration).
-`build/fleet/0.14/actor-receipt.json` retains the real three-model actor checks;
-`build/fleet/0.14/live-receipt.json` requires the complete live evidence index and
-read-only database verification. An explicit `--receipt` selects a private owner
-location. The live receipt inventories every contract, source, toolchain, manifest,
-interface and provider assertion with evidence references or an explicit missing
-coverage/refusal classification. A component PASS never becomes a live PASS.
-
-Retain the original provider, install, worker and reasoning operation IDs and private
-journals during recovery. Reconcile UNKNOWN outcomes before resubmitting effects;
-rebind a replacement cohort under current authority, recover interrupted installation
-only with signed failure/quiescence evidence, and independently qualify an implementing
-agent's captured result before acceptance. Model unavailability remains waiting without
-an invented decision. The [recovery contract](#recovery-and-adoption) applies throughout.
-
-The migration boundary is the source adapter: the existing Git adapter supplies pinned
-source inventories and captured result archives, while native source must supply its
-own revision/root-tree and security-domain pins through the same install and result
-contracts. Preserve source scopes, modes, content digests, interface selections,
-boot/generation fencing and independent verification at that boundary. Native task 0.1
-is released only after this prerequisite qualification has a live PASS; a bounded
-component receipt or UNRUN owner campaign does not release it.
+The Git source adapter supplies pinned source inventories and captured result
+archives. Install and result contracts bind source scopes, file modes, content
+digests, interface selections and physical boot generations.

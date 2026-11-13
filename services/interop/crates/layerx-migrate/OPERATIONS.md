@@ -9,24 +9,17 @@ kernel participates in the network and proposes blocks. Block commit establishes
 network finality. Source-chain verification establishes external provenance;
 it does not by itself execute a payment or create a network balance.
 
-Public node JSON-RPC uses root HTTPS URLs such as
-`https://api1.mainnet-beta.paxeer.network/`, with hosts `api1` through `api14` and
-`api-mainnet-beta.paxeer.network`. These public endpoints are not a migration
-rollback-authority deployment. The protected quorum client additionally requires
-operator-supplied TLS and bearer credentials.
+Public node JSON-RPC uses the root HTTPS path. The protected source and
+rollback-anchor quorum clients require separately configured endpoints,
+TLS trust anchors and file-backed bearer authentication.
 
 Each source and rollback-anchor quorum requires two to eight independent HTTPS JSON-RPC endpoints and a strict majority. Endpoint URLs must use DNS names and HTTPS. Every endpoint declaration requires an `independent_backend` label for the operator-audited backend identity. Both `(host, port)` and normalized backend identities must be unique, so aliases, alternate request paths, and duplicate labels cannot manufacture quorum membership. The DER trust anchor and bearer credential paths must be absolute. Bearer credentials must be regular files with no group or other permissions; invalid paths or permissions refuse construction before any network request.
 
-Protected Ethereum, Solana, and rollback-anchor endpoint declarations use this closed shape; omitting `independent_backend` is a configuration error:
-
-```json
-{
-  "url": "https://source-a.example/",
-  "ca_certificate_der": "${LAYERX_MIGRATION_SECRET_DIR}/source-ca.der",
-  "bearer_token_file": "${LAYERX_MIGRATION_SECRET_DIR}/source-a.token",
-  "independent_backend": "operator-a"
-}
-```
+Protected Ethereum, Solana and rollback-anchor endpoint declarations contain
+exactly `url`, `ca_certificate_der`, `bearer_token_file` and
+`independent_backend`. The operator binary expands
+`${LAYERX_MIGRATION_SECRET_DIR}` in configuration files; the replacement must be
+a canonical absolute directory path.
 
 Ethereum configuration pins the chain ID, genesis block, custody contract, immutable runtime or explicit proxy implementation, runtime hashes at the source block, ABI selector, event topic, and the location of every custody field. Solana configuration pins the genesis hash, custody program, immutable ProgramData account and code hash, loader, custody and token authorities, account owners, instruction discriminator, account indices, byte offsets, and integer encoding. No default custody schema or deployment identifier exists.
 
@@ -49,12 +42,10 @@ these methods on a strict-majority HTTPS authority:
 - `layerx_getMigrationJournalHead([anchor_id])`, returning `{sequence,digest}`.
 - `layerx_advanceMigrationJournalHead([{anchor_id,expected_sequence,expected_digest,sequence,digest}])`, performing an authenticated compare-and-swap and returning the committed `{sequence,digest}`.
 
-These are the client's required external interface, not methods supplied by the
-public node. The current tree contains the client and test peers, but no
-production server for these methods; an operator must identify and qualify the
-actual producer before relying on rollback protection. The methods require
+Configure an independent rollback authority implementing these methods with
 linearizable durable compare-and-swap, authorization and retention independent
-of the verifier host. A local journal alone cannot provide that authority.
+of the verifier host. The migration client reconciles its local journal against
+that authority before accepting journal state.
 
 `sequence` is a JSON unsigned integer and `digest` is a 32-byte lowercase hex
 string without a prefix. The initial head is sequence zero with a zero digest.

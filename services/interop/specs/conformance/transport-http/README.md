@@ -30,14 +30,13 @@ This binding carries base64 of the JSON document in the `PAYMENT-REQUIRED`, `PAY
 
 ## Conformance
 
-`services/interop/crates/layerx-x402/tests/transports.rs` reads these files with
-`include_str!` and runs every record through the production x402 model types
-and the production encoder and decoder for this transport, so the suite the
-deployment pins is the suite the tests exercise.
+`services/interop/crates/layerx-x402/tests/transports.rs` reads the top-level role
+records with `include_str!` and exercises the production x402 model types and
+this transport's encoder and decoder. The nested `semantic_cases` describe
+model, payment and ingress expectations separately from those codec round trips.
 
-The fault-injected settlement cases in that file are not vectors and are not
-counted: they drive a live sequencer signer and a canonical receipt encoder
-rather than a transport representation.
+Additional settlement cases in that file use a local receipt signer and
+canonical receipt encoder. They are outside the JSON vector count.
 
 `services/interop/deploy/gateway/render.py` derives the vector count and the SHA-256
 the gateway configuration declares from these files.
@@ -52,10 +51,9 @@ decoders call semantic validation.
 The profile-free `eip155:125` cases therefore explicitly expect `ProfileMissing`;
 a LayerX profile on the foreign `eip155:1` network expects `ProfileMismatch`.
 
-The original role documents remain transport compatibility fixtures. Their opaque
-`authorization` payloads have explicit payment refusal expectations:
-`typed_intent_required`. They must never be presented as successful payments.
-The additional `recorded_native_*` cases carry matching offers and unchanged
+Role documents with opaque `authorization` payloads describe transport
+representations. Their payment refusal expectation is `typed_intent_required`.
+The nested `recorded_native_*` cases carry matching offers and unchanged
 signed payer bytes from `V1-layerxledger-pay-exact` in
 `sdk/platform/conformance/fixtures/sequencer-receipt-v1.json`. Their payee account,
 asset, amount and idempotency reference match that transaction and its recorded

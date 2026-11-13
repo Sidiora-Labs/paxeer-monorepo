@@ -86,8 +86,8 @@ snapshot.
 
 The current version `1` snapshot format is a zlib-compressed (level 7),
 length-prefixed Protobuf stream of `cosmos.base.snapshots.v1beta1.SnapshotItem`
-messages, split into chunks at exact 10 MB (10,000,000 byte) boundaries. The
-messages are defined in
+messages, split into chunks at 10 MB (10,000,000 byte) boundaries, with a
+possibly shorter final chunk. The messages are defined in
 [`snapshot.proto`](../proto/cosmos/base/snapshots/v1beta1/snapshot.proto).
 
 ```protobuf

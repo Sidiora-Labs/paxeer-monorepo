@@ -6,10 +6,8 @@ JSON-RPC ingress to the single Paxeer network. `paxd` contains the kernel,
 executes transactions and proposes blocks; receipt finality is BFT block
 commit. Tenant domains are database namespaces in that network.
 
-Public node JSON-RPC is served at the root of
-`https://api-mainnet-beta.paxeer.network/` and
-`https://api1.mainnet-beta.paxeer.network/` through
-`https://api14.mainnet-beta.paxeer.network/`, with EVM chain ID **125** (`0x7d`).
+Public node JSON-RPC is served at the root path, with EVM chain ID **125**
+(`0x7d`); see the [public RPC reference](../../../../docs/site/docs/reference/public-rpc.md).
 Those nodes expose `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test` and `txpool`
 namespaces. The `px` namespace is served at the node root from node state;
 only `px_register` and `px_requestFunds` are hosted operations.
@@ -34,24 +32,18 @@ Send node JSON-RPC 2.0 requests to `POST /` with
 {"jsonrpc":"2.0","id":"network","method":"eth_chainId","params":[]}
 ```
 
-The expected chain ID is `0x7d`. Native balance reads use `eth_call` against
-the bank precompile, without a custody deposit or an anchor join. For example,
-`all_balances(address)` for the illustrative address below is:
-
-```json
-{"jsonrpc":"2.0","id":"balances","method":"eth_call","params":[{"to":"0x0000000000000000000000000000000000001001","data":"0x0c5e2789000000000000000000000000102132435465768798a9bacbdcedfe0f1e2d3c4b"},"latest"]}
-```
-
+The expected chain ID is `0x7d`. Native balance reads use `eth_call` with
+`all_balances(address)` against the bank precompile
+`0x0000000000000000000000000000000000001001`.
 Decode the result as the bank ABI's coin array; amounts are full-width integers.
-This example illustrates the encoding and does not promise a funded account.
 
 The **hosted gateway**, at the operator-provided origin, also accepts `POST /`.
 Its dispatcher is [src/rpc.rs](src/rpc.rs), reached through
 [src/main.rs](src/main.rs). The gateway-owned [OpenRPC contract](openrpc.json)
-declares the gateway's `px_*` methods and `pax_sequencerReceipt`; it is not the
-node's complete RPC schema. Public nodes serve the `px` namespace at `POST /`;
-use the hosted gateway for `px_register` and `px_requestFunds`.
-Use the checked-in contract; `/rpc/schema` is not a discovery endpoint.
+declares the gateway's `px_*` methods and `pax_sequencerReceipt`. `GET /openrpc.json`
+serves the gateway schema with the inference methods filtered out. Public nodes
+serve their own `px` namespace at `POST /`; use the hosted gateway for
+`px_register` and `px_requestFunds`.
 Hosted requests may be single objects or batches of 1..32 entries; notification-only requests
 produce HTTP 204. Malformed JSON answers `-32700`, invalid request envelopes
 `-32600`, and unknown methods `-32601`.
@@ -67,11 +59,7 @@ There is no separate LayerX interface or router in the merged network.
 ## Node relay and receipt rungs
 
 `LAYERX_GATEWAY_PAXEER_RPC_URLS` is a JSON array of two to eight distinct node
-URLs. For example:
-
-```json
-["https://api1.mainnet-beta.paxeer.network/", "https://api2.mainnet-beta.paxeer.network/"]
-```
+URLs, each supplied as a JSON string identifying a node RPC endpoint.
 
 Invalid arrays refuse startup. The relay tries configured nodes in order,
 checks `eth_chainId` equals 125, and requires HTTP 200 and a valid JSON-RPC
@@ -202,18 +190,16 @@ Identifier meanings in this template and the Railway example are:
 | EVM chain ID `125` (`0x7d`) | The single Paxeer chain, checked by the RPC relay. |
 | `LAYERX_GATEWAY_PROTOCOL_NETWORK_ID=125` | Numeric native protocol network field for this deployment; separate from a tenant identifier. |
 | `LAYERX_GATEWAY_NETWORK_ID=paxeer-mainnet-beta` | Hosted discovery and route-binding identity label; it must match operator route bindings. |
-| Kubernetes namespace `layerx-testnet` | Retained installation and DNS namespace; its name does not select a chain. |
+| Kubernetes namespace `layerx-mainnet-beta` | Installation and DNS namespace used by the gateway template. |
 | `LAYERX_GATEWAY_LXP_WIRE_VERSION=3` | Receipt/state-commitment wire version, not a network or chain ID. |
 | `keyId` | Governed 32-byte receipt-key identifier, independent of service credentials. |
 | `firstHeight` / `lastHeight` | Inclusive chain-height authorization bounds, never an authority-issued batch allocation. |
 
-The Railway example keeps receipt keys optional until its external file-secret
-mapping is provisioned with the converted base64 array. Gateway-wide service
-mTLS also remains unset there: enabling it requires the Docker entrypoint to
-stage the two `LAYERX_GATEWAY_SERVICE_CLIENT_IDENTITY_*` files before dropping
-privileges. Existing event-producer mTLS uses its separate supported file
-variables. The Docker entrypoint must support staging both the converted
-receipt-key file and service identity files before those options can be enabled.
+The [Docker entrypoint](../../../../docker/platform-gateway/entrypoint.sh)
+stages the configured protected files before dropping privileges. Its file
+inventory lists the supported inputs. Receipt keys and service client identity
+must be available to the process through their configured file paths;
+event-producer mTLS uses its separate file variables.
 
 The provisioning checks execute the existing production provisioning,
 Secret serialization and manifest renderer, and check source wiring into the

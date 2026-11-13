@@ -25,14 +25,14 @@ Set these environment variables on the Blockscout backend:
 
 ```sh
 MICROSERVICE_SIG_PROVIDER_ENABLED=true
-MICROSERVICE_SIG_PROVIDER_URL=http://sig-provider:8050
+MICROSERVICE_SIG_PROVIDER_URL="$SIG_PROVIDER_ORIGIN"
 ```
 
-The URL must resolve to the sig-provider service from the backend. Its HTTP
-listener defaults to `0.0.0.0:8050`; gRPC is disabled by default and uses port 8051
-when enabled. This is an explorer decoding API. The network's public JSON-RPC is
-served separately at the root of node hosts such as
-`https://api1.mainnet-beta.paxeer.network/`, with chain id 125 (`0x7d`).
+Set the example shell input `SIG_PROVIDER_ORIGIN` to the service origin
+reachable from the backend. The HTTP listener defaults to port 8050 on all
+interfaces; gRPC is disabled by default and uses port 8051 when enabled. This
+is an explorer decoding API. Node JSON-RPC uses the root path separately,
+with chain id 125 (`0x7d`).
 
 ## Envs
 
@@ -53,10 +53,10 @@ which is the dependency used here.
 | Variable | Required | Description | Default value |
 | --- | --- | --- | --- |
 | `SIG_PROVIDER__SOURCES__PRECOMPILES__ENABLED` | | Use the embedded local precompile signatures | `true` |
-| `SIG_PROVIDER__SOURCES__FOURBYTE` | | 4byte directory HTTP URL | `https://www.4byte.directory/` |
-| `SIG_PROVIDER__SOURCES__SIGETH` | | Openchain signature database HTTP URL | `https://sig.eth.samczsun.com/` |
+| `SIG_PROVIDER__SOURCES__FOURBYTE` | | 4byte directory HTTP URL | Defined in `SourcesSettings::default` |
+| `SIG_PROVIDER__SOURCES__SIGETH` | | Openchain signature database HTTP URL | Defined in `SourcesSettings::default` |
 | `SIG_PROVIDER__SOURCES__ETH_BYTECODE_DB__ENABLED` | | Use the Ethereum bytecode database for complete event ABIs | `true` |
-| `SIG_PROVIDER__SOURCES__ETH_BYTECODE_DB__URL` | | Ethereum bytecode database HTTP URL | `https://eth-bytecode-db.services.blockscout.com/` |
+| `SIG_PROVIDER__SOURCES__ETH_BYTECODE_DB__URL` | | Ethereum bytecode database HTTP URL | Defined in `EthBytecodeDbSettings::default` |
 
 [anchor]: <> (anchors.envs.end)
 
@@ -146,11 +146,18 @@ The [HTTP mapping](sig-provider-proto/proto/api_config_http.yaml) and
 
 | Method | Route | Purpose |
 | --- | --- | --- |
-| POST | `/api/v1/signatures` | Submit an ABI to external signature sources asynchronously |
+| POST | `/api/v1/signatures` | Import an ABI and confirm its function and event signatures at each configured external import source |
 | GET | `/api/v1/abi/function` | Decode `txInput` into candidate function ABIs |
 | GET | `/api/v1/abi/event` | Decode comma-separated `topics` and hex `data` |
 | POST | `/api/v1/abi/events:batch-get` | Decode a `requests` array of events |
 | GET | `/health` | Service health |
+
+ABI imports validate the ABI parameter types, await delivery to every configured
+import source, and read back each function selector and event topic before
+returning success. Invalid ABI input returns gRPC `INVALID_ARGUMENT`; delivery
+or confirmation failure returns `UNAVAILABLE`. An ABI with no functions or
+events succeeds without contacting import sources. Imports leave the embedded
+precompile inventory unchanged.
 
 Function and event HTTP responses are candidate arrays. Malformed hex or a topic
 whose decoded length is not 32 bytes produces gRPC `INVALID_ARGUMENT`. Other
@@ -175,7 +182,6 @@ Source-code verification is handled by the separate
 
 ## Upstream links
 
-- [Demo](https://sig-provider.services.blockscout.com)
 - [Swagger](https://blockscout.github.io/swaggers/services/sig-provider/index.html)
 - [Packages](https://github.com/blockscout/blockscout-rs/pkgs/container/sig-provider)
 - [Releases](https://github.com/blockscout/blockscout-rs/releases?q=sig-provider&expanded=true)

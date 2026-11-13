@@ -1,39 +1,44 @@
 # UCP Checkout Conformance Vectors
 
-The first-party UCP suite: every vector is a wire value of the UCP checkout
-surface it names, together with whether the production type must accept it.
+The first-party UCP suite contains checkout model values and receipt-backed
+order records with their declared outcomes.
 
 ## Files
 
-- `capabilities.json` — capability names, versions, specification and schema URLs
-- `checkout-status.json` — the checkout status tokens and what each one means
-- `idempotency-keys.json` — the exact idempotency-key strings and their refusals
-- `merchant-profiles.json` — merchant profile documents and their refusals
-- `payment-handlers.json` — payment handler declarations and digest grouping
+- `capabilities.json` — capability names, versions, specification and schema URLs.
+- `checkout-status.json` — checkout status tokens and their meanings.
+- `idempotency-keys.json` — idempotency-key strings and their refusals.
+- `merchant-profiles.json` — merchant profiles and their refusals.
+- `payment-handlers.json` — payment handler declarations and digest grouping.
+- `sequenced-order.json` — checkout, payment evidence, order metadata and expected outcomes.
 
-## Vector Format
+## Vector format
 
-Each file holds a JSON array of records:
+Each file holds a JSON array. Constructor records use `name`, `valid` and,
+for invalid inputs, the exact `UcpError` in `refusal`. Their wire fields include
+`capability`, `version`, `spec`, `schema`, `rest_endpoint`, `payment_handler`,
+`key` and `id`. Merchant profiles also declare expected versions and capabilities.
+Payment handler records use `digest_group`: members of one group produce the
+same digest, and distinct groups produce different digests.
 
-- `name`: the case the vector covers
-- `valid`: whether the production constructor must succeed
-- `refusal`: the exact `UcpError` variant an invalid record must produce
-- the remaining fields are the wire values of that record, exactly as they
-  travel: `capability`, `version`, `spec`, `schema`, `rest_endpoint`,
-  `payment_handler`, `key`, `status`, `id`
-- `digest_group` (payment handlers): records sharing a group must produce the
-  same payment handler digest, and records in different groups must not
+Status records use `name`, `status` and `meaning`. Order records instead carry
+`checkout`, `metadata`, `evidence`, signed receipt material and `expected`;
+`source_case` identifies their producer case. Submission-only evidence yields
+`complete_in_progress`; authenticated matching payment evidence is required
+for a completed order.
 
 ## Conformance
 
-`services/interop/crates/layerx-ucp/tests/conformance_vectors.rs` reads these files with
-`include_str!` and runs every record through the production `MerchantProfile`,
-`PaymentHandler`, `UcpIdempotencyKey`, `CheckoutStatus` and `Capability` types,
-so the suite the deployment pins is the suite the tests exercise.
+`services/interop/crates/layerx-ucp/tests/conformance_vectors.rs` reads the five
+model files with `include_str!`. It exercises `MerchantProfile`, `PaymentHandler`,
+`UcpIdempotencyKey` and `Capability`, and checks the complete `CheckoutStatus`
+vocabulary. Its descriptor, exported identifier, vendored-revision and receipt
+checks are additional Rust cases outside the JSON record count.
 
-Two cases in that file are not vectors and are not counted: the crate descriptor
-and the vendored-revision check assert against constants compiled into the
-crate rather than against wire data.
+`services/interop/crates/layerx-ucp/tests/sequenced_vectors.rs` exercises receipt
+and order settlement from its crate-local `fixtures/sequenced-order.json`, using
+producer recordings in `sdk/platform/conformance/fixtures/ucp-checkout-receipt-v1.json`
+and `sdk/platform/conformance/fixtures/sequencer-receipt-v1.json`.
 
-`services/interop/deploy/gateway/render.py` derives the suite identifier, the vector
-count and the SHA-256 the gateway configuration declares from these files.
+`services/interop/deploy/gateway/render.py` derives the suite identifier, vector
+count and SHA-256 from all six JSON files in this directory.

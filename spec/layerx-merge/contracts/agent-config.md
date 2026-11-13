@@ -78,11 +78,11 @@ Agent applications use the merged Paxeer BFT network, EVM chain ID `125` (`0x7d`
 | <code>interface.9.env-layerx-agentd-rpc-tls-cert</code> | <code>env_var</code> | <code>services/agent/crates/layerx-agentd/src/main.rs</code> | <code>LAYERX_AGENTD_RPC_TLS_CERT</code> |
 | <code>interface.9.env-layerx-agentd-rpc-tls-client-ca</code> | <code>env_var</code> | <code>services/agent/crates/layerx-agentd/src/main.rs</code> | <code>LAYERX_AGENTD_RPC_TLS_CLIENT_CA</code> |
 | <code>interface.9.env-layerx-agentd-rpc-tls-key</code> | <code>env_var</code> | <code>services/agent/crates/layerx-agentd/src/main.rs</code> | <code>LAYERX_AGENTD_RPC_TLS_KEY</code> |
-| <code>interface.9.env-layerx-native-effect-policy-sources</code> | <code>env_var</code> | <code>services/agent/crates/layerx-agentd/src/main.rs</code> | <code>SETTING</code> |
+| <code>interface.9.env-layerx-native-effect-policy-sources</code> | <code>env_var</code> | <code>services/agent/crates/layerx-agentd/src/main.rs</code> | <code>LAYERX_NATIVE_EFFECT_POLICY_SOURCES</code> |
 | <code>interface.9.env-layerx-native-policy-sources</code> | <code>env_var</code> | <code>services/agent/crates/layerx-agentd/src/main.rs</code> | <code>LAYERX_NATIVE_POLICY_SOURCES</code> |
 | <code>interface.9.env-layerx-node-network-name</code> | <code>env_var</code> | <code>services/agent/crates/layerx-agentd/src/main.rs</code> | <code>LAYERX_NODE_NETWORK_NAME</code> |
 | <code>interface.9.env-layerx-policy-sources</code> | <code>env_var</code> | <code>services/agent/crates/layerx-agentd/src/main.rs</code> | <code>LAYERX_POLICY_SOURCES</code> |
-| <code>interface.9.env-layerx-program-budget-denomination-sources</code> | <code>env_var</code> | <code>services/agent/crates/layerx-agentd/src/main.rs</code> | <code>SETTING</code> |
+| <code>interface.9.env-layerx-program-budget-denomination-sources</code> | <code>env_var</code> | <code>services/agent/crates/layerx-agentd/src/main.rs</code> | <code>LAYERX_PROGRAM_BUDGET_DENOMINATION_SOURCES</code> |
 | <code>interface.9.env-layerx-tls-qual-ca-der</code> | <code>env_var</code> | <code>services/agent/crates/layerx-agentd/src/outbound_tls.rs</code> | <code>LAYERX_TLS_QUAL_CA_DER</code> |
 | <code>interface.9.env-native-send-daemon-canonical-output</code> | <code>env_var</code> | <code>services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs</code> | <code>NATIVE_SEND_DAEMON_CANONICAL_OUTPUT</code> |
 | <code>interface.9.env-layerx-agent-human-authority-bearer</code> | <code>env_var</code> | <code>services/agent/crates/layerx-agentd/src/main.rs</code> | <code>LAYERX_AGENT_HUMAN_AUTHORITY_BEARER</code> |
@@ -100,8 +100,8 @@ Agent applications use the merged Paxeer BFT network, EVM chain ID `125` (`0x7d`
 |---|---|
 | interface | the agent daemon's node JSON-RPC client over LAYERX_AGENT_NODE_RPC_URL |
 | storage | none beyond the agentd store |
-| errors | JSON-RPC error codes are surfaced as NodeUnavailable or ProtocolIncompatibility |
-| events | eth_subscribe logs |
+| errors | `NodeRpcError` distinguishes MissingVariable, InvalidVariable, InvalidDeadline, ChainIdMismatch, Unavailable and Sequencer |
+| events | the synchronous `NodeRpc` client performs request/response reads |
 | gas | none |
 | invariants | eth_chainId equals LAYERX_AGENT_NODE_CHAIN_ID before serving |
 | pause | none |
@@ -116,13 +116,32 @@ Agent applications use the merged Paxeer BFT network, EVM chain ID `125` (`0x7d`
 
 ## agentd-startup
 
+Startup requires these eight file keys or their corresponding environment
+variables. Exact environment values override the explicitly named file.
+
+| File key | Environment variable |
+| --- | --- |
+| `network_id` | `LAYERX_NETWORK_ID` |
+| `node_endpoint` | `LAYERX_NODE_ENDPOINT` |
+| `expected_chain_id` | `LAYERX_EXPECTED_CHAIN_ID` |
+| `tenants` | `LAYERX_TENANTS` |
+| `policy_sources` | `LAYERX_POLICY_SOURCES` |
+| `signer_configurations` | `LAYERX_SIGNER_CONFIGURATIONS` |
+| `verification_defaults` | `LAYERX_VERIFICATION_DEFAULTS` |
+| `receipt_key_source` | `LAYERX_RECEIPT_KEY_SOURCE` |
+
+`receipt_key_source` accepts `px_getReceiptKeys` for node-provided keys or a
+pinned-file path. `expected_protocol_version` and
+`sequencer_authority_source`, including their environment forms listed below,
+are retired inputs and are rejected.
+
 | Interface | Kind | Source | Declaration |
 | --- | --- | --- | --- |
-| <code>interface.9.cfg-agentd-startup-expected-protocol-version</code> | <code>config_key</code> | <code>services/agent/crates/layerx-agentd/src/config.rs</code> | <code>expected_protocol_version (file key) / LAYERX_EXPECTED_PROTOCOL_VERSION (environment)</code> |
+| <code>interface.9.cfg-agentd-startup-expected-protocol-version</code> | <code>config_key</code> | <code>services/agent/crates/layerx-agentd/src/config.rs</code> | <code>expected_protocol_version (file key) / LAYERX_EXPECTED_PROTOCOL_VERSION (environment) (retired; rejected)</code> |
 | <code>interface.9.cfg-agentd-startup-network-id</code> | <code>config_key</code> | <code>services/agent/crates/layerx-agentd/src/config.rs</code> | <code>network_id (file key) / LAYERX_NETWORK_ID (environment)</code> |
 | <code>interface.9.cfg-agentd-startup-node-endpoint</code> | <code>config_key</code> | <code>services/agent/crates/layerx-agentd/src/config.rs</code> | <code>node_endpoint (file key) / LAYERX_NODE_ENDPOINT (environment)</code> |
 | <code>interface.9.cfg-agentd-startup-policy-sources</code> | <code>config_key</code> | <code>services/agent/crates/layerx-agentd/src/config.rs</code> | <code>policy_sources (file key) / LAYERX_POLICY_SOURCES (environment)</code> |
-| <code>interface.9.cfg-agentd-startup-sequencer-authority-source</code> | <code>config_key</code> | <code>services/agent/crates/layerx-agentd/src/config.rs</code> | <code>sequencer_authority_source (file key) / LAYERX_SEQUENCER_AUTHORITY_SOURCE (environment)</code> |
+| <code>interface.9.cfg-agentd-startup-sequencer-authority-source</code> | <code>config_key</code> | <code>services/agent/crates/layerx-agentd/src/config.rs</code> | <code>sequencer_authority_source (file key) / LAYERX_SEQUENCER_AUTHORITY_SOURCE (environment) (retired; rejected)</code> |
 | <code>interface.9.cfg-agentd-startup-signer-configurations</code> | <code>config_key</code> | <code>services/agent/crates/layerx-agentd/src/config.rs</code> | <code>signer_configurations (file key) / LAYERX_SIGNER_CONFIGURATIONS (environment)</code> |
 | <code>interface.9.cfg-agentd-startup-tenants</code> | <code>config_key</code> | <code>services/agent/crates/layerx-agentd/src/config.rs</code> | <code>tenants (file key) / LAYERX_TENANTS (environment)</code> |
 | <code>interface.9.cfg-agentd-startup-verification-defaults</code> | <code>config_key</code> | <code>services/agent/crates/layerx-agentd/src/config.rs</code> | <code>verification_defaults (file key) / LAYERX_VERIFICATION_DEFAULTS (environment)</code> |
@@ -168,6 +187,12 @@ Agent applications use the merged Paxeer BFT network, EVM chain ID `125` (`0x7d`
 
 ## mcp-binding
 
+Bindings use `binding.core_height`; `binding.core_sequence` is rejected with
+`mcp.binding_retired_key`. Web configuration uses `binding.web.receipt_key_index`
+and also accepts `payer_address`, `receiver_address`, `sequencer_id`,
+`first_batch_number` and `last_batch_number` within `binding.web`.
+`binding.web.sequencer_public_key` is retired and rejected.
+
 | Interface | Kind | Source | Declaration |
 | --- | --- | --- | --- |
 | <code>interface.9.cfg-mcp-binding-agent</code> | <code>config_key</code> | <code>services/agent/crates/layerx-mcp/src/binding.rs</code> | <code>binding.agent</code> |
@@ -180,7 +205,7 @@ Agent applications use the merged Paxeer BFT network, EVM chain ID `125` (`0x7d`
 | <code>interface.9.cfg-mcp-binding-agent-readiness-trust-anchors</code> | <code>config_key</code> | <code>services/agent/crates/layerx-mcp/src/binding.rs</code> | <code>binding.agent.readiness.trust_anchors</code> |
 | <code>interface.9.cfg-mcp-binding-audit-root</code> | <code>config_key</code> | <code>services/agent/crates/layerx-mcp/src/binding.rs</code> | <code>binding.audit_root</code> |
 | <code>interface.9.cfg-mcp-binding-capability-id</code> | <code>config_key</code> | <code>services/agent/crates/layerx-mcp/src/binding.rs</code> | <code>binding.capability_id</code> |
-| <code>interface.9.cfg-mcp-binding-core-sequence</code> | <code>config_key</code> | <code>services/agent/crates/layerx-mcp/src/binding.rs</code> | <code>binding.core_sequence</code> |
+| <code>interface.9.cfg-mcp-binding-core-sequence</code> | <code>config_key</code> | <code>services/agent/crates/layerx-mcp/src/binding.rs</code> | <code>binding.core_sequence (retired; rejected)</code> |
 | <code>interface.9.cfg-mcp-binding-deadline-ms</code> | <code>config_key</code> | <code>services/agent/crates/layerx-mcp/src/binding.rs</code> | <code>binding.deadline_ms</code> |
 | <code>interface.9.cfg-mcp-binding-limit</code> | <code>config_key</code> | <code>services/agent/crates/layerx-mcp/src/binding.rs</code> | <code>binding.limit</code> |
 | <code>interface.9.cfg-mcp-binding-limit-ceiling</code> | <code>config_key</code> | <code>services/agent/crates/layerx-mcp/src/binding.rs</code> | <code>binding.limit.ceiling</code> |
@@ -206,7 +231,7 @@ Agent applications use the merged Paxeer BFT network, EVM chain ID `125` (`0x7d`
 | <code>interface.9.cfg-mcp-binding-web-endpoint</code> | <code>config_key</code> | <code>services/agent/crates/layerx-mcp/src/binding.rs</code> | <code>binding.web.endpoint</code> |
 | <code>interface.9.cfg-mcp-binding-web-network</code> | <code>config_key</code> | <code>services/agent/crates/layerx-mcp/src/binding.rs</code> | <code>binding.web.network</code> |
 | <code>interface.9.cfg-mcp-binding-web-pending-attempts</code> | <code>config_key</code> | <code>services/agent/crates/layerx-mcp/src/binding.rs</code> | <code>binding.web.pending_attempts</code> |
-| <code>interface.9.cfg-mcp-binding-web-sequencer-public-key</code> | <code>config_key</code> | <code>services/agent/crates/layerx-mcp/src/binding.rs</code> | <code>binding.web.sequencer_public_key</code> |
+| <code>interface.9.cfg-mcp-binding-web-sequencer-public-key</code> | <code>config_key</code> | <code>services/agent/crates/layerx-mcp/src/binding.rs</code> | <code>binding.web.sequencer_public_key (retired; rejected)</code> |
 | <code>interface.9.cfg-mcp-binding-web-timeout-ms</code> | <code>config_key</code> | <code>services/agent/crates/layerx-mcp/src/binding.rs</code> | <code>binding.web.timeout_ms</code> |
 
 ## native-effect-policy-source

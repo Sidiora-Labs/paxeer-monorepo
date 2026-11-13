@@ -30,5 +30,5 @@ local PostgreSQL connection configured:
 #### `Explorer.Chain.Transaction.recent_collated_transactions/1`
 
 * Reset the test database: `MIX_ENV=test mix do ecto.drop, ecto.create, ecto.migrate`
-* Change `tag` in `benchmarks/explorer/chain/transaction/recent_collated_transactions.exs` to a new value, so that it will compare against the old values saved in `benchmarks/explorer/chain/transaction/recent_collated_transactions.benchee`
+* Change `tag` in `benchmarks/explorer/chain/transaction/recent_collated_transactions.exs` to a new value, so that it will compare against the values saved in `benchmarks/explorer/chain/recent_collated_transactions.benchee`
 * Run the benchmark: `MIX_ENV=test mix run benchmarks/explorer/chain/transaction/recent_collated_transactions.exs`

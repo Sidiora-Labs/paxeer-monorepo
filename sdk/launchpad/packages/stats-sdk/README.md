@@ -1,7 +1,7 @@
 # stats-sdk
 
 TypeScript client for pool statistics from
-[`core/stats-workers`](../../../../core/stats-workers/internal/httpapi/pool_stats.go).
+[`services/launchpad/stats-workers`](../../../../services/launchpad/stats-workers/internal/httpapi/pool_stats.go).
 The [entry point](src/index.ts) exports `StatsHttpClient`, the shared `httpClient`,
 response parsers, error classes and `PoolStats` types.
 

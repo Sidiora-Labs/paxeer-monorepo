@@ -20,7 +20,7 @@ flowchart TD
     G --> I[Protected integration branches]
 ```
 
-The main server hosts leadership, feature management and supervision. Builds, implementation and checker execution belong in sandboxes. A sandbox is not an agent: fixed resource capacity must be reserved before admitting worker slots, tests or builds. Hundreds of agents and 100 sandboxes are planning requirements, not measured throughput or availability guarantees.
+The main server hosts leadership, feature management and supervision. Builds, implementation and checker execution belong in sandboxes. A sandbox is not an agent: fixed resource capacity must be reserved before admitting worker slots, tests or builds. Configured resource reservations and budgets bound admitted concurrency.
 
 The human interacts with the leader. Feature managers own their assigned packages and request work through Hyperfide; workers cannot acquire publication authority by naming a branch, posting a successful exit code or editing a task status. Claude Code and Codex remain frontier execution connectors. Primary and Wave Manager models choose typed orchestration actions within authenticated authority; qualified evidence and deterministic gates decide acceptance.
 
@@ -67,59 +67,24 @@ Before admitting installations, register the exact package/source configuration 
 
 For a routine restart, retain the state directory and configuration identity. The supervisor's host lock prevents concurrent ownership, and its journal preserves pending operation IDs and credential grants. A changed configuration digest is rejected against retained state. Investigate `UNKNOWN`, `FLEET_RECONCILIATION_REQUIRED` or uncertain provider/runner operations before changing that journal. Reconcile the existing operation instead of deleting state or inventing a new execution ID.
 
-Catalog-70 inventory maintenance requires a coordinated database and runtime rollout. Migration `0730-provider-inventory-journal-index.sql` adds six ordinary indexes and an append-only inventory-journal trigger. Ordinary `CREATE INDEX` blocks table writes while building; schedule a safe write window. Catalog-69 runtimes reject the additional migration catalog, so do not apply this migration beneath a running catalog-69 fleet. Prepare matching catalog-70 artifacts and verify the database/runtime catalog together before resuming admission.
+Migration `0730-provider-inventory-journal-index.sql` creates six ordinary indexes and an append-only inventory-journal trigger. Ordinary `CREATE INDEX` blocks table writes while building. Apply the migration within a coordinated write window and deploy runtime artifacts with the matching migration catalog before resuming admission.
 
 A process/cohort replacement requires explicit current operator bootstrap authority and matching expected generations. On startup, the supervisor observes retained authority before renewing credentials and routes a stale control host through that replacement path. Rebind the current hierarchy and manager identities through the supported bootstrap path; old model observations and credentials cannot authorize replacement-generation effects. Existing installation recovery uses model-selected `fleet.install.adopt` and immutable receipts, with an acknowledged hierarchy handoff when ownership changes. See [recovery and adoption](fleet.md#recovery-and-adoption). Missing models, incomplete bounded observations and uncertain installation results remain waiting or refused states; they do not grant task or publication readiness.
 
 ## Fleet campaign configuration
 
-The owner campaign needs an approved provider pool, model backend, object store,
-operator credentials and protected runtime inputs. Keep configuration and captures
-owner-only; never publish their contents. `HYPERFIDE_FLEET_NODE` selects an executable
-override; otherwise the journey and setup resolve `node` on PATH and refuse a missing
-binary. The actor check also needs its declared native binary/profile under
-`build/fleet/worker/private` and configured model authorization. Apply the trusted
-migrations separately before the live campaign.
+Fleet execution requires an approved provider pool, a configured model backend,
+object storage, enrolled operator credentials and protected runtime inputs.
+Apply the trusted migrations before starting the services. Keep configuration
+and credentials private. `HYPERFIDE_FLEET_NODE` selects the Node executable for
+fleet campaign commands; otherwise they resolve `node` on PATH.
 
-Once the campaign has been configured and enrolled, run the following from
-`tools/hyperfide`. `run` starts the actual supervisor/provisioner; `qualification`
-executes the owner's versioned signed request list and must finish before indexing.
-Retain actual signed captures for every `TASK_CASES['0.14']` entry, including
-supervisory box loss, stale generation replay, ambiguous provider outcome,
-interrupted install, failed implementing agent and unavailable model. Supply
-`build/fleet/integration/private/0_14-index-input.json` and `0_14-target-input.json`
-with the case capture digests, exact campaign scope, contract/source/toolchain pins,
-install and worker operation IDs and authenticated fault-driver bindings. Captures
-remain beside the index; indexing validates their pins and grants no live PASS.
-
-```sh
-python3 tests/hyperfide/cases/source_control/0_14_live.py run --task 0.14 --config /private/hyperfide-prerequisite/0_14-live-config.json
-python3 tests/hyperfide/cases/source_control/0_14_live.py qualification --task 0.14 --config /private/hyperfide-prerequisite/0_14-live-config.json
-python3 tests/hyperfide/cases/source_control/0_14_live.py evidence-index --task 0.14 --config /private/hyperfide-prerequisite/0_14-live-config.json
-python3 tests/hyperfide/support/withpg.py -- python3 tests/hyperfide/cases/source_control/0_14.py --live-evidence build/fleet/integration/private/0_14-index.json --target build/fleet/integration/private/0_14-target.json --receipt build/fleet/integration/private/0_14-live-receipt.json
-```
-
-The final command runs real-model actor checks in an owned database, then the live
-verifier reads the separate database named by the trusted target's `database_url_env`.
-Use a distinct environment variable for that live read-only connection; `withpg.py`
-replaces `DATABASE_URL` and `HYPERFIDE_*_DATABASE_URL` for isolation. The
-`actor-receipt.json` remains separate from the final live receipt. Only a live
-receipt with `status = PASS`, `qualified = true` and the classified assertion inventory
-permits a zero exit; missing credentials or evidence remain BLOCKED with exit 2.
-A failed assertion is retained, never converted to PASS by a component result.
-
-Recovery preserves the private `0_14-live-journal.json`, supervisor state, original
-operation IDs and receipts. After supervisory host loss, rebind current cohort and
-manager authority and prove the original instance absent. Reject stale generation
-replays without effects. Reconcile an ambiguous provider operation and retain its
-capacity hold until exact absence is proven. Resume interrupted installation only
-through the signed FAILED/quiescence recovery chain; preserve source and stage pins.
-Retain a failed implementing agent's terminal native result and cleanup proof, and
-independently verify any replacement result. Unavailable models remain waiting;
-restore their configured backend before requesting new reasoning. Do not erase
-journals or relaunch uncertain execution with a new identity.
-
-Native source installation and result evidence bind the revision, root tree and security domain, including scope, modes, content digests, interface selection and boot generations.
+Recovery retains the supervisor state and the original operation identities.
+After supervisory host loss, rebind the current cohort and manager authority
+and establish that the original instance is absent. Reconcile ambiguous provider
+operations while retaining their capacity holds. Resume interrupted installation
+through its signed failure and quiescence chain. Independent verification uses
+the captured result and its source, environment and physical boot bindings.
 
 ## Source and qualification states
 
@@ -137,10 +102,14 @@ npm --prefix core/control-plane run build
 The lockfile pins dependencies and the package declares Node 24.22.0. Start the appropriate entrypoint with an explicitly approved policy file, its exact specification revision, registered fragments and built module root:
 
 ```sh
-node core/control-plane/dist/control.js --policy /run/hyperfide/policy.json --spec-revision APPROVED_REVISION --components core/control-plane/components --module-root core/control-plane/dist
+node core/control-plane/dist/control.js \
+  --mode https --host "$HYPERFIDE_LISTEN_HOST" --port "$HYPERFIDE_LISTEN_PORT" \
+  --tls-cert /etc/hyperfide/control.crt --tls-key /etc/hyperfide/control.key \
+  --policy /etc/hyperfide/control-policy.json --spec-revision "$HYPERFIDE_SPEC_REVISION" \
+  --components core/control-plane/components --module-root core/control-plane/dist
 ```
 
-The corresponding source entrypoints are provisioner.js and dispatch.js. A missing approval, denied role/action, mismatched revision, absent linked module or invalid dependency graph refuses startup. The stdio protocol is bounded JSONL; its presence does not grant remote authority.
+Load the protected control-service environment, including `HF_IDENTITY_CONFIG_FILE`, and set the listener and specification values before starting this command. The corresponding built entrypoints are `provisioner.js` and `dispatch.js`. A missing approval, denied role/action, mismatched revision, absent linked module or invalid dependency graph refuses startup. The default stdio mode uses bounded JSONL and is refused when the selected component directory registers identity component `14.1`. Use HTTPS mode to serve authenticated requests with the supplied component directory.
 
 The authenticated network service uses the explicit HTTPS mode, trusted TLS certificate/key and identity configuration. Identity enrolment, request signatures, origin, nonce, credential version, deployment epoch and current run/boot/lease are enforced by the authenticated transport protocol. Never copy fixture credentials into an operational environment.
 
@@ -166,36 +135,36 @@ Fleet preparation needs two executor configurations. `HF_PROVISIONER_EXECUTOR_CO
 
 Worker starts are durable per run in hyperfide.provisioner_worker_starts. A restart resumes the recorded start (resume_count increases, start_count and started_at do not); repeated provider.worker.start calls against a running worker change nothing. provider.worker.stop records STOPPED, which remains stopped across process restarts. An explicit authenticated provider.worker.start starts it again. A STARTED record owned by another current PROVISIONER credential refuses startup with WORKER_ALREADY_RUNNING; revoke or expire that credential before rotating the worker key. provider.worker.status reports the durable record beside the live loop state.
 
-Observed refusals from the built entrypoint in a task sandbox (exit code 1):
-
-```text
-$ node core/control-plane/dist/control.js
-{"ok":false,"error":{"code":"INVALID_ARGS","message":"Explicit trusted policy and pinned specification revision required"}}
-$ node core/control-plane/dist/control.js --policy /nonexistent --spec-revision X
-{"ok":false,"error":{"code":"POLICY_INVALID","message":"Trusted policy file is unavailable"}}
-```
-
-Authenticated startup, refusal of a request that claims its own approval, refusal of a request for another run and service restart are exercised against PostgreSQL by tests/hyperfide/cases/tasks/28_1.py; the recorded outcome is artifacts/hyperfide/tasks/28.1/evidence-index.json (local, force-added evidence; not a full-case receipt).
+Startup requires an explicit trusted policy and pinned specification revision.
+Missing flags return `INVALID_ARGS`; an unavailable policy returns `POLICY_INVALID`.
 
 An installed release launches its own runtimes directly: runtime/node, bin/hyperfide, bin/hyperfide-native and runtime/python/bin/python3 (a wrapper over python3.bin) run under the host dynamic loader /lib64/ld-linux-x86-64.so.2 with the host glibc, and take every other native library from the release (bin/hyperfide and bin/hyperfide-native through RUNPATH $ORIGIN/../lib/hyperfide, the service units and the migration job through LD_LIBRARY_PATH=<release>/lib/hyperfide, Python through runtime/python/lib). glibc itself is never bundled, so a host needs a glibc no older than the one on the release build host; tools/repository/release.sh refuses to construct a release that stages a glibc member or whose node does not run both plainly and under the bundled library path.
 
 ## Host bootstrap
 
-deploy/hyperfide/bootstrap-host.mjs prepares a host for the three service units. Run it as root from the installed release; it is idempotent, so rerun it after every release to pick up new templates:
+`deploy/hyperfide/bootstrap-host.mjs` prepares the control, provisioner and dispatch authority units, plus the supervisory-host and issue-watcher units. Run it as root from the installed release; it is idempotent, so rerun it after every release to pick up new templates:
 
     /opt/hyperfide/current/runtime/node /opt/hyperfide/current/deploy/hyperfide/bootstrap-host.mjs
 
-It creates the hyperfide group (gid 1900) and the system users hyperfide (uid 1900, control), hyperfide-provisioner (1901) and hyperfide-dispatch (1902), all with primary group hyperfide, home /nonexistent and shell /usr/sbin/nologin, through groupadd and useradd. An existing account with another id, group, home or shell refuses with BOOTSTRAP_IDENTITY_CONFLICT before any tree is created. It then creates /etc/hyperfide and /var/lib/hyperfide (root:hyperfide 0750), one state directory per role with its authority-journal (and, for the provisioner, preparation) directory (role user, 0700), and installs:
+It creates the hyperfide group (gid 1900) and the system users hyperfide (uid 1900, control), hyperfide-provisioner (1901) and hyperfide-dispatch (1902), all with primary group hyperfide, home /nonexistent and shell /usr/sbin/nologin, through groupadd and useradd. An existing account with another id, group, home or shell refuses with BOOTSTRAP_IDENTITY_CONFLICT before any tree is created. It then creates /etc/hyperfide and /var/lib/hyperfide (root:hyperfide 0750), one state directory per authority role with its authority-journal (and, for the provisioner, preparation) directory (role user, 0700), and installs the following files. In this table, `ROLE` means `control`, `provisioner` or `dispatch`:
 
 | Installed file                                             | Source                                                   | Owner and mode |
 | ---------------------------------------------------------- | -------------------------------------------------------- | -------------- |
 | /etc/hyperfide/ROLE.env                                    | deploy/hyperfide/env/ROLE.env.example                    | root:root 0600 |
 | /etc/hyperfide/ROLE-policy.json                            | deploy/hyperfide/policies/ROLE.example.json  | role user 0600 |
-| /etc/hyperfide/ROLE-identity.json, provisioner-worker.json | deploy/hyperfide/identity/*.example.json                 | role user 0600 |
+| /etc/hyperfide/ROLE-identity.json, provisioner-worker.json, runner-executor.json | deploy/hyperfide/identity/*.example.json                 | role user 0600 |
 | /etc/systemd/system/hyperfide-ROLE.service                 | deploy/hyperfide/ROLE.service                            | root:root 0644 |
 | hyperfide-ROLE.service.d/db-env.conf                       | EnvironmentFile=/etc/hyperfide/ROLE.db.env               | root:root 0644 |
 | hyperfide-ROLE.service.d/preflight.conf                    | ExecStartPre running bootstrap-host.mjs --preflight ROLE | root:root 0644 |
 | /etc/hyperfide/grants.sql                                  | deploy/hyperfide/grants.sql                              | root:root 0644 |
+
+The supervisory host uses root-owned configuration and private state and plan
+directories. Its socket directory permits the control group to connect. The
+issue watcher uses the `hyperfide` user and its own configuration, signing key
+and CA. These two roles receive environment templates, service units and
+preflight drop-ins. They receive no database environment drop-in or authority
+journal. Their preflight requires an installable service unit in the retained
+release and validates the role's configuration.
 
 deploy/hyperfide/env/control.env.example names every variable the control service reads (case v21/3_24 checks both directions): the required ones with placeholders, the optional ones commented with their defaults, and the rest by area as names only. Keys, tokens and database URLs go in a root-only drop-in such as control.db.env, never in control.env.
 
@@ -210,7 +179,7 @@ The preflight runs as each unit's ExecStartPre, as the unit's user and with its 
 | HYPERFIDE_DEPLOYMENT_ID not a UUID, or HYPERFIDE_AUTHORITY_JOURNAL_DIR missing, not canonical, not owned by the unit's uid or group/world accessible | EXTERNAL_JOURNAL_REQUIRED             |
 | Control without a 64-hex-character HYPERFIDE_CAUSAL_BARRIER_KEY                                                                                      | BARRIER_CONFIG_INVALID                |
 | Listener host or port, or HYPERFIDE_SPEC_REVISION, missing                                                                                           | TRANSPORT_CONFIG                      |
-| HYPERFIDE_ROLE_PRIMARY_DATABASE_URL missing or not postgres                                                                                          | DATABASE_CONFIG_INVALID               |
+| `HYPERFIDE_<ROLE>_PRIMARY_DATABASE_URL` missing or not postgres (`ROLE` is `CONTROL`, `PROVISIONER` or `DISPATCH`)                                      | DATABASE_CONFIG_INVALID               |
 | HF_IDENTITY_CONFIG_FILE missing                                                                                                                      | IDENTITY_CONFIG_REQUIRED              |
 | Dispatch without HF_EVENT_DISPATCH_CONFIG                                                                                                            | DISPATCH_CONFIG_REQUIRED              |
 | Provisioner without an absolute HF_PROVISIONER_EXECUTOR_CONFIG_FILE naming a regular file                                                            | PROVISIONER_EXECUTOR_CONFIG_INVALID   |
@@ -222,12 +191,12 @@ The preflight runs as each unit's ExecStartPre, as the unit's user and with its 
 | HYPERFIDE_POOL_CONFIG missing                                                                                                                        | POOL_CONFIG_REQUIRED                  |
 | HF_RAILWAY_CONFIG missing                                                                                                                            | Railway trusted configuration missing |
 
-The preflight prints only the outcome and code, never a value. A passing preflight does not prove that migrations, grants or an authority epoch exist; the service checks those at startup.
+The preflight reports its outcome, refusal code, missing configuration names or paths, and warnings. Configuration values stay private. The service checks migrations, grants and the authority epoch at startup.
 
 A new host follows this sequence:
 
 1. Install the release with install-service.mjs (--service-uid 1900 --service-gid 1900), then run the bootstrap above.
-2. Edit /etc/hyperfide/ROLE.env for each role. Write /etc/hyperfide/ROLE.db.env by hand (root:root 0600) with the role's HYPERFIDE_ROLE_PRIMARY_DATABASE_URL, the scoped runtime login only; never pass a database URL through a script or put a migration credential in either file. Place each role's ROLE.crt and ROLE.key, the provisioner's external-fence.json, pools.json, railway.json and worker key, and the dispatch worker configuration with its key, with the owner and mode the table above names. Replace the policy and identity placeholders.
+2. Edit /etc/hyperfide/ROLE.env for each authority role. Write /etc/hyperfide/ROLE.db.env by hand (root:root 0600) with `HYPERFIDE_<ROLE>_PRIMARY_DATABASE_URL`, substituting `CONTROL`, `PROVISIONER` or `DISPATCH` for `<ROLE>`. Use the scoped runtime login only; never pass a database URL through a script or put a migration credential in either file. Place each role's ROLE.crt and ROLE.key, the provisioner's external-fence.json, pools.json, railway.json and worker key, and the dispatch worker configuration with its key, with the owner and mode the table above names. Replace the policy and identity placeholders.
 3. Apply migrations with the migration credential in the operator's own environment (migrate.mjs --apply, see PostgreSQL and migrations).
 4. Apply grants.sql once per runtime login as the database owner. Grants need the migrated tables, so this follows step 3; rerun it after every migration.
 5. Activate the first epoch for control and adopt it for the provisioner and dispatch, as described in First authority epoch.
@@ -348,9 +317,9 @@ Provider components: 8.2 provider.pools._, 8.3 provider.intents._ and provider.o
 
 Provider resolution Asks. An orphan or QUARANTINED provisioning intent left unresolved past the policy window becomes a decision Ask in hyperfide.asks (kind decision, chain operator, deadline 14400 s from ASK_POLICY), raised by provider.resolutions.escalate (the provisioner worker calls it every HYPERFIDE_RESOLUTION_ESCALATE_INTERVAL_MS) through the same path as human.ask.raise, at most one open Ask per subject. Operators see them in human.ask.list with every other Ask and answer with human.ask.answer: RETAIN or DELETE for an orphan, RELEASE or RETRY for an intent. Only an OPERATOR of the Ask's run may answer, and the answer is applied to the provider inventory in the same transaction and recorded in provider_resolutions. DELETE, and RELEASE of an intent bound to a provider resource, need evidence the resource is gone: an answer without it is refused (DELETION_EVIDENCE_REQUIRED, RELEASE_EVIDENCE_REQUIRED) and the Ask stays open; settle those with provider.orphans.resolve or provider.intents.resolve-quarantine and evidence_digest, which also close the Ask. If the Ask expires unanswered, its recommended answer is recorded as decided by default but the inventory is not changed; the subject is raised again at the next escalation. provider.resolutions.list returns the resolutions, the Asks with their subject, and legacy_asks.
 
-Migration 0715 copied every open row of the old provider_resolution_asks table (0708) into hyperfide.asks under the run of its intent, or for an orphan the run of the credential that raised it, with a fresh 14400 s deadline. The old table is read-only history from then on, and writes to it are refused. Importing a run (spec.import) registers its operator:asks consumer BUFFERING when the event_consumers table exists, so Ask delivery needs no deploy step; an Ask raised on a run without that consumer is refused with ASK_OPERATOR_CONSUMER_REQUIRED.
+Provider resolution decisions use `hyperfide.asks`. The legacy `provider_resolution_asks` table is read-only. Importing a run (`spec.import`) registers its `operator:asks` consumer as `BUFFERING` when `event_consumers` exists. Raising an Ask without that consumer returns `ASK_OPERATOR_CONSUMER_REQUIRED`.
 
-HYPERFIDE_PROVIDER_RESOLUTION_WINDOW_SECONDS sets the policy window; the owner sets it per deployment, and 900 is the recommended value. Without it, escalation refuses with RESOLUTION_WINDOW_REQUIRED, the provisioner worker records that in its errors and keeps running, no provider Asks are raised, and the operator resolve actions still work.
+HYPERFIDE_PROVIDER_RESOLUTION_WINDOW_SECONDS sets the policy window; the owner sets it per deployment, and the supplied control and provisioner environment templates recommend 3600 seconds. Without it, escalation refuses with RESOLUTION_WINDOW_REQUIRED, the provisioner worker records that in its errors and keeps running, no provider Asks are raised, and the operator resolve actions still work.
 
 Remote work is prepared in a primary transaction, its intent is committed, then the opaque runner permit executes. No remote build occurs inside a PostgreSQL transaction. Unknown execution or cleanup remains unknown and retains capacity until reconciliation proves otherwise.
 
@@ -519,9 +488,9 @@ Component 28.2 exposes docs.packet with pinned accepted revision, generation, pr
 
 The checker runs through actual runner.remote.v1, with preparation and its durable intent committed before execution. Missing supplier capabilities or schema refuse operation. Each repository needs its own successful immutable check. docs.close accepts packet_id plus check_ids (or check_id for one repository), verifies complete exact repository coverage, and persists snapshot, baseline and closure atomically. Unconfirmed process cleanup or incomplete artifacts hold checker admission and closure. Successful checks still do not authorise slot release.
 
-The bounded 28.2 persistence fixture uses the actual createClosureComponent factory and explicit seeded checker records. It does not qualify the remote runner. Full distributed documentation acceptance requires the actual 5/12 service composition and independently admitted remote execution. The production fragment retains those supplier dependencies.
+Distributed documentation execution uses the registered runner and preparation suppliers. Component `28.2` retains those dependencies in its registration fragment.
 
-Component 28.4 separates a bounded structural mapping response from release.traceability.archive, which retains the complete sanitised public pack through artifact.store.v1. An archive verifies retrievable bytes and does not grant product qualification. Component 28.3 release.readiness.assess holds incomplete evidence. release.readiness.seal requires all full-case gates, current authoritative programme and documentation closure, a verified COMPLETE artifact, then a fresh guarded primary recheck before writing its immutable release record. Controlled complete-inventory checker fixtures do not establish a product release.
+Component 28.4 separates a bounded structural mapping response from release.traceability.archive, which retains the complete sanitised public pack through artifact.store.v1. An archive verifies retrievable bytes and does not grant product qualification. Component 28.3 release.readiness.assess holds incomplete evidence. release.readiness.seal requires all full-case gates, current authoritative programme and documentation closure, a verified COMPLETE artifact, then a fresh guarded primary recheck before writing its immutable release record.
 
 Release evidence admission uses a deployment-owned protected schema_version 2 index. Each entry binds reference, evidence_root, campaign, receipt_id, receipt_digest and gate_kinds; the index organisation_id/run_id must match the actual invocation. evidence_root is an exclusively service-owned mode 0700 portable stage containing trusted-relocation.json. The service must keep untrusted agents in separate UIDs or VMs and freeze its own stage writers. The canonical checker verifies every original source/input/tool/artifact pin through the exact relocation map. The release consumer uses absolute isolated Python, a closed environment, the qualified proof assets, and the actual private-stage guard/inspection lock. HYPERFIDE_RELEASE_PYTHON and HYPERFIDE_RELEASE_QUALIFIED_PROOF_ROOT are protected deployment settings, never request fields. Nonportable version 1 indexes fail closed. Component proof remains insufficient for full release gates.
 
