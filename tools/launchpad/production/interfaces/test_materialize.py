@@ -6,7 +6,7 @@ ROOT=HERE.parents[3]
 SPEC=None
 OUT=ROOT/'sdk/launchpad/protocol/contracts/v1'
 CATALOG=None
-RECORD=HERE/'testdata/repair_22_33_963/sdk-placement.json'
+RECORD=HERE/'testdata/contract_authority/sdk-placement.json'
 SUPPLEMENTARY=None
 def bind_inputs(supplementary, spec=None, catalog=None):
  global SPEC,CATALOG,SUPPLEMENTARY
