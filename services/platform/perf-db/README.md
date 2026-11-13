@@ -277,7 +277,7 @@ Licensed under Apache-2.0 (Apache License, Version 2.0). See the repository
 
 ## Related
 
-- [Paxeer Network](https://paxeer.app) — BFT network with EVM chain ID 125. A receipt is final when its block is committed.
+- [Paxeer Network](https://paxeer.app) — EVM chain ID 125. A receipt is final when its block is committed.
 
 ---
 
