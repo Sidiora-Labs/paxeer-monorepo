@@ -1,26 +1,10 @@
 # Solidity API
 
+Source: [MockProtocolAdapter.sol](../../../contracts/meta-ag/mocks/MockProtocolAdapter.sol).
+
 ## IMockMintableERC20
 
-Minimal, deterministic IProtocolAdapter spy for unit-testing
-        MetaAGRouter. Quotes and swaps are fully script-driven by the
-        test setter API — no real liquidity, oracle, or price discovery
-        logic. Output tokens are pulled from this mock's own balance
-        (pre-fund the mock with MockStandardERC20.mint before swap tests).
-
-_Scope-isolated under `contracts/meta-ag/mocks/`. Production code
-     never touches this contract.
-
-Behaviour highlights:
-  - getQuote returns the configured `QuoteResult` (or the zero default).
-  - executeSwap pulls `amountIn` tokenIn from `from` and transfers
-    `swapAmountOut` tokenOut to `recipient`. Optionally reverts.
-  - Records call-history fields (lastFrom / lastRecipient / etc.) so tests
-    can assert the router passed the right args through.
-  - `setRevertOnQuote(true)` makes getQuote revert — used to verify the
-    router treats failures as available=false (safety guard).
-  - `requireExpectedAdapterData(bytes)` lets tests prove that adapterData
-    round-trips from getQuote → executeSwap unchanged._
+ERC20 transfer and balance methods used by `MockProtocolAdapter`.
 
 ### transfer
 
@@ -41,6 +25,15 @@ function balanceOf(address who) external view returns (uint256)
 ```
 
 ## MockProtocolAdapter
+
+Configurable `IProtocolAdapter` implementation for router tests. `getQuote` returns the configured
+quote; its initial `available` value is true and its initial amounts are zero. `executeSwap` pulls
+`amountIn` of `tokenIn` from `from` and transfers the configured `swapAmountOut` of `tokenOut` to
+`recipient`. Fund the adapter with output tokens before swapping.
+
+`lastSwap` and `swapCallCount` record successful swaps. `expectAdapterData(bytes)` configures the
+expected swap payload; `clearExpectedAdapterData()` removes that check. Quote and swap calls can be
+configured to revert independently.
 
 ### MockForcedRevert
 
@@ -159,7 +152,7 @@ struct MockProtocolAdapter.LastSwap lastSwap
 uint256 swapCallCount
 ```
 
-### _supportsSwap
+### \_supportsSwap
 
 ```solidity
 bool _supportsSwap
@@ -239,13 +232,13 @@ function getSupportedPairs() external pure returns (address[] tokenIns, address[
 
 Get all token pairs this adapter currently supports
 
-_May return an empty array if pairs are dynamically discovered_
+Returns two empty arrays. `supportsSwap` returns the configured boolean for every pair.
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| tokenIns | address[] | Array of input token addresses |
+| Name      | Type      | Description                                   |
+| --------- | --------- | --------------------------------------------- |
+| tokenIns  | address[] | Array of input token addresses                |
 | tokenOuts | address[] | Array of corresponding output token addresses |
 
 ### getMaxInput
@@ -260,13 +253,13 @@ function getMaxInput(address, address) external pure returns (uint256)
 function adapterId() external view returns (bytes32)
 ```
 
-Unique identifier for this adapter (e.g., keccak256("Sidiora.v1"))
+Adapter identifier supplied to the constructor.
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| [0] | bytes32 |  |
+| Name | Type    | Description |
+| ---- | ------- | ----------- |
+| [0]  | bytes32 |             |
 
 ### adapterName
 
@@ -278,9 +271,9 @@ Human-readable name for this adapter
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| [0] | string |  |
+| Name | Type   | Description |
+| ---- | ------ | ----------- |
+| [0]  | string |             |
 
 ### adapterVersion
 
@@ -292,7 +285,6 @@ Protocol version string
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| [0] | string |  |
-
+| Name | Type   | Description |
+| ---- | ------ | ----------- |
+| [0]  | string |             |

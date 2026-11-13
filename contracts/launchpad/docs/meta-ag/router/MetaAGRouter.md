@@ -1,50 +1,20 @@
 # Solidity API
 
+Source: [MetaAGRouter.sol](../../../contracts/meta-ag/router/MetaAGRouter.sol).
+
 ## MetaAGRouter
 
-Polls every registered `IProtocolAdapter` for the best output, executes
-        the winning quote, oracle-sanity-checks the result, and supports
-        multi-hop routing across heterogeneous adapters (Vault + Sidiora + ...).
+UUPS-upgradeable router that selects the highest-output quote from active `IProtocolAdapter`
+contracts, supports explicit adapter selection and executes paths of two to five hops.
 
-_Spec reference: `docs/architecture/pecor-sidiora-aggregator-spec.md` §7.10
-     (FROZEN 2026-04-24). Interface:
-     `contracts/meta-ag/interfaces/IMetaAGRouter.sol`. Port of
-     `dev/PECORRouter.sol` with the following frozen-surface divergences:
-       - Ownable to AccessControl (DEFAULT_ADMIN_ROLE held by Timelock, S1).
-       - OpenZeppelin SafeERC20.forceApprove replaced with in-house
-         `TransferHelper.safeApprove(token, spender, 0)` then `safeApprove
-         (token, spender, amount)`: the S9 zero-first reset pattern. Final
-         cleanup resets to zero after the adapter call (defense-in-depth).
-       - OpenZeppelin Math.mulDiv replaced with `SidioraMath.mulDiv`.
-       - Require-string reverts replaced with custom errors registered
-         under `ERRORS.router.*` in the test helper.
+Swaps enforce deadlines, slippage and exact input transfers. Output amounts are measured from
+recipient balance changes. Adapter allowances are reset to zero before approval and after execution.
+Each hop is quoted using the actual intermediate output.
 
-Inheritance (spec §7.10):
-  IMetaAGRouter, Initializable, UUPSUpgradeable, AccessControl,
-  ReentrancyGuard, Pausable, Multicall
-
-Roles:
-  - DEFAULT_ADMIN_ROLE → Timelock at deploy (invariant S1)
-
-Storage layout (append-only per S12):
-  slot 0:  AccessControl._roles          (mapping)
-  slot 1:  _adapterList                  (AdapterEntry[])
-  slot 2:  _adapterById                  (mapping: adapterId => address)
-  slot 3:  _adapterAddresses             (mapping: address => bool dedupe)
-  slot 4:  oracleHub                     (address stored as IOracleHub)
-  slot 5:  maxOracleSanityDeviation      (uint256)
-  slot 6:  oracleSanityEnabled           (bool)
-  slot 7..56: __gap[50]
-
-Invariants enforced by this contract:
-  - S1  — UUPS `_authorizeUpgrade` gated on DEFAULT_ADMIN_ROLE (Timelock).
-  - S3  — `swapMultiHop` re-queries `getQuote` with the actual intermediate
-          amount before each hop; slippage guard fires on per-hop output.
-  - S4  — `_oracleSanityCheck` skips when either price is unavailable and
-          reverts when deviation exceeds `maxOracleSanityDeviation`.
-  - S9  — `TransferHelper.safeApprove(token, adapter, 0)` fires before AND
-          after every adapter call (no dangling allowances).
-  - S12 — `__gap[50]` at the tail._
+The optional oracle sanity check accounts for token decimals and bounds deviation from the
+oracle-implied output. It returns without checking when either price is reported unavailable.
+Administrators manage adapters, configuration and upgrades. Administrators or `PAUSER_ROLE` holders
+can pause swaps; only administrators can unpause.
 
 ### BPS_DENOMINATOR
 
@@ -166,11 +136,9 @@ error OracleSanityFailed()
 address oracleHub
 ```
 
-OracleHub consulted by the sanity check (spec §7.10 / S4).
+OracleHub consulted by the sanity check.
 
-_Stored as `address` to satisfy the frozen interface return type
-     (`IMetaAGRouter.oracleHub()` returns `address`). Cast to
-     {IOracleHub} inside {_oracleSanityCheck}._
+The `IMetaAGRouter.oracleHub()` getter returns `address`; the sanity check calls it as `IOracleHub`.
 
 ### maxOracleSanityDeviation
 
@@ -206,17 +174,17 @@ constructor() public
 function initialize(address oracleHub_, uint256 maxSanityDeviation, address admin) external
 ```
 
-Initialize the UUPS proxy (spec §7.10)
+Initialize the UUPS proxy
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| oracleHub_ | address |  |
-| maxSanityDeviation | uint256 | Max deviation (BPS) before sanity revert (spec Q5 = 500) |
-| admin | address | Timelock — granted DEFAULT_ADMIN_ROLE |
+| Name               | Type    | Description                                |
+| ------------------ | ------- | ------------------------------------------ |
+| oracleHub\_        | address |                                            |
+| maxSanityDeviation | uint256 | Maximum allowed deviation in BPS (0–10000) |
+| admin              | address | Account granted DEFAULT_ADMIN_ROLE         |
 
-### _authorizeUpgrade
+### \_authorizeUpgrade
 
 ```solidity
 function _authorizeUpgrade(address) internal
@@ -258,8 +226,8 @@ function setOracleSanityEnabled(bool enabled) external
 function registerAdapter(address adapter) external
 ```
 
-Register a new adapter (reads adapter.adapterId() for collision check).
-        Caller must have DEFAULT_ADMIN_ROLE (Timelock).
+Register a new adapter (reads adapter.adapterId() for collision check). Caller must have
+DEFAULT_ADMIN_ROLE.
 
 ### deactivateAdapter
 
@@ -287,15 +255,16 @@ Best quote across all active adapters (no side effects).
 function getAllQuotes(address tokenIn, address tokenOut, uint256 amountIn) external view returns (struct IProtocolAdapter.QuoteResult[] quotes, bytes32[] adapterIds, string[] names)
 ```
 
-Every adapter's quote for a pair. Parallel arrays.
+Quotes and identifiers in registry order as parallel arrays. Inactive adapters have zero quotes;
+failed quote reads also return zero quotes.
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| quotes | struct IProtocolAdapter.QuoteResult[] | Array of IProtocolAdapter.QuoteResult |
-| adapterIds | bytes32[] | Array of adapter IDs |
-| names | string[] | Array of adapter names |
+| Name       | Type                                  | Description                           |
+| ---------- | ------------------------------------- | ------------------------------------- |
+| quotes     | struct IProtocolAdapter.QuoteResult[] | Array of IProtocolAdapter.QuoteResult |
+| adapterIds | bytes32[]                             | Array of adapter IDs                  |
+| names      | string[]                              | Array of adapter names                |
 
 ### swapBestRoute
 
@@ -345,39 +314,69 @@ function adapterCount() external view returns (uint256)
 function isAdapterActive(bytes32 adapterId_) external view returns (bool)
 ```
 
-### _executeAdapterSwap
+### \_executeAdapterSwap
 
 ```solidity
 function _executeAdapterSwap(address adapter, address tokenIn, address tokenOut, uint256 amountIn, uint256 amountOutMin, address payer, address recipient, uint256 deadline, bytes adapterData) internal returns (uint256 amountOut)
 ```
 
-Runs the S9 approval dance around a single `executeSwap` leg.
+Executes one adapter swap with an exact input transfer and measured recipient output.
 
-_Transfers `amountIn` of `tokenIn` from `payer` into this router,
-     approves the adapter with zero-first reset, executes, then resets
-     approval back to zero. Slippage is enforced against `amountOutMin`._
+_Transfers `amountIn` of `tokenIn` from `payer` into this router, approves the adapter with
+zero-first reset, executes, then resets approval back to zero. Slippage is enforced against
+`amountOutMin`._
 
-### _oracleSanityCheck
+### \_oracleSanityCheck
 
 ```solidity
 function _oracleSanityCheck(address tokenIn, address tokenOut, uint256 amountIn, uint256 amountOut) internal view
 ```
 
-Reverts if the realized `amountOut` deviates from oracle-implied
-        expectation by more than `maxOracleSanityDeviation` bps.
+Reverts if the realized `amountOut` deviates from oracle-implied expectation by more than
+`maxOracleSanityDeviation` bps.
 
-_Port of `dev/PECORRouter._oracleSanityCheck` with the dev's intent
-     preserved: ignores decimals for the rough sanity check (expected
-     value is approximate and only used to bound catastrophic deviations).
-     Skips silently when either oracle price is unavailable._
+Normalizes both token amounts by their decimals. Reverts for decimals above 36 or deviations over
+the configured limit. Returns when either price is unavailable or zero, or expected output is zero.
 
-### _findAdapterIndex
+### \_findAdapterIndex
 
 ```solidity
 function _findAdapterIndex(bytes32 adapterId_) internal view returns (uint256)
 ```
 
-_Finds the index of an adapter by ID. Reverts `AdapterNotFound` if
-     no entry matches — cheaper than a separate existence map because
-     the list is capped at `MAX_ADAPTERS = 20`._
+_Finds the index of an adapter by ID. Reverts `AdapterNotFound` if no entry matches — cheaper than a
+separate existence map because the list is capped at `MAX_ADAPTERS = 20`._
 
+### removeAdapter
+
+```solidity
+function removeAdapter(bytes32 id) external
+```
+
+Administrator-only removal. The adapter must be deactivated first.
+
+### InvalidPath
+
+```solidity
+error InvalidPath()
+```
+
+### TransferAmountMismatch
+
+```solidity
+error TransferAmountMismatch()
+```
+
+### AdapterRemoved
+
+```solidity
+event AdapterRemoved(bytes32 indexed adapterId, address adapter)
+```
+
+### \_safeQuote
+
+```solidity
+function _safeQuote(address adapter, address tokenIn, address tokenOut, uint256 amountIn) internal view returns (struct IProtocolAdapter.QuoteResult result)
+```
+
+Uses a 500000 gas limit for the adapter quote and returns an empty quote on failure.

@@ -1,29 +1,20 @@
 # Solidity API
 
+Source: [OracleHub.sol](../../../contracts/meta-ag/oracle/OracleHub.sol).
+
 ## OracleHub
 
-Meta-oracle aggregator — pluggable, prioritized, deviation-circuit-broken.
+UUPS-upgradeable price aggregator using prioritized `IDataFeedAdapter` sources. Administrators
+manage adapters and configuration. An administrator or `PAUSER_ROLE` holder can pause; only an
+administrator can unpause.
 
-_UUPS-upgradeable. Composes exclusively in-house bases.
+- `getPrice` returns the first valid feed in priority order.
+- `getAggregatedPrice` computes a confidence-weighted median after filtering deviations relative to
+  the first valid feed. It returns a zero result when no usable feed remains.
+- `getTWAP` delegates to the configured primary `IPriceOracle` and propagates its errors.
 
-Spec: docs/architecture/pecor-sidiora-aggregator-spec.md §7.2
-
-Aggregation semantics preserved from `dev/OracleHub.sol`:
-  - `getPrice` returns the first valid adapter in priority order (skips low-confidence /
-    stale / zero-price feeds).
-  - `getAggregatedPrice` returns a confidence-weighted median filtered by deviation
-    threshold (S8 deviation circuit-breaker) relative to the highest-priority valid feed.
-  - `getTWAP` delegates to the primary oracle; falls back to spot if TWAP reverts.
-
-Storage layout (append-only per S12):
-  slot 0: AccessControl._roles
-  slot 1: _adapterIds (bytes32[])
-  slot 2: _adapters mapping
-  slot 3: _adapterAddresses mapping
-  slot 4: deviationThresholdBps
-  slot 5: minConfidence
-  slot 6: primaryOracle
-  slot 7..56: __gap[50]_
+Feed validation checks price, timestamp, confidence and the adapter's maximum staleness. Adapter
+read errors are treated as unavailable feeds in the aggregated and best-source queries.
 
 ### BPS_DENOMINATOR
 
@@ -113,18 +104,18 @@ constructor() public
 function initialize(address _primaryOracle, uint256 _deviationBps, uint256 _minConfidence, address admin) external
 ```
 
-Initialize the UUPS proxy (spec §7.2)
+Initialize the UUPS proxy
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| _primaryOracle | address |  |
-| _deviationBps | uint256 |  |
-| _minConfidence | uint256 |  |
-| admin | address | Timelock — granted DEFAULT_ADMIN_ROLE |
+| Name            | Type    | Description                        |
+| --------------- | ------- | ---------------------------------- |
+| \_primaryOracle | address |                                    |
+| \_deviationBps  | uint256 |                                    |
+| \_minConfidence | uint256 |                                    |
+| admin           | address | Account granted DEFAULT_ADMIN_ROLE |
 
-### _authorizeUpgrade
+### \_authorizeUpgrade
 
 ```solidity
 function _authorizeUpgrade(address) internal
@@ -136,7 +127,8 @@ function _authorizeUpgrade(address) internal
 function pause() external
 ```
 
-Emergency pause; blocks price queries (spec §7.2).
+Pause `getPrice`, `getAggregatedPrice`, `getPricesBatch` and `getTWAP`. `isPriceAvailable` returns
+`(false, 0)` while paused; `getPriceFromSource` remains callable.
 
 ### unpause
 
@@ -152,12 +144,12 @@ Resume price queries after pause.
 function setPrimaryOracle(address oracle) external
 ```
 
-Set the primary oracle used for TWAP fallback (spec §7.2)
+Set the primary oracle used for TWAP queries
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name   | Type    | Description                                     |
+| ------ | ------- | ----------------------------------------------- |
 | oracle | address | Address of the IPriceOracle-compatible contract |
 
 ### setDeviationThreshold
@@ -170,8 +162,8 @@ Set the max deviation allowed between adapters before circuit breaking
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name         | Type    | Description                           |
+| ------------ | ------- | ------------------------------------- |
 | deviationBps | uint256 | Max deviation in BPS (e.g., 500 = 5%) |
 
 ### setMinConfidence
@@ -190,9 +182,9 @@ Register a new data feed adapter
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| adapter | address | The IDataFeedAdapter-compliant contract address |
+| Name     | Type    | Description                                       |
+| -------- | ------- | ------------------------------------------------- |
+| adapter  | address | The IDataFeedAdapter-compliant contract address   |
 | priority | uint256 | Priority order (0 = highest priority, used first) |
 
 ### deactivateAdapter
@@ -205,9 +197,9 @@ Deactivate an adapter (does not remove, just disables)
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| sid | bytes32 |  |
+| Name | Type    | Description |
+| ---- | ------- | ----------- |
+| sid  | bytes32 |             |
 
 ### activateAdapter
 
@@ -219,9 +211,9 @@ Reactivate a previously deactivated adapter
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| sid | bytes32 |  |
+| Name | Type    | Description |
+| ---- | ------- | ----------- |
+| sid  | bytes32 |             |
 
 ### setAdapterPriority
 
@@ -233,9 +225,9 @@ Update the priority of an existing adapter
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| sid | bytes32 |  |
+| Name        | Type    | Description                                  |
+| ----------- | ------- | -------------------------------------------- |
+| sid         | bytes32 |                                              |
 | newPriority | uint256 | New priority value (lower = higher priority) |
 
 ### getPrice
@@ -246,19 +238,19 @@ function getPrice(address token) external view returns (uint256 price)
 
 Get the best available price for a token
 
-_Uses highest-priority adapter that returns non-stale, non-zero price.
-     Reverts if no valid price is found from any adapter._
+_Uses highest-priority adapter that returns non-stale, non-zero price. Reverts if no valid price is
+found from any adapter._
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name  | Type    | Description       |
+| ----- | ------- | ----------------- |
 | token | address | The token address |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name  | Type    | Description                     |
+| ----- | ------- | ------------------------------- |
 | price | uint256 | Token price in USD, 18 decimals |
 
 ### getAggregatedPrice
@@ -269,19 +261,19 @@ function getAggregatedPrice(address token) external view returns (struct IOracle
 
 Get the aggregated price with full metadata
 
-_Aggregates across all active adapters. Uses confidence-weighted median.
-     Does NOT revert on partial failures — reports sourceCount=0 if all fail._
+Aggregates valid feeds from active adapters using a confidence-weighted median. Adapter failures are
+skipped; `sourceCount` is zero if no usable feed remains. Reverts while paused.
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name  | Type    | Description       |
+| ----- | ------- | ----------------- |
 | token | address | The token address |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name   | Type                              | Description                |
+| ------ | --------------------------------- | -------------------------- |
 | result | struct IOracleHub.AggregatedPrice | The AggregatedPrice struct |
 
 ### getPriceFromSource
@@ -290,19 +282,20 @@ _Aggregates across all active adapters. Uses confidence-weighted median.
 function getPriceFromSource(address token, bytes32 sid) external view returns (struct IDataFeedAdapter.FeedPrice feed)
 ```
 
-Get a price from a specific adapter by sourceId
+Read a registered adapter directly by source ID. This call does not filter inactive or stale feeds
+and propagates adapter errors.
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name  | Type    | Description       |
+| ----- | ------- | ----------------- |
 | token | address | The token address |
-| sid | bytes32 |  |
+| sid   | bytes32 |                   |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name | Type                              | Description                              |
+| ---- | --------------------------------- | ---------------------------------------- |
 | feed | struct IDataFeedAdapter.FeedPrice | The FeedPrice from that specific adapter |
 
 ### getPricesBatch
@@ -315,16 +308,16 @@ Get prices for multiple tokens using best-available source
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name   | Type      | Description              |
+| ------ | --------- | ------------------------ |
 | tokens | address[] | Array of token addresses |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| prices | uint256[] | Array of prices (18 decimals); 0 if unavailable |
-| confidences | uint256[] | Array of confidence scores (0–10000) |
+| Name        | Type      | Description                                     |
+| ----------- | --------- | ----------------------------------------------- |
+| prices      | uint256[] | Array of prices (18 decimals); 0 if unavailable |
+| confidences | uint256[] | Array of confidence scores (0–10000)            |
 
 ### getTWAP
 
@@ -332,21 +325,22 @@ Get prices for multiple tokens using best-available source
 function getTWAP(address token, uint256 period) external view returns (uint256 twapPrice)
 ```
 
-Get the TWAP price from the primary oracle adapter (if supported)
+Get the TWAP price from the configured primary oracle.
 
-_Falls back to spot price if primary adapter does not support TWAP_
+Requires a nonzero period and an unpaused hub. Propagates errors from the primary oracle, including
+stale prices and insufficient history.
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| token | address | The token address |
+| Name   | Type    | Description            |
+| ------ | ------- | ---------------------- |
+| token  | address | The token address      |
 | period | uint256 | TWAP period in seconds |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name      | Type    | Description                 |
+| --------- | ------- | --------------------------- |
 | twapPrice | uint256 | The TWAP price, 18 decimals |
 
 ### isPriceAvailable
@@ -359,16 +353,16 @@ Check if a valid (non-stale, non-zero) price exists for a token
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name  | Type    | Description       |
+| ----- | ------- | ----------------- |
 | token | address | The token address |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| available | bool | True if at least one adapter has a valid price |
-| bestConfidence | uint256 | The highest confidence score available |
+| Name           | Type    | Description                                    |
+| -------------- | ------- | ---------------------------------------------- |
+| available      | bool    | True if at least one adapter has a valid price |
+| bestConfidence | uint256 | The highest confidence score available         |
 
 ### getAdapters
 
@@ -380,8 +374,8 @@ Get all registered adapters
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name     | Type                            | Description                  |
+| -------- | ------------------------------- | ---------------------------- |
 | adapters | struct IOracleHub.AdapterInfo[] | Array of AdapterInfo structs |
 
 ### getAdapter
@@ -400,11 +394,11 @@ Get the number of registered adapters
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name  | Type    | Description                             |
+| ----- | ------- | --------------------------------------- |
 | count | uint256 | Total adapter count (active + inactive) |
 
-### _sortAdaptersByPriority
+### \_sortAdaptersByPriority
 
 ```solidity
 function _sortAdaptersByPriority() internal
@@ -412,3 +406,32 @@ function _sortAdaptersByPriority() internal
 
 _Insertion sort by priority ASC. O(n^2) — fine since MAX_ADAPTERS == 20._
 
+### removeAdapter
+
+```solidity
+function removeAdapter(bytes32 sid) external
+```
+
+Administrator-only removal of an adapter, freeing its address, source ID and registry slot.
+
+### AdapterRemoved
+
+```solidity
+event AdapterRemoved(bytes32 indexed sourceId, address indexed adapter)
+```
+
+### validatedFeed
+
+```solidity
+function validatedFeed(address adapter, address token) external view returns (struct IDataFeedAdapter.FeedPrice feed)
+```
+
+Callable only by the hub itself. Reads and validates one feed; reverts on invalid data.
+
+### \_validatedFeed
+
+```solidity
+function _validatedFeed(address adapter, address token) internal view returns (bool valid, struct IDataFeedAdapter.FeedPrice feed)
+```
+
+Wraps the validation call and returns `valid=false` on failure.

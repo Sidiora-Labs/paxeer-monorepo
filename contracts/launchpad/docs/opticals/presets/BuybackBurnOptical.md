@@ -1,16 +1,15 @@
 # Solidity API
 
+Source: [BuybackBurnOptical.sol](../../../contracts/opticals/presets/BuybackBurnOptical.sol).
+
 ## BuybackBurnOptical
 
-Redirects a configurable portion of fee distributions to buy back tokens and burn them.
+Diverts up to 50% of the pool's fee share to buyback accounting through `beforeFeeDistribution`. The
+fee accumulator holds the corresponding optical surplus.
 
-_Uses beforeFeeDistribution hook to redirect a percentage of fees.
-     The redirected USDL is accumulated and can be used to execute buyback+burn via
-     an external trigger. Immutable once deployed.
-
-     Flow: beforeFeeDistribution reduces the fee by buybackBps%, accumulating the
-     redirected portion. Anyone can call executeBuybackBurn() to send the accumulated
-     USDL to the pool (simulating a buy) and burn the received tokens._
+The owner calls `executeBuybackBurn(pool, minTokensOut, deadline)` to claim that surplus, transfer
+USDL into the pool and buy tokens directly to `DEAD_ADDRESS`. A positive minimum token output is
+required. The buyback rate is fixed at construction.
 
 ### NothingToExecute
 
@@ -62,11 +61,11 @@ constructor(address _poolRegistry, address _owner, uint256 _buybackBps) public
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| _poolRegistry | address | PoolRegistry address for pool validation |
-| _owner | address | Deployer/owner address |
-| _buybackBps | uint256 | Percentage of fees to redirect (in bps, max 5000 = 50%) |
+| Name           | Type    | Description                                             |
+| -------------- | ------- | ------------------------------------------------------- |
+| \_poolRegistry | address | PoolRegistry address for pool validation                |
+| \_owner        | address | Deployer/owner address                                  |
+| \_buybackBps   | uint256 | Percentage of fees to redirect (in bps, max 5000 = 50%) |
 
 ### getFlags
 
@@ -88,13 +87,11 @@ function getAccumulatedUsdl(address pool) external view returns (uint256)
 
 Get the accumulated USDL available for buyback for a pool
 
-### markBuybackExecuted
+### executeBuybackBurn
 
 ```solidity
-function markBuybackExecuted(address pool) external
+function executeBuybackBurn(address pool, uint256 minTokensOut, uint256 deadline) external returns (uint256 tokensBurned)
 ```
 
-Reset accumulated amount after external buyback execution
-
-_Only owner can trigger this after performing the actual buyback off-chain or via Router_
-
+Owner-only buyback for a registered pool attached to this optical. Claims accumulated optical
+surplus and executes a pool buy with the supplied deadline and positive minimum output.
