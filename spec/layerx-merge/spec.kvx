@@ -195431,7 +195431,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.307]
 title = "Run the static test script of the documentation site in its workflow"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -195461,7 +195461,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.306]
 title = "Bring the checksum file of the vendored wasmi crate to its present sources"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374552,7 +374552,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.311]
 title = "Bring the receipt case of the Python kit to the receipt the node returns for a native transfer without balance"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374612,7 +374612,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.309]
 title = "Bring the severity values of the ledger to the four values its checker reads"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374882,7 +374882,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.297]
 title = "Bring the wiki pages to the kernel sentence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374912,7 +374912,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.296]
 title = "Bring the pages of upstream specification to the kernel sentence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
