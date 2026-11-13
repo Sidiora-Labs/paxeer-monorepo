@@ -12,7 +12,7 @@ export default function Interchain() {
         <p className="page-description">Connect Paxeer X to other chains through IBC packets, native token transfers, and the attested bridge.</p>
       </div>
 
-      <div className="source-note"><strong>Source:</strong> <code>Paxeer-X-Network/interchain/</code>, <code>precompiles/ibc/</code>, and the IBC keeper and router wiring in <code>node/app.go</code>.</div>
+      <div className="source-note"><strong>Source:</strong> <code>interchain/</code>, <code>precompiles/ibc/</code>, and the IBC keeper and router wiring in <code>node/app.go</code>.</div>
       <h2>Cross-chain routes in Paxeer X</h2>
       <p>Paxeer X supports IBC transfers through its Cosmos protocol stack and attested external-chain transfers through the <Link href="/bridge">native bridge</Link>. IBC authenticates packets with light clients, connections, channel state, and packet proofs. The bridge authenticates external deposits with a configured attestor threshold and enforces registered chains, asset caps, nullifiers, and pause controls.</p>
       <p>The bridge precompile at <code>0x0000000000000000000000000000000000001016</code> exposes <code>bridgeIn</code>, <code>bridgeOut</code>, chain and attestor queries, cap queries, replay status, and pause state. IBC transfers use <code>0x1009</code>. Choose the route supported by the destination and asset; an IBC channel identifier is separate from the bridge chain registry identifier.</p>
@@ -40,7 +40,7 @@ paxd query ibc channel channels`}</code></pre>
       <p>Verify the channel&apos;s port, connection, remote chain, ordering, and open state. Channel identifiers such as <code>channel-0</code> are local to a chain; they are not universal destinations.</p>
 
       <h2>Transfer through the CLI</h2>
-      <p>This command template sends <code>1,000,000 uhpx</code>, one PAX. Set <code>IBC_CHANNEL</code> to a verified channel and <code>IBC_RECIPIENT</code> to an address valid on its destination chain.</p>
+      <p>This command template sends <code>1,000,000 uhpx</code>, one unit of the registered display denomination <code>hpx</code>. Set <code>IBC_CHANNEL</code> to a verified channel and <code>IBC_RECIPIENT</code> to an address valid on its destination chain.</p>
       <pre><code>{`paxd tx ibc-transfer transfer \\
   transfer "$IBC_CHANNEL" "$IBC_RECIPIENT" 1000000uhpx \\
   --from mykey --chain-id hyperpax_125-1`}</code></pre>

@@ -63,10 +63,10 @@ export default function JsonRpcUnsupported() {
         </tbody>
       </table>
 
-      <h3>Now implemented</h3>
+      <h3>Synchronization and raw transactions</h3>
 
       <p>
-        Two methods that previously returned this error are implemented. <code>eth_syncing</code> returns <code>false</code> when consensus reports the node caught up, and otherwise a progress object with <code>startingBlock</code>, <code>currentBlock</code> and <code>highestBlock</code>. <code>debug_getRawTransaction</code> returns the raw transaction bytes for a hash, or a <em>transaction not found</em> error. Only <code>debug_getRawHeader</code>, <code>debug_getRawBlock</code> and <code>debug_getRawReceipts</code> remain explicitly unsupported.
+        <code>eth_syncing</code> returns <code>false</code> when consensus reports the node caught up, and otherwise a progress object with <code>startingBlock</code>, <code>currentBlock</code> and <code>highestBlock</code>. <code>debug_getRawTransaction</code> returns raw transaction bytes by hash, or a <em>transaction not found</em> error. The raw header, block and receipt-list methods in the table return explicit unsupported errors.
       </p>
 
       <h2>Error Response Format</h2>
@@ -119,7 +119,7 @@ export default function JsonRpcUnsupported() {
       <h3>Block Tags and Pending Nonces</h3>
 
       <ul>
-        <li>Block-number helpers resolve <code>latest</code>, <code>safe</code>, <code>finalized</code> and <code>pending</code> to the latest height; endpoint watermarks can further limit the readable state.</li>
+        <li>Committed reads resolve <code>latest</code>, <code>safe</code> and <code>finalized</code> through publication watermarks. Supported <code>pending</code> reads use the open execution layer when configured; <code>eth_getProof</code> refuses pending state.</li>
         <li>Pending nonce queries have a separate path. Do not assume <code>pending</code> and <code>latest</code> return the same nonce.</li>
         <li>A BFT commit provides finality under the consensus protocol’s assumptions. RPC freshness and finality are separate properties.</li>
       </ul>
@@ -128,7 +128,7 @@ export default function JsonRpcUnsupported() {
 
       <ul>
         <li><code>eth_getProof</code> is implemented by <code>StateAPI.GetProof</code>.</li>
-        <li>Its result contains <code>address</code>, <code>hexValues</code> and <code>storageProof</code>. Storage proofs contain IAVL proof operations rather than Ethereum Merkle Patricia trie proofs.</li>
+        <li>Its result contains <code>address</code>, <code>hexValues</code> and <code>storageProof</code>. Storage proofs contain ICS23 proof operations through the application root rather than Ethereum Merkle Patricia trie proofs.</li>
         <li>The response excludes Ethereum per-account proof fields because the store has no Ethereum per-account root. Ethereum proof verifiers cannot consume this response unchanged.</li>
         <li>The requested height must be readable and the configured store must support proof queries. Historical retention and endpoint availability still apply.</li>
       </ul>
@@ -144,10 +144,10 @@ export default function JsonRpcUnsupported() {
         See <Link href="/json-rpc">JSON-RPC API</Link> for full compatibility details.
       </p>
 
-      <h2>Implementation Checks</h2>
+      <h2>Implementation references</h2>
 
       <p>
-        The node repository contains focused checks for these RPC contracts:
+        The node sources and contract checks are in this repository:
       </p>
 
       <pre><code>{`rpc/info_test.go

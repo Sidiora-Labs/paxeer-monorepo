@@ -8,7 +8,7 @@ export default function InteroperabilityPage() {
   return <DocsLayout>
     <div className="page-header"><h1 className="page-title">Interoperability</h1><p className="page-description">Connect agent payments, commerce mandates, card and bank rails, and external chains to Paxeer X through evidence-backed adapters.</p></div>
     <h2>One execution ledger, many entry points</h2>
-    <p>Interoperability adapters translate foreign protocols into evidence that LayerX execution can verify. They preserve the original protocol&apos;s authorization and settlement facts while routing state changes through a receipt-verified LayerX operation. Paxeer X retains custody and withdrawal guarantees.</p>
+    <p>Interoperability adapters validate external payment, mandate and settlement evidence and submit authorized transactions to Paxeer X. The kernel executes within the node, and a transaction receipt becomes final when its block commits. An external provider&apos;s settlement evidence remains a separate input to reconciliation.</p>
     <p>The interoperability gateway provides HTTP, MCP, and A2A ingress. Transport selects how a request arrives; the adapter selects how its evidence is validated. Applications keep the same operation identity and reconciliation process across these interfaces.</p>
     <h2>Connector catalogue</h2>
     <table><thead><tr><th>Adapter</th><th>Application journey</th><th>Evidence boundary</th></tr></thead><tbody>
@@ -20,11 +20,12 @@ export default function InteroperabilityPage() {
       <tr><td><code>migration-v2</code></td><td>Import verified account, asset, and history state</td><td>Source-chain verification and migration rules</td></tr>
     </tbody></table>
     <h2>Gateway discovery and operation tracking</h2>
-    <p><code>GET /v1/adapters</code> exposes adapter metadata. Track an operation with <code>GET /v1/operations/&#123;id&#125;</code>, where <code>id</code> is exactly 64 hexadecimal characters. The service also exposes <code>GET /livez</code> and <code>GET /readyz</code> for process and readiness checks. These are gateway paths relative to the configured gateway origin.</p>
-    <pre><code>{`# Use the gateway origin assigned to your environment.
+    <p><code>GET /v1/adapters</code> exposes adapter metadata and readiness. Track or resume an operation with <code>GET /v1/operations/&#123;id&#125;</code>, where <code>id</code> is exactly 64 hexadecimal characters and belongs to the authenticated principal. The service also exposes <code>GET /livez</code> and <code>GET /readyz</code> for process and readiness checks. These paths are relative to the configured interop service origin.</p>
+    <pre><code>{`# Set these shell variables to your service origin, API key and operation ID.
 curl "$INTEROP_GATEWAY/v1/adapters"
-curl "$INTEROP_GATEWAY/v1/operations/$OPERATION_ID"`}</code></pre>
-    <p>Build the request body from the selected adapter&apos;s schema. Preserve operation identifiers and evidence digests through retries. A successful HTTP exchange reports the gateway exchange; the operation&apos;s receipt-backed outcome establishes the state change.</p>
+curl -H "Authorization: Bearer $INTEROP_API_KEY" \\
+  "$INTEROP_GATEWAY/v1/operations/$OPERATION_ID"`}</code></pre>
+    <p>Build the request body from the selected adapter&apos;s schema. Adapter requests require a gateway API key in the Authorization header; requests other than provider callbacks also require an Idempotency-Key header. Preserve operation identifiers and evidence digests through retries. A successful HTTP exchange alone does not establish a committed state change.</p>
     <h3>Evidence policies</h3>
     <table><thead><tr><th>Policy</th><th>Required basis</th></tr></thead><tbody><tr><td><code>layerx-receipt</code></td><td>A verified LayerX execution receipt</td></tr><tr><td><code>verified-mandate+layerx-receipt</code></td><td>Accepted mandate authority and a verified execution receipt</td></tr><tr><td><code>trusted-agent-credential</code></td><td>Agent credential accepted by the configured trust policy</td></tr><tr><td><code>external-settlement+layerx-receipt</code></td><td>External rail settlement evidence paired with a verified execution receipt</td></tr></tbody></table>
     <h2>x402 over HTTP, MCP, and A2A</h2>
@@ -57,10 +58,10 @@ curl "$INTEROP_GATEWAY/v1/operations/$OPERATION_ID"`}</code></pre>
       <tr><td>POST</td><td><code>/v2/migration/history/read</code></td><td>Read imported history</td></tr>
     </tbody></table>
     <h2>Portable receipts and mirrors</h2>
-    <p>Portable receipt verification checks LayerX evidence without requiring a live node connection. Ethereum and Solana mirrors publish batch archives and commitments so independent consumers can verify committed LayerX evidence; see <Link href="/mirrors">Ethereum &amp; Solana Mirrors</Link>. Mirrors carry verification data; custody remains on Paxeer X.</p>
+    <p>Portable receipt verification checks supplied receipt evidence against independently trusted keys and inclusion facts. Ethereum and Solana mirror implementations publish batch archives and commitments for independent verification; see <Link href="/mirrors">Ethereum &amp; Solana Mirrors</Link>. Mirrors carry verification data; custody remains on Paxeer X.</p>
     <p>Choose migration for a source-state transition, a mirror for independent archive verification, and the <Link href="/bridge">bridge</Link> for a custody-backed asset transfer. Preserve the source chain identity and proof material in each case.</p>
     <h2>Admission and receipts</h2>
-    <p>Adapters ultimately submit operations to LayerX execution. An admission acknowledgement precedes execution and publication, so it does not by itself establish a state change. Receipt lookup is the step that establishes the operation&apos;s outcome. Integrations keep gateway exchange, admission, execution receipt, and settlement evidence as separate records, keyed by the operation identifier.</p>
+    <p>Adapters submit transactions to the node. A submitted or pending response requires further receipt lookup; it does not establish a committed state change. Verify the receipt&apos;s result and block commitment before treating execution as final. Keep the gateway operation identifier, transaction hash, receipt and external settlement evidence together for reconciliation.</p>
     <h2>Continue building</h2><p>Explore <Link href="/bridge">bridging and custody</Link>, <Link href="/paxeer-vs-layerx">execution and settlement architecture</Link>, and <Link href="/rest-grpc">native chain APIs</Link> to connect protocol evidence to chain state.</p>
   </DocsLayout>
 }
