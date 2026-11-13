@@ -88,16 +88,21 @@ for this test network; it is unrelated to Paxeer's public EVM chain ID 125.
    ./simd tendermint show-node-id --home "$simapp_home"
    ```
 
-9. For multiple nodes, set `persistent_peers` in each test home's
+9. For multiple nodes, set `persistent-peers` under `[p2p]` in each test home's
    `config/config.toml` to the other nodes' IDs and reachable addresses. For
    example:
 
    ```toml
-   persistent_peers = "<node-id-b>@<host-b>:26656,<node-id-c>@<host-c>:26656"
+   [p2p]
+   persistent-peers = "<node-id-b>@<host-b>:26656,<node-id-c>@<host-c>:26656"
    ```
 
-   `26656` is the default P2P port. Use the peer's configured port if changed;
-   nodes sharing a machine also need distinct listening ports and homes.
+   `26656` is the default P2P port. The default `laddr` listens only on
+   loopback; for nodes on separate machines, set it to a reachable local
+   interface, using `tcp://<local-interface>:26656`. These keys are defined in
+   the [P2P configuration template](../../../consensus/config/toml.go).
+   Use the peer's configured port if changed; nodes sharing a machine also
+   need distinct listening ports and homes.
 
 10. Start each node:
 

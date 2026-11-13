@@ -2,9 +2,10 @@
 
 This package supplies a small application for testing core IBC, light clients
 and middleware through the [IBC testing harness](../README.md). It supports
-channel behavior that the transfer application restricts, without depending on
-transfer or importing simapp. Keep that dependency direction: the
-[test simapp](../simapp/README.md) imports this package.
+channel behavior that the transfer application restricts. The application
+implementation imports neither transfer nor simapp. The
+[test simapp](../simapp/README.md) imports this package, and external tests
+compose the mock application with transfer and simapp.
 
 ## Registration and callbacks
 
