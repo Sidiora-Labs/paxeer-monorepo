@@ -7,7 +7,7 @@ evidence = "The runner's hf-done ledger records the exact qualified candidate re
 
 [finding.mobile-default-push-authority]
 test = "mobileDefaultPushAuthority"
-path = "apps/launchpad/mobile/test/vitest/repair-22-33-926.test.ts"
+path = "apps/launchpad/mobile/test/vitest/push-installation-authority.test.ts"
 implementation = "Registered App calls createApplicationPush with its actual wallet and nativePush bridge; defaults connect MobileServices.issueDeviceProof and the existing signed-operation codec. Authority is installed before registration, including after restart."
 proof = "Production bootstrap, NativePlatformPush, PushController, MobileServices and SessionController cross loopback native/provider/wallet/account fixtures; both APNS/iOS and FCM/Android register, rotate, stop/reopen protected installation state, then sign and deliver revocation before server session logout."
 boundaries = ["mobilePushProofFailClosed", "mobilePushWalletAuthorityChanges", "mobilePushRevocationFailurePurgesLocally"]

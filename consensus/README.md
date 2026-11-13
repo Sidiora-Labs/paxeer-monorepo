@@ -1,55 +1,65 @@
 # Consensus engine
 
-This directory contains the Byzantine Fault Tolerant consensus engine embedded in `paxd` for Paxeer mainnet-beta, one network with EVM chain ID 125 (`0x7d`). The engine is a fork of Tendermint Core: [`version/version.go`](version/version.go) defines the fallback Tendermint version as `0.35.0-unreleased` and the ABCI library version as `0.17.0`.
-
-The engine is not a separate Go module. Its packages are imported as `github.com/Sidiora-Labs/Paxeer-X-Network/consensus/...` from the repository's root [`go.mod`](../go.mod), and it is embedded in `paxd` rather than shipped as its own binary.
-
-The [specification](./spec/README.md) includes inherited Tendermint protocol descriptions and research models. The paper "[The latest gossip on BFT consensus](https://arxiv.org/abs/1807.04938)" provides the classic protocol's safety and liveness analysis. For this fork's application interface, proposal handling and optional Autobahn mode, consult the linked code below; upstream descriptions do not cover every mode implemented here.
-
-## How it fits the network
-
-- `paxd start` constructs the node with [`node`](node/) from [`sdk/server/start.go`](../sdk/server/start.go).
-- `paxd tendermint` exposes the engine's operator subcommands, wired in [`sdk/server/util.go`](../sdk/server/util.go): `show-node-id`, `show-validator`, `show-address`, `version`, `gen-autobahn-config`, `gen-validator`, `reindex-event`, `light`, `reset`, `unsafe-reset-all`, `gen-node-key`, `inspect`, `key-migrate`, `debug` and `completion`. Their implementations live in [`cmd/tendermint/commands`](cmd/tendermint/commands/) and [`sdk/server`](../sdk/server/).
-- The application is called in-process through the Go `Application` interface in [`abci/types/application.go`](abci/types/application.go), wrapped by [`internal/proxy`](internal/proxy/). Its block lifecycle includes `ProcessProposal`, `FinalizeBlock` and `Commit`. This tree has no socket or gRPC ABCI transport.
-- Autobahn is optional. `autobahn-config-file` in the node configuration ([`config/config.go`](config/config.go)) points at its JSON configuration; leaving it empty disables Autobahn. Configuration validation rejects combining Autobahn with sequencer mode, and [`node/node.go`](node/node.go) rejects Autobahn with a remote validator signer. `paxd tendermint gen-autobahn-config <node-dir> [node-dirs...] --output <file> --persistent-state-dir <directory>` generates the JSON file. Each node directory supplies `validator_pubkey.txt`, `node_pubkey.txt`, `autobahn_address.txt` and `evmrpc_url.txt`. The persistence directory defaults to `data/autobahn`; a relative path resolves against the node's `--home` directory. See [`gen_autobahn_config.go`](cmd/tendermint/commands/gen_autobahn_config.go).
-
-The LayerX kernel runs inside `paxd` through the cgo host in [`modules/lxphost`](../modules/lxphost/), wired into the application in [`node/app.go`](../node/app.go). It participates in this network's execution and block proposal path. In sequencer mode, the in-process [`ConsensusSource`](../node/sequencer/consensus_source.go) supplies the executor's sealed pending block through the [`SequencerSource`](types/sequencer.go) interface. A transaction receipt is final once its block is committed.
+This directory contains the Byzantine Fault Tolerant consensus engine embedded in `paxd` for Paxeer mainnet-beta, one network with EVM chain ID 125 (`0x7d`). The Tendermint-derived engine orders and commits blocks, connects to the application in-process, and includes classic consensus and optional Autobahn components. The LayerX kernel runs inside `paxd`, participates in execution and block proposal, and a transaction receipt is final once its block is committed.
 
 ## Layout
 
 | Path | Contents |
 | --- | --- |
-| [`abci/`](abci/) | Application interface types and the example key-value application |
-| [`autobahn/`](autobahn/), [`internal/autobahn/`](internal/autobahn/) | Autobahn types and implementation |
-| [`cmd/tendermint/commands/`](cmd/tendermint/commands/) | Cobra commands mounted under `paxd tendermint` |
-| [`cmd/priv_val_server/`](cmd/priv_val_server/) | gRPC remote signer server built on [`privval/`](privval/) |
-| [`cmd/contract_tests/`](cmd/contract_tests/) | Dredd hooks for the RPC contract tests against [`rpc/openapi/openapi.yaml`](rpc/openapi/openapi.yaml) |
-| [`config/`](config/) | Node configuration |
+| [`abci/`](abci/) | Go application interface, request and response types, and the example key-value application |
+| [`autobahn/`](autobahn/) | Autobahn blocks, proposals, votes, committees and quorum certificates |
+| [`cmd/`](cmd/) | Cobra [operator commands](cmd/tendermint/commands/), the gRPC [remote signer server](cmd/priv_val_server/), and [Dredd hooks](cmd/contract_tests/) for the [RPC contract](rpc/openapi/openapi.yaml) |
+| [`config/`](config/) | Node configuration types, TOML templates and Autobahn JSON configuration loading |
 | [`crypto/`](crypto/) | Ed25519 keys, hashing and Merkle trees |
-| [`internal/`](internal/) | Consensus state machine, mempool, evidence, p2p, block sync, state sync, block and state stores, RPC handlers |
-| [`light/`](light/) | Light client |
-| [`node/`](node/) | Node assembly |
+| [`export/`](export/) | Exported aliases for block stores, state stores and event queries |
+| [`internal/`](internal/) | Classic consensus and Autobahn implementations, application proxy, mempool, evidence, peer networking, synchronization, stores and RPC handlers |
+| [`libs/`](libs/) | Shared utilities for encoding, command-line handling, services, synchronization and structured concurrency |
+| [`light/`](light/) | Light client and trusted-header verification |
+| [`networks/`](networks/) | Network examples and remote deployment tooling |
+| [`node/`](node/) | Consensus node assembly and service lifecycle |
+| [`privval/`](privval/) | File-based validator signing state and remote signing support |
 | [`proto/`](proto/) | Protocol buffer definitions and generated Go code |
-| [`rpc/`](rpc/) | RPC client, JSON-RPC server library, core types and the OpenAPI description |
-| [`types/`](types/) | Blocks, votes, validators, evidence, genesis and consensus parameters |
-| [`spec/`](spec/) | Upstream protocol specifications, TLA+ and Ivy models |
-| [`test/`](test/) | Fuzz targets and end-to-end harness |
-| [`networks/`](networks/), [`scripts/`](scripts/) | Upstream deployment and maintenance tooling |
+| [`rpc/`](rpc/) | RPC clients, JSON-RPC server library, core types and OpenAPI description |
+| [`scripts/`](scripts/) | Code generation, metrics and maintenance scripts |
+| [`spec/`](spec/) | Tendermint protocol specifications, fork-specific implementation references, TLA+ and Ivy models |
+| [`state/`](state/) | Application response result hashing |
+| [`test/`](test/) | Fuzz targets, test fixtures and end-to-end harness |
+| [`types/`](types/) | Blocks, votes, validators, evidence, genesis, consensus parameters and proposer interfaces |
+| [`utils/`](utils/) | Slice mapping helper |
+| [`version/`](version/) | Engine, ABCI and protocol version declarations |
+| [`Makefile`](Makefile) | Engine test, code generation and remote signer build targets |
 
 ## Build and test
 
-From the repository root:
+The packages belong to the repository's root [`go.mod`](../go.mod), under `github.com/Sidiora-Labs/Paxeer-X-Network/consensus/...`. Build the embedded engine through the root [`Makefile`](../Makefile), which delegates to [`chain.mk`](../chain.mk). From the repository root:
 
 ```sh
-make paxeer-build        # builds ./build/paxd, which embeds this engine
-go test ./consensus/...  # runs the engine's Go tests
+make paxeer-build
+make -C consensus test
 ```
 
-[`Makefile`](Makefile) in this directory is inherited from upstream. Its `build` and `install` targets point at `./cmd/tendermint`, which contains the `commands` subdirectory but no Go `main` package, so they do not produce a binary. Build the engine through `paxd`. The upstream [remote deployment tooling](networks/remote/README.md) and [end-to-end Docker image](test/e2e/docker/Dockerfile) also assume a standalone `tendermint` binary and are not current `paxd` deployment instructions.
+The build produces `build/paxd`. The test target comes from [`test/Makefile`](test/Makefile) and runs the directory's Go packages with `go test -p 1` and the `deadlock` build tag. For a direct Go test invocation from the repository root, use `go test ./consensus/...`.
 
-The fuzz targets are described in [`test/fuzz/README.md`](test/fuzz/README.md).
+The directory's [`Makefile`](Makefile) also provides `build_privval_server` for the remote signer server. Fuzz targets are described in [`test/fuzz/README.md`](test/fuzz/README.md).
 
-## Security
+## Configuration
 
-To report a vulnerability, follow the repository [security policy](../SECURITY.md).
+[`paxd start`](../sdk/server/start.go) constructs the consensus node. The server reads `config/config.toml` under the node's `--home` directory through [`sdk/server/util.go`](../sdk/server/util.go). The engine also loads `config/genesis.json`, `config/node_key.json`, `config/priv_validator_key.json` and `data/priv_validator_state.json` through the paths defined in [`config/config.go`](config/config.go). Remote signer TLS files are selected by `priv-validator.client-certificate-file`, `priv-validator.client-key-file` and `priv-validator.root-ca-file`.
 
+The server binds environment variables using the executable name as a prefix and replaces dots and hyphens in configuration keys with underscores. With `paxd`, this includes `PAXD_HOME`. The end-to-end node reads `TMHOME`; the end-to-end runner reads `DOCKER_HOST`, `DOCKER_TLS_VERIFY` and `DOCKER_CERT_PATH` in [`test/e2e/runner/cleanup.go`](test/e2e/runner/cleanup.go).
+
+The `autobahn-config-file` key selects a JSON file described by [`AutobahnFileConfig`](config/autobahn.go). An empty setting selects classic consensus. Autobahn persists state through `persistent_state_dir`, with relative paths resolved against the node home. The mutually exclusive `unsafe_test_only_disable_persistence` option permits in-memory operation for test networks. The `consensus.sequencer` settings configure the integrated proposer mode; validation rejects combining it with Autobahn. Autobahn requires a local validator signer.
+
+[`paxd tendermint gen-autobahn-config`](cmd/tendermint/commands/gen_autobahn_config.go) accepts node directories and the `--output` and `--persistent-state-dir` flags. It reads `validator_pubkey.txt`, `node_pubkey.txt`, `autobahn_address.txt` and `evmrpc_url.txt` from each supplied node directory.
+
+## Documentation
+
+- [Consensus documentation site page](../docs/site/paxeer-docs/src/app/consensus/page.tsx) and its [Markdown page](../docs/site/paxeer-docs/public/markdown/consensus.md).
+- [Validator runbook](../docs/release/7.0.0-validator-runbook.md) and [consensus-changing release commits](../docs/release/consensus-commits.md).
+- [Protocol specifications and implementation map](spec/README.md), including inherited Tendermint descriptions and research models. The paper "[The latest gossip on BFT consensus](https://arxiv.org/abs/1807.04938)" analyzes the classic protocol's safety and liveness; Autobahn behavior is defined by the linked implementation.
+- [Application interface](abci/types/application.go) and [in-process proxy](internal/proxy/). The lifecycle includes `ProcessProposal`, `FinalizeBlock` and `Commit`; the proxy invokes Go methods directly.
+- [Operator command wiring](../sdk/server/util.go) under `paxd tendermint`: `show-node-id`, `show-validator`, `show-address`, `version`, `gen-autobahn-config`, `gen-validator`, `reindex-event`, `light`, `reset`, `unsafe-reset-all`, `gen-node-key`, `inspect`, `key-migrate`, `debug` and `completion`.
+- [cgo kernel host](../modules/lxphost/) and [application integration](../node/app.go). In sequencer mode, the in-process [ConsensusSource](../node/sequencer/consensus_source.go) supplies the executor's sealed pending block through [SequencerSource](types/sequencer.go).
+- [Version declarations](version/version.go): the fallback Tendermint version is `0.35.0-unreleased` and the ABCI library version is `0.17.0`.
+- [Remote deployment tooling](networks/remote/README.md) and [end-to-end Docker image definition](test/e2e/docker/Dockerfile).
+- [Security policy](../SECURITY.md) for vulnerability reports.
