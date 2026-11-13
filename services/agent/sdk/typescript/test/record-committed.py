@@ -19,4 +19,4 @@ recording["refusals"] = [{
     "nextCommit": converter._commit(source["settlement"]["commit_at_most_two_thirds"]),
     "expectedCheck": "committed-next-commit",
 }]
-(Path(__file__).parent / "fixtures/repair-22-33-24/committed.json").write_text(json.dumps(recording, indent=2) + "\n")
+(Path(__file__).parent / "fixtures/recorded-payment-evidence/committed.json").write_text(json.dumps(recording, indent=2) + "\n")
