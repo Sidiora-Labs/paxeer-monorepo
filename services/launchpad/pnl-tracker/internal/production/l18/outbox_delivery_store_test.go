@@ -13,40 +13,40 @@ import (
 // Committed in-memory peer records cross connection restarts. Transactions
 // snapshot all durable records together; rollback restores every affected table.
 // Production pgx and delivery.Store still own wire encoding and SQL execution.
-type repair1019Local struct {
+type outboxDeliveryLocal struct {
 	Sequence                 int64
 	Identity, Topic, Payload string
 	Published                bool
 }
-type repair1019Delivery struct {
+type outboxDeliveryDelivery struct {
 	ID, Subject, Wire, Owner, State string
 	Fence                           int64
 	Attempts                        int
 	Until                           time.Time
 }
-type repair1019Durable struct {
-	Local    []repair1019Local
-	Delivery map[string]repair1019Delivery
+type outboxDeliveryDurable struct {
+	Local    []outboxDeliveryLocal
+	Delivery map[string]outboxDeliveryDelivery
 	Inbox    map[string]string
 	Effects  map[string]string
 }
-type repair1019Store struct {
-	db          *repair62Database
-	state       repair1019Durable
-	saved       *repair1019Durable
+type outboxDeliveryStore struct {
+	db          *rewardHistoryDatabase
+	state       outboxDeliveryDurable
+	saved       *outboxDeliveryDurable
 	failHandoff bool
 }
 
-func repair1019NewStore(db *repair62Database) *repair1019Store {
-	return &repair1019Store{db: db, state: repair1019Durable{Delivery: map[string]repair1019Delivery{}, Inbox: map[string]string{}, Effects: map[string]string{}}}
+func outboxDeliveryNewStore(db *rewardHistoryDatabase) *outboxDeliveryStore {
+	return &outboxDeliveryStore{db: db, state: outboxDeliveryDurable{Delivery: map[string]outboxDeliveryDelivery{}, Inbox: map[string]string{}, Effects: map[string]string{}}}
 }
 
-func (s *repair1019Store) query(sql string, args []string) (repair62Result, bool, error) {
+func (s *outboxDeliveryStore) query(sql string, args []string) (rewardHistoryResult, bool, error) {
 	sql = strings.ReplaceAll(sql, `"pnl".`, "")
-	ok := repair62Result{tag: "UPDATE 1"}
-	insert := repair62Result{tag: "INSERT 0 1"}
-	errResult := func(err error) (repair62Result, bool, error) { return ok, true, err }
-	lease := func() (repair1019Delivery, error) {
+	ok := rewardHistoryResult{tag: "UPDATE 1"}
+	insert := rewardHistoryResult{tag: "INSERT 0 1"}
+	errResult := func(err error) (rewardHistoryResult, bool, error) { return ok, true, err }
+	lease := func() (outboxDeliveryDelivery, error) {
 		r, exists := s.state.Delivery[args[0]]
 		if !exists || r.Owner != args[1] || strconv.FormatInt(r.Fence, 10) != args[2] || r.State != "pending" || !r.Until.After(time.Now()) {
 			return r, &pgconn.PgError{Code: "P0001", Message: "stale delivery lease"}
@@ -59,42 +59,42 @@ func (s *repair1019Store) query(sql string, args []string) (repair62Result, bool
 		if err != nil {
 			return errResult(err)
 		}
-		var saved repair1019Durable
+		var saved outboxDeliveryDurable
 		if err = json.Unmarshal(raw, &saved); err != nil {
 			return errResult(err)
 		}
 		s.saved = &saved
-		return repair62Result{tag: "BEGIN"}, true, nil
+		return rewardHistoryResult{tag: "BEGIN"}, true, nil
 	case sql == "rollback":
 		if s.saved != nil {
 			s.state = *s.saved
 			s.saved = nil
 		}
-		return repair62Result{tag: "ROLLBACK"}, true, nil
+		return rewardHistoryResult{tag: "ROLLBACK"}, true, nil
 	case sql == "commit":
 		s.saved = nil
-		return repair62Result{tag: "COMMIT"}, true, nil
+		return rewardHistoryResult{tag: "COMMIT"}, true, nil
 	case strings.HasPrefix(sql, "SELECT has_column_privilege("):
 		permitted := s.db.permit("pnl.l18_outbox", "UPDATE", "published_at") == nil
-		return repair62Rows([]uint32{16}, []string{strconv.FormatBool(permitted)}), true, nil
+		return rewardHistoryRows([]uint32{16}, []string{strconv.FormatBool(permitted)}), true, nil
 	case strings.HasPrefix(sql, "INSERT INTO l18_outbox("):
 		for _, old := range s.state.Local {
 			if old.Identity == args[0] {
 				return errResult(&pgconn.PgError{Code: "23505", Message: "duplicate local identity"})
 			}
 		}
-		s.state.Local = append(s.state.Local, repair1019Local{Sequence: int64(len(s.state.Local) + 1), Identity: args[0], Topic: args[1], Payload: args[2]})
+		s.state.Local = append(s.state.Local, outboxDeliveryLocal{Sequence: int64(len(s.state.Local) + 1), Identity: args[0], Topic: args[1], Payload: args[2]})
 		return insert, true, nil
 	case strings.HasPrefix(sql, "SELECT sequence,identity,topic,payload FROM l18_outbox"):
-		if err := repair62Require(sql, "published_at IS NULL", "ORDER BY sequence LIMIT $1 FOR UPDATE SKIP LOCKED"); err != nil {
+		if err := rewardHistoryRequire(sql, "published_at IS NULL", "ORDER BY sequence LIMIT $1 FOR UPDATE SKIP LOCKED"); err != nil {
 			return errResult(err)
 		}
 		if err := s.db.permit("pnl.l18_outbox", "UPDATE", "published_at"); err != nil {
 			return errResult(err)
 		}
-		result := repair62Rows([]uint32{20, 25, 25, 3802})
+		result := rewardHistoryRows([]uint32{20, 25, 25, 3802})
 		for _, row := range s.state.Local {
-			if !row.Published && len(result.rows) < int(repair62Uint(args[0])) {
+			if !row.Published && len(result.rows) < int(rewardHistoryUint(args[0])) {
 				result.rows = append(result.rows, []string{strconv.FormatInt(row.Sequence, 10), row.Identity, row.Topic, row.Payload})
 			}
 		}
@@ -110,33 +110,33 @@ func (s *repair1019Store) query(sql string, args []string) (repair62Result, bool
 				return ok, true, nil
 			}
 		}
-		return repair62Result{tag: "UPDATE 0"}, true, nil
+		return rewardHistoryResult{tag: "UPDATE 0"}, true, nil
 	case strings.HasPrefix(sql, "INSERT INTO delivery_outbox("):
 		if _, found := s.state.Delivery[args[0]]; found {
-			return repair62Result{tag: "INSERT 0 0"}, true, nil
+			return rewardHistoryResult{tag: "INSERT 0 0"}, true, nil
 		}
-		s.state.Delivery[args[0]] = repair1019Delivery{ID: args[0], Subject: args[2], Wire: args[4], State: "pending"}
+		s.state.Delivery[args[0]] = outboxDeliveryDelivery{ID: args[0], Subject: args[2], Wire: args[4], State: "pending"}
 		return insert, true, nil
 	case strings.HasPrefix(sql, "SELECT subject,envelope FROM delivery_outbox"):
 		r, found := s.state.Delivery[args[0]]
 		if !found {
-			return repair62Rows([]uint32{25, 17}), true, nil
+			return rewardHistoryRows([]uint32{25, 17}), true, nil
 		}
-		return repair62Rows([]uint32{25, 17}, []string{r.Subject, r.Wire}), true, nil
+		return rewardHistoryRows([]uint32{25, 17}, []string{r.Subject, r.Wire}), true, nil
 	case strings.HasPrefix(sql, "WITH picked AS (SELECT event_id FROM delivery_outbox"):
-		if err := repair62Require(sql, "FOR UPDATE SKIP LOCKED LIMIT $1", "o.fence+1", "o.attempts+1"); err != nil {
+		if err := rewardHistoryRequire(sql, "FOR UPDATE SKIP LOCKED LIMIT $1", "o.fence+1", "o.attempts+1"); err != nil {
 			return errResult(err)
 		}
-		result := repair62Rows([]uint32{25, 25, 17, 20, 23})
+		result := rewardHistoryRows([]uint32{25, 25, 17, 20, 23})
 		for id, row := range s.state.Delivery {
 			if row.State != "pending" || row.Until.After(time.Now()) {
 				continue
 			}
 			row.Owner, row.Fence, row.Attempts = args[1], row.Fence+1, row.Attempts+1
-			row.Until = time.Now().Add(time.Duration(repair62Uint(args[2])) * time.Millisecond)
+			row.Until = time.Now().Add(time.Duration(rewardHistoryUint(args[2])) * time.Millisecond)
 			s.state.Delivery[id] = row
 			result.rows = append(result.rows, []string{id, row.Subject, row.Wire, strconv.FormatInt(row.Fence, 10), strconv.Itoa(row.Attempts)})
-			if len(result.rows) == int(repair62Uint(args[0])) {
+			if len(result.rows) == int(rewardHistoryUint(args[0])) {
 				break
 			}
 		}
@@ -147,12 +147,12 @@ func (s *repair1019Store) query(sql string, args []string) (repair62Result, bool
 		if err != nil {
 			return errResult(err)
 		}
-		exhausted := r.Attempts > int(repair62Uint(args[3]))
+		exhausted := r.Attempts > int(rewardHistoryUint(args[3]))
 		if exhausted {
 			r.State = "quarantined"
 			s.state.Delivery[r.ID] = r
 		}
-		return repair62Rows([]uint32{16}, []string{strconv.FormatBool(exhausted)}), true, nil
+		return rewardHistoryRows([]uint32{16}, []string{strconv.FormatBool(exhausted)}), true, nil
 	case strings.HasPrefix(sql, "UPDATE delivery_outbox SET acknowledgement_latency_ms="):
 		r, err := lease()
 		if err != nil {
@@ -172,12 +172,12 @@ func (s *repair1019Store) query(sql string, args []string) (repair62Result, bool
 	case strings.HasPrefix(sql, "INSERT INTO delivery_inbox("):
 		key := strings.Join(args[:3], ":")
 		if _, found := s.state.Inbox[key]; found {
-			return repair62Result{tag: "INSERT 0 0"}, true, nil
+			return rewardHistoryResult{tag: "INSERT 0 0"}, true, nil
 		}
 		s.state.Inbox[key] = args[3]
 		return insert, true, nil
 	case strings.HasPrefix(sql, "SELECT envelope_hash FROM delivery_inbox"):
-		return repair62Text([]string{s.state.Inbox[strings.Join(args[:3], ":")]}), true, nil
+		return rewardHistoryText([]string{s.state.Inbox[strings.Join(args[:3], ":")]}), true, nil
 	case strings.HasPrefix(sql, "INSERT INTO repair1019_effects("):
 		if _, found := s.state.Effects[args[0]]; found {
 			return errResult(&pgconn.PgError{Code: "23505", Message: "duplicate consumer effect"})
@@ -186,9 +186,9 @@ func (s *repair1019Store) query(sql string, args []string) (repair62Result, bool
 		return insert, true, nil
 	case sql == "SELECT payload::text FROM repair1019_effects":
 		for _, value := range s.state.Effects {
-			return repair62Text([]string{value}), true, nil
+			return rewardHistoryText([]string{value}), true, nil
 		}
-		return repair62Rows([]uint32{25}), true, nil
+		return rewardHistoryRows([]uint32{25}), true, nil
 	case strings.HasPrefix(sql, "SELECT count(*)::text FROM "):
 		count := 0
 		switch {
@@ -211,13 +211,13 @@ func (s *repair1019Store) query(sql string, args []string) (repair62Result, bool
 		default:
 			return errResult(fmt.Errorf("count absent from committed interface: %s", sql))
 		}
-		return repair62Text([]string{strconv.Itoa(count)}), true, nil
+		return rewardHistoryText([]string{strconv.Itoa(count)}), true, nil
 	default:
-		return repair62Result{}, false, nil
+		return rewardHistoryResult{}, false, nil
 	}
 }
 
-func repair1019Signature(sql string) ([]uint32, []uint32, bool) {
+func outboxDeliverySignature(sql string) ([]uint32, []uint32, bool) {
 	sql = strings.ReplaceAll(sql, `"pnl".`, "")
 	switch {
 	case strings.HasPrefix(sql, "SELECT has_column_privilege("):

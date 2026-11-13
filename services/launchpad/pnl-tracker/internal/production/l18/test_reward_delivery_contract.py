@@ -49,7 +49,7 @@ def go_body(path, declaration):
 
 
 def native_test(name):
-    return go_body(HERE / 'repair_1019_test.go', 'func ' + name + '(t *testing.T)')
+    return go_body(HERE / 'reward_outbox_recovery_test.go', 'func ' + name + '(t *testing.T)')
 
 
 def test_nonclaim_market_preserves_history_and_eligible_reward_source_contract():
@@ -71,8 +71,8 @@ def test_nonclaim_market_preserves_history_and_eligible_reward_source_contract()
     assert 's.ledger.EpochEntitlement(ctx, s.creator, m.Pool, epoch, who)' in entitlement
     preparation = go_body(HERE / 'creator.go', 'func (c *Creator) PrepareClaim(')
     assert 'p.Capability.Strategy != "CLAIM"' in preparation
-    proof = native_test('TestRepair1019MixedStrategyRewards')
-    for criterion in ('[]uint8{1, 2, 3}', 'repair62Rewards(', 'f.handler(f.chain.Alice)',
+    proof = native_test('TestMixedStrategyRewards')
+    for criterion in ('[]uint8{1, 2, 3}', 'readRewardHistory(', 'f.handler(f.chain.Alice)',
                       '"11000000"', '"10000000"', '*page.NextCursor',
                       'PrepareClaim(', 'map[string]uint8{"1": 255}', 'ErrUnavailable'):
         assert criterion in proof
@@ -90,11 +90,11 @@ def test_community_policy_restart_source_contract():
     assert 'w.policyDigest' in observe
     assert '"reward.community_authority", out' in observe
     assert observe.index('emit(ctx, tx,') < observe.rindex('tx.Commit(ctx)')
-    proof = native_test('TestRepair1019CommunityPolicyRestart')
+    proof = native_test('TestCommunityPolicyRestart')
     assert '[][]string{{f.chain.Alice}, {}, {f.chain.Alice}}' in proof
     assert '[]string{"active", "revoked", "active"}' in proof
     assert 'communityHistory["1"]' in proof and 'len(f.db.outbox)' in proof
-    reopen = go_body(HERE / 'repair_1019_test.go', 'func repair1019Reopen(')
+    reopen = go_body(HERE / 'reward_outbox_recovery_test.go', 'func outboxDeliveryReopen(')
     assert reopen.index('f.ledger.pool.Close()') < reopen.index('NewRuntimeLedger(')
     assert reopen.index('f.rpc.Close()') < reopen.index('rpc.DialHTTP(')
     assert 'NewCommittedCreator(' in reopen and 'NewCommunityWatcher(journey, approved)' in reopen
@@ -144,34 +144,34 @@ def test_reward_outbox_atomic_handoff_and_native_transport_proof_contract():
     grant = go_body(source, 'func OutboxRuntimeGrantSQL(')
     assert r'GRANT UPDATE (\"published_at\") ON TABLE ' in grant
     assert 'GRANT ALL' not in grant
-    proof = native_test('TestRepair1019OutboxCrashRecovery')
+    proof = native_test('TestOutboxCrashRecovery')
     for stage in ('emit(ctx, tx,', 'tx.Commit(ctx)', 'bridge.RunOnce(ctx)', 'failHandoff = true',
                   'store.Claim(ctx, "before-crash"', 'pub.Publish(', 'dropPublishAck.Store(true)',
                   'dropConsumerAck.Store(true)', 'store.Consume(', 'l.pool.Close()',
                   'delivery.NewStoreWithEpochGuard(', 'relay.RunOnce(ctx)', 'sub.NextMsg(',
                   'Nats-Msg-Id', 'state=\'published\' AND attempts=2', 'recovered != payload'):
         assert stage in proof
-    peer = go_source(HERE / 'repair_1019_transport_test.go')
+    peer = go_source(HERE / 'outbox_jetstream_test.go')
     assert 'nats.Connect(' in peer and 'Nats-Expected-Stream: L18' in peer
     assert 'case "PUB", "HPUB":' in peer and 'savedWire' in peer
-    store = go_source(HERE / 'repair_1019_store_test.go')
+    store = go_source(HERE / 'outbox_delivery_store_test.go')
     assert 's.state = *s.saved' in store and 'duplicate consumer effect' in store
-    assert 'l18_outbox' in native_test('TestRepair1019OutboxRuntimeRights')
+    assert 'l18_outbox' in native_test('TestOutboxRuntimeRights')
 
 
 def test_native_fixtures_have_no_external_runtime_dependencies():
-    for name in ('repair_1019_test.go', 'repair_1019_store_test.go',
-                 'repair_1019_transport_test.go', 'repair_62_support_test.go'):
+    for name in ('reward_outbox_recovery_test.go', 'outbox_delivery_store_test.go',
+                 'outbox_jetstream_test.go', 'rewards_database_test.go'):
         source = go_source(HERE / name)
         for forbidden in ('os.Getenv(', 'exec.Command(', 'phase2Storage(', 't.Skip(', 't.Skipf(', 't.SkipNow('):
             assert forbidden not in source, (name, forbidden)
-    transcript = (HERE / 'repair_62_support_test.go').read_text()
+    transcript = (HERE / 'rewards_database_test.go').read_text()
     assert 'pgproto3.NewBackend(conn, conn)' in transcript
     assert 'pgxpool.NewWithConfig(' in transcript and 'rpc.DialHTTP(' in transcript
 
 
 def test_qualification_input_requirements_execute_production_code():
-    tests = load_python('repair1019_qualify_tests', HERE / 'qualify_test.py')
+    tests = load_python('reward_delivery_qualify_tests', HERE / 'qualify_test.py')
     suite = unittest.defaultTestLoader.loadTestsFromTestCase(tests.InputRequirements)
     result = unittest.TestResult()
     suite.run(result)
@@ -181,7 +181,7 @@ def test_qualification_input_requirements_execute_production_code():
 
 
 def test_qualification_listener_ownership_and_peer_preservation():
-    qualify = load_python('repair1019_qualify_listener', HERE / 'qualify.py')
+    qualify = load_python('reward_delivery_qualify_listener', HERE / 'qualify.py')
     observed = []
     with socket.socket() as server:
         server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -217,7 +217,7 @@ def test_qualification_listener_ownership_and_peer_preservation():
 
 
 def test_qualification_uses_owned_runner_and_operator_database(tmp_path):
-    qualify = load_python('repair1019_qualify_runner', HERE / 'qualify.py')
+    qualify = load_python('reward_delivery_qualify_runner', HERE / 'qualify.py')
     tree = ast.parse((HERE / 'qualify.py').read_text())
     main = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == 'main')
     update = next(node for node in ast.walk(main) if isinstance(node, ast.Expr)
@@ -248,7 +248,9 @@ def test_qualification_uses_owned_runner_and_operator_database(tmp_path):
 
 
 def test_repair_record_keeps_proofs_and_qualification_limits_explicit():
-    record = (HERE / 'repair_22_33_1019.kvx').read_text()
+    record = (HERE.parents[5] /
+              'spec/layerx-merge/programme/records/services/launchpad/pnl-tracker/'
+              'internal/production/l18/repair_22_33_1019.kvx').read_text()
     for finding in ('nonclaim-market-breaks-listing', 'community-policy-restart',
                     'reward-outbox-has-no-relay', 'qualification-ephemeral-runner'):
         assert finding + ' = ' in record

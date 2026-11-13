@@ -34,26 +34,26 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func TestRepairM_917_FreshInstallMigrationContract(t *testing.T) {
-	repairM917ValidateMigrationPlan(t, nil)
+func TestMigrationFreshInstallMigrationContract(t *testing.T) {
+	migrationContractValidateMigrationPlan(t, nil)
 }
-func TestRepairM_917_ExistingSchemaUpgradeMigrationContract(t *testing.T) {
-	repairM917ValidateMigrationPlan(t, []int64{80003, 160000, 180000})
+func TestMigrationExistingSchemaUpgradeMigrationContract(t *testing.T) {
+	migrationContractValidateMigrationPlan(t, []int64{80003, 160000, 180000})
 }
 
-func repairM917Read(t *testing.T, path string) []byte {
+func migrationContractRead(t *testing.T, path string) []byte {
 	t.Helper()
-	raw, err := os.ReadFile(filepath.Join(repair29Root(), path))
+	raw, err := os.ReadFile(filepath.Join(rewardSchemaRoot(), path))
 	if err != nil {
 		t.Fatal(err)
 	}
 	return raw
 }
-func repairM917ValidateMigrationPlan(t *testing.T, existing []int64) {
+func migrationContractValidateMigrationPlan(t *testing.T, existing []int64) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
-	root := repair29Root()
+	root := rewardSchemaRoot()
 	registry, err := proofLaunchpadRewardRegistry(root)
 	if err != nil {
 		t.Fatalf("reward-proof-schema: production registry admission: %v", err)
@@ -68,15 +68,15 @@ func repairM917ValidateMigrationPlan(t *testing.T, existing []int64) {
 		if !ok || m.Service != "core/pnl-tracker" || m.Schema != "pnl" {
 			t.Fatalf("reward prerequisite %d is unregistered", id)
 		}
-		sql := repairM917Read(t, filepath.Join("launchpad", m.Path))
+		sql := migrationContractRead(t, filepath.Join("launchpad", m.Path))
 		if production.Checksum(sql) != m.SHA256 {
 			t.Fatalf("migration %d source differs from registration", id)
 		}
 		sources[string(sql)] = fmt.Sprintf("%d", id)
 	}
-	chain := repairM917RPC(t)
+	chain := migrationContractRPC(t)
 	file := filepath.Join(t.TempDir(), "database.json")
-	database := repairM917Database(t, file, sources)
+	database := migrationContractDatabase(t, file, sources)
 	database.State.Legacy = map[string]string{"creator": chain.alice, "pool": chain.pool, "legacy_position": "holdings=7;remaining_cost=13;revision=9"}
 	coordinator := database.pool(t, "migration_coordinator")
 	// The production bootstrap provisions predecessor tables and history from their
@@ -99,7 +99,7 @@ func repairM917ValidateMigrationPlan(t *testing.T, existing []int64) {
 		}
 		coordinator.Close()
 		database.stop()
-		database = repairM917Database(t, file, sources)
+		database = migrationContractDatabase(t, file, sources)
 		coordinator = database.pool(t, "migration_coordinator")
 		if !reflect.DeepEqual(beforeUpgrade, database.snapshot()) {
 			t.Fatal("existing schema/history changed on reopen before upgrade")
@@ -120,7 +120,7 @@ func repairM917ValidateMigrationPlan(t *testing.T, existing []int64) {
 	// The actual coordinator, not just Manifest.Validate, must refuse changed
 	// bytes, incompatible readers, absent approvals and missing prerequisites.
 	target := catalog[180001]
-	sql := repairM917Read(t, filepath.Join("launchpad", target.Path))
+	sql := migrationContractRead(t, filepath.Join("launchpad", target.Path))
 	conn, err := coordinator.Acquire(ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -163,13 +163,13 @@ func repairM917ValidateMigrationPlan(t *testing.T, existing []int64) {
 	var roles struct {
 		Roles []production.RoleManifest `json:"roles"`
 	}
-	if err := json.Unmarshal(repairM917Read(t, "migrations/grants.json"), &roles); err != nil {
+	if err := json.Unmarshal(migrationContractRead(t, "migrations/grants.json"), &roles); err != nil {
 		t.Fatal(err)
 	}
 	found := false
 	for _, role := range roles.Roles {
 		if role.RuntimeRole == "pnl_runtime" {
-			repairM917Grant(t, database, role)
+			migrationContractGrant(t, database, role)
 			found = true
 			break
 		}
@@ -224,7 +224,7 @@ func repairM917ValidateMigrationPlan(t *testing.T, existing []int64) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		repair29Sign(t, req, signingKey)
+		rewardSchemaSign(t, req, signingKey)
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Idempotency-Key", key)
 		res, err := server.Client().Do(req)
@@ -279,7 +279,7 @@ func repairM917ValidateMigrationPlan(t *testing.T, existing []int64) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if r[0] != chain.alice || r[1] != key || r[3] != "POST" || r[4] != "/v2/me/rewards:prepare-claim" || !bytes.Equal(stored, first) || r[7] != registry.ApprovalDigest || r[8] != target.InterfaceDigest || a[0] != identity || a[1] != chain.alice || a[2] != "prepare_claim" || !repairM917EqualJSON([]byte(a[4]), first) || o[0] != "prepare:"+identity || o[1] != "reward.claim_prepared" {
+	if r[0] != chain.alice || r[1] != key || r[3] != "POST" || r[4] != "/v2/me/rewards:prepare-claim" || !bytes.Equal(stored, first) || r[7] != registry.ApprovalDigest || r[8] != target.InterfaceDigest || a[0] != identity || a[1] != chain.alice || a[2] != "prepare_claim" || !migrationContractEqualJSON([]byte(a[4]), first) || o[0] != "prepare:"+identity || o[1] != "reward.claim_prepared" {
 		t.Fatalf("durable request/audit/outbox binding differs: request=%v audit=%v outbox=%v", r, a, o)
 	}
 	var event struct{ Actor, Key, Digest, Release, Interface string }
@@ -294,7 +294,7 @@ func repairM917ValidateMigrationPlan(t *testing.T, existing []int64) {
 	runtimePool.Close()
 	coordinator.Close()
 	database.stop()
-	database = repairM917Database(t, file, sources)
+	database = migrationContractDatabase(t, file, sources)
 	if !reflect.DeepEqual(beforeReplay, database.snapshot()) {
 		t.Fatal("durable rows did not recover from the closed store")
 	}
@@ -323,10 +323,10 @@ func repairM917ValidateMigrationPlan(t *testing.T, existing []int64) {
 	}
 }
 
-func TestRepairM_917_ApprovalBindings(t *testing.T) {
-	source := repairM917Read(t, "migrations/registry.json")
-	approval := repairM917Read(t, "migrations/pnl-reward-approval.json")
-	reader := repairM917Read(t, "sdk/launchpad/shared/interfaces/v2/validators.gen.go")
+func TestMigrationApprovalBindings(t *testing.T) {
+	source := migrationContractRead(t, "migrations/registry.json")
+	approval := migrationContractRead(t, "migrations/pnl-reward-approval.json")
+	reader := migrationContractRead(t, "sdk/launchpad/shared/interfaces/v2/validators.gen.go")
 	for _, bad := range []struct {
 		name                     string
 		source, approval, reader []byte
@@ -341,23 +341,23 @@ func TestRepairM_917_ApprovalBindings(t *testing.T) {
 	}
 }
 
-type repairM917Chain struct {
+type migrationContractChain struct {
 	mu                      sync.Mutex
 	alice, bob, pool, owner string
 	abis                    map[string]abi.ABI
 	server                  *httptest.Server
 }
 
-func repairM917RPC(t *testing.T) *repairM917Chain {
+func migrationContractRPC(t *testing.T) *migrationContractChain {
 	t.Helper()
 	key, err := crypto.HexToECDSA(strings.Repeat("0", 63) + "1")
 	if err != nil {
 		t.Fatal(err)
 	}
-	c := &repairM917Chain{alice: strings.ToLower(crypto.PubkeyToAddress(key.PublicKey).Hex()), bob: "0x000000000000000000000000000000000000000c", pool: "0x0000000000000000000000000000000000000065", abis: map[string]abi.ABI{}}
+	c := &migrationContractChain{alice: strings.ToLower(crypto.PubkeyToAddress(key.PublicKey).Hex()), bob: "0x000000000000000000000000000000000000000c", pool: "0x0000000000000000000000000000000000000065", abis: map[string]abi.ABI{}}
 	c.owner = c.alice
 	for address, name := range map[string]string{l18.NFT: "SidioraNFT", l18.Accumulator: "FeeAccumulator", l18.FeesRouter: "FeesRouter"} {
-		a, err := abi.JSON(bytes.NewReader(repairM917Read(t, "services/launchpad/pnl-tracker/internal/production/l18/"+name+".json")))
+		a, err := abi.JSON(bytes.NewReader(migrationContractRead(t, "services/launchpad/pnl-tracker/internal/production/l18/"+name+".json")))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -390,7 +390,7 @@ func repairM917RPC(t *testing.T) *repairM917Chain {
 	t.Cleanup(c.server.Close)
 	return c
 }
-func (c *repairM917Chain) result(method string, args []json.RawMessage) (any, error) {
+func (c *migrationContractChain) result(method string, args []json.RawMessage) (any, error) {
 	switch method {
 	case "eth_chainId":
 		return "0x7d", nil

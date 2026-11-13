@@ -24,12 +24,12 @@ import (
 func TestMixedStrategyRewards(t *testing.T) {
 	for _, strategy := range []uint8{1, 2, 3} {
 		t.Run(fmt.Sprint(strategy), func(t *testing.T) {
-			f := repair62Chain(t)
+			f := rewardHistoryChain(t)
 			f.advance(f.db.peers.Aged)
 			f.db.mu.Lock()
 			f.db.strategies = map[string]uint8{"3": strategy}
 			f.db.mu.Unlock()
-			page := repair62Rewards(t, f.handler(f.chain.Alice), "", 1)
+			page := readRewardHistory(t, f.handler(f.chain.Alice), "", 1)
 			if len(page.Data.Items) != 1 || page.Data.Items[0].RewardId != "creator:3" || page.NextCursor == nil {
 				t.Fatalf("mixed listing=%+v", page)
 			}
@@ -37,7 +37,7 @@ func TestMixedStrategyRewards(t *testing.T) {
 			if item.ClaimableRaw != "0" || item.ClaimedRaw != "11000000" || item.EarnedRaw != "11000000" {
 				t.Fatalf("nonclaim history=%+v", item)
 			}
-			next := repair62Rewards(t, f.handler(f.chain.Alice), *page.NextCursor, 1)
+			next := readRewardHistory(t, f.handler(f.chain.Alice), *page.NextCursor, 1)
 			if len(next.Data.Items) != 1 || next.Data.Items[0].RewardId != "creator:4" || next.Data.Items[0].ClaimableRaw != "10000000" || next.NextCursor != nil {
 				t.Fatalf("eligible CLAIM continuation=%+v", next)
 			}
@@ -46,14 +46,14 @@ func TestMixedStrategyRewards(t *testing.T) {
 			}
 		})
 	}
-	f := repair62Chain(t)
+	f := rewardHistoryChain(t)
 	f.db.strategies = map[string]uint8{"1": 255}
 	if _, err := f.journey.Rewards(context.Background(), Actor{Wallet: f.chain.Alice}, "", "", 10); !errors.Is(err, ErrUnavailable) {
 		t.Fatalf("unknown strategy must remain unavailable: %v", err)
 	}
 }
 
-func repair1019Reopen(t *testing.T, f *repair62Fixture, approved []string) *CommunityWatcher {
+func outboxDeliveryReopen(t *testing.T, f *rewardHistoryFixture, approved []string) *CommunityWatcher {
 	t.Helper()
 	// Tear down every client and reopen against the peer's committed records.
 	// No CommunityWatcher or policy cache survives this restart.
@@ -96,11 +96,11 @@ func repair1019Reopen(t *testing.T, f *repair62Fixture, approved []string) *Comm
 }
 
 func TestCommunityPolicyRestart(t *testing.T) {
-	f := repair62Chain(t)
+	f := rewardHistoryChain(t)
 	ctx := context.Background()
 	var policies []string
 	for i, approved := range [][]string{{f.chain.Alice}, {}, {f.chain.Alice}} {
-		watcher := repair1019Reopen(t, f, approved)
+		watcher := outboxDeliveryReopen(t, f, approved)
 		policies = append(policies, watcher.policyDigest)
 		if err := watcher.RunOnce(ctx); err != nil {
 			t.Fatal(err)
@@ -134,7 +134,7 @@ func TestCommunityPolicyRestart(t *testing.T) {
 }
 
 func TestOutboxRuntimeRights(t *testing.T) {
-	db := repair62Bootstrap(t)
+	db := rewardHistoryBootstrap(t)
 	sql, err := OutboxRuntimeGrantSQL("pnl", "pnl_runtime")
 	if err != nil {
 		t.Fatal(err)
@@ -158,9 +158,9 @@ func TestOutboxRuntimeRights(t *testing.T) {
 }
 
 func TestOutboxCrashRecovery(t *testing.T) {
-	f := repair62Chain(t)
+	f := rewardHistoryChain(t)
 	l := f.ledger
-	f.db.transport = repair1019NewStore(f.db)
+	f.db.transport = outboxDeliveryNewStore(f.db)
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	policy := RewardDeliveryPolicy(delivery.Policy{})
@@ -182,7 +182,7 @@ func TestOutboxCrashRecovery(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	payload := ClaimEvidence{Identity: "125:" + repair62Hash(99) + ":1", Pool: actorA, Beneficiary: actorB, Raw: "123456789012345678901234567890", Asset: USDL, Block: Checkpoint{10, repair62Hash(10)}, TxHash: repair62Hash(99), LogIndex: 1, Version: RuleVersion}
+	payload := ClaimEvidence{Identity: "125:" + rewardHistoryHash(99) + ":1", Pool: actorA, Beneficiary: actorB, Raw: "123456789012345678901234567890", Asset: USDL, Block: Checkpoint{10, rewardHistoryHash(10)}, TxHash: rewardHistoryHash(99), LogIndex: 1, Version: RuleVersion}
 	// The production producer supplies the JSON persisted in l18_outbox.
 	tx, err := l.begin(ctx)
 	if err != nil {
@@ -206,7 +206,7 @@ func TestOutboxCrashRecovery(t *testing.T) {
 	if err = bridge.RunOnce(ctx); err != nil {
 		t.Fatal(err)
 	}
-	peer, nc := repair1019Broker(t)
+	peer, nc := outboxDeliveryBroker(t)
 	pub, err := natsdriver.NewPublisher(nc, "L18")
 	if err != nil {
 		t.Fatal(err)
@@ -243,7 +243,7 @@ func TestOutboxCrashRecovery(t *testing.T) {
 	}
 	peer.dropConsumerAck.Store(true)
 	consumption, stopConsumption := context.WithTimeout(ctx, 100*time.Millisecond)
-	err = store.Consume(consumption, "reward-projection", "generation-1", message.Subject, message.Data, repair1019Acknowledgement{message, nc}, effect)
+	err = store.Consume(consumption, "reward-projection", "generation-1", message.Subject, message.Data, outboxDeliveryAcknowledgement{message, nc}, effect)
 	stopConsumption()
 	if err == nil || query(t, l, "SELECT count(*)::text FROM repair1019_effects") != "1" {
 		t.Fatalf("consumer commit before ack=%v", err)
@@ -276,7 +276,7 @@ func TestOutboxCrashRecovery(t *testing.T) {
 	if string(redelivery.Data) != string(message.Data) || redelivery.Header.Get("Nats-Msg-Id") != first.EventID {
 		t.Fatal("redelivery changed immutable event")
 	}
-	if err = store.Consume(ctx, "reward-projection", "generation-1", redelivery.Subject, redelivery.Data, repair1019Acknowledgement{redelivery, nc}, effect); err != nil {
+	if err = store.Consume(ctx, "reward-projection", "generation-1", redelivery.Subject, redelivery.Data, outboxDeliveryAcknowledgement{redelivery, nc}, effect); err != nil {
 		t.Fatal(err)
 	}
 	if err = bridge.RunOnce(ctx); err != nil {
@@ -291,12 +291,12 @@ func TestOutboxCrashRecovery(t *testing.T) {
 	}
 }
 
-type repair1019Acknowledgement struct {
+type outboxDeliveryAcknowledgement struct {
 	message *nats.Msg
 	conn    *nats.Conn
 }
 
-func (a repair1019Acknowledgement) Ack(ctx context.Context) error {
+func (a outboxDeliveryAcknowledgement) Ack(ctx context.Context) error {
 	_, err := a.conn.RequestWithContext(ctx, a.message.Reply, []byte("+ACK"))
 	return err
 }

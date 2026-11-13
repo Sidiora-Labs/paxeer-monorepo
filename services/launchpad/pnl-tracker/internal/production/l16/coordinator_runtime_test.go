@@ -17,7 +17,7 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/db/production/coordinatortest"
 )
 
-func repairM1018Inputs(t *testing.T) (string, production.MigrationRegistry, production.RoleManifest) {
+func coordinatorRuntimeInputs(t *testing.T) (string, production.MigrationRegistry, production.RoleManifest) {
 	t.Helper()
 	root := coordinatortest.RepositoryRoot(t)
 	dir := filepath.Join(root, "migrations")
@@ -53,7 +53,7 @@ func repairM1018Inputs(t *testing.T) (string, production.MigrationRegistry, prod
 
 // The fixture itself is the component under repair. Bind its role request and
 // consumer DSN to Bootstrap, so a partial local grant helper cannot return.
-func TestRepairM_1018_CoordinatorRuntimeWiring(t *testing.T) {
+func TestCoordinatorRuntimeWiring(t *testing.T) {
 	file, err := parser.ParseFile(token.NewFileSet(), "baseline_ahead_postgres_test.go", nil, 0)
 	if err != nil {
 		t.Fatal(err)
@@ -114,8 +114,8 @@ func TestRepairM_1018_CoordinatorRuntimeWiring(t *testing.T) {
 	}
 }
 
-func TestRepairM_1018_ProductionGrantRendering(t *testing.T) {
-	_, _, role := repairM1018Inputs(t)
+func TestCoordinatorRuntimeProductionGrantRendering(t *testing.T) {
+	_, _, role := coordinatorRuntimeInputs(t)
 	raw, err := json.Marshal(role)
 	if err != nil {
 		t.Fatal(err)
@@ -172,8 +172,8 @@ func TestRepairM_1018_ProductionGrantRendering(t *testing.T) {
 	}
 }
 
-func TestRepairM_1018_CompleteDependencyMigrations(t *testing.T) {
-	root, registry, role := repairM1018Inputs(t)
+func TestCoordinatorRuntimeCompleteDependencyMigrations(t *testing.T) {
+	root, registry, role := coordinatorRuntimeInputs(t)
 	catalog, err := registry.ValidateOrder()
 	if err != nil {
 		t.Fatal(err)

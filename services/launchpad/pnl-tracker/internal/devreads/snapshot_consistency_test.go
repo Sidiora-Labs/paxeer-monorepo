@@ -32,25 +32,25 @@ import (
 // protocol. The production Store writes its tables and the production Reader
 // queries them through pgx. Each repeatable-read connection owns a frozen view;
 // another connection can publish a fold while the first is paused at its cursor.
-type repair1032Tables map[string]map[string]map[string]string
+type snapshotConsistencyTables map[string]map[string]map[string]string
 
-type repair1032Read struct {
+type snapshotConsistencyRead struct {
 	query       string
 	transaction int
 	repeatable  bool
 }
 
-type repair1032DB struct {
+type snapshotConsistencyDB struct {
 	mu              sync.Mutex
-	tables          repair1032Tables
-	reads           []repair1032Read
+	tables          snapshotConsistencyTables
+	reads           []snapshotConsistencyRead
 	nextTransaction int
 	atCursor        chan struct{}
 	releaseCursor   chan struct{}
 }
 
-func repair1032Copy(tables repair1032Tables) repair1032Tables {
-	out := repair1032Tables{}
+func snapshotConsistencyCopy(tables snapshotConsistencyTables) snapshotConsistencyTables {
+	out := snapshotConsistencyTables{}
 	for table, rows := range tables {
 		out[table] = map[string]map[string]string{}
 		for key, row := range rows {
@@ -63,13 +63,13 @@ func repair1032Copy(tables repair1032Tables) repair1032Tables {
 	return out
 }
 
-var repair1032Insert = regexp.MustCompile(`(?is)^INSERT INTO ([a-z_.]+)\s*\(([^)]+)\)\s*VALUES\s*\(([^)]+)\)`)
-var repair1032Literal = regexp.MustCompile(`^'(?:[^']|'')*'$`)
-var repair1032User = regexp.MustCompile(`(?:p\.|t\.)?user_address\s*=\s*'([^']*)'`)
-var repair1032Pool = regexp.MustCompile(`pool_address\s*=\s*'([^']*)'`)
+var snapshotConsistencyInsert = regexp.MustCompile(`(?is)^INSERT INTO ([a-z_.]+)\s*\(([^)]+)\)\s*VALUES\s*\(([^)]+)\)`)
+var snapshotConsistencyLiteral = regexp.MustCompile(`^'(?:[^']|'')*'$`)
+var snapshotConsistencyUser = regexp.MustCompile(`(?:p\.|t\.)?user_address\s*=\s*'([^']*)'`)
+var snapshotConsistencyPool = regexp.MustCompile(`pool_address\s*=\s*'([^']*)'`)
 
-func repair1032Write(tables repair1032Tables, sql string) (string, error) {
-	match := repair1032Insert.FindStringSubmatch(sql)
+func snapshotConsistencyWrite(tables snapshotConsistencyTables, sql string) (string, error) {
+	match := snapshotConsistencyInsert.FindStringSubmatch(sql)
 	if match == nil {
 		return "", fmt.Errorf("unsupported write: %s", sql)
 	}
@@ -80,7 +80,7 @@ func repair1032Write(tables repair1032Tables, sql string) (string, error) {
 	row := map[string]string{}
 	for i, col := range columns {
 		value := strings.TrimSpace(values[i])
-		if repair1032Literal.MatchString(value) {
+		if snapshotConsistencyLiteral.MatchString(value) {
 			value = strings.ReplaceAll(value[1:len(value)-1], "''", "'")
 		}
 		row[strings.TrimSpace(col)] = value
@@ -105,9 +105,9 @@ func repair1032Write(tables repair1032Tables, sql string) (string, error) {
 	return "INSERT 0 1", nil
 }
 
-func repair1032Select(tables repair1032Tables, sql string) ([]string, [][]string, error) {
+func snapshotConsistencySelect(tables snapshotConsistencyTables, sql string) ([]string, [][]string, error) {
 	user := ""
-	if m := repair1032User.FindStringSubmatch(sql); m != nil {
+	if m := snapshotConsistencyUser.FindStringSubmatch(sql); m != nil {
 		user = m[1]
 	}
 	var table string
@@ -147,7 +147,7 @@ func repair1032Select(tables repair1032Tables, sql string) ([]string, [][]string
 		if row["user_address"] != user {
 			continue
 		}
-		if m := repair1032Pool.FindStringSubmatch(sql); m != nil && row["pool_address"] != m[1] {
+		if m := snapshotConsistencyPool.FindStringSubmatch(sql); m != nil && row["pool_address"] != m[1] {
 			continue
 		}
 		rows = append(rows, row)
@@ -182,7 +182,7 @@ func repair1032Select(tables repair1032Tables, sql string) ([]string, [][]string
 	return columns, out, nil
 }
 
-func (d *repair1032DB) serve(conn net.Conn) {
+func (d *snapshotConsistencyDB) serve(conn net.Conn) {
 	defer conn.Close()
 	b := pgproto3.NewBackend(conn, conn)
 	if _, err := b.ReceiveStartupMessage(); err != nil {
@@ -196,7 +196,7 @@ func (d *repair1032DB) serve(conn net.Conn) {
 	if b.Flush() != nil {
 		return
 	}
-	var view repair1032Tables
+	var view snapshotConsistencyTables
 	var readOnly, repeatable bool
 	var transaction int
 	status := byte('I')
@@ -227,7 +227,7 @@ func (d *repair1032DB) serve(conn net.Conn) {
 		case strings.HasPrefix(sql, "begin"):
 			readOnly = strings.Contains(sql, "read only")
 			repeatable = strings.Contains(sql, "repeatable read")
-			view = repair1032Copy(d.tables)
+			view = snapshotConsistencyCopy(d.tables)
 			d.nextTransaction++
 			transaction = d.nextTransaction
 			status, tag = 'T', "BEGIN"
@@ -246,11 +246,11 @@ func (d *repair1032DB) serve(conn net.Conn) {
 			if readOnly && view != nil {
 				queryErr = fmt.Errorf("write in read-only transaction")
 			} else {
-				tag, queryErr = repair1032Write(tables, sql)
+				tag, queryErr = snapshotConsistencyWrite(tables, sql)
 			}
 		case strings.HasPrefix(sql, "SELECT "):
-			d.reads = append(d.reads, repair1032Read{sql, transaction, repeatable && readOnly && view != nil})
-			columns, rows, queryErr = repair1032Select(tables, sql)
+			d.reads = append(d.reads, snapshotConsistencyRead{sql, transaction, repeatable && readOnly && view != nil})
+			columns, rows, queryErr = snapshotConsistencySelect(tables, sql)
 			tag = fmt.Sprintf("SELECT %d", len(rows))
 			if strings.Contains(sql, "SELECT last_processed_block FROM indexer.cursors") && d.atCursor != nil {
 				pause, release = d.atCursor, d.releaseCursor
@@ -299,9 +299,9 @@ func (d *repair1032DB) serve(conn net.Conn) {
 	}
 }
 
-func repair1032Peer(t *testing.T) (*repair1032DB, *pgxpool.Pool) {
+func snapshotConsistencyPeer(t *testing.T) (*snapshotConsistencyDB, *pgxpool.Pool) {
 	t.Helper()
-	d := &repair1032DB{tables: repair1032Tables{}}
+	d := &snapshotConsistencyDB{tables: snapshotConsistencyTables{}}
 	for _, table := range []string{"pnl.user_positions", "pnl.user_trades", "indexer.pools", "indexer.cursors"} {
 		d.tables[table] = map[string]map[string]string{}
 	}
@@ -337,7 +337,7 @@ func repair1032Peer(t *testing.T) (*repair1032DB, *pgxpool.Pool) {
 	return d, pool
 }
 
-func repair1032Chain(t *testing.T) *devreads.Chain {
+func snapshotConsistencyChain(t *testing.T) *devreads.Chain {
 	t.Helper()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req struct {
@@ -380,14 +380,14 @@ func repair1032Chain(t *testing.T) *devreads.Chain {
 	return chain
 }
 
-func repair1032Exec(t *testing.T, pool *pgxpool.Pool, sql string, args ...any) {
+func snapshotConsistencyExec(t *testing.T, pool *pgxpool.Pool, sql string, args ...any) {
 	t.Helper()
 	if _, err := pool.Exec(context.Background(), sql, args...); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func repair1032Fold(t *testing.T, pool *pgxpool.Pool, sale bool) {
+func snapshotConsistencyFold(t *testing.T, pool *pgxpool.Pool, sale bool) {
 	t.Helper()
 	in := store.TradeInput{ID: "0xbuy-0", UserAddress: trader, PoolAddress: poolA, IsBuy: true, UsdlAmount: "10000000", TokenAmount: "2000000000000000000", BlockNumber: 10, BlockTimestamp: 1_700_000_000, TxHash: "0x" + strings.Repeat("a", 64)}
 	if sale {
@@ -399,11 +399,11 @@ func repair1032Fold(t *testing.T, pool *pgxpool.Pool, sale bool) {
 	}
 }
 
-func TestRepairM_1032_LatePoolMetadataChangesSnapshotIdentity(t *testing.T) {
-	_, pool := repair1032Peer(t)
-	repair1032Fold(t, pool, false)
-	repair1032Exec(t, pool, `INSERT INTO indexer.cursors (chain_id, last_processed_block) VALUES (125, 10)`)
-	reader := devreads.Reader{Pool: pool, Chain: repair1032Chain(t)}
+func TestSnapshotLatePoolMetadataChangesSnapshotIdentity(t *testing.T) {
+	_, pool := snapshotConsistencyPeer(t)
+	snapshotConsistencyFold(t, pool, false)
+	snapshotConsistencyExec(t, pool, `INSERT INTO indexer.cursors (chain_id, last_processed_block) VALUES (125, 10)`)
+	reader := devreads.Reader{Pool: pool, Chain: snapshotConsistencyChain(t)}
 	snapshot := func() devreads.Snapshot {
 		t.Helper()
 		out, err := reader.Snapshot(context.Background(), trader)
@@ -419,7 +419,7 @@ func TestRepairM_1032_LatePoolMetadataChangesSnapshotIdentity(t *testing.T) {
 	if again := snapshot(); again.ID != before.ID {
 		t.Fatal("unchanged inputs changed snapshot identity")
 	}
-	repair1032Exec(t, pool, `INSERT INTO indexer.pools (pool_address, token_address) VALUES ($1,$2)`, poolA, tokenA)
+	snapshotConsistencyExec(t, pool, `INSERT INTO indexer.pools (pool_address, token_address) VALUES ($1,$2)`, poolA, tokenA)
 	after := snapshot()
 	if len(after.Positions) != 1 || after.Positions[0].TokenAddress != tokenA || after.Positions[0].KnownRemainingCostUsdlRaw != "10000000" {
 		t.Fatalf("late metadata did not project real folded position: %+v", after)
@@ -433,12 +433,12 @@ func TestRepairM_1032_LatePoolMetadataChangesSnapshotIdentity(t *testing.T) {
 	if again := snapshot(); again.ID != after.ID {
 		t.Fatal("resolved projection identity is unstable")
 	}
-	repair1032Exec(t, pool, `INSERT INTO indexer.pools (pool_address, token_address) VALUES ($1,$2) ON CONFLICT (pool_address) DO UPDATE SET token_address = EXCLUDED.token_address`, poolA, tokenB)
+	snapshotConsistencyExec(t, pool, `INSERT INTO indexer.pools (pool_address, token_address) VALUES ($1,$2) ON CONFLICT (pool_address) DO UPDATE SET token_address = EXCLUDED.token_address`, poolA, tokenB)
 	replaced := snapshot()
 	if replaced.Positions[0].TokenAddress != tokenB || replaced.ID == after.ID {
 		t.Fatal("resolved token identity is absent from snapshot identity")
 	}
-	repair1032Exec(t, pool, `INSERT INTO indexer.cursors (chain_id, last_processed_block) VALUES (125, 12) ON CONFLICT (chain_id) DO UPDATE SET last_processed_block = EXCLUDED.last_processed_block`)
+	snapshotConsistencyExec(t, pool, `INSERT INTO indexer.cursors (chain_id, last_processed_block) VALUES (125, 12) ON CONFLICT (chain_id) DO UPDATE SET last_processed_block = EXCLUDED.last_processed_block`)
 	advanced := snapshot()
 	if advanced.Watermark.Height != "12" || advanced.Revision != replaced.Revision || advanced.ID == replaced.ID {
 		t.Fatal("source watermark is absent from snapshot identity")
@@ -452,14 +452,14 @@ func TestRepairM_1032_LatePoolMetadataChangesSnapshotIdentity(t *testing.T) {
 	}
 }
 
-func TestRepairM_1032_ConcurrentFoldStaysWithinHistoryWatermark(t *testing.T) {
+func TestSnapshotConcurrentFoldStaysWithinHistoryWatermark(t *testing.T) {
 	for _, route := range []string{"/v3/me/pnl/history", "/v2/me/portfolio/history"} {
 		t.Run(route, func(t *testing.T) {
-			d, pool := repair1032Peer(t)
-			repair1032Fold(t, pool, false)
-			repair1032Exec(t, pool, `INSERT INTO indexer.pools (pool_address, token_address) VALUES ($1,$2)`, poolA, tokenA)
-			repair1032Exec(t, pool, `INSERT INTO indexer.cursors (chain_id, last_processed_block) VALUES (125, 10)`)
-			reader := devreads.Reader{Pool: pool, Chain: repair1032Chain(t)}
+			d, pool := snapshotConsistencyPeer(t)
+			snapshotConsistencyFold(t, pool, false)
+			snapshotConsistencyExec(t, pool, `INSERT INTO indexer.pools (pool_address, token_address) VALUES ($1,$2)`, poolA, tokenA)
+			snapshotConsistencyExec(t, pool, `INSERT INTO indexer.cursors (chain_id, last_processed_block) VALUES (125, 10)`)
+			reader := devreads.Reader{Pool: pool, Chain: snapshotConsistencyChain(t)}
 			before, err := reader.Snapshot(context.Background(), trader)
 			if err != nil {
 				t.Fatal(err)
@@ -482,8 +482,8 @@ func TestRepairM_1032_ConcurrentFoldStaysWithinHistoryWatermark(t *testing.T) {
 			case <-time.After(2 * time.Second):
 				t.Fatal("history did not reach source cursor")
 			}
-			repair1032Fold(t, pool, true)
-			repair1032Exec(t, pool, `INSERT INTO indexer.cursors (chain_id, last_processed_block) VALUES (125, 11) ON CONFLICT (chain_id) DO UPDATE SET last_processed_block = EXCLUDED.last_processed_block`)
+			snapshotConsistencyFold(t, pool, true)
+			snapshotConsistencyExec(t, pool, `INSERT INTO indexer.cursors (chain_id, last_processed_block) VALUES (125, 11) ON CONFLICT (chain_id) DO UPDATE SET last_processed_block = EXCLUDED.last_processed_block`)
 			unblock()
 			var rec *httptest.ResponseRecorder
 			select {
@@ -518,7 +518,7 @@ func TestRepairM_1032_ConcurrentFoldStaysWithinHistoryWatermark(t *testing.T) {
 				}
 			}
 			d.mu.Lock()
-			reads := append([]repair1032Read(nil), d.reads...)
+			reads := append([]snapshotConsistencyRead(nil), d.reads...)
 			d.mu.Unlock()
 			var positionTx, cursorTx, replayTx int
 			for _, read := range reads {

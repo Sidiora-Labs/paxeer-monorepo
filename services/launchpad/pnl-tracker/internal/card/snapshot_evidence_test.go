@@ -20,7 +20,7 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/store"
 )
 
-func repair980Snapshot(t *testing.T, spent, bought string) card.Snapshot {
+func snapshotEvidenceSnapshot(t *testing.T, spent, bought string) card.Snapshot {
 	t.Helper()
 	p, err := pnlmath.Fold(pnlmath.Position{}, pnlmath.Trade{
 		IsBuy: true, UsdlAmount: spent, TokenAmount: bought, Ts: 100,
@@ -46,7 +46,7 @@ func repair980Snapshot(t *testing.T, spent, bought string) card.Snapshot {
 
 // Drive the archive codec used by Get, the production HTTP JSON encoder over
 // loopback TCP, the JSON consumer, and the production render-input and PNG path.
-func repair980Render(t *testing.T, snapshot card.Snapshot) (ogrender.Input, []byte) {
+func snapshotEvidenceRender(t *testing.T, snapshot card.Snapshot) (ogrender.Input, []byte) {
 	t.Helper()
 	payload, err := json.Marshal(snapshot)
 	if err != nil {
@@ -97,9 +97,9 @@ func repair980Render(t *testing.T, snapshot card.Snapshot) (ogrender.Input, []by
 	return input, imageBytes
 }
 
-func TestRepairM_980_MissingAndMalformedMarks(t *testing.T) {
-	valid := repair980Snapshot(t, "2000000", oneToken)
-	_, pricedPNG := repair980Render(t, valid)
+func TestSnapshotEvidenceMissingAndMalformedMarks(t *testing.T) {
+	valid := snapshotEvidenceSnapshot(t, "2000000", oneToken)
+	_, pricedPNG := snapshotEvidenceRender(t, valid)
 	cases := []struct {
 		name string
 		mark *string
@@ -117,7 +117,7 @@ func TestRepairM_980_MissingAndMalformedMarks(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			snapshot := valid
 			snapshot.Market.PriceWad = tc.mark
-			input, rendered := repair980Render(t, snapshot)
+			input, rendered := snapshotEvidenceRender(t, snapshot)
 			if input.Pnl != "Unavailable" || input.Multiple != "Unavailable" || input.PnlPositive {
 				t.Fatalf("unavailable mark became a numeric result: %+v", input)
 			}
@@ -128,17 +128,17 @@ func TestRepairM_980_MissingAndMalformedMarks(t *testing.T) {
 	}
 }
 
-func TestRepairM_980_BasisAndPricingQuality(t *testing.T) {
+func TestSnapshotEvidenceBasisAndPricingQuality(t *testing.T) {
 	for _, field := range []string{"basis", "pricing"} {
 		for _, quality := range []string{"unknown", "partial", "unavailable", "stale", "invalid"} {
 			t.Run(field+"_"+quality, func(t *testing.T) {
-				snapshot := repair980Snapshot(t, "2000000", oneToken)
+				snapshot := snapshotEvidenceSnapshot(t, "2000000", oneToken)
 				if field == "basis" {
 					snapshot.BasisQuality = quality
 				} else {
 					snapshot.PricingQuality = quality
 				}
-				input, _ := repair980Render(t, snapshot)
+				input, _ := snapshotEvidenceRender(t, snapshot)
 				if input.Pnl != "Unavailable" || input.Multiple != "Unavailable" || input.PnlPositive {
 					t.Fatalf("quality %s/%s became verified performance: %+v", field, quality, input)
 				}
@@ -147,7 +147,7 @@ func TestRepairM_980_BasisAndPricingQuality(t *testing.T) {
 	}
 }
 
-func TestRepairM_980_MissingAndMalformedPositionEvidence(t *testing.T) {
+func TestSnapshotEvidenceMissingAndMalformedPositionEvidence(t *testing.T) {
 	for _, field := range []string{"basis", "realized", "holdings", "spent", "received"} {
 		values := []string{"", "malformed", "+1", "01", strings.Repeat("9", 158)}
 		if field != "realized" {
@@ -155,7 +155,7 @@ func TestRepairM_980_MissingAndMalformedPositionEvidence(t *testing.T) {
 		}
 		for _, raw := range values {
 			t.Run(field+"_"+raw, func(t *testing.T) {
-				snapshot := repair980Snapshot(t, "2000000", oneToken)
+				snapshot := snapshotEvidenceSnapshot(t, "2000000", oneToken)
 				switch field {
 				case "basis":
 					snapshot.Position.AvgCostBasis = raw
@@ -168,7 +168,7 @@ func TestRepairM_980_MissingAndMalformedPositionEvidence(t *testing.T) {
 				case "received":
 					snapshot.Position.TotalUsdlReceived = raw
 				}
-				input, _ := repair980Render(t, snapshot)
+				input, _ := snapshotEvidenceRender(t, snapshot)
 				if field == "basis" || field == "realized" || field == "holdings" {
 					if input.Pnl != "Unavailable" || input.PnlPositive {
 						t.Fatalf("invalid PnL evidence became numeric: %+v", input)
@@ -185,14 +185,14 @@ func TestRepairM_980_MissingAndMalformedPositionEvidence(t *testing.T) {
 			})
 		}
 	}
-	zeroSpent := repair980Snapshot(t, "0", oneToken)
-	input, _ := repair980Render(t, zeroSpent)
+	zeroSpent := snapshotEvidenceSnapshot(t, "0", oneToken)
+	input, _ := snapshotEvidenceRender(t, zeroSpent)
 	if input.Multiple != "Unavailable" {
 		t.Fatalf("undefined return ratio became zero: %+v", input)
 	}
 }
 
-func TestRepairM_980_ExactValuesAndClosedPosition(t *testing.T) {
+func TestSnapshotEvidenceExactValuesAndClosedPosition(t *testing.T) {
 	for _, tc := range []struct {
 		name, spent, mark, pnl, multiple string
 		positive                         bool
@@ -204,11 +204,11 @@ func TestRepairM_980_ExactValuesAndClosedPosition(t *testing.T) {
 		{"large_exact", "900719925474099312345678", "900719925474099312355678", "+$0.01", "1.00x", true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			snapshot := repair980Snapshot(t, tc.spent, oneToken)
+			snapshot := snapshotEvidenceSnapshot(t, tc.spent, oneToken)
 			snapshot.Market.PriceWad = &tc.mark
 			// Legacy snapshots without quality extensions still require all numeric evidence.
 			snapshot.BasisQuality, snapshot.PricingQuality = "", ""
-			input, _ := repair980Render(t, snapshot)
+			input, _ := snapshotEvidenceRender(t, snapshot)
 			if input.Pnl != tc.pnl || input.Multiple != tc.multiple || input.PnlPositive != tc.positive {
 				t.Fatalf("exact valuation = %+v; want %s, %s, positive=%v", input, tc.pnl, tc.multiple, tc.positive)
 			}
@@ -222,7 +222,7 @@ func TestRepairM_980_ExactValuesAndClosedPosition(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	snapshot := repair980Snapshot(t, "10000000", oneToken)
+	snapshot := snapshotEvidenceSnapshot(t, "10000000", oneToken)
 	snapshot.Position.CurrentHoldings = p.CurrentHoldings
 	snapshot.Position.AvgCostBasis = p.AvgCostBasis
 	snapshot.Position.RealizedPnlUsdl = p.RealizedPnlUsdl
@@ -231,13 +231,13 @@ func TestRepairM_980_ExactValuesAndClosedPosition(t *testing.T) {
 	snapshot.Position.TradeCount = p.TradeCount
 	snapshot.Position.LastTradeTs = p.LastTradeTs
 	snapshot.Market.PriceWad = nil
-	input, _ := repair980Render(t, snapshot)
+	input, _ := snapshotEvidenceRender(t, snapshot)
 	if input.Pnl != "-$6.00" || input.PnlPositive || input.Multiple != "0.40x" || input.Holdings != "0.00 OLD held" {
 		t.Fatalf("closed position required an irrelevant mark or lost realized loss: %+v", input)
 	}
 }
 
-func TestRepairM_980_MintRemainsRetired(t *testing.T) {
+func TestSnapshotEvidenceMintRemainsRetired(t *testing.T) {
 	svc := card.New(store.New(nil), "", "", nil)
 	minted, err := svc.Mint(context.Background(), "0xowner", "0xpool")
 	if minted != nil || !errors.Is(err, card.ErrMintRetired) {

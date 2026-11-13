@@ -38,7 +38,7 @@ import (
 
 // Registry paths are relative to the launchpad tree, not the monorepo root
 // or the package working directory. Bind every SQL input before using it.
-func repair63MigrationInputs(t *testing.T) (map[int64]string, production.RoleManifest) {
+func coordinatorReplayMigrationInputs(t *testing.T) (map[int64]string, production.RoleManifest) {
 	t.Helper()
 	root := coordinatortest.RepositoryRoot(t)
 	directory := filepath.Join(root, "migrations")
@@ -87,7 +87,7 @@ func repair63MigrationInputs(t *testing.T) (map[int64]string, production.RoleMan
 }
 
 func TestProductionMigrationFixturePaths(t *testing.T) {
-	inputs, role := repair63MigrationInputs(t)
+	inputs, role := coordinatorReplayMigrationInputs(t)
 	for _, id := range []int64{60000, 160002} {
 		if inputs[id] == "" {
 			t.Fatalf("coordinator fixture omitted registered migration %d", id)
@@ -99,7 +99,7 @@ func TestProductionMigrationFixturePaths(t *testing.T) {
 }
 
 func TestProductionCoordinatorWalletContract(t *testing.T) {
-	inputs, role := repair63MigrationInputs(t)
+	inputs, role := coordinatorReplayMigrationInputs(t)
 	migration := inputs[160004]
 	walletDDL := strings.Split(RebuildDDL, "CREATE TABLE inventory_l16_archive_v2")[0]
 	if !strings.Contains(migration, walletDDL) {
@@ -175,7 +175,7 @@ func TestProductionCoordinatorWalletContract(t *testing.T) {
 	}
 }
 
-func repair63RPCKey(method string, params json.RawMessage) (string, error) {
+func coordinatorReplayRPCKey(method string, params json.RawMessage) (string, error) {
 	var args []any
 	if err := json.Unmarshal(params, &args); err != nil {
 		return "", fmt.Errorf("%s params: %w", method, err)
@@ -200,21 +200,21 @@ func repair63RPCKey(method string, params json.RawMessage) (string, error) {
 	return method + " " + string(raw), nil
 }
 
-func TestRepair_63_TranscriptBlockParameter(t *testing.T) {
+func TestCoordinatorReplayTranscriptBlockParameter(t *testing.T) {
 	for _, block := range []string{`"latest"`, `"0x2063ec5"`, `{"blockHash":"0x1cd6b450aa87745be16a8760a928a2e7ddd1097e872bdcd99b31ff66f77c2945"}`} {
-		if _, err := repair63RPCKey("eth_call", json.RawMessage(`[{},`+block+`]`)); err != nil {
+		if _, err := coordinatorReplayRPCKey("eth_call", json.RawMessage(`[{},`+block+`]`)); err != nil {
 			t.Fatalf("producer block parameter %s rejected: %v", block, err)
 		}
 	}
-	if _, err := repair63RPCKey("eth_call", json.RawMessage(`[{}, {"blockHash":42}]`)); err == nil || !strings.Contains(err.Error(), "eth_call params[1]") {
+	if _, err := coordinatorReplayRPCKey("eth_call", json.RawMessage(`[{}, {"blockHash":42}]`)); err == nil || !strings.Contains(err.Error(), "eth_call params[1]") {
 		t.Fatalf("invalid block parameter must name its offending element: %v", err)
 	}
 }
 
-func TestRepair_63_RecordedReplayHeaders(t *testing.T) {
+func TestCoordinatorReplayRecordedHeaders(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	client, err := ethclient.DialContext(ctx, repair63RecordedRPC(t))
+	client, err := ethclient.DialContext(ctx, coordinatorReplayRecordedRPC(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -255,7 +255,7 @@ func TestRepair_63_RecordedReplayHeaders(t *testing.T) {
 // Replay the indexer's committed node traffic. State reads absent from the
 // receipt qualification transcript are evaluated from its canonical ERC20
 // transfer history, using the same production log decoder as the participant.
-func repair63RecordedRPC(t *testing.T) string {
+func coordinatorReplayRecordedRPC(t *testing.T) string {
 	t.Helper()
 	path := filepath.Join(coordinatortest.RepositoryRoot(t), "services", "launchpad", "indexer", "internal", "internaltest", "chainfixture", "testdata", "paxeer125-market.jsonl.gz")
 	raw, err := os.ReadFile(path)
@@ -270,7 +270,7 @@ func repair63RecordedRPC(t *testing.T) string {
 		t.Fatal(err)
 	}
 	defer z.Close()
-	headers, err := os.ReadFile(filepath.Join("testdata", "repair_63_headers.jsonl"))
+	headers, err := os.ReadFile(filepath.Join("testdata", "recorded_replay_headers.jsonl"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -300,7 +300,7 @@ func repair63RecordedRPC(t *testing.T) string {
 		if !ok || json.Valid(record.Result) == json.Valid(record.Error) {
 			t.Fatalf("producer RPC transcript record %d %s: expected exactly one result or error", line, record.Key)
 		}
-		key, err := repair63RPCKey(method, json.RawMessage(params))
+		key, err := coordinatorReplayRPCKey(method, json.RawMessage(params))
 		if err != nil {
 			t.Fatalf("producer RPC transcript record %d %s: %v", line, record.Key, err)
 		}
@@ -378,7 +378,7 @@ func repair63RecordedRPC(t *testing.T) string {
 				t.Fatal(err)
 			}
 			blocks[block.Hash] = withoutTransactions
-			headerKey, err := repair63RPCKey("eth_getBlockByNumber", json.RawMessage(fmt.Sprintf(`[%q,false]`, hexutil.EncodeUint64(uint64(block.Number)))))
+			headerKey, err := coordinatorReplayRPCKey("eth_getBlockByNumber", json.RawMessage(fmt.Sprintf(`[%q,false]`, hexutil.EncodeUint64(uint64(block.Number)))))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -416,7 +416,7 @@ func repair63RecordedRPC(t *testing.T) string {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		key, err := repair63RPCKey(request.Method, request.Params)
+		key, err := coordinatorReplayRPCKey(request.Method, request.Params)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -560,9 +560,9 @@ func repair63RecordedRPC(t *testing.T) string {
 	return serve.URL
 }
 
-func repair63CurrentFillRows(t *testing.T, ctx context.Context, raw json.RawMessage) json.RawMessage {
+func coordinatorReplayCurrentFillRows(t *testing.T, ctx context.Context, raw json.RawMessage) json.RawMessage {
 	t.Helper()
-	client, err := ethclient.DialContext(ctx, repair63RecordedRPC(t))
+	client, err := ethclient.DialContext(ctx, coordinatorReplayRecordedRPC(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -654,7 +654,7 @@ func repair63CurrentFillRows(t *testing.T, ctx context.Context, raw json.RawMess
 
 // Bootstrap is deliberately unmodified: neither RebuildDDL nor supplemental
 // GRANTs may conceal a missing coordinator migration or runtime permission.
-func repair63Database(t *testing.T, ctx context.Context) (coordinatortest.Database, *pgxpool.Pool) {
+func coordinatorReplayDatabase(t *testing.T, ctx context.Context) (coordinatortest.Database, *pgxpool.Pool) {
 	t.Helper()
 	db := coordinatortest.Bootstrap(t, realMarketEnv(t, "PNL_TEST_POSTGRES_DSN"), "pnl_runtime")
 	admin, err := pgxpool.New(ctx, db.AdminDSN)
@@ -670,7 +670,7 @@ func repair63Database(t *testing.T, ctx context.Context) (coordinatortest.Databa
 	if err = json.Unmarshal(raw, &tables); err != nil {
 		t.Fatal(err)
 	}
-	tables["indexer.indexer_accounting_fills"] = repair63CurrentFillRows(t, ctx, tables["indexer.indexer_accounting_fills"])
+	tables["indexer.indexer_accounting_fills"] = coordinatorReplayCurrentFillRows(t, ctx, tables["indexer.indexer_accounting_fills"])
 	// These are the real indexer's recorded outputs. PnL evidence is withheld
 	// so both tests must produce it through the service under its runtime role.
 	pending := []string{}
@@ -702,7 +702,7 @@ func repair63Database(t *testing.T, ctx context.Context) (coordinatortest.Databa
 	return db, admin
 }
 
-func repair63Service(t *testing.T, ctx context.Context, db coordinatortest.Database) *Service {
+func coordinatorReplayService(t *testing.T, ctx context.Context, db coordinatortest.Database) *Service {
 	t.Helper()
 	runtime, err := pgxpool.New(ctx, db.Runtimes["pnl_runtime"].DSN)
 	if err != nil {
@@ -721,12 +721,12 @@ func repair63Service(t *testing.T, ctx context.Context, db coordinatortest.Datab
 	if err != nil {
 		t.Fatal(err)
 	}
-	primary, err := ethclient.DialContext(ctx, repair63RecordedRPC(t))
+	primary, err := ethclient.DialContext(ctx, coordinatorReplayRecordedRPC(t))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(primary.Close)
-	archive, err := ethclient.DialContext(ctx, repair63RecordedRPC(t))
+	archive, err := ethclient.DialContext(ctx, coordinatorReplayRecordedRPC(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -747,7 +747,7 @@ func repair63Service(t *testing.T, ctx context.Context, db coordinatortest.Datab
 	return service
 }
 
-func repair63LiveReplay(t *testing.T, ctx context.Context, service *Service, height int64) RebuildSnapshot {
+func coordinatorReplayLiveReplay(t *testing.T, ctx context.Context, service *Service, height int64) RebuildSnapshot {
 	t.Helper()
 	tx, err := service.authority.pool.Begin(ctx)
 	if err != nil {
@@ -772,7 +772,7 @@ func repair63LiveReplay(t *testing.T, ctx context.Context, service *Service, hei
 	return snapshot
 }
 
-func repair63Active(t *testing.T, ctx context.Context, service *Service, expected RebuildSnapshot) {
+func coordinatorReplayActive(t *testing.T, ctx context.Context, service *Service, expected RebuildSnapshot) {
 	t.Helper()
 	actual, err := service.Active(ctx, realMarketCreator, realMarketToken)
 	if err != nil || !reflect.DeepEqual(actual, expected) {
@@ -793,8 +793,8 @@ func repair63Active(t *testing.T, ctx context.Context, service *Service, expecte
 	}
 }
 
-func TestRepair_63_ActiveSnapshotUpdateGrant(t *testing.T) {
-	_, role := repair63MigrationInputs(t)
+func TestCoordinatorReplayActiveSnapshotUpdateGrant(t *testing.T) {
+	_, role := coordinatorReplayMigrationInputs(t)
 	statements, err := role.GrantSQL()
 	if err != nil {
 		t.Fatal(err)
@@ -809,8 +809,8 @@ func TestRepair_63_ActiveSnapshotUpdateGrant(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
-	db, _ := repair63Database(t, ctx)
-	service := repair63Service(t, ctx, db)
+	db, _ := coordinatorReplayDatabase(t, ctx)
+	service := coordinatorReplayService(t, ctx, db)
 	// Both activation implementations use this same column-scoped contract.
 	for _, column := range []string{"generation", "snapshot_digest", "height"} {
 		var allowed bool
@@ -829,23 +829,23 @@ func TestRepair_63_ActiveSnapshotUpdateGrant(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	repair63Active(t, ctx, service, first)
-	later := repair63LiveReplay(t, ctx, service, 33963749)
+	coordinatorReplayActive(t, ctx, service, first)
+	later := coordinatorReplayLiveReplay(t, ctx, service, 33963749)
 	if later.Height <= first.Height || later.State == first.State || later.BlockHash == first.BlockHash {
 		t.Fatal("recorded buy and later sell did not advance inventory", first, later)
 	}
-	repair63Active(t, ctx, service, later)
+	coordinatorReplayActive(t, ctx, service, later)
 	service.authority.pool.Close()
-	reopened := repair63Service(t, ctx, db)
-	repair63Active(t, ctx, reopened, later)
+	reopened := coordinatorReplayService(t, ctx, db)
+	coordinatorReplayActive(t, ctx, reopened, later)
 	var snapshots, notices int
 	if err = reopened.authority.pool.QueryRow(ctx, `SELECT (SELECT count(*) FROM pnl.inventory_l16_snapshots_v2),(SELECT count(*) FROM pnl.delivery_outbox WHERE subject=$1)`, RebuildSubject).Scan(&snapshots, &notices); err != nil || snapshots != 2 || notices != 2 {
 		t.Fatalf("restart lost immutable snapshots or atomic outbox evidence: snapshots=%d notices=%d err=%v", snapshots, notices, err)
 	}
 }
 
-func TestRepair_63_WalletRangeSchemaMigrated(t *testing.T) {
-	inputs, role := repair63MigrationInputs(t)
+func TestCoordinatorReplayWalletRangeSchemaMigrated(t *testing.T) {
+	inputs, role := coordinatorReplayMigrationInputs(t)
 	statements, err := role.GrantSQL()
 	if err != nil {
 		t.Fatal(err)
@@ -870,9 +870,9 @@ func TestRepair_63_WalletRangeSchemaMigrated(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
-	db, admin := repair63Database(t, ctx)
-	service := repair63Service(t, ctx, db)
-	snapshot := repair63LiveReplay(t, ctx, service, 33963749)
+	db, admin := coordinatorReplayDatabase(t, ctx)
+	service := coordinatorReplayService(t, ctx, db)
+	snapshot := coordinatorReplayLiveReplay(t, ctx, service, 33963749)
 	// PublishRebuiltWallet calls the real commitRebuiltHistoryTx, including
 	// the range INSERT and interval COPY, in the projection/outbox transaction.
 	summary, err := service.PublishRebuiltWallet(ctx, realMarketCreator, snapshot.Height, l17.Repository{Pool: service.authority.pool})
@@ -928,7 +928,7 @@ func TestRepair_63_WalletRangeSchemaMigrated(t *testing.T) {
 		}
 	}
 	service.authority.pool.Close()
-	reopened := repair63Service(t, ctx, db)
+	reopened := coordinatorReplayService(t, ctx, db)
 	recovered, err := reopened.IntervalHistory(ctx, realMarketCreator, from, to, "1h", 24)
 	if err != nil || !reflect.DeepEqual(recovered, series) {
 		t.Fatalf("wallet interval history changed across restart: %+v %v", recovered, err)

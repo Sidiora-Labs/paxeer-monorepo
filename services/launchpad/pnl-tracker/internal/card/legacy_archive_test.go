@@ -21,7 +21,7 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/store"
 )
 
-func TestRepair_45_LegacyMintRetired(t *testing.T) {
+func TestArchiveLegacyMintRetired(t *testing.T) {
 	ctx := context.Background()
 	// No pool or clock is configured: any persistence or snapshot capture
 	// would fail rather than hiding a dependency behind a test double.
@@ -81,7 +81,7 @@ func TestRepair_45_LegacyMintRetired(t *testing.T) {
 	}
 }
 
-func repair45ArchiveRow(t *testing.T) (store.CardRow, card.Snapshot) {
+func legacyArchiveRow(t *testing.T) (store.CardRow, card.Snapshot) {
 	t.Helper()
 	price := "2500000"
 	snapshot := card.Snapshot{
@@ -106,8 +106,8 @@ func repair45ArchiveRow(t *testing.T) (store.CardRow, card.Snapshot) {
 	return row, snapshot
 }
 
-func TestRepair_45_ArchivedDisclosurePreserved(t *testing.T) {
-	row, snapshot := repair45ArchiveRow(t)
+func TestArchivedDisclosurePreserved(t *testing.T) {
+	row, snapshot := legacyArchiveRow(t)
 	originalPayload := bytes.Clone(row.Snapshot)
 	// Exercise the archive decoder used by Service.Get, then the same JSON
 	// encoding and consumer decoding used by the HTTP response. Persistence

@@ -46,16 +46,16 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func repair29Root() string {
+func rewardSchemaRoot() string {
 	_, source, _, _ := runtime.Caller(0)
 	return filepath.Clean(filepath.Join(filepath.Dir(source), "../../../../.."))
 }
 
 // PGlite executes the real deployment SQL and PostgreSQL wire protocol in WASM;
 // no PostgreSQL installation, shared database or service credentials are used.
-func repair29Store(t *testing.T, ctx context.Context, directory string) (string, func()) {
+func rewardSchemaStore(t *testing.T, ctx context.Context, directory string) (string, func()) {
 	t.Helper()
-	script := filepath.Join(repair29Root(), "services/launchpad/pnl-tracker/internal/app/testdata/repair29/store.mjs")
+	script := filepath.Join(rewardSchemaRoot(), "services/launchpad/pnl-tracker/internal/app/testdata/reward_schema/store.mjs")
 	cmd := exec.CommandContext(ctx, "node", script, directory)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
@@ -94,7 +94,7 @@ func repair29Store(t *testing.T, ctx context.Context, directory string) (string,
 	return "postgres://postgres:postgres@" + address + "/postgres?sslmode=disable", stop
 }
 
-func repair29Pool(t *testing.T, ctx context.Context, dsn string) *pgxpool.Pool {
+func rewardSchemaPool(t *testing.T, ctx context.Context, dsn string) *pgxpool.Pool {
 	t.Helper()
 	cfg, err := pgxpool.ParseConfig(dsn)
 	if err != nil {
@@ -112,7 +112,7 @@ func repair29Pool(t *testing.T, ctx context.Context, dsn string) *pgxpool.Pool {
 	return pool
 }
 
-func repair29SQL(t *testing.T, ctx context.Context, pool *pgxpool.Pool, query string, args ...any) {
+func rewardSchemaSQL(t *testing.T, ctx context.Context, pool *pgxpool.Pool, query string, args ...any) {
 	t.Helper()
 	if _, err := pool.Exec(ctx, query, args...); err != nil {
 		t.Fatalf("SQL %s: %v", query, err)
@@ -121,10 +121,10 @@ func repair29SQL(t *testing.T, ctx context.Context, pool *pgxpool.Pool, query st
 
 func applyRewardDeploymentMigration(t *testing.T, ctx context.Context, pool *pgxpool.Pool, root, name string) {
 	t.Helper()
-	applyRepair29Migration(t, ctx, pool, root, name, "pnl")
+	applyRewardSchemaMigration(t, ctx, pool, root, name, "pnl")
 }
 
-func applyRepair29Migration(t *testing.T, ctx context.Context, pool *pgxpool.Pool, root, name, schema string) {
+func applyRewardSchemaMigration(t *testing.T, ctx context.Context, pool *pgxpool.Pool, root, name, schema string) {
 	t.Helper()
 	sql, err := os.ReadFile(filepath.Join(root, "migrations", name))
 	if err != nil {
@@ -148,15 +148,15 @@ func applyRepair29Migration(t *testing.T, ctx context.Context, pool *pgxpool.Poo
 func TestProductionRewardSchemaReadiness(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
-	dsn, stop := repair29Store(t, ctx, filepath.Join(t.TempDir(), "readiness"))
+	dsn, stop := rewardSchemaStore(t, ctx, filepath.Join(t.TempDir(), "readiness"))
 	defer stop()
-	pool := repair29Pool(t, ctx, dsn)
+	pool := rewardSchemaPool(t, ctx, dsn)
 	defer pool.Close()
 	schema := "repair29_" + strings.ReplaceAll(uuid.NewString(), "-", "")
 	q := pgx.Identifier{schema}.Sanitize()
-	sql := func(query string) { t.Helper(); repair29SQL(t, ctx, pool, query) }
+	sql := func(query string) { t.Helper(); rewardSchemaSQL(t, ctx, pool, query) }
 	sql("CREATE SCHEMA " + q)
-	applyRepair29Migration(t, ctx, pool, repair29Root(), "180000.sql", schema)
+	applyRewardSchemaMigration(t, ctx, pool, rewardSchemaRoot(), "180000.sql", schema)
 	guard, err := queue.NewEpochGuard("recovery", 1, "local")
 	if err != nil {
 		t.Fatal(err)
@@ -173,7 +173,7 @@ func TestProductionRewardSchemaReadiness(t *testing.T) {
 	if requestTable != nil || auditTable != nil {
 		t.Fatal("runtime admission created reward tables instead of requiring deployed migrations")
 	}
-	applyRepair29Migration(t, ctx, pool, repair29Root(), "180001.sql", schema)
+	applyRewardSchemaMigration(t, ctx, pool, rewardSchemaRoot(), "180001.sql", schema)
 	if ledger, err := newRewardLedger(ctx, pool, schema, "pnld", nil, guard.Assert); err != nil || ledger == nil {
 		t.Fatalf("migrated reward ledger rejected: ledger=%v err=%v", ledger, err)
 	}
@@ -229,14 +229,14 @@ func TestProductionRewardSchemaReadiness(t *testing.T) {
 	sql("RESET ROLE")
 }
 
-type repair29Artifact struct {
+type rewardSchemaArtifact struct {
 	ABI      json.RawMessage `json:"abi"`
 	Bytecode string          `json:"bytecode"`
 }
 
 // Execute source-compiled constructors at their genesis addresses, including
 // proxy initialization. Storage comes from EVM execution, never fabricated RPCs.
-func repair29Genesis(t *testing.T, artifacts map[string]repair29Artifact, owner common.Address) (types.GenesisAlloc, map[string]common.Address, map[string]abi.ABI) {
+func rewardSchemaGenesis(t *testing.T, artifacts map[string]rewardSchemaArtifact, owner common.Address) (types.GenesisAlloc, map[string]common.Address, map[string]abi.ABI) {
 	t.Helper()
 	chain := *params.AllDevChainProtocolChanges
 	chain.ChainID = big.NewInt(125)
@@ -318,18 +318,18 @@ func repair29Genesis(t *testing.T, artifacts map[string]repair29Artifact, owner 
 	return alloc, addresses, abis
 }
 
-func TestRepair_29_RewardRequestSchemaRecovery(t *testing.T) {
+func TestRewardRequestSchemaRecovery(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
-	root := repair29Root()
-	compile := exec.CommandContext(ctx, "node", filepath.Join(root, "services/launchpad/pnl-tracker/internal/app/testdata/repair29/contracts.mjs"), root)
+	root := rewardSchemaRoot()
+	compile := exec.CommandContext(ctx, "node", filepath.Join(root, "services/launchpad/pnl-tracker/internal/app/testdata/reward_schema/contracts.mjs"), root)
 	var compileErr bytes.Buffer
 	compile.Stderr = &compileErr
 	raw, err := compile.Output()
 	if err != nil {
 		t.Fatalf("production contract compilation: %v: %s", err, compileErr.String())
 	}
-	artifacts := map[string]repair29Artifact{}
+	artifacts := map[string]rewardSchemaArtifact{}
 	if err := json.Unmarshal(raw, &artifacts); err != nil {
 		t.Fatal(err)
 	}
@@ -339,7 +339,7 @@ func TestRepair_29_RewardRequestSchemaRecovery(t *testing.T) {
 	}
 	owner := crypto.PubkeyToAddress(key.PublicKey)
 	wallet := strings.ToLower(owner.Hex())
-	alloc, addresses, abis := repair29Genesis(t, artifacts, owner)
+	alloc, addresses, abis := rewardSchemaGenesis(t, artifacts, owner)
 	ipc := filepath.Join(t.TempDir(), "chain.ipc")
 	sim := simulated.NewBackend(alloc, func(nc *node.Config, ec *ethconfig.Config) {
 		chain := *ec.Genesis.Config
@@ -410,14 +410,14 @@ func TestRepair_29_RewardRequestSchemaRecovery(t *testing.T) {
 	transact("SidioraPool", "swap", big.NewInt(1_000_000_000), big.NewInt(0), true, common.HexToAddress("0xdead"), new(big.Int).SetUint64(head.Time+300))
 
 	directory := filepath.Join(t.TempDir(), "reward-recovery")
-	dsn, stop := repair29Store(t, ctx, directory)
+	dsn, stop := rewardSchemaStore(t, ctx, directory)
 	defer func() { stop() }()
-	pool := repair29Pool(t, ctx, dsn)
+	pool := rewardSchemaPool(t, ctx, dsn)
 	defer func() { pool.Close() }()
 	schema := "repair29_" + strings.ReplaceAll(uuid.NewString(), "-", "")
 	q := pgx.Identifier{schema}.Sanitize()
-	repair29SQL(t, ctx, pool, "CREATE SCHEMA "+q+"; CREATE SCHEMA recovery; CREATE SCHEMA indexer")
-	applyRepair29Migration(t, ctx, pool, root, "180000.sql", schema)
+	rewardSchemaSQL(t, ctx, pool, "CREATE SCHEMA "+q+"; CREATE SCHEMA recovery; CREATE SCHEMA indexer")
+	applyRewardSchemaMigration(t, ctx, pool, root, "180000.sql", schema)
 	guard, err := queue.NewEpochGuard("recovery", 1, "local")
 	if err != nil {
 		t.Fatal(err)
@@ -425,7 +425,7 @@ func TestRepair_29_RewardRequestSchemaRecovery(t *testing.T) {
 	if ledger, err := newRewardLedger(ctx, pool, schema, "pnld", nil, guard.Assert); err == nil || ledger != nil {
 		t.Fatal("reward routes could become ready before request/audit migration")
 	}
-	applyRepair29Migration(t, ctx, pool, root, "180001.sql", schema)
+	applyRewardSchemaMigration(t, ctx, pool, root, "180001.sql", schema)
 	epochTemplate, err := os.ReadFile(filepath.Join(root, "deploy/launchpad/production/recovery/epoch.sql"))
 	if err != nil {
 		t.Fatal(err)
@@ -434,9 +434,9 @@ func TestRepair_29_RewardRequestSchemaRecovery(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	repair29SQL(t, ctx, pool, epochSQL)
-	repair29SQL(t, ctx, pool, `INSERT INTO recovery.recovery_control(singleton,epoch,region,revision,checkpoint_sha256) VALUES(true,1,'local',1,$1)`, strings.Repeat("a", 64))
-	repair29SQL(t, ctx, pool, `CREATE TABLE indexer.indexer_canonical_creations (
+	rewardSchemaSQL(t, ctx, pool, epochSQL)
+	rewardSchemaSQL(t, ctx, pool, `INSERT INTO recovery.recovery_control(singleton,epoch,region,revision,checkpoint_sha256) VALUES(true,1,'local',1,$1)`, strings.Repeat("a", 64))
+	rewardSchemaSQL(t, ctx, pool, `CREATE TABLE indexer.indexer_canonical_creations (
   nft_id numeric PRIMARY KEY,pool text NOT NULL,creator text NOT NULL,
   height bigint NOT NULL,block_hash text NOT NULL,transaction_hash text NOT NULL,
   transaction_index numeric NOT NULL,log_index numeric NOT NULL)`)
@@ -449,7 +449,7 @@ func TestRepair_29_RewardRequestSchemaRecovery(t *testing.T) {
 	if creation == nil {
 		t.Fatal("real NFT mint produced no creation event")
 	}
-	repair29SQL(t, ctx, pool, `INSERT INTO indexer.indexer_canonical_creations VALUES(1,$1,$2,$3,$4,$5,$6,$7)`, strings.ToLower(addresses["SidioraPool"].Hex()), wallet, creation.BlockNumber, creation.BlockHash.Hex(), creation.TxHash.Hex(), creation.TxIndex, creation.Index)
+	rewardSchemaSQL(t, ctx, pool, `INSERT INTO indexer.indexer_canonical_creations VALUES(1,$1,$2,$3,$4,$5,$6,$7)`, strings.ToLower(addresses["SidioraPool"].Hex()), wallet, creation.BlockNumber, creation.BlockHash.Hex(), creation.TxHash.Hex(), creation.TxIndex, creation.Index)
 	hashes := map[string]string{}
 	for _, target := range []string{l18.NFT, l18.Accumulator, l18.FeesRouter, l18.USDL} {
 		var code, slot hexutil.Bytes
@@ -512,7 +512,7 @@ func TestRepair_29_RewardRequestSchemaRecovery(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		repair29Sign(t, req, key)
+		rewardSchemaSign(t, req, key)
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Idempotency-Key", idempotencyKey)
 		response, err := server.Client().Do(req)
@@ -588,8 +588,8 @@ func TestRepair_29_RewardRequestSchemaRecovery(t *testing.T) {
 	server.Close()
 	pool.Close()
 	stop()
-	dsn, stop = repair29Store(t, ctx, directory)
-	pool = repair29Pool(t, ctx, dsn)
+	dsn, stop = rewardSchemaStore(t, ctx, directory)
+	pool = rewardSchemaPool(t, ctx, dsn)
 	server = open()
 	replay := send(server, body, http.StatusOK)
 	if !bytes.Equal(first, replay) {
@@ -607,7 +607,7 @@ func TestRepair_29_RewardRequestSchemaRecovery(t *testing.T) {
 	}
 }
 
-func repair29Sign(t *testing.T, req *http.Request, key *ecdsa.PrivateKey) {
+func rewardSchemaSign(t *testing.T, req *http.Request, key *ecdsa.PrivateKey) {
 	t.Helper()
 	signature, err := crypto.Sign(accounts.TextHash([]byte(req.Method+" "+req.URL.RequestURI())), key)
 	if err != nil {

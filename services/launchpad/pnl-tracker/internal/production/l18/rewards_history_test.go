@@ -18,14 +18,14 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-func (f *repair62Fixture) handler(who string) http.Handler {
+func (f *rewardHistoryFixture) handler(who string) http.Handler {
 	h := HTTP{Service: f.journey, Authenticate: func(*http.Request) (Actor, error) { return Actor{Wallet: who}, nil }}
 	router := chi.NewRouter()
 	router.Get("/v2/me/rewards", h.Rewards)
 	router.Post("/v2/me/rewards:prepare-claim", h.PrepareClaim)
 	return router
 }
-func repair62Rewards(t *testing.T, h http.Handler, cursor string, limit int) iface.RewardsResponse {
+func readRewardHistory(t *testing.T, h http.Handler, cursor string, limit int) iface.RewardsResponse {
 	t.Helper()
 	request := httptest.NewRequest(http.MethodGet, "/v2/me/rewards?limit="+strconv.Itoa(limit)+"&cursor="+url.QueryEscape(cursor), nil)
 	response := httptest.NewRecorder()
@@ -44,7 +44,7 @@ func repair62Rewards(t *testing.T, h http.Handler, cursor string, limit int) ifa
 }
 
 func TestSchemaSequenceGrants(t *testing.T) {
-	d := repair62Bootstrap(t)
+	d := rewardHistoryBootstrap(t)
 	for _, id := range []int64{160004, 180000, 180001, 190001} {
 		if d.catalog.Applied[id] == "" {
 			t.Fatalf("reviewed migration %d not applied", id)
@@ -93,14 +93,14 @@ func TestSchemaSequenceGrants(t *testing.T) {
 }
 
 func TestJourneyIndexerGrants(t *testing.T) {
-	f := repair62Chain(t)
-	b := Checkpoint{Number: f.db.peers.Initial, Hash: repair62Hash(f.db.peers.Initial)}
+	f := rewardHistoryChain(t)
+	b := Checkpoint{Number: f.db.peers.Initial, Hash: rewardHistoryHash(f.db.peers.Initial)}
 	h := f.handler(f.chain.Alice)
-	response := repair62Rewards(t, h, "", 1)
+	response := readRewardHistory(t, h, "", 1)
 	if len(response.Data.Items) != 1 || response.Data.Items[0].RewardId != "creator:1" || response.Data.Items[0].ClaimableRaw != "10000000" || response.Watermark == nil || string(response.Watermark.Height) != strconv.FormatUint(b.Number, 10) {
 		t.Fatalf("runtime reward=%+v", response)
 	}
-	empty := repair62Rewards(t, f.handler(strings.ToLower(f.chain.Admin)), "", 1)
+	empty := readRewardHistory(t, f.handler(strings.ToLower(f.chain.Admin)), "", 1)
 	if len(empty.Data.Items) != 0 || empty.NextCursor != nil {
 		t.Fatalf("unrelated wallet rewards=%+v", empty)
 	}
@@ -157,14 +157,14 @@ func TestJourneyIndexerGrants(t *testing.T) {
 }
 
 func TestRewardHistoryAgeOutage(t *testing.T) {
-	f := repair62Chain(t)
+	f := rewardHistoryChain(t)
 	ctx := context.Background()
 	b := f.advance(f.db.peers.Aged)
 	oldest, err := f.journey.market(ctx, "1")
 	if err != nil || b.Number-oldest.Height <= 100000 {
 		t.Fatalf("oldest creation=%+v checkpoint=%+v: %v", oldest, b, err)
 	}
-	page := repair62Rewards(t, f.handler(f.chain.Alice), "", 1)
+	page := readRewardHistory(t, f.handler(f.chain.Alice), "", 1)
 	if len(page.Data.Items) != 1 || page.Data.Items[0].RewardId != "creator:3" || page.NextCursor == nil {
 		t.Fatalf("unrelated old market blocked later first page: %+v", page)
 	}
@@ -175,22 +175,22 @@ func TestRewardHistoryAgeOutage(t *testing.T) {
 	// The peer's next committed response includes a further claim and transfers.
 	// The original cursor must still read canonical history and ownership at b.
 	f.advance(f.db.peers.Advanced)
-	next := repair62Rewards(t, f.handler(f.chain.Alice), *page.NextCursor, 1)
+	next := readRewardHistory(t, f.handler(f.chain.Alice), *page.NextCursor, 1)
 	if len(next.Data.Items) != 1 || next.Data.Items[0].RewardId != "creator:4" || next.NextCursor != nil || next.Watermark == nil || next.Watermark.Height != page.Watermark.Height || next.Watermark.BlockHash != page.Watermark.BlockHash {
 		t.Fatalf("pinned continuation=%+v first=%+v", next, page)
 	}
-	fresh := repair62Rewards(t, f.handler(f.chain.Alice), "", 1)
+	fresh := readRewardHistory(t, f.handler(f.chain.Alice), "", 1)
 	if len(fresh.Data.Items) != 1 || fresh.Data.Items[0].RewardId != "creator:3" || fresh.Data.Items[0].ClaimedRaw != "13000000" || fresh.Data.Items[0].ClaimableRaw != "0" {
 		t.Fatalf("new indexed claims=%+v", fresh)
 	}
-	bob := repair62Rewards(t, f.handler(f.chain.Bob), "", 1)
+	bob := readRewardHistory(t, f.handler(f.chain.Bob), "", 1)
 	if len(bob.Data.Items) != 1 || bob.Data.Items[0].RewardId != "creator:1" || bob.Data.Items[0].ClaimableRaw != "10000000" {
 		t.Fatalf("old relevant market=%+v", bob)
 	}
 }
 
 func TestIndexedPagingIntegrity(t *testing.T) {
-	f := repair62Chain(t)
+	f := rewardHistoryChain(t)
 	b := f.advance(f.db.peers.Aged)
 	// A whole 500-row boundary plus a trailing row must be summed exactly once,
 	// including transaction/log ordering within a single block.
