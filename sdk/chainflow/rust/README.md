@@ -6,7 +6,7 @@ streams. The default gateway is selected by [`Environment`](src/client.rs).
 For Paxeer integrations, the network is one BFT chain with chain ID 125 (`0x7d`);
 its kernel proposes blocks and receipts are final when their block is committed.
 Node JSON-RPC uses the public node root path. Configure node access separately
-from this market-data client; see [public RPC](../../../docs/site/docs/reference/public-rpc.md).
+from this market-data client; see [public RPC](../../../docs/readme/PUBLIC-RPC.md).
 
 See [api.md](./api.md) for operations, [reference.md](./reference.md) for routes
 and models, and the [Python guide](../python/SKILL.md) and
