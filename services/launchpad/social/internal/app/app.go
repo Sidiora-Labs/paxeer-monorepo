@@ -15,6 +15,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
+	"net"
+	"net/http"
+	"net/url"
+	"os"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"time"
+
 	"github.com/Sidiora-Technologies/KindleLaunch/core/notifications"
 	"github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/devsocial"
 	"github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/interactions"
@@ -32,15 +42,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
-	"log/slog"
-	"net"
-	"net/http"
-	"net/url"
-	"os"
-	"strings"
-	"sync"
-	"sync/atomic"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -104,7 +105,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	}()
 	tracker := process.NewTracker()
 	var metrics *telemetry.Metrics
-	if cfg.NodeEnv == "production" {
+	if cfg.NodeEnv == productionEnvironment {
 		var e error
 		metrics, e = telemetry.New("sociald", cfg.RuntimeMetricsEnvironment, cfg.RuntimeZone)
 		if e != nil {
@@ -117,7 +118,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	}
 
 	platform := cfg.Platform()
-	if cfg.NodeEnv != "production" {
+	if cfg.NodeEnv != productionEnvironment {
 		// Outside production the embedded migrations are applied at boot. In
 		// production the migration coordinator owns the schema
 		// (spec/production-system/integration/migrations): the runtime never
@@ -127,7 +128,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 			return nil, err
 		}
 	}
-	if cfg.NodeEnv != "production" || platform {
+	if cfg.NodeEnv != productionEnvironment || platform {
 		// The v2 stores address their tables unqualified in the "chat" schema
 		// (as the bound runtime's pool does), so the pool resolves it first.
 		dsn, err := devsocial.RuntimeDSN(cfg.DatabaseURL)
@@ -173,7 +174,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 			_ = sub.Close()
 			return nil, err
 		}
-	} else if cfg.NodeEnv == "production" {
+	} else if cfg.NodeEnv == productionEnvironment {
 		connected, err = newSocialConnectedRuntime(ctx, cfg, pool, rdb, logger)
 		if err != nil {
 			pool.Close()
@@ -383,7 +384,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	}
 
 	if metrics != nil {
-		mux.Handle("/metrics", metrics)
+		mux.Handle(metricsPath, metrics)
 	}
 	if err := tracker.SetReady(); err != nil {
 		return nil, err
@@ -430,7 +431,7 @@ func Run(parent context.Context) error {
 	if err != nil {
 		return err
 	}
-	logger := sharedlog.New("social", cfg.LogLevel)
+	logger := sharedlog.New(socialService, cfg.LogLevel)
 	logger.Info("starting social service")
 
 	ctx, cancel := context.WithCancel(parent)
@@ -534,7 +535,7 @@ func Run(parent context.Context) error {
 
 func runtimeHandler(tracker *process.Tracker, next http.Handler, metrics *telemetry.Metrics) http.Handler {
 	observed := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if metrics == nil || r.Method != http.MethodGet || r.URL.Path == "/metrics" {
+		if metrics == nil || r.Method != http.MethodGet || r.URL.Path == metricsPath {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -556,7 +557,7 @@ func runtimeHandler(tracker *process.Tracker, next http.Handler, metrics *teleme
 	})
 	tracked := tracker.Middleware(observed)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/health" || r.URL.Path == "/health/live" || r.URL.Path == "/health/ready" || r.URL.Path == "/metrics" {
+		if r.URL.Path == healthPath || r.URL.Path == "/health/live" || r.URL.Path == "/health/ready" || r.URL.Path == metricsPath {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -604,7 +605,7 @@ func socialBoundBytes(path, digest string) ([]byte, error) {
 	if e != nil || !info.Mode().IsRegular() || info.Size() < 1 || info.Size() > 1048576 || len(digest) != 64 {
 		return nil, errors.New("social bound file unavailable")
 	}
-	raw, e := os.ReadFile(path)
+	raw, e := readSocialBoundFile(path)
 	if e != nil || fmt.Sprintf("%x", sha256.Sum256(raw)) != digest {
 		return nil, errors.New("social bound file mismatch")
 	}
@@ -616,7 +617,7 @@ func socialIdentifier(schema, table string) (pgx.Identifier, error) {
 			return nil, errors.New("social SQL identifier unavailable")
 		}
 		for _, c := range value {
-			if !(c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || c == '_') {
+			if (c < 'a' || c > 'z') && (c < '0' || c > '9') && c != '_' {
 				return nil, errors.New("social SQL identifier invalid")
 			}
 		}
@@ -705,7 +706,7 @@ func newSocialConnectedRuntime(ctx context.Context, cfg config.Config, pool *pgx
 	if e != nil || len(signingKey) != ed25519.PrivateKeySize || !bytes.Equal(signingKey, ed25519.NewKeyFromSeed(signingKey[:ed25519.SeedSize])) {
 		return nil, errors.New("social identity signing key invalid")
 	}
-	signer := sharedauth.ServiceRequestIssuer{Issuer: "social", Audience: "identity", Key: ed25519.PrivateKey(signingKey), Transport: sharedauth.AssertionTransport{AssertionHeader: sharedauth.IdentityAssertionHeader, SignatureHeader: sharedauth.IdentitySignatureHeader}}
+	signer := sharedauth.ServiceRequestIssuer{Issuer: socialService, Audience: "identity", Key: ed25519.PrivateKey(signingKey), Transport: sharedauth.AssertionTransport{AssertionHeader: sharedauth.IdentityAssertionHeader, SignatureHeader: sharedauth.IdentitySignatureHeader}}
 	identityAuthority, e := sharedauth.NewMTLSIdentityAuthority(b.IdentityEndpoint, b.IdentityServerPeerCertSHA256, client, signer)
 	if e != nil {
 		return nil, e
@@ -719,7 +720,7 @@ func newSocialConnectedRuntime(ctx context.Context, cfg config.Config, pool *pgx
 		return nil, e
 	}
 	subjects := map[string]bool{}
-	events := map[string]bool{"account.social.erasure.v1": true, "social.policy.changed.v2": true, "social.mention.intent.v1": true}
+	events := map[string]bool{"account.social.erasure.v1": true, socialPolicyChangedEvent: true, "social.mention.intent.v1": true}
 	for typ, subject := range b.InteractionSubjects {
 		if typ != "social.edge.changed" && typ != "social.comment.changed" && typ != "social.callout.changed" {
 			return nil, errors.New("social event type invalid")
@@ -930,7 +931,7 @@ func (r *socialConnectedRuntime) ingress(next http.Handler) http.Handler {
 		for _, name := range []string{"X-Actor-Wallet", "X-Actor-Role", "X-Roles", "X-Admin", "X-Admin-Key", "X-Admin-Role"} {
 			req.Header.Del(name)
 		}
-		if req.URL.Path == "/health" || strings.HasPrefix(req.URL.Path, "/health/") || req.URL.Path == "/metrics" {
+		if req.URL.Path == healthPath || strings.HasPrefix(req.URL.Path, "/health/") || req.URL.Path == metricsPath {
 			next.ServeHTTP(w, req)
 			return
 		}
@@ -939,7 +940,7 @@ func (r *socialConnectedRuntime) ingress(next http.Handler) http.Handler {
 			return
 		}
 		if req.TLS == nil || len(req.TLS.VerifiedChains) == 0 || len(req.TLS.PeerCertificates) == 0 || req.TLS.PeerCertificates[0].VerifyHostname(r.binding.GatewayDNS) != nil || fmt.Sprintf("%x", sha256.Sum256(req.TLS.PeerCertificates[0].Raw)) != r.binding.GatewayCertSHA256 {
-			sharedhttp.WriteJSON(w, 403, map[string]string{"code": "TRUSTED_INGRESS_REQUIRED"})
+			sharedhttp.WriteJSON(w, 403, map[string]string{codeField: trustedIngressRequiredCode})
 			return
 		}
 		if req.URL.Path == "/v2/stream" || req.URL.Path == "/ws" {
@@ -954,7 +955,7 @@ func (r *socialConnectedRuntime) ingress(next http.Handler) http.Handler {
 		}
 		principal, e := r.request(req)
 		if e != nil {
-			sharedhttp.WriteJSON(w, 401, map[string]string{"code": "AUTH_EXPIRED"})
+			sharedhttp.WriteJSON(w, 401, map[string]string{codeField: "AUTH_EXPIRED"})
 			return
 		}
 		req.Header.Set("X-Actor-Wallet", principal.Wallet)
@@ -1042,16 +1043,16 @@ func (t socialTargetResolver) Resolve(ctx context.Context, kind, id string) (str
 	}
 	var pool, actor string
 	switch kind {
-	case "message":
+	case messageAction:
 		e := t.pool.QueryRow(ctx, `SELECT CASE WHEN c.kind='pool' THEN substring(c.id from 6) ELSE '' END,m.sender FROM chat_messages m JOIN chat_conversations c ON c.id=m.conversation_id WHERE m.id=$1`, id).Scan(&pool, &actor)
 		return pool, actor, e
-	case "token":
+	case tokenResource:
 		e := t.pool.QueryRow(ctx, `SELECT pool,creator FROM chat.social_canonical_pools() WHERE token=$1`, id).Scan(&pool, &actor)
 		return pool, actor, e
 	case "profile":
 		e := t.pool.QueryRow(ctx, `SELECT $1::text WHERE chat.interaction_account_active($1::text)`, id).Scan(&actor)
 		return "", actor, e
-	case "comment":
+	case commentAction:
 		e := t.pool.QueryRow(ctx, `SELECT pool,author FROM interaction_comments WHERE id=$1`, id).Scan(&pool, &actor)
 		return pool, actor, e
 	default:
@@ -1169,7 +1170,7 @@ func (r *socialConnectedRuntime) start(hub *fanout.Hub) {
 				return ctx.Err()
 			case <-ticker.C:
 				bounded, cancel := context.WithTimeout(ctx, 10*time.Second)
-				r.durableCycle(bounded,
+				cycleErr := r.durableCycle(bounded,
 					func(ctx context.Context) error {
 						_, e := r.chat.DrainNotificationIntents(ctx, 32, func(ctx context.Context, v fanout.NotificationIntent) error {
 							_, _, e := r.notification.EnqueueChat(ctx, v.EventID, v.AccountID, v.ConversationID, v.CreatedAt)
@@ -1180,6 +1181,9 @@ func (r *socialConnectedRuntime) start(hub *fanout.Hub) {
 					r.stageSafetyOutbox, relay.RunOnce, r.eraseOnce,
 					func(ctx context.Context) error { _, e := r.store.PruneReplay(ctx, 1000); return e },
 				)
+				if cycleErr != nil {
+					slog.Error("social durable cycle failed", "error", cycleErr)
+				}
 				cancel()
 			}
 		}
@@ -1222,11 +1226,11 @@ func (r *socialConnectedRuntime) stageSafetyOutbox(ctx context.Context) error {
 		var at time.Time
 		e = tx.QueryRow(ctx, `SELECT id::text,kind,entity_id,revision,payload,created_at FROM safety_outbox WHERE published_at IS NULL ORDER BY created_at,id FOR UPDATE SKIP LOCKED LIMIT 1`).Scan(&id, &kind, &entity, &revision, &payload, &at)
 		if errors.Is(e, pgx.ErrNoRows) {
-			_ = tx.Rollback(ctx)
+			rollbackTx(ctx, tx)
 			return nil
 		}
 		if e != nil {
-			_ = tx.Rollback(ctx)
+			rollbackTx(ctx, tx)
 			return e
 		}
 		value := socialPolicyEvent{Kind: kind, EntityID: entity, Revision: revision}
@@ -1246,7 +1250,7 @@ func (r *socialConnectedRuntime) stageSafetyOutbox(ctx context.Context) error {
 		}
 		if e == nil {
 			eventID := "social_policy_" + strings.ReplaceAll(id, "-", "")
-			e = r.delivery.Enqueue(ctx, tx, r.binding.PolicySubject, delivery.Envelope{EventID: eventID, EventType: "social.policy.changed.v2", SchemaVersion: 2, ChainID: 125, SourceOrder: position, EmittedAt: at.UTC(), TraceID: eventID, PayloadHash: delivery.Hash(wire), Payload: wire})
+			e = r.delivery.Enqueue(ctx, tx, r.binding.PolicySubject, delivery.Envelope{EventID: eventID, EventType: socialPolicyChangedEvent, SchemaVersion: 1, ChainID: 125, SourceOrder: position, EmittedAt: at.UTC(), TraceID: eventID, PayloadHash: delivery.Hash(wire), Payload: wire})
 		}
 		if e == nil {
 			_, e = tx.Exec(ctx, `UPDATE safety_outbox SET published_at=clock_timestamp() WHERE id=$1`, id)
@@ -1254,7 +1258,7 @@ func (r *socialConnectedRuntime) stageSafetyOutbox(ctx context.Context) error {
 		if e == nil {
 			e = tx.Commit(ctx)
 		} else {
-			_ = tx.Rollback(ctx)
+			rollbackTx(ctx, tx)
 		}
 		if e != nil {
 			return e
@@ -1264,7 +1268,7 @@ func (r *socialConnectedRuntime) stageSafetyOutbox(ctx context.Context) error {
 }
 func (r *socialConnectedRuntime) consumePolicy(ctx context.Context, m *natsdriver.Message) error {
 	return r.delivery.Consume(ctx, "social_policy", r.binding.ConsumerGeneration, r.binding.PolicySubject, m.Wire, m, func(ctx context.Context, tx pgx.Tx, envelope delivery.Envelope) error {
-		if envelope.EventType != "social.policy.changed.v2" {
+		if envelope.EventType != socialPolicyChangedEvent {
 			return safety.ErrInvalid
 		}
 		var v socialPolicyEvent
@@ -1346,7 +1350,7 @@ func (r *socialConnectedRuntime) authorityHTTP(w http.ResponseWriter, req *http.
 		}
 	}
 	if !allowed {
-		sharedhttp.WriteJSON(w, 403, map[string]string{"code": "SERVICE_AUTHORITY_REQUIRED"})
+		sharedhttp.WriteJSON(w, 403, map[string]string{codeField: "SERVICE_AUTHORITY_REQUIRED"})
 		return
 	}
 	path := strings.TrimPrefix(req.URL.Path, "/internal/v2/social/")
@@ -1404,11 +1408,11 @@ func (r *socialConnectedRuntime) authorityHTTP(w http.ResponseWriter, req *http.
 		}
 		value = map[string]bool{"committed": e == nil}
 	default:
-		sharedhttp.WriteJSON(w, 404, map[string]string{"code": "NOT_FOUND"})
+		sharedhttp.WriteJSON(w, 404, map[string]string{codeField: notFoundCode})
 		return
 	}
 	if e != nil {
-		sharedhttp.WriteJSON(w, 503, map[string]string{"code": "SOCIAL_AUTHORITY_UNAVAILABLE"})
+		sharedhttp.WriteJSON(w, 503, map[string]string{codeField: "SOCIAL_AUTHORITY_UNAVAILABLE"})
 		return
 	}
 	sharedhttp.WriteJSON(w, 200, value)
@@ -1421,7 +1425,7 @@ func (r *socialConnectedRuntime) graphAuthority(ctx context.Context, account str
 	if e != nil {
 		return nil, e
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackTx(ctx, tx)
 	var wallet string
 	if e = tx.QueryRow(ctx, `SELECT chat.social_wallet_for_account($1::uuid)`, account).Scan(&wallet); e != nil {
 		return nil, e
@@ -1460,6 +1464,9 @@ func (r *socialConnectedRuntime) graphAuthority(ctx context.Context, account str
 	if count > 10000 {
 		return nil, safety.ErrUnavailable
 	}
+	if revision < 0 {
+		return nil, safety.ErrUnavailable
+	}
 	return struct {
 		AccountID                         string
 		Revision                          uint64
@@ -1472,16 +1479,16 @@ func (r *socialConnectedRuntime) visibilityAuthority(ctx context.Context, kind, 
 	if e != nil {
 		return nil, e
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackTx(ctx, tx)
 	var actor string
 	var removed bool
 	var revision int64
 	switch kind {
 	case "callout":
 		e = tx.QueryRow(ctx, `SELECT actor,removed,revision FROM interaction_callout_authority WHERE id=$1 ORDER BY revision DESC LIMIT 1`, id).Scan(&actor, &removed, &revision)
-	case "comment":
+	case commentAction:
 		e = tx.QueryRow(ctx, `SELECT author,removed,revision FROM interaction_comments WHERE id=$1`, id).Scan(&actor, &removed, &revision)
-	case "pool", "token":
+	case poolResource, tokenResource:
 		e = tx.QueryRow(ctx, `SELECT creator,false,0 FROM chat.social_canonical_pools() WHERE (pool=$1 AND $2='pool') OR (token=$1 AND $2='token')`, id, kind).Scan(&actor, &removed, &revision)
 	default:
 		return nil, safety.ErrInvalid
@@ -1499,7 +1506,7 @@ func (r *socialConnectedRuntime) visibilityAuthority(ctx context.Context, kind, 
 		if safetyRevision < 1 {
 			return nil, safety.ErrUnavailable
 		}
-		removed = removed || status == "removed"
+		removed = removed || status == removedState
 		if safetyRevision > revision {
 			revision = safetyRevision
 		}
@@ -1521,6 +1528,9 @@ func (r *socialConnectedRuntime) visibilityAuthority(ctx context.Context, kind, 
 		}
 		removed = removed || denied
 	}
+	if revision < 0 {
+		return nil, safety.ErrUnavailable
+	}
 	return struct {
 		ResourceID   string
 		Revision     uint64
@@ -1534,7 +1544,7 @@ func (r *socialConnectedRuntime) rankingVisibility(ctx context.Context) (any, er
 	if e != nil {
 		return nil, e
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackTx(ctx, tx)
 	var observed time.Time
 	if e = tx.QueryRow(ctx, `SELECT transaction_timestamp()`).Scan(&observed); e != nil {
 		return nil, e
@@ -1556,7 +1566,9 @@ func (r *socialConnectedRuntime) rankingVisibility(ctx context.Context) (any, er
 		}
 		count++
 		pools[pool] = visible
-		fmt.Fprintf(hash, "%s:%t:%d\n", pool, visible, revision)
+		if _, e = fmt.Fprintf(hash, "%s:%t:%d\n", pool, visible, revision); e != nil {
+			return nil, e
+		}
 	}
 	if e = rows.Err(); e != nil {
 		return nil, e
@@ -1580,7 +1592,7 @@ func (r *socialConnectedRuntime) reviewCallout(ctx context.Context, account, poo
 	if e != nil {
 		return nil, e
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackTx(ctx, tx)
 	var wallet, creator string
 	if e = tx.QueryRow(ctx, `SELECT chat.social_wallet_for_account($1::uuid),chat.interaction_pool_creator($2::text)`, account, pool).Scan(&wallet, &creator); e != nil {
 		return nil, e
@@ -1594,6 +1606,9 @@ func (r *socialConnectedRuntime) reviewCallout(ctx context.Context, account, poo
 	e = tx.QueryRow(ctx, `SELECT g.revision,transaction_timestamp(),EXISTS(SELECT 1 FROM interaction_erased_wallets WHERE wallet=$1) OR EXISTS(SELECT 1 FROM safety_bans WHERE wallet=$1 AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at>transaction_timestamp()) AND (scope='global' OR (scope='pool' AND resource=$2))) OR EXISTS(SELECT 1 FROM safety_visibility WHERE target_type IN ('pool','token') AND target_id=$2 AND status='removed') FROM interaction_graph_revisions g WHERE g.wallet=$1`, wallet, pool).Scan(&revision, &observed, &denied)
 	if e != nil {
 		return nil, e
+	}
+	if revision < 0 {
+		return nil, safety.ErrUnavailable
 	}
 	return struct {
 		ResourceID   string
@@ -1609,11 +1624,11 @@ func (r *socialConnectedRuntime) contentVisibility(ctx context.Context, kind, id
 	if e != nil {
 		return result, e
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackTx(ctx, tx)
 	var owner string
 	var denied bool
 	switch kind {
-	case "token":
+	case tokenResource:
 		e = tx.QueryRow(ctx, `SELECT creator FROM chat.social_canonical_pools() WHERE pool=$1`, id).Scan(&owner)
 	case "asset":
 		e = tx.QueryRow(ctx, `SELECT owner_wallet,state IN ('REJECTED','DELETED') OR blocked FROM chat.social_asset_state($1::uuid)`, id).Scan(&owner, &denied)

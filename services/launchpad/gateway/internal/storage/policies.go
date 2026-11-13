@@ -25,16 +25,16 @@ func ScopedPolicy(bucket, role string) (Policy, error) {
 	switch role {
 	case "serve":
 		actions = []string{"s3:GetObject"}
-		prefixes = []string{"approved/*"}
+		prefixes = []string{approvedPattern}
 	case "validate-read":
 		actions = []string{"s3:GetObject"}
 		prefixes = []string{"quarantine/*"}
 	case "validate-write":
 		actions = []string{"s3:PutObject"}
-		prefixes = []string{"approved/*"}
-	case "delete":
+		prefixes = []string{approvedPattern}
+	case deleteKind:
 		actions = []string{"s3:DeleteObject"}
-		prefixes = []string{"approved/*", "quarantine/*", "private/*", "temporary/*"}
+		prefixes = []string{approvedPattern, "quarantine/*", "private/*", "temporary/*"}
 	default:
 		return Policy{}, errors.New("unknown storage role")
 	}

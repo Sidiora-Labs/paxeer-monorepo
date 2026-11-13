@@ -1,3 +1,7 @@
+mod test_network {
+    include!(concat!(env!("CARGO_MANIFEST_DIR"), "/../test_network.rs"));
+}
+
 use std::collections::VecDeque;
 use std::error::Error;
 use std::io::{Read as _, Write as _};
@@ -16,8 +20,8 @@ use x_websearch::fetch::Fetcher;
 use x_websearch::index::WebIndex;
 use x_websearch::payment::{hex, unhex};
 use x_websearch::program::{
-    decode_request_record, observation_bytes, program_record, register, ProgramAttestor,
-    ProgramExchange, ProgramRelay, ProgramRequest, Step,
+    decode_request_record, observation_bytes, program_record, register, KernelError,
+    ProgramAttestor, ProgramExchange, ProgramRelay, ProgramRequest, Step,
 };
 use x_websearch::submit::{
     fulfil_program_calldata, fulfil_program_gas_limit, Fees, Journal, JournalState, Outcome,
@@ -37,6 +41,7 @@ struct Scratch(PathBuf);
 
 impl Scratch {
     fn new(name: &str) -> Checked<Self> {
+        test_network::isolate()?;
         let path =
             std::env::temp_dir().join(format!("x-websearch-program-{}-{name}", std::process::id()));
         std::fs::create_dir(&path)?;
@@ -175,8 +180,8 @@ fn the_program_exchange_collects_peer_signatures_by_program_and_request() -> Che
     let set = roster(&[&local, &peer]);
     let peer_exchange = Arc::new(ProgramExchange::open(&scratch.0.join("peer"), &[])?);
     let unknown_exchange = Arc::new(ProgramExchange::open(&scratch.0.join("unknown"), &[])?);
-    peer_exchange.record(peer.clone());
-    unknown_exchange.record(unknown.clone());
+    peer_exchange.record(peer.clone())?;
+    unknown_exchange.record(unknown.clone())?;
     let peer_server = serve_exchange(&peer_exchange)?;
     let unknown_server = serve_exchange(&unknown_exchange)?;
     let exchange = ProgramExchange::open(
@@ -189,8 +194,8 @@ fn the_program_exchange_collects_peer_signatures_by_program_and_request() -> Che
     let key = (request.program_id, request.request_id);
     let next_key = (next_request.program_id, next_request.request_id);
     let other_key = (other_program.program_id, other_program.request_id);
-    exchange.record(local.clone());
-    exchange.record(peer.clone());
+    exchange.record(local.clone())?;
+    assert_eq!(exchange.record(peer.clone()), Err(KernelError::Journal));
     assert_eq!(
         exchange.answer(key).ok_or("no answer")?.record(),
         local.record()
@@ -201,32 +206,15 @@ fn the_program_exchange_collects_peer_signatures_by_program_and_request() -> Che
         exchange.accept("peer", next_key, &program_record(&peer), &set),
         Ok(None)
     );
-    exchange.record(local_attestor.attest(&next_request)?);
-    exchange.record(local_attestor.attest(&other_program)?);
+    exchange.record(local_attestor.attest(&next_request)?)?;
+    exchange.record(local_attestor.attest(&other_program)?)?;
     let next_peer = peer_attestor.attest(&next_request)?;
     let other_peer = peer_attestor.attest(&other_program)?;
-    assert_eq!(
-        exchange.accept("peer", key, &program_record(&next_peer), &set),
-        Err(Discard::WrongRequest)
-    );
-    assert_eq!(
-        exchange.accept("peer", key, &program_record(&other_peer), &set),
-        Err(Discard::WrongRequest)
-    );
-    assert_eq!(
-        exchange.accept("unknown", key, &program_record(&unknown), &set),
-        Err(Discard::UnknownSigner)
-    );
+    assert_rejected_exchange_records(&exchange, key, &set, &next_peer, &other_peer, &unknown);
     assert!(exchange.ready(key, &set).is_none());
     assert_eq!(exchange.collect(key, &set), 2);
     let ready = exchange.ready(key, &set).ok_or("threshold not reached")?;
-    assert_eq!(ready.signers, set.signers);
-    assert_eq!(ready.signatures.len(), 2);
-    assert_eq!(ready.digest, local.digest);
-    assert_eq!(ready.response, local.response);
-    for (signer, signature) in ready.signers.iter().zip(&ready.signatures) {
-        assert_eq!(recover_signer(&ready.digest, signature)?, *signer);
-    }
+    assert_ready_signatures(&ready, &set, &local)?;
     assert!(exchange.ready(next_key, &set).is_none());
     assert!(exchange.ready(other_key, &set).is_none());
     assert_eq!(
@@ -266,6 +254,48 @@ fn the_program_exchange_collects_peer_signatures_by_program_and_request() -> Che
     assert_eq!(other_ready.digest, other_peer.digest);
     assert_ne!(other_ready.digest, ready.digest);
     assert_eq!(exchange.ready(key, &set), Some(ready));
+    assert_discarded_records(&exchange, key)?;
+    peer_server.shutdown()?;
+    unknown_server.shutdown()?;
+    Ok(())
+}
+
+type ProgramKey = ([u8; 32], u64);
+
+fn assert_rejected_exchange_records(
+    exchange: &ProgramExchange,
+    key: ProgramKey,
+    set: &AttestorSet,
+    next_peer: &Answer,
+    other_peer: &Answer,
+    unknown: &Answer,
+) {
+    assert_eq!(
+        exchange.accept("peer", key, &program_record(next_peer), set),
+        Err(Discard::WrongRequest)
+    );
+    assert_eq!(
+        exchange.accept("peer", key, &program_record(other_peer), set),
+        Err(Discard::WrongRequest)
+    );
+    assert_eq!(
+        exchange.accept("unknown", key, &program_record(unknown), set),
+        Err(Discard::UnknownSigner)
+    );
+}
+
+fn assert_ready_signatures(ready: &Ready, set: &AttestorSet, local: &Answer) -> Checked {
+    assert_eq!(ready.signers, set.signers);
+    assert_eq!(ready.signatures.len(), 2);
+    assert_eq!(ready.digest, local.digest);
+    assert_eq!(ready.response, local.response);
+    for (signer, signature) in ready.signers.iter().zip(&ready.signatures) {
+        assert_eq!(recover_signer(&ready.digest, signature)?, *signer);
+    }
+    Ok(())
+}
+
+fn assert_discarded_records(exchange: &ProgramExchange, key: ProgramKey) -> Checked {
     let discarded = exchange.discarded();
     assert_eq!(discarded.len(), 4);
     assert!(discarded
@@ -274,8 +304,6 @@ fn the_program_exchange_collects_peer_signatures_by_program_and_request() -> Che
     let log = std::fs::read_to_string(exchange.log_path())?;
     assert!(log.contains("wrong_request"));
     assert!(log.contains("unknown_signer"));
-    peer_server.shutdown()?;
-    unknown_server.shutdown()?;
     Ok(())
 }
 
@@ -399,7 +427,9 @@ impl Drop for FixtureServer {
 }
 
 fn rpc_call(method: &str, params: Value, result: Value) -> (Value, Value) {
-    (json!({"method":method, "params":params}), result)
+    let mut request = json!({"method":method});
+    request["params"] = params;
+    (request, result)
 }
 
 fn relay_log(url: &str) -> Checked<Value> {
@@ -432,7 +462,7 @@ fn poll_script(log: Value) -> VecDeque<(Value, Value)> {
                 "address":hex0x(&XWEB_PRECOMPILE), "fromBlock":"0x19", "toBlock":"0x1e",
                 "topics":[[hex0x(&requested_topic()), hex0x(&program_requested_topic())]],
             }]),
-            json!([log]),
+            Value::Array(vec![log]),
         ),
     ])
 }
@@ -516,43 +546,7 @@ fn a_program_request_is_attested_exchanged_and_fulfilled() -> Checked {
             &scratch.0.join("exchange"),
             &[format!("http://{}", peer_server.local_addr())],
         )?);
-        let mut script = poll_script(log);
-        if threshold == 2 {
-            append_idle_poll(&mut script);
-        }
-        let chain: Value = serde_json::from_str(include_str!("fixtures/evm/chain.json"))?;
-        script.push_back(rpc_call(
-            "eth_getTransactionCount",
-            json!([hex0x(&signer_address(&signing_key(4)?)), "pending"]),
-            json!("0x3"),
-        ));
-        for rule in chain["endpoints"]["evm"]["*"]
-            .as_array()
-            .ok_or("chain rules missing")?[2..]
-            .iter()
-        {
-            script.push_back((
-                json!({"method":rule["method"], "params":rule["params"]}),
-                rule["result"].clone(),
-            ));
-        }
-        script.push_back(rpc_call(
-            "eth_sendRawTransaction",
-            json!([hex0x(&signed.raw)]),
-            json!(hex0x(&signed.hash)),
-        ));
-        append_idle_poll(&mut script);
-        script.push_back(rpc_call("eth_getTransactionReceipt", json!([hex0x(&signed.hash)]), json!({
-            "transactionHash":hex0x(&signed.hash), "status":"0x1", "blockNumber":"0x1e", "blockHash":hex0x(&[0x31;32]),
-        })));
-        script.push_back(rpc_call("eth_blockNumber", json!([]), json!("0x20")));
-        script.push_back(rpc_call(
-            "eth_getBlockByNumber",
-            json!(["0x1e", false]),
-            json!({"hash":hex0x(&[0x31;32])}),
-        ));
-        append_idle_poll(&mut script);
-        let script = Arc::new(Mutex::new(script));
+        let script = program_script(log, &signed, threshold)?;
         let node = FixtureServer::rpc(&script)?;
         let rpc = EvmRpc::new(&node.endpoint())?;
         let mut relay = make_relay(&scratch, &rpc, Arc::clone(&exchange), set)?;
@@ -567,7 +561,7 @@ fn a_program_request_is_attested_exchanged_and_fulfilled() -> Checked {
             assert!(Journal::open(&scratch.0.join("submit"))?
                 .load(key)?
                 .is_none());
-            peer_exchange.record(peer);
+            peer_exchange.record(peer)?;
         }
         assert_eq!(
             relay.step()?,
@@ -588,31 +582,86 @@ fn a_program_request_is_attested_exchanged_and_fulfilled() -> Checked {
         );
         drop(relay);
         drop(exchange);
-        let restored_exchange = Arc::new(ProgramExchange::open(&scratch.0.join("exchange"), &[])?);
-        let mut relay = make_relay(&scratch, &rpc, restored_exchange, AttestorSet::default())?;
-        assert_eq!(
-            relay.step()?,
-            vec![Step::Submitted {
-                program_id: key.0,
-                request_id: key.1,
-                outcome: Outcome::Fulfilled
-            }]
-        );
-        assert!(relay.watcher.program_work().is_empty());
-        assert!(relay.exchange.pending().is_empty());
-        assert_eq!(
-            journal.load(key)?.ok_or("completed journal missing")?.state,
-            JournalState::Fulfilled
-        );
-        assert!(relay.step()?.is_empty());
-        assert!(script.lock().map_err(|_| "RPC script lock")?.is_empty());
-        assert!(
-            RequestWatcher::open(rpc, 2, &scratch.0.join("watch"), None)?
-                .program_work()
-                .is_empty()
-        );
+        assert_relay_recovered(&scratch, rpc, key, &script)?;
         peer_server.shutdown()?;
     }
+    Ok(())
+}
+
+fn program_script(
+    log: Value,
+    signed: &x_websearch::submit::SignedTransaction,
+    threshold: u32,
+) -> Checked<RpcScript> {
+    let mut script = poll_script(log);
+    if threshold == 2 {
+        append_idle_poll(&mut script);
+    }
+    let chain: Value = serde_json::from_str(include_str!("fixtures/evm/chain.json"))?;
+    script.push_back(rpc_call(
+        "eth_getTransactionCount",
+        json!([hex0x(&signer_address(&signing_key(4)?)), "pending"]),
+        json!("0x3"),
+    ));
+    for rule in &chain["endpoints"]["evm"]["*"]
+        .as_array()
+        .ok_or("chain rules missing")?[2..]
+    {
+        script.push_back((
+            json!({"method":rule["method"], "params":rule["params"]}),
+            rule["result"].clone(),
+        ));
+    }
+    script.push_back(rpc_call(
+        "eth_sendRawTransaction",
+        json!([hex0x(&signed.raw)]),
+        json!(hex0x(&signed.hash)),
+    ));
+    append_idle_poll(&mut script);
+    script.push_back(rpc_call("eth_getTransactionReceipt", json!([hex0x(&signed.hash)]), json!({
+            "transactionHash":hex0x(&signed.hash), "status":"0x1", "blockNumber":"0x1e", "blockHash":hex0x(&[0x31;32]),
+        })));
+    script.push_back(rpc_call("eth_blockNumber", json!([]), json!("0x20")));
+    script.push_back(rpc_call(
+        "eth_getBlockByNumber",
+        json!(["0x1e", false]),
+        json!({"hash":hex0x(&[0x31;32])}),
+    ));
+    append_idle_poll(&mut script);
+    let script = Arc::new(Mutex::new(script));
+    Ok(script)
+}
+
+fn assert_relay_recovered(
+    scratch: &Scratch,
+    rpc: EvmRpc,
+    key: ProgramKey,
+    script: &RpcScript,
+) -> Checked {
+    let journal = Journal::open(&scratch.0.join("submit"))?;
+    let restored_exchange = Arc::new(ProgramExchange::open(&scratch.0.join("exchange"), &[])?);
+    let mut relay = make_relay(scratch, &rpc, restored_exchange, AttestorSet::default())?;
+    assert_eq!(
+        relay.step()?,
+        vec![Step::Submitted {
+            program_id: key.0,
+            request_id: key.1,
+            outcome: Outcome::Fulfilled
+        }]
+    );
+    assert!(relay.watcher.program_work().is_empty());
+    assert!(relay.exchange.pending().is_empty());
+    assert_eq!(
+        journal.load(key)?.ok_or("completed journal missing")?.state,
+        JournalState::Fulfilled
+    );
+    assert!(relay.step()?.is_empty());
+    assert!(script.lock().map_err(|_| "RPC script lock")?.is_empty());
+    assert!(
+        RequestWatcher::open(rpc, 2, &scratch.0.join("watch"), None)?
+            .program_work()
+            .is_empty()
+    );
     Ok(())
 }
 
@@ -624,7 +673,8 @@ fn a_program_request_refused_by_the_attestor_is_retired_with_its_code() -> Check
     let request = decode_program_requested(&log)?;
     let reason = attestor(&scratch, 2)?
         .attest(&request)
-        .expect_err("robots must refuse fetch");
+        .err()
+        .or_panic("robots must refuse fetch");
     assert_eq!(
         reason,
         x_websearch::attest::AttestError::Fetch(x_websearch::fetch::FetchError::RobotsDisallowed)
@@ -674,4 +724,26 @@ fn a_program_request_refused_by_the_attestor_is_retired_with_its_code() -> Check
         .load((request.program_id, request.request_id))?
         .is_none());
     Ok(())
+}
+
+trait OrPanic {
+    type Output;
+
+    fn or_panic(self, context: &str) -> Self::Output;
+}
+
+impl<T, E: std::fmt::Debug> OrPanic for std::result::Result<T, E> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|error| panic!("{context}: {error:?}"))
+    }
+}
+
+impl<T> OrPanic for std::option::Option<T> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|| panic!("{context}"))
+    }
 }

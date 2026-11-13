@@ -1,3 +1,4 @@
+#[allow(dead_code)]
 mod support;
 
 use base64::{engine::general_purpose::STANDARD, Engine as _};
@@ -23,7 +24,7 @@ use std::{
         atomic::{AtomicBool, AtomicU64, Ordering},
         Arc,
     },
-    time::{Duration, Instant},
+    time::Duration,
 };
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
@@ -86,11 +87,16 @@ impl Fixture {
         let shutdown = stop.clone();
         let clock = authority.clock.clone();
         let thread = std::thread::spawn(move || serve(config, shutdown, clock));
-        let deadline = Instant::now() + Duration::from_secs(5);
+        let mut startup_deadline =
+            layerx_types::clock::Deadline::start(authority.clock.as_ref(), Duration::from_secs(5))
+                .unwrap_or_else(|error| panic!("startup clock: {error}"));
         while self.client().probe().is_err() {
             assert!(!thread.is_finished(), "provider stopped before ready");
             assert!(
-                Instant::now() < deadline,
+                !startup_deadline
+                    .remaining(authority.clock.as_ref())
+                    .unwrap_or_else(|error| panic!("startup clock: {error}"))
+                    .is_zero(),
                 "provider startup deadline exceeded"
             );
             std::thread::sleep(Duration::from_millis(10));

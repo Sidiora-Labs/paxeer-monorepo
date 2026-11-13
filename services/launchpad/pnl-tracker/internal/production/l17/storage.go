@@ -10,11 +10,14 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"math"
 	"math/big"
 	"os"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/fileaccess"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -263,7 +266,7 @@ func SignCursor(key []byte, c Cursor) (string, error) {
 	if w, e := Wallet(c.Wallet); e != nil || w != c.Wallet {
 		return "", ErrInvalid
 	}
-	if _, e := Limit(c.Limit); e != nil || c.Limit == 0 || c.After < -1 || len(c.Filter) > 256 || c.Sort != "snapshot_ordinal_v1" || !validUUID(c.Snapshot) {
+	if _, e := Limit(c.Limit); e != nil || c.Limit == 0 || c.After < -1 || len(c.Filter) > 256 || c.Sort != sortSnapshotOrdinalV1 || !validUUID(c.Snapshot) {
 		return "", ErrInvalid
 	}
 	if c.Revision != "" {
@@ -348,7 +351,7 @@ func SignPortfolioCursor(key []byte, c Cursor) (string, error) {
 	if _, e := SignCursor(key, c); e != nil {
 		return "", e
 	}
-	if c.Filter != "all" || c.Sort != "snapshot_ordinal_v1" || c.Revision == "" || c.After > 100000 || c.Expires <= 0 {
+	if c.Filter != filterAll || c.Sort != sortSnapshotOrdinalV1 || c.Revision == "" || c.After > 100000 || c.Expires <= 0 {
 		return "", ErrInvalid
 	}
 	wallet, e := hex.DecodeString(c.Wallet[2:])
@@ -363,13 +366,13 @@ func SignPortfolioCursor(key []byte, c Cursor) (string, error) {
 	if e != nil {
 		return "", e
 	}
-	raw := make([]byte, 82)
+	raw := make([]byte, 82, 114)
 	raw[0] = 2
 	copy(raw[1:21], wallet)
 	copy(raw[21:37], snapshot)
 	revision.FillBytes(raw[37:69])
-	binary.BigEndian.PutUint32(raw[69:73], uint32(int32(c.After)))
-	raw[73] = byte(c.Limit)
+	binary.BigEndian.PutUint32(raw[69:73], uint32(int32(c.After))) //nolint:gosec // The cursor wire format stores the validated offset as signed 32-bit bits.
+	raw[73] = byte(c.Limit)                                        //nolint:gosec // Limit validates the byte-sized cursor page bound.
 	binary.BigEndian.PutUint64(raw[74:82], uint64(c.Expires))
 	mac := hmac.New(sha256.New, key)
 	mac.Write([]byte(Algorithm))
@@ -393,7 +396,20 @@ func VerifyPortfolioCursor(key []byte, token, wallet string, now time.Time) (Cur
 	}
 	snapshot := hex.EncodeToString(raw[21:37])
 	snapshot = snapshot[:8] + "-" + snapshot[8:12] + "-" + snapshot[12:16] + "-" + snapshot[16:20] + "-" + snapshot[20:]
-	c = Cursor{Wallet: "0x" + hex.EncodeToString(raw[1:21]), Snapshot: snapshot, Revision: new(big.Int).SetBytes(raw[37:69]).String(), Filter: "all", Sort: "snapshot_ordinal_v1", After: int(int32(binary.BigEndian.Uint32(raw[69:73]))), Limit: int(raw[73]), Expires: int64(binary.BigEndian.Uint64(raw[74:82]))}
+	afterBits := binary.BigEndian.Uint32(raw[69:73])
+	if afterBits > 100000 && afterBits != ^uint32(0) {
+		return c, ErrInvalid
+	}
+	after := int(afterBits)
+	if afterBits == ^uint32(0) {
+		after = -1
+	}
+	expiresBits := binary.BigEndian.Uint64(raw[74:82])
+	if expiresBits > uint64(math.MaxInt64) {
+		return c, ErrInvalid
+	}
+	expires := int64(expiresBits) //nolint:gosec // The signed cursor expiry is checked before preserving its wire value.
+	c = Cursor{Wallet: "0x" + hex.EncodeToString(raw[1:21]), Snapshot: snapshot, Revision: new(big.Int).SetBytes(raw[37:69]).String(), Filter: filterAll, Sort: sortSnapshotOrdinalV1, After: after, Limit: int(raw[73]), Expires: expires}
 	if _, e = SignPortfolioCursor(key, c); e != nil {
 		return c, e
 	}
@@ -426,11 +442,11 @@ func validExportObjectID(id string) bool {
 	return e == nil && fence > 0 && strconv.FormatInt(fence, 10) == id[37:]
 }
 func syncExportDirectory(dir string) error {
-	file, e := os.Open(dir)
+	file, e := fileaccess.Open(dir)
 	if e != nil {
 		return e
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 	return file.Sync()
 }
 func privateExportDirectory(dir string) error {

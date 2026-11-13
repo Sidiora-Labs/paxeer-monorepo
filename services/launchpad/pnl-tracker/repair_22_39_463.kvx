@@ -1,0 +1,48 @@
+[module]
+name = "PnL tracker"
+scope = "Position accounting, portfolio reads, share exports, referral rewards and chain journeys"
+
+[lint.errcheck]
+repair = "Cleanup calls acknowledge their return values; file reads and writes retain their existing error paths."
+
+[lint.goconst]
+repair = "Repeated status, field, operation and format values use package constants with the same wire strings."
+
+[lint.goimports]
+repair = "Imports are grouped and ordered consistently in the Go sources."
+
+[lint.gosec]
+repair = "File access resolves within a parent directory; conversions validate source bounds; JSON responses retain their application/json wire bytes."
+
+[lint.ineffassign]
+repair = "Measurement cancellation follows the bounded context state without unused assignments."
+
+[lint.prealloc]
+repair = "Portfolio cursor encoding reserves the complete signed token capacity."
+
+[lint.staticcheck]
+repair = "Runtime branches, HTTP status values and character predicates use explicit checked forms."
+
+[comment.1]
+line = "internal/production/l17/storage.go:374"
+reason = "The cursor offset keeps its validated signed wire representation."
+
+[comment.2]
+line = "internal/production/l17/storage.go:375"
+reason = "The cursor page limit fits the validated byte-sized wire field."
+
+[comment.3]
+line = "internal/production/l17/storage.go:411"
+reason = "The cursor expiry is bounded before conversion to signed time."
+
+[comment.4]
+line = "internal/production/l18/authority.go:354"
+reason = "The chain timestamp is bounded before conversion to signed time."
+
+[comment.5]
+line = "internal/production/l18/http.go:131"
+reason = "The response is JSON under the application/json content type."
+
+[comment.6]
+line = "internal/referral/production.go:301"
+reason = "The response is JSON under the application/json content type."

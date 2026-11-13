@@ -26,7 +26,7 @@ use layerx_bridge_relayer::attestation::{
     assemble_signatures, ethereum_address, recover_signer, uint256_from_u64, InboundAttestation,
     SignatureError,
 };
-use layerx_bridge_relayer::config::RelayerConfig;
+use layerx_bridge_relayer::config::{RelayerConfig, ATTESTOR_SET_SIZE, ATTESTOR_THRESHOLD};
 use layerx_bridge_relayer::cosign::transport::{spki_pin, ENABLE_VARIABLE};
 use layerx_bridge_relayer::cosign::transport::{DestinationPolicy, OperatorInventory, Transport};
 use layerx_bridge_relayer::cosign::CosignDirectory;
@@ -71,13 +71,10 @@ fn declared_quorum() -> (usize, usize) {
     let threshold = document["threshold"]
         .as_u64()
         .and_then(|value| usize::try_from(value).ok())
-        .unwrap_or_else(|| panic!("attestors.json has no threshold"));
+        .or_panic("attestors.json has no threshold");
     let members = document["attestors"].as_array().map_or(0, Vec::len);
-    assert!(
-        threshold >= 2 && threshold <= members,
-        "declared threshold {threshold} of {members}"
-    );
-    (members, threshold)
+    assert_eq!((members, threshold), (1, 1), "governed attestor set");
+    (ATTESTOR_SET_SIZE, usize::from(ATTESTOR_THRESHOLD))
 }
 
 fn wait_for(what: &str, mut done: impl FnMut() -> bool) {
@@ -97,51 +94,70 @@ fn free_port() -> u16 {
 }
 
 fn ec_key() -> PKey<Private> {
-    let group = EcGroup::from_curve_name(Nid::X9_62_PRIME256V1).unwrap();
-    PKey::from_ec_key(EcKey::generate(&group).unwrap()).unwrap()
+    let group = EcGroup::from_curve_name(Nid::X9_62_PRIME256V1).or_panic("expected Ok value");
+    PKey::from_ec_key(EcKey::generate(&group).or_panic("expected Ok value"))
+        .or_panic("expected Ok value")
 }
 
 fn certificate(name: &str, key: &PKey<Private>, issuer: Option<(&X509, &PKey<Private>)>) -> X509 {
-    let mut subject = X509Name::builder().unwrap();
-    subject.append_entry_by_text("CN", name).unwrap();
+    let mut subject = X509Name::builder().or_panic("expected Ok value");
+    subject
+        .append_entry_by_text("CN", name)
+        .or_panic("expected Ok value");
     let subject = subject.build();
-    let mut builder = X509::builder().unwrap();
-    builder.set_version(2).unwrap();
-    let mut serial = BigNum::new().unwrap();
-    serial.rand(64, MsbOption::MAYBE_ZERO, false).unwrap();
+    let mut builder = X509::builder().or_panic("expected Ok value");
+    builder.set_version(2).or_panic("expected Ok value");
+    let mut serial = BigNum::new().or_panic("expected Ok value");
+    serial
+        .rand(64, MsbOption::MAYBE_ZERO, false)
+        .or_panic("expected Ok value");
     builder
-        .set_serial_number(&serial.to_asn1_integer().unwrap())
-        .unwrap();
-    builder.set_subject_name(&subject).unwrap();
+        .set_serial_number(&serial.to_asn1_integer().or_panic("expected Ok value"))
+        .or_panic("expected Ok value");
     builder
-        .set_not_before(&Asn1Time::days_from_now(0).unwrap())
-        .unwrap();
+        .set_subject_name(&subject)
+        .or_panic("expected Ok value");
     builder
-        .set_not_after(&Asn1Time::days_from_now(1).unwrap())
-        .unwrap();
-    builder.set_pubkey(key).unwrap();
+        .set_not_before(&Asn1Time::days_from_now(0).or_panic("expected Ok value"))
+        .or_panic("expected Ok value");
+    builder
+        .set_not_after(&Asn1Time::days_from_now(1).or_panic("expected Ok value"))
+        .or_panic("expected Ok value");
+    builder.set_pubkey(key).or_panic("expected Ok value");
     if let Some((ca, ca_key)) = issuer {
-        builder.set_issuer_name(ca.subject_name()).unwrap();
+        builder
+            .set_issuer_name(ca.subject_name())
+            .or_panic("expected Ok value");
         let san = SubjectAlternativeName::new()
             .dns(name)
             .build(&builder.x509v3_context(Some(ca), None))
-            .unwrap();
-        builder.append_extension(san).unwrap();
+            .or_panic("expected Ok value");
+        builder.append_extension(san).or_panic("expected Ok value");
         builder
             .append_extension(
                 ExtendedKeyUsage::new()
                     .server_auth()
                     .client_auth()
                     .build()
-                    .unwrap(),
+                    .or_panic("expected Ok value"),
             )
-            .unwrap();
-        builder.sign(ca_key, MessageDigest::sha256()).unwrap();
-    } else {
-        builder.set_issuer_name(&subject).unwrap();
+            .or_panic("expected Ok value");
         builder
-            .append_extension(BasicConstraints::new().critical().ca().build().unwrap())
-            .unwrap();
+            .sign(ca_key, MessageDigest::sha256())
+            .or_panic("expected Ok value");
+    } else {
+        builder
+            .set_issuer_name(&subject)
+            .or_panic("expected Ok value");
+        builder
+            .append_extension(
+                BasicConstraints::new()
+                    .critical()
+                    .ca()
+                    .build()
+                    .or_panic("expected Ok value"),
+            )
+            .or_panic("expected Ok value");
         builder
             .append_extension(
                 KeyUsage::new()
@@ -149,10 +165,12 @@ fn certificate(name: &str, key: &PKey<Private>, issuer: Option<(&X509, &PKey<Pri
                     .key_cert_sign()
                     .crl_sign()
                     .build()
-                    .unwrap(),
+                    .or_panic("expected Ok value"),
             )
-            .unwrap();
-        builder.sign(key, MessageDigest::sha256()).unwrap();
+            .or_panic("expected Ok value");
+        builder
+            .sign(key, MessageDigest::sha256())
+            .or_panic("expected Ok value");
     }
     builder.build()
 }
@@ -169,7 +187,7 @@ impl Ca {
         let key = ec_key();
         let cert = certificate("operator-test-ca", &key, None);
         let path = root.join("ca.pem");
-        fs::write(&path, cert.to_pem().unwrap()).unwrap();
+        fs::write(&path, cert.to_pem().or_panic("expected Ok value")).or_panic("expected Ok value");
         Self { cert, key, path }
     }
 }
@@ -228,11 +246,7 @@ impl Operator {
         let domain = |domain: &'static [u8]| {
             std::str::from_utf8(domain).unwrap_or_else(|_| panic!("domain"))
         };
-        let path = |path: &Path| {
-            path.to_str()
-                .unwrap_or_else(|| panic!("key path"))
-                .to_owned()
-        };
+        let path = |path: &Path| path.to_str().or_panic("key path").to_owned();
         let manifest = serde_json::json!({"keys": [{
             "handle": HANDLE,
             "algorithm": "secp256k1",
@@ -255,10 +269,19 @@ impl Operator {
         let tls = certificate(&name, &tls_key_pair, Some((&ca.cert, &ca.key)));
         let tls_cert = secrets.join("certificate.pem");
         let tls_key = secrets.join("private-key.pem");
-        fs::write(&tls_cert, tls.to_pem().unwrap()).unwrap();
-        fs::write(&tls_key, tls_key_pair.private_key_to_pem_pkcs8().unwrap()).unwrap();
-        fs::set_permissions(&tls_key, fs::Permissions::from_mode(0o400)).unwrap();
-        fs::set_permissions(&tls_cert, fs::Permissions::from_mode(0o400)).unwrap();
+        fs::write(&tls_cert, tls.to_pem().or_panic("expected Ok value"))
+            .or_panic("expected Ok value");
+        fs::write(
+            &tls_key,
+            tls_key_pair
+                .private_key_to_pem_pkcs8()
+                .or_panic("expected Ok value"),
+        )
+        .or_panic("expected Ok value");
+        fs::set_permissions(&tls_key, fs::Permissions::from_mode(0o400))
+            .or_panic("expected Ok value");
+        fs::set_permissions(&tls_cert, fs::Permissions::from_mode(0o400))
+            .or_panic("expected Ok value");
         let socket = home.join("signer.sock");
         let mut operator = Self {
             name,
@@ -274,7 +297,7 @@ impl Operator {
             port: free_port(),
             tls_key,
             tls_cert,
-            pin: spki_pin(&tls).unwrap(),
+            pin: spki_pin(&tls).or_panic("expected Ok value"),
             child: None,
             transport: None,
         };
@@ -335,7 +358,12 @@ impl Operator {
         let started = Instant::now();
         while !self.socket.exists() {
             assert!(
-                self.child.as_mut().unwrap().try_wait().unwrap().is_none(),
+                self.child
+                    .as_mut()
+                    .or_panic("expected Some value")
+                    .try_wait()
+                    .or_panic("expected Ok value")
+                    .is_none(),
                 "bridge signer exited before binding {}",
                 self.socket.display()
             );
@@ -409,12 +437,11 @@ impl Operator {
             public_key: fixture_public_key(key),
             timeout: Duration::from_secs(5),
         })
-        .unwrap_or_else(|error| panic!("remote signer: {error:?}"))
+        .or_panic("remote signer")
     }
 
     fn attestor(&self) -> Attestor {
-        Attestor::new(self.remote(HANDLE, &self.key))
-            .unwrap_or_else(|error| panic!("attestor: {error:?}"))
+        Attestor::new(self.remote(HANDLE, &self.key)).or_panic("attestor")
     }
 
     fn address(&self) -> [u8; 20] {
@@ -441,7 +468,7 @@ impl Operator {
         let attestor = self.attestor();
         assert_eq!(attestor.address(), self.address());
         let mut journal = Journal::open(&self.home.join("journal/relay.jsonl"))
-            .expect("independent production journal");
+            .or_panic("independent production journal");
         let observation = Observation::inbound(
             attestation,
             Position {
@@ -456,32 +483,31 @@ impl Operator {
                     item: item.clone(),
                     observation,
                 })
-                .expect("durable observed item");
+                .or_panic("durable observed item");
         }
         assert_eq!(journal.state().items[&item].observation, observation);
         assert!(
             journal.state().items[&item].is_open(),
             "completed journal item does not republish"
         );
-        let signature = match journal.state().items[&item].signature {
-            Some(signature) => signature,
-            None => {
-                let signature = attestor
-                    .sign_inbound(attestation)
-                    .unwrap_or_else(|error| panic!("sign: {error:?}"));
-                journal
-                    .append(&Entry::Signed {
-                        item: item.clone(),
-                        signature,
-                    })
-                    .expect("signature persisted before publication");
-                signature
-            }
+        let signature = if let Some(signature) = journal.state().items[&item].signature {
+            signature
+        } else {
+            let signature = attestor.sign_inbound(attestation).or_panic("sign");
+            journal
+                .append(&Entry::Signed {
+                    item: item.clone(),
+                    signature,
+                })
+                .unwrap_or_else(|error| {
+                    panic!("signature persisted before publication: {error:?}")
+                });
+            signature
         };
         assert!(journal.state().items[&item].submissions.is_empty());
         self.directory()
             .publish(&attestation.digest(), &attestor.address(), &signature)
-            .unwrap_or_else(|error| panic!("publish: {error:?}"));
+            .or_panic("publish");
         signature
     }
 }
@@ -536,9 +562,59 @@ fn declared_cardinality_assembles_only_from_distinct_real_operator_shares() {
     let mut operators: Vec<Operator> = (0..=u8::try_from(size).unwrap_or(u8::MAX))
         .map(|index| Operator::new(&root, &ca, index))
         .collect();
-    let mut outsider = operators.pop().unwrap_or_else(|| panic!("outsider"));
+    let mut outsider = operators.pop().or_panic("outsider");
     let members: Vec<[u8; 20]> = operators.iter().map(Operator::address).collect();
-    let mut distinct = members.clone();
+    assert_operator_independence(&operators, &outsider, &members, size);
+
+    let wanted = attestation(7);
+    let digest = wanted.digest();
+
+    assert_fee_payers(&operators, &wanted);
+
+    start_operator_transports(&mut operators, &mut outsider, &ca, &root, threshold);
+
+    assert_below_quorum(&operators, &members, &wanted, &digest, threshold);
+
+    let outsider_share = assert_outsider_rejected(&operators, &outsider, &wanted, &digest);
+
+    assert_hostile_collections(
+        &operators,
+        &outsider,
+        &members,
+        &wanted,
+        &digest,
+        outsider_share,
+        threshold,
+    );
+
+    let assembled = restart_quorum(&mut operators, &members, &wanted, &digest, threshold);
+
+    assert_delivered_quorum(&mut operators, &members, &digest, threshold, &assembled);
+
+    assert_repeated_publication(
+        &mut operators,
+        &members,
+        &wanted,
+        &digest,
+        threshold,
+        &assembled,
+    );
+
+    journal_restart_and_terminal_boundaries(&operators, &wanted);
+
+    assert_private_storage(&operators, &outsider);
+
+    outsider.kill_transport();
+    drop(outsider);
+}
+
+fn assert_operator_independence(
+    operators: &[Operator],
+    outsider: &Operator,
+    members: &[[u8; 20]],
+    size: usize,
+) {
+    let mut distinct = members.to_vec();
     distinct.sort_unstable();
     distinct.dedup();
     assert_eq!(
@@ -569,61 +645,80 @@ fn declared_cardinality_assembles_only_from_distinct_real_operator_shares() {
             );
         }
     }
+}
 
-    let wanted = attestation(7);
-    let digest = wanted.digest();
-    let other = attestation(8);
-
+fn assert_fee_payers(operators: &[Operator], wanted: &InboundAttestation) {
     // The fee-payer handle never signs an attestation.
-    for operator in &operators {
+    for operator in operators {
         let fee_payer =
             Attestor::new(operator.remote(&operator.fee_payer_handle, &operator.fee_payer))
-                .unwrap_or_else(|error| panic!("fee payer: {error:?}"));
+                .or_panic("fee payer");
         assert!(
-            fee_payer.sign_inbound(&wanted).is_err(),
+            fee_payer.sign_inbound(wanted).is_err(),
             "{} fee payer refused attestation",
             operator.name
         );
     }
+}
 
+fn start_operator_transports(
+    operators: &mut [Operator],
+    outsider: &mut Operator,
+    ca: &Ca,
+    root: &Path,
+    threshold: usize,
+) {
     // Each member delivers to every other member; the outsider is pinned by nobody.
-    for operator in &operators {
+    for operator in &*operators {
         let peers: Vec<&Operator> = operators
             .iter()
             .filter(|peer| peer.name != operator.name)
             .collect();
-        operator.configure(&ca, &peers);
+        operator.configure(ca, &peers);
     }
-    let inputs = operator_inputs(&root, &operators);
+    let inputs = operator_inputs(root, operators, threshold);
     let inventory =
-        OperatorInventory::load(&inputs.inventory).expect("generated operator inventory");
+        OperatorInventory::load(&inputs.inventory).or_panic("generated operator inventory");
     for input in &inputs.operators {
         Transport::load(&input.transport_config)
-            .unwrap()
+            .or_panic("expected Ok value")
             .validate_operator(
                 &inventory,
-                &RelayerConfig::load(&input.relayer_config).unwrap(),
+                &RelayerConfig::load(&input.relayer_config).or_panic("expected Ok value"),
             )
-            .expect("generated signer and transport belong to the in-test inventory");
+            .unwrap_or_else(|error| {
+                panic!(
+                    "{}: {error:?}",
+                    "generated signer and transport belong to the in-test inventory"
+                )
+            });
     }
-    outsider.configure(&ca, &operators.iter().collect::<Vec<_>>());
-    for operator in &mut operators {
+    outsider.configure(ca, &operators.iter().collect::<Vec<_>>());
+    for operator in operators.iter_mut() {
         operator.start_transport();
     }
     outsider.start_transport();
-    hostile_transport_deliveries(&operators[0], &operators[1], &outsider);
+    hostile_transport_deliveries(&operators[0], &operators[1], outsider);
+}
 
+fn assert_below_quorum(
+    operators: &[Operator],
+    members: &[[u8; 20]],
+    wanted: &InboundAttestation,
+    digest: &[u8; 32],
+    threshold: usize,
+) {
     // Below the threshold every operator's own collection keeps waiting and
     // never yields a partial set, once the transport delivered every share.
     for operator in &operators[..threshold - 1] {
-        operator.publish(&wanted);
+        operator.publish(wanted);
     }
     for signer in &members[..threshold - 1] {
-        wait_delivered(&operators.iter().collect::<Vec<_>>(), &digest, signer);
+        wait_delivered(&operators.iter().collect::<Vec<_>>(), digest, signer);
     }
-    for operator in &operators {
+    for operator in operators {
         assert_eq!(
-            assemble_signatures(&digest, operator.collect(&digest), &members, threshold),
+            assemble_signatures(digest, operator.collect(digest), members, threshold),
             Err(SignatureError::BelowThreshold {
                 signatures: threshold - 1,
                 threshold
@@ -632,12 +727,19 @@ fn declared_cardinality_assembles_only_from_distinct_real_operator_shares() {
             operator.name
         );
     }
+}
 
+fn assert_outsider_rejected(
+    operators: &[Operator],
+    outsider: &Operator,
+    wanted: &InboundAttestation,
+    digest: &[u8; 32],
+) -> [u8; 65] {
     // An unknown signer's valid share is refused by every operator's transport.
-    let outsider_share = outsider.publish(&wanted);
+    let outsider_share = outsider.publish(wanted);
     let outsider_pending =
         |peer: &Operator| format!("delivery to {} pending", hex::prefixed(&peer.address()));
-    for operator in &operators {
+    for operator in operators {
         wait_for(&format!("{} refusing the outsider", operator.name), || {
             operator
                 .transport_log()
@@ -647,7 +749,7 @@ fn declared_cardinality_assembles_only_from_distinct_real_operator_shares() {
                     .contains(&outsider_pending(operator))
         });
         assert!(
-            !operator.holds(&digest, &outsider.address()),
+            !operator.holds(digest, &outsider.address()),
             "{} refused the outsider's share",
             operator.name
         );
@@ -661,17 +763,30 @@ fn declared_cardinality_assembles_only_from_distinct_real_operator_shares() {
         "no operator acknowledged the outsider"
     );
 
+    outsider_share
+}
+
+fn assert_hostile_collections(
+    operators: &[Operator],
+    outsider: &Operator,
+    members: &[[u8; 20]],
+    wanted: &InboundAttestation,
+    digest: &[u8; 32],
+    outsider_share: [u8; 65],
+    threshold: usize,
+) {
     // Hostile entries in one operator's collection: the outsider's valid share,
     // a member's share over another digest, a duplicate under another spelling,
     // malformed, misnamed and oversized entries.
+    let other = attestation(8);
     let target = &operators[threshold];
-    let directory = digest_directory(&target.cosign, &digest);
+    let directory = digest_directory(&target.cosign, digest);
     let unknown = directory.join(format!("{}.sig", hex::encode(&outsider.address())));
     fs::write(&unknown, hex::prefixed(&outsider_share))
         .unwrap_or_else(|error| panic!("unknown share: {error}"));
-    assert_eq!(target.collect(&digest).len(), threshold);
+    assert_eq!(target.collect(digest).len(), threshold);
     assert_eq!(
-        assemble_signatures(&digest, target.collect(&digest), &members, threshold),
+        assemble_signatures(digest, target.collect(digest), members, threshold),
         Err(SignatureError::BelowThreshold {
             signatures: threshold - 1,
             threshold
@@ -698,7 +813,7 @@ fn declared_cardinality_assembles_only_from_distinct_real_operator_shares() {
         ),
         (directory.join("garbage.sig"), first_share),
         (
-            directory.join(format!("{}.sig", hex::encode(&members[size - 1]))),
+            directory.join(format!("{}.sig", hex::encode(&members[members.len() - 1]))),
             "x".repeat(4096),
         ),
     ];
@@ -706,7 +821,7 @@ fn declared_cardinality_assembles_only_from_distinct_real_operator_shares() {
         fs::write(path, text).unwrap_or_else(|error| panic!("hostile share: {error}"));
     }
     assert_eq!(
-        assemble_signatures(&digest, target.collect(&digest), &members, threshold),
+        assemble_signatures(digest, target.collect(digest), members, threshold),
         Err(SignatureError::BelowThreshold {
             signatures: threshold - 1,
             threshold
@@ -718,32 +833,40 @@ fn declared_cardinality_assembles_only_from_distinct_real_operator_shares() {
     }
 
     // Republishing an already delivered member leaves every waiting set exactly.
-    operators[1].publish(&wanted);
-    for operator in &operators {
+    operators[1].publish(wanted);
+    for operator in operators {
         assert_eq!(
-            assemble_signatures(&digest, operator.collect(&digest), &members, threshold),
+            assemble_signatures(digest, operator.collect(digest), members, threshold),
             Err(SignatureError::BelowThreshold {
                 signatures: threshold - 1,
                 threshold
             })
         );
     }
+}
 
+fn restart_quorum(
+    operators: &mut [Operator],
+    members: &[[u8; 20]],
+    wanted: &InboundAttestation,
+    digest: &[u8; 32],
+    threshold: usize,
+) -> Vec<[u8; 65]> {
     // The last quorum operator dies, signer and transport, while another
     // operator's transport is down; the restarted operator completes the
     // quorum, every share published before the restart is preserved, and the
     // stopped operator reaches the threshold only once delivery resumes.
-    let late = size - 1;
+    let late = members.len() - 1;
     let before: Vec<Vec<[u8; 65]>> = operators
         .iter()
-        .map(|operator| operator.collect(&digest))
+        .map(|operator| operator.collect(digest))
         .collect();
     operators[threshold - 1].kill_transport();
     operators[threshold - 1].kill();
     assert!(
         operators[threshold - 1]
             .attestor()
-            .sign_inbound(&wanted)
+            .sign_inbound(wanted)
             .is_err(),
         "a dead signer process produces no share"
     );
@@ -754,43 +877,53 @@ fn declared_cardinality_assembles_only_from_distinct_real_operator_shares() {
     for (operator, shares) in operators.iter().zip(&before) {
         for share in shares {
             assert!(
-                operator.collect(&digest).contains(share),
+                operator.collect(digest).contains(share),
                 "restart preserves published shares"
             );
         }
     }
-    operators[threshold - 1].publish(&wanted);
+    operators[threshold - 1].publish(wanted);
     let completing = members[threshold - 1];
     let reached: Vec<&Operator> = operators
         .iter()
         .filter(|operator| operator.name != operators[late].name)
         .collect();
-    wait_delivered(&reached, &digest, &completing);
+    wait_delivered(&reached, digest, &completing);
     let late_pending = format!("delivery to {} pending", hex::prefixed(&members[late]));
     wait_for("delivery to the stopped operator pending", || {
         operators[threshold - 1].transport_log()[offset..].contains(&late_pending)
     });
     assert_eq!(
-        assemble_signatures(
-            &digest,
-            operators[late].collect(&digest),
-            &members,
-            threshold
-        ),
+        assemble_signatures(digest, operators[late].collect(digest), members, threshold),
         Err(SignatureError::BelowThreshold {
             signatures: threshold - 1,
             threshold
         }),
         "an operator not yet reached by delivery keeps waiting"
     );
-    let assembled =
-        assemble_signatures(&digest, operators[0].collect(&digest), &members, threshold)
-            .unwrap_or_else(|error| panic!("quorum: {error:?}"));
+    let assembled = assemble_signatures(digest, operators[0].collect(digest), members, threshold)
+        .or_panic("quorum");
     assert_eq!(assembled.len(), threshold);
+    assembled
+}
+
+fn assert_delivered_quorum(
+    operators: &mut [Operator],
+    members: &[[u8; 20]],
+    digest: &[u8; 32],
+    threshold: usize,
+    assembled: &[[u8; 65]],
+) {
+    let late = members.len() - 1;
+    let completing = members[threshold - 1];
+    let reached: Vec<&Operator> = operators
+        .iter()
+        .filter(|operator| operator.name != operators[late].name)
+        .collect();
     let signers: Vec<[u8; 20]> = assembled
         .iter()
         .map(|signature| {
-            recover_signer(&digest, signature).unwrap_or_else(|error| panic!("{error:?}"))
+            recover_signer(digest, signature).unwrap_or_else(|error| panic!("{error:?}"))
         })
         .collect();
     assert!(
@@ -800,24 +933,28 @@ fn declared_cardinality_assembles_only_from_distinct_real_operator_shares() {
     assert!(signers.iter().all(|signer| members.contains(signer)));
     for operator in &reached {
         assert_eq!(
-            assemble_signatures(&digest, operator.collect(&digest), &members, threshold),
-            Ok(assembled.clone()),
+            assemble_signatures(digest, operator.collect(digest), members, threshold),
+            Ok(assembled.to_vec()),
             "{} assembles the same authorization",
             operator.name
         );
     }
     operators[late].start_transport();
-    wait_delivered(&[&operators[late]], &digest, &completing);
+    wait_delivered(&[&operators[late]], digest, &completing);
     assert_eq!(
-        assemble_signatures(
-            &digest,
-            operators[late].collect(&digest),
-            &members,
-            threshold
-        ),
-        Ok(assembled.clone())
+        assemble_signatures(digest, operators[late].collect(digest), members, threshold),
+        Ok(assembled.to_vec())
     );
+}
 
+fn assert_repeated_publication(
+    operators: &mut [Operator],
+    members: &[[u8; 20]],
+    wanted: &InboundAttestation,
+    digest: &[u8; 32],
+    threshold: usize,
+    assembled: &[[u8; 65]],
+) {
     // Repeated publication: every quorum operator republishing after a
     // restart yields the identical authorization at every operator, never a
     // second or larger set.
@@ -826,12 +963,12 @@ fn declared_cardinality_assembles_only_from_distinct_real_operator_shares() {
         operator.kill();
         operator.start();
         operator.start_transport();
-        operator.publish(&wanted);
+        operator.publish(wanted);
     }
-    for operator in &operators {
+    for operator in &*operators {
         assert_eq!(
-            assemble_signatures(&digest, operator.collect(&digest), &members, threshold),
-            Ok(assembled.clone()),
+            assemble_signatures(digest, operator.collect(digest), members, threshold),
+            Ok(assembled.to_vec()),
             "{} keeps the identical authorization",
             operator.name
         );
@@ -839,26 +976,26 @@ fn declared_cardinality_assembles_only_from_distinct_real_operator_shares() {
     // Every remaining member cosigns too; each operator still assembles
     // exactly one threshold-sized set of distinct members.
     for operator in &operators[threshold..] {
-        operator.publish(&wanted);
+        operator.publish(wanted);
     }
-    for signer in &members {
-        wait_delivered(&operators.iter().collect::<Vec<_>>(), &digest, signer);
+    for signer in members {
+        wait_delivered(&operators.iter().collect::<Vec<_>>(), digest, signer);
     }
-    let complete = assemble_signatures(&digest, operators[0].collect(&digest), &members, threshold)
-        .unwrap_or_else(|error| panic!("complete quorum: {error:?}"));
+    let complete = assemble_signatures(digest, operators[0].collect(digest), members, threshold)
+        .or_panic("complete quorum");
     assert_eq!(complete.len(), threshold);
-    for operator in &operators {
+    for operator in &*operators {
         assert_eq!(
-            assemble_signatures(&digest, operator.collect(&digest), &members, threshold),
+            assemble_signatures(digest, operator.collect(digest), members, threshold),
             Ok(complete.clone())
         );
     }
+}
 
-    journal_restart_and_terminal_boundaries(&operators, &wanted);
-
+fn assert_private_storage(operators: &[Operator], outsider: &Operator) {
     // Private keys never enter any operator's cosign or delivery storage.
     let mut secrets = Vec::new();
-    for operator in operators.iter().chain(std::iter::once(&outsider)) {
+    for operator in operators.iter().chain(std::iter::once(outsider)) {
         secrets.push(hex::encode(&operator.key.to_bytes()[..]));
         secrets.push(hex::encode(&operator.fee_payer.to_bytes()[..]));
         let pem = fs::read_to_string(&operator.tls_key)
@@ -869,7 +1006,7 @@ fn declared_cardinality_assembles_only_from_distinct_real_operator_shares() {
                 .map(str::to_owned),
         );
     }
-    for operator in operators.iter().chain(std::iter::once(&outsider)) {
+    for operator in operators.iter().chain(std::iter::once(outsider)) {
         for entry in walk(&operator.cosign)
             .into_iter()
             .chain(walk(&operator.delivery))
@@ -885,8 +1022,6 @@ fn declared_cardinality_assembles_only_from_distinct_real_operator_shares() {
             }
         }
     }
-    outsider.kill_transport();
-    drop(outsider);
 }
 
 fn walk(directory: &Path) -> Vec<PathBuf> {
@@ -913,10 +1048,10 @@ fn journal_restart_and_terminal_boundaries(operators: &[Operator], wanted: &Inbo
     let item = observation.key();
     for operator in operators {
         let path = operator.home.join("journal/relay.jsonl");
-        let mut journal = Journal::open(&path).expect("reopen real operator journal");
+        let mut journal = Journal::open(&path).or_panic("reopen real operator journal");
         let state = journal.state().items[&item].clone();
         assert_eq!(state.observation, observation);
-        let signature = state.signature.expect("persisted own share");
+        let signature = state.signature.or_panic("persisted own share");
         assert_eq!(
             recover_signer(&wanted.digest(), &signature),
             Ok(operator.address())
@@ -937,11 +1072,11 @@ fn journal_restart_and_terminal_boundaries(operators: &[Operator], wanted: &Inbo
                 item: item.clone(),
                 completion: Completion::AlreadyBridged,
             })
-            .expect("journal terminal transition");
+            .or_panic("journal terminal transition");
         drop(journal);
-        let mut restarted = Journal::open(&path).expect("terminal state survives restart");
+        let mut restarted = Journal::open(&path).or_panic("terminal state survives restart");
         assert!(!restarted.state().items[&item].is_open());
-        let length = fs::metadata(&path).expect("journal metadata").len();
+        let length = fs::metadata(&path).or_panic("journal metadata").len();
         assert!(matches!(
             restarted.append(&Entry::Completed {
                 item: item.clone(),
@@ -949,7 +1084,10 @@ fn journal_restart_and_terminal_boundaries(operators: &[Operator], wanted: &Inbo
             }),
             Err(JournalError::Conflict(_))
         ));
-        assert_eq!(fs::metadata(&path).expect("journal metadata").len(), length);
+        assert_eq!(
+            fs::metadata(&path).or_panic("journal metadata").len(),
+            length
+        );
         assert_eq!(restarted.state().items[&item].signature, Some(signature));
         assert!(operator.collect(&wanted.digest()).contains(&signature));
     }
@@ -958,7 +1096,7 @@ fn journal_restart_and_terminal_boundaries(operators: &[Operator], wanted: &Inbo
 #[test]
 fn durable_publication_refuses_conflicts_and_concurrent_duplicates() {
     let root = fixture_directory("operator-cosign-publication");
-    fs::set_permissions(&root, fs::Permissions::from_mode(0o700)).unwrap();
+    fs::set_permissions(&root, fs::Permissions::from_mode(0o700)).or_panic("expected Ok value");
     let ca = Ca::new(&root);
     let operator = Operator::new(&root, &ca, 0);
     let wanted = attestation(701);
@@ -966,7 +1104,7 @@ fn durable_publication_refuses_conflicts_and_concurrent_duplicates() {
     let signature = operator
         .attestor()
         .sign_inbound(&wanted)
-        .expect("real signer share");
+        .or_panic("real signer share");
     let address = operator.address();
     let directory = operator.directory();
     std::thread::scope(|scope| {
@@ -975,7 +1113,7 @@ fn durable_publication_refuses_conflicts_and_concurrent_duplicates() {
             scope.spawn(move || {
                 directory
                     .publish(&digest, &address, &signature)
-                    .expect("concurrent immutable publication")
+                    .unwrap_or_else(|error| panic!("concurrent immutable publication: {error:?}"));
             });
         }
     });
@@ -986,36 +1124,43 @@ fn durable_publication_refuses_conflicts_and_concurrent_duplicates() {
     assert!(directory.admit(&digest, &[0; 20], &signature).is_err());
     let share =
         digest_directory(&operator.cosign, &digest).join(format!("{}.sig", hex::encode(&address)));
-    let original = fs::read(&share).expect("durable share");
+    let original = fs::read(&share).or_panic("durable share");
     assert_eq!(
-        fs::metadata(&share).unwrap().permissions().mode() & 0o077,
+        fs::metadata(&share)
+            .or_panic("expected Ok value")
+            .permissions()
+            .mode()
+            & 0o077,
         0
     );
     drop(directory);
     assert_eq!(operator.directory().collect(&digest), vec![signature]);
-    fs::write(&share, b"corrupted existing share").unwrap();
+    fs::write(&share, b"corrupted existing share").or_panic("expected Ok value");
     assert!(matches!(
         operator.directory().publish(&digest, &address, &signature),
         Err(JournalError::Conflict(_))
     ));
-    assert_eq!(fs::read(&share).unwrap(), b"corrupted existing share");
-    fs::remove_file(&share).unwrap();
+    assert_eq!(
+        fs::read(&share).or_panic("expected Ok value"),
+        b"corrupted existing share"
+    );
+    fs::remove_file(&share).or_panic("expected Ok value");
     operator
         .directory()
         .publish(&digest, &address, &signature)
-        .unwrap();
-    assert_eq!(fs::read(&share).unwrap(), original);
+        .or_panic("expected Ok value");
+    assert_eq!(fs::read(&share).or_panic("expected Ok value"), original);
     let alias = digest_directory(&operator.cosign, &digest)
         .join(format!("{}.sig", hex::encode(&address).to_uppercase()));
     if alias != share {
-        std::os::unix::fs::symlink(&share, &alias).unwrap();
+        std::os::unix::fs::symlink(&share, &alias).or_panic("expected Ok value");
         assert_eq!(operator.directory().collect(&digest), vec![signature]);
     }
     assert!(
         fs::read_dir(digest_directory(&operator.cosign, &digest))
-            .unwrap()
+            .or_panic("expected Ok value")
             .all(|entry| !entry
-                .unwrap()
+                .or_panic("expected Ok value")
                 .file_name()
                 .to_string_lossy()
                 .starts_with('.')),
@@ -1041,13 +1186,13 @@ fn supplied_paxeer_endpoints_build_a_relayer_rpc() {
     let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../../../services/bridge/deploy/relayer-solana.example.json");
     let mut value: serde_json::Value =
-        serde_json::from_slice(&fs::read(fixture).expect("read relayer fixture config"))
-            .expect("relayer fixture JSON");
+        serde_json::from_slice(&fs::read(fixture).or_panic("read relayer fixture config"))
+            .or_panic("relayer fixture JSON");
     let root = fixture_directory("supplied-paxeer-endpoints");
     let ca = Ca::new(&root);
-    let der = ca.cert.to_der().expect("Paxeer trust anchor DER");
+    let der = ca.cert.to_der().or_panic("Paxeer trust anchor DER");
     let anchor = root.join("paxeer-ca.der");
-    fs::write(&anchor, &der).expect("write Paxeer trust anchor");
+    fs::write(&anchor, &der).or_panic("write Paxeer trust anchor");
     value["paxeer"]["receipt_keys"] = serde_json::json!([{
         "sequencer_id": hex::prefixed(&[1; 32]),
         "public_key": hex::prefixed(&[2; 32]),
@@ -1071,13 +1216,13 @@ fn supplied_paxeer_endpoints_build_a_relayer_rpc() {
     let path = root.join("relayer.json");
     fs::write(
         &path,
-        serde_json::to_vec(&value).expect("relayer config JSON"),
+        serde_json::to_vec(&value).or_panic("relayer config JSON"),
     )
-    .expect("write relayer config");
-    let relayer = RelayerConfig::load(&path).expect("load supplied relayer config");
+    .or_panic("write relayer config");
+    let relayer = RelayerConfig::load(&path).or_panic("load supplied relayer config");
     let endpoints = relayer
         .paxeer_endpoints()
-        .expect("configured Paxeer endpoints");
+        .or_panic("configured Paxeer endpoints");
     assert_eq!(endpoints.len(), 2);
     for (endpoint, configured) in endpoints.iter().zip(&relayer.paxeer.endpoints) {
         assert_eq!(endpoint.url, configured.url);
@@ -1096,46 +1241,56 @@ fn supplied_paxeer_endpoints_build_a_relayer_rpc() {
         relayer.paxeer_rpc().is_ok(),
         "configured Paxeer RPC adapter"
     );
-    fs::remove_dir_all(root).expect("remove endpoint config fixture");
+    fs::remove_dir_all(root).or_panic("remove endpoint config fixture");
 }
 
-fn operator_inputs(root: &Path, operators: &[Operator]) -> SuppliedInputs {
-    let (_, threshold) = declared_quorum();
+fn operator_credentials(root: &Path) -> (PathBuf, PathBuf) {
+    let ca_der = root.join("ca.der");
+    fs::write(
+        &ca_der,
+        X509::from_pem(&fs::read(root.join("ca.pem")).or_panic("expected Ok value"))
+            .or_panic("expected Ok value")
+            .to_der()
+            .or_panic("expected Ok value"),
+    )
+    .or_panic("expected Ok value");
+    let token = root.join("rpc.token");
+    fs::write(&token, "operator-contract-rpc-token").or_panic("expected Ok value");
+    fs::set_permissions(&token, fs::Permissions::from_mode(0o600)).or_panic("expected Ok value");
+    (ca_der, token)
+}
+
+fn operator_inputs(root: &Path, operators: &[Operator], threshold: usize) -> SuppliedInputs {
     let mut members: Vec<_> = operators
         .iter()
         .map(|operator| hex::prefixed(&operator.address()))
         .collect();
     members.sort();
-    let ca_der = root.join("ca.der");
-    fs::write(
-        &ca_der,
-        X509::from_pem(&fs::read(root.join("ca.pem")).unwrap())
-            .unwrap()
-            .to_der()
-            .unwrap(),
-    )
-    .unwrap();
-    let token = root.join("rpc.token");
-    fs::write(&token, "operator-contract-rpc-token").unwrap();
-    fs::set_permissions(&token, fs::Permissions::from_mode(0o600)).unwrap();
+    let (ca_der, token) = operator_credentials(root);
     let membership = root.join("membership.json");
     fs::write(
         &membership,
         serde_json::json!({"attestors": members, "threshold": threshold}).to_string(),
     )
-    .unwrap();
+    .or_panic("expected Ok value");
     let mut records = Vec::new();
     let mut inputs = Vec::new();
     for (index, operator) in operators.iter().enumerate() {
-        let ethereum_key = fixture_key(0x80 + u8::try_from(index).unwrap());
+        let ethereum_key = fixture_key(0x80 + u8::try_from(index).or_panic("expected Ok value"));
         let ethereum_handle = format!("ethereum-fee-payer-{index}");
         let mut relayer: serde_json::Value = serde_json::from_str(include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/../../../../services/bridge/deploy/relayer-solana.example.json"
         )))
-        .unwrap();
-        relayer.as_object_mut().unwrap().remove("solana");
-        relayer["chains"].as_array_mut().unwrap().truncate(1);
+        .or_panic("expected Ok value");
+        relayer
+            .as_object_mut()
+            .or_panic("expected Some value")
+            .remove("solana");
+        relayer["chains"]
+            .as_array_mut()
+            .or_panic("expected Some value")
+            .truncate(1);
         relayer["journal_path"] = serde_json::json!(operator.home.join("journal/relay.jsonl"));
         relayer["cosign_directory"] = serde_json::json!(operator.cosign);
         relayer["signer"]["endpoint"] =
@@ -1146,7 +1301,7 @@ fn operator_inputs(root: &Path, operators: &[Operator]) -> SuppliedInputs {
         relayer["paxeer"]["endpoints"] = serde_json::json!([{"url": "http://127.0.0.1:8545", "local_emulator": true, "request_timeout_ms": 2000}]);
         for endpoint in relayer["chains"][0]["rpc"]["endpoints"]
             .as_array_mut()
-            .unwrap()
+            .or_panic("expected Some value")
         {
             endpoint["ca_certificate_der"] = serde_json::json!(ca_der);
             endpoint["bearer_token_file"] = serde_json::json!(token);
@@ -1156,9 +1311,9 @@ fn operator_inputs(root: &Path, operators: &[Operator]) -> SuppliedInputs {
         relayer["chains"][0]["vault"] = serde_json::json!(hex::prefixed(&[0x11; 20]));
         relayer["chains"][0]["submitter"] = serde_json::json!({"handle": ethereum_handle, "public_key": hex::prefixed(&fixture_public_key(&ethereum_key))});
         let relayer_config = operator.home.join("relayer.json");
-        fs::write(&relayer_config, relayer.to_string()).unwrap();
+        fs::write(&relayer_config, relayer.to_string()).or_panic("expected Ok value");
         records.push(serde_json::json!({
-            "instance": operator.name, "storage": operator.home.to_str().unwrap(),
+            "instance": operator.name, "storage": operator.home.to_str().or_panic("expected Some value"),
             "attestor": hex::prefixed(&operator.address()), "signer_handle": HANDLE,
             "signer_public_key": hex::prefixed(&fixture_public_key(&operator.key)),
             "journal_path": operator.home.join("journal/relay.jsonl"), "cosign_directory": operator.cosign,
@@ -1181,7 +1336,7 @@ fn operator_inputs(root: &Path, operators: &[Operator]) -> SuppliedInputs {
             {"chain_id": 125, "vault": hex::prefixed(&layerx_bridge_relayer::abi::LAYERX_BRIDGE_PRECOMPILE), "attestors": members, "threshold": threshold, "observed_block_hash": hex::prefixed(&[0x12; 32])},
             {"chain_id": 1, "vault": hex::prefixed(&[0x11; 20]), "attestors": members, "threshold": threshold, "observed_block_hash": hex::prefixed(&[0x13; 32])}
         ]
-    }).to_string()).unwrap();
+    }).to_string()).or_panic("expected Ok value");
     SuppliedInputs {
         inventory,
         operators: inputs,
@@ -1201,7 +1356,9 @@ fn recorded_operator_policies(
         let addresses: Vec<u8> = policy
             .attestors
             .iter()
-            .flat_map(|address| abi::address_word(&hex::fixed::<20>(address).unwrap()))
+            .flat_map(|address| {
+                abi::address_word(&hex::fixed::<20>(address).or_panic("expected Ok value"))
+            })
             .collect();
         let list: Vec<u8> = [
             word(32),
@@ -1247,16 +1404,16 @@ fn recorded_operator_policies(
         endpoints.insert(policy.chain_id.to_string(), json!({"*": rules}));
     }
     let path = root.join("policies.json");
-    fs::write(&path, json!({"endpoints": endpoints}).to_string()).unwrap();
-    support::Recording::load(path.to_str().unwrap())
+    fs::write(&path, json!({"endpoints": endpoints}).to_string()).or_panic("expected Ok value");
+    support::Recording::load(path.to_str().or_panic("expected Some value"))
 }
 
 #[test]
 fn supplied_operator_inventory_matches_registered_bridge_configuration() {
     let root = fixture_directory("operator-inventory");
     let ca = Ca::new(&root);
-    let (size, _) = declared_quorum();
-    let operators: Vec<_> = (0..u8::try_from(size).unwrap())
+    let (size, threshold) = declared_quorum();
+    let operators: Vec<_> = (0..u8::try_from(size).or_panic("expected Ok value"))
         .map(|index| Operator::new(&root, &ca, index))
         .collect();
     for operator in &operators {
@@ -1268,10 +1425,9 @@ fn supplied_operator_inventory_matches_registered_bridge_configuration() {
                 .collect::<Vec<_>>(),
         );
     }
-    let inputs = operator_inputs(&root, &operators);
+    let inputs = operator_inputs(&root, &operators, threshold);
     let inventory =
-        OperatorInventory::load(&inputs.inventory).expect("genuine approved bridge inventory");
-    let (size, threshold) = declared_quorum();
+        OperatorInventory::load(&inputs.inventory).or_panic("genuine approved bridge inventory");
     assert_eq!(
         inventory.operators.len(),
         size,
@@ -1286,13 +1442,21 @@ fn supplied_operator_inventory_matches_registered_bridge_configuration() {
     let mut relayers = Vec::new();
     for operator in &inputs.operators {
         assert!(operator.transport_config.is_absolute() && operator.relayer_config.is_absolute());
-        let transport = Transport::load(&operator.transport_config)
-            .expect("actual production TLS transport configuration");
+        let transport = Transport::load(&operator.transport_config).unwrap_or_else(|error| {
+            panic!(
+                "{}: {error:?}",
+                "actual production TLS transport configuration"
+            )
+        });
         let relayer = RelayerConfig::load(&operator.relayer_config)
-            .expect("actual production relayer configuration");
-        transport.validate_operator(&inventory, &relayer).expect(
+            .unwrap_or_else(|error| panic!("actual production relayer configuration: {error:?}"));
+        transport
+            .validate_operator(&inventory, &relayer)
+            .unwrap_or_else(|error| {
+                panic!("{}: {error:?}",
             "operator conforms to approved roster, independent handles and journal ownership",
-        );
+        )
+            });
         assert!(
             observed.insert(transport.attestor),
             "duplicate supplied operator"
@@ -1302,96 +1466,110 @@ fn supplied_operator_inventory_matches_registered_bridge_configuration() {
     let relayer = &relayers[0];
     let endpoints = relayer
         .paxeer_endpoints()
-        .expect("production Paxeer RPC endpoints");
-    let _paxeer_transport = PaxeerRpc::new(endpoints).expect("production Paxeer RPC adapter");
+        .or_panic("production Paxeer RPC endpoints");
+    let _paxeer_transport = PaxeerRpc::new(endpoints).or_panic("production Paxeer RPC adapter");
     let recording = recorded_operator_policies(&root, &inventory, relayer);
     let paxeer = recording.endpoint(&relayer.paxeer.chain_id.to_string());
     let policy = inventory
         .destinations
         .iter()
         .find(|policy| policy.chain_id == relayer.paxeer.chain_id)
-        .expect("Paxeer policy");
+        .or_panic("Paxeer policy");
     verify_registered_evm_policy(paxeer.as_ref(), policy, true);
     for chain in &relayer.chains {
-        let _quorum = RpcCluster::new(&chain.rpc).expect("production destination quorum RPC");
+        let _quorum = RpcCluster::new(&chain.rpc).or_panic("production destination quorum RPC");
         let rpc = recording.endpoint(&chain.chain_id.to_string());
         let policy = inventory
             .destinations
             .iter()
             .find(|policy| policy.chain_id == chain.chain_id)
-            .expect("destination policy");
+            .or_panic("destination policy");
         verify_registered_evm_policy(rpc.as_ref(), policy, false);
         let registration = layerx_bridge_relayer::abi::decode_get_chain(&policy_call(
             paxeer.as_ref(),
             &layerx_bridge_relayer::abi::LAYERX_BRIDGE_PRECOMPILE,
             &layerx_bridge_relayer::abi::encode_get_chain(chain.chain_id),
         ))
-        .expect("native chain registration");
+        .or_panic("native chain registration");
         assert!(registration.registered && registration.enabled);
         assert_eq!(registration.vault, chain.vault);
         assert_eq!(registration.finality_depth, chain.finality_depth);
     }
     if let Some(config) = &relayer.solana {
-        use layerx_bridge_relayer::solana::{
-            base58_fixed,
-            release::{config_address, ConfigRecord},
-            rpc::SolanaRpc,
-        };
-        let settings = config.settings().expect("actual Solana settings");
-        let quorum = RpcCluster::new(&config.rpc).expect("production Solana quorum");
-        let rpc = SolanaRpc::new(Box::new(
-            RpcCluster::new(&config.rpc).expect("production Solana account adapter"),
-        ));
-        let slot = rpc
-            .get_slot(settings.commitment)
-            .expect("genuine Solana commitment slot");
-        let block = quorum.call("getBlock", serde_json::json!([slot, {"commitment": settings.commitment.as_str(), "transactionDetails": "none", "rewards": false, "maxSupportedTransactionVersion": 0}])).expect("genuine Solana policy block");
-        let hash = base58_fixed::<32>(block["blockhash"].as_str().expect("Solana blockhash"))
-            .expect("canonical blockhash");
-        let policy = inventory
-            .destinations
-            .iter()
-            .find(|policy| policy.chain_id == config.chain_id)
-            .expect("Solana policy inventory");
-        assert_eq!(
-            hash,
-            hex::fixed::<32>(&policy.observed_block_hash).expect("Solana observation hash")
-        );
-        let address = config_address(&settings.program_id).expect("production config PDA");
-        let account = rpc
-            .get_account_info(&address, settings.commitment)
-            .expect("genuine config PDA read")
-            .expect("registered config PDA");
-        assert_eq!(account.owner, settings.program_id);
-        assert!(!account.executable);
-        let current =
-            ConfigRecord::decode(&account.data).expect("canonical registered Solana policy");
-        assert!(!current.paused);
-        assert_eq!(usize::from(current.threshold), policy.threshold);
-        assert_eq!(
-            current.attestors,
-            policy
-                .attestors
-                .iter()
-                .map(|value| hex::fixed::<20>(value).expect("approved attestor"))
-                .collect::<Vec<_>>()
-        );
-        assert_eq!(
-            rpc.get_slot(settings.commitment)
-                .expect("stable Solana observation"),
-            slot
-        );
-        let registration = layerx_bridge_relayer::abi::decode_get_chain(&policy_call(
-            paxeer.as_ref(),
-            &layerx_bridge_relayer::abi::LAYERX_BRIDGE_PRECOMPILE,
-            &layerx_bridge_relayer::abi::encode_get_chain(config.chain_id),
-        ))
-        .expect("native Solana registration");
-        assert!(registration.registered && registration.enabled);
-        assert_eq!(registration.vault, config.vault);
+        verify_registered_solana_policy(config, &inventory, paxeer.as_ref());
     }
     let raw: serde_json::Value =
-        serde_json::from_slice(&fs::read(&inputs.inventory).expect("inventory bytes")).unwrap();
+        serde_json::from_slice(&fs::read(&inputs.inventory).or_panic("inventory bytes"))
+            .or_panic("expected Ok value");
+    assert_inventory_violations(&raw);
+}
+
+fn verify_registered_solana_policy(
+    config: &layerx_bridge_relayer::config::SolanaConfig,
+    inventory: &OperatorInventory,
+    paxeer: &dyn JsonRpc,
+) {
+    use layerx_bridge_relayer::solana::{
+        base58_fixed,
+        release::{config_address, ConfigRecord},
+        rpc::SolanaRpc,
+    };
+    let settings = config.settings().or_panic("actual Solana settings");
+    let quorum = RpcCluster::new(&config.rpc).or_panic("production Solana quorum");
+    let rpc = SolanaRpc::new(Box::new(
+        RpcCluster::new(&config.rpc)
+            .unwrap_or_else(|error| panic!("production Solana account adapter: {error:?}")),
+    ));
+    let slot = rpc
+        .get_slot(settings.commitment)
+        .or_panic("genuine Solana commitment slot");
+    let block = quorum.call("getBlock", serde_json::json!([slot, {"commitment": settings.commitment.as_str(), "transactionDetails": "none", "rewards": false, "maxSupportedTransactionVersion": 0}])).or_panic("genuine Solana policy block");
+    let hash = base58_fixed::<32>(block["blockhash"].as_str().or_panic("Solana blockhash"))
+        .or_panic("canonical blockhash");
+    let policy = inventory
+        .destinations
+        .iter()
+        .find(|policy| policy.chain_id == config.chain_id)
+        .or_panic("Solana policy inventory");
+    assert_eq!(
+        hash,
+        hex::fixed::<32>(&policy.observed_block_hash).or_panic("Solana observation hash")
+    );
+    let address = config_address(&settings.program_id).or_panic("production config PDA");
+    let account = rpc
+        .get_account_info(&address, settings.commitment)
+        .or_panic("genuine config PDA read")
+        .or_panic("registered config PDA");
+    assert_eq!(account.owner, settings.program_id);
+    assert!(!account.executable);
+    let current =
+        ConfigRecord::decode(&account.data).or_panic("canonical registered Solana policy");
+    assert!(!current.paused);
+    assert_eq!(usize::from(current.threshold), policy.threshold);
+    assert_eq!(
+        current.attestors,
+        policy
+            .attestors
+            .iter()
+            .map(|value| hex::fixed::<20>(value).or_panic("approved attestor"))
+            .collect::<Vec<_>>()
+    );
+    assert_eq!(
+        rpc.get_slot(settings.commitment)
+            .or_panic("stable Solana observation"),
+        slot
+    );
+    let registration = layerx_bridge_relayer::abi::decode_get_chain(&policy_call(
+        paxeer,
+        &layerx_bridge_relayer::abi::LAYERX_BRIDGE_PRECOMPILE,
+        &layerx_bridge_relayer::abi::encode_get_chain(config.chain_id),
+    ))
+    .or_panic("native Solana registration");
+    assert!(registration.registered && registration.enabled);
+    assert_eq!(registration.vault, config.vault);
+}
+
+fn assert_inventory_violations(raw: &serde_json::Value) {
     for violation in [
         "wallet-authority",
         "duplicate-attestor",
@@ -1405,19 +1583,22 @@ fn supplied_operator_inventory_matches_registered_bridge_configuration() {
         match violation {
             "wallet-authority" => bad["authority"] = "wallet".into(),
             "duplicate-attestor" => {
-                bad["operators"][1]["attestor"] = bad["operators"][0]["attestor"].clone()
+                bad["operators"][1]["attestor"] = bad["operators"][0]["attestor"].clone();
             }
             "shared-storage" => {
-                bad["operators"][1]["storage"] = bad["operators"][0]["storage"].clone()
+                bad["operators"][1]["storage"] = bad["operators"][0]["storage"].clone();
             }
             "shared-fee-payer" => {
                 bad["operators"][1]["fee_payers"][0]["public_key"] =
-                    bad["operators"][0]["fee_payers"][0]["public_key"].clone()
+                    bad["operators"][0]["fee_payers"][0]["public_key"].clone();
             }
             "wrong-threshold" => bad["destinations"][0]["threshold"] = 1.into(),
             "unknown-field" => bad["private_key"] = "refused-field".into(),
             "missing-operator" => {
-                bad["operators"].as_array_mut().unwrap().pop();
+                bad["operators"]
+                    .as_array_mut()
+                    .or_panic("expected Some value")
+                    .pop();
             }
             _ => unreachable!(),
         }
@@ -1431,81 +1612,90 @@ fn supplied_operator_inventory_matches_registered_bridge_configuration() {
 
 fn policy_call(rpc: &dyn JsonRpc, target: &[u8; 20], data: &[u8]) -> Vec<u8> {
     let result = rpc.call("eth_call", serde_json::json!([{"to": hex::prefixed(target), "data": hex::prefixed(data)}, "latest"]))
-        .expect("authenticated real registered-policy call");
-    hex::decode(result.as_str().expect("canonical policy response")).expect("policy response hex")
+        .or_panic("authenticated real registered-policy call");
+    hex::decode(result.as_str().or_panic("canonical policy response"))
+        .or_panic("policy response hex")
 }
 fn verify_registered_evm_policy(rpc: &dyn JsonRpc, policy: &DestinationPolicy, paxeer: bool) {
     use layerx_bridge_relayer::abi;
     let chain_id = rpc
         .call("eth_chainId", serde_json::json!([]))
-        .expect("actual destination domain");
+        .or_panic("actual destination domain");
     assert_eq!(
-        hex::parse_quantity(chain_id.as_str().expect("chain id")).expect("chain id quantity"),
+        hex::parse_quantity(chain_id.as_str().or_panic("chain id")).or_panic("chain id quantity"),
         policy.chain_id
     );
     let head = rpc
         .call("eth_getBlockByNumber", serde_json::json!(["latest", false]))
-        .expect("actual policy observation head");
+        .or_panic("actual policy observation head");
     assert_eq!(
         head["hash"].as_str(),
         Some(policy.observed_block_hash.as_str()),
         "supplied observation must be current"
     );
-    let target = hex::fixed::<20>(&policy.vault).expect("registered policy target");
+    let target = hex::fixed::<20>(&policy.vault).or_panic("registered policy target");
     let (members, threshold) = if paxeer {
         let set =
             abi::decode_get_attestors(&policy_call(rpc, &target, &abi::GET_ATTESTORS_SELECTOR))
-                .expect("canonical native attestor policy");
-        (set.signers, usize::try_from(set.threshold).unwrap())
+                .unwrap_or_else(|error| panic!("canonical native attestor policy: {error:?}"));
+        (
+            set.signers,
+            usize::try_from(set.threshold).or_panic("expected Ok value"),
+        )
     } else {
         (
             abi::decode_address_list(&policy_call(rpc, &target, &abi::ATTESTORS_SELECTOR))
-                .expect("canonical vault attestors"),
+                .or_panic("canonical vault attestors"),
             usize::try_from(
                 abi::decode_threshold(&policy_call(rpc, &target, &abi::THRESHOLD_SELECTOR))
-                    .expect("canonical vault threshold"),
+                    .or_panic("canonical vault threshold"),
             )
-            .unwrap(),
+            .or_panic("expected Ok value"),
         )
     };
     let expected = policy
         .attestors
         .iter()
-        .map(|value| hex::fixed::<20>(value).expect("approved attestor address"))
+        .map(|value| hex::fixed::<20>(value).or_panic("approved attestor address"))
         .collect::<Vec<_>>();
     assert_eq!(members, expected);
     assert_eq!(threshold, policy.threshold);
     assert_eq!(
         rpc.call("eth_getBlockByNumber", serde_json::json!(["latest", false]))
-            .expect("stable policy observation")["hash"],
+            .or_panic("stable policy observation")["hash"],
         head["hash"]
     );
 }
 
 fn tls_delivery(sender: &Operator, receiver: &Operator, wire: &[u8]) -> Option<u8> {
     let config: serde_json::Value =
-        serde_json::from_slice(&fs::read(&sender.config).expect("real sender configuration"))
-            .unwrap();
+        serde_json::from_slice(&fs::read(&sender.config).or_panic("real sender configuration"))
+            .or_panic("expected Ok value");
     let connector = layerx_mirror::signer::tls_connector(
         &receiver.name,
-        Path::new(config["trust_anchor"].as_str().unwrap()),
+        Path::new(
+            config["trust_anchor"]
+                .as_str()
+                .or_panic("expected Some value"),
+        ),
         &sender.tls_cert,
         &sender.tls_key,
     )
-    .expect("real pinned TLS connector");
+    .or_panic("real pinned TLS connector");
     let stream = TcpStream::connect_timeout(&receiver.listen(), Duration::from_secs(5))
-        .expect("real transport listener");
+        .or_panic("real transport listener");
     stream
         .set_read_timeout(Some(Duration::from_secs(5)))
-        .unwrap();
+        .or_panic("expected Ok value");
     stream
         .set_write_timeout(Some(Duration::from_secs(5)))
-        .unwrap();
+        .or_panic("expected Ok value");
     let Ok(mut tls) = connector.connect(&receiver.name, stream) else {
         return None;
     };
     assert_eq!(
-        spki_pin(&tls.ssl().peer_certificate().expect("server certificate")).unwrap(),
+        spki_pin(&tls.ssl().peer_certificate().or_panic("server certificate"))
+            .or_panic("expected Ok value"),
         receiver.pin
     );
     if tls.write_all(wire).and_then(|()| tls.flush()).is_err() {
@@ -1524,7 +1714,7 @@ fn hostile_transport_deliveries(sender: &Operator, receiver: &Operator, outsider
     let signature = sender
         .attestor()
         .sign_inbound(&wanted)
-        .expect("actual signer share for wire cases");
+        .or_panic("actual signer share for wire cases");
     let valid = encode_wire(&receiver.address(), &digest, &sender.address(), &signature);
     assert_eq!(tls_delivery(sender, receiver, &valid), Some(REPLY_STORED));
     assert_eq!(
@@ -1568,7 +1758,7 @@ fn hostile_transport_deliveries(sender: &Operator, receiver: &Operator, outsider
     let outsider_signature = outsider
         .attestor()
         .sign_inbound(&wanted)
-        .expect("actual outsider signer");
+        .or_panic("actual outsider signer");
     let unknown = encode_wire(
         &receiver.address(),
         &digest,
@@ -1585,7 +1775,7 @@ fn fixture_secret(last: u8) -> [u8; 32] {
     bytes
 }
 fn fixture_key(last: u8) -> SigningKey {
-    SigningKey::from_slice(&fixture_secret(last)).expect("qualification signing key")
+    SigningKey::from_slice(&fixture_secret(last)).or_panic("qualification signing key")
 }
 fn fixture_public_key(key: &SigningKey) -> Vec<u8> {
     key.verifying_key()
@@ -1595,7 +1785,7 @@ fn fixture_public_key(key: &SigningKey) -> Vec<u8> {
 }
 fn fixture_directory(_name: &str) -> PathBuf {
     let mut unique = [0; 16];
-    openssl::rand::rand_bytes(&mut unique).expect("private fixture directory identifier");
+    openssl::rand::rand_bytes(&mut unique).or_panic("private fixture directory identifier");
     let directory = std::env::temp_dir().join(format!(
         "lxbr-{}-{}",
         std::process::id(),
@@ -1604,7 +1794,7 @@ fn fixture_directory(_name: &str) -> PathBuf {
     fs::DirBuilder::new()
         .mode(0o700)
         .create(&directory)
-        .expect("new private fixture directory");
+        .or_panic("new private fixture directory");
     directory
 }
 
@@ -1615,4 +1805,26 @@ mod repair_22_33_68_support;
 #[test]
 fn repair_22_33_68_configured_root_transport() {
     repair_22_33_68_support::configured_root_transport();
+}
+
+trait OrPanic {
+    type Output;
+
+    fn or_panic(self, context: &str) -> Self::Output;
+}
+
+impl<T, E: std::fmt::Debug> OrPanic for std::result::Result<T, E> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|error| panic!("{context}: {error:?}"))
+    }
+}
+
+impl<T> OrPanic for std::option::Option<T> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|| panic!("{context}"))
+    }
 }

@@ -2,7 +2,7 @@ export const SquiCircleFilterStatic = () => {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      className="absolute bottom-0 left-0"
+      className="pointer-events-none absolute bottom-0 left-0"
       version="1.1"
       aria-hidden="true"
       focusable="false"

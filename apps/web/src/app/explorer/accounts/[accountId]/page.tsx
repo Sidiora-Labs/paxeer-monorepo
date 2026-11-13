@@ -12,17 +12,17 @@ function ObservationPosition({ account }: Readonly<{ account: NativeUnifiedAccou
   const newest = account.activity.at(0);
   const oldest = account.activity.at(-1);
   return (
-    <section aria-label="Observation position">
-      <h2>Observation position</h2>
+    <section aria-label={copyEntry("explorer.copy.observation_position").message}>
+      <h2>{copyEntry("explorer.copy.observation_position").message}</h2>
       {newest === undefined || oldest === undefined ? (
-        <p>No committed activity position is published on this page.</p>
+        <p>{copyEntry("explorer.copy.no_committed_activity_position_is_published_on_this_").message}</p>
       ) : (
         <p>
           Observed activity on this page: committed block {newest.block_number}, ordinal {newest.ordinal}
           {" through committed block "}{oldest.block_number}, ordinal {oldest.ordinal}.
         </p>
       )}
-      <p>This account snapshot does not establish the current network head.</p>
+      <p>{copyEntry("explorer.copy.this_account_snapshot_does_not_establish_the_current").message}</p>
     </section>
   );
 }
@@ -52,9 +52,9 @@ export default async function AccountPage({
   if (query.before !== undefined || query.beforeBlock !== undefined || query.before_block !== undefined) {
     return (
       <ExplorerFrame title={copyEntry("explorer.account.title").message} description={address}>
-        <section aria-label="Account snapshot refused" data-state="cursor-refused">
-          <p>This account requires the returned snapshot cursor. The former activity position cannot be continued.</p>
-          <a href={nativeAccountPagePath(address)}>Start a new account snapshot</a>
+        <section aria-label={copyEntry("explorer.copy.account_snapshot_refused").message} data-state="cursor-refused">
+          <p>{copyEntry("explorer.copy.this_account_requires_the_returned_snapshot_cursor_t").message}</p>
+          <a href={nativeAccountPagePath(address)}>{copyEntry("explorer.copy.start_a_new_account_snapshot").message}</a>
         </section>
       </ExplorerFrame>
     );

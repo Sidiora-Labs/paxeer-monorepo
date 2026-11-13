@@ -30,6 +30,12 @@ const STATUS_MESSAGES: &[&str] = &[
     "Waiting for settlement",
     "Ready to claim",
     "Paid out",
+    "Transaction {transactionHash} reverted.",
+    "The sponsored transaction was sent.",
+    "The sponsored transaction could not be confirmed. Check its status before trying again.",
+    "Submitted",
+    "Receipted",
+    "Committed",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -121,7 +127,7 @@ fn contains_term(message: &str, term: &str) -> bool {
 
 fn catalog_violations(source: &str) -> Vec<String> {
     let mut violations = Vec::new();
-    if !source.contains("COPY_CATALOG_VERSION = \"1.5.0\"") {
+    if !source.contains("COPY_CATALOG_VERSION = \"1.6.0\"") {
         violations.push("catalog-version".to_owned());
     }
     for term in REQUIRED_BANNED {
@@ -307,6 +313,14 @@ fn jsx_text_runs(line: &str) -> Vec<String> {
         if line[opening + 1..index].contains('>') {
             continue;
         }
+        let opening_name = &line[opening + 1..index];
+        if opening_name.ends_with(',')
+            && opening_name[..opening_name.len() - 1]
+                .chars()
+                .all(char::is_alphanumeric)
+        {
+            continue;
+        }
         if !bytes
             .get(opening + 1)
             .copied()
@@ -325,11 +339,26 @@ fn jsx_text_runs(line: &str) -> Vec<String> {
     runs
 }
 
+fn visible_jsx_text(run: &str) -> bool {
+    let mut expression_depth = 0usize;
+    for character in run.chars() {
+        match character {
+            '{' => expression_depth += 1,
+            '}' if expression_depth > 0 => expression_depth -= 1,
+            _ if expression_depth == 0 && character.is_alphabetic() => return true,
+            _ => {}
+        }
+    }
+    false
+}
+
 fn visit_sources(root: &Path, files: &mut Vec<PathBuf>) -> Result<(), String> {
     for entry in
         fs::read_dir(root).map_err(|error| format!("cannot read {}: {error}", root.display()))?
     {
-        let path = entry.map_err(|error| error.to_string())?.path();
+        let path = entry
+            .map_err(|error| format!("cannot read entry in {}: {error}", root.display()))?
+            .path();
         if path.is_dir() {
             visit_sources(&path, files)?;
         } else if path
@@ -399,9 +428,7 @@ fn source_violations(source_root: &Path) -> Vec<String> {
             }
             if path.extension().is_some_and(|extension| extension == "tsx") {
                 for run in jsx_text_runs(line) {
-                    if !(run.starts_with('{') && run.ends_with('}'))
-                        && run.chars().any(char::is_alphabetic)
-                    {
+                    if visible_jsx_text(&run) {
                         violations.push(format!(
                             "uncatalogued-jsx-copy:{}:{}",
                             path.display(),
@@ -460,7 +487,7 @@ fn main() {
 mod tests {
     use super::{
         catalog_violations, concatenates_prose, contains_term, entries, jsx_text_runs,
-        ramp_on_default_surface, sentence_case, source_violations,
+        ramp_on_default_surface, sentence_case, source_violations, visible_jsx_text,
     };
 
     #[test]
@@ -588,6 +615,13 @@ mod tests {
         assert!(
             jsx_text_runs("  const resolved = value > 0 ? \"inbound\" : \"other\";").is_empty()
         );
+        assert!(
+            jsx_text_runs("const read = async <T,>(operation: Promise<T>): Promise<T> => {")
+                .is_empty()
+        );
+        assert!(!visible_jsx_text("{activity.map((row) => ("));
+        assert!(!visible_jsx_text("{amount} {asset}"));
+        assert!(visible_jsx_text("{amount} units"));
     }
 
     #[test]
@@ -610,9 +644,31 @@ mod tests {
             .any(|value| value.starts_with("unknown-status:")));
     }
 
+    #[test]
+    fn native_transaction_status_copy_is_recognized() {
+        for message in [
+            "Transaction {transactionHash} reverted.",
+            "The sponsored transaction was sent.",
+            "The sponsored transaction could not be confirmed. Check its status before trying again.",
+            "Submitted",
+            "Receipted",
+            "Committed",
+        ] {
+            let entry = format!(
+                "  {{ key: \"movement.status\", message: \"{message}\", context: \"Native transaction state.\", surface: \"explorer\", kind: \"status\", moneyAdjacent: true }},"
+            );
+            assert!(
+                !catalog_violations(&ramp_catalog(&entry))
+                    .iter()
+                    .any(|value| value.starts_with("unknown-status:")),
+                "{message}"
+            );
+        }
+    }
+
     fn ramp_catalog(entries: &str) -> String {
         format!(
-            "export const COPY_CATALOG_VERSION = \"1.5.0\";\nexport const DATE_FORMAT = \"dd MMM yyyy, HH:mm z\";\nexport const AMOUNT_FORMAT = \"{{sign}}{{amount}} {{currencyCode}}\";\n{}\n  {{ key: \"ramp.external_custody.label\", message: \"External custody: this independent market maker controls the off-platform funds and payout.\", context: \"Required.\", surface: \"ramp\", kind: \"body\", moneyAdjacent: true }},\n{}",
+            "export const COPY_CATALOG_VERSION = \"1.6.0\";\nexport const DATE_FORMAT = \"dd MMM yyyy, HH:mm z\";\nexport const AMOUNT_FORMAT = \"{{sign}}{{amount}} {{currencyCode}}\";\n{}\n  {{ key: \"ramp.external_custody.label\", message: \"External custody: this independent market maker controls the off-platform funds and payout.\", context: \"Required.\", surface: \"ramp\", kind: \"body\", moneyAdjacent: true }},\n{}",
             "\"DID\";\"session key\";\"capability\";\"nullifier\";\"checkpoint\";\"payload\";\"canonical\";\"idempotency\";\"attestation\";\"proof\";",
             entries,
         )

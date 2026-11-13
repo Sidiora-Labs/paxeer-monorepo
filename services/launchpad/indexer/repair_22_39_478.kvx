@@ -1,0 +1,115 @@
+[meta]
+name = "Indexer race and coverage qualification"
+module = "services/launchpad/indexer"
+criterion = "The indexer passes lint, race detection, and the hand-written source coverage threshold."
+
+[coverage]
+threshold = "90%"
+before = "48.5%"
+after = "91.1%"
+generated_sqlc = "Excluded by the configured generated-source filter"
+
+[coverage.cmd_indexer_runtime_docs]
+before = "36.8%"
+after = "95.4%"
+
+[coverage.cmd_indexerd]
+before = "0.0%"
+after = "0.0%"
+
+[coverage.app]
+before = "47.7%"
+after = "88.6%"
+
+[coverage.chainreader]
+before = "67.9%"
+after = "93.5%"
+
+[coverage.checked]
+before = "0.0%"
+after = "90.0%"
+
+[coverage.config]
+before = "41.0%"
+after = "96.7%"
+
+[coverage.decode]
+before = "43.5%"
+after = "92.6%"
+
+[coverage.httpapi]
+before = "92.4%"
+after = "92.4%"
+
+[coverage.internaltest]
+before = "0.0%"
+after = "77.4%"
+
+[coverage.internaltest_chainfixture]
+before = "0.0%"
+after = "88.8%"
+
+[coverage.migrate]
+before = "0.0%"
+after = "80.0%"
+
+[coverage.processor]
+before = "41.0%"
+after = "89.4%"
+
+[coverage.publisher]
+before = "40.0%"
+after = "96.0%"
+
+[coverage.receipt]
+before = "62.0%"
+after = "89.0%"
+
+[coverage.runtimedocs]
+before = "85.4%"
+after = "97.9%"
+
+[coverage.source]
+before = "62.7%"
+after = "92.7%"
+
+[coverage.store]
+before = "11.9%"
+after = "92.8%"
+
+[coverage.store_canonicaltest]
+before = "0.0%"
+after = "82.4%"
+
+[coverage.migrations]
+before = "0.0%"
+after = "0.0%"
+
+[behavior]
+receipt_deduplication = "Committed receipt logs retain their original order and reject missing identities."
+cleanup = "Transactions, connections, and files release their real resources."
+replay_bounds = "Replay and archive inputs bind source identity, checkpoints, and complete block ranges."
+chain_revenue = "Launched chains, revenue epochs, and claims persist with immutable identities and a durable retirement height."
+replay_archive = "Authorized replay projects committed raw input and binds a retrievable archive manifest to the same source range."
+measurement = "Capture records bind their persisted bytes; candidate inputs and restore checkpoints require exact digests; SQL copy traces count rows and failures."
+source_capacity = "Capture size and source resource limits retain committed source measurements and lag provenance."
+storage_measurement = "Committed ranges, PostgreSQL storage samples, query plans, WAL distances, and replay effects retain their measured identities."
+source_binding = "Candidate files, approval inputs, and endpoint configuration bind to the current source identity."
+canonical_reconciliation = "Committed canonical batches reconcile their raw records and outbox intents against durable rows."
+creation_transfer = "Creation and transfer facts bind to committed raw identities and preserve immutable payloads."
+secret_rotation = "Runtime secret bindings retain their original values and report a changed value."
+canonical_scalars = "Addresses and uint256 words retain canonical ABI padding, arity, and value validation. Small string payloads retain the JSON envelope size limit. Loose booleans and dynamic arguments use their declared ABI policies."
+burst_timing = "Decoder deliveries retain their declared rate, duration, latency, and identity conservation bounds after archive preparation."
+
+[workload]
+rate_divisor = "decoderCompleteWorkloadRateDivisor"
+standard_divisor = 1
+race_divisor = 4
+duration_seconds = 300
+source_capacity_prerequisite = "PostgreSQL track_commit_timestamp = on"
+
+[source_clock]
+maximum_samples = 3
+maximum_round_trip_milliseconds = 5
+selection = "Each capacity measurement clock reading uses the first sample within five milliseconds and retains its database offset bounds."
+exhausted = "Three samples outside the bound return capacity-clock-uncertainty."

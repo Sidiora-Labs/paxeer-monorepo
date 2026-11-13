@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/url"
@@ -45,7 +46,7 @@ func NewReplayProvider(endpoint, credential string, transport *http.Transport) (
 	}
 	return &ReplayProvider{base.endpoint, base.client, credential}, nil
 }
-func (p *ReplayProvider) Execute(ctx context.Context, request ReplayExecution) (ReplayResult, error) {
+func (p *ReplayProvider) Execute(ctx context.Context, request ReplayExecution) (_ ReplayResult, resultErr error) {
 	var result ReplayResult
 	if p == nil || p.client == nil || !key(request.JobID) || request.Job.CompletionIdentity != "control-replay:"+request.JobID || digest(request.Payload) != request.Job.PayloadHash {
 		return result, Invalid
@@ -67,7 +68,7 @@ func (p *ReplayProvider) Execute(ctx context.Context, request ReplayExecution) (
 	if err != nil {
 		return result, Unavailable
 	}
-	defer response.Body.Close()
+	defer func() { resultErr = errors.Join(resultErr, response.Body.Close()) }()
 	if response.StatusCode != http.StatusOK {
 		return result, Unavailable
 	}
@@ -80,7 +81,7 @@ func (p *ReplayProvider) Execute(ctx context.Context, request ReplayExecution) (
 	if rejectDuplicateFields(raw) != nil || decoder.Decode(&result) != nil || decoder.Decode(new(any)) != io.EOF {
 		return result, Unavailable
 	}
-	if result.ActionID != request.Job.ActionID || result.JobID != request.JobID || result.PayloadHash != request.Job.PayloadHash || result.PayloadReference != request.Job.PayloadReference || result.CompletionIdentity != request.Job.CompletionIdentity || (result.State != "succeeded" && result.State != "failed") || !text(result.Reference, 256) {
+	if result.ActionID != request.Job.ActionID || result.JobID != request.JobID || result.PayloadHash != request.Job.PayloadHash || result.PayloadReference != request.Job.PayloadReference || result.CompletionIdentity != request.Job.CompletionIdentity || (result.State != controlSucceeded && result.State != controlFailed) || !text(result.Reference, 256) {
 		return ReplayResult{}, Unavailable
 	}
 	return result, nil
@@ -107,10 +108,10 @@ func (w ReplayWorker) Process(ctx context.Context, actionKey, scope string) erro
 		if err := t.get("action", actionKey, &action); err != nil {
 			return err
 		}
-		if action.Scope != scope || action.Kind != "replay" || action.State != "executing" || !t.approvalActive(action) || !action.Expires.After(t.now) {
+		if action.Scope != scope || action.Kind != controlReplay || action.State != controlExecuting || !t.approvalActive(action) || !action.Expires.After(t.now) {
 			return Denied
 		}
-		if err := t.get("job", action.JobID, &job); err != nil {
+		if err := t.get(controlJob, action.JobID, &job); err != nil {
 			return err
 		}
 		if job.ActionID != action.ID || job.ActionKey != actionKey || job.PayloadReference != action.PayloadReference || job.PayloadHash != action.PayloadHash || job.CompletionIdentity != action.CompletionIdentity || action.CompletionIdentity != "control-replay:"+action.JobID {
@@ -150,7 +151,7 @@ func (w ReplayWorker) Process(ctx context.Context, actionKey, scope string) erro
 		job.Claim = claim
 		job.Until = t.now.Add(15 * time.Second)
 		job.State = "running"
-		return t.put("job", action.JobID, job)
+		return t.put(controlJob, action.JobID, job)
 	})
 	if err != nil {
 		return err
@@ -162,7 +163,7 @@ func (w ReplayWorker) Process(ctx context.Context, actionKey, scope string) erro
 		}
 		err = w.Store.run(ctx, w.Credential, "action", scope, "retain owner replay completion", func(t *transaction) error {
 			var current ReplayJob
-			if err := t.get("job", action.JobID, &current); err != nil {
+			if err := t.get(controlJob, action.JobID, &current); err != nil {
 				return err
 			}
 			if current.Claim != claim || !current.Until.After(t.now) {
@@ -170,7 +171,7 @@ func (w ReplayWorker) Process(ctx context.Context, actionKey, scope string) erro
 			}
 			current.Claim = ""
 			current.Until = time.Time{}
-			if err := t.put("job", action.JobID, current); err != nil {
+			if err := t.put(controlJob, action.JobID, current); err != nil {
 				return err
 			}
 			return t.put("executor_result", action.JobID, result)
@@ -185,7 +186,7 @@ func (w ReplayWorker) Drain(ctx context.Context) error {
 	if w.Store == nil || w.Provider == nil || w.Credential == "" || w.Observe == nil {
 		return Invalid
 	}
-	items, err := w.Store.pendingWork(ctx, "job")
+	items, err := w.Store.pendingWork(ctx, controlJob)
 	if err != nil {
 		return err
 	}

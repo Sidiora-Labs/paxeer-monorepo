@@ -21,20 +21,21 @@ const INTERFACE: &[u8] = include_bytes!("../../../fixtures/pay5/token-lxt20.inte
 const INITIALIZE: &[u8] = &[0x4c, 0x58, 0x14, 0, 1, 0x20, 0, 0, 0, 0];
 
 fn program() -> ProgramId {
-    ProgramId::new([0x55; 32]).expect("PAY5 program")
+    ProgramId::new([0x55; 32]).unwrap_or_else(|error| panic!("PAY5 program: {error:?}"))
 }
 
 fn principal(bytes: [u8; 32]) -> Principal {
-    Principal::new(bytes).expect("DID identity")
+    Principal::new(bytes).unwrap_or_else(|error| panic!("DID identity: {error:?}"))
 }
 
 fn prepared(seed: &[u8]) -> PreparedProgramAccount<'_> {
     PreparedProgramAccount::new(
-        layerx_program_sdk::ProgramId::new(program().bytes()).expect("SDK program"),
+        layerx_program_sdk::ProgramId::new(program().bytes())
+            .unwrap_or_else(|error| panic!("SDK program: {error:?}")),
         seed,
-        AssetId::new(REFERENCE_ASSET).expect("backing asset"),
+        AssetId::new(REFERENCE_ASSET).unwrap_or_else(|error| panic!("backing asset: {error:?}")),
     )
-    .expect("prepared program account")
+    .unwrap_or_else(|error| panic!("prepared program account: {error:?}"))
 }
 
 fn account(owner: Principal) -> AccountId {
@@ -67,9 +68,9 @@ impl Token {
         // The committed ABI-v2 guest is also admitted by ABI v5. This public
         // qualification seam supplies authenticated context without native FFI.
         let module = WasmEngine::declared()
-            .expect("engine")
+            .unwrap_or_else(|error| panic!("engine: {error:?}"))
             .validate_versioned(ABI_V5_VERSION, GUEST)
-            .expect("unmodified committed guest under ABI v5");
+            .unwrap_or_else(|error| panic!("unmodified committed guest under ABI v5: {error:?}"));
         Self {
             module,
             storage: Storage::new(),
@@ -85,7 +86,7 @@ impl Token {
         grants: Vec<Capability>,
     ) -> V2AuthorizedExecutionRecord {
         self.execute(caller, entry, input, grants)
-            .expect("production executor")
+            .unwrap_or_else(|error| panic!("production executor: {error:?}"))
     }
 
     fn execute(
@@ -96,8 +97,10 @@ impl Token {
         grants: Vec<Capability>,
     ) -> Result<V2AuthorizedExecutionRecord, ExecutionError> {
         self.sequence += 1;
-        let payer = PrincipalId::new(caller.bytes()).expect("authenticated caller");
-        let binding = ActivityBudgetBinding::new([0x39; 32]).expect("activity binding");
+        let payer = PrincipalId::new(caller.bytes())
+            .unwrap_or_else(|error| panic!("authenticated caller: {error:?}"));
+        let binding = ActivityBudgetBinding::new([0x39; 32])
+            .unwrap_or_else(|error| panic!("activity binding: {error:?}"));
         let executor = Executor::declared();
         let admitted = executor
             .admit_activity_budget_for_qualification(
@@ -106,14 +109,15 @@ impl Token {
                 binding,
                 u128::MAX,
             )
-            .expect("admitted execution budget");
+            .unwrap_or_else(|error| panic!("admitted execution budget: {error:?}"));
         let request = BudgetedAuthorizedExecutionRequest::new(
             AuthorizedExecutionRequest {
                 module: &self.module,
                 program: program(),
                 authorization: AuthorizationContext::new(
                     payer,
-                    CapabilitySet::new(grants).expect("canonical grants"),
+                    CapabilitySet::new(grants)
+                        .unwrap_or_else(|error| panic!("canonical grants: {error:?}")),
                 ),
                 receipts: &AbsentReceipts,
                 entrypoint: entry,
@@ -139,12 +143,15 @@ impl Token {
         request: Request,
         extra: Vec<Capability>,
     ) -> V2AuthorizedExecutionRecord {
-        let input = request.encode().expect("SDK producer");
+        let input = request
+            .encode()
+            .unwrap_or_else(|error| panic!("SDK producer: {error:?}"));
         assert_eq!(Request::decode(input.as_slice()), Ok(request));
-        let interface = reference_interface(GUEST, program()).expect("bound interface");
+        let interface = reference_interface(GUEST, program())
+            .unwrap_or_else(|error| panic!("bound interface: {error:?}"));
         let (entry, _) = interface
             .decode_call(input.as_slice())
-            .expect("registry routing");
+            .unwrap_or_else(|error| panic!("registry routing: {error:?}"));
         assert_eq!(entry.name, request.method());
         let mut grants = base_grants();
         grants.extend(extra);
@@ -166,7 +173,11 @@ impl Token {
         let record = self.call(principal(REFERENCE_ISSUER), request, vec![]);
         let (payload, effects) = success(&record);
         assert_eq!(effects, &AbiEffects::default());
-        u128::from_be_bytes(payload.try_into().expect("16-byte query response"))
+        u128::from_be_bytes(
+            payload
+                .try_into()
+                .unwrap_or_else(|error| panic!("16-byte query response: {error:?}")),
+        )
     }
 }
 
@@ -176,10 +187,14 @@ fn success(record: &V2AuthorizedExecutionRecord) -> (&[u8], &AbiEffects) {
     };
     assert_eq!(response.code, 0);
     assert_eq!(&response.bytes[..2], &[1, 0x20]);
-    let length = u32::from_be_bytes(response.bytes[2..6].try_into().expect("response length"));
+    let length = u32::from_be_bytes(
+        response.bytes[2..6]
+            .try_into()
+            .unwrap_or_else(|error| panic!("response length: {error:?}")),
+    );
     assert_eq!(
         response.bytes.len(),
-        6 + usize::try_from(length).expect("bounded length")
+        6 + usize::try_from(length).unwrap_or_else(|error| panic!("bounded length: {error:?}"))
     );
     (&response.bytes[6..], effects)
 }
@@ -194,15 +209,14 @@ fn refused(record: &V2AuthorizedExecutionRecord, storage: &Storage, before: &Sto
     assert_eq!(storage, before, "refusal must roll back every staged write");
 }
 
-#[test]
-fn evm_custody_guide_registered_later_payout() {
+fn assert_custody_guide() {
     let escrow = GUIDE
         .split("### Escrow, splitting and refunds")
         .nth(1)
-        .expect("escrow guide")
+        .unwrap_or_else(|| panic!("escrow guide"))
         .split("## Failure and gas")
         .next()
-        .expect("escrow section");
+        .unwrap_or_else(|| panic!("escrow section"));
     for instruction in [
         "ProgramAccountTransferPlan::new",
         "prepared.registration_payload()",
@@ -215,6 +229,9 @@ fn evm_custody_guide_registered_later_payout() {
             "missing custody instruction: {instruction}"
         );
     }
+}
+
+fn initialized_custody_token() -> (Token, Principal, Principal, Principal, [u8; 32]) {
     let issuer = principal(REFERENCE_ISSUER);
     let recipient = principal([0x22; 32]);
     let spender = principal([0x33; 32]);
@@ -223,12 +240,12 @@ fn evm_custody_guide_registered_later_payout() {
     assert_eq!(
         prepared.account().bytes(),
         derive_program_account(program(), &seed)
-            .expect("runtime derivation")
+            .unwrap_or_else(|error| panic!("runtime derivation: {error:?}"))
             .bytes()
     );
     let registration = prepared
         .registration_payload()
-        .expect("native registration payload");
+        .unwrap_or_else(|error| panic!("native registration payload: {error:?}"));
     // The signed native activity is a committed producer transcript, not a
     // registration performed by the token's approve handler.
     let native_registration =
@@ -265,7 +282,28 @@ fn evm_custody_guide_registered_later_payout() {
         assert!(payload.is_empty());
         assert_eq!(effects, &AbiEffects::default());
     }
+    (
+        token,
+        issuer,
+        recipient,
+        spender,
+        prepared.account().bytes(),
+    )
+}
 
+fn prepare_custody_payout(
+    issuer: Principal,
+    recipient: Principal,
+    spender: Principal,
+    custody_account: [u8; 32],
+) -> (
+    ProgramAccountTransferPlan,
+    Request,
+    Vec<Capability>,
+    Vec<u8>,
+) {
+    let seed = issuer.bytes();
+    let prepared = prepared(&seed);
     let flow = ValueFlow::ContractFunded {
         recipient: account(recipient).bytes(),
         amount: 40,
@@ -280,9 +318,9 @@ fn evm_custody_guide_registered_later_payout() {
             spender.bytes(),
             program(),
             &seed,
-            prepared.account().bytes(),
+            custody_account,
         )
-        .expect("context-aware custody plan")
+        .unwrap_or_else(|error| panic!("context-aware custody plan: {error:?}"))
     else {
         panic!("program source required")
     };
@@ -291,32 +329,50 @@ fn evm_custody_guide_registered_later_payout() {
         ProgramAccountTransferPlan::new(
             program(),
             &seed,
-            prepared.account().bytes(),
+            custody_account,
             REFERENCE_ASSET,
             account(recipient).bytes(),
             40
         )
-        .expect("guide example")
+        .unwrap_or_else(|error| panic!("guide example: {error:?}"))
     );
     let encoded = prepared
         .spend_grant(account(recipient), Amount::from_u128(40))
-        .expect("SDK spend transport");
-    let decoded = CapabilitySet::decode_v2_canonical(encoded.as_slice()).expect("runtime consumer");
+        .unwrap_or_else(|error| panic!("SDK spend transport: {error:?}"));
+    let decoded = CapabilitySet::decode_v2_canonical(encoded.as_slice())
+        .unwrap_or_else(|error| panic!("runtime consumer: {error:?}"));
     assert_eq!(decoded, vec![plan.capability()]);
     let request = Request::TransferFrom {
         owner: issuer,
         to: account(recipient),
         amount: Amount::from_u128(40),
     };
-    let interface = reference_interface(GUEST, program()).expect("interface");
-    let calldata = request.encode().expect("request");
+    let interface = reference_interface(GUEST, program())
+        .unwrap_or_else(|error| panic!("interface: {error:?}"));
+    let calldata = request
+        .encode()
+        .unwrap_or_else(|error| panic!("request: {error:?}"))
+        .as_slice()
+        .to_vec();
     assert!(interface
         .authorize_call(program(), calldata.as_slice(), &decoded)
         .is_ok());
     assert!(interface
         .authorize_call(program(), calldata.as_slice(), &[])
         .is_err());
+    (plan, request, decoded, calldata)
+}
 
+fn assert_custody_refusals(
+    token: &mut Token,
+    issuer: Principal,
+    recipient: Principal,
+    spender: Principal,
+    plan: &ProgramAccountTransferPlan,
+    request: Request,
+    calldata: &[u8],
+) {
+    let seed = issuer.bytes();
     let mut too_small = plan.capability();
     if let Capability::ProgramSpend { maximum_amount, .. } = &mut too_small {
         *maximum_amount = 39;
@@ -338,11 +394,12 @@ fn evm_custody_guide_registered_later_payout() {
         account(recipient).bytes(),
         40,
     )
-    .expect("different valid source")
+    .unwrap_or_else(|error| panic!("different valid source: {error:?}"))
     .capability();
-    let foreign = ProgramId::new([0x66; 32]).expect("foreign program");
+    let foreign =
+        ProgramId::new([0x66; 32]).unwrap_or_else(|error| panic!("foreign program: {error:?}"));
     let foreign_source = derive_program_account(foreign, &seed)
-        .expect("foreign source")
+        .unwrap_or_else(|error| panic!("foreign source: {error:?}"))
         .bytes();
     let wrong_owner = ProgramAccountTransferPlan::new(
         foreign,
@@ -352,7 +409,7 @@ fn evm_custody_guide_registered_later_payout() {
         account(recipient).bytes(),
         40,
     )
-    .expect("foreign owner plan")
+    .unwrap_or_else(|error| panic!("foreign owner plan: {error:?}"))
     .capability();
     for extra in [
         vec![],
@@ -376,12 +433,7 @@ fn evm_custody_guide_registered_later_payout() {
     let mut foreign_grants = base_grants();
     foreign_grants.push(wrong_owner);
     assert_eq!(
-        token.execute(
-            spender,
-            request.method(),
-            calldata.as_slice(),
-            foreign_grants
-        ),
+        token.execute(spender, request.method(), calldata, foreign_grants),
         Err(ExecutionError::Abi(AbiError::InvalidCapability)),
         "foreign-owner authority must be rejected before guest execution"
     );
@@ -396,6 +448,17 @@ fn evm_custody_guide_registered_later_payout() {
         }),
         100
     );
+}
+
+fn assert_custody_payout(
+    token: &mut Token,
+    issuer: Principal,
+    recipient: Principal,
+    spender: Principal,
+    plan: &ProgramAccountTransferPlan,
+    request: Request,
+    decoded: Vec<Capability>,
+) {
     let payout = token.call(spender, request, decoded);
     let (payload, effects) = success(&payout);
     assert!(payload.is_empty());
@@ -429,7 +492,19 @@ fn evm_custody_guide_registered_later_payout() {
         }),
         60
     );
+}
 
+fn assert_custody_return_and_revoke(
+    token: &mut Token,
+    issuer: Principal,
+    recipient: Principal,
+    spender: Principal,
+    plan: &ProgramAccountTransferPlan,
+    request: Request,
+    custody_account: [u8; 32],
+) {
+    let seed = issuer.bytes();
+    let other_seed = recipient.bytes();
     let returned = token.call(
         recipient,
         Request::Transfer {
@@ -444,7 +519,7 @@ fn evm_custody_guide_registered_later_payout() {
             account(issuer).bytes(),
             15,
         )
-        .expect("bounded return")
+        .unwrap_or_else(|error| panic!("bounded return: {error:?}"))
         .capability()],
     );
     assert_eq!(success(&returned).1.transfers[0].amount, 15);
@@ -489,9 +564,32 @@ fn evm_custody_guide_registered_later_payout() {
             spender.bytes(),
             program(),
             &seed,
-            prepared.account().bytes()
+            custody_account
         ),
         Err(PortRefusal::UnboundedBalanceSweep)
+    );
+}
+
+#[test]
+fn evm_custody_guide_registered_later_payout() {
+    assert_custody_guide();
+    let (mut token, issuer, recipient, spender, custody_account) = initialized_custody_token();
+    let (plan, request, decoded, calldata) =
+        prepare_custody_payout(issuer, recipient, spender, custody_account);
+    assert_custody_refusals(
+        &mut token, issuer, recipient, spender, &plan, request, &calldata,
+    );
+    assert_custody_payout(
+        &mut token, issuer, recipient, spender, &plan, request, decoded,
+    );
+    assert_custody_return_and_revoke(
+        &mut token,
+        issuer,
+        recipient,
+        spender,
+        &plan,
+        request,
+        custody_account,
     );
 }
 
@@ -500,11 +598,12 @@ fn evm_lxt20_guide_complete_codec_and_native_interface() {
     let guide = GUIDE
         .split("## ERC-20, LXT-20 and native assets")
         .nth(1)
-        .expect("token guide");
+        .unwrap_or_else(|| panic!("token guide"));
     assert!(guide.contains("eight exports"));
     assert!(guide.contains("4c 58 14 00 01 20 00 00 00 00"));
     assert!(guide.contains("02-account-register` through `04-account-register"));
-    let interface = reference_interface(GUEST, program()).expect("real guest interface");
+    let interface = reference_interface(GUEST, program())
+        .unwrap_or_else(|error| panic!("real guest interface: {error:?}"));
     assert_eq!(interface.canonical_encoding(), INTERFACE);
     assert_eq!(interface.entries().len(), 8);
     let owner = principal(REFERENCE_ISSUER);
@@ -529,12 +628,14 @@ fn evm_lxt20_guide_complete_codec_and_native_interface() {
         Request::Metadata,
     ];
     for (ordinal, request) in (1_u8..).zip(requests) {
-        let bytes = request.encode().expect("canonical SDK request");
+        let bytes = request
+            .encode()
+            .unwrap_or_else(|error| panic!("canonical SDK request: {error:?}"));
         assert_eq!(bytes.as_slice()[3], ordinal);
         assert_eq!(Request::decode(bytes.as_slice()), Ok(request));
         let (entry, _) = interface
             .decode_call(bytes.as_slice())
-            .expect("real registry consumer");
+            .unwrap_or_else(|error| panic!("real registry consumer: {error:?}"));
         assert_eq!(entry.name, request.method());
         assert!(guide.contains(request.method()));
     }
@@ -545,7 +646,7 @@ fn evm_lxt20_guide_complete_codec_and_native_interface() {
     assert_eq!(
         interface
             .decode_call(INITIALIZE)
-            .expect("initializer export")
+            .unwrap_or_else(|error| panic!("initializer export: {error:?}"))
             .0
             .name,
         "initialize"

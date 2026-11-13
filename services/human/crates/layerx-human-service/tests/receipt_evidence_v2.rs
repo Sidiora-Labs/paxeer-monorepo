@@ -1,3 +1,5 @@
+#[path = "support/production_fixture_plan.rs"]
+mod fixture_plan;
 #[path = "support/production_fixture.rs"]
 mod production_fixture;
 
@@ -15,15 +17,15 @@ fn exercise_receipt_evidence(rung: Rung) -> Result<()> {
     };
     let _guard = ENVIRONMENT
         .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     let mut fixture = Fixture::open()?;
     fixture
         .peer_state
         .lock()
         .map_err(|_| "peer state")?
         .receipt_rung = Some(rung);
-    let plan = fixture.plan()?;
-    let body = fixture.submission(&plan)?;
+    let plan = fixture_plan::plan(&fixture)?;
+    let body = fixture_plan::submission(&fixture, &plan)?;
     let submitted = fixture.request("POST", "/v1/intents/submit", &body, "receipt-v2-submit")?;
     let journey_id = submitted["journey_id"].as_str().ok_or("journey id")?;
     let journey = fixture.request(
@@ -108,4 +110,8 @@ fn evidence_get_returns_receipt_proof_v2() -> Result<()> {
 #[test]
 fn evidence_get_marks_committed_receipts() -> Result<()> {
     exercise_receipt_evidence(Rung::Committed)
+}
+
+pub mod require_value {
+    include!("support/require_value.rs");
 }

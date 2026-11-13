@@ -33,6 +33,7 @@ func verifyWebhookFixtureAdmin(ctx context.Context, action string) error {
 	return verifyWebhookFixtureSignature(strings.Repeat("admin-secret", 4), credential.timestamp, action, credential.signature, time.Now(), time.Minute)
 }
 func TestWebhookTargetsResumeIndependentlyPostgresTLS(t *testing.T) {
+	requireDeliveryEnv(t, "DELIVERY_TEST_DSN")
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
 	cfg, err := pgxpool.ParseConfig(os.Getenv("DELIVERY_TEST_DSN"))
@@ -143,6 +144,10 @@ func TestWebhookTargetsResumeIndependentlyPostgresTLS(t *testing.T) {
 	if err = pool.QueryRow(ctx, "SELECT max(committed_sequence) FILTER(WHERE target_id='a'),max(committed_sequence) FILTER(WHERE target_id='b') FROM "+pgx.Identifier{schema}.Sanitize()+".delivery_webhook_cursors").Scan(&committedA, &committedB); err != nil || committedA != 0 || committedB != 2 {
 		t.Fatal("target outage blocked independent cursor", committedA, committedB, err)
 	}
+	stats, err := bridge.Stats(ctx)
+	if err != nil || len(stats) != 2 || stats[0].TargetID != "a" || stats[0].PendingRows == 0 || stats[1].TargetID != "b" || stats[1].PendingRows != 0 {
+		t.Fatalf("independent target backlog: %+v, %v", stats, err)
+	}
 	bridge, err = NewWebhookBridge(store, targets, client, secrets.EnvProvider{}, verifyWebhookFixtureAdmin, "relay-restarted", 10*time.Second, time.Second, time.Second, 10)
 	if err != nil {
 		t.Fatal(err)
@@ -187,6 +192,11 @@ func TestWebhookTargetsResumeIndependentlyPostgresTLS(t *testing.T) {
 	metadata, err := bridge.Inspect(adminCtx, "a", 10)
 	if err != nil || len(metadata) != 2 || metadata[0].Attempts < 2 {
 		t.Fatal("durable attempts lost", metadata, err)
+	}
+	stamp = strconv.FormatInt(time.Now().Unix(), 10)
+	adminCtx = context.WithValue(ctx, webhookAdminContextKey{}, webhookAdminCredential{stamp, signWebhookBody(strings.Repeat("admin-secret", 4), stamp, "webhook.retry")})
+	if err := bridge.Retry(adminCtx, "a", "generation", "market:pool", 1); !errors.Is(err, ErrLease) {
+		t.Fatalf("delivered webhook retried: %v", err)
 	}
 }
 

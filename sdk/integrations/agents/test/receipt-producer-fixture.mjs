@@ -12,7 +12,18 @@ const { ConformanceSequencer, buildSignedReceipt, buyerPayload, offerFixture } =
   "../../../../services/platform/middleware/conformance/src/receipts.ts"
 );
 
-export const transcript = JSON.parse(readFileSync(new URL("./daemon-current-transcript.json", import.meta.url), "utf8"));
+const producerSource = readFileSync(new URL("../../../../services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs", import.meta.url), "utf8");
+const producerMatch = producerSource.match(/const MIDDLEWARE_SUBMISSION_TRANSCRIPT: &str = r#"([\s\S]*?)"#;/u);
+assert.ok(producerMatch);
+const producerTranscript = JSON.parse(producerMatch[1]);
+const envelopeTranscript = JSON.parse(readFileSync(new URL("./daemon-current-transcript.json", import.meta.url), "utf8"));
+export const transcript = {
+  ...envelopeTranscript, ...producerTranscript,
+  receipt_envelope: {
+    ...envelopeTranscript.receipt_envelope,
+    value: { found: true, receipt: producerTranscript.committed.receipt },
+  },
+};
 export const currentStatus = Object.freeze(transcript.receipt_envelope.verification_status);
 export const receiptedStatus = Object.freeze(transcript.receipted_envelope.verification_status);
 export const receiptContext = Object.freeze({

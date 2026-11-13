@@ -87,10 +87,10 @@ func (v WorkloadVerifier) Verify(ctx context.Context, r *http.Request) (Identity
 		return zero, ErrDenied
 	}
 	id.Actor = actor
-	id.Kind = "operator"
+	id.Kind = identityOperator
 	id.Issued = issued
 	id.Expires = expires
-	id.MFA = mfa.After(time.Now()) && mfa.Sub(time.Now()) <= 5*time.Minute
+	id.MFA = mfa.After(time.Now()) && time.Until(mfa) <= 5*time.Minute
 	for _, scope := range scopes {
 		if !regexp.MustCompile(`^[a-z][a-z0-9.-]{0,63}$`).MatchString(scope) {
 			return zero, ErrDenied

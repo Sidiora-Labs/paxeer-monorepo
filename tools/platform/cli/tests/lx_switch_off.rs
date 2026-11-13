@@ -127,8 +127,9 @@ fn server_minus_32601_is_reported_as_switched_off() -> Result<(), String> {
         .into_iter()
         .chain(SWITCHED_OFF_NAMES)
     {
-        let error =
-            decode_response(method, &response).expect_err("method-not-found answer was accepted");
+        let error = decode_response(method, &response)
+            .err()
+            .unwrap_or_else(|| panic!("{}", "method-not-found answer was accepted"));
         let reported: Value = serde_json::from_str(&error).map_err(|error| error.to_string())?;
         assert_eq!(reported["code"], -32601);
         assert_eq!(reported["method"], method);
@@ -151,7 +152,8 @@ fn server_minus_32601_is_reported_as_switched_off() -> Result<(), String> {
         "px_getBalances",
         &json!({"jsonrpc":"2.0","id":1,"error":other}),
     )
-    .expect_err("RPC error was accepted");
+    .err()
+    .unwrap_or_else(|| panic!("{}", "RPC error was accepted"));
     assert_eq!(
         serde_json::from_str::<Value>(&error).map_err(|error| error.to_string())?,
         other

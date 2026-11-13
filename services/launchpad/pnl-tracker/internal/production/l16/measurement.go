@@ -21,6 +21,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/fileaccess"
+
 	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l17"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
@@ -146,11 +148,11 @@ type InventoryMeasurementManifest struct {
 }
 
 func LoadInventoryMeasurementPlan(path string) (InventoryMeasurementPlan, error) {
-	file, err := os.Open(path)
+	file, err := fileaccess.Open(path)
 	if err != nil {
 		return InventoryMeasurementPlan{}, err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 	raw, err := io.ReadAll(io.LimitReader(file, 4*1024*1024+1))
 	if err != nil {
 		return InventoryMeasurementPlan{}, err
@@ -234,7 +236,7 @@ func measurementReadFile(file InventoryMeasurementFile, root string) ([]byte, er
 	if err != nil || !info.Mode().IsRegular() || info.Size() > 16*1024*1024 {
 		return nil, errors.New("regular bounded measurement input required")
 	}
-	raw, err := os.ReadFile(path)
+	raw, err := fileaccess.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
@@ -268,7 +270,7 @@ func validateInventoryMeasurementPlan(worker *LiveTransferWorker, plan Inventory
 		return errors.New("typed measurement plan differs from its approved exact input bytes")
 	}
 	origin, err := url.Parse(plan.APIOrigin)
-	if err != nil || origin.Host == "" || origin.User != nil || origin.RawQuery != "" || origin.Fragment != "" || origin.Path != "" && origin.Path != "/" || origin.Scheme != "https" && !(origin.Scheme == "http" && (origin.Hostname() == "127.0.0.1" || origin.Hostname() == "localhost" || origin.Hostname() == "::1")) {
+	if err != nil || origin.Host == "" || origin.User != nil || origin.RawQuery != "" || origin.Fragment != "" || origin.Path != "" && origin.Path != "/" || origin.Scheme != "https" && (origin.Scheme != "http" || origin.Hostname() != "127.0.0.1" && origin.Hostname() != "localhost" && origin.Hostname() != "::1") {
 		return errors.New("verified inventory API origin required")
 	}
 	seenFiles := map[string]bool{}
@@ -319,16 +321,16 @@ func validateInventoryMeasurementPlan(worker *LiveTransferWorker, plan Inventory
 			return errors.New("normalized decimal scenario expectation required")
 		}
 		switch c.Operation {
-		case "rebuild_owned", "active", "http_portfolio", "historical_day":
+		case "rebuild_owned", "active", operationHTTPPortfolio, periodHistoricalDay:
 		default:
 			return errors.New("unsupported inventory measurement operation")
 		}
 		switch c.ExpectedError {
-		case "", "parity", "baseline_unavailable", "attribution_unavailable", "cost_allocation_unavailable", "authorization":
+		case "", expectedParity, "baseline_unavailable", "attribution_unavailable", "cost_allocation_unavailable", reasonAuthorization:
 		default:
 			return errors.New("unsupported expected dependency failure")
 		}
-		if c.Operation == "historical_day" {
+		if c.Operation == periodHistoricalDay {
 			if _, err = time.Parse("2006-01-02", c.Day); err != nil {
 				return err
 			}
@@ -339,10 +341,10 @@ func validateInventoryMeasurementPlan(worker *LiveTransferWorker, plan Inventory
 				return err
 			}
 		}
-		if c.Scenario == 10 && (c.Operation != "http_portfolio" || c.PricingQuality == "") {
+		if c.Scenario == 10 && (c.Operation != operationHTTPPortfolio || c.PricingQuality == "") {
 			return errors.New("price scenario requires actual API provenance")
 		}
-		if c.PricingQuality != "" && c.PricingQuality != "priced" && c.PricingQuality != "unpriced" && c.PricingQuality != "stale" {
+		if c.PricingQuality != "" && c.PricingQuality != "priced" && c.PricingQuality != statusUnpriced && c.PricingQuality != "stale" {
 			return errors.New("invalid expected pricing quality")
 		}
 		if c.Scenario == 8 && c.Requests < 100 {
@@ -362,7 +364,7 @@ func measurementError(err error) string {
 	case err == nil:
 		return ""
 	case errors.Is(err, ErrParity):
-		return "parity"
+		return expectedParity
 	case errors.Is(err, ErrBaselineUnavailable):
 		return "baseline_unavailable"
 	case errors.Is(err, ErrAttributionUnavailable):
@@ -370,7 +372,7 @@ func measurementError(err error) string {
 	case errors.Is(err, ErrCostAllocationUnavailable):
 		return "cost_allocation_unavailable"
 	case errors.Is(err, auth.ErrScopeDenied):
-		return "authorization"
+		return reasonAuthorization
 	case errors.Is(err, context.DeadlineExceeded):
 		return "deadline"
 	case errors.Is(err, context.Canceled):
@@ -403,7 +405,7 @@ func inventoryMeasurementOperation(ctx context.Context, worker *LiveTransferWork
 		if err = worker.identity.CheckStreamSession(ctx, principal.StreamPrincipal()); err == nil {
 			result, err = worker.service.Active(ctx, c.Wallet, c.Token)
 		}
-	case "historical_day":
+	case periodHistoricalDay:
 		day, parseErr := time.Parse("2006-01-02", c.Day)
 		if parseErr != nil {
 			return nil, 0, inventoryMeasurementHTTPFacts{}, parseErr
@@ -411,13 +413,13 @@ func inventoryMeasurementOperation(ctx context.Context, worker *LiveTransferWork
 		if err = worker.identity.CheckStreamSession(ctx, principal.StreamPrincipal()); err == nil {
 			result, err = worker.service.HistoricalDay(ctx, c.Wallet, c.Token, day)
 		}
-	case "http_portfolio":
+	case operationHTTPPortfolio:
 		beginHTTP := time.Now()
 		response, httpErr := client.Do(request)
 		if httpErr != nil {
 			return nil, 0, inventoryMeasurementHTTPFacts{}, httpErr
 		}
-		defer response.Body.Close()
+		defer func() { _ = response.Body.Close() }()
 		raw, readErr := io.ReadAll(io.LimitReader(response.Body, 8*1024*1024+1))
 		roundTrip := time.Since(beginHTTP).Nanoseconds()
 		facts := inventoryMeasurementHTTPFacts{RoundTripNS: &roundTrip, ServerTiming: response.Header.Get("Server-Timing")}
@@ -441,7 +443,7 @@ func inventoryMeasurementOperation(ctx context.Context, worker *LiveTransferWork
 		return nil, 0, inventoryMeasurementHTTPFacts{}, err
 	}
 	raw, err := json.Marshal(result)
-	if c.Operation == "historical_day" && err == nil {
+	if c.Operation == periodHistoricalDay && err == nil {
 		var checkpoint Checkpoint
 		if json.Unmarshal(raw, &checkpoint) != nil || c.ExpectedDayState == nil || checkpoint.State != *c.ExpectedDayState {
 			return raw, 0, inventoryMeasurementHTTPFacts{}, delivery.ErrIntegrity
@@ -495,7 +497,7 @@ func RunInventoryMeasurement(ctx context.Context, worker *LiveTransferWorker, cl
 			return errors.New("inventory measurement artifact budget exhausted")
 		}
 		path := filepath.Join(output, name)
-		file, e := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+		file, e := fileaccess.CreateExclusive(path)
 		if e != nil {
 			return e
 		}
@@ -524,11 +526,11 @@ func RunInventoryMeasurement(ctx context.Context, worker *LiveTransferWorker, cl
 	defer resources.stop()
 	manifest.ResourceSamplePeriodNS = int64(20 * time.Millisecond)
 	samples := make([]InventoryMeasurementSample, 0)
-	journal, err := os.OpenFile(filepath.Join(output, "samples.jsonl"), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	journal, err := fileaccess.CreateExclusive(filepath.Join(output, "samples.jsonl"))
 	if err != nil {
 		return manifest, err
 	}
-	defer journal.Close()
+	defer func() { _ = journal.Close() }()
 	var journalErr error
 	var mu sync.Mutex
 	appendSample := func(sample InventoryMeasurementSample) {
@@ -567,12 +569,11 @@ func RunInventoryMeasurement(ctx context.Context, worker *LiveTransferWorker, cl
 				select {
 				case <-bounded.Done():
 					timer.Stop()
-					err = bounded.Err()
+					break
 				case <-timer.C:
 				}
 			}
 			if bounded.Err() != nil {
-				err = bounded.Err()
 				break
 			}
 			manifest.Offered++
@@ -639,14 +640,14 @@ func RunInventoryMeasurement(ctx context.Context, worker *LiveTransferWorker, cl
 			if !sample.ExpectedErrorMatched {
 				manifest.UnexpectedErrors++
 			}
-			if sample.ExpectedErrorMatched && sample.ErrorClass == "authorization" {
+			if sample.ExpectedErrorMatched && sample.ErrorClass == reasonAuthorization {
 				manifest.ExpectedAuthorizationRejections++
 			} else {
 				manifest.DependencyBlockedOperations++
 			}
 		} else {
 			manifest.Completed++
-			if sample.Operation == "http_portfolio" {
+			if sample.Operation == operationHTTPPortfolio {
 				if sample.HTTPRoundTripElapsedNS != nil {
 					httpTimes = append(httpTimes, *sample.HTTPRoundTripElapsedNS)
 				}
@@ -736,7 +737,7 @@ func RunInventoryMeasurement(ctx context.Context, worker *LiveTransferWorker, cl
 }
 
 func captureInventoryMeasurement(ctx context.Context, worker *LiveTransferWorker, c InventoryMeasurementCase, release string, maxArchiveRecords int64) ([]byte, error) {
-	if c.ExpectedError == "parity" {
+	if c.ExpectedError == expectedParity {
 		return captureInventoryQuarantine(ctx, worker, c)
 	}
 	bounded, cancel := context.WithTimeout(ctx, 5*time.Second)
@@ -788,7 +789,11 @@ func captureInventoryMeasurement(ctx context.Context, worker *LiveTransferWorker
 	}
 	var normalizedAverage *string
 	if len(records) > 0 {
-		decimals := uint8(*records[len(records)-1].TokenDecimals)
+		tokenDecimals := records[len(records)-1].TokenDecimals
+		if tokenDecimals == nil || *tokenDecimals < 0 || *tokenDecimals > 255 {
+			return raw, delivery.ErrIntegrity
+		}
+		decimals := uint8(*tokenDecimals)
 		average, e := Average(snapshot.State, &decimals)
 		if e != nil {
 			return raw, e
@@ -874,7 +879,7 @@ func captureInventoryMeasurement(ctx context.Context, worker *LiveTransferWorker
 	if commitCount != 1 {
 		return nil, delivery.ErrIntegrity
 	}
-	rows, err := tx.Query(bounded, `SELECT envelope,state,broker_stream,broker_sequence,published_at FROM `+a.table("delivery_outbox")+` WHERE subject=$1 AND convert_from(envelope,'UTF8')::jsonb->'payload'->>'snapshotId'=(SELECT accepted_snapshot::text FROM `+a.table("inventory_l16_live_owners_v1")+` WHERE wallet=$2) ORDER BY event_id LIMIT 2`, "portfolio.snapshot.v2", c.Wallet)
+	rows, err := tx.Query(bounded, `SELECT envelope,state,broker_stream,broker_sequence,published_at FROM `+a.table("delivery_outbox")+` WHERE subject=$1 AND convert_from(envelope,'UTF8')::jsonb->'payload'->>'snapshotId'=(SELECT accepted_snapshot::text FROM `+a.table("inventory_l16_live_owners_v1")+` WHERE wallet=$2) ORDER BY event_id LIMIT 2`, portfolioSnapshotV2, c.Wallet)
 	if err != nil {
 		return nil, err
 	}
@@ -892,21 +897,22 @@ func captureInventoryMeasurement(ctx context.Context, worker *LiveTransferWorker
 		if err = rows.Scan(&p.Envelope, &p.State, &p.BrokerStream, &p.BrokerSequence, &p.PublishedAt); err != nil {
 			return nil, err
 		}
-		envelope, e := delivery.Decode(p.Envelope, delivery.Policy{Subjects: map[string]bool{"portfolio.snapshot.v2": true}, EventTypes: map[string]bool{"portfolio.snapshot.v2": true}}, "portfolio.snapshot.v2")
+		envelope, e := delivery.Decode(p.Envelope, delivery.Policy{Subjects: map[string]bool{portfolioSnapshotV2: true}, EventTypes: map[string]bool{portfolioSnapshotV2: true}}, portfolioSnapshotV2)
 		if e != nil {
 			return nil, e
 		}
 		if envelope.ChainID != 125 {
 			return nil, delivery.ErrIntegrity
 		}
-		if p.State == "pending" {
+		switch p.State {
+		case "pending":
 			pendingCount++
-		} else if p.State == "published" {
+		case "published":
 			publishedCount++
 			if p.BrokerStream == nil || p.BrokerSequence == nil || *p.BrokerSequence <= 0 || p.PublishedAt == nil {
 				return nil, delivery.ErrIntegrity
 			}
-		} else {
+		default:
 			return nil, delivery.ErrIntegrity
 		}
 		publications = append(publications, p)
@@ -963,11 +969,11 @@ func captureInventoryMeasurement(ctx context.Context, worker *LiveTransferWorker
 }
 
 func measurementFileSHA256(path string) (string, error) {
-	file, err := os.Open(path)
+	file, err := fileaccess.Open(path)
 	if err != nil {
 		return "", err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 	hash := sha256.New()
 	if _, err = io.Copy(hash, file); err != nil {
 		return "", err
@@ -1005,7 +1011,7 @@ func validateInventoryHTTPResponse(raw []byte, c InventoryMeasurementCase) error
 		Version int `json:"version"`
 		l17.PortfolioResponse
 	}
-	if json.Unmarshal(raw, &response) != nil || response.Version != 3 || response.Algorithm != Algorithm || response.Page.Summary.Wallet != c.Wallet || response.Page.Summary.Watermark.ChainID != "125" || response.Page.Summary.Watermark.Height != strconv.FormatInt(c.Height, 10) || response.Page.Summary.Watermark.BlockHash != c.BlockHash || response.Page.Summary.Watermark.Integrity != "healthy" {
+	if json.Unmarshal(raw, &response) != nil || response.Version != 3 || response.Algorithm != Algorithm || response.Page.Summary.Wallet != c.Wallet || response.Page.Summary.Watermark.ChainID != "125" || response.Page.Summary.Watermark.Height != strconv.FormatInt(c.Height, 10) || response.Page.Summary.Watermark.BlockHash != c.BlockHash || response.Page.Summary.Watermark.Integrity != statusHealthy {
 		return delivery.ErrIntegrity
 	}
 	found := false

@@ -1,3 +1,4 @@
+#[allow(dead_code)]
 #[path = "../src/chain_proof/ed25519.rs"]
 mod ed25519;
 

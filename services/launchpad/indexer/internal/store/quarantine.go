@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/checked"
+
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
 	"github.com/jackc/pgx/v5"
 )
@@ -67,12 +69,20 @@ func stageImmutableRaw(ctx context.Context, tx pgx.Tx, chain int32, r RawRecord)
 	if data == nil {
 		data = []byte{}
 	}
-	_, err = tx.Exec(ctx, `INSERT INTO indexer.indexer_raw_logs(chain_id,transaction_hash,log_index,height,transaction_index,block_hash,emitter,topics,data) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT DO NOTHING`, chain, r.TransactionHash, int64(r.LogIndex), r.Height, int64(r.TransactionIndex), r.BlockHash, r.Emitter, wire, data)
+	rLogIndexInt64, conversionErr := checked.Convert[int64](r.LogIndex)
+	if conversionErr != nil {
+		return conversionErr
+	}
+	rTransactionIndexInt64, conversionErr := checked.Convert[int64](r.TransactionIndex)
+	if conversionErr != nil {
+		return conversionErr
+	}
+	_, err = tx.Exec(ctx, `INSERT INTO indexer.indexer_raw_logs(chain_id,transaction_hash,log_index,height,transaction_index,block_hash,emitter,topics,data) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT DO NOTHING`, chain, r.TransactionHash, rLogIndexInt64, r.Height, rTransactionIndexInt64, r.BlockHash, r.Emitter, wire, data)
 	if err != nil {
 		return err
 	}
 	var same bool
-	err = tx.QueryRow(ctx, `SELECT height=$4 AND transaction_index=$5 AND block_hash=$6 AND emitter=$7 AND topics=$8::jsonb AND data=$9 FROM indexer.indexer_raw_logs WHERE chain_id=$1 AND transaction_hash=$2 AND log_index=$3`, chain, r.TransactionHash, int64(r.LogIndex), r.Height, int64(r.TransactionIndex), r.BlockHash, r.Emitter, wire, data).Scan(&same)
+	err = tx.QueryRow(ctx, `SELECT height=$4 AND transaction_index=$5 AND block_hash=$6 AND emitter=$7 AND topics=$8::jsonb AND data=$9 FROM indexer.indexer_raw_logs WHERE chain_id=$1 AND transaction_hash=$2 AND log_index=$3`, chain, r.TransactionHash, rLogIndexInt64, r.Height, rTransactionIndexInt64, r.BlockHash, r.Emitter, wire, data).Scan(&same)
 	if err != nil {
 		return err
 	}
@@ -102,7 +112,7 @@ func (s *Store) RetainPoison(ctx context.Context, p PoisonRecord) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(context.WithoutCancel(ctx))
+	defer checked.Rollback(tx, context.WithoutCancel(ctx))
 	if err = stageImmutableRaw(ctx, tx, p.ChainID, p.Raw); err != nil {
 		return err
 	}
@@ -111,7 +121,11 @@ func (s *Store) RetainPoison(ctx context.Context, p PoisonRecord) error {
 		return err
 	}
 	var same bool
-	err = tx.QueryRow(ctx, `INSERT INTO indexer.indexer_quarantine(chain_id,stream_id,transaction_hash,log_index,block_hash,height,raw_digest,raw_payload,error_code,abi_revision,requirement,required,attempt_count,next_attempt_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,1,clock_timestamp()+interval '1 second') ON CONFLICT(chain_id,stream_id,transaction_hash,log_index) DO UPDATE SET last_attempt_at=clock_timestamp(),attempt_count=LEAST(indexer_quarantine.attempt_count+1,10),next_attempt_at=clock_timestamp()+(LEAST(3600,power(2,LEAST(indexer_quarantine.attempt_count,10)))::integer*interval '1 second'),operator_required=indexer_quarantine.attempt_count>=9 WHERE indexer_quarantine.raw_digest=EXCLUDED.raw_digest AND indexer_quarantine.block_hash=EXCLUDED.block_hash AND indexer_quarantine.error_code=EXCLUDED.error_code AND indexer_quarantine.abi_revision=EXCLUDED.abi_revision AND indexer_quarantine.requirement=EXCLUDED.requirement AND indexer_quarantine.required=EXCLUDED.required AND indexer_quarantine.resolution='unresolved' RETURNING true`, p.ChainID, p.StreamID, p.Raw.TransactionHash, int64(p.Raw.LogIndex), p.Raw.BlockHash, p.Raw.Height, digest, payload, p.ErrorCode, p.ABIRevision, p.Requirement, p.Required).Scan(&same)
+	rawLogIndexInt64, conversionErr := checked.Convert[int64](p.Raw.LogIndex)
+	if conversionErr != nil {
+		return conversionErr
+	}
+	err = tx.QueryRow(ctx, `INSERT INTO indexer.indexer_quarantine(chain_id,stream_id,transaction_hash,log_index,block_hash,height,raw_digest,raw_payload,error_code,abi_revision,requirement,required,attempt_count,next_attempt_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,1,clock_timestamp()+interval '1 second') ON CONFLICT(chain_id,stream_id,transaction_hash,log_index) DO UPDATE SET last_attempt_at=clock_timestamp(),attempt_count=LEAST(indexer_quarantine.attempt_count+1,10),next_attempt_at=clock_timestamp()+(LEAST(3600,power(2,LEAST(indexer_quarantine.attempt_count,10)))::integer*interval '1 second'),operator_required=indexer_quarantine.attempt_count>=9 WHERE indexer_quarantine.raw_digest=EXCLUDED.raw_digest AND indexer_quarantine.block_hash=EXCLUDED.block_hash AND indexer_quarantine.error_code=EXCLUDED.error_code AND indexer_quarantine.abi_revision=EXCLUDED.abi_revision AND indexer_quarantine.requirement=EXCLUDED.requirement AND indexer_quarantine.required=EXCLUDED.required AND indexer_quarantine.resolution='unresolved' RETURNING true`, p.ChainID, p.StreamID, p.Raw.TransactionHash, rawLogIndexInt64, p.Raw.BlockHash, p.Raw.Height, digest, payload, p.ErrorCode, p.ABIRevision, p.Requirement, p.Required).Scan(&same)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrIntegrity
 	}
@@ -119,7 +133,11 @@ func (s *Store) RetainPoison(ctx context.Context, p PoisonRecord) error {
 		return err
 	}
 	if !p.Required {
-		_, err = tx.Exec(ctx, `INSERT INTO indexer.indexer_capability_degradation(chain_id,stream_id,transaction_hash,log_index,requirement,raw_digest) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING`, p.ChainID, p.StreamID, p.Raw.TransactionHash, int64(p.Raw.LogIndex), p.Requirement, digest)
+		rawLogIndexInt642, conversionErr := checked.Convert[int64](p.Raw.LogIndex)
+		if conversionErr != nil {
+			return conversionErr
+		}
+		_, err = tx.Exec(ctx, `INSERT INTO indexer.indexer_capability_degradation(chain_id,stream_id,transaction_hash,log_index,requirement,raw_digest) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING`, p.ChainID, p.StreamID, p.Raw.TransactionHash, rawLogIndexInt642, p.Requirement, digest)
 		if err != nil {
 			return err
 		}
@@ -151,7 +169,7 @@ func (s *Store) WaivePoison(ctx context.Context, scope OperationScope, rawDigest
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(context.WithoutCancel(ctx))
+	defer checked.Rollback(tx, context.WithoutCancel(ctx))
 	if _, err = authorizeOperation(ctx, tx, scope); err != nil {
 		return err
 	}
@@ -189,7 +207,7 @@ func (s *Store) ResolvePoison(ctx context.Context, scope OperationScope, digest,
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(context.WithoutCancel(ctx))
+	defer checked.Rollback(tx, context.WithoutCancel(ctx))
 	if _, err = authorizeOperation(ctx, tx, scope); err != nil {
 		return err
 	}
@@ -205,7 +223,11 @@ func (s *Store) ResolvePoison(ctx context.Context, scope OperationScope, digest,
 
 func (s *Store) PoisonRetryDue(ctx context.Context, chain int32, stream, transaction string, index uint32) (bool, error) {
 	var due bool
-	err := s.db.QueryRow(ctx, `SELECT attempt_count<10 AND next_attempt_at<=clock_timestamp() AND NOT operator_required AND resolution='unresolved' FROM indexer.indexer_quarantine WHERE chain_id=$1 AND stream_id=$2 AND transaction_hash=$3 AND log_index=$4`, chain, stream, transaction, int64(index)).Scan(&due)
+	indexInt64, conversionErr := checked.Convert[int64](index)
+	if conversionErr != nil {
+		return false, conversionErr
+	}
+	err := s.db.QueryRow(ctx, `SELECT attempt_count<10 AND next_attempt_at<=clock_timestamp() AND NOT operator_required AND resolution='unresolved' FROM indexer.indexer_quarantine WHERE chain_id=$1 AND stream_id=$2 AND transaction_hash=$3 AND log_index=$4`, chain, stream, transaction, indexInt64).Scan(&due)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return true, nil
 	}
@@ -221,7 +243,11 @@ func (c CanonicalTx) ResolveSourceQualifiedPoisonTx(ctx context.Context, b Canon
 		if err != nil {
 			return err
 		}
-		_, err = c.Tx.Exec(ctx, `UPDATE indexer.indexer_quarantine SET resolution='repaired',resolved_at=clock_timestamp(),resolved_by='source-qualified-receipt' WHERE chain_id=$1 AND stream_id=$2 AND transaction_hash=$3 AND log_index=$4 AND block_hash=$5 AND raw_digest=$6 AND resolution='unresolved'`, b.ChainID, b.StreamID, raw.TransactionHash, int64(raw.LogIndex), raw.BlockHash, digest)
+		rawLogIndexInt643, conversionErr := checked.Convert[int64](raw.LogIndex)
+		if conversionErr != nil {
+			return conversionErr
+		}
+		_, err = c.Tx.Exec(ctx, `UPDATE indexer.indexer_quarantine SET resolution='repaired',resolved_at=clock_timestamp(),resolved_by='source-qualified-receipt' WHERE chain_id=$1 AND stream_id=$2 AND transaction_hash=$3 AND log_index=$4 AND block_hash=$5 AND raw_digest=$6 AND resolution='unresolved'`, b.ChainID, b.StreamID, raw.TransactionHash, rawLogIndexInt643, raw.BlockHash, digest)
 		if err != nil {
 			return err
 		}
@@ -241,7 +267,7 @@ func (s *Store) RetainCommittedHead(ctx context.Context, stream string, height i
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(context.WithoutCancel(ctx))
+	defer checked.Rollback(tx, context.WithoutCancel(ctx))
 	var healthy bool
 	err = tx.QueryRow(ctx, `INSERT INTO indexer.indexer_committed_heads(chain_id,stream_id,height,block_hash,integrity,source_id) VALUES(125,$1,$2,$3,'healthy',$4) ON CONFLICT(chain_id,stream_id,height) DO UPDATE SET integrity=CASE WHEN indexer_committed_heads.block_hash=EXCLUDED.block_hash THEN indexer_committed_heads.integrity ELSE 'quarantined' END,observed_at=clock_timestamp() RETURNING integrity='healthy'`, stream, height, hash, sourceID).Scan(&healthy)
 	if err != nil {
@@ -267,7 +293,7 @@ func (s *Store) QuarantineCommittedHead(ctx context.Context, stream string) erro
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(context.WithoutCancel(ctx))
+	defer checked.Rollback(tx, context.WithoutCancel(ctx))
 	_, err = tx.Exec(ctx, `UPDATE indexer.indexer_committed_heads SET integrity='quarantined',observed_at=clock_timestamp() WHERE chain_id=125 AND stream_id=$1 AND height=(SELECT max(height) FROM indexer.indexer_committed_heads WHERE chain_id=125 AND stream_id=$1)`, stream)
 	if err != nil {
 		return err
@@ -287,7 +313,7 @@ func (s *Store) CheckOperationAuthorization(ctx context.Context, scope Operation
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(context.WithoutCancel(ctx))
+	defer checked.Rollback(tx, context.WithoutCancel(ctx))
 	if _, err = authorizeOperation(ctx, tx, scope); err != nil {
 		return err
 	}

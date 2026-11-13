@@ -9,8 +9,16 @@ impl BindingGenerator {
     #[must_use]
     pub fn generate_python(&self) -> String {
         let mut out = String::from(PRELUDE);
-        let _ = writeln!(out, "INTERFACE_DIGEST: Final[bytes] = bytes({:?})", self.digest);
-        let _ = writeln!(out, "CODE_HASH: Final[bytes] = bytes({:?})\n", self.code_hash);
+        let _ = writeln!(
+            out,
+            "INTERFACE_DIGEST: Final[bytes] = bytes({:?})",
+            self.digest
+        );
+        let _ = writeln!(
+            out,
+            "CODE_HASH: Final[bytes] = bytes({:?})\n",
+            self.code_hash
+        );
         for entry in &self.entries {
             emit_entry(&mut out, entry);
         }
@@ -28,7 +36,10 @@ fn names(entry: &Entry) -> (String, String) {
     for byte in entry.discriminator {
         let _ = write!(hex, "{byte:02x}");
     }
-    (format!("entry_{}_{}", entry.name.to_ascii_lowercase(), hex), format!("Entry_{hex}"))
+    (
+        format!("entry_{}_{}", entry.name.to_ascii_lowercase(), hex),
+        format!("Entry_{hex}"),
+    )
 }
 
 fn shape(ty: &Type, context: &str, out: &mut String) -> (String, String) {
@@ -54,12 +65,22 @@ fn shape(ty: &Type, context: &str, out: &mut String) -> (String, String) {
         Type::Bytes(bound) => ("bytes".into(), format!("(0x20, {bound})")),
         Type::Fixed(item, bound) | Type::Variable(item, bound) => {
             let (name, schema) = shape(item, &format!("{context}Element"), out);
-            let tag = if matches!(ty, Type::Fixed(_, _)) { 0x30 } else { 0x31 };
-            (format!("tuple[{name}, ...]"), format!("({tag}, {bound}, {schema})"))
+            let tag = if matches!(ty, Type::Fixed(_, _)) {
+                0x30
+            } else {
+                0x31
+            };
+            (
+                format!("tuple[{name}, ...]"),
+                format!("({tag}, {bound}, {schema})"),
+            )
         }
         Type::Option(item) => {
             let (name, schema) = shape(item, &format!("{context}Some"), out);
-            (format!("Optional[Some[{name}]]"), format!("(0x40, {schema})"))
+            (
+                format!("Optional[Some[{name}]]"),
+                format!("(0x40, {schema})"),
+            )
         }
         Type::Union(variants) => {
             let mut names = Vec::new();
@@ -71,7 +92,10 @@ fn shape(ty: &Type, context: &str, out: &mut String) -> (String, String) {
                 schemas.push(format!("({}, {schema}, {variant_name})", variant.tag));
                 names.push(variant_name);
             }
-            (names.join(" | "), format!("(0x50, ({},))", schemas.join(", ")))
+            (
+                names.join(" | "),
+                format!("(0x50, ({},))", schemas.join(", ")),
+            )
         }
         _ => unreachable!(),
     }
@@ -91,11 +115,15 @@ fn emit_entry(out: &mut String, entry: &Entry) {
         let _ = writeln!(failure_arms, "    if code == {}:\n        return {class}(cast({detail}, _decode_frame({schema}, detail)))", failure.code);
         failure_names.push(class);
     }
-    let failure_type = if failure_names.is_empty() { "NoReturn".into() } else { failure_names.join(" | ") };
+    let failure_type = if failure_names.is_empty() {
+        "NoReturn".into()
+    } else {
+        failure_names.join(" | ")
+    };
     let _ = writeln!(out, "{prefix}Failure: TypeAlias = {failure_type}\n\ndef decode_{stem}_output(data: bytes) -> {prefix}Output:\n    return cast({prefix}Output, _decode_frame(_{prefix}_OUTPUT, data))\n\ndef decode_{stem}_failure(code: int, detail: bytes) -> {prefix}Failure:\n    if type(code) is not int or not 0 <= code <= 0xffffffff:\n        raise BindingRefusal('INVALID_VALUE', 'failure code must be u32')\n{failure_arms}    raise BindingRefusal('UNKNOWN_FAILURE', 'undeclared failure code')\n\ndef encode_{stem}(input: {prefix}Input, deployed_code_hash: bytes, published_digest: bytes) -> Call[{prefix}Output, {prefix}Failure]:\n    _check_target(deployed_code_hash, published_digest)\n    if type(input) is not {prefix}Input:\n        raise BindingRefusal('INVALID_VALUE', 'entry input requires its checked builder')\n    frame = _frame(_{prefix}_INPUT, input.value)\n    if len(frame) > MAX_CALLDATA_BYTES - 4:\n        raise BindingRefusal('INVALID_VALUE', 'complete calldata exceeds protocol limit')\n    data = bytes({:?}) + frame\n    return Call(data, decode_{stem}_output, decode_{stem}_failure)\n", entry.discriminator);
 }
 
-const PRELUDE: &str = r#"from __future__ import annotations
+const PRELUDE: &str = r"from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any, Callable, ClassVar, Final, Generic, Literal, NoReturn, Optional, TypeAlias, TypeVar, cast
@@ -309,9 +337,11 @@ def _decode_frame(schema: _Schema, data: bytes) -> object:
         raise BindingRefusal('TRAILING_BYTES', 'trailing bytes after canonical value')
     return value
 
-"#;
+";
 
 impl BindingGenerator {
+    /// # Panics
+    /// Panics if a validated union has no declared variant.
     #[must_use]
     pub fn generate_python_consumer(&self) -> String {
         let mut out = String::from("from typing import Any, Callable, cast\nimport bindings as b\n\ndef expect(code: str, action: Callable[[], object]) -> None:\n    try:\n        action()\n    except b.BindingRefusal as error:\n        assert error.code == code, (error.code, code)\n    else:\n        raise AssertionError('expected ' + code)\n\n");
@@ -319,12 +349,27 @@ impl BindingGenerator {
             let (stem, prefix) = names(entry);
             let (input, input_wire) = sample(&entry.input, &format!("b.{prefix}InputValue"));
             let (output, output_wire) = sample(&entry.output, &format!("b.{prefix}OutputValue"));
-            let input_convention = if matches!(entry.input, Type::EvmHead) { 2 } else { 1 };
-            let output_convention = if matches!(entry.output, Type::EvmHead) { 2 } else { 1 };
+            let input_convention = if matches!(entry.input, Type::EvmHead) {
+                2
+            } else {
+                1
+            };
+            let output_convention = if matches!(entry.output, Type::EvmHead) {
+                2
+            } else {
+                1
+            };
             let _ = writeln!(out, "input_{index} = b.{prefix}Input({input})\ncall_{index}: b.Call[b.{prefix}Output, b.{prefix}Failure] = b.encode_{stem}(input_{index}, b.CODE_HASH, b.INTERFACE_DIGEST)\nassert call_{index}.as_bytes() == bytes({:?}) + bytes([{input_convention}]) + {input_wire}\nassert call_{index}.decode_output(bytes([{output_convention}]) + {output_wire}) == {output}\nassert b.Client(b.CODE_HASH, b.INTERFACE_DIGEST).{stem}(input_{index}).as_bytes() == call_{index}.as_bytes()\nprint('BINDING_CASE roundtrip_{}')", entry.discriminator, entry.name);
             for failure in &entry.failures {
-                let (detail, wire) = sample(&failure.detail, &format!("b.{prefix}Failure{}Detail", failure.code));
-                let convention = if matches!(failure.detail, Type::EvmHead) { 2 } else { 1 };
+                let (detail, wire) = sample(
+                    &failure.detail,
+                    &format!("b.{prefix}Failure{}Detail", failure.code),
+                );
+                let convention = if matches!(failure.detail, Type::EvmHead) {
+                    2
+                } else {
+                    1
+                };
                 let _ = writeln!(out, "failure_{index}_{}: b.{prefix}Failure = call_{index}.decode_failure({}, bytes([{convention}]) + {wire})\nassert failure_{index}_{} == b.{prefix}Failure{}({detail})", failure.code, failure.code, failure.code, failure.code);
             }
             let _ = writeln!(out, "expect('STALE_INTERFACE', lambda: b.encode_{stem}(input_{index}, b.CODE_HASH, bytes([b.INTERFACE_DIGEST[0] ^ 1]) + b.INTERFACE_DIGEST[1:]))\nexpect('CODE_HASH_MISMATCH', lambda: b.encode_{stem}(input_{index}, bytes([b.CODE_HASH[0] ^ 1]) + b.CODE_HASH[1:], b.INTERFACE_DIGEST))\nexpect('INVALID_VALUE', lambda: b.encode_{stem}(cast(Any, object()), b.CODE_HASH, b.INTERFACE_DIGEST))\nexpect('INVALID_VALUE', lambda: b.{prefix}Input(cast(Any, 'wrong-native-type')))\nexpect('TRUNCATED', lambda: call_{index}.decode_output(b''))\nexpect('NON_CANONICAL', lambda: call_{index}.decode_output(bytes([3]) + {output_wire}))\nexpect('NON_CANONICAL', lambda: call_{index}.decode_output(bytes(b.MAX_CALLDATA_BYTES + 1)))\nexpect('INVALID_VALUE', lambda: call_{index}.decode_failure(-1, b''))");
@@ -332,16 +377,23 @@ impl BindingGenerator {
                 let _ = writeln!(out, "expect('TRAILING_BYTES', lambda: call_{index}.decode_output(bytes([{output_convention}]) + {output_wire} + b'\\x00'))\nexpect('NON_CANONICAL', lambda: call_{index}.decode_output(bytes([{output_convention}, 0xff])))");
             }
             for bad in invalid_samples(&entry.input) {
-                let _ = writeln!(out, "expect('INVALID_VALUE', lambda: b.{prefix}Input(cast(Any, {bad})))");
+                let _ = writeln!(
+                    out,
+                    "expect('INVALID_VALUE', lambda: b.{prefix}Input(cast(Any, {bad})))"
+                );
             }
             if matches!(entry.output, Type::Option(_)) {
                 let _ = writeln!(out, "assert call_{index}.decode_output(bytes([1, 0x40, 0])) is None\nexpect('NON_CANONICAL', lambda: call_{index}.decode_output(bytes([1, 0x40, 2])))");
             }
             if let Type::Union(variants) = &entry.output {
-                let unknown = (0..=u32::MAX).find(|tag| variants.iter().all(|variant| variant.tag != *tag)).expect("finite union has undeclared tags");
+                let unknown = (0..=u32::MAX)
+                    .find(|tag| variants.iter().all(|variant| variant.tag != *tag))
+                    .unwrap_or_else(|| panic!("finite union has undeclared tags"));
                 let _ = writeln!(out, "expect('NON_CANONICAL', lambda: call_{index}.decode_output(bytes([1, 0x50]) + ({unknown}).to_bytes(4, 'big')))");
             }
-            let unknown_failure = (0..=u32::MAX).find(|code| entry.failures.iter().all(|failure| failure.code != *code)).expect("finite failure table has undeclared codes");
+            let unknown_failure = (0..=u32::MAX)
+                .find(|code| entry.failures.iter().all(|failure| failure.code != *code))
+                .unwrap_or_else(|| panic!("finite failure table has undeclared codes"));
             let _ = writeln!(out, "expect('UNKNOWN_FAILURE', lambda: call_{index}.decode_failure({unknown_failure}, b''))\n");
         }
         if self.entries.iter().any(|entry| !entry.failures.is_empty()) {
@@ -379,42 +431,83 @@ fn sample(ty: &Type, context: &str) -> (String, String) {
     if let Some((value, tag, width, signed)) = scalar {
         let native = format!("{value}");
         let signed = if signed { "True" } else { "False" };
-        return (native, format!("(bytes([{tag}]) + ({value}).to_bytes({width}, 'big', signed={signed}))"));
+        return (
+            native,
+            format!("(bytes([{tag}]) + ({value}).to_bytes({width}, 'big', signed={signed}))"),
+        );
     }
     match ty {
-        Type::U256 => ("bytes(31) + b'\\x0d'".into(), "(bytes([0x15]) + bytes(31) + b'\\x0d')".into()),
+        Type::U256 => (
+            "bytes(31) + b'\\x0d'".into(),
+            "(bytes([0x15]) + bytes(31) + b'\\x0d')".into(),
+        ),
         Type::Bytes(bound) => {
             let count = (*bound).min(3);
             let value = format!("bytes(range(1, {}))", count + 1);
-            (value.clone(), format!("(bytes([0x20]) + ({count}).to_bytes(4, 'big') + {value})"))
+            (
+                value.clone(),
+                format!("(bytes([0x20]) + ({count}).to_bytes(4, 'big') + {value})"),
+            )
         }
         Type::Fixed(inner, bound) | Type::Variable(inner, bound) => {
             let (value, wire) = sample(inner, &format!("{context}Element"));
-            let count = if matches!(ty, Type::Fixed(_, _)) { *bound } else { (*bound).min(2) };
-            let tag = if matches!(ty, Type::Fixed(_, _)) { 0x30 } else { 0x31 };
-            (format!("tuple({value} for _ in range({count}))"), format!("(bytes([{tag}]) + ({count}).to_bytes(4, 'big') + {wire} * {count})"))
+            let count = if matches!(ty, Type::Fixed(_, _)) {
+                *bound
+            } else {
+                (*bound).min(2)
+            };
+            let tag = if matches!(ty, Type::Fixed(_, _)) {
+                0x30
+            } else {
+                0x31
+            };
+            (
+                format!("tuple({value} for _ in range({count}))"),
+                format!("(bytes([{tag}]) + ({count}).to_bytes(4, 'big') + {wire} * {count})"),
+            )
         }
         Type::Option(inner) => {
             let (value, wire) = sample(inner, &format!("{context}Some"));
-            (format!("b.Some({value})"), format!("(bytes([0x40, 1]) + {wire})"))
+            (
+                format!("b.Some({value})"),
+                format!("(bytes([0x40, 1]) + {wire})"),
+            )
         }
         Type::Union(variants) => {
             let variant = &variants[0];
-            let (value, wire) = sample(&variant.value, &format!("{context}Variant{}Value", variant.tag));
-            (format!("{context}Variant{}({value})", variant.tag), format!("(bytes([0x50]) + ({}).to_bytes(4, 'big') + {wire})", variant.tag))
+            let (value, wire) = sample(
+                &variant.value,
+                &format!("{context}Variant{}Value", variant.tag),
+            );
+            (
+                format!("{context}Variant{}({value})", variant.tag),
+                format!(
+                    "(bytes([0x50]) + ({}).to_bytes(4, 'big') + {wire})",
+                    variant.tag
+                ),
+            )
         }
-        Type::EvmHead => ("bytes(31) + b'\\x01'".into(), "(bytes(31) + b'\\x01')".into()),
+        Type::EvmHead => (
+            "bytes(31) + b'\\x01'".into(),
+            "(bytes(31) + b'\\x01')".into(),
+        ),
         _ => unreachable!(),
     }
 }
 
 fn invalid_samples(ty: &Type) -> Vec<String> {
     let integer = match ty {
-        Type::U8 => Some((8, false)), Type::U16 => Some((16, false)),
-        Type::U32 => Some((32, false)), Type::U64 => Some((64, false)),
-        Type::U128 => Some((128, false)), Type::I8 => Some((8, true)),
-        Type::I16 => Some((16, true)), Type::I32 => Some((32, true)),
-        Type::I64 => Some((64, true)), Type::I128 => Some((128, true)), _ => None,
+        Type::U8 => Some((8, false)),
+        Type::U16 => Some((16, false)),
+        Type::U32 => Some((32, false)),
+        Type::U64 => Some((64, false)),
+        Type::U128 => Some((128, false)),
+        Type::I8 => Some((8, true)),
+        Type::I16 => Some((16, true)),
+        Type::I32 => Some((32, true)),
+        Type::I64 => Some((64, true)),
+        Type::I128 => Some((128, true)),
+        _ => None,
     };
     if let Some((bits, signed)) = integer {
         let mut values = alloc::vec![String::from("True"), String::from("1.0")];
@@ -431,7 +524,10 @@ fn invalid_samples(ty: &Type) -> Vec<String> {
         Type::U256 => alloc::vec!["bytes(31)".into(), "bytes(33)".into()],
         Type::Bytes(bound) => alloc::vec![format!("bytes({bound} + 1)"), "bytearray()".into()],
         Type::Fixed(_, _) => alloc::vec!["()".into(), "[]".into()],
-        Type::Variable(_, bound) => alloc::vec![format!("tuple(None for _ in range({bound} + 1))"), "[]".into()],
+        Type::Variable(_, bound) => alloc::vec![
+            format!("tuple(None for _ in range({bound} + 1))"),
+            "[]".into()
+        ],
         Type::Option(_) => alloc::vec!["True".into()],
         Type::Union(_) => alloc::vec!["object()".into()],
         Type::EvmHead => alloc::vec!["bytes(31)".into(), "bytes(b.MAX_CALLDATA_BYTES)".into()],

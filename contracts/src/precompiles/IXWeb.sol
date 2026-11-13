@@ -83,11 +83,7 @@ interface IXWeb {
     /// sequence is the accepted program call sequence, not a deadline.
     /// Only admission emits this event; fulfilment retains a replay tombstone.
     event XWebProgramRequested(
-        bytes32 indexed programId,
-        uint64 indexed requestId,
-        uint8 kind,
-        bytes payload,
-        uint64 sequence
+        bytes32 indexed programId, uint64 indexed requestId, uint8 kind, bytes payload, uint64 sequence
     );
     event XWebFulfilled(
         uint64 indexed requestId,

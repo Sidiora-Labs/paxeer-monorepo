@@ -11,6 +11,21 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"log/slog"
+	"math/big"
+	"net"
+	"net/http"
+	"net/http/httputil"
+	"net/url"
+	"os"
+	"path/filepath"
+	"sort"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/Sidiora-Technologies/KindleLaunch/protocol/bindings"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/chain/profile"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/chain/readpolicy"
@@ -25,19 +40,6 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"io"
-	"math/big"
-	"net"
-	"net/http"
-	"net/http/httputil"
-	"net/url"
-	"os"
-	"path/filepath"
-	"sort"
-	"strconv"
-	"strings"
-	"sync"
-	"time"
 
 	"github.com/ethereum/go-ethereum/ethclient"
 )
@@ -309,9 +311,9 @@ func readVerified[T any](c *Client, ctx context.Context, method string, fn func(
 		if err := ctx.Err(); err != nil {
 			return zero, err
 		}
-		endpoint := "primary"
+		endpoint := valuePrimary
 		if i == 1 {
-			endpoint = "fallback"
+			endpoint = valueFallback
 		}
 		c.mu.Lock()
 		c.readMetrics.EndpointAttempts++
@@ -698,7 +700,7 @@ func (c *Client) EndpointAttestations() map[string]EndpointAttestation {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	out := map[string]EndpointAttestation{}
-	for id, e := range map[string]*ethclient.Client{"primary": c.primary, "fallback": c.fallback} {
+	for id, e := range map[string]*ethclient.Client{valuePrimary: c.primary, valueFallback: c.fallback} {
 		if e == nil {
 			continue
 		}
@@ -929,9 +931,9 @@ func (a *ReadAdapter) ObserveHead(ctx context.Context) (ObservedHead, error) {
 		if err != nil {
 			return ObservedHead{}, err
 		}
-		id := "primary"
+		id := valuePrimary
 		if e == a.client.fallback {
-			id = "fallback"
+			id = valueFallback
 		}
 		// ParentHash is the node-reported hash of the parent block on chain 125.
 		return ObservedHead{head.Header.Number.Uint64(), head.Hash, head.Header.ParentHash, head.Header.Time, time.Now().UTC(), id}, nil
@@ -1042,13 +1044,24 @@ func (a *ReadAdapter) Snapshot(ctx context.Context, pin BlockPin, pool common.Ad
 	if new(big.Int).SetBytes(values[3]).Cmp(big.NewInt(10000)) > 0 {
 		return PoolSnapshot{}, errors.New("invalid pool fee")
 	}
+	//nolint:gosec // Pool fees are bounded to 10,000 basis points above.
 	return PoolSnapshot{ChainID: "125", PoolAddress: pool, BlockNumber: new(big.Int).SetUint64(pin.Number).String(), BlockHash: pin.Hash, DeploymentVersion: pin.DeploymentVersion, ManifestHash: a.binding.ManifestHash, InterfaceHash: a.binding.InterfaceHash, CapabilityHash: a.binding.CapabilityHash, ConfigurationRevision: a.configurationRevision, ObservedAt: pin.ObservedAt, VirtualUSDLReserve: raw[0], RealUSDLBalance: raw[1], TokenReserve: raw[2], FeeBps: uint16(new(big.Int).SetBytes(values[3]).Uint64())}, nil
 }
 
-// surfaceRuntimeHash identifies the runtime installed at the v6.12.0 activation.
-var surfaceRuntimeHash = common.HexToHash("0x6302ff80f4168c2af23afbf3117c613edd66d288d120eee825f9ecadd43a392f")
-
-var stagedSurfaceRuntimeHash = common.HexToHash(deployment.StagedSurfaceRuntimeHash)
+func surfaceRuntimeHash(manifest deployment.Manifest) map[common.Hash]struct{} {
+	hashes := make(map[common.Hash]struct{})
+	for _, role := range manifest.Roles {
+		if role.Kind != "surface" {
+			continue
+		}
+		for _, hash := range []string{role.RuntimeHash, role.StagedRuntimeHash} {
+			if role.AcceptsRuntimeHash(hash) {
+				hashes[common.HexToHash(hash)] = struct{}{}
+			}
+		}
+	}
+	return hashes
+}
 
 // identifyPool requires PoolRegistry membership at pin, then the pool code: a
 // surface runtime is identified by its code hash alone; a pool proxy runtime
@@ -1070,6 +1083,7 @@ func (a *ReadAdapter) identifyPool(ctx context.Context, pin BlockPin, pool commo
 	if err := decodePoolMembership(membership); err != nil {
 		return err
 	}
+	surfaceHashes := surfaceRuntimeHash(a.manifest)
 	_, err = readVerified(a.client, ctx, "pool_code_identity", func(ctx context.Context, e *ethclient.Client) (bool, error) {
 		err := a.client.atPinned(ctx, e, pin, func(height *big.Int, _ *types.Header) error {
 			code, err := e.CodeAt(ctx, pool, height)
@@ -1079,11 +1093,11 @@ func (a *ReadAdapter) identifyPool(ctx context.Context, pin BlockPin, pool commo
 			if len(code) == 0 {
 				return errors.New("pool proxy runtime identity mismatch")
 			}
-			switch crypto.Keccak256Hash(code) {
-			case surfaceRuntimeHash, stagedSurfaceRuntimeHash:
+			hash := crypto.Keccak256Hash(code)
+			if _, ok := surfaceHashes[hash]; ok {
 				return nil
-			case a.poolProxyRuntimeHash:
-			default:
+			}
+			if hash != a.poolProxyRuntimeHash {
 				return errors.New("pool proxy runtime identity mismatch")
 			}
 			slot, err := e.StorageAt(ctx, pool, deployment.BeaconSlot, height)
@@ -1235,7 +1249,7 @@ func projectReceipt(r receiptEvidence) (contractv2.TxStatusData, error) {
 	if r.receipt == nil {
 		status := "unknown"
 		if r.tx != nil {
-			status = "submitted"
+			status = valueSubmitted
 		}
 		return contractv2.TxStatusData{Status: status}, nil
 	}
@@ -1288,10 +1302,10 @@ func (c *Client) ReceiptState(ctx context.Context, state readpolicy.TransactionS
 		return r, err
 	})
 	if err != nil {
-		return state, contractv2.TxStatusData{Status: "submitted"}, err
+		return state, contractv2.TxStatusData{Status: valueSubmitted}, err
 	}
 	if r.receipt == nil {
-		return state.AwaitingReceipt(), contractv2.TxStatusData{Status: "submitted"}, nil
+		return state.AwaitingReceipt(), contractv2.TxStatusData{Status: valueSubmitted}, nil
 	}
 	next, err := state.WithReceipt(r.receipt, r.block.Header, r.block.Hash)
 	if err != nil {
@@ -1371,7 +1385,7 @@ type ChainMeasurementRun struct {
 
 func measurementOutcome(err error) string {
 	if err == nil {
-		return "success"
+		return valueSuccess
 	}
 	var read *readpolicy.ReadError
 	if errors.As(err, &read) {
@@ -1442,10 +1456,15 @@ func observeDurableMeasurement(ctx context.Context, pool *pgxpool.Pool, stream s
 				break
 			}
 			actual := expected[index]
+			if uint64(actual.Index) > 1<<63-1 || uint64(actual.TxIndex) > 1<<63-1 {
+				err = errors.New("durable raw event index outside signed range")
+				break
+			}
 			var topics []string
 			if err = json.Unmarshal(topicsJSON, &topics); err != nil {
 				break
 			}
+			//nolint:gosec // Raw log indices are bounded by the chain receipt index domain.
 			if txHash != actual.TxHash.Hex() || logIndex != int64(actual.Index) || txIndex != int64(actual.TxIndex) || blockHash != actual.BlockHash.Hex() || !strings.EqualFold(address, actual.Address.Hex()) || !bytesEqual(data, actual.Data) || len(topics) != len(actual.Topics) {
 				err = errors.New("durable raw event identity differs")
 				break
@@ -1508,7 +1527,9 @@ func RunChainMeasurement(ctx context.Context, adapter *ReadAdapter, durable *pgx
 	if err != nil {
 		return nil, errors.New("measurement executable build hash mismatch")
 	}
-	buildFile.Close()
+	if err := buildFile.Close(); err != nil {
+		return nil, err
+	}
 	for _, address := range cfg.LogAddresses {
 		if address == (common.Address{}) {
 			return nil, errors.New("approved log source address required")
@@ -1606,7 +1627,7 @@ func RunChainMeasurement(ctx context.Context, adapter *ReadAdapter, durable *pgx
 			_ = capture.Append(readpolicy.MeasurementSample{RequestID: "head-" + strconv.FormatUint(headSerial, 10), Scenario: "head", ChainID: "125", ObservedUTCNS: headStarted.UnixNano(), FinishedUTCNS: time.Now().UnixNano(), ElapsedNS: int64(time.Since(headStarted)), Outcome: measurementOutcome(err)})
 			return fail("HEAD_UNAVAILABLE", err)
 		}
-		if err := capture.Append(readpolicy.MeasurementSample{RequestID: "head-" + strconv.FormatUint(headSerial, 10), Scenario: "head", ChainID: "125", Height: strconv.FormatUint(head.Height, 10), BlockHash: head.Hash.Hex(), ParentHash: head.ParentHash.Hex(), BlockTimeSeconds: head.BlockTime, ObservedUTCNS: headStarted.UnixNano(), FinishedUTCNS: time.Now().UnixNano(), ElapsedNS: int64(time.Since(headStarted)), EndpointID: head.EndpointID, Outcome: "success"}); err != nil {
+		if err := capture.Append(readpolicy.MeasurementSample{RequestID: "head-" + strconv.FormatUint(headSerial, 10), Scenario: "head", ChainID: "125", Height: strconv.FormatUint(head.Height, 10), BlockHash: head.Hash.Hex(), ParentHash: head.ParentHash.Hex(), BlockTimeSeconds: head.BlockTime, ObservedUTCNS: headStarted.UnixNano(), FinishedUTCNS: time.Now().UnixNano(), ElapsedNS: int64(time.Since(headStarted)), EndpointID: head.EndpointID, Outcome: valueSuccess}); err != nil {
 			return fail("HEAD_RAW_CAPTURE_FAILED", err)
 		}
 		if head.Height < last {
@@ -1619,21 +1640,21 @@ func RunChainMeasurement(ctx context.Context, adapter *ReadAdapter, durable *pgx
 			observed := headStarted
 			selected, err := adapter.Pin(ctx, height)
 			if err != nil {
-				_ = capture.Append(readpolicy.MeasurementSample{RequestID: "ingest-" + strconv.FormatUint(height, 10), Scenario: "ingest", ChainID: "125", Height: strconv.FormatUint(height, 10), ObservedUTCNS: observed.UnixNano(), FinishedUTCNS: time.Now().UnixNano(), ElapsedNS: int64(time.Since(observed)), Outcome: measurementOutcome(err)})
+				_ = capture.Append(readpolicy.MeasurementSample{RequestID: "ingest-" + strconv.FormatUint(height, 10), Scenario: valueIngest, ChainID: "125", Height: strconv.FormatUint(height, 10), ObservedUTCNS: observed.UnixNano(), FinishedUTCNS: time.Now().UnixNano(), ElapsedNS: int64(time.Since(observed)), Outcome: measurementOutcome(err)})
 				return fail("COMMITTED_PIN_FAILED", err)
 			}
 			logs, err := adapter.HistoricalLogs(ctx, ethereum.FilterQuery{Addresses: cfg.LogAddresses, FromBlock: new(big.Int).SetUint64(height), ToBlock: new(big.Int).SetUint64(height)}, 1)
 			if err != nil {
-				_ = capture.Append(readpolicy.MeasurementSample{RequestID: "ingest-" + strconv.FormatUint(height, 10), Scenario: "ingest", ChainID: "125", Height: strconv.FormatUint(height, 10), BlockHash: selected.Hash.Hex(), ObservedUTCNS: observed.UnixNano(), FinishedUTCNS: time.Now().UnixNano(), ElapsedNS: int64(time.Since(observed)), Outcome: measurementOutcome(err)})
+				_ = capture.Append(readpolicy.MeasurementSample{RequestID: "ingest-" + strconv.FormatUint(height, 10), Scenario: valueIngest, ChainID: "125", Height: strconv.FormatUint(height, 10), BlockHash: selected.Hash.Hex(), ObservedUTCNS: observed.UnixNano(), FinishedUTCNS: time.Now().UnixNano(), ElapsedNS: int64(time.Since(observed)), Outcome: measurementOutcome(err)})
 				return fail("RAW_RANGE_FAILED", err)
 			}
 			visible, recorded, err := observeDurableMeasurement(ctx, durable, cfg.StreamID, selected, logs)
 			if err != nil {
-				_ = capture.Append(readpolicy.MeasurementSample{RequestID: "ingest-" + strconv.FormatUint(height, 10), Scenario: "ingest", ChainID: "125", Height: strconv.FormatUint(height, 10), BlockHash: selected.Hash.Hex(), ObservedUTCNS: observed.UnixNano(), FinishedUTCNS: time.Now().UnixNano(), ElapsedNS: int64(time.Since(observed)), Outcome: measurementOutcome(err)})
+				_ = capture.Append(readpolicy.MeasurementSample{RequestID: "ingest-" + strconv.FormatUint(height, 10), Scenario: valueIngest, ChainID: "125", Height: strconv.FormatUint(height, 10), BlockHash: selected.Hash.Hex(), ObservedUTCNS: observed.UnixNano(), FinishedUTCNS: time.Now().UnixNano(), ElapsedNS: int64(time.Since(observed)), Outcome: measurementOutcome(err)})
 				return fail("DURABLE_INGEST_FAILED", err)
 			}
 			latency := visible.Sub(observed)
-			if err := capture.Append(readpolicy.MeasurementSample{RequestID: "ingest-" + strconv.FormatUint(height, 10), Scenario: "ingest", ChainID: "125", Height: strconv.FormatUint(height, 10), BlockHash: selected.Hash.Hex(), ObservedUTCNS: observed.UnixNano(), FinishedUTCNS: visible.UnixNano(), ElapsedNS: int64(latency), DurableVisibilityNS: visible.UnixNano(), DatabaseRecordedUTCNS: recorded.UnixNano(), EndpointID: head.EndpointID, Outcome: "success", RawCount: int64(len(logs))}); err != nil {
+			if err := capture.Append(readpolicy.MeasurementSample{RequestID: "ingest-" + strconv.FormatUint(height, 10), Scenario: valueIngest, ChainID: "125", Height: strconv.FormatUint(height, 10), BlockHash: selected.Hash.Hex(), ObservedUTCNS: observed.UnixNano(), FinishedUTCNS: visible.UnixNano(), ElapsedNS: int64(latency), DurableVisibilityNS: visible.UnixNano(), DatabaseRecordedUTCNS: recorded.UnixNano(), EndpointID: head.EndpointID, Outcome: valueSuccess, RawCount: int64(len(logs))}); err != nil {
 				return fail("RAW_CAPTURE_FAILED", err)
 			}
 			if len(run.IngestLatencies) >= 1000000 {
@@ -1657,7 +1678,7 @@ func RunChainMeasurement(ctx context.Context, adapter *ReadAdapter, durable *pgx
 				return fail("FAILOVER_SNAPSHOT_FAILED", err)
 			}
 			run.EndpointLossRequests++
-			if err := capture.Append(readpolicy.MeasurementSample{RequestID: "loss-" + strconv.FormatUint(run.EndpointLossRequests, 10), Scenario: "endpoint-loss", ChainID: "125", Height: strconv.FormatUint(chosen.Number, 10), BlockHash: chosen.Hash.Hex(), ObservedUTCNS: began.UnixNano(), FinishedUTCNS: time.Now().UnixNano(), ElapsedNS: int64(time.Since(began)), EndpointID: head.EndpointID, Outcome: "success"}); err != nil {
+			if err := capture.Append(readpolicy.MeasurementSample{RequestID: "loss-" + strconv.FormatUint(run.EndpointLossRequests, 10), Scenario: "endpoint-loss", ChainID: "125", Height: strconv.FormatUint(chosen.Number, 10), BlockHash: chosen.Hash.Hex(), ObservedUTCNS: began.UnixNano(), FinishedUTCNS: time.Now().UnixNano(), ElapsedNS: int64(time.Since(began)), EndpointID: head.EndpointID, Outcome: valueSuccess}); err != nil {
 				return fail("RAW_CAPTURE_FAILED", err)
 			}
 		}
@@ -1677,7 +1698,7 @@ func RunChainMeasurement(ctx context.Context, adapter *ReadAdapter, durable *pgx
 	statsAfter := adapter.ReadStats()
 	rpcMetricsAfter := adapter.client.ReadMetrics()
 	metricStarted := time.Now()
-	if err := capture.Append(readpolicy.MeasurementSample{RequestID: "rpc-window-summary", Scenario: "rpc-utilization", ChainID: "125", ObservedUTCNS: metricStarted.UnixNano(), FinishedUTCNS: time.Now().UnixNano(), ElapsedNS: int64(time.Since(metricStarted)), Outcome: "success", UpstreamGroups: statsAfter.UpstreamGroups - statsBefore.UpstreamGroups, CacheHits: statsAfter.CacheHits - statsBefore.CacheHits, JoinedWaiters: statsAfter.JoinedWaiters - statsBefore.JoinedWaiters, RPCRequests: run.UpstreamRPCRequests, WindowNS: int64(run.Ended.Sub(run.Started)), RPCAttempts: rpcMetricsAfter.EndpointAttempts - rpcMetricsStart.EndpointAttempts, RPCRetryableFailures: rpcMetricsAfter.RetryableFailures - rpcMetricsStart.RetryableFailures, RPCSemanticFailures: rpcMetricsAfter.SemanticFailures - rpcMetricsStart.SemanticFailures, RPCCanceledAttempts: rpcMetricsAfter.CanceledAttempts - rpcMetricsStart.CanceledAttempts}); err != nil {
+	if err := capture.Append(readpolicy.MeasurementSample{RequestID: "rpc-window-summary", Scenario: "rpc-utilization", ChainID: "125", ObservedUTCNS: metricStarted.UnixNano(), FinishedUTCNS: time.Now().UnixNano(), ElapsedNS: int64(time.Since(metricStarted)), Outcome: valueSuccess, UpstreamGroups: statsAfter.UpstreamGroups - statsBefore.UpstreamGroups, CacheHits: statsAfter.CacheHits - statsBefore.CacheHits, JoinedWaiters: statsAfter.JoinedWaiters - statsBefore.JoinedWaiters, RPCRequests: run.UpstreamRPCRequests, WindowNS: int64(run.Ended.Sub(run.Started)), RPCAttempts: rpcMetricsAfter.EndpointAttempts - rpcMetricsStart.EndpointAttempts, RPCRetryableFailures: rpcMetricsAfter.RetryableFailures - rpcMetricsStart.RetryableFailures, RPCSemanticFailures: rpcMetricsAfter.SemanticFailures - rpcMetricsStart.SemanticFailures, RPCCanceledAttempts: rpcMetricsAfter.CanceledAttempts - rpcMetricsStart.CanceledAttempts}); err != nil {
 		return fail("RAW_METRICS_CAPTURE_FAILED", err)
 	}
 	return run, nil
@@ -1723,13 +1744,19 @@ func FinishChainMeasurement(run *ChainMeasurementRun, evidence ChainMeasurementE
 		if err != nil {
 			return fail("ENVIRONMENT_OR_TOPOLOGY_ARTIFACT_MISSING", err)
 		}
-		file.Close()
+		if err := file.Close(); err != nil {
+			return fail("ENVIRONMENT_OR_TOPOLOGY_ARTIFACT_CLOSE_FAILED", err)
+		}
 	}
 	workloadFile, err := run.capture.OpenArtifact("mixed-workload", evidence.Workload)
 	if err != nil {
 		return fail("MISSING_WORKLOAD_EVIDENCE", err)
 	}
-	defer workloadFile.Close()
+	defer func() {
+		if err := workloadFile.Close(); err != nil {
+			slog.Warn("close measurement artifact", "error", err)
+		}
+	}()
 	var workload struct {
 		Bindings struct {
 			Candidate string `json:"candidate"`
@@ -1802,7 +1829,7 @@ func FinishChainMeasurement(run *ChainMeasurementRun, evidence ChainMeasurementE
 		if err == nil && hostDecoder.Decode(new(any)) != io.EOF {
 			err = errors.New("host report trailing data")
 		}
-		hostFile.Close()
+		err = errors.Join(err, hostFile.Close())
 		if err != nil {
 			return fail("MALFORMED_WORKLOAD_HOST_REPORT", err)
 		}
@@ -1821,7 +1848,7 @@ func FinishChainMeasurement(run *ChainMeasurementRun, evidence ChainMeasurementE
 		if err == nil && manifestDecoder.Decode(new(any)) != io.EOF {
 			err = errors.New("artifact manifest trailing data")
 		}
-		manifestFile.Close()
+		err = errors.Join(err, manifestFile.Close())
 		if err != nil {
 			return fail("MALFORMED_WORKLOAD_RAW_MANIFEST", err)
 		}
@@ -1835,14 +1862,20 @@ func FinishChainMeasurement(run *ChainMeasurementRun, evidence ChainMeasurementE
 			if err != nil {
 				return fail("WORKLOAD_RAW_CAPTURE_CHANGED", err)
 			}
-			raw.Close()
+			if err := raw.Close(); err != nil {
+				return fail("WORKLOAD_RAW_CAPTURE_CLOSE_FAILED", err)
+			}
 		}
 	}
 	compatibilityFile, err := run.capture.OpenArtifact("compatibility", evidence.Compatibility)
 	if err != nil {
 		return fail("MISSING_COMPATIBILITY_EVIDENCE", err)
 	}
-	defer compatibilityFile.Close()
+	defer func() {
+		if err := compatibilityFile.Close(); err != nil {
+			slog.Warn("close measurement artifact", "error", err)
+		}
+	}()
 	var compatibility struct {
 		Binding   readpolicy.MeasurementBinding `json:"binding"`
 		Scenarios map[string]struct {
@@ -1868,7 +1901,7 @@ func FinishChainMeasurement(run *ChainMeasurementRun, evidence ChainMeasurementE
 		if err != nil {
 			return fail("COMPATIBILITY_RAW_EVIDENCE_MISSING", err)
 		}
-		requiredTests := map[int]string{1: "TestWrongChainCannotServe", 2: "TestIdentityAndAmounts", 3: "TestPhase3RealTimedOutHeightRetainsCompleteReplay", 4: "TestPhase3RealFirstPinConflictPublishesNothing", 5: "TestPhase2ReadAdapterRealRegisteredPool", 6: "TestPhase3RealOpticalRejectionNeverUsesNumericFallback", 7: "TestPhase3RealThousandBlockRangeSplitCoversChildren", 8: "TestPhase2ReadAdapterRealRegisteredPool", 9: "TestPhase2ReadAdapterRealRegisteredPool", 10: "TestPhase2ReadAdapterRealRegisteredPool"}
+		requiredTests := map[int]string{1: "TestWrongChainCannotServe", 2: "TestIdentityAndAmounts", 3: "TestPhase3RealTimedOutHeightRetainsCompleteReplay", 4: "TestPhase3RealFirstPinConflictPublishesNothing", 5: valueTestPhase2ReadAdapterRealRegisteredPool, 6: "TestPhase3RealOpticalRejectionNeverUsesNumericFallback", 7: "TestPhase3RealThousandBlockRangeSplitCoversChildren", 8: valueTestPhase2ReadAdapterRealRegisteredPool, 9: valueTestPhase2ReadAdapterRealRegisteredPool, 10: valueTestPhase2ReadAdapterRealRegisteredPool}
 		passed := false
 		scanner := bufio.NewScanner(raw)
 		scanner.Buffer(make([]byte, 4096), 1<<20)
@@ -1879,23 +1912,20 @@ func FinishChainMeasurement(run *ChainMeasurementRun, evidence ChainMeasurementE
 				Package string
 			}
 			if err := json.Unmarshal(scanner.Bytes(), &event); err != nil {
-				raw.Close()
-				return fail("COMPATIBILITY_RAW_EVIDENCE_MALFORMED", err)
+				return fail("COMPATIBILITY_RAW_EVIDENCE_MALFORMED", errors.Join(err, raw.Close()))
 			}
 			if event.Test == requiredTests[id] {
 				if !strings.HasPrefix(event.Package, "github.com/Sidiora-Technologies/KindleLaunch/shared/chain") || event.Action == "fail" || event.Action == "skip" {
-					raw.Close()
-					return fail("COMPATIBILITY_REAL_PATH_FAILED", errors.New("required genuine compatibility test failed or skipped"))
+					return fail("COMPATIBILITY_REAL_PATH_FAILED", errors.Join(errors.New("required genuine compatibility test failed or skipped"), raw.Close()))
 				}
 				if event.Action == "pass" {
 					passed = true
 				}
 			}
 		}
-		scanErr := scanner.Err()
-		raw.Close()
+		scanErr := errors.Join(scanner.Err(), raw.Close())
 		if scanErr != nil || !passed {
-			return fail("COMPATIBILITY_REAL_PATH_MISSING", errors.New("required actual go-test-json passing scenario record absent"))
+			return fail("COMPATIBILITY_REAL_PATH_MISSING", errors.Join(errors.New("required actual go-test-json passing scenario record absent"), scanErr))
 		}
 	}
 	if len(run.IngestLatencies) == 0 {

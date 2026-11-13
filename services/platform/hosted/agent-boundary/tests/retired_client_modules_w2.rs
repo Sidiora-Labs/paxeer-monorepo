@@ -40,16 +40,13 @@ fn no_retired_layerx_client_module_paths_w2() {
             .iter()
             .map(String::as_str)
             .chain(retired_decision_paths)
-            .filter_map(|path| {
-                source
-                    .match_indices(path)
-                    .any(|(offset, matched)| {
-                        source[offset + matched.len()..]
-                            .chars()
-                            .next()
-                            .is_none_or(|next| !next.is_alphanumeric() && next != '_')
-                    })
-                    .then_some(path)
+            .filter(|&path| {
+                source.match_indices(path).any(|(offset, matched)| {
+                    source[offset + matched.len()..]
+                        .chars()
+                        .next()
+                        .is_none_or(|next| !next.is_alphanumeric() && next != '_')
+                })
             })
             .collect();
         assert!(

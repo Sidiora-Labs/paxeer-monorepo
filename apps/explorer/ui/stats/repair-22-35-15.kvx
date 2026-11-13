@@ -1,0 +1,48 @@
+[statistics]
+route = "/stats"
+sources = "The statistics page reads the explorer API when no statistics service address is configured and uses the statistics service when its address is configured."
+layout = "Network hero, recent blocks, overview counters and chart sections share the page filters and semantic colours in light and dark modes."
+missing = "An absent numeric value shows an em dash; zero remains zero. Request errors appear within the affected counter group or chart."
+
+[explorer.statistics]
+route = "/api/v2/stats"
+fields = ["total_blocks", "total_addresses", "total_transactions", "transactions_today", "average_block_time", "total_gas_used", "gas_used_today", "network_utilization_percentage", "gas_prices.slow.price", "gas_prices.average.price", "gas_prices.fast.price", "coin_price", "market_cap", "secondary_coin_price", "secondary_coin_market_cap"]
+units = "Average block time is converted from milliseconds to seconds; gas prices are in Gwei and market figures are in USD."
+hero = "The explorer response supplies the current epoch through celo.epoch_number when present; unavailable hero measurements show an em dash."
+
+[explorer.transactions]
+route = "/api/v2/transactions/stats"
+fields = ["transactions_count_24h", "pending_transactions_count", "transaction_fees_sum_24h", "transaction_fees_avg_24h", "total_transactions_count", "price_updates_count_24h", "total_price_updates_count"]
+units = "Fee values are converted from base units using the chain currency decimals."
+
+[explorer.markets]
+route = "/api/v2/paxeer-x/feed/markets"
+fields = ["items"]
+value = "The market count is the number of returned items."
+
+[explorer.daily_transactions]
+route = "/api/v2/stats/charts/transactions"
+fields = ["chart_data.date", "chart_data.transactions_count"]
+
+[explorer.pax_market]
+route = "/api/v2/stats/charts/market"
+fields = ["chart_data.date", "chart_data.closing_price", "chart_data.market_cap"]
+charts = ["PAX price", "PAX market value"]
+
+[explorer.sid_market]
+route = "/api/v2/stats/charts/secondary-coin-market"
+fields = ["chart_data.date", "chart_data.closing_price", "chart_data.market_cap"]
+charts = ["SID price", "SID market value"]
+
+[explorer.recent_blocks]
+route = "/api/v2/main-page/blocks"
+fields = ["hash", "height", "timestamp", "transactions_count", "gas_used"]
+
+[charts]
+filters = "Chart names and sections filter the charts grid; the interval selects dated API points in chronological order."
+values = "Missing chart values are omitted from the series and an absent latest value shows an em dash."
+
+[statistics_service]
+routes = ["/api/v1/counters", "/api/v1/lines", "/api/v1/lines/:id"]
+fields = ["counters.id", "counters.title", "counters.value", "counters.description", "counters.units", "sections.id", "sections.title", "sections.charts", "info", "chart.date", "chart.date_to", "chart.value", "chart.is_approximate"]
+filters = ["from", "to", "resolution"]

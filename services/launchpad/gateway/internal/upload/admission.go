@@ -5,10 +5,11 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
-	redis "github.com/redis/go-redis/v9"
 	"regexp"
 	"sync"
 	"time"
+
+	redis "github.com/redis/go-redis/v9"
 )
 
 const releaseTimeout = time.Second

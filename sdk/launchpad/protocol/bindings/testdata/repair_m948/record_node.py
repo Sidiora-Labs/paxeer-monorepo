@@ -48,6 +48,10 @@ done
         subprocess.run([str(binary), 'tx', 'evm', 'call-contract', '0x85FcD13735F4309833A503EE804ea32395851479', payload, '--from', 'deployer', '--home', str(node), '--keyring-backend', 'test', '--chain-id', 'hyperpax_125-1', '--node', config['rpc']['laddr'], '--evm-rpc', evm, '--nonce', str(nonce), '--gas-fee-cap', '1000000000000', '--gas-limit', '7000000', '-y'], check=True)
         (here / 'producer-revision.txt').write_text(subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=root, text=True))
         subprocess.run(['python3', str(here / 'record_native.py')], cwd=root, check=True)
-        subprocess.run(['python3', str(here / 'record_retained.py'), 'ws://127.0.0.1:18546'], cwd=root, check=True)
+        subprocess.run(['python3', str(here / 'record_retained.py'), 'ws://127.0.0.1:18546', 'NativeExecutorNode'], cwd=root, check=True)
+        execution_path = here / 'native-execution.json'
+        execution = json.loads(execution_path.read_text())
+        execution['NodeRPC'] = json.loads((here / 'native-node-rpc.json').read_text())
+        execution_path.write_text(json.dumps(execution, indent=2) + '\n')
     finally:
         subprocess.run(['bash', str(startup), '--stop', str(node)], env=env, check=True)

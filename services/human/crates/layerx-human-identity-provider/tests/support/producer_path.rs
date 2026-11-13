@@ -1,5 +1,4 @@
-#[path = "mod.rs"]
-mod support;
+use super::support;
 
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine as _;
@@ -31,6 +30,15 @@ use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
 pub type Result<T = ()> = std::result::Result<T, Box<dyn Error>>;
+
+fn encoded(bytes: &[u8]) -> String {
+    use std::fmt::Write as _;
+    let mut text = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        let _ = write!(text, "{byte:02x}");
+    }
+    text
+}
 
 const ISSUER: &str = "https://identity.example.test/auth/v1";
 const AUDIENCE: &str = "authenticated";
@@ -297,10 +305,7 @@ fn recorded() -> Result<Value> {
             )),
         ),
     ] {
-        let digest: String = Sha256::digest(source.as_bytes())
-            .iter()
-            .map(|b| format!("{b:02x}"))
-            .collect();
+        let digest = encoded(&Sha256::digest(source.as_bytes()));
         assert_eq!(
             record["sources"][path], digest,
             "regenerate the recording after changing its producer"
@@ -336,7 +341,7 @@ fn verifier(keys: &KeySetServer, record: &Value) -> Result<AssertionVerifier> {
     .with_binding_producer_key(text(record, "publicKey")?)?)
 }
 
-fn refused(value: std::result::Result<impl std::fmt::Debug, IdentityDispatchError>) {
+fn refused(value: &std::result::Result<impl std::fmt::Debug, IdentityDispatchError>) {
     assert!(
         matches!(value, Err(IdentityDispatchError::ProviderRefused)),
         "binding must be refused: {value:?}"
@@ -378,13 +383,13 @@ pub fn wallet_gateway_binding_producer_transport_and_reopen() -> Result {
         forged_binding(binding)?,
         text(&record, "crossTenant")?.to_owned(),
     ] {
-        refused(identity.resolve_assertion_with_binding(&token, Some(&offered)));
+        refused(&identity.resolve_assertion_with_binding(&token, Some(&offered)));
         assert_eq!(identity.resolve_assertion(&token)?, pending);
         assert!(reader.lookup(pending.principal.as_str()).is_err());
     }
-    refused(identity.resolve_assertion_with_binding(&other_token, Some(binding)));
+    refused(&identity.resolve_assertion_with_binding(&other_token, Some(binding)));
     let untrusted = Signer::generate()?.assertion(text(&record, "subject")?, now);
-    refused(identity.resolve_assertion_with_binding(&untrusted, Some(binding)));
+    refused(&identity.resolve_assertion_with_binding(&untrusted, Some(binding)));
     assert!(reader.lookup(pending.principal.as_str()).is_err());
 
     // This is the gateway's recorded signature, passed unchanged through LXIP operation 4.
@@ -449,9 +454,9 @@ pub fn wallet_gateway_binding_producer_transport_and_reopen() -> Result {
     );
     drop(scope);
     assert!(store.principal(&other.principal).is_err());
-    refused(identity.resolve_assertion_with_binding(&token, Some(&forged_binding(binding)?)));
-    refused(identity.resolve_assertion_with_binding(&other_token, Some(binding)));
-    refused(identity.resolve_assertion_with_binding(&token, Some(text(&record, "crossTenant")?)));
+    refused(&identity.resolve_assertion_with_binding(&token, Some(&forged_binding(binding)?)));
+    refused(&identity.resolve_assertion_with_binding(&other_token, Some(binding)));
+    refused(&identity.resolve_assertion_with_binding(&token, Some(text(&record, "crossTenant")?)));
     assert_eq!(identity.resolve_assertion(&token)?, account);
     assert_eq!(
         reader.lookup(account.principal.as_str())?.agent_tenant(),
@@ -608,14 +613,7 @@ pub fn merged_account_head_transport_validator_and_reopen() -> Result {
         assert_eq!(decode_bound_did(&result)?, Some(public));
         assert_eq!(
             lookup.did().as_bytes(),
-            format!(
-                "did:layerx:{}",
-                result[64..96]
-                    .iter()
-                    .map(|b| format!("{b:02x}"))
-                    .collect::<String>()
-            )
-            .as_bytes()
+            format!("did:layerx:{}", encoded(&result[64..96])).as_bytes()
         );
         assert_eq!(&result[12..32], &address);
         assert_eq!(&result[96..128], unhex(text(&record, "mainAccountId")?)?);

@@ -102,9 +102,9 @@ func (p RoutePolicy) normalize(q url.Values) (url.Values, error) {
 }
 func (p RoutePolicy) visibility() string {
 	if p.Class == PublicSnapshot {
-		return "public"
+		return literalPublic
 	}
-	return "private"
+	return literalPrivate
 }
 func (p RoutePolicy) metricClass() string {
 	switch p.Class {

@@ -290,7 +290,7 @@ impl OpeningCursor<'_> {
         self.at.set(at);
         Ok(None)
     }
-    #[inline(always)]
+    #[inline]
     fn projection(table: &[u8], at: usize, bytes: &[u8]) -> CodecResult<OpeningWorker> {
         #[cfg(target_arch = "wasm32")]
         {
@@ -360,38 +360,6 @@ impl OpeningCursor<'_> {
         })
     }
 }
-/// Forward reader for joins against canonical worker identities. A descending
-/// request restarts, preserving the table lookup's behavior for other callers.
-pub(crate) struct WorkerCursor<'a> {
-    table: &'a WorkerTable,
-    at: core::cell::Cell<usize>,
-}
-impl WorkerCursor<'_> {
-    #[cfg_attr(target_arch = "wasm32", inline(never))]
-    pub(crate) fn get(&self, worker: WorkerId) -> Option<&WorkerCurrent> {
-        let entries = self.table.records.guest_index(..self.table.count);
-        let mut at = self.at.get().min(entries.len());
-        if at > 0
-            && entries
-                .guest_index(at - 1)
-                .as_ref()
-                .is_some_and(|entry| entry.worker >= worker)
-        {
-            at = 0;
-        }
-        while at < entries.len() {
-            let entry = entries.guest_index(at).as_ref()?;
-            if entry.worker >= worker {
-                self.at.set(at);
-                return (entry.worker == worker).then_some(entry);
-            }
-            at += 1;
-        }
-        self.at.set(at);
-        None
-    }
-}
-
 impl Default for WorkerTable {
     fn default() -> Self {
         Self::new()
@@ -413,12 +381,6 @@ impl WorkerTable {
     #[must_use]
     pub const fn is_empty(&self) -> bool {
         self.count == 0
-    }
-    pub(crate) fn ordered(&self) -> WorkerCursor<'_> {
-        WorkerCursor {
-            table: self,
-            at: core::cell::Cell::new(0),
-        }
     }
     pub fn iter(&self) -> impl Iterator<Item = &WorkerCurrent> {
         self.records.guest_index(..self.count).iter().flatten()
@@ -713,6 +675,8 @@ impl CapabilityFields {
     pub const ENCODED_BYTES: usize = 13;
 
     #[cfg_attr(target_arch = "wasm32", inline(never))]
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn validate(&self) -> CodecResult<()> {
         if self.bandwidth_class > 4
             || !self.region_code.iter().all(u8::is_ascii_alphabetic)
@@ -860,39 +824,7 @@ pub fn decode_manifest(input: &[u8]) -> CodecResult<ManifestSummary> {
         return Err(NON_CANONICAL);
     }
     check_window(valid_from, expiry)?;
-    let capabilities = r.u16()?;
-    if !(1..=8).contains(&capabilities) {
-        return Err(NON_CANONICAL);
-    }
-    let mut previous: Option<(u8, [u8; 32], [u8; 32])> = None;
-    for _ in 0..capabilities {
-        let kind = r.u8()?;
-        let mode = r.u8()?;
-        if !(1..=3).contains(&kind) || !(1..=2).contains(&mode) {
-            return Err(NON_CANONICAL);
-        }
-        let model: [u8; 32] = r.fixed()?;
-        r.take(32)?;
-        r.take(32)?;
-        let input_schema: [u8; 32] = r.fixed()?;
-        r.take(32)?;
-        for _ in 0..4 {
-            ranged(r.u32()?, 1_048_576)?;
-        }
-        if !(1..=3).contains(&r.u8()?) {
-            return Err(NON_CANONICAL);
-        }
-        ranged(r.u32()?, 3_600_000)?;
-        ranged(u32::from(r.u16()?), 32)?;
-        if !(1..=2).contains(&r.u8()?) {
-            return Err(NON_CANONICAL);
-        }
-        let key = (kind, model, input_schema);
-        if previous.is_some_and(|p| p >= key) {
-            return Err(NON_CANONICAL);
-        }
-        previous = Some(key);
-    }
+    read_manifest_capabilities(&mut r)?;
     let endpoints = r.u16()?;
     if !(1..=2).contains(&endpoints) {
         return Err(NON_CANONICAL);
@@ -1012,6 +944,8 @@ pub fn check_new_admission(
 
 /// New work against an opened immutable identity. A prospective next-epoch rotation
 /// leaves its opening entry intact; live revocation, ownership and expiry still apply.
+/// # Errors
+/// Returns an error if the requested operation cannot be completed.
 pub fn check_opened_admission(
     record: &WorkerCurrent,
     frozen: &WorkerRosterEntry,
@@ -1633,5 +1567,42 @@ fn revoke_delegate(payload: &[u8], record: &mut WorkerCurrent) -> CodecResult<()
     }
     record.revocation_sequence = sequence;
     record.state = WorkerState::Revoked;
+    Ok(())
+}
+
+fn read_manifest_capabilities(r: &mut Reader<'_>) -> CodecResult<()> {
+    let capabilities = r.u16()?;
+    if !(1..=8).contains(&capabilities) {
+        return Err(NON_CANONICAL);
+    }
+    let mut previous: Option<(u8, [u8; 32], [u8; 32])> = None;
+    for _ in 0..capabilities {
+        let kind = r.u8()?;
+        let mode = r.u8()?;
+        if !(1..=3).contains(&kind) || !(1..=2).contains(&mode) {
+            return Err(NON_CANONICAL);
+        }
+        let model: [u8; 32] = r.fixed()?;
+        r.take(32)?;
+        r.take(32)?;
+        let input_schema: [u8; 32] = r.fixed()?;
+        r.take(32)?;
+        for _ in 0..4 {
+            ranged(r.u32()?, 1_048_576)?;
+        }
+        if !(1..=3).contains(&r.u8()?) {
+            return Err(NON_CANONICAL);
+        }
+        ranged(r.u32()?, 3_600_000)?;
+        ranged(u32::from(r.u16()?), 32)?;
+        if !(1..=2).contains(&r.u8()?) {
+            return Err(NON_CANONICAL);
+        }
+        let key = (kind, model, input_schema);
+        if previous.is_some_and(|p| p >= key) {
+            return Err(NON_CANONICAL);
+        }
+        previous = Some(key);
+    }
     Ok(())
 }

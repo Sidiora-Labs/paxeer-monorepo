@@ -1172,6 +1172,8 @@ pub(crate) fn rung_from_rank(rank: u8) -> Result<Rung, AgentRecoveryError> {
 }
 
 /// Decodes the daemon's durable budget observation at the Human boundary.
+/// # Errors
+/// Returns an error if the input cannot be decoded or validated.
 pub fn decode_budget_snapshot(
     bytes: &[u8],
 ) -> Result<

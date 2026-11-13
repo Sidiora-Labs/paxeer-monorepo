@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log/slog"
 	"sync"
 
 	_ "github.com/jackc/pgx/v5/stdlib" // register the "pgx" database/sql driver
@@ -28,7 +29,11 @@ func Up(ctx context.Context, dsn string) error {
 	if err != nil {
 		return fmt.Errorf("migrate: open db: %w", err)
 	}
-	defer sqlDB.Close()
+	defer func() {
+		if err := sqlDB.Close(); err != nil {
+			slog.Error("social migration database close failed", "error", err)
+		}
+	}()
 
 	goose.SetBaseFS(migrations.FS)
 	goose.SetLogger(goose.NopLogger())

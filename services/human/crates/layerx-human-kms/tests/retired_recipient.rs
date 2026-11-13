@@ -2,7 +2,7 @@
 mod runtime_clock_server;
 
 use layerx_client::runtime_clock::{ClockBinding, RuntimeClock};
-use layerx_types::clock::{Clock, Deadline};
+use layerx_types::clock::Deadline;
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, ServerName};
 use rustls::{ClientConfig, ClientConnection, RootCertStore, StreamOwned};
 use std::error::Error;

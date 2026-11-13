@@ -20,14 +20,26 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"net"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strconv"
 	"sync"
+	"syscall"
 	"testing"
 	"time"
 
+	chartcleanup "github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/cleanup"
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/storage"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/gofrs/flock"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -80,7 +92,7 @@ func NewDatabase(t *testing.T) string {
 			t.Errorf("drop %s: %v", name, err)
 			return
 		}
-		defer c.Close(cleanup)
+		defer chartcleanup.CloseContext(cleanup, c)
 		if _, err = c.Exec(cleanup, "DROP DATABASE IF EXISTS "+name+" WITH (FORCE)"); err != nil {
 			t.Errorf("drop %s: %v", name, err)
 		}
@@ -161,7 +173,7 @@ func newRedisURL(t *testing.T) string {
 	})
 	flush := func() {
 		client := goredis.NewClient(opt)
-		defer client.Close()
+		defer chartcleanup.Close(client)
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		if err := client.FlushDB(ctx).Err(); err != nil {
@@ -171,4 +183,84 @@ func newRedisURL(t *testing.T) string {
 	flush()
 	t.Cleanup(flush)
 	return uri
+}
+
+// NewObjectStore starts an owned S3-compatible server and creates a private bucket.
+func NewObjectStore(t *testing.T) *storage.Client {
+	client, _ := NewObjectStoreWithConfig(t)
+	return client
+}
+
+// NewObjectStoreWithConfig returns the owned provider and its connection settings.
+func NewObjectStoreWithConfig(t *testing.T) (*storage.Client, storage.Config) {
+	t.Helper()
+	binary, err := exec.LookPath("minio")
+	if err != nil {
+		t.Fatal(err)
+	}
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	port := listener.Addr().(*net.TCPAddr).Port
+	if err = listener.Close(); err != nil {
+		t.Fatal(err)
+	}
+	userBytes := make([]byte, 12)
+	passwordBytes := make([]byte, 24)
+	if _, err = rand.Read(userBytes); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = rand.Read(passwordBytes); err != nil {
+		t.Fatal(err)
+	}
+	user, password := hex.EncodeToString(userBytes), hex.EncodeToString(passwordBytes)
+	address := net.JoinHostPort(net.IPv4(127, 0, 0, 1).String(), strconv.Itoa(port))
+	endpoint := "http://" + address
+	data := t.TempDir()
+	output, err := os.CreateTemp(data, "server-*.log")
+	if err != nil {
+		t.Fatal(err)
+	}
+	process, err := os.StartProcess(binary, []string{"minio", "server", "--quiet", "--address", address, filepath.Join(data, "objects")}, &os.ProcAttr{Env: append(os.Environ(), "MINIO_ROOT_USER="+user, "MINIO_ROOT_PASSWORD="+password, "MINIO_BROWSER=off"), Files: []*os.File{os.Stdin, output, output}})
+	if err != nil {
+		_ = output.Close()
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := process.Signal(syscall.SIGINT); err != nil && !errors.Is(err, os.ErrProcessDone) {
+			t.Error(err)
+		}
+		state, err := process.Wait()
+		if err != nil || !state.Success() {
+			t.Error(err)
+		}
+		_ = output.Close()
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	for {
+		connection, dialErr := net.DialTimeout("tcp", address, 100*time.Millisecond)
+		if dialErr == nil {
+			_ = connection.Close()
+			break
+		}
+		if ctx.Err() != nil {
+			t.Fatalf("object server readiness: %v", ctx.Err())
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	config, err := awsconfig.LoadDefaultConfig(ctx, awsconfig.WithRegion("us-east-1"), awsconfig.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(user, password, "")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw := s3.NewFromConfig(config, func(options *s3.Options) {
+		options.BaseEndpoint = aws.String(endpoint)
+		options.UsePathStyle = true
+	})
+	bucket := "charts-staging-test-" + hex.EncodeToString(userBytes)
+	if _, err = raw.CreateBucket(ctx, &s3.CreateBucketInput{Bucket: aws.String(bucket)}); err != nil {
+		t.Fatal(err)
+	}
+	return storage.NewFromS3(raw, bucket), storage.Config{Endpoint: endpoint, Region: "us-east-1", Bucket: bucket, AccessKeyID: user, SecretAccessKey: password}
 }

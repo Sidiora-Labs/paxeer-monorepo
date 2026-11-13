@@ -14,6 +14,8 @@ import (
 	"fmt"
 	"hash"
 	"io"
+	"log"
+	"log/slog"
 	"math"
 	"net/http"
 	"net/url"
@@ -63,7 +65,7 @@ func (p SignedLoadPlan) Validate() error {
 			return errors.New("authorization load: invalid source binding")
 		}
 	}
-	if p.ProofKind != "eoa_eip191" && p.ProofKind != "erc1271" {
+	if p.ProofKind != valueEoaEip191 && p.ProofKind != valueErc1271 {
 		return errors.New("authorization load: explicit EOA or contract proof kind required")
 	}
 	if p.DurationSeconds < 1 || p.DurationSeconds > 86400 || p.WarmupSeconds < 0 || p.WarmupSeconds >= p.DurationSeconds || p.TargetRPS < 1 || p.TargetRPS > 20000 || p.Concurrency < 1 || p.Concurrency > 4096 || p.QueueCapacity < 1 || p.QueueCapacity > 100000 || p.RequestTimeoutMS < 1 || p.RequestTimeoutMS > 30000 || p.SampleIntervalMS < 1 || p.SampleIntervalMS > 1000 || int64(p.DurationSeconds)*int64(p.TargetRPS) > 1000000 {
@@ -128,7 +130,11 @@ func ReadAuthStateSnapshot(ctx context.Context, pool *pgxpool.Pool) (out AuthSta
 	if err != nil {
 		return out, err
 	}
-	defer tx.Rollback(context.WithoutCancel(ctx))
+	defer func() {
+		if cleanupErr := tx.Rollback(context.WithoutCancel(ctx)); cleanupErr != nil && !errors.Is(cleanupErr, pgx.ErrTxClosed) {
+			log.Printf("transaction rollback: %v", cleanupErr)
+		}
+	}()
 	if err = tx.QueryRow(ctx, `SELECT clock_timestamp(),(SELECT count(*) FROM operation_ledger l LEFT JOIN security_audit_outbox a ON a.request_id=l.request_id AND a.action=l.action AND a.result='accepted' WHERE a.id IS NULL)`).Scan(&out.ObservedAt, &out.MissingOperationAudits); err != nil {
 		return out, err
 	}
@@ -259,13 +265,13 @@ func (m *AuthVerificationMeasurements) Observe(method, category string, duration
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	validCategory := false
-	for _, known := range []string{"accepted", "address", "message_size", "signature_length", "recovery_id", "noncanonical", "recovery", "signer", "upstream", "chain", "proof_kind", "contract_missing", "contract_rejected", "rejected"} {
+	for _, known := range []string{valueAccepted, "address", "message_size", valueSignatureLength, "recovery_id", "noncanonical", valueRecovery, "signer", valueUpstream, valueChain, valueProofKind, "contract_missing", "contract_rejected", "rejected"} {
 		if category == known {
 			validCategory = true
 			break
 		}
 	}
-	if (method != "eip191" && method != "eip1271" && method != "wallet_authority") || !validCategory || duration <= 0 {
+	if (method != valueEip191 && method != valueEip1271 && method != "wallet_authority") || !validCategory || duration <= 0 {
 		m.invalid = true
 		return
 	}
@@ -347,7 +353,7 @@ func (r *signedMeasurementRecorder) sample(s SignedLoadSample) {
 		return
 	}
 	r.result.MeasuredRequests++
-	if s.Outcome == "accepted" {
+	if s.Outcome == valueAccepted {
 		r.result.SuccessfulRequests++
 		r.acknowledged = append(r.acknowledged, s.RequestID)
 	} else {
@@ -374,13 +380,14 @@ func (h SignedLoadHarness) validate(plan SignedLoadPlan) error {
 		return errors.New("authorization load: workload digest mismatch")
 	}
 	u, err := url.Parse(h.Endpoint)
-	if err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" || h.Client == nil || h.Pool == nil || h.WalletKey == nil || h.Identity.Validate(time.Now()) != nil || (plan.ProofKind == "eoa_eip191" && h.Identity.Wallet != stringsLowerAddress(h.WalletKey)) || h.Action == "" || h.Method == "" || h.Path == "" || h.Transport.EnvelopeHeader == "" || h.Transport.SignatureHeader == "" {
+	if err != nil || u.Scheme != valueHttps || u.Host == "" || u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" || h.Client == nil || h.Pool == nil || h.WalletKey == nil || h.Identity.Validate(time.Now()) != nil || (plan.ProofKind == valueEoaEip191 && h.Identity.Wallet != stringsLowerAddress(h.WalletKey)) || h.Action == "" || h.Method == "" || h.Path == "" || h.Transport.EnvelopeHeader == "" || h.Transport.SignatureHeader == "" {
 		return errors.New("authorization load: real signed HTTPS/database providers required")
 	}
 	if h.Identity.AccessExpiresAt.Before(time.Now().Add(time.Duration(plan.DurationSeconds)*time.Second + time.Duration(plan.RequestTimeoutMS)*time.Millisecond)) {
 		return errors.New("authorization load: session expires during workload")
 	}
 	transport, ok := h.Client.Transport.(*http.Transport)
+	//nolint:staticcheck // Legacy custom TLS dialers remain disallowed by the verifier.
 	if !ok || transport.TLSClientConfig == nil || transport.TLSClientConfig.InsecureSkipVerify || transport.TLSClientConfig.MinVersion < tls.VersionTLS13 || transport.TLSClientConfig.RootCAs == nil || len(transport.TLSClientConfig.Certificates) == 0 || transport.DialTLS != nil || transport.DialTLSContext != nil || !validMeasurementDigest(h.ServerCertificateSHA256) || h.Verification == nil {
 		return errors.New("authorization load: authenticated TLS and real verification observer required")
 	}
@@ -437,7 +444,7 @@ func (h SignedLoadHarness) execute(ctx context.Context, plan SignedLoadPlan, seq
 	request.Header.Set(h.Transport.EnvelopeHeader, base64.RawURLEncoding.EncodeToString(raw))
 	request.Header.Set(h.Transport.SignatureHeader, hexutil.Encode(signature))
 	request.Header.Set("Content-Type", "application/json")
-	if err = h.Signer.SignRequest(request, h.Identity, []string{"owner"}, h.Body); err != nil {
+	if err = h.Signer.SignRequest(request, h.Identity, []string{valueOwner}, h.Body); err != nil {
 		return finish()
 	}
 	response, err := h.Client.Do(request)
@@ -445,20 +452,24 @@ func (h SignedLoadHarness) execute(ctx context.Context, plan SignedLoadPlan, seq
 		s.Outcome = "transport_failure"
 		return finish()
 	}
-	defer response.Body.Close()
+	defer func() {
+		if err := response.Body.Close(); err != nil {
+			slog.Warn("close response body", "error", err)
+		}
+	}()
 	if response.TLS == nil || response.TLS.Version < tls.VersionTLS13 || len(response.TLS.VerifiedChains) == 0 || len(response.TLS.PeerCertificates) == 0 {
-		s.Outcome = "response_invalid"
+		s.Outcome = valueResponseInvalid
 		return finish()
 	}
 	peer := sha256.Sum256(response.TLS.PeerCertificates[0].Raw)
 	if hex.EncodeToString(peer[:]) != h.ServerCertificateSHA256 {
-		s.Outcome = "response_invalid"
+		s.Outcome = valueResponseInvalid
 		return finish()
 	}
 	s.HTTPStatus = response.StatusCode
 	body, err := io.ReadAll(io.LimitReader(response.Body, (1<<20)+1))
 	if err != nil || len(body) > 1<<20 {
-		s.Outcome = "response_invalid"
+		s.Outcome = valueResponseInvalid
 		return finish()
 	}
 	responseDigest := sha256.Sum256(body)
@@ -472,10 +483,10 @@ func (h SignedLoadHarness) execute(ctx context.Context, plan SignedLoadPlan, seq
 		return finish()
 	}
 	if json.Unmarshal(body, &result) != nil || result.RequestID != s.RequestID || !json.Valid(result.Data) {
-		s.Outcome = "response_invalid"
+		s.Outcome = valueResponseInvalid
 		return finish()
 	}
-	s.Outcome = "accepted"
+	s.Outcome = valueAccepted
 	return finish()
 }
 
@@ -486,7 +497,7 @@ func (h SignedLoadHarness) Run(ctx context.Context, plan SignedLoadPlan, raw io.
 	out.Origin = h.Endpoint
 	out.ServerCertificateSHA256 = h.ServerCertificateSHA256
 	out.RequirementIDs = []string{"D11_014.1", "D11_015.1", "D11_015.4", "D11_015.5", "D11_016.1", "D11_028.2", "D11_028.5"}
-	if plan.ProofKind == "erc1271" {
+	if plan.ProofKind == valueErc1271 {
 		out.RequirementIDs = append(out.RequirementIDs, "D11_005.5")
 	} else {
 		out.RequirementIDs = append(out.RequirementIDs, "D11_004.5")
@@ -664,9 +675,9 @@ func (h SignedLoadHarness) Run(ctx context.Context, plan SignedLoadPlan, raw io.
 	}
 	var verificationErr error
 	out.VerificationMeasurements, verificationErr = h.Verification.Snapshot()
-	expectedMethod := "eip191"
-	if plan.ProofKind == "erc1271" {
-		expectedMethod = "eip1271"
+	expectedMethod := valueEip191
+	if plan.ProofKind == valueErc1271 {
+		expectedMethod = valueEip1271
 	}
 	if out.VerificationMeasurements[expectedMethod].Samples == 0 {
 		out.AssertionFailures = append(out.AssertionFailures, "expected wallet proof method samples missing")
@@ -736,7 +747,7 @@ func MeasureLogoutRevocation(ctx context.Context, authority MTLSIdentityAuthorit
 		return 0, errors.New("authorization revocation: admitted mTLS identity authority required")
 	}
 	endpoint, err := url.Parse(logoutEndpoint)
-	if err != nil || endpoint.Scheme != "https" || endpoint.Host == "" || endpoint.Path != "/v2/auth/sessions:logout-all" || endpoint.RawQuery != "" || endpoint.User != nil || endpoint.Fragment != "" || client == nil || bearer == "" || len(bearer) > 2048 {
+	if err != nil || endpoint.Scheme != valueHttps || endpoint.Host == "" || endpoint.Path != "/v2/auth/sessions:logout-all" || endpoint.RawQuery != "" || endpoint.User != nil || endpoint.Fragment != "" || client == nil || bearer == "" || len(bearer) > 2048 {
 		return 0, errors.New("authorization revocation: actual logout endpoint/session credential required")
 	}
 	if err = authority.CheckStreamSession(ctx, principal); err != nil {
@@ -745,7 +756,7 @@ func MeasureLogoutRevocation(ctx context.Context, authority MTLSIdentityAuthorit
 	started := time.Now()
 	bounded, cancel := context.WithDeadline(ctx, started.Add(5*time.Second))
 	defer cancel()
-	request, err := http.NewRequestWithContext(bounded, "POST", logoutEndpoint, bytes.NewBufferString("{}"))
+	request, err := http.NewRequestWithContext(bounded, valuePOST, logoutEndpoint, bytes.NewBufferString("{}"))
 	if err != nil {
 		return 0, err
 	}
@@ -756,7 +767,11 @@ func MeasureLogoutRevocation(ctx context.Context, authority MTLSIdentityAuthorit
 	if err != nil {
 		return time.Since(started), errors.New("authorization revocation: logout transport failed")
 	}
-	defer response.Body.Close()
+	defer func() {
+		if err := response.Body.Close(); err != nil {
+			slog.Warn("close response body", "error", err)
+		}
+	}()
 	if response.StatusCode != http.StatusNoContent {
 		return time.Since(started), errors.New("authorization revocation: logout not acknowledged")
 	}
@@ -844,7 +859,7 @@ func MeasurePrivateSocketRevocation(ctx context.Context, probe *PrivateSocketRev
 		if err != nil {
 			elapsed := time.Since(revokedAt)
 			var network interface{ Timeout() bool }
-			if observedAuthDenial && elapsed <= 5*time.Second && !(errors.As(err, &network) && network.Timeout()) {
+			if observedAuthDenial && elapsed <= 5*time.Second && (!errors.As(err, &network) || !network.Timeout()) {
 				return elapsed, nil
 			}
 			return elapsed, errors.New("authorization revocation: socket closed without authentication denial or exceeded deadline")

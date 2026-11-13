@@ -10,11 +10,52 @@ import os
 from pathlib import Path
 import shutil
 import socket
+import ssl
 import subprocess
 import sys
 import tempfile
 import time
 import urllib.request
+
+
+def prepare_fixture(owner):
+    """Produce the runtime-suite inputs without running a second test gate."""
+    fixtures = Path(__file__).resolve().parent
+    private = owner.output / 'wallet-fixture'
+    shutil.copytree(fixtures / 'src', private / 'src')
+    shutil.copyfile(fixtures / 'foundry.toml', private / 'foundry.toml')
+    owner.run(['forge', 'build', '--root', str(private)], 'wallet-compile')
+    _, rpc = owner.anvil(22500)
+    configuration = owner.output / 'wallet-qualification.json'
+    issuer_input = owner.output / 'wallet-issuer.json'
+    issuer_input.write_text(json.dumps({
+        'rpc': rpc, 'artifact': str(private / 'out/FundingToken.sol/FundingToken.json'),
+        'key': owner.env['LAUNCHPAD_TLS_KEY'], 'cert': owner.env['LAUNCHPAD_TLS_CERT'],
+        'receipts': str(owner.output / 'wallet-deposits.ndjson'),
+        'challenges': str(owner.output / 'wallet-challenges.ndjson'),
+        'output': str(configuration),
+    }))
+    child = owner.start(['node', str(fixtures / 'qualification-issuer.mjs'), str(issuer_input)], 'wallet-issuer')
+    owner.wait_file(configuration, child)
+    bound = json.loads(configuration.read_text())
+    origin = bound['identityOrigin']
+    request = urllib.request.Request(origin + '/v2/auth/challenges',
+        data=json.dumps({'wallet': bound['wallet'], 'origin': origin}).encode(),
+        headers={'Content-Type': 'application/json', 'Origin': origin}, method='POST')
+    with urllib.request.urlopen(request, timeout=15,
+            context=ssl.create_default_context(cafile=owner.env['LAUNCHPAD_TLS_CERT'])) as response:
+        (owner.output / 'wallet-challenge-readiness.json').write_text(json.dumps({
+            'origin': origin, 'status': response.status, 'body': json.load(response)}))
+    owner.env.update(
+        WALLET_TEST_RPC_URL=rpc, WALLET_TEST_ALLOW_CHAIN_MUTATION='1',
+        WALLET_TEST_RECEIPTS_PATH=str(owner.output / 'wallet-receipts.json'),
+        L25_FIXTURE_ARTIFACTS=str(private / 'out'),
+        L25_QUALIFICATION_CONFIG_FILE=str(configuration),
+        L25_QUALIFICATION_CONFIG_SHA256=hashlib.sha256(configuration.read_bytes()).hexdigest(),
+        L25_ADMITTED_SOURCE_SHA256=bound['sourceSha256'],
+    )
+    _, dispatch = owner.anvil(18531, chain_id=1)
+    owner.env['DISPATCH_TEST_RPC_URL'] = dispatch
 
 
 def main():

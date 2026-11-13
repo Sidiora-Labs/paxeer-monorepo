@@ -1,6 +1,8 @@
-//! Finding-to-test mapping and outstanding producer wiring: repair_22_33_1490.kvx.
+//! Recovery and payment tests exercise retained receipt and signer evidence.
+
 #[path = "support/repair_22_33_1490.rs"]
-mod support;
+pub mod support;
+pub use support::*;
 
 #[test]
 fn v2_recovery_engine_writes_and_production_recovery_reads_after_restart() {

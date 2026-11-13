@@ -8,6 +8,7 @@ import type { FontFamily } from 'types/ui';
 import { COLOR_THEMES, COLOR_THEME_OVERRIDES, type ColorTheme } from 'lib/settings/colorTheme';
 
 import * as features from './features';
+import { isHomepageChartId } from './homepageCharts';
 import * as views from './ui/views';
 import { getEnvValue, getExternalAssetFilePath, parseEnvJson } from './utils';
 
@@ -25,6 +26,11 @@ const homePageStats: Array<HomeStatsWidgetId> = (() => {
   }
 
   return parsedValue.filter((item) => HOME_STATS_WIDGET_IDS.includes(item));
+})();
+
+const homePageCharts: Array<ChainIndicatorId> = (() => {
+  const parsedValue = parseEnvJson<Array<ChainIndicatorId>>(getEnvValue('NEXT_PUBLIC_HOMEPAGE_CHARTS'));
+  return Array.isArray(parsedValue) ? parsedValue.filter(isHomepageChartId) : [];
 })();
 
 const highlightedRoutes = (() => {
@@ -77,7 +83,7 @@ const UI = Object.freeze({
     frontendCommit: getEnvValue('NEXT_PUBLIC_GIT_COMMIT_SHA'),
   },
   homepage: {
-    charts: parseEnvJson<Array<ChainIndicatorId>>(getEnvValue('NEXT_PUBLIC_HOMEPAGE_CHARTS')) || [],
+    charts: homePageCharts,
     stats: homePageStats,
     heroBanner: parseEnvJson<HeroBannerConfig>(getEnvValue('NEXT_PUBLIC_HOMEPAGE_HERO_BANNER_CONFIG')),
     highlights: getExternalAssetFilePath('NEXT_PUBLIC_HOMEPAGE_HIGHLIGHTS_CONFIG'),

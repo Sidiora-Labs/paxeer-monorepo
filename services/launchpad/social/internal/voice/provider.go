@@ -8,16 +8,18 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/safety"
-	"github.com/Sidiora-Technologies/KindleLaunch/shared/storage"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/safety"
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/storage"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type LiveKit struct {
@@ -78,7 +80,7 @@ func (p *LiveKit) call(ctx context.Context, service, method, room string, input,
 	}
 	grants := map[string]any{"roomCreate": true, "roomList": true, "roomAdmin": true, "roomRecord": true}
 	if room != "" {
-		grants["room"] = room
+		grants[roomResource] = room
 	}
 	token, e := p.token("", grants, 30*time.Second)
 	if e != nil {
@@ -100,7 +102,11 @@ func (p *LiveKit) call(ctx context.Context, service, method, room string, input,
 	if e != nil {
 		return ErrUnavailable
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			slog.Error("voice provider response close failed", "error", err)
+		}
+	}()
 	b, e := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if e != nil || len(b) >= 1<<20 {
 		return ErrUnavailable
@@ -170,9 +176,9 @@ func (p *LiveKit) End(ctx context.Context, room string) error {
 			Identity string `json:"identity"`
 		} `json:"participants"`
 	}
-	listErr := p.call(ctx, "RoomService", "ListParticipants", room, map[string]string{"room": room}, &participants)
+	listErr := p.call(ctx, "RoomService", "ListParticipants", room, map[string]string{roomResource: room}, &participants)
 	var missing providerError
-	if listErr != nil && !(errors.As(listErr, &missing) && missing.Code == "not_found") {
+	if listErr != nil && (!errors.As(listErr, &missing) || missing.Code != notFoundState) {
 		return listErr
 	}
 	if len(participants.Participants) > 50 {
@@ -205,9 +211,9 @@ func (p *LiveKit) End(ctx context.Context, room string) error {
 			return e
 		}
 	}
-	e := p.call(ctx, "RoomService", "DeleteRoom", room, map[string]string{"room": room}, nil)
+	e := p.call(ctx, "RoomService", "DeleteRoom", room, map[string]string{roomResource: room}, nil)
 	var pe providerError
-	if e != nil && !(errors.As(e, &pe) && pe.Code == "not_found") {
+	if e != nil && (!errors.As(e, &pe) || pe.Code != notFoundState) {
 		return e
 	}
 	var result struct {
@@ -224,9 +230,9 @@ func (p *LiveKit) End(ctx context.Context, room string) error {
 	return nil
 }
 func (p *LiveKit) Revoke(ctx context.Context, room, wallet string) error {
-	e := p.call(ctx, "RoomService", "RemoveParticipant", room, map[string]string{"room": room, "identity": wallet, "revoke_token_ts": strconv.FormatInt(p.now().Unix()+1, 10)}, nil)
+	e := p.call(ctx, "RoomService", "RemoveParticipant", room, map[string]string{roomResource: room, "identity": wallet, "revoke_token_ts": strconv.FormatInt(p.now().Unix()+1, 10)}, nil)
 	var pe providerError
-	if errors.As(e, &pe) && pe.Code == "not_found" {
+	if errors.As(e, &pe) && pe.Code == notFoundState {
 		return nil
 	}
 	return e
@@ -236,7 +242,7 @@ func (p *LiveKit) Grant(ctx context.Context, room, wallet string, publish bool) 
 		Identity string `json:"identity"`
 	}
 	permission := map[string]any{"can_publish": publish, "can_subscribe": true, "can_publish_data": false, "can_publish_sources": []string{"MICROPHONE"}}
-	if e := p.call(ctx, "RoomService", "UpdateParticipant", room, map[string]any{"room": room, "identity": wallet, "permission": permission}, &result); e != nil {
+	if e := p.call(ctx, "RoomService", "UpdateParticipant", room, map[string]any{roomResource: room, "identity": wallet, "permission": permission}, &result); e != nil {
 		return e
 	}
 	if result.Identity != wallet {
@@ -248,7 +254,7 @@ func (p *LiveKit) Ticket(_ context.Context, room, wallet string, publish bool, t
 	if room == "" || wallet == "" || ttl > time.Minute {
 		return "", ErrUnavailable
 	}
-	return p.token(wallet, map[string]any{"roomJoin": true, "room": room, "canSubscribe": true, "canPublish": publish, "canPublishData": false, "canPublishSources": []string{"microphone"}, "canUpdateOwnMetadata": false}, ttl)
+	return p.token(wallet, map[string]any{"roomJoin": true, roomResource: room, "canSubscribe": true, "canPublish": publish, "canPublishData": false, "canPublishSources": []string{"microphone"}, "canUpdateOwnMetadata": false}, ttl)
 }
 func (p *LiveKit) FindRecording(ctx context.Context, room, key string) (string, bool, error) {
 	var listed struct {

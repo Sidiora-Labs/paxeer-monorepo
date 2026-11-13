@@ -43,8 +43,8 @@ unsafe extern "C" {
 
 fn migration_executor(token: u64, abi_version: u16) -> Result<(Executor, bool), i32> {
     let mut bytes = [0_u8; MIGRATION_ADMISSION_BYTES];
-    for (offset, byte) in bytes.iter_mut().enumerate() {
-        let value = unsafe { layerx_programs_migration_admission_byte(token, offset as u32) };
+    for (offset, byte) in (0_u32..).zip(&mut bytes) {
+        let value = unsafe { layerx_programs_migration_admission_byte(token, offset) };
         *byte = u8::try_from(value).map_err(|_| {
             if value < 0 {
                 value
@@ -53,27 +53,9 @@ fn migration_executor(token: u64, abi_version: u16) -> Result<(Executor, bool), 
             }
         })?;
     }
-    let u32_at = |offset| {
-        u32::from_be_bytes(
-            bytes[offset..offset + 4]
-                .try_into()
-                .expect("bounded admission field"),
-        )
-    };
-    let u16_at = |offset| {
-        u16::from_be_bytes(
-            bytes[offset..offset + 2]
-                .try_into()
-                .expect("bounded admission field"),
-        )
-    };
-    let u64_at = |offset| {
-        u64::from_be_bytes(
-            bytes[offset..offset + 8]
-                .try_into()
-                .expect("bounded admission field"),
-        )
-    };
+    let u32_at = |offset| u32::from_be_bytes(std::array::from_fn(|index| bytes[offset + index]));
+    let u16_at = |offset| u16::from_be_bytes(std::array::from_fn(|index| bytes[offset + index]));
+    let u64_at = |offset| u64::from_be_bytes(std::array::from_fn(|index| bytes[offset + index]));
     let profile = u32_at(0);
     let price_version = u32_at(4);
     let runtime = u16_at(8);
@@ -119,7 +101,7 @@ fn migration_executor(token: u64, abi_version: u16) -> Result<(Executor, bool), 
     if !prices.is_valid() {
         return Err(RESULT_NON_CANONICAL);
     }
-    let coverage = u128::from_be_bytes(bytes[124..140].try_into().expect("bounded coverage"));
+    let coverage = u128::from_be_bytes(std::array::from_fn(|index| bytes[124 + index]));
     let maximum = crate::budget::maximum_fee_units(budget, prices).map_err(|_| -500)?;
     if maximum > coverage {
         return Err(-600);
@@ -147,6 +129,27 @@ fn activity_bytes(token: u64, section: u16, length: usize) -> Result<Vec<u8>, i3
         bytes.push(byte);
     }
     Ok(bytes)
+}
+
+fn migration_schedule_bytes(version: u32, coefficients: [u64; 9]) -> [u8; 76] {
+    let mut bytes = [0_u8; 76];
+    bytes[..4].copy_from_slice(&version.to_be_bytes());
+    for (index, coefficient) in coefficients.into_iter().enumerate() {
+        let start = 4 + index * 8;
+        bytes[start..start + 8].copy_from_slice(&coefficient.to_be_bytes());
+    }
+    bytes
+}
+
+fn migration_inputs(
+    token: u64,
+    wasm_length: usize,
+    hook_length: usize,
+) -> Result<(Vec<u8>, String), i32> {
+    let wasm = activity_bytes(token, WASM_SECTION, wasm_length)?;
+    let hook = activity_bytes(token, HOOK_SECTION, hook_length)?;
+    let hook = String::from_utf8(hook).map_err(|_| RESULT_NON_CANONICAL)?;
+    Ok((wasm, hook))
 }
 
 /// Validates and executes one C-owned migration request under declared
@@ -184,16 +187,9 @@ pub extern "C" fn layerx_programs_migration_execute_activity(
     {
         return RESULT_NON_CANONICAL;
     }
-    let wasm = match activity_bytes(token, WASM_SECTION, wasm_length) {
-        Ok(wasm) => wasm,
+    let (wasm, hook) = match migration_inputs(token, wasm_length, hook_length) {
+        Ok(inputs) => inputs,
         Err(refusal) => return refusal,
-    };
-    let hook = match activity_bytes(token, HOOK_SECTION, hook_length) {
-        Ok(hook) => hook,
-        Err(refusal) => return refusal,
-    };
-    let Ok(hook) = String::from_utf8(hook) else {
-        return RESULT_NON_CANONICAL;
     };
     let mut code_hash = [0_u8; 32];
     for (chunk, word) in code_hash.chunks_exact_mut(8).zip([h0, h1, h2, h3]) {
@@ -202,25 +198,20 @@ pub extern "C" fn layerx_programs_migration_execute_activity(
     let Ok(owner) = crate::cache::runtime_artifacts() else {
         return RESULT_FATAL_INVARIANT;
     };
-    let mut schedule_bytes = [0_u8; 76];
-    schedule_bytes[..4].copy_from_slice(&metering_schedule_version.to_be_bytes());
-    for (index, coefficient) in [
-        meter_base,
-        meter_entity,
-        meter_load,
-        meter_store,
-        meter_call,
-        meter_branch_kept_per_fuel,
-        meter_func_locals_per_fuel,
-        meter_memory_bytes_per_fuel,
-        meter_table_elements_per_fuel,
-    ]
-    .into_iter()
-    .enumerate()
-    {
-        let start = 4 + index * 8;
-        schedule_bytes[start..start + 8].copy_from_slice(&coefficient.to_be_bytes());
-    }
+    let schedule_bytes = migration_schedule_bytes(
+        metering_schedule_version,
+        [
+            meter_base,
+            meter_entity,
+            meter_load,
+            meter_store,
+            meter_call,
+            meter_branch_kept_per_fuel,
+            meter_func_locals_per_fuel,
+            meter_memory_bytes_per_fuel,
+            meter_table_elements_per_fuel,
+        ],
+    );
     let Ok(schedule) = crate::FuelSchedule::from_protocol_bytes(&schedule_bytes) else {
         return RESULT_NON_CANONICAL;
     };
@@ -259,6 +250,7 @@ pub extern "C" fn layerx_programs_migration_execute_activity(
             if usage.occupancy_byte_batches != 0 || usage.occupancy_fee_units != 0 {
                 return RESULT_FATAL_INVARIANT;
             }
+            let fee = usage.fee_units.to_be_bytes();
             unsafe {
                 layerx_programs_migration_usage_commit(
                     token,
@@ -268,8 +260,8 @@ pub extern "C" fn layerx_programs_migration_execute_activity(
                     usage.storage_write_bytes,
                     usage.output_values,
                     usage.output_bytes,
-                    (usage.fee_units >> 64) as u64,
-                    usage.fee_units as u64,
+                    u64::from_be_bytes(std::array::from_fn(|index| fee[index])),
+                    u64::from_be_bytes(std::array::from_fn(|index| fee[8 + index])),
                 )
             }
         }

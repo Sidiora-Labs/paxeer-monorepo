@@ -78,8 +78,9 @@ impl GatewayError {
     #[must_use]
     pub const fn retriability(&self) -> Retriability {
         match self {
-            Self::Audit(_) | Self::ReceiptRejected(_) => Retriability::Retriable,
-            Self::ReceiptPending => Retriability::Retriable,
+            Self::Audit(_) | Self::ReceiptRejected(_) | Self::ReceiptPending => {
+                Retriability::Retriable
+            }
             Self::Adapter(_)
             | Self::Store(_)
             | Self::DuplicateAdapter

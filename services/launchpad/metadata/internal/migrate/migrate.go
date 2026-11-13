@@ -28,15 +28,23 @@ func Up(ctx context.Context, dsn string) error {
 	if err != nil {
 		return fmt.Errorf("migrate: open db: %w", err)
 	}
-	defer sqlDB.Close()
-
 	goose.SetBaseFS(migrations.FS)
 	goose.SetLogger(goose.NopLogger())
-	if err := goose.SetDialect("postgres"); err != nil {
-		return fmt.Errorf("migrate: set dialect: %w", err)
+	runErr := func() error {
+		if err := goose.SetDialect("postgres"); err != nil {
+			return fmt.Errorf("migrate: set dialect: %w", err)
+		}
+		if err := goose.UpContext(ctx, sqlDB, "."); err != nil {
+			return fmt.Errorf("migrate: up: %w", err)
+		}
+		return nil
+	}()
+	closeErr := sqlDB.Close()
+	if runErr != nil {
+		return runErr
 	}
-	if err := goose.UpContext(ctx, sqlDB, "."); err != nil {
-		return fmt.Errorf("migrate: up: %w", err)
+	if closeErr != nil {
+		return fmt.Errorf("migrate: close db: %w", closeErr)
 	}
 	return nil
 }

@@ -26,6 +26,10 @@ pub struct SimpleProof {
 }
 
 impl SimpleProof {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the supplied chain evidence cannot be decoded or verified.
     pub fn verify(&self, root: &[u8; 32], leaf: &[u8]) -> Result<(), ChainProofError> {
         if self.total <= 0 || self.index < 0 || self.index >= self.total {
             return Err(ChainProofError::Mismatch);

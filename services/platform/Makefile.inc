@@ -10,7 +10,7 @@ PLATFORM_BETA_CLUSTER_ENV ?= build/beta-cluster/env
 	platform-test-cli-production-credential-refusal platform-test-registry \
 	platform-test-core platform-test-authority platform-test-agent-boundary platform-test-identity platform-test-paxeer-boundary \
 	platform-test-trusted-boundary \
-	platform-test-reference-apps platform-test-mobile-artifacts \
+	platform-test-reference-apps platform-build-reference-app-middleware platform-test-mobile-artifacts \
 	platform-test-android-artifact platform-test-ios-artifact \
 	platform-real-agent-integration \
 	platform-real-ios-integration platform-real-android-integration \
@@ -228,6 +228,8 @@ platform-emulator-conformance:
 		"$$LAYERX_TESTNET_URL" "$${LAYERX_CONFORMANCE_ACTIVITIES}"
 
 platform-sdk-check:
+	cargo run --offline --manifest-path services/agent/tools/sdk-gen/Cargo.toml --locked -- --check
+	node services/agent/sdk/typescript/scripts/generate-precompile-writes.mjs --check
 	python3 sdk/platform/generators/generate_portable.py --check $(CURDIR)
 	python3 sdk/platform/generators/generate_jvm.py --check $(CURDIR)
 	$(PLATFORM_CARGO) run --offline --manifest-path $(PLATFORM_SDKGEN_MANIFEST) --locked -p layerx-platform-sdkgen -- --check
@@ -239,6 +241,7 @@ platform-human-api-generate:
 
 platform-sdk-generate: platform-human-api-generate
 	cargo run --manifest-path services/agent/tools/sdk-gen/Cargo.toml --locked -- --write
+	node services/agent/sdk/typescript/scripts/generate-precompile-writes.mjs
 	python3 sdk/platform/generators/generate_portable.py $(CURDIR)
 	python3 sdk/platform/generators/generate_jvm.py $(CURDIR)
 	$(PLATFORM_CARGO) run --manifest-path $(PLATFORM_SDKGEN_MANIFEST) --locked -p layerx-platform-sdkgen -- --write
@@ -332,6 +335,8 @@ platform-test-ten-line:
 
 platform-test-middleware: platform-sample-dependencies-ready
 	npm test --workspace @sidiora/layerx-seller-middleware
+	npm run build --workspace @sidiora/layerx-express
+	npm run build --workspace @sidiora/layerx-next
 	npm test --workspace @sidiora/layerx-buyer-middleware
 	npm test --workspace @sidiora/layerx-merchant-middleware
 	npm test --workspace @sidiora/layerx-agent-middleware
@@ -360,8 +365,11 @@ platform-test-middleware: platform-sample-dependencies-ready
 	swift build --disable-automatic-resolution --package-path sdk/integrations/ios
 	swift test --package-path sdk/integrations/ios
 
-platform-test-reference-apps:
+platform-test-reference-apps: platform-build-reference-app-middleware
 	node services/platform/examples/run-reference-apps.mjs --check
+
+platform-build-reference-app-middleware:
+	npm run build --workspace @sidiora/layerx-buyer-middleware
 
 platform-build-reference-apps:
 	node services/platform/examples/build-reference-apps.mjs

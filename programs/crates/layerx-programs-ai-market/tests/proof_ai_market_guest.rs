@@ -1,24 +1,24 @@
-//! Proves: dispatch::route / ReadProof / FinalityEvidence -> SnapshotBinding::encode -> SnapshotBinding::decode / verify_capture / finalized_head.
+//! Proves: `dispatch::route` / `ReadProof` / `FinalityEvidence` -> `SnapshotBinding::encode` -> `SnapshotBinding::decode` / `verify_capture` / `finalized_head`.
 //!
-//! CREATE and ProgramRead run through the real guest dispatcher. The transport is the
+//! CREATE and `ProgramRead` run through the real guest dispatcher. The transport is the
 //! public canonical binding consumed by layerx-client::ai_market::decode_snapshot_binding
-//! and the saved-binding recovery in hosted/indexer/src/ai_market.rs::rebind. Retention's
-//! CommitFinality::of and webhooks::ai_market::certify use the same finalized_head check.
+//! and the saved-binding recovery in `hosted/indexer/src/ai_market.rs::rebind`. Retention's
+//! `CommitFinality::of` and `webhooks::ai_market::certify` use the same `finalized_head` check.
 //! The guest anchor has no durable state or cache: both observations below issue fresh
-//! ProgramReads and decode fresh bytes. Host read and finality facts are explicit inputs;
+//! `ProgramReads` and decode fresh bytes. Host read and finality facts are explicit inputs;
 //! this codec proof does not establish their cryptographic authority.
-//! Audit ai-real-consumer-proof is covered by repair_22_33_233.rs, which compares
+//! Audit ai-real-consumer-proof is covered by `repair_22_33_233.rs`, which compares
 //! fresh guest captures with the hosted consumer's recorded promotion and recovery.
 //!
-//! Repairs: queries.rs::bind_snapshot promoted every evidence rank to 4 and failed to
+//! Repairs: `queries.rs::bind_snapshot` promoted every evidence rank to 4 and failed to
 //! check capture size/count; the client decoder now shares the canonical guest decoder.
 //! ai-artifacts::{main.rs::state_head,retention.rs::CommitFinality::of} and
-//! tests/artifact_recovery.rs::snapshot used removed pre-V2 fields. Indexer::rebind
+//! `tests/artifact_recovery.rs::snapshot` used removed pre-V2 fields. `Indexer::rebind`
 //! reconstructed app/root evidence instead of decoding the exact saved V2 binding;
-//! webhooks::certify now checks the same committed head as retention.
+//! `webhooks::certify` now checks the same committed head as retention.
 //!
-//! Out-of-scope contradiction: tests/view_binding.rs::a02_v2_finality_binds_block_commit_of_the_same_root
-//! expects bind_snapshot to upgrade ranks 0, 2 and even 255 to 4. That assertion is left
+//! Out-of-scope contradiction: `tests/view_binding.rs::a02_v2_finality_binds_block_commit_of_the_same_root`
+//! expects `bind_snapshot` to upgrade ranks 0, 2 and even 255 to 4. That assertion is left
 //! intact; the expected consumer behavior proved here is refusal of unfinalized evidence.
 use layerx_programs_ai_market::{
     codec::{self, Envelope, ResultStatus},
@@ -67,9 +67,9 @@ fn envelope(operation: Operation, payload: &[u8], actor: [u8; 32]) -> Vec<u8> {
         market: checked(codec::derive_market(ctx.chain, ctx.program)),
         actor: checked(PrincipalId::new(actor)),
         epoch: 0,
-        config: if read { 0 } else { 1 },
+        config: u64::from(!read),
         roster: Presence::Absent,
-        sequence: if read { 0 } else { 1 },
+        sequence: u64::from(!read),
         expiry: 1_000_000,
         request: checked(RequestId::new([1; 32])),
         payload,
@@ -171,7 +171,7 @@ fn finality(rank: u8) -> FinalityEvidence {
     }
 }
 
-/// Fresh guest reads, common application-result framing and actual StateCapture decode.
+/// Fresh guest reads, common application-result framing and actual `StateCapture` decode.
 fn capture(state: &[u8]) -> (Vec<u8>, CaptureFacts) {
     let mut buffer = vec![0; MAX_STATE_BYTES];
     let mut capture = StateCapture::new(&mut buffer);
@@ -365,10 +365,11 @@ fn proof_ai_market_guest_never_promotes_unfinalized_or_mismatched_evidence() {
     }
     let evidence = finality(FINALIZED_RANK);
     let binding = checked(bind_snapshot(&state, &facts, &evidence, 9000));
-    for malformed in [FinalityEvidence {
-        native_state_root: digest(98),
-        ..evidence
-    }] {
+    {
+        let malformed = FinalityEvidence {
+            native_state_root: digest(98),
+            ..evidence
+        };
         assert_eq!(
             bind_snapshot(&state, &facts, &malformed, 9000),
             Err(QueryError::BindingMismatch)

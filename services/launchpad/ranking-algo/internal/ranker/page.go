@@ -57,7 +57,11 @@ func (c *CursorCodec) Page(s Snapshot, limit int, cursor string, now time.Time) 
 		if !hmac.Equal(mac.Sum(nil), b[72:]) || !hmac.Equal(identity[:], b[:32]) {
 			return Page{}, ErrCursorInvalid
 		}
-		expiry := int64(binary.BigEndian.Uint64(b[36:44]))
+		encodedExpiry := binary.BigEndian.Uint64(b[36:44])
+		if encodedExpiry > math.MaxInt64 {
+			return Page{}, ErrCursorInvalid
+		}
+		expiry := int64(encodedExpiry)
 		if expiry != expires || now.Unix() >= expiry {
 			return Page{}, ErrCursorExpired
 		}
@@ -77,7 +81,7 @@ func (c *CursorCodec) Page(s Snapshot, limit int, cursor string, now time.Time) 
 	}
 	p := Page{Items: append([]Scored{}, s.entries[pos:end]...), TotalEligible: len(s.entries), Stale: s.Stale(now)}
 	if end < len(s.entries) {
-		b := make([]byte, 72)
+		b := make([]byte, 72, 72+sha256.Size)
 		copy(b, identity[:])
 		binary.BigEndian.PutUint32(b[32:36], uint32(end))
 		binary.BigEndian.PutUint64(b[36:44], uint64(expires))

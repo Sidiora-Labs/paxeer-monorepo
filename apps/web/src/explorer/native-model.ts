@@ -59,7 +59,7 @@ function string(value: unknown, at: string): string {
 
 function integer(value: unknown, at: string, minimum = 0): number {
   if (typeof value !== "number" || !Number.isSafeInteger(value) || value < minimum) {
-    throw new TypeError(`${at} must be a safe integer >= ${minimum}`);
+    throw new TypeError(`${at} must be a safe integer >= ${String(minimum)}`);
   }
   return value;
 }
@@ -146,10 +146,11 @@ export function decodeNativeUnifiedAccount(value: unknown): NativeUnifiedAccount
     keys(params, ["cursor"], "next_page_params");
     next = Object.freeze({ cursor: nativeCursor(params.cursor) });
   }
-  const rows = item.activity.map((entry, index) => activity(entry, `activity[${index}]`));
+  const rows = item.activity.map((entry, index) => activity(entry, `activity[${String(index)}]`));
   for (let index = 1; index < rows.length; index += 1) {
-    const previous = rows[index - 1]!;
-    const current = rows[index]!;
+    const previous = rows[index - 1];
+    const current = rows[index];
+    if (previous === undefined || current === undefined) throw new TypeError("Native activity row is missing");
     if (current.block_number > previous.block_number
       || (current.block_number === previous.block_number && current.ordinal >= previous.ordinal)) {
       throw new TypeError("Native activity must be strictly descending by block and ordinal");
@@ -162,9 +163,9 @@ export function decodeNativeUnifiedAccount(value: unknown): NativeUnifiedAccount
       did: identities.did === null ? null : string(identities.did, "identities.did"),
     }),
     balances: Object.freeze(item.balances.map((entry, index) => {
-      const balance = object(entry, `balances[${index}]`);
-      keys(balance, ["asset", "total"], `balances[${index}]`);
-      return Object.freeze({ asset: asset(balance.asset, `balances[${index}].asset`), total: amount(balance.total, `balances[${index}].total`) });
+      const balance = object(entry, `balances[${String(index)}]`);
+      keys(balance, ["asset", "total"], `balances[${String(index)}]`);
+      return Object.freeze({ asset: asset(balance.asset, `balances[${String(index)}].asset`), total: amount(balance.total, `balances[${String(index)}].total`) });
     })),
     activity: Object.freeze(rows),
     next_page_params: next,

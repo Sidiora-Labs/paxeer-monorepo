@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/checked"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/jackc/pgx/v5"
@@ -157,13 +158,23 @@ func (s *PaxscanSource) FetchLogs(ctx context.Context, opts FetchOptions) (Fetch
 				topics = append(topics, common.BytesToHash(t))
 			}
 		}
+		blockNumberUint64, conversionErr := checked.Convert[uint64](blockNumber)
+		if conversionErr != nil {
+			rows.Close()
+			return FetchResult{}, conversionErr
+		}
+		logIndexUint16, conversionErr := checked.Convert[uint](logIndex)
+		if conversionErr != nil {
+			rows.Close()
+			return FetchResult{}, conversionErr
+		}
 		l := ethtypes.Log{
 			Address:     common.BytesToAddress(addr),
 			Topics:      topics,
 			Data:        data,
-			BlockNumber: uint64(blockNumber),
+			BlockNumber: blockNumberUint64,
 			TxHash:      common.BytesToHash(txHash),
-			Index:       uint(logIndex),
+			Index:       logIndexUint16,
 		}
 		topic0 := ""
 		if len(topics) > 0 {
@@ -192,7 +203,11 @@ func (s *PaxscanSource) FetchLogs(ctx context.Context, opts FetchOptions) (Fetch
 	// Step 2: batch block timestamps.
 	blocks := make([]int64, 0, len(uniqueBlocks))
 	for b := range uniqueBlocks {
-		blocks = append(blocks, int64(b))
+		bInt64, conversionErr := checked.Convert[int64](b)
+		if conversionErr != nil {
+			return FetchResult{}, conversionErr
+		}
+		blocks = append(blocks, bInt64)
 	}
 	for i := 0; i < len(blocks); i += paxscanLookupBatch {
 		end := i + paxscanLookupBatch
@@ -209,7 +224,12 @@ func (s *PaxscanSource) FetchLogs(ctx context.Context, opts FetchOptions) (Fetch
 				tsRows.Close()
 				return FetchResult{}, fmt.Errorf("paxscan scan ts: %w", err)
 			}
-			res.BlockTimestamps[uint64(number)] = ts
+			numberUint64, conversionErr := checked.Convert[uint64](number)
+			if conversionErr != nil {
+				tsRows.Close()
+				return FetchResult{}, conversionErr
+			}
+			res.BlockTimestamps[numberUint64] = ts
 		}
 		if err := tsRows.Err(); err != nil {
 			return FetchResult{}, err

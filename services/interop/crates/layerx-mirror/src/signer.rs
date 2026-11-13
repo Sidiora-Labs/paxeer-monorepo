@@ -305,6 +305,10 @@ impl RemoteChainSigner {
     }
 }
 
+/// Builds a TLS connector from a named peer and local certificate files.
+///
+/// # Errors
+/// Refuses invalid names, unsafe key file permissions or invalid TLS material.
 pub fn tls_connector(
     server_name: &str,
     trust_anchor: &Path,

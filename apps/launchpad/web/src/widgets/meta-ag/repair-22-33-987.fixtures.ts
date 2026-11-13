@@ -31,6 +31,7 @@ export const adapter = '0x9999999999999999999999999999999999999999' as const;
 export const adapterId: Hex = `0x${'ab'.repeat(32)}`;
 const code = '0x60006000f3' as const;
 const price = 10n ** 18n;
+const recordedGasUsed = '0x5208' as const;
 export const routeAbi = parseAbi([
   'event BestRouteSwap(address indexed user,address indexed tokenIn,address indexed tokenOut,uint256 amountIn,uint256 amountOut,bytes32 adapterId)',
   'event MultiHopSwap(address indexed user,address indexed tokenIn,address indexed tokenOut,uint256 amountIn,uint256 amountOut,uint256 hops)',
@@ -170,8 +171,8 @@ export async function openRpcTranscript(history = false) {
       to: target,
       blockNumber: numberToHex(height),
       blockHash: blockHash(height),
-      cumulativeGasUsed: '0x5208',
-      gasUsed: '0x5208',
+      cumulativeGasUsed: recordedGasUsed,
+      gasUsed: recordedGasUsed,
       effectiveGasPrice: '0x1',
       contractAddress: null,
       logs: entries,
@@ -243,6 +244,18 @@ export async function openRpcTranscript(history = false) {
   }
   const resultFor = (abi: Abi, functionName: string, result: unknown) =>
     encodeFunctionResult({ abi, functionName, result });
+  function decodeEconomicAction(call: { to: Address; data: Hex }) {
+    if (call.to.toLowerCase() === orders) {
+      const decoded = decodeFunctionData({ abi: advancedOrdersAbi, data: call.data });
+      if (decoded.functionName !== 'placeOrder') throw new Error('Unexpected economic action');
+      return decoded;
+    }
+    if (call.to.toLowerCase() !== router) throw new Error('Unexpected route target');
+    const decoded = decodeFunctionData({ abi: routeAbi, data: call.data });
+    if (decoded.functionName !== 'swapViaAdapter' && decoded.functionName !== 'swapMultiHop')
+      throw new Error('Unexpected route action');
+    return decoded;
+  }
   const server = createServer(async (request, response) => {
     try {
       let body = '';
@@ -431,7 +444,15 @@ export async function openRpcTranscript(history = false) {
             throw new Error(`Unrecorded contract call: ${decoded.functionName}`);
         }
       }
+      if (input.method === 'eth_estimateGas') {
+        // The transcript records one gas usage for each admitted economic action.
+        // Estimation validates the same target and ABI without submitting a write.
+        decodeEconomicAction(params[0] as { to: Address; data: Hex });
+        return send(recordedGasUsed);
+      }
       if (input.method === 'eth_sendTransaction') {
+        const tx = params[0] as { from: Address; to: Address; data: Hex };
+        const decoded = decodeEconomicAction(tx);
         control.sendRequests++;
         if (signing) {
           const paused = signing;
@@ -446,14 +467,11 @@ export async function openRpcTranscript(history = false) {
         if (control.walletOutcome === 'unknown')
           return reject(-32603, 'Wallet submission outcome unknown');
         if (control.walletOutcome === 'timeout') return;
-        const tx = params[0] as { from: Address; to: Address; data: Hex };
         writes.push(tx);
         const hash = txHash(writes.length);
         transactions.set(hash, { ...tx, chainId: 125 });
         let event: Record<string, unknown>;
-        if (tx.to.toLowerCase() === orders) {
-          const decoded = decodeFunctionData({ abi: advancedOrdersAbi, data: tx.data });
-          if (decoded.functionName !== 'placeOrder') throw new Error('Unexpected economic action');
+        if (decoded.functionName === 'placeOrder') {
           const draft = decoded.args[0];
           const order = {
             ...recordedOrder(1n, 0, draft.orderType),
@@ -481,7 +499,6 @@ export async function openRpcTranscript(history = false) {
             hash,
           );
         } else {
-          const decoded = decodeFunctionData({ abi: routeAbi, data: tx.data });
           if (decoded.functionName === 'swapViaAdapter') {
             const [id, from, to, amount] = decoded.args;
             event = log(

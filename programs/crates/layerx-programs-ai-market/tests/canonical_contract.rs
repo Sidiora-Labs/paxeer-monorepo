@@ -1,6 +1,7 @@
 //! Independent canonical bytes/hash fixtures constructed with Python hashlib.
 //! No product execution produced expectations; no authority/balance/finality mocks.
 use core::num::TryFromIntError;
+use layerx_ai_market_test_values::RequiredValue as _;
 use layerx_programs_ai_market::{codec::*, dispatch::*, errors::*, *};
 
 enum Failure {
@@ -44,6 +45,21 @@ fn hex(text: &str) -> Vec<u8> {
             n(p[0]) * 16 + n(p[1])
         })
         .collect()
+}
+
+#[test]
+fn canonical_settlement_frame_carries_room_tail_bytes() -> Checked {
+    let room_tail = [
+        0, 0, 0, 0, b'P', b'A', b'X', b'A', b'I', b'/', b'F', b'1', b'1',
+    ];
+    let frame = StateFrame {
+        revision: 1,
+        sections: [&[], &[], &[], &room_tail, &[], &[]],
+    };
+    let mut out = vec![0; frame.encoded_len()?];
+    let n = encode_state(&frame, &mut out)?;
+    assert_eq!(decode_state(&out[..n])?.sections[3], room_tail);
+    Ok(())
 }
 fn fixed32(text: &str) -> Checked<[u8; 32]> {
     hex(text)
@@ -973,7 +989,7 @@ fn independent_state_frame_hash_all_section_caps_and_refusals() -> Checked {
     }
     .encoded_len()
     .is_err());
-    let maxima = [16376, 24568, 24568, 131064, 24568, 24552];
+    let maxima = [16_376, 24_568, 24_568, 131_064, 24_568, 24_552];
     let payloads: Vec<Vec<u8>> = maxima.iter().map(|&n| vec![1; n]).collect();
     let full = StateFrame {
         revision: 1,
@@ -1106,7 +1122,7 @@ fn read_header_bindings(digest: StateDigest) -> Checked {
     .is_err());
     assert!(encode_read_header(
         &ReadHeader {
-            total_bytes: (layerx_programs_ai_market::MAX_STATE_BYTES + 1) as u32,
+            total_bytes: u32::try_from(layerx_programs_ai_market::MAX_STATE_BYTES + 1).required(),
             ..header
         },
         &mut bytes
@@ -1179,7 +1195,7 @@ fn chunk_refusals_and_maximum(
             ..request
         },
         ChunkRequest {
-            offset: layerx_programs_ai_market::MAX_STATE_BYTES as u32,
+            offset: u32::try_from(layerx_programs_ai_market::MAX_STATE_BYTES).required(),
             ..request
         },
         ChunkRequest {
@@ -1227,8 +1243,8 @@ fn chunk_refusals_and_maximum(
     assert!(decode_chunk_response(&trailing).is_err());
     let page = vec![1; 8192];
     let maximum = ChunkResponse {
-        total_bytes: layerx_programs_ai_market::MAX_STATE_BYTES as u32,
-        offset: (layerx_programs_ai_market::MAX_STATE_BYTES - 8192) as u32,
+        total_bytes: u32::try_from(layerx_programs_ai_market::MAX_STATE_BYTES).required(),
+        offset: u32::try_from(layerx_programs_ai_market::MAX_STATE_BYTES - 8192).required(),
         bytes: &page,
         ..response
     };
@@ -1236,7 +1252,7 @@ fn chunk_refusals_and_maximum(
     assert_eq!(
         check_chunk_response(
             &ChunkRequest {
-                offset: (layerx_programs_ai_market::MAX_STATE_BYTES - 8192) as u32,
+                offset: u32::try_from(layerx_programs_ai_market::MAX_STATE_BYTES - 8192).required(),
                 ..bound
             },
             &maximum

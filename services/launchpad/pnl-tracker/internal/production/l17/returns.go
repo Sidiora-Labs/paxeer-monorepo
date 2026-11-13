@@ -4,9 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/jackc/pgx/v5"
 	"math/big"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 )
 
 type ReturnPeriod struct {
@@ -26,7 +27,7 @@ type HistoricalReturn struct {
 }
 
 func TimeWeightedReturn(periods []ReturnPeriod) (HistoricalReturn, error) {
-	out := HistoricalReturn{Method: "unavailable", Periods: len(periods)}
+	out := HistoricalReturn{Method: statusUnavailable, Periods: len(periods)}
 	if len(periods) == 0 || len(periods) > 10000 {
 		return out, ErrInvalid
 	}
@@ -50,7 +51,7 @@ func TimeWeightedReturn(periods []ReturnPeriod) (HistoricalReturn, error) {
 			return out, e
 		}
 		if !p.Complete {
-			out.Reason = "incomplete_cash_flow_or_valuation_history"
+			out.Reason = incompleteHistoryReason
 		}
 		if previousAfterFlow != nil && open.Cmp(previousAfterFlow) != 0 {
 			return out, ErrInvalid
@@ -82,7 +83,7 @@ func TimeWeightedReturn(periods []ReturnPeriod) (HistoricalReturn, error) {
 }
 
 func (r Repository) HistoricalReturn(ctx context.Context, wallet, verified, snapshot string, from, to time.Time) (HistoricalReturn, error) {
-	unavailable := HistoricalReturn{Method: "unavailable", Reason: "incomplete_cash_flow_or_valuation_history"}
+	unavailable := HistoricalReturn{Method: statusUnavailable, Reason: incompleteHistoryReason}
 	if e := RequireOwner(wallet, verified); e != nil {
 		return unavailable, e
 	}

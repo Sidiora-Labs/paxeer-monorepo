@@ -57,7 +57,7 @@ func (s Store) ConsumeConsent(ctx context.Context, event ConsentRevision) error 
 	if e != nil {
 		return e
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackAccountTx(ctx, tx)
 	a, e := load(ctx, tx, event.AccountID)
 	if e != nil {
 		return e

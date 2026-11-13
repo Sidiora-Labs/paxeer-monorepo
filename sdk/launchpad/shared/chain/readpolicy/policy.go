@@ -5,12 +5,13 @@ import (
 	"context"
 	"encoding/hex"
 	"errors"
-	"github.com/ethereum/go-ethereum/rpc"
 	"io"
 	"net"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/ethereum/go-ethereum/rpc"
 )
 
 const DefaultDeadline = 1500 * time.Millisecond

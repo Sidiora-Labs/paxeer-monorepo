@@ -1726,9 +1726,9 @@
     {
       "path": "services/human/crates/layerx-human-kms/src/attestor.rs",
       "lines": [
-        "let mut future = signer::sign_disclosed_call(&signer, call, disclosure, from);"
+        "let mut future = signer::sign_disclosed_call(&transaction_signer, call, disclosure, from);"
       ],
-      "citation": "Decision 3125 retains this live EIP-1559 disclosure-bound signer from services/agent/crates/layerx-crypto/src/signer.rs; the retired sign_disclosed prefix also matches its sign_disclosed_call replacement."
+      "citation": "The attestor signs a disclosed EIP-1559 call through its secp256k1 transaction signer."
     },
     {
       "path": "services/human/tools/boundary-check/src/lib.rs",

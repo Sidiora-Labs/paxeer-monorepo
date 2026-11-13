@@ -1,5 +1,10 @@
+#[allow(dead_code)]
 #[path = "../src/chain_proof/ed25519.rs"]
 mod ed25519;
+
+#[path = "support/assertions.rs"]
+mod assertions;
+use assertions::TestResultExt;
 
 use std::collections::BTreeSet;
 
@@ -18,8 +23,10 @@ const CONSENSUS_VECTOR_SHA256: &str =
     "10d7d62cdb0a86d925011df908415a30b9577ca20e554f16a37ec1e07e6adcc8";
 
 fn vector_field<'a>(lines: &mut impl Iterator<Item = &'a str>, name: &str) -> &'a str {
-    let line = lines.next().expect("vector field");
-    let (key, value) = line.split_once(": ").expect("vector key and value");
+    let line = lines.next().unwrap_or_else(|| panic!("{}", "vector field"));
+    let (key, value) = line
+        .split_once(": ")
+        .unwrap_or_else(|| panic!("{}", "vector key and value"));
     assert_eq!(key, format!("\"{name}\""));
     value.strip_suffix(',').unwrap_or(value)
 }
@@ -28,7 +35,7 @@ fn vector_string<'a>(lines: &mut impl Iterator<Item = &'a str>, name: &str) -> &
     vector_field(lines, name)
         .strip_prefix('"')
         .and_then(|value| value.strip_suffix('"'))
-        .expect("quoted vector string")
+        .unwrap_or_else(|| panic!("{}", "quoted vector string"))
 }
 
 fn hex_bytes(value: &str) -> Vec<u8> {
@@ -37,8 +44,8 @@ fn hex_bytes(value: &str) -> Vec<u8> {
         .as_bytes()
         .chunks_exact(2)
         .map(|pair| {
-            u8::from_str_radix(std::str::from_utf8(pair).expect("ASCII hex"), 16)
-                .expect("hex vector byte")
+            u8::from_str_radix(std::str::from_utf8(pair).or_panic("ASCII hex"), 16)
+                .or_panic("hex vector byte")
         })
         .collect()
 }
@@ -127,11 +134,11 @@ fn chain_zip215_matches_consensus_vector() -> Result<(), ChainProofError> {
         assert!(names.insert(name), "duplicate vector case: {name}");
         let public_key: [u8; 32] = hex_bytes(vector_string(&mut lines, "public_key"))
             .try_into()
-            .expect("32-byte public key");
+            .or_panic("32-byte public key");
         let message = hex_bytes(vector_string(&mut lines, "message"));
         let signature: [u8; 64] = hex_bytes(vector_string(&mut lines, "signature"))
             .try_into()
-            .expect("64-byte signature");
+            .or_panic("64-byte signature");
         let expected = match vector_field(&mut lines, "verify_signature") {
             "true" => true,
             "false" => false,
@@ -173,7 +180,7 @@ fn chain_zip215_matches_consensus_vector() -> Result<(), ChainProofError> {
         let result = verifier.verify_head(&header, &commit);
         assert_eq!(result.is_ok(), expected, "one-validator commit: {name}");
         if expected {
-            let head = result.expect("accepted vector commit");
+            let head = result.or_panic("accepted vector commit");
             assert_eq!(head.chain_id(), header.chain_id);
             assert_eq!(head.height(), header.height);
             assert_eq!(head.time_ms(), 1_700_000_000_123);
@@ -193,7 +200,7 @@ fn chain_zip215_matches_consensus_vector() -> Result<(), ChainProofError> {
             refused += 1;
         }
         match lines.next() {
-            Some("},") => continue,
+            Some("},") => {}
             Some("}") => break,
             other => panic!("invalid vector case terminator: {other:?}"),
         }

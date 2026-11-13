@@ -1,9 +1,9 @@
 mod service_recording {
-    include!("node_tape.rs");
+    include!("service_recording.rs");
 }
 
 fn producer_revert_harness() -> Result<Harness, Box<dyn std::error::Error>> {
-    let tape = service_recording::Tape::load("service")?;
+    let tape = service_recording::Tape::load()?;
     let config = tape.config()?;
     let captured = &tape.fixture["service"];
     let signer = service_recording::signer(3)?;
@@ -25,8 +25,13 @@ fn producer_revert_harness() -> Result<Harness, Box<dyn std::error::Error>> {
         max_priority_fee_per_gas: 1_000_000_000,
         registered_senders: vec![],
     };
-    let journal =
-        std::env::temp_dir().join(format!("producer-reverted-{}.jsonl", std::process::id()));
+    let journal = std::env::temp_dir().join(format!(
+        "producer-reverted-{}-{}.jsonl",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)?
+            .as_nanos()
+    ));
     let clock = Arc::new(AtomicU64::new(
         captured["now"].as_u64().ok_or("captured service clock")?,
     ));
@@ -61,7 +66,7 @@ fn producer_revert_harness() -> Result<Harness, Box<dyn std::error::Error>> {
 }
 
 pub(crate) fn reverted_receipt_survives_http_status_and_restart() -> TestResult {
-    let tape = service_recording::Tape::load("service")?;
+    let tape = service_recording::Tape::load()?;
     let capture = &tape.fixture["service"];
     let mut harness = producer_revert_harness()?;
     let (status, quote) = harness.post("/quote", &capture["quote_body"])?;
@@ -95,9 +100,10 @@ pub(crate) fn reverted_receipt_survives_http_status_and_restart() -> TestResult 
     harness.finish()
 }
 
+#[test]
 pub(crate) fn producer_revert_retains_signed_effects_and_malformed_checks() -> TestResult {
     use layerx_gas_station::rpc::decode_full_sequencer_receipt;
-    let tape = service_recording::Tape::load("service")?;
+    let tape = service_recording::Tape::load()?;
     let answer = &tape.fixture["service"]["receipt"];
     let hash = bytes(answer["txHash"].as_str().ok_or("missing node hash")?)?
         .try_into()
@@ -144,7 +150,7 @@ pub(crate) fn producer_revert_retains_signed_effects_and_malformed_checks() -> T
     Ok(())
 }
 
-pub(crate) fn registered_budgets_cross_caps_and_survive_restart() -> TestResult {
+pub(crate) fn registered_budgets_cross_caps_and_survive_restart(prefix: &str) -> TestResult {
     let mut observations = Vec::new();
     // The same token cost straddles each cap only cumulatively. Ordinary
     // accounts admit two quotes; the lower cap admits one, the higher three.
@@ -153,7 +159,7 @@ pub(crate) fn registered_budgets_cross_caps_and_survive_restart() -> TestResult 
         ("BUDGET_SMALL", Some(5_000_000), 1),
         ("BUDGET_LARGE", Some(12_000_000), 3),
     ] {
-        let mut harness = start_configured(name, |config, account| {
+        let mut harness = start_configured(&format!("{prefix}_{name}"), |config, account| {
             if let Some(budget) = custom {
                 config.registered_senders = vec![RegisteredSender {
                     address: account,

@@ -1,30 +1,27 @@
-//! Task 22.33.27, audit 22.30.102, acceptance 22998.1.
-//! provider-private-address-fixture: provider_public_wallet_isolation_and_restart.
-//! export-loss-test: export_envelope_disconnect_restart_acknowledgement_and_isolation.
-//! eip1559-private-address-fixture: eip1559_public_sender_and_negative_envelopes.
-//! Baseline: not run; the explicit bounded gate order forbids unchanged-tree verification.
-//! The gate uses production KMS server/store/codec sources and the real remote client.
-//! Loopback signing peers use the production EIP-1559 producer with independent fixture
-//! keys; threshold execution is covered by provider.rs and sign_eip1559_requests.rs
-//! against the real attestor cluster, outside this dependency-free focused gate.
-//! Wiring request (Human domain): services/human/crates/layerx-human-service/src/custody/mod.rs::export_primary_once must retain a recipient secret and use v8 export/acknowledgement instead of the retired raw-seed API.
-//! The user forbids spec edits; this module is the finding-to-test task record.
+//! Public wallet identities and encrypted exports remain isolated across restart.
 
 #![allow(dead_code)]
 
 pub use layerx_human_kms::attestor;
+#[allow(dead_code)]
 #[path = "../src/config.rs"]
 mod config;
+#[allow(dead_code)]
 #[path = "../src/evm.rs"]
 mod evm;
+#[allow(dead_code)]
 #[path = "../src/evm_types.rs"]
 mod evm_types;
+#[allow(dead_code)]
 #[path = "../src/export.rs"]
 mod export;
+#[allow(dead_code)]
 #[path = "../src/send.rs"]
 mod send;
+#[allow(dead_code)]
 #[path = "../src/store.rs"]
 mod store;
+#[allow(dead_code)]
 #[path = "../src/wire.rs"]
 mod wire;
 mod server {
@@ -32,11 +29,19 @@ mod server {
 
     pub fn serve_connection(
         tcp: std::net::TcpStream,
-        config: &crate::config::Config,
-        store: &std::sync::Mutex<crate::store::Store>,
-        clock: &dyn layerx_types::clock::Clock,
+        config: std::sync::Arc<crate::config::Config>,
+        store: std::sync::Arc<std::sync::Mutex<crate::store::Store>>,
+        clock: std::sync::Arc<dyn layerx_types::clock::Clock>,
     ) -> crate::wire::Result<()> {
-        connection(tcp, config, store, clock)
+        spawn_connection(
+            tcp,
+            config,
+            store,
+            clock,
+            std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0)),
+        )?
+        .join()
+        .map_err(|_| crate::wire::Error::Unavailable)
     }
 }
 #[path = "../../../../platform/hosted/runtime-clock/src/server.rs"]
@@ -173,67 +178,31 @@ fn eip1559_public_sender_and_negative_envelopes() -> Result<()> {
     let signature = checked(AgentSignature::new(response[8..].try_into()?))?;
     assert_eq!(recover_sender(&call, &signature)?, wallet.evm_secp256k1);
 
-    for mutate in [
-        (|v: &mut layerx_crypto::disclosure::Disclosure| v.asset[0] ^= 1) as fn(&mut _),
-        |v| v.fee_limit += 1,
-        |v| v.authority[0] ^= 1,
-    ] {
-        let mut changed = disclosure.clone();
-        mutate(&mut changed);
-        let frame = host.sign_frame(
-            binding,
-            description.reference(),
-            wallet.evm_secp256k1,
-            &canonical,
-            &checked(wire::disclosure(&changed))?,
-        )?;
-        assert_eq!(host.exchange(&frame, false)?[7], 1);
-    }
-    for mutate in [
-        (|v: &mut Eip1559Call| v.chain_id = 126) as fn(&mut _),
-        |v| v.to[0] ^= 1,
-        |v| v.data[0] ^= 1,
-        |v| v.data[4] ^= 1,
-    ] {
-        let mut changed = call.clone();
-        mutate(&mut changed);
-        let frame = host.sign_frame(
-            binding,
-            description.reference(),
-            wallet.evm_secp256k1,
-            &attestor::unsigned_evm_transaction(&changed),
-            &encoded,
-        )?;
-        assert_eq!(host.exchange(&frame, false)?[7], 1);
-    }
-    let mut value = canonical.clone();
-    let destination = value
-        .windows(21)
-        .position(|v| v[0] == 0x94 && v[1..] == call.to)
-        .ok_or("destination missing")?;
-    assert_eq!(value[destination + 21], 0x80);
-    value[destination + 21] = 1;
-    let mut trailing = canonical.clone();
-    trailing.push(0);
-    let mut legacy = canonical.clone();
-    legacy[0] = 1;
-    for invalid in [
-        call.sign(&[1; 32])?,
-        vec![2, 0xc0],
-        trailing,
-        legacy,
-        value,
-        b"not a type-2 transaction".to_vec(),
-    ] {
-        let frame = host.sign_frame(
-            binding,
-            description.reference(),
-            wallet.evm_secp256k1,
-            &invalid,
-            &encoded,
-        )?;
-        assert_eq!(host.exchange(&frame, false)?[7], 1);
-    }
+    assert_disclosure_mutations(
+        &host,
+        binding,
+        description.reference(),
+        wallet.evm_secp256k1,
+        &canonical,
+        &disclosure,
+    )?;
+    assert_transaction_mutations(
+        &host,
+        binding,
+        description.reference(),
+        wallet.evm_secp256k1,
+        &call,
+        &encoded,
+    )?;
+    assert_invalid_transaction_bytes(
+        &host,
+        binding,
+        description.reference(),
+        wallet.evm_secp256k1,
+        &call,
+        &canonical,
+        &encoded,
+    )?;
     let mut bad_digest = sign.clone();
     let digest_at = bad_digest.len() - canonical.len() - encoded.len() - 8 - 20 - 32;
     bad_digest[digest_at] ^= 1;
@@ -259,25 +228,80 @@ fn eip1559_public_sender_and_negative_envelopes() -> Result<()> {
         )?[7],
         5
     );
-    let zero = host.sign_frame(
+    assert_invalid_frame_versions(
+        &host,
         binding,
         description.reference(),
-        [0; 20],
         &canonical,
         &encoded,
+        sign,
     )?;
-    assert!(matches!(
-        wire::Request::decode(&zero),
-        Err(wire::Error::Refused)
-    ));
-    assert!(host.exchange(&zero, false).is_err());
-    let mut v1 = sign;
-    v1[4..6].copy_from_slice(&1_u16.to_be_bytes());
-    assert!(matches!(
-        wire::Request::decode(&v1),
-        Err(wire::Error::Refused)
-    ));
-    assert!(host.exchange(&v1, false).is_err());
+    Ok(())
+}
+
+fn assert_invalid_transaction_bytes(
+    host: &Host,
+    binding: &PrincipalKeyBinding,
+    reference: &ProviderKeyReference,
+    from: [u8; 20],
+    call: &Eip1559Call,
+    canonical: &[u8],
+    encoded: &[u8],
+) -> Result<()> {
+    let mut value = canonical.to_vec();
+    let destination = value
+        .windows(21)
+        .position(|v| v[0] == 0x94 && v[1..] == call.to)
+        .ok_or("destination missing")?;
+    assert_eq!(value[destination + 21], 0x80);
+    value[destination + 21] = 1;
+    let mut trailing = canonical.to_vec();
+    trailing.push(0);
+    let mut legacy = canonical.to_vec();
+    legacy[0] = 1;
+    for invalid in [
+        call.sign(&[1; 32])?,
+        vec![2, 0xc0],
+        trailing,
+        legacy,
+        value,
+        b"not a type-2 transaction".to_vec(),
+    ] {
+        let frame = host.sign_frame(binding, reference, from, &invalid, encoded)?;
+        assert_eq!(host.exchange(&frame, false)?[7], 1);
+    }
+    Ok(())
+}
+
+fn assert_export_seed_confidentiality(
+    host: &Host,
+    description: &layerx_human_service::custody::ProviderKeyDescription,
+    seed: &[u8; 32],
+    managed_ciphertext: &[u8],
+) -> Result<()> {
+    let primary = checked(ring::signature::Ed25519KeyPair::from_seed_unchecked(seed))?;
+    assert_eq!(primary.public_key().as_ref(), description.public_key());
+    assert!(!managed_ciphertext.windows(32).any(|window| window == seed));
+    let encrypted_state = std::fs::read(host.root.join("state/state.aead"))?;
+    assert!(!encrypted_state.windows(32).any(|window| window == seed));
+    Ok(())
+}
+
+fn assert_envelope_recovered(
+    remote: &layerx_human_service::custody::RemoteKmsProvider,
+    binding: &PrincipalKeyBinding,
+    reference: &ProviderKeyReference,
+    ceremony: &layerx_human_kms::export::ExportCeremony,
+    envelope: &layerx_human_kms::export::ExportEnvelope,
+) -> Result<()> {
+    assert_eq!(
+        &remote.export_envelope(binding, reference, ceremony)?,
+        envelope
+    );
+    assert_eq!(
+        &remote.export_envelope(binding, reference, ceremony)?,
+        envelope
+    );
     Ok(())
 }
 
@@ -292,185 +316,39 @@ fn export_envelope_disconnect_restart_acknowledgement_and_isolation() -> Result<
     let other_description = remote.create_key(&other)?;
     let reference = description.reference();
     let wallet = remote.wallet_descriptor(&binding, reference)?;
-    let transaction = call(0);
-    let sign = host.sign_frame(
-        &binding,
-        reference,
-        wallet.evm_secp256k1,
-        &attestor::unsigned_evm_transaction(&transaction),
-        &checked(wire::disclosure(&checked(bind_call(
-            &transaction,
-            wallet.evm_secp256k1,
-        ))?))?,
-    )?;
-    assert_eq!(host.exchange(&sign, false)?[7], 0);
+    let sign = export_sign_frame(&host, &binding, reference, wallet.evm_secp256k1)?;
     let recipient = ExportRecipient::new([11; 32])?;
     let ceremony = recipient.ceremony([12; 32])?;
     let frame = remote.encode_export_request(&binding, reference, &ceremony)?;
-    // A partial transport frame cannot disable managed authority.
-    {
-        let mut tls = host.connection(false)?;
-        tls.write_all(&u32::try_from(frame.len())?.to_be_bytes())?;
-        tls.write_all(&frame[..frame.len() / 2])?;
-        tls.flush()?;
-    }
-    host.restart()?;
-    assert_eq!(remote.describe_key(&binding, reference)?, description);
-    assert_eq!(remote.wallet_descriptor(&binding, reference)?, wallet);
-    assert_eq!(host.exchange(&sign, false)?[7], 0);
-    assert_eq!(
-        host.remote(true)?
-            .export_envelope(&binding, reference, &ceremony),
-        Err(KmsError::Refused)
-    );
-    assert_eq!(
-        remote.export_primary_key(&binding, reference).err(),
-        Some(KmsError::Refused)
-    );
-    let agent = PrincipalKeyBinding::from_digest([92; 32], 125, KeyClass::AgentPrimary)?;
-    let agent_description = remote.create_key(&agent)?;
-    assert_eq!(
-        remote.export_envelope(&agent, agent_description.reference(), &ceremony),
-        Err(KmsError::Refused)
-    );
-    let wrong_class =
-        PrincipalKeyBinding::from_digest(binding.digest(), 125, KeyClass::AgentPrimary)?;
-    assert_eq!(
-        remote.export_envelope(&wrong_class, reference, &ceremony),
-        Err(KmsError::Integrity)
-    );
-    assert_eq!(
-        remote.export_envelope(
-            &binding,
-            &ProviderKeyReference::new(vec![33; 32])?,
-            &ceremony
-        ),
-        Err(KmsError::Integrity)
-    );
-    let missing = PrincipalKeyBinding::from_digest([93; 32], 125, KeyClass::HumanPrimary)?;
-    assert_eq!(
-        remote.export_envelope(&missing, reference, &ceremony),
-        Err(KmsError::KeyNotFound)
-    );
-    for version in [1u16, 3, 5] {
-        let mut invalid = frame.clone();
-        invalid[4..6].copy_from_slice(&version.to_be_bytes());
-        assert!(host.exchange(&invalid, false).is_err());
-    }
-    // Refuse delivery until the durable store write succeeds, including after reopen.
-    let blocker = host.root.join("state/state.next");
-    std::fs::create_dir(&blocker)?;
-    assert_eq!(
-        remote.export_envelope(&binding, reference, &ceremony),
-        Err(KmsError::Unavailable)
-    );
-    assert_eq!(
-        remote.describe_key(&binding, reference),
-        Err(KmsError::Unavailable)
-    );
-    assert_eq!(host.exchange(&sign, false)?[7], 4);
-    host.stop()?;
-    std::fs::remove_dir(&blocker)?;
-    host.start()?;
-    assert_eq!(remote.describe_key(&binding, reference)?, description);
-    assert_eq!(host.exchange(&sign, false)?[7], 0);
-    let managed_ciphertext = std::fs::read(host.root.join("state/state.aead"))?;
-    {
-        let mut tls = host.connection(false)?;
-        checked(layerx_human_service::frame::write_frame(
-            &mut tls,
-            &frame,
-            wire::MAX_FRAME,
-        ))?;
-        tls.flush()?;
-        let mut deadline = Deadline::start(host.clock.as_ref(), Duration::from_secs(5))?;
-        loop {
-            if remote.evm_operation(6, &binding, reference, &[]) == Err(KmsError::SelfCustodied) {
-                break;
-            }
-            if deadline.remaining(host.clock.as_ref())?.is_zero() {
-                return Err("export publication deadline".into());
-            }
-            std::thread::sleep(Duration::from_millis(2));
-        }
-        // Deliberately disconnect without reading the durable envelope reply.
-    }
+    let managed_ciphertext = assert_export_prepublication(
+        &mut host,
+        &binding,
+        &description,
+        wallet.evm_secp256k1,
+        &sign,
+        &ceremony,
+        &frame,
+    )?;
+    publish_export_envelope(&host, &binding, reference, &frame)?;
     let envelope = remote.export_envelope(&binding, reference, &ceremony)?;
     host.restart()?;
-    assert_eq!(
-        remote.export_envelope(&binding, reference, &ceremony)?,
-        envelope
-    );
-    assert_eq!(
-        remote.export_envelope(&binding, reference, &ceremony)?,
-        envelope
-    );
+    assert_envelope_recovered(&remote, &binding, reference, &ceremony, &envelope)?;
     let (seed, ack) = recipient.open(
         fixture::PROVIDER,
         binding.digest(),
         reference.as_bytes(),
         &envelope,
     )?;
-    let primary = checked(ring::signature::Ed25519KeyPair::from_seed_unchecked(&*seed))?;
-    assert_eq!(primary.public_key().as_ref(), description.public_key());
-    assert!(!managed_ciphertext.windows(32).any(|window| window == *seed));
-    let encrypted_state = std::fs::read(host.root.join("state/state.aead"))?;
-    assert!(!encrypted_state.windows(32).any(|window| window == *seed));
-    let wrong = ExportRecipient::new([13; 32])?;
-    assert!(wrong
-        .open(
-            fixture::PROVIDER,
-            binding.digest(),
-            reference.as_bytes(),
-            &envelope
-        )
-        .is_err());
-    assert!(recipient
-        .open(
-            "other-kms",
-            binding.digest(),
-            reference.as_bytes(),
-            &envelope
-        )
-        .is_err());
-    assert!(recipient
-        .open(
-            fixture::PROVIDER,
-            other.digest(),
-            reference.as_bytes(),
-            &envelope
-        )
-        .is_err());
-    assert!(recipient
-        .open(
-            fixture::PROVIDER,
-            binding.digest(),
-            b"other-handle",
-            &envelope
-        )
-        .is_err());
-    let mut tampered = envelope.clone();
-    tampered.ciphertext[0] ^= 1;
-    assert!(recipient
-        .open(
-            fixture::PROVIDER,
-            binding.digest(),
-            reference.as_bytes(),
-            &tampered
-        )
-        .is_err());
-    assert_eq!(
-        remote.export_envelope(&binding, reference, &recipient.ceremony([14; 32])?),
-        Err(KmsError::Conflict)
-    );
-    assert_eq!(
-        remote.export_envelope(&binding, reference, &wrong.ceremony(ceremony.id)?),
-        Err(KmsError::Conflict)
-    );
-    assert_eq!(
-        remote.export_envelope(&other, reference, &ceremony),
-        Err(KmsError::Integrity)
-    );
+    assert_export_seed_confidentiality(&host, &description, &seed, &managed_ciphertext)?;
+    assert_export_envelope_refusals(
+        &host,
+        &binding,
+        &other,
+        &description,
+        &recipient,
+        &ceremony,
+        &envelope,
+    )?;
     assert_eq!(
         remote.describe_key(&other, other_description.reference())?,
         other_description
@@ -497,7 +375,7 @@ fn export_envelope_disconnect_restart_acknowledgement_and_isolation() -> Result<
         reference.as_bytes(),
         &recovered_envelope,
     )?;
-    assert!(layerx_crypto::ct::eq_fixed(&*recovered, &*seed));
+    assert!(layerx_crypto::ct::eq_fixed(&recovered, &seed));
     remote.acknowledge_export(&binding, reference, &ack)?;
     host.restart()?;
     remote.acknowledge_export(&binding, reference, &ack)?;
@@ -515,10 +393,295 @@ fn export_envelope_disconnect_restart_acknowledgement_and_isolation() -> Result<
         Err(KmsError::SelfCustodied)
     );
     assert_eq!(remote.create_key(&binding), Err(KmsError::Conflict));
-    assert_eq!(remote.describe_key(&binding, reference)?, description);
+    assert_eq!(
+        remote.describe_key(&binding, reference)?,
+        description.clone()
+    );
     assert_eq!(
         remote.describe_key(&other, other_description.reference())?,
         other_description
     );
+    Ok(())
+}
+
+fn assert_disclosure_mutations(
+    host: &Host,
+    binding: &PrincipalKeyBinding,
+    reference: &ProviderKeyReference,
+    from: [u8; 20],
+    canonical: &[u8],
+    disclosure: &layerx_crypto::disclosure::Disclosure,
+) -> Result<()> {
+    for mutate in [
+        (|v: &mut layerx_crypto::disclosure::Disclosure| v.asset[0] ^= 1) as fn(&mut _),
+        |v| v.fee_limit += 1,
+        |v| v.authority[0] ^= 1,
+    ] {
+        let mut changed = disclosure.clone();
+        mutate(&mut changed);
+        let frame = host.sign_frame(
+            binding,
+            reference,
+            from,
+            canonical,
+            &checked(wire::disclosure(&changed))?,
+        )?;
+        assert_eq!(host.exchange(&frame, false)?[7], 1);
+    }
+    Ok(())
+}
+
+fn assert_transaction_mutations(
+    host: &Host,
+    binding: &PrincipalKeyBinding,
+    reference: &ProviderKeyReference,
+    from: [u8; 20],
+    call: &Eip1559Call,
+    encoded: &[u8],
+) -> Result<()> {
+    for mutate in [
+        (|v: &mut Eip1559Call| v.chain_id = 126) as fn(&mut _),
+        |v| v.to[0] ^= 1,
+        |v| v.data[0] ^= 1,
+        |v| v.data[4] ^= 1,
+    ] {
+        let mut changed = call.clone();
+        mutate(&mut changed);
+        let frame = host.sign_frame(
+            binding,
+            reference,
+            from,
+            &attestor::unsigned_evm_transaction(&changed),
+            encoded,
+        )?;
+        assert_eq!(host.exchange(&frame, false)?[7], 1);
+    }
+    Ok(())
+}
+
+fn assert_invalid_frame_versions(
+    host: &Host,
+    binding: &PrincipalKeyBinding,
+    reference: &ProviderKeyReference,
+    canonical: &[u8],
+    encoded: &[u8],
+    sign: Vec<u8>,
+) -> Result<()> {
+    let zero = host.sign_frame(binding, reference, [0; 20], canonical, encoded)?;
+    assert!(matches!(
+        wire::Request::decode(&zero),
+        Err(wire::Error::Refused)
+    ));
+    assert!(host.exchange(&zero, false).is_err());
+    let mut v1 = sign;
+    v1[4..6].copy_from_slice(&1_u16.to_be_bytes());
+    assert!(matches!(
+        wire::Request::decode(&v1),
+        Err(wire::Error::Refused)
+    ));
+    assert!(host.exchange(&v1, false).is_err());
+    Ok(())
+}
+
+fn assert_export_prepublication(
+    host: &mut Host,
+    binding: &PrincipalKeyBinding,
+    description: &layerx_human_service::custody::ProviderKeyDescription,
+    from: [u8; 20],
+    sign: &[u8],
+    ceremony: &layerx_human_kms::export::ExportCeremony,
+    frame: &[u8],
+) -> Result<Vec<u8>> {
+    let remote = host.remote(false)?;
+    let reference = description.reference();
+    // A partial transport frame cannot disable managed authority.
+    {
+        let mut tls = host.connection(false)?;
+        tls.write_all(&u32::try_from(frame.len())?.to_be_bytes())?;
+        tls.write_all(&frame[..frame.len() / 2])?;
+        tls.flush()?;
+    }
+    host.restart()?;
+    assert_eq!(
+        remote.describe_key(binding, reference)?,
+        description.clone()
+    );
+    let recovered_wallet = remote.wallet_descriptor(binding, reference)?;
+    assert_eq!(recovered_wallet.native_ed25519, description.public_key());
+    assert_eq!(recovered_wallet.evm_secp256k1, from);
+    assert_eq!(host.exchange(sign, false)?[7], 0);
+    assert_eq!(
+        host.remote(true)?
+            .export_envelope(binding, reference, ceremony),
+        Err(KmsError::Refused)
+    );
+    assert_eq!(
+        remote.export_primary_key(binding, reference).err(),
+        Some(KmsError::Refused)
+    );
+    let agent = PrincipalKeyBinding::from_digest([92; 32], 125, KeyClass::AgentPrimary)?;
+    let agent_description = remote.create_key(&agent)?;
+    assert_eq!(
+        remote.export_envelope(&agent, agent_description.reference(), ceremony),
+        Err(KmsError::Refused)
+    );
+    let wrong_class =
+        PrincipalKeyBinding::from_digest(binding.digest(), 125, KeyClass::AgentPrimary)?;
+    assert_eq!(
+        remote.export_envelope(&wrong_class, reference, ceremony),
+        Err(KmsError::Integrity)
+    );
+    assert_eq!(
+        remote.export_envelope(binding, &ProviderKeyReference::new(vec![33; 32])?, ceremony),
+        Err(KmsError::Integrity)
+    );
+    let missing = PrincipalKeyBinding::from_digest([93; 32], 125, KeyClass::HumanPrimary)?;
+    assert_eq!(
+        remote.export_envelope(&missing, reference, ceremony),
+        Err(KmsError::KeyNotFound)
+    );
+    for version in [1u16, 3, 5] {
+        let mut invalid = frame.to_vec();
+        invalid[4..6].copy_from_slice(&version.to_be_bytes());
+        assert!(host.exchange(&invalid, false).is_err());
+    }
+    // Refuse delivery until the durable store write succeeds, including after reopen.
+    let blocker = host.root.join("state/state.next");
+    std::fs::create_dir(&blocker)?;
+    assert_eq!(
+        remote.export_envelope(binding, reference, ceremony),
+        Err(KmsError::Unavailable)
+    );
+    assert_eq!(
+        remote.describe_key(binding, reference),
+        Err(KmsError::Unavailable)
+    );
+    assert_eq!(host.exchange(sign, false)?[7], 4);
+    host.stop()?;
+    std::fs::remove_dir(&blocker)?;
+    host.start()?;
+    assert_eq!(
+        remote.describe_key(binding, reference)?,
+        description.clone()
+    );
+    assert_eq!(host.exchange(sign, false)?[7], 0);
+    let managed_ciphertext = std::fs::read(host.root.join("state/state.aead"))?;
+    Ok(managed_ciphertext)
+}
+
+fn assert_export_envelope_refusals(
+    host: &Host,
+    binding: &PrincipalKeyBinding,
+    other: &PrincipalKeyBinding,
+    description: &layerx_human_service::custody::ProviderKeyDescription,
+    recipient: &ExportRecipient,
+    ceremony: &layerx_human_kms::export::ExportCeremony,
+    envelope: &layerx_human_kms::export::ExportEnvelope,
+) -> Result<()> {
+    let remote = host.remote(false)?;
+    let reference = description.reference();
+    let wrong = ExportRecipient::new([13; 32])?;
+    assert!(wrong
+        .open(
+            fixture::PROVIDER,
+            binding.digest(),
+            reference.as_bytes(),
+            envelope
+        )
+        .is_err());
+    assert!(recipient
+        .open(
+            "other-kms",
+            binding.digest(),
+            reference.as_bytes(),
+            envelope
+        )
+        .is_err());
+    assert!(recipient
+        .open(
+            fixture::PROVIDER,
+            other.digest(),
+            reference.as_bytes(),
+            envelope
+        )
+        .is_err());
+    assert!(recipient
+        .open(
+            fixture::PROVIDER,
+            binding.digest(),
+            b"other-handle",
+            envelope
+        )
+        .is_err());
+    let mut tampered = envelope.clone();
+    tampered.ciphertext[0] ^= 1;
+    assert!(recipient
+        .open(
+            fixture::PROVIDER,
+            binding.digest(),
+            reference.as_bytes(),
+            &tampered
+        )
+        .is_err());
+    assert_eq!(
+        remote.export_envelope(binding, reference, &recipient.ceremony([14; 32])?),
+        Err(KmsError::Conflict)
+    );
+    assert_eq!(
+        remote.export_envelope(binding, reference, &wrong.ceremony(ceremony.id)?),
+        Err(KmsError::Conflict)
+    );
+    assert_eq!(
+        remote.export_envelope(other, reference, ceremony),
+        Err(KmsError::Integrity)
+    );
+    Ok(())
+}
+
+fn export_sign_frame(
+    host: &Host,
+    binding: &PrincipalKeyBinding,
+    reference: &ProviderKeyReference,
+    from: [u8; 20],
+) -> Result<Vec<u8>> {
+    let transaction = call(0);
+    let sign = host.sign_frame(
+        binding,
+        reference,
+        from,
+        &attestor::unsigned_evm_transaction(&transaction),
+        &checked(wire::disclosure(&checked(bind_call(&transaction, from))?))?,
+    )?;
+    assert_eq!(host.exchange(&sign, false)?[7], 0);
+    Ok(sign)
+}
+
+fn publish_export_envelope(
+    host: &Host,
+    binding: &PrincipalKeyBinding,
+    reference: &ProviderKeyReference,
+    frame: &[u8],
+) -> Result<()> {
+    let remote = host.remote(false)?;
+    {
+        let mut tls = host.connection(false)?;
+        checked(layerx_human_service::frame::write_frame(
+            &mut tls,
+            frame,
+            wire::MAX_FRAME,
+        ))?;
+        tls.flush()?;
+        let mut deadline = Deadline::start(host.clock.as_ref(), Duration::from_secs(5))?;
+        loop {
+            if remote.evm_operation(6, binding, reference, &[]) == Err(KmsError::SelfCustodied) {
+                break;
+            }
+            if deadline.remaining(host.clock.as_ref())?.is_zero() {
+                return Err("export publication deadline".into());
+            }
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        // Deliberately disconnect without reading the durable envelope reply.
+    }
     Ok(())
 }

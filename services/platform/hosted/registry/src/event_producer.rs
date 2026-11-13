@@ -176,8 +176,7 @@ impl ProgramOutbox {
             let transition = if state.retained(transition).is_none()
                 && state.retained(&legacy).is_some_and(|previous| {
                     previous.principal_digest == observation.principal_digest
-                })
-            {
+                }) {
                 legacy.as_str()
             } else {
                 transition
@@ -294,6 +293,12 @@ mod tests {
                 .unbound_count()
                 .unwrap_or_else(|error| panic!("{error}")),
             1
+        );
+        assert_eq!(
+            outbox
+                .overflow_count()
+                .unwrap_or_else(|error| panic!("{error}")),
+            0
         );
         let mut observed = pending.clone();
         observed.observed = true;

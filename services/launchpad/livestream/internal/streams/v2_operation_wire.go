@@ -15,7 +15,7 @@ func AdaptV2StreamCreate(requestID string, o Operation) ([]byte, error) {
 		RequestId:   requestID,
 		Data:        v2.StreamCreateData{Operation: operation},
 		Revision:    &operation.Revision,
-		Quality:     "complete",
+		Quality:     qualityComplete,
 		GeneratedAt: time.Now().UTC().Format(v2LifecycleTimeLayout),
 	})
 }
@@ -32,7 +32,7 @@ func AdaptV2StreamOperationGet(requestID string, o Operation, at time.Time) ([]b
 		RequestId:   requestID,
 		Data:        v2.StreamOperationGetData{Operation: operation},
 		Revision:    &operation.Revision,
-		Quality:     "complete",
+		Quality:     qualityComplete,
 		GeneratedAt: at.UTC().Format(v2LifecycleTimeLayout),
 	})
 }

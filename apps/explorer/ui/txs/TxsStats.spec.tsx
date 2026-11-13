@@ -66,13 +66,16 @@ describe('TxsStats', () => {
     });
   });
 
-  it('opens the page with the four stat cards in the scan order', async() => {
+  it('opens the page with the seven stat cards in the scan order', async() => {
     const { container } = render(<TxsStats/>);
 
     await waitFor(() => {
       expect(Array.from(container.querySelectorAll('[data-scan-stat]')).map((card) => card.getAttribute('data-scan-stat')))
         .toEqual([
           'Transactions (24h)',
+          'Total transactions',
+          'Price updates (24h)',
+          'Total price updates',
           'Pending transactions (last 1h)',
           'Total transaction fee (24h)',
           'Avg. transaction fee (24h)',
@@ -88,14 +91,17 @@ describe('TxsStats', () => {
         .map((card) => card.querySelector('[data-value]')?.textContent);
 
       expect(values[0]).toBe('992,890');
-      expect(values[1]).toBe('4,200');
-      expect(values[2]).toContain('22.18');
-      expect(values[2]).toContain('ETH');
-      expect(values[3]?.startsWith('$')).toBe(true);
+      expect(values[1]).toBe('100,000,000');
+      expect(values[2]).toBe('250,000');
+      expect(values[3]).toBe('20,000,000');
+      expect(values[4]).toBe('4,200');
+      expect(values[5]).toContain('22.18');
+      expect(values[5]).toContain('ETH');
+      expect(values[6]?.startsWith('$')).toBe(true);
     });
   });
 
-  it('carries a delta on every card, derived from the statistics it reads', async() => {
+  it('carries deltas derived from the statistics it reads', async() => {
     const { container } = render(<TxsStats/>);
 
     await waitFor(() => {
@@ -107,7 +113,10 @@ describe('TxsStats', () => {
         });
 
       expect(deltas).toEqual([
-        [ 'up', '(1.21%)' ],
+        [ 'up', '(0.99%)' ],
+        null,
+        null,
+        null,
         [ 'down', '(0.42%)' ],
         [ 'down', '(7.42%)' ],
         [ 'down', '(7.42%)' ],

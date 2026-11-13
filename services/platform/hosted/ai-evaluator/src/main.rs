@@ -40,6 +40,7 @@ use layerx_programs_ai_market::{
     },
     queries::{ReadProof, StateCapture},
     registry_ops::PolicySection,
+    reputation_transition::joint_table,
     state::{
         decode_shared_state, settlement_rewards, ActorSlot, HeightWindow, ReplayTable, Section,
     },
@@ -168,11 +169,11 @@ impl EpochView {
         {
             return Err("captured state belongs to another market".to_owned());
         }
-        let epoch =
-            AdmissionTable::decode(state.feature_sections[Section::ReputationAdmission.index()])
-                .map_err(app)?
-                .current_epoch()
-                .ok_or("no epoch is open")?;
+        let epoch = joint_table(state.feature_sections[Section::ReputationAdmission.index()])
+            .and_then(AdmissionTable::decode)
+            .map_err(app)?
+            .current_epoch()
+            .ok_or("no epoch is open")?;
         let roster = settlement_rewards(&state, None)
             .and_then(|rewards| rewards.row(epoch))
             .map_err(app)?
@@ -974,6 +975,9 @@ pub mod programs_wire {
     }
 
     /// Canonical dynamic bytes in a return with exactly `index + 1` head words.
+    ///
+    /// # Errors
+    /// Refuses a short return, a noncanonical offset or padding, or bytes above capacity.
     pub fn abi_bytes(data: &[u8], index: usize) -> Result<Vec<u8>, String> {
         let offset = abi_usize(abi_word(data, index)?)?;
         if offset != (index + 1) * 32 {
@@ -999,6 +1003,9 @@ pub mod programs_wire {
     }
 
     /// `(int32 terminalResult, uint8 terminalKind, bytes response)`.
+    ///
+    /// # Errors
+    /// Refuses a malformed ABI return or an inconsistent terminal result and kind.
     pub fn decode_terminal(data: &[u8]) -> Result<(i32, u8, Vec<u8>), String> {
         let word = abi_word(data, 0)?;
         let result = i32::from_be_bytes(word[28..].try_into().map_err(|_| "short ABI word")?);
@@ -1010,10 +1017,14 @@ pub mod programs_wire {
         {
             return Err("noncanonical terminal result".to_owned());
         }
-        Ok((result, kind as u8, abi_bytes(data, 2)?))
+        let kind = u8::try_from(kind).map_err(|_| "noncanonical terminal result".to_owned())?;
+        Ok((result, kind, abi_bytes(data, 2)?))
     }
 
     /// getProgram returns six ABI words; getStateHead is a storage manifest, not lifecycle.
+    ///
+    /// # Errors
+    /// Refuses a malformed program record or a program that is not active.
     pub fn require_active(data: &[u8]) -> Result<(), String> {
         if data.len() != 192
             || abi_usize(abi_word(data, 0)?)? > u8::MAX as usize

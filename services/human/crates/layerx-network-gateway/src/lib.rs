@@ -240,6 +240,10 @@ impl ResolvedIdentities {
         self.layerx_account.map(NativeAccountReference)
     }
 
+    /// Retains a selector only when it identifies this complete account binding.
+    ///
+    /// # Errors
+    /// Refuses native account reverse lookup and incomplete or conflicting bindings.
     pub fn retain_lookup(
         &mut self,
         requested: AccountIdentifier,
@@ -335,11 +339,11 @@ impl fmt::Display for Quantity {
             let mut remainder = 0_u16;
             for byte in &mut value {
                 let current = (remainder << 8) | u16::from(*byte);
-                *byte = (current / 10) as u8;
+                *byte = u8::try_from(current / 10).map_err(|_| fmt::Error)?;
                 remainder = current % 10;
             }
             start -= 1;
-            digits[start] = b'0' + remainder as u8;
+            digits[start] = b'0' + u8::try_from(remainder).map_err(|_| fmt::Error)?;
             if value.iter().all(|byte| *byte == 0) {
                 break;
             }
@@ -665,6 +669,21 @@ impl GatewayEndpoint {
         self.post_with_deadline(body, Instant::now() + IO_TIMEOUT)
     }
 
+    /// Posts with a total transport budget measured from this call.
+    ///
+    /// # Errors
+    /// Reports an expired or overflowing budget or a transport or framing failure.
+    pub fn post_with_timeout(
+        &self,
+        body: &str,
+        timeout: Duration,
+    ) -> Result<Vec<u8>, GatewayError> {
+        let deadline = Instant::now()
+            .checked_add(timeout)
+            .ok_or_else(|| GatewayError::Transport("gateway timeout overflow".into()))?;
+        self.post_with_deadline(body, deadline)
+    }
+
     /// Posts with one injected monotonic deadline for resolution, connect,
     /// TLS, request writes and response reads.
     ///
@@ -675,7 +694,7 @@ impl GatewayEndpoint {
         body: &str,
         deadline: Instant,
     ) -> Result<Vec<u8>, GatewayError> {
-        remaining(deadline).map_err(transport_error)?;
+        remaining(deadline).map_err(|error| transport_error(&error))?;
         let head = format!(
             "POST {} HTTP/1.1\r\nHost: {}:{}\r\nContent-Type: application/json\r\nAccept: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
             self.path,
@@ -688,7 +707,7 @@ impl GatewayEndpoint {
         for address in resolve_addresses(&self.host, self.port, deadline)? {
             match TcpStream::connect_timeout(
                 &address,
-                remaining(deadline).map_err(transport_error)?,
+                remaining(deadline).map_err(|error| transport_error(&error))?,
             ) {
                 Ok(stream) => {
                     connected = Some(stream);
@@ -714,7 +733,7 @@ impl GatewayEndpoint {
             exchange(&mut stream, &head, body.as_bytes(), deadline)?
         };
         let result = http_body(&answer)?;
-        remaining(deadline).map_err(transport_error)?;
+        remaining(deadline).map_err(|error| transport_error(&error))?;
         Ok(result)
     }
 
@@ -828,7 +847,7 @@ fn remaining(deadline: Instant) -> std::io::Result<Duration> {
         })
 }
 
-fn transport_error(error: std::io::Error) -> GatewayError {
+fn transport_error(error: &std::io::Error) -> GatewayError {
     GatewayError::Transport(error.to_string())
 }
 
@@ -845,7 +864,7 @@ fn resolve_addresses(
     port: u16,
     deadline: Instant,
 ) -> Result<Vec<SocketAddr>, GatewayError> {
-    remaining(deadline).map_err(transport_error)?;
+    remaining(deadline).map_err(|error| transport_error(&error))?;
     if let Ok(address) = host.parse::<IpAddr>() {
         return Ok(vec![SocketAddr::new(address, port)]);
     }
@@ -868,12 +887,12 @@ fn resolve_addresses(
                 .map(Iterator::collect);
             let _ = sender.send(result);
         })
-        .map_err(transport_error)?;
+        .map_err(|error| transport_error(&error))?;
     let addresses = receiver
-        .recv_timeout(remaining(deadline).map_err(transport_error)?)
+        .recv_timeout(remaining(deadline).map_err(|error| transport_error(&error))?)
         .map_err(|error| GatewayError::Transport(format!("resolution deadline: {error}")))?
-        .map_err(transport_error)?;
-    remaining(deadline).map_err(transport_error)?;
+        .map_err(|error| transport_error(&error))?;
+    remaining(deadline).map_err(|error| transport_error(&error))?;
     Ok(addresses)
 }
 
@@ -924,8 +943,10 @@ fn exchange<S: Read + Write>(
     let mut answer = Vec::new();
     let mut buffer = [0; 8192];
     loop {
-        remaining(deadline).map_err(transport_error)?;
-        let count = stream.read(&mut buffer).map_err(transport_error)?;
+        remaining(deadline).map_err(|error| transport_error(&error))?;
+        let count = stream
+            .read(&mut buffer)
+            .map_err(|error| transport_error(&error))?;
         if count == 0 {
             break;
         }
@@ -1494,14 +1515,14 @@ mod tests {
 mod identity_selector_contract {
     use super::*;
     #[test]
-    fn native_account_never_becomes_a_did_selector() {
+    fn native_account_never_becomes_a_did_selector() -> Result<(), GatewayError> {
         let bytes = [0x61; 32];
         assert!(LookupSelector::try_from(AccountIdentifier::Account(bytes)).is_err());
         assert_eq!(
             LookupSelector::try_from(AccountIdentifier::Did(bytes)),
             Ok(LookupSelector::Did(bytes))
         );
-        let endpoint = GatewayEndpoint::parse("http://127.0.0.1:1").unwrap();
+        let endpoint = GatewayEndpoint::parse("http://127.0.0.1:1")?;
         for result in [
             endpoint
                 .resolve_account(AccountIdentifier::Account(bytes))
@@ -1521,80 +1542,64 @@ mod identity_selector_contract {
                 })
             );
         }
+        Ok(())
     }
 
     #[test]
-    fn real_repeated_account_and_balance_lookup_preserves_owner() {
+    fn real_repeated_account_and_balance_lookup_preserves_owner(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let path = match std::env::var("PAXEER_X_IDENTITY_FIXTURE") {
             Ok(path) => path,
             Err(std::env::VarError::NotPresent) => {
                 eprintln!("live identity resolution did not run because PAXEER_X_IDENTITY_FIXTURE is unset");
-                return;
+                return Ok(());
             }
             Err(error) => panic!("real isolated identity fixture required: {error:?}"),
         };
-        let fixture: Value = serde_json::from_slice(&std::fs::read(path).expect("fixture file"))
-            .expect("fixture JSON");
+        let fixture: Value = serde_json::from_slice(&std::fs::read(path)?)?;
         let endpoint = GatewayEndpoint::parse(
             fixture["targets"]["healthy"]["url"]
                 .as_str()
-                .expect("endpoint"),
-        )
-        .expect("endpoint parse");
+                .ok_or("endpoint")?,
+        )?;
         for field in ["evm", "did"] {
             let requested =
-                AccountIdentifier::parse(fixture[field].as_str().expect("real selector"))
-                    .expect("selector parse");
-            let mut identities = endpoint
-                .resolve_account(requested)
-                .expect("real resolution");
+                AccountIdentifier::parse(fixture[field].as_str().ok_or("real selector")?)?;
+            let mut identities = endpoint.resolve_account(requested)?;
             assert_eq!(
                 identities.layerx_account,
-                Some(
-                    decode_digest(fixture["native_account"].as_str().expect("native account"))
-                        .expect("native digest")
-                )
+                Some(decode_digest(
+                    fixture["native_account"].as_str().ok_or("native account")?
+                )?)
             );
-            let lookup = identities
-                .retain_lookup(requested)
-                .expect("original lookup");
+            let lookup = identities.retain_lookup(requested)?;
             assert_eq!(lookup.identifier(), requested);
             assert_eq!(identities.lookup_selector, Some(lookup));
             assert_eq!(
                 identities.canonical(requested),
                 AccountIdentifier::Account(
-                    identities.native_reference().expect("native reference").0
+                    identities.native_reference().ok_or("native reference")?.0
                 )
             );
             for _ in 0..2 {
+                assert_eq!(endpoint.resolve_account(lookup.identifier())?, identities);
                 assert_eq!(
-                    endpoint
-                        .resolve_account(lookup.identifier())
-                        .expect("repeat resolution"),
+                    endpoint.get_account(lookup.identifier())?.account,
                     identities
                 );
                 assert_eq!(
-                    endpoint
-                        .get_account(lookup.identifier())
-                        .expect("repeat account")
-                        .account,
-                    identities
-                );
-                assert_eq!(
-                    endpoint
-                        .get_balances(lookup.identifier())
-                        .expect("repeat balance")
-                        .account,
+                    endpoint.get_balances(lookup.identifier())?.account,
                     identities
                 );
             }
             assert_eq!(
                 identities.retain_lookup(AccountIdentifier::Did(
-                    identities.native_reference().expect("native reference").0
+                    identities.native_reference().ok_or("native reference")?.0
                 )),
                 Err(GatewayError::Unbound)
             );
         }
+        Ok(())
     }
 }
 

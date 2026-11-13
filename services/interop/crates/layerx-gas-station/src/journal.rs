@@ -7,6 +7,8 @@ use crate::quote::{keccak, quote_digest, word, Address, Quote, Word};
 use crate::tx::{recover, Fees};
 use crate::SignedQuote;
 
+type CurrentUsage = (BTreeMap<(Address, String), u128>, BTreeMap<String, u64>);
+
 #[path = "journal_storage.rs"]
 mod storage;
 
@@ -409,24 +411,7 @@ impl State {
     fn compact(&mut self) -> Result<Vec<Key>, JournalError> {
         let now = self.time_high_water;
         let interval_seconds = self.policy_identity.as_ref().map(|p| p.interval_seconds);
-        let mut tokens = BTreeMap::<(Address, String), u128>::new();
-        let mut gas = BTreeMap::<String, u64>::new();
-        for usage in &self.token_usage {
-            if interval_seconds.is_some_and(|seconds| usage.issued_at / seconds == now / seconds) {
-                let total = tokens
-                    .entry((usage.account, usage.did.clone()))
-                    .or_default();
-                *total = total
-                    .checked_add(usage.amount)
-                    .ok_or(JournalError::Corrupt)?;
-            }
-        }
-        for usage in &self.gas_usage {
-            if usage.issued_at / 86_400 == now / 86_400 {
-                let total = gas.entry(usage.did.clone()).or_default();
-                *total = total.checked_add(usage.gas).ok_or(JournalError::Corrupt)?;
-            }
-        }
+        let (mut tokens, mut gas) = self.current_usage(now, interval_seconds)?;
         let mut retired = Vec::new();
         for (key, item) in &self.items {
             let released = self.liability_releases.contains_key(key);
@@ -512,6 +497,37 @@ impl State {
                 issued_at: now,
             })
             .collect();
+        self.compact_rates(now)?;
+        Ok(retired)
+    }
+
+    fn current_usage(
+        &self,
+        now: u64,
+        interval_seconds: Option<u64>,
+    ) -> Result<CurrentUsage, JournalError> {
+        let mut tokens = BTreeMap::<(Address, String), u128>::new();
+        let mut gas = BTreeMap::<String, u64>::new();
+        for usage in &self.token_usage {
+            if interval_seconds.is_some_and(|seconds| usage.issued_at / seconds == now / seconds) {
+                let total = tokens
+                    .entry((usage.account, usage.did.clone()))
+                    .or_default();
+                *total = total
+                    .checked_add(usage.amount)
+                    .ok_or(JournalError::Corrupt)?;
+            }
+        }
+        for usage in &self.gas_usage {
+            if usage.issued_at / 86_400 == now / 86_400 {
+                let total = gas.entry(usage.did.clone()).or_default();
+                *total = total.checked_add(usage.gas).ok_or(JournalError::Corrupt)?;
+            }
+        }
+        Ok((tokens, gas))
+    }
+
+    fn compact_rates(&mut self, now: u64) -> Result<(), JournalError> {
         let mut settled = BTreeMap::new();
         for (publication, settlement) in self.publications.values() {
             if let Some(settlement) = settlement {
@@ -567,7 +583,7 @@ impl State {
                 .checked_add(wei)
                 .ok_or(JournalError::Corrupt)?;
         }
-        Ok(retired)
+        Ok(())
     }
 
     /// The gas the rate publisher spent or reserved on the chain day `day`
@@ -1498,6 +1514,7 @@ mod tests {
     use crate::signer::QuoteSigner;
     use std::fs::OpenOptions;
     use std::io::Write as _;
+    use std::os::unix::fs::OpenOptionsExt as _;
     #[test]
     fn append_replay_lock_conflict_and_corruption() -> Result<(), Box<dyn std::error::Error>> {
         let path =
@@ -1588,6 +1605,40 @@ mod tests {
             },
         }
     }
+    fn assert_retired_records_refused(
+        path: &Path,
+        key: Key,
+        durable: &[u8],
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        for retired in [
+            serde_json::json!({"kind": "released", "key": key, "nonce": 5}),
+            serde_json::json!({"kind": "replacement_signing_intent", "key": key, "nonce": 5}),
+            serde_json::json!({"kind": "replaced", "key": key}),
+            serde_json::json!({"kind": "cancelled", "key": key, "block_number": 17}),
+        ] {
+            let mut legacy = durable.to_vec();
+            serde_json::to_writer(&mut legacy, &retired)?;
+            legacy.push(b'\n');
+            std::fs::write(path, &legacy)?;
+            assert!(matches!(Journal::open(path), Err(JournalError::Corrupt)));
+            let legacy_path = path.with_extension("legacy");
+            let mut file = OpenOptions::new()
+                .write(true)
+                .create(true)
+                .truncate(true)
+                .mode(0o600)
+                .open(&legacy_path)?;
+            serde_json::to_writer(&mut file, &retired)?;
+            file.write_all(b"\n")?;
+            drop(file);
+            assert!(matches!(
+                Journal::open(&legacy_path),
+                Err(JournalError::Version)
+            ));
+        }
+        Ok(())
+    }
+
     #[test]
     fn refusal_frees_the_nonce_and_retired_replacement_records_refuse_replay(
     ) -> Result<(), Box<dyn std::error::Error>> {
@@ -1661,33 +1712,7 @@ mod tests {
         );
         drop(journal);
         let durable = std::fs::read(&path)?;
-        for retired in [
-            serde_json::json!({"kind": "released", "key": key(2), "nonce": 5}),
-            serde_json::json!({"kind": "replacement_signing_intent", "key": key(2), "nonce": 5}),
-            serde_json::json!({"kind": "replaced", "key": key(2)}),
-            serde_json::json!({"kind": "cancelled", "key": key(2), "block_number": 17}),
-        ] {
-            let mut legacy = durable.clone();
-            serde_json::to_writer(&mut legacy, &retired)?;
-            legacy.push(b'\n');
-            std::fs::write(&path, &legacy)?;
-            assert!(matches!(Journal::open(&path), Err(JournalError::Corrupt)));
-            let legacy_path = path.with_extension("legacy");
-            use std::os::unix::fs::OpenOptionsExt as _;
-            let mut file = OpenOptions::new()
-                .write(true)
-                .create(true)
-                .truncate(true)
-                .mode(0o600)
-                .open(&legacy_path)?;
-            serde_json::to_writer(&mut file, &retired)?;
-            file.write_all(b"\n")?;
-            drop(file);
-            assert!(matches!(
-                Journal::open(&legacy_path),
-                Err(JournalError::Version)
-            ));
-        }
+        assert_retired_records_refused(&path, key(2), &durable)?;
         let mut unknown = durable;
         unknown.extend_from_slice(b"{\"kind\":\"withdrawn\"}\n");
         std::fs::write(&path, &unknown)?;

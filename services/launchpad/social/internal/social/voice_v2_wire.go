@@ -50,7 +50,7 @@ func marshalV2Voice[T any](name, requestID string, data T, revision int64, at ti
 func adaptV2VoiceRoom(room voice.Room, hostAccountID, visibility string) v2.VoiceRoom {
 	return v2.VoiceRoom{
 		RoomId: room.ID, HostAccountId: hostAccountID,
-		ScopeType: "pool", ScopeId: room.PoolID, Visibility: visibility,
+		ScopeType: poolResource, ScopeId: room.PoolID, Visibility: visibility,
 		State: room.APIState(), Revision: v2.UInt256(strconv.FormatInt(room.Revision, 10)),
 	}
 }
@@ -94,7 +94,7 @@ func AdaptV2VoiceJoinTicket(requestID, ticket, providerEndpoint string, expiresA
 
 func writeV2VoiceError(w http.ResponseWriter, r *http.Request, e error) {
 	status := safety.HTTPStatus(e)
-	code := "DEPENDENCY_UNAVAILABLE"
+	code := dependencyUnavailableCode
 	switch status {
 	case http.StatusBadRequest:
 		code = "INVALID_REQUEST"
@@ -107,7 +107,7 @@ func writeV2VoiceError(w http.ResponseWriter, r *http.Request, e error) {
 	case http.StatusConflict:
 		code = "CONFLICT"
 	case http.StatusServiceUnavailable:
-		code = "DEPENDENCY_UNAVAILABLE"
+		code = dependencyUnavailableCode
 	}
 	requestID := r.Header.Get("X-Request-ID")
 	if _, err := uuid.Parse(requestID); err != nil || len(requestID) != 36 {

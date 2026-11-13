@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"io"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -83,7 +84,16 @@ func readBound(t *testing.T, root, relative, want string) []byte {
 	case strings.HasPrefix(relative, "spec/"):
 		relative = "launchpad/" + relative
 	}
-	raw, err := os.ReadFile(filepath.Join(root, relative))
+	f, err := os.OpenInRoot(root, relative)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if closeErr := f.Close(); closeErr != nil {
+			t.Errorf("close reviewed input: %v", closeErr)
+		}
+	}()
+	raw, err := io.ReadAll(f)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -199,7 +209,11 @@ func NewRankingRuntimeDatabase(t *testing.T) RuntimeDatabase {
 	if err != nil {
 		t.Fatalf("connect %s: %v", PostgresDSNEnv, err)
 	}
-	defer control.Close(ctx)
+	defer func() {
+		if closeErr := control.Close(ctx); closeErr != nil {
+			t.Errorf("close control connection: %v", closeErr)
+		}
+	}()
 	name := "ranking_runtime" + tag
 	created := []string{}
 	ownsControlOwner := false
@@ -211,7 +225,11 @@ func NewRankingRuntimeDatabase(t *testing.T) RuntimeDatabase {
 			t.Logf("cleanup: %v", err)
 			return
 		}
-		defer c.Close(context.Background())
+		defer func() {
+			if closeErr := c.Close(context.Background()); closeErr != nil {
+				t.Errorf("close cleanup connection: %v", closeErr)
+			}
+		}()
 		if _, err = c.Exec(context.Background(), "DROP DATABASE IF EXISTS "+pgx.Identifier{name}.Sanitize()+" WITH (FORCE)"); err != nil {
 			t.Logf("drop test database: %v", err)
 		}
@@ -237,7 +255,11 @@ func NewRankingRuntimeDatabase(t *testing.T) RuntimeDatabase {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer conn.Close(ctx)
+	defer func() {
+		if closeErr := conn.Close(ctx); closeErr != nil {
+			t.Errorf("close runtime connection: %v", closeErr)
+		}
+	}()
 	exec := func(step, sql string, args ...any) {
 		t.Helper()
 		if _, err := conn.Exec(ctx, sql, args...); err != nil {

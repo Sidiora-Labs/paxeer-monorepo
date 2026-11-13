@@ -2068,6 +2068,109 @@ mod tests {
         accept: bool,
     }
 
+    fn assert_accepted_destination_bound_vector(
+        vector: &AuthorizationVector,
+        encoded: &[u8],
+        decoded: &AtomicTransferSet,
+    ) {
+        assert_eq!(decoded.canonical(), encoded);
+        assert!(encoded.starts_with(ACCOUNT_BOUND_DOMAIN_V2));
+        let mut cursor = TransferCursor::new(&encoded[ACCOUNT_BOUND_DOMAIN_V2.len()..]);
+        let length =
+            u32::from_be_bytes(cursor.array().unwrap_or_else(|error| panic!("{error}"))) as usize;
+        let original = cursor
+            .take(length)
+            .unwrap_or_else(|error| panic!("{error}"));
+        let mut names = Vec::new();
+        let mut destinations = Vec::new();
+        for _ in decoded.legs() {
+            for list in [&mut names, &mut destinations] {
+                let length = usize::from(u16::from_be_bytes(
+                    cursor.array().unwrap_or_else(|error| panic!("{error}")),
+                ));
+                list.push(
+                    cursor
+                        .take(length)
+                        .unwrap_or_else(|error| panic!("{error}"))
+                        .to_vec(),
+                );
+            }
+        }
+        assert!(cursor.is_empty());
+        let grants = CapabilitySet::new(decoded.legs().iter().map(|leg| Capability::Transfer402 {
+            asset: leg.asset,
+            to: leg.to,
+            maximum_amount: leg.amount,
+        }))
+        .unwrap_or_else(|error| panic!("{error}"));
+        let authorization = AuthorizationContext::new(decoded.principal, grants);
+        let capability = TransferCapability::from_root_authorization(
+            decoded.program,
+            &authorization,
+            decoded.invocation_authority,
+        )
+        .unwrap_or_else(|error| panic!("{error}"));
+        let effects = AbiEffects {
+            transfers: decoded.legs().to_vec(),
+            ..AbiEffects::default()
+        };
+        let mut produced = capability
+            .authorize_v2(&effects)
+            .unwrap_or_else(|error| panic!("{error}"));
+        assert_eq!(produced.canonical(), original);
+        let program_legs = produced.legs().to_vec();
+        produced
+            .bind_account_names(&names, &destinations)
+            .unwrap_or_else(|error| panic!("{error}"));
+        assert_eq!(&produced, decoded);
+        assert_eq!(produced.legs(), program_legs);
+        for (index, leg) in produced.legs().iter().enumerate() {
+            let expected = if destinations[index].is_empty() {
+                leg.to
+            } else {
+                principal_payment_account(
+                    PrincipalId::new(leg.to).unwrap_or_else(|error| panic!("{error}")),
+                    leg.asset,
+                    &destinations[index],
+                )
+                .unwrap_or_else(|error| panic!("{error}"))
+            };
+            assert_eq!(
+                &produced.kernel_canonical()[index * 115 + 33..index * 115 + 65],
+                &expected
+            );
+        }
+        assert_eq!(
+            verify_authorization_root(produced.canonical(), produced.kernel_root()),
+            Ok(())
+        );
+        assert!(verify_authorization_root(produced.canonical(), [0; 32]).is_err());
+        for length in 0..encoded.len() {
+            assert!(
+                AtomicTransferSet::canonical_decode(&encoded[..length]).is_err(),
+                "{} truncation {length}",
+                vector.name
+            );
+        }
+        let mut forged = capability
+            .authorize_v2(&effects)
+            .unwrap_or_else(|error| panic!("{error}"));
+        let unchanged = AtomicTransferSet::canonical_decode(forged.canonical())
+            .unwrap_or_else(|error| panic!("{error}"));
+        let mut wrong_names = destinations.clone();
+        wrong_names[0] = b"agent:did:lxp:other:main".to_vec();
+        assert!(forged.bind_account_names(&names, &wrong_names).is_err());
+        assert_eq!(forged, unchanged);
+        assert!(forged.bind_account_names(&names, &[]).is_err());
+        assert_eq!(forged, unchanged);
+        // Capabilities still name the identity bytes supplied by the guest.
+        let mut bound_effects = effects.clone();
+        bound_effects.transfers[0]
+            .to
+            .copy_from_slice(&produced.kernel_canonical()[33..65]);
+        assert!(capability.authorize_v2(&bound_effects).is_err());
+    }
+
     #[test]
     fn destination_bound_vectors_round_trip_and_refuse_noncanonical_forms() {
         let vectors: Vec<AuthorizationVector> = serde_json::from_str(include_str!(
@@ -2096,104 +2199,7 @@ mod tests {
             }
             accepted += 1;
             let decoded = decoded.unwrap_or_else(|error| panic!("{}: {error}", vector.name));
-            assert_eq!(decoded.canonical(), encoded);
-            assert!(encoded.starts_with(ACCOUNT_BOUND_DOMAIN_V2));
-            let mut cursor = TransferCursor::new(&encoded[ACCOUNT_BOUND_DOMAIN_V2.len()..]);
-            let length =
-                u32::from_be_bytes(cursor.array().unwrap_or_else(|error| panic!("{error}")))
-                    as usize;
-            let original = cursor
-                .take(length)
-                .unwrap_or_else(|error| panic!("{error}"));
-            let mut names = Vec::new();
-            let mut destinations = Vec::new();
-            for _ in decoded.legs() {
-                for list in [&mut names, &mut destinations] {
-                    let length = usize::from(u16::from_be_bytes(
-                        cursor.array().unwrap_or_else(|error| panic!("{error}")),
-                    ));
-                    list.push(
-                        cursor
-                            .take(length)
-                            .unwrap_or_else(|error| panic!("{error}"))
-                            .to_vec(),
-                    );
-                }
-            }
-            assert!(cursor.is_empty());
-            let grants =
-                CapabilitySet::new(decoded.legs().iter().map(|leg| Capability::Transfer402 {
-                    asset: leg.asset,
-                    to: leg.to,
-                    maximum_amount: leg.amount,
-                }))
-                .unwrap_or_else(|error| panic!("{error}"));
-            let authorization = AuthorizationContext::new(decoded.principal, grants);
-            let capability = TransferCapability::from_root_authorization(
-                decoded.program,
-                &authorization,
-                decoded.invocation_authority,
-            )
-            .unwrap_or_else(|error| panic!("{error}"));
-            let effects = AbiEffects {
-                transfers: decoded.legs().to_vec(),
-                ..AbiEffects::default()
-            };
-            let mut produced = capability
-                .authorize_v2(&effects)
-                .unwrap_or_else(|error| panic!("{error}"));
-            assert_eq!(produced.canonical(), original);
-            let program_legs = produced.legs().to_vec();
-            produced
-                .bind_account_names(&names, &destinations)
-                .unwrap_or_else(|error| panic!("{error}"));
-            assert_eq!(produced, decoded);
-            assert_eq!(produced.legs(), program_legs);
-            for (index, leg) in produced.legs().iter().enumerate() {
-                let expected = if destinations[index].is_empty() {
-                    leg.to
-                } else {
-                    principal_payment_account(
-                        PrincipalId::new(leg.to).unwrap_or_else(|error| panic!("{error}")),
-                        leg.asset,
-                        &destinations[index],
-                    )
-                    .unwrap_or_else(|error| panic!("{error}"))
-                };
-                assert_eq!(
-                    &produced.kernel_canonical()[index * 115 + 33..index * 115 + 65],
-                    &expected
-                );
-            }
-            assert_eq!(
-                verify_authorization_root(produced.canonical(), produced.kernel_root()),
-                Ok(())
-            );
-            assert!(verify_authorization_root(produced.canonical(), [0; 32]).is_err());
-            for length in 0..encoded.len() {
-                assert!(
-                    AtomicTransferSet::canonical_decode(&encoded[..length]).is_err(),
-                    "{} truncation {length}",
-                    vector.name
-                );
-            }
-            let mut forged = capability
-                .authorize_v2(&effects)
-                .unwrap_or_else(|error| panic!("{error}"));
-            let unchanged = AtomicTransferSet::canonical_decode(forged.canonical())
-                .unwrap_or_else(|error| panic!("{error}"));
-            let mut wrong_names = destinations.clone();
-            wrong_names[0] = b"agent:did:lxp:other:main".to_vec();
-            assert!(forged.bind_account_names(&names, &wrong_names).is_err());
-            assert_eq!(forged, unchanged);
-            assert!(forged.bind_account_names(&names, &[]).is_err());
-            assert_eq!(forged, unchanged);
-            // Capabilities still name the identity bytes supplied by the guest.
-            let mut bound_effects = effects.clone();
-            bound_effects.transfers[0]
-                .to
-                .copy_from_slice(&produced.kernel_canonical()[33..65]);
-            assert!(capability.authorize_v2(&bound_effects).is_err());
+            assert_accepted_destination_bound_vector(vector, &encoded, &decoded);
         }
         assert_eq!(accepted, 2);
         assert!(rejected > 1000);
@@ -2231,7 +2237,11 @@ mod tests {
     fn destination_bound_program_spend_consumes_the_bound_account_once() {
         let did = b"did:lxp:counter-recipient";
         let mut owner = b"LXP/v1/did-id\0".to_vec();
-        owner.extend_from_slice(&(did.len() as u16).to_be_bytes());
+        owner.extend_from_slice(
+            &u16::try_from(did.len())
+                .unwrap_or_else(|error| panic!("bounded DID length: {error}"))
+                .to_be_bytes(),
+        );
         owner.extend_from_slice(did);
         let destination =
             hash_bytes(HashAlgorithm::Sha256, &owner).unwrap_or_else(|error| panic!("{error:?}"));

@@ -1,6 +1,11 @@
 include!("support/service_harness.rs");
 include!("support/service_repairs.rs");
 
+use layerx_gas_station::config::{ConfigError, PaymasterRequired};
+use layerx_gas_station::rpc::{JsonRpc, Rung, SequencerReceipt};
+use layerx_gas_station::station::StationError;
+use layerx_gas_station::tx::recover;
+
 #[test]
 fn quote_and_sponsored_submission_over_a_socket() -> TestResult {
     let harness = start("CYCLE")?;
@@ -362,7 +367,7 @@ fn registered_senders_parse_resolve_their_own_budget_and_are_quoted() -> TestRes
     assert!(harness.recorded.sent().is_empty());
     harness.assert_log_clean(&["/quote 200"]);
     harness.finish()?;
-    registered_budgets_cross_caps_and_survive_restart()
+    registered_budgets_cross_caps_and_survive_restart("REGISTERED")
 }
 
 #[test]

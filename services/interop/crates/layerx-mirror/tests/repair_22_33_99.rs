@@ -67,7 +67,7 @@ fn recorded_verifier() -> MirrorVerifier {
         MirrorSourceId::new("recorded-ethereum")
             .unwrap_or_else(|error| panic!("source: {error:?}")),
         MirrorTargetIdentity::Ethereum {
-            chain_id: 11155111,
+            chain_id: 11_155_111,
             genesis_hash: [1; 32],
             contract: [1; 20],
             code_hash: [1; 32],
@@ -108,7 +108,7 @@ fn finding_9_example_loads_through_config_and_verifies_recorded_receipt() {
                 archive_code_hash_hex,
                 publisher_hex,
             } => {
-                assert_eq!(*chain_id, 11155111);
+                assert_eq!(*chain_id, 11_155_111);
                 (
                     id,
                     rpc,
@@ -163,8 +163,8 @@ fn finding_9_example_loads_through_config_and_verifies_recorded_receipt() {
         .receipt_authorizations()
         .unwrap_or_else(|error| panic!("keys: {error}"));
     let result = verifier::verify_evidence(
-        recorded_verifier(),
-        EvidenceRequest::Receipt { index: 0 },
+        &recorded_verifier(),
+        &EvidenceRequest::Receipt { index: 0 },
         &keys,
     )
     .unwrap_or_else(|error| panic!("receipt verification: {error}"));
@@ -220,8 +220,8 @@ fn finding_9_legacy_unknown_and_invalid_key_windows_are_rejected() {
         .unwrap_or_else(|error| panic!("keys: {error}"));
     assert_eq!(
         verifier::verify_evidence(
-            recorded_verifier(),
-            EvidenceRequest::Receipt { index: 0 },
+            &recorded_verifier(),
+            &EvidenceRequest::Receipt { index: 0 },
             &keys
         ),
         Err("proof")
@@ -266,7 +266,7 @@ fn finding_27_canonical_examples_round_trip_real_codec_policy_and_evidence_consu
             matches!(received.evidence, EvidenceRequest::Receipt { index: 0 }),
             index < 3
         );
-        let result = verifier::verify_evidence(recorded_verifier(), received.evidence, &keys)
+        let result = verifier::verify_evidence(&recorded_verifier(), &received.evidence, &keys)
             .unwrap_or_else(|error| panic!("verification: {error}"));
         assert_eq!(result["level"], "Committed");
         assert_eq!(result["sourceId"], "recorded-ethereum");

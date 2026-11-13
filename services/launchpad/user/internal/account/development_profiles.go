@@ -41,7 +41,7 @@ type DevelopmentProfileReads struct {
 
 // Routes lists the paths Handler serves, for mounting on an outer router.
 func (DevelopmentProfileReads) Routes() []string {
-	return []string{"/v1/profiles/{wallet}", "/v2/profiles/{wallet}", "/v2/profiles:batch", "/v3/profiles/{wallet}"}
+	return []string{"/v1/profiles/{wallet}", "/v2/profiles/{wallet}", pathBatchProfilesV2, pathProfileV3}
 }
 
 // Handler returns the development read surface.
@@ -121,7 +121,7 @@ func (d DevelopmentProfileReads) profileGet(strictQuery bool) http.HandlerFunc {
 			w.WriteHeader(http.StatusNotModified)
 			return
 		}
-		d.respond(w, id, map[string]PublicProfile{"profile": profile}, profile.Revision)
+		d.respond(w, id, map[string]PublicProfile{fieldProfile: profile}, profile.Revision)
 	}
 }
 
@@ -145,7 +145,7 @@ func (d DevelopmentProfileReads) profilesBatchGet(w http.ResponseWriter, r *http
 		items = append(items, profile)
 	}
 	w.Header().Set("Cache-Control", "public, max-age=1")
-	d.respond(w, id, map[string][]PublicProfile{"items": items}, "0")
+	d.respond(w, id, map[string][]PublicProfile{fieldItems: items}, "0")
 }
 
 func (d DevelopmentProfileReads) extendedProfileGet(w http.ResponseWriter, r *http.Request) {
@@ -156,7 +156,7 @@ func (d DevelopmentProfileReads) extendedProfileGet(w http.ResponseWriter, r *ht
 		return
 	}
 	w.Header().Set("Cache-Control", "public, max-age=1")
-	d.respond(w, id, map[string]any{"profile": out}, out.Revision)
+	d.respond(w, id, map[string]any{fieldProfile: out}, out.Revision)
 }
 
 // presentation projects one wallet's legacy row into the frozen v3
@@ -167,7 +167,7 @@ func (d DevelopmentProfileReads) presentation(ctx context.Context, raw string) (
 		return ProfilePresentation{}, e
 	}
 	out := ProfilePresentation{PublicProfile: profile, Socials: map[string]string{}, CreatorPools: []PublicCreatorPool{}}
-	for key, value := range map[string]string{"website": row.Website.String, "twitter": row.Twitter.String, "telegram": row.Telegram.String, "discord": row.Discord.String} {
+	for key, value := range map[string]string{socialWebsite: row.Website.String, socialTwitter: row.Twitter.String, socialTelegram: row.Telegram.String, socialDiscord: row.Discord.String} {
 		if link := legacyLink(value); link != nil {
 			out.Socials[key] = *link
 		}

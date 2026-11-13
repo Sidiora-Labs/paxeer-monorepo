@@ -17,7 +17,7 @@ import (
 )
 
 // F11 widths are frozen by queries.rs, rooms.rs and laps.rs in the ai-market producer.
-const pxRoomWidth = 209 + 32*(64+128)
+const pxRoomWidth = 247 + 32*(64+128)
 const pxDealWidth = 146 + 36*32 + 24
 const pxPeerWidth = 32*4 + 8*5 + 2 + 1 + 13 + 1 + 4
 
@@ -99,6 +99,9 @@ func DecodePxInferenceRoom(answer []byte) (map[string]interface{}, error) {
 	}
 	r := pxFixed{data: answer}
 	v := map[string]interface{}{"room_id": r.id(), "host_key": r.id(), "model_digest": r.id(), "runtime_digest": r.id()}
+	if r.number(2) != 2 {
+		r.bad = true
+	}
 	bond := r.decimal(16)
 	canary := r.number(2)
 	lap := r.number(8)
@@ -107,6 +110,14 @@ func DecodePxInferenceRoom(answer []byte) (map[string]interface{}, error) {
 	host := r.number(2)
 	protocol := r.number(2)
 	profile := map[string]interface{}{"minimum_bond": bond, "canary_ratio_bps": canary, "lap_size_tokens": strconv.FormatUint(lap, 10), "challenge_window_blocks": strconv.FormatUint(window, 10), "slash_fraction_bps": slash, "host_share_bps": host, "protocol_share_bps": protocol, "settlement_account": r.id()}
+	maxGenerated := r.number(8)
+	queueDepth := r.number(2)
+	livenessTimeout := r.number(8)
+	acknowledgementWindow := r.number(8)
+	canaryTolerance := r.number(2)
+	if maxGenerated == 0 || queueDepth == 0 || livenessTimeout == 0 || acknowledgementWindow == 0 || canaryTolerance > 10000 {
+		r.bad = true
+	}
 	if bond == "0" || lap == 0 || window == 0 || canary > 10000 || slash > 10000 || host+protocol > 10000 {
 		r.bad = true
 	}
@@ -116,6 +127,10 @@ func DecodePxInferenceRoom(answer []byte) (map[string]interface{}, error) {
 	}
 	v["state"] = state
 	v["opened_at_epoch"] = r.decimal(8)
+	closedHeight := r.number(8)
+	if state == 0 && closedHeight != 0 {
+		r.bad = true
+	}
 	v["profile"] = profile
 	asks := pxOrders(&r, 64)
 	bids := pxOrders(&r, 128)
@@ -296,6 +311,38 @@ func (a *pxInferenceAPI) GetInferenceRoom(ctx context.Context, roomID string) (r
 	}
 	return a.room(ctx, height, id)
 }
+
+func (a *pxInferenceAPI) inferenceHeight(ctx context.Context, value string) (int64, error) {
+	height, err := pxConsensusHeight(value)
+	if err != nil {
+		return 0, err
+	}
+	latest, err := a.account.height(ctx)
+	if err != nil {
+		return 0, err
+	}
+	if height > latest {
+		return 0, pxUnavailable("inference_height_unavailable")
+	}
+	if err := CheckVersion(a.account.state.ctxProvider(height), a.account.state.keeper); err != nil {
+		return 0, pxUnavailable("paxeer_state_unavailable")
+	}
+	return height, nil
+}
+
+func (a *pxInferenceAPI) GetInferenceRoomAt(ctx context.Context, roomID, value string) (result map[string]interface{}, returnErr error) {
+	start := time.Now()
+	defer func() { a.observe(ctx, "px_getInferenceRoomAt", start, returnErr, recover()) }()
+	id, err := pxInferenceID(roomID)
+	if err != nil {
+		return nil, err
+	}
+	height, err := a.inferenceHeight(ctx, value)
+	if err != nil {
+		return nil, err
+	}
+	return a.room(ctx, height, id)
+}
 func (a *pxInferenceAPI) GetInferenceRooms(ctx context.Context) (result []map[string]interface{}, returnErr error) {
 	start := time.Now()
 	defer func() { a.observe(ctx, "px_getInferenceRooms", start, returnErr, recover()) }()
@@ -353,11 +400,29 @@ func (a *pxInferenceAPI) GetInferencePeer(ctx context.Context, peerKey string) (
 	if err != nil {
 		return nil, err
 	}
+	return a.peer(ctx, height, id, peerKey)
+}
+
+func (a *pxInferenceAPI) GetInferencePeerAt(ctx context.Context, peerKey, value string) (result map[string]interface{}, returnErr error) {
+	start := time.Now()
+	defer func() { a.observe(ctx, "px_getInferencePeerAt", start, returnErr, recover()) }()
+	id, err := pxInferenceID(peerKey)
+	if err != nil {
+		return nil, err
+	}
+	height, err := a.inferenceHeight(ctx, value)
+	if err != nil {
+		return nil, err
+	}
+	return a.peer(ctx, height, id, peerKey)
+}
+
+func (a *pxInferenceAPI) peer(ctx context.Context, height int64, id [32]byte, peerKey string) (map[string]interface{}, error) {
 	answer, err := a.account.programRead(ctx, height, 0x0b12, id[:])
 	if err != nil {
 		return nil, err
 	}
-	result, err = DecodePxInferencePeer(answer)
+	result, err := DecodePxInferencePeer(answer)
 	if err != nil {
 		return nil, err
 	}

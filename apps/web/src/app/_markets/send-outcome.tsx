@@ -1,4 +1,5 @@
 import { copyEntry } from "../../../copy/runtime";
+import { formatCopy } from "../../../copy/format";
 import { isPrecompileSendOutcome, type PrecompileSendOutcome } from "../../api/wallet";
 import { InlineNotice } from "../../kit/surface";
 
@@ -7,13 +8,14 @@ export function SendOutcome({ outcome }: Readonly<{ outcome: PrecompileSendOutco
     return null;
   }
   if (!isPrecompileSendOutcome(outcome)) {
-    return <InlineNotice tone="danger" role="alert">The wallet returned a malformed result. Transaction status could not be verified.</InlineNotice>;
+    return <InlineNotice tone="danger" role="alert">{copyEntry("markets.copy.the_wallet_returned_a_malformed_result_transaction_s").message}</InlineNotice>;
   }
-  const receiptLine = "receipt" in outcome && outcome.receipt !== undefined ? (
+  const receipt = "receipt" in outcome ? outcome.receipt : undefined;
+  const receiptLine = receipt !== undefined ? (
     <p>
       {copyEntry("markets.send.receipt").message
-        .replace("{blockNumber}", outcome.receipt.blockNumber.toString())
-        .replace("{logCount}", outcome.receipt.logs.length.toString())}
+        .replace("{blockNumber}", receipt.blockNumber.toString())
+        .replace("{logCount}", receipt.logs.length.toString())}
     </p>
   ) : null;
   switch (outcome.outcome) {
@@ -27,7 +29,7 @@ export function SendOutcome({ outcome }: Readonly<{ outcome: PrecompileSendOutco
       }
       return (
         <InlineNotice tone="success">
-          <p>Sent. Transaction {outcome.transactionHash}</p>
+          <p>{formatCopy("markets.send.sent_transaction", { transactionHash: outcome.transactionHash })}</p>
           {receiptLine}
         </InlineNotice>
       );
@@ -45,11 +47,11 @@ export function SendOutcome({ outcome }: Readonly<{ outcome: PrecompileSendOutco
         </InlineNotice>
       );
     case "cancelled":
-      return <InlineNotice tone="neutral">You cancelled in the wallet.</InlineNotice>;
+      return <InlineNotice tone="neutral">{copyEntry("markets.copy.you_cancelled_in_the_wallet").message}</InlineNotice>;
     case "rejected":
-      return <InlineNotice tone="danger">The wallet refused this account.</InlineNotice>;
+      return <InlineNotice tone="danger">{copyEntry("markets.copy.the_wallet_refused_this_account").message}</InlineNotice>;
     case "unavailable":
-      return <InlineNotice tone="warning">No Paxeer wallet is connected.</InlineNotice>;
+      return <InlineNotice tone="warning">{copyEntry("markets.copy.no_paxeer_wallet_is_connected").message}</InlineNotice>;
     case "failed":
       return (
         <InlineNotice tone="danger" role="alert">

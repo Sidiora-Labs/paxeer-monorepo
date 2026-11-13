@@ -8,6 +8,8 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/checked"
+
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
 	"github.com/jackc/pgx/v5"
 )
@@ -67,7 +69,7 @@ func (s *Store) AdmitReplay(ctx context.Context, r ReplayRequest) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(context.WithoutCancel(ctx))
+	defer checked.Rollback(tx, context.WithoutCancel(ctx))
 	if _, err = authorizeOperation(ctx, tx, r.Scope()); err != nil {
 		return err
 	}
@@ -103,7 +105,7 @@ func (s *Store) AcquireReplay(ctx context.Context, id, owner string, ttl time.Du
 	if err != nil {
 		return j, err
 	}
-	defer tx.Rollback(context.WithoutCancel(ctx))
+	defer checked.Rollback(tx, context.WithoutCancel(ctx))
 	var body []byte
 	var alive bool
 	err = tx.QueryRow(ctx, `SELECT request,progress_height,status,COALESCE(owner,''),fence,COALESCE(expires_at>clock_timestamp(),false) FROM indexer.indexer_replay_jobs WHERE job_id=$1 FOR UPDATE`, id).Scan(&body, &j.Progress, &j.Status, &j.Owner, &j.Fence, &alive)
@@ -143,7 +145,11 @@ func (s *Store) AcquireReplay(ctx context.Context, id, owner string, ttl time.Du
 	return j, tx.Commit(ctx)
 }
 func ValidateReplaySegment(segment ReplaySegment) error {
-	if segment.FormatVersion != "raw-replay-v2" || segment.ChainID != 125 || segment.SourceStream == "" || segment.FromHeight < 0 || segment.ToHeight < segment.FromHeight || segment.ToHeight-segment.FromHeight >= 1000 || len(segment.Blocks) != int(segment.ToHeight-segment.FromHeight+1) || len(segment.Records) > 65536 || len(segment.Events) > 65536 {
+	fromHeight1Int, conversionErr := checked.Convert[int](segment.ToHeight - segment.FromHeight + 1)
+	if conversionErr != nil {
+		return conversionErr
+	}
+	if segment.FormatVersion != "raw-replay-v2" || segment.ChainID != 125 || segment.SourceStream == "" || segment.FromHeight < 0 || segment.ToHeight < segment.FromHeight || segment.ToHeight-segment.FromHeight >= 1000 || len(segment.Blocks) != fromHeight1Int || len(segment.Records) > 65536 || len(segment.Events) > 65536 {
 		return errors.New("invalid bounded replay segment")
 	}
 	counts := map[int64]int{}
@@ -173,7 +179,11 @@ func ValidateReplaySegment(segment ReplaySegment) error {
 	}
 	blocks := map[int64]string{}
 	for i, b := range segment.Blocks {
-		if b.Height != segment.FromHeight+int64(i) || !hashPattern.MatchString(b.Hash) || !b.FetchComplete || !b.RequiredDecodeComplete || b.RawCount != counts[b.Height] {
+		iInt64, conversionErr := checked.Convert[int64](i)
+		if conversionErr != nil {
+			return conversionErr
+		}
+		if b.Height != segment.FromHeight+iInt64 || !hashPattern.MatchString(b.Hash) || !b.FetchComplete || !b.RequiredDecodeComplete || b.RawCount != counts[b.Height] {
 			return errors.New("incomplete replay source block")
 		}
 		blocks[b.Height] = b.Hash
@@ -216,7 +226,7 @@ func (s *Store) CommitReplaySegment(ctx context.Context, j ReplayJob, segment Re
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(context.WithoutCancel(ctx))
+	defer checked.Rollback(tx, context.WithoutCancel(ctx))
 	var locked bool
 	err = tx.QueryRow(ctx, `SELECT status='running' AND owner=$2 AND fence=$3 AND expires_at>clock_timestamp() AND progress_height=$4 FROM indexer.indexer_replay_jobs WHERE job_id=$1 FOR UPDATE`, j.Request.JobID, j.Owner, j.Fence, j.Progress).Scan(&locked)
 	if err != nil {
@@ -316,7 +326,7 @@ func (s *Store) TransitionReplay(ctx context.Context, scope OperationScope, jobI
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(context.WithoutCancel(ctx))
+	defer checked.Rollback(tx, context.WithoutCancel(ctx))
 	if _, err = authorizeOperation(ctx, tx, scope); err != nil {
 		return err
 	}
@@ -344,7 +354,7 @@ func (s *Store) BindReplayCheckpoint(ctx context.Context, request ReplayRequest,
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(context.WithoutCancel(ctx))
+	defer checked.Rollback(tx, context.WithoutCancel(ctx))
 	if _, err = authorizeOperation(ctx, tx, request.Scope()); err != nil {
 		return err
 	}
@@ -385,7 +395,7 @@ func (s *Store) RecordReplayConflict(ctx context.Context, request ReplayRequest,
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(context.WithoutCancel(ctx))
+	defer checked.Rollback(tx, context.WithoutCancel(ctx))
 	if _, err = authorizeOperation(ctx, tx, request.Scope()); err != nil {
 		return err
 	}
@@ -404,7 +414,7 @@ func (s *Store) ResumeReplay(ctx context.Context, scope OperationScope, jobID st
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(context.WithoutCancel(ctx))
+	defer checked.Rollback(tx, context.WithoutCancel(ctx))
 	if _, err = authorizeOperation(ctx, tx, scope); err != nil {
 		return err
 	}
@@ -430,7 +440,7 @@ func (s *Store) PauseReplayLease(ctx context.Context, job ReplayJob, reason stri
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(context.WithoutCancel(ctx))
+	defer checked.Rollback(tx, context.WithoutCancel(ctx))
 	if _, err = authorizeOperation(ctx, tx, job.Request.Scope()); err != nil {
 		return err
 	}

@@ -68,6 +68,10 @@ function deploymentRegenerationPreservesFullHelper() {
 
 function deploymentRegenerationRetainsReviewedIdentities() {
   const data = generator.deriveDeployment(contractRoot);
+  expect(data.roleIdentity.router.stagedRuntimeHash).toBe(reviewed.roles.Router.stagedRuntimeHash);
+  expect(data.roleIdentity.router.stagedUpgrade).toBe(reviewed.roles.Router.stagedUpgrade);
+  expect(data.roleIdentity.treasury.stagedRuntimeHash).toBe(reviewed.roles.Treasury.stagedRuntimeHash);
+  expect(data.roleIdentity.treasury.stagedUpgrade).toBe(reviewed.roles.Treasury.stagedUpgrade);
   for (const [key, role] of Object.entries({
     router: 'Router', quoter: 'Quoter', feesRouter: 'FeesRouter', opticalRegistry: 'OpticalRegistry',
     protocolConfig: 'ProtocolConfig', factory: 'SidioraFactory', nft: 'SidioraNFT',

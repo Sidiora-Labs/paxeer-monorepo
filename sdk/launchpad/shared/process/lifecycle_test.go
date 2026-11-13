@@ -111,3 +111,28 @@ func TestDefaults(t *testing.T) {
 		t.Errorf("signals default = %v, want 2", o.signals())
 	}
 }
+
+func TestRunDrainsTrackedWorkAfterShutdownTrigger(t *testing.T) {
+	tracker := NewTracker()
+	if err := tracker.SetReady(); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	var called bool
+	if err := Run(ctx, Options{Tracker: tracker, Timeout: time.Second, OnShutdown: func(c context.Context) error {
+		called = true
+		if c.Err() != nil || tracker.Ready(context.Background()) == nil {
+			return errors.New("shutdown started before tracked work drained")
+		}
+		return nil
+	}}); err != nil || !called {
+		t.Fatalf("tracked shutdown: called=%t err=%v", called, err)
+	}
+	if err := Run(context.Background(), Options{}); err == nil || err.Error() != "shutdown_hook_missing" {
+		t.Fatalf("missing shutdown hook: %v", err)
+	}
+	if err := Run(context.Background(), Options{OnShutdown: func(context.Context) error { return nil }, Timeout: DefaultTimeout + time.Second}); err == nil || err.Error() != "shutdown_timeout_out_of_range" {
+		t.Fatalf("unbounded shutdown timeout: %v", err)
+	}
+}

@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/token/common/ERC2981.sol";
 import "@openzeppelin/contracts/token/ERC1155/extensions/ERC1155Supply.sol";
 
-contract ERC1155Example is ERC1155Supply,ERC2981 {
+contract ERC1155Example is ERC1155Supply, ERC2981 {
     string public name = "DummyERC1155";
 
     string public symbol = "DUMMY";
@@ -36,7 +36,7 @@ contract ERC1155Example is ERC1155Supply,ERC2981 {
         values[3] = 13;
         values[4] = 14;
         values[5] = 15;
-        _mintBatch(recipient, tids, values, '0x0');
+        _mintBatch(recipient, tids, values, "0x0");
     }
 
     function supportsInterface(bytes4 interfaceId) public view override(ERC1155, ERC2981) returns (bool) {

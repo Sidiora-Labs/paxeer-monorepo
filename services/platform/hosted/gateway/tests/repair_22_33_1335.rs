@@ -1,5 +1,5 @@
 #[path = "support/repair_22_33_1335.rs"]
-mod support;
+pub mod support;
 
 use serde_json::json;
 use std::sync::atomic::Ordering;
@@ -28,18 +28,9 @@ fn chain_read_router_path() {
     let consensus = fixture.consensus();
     let gateway = fixture.gateway(&[], Some(&consensus), false);
     gateway.retired();
-    let result = gateway
-        .consumer()
-        .commit_material(10)
-        .expect("root commit read");
-    assert_eq!(
-        result["signedHeader"],
-        support::committed()["commit"]["signed_header"]
-    );
-    assert_eq!(
-        gateway.rpc("px_getCommit", json!(["0"]))["error"]["code"],
-        -32602
-    );
+    let result = gateway.consumer().commit_material(10).unwrap_or_else(|error| panic!("{}: {error:?}", "root commit read"));
+    assert_eq!(result["signedHeader"], support::committed()["commit"]["signed_header"]);
+    assert_eq!(gateway.rpc("px_getCommit", json!(["0"]))["error"]["code"], -32602);
 }
 
 #[test]
@@ -68,7 +59,7 @@ fn one_source_router_path() {
     gateway.retired();
     assert_eq!(gateway.consumer().block_number(), Ok(10));
     assert_eq!(gateway.consumer().chain_id(), Ok(125));
-    assert_eq!(trace.lock().expect("node trace").len(), 4);
+    assert_eq!(trace.lock().unwrap_or_else(|error| panic!("{}: {error:?}", "node trace")).len(), 4);
     let refused = gateway.rpc("lx_getAccount", json!([]));
     assert_eq!(refused["error"]["code"], -32601);
 }
@@ -84,7 +75,7 @@ fn failover_upstream_path_shape() {
     let answer = gateway.rpc("pax_sequencerReceipt", json!([hash]));
     assert_eq!(answer["result"], support::committed()["receipt"]);
     assert_eq!(answer["id"], 9_007_199_254_740_993_u64);
-    let calls = trace.lock().expect("node trace");
+    let calls = trace.lock().unwrap_or_else(|error| panic!("{}: {error:?}", "node trace"));
     assert_eq!(
         calls.as_slice(),
         [
@@ -94,21 +85,13 @@ fn failover_upstream_path_shape() {
     );
     drop(calls);
     let call = json!({"jsonrpc":"2.0", "id":"exact-bytes", "method":"pax_sequencerReceipt", "params":[hash]});
-    let (status, body) = gateway
-        .exchange("POST", "/", call.to_string().as_bytes())
-        .expect("receipt bytes over HTTP");
+    let (status, body) = gateway.exchange("POST", "/", call.to_string().as_bytes()).unwrap_or_else(|error| panic!("{}: {error:?}", "receipt bytes over HTTP"));
     assert_eq!(status, 200);
     assert_eq!(
         body,
-        serde_json::to_vec(
-            &json!({"jsonrpc":"2.0", "id":"exact-bytes", "result":support::committed()["receipt"]})
-        )
-        .expect("canonical producer response")
+        serde_json::to_vec(&json!({"jsonrpc":"2.0", "id":"exact-bytes", "result":support::committed()["receipt"]})).unwrap_or_else(|error| panic!("{}: {error:?}", "canonical producer response"))
     );
-    assert_eq!(
-        gateway.consumer().pending_nonce(&[0x42; 20]),
-        Ok(9_007_199_254_740_993)
-    );
+    assert_eq!(gateway.consumer().pending_nonce(&[0x42; 20]), Ok(9_007_199_254_740_993));
 }
 
 #[test]
@@ -119,12 +102,9 @@ fn failover_router_path() {
     let second = fixture.node(false, Arc::clone(&trace));
     let gateway = fixture.gateway(&[&first, &second], None, false);
     gateway.retired();
-    assert!(
-        trace.lock().expect("node trace").is_empty(),
-        "retired paths cannot reach an upstream"
-    );
+    assert!(trace.lock().unwrap_or_else(|error| panic!("{}: {error:?}", "node trace")).is_empty(), "retired paths cannot reach an upstream");
     assert_eq!(gateway.consumer().block_number(), Ok(10));
-    let calls = std::mem::take(&mut *trace.lock().expect("node trace"));
+    let calls = std::mem::take(&mut *trace.lock().unwrap_or_else(|error| panic!("{}: {error:?}", "node trace")));
     assert_eq!(calls.len(), 3);
     assert_eq!(calls[0]["id"], "route-network");
     assert_eq!(calls[1]["id"], "route-network");
@@ -133,7 +113,7 @@ fn failover_router_path() {
     let refused = gateway.rpc("eth_blockNumber", json!([]));
     assert_eq!(refused["error"]["data"]["code"], "paxeer_node_unavailable");
     assert!(refused.get("result").is_none());
-    assert_eq!(trace.lock().expect("node trace").len(), 2);
+    assert_eq!(trace.lock().unwrap_or_else(|error| panic!("{}: {error:?}", "node trace")).len(), 2);
     first.failed.store(false, Ordering::Release);
     assert_eq!(gateway.consumer().block_number(), Ok(10));
 }
@@ -148,17 +128,8 @@ fn proof_router_path() {
     let fixture = Fixture::start();
     let gateway = fixture.gateway(&[], None, false);
     gateway.retired();
-    let keys = gateway
-        .consumer()
-        .receipt_keys()
-        .expect("root producer to SDK");
+    let keys = gateway.consumer().receipt_keys().unwrap_or_else(|error| panic!("{}: {error:?}", "root producer to SDK"));
     assert_eq!(keys.len(), 1);
-    assert_eq!(
-        keys[0].key_id.as_slice(),
-        support::unhex(&support::committed()["pinnedKey"]["keyId"])
-    );
-    assert_eq!(
-        gateway.rpc("px_getReceiptKeys", json!(["unexpected"]))["error"]["code"],
-        -32602
-    );
+    assert_eq!(keys[0].key_id.as_slice(), support::unhex(&support::committed()["pinnedKey"]["keyId"]));
+    assert_eq!(gateway.rpc("px_getReceiptKeys", json!(["unexpected"]))["error"]["code"], -32602);
 }

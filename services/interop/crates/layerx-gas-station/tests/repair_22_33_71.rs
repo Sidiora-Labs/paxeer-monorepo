@@ -10,8 +10,7 @@ mod publication {
 }
 
 mod http {
-    include!("support/service_harness.rs");
-    include!("support/service_repairs.rs");
+    include!("service.rs");
 }
 
 #[test]
@@ -47,5 +46,5 @@ fn revert_fixture_shape_http_refusal_status_and_restart() -> Result<(), Box<dyn 
 
 #[test]
 fn registered_budget_test_gap_admissions_and_restart() -> Result<(), Box<dyn std::error::Error>> {
-    http::registered_budgets_cross_caps_and_survive_restart()
+    http::registered_budgets_cross_caps_and_survive_restart("BUDGET")
 }

@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/checked"
+
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/store"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/storage"
@@ -24,7 +26,15 @@ func (a *Archive) Produce(ctx context.Context, stream string, from, to int64) (s
 	if a == nil || a.Store == nil || a.Objects == nil || a.Source == nil || from < 0 || to < from || to-from >= 1000 {
 		return manifest, errors.New("archive requires actual storage, qualified source and bounded committed range")
 	}
-	batch, receipts, err := a.Source.FetchQualifiedBatch(ctx, uint64(from), uint64(to))
+	fromUint64, conversionErr := checked.Convert[uint64](from)
+	if conversionErr != nil {
+		return store.ArchiveManifest{}, conversionErr
+	}
+	toUint64, conversionErr := checked.Convert[uint64](to)
+	if conversionErr != nil {
+		return store.ArchiveManifest{}, conversionErr
+	}
+	batch, receipts, err := a.Source.FetchQualifiedBatch(ctx, fromUint64, toUint64)
 	if err != nil {
 		return manifest, err
 	}
@@ -43,11 +53,15 @@ func (a *Archive) Produce(ctx context.Context, stream string, from, to int64) (s
 		return manifest, err
 	}
 	digest := delivery.Hash(payload)
-	manifest = store.ArchiveManifest{FormatVersion: "raw-archive-v2", ChainID: 125, SourceStream: stream, FromHeight: from, ToHeight: to, EventCount: len(segment.Records), TypedCount: len(segment.Events), ByteLength: int64(len(payload)), SHA256: digest, Bucket: a.Objects.Bucket(), ObjectKey: fmt.Sprintf("indexer/raw/v2/%s/%s.json", stream, digest), Blocks: segment.Blocks}
+	lenPayloadInt64, conversionErr := checked.Convert[int64](len(payload))
+	if conversionErr != nil {
+		return store.ArchiveManifest{}, conversionErr
+	}
+	manifest = store.ArchiveManifest{FormatVersion: "raw-archive-v2", ChainID: 125, SourceStream: stream, FromHeight: from, ToHeight: to, EventCount: len(segment.Records), TypedCount: len(segment.Events), ByteLength: lenPayloadInt64, SHA256: digest, Bucket: a.Objects.Bucket(), ObjectKey: fmt.Sprintf("indexer/raw/v2/%s/%s.json", stream, digest), Blocks: segment.Blocks}
 	if err = manifest.Validate(); err != nil {
 		return manifest, err
 	}
-	if err = a.Objects.Put(ctx, manifest.ObjectKey, bytes.NewReader(payload), int64(len(payload)), "application/json"); err != nil {
+	if err = a.Objects.Put(ctx, manifest.ObjectKey, bytes.NewReader(payload), lenPayloadInt64, "application/json"); err != nil {
 		return manifest, err
 	}
 	actual, err := a.readVerified(ctx, manifest)
@@ -73,7 +87,7 @@ func (a *Archive) readVerified(ctx context.Context, manifest store.ArchiveManife
 	if err != nil {
 		return nil, err
 	}
-	defer object.Body.Close()
+	defer checked.Close(object.Body)
 	if object.Size != manifest.ByteLength {
 		return nil, store.ErrIntegrity
 	}
@@ -81,7 +95,11 @@ func (a *Archive) readVerified(ctx context.Context, manifest store.ArchiveManife
 	if err != nil {
 		return nil, err
 	}
-	if int64(len(payload)) != manifest.ByteLength || delivery.Hash(payload) != manifest.SHA256 {
+	lenPayloadInt642, conversionErr := checked.Convert[int64](len(payload))
+	if conversionErr != nil {
+		return nil, conversionErr
+	}
+	if lenPayloadInt642 != manifest.ByteLength || delivery.Hash(payload) != manifest.SHA256 {
 		return nil, store.ErrIntegrity
 	}
 	return payload, nil
@@ -91,7 +109,11 @@ func ValidateArchivedSegment(payload []byte, manifest store.ArchiveManifest) (st
 	if err := manifest.Validate(); err != nil {
 		return segment, err
 	}
-	if int64(len(payload)) != manifest.ByteLength || delivery.Hash(payload) != manifest.SHA256 {
+	lenPayloadInt643, conversionErr := checked.Convert[int64](len(payload))
+	if conversionErr != nil {
+		return store.ReplaySegment{}, conversionErr
+	}
+	if lenPayloadInt643 != manifest.ByteLength || delivery.Hash(payload) != manifest.SHA256 {
 		return segment, store.ErrIntegrity
 	}
 	decoder := json.NewDecoder(bytes.NewReader(payload))

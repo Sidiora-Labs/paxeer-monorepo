@@ -65,21 +65,26 @@ fn runtime_decodes_rung_bytes_zero_one_two_and_refuses_three() {
     peer.finish();
 }
 
-#[test]
-fn runtime_decodes_finalization_evidence_with_a_65_byte_signature() {
-    let tx_hash = [0x31; 32];
-    let observed_height = 0x0102_0304_0506_0708_u64;
+fn finalization_frame(tx_hash: &[u8; 32], observed_height: u64) -> ([u8; 65], Vec<u8>) {
     let key = checked(SigningKey::from_bytes((&[0x53; 32]).into()));
-    let (signature, recovery) = checked(key.sign_prehash_recoverable(&tx_hash));
+    let (signature, recovery) = checked(key.sign_prehash_recoverable(tx_hash));
     let mut signature_bytes = [0; 65];
     signature_bytes[..64].copy_from_slice(&signature.to_bytes());
     signature_bytes[64] = recovery.to_byte();
     let mut replay = 1_u16.to_be_bytes().to_vec();
     replay.extend_from_slice(&observed_height.to_be_bytes());
-    replay.extend_from_slice(&tx_hash);
+    replay.extend_from_slice(tx_hash);
     replay.extend_from_slice(&[0x73; 32]);
     replay.extend_from_slice(&[0x74; 32]);
     let canonical_bytes = checked(encode(&checked(decode(&replay))));
+    (signature_bytes, canonical_bytes)
+}
+
+#[test]
+fn runtime_decodes_finalization_evidence_with_a_65_byte_signature() {
+    let tx_hash = [0x31; 32];
+    let observed_height = 0x0102_0304_0506_0708_u64;
+    let (signature_bytes, canonical_bytes) = finalization_frame(&tx_hash, observed_height);
     let receipt_hash = Sha256::digest(&canonical_bytes).into();
     let batch_fields = [[0x71; 32], [0x72; 32], [0x73; 32], [0x74; 32], [0x75; 32]];
     let expected = ReceiptMaterial {
@@ -172,8 +177,6 @@ fn runtime_decodes_finalization_evidence_with_a_65_byte_signature() {
         );
     }
     assert!(SignatureBytes::new(signature_bytes[..64].to_vec()).is_err());
-    let mut long_signature = signature_bytes.to_vec();
-    long_signature.push(0);
-    assert!(SignatureBytes::new(long_signature).is_err());
+    assert!(SignatureBytes::new([signature_bytes.as_slice(), &[0]].concat()).is_err());
     peer.finish();
 }

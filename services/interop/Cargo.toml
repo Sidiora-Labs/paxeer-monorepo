@@ -25,7 +25,7 @@ version = "0.1.0"
 license = "Apache-2.0"
 
 [workspace.dependencies]
-ed25519-dalek = "=2.2.0"
+ed25519-dalek = { version = "=2.2.0", default-features = false, features = ["alloc", "fast", "zeroize"] }
 base64 = "=0.23.1"
 layerx-types = { path = "../../services/agent/crates/layerx-types" }
 layerx-wire = { path = "../../services/agent/crates/layerx-wire" }
@@ -50,6 +50,8 @@ signal-hook = "=0.3.18"
 subtle = "=2.6.1"
 zeroize = "=1.9.0"
 native-tls = "=0.2.18"
+libtest-mimic = "=0.8.2"
+tantivy = "=0.25.0"
 
 [workspace.lints.rust]
 unsafe_code = "deny"

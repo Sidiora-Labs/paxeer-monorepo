@@ -243,6 +243,11 @@ fn estimate_fee_multiplies_gas_by_gas_price() -> Result<(), Box<dyn std::error::
     assert_eq!(requests.len(), 1);
     assert!(String::from_utf8_lossy(&output.stderr).contains("execution reverted"));
 
+    assert_invalid_fee_inputs();
+    Ok(())
+}
+
+fn assert_invalid_fee_inputs() {
     for bad in [
         json!(21000),
         json!({}),
@@ -285,7 +290,6 @@ fn estimate_fee_multiplies_gas_by_gas_price() -> Result<(), Box<dyn std::error::
             "{field}"
         );
     }
-    Ok(())
 }
 
 #[test]
@@ -323,12 +327,16 @@ fn estimate_fee_accepts_unsigned_payment_call_and_refuses_kernel_activity_hex(
     assert_eq!(disclosure.payment, Some(payment.clone()));
     assert_eq!(disclosure.fee_limit, facts.fee_limit);
 
-    let unsigned = prepared
-        .call()
-        .encode_unsigned()
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect::<String>();
+    let unsigned =
+        prepared
+            .call()
+            .encode_unsigned()
+            .iter()
+            .fold(String::new(), |mut output, byte| {
+                std::fmt::Write::write_fmt(&mut output, format_args!("{byte:02x}"))
+                    .unwrap_or_else(|error| panic!("{error:?}"));
+                output
+            });
     let (output, requests) = quote(&unsigned, vec![result("0x32"), result("0x2")])?;
     assert!(
         output.status.success(),
@@ -346,8 +354,11 @@ fn estimate_fee_accepts_unsigned_payment_call_and_refuses_kernel_activity_hex(
         .call()
         .data
         .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect::<String>();
+        .fold(String::new(), |mut output, byte| {
+            std::fmt::Write::write_fmt(&mut output, format_args!("{byte:02x}"))
+                .unwrap_or_else(|error| panic!("{error:?}"));
+            output
+        });
     assert_eq!(
         requests,
         vec![
@@ -361,6 +372,11 @@ fn estimate_fee_accepts_unsigned_payment_call_and_refuses_kernel_activity_hex(
             json!({"jsonrpc":"2.0", "id":1, "method":"eth_gasPrice", "params":[]}),
         ]
     );
+    assert_invalid_transaction_hex()?;
+    Ok(())
+}
+
+fn assert_invalid_transaction_hex() -> Result<(), Box<dyn std::error::Error>> {
     let kernel_fixture: Value = serde_json::from_str(include_str!(
         "../../../../sdk/platform/conformance/fixtures/native-program-deploy-v3.json"
     ))?;
@@ -379,8 +395,11 @@ fn estimate_fee_accepts_unsigned_payment_call_and_refuses_kernel_activity_hex(
     }
     .sign(&[1; 32])?
     .iter()
-    .map(|byte| format!("{byte:02x}"))
-    .collect::<String>();
+    .fold(String::new(), |mut output, byte| {
+        std::fmt::Write::write_fmt(&mut output, format_args!("{byte:02x}"))
+            .unwrap_or_else(|error| panic!("{error:?}"));
+        output
+    });
     let listener = TcpListener::bind("127.0.0.1:0")?;
     listener.set_nonblocking(true)?;
     let endpoint = format!("http://{}", listener.local_addr()?);
@@ -392,7 +411,7 @@ fn estimate_fee_accepts_unsigned_payment_call_and_refuses_kernel_activity_hex(
         "02c0".into(),
         "02e301".into(),
         "zz".into(),
-        "".into(),
+        String::new(),
     ] {
         let output = command(&endpoint, &transaction)?;
         assert!(!output.status.success(), "accepted {transaction}");

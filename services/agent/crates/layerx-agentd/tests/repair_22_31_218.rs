@@ -1621,7 +1621,7 @@ impl FixturePeer {
                 assert_eq!(params["data"], "02");
                 let h = require_some(selected, "required test value");
                 assert!(h == HEIGHT - 1 || h == HEIGHT);
-                json!({"response":{"code":0,"height":h.to_string(),"key":openssl::base64::encode_block(&[2]),"value":openssl::base64::encode_block(&2_u64.to_be_bytes()),"proof_ops":{"ops":if h==HEIGHT-1 {&self.chain.execution_ops}else{&self.chain.successor_ops}}}})
+                json!({"response":{"code":0,"height":h.to_string(),"key":openssl::base64::encode_block(&[2]),"value":openssl::base64::encode_block(&2_u64.to_be_bytes()),"proofOps":{"ops":if h==HEIGHT-1 {&self.chain.execution_ops}else{&self.chain.successor_ops}}}})
             }
             "abci_query" => {
                 json!({"response":{"code":6,"height":require_some(selected, "required test value").to_string(),"log":"ProgramState producer is not registered"}})

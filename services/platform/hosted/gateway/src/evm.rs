@@ -260,6 +260,10 @@ impl<'a> Answer<'a> {
         Ok(u64::from_be_bytes(value))
     }
 
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the ABI word is absent or outside the supported range.
     pub fn u128(&self, index: usize) -> Result<u128, AbiError> {
         let word = self.word(index)?;
         if word[..16].iter().any(|byte| *byte != 0) {
@@ -302,6 +306,10 @@ impl<'a> Answer<'a> {
         String::from_utf8(self.bytes(index, base)?).map_err(|_| AbiError::Text)
     }
 
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the ABI offset or byte length is invalid.
     pub fn bytes(&self, index: usize, base: usize) -> Result<Vec<u8>, AbiError> {
         let offset = usize::try_from(self.u64(index)?).map_err(|_| AbiError::Offset)?;
         let start = base.checked_add(offset).ok_or(AbiError::Offset)?;
@@ -424,6 +432,10 @@ pub fn decode_coins(answer: &[u8]) -> Result<Vec<(String, [u8; 32])>, AbiError> 
     Ok(coins)
 }
 
+///
+/// # Errors
+///
+/// Returns an error when the ledger asset answer has invalid ABI data.
 pub fn decode_ledger_asset(answer: &[u8]) -> Result<LedgerAsset, AbiError> {
     let answer = Answer::new(answer);
     for index in [1, 2, 9] {
@@ -600,7 +612,7 @@ mod tests {
             assert_eq!(Value::String(denom.clone()), expected["denom"]);
             assert_eq!(Value::String(uint256_decimal(amount)), expected["amount"]);
         }
-        assert_eq!(coins[0].1, word_u64(123456789));
+        assert_eq!(coins[0].1, word_u64(123_456_789));
         let mut large = [0_u8; 32];
         large[6] = 1;
         assert_eq!(coins[1].1, large);
