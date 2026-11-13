@@ -5,6 +5,7 @@ import (
 	"errors"
 	sharedhttp "github.com/Sidiora-Technologies/KindleLaunch/shared/http"
 	"net"
+	"strings"
 	"testing"
 	"time"
 )
@@ -25,6 +26,33 @@ func TestServePolicyReadOnlyApprovedPrefix(t *testing.T) {
 	}
 	if _, e := ScopedPolicy("owned-media-bucket", "admin"); e == nil {
 		t.Fatal("admin")
+	}
+}
+
+func TestScopedPolicyLimitsEachObjectRole(t *testing.T) {
+	for _, tc := range []struct {
+		role, action, prefix string
+		resources            int
+	}{
+		{"validate-read", "s3:GetObject", "quarantine/*", 1},
+		{"validate-write", "s3:PutObject", approvedPattern, 1},
+		{"delete", "s3:DeleteObject", approvedPattern, 4},
+	} {
+		t.Run(tc.role, func(t *testing.T) {
+			policy, err := ScopedPolicy("owned-media-bucket", tc.role)
+			if err != nil || len(policy.Statement) != 1 {
+				t.Fatalf("role policy: policy=%+v err=%v", policy, err)
+			}
+			statement := policy.Statement[0]
+			if len(statement.Action) != 1 || statement.Action[0] != tc.action || len(statement.Resource) != tc.resources || statement.Resource[0] != "arn:aws:s3:::owned-media-bucket/"+tc.prefix {
+				t.Fatalf("role policy grants: %+v", statement)
+			}
+			for _, resource := range statement.Resource {
+				if !strings.HasPrefix(resource, "arn:aws:s3:::owned-media-bucket/") {
+					t.Fatalf("resource outside selected bucket: %q", resource)
+				}
+			}
+		})
 	}
 }
 

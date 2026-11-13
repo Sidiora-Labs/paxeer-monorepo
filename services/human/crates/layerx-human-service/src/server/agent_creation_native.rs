@@ -396,7 +396,35 @@ impl ProductionAgentCreation<'_> {
     }
 }
 
+fn native_send_request_binding(
+    request: &super::super::native_send::NativeSendAccessRequest,
+) -> Result<[u8; 32], AgentFailure> {
+    let request_binding: [u8; 32] = Sha256::digest(
+        serde_json::to_vec(&(
+            request.owner.as_bytes(),
+            request.owner_public_key,
+            request.not_before,
+            request.expires_at,
+            request.native_fee_budget.map(|fee| {
+                (
+                    fee.asset,
+                    fee.maximum_per_activity,
+                    fee.maximum_total,
+                    fee.period_length,
+                    fee.maximum_per_period,
+                    fee.period_start,
+                )
+            }),
+        ))
+        .map_err(|_| AgentFailure::Refused("invalid Human session request"))?,
+    )
+    .into();
+    Ok(request_binding)
+}
+
 impl ProductionAgentCreation<'_> {
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn provision_human_send_session(
         &mut self,
         scope: &mut PrincipalScope<'_>,
@@ -425,44 +453,13 @@ impl ProductionAgentCreation<'_> {
         {
             return Err(AgentFailure::Refused("Human owner session binding differs"));
         }
-        let identity = self.runtime.identity_resolve(owner).map_err(map_boundary)?;
-        if !matches!(identity.verification, 4 | 5)
-            || identity.frozen
-            || identity.revocation_sequence == 0
-            || identity.revocation_sequence > identity.head_sequence
-            || !identity
-                .authorities
-                .contains(&(1, request.owner_public_key))
-        {
-            return Err(AgentFailure::Refused(
-                "Human owner identity is not checkpoint verified",
-            ));
-        }
+        let revocation_sequence = self.native_owner_revocation_sequence(owner, request)?;
         let session_key = RowKey::new(format!(
             "human-native-owner-session-{}",
             hex(&request.action_key)
         ))
         .map_err(|_| AgentFailure::Refused("invalid Human session key"))?;
-        let request_binding: [u8; 32] = Sha256::digest(
-            serde_json::to_vec(&(
-                request.owner.as_bytes(),
-                request.owner_public_key,
-                request.not_before,
-                request.expires_at,
-                request.native_fee_budget.map(|fee| {
-                    (
-                        fee.asset,
-                        fee.maximum_per_activity,
-                        fee.maximum_total,
-                        fee.period_length,
-                        fee.maximum_per_period,
-                        fee.period_start,
-                    )
-                }),
-            ))
-            .map_err(|_| AgentFailure::Refused("invalid Human session request"))?,
-        )
-        .into();
+        let request_binding = native_send_request_binding(request)?;
         if let Some(row) = scope.get(Table::Journeys, &session_key) {
             let (binding, session): (
                 [u8; 32],
@@ -503,7 +500,7 @@ impl ProductionAgentCreation<'_> {
                 primary_authority: request.owner_public_key,
                 grantor,
                 custody_key: key,
-                revocation_sequence: identity.revocation_sequence,
+                revocation_sequence,
             },
         )?;
         let (token, generation, finalization) = self.take_latest_session_credential()?;
@@ -525,5 +522,25 @@ impl ProductionAgentCreation<'_> {
             )
             .map_err(|_| AgentFailure::Unavailable)?;
         Ok(session)
+    }
+    fn native_owner_revocation_sequence(
+        &mut self,
+        owner: &str,
+        request: &super::super::native_send::NativeSendAccessRequest,
+    ) -> Result<u64, AgentFailure> {
+        let identity = self.runtime.identity_resolve(owner).map_err(map_boundary)?;
+        if !matches!(identity.verification, 4 | 5)
+            || identity.frozen
+            || identity.revocation_sequence == 0
+            || identity.revocation_sequence > identity.head_sequence
+            || !identity
+                .authorities
+                .contains(&(1, request.owner_public_key))
+        {
+            return Err(AgentFailure::Refused(
+                "Human owner identity is not checkpoint verified",
+            ));
+        }
+        Ok(identity.revocation_sequence)
     }
 }

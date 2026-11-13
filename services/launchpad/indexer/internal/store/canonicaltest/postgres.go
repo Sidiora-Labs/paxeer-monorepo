@@ -130,7 +130,10 @@ func LostCommitResponse(t *testing.T, dsn string) (string, <-chan struct{}) {
 				if _, err := io.ReadFull(client, startup[:]); err != nil {
 					return
 				}
-				n := int(binary.BigEndian.Uint32(startup[:]))
+				n, err := checked.Convert[int](binary.BigEndian.Uint32(startup[:]))
+				if err != nil {
+					return
+				}
 				if n < 8 || n > 1<<20 {
 					return
 				}
@@ -184,7 +187,10 @@ func postgresFrame(conn net.Conn) ([]byte, error) {
 	if _, err := io.ReadFull(conn, header[:]); err != nil {
 		return nil, err
 	}
-	n := int(binary.BigEndian.Uint32(header[1:]))
+	n, conversionErr := checked.Convert[int](binary.BigEndian.Uint32(header[1:]))
+	if conversionErr != nil {
+		return nil, conversionErr
+	}
 	if n < 4 || n > 32<<20 {
 		return nil, fmt.Errorf("invalid PostgreSQL frame length %d", n)
 	}

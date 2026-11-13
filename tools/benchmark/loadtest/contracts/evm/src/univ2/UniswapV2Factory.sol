@@ -21,12 +21,7 @@ contract UniswapV2Factory {
 
     // ========= Events =========
 
-    event PairCreated(
-        address indexed token0,
-        address indexed token1,
-        address pair,
-        uint256
-    );
+    event PairCreated(address indexed token0, address indexed token1, address pair, uint256);
 
     // ========= Public Helper Functions =========
 
@@ -44,15 +39,10 @@ contract UniswapV2Factory {
     /// @param tokenA First token in the pair
     /// @param tokenB Second token in the pair
     /// @return pair Address of the pair created
-    function createPair(address tokenA, address tokenB)
-        public
-        returns (address pair)
-    {
+    function createPair(address tokenA, address tokenB) public returns (address pair) {
         if (tokenA == tokenB) revert IdenticalTokens();
 
-        (address token0, address token1) = tokenA < tokenB
-            ? (tokenA, tokenB)
-            : (tokenB, tokenA);
+        (address token0, address token1) = tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA);
 
         if (token0 == address(0)) revert InvalidToken();
         if (pairs[token0][token1] != address(0)) revert DuplicatePair();

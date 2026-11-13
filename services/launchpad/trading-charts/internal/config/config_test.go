@@ -105,6 +105,15 @@ func TestLoadShortSecret(t *testing.T) {
 	}
 }
 
+func TestLoadRejectsInvalidTrustedProxy(t *testing.T) {
+	applyEnv(t, validEnv())
+	t.Setenv("NODE_ENV", "development")
+	t.Setenv("TRUSTED_PROXY_CIDRS", "not-a-cidr")
+	if _, err := config.Load(); err == nil || !strings.Contains(err.Error(), "TRUSTED_PROXY_CIDRS") {
+		t.Fatalf("invalid trusted proxy configuration: %v", err)
+	}
+}
+
 func TestLoadInvalidBaseEnv(t *testing.T) {
 	env := validEnv()
 	env["EVENT_EMITTER_ADDRESS"] = "not-an-address"

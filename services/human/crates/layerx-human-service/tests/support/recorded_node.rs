@@ -15,7 +15,7 @@ impl NodeRecording {
             env!("CARGO_MANIFEST_DIR"),
             "/../../../../daemon/committed-fixture/vectors/vector-v4-committed.json"
         )))
-        .expect("committed paxd recording");
+        .or_fail("committed paxd recording");
         Self {
             settlement: recording["settlement"].clone(),
             authorization: recording["authorization"].clone(),
@@ -29,7 +29,7 @@ impl NodeRecording {
     pub(crate) fn answer(&self, method: &str, params: &Value) -> Result<Value, Value> {
         let s = &self.settlement;
         let receipt = self.receipt();
-        let height = receipt["height"].as_str().expect("recorded height");
+        let height = receipt["height"].as_str().or_fail("recorded height");
         let hash = &receipt["txHash"];
         let at_transaction = || params == &json!([hash]);
         let at_height = || params[0] == s["execution_header"]["height"] || params[0] == height;
@@ -45,13 +45,8 @@ impl NodeRecording {
             "px_getReceiptKeys" if params == &json!([]) => {
                 let public_key: [u8; 32] =
                     serde_json::from_value(self.authorization["PublicKey"].clone())
-                        .expect("recorded public key");
-                let hex = |bytes: &[u8]| {
-                    format!(
-                        "0x{}",
-                        bytes.iter().map(|b| format!("{b:02x}")).collect::<String>()
-                    )
-                };
+                        .or_fail("recorded public key");
+                let hex = |bytes: &[u8]| format!("0x{}", layerx_human_service::hex::lower(bytes));
                 Ok(json!({"keys": [{
                     "keyId": hex(&Sha256::digest(public_key)), "publicKey": hex(&public_key),
                     "firstHeight": self.authorization["FirstBatchNumber"],
@@ -82,16 +77,11 @@ impl NodeRecording {
                 {
                     let proof = &s[proof_name];
                     let tx = STANDARD
-                        .decode(proof["data"].as_str().expect("recorded tx"))
-                        .expect("node tx base64");
+                        .decode(proof["data"].as_str().or_fail("recorded tx"))
+                        .or_fail("node tx base64");
                     let digest = Sha256::digest(tx);
-                    let tx_hash = format!(
-                        "0x{}",
-                        digest
-                            .iter()
-                            .map(|b| format!("{b:02x}"))
-                            .collect::<String>()
-                    );
+                    let tx_hash =
+                        format!("0x{}", layerx_human_service::hex::lower((digest).as_ref()));
                     if params[0] == tx_hash {
                         return Ok(json!({
                             "height": s["execution_header"]["height"], "index": index,
@@ -108,15 +98,6 @@ impl NodeRecording {
                 "message": "no matching node-emitted evidence in the committed recording"})),
         }
     }
-
-    pub(crate) fn transactions(&self) -> Vec<Vec<u8>> {
-        ["sequence_batch_proof", "transaction_proof"]
-            .iter()
-            .map(|key| {
-                STANDARD
-                    .decode(self.settlement[key]["data"].as_str().expect("node tx"))
-                    .expect("node tx base64")
-            })
-            .collect()
-    }
 }
+
+use crate::require_value::RequireValue as _;

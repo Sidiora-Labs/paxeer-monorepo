@@ -13,6 +13,7 @@ contract UniV2Swapper {
     address public t1;
     address public t2;
     address public uniV2Router;
+
     constructor(address t1_, address t2_, address uniV2Router_) {
         t1 = t1_;
         t2 = t2_;
@@ -34,12 +35,6 @@ contract UniV2Swapper {
             tokenPath[0] = t2;
             tokenPath[1] = t1;
         }
-        UniswapV2Router(uniV2Router).swapExactTokensForTokens(
-            100,
-            0,
-            tokenPath,
-            address(this),
-            block.timestamp + 1
-        );
+        UniswapV2Router(uniV2Router).swapExactTokensForTokens(100, 0, tokenPath, address(this), block.timestamp + 1);
     }
 }

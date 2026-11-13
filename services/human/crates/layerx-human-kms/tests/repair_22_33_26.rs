@@ -28,11 +28,19 @@ mod server {
     include!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/server.rs"));
     pub fn serve_connection(
         tcp: std::net::TcpStream,
-        config: &crate::config::Config,
-        store: &std::sync::Mutex<crate::store::Store>,
-        clock: &dyn layerx_types::clock::Clock,
+        config: std::sync::Arc<crate::config::Config>,
+        store: std::sync::Arc<std::sync::Mutex<crate::store::Store>>,
+        clock: std::sync::Arc<dyn layerx_types::clock::Clock>,
     ) -> crate::wire::Result<()> {
-        connection_from_accept(tcp, config, store, clock, std::time::Instant::now())
+        spawn_connection(
+            tcp,
+            config,
+            store,
+            clock,
+            std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0)),
+        )?
+        .join()
+        .map_err(|_| crate::wire::Error::Unavailable)
     }
 }
 #[path = "../../../../platform/hosted/runtime-clock/src/server.rs"]
@@ -325,7 +333,7 @@ mod fixture {
             self.kms = Some(Worker::spawn(listener, move |tcp| {
                 // Production connection authenticates mTLS, decodes and validates the
                 // frame, dispatches the durable store and serializes the response.
-                let _ = server::serve_connection(tcp, &config, &store, clock.as_ref());
+                let _ = server::serve_connection(tcp, config.clone(), store.clone(), clock.clone());
             })?);
             Ok(())
         }

@@ -21380,3 +21380,148 @@ fix = "A Chainflow market source supplies PAX and SID, and both statistics respo
 title = "The statistics page of the explorer reads its counters and lines from the statistics service routes"
 symptom = "The components under apps/explorer/ui/stats read the counters route and the lines route of a statistics service, and the page feature is enabled by a statistics service address."
 fix = "The page reads the explorer API when no statistics service address is set."
+
+[gotcha.4312]
+title = "The scan script of the Next integration example names a directory the example does not hold"
+symptom = "The scan script in sdk/integrations/next/example/package.json names the directories dist/static and public, the tree holds no public directory in that example, and the middleware part of the platform test recipe runs that script."
+fix = "The example names only directories it holds."
+
+[gotcha.4313]
+title = "The Chainflow price feed gives the market figures of a coin in the CoinGecko format and takes a key header on every route"
+symptom = "The feed answers api/v3/coins/ followed by a coin id with price, market value, day volume, circulating supply and total supply in the CoinGecko format, and every route of the feed takes the key in the X-API-Key header."
+fix = "The Chainflow market source of the explorer backend sends the key and reads those routes."
+
+[gotcha.4314]
+title = "A test dependency of a member of the interop workspace changes the lock file of the workspace"
+symptom = "A member under services/interop/crates that gains a test dependency changes services/interop/Cargo.lock, and the paths of task 22.39.430 name only services/interop/crates."
+fix = "The paths of task 22.39.430 name the lock file of the workspace."
+
+[gotcha.4315]
+title = "Two lints of the ai-market member can only be met by changing a public signature"
+symptom = "In programs/crates/layerx-programs-ai-market the function apply_record_deal of src/rooms.rs takes eight arguments and the type Outcome of src/canary.rs holds a large variant, and task 22.39.445 keeps every public name and signature of the member."
+fix = "Such an item carries an allow attribute with a reason."
+
+[gotcha.4316]
+title = "A test dependency of the ai-market member changes the lock file of the programs workspace"
+symptom = "The member programs/crates/layerx-programs-ai-market that gains a local test dependency changes programs/Cargo.lock, and the paths of task 22.39.445 name only the directory of the member."
+fix = "The paths of task 22.39.445 name the lock file of the workspace."
+
+[gotcha.4317]
+title = "The boundary check of the human workspace reads test files as well as source files"
+symptom = "The boundary check reads every Rust file under services/human/crates, test files included, and reports a file that reads the clock or the random source directly. The recipe human-lint runs the check, and the paths of task 22.39.441 name only the tools of the workspace and apps/web."
+fix = "A reported file is repaired in its member: a wait is bounded by a count of steps or by the clock the member injects, and a random value comes from the source the member injects."
+
+[gotcha.4318]
+title = "The lint recipe of the programs workspace also lints the vendored interpreter"
+symptom = "The recipe programs-lint runs clippy over the workspace with warnings denied, and clippy also lints a dependency taken by path, so the lines the project added to programs/vendor/wasmi-0.31.2 are linted like a member. Task 22.39.454 leaves every file under programs/vendor unchanged."
+fix = "A finding in a line the project added to the vendored interpreter is repaired in that line and noted in the patch record of the directory."
+
+[gotcha.4319]
+title = "Two source files of the human workspace read the monotonic clock for a transport deadline"
+symptom = "services/human/crates/layerx-human-kms/src/server.rs bounds a transport exchange by a deadline of its own and services/human/crates/layerx-network-gateway/src/lib.rs takes a deadline of the monotonic clock in a public function. The boundary check reports both files, and a repair would change the transport behaviour or a public signature."
+fix = "The boundary check names the two files with a reason and accepts the monotonic clock read in them."
+
+[gotcha.4320]
+title = "The dependency policy of apps/web records the wallet package under its earlier licence field"
+symptom = "Decision 2775 set the licence field of sdk/wallet/package.json to Apache-2.0. The policy check of apps/web still expects the earlier field for the local package @paxeer/wallet, so the lint script of apps/web stops at the policy step."
+fix = "The policy and its record state Apache-2.0 for the package and keep the checks of its name, path and version."
+
+[gotcha.4321]
+title = "The SID chart route of the explorer API is registered under one resource name in the explorer frontend"
+symptom = "The general services list of apps/explorer/lib/api/services/general/misc.ts registers the route api/v2/stats/charts/secondary-coin-market under the key stats_charts_secondary_coin_market, and a chart definition that names another key does not type check."
+fix = "Chart definitions name the registered key, and the type check of a frontend task covers the whole project."
+
+[gotcha.4322]
+title = "The Chainflow price feed carries the price of SID and no supply or market value for it"
+symptom = "For the coin id sidiora the reply of api/v3/coins/ carries current_price.usd, while market_cap.usd, circulating_supply and total_supply are null."
+fix = "The explorer backend derives the circulating supply of SID itself and multiplies it with the price."
+
+[gotcha.4323]
+title = "The dependency policy of the programs workspace reads the features of a path dependency outside the workspace"
+symptom = "The programs workspace takes the proof crate services/interop/crates/layerx-committed-proof as a path dependency, and the default features of its Ed25519 dependency bring the standard library features of the signature crates into the metadata of the programs workspace."
+fix = "The Ed25519 declaration of the proof crate names the features it needs without the defaults."
+
+[gotcha.4324]
+title = "The price history of the Chainflow feed carries prices and no supply"
+symptom = "The history route of the feed answers times and candle prices. The market value of a PAX history point is the closing price times a circulating supply that the source has to bring itself, and the coin reply of api/v3/coins/ followed by the coin id carries that supply."
+fix = "The source reads the circulating supply from the coin reply when it builds the PAX history."
+
+[gotcha.4325]
+title = "The construct inspection of the wallet attestor signs only the calls whose owner debit it reads from the call"
+symptom = "The inspection of services/wallet/attestor/internal/policy/construct.go passes constant methods, a list of methods without an owner debit and a list of methods whose source, asset and amount it reads from the arguments. Every other method of a native precompile is answered selector_not_allowed, also where the selectors rule of the policy lists it. The program call of layerxprograms and the stream metering method of layerxpay belong to neither list."
+fix = "A program call is signed where the rules of the account name the program and the entry point, and the stream metering method is inspected with the methods of its kind."
+
+[gotcha.4326]
+title = "The unsafe rule of the programs dependency policy excepts files by name"
+symptom = "The rule of scripts/programs/dependency-policy.sh reads every Rust file under programs/crates and excepts the foreign function files of the runtime member and one host boundary file of the isolation member by their file names. The native contract file of the runtime member, the guest cell file of the market program, the host boundary directory of the isolation member and the test files that declare a foreign function or a counting allocator carry other names."
+fix = "The rule names every file of the native boundary, one line each with its reason."
+
+[gotcha.4327]
+title = "The secp256k1 crate of the programs workspace takes its big integer crate in the 0.5 line"
+symptom = "The runtime member of the programs workspace uses k256 0.13 for signature verification and key recovery, and k256 0.13 takes elliptic-curve 0.13 and with it crypto-bigint 0.5. The advisory check of the lint recipe reads programs/Cargo.lock against the advisory list, and the entries it accepts stand in programs/deny.toml with a reason each."
+fix = "The advisory settings carry one entry with its reason for the big integer crate while the runtime verifies and recovers over public inputs only."
+
+[gotcha.4328]
+title = "The payload rule of the human boundary check lets only the intents crate call the payload encoders"
+symptom = "The rule payload-encoding-entry-point of services/human/tools/boundary-check reports every file outside services/human/crates/layerx-intents that calls a payload encoding entry point. The production reads file of the service member and one of its tests build receipt payloads for fields that the intents crate offers no constructor for."
+fix = "The intents crate gains the constructors those two files need, and the files call them."
+
+[gotcha.4329]
+title = "The platform dependency inventory lists the resolved package files of the Swift samples"
+symptom = "The inventory check of scripts/workspace/check-platform-dependencies.sh compares the tracked manifests and resolved package files under services/platform with the rows of tools/workspace/platform-dependency-roots.txt. The Swift samples first-payment-swift and mobile-payment-ios each track a Package.resolved file next to their Package.swift."
+fix = "The inventory carries one row for every tracked Package.resolved file of the samples."
+
+[gotcha.4330]
+title = "The decoder burst case of the indexer module schedules its complete workload in every test stage"
+symptom = "The case of services/launchpad/indexer/internal/decode that schedules the complete five minute workload asserts that no delivery is dropped and that the latency bound holds. The race stage of the launchpad Makefile runs the same case with the race detector, under which the process runs several times slower on any machine."
+fix = "Under the race detector the case schedules a declared fraction of the rate and keeps every assertion."
+
+[gotcha.4331]
+title = "The source capacity cases of the indexer module read commit timestamps of the database"
+symptom = "The capacity measurement of services/launchpad/indexer/internal/source reads the setting track_commit_timestamp of PostgreSQL and refuses a database where it is off. Its cases run against the database of the test stage."
+fix = "The database of the test stage runs with track_commit_timestamp on, and the record of the module names the prerequisite."
+
+[gotcha.4332]
+title = "The retired reference catalogue lists the live names that share a retired word"
+symptom = "The check of tools/paxeer-x/tests/retired_callers_test.py reads the genesis key layerxcustody in tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py and the import of the receipt authority fixture module in tools/qualification/paxeer-x/inference_market_room.py. Both names belong to live code, the custody module of the node and a fixture module of the qualification tools."
+fix = "The catalogue tools/paxeer-x/retired_callers.json carries one allowed reference with its citation for each live name."
+
+[gotcha.4333]
+title = "The web client under apps/web/src/api/generated is the output of the API generator"
+symptom = "The build of the human workspace compares the committed client with a fresh run of the generator of services/human/tools/api-gen over the API schema directory, so the committed client follows every change of the schema."
+fix = "The client is regenerated with the generator target of the Makefile after a schema change and committed without a hand edit."
+
+[gotcha.4334]
+title = "The lint recipe of the agent workspace bounds a function at seven inputs"
+symptom = "The recipe counts the receiver with the inputs. A function of the agent daemon that needs more values takes them one by one only up to that bound."
+fix = "A function with more values takes one parameter structure."
+
+[gotcha.4335]
+title = "The source capacity measurement bounds the round trip of its database clock sample"
+symptom = "RunSourceCapacity of services/launchpad/indexer/internal/source/capacity.go reads the database clock between two readings of the local clock and accepts the sample only when the two local readings lie within five milliseconds. The measurement takes one sample at each of its two points."
+fix = "The measurement takes up to three samples at each point and uses the first one within the bound."
+
+[gotcha.4336]
+title = "The answer context of a canary carries the roster of the frozen binding and the deal carries the admission roster"
+symptom = "The host builds the answer context of a canary in services/agent/crates/layerx-agentd/src/inference_market/canary.rs from the frozen binding of the epoch, whose roster field is the digest of the captured roster. The deal frame carries the admission roster digest of the current epoch (decision 3169). The check of apps/inference-peer/src/canary.mjs compares the first 184 bytes of the context with the fields of its deal, and the cases of apps/inference-peer/test/canary.test.mjs build the context and the deal from one roster value."
+fix = "Decision 3417: the peer compares the fields of the context that its deal states, and its cases take the two roster values as two values."
+
+[gotcha.4337]
+title = "The aggregate commands of wave 6 span every area and each area keeps its own targets current"
+symptom = "The wave 6 gate runs the build, test and lint targets of every area of the repository in one pass. A lint limit, a dependency check, a generated file comparison or a test fixture of one area applies to files that lie outside the paths of the gate task."
+fix = "Each area brings its own make targets in line in a task of its own with the paths of that area, and the gate task requires those tasks and then runs the six wave commands once."
+
+[gotcha.4338]
+title = "The lint target of the agent workspace reads the entry file of the daemon together with its tests"
+symptom = "The command make agent-lint compiles every target of the agent workspace, so the argument limit of the lint configuration applies to the function terms of services/agent/crates/layerx-agentd/src/main.rs in the same run that reads the test files."
+fix = "The agent lint task carries the entry file in its paths and moves the inputs of the function into one parameter structure."
+
+[gotcha.4339]
+title = "Two binding cases of the Rust program SDK read directories that the binding program of the qualification tools prepares"
+symptom = "The cases generated_client_guest_and_typescript_are_compiler_inputs and immutable_published_interfaces_generate_all_language_families of programs/sdk/rust/tests/bindgen_conformance.rs read the directories named by the variables PAXEER_X_BINDINGS_ARTIFACTS and PAXEER_X_BINDINGS_FIXTURES. The binding program sets both variables; the test run of the programs workspace does not."
+fix = "The two cases run their assertions when the variable is set and print one line and return when it is not, without an ignore attribute."
+
+[gotcha.4340]
+title = "The interop service member links the platform gateway member, which keeps a SQLite store"
+symptom = "The dependency policy of the interop workspace reads the whole package list of the metadata, so the two SQLite crates that the platform gateway member uses appear in it through services/interop/crates/layerx-interop-service."
+fix = "The policy refuses the two crates on every dependency path that does not pass through the platform gateway member."

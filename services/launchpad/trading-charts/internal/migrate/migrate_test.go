@@ -2,6 +2,7 @@ package migrate_test
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/internaltest"
@@ -33,5 +34,8 @@ func TestUpBadDSN(t *testing.T) {
 	ctx := context.Background()
 	if err := migrate.Up(ctx, "postgres://bad:bad@127.0.0.1:1/none?sslmode=disable&connect_timeout=1"); err == nil {
 		t.Fatal("migrate.Up with an unreachable DSN should error")
+	}
+	if err := migrate.Up(ctx, "://"); err == nil || !strings.Contains(err.Error(), "migrate: up: cannot parse") {
+		t.Fatalf("malformed database connection document: %v", err)
 	}
 }

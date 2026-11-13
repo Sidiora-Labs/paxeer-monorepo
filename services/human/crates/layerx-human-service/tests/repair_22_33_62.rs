@@ -1,16 +1,16 @@
 //! Repair record 22.33.62 / audit 22.30.107 / acceptance 22998.1.
-//! kms-process-clock-not-forwarded: explicit_supervisor_binding_survives_child_environment_clear;
-//! startup_refusals_and_chain_snapshot_round_trip_use_the_real_provider.
-//! kms-process-network-disagreement: startup_refusals_and_chain_snapshot_round_trip_use_the_real_provider.
+//! kms-process-clock-not-forwarded: `explicit_supervisor_binding_survives_child_environment_clear`;
+//! `startup_refusals_and_chain_snapshot_round_trip_use_the_real_provider`.
+//! kms-process-network-disagreement: `startup_refusals_and_chain_snapshot_round_trip_use_the_real_provider`.
 //! Baseline: the repair target and prior implementation are absent on this checkout;
-//! the earlier attempt stopped in observed_balances_denom before verification (gotcha 2974).
+//! the earlier attempt stopped in `observed_balances_denom` before verification (gotcha 2974).
 //! No unchanged-tree verify ran: the task's ordered implementation/build/hf-done rules prohibit it.
 //! Scope excludes spec/GOTCHA edits; this record holds the finding/test mapping.
 //! The runner records the verified candidate revision and private gate evidence.
-//! Qualification repair: production startup must supply RemoteKmsProvider's
+//! Qualification repair: production startup must supply `RemoteKmsProvider`'s
 //! authenticated absolute-deadline transport; a refused TCP connection is its
 //! exact kms-timeout error, rather than a configuration-stage refusal.
-//! Qualification repair: Rustix 1.1.4 converts SocketAddrAny via TryFrom, not as_socket.
+//! Qualification repair: Rustix 1.1.4 converts `SocketAddrAny` via `TryFrom`, not `as_socket`.
 //! No out-of-path wiring is required. Peers use committed TLS material, the real
 //! supervisor clock server and the real KMS provider/store, entirely in process.
 
@@ -40,7 +40,7 @@ use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{mpsc, Arc};
 use std::thread::{self, JoinHandle};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 type TestResult<T = ()> = Result<T, Box<dyn Error>>;
 const PROVIDER: &str = "repair-22-33-62";
@@ -263,10 +263,10 @@ impl GatewayWorker {
                 if stopped.load(Ordering::Acquire) {
                     break;
                 }
-                let stream = stream.expect("gateway loopback accept");
-                gateway
-                    .serve_connection(stream)
-                    .expect("production gateway connection");
+                let stream = stream.or_fail("gateway loopback accept");
+                gateway.serve_connection(stream).unwrap_or_else(|error| {
+                    panic!("{}: {error:?}", "production gateway connection")
+                });
             }
         });
         Ok(Self {
@@ -286,25 +286,10 @@ impl Drop for GatewayWorker {
     }
 }
 
-#[test]
-fn startup_refusals_and_chain_snapshot_round_trip_use_the_real_provider() -> TestResult {
-    let root = Directory::new()?;
-    let supervisor = Supervisor::start(&root.0)?;
-    for (name, bytes) in [
-        ("ca.der", CA),
-        ("server.der", SERVER),
-        ("server.pk8", SERVER_KEY),
-        ("client.der", CLIENT),
-        ("client.pk8", CLIENT_KEY),
-        ("chain.json", br#"{"chain_id":125}"#.as_slice()),
-        ("wrong-chain.json", br#"{"chain_id":77}"#.as_slice()),
-    ] {
-        root.write(name, bytes)?;
-    }
-    let mut seal = [0; 32];
-    getrandom::fill(&mut seal).map_err(|error| error.to_string())?;
-    root.write("seal", &seal)?;
-
+fn start_backend(
+    root: &Directory,
+    supervisor: &Supervisor,
+) -> Result<(SocketAddr, RemoteKmsProvider), Box<dyn std::error::Error>> {
     let backend_listener = TcpListener::bind("127.0.0.1:0")?;
     let backend = backend_listener.local_addr()?;
     drop(backend_listener);
@@ -338,7 +323,9 @@ fn startup_refusals_and_chain_snapshot_round_trip_use_the_real_provider() -> Tes
     thread::spawn(move || {
         let _ = sender.send(layerx_human_kms::run_from_environment(&backend_clock));
     });
-    let expires = Instant::now() + Duration::from_secs(15);
+    let startup_clock = supervisor.clock()?;
+    let mut startup_deadline =
+        layerx_types::clock::Deadline::start(startup_clock.as_ref(), Duration::from_secs(15))?;
     loop {
         if let Ok(result) = exited.try_recv() {
             return Err(format!("production KMS exited: {result:?}").into());
@@ -346,7 +333,10 @@ fn startup_refusals_and_chain_snapshot_round_trip_use_the_real_provider() -> Tes
         if TcpStream::connect(backend).is_ok() {
             break;
         }
-        if Instant::now() >= expires {
+        if startup_deadline
+            .remaining(startup_clock.as_ref())?
+            .is_zero()
+        {
             return Err("production KMS startup timed out".into());
         }
         thread::sleep(Duration::from_millis(5));
@@ -355,8 +345,14 @@ fn startup_refusals_and_chain_snapshot_round_trip_use_the_real_provider() -> Tes
     direct.probe()?;
     drop(environment);
 
-    let listener = TcpListener::bind("127.0.0.1:0")?;
-    let listen = listener.local_addr()?;
+    Ok((backend, direct))
+}
+
+fn gateway_settings(
+    root: &Directory,
+    backend: SocketAddr,
+    listen: SocketAddr,
+) -> TestResult<BTreeMap<String, String>> {
     let mut values = BTreeMap::new();
     for (suffix, value) in [
         ("PROVIDER_KIND", "remote-lxkp".to_owned()),
@@ -396,6 +392,33 @@ fn startup_refusals_and_chain_snapshot_round_trip_use_the_real_provider() -> Tes
                 .to_owned(),
         );
     }
+
+    Ok(values)
+}
+
+#[test]
+fn startup_refusals_and_chain_snapshot_round_trip_use_the_real_provider() -> TestResult {
+    let root = Directory::new()?;
+    let supervisor = Supervisor::start(&root.0)?;
+    for (name, bytes) in [
+        ("ca.der", CA),
+        ("server.der", SERVER),
+        ("server.pk8", SERVER_KEY),
+        ("client.der", CLIENT),
+        ("client.pk8", CLIENT_KEY),
+        ("chain.json", br#"{"chain_id":125}"#.as_slice()),
+        ("wrong-chain.json", br#"{"chain_id":77}"#.as_slice()),
+    ] {
+        root.write(name, bytes)?;
+    }
+    let mut seal = [0; 32];
+    getrandom::fill(&mut seal).map_err(|error| error.to_string())?;
+    root.write("seal", &seal)?;
+
+    let (backend, direct) = start_backend(&root, &supervisor)?;
+    let listener = TcpListener::bind("127.0.0.1:0")?;
+    let listen = listener.local_addr()?;
+    let values = gateway_settings(&root, backend, listen)?;
 
     let gateway_clock = startup::runtime_clock(forwarded_binding(&supervisor.binding)?)?;
     for (suffix, value, expected) in [
@@ -458,4 +481,10 @@ fn startup_refusals_and_chain_snapshot_round_trip_use_the_real_provider() -> Tes
     );
     assert!(root.0.join("state/state.aead").is_file());
     Ok(())
+}
+
+use crate::require_value::RequireValue as _;
+
+pub mod require_value {
+    include!("support/require_value.rs");
 }

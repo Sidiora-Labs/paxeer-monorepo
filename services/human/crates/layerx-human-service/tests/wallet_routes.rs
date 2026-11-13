@@ -148,14 +148,19 @@ fn http_request(method: &str, path: &str, golden: &Value, bearer: Option<&str>) 
         "{method} {path} HTTP/1.1\r\nHost: human.wallet.example\r\nOrigin: {APP_ORIGIN}\r\n"
     );
     if let Some(bearer) = bearer {
-        head.push_str(&format!("Authorization: Bearer {bearer}\r\n"));
+        std::fmt::Write::write_fmt(
+            &mut head,
+            format_args!("Authorization: Bearer {bearer}\r\n"),
+        )
+        .unwrap_or_else(|_| unreachable!("writing to String"));
     }
     if let Some(headers) = golden.get("headers").and_then(Value::as_object) {
         for (name, value) in headers {
             let value = value
                 .as_str()
                 .unwrap_or_else(|| panic!("golden header {name} is not a string"));
-            head.push_str(&format!("{name}: {value}\r\n"));
+            std::fmt::Write::write_fmt(&mut head, format_args!("{name}: {value}\r\n"))
+                .unwrap_or_else(|_| unreachable!("writing to String"));
         }
     }
     match golden.get("body") {
@@ -257,9 +262,9 @@ fn wallet_routes_every_sdk_route_is_served_with_its_schema_and_admits_the_bearer
             .as_str()
             .unwrap_or_else(|| panic!("{label}: golden path"));
         let path = live_path(&route.path, golden_path);
-        let routed = required(schema.route(&route.method, &path), &label)
+        let matched_route = required(schema.route(&route.method, &path), &label)
             .unwrap_or_else(|| panic!("{label}: {path} does not route"));
-        assert_eq!(routed.operation.name, operation.name, "{label}");
+        assert_eq!(matched_route.operation.name, operation.name, "{label}");
 
         let anonymous = exchange(&router, &http_request(&route.method, &path, &golden, None));
         assert_ne!(anonymous.status, 404, "{label}: {:?}", anonymous.body);

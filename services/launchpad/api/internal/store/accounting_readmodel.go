@@ -688,7 +688,11 @@ func (s *AccountingReadModel) TopicSnapshotAt(ctx context.Context, topics []stri
 	if _, err = tx.Exec(ctx, "SET LOCAL statement_timeout = '150ms'"); err != nil {
 		return nil, err
 	}
-	entries := []any{}
+	type snapshotRow struct {
+		sequence string
+		raw      []byte
+	}
+	frames := make([]snapshotRow, 0, len(offsets))
 	total := 0
 	allowed := map[string]bool{}
 	for _, topic := range topics {
@@ -707,26 +711,37 @@ func (s *AccountingReadModel) TopicSnapshotAt(ctx context.Context, topics []stri
 			return nil, ErrDataIntegrity
 		}
 		var raw []byte
-		var p PublicProjection
 		if err = tx.QueryRow(ctx, "SELECT frame FROM "+pgx.Identifier{s.config.StreamSchema, "stream_delivery_outbox"}.Sanitize()+" WHERE partition_id=$1 AND sequence=$2", id, seq).Scan(&raw); err != nil {
 			return nil, err
 		}
 		total += len(raw)
-		if total > PublicJSONMaxBytes || interfaces.ValidateJSON("StreamEvent", raw) != nil || json.Unmarshal(raw, &p) != nil || p.Sequence != sequence || !allowed[p.Topic] || validateSnapshotFrame(p, raw) != nil {
+		if total > PublicJSONMaxBytes {
 			return nil, ErrDataIntegrity
 		}
-		entries = append(entries, map[string]any{"topic": p.Topic, "sequence": p.Sequence, "revision": p.Revision, "watermark": p.Watermark, "payload": p.Payload})
+		frames = append(frames, snapshotRow{sequence: sequence, raw: raw})
 	}
 	var observed time.Time
 	if err = tx.QueryRow(ctx, "SELECT transaction_timestamp()").Scan(&observed); err != nil {
 		return nil, err
 	}
+	if err = tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	entries := make([]any, 0, len(frames))
+	for _, frame := range frames {
+		var p PublicProjection
+		streamValid := make(chan error, 1)
+		go func() { streamValid <- interfaces.ValidateJSON("StreamEvent", frame.raw) }()
+		frameValid := json.Unmarshal(frame.raw, &p) == nil && p.Sequence == frame.sequence && allowed[p.Topic] && validateSnapshotFrame(p, frame.raw) == nil
+		streamErr := <-streamValid
+		if !frameValid || streamErr != nil {
+			return nil, ErrDataIntegrity
+		}
+		entries = append(entries, map[string]any{"topic": p.Topic, "sequence": p.Sequence, "revision": p.Revision, "watermark": p.Watermark, "payload": p.Payload})
+	}
 	raw, err := json.Marshal(map[string]any{"snapshotId": snapshotID, "resumeCursor": cursor, "generatedAt": observed.UTC().Format("2006-01-02T15:04:05.000Z"), "topics": entries})
 	if err != nil || len(raw) > PublicJSONMaxBytes || interfaces.ValidateJSON("TopicSnapshot", raw) != nil {
 		return nil, ErrDataIntegrity
-	}
-	if err = tx.Commit(ctx); err != nil {
-		return nil, err
 	}
 	return raw, nil
 }

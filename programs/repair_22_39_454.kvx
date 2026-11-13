@@ -1,0 +1,103 @@
+[meta]
+title = "Programs workspace lint coverage"
+target = "programs-lint"
+
+[recipe.module_boundaries]
+command = "sh tests/programs/runtime-module-boundaries.sh"
+covers = "Runtime ABI and host module inventories, sibling imports, parent aliases, direct state access and production transition boundaries, with boundary-check self-tests."
+
+[recipe.workspace_lint]
+command = "cargo clippy --locked --workspace --all-targets --features layerx-programs-sandbox/host-ffi -- -D warnings"
+covers = "Every programs workspace member and target, including the sandbox and runtime host interfaces, with warnings denied."
+
+[recipe.dependency_policy]
+command = "sh scripts/programs/dependency-policy.sh"
+covers = "Forbidden dependency names, entropy features, SPDX license alternatives, vendored package checksums, the pinned engine and vendored source configuration, unsafe boundaries and integer-only program code."
+
+[recipe.advisories_sources]
+command = "cargo deny check advisories sources"
+covers = "Dependency advisories, yanked packages and allowed registry and Git sources under programs/deny.toml."
+
+[recipe.bans]
+command = "cargo deny --exclude-dev check bans"
+covers = "Production dependency bans and duplicate versions under programs/deny.toml."
+
+[location.dependency_metadata]
+path = "scripts/programs/dependency-policy.sh"
+selection = "Dependency metadata explicitly enables layerx-programs-sandbox/host-ffi, matching the workspace lint feature selection while retaining default features."
+
+[location.replay_observation]
+path = "programs/vendor/wasmi-0.31.2/src/engine/executor.rs"
+selection = "Executor::execute uses inspect_err to record replay traps and observer state while preserving the original error."
+
+[location.replay_frames]
+path = "programs/vendor/wasmi-0.31.2/src/engine/executor.rs"
+selection = "Executor::visit_observe uses inspect_err to record unsupported replay frame state while preserving the original error."
+
+[location.replay_step_documentation]
+path = "programs/vendor/wasmi-0.31.2/src/engine/mod.rs"
+selection = "Engine::execute_step documents snapshot restoration, compatibility, observer and transition errors."
+
+[location.snapshot_retention]
+path = "programs/vendor/wasmi-0.31.2/src/engine/mod.rs"
+selection = "issue_1773_accumulating_snapshots expresses its unchanged snapshot count bounds with Range::contains."
+
+[location.migration_ingress]
+path = "programs/crates/layerx-programs-runtime/src/ffi.rs"
+selection = "Migration admission reads fixed-width integers from byte arrays, uses u32 byte offsets, encodes fuel schedules in a helper and splits fee words from big-endian bytes."
+
+[location.call_ingress]
+path = "programs/crates/layerx-programs-runtime/src/ffi_call.rs"
+selection = "CALL ingress uses explicit raw pointers and direct effect borrows, marks receipt authority accessors must_use, documents authority read errors and reads authority bytes with bounded u32 offsets."
+
+[location.occupancy_cases]
+paths = ["programs/crates/layerx-programs-runtime/src/call_occupancy.rs", "programs/crates/layerx-programs-runtime/src/ffi_call.rs"]
+selection = "Occupancy cases explicitly discard committed transaction summaries; market billing setup uses helpers for its unchanged profile, billing commitment and claim bytes."
+
+[location.schedule_cases]
+path = "programs/crates/layerx-programs-runtime/src/schedule.rs"
+selection = "The deterministic schedule case generator selects the low byte of its shifted state explicitly."
+
+[location.transfer_cases]
+path = "programs/crates/layerx-programs-runtime/src/transfer.rs"
+selection = "The destination-bound program spend case checks the DID length conversion before writing its canonical bytes."
+
+[location.sandbox_ingress]
+path = "programs/crates/layerx-programs-sandbox/src/host_ffi.rs"
+selection = "Sandbox ingress imports its used runtime items and delegates host fee schedule validation and settlement occupancy calculations to helpers with the same checks and arithmetic."
+
+[location.sandbox_usage]
+paths = ["programs/crates/layerx-programs-sandbox/src/usage.rs", "programs/crates/layerx-programs-sandbox/src/host_ffi.rs"]
+selection = "Cumulative usage arithmetic is shared in the usage module by host settlement and incremental settlement cases, including cases compiled with the lifecycle modules by path."
+
+[location.sandbox_link_case]
+path = "programs/crates/layerx-programs-sandbox/tests/host_ffi_link.rs"
+selection = "The native link case selects sandbox archives with a Path extension comparison that retains the lowercase a suffix requirement."
+
+[location.arbiter_crypto]
+path = "programs/crates/layerx-programs-arbiter/Cargo.toml"
+selection = "The arbiter selects deterministic signature verification from layerx-crypto without its unused custody feature and entropy dependencies."
+
+[location.committed_proof_crypto]
+paths = ["services/interop/Cargo.toml", "services/interop/crates/layerx-committed-proof/Cargo.toml"]
+selection = "Committed proof verification uses Ed25519 with alloc, fast and zeroize and without default features."
+
+[location.unsafe_boundaries]
+path = "scripts/programs/dependency-policy.sh"
+selection = "The unsafe policy uses one exact-file exception list for both search backends, with a boundary reason for each file."
+runtime_foreign_functions = ["layerx-programs-runtime/src/ffi.rs", "layerx-programs-runtime/src/ffi_call.rs", "layerx-programs-runtime/src/ffi_interface.rs", "layerx-programs-runtime/src/ffi_transfer.rs", "layerx-programs-runtime/src/native_contract.rs"]
+single_threaded_guest = ["layerx-programs-ai-market/src/guest_cell.rs"]
+sandbox_foreign_functions = ["layerx-programs-sandbox/src/host_ffi.rs", "layerx-programs-sandbox/src/host_ffi/terminal.rs", "layerx-programs-sandbox/src/lib.rs"]
+counting_allocator_tests = ["layerx-programs-runtime/tests/repair_22_33_226.rs", "layerx-programs-runtime/tests/repair_22_33_227.rs", "layerx-programs-runtime/tests/repair_22_33_258.rs"]
+foreign_function_tests = ["layerx-programs-runtime/tests/repair_22_31_259.rs", "layerx-programs-runtime/tests/repair_22_33_259.rs", "layerx-programs-sandbox/tests/repair_22_33_231.rs", "layerx-programs-sandbox/tests/host_ffi_link.rs", "layerx-programs-arbiter/tests/proof_arbiter_crate.rs"]
+self_test = "Each available search backend accepts the listed runtime ffi.rs and refuses unsafe code in the unlisted neighboring ffi_extra.rs."
+
+[location.fuel_scaling_diagnostics]
+path = "programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs"
+selection = "Fuel slopes and roster projections use signed integer ratios with exact decimal formatting for the power-of-two sweep steps; measured fuel, guest calls, assertions and bounds are retained."
+
+[location.secp256k1_public_inputs]
+paths = ["programs/deny.toml", "programs/crates/layerx-programs-runtime/src/crypto/signature.rs", "programs/crates/layerx-programs-runtime/src/calls.rs"]
+selection = "The runtime uses k256 for signature verification and public-key recovery over public inputs only."
+signing_key_usage = "The programs/crates sources construct a k256 signing key only in the native_signature_verify_and_recover_successes_replay_actual_output_and_metering test within the cfg(test) single_step_conformance module of calls.rs; production code constructs no k256 signing key or secret scalar."
+advisory = "RUSTSEC-2026-0387"

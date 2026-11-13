@@ -64,7 +64,7 @@ export function FreshnessDisplay({
     return (
       <ExplorerFreshnessView
         title={NATIVE_FRESHNESS_COPY.unavailable}
-        description={`Committed block ${position.committedHeight ?? NATIVE_FRESHNESS_COPY.unavailablePosition}; indexed block ${position.indexedHeight ?? NATIVE_FRESHNESS_COPY.unavailablePosition}.`}
+        description={`Committed block ${String(position.committedHeight ?? NATIVE_FRESHNESS_COPY.unavailablePosition)}; indexed block ${String(position.indexedHeight ?? NATIVE_FRESHNESS_COPY.unavailablePosition)}.`}
         current={false}
       />
     );
@@ -72,7 +72,7 @@ export function FreshnessDisplay({
   return (
     <ExplorerFreshnessView
       title={NATIVE_FRESHNESS_COPY[position.state]}
-      description={`Committed block ${position.committedHeight}; indexed block ${position.indexedHeight}.`}
+      description={`Committed block ${String(position.committedHeight)}; indexed block ${String(position.indexedHeight)}.`}
       current={position.state === "current"}
     />
   );

@@ -390,7 +390,11 @@ func (s *CommittedSource) rpc(ctx context.Context, e *committedEndpoint, bulk bo
 	for attempt := 0; attempt < 4; attempt++ {
 		attemptContext := ctx
 		if task, ok := ctx.Value(rangeTaskKey{}).(RangeTask); ok {
-			task.Attempt = uint32(attempt)
+			attemptUint32, conversionErr := checked.Convert[uint32](attempt)
+			if conversionErr != nil {
+				return conversionErr
+			}
+			task.Attempt = attemptUint32
 			attemptContext = context.WithValue(ctx, rangeTaskKey{}, task)
 		}
 		err := s.rpcOnce(attemptContext, e, bulk, method, params, out, attempt)
@@ -563,8 +567,16 @@ func (s *CommittedSource) rpcOnce(ctx context.Context, e *committedEndpoint, bul
 	if err != nil {
 		return sourceError(TimeoutError, e.id, err)
 	}
-	s.transport.responseBytes.Add(uint64(len(b)))
-	if int64(len(b)) > s.opts.MaxResponseBytes {
+	lenBUint64, conversionErr := checked.Convert[uint64](len(b))
+	if conversionErr != nil {
+		return conversionErr
+	}
+	s.transport.responseBytes.Add(lenBUint64)
+	lenBInt64, conversionErr := checked.Convert[int64](len(b))
+	if conversionErr != nil {
+		return conversionErr
+	}
+	if lenBInt64 > s.opts.MaxResponseBytes {
 		return sourceError(OversizeError, e.id, nil)
 	}
 	var envelope struct {
@@ -614,7 +626,7 @@ func parseCommittedTimestamp(value string) (int64, error) {
 	if err != nil || n > uint64(1<<63-1) {
 		return 0, errors.New("invalid RPC timestamp")
 	}
-	return int64(n), nil
+	return checked.Convert[int64](n)
 }
 
 type blockWire struct {
@@ -882,7 +894,11 @@ func (s *CommittedSource) PollHeads(ctx context.Context, durable func() uint64, 
 }
 func (s *CommittedSource) Head(ctx context.Context) (int64, error) {
 	h, e := s.ObserveHead(ctx, 0)
-	return int64(h.Height), e //nolint:gosec // head height uses the existing signed head interface
+	hHeightInt64, conversionErr := checked.Convert[int64](h.Height)
+	if conversionErr != nil {
+		return 0, conversionErr
+	}
+	return hHeightInt64, e
 }
 
 // FetchCommitted accepts only coordinator-approved discoveries, supplied as
@@ -915,7 +931,11 @@ func (s *CommittedSource) FetchCommitted(ctx context.Context, o FetchOptions, hi
 	}
 	var last error
 	for _, e := range s.eligible() {
-		if s.prunedFor(e, uint64(o.FromBlock)) {
+		oFromBlockUint64, conversionErr := checked.Convert[uint64](o.FromBlock)
+		if conversionErr != nil {
+			return FetchResult{}, conversionErr
+		}
+		if s.prunedFor(e, oFromBlockUint64) {
 			last = sourceError(RPCError, e.id, errors.New("range starts below the endpoint's reported pruning floor"))
 			continue
 		}
@@ -929,8 +949,12 @@ func (s *CommittedSource) FetchCommitted(ctx context.Context, o FetchOptions, hi
 		r, err := s.fetch(attempt, e, o, bulk, es)
 		cancel()
 		if err == nil {
+			oToBlockUint64, conversionErr := checked.Convert[uint64](o.ToBlock)
+			if conversionErr != nil {
+				return FetchResult{}, conversionErr
+			}
 			s.mu.Lock()
-			err = s.fenceLocked(uint64(o.ToBlock)) //nolint:gosec // validated fetch range uses unsigned chain heights
+			err = s.fenceLocked(oToBlockUint64)
 			s.mu.Unlock()
 			if err != nil {
 				return FetchResult{}, err
@@ -962,7 +986,15 @@ func (s *CommittedSource) fetch(ctx context.Context, e *committedEndpoint, o Fet
 	seen := map[string]bool{}
 	for _, ep := range epochs {
 		a := strings.ToLower(ep.Address)
-		if !seen[a] && ep.ActivationHeight <= uint64(o.ToBlock) && (ep.RetirementHeight == nil || *ep.RetirementHeight > uint64(o.FromBlock)) { //nolint:gosec // validated fetch range uses unsigned chain heights
+		oToBlockUint642, conversionErr := checked.Convert[uint64](o.ToBlock)
+		if conversionErr != nil {
+			return FetchResult{}, conversionErr
+		}
+		oFromBlockUint642, conversionErr := checked.Convert[uint64](o.FromBlock)
+		if conversionErr != nil {
+			return FetchResult{}, conversionErr
+		}
+		if !seen[a] && ep.ActivationHeight <= oToBlockUint642 && (ep.RetirementHeight == nil || *ep.RetirementHeight > oFromBlockUint642) {
 			seen[a] = true
 			addresses = append(addresses, a)
 		}
@@ -975,7 +1007,11 @@ func (s *CommittedSource) fetch(ctx context.Context, e *committedEndpoint, o Fet
 	prefetchDone := make(chan struct{})
 	var prefetchErr error
 	if e.historical {
-		s.dropAheadBelow(uint64(o.FromBlock)) //nolint:gosec // validated fetch range uses unsigned chain heights
+		oFromBlockUint643, conversionErr := checked.Convert[uint64](o.FromBlock)
+		if conversionErr != nil {
+			return FetchResult{}, conversionErr
+		}
+		s.dropAheadBelow(oFromBlockUint643)
 	}
 	go func() {
 		prefetchErr = s.prefetchBlocks(ctx, e, o.FromBlock, o.ToBlock, bulk, prefetched)
@@ -1036,26 +1072,49 @@ func (s *CommittedSource) fetch(ctx context.Context, e *committedEndpoint, o Fet
 	}
 	for offset := int64(0); offset <= o.ToBlock-o.FromBlock; offset++ {
 		n := o.FromBlock + offset
-		b, record, err := s.batchBlock(ctx, e, uint64(n), bulk, batch) //nolint:gosec // persisted chain value uses the existing unsigned protocol representation
+		nUint64, conversionErr := checked.Convert[uint64](n)
+		if conversionErr != nil {
+			return FetchResult{}, conversionErr
+		}
+		b, record, err := s.batchBlock(ctx, e, nUint64, bulk, batch)
 		if err != nil {
 			return FetchResult{}, err
 		}
-		if record.Height != uint64(n) { //nolint:gosec // persisted chain value uses the existing unsigned protocol representation
+		if record.Height != nUint64 {
 			return FetchResult{}, sourceError(IntegrityError, e.id, nil)
 		}
-		if n > o.FromBlock && record.ParentHash != r.Blocks[uint64(n-1)].Hash { //nolint:gosec // persisted chain value uses the existing unsigned protocol representation
-			return FetchResult{}, sourceError(IntegrityError, e.id, nil)
-		}
-		r.Blocks[uint64(n)] = record                           //nolint:gosec // persisted chain value uses the existing unsigned protocol representation
-		r.BlockTimestamps[uint64(n)] = record.TimestampSeconds //nolint:gosec // persisted chain value uses the existing unsigned protocol representation
-		for i := range r.Logs {
-			l := &r.Logs[i]
-			if l.BlockNumber != uint64(n) { //nolint:gosec // persisted chain value uses the existing unsigned protocol representation
-				continue
+		if n > o.FromBlock {
+			previousHeight, conversionErr := checked.Convert[uint64](n - 1)
+			if conversionErr != nil {
+				return FetchResult{}, conversionErr
 			}
-			if l.BlockHash != record.Hash || int(l.TxIndex) >= len(b.Transactions) || !strings.EqualFold(b.Transactions[l.TxIndex].Hash, l.TxHash.Hex()) {
+			if record.ParentHash != r.Blocks[previousHeight].Hash {
 				return FetchResult{}, sourceError(IntegrityError, e.id, nil)
 			}
+		}
+		r.Blocks[nUint64] = record
+		r.BlockTimestamps[nUint64] = record.TimestampSeconds
+		for i := range r.Logs {
+			l := &r.Logs[i]
+			nUint642, conversionErr := checked.Convert[uint64](n)
+			if conversionErr != nil {
+				return FetchResult{}, conversionErr
+			}
+			if l.BlockNumber != nUint642 {
+				continue
+			}
+			lTxIndexInt, conversionErr := checked.Convert[int](l.TxIndex)
+			if conversionErr != nil {
+				return FetchResult{}, conversionErr
+			}
+			if l.BlockHash != record.Hash || lTxIndexInt >= len(b.Transactions) || !strings.EqualFold(b.Transactions[l.TxIndex].Hash, l.TxHash.Hex()) {
+				return FetchResult{}, sourceError(IntegrityError, e.id, nil)
+			}
+			recordTimestampSecondsUint64, conversionErr := checked.Convert[uint64](record.TimestampSeconds)
+			if conversionErr != nil {
+				return FetchResult{}, conversionErr
+			}
+			l.BlockTimestamp = recordTimestampSecondsUint64
 			if len(l.Topics) > 0 && needsTxFrom(l.Topics[0].Hex()) {
 				from := b.Transactions[l.TxIndex].From
 				if !common.IsHexAddress(from) {
@@ -1067,7 +1126,15 @@ func (s *CommittedSource) fetch(ctx context.Context, e *committedEndpoint, o Fet
 	}
 	identities := map[string]bool{}
 	for _, l := range r.Logs {
-		if l.BlockNumber < uint64(o.FromBlock) || l.BlockNumber > uint64(o.ToBlock) || l.Removed { //nolint:gosec // validated fetch range uses unsigned chain heights
+		oFromBlockUint644, conversionErr := checked.Convert[uint64](o.FromBlock)
+		if conversionErr != nil {
+			return FetchResult{}, conversionErr
+		}
+		oToBlockUint643, conversionErr := checked.Convert[uint64](o.ToBlock)
+		if conversionErr != nil {
+			return FetchResult{}, conversionErr
+		}
+		if l.BlockNumber < oFromBlockUint644 || l.BlockNumber > oToBlockUint643 || l.Removed {
 			return FetchResult{}, sourceError(IntegrityError, e.id, nil)
 		}
 		active := false
@@ -1096,12 +1163,24 @@ func (s *CommittedSource) fetch(ctx context.Context, e *committedEndpoint, o Fet
 		}
 		return a.Index < b.Index
 	})
-	s.metrics.blocksFetched.Add(uint64(len(r.Blocks)))
+	rBlocksUint64, conversionErr := checked.Convert[uint64](len(r.Blocks))
+	if conversionErr != nil {
+		return FetchResult{}, conversionErr
+	}
+	s.metrics.blocksFetched.Add(rBlocksUint64)
 	if len(r.Logs) == 0 {
 		s.metrics.emptyRanges.Add(1)
 	}
 	r.Complete = true
-	r.CoveredRanges = []CoveredRange{{uint64(o.FromBlock), uint64(o.ToBlock)}} //nolint:gosec // validated fetch range uses unsigned chain heights
+	oFromBlockUint645, conversionErr := checked.Convert[uint64](o.FromBlock)
+	if conversionErr != nil {
+		return FetchResult{}, conversionErr
+	}
+	oToBlockUint644, conversionErr := checked.Convert[uint64](o.ToBlock)
+	if conversionErr != nil {
+		return FetchResult{}, conversionErr
+	}
+	r.CoveredRanges = []CoveredRange{{oFromBlockUint645, oToBlockUint644}}
 	return r, nil
 }
 
@@ -1121,6 +1200,10 @@ func (s *CommittedSource) prefetchBlocks(ctx context.Context, e *committedEndpoi
 	slots := make(chan struct{}, s.rangeConcurrency(e))
 	var wg sync.WaitGroup
 	for n := from; n <= to; n++ {
+		nUint643, conversionErr := checked.Convert[uint64](n)
+		if conversionErr != nil {
+			return conversionErr
+		}
 		wg.Add(1)
 		go func(height uint64) {
 			defer wg.Done()
@@ -1140,7 +1223,7 @@ func (s *CommittedSource) prefetchBlocks(ctx context.Context, e *committedEndpoi
 			s.metrics.headerFetches.Add(1)
 			wire, record, err := s.block(ctx, e, fmtHeight(height), bulk)
 			results <- result{height, batchBlock{wire, record}, err}
-		}(uint64(n)) //nolint:gosec // persisted chain value uses the existing unsigned protocol representation
+		}(nUint643)
 	}
 	wg.Wait()
 	close(results)
@@ -1211,7 +1294,11 @@ func (s *CommittedSource) logs(ctx context.Context, e *committedEndpoint, from, 
 			}
 			// Full canonical transaction list bounds fallback work. No receipt
 			// can be omitted while claiming complete single-block coverage.
-			b, record, berr := s.batchBlock(ctx, e, uint64(from), bulk, batch) //nolint:gosec // persisted chain value uses the existing unsigned protocol representation
+			fromUint64, conversionErr := checked.Convert[uint64](from)
+			if conversionErr != nil {
+				return nil, conversionErr
+			}
+			b, record, berr := s.batchBlock(ctx, e, fromUint64, bulk, batch)
 			if berr != nil {
 				return nil, berr
 			}
@@ -1238,12 +1325,28 @@ func (s *CommittedSource) logs(ctx context.Context, e *committedEndpoint, from, 
 				if err := s.rpc(ctx, e, bulk, "eth_getTransactionReceipt", []any{tx.Hash}, &receipt); err != nil {
 					return nil, err
 				}
-				if receipt.BlockHash != record.Hash || receipt.BlockNumber == nil || !receipt.BlockNumber.IsUint64() || receipt.BlockNumber.Uint64() != uint64(from) || receipt.TransactionIndex != uint(i) || receipt.TxHash != common.HexToHash(tx.Hash) { //nolint:gosec // persisted chain value uses the existing unsigned protocol representation
+				fromUint642, conversionErr := checked.Convert[uint64](from)
+				if conversionErr != nil {
+					return nil, conversionErr
+				}
+				iUint, conversionErr := checked.Convert[uint](i)
+				if conversionErr != nil {
+					return nil, conversionErr
+				}
+				if receipt.BlockHash != record.Hash || receipt.BlockNumber == nil || !receipt.BlockNumber.IsUint64() || receipt.BlockNumber.Uint64() != fromUint642 || receipt.TransactionIndex != iUint || receipt.TxHash != common.HexToHash(tx.Hash) {
 					return nil, sourceError(IntegrityError, e.id, nil)
 				}
 				receipts = append(receipts, &receipt)
 				for _, l := range receipt.Logs {
-					if l != nil && (l.BlockHash != record.Hash || l.BlockNumber != uint64(from) || l.TxHash != receipt.TxHash || l.TxIndex != uint(i) || l.Index != nextIndex || l.Removed || len(l.Topics) > 4 || len(l.Data) > 64<<10) { //nolint:gosec // persisted chain value uses the existing unsigned protocol representation
+					fromUint643, conversionErr := checked.Convert[uint64](from)
+					if conversionErr != nil {
+						return nil, conversionErr
+					}
+					iUint2, conversionErr := checked.Convert[uint](i)
+					if conversionErr != nil {
+						return nil, conversionErr
+					}
+					if l != nil && (l.BlockHash != record.Hash || l.BlockNumber != fromUint643 || l.TxHash != receipt.TxHash || l.TxIndex != iUint2 || l.Index != nextIndex || l.Removed || len(l.Topics) > 4 || len(l.Data) > 64<<10) {
 						return nil, sourceError(IntegrityError, e.id, nil)
 					}
 					if l != nil {
@@ -1295,9 +1398,17 @@ func (s *CommittedSource) logs(ctx context.Context, e *committedEndpoint, from, 
 			return nil, sourceError(IncompleteError, e.id, nil)
 		}
 		l.BlockNumber = blockNumber
-		l.Index = uint(logIndex)
+		logIndexUint, conversionErr := checked.Convert[uint](logIndex)
+		if conversionErr != nil {
+			return nil, conversionErr
+		}
+		l.Index = logIndexUint
 		l.BlockHash = common.HexToHash(w.BlockHash)
-		l.TxIndex = uint(tx)
+		txUint, conversionErr := checked.Convert[uint](tx)
+		if conversionErr != nil {
+			return nil, conversionErr
+		}
+		l.TxIndex = txUint
 		logs = append(logs, l)
 	}
 	return logs, nil

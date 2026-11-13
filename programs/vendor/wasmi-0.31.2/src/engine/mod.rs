@@ -126,6 +126,13 @@ impl Engine {
         Arc::ptr_eq(&a.inner, &b.inner)
     }
 
+    /// Restores a replay snapshot and executes until the next boundary, return or trap.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the engine or fuel mode is incompatible, the snapshot
+    /// cannot be restored, the restored state differs, an observer limit is
+    /// exceeded or execution does not produce the expected transition.
     pub fn execute_step<T>(
         &self,
         mut replay: crate::ExecutionReplayContext<'_, T>,
@@ -1303,7 +1310,7 @@ mod replay_step_tests {
                     Some(crate::ExecutionObserverError::SnapshotLimitExceeded)
                 );
                 let count = store.execution_observer_retained_snapshots().unwrap();
-                assert!(count >= 2 && count < 128);
+                assert!((2..128).contains(&count));
                 assert_eq!(
                     admissions.load(Ordering::SeqCst),
                     count,

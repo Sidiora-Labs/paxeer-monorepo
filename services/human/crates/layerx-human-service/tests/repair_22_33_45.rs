@@ -36,7 +36,8 @@ fn unhex(text: &str) -> Vec<u8> {
         .as_bytes()
         .chunks_exact(2)
         .map(|pair| {
-            u8::from_str_radix(std::str::from_utf8(pair).expect("hex text"), 16).expect("hex byte")
+            u8::from_str_radix(std::str::from_utf8(pair).or_fail("hex text"), 16)
+                .or_fail("hex byte")
         })
         .collect()
 }
@@ -44,7 +45,7 @@ fn hex(bytes: &[u8]) -> String {
     use std::fmt::Write as _;
     let mut text = String::from("0x");
     for byte in bytes {
-        write!(text, "{byte:02x}").expect("hex output");
+        write!(text, "{byte:02x}").or_fail("hex output");
     }
     text
 }
@@ -52,26 +53,31 @@ fn transcript() -> Value {
     serde_json::from_str(include_str!(
         "../src/journeys/repair_22_31_153_transcript.json"
     ))
-    .expect("committed node/sequencer and Comet producer transcript")
+    .unwrap_or_else(|error| {
+        panic!(
+            "{}: {error:?}",
+            "committed node/sequencer and Comet producer transcript"
+        )
+    })
 }
 fn keys() -> Vec<ReceiptKeyEntry> {
     let document = transcript();
     let key = &document["key"];
     vec![ReceiptKeyEntry {
-        key_id: unhex(key["keyId"].as_str().expect("key id"))
+        key_id: unhex(key["keyId"].as_str().or_fail("key id"))
             .try_into()
-            .expect("key id width"),
-        public_key: unhex(key["publicKey"].as_str().expect("public key"))
+            .or_fail("key id width"),
+        public_key: unhex(key["publicKey"].as_str().or_fail("public key"))
             .try_into()
-            .expect("key width"),
-        first_height: key["firstHeight"].as_u64().expect("first height"),
-        last_height: key["lastHeight"].as_u64().expect("last height"),
+            .or_fail("key width"),
+        first_height: key["firstHeight"].as_u64().or_fail("first height"),
+        last_height: key["lastHeight"].as_u64().or_fail("last height"),
     }]
 }
 fn sender() -> [u8; 20] {
-    unhex(transcript()["sender"].as_str().expect("recorded sender"))
+    unhex(transcript()["sender"].as_str().or_fail("recorded sender"))
         .try_into()
-        .expect("sender width")
+        .or_fail("sender width")
 }
 struct RpcPeer {
     endpoint: SequencerEndpoint,
@@ -81,15 +87,15 @@ struct RpcPeer {
 }
 impl RpcPeer {
     fn start(answer: impl Fn(&Value) -> Value + Send + 'static) -> Self {
-        let listener = TcpListener::bind("127.0.0.1:0").expect("loopback RPC");
+        let listener = TcpListener::bind("127.0.0.1:0").or_fail("loopback RPC");
         listener
             .set_nonblocking(true)
-            .expect("nonblocking listener");
+            .or_fail("nonblocking listener");
         let endpoint = SequencerEndpoint::new(
-            &format!("http://{}/", listener.local_addr().expect("address")),
+            &format!("http://{}/", listener.local_addr().or_fail("address")),
             &[],
         )
-        .expect("production client");
+        .or_fail("production client");
         let stop = Arc::new(AtomicBool::new(false));
         let shutdown = stop.clone();
         let calls = Arc::new(Mutex::new(Vec::new()));
@@ -106,33 +112,33 @@ impl RpcPeer {
                 };
                 stream
                     .set_read_timeout(Some(Duration::from_secs(3)))
-                    .expect("bounded socket");
+                    .or_fail("bounded socket");
                 let mut reader = BufReader::new(stream);
                 let mut length = None;
                 loop {
                     let mut line = String::new();
-                    assert_ne!(reader.read_line(&mut line).expect("HTTP header"), 0);
+                    assert_ne!(reader.read_line(&mut line).or_fail("HTTP header"), 0);
                     if line == "\r\n" {
                         break;
                     }
                     if let Some(value) = line.to_ascii_lowercase().strip_prefix("content-length:") {
-                        length = Some(value.trim().parse::<usize>().expect("length"));
+                        length = Some(value.trim().parse::<usize>().or_fail("length"));
                     }
                 }
-                let mut body = vec![0; length.expect("content length")];
+                let mut body = vec![0; length.or_fail("content length")];
                 assert!(body.len() <= 65_536);
-                reader.read_exact(&mut body).expect("RPC body");
-                let request: Value = serde_json::from_slice(&body).expect("RPC JSON");
+                reader.read_exact(&mut body).or_fail("RPC body");
+                let request: Value = serde_json::from_slice(&body).or_fail("RPC JSON");
                 let result = answer(&request);
                 observed
                     .lock()
-                    .expect("call inventory")
+                    .or_fail("call inventory")
                     .push(request.clone());
                 let body =
                     json!({"jsonrpc":"2.0", "id":request["id"], "result":result}).to_string();
                 let mut stream = reader.into_inner();
-                write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len()).expect("response");
-                stream.flush().expect("flush");
+                write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len()).or_fail("response");
+                stream.flush().or_fail("flush");
             }
         });
         Self {
@@ -146,7 +152,7 @@ impl RpcPeer {
         let document = transcript();
         Self::start(move |request| {
             let record = &document["records"][0];
-            match request["method"].as_str().expect("method") {
+            match request["method"].as_str().or_fail("method") {
                 "pax_sequencerReceipt" => {
                     assert_eq!(request["params"][0], record["view"]["txHash"]);
                     record["view"].clone()
@@ -171,9 +177,9 @@ impl Drop for RpcPeer {
         self.stop.store(true, Ordering::Release);
         self.worker
             .take()
-            .expect("worker")
+            .or_fail("worker")
             .join()
-            .expect("RPC peer thread");
+            .or_fail("RPC peer thread");
     }
 }
 
@@ -181,22 +187,22 @@ fn commit_proof() -> BankCommitEvidence {
     let document = transcript();
     let record = &document["records"][0];
     let proof = &record["proof"];
-    let batch = unhex(record["batch"].as_str().expect("signed batch"));
+    let batch = unhex(record["batch"].as_str().or_fail("signed batch"));
     let mut leaf = b"LXAR\x01".to_vec();
     leaf.extend(
         proof["total"]
             .as_str()
-            .expect("total")
+            .or_fail("total")
             .parse::<i64>()
-            .expect("total integer")
+            .or_fail("total integer")
             .to_be_bytes(),
     );
     leaf.extend(
         proof["index"]
             .as_str()
-            .expect("index")
+            .or_fail("index")
             .parse::<i64>()
-            .expect("index integer")
+            .or_fail("index integer")
             .to_be_bytes(),
     );
     leaf.extend(Sha256::digest(&batch));
@@ -204,27 +210,27 @@ fn commit_proof() -> BankCommitEvidence {
     fields.extend(
         proof["aunts"]
             .as_array()
-            .expect("aunts")
+            .or_fail("aunts")
             .iter()
             .map(|aunt| {
                 base64::engine::general_purpose::STANDARD
-                    .decode(aunt.as_str().expect("aunt"))
-                    .expect("base64 proof")
+                    .decode(aunt.as_str().or_fail("aunt"))
+                    .or_fail("base64 proof")
             }),
     );
     BankCommitEvidence {
         chain_id: record["material"]["signedHeader"]["header"]["chain_id"]
             .as_str()
-            .expect("chain")
+            .or_fail("chain")
             .to_owned(),
         trusted_validators: record["validators"].clone(),
         committed_header: record["material"]["signedHeader"].clone(),
-        covering_height: record["height"].as_u64().expect("height"),
+        covering_height: record["height"].as_u64().or_fail("height"),
         batch_transaction: batch,
         transaction_proof: fields,
-        activity_ids: vec![unhex(record["view"]["txHash"].as_str().expect("hash"))
+        activity_ids: vec![unhex(record["view"]["txHash"].as_str().or_fail("hash"))
             .try_into()
-            .expect("hash width")],
+            .or_fail("hash width")],
     }
 }
 
@@ -238,7 +244,7 @@ fn doc_13_native_bank_call_uses_the_sender_pending_nonce() {
     let nonce = node
         .endpoint
         .pending_nonce(&sender())
-        .expect("real pending-nonce client");
+        .or_fail("real pending-nonce client");
     let request = RouteRequest {
         source: Endpoint::PaxeerWallet,
         destination: Endpoint::PaxeerWallet,
@@ -255,8 +261,8 @@ fn doc_13_native_bank_call_uses_the_sender_pending_nonce() {
                     PublicKey::new([0x11; 32]),
                     AuthorizationSignature::new([0x22; 64]),
                 ),
-                network_id: NetworkId::new(125).expect("network"),
-                protocol_version: ProtocolVersion::new(3).expect("protocol"),
+                network_id: NetworkId::new(125).or_fail("network"),
+                protocol_version: ProtocolVersion::new(3).or_fail("protocol"),
             },
             pointer: EvmAddress::new(BANK_ADDRESS),
             denom: "uhpx".to_owned(),
@@ -268,7 +274,7 @@ fn doc_13_native_bank_call_uses_the_sender_pending_nonce() {
         asset: AssetId::new(Sha256::digest(b"uhpx").into()),
         amount: Amount::from_u128(90),
     };
-    let route = RouteResolver::resolve(&request).expect("production bank call producer");
+    let route = RouteResolver::resolve(&request).or_fail("production bank call producer");
     let [call] = route.bank_transfers() else {
         panic!("exactly one native call")
     };
@@ -282,9 +288,9 @@ fn doc_13_native_bank_call_uses_the_sender_pending_nonce() {
     );
     let mut amount = [0; 32];
     amount[31] = 90;
-    let disclosure = bind_call(call, sender()).expect("production signing consumer");
+    let disclosure = bind_call(call, sender()).or_fail("production signing consumer");
     assert_eq!(
-        disclosure.construct_method().expect("bank ABI"),
+        disclosure.construct_method().or_fail("bank ABI"),
         Some(ConstructMethod::BankSend {
             from: sender(),
             to: [0x22; 20],
@@ -295,15 +301,15 @@ fn doc_13_native_bank_call_uses_the_sender_pending_nonce() {
     let secret = unhex(
         transcript()["secret"]
             .as_str()
-            .expect("synthetic recorded key"),
+            .or_fail("synthetic recorded key"),
     );
     let raw = call
-        .sign(&secret.try_into().expect("key width"))
-        .expect("real signing");
-    let (decoded, signature) = decode_signed(&raw).expect("real transaction consumer");
+        .sign(&secret.try_into().or_fail("key width"))
+        .or_fail("real signing");
+    let (decoded, signature) = decode_signed(&raw).or_fail("real transaction consumer");
     assert_eq!(decoded, *call);
     assert_eq!(
-        recover_sender(&decoded, &signature).expect("recover sender"),
+        recover_sender(&decoded, &signature).or_fail("recover sender"),
         sender()
     );
     assert_eq!(
@@ -312,7 +318,7 @@ fn doc_13_native_bank_call_uses_the_sender_pending_nonce() {
         "canonical zero-value type-2 envelope"
     );
     assert_eq!(raw.first(), Some(&2));
-    assert_eq!(node.calls.lock().expect("calls").len(), 1);
+    assert_eq!(node.calls.lock().or_fail("calls").len(), 1);
     for text in [
         "pending nonce",
         "eth_getTransactionCount",
@@ -335,7 +341,7 @@ fn doc_13_committed_receipt_requires_batch_quorum_and_inclusion() {
     let raw = unhex(
         document["records"][0]["raw"]
             .as_str()
-            .expect("recorded signed transaction"),
+            .or_fail("recorded signed transaction"),
     );
     let hash = transaction_hash(&raw);
     let Lookup::Verified(receipted) = lookup_authenticated(
@@ -345,24 +351,24 @@ fn doc_13_committed_receipt_requires_batch_quorum_and_inclusion() {
             receipt_keys: &keys(),
         },
     )
-    .expect("real receipt transport and authentication") else {
+    .or_fail("real receipt transport and authentication") else {
         panic!("signed producer receipt")
     };
     assert_eq!(receipted.rung(), Rung::Receipted);
     let mut leg = MoveLegExecution::new(
         [0x31; 32],
-        AgentDid::new("did:layerx:alice").expect("actor"),
-        AuthorityRef::new("custody-human-primary").expect("authority"),
-        document["nonce"].as_u64().expect("nonce"),
+        AgentDid::new("did:layerx:alice").or_fail("actor"),
+        AuthorityRef::new("custody-human-primary").or_fail("authority"),
+        document["nonce"].as_u64().or_fail("nonce"),
         0,
         u64::MAX,
         1_000_000_000_000_000_000,
     )
-    .expect("production receipt consumer");
+    .or_fail("production receipt consumer");
     assert!(!leg.complete());
     assert!(!leg.finalised());
     leg.complete_from_receipt(hash, &receipted)
-        .expect("matching receipted execution");
+        .or_fail("matching receipted execution");
     assert!(leg.complete());
     assert!(
         !leg.finalised(),
@@ -371,7 +377,12 @@ fn doc_13_committed_receipt_requires_batch_quorum_and_inclusion() {
     let proof = commit_proof();
     let committed = proof
         .authenticate(&node.endpoint, hash, &keys())
-        .expect("real batch, quorum and inclusion verification");
+        .unwrap_or_else(|error| {
+            panic!(
+                "{}: {error:?}",
+                "real batch, quorum and inclusion verification"
+            )
+        });
     assert_eq!(committed.rung(), Rung::Committed);
     assert_eq!(
         committed.receipt().canonical_bytes(),
@@ -402,7 +413,7 @@ fn doc_13_committed_receipt_requires_batch_quorum_and_inclusion() {
         assert!(
             node.calls
                 .lock()
-                .expect("calls")
+                .or_fail("calls")
                 .iter()
                 .any(|call| call["method"] == method),
             "real receipt path must call {method}"
@@ -426,7 +437,7 @@ fn doc_13_committed_receipt_requires_batch_quorum_and_inclusion() {
 
 #[test]
 fn doc_13_settings_targets_and_retirement_match_production() {
-    let schema = ApiSchema::v1().expect("real executable operation inventory");
+    let schema = ApiSchema::v1().or_fail("real executable operation inventory");
     for name in [
         "binding.statement",
         "binding.submit",
@@ -442,13 +453,13 @@ fn doc_13_settings_targets_and_retirement_match_production() {
     ] {
         assert!(schema
             .operation(name)
-            .expect("retained compatibility operation")
+            .or_fail("retained compatibility operation")
             .retired());
     }
     for name in ["move.quote", "move.commit"] {
         let operation = schema
             .operation(name)
-            .expect("active bank transfer operation");
+            .or_fail("active bank transfer operation");
         assert!(!operation.retired());
         assert!(README.contains(&format!("{} {}", operation.method, operation.path)));
     }
@@ -516,4 +527,10 @@ fn doc_13_settings_targets_and_retirement_match_production() {
         );
         assert!(README.contains(&format!("cargo test --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --test {target}")));
     }
+}
+
+use crate::require_value::RequireValue as _;
+
+pub mod require_value {
+    include!("support/require_value.rs");
 }

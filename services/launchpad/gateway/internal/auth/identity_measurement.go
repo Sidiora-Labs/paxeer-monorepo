@@ -508,6 +508,10 @@ func RunIdentityMeasurement(ctx context.Context, c IdentityMeasurementConfig) (I
 		count := int64(phase.Duration) * int64(phase.SignInRefreshRPS) / (int64(time.Second) * int64(c.RefreshesPerLogin+1))
 		window.OfferedJourneys = count
 		for index := int64(0); index < count; index++ {
+			if ctx.Err() != nil {
+				r.recordFailure(phase, "workload_canceled")
+				break
+			}
 			due := start.Add(time.Duration(index) * time.Second * time.Duration(c.RefreshesPerLogin+1) / time.Duration(phase.SignInRefreshRPS))
 			timer := time.NewTimer(max(time.Duration(0), time.Until(due)))
 			select {
@@ -517,6 +521,10 @@ func RunIdentityMeasurement(ctx context.Context, c IdentityMeasurementConfig) (I
 				index = count
 				continue
 			case <-timer.C:
+			}
+			if ctx.Err() != nil {
+				r.recordFailure(phase, "workload_canceled")
+				break
 			}
 			select {
 			case jobs <- work{due, int(index % int64(len(c.Clients)))}:

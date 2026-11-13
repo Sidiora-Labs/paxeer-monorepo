@@ -61,10 +61,7 @@ use crate::{
         REPLAY_CONFLICT, ROLE_CONFLICT, UNAUTHORIZED, UNKNOWN_OPERATION, WRONG_CONFIG, WRONG_EPOCH,
         WRONG_MARKET, WRONG_PHASE, WRONG_ROSTER,
     },
-    evaluators::{
-        authority::{self, split_identity_section, SnapshotContext},
-        model::GrantStatus,
-    },
+    evaluators::authority::{self, split_identity_section, SnapshotContext},
     policy::TaskPolicyV1,
     registry::{check_f01_capacity, market_clock, MarketHeader},
     registry_ops::{
@@ -190,17 +187,22 @@ impl ParticipantJournal {
         let height = r.u64()?;
         let cursors = r.u32()?;
         let cursor = (cursors >> 16) as u16;
-        let count = cursors as u16;
+        let count = (cursors & 0xffff) as u16;
         let counts = r.u16()?;
         let observed = (counts >> 8) as u8;
-        let covered = counts as u8;
+        let covered = counts.to_le_bytes()[0];
         let config = r.u64()?;
         let roster = RosterDigest::new(r.fixed()?)?;
         if count == 0
             || count > 32
             || cursor == 0
             || cursor >= count
-            || cursor % crate::aggregation::participant_chunk_size(usize::from(count)) as u16 != 0
+            || !cursor.is_multiple_of(
+                u16::try_from(crate::aggregation::participant_chunk_size(usize::from(
+                    count,
+                )))
+                .map_err(|_| crate::errors::CAPACITY)?,
+            )
             || observed > cursor as u8
             || covered > cursor as u8
             || height == 0
@@ -284,12 +286,15 @@ impl CapturedRoster {
         }
         Ok(())
     }
+    #[must_use]
     pub fn workers(&self) -> &[WorkerRosterEntry] {
         self.workers.guest_index(..self.worker_count)
     }
+    #[must_use]
     pub fn evaluators(&self) -> &[EvaluatorRosterEntry] {
         self.evaluators.guest_index(..self.evaluator_count)
     }
+    #[must_use]
     pub fn view(&self) -> Roster<'_> {
         Roster {
             market: self.binding.market,
@@ -304,16 +309,18 @@ impl CapturedRoster {
 /// Reads F08 epoch presence and cross-checks the F03 immutable snapshot against F06.
 /// Missing or disagreeing opening producers refuse instead of inventing a live roster.
 #[cfg_attr(target_arch = "wasm32", inline(never))]
+/// # Errors
+/// Returns an error if the requested operation cannot be completed.
 pub fn captured_roster(state: &SharedState<'_>) -> CodecResult<Option<CapturedRoster>> {
     if opening_pending(&PolicySection::decode(
         state.section(Section::PolicyLifecycle)?,
     )?) {
         return Ok(None);
     }
-    let (_, table) = split_joint(*state.feature_sections.guest_index(ADMISSION))?;
+    let (_, table) = split_joint(state.feature_sections.guest_index(ADMISSION))?;
     let admission = AdmissionTable::decode(table)?;
     let region = authority::evaluator_region(
-        *state
+        state
             .feature_sections
             .guest_index(Section::IdentityRoster.index()),
     )?;
@@ -339,7 +346,7 @@ pub fn captured_roster(state: &SharedState<'_>) -> CodecResult<Option<CapturedRo
     snapshot.workers().next().ok_or(WRONG_ROSTER)?;
     snapshot.entries().next().ok_or(WRONG_ROSTER)?;
     let policy = PolicySection::decode(
-        *state
+        state
             .feature_sections
             .guest_index(Section::PolicyLifecycle.index()),
     )?;
@@ -381,7 +388,7 @@ pub(crate) fn committed_roster_sections(
         return Err(WRONG_ROSTER);
     }
     let rewards = crate::rewards::committed_row(settlement, epoch)?;
-    capture_snapshot(&policy, &snapshot, rewards.row, rewards.dictionary)
+    capture_snapshot(&policy, &snapshot, &rewards.row, rewards.dictionary)
 }
 
 /// The same immutable-roster checks using sections already validated by the caller.
@@ -396,7 +403,7 @@ pub(crate) fn captured_roster_with(
         admission,
         policy,
         region,
-        rewards.row(epoch)?,
+        &rewards.row(epoch)?,
         rewards.dictionary(),
     )
 }
@@ -405,10 +412,12 @@ pub(crate) fn captured_roster_row(
     admission: &AdmissionTable,
     policy: &PolicySection<'_>,
     region: &authority::EvaluatorRegion,
-    row: RewardEpoch,
+    row: &RewardEpoch,
     dictionary: crate::rewards::RecipientDictionary<'_>,
 ) -> CodecResult<CapturedRoster> {
-    let roster = committed_roster_row(admission, policy, region, row, dictionary)?;
+    let row = *row;
+
+    let roster = committed_roster_row(admission, policy, region, &row, dictionary)?;
     if codec::roster_digest(&roster.view())? != roster.binding.roster {
         return Err(WRONG_ROSTER);
     }
@@ -423,9 +432,11 @@ pub(crate) fn committed_roster_row(
     admission: &AdmissionTable,
     policy: &PolicySection<'_>,
     region: &authority::EvaluatorRegion,
-    row: RewardEpoch,
+    row: &RewardEpoch,
     dictionary: crate::rewards::RecipientDictionary<'_>,
 ) -> CodecResult<CapturedRoster> {
+    let row = *row;
+
     let epoch = admission.current_epoch().ok_or(WRONG_ROSTER)?;
     if row.epoch != epoch {
         return Err(WRONG_ROSTER);
@@ -434,16 +445,18 @@ pub(crate) fn committed_roster_row(
         .snapshot()
         .filter(|s| s.epoch == epoch)
         .ok_or(WRONG_ROSTER)?;
-    capture_snapshot(policy, snapshot, row, dictionary)
+    capture_snapshot(policy, snapshot, &row, dictionary)
 }
 
 #[cfg_attr(target_arch = "wasm32", inline(never))]
 fn capture_snapshot(
     policy: &PolicySection<'_>,
     snapshot: &authority::Snapshot,
-    row: RewardEpoch,
+    row: &RewardEpoch,
     dictionary: crate::rewards::RecipientDictionary<'_>,
 ) -> CodecResult<CapturedRoster> {
+    let row = *row;
+
     let epoch = snapshot.epoch;
     if row.epoch != epoch {
         return Err(WRONG_ROSTER);
@@ -516,7 +529,7 @@ pub struct Activated {
 fn committed(current: &[u8]) -> CodecResult<(SharedState<'_>, PolicySection<'_>)> {
     let state = decode_shared_state(current)?;
     let section = PolicySection::decode(
-        *state
+        state
             .feature_sections
             .guest_index(Section::PolicyLifecycle.index()),
     )?;
@@ -635,15 +648,6 @@ fn worker_roster(
     }
     // AdmissionTable's canonical worker ordering is retained by this projection.
     Ok((roster, count))
-}
-
-#[cfg_attr(target_arch = "wasm32", inline(never))]
-fn evaluator_roster(
-    identity: &[u8],
-    epoch: u64,
-) -> CodecResult<([EvaluatorRosterEntry; MAX_EVALUATORS], usize)> {
-    let region = authority::evaluator_region(identity)?;
-    evaluator_roster_snapshot(&region, epoch)
 }
 
 #[cfg_attr(target_arch = "wasm32", inline(never))]
@@ -771,7 +775,7 @@ fn freeze(
             epoch,
             approved_rubric: selected.current.commitments.rubric,
             workers: frozen_workers,
-            admission: &admission,
+            admission,
         },
         identity_out,
     )?;
@@ -825,16 +829,14 @@ fn compose(
     scratch: &mut [u8],
 ) -> CodecResult<Composed> {
     let (state, section) = committed(current)?;
-    let (_, table) = split_joint(*state.feature_sections.guest_index(ADMISSION))?;
+    let (_, table) = split_joint(state.feature_sections.guest_index(ADMISSION))?;
     compose_sections(
         &crate::state::SectionReader::new(current)?,
         &section,
-        AdmissionTable::decode(table)?,
+        &AdmissionTable::decode(table)?,
         roster::reward_state,
         false,
-        height,
-        next,
-        scratch,
+        (height, next, scratch),
     )
 }
 
@@ -842,13 +844,15 @@ fn compose(
 fn compose_sections(
     reader: &crate::state::SectionReader<'_>,
     section: &PolicySection<'_>,
-    admission: AdmissionTable,
+    admission: &AdmissionTable,
     read_rewards: for<'a> fn(&'a [u8], &MarketHeader) -> CodecResult<Option<RewardState<'a>>>,
     chunked: bool,
-    height: u64,
-    next: &mut [u8],
-    scratch: &mut [u8],
+    context: (u64, &mut [u8], &mut [u8]),
 ) -> CodecResult<Composed> {
+    let admission = *admission;
+
+    let (height, next, scratch) = context;
+
     let current_revision = reader.revision();
     let epoch = opening_epoch(&section.header, height)?;
     let pending = if opening_pending(section) {
@@ -863,7 +867,7 @@ fn compose_sections(
     if pending.as_ref().is_some_and(|(p, _)| p.epoch != epoch) {
         return Err(WRONG_EPOCH);
     }
-    let (selected, policy_activated) = select_policy(&section, epoch)?;
+    let (selected, policy_activated) = select_policy(section, epoch)?;
     if admission
         .current_epoch()
         .is_some_and(|previous| epoch <= previous)
@@ -886,9 +890,7 @@ fn compose_sections(
     let (_, rest) = rest.split_at_mut_checked(CONTROL_CAP).ok_or(CAPACITY)?;
     let (_, joint_out) = rest.split_at_mut_checked(MAX_STATE_BYTES).ok_or(CAPACITY)?;
     let (opened, rolled, admission, workers) =
-        roster::rollover_roster_framed(reader, &section.header, admission, rewards, height, work)?;
-    let settlement = reader.section(Section::SettlementClaims);
-
+        roster::rollover_roster_framed(reader, &section.header, &admission, rewards, height, work)?;
     let sections = core::array::from_fn(|i| rolled.sections[i]);
     let frozen = freeze(
         &sections,
@@ -899,171 +901,56 @@ fn compose_sections(
         height,
         identity_out,
     )?;
-    let joint = reader.section(Section::ReputationAdmission);
-    let table = crate::reputation_transition::framed_admission_table(joint)?;
-    let original = joint.guest_index(..joint.len() - table.len());
-    let count = frozen.worker_count.max(if original.is_empty() {
-        0
-    } else {
-        usize::from(*original.get(6).ok_or(NON_CANONICAL)?)
-    });
-    if count > MAX_WORKERS {
-        return Err(CAPACITY);
-    }
-    let start = usize::from(pending.as_ref().map_or(0, |(p, _)| p.cursor));
-    let end = if chunked {
-        (start + crate::aggregation::participant_chunk_size(count)).min(count)
-    } else {
-        count
-    };
-    if pending.as_ref().is_some_and(|(p, _)| {
-        p.config != selected.header.active_config_version
-            || p.roster != frozen.digest
-            || usize::from(p.count) != count
-    }) {
-        return Err(WRONG_ROSTER);
-    }
-    // Earlier participant records stay encoded. Only this chunk is decoded,
-    // validated and replaced; the original roster/count bound remains checked.
-    let reputation_len = if original.is_empty() {
-        None
-    } else {
-        let staged = pending.as_ref().map_or(original, |(_, bytes)| *bytes);
-        let worker_reader = workers.ordered();
-        Some(crate::reputation_transition::open_segments_chunk(
-            original,
-            staged,
-            segment_binding(section)?,
-            segment_binding(&selected)?,
-            frozen.workers(),
-            |worker| {
-                Ok(
-                    !matches!(worker_reader.get(worker)?, Some(r) if r.state != WorkerState::Retired),
-                )
-            },
-            height,
-            start,
-            end,
-            joint_out,
-        )?)
-    };
-    let binding = Frozen {
-        epoch,
-        previous: opened.previous,
-        skipped: opened.skipped,
-        config: Version::new(selected.header.active_config_version)?,
-        policy: selected.current.digest()?,
-        policy_activated,
-        roster: frozen.digest,
-        budget: epoch_budget(
-            &selected.current,
-            rewards.ok_or(READINESS_BLOCKED)?.ledger()?.free,
-        )?,
-        workers: u8::try_from(frozen.worker_count).map_err(|_| ARITHMETIC)?,
-        evaluators: u8::try_from(frozen.evaluator_count).map_err(|_| ARITHMETIC)?,
-    };
+    let (reputation_len, end, count) = prepare_opening_reputation(
+        reader,
+        section,
+        &selected,
+        &frozen,
+        &workers,
+        pending.as_ref(),
+        (height, chunked, joint_out),
+    )?;
+    let binding = opening_binding(
+        &selected,
+        &frozen,
+        &opened,
+        rewards.as_ref(),
+        (epoch, policy_activated),
+    )?;
     let revision = current_revision.checked_add(1).ok_or(ARITHMETIC)?;
     if end < count {
-        // Validate the task reset before the first durable partial opening.
-        if pending.is_none() {
-            tasks::region_after_open(selected.task_region)?;
-        }
-        let journal = ParticipantJournal {
-            epoch,
-            height,
-            cursor: end as u16,
-            count: count as u16,
-            observed: 0,
-            covered: 0,
-            config: selected.header.active_config_version,
-            roster: frozen.digest,
-            state: None,
-        };
-        let mut journal_len = journal.encode(journal_out)?;
-        if let Some(len) = reputation_len {
-            journal_out
-                .get_mut(journal_len..journal_len + len)
-                .ok_or(CAPACITY)?
-                .guest_copy_from_slice(joint_out.guest_index(..len));
-            journal_len += len;
-        }
-        let mut policy = *section;
-        policy.header.state_revision = revision;
-        policy.task_region = &journal_out[..journal_len];
-        let policy_len = policy.encode(policy_out)?;
-        let mut frame = reader.frame();
-        frame.revision = revision;
-        frame.sections[Section::PolicyLifecycle.index()] = &policy_out[..policy_len];
-        let state_len = codec::encode_state(&frame, next)?;
-        return Ok(Composed {
-            frozen: binding,
-            revision,
-            state_len,
-            cursor: end as u16,
-            participant_count: count as u16,
-        });
+        return persist_opening_journal(
+            reader,
+            section,
+            &selected,
+            &binding,
+            (height, revision, end, count, pending.is_none()),
+            PartialOpeningBuffers {
+                reputation_len,
+                joint: joint_out,
+                journal: journal_out,
+                policy: policy_out,
+                next,
+            },
+        );
     }
-    let (_, settlement_len, reserved) = reserve(
-        settlement,
-        rewards,
-        &selected.current,
-        epoch,
-        frozen.digest,
-        frozen.workers(),
-        height,
-        settlement_out,
-    )?;
-    let admission_next = match reputation_len {
-        None => *sections.guest_index(ADMISSION),
-        Some(len) => {
-            let len =
-                crate::reputation_transition::prune_opened_history(joint_out, len, |epoch| {
-                    match reserved.row(epoch) {
-                        Ok(_) => Ok(true),
-                        Err(NOT_FOUND) => Ok(false),
-                        Err(error) => Err(error),
-                    }
-                })?;
-            let table = crate::reputation_transition::framed_admission_table(
-                *sections.guest_index(ADMISSION),
-            )?;
-            crate::reputation::check_storage_budget(len, table.len(), 0)?;
-            joint_out
-                .get_mut(len..len + table.len())
-                .ok_or(CAPACITY)?
-                .guest_copy_from_slice(table);
-            joint_out.get(..len + table.len()).ok_or(CAPACITY)?
-        }
-    };
-    let revision = current_revision.checked_add(1).ok_or(ARITHMETIC)?;
-    let mut next_policy = selected;
-    next_policy.task_region = if pending.is_some() {
-        &crate::registry_ops::EMPTY_TASK_REGION
-    } else {
-        tasks::region_after_open(selected.task_region)?
-    };
-    next_policy.header.state_revision = revision;
-    let policy_len = next_policy.encode(policy_out)?;
-    let next_state = codec::StateFrame {
-        revision,
-        sections: [
-            policy_out.guest_index(..policy_len),
-            identity_out.guest_index(..frozen.identity_len),
-            *sections.guest_index(Section::CurrentReports.index()),
-            settlement_out.guest_index(..settlement_len),
-            admission_next,
-            rolled.sections[Section::Control.index()],
-        ],
-    };
-    check_f01_capacity(policy_len, next_state.encoded_len()?)?;
-    let state_len = codec::encode_state(&next_state, next)?;
-    Ok(Composed {
-        frozen: binding,
-        revision,
-        state_len,
-        cursor: count as u16,
-        participant_count: count as u16,
-    })
+    complete_opening(
+        reader,
+        &selected,
+        &frozen,
+        &binding,
+        (height, pending.is_some(), reputation_len, count),
+        &sections,
+        CompleteOpeningBuffers {
+            rewards,
+            settlement: settlement_out,
+            joint: joint_out,
+            policy: policy_out,
+            identity: identity_out,
+            control: rolled.sections[Section::Control.index()],
+            next,
+        },
+    )
 }
 
 /// The binding an `OPEN_EPOCH` at `height` would freeze over `current`, so a keeper can
@@ -1216,12 +1103,10 @@ pub(crate) fn open_epoch_sections(
     let composed = compose_sections(
         sections,
         &section,
-        admission,
+        &admission,
         roster::committed_reward_state,
         true,
-        ctx.height,
-        next,
-        scratch,
+        (ctx.height, next, scratch),
     )?;
     let frozen = composed.frozen;
     if e.config != frozen.config.get() {
@@ -1271,7 +1156,7 @@ fn opened_readiness(
         return Err(INSUFFICIENT_FREE);
     }
     let region = authority::evaluator_region(
-        *state
+        state
             .feature_sections
             .guest_index(Section::IdentityRoster.index()),
     )?;
@@ -1326,7 +1211,7 @@ fn probe(
     let state_len = encode_shared_state(&candidate, next, control_out)?;
     let epoch = work_epoch(&active.header, height)?;
     let admission =
-        AdmissionTable::decode(split_joint(*state.feature_sections.guest_index(ADMISSION))?.1)?;
+        AdmissionTable::decode(split_joint(state.feature_sections.guest_index(ADMISSION))?.1)?;
     let readiness = if admission.current_epoch() == Some(epoch) {
         opened_readiness(&state, &active.current, epoch)?
     } else {
@@ -1464,7 +1349,7 @@ fn with_region<T>(
     update: impl FnOnce(Region, &SharedState<'_>, &SharedState<'_>, &T) -> CodecResult<Region>,
 ) -> CodecResult<(T, Option<usize>)> {
     crate::state::with_shared_state(current, |state| {
-        let (region, table) = split_joint(*state.feature_sections.guest_index(ADMISSION))?;
+        let (region, table) = split_joint(state.feature_sections.guest_index(ADMISSION))?;
         let Some(region) = region else {
             return produce(current, next);
         };
@@ -1496,7 +1381,7 @@ fn with_region<T>(
                 return Err(NON_CANONICAL);
             }
         }
-        let region = update(region, &state, &produced, &value)?;
+        let region = update(region, state, &produced, &value)?;
         let len = encode_joint(&region, table, joint)?;
         let policy_len = produced.feature_sections[Section::PolicyLifecycle.index()].len();
         let state_len = crate::state::replace_encoded_section(
@@ -1542,11 +1427,6 @@ pub fn carry_reputation<T>(
     with_region(current, next, scratch, true, produce, |region, _, _, _| {
         Ok(region)
     })
-}
-
-#[cfg_attr(target_arch = "wasm32", inline(never))]
-fn committed_epoch_row(state: &SharedState<'_>, epoch: u64) -> CodecResult<RewardEpoch> {
-    Ok(crate::rewards::committed_row(state.room_market()?.0, epoch)?.row)
 }
 
 #[cfg_attr(target_arch = "wasm32", inline(never))]
@@ -1649,7 +1529,7 @@ pub(crate) fn stage_finalization(
             epoch: captured.binding.epoch,
             height,
             cursor: 0,
-            count: roster.len() as u16,
+            count: u16::try_from(roster.len()).map_err(|_| crate::errors::CAPACITY)?,
             observed: 0,
             covered: 0,
             config: captured.binding.config.get(),
@@ -1696,20 +1576,24 @@ pub(crate) fn stage_finalization(
                 captured.binding,
                 segment_binding(&section)?,
                 aggregation.root(),
-                journal.height,
-                roster,
-                observations.guest_index(..roster.len()),
-                start,
-                journal.observed,
-                journal.covered,
+                (
+                    journal.height,
+                    roster,
+                    observations.guest_index(..roster.len()),
+                    start,
+                    journal.observed,
+                    journal.covered,
+                ),
             )?;
         journal.state = Some(state);
-        journal.cursor = cursor as u16;
+        journal.cursor = u16::try_from(cursor).map_err(|_| crate::errors::CAPACITY)?;
         journal.observed = observed;
         journal.covered = covered;
     } else {
-        journal.cursor = (start + crate::aggregation::participant_chunk_size(roster.len()))
-            .min(roster.len()) as u16;
+        journal.cursor = u16::try_from(
+            (start + crate::aggregation::participant_chunk_size(roster.len())).min(roster.len()),
+        )
+        .map_err(|_| crate::errors::CAPACITY)?;
     }
     Ok(journal)
 }
@@ -2073,7 +1957,7 @@ pub fn history(
         return Err(WRONG_CONFIG);
     }
     let body = parse_history(e.payload)?;
-    let (region, table) = split_joint(*state.feature_sections.guest_index(ADMISSION))?;
+    let (region, table) = split_joint(state.feature_sections.guest_index(ADMISSION))?;
     let region = region.ok_or(F07_UNKNOWN_WORKER)?;
     let record = *region
         .state
@@ -2150,5 +2034,247 @@ pub fn history(
         result,
         state_len,
         event_len,
+    })
+}
+
+struct PartialOpeningBuffers<'a> {
+    reputation_len: Option<usize>,
+    joint: &'a [u8],
+    journal: &'a mut [u8],
+    policy: &'a mut [u8],
+    next: &'a mut [u8],
+}
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+fn persist_opening_journal(
+    reader: &crate::state::SectionReader<'_>,
+    section: &PolicySection<'_>,
+    selected: &PolicySection<'_>,
+    binding: &Frozen,
+    progress: (u64, u64, usize, usize, bool),
+    buffers: PartialOpeningBuffers<'_>,
+) -> CodecResult<Composed> {
+    let (binding_height, binding_revision, end, count, first_chunk) = progress;
+    let PartialOpeningBuffers {
+        reputation_len,
+        joint: joint_out,
+        journal: journal_out,
+        policy: policy_out,
+        next,
+    } = buffers;
+    // Validate the task reset before the first durable partial opening.
+    if first_chunk {
+        tasks::region_after_open(selected.task_region)?;
+    }
+    let journal = ParticipantJournal {
+        epoch: binding.epoch,
+        height: binding_height,
+        cursor: u16::try_from(end).map_err(|_| crate::errors::CAPACITY)?,
+        count: u16::try_from(count).map_err(|_| crate::errors::CAPACITY)?,
+        observed: 0,
+        covered: 0,
+        config: selected.header.active_config_version,
+        roster: binding.roster,
+        state: None,
+    };
+    let mut journal_len = journal.encode(journal_out)?;
+    if let Some(len) = reputation_len {
+        journal_out
+            .get_mut(journal_len..journal_len + len)
+            .ok_or(CAPACITY)?
+            .guest_copy_from_slice(joint_out.guest_index(..len));
+        journal_len += len;
+    }
+    let mut policy = *section;
+    policy.header.state_revision = binding_revision;
+    policy.task_region = &journal_out[..journal_len];
+    let policy_len = policy.encode(policy_out)?;
+    let mut frame = reader.frame();
+    frame.revision = binding_revision;
+    frame.sections[Section::PolicyLifecycle.index()] = &policy_out[..policy_len];
+    let state_len = codec::encode_state(&frame, next)?;
+    Ok(Composed {
+        frozen: *binding,
+        revision: binding_revision,
+        state_len,
+        cursor: u16::try_from(end).map_err(|_| crate::errors::CAPACITY)?,
+        participant_count: u16::try_from(count).map_err(|_| crate::errors::CAPACITY)?,
+    })
+}
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+fn prepare_opening_reputation(
+    reader: &crate::state::SectionReader<'_>,
+    section: &PolicySection<'_>,
+    selected: &PolicySection<'_>,
+    frozen: &FrozenRoster,
+    workers: &crate::workers::OpeningWorkers<'_>,
+    pending: Option<&(ParticipantJournal, &[u8])>,
+    context: (u64, bool, &mut [u8]),
+) -> CodecResult<(Option<usize>, usize, usize)> {
+    let (height, chunked, joint_out) = context;
+    let joint = reader.section(Section::ReputationAdmission);
+    let table = crate::reputation_transition::framed_admission_table(joint)?;
+    let original = joint.guest_index(..joint.len() - table.len());
+    let count = frozen.worker_count.max(if original.is_empty() {
+        0
+    } else {
+        usize::from(*original.get(6).ok_or(NON_CANONICAL)?)
+    });
+    if count > MAX_WORKERS {
+        return Err(CAPACITY);
+    }
+    let start = usize::from(pending.map_or(0, |(p, _)| p.cursor));
+    let end = if chunked {
+        (start + crate::aggregation::participant_chunk_size(count)).min(count)
+    } else {
+        count
+    };
+    if pending.is_some_and(|(p, _)| {
+        p.config != selected.header.active_config_version
+            || p.roster != frozen.digest
+            || usize::from(p.count) != count
+    }) {
+        return Err(WRONG_ROSTER);
+    }
+    // Earlier participant records stay encoded. Only this chunk is decoded,
+    // validated and replaced; the original roster/count bound remains checked.
+    let reputation_len = if original.is_empty() {
+        None
+    } else {
+        let staged = pending.map_or(original, |(_, bytes)| *bytes);
+        let worker_reader = workers.ordered();
+        Some(crate::reputation_transition::open_segments_chunk(
+            original,
+            staged,
+            segment_binding(section)?,
+            segment_binding(selected)?,
+            frozen.workers(),
+            |worker| {
+                Ok(
+                    !matches!(worker_reader.get(worker)?, Some(r) if r.state != WorkerState::Retired),
+                )
+            },
+            (height, start, end, joint_out),
+        )?)
+    };
+    Ok((reputation_len, end, count))
+}
+
+struct CompleteOpeningBuffers<'a, 'b> {
+    rewards: Option<RewardState<'a>>,
+    settlement: &'b mut [u8],
+    joint: &'b mut [u8],
+    policy: &'b mut [u8],
+    identity: &'b [u8],
+    control: &'b [u8],
+    next: &'b mut [u8],
+}
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+fn complete_opening(
+    reader: &crate::state::SectionReader<'_>,
+    selected: &PolicySection<'_>,
+    frozen: &FrozenRoster,
+    binding: &Frozen,
+    progress: (u64, bool, Option<usize>, usize),
+    sections: &[&[u8]; 5],
+    buffers: CompleteOpeningBuffers<'_, '_>,
+) -> CodecResult<Composed> {
+    let (height, was_pending, reputation_len, count) = progress;
+    let CompleteOpeningBuffers {
+        rewards,
+        settlement: settlement_out,
+        joint: joint_out,
+        policy: policy_out,
+        identity: identity_out,
+        control,
+        next,
+    } = buffers;
+    let (_, settlement_len, reserved) = reserve(
+        reader.section(Section::SettlementClaims),
+        rewards,
+        &selected.current,
+        binding.epoch,
+        frozen.digest,
+        frozen.workers(),
+        height,
+        settlement_out,
+    )?;
+    let admission_next = match reputation_len {
+        None => *sections.guest_index(ADMISSION),
+        Some(len) => {
+            let len =
+                crate::reputation_transition::prune_opened_history(joint_out, len, |epoch| {
+                    match reserved.row(epoch) {
+                        Ok(_) => Ok(true),
+                        Err(NOT_FOUND) => Ok(false),
+                        Err(error) => Err(error),
+                    }
+                })?;
+            let table = crate::reputation_transition::framed_admission_table(
+                sections.guest_index(ADMISSION),
+            )?;
+            crate::reputation::check_storage_budget(len, table.len(), 0)?;
+            joint_out
+                .get_mut(len..len + table.len())
+                .ok_or(CAPACITY)?
+                .guest_copy_from_slice(table);
+            joint_out.get(..len + table.len()).ok_or(CAPACITY)?
+        }
+    };
+    let revision = reader.revision().checked_add(1).ok_or(ARITHMETIC)?;
+    let mut next_policy = *selected;
+    next_policy.task_region = if was_pending {
+        &crate::registry_ops::EMPTY_TASK_REGION
+    } else {
+        tasks::region_after_open(selected.task_region)?
+    };
+    next_policy.header.state_revision = revision;
+    let policy_len = next_policy.encode(policy_out)?;
+    let next_state = codec::StateFrame {
+        revision,
+        sections: [
+            policy_out.guest_index(..policy_len),
+            identity_out.guest_index(..frozen.identity_len),
+            *sections.guest_index(Section::CurrentReports.index()),
+            settlement_out.guest_index(..settlement_len),
+            admission_next,
+            control,
+        ],
+    };
+    check_f01_capacity(policy_len, next_state.encoded_len()?)?;
+    let state_len = codec::encode_state(&next_state, next)?;
+    Ok(Composed {
+        frozen: *binding,
+        revision,
+        state_len,
+        cursor: u16::try_from(count).map_err(|_| crate::errors::CAPACITY)?,
+        participant_count: u16::try_from(count).map_err(|_| crate::errors::CAPACITY)?,
+    })
+}
+
+fn opening_binding(
+    selected: &PolicySection<'_>,
+    frozen: &FrozenRoster,
+    opened: &crate::roster::RosterOpened,
+    rewards: Option<&RewardState<'_>>,
+    epoch: (u64, bool),
+) -> CodecResult<Frozen> {
+    let (epoch, policy_activated) = epoch;
+    Ok(Frozen {
+        epoch,
+        previous: opened.previous,
+        skipped: opened.skipped,
+        config: Version::new(selected.header.active_config_version)?,
+        policy: selected.current.digest()?,
+        policy_activated,
+        roster: frozen.digest,
+        budget: epoch_budget(
+            &selected.current,
+            rewards.ok_or(READINESS_BLOCKED)?.ledger()?.free,
+        )?,
+        workers: u8::try_from(frozen.worker_count).map_err(|_| ARITHMETIC)?,
+        evaluators: u8::try_from(frozen.evaluator_count).map_err(|_| ARITHMETIC)?,
     })
 }

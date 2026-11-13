@@ -20,7 +20,7 @@ pub trait GuestIndex<T> {
 }
 
 impl<T> GuestIndex<T> for [T] {
-    #[inline(always)]
+    #[inline]
     fn guest_index<I: core::slice::SliceIndex<[T]>>(&self, index: I) -> &I::Output {
         #[cfg(target_arch = "wasm32")]
         {
@@ -33,7 +33,7 @@ impl<T> GuestIndex<T> for [T] {
         &self[index]
     }
 
-    #[inline(always)]
+    #[inline]
     fn guest_index_mut<I: core::slice::SliceIndex<[T]>>(&mut self, index: I) -> &mut I::Output {
         #[cfg(target_arch = "wasm32")]
         {
@@ -46,7 +46,7 @@ impl<T> GuestIndex<T> for [T] {
         &mut self[index]
     }
 
-    #[inline(always)]
+    #[inline]
     fn guest_split_at(&self, mid: usize) -> (&[T], &[T]) {
         #[cfg(target_arch = "wasm32")]
         {
@@ -59,7 +59,7 @@ impl<T> GuestIndex<T> for [T] {
         self.split_at(mid)
     }
 
-    #[inline(always)]
+    #[inline]
     fn guest_split_at_mut(&mut self, mid: usize) -> (&mut [T], &mut [T]) {
         #[cfg(target_arch = "wasm32")]
         {
@@ -72,7 +72,7 @@ impl<T> GuestIndex<T> for [T] {
         self.split_at_mut(mid)
     }
 
-    #[inline(always)]
+    #[inline]
     fn guest_copy_from_slice(&mut self, source: &[T])
     where
         T: Copy,
@@ -84,7 +84,7 @@ impl<T> GuestIndex<T> for [T] {
     }
 
     #[cfg_attr(target_arch = "wasm32", inline(never))]
-    #[cfg_attr(not(target_arch = "wasm32"), inline(always))]
+    #[cfg_attr(not(target_arch = "wasm32"), inline)]
     fn guest_copy_within<R: core::ops::RangeBounds<usize>>(&mut self, source: R, dest: usize)
     where
         T: Copy,
@@ -112,7 +112,7 @@ impl<T> GuestIndex<T> for [T] {
         self.copy_within(source, dest);
     }
 
-    #[inline(always)]
+    #[inline]
     fn guest_swap(&mut self, a: usize, b: usize) {
         #[cfg(target_arch = "wasm32")]
         {
@@ -128,7 +128,7 @@ impl<T> GuestIndex<T> for [T] {
         self.swap(a, b);
     }
 
-    #[inline(always)]
+    #[inline]
     fn guest_chunks_exact(&self, size: usize) -> core::slice::ChunksExact<'_, T> {
         #[cfg(target_arch = "wasm32")]
         if size == 0 {
@@ -148,7 +148,7 @@ impl<'a> CheckedIdentityBytes<'a> {
     pub(crate) fn new(bytes: &'a [u8; 32]) -> CodecResult<Self> {
         Self::new_inline(bytes)
     }
-    #[inline(always)]
+    #[inline]
     pub(crate) fn new_inline(bytes: &'a [u8; 32]) -> CodecResult<Self> {
         if identity_is_zero(bytes) {
             Err(NON_CANONICAL)
@@ -169,6 +169,7 @@ pub(crate) trait InitialField {
     fn initial(seed: CheckedIdentityBytes<'_>) -> Self;
 }
 pub(crate) trait CheckedIdentity {
+    fn decode_destination(&mut self) -> &mut [u8; 32];
     fn seed(&self) -> CheckedIdentityBytes<'_>;
 }
 macro_rules! initial_scalar {
@@ -199,7 +200,7 @@ pub(crate) fn identity_equal(left: &[u8; 32], right: &[u8; 32]) -> bool {
     identity_equal_inline(left, right)
 }
 
-#[inline(always)]
+#[inline]
 pub(crate) fn identity_equal_inline(left: &[u8; 32], right: &[u8; 32]) -> bool {
     let left = left.as_chunks::<8>().0;
     let right = right.as_chunks::<8>().0;
@@ -221,13 +222,13 @@ pub(crate) fn identity_order(left: &[u8; 32], right: &[u8; 32]) -> core::cmp::Or
         if different != 0 {
             // Select the first differing byte without swapping both words.
             let shift = different.trailing_zeros() & !7;
-            return ((left >> shift) as u8).cmp(&((right >> shift) as u8));
+            return (left >> shift).to_le_bytes()[0].cmp(&(right >> shift).to_le_bytes()[0]);
         }
     }
     core::cmp::Ordering::Equal
 }
 
-#[inline(always)]
+#[inline]
 fn identity_is_zero(bytes: &[u8; 32]) -> bool {
     let words = bytes.as_chunks::<8>().0;
     u64::from_ne_bytes(words[0])
@@ -257,12 +258,17 @@ macro_rules! identity_comparison {
                 identity_equal(self.as_bytes(), other.as_bytes())
             }
         }
+        impl core::hash::Hash for $name {
+            fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
+                core::hash::Hash::hash(&self.0, state);
+            }
+        }
     };
 }
 
 macro_rules! id32 {
     ($($name:ident),+ $(,)?) => {$ (
-        #[derive(Clone, Copy, Eq, Hash)]
+        #[derive(Clone, Copy, Eq)]
         #[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
         pub struct $name([u8; 32]);
         identity_comparison!($name);
@@ -273,11 +279,11 @@ macro_rules! id32 {
         }
         impl CheckedIdentity for $name {
             fn seed(&self) -> CheckedIdentityBytes<'_> { CheckedIdentityBytes(self.as_bytes()) }
+            fn decode_destination(&mut self) -> &mut [u8; 32] { &mut self.0 }
         }
         impl $name {
             #[inline]
             pub(crate) fn from_checked(bytes: CheckedIdentityBytes<'_>) -> Self { Self(*bytes.bytes()) }
-            pub(crate) fn decode_destination(&mut self) -> &mut [u8; 32] { &mut self.0 }
             /// Builds the identity from its 32 bytes.
             ///
             /// # Errors
@@ -303,7 +309,7 @@ id32!(
     TaskId
 );
 
-#[derive(Clone, Copy, Eq, Hash)]
+#[derive(Clone, Copy, Eq)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct Digest32([u8; 32]);
 identity_comparison!(Digest32);
@@ -314,6 +320,9 @@ impl InitialField for Digest32 {
     }
 }
 impl CheckedIdentity for Digest32 {
+    fn decode_destination(&mut self) -> &mut [u8; 32] {
+        &mut self.0
+    }
     fn seed(&self) -> CheckedIdentityBytes<'_> {
         CheckedIdentityBytes(self.as_bytes())
     }
@@ -322,9 +331,6 @@ impl Digest32 {
     #[inline]
     pub(crate) fn from_checked(bytes: CheckedIdentityBytes<'_>) -> Self {
         Self(*bytes.bytes())
-    }
-    pub(crate) fn decode_destination(&mut self) -> &mut [u8; 32] {
-        &mut self.0
     }
     /// Builds the digest from its 32 bytes.
     ///
@@ -359,11 +365,11 @@ macro_rules! digest {
         }
         impl CheckedIdentity for $name {
             fn seed(&self) -> CheckedIdentityBytes<'_> { CheckedIdentityBytes(self.as_bytes()) }
+            fn decode_destination(&mut self) -> &mut [u8; 32] { &mut self.0.0 }
         }
         impl $name {
             #[inline]
             pub(crate) fn from_checked(bytes: CheckedIdentityBytes<'_>) -> Self { Self(Digest32(*bytes.bytes())) }
-            pub(crate) fn decode_destination(&mut self) -> &mut [u8; 32] { &mut self.0.0 }
             /// Builds the typed digest from its 32 bytes.
             ///
             /// # Errors

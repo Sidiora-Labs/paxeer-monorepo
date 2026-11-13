@@ -91,9 +91,8 @@ fn stored_emergency_exit_audit_record_still_verifies() {
             .unwrap_or_else(|error| panic!("scope: {error}"));
         let mut chain = AuditChain::open_anchored(&scope, expected_head)
             .unwrap_or_else(|error| panic!("verify HEAD records: {error}"));
-        let entries = chain
-            .entries(&scope)
-            .unwrap_or_else(|error| panic!("entries: {error}"));
+        let entries_result = chain.entries(&scope);
+        let entries = entries_result.unwrap_or_else(|e| panic!("entries: {e}"));
         assert_eq!(entries.len(), 3);
         for ((entry, expected), bytes) in entries.iter().zip(retired_events()).zip(&original_bytes)
         {
@@ -103,8 +102,7 @@ fn stored_emergency_exit_audit_record_still_verifies() {
         let bundle = chain
             .export(&scope)
             .unwrap_or_else(|error| panic!("export: {error}"));
-        let report =
-            verify_export(&bundle).unwrap_or_else(|error| panic!("verify export: {error}"));
+        let report = verify_export(&bundle).unwrap_or_else(|e| panic!("verify export: {e}"));
         assert_eq!(report.entries(), 3);
         assert_eq!(report.head(), expected_head);
         chain

@@ -122,6 +122,18 @@ func TestSocketValidationAndOrigins(t *testing.T) {
 		return v
 	}
 	read()
+	if err := conn.WriteMessage(websocket.TextMessage, []byte(`{"type":`)); err != nil {
+		t.Fatal(err)
+	}
+	if response := read(); response["type"] != "error" || response["message"] != "Invalid JSON" {
+		t.Fatalf("malformed subscription command: %+v", response)
+	}
+	if err := conn.WriteJSON(map[string]string{"type": "ping"}); err != nil {
+		t.Fatal(err)
+	}
+	if response := read(); response["type"] != "pong" {
+		t.Fatalf("socket heartbeat response: %+v", response)
+	}
 	for _, pools := range [][]string{{}, make([]string, 21), {"invalid"}} {
 		conn.WriteJSON(map[string]interface{}{"type": "subscribe", "pools": pools, "timeframes": []string{"1m"}})
 		if read()["type"] != "error" {
@@ -143,6 +155,28 @@ func TestSocketValidationAndOrigins(t *testing.T) {
 	conn.WriteJSON(map[string]interface{}{"type": "unsubscribe", "pools": []string{pool}, "timeframes": []string{"1m"}})
 	if read()["type"] != "unsubscribed" {
 		t.Fatal("unsubscribe")
+	}
+	boundedPools := make([]string, 20)
+	for index := range boundedPools {
+		boundedPools[index] = fmt.Sprintf("0x%040x", index+1)
+	}
+	if err := conn.WriteJSON(map[string]interface{}{"type": "subscribe", "pools": boundedPools, "timeframes": []string{"1m"}}); err != nil {
+		t.Fatal(err)
+	}
+	if response := read(); response["type"] != "subscribed" {
+		t.Fatalf("bounded subscriptions: %+v", response)
+	}
+	if err := conn.WriteJSON(map[string]interface{}{"type": "subscribe", "pools": []string{fmt.Sprintf("0x%040x", 21)}, "timeframes": []string{"1m"}}); err != nil {
+		t.Fatal(err)
+	}
+	if response := read(); response["type"] != "error" || response["message"] != "subscription quota exceeded" {
+		t.Fatalf("subscription capacity: %+v", response)
+	}
+	if err := conn.WriteJSON(map[string]interface{}{"type": "unsubscribe", "pools": boundedPools, "timeframes": []string{"1m"}}); err != nil {
+		t.Fatal(err)
+	}
+	if response := read(); response["type"] != "unsubscribed" {
+		t.Fatalf("bounded subscription release: %+v", response)
 	}
 	h.mu.RLock()
 	defer h.mu.RUnlock()

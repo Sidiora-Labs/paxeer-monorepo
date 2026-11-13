@@ -293,7 +293,7 @@ func TestRepair_75_HistorySnapshotReplayConvergeAfterRestart(t *testing.T) {
 }
 
 func TestRepair_75_PromotionRollbackPreservesPublicationAuthority(t *testing.T) {
-	for _, failure := range []string{"missing_publication", "changed_authoritative_fill", "invalid_last_candle", "parity_mismatch", "invalid_manifest", "stale_revision", "frozen_owner"} {
+	for _, failure := range []string{"missing_publication", "changed_authoritative_fill", "invalid_last_candle", "parity_mismatch", "invalid_manifest", "stale_revision", "frozen_owner", "unparseable_staged_fill", "missing_staged_fills", "missing_pool_fence", "invalid_staged_snapshot"} {
 		t.Run(failure, func(t *testing.T) {
 			f := repair75New(t)
 			var alter func([]store.StagedCandle)
@@ -321,6 +321,14 @@ func TestRepair_75_PromotionRollbackPreservesPublicationAuthority(t *testing.T) 
 				repair75Exec(t, f.db, `UPDATE candles.chart_rebuild_runs SET base_revision=0 WHERE run_id='rejected'`)
 			case "frozen_owner":
 				repair75Exec(t, f.db, `UPDATE candles.chart_pool_fences SET frozen=true`)
+			case "unparseable_staged_fill":
+				repair75Exec(t, f.db, `UPDATE candles.chart_rebuild_fills SET payload='"invalid"'::jsonb WHERE source_id=$1`, f.fills[0].SourceFillID)
+			case "missing_staged_fills":
+				repair75Exec(t, f.db, `DROP TABLE candles.chart_rebuild_fills`)
+			case "missing_pool_fence":
+				repair75Exec(t, f.db, `DELETE FROM candles.chart_pool_fences`)
+			case "invalid_staged_snapshot":
+				repair75Exec(t, f.db, `UPDATE candles.chart_rebuild_candles SET snapshot='"invalid"'::jsonb`)
 			}
 			if _, err := f.st.PromoteRebuild(context.Background(), "rejected"); err == nil {
 				t.Fatal("unauthorized promotion succeeded")

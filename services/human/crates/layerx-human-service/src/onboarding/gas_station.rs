@@ -75,12 +75,16 @@ impl GasStationClient {
         Self { upstream }
     }
 
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn from_environment(prefix: &str) -> Result<Self, GasStationError> {
         Upstream::from_environment(prefix)
             .map(Self::new)
             .map_err(|_| GasStationError::Configuration)
     }
 
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn quote_body(request: &QuoteRequest) -> Result<Value, GasStationError> {
         if request.max_token_amount == 0
             || request.calls.len() > 256
@@ -111,6 +115,8 @@ impl GasStationClient {
         }))
     }
 
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn quote(&self, request: &QuoteRequest) -> Result<SignedQuote, GasStationError> {
         let response = self.post("/quote", &Self::quote_body(request)?)?;
         let signed = Self::decode_quote(&response)?;
@@ -124,6 +130,8 @@ impl GasStationClient {
         Ok(signed)
     }
 
+    /// # Errors
+    /// Returns an error if the input cannot be decoded or validated.
     pub fn decode_quote(answer: &Value) -> Result<SignedQuote, GasStationError> {
         let envelope = answer.as_object().ok_or(GasStationError::Malformed)?;
         let quote = envelope
@@ -163,6 +171,8 @@ impl GasStationClient {
         })
     }
 
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn submit(&self, body: &Value) -> Result<Value, GasStationError> {
         check_chain(
             body.get("batch")
@@ -172,6 +182,8 @@ impl GasStationClient {
         self.post("/submit", body)
     }
 
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn status(&self, body: &Value) -> Result<Value, GasStationError> {
         self.post("/status", body)
     }

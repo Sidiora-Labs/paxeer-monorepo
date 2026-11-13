@@ -1,7 +1,8 @@
-//! Audit 22.30.107 regression paths; finding and evidence record: repair_22_33_63.kvx.
+//! Audit 22.30.107 regression paths; finding and evidence record: `repair_22_33_63.kvx`.
 
-#[path = "support/repair_22_33_63_bank.rs"]
-pub mod bank;
+pub mod bank {
+    include!("support/repair_22_33_63_bank.rs");
+}
 #[path = "native_send_nonces.rs"]
 mod native;
 #[path = "support/repair_22_33_63_rotation.rs"]
@@ -43,13 +44,10 @@ fn session_rung_rotation_synthetic_transaction() {
 }
 
 mod clock_regressions {
+    use crate::require_value::RequireValue as _;
     use ed25519_dalek::Signer as _;
     use layerx_agentd::budget::{LimitConfig, LimitId, LimitScope};
-    use layerx_agentd::human::frame::HumanFrameTransport;
-    use layerx_agentd::human::{
-        serve_one, AcceptedTransport, HumanNativeSendOwnerPreviewRequestV1,
-        HumanNativeSendPreviewRequestV1, HumanPrepare, ACCOUNT_SEQUENCE, NATIVE_SEND_PREVIEW_V1,
-    };
+    use layerx_agentd::human::{serve_one, AcceptedTransport, ACCOUNT_SEQUENCE};
     use layerx_agentd::human::{HumanOperations, HumanPeer, HumanSubject};
     use layerx_agentd::human_runtime::{
         HumanAuthorityBoundary, ProductionHumanOperations, RemoteHumanAuthority, SharedAgentOwner,
@@ -65,9 +63,9 @@ mod clock_regressions {
     use layerx_client::paxeer_binding::{Binding, SignedBinding};
     use layerx_client::runtime_clock::{ClockBinding, RuntimeClock};
     use layerx_client::sequencer::SequencerEndpoint;
-    use layerx_crypto::account_derivation::derive_from_seed;
+
     use layerx_types::account::AccountId;
-    use layerx_types::clock::ClockReading;
+    use layerx_types::clock::{Clock as _, ClockReading};
     use layerx_types::clock_protocol;
     use layerx_types::ids::Did;
     use layerx_types::payload::{ActivityType, ModuleId};
@@ -76,16 +74,16 @@ mod clock_regressions {
     use sha2::{Digest as _, Sha256};
     use std::collections::{BTreeMap, BTreeSet};
     use std::fs;
-    use std::io::{BufRead, BufReader, Read, Write};
+    use std::io::{Read, Write};
     use std::net::{TcpListener, TcpStream};
     use std::os::unix::fs::{MetadataExt as _, PermissionsExt as _};
     use std::os::unix::net::{UnixListener, UnixStream};
     use std::path::{Path, PathBuf};
 
-    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+    use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::{Arc, Mutex};
     use std::thread::{self, JoinHandle};
-    use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+    use std::time::Duration;
 
     use base64::Engine as _;
     #[track_caller]
@@ -174,11 +172,19 @@ mod clock_regressions {
                 diagnostic.push_str("; ACCOUNT_SEQUENCE contains only its u64 sequence");
             }
             if frame.get(8) == Some(&1) {
-                let length = u32::from_be_bytes(frame[9..13].try_into().unwrap()) as usize;
-                diagnostic.push_str(&format!(
-                    "; refusal: {}",
-                    must(std::str::from_utf8(&frame[13..13 + length]))
-                ));
+                let length = u32::from_be_bytes(
+                    frame[9..13]
+                        .try_into()
+                        .unwrap_or_else(|error| panic!("unexpected error: {error:?}")),
+                ) as usize;
+                std::fmt::Write::write_fmt(
+                    &mut diagnostic,
+                    format_args!(
+                        "; refusal: {}",
+                        must(std::str::from_utf8(&frame[13..13 + length]))
+                    ),
+                )
+                .unwrap_or_else(|_| unreachable!("writing to String"));
                 eprintln!(
                     "clock regression Human refusal: {}",
                     must(std::str::from_utf8(&frame[13..13 + length]))
@@ -186,12 +192,20 @@ mod clock_regressions {
             } else if self.opcode == Some(67) && frame.get(9) == Some(&1) && frame.len() >= 16 {
                 // Native envelope responses retain their production HTTP status
                 // and structured refusal, even though the runtime returns a unit error.
-                let status = u16::from_be_bytes(frame[10..12].try_into().unwrap());
+                let status = u16::from_be_bytes(
+                    frame[10..12]
+                        .try_into()
+                        .unwrap_or_else(|error| panic!("unexpected error: {error:?}")),
+                );
                 if status >= 400 {
-                    diagnostic.push_str(&format!(
-                        "; native envelope refusal ({status}): {}",
-                        String::from_utf8_lossy(&frame[16..])
-                    ));
+                    std::fmt::Write::write_fmt(
+                        &mut diagnostic,
+                        format_args!(
+                            "; native envelope refusal ({status}): {}",
+                            String::from_utf8_lossy(&frame[16..])
+                        ),
+                    )
+                    .unwrap_or_else(|_| unreachable!("writing to String"));
                     eprintln!(
                         "clock regression native envelope refusal ({status}): {}",
                         String::from_utf8_lossy(&frame[16..])
@@ -215,7 +229,7 @@ mod clock_regressions {
         }
 
         fn diagnostic(&self) -> String {
-            must(self.connection.as_ref().expect("client connection").lock())
+            must(self.connection.as_ref().or_fail("client connection").lock())
                 .response
                 .clone()
         }
@@ -349,7 +363,7 @@ mod clock_regressions {
             )),
         ));
         let worker = Peer::spawn(move |stop| {
-            let subject = peer.subject.as_ref().expect("owner subject");
+            let subject = peer.subject.as_ref().or_fail("owner subject");
             let account = must(AccountId::parse(&subject.account));
             let account_id = must(layerx_wire::hash::account_id_for_protocol(&account, 3));
             while !stop.load(Ordering::Acquire) {
@@ -366,10 +380,10 @@ mod clock_regressions {
                 let path = headers
                     .split_whitespace()
                     .nth(1)
-                    .expect("authority route")
+                    .or_fail("authority route")
                     .split('?')
                     .next()
-                    .expect("route");
+                    .or_fail("route");
                 let identity = must(identity.lock());
                 eprintln!("clock regression authority read: {path}");
                 let value = match path {
@@ -384,7 +398,7 @@ mod clock_regressions {
                     "/v1/agent/balance-context" => {
                         json!({"account_id":hex::encode(account_id), "asset_id":hex::encode(subject.asset),
                     "currency":"USD", "observed_at":"loopback committed block", "age_seconds":0,
-                    "maximum_age_seconds":315360000,
+                    "maximum_age_seconds":315_360_000,
                     "sequencer_id":hex::encode(Sha256::digest(&identity.canonical_bytes)),
                     "sequencer_public_key":hex::encode(&identity.canonical_bytes),
                     "first_batch_number":1, "last_batch_number":HEAD + 1000})
@@ -392,7 +406,7 @@ mod clock_regressions {
                     "/v1/agent/identity" => {
                         json!({"canonical_core_bytes":hex::encode(&identity.canonical_bytes), "head_sequence":identity.head_sequence,
                     "revocation_sequence":identity.revocation_sequence, "frozen":identity.frozen, "verification_level": match identity.verification_level { layerx_types::verify::VerificationLevel::COMMITTED => layerx_types::verify::VerificationLevel::COMMITTED.wire_label(), layerx_types::verify::VerificationLevel::STATE_PROVEN => layerx_types::verify::VerificationLevel::STATE_PROVEN.wire_label(), _ => panic!("identity floor case") },
-                    "authorities":identity.authorities.iter().map(|authority| match authority { ProtocolAuthority::PrimaryKey(id) => json!({"kind":"primary_key","id":hex::encode(id)}), ProtocolAuthority::SessionKey(id) => json!({"kind":"session_key","id":hex::encode(id)}), _ => panic!("owner authority") }).collect::<Vec<_>>()})
+                    "authorities":identity.authorities.iter().map(|authority| match authority { ProtocolAuthority::PrimaryKey(id) => json!({"kind":"primary_key","id":hex::encode(id)}), ProtocolAuthority::SessionKey(id) => json!({"kind":"session_key","id":hex::encode(id)}), ProtocolAuthority::CapabilityGrant(_) => panic!("owner authority") }).collect::<Vec<_>>()})
                     }
                     other => panic!("unexpected authority read: {other}"),
                 };
@@ -400,14 +414,6 @@ mod clock_regressions {
             }
         });
         (authority, worker)
-    }
-
-    fn clock_peer(root: &Path) -> (Arc<RuntimeClock>, Peer) {
-        let now = must(SystemTime::now().duration_since(UNIX_EPOCH))
-            .as_millis()
-            .try_into()
-            .expect("wall time");
-        clock_peer_at(root, now)
     }
 
     fn clock_peer_at(root: &Path, unix_milliseconds: u64) -> (Arc<RuntimeClock>, Peer) {
@@ -418,9 +424,10 @@ mod clock_regressions {
             fs::Permissions::from_mode(0o600),
         ));
         must(listener.set_nonblocking(true));
-        let generation = random::<16>();
+        let source = must(RuntimeClock::from_environment());
+        let start = must(source.sample(Duration::from_secs(1)));
+        let generation = start.generation;
         let worker = Peer::spawn(move |stop| {
-            let start = Instant::now();
             while !stop.load(Ordering::Acquire) {
                 match listener.accept() {
                     Ok((mut stream, _)) => {
@@ -429,12 +436,14 @@ mod clock_regressions {
                         must(stream.read_exact(&mut bytes));
                         let request = must(clock_protocol::Request::decode(&bytes));
                         thread::sleep(Duration::from_nanos(request.wait_nanoseconds));
+                        let elapsed =
+                            must(must(source.sample(Duration::from_secs(1))).elapsed_since(start));
                         let reading = ClockReading {
                             generation,
                             unix_milliseconds: unix_milliseconds
-                                .checked_add(must(start.elapsed().as_millis().try_into()))
-                                .expect("fixture clock time"),
-                            monotonic_nanoseconds: must(start.elapsed().as_nanos().try_into()),
+                                .checked_add(must(elapsed.as_millis().try_into()))
+                                .or_fail("fixture clock time"),
+                            monotonic_nanoseconds: must(elapsed.as_nanos().try_into()),
                         };
                         must(
                             stream
@@ -442,7 +451,7 @@ mod clock_regressions {
                         );
                     }
                     Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
-                        thread::sleep(Duration::from_millis(2))
+                        thread::sleep(Duration::from_millis(2));
                     }
                     Err(error) => panic!("clock accept: {error}"),
                 }
@@ -458,47 +467,16 @@ mod clock_regressions {
 
     type CommittedNativeCalls = BTreeMap<(String, Vec<u8>), Vec<u8>>;
 
-    fn committed_native_send_calls(binding: &SignedBinding) -> CommittedNativeCalls {
-        let word = |value: u128| {
-            let mut bytes = [0; 32];
-            bytes[16..].copy_from_slice(&value.to_be_bytes());
-            bytes
-        };
-        let public = binding.public_key();
-        let did = must(Did::new(
-            format!("did:layerx:{}", hex::encode(public)).as_bytes(),
-        ));
-        let owner = must(layerx_wire::hash::did_id_for_protocol(&did, 3));
-        let asset = layerx_crypto::evm_transaction::transaction_hash(b"upax");
-        let account = must(AccountId::for_asset(
-            must(std::str::from_utf8(did.as_bytes())),
-            asset,
-            asset,
-        ));
-        let main = must(layerx_wire::hash::account_id_for_protocol(&account, 3));
-        let mut address = [0; 32];
-        address[12..].copy_from_slice(&binding.binding().evm_address());
-        let mut did_binding = [public, word(64), word(did.as_bytes().len() as u128)].concat();
-        did_binding.extend_from_slice(did.as_bytes());
-        did_binding.resize(did_binding.len().div_ceil(32) * 32, 0);
+    fn word(value: u128) -> [u8; 32] {
+        let mut bytes = [0; 32];
+        bytes[16..].copy_from_slice(&value.to_be_bytes());
+        bytes
+    }
 
-        // getAsset returns the twelve-word ledger metadata tuple, including three
-        // dynamic fields. The fee denomination is the same upax asset as the send.
-        let mut metadata = vec![[0; 32]; 12];
-        metadata[0] = asset;
-        metadata[1] = word(384);
-        metadata[2] = word(448);
-        metadata[3] = word(6);
-        metadata[9] = word(512);
-        let mut metadata = metadata.concat();
-        for value in [b"PAX".as_slice(), b"Paxeer", b""] {
-            metadata.extend_from_slice(&word(value.len() as u128));
-            metadata.extend_from_slice(value);
-            metadata.resize(metadata.len().div_ceil(32) * 32, 0);
-        }
-
-        // Use the production budget codec and the record used by the Human budget
-        // checkpoint fixture, with its owner and asset bound to this fixture.
+    fn budget_call_material(
+        owner: [u8; 32],
+        asset: [u8; 32],
+    ) -> (layerx_agentd::budget::ProtocolBudgetRecord, Vec<u8>) {
         let vectors: Value = must(serde_json::from_str(include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/../../../../tests/vectors/native-budget-records.json"
@@ -544,12 +522,52 @@ mod clock_regressions {
         assert_eq!(decoded.record().asset_id, asset);
         assert_eq!(decoded.record().remaining(), record.remaining());
 
+        (record, budget)
+    }
+
+    fn committed_native_send_calls(binding: &SignedBinding) -> CommittedNativeCalls {
+        let public = binding.public_key();
+        let did = must(Did::new(
+            format!("did:layerx:{}", hex::encode(public)).as_bytes(),
+        ));
+        let owner = must(layerx_wire::hash::did_id_for_protocol(&did, 3));
+        let asset = layerx_crypto::evm_transaction::transaction_hash(b"upax");
+        let account = must(AccountId::for_asset(
+            must(std::str::from_utf8(did.as_bytes())),
+            asset,
+            asset,
+        ));
+        let main = must(layerx_wire::hash::account_id_for_protocol(&account, 3));
+        let mut address = [0; 32];
+        address[12..].copy_from_slice(&binding.binding().evm_address());
+        let mut did_binding = [public, word(64), word(did.as_bytes().len() as u128)].concat();
+        did_binding.extend_from_slice(did.as_bytes());
+        did_binding.resize(did_binding.len().div_ceil(32) * 32, 0);
+
+        // getAsset returns the twelve-word ledger metadata tuple, including three
+        // dynamic fields. The fee denomination is the same upax asset as the send.
+        let mut metadata = vec![[0; 32]; 12];
+        metadata[0] = asset;
+        metadata[1] = word(384);
+        metadata[2] = word(448);
+        metadata[3] = word(6);
+        metadata[9] = word(512);
+        let mut metadata = metadata.concat();
+        for value in [b"PAX".as_slice(), b"Paxeer", b""] {
+            metadata.extend_from_slice(&word(value.len() as u128));
+            metadata.extend_from_slice(value);
+            metadata.resize(metadata.len().div_ceil(32) * 32, 0);
+        }
+
+        // Use the production budget codec and the record used by the Human budget
+        // checkpoint fixture, with its owner and asset bound to this fixture.
+        let (record, budget) = budget_call_material(owner, asset);
         let mut calls = BTreeMap::new();
         let mut add = |target: [u8; 20], signature: &[u8], args: &[u8], answer: Vec<u8>| {
             let selector: [u8; 4] = layerx_crypto::evm_transaction::transaction_hash(signature)
                 [..4]
                 .try_into()
-                .expect("four-byte selector");
+                .or_fail("four-byte selector");
             let calldata = [selector.as_slice(), args].concat();
             assert!(calls
                 .insert((format!("0x{}", hex::encode(target)), calldata), answer)
@@ -616,6 +634,35 @@ mod clock_regressions {
         calls
     }
 
+    fn native_send_commit_time(height: u64, head_seconds: i64) -> (i64, String) {
+        if height <= HEAD - 3 {
+            let before_boundary = HEAD - 3 - height;
+            let second_of_hour = 19 * 60 + 3 - before_boundary;
+            (
+                head_seconds - 60_001 - must(i64::try_from(before_boundary)),
+                format!(
+                    "2026-09-13T13:{:02}:{:02}Z",
+                    second_of_hour / 60,
+                    second_of_hour % 60
+                ),
+            )
+        } else {
+            let (offset, timestamp) = match height {
+                h if h == HEAD - 2 => (-61, "2026-09-14T05:58:03Z"),
+                h if h == HEAD - 1 => (-11, "2026-09-14T05:58:53Z"),
+                h if h == HEAD => (0, "2026-09-14T05:59:04Z"),
+                _ => (1, "2026-09-14T05:59:05Z"),
+            };
+            (head_seconds + offset, timestamp.to_owned())
+        }
+    }
+
+    fn recorded_header_digest(h: &Value, name: &str) -> [u8; 32] {
+        must(hex::decode(text(h, name)))
+            .try_into()
+            .or_fail("recorded header digest")
+    }
+
     fn native_send_history_commits(
         recorded: &Value,
         validators: &Value,
@@ -642,39 +689,15 @@ mod clock_regressions {
             voting_power: verifier.validators.validators()[0].voting_power,
         };
         let h = &recorded["signedHeader"]["header"];
-        let digest = |name: &str| -> [u8; 32] {
-            must(hex::decode(text(h, name)))
-                .try_into()
-                .expect("recorded header digest")
-        };
         let empty_results = <[u8; 32]>::from(Sha256::digest([]));
-        let head_seconds = must(i64::try_from(original.time_ms())) / 1000;
+        let head_seconds = original.time_ms() / 1000;
         assert_eq!(h["time"], "2026-09-14T05:59:04Z");
         let mut parent: [u8; 32] = must(hex::decode(text(&h["last_block_id"], "hash")))
             .try_into()
-            .expect("recorded predecessor");
+            .or_fail("recorded predecessor");
         let mut commits = BTreeMap::new();
         for height in 1..=HEAD + 1 {
-            let (seconds, timestamp) = if height <= HEAD - 3 {
-                let before_boundary = HEAD - 3 - height;
-                let second_of_hour = 19 * 60 + 3 - before_boundary;
-                (
-                    head_seconds - 60_001 - must(i64::try_from(before_boundary)),
-                    format!(
-                        "2026-09-13T13:{:02}:{:02}Z",
-                        second_of_hour / 60,
-                        second_of_hour % 60
-                    ),
-                )
-            } else {
-                let (offset, timestamp) = match height {
-                    h if h == HEAD - 2 => (-61, "2026-09-14T05:58:03Z"),
-                    h if h == HEAD - 1 => (-11, "2026-09-14T05:58:53Z"),
-                    h if h == HEAD => (0, "2026-09-14T05:59:04Z"),
-                    _ => (1, "2026-09-14T05:59:05Z"),
-                };
-                (head_seconds + offset, timestamp.to_owned())
-            };
+            let (seconds, timestamp) = native_send_commit_time(height, head_seconds);
             let header = CheckpointHeader {
                 version_block: 11,
                 version_app: 1,
@@ -686,14 +709,14 @@ mod clock_regressions {
                     part_set_total: 1,
                     part_set_hash: [2; 32],
                 }),
-                last_commit_hash: Some(digest("last_commit_hash")),
-                data_hash: Some(digest("data_hash")),
+                last_commit_hash: Some(recorded_header_digest(h, "last_commit_hash")),
+                data_hash: Some(recorded_header_digest(h, "data_hash")),
                 validators_hash: layerx_agentd::read::validator_set_hash(&[validator]),
                 next_validators_hash: layerx_agentd::read::validator_set_hash(&[validator]),
-                consensus_hash: digest("consensus_hash"),
+                consensus_hash: recorded_header_digest(h, "consensus_hash"),
                 app_hash: original.app_hash(),
                 last_results_hash: Some(empty_results),
-                evidence_hash: Some(digest("evidence_hash")),
+                evidence_hash: Some(recorded_header_digest(h, "evidence_hash")),
                 proposer_address: validator.address,
             };
             let mut commit = BlockCommit {
@@ -732,12 +755,12 @@ mod clock_regressions {
             signed["commit"]["signatures"][0]["timestamp"] = json!(timestamp);
             signed["commit"]["signatures"][0]["signature"] =
                 json!(base64::engine::general_purpose::STANDARD.encode(signature));
-            let verified = must(layerx_client::rpc::commit::verify_commit_material(
+            let verified_head = must(layerx_client::rpc::commit::verify_commit_material(
                 &signed, &verifier,
             ));
-            assert_eq!(verified.header_hash(), checkpoint.block_hash);
-            assert_eq!(verified.app_hash(), original.app_hash());
-            assert_eq!(verified.time_ms(), seconds * 1000);
+            assert_eq!(verified_head.header_hash(), checkpoint.block_hash);
+            assert_eq!(verified_head.app_hash(), original.app_hash());
+            assert_eq!(verified_head.time_ms(), seconds * 1000);
             parent = checkpoint.block_hash;
             assert!(commits.insert(height, signed).is_none());
         }
@@ -745,58 +768,12 @@ mod clock_regressions {
         commits
     }
 
-    fn reopen_daemon(fixture: &mut Fixture) {
-        let retained = must(fixture.owner.lock()).session_control.store();
-        {
-            let mut store = must(retained.lock());
-            let replacement = must(Store::open(fixture.root.join("closed-store")));
-            drop(std::mem::replace(&mut *store, replacement));
-            *store = must(Store::open(fixture.root.join("store")));
-        }
-        let public_key = fixture.account.layerx_public_key();
-        let activity = must(ActivityType::new(ModuleId::Asset, 5));
-        let (authority, authority_worker) = authority_peer(
-            fixture.peer.clone(),
-            CoreIdentity {
-                canonical_bytes: public_key.to_vec(),
-                head_sequence: HEAD,
-                revocation_sequence: 1,
-                verification_level: layerx_types::verify::VerificationLevel::COMMITTED,
-                frozen: false,
-                authorities: vec![
-                    ProtocolAuthority::PrimaryKey(public_key),
-                    ProtocolAuthority::SessionKey(GRANT),
-                ],
-            },
-            activity,
-        );
-        let restart = hex::encode(random::<4>());
-        let clock_root = fixture.root.join(format!("restart-clock-{restart}"));
-        must(fs::create_dir(&clock_root));
-        must(fs::set_permissions(
-            &clock_root,
-            fs::Permissions::from_mode(0o700),
-        ));
-        let config = must(NodeRpcConfig::from_environment());
-        let endpoint = must(SequencerEndpoint::new(&config.url, &[]));
-        let checkpoint = must(
-            layerx_agentd::read::ServedCheckpoint::acquire_at_committed_block(
-                &endpoint, HEAD, None, "125",
-            ),
-        );
-        let core_time_ms = must(u64::try_from(checkpoint.header.time.seconds))
-            .checked_mul(1000)
-            .expect("checkpoint time in milliseconds");
-        let (clock, clock_worker) = clock_peer_at(&clock_root, core_time_ms);
-        let trust = must(layerx_agentd::export::ExportTrustSource::new(
-            must(endpoint.receipt_keys()),
-            checkpoint.validators,
-        ));
-        let asset = layerx_crypto::evm_transaction::transaction_hash(b"upax");
-        let account = must(layerx_wire::hash::account_id_for_protocol(
-            &must(AccountId::for_asset(&fixture.account.did(), asset, asset)),
-            3,
-        ));
+    fn native_policy_file(
+        fixture: &Fixture,
+        restart: &str,
+        asset: [u8; 32],
+        account: [u8; 32],
+    ) -> (TenantId, std::path::PathBuf) {
         let commitment = [11_u8; 32];
         let destination = must(layerx_intents::canonical::account_id_for_protocol(
             &must(AccountId::parse(&format!(
@@ -836,24 +813,15 @@ mod clock_regressions {
             &policy_path,
             fs::Permissions::from_mode(0o600),
         ));
-        let peers = BTreeMap::from([(
-            7,
-            ("bootstrap-owner".to_owned(), "bootstrap-service".to_owned()),
-        )]);
-        let mut operations = must(ProductionHumanOperations::new(
-            authority,
-            must(SequencerEndpoint::new(&config.url, &[])),
-            Box::new(must(NodeRpc::connect(&config))),
-            Arc::clone(&retained),
-            &peers,
-            1_048_576,
-            30_000,
-            clock,
-        ));
-        must(
-            operations
-                .attach_native_effect_policies(&BTreeMap::from([(policy_tenant, policy_path)])),
-        );
+        (policy_tenant, policy_path)
+    }
+
+    fn native_limit_and_denominations(
+        fixture: &Fixture,
+        restart: &str,
+        asset: [u8; 32],
+        account: [u8; 32],
+    ) -> (LimitConfig, std::path::PathBuf) {
         let limit = LimitConfig {
             id: LimitId([12; 16]),
             name: "preview".to_owned(),
@@ -883,6 +851,102 @@ mod clock_regressions {
             &denominations_path,
             fs::Permissions::from_mode(0o600),
         ));
+        (limit, denominations_path)
+    }
+
+    fn restart_authority(fixture: &Fixture) -> (RemoteHumanAuthority, Peer) {
+        let public_key = fixture.account.layerx_public_key();
+        let activity = must(ActivityType::new(ModuleId::Asset, 5));
+        let (authority, authority_worker) = authority_peer(
+            fixture.peer.clone(),
+            CoreIdentity {
+                canonical_bytes: public_key.to_vec(),
+                head_sequence: HEAD,
+                revocation_sequence: 1,
+                verification_level: layerx_types::verify::VerificationLevel::COMMITTED,
+                frozen: false,
+                authorities: vec![
+                    ProtocolAuthority::PrimaryKey(public_key),
+                    ProtocolAuthority::SessionKey(GRANT),
+                ],
+            },
+            activity,
+        );
+        (authority, authority_worker)
+    }
+
+    fn restart_session_keys(fixture: &Fixture, restart: &str) -> SessionKeyRegistry {
+        let keys = fixture.root.join(format!("restart-keys-{restart}"));
+        must(fs::create_dir(&keys));
+        must(fs::set_permissions(
+            &keys,
+            fs::Permissions::from_mode(0o700),
+        ));
+        must(SessionKeyRegistry::open(
+            keys,
+            random::<32>().to_vec(),
+            125,
+            must(fs::metadata(&fixture.root)).uid(),
+        ))
+    }
+
+    fn reopen_daemon(fixture: &mut Fixture) {
+        let retained = must(fixture.owner.lock()).session_control.store();
+        {
+            let mut store = must(retained.lock());
+            let replacement = must(Store::open(fixture.root.join("closed-store")));
+            drop(std::mem::replace(&mut *store, replacement));
+            *store = must(Store::open(fixture.root.join("store")));
+        }
+        let (authority, authority_worker) = restart_authority(fixture);
+        let restart = hex::encode(random::<4>());
+        let clock_root = fixture.root.join(format!("restart-clock-{restart}"));
+        must(fs::create_dir(&clock_root));
+        must(fs::set_permissions(
+            &clock_root,
+            fs::Permissions::from_mode(0o700),
+        ));
+        let config = must(NodeRpcConfig::from_environment());
+        let endpoint = must(SequencerEndpoint::new(&config.url, &[]));
+        let checkpoint = must(
+            layerx_agentd::read::ServedCheckpoint::acquire_at_committed_block(
+                &endpoint, HEAD, None, "125",
+            ),
+        );
+        let core_time_ms = must(u64::try_from(checkpoint.header.time.seconds))
+            .checked_mul(1000)
+            .or_fail("checkpoint time in milliseconds");
+        let (clock, clock_worker) = clock_peer_at(&clock_root, core_time_ms);
+        let trust = must(layerx_agentd::export::ExportTrustSource::new(
+            must(endpoint.receipt_keys()),
+            checkpoint.validators,
+        ));
+        let asset = layerx_crypto::evm_transaction::transaction_hash(b"upax");
+        let account = must(layerx_wire::hash::account_id_for_protocol(
+            &must(AccountId::for_asset(&fixture.account.did(), asset, asset)),
+            3,
+        ));
+        let (policy_tenant, policy_path) = native_policy_file(fixture, &restart, asset, account);
+        let peers = BTreeMap::from([(
+            7,
+            ("bootstrap-owner".to_owned(), "bootstrap-service".to_owned()),
+        )]);
+        let mut operations = must(ProductionHumanOperations::new(
+            authority,
+            must(SequencerEndpoint::new(&config.url, &[])),
+            Box::new(must(NodeRpc::connect(&config))),
+            Arc::clone(&retained),
+            &peers,
+            1_048_576,
+            30_000,
+            clock,
+        ));
+        must(
+            operations
+                .attach_native_effect_policies(&BTreeMap::from([(policy_tenant, policy_path)])),
+        );
+        let (limit, denominations_path) =
+            native_limit_and_denominations(fixture, &restart, asset, account);
         must(
             operations.attach_program_budget_denominations(&BTreeMap::from([(
                 fixture.credential.tenant().clone(),
@@ -896,18 +960,7 @@ mod clock_regressions {
             operations.write_admission(&fixture.peer.tenant),
             Some(Ok(()))
         ));
-        let keys = fixture.root.join(format!("restart-keys-{restart}"));
-        must(fs::create_dir(&keys));
-        must(fs::set_permissions(
-            &keys,
-            fs::Permissions::from_mode(0o700),
-        ));
-        let registry = must(SessionKeyRegistry::open(
-            keys,
-            random::<32>().to_vec(),
-            125,
-            must(fs::metadata(&fixture.root)).uid(),
-        ));
+        let registry = restart_session_keys(fixture, &restart);
         let mut owner = must(UnifiedAgentOwner::new(
             operations,
             retained,
@@ -1156,10 +1209,10 @@ mod clock_regressions {
     use base64::engine::general_purpose::URL_SAFE_NO_PAD;
     use ciborium::value::Value as CborValue;
     use ed25519_dalek::SigningKey;
-    use layerx_agent_api::identity::{AgentDid, AuthorityRef, SignedNativeSendPurposeV2};
+    use layerx_agent_api::identity::{AgentDid, AuthorityRef};
     use layerx_agent_api::prepare::{IdempotencyRef, PayloadBytes, PrepareRequest, TimestampBound};
     use layerx_human_service::auth::{
-        AccountIdentity, AuthConfig, Device, OperationDigest, Passkeys, RateLimit, SessionGrant,
+        AccountIdentity, AuthConfig, Device, Passkeys, RateLimit, SessionGrant,
     };
     use layerx_human_service::custody::{
         CustodySigner, KeyClass, KeyId, Keystore, NativeConsent, NativeConsentRequest, Operation,
@@ -1177,13 +1230,11 @@ mod clock_regressions {
         HumanOwnerNativeContextV1, HumanOwnerNativeSessionV1, NativeSendAccessRequest,
     };
     use layerx_human_service::server::production_components::{AttestorCustodyConfig, AttestorKms};
-    use layerx_human_service::store::{
-        PrincipalId, PrincipalScope, PrincipalStore, RowKey, Table, TenancyDigest,
-    };
+    use layerx_human_service::store::{PrincipalId, PrincipalScope, PrincipalStore, RowKey, Table};
     use layerx_human_service::trace::TraceId;
     use layerx_human_test_support::{install_and_open, retention_uniform, tenancy};
     use layerx_intents::{Intent, IntentKind, LxpSend};
-    use layerx_types::clock::Clock;
+
     use layerx_types::intent::{
         AuthorizationSignature, ContextHash, NetworkId, ProtocolVersion, PublicKey,
         SendAuthorization, SendAuthorizationKind, Sequence, TimestampSeconds,
@@ -1193,7 +1244,7 @@ mod clock_regressions {
         amount::Amount,
         ids::{AssetId, IdempotencyKey},
     };
-    use std::fmt::{Debug, Display};
+    use std::fmt::Display;
     use std::future::Future;
     use std::task::{Context, Poll, Wake, Waker};
 
@@ -1205,7 +1256,7 @@ mod clock_regressions {
 
     mod hex {
         pub fn encode(bytes: impl AsRef<[u8]>) -> String {
-            bytes.as_ref().iter().map(|b| format!("{b:02x}")).collect()
+            layerx_human_service::hex::lower(bytes.as_ref())
         }
         pub fn decode(bytes: impl AsRef<[u8]>) -> Result<Vec<u8>, String> {
             let bytes = bytes.as_ref();
@@ -1281,7 +1332,6 @@ mod clock_regressions {
         peer: HumanPeer,
         credential: session::SessionCredential,
         account: PublicAccount,
-        endpoint: SequencerEndpoint,
         peers: Vec<Peer>,
         root: PathBuf,
         approval: bool,
@@ -1291,6 +1341,90 @@ mod clock_regressions {
         clock: Arc<RuntimeClock>,
         previous_clock: Vec<(&'static str, Option<std::ffi::OsString>)>,
     }
+    fn initial_subject(
+        root: &std::path::Path,
+        account: &PublicAccount,
+    ) -> (
+        TenantId,
+        HumanPeer,
+        session::SessionCredential,
+        RemoteHumanAuthority,
+        Peer,
+        Arc<Mutex<Store>>,
+    ) {
+        let public_key = account.layerx_public_key();
+        let principal = hex::encode(public_key);
+        let tenant = must(TenantId::new(must(
+            layerx_identity_binding::subject_namespace("bootstrap-service", &principal),
+        )));
+        let peer = HumanPeer {
+            uid: 7,
+            principal,
+            tenant: tenant.as_str().to_owned(),
+            subject: Some(HumanSubject {
+                transport_tenant: "bootstrap-service".into(),
+                transport_principal: "bootstrap-owner".into(),
+                owner: account.did(),
+                account: format!("agent:{}:main", account.did()),
+                asset: layerx_crypto::evm_transaction::transaction_hash(b"upax"),
+                registration: None,
+            }),
+        };
+        let activity = must(ActivityType::new(ModuleId::Asset, 5));
+        let identity = CoreIdentity {
+            canonical_bytes: public_key.to_vec(),
+            head_sequence: HEAD,
+            revocation_sequence: 1,
+            verification_level: layerx_types::verify::VerificationLevel::COMMITTED,
+            frozen: false,
+            authorities: vec![
+                ProtocolAuthority::PrimaryKey(public_key),
+                ProtocolAuthority::SessionKey(GRANT),
+            ],
+        };
+        let (mut authority, authority_worker) = authority_peer(peer.clone(), identity, activity);
+        let did = must(Did::new(account.did().as_bytes()));
+        let mut store = must(Store::open(root.join("store")));
+        let resolved = must(identity::register(
+            &mut store,
+            tenant.clone(),
+            did.clone(),
+            &mut AuthorityIdentity {
+                authority: &mut authority,
+                peer: &peer,
+            },
+        ));
+        let credential = must(session::open(
+            &mut store,
+            &mut SessionRegistry::default(),
+            &resolved,
+            OpenRequest {
+                session_id: SessionId([8; 32]),
+                token_id: [0x71; 32],
+                tenant: tenant.clone(),
+                agent: did,
+                authority: ProtocolAuthority::SessionKey(GRANT),
+                permitted_activity_types: BTreeSet::from([5]),
+                scopes: BTreeSet::from(["prepare".into()]),
+                expiry_sequence: 1000,
+                expiry_seconds: Some(EXPIRY_SECONDS),
+                opening_client: "human".into(),
+                policy_version: "v1".into(),
+            },
+            HEAD,
+        ))
+        .credential();
+        let retained = Arc::new(Mutex::new(store));
+        (
+            tenant,
+            peer,
+            credential,
+            authority,
+            authority_worker,
+            retained,
+        )
+    }
+
     impl Fixture {
         fn new(approval: bool) -> Self {
             let root = directory(if approval {
@@ -1299,70 +1433,8 @@ mod clock_regressions {
                 "producer-clock"
             });
             let account = PublicAccount::new(if approval { 0x51 } else { 0x61 });
-            let public_key = account.layerx_public_key();
-            let principal = hex::encode(public_key);
-            let tenant = must(TenantId::new(must(
-                layerx_identity_binding::subject_namespace("bootstrap-service", &principal),
-            )));
-            let peer = HumanPeer {
-                uid: 7,
-                principal,
-                tenant: tenant.as_str().to_owned(),
-                subject: Some(HumanSubject {
-                    transport_tenant: "bootstrap-service".into(),
-                    transport_principal: "bootstrap-owner".into(),
-                    owner: account.did(),
-                    account: format!("agent:{}:main", account.did()),
-                    asset: layerx_crypto::evm_transaction::transaction_hash(b"upax"),
-                    registration: None,
-                }),
-            };
-            let activity = must(ActivityType::new(ModuleId::Asset, 5));
-            let identity = CoreIdentity {
-                canonical_bytes: public_key.to_vec(),
-                head_sequence: HEAD,
-                revocation_sequence: 1,
-                verification_level: layerx_types::verify::VerificationLevel::COMMITTED,
-                frozen: false,
-                authorities: vec![
-                    ProtocolAuthority::PrimaryKey(public_key),
-                    ProtocolAuthority::SessionKey(GRANT),
-                ],
-            };
-            let (mut authority, authority_worker) =
-                authority_peer(peer.clone(), identity, activity);
-            let did = must(Did::new(account.did().as_bytes()));
-            let mut store = must(Store::open(root.join("store")));
-            let resolved = must(identity::register(
-                &mut store,
-                tenant.clone(),
-                did.clone(),
-                &mut AuthorityIdentity {
-                    authority: &mut authority,
-                    peer: &peer,
-                },
-            ));
-            let credential = must(session::open(
-                &mut store,
-                &mut SessionRegistry::default(),
-                &resolved,
-                OpenRequest {
-                    session_id: SessionId([8; 32]),
-                    token_id: [0x71; 32],
-                    tenant: tenant.clone(),
-                    agent: did,
-                    authority: ProtocolAuthority::SessionKey(GRANT),
-                    permitted_activity_types: BTreeSet::from([5]),
-                    scopes: BTreeSet::from(["prepare".into()]),
-                    expiry_sequence: 1000,
-                    expiry_seconds: Some(EXPIRY_SECONDS),
-                    opening_client: "human".into(),
-                    policy_version: "v1".into(),
-                },
-                HEAD,
-            ))
-            .credential();
-            let retained = Arc::new(Mutex::new(store));
+            let (tenant, peer, credential, authority, authority_worker, retained) =
+                initial_subject(&root, &account);
             let (clock, clock_worker) = clock_peer_at(&root, (EXPIRY_SECONDS - 30) * 1000);
             let previous_clock = [
                 (
@@ -1387,7 +1459,6 @@ mod clock_regressions {
             .collect();
             let binding = Binding::new(125, account.evm_address(), 3).sign(account.layerx_seed());
             let (url, node_worker) = recorded_chain(&account, binding);
-            let endpoint = must(SequencerEndpoint::new(&url, &[]));
             let peers = BTreeMap::from([(
                 7,
                 ("bootstrap-owner".to_owned(), "bootstrap-service".to_owned()),
@@ -1443,7 +1514,6 @@ mod clock_regressions {
                 peer,
                 credential,
                 account,
-                endpoint,
                 peers: vec![authority_worker, clock_worker, node_worker],
                 root,
                 approval,
@@ -1456,7 +1526,7 @@ mod clock_regressions {
             reopen_daemon(&mut fixture);
             fixture
         }
-        fn registry(&self) -> ModuleRegistry {
+        fn registry() -> ModuleRegistry {
             must(ModuleRegistry::new(&[must(ModuleRegistration::new(
                 ModuleId::Asset,
                 &[must(ActivityType::new(ModuleId::Asset, 5))],
@@ -1475,7 +1545,7 @@ mod clock_regressions {
                     .peer
                     .subject
                     .as_ref()
-                    .expect("owner subject")
+                    .or_fail("owner subject")
                     .transport_principal
                     .clone(),
                 tenant: self.peer.transport_tenant().to_owned(),
@@ -1512,7 +1582,7 @@ mod clock_regressions {
                             must(accepted.lock()).stream = None;
                         }
                         Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                            thread::sleep(Duration::from_millis(1))
+                            thread::sleep(Duration::from_millis(1));
                         }
                         Err(e) => panic!("daemon transport: {e}"),
                     }
@@ -1529,16 +1599,25 @@ mod clock_regressions {
                         maximum_queued_bytes: 1_048_576,
                         deadline: Duration::from_secs(5),
                     },
-                    self.registry(),
+                    Self::registry(),
                     self.clock.clone(),
                 ))
                 .for_subject(
                     &must(PrincipalId::new(&self.peer.principal)),
                     &must(Did::new(self.account.did().as_bytes())),
                     &must(AccountId::parse(
-                        &self.peer.subject.as_ref().unwrap().account,
+                        &self
+                            .peer
+                            .subject
+                            .as_ref()
+                            .unwrap_or_else(|| panic!("missing value"))
+                            .account,
                     )),
-                    self.peer.subject.as_ref().unwrap().asset,
+                    self.peer
+                        .subject
+                        .as_ref()
+                        .unwrap_or_else(|| panic!("missing value"))
+                        .asset,
                 ),
             );
             must(
@@ -1592,35 +1671,208 @@ mod clock_regressions {
         }
     }
 
+    fn attestor_tls() -> (Arc<rustls::ServerConfig>, Vec<u8>, Vec<u8>, Vec<u8>) {
+        use rustls::pki_types::{CertificateDer, PrivatePkcs8KeyDer};
+        use rustls::{RootCertStore, ServerConfig};
+
+        let ca = include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../layerx-human-kms/src/fixtures/repair_22_33_25/ca.der"
+        ));
+        let cert = include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../layerx-human-kms/src/fixtures/repair_22_33_25/peer.der"
+        ));
+        let tls_key = include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../layerx-human-kms/src/fixtures/repair_22_33_25/peer.pk8"
+        ));
+        let mut roots = RootCertStore::empty();
+        must(roots.add(CertificateDer::from(ca.to_vec())));
+        let verifier = must(rustls::server::WebPkiClientVerifier::builder(Arc::new(roots)).build());
+        let tls = Arc::new(must(
+            ServerConfig::builder()
+                .with_client_cert_verifier(verifier)
+                .with_single_cert(
+                    vec![CertificateDer::from(cert.to_vec())],
+                    PrivatePkcs8KeyDer::from(tls_key.to_vec()).into(),
+                ),
+        ));
+        (tls, ca.to_vec(), cert.to_vec(), tls_key.to_vec())
+    }
+
+    fn clock_owner_assertion(fixture: &Fixture, owner: &str) -> String {
+        let header = base64::engine::general_purpose::URL_SAFE_NO_PAD
+            .encode(br#"{"alg":"EdDSA","typ":"JWT"}"#);
+        let claims = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(must(serde_json::to_vec(&json!({
+                "sub":owner,"iat":EXPIRY_SECONDS-60,"exp":EXPIRY_SECONDS,"jti":hex::encode([0x79;32])
+            }))));
+        let jwt_message = format!("{header}.{claims}");
+        let assertion = format!(
+            "{jwt_message}.{}",
+            base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(
+                SigningKey::from_bytes(fixture.account.layerx_seed())
+                    .sign(jwt_message.as_bytes())
+                    .to_bytes()
+            )
+        );
+        assertion
+    }
+
+    struct ClockPeerContext {
+        id: String,
+        tls: Arc<rustls::ServerConfig>,
+        seed: [u8; 32],
+        public: [u8; 32],
+        sender: [u8; 20],
+        owner: String,
+        provider_key: String,
+        assertion: String,
+        signers: Vec<String>,
+    }
+
+    fn assert_clock_owner_assertion(key: &SigningKey, headers: &str, assertion: &str, owner: &str) {
+        assert!(headers
+            .lines()
+            .any(|line| line.eq_ignore_ascii_case(&format!("authorization: Bearer {assertion}"))));
+        let (message, signature) = assertion.rsplit_once('.').or_fail("signed owner assertion");
+        let signature: [u8; 64] =
+            must(base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(signature))
+                .try_into()
+                .or_fail("Ed25519 assertion signature");
+        must(key.verifying_key().verify_strict(
+            message.as_bytes(),
+            &ed25519_dalek::Signature::from_bytes(&signature),
+        ));
+        let claims = must(layerx_human_kms::attestor::assertion_claims(assertion));
+        assert_eq!(claims.subject, owner);
+        must(claims.check(EXPIRY_SECONDS - 20));
+    }
+
+    fn clock_peer_response(
+        context: &ClockPeerContext,
+        key: &SigningKey,
+        request: (&str, &str, &[u8]),
+        sequence: u64,
+        sessions: &mut BTreeMap<String, (Value, Value)>,
+    ) -> Value {
+        let (path, headers, body) = request;
+        let id = &context.id;
+        let public = context.public;
+        let sender = context.sender;
+        let owner = context.owner.as_str();
+        let provider_key = context.provider_key.as_str();
+        let assertion = context.assertion.as_str();
+        let signers = &context.signers;
+        if path == "/health" {
+            assert!(body.is_empty());
+            json!({"node_id":id,"ready":true,"audit_sequence":sequence,"reachable_peers":2})
+        } else {
+            let request: Value = must(serde_json::from_slice(body));
+            assert_eq!(request["key_id"], provider_key);
+            if path == "/v1/keys/generate" {
+                assert_eq!(request["curve"], "ed25519");
+                assert_eq!(request["owner"], owner);
+                assert_eq!(request["account"], format!("0x{}", hex::encode(sender)));
+                json!({"node_id":id,"key_id":provider_key,"curve":"ed25519","public_key":hex::encode(public),"audit_sequence":sequence})
+            } else {
+                assert_clock_owner_assertion(key, headers, assertion, owner);
+                if path == "/v1/keys/public-wallet" {
+                    assert_eq!(request["owner"], owner);
+                    assert_eq!(request["public_key"], hex::encode(public));
+                    let evm = must(k256::ecdsa::SigningKey::from_slice(&context.seed));
+                    json!({"node_id":id,"key_id":provider_key,"public_key":hex::encode(public),"owner":owner,"wallet_key_id":"clock-wallet","wallet_public_key":hex::encode(evm.verifying_key().to_encoded_point(false).as_bytes()),"wallet_epoch":1,"address":format!("0x{}",hex::encode(sender)),"audit_sequence":sequence})
+                } else {
+                    assert_eq!(path, "/v2/sign/native");
+                    assert_eq!(request["profile"], 2);
+                    assert_eq!(request["signers"], json!(signers));
+                    let canonical = match text(&request, "operation") {
+                        "local-grant-consent" => {
+                            let grant = layerx_agent_api::identity::NativeLocalGrantConsentV1 {
+                                capability: must(hex::decode(text(&request, "capability"))),
+                                session_scope: must(hex::decode(text(&request, "native_session"))),
+                                expires_at_ms: must(text(&request, "expiry_ms").parse()),
+                                owner_public_key: public,
+                                signature: [0; 64],
+                            };
+                            let coordinates = must(
+                                layerx_human_kms::attestor::validate_native_local_grant(&grant),
+                            );
+                            assert_eq!(coordinates.tenant, fixture_tenant(&public));
+                            assert_eq!(coordinates.agent, owner);
+                            must(
+                                NativeConsent::LocalGrant(&grant)
+                                    .validate_at((EXPIRY_SECONDS - 20) * 1000, public),
+                            );
+                            must(
+                                layerx_human_kms::attestor::native_local_grant_signing_bytes(
+                                    &grant,
+                                ),
+                            )
+                        }
+                        "send-purpose" => {
+                            let canonical = must(hex::decode(text(&request, "purpose")));
+                            let purpose = must(layerx_agent_api::identity::NativeSendPurposeV2::from_canonical_bytes(&canonical));
+                            assert_eq!(purpose.owner_did.as_str(), owner);
+                            assert_eq!(purpose.consent_public_key, public);
+                            assert_eq!(purpose.evm_sender, sender);
+                            assert_eq!(purpose.expires_at_ms, EXPIRY_MS);
+                            must(
+                                NativeConsent::SendPurpose(&purpose)
+                                    .validate_at(EXPIRY_MS - 1, public),
+                            );
+                            assert_eq!(must(purpose.canonical_bytes()), canonical);
+                            canonical
+                        }
+                        other => panic!("unexpected native operation: {other}"),
+                    };
+                    let digest: [u8; 32] = Sha256::digest(canonical).into();
+                    let session = text(&request, "session_id").to_owned();
+                    if let Some((previous, response)) = sessions.get(&session) {
+                        assert_eq!(previous, &request);
+                        response.clone()
+                    } else {
+                        let signature = key.sign(&digest).to_bytes();
+                        must(layerx_crypto::ed25519::verify_digest(
+                            &public, &signature, &digest,
+                        ));
+                        let response = json!({"profile":2,"node_id":id,"key_id":provider_key,"operation":request["operation"],"signed_bytes":hex::encode(digest),"signature":hex::encode(signature),"audit_sequence":sequence});
+                        sessions.insert(session, (request, response.clone()));
+                        response
+                    }
+                }
+            }
+        }
+    }
+
+    fn serve_clock_peer(stop: &AtomicBool, listener: &TcpListener, context: &ClockPeerContext) {
+        use rustls::{ServerConnection, StreamOwned};
+        let key = SigningKey::from_bytes(&context.seed);
+        let mut sequence = 0;
+        let mut sessions: BTreeMap<String, (Value, Value)> = BTreeMap::new();
+        while !stop.load(Ordering::Acquire) {
+            let Some(stream) = incoming(listener) else {
+                continue;
+            };
+            let mut stream =
+                StreamOwned::new(must(ServerConnection::new(context.tls.clone())), stream);
+            let (headers, body) = http_request(&mut stream);
+            let path = headers.split_whitespace().nth(1).or_fail("attestor path");
+            sequence += 1;
+            let response = clock_peer_response(
+                context,
+                &key,
+                (path, &headers, &body),
+                sequence,
+                &mut sessions,
+            );
+            http_response(&mut stream, &response);
+        }
+    }
+
     impl ClockCustody {
         fn new(fixture: &Fixture) -> Self {
-            use rustls::pki_types::{CertificateDer, PrivatePkcs8KeyDer};
-            use rustls::{RootCertStore, ServerConfig, ServerConnection, StreamOwned};
-
-            let ca = include_bytes!(concat!(
-                env!("CARGO_MANIFEST_DIR"),
-                "/../layerx-human-kms/src/fixtures/repair_22_33_25/ca.der"
-            ));
-            let cert = include_bytes!(concat!(
-                env!("CARGO_MANIFEST_DIR"),
-                "/../layerx-human-kms/src/fixtures/repair_22_33_25/peer.der"
-            ));
-            let tls_key = include_bytes!(concat!(
-                env!("CARGO_MANIFEST_DIR"),
-                "/../layerx-human-kms/src/fixtures/repair_22_33_25/peer.pk8"
-            ));
-            let mut roots = RootCertStore::empty();
-            must(roots.add(CertificateDer::from(ca.to_vec())));
-            let verifier =
-                must(rustls::server::WebPkiClientVerifier::builder(Arc::new(roots)).build());
-            let tls = Arc::new(must(
-                ServerConfig::builder()
-                    .with_client_cert_verifier(verifier)
-                    .with_single_cert(
-                        vec![CertificateDer::from(cert.to_vec())],
-                        PrivatePkcs8KeyDer::from(tls_key.to_vec()).into(),
-                    ),
-            ));
+            let (tls, ca, cert, tls_key) = attestor_tls();
             let principal = must(PrincipalId::new(&fixture.peer.principal));
             let key = must(KeyId::new("human-primary"));
             let binding = must(layerx_human_service::custody::PrincipalKeyBinding::new(
@@ -1635,20 +1887,7 @@ mod clock_regressions {
             ));
             let provider_key = format!("lx-{}", hex::encode(&binding.digest()[..16]));
             let owner = fixture.account.did();
-            let header = base64::engine::general_purpose::URL_SAFE_NO_PAD
-                .encode(br#"{"alg":"EdDSA","typ":"JWT"}"#);
-            let claims = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(must(serde_json::to_vec(&json!({
-                "sub":owner,"iat":EXPIRY_SECONDS-60,"exp":EXPIRY_SECONDS,"jti":hex::encode([0x79;32])
-            }))));
-            let jwt_message = format!("{header}.{claims}");
-            let assertion = format!(
-                "{jwt_message}.{}",
-                base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(
-                    SigningKey::from_bytes(fixture.account.layerx_seed())
-                        .sign(jwt_message.as_bytes())
-                        .to_bytes()
-                )
-            );
+            let assertion = clock_owner_assertion(fixture, &owner);
             let mut nodes = Vec::new();
             let mut peers = Vec::new();
             let signers: Vec<String> = (1..=3).map(|i| format!("node-{i}")).collect();
@@ -1656,107 +1895,28 @@ mod clock_regressions {
                 let listener = must(TcpListener::bind("127.0.0.1:0"));
                 must(listener.set_nonblocking(true));
                 nodes.push((id.clone(), must(listener.local_addr())));
-                let id = id.clone();
-                let tls = tls.clone();
-                let seed = *fixture.account.layerx_seed();
-                let public = fixture.account.layerx_public_key();
-                let sender = fixture.account.evm_address();
-                let owner = owner.clone();
-                let provider_key = provider_key.clone();
-                let assertion = assertion.clone();
-                let signers = signers.clone();
+                let context = ClockPeerContext {
+                    id: id.clone(),
+                    tls: tls.clone(),
+                    seed: *fixture.account.layerx_seed(),
+                    public: fixture.account.layerx_public_key(),
+                    sender: fixture.account.evm_address(),
+                    owner: owner.clone(),
+                    provider_key: provider_key.clone(),
+                    assertion: assertion.clone(),
+                    signers: signers.clone(),
+                };
                 peers.push(Peer::spawn(move |stop| {
-                    let key = SigningKey::from_bytes(&seed);
-                    let mut sequence = 0;
-                    let mut sessions: BTreeMap<String, (Value, Value)> = BTreeMap::new();
-                    while !stop.load(Ordering::Acquire) {
-                        let Some(stream) = incoming(&listener) else { continue };
-                        let mut stream = StreamOwned::new(must(ServerConnection::new(tls.clone())), stream);
-                        let (headers, body) = http_request(&mut stream);
-                        let path = headers.split_whitespace().nth(1).expect("attestor path");
-                        sequence += 1;
-                        let response = if path == "/health" {
-                            assert!(body.is_empty());
-                            json!({"node_id":id,"ready":true,"audit_sequence":sequence,"reachable_peers":2})
-                        } else {
-                            let request: Value = must(serde_json::from_slice(&body));
-                            assert_eq!(request["key_id"], provider_key);
-                            if path == "/v1/keys/generate" {
-                                assert_eq!(request["curve"], "ed25519");
-                                assert_eq!(request["owner"], owner);
-                                assert_eq!(request["account"], format!("0x{}", hex::encode(sender)));
-                                json!({"node_id":id,"key_id":provider_key,"curve":"ed25519","public_key":hex::encode(public),"audit_sequence":sequence})
-                            } else {
-                                assert!(headers.lines().any(|line| line.eq_ignore_ascii_case(&format!("authorization: Bearer {assertion}"))));
-                                let (message, signature) = assertion.rsplit_once('.').expect("signed owner assertion");
-                                let signature: [u8;64] = must(base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(signature)).try_into().expect("Ed25519 assertion signature");
-                                must(key.verifying_key().verify_strict(message.as_bytes(), &ed25519_dalek::Signature::from_bytes(&signature)));
-                                let claims = must(layerx_human_kms::attestor::assertion_claims(&assertion));
-                                assert_eq!(claims.subject, owner);
-                                must(claims.check(EXPIRY_SECONDS-20));
-                                if path == "/v1/keys/public-wallet" {
-                                    assert_eq!(request["owner"], owner);
-                                    assert_eq!(request["public_key"], hex::encode(public));
-                                    let evm = must(k256::ecdsa::SigningKey::from_slice(&seed));
-                                    json!({"node_id":id,"key_id":provider_key,"public_key":hex::encode(public),"owner":owner,"wallet_key_id":"clock-wallet","wallet_public_key":hex::encode(evm.verifying_key().to_encoded_point(false).as_bytes()),"wallet_epoch":1,"address":format!("0x{}",hex::encode(sender)),"audit_sequence":sequence})
-                                } else {
-                                    assert_eq!(path, "/v2/sign/native");
-                                    assert_eq!(request["profile"], 2);
-                                    assert_eq!(request["signers"], json!(signers));
-                                    let canonical = match text(&request, "operation") {
-                                        "local-grant-consent" => {
-                                            let grant = layerx_agent_api::identity::NativeLocalGrantConsentV1 {
-                                                capability: must(hex::decode(text(&request, "capability"))),
-                                                session_scope: must(hex::decode(text(&request, "native_session"))),
-                                                expires_at_ms: must(text(&request, "expiry_ms").parse()),
-                                                owner_public_key: public,
-                                                signature: [0;64],
-                                            };
-                                            let coordinates = must(layerx_human_kms::attestor::validate_native_local_grant(&grant));
-                                            assert_eq!(coordinates.tenant, fixture_tenant(&public));
-                                            assert_eq!(coordinates.agent, owner);
-                                            must(NativeConsent::LocalGrant(&grant).validate_at((EXPIRY_SECONDS-20)*1000, public));
-                                            must(layerx_human_kms::attestor::native_local_grant_signing_bytes(&grant))
-                                        }
-                                        "send-purpose" => {
-                                            let canonical = must(hex::decode(text(&request, "purpose")));
-                                            let purpose = must(layerx_agent_api::identity::NativeSendPurposeV2::from_canonical_bytes(&canonical));
-                                            assert_eq!(purpose.owner_did.as_str(), owner);
-                                            assert_eq!(purpose.consent_public_key, public);
-                                            assert_eq!(purpose.evm_sender, sender);
-                                            assert_eq!(purpose.expires_at_ms, EXPIRY_MS);
-                                            must(NativeConsent::SendPurpose(&purpose).validate_at(EXPIRY_MS-1, public));
-                                            assert_eq!(must(purpose.canonical_bytes()), canonical);
-                                            canonical
-                                        }
-                                        other => panic!("unexpected native operation: {other}"),
-                                    };
-                                    let digest: [u8;32] = Sha256::digest(canonical).into();
-                                    let session = text(&request, "session_id").to_owned();
-                                    if let Some((previous, response)) = sessions.get(&session) {
-                                        assert_eq!(previous, &request);
-                                        response.clone()
-                                    } else {
-                                        let signature = key.sign(&digest).to_bytes();
-                                        must(layerx_crypto::ed25519::verify_digest(&public, &signature, &digest));
-                                        let response = json!({"profile":2,"node_id":id,"key_id":provider_key,"operation":request["operation"],"signed_bytes":hex::encode(digest),"signature":hex::encode(signature),"audit_sequence":sequence});
-                                        sessions.insert(session, (request, response.clone()));
-                                        response
-                                    }
-                                }
-                            }
-                        };
-                        http_response(&mut stream, &response);
-                    }
+                    serve_clock_peer(&stop, &listener, &context);
                 }));
             }
             let provider = must(AttestorKms::connect_with_clock(
                 must(AttestorCustodyConfig::new(
                     nodes,
                     signers,
-                    ca.to_vec(),
-                    cert.to_vec(),
-                    tls_key.to_vec(),
+                    ca,
+                    cert,
+                    tls_key,
                     Duration::from_secs(5),
                 )),
                 fixture.clock.clone(),
@@ -1789,7 +1949,7 @@ mod clock_regressions {
                 signer: CustodySigner::new(
                     keys,
                     audit,
-                    fixture.registry(),
+                    Fixture::registry(),
                     must(SigningLimits::new(100, 60)),
                 ),
                 provider,
@@ -1811,13 +1971,67 @@ mod clock_regressions {
         ))
     }
 
+    fn abi_string(bytes: &[u8]) -> Vec<u8> {
+        let mut out = vec![0; 64 + bytes.len().div_ceil(32) * 32];
+        out[31] = 32;
+        out[56..64].copy_from_slice(&(bytes.len() as u64).to_be_bytes());
+        out[64..64 + bytes.len()].copy_from_slice(bytes);
+        out
+    }
+
+    fn native_call_result(request: &Value, calls: &CommittedNativeCalls) -> Value {
+        let call = &request["params"][0];
+        let target = text(call, "to");
+        let data = must(hex::decode(
+            call.get("data")
+                .or_else(|| call.get("input"))
+                .unwrap_or_else(|| panic!("missing value"))
+                .as_str()
+                .unwrap_or_else(|| panic!("missing value"))
+                .trim_start_matches("0x"),
+        ));
+        let answer = if let Some(answer) = calls.get(&(target.to_owned(), data.clone())) {
+            answer.clone()
+        } else if target == "0x0000000000000000000000000000000000001018" {
+            assert_eq!(
+                &data[..4],
+                &layerx_crypto::evm_transaction::transaction_hash(b"getFeeDenom(address)")[..4]
+            );
+            abi_string(b"upax")
+        } else if target == "0x0000000000000000000000000000000000001001" {
+            if data.starts_with(
+                &layerx_crypto::evm_transaction::transaction_hash(b"symbol(string)")[..4],
+            ) {
+                abi_string(b"PAX")
+            } else {
+                assert!(data.starts_with(
+                    &layerx_crypto::evm_transaction::transaction_hash(b"decimals(string)")[..4]
+                ));
+                let mut out = vec![0; 32];
+                out[31] = 6;
+                out
+            }
+        } else if data.starts_with(&layerx_client::account_binding::SELECTOR_LAYERX_BIND_NONCE) {
+            let mut word = vec![0; 32];
+            word[31] = 3;
+            word
+        } else {
+            panic!("uncaptured native read: {request}")
+        };
+        json!(format!("0x{}", hex::encode(answer)))
+    }
+
     fn recorded_chain(account: &PublicAccount, binding: SignedBinding) -> (String, Peer) {
         let recorded: Vec<Value> = must(serde_json::from_str(include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/../../../agent/crates/layerx-agentd/tests/support/human_budget_checkpoint.json"
         ))));
         let find = |method: &str| {
-            recorded.iter().find(|row| row["method"] == method).unwrap()["result"].clone()
+            recorded
+                .iter()
+                .find(|row| row["method"] == method)
+                .unwrap_or_else(|| panic!("missing value"))["result"]
+                .clone()
         };
         let validators = find("px_getValidators");
         let commits = native_send_history_commits(&find("px_getCommit"), &validators, "");
@@ -1842,13 +2056,6 @@ mod clock_regressions {
         let url = format!("http://{}/", must(listener.local_addr()));
         let key_id: [u8; 32] = Sha256::digest(public).into();
         let worker = Peer::spawn(move |stop| {
-            let abi_string = |bytes: &[u8]| {
-                let mut out = vec![0; 64 + bytes.len().div_ceil(32) * 32];
-                out[31] = 32;
-                out[56..64].copy_from_slice(&(bytes.len() as u64).to_be_bytes());
-                out[64..64 + bytes.len()].copy_from_slice(bytes);
-                out
-            };
             while !stop.load(Ordering::Acquire) {
                 let Some(mut stream) = incoming(&listener) else {
                     continue;
@@ -1858,13 +2065,14 @@ mod clock_regressions {
                 let method = text(&request, "method");
                 eprintln!("clock regression node read: {method} {}", request["params"]);
                 let result = match method {
-                    "eth_chainId" | "eth_blockNumber" => evm[method].clone(),
+                    "eth_chainId" | "eth_blockNumber" | "eth_getBalance" | "eth_estimateGas" => {
+                        evm[method].clone()
+                    }
                     "eth_getBlockByNumber" => block.clone(),
                     "eth_getTransactionCount" => {
                         assert_eq!(request["params"][0], format!("0x{}", hex::encode(sender)));
                         evm[method].clone()
                     }
-                    "eth_getBalance" | "eth_estimateGas" => evm[method].clone(),
                     "px_getCommit" => {
                         json!({"height":HEAD.to_string(),"signedHeader":commits[&HEAD]})
                     }
@@ -1889,56 +2097,7 @@ mod clock_regressions {
                     "px_getHistory" => {
                         json!({"account":request["params"][0],"items":[],"next_cursor":null,"indexedHeight":HEAD,"chainHeight":HEAD,"freshness":{"version":1,"database":"ok","status":"ready","sources":[{"source":"comet","source_head":HEAD,"indexed_cursor":HEAD,"finalized_cursor":HEAD,"last_success_at":head.time_ms()/1000,"freshness_secs":0,"last_error_at":null,"reconciled":true,"consecutive_failures":0,"state":"ready"}]}})
                     }
-                    "eth_call" => {
-                        let call = &request["params"][0];
-                        let target = text(call, "to");
-                        let data = must(hex::decode(
-                            call.get("data")
-                                .or_else(|| call.get("input"))
-                                .unwrap()
-                                .as_str()
-                                .unwrap()
-                                .trim_start_matches("0x"),
-                        ));
-                        let answer =
-                            if let Some(answer) = calls.get(&(target.to_owned(), data.clone())) {
-                                answer.clone()
-                            } else if target == "0x0000000000000000000000000000000000001018" {
-                                assert_eq!(
-                                    &data[..4],
-                                    &layerx_crypto::evm_transaction::transaction_hash(
-                                        b"getFeeDenom(address)"
-                                    )[..4]
-                                );
-                                abi_string(b"upax")
-                            } else if target == "0x0000000000000000000000000000000000001001" {
-                                if data.starts_with(
-                                    &layerx_crypto::evm_transaction::transaction_hash(
-                                        b"symbol(string)",
-                                    )[..4],
-                                ) {
-                                    abi_string(b"PAX")
-                                } else {
-                                    assert!(data.starts_with(
-                                        &layerx_crypto::evm_transaction::transaction_hash(
-                                            b"decimals(string)"
-                                        )[..4]
-                                    ));
-                                    let mut out = vec![0; 32];
-                                    out[31] = 6;
-                                    out
-                                }
-                            } else if data.starts_with(
-                                &layerx_client::account_binding::SELECTOR_LAYERX_BIND_NONCE,
-                            ) {
-                                let mut word = vec![0; 32];
-                                word[31] = 3;
-                                word
-                            } else {
-                                panic!("uncaptured native read: {request}")
-                            };
-                        json!(format!("0x{}", hex::encode(answer)))
-                    }
+                    "eth_call" => native_call_result(&request, &calls),
                     other => panic!("unexpected production RPC: {other}: {request}"),
                 };
                 http_response(
@@ -1948,6 +2107,49 @@ mod clock_regressions {
             }
         });
         (url, worker)
+    }
+
+    fn native_access_request(fixture: &Fixture, now: u64) -> NativeSendAccessRequest {
+        NativeSendAccessRequest {
+            action_key: fixture.credential.session_id().0,
+            owner: must(Did::new(fixture.account.did().as_bytes())),
+            owner_public_key: fixture.account.layerx_public_key(),
+            not_before: now,
+            expires_at: EXPIRY_SECONDS,
+            native_fee_budget: None,
+            counterparty: must(layerx_intents::canonical::account_id_for_protocol(
+                &must(AccountId::parse(&format!(
+                    "agent:did:layerx:{}:main",
+                    hex::encode([9; 32])
+                ))),
+                3,
+            )),
+            asset: fixture
+                .peer
+                .subject
+                .as_ref()
+                .unwrap_or_else(|| panic!("missing value"))
+                .asset,
+            maximum_amount: 2_000_000_000_000,
+            rate_window_ms: 60_000,
+            maximum_uses: 10,
+            commitment: [11; 32],
+        }
+    }
+
+    fn assert_signed_local_consent(fixture: &Fixture, consent: &HumanOwnerNativeContextV1) {
+        let mut signed = must(consent.signed_grant());
+        let signature = ed25519_dalek::Signature::from_bytes(&signed.signature);
+        signed.signature = [0; 64];
+        let digest: [u8; 32] = Sha256::digest(must(
+            layerx_human_kms::attestor::native_local_grant_signing_bytes(&signed),
+        ))
+        .into();
+        must(
+            SigningKey::from_bytes(fixture.account.layerx_seed())
+                .verifying_key()
+                .verify_strict(&digest, &signature),
+        );
     }
 
     fn retain_consent(
@@ -1962,30 +2164,17 @@ mod clock_regressions {
             "session_id":fixture.credential.session_id().0,"generation":fixture.credential.generation(),"grant_id":GRANT,
             "grant_receipt_digest":Sha256::digest(fixture.credential.token_id()).to_vec(),"grant_activity_id":Sha256::digest(fixture.credential.session_id().0).to_vec(),"grant_sequence":HEAD,"expires_at_ms":EXPIRY_MS,"token":fixture.credential.token_id()
         })));
-        let request = NativeSendAccessRequest {
-            action_key: fixture.credential.session_id().0,
-            owner: must(Did::new(fixture.account.did().as_bytes())),
-            owner_public_key: fixture.account.layerx_public_key(),
-            not_before: now,
-            expires_at: EXPIRY_SECONDS,
-            native_fee_budget: None,
-            counterparty: must(layerx_intents::canonical::account_id_for_protocol(
-                &must(AccountId::parse(&format!(
-                    "agent:did:layerx:{}:main",
-                    hex::encode([9; 32])
-                ))),
-                3,
-            )),
-            asset: fixture.peer.subject.as_ref().unwrap().asset,
-            maximum_amount: 2_000_000_000_000,
-            rate_window_ms: 60_000,
-            maximum_uses: 10,
-            commitment: [11; 32],
-        };
-        let coordinates = must(agent.native_send_owner_context(
-            &session,
-            u64::from_be_bytes(request.action_key[..8].try_into().unwrap()),
-        ));
+        let request = native_access_request(fixture, now);
+        let coordinates = must(
+            agent.native_send_owner_context(
+                &session,
+                u64::from_be_bytes(
+                    request.action_key[..8]
+                        .try_into()
+                        .unwrap_or_else(|error| panic!("unexpected error: {error:?}")),
+                ),
+            ),
+        );
         assert_eq!(coordinates.actor, session.owner);
         assert_eq!(coordinates.owner_public_key, session.owner_public_key);
         assert_eq!(coordinates.generation, session.generation);
@@ -2033,7 +2222,7 @@ mod clock_regressions {
                 trace(),
             ),
         ))
-        .expect("human-primary custody must sign the production grant with authenticated SecuritySettings evidence");
+        .or_fail("human-primary custody must sign the production grant with authenticated SecuritySettings evidence");
         assert_eq!(signed.signer_public_key(), session.owner_public_key);
         assert_eq!(signed.disclosure_digest(), disclosure);
         must(layerx_crypto::ed25519::verify_digest(
@@ -2067,18 +2256,7 @@ mod clock_regressions {
         )));
         assert_eq!(consent.expires_at_ms, EXPIRY_MS);
         assert_eq!(must(consent.signed_grant()).signature.len(), 64);
-        let mut signed = must(consent.signed_grant());
-        let signature = ed25519_dalek::Signature::from_bytes(&signed.signature);
-        signed.signature = [0; 64];
-        let digest: [u8; 32] = Sha256::digest(must(
-            layerx_human_kms::attestor::native_local_grant_signing_bytes(&signed),
-        ))
-        .into();
-        must(
-            SigningKey::from_bytes(fixture.account.layerx_seed())
-                .verifying_key()
-                .verify_strict(&digest, &signature),
-        );
+        assert_signed_local_consent(fixture, &consent);
         consent
     }
     fn trace() -> TraceId {
@@ -2091,7 +2269,12 @@ mod clock_regressions {
         )))
     }
     fn intent(fixture: &Fixture, action: [u8; 32]) -> Intent {
-        let asset = fixture.peer.subject.as_ref().unwrap().asset;
+        let asset = fixture
+            .peer
+            .subject
+            .as_ref()
+            .unwrap_or_else(|| panic!("missing value"))
+            .asset;
         let from = must(AccountId::for_asset(&fixture.account.did(), asset, asset));
         let to = must(AccountId::parse(&format!(
             "agent:did:layerx:{}:main",
@@ -2142,7 +2325,7 @@ mod clock_regressions {
         ))))
     }
     fn preparation(fixture: &Fixture, intent: &Intent, action: [u8; 32]) -> PrepareRequest {
-        let compiled = must(layerx_intents::compile(intent, &fixture.registry()));
+        let compiled = must(layerx_intents::compile(intent, &Fixture::registry()));
         PrepareRequest {
             protocol_activity_type: compiled.activity_type().value(),
             actor: must(AgentDid::new(fixture.account.did())),
@@ -2172,7 +2355,7 @@ mod clock_regressions {
     ) {
         let original = scope
             .get(Table::Journeys, &consent_row())
-            .unwrap()
+            .unwrap_or_else(|| panic!("missing value"))
             .bytes()
             .to_vec();
         must(context.session.validate(scope, EXPIRY_SECONDS - 1));
@@ -2217,7 +2400,10 @@ mod clock_regressions {
             .is_err());
         }
         assert_eq!(
-            scope.get(Table::Journeys, &consent_row()).unwrap().bytes(),
+            scope
+                .get(Table::Journeys, &consent_row())
+                .unwrap_or_else(|| panic!("missing value"))
+                .bytes(),
             original
         );
     }
@@ -2234,7 +2420,7 @@ mod clock_regressions {
             &tenancy(&[(&fixture.peer.principal, &fixture.peer.tenant)]),
             retention,
         );
-        let (mut agent, _transport) = fixture.client();
+        let (mut agent, transport) = fixture.client();
         let custody = fixture.custody();
         let mut scope = must(store.principal(&principal));
         let consent = retain_consent(&fixture, &mut scope, &mut agent, &custody);
@@ -2251,7 +2437,7 @@ mod clock_regressions {
         .unwrap_or_else(|error| {
             panic!(
                 "production V2 preview failed: {error:?}; {}",
-                _transport.diagnostic()
+                transport.diagnostic()
             )
         });
         assert_eq!(
@@ -2287,10 +2473,10 @@ mod clock_regressions {
         drop(scope);
         drop(store);
         drop(agent);
-        drop(_transport);
+        drop(transport);
         let mut reopened = must(PrincipalStore::open(&root, retention, digest));
         let scope = must(reopened.principal(&principal));
-        let (mut agent, _transport) = fixture.client();
+        let (mut agent, transport) = fixture.client();
         let recovered = must(load_access(
             &scope,
             &mut agent,
@@ -2309,7 +2495,7 @@ mod clock_regressions {
         .unwrap_or_else(|error| {
             panic!(
                 "reopened production V2 preview failed: {error:?}; {}",
-                _transport.diagnostic()
+                transport.diagnostic()
             )
         });
         assert_eq!(second.canonical_bytes, first.canonical_bytes);
@@ -2317,35 +2503,26 @@ mod clock_regressions {
         assert_eq!(second.purpose, first.purpose);
         assert_expiry(&scope, &mut agent, &recovered, &request, &second.purpose);
     }
-    pub(super) fn approval() {
-        let _serial = SERIAL
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        let fixture = Fixture::new(true);
-        let principal = must(PrincipalId::new(&fixture.peer.principal));
-        let retention = retention_uniform(10_000);
-        let root = fixture.root.join("human");
-        let (mut store, digest) = install_and_open(
-            &root,
-            &tenancy(&[(&fixture.peer.principal, &fixture.peer.tenant)]),
-            retention,
-        );
-        let (mut agent, _transport) = fixture.client();
-        let custody = fixture.custody();
-        let mut scope = must(store.principal(&principal));
-        let consent = retain_consent(&fixture, &mut scope, &mut agent, &custody);
-        let original_consent = must(serde_json::to_vec(&consent));
-        let grant_signature_bytes = must(consent.signed_grant()).signature.len();
-        assert_eq!(
-            grant_signature_bytes, 64,
-            "native local grant Ed25519 signature"
-        );
+    struct ApprovalPreview {
+        action: [u8; 32],
+        original_intent: Intent,
+        quote: layerx_human_service::server::native_send::NativeSendPreviewV2,
+        engine_request: PrepareRequest,
+        fee_limit: u128,
+    }
+
+    fn approval_preview(
+        fixture: &Fixture,
+        scope: &PrincipalScope<'_>,
+        agent: &mut AgentRuntime,
+        consent: &HumanOwnerNativeContextV1,
+    ) -> ApprovalPreview {
         let action = [0x52; 32];
-        let original_intent = intent(&fixture, action);
+        let original_intent = intent(fixture, action);
         let quote = must(preview_send_v2(
-            &scope,
-            &mut agent,
-            &preparation(&fixture, &original_intent, action),
+            scope,
+            agent,
+            &preparation(fixture, &original_intent, action),
             consent.capability_id,
             EXPIRY_MS,
             EXPIRY_SECONDS - 20,
@@ -2355,12 +2532,12 @@ mod clock_regressions {
         );
         let fee_limit = u128::from(quoted_call.gas_limit)
             .checked_mul(quoted_call.max_fee_per_gas)
-            .expect("production quoted transaction fee");
-        let mut engine_request = preparation(&fixture, &original_intent, action);
+            .or_fail("production quoted transaction fee");
+        let mut engine_request = preparation(fixture, &original_intent, action);
         engine_request.fee_limit = layerx_agent_api::Amount(fee_limit);
         let repeated = preview_send_v2(
-            &scope,
-            &mut agent,
+            scope,
+            agent,
             &engine_request,
             consent.capability_id,
             EXPIRY_MS,
@@ -2405,11 +2582,44 @@ mod clock_regressions {
         assert_eq!(repeated.owner_public_key, quote.purpose.consent_public_key);
         assert_eq!(repeated.canonical_bytes, quote.canonical_bytes);
         assert_eq!(repeated.signing_preimage, quote.signing_preimage);
+        ApprovalPreview {
+            action,
+            original_intent,
+            quote,
+            engine_request,
+            fee_limit,
+        }
+    }
+
+    struct ApprovalPreflight<'a, 'scope> {
+        fixture: &'a Fixture,
+        scope: &'a mut PrincipalScope<'scope>,
+        custody: &'a ClockCustody,
+        principal: &'a PrincipalId,
+        quote: &'a layerx_human_service::server::native_send::NativeSendPreviewV2,
+        engine_request: &'a PrepareRequest,
+        original_intent: &'a Intent,
+        consent: &'a HumanOwnerNativeContextV1,
+        action: [u8; 32],
+    }
+
+    fn assert_approval_preflight(context: ApprovalPreflight<'_, '_>) {
+        let ApprovalPreflight {
+            fixture,
+            scope,
+            custody,
+            principal,
+            quote,
+            engine_request,
+            original_intent,
+            consent,
+            action,
+        } = context;
         custody.admit_owner();
         let grant = ready(custody.sign_native_consent_in_scope(
-            &mut scope,
+            scope,
             NativeConsentRequest::new(
-                &principal,
+                principal,
                 &must(KeyId::new("human-primary")),
                 NativeConsent::SendPurpose(&quote.purpose),
                 SignAuthorization::new(Operation::ProtocolMutation, None),
@@ -2434,8 +2644,8 @@ mod clock_regressions {
             signature: *grant.signature(),
         };
         let compiled = must(layerx_intents::compile(
-            &original_intent,
-            &fixture.registry(),
+            original_intent,
+            &Fixture::registry(),
         ));
         assert_eq!(
             compiled.payload().as_bytes(),
@@ -2447,7 +2657,7 @@ mod clock_regressions {
             "approval request must preserve the registry-bound compiled payload commitment"
         );
         let body = layerx_human_service::server::native_send::encode_native_send_prepare_v2(
-            &engine_request,
+            engine_request,
             &signed_purpose,
             Some(&must(consent.signed_grant())),
         )
@@ -2467,124 +2677,77 @@ mod clock_regressions {
         .unwrap_or_else(|error| panic!("approval envelope credential preflight: {error:?}"));
         let envelope = layerx_sdk::agent_envelope::encode_envelope(
             layerx_sdk::Operation::Prepare,
-            layerx_agent_api::error::RequestId(u64::from_be_bytes(action[..8].try_into().unwrap())),
+            layerx_agent_api::error::RequestId(u64::from_be_bytes(
+                action[..8]
+                    .try_into()
+                    .unwrap_or_else(|error| panic!("unexpected error: {error:?}")),
+            )),
             &body,
             Some(&credential),
             Some(must(layerx_agent_api::idempotency::Key::new(action))),
         )
         .unwrap_or_else(|error| panic!("approval envelope encoder preflight: {error:?}"));
         assert_eq!(envelope["request"], body);
-        let registry = fixture.registry();
-        let plan = must(JourneyPlan::new(
-            must(JourneyId::new("jrn_clockapproval")),
-            JourneyKind::Move,
-            [0x53; 32],
-            must(KeyId::new("human-primary")),
-            Operation::ProtocolMutation,
-            vec![must(JourneyLeg::new(
-                original_intent,
-                action,
-                must(AgentDid::new(fixture.account.did())),
-                must(AuthorityRef::new(hex::encode(
-                    fixture.account.layerx_public_key(),
-                ))),
-                0,
-                0,
-                (EXPIRY_SECONDS - 30) * 1000,
-                EXPIRY_MS,
-                fee_limit,
-            ))],
-        ));
-        let sender = fixture.account.evm_address();
-        assert_eq!(quote.purpose.evm_sender, sender);
-        custody.admit_owner();
-        assert_eq!(
-            must(custody.evm_wallet(&principal, &must(KeyId::new("human-primary")))),
+    }
+
+    struct ReopenedApproval<'a> {
+        fixture: &'a Fixture,
+        root: &'a Path,
+        retention: layerx_human_service::store::RetentionPolicy,
+        digest: layerx_human_service::store::TenancyDigest,
+        principal: &'a PrincipalId,
+        row: &'a RowKey,
+        original: &'a [u8],
+        journal: &'a Value,
+        original_consent: &'a [u8],
+        action: [u8; 32],
+        sender: [u8; 20],
+        binding: ([u8; 32], [u8; 32]),
+        purpose: layerx_agent_api::identity::NativeSendPurposeV2,
+        custody: &'a ClockCustody,
+        contract: &'a layerx_sdk::Client,
+        registry: &'a ModuleRegistry,
+    }
+
+    fn assert_reopened_approval(context: ReopenedApproval<'_>) {
+        let ReopenedApproval {
+            fixture,
+            root,
+            retention,
+            digest,
+            principal,
+            row,
+            original,
+            journal,
+            original_consent,
+            action,
             sender,
-            "approval custody wallet must match the signed owner's preview sender"
-        );
-        must(
-            layerx_human_service::journeys::AgentBoundary::bind_transaction_sender(
-                &mut agent, sender,
-            ),
-        );
-        must(agent.bind_native_journey_context(consent, EXPIRY_MS));
-        let contract = must(layerx_sdk::Client::daemon(
-            "offline-contract",
-            layerx_agent_api::agent_api_schema_v1().version,
-        ));
-        let mut engine = must(JourneyEngine::start_native(
-            &mut scope,
-            &plan,
-            &registry,
-            EXPIRY_SECONDS - 20,
-        ));
-        for _ in 0..3 {
-            if must(engine.status()).phases() == [JourneyPhase::AwaitingApproval] {
-                break;
-            }
-            custody.admit_owner();
-            let advanced = ready(engine.advance(
-                &mut scope,
-                &contract,
-                &mut agent,
-                &custody,
-                &registry,
-                &trace(),
-                EXPIRY_SECONDS - 20,
-            ));
-            advanced.unwrap_or_else(|error| {
-                panic!(
-                    "clock regression native Journey advance: {error:?}; \
-                     NativeLocalGrantConsentV1 has {grant_signature_bytes} signature bytes; \
-                     AgentRuntime::native_send_preview_v2 sends the grant through \
-                     daemon NATIVE_SEND_OWNER_PREVIEW_V1; signed grant, bound sender, \
-                     owner and prepared transaction passed the production quote; \
-                     phase={:?}; retained native purpose={:?}; custody refusal={:?}; {}",
-                    engine.status().map(|status| status.phases().to_vec()),
-                    engine.native_context_binding(),
-                    custody.provider.last_refusal_code(),
-                    _transport.diagnostic()
-                );
-            });
-        }
-        assert_eq!(
-            must(engine.status()).phases(),
-            [JourneyPhase::AwaitingApproval]
-        );
-        let binding = engine
-            .native_approval_binding()
-            .expect("production-held approval");
-        let purpose = must(engine.native_context_binding()).expect("signed production purpose");
-        assert_eq!(purpose, quote.purpose);
-        let row = must(RowKey::new(format!("journey-{}", hex::encode([0x53; 32]))));
-        let original = scope.get(Table::Journeys, &row).unwrap().bytes().to_vec();
-        let journal: Value = must(serde_json::from_slice(&original));
-        assert!(journal["legs"][0]["signed"].is_null());
-        let material = must(agent.native_effect_approval_material(binding.0, binding.1));
-        assert_eq!(
-            <[u8; 32]>::from(Sha256::digest(&material.canonical_unsigned_bytes)),
-            purpose.canonical_digest
-        );
-        drop(engine);
-        drop(scope);
-        drop(store);
-        drop(agent);
-        drop(_transport);
-        let mut reopened = must(PrincipalStore::open(&root, retention, digest));
-        let mut scope = must(reopened.principal(&principal));
-        let (mut agent, _transport) = fixture.client();
+            binding,
+            purpose,
+            custody,
+            contract,
+            registry,
+        } = context;
+        let mut reopened = must(PrincipalStore::open(root, retention, digest));
+        let mut scope = must(reopened.principal(principal));
+        let (mut agent, transport) = fixture.client();
         let mut engine = must(JourneyEngine::load(
             &scope,
             &must(JourneyId::new("jrn_clockapproval")),
         ))
-        .expect("reopened real approval journey");
-        assert_eq!(scope.get(Table::Journeys, &row).unwrap().bytes(), original);
+        .or_fail("reopened real approval journey");
+        assert_eq!(
+            scope
+                .get(Table::Journeys, row)
+                .unwrap_or_else(|| panic!("missing value"))
+                .bytes(),
+            original
+        );
         assert_eq!(engine.native_approval_binding(), Some(binding));
         assert_eq!(must(engine.native_context_binding()), Some(purpose.clone()));
         let consent = must(load_access(&scope, &mut agent, [8; 32], EXPIRY_SECONDS - 1));
         assert_eq!(must(serde_json::to_vec(&consent)), original_consent);
-        let request = preparation(&fixture, &intent(&fixture, action), action);
+        let request = preparation(fixture, &intent(fixture, action), action);
         assert_expiry(&scope, &mut agent, &consent, &request, &purpose);
         assert_eq!(purpose.evm_sender, sender);
         must(
@@ -2604,7 +2767,7 @@ mod clock_regressions {
             .unwrap_or_else(|error| {
                 panic!(
                     "production approval decision failed: {error:?}; {}",
-                    _transport.diagnostic()
+                    transport.diagnostic()
                 )
             });
         assert_eq!(decided.state, NativeEffectApprovalFactState::Granted);
@@ -2614,24 +2777,27 @@ mod clock_regressions {
         custody.admit_owner();
         ready(engine.advance(
             &mut scope,
-            &contract,
+            contract,
             &mut agent,
-            &custody,
-            &registry,
+            custody,
+            registry,
             &trace(),
             EXPIRY_SECONDS - 1,
         ))
         .unwrap_or_else(|error| {
             panic!(
                 "reopened production Journey resume failed: {error:?}; {}",
-                _transport.diagnostic()
+                transport.diagnostic()
             )
         });
         assert_eq!(must(engine.status()).phases(), [JourneyPhase::Prepared]);
         assert_eq!(must(engine.native_context_binding()), Some(purpose));
         assert_eq!(engine.native_approval_binding(), Some(binding));
         let resumed: Value = must(serde_json::from_slice(
-            scope.get(Table::Journeys, &row).unwrap().bytes(),
+            scope
+                .get(Table::Journeys, row)
+                .unwrap_or_else(|| panic!("missing value"))
+                .bytes(),
         ));
         for field in ["action_key", "payload", "payload_hash", "preparation"] {
             assert_eq!(resumed["legs"][0][field], journal["legs"][0][field]);
@@ -2639,5 +2805,247 @@ mod clock_regressions {
         assert!(resumed["legs"][0]["signed"].is_null());
     }
 
-    const EVM_RECORDING: &str = r###"{"eth_chainId": "0x7d", "eth_blockNumber": "0x40", "eth_getBlockByNumber": {"hash": "0x70b9d39f64c2bfa613fe696fd3ad7727afe3cd0c8739b5566c5a478b13e04a44", "parentHash": "0xd40c8f8a13c750f792cb947a537ed6fa2c0867c8d79a2407a0ed31b4ab8f6463", "sha3Uncles": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347", "miner": "0x0000000000000000000000000000000000000000", "stateRoot": "0x70a17b1f87d090befed107d9adbf14a09d28ced56df620e873d2a58b011d7971", "transactionsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421", "receiptsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421", "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000", "difficulty": "0x0", "number": "0x40", "gasLimit": "0x1c9c380", "gasUsed": "0x0", "timestamp": "0x6aa78d28", "extraData": "0x", "mixHash": "0x7955d8559d3a6bbab74856a87e5e4000fea50a9d3613acb3b75f4fda626466b4", "nonce": "0x0000000000000000", "baseFeePerGas": "0x36382", "withdrawalsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421", "blobGasUsed": "0x0", "excessBlobGas": "0x0", "parentBeaconBlockRoot": "0x0000000000000000000000000000000000000000000000000000000000000000", "requestsHash": "0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "totalDifficulty": "0x0", "size": "0x266", "uncles": [], "transactions": [], "withdrawals": []}, "eth_getTransactionCount": "0x0", "eth_getBalance": "0x0", "eth_estimateGas": "0x5208"}"###;
+    struct HeldApproval<'a, 'scope> {
+        scope: &'a mut PrincipalScope<'scope>,
+        agent: &'a mut AgentRuntime,
+        custody: &'a ClockCustody,
+        principal: &'a PrincipalId,
+        quote: &'a layerx_human_service::server::native_send::NativeSendPreviewV2,
+        consent: HumanOwnerNativeContextV1,
+        transport: &'a Peer,
+        plan: &'a JourneyPlan,
+        registry: &'a ModuleRegistry,
+        contract: &'a layerx_sdk::Client,
+        sender: [u8; 20],
+        grant_signature_bytes: usize,
+    }
+
+    struct HeldState {
+        binding: ([u8; 32], [u8; 32]),
+        purpose: layerx_agent_api::identity::NativeSendPurposeV2,
+        row: RowKey,
+        original: Vec<u8>,
+        journal: Value,
+    }
+
+    fn assert_held_approval(context: HeldApproval<'_, '_>) -> HeldState {
+        let HeldApproval {
+            scope,
+            agent,
+            custody,
+            principal,
+            quote,
+            consent,
+            transport,
+            plan,
+            registry,
+            contract,
+            sender,
+            grant_signature_bytes,
+        } = context;
+        assert_eq!(quote.purpose.evm_sender, sender);
+        custody.admit_owner();
+        assert_eq!(
+            must(custody.evm_wallet(principal, &must(KeyId::new("human-primary")))),
+            sender,
+            "approval custody wallet must match the signed owner's preview sender"
+        );
+        must(
+            layerx_human_service::journeys::AgentBoundary::bind_transaction_sender(
+                &mut *agent,
+                sender,
+            ),
+        );
+        must(agent.bind_native_journey_context(consent, EXPIRY_MS));
+        let mut engine = must(JourneyEngine::start_native(
+            &mut *scope,
+            plan,
+            registry,
+            EXPIRY_SECONDS - 20,
+        ));
+        for _ in 0..3 {
+            if must(engine.status()).phases() == [JourneyPhase::AwaitingApproval] {
+                break;
+            }
+            custody.admit_owner();
+            let advanced = ready(engine.advance(
+                &mut *scope,
+                contract,
+                &mut *agent,
+                custody,
+                registry,
+                &trace(),
+                EXPIRY_SECONDS - 20,
+            ));
+            advanced.unwrap_or_else(|error| {
+                panic!(
+                    "clock regression native Journey advance: {error:?}; \
+                     NativeLocalGrantConsentV1 has {grant_signature_bytes} signature bytes; \
+                     AgentRuntime::native_send_preview_v2 sends the grant through \
+                     daemon NATIVE_SEND_OWNER_PREVIEW_V1; signed grant, bound sender, \
+                     owner and prepared transaction passed the production quote; \
+                     phase={:?}; retained native purpose={:?}; custody refusal={:?}; {}",
+                    engine.status().map(|status| status.phases().to_vec()),
+                    engine.native_context_binding(),
+                    custody.provider.last_refusal_code(),
+                    transport.diagnostic()
+                );
+            });
+        }
+        assert_eq!(
+            must(engine.status()).phases(),
+            [JourneyPhase::AwaitingApproval]
+        );
+        let binding = engine
+            .native_approval_binding()
+            .or_fail("production-held approval");
+        let purpose = must(engine.native_context_binding()).or_fail("signed production purpose");
+        assert_eq!(purpose, quote.purpose);
+        let row = must(RowKey::new(format!("journey-{}", hex::encode([0x53; 32]))));
+        let original = scope
+            .get(Table::Journeys, &row)
+            .unwrap_or_else(|| panic!("missing value"))
+            .bytes()
+            .to_vec();
+        let journal: Value = must(serde_json::from_slice(&original));
+        assert!(journal["legs"][0]["signed"].is_null());
+        let material = must(agent.native_effect_approval_material(binding.0, binding.1));
+        assert_eq!(
+            <[u8; 32]>::from(Sha256::digest(&material.canonical_unsigned_bytes)),
+            purpose.canonical_digest
+        );
+        HeldState {
+            binding,
+            purpose,
+            row,
+            original,
+            journal,
+        }
+    }
+
+    fn approval_plan(
+        fixture: &Fixture,
+        original_intent: Intent,
+        action: [u8; 32],
+        fee_limit: u128,
+    ) -> JourneyPlan {
+        must(JourneyPlan::new(
+            must(JourneyId::new("jrn_clockapproval")),
+            JourneyKind::Move,
+            [0x53; 32],
+            must(KeyId::new("human-primary")),
+            Operation::ProtocolMutation,
+            vec![must(JourneyLeg::new(
+                original_intent,
+                action,
+                must(AgentDid::new(fixture.account.did())),
+                must(AuthorityRef::new(hex::encode(
+                    fixture.account.layerx_public_key(),
+                ))),
+                0,
+                0,
+                (EXPIRY_SECONDS - 30) * 1000,
+                EXPIRY_MS,
+                fee_limit,
+            ))],
+        ))
+    }
+
+    pub(super) fn approval() {
+        let _serial = SERIAL
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let fixture = Fixture::new(true);
+        let principal = must(PrincipalId::new(&fixture.peer.principal));
+        let retention = retention_uniform(10_000);
+        let root = fixture.root.join("human");
+        let (mut store, digest) = install_and_open(
+            &root,
+            &tenancy(&[(&fixture.peer.principal, &fixture.peer.tenant)]),
+            retention,
+        );
+        let (mut agent, transport) = fixture.client();
+        let custody = fixture.custody();
+        let mut scope = must(store.principal(&principal));
+        let consent = retain_consent(&fixture, &mut scope, &mut agent, &custody);
+        let original_consent = must(serde_json::to_vec(&consent));
+        let grant_signature_bytes = must(consent.signed_grant()).signature.len();
+        assert_eq!(
+            grant_signature_bytes, 64,
+            "native local grant Ed25519 signature"
+        );
+        let ApprovalPreview {
+            action,
+            original_intent,
+            quote,
+            engine_request,
+            fee_limit,
+        } = approval_preview(&fixture, &scope, &mut agent, &consent);
+        assert_approval_preflight(ApprovalPreflight {
+            fixture: &fixture,
+            scope: &mut scope,
+            custody: &custody,
+            principal: &principal,
+            quote: &quote,
+            engine_request: &engine_request,
+            original_intent: &original_intent,
+            consent: &consent,
+            action,
+        });
+        let registry = Fixture::registry();
+        let plan = approval_plan(&fixture, original_intent, action, fee_limit);
+        let sender = fixture.account.evm_address();
+        let contract = must(layerx_sdk::Client::daemon(
+            "offline-contract",
+            layerx_agent_api::agent_api_schema_v1().version,
+        ));
+        let HeldState {
+            binding,
+            purpose,
+            row,
+            original,
+            journal,
+        } = assert_held_approval(HeldApproval {
+            scope: &mut scope,
+            agent: &mut agent,
+            custody: &custody,
+            principal: &principal,
+            quote: &quote,
+            consent,
+            transport: &transport,
+            plan: &plan,
+            registry: &registry,
+            contract: &contract,
+            sender,
+            grant_signature_bytes,
+        });
+        drop(scope);
+        drop(store);
+        drop(agent);
+        drop(transport);
+        assert_reopened_approval(ReopenedApproval {
+            fixture: &fixture,
+            root: &root,
+            retention,
+            digest,
+            principal: &principal,
+            row: &row,
+            original: &original,
+            journal: &journal,
+            original_consent: &original_consent,
+            action,
+            sender,
+            binding,
+            purpose,
+            custody: &custody,
+            contract: &contract,
+            registry: &registry,
+        });
+    }
+
+    const EVM_RECORDING: &str = r#"{"eth_chainId": "0x7d", "eth_blockNumber": "0x40", "eth_getBlockByNumber": {"hash": "0x70b9d39f64c2bfa613fe696fd3ad7727afe3cd0c8739b5566c5a478b13e04a44", "parentHash": "0xd40c8f8a13c750f792cb947a537ed6fa2c0867c8d79a2407a0ed31b4ab8f6463", "sha3Uncles": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347", "miner": "0x0000000000000000000000000000000000000000", "stateRoot": "0x70a17b1f87d090befed107d9adbf14a09d28ced56df620e873d2a58b011d7971", "transactionsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421", "receiptsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421", "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000", "difficulty": "0x0", "number": "0x40", "gasLimit": "0x1c9c380", "gasUsed": "0x0", "timestamp": "0x6aa78d28", "extraData": "0x", "mixHash": "0x7955d8559d3a6bbab74856a87e5e4000fea50a9d3613acb3b75f4fda626466b4", "nonce": "0x0000000000000000", "baseFeePerGas": "0x36382", "withdrawalsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421", "blobGasUsed": "0x0", "excessBlobGas": "0x0", "parentBeaconBlockRoot": "0x0000000000000000000000000000000000000000000000000000000000000000", "requestsHash": "0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "totalDifficulty": "0x0", "size": "0x266", "uncles": [], "transactions": [], "withdrawals": []}, "eth_getTransactionCount": "0x0", "eth_getBalance": "0x0", "eth_estimateGas": "0x5208"}"#;
+}
+
+pub mod require_value {
+    include!("support/require_value.rs");
 }

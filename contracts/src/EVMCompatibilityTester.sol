@@ -91,7 +91,7 @@ contract EVMCompatibilityTester {
 
     // Example of inter-contract calls
     function callAnotherContract(address contractAddress, bytes memory data) public {
-        (bool success, ) = contractAddress.call(data);
+        (bool success,) = contractAddress.call(data);
         require(success, "Call failed");
         emit ActionPerformed("Inter-Contract Call", msg.sender);
     }
@@ -116,7 +116,18 @@ contract EVMCompatibilityTester {
         }
     }
 
-    function getBlockProperties() public view returns (bytes32 blockHash, address payable coinbase, uint prevrandao, uint gaslimit, uint number, uint timestamp) {
+    function getBlockProperties()
+        public
+        view
+        returns (
+            bytes32 blockHash,
+            address payable coinbase,
+            uint256 prevrandao,
+            uint256 gaslimit,
+            uint256 number,
+            uint256 timestamp
+        )
+    {
         blockHash = blockhash(block.number - 1);
         coinbase = block.coinbase;
         prevrandao = block.prevrandao;
@@ -146,12 +157,7 @@ contract EVMCompatibilityTester {
     // Function to store some properties of 'msg'
     function storeMsgProperties() public payable {
         // Storing the properties of 'msg'
-        lastMsgDetails = MsgDetails({
-            sender: msg.sender,
-            value: msg.value,
-            data: msg.data,
-            gas: gasleft()
-        });
+        lastMsgDetails = MsgDetails({sender: msg.sender, value: msg.value, data: msg.data, gas: gasleft()});
     }
 
     function depositEther() external payable {
@@ -183,6 +189,7 @@ contract EVMCompatibilityTester {
 
     // write function to set the gas limit so it's not a simulation
     uint256 public gasLimit;
+
     function setGasLimit() public {
         uint256 _gasLimit;
         assembly {

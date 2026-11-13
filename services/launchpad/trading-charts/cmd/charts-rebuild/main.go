@@ -140,16 +140,7 @@ func runArgs(args []string) error {
 		return errors.New("archive object reader configuration unavailable")
 	}
 	reader := store.ArchiveReader{Objects: objects, Bucket: objects.Bucket(), Exact: exact, BlockTime: func(ctx context.Context, height int64, expectedHash string) (int64, error) {
-		bounded, stop := context.WithTimeout(ctx, 2*time.Second)
-		defer stop()
-		block, err := (chainread.Reader{RPC: rpc}).Block(bounded, height)
-		if err != nil {
-			return 0, errors.New("archive boundary header unavailable")
-		}
-		if !strings.EqualFold(block.Hash, expectedHash) {
-			return 0, store.ErrIntegrity
-		}
-		return block.Time, nil
+		return rebuildBlockTime(ctx, rpc, height, expectedHash)
 	}}
 	report, err := engine.ReconstructArchive(ctx, exact, reader, id, pool, from, to, manifests)
 	if err != nil {
@@ -157,6 +148,20 @@ func runArgs(args []string) error {
 	}
 	return json.NewEncoder(os.Stdout).Encode(report)
 }
+
+func rebuildBlockTime(ctx context.Context, rpc *ethclient.Client, height int64, expectedHash string) (int64, error) {
+	bounded, stop := context.WithTimeout(ctx, 2*time.Second)
+	defer stop()
+	block, err := (chainread.Reader{RPC: rpc}).Block(bounded, height)
+	if err != nil {
+		return 0, errors.New("archive boundary header unavailable")
+	}
+	if !strings.EqualFold(block.Hash, expectedHash) {
+		return 0, store.ErrIntegrity
+	}
+	return block.Time, nil
+}
+
 func run() error {
 	return runArgs(os.Args[1:])
 }

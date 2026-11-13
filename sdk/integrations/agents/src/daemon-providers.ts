@@ -6,7 +6,7 @@ import type {
   AgentReceiptContext, AgentReceiptEvidence, AgentReceiptRecording, AgentReceiptResolver,
 } from "@sidiora/layerx-agent-middleware";
 import {
-  AgentEnvelopeTransport, PlatformSdkError, Rung, isSelectableProtocolVersion, keccak256,
+  AgentEnvelopeTransport, PlatformSdkError, Rung, isSelectableProtocolVersion,
   verifySequencerReceipt as verifySignedSequencerReceipt,
   type AgentEnvelopeSuccess, type SelectableProtocolVersion,
 } from "@sidiora/layerx-sdk";
@@ -287,7 +287,7 @@ export async function verifySequencerReceipt(
       keyId: Buffer.from(keyId, "hex"), publicKey: Buffer.from(publicKey, "hex"),
       first_height: BigInt(firstHeight), last_height: BigInt(lastHeight),
     }]);
-    const receiptDigest = Buffer.from(keccak256(signedBytes)).toString("hex");
+    const receiptDigest = Buffer.from(verified.receiptDigest).toString("hex");
     if (expectedDigest !== undefined && receiptDigest !== expectedDigest
       || Buffer.from(verified.receipt.activityId).toString("hex") !== context.activityId
       || verified.receipt.resultCode !== 0) throw verificationFailure();

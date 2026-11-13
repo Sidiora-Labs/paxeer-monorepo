@@ -379,13 +379,13 @@ fn node_block(block: &BlockId) -> Value {
         "total": block.part_set_header.total, "hash": hex(&block.part_set_header.hash)
     }})
 }
-fn node_commit(h: &Header, c: &Commit) -> Value {
+fn node_commit(h: &Header, c: &Commit, canonical: bool) -> Value {
     let signatures = c.signatures.iter().map(|sig| json!({
         "block_id_flag": match sig.block_id_flag { BlockIdFlag::Absent => 1, BlockIdFlag::Commit => 2, BlockIdFlag::Nil => 3 },
         "validator_address": hex(&sig.validator_address), "timestamp": node_time(sig.timestamp),
         "signature": sig.signature.map(|bytes| base64(&bytes))
     })).collect::<Vec<_>>();
-    json!({"canonical": true, "signed_header": {"header": {
+    json!({"canonical": canonical, "signed_header": {"header": {
         "version": {"block": h.version.block.to_string(), "app": h.version.app.to_string()},
         "chain_id": h.chain_id, "height": h.height.to_string(), "time": node_time(h.time),
         "last_block_id": node_block(&h.last_block_id), "last_commit_hash": hex(&h.last_commit_hash),
@@ -409,7 +409,7 @@ impl Material {
         let state = created_state()?;
         let (proof, root) =
             native_membership(&state, PROGRAM, layerx_programs_ai_market::SHARED_STATE_KEY)?;
-        let header = header(HEIGHT, Digest32::new(root)?)?;
+        let header = header(HEIGHT - 1, Digest32::new(root)?)?;
         let commit = signed(&header, &[(1, false), (2, false), (3, false), (4, false)])?;
         Ok(Self {
             header,
@@ -422,7 +422,7 @@ impl Material {
         Ok(encode_committed_read(
             chain()?,
             program()?,
-            HEIGHT - 1,
+            HEIGHT - 2,
             &BlockCommitProof {
                 header: &self.header,
                 commit: &self.commit,
@@ -439,8 +439,16 @@ impl Material {
                 Ok(json!({"sync_info": {"latest_block_height": HEIGHT.to_string()}}))
             }
             Some("commit") => {
-                assert_eq!(params, &json!({"height": HEIGHT.to_string()}));
-                Ok(node_commit(&self.header, &self.commit))
+                let height = params["height"].as_str().ok_or_else(missing)?;
+                if height == HEIGHT.to_string() {
+                    let latest = header(HEIGHT, digest(99)?)?;
+                    let commit =
+                        signed(&latest, &[(1, false), (2, false), (3, false), (4, false)])?;
+                    Ok(node_commit(&latest, &commit, false))
+                } else {
+                    assert_eq!(height, (HEIGHT - 1).to_string());
+                    Ok(node_commit(&self.header, &self.commit, true))
+                }
             }
             Some("abci_query") => self.artifact(params),
             _ => Err(missing()),
@@ -448,7 +456,7 @@ impl Material {
     }
     fn artifact(&self, params: &Value) -> Checked<Value> {
         assert_eq!(params["path"], "/store/lxphost/key");
-        assert_eq!(params["height"], (HEIGHT - 1).to_string());
+        assert_eq!(params["height"], (HEIGHT - 2).to_string());
         let proof: Value = serde_json::from_slice(&self.proof)?;
         let manifest: Vec<u8> = serde_json::from_value(proof["manifest"].clone())?;
         let existence: Vec<u8> = serde_json::from_value(proof["membership"]["proof"].clone())?;
@@ -459,7 +467,9 @@ impl Material {
         let mut key = b"\x01\x00\x09progstor".to_vec();
         key.extend(PROGRAM);
         key.push(1);
-        let requested = unhex(params["data"].as_str().ok_or_else(missing)?)?;
+        let data = params["data"].as_str().ok_or_else(missing)?;
+        assert!(!data.starts_with("0x"), "node refuses prefixed store keys");
+        let requested = unhex(data)?;
         let (value, ops) = if requested == key {
             assert_eq!(params["prove"], true);
             let mut inner = Vec::new();
@@ -483,7 +493,7 @@ impl Material {
             }
         };
         Ok(
-            json!({"response": {"code": 0, "height": (HEIGHT - 1).to_string(),
+            json!({"response": {"code": 0, "height": (HEIGHT - 2).to_string(),
                 "key": base64(&requested), "value": base64(&value), "proofOps": ops
             }}),
         )
@@ -520,6 +530,17 @@ struct Node {
 }
 impl Node {
     fn start(material: Option<Material>) -> Checked<Self> {
+        Self::start_with_rate_limit(material, false)
+    }
+
+    fn start_with_rate_limit(material: Option<Material>, rate_limit_once: bool) -> Checked<Self> {
+        Self::start_with_rate_limits(material, usize::from(rate_limit_once))
+    }
+
+    fn start_with_rate_limits(
+        material: Option<Material>,
+        rate_limit_count: usize,
+    ) -> Checked<Self> {
         let listener = TcpListener::bind("127.0.0.1:0")?;
         let address = listener.local_addr()?;
         listener.set_nonblocking(true)?;
@@ -528,6 +549,7 @@ impl Node {
         let calls = Arc::new(Mutex::new(Vec::new()));
         let seen = Arc::clone(&calls);
         let join = thread::spawn(move || {
+            let mut rate_limit_count = rate_limit_count;
             while !done.load(Ordering::Acquire) {
                 let (mut stream, _) = match listener.accept() {
                     Ok(connection) => connection,
@@ -539,7 +561,21 @@ impl Node {
                 };
                 let request = read_request(&mut stream)?;
                 seen.lock().map_err(|_| missing())?.push(request.clone());
-                let response = if let Some(material) = &material {
+                let response = if request["method"] == "abci_query"
+                    && request["params"]["data"]
+                        .as_str()
+                        .is_some_and(|data| data.starts_with("0x"))
+                {
+                    json!({"jsonrpc": "2.0", "id": request["id"], "error": {"code": -32602, "message": "invalid query data"}})
+                } else if rate_limit_count > 0
+                    && request["method"] == "abci_query"
+                    && request["params"]["prove"] == true
+                {
+                    rate_limit_count -= 1;
+                    json!({"jsonrpc": "2.0", "id": request["id"], "result": {
+                        "response": {"code": 36, "log": "historical proof rate limited: conflict"}
+                    }})
+                } else if let Some(material) = &material {
                     json!({"jsonrpc": "2.0", "id": request["id"], "result": material.answer(&request)?})
                 } else {
                     json!({"jsonrpc": "2.0", "id": request["id"], "error": {"code": -32603, "message": "node unavailable"}})
@@ -676,6 +712,41 @@ fn open_runtime(
 }
 
 #[test]
+fn node_rpc_uses_canonical_commits_and_unprefixed_keys() -> Checked {
+    let mut node = Node::start(Some(Material::new()?))?;
+    let rpc = endpoint(node.address)?;
+    assert_eq!(
+        rpc.rpc("commit", &json!({"height": HEIGHT.to_string()}))?["canonical"],
+        false
+    );
+    assert_eq!(
+        rpc.rpc("commit", &json!({"height": (HEIGHT - 1).to_string()}))?["canonical"],
+        true
+    );
+    let mut key = b"\x01\x00\x09progstor".to_vec();
+    key.extend(PROGRAM);
+    key.push(1);
+    assert!(rpc
+        .rpc(
+            "abci_query",
+            &json!({
+                "path": "/store/lxphost/key", "data": format!("0x{}", hex(&key)),
+                "height": (HEIGHT - 2).to_string(), "prove": true
+            })
+        )
+        .is_err());
+    let result = rpc.rpc(
+        "abci_query",
+        &json!({
+            "path": "/store/lxphost/key", "data": hex(&key),
+            "height": (HEIGHT - 2).to_string(), "prove": true
+        }),
+    )?;
+    assert_eq!(result["response"]["code"], 0);
+    node.finish()
+}
+
+#[test]
 fn committed_read_reaches_the_projection() -> Checked {
     let material = Material::new()?;
     let expected = material.body()?;
@@ -691,8 +762,8 @@ fn committed_read_reaches_the_projection() -> Checked {
     assert!(runtime.projections.stream(&market()?)?.is_none());
     let snapshot = runtime.poll(&endpoint, 5000)?.ok_or_else(missing)?;
     assert_eq!(snapshot.projection, ProjectionState::FinalizedPublishable);
-    assert_eq!(snapshot.observed_sequence, HEIGHT - 1);
-    assert_eq!(snapshot.execution_height, HEIGHT);
+    assert_eq!(snapshot.observed_sequence, HEIGHT - 2);
+    assert_eq!(snapshot.execution_height, HEIGHT - 1);
     assert_eq!(snapshot.state_digest, expected_digest);
     assert_eq!(snapshot.market, market()?);
     assert_eq!(
@@ -705,13 +776,13 @@ fn committed_read_reaches_the_projection() -> Checked {
             .stream(&market()?)?
             .ok_or_else(missing)?
             .finalized_sequence,
-        Some(HEIGHT - 1)
+        Some(HEIGHT - 2)
     );
     assert!(runtime.poll(&endpoint, 5001)?.is_none());
     let caught_up = format!(
         "/v1/ai/programs/{}/committed-read?after={}",
         hex(&PROGRAM),
-        HEIGHT - 1
+        HEIGHT - 2
     );
     assert_eq!(endpoint.get(&caught_up)?, (204, Vec::new()));
     drop(runtime);
@@ -732,6 +803,55 @@ fn committed_read_reaches_the_projection() -> Checked {
     }
     drop(calls);
     node.finish()
+}
+
+#[test]
+fn source_retries_a_bounded_historical_proof_refusal() -> Checked {
+    let material = Material::new()?;
+    let expected = material.body()?;
+    let mut node = Node::start_with_rate_limit(Some(material), true)?;
+    let address = free_address()?;
+    let source = Process::start(&node, address)?;
+    let scratch = Scratch::new()?;
+    let (_, endpoint) = open_runtime(&scratch.settings(address)?, &scratch)?;
+    let target = format!("/v1/ai/programs/{}/committed-read?after=0", hex(&PROGRAM));
+    assert_eq!(endpoint.get(&target)?, (200, expected));
+    drop(source);
+    let calls = Arc::clone(&node.calls);
+    node.finish()?;
+    let calls = calls.lock().map_err(|_| missing())?;
+    assert_eq!(
+        calls
+            .iter()
+            .filter(|call| call["method"] == "abci_query" && call["params"]["prove"] == true)
+            .count(),
+        2
+    );
+    Ok(())
+}
+
+#[test]
+fn source_returns_a_historical_proof_refusal_after_the_retry_bound() -> Checked {
+    let material = Material::new()?;
+    let mut node = Node::start_with_rate_limits(Some(material), 9)?;
+    let address = free_address()?;
+    let source = Process::start(&node, address)?;
+    let scratch = Scratch::new()?;
+    let (_, endpoint) = open_runtime(&scratch.settings(address)?, &scratch)?;
+    let target = format!("/v1/ai/programs/{}/committed-read?after=0", hex(&PROGRAM));
+    assert_eq!(endpoint.get(&target)?, (502, Vec::new()));
+    drop(source);
+    let calls = Arc::clone(&node.calls);
+    node.finish()?;
+    let calls = calls.lock().map_err(|_| missing())?;
+    assert_eq!(
+        calls
+            .iter()
+            .filter(|call| call["method"] == "abci_query" && call["params"]["prove"] == true)
+            .count(),
+        9
+    );
+    Ok(())
 }
 
 #[test]

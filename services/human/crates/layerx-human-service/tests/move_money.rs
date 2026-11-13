@@ -40,7 +40,7 @@ use layerx_proof::receipt::AuthorizedBatch;
 use layerx_sdk::{Call, Client as AgentClient};
 use layerx_types::account::AccountId;
 use layerx_types::amount::Amount;
-use layerx_types::ids::{AssetId, Did, IdempotencyKey};
+use layerx_types::ids::{AssetId, IdempotencyKey};
 use layerx_types::intent::{
     AuthorizationSignature, BudgetId, ContextHash, NetworkId, PeriodLength, ProtocolVersion,
     PublicKey, PurposeHash, RolloverPolicy, SendAuthorization, SendAuthorizationKind, Sequence,
@@ -121,6 +121,63 @@ struct ReceiptSpec {
     fee: u128,
 }
 
+fn budget_create_call_data(payload: &[u8]) -> Result<Vec<u8>, AgentBoundaryError> {
+    let mut r = layerx_wire::decode::Decoder::new(payload, 0);
+    if r.u16().map_err(|_| AgentBoundaryError::CorruptResponse)? != 1 {
+        return Err(AgentBoundaryError::CorruptResponse);
+    }
+    let mut data=layerx_crypto::disclosure::call::ledger_selector("budgetCreate(bytes32,bytes32,bytes32,bytes32,uint128,uint128,uint128,uint64,uint64,uint64,uint64,uint8)").to_vec();
+    for _ in 0..4 {
+        data.extend_from_slice(
+            r.fixed(32)
+                .map_err(|_| AgentBoundaryError::CorruptResponse)?,
+        );
+    }
+    for _ in 0..3 {
+        data.extend_from_slice(&[0; 16]);
+        data.extend_from_slice(
+            &r.u128()
+                .map_err(|_| AgentBoundaryError::CorruptResponse)?
+                .to_be_bytes(),
+        );
+    }
+    for _ in 0..4 {
+        data.extend_from_slice(&[0; 24]);
+        data.extend_from_slice(
+            &r.u64()
+                .map_err(|_| AgentBoundaryError::CorruptResponse)?
+                .to_be_bytes(),
+        );
+    }
+    data.extend_from_slice(&[0; 31]);
+    data.push(r.u8().map_err(|_| AgentBoundaryError::CorruptResponse)?);
+    r.finish()
+        .map_err(|_| AgentBoundaryError::CorruptResponse)?;
+    Ok(data)
+}
+
+fn budget_fund_call_data(payload: &[u8]) -> Result<Vec<u8>, AgentBoundaryError> {
+    let mut r = layerx_wire::decode::Decoder::new(payload, 0);
+    if r.u16().map_err(|_| AgentBoundaryError::CorruptResponse)? != 1 {
+        return Err(AgentBoundaryError::CorruptResponse);
+    }
+    let mut data =
+        layerx_crypto::disclosure::call::ledger_selector("budgetFund(bytes32,uint128)").to_vec();
+    data.extend_from_slice(
+        r.fixed(32)
+            .map_err(|_| AgentBoundaryError::CorruptResponse)?,
+    );
+    data.extend_from_slice(&[0; 16]);
+    data.extend_from_slice(
+        &r.u128()
+            .map_err(|_| AgentBoundaryError::CorruptResponse)?
+            .to_be_bytes(),
+    );
+    r.finish()
+        .map_err(|_| AgentBoundaryError::CorruptResponse)?;
+    Ok(data)
+}
+
 fn prepare_bound(
     request: &ApiPrepareRequest,
     activity: ActivityType,
@@ -130,7 +187,6 @@ fn prepare_bound(
         AbiArgument, EvmPreparationState, PrecompileCall, PrecompileTarget,
         PreparationDefaults as EvmDefaults, PrepareRequest as EvmRequest,
     };
-    use layerx_crypto::disclosure::call::ledger_selector;
     let payload = &request.payload;
     let (target, data) = match (activity.module(), activity.ordinal()) {
         (ModuleId::Asset, 5) => (
@@ -139,60 +195,14 @@ fn prepare_bound(
                 .encode()
                 .map_err(|_| AgentBoundaryError::Refused)?,
         ),
-        (ModuleId::Budget, 1) => {
-            let mut r = layerx_wire::decode::Decoder::new(payload.as_bytes(), 0);
-            if r.u16().map_err(|_| AgentBoundaryError::CorruptResponse)? != 1 {
-                return Err(AgentBoundaryError::CorruptResponse);
-            }
-            let mut data=ledger_selector("budgetCreate(bytes32,bytes32,bytes32,bytes32,uint128,uint128,uint128,uint64,uint64,uint64,uint64,uint8)").to_vec();
-            for _ in 0..4 {
-                data.extend_from_slice(
-                    r.fixed(32)
-                        .map_err(|_| AgentBoundaryError::CorruptResponse)?,
-                );
-            }
-            for _ in 0..3 {
-                data.extend_from_slice(&[0; 16]);
-                data.extend_from_slice(
-                    &r.u128()
-                        .map_err(|_| AgentBoundaryError::CorruptResponse)?
-                        .to_be_bytes(),
-                );
-            }
-            for _ in 0..4 {
-                data.extend_from_slice(&[0; 24]);
-                data.extend_from_slice(
-                    &r.u64()
-                        .map_err(|_| AgentBoundaryError::CorruptResponse)?
-                        .to_be_bytes(),
-                );
-            }
-            data.extend_from_slice(&[0; 31]);
-            data.push(r.u8().map_err(|_| AgentBoundaryError::CorruptResponse)?);
-            r.finish()
-                .map_err(|_| AgentBoundaryError::CorruptResponse)?;
-            (PrecompileTarget::Pay, data)
-        }
-        (ModuleId::Budget, 2) => {
-            let mut r = layerx_wire::decode::Decoder::new(payload.as_bytes(), 0);
-            if r.u16().map_err(|_| AgentBoundaryError::CorruptResponse)? != 1 {
-                return Err(AgentBoundaryError::CorruptResponse);
-            }
-            let mut data = ledger_selector("budgetFund(bytes32,uint128)").to_vec();
-            data.extend_from_slice(
-                r.fixed(32)
-                    .map_err(|_| AgentBoundaryError::CorruptResponse)?,
-            );
-            data.extend_from_slice(&[0; 16]);
-            data.extend_from_slice(
-                &r.u128()
-                    .map_err(|_| AgentBoundaryError::CorruptResponse)?
-                    .to_be_bytes(),
-            );
-            r.finish()
-                .map_err(|_| AgentBoundaryError::CorruptResponse)?;
-            (PrecompileTarget::Pay, data)
-        }
+        (ModuleId::Budget, 1) => (
+            PrecompileTarget::Pay,
+            budget_create_call_data(payload.as_bytes())?,
+        ),
+        (ModuleId::Budget, 2) => (
+            PrecompileTarget::Pay,
+            budget_fund_call_data(payload.as_bytes())?,
+        ),
         _ => return Err(AgentBoundaryError::Refused),
     };
     let transaction = layerx_agentd::prepare::evm::prepare_bound(
@@ -1360,10 +1370,15 @@ fn hex(bytes: &[u8]) -> String {
     output
 }
 
-#[path = "support/repair_22_33_63_bank.rs"]
-mod repair_bank;
+pub mod repair_bank {
+    include!("support/repair_22_33_63_bank.rs");
+}
 
 #[test]
 fn current_bank_preparation_custody_exact_bytes_and_receipt() {
     repair_bank::exact_custody_bank_transfer();
+}
+
+pub mod require_value {
+    include!("support/require_value.rs");
 }

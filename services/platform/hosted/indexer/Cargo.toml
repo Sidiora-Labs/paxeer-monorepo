@@ -16,6 +16,10 @@ path = "src/main.rs"
 name = "layerx-ai-source"
 path = "src/bin/ai_source.rs"
 
+[[test]]
+name = "store_writers"
+path = "tests/store_writers.rs"
+
 [dependencies]
 layerx-committed-proof = { path = "../../../../services/interop/crates/layerx-committed-proof" }
 layerx-platform-internal.workspace = true
