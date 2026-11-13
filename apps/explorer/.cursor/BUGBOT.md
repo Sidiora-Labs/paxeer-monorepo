@@ -25,10 +25,10 @@ In addition to the regular bug-finding process, check the following aspects in t
 
 When a PR adds, changes, renames, or removes an environment variable, verify that **all** of the following steps have been completed:
 
-- The variable is documented in `../../docs/explorer/ENVS.md` with its name, expected type, compulsoriness, default value, and an example value.
+- The variable is documented in [docs/explorer/ENVS.md](../../../docs/explorer/ENVS.md) with its name, expected type, whether it is required, default value, and an example value.
 - The variable is added to the app config in the appropriate section of `configs/app/` (`features/`, `ui.ts`, `api.ts`, etc.).
 - A validation schema is added or updated in `deploy/tools/envs-validator/schema.ts`. For complex configs, a **separate sub-schema** should be created (similar to `tacScheme` or `beaconChainSchema`).
-- The variable is added to the test presets in `deploy/tools/envs-validator/test/.env.base`. If the variable supports alternative configurations, examples should also be added to `.env.alt`.
+- The supported deployment values are represented in the tracked presets under [configs/envs](../configs/envs). JSON configuration examples live in `deploy/tools/envs-validator/test/assets/configs/`.
 - If the variable contains an external URL that is **not** an asset URL (i.e., not an image or JSON file), the appropriate CSP policy in `nextjs/csp/policies/` is updated. Policies should only be added when the relevant config option is actually enabled.
 - If the variable links to an external resource (image or JSON config), the `ASSETS_ENVS` array in `deploy/scripts/download_assets.sh` is extended with the variable name.
 - If the variable stores a JSON config URL, an example file is added to `deploy/tools/envs-validator/test/assets/configs/` and the `envsWithJsonConfig` array in `deploy/tools/envs-validator/index.ts` is extended.

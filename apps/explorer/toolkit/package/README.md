@@ -15,7 +15,7 @@ this package; upstream owns its npm releases and publishing workflow.
 The public exports are listed in [src/index.ts](./src/index.ts). The explorer
 also imports the local [Chakra wrappers](../chakra) and [components](../components)
 directly. This package supplies UI primitives; network and API configuration
-belongs to the [explorer](../../../../docs/explorer/RELEASE_NOTES.md).
+belongs to the [explorer configuration guide](../../../../docs/explorer/ENVS.md).
 
 ## Installation
 

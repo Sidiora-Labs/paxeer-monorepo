@@ -2,11 +2,9 @@
 
 The application lives in `apps/launchpad/mobile`. Its [package manifest](package.json) pins React Native 0.86.0 and React 19.2.4. Android enables Hermes and the New Architecture, targets SDK 36 and requires Android 11/API 30 or later. The [iOS Podfile](ios/Podfile) and Xcode project target iOS 17 or later. The Sidiora platform projects and Gradle 9.3.1 wrapper are checked in; template licensing is retained in [TEMPLATE-LICENSE](TEMPLATE-LICENSE).
 
-These are source configuration facts. This page does not establish that native compilation, signed distribution or physical-device journeys have passed. Historical wrapper startup and DTO checks do not prove application compilation. An earlier missing app-local Gradle plugin link is a dependency-integration observation, not a current build result.
-
 ## Application and network boundaries
 
-[App.tsx](src/App.tsx) loads native release configuration, validates it through [readConfiguration](src/runtime/service-client.ts), then mounts discovery, token, portfolio, watchlist, profile and notification screens. Chat and live screens depend on `optionalFeatures.chat` and `optionalFeatures.live`. Missing or invalid configuration displays an unavailable-service message. The app is no longer only a bootstrap screen.
+[App.tsx](src/App.tsx) loads native release configuration, validates it through [readConfiguration](src/runtime/service-client.ts), then mounts discovery, token, portfolio, watchlist, profile and notification screens. Chat and live screens depend on `optionalFeatures.chat` and `optionalFeatures.live`. Missing or invalid configuration displays an unavailable-service message.
 
 Paxeer mainnet-beta is one BFT network with EVM chain ID 125 (`0x7d`). The kernel is part of the network and proposes blocks; a receipt is final when its block is committed. Public node JSON-RPC uses the HTTPS root of `api1.mainnet-beta.paxeer.network` through `api14.mainnet-beta.paxeer.network`, or `api-mainnet-beta.paxeer.network`; see the [public RPC reference](../../../docs/site/docs/reference/public-rpc.md). Sub-chains are tenant domains in the database. Launchpad's authenticated HTTP services and market streams are application interfaces on this network.
 
@@ -20,7 +18,7 @@ Authenticated requests use a native cookie vault restricted to the configured HT
 
 [SnapshotCache](src/runtime/offline-cache.ts) limits public snapshots to 100 MiB and private snapshots to 20 MiB. Approved public snapshots may persist through native cache files; private snapshots remain in memory and are purged on authorization loss or logout. Offline snapshots are labeled and cannot authorize financial actions.
 
-[LocalPrivacyController](src/platform/privacy.ts) implements optional biometric reopening and locks private screens on backgrounding. `PrivacyPreview` uses Android's `FLAG_SECURE` and an iOS background overlay. These implemented boundaries still require native/device evidence for masking, purge and filesystem behavior. Local unlock does not replace server authorization.
+[LocalPrivacyController](src/platform/privacy.ts) implements optional biometric reopening and locks private screens on backgrounding. `PrivacyPreview` uses Android's `FLAG_SECURE` and an iOS background overlay. Local unlock does not replace server authorization.
 
 ## External wallet, return links and push
 
@@ -32,9 +30,9 @@ Canonical HTTPS navigation and wallet return links are validated against the con
 
 [PushController and NativePlatformPush](src/runtime/push.ts) implement permission, token-change and registration boundaries using native APNs/FCM registration. Android requires `firebasePush.applicationId`, `senderId`, `apiKey` and `projectId`. Account registration also requires an injected `pushProofIssuer` and `deviceAuthorization` callback, or a supplied push adapter with that authority. The default entry point does not supply those authorities. A provider token alone cannot register an authorized device. Push payload validation permits only an unexpired notification reference leading to `/notifications`, rejects private payload fields, and resolves the notification against the current authenticated inbox. This does not establish end-to-end push delivery or device support.
 
-## Build commands after workspace dependency integration
+## Native build prerequisites
 
-Resolve the launchpad pnpm workspace and shared SDK dependencies before native builds. Android settings require the app-local `node_modules/@react-native/gradle-plugin`; a wrapper version check does not prove autolinking or compilation.
+Resolve the launchpad pnpm workspace and shared SDK dependencies before native builds. Android settings resolve the Gradle plugin from app-local `node_modules/@react-native/gradle-plugin`.
 
 From the repository root, enter `apps/launchpad/mobile`. Android requires JDK 21 and SDK 36, build-tools 36.0.0 and NDK 27.1.12297006. The project declares AGP 8.12.0 and Kotlin 2.1.20:
 

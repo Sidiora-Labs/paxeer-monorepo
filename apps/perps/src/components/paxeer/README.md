@@ -10,8 +10,8 @@ does not establish a wallet connection or submit a transaction.
 For production UI work, start with the wired widgets listed below and the
 [data API guide](../../../../../docs/perps/data-api.md). The [deployment guide](../../../deploy/README.md)
 explains gateway configuration; the
-[SettingsModal guide](../../app/modals/SettingsModal.md) distinguishes working
-themes from local-only preference switches.
+[SettingsModal guide](../../app/modals/SettingsModal.md) describes appearance
+and the shared dialog-motion preference.
 
 ## Install
 
@@ -90,8 +90,7 @@ success states into trading surfaces.
 
 ### Primitives
 
-These are the current interfaces of the components previously presented as
-generic primitives:
+The primitive components expose these interfaces:
 
 | Component | Actual input and behavior |
 | --- | --- |

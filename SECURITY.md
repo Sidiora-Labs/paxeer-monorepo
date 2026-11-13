@@ -46,7 +46,7 @@ Stop testing at a proof of concept. Never move funds that are not your own, and 
 
 ## Known exemptions
 
-- [GHSA-55f3-3qvg-8pv5](https://github.com/advisories/GHSA-55f3-3qvg-8pv5): `wasmer` 4.2.2 is pinned by `cosmwasm-vm` 1.5.12 in `wasm-runtime/libwasmvm`. The modules load without WASI filesystem access. By maintainer decision of 2026-11-05, this exemption holds until the next runtime upgrade and is reviewed at that upgrade. The rationale and mitigation are recorded in [repair_22_31_450.kvx](wasm-runtime/libwasmvm/repair_22_31_450.kvx).
+- [GHSA-55f3-3qvg-8pv5](https://github.com/advisories/GHSA-55f3-3qvg-8pv5): `wasmer` 4.2.2 is pinned by `cosmwasm-vm` 1.5.12 in `wasm-runtime/libwasmvm`. The modules load without WASI filesystem access. This exemption applies until the next runtime upgrade and is reviewed at that upgrade.
 
 ## Supported versions
 
@@ -61,8 +61,6 @@ In scope is the code in this repository, including:
 - the vendored dependency trees the node builds from (`core/deps/`)
 - the Solidity contracts (`contracts/`, `contracts/bridge/`, `contracts/launchpad/`)
 - off-chain services, SDKs and applications (`services/`, `sdk/`, `apps/`)
-
-The root directories of the chain node and the kernel move under `core/` in a later release.
 
 Out of scope:
 

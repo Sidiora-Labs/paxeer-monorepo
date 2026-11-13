@@ -1,7 +1,8 @@
 # Inference peer
 
 Standalone ES module npm package for the Paxeer inference peer. It has its own
-lockfile and no build step or npm dependencies. Use Node.js 22 or newer:
+lockfile, no build step and no runtime npm dependencies. Its tests use `jsdom`
+as a development dependency. Use Node.js 22 or newer:
 
 ```sh
 npm --prefix apps/inference-peer install --no-audit --no-fund --ignore-scripts
@@ -28,11 +29,10 @@ put local runtime integration in `src/`. To update it, copy the dependency
 closure from one upstream commit, refresh the origin comments, NOTICE hashes
 and pinned test revision together, and retain its complete MIT notice.
 
-The package manifest, regression tests and integration documentation are our
-work, covered by the repository's Apache-2.0 licence. Room networking, chain
-identity, browser UI and native CLI integration belong to subsequent tasks.
-The copied upstream helpers retain Pooled's wire and model assumptions; the
-Paxeer room adapter must live in `src/`.
+The package manifest, regression tests and integration documentation are covered
+by the repository's Apache-2.0 licence. Paxeer identity, signalling, WebRTC room
+transport, deal execution, browser UI and CLI integration live in [src](src/).
+The copied upstream helpers retain Pooled's wire and model assumptions.
 
 The package entry point exports upstream's public API. Additional exports
 include `@paxeer/inference-peer/dense`, `/qwen35`, `/gguf`, `/tokenizer`,
@@ -40,14 +40,17 @@ include `@paxeer/inference-peer/dense`, `/qwen35`, `/gguf`, `/tokenizer`,
 `engine/engine/generate.js`, with its original relative imports intact.
 
 Importing the core modules and shaders and running the tokenizer needs no GPU.
-Executing inference needs a WebGPU device and compatible model weights, which
-are downloaded separately and carry their own licences. Some experimental
+Executing the vendored GPU engines needs a WebGPU device and compatible model
+weights, which are downloaded separately and carry their own licences. Some experimental
 Qwen4 modules also require WebGPU globals at import time. The declared Node
 test imports the core engines, loaders, generation loop and shader modules,
 checks the snapshot hashes, and verifies the tokenizer against upstream's
 reference IDs and exact Unicode round trips. It does not qualify GPU inference.
 
-Signalling uses the host listener's WebSocket request target `/`. `SignalClient`
+## Room signalling
+
+Signalling uses the host listener's WebSocket request target `/`.
+[`SignalClient`](src/transport.mjs)
 takes `{ roomId, identity, manifest }`: the room is 32-byte lowercase hex, the
 identity is a `PeerIdentity`, and the manifest contains the raw v2 bytes. It
 waits for `challenge` and signs `PAXAI/inference-signal/hello/v1\0`, the 32 room
@@ -76,7 +79,12 @@ inputs for CLI execution. Missing model-source configuration fails explicitly;
 it is never added to the signalling offer.
 
 The signalling listener also serves `POST /enrol_peer`. To enrol before joining,
-run `inference-peer join <host> <room> --manifest <v2-file> --enrolment <signed-json-file>`.
+run from the repository root:
+
+```sh
+node apps/inference-peer/bin/inference-peer.mjs join <host> <room> --manifest <v2-file> --enrolment <signed-json-file>
+```
+
 Without `--enrolment`, join sends no enrolment request; the hello still undergoes
 chain admission. `--attestation` checks the PXVE binding locally before either
 request. There is no `bind_peer` request or host attestation-binding operation.
@@ -102,11 +110,30 @@ state 503. `test/fixtures/host-enrol-route.json` is shared by host and peer test
 The host enables relaying with its existing enrolment settings, including
 `LAYERX_AGENT_INFERENCE_ENROLMENT` and `LAYERX_AGENT_INFERENCE_ENROLMENT_JOURNAL`;
 without them the route refuses with `enrolment_not_configured`. Preparing the
-signed document for a peer owner remains open: the CLI does not construct,
-authorise or sign these market transactions. An owner must obtain the correct
-proposal, peer consent/publication and quote records for current chain state.
+signed document is the peer owner's responsibility. The CLI relays the supplied
+transactions. An owner supplies the correct proposal, peer consent/publication
+and quote records for current chain state.
+
+## Protocol fixtures
 
 `test/fixtures/host-signal-frames.json` contains all eleven directional signalling
 vectors, a public deterministic test seed/key, and the exact hello and deal
 acknowledgement signing bytes and signatures. Tests use real loopback WebSockets
 and verify hello bytes independently of the client's signing helper.
+
+## Browser and native entry points
+
+From this directory, `npm run serve` serves [index.html](index.html), `src/` and
+`engine/` on loopback port 4173. `PORT` overrides that port. The server sets the
+cross-origin isolation headers needed by the browser runtime.
+
+The native entry point is [bin/inference-peer.mjs](bin/inference-peer.mjs).
+Invoke it with `node`; the package manifest does not register a command in `bin`.
+`join` uses a supplied native v2 manifest and exposes `/status` on loopback port
+8788 by default (`--status-port` overrides it). Execution requires a chain-checked
+`--deal`, `--host-key` and `--model-manifest-url`.
+
+`serve --host <host>` forwards `/v1/chat/completions` and `/v1/completions` on
+loopback port 8787 by default (`--port` overrides it). It requires the host's ask
+bearer through `PAXAI_ASK_BEARER` or `--ask-bearer`. Keep that credential outside
+public files. `status --port <port>` reads a running join session's status.

@@ -1,8 +1,8 @@
 # Paxeer X Network Explorer frontend
 
 This is the frontend of the Paxeer X Network block explorer: a fork of the
-Blockscout Next.js frontend, imported from `blockscout/frontend` at tag
-`v2.7.2` (see [`docs/explorer/UPSTREAM.md`](../../docs/explorer/UPSTREAM.md)). It reads the API of the
+Blockscout Next.js frontend. Source attribution is in
+[`docs/explorer/UPSTREAM.md`](../../docs/explorer/UPSTREAM.md). It reads the API of the
 explorer backend in [`services/explorer/backend`](../../services/explorer/backend) and is served under the
 `/explorer` base path set in `next.config.js`.
 
@@ -27,8 +27,9 @@ yarn install --frozen-lockfile
 yarn build
 ```
 
-`yarn lint:eslint`, `yarn lint:tsc` and `yarn test:vitest` run the linters,
-the type check and the unit tests. Upstream's guide to building a custom image
+`yarn lint:eslint` and `yarn lint:tsc` run ESLint and the TypeScript check.
+`yarn test:vitest` starts Vitest in watch mode; `yarn test:vitest:ci` runs
+the unit suite once. Upstream's guide to building a custom image
 is kept in [`../../docs/explorer/CUSTOM_BUILD.md`](../../docs/explorer/CUSTOM_BUILD.md).
 
 ## Paxeer X
@@ -38,7 +39,7 @@ This tree is deployed as the Paxeer X Network explorer. Two run-time ENV presets
 - `paxeer-x.env` — the public deployment (https, wss).
 - `paxeer-x-dev.env` — the development deployment (http, ws).
 
-Both describe network `Paxeer X Network` (short name `Paxeer X`, network id `125`, native coin `Paxeer` (`PAX`), 18 decimals), carry the Paxeer X marks from [`public/static/paxeer-x`](./public/static/paxeer-x), and link out to nothing except `https://paxeer.network`, `https://docs.paxeer.app` and the monorepo on GitHub. `paxeer-x.env` loads its footer links from [`configs/paxeer-x/footer.json`](./configs/paxeer-x/footer.json) on the monorepo's main branch. Marketplace, ads and third-party analytics are off.
+Both describe network `Paxeer X Network` (short name `Paxeer X`, network id `125`, native coin `Paxeer` (`PAX`), 18 decimals) and carry the Paxeer X marks from [`public/static/paxeer-x`](./public/static/paxeer-x). Their navigation links and font resources are declared in the respective presets. `paxeer-x.env` loads its footer links from [`configs/paxeer-x/footer.json`](./configs/paxeer-x/footer.json) on the monorepo's main branch. Marketplace, ads and third-party analytics are off.
 
 Using a preset:
 
@@ -60,6 +61,7 @@ yarn build
 Upstream's [contribution guide](../../docs/explorer/CONTRIBUTING.md) and [code of conduct](../../docs/explorer/CODE_OF_CONDUCT.md) are kept in `docs/explorer/` at the monorepo root.
 
 ## Resources
+
 - [App ENVs list](../../docs/explorer/ENVS.md)
 - [Contribution guide](../../docs/explorer/CONTRIBUTING.md)
 - [Making a custom build](../../docs/explorer/CUSTOM_BUILD.md)

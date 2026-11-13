@@ -1,0 +1,163 @@
+[manifest]
+task = "22.41.1"
+pages = 40
+
+[page.1]
+path = ".github/ISSUE_TEMPLATE/security.md"
+status = "corrected"
+
+[page.2]
+path = ".github/copilot-instructions.md"
+status = "reviewed"
+
+[page.3]
+path = ".github/pull_request_template.md"
+status = "corrected"
+
+[page.4]
+path = "CODE_OF_CONDUCT.md"
+status = "corrected"
+
+[page.5]
+path = "CONTRIBUTING.md"
+status = "corrected"
+
+[page.6]
+path = "CONTRIBUTORS.md"
+status = "corrected"
+
+[page.7]
+path = "GOVERNANCE.md"
+status = "corrected"
+
+[page.8]
+path = "README.md"
+status = "corrected"
+
+[page.9]
+path = "RELEASE.md"
+status = "corrected"
+
+[page.10]
+path = "SECURITY.md"
+status = "corrected"
+
+[page.11]
+path = "SUPPORT.md"
+status = "corrected"
+
+[page.12]
+path = "api/README.md"
+status = "corrected"
+
+[page.13]
+path = "apps/bridge/AGENTS.md"
+status = "reviewed"
+
+[page.14]
+path = "apps/bridge/README.md"
+status = "corrected"
+
+[page.15]
+path = "apps/explorer/.cursor/BUGBOT.md"
+status = "corrected"
+
+[page.16]
+path = "apps/explorer/.cursor/skills/check-github-cli/SKILL.md"
+status = "reviewed"
+
+[page.17]
+path = "apps/explorer/.cursor/skills/create-pr/SKILL.md"
+status = "corrected"
+
+[page.18]
+path = "apps/explorer/.cursor/skills/deploy-demo/SKILL.md"
+status = "corrected"
+
+[page.19]
+path = "apps/explorer/.cursor/skills/get-checks-status/SKILL.md"
+status = "corrected"
+
+[page.20]
+path = "apps/explorer/.cursor/skills/prepare-release/SKILL.md"
+status = "corrected"
+
+[page.21]
+path = "apps/explorer/CLAUDE.md"
+status = "corrected"
+
+[page.22]
+path = "apps/explorer/README.md"
+status = "corrected"
+
+[page.23]
+path = "apps/explorer/public/README.md"
+status = "corrected"
+
+[page.24]
+path = "apps/explorer/public/static/fonts/README.md"
+status = "corrected"
+
+[page.25]
+path = "apps/explorer/toolkit/package/README.md"
+status = "corrected"
+
+[page.26]
+path = "apps/explorer/ui/snippets/user/README.md"
+status = "corrected"
+
+[page.27]
+path = "apps/inference-peer/README.md"
+status = "corrected"
+
+[page.28]
+path = "apps/launchpad/mobile/ARCHITECTURE.md"
+status = "corrected"
+
+[page.29]
+path = "apps/launchpad/qualification/account-ui/README.md"
+status = "corrected"
+
+[page.30]
+path = "apps/launchpad/qualification/market-ui/README.md"
+status = "corrected"
+
+[page.31]
+path = "apps/perps/deploy/README.md"
+status = "corrected"
+
+[page.32]
+path = "apps/perps/src/app/modals/SettingsModal.md"
+status = "corrected"
+
+[page.33]
+path = "apps/perps/src/components/paxeer/README.md"
+status = "corrected"
+
+[page.34]
+path = "apps/perps/src/core/feeds.md"
+status = "corrected"
+
+[page.35]
+path = "apps/wallet/.github/ISSUE_TEMPLATE/bug_report.md"
+status = "reviewed"
+
+[page.36]
+path = "apps/wallet/.github/ISSUE_TEMPLATE/feature_request.md"
+status = "reviewed"
+
+[page.37]
+path = "apps/wallet/.github/ISSUE_TEMPLATE/question.md"
+status = "reviewed"
+
+[page.38]
+path = "apps/wallet/.github/PULL_REQUEST_TEMPLATE.md"
+status = "reviewed"
+
+[page.39]
+path = "apps/wallet/.github/copilot-instructions.md"
+status = "reviewed"
+
+[page.40]
+path = "apps/wallet/README.md"
+status = "corrected"

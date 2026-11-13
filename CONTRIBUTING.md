@@ -12,7 +12,7 @@ Follow [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md). Report vulnerabilities only thr
 
 ## Repository layout
 
-[docs/MONOREPO.md](docs/MONOREPO.md) provides the directory inventory. The current runtime is one Paxeer network: the C17 kernel executes inside `paxd`, in the node's execution domain and block proposal path. The former `layerxd` daemon is retired. A transaction receipt is final once its block is committed.
+[docs/MONOREPO.md](docs/MONOREPO.md) provides the directory inventory. The current runtime is one Paxeer network: the C17 kernel executes inside `paxd`, in the node's execution domain and block proposal path. A transaction receipt is final once its block is committed.
 
 - `apps/` holds the user-facing frontends, `services/` the off-chain programs, `sdk/` the client SDKs, `contracts/` the Solidity contracts, `tests/` the cross-cutting test suites, and `tools/` the developer and release tooling.
 - The Paxeer X chain node (`paxd`) is the root Go module (`go.mod`, built through `chain.mk`); its entry point is `daemon/paxd/` and its packages live in root directories such as `node/`, `modules/`, `precompiles/`, `rpc/` and `consensus/`.
@@ -62,7 +62,7 @@ the relevant implementation, API contract or user-facing guide instead.
 - Solidity 0.8.27 for the root Foundry project (`foundry.toml`)
 - Node.js for the TypeScript apps and SDKs; each workspace declares its own package manager
 
-The development container under [.devcontainer/](.devcontainer/) provides a development environment. Node builds require `CGO_ENABLED=1`, the kernel and programs sandbox archives, and OpenSSL development libraries; `make paxeer-build` builds the native archives before linking `paxd`. The merged-network [test plan](spec/layerx-merge/docs/plans/test-plan.md#command-shapes-and-manifest-constraints) describes toolchain boundaries and bounded verification commands; the active task declares the commands to run.
+The development container under [.devcontainer/](.devcontainer/) provides a development environment. Chain node builds require `CGO_ENABLED=1`, the kernel and programs sandbox archives, the evmone shared library, and OpenSSL development libraries; `make paxeer-build` builds the native archives before linking `paxd`. The merged-network [test plan](spec/layerx-merge/docs/plans/test-plan.md#command-shapes-and-manifest-constraints) describes toolchain boundaries and bounded verification commands; the active task declares the commands to run.
 
 ## Gates
 

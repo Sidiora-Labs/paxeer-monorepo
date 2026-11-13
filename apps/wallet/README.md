@@ -4,7 +4,8 @@ The Next.js wallet web app (`@paxeer/wallet-app`) of Paxeer X Network, installab
 
 ## Scripts
 
-Run from this directory. Node 20 is pinned in `.nvmrc`.
+Run from this directory. Node 22.22.0 is pinned in [`.nvmrc`](.nvmrc), and
+[package.json](package.json) pins pnpm 10.34.9.
 
 - `pnpm install --frozen-lockfile` installs dependencies from `pnpm-lock.yaml`.
 - `pnpm dev` starts the development server on port 3099.
@@ -15,11 +16,9 @@ Run from this directory. Node 20 is pinned in `.nvmrc`.
 - `pnpm run release:check` runs `scripts/release-check.sh`.
 - `scripts/scan-secrets.sh [dir]` scans the app tree, or `dir`, for committed secrets and local artefacts; it prints `path:line: class` for every hit without the matched value and exits 1 on any hit, 0 when clean. `scripts/scan-secrets.test.sh` exercises it against generated fixtures.
 
-An isolated install with `--ignore-workspace` also ignores the dependency build approvals in `pnpm-workspace.yaml`. With pnpm 12, supply those same approvals through the install process environment:
-
-```sh
-PNPM_CONFIG_ALLOW_BUILDS='{"@sentry/cli":true,"esbuild":true,"sharp":true,"unrs-resolver":true}' pnpm --ignore-workspace install --frozen-lockfile
-```
+The app has its own [pnpm workspace configuration](pnpm-workspace.yaml),
+including dependency build approvals. The wallet SDK is linked from
+`../../sdk/wallet`; retain that relative layout when installing.
 
 The production image is built from [`docker/wallet-pwa/Dockerfile`](../../docker/wallet-pwa/Dockerfile) at the repository root; it runs the standalone Next.js server behind nginx with `deployment/start-wallet.sh` and `deployment/nginx.conf`.
 
@@ -33,7 +32,11 @@ The production image is built from [`docker/wallet-pwa/Dockerfile`](../../docker
 
 ## Configuration
 
-Every value is supplied through the environment at build or run time; no environment file is committed. `NEXT_PUBLIC_*` values are inlined at build time, and the Dockerfile accepts the network ones as build arguments.
+Environment variables configure service origins and deployment overrides; source
+defaults are defined in [src/lib/constants.ts](src/lib/constants.ts).
+`NEXT_PUBLIC_*` values are inlined at build time. The Dockerfile exposes its
+supported values through explicit `ARG` declarations; the .pax contract-address
+and shell-domain inputs below are consumed by the source build.
 
 | Variable                                                                                | Scope      | Purpose                                                                                                                                |
 | --------------------------------------------------------------------------------------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------- |
