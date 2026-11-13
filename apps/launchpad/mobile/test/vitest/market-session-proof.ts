@@ -13,7 +13,7 @@ import type { PublicConfiguration } from '../../src/runtime/service-client.ts';
 export async function marketSessionUsesV2Snapshots() {
   const recorded = JSON.parse(
     readFileSync(
-      new URL('./fixtures/repair-22-33-929-v2.json', import.meta.url),
+      new URL('./fixtures/market-route-v2.json', import.meta.url),
       'utf8',
     ),
   ) as { snapshot: unknown };

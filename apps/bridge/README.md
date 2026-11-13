@@ -1,10 +1,122 @@
 # Paxeer Bridge
 
-Next.js frontend for the attested PaxeerX bridge. The app connects injected EVM
-wallets, submits deposits and withdrawals, requests attestation bundles, and
-tracks transfers. The page is [src/app/page.tsx](src/app/page.tsx); bridge UI
-components live in [src/components/bridge](src/components/bridge), with client
-configuration and transaction helpers in [src/lib/bridge](src/lib/bridge).
+This directory holds the Next.js frontend for the attested PaxeerX bridge between
+Paxeer mainnet-beta and external chains. It connects injected EVM wallets,
+submits deposits and withdrawal burns, requests attestation bundles, verifies
+claim and release transactions, and tracks transfers against chain state.
+
+## Layout
+
+- [public/](public/) — static SVG assets.
+- [src/](src/) — application routes, bridge and shared UI components, client libraries, and tests.
+- [package.json](package.json) — dependencies, package manager pin, and development, build, and test scripts.
+- [pnpm-lock.yaml](pnpm-lock.yaml) — pinned dependency graph.
+- [pnpm-workspace.yaml](pnpm-workspace.yaml) — dependency build permissions.
+- [.pnpmfile.cjs](.pnpmfile.cjs) — applies the manifest's dependency overrides to pnpm configuration.
+- [.nvmrc](.nvmrc) — Node.js version requirement.
+- [.env.example](.env.example) — public deployment variable names.
+- [.gitignore](.gitignore) — dependency, build output, and local configuration exclusions.
+- [next.config.ts](next.config.ts) — Next.js caching, prefetching, and Tailwind CSS loader configuration.
+- [next-env.d.ts](next-env.d.ts) — Next.js type references.
+- [tsconfig.json](tsconfig.json) — TypeScript options and source aliases.
+- [vitest.config.ts](vitest.config.ts) — Vitest environment, test selection, and Vite plugins.
+- [eslint.config.mjs](eslint.config.mjs) — JavaScript and TypeScript lint rules.
+- [dx.json](dx.json) — UI registry, stylesheet, and component aliases.
+- [cspell.jsonc](cspell.jsonc) — spelling configuration and dictionary.
+- [svgo.config.js](svgo.config.js) — SVG optimization settings.
+- [svgo.config.format.js](svgo.config.format.js) — SVG formatting settings with ID prefixes.
+- [.license-reportrc](.license-reportrc) — license report configuration.
+
+The page is [src/app/page.tsx](src/app/page.tsx); bridge UI components live in
+[src/components/bridge](src/components/bridge), with client configuration and
+transaction helpers in [src/lib/bridge](src/lib/bridge). The
+[app layout](src/app/layout.tsx) supplies metadata, Geist and Geist Mono fonts
+through `next/font`, theme initialization, and providers.
+
+## Build and test
+
+Use the package's pinned package manager, `pnpm@10.34.9`, and install dependencies
+from this directory:
+
+```bash
+pnpm install --frozen-lockfile
+```
+
+The commands below run the scripts declared in [package.json](package.json),
+from this directory:
+
+| Command | Purpose |
+| --- | --- |
+| `pnpm dev` | Start the Next.js development server with automatic page updates. |
+| `pnpm build` | Create the production Next.js build. |
+| `pnpm start` | Serve the production build. |
+| `pnpm test` | Run the Vitest suite. |
+| `pnpm test:manifest` | Run the test manifest checks. |
+| `pnpm typecheck` | Generate Next.js types and check TypeScript without emitting output. |
+| `pnpm lint` | Run ESLint. |
+
+Set deployment variables before the production build, then run `pnpm build`
+and `pnpm start`. Use a Next.js-compatible host, including Vercel if desired.
+The deployment needs browser access to its configured RPC and attestation
+services; those services must permit requests from the app's origin. Custody
+contracts, route registration, and attestors are provisioned separately.
+
+## Configuration
+
+The UI can be opened without deployment configuration, but missing configuration
+blocks the affected transfer actions. Set public deployment inputs in an
+untracked `.env.local` before development or a production build;
+[.env.example](.env.example) lists the supported keys.
+
+[config.ts](src/lib/bridge/config.ts) reads the following public variables.
+Next.js embeds `NEXT_PUBLIC_*` values in the browser bundle at build time;
+rebuild after changing them. They contain public deployment information.
+
+| Variable | Purpose |
+| --- | --- |
+| `NEXT_PUBLIC_PAXEER_RPC_URL` | Paxeer JSON-RPC endpoint for state reads and bridge verification. |
+| `NEXT_PUBLIC_PAXEER_EXPLORER_URL` | Optional explorer base URL for Paxeer address and transaction links. |
+| `NEXT_PUBLIC_BRIDGE_API_URL` | Attestation API base URL for claim and release bundles. |
+| `NEXT_PUBLIC_BRIDGE_SOLANA_PROGRAM_ID` | Deployed Solana custody program public key. |
+| `NEXT_PUBLIC_BRIDGE_RPC_SOLANA` | Solana JSON-RPC endpoint for custody, recipient, and release records. |
+
+The EVM vault variables name deployed `PaxeerXVault` contracts:
+
+- `NEXT_PUBLIC_BRIDGE_VAULT_ETHEREUM`
+- `NEXT_PUBLIC_BRIDGE_VAULT_BASE`
+- `NEXT_PUBLIC_BRIDGE_VAULT_ARBITRUM`
+- `NEXT_PUBLIC_BRIDGE_VAULT_OPTIMISM`
+- `NEXT_PUBLIC_BRIDGE_VAULT_BNB`
+- `NEXT_PUBLIC_BRIDGE_VAULT_POLYGON`
+- `NEXT_PUBLIC_BRIDGE_VAULT_AVALANCHE`
+- `NEXT_PUBLIC_BRIDGE_VAULT_HYPEREVM`
+
+The optional foreign EVM RPC overrides are:
+
+- `NEXT_PUBLIC_BRIDGE_RPC_ETHEREUM`
+- `NEXT_PUBLIC_BRIDGE_RPC_BASE`
+- `NEXT_PUBLIC_BRIDGE_RPC_ARBITRUM`
+- `NEXT_PUBLIC_BRIDGE_RPC_OPTIMISM`
+- `NEXT_PUBLIC_BRIDGE_RPC_BNB`
+- `NEXT_PUBLIC_BRIDGE_RPC_POLYGON`
+- `NEXT_PUBLIC_BRIDGE_RPC_AVALANCHE`
+- `NEXT_PUBLIC_BRIDGE_RPC_HYPEREVM`
+
+Unset EVM RPC overrides use the viem chain defaults. Use vault addresses and the
+Solana program identity from deployment records. URL inputs accept HTTP or HTTPS
+without embedded credentials; EVM vault inputs accept valid nonzero addresses.
+Invalid inputs are treated as unset. The app requires an explicitly configured
+Paxeer RPC endpoint using a node's root URL for chain ID 125; see the
+[public RPC reference](../../docs/readme/PUBLIC-RPC.md).
+
+Build and test tooling reads [next.config.ts](next.config.ts),
+[tsconfig.json](tsconfig.json), [vitest.config.ts](vitest.config.ts), and
+[eslint.config.mjs](eslint.config.mjs). Package installation uses
+[pnpm-workspace.yaml](pnpm-workspace.yaml) and [.pnpmfile.cjs](.pnpmfile.cjs).
+UI registry settings are in [dx.json](dx.json); spelling, SVG, and license report
+settings are listed under Layout.
+
+### Network and routes
 
 Paxeer mainnet-beta is one BFT network running `paxd`, with EVM chain ID **125**
 (`0x7d`) and native currency **PAX**. The kernel participates in the network and
@@ -12,55 +124,6 @@ proposes blocks. A Paxeer receipt is final when its block is committed. Transfer
 across chains additionally require source-chain confirmation depth and threshold
 attestor signatures; those bridge requirements do not change Paxeer consensus
 finality.
-
-## Getting Started
-
-Use the package's pinned package manager, `pnpm@10.34.9`, and run these commands
-from this directory:
-
-```bash
-pnpm install --frozen-lockfile
-pnpm dev
-```
-
-Open [http://localhost:3000](http://localhost:3000). Edit
-[src/app/page.tsx](src/app/page.tsx) to change the page; the development server
-updates it automatically. The layout uses `next/font` with Geist and Geist Mono.
-
-The UI can be opened without deployment configuration, but missing configuration
-blocks transfer actions. Configure the values below in an untracked `.env.local`
-before starting development or building a deployment.
-
-## Build-time configuration
-
-[config.ts](src/lib/bridge/config.ts) reads the following public variables.
-Next.js embeds `NEXT_PUBLIC_*` values in the browser bundle at build time:
-**rebuild after changing them**. They must contain public deployment information,
-never credentials or signing keys.
-
-| Variable | Purpose |
-| --- | --- |
-| `NEXT_PUBLIC_PAXEER_RPC_URL` | Paxeer JSON-RPC endpoint. Required for Paxeer state reads and bridge verification. |
-| `NEXT_PUBLIC_PAXEER_EXPLORER_URL` | Optional explorer base URL for Paxeer address and transaction links. |
-| `NEXT_PUBLIC_BRIDGE_API_URL` | Base URL for the attestation API used by claim and release actions. |
-| `NEXT_PUBLIC_BRIDGE_VAULT_<CHAIN>` | Deployed `PaxeerXVault` address for an EVM route. |
-| `NEXT_PUBLIC_BRIDGE_RPC_<CHAIN>` | Optional foreign EVM RPC override; otherwise the viem chain default is used. |
-| `NEXT_PUBLIC_BRIDGE_SOLANA_PROGRAM_ID` | Deployed Solana custody program's base58 public key. |
-| `NEXT_PUBLIC_BRIDGE_RPC_SOLANA` | Solana HTTP JSON-RPC endpoint, required for the withdrawal recipient-record lookup. |
-
-For the two EVM variable families, replace `<CHAIN>` with exactly one of
-`ETHEREUM`, `BASE`, `ARBITRUM`, `OPTIMISM`, `BNB`, `POLYGON`, `AVALANCHE`, or
-`HYPEREVM`. For example, the Base vault key is `NEXT_PUBLIC_BRIDGE_VAULT_BASE`.
-Use addresses from actual deployment records; the repository's chain
-configuration files contain placeholders rather than proof of deployment.
-URL values must use HTTP or HTTPS without embedded credentials; EVM vault
-addresses must be valid and nonzero. Invalid values are treated as unset.
-
-For public Paxeer JSON-RPC, use a node's root URL for chain ID 125.
-See the [public RPC reference](../../docs/site/docs/reference/public-rpc.md).
-The app supplies no default Paxeer RPC URL.
-
-## Routes and prerequisites
 
 The [chain registry](src/lib/bridge/chains.ts) lists Ethereum, Base, Arbitrum,
 Optimism, BNB Chain, Polygon, Avalanche, HyperEVM, and Solana. An EVM route's
@@ -88,8 +151,8 @@ must also be satisfied.
 - Solana deposits remain disabled: this app has no Solana wallet connector.
   Withdrawing to Solana also requires an RPC-verified, registered recipient
   record matching the full destination public key. The UI submits the burn on
-  Paxeer, but its release action targets EVM vaults; payout through the Solana
-  custody program requires external integration.
+  Paxeer. The transfer panel observes the automatic relay payout through the
+  Solana custody program and verifies its finalized release record.
 
 The Paxeer bridge is the native `layerxbridge` module exposed through
 [`ILayerXBridge`](../../precompiles/layerxbridge/LayerXBridge.sol) at
@@ -110,7 +173,7 @@ custody bridge. See the
 [attestation specification](../../modules/layerxbridge/ATTESTATION.md) for the
 signed message formats.
 
-## Transfer recovery
+### Transfer recovery
 
 The transfer list uses browser `localStorage`, keyed by
 `paxeer-bridge:transfers:v1`, with up to 50 records per account. It is a local
@@ -137,25 +200,16 @@ nullifier or verified Solana release record. Reverted or dropped EVM attempts
 show a retry action. When neither the settlement receipt nor the transaction is
 found, the attempt is classified as dropped once two minutes have elapsed since
 submission. Inspect the destination receipt and nullifier before retrying.
-Importing an already tracked transfer preserves its existing local record.
+Importing an already tracked transfer reconciles receipt metadata and retains
+its saved settlement progress.
 
-## Learn More
+## Documentation
 
-- [Next.js documentation](https://nextjs.org/docs) for framework usage.
-- [App layout](src/app/layout.tsx) for metadata, fonts, theme initialization, and providers.
-- [Transfer actions](src/components/bridge/transfer-actions.ts) for claim/release verification and writes.
-- [Transfer storage](src/lib/bridge/transfers.ts) and [receipt import](src/lib/bridge/import.ts) for recovery behavior.
-
-## Deploy
-
-Set deployment variables before the production build, then run from this directory:
-
-```bash
-pnpm build
-pnpm start
-```
-
-Use a Next.js-compatible host, including Vercel if desired. The deployment needs
-browser access to its configured RPC and attestation services; those services
-must permit requests from the app's origin. A successful frontend build does not
-deploy custody contracts, register bridge routes, or provision attestors.
+- [Bridge module](../../docs/wiki/Bridge.md) — network bridge operations and governance prerequisites.
+- [Bridge application variables](../../docs/release/variables/app-bridge.md) — public frontend configuration reference.
+- [Public RPC reference](../../docs/readme/PUBLIC-RPC.md) — Paxeer JSON-RPC access.
+- [Bridging and balances](../../docs/site/paxeer-docs/public/markdown/bridge.md) — documentation site bridge guide.
+- [Documentation site bridge page](../../docs/site/paxeer-docs/src/app/bridge/page.tsx) — site page source.
+- [Attestation specification](../../modules/layerxbridge/ATTESTATION.md) — signed message formats.
+- [Transfer actions](src/components/bridge/transfer-actions.ts) — claim and release verification and writes.
+- [Transfer storage](src/lib/bridge/transfers.ts) and [receipt import](src/lib/bridge/import.ts) — transfer recovery behavior.

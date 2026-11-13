@@ -53,7 +53,7 @@ The runner reconciles UI accounting and watchlists with authoritative snapshots,
 
 Runner availability is not a passing result. The phase-four result records `qualificationCapacityClaim: false`; it covers account journeys and does not measure shared load or restore capacity. The [market UI guide](../market-ui/README.md) describes the corresponding market presentation and measurement boundaries.
 
-The [README path, runner command, import and qualification-boundary tests](test_repair_22_33_1026.py)
+The [README path, runner command, import and qualification-boundary tests](test_documented_account_commands.py)
 check that linked files are served, documented commands match the owned runners,
 disclosure imports resolve and runner discovery retains the stated limits.
 Loopback checks of documentation and configuration do not run the service

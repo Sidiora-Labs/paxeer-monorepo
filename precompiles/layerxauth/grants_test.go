@@ -241,9 +241,9 @@ func TestPrecompileGrantSessionSuccessor(t *testing.T) {
 		}
 		t.Run(name, func(t *testing.T) {
 			f := newGrantFixture(t)
-			payload, fee := repairM1503FeesAndProgram(t, f)
+			payload, fee := setupGovernedFeesAndProgram(t, f)
 			evm, db := f.evm()
-			body := repairM1503Body(f, f.key, 41, fee)
+			body := feeSessionSuccessorBody(f, f.key, 41, fee)
 			predecessor := grantCall(t, f, evm, "grantSession", body, uint64(100), [32]byte{0x33})[0].([32]byte)
 			live, reason, err := f.keeper.IsLive(db.Ctx(), predecessor, 90, f.timestamp)
 			require.NoError(t, err)
@@ -259,9 +259,9 @@ func TestPrecompileGrantSessionSuccessor(t *testing.T) {
 			var charged lxphost.AuthorityGrant
 			for i := 0; i < count; i++ {
 				ctx = ctx.WithBlockTime(time.UnixMilli(int64(f.timestamp) + int64(i)*1000).UTC())
-				charged = repairM1503Charge(t, f, ctx, predecessor, payload, fee)
+				charged = chargeSessionFee(t, f, ctx, predecessor, payload, fee)
 				before := hostSnapshot(t, ctx, f.hostKey)
-				refused, err := repairM1503Execute(t, f, ctx, 0x00090003, payload, fee, predecessor)
+				refused, err := executeAuthorityActivity(t, f, ctx, 0x00090003, payload, fee, predecessor)
 				require.ErrorIs(t, err, lxphost.Code(-211))
 				require.Empty(t, refused.Encoded)
 				require.Equal(t, before, hostSnapshot(t, ctx, f.hostKey))
@@ -282,17 +282,17 @@ func TestPrecompileGrantSessionSuccessor(t *testing.T) {
 			require.Equal(t, sdk.NewIntFromUint64(uint64(count)*fee), grant.FeeBudget.SpentTotal)
 			require.Equal(t, sdk.NewIntFromUint64(fee), grant.FeeBudget.SpentThisPeriod)
 			require.Equal(t, uint64(ctx.BlockTime().UnixMilli()), grant.FeeBudget.PeriodStart)
-			repairM1503Reopen(t, f, ctx)
+			reopenGrantFixture(t, f, ctx)
 			persisted, err := f.host.ReadGrant(f.ctx, predecessor)
 			require.NoError(t, err)
 			require.Equal(t, grant, persisted)
 			private := ed25519.NewKeyFromSeed(bytes.Repeat([]byte{75}, ed25519.SeedSize))
 			var key [32]byte
 			copy(key[:], private.Public().(ed25519.PublicKey))
-			successorBody := repairM1503Body(f, key, revocationSequence, fee)
+			successorBody := feeSessionSuccessorBody(f, key, revocationSequence, fee)
 			id, err := codec.DomainHash(codec.DomainAuthorityHash, successorBody)
 			require.NoError(t, err)
-			commitment := repairM1503Commitment(persisted)
+			commitment := sessionReplacementCommitment(persisted)
 			evm, db = f.evm()
 			t.Run("wrong expected commitment", func(t *testing.T) {
 				before := hostSnapshot(t, db.Ctx(), f.hostKey)
@@ -332,11 +332,11 @@ func TestPrecompileGrantSessionSuccessor(t *testing.T) {
 			require.NoError(t, err)
 			require.False(t, live)
 			require.Equal(t, "LXP_AUTH_REVOKED", reason)
-			repairM1503Reopen(t, f, db.Ctx())
+			reopenGrantFixture(t, f, db.Ctx())
 			recovered, err := f.host.ReadGrant(f.ctx, id)
 			require.NoError(t, err)
 			require.Equal(t, successor, recovered)
-			repairM1503AssertExhausted(t, f, id, fee, count == 2)
+			assertSessionFeeBudgetExhausted(t, f, id, fee, count == 2)
 		})
 	}
 }
