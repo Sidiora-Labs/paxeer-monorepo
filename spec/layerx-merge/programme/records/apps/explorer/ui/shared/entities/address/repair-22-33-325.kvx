@@ -1,7 +1,7 @@
 [repair.22.33.325]
 audit = "22.30.137"
 finding = "address_chain_context"
-test_file = "apps/explorer/ui/shared/entities/address/repair-22-33-325.spec.ts"
+test_file = "apps/explorer/ui/shared/entities/address/AddressEntityChainLinks.spec.ts"
 proving_test = "selectedChainTransferRowsKeepAddressLinks"
 compatibility_tests = ["explicitAddressChainOverridesSelectedChain", "addressWithoutSelectedChainKeepsLocalLink", "explicitAddressHrefAndNoLinkArePreserved"]
 path = "Committed ERC-20 transfer fixture -> production table and list rows -> AddressFromTo -> AddressEntity -> useMultichainContext -> distributeEntityProps -> production route and anchor; production context provider carries committed chain fixtures."

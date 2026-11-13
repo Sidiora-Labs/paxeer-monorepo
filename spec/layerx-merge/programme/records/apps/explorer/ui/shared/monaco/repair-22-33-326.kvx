@@ -11,17 +11,17 @@ wiring_requests = []
 
 [finding.editor_model_lifecycle]
 test = "editorModelLifecycle"
-path = "repair-22-33-326.spec.ts"
+path = "editorModelSearch.spec.ts"
 closes = "Chain, contract and viewer identities isolate shared secondary paths; source updates reach existing owned models; replacement, removal and unmount dispose owned models; reopening loads current sources."
 
 [finding.editor_search_scope]
 test = "editorSearchScope"
-path = "repair-22-33-326.spec.ts"
+path = "editorModelSearch.spec.ts"
 closes = "Sequential navigation searches only viewer-owned models and yields selectable current file paths and source ranges; old highlights clear on scope changes, empty queries and unmount, including after model disposal."
 
 [finding.editor_whole_word]
 test = "editorWholeWord"
-path = "repair-22-33-326.spec.ts"
+path = "editorModelSearch.spec.ts"
 closes = "Monaco separator characters preserve t, r, u and e inside identifiers and recognize punctuation boundaries; toggling whole-word matching updates real results and highlights."
 
 [qualification_note]

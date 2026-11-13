@@ -8,7 +8,7 @@ import type { ReCAPTCHA } from 'react-google-recaptcha';
 import useFetch from 'lib/hooks/useFetch';
 import { afterEach, beforeEach, expect, test } from 'vitest';
 
-import renderReCaptcha from './repair-22-33-330.fixture';
+import renderReCaptcha from './renderReCaptcha.fixture';
 import useReCaptcha from './useReCaptcha';
 
 const SOLVED_TOKEN = 'solved-captcha-transcript-token';

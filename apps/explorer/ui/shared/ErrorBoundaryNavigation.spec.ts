@@ -102,7 +102,7 @@ async function assertDynamicResourceRecovery(kind: 'tx' | 'address') {
 
   // Next's real router and page loader consume the same bootstrap manifests as a browser page.
   installBootstrapValue('__NEXT_DATA__', {
-    props: { pageProps: {} }, page: pathname, query: { hash: FAILED_HASH }, buildId: 'repair-22-33-320', gssp: true,
+    props: { pageProps: {} }, page: pathname, query: { hash: FAILED_HASH }, buildId: 'error-boundary-navigation', gssp: true,
   });
   installBootstrapValue('__BUILD_MANIFEST', {
     __rewrites: { beforeFiles: [], afterFiles: [], fallback: [] }, sortedPages: [ pathname ], [pathname]: [],
@@ -115,7 +115,7 @@ async function assertDynamicResourceRecovery(kind: 'tx' | 'address') {
 
   router = new Router(pathname, { hash: FAILED_HASH }, failedPath, {
     initialProps: { pageProps: {} },
-    pageLoader: new PageLoader('repair-22-33-320', ''),
+    pageLoader: new PageLoader('error-boundary-navigation', ''),
     App: NextApp,
     wrapApp: App => App,
     Component: Resource,

@@ -1,8 +1,8 @@
 [repair.22.33.321]
 audit = "22.30.137"
-erc1155_list_identity = "repair-22-33-321.spec.ts: erc1155ListIdentity"
-erc1155_table_identity = "repair-22-33-321.spec.ts: erc1155TableIdentity"
-compatibility = "repair-22-33-321.spec.ts: transferIdentityCompatibility"
+erc1155_list_identity = "TokenTransferIdentity.spec.ts: erc1155ListIdentity"
+erc1155_table_identity = "TokenTransferIdentity.spec.ts: erc1155TableIdentity"
+compatibility = "TokenTransferIdentity.spec.ts: transferIdentityCompatibility"
 fixture = "Existing committed mocks/tokens/tokenTransfer.ts erc1155A and erc1155D; JSON Response decoding into the production list/table render functions with the real multichain context."
 baseline = "Not run: the explicit implementation-first order and hf-build/hf-done budget prohibit the contradictory do_6 unchanged-tree verification; no pre-change failure is claimed."
 proof_limit = "Tests inspect the actual React row keys and props before mounting row descendants; they do not claim DOM reconciliation or execution of the Elixir backend serializer."

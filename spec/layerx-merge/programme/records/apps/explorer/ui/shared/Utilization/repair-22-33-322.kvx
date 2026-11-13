@@ -1,6 +1,6 @@
 [repair.22.33.322]
 finding = "utilization_localized_css"
-test = "repair-22-33-322.spec.ts:utilizationLocalizedCss"
+test = "UtilizationLocale.spec.ts:utilizationLocalizedCss"
 coverage = "Real Utilization, Intl number formatting, Chakra theme/provider and DOM CSS consumer; decimal-comma labels, numeric widths, precision and clamping."
 locale = "Optional explicit locale selects real Intl formatting without mocking globals or requiring environment variables; omitted locale retains runtime default."
 baseline = "Not run: the ordered gate instructions prohibit verification before implementation and require hf-build before hf-done. No baseline failure is claimed."
