@@ -68,7 +68,7 @@ The registry StatefulSet and Human owner-provisioning Job mount the
 `/var/lib/layerx-registry-journal`, and set `LAYERX_REGISTRY_JOURNAL` to that
 path. The registry initializes it as UID 4030, mode 0700. The Job mount is
 read-only. Registry pod affinity places the ReadWriteOnce volume on the node
-pod's host, where the owner Job is pinned.
+pod's host.
 
 The host-side Human assembler consumes a protected local journal export owned
 by its executing user. A PVC mount does not copy that export to the invoking
@@ -82,6 +82,6 @@ Sources:
 - [`programs_chain.rs`](../../services/platform/hosted/registry/src/programs_chain.rs)
 - [`journal.rs`](../../services/platform/hosted/registry/src/journal.rs)
 - [`registry deployment`](../../services/platform/hosted/registry/deployment.yaml)
-- [`Human deployment`](../../services/platform/hosted/human/deployment.yaml)
+- [`Human owner-provisioning Job`](../../services/platform/hosted/human/provision-owner-job.yaml)
 
 [Home](Home.md)

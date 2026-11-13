@@ -24,9 +24,10 @@ curl --max-time 15 -sS https://api1.mainnet-beta.paxeer.network/ \
   -d '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'
 ```
 
-The result is `"0x7d"`. The node namespaces are `debug`, `echo`, `eth`, `net`,
-`pax`, `px`, `test` and `txpool`; `test` is registered only on non-live chain
-IDs, and availability depends on node configuration. WebSocket subscriptions
+The result is `"0x7d"`. The node's HTTP registration includes `debug`, `echo`,
+`eth`, `net`, `pax`, `pax2`, `px`, `txpool` and `web3`. The `test` namespace
+is registered only when enabled on non-live chain IDs; method availability
+also depends on node configuration. WebSocket subscriptions
 use `eth_subscribe` with `newHeads`, `logs` or `newPendingTransactions`.
 The retired `lx_*` methods are not served by the node or the hosted gateway.
 
@@ -43,7 +44,7 @@ Parameters are positional.
 | `px_resolveAccount` | `[account]` | `evm_address`, `pax_address`, `layerx_did`, `layerx_account` and `bound`; unbound references are null |
 | `px_getAccount` | `[account]` | Resolved `account` and `paxeer` with `address`, hex `balance` and `nonce`, and integer `height` |
 | `px_getBalances` | `[account]` | Resolved `account`, integer `height` and `balances` with `denom` and decimal-string `amount` |
-| `px_listAssets` | `[]` at the node; `[cursor?, limit?]` at the hosted gateway | Registered assets; the hosted gateway pages them with `next_cursor` |
+| `px_listAssets` | `[cursor?]` on both surfaces | Registered assets in registration order, up to 16 per page; `next_cursor`, `joined_limit: 16`, `order: "registration"` and `height` |
 | `px_getNetwork` | `[]` | `network_id`, `paxeer` chain ID and head, and the consensus head |
 | `px_getHistory` | `[account, cursor?, limit?, kind?]` | Indexed transfer `items`, `next_cursor`, `indexedHeight`, `chainHeight` and `freshness` |
 | `px_getUnifiedHistory` | `[account, cursor?, limit?, kind?]` | Resolved `account`, merged `accounts` and history `items` tagged with `side` |
@@ -59,6 +60,8 @@ Parameters are positional.
 
 Consensus read heights are positive decimal `u64` strings, unlike EVM hex
 quantities. History cursors are opaque; pass `next_cursor` through unchanged.
+Asset-list cursors are positive signed-64-bit decimal registration row IDs;
+use the returned `next_cursor` for the next page.
 
 `px_register` and `px_requestFunds` are operations of the hosted identity and
 faucet services. The node validates their parameters and answers `-32004` with
@@ -81,8 +84,9 @@ using the `0x`-prefixed 32-byte transaction hash:
 | `committed` | Receipt covered by a committed block, with `blockNumber` and `blockHash` |
 
 A committed receipt must also report successful execution (`status: "0x1"`).
-Verify the receipt signature against keys from `px_getReceiptKeys` that are
-valid at its height, and verify committed evidence against a trusted consensus
+Verify the receipt signature against independently trusted signing keys valid
+at its height. `px_getReceiptKeys` supplies key discovery; its response alone
+does not establish trust. Verify committed evidence against a trusted consensus
 context. See [Protocol](Protocol.md#from-transaction-to-committed-receipt).
 
 ## Hosted gateway

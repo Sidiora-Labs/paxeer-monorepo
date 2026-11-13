@@ -1,9 +1,9 @@
 # Ethereum and Solana migration
 
-`layerx-migrate` maps external accounts, credits assets, and imports
-external history through `SourceVerifier` + `MigrationPlane` +
-gateway idempotency (`services/interop/crates/layerx-migrate/src/lib.rs`).
-The adapter id is `migration`.
+`layerx-migrate` verifies external account ownership, asset finality and
+history (`services/interop/crates/layerx-migrate/src/lib.rs`). Its hosted
+account mapping, asset settlement and history routes use the migration-v2
+profile described below. The adapter id is `migration`.
 
 Authenticated HTTPS source-chain RPC clients are available in
 `services/interop/crates/layerx-migrate/src/rpc.rs`. Durable migration journals
