@@ -34,7 +34,7 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-type repair27Chain struct {
+type receiptEvidenceChain struct {
 	backend  *simulated.Backend
 	endpoint string
 	key      *ecdsa.PrivateKey
@@ -42,16 +42,16 @@ type repair27Chain struct {
 	nonce    uint64
 }
 
-func repair27Node(t *testing.T, chainID int64) *repair27Chain {
+func receiptEvidenceNode(t *testing.T, chainID int64) *receiptEvidenceChain {
 	t.Helper()
 	key, err := crypto.GenerateKey()
 	if err != nil {
 		t.Fatal(err)
 	}
-	return repair27NodeWithKey(t, chainID, key)
+	return receiptEvidenceNodeWithKey(t, chainID, key)
 }
 
-func repair27NodeWithKey(t *testing.T, chainID int64, key *ecdsa.PrivateKey) *repair27Chain {
+func receiptEvidenceNodeWithKey(t *testing.T, chainID int64, key *ecdsa.PrivateKey) *receiptEvidenceChain {
 	t.Helper()
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -77,10 +77,10 @@ func repair27NodeWithKey(t *testing.T, chainID int64, key *ecdsa.PrivateKey) *re
 		}
 	})
 	backend.Commit()
-	return &repair27Chain{backend: backend, endpoint: "http://127.0.0.1:" + strconv.Itoa(port), key: key, chainID: chainID}
+	return &receiptEvidenceChain{backend: backend, endpoint: "http://127.0.0.1:" + strconv.Itoa(port), key: key, chainID: chainID}
 }
 
-func (c *repair27Chain) send(t *testing.T, to *common.Address, data []byte) common.Hash {
+func (c *receiptEvidenceChain) send(t *testing.T, to *common.Address, data []byte) common.Hash {
 	t.Helper()
 	tx, err := types.SignNewTx(c.key, types.LatestSignerForChainID(big.NewInt(c.chainID)), &types.DynamicFeeTx{
 		ChainID: big.NewInt(c.chainID), Nonce: c.nonce, GasTipCap: big.NewInt(params.GWei), GasFeeCap: big.NewInt(10 * params.GWei), Gas: 100000, To: to, Value: big.NewInt(1), Data: data,
@@ -97,7 +97,7 @@ func (c *repair27Chain) send(t *testing.T, to *common.Address, data []byte) comm
 
 // The EVM executes LOG0 during contract creation. Two creations in one block
 // give the second receipt a genuine nonzero block-global event index.
-func (c *repair27Chain) events(t *testing.T) common.Hash {
+func (c *receiptEvidenceChain) events(t *testing.T) common.Hash {
 	t.Helper()
 	code := common.FromHex("0x60006000a060006000f3")
 	c.send(t, nil, code)
@@ -106,7 +106,7 @@ func (c *repair27Chain) events(t *testing.T) common.Hash {
 	return hash
 }
 
-func repair27HTTP(t *testing.T, endpoint string) *httptest.Server {
+func receiptEvidenceHTTP(t *testing.T, endpoint string) *httptest.Server {
 	t.Helper()
 	rpcClient, err := dialNetworkRPC(context.Background(), endpoint, true)
 	if err != nil {
@@ -127,7 +127,7 @@ func repair27HTTP(t *testing.T, endpoint string) *httptest.Server {
 	return srv
 }
 
-func repair27SDK(t *testing.T, c *repair27Chain) *chain.Client {
+func receiptEvidenceSDK(t *testing.T, c *receiptEvidenceChain) *chain.Client {
 	t.Helper()
 	header, err := c.backend.Client().HeaderByNumber(context.Background(), big.NewInt(0))
 	if err != nil {
@@ -143,7 +143,7 @@ func repair27SDK(t *testing.T, c *repair27Chain) *chain.Client {
 	return client
 }
 
-func repair27Submitted(t *testing.T, hash common.Hash) readpolicy.TransactionState {
+func receiptEvidenceSubmitted(t *testing.T, hash common.Hash) readpolicy.TransactionState {
 	t.Helper()
 	state, err := readpolicy.Submitted(hash, "repair-27")
 	if err != nil {
@@ -152,7 +152,7 @@ func repair27Submitted(t *testing.T, hash common.Hash) readpolicy.TransactionSta
 	return state
 }
 
-func repair27Refused(t *testing.T, srv *httptest.Server, hash common.Hash) {
+func receiptEvidenceRefused(t *testing.T, srv *httptest.Server, hash common.Hash) {
 	t.Helper()
 	status, body, _ := netCall(t, http.MethodGet, srv.URL+"/v2/transactions/"+hash.Hex())
 	if status != 503 || interfaces.ValidateJSON("Error", body) != nil {
@@ -170,8 +170,8 @@ func repair27Refused(t *testing.T, srv *httptest.Server, hash common.Hash) {
 	}
 }
 
-func TestRepair_27_receipt_event_position(t *testing.T) {
-	c := repair27Node(t, 125)
+func TestReceiptEventPosition(t *testing.T) {
+	c := receiptEvidenceNode(t, 125)
 	hash := c.events(t)
 	receipt, err := c.backend.Client().TransactionReceipt(context.Background(), hash)
 	if err != nil {
@@ -180,15 +180,15 @@ func TestRepair_27_receipt_event_position(t *testing.T) {
 	if len(receipt.Logs) != 1 || receipt.Logs[0].Index != 1 || receipt.TransactionIndex != 1 {
 		t.Fatalf("real nonzero event fixture not produced: %+v", receipt)
 	}
-	sdk := repair27SDK(t, c)
-	next, expected, err := sdk.ReceiptState(context.Background(), repair27Submitted(t, hash))
+	sdk := receiptEvidenceSDK(t, c)
+	next, expected, err := sdk.ReceiptState(context.Background(), receiptEvidenceSubmitted(t, hash))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if next.State != "included_success" || expected.Receipt == nil || expected.Receipt.Position.LogIndex != "1" {
 		t.Fatalf("SDK lost event identity: %+v %+v", next, expected)
 	}
-	servers := []*httptest.Server{repair27HTTP(t, c.endpoint), networkReadsServer(t, c.endpoint)}
+	servers := []*httptest.Server{receiptEvidenceHTTP(t, c.endpoint), networkReadsServer(t, c.endpoint)}
 	for _, srv := range servers {
 		status, body, header := netCall(t, http.MethodGet, srv.URL+"/v2/transactions/"+hash.Hex())
 		if status != 200 || interfaces.ValidateJSON("TxStatusResponse", body) != nil || header.Get("Cache-Control") != "no-store" {
@@ -211,14 +211,14 @@ func TestRepair_27_receipt_event_position(t *testing.T) {
 	}
 }
 
-func TestRepair_27_log_free_receipts(t *testing.T) {
-	c := repair27Node(t, 125)
+func TestLogFreeReceipts(t *testing.T) {
+	c := receiptEvidenceNode(t, 125)
 	to := common.HexToAddress("0x1234")
 	transfer := c.send(t, &to, nil)
 	revert := c.send(t, nil, common.FromHex("0x60006000fd"))
 	c.backend.Commit()
-	sdk := repair27SDK(t, c)
-	servers := []*httptest.Server{repair27HTTP(t, c.endpoint), networkReadsServer(t, c.endpoint)}
+	sdk := receiptEvidenceSDK(t, c)
+	servers := []*httptest.Server{receiptEvidenceHTTP(t, c.endpoint), networkReadsServer(t, c.endpoint)}
 	for i, tc := range []struct {
 		hash          common.Hash
 		success       bool
@@ -255,7 +255,7 @@ func TestRepair_27_log_free_receipts(t *testing.T) {
 			GasUsedRaw:           interfaces.UInt256(strconv.FormatUint(receipt.GasUsed, 10)),
 			EffectiveGasPriceRaw: interfaces.UInt256(receipt.EffectiveGasPrice.String()),
 		}}
-		next, view, err := sdk.ReceiptState(context.Background(), repair27Submitted(t, tc.hash))
+		next, view, err := sdk.ReceiptState(context.Background(), receiptEvidenceSubmitted(t, tc.hash))
 		if err != nil || !reflect.DeepEqual(view, expected) {
 			t.Fatalf("SDK log-free receipt: got %+v, want %+v, error %v", view, expected, err)
 		}
@@ -281,21 +281,21 @@ func TestRepair_27_log_free_receipts(t *testing.T) {
 	}
 }
 
-func TestRepair_27_wrong_chain(t *testing.T) {
-	foreign := repair27Node(t, 1337)
+func TestWrongChain(t *testing.T) {
+	foreign := receiptEvidenceNode(t, 1337)
 	hash := foreign.events(t)
 	receipt, err := foreign.backend.Client().TransactionReceipt(context.Background(), hash)
 	if err != nil || receipt == nil || len(receipt.Logs) == 0 {
 		t.Fatalf("foreign receipt not produced: %v", err)
 	}
-	repair27Refused(t, repair27HTTP(t, foreign.endpoint), hash)
-	repair27Refused(t, networkReadsServer(t, foreign.endpoint), hash)
+	receiptEvidenceRefused(t, receiptEvidenceHTTP(t, foreign.endpoint), hash)
+	receiptEvidenceRefused(t, networkReadsServer(t, foreign.endpoint), hash)
 }
 
 // Route selected RPC methods to a second real node. Both nodes produce their
 // own signed transactions, blocks and receipts; no response payload is invented
 // or modified. This proves refusal of conflicting evidence over real HTTP RPC.
-func repair27SplitRPC(t *testing.T, primary, other string, methods map[string]bool) *httptest.Server {
+func receiptEvidenceSplitRPC(t *testing.T, primary, other string, methods map[string]bool) *httptest.Server {
 	t.Helper()
 	first, err := url.Parse(primary)
 	if err != nil {
@@ -333,8 +333,8 @@ func repair27SplitRPC(t *testing.T, primary, other string, methods map[string]bo
 	return srv
 }
 
-func TestRepair_27_conflicting_block(t *testing.T) {
-	c, other := repair27Node(t, 125), repair27Node(t, 125)
+func TestConflictingBlock(t *testing.T) {
+	c, other := receiptEvidenceNode(t, 125), receiptEvidenceNode(t, 125)
 	hash := c.events(t)
 	other.events(t)
 	a, err := c.backend.Client().HeaderByNumber(context.Background(), nil)
@@ -348,13 +348,13 @@ func TestRepair_27_conflicting_block(t *testing.T) {
 	if a.Number.Cmp(b.Number) != 0 || a.Hash() == b.Hash() {
 		t.Fatal("distinct committed blocks required")
 	}
-	proxy := repair27SplitRPC(t, c.endpoint, other.endpoint, map[string]bool{"eth_getBlockByNumber": true})
-	repair27Refused(t, repair27HTTP(t, proxy.URL), hash)
+	proxy := receiptEvidenceSplitRPC(t, c.endpoint, other.endpoint, map[string]bool{"eth_getBlockByNumber": true})
+	receiptEvidenceRefused(t, receiptEvidenceHTTP(t, proxy.URL), hash)
 }
 
-func TestRepair_27_conflicting_inclusion(t *testing.T) {
-	c := repair27Node(t, 125)
-	other := repair27NodeWithKey(t, 125, c.key)
+func TestConflictingInclusion(t *testing.T) {
+	c := receiptEvidenceNode(t, 125)
+	other := receiptEvidenceNodeWithKey(t, 125, c.key)
 	hash := c.events(t)
 	// Identical signed transactions are mined one height later on the other
 	// node; its real transaction lookup conflicts with the first receipt.
@@ -373,22 +373,22 @@ func TestRepair_27_conflicting_inclusion(t *testing.T) {
 	if first.BlockNumber.Cmp(second.BlockNumber) == 0 || first.BlockHash == second.BlockHash {
 		t.Fatal("conflicting inclusion not produced")
 	}
-	proxy := repair27SplitRPC(t, c.endpoint, other.endpoint, map[string]bool{"eth_getTransactionByHash": true})
-	repair27Refused(t, repair27HTTP(t, proxy.URL), hash)
+	proxy := receiptEvidenceSplitRPC(t, c.endpoint, other.endpoint, map[string]bool{"eth_getTransactionByHash": true})
+	receiptEvidenceRefused(t, receiptEvidenceHTTP(t, proxy.URL), hash)
 }
 
-func TestRepair_27_missing_receipt(t *testing.T) {
-	c, empty := repair27Node(t, 125), repair27Node(t, 125)
+func TestMissingReceipt(t *testing.T) {
+	c, empty := receiptEvidenceNode(t, 125), receiptEvidenceNode(t, 125)
 	hash := c.events(t)
-	proxy := repair27SplitRPC(t, c.endpoint, empty.endpoint, map[string]bool{"eth_getTransactionReceipt": true})
-	repair27Refused(t, repair27HTTP(t, proxy.URL), hash)
+	proxy := receiptEvidenceSplitRPC(t, c.endpoint, empty.endpoint, map[string]bool{"eth_getTransactionReceipt": true})
+	receiptEvidenceRefused(t, receiptEvidenceHTTP(t, proxy.URL), hash)
 }
 
-func TestRepair_27_pending_and_unknown(t *testing.T) {
-	c := repair27Node(t, 125)
+func TestPendingAndUnknown(t *testing.T) {
+	c := receiptEvidenceNode(t, 125)
 	to := common.HexToAddress("0x1234")
 	pending := c.send(t, &to, nil)
-	srv := repair27HTTP(t, c.endpoint)
+	srv := receiptEvidenceHTTP(t, c.endpoint)
 	for _, tc := range []struct {
 		hash   common.Hash
 		status string

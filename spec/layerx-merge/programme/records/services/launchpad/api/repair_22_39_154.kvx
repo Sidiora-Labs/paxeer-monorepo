@@ -13,7 +13,7 @@ assertions = "A real log-free reverted creation returns HTTP 200 with schema-val
 preserved = "Keep the event-bearing transfer receipt and genuine event position, the real reverted log-free fixture, pending/submitted, unknown and post-commit inclusion assertions."
 
 [correction.sdk_and_api_log_free]
-consumer = "services/launchpad/api/internal/app/repair_27_test.go::TestRepair_27_log_free_receipts"
+consumer = "services/launchpad/api/internal/app/receipt_evidence_test.go::TestRepair_27_log_free_receipts"
 producer = "sdk/launchpad/shared/chain/receipt.go:47,60,66,71,75; sdk/launchpad/shared/chain/client.go:1299,1303,1304; sdk/launchpad/shared/chain/readpolicy/receipt.go:64,69; services/launchpad/api/internal/app/network_reads.go:157"
 assertions = "Both the real native transfer and reverted creation have no logs and their actual transaction indices; ReceiptState returns no error and the full v2 receipt, with included_success or included_reverted status. Assert SDK included_success or included_failure state, chain, submitted hash, deployment, rpc_receipt evidence, failure code, block height and block hash. Assert every projected receipt field including sender, destination or null, success, gas, price and complete position with logIndex zero; both production and development HTTP registrations return schema-valid HTTP 200, complete quality, no-store and the identical expected receipt."
 

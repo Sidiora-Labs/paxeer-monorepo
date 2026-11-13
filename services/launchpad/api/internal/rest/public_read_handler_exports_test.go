@@ -10,7 +10,7 @@ import (
 
 // These test-only entrypoints exercise the production serializers and chain
 // consumer without requiring the API's database peers in the bounded gate.
-func RepairM1008RankingsHandler(value store.PublicProjection) http.Handler {
+func PublicReadRankingsHandler(value store.PublicProjection) http.Handler {
 	return ResponseMetadata(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if _, ok := rankingsRequest(w, r); ok {
 			writeRankingsProjection(w, r, value, rankingsLimit(r))
@@ -18,7 +18,7 @@ func RepairM1008RankingsHandler(value store.PublicProjection) http.Handler {
 	}))
 }
 
-func RepairM1008CreationHandler(ctx context.Context, rpcURL string, row store.DevelopmentPool) (http.Handler, func(), error) {
+func PublicReadCreationHandler(ctx context.Context, rpcURL string, row store.DevelopmentPool) (http.Handler, func(), error) {
 	chain, err := newDevelopmentChain(ctx, rpcURL)
 	if err != nil {
 		return nil, nil, err

@@ -15,7 +15,7 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-func repairM978Action(t *testing.T, c *websocket.Conn, op string, channels, pools []string, want string) map[string]any {
+func poolSubscriptionAction(t *testing.T, c *websocket.Conn, op string, channels, pools []string, want string) map[string]any {
 	t.Helper()
 	if err := c.WriteJSON(map[string]any{"type": op, "channels": channels, "pools": pools, "timeframes": []string{"1m"}}); err != nil {
 		t.Fatal(err)
@@ -27,7 +27,7 @@ func repairM978Action(t *testing.T, c *websocket.Conn, op string, channels, pool
 	return got
 }
 
-func repairM978Set(t *testing.T, frame map[string]any, key string, want []string) {
+func poolSubscriptionSet(t *testing.T, frame map[string]any, key string, want []string) {
 	t.Helper()
 	values, ok := frame[key].([]any)
 	if !ok || len(values) != len(want) {
@@ -49,16 +49,16 @@ func repairM978Set(t *testing.T, frame map[string]any, key string, want []string
 	}
 }
 
-func repairM978Error(t *testing.T, frame map[string]any, want string) {
+func poolSubscriptionError(t *testing.T, frame map[string]any, want string) {
 	t.Helper()
 	if frame["message"] != want {
 		t.Fatalf("error = %v, want %q", frame, want)
 	}
 }
 
-func repairM978Pool(n int) string { return fmt.Sprintf("0x%040x", 0xabc000+n) }
+func poolSubscriptionPool(n int) string { return fmt.Sprintf("0x%040x", 0xabc000+n) }
 
-func repairM978Dispatch(t *testing.T, b *broker.Broker, path, pool string) {
+func poolSubscriptionDispatch(t *testing.T, b *broker.Broker, path, pool string) {
 	t.Helper()
 	if path == "/ws" {
 		b.Dispatch(constants.ChannelSwap, swapPayload(pool))
@@ -77,7 +77,7 @@ func repairM978Dispatch(t *testing.T, b *broker.Broker, path, pool string) {
 	b.Dispatch(constants.ChannelCandleUpdate, payload)
 }
 
-func repairM978Delivery(t *testing.T, c *websocket.Conn, path, pool string) {
+func poolSubscriptionDelivery(t *testing.T, c *websocket.Conn, path, pool string) {
 	t.Helper()
 	got := readFrame(t, c)
 	if path == "/ws" {
@@ -92,7 +92,7 @@ func repairM978Delivery(t *testing.T, c *websocket.Conn, path, pool string) {
 	}
 }
 
-func TestRepairM_978_FrameLimit(t *testing.T) {
+func TestFrameLimit(t *testing.T) {
 	for _, path := range []string{"/ws", "/ws/candles"} {
 		for _, fragmented := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/fragmented=%t", path, fragmented), func(t *testing.T) {
@@ -169,44 +169,44 @@ func TestRepairM_978_FrameLimit(t *testing.T) {
 	}
 }
 
-func TestRepairM_978_CanonicalPoolAddresses(t *testing.T) {
+func TestCanonicalPoolAddresses(t *testing.T) {
 	for _, path := range []string{"/ws", "/ws/candles"} {
 		t.Run(path, func(t *testing.T) {
 			srv, b := newServer(t, ws.Options{})
 			c := dial(t, srv, path)
 			readUntil(t, c, "connected")
-			pool := repairM978Pool(1)
+			pool := poolSubscriptionPool(1)
 			mixed := "0x" + strings.ToUpper(pool[2:])
 			channels := []string{constants.ChannelSwap}
-			ack := repairM978Action(t, c, "subscribe", channels, []string{mixed, pool, " " + mixed + " "}, "subscribed")
-			repairM978Set(t, ack, "pools", []string{pool})
+			ack := poolSubscriptionAction(t, c, "subscribe", channels, []string{mixed, pool, " " + mixed + " "}, "subscribed")
+			poolSubscriptionSet(t, ack, "pools", []string{pool})
 			if path == "/ws/candles" {
-				repairM978Set(t, ack, "timeframes", []string{"1m"})
+				poolSubscriptionSet(t, ack, "timeframes", []string{"1m"})
 			}
 			for _, invalid := range []string{"", " ", "0xAAA", "0x" + strings.Repeat("a", 39), "0x" + strings.Repeat("a", 41), strings.Repeat("a", 40), "0x" + strings.Repeat("g", 40), "0x" + strings.Repeat("0", 40)} {
 				for _, op := range []string{"subscribe", "unsubscribe"} {
-					bad := repairM978Action(t, c, op, []string{constants.ChannelMarketCreated}, []string{pool, repairM978Pool(2), invalid}, "error")
-					repairM978Error(t, bad, "Invalid pool address")
-					ack = repairM978Action(t, c, "subscribe", nil, nil, "subscribed")
-					repairM978Set(t, ack, "pools", []string{pool})
+					bad := poolSubscriptionAction(t, c, op, []string{constants.ChannelMarketCreated}, []string{pool, poolSubscriptionPool(2), invalid}, "error")
+					poolSubscriptionError(t, bad, "Invalid pool address")
+					ack = poolSubscriptionAction(t, c, "subscribe", nil, nil, "subscribed")
+					poolSubscriptionSet(t, ack, "pools", []string{pool})
 					if path == "/ws" {
-						repairM978Set(t, ack, "channels", channels)
+						poolSubscriptionSet(t, ack, "channels", channels)
 					}
 				}
 			}
 			if path == "/ws" {
 				b.Dispatch(constants.ChannelMarketCreated, swapPayload(pool))
 			}
-			repairM978Dispatch(t, b, path, repairM978Pool(2))
-			repairM978Dispatch(t, b, path, mixed)
-			repairM978Delivery(t, c, path, mixed)
-			ack = repairM978Action(t, c, "unsubscribe", nil, []string{mixed}, "unsubscribed")
-			repairM978Set(t, ack, "pools", nil)
+			poolSubscriptionDispatch(t, b, path, poolSubscriptionPool(2))
+			poolSubscriptionDispatch(t, b, path, mixed)
+			poolSubscriptionDelivery(t, c, path, mixed)
+			ack = poolSubscriptionAction(t, c, "unsubscribe", nil, []string{mixed}, "unsubscribed")
+			poolSubscriptionSet(t, ack, "pools", nil)
 		})
 	}
 }
 
-func TestRepairM_978_IncrementalPoolBudget(t *testing.T) {
+func TestIncrementalPoolBudget(t *testing.T) {
 	for _, path := range []string{"/ws", "/ws/candles"} {
 		t.Run(path, func(t *testing.T) {
 			srv, b := newServer(t, ws.Options{})
@@ -215,50 +215,50 @@ func TestRepairM_978_IncrementalPoolBudget(t *testing.T) {
 			channels := []string{constants.ChannelSwap}
 			pools := make([]string, 128)
 			for i := range pools {
-				pools[i] = repairM978Pool(i + 1)
-				ack := repairM978Action(t, c, "subscribe", channels, []string{pools[i]}, "subscribed")
-				repairM978Set(t, ack, "pools", pools[:i+1])
+				pools[i] = poolSubscriptionPool(i + 1)
+				ack := poolSubscriptionAction(t, c, "subscribe", channels, []string{pools[i]}, "subscribed")
+				poolSubscriptionSet(t, ack, "pools", pools[:i+1])
 			}
-			extra := repairM978Pool(129)
-			bad := repairM978Action(t, c, "subscribe", []string{constants.ChannelMarketCreated}, []string{extra}, "error")
-			repairM978Error(t, bad, "Pool subscription limit exceeded")
-			ack := repairM978Action(t, c, "subscribe", nil, []string{"0x" + strings.ToUpper(pools[0][2:]), pools[0]}, "subscribed")
-			repairM978Set(t, ack, "pools", pools)
+			extra := poolSubscriptionPool(129)
+			bad := poolSubscriptionAction(t, c, "subscribe", []string{constants.ChannelMarketCreated}, []string{extra}, "error")
+			poolSubscriptionError(t, bad, "Pool subscription limit exceeded")
+			ack := poolSubscriptionAction(t, c, "subscribe", nil, []string{"0x" + strings.ToUpper(pools[0][2:]), pools[0]}, "subscribed")
+			poolSubscriptionSet(t, ack, "pools", pools)
 			if path == "/ws" {
-				repairM978Set(t, ack, "channels", channels)
+				poolSubscriptionSet(t, ack, "channels", channels)
 				b.Dispatch(constants.ChannelMarketCreated, swapPayload(pools[0]))
 			}
-			repairM978Dispatch(t, b, path, extra)
-			repairM978Dispatch(t, b, path, pools[0])
-			repairM978Delivery(t, c, path, pools[0])
+			poolSubscriptionDispatch(t, b, path, extra)
+			poolSubscriptionDispatch(t, b, path, pools[0])
+			poolSubscriptionDelivery(t, c, path, pools[0])
 
 			// Another connection has its own budget.
 			other := dial(t, srv, path)
 			readUntil(t, other, "connected")
-			ack = repairM978Action(t, other, "subscribe", channels, []string{extra}, "subscribed")
-			repairM978Set(t, ack, "pools", []string{extra})
+			ack = poolSubscriptionAction(t, other, "subscribe", channels, []string{extra}, "subscribed")
+			poolSubscriptionSet(t, ack, "pools", []string{extra})
 			if err := other.Close(); err != nil {
 				t.Fatal(err)
 			}
 
-			ack = repairM978Action(t, c, "unsubscribe", nil, []string{pools[0]}, "unsubscribed")
-			repairM978Set(t, ack, "pools", pools[1:])
-			bad = repairM978Action(t, c, "subscribe", nil, []string{extra, repairM978Pool(130)}, "error")
-			repairM978Error(t, bad, "Pool subscription limit exceeded")
-			ack = repairM978Action(t, c, "subscribe", nil, nil, "subscribed")
-			repairM978Set(t, ack, "pools", pools[1:])
-			ack = repairM978Action(t, c, "subscribe", nil, []string{extra}, "subscribed")
+			ack = poolSubscriptionAction(t, c, "unsubscribe", nil, []string{pools[0]}, "unsubscribed")
+			poolSubscriptionSet(t, ack, "pools", pools[1:])
+			bad = poolSubscriptionAction(t, c, "subscribe", nil, []string{extra, poolSubscriptionPool(130)}, "error")
+			poolSubscriptionError(t, bad, "Pool subscription limit exceeded")
+			ack = poolSubscriptionAction(t, c, "subscribe", nil, nil, "subscribed")
+			poolSubscriptionSet(t, ack, "pools", pools[1:])
+			ack = poolSubscriptionAction(t, c, "subscribe", nil, []string{extra}, "subscribed")
 			want := append(append([]string(nil), pools[1:]...), extra)
-			repairM978Set(t, ack, "pools", want)
-			repairM978Dispatch(t, b, path, pools[0])
-			repairM978Dispatch(t, b, path, repairM978Pool(130))
-			repairM978Dispatch(t, b, path, extra)
-			repairM978Delivery(t, c, path, extra)
+			poolSubscriptionSet(t, ack, "pools", want)
+			poolSubscriptionDispatch(t, b, path, pools[0])
+			poolSubscriptionDispatch(t, b, path, poolSubscriptionPool(130))
+			poolSubscriptionDispatch(t, b, path, extra)
+			poolSubscriptionDelivery(t, c, path, extra)
 		})
 	}
 }
 
-func TestRepairM_978_InitialPoolBudget(t *testing.T) {
+func TestInitialPoolBudget(t *testing.T) {
 	for _, path := range []string{"/ws", "/ws/candles"} {
 		t.Run(path, func(t *testing.T) {
 			srv, _ := newServer(t, ws.Options{})
@@ -266,14 +266,14 @@ func TestRepairM_978_InitialPoolBudget(t *testing.T) {
 			readUntil(t, c, "connected")
 			pools := make([]string, 129)
 			for i := range pools {
-				pools[i] = repairM978Pool(i + 1)
+				pools[i] = poolSubscriptionPool(i + 1)
 			}
-			bad := repairM978Action(t, c, "subscribe", []string{constants.ChannelSwap}, pools, "error")
-			repairM978Error(t, bad, "Pool subscription limit exceeded")
-			ack := repairM978Action(t, c, "subscribe", nil, nil, "subscribed")
-			repairM978Set(t, ack, "pools", nil)
+			bad := poolSubscriptionAction(t, c, "subscribe", []string{constants.ChannelSwap}, pools, "error")
+			poolSubscriptionError(t, bad, "Pool subscription limit exceeded")
+			ack := poolSubscriptionAction(t, c, "subscribe", nil, nil, "subscribed")
+			poolSubscriptionSet(t, ack, "pools", nil)
 			if path == "/ws" {
-				repairM978Set(t, ack, "channels", nil)
+				poolSubscriptionSet(t, ack, "channels", nil)
 			}
 		})
 	}

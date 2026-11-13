@@ -28,7 +28,7 @@ import (
 
 // The API fixture already owns candles.candles. Apply the remaining real writer
 // migrations so the real chart producer can commit alongside the read schema.
-func repair314ChartWriterSchema(t *testing.T, pool *pgxpool.Pool) {
+func candleDeliveryChartWriterSchema(t *testing.T, pool *pgxpool.Pool) {
 	t.Helper()
 	for _, name := range []string{"00001_init.sql", "00002_processed_swaps.sql", "00003_development_state.sql"} {
 		raw, err := chartmigrations.FS.ReadFile(name)
@@ -51,11 +51,11 @@ func repair314ChartWriterSchema(t *testing.T, pool *pgxpool.Pool) {
 	}
 }
 
-func TestRepair_22_39_314_DevelopmentCandleReachesRouteAndTopic(t *testing.T) {
+func TestDevelopmentCandleReachesRouteAndTopic(t *testing.T) {
 	ctx := context.Background()
 	dsn, pool := internaltest.NewPostgresWithDSN(t)
 	redisURL := internaltest.NewRedisURL(t)
-	repair314ChartWriterSchema(t, pool)
+	candleDeliveryChartWriterSchema(t, pool)
 	dstApplyIndexerMigration(t, pool, "cursors", "swaps")
 	chain := newDstChain(t)
 	opt, err := redis.ParseURL(redisURL)

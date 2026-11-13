@@ -12,7 +12,7 @@ import (
 	interfaces "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
 )
 
-func awaitTradeHead(t *testing.T, f *repair372Fixture, path, height string) (int, []byte) {
+func awaitTradeHead(t *testing.T, f *committedReadFixture, path, height string) (int, []byte) {
 	t.Helper()
 	deadline := time.Now().Add(15 * time.Second)
 	for {
@@ -40,8 +40,8 @@ func awaitTradeHead(t *testing.T, f *repair372Fixture, path, height string) (int
 	}
 }
 
-func TestRepair_22_39_376_trade_read_carries_the_head_watermark(t *testing.T) {
-	f := newRepair372Fixture(t)
+func TestTradeReadCarriesTheHeadWatermark(t *testing.T) {
+	f := newCommittedReadFixture(t)
 	f.createPool(t)
 	first := f.swap(t, true, 1000000, 400000000000000000, 10000)
 	second := f.swap(t, false, 200000000000000000, 500000, 5000)

@@ -15,7 +15,7 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/config"
 )
 
-func repairM976Environment(t *testing.T) {
+func credentialURLEnvironment(t *testing.T) {
 	t.Helper()
 	typ := reflect.TypeOf(config.Config{})
 	for i := 0; i < typ.NumField(); i++ {
@@ -32,7 +32,7 @@ func repairM976Environment(t *testing.T) {
 	t.Setenv("REDIS_URL", "redis://localhost:6379/0")
 }
 
-func repairM976CheckError(t *testing.T, err error, want string, secrets ...string) {
+func credentialURLCheckError(t *testing.T, err error, want string, secrets ...string) {
 	t.Helper()
 	if err == nil {
 		t.Fatal("malformed credentialed configuration was accepted")
@@ -50,7 +50,7 @@ func repairM976CheckError(t *testing.T, err error, want string, secrets ...strin
 		}
 		if joined, ok := current.(interface{ Unwrap() []error }); ok {
 			for _, child := range joined.Unwrap() {
-				repairM976CheckError(t, child, child.Error(), secrets...)
+				credentialURLCheckError(t, child, child.Error(), secrets...)
 			}
 		}
 	}
@@ -66,7 +66,7 @@ func repairM976CheckError(t *testing.T, err error, want string, secrets ...strin
 	}
 }
 
-func TestRepairM_976_CredentialedURLErrors(t *testing.T) {
+func TestCredentialedURLErrors(t *testing.T) {
 	const password = "m976-private-password"
 	const databaseRule = "DATABASE_URL must be a valid URL with a scheme and host"
 	const redisRule = "REDIS_URL must be a valid redis:// or rediss:// URL with a host"
@@ -86,39 +86,39 @@ func TestRepairM_976_CredentialedURLErrors(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			repairM976Environment(t)
+			credentialURLEnvironment(t)
 			t.Setenv(tc.variable, tc.dsn)
 			cfg, err := config.Load()
 			if cfg != (config.Config{}) {
 				t.Error("Load returned configuration after validation failed")
 			}
 			want := "config: " + tc.rule
-			repairM976CheckError(t, err, want, password, tc.dsn, "dbuser", "redisuser")
+			credentialURLCheckError(t, err, want, password, tc.dsn, "dbuser", "redisuser")
 			ctx, cancel := context.WithCancel(context.Background())
 			cancel()
-			repairM976CheckError(t, app.Run(ctx), want, password, tc.dsn, "dbuser", "redisuser")
+			credentialURLCheckError(t, app.Run(ctx), want, password, tc.dsn, "dbuser", "redisuser")
 		})
 	}
 }
 
-func TestRepairM_976_JoinedCredentialErrors(t *testing.T) {
-	repairM976Environment(t)
+func TestJoinedCredentialErrors(t *testing.T) {
+	credentialURLEnvironment(t)
 	database := "postgres://dbuser:database-private-password@/db"
 	redis := "redis://redisuser:redis-private-password@/0"
 	t.Setenv("DATABASE_URL", database)
 	t.Setenv("REDIS_URL", redis)
 	want := "config: DATABASE_URL must be a valid URL with a scheme and host\nREDIS_URL must be a valid redis:// or rediss:// URL with a host"
 	_, err := config.Load()
-	repairM976CheckError(t, err, want, database, redis, "database-private-password", "redis-private-password", "dbuser", "redisuser")
+	credentialURLCheckError(t, err, want, database, redis, "database-private-password", "redis-private-password", "dbuser", "redisuser")
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	repairM976CheckError(t, app.Run(ctx), want, database, redis, "database-private-password", "redis-private-password", "dbuser", "redisuser")
+	credentialURLCheckError(t, app.Run(ctx), want, database, redis, "database-private-password", "redis-private-password", "dbuser", "redisuser")
 }
 
-func TestRepairM_976_ValidCredentialedURLs(t *testing.T) {
+func TestValidCredentialedURLs(t *testing.T) {
 	for _, scheme := range []string{"redis", "rediss"} {
 		t.Run(scheme, func(t *testing.T) {
-			repairM976Environment(t)
+			credentialURLEnvironment(t)
 			database := "postgres://dbuser:valid%40password@localhost:5432/db"
 			redis := scheme + "://redisuser:valid%40password@localhost:6379/0"
 			t.Setenv("DATABASE_URL", database)

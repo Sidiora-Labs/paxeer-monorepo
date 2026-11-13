@@ -28,9 +28,9 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-func repairM913REST(t *testing.T) (*App, *httptest.Server, string) {
+func restQuotaREST(t *testing.T) (*App, *httptest.Server, string) {
 	t.Helper()
-	c := repair27Node(t, 125)
+	c := receiptEvidenceNode(t, 125)
 	hash := c.events(t)
 	rpcClient, err := dialNetworkRPC(context.Background(), c.endpoint, true)
 	if err != nil {
@@ -68,7 +68,7 @@ func repairM913REST(t *testing.T) (*App, *httptest.Server, string) {
 	return a, server, hash.Hex()
 }
 
-func repairM913Request(t *testing.T, server *httptest.Server, method, path, key string) (int, []byte, http.Header) {
+func restQuotaRequest(t *testing.T, server *httptest.Server, method, path, key string) (int, []byte, http.Header) {
 	t.Helper()
 	req, err := http.NewRequest(method, server.URL+path, nil)
 	if err != nil {
@@ -91,8 +91,8 @@ func repairM913Request(t *testing.T, server *httptest.Server, method, path, key 
 	return response.StatusCode, body, response.Header
 }
 
-func TestRepairM_913_ProductionRESTQuota(t *testing.T) {
-	a, server, hash := repairM913REST(t)
+func TestProductionRESTQuota(t *testing.T) {
+	a, server, hash := restQuotaREST(t)
 	routes := []struct {
 		method, path, document string
 		status                 int
@@ -104,7 +104,7 @@ func TestRepairM_913_ProductionRESTQuota(t *testing.T) {
 	checkAdmitted := func() {
 		t.Helper()
 		for i, route := range routes {
-			status, body, header := repairM913Request(t, server, route.method, route.path, "shared-quota")
+			status, body, header := restQuotaRequest(t, server, route.method, route.path, "shared-quota")
 			if status != route.status || interfaces.ValidateJSON(route.document, body) != nil || header.Get("X-RateLimit-Limit") != "3" || header.Get("X-RateLimit-Remaining") != strconv.Itoa(2-i) {
 				t.Fatalf("admitted %s: %d %s headers %v", route.path, status, body, header)
 			}
@@ -113,7 +113,7 @@ func TestRepairM_913_ProductionRESTQuota(t *testing.T) {
 	checkAdmitted()
 	before := a.admission.Stats().Admitted
 	for _, route := range routes {
-		status, body, header := repairM913Request(t, server, route.method, route.path, "shared-quota")
+		status, body, header := restQuotaRequest(t, server, route.method, route.path, "shared-quota")
 		if status != http.StatusTooManyRequests || header.Get("X-RateLimit-Remaining") != "0" || header.Get("Retry-After") == "" || interfaces.ValidateJSON("Error", body) != nil {
 			t.Fatalf("exhausted %s: %d %s headers %v", route.path, status, body, header)
 		}
@@ -122,7 +122,7 @@ func TestRepairM_913_ProductionRESTQuota(t *testing.T) {
 		t.Fatal("quota rejection entered workload admission or leaked an in-flight slot")
 	}
 	// API keys on the same client address have independent quotas.
-	status, body, _ := repairM913Request(t, server, http.MethodGet, routes[0].path, "independent-quota")
+	status, body, _ := restQuotaRequest(t, server, http.MethodGet, routes[0].path, "independent-quota")
 	if status != http.StatusOK {
 		t.Fatalf("independent client blocked: %d %s", status, body)
 	}
@@ -135,11 +135,11 @@ func TestRepairM_913_ProductionRESTQuota(t *testing.T) {
 	}
 }
 
-func TestRepairM_913_TransactionPositionCoverage(t *testing.T) {
+func TestTransactionPositionCoverage(t *testing.T) {
 	TestProductionNetworkReceiptPositions(t)
 }
 
-func TestRepairM_913_RelayReviewedGrants(t *testing.T) {
+func TestRelayReviewedGrants(t *testing.T) {
 	reviewed := reviewedRelayRole(t)
 	original, err := json.Marshal(reviewed)
 	if err != nil {

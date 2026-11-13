@@ -28,7 +28,7 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-type repair372Fixture struct {
+type committedReadFixture struct {
 	dstFixture
 	start  func() func()
 	stop   func()
@@ -36,12 +36,12 @@ type repair372Fixture struct {
 	client *rpc.Client
 }
 
-func newRepair372Fixture(t *testing.T) *repair372Fixture {
+func newCommittedReadFixture(t *testing.T) *committedReadFixture {
 	t.Helper()
 	ctx := context.Background()
 	dsn, pool := internaltest.NewPostgresWithDSN(t)
 	redisURL := internaltest.NewRedisURL(t)
-	repair314ChartWriterSchema(t, pool)
+	candleDeliveryChartWriterSchema(t, pool)
 	dstApplyIndexerMigration(t, pool, "cursors", "swaps")
 	chain := newDstChain(t)
 	opt, err := redis.ParseURL(redisURL)
@@ -58,7 +58,7 @@ func newRepair372Fixture(t *testing.T) *repair372Fixture {
 		ClientSendBuffer: 256, CoalesceFlushMS: 20, CORSAllowedOrigins: dstOrigin,
 		NetworkRPCURL: chain.url, StreamSigningKey: strings.Repeat("k", 32),
 	}
-	f := &repair372Fixture{dstFixture: dstFixture{pool: pool, pub: rdb, chain: chain, topics: []string{"market.trades." + dstPool, "market.candles." + dstPool + ".1d"}}}
+	f := &committedReadFixture{dstFixture: dstFixture{pool: pool, pub: rdb, chain: chain, topics: []string{"market.trades." + dstPool, "market.candles." + dstPool + ".1d"}}}
 	f.start = func() func() {
 		runCtx, cancel := context.WithCancel(ctx)
 		a, err := app.New(runCtx, &cfg, logger)
@@ -83,7 +83,7 @@ func newRepair372Fixture(t *testing.T) *repair372Fixture {
 	return f
 }
 
-func (f *repair372Fixture) get(t *testing.T, path string) (int, []byte) {
+func (f *committedReadFixture) get(t *testing.T, path string) (int, []byte) {
 	t.Helper()
 	resp, err := http.Get(f.srv.URL + path)
 	if err != nil {
@@ -98,14 +98,14 @@ func (f *repair372Fixture) get(t *testing.T, path string) (int, []byte) {
 	return resp.StatusCode, raw
 }
 
-func (f *repair372Fixture) project(t *testing.T, want int) {
+func (f *committedReadFixture) project(t *testing.T, want int) {
 	t.Helper()
 	if n, err := f.source.Project(context.Background()); err != nil || n != want {
 		t.Fatalf("chart source Project = %d %v, want %d", n, err, want)
 	}
 }
 
-func (f *repair372Fixture) awaitTrade(t *testing.T, receipt *types.Receipt) {
+func (f *committedReadFixture) awaitTrade(t *testing.T, receipt *types.Receipt) {
 	t.Helper()
 	deadline := time.Now().Add(15 * time.Second)
 	for {
@@ -124,14 +124,14 @@ func (f *repair372Fixture) awaitTrade(t *testing.T, receipt *types.Receipt) {
 	}
 }
 
-func repair372CandlePath(start int64) string {
+func committedReadCandlePath(start int64) string {
 	format := func(second int64) string {
 		return url.QueryEscape(time.Unix(second, 0).UTC().Format("2006-01-02T15:04:05.000Z"))
 	}
 	return "/v2/pools/" + dstPool + "/candles?interval=1d&from=" + format(start) + "&to=" + format(start+2*86400)
 }
 
-func (f *repair372Fixture) candle(t *testing.T, path string, wantTrades string) interfaces.CandlesResponse {
+func (f *committedReadFixture) candle(t *testing.T, path string, wantTrades string) interfaces.CandlesResponse {
 	t.Helper()
 	deadline := time.Now().Add(15 * time.Second)
 	for {
@@ -166,14 +166,14 @@ func (f *repair372Fixture) candle(t *testing.T, path string, wantTrades string) 
 	}
 }
 
-func TestRepair_22_39_372_candle_read_survives_swaps_and_replay(t *testing.T) {
-	f := newRepair372Fixture(t)
+func TestCandleReadSurvivesSwapsAndReplay(t *testing.T) {
+	f := newCommittedReadFixture(t)
 	f.createPool(t)
 	first := f.swap(t, true, 1000000, 400000000000000000, 10000)
 	f.project(t, 1)
 	f.awaitTrade(t, first)
 	start := f.chain.blockTime(t, first) / 86400 * 86400
-	path := repair372CandlePath(start)
+	path := committedReadCandlePath(start)
 	initial := f.candle(t, path, "1")
 	deadlineAll := time.Now().Add(15 * time.Second)
 	for {
@@ -292,8 +292,8 @@ func TestRepair_22_39_372_candle_read_survives_swaps_and_replay(t *testing.T) {
 	}
 }
 
-func TestRepair_22_39_372_trade_read_serves_committed_swaps(t *testing.T) {
-	f := newRepair372Fixture(t)
+func TestTradeReadServesCommittedSwaps(t *testing.T) {
+	f := newCommittedReadFixture(t)
 	f.createPool(t)
 	first := f.swap(t, true, 1000000, 400000000000000000, 10000)
 	second := f.swap(t, false, 200000000000000000, 500000, 5000)
@@ -340,8 +340,8 @@ func TestRepair_22_39_372_trade_read_serves_committed_swaps(t *testing.T) {
 	read(path, []*types.Receipt{second, first})
 }
 
-func TestRepair_22_39_372_trade_read_keeps_legacy_rows_quarantined(t *testing.T) {
-	f := newRepair372Fixture(t)
+func TestTradeReadKeepsLegacyRowsQuarantined(t *testing.T) {
+	f := newCommittedReadFixture(t)
 	f.createPool(t)
 	ctx := context.Background()
 	lock, err := f.pool.Begin(ctx)
@@ -369,11 +369,11 @@ func TestRepair_22_39_372_trade_read_keeps_legacy_rows_quarantined(t *testing.T)
 	}
 }
 
-func TestRepair_22_39_372_pool_detail_serves_the_verified_token(t *testing.T) {
-	f := newRepair372Fixture(t)
+func TestPoolDetailServesTheVerifiedToken(t *testing.T) {
+	f := newCommittedReadFixture(t)
 	// Deploy the real immutable SidioraERC20 constructor bytecode, including
 	// its storage-backed name, symbol, six decimals and minted total supply.
-	raw, err := os.ReadFile("../rest/testdata/repair_22_39_372_token.json")
+	raw, err := os.ReadFile("../rest/testdata/verified_token.json")
 	if err != nil {
 		t.Fatal(err)
 	}

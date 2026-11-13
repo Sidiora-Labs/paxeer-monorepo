@@ -26,11 +26,11 @@ import (
 	"github.com/google/uuid"
 )
 
-const repair46Wallet = "0x1111111111111111111111111111111111111111"
-const repair46Token = "0x2222222222222222222222222222222222222222"
-const repair46USDL = "0x3333333333333333333333333333333333333333"
+const squadAlertWallet = "0x1111111111111111111111111111111111111111"
+const squadAlertToken = "0x2222222222222222222222222222222222222222"
+const squadAlertUSDL = "0x3333333333333333333333333333333333333333"
 
-type repair46HTTP struct {
+type squadAlertHTTP struct {
 	t               *testing.T
 	store           Store
 	dsn             string
@@ -39,16 +39,16 @@ type repair46HTTP struct {
 	password        string
 }
 
-func repair46Server(t *testing.T) *repair46HTTP {
+func squadAlertServer(t *testing.T) *squadAlertHTTP {
 	t.Helper()
 	s, dsn, restart := proofDiscoveryStore(t)
-	h := &repair46HTTP{t: t, store: s, dsn: dsn, restartDatabase: restart, password: uuid.NewString()}
+	h := &squadAlertHTTP{t: t, store: s, dsn: dsn, restartDatabase: restart, password: uuid.NewString()}
 	h.start()
 	t.Cleanup(func() { h.server.Close(); h.store.DB.Close() })
 	return h
 }
 
-func (h *repair46HTTP) start() {
+func (h *squadAlertHTTP) start() {
 	h.t.Helper()
 	server := HTTP{Store: h.store, Authenticate: func(r *http.Request) (string, error) {
 		actor, password, ok := r.BasicAuth()
@@ -61,12 +61,12 @@ func (h *repair46HTTP) start() {
 		if !ok || subtle.ConstantTimeCompare([]byte(password), []byte(h.password)) != 1 {
 			return "", ErrForbidden
 		}
-		return repair46Wallet, nil
+		return squadAlertWallet, nil
 	}}
 	h.server = httptest.NewTLSServer(server.Handler())
 }
 
-func (h *repair46HTTP) reopen() {
+func (h *squadAlertHTTP) reopen() {
 	h.t.Helper()
 	h.server.Client().CloseIdleConnections()
 	h.server.Close()
@@ -89,7 +89,7 @@ func (h *repair46HTTP) reopen() {
 	h.start()
 }
 
-func repair46JSON(t *testing.T, v any) []byte {
+func squadAlertJSON(t *testing.T, v any) []byte {
 	t.Helper()
 	raw, err := json.Marshal(v)
 	if err != nil {
@@ -98,11 +98,11 @@ func repair46JSON(t *testing.T, v any) []byte {
 	return raw
 }
 
-func (h *repair46HTTP) request(actor, method, path string, input any, status int, schema string, dst any) []byte {
+func (h *squadAlertHTTP) request(actor, method, path string, input any, status int, schema string, dst any) []byte {
 	h.t.Helper()
 	var body []byte
 	if input != nil {
-		body = repair46JSON(h.t, input)
+		body = squadAlertJSON(h.t, input)
 	}
 	req, err := http.NewRequest(method, h.server.URL+path, bytes.NewReader(body))
 	if err != nil {
@@ -140,10 +140,10 @@ func (h *repair46HTTP) request(actor, method, path string, input any, status int
 	return raw
 }
 
-func (h *repair46HTTP) createSquad(owner, policy, description string) v2.Squad {
+func (h *squadAlertHTTP) createSquad(owner, policy, description string) v2.Squad {
 	h.t.Helper()
 	input := v2.SquadCreateBody{Name: "Research", Description: description, Visibility: "private", JoinPolicy: policy}
-	if err := v2.ValidateJSON("SquadCreateBody", repair46JSON(h.t, input)); err != nil {
+	if err := v2.ValidateJSON("SquadCreateBody", squadAlertJSON(h.t, input)); err != nil {
 		h.t.Fatal(err)
 	}
 	var result v2.SquadCreateResponse
@@ -151,7 +151,7 @@ func (h *repair46HTTP) createSquad(owner, policy, description string) v2.Squad {
 	return result.Data.Squad
 }
 
-func (h *repair46HTTP) membership(actor, id, account, action, expected string, status int) v2.SquadMembershipResponse {
+func (h *squadAlertHTTP) membership(actor, id, account, action, expected string, status int) v2.SquadMembershipResponse {
 	h.t.Helper()
 	var out v2.SquadMembershipResponse
 	input := v2.SquadMembershipBody{Action: action, ExpectedRevision: v2.UInt256(expected)}
@@ -164,11 +164,11 @@ func (h *repair46HTTP) membership(actor, id, account, action, expected string, s
 	return out
 }
 
-func TestRepair_46_legacy_squad_contract(t *testing.T) {
-	h := repair46Server(t)
+func TestLegacySquadContract(t *testing.T) {
+	h := squadAlertServer(t)
 	owner, outsider, id := uuid.NewString(), uuid.NewString(), uuid.NewString()
 	input := v2.ConnectedSquadCreateBody{ID: id, Name: "Connected", Policy: "invite"}
-	if err := v2.ValidateJSON("ConnectedSquadCreateBody", repair46JSON(t, input)); err != nil {
+	if err := v2.ValidateJSON("ConnectedSquadCreateBody", squadAlertJSON(t, input)); err != nil {
 		t.Fatal(err)
 	}
 	var created v2.ConnectedDiscoverySquad
@@ -182,7 +182,7 @@ func TestRepair_46_legacy_squad_contract(t *testing.T) {
 		t.Fatal(err)
 	}
 	patch := v2.ConnectedSquadPatchBody{Expected: 2, Squad: v2.ConnectedDiscoverySquad{ID: id, Name: "Updated", OwnerAccountID: owner, Policy: "request", Revision: 3}}
-	if err = v2.ValidateJSON("ConnectedSquadPatchBody", repair46JSON(t, patch)); err != nil {
+	if err = v2.ValidateJSON("ConnectedSquadPatchBody", squadAlertJSON(t, patch)); err != nil {
 		t.Fatal(err)
 	}
 	h.request(outsider, "PATCH", "/v2/discovery/squads/"+id, patch, 403, "Error", nil)
@@ -204,8 +204,8 @@ func TestRepair_46_legacy_squad_contract(t *testing.T) {
 	h.request(outsider, "GET", "/v2/squads/"+id, nil, 404, "Error", nil)
 }
 
-func TestRepair_46_frozen_squad_validation(t *testing.T) {
-	h := repair46Server(t)
+func TestFrozenSquadValidation(t *testing.T) {
+	h := squadAlertServer(t)
 	owner, applicant := uuid.NewString(), uuid.NewString()
 	var created []v2.Squad
 	for _, description := range []string{strings.Repeat("a", 281), strings.Repeat("é", 141), strings.Repeat("é", 500), strings.Repeat("a", 500)} {
@@ -247,8 +247,8 @@ func TestRepair_46_frozen_squad_validation(t *testing.T) {
 	}
 }
 
-func TestRepair_46_invitation_token_lost(t *testing.T) {
-	h := repair46Server(t)
+func TestInvitationTokenLost(t *testing.T) {
+	h := squadAlertServer(t)
 	owner, recipient, outsider := uuid.NewString(), uuid.NewString(), uuid.NewString()
 	q := h.createSquad(owner, "invite", "")
 	invited := h.membership(owner, q.SquadId, recipient, "invite", "0", 200)
@@ -310,8 +310,8 @@ func TestRepair_46_invitation_token_lost(t *testing.T) {
 	}
 }
 
-func TestRepair_46_membership_squad_revision(t *testing.T) {
-	h := repair46Server(t)
+func TestMembershipSquadRevision(t *testing.T) {
+	h := squadAlertServer(t)
 	owner, applicant := uuid.NewString(), uuid.NewString()
 	q := h.createSquad(owner, "request", "")
 	stored, err := h.store.Squad(context.Background(), q.SquadId)
@@ -360,7 +360,7 @@ func TestRepair_46_membership_squad_revision(t *testing.T) {
 // validates the committed fill, assets, units, source and watermark and emits
 // the wire frame subsequently consumed by discovery; the test never writes a
 // frame into stream_projection or substitutes a price authority implementation.
-func repair46PriceSource(t *testing.T, h *repair46HTTP) {
+func squadAlertPriceSource(t *testing.T, h *squadAlertHTTP) {
 	t.Helper()
 	exec := func(statement string) {
 		t.Helper()
@@ -391,7 +391,7 @@ func repair46PriceSource(t *testing.T, h *repair46HTTP) {
 	exec(string(raw))
 }
 
-func repair46PublishPrice(t *testing.T, h *repair46HTTP, value int64, revision uint64, observed time.Time) Metric {
+func squadAlertPublishPrice(t *testing.T, h *squadAlertHTTP, value int64, revision uint64, observed time.Time) Metric {
 	t.Helper()
 	observed = observed.UTC().Truncate(time.Second)
 	hash := func(label string) string {
@@ -402,9 +402,9 @@ func repair46PublishPrice(t *testing.T, h *repair46HTTP, value int64, revision u
 	position := accounting.SourcePosition{ChainID: "125", Height: rev, TransactionIndex: "0", LogIndex: "0", TransactionHash: hash("tx:" + rev), BlockHash: hash("block:" + rev)}
 	fill := accounting.FillV1{
 		Version: accounting.FillVersion, Position: position, ActualEmitter: pool, PoolAddress: pool,
-		Token: accounting.Asset{Address: repair46Token, Decimals: 18}, Settlement: accounting.Asset{Address: repair46USDL, Decimals: 6},
+		Token: accounting.Asset{Address: squadAlertToken, Decimals: 18}, Settlement: accounting.Asset{Address: squadAlertUSDL, Decimals: 6},
 		Side: "buy", TokenAmountRaw: "1000000000000000000", USDLAmountRaw: strconv.FormatInt(value*1000000, 10), PaidInputRaw: strconv.FormatInt(value*1000000, 10), FeeRaw: "0", InputDerivationQuality: "receipt_incomplete", FeeDisposition: "distributed_usdl",
-		Attribution:           accounting.Attribution{TransactionSender: repair46Wallet, Quality: "unavailable", Evidence: []accounting.EvidenceRef{}},
+		Attribution:           accounting.Attribution{TransactionSender: squadAlertWallet, Quality: "unavailable", Evidence: []accounting.EvidenceRef{}},
 		Execution:             accounting.ExecutionPolicy{Quality: "unavailable", Evidence: []accounting.EvidenceRef{}},
 		Provenance:            accounting.Provenance{DeploymentID: "repair46", ABIRevision: "sidiora-v1", EmitterCodeEpoch: "emitter-1", PoolCodeEpoch: "pool-1", ReceiptSHA256: strings.Repeat("a", 64), HeaderSHA256: strings.Repeat("b", 64)},
 		BlockTimestampSeconds: strconv.FormatInt(observed.Unix(), 10),
@@ -414,10 +414,10 @@ func repair46PublishPrice(t *testing.T, h *repair46HTTP, value int64, revision u
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = h.store.DB.Exec(`INSERT INTO stats.accounting_market_commits(publication_id,source_fill_id,source_fact_digest,projection_version,pool,bucket_start,position,fill,sequence,revision)VALUES($1,$2,$3,'repair46',$4,$5,$6,$7,$8,$8)`, "publication:"+rev, fill.SourceFillID, string(digest), pool, observed.Unix()/60*60, repair46JSON(t, position), repair46JSON(t, fill), revision); err != nil {
+	if _, err = h.store.DB.Exec(`INSERT INTO stats.accounting_market_commits(publication_id,source_fill_id,source_fact_digest,projection_version,pool,bucket_start,position,fill,sequence,revision)VALUES($1,$2,$3,'repair46',$4,$5,$6,$7,$8,$8)`, "publication:"+rev, fill.SourceFillID, string(digest), pool, observed.Unix()/60*60, squadAlertJSON(t, position), squadAlertJSON(t, fill), revision); err != nil {
 		t.Fatal(err)
 	}
-	chain, token, usdl := "125", repair46Token, repair46USDL
+	chain, token, usdl := "125", squadAlertToken, squadAlertUSDL
 	tokenDecimals, usdlDecimals := v2.SafeInteger(18), v2.SafeInteger(6)
 	sourceEvent := "125:" + position.TransactionHash + ":0"
 	price := v2.InputPrice{
@@ -428,7 +428,7 @@ func repair46PublishPrice(t *testing.T, h *repair46HTTP, value int64, revision u
 	}
 	update := map[string]any{"eventId": "price:" + sourceEvent, "topic": "market.price." + pool, "revision": rev, "occurredAt": price.Source.ObservedAt, "payload": price, "watermark": v2.Watermark{ChainId: "125", Height: v2.UInt256(rev), BlockHash: position.BlockHash, ProjectionRevision: v2.PositiveUInt256(rev), ObservedAt: price.Source.ObservedAt, Integrity: "healthy"}}
 	proof := map[string]any{"kind": "price_commit", "pool": pool, "projectionVersion": "repair46", "sequence": rev, "sourceFillId": fill.SourceFillID, "sourceFactDigest": string(digest)}
-	if _, err = h.store.DB.Exec(`SELECT api_stream.append_market_price($1::jsonb,$2::jsonb)`, repair46JSON(t, update), repair46JSON(t, proof)); err != nil {
+	if _, err = h.store.DB.Exec(`SELECT api_stream.append_market_price($1::jsonb,$2::jsonb)`, squadAlertJSON(t, update), squadAlertJSON(t, proof)); err != nil {
 		t.Fatal(err)
 	}
 	metric, err := h.store.CanonicalPrice(context.Background(), pool)
@@ -441,11 +441,11 @@ func repair46PublishPrice(t *testing.T, h *repair46HTTP, value int64, revision u
 	return metric
 }
 
-func (h *repair46HTTP) createAlert(owner string, price v2.InputPrice) AlertRule {
+func (h *squadAlertHTTP) createAlert(owner string, price v2.InputPrice) AlertRule {
 	h.t.Helper()
 	price.Numerator, price.Denominator = "10", "1"
 	input := v2.AlertCreateBody{PoolAddress: pool, Threshold: price, Direction: "crosses_above", CooldownSeconds: 60}
-	if err := v2.ValidateJSON("AlertCreateBody", repair46JSON(h.t, input)); err != nil {
+	if err := v2.ValidateJSON("AlertCreateBody", squadAlertJSON(h.t, input)); err != nil {
 		h.t.Fatal(err)
 	}
 	var response v2.AlertCreateResponse
@@ -461,13 +461,13 @@ func (h *repair46HTTP) createAlert(owner string, price v2.InputPrice) AlertRule 
 	if rule.Price == nil || !reflect.DeepEqual(*rule.Price, input.Threshold) || rule.OwnerAccountID != owner {
 		h.t.Fatalf("persisted threshold context: %+v", rule)
 	}
-	if !bytes.Equal(repair46JSON(h.t, response.Data.Alert.Threshold), repair46JSON(h.t, input.Threshold)) {
+	if !bytes.Equal(squadAlertJSON(h.t, response.Data.Alert.Threshold), squadAlertJSON(h.t, input.Threshold)) {
 		h.t.Fatal("HTTP response differs from stored threshold")
 	}
 	return rule
 }
 
-func repair46Checkpoint(t *testing.T, s Store, id string) AlertCheckpoint {
+func squadAlertCheckpoint(t *testing.T, s Store, id string) AlertCheckpoint {
 	t.Helper()
 	var raw []byte
 	if err := s.DB.QueryRow(`SELECT checkpoint FROM narrative_discovery.rules WHERE id=$1`, id).Scan(&raw); err != nil {
@@ -480,11 +480,11 @@ func repair46Checkpoint(t *testing.T, s Store, id string) AlertCheckpoint {
 	return checkpoint
 }
 
-func TestRepair_46_alert_price_context_lost(t *testing.T) {
-	h := repair46Server(t)
-	repair46PriceSource(t, h)
+func TestAlertPriceContextLost(t *testing.T) {
+	h := squadAlertServer(t)
+	squadAlertPriceSource(t, h)
 	ctx := context.Background()
-	baseline := repair46PublishPrice(t, h, 9, 1, time.Now())
+	baseline := squadAlertPublishPrice(t, h, 9, 1, time.Now())
 	owner := uuid.NewString()
 	rule := h.createAlert(owner, *baseline.Price)
 	// Persist two further equal-ratio thresholds with different denominations
@@ -507,8 +507,8 @@ func TestRepair_46_alert_price_context_lost(t *testing.T) {
 		if err := json.Unmarshal(raw, &recovered); err != nil {
 			t.Fatal(err)
 		}
-		response, err := AdaptV2AlertCreate(recovered, repair46Wallet, *recovered.Price, discoveryErrorRequestID, time.Now())
-		if err != nil || !reflect.DeepEqual(recovered, want) || !bytes.Equal(repair46JSON(t, response.Data.Alert.Threshold), repair46JSON(t, want.Price)) {
+		response, err := AdaptV2AlertCreate(recovered, squadAlertWallet, *recovered.Price, discoveryErrorRequestID, time.Now())
+		if err != nil || !reflect.DeepEqual(recovered, want) || !bytes.Equal(squadAlertJSON(t, response.Data.Alert.Threshold), squadAlertJSON(t, want.Price)) {
 			t.Fatalf("persisted response: %+v %v", response, err)
 		}
 	}
@@ -517,12 +517,12 @@ func TestRepair_46_alert_price_context_lost(t *testing.T) {
 	if err != nil || crossed || why != "baseline" {
 		t.Fatal(crossed, why, err)
 	}
-	checkpoint := repair46Checkpoint(t, h.store, rule.ID)
-	next := repair46PublishPrice(t, h, 11, 2, time.Now())
+	checkpoint := squadAlertCheckpoint(t, h.store, rule.ID)
+	next := squadAlertPublishPrice(t, h, 11, 2, time.Now())
 	mismatches := map[string]func(*Metric){
-		"pool":           func(m *Metric) { m.PoolAddress = repair46Token },
-		"base asset":     func(m *Metric) { v := repair46Wallet; m.Price.BaseAsset.Address = &v },
-		"quote asset":    func(m *Metric) { v := repair46Wallet; m.Price.QuoteAsset.Address = &v },
+		"pool":           func(m *Metric) { m.PoolAddress = squadAlertToken },
+		"base asset":     func(m *Metric) { v := squadAlertWallet; m.Price.BaseAsset.Address = &v },
+		"quote asset":    func(m *Metric) { v := squadAlertWallet; m.Price.QuoteAsset.Address = &v },
 		"base decimals":  func(m *Metric) { v := v2.SafeInteger(6); m.Price.BaseAsset.Decimals = &v },
 		"quote decimals": func(m *Metric) { v := v2.SafeInteger(18); m.Price.QuoteAsset.Decimals = &v },
 		"chain":          func(m *Metric) { v := "1"; m.Price.BaseAsset.ChainId = &v },
@@ -538,7 +538,7 @@ func TestRepair_46_alert_price_context_lost(t *testing.T) {
 			metric.Price = &price
 			mutate(&metric)
 			crossed, why, err := h.store.EvaluateRule(ctx, rule.ID, metric, time.Now())
-			if err != nil || crossed || why != "price_context_mismatch" || repair46Checkpoint(t, h.store, rule.ID) != checkpoint {
+			if err != nil || crossed || why != "price_context_mismatch" || squadAlertCheckpoint(t, h.store, rule.ID) != checkpoint {
 				t.Fatal(crossed, why, err)
 			}
 		})
@@ -573,23 +573,23 @@ func TestRepair_46_alert_price_context_lost(t *testing.T) {
 	}
 }
 
-func TestRepair_46_alert_evaluator_unwired(t *testing.T) {
-	h := repair46Server(t)
-	repair46PriceSource(t, h)
+func TestAlertEvaluatorUnwired(t *testing.T) {
+	h := squadAlertServer(t)
+	squadAlertPriceSource(t, h)
 	ctx := context.Background()
-	baseline := repair46PublishPrice(t, h, 9, 1, time.Now())
+	baseline := squadAlertPublishPrice(t, h, 9, 1, time.Now())
 	owner := uuid.NewString()
 	rule := h.createAlert(owner, *baseline.Price)
 	runtime := Runtime{Store: h.store}
 	if n, err := runtime.EvaluateBatch(ctx, 1, time.Now()); err != nil || n != 1 {
 		t.Fatal(n, err)
 	}
-	before := repair46Checkpoint(t, h.store, rule.ID)
+	before := squadAlertCheckpoint(t, h.store, rule.ID)
 	if before.MetricRevision != 1 || !before.BaselineSet || !before.Armed {
 		t.Fatal(before)
 	}
 	h.reopen()
-	next := repair46PublishPrice(t, h, 11, 2, time.Now())
+	next := squadAlertPublishPrice(t, h, 11, 2, time.Now())
 	runtime = Runtime{Store: h.store}
 	run, cancel := context.WithTimeout(ctx, 5*time.Second)
 	err := runtime.Run(run)
@@ -597,7 +597,7 @@ func TestRepair_46_alert_evaluator_unwired(t *testing.T) {
 	if !errors.Is(err, ErrInvalid) {
 		t.Fatalf("publish failure must propagate after durable evaluation: %v", err)
 	}
-	checkpoint := repair46Checkpoint(t, h.store, rule.ID)
+	checkpoint := squadAlertCheckpoint(t, h.store, rule.ID)
 	if checkpoint.MetricRevision != 2 || checkpoint.Armed || checkpoint.LastTrigger.IsZero() {
 		t.Fatal(checkpoint)
 	}
@@ -606,7 +606,7 @@ func TestRepair_46_alert_evaluator_unwired(t *testing.T) {
 	if n, err := runtime.EvaluateBatch(ctx, 1, time.Now()); err != nil || n != 1 {
 		t.Fatal(n, err)
 	}
-	if repair46Checkpoint(t, h.store, rule.ID) != checkpoint {
+	if squadAlertCheckpoint(t, h.store, rule.ID) != checkpoint {
 		t.Fatal("redelivery changed durable checkpoint")
 	}
 	rows, err := h.store.DB.Query(`SELECT id,kind,document,published FROM narrative_discovery.outbox WHERE kind='threshold-crossing-v2'`)
@@ -646,7 +646,7 @@ func TestRepair_46_alert_evaluator_unwired(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if !repair46Checkpoint(t, h.store, second.ID).BaselineSet {
+	if !squadAlertCheckpoint(t, h.store, second.ID).BaselineSet {
 		t.Fatal("bounded cursor starved a later rule")
 	}
 	if err = h.store.DisableRule(ctx, owner, second.ID); err != nil {
