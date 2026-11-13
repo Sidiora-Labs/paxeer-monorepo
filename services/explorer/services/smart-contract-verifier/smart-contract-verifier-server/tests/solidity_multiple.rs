@@ -1,4 +1,4 @@
-#[path = "support/repair_22_33_596/mod.rs"]
+#[path = "support/sourcify_transcripts/mod.rs"]
 mod repair_support;
 mod solidity_multiple_types;
 

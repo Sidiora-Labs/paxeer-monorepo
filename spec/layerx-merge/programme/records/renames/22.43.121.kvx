@@ -1,0 +1,20 @@
+[manifest]
+task = "22.43.121"
+records_moved = 1
+files_renamed = 1
+
+[file.1]
+from = "sdk/version/repair_m1361_test.go"
+to = "sdk/version/build_provenance_test.go"
+
+[file.2]
+from = "sdk/version/repair_m1361.kvx"
+to = "spec/layerx-merge/programme/records/sdk/version/repair_m1361.kvx"
+
+[reference.1]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/version/repair_m1361_test.go"
+
+[reference.2]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1361_"

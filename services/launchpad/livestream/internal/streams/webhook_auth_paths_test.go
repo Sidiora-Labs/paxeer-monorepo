@@ -89,7 +89,7 @@ func TestProviderWebhookRejectsAmbiguousSignedTimestamp(t *testing.T) {
 }
 
 func TestProviderWebhookAppliesSignedStateThroughLifecycle(t *testing.T) {
-	f := repair57New(t)
+	f := streamContractNew(t)
 	f.handlers.studioWebhook = false
 	ctx := context.Background()
 	o, _ := f.create("provider-webhook-application")

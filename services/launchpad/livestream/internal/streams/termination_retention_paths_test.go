@@ -12,7 +12,7 @@ import (
 )
 
 func TestTerminationReconcilesProviderAcknowledgmentAndAbsence(t *testing.T) {
-	f := repair57New(t)
+	f := streamContractNew(t)
 	ctx := context.Background()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodDelete || r.URL.Path != "/stream/ending_provider/terminate" {
@@ -49,7 +49,7 @@ func TestTerminationReconcilesProviderAcknowledgmentAndAbsence(t *testing.T) {
 }
 
 func TestTerminalRetentionExpiresIdempotencyWithoutChangingState(t *testing.T) {
-	f := repair57New(t)
+	f := streamContractNew(t)
 	ctx := context.Background()
 	o, _ := f.create("terminal-retention")
 	o, err := f.store.Transition(ctx, o.ID, f.wallet, endAction, o.Revision, ActionDecision{Wallet: f.wallet, OperationID: o.ID, Action: endAction, Revision: o.Revision, Allowed: true, ExpiresAt: time.Now().Add(time.Minute)})
@@ -74,7 +74,7 @@ func TestTerminalRetentionExpiresIdempotencyWithoutChangingState(t *testing.T) {
 }
 
 func TestReconciliationConfirmsTerminatedProviderStreams(t *testing.T) {
-	f := repair57New(t)
+	f := streamContractNew(t)
 	ctx := context.Background()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method + " " + r.URL.Path {
@@ -109,7 +109,7 @@ func TestReconciliationConfirmsTerminatedProviderStreams(t *testing.T) {
 }
 
 func TestSuspensionRetainsRetryAfterProviderRefusal(t *testing.T) {
-	f := repair57New(t)
+	f := streamContractNew(t)
 	ctx := context.Background()
 	o, _ := f.create("suspension-retry")
 	o, err := f.store.BindProvider(ctx, o.ID, "retry_provider")

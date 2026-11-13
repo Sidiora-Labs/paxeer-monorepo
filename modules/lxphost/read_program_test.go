@@ -310,7 +310,7 @@ func TestReadProgramLifecycleProducers(t *testing.T) {
 
 func testReadProgramLifecycleProducers(t *testing.T) {
 	t.Helper()
-	f := repairM909Funded(t)
+	f := simulationRecoveryFunded(t)
 	ctx := f.chain.context(2, resolutionBlockTime, 8)
 	called := execute(t, f.host, ctx, f.call, f.authority)
 	require.Zero(t, called.ResultCode)

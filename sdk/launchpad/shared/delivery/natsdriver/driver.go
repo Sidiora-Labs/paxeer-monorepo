@@ -160,7 +160,20 @@ func (c *Consumer) Fetch(ctx context.Context) ([]*Message, error) {
 		return nil, ErrClosed
 	case c.fetch <- struct{}{}:
 	}
-	defer func() { <-c.fetch }()
+	var batch jetstream.MessageBatch
+	drained := false
+	// Keep the slot until the broker completes its pull after caller cancellation.
+	defer func() {
+		if batch == nil || drained {
+			<-c.fetch
+			return
+		}
+		go func() {
+			for range batch.Messages() {
+			}
+			<-c.fetch
+		}()
+	}()
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -171,13 +184,25 @@ func (c *Consumer) Fetch(ctx context.Context) ([]*Message, error) {
 	stop := context.AfterFunc(c.ctx, cancel)
 	defer stop()
 	defer cancel()
-	batch, err := c.consumer.Fetch(c.config.Batch, jetstream.FetchContext(bounded))
+	var err error
+	batch, err = c.consumer.Fetch(c.config.Batch, jetstream.FetchMaxWait(c.config.FetchWait))
 	if err != nil {
 		return nil, err
 	}
 	messages := make([]*Message, 0, c.config.Batch)
 	var invalid error
-	for msg := range batch.Messages() {
+	for !drained && bounded.Err() == nil {
+		var msg jetstream.Msg
+		select {
+		case <-bounded.Done():
+			continue
+		case next, ok := <-batch.Messages():
+			if !ok {
+				drained = true
+				continue
+			}
+			msg = next
+		}
 		metadata, metaErr := msg.Metadata()
 		if metaErr != nil {
 			invalid = errors.Join(invalid, metaErr)

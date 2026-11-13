@@ -1,0 +1,56 @@
+[manifest]
+task = "22.43.208"
+records_moved = 2
+files_renamed = 8
+
+[file.1]
+from = "tools/codebase-map/test/repair-22-33-799.test.mjs"
+to = "tools/codebase-map/test/delivery-snapshot.test.mjs"
+
+[file.2]
+from = "tools/codebase-map/test/repair-22-33-800.test.mjs"
+to = "tools/codebase-map/test/snapshot-setup.test.mjs"
+
+[file.3]
+from = "tools/codebase-map/test/fixtures/repair-22-33-799/git.json"
+to = "tools/codebase-map/test/fixtures/delivery-snapshot/git.json"
+
+[file.4]
+from = "tools/codebase-map/test/fixtures/repair-22-33-799/graph.sql"
+to = "tools/codebase-map/test/fixtures/delivery-snapshot/graph.sql"
+
+[file.5]
+from = "tools/codebase-map/test/fixtures/repair-22-33-799/repository/spec/layerx-merge/spec.kvx"
+to = "tools/codebase-map/test/fixtures/delivery-snapshot/repository/spec/layerx-merge/spec.kvx"
+
+[file.6]
+from = "tools/codebase-map/test/fixtures/repair-22-33-799/repository/spec/workflow.kvx"
+to = "tools/codebase-map/test/fixtures/delivery-snapshot/repository/spec/workflow.kvx"
+
+[file.7]
+from = "tools/codebase-map/test/fixtures/repair-22-33-800/git.json"
+to = "tools/codebase-map/test/fixtures/snapshot-setup/git.json"
+
+[file.8]
+from = "tools/codebase-map/test/fixtures/repair-22-33-800/graph.json"
+to = "tools/codebase-map/test/fixtures/snapshot-setup/graph.json"
+
+[file.9]
+from = "tools/codebase-map/repair-22-33-799.kvx"
+to = "spec/layerx-merge/programme/records/tools/codebase-map/repair-22-33-799.kvx"
+
+[file.10]
+from = "tools/codebase-map/test/repair-22-33-800.kvx"
+to = "spec/layerx-merge/programme/records/tools/codebase-map/test/repair-22-33-800.kvx"
+
+[reference.1]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/codebase-map/test/repair-22-33-799.test.mjs"
+
+[reference.2]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/codebase-map/test/repair-22-33-800.test.mjs"
+
+[reference.3]
+file = "tests/ci/repair_22_39_85.kvx"
+name = "repair-22-33-800.test.mjs"

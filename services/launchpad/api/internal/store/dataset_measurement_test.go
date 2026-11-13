@@ -30,8 +30,8 @@ func TestRESTDatasetMeasurementReportsCommittedRows(t *testing.T) {
 		t.Fatalf("committed dataset measurement: %+v, %v", measurement, err)
 	}
 	for _, tc := range []struct {
-		pool string
-		rows int64
+		pool   string
+		rows   int64
 		digest string
 	}{
 		{"invalid", 10_000_000, strings.Repeat("0", 64)},

@@ -1,0 +1,64 @@
+[manifest]
+task = "22.43.38"
+records_moved = 3
+files_renamed = 3
+
+[file.1]
+from = "consensus/scripts/metricsgen/metricsdiff/repair_m1185_test.go"
+to = "consensus/scripts/metricsgen/metricsdiff/label_diff_test.go"
+
+[file.2]
+from = "consensus/scripts/metricsgen/repair_m1186_test.go"
+to = "consensus/scripts/metricsgen/input_dir_test.go"
+
+[file.3]
+from = "consensus/scripts/scmigrate/repair_121_test.go"
+to = "consensus/scripts/scmigrate/seen_commit_recovery_test.go"
+
+[file.4]
+from = "consensus/scripts/metricsgen/metricsdiff/repair_m1185.kvx"
+to = "spec/layerx-merge/programme/records/consensus/scripts/metricsgen/metricsdiff/repair_m1185.kvx"
+
+[file.5]
+from = "consensus/scripts/metricsgen/repair_m1186.kvx"
+to = "spec/layerx-merge/programme/records/consensus/scripts/metricsgen/repair_m1186.kvx"
+
+[file.6]
+from = "consensus/scripts/scmigrate/repair_121.kvx"
+to = "spec/layerx-merge/programme/records/consensus/scripts/scmigrate/repair_121.kvx"
+
+[reference.1]
+file = "spec/layerx-merge/spec.kvx"
+name = "consensus/scripts/metricsgen/metricsdiff/repair_m1185_test.go"
+
+[reference.2]
+file = "spec/layerx-merge/spec.kvx"
+name = "consensus/scripts/metricsgen/repair_m1186_test.go"
+
+[reference.3]
+file = "spec/layerx-merge/spec.kvx"
+name = "consensus/scripts/scmigrate/repair_121_test.go"
+
+[reference.4]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1185_test.go"
+
+[reference.5]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1186_test.go"
+
+[reference.6]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_121_test.go"
+
+[reference.7]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1185_"
+
+[reference.8]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1186_"
+
+[reference.9]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_121_"

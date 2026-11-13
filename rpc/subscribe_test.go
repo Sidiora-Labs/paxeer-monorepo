@@ -515,10 +515,10 @@ func TestSubscribeEmptyLogs(t *testing.T) {
 }
 
 func TestSubscribeNewLogs(t *testing.T) {
-	repairM1297LogSubscription(t)
+	rpcBehaviorLogSubscription(t)
 }
 
-func repairM1297LogSubscription(t *testing.T) {
+func rpcBehaviorLogSubscription(t *testing.T) {
 	t.Helper()
 	sender := occutils.NewSigner()
 	q := newSubscribeSequencer(t, sender)
@@ -580,8 +580,8 @@ func repairM1297LogSubscription(t *testing.T) {
 	require.False(t, peek.writing(t, 200*time.Millisecond), "unsubscribed matching logs must not notify")
 }
 
-func repairM1297LogSubscriptionProof(t *testing.T) {
-	repairM1297LogSubscription(t)
+func rpcBehaviorLogSubscriptionProof(t *testing.T) {
+	rpcBehaviorLogSubscription(t)
 }
 
 func TestSubscriptionManager(t *testing.T) {
@@ -1193,4 +1193,4 @@ func TestSubscribeNewPendingTransactions(t *testing.T) {
 	}
 }
 
-func init() { evmrpc.RepairM1297Proofs["log-subscription-skipped"] = repairM1297LogSubscriptionProof }
+func init() { evmrpc.RPCBehaviorProofs["log-subscription-skipped"] = rpcBehaviorLogSubscriptionProof }

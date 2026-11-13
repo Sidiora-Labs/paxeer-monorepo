@@ -261,12 +261,12 @@ func TestProgramsCallFeeLimitBelowFeeReverts(t *testing.T) {
 
 func assertProgramsKnownBoundedResponse(t *testing.T) {
 	t.Helper()
-	h, args, payload, guest := repair251Responder(t)
+	h, args, payload, guest := programsTransferResponder(t)
 	require.Len(t, guest, 64)
 	for i, value := range guest {
 		require.Equal(t, byte(i), value)
 	}
-	receipt, reference := repair251Receipt(t, h, args, payload)
+	receipt, reference := programsReferenceCallReceipt(t, h, args, payload)
 	require.Positive(t, receipt.FeeCharged.Sign())
 	input, err := lp.ProgramsABI.Pack("call", args...)
 	require.NoError(t, err)
@@ -281,7 +281,7 @@ func assertProgramsKnownBoundedResponse(t *testing.T) {
 	require.Equal(t, []common.Hash{lp.ProgramsABI.Events["ProgramCallOutcome"].ID, common.Hash(args[0].([32]byte))}, logs[0].Topics)
 	terminal, err := lp.ProgramsABI.Events["ProgramCallOutcome"].Inputs.NonIndexed().Unpack(logs[0].Data)
 	require.NoError(t, err)
-	root := repair251TransferRoot(t, receipt)
+	root := programsReceiptTransferRoot(t, receipt)
 	require.Equal(t, root, terminal[9])
 	decoded, err := lp.DecodeProgramExecutionResult(output, uint32(len(guest)), root)
 	require.NoError(t, err)

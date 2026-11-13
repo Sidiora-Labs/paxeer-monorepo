@@ -60,7 +60,7 @@ const sdk = await import("../../../services/agent/sdk/typescript/src/gas-station
 const { privateKeyToAccount } = await import("viem/accounts");
 
 const IDENTIFIER = "ab".repeat(32);
-const { withNativeReceipt } = await import("./repair-22-33-338-receipts.ts");
+const { withNativeReceipt } = await import("./native-receipt-fixture.ts");
 const PUBLIC_BASE = "PAXEER_X_EXPLORER_BASE_URL";
 const RETIRED_KEYS = [
   "LAYERX_EXPLORER_API_ORIGIN",

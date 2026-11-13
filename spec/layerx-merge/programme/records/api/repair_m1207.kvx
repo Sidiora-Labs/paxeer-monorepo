@@ -1,0 +1,5 @@
+[task.22.33.1207]
+tests = ["TestTokenfactoryGenesisRegistry", "TestTokenfactoryGenesisAbsentPausedDenoms"]
+signature = "message paxprotocol.paxchain.tokenfactory.GenesisState { Params params = 1; repeated GenesisDenom factory_denoms = 2; repeated string paused_denoms = 3; }"
+current_contract = "Production source, generated descriptor, JSON/protobuf codecs and keeper export/import retain paused_denoms at field 3; absent field 3 decodes as an empty list."
+preserved_proof = "modules/tokenfactory/keeper/proof_genesis_test.go:TestProofGenesisProducerTransportConsumer retains its real disk restart, codec and mint assertions, with explicit paused/active inventory assertions added."

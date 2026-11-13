@@ -1,0 +1,96 @@
+[manifest]
+task = "22.43.44"
+records_moved = 10
+files_renamed = 12
+
+[file.1]
+from = "deploy/launchpad/production/bootstrap/test_repair_22_33_722.py"
+to = "deploy/launchpad/production/bootstrap/test_command_paths.py"
+
+[file.2]
+from = "deploy/launchpad/production/observability/phase2/tests/test_repair_22_33_720.py"
+to = "deploy/launchpad/production/observability/phase2/tests/test_synthetic_transport.py"
+
+[file.3]
+from = "deploy/launchpad/production/observability/tests/test_repair_22_33_723.py"
+to = "deploy/launchpad/production/observability/tests/test_command_paths.py"
+
+[file.4]
+from = "deploy/launchpad/production/recovery/phase2/test_repair_22_33_719.py"
+to = "deploy/launchpad/production/recovery/phase2/test_reconciliation.py"
+
+[file.5]
+from = "deploy/launchpad/production/recovery/phase4/test_repair_22_33_724.py"
+to = "deploy/launchpad/production/recovery/phase4/test_command_paths.py"
+
+[file.6]
+from = "deploy/launchpad/production/recovery/test_repair_m718.py"
+to = "deploy/launchpad/production/recovery/test_provider_transcripts.py"
+
+[file.7]
+from = "deploy/launchpad/production/recovery/testdata/repair_m718"
+to = "deploy/launchpad/production/recovery/testdata/provider_transcripts"
+
+[file.8]
+from = "deploy/launchpad/production/recovery/testdata/repair_m718/providers.json"
+to = "deploy/launchpad/production/recovery/testdata/provider_transcripts/providers.json"
+
+[file.9]
+from = "deploy/launchpad/production/topology/phase2/tests/test_repair_22_31_313.py"
+to = "deploy/launchpad/production/topology/phase2/tests/test_runtime_adapter.py"
+
+[file.10]
+from = "deploy/launchpad/production/topology/phase2/tests/fixtures/repair_22_31_313_documents.json"
+to = "deploy/launchpad/production/topology/phase2/tests/fixtures/runtime_documents.json"
+
+[file.11]
+from = "deploy/launchpad/production/topology/phase2/tests/test_repair_22_33_716.py"
+to = "deploy/launchpad/production/topology/phase2/tests/test_connected_journal.py"
+
+[file.12]
+from = "deploy/launchpad/production/topology/phase2/tests/test_repair_22_33_726.py"
+to = "deploy/launchpad/production/topology/phase2/tests/test_operator_commands.py"
+
+[file.13]
+from = "deploy/launchpad/production/topology/tests/test_repair_22_33_725.py"
+to = "deploy/launchpad/production/topology/tests/test_command_paths.py"
+
+[file.14]
+from = "deploy/launchpad/production/bootstrap/repair_22_33_722.kvx"
+to = "spec/layerx-merge/programme/records/deploy/launchpad/production/bootstrap/repair_22_33_722.kvx"
+
+[file.15]
+from = "deploy/launchpad/production/observability/phase2/repair-22.33.720.kvx"
+to = "spec/layerx-merge/programme/records/deploy/launchpad/production/observability/phase2/repair-22.33.720.kvx"
+
+[file.16]
+from = "deploy/launchpad/production/observability/repair_22_33_723.kvx"
+to = "spec/layerx-merge/programme/records/deploy/launchpad/production/observability/repair_22_33_723.kvx"
+
+[file.17]
+from = "deploy/launchpad/production/recovery/phase2/repair_22_33_719.kvx"
+to = "spec/layerx-merge/programme/records/deploy/launchpad/production/recovery/phase2/repair_22_33_719.kvx"
+
+[file.18]
+from = "deploy/launchpad/production/recovery/phase4/repair_22_33_724.kvx"
+to = "spec/layerx-merge/programme/records/deploy/launchpad/production/recovery/phase4/repair_22_33_724.kvx"
+
+[file.19]
+from = "deploy/launchpad/production/recovery/repair_m718.kvx"
+to = "spec/layerx-merge/programme/records/deploy/launchpad/production/recovery/repair_m718.kvx"
+
+[file.20]
+from = "deploy/launchpad/production/topology/phase2/repair_22_31_313.kvx"
+to = "spec/layerx-merge/programme/records/deploy/launchpad/production/topology/phase2/repair_22_31_313.kvx"
+
+[file.21]
+from = "deploy/launchpad/production/topology/phase2/tests/repair_22_33_716.kvx"
+to = "spec/layerx-merge/programme/records/deploy/launchpad/production/topology/phase2/tests/repair_22_33_716.kvx"
+
+[file.22]
+from = "deploy/launchpad/production/topology/phase2/tests/repair_22_33_726.kvx"
+to = "spec/layerx-merge/programme/records/deploy/launchpad/production/topology/phase2/tests/repair_22_33_726.kvx"
+
+[file.23]
+from = "deploy/launchpad/production/topology/tests/repair_22_33_725.kvx"
+to = "spec/layerx-merge/programme/records/deploy/launchpad/production/topology/tests/repair_22_33_725.kvx"

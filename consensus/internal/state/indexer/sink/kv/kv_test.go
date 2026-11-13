@@ -261,7 +261,7 @@ func TestTxSearchDeprecatedIndexing(t *testing.T) {
 		t.Run(tc.q, func(t *testing.T) {
 			results, err := indexer.SearchTxEvents(ctx, query.MustCompile(tc.q))
 			require.NoError(t, err)
-			require.NoError(t, repairM1107CompareResults(results, tc.results))
+			require.NoError(t, compareLegacySearchResults(results, tc.results))
 		})
 	}
 }

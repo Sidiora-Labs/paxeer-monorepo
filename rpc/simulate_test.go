@@ -423,9 +423,9 @@ func TestSimulateBackendBlockResolutionCoverage(t *testing.T) {
 	})
 }
 
-// repairM1297StorageTrace coordinates real SLOADs through the SDK trace store.
+// rpcBehaviorStorageTrace coordinates real SLOADs through the SDK trace store.
 // It observes storage without replacing the EVM, keeper, store or RPC handler.
-type repairM1297StorageTrace struct {
+type rpcBehaviorStorageTrace struct {
 	key       []byte
 	mu        sync.Mutex
 	remaining int
@@ -433,7 +433,7 @@ type repairM1297StorageTrace struct {
 	release   chan struct{}
 }
 
-func (w *repairM1297StorageTrace) Write(p []byte) (int, error) {
+func (w *rpcBehaviorStorageTrace) Write(p []byte) (int, error) {
 	var operation struct {
 		Operation string `json:"operation"`
 		Key       []byte `json:"key"`
@@ -456,7 +456,7 @@ func (w *repairM1297StorageTrace) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-func repairM1297EstimateLimiter(t *testing.T) {
+func rpcBehaviorEstimateLimiter(t *testing.T) {
 	t.Helper()
 	for _, scenario := range []struct{ name, method string }{
 		{"TestEthCallRateLimiting", "call"},
@@ -478,7 +478,7 @@ func repairM1297EstimateLimiter(t *testing.T) {
 			coins := sdk.NewCoins(sdk.NewInt64Coin(a.EvmKeeper.GetBaseDenom(base), 2_000_000_000))
 			require.NoError(t, a.BankKeeper.MintCoins(base, types.ModuleName, coins))
 			require.NoError(t, a.BankKeeper.SendCoinsFromModuleToAccount(base, types.ModuleName, a.EvmKeeper.GetPaxAddressOrDefault(base, from), coins))
-			trace := &repairM1297StorageTrace{
+			trace := &rpcBehaviorStorageTrace{
 				key: append(types.StateKey(to), make([]byte, 32)...), remaining: 2,
 				entered: make(chan struct{}, 2), release: make(chan struct{}),
 			}
@@ -563,11 +563,11 @@ func repairM1297EstimateLimiter(t *testing.T) {
 }
 
 func TestSimulationAPIRequestLimiter(t *testing.T) {
-	repairM1297EstimateLimiter(t)
+	rpcBehaviorEstimateLimiter(t)
 }
 
-func repairM1297EstimateLimiterProof(t *testing.T) {
-	repairM1297EstimateLimiter(t)
+func rpcBehaviorEstimateLimiterProof(t *testing.T) {
+	rpcBehaviorEstimateLimiter(t)
 }
 
 // fixedBlockClient is a local test client that returns a single block for
@@ -989,5 +989,5 @@ func TestGetBlockContextUsesRequestedBlock(t *testing.T) {
 }
 
 func init() {
-	evmrpc.RepairM1297Proofs["estimate-limiter-not-proven"] = repairM1297EstimateLimiterProof
+	evmrpc.RPCBehaviorProofs["estimate-limiter-not-proven"] = rpcBehaviorEstimateLimiterProof
 }

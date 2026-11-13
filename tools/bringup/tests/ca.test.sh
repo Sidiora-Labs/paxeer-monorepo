@@ -17,7 +17,7 @@ grep -q 'flyctl\|LAYERX_FLY_TLS_DIR\|fly_ssh\|fly_app\|\.internal"' "$ca" && fai
 "$ca" services >"$work/services"
 # This completed roster was independently reviewed with the merged issuance
 # inventory. Compare all six fields, including ownership and every SAN.
-diff -u "$root/tools/bringup/tests/fixtures/repair_m794/approved-roster.tsv" "$work/services" ||
+diff -u "$root/tools/bringup/tests/fixtures/service_identities/approved-roster.tsv" "$work/services" ||
 	fail "services differ from the approved merged roster"
 awk 'NF != 6 { exit 1 }' "$work/services" || fail "a row is not six fields"
 awk '$2 ~ /^box:/ && $3 != "volume" { exit 1 } $2 ~ /^railway:/ && $3 !~ /^[A-Z][A-Z0-9_]*$/ { exit 1 } $2 !~ /^(box|railway):/ { exit 1 }' \

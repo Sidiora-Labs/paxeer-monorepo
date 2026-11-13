@@ -1,0 +1,228 @@
+[manifest]
+task = "22.43.33"
+records_moved = 11
+files_renamed = 11
+
+[file.1]
+from = "consensus/internal/state/repair_89_test.go"
+to = "consensus/internal/state/proposal_admission_recovery_test.go"
+
+[file.2]
+from = "consensus/internal/state/repair_m1098_test.go"
+to = "consensus/internal/state/prune_recovery_test.go"
+
+[file.3]
+from = "consensus/internal/state/indexer/repair_81_test.go"
+to = "consensus/internal/state/indexer/recovery_test.go"
+
+[file.4]
+from = "consensus/internal/state/indexer/repair_m1099_test.go"
+to = "consensus/internal/state/indexer/query_intersection_test.go"
+
+[file.5]
+from = "consensus/internal/state/indexer/block/kv/repair_m1100_test.go"
+to = "consensus/internal/state/indexer/block/kv/height_event_search_test.go"
+
+[file.6]
+from = "consensus/internal/state/indexer/tx/kv/repair_m1101_test.go"
+to = "consensus/internal/state/indexer/tx/kv/hash_search_test.go"
+
+[file.7]
+from = "consensus/internal/state/indexer/sink/kv/repair_m1107_test.go"
+to = "consensus/internal/state/indexer/sink/kv/legacy_search_test.go"
+
+[file.8]
+from = "consensus/internal/state/indexer/sink/psql/repair_82_test.go"
+to = "consensus/internal/state/indexer/sink/psql/event_storage_test.go"
+
+[file.9]
+from = "consensus/internal/state/indexer/sink/psql/repair_m1106_test.go"
+to = "consensus/internal/state/indexer/sink/psql/persisted_metadata_test.go"
+
+[file.10]
+from = "consensus/internal/statesync/repair_120_test.go"
+to = "consensus/internal/statesync/params_restoration_test.go"
+
+[file.11]
+from = "consensus/internal/statesync/repair_m1183_test.go"
+to = "consensus/internal/statesync/sync_lifecycle_test.go"
+
+[file.12]
+from = "consensus/internal/state/indexer/block/kv/repair_m1100.kvx"
+to = "spec/layerx-merge/programme/records/consensus/internal/state/indexer/block/kv/repair_m1100.kvx"
+
+[file.13]
+from = "consensus/internal/state/indexer/repair_81.kvx"
+to = "spec/layerx-merge/programme/records/consensus/internal/state/indexer/repair_81.kvx"
+
+[file.14]
+from = "consensus/internal/state/indexer/repair_m1099.kvx"
+to = "spec/layerx-merge/programme/records/consensus/internal/state/indexer/repair_m1099.kvx"
+
+[file.15]
+from = "consensus/internal/state/indexer/sink/kv/repair_m1107.kvx"
+to = "spec/layerx-merge/programme/records/consensus/internal/state/indexer/sink/kv/repair_m1107.kvx"
+
+[file.16]
+from = "consensus/internal/state/indexer/sink/psql/repair_82.kvx"
+to = "spec/layerx-merge/programme/records/consensus/internal/state/indexer/sink/psql/repair_82.kvx"
+
+[file.17]
+from = "consensus/internal/state/indexer/sink/psql/repair_m1106.kvx"
+to = "spec/layerx-merge/programme/records/consensus/internal/state/indexer/sink/psql/repair_m1106.kvx"
+
+[file.18]
+from = "consensus/internal/state/indexer/tx/kv/repair_m1101.kvx"
+to = "spec/layerx-merge/programme/records/consensus/internal/state/indexer/tx/kv/repair_m1101.kvx"
+
+[file.19]
+from = "consensus/internal/state/repair_89.kvx"
+to = "spec/layerx-merge/programme/records/consensus/internal/state/repair_89.kvx"
+
+[file.20]
+from = "consensus/internal/state/repair_m1098.kvx"
+to = "spec/layerx-merge/programme/records/consensus/internal/state/repair_m1098.kvx"
+
+[file.21]
+from = "consensus/internal/statesync/repair_120.kvx"
+to = "spec/layerx-merge/programme/records/consensus/internal/statesync/repair_120.kvx"
+
+[file.22]
+from = "consensus/internal/statesync/repair_m1183.kvx"
+to = "spec/layerx-merge/programme/records/consensus/internal/statesync/repair_m1183.kvx"
+
+[reference.1]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1098_"
+
+[reference.2]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1099_"
+
+[reference.3]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1100_"
+
+[reference.4]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1101_"
+
+[reference.5]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1106_"
+
+[reference.6]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1107_"
+
+[reference.7]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1183_"
+
+[reference.8]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_120_"
+
+[reference.9]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_81_"
+
+[reference.10]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_82_"
+
+[reference.11]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_89_"
+
+[reference.12]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_120"
+
+[reference.13]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_120_test.go"
+
+[reference.14]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_81"
+
+[reference.15]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_81_test.go"
+
+[reference.16]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_82"
+
+[reference.17]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_82_test.go"
+
+[reference.18]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_89"
+
+[reference.19]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_89_test.go"
+
+[reference.20]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1098"
+
+[reference.21]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1098_test.go"
+
+[reference.22]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1099"
+
+[reference.23]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1099_test.go"
+
+[reference.24]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1100"
+
+[reference.25]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1100_test.go"
+
+[reference.26]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1101"
+
+[reference.27]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1101_test.go"
+
+[reference.28]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1106"
+
+[reference.29]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1106_test.go"
+
+[reference.30]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1107"
+
+[reference.31]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1107_test.go"
+
+[reference.32]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1183"
+
+[reference.33]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1183_test.go"
+
+[reference.34]
+file = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py"
+name = "repair_81"

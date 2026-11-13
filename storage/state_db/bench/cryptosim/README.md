@@ -105,14 +105,14 @@ asynchronous receipt queue; successful shutdown does. Console transaction totals
 and metric counters describe this process, not a persisted transaction history.
 
 The reopen example is in
-[repair_m1195_test.go](repair_m1195_test.go):
+[persistence_lifecycle_test.go](persistence_lifecycle_test.go):
 
 ```bash
 # From the repository root; small MemIAVL SC + Pebble receipt stores in temp dirs.
-go test -count=1 -v -run '^TestRepairM_1195_PersistenceDoc$' ./storage/state_db/bench/cryptosim/
+go test -count=1 -v -run '^TestPersistenceLifecyclePersistenceDoc$' ./storage/state_db/bench/cryptosim/
 ```
 
-`TestRepairM_1195_PersistenceDoc` creates eight setup accounts and three contracts,
+`TestPersistenceLifecyclePersistenceDoc` creates eight setup accounts and three contracts,
 accepts a two-transaction block, closes all participants, reopens, accepts one
 more block and closes/reopens again. It verifies the durable block, account and
 contract counters against each accepted block, verifies the receipt latest-block
