@@ -194454,7 +194454,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.177]
 title = "Give the example environment files of the deployments under services/wallet/deploy the values of the deployment again"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -204840,7 +204840,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.150]
 title = "Move the task records and name the files after what they hold in services/human/crates/layerx-human-test-support and 5 more directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.43.147"]
@@ -205422,7 +205422,7 @@ do_6 = "do_6 Decision 3455, gotcha 4367. The paths of this task now hold service
 
 [task.22.43.92]
 title = "Move the task records and name the files after what they hold in programs/crates and 1 more directory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
