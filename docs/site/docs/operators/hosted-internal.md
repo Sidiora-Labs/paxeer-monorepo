@@ -30,29 +30,22 @@ listener on `9443`. The image
 `ghcr.io/sidiora-labs/layerx-internal:0.1.0` contains both binaries; the
 Docker entrypoint is KMS, while event-source Deployments override the command.
 
-The beta cluster installs these workloads:
+The image inventory in `services/platform/hosted/tests/beta-images.sh`
+includes internal and Human images. Deployment manifests separately define
+the KMS, event-source and Human application workloads. The native cluster
+helper's `up` and `render` paths apply or render the native node manifest;
+image inventory membership does not install the application workloads.
 
-- `services/platform/hosted/tests/beta-images.sh` includes `layerx-internal`,
-  `layerx-human`, and `layerx-human-web` in its image inventory.
-- `beta-cluster.sh` renders `internal.yaml`, `human.yaml`, and
-  `human-web.yaml` from the corresponding hosted manifests.
-- `internal_apply` applies `internal.yaml` and the developer manifest.
-  `trusted_boundary_apply` and `manifests_apply` include the Human manifest;
-  `human_web_apply` applies the separate web workload and waits for readiness
-  when explorer observation configuration has been published.
-- `services/platform/hosted/human/deployment.yaml` declares the
-  `layerx-human` Service on `9443`, selecting `app=layerx-node` and targeting
-  `human-https`. Human runs as a node-pod component. Its web workload is
-  declared separately in `human/web-deployment.yaml`.
+`services/platform/hosted/human/deployment.yaml` declares Service
+`layerx-human` on `9443`, selecting node pods and targeting `human-https`.
+The hosting deployment must supply that named port and its Human process.
+The web workload is declared in `human/web-deployment.yaml`.
 
-The default inputs of `topology-check.sh` include Human, its web workload,
-internal services and webhooks as well as the node, identity, gateway,
-registry and testnet manifests. Consult those manifests together for each
-Service selector, named port and NetworkPolicy edge. Internal ingress
-allows the applicable webhooks, control, node, gateway and registry peers;
-an ingress allowance alone does not establish caller egress or credentials.
-The Human producer's node-pod ingress allowances are explicitly present for
-journeys and approvals.
+Consult the node, Human, internal, gateway, registry and webhooks manifests
+for each Service selector, target port and NetworkPolicy edge. Both ingress
+and caller egress must permit the connection, with the corresponding TLS
+identity and credentials. The source's Human upstream is an application
+service, not the native node's JSON-RPC listener.
 
 Retain each PVC, KMS seal secret and event enrollment key across restart.
 Installing an image or passing liveness does not enroll a principal, create
@@ -162,8 +155,7 @@ signatures under the returned public key.
 | Gateway | Payments | `services/platform/hosted/gateway/src/store.rs` and `src/main.rs`; verified payment completion records its observation and delivery state |
 | Registry | Programs | `services/platform/hosted/registry/src/event_producer.rs`; `ProgramOutbox` journals verified publication transitions |
 
-These producers issue `POST /internal/v1/observe`; the former blanket
-statement that no observe caller exists is obsolete. Delivery to the source
+These producers issue `POST /internal/v1/observe`. Delivery to the source
 and the later webhook trigger are separate steps. An event does not replace
 the consumer's verification of the underlying chain result.
 
@@ -231,8 +223,8 @@ Retaining the journal without the matching seal secret does not recover keys.
 
 ## Readiness and enrollment
 
-`LAYERX_EVENTS_CREDENTIALS_FILE` now names an authenticated enrollment
-snapshot, not a plain principal-to-secret map. Its version-1 JSON fields
+`LAYERX_EVENTS_CREDENTIALS_FILE` names an authenticated enrollment
+snapshot. Its version-1 JSON fields
 are `version`, `generation`, `principals` (entries with `principal` and
 `credential_file`), and `mac`. The HMAC-SHA256 covers the source kind,
 generation and ordered principal/credential digests. Use the canonical

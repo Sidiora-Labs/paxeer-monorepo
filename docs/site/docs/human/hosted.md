@@ -1,44 +1,63 @@
 # Hosted Human material
 
-Human policy assembly consumes the same generated schema-version-2 asset and
-module registry published to `layerx-core-module-registry`. The native producer
-uses the module interfaces registered by the daemon. Beta asset metadata lives
-next to `ASSET_ID` in `services/platform/hosted/node/bootstrap.sh`: `LXT`, currency `LXT`,
-and 18 protocol decimals. Bootstrap exports these alongside `LAYERX_NODE_ASSET_ID`.
-These metadata do not constitute an on-chain asset registration or asset proof.
+The Human service uses protected identity, recovery, signing and policy
+material to authorize operations on the merged Paxeer network. Its service
+crates live under `services/human/crates/`; manifests and material assemblers
+live under `services/platform/hosted/human/`.
 
-A fresh cluster generates its Human KMS seal and policy material. Repeating
-`up` with `LAYERX_BETA_RETAIN_MATERIAL=1` reuses the complete saved material set.
-The driver refuses a missing inventory, missing or extra files, symbolic links,
-wrong ownership, files outside mode 0600, or directories outside mode 0700.
-Before applying Secrets it compares the live `layerx-human-kms-material`
-Secret's `kms-seal` digest with the retained disk file, without printing either
-seal or digest. A mismatch refuses bring-up.
+## Owner policy bundle
 
-The complete inventory is saved after policy assembly, principal provisioning,
-and the node registry comparison. A partial earlier bring-up has no complete
-inventory and is refused. Retained mode also preserves settlement bindings,
-builder digests and principal credentials; it does not regenerate Human policy
-or redeploy settlement contracts. `render` validates retained material and the
-live seal but only renders manifests, as in fresh mode.
+`material.py` assembles and verifies schema `layerx.human.owner-bundle.v3`.
+It consumes protected evidence, a network/chain-bound deployment document
+and a schema-version-2 module registry. The bundle contains `policy.json`,
+`bundle-manifest.json`, copied `inputs/`, paired `journal/` records and
+optional onboarding material. Its output directory must belong to the
+invoking user and have mode `0700`; the policy filename is `policy.json`.
 
-`down` still deletes the cluster (or owner namespaces), including the Human
-state PVC, and removes local material. Retention supports repeated `up` against
-a live cluster; it is not recovery after `down` or a backup protocol.
+The assembler checks hashes, identity and account bindings, recovery policy,
+registry facts and the owner's retained chain receipts. It reads receipts
+again from authenticated chain access when verifying the bundle. An
+unavailable dependency or changed binding refuses assembly. Asset metadata
+alone does not prove on-chain asset registration or funding.
 
-The owner agent consumes `LAYERX_AGENT_HUMAN_PEERS` from
-`layerx-human-agent-config`. Its encoding is comma-separated
-`uid=<u32>;tenant=<tenant>;principal=<principal>` entries. The component binding
-uses UID 4020 and the same tenant and DID as the authority principal policy.
-The material assembler validates that named-field encoding and refuses malformed,
-duplicate, additional or differently bound peer entries.
+Owner registration uses `merged_owner.py`: wallet binding, identity and
+recovery registration, per-asset account opening and exact ledger funding
+all execute on chain `125`. See [Owner registration](owner-registration.md)
+and [Provisioning details](owner-registration-details.md).
 
-## Evidence provisioning
+## Signing and process configuration
 
-The beta provisioning contract and output sources are documented in
-[the hosted Human README](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/services/platform/hosted/human/README.md#evidence-provisioning).
-The owner identity is provisioned through LXIP inside a Job with the runtime identity
-PVC. Protocol registration, recovery policy, guarantor checkpoint public key and
-registry journal pairs remain explicit upstream inputs. The assembler publishes
-one complete protected set; unavailable inputs refuse by path. A locally loadable
-catalog or passing package tests do not prove deployment or full evidence integration.
+`material.sh` provides Human material generation and Secret projection.
+KMS material includes its seal and pinned client/executor identities. Preserve
+the seal, signing keys, recovery policy and matching encrypted state together.
+Generated files use private directories and protected regular files; secret
+contents stay in mounted storage.
+
+The owner agent reads `LAYERX_AGENT_HUMAN_PEERS` from its generated agent
+configuration. The value consists of comma-separated
+`uid=<u32>;tenant=<tenant>;principal=<principal>` entries. The component
+binding uses UID `4020` with the same tenant and principal as the authority
+policy. Assembly validates the named fields and refuses duplicate or
+conflicting bindings.
+
+Owner-agent chain access uses `LAYERX_AGENT_NODE_RPC_URL` and
+`LAYERX_AGENT_NODE_CHAIN_ID`. Service configuration separately supplies its
+providers, sessions, signing authority and upstream trust. A generated
+bundle is not evidence that these dependencies are serving requests.
+
+## Deployment boundary
+
+The Human manifest declares Service `layerx-human` on port `9443`, selecting
+node pods and targeting the named `human-https` port. The current native node
+manifest declares its `paxd` container and native ports; Human application
+containers and their port must be supplied by the hosting deployment.
+The web workload has its own `web-deployment.yaml`.
+
+The disposable cluster's `up` and `render` commands use the native material
+path in `services/platform/hosted/tests/beta-native.sh`. They prepare the
+native chain rather than assemble or install the Human policy bundle.
+`LAYERX_BETA_RETAIN_MATERIAL=1` reopens native chain material; it does not
+provide a Human backup or restore operation. See
+[Disposable beta cluster](../operators/beta-cluster.md) for those commands.
+
+[Human journeys](journeys.md) · [Web application](web-app.md) · [Human](index.md)

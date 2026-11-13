@@ -1,193 +1,128 @@
 # Disposable beta cluster
 
 Paxeer mainnet-beta is one BFT network with EVM chain ID `125` (`0x7d`).
-The kernel runs inside `paxd` and participates in block proposal and execution.
-A receipt is final when its block is committed. The former standalone daemon,
-separate settlement bootstrap, custody-credit provisioning and guarantor
-finality model are retired.
+The kernel runs inside `paxd` and participates in execution and block proposal.
+A receipt is final when its block is committed. A disposable cluster with the
+same chain ID has its own genesis and validator identity.
 
-This page covers the native hosted-node configuration and the disposable
-cluster tooling in `services/platform/hosted/tests/beta-cluster.sh`. A local
-cluster using chain ID `125` is still an independent disposable environment:
-chain ID alone does not establish mainnet identity. Hosted services provide
-application APIs around the node. Sub-chains are tenant domains in the database;
-creating a tenant does not require another consensus network.
+The cluster entry point is `services/platform/hosted/tests/beta-cluster.sh`.
+Its `up` and `render` commands delegate to `beta-native.sh` in the same
+directory. The native helper prepares chain material, renders the node
+manifest and checks a committed receipt. Hosted application services have
+separate manifests and configuration.
 
-## Network and service boundaries
+## Native node deployment
 
-Public JSON-RPC uses the root of `https://api-mainnet-beta.paxeer.network` or
-`https://api1.mainnet-beta.paxeer.network` through
-`https://api14.mainnet-beta.paxeer.network`. See [Public RPC endpoints](../reference/public-rpc.md).
-The node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test` and
-`txpool`. The `px` namespace answers from node state; `px_register` and
-`px_requestFunds` are operations of the hosted identity and faucet
-services declared in [the gateway OpenRPC contract](../platform/gateway-rpc.md).
-`node.hyperpaxeer.com` is only the hpx library mirror, never an RPC endpoint.
-
-The native StatefulSet in `services/platform/hosted/node/deployment.yaml` is
-`layerx-node`. Its `paxd` container runs `/opt/layerx/supervisor.sh`, which
-executes `native_runtime.py supervise`. The manifest selects image
-`ghcr.io/sidiora-labs/layerx-kernel:0.1.0` for that container. It exposes the
-node through Service `layerx-native-chain`: JSON-RPC port `8545` and consensus
-RPC port `26657`. These are private cluster addresses, not public DNS names.
-
-Services `layerx-pending-core`, `layerx-pending-core-admin` and
-`layerx-receipt-authority` select the same hosted-node pod. They are private
-compatibility and application boundaries, not independent sources of chain
-finality. [Hosted control](beta-control.md) reports their reachability.
-Identity, Human, gateway, registry, webhooks and explorer services have their
-own deployment manifests under `services/platform/hosted/`.
-
-## Native bring-up prerequisites
-
-Provision the native node's inputs before starting its StatefulSet. The
-manifest's `native-material` init container copies projected files into a
-private memory volume. `native_runtime.py` validates them and lets `paxd`
-validate genesis; it does not manufacture a replacement genesis from the old
-custody profile.
-
-| Resource | Required material |
-| --- | --- |
-| ConfigMap `layerx-node-config` | `network-id`, `chain-id`, `paxeer-chain-id`, `asset-id` and `gateway-endpoint`; the manifest uses namespace ID `402`, Comet chain ID `hyperpax_125-1` and EVM chain ID `125` |
-| ConfigMap `layerx-node-native-genesis` | `genesis.json`, `config.toml`, `app.toml` |
-| Secret `layerx-node-native-keys` | `priv_validator_key.json`, `receipt.key` |
-| Secret `layerx-node-native-funding` | `sender.key`, the native EVM funding sender key |
-| Secret `layerx-node-keys` | `treasury.key`, used by the treasury signer |
-
-The complete manifest also requires its TLS, trust, Human, publication and
-service credential resources. The trust volume supplies the RPC CA as
-`rpc-ca.der` to the native runtime. Keep private keys in Secrets and private
-storage, with the file ownership and permissions established by the init
-containers.
-
-The native runtime requires an authoritative genesis with non-empty validators
-and `app_state.bank` and `app_state.lxphost`. Its chain ID must match the
-configured Comet chain ID. The validator key must be mode `0600`; `receipt.key`
-is a hexadecimal 32-byte seed. Its public key and SHA256 key ID must match a
-record in `app_state.sequencer.receipt_keys` whose inclusive height range
-starts at `1` and includes that height. Fresh gateway material additionally
-requires `LAYERX_BETA_RECEIPT_KEYS_FILE`, a JSON export of governed ReceiptKeys;
-`sequencer-pins.py --gateway-check` checks that export. Receipt signer pins
-must agree with the native chain, rather than an archived batch trust history.
-
-Start the native node with its supplied material, wait for its native health
-probe, then make the private application dependencies available before relying
-on control journey admission. The control configuration and its exact probe
-sets are on [Hosted control](beta-control.md#journeys-and-probes).
-
-## Cluster tooling and current limits
-
-The helper's work directory is `build/beta-cluster`. With
-`LAYERX_BETA_KUBECONFIG` unset it selects a local kind cluster named
-`LAYERX_BETA_CLUSTER_NAME` (default `layerx-beta`); a set kubeconfig selects an
-owner cluster. `beta-images.sh` owns `IMAGE_NAMES` and `image_source`, the
-shared image inventory and Dockerfile mappings. Check the workload manifest
-as well as that table when selecting the native runtime image.
-
-| Command | Purpose |
-| --- | --- |
-| `bash services/platform/hosted/tests/beta-cluster.sh images` | Build or pull the image inventory without creating a cluster |
-| `bash services/platform/hosted/tests/beta-cluster.sh render` | Prepare material and render manifests under `build/beta-cluster/manifests`; applies no workloads |
-| `make platform-beta-cluster-up` | Invoke the helper's `up` path, forwarding `PLATFORM_BETA_CLUSTER_FLAGS` |
-| `make platform-hosted-smoke` | Consume `PLATFORM_BETA_CLUSTER_ENV` (default `build/beta-cluster/env`) and exercise hosted journeys with real credentials |
-| `make platform-beta-cluster-down` | Invoke destructive disposable-cluster teardown |
-
-These are command entrypoints, not a claim that the full helper is qualified
-for the merged deployment. Its current `beta_cluster_up` still invokes
-`human_custody_step bootstrap`, `wait_for_node_genesis` and
-`settlement_publish`, and applies the older `paxeer.yaml` fixture before the
-native hosted-node manifest. That fixture has its own chain home and observer.
-Those compatibility provisioning steps do not establish the merged node's
-native genesis or its finality. Do not use the helper unchanged as a mainnet
-installation or interpret a rendered manifest as a running, recovered node.
-
-The public node endpoint list is not an input for disposable resets or test
-funding. Use the cluster's private origins and CA. The helper writes
-`paxeer/rpc-origins.json` for its fixture origins, including the CA, backend
-homes and genesis identity. Preserve that identity when using those fixtures;
-matching `eth_chainId` alone is insufficient.
-
-## Readiness
-
-The native node's startup and readiness probes execute:
+`services/platform/hosted/node/deployment.yaml` declares StatefulSet
+`layerx-node` with one replica and a 40Gi `ReadWriteOnce` data volume.
+Its `paxd` container uses `ghcr.io/sidiora-labs/kernel:0.1.0` and runs:
 
 ```sh
-python3 /opt/layerx/native_runtime.py health \
-  --data-dir /var/lib/layerx/node --run-dir /run/layerx/node
+python3 /opt/layerx/kernel_runtime.py --home /data/layerx/node
 ```
 
-This is an in-container command. `committed_health` checks consensus `status`,
-requires a positive height and `catching_up == false`, fetches the canonical
-signed `commit` at that height, and checks its chain, height and block hash.
-It then requires `eth_chainId == "0x7d"` and the EVM block at that height to
-match the committed block hash. A listening socket or an open head alone does
-not satisfy native readiness.
+The implementation packaged into the image is `docker/kernel/kernel_runtime.py`.
+The pod runs as UID/GID `4020`, drops capabilities and uses a read-only root
+filesystem. Service `layerx-node` provides peer discovery on port `26656`.
+Service `layerx-native-chain` exposes node JSON-RPC on `8545`, consensus RPC on
+`26657` and health on `9460`. The manifest's NetworkPolicy controls which
+workloads can reach those ports.
 
-Control `GET /readyz` is a separate application health check. It requires all
-eight dependencies, all three journeys and the pending release versions to
-be ready. It is not a consensus certificate. The helper saves the response as
-`build/beta-cluster/readyz.json`; its readiness timeout is
-`LAYERX_BETA_READY_TIMEOUT` (default `900` seconds). Inspect named dependency
-failures before retrying. Hosted smoke performs funding, payment and receipt
-inspection after admission and needs its generated environment and credentials.
+ConfigMap `layerx-node-config` declares `network-id: "125"`,
+`chain-id: "hyperpax_125-1"`, `paxeer-chain-id: "125"`, `asset-id`,
+`network-name` and `rpc-origin`. The container reads `network-id` through
+`LAYERX_NODE_NETWORK_ID`; the native runtime fixes its EVM signing chain at 125.
+Application namespace settings do not select a different signing chain.
 
-## Funding and explorer read identity
+## Native material
 
-Fund public accounts by a native value transfer through the chosen node's
-root JSON-RPC, using a funded signer and checking the transaction receipt.
-Private faucet funding goes through control to core-admin, which uses the
-native EVM transfer implementation in `core/src/chain_fund.rs` and the durable
-intent/archive implementation in `core/src/funding_native.rs`. See
-[Private funding](beta-control.md#private-funding-and-recovery) for identity
-binding and retry behavior. The retired custody-credit path is not a
-prerequisite for native transfers or explorer reads.
+The `native-home` init container reads Secret `layerx-native-inputs`.
+Its `manifest.json` has schema `layerx.beta.native-material.v1`, consensus
+chain ID, EVM chain ID, treasury policy and SHA-256 digests of these files:
 
-`explorer_read_principal_generate` still generates and retains an Ed25519
-service key alongside other cluster credentials. `secrets_apply` publishes
-`read-key` and `sequencer-public-key` in Secret `layerx-explorer-index`.
-`registry/deployment.yaml` retains `LAYERX_EXPLORER_READ_KEY_FILE`,
-`LAYERX_EXPLORER_READ_ENDPOINT`, `LAYERX_EXPLORER_READ_CA_DER`,
-`LAYERX_EXPLORER_READ_SEQUENCER_PUBLIC_KEY_FILE`,
-`LAYERX_EXPLORER_READ_NETWORK_ID` and `LAYERX_EXPLORER_READ_FEE_LIMIT`.
-These are compatibility configuration, not proof of identity registration,
-balance or a successful naming read. `human_native_provision` now produces
-and validates owner registration; it does not append explorer identities or
-fund them through custody. The old sequence-zero and fixed occupancy-credit
-instructions are retired. Check the explorer's actual read response and native
-identity/balance state before treating its configuration as ready.
+| Material | Installed path relative to `/data/layerx/node` |
+| --- | --- |
+| `genesis.json`, `config.toml`, `app.toml` | Corresponding files under `config/` |
+| `priv_validator_key.json`, `node_key.json`, `receipt.key` | Corresponding files under `config/` |
+| `priv_validator_state.json` | `data/priv_validator_state.json` |
+| `treasury-policy.json`, `receipt-keys.json` | Home directory |
 
-## Retained state and recovery
+The init container checks every projected digest before installation. It
+creates private directories with mode `0700` and files with mode `0600`,
+syncs them, and retains the material manifest. On reopen, the manifest and
+installed inputs must agree; validator signing state may advance. Partial
+homes are refused. Preserve validator signing state with the matching keys
+and genesis when restarting.
 
-The native runtime stores its chain generations under `/var/lib/layerx/node`
-and supervisor records under `/var/lib/layerx/supervisor-state` on the node's
-50Gi `data` PVC. Human state uses the separate `layerx-human-state` PVC. Core
-funding journals persist under `/var/lib/layerx/core`. Retain these volumes,
-the authoritative native inputs, validator state, receipt keys, funding keys
-and trust material together.
+Fresh local preparation initializes a validator home, funds the configured
+treasury in genesis, generates a receipt key and validates genesis. An
+operator can instead set `LAYERX_BETA_NATIVE_HOME` and
+`LAYERX_BETA_TREASURY_KEY_FILE` to import an existing disposable native home
+and its treasury signer. The helper validates the chain and treasury bindings
+before projecting material.
 
-For a process restart, retain the existing data and let the supervisor reopen
-its generation and reset records. Recheck native committed health and the
-application journeys. If a funding response was indeterminate, retry the same
-request with the same idempotency key; inspect the saved intent and receipt
-rather than sending a second transfer. Private reset creates a new disposable
-generation through the supervisor; it is not restart recovery for mainnet.
+`LAYERX_BETA_RETAIN_MATERIAL=1` reopens the saved native material against the
+same treasury policy and requires the saved readiness transaction. It does
+not regenerate a validator or replace incomplete material. Material handling
+is implemented in `services/platform/hosted/tests/beta_runtime.go`.
 
-`LAYERX_BETA_RETAIN_MATERIAL=1` makes the helper validate an existing material
-inventory, file permissions, registry consistency and live KMS seal before
-reapplying material. It refuses incomplete material. Its retained path still
-expects compatibility artifacts, so this option alone does not prove native
-recovery. Keep CA, Secrets and private inventories out of published logs.
+## Commands
+
+The work directory is `build/beta-cluster`. With `LAYERX_BETA_KUBECONFIG`
+unset, the helper selects a kind cluster named by `LAYERX_BETA_CLUSTER_NAME`
+(default `layerx-beta`). A supplied kubeconfig selects an operator's cluster.
+`beta-images.sh` owns the image inventory and Dockerfile mappings.
+
+| Command | Behavior |
+| --- | --- |
+| `bash services/platform/hosted/tests/beta-cluster.sh images` | Build or pull the image inventory |
+| `bash services/platform/hosted/tests/beta-cluster.sh render` | Prepare native material and render `build/beta-cluster/manifests/node.yaml` without applying workloads |
+| `make platform-beta-cluster-up` | Start the native cluster; forwards `PLATFORM_BETA_CLUSTER_FLAGS` |
+| `make platform-beta-cluster-down` | Tear down the selected disposable environment |
+
+Native bring-up applies `node.yaml`, waits for the node pod, opens local
+node and consensus port-forwards, and submits or reuses a zero-value treasury
+transaction for receipt readiness. It exports `LAYERX_NODE_URL`,
+`LAYERX_PAXEER_RPC_URL` and `LAYERX_CHAIN_ID=125` into
+`build/beta-cluster/env` after readiness succeeds. The native path refuses
+`--boundary-checks`.
+
+`make platform-hosted-smoke` exercises the separately configured hosted
+journeys. It needs their services and credentials; the native environment
+export alone does not supply those application dependencies. See
+[Hosted control](beta-control.md#journeys-and-probes) for its admission contract.
+
+## Readiness and recovery
+
+The pod probes `GET /readyz` on port `9460`. The runtime checks that the node
+process is alive, consensus is caught up, the head has a canonical commit,
+and the EVM block at that height matches the consensus block. It also checks
+chain identity and a committed-head age of at most 60 seconds. A retained
+checkpoint binds the genesis and prevents a lower or divergent committed
+coordinate from being accepted after restart; each probe reads live state.
+
+Cluster receipt readiness additionally checks `pax_sequencerReceipt` for the
+saved transaction, authenticates its signed bytes under the saved governed
+receipt keys and binds its committed height and hash. Its retained state
+binds the chain, genesis, treasury policy and transaction. The implementation
+is `services/platform/hosted/tests/beta_readiness.go`.
+
+Retain the data volume, native input Secret, treasury signer and saved
+material together. Reuse the original transaction identity after an uncertain
+response. Native readiness and the control service's aggregate `/readyz`
+are separate checks.
+
+For public access, use the root endpoints in
+[Public RPC endpoints](../reference/public-rpc.md), and check `eth_chainId`
+returns `0x7d` before signing. Public endpoints are not inputs for disposable
+resets or test funding. Tenant domains are namespaces within the same network.
 
 ## Teardown
 
-`beta-cluster.sh down` stops port-forwards and deletes the recorded kind
-cluster, or deletes namespaces `layerx-testnet`, `layerx-developer` and
-`layerx-internal` in owner mode. It removes recorded/labeled images and
-`build/beta-cluster`; pinned tools are also removed unless
-`LAYERX_BETA_KEEP_TOOLS=1`. Cluster deletion removes access to its persistent
-state; namespace/PVC deletion can also destroy storage according to the
-storage reclaim policy. Retained-material mode does not preserve local
-material across `down`. Use teardown only for the disposable environment
-whose loss is intended.
+`beta-cluster.sh down` stops port-forwards, deletes the recorded kind cluster
+or the configured hosted namespaces, removes recorded images and deletes
+`build/beta-cluster`. It also removes installed tools unless
+`LAYERX_BETA_KEEP_TOOLS=1`. Volume deletion follows the cluster's storage reclaim
+policy. Retained-material mode does not preserve local files across `down`.
 
-[Hosted control](beta-control.md) · [Home](../index.md)
+[Hosted control](beta-control.md) · [Hosted Human](../human/hosted.md) · [Home](../index.md)

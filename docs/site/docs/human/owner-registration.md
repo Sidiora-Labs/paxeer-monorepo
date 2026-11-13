@@ -24,7 +24,7 @@ does not register an identity or establish a recovery policy.
 | --- | --- |
 | `LAYERX_HUMAN_AGENT_ACTOR` | Exact owner DID. Human compares it with the principal's resolved owner identity. Retained LXIP provisioning output must preserve its DID exactly. |
 | `LAYERX_HUMAN_AGENT_AUTHORITY` | Primary public key as lowercase 64-character hex. The production sponsor check compares this text with the resolved owner's canonical public-key hex. |
-| `LAYERX_HUMAN_AGENT_OWNER_ACCOUNT` | Canonical `agent:<actor-DID>:main` account name, matching the resolved principal account. This is distinct from the H32 account identifier stored in provisioning JSON. |
+| `LAYERX_HUMAN_AGENT_OWNER_ACCOUNT` | Canonical `agent:<actor-DID>:asset:<asset-id>` account name, matching the resolved principal's asset account. This is distinct from its H32 identifier in provisioning JSON. |
 | `LAYERX_HUMAN_AGENT_RECOVERY_ROOT` | Unpadded base64url encoding of the registered 32-byte recovery commitment. |
 | `LAYERX_HUMAN_AGENT_RECOVERY_THRESHOLD` | Decimal u16 matching the nonzero threshold in committed identity state. |
 
@@ -76,8 +76,9 @@ preparation, but does not establish committed registration.
 `eth_sendRawTransaction`, then looks up `pax_sequencerReceipt` and
 `px_getReceiptKeys` at the configured URL. HTTPS requires a pinned DER root
 certificate via `--ca-cert`. The CLI does not create or sign the transaction.
-Because `px_getReceiptKeys` belongs to the hosted gateway contract, a public
-node URL alone does not guarantee that this CLI can finish receipt verification.
+The node implements `px_getReceiptKeys` in `rpc/sequencer_receipt.go`, and
+the hosted gateway exposes its configured receipt-key list. Receipt verification
+requires that method and its configured key state to be available at the selected URL.
 
 Successful signature and receipt-field verification yields `state: receipted`.
 Exit 0 additionally requires protocol result code 0; a verified nonzero result
@@ -138,34 +139,42 @@ revocation sequence. Hashes and keys are 32 bytes, ordinals are u16 and other
 numbers are u64. Grant bytes are emitted in chunks of at most 256 bytes through
 `0x7105` and `0x7125`; revoke emits `0x7106`.
 
-## Retained hosted provisioning material
+## Hosted owner provisioning
 
-`services/platform/hosted/human/provision.py` validates
-`$WORK_DIR/human-evidence-input/owner-registration.json`. Its top-level fields
-are exactly `owner_account`, `authority` and `identity`. The account is a
-nonzero lowercase H32 identifier; the authority is text. `identity` carries
-`did`, `authorities`, `revocation_sequence`, `frozen`, `evidence`,
-`capabilities`, `rotation` and `recovery`.
+`services/platform/hosted/human/provision.py --produce-owner-registration`
+with `--work-dir PATH` delegates through `owner_native.py` to
+`merged_owner.py`. The protected input
+`human-evidence-input/owner-native.json` has these exact fields:
 
-Evidence references have exactly `{activity_id, receipt_digest}`, both nonzero
-lowercase H32 values. When an activity set or owner DID is supplied to the
-validator, references must belong to that activity set and the DID must match.
-Rotation and recovery records contain `policy_revision`,
-`required_delay_seconds`, `maximum_delay_seconds`, `effective_sequence` and
-`evidence`. Validation checks their shape and bounds; it does not submit a
-transaction, authenticate chain state or establish finality.
+```text
+rpc_url, rpc_ca_file, network_id, chain_id, confirmations,
+owner_seed_file, evm_key_file, asset_id, funding_key_file,
+funding_source, funding_amount
+```
 
-The producer selected by `provision.py --produce-owner-registration --work-dir PATH`
-still calls `owner_native.py`, which builds socket-based CLI arguments and
-expects an `acknowledged` native activity response. These are pre-merge inputs
-and do not match the current `layerxctl --rpc-url` commands above. Its
-`owner-native.json`, `owner-admission.txt`, `custody-credit.bin` and receipt
-authority setup must not be treated as current network registration steps.
-The old custody precompile at `0x0000000000000000000000000000000000001013`
-is retired and refuses calls with `LXP_MODULE_DISABLED`; a Bridge Credit is
-not a registration prerequisite for the merged network. Preserve any existing
-`owner-native-run` directory and partial output for reconciliation after an
-interrupted legacy run.
+The producer requires authenticated HTTPS RPC with the configured chain ID,
+the original owner's Ed25519 key and matching DID, the wallet signer and a
+funded ledger source. It checks the signed guardian set against the original
+recovery policy. It then submits wallet binding, identity registration,
+recovery registration, asset-account opening and `payExact` funding calls.
+These producer transactions use chain-bound EIP-155 signatures; they are
+separate from `layerxctl`'s type-2 input contract above.
+
+Each operation persists its exact signed transaction before broadcast under
+`human-evidence-input/owner-native-run`. Recovery looks up that hash and can
+redeliver the same bytes. The producer checks successful receipts against
+canonical blocks and exact events, then revalidates the wallet and account
+bindings. Preserve those operation records when a response is uncertain.
+
+The output `owner-registration.json` uses schema
+`layerx.human.merged-owner.v1`, with `schema`, `owner_account`, `authority`
+and `identity`. The account is the canonical per-asset H32 identifier;
+`authority` is the owner's public-key hex. `identity` carries the DID,
+primary authority, revocation sequence, frozen state, evidence, capabilities
+and registered recovery policy. The producer also writes
+`merged-owner-evidence.json`, `native-context.json` and `rpc-ca.pem`.
+Bundle verification authenticates retained evidence through the configured
+chain connection. File shape alone does not establish registration or funding.
 
 The guardian document format remains useful for checking retained recovery
 material. `recovery-guardians.json` and `recovery-guardian-bindings.json` contain
@@ -185,8 +194,7 @@ identity32 and public-key32. Rotation signatures use
 `LX:HUMAN:GUARDIAN:ROTATION:v1` with the same prefix fields, outgoing key32 and
 successor key32. Seeds remain private in per-guardian mode-0700 directories
 with mode-0600 seed files. [The provisioning details](owner-registration-details.md)
-retain the enrollment and rotation document descriptions; their pre-merge
-bootstrap and checkpoint instructions are historical.
+describe guardian enrollment and rotation.
 
 ## Hosted provisioning tests
 

@@ -14,7 +14,7 @@ proof of a successful committed transaction. See the [network overview](../index
 
 | Level | Evidence | Representative gate or record |
 | --- | --- | --- |
-| Source integrity | Publication audit and generated-source checks required by the owning task | `make public-audit` |
+| Source integrity | Publication audit and generated-source checks | `make public-audit` |
 | Native runtime | C compilation, native behavior, and arithmetic invariants | `make build`, `make test` |
 | Contract behavior | Solidity state-surface check and offline Foundry suite | `make test-contracts` |
 | Runtime safety | Native reproducibility, consensus-symbol checks, and sanitizer suites | `make ci`, `make qualify-arith` |
@@ -23,13 +23,10 @@ proof of a successful committed transaction. See the [network overview](../index
 | Integrated node | Native host, chain execution, and node RPC behavior | `make test-paxd-domain` |
 | Deployment evidence | Correct release binary, upgrade activation, committed receipts, balance conservation, recovery, and tenant isolation on the intended deployment | Reviewed deployment runbook and retained evidence |
 
-The active requirements, task state, and each task's bounded verification command
-are in
+Requirements are defined in
 [`spec/layerx-merge/spec.kvx`](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/spec/layerx-merge/spec.kvx).
-Use that task's declared gates for task qualification. Aggregate, sanitizer,
-cluster, and browser matrices belong to release qualification when required;
-the commands below are a catalogue, not a requirement to run every suite for
-every documentation or source change.
+The commands below exercise different components and integration boundaries;
+a component result establishes only the behavior that command covers.
 
 ## Standard suites
 

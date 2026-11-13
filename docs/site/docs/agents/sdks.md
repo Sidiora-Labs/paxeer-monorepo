@@ -40,8 +40,9 @@ For signed receipts returned by `pax_sequencerReceipt`, see
 
 ## CLI and RPC
 
-The developer CLI in `tools/platform/cli` is [CLI](../platform/cli.md). Public
-JSON-RPC methods are [Public JSON-RPC](../platform/gateway-rpc.md).
+The developer CLI in `tools/platform/cli` is [CLI](../platform/cli.md).
+See [Public node JSON-RPC](../reference/public-rpc.md) for node access and
+[Gateway JSON-RPC](../platform/gateway-rpc.md) for hosted operations.
 `layerx --rpc` and `--gateway-credential` apply to `wallet`, `token`, and
 `program`.
 
@@ -50,14 +51,13 @@ JSON-RPC methods are [Public JSON-RPC](../platform/gateway-rpc.md).
 The release workflow in `.github/workflows/platform.yml` publishes each
 declared ecosystem under a beta pre-release version with digest, signature,
 SBOM, and provenance attestation.
-The artifact manifest is the only list of installable artifacts. Until that
-gate is recorded on a named release-candidate revision, treat published
-package versions as unspecified here.
+The release artifact manifest lists package versions, registry locations
+and immutable digests. Use it to select and authenticate an installable artifact.
 
 ## Status
 
 The seven language trees are present. Cross-language parity is checked in
 `sdk/platform/conformance`. `tools/qualification/beta_driver.py` measures
 the ten-line integration benchmark and the five-minute first-payment
-journey. Each result needs execution evidence for a named revision; this
-page does not claim those checks have passed.
+journey. These benchmarks measure integration behavior against their
+configured services.

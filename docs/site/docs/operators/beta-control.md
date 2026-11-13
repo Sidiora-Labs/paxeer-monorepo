@@ -19,7 +19,9 @@ native transfers through node JSON-RPC. The custody-credit/router funding
 instructions are retired.
 
 For native inputs, deployment limits, readiness and retained volumes, see
-[Disposable beta cluster](beta-cluster.md). Tenant domains are database
+[Disposable beta cluster](beta-cluster.md). Native cluster bring-up starts
+the chain; control and its application dependencies require their own
+workloads, ports and credentials. Tenant domains are database
 namespaces on the same network. The private utility's `network_id` `402` is
 its configured application namespace identifier, distinct from EVM chain ID
 `125`; it is not evidence of a second public chain.
@@ -213,9 +215,10 @@ reset is not a completed reset.
 `layerx-testnet-status-publisher` runs every two minutes. Its
 `render-status.sh` fetches `/v1/status`, checks the redacted four-component
 shape and PUTs it to `LAYERX_STATUS_PUBLISH_URL` using the status token. The
-publishing service is external to this repository's deployment. The beta
-helper omits that job when `LAYERX_BETA_STATUS_PUBLISH_URL` is unset and
-reports the missing owner input.
+publishing service is external to this repository's deployment. The status
+publisher has its own workload and credentials. The native
+cluster helper renders and applies the node manifest, rather than installing
+this CronJob.
 
 ## Typed refusals
 

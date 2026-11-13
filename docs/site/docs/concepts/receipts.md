@@ -52,8 +52,8 @@ height must fall within that window. A `signingKey` supplied beside a receipt
 does not establish authority by itself.
 
 The node implements the governed key-list method `px_getReceiptKeys`; the
-hosted gateway relays those ranges. Obtain and authenticate the list through
-the verifier's trust policy before using it. When consuming the full RPC
+hosted gateway exposes its configured receipt-key list. Obtain and authenticate
+the list through the verifier's trust policy before using it. When consuming the full RPC
 answer, verify its view bindings as well as the receipt signature, and check
 committed block evidence before claiming finality.
 

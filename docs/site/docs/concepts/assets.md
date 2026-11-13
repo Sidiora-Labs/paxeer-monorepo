@@ -82,7 +82,7 @@ namespaces served by every public node. Their declared contract is
 | --- | --- | --- |
 | `px_resolveAccount` | EVM address or explicit `did:layerx:<hex64>` | EVM, native and kernel account bindings |
 | `px_getBalances` | EVM address or explicit DID | `{account,height,balances:[{denom,amount}]}` |
-| `px_listAssets` | None | `{height,assets,joined_limit:16}` |
+| `px_listAssets` | Optional cursor and limit | `{height,assets,joined_limit:16,next_cursor,order:"registration"}` |
 
 `px_getBalances` resolves the account and calls bank `all_balances(address)`
 at one height obtained from `eth_blockNumber`. Amounts are exact decimal strings
@@ -90,9 +90,12 @@ of on-chain 256-bit values. An unbound DID cannot supply the required EVM addres
 and returns an unavailable error; it is not an empty funded account. This read
 lists coins held by the resolved EVM address, not every kernel sub-account.
 
-`px_listAssets` sorts the indexer's asset inventory by `asset_id`, returns at
-most 16 entries, and reads their metadata at the returned chain height. It has
-no cursor/limit parameters. Bank denoms use bank metadata and supply; ledger
+`px_listAssets` pages the indexer's asset inventory in registration order,
+returns at most 16 entries, and reads their metadata at the returned chain
+height. Continue with the returned `next_cursor`; null means the inventory
+has no further page. Parameters are `[cursor, limit]`: the cursor is a
+registration-position decimal string or null, and the numeric limit is
+1–16 (default 16). Bank denoms use bank metadata and supply; ledger
 assets use `getAsset` and expose `totalUnits` as `supply`. Successful ledger
 reads also include `paused` and
 `verification: "authenticated_committed_snapshot"`. An unsupported or failed

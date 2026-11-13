@@ -10,8 +10,8 @@ Primary keys remain in the protected keystore implemented by
 | Topic | Page |
 | --- | --- |
 | Web application | [Web app](web-app.md) |
-| Authenticated custody credit | [Custody](custody.md) |
+| Funding and custody-credit retirement | [Custody](custody.md) |
 | Journeys and Done | [Journeys](journeys.md) |
 | Owner registration | [Owner registration](owner-registration.md) |
-| Guardian enrolment details | [Owner registration details](owner-registration-details.md) |
+| Owner provisioning and guardian enrolment | [Owner registration details](owner-registration-details.md) |
 | Hosted Human material | [Hosted Human](hosted.md) |
