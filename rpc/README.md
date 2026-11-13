@@ -1,28 +1,133 @@
 # EVM JSON-RPC
 
-This package (`evmrpc`) serves the EVM JSON-RPC interface inside `paxd`.
-Paxeer mainnet-beta is one BFT network with EVM chain ID `125` (`0x7d`). The
-kernel is part of the network and proposes blocks. Receipts become final when
-their block is committed; an open block can already contain executed,
-receipted transactions before that commitment. Select `latest` for committed
-state; select `pending` for an open proposal view on a node with an open-state
-provider, subject to the method-specific idle and refusal behavior below.
+The `rpc/` directory holds the `evmrpc` Go package, its supporting packages,
+contract fixtures and tests. It serves EVM JSON-RPC over HTTP and WebSocket
+inside `paxd`. Paxeer mainnet-beta is one BFT network with EVM chain ID `125`
+(`0x7d`); the kernel participates in block proposal and execution. Receipts
+become final when their block is committed. An open block can already contain
+executed, receipted transactions before commitment. Select `latest` for
+committed state or `pending` for an open proposal view on a node with an
+open-state provider, subject to the method-specific behavior below.
 
-Public JSON-RPC uses the root path of
-`https://api-mainnet-beta.paxeer.network` and the numbered nodes
-`https://api1.mainnet-beta.paxeer.network` through
-`https://api14.mainnet-beta.paxeer.network`. See the
-[public endpoint reference](../docs/site/docs/reference/public-rpc.md) for
-the full list and WebSocket URLs. `node.hyperpaxeer.com` is the hpx library mirror,
-not an RPC endpoint. The former router and its prefixed routes are retired.
+## Layout
 
-See [AGENTS.md](AGENTS.md) for implementation requirements and compatibility
-differences. [server.go](server.go) defines the HTTP and WebSocket registrations;
-configuration and method availability differ between the two transports.
+- [config/](config/) — RPC configuration types, option decoding, defaults and the application configuration template.
+- [ethbloom/](ethbloom/) — Ethereum log bloom matching and exact address/topic matching.
+- [rpcutils/](rpcutils/) — Ethereum transaction sender recovery and signature test vectors.
+- [solidity/](solidity/) — Solidity contracts and precompile interfaces used by RPC tests.
+- [stats/](stats/) — HTTP and WebSocket request statistics trackers.
+- [testdata/](testdata/) — Method registration snapshots and account-history response fixtures.
+- [tests/](tests/) — RPC integration tests, application setup helpers and compiled contract fixtures.
+- [AGENTS.md](AGENTS.md) — Interface behavior and implementation requirements.
+- [server.go](server.go) — HTTP and WebSocket service registration and node dependency wiring.
+- [server_options.go](server_options.go) — Pending snapshot and transaction forwarding options.
+- [rpcstack.go](rpcstack.go) — HTTP server lifecycle, tenant routing and transport configuration.
+- [endpoints.go](endpoints.go) — Module availability checks and HTTP timeout validation.
+- [websockets.go](websockets.go) — WebSocket connection-attempt metrics.
+- [info.go](info.go) — Chain identity, fees, synchronization status and RPC information.
+- [net.go](net.go) — Network identity and listening status.
+- [net_peers.go](net_peers.go) — Peer count reads.
+- [web3.go](web3.go) — Client version and hashing methods.
+- [echo.go](echo.go) — Echo service.
+- [txpool.go](txpool.go) — Mempool transaction inspection.
+- [block.go](block.go) — Block objects, block receipts and namespace-specific transaction views.
+- [state.go](state.go) — Account state, storage and committed state proofs.
+- [tx.go](tx.go) — Transaction lookup, nonces, receipt encoding and transaction indices.
+- [raw_tx.go](raw_tx.go) — Raw signed transaction lookup by hash.
+- [raw_tx_index.go](raw_tx_index.go) — Raw transaction lookup by block and index.
+- [send.go](send.go) — Raw transaction submission and local receipt-log delivery.
+- [send_sync.go](send_sync.go) — Synchronous raw transaction submission.
+- [sequencer_receipt.go](sequencer_receipt.go) — Signed receipt progress and receipt-key APIs.
+- [simulate.go](simulate.go) — Calls, gas estimation and access-list simulation.
+- [watermark_manager.go](watermark_manager.go) — Block/state availability and pending snapshot resolution.
+- [filter.go](filter.go) — Polling filters, log queries and block caching.
+- [subscribe.go](subscribe.go) — WebSocket head, log and pending transaction subscriptions.
+- [notifier.go](notifier.go) — Committed block header delivery to subscriptions.
+- [domain_scope.go](domain_scope.go) — Tenant scope carried through RPC requests.
+- [domain_index.go](domain_index.go) — Tenant-specific transaction and receipt indexing.
+- [domain_ws_apis.go](domain_ws_apis.go) — Tenant-aware WebSocket API wrappers.
+- [pax_legacy.go](pax_legacy.go) — Legacy method catalogue and allowlist handling.
+- [pax_legacy_http.go](pax_legacy_http.go) — HTTP legacy method gating and batch handling.
+- [pax_filter.go](pax_filter.go) — Legacy combined-view filter methods.
+- [association.go](association.go) — Cosmos/EVM address association and transaction hash mapping.
+- [px_account.go](px_account.go) — Native account reads and node-backed EVM calls.
+- [px_assets.go](px_assets.go) — Asset listing and indexer access.
+- [px_history.go](px_history.go) — Account history reads.
+- [px_discovery.go](px_discovery.go) — Capability probes and route catalogue discovery.
+- [px_kernel.go](px_kernel.go) — Commit, validator and kernel-backed reads.
+- [px_inference.go](px_inference.go) — Committed inference market reads.
+- [px_params.go](px_params.go) — Native RPC parameter validation and request handling.
+- [px_route_catalogue.json](px_route_catalogue.json) — Embedded product route catalogue.
+- [generate_px_catalogue.py](generate_px_catalogue.py) — Catalogue generation from the product route contract.
+- [tracers.go](tracers.go) — Historical execution tracing and debug APIs.
+- [trace_baker.go](trace_baker.go) — Background trace generation and retention.
+- [trace_profile.go](trace_profile.go) — Profiled transaction tracing.
+- [worker_pool.go](worker_pool.go) — Shared worker pool for block and log reads.
+- [worker_pool_metrics.go](worker_pool_metrics.go) — Worker and log-query metrics and debug output.
+- [metrics.go](metrics.go) — RPC request metrics.
+- [ip_rate_limit.go](ip_rate_limit.go) — Per-client HTTP rate limiting.
+- [served_methods.go](served_methods.go) — Enumeration of registered calls and subscription selectors.
+- [setup_test.go](setup_test.go) — Application and RPC fixtures for package tests.
 
-## Understanding the RPC Architecture
+## Build and test
 
-### Eth_ Endpoints
+This directory belongs to the root [Go module](../go.mod) and builds as part
+of `paxd`. Run these targets from the repository root; both are defined in the
+root [Makefile](../Makefile):
+
+```sh
+make paxd-build
+make test-paxd-domain
+```
+
+`paxd-build` prepares the native libraries and delegates the node build to
+[chain.mk](../chain.mk), producing `build/paxd`. `test-paxd-domain` prepares
+the native libraries, runs the host tests, then runs
+`CGO_ENABLED=1 go test ./node/... ./modules/evm/keeper/... ./rpc/...`.
+The RPC tests include the `tests/` integration package and the supporting Go
+packages listed above. [tests/README.md](tests/README.md) describes its server
+helpers and contract fixtures.
+
+## Configuration
+
+The node supplies the `[evm]` section of `app.toml` through application options
+to `ReadConfig` in [config/config.go](config/config.go). That file defines the
+configuration structure, defaults and `ConfigTemplate`. A checked-in example
+is [docker/localnode/config/app.toml](../docker/localnode/config/app.toml).
+The option names are:
+
+| Area | Keys under `[evm]` |
+| --- | --- |
+| HTTP and WebSocket | `http_address`, `http_enabled`, `http_port`, `ws_enabled`, `ws_port`, `cors_origins`, `ws_origins` |
+| Requests and timeouts | `batch_request_limit`, `batch_response_max_size`, `read_timeout`, `read_header_timeout`, `write_timeout`, `idle_timeout`, `send_raw_tx_sync_timeout` |
+| Simulation | `simulation_gas_limit`, `simulation_evm_timeout`, `max_concurrent_simulation_calls` |
+| Filters and subscriptions | `filter_timeout`, `max_log_no_block`, `max_blocks_for_log`, `max_subscriptions_new_head`, `max_subscriptions_logs` |
+| Method access and submission | `deny_list`, `enabled_legacy_pax_apis`, `enable_test_api`, `enable_unsafe_keyring_rpc`, `max_tx_pool_txs`, `slow` |
+| Tracing | `max_concurrent_trace_calls`, `max_trace_lookback_blocks`, `trace_timeout`, `enable_parallelized_block_trace` |
+| Trace storage | `trace_bake_enabled`, `trace_bake_workers`, `trace_bake_queue_size`, `trace_bake_tracers`, `trace_bake_window_blocks`, `trace_bake_use_snapshot`, `trace_bake_snapshot_window` |
+| Workers and statistics | `worker_pool_size`, `worker_queue_size`, `rpc_stats_interval` |
+| Client rate limits | `ip_rate_limit_rps`, `ip_rate_limit_burst` |
+| Native reads | `px_indexer_url`, `px_inference_program`, `px_inference_reader` |
+
+[worker_pool_metrics.go](worker_pool_metrics.go) reads `EVM_DEBUG_METRICS`
+to control periodic metrics output to standard output.
+
+## Documentation
+
+- [RPC method catalogue](../docs/system/rpc.md) — Registered methods, transports and configuration-dependent availability.
+- [Ethereum compatibility and unsupported methods](../docs/evm_jsonrpc_unsupported.md) — Explicit refusals and pending filter behavior.
+- [JSON-RPC documentation site page](../docs/site/paxeer-docs/src/app/json-rpc/page.tsx) — Namespace overview and client semantics.
+- [Query the EVM](../docs/site/paxeer-docs/src/app/querying-evm/page.tsx) — Read-only client examples.
+- [Public RPC documentation site page](../docs/site/paxeer-docs/src/app/public-rpc/page.tsx) — Node root URLs and WebSocket endpoints.
+
+Public JSON-RPC uses the node's root path. HTTP and WebSocket registrations
+are defined in [server.go](server.go); configuration and method availability
+differ between the transports. [AGENTS.md](AGENTS.md) describes implementation
+requirements and compatibility differences.
+
+### Understanding the RPC Architecture
+
+#### Eth_ Endpoints
 
 Use supported `eth_*` methods for EVM applications and Ethereum tooling.
 The ordinary transaction view filters Cosmos-native transactions, while
@@ -48,7 +153,7 @@ validator reads from node state. `px_register` and `px_requestFunds` answer
 operations are declared in
 [openrpc.json](../services/platform/hosted/gateway/openrpc.json).
 
-### Pax_ Endpoints
+#### Pax_ Endpoints
 
 Legacy `pax_*` block, receipt and log APIs include relevant Cosmos transactions
 with synthetic EVM receipts, including CosmWasm CW20/CW721 events. They remain
@@ -65,7 +170,7 @@ HTTP methods: `pax2_getBlockByNumber`, `pax2_getBlockByHash`, their
 API. Bank-transfer inclusion in block payloads does not imply a receipt for
 every bank transfer.
 
-### Key Differences
+#### Key Differences
 
 | View | Transaction coverage | Index interpretation |
 | --- | --- | --- |
@@ -78,7 +183,7 @@ infrastructure. [rpcstack.go](rpcstack.go) resolves `/chain/<id>` to a domain
 scope on the same server; [domain_scope.go](domain_scope.go) carries that scope.
 Root-path mainnet requests retain chain ID `125`.
 
-## Pending
+### Pending
 
 `pending` is method- and provider-dependent. It is not universally an alias
 for `latest`. In [watermark_manager.go](watermark_manager.go), `latest`, `safe`
@@ -91,7 +196,7 @@ Omitting the block tag (or passing null) to `eth_call`, `eth_estimateGas` or
 without the provider. An explicit pending tag on a full node still refuses;
 clients requiring committed state should pass `latest`.
 
-### State and simulation reads
+#### State and simulation reads
 
 `eth_getBalance`, `eth_getCode`, `eth_getStorageAt` and pending simulation
 reads use a frozen open-block snapshot after the last accepted transaction.
@@ -108,7 +213,7 @@ explicit pending requests: `eth_getBalance`, `eth_getCode`, `eth_getStorageAt`,
 `eth_call`, `eth_estimateGas` and `eth_createAccessList`. Cancellation ends the
 wait with the request error; it does not trigger the idle committed fallback.
 
-### Block, nonce and send behavior
+#### Block, nonce and send behavior
 
 - `eth_getBlockByNumber("pending", false)` reads the open snapshot directly.
   Its `number` is the open height; `hash` and `stateRoot` are null. It lists
@@ -136,7 +241,7 @@ wait with the request error; it does not trigger the idle committed fallback.
 See [block.go](block.go), [tx.go](tx.go) and [send.go](send.go). The different
 paths mean clients must not infer one method's idle behavior from another.
 
-### Filters, proofs and tracing
+#### Filters, proofs and tracing
 
 `eth_newPendingTransactionFilter` is available when the server has a receipt
 log feed. Polling returns hashes receipted since the last poll in sequence
@@ -149,15 +254,15 @@ through the SDK app root, not Ethereum trie proofs. Pending tracing is also
 refused; use a committed block for historical traces. See [state.go](state.go),
 [simulate.go](simulate.go) and [tracers.go](tracers.go).
 
-The consumer regression coverage is [repair_m1147_test.go](repair_m1147_test.go),
+Pending consumer behavior is covered in [repair_m1147_test.go](repair_m1147_test.go),
 with further open/idle state and header checks in
 [pending_simulate_test.go](pending_simulate_test.go) and
 [pending_state_test.go](pending_state_test.go).
 
-## Legacy gate and deprecation
+### Legacy gate and deprecation
 
 The legacy methods listed in [pax_legacy.go](pax_legacy.go) are deprecated
-and scheduled for removal. New integrations should use supported `eth_*`,
+for new integrations. Use supported `eth_*`,
 `debug_*` and documented replacements. `pax_sequencerReceipt` is explicitly
 exempt from the legacy gate; it reports transaction progress as `submitted`,
 `receipted` or `committed` according to its provider and committed batch state.
@@ -181,7 +286,7 @@ server does not register the legacy `pax` or `pax2` APIs.
 - The [Docker localnet config](../docker/localnode/config/app.toml) enables
   all gated methods except `pax_sign`; it is not the production default.
 
-### Migration by method
+#### Migration by method
 
 | Legacy method(s) | Supported migration and limits |
 | --- | --- |
@@ -201,9 +306,9 @@ Allowlist defaults do not make legacy methods supported migration targets.
 replacement for historical combined receipts or logs. The legacy-only views
 below describe compatibility for existing clients and require operator enablement.
 
-## Pax_ Endpoints
+### Legacy transaction and tracing views
 
-### 1. Synthetic Transaction Endpoints
+#### Synthetic Transaction Endpoints
 
 Existing integrations can query CosmWasm token events as EVM-compatible logs
 and receipts to index pointer contracts or reconcile token transfers:
@@ -221,7 +326,7 @@ synthetic receipts/logs. Do not assume a Cosmos hash is a signed Ethereum
 transaction or that `eth_getTransactionReceipt` can encode every synthetic
 receipt. There is no `pax_getTransactionByReceipt` method.
 
-### 2. Tracing Failure Management Endpoints
+#### Tracing Failure Management Endpoints
 
 Some transactions consume a nonce but fail before entering the VM, producing
 a stub receipt with zero effective gas price and zero gas used. The
@@ -240,7 +345,7 @@ Use regular supported `eth_*` and `debug_*` methods when diagnosing execution
 failures. Historical traces must reflect the original error and actual gas
 usage, as described in [AGENTS.md](AGENTS.md#debug_-prefixed-endpoints).
 
-## Transaction Index Mismatches
+### Transaction Index Mismatches
 
 Transaction and log indices depend on the method's filtered view. For example,
 suppose a block contains EVM transaction A, a Cosmos transaction C with a
@@ -259,7 +364,7 @@ receipts; [tx.go](tx.go) translates stored consensus positions to the selected
 view in `GetEvmTxIndex` and `encodeReceipt`. Venue synthetic receipts have
 their own assigned positions and should not be renumbered by clients.
 
-### Receipts and Logs
+#### Receipts and Logs
 
 EVM-originating synthetic events remain part of their EVM transaction's logs.
 Cosmos-originating CosmWasm events require the combined legacy log view.
@@ -267,7 +372,7 @@ Receipt encoding and log-query normalization use the relevant namespace's
 transaction mapping and log offsets; do not compare indices across namespaces
 as though they were absolute consensus positions.
 
-### Best Practices
+#### Best Practices
 
 - Use one namespace consistently for receipts, logs and transaction indices.
 - Use transaction hashes to correlate entries across views; keep the source
