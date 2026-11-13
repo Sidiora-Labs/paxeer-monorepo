@@ -8,6 +8,8 @@ UUPS-upgradeable multi-asset vault with open deposits and operator-authorized tr
 reservations. Administrators register tokens, manage operators, reconcile reserves, quarantine
 tokens and authorize upgrades.
 
+Deposits donate inventory to the vault. They create no depositor balances or redemption rights.
+
 Deposits measure actual received balances, including transfer fees. Outbound token transfers require
 exact vault and recipient balance changes. Available reserves are the smaller of custody and
 recorded reserves, minus reserved liabilities; quarantined tokens report no available reserves.

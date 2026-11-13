@@ -25,7 +25,7 @@ error ArrayTooLong()
 ### LaunchpadOpticalCreated
 
 ```solidity
-event LaunchpadOpticalCreated(address optical, address creator, address teamClaimAddress, uint256 cliffDuration, uint256 vestingDuration, uint256 capitalRaiseBps, uint256 capitalRaiseDuration)
+event LaunchpadOpticalCreated(address indexed optical, address indexed creator, address teamClaimAddress, uint256 cliffDuration, uint256 vestingDuration, uint256 capitalRaiseBps, uint256 capitalRaiseDuration)
 ```
 
 ### poolRegistry

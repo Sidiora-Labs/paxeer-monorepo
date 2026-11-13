@@ -4,12 +4,11 @@ Source: [MockWETH9.sol](../../../contracts/meta-ag/mocks/MockWETH9.sol).
 
 ## MockWETH9
 
-Minimal WETH-compatible mock that mirrors the WPAX9 live contract on Paxeer Network. Used by
-`PECORVault` tests to exercise `depositNative` (wrap) and `withdrawNative` (unwrap) paths and to
-assert the `PECORVault.receive` WethOnly guard.
+Test implementation of `IWETH` with 18 decimals, the name `Mock Wrapped PAX` and symbol `mWPAX`.
+Deposits mint wrapped tokens equal to the native amount received. Withdrawals burn wrapped tokens
+and send the same native amount to the caller, emitting `Withdrawal`.
 
-_Keeps the WETH9 ABI surface minimal enough to test the vault without pulling in an external WETH9
-source._
+Used by `PECORVault` tests for `depositNative`, `withdrawNative` and the `WethOnly` receive guard.
 
 ### name
 
