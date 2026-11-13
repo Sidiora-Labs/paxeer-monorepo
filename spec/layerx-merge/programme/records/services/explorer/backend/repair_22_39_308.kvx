@@ -5,7 +5,7 @@ base_revision = "2ce65ef1b65c7b37530e7fcccde49f13209ca848"
 revision = "refs/heads/task/22.39.308"
 revision_resolution = "hf-done installs its immutable candidate at HEAD on this task branch before verification; the exact resolved revision, command, exit and private log are retained in /out/run/gates.jsonl and reported by the gate."
 build_command = "cd services/explorer/backend && mix deps.get && mix compile"
-verify_command = "test -s services/explorer/backend/repair_22_39_308.kvx && cd services/explorer/backend && mix test apps/explorer/test/explorer/chain/paxeer_x/committed_vectors_test.exs apps/explorer/test/explorer/chain/paxeer_x/status_committed_test.exs apps/explorer/test/explorer/chain/paxeer_x/status_test.exs apps/explorer/test/explorer/chain/paxeer_x/sequencer_receipt_test.exs"
+verify_command = "test -s spec/layerx-merge/programme/records/services/explorer/backend/repair_22_39_308.kvx && cd services/explorer/backend && mix test apps/explorer/test/explorer/chain/paxeer_x/committed_vectors_test.exs apps/explorer/test/explorer/chain/paxeer_x/status_committed_test.exs apps/explorer/test/explorer/chain/paxeer_x/status_test.exs apps/explorer/test/explorer/chain/paxeer_x/sequencer_receipt_test.exs"
 evidence = "/out/logs/build-1.log; /out/logs/verify-1.log; authoritative gate ledger /out/run/gates.jsonl"
 
 [inventory.governed]
