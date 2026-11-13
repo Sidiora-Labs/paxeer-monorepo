@@ -1,0 +1,44 @@
+[manifest]
+task = "22.43.226"
+records_moved = 2
+files_renamed = 1
+
+[file.1]
+from = "tools/specgen/repair_22_39_410.kvx"
+to = "spec/layerx-merge/programme/records/tools/specgen/repair_22_39_410.kvx"
+
+[file.2]
+from = "tools/specgen/repair_m782.kvx"
+to = "spec/layerx-merge/programme/records/tools/specgen/repair_m782.kvx"
+
+[file.3]
+from = "tools/specgen/repair_m782_test.go"
+to = "tools/specgen/kvx_strings_test.go"
+
+[reference.1]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/specgen/repair_22_39_410.kvx"
+
+[reference.2]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/specgen/repair_m782_test.go"
+
+[reference.3]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_782_"
+
+[reference.4]
+file = "spec/layerx-merge/programme/records/tools/specgen/repair_m782.kvx"
+name = "TestRepairM_782_QuotedValues"
+
+[reference.5]
+file = "spec/layerx-merge/programme/records/tools/specgen/repair_m782.kvx"
+name = "TestRepairM_782_Lists"
+
+[reference.6]
+file = "spec/layerx-merge/programme/records/tools/specgen/repair_m782.kvx"
+name = "TestRepairM_782_ProducerToRenderer"
+
+[reference.7]
+file = "spec/layerx-merge/programme/records/tools/specgen/repair_m782.kvx"
+name = "TestRepairM_782_RejectMalformedStrings"

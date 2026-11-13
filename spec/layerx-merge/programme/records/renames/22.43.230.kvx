@@ -1,0 +1,92 @@
+[manifest]
+task = "22.43.230"
+records_moved = 4
+files_renamed = 4
+
+[file.1]
+from = "utils/datastructures/repair_m868.kvx"
+to = "spec/layerx-merge/programme/records/utils/datastructures/repair_m868.kvx"
+
+[file.2]
+from = "utils/helpers/repair_m783.kvx"
+to = "spec/layerx-merge/programme/records/utils/helpers/repair_m783.kvx"
+
+[file.3]
+from = "utils/helpers/legacy/v575/repair_m784.kvx"
+to = "spec/layerx-merge/programme/records/utils/helpers/legacy/v575/repair_m784.kvx"
+
+[file.4]
+from = "utils/helpers/legacy/v600/repair_m785.kvx"
+to = "spec/layerx-merge/programme/records/utils/helpers/legacy/v600/repair_m785.kvx"
+
+[file.5]
+from = "utils/datastructures/repair_m868_test.go"
+to = "utils/datastructures/concurrent_collections_test.go"
+
+[file.6]
+from = "utils/helpers/repair_m783_test.go"
+to = "utils/helpers/address_validation_test.go"
+
+[file.7]
+from = "utils/helpers/legacy/v575/repair_m784_test.go"
+to = "utils/helpers/legacy/v575/address_association_replay_test.go"
+
+[file.8]
+from = "utils/helpers/legacy/v600/repair_m785_test.go"
+to = "utils/helpers/legacy/v600/address_association_replay_test.go"
+
+[reference.1]
+file = "spec/layerx-merge/programme/issues/1682.kvx"
+name = "TestIssue1682AssociationReplay"
+
+[reference.2]
+file = "spec/layerx-merge/programme/issues/1682.kvx"
+name = "TestRepairM_784_"
+
+[reference.3]
+file = "spec/layerx-merge/programme/issues/1682.kvx"
+name = "utils/helpers/legacy/v575/repair_m784_test.go"
+
+[reference.4]
+file = "spec/layerx-merge/programme/issues/1683.kvx"
+name = "utils/helpers/legacy/v575/repair_m784.kvx"
+
+[reference.5]
+file = "spec/layerx-merge/programme/issues/input/1683.md"
+name = "utils/helpers/legacy/v575/repair_m784.kvx"
+
+[reference.6]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestIssue1682AssociationReplay"
+
+[reference.7]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_783_"
+
+[reference.8]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_784_"
+
+[reference.9]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_785_"
+
+[reference.10]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_868_"
+
+[reference.11]
+file = "spec/layerx-merge/spec.kvx"
+name = "utils/datastructures/repair_m868_test.go"
+
+[reference.12]
+file = "spec/layerx-merge/spec.kvx"
+name = "utils/helpers/legacy/v575/repair_m784_test.go"
+
+[reference.13]
+file = "spec/layerx-merge/spec.kvx"
+name = "utils/helpers/legacy/v600/repair_m785_test.go"
+
+[reference.14]
+file = "spec/layerx-merge/spec.kvx"
+name = "utils/helpers/repair_m783_test.go"

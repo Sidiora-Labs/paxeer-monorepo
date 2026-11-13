@@ -122,7 +122,7 @@ freeze/final task mapping.
 
 The [workload accounting, calibration and loopback transport tests](test_load.py)
 check scheduled-arrival accounting, capacity refusal, delayed responses and masked
-subscriptions. The [contract and final-admission tests](repair_m965_cases.py),
+subscriptions. The [contract and final-admission tests](contract_admission_cases.py),
 `test_v1_contract`, `test_v2_contract`, `test_final_admission` and
 `test_phase4_qualification`, check schema authority and coordinator admission.
 These local checks do not supply provider or final shared-capacity evidence;
@@ -132,7 +132,7 @@ Run the contract and admission tests directly from the repository root:
 
 ```sh
 python3 -m unittest discover \
-  -s tools/launchpad/production/load -p 'repair_m965_cases.py' -v
+  -s tools/launchpad/production/load -p 'contract_admission_cases.py' -v
 ```
 
 See the [integration phases](../integration/README.md),
