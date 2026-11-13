@@ -1,12 +1,12 @@
 # Feature acceptance policy plugin
 
-This module supplies phase-one policy primitives to the serial qualification runner. It never marks tasks complete, changes capabilities, sends transactions, runs the product harness, or grants release approval. Every inventory feature starts `unqualified`. The 55 PF/OC declarations are not evidence that any product journey works.
+This module validates signed feature evidence and independent reviews. It never marks tasks complete, changes capabilities, sends transactions, runs the product harness, or grants release approval. Every inventory feature starts `unqualified`. The 55 PF/OC declarations are not evidence that any product journey works.
 
-`build_inventory.py` reads the frozen specification and generates `inventory.json`. `requirement_owner_lanes` is derived from every linked requirement's authoritative owner. `owner_lanes` is a curated behavioral integration assignment: for example PF01 creation directly coordinates L27/L39/L41, while the broad linked D09/D13 requirement coverage also retains other owners. Both are visible rather than substituting broad domain coverage for feature behavior. Inherited C/D dependencies retain their exact lineage identifiers. Legacy hosted-wallet dependency D03 is explicitly superseded by ordinary external Web3 wallet integration.
+`build_inventory.py` reads `spec/layerx-merge/spec.kvx` and writes `inventory.json` and `inventory-spec-references.json` beside the script. The inventory records linked requirement ownership in `requirement_owner_lanes` and behavioral integration assignments in `owner_lanes`. PF01 creation assigns L27/L39/L41, while its linked D09/D13 requirements include additional owners. Inherited C/D dependencies retain their identifiers. D03 describes external Web3 wallet signing and linking.
 
 ## Trusted caller contract
 
-Import `policy.py` with `importlib.util.spec_from_file_location`; directory hyphen is intentional. Call `qualify(feature, gate, evidence, review, inventory=..., context=..., trust=..., artifact_root=..., dependencies=..., now=...)`. `Rejected` means fail closed and must be mapped to nonzero evidence failure by the serial runner. No unsupported gate is silently skipped. The root runner is not modified by this lane.
+Import `policy.py` with `importlib.util.spec_from_file_location`. Call `qualify(feature, gate, evidence, review, inventory=..., context=..., trust=..., artifact_root=..., dependencies=..., now=...)`. Supported gates are `feature-user-path-v1` and `final-smoke-v1`. Rejected evidence raises `Rejected`.
 
 The coordinator must independently supply and pin:
 

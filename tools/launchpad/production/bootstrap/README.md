@@ -8,9 +8,8 @@ fixtures; production credentials are not required.
 Paxeer is one network, with the kernel participating in block proposal. Its EVM
 chain ID is 125 (`0x7d`), and a receipt is final when its block commits. The local
 Compose EVM and in-process Hardhat chain also use 125 but do not reproduce Paxeer
-consensus or establish deployment readiness. Public JSON-RPC uses the root URL,
-for example `https://api1.mainnet-beta.paxeer.network/`; local fixture commands
-below must use their private chains.
+consensus or establish deployment readiness. Public node JSON-RPC uses the root
+path. Local fixture commands below use their private chains.
 
 ## Source and dependency prerequisites
 
@@ -34,10 +33,12 @@ contract root. Standalone `contracts/run.sh` requires `CONTRACT_SOURCE_ROOT` and
 
 ## Current-source baseline gate
 
-The launchpad baseline runner requires a reviewed production-system specification
-with its task `0.1` schema and the [check registry](check-registry.json). Set the
-shell variable `LAUNCHPAD_SPEC_FILE` to that specification and
-`QUALIFICATION_OUTPUT_DIR` to the private output directory before running:
+The launchpad baseline runner requires a production-system specification and
+matching execution plan admitted by the [check registry](check-registry.json).
+The specification contains task `0.1`. Set `LAUNCHPAD_SPEC_FILE` to the
+specification named by the registry and `QUALIFICATION_OUTPUT_DIR` to an output base
+inside the repository's `launchpad/evidence` directory before running. The runner
+creates a private task/run subdirectory below that base:
 
 ```sh
 python3 tools/launchpad/production/qualify.py \
@@ -70,13 +71,12 @@ The baseline checks workspace names and file/link targets in all four dependency
 sections, and records immutable hashes in `npm_workspace_manifests`. Package
 manifests in unrelated qualification fixtures are not workspace members.
 
-[build/manifest.json](build/manifest.json) remains a source command inventory
-covering thirteen modules. Its checker requires exact discovered-module coverage;
-that older inventory is not the seventeen-module dependency baseline and is not
-proof that the current tree builds. The checked-in task-0.1 registry and qualifier
-still require the listed build/test targets; membership discovery does not add,
-remove or certify executed checks. The registry excludes livestream from required
-test targets while retaining its build target; this does not mean it has no tests.
+[build/manifest.json](build/manifest.json) is a source command inventory covering
+thirteen modules. Its checker requires exact discovered-module coverage, matching
+module identities and Go versions. Registered builds run `go list ./...` and
+`go build -p 1 ./...` with `GOWORK=off` and `GOFLAGS=-mod=readonly`. The task-0.1
+registry selects required build/test targets independently of dependency
+membership. It includes livestream as a build target.
 
 ## Evidence and cleanup
 

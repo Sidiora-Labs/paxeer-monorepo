@@ -1,0 +1,51 @@
+[manifest]
+task = "22.41.97"
+pages = 12
+
+[page.1]
+path = "tools/jev/tests/fixtures/markdown_links/README.md"
+status = "corrected"
+
+[page.2]
+path = "tools/jev/tests/fixtures/markdown_links/repository-drift.md"
+status = "reviewed"
+
+[page.3]
+path = "tools/jev/tests/fixtures/repair_22_33_705/command-drift.md"
+status = "reviewed"
+
+[page.4]
+path = "tools/jev/tests/fixtures/repair_22_33_705/link-drift.md"
+status = "reviewed"
+
+[page.5]
+path = "tools/jev/tests/fixtures/repair_22_33_705/operations.md"
+status = "reviewed"
+
+[page.6]
+path = "tools/jev/tests/fixtures/repair_22_33_705/url-drift.md"
+status = "reviewed"
+
+[page.7]
+path = "tools/launchpad/production/bootstrap/README.md"
+status = "corrected"
+
+[page.8]
+path = "tools/launchpad/production/bootstrap/security/GAPS.md"
+status = "corrected"
+
+[page.9]
+path = "tools/launchpad/production/dispatcher/README.md"
+status = "corrected"
+
+[page.10]
+path = "tools/launchpad/production/feature-acceptance/README.md"
+status = "corrected"
+
+[page.11]
+path = "tools/launchpad/production/integration/README.md"
+status = "corrected"
+
+[page.12]
+path = "tools/launchpad/production/load/README.md"
+status = "corrected"

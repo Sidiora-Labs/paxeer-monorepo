@@ -21,13 +21,12 @@ skips and zero-case execution must fail qualification.
 
 ## Coverage and limits
 
-Paths below are relative to the repository root. The generator's module paths,
-not the historical Go import names, determine command working directories.
+Paths below are relative to the repository root. Each manifest row supplies
+the module working directory and source test inventory for its command.
 
-- `sdk/launchpad/shared/auth`: EIP-191 valid/address-case/invalid inputs and
-  webhook HMAC vectors, timestamp windows, missing signature, bad scheme, wrong
-  secret and tampered payload. Freshness checks alone do not establish durable
-  delivery deduplication.
+- `sdk/launchpad/shared/auth`: the inventory lists `webhook_test.go`, whose
+  tests cover HMAC signing vectors, round trips, timestamp windows, missing
+  signature, bad scheme, wrong secret and tampered payload.
 - `sdk/launchpad/shared/http`: API-key rejection, CORS, in-memory/Redis throttling,
   client-IP resolution, 5xx detail masking and scanner responses. The Redis case
   starts a real `redis:7-alpine` container; complete qualification must retain it.
@@ -48,10 +47,9 @@ not the historical Go import names, determine command working directories.
   package fixtures. Inspect each subtest before claiming a route authorization
   matrix.
 - `sdk/launchpad/shared/secrets`: environment retrieval, cache expiry/error
-  propagation and provider selection. The legacy `New` constructor can fall back
-  to environment values for explicit unsupported providers. Production startup
-  must use `NewChecked`, which rejects unsupported configured providers; neither
-  path demonstrates a managed secret-store integration.
+  propagation and provider selection. `NewChecked` selects `Options.Provider`,
+  then `SECRETS_PROVIDER`, accepting an empty value or `env`. It rejects other
+  providers and cache lifetimes outside zero to sixty seconds.
 
 ## Scanner behavior and remaining proof
 
