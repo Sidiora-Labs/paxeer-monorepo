@@ -13858,6 +13858,24 @@ value = "Task 22.43.147 changes the lines of the files under services/human/crat
 basis = "Gotcha 4367, gotcha 4371. Each file is in the paths of its task, and the tests of its member compile with the present names."
 affects = []
 
+[decision.3458]
+title = "The paths of task 22.39.514 hold the manifest and the tests directory of the agent daemon member"
+value = "The paths of task 22.39.514 hold services/agent/crates/layerx-agentd/Cargo.toml and the directory services/agent/crates/layerx-agentd/tests. The task changes in them exactly the lines that name a file under an earlier name, to the present name."
+basis = "Gotcha 4372, gotcha 4371. The build of the task compiles every test of the member."
+affects = []
+
+[decision.3459]
+title = "Task 22.43.248 brings the test section of programs/Cargo.toml to the present file"
+value = "Task 22.43.248 gives the test section of programs/Cargo.toml the path tests/registry_read_bridge.rs and the name registry_read_bridge."
+basis = "Gotcha 4372. The file of the test has the name programs/tests/registry_read_bridge.rs."
+affects = []
+
+[decision.3460]
+title = "The build command of task 22.38.37 installs the node binary"
+value = "The build command of task 22.38.37 runs the install target of chain.mk before the build of the room."
+basis = "Gotcha 4373. The room reads the node binary from the search path."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -43518,6 +43536,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.43.248]
+title = "Bring the test section of programs/Cargo.toml to the present file of the test"
+reqs = ["22998.1"]
+touches = ["programs/Cargo.toml"]
+tests = []
+verification_contract = "cargo check --locked --manifest-path programs/Cargo.toml -p layerx-programs-integration-tests --tests && ! grep -q repair_22_33_238 programs/Cargo.toml"
+do_1 = "do_1 Decision 3459, gotcha 4372. The manifest programs/Cargo.toml holds one test section. Its name key is repair_22_33_238 and its path key is tests/repair_22_33_238.rs; the file of the test now has the name programs/tests/registry_read_bridge.rs."
+symbols = []
 
 [capability.22.41.125]
 title = "Link the pages of sdk and services to the node inventory page"
@@ -195969,7 +195996,7 @@ symbols = ["proof_canary_slash"]
 touches = ["tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py", "apps/inference-peer/src/canary.mjs", "apps/inference-peer/test/canary.test.mjs", "apps/inference-peer/test/fixtures/host-canary-frames.json", "services/agent/crates/layerx-agentd/src/inference_market/canary.rs", "services/agent/crates/layerx-agentd/src/main.rs", "services/agent/crates/layerx-agentd/src/inference_market/laps.rs"]
 tests = []
 planned_paths = ["tools/qualification/paxeer-x/inference_market_room.py"]
-build_cmd = "export PAXEER_X_BUILDER_ID=$(hostname); make -C . build/liblayerx.a && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --bin layerx-agentd && npm --prefix apps/inference-peer install --no-audit --no-fund --ignore-scripts && python3 tools/qualification/paxeer-x/inference_market_room.py --begin-build && python3 tools/qualification/paxeer-x/inference_market_room.py --build"
+build_cmd = "export PAXEER_X_BUILDER_ID=$(hostname); make -f chain.mk install && make -C . build/liblayerx.a && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --bin layerx-agentd && npm --prefix apps/inference-peer install --no-audit --no-fund --ignore-scripts && python3 tools/qualification/paxeer-x/inference_market_room.py --begin-build && python3 tools/qualification/paxeer-x/inference_market_room.py --build"
 verify_cmd = "d=$(mktemp -d) && PAXEER_X_EVIDENCE_DIR=$d PAXEER_X_BUILDER_ID=$(hostname) python3 tools/qualification/paxeer-x/inference_market_room.py --proof canary || { tail -n 150 $d/*/native.log; exit 1; }"
 gate_kind = "planned"
 sandbox_profile = "mixed"
@@ -195988,6 +196015,7 @@ do_4 = "do_4 Decisions 3311 and 3312, gotcha 4241: the record rpc/repair_22_39_3
 do_5 = "do_5 Gotcha 4294, decision 3377. The task no longer requires task 22.38.36. The canary mode is written as additions to the driver that the room proof adds, and the build and the verification of this task run on a base that holds task 22.38.36, so the commit of this task changes only its own paths."
 do_6 = "do_6 Decision 3417, gotcha 4336. In apps/inference-peer/src/canary.mjs compare the answer context of a canary with the chain, the program, the market, the epoch and the configuration of the deal and with the deal and the lap index of the plan, and leave the roster field of the binding out of the comparison. In apps/inference-peer/test/canary.test.mjs give the binding and the deal two different roster values and assert by value that the answer is accepted and that a change of each compared field gives answer_context_mismatch. Run npm --prefix apps/inference-peer test. When the canary proof shows a further difference between the host and the peer, settle it in the paths of decision 3417 and add a case for it; a difference that needs a change under programs is recorded and the task stops there. The driver keeps the modes room, canary and settlement side by side with one argument for the mode."
 do_7 = "do_7 Decision 3430, gotcha 4348. In services/agent/crates/layerx-agentd/src/main.rs and services/agent/crates/layerx-agentd/src/inference_market/laps.rs let the host submit the seal of the evidence of a ready batch inside the commit window of the epoch of the batch whether or not a canary of a lap of the batch is resolved, and let the settlement of the batch and the report of the meter wait until every canary of the batch is resolved. A unit case of the lap engine covers the seal before the resolution and the settlement after it. Change no source of a program. Run the build once and the verification once at the final revision."
+do_8 = "do_8 Decision 3460, gotcha 4373. The build command now installs the node binary with the install target of chain.mk before the build of the room, so the room finds the binary on the search path. The earlier work of this task stays as it is. Where the verification stops at a requirement of the room, read the native log that the command prints, settle the cause inside the paths of this task and leave the requirement as it is."
 
 [task.22.38.36]
 title = "Drive an isolated chain, one host, two native peers and one asker through a room on a synthetic model"
@@ -204303,6 +204331,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.43.248]
+title = "Bring the test section of programs/Cargo.toml to the present file of the test"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.43.248"]
+interfaces = []
+do_1 = "do_1 Decision 3459, gotcha 4372. The manifest programs/Cargo.toml holds one test section. Its name key is repair_22_33_238 and its path key is tests/repair_22_33_238.rs; the file of the test now has the name programs/tests/registry_read_bridge.rs."
+do_2 = "do_2 Give the section the path tests/registry_read_bridge.rs and the name registry_read_bridge. Change nothing else in the manifest. Find with git grep over repair_22_33_238 the files outside spec that run the test by the earlier name of the section, and name each in the final message; change none of them."
+do_3 = "do_3 Change only the file in the paths of this task. Delete, rename and move nothing. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["programs/Cargo.toml"]
+tests = []
+planned_paths = []
+build_cmd = "cargo check --locked --manifest-path programs/Cargo.toml -p layerx-programs-integration-tests --tests"
+verify_cmd = "cargo check --locked --manifest-path programs/Cargo.toml -p layerx-programs-integration-tests --tests && ! grep -q repair_22_33_238 programs/Cargo.toml"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-programs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.514]
 title = "Give the environment documentation test of the agent daemon pages of the tree"
 status = "pending"
@@ -204316,7 +204374,7 @@ do_1 = "do_1 Decision 3450, gotcha 4366. The function verify_environment_documen
 do_2 = "do_2 Change the function so that it reads only pages of the tree: docs/wiki/RunningAnAgent.md, and docs/release/variables/service-agent.md as the second page. The function reads one table row for each active variable, a row that begins with the name of that one variable, and it reads the name of each retired variable outside such a row. Where a page holds an active variable only in a row shared with other variables, give the page a row for that variable alone with the same true content. Where a page does not name the retired variables, add one short paragraph that names them as retired. Write nothing on a page that the code under services/agent/crates/layerx-agentd/src does not hold. Take no case and no assertion out of the test."
 do_3 = "do_3 Change only the files in the paths of this task. Delete, rename and move nothing. Find with git grep over services, programs, core and tools any other Rust file that reads a page under docs/site/docs with include_str, and name each in the final message; change none of them. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["services/agent/crates/layerx-agentd/tests/proof_agentd_env.rs", "docs/wiki/RunningAnAgent.md", "docs/release/variables/service-agent.md", "services/agent/crates/layerx-agentd/src/budget/fee_policy.rs"]
+touches = ["services/agent/crates/layerx-agentd/tests", "docs/wiki/RunningAnAgent.md", "docs/release/variables/service-agent.md", "services/agent/crates/layerx-agentd/src/budget/fee_policy.rs", "services/agent/crates/layerx-agentd/Cargo.toml"]
 tests = []
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
@@ -204333,6 +204391,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "do_4 Decision 3456, gotcha 4371. The paths of this task now hold services/agent/crates/layerx-agentd/src/budget/fee_policy.rs. Its test module reads the corpus of the budget preparation at build time under tests/fixtures/repair_22_31_217 of the member; the directory now has the name tests/fixtures/native_budget_preparation. Change in that file exactly the lines that name the directory, to the present name, and nothing else in it. The work on the test and on the two pages stays as it is. Where the build names a further file of the member that reads a file under an earlier name, name it in the final message and change it only when it is in the paths of this task. Run the build once and the verification once at the final revision."
+do_5 = "do_5 Decision 3458, gotcha 4372. The paths of this task now hold services/agent/crates/layerx-agentd/Cargo.toml and the directory services/agent/crates/layerx-agentd/tests. The test section of that manifest with the name repair_22_33_1532 has the path tests/repair_22_33_1532.rs; the file now has the name tests/startup_health_prerequisites.rs. Give the section the present path. Give it the name startup_health_prerequisites as well, unless a file outside the paths of this task runs the test by the earlier name of the section; then keep the name and state that file in the final message. Before the counted build run cargo check with the flag --tests for the member by hand. Where it names a further line of the manifest or of a file under the tests directory that reads a file under an earlier name, change exactly that line to the present name, which the manifests under spec/layerx-merge/programme/records/renames give. Rename no file and change no assertion. The earlier work of this task stays as it is. Run the build once and the verification once at the final revision."
 
 [task.22.42.176]
 title = "Give the example environment files of the deployments under services/platform the values of the deployment again"
