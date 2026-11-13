@@ -45,13 +45,13 @@ import (
 // This application fixture uses BaseApp's ABCI handlers and persistent multistore.
 // Its only module records committed block heights, giving recovery an observable
 // application value as well as the app hash and consensus height.
-type repair1309Application struct {
+type commandLifecycleApplication struct {
 	*baseapp.BaseApp
 	apiReady    chan *api.Server
 	localClient client.LocalClient
 }
 
-func (app *repair1309Application) RegisterAPIRoutes(s *api.Server, _ serverconfig.APIConfig) {
+func (app *commandLifecycleApplication) RegisterAPIRoutes(s *api.Server, _ serverconfig.APIConfig) {
 	s.Router.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte("ready"))
 	})
@@ -60,11 +60,11 @@ func (app *repair1309Application) RegisterAPIRoutes(s *api.Server, _ serverconfi
 	}
 }
 
-func (app *repair1309Application) RegisterLocalServices(c client.LocalClient, _ client.TxConfig) {
+func (app *commandLifecycleApplication) RegisterLocalServices(c client.LocalClient, _ client.TxConfig) {
 	app.localClient = c
 }
 
-func repair1309Options() *viper.Viper {
+func commandLifecycleOptions() *viper.Viper {
 	v := viper.New()
 	v.Set("chain-id", "test-chain")
 	v.Set("minimum-gas-prices", "0stake")
@@ -73,10 +73,10 @@ func repair1309Options() *viper.Viper {
 	return v
 }
 
-func repair1309App(t *testing.T, cfg *tmcfg.Config, legacyStore bool) (*repair1309Application, *storetypes.KVStoreKey) {
+func newCommandLifecycleApp(t *testing.T, cfg *tmcfg.Config, legacyStore bool) (*commandLifecycleApplication, *storetypes.KVStoreKey) {
 	t.Helper()
-	opts := repair1309Options()
-	app := &repair1309Application{BaseApp: baseapp.NewBaseApp("repair-1309", dbm.NewMemDB(), nil, cfg, opts)}
+	opts := commandLifecycleOptions()
+	app := &commandLifecycleApplication{BaseApp: baseapp.NewBaseApp("repair-1309", dbm.NewMemDB(), nil, cfg, opts)}
 	key := storetypes.NewKVStoreKey("blocks")
 	if !legacyStore {
 		sc := storageconfig.DefaultStateCommitConfig()
@@ -115,7 +115,7 @@ func repair1309App(t *testing.T, cfg *tmcfg.Config, legacyStore bool) (*repair13
 	return app, key
 }
 
-func repair1309Commit(t *testing.T, app *repair1309Application, height int64) []byte {
+func commitCommandLifecycleBlock(t *testing.T, app *commandLifecycleApplication, height int64) []byte {
 	t.Helper()
 	resp, err := app.FinalizeBlock(context.Background(), &abci.RequestFinalizeBlock{Header: &tmproto.Header{ChainID: "test-chain", Height: height, Time: time.Now().UTC()}})
 	require.NoError(t, err)
@@ -145,18 +145,18 @@ func repair1309Commit(t *testing.T, app *repair1309Application, height int64) []
 	return append([]byte(nil), app.LastCommitID().Hash...)
 }
 
-func repair1309Context(cfg *tmcfg.Config, v *viper.Viper) context.Context {
+func commandLifecycleContext(cfg *tmcfg.Config, v *viper.Viper) context.Context {
 	return context.WithValue(context.Background(), ServerContextKey, NewContext(v, cfg))
 }
 
-func TestRepairM_1309_ExportStreamError(t *testing.T) {
+func TestExportStreamingWriteErrors(t *testing.T) {
 	cfg := tmcfg.TestConfig().SetRoot(t.TempDir())
 	require.NoError(t, os.MkdirAll(filepath.Dir(cfg.GenesisFile()), 0700))
 	doc := &tmtypes.GenesisDoc{ChainID: "test-chain", InitialHeight: 1, GenesisTime: time.Now().UTC(), ConsensusParams: tmtypes.DefaultConsensusParams()}
 	require.NoError(t, doc.SaveAs(cfg.GenesisFile()))
-	app, key := repair1309App(t, cfg, false)
+	app, key := newCommandLifecycleApp(t, cfg, false)
 	defer func() { require.NoError(t, app.Close()) }()
-	repair1309Commit(t, app, 1)
+	commitCommandLifecycleBlock(t, app, 1)
 	exporter := func(_ dbm.DB, _ io.Writer, _ int64, _ bool, _ []string, _ servertypes.AppOptions, file *os.File) (servertypes.ExportedApp, error) {
 		require.NotNil(t, file)
 		encoded, err := json.Marshal(map[string]string{"height": string(app.CommitMultiStore().GetKVStore(key).Get([]byte("height")))})
@@ -171,7 +171,7 @@ func TestRepairM_1309_ExportStreamError(t *testing.T) {
 	output := filepath.Join(cfg.RootDir, "export.jsonl")
 	cmd := ExportCmd(exporter, cfg.RootDir)
 	cmd.SetArgs([]string{"--streaming", "--streaming-file", output})
-	require.NoError(t, cmd.ExecuteContext(repair1309Context(cfg, repair1309Options())))
+	require.NoError(t, cmd.ExecuteContext(commandLifecycleContext(cfg, commandLifecycleOptions())))
 	data, err := os.ReadFile(output)
 	require.NoError(t, err)
 	lines := bytes.SplitN(data, []byte("\n"), 2)
@@ -186,13 +186,13 @@ func TestRepairM_1309_ExportStreamError(t *testing.T) {
 		return servertypes.ExportedApp{Height: 2}, nil
 	}, cfg.RootDir)
 	cmd.SetArgs([]string{"--streaming", "--streaming-file", output})
-	err = cmd.ExecuteContext(repair1309Context(cfg, repair1309Options()))
+	err = cmd.ExecuteContext(commandLifecycleContext(cfg, commandLifecycleOptions()))
 	require.ErrorIs(t, err, os.ErrClosed)
 	require.ErrorContains(t, err, "error writing genesis state to file")
 	require.ErrorContains(t, err, "error closing genesis state file")
 }
 
-func TestRepairM_1309_StartGenesisError(t *testing.T) {
+func TestStartGenesisErrors(t *testing.T) {
 	for _, name := range []string{"missing", "malformed", "mismatch"} {
 		t.Run(name, func(t *testing.T) {
 			cfg := tmcfg.TestConfig().SetRoot(t.TempDir())
@@ -217,9 +217,9 @@ broadcast-mode = "sync"
 				return nil
 			}, cfg.RootDir, nil)
 			cmd.SetArgs([]string{})
-			v := repair1309Options()
-			cctx := repair1309ClientContext().WithHomeDir(cfg.RootDir).WithViper("")
-			ctx := context.WithValue(repair1309Context(cfg, v), client.ClientContextKey, &cctx)
+			v := commandLifecycleOptions()
+			cctx := commandLifecycleClientContext().WithHomeDir(cfg.RootDir).WithViper("")
+			ctx := context.WithValue(commandLifecycleContext(cfg, v), client.ClientContextKey, &cctx)
 			if name == "mismatch" {
 				require.PanicsWithValue(t, "genesis file chain-id=other-chain does not equal config.toml chain-id=test-chain", func() { _ = cmd.ExecuteContext(ctx) })
 			} else {
@@ -237,17 +237,17 @@ broadcast-mode = "sync"
 	}
 }
 
-func repair1309ClientContext() client.Context {
+func commandLifecycleClientContext() client.Context {
 	registry := codectypes.NewInterfaceRegistry()
 	cdc := codec.NewProtoCodec(registry)
 	return client.Context{}.WithChainID("test-chain").WithInterfaceRegistry(registry).WithCodec(cdc).WithTxConfig(authtx.NewTxConfig(cdc, authtx.DefaultSignModes))
 }
 
-func TestRepairM_1309_StartValidationIgnored(t *testing.T) {
+func TestStartRejectsInvalidConfig(t *testing.T) {
 	for _, name := range []string{"gas-prices", "snapshot-pruning"} {
 		t.Run(name, func(t *testing.T) {
 			cfg := tmcfg.TestConfig().SetRoot(t.TempDir())
-			v := repair1309Options()
+			v := commandLifecycleOptions()
 			if name == "gas-prices" {
 				v.Set("minimum-gas-prices", "")
 			} else {
@@ -259,7 +259,7 @@ func TestRepairM_1309_StartValidationIgnored(t *testing.T) {
 			expected := parsed.ValidateBasic(cfg)
 			require.Error(t, expected)
 			created := false
-			err = startInProcess(NewContext(v, cfg), repair1309ClientContext(), func(dbm.DB, io.Writer, *tmcfg.Config, servertypes.AppOptions) servertypes.Application {
+			err = startInProcess(NewContext(v, cfg), commandLifecycleClientContext(), func(dbm.DB, io.Writer, *tmcfg.Config, servertypes.AppOptions) servertypes.Application {
 				created = true
 				t.Fatal("invalid configuration reached appCreator")
 				return nil
@@ -270,9 +270,9 @@ func TestRepairM_1309_StartValidationIgnored(t *testing.T) {
 	}
 }
 
-func TestRepairM_1309_StartLateServiceError(t *testing.T) {
+func TestStartHandlesLateServiceError(t *testing.T) {
 	cfg := tmcfg.TestConfig().SetRoot(t.TempDir())
-	v := repair1309Options()
+	v := commandLifecycleOptions()
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 	address := listener.Addr().String()
@@ -288,11 +288,11 @@ func TestRepairM_1309_StartLateServiceError(t *testing.T) {
 	v.Set("api.address", "tcp://"+address)
 	v.Set("api.max-open-connections", 10)
 	v.Set("api.rpc-max-body-bytes", 1000)
-	app, _ := repair1309App(t, cfg, false)
+	app, _ := newCommandLifecycleApp(t, cfg, false)
 	app.apiReady = make(chan *api.Server, 1)
 	done := make(chan error, 1)
 	go func() {
-		done <- startInProcess(NewContext(v, cfg), repair1309ClientContext(), func(dbm.DB, io.Writer, *tmcfg.Config, servertypes.AppOptions) servertypes.Application { return app }, nil, nil, nil)
+		done <- startInProcess(NewContext(v, cfg), commandLifecycleClientContext(), func(dbm.DB, io.Writer, *tmcfg.Config, servertypes.AppOptions) servertypes.Application { return app }, nil, nil, nil)
 	}()
 	var apiServer *api.Server
 	select {
@@ -328,7 +328,7 @@ func TestRepairM_1309_StartLateServiceError(t *testing.T) {
 		t.Fatal("late API failure did not shut down startInProcess")
 	}
 	// Reopening the persistent store proves shutdown released application locks.
-	reopened, _ := repair1309App(t, cfg, false)
+	reopened, _ := newCommandLifecycleApp(t, cfg, false)
 	require.NoError(t, reopened.Close())
 	for _, addr := range []string{address, grpcAddress} {
 		listener, err := net.Listen("tcp", addr)
@@ -337,14 +337,14 @@ func TestRepairM_1309_StartLateServiceError(t *testing.T) {
 	}
 }
 
-func TestRepairM_1309_RollbackPreflight(t *testing.T) {
+func TestRollbackPreflight(t *testing.T) {
 	for _, name := range []string{"zero", "negative", "below-zero", "missing-consensus-block", "unsupported-app"} {
 		t.Run(name, func(t *testing.T) {
 			home := t.TempDir()
 			cfg := setupTendermintStateDB(t, home, 3)
-			app, _ := repair1309App(t, cfg, name == "unsupported-app")
+			app, _ := newCommandLifecycleApp(t, cfg, name == "unsupported-app")
 			for h := int64(1); h <= 3; h++ {
-				repair1309Commit(t, app, h)
+				commitCommandLifecycleBlock(t, app, h)
 			}
 			before := app.LastCommitID()
 			if name == "missing-consensus-block" {
@@ -370,7 +370,7 @@ func TestRepairM_1309_RollbackPreflight(t *testing.T) {
 				return app
 			}, home)
 			cmd.SetArgs([]string{"--num-blocks", count})
-			err := cmd.ExecuteContext(repair1309Context(cfg, repair1309Options()))
+			err := cmd.ExecuteContext(commandLifecycleContext(cfg, commandLifecycleOptions()))
 			require.Error(t, err)
 			switch name {
 			case "zero", "negative":
@@ -392,7 +392,7 @@ func TestRepairM_1309_RollbackPreflight(t *testing.T) {
 				require.NoError(t, app.Close())
 			}
 			if name != "unsupported-app" {
-				reopened, _ := repair1309App(t, cfg, false)
+				reopened, _ := newCommandLifecycleApp(t, cfg, false)
 				require.Equal(t, before, reopened.LastCommitID())
 				require.NoError(t, reopened.Close())
 			}
@@ -400,7 +400,7 @@ func TestRepairM_1309_RollbackPreflight(t *testing.T) {
 	}
 }
 
-func TestRepairM_1309_RollbackRecovery(t *testing.T) {
+func TestRollbackRecovery(t *testing.T) {
 	cfg, err := tmcfg.ResetTestRootWithChainID(t.TempDir(), "repair1309", "test-chain")
 	require.NoError(t, err)
 	// ResetTestRoot uses memdb; rollback and restart must reopen on-disk stores.
@@ -410,7 +410,7 @@ func TestRepairM_1309_RollbackRecovery(t *testing.T) {
 	cfg.P2P.PexReactor = false
 	cfg.TxIndex.Indexer = []string{"null"}
 	cfg.Consensus.CreateEmptyBlocksInterval = 100 * time.Millisecond
-	app, key := repair1309App(t, cfg, false)
+	app, key := newCommandLifecycleApp(t, cfg, false)
 	n, err := node.New(context.Background(), cfg, func() {}, app, nil, nil, node.DefaultMetricsProvider(cfg.Instrumentation)("test-chain"), tmtypes.DefaultConsensusPolicy())
 	require.NoError(t, err)
 	require.NoError(t, n.Start(context.Background()))
@@ -449,21 +449,21 @@ func TestRepairM_1309_RollbackRecovery(t *testing.T) {
 	state, err = tmcmd.LoadTendermintState(cfg)
 	require.NoError(t, err)
 	require.Equal(t, height, state.LastBlockHeight)
-	app, key = repair1309App(t, cfg, false)
+	app, key = newCommandLifecycleApp(t, cfg, false)
 	require.Equal(t, target, app.LastBlockHeight())
 	require.Equal(t, fmt.Sprint(target), string(app.CommitMultiStore().GetKVStore(key).Get([]byte("height"))))
 	recoveredHash := append([]byte(nil), app.LastCommitID().Hash...)
 	pending, err := loadRollbackIntent(cfg)
 	require.NoError(t, err)
 	require.Equal(t, intent, pending)
-	startErr := startInProcess(NewContext(repair1309Options(), cfg), repair1309ClientContext(), func(dbm.DB, io.Writer, *tmcfg.Config, servertypes.AppOptions) servertypes.Application {
+	startErr := startInProcess(NewContext(commandLifecycleOptions(), cfg), commandLifecycleClientContext(), func(dbm.DB, io.Writer, *tmcfg.Config, servertypes.AppOptions) servertypes.Application {
 		t.Fatal("pending rollback must refuse startup")
 		return nil
 	}, nil, nil, nil)
 	require.ErrorContains(t, startErr, "unfinished rollback")
 	cmd := NewRollbackCmd(func(dbm.DB, io.Writer, *tmcfg.Config, servertypes.AppOptions) servertypes.Application { return app }, cfg.RootDir)
 	cmd.SetArgs([]string{})
-	require.NoError(t, cmd.ExecuteContext(repair1309Context(cfg, repair1309Options())))
+	require.NoError(t, cmd.ExecuteContext(commandLifecycleContext(cfg, commandLifecycleOptions())))
 	_, err = os.Stat(walPath)
 	require.ErrorIs(t, err, os.ErrNotExist)
 	archives, err := filepath.Glob(filepath.Join(filepath.Dir(walPath), fmt.Sprintf(".rollback-wal-to-%d-*", target), filepath.Base(walPath)))
@@ -477,7 +477,7 @@ func TestRepairM_1309_RollbackRecovery(t *testing.T) {
 	require.Equal(t, target, state.LastBlockHeight)
 	_, err = os.Stat(rollbackIntentPath(cfg))
 	require.ErrorIs(t, err, os.ErrNotExist)
-	app, key = repair1309App(t, cfg, false)
+	app, key = newCommandLifecycleApp(t, cfg, false)
 	require.Equal(t, target, app.LastBlockHeight())
 	require.Equal(t, recoveredHash, app.LastCommitID().Hash)
 	require.Equal(t, fmt.Sprint(target), string(app.CommitMultiStore().GetKVStore(key).Get([]byte("height"))))
@@ -504,22 +504,22 @@ func TestRepairM_1309_RollbackRecovery(t *testing.T) {
 	require.Equal(t, recoveredHash, []byte(block.Block.AppHash))
 }
 
-func TestRepairM_1309_RollbackUnequalHashes(t *testing.T) {
+func TestRollbackUnequalHashes(t *testing.T) {
 	cfg := setupTendermintStateDB(t, t.TempDir(), 3)
-	app, key := repair1309App(t, cfg, false)
+	app, key := newCommandLifecycleApp(t, cfg, false)
 	for h := int64(1); h <= 3; h++ {
-		repair1309Commit(t, app, h)
+		commitCommandLifecycleBlock(t, app, h)
 	}
-	command := func(app *repair1309Application) error {
+	command := func(app *commandLifecycleApplication) error {
 		cmd := NewRollbackCmd(func(dbm.DB, io.Writer, *tmcfg.Config, servertypes.AppOptions) servertypes.Application { return app }, cfg.RootDir)
 		cmd.SetArgs([]string{})
-		return cmd.ExecuteContext(repair1309Context(cfg, repair1309Options()))
+		return cmd.ExecuteContext(commandLifecycleContext(cfg, commandLifecycleOptions()))
 	}
 	require.NoError(t, command(app))
 	state, err := tmcmd.LoadTendermintState(cfg)
 	require.NoError(t, err)
 	require.Equal(t, int64(2), state.LastBlockHeight)
-	app, key = repair1309App(t, cfg, false)
+	app, key = newCommandLifecycleApp(t, cfg, false)
 	require.Equal(t, int64(2), app.LastBlockHeight())
 	require.Equal(t, "2", string(app.CommitMultiStore().GetKVStore(key).Get([]byte("height"))))
 	require.NotEqual(t, state.AppHash, app.LastCommitID().Hash, "correcting an app transition need not retain the old consensus hash")
@@ -528,7 +528,7 @@ func TestRepairM_1309_RollbackUnequalHashes(t *testing.T) {
 	// start another rollback on recovery.
 	require.NoError(t, saveRollbackIntent(cfg, &rollbackIntent{Target: 2, AppHeight: 3, ConsensusHeight: 3, NumBlocks: 1, ChainID: "test-chain"}))
 	require.NoError(t, command(app))
-	app, _ = repair1309App(t, cfg, false)
+	app, _ = newCommandLifecycleApp(t, cfg, false)
 	require.Equal(t, before, app.LastCommitID())
 	require.NoError(t, app.Close())
 	state, err = tmcmd.LoadTendermintState(cfg)

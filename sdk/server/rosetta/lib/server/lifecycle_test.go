@@ -24,12 +24,12 @@ import (
 
 // Compose the production offline client with an actual closeable transport.
 // The concrete online client's missing Close interface is a separate wiring request.
-type repairM1311Client struct {
+type closeableOfflineClient struct {
 	*rosetta.Client
 	*grpc.ClientConn
 }
 
-func repairM1311Settings(t *testing.T, addr, network string) (server.Settings, *grpc.ClientConn) {
+func newLifecycleServerSettings(t *testing.T, addr, network string) (server.Settings, *grpc.ClientConn) {
 	t.Helper()
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
@@ -56,13 +56,13 @@ func repairM1311Settings(t *testing.T, addr, network string) (server.Settings, *
 	require.NoError(t, err)
 	return server.Settings{
 		Network: &types.NetworkIdentifier{Blockchain: "paxeer", Network: network},
-		Client:  &repairM1311Client{Client: client, ClientConn: conn},
+		Client:  &closeableOfflineClient{Client: client, ClientConn: conn},
 		Listen:  addr,
 		Offline: true,
 	}, conn
 }
 
-func repairM1311Start(t *testing.T, srv server.Server, addr string) <-chan error {
+func startLifecycleServer(t *testing.T, srv server.Server, addr string) <-chan error {
 	t.Helper()
 	stopped := make(chan error, 1)
 	go func() { stopped <- srv.Start() }()
@@ -87,7 +87,7 @@ func repairM1311Start(t *testing.T, srv server.Server, addr string) <-chan error
 	return stopped
 }
 
-func repairM1311WaitStopped(t *testing.T, stopped <-chan error) {
+func waitForLifecycleServerStop(t *testing.T, stopped <-chan error) {
 	t.Helper()
 	select {
 	case err := <-stopped:
@@ -97,17 +97,17 @@ func repairM1311WaitStopped(t *testing.T, stopped <-chan error) {
 	}
 }
 
-func TestRepairM_1311_RestartRecovery(t *testing.T) {
+func TestServerRestartRecovery(t *testing.T) {
 	reservation, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 	addr := reservation.Addr().String()
 	require.NoError(t, reservation.Close())
 	for cycle := 1; cycle <= 2; cycle++ {
 		network := fmt.Sprintf("reopened-node-%d", cycle)
-		settings, conn := repairM1311Settings(t, addr, network)
+		settings, conn := newLifecycleServerSettings(t, addr, network)
 		srv, err := server.NewServer(settings)
 		require.NoError(t, err)
-		stopped := repairM1311Start(t, srv, addr)
+		stopped := startLifecycleServer(t, srv, addr)
 		transport := &http.Transport{}
 		client := &http.Client{Transport: transport, Timeout: 5 * time.Second}
 		response, err := client.Post("http://"+addr+"/network/list", "application/json", strings.NewReader(`{}`))
@@ -122,7 +122,7 @@ func TestRepairM_1311_RestartRecovery(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		require.NoError(t, copyOfServer.Shutdown(ctx))
 		cancel()
-		repairM1311WaitStopped(t, stopped)
+		waitForLifecycleServerStop(t, stopped)
 		require.Equal(t, connectivity.Shutdown, conn.GetState())
 		_, err = healthpb.NewHealthClient(conn).Check(context.Background(), &healthpb.HealthCheckRequest{Service: network})
 		require.Error(t, err, "the old node connection must no longer serve requests")
@@ -133,20 +133,20 @@ func TestRepairM_1311_RestartRecovery(t *testing.T) {
 	}
 }
 
-func TestRepairM_1311_ShutdownBeforeStart(t *testing.T) {
-	settings, conn := repairM1311Settings(t, "127.0.0.1:0", "stopped-before-start")
+func TestServerShutdownBeforeStart(t *testing.T) {
+	settings, conn := newLifecycleServerSettings(t, "127.0.0.1:0", "stopped-before-start")
 	srv, err := server.NewServer(settings)
 	require.NoError(t, err)
 	require.NoError(t, srv.Shutdown(context.Background()))
 	require.Equal(t, connectivity.Shutdown, conn.GetState())
 	stopped := make(chan error, 1)
 	go func() { stopped <- srv.Start() }()
-	repairM1311WaitStopped(t, stopped)
+	waitForLifecycleServerStop(t, stopped)
 }
 
-func TestRepairM_1311_StartupFailuresReleaseClient(t *testing.T) {
+func TestServerStartupFailuresReleaseClient(t *testing.T) {
 	t.Run("constructor", func(t *testing.T) {
-		settings, conn := repairM1311Settings(t, "127.0.0.1:0", "invalid-network")
+		settings, conn := newLifecycleServerSettings(t, "127.0.0.1:0", "invalid-network")
 		settings.Network = &types.NetworkIdentifier{}
 		_, err := server.NewServer(settings)
 		require.ErrorContains(t, err, "cannot build asserter")
@@ -156,7 +156,7 @@ func TestRepairM_1311_StartupFailuresReleaseClient(t *testing.T) {
 		occupied, err := net.Listen("tcp", "127.0.0.1:0")
 		require.NoError(t, err)
 		defer occupied.Close()
-		settings, conn := repairM1311Settings(t, occupied.Addr().String(), "occupied-address")
+		settings, conn := newLifecycleServerSettings(t, occupied.Addr().String(), "occupied-address")
 		srv, err := server.NewServer(settings)
 		require.NoError(t, err)
 		require.Error(t, srv.Start())

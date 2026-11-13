@@ -37,12 +37,12 @@ import (
 	banktypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/types"
 )
 
-type repair1313Hold struct {
+type blockLookupBarrier struct {
 	response chan []byte
 	release  chan struct{}
 }
 
-type repair1313Network struct {
+type blockConsistencyNetwork struct {
 	network   *network.Network
 	rpc       *rpchttp.HTTP
 	client    *rosetta.Client
@@ -52,10 +52,10 @@ type repair1313Network struct {
 	address   sdk.AccAddress
 	recipient sdk.AccAddress
 	mu        sync.Mutex
-	hold      *repair1313Hold
+	hold      *blockLookupBarrier
 }
 
-func repair1313Start(t *testing.T) *repair1313Network {
+func startBlockConsistencyNetwork(t *testing.T) *blockConsistencyNetwork {
 	t.Helper()
 	cfg := network.DefaultConfig(t)
 	cfg.ChainID = "repair-m1313"
@@ -63,7 +63,7 @@ func repair1313Start(t *testing.T) *repair1313Network {
 	cfg.AppConstructor = func(network.Validator) servertypes.Application {
 		return app.Setup(t, true, false, false)
 	}
-	h := &repair1313Network{key: secp256k1.GenPrivKey()}
+	h := &blockConsistencyNetwork{key: secp256k1.GenPrivKey()}
 	h.address = sdk.AccAddress(h.key.PubKey().Address())
 	h.recipient = sdk.AccAddress(secp256k1.GenPrivKey().PubKey().Address())
 	var authGenesis authtypes.GenesisState
@@ -141,7 +141,7 @@ func repair1313Start(t *testing.T) *repair1313Network {
 	return h
 }
 
-func (h *repair1313Network) send(t *testing.T) *coretypes.ResultTx {
+func (h *blockConsistencyNetwork) send(t *testing.T) *coretypes.ResultTx {
 	t.Helper()
 	ctx := context.Background()
 	options, err := (rosetta.PreprocessOperationsOptionsResponse{
@@ -181,8 +181,8 @@ func (h *repair1313Network) send(t *testing.T) *coretypes.ResultTx {
 	return result
 }
 
-func TestRepairM_1313_BalanceHeight(t *testing.T) {
-	h := repair1313Start(t)
+func TestAccountBalanceBlockHeight(t *testing.T) {
+	h := startBlockConsistencyNetwork(t)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 	for _, name := range []string{"latest", "empty", "hash", "height", "zero-height", "genesis-height"} {
@@ -204,7 +204,7 @@ func TestRepairM_1313_BalanceHeight(t *testing.T) {
 				height := int64(-1)
 				identifier = &ros.PartialBlockIdentifier{Index: &height}
 			}
-			hold := &repair1313Hold{response: make(chan []byte, 1), release: make(chan struct{})}
+			hold := &blockLookupBarrier{response: make(chan []byte, 1), release: make(chan struct{})}
 			var release sync.Once
 			unblock := func() { release.Do(func() { close(hold.release) }) }
 			defer unblock()
@@ -260,8 +260,8 @@ func TestRepairM_1313_BalanceHeight(t *testing.T) {
 	}
 }
 
-func TestRepairM_1313_BlockMembership(t *testing.T) {
-	h := repair1313Start(t)
+func TestBlockTransactionMembership(t *testing.T) {
+	h := startBlockConsistencyNetwork(t)
 	ctx := context.Background()
 	committed := h.send(t)
 	block, err := h.client.BlockTransactionsByHeight(ctx, &committed.Height)

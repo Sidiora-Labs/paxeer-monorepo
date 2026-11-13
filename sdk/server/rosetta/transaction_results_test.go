@@ -38,7 +38,7 @@ import (
 	banktypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/types"
 )
 
-type repair187Network struct {
+type transactionResultsNetwork struct {
 	network   *network.Network
 	rpc       *rpchttp.HTTP
 	client    *rosetta.Client
@@ -48,7 +48,7 @@ type repair187Network struct {
 	addresses []sdk.AccAddress
 }
 
-func repair187Start(t *testing.T) *repair187Network {
+func startTransactionResultsNetwork(t *testing.T) *transactionResultsNetwork {
 	t.Helper()
 	cfg := network.DefaultConfig(t)
 	cfg.ChainID = "repair-187"
@@ -58,7 +58,7 @@ func repair187Start(t *testing.T) *repair187Network {
 	cfg.AppConstructor = func(network.Validator) servertypes.Application {
 		return app.Setup(t, true, false, false)
 	}
-	h := &repair187Network{}
+	h := &transactionResultsNetwork{}
 	var accounts []authtypes.GenesisAccount
 	var balances []banktypes.Balance
 	for i := 0; i < 2; i++ {
@@ -120,7 +120,7 @@ func repair187Start(t *testing.T) *repair187Network {
 	return h
 }
 
-func (h *repair187Network) post(t *testing.T, path string, request, response interface{}) int {
+func (h *transactionResultsNetwork) post(t *testing.T, path string, request, response interface{}) int {
 	t.Helper()
 	body, err := json.Marshal(request)
 	require.NoError(t, err)
@@ -134,7 +134,7 @@ func (h *repair187Network) post(t *testing.T, path string, request, response int
 	return resp.StatusCode
 }
 
-func (h *repair187Network) account(t *testing.T, index int) *rosetta.SignerData {
+func (h *transactionResultsNetwork) account(t *testing.T, index int) *rosetta.SignerData {
 	t.Helper()
 	options, err := (rosetta.PreprocessOperationsOptionsResponse{ExpectedSigners: []string{h.addresses[index].String()}, GasLimit: 1000000, GasPrice: "10000uhpx"}).ToMetadata()
 	require.NoError(t, err)
@@ -145,7 +145,7 @@ func (h *repair187Network) account(t *testing.T, index int) *rosetta.SignerData 
 	return construction.SignersData[0]
 }
 
-func (h *repair187Network) send(t *testing.T, amount int64) *coretypes.ResultTx {
+func (h *transactionResultsNetwork) send(t *testing.T, amount int64) *coretypes.ResultTx {
 	t.Helper()
 	cfg := h.network.Config.TxConfig
 	builder := cfg.NewTxBuilder()
@@ -169,7 +169,7 @@ func (h *repair187Network) send(t *testing.T, amount int64) *coretypes.ResultTx 
 	return result
 }
 
-func (h *repair187Network) block(t *testing.T, height int64) *ros.Block {
+func (h *transactionResultsNetwork) block(t *testing.T, height int64) *ros.Block {
 	t.Helper()
 	var response ros.BlockResponse
 	status := h.post(t, "/block", &ros.BlockRequest{NetworkIdentifier: h.netID, BlockIdentifier: &ros.PartialBlockIdentifier{Index: &height}}, &response)
@@ -178,7 +178,7 @@ func (h *repair187Network) block(t *testing.T, height int64) *ros.Block {
 	return response.Block
 }
 
-func repair187FindTx(t *testing.T, block *ros.Block, hash []byte) *ros.Transaction {
+func findBlockTransaction(t *testing.T, block *ros.Block, hash []byte) *ros.Transaction {
 	t.Helper()
 	for _, tx := range block.Transactions {
 		if tx.TransactionIdentifier.Hash == fmt.Sprintf("%X", hash) {
@@ -189,8 +189,8 @@ func repair187FindTx(t *testing.T, block *ros.Block, hash []byte) *ros.Transacti
 	return nil
 }
 
-func TestRepair_187_ResultsDiscarded(t *testing.T) {
-	h := repair187Start(t)
+func TestTransactionResultsPreserveOperations(t *testing.T) {
+	h := startTransactionResultsNetwork(t)
 	for _, test := range []struct {
 		name   string
 		amount int64
@@ -204,7 +204,7 @@ func TestRepair_187_ResultsDiscarded(t *testing.T) {
 				require.NotZero(t, result.TxResult.Code)
 			}
 			block := h.block(t, result.Height)
-			tx := repair187FindTx(t, block, result.Hash)
+			tx := findBlockTransaction(t, block, result.Hash)
 			require.NotEmpty(t, tx.Operations)
 			for i, op := range tx.Operations {
 				require.EqualValues(t, i, op.OperationIdentifier.Index)
@@ -233,12 +233,12 @@ func TestRepair_187_ResultsDiscarded(t *testing.T) {
 	}
 }
 
-func TestRepair_187_NormalTxLookup(t *testing.T) {
-	h := repair187Start(t)
+func TestBlockTransactionLookup(t *testing.T) {
+	h := startTransactionResultsNetwork(t)
 	for _, amount := range []int64{23, 2000000} {
 		result := h.send(t, amount)
 		block := h.block(t, result.Height)
-		expected := repair187FindTx(t, block, result.Hash)
+		expected := findBlockTransaction(t, block, result.Hash)
 		var response ros.BlockTransactionResponse
 		status := h.post(t, "/block/transaction", &ros.BlockTransactionRequest{NetworkIdentifier: h.netID, BlockIdentifier: block.BlockIdentifier, TransactionIdentifier: expected.TransactionIdentifier}, &response)
 		require.Equal(t, http.StatusOK, status)
@@ -258,8 +258,8 @@ func TestRepair_187_NormalTxLookup(t *testing.T) {
 	require.ErrorIs(t, err, crgerrs.ErrBadArgument)
 }
 
-func TestRepair_187_MultisignerKey(t *testing.T) {
-	h := repair187Start(t)
+func TestConstructionMultisignerKeys(t *testing.T) {
+	h := startTransactionResultsNetwork(t)
 	cdc, ir := rosetta.MakeCodec()
 	converter := rosetta.NewConverter(cdc, ir, h.network.Config.TxConfig)
 	var operations []*ros.Operation

@@ -9,7 +9,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-func TestRepair2239367StopIdleGRPCServer(t *testing.T) {
+func TestStopIdleGRPCServer(t *testing.T) {
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 	server := grpc.NewServer()
