@@ -18,8 +18,7 @@ application settings, including the execution-role `[sequencer]` section.
 The declarations in [`app_config.go`](../daemon/paxd/cmd/app_config.go) and
 [`consensus/config/config.go`](../consensus/config/config.go) are authoritative.
 
-Public node JSON-RPC uses HTTPS at the configured node origin's root path. The node namespaces are `debug`, `echo`,
-`eth`, `net`, `pax`, `px`, `test` and `txpool`. The `px` namespace answers from node state; `px_register` and
+Public node JSON-RPC uses HTTPS at the configured node origin's root path. Node method availability follows the [node RPC contract](rpc.md#public-json-rpc). The `px` namespace answers from node state; `px_register` and
 `px_requestFunds` are operations of the hosted identity and faucet
 services declared in [the gateway OpenRPC contract](../services/platform/hosted/gateway/openrpc.json).
 See [consensus RPC routes](consensus-fork.md#rpc-routes) for the separate local

@@ -2,7 +2,7 @@
 
 The protobuf sources define typed node messages and services for Paxeer. Paxeer mainnet-beta is one BFT network with EVM chain ID **125** (`0x7d`); the kernel is part of the network and proposes blocks. Receipts become final with block commitment. Module names beginning `layerx` are modules or precompile adapters in this network, not a second chain or public interface. Sub-chains are tenant namespaces in the database.
 
-Public node JSON-RPC uses HTTPS at the configured node origin's root path. The node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test` and `txpool`. Protobuf gRPC and its HTTP bindings are separate node server transports configured by the operator; do not append an HTTP query path to an Ethereum endpoint and assume it is mounted there. The `px` namespace answers from node state; `px_register` and `px_requestFunds` are operations of the hosted identity and faucet services declared in [the gateway contract](platform-gateway.md).
+Public node JSON-RPC uses HTTPS at the configured node origin's root path. Node method availability follows the [node RPC contract](rpc.md#public-json-rpc). Protobuf gRPC and its HTTP bindings are separate node server transports configured by the operator; do not append an HTTP query path to an Ethereum endpoint and assume it is mounted there. The `px` namespace answers from node state; `px_register` and `px_requestFunds` are operations of the hosted identity and faucet services declared in [the gateway contract](platform-gateway.md).
 
 ## Sources and service registration
 
@@ -45,13 +45,13 @@ From the repository root, the maintained generation entry point is:
 ./scripts/protoc.sh
 ```
 
-This is a regeneration instruction, not a gate claimed by this page. [scripts/protoc.sh](../scripts/protoc.sh) prepares `build/proto`, builds `protoc-gen-gocosmos` from `github.com/regen-network/cosmos-proto@v0.3.1`, and invokes Buf **v1.58.0**. The root [buf.gen.yaml](../buf.gen.yaml) selects API, SDK, interchain, consensus and Wasm inputs. Its local gocosmos output uses `plugins=interfacetype+grpc` and the declared protobuf mappings, including the SDK `Any` type. The HTTP generator is `protoc-gen-grpc-gateway@v1.16.0` with `logtostderr=true` and `allow_colon_final_segments=true`; consensus generation also uses `protoc-gen-gogofaster@v1.3.2`.
+[scripts/protoc.sh](../scripts/protoc.sh) prepares `build/proto`, builds `protoc-gen-gocosmos` from `github.com/regen-network/cosmos-proto@v0.3.1`, and invokes Buf **v1.58.0**. The root [buf.gen.yaml](../buf.gen.yaml) selects API, SDK, interchain, consensus and Wasm inputs. Its local gocosmos output uses `plugins=interfacetype+grpc` and the declared protobuf mappings, including the SDK `Any` type. The HTTP generator is `protoc-gen-grpc-gateway@v1.16.0` with `logtostderr=true` and `allow_colon_final_segments=true`; consensus generation also uses `protoc-gen-gogofaster@v1.3.2`.
 
-The script invokes the additional consensus internal and wireguard templates, copies generated files into their owning trees and removes the temporary output. [tools/repotest/gen.go](../tools/repotest/gen.go) exposes the script through `go:generate`. Change source declarations and their consumers together; generated output alone is not the source contract. Compatibility/parity and route tests live under [api](../api), but their execution belongs to the gate explicitly declared for the task making that interface change.
+The script invokes the additional consensus internal and wireguard templates, copies generated files into their owning trees and removes the temporary output. [tools/repotest/gen.go](../tools/repotest/gen.go) exposes the script through `go:generate`. Change source declarations and their consumers together; generated output alone is not the source contract. Compatibility, parity and route tests live under [api](../api).
 
 ## Source declaration index
 
-The anchors below retain registry links to SDK messages, transaction/query methods and HTTP bindings. Each entry points to the current source file; listed declarations come from that file. Follow it for exact field numbers, service request/response types and annotations. This index identifies declarations, not independently deployed endpoints. Native module sources under `api/` remain authoritative for their own packages.
+The index below links SDK messages, transaction/query methods and HTTP bindings. Each entry points to the current source file; listed declarations come from that file. Follow it for exact field numbers, service request/response types and annotations. This index identifies declarations, not independently deployed endpoints. Native module sources under `api/` remain authoritative for their own packages.
 
 <a id="proto-cosmos-auth-v1beta1-baseaccount-j39"></a>
 <a id="proto-cosmos-auth-v1beta1-moduleaccount-j39"></a>

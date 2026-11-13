@@ -2,7 +2,7 @@
 
 The developer binary is **`layerx`**, declared by [tools/platform/cli](../tools/platform/cli/Cargo.toml). The CLI connects to the single Paxeer BFT network and its configured application services. Mainnet-beta has EVM chain ID **125** (`0x7d`); the kernel is part of the network and proposes blocks, and a receipt becomes final when its block is committed. Sub-chains are tenant domains in the database, not independently deployed chains.
 
-Public node JSON-RPC uses HTTPS at the configured node origin's root path. The node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test`, and `txpool`. The `px` namespace answers from node state; `px_register` and `px_requestFunds` are operations of the hosted identity and faucet services declared in [the gateway OpenRPC contract](../services/platform/hosted/gateway/openrpc.json).
+Public node JSON-RPC uses HTTPS at the configured node origin's root path. Node method availability follows the [node RPC contract](rpc.md#public-json-rpc). The `px` namespace answers from node state; `px_register` and `px_requestFunds` are operations of the hosted identity and faucet services declared in [the gateway OpenRPC contract](../services/platform/hosted/gateway/openrpc.json).
 See [explorer HTTP](explorer-http-api.md), [socket updates](explorer-ws.md), [metrics](explorer-metrics.md), and [historical header verification](kernel.md#format-batch-header). These describe different application transports on the same network.
 
 <a id="cli-cli-commands"></a>

@@ -2,7 +2,7 @@
 
 Hosted services provide application ingress, identity, proof verification, indexing and operational support for Paxeer. They do not form an additional consensus network. Mainnet-beta is one BFT chain with EVM chain ID **125** (`0x7d`); its kernel is part of the network and proposes blocks. A receipt is final when its block is committed. Sub-chains are database tenant domains, launchable without another chain deployment.
 
-Public node JSON-RPC uses HTTPS at the configured node origin's root path. Node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test` and `txpool`. The `px` namespace answers from node state; `px_register` and `px_requestFunds` are operations of the hosted identity and faucet services declared in [the gateway OpenRPC contract](../services/platform/hosted/gateway/openrpc.json).
+Public node JSON-RPC uses HTTPS at the configured node origin's root path. Node method availability follows the [node RPC contract](rpc.md#public-json-rpc). The `px` namespace answers from node state; `px_register` and `px_requestFunds` are operations of the hosted identity and faucet services declared in [the gateway OpenRPC contract](../services/platform/hosted/gateway/openrpc.json).
 This page describes service families and links their implementation. The [gateway contract](platform-gateway.md) owns public ingress; [middleware](platform-middleware.md) owns application payment verification, [ramps](platform-ramps.md) own independent external-funds workflows, and [protobuf APIs](proto-api.md) own node gRPC/REST declarations. Full and archive `paxd` nodes supply historical chain data; the [indexer](#indexer-http-routes) supplies ordered application projections.
 
 ## Env vars

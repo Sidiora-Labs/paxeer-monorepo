@@ -5,8 +5,8 @@ Paxeer mainnet-beta is one BFT network, served by `paxd`, with EVM chain ID
 transaction receipt is final when its block is committed. Sub-chains are
 tenant domains in the database and do not introduce another public chain ID.
 
-This page documents node access and the module queries referenced by the
-interface registry. See [JavaScript SDK](sdk-js.md) for the native-module
+This page documents node access and native module queries.
+See [JavaScript SDK](sdk-js.md) for the native-module
 client and [verifier HTTP](verifier-http.md) for explorer source verification.
 Source verification compares compiled code; it does not establish consensus
 finality.
@@ -28,10 +28,15 @@ Expect `result: "0x7d"`. Check the chain before signing. Keep multiple nodes
 configured, compare `eth_blockNumber`, and set client deadlines. After a
 broadcast timeout, look up the original transaction hash before resubmitting.
 
-The public node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test`
-and `txpool`; this is not a promise of every upstream Geth method. The
-implementation registers APIs in `rpc/server.go`; deployment configuration
-controls exposure. The `px` namespace answers from node state; `px_register` and
+The [HTTP API registration](../rpc/server.go) includes `debug`, `echo`, `eth`,
+`net`, `pax`, `pax2`, `px`, `txpool` and `web3`. WebSocket registration includes
+`echo`, `eth`, `net`, `pax`, `px`, `txpool` and `web3`. The `test` API is registered
+only when explicitly enabled on a non-live chain. Registered namespaces do not
+promise every upstream Geth method; namespace filters, deny lists and the HTTP
+legacy-method policy further control exposure. The [method inventory](../rpc/served_methods.go)
+provides `HTTPMethods()` and `WSMethods()` for the configured servers.
+The `px` namespace supplies node-backed account, history, consensus and inference
+adapters, with unavailable dependencies reported as errors. `px_register` and
 `px_requestFunds` are operations of the hosted identity and faucet
 services declared in [the gateway OpenRPC contract](../services/platform/hosted/gateway/openrpc.json).
 

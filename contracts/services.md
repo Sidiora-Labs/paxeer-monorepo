@@ -118,7 +118,7 @@ Private account operations consume an authenticated principal; mutations also en
 
 ## Launchpad trading charts
 
-[`RegisterProductionUDF`](../services/launchpad/trading-charts/internal/httpapi/udf.go) mounts `/v2/udf/config`, `/v2/udf/symbols`, `/v2/udf/history` and `/v2/udf/time`. UDF history follows TradingView's bars/no-data contract. The retained unversioned `/config`, `/symbols`, `/history` and `/time` routes are a different registration path. The web's same-origin UDF rewrites target this service; live market candles use API stream topics. See [CandlesClient](clients.md#launchpad-sdk-candles-sdk).
+[`RegisterProductionUDF`](../services/launchpad/trading-charts/internal/httpapi/udf.go) mounts `/v2/udf/config`, `/v2/udf/symbols`, `/v2/udf/history` and `/v2/udf/time`. UDF history follows TradingView's bars/no-data contract. The retained unversioned `/config`, `/symbols`, `/history` and `/time` routes are a different registration path. The web's same-origin UDF rewrites target this service; live market candles use API stream topics. See [CandlesClient](clients.md#launchpad-candles-sdk).
 
 ## Launchpad stats workers
 
@@ -148,4 +148,4 @@ Private account operations consume an authenticated principal; mutations also en
 
 [go.work](../services/launchpad/go.work) declares Go 1.27.0 and the service modules together with shared/protocol SDK modules and recovery/load helpers. The [Makefile](../services/launchpad/Makefile) drives an explicit `MODULES` list including discovery, notifications, security and security/control. Its list and `go.work` membership serve different purposes; neither implies every helper runs in production.
 
-`build`, `vet`, `fmt-check`, `lint`, `test`, `race`, `cover` and `cover-check` operate across that declared list; `all` and `ci` combine the release/development checks. `test-module` requires a listed `MODULE` and an anchored `RUN` regex. `cover-check` applies 85% generally and 90% to the declared money modules. `sqlc` regenerates modules that contain a configuration. See [launchpad tooling](launchpad.md#launchpad-tools).
+`build`, `vet`, `fmt-check`, `lint`, `test`, `race`, `cover` and `cover-check` operate across that declared list; `all` and `ci` combine the release/development checks. `test-module` requires a listed `MODULE` and an anchored `RUN` regex. `cover-check` applies 85% generally and 90% to the declared money modules. `sqlc` regenerates modules that contain a configuration. See [launchpad tooling](launchpad.md#launchpad-contracts-tooling).

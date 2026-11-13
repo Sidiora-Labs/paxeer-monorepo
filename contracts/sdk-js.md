@@ -15,8 +15,10 @@ Tenant domains do not require another SDK package or public EVM chain ID.
 The authoritative manifest is [sdk/js/package.json](../sdk/js/package.json),
 currently version `0.1.0`, in
 [paxeer-monorepo](https://github.com/Sidiora-Labs/paxeer-monorepo/tree/main/sdk/js).
-It selects runtime artifacts under `dist/cjs` and `dist/esm`, with declarations
-under `dist/types`; these directories are absent from this checkout.
+Its distribution contract selects runtime artifacts under `dist/cjs` and
+`dist/esm`, with declarations under `dist/types`. The checkout contains the
+manifest, README and package tests; consumers need the distribution artifacts
+to load the declared subpaths.
 There is no `src` build tree or `build` script in this package. Its test
 script is `node --test test/`.
 
@@ -40,9 +42,9 @@ a message or broadcast automatically.
 ## encoding-index
 
 The [encoding package contract](../sdk/js/README.md#pax-jscosmosencoding) describes
-`Encoder`, `aminoConverters` and `paxProtoRegistry`. `Encoder` groups codecs
-under namespaces including `cosmos`, `epoch`, `eth`, `evm`, `mint.v1beta1`,
-`oracle`, `tokenfactory`, `confio`, `google` and `tendermint`.
+`Encoder`, `aminoConverters` and `paxProtoRegistry`. The package tests specify
+codecs for bank sends, EVM messages, custom mint messages, TokenFactory and
+consensus messages.
 
 ```typescript
 import { Encoder } from '@pax-js/cosmos/encoding';
@@ -66,26 +68,18 @@ consumers that require a pre-encoded value.
 
 ## encoding-common
 
-The internal `common.d.ts` in the distribution's
-[encoding export](../sdk/js/package.json) defines
-`MessageFns<T, V>`: `$type`, `encode`, `decode`, `fromJSON`, `toJSON`, `create`
-and `fromPartial`. `encode` returns a binary writer; call `.finish()` for a
-`Uint8Array`. `decode` accepts bytes or a binary reader. `DeepPartial`,
-`Exact`, `Builtin` and `KeysOfUnion` support construction and typing; they
-are not runtime validators or network clients.
+The [encoding guide](../sdk/js/README.md#pax-jscosmosencoding) specifies
+`$type`, `fromPartial`, `encode` and `decode`. Call `.finish()` on an encoded
+message to obtain bytes. `fromPartial` fills omitted fields with defaults;
+the chain still validates transaction semantics and permissions.
 
-Keep the representation boundaries explicit. In-memory protobuf values use
-`Uint8Array` for bytes and often JavaScript `number` for 64-bit fields;
-amounts and decimal values declared as strings remain strings. Use the
-message codec's JSON conversion for base64 bytes, timestamps and numeric
-conversion. Values outside JavaScript's safe integer range cannot be
-represented exactly by these `number` declarations. REST helpers do not
-call these conversions for you.
+The [TokenFactory codec cases](../sdk/js/test/tokenfactory-encoding.test.cjs)
+specify `Uint8Array` pagination keys in message objects and base64 keys in
+codec JSON. REST helpers return parsed wire JSON without codec conversion.
 
 ## encoding-registry
 
-`paxProtoRegistry` is declared as an array of `[typeUrl, GeneratedType]`
-pairs. Entries use slash-prefixed fully qualified protobuf names; codec
+`paxProtoRegistry` contains type URL/codec pairs for CosmJS `Registry`. Entries use slash-prefixed fully qualified protobuf names; codec
 `$type` values omit the leading slash. See the
 [registry package contract](../sdk/js/README.md#usage-with-cosmjsstargate) for
 registration and signing usage. A registered codec is not proof that the node
@@ -94,146 +88,137 @@ module and transport contract.
 
 ## encoding-amino
 
-`aminoConverters` maps type URLs to `aminoType`, `toAmino` and `fromAmino`
-converters for CosmJS `AminoTypes`. It is exported from the encoding entry
+`aminoConverters` supplies the converter map for CosmJS `AminoTypes`. It is exported from the encoding entry
 point; the manifest does not export an `encoding/amino` subpath. Amino
 conversion does not sign or submit a transaction and does not guarantee
 that an arbitrary message is supported by a connected wallet.
 
 ## Codec and type families
 
-Each section below also supplies the `types-*` anchor used by older registry
-rows. Type declarations describe objects; `Encoder` supplies their binary
-codecs. Files removed from the package are not restored by a registry link.
+The package tests and [package guide](../sdk/js/README.md) describe the
+distribution interface. Native message fields and wire numbers come from the
+linked protobuf sources. Type declarations describe objects; codecs encode
+and decode those objects.
 
 <a id="types-confio"></a>
 
 ### encoding-confio
 
-`Encoder.confio` contains the ICS23 proof messages from
-`dist/types/{encoding,types}/confio/proofs.d.ts`, including commitment,
-existence, nonexistence, batch and compressed proofs and proof-operation
-enums. Encoding a proof is not verification of a trusted chain commitment.
+Native ICS23 commitment and existence proof messages are declared in
+[proofs.proto](../interchain/third_party/proto/proofs.proto). Encoding a proof
+alone does not verify a trusted chain commitment.
 
 <a id="types-cosmos"></a>
 
 ### encoding-cosmos
 
-`Encoder.cosmos` includes the exported auth, authz, bank, base, capability,
-crypto, distribution, evidence, feegrant, genutil, gov, params, slashing,
-staking, tx, upgrade and vesting namespaces. The corresponding
-`types/cosmos/<module>/<version>` imports provide message interfaces and,
-where present, enum values. Coins use string `denom` and string `amount`;
-pagination uses the base query messages.
-
-The custom Pax mint family below is distinct from Cosmos mint.
+The package guide specifies bank `MsgSend` through
+`Encoder.cosmos.bank.v1beta1` and the corresponding
+`types/cosmos/bank/v1beta1` import. Coins use string `denom` and string
+`amount`; [coin.proto](../sdk/proto/cosmos/base/v1beta1/coin.proto) defines the
+native wire fields. The custom Pax mint family below is separate.
 
 <a id="types-epoch"></a>
 
 ### encoding-epoch
 
-`Encoder.epoch` and `types/epoch` contain epoch, genesis, params and query
-messages. `Epoch` uses optional `Date` timestamps, an optional protobuf
-duration, and numeric epoch/height fields. The node's JSON epoch duration
-field has a Go JSON tag; use the node's actual gateway representation when
-handling raw REST responses. Bindings are in [epoch queries](rpc.md#epoch-queries).
+The native [epoch declaration](../api/epoch/epoch.proto) defines timestamp,
+duration, epoch and height fields. Its duration has the Go JSON tag
+`duration,omitempty`. See [epoch queries](rpc.md#epoch-queries) for node
+query bindings.
 
 <a id="types-eth"></a>
 
 ### encoding-eth
 
-`Encoder.eth` and `types/eth` cover `AccessTuple`, `AssociateTx`, `LegacyTx`,
-`AccessListTx`, `DynamicFeeTx`, `BlobTx`, `BlobTxSidecar` and
-`ExtensionOptionsEthereumTx`. Fee/value/chain-ID strings and signature/data
-byte arrays are part of the
-[module type contract](../sdk/js/README.md#pax-jscosmostypes). The node proto also
-declares `SetCodeAuthorization` and `SetCodeTx`; this SDK does not currently
-export those messages. These native envelopes are not Ethereum raw
-transaction RLP or JSON-RPC request objects.
+The native [Ethereum transaction declarations](../api/eth/tx.proto) define
+access lists, association signatures and transaction envelopes, including
+`SetCodeAuthorization` and `SetCodeTx`. These protobuf envelopes are distinct
+from Ethereum raw transaction RLP and JSON-RPC request objects.
 
 <a id="types-evm"></a>
 
 ### encoding-evm
 
-`Encoder.evm` and `types/evm` cover config, enums, genesis, governance, params,
-queries, receipts, transactions and EVM types. The six query methods are
-listed under [EVM module queries](rpc.md#evm-module-queries). Pointer results
-include `exists`; association results include `associated`.
+The [EVM codec cases](../sdk/js/test/evm-encoding-declarations.test.cjs)
+specify snake_case codec fields such as `pax_sstore_set_gas_eip2200` and
+`allowed_fee_denoms`. The [module declaration cases](../sdk/js/test/types-declarations-app.test.cjs)
+use camelCase fields such as `paxSstoreSetGasEip2200` and `allowedFeeDenoms`
+in the module interfaces. Use the field names of the selected interface.
 
-Check enum parity before crossing the native ABI. The SDK's `PointerType`
-matches the seven node values, but its `AssetType` declaration still has
-`TYPECW20=0`, `TYPECW721=1`, whereas the node proto declares
-`TYPEUNKNOWN=0`, `TYPECW20=1`, `TYPECW721=2`, `TYPENATIVE=3`. Those SDK
-`AssetType` values must not be used as node enum numbers. Compare
-[SDK module types](../sdk/js/README.md#pax-jscosmostypes) with
-[node enums](../api/evm/enums.proto).
+The [node enums](../api/evm/enums.proto) define `AssetType` as
+`TYPEUNKNOWN=0`, `TYPECW20=1`, `TYPECW721=2`, `TYPENATIVE=3`.
+Use those wire values for native requests. The declaration cases also specify
+EVM asset `denom`, TokenFactory `issuerDid` and pagination fields.
+See [EVM module queries](rpc.md#evm-module-queries) for node query bindings.
 
 <a id="types-google"></a>
 
 ### encoding-google
 
-`Encoder.google.api` and `Encoder.google.protobuf` provide HTTP annotation,
-HTTP body, `Any`, descriptor, duration and timestamp codecs. Corresponding
-types are under `types/google/api` and `types/google/protobuf`. Preserve
-`Any.type_url` and its encoded value; it is not an arbitrary JSON object.
+Native protobuf [Any](../sdk/third_party/proto/google/protobuf/any.proto)
+contains `type_url` and encoded `value` bytes. An arbitrary JSON object does
+not supply that protobuf envelope.
 
 <a id="types-mint"></a>
 
 ### encoding-mint
 
-`Encoder.mint.v1beta1` and `types/mint/v1beta1` contain the custom Pax mint
-genesis, governance, mint and query messages. `Minter` query amounts/heights
-are declared as numbers in this SDK, while gateway JSON represents uint64
-fields as decimal strings. See [mint queries](rpc.md#mint-queries).
+The [namespace cases](../sdk/js/test/encoding-namespace.test.cjs) specify
+`Encoder.mint.v1beta1`, including `Minter`, `Params`, scheduled releases and
+their version-two counterparts. They exclude `Encoder.cosmos.mint`.
+See [mint queries](rpc.md#mint-queries) for the custom module's node bindings.
 
 <a id="types-oracle"></a>
 
 ### encoding-oracle
 
-`Encoder.oracle` and `types/oracle` cover oracle genesis, params, votes,
-rates, snapshots, TWAPs and queries. Exchange rates and decimal parameters
-are strings; counters and timestamps have their declared numeric types.
+Native oracle messages are declared under [api/oracle](../api/oracle).
 Requests use `denom`, `validator_addr` or `lookback_seconds` as applicable;
-the exact HTTP prefix is documented in [oracle queries](rpc.md#oracle-queries).
+see [oracle queries](rpc.md#oracle-queries) for HTTP paths and query methods.
 
 <a id="types-tendermint"></a>
 
 ### encoding-tendermint
 
-`Encoder.tendermint` groups `abci`, `crypto`, `libs.bits`, `p2p`, `types` and
-`version` messages. Corresponding `types/tendermint/...` modules describe
-blocks, validators, proofs, consensus parameters and ABCI requests/responses.
-These structures must match the local consensus proto, not an arbitrary
-upstream Tendermint release. The old `CheckTxType` enum was removed.
+The [consensus codec cases](../sdk/js/test/tendermint-encoding.test.cjs) specify
+`Encoder.tendermint.types.Proposal` and `Encoder.tendermint.version.Consensus`.
+The [module declaration cases](../sdk/js/test/types-declarations-tendermint.test.cjs)
+specify proposal, header, commit, consensus parameter and validator types.
+The [ABCI distribution contract](../sdk/js/test/abci-encoding-responses.test.cjs)
+selects `ResponseInfo`, `ResponseQuery`, `ResponseCheckTx`, `ResponseDeliverTx`,
+`ResponseCommit`, `ResponseFinalizeBlock`, `Event`, `EventAttribute`,
+`ExecTxResult`, `TxResult` and `ValidatorUpdate`. Its
+[request contract](../sdk/js/test/abci-encoding-requests.test.cjs) excludes
+ABCI request messages. These types follow the local consensus proto.
 
 <a id="types-tokenfactory"></a>
 
 ### encoding-tokenfactory
 
-`Encoder.tokenfactory` and `types/tokenfactory` provide authority metadata,
-genesis, params, queries and the `MsgCreateDenom`, `MsgMint`, `MsgBurn`,
-`MsgChangeAdmin`, `MsgSetDenomMetadata` and `MsgUpdateDenom` message families.
-Coin amounts remain strings. `QueryDenomsFromCreatorRequest.pagination`
-and its response pagination are present in the maintained declarations.
+The [package guide](../sdk/js/README.md#tokenfactory-messages) specifies
+`MsgCreateDenom` and `MsgMint` through `types/tokenfactory`. Coin amounts
+are strings. The [codec cases](../sdk/js/test/tokenfactory-encoding.test.cjs)
+specify authority metadata `issuerDid` and optional request/response
+pagination for `DenomsFromCreator`. The native
+[authority metadata](../api/tokenfactory/authority_metadata.proto) uses
+`issuer_did`.
 
-The package is not a complete mirror of the current module: its query client
-has no `DenomPaused` method, and authority metadata currently declares
-`issuerDid` while the node proto uses `issuer_did`. Use the
-[node contract](rpc.md#tokenfactory-queries) for raw REST and newer fields;
-do not infer missing functionality from old registry declarations.
+The [node query contract](rpc.md#tokenfactory-queries) lists raw REST bindings,
+including `DenomPaused`. Select a client operation from the package's
+available distribution exports.
 
 ## REST
 
-The REST entry exports `Querier`; its methods are static query helpers, not
-instances with a stored endpoint. Every call accepts a request and optional
-`InitReq`. Configure `pathPrefix` with the operator's Cosmos REST origin,
+The REST entry exports `Querier`. Query calls accept a request and transport
+options. Configure `pathPrefix` with the operator's Cosmos REST origin,
 without a trailing slash. A public EVM JSON-RPC origin is not a substitute.
 
 ```typescript
 import { Querier } from '@pax-js/cosmos/rest';
 
-async function readTokenfactoryParams(restOrigin: string) {
-  return Querier.tokenfactory.Params({}, {
+async function readBalances(restOrigin: string, address: string) {
+  return Querier.cosmos.bank.v1beta1.AllBalances({ address }, {
     pathPrefix: restOrigin,
     signal: AbortSignal.timeout(15_000),
   });
@@ -242,65 +227,52 @@ async function readTokenfactoryParams(restOrigin: string) {
 
 ### rest-index
 
-`Querier` groups `cosmos`, `epoch`, `evm`, `mint.v1beta1`, `oracle` and
-`tokenfactory`. See the [REST package contract](../sdk/js/README.md#pax-jscosmosrest)
-for query usage and transport behavior. No endpoint or chain is selected by default.
+The [REST package guide](../sdk/js/README.md#pax-jscosmosrest) specifies
+`Querier`, including `Querier.cosmos.bank.v1beta1.AllBalances`. Configure the
+Cosmos REST base URL explicitly.
 
 ### rest-fetch
 
-The internal `InitReq` extends `RequestInit` with `pathPrefix`. `fetchReq`
-concatenates that prefix with the generated path and calls global `fetch`.
-Generated query methods set `method: "GET"`; headers, credentials and abort
-signals can be supplied by the caller. Without a prefix, paths are relative.
-
-The helper calls `response.json()` and returns that body on success. On a
-non-OK HTTP status it throws the parsed body, which need not be an `Error`
-instance. Invalid JSON rejects during parsing, and fetch/network/abort errors
-propagate. It adds no retries or timeout and does not call `fromJSON` or
-validate the returned shape. In particular, its declared `Promise<T>` does
-not convert base64 strings to `Uint8Array` or uint64 strings to numbers.
-
-`renderURLSearchParams` flattens nested objects with dotted field names,
-repeats keys for nonempty primitive arrays, excludes path parameters, and
-omits zero numbers, false booleans, empty strings and empty arrays. Raw byte
-arrays are not converted to base64 by this serializer. For byte-bearing
-queries such as `StaticCall`, construct a properly encoded gateway request
-instead of assuming the typed request object is serialized as protobuf JSON.
+The package guide specifies `pathPrefix` concatenation and a runtime-provided
+`fetch`. Query helpers return parsed JSON and throw the parsed response body
+on a non-success HTTP status. They add no automatic retries or deadlines;
+pass an abort `signal` in the second argument for cancellation. Parsed JSON
+retains wire representations such as base64 bytes and decimal-string uint64
+values.
 
 ### rest-cosmos
 
-The live `Querier.cosmos` modules are auth, authz, bank, distribution,
-evidence, feegrant, gov, params, slashing, staking and upgrade, each under
-`v1beta1`. Removed access-control and Cosmos mint REST clients do not resolve.
+The guide's `AllBalances` example queries
+`/cosmos/bank/v1beta1/balances/{address}`. The
+[REST namespace cases](../sdk/js/test/rest-namespace.test.cjs) specify the
+bank query namespace and exclude Cosmos mint and access-control clients.
 
 ### rest-epoch
 
-`Querier.epoch.Epoch` and `.Params` issue the two
-[epoch HTTP queries](rpc.md#epoch-queries).
+Use [epoch queries](rpc.md#epoch-queries) for the native node HTTP bindings.
 
 ### rest-evm
 
-`Querier.evm` exposes `PaxAddressByEVMAddress`, `EVMAddressByPaxAddress`,
-`StaticCall`, `Pointer`, `PointerVersion` and `Pointee`. See the byte encoding
-limitation in [rest-fetch](#rest-fetch) before using `StaticCall`.
+Use [EVM module queries](rpc.md#evm-module-queries) for native query methods
+and byte-bearing requests such as `StaticCall`. REST JSON retains its wire
+representations.
 
 ### rest-mint
 
-`Querier.mint.v1beta1.Params` and `.Minter` use `/paxchain/mint/v1beta1`.
-This custom module remains present despite the removal of Cosmos mint clients.
+The [REST namespace cases](../sdk/js/test/rest-namespace.test.cjs) specify
+`Querier.mint.v1beta1.Params` as a GET to `/paxchain/mint/v1beta1/params`.
+See [mint queries](rpc.md#mint-queries) for the native module bindings.
 
 ### rest-oracle
 
-`Querier.oracle` supplies the ten methods in
-[oracle queries](rpc.md#oracle-queries), including `Twaps` and
-`VotePenaltyCounter`. Its prefix contains `pax-chain`.
+Use [oracle queries](rpc.md#oracle-queries) for the native query methods.
+Their HTTP prefix contains `pax-chain`.
 
 ### rest-tokenfactory
 
-`Querier.tokenfactory` exposes `Params`, `DenomAuthorityMetadata`,
-`DenomMetadata`, `DenomsFromCreator` and `DenomAllowList`. Path parameters
-are passed through `encodeURIComponent`; other request fields become query
-parameters, including dotted pagination fields. If an intermediary rejects
-encoded slashes in a denom path, use the node's query-only authority metadata
-binding directly. `DenomPaused` requires a direct node query as described
-in [tokenfactory queries](rpc.md#tokenfactory-queries).
+The [REST cases](../sdk/js/test/tokenfactory-rest.test.cjs) specify
+`Querier.tokenfactory.DenomAuthorityMetadata` and `DenomsFromCreator`.
+Path parameters are escaped; pagination uses dotted query names such as
+`pagination.limit` and `pagination.key`. The
+[node query contract](rpc.md#tokenfactory-queries) lists the raw REST paths
+and query-only authority metadata binding.

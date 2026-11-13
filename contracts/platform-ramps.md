@@ -42,7 +42,8 @@ Identity configuration is `endpoint`, `service_token_file`, `audience`. Complian
 
 Set `rpc_endpoint` to the configured node's HTTPS root origin. Supply receipt-key pins, TLS trust and external service origins in a private deployment configuration. [config.example.json](../services/platform/ramps/config.example.json) shows the configuration shape.
 
-The `paxeer` section binds the operator's `custody_endpoint`, `custody_credential_file`, `broadcast_path`, `status_path`, `operator_account`, `wallet_address`, `vault_id`, `signer_key_handle` and `poll_cadence_seconds`. These are operator inventory controls; a customer's order cannot override them. The declared external versions are `layerx-ramp-compliance-v1`, `layerx-ramp-provider-v1` and `layerx-ramp-paxeer-v1`. Check [OPERATIONS.md](../services/platform/ramps/OPERATIONS.md) against the actual owner-published external schemas before deployment; older prose about the network topology is superseded by this contract.
+The `paxeer` section binds the operator's `custody_endpoint`, `custody_credential_file`, `broadcast_path`, `status_path`, `operator_account`, `wallet_address`, `vault_id`, `signer_key_handle` and `poll_cadence_seconds`. These are operator inventory controls; a customer's order cannot override them. The declared external versions are `layerx-ramp-compliance-v1`, `layerx-ramp-provider-v1` and `layerx-ramp-paxeer-v1`. The external integration schemas and workflow are described in
+[OPERATIONS.md](../services/platform/ramps/OPERATIONS.md).
 
 ## Ramp toolkit Rust pub items
 
@@ -86,9 +87,11 @@ It also accepts `--verify-receipt CONFIG.json ORDER.json TRANSACTION_HASH`; that
 ramp-verify-receipt --config-file /run/ramp/verifier.json --order-file /run/ramp/order.json --transaction-hash 0xTRANSACTION_HASH --output-file /run/ramp/proof.json
 ```
 
-Replace the transaction placeholder with 64 hexadecimal digits after `0x`. The verifier configuration contains `client_tls` and `layerx`. Protected inputs must meet file ownership, link, size and permission checks. The output parent must be private and owned by the caller, and output creation is exclusive with mode `0600`.
+Replace the transaction placeholder with 64 hexadecimal digits after `0x`. The verifier configuration contains `client_tls` and `layerx`.
+`client_tls.timeout_seconds` must be from 1 through 120. Protected inputs must meet file ownership, link, size and permission checks. The output parent must be private and owned by the caller, and output creation is exclusive with mode `0600`.
 
-Exit codes are **0** for verified output, **2** for input/configuration/output-open refusal, **3** for pending, **4** for unknown, **5** for refused or invalid proof, and **6** for output write failure. Success requires a maintained batch and re-verification against the bound order. The output records order/transaction/receipt identity, height, rung, chain ID, custody label and optional build identity; it is not a claim that an external payout settled.
+Exit codes are **0** for verified output, **2** for input/configuration/output-open refusal, **3** for pending, **4** for unknown, **5** for refused or invalid proof, and **6** for output write failure. Success requires authenticated committed inclusion and receipt re-verification
+against the bound order; successful output has `rung: "committed"`. The output records order/transaction/receipt identity, height, rung, chain ID, custody label and optional build identity; it is not a claim that an external payout settled.
 
 <a id="ramp-reference-env-vars"></a>
 <a id="ramp-toolkit-env-vars"></a>
