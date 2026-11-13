@@ -35,7 +35,7 @@ type fixture struct {
 	store     *store.Store
 	audit     *audit.Log
 	shares    map[string][]byte
-	recovery  *repairM147Recovery
+	recovery  *shippedSnapshotRecovery
 }
 
 func randomKey(t *testing.T) []byte {
@@ -356,9 +356,9 @@ func TestRetainWithLedgerDeletesOnlyShipped(t *testing.T) {
 
 func TestRetainReappearingArchivedSnapshots(t *testing.T) {
 	f := newFixture(t)
-	host, _ := repairM147Signer(t)
-	client, private := repairM147Signer(t)
-	peer := repairM147Replica(t, host, client.PublicKey())
+	host, _ := shippedSnapshotSigner(t)
+	client, private := shippedSnapshotSigner(t)
+	peer := shippedSnapshotReplica(t, host, client.PublicKey())
 	addr, connections := retainReplicaConnections(t, peer)
 	root, remote := t.TempDir(), t.TempDir()
 	keyPath, hostPath := filepath.Join(root, "client-key"), filepath.Join(root, "host-key")
