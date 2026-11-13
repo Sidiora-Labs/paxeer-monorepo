@@ -13810,6 +13810,24 @@ value = "The paths of task 22.39.511 hold contracts/src/xweb/examples/ApiConsume
 basis = "The verification of the task runs the target paxeer-manifest-lint, which reads these files."
 affects = []
 
+[decision.3450]
+title = "Task 22.39.514 gives the environment documentation test of the agent daemon pages of the tree"
+value = "Task 22.39.514 changes services/agent/crates/layerx-agentd/tests/proof_agentd_env.rs so that it reads docs/wiki/RunningAnAgent.md and docs/release/variables/service-agent.md, and gives a page one table row for a variable where the test reads one. No case and no assertion of the test is taken out."
+basis = "Gotcha 4366. The documentation site under docs/site/paxeer-docs holds no page of environment variables of the agent daemon; the pages of variables live under docs/wiki and docs/release/variables."
+affects = []
+
+[decision.3451]
+title = "A rename task holds the files that read its fixtures at build time"
+value = "The paths of tasks 22.43.130, 22.43.147, 22.43.150 and 22.43.153 hold the test files of other members that read their fixtures at build time. Each task changes in those files exactly the lines that name a renamed file. Task 22.43.150 follows task 22.43.147."
+basis = "Gotcha 4367. The reading file and the renamed file change in one commit, so the tests of the reading member compile at every revision."
+affects = []
+
+[decision.3452]
+title = "The build command of task 22.39.499 downloads the Go modules"
+value = "The build command of task 22.39.499 runs go mod download before the build target of the area."
+basis = "Gotcha 4368. The verification of the task reaches the node build, which reads the module cache only."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -43470,6 +43488,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.514]
+title = "Give the environment documentation test of the agent daemon pages of the tree"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-agentd/tests/proof_agentd_env.rs", "docs/wiki/RunningAnAgent.md", "docs/release/variables/service-agent.md"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test proof_agentd_env"
+do_1 = "do_1 Decision 3450, gotcha 4366. The function verify_environment_documentation of services/agent/crates/layerx-agentd/tests/proof_agentd_env.rs reads two pages with include_str. The first, docs/site/docs/agents/running.md, is not a page of the tree: the documentation site lives under docs/site/paxeer-docs and holds no page of environment variables of the agent daemon. The second, docs/wiki/RunningAnAgent.md, is in the tree."
+symbols = []
 
 [capability.22.42.180]
 title = "Give the example environment files of the deployments under tools/ops the values of the deployment again"
@@ -194533,7 +194560,7 @@ symbols = []
 touches = ["services/platform/hosted/human", "services/human/crates/layerx-human-identity-provider", "services/human/crates/layerx-human-service/src/server"]
 tests = []
 planned_paths = ["services/human/crates/layerx-human-identity-provider/repair_22_39_499.kvx"]
-build_cmd = "python3 -m pip install -q -r tests/bridge/requirements.txt pytest PyYAML && make -s human-build"
+build_cmd = "python3 -m pip install -q -r tests/bridge/requirements.txt pytest PyYAML && go mod download && make -s human-build"
 verify_cmd = "test -s services/human/crates/layerx-human-identity-provider/repair_22_39_499.kvx && make -s human-test"
 gate_kind = "planned"
 sandbox_profile = "mixed"
@@ -194547,6 +194574,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "do_3 Decision 3431, gotcha 4349. In the identity entry file of src/server of the member layerx-human-service let the check of the number of answer fields admit each of the operations 0 to 4 with the number of fields that the provider writes for it, and keep the refusal of every other operation and number. Change nothing else under that directory. The client cases of services/human/crates/layerx-human-identity-provider/tests keep their assertions. Add the changed file to the record. Run the build once and the verification once at the final revision."
+do_4 = "do_4 Decision 3452, gotcha 4368. The build command now runs go mod download before the build target, so that the node build of the verification finds every module in the module cache. The change of the page of the member stays as it is. Run the build once and the verification once at the final revision."
 
 [task.22.39.405]
 title = "Keep the terminal vectors of the program ABI in line with the receipt fixture they are taken from"
@@ -204182,6 +204210,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.514]
+title = "Give the environment documentation test of the agent daemon pages of the tree"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.514"]
+interfaces = []
+do_1 = "do_1 Decision 3450, gotcha 4366. The function verify_environment_documentation of services/agent/crates/layerx-agentd/tests/proof_agentd_env.rs reads two pages with include_str. The first, docs/site/docs/agents/running.md, is not a page of the tree: the documentation site lives under docs/site/paxeer-docs and holds no page of environment variables of the agent daemon. The second, docs/wiki/RunningAnAgent.md, is in the tree."
+do_2 = "do_2 Change the function so that it reads only pages of the tree: docs/wiki/RunningAnAgent.md, and docs/release/variables/service-agent.md as the second page. The function reads one table row for each active variable, a row that begins with the name of that one variable, and it reads the name of each retired variable outside such a row. Where a page holds an active variable only in a row shared with other variables, give the page a row for that variable alone with the same true content. Where a page does not name the retired variables, add one short paragraph that names them as retired. Write nothing on a page that the code under services/agent/crates/layerx-agentd/src does not hold. Take no case and no assertion out of the test."
+do_3 = "do_3 Change only the files in the paths of this task. Delete, rename and move nothing. Find with git grep over services, programs, core and tools any other Rust file that reads a page under docs/site/docs with include_str, and name each in the final message; change none of them. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/agent/crates/layerx-agentd/tests/proof_agentd_env.rs", "docs/wiki/RunningAnAgent.md", "docs/release/variables/service-agent.md"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test proof_agentd_env"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.42.176]
 title = "Give the example environment files of the deployments under services/platform the values of the deployment again"
 status = "done"
@@ -204514,7 +204572,7 @@ do_2 = "do_2 Move each task record with git mv to spec/layerx-merge/programme/re
 do_3 = "do_3 Give every other file and directory of the task, with git mv, a name that states what it holds, in the naming style of its neighbours and of its language. In a renamed file give each test function, helper, module, class and test target whose name carries a task number a name that states the behaviour it covers. Keep every case and every assertion as it is, and change no behaviour of a source that is not a test. Search the tree for each old name and update every reference to it: module declarations, test targets of manifests, Makefile targets, scripts of package manifests, lists of workflow files, imports and fixture paths. Where a file of this task refers to a file with such a name outside this task, leave that reference as it is. Leave spec/layerx-merge/spec.kvx, GOTCHA.kvx, CHANGELOG.md and CODEMAP.md as they are. Delete no file."
 do_4 = "do_4 Run the tests of each file you renamed once with the test command of its area, as the Makefile or the manifest of the area gives it, and correct what the rename broke. Write the manifest spec/layerx-merge/programme/records/renames/22.43.153.kvx: a manifest section with the task, the number of records moved and the number of files renamed, and one file section with the keys from and to for each move and each rename. Before each commit read the output of git status and confirm that it names only the files of this task, their references and the manifest. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["services/interop/crates/layerx-mirror-signer", "services/interop/crates/layerx-portable", "services/interop/crates/layerx-ucp", "services/interop/crates/layerx-visa-tap", "services/interop/crates/layerx-x402", "services/interop/crates/x-websearch"]
+touches = ["services/interop/crates/layerx-mirror-signer", "services/interop/crates/layerx-portable", "services/interop/crates/layerx-ucp", "services/interop/crates/layerx-visa-tap", "services/interop/crates/layerx-x402", "services/interop/crates/x-websearch", "services/agent/crates/layerx-agentd-host/tests/support/payer_audit.rs"]
 tests = []
 planned_paths = ["spec/layerx-merge/programme/records/renames/22.43.153.kvx", "spec/layerx-merge/programme/records/services/interop/crates/layerx-mirror-signer", "spec/layerx-merge/programme/records/services/interop/crates/layerx-portable", "spec/layerx-merge/programme/records/services/interop/crates/layerx-ucp", "spec/layerx-merge/programme/records/services/interop/crates/layerx-visa-tap", "spec/layerx-merge/programme/records/services/interop/crates/layerx-x402", "spec/layerx-merge/programme/records/services/interop/crates/x-websearch"]
 build_cmd = "python3 -m py_compile spec/layerx-merge/programme/docs_check.py"
@@ -204531,6 +204589,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of this task hold the directory under spec/layerx-merge/programme/records for each directory of this task; move the task records there as do_2 states. Where a file outside the paths of this task names a file that this task renamed or moved, leave that file as it is and add one reference section to the manifest with the keys file and name: the path of that file and the old name it holds. A later task of this series updates those files. Run the build once and the verification once at the final revision."
+do_6 = "do_6 Decision 3451, gotcha 4367. The paths of this task now hold services/agent/crates/layerx-agentd-host/tests/support/payer_audit.rs, which reads at build time a ledger file of services/interop/crates/x-websearch/src that this task renames. For this file this replaces the rule of do_5 that a file outside the paths stays as it is: change in it exactly the lines that name a renamed file, to the new name, in the same commit as the rename. Change nothing else in it and do not rename it. Find with git grep over the old names any further file that reads a renamed file at build time and name it in the final message. Before the build run cargo check with the flag --tests for the member layerx-agentd-host by hand, so that its tests compile. Run the build once and the verification once at the final revision."
 
 [task.22.43.152]
 title = "Move the task records and name the files after what they hold in services/interop/crates/layerx-fiat and 5 more directories"
@@ -204601,7 +204660,7 @@ title = "Move the task records and name the files after what they hold in servic
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.43.147"]
 reqs = ["22998.1"]
 capabilities = ["22.43.150"]
 interfaces = []
@@ -204610,7 +204669,7 @@ do_2 = "do_2 Move each task record with git mv to spec/layerx-merge/programme/re
 do_3 = "do_3 Give every other file and directory of the task, with git mv, a name that states what it holds, in the naming style of its neighbours and of its language. In a renamed file give each test function, helper, module, class and test target whose name carries a task number a name that states the behaviour it covers. Keep every case and every assertion as it is, and change no behaviour of a source that is not a test. Search the tree for each old name and update every reference to it: module declarations, test targets of manifests, Makefile targets, scripts of package manifests, lists of workflow files, imports and fixture paths. Where a file of this task refers to a file with such a name outside this task, leave that reference as it is. Leave spec/layerx-merge/spec.kvx, GOTCHA.kvx, CHANGELOG.md and CODEMAP.md as they are. Delete no file."
 do_4 = "do_4 Run the tests of each file you renamed once with the test command of its area, as the Makefile or the manifest of the area gives it, and correct what the rename broke. Write the manifest spec/layerx-merge/programme/records/renames/22.43.150.kvx: a manifest section with the task, the number of records moved and the number of files renamed, and one file section with the keys from and to for each move and each rename. Before each commit read the output of git status and confirm that it names only the files of this task, their references and the manifest. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["services/human/crates/layerx-human-test-support", "services/human/crates/layerx-intents", "services/human/crates/layerx-network-gateway", "services/human/schema", "services/human/tests", "services/human/tools"]
+touches = ["services/human/crates/layerx-human-test-support", "services/human/crates/layerx-intents", "services/human/crates/layerx-network-gateway", "services/human/schema", "services/human/tests", "services/human/tools", "services/human/crates/layerx-human-service/tests"]
 tests = []
 planned_paths = ["spec/layerx-merge/programme/records/renames/22.43.150.kvx", "spec/layerx-merge/programme/records/services/human/crates/layerx-human-test-support", "spec/layerx-merge/programme/records/services/human/crates/layerx-intents", "spec/layerx-merge/programme/records/services/human/crates/layerx-network-gateway", "spec/layerx-merge/programme/records/services/human/schema", "spec/layerx-merge/programme/records/services/human/tests", "spec/layerx-merge/programme/records/services/human/tools"]
 build_cmd = "python3 -m py_compile spec/layerx-merge/programme/docs_check.py"
@@ -204627,6 +204686,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of this task hold the directory under spec/layerx-merge/programme/records for each directory of this task; move the task records there as do_2 states. Where a file outside the paths of this task names a file that this task renamed or moved, leave that file as it is and add one reference section to the manifest with the keys file and name: the path of that file and the old name it holds. A later task of this series updates those files. Run the build once and the verification once at the final revision."
+do_6 = "do_6 Decision 3451, gotcha 4367. This task follows task 22.43.147. The paths of this task now hold the directory services/human/crates/layerx-human-service/tests. One test file of that directory reads the file repair_22_33_32.rs of services/human/tests with a path attribute at build time; find it with git grep over that file name after the rebase onto main. For that file this replaces the rule of do_5 that a file outside the paths stays as it is: change in it exactly the lines that name a renamed file, to the new name, in the same commit as the rename. Change nothing else in that directory and rename nothing in it. Before the build run cargo check with the flag --tests for the member layerx-human-service by hand, so that its tests compile. Run the build once and the verification once at the final revision."
 
 [task.22.43.149]
 title = "Move the task records and name the files after what they hold in services/human/crates/layerx-human-service/tests"
@@ -204706,7 +204766,7 @@ do_2 = "do_2 Move each task record with git mv to spec/layerx-merge/programme/re
 do_3 = "do_3 Give every other file and directory of the task, with git mv, a name that states what it holds, in the naming style of its neighbours and of its language. In a renamed file give each test function, helper, module, class and test target whose name carries a task number a name that states the behaviour it covers. Keep every case and every assertion as it is, and change no behaviour of a source that is not a test. Search the tree for each old name and update every reference to it: module declarations, test targets of manifests, Makefile targets, scripts of package manifests, lists of workflow files, imports and fixture paths. Where a file of this task refers to a file with such a name outside this task, leave that reference as it is. Leave spec/layerx-merge/spec.kvx, GOTCHA.kvx, CHANGELOG.md and CODEMAP.md as they are. Delete no file."
 do_4 = "do_4 Run the tests of each file you renamed once with the test command of its area, as the Makefile or the manifest of the area gives it, and correct what the rename broke. Write the manifest spec/layerx-merge/programme/records/renames/22.43.147.kvx: a manifest section with the task, the number of records moved and the number of files renamed, and one file section with the keys from and to for each move and each rename. Before each commit read the output of git status and confirm that it names only the files of this task, their references and the manifest. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["services/human/crates/layerx-human-identity-provider", "services/human/crates/layerx-human-kms", "services/human/crates/layerx-human-security-provider", "services/human/crates/layerx-human-service"]
+touches = ["services/human/crates/layerx-human-identity-provider", "services/human/crates/layerx-human-kms", "services/human/crates/layerx-human-security-provider", "services/human/crates/layerx-human-service", "services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs"]
 tests = []
 planned_paths = ["spec/layerx-merge/programme/records/renames/22.43.147.kvx", "spec/layerx-merge/programme/records/services/human/crates/layerx-human-identity-provider", "spec/layerx-merge/programme/records/services/human/crates/layerx-human-kms", "spec/layerx-merge/programme/records/services/human/crates/layerx-human-security-provider", "spec/layerx-merge/programme/records/services/human/crates/layerx-human-service"]
 build_cmd = "python3 -m py_compile spec/layerx-merge/programme/docs_check.py"
@@ -204723,6 +204783,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of this task hold the directory under spec/layerx-merge/programme/records for each directory of this task; move the task records there as do_2 states. Where a file outside the paths of this task names a file that this task renamed or moved, leave that file as it is and add one reference section to the manifest with the keys file and name: the path of that file and the old name it holds. A later task of this series updates those files. Run the build once and the verification once at the final revision."
+do_6 = "do_6 Decision 3451, gotcha 4367. The paths of this task now hold services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs, which reads at build time the fixtures of services/human/crates/layerx-human-kms/src/fixtures that this task renames. For this file this replaces the rule of do_5 that a file outside the paths stays as it is: change in it exactly the lines that name a renamed file or directory, to the new name, in the same commit as the rename. Change nothing else in it and do not rename it. Find with git grep over the old names any further file that reads a renamed file at build time and name it in the final message. Before the build run cargo check with the flag --tests for the member layerx-agentd-host by hand, so that its tests compile. Run the build once and the verification once at the final revision."
 
 [task.22.43.146]
 title = "Move the task records and name the files after what they hold in services/explorer/services/smart-contract-verifier"
@@ -204930,7 +204991,7 @@ do_2 = "do_2 Move each task record with git mv to spec/layerx-merge/programme/re
 do_3 = "do_3 Give every other file and directory of the task, with git mv, a name that states what it holds, in the naming style of its neighbours and of its language. In a renamed file give each test function, helper, module, class and test target whose name carries a task number a name that states the behaviour it covers. Keep every case and every assertion as it is, and change no behaviour of a source that is not a test. Search the tree for each old name and update every reference to it: module declarations, test targets of manifests, Makefile targets, scripts of package manifests, lists of workflow files, imports and fixture paths. Where a file of this task refers to a file with such a name outside this task, leave that reference as it is. Leave spec/layerx-merge/spec.kvx, GOTCHA.kvx, CHANGELOG.md and CODEMAP.md as they are. Delete no file."
 do_4 = "do_4 Run the tests of each file you renamed once with the test command of its area, as the Makefile or the manifest of the area gives it, and correct what the rename broke. Write the manifest spec/layerx-merge/programme/records/renames/22.43.130.kvx: a manifest section with the task, the number of records moved and the number of files renamed, and one file section with the keys from and to for each move and each rename. Before each commit read the output of git status and confirm that it names only the files of this task, their references and the manifest. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["services/agent/crates/layerx-agentd/tests/approval_ordering", "services/agent/crates/layerx-client"]
+touches = ["services/agent/crates/layerx-agentd/tests/approval_ordering", "services/agent/crates/layerx-client", "services/agent/crates/layerx-agentd/tests/enrolment_receipt_observability.rs", "services/agent/crates/layerx-agentd/tests/receipt_store_v2.rs", "services/agent/crates/layerx-agent-api/tests/fee_snapshot_freshness.rs"]
 tests = []
 planned_paths = ["spec/layerx-merge/programme/records/renames/22.43.130.kvx", "spec/layerx-merge/programme/records/services/agent/crates/layerx-agentd/tests/approval_ordering", "spec/layerx-merge/programme/records/services/agent/crates/layerx-client"]
 build_cmd = "python3 -m py_compile spec/layerx-merge/programme/docs_check.py"
@@ -204947,6 +205008,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of this task hold the directory under spec/layerx-merge/programme/records for each directory of this task; move the task records there as do_2 states. Where a file outside the paths of this task names a file that this task renamed or moved, leave that file as it is and add one reference section to the manifest with the keys file and name: the path of that file and the old name it holds. A later task of this series updates those files. Run the build once and the verification once at the final revision."
+do_6 = "do_6 Decision 3451, gotcha 4367. The paths of this task now hold services/agent/crates/layerx-agentd/tests/enrolment_receipt_observability.rs, services/agent/crates/layerx-agentd/tests/receipt_store_v2.rs and services/agent/crates/layerx-agent-api/tests/fee_snapshot_freshness.rs, which name a fixture of services/agent/crates/layerx-client that this task renames; the first two read it at build time. For these files this replaces the rule of do_5 that a file outside the paths stays as it is: change in them exactly the lines that name a renamed file, to the new name, in the same commit as the rename. Change nothing else in them and do not rename them. Before the build run cargo check with the flag --tests for the member layerx-agentd by hand, so that its tests compile. Run the build once and the verification once at the final revision."
 
 [task.22.43.129]
 title = "Move the task records and name the files after what they hold in services/agent/crates/layerx-agentd/tests"

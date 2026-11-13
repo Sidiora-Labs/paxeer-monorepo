@@ -21650,3 +21650,18 @@ fix = "After a change of a member that a guest is built from, build the guest an
 title = "The format check of the contracts reads every contract file of the tree"
 symptom = "The target paxeer-manifest-lint runs the format check of the contracts with the configuration foundry.paxeer.toml over every contract file of the tree, with the version of the formatter that the environment holds."
 fix = "Format a contract file with that formatter before the commit, and format the files again after a change of the formatter version. Task 22.39.511 formats contracts/src/xweb/examples/ApiConsumer.sol and contracts/test/XWebConsumer.t.sol."
+
+[gotcha.4366]
+title = "A test that reads a page at build time reads a page of the tree"
+symptom = "A Rust test that reads a page with include_str is compiled together with the page, so the page is part of the build of the member and of every change that the member depends on. The documentation site lives under docs/site/paxeer-docs; the pages of environment variables live under docs/wiki and docs/release/variables."
+fix = "A test reads a page under docs/wiki or docs/release, or a page of the present site. Task 22.39.514 gives the environment documentation test of the agent daemon its pages."
+
+[gotcha.4367]
+title = "A file that reads another file at build time changes with the rename of that file"
+symptom = "A Rust file reads a fixture with include_str, include_bytes or a path attribute at build time, also across members and across services: tests under services/agent read fixtures under services/human and services/interop."
+fix = "Find the readers with git grep over the old file name before a rename. The task that renames the fixture changes the lines that name it in the reading file in the same commit, and the reading file is among the paths of the task."
+
+[gotcha.4368]
+title = "The node build of the Makefile reads the module cache only"
+symptom = "The Makefile runs the node build with GOPROXY=off, so the Go build takes every module from the local module cache."
+fix = "A build command whose verification reaches the node build runs go mod download first. The build command of task 22.39.499 does."
