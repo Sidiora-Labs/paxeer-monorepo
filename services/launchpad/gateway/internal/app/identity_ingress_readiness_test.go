@@ -29,9 +29,9 @@ import (
 	sharedhttp "github.com/Sidiora-Technologies/KindleLaunch/shared/http"
 )
 
-const repair991Origin = "https://kindle.test"
+const identityIngressOrigin = "https://kindle.test"
 
-func repair991IdentityRouter(t *testing.T) *chi.Mux {
+func identityIngressRouter(t *testing.T) *chi.Mux {
 	t.Helper()
 	pool, err := pgxpool.New(context.Background(), "postgres://fixture@127.0.0.1:1/identity?sslmode=disable&pool_max_conns=1")
 	if err != nil {
@@ -46,31 +46,31 @@ func repair991IdentityRouter(t *testing.T) *chi.Mux {
 		t.Fatal(err)
 	}
 	identity, err := auth.NewIdentity(auth.IdentityConfig{
-		Pool: pool, Domain: "kindle.test", URI: repair991Origin, AllowedOrigins: []string{repair991Origin},
+		Pool: pool, Domain: "kindle.test", URI: identityIngressOrigin, AllowedOrigins: []string{identityIngressOrigin},
 		Verifier: auth.Chain125ProofVerifier{}, LimiterKey: []byte(strings.Repeat("l", 32)), Tokens: tokens,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	router := sharedhttp.NewRouter(sharedhttp.ServerOptions{CORSOrigins: repair991Origin})
+	router := sharedhttp.NewRouter(sharedhttp.ServerOptions{CORSOrigins: identityIngressOrigin})
 	if err := identity.RegisterV2Routes(router, auth.IdentityHTTPConfig{ServiceToken: strings.Repeat("s", 32)}); err != nil {
 		t.Fatal(err)
 	}
 	return router
 }
 
-func TestRepairM_991_IdentityIngressDeadline(t *testing.T) {
-	server := httptest.NewServer(publicGatewayHandler(repair991IdentityRouter(t), config.Config{}))
+func TestIdentityIngressDeadline(t *testing.T) {
+	server := httptest.NewServer(publicGatewayHandler(identityIngressRouter(t), config.Config{}))
 	defer server.Close()
 	for _, tc := range []struct {
 		name, path, origin, initial, code string
 		length, status                    int
 	}{
-		{"challenge", "/v2/auth/challenges", repair991Origin, "{", "FIELD_INVALID", 1000, http.StatusUnprocessableEntity},
-		{"session", "/v2/auth/sessions", repair991Origin, "{", "FIELD_INVALID", 1000, http.StatusUnprocessableEntity},
-		{"refresh", "/v2/auth/sessions:refresh", repair991Origin, "{", "FIELD_INVALID", 1000, http.StatusUnprocessableEntity},
+		{"challenge", "/v2/auth/challenges", identityIngressOrigin, "{", "FIELD_INVALID", 1000, http.StatusUnprocessableEntity},
+		{"session", "/v2/auth/sessions", identityIngressOrigin, "{", "FIELD_INVALID", 1000, http.StatusUnprocessableEntity},
+		{"refresh", "/v2/auth/sessions:refresh", identityIngressOrigin, "{", "FIELD_INVALID", 1000, http.StatusUnprocessableEntity},
 		{"early_origin_rejection", "/v2/auth/sessions", "https://other.test", "{", "SCOPE_DENIED", 1000, http.StatusForbidden},
-		{"oversized_rejection", "/v2/auth/challenges", repair991Origin, "{" + strings.Repeat(" ", 16384), "FIELD_INVALID", 20000, http.StatusUnprocessableEntity},
+		{"oversized_rejection", "/v2/auth/challenges", identityIngressOrigin, "{" + strings.Repeat(" ", 16384), "FIELD_INVALID", 20000, http.StatusUnprocessableEntity},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			conn, err := net.DialTimeout("tcp", server.Listener.Addr().String(), time.Second)
@@ -131,8 +131,8 @@ func TestRepairM_991_IdentityIngressDeadline(t *testing.T) {
 	}
 }
 
-func TestRepairM_991_IdentityDeadlineClearedOnKeepAlive(t *testing.T) {
-	server := httptest.NewServer(publicGatewayHandler(repair991IdentityRouter(t), config.Config{}))
+func TestIdentityDeadlineClearedOnKeepAlive(t *testing.T) {
+	server := httptest.NewServer(publicGatewayHandler(identityIngressRouter(t), config.Config{}))
 	defer server.Close()
 	conn, err := net.DialTimeout("tcp", server.Listener.Addr().String(), time.Second)
 	if err != nil {
@@ -147,7 +147,7 @@ func TestRepairM_991_IdentityDeadlineClearedOnKeepAlive(t *testing.T) {
 		if err := conn.SetDeadline(time.Now().Add(2 * time.Second)); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := fmt.Fprintf(conn, "POST /v2/auth/challenges HTTP/1.1\r\nHost: kindle.test\r\nOrigin: %s\r\nContent-Type: application/json\r\nContent-Length: 2\r\n\r\n{}", repair991Origin); err != nil {
+		if _, err := fmt.Fprintf(conn, "POST /v2/auth/challenges HTTP/1.1\r\nHost: kindle.test\r\nOrigin: %s\r\nContent-Type: application/json\r\nContent-Length: 2\r\n\r\n{}", identityIngressOrigin); err != nil {
 			t.Fatal(err)
 		}
 		response, err := http.ReadResponse(reader, &http.Request{Method: http.MethodPost})
@@ -162,7 +162,7 @@ func TestRepairM_991_IdentityDeadlineClearedOnKeepAlive(t *testing.T) {
 	}
 }
 
-func TestRepairM_991_LongLivedWebSocket(t *testing.T) {
+func TestLongLivedWebSocket(t *testing.T) {
 	upgrader := websocket.Upgrader{}
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := upgrader.Upgrade(w, r, nil)
@@ -220,10 +220,10 @@ func TestRepairM_991_LongLivedWebSocket(t *testing.T) {
 	}
 }
 
-// repair991Peer serves a single committed protocol conversation over TCP.
+// identityIngressPeer serves a single committed protocol conversation over TCP.
 // It implements no database or cache operations; pgx and go-redis perform
 // their actual handshakes and pings against the wire transcript peers below.
-func repair991Peer(t *testing.T, conversation func(net.Conn) error) (string, func()) {
+func identityIngressPeer(t *testing.T, conversation func(net.Conn) error) (string, func()) {
 	t.Helper()
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -275,10 +275,10 @@ func repair991Peer(t *testing.T, conversation func(net.Conn) error) (string, fun
 	return listener.Addr().String(), stop
 }
 
-func repair991Postgres(t *testing.T) (string, func(), <-chan struct{}) {
+func identityIngressPostgres(t *testing.T) (string, func(), <-chan struct{}) {
 	t.Helper()
 	pinged := make(chan struct{}, 8)
-	address, stop := repair991Peer(t, func(conn net.Conn) error {
+	address, stop := identityIngressPeer(t, func(conn net.Conn) error {
 		backend := pgproto3.NewBackend(conn, conn)
 		startup, err := backend.ReceiveStartupMessage()
 		if err != nil {
@@ -318,9 +318,9 @@ func repair991Postgres(t *testing.T) (string, func(), <-chan struct{}) {
 	return "postgres://fixture@" + address + "/identity?sslmode=disable&pool_max_conns=1", stop, pinged
 }
 
-func repair991Redis(t *testing.T) *goredis.Client {
+func identityIngressRedis(t *testing.T) *goredis.Client {
 	t.Helper()
-	address, _ := repair991Peer(t, func(conn net.Conn) error {
+	address, _ := identityIngressPeer(t, func(conn net.Conn) error {
 		reader := bufio.NewReader(conn)
 		readCommand := func() ([]string, error) {
 			line, err := reader.ReadString('\n')
@@ -377,8 +377,8 @@ func repair991Redis(t *testing.T) *goredis.Client {
 	return client
 }
 
-func TestRepairM_991_HealthFixture(t *testing.T) {
-	dsn, stopDatabase, pinged := repair991Postgres(t)
+func TestHealthFixture(t *testing.T) {
+	dsn, stopDatabase, pinged := identityIngressPostgres(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	pool, err := devidentity.NewPool(ctx, dsn)
@@ -386,7 +386,7 @@ func TestRepairM_991_HealthFixture(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer pool.Close()
-	rdb := repair991Redis(t)
+	rdb := identityIngressRedis(t)
 	cfg := config.Config{NodeEnv: "development"}
 	check := identityDatabaseCheck(cfg, pool)
 	router := sharedhttp.NewRouter(sharedhttp.ServerOptions{Health: sharedhttp.HealthDeps{

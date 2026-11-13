@@ -27,49 +27,49 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-//go:embed testdata/repair_51_metadata.go
-var repair51MetadataSource []byte
+//go:embed testdata/visibility_metadata.go
+var initialVisibilityMetadataSource []byte
 
 //go:embed testdata/objects/objects.go
-var repair51ObjectsSource []byte
+var initialVisibilityObjectsSource []byte
 
-//go:embed testdata/repair_51_database.mjs
-var repair51DatabaseSource []byte
+//go:embed testdata/visibility_database.mjs
+var initialVisibilityDatabaseSource []byte
 
-//go:embed testdata/repair_51.package.json
-var repair51Package []byte
+//go:embed testdata/visibility.package.json
+var initialVisibilityPackage []byte
 
-//go:embed testdata/repair_51.package-lock.json
-var repair51PackageLock []byte
+//go:embed testdata/visibility.package-lock.json
+var initialVisibilityPackageLock []byte
 
-type repair51Request struct {
+type initialVisibilityRequest struct {
 	Operation, DSN, Metadata, Safety, ObjectRoot string
 	TargetType, TargetID, Status                 string
 	Revision                                     int64
 }
-type repair51Response struct {
+type initialVisibilityResponse struct {
 	Error                      string
 	AssetID, Hash, Key, Status string
 	Revision                   int64
 	Body                       []byte
 }
-type repair51Fixture struct {
+type initialVisibilityFixture struct {
 	t      *testing.T
 	ctx    context.Context
 	a      *storage.Authority
-	config repair51Request
+	config initialVisibilityRequest
 	input  io.WriteCloser
 	output *json.Decoder
 	stderr *bytes.Buffer
 	router http.Handler
-	asset  repair51Response
+	asset  initialVisibilityResponse
 }
 
-func newRepair51Fixture(t *testing.T) *repair51Fixture {
+func newInitialVisibilityFixture(t *testing.T) *initialVisibilityFixture {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	t.Cleanup(cancel)
-	dsn := repair51Database(t, ctx)
+	dsn := initialVisibilityDatabase(t, ctx)
 	db, err := pgxpool.New(ctx, dsn)
 	if err != nil {
 		t.Fatal(err)
@@ -167,7 +167,7 @@ func newRepair51Fixture(t *testing.T) *repair51Fixture {
 		t.Fatal(err)
 	}
 	moduleName := "github.com/Sidiora-Technologies/KindleLaunch/media/metadata"
-	mod := strings.Replace(string(module), "module "+moduleName, "module "+moduleName+"/repair51", 1)
+	mod := strings.Replace(string(module), "module "+moduleName, "module "+moduleName+"/visibilityfixture", 1)
 	mod = strings.ReplaceAll(mod, "../../../sdk/launchpad/", filepath.Join(root, "sdk/launchpad")+"/")
 	mod += "\nrequire " + moduleName + " v0.0.0\nreplace " + moduleName + " => " + strconv.Quote(metadataDir) + "\n"
 	sum, err := os.ReadFile(filepath.Join(metadataDir, "go.sum"))
@@ -177,7 +177,7 @@ func newRepair51Fixture(t *testing.T) *repair51Fixture {
 	if err = os.Mkdir(filepath.Join(dir, "objects"), 0700); err != nil {
 		t.Fatal(err)
 	}
-	for name, body := range map[string][]byte{"go.mod": []byte(mod), "go.sum": sum, "main.go": repair51MetadataSource, "objects/objects.go": repair51ObjectsSource} {
+	for name, body := range map[string][]byte{"go.mod": []byte(mod), "go.sum": sum, "main.go": initialVisibilityMetadataSource, "objects/objects.go": initialVisibilityObjectsSource} {
 		if err = os.WriteFile(filepath.Join(dir, name), body, 0600); err != nil {
 			t.Fatal(err)
 		}
@@ -204,12 +204,12 @@ func newRepair51Fixture(t *testing.T) *repair51Fixture {
 			t.Errorf("metadata producer: %v\n%s", err, stderr.String())
 		}
 	})
-	f := &repair51Fixture{t: t, ctx: ctx, a: a, input: input, output: json.NewDecoder(bufio.NewReader(output)), stderr: &stderr, router: router,
-		config: repair51Request{DSN: dsn, Metadata: names[1], Safety: names[2], ObjectRoot: objectRoot}}
+	f := &initialVisibilityFixture{t: t, ctx: ctx, a: a, input: input, output: json.NewDecoder(bufio.NewReader(output)), stderr: &stderr, router: router,
+		config: initialVisibilityRequest{DSN: dsn, Metadata: names[1], Safety: names[2], ObjectRoot: objectRoot}}
 	f.asset = f.call("promote", "", "")
 	return f
 }
-func (f *repair51Fixture) call(operation, targetType, targetID string) repair51Response {
+func (f *initialVisibilityFixture) call(operation, targetType, targetID string) initialVisibilityResponse {
 	f.t.Helper()
 	request := f.config
 	request.Operation = operation
@@ -218,7 +218,7 @@ func (f *repair51Fixture) call(operation, targetType, targetID string) repair51R
 	if err := json.NewEncoder(f.input).Encode(request); err != nil {
 		f.t.Fatal(err)
 	}
-	var result repair51Response
+	var result initialVisibilityResponse
 	if err := f.output.Decode(&result); err != nil {
 		f.t.Fatalf("metadata producer: %v\n%s", err, f.stderr.String())
 	}
@@ -227,7 +227,7 @@ func (f *repair51Fixture) call(operation, targetType, targetID string) repair51R
 	}
 	return result
 }
-func (f *repair51Fixture) delivery(want int) {
+func (f *initialVisibilityFixture) delivery(want int) {
 	f.t.Helper()
 	result := httptest.NewRecorder()
 	f.router.ServeHTTP(result, httptest.NewRequest(http.MethodGet, "/"+f.asset.Key, nil))
@@ -238,7 +238,7 @@ func (f *repair51Fixture) delivery(want int) {
 		f.t.Fatal("delivery changed metadata's published bytes")
 	}
 }
-func (f *repair51Fixture) decision(targetType, targetID, status string, revision int64) repair51Response {
+func (f *initialVisibilityFixture) decision(targetType, targetID, status string, revision int64) initialVisibilityResponse {
 	f.t.Helper()
 	cases := pgx.Identifier{f.config.Safety, "safety_cases"}.Sanitize()
 	visibility := pgx.Identifier{f.config.Safety, "safety_visibility"}.Sanitize()
@@ -259,8 +259,8 @@ func (f *repair51Fixture) decision(targetType, targetID, status string, revision
 	return v
 }
 
-func TestRepair_51_initial_lineage_visibility(t *testing.T) {
-	f := newRepair51Fixture(t)
+func TestInitialLineageVisibility(t *testing.T) {
+	f := newInitialVisibilityFixture(t)
 	if f.asset.Status != "allowed" || f.asset.Revision != 0 {
 		t.Fatalf("initial visibility=%+v", f.asset)
 	}
@@ -324,8 +324,8 @@ func TestRepair_51_initial_lineage_visibility(t *testing.T) {
 	f.delivery(http.StatusNotFound)
 }
 
-func TestRepair_51_initial_delivery_visibility(t *testing.T) {
-	f := newRepair51Fixture(t)
+func TestInitialDeliveryVisibility(t *testing.T) {
+	f := newInitialVisibilityFixture(t)
 	// Delivery itself imports real producer lineage; no gateway rows are seeded.
 	f.delivery(http.StatusOK)
 	pool := "0x" + strings.Repeat("1", 40)
@@ -360,8 +360,8 @@ func TestRepair_51_initial_delivery_visibility(t *testing.T) {
 	}
 }
 
-func TestRepair_51_initial_explicit_denials(t *testing.T) {
-	f := newRepair51Fixture(t)
+func TestInitialExplicitDenials(t *testing.T) {
+	f := newInitialVisibilityFixture(t)
 	pool := "0x" + strings.Repeat("1", 40)
 	f.decision("asset", f.asset.AssetID, "removed", 1)
 	f.decision("token", pool, "restored", 2)
@@ -388,10 +388,10 @@ func TestRepair_51_initial_explicit_denials(t *testing.T) {
 	f.delivery(http.StatusNotFound)
 }
 
-func repair51Database(t *testing.T, ctx context.Context) string {
+func initialVisibilityDatabase(t *testing.T, ctx context.Context) string {
 	t.Helper()
 	dir := t.TempDir()
-	for name, body := range map[string][]byte{"package.json": repair51Package, "package-lock.json": repair51PackageLock, "database.mjs": repair51DatabaseSource} {
+	for name, body := range map[string][]byte{"package.json": initialVisibilityPackage, "package-lock.json": initialVisibilityPackageLock, "database.mjs": initialVisibilityDatabaseSource} {
 		if err := os.WriteFile(filepath.Join(dir, name), body, 0600); err != nil {
 			t.Fatal(err)
 		}

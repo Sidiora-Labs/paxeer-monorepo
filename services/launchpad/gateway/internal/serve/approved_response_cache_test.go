@@ -24,14 +24,14 @@ import (
 // These tests exercise the actual gateway response producers directly. The
 // PostgreSQL authority and Redis purge receipt contract belong to storage;
 // neither is replaced by a test implementation of its interface here.
-type repair50Asset struct {
+type approvedResponseAsset struct {
 	body []byte
 	hash string
 	key  string
 	file string
 }
 
-func repair50NewAsset(t *testing.T) *repair50Asset {
+func approvedResponseNewAsset(t *testing.T) *approvedResponseAsset {
 	t.Helper()
 	body := []byte("owned approved raster bytes for downstream cache qualification")
 	digest := sha256.Sum256(body)
@@ -40,12 +40,12 @@ func repair50NewAsset(t *testing.T) *repair50Asset {
 	if err := os.WriteFile(file, body, 0600); err != nil {
 		t.Fatal(err)
 	}
-	return &repair50Asset{body: body, hash: hash, key: "approved/" + hash + "/256/" + hash + ".png", file: file}
+	return &approvedResponseAsset{body: body, hash: hash, key: "approved/" + hash + "/256/" + hash + ".png", file: file}
 }
 
 // emit uses the same buffered and streamed response functions as Handler.serve,
 // including its missing-object response, without inventing an S3 Reader.
-func (a *repair50Asset) emit(t *testing.T, buffered, approved bool) http.HandlerFunc {
+func (a *approvedResponseAsset) emit(t *testing.T, buffered, approved bool) http.HandlerFunc {
 	t.Helper()
 	h := New(Deps{})
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -77,7 +77,7 @@ func (a *repair50Asset) emit(t *testing.T, buffered, approved bool) http.Handler
 	}
 }
 
-func repair50Read(t *testing.T, client *http.Client, method, url string, headers http.Header, status int, body []byte, noStore bool) http.Header {
+func approvedResponseRead(t *testing.T, client *http.Client, method, url string, headers http.Header, status int, body []byte, noStore bool) http.Header {
 	t.Helper()
 	req, err := http.NewRequest(method, url, nil)
 	if err != nil {
@@ -109,35 +109,35 @@ func repair50Read(t *testing.T, client *http.Client, method, url string, headers
 	return res.Header
 }
 
-func TestRepair_50_ResponsePaths(t *testing.T) {
-	a := repair50NewAsset(t)
+func TestResponsePaths(t *testing.T) {
+	a := approvedResponseNewAsset(t)
 	client := &http.Client{Timeout: 5 * time.Second}
 	for _, buffered := range []bool{false, true} {
 		t.Run(fmt.Sprintf("buffered_%t", buffered), func(t *testing.T) {
 			server := httptest.NewServer(a.emit(t, buffered, true))
 			t.Cleanup(server.Close)
 			url := server.URL + "/" + a.key
-			head := repair50Read(t, client, "HEAD", url, nil, 200, []byte{}, true)
+			head := approvedResponseRead(t, client, "HEAD", url, nil, 200, []byte{}, true)
 			etag := head.Get("ETag")
 			if etag == "" {
 				t.Fatal("HEAD omitted ETag")
 			}
 			conditional := http.Header{"If-None-Match": {etag}}
-			repair50Read(t, client, "GET", url, conditional, 304, []byte{}, true)
-			repair50Read(t, client, "GET", url, nil, 200, a.body, true)
-			repair50Read(t, client, "HEAD", url, nil, 200, []byte{}, true)
-			repair50Read(t, client, "GET", url, conditional, 304, []byte{}, true)
-			repair50Read(t, client, "HEAD", url, conditional, 304, []byte{}, true)
-			part := repair50Read(t, client, "GET", url, http.Header{"Range": {"bytes=2-6"}}, 206, a.body[2:7], true)
+			approvedResponseRead(t, client, "GET", url, conditional, 304, []byte{}, true)
+			approvedResponseRead(t, client, "GET", url, nil, 200, a.body, true)
+			approvedResponseRead(t, client, "HEAD", url, nil, 200, []byte{}, true)
+			approvedResponseRead(t, client, "GET", url, conditional, 304, []byte{}, true)
+			approvedResponseRead(t, client, "HEAD", url, conditional, 304, []byte{}, true)
+			part := approvedResponseRead(t, client, "GET", url, http.Header{"Range": {"bytes=2-6"}}, 206, a.body[2:7], true)
 			if part.Get("Content-Range") != fmt.Sprintf("bytes 2-6/%d", len(a.body)) {
 				t.Fatal(part)
 			}
 			for _, value := range []string{"bytes=99999999-", "bytes=0-1,3-4"} {
-				repair50Read(t, client, "GET", url, http.Header{"Range": {value}}, 416, nil, true)
+				approvedResponseRead(t, client, "GET", url, http.Header{"Range": {value}}, 416, nil, true)
 			}
 			if buffered {
 				// ServeContent removes cache headers on precondition failures.
-				repair50Read(t, client, "GET", url, http.Header{"If-Match": {`"other"`}}, 412, nil, true)
+				approvedResponseRead(t, client, "GET", url, http.Header{"If-Match": {`"other"`}}, 412, nil, true)
 			}
 		})
 	}
@@ -147,12 +147,12 @@ func TestRepair_50_ResponsePaths(t *testing.T) {
 	server := httptest.NewServer(a.emit(t, true, true))
 	t.Cleanup(server.Close)
 	for i := 0; i < 2; i++ {
-		repair50Read(t, client, "GET", server.URL+"/"+a.key, nil, 404, nil, true)
-		repair50Read(t, client, "HEAD", server.URL+"/"+a.key, nil, 404, []byte{}, true)
+		approvedResponseRead(t, client, "GET", server.URL+"/"+a.key, nil, 404, nil, true)
+		approvedResponseRead(t, client, "HEAD", server.URL+"/"+a.key, nil, 404, []byte{}, true)
 	}
 }
 
-func TestRepair_50_ApprovedDenials(t *testing.T) {
+func TestApprovedDenials(t *testing.T) {
 	router := chi.NewRouter()
 	NewApproved(Deps{}, nil).RegisterRoutes(router)
 	server := httptest.NewServer(router)
@@ -160,7 +160,7 @@ func TestRepair_50_ApprovedDenials(t *testing.T) {
 	client := &http.Client{Timeout: 5 * time.Second}
 	for _, path := range []string{"private/original.png", "approved/" + strings.Repeat("a", 64) + "/png256"} {
 		for _, method := range []string{"GET", "HEAD"} {
-			headers := repair50Read(t, client, method, server.URL+"/media/token/"+path, nil, 404, nil, true)
+			headers := approvedResponseRead(t, client, method, server.URL+"/media/token/"+path, nil, 404, nil, true)
 			if headers.Get("X-Content-Type-Options") != "nosniff" || headers.Get("Content-Security-Policy") != "default-src 'none'; sandbox" {
 				t.Fatal("missing approved security boundary", headers)
 			}
@@ -168,7 +168,7 @@ func TestRepair_50_ApprovedDenials(t *testing.T) {
 	}
 }
 
-func TestRepair_50_HeaderCommitment(t *testing.T) {
+func TestHeaderCommitment(t *testing.T) {
 	for _, status := range []int{200, 206, 304, 400, 404, 412, 416, 502, 503} {
 		t.Run(fmt.Sprint(status), func(t *testing.T) {
 			recorder := httptest.NewRecorder()
@@ -215,7 +215,7 @@ func TestRepair_50_HeaderCommitment(t *testing.T) {
 
 // Nginx is an actual HTTP cache, with separate policies for browser-style
 // Cache-Control and CDN-Cache-Control. A cacheable control must yield a HIT.
-func repair50Downstream(t *testing.T, origin string, cdn bool) (*http.Client, string) {
+func approvedResponseDownstream(t *testing.T, origin string, cdn bool) (*http.Client, string) {
 	t.Helper()
 	binary, err := exec.LookPath("nginx")
 	if err != nil {
@@ -306,10 +306,10 @@ http {
 	return &http.Client{Transport: transport, Timeout: 5 * time.Second}, "http://downstream"
 }
 
-func TestRepair_50_ApprovedCachePurge(t *testing.T) {
+func TestApprovedCachePurge(t *testing.T) {
 	for _, cdn := range []bool{false, true} {
 		t.Run(fmt.Sprintf("cdn_%t", cdn), func(t *testing.T) {
-			a := repair50NewAsset(t)
+			a := approvedResponseNewAsset(t)
 			// Switch to the real Approved denial path once delivery is revoked. This
 			// tests the no-store delivery contract, not a replacement storage authority.
 			var approved atomic.Pointer[http.HandlerFunc]
@@ -324,10 +324,10 @@ func TestRepair_50_ApprovedCachePurge(t *testing.T) {
 				approved.Load().ServeHTTP(w, r)
 			}))
 			t.Cleanup(origin.Close)
-			client, downstream := repair50Downstream(t, origin.URL, cdn)
+			client, downstream := approvedResponseDownstream(t, origin.URL, cdn)
 			control := downstream + "/media/token/" + a.key
 			for i, want := range []string{"MISS", "HIT"} {
-				headers := repair50Read(t, client, "GET", control, nil, 200, a.body, false)
+				headers := approvedResponseRead(t, client, "GET", control, nil, 200, a.body, false)
 				if headers.Get("X-Repair-Cache") != want {
 					t.Fatalf("control request %d: cache=%q want=%s", i, headers.Get("X-Repair-Cache"), want)
 				}
@@ -338,7 +338,7 @@ func TestRepair_50_ApprovedCachePurge(t *testing.T) {
 			url := downstream + "/" + a.key
 			var etag string
 			for i := 0; i < 2; i++ {
-				headers := repair50Read(t, client, "GET", url, nil, 200, a.body, true)
+				headers := approvedResponseRead(t, client, "GET", url, nil, 200, a.body, true)
 				if headers.Get("X-Repair-Cache") != "MISS" {
 					t.Fatal("approved copy retained downstream: ", headers)
 				}
@@ -348,8 +348,8 @@ func TestRepair_50_ApprovedCachePurge(t *testing.T) {
 				t.Fatal("missing approved ETag")
 			}
 			for i := 0; i < 2; i++ {
-				repair50Read(t, client, "HEAD", url, nil, 200, []byte{}, true)
-				repair50Read(t, client, "GET", url, http.Header{"If-None-Match": {etag}}, 304, []byte{}, true)
+				approvedResponseRead(t, client, "HEAD", url, nil, 200, []byte{}, true)
+				approvedResponseRead(t, client, "GET", url, http.Header{"If-None-Match": {etag}}, 304, []byte{}, true)
 			}
 			denied := NewApproved(Deps{}, nil)
 			denyRouter := chi.NewRouter()
@@ -358,7 +358,7 @@ func TestRepair_50_ApprovedCachePurge(t *testing.T) {
 			denyRouter.Handle("/approved/*", denied)
 			deniedHandler := http.HandlerFunc(denyRouter.ServeHTTP)
 			approved.Store(&deniedHandler)
-			repair50Read(t, client, "GET", url, nil, 404, nil, true)
+			approvedResponseRead(t, client, "GET", url, nil, 404, nil, true)
 			// Physically purge the local source, retaining the public cached control.
 			// OriginCachePurgeProvider's database receipt proof is an out-of-path
 			// storage-domain wiring request, not a synthesized completion receipt.
@@ -366,12 +366,12 @@ func TestRepair_50_ApprovedCachePurge(t *testing.T) {
 				t.Fatal(err)
 			}
 			for i := 0; i < 2; i++ {
-				repair50Read(t, client, "GET", url, nil, 404, nil, true)
-				repair50Read(t, client, "HEAD", url, nil, 404, []byte{}, true)
-				repair50Read(t, client, "GET", url, http.Header{"If-None-Match": {etag}}, 404, nil, true)
-				repair50Read(t, client, "GET", url, http.Header{"Range": {"bytes=0-3"}}, 404, nil, true)
+				approvedResponseRead(t, client, "GET", url, nil, 404, nil, true)
+				approvedResponseRead(t, client, "HEAD", url, nil, 404, []byte{}, true)
+				approvedResponseRead(t, client, "GET", url, http.Header{"If-None-Match": {etag}}, 404, nil, true)
+				approvedResponseRead(t, client, "GET", url, http.Header{"Range": {"bytes=0-3"}}, 404, nil, true)
 			}
-			headers := repair50Read(t, client, "GET", control, nil, 200, a.body, false)
+			headers := approvedResponseRead(t, client, "GET", control, nil, 200, a.body, false)
 			if headers.Get("X-Repair-Cache") != "HIT" {
 				t.Fatal("downstream cache stopped retaining the control", headers)
 			}

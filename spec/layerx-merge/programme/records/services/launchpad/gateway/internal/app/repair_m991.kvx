@@ -2,7 +2,7 @@
 audit = "22.30.32"
 acceptance = "22998.1"
 evidence = "The runner's hf-done ledger records the exact candidate revision, command, exit code and private log; completion requires hf-done to pass on the hf-build candidate."
-baseline = "Not run: the ordered gate instructions prohibit verification before implementation and require hf-done as the sole verification entry point; repair_m991_test.go did not exist in the starting tree. No baseline test failure is claimed."
+baseline = "Not run: the ordered gate instructions prohibit verification before implementation and require hf-done as the sole verification entry point; identity_ingress_readiness_test.go did not exist in the starting tree. No baseline test failure is claimed."
 wiring_requests = "None: the public boundary and existing connected development identity bootstrap are in scope."
 
 [finding.identity_ingress_deadline]

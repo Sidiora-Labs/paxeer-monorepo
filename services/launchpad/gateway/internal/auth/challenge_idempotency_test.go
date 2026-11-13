@@ -13,7 +13,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func repair49ChallengeRequest(t *testing.T, f *identityHTTPFixture, key string, body []byte, wantStatus int) []byte {
+func challengeRetryChallengeRequest(t *testing.T, f *identityHTTPFixture, key string, body []byte, wantStatus int) []byte {
 	t.Helper()
 	req, err := http.NewRequestWithContext(f.ctx, http.MethodPost, f.server.URL+"/v2/auth/challenges", bytes.NewReader(body))
 	if err != nil {
@@ -43,7 +43,7 @@ func repair49ChallengeRequest(t *testing.T, f *identityHTTPFixture, key string, 
 	return raw
 }
 
-func repair49DecodeChallenge(t *testing.T, raw []byte) Challenge {
+func challengeRetryDecodeChallenge(t *testing.T, raw []byte) Challenge {
 	t.Helper()
 	var envelope Envelope[struct {
 		Challenge Challenge `json:"challenge"`
@@ -57,21 +57,21 @@ func repair49DecodeChallenge(t *testing.T, raw []byte) Challenge {
 	return envelope.Data.Challenge
 }
 
-func TestRepair_49_ChallengeRetryAndVerification(t *testing.T) {
+func TestChallengeRetryAndVerification(t *testing.T) {
 	f := ownerHTTPFixture(t)
 	body, err := json.Marshal(ChallengeRequest{Wallet: f.wallet, Origin: "https://kindle.test"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	key := uuid.NewString()
-	first := repair49DecodeChallenge(t, repair49ChallengeRequest(t, f, key, body, http.StatusCreated))
+	first := challengeRetryDecodeChallenge(t, challengeRetryChallengeRequest(t, f, key, body, http.StatusCreated))
 	if first.Wallet != f.wallet || first.Purpose != "login" || first.ChainID != "125" || first.Domain != "kindle.test" || first.URI != "https://kindle.test/auth" || !strings.HasSuffix(first.Message, "\nRequest ID: "+first.ChallengeID) {
 		t.Fatalf("challenge binding changed: %+v", first)
 	}
 	// More retries than the new-challenge wallet allowance must still replay
 	// the one issued challenge without consuming additional issuance capacity.
 	for i := 0; i < 12; i++ {
-		retry := repair49DecodeChallenge(t, repair49ChallengeRequest(t, f, key, body, http.StatusCreated))
+		retry := challengeRetryDecodeChallenge(t, challengeRetryChallengeRequest(t, f, key, body, http.StatusCreated))
 		if !reflect.DeepEqual(retry, first) {
 			t.Fatalf("retry %d changed signing authority: first=%+v retry=%+v", i, first, retry)
 		}
@@ -110,7 +110,7 @@ func TestRepair_49_ChallengeRetryAndVerification(t *testing.T) {
 	if accessCookie == nil || accessCookie.Value != credentials.Data.AccessToken || !accessCookie.Secure || !accessCookie.HttpOnly || accessCookie.Path != "/" || accessCookie.Domain != "" || accessCookie.SameSite != http.SameSiteLaxMode {
 		t.Fatal("login did not deliver a secure host-only browser access cookie")
 	}
-	replayed := repair49DecodeChallenge(t, repair49ChallengeRequest(t, f, key, body, http.StatusCreated))
+	replayed := challengeRetryDecodeChallenge(t, challengeRetryChallengeRequest(t, f, key, body, http.StatusCreated))
 	if !reflect.DeepEqual(replayed, first) {
 		t.Fatal("retry after verification issued another challenge")
 	}
@@ -121,13 +121,13 @@ func TestRepair_49_ChallengeRetryAndVerification(t *testing.T) {
 	if err = f.pool.QueryRow(f.ctx, `SELECT count(*) FROM identity_sessions`).Scan(&count); err != nil || count != 1 {
 		t.Fatalf("challenge proof created %d sessions, want one: %v", count, err)
 	}
-	next := repair49DecodeChallenge(t, repair49ChallengeRequest(t, f, uuid.NewString(), body, http.StatusCreated))
+	next := challengeRetryDecodeChallenge(t, challengeRetryChallengeRequest(t, f, uuid.NewString(), body, http.StatusCreated))
 	if next.ChallengeID == first.ChallengeID || next.Nonce == first.Nonce || next.Message == first.Message {
 		t.Fatal("a new challenge attempt reused prior signing authority")
 	}
 }
 
-func TestRepair_49_ChallengeRequiresUUID(t *testing.T) {
+func TestChallengeRequiresUUID(t *testing.T) {
 	f := ownerHTTPFixture(t)
 	body, err := json.Marshal(ChallengeRequest{Wallet: f.wallet, Origin: "https://kindle.test"})
 	if err != nil {
@@ -140,7 +140,7 @@ func TestRepair_49_ChallengeRequiresUUID(t *testing.T) {
 		{"noncanonical", strings.ReplaceAll(uuid.NewString(), "-", "")},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			raw := repair49ChallengeRequest(t, f, tc.key, body, http.StatusUnprocessableEntity)
+			raw := challengeRetryChallengeRequest(t, f, tc.key, body, http.StatusUnprocessableEntity)
 			var failure PublicError
 			if err := json.Unmarshal(raw, &failure); err != nil || failure.Code != "FIELD_INVALID" || failure.Retryable {
 				t.Fatalf("invalid UUID error = %s: %v", raw, err)
@@ -155,21 +155,21 @@ func TestRepair_49_ChallengeRequiresUUID(t *testing.T) {
 	}
 }
 
-func TestRepair_49_ChallengeRetryRequiresExactBody(t *testing.T) {
+func TestChallengeRetryRequiresExactBody(t *testing.T) {
 	f := ownerHTTPFixture(t)
 	body, err := json.Marshal(ChallengeRequest{Wallet: f.wallet, Origin: "https://kindle.test"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	key := uuid.NewString()
-	first := repair49DecodeChallenge(t, repair49ChallengeRequest(t, f, key, body, http.StatusCreated))
+	first := challengeRetryDecodeChallenge(t, challengeRetryChallengeRequest(t, f, key, body, http.StatusCreated))
 	changed := append(append([]byte(nil), body...), '\n')
-	raw := repair49ChallengeRequest(t, f, key, changed, http.StatusConflict)
+	raw := challengeRetryChallengeRequest(t, f, key, changed, http.StatusConflict)
 	var failure PublicError
 	if err = json.Unmarshal(raw, &failure); err != nil || failure.Code != "IDEMPOTENCY_CONFLICT" || failure.Retryable {
 		t.Fatalf("changed body did not conflict: %s %v", raw, err)
 	}
-	retry := repair49DecodeChallenge(t, repair49ChallengeRequest(t, f, key, body, http.StatusCreated))
+	retry := challengeRetryDecodeChallenge(t, challengeRetryChallengeRequest(t, f, key, body, http.StatusCreated))
 	if !reflect.DeepEqual(retry, first) {
 		t.Fatal("conflicting request replaced the original challenge")
 	}

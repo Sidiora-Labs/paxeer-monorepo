@@ -32,23 +32,23 @@ import (
 
 // This verifier performs real EIP-191 signature recovery for the test's EOA.
 // Identity storage, session issuance, authentication and HTTP are production code.
-type repair52EOAVerifier struct{}
+type uploadErrorEOAVerifier struct{}
 
-func (repair52EOAVerifier) VerifyIdentity(_ context.Context, message string, p gatewayauth.WalletProof) error {
+func (uploadErrorEOAVerifier) VerifyIdentity(_ context.Context, message string, p gatewayauth.WalletProof) error {
 	if p.Kind != "eoa_eip191" || !sharedauth.VerifyWalletSignature(p.Wallet, message, p.Signature) {
 		return errors.New("invalid EOA proof")
 	}
 	return nil
 }
 
-type repair52Fixture struct {
+type uploadErrorFixture struct {
 	authority sharedauth.HTTPIdentityAuthority
 	server    *httptest.Server
 	token     string
 	wallet    string
 }
 
-func newRepair52Fixture(t *testing.T) *repair52Fixture {
+func newUploadErrorFixture(t *testing.T) *uploadErrorFixture {
 	t.Helper()
 	ctx := context.Background()
 	dsn := os.Getenv("L33_POSTGRES_DSN")
@@ -97,7 +97,7 @@ func newRepair52Fixture(t *testing.T) *repair52Fixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	identity, err := gatewayauth.NewIdentity(gatewayauth.IdentityConfig{Pool: pool, Domain: "kindle.test", URI: "https://kindle.test/auth", AllowedOrigins: []string{"https://kindle.test"}, Verifier: repair52EOAVerifier{}, LimiterKey: []byte(strings.Repeat("k", 32)), Tokens: tokens})
+	identity, err := gatewayauth.NewIdentity(gatewayauth.IdentityConfig{Pool: pool, Domain: "kindle.test", URI: "https://kindle.test/auth", AllowedOrigins: []string{"https://kindle.test"}, Verifier: uploadErrorEOAVerifier{}, LimiterKey: []byte(strings.Repeat("k", 32)), Tokens: tokens})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -126,10 +126,10 @@ func newRepair52Fixture(t *testing.T) *repair52Fixture {
 	}
 	server := httptest.NewTLSServer(router)
 	t.Cleanup(server.Close)
-	return &repair52Fixture{sharedauth.HTTPIdentityAuthority{Endpoint: server.URL, ServiceToken: serviceToken, Client: server.Client()}, server, credentials.AccessToken, wallet}
+	return &uploadErrorFixture{sharedauth.HTTPIdentityAuthority{Endpoint: server.URL, ServiceToken: serviceToken, Client: server.Client()}, server, credentials.AccessToken, wallet}
 }
 
-func (f *repair52Fixture) handler(t *testing.T) *Connected {
+func (f *uploadErrorFixture) handler(t *testing.T) *Connected {
 	t.Helper()
 	roots := x509.NewCertPool()
 	roots.AddCert(f.server.Certificate())
@@ -166,7 +166,7 @@ func (f *repair52Fixture) handler(t *testing.T) *Connected {
 	return handler
 }
 
-func repair52Request(t *testing.T, server *httptest.Server, path, token, origin, requestID string, body io.Reader) *http.Response {
+func uploadErrorRequest(t *testing.T, server *httptest.Server, path, token, origin, requestID string, body io.Reader) *http.Response {
 	t.Helper()
 	request, err := http.NewRequest(http.MethodPut, server.URL+path, body)
 	if err != nil {
@@ -187,7 +187,7 @@ func repair52Request(t *testing.T, server *httptest.Server, path, token, origin,
 	return response
 }
 
-func repair52AssertError(t *testing.T, response *http.Response, status int, code string, retryable bool, retryHeader string, retryMS int64) v2.Error {
+func uploadErrorAssertError(t *testing.T, response *http.Response, status int, code string, retryable bool, retryHeader string, retryMS int64) v2.Error {
 	t.Helper()
 	raw, err := io.ReadAll(response.Body)
 	if err != nil {
@@ -216,8 +216,8 @@ func repair52AssertError(t *testing.T, response *http.Response, status int, code
 	return envelope
 }
 
-func TestRepair_52_UploadErrorSchema(t *testing.T) {
-	f := newRepair52Fixture(t)
+func TestUploadErrorSchema(t *testing.T) {
+	f := newUploadErrorFixture(t)
 	for _, resource := range []string{"tokens", "accounts"} {
 		t.Run(resource, func(t *testing.T) {
 			path := "/v2/" + resource + "/" + f.wallet + "/assets/" + uuid.NewString()
@@ -243,7 +243,7 @@ func TestRepair_52_UploadErrorSchema(t *testing.T) {
 						body = bytes.NewReader(make([]byte, (6<<20)+1))
 						status, code = 413, "FIELD_INVALID"
 					case "saturation":
-						repair52Saturate(t, h, server, f.token, path)
+						uploadErrorSaturate(t, h, server, f.token, path)
 						status, code, retryable, retryHeader, retryMS = 503, "DEPENDENCY_UNAVAILABLE", true, "1", 1000
 					case "admission_busy":
 						for i := 0; i < 2; i++ {
@@ -268,8 +268,8 @@ func TestRepair_52_UploadErrorSchema(t *testing.T) {
 						status, code = 404, "NOT_FOUND"
 					}
 					requestID := uuid.NewString()
-					response := repair52Request(t, server, requestPath, token, origin, requestID, body)
-					envelope := repair52AssertError(t, response, status, code, retryable, retryHeader, retryMS)
+					response := uploadErrorRequest(t, server, requestPath, token, origin, requestID, body)
+					envelope := uploadErrorAssertError(t, response, status, code, retryable, retryHeader, retryMS)
 					if envelope.RequestId != requestID {
 						t.Fatalf("requestId=%q want %q", envelope.RequestId, requestID)
 					}
@@ -295,23 +295,23 @@ func TestRepair_52_UploadErrorSchema(t *testing.T) {
 	}
 }
 
-func TestRepair_52_IdentityUnavailable(t *testing.T) {
-	f := newRepair52Fixture(t)
+func TestIdentityUnavailable(t *testing.T) {
+	f := newUploadErrorFixture(t)
 	h := f.handler(t)
 	// Stop the real authority; a transport failure must remain retryable.
 	f.server.Close()
 	server := httptest.NewServer(h)
 	defer server.Close()
 	for _, resource := range []string{"tokens", "accounts"} {
-		response := repair52Request(t, server, "/v2/"+resource+"/"+f.wallet+"/assets/"+uuid.NewString(), f.token, "https://kindle.test", "malformed", nil)
-		envelope := repair52AssertError(t, response, 503, "DEPENDENCY_UNAVAILABLE", true, "", 0)
+		response := uploadErrorRequest(t, server, "/v2/"+resource+"/"+f.wallet+"/assets/"+uuid.NewString(), f.token, "https://kindle.test", "malformed", nil)
+		envelope := uploadErrorAssertError(t, response, 503, "DEPENDENCY_UNAVAILABLE", true, "", 0)
 		if _, err := uuid.Parse(envelope.RequestId); err != nil {
 			t.Fatal(err)
 		}
 	}
 }
 
-func repair52Saturate(t *testing.T, h *Connected, server *httptest.Server, token, path string) {
+func uploadErrorSaturate(t *testing.T, h *Connected, server *httptest.Server, token, path string) {
 	t.Helper()
 	for i := 0; i < cap(h.slots); i++ {
 		reader, writer := io.Pipe()
