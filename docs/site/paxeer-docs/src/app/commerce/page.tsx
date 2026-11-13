@@ -11,10 +11,10 @@ export default function Commerce() {
       <p className="page-description">Connect merchant checkout, trusted shopping agents, delegated authorization, and receipt-backed payment through Paxeer X.</p>
     </div>
     <h2>One commerce journey, explicit authority at every step</h2>
-    <p>Paxeer X brings the LayerX commerce plane into a single workflow: a merchant advertises its capabilities, an agent identifies the intended operation, the payer supplies bounded authorization, and the payment plane produces verifiable settlement evidence. Checkout and order experiences use that evidence to report a completed purchase.</p>
+    <p>The commerce adapters under services/interop/crates/ connect protocol requests to the network payment path: a merchant advertises its capabilities, an agent identifies the intended operation, the payer supplies bounded authorization, and the payment plane produces verifiable settlement evidence. Checkout and order experiences use that evidence to report a completed purchase.</p>
     <table><thead><tr><th>Protocol or integration</th><th>Role</th><th>Result</th></tr></thead><tbody>
       <tr><td>UCP</td><td>Merchant profiles, capability negotiation, checkout completion, and order reads.</td><td>A checkout outcome and an order tied to verified payment evidence.</td></tr>
-      <tr><td>AP2</td><td>Signed payment and checkout mandates with evaluated constraints.</td><td>An authorized payment mapped to a typed LayerX intent.</td></tr>
+      <tr><td>AP2</td><td>Signed payment and checkout mandates with evaluated constraints.</td><td>An authorized payment mapped to a typed payment intent.</td></tr>
       <tr><td>Visa Trusted Agent Protocol</td><td>Signed agent identity and browse or pay intent verification.</td><td>A verified agent credential handed to the merchant authority path.</td></tr>
       <tr><td>Express and FastAPI</td><td>Paid-resource release, fulfillment persistence, and webhook processing.</td><td>A resource associated with its canonical receipt and request digest.</td></tr>
     </tbody></table>
@@ -23,13 +23,13 @@ export default function Commerce() {
     <p>Publish a merchant profile with the supported protocol revision and HTTPS service endpoint. Have the buying platform negotiate its capabilities before it submits a payment. Preserve the negotiated result alongside the checkout for subsequent order verification.</p>
     <h2>Complete a checkout</h2>
     <ol>
-      <li>Prepare the checkout identifier, uppercase three-letter currency, and positive total in ISO-4217 minor units.</li>
+      <li>Prepare the checkout identifier, uppercase three-letter currency, and positive total in ISO-4217 minor units. Configure the merchant currency-to-asset binding and exact conversion to atomic asset units.</li>
       <li>Bind the checkout to the LayerX asset and recipient, negotiated payment handler, and a stable UCP idempotency key.</li>
       <li>Submit completion through <code>POST /v1/http/ucp/checkouts/complete</code>.</li>
       <li>The payment plane executes the typed payment intent. Pending or refused execution produces the corresponding checkout outcome.</li>
-      <li>For executed payment, verify the canonical receipt against the authorized batch and checkout binding. Return the completed order only after settlement evidence passes verification.</li>
+      <li>For executed payment, verify the signed canonical receipt, transaction identity, logs and checkout binding. Return the completed order only after that evidence passes verification.</li>
     </ol>
-    <p>At the adapter boundary, the completion request has the following fields. This is the Rust submission type, rather than an HTTP JSON example:</p>
+    <p>At the adapter boundary, the completion request has the following fields. These fields are declared by the Rust submission type in services/interop/crates/layerx-ucp/src/lib.rs:</p>
     <pre><code>{`CheckoutSubmission {
     checkout_id,
     currency,            // [u8; 3], ISO-4217 code
@@ -51,18 +51,18 @@ export default function Commerce() {
       <tr><td><code>Canceled</code></td><td>The checkout is canceled.</td></tr>
     </tbody></table>
     <h2>Read an order with its evidence</h2>
-    <p>An order combines merchant-owned metadata, including its order identifier and HTTPS permalink, with verified settlement evidence. <code>UcpAdapter::read_order</code> checks the negotiated order capability, validates metadata, and re-verifies the stored canonical receipt against its authorized batch and original checkout. Reading an order is a read operation; it does not debit balances or execute a second payment.</p>
+    <p>An order combines merchant-owned metadata, including its order identifier and HTTPS permalink, with verified settlement evidence. <code>UcpAdapter::read_order_with_config</code> checks the negotiated order capability, validates metadata and the merchant currency binding, and re-verifies the stored signed receipt and logs against the transaction and original checkout. Reading an order is a read operation; it does not debit balances or execute a second payment.</p>
     <h2>Release paid resources</h2>
-    <p>The Express and FastAPI integrations connect settlement to merchant fulfillment. Their fulfillment repository receives a proposed record and a resource-release function. Persist the idempotency key, request digest, canonical receipt, and returned resource together. On repeat delivery, return the existing record only when its request digest matches; a different digest produces a fulfillment conflict.</p>
-    <p>The seller fulfillment store creates records with exclusive file creation (<code>wx</code>) so a concurrent duplicate cannot overwrite the first record. Webhook delivery tracking is a separate responsibility: use a durable delivery store for a merchant service that runs across restarts or multiple workers. Keep fulfillment identity consistent with the payment operation so retries return the same purchased resource.</p>
+    <p>The Express and FastAPI integrations connect settlement to merchant fulfillment. The integrations live in sdk/integrations/express/ and sdk/integrations/fastapi/. Their fulfillment repository receives a proposed record and a resource-release function. Persist the idempotency key, request digest, canonical receipt, and returned resource together. On repeat delivery, return the existing record only when its request digest matches; a different digest produces a fulfillment conflict.</p>
+    <p>The Express example uses exclusive file creation (<code>wx</code>) for fulfillment records. The FastAPI example serializes fulfillment by key and persists records through atomic replacement. Choose a durable fulfillment repository and webhook delivery store for services that run across restarts or multiple workers. Keep fulfillment identity consistent with the payment operation.</p>
     <h2>Plan the merchant integration</h2>
     <ol>
       <li>Define the merchant profile, payment handler, asset mapping, and recipient.</li>
       <li>Choose the buying-agent credential and <Link href="/mandates">mandate authorization</Link> policy.</li>
       <li>Persist checkout submissions, idempotency keys, and merchant order metadata.</li>
-      <li>Store canonical receipts and authorized batches for checkout completion and order reads.</li>
+      <li>Store signed canonical receipts, transaction hashes, logs, receipt-key authorizations and merchant currency bindings for checkout completion and order reads.</li>
       <li>Connect fulfillment and webhook delivery to durable application records.</li>
     </ol>
-    <p>Use <Link href="/evm">EVM applications</Link> for contract-facing experiences and <Link href="/sdk">the SDK</Link> for network integration. Commerce adapters preserve protocol-specific identities while sending payment execution through the typed LayerX plane.</p>
+    <p>Use <Link href="/evm">EVM applications</Link> for contract-facing experiences and <Link href="/sdk">the SDK</Link> for network integration. Commerce adapters preserve protocol-specific identities while submitting typed payment operations. Paxeer mainnet-beta is one BFT chain, and its receipts are final when their blocks are committed.</p>
   </DocsLayout>
 }
