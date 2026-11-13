@@ -24,7 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func TestRepairM_840_DistinctRenderedWitnesses(t *testing.T) {
+func TestStateSyncRecoveryDistinctRenderedWitnesses(t *testing.T) {
 	for _, tc := range []struct {
 		name      string
 		endpoints []string
@@ -54,9 +54,9 @@ func TestRepairM_840_DistinctRenderedWitnesses(t *testing.T) {
 
 // The committed RPC transcript is served over loopback. Only peer identity,
 // chain, hash and availability vary; the component under repair is never replaced.
-func repairM840Witness(t *testing.T, identity, chain, hash string) (string, *atomic.Bool) {
+func stateSyncRecoveryWitness(t *testing.T, identity, chain, hash string) (string, *atomic.Bool) {
 	t.Helper()
-	raw, err := os.ReadFile("testdata/repair_m840_witness.json")
+	raw, err := os.ReadFile("testdata/state_sync_witness.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,7 +88,7 @@ func repairM840Witness(t *testing.T, identity, chain, hash string) (string, *ato
 	return strings.TrimPrefix(srv.URL, "http://"), down
 }
 
-func repairM840Params(t *testing.T, endpoints []string) map[string]any {
+func stateSyncRecoveryParams(t *testing.T, endpoints []string) map[string]any {
 	t.Helper()
 	obj, err := render(renderArgs{preset: stateSyncPreset, name: "n-state-sync", namespace: "pax", target: "n", rpcServers: endpoints})
 	if err != nil {
@@ -111,7 +111,7 @@ func repairM840Params(t *testing.T, endpoints []string) map[string]any {
 	return params
 }
 
-func repairM840Submit(t *testing.T, e *engine.Engine, typ engine.TaskType, params map[string]any) *engine.TaskResult {
+func stateSyncRecoverySubmit(t *testing.T, e *engine.Engine, typ engine.TaskType, params map[string]any) *engine.TaskResult {
 	t.Helper()
 	id, err := e.Submit(engine.Task{Type: typ, Params: params})
 	if err != nil {
@@ -132,7 +132,7 @@ func repairM840Submit(t *testing.T, e *engine.Engine, typ engine.TaskType, param
 	return nil
 }
 
-func repairM840HeldNode(t *testing.T) (string, *engine.SQLiteStore, *engine.Engine, context.CancelFunc) {
+func stateSyncRecoveryHeldNode(t *testing.T) (string, *engine.SQLiteStore, *engine.Engine, context.CancelFunc) {
 	t.Helper()
 	home := t.TempDir()
 	for _, dir := range []string{"config", "data"} {
@@ -173,14 +173,14 @@ func repairM840HeldNode(t *testing.T) (string, *engine.SQLiteStore, *engine.Engi
 		engine.TaskConfigureStateSync: tasks.NewStateSyncConfigurer(home, nil).Handler(),
 	}, store)
 	for _, typ := range []engine.TaskType{engine.TaskMarkNotReady, engine.TaskStopSeid} {
-		if result := repairM840Submit(t, e, typ, nil); result.Status != engine.TaskStatusCompleted {
+		if result := stateSyncRecoverySubmit(t, e, typ, nil); result.Status != engine.TaskStatusCompleted {
 			t.Fatalf("%s failed: %+v", typ, result)
 		}
 	}
 	return home, store, e, cancel
 }
 
-func TestRepairM_840_WitnessFailureBeforeWipe(t *testing.T) {
+func TestStateSyncRecoveryWitnessFailureBeforeWipe(t *testing.T) {
 	for _, tc := range []struct {
 		name, identity, chain, hash, want string
 		down                              bool
@@ -191,14 +191,14 @@ func TestRepairM_840_WitnessFailureBeforeWipe(t *testing.T) {
 		{name: "disagreement", identity: strings.Repeat("2", 40), chain: "repair-m840", hash: strings.Repeat("B", 64), want: "trust hashes disagree"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			first, _ := repairM840Witness(t, strings.Repeat("1", 40), "repair-m840", strings.Repeat("A", 64))
-			second, down := repairM840Witness(t, tc.identity, tc.chain, tc.hash)
-			home, store, e, cancel := repairM840HeldNode(t)
+			first, _ := stateSyncRecoveryWitness(t, strings.Repeat("1", 40), "repair-m840", strings.Repeat("A", 64))
+			second, down := stateSyncRecoveryWitness(t, tc.identity, tc.chain, tc.hash)
+			home, store, e, cancel := stateSyncRecoveryHeldNode(t)
 			defer cancel()
 			defer store.Close()
-			params := repairM840Params(t, []string{first, second})
+			params := stateSyncRecoveryParams(t, []string{first, second})
 			down.Store(tc.down)
-			result := repairM840Submit(t, e, engine.TaskResetData, params)
+			result := stateSyncRecoverySubmit(t, e, engine.TaskResetData, params)
 			if result.Status != engine.TaskStatusFailed || !strings.Contains(result.Error, "witness preflight") || !strings.Contains(result.Error, tc.want) {
 				t.Fatalf("wrong refusal: %+v", result)
 			}
@@ -217,13 +217,13 @@ func TestRepairM_840_WitnessFailureBeforeWipe(t *testing.T) {
 	}
 }
 
-func TestRepairM_840_QuorumLossAfterWipeRetainsHoldOnReopen(t *testing.T) {
-	first, _ := repairM840Witness(t, strings.Repeat("1", 40), "repair-m840", strings.Repeat("A", 64))
-	second, down := repairM840Witness(t, strings.Repeat("2", 40), "repair-m840", strings.Repeat("A", 64))
-	home, store, e, cancel := repairM840HeldNode(t)
+func TestStateSyncRecoveryQuorumLossAfterWipeRetainsHoldOnReopen(t *testing.T) {
+	first, _ := stateSyncRecoveryWitness(t, strings.Repeat("1", 40), "repair-m840", strings.Repeat("A", 64))
+	second, down := stateSyncRecoveryWitness(t, strings.Repeat("2", 40), "repair-m840", strings.Repeat("A", 64))
+	home, store, e, cancel := stateSyncRecoveryHeldNode(t)
 	defer cancel()
-	params := repairM840Params(t, []string{first, second})
-	result := repairM840Submit(t, e, engine.TaskResetData, params)
+	params := stateSyncRecoveryParams(t, []string{first, second})
+	result := stateSyncRecoverySubmit(t, e, engine.TaskResetData, params)
 	if result.Status != engine.TaskStatusCompleted {
 		t.Fatalf("healthy pre-reset quorum refused: %+v", result)
 	}
@@ -241,7 +241,7 @@ func TestRepairM_840_QuorumLossAfterWipeRetainsHoldOnReopen(t *testing.T) {
 		t.Fatal(err)
 	}
 	down.Store(true)
-	failed := repairM840Submit(t, e, engine.TaskConfigureStateSync, params)
+	failed := stateSyncRecoverySubmit(t, e, engine.TaskConfigureStateSync, params)
 	if failed.Status != engine.TaskStatusFailed || !strings.Contains(failed.Error, "two distinct reachable") {
 		t.Fatalf("configuration padded a lost witness: %+v", failed)
 	}
@@ -298,7 +298,7 @@ func TestRepairM_840_QuorumLossAfterWipeRetainsHoldOnReopen(t *testing.T) {
 	}
 }
 
-func TestRepairM_840_RecoveryGuidanceOverAPI(t *testing.T) {
+func TestStateSyncRecoveryGuidanceOverAPI(t *testing.T) {
 	obj, err := render(renderArgs{preset: stateSyncPreset, name: "n-state-sync", namespace: "pax", target: "n"})
 	if err != nil {
 		t.Fatal(err)

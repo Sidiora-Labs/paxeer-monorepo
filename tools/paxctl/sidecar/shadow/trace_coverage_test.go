@@ -17,7 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 )
 
-type repair328Node struct {
+type traceCoverageNode struct {
 	URL          string         `json:"url"`
 	Blocks       []common.Hash  `json:"blocks"`
 	Transactions []common.Hash  `json:"transactions"`
@@ -25,14 +25,14 @@ type repair328Node struct {
 	Created      common.Address `json:"created"`
 }
 
-// repair328Chain serves a committed peer fixture. TraceKeySource, JSON-RPC
+// traceCoverageChain serves a committed peer fixture. TraceKeySource, JSON-RPC
 // decoding, ethclient state reads and the Comparator are all production code.
-func repair328Chain(t *testing.T, divergent bool) *repair328Node {
+func traceCoverageChain(t *testing.T, divergent bool) *traceCoverageNode {
 	t.Helper()
-	return repair328ChainFixture(t, "testdata/repair_328_rpc.json", divergent)
+	return traceCoverageChainFixture(t, "testdata/prestate_rpc.json", divergent)
 }
 
-func repair328ChainFixture(t *testing.T, path string, divergent bool) *repair328Node {
+func traceCoverageChainFixture(t *testing.T, path string, divergent bool) *traceCoverageNode {
 	t.Helper()
 	raw, err := os.ReadFile(path)
 	if err != nil {
@@ -49,14 +49,14 @@ func repair328ChainFixture(t *testing.T, path string, divergent bool) *repair328
 			Nonce   string                 `json:"nonce"`
 			Storage map[common.Hash]string `json:"storage"`
 		} `json:"state"`
-		Node repair328Node `json:"node"`
+		Node traceCoverageNode `json:"node"`
 	}
 	if err := json.Unmarshal(raw, &fixture); err != nil {
 		t.Fatal(err)
 	}
 	n := &fixture.Node
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var request repair328Request
+		var request traceCoverageRequest
 		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 			t.Error(err)
 			http.Error(w, err.Error(), 400)
@@ -185,7 +185,7 @@ func repair328ChainFixture(t *testing.T, path string, divergent bool) *repair328
 	return n
 }
 
-type repair328Request struct {
+type traceCoverageRequest struct {
 	Version string            `json:"jsonrpc"`
 	ID      json.RawMessage   `json:"id"`
 	Method  string            `json:"method"`
@@ -194,10 +194,10 @@ type repair328Request struct {
 
 // Faults damage the peer request or response over real HTTP; the production
 // source must reject incomplete coverage in either trace mode.
-func repair328HTTP(t *testing.T, n *repair328Node, before func(*repair328Request), after func(string, bool, json.RawMessage) json.RawMessage) string {
+func traceCoverageHTTP(t *testing.T, n *traceCoverageNode, before func(*traceCoverageRequest), after func(string, bool, json.RawMessage) json.RawMessage) string {
 	t.Helper()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var request repair328Request
+		var request traceCoverageRequest
 		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 			t.Error(err)
 			http.Error(w, err.Error(), 500)
@@ -257,7 +257,7 @@ func repair328HTTP(t *testing.T, n *repair328Node, before func(*repair328Request
 	return server.URL
 }
 
-func repair328Reader(t *testing.T, url string) *ethclient.Client {
+func traceCoverageReader(t *testing.T, url string) *ethclient.Client {
 	t.Helper()
 	reader, err := ethclient.Dial(url)
 	if err != nil {
@@ -267,7 +267,7 @@ func repair328Reader(t *testing.T, url string) *ethclient.Client {
 	return reader
 }
 
-func repair328Source(t *testing.T, url string) *TraceKeySource {
+func traceCoverageSource(t *testing.T, url string) *TraceKeySource {
 	t.Helper()
 	source, err := NewTraceKeySource(url)
 	if err != nil {
@@ -277,7 +277,7 @@ func repair328Source(t *testing.T, url string) *TraceKeySource {
 	return source
 }
 
-func repair328Comparison(t *testing.T, ctx context.Context, shadow, canonical StateReader, source KeySource, height int64) *CompareResult {
+func traceCoverageComparison(t *testing.T, ctx context.Context, shadow, canonical StateReader, source KeySource, height int64) *CompareResult {
 	t.Helper()
 	// The Comet peer supplies identical headers/receipts. Migration mode invokes
 	// the real Layer 2 path even when the inexpensive layers agree.
@@ -294,9 +294,9 @@ func repair328Comparison(t *testing.T, ctx context.Context, shadow, canonical St
 	return result
 }
 
-func repair328Indeterminate(t *testing.T, source *TraceKeySource, reader StateReader, height int64, want string) {
+func traceCoverageIndeterminate(t *testing.T, source *TraceKeySource, reader StateReader, height int64, want string) {
 	t.Helper()
-	comparison := repair328Comparison(t, context.Background(), reader, reader, source, height)
+	comparison := traceCoverageComparison(t, context.Background(), reader, reader, source, height)
 	result := comparison.Layer2
 	if comparison.Match || comparison.DivergenceLayer == nil || *comparison.DivergenceLayer != 2 {
 		t.Fatalf("trace failure must reject the block at Layer 2: %+v", comparison)
@@ -310,13 +310,13 @@ func repair328Indeterminate(t *testing.T, source *TraceKeySource, reader StateRe
 	}
 }
 
-func TestRepair_328_TraceErrorsDiscarded(t *testing.T) {
-	n := repair328Chain(t, false)
-	reader := repair328Reader(t, repair328HTTP(t, n, nil, nil))
+func TestTraceCoverageRejectsTraceErrors(t *testing.T) {
+	n := traceCoverageChain(t, false)
+	reader := traceCoverageReader(t, traceCoverageHTTP(t, n, nil, nil))
 	for _, failDiff := range []bool{false, true} {
 		t.Run(fmt.Sprintf("diffMode=%t", failDiff), func(t *testing.T) {
 			observed := make(chan []prestateTxTrace, 2)
-			url := repair328HTTP(t, n, func(request *repair328Request) {
+			url := traceCoverageHTTP(t, n, func(request *traceCoverageRequest) {
 				if !strings.HasPrefix(request.Method, "debug_traceBlockBy") {
 					return
 				}
@@ -339,7 +339,7 @@ func TestRepair_328_TraceErrorsDiscarded(t *testing.T) {
 				}
 				return raw
 			})
-			repair328Indeterminate(t, repair328Source(t, url), reader, 1, "execution timeout")
+			traceCoverageIndeterminate(t, traceCoverageSource(t, url), reader, 1, "execution timeout")
 			select {
 			case traces := <-observed:
 				if len(traces) != 2 {
@@ -357,13 +357,13 @@ func TestRepair_328_TraceErrorsDiscarded(t *testing.T) {
 	}
 }
 
-func TestRepair_328_PartialTraceFailure(t *testing.T) {
-	n := repair328Chain(t, false)
-	reader := repair328Reader(t, n.URL)
+func TestTraceCoveragePartialTraceFailure(t *testing.T) {
+	n := traceCoverageChain(t, false)
+	reader := traceCoverageReader(t, n.URL)
 	for _, diffMode := range []bool{false, true} {
 		for _, index := range []int{0, 1} {
 			t.Run(fmt.Sprintf("diffMode=%t/transaction=%d", diffMode, index), func(t *testing.T) {
-				url := repair328HTTP(t, n, nil, func(method string, diff bool, raw json.RawMessage) json.RawMessage {
+				url := traceCoverageHTTP(t, n, nil, func(method string, diff bool, raw json.RawMessage) json.RawMessage {
 					if method != "debug_traceBlockByHash" || diff != diffMode {
 						return raw
 					}
@@ -373,53 +373,53 @@ func TestRepair_328_PartialTraceFailure(t *testing.T) {
 						return raw
 					}
 					traces[index]["error"] = json.RawMessage(`"execution timeout"`)
-					return repair328JSON(t, traces)
+					return traceCoverageJSON(t, traces)
 				})
-				repair328Indeterminate(t, repair328Source(t, url), reader, 1, "execution timeout")
+				traceCoverageIndeterminate(t, traceCoverageSource(t, url), reader, 1, "execution timeout")
 			})
 		}
 	}
 }
 
-func TestRepair_328_TraceCoverage(t *testing.T) {
-	n := repair328Chain(t, false)
-	reader := repair328Reader(t, repair328HTTP(t, n, nil, nil))
+func TestTraceCoverageAccountsAndStorage(t *testing.T) {
+	n := traceCoverageChain(t, false)
+	reader := traceCoverageReader(t, traceCoverageHTTP(t, n, nil, nil))
 	cases := []struct {
 		name  string
 		want  string
 		alter func([]map[string]json.RawMessage) json.RawMessage
 	}{
-		{"missing_transaction", "trace coverage", func(traces []map[string]json.RawMessage) json.RawMessage { return repair328JSON(t, traces[:1]) }},
+		{"missing_transaction", "trace coverage", func(traces []map[string]json.RawMessage) json.RawMessage { return traceCoverageJSON(t, traces[:1]) }},
 		{"extra_transaction", "trace coverage", func(traces []map[string]json.RawMessage) json.RawMessage {
-			return repair328JSON(t, append(traces, traces[0]))
+			return traceCoverageJSON(t, append(traces, traces[0]))
 		}},
 		{"duplicate_hash", "trace coverage", func(traces []map[string]json.RawMessage) json.RawMessage {
 			traces[1]["txHash"] = traces[0]["txHash"]
-			return repair328JSON(t, traces)
+			return traceCoverageJSON(t, traces)
 		}},
 		{"missing_hash", "trace coverage", func(traces []map[string]json.RawMessage) json.RawMessage {
 			delete(traces[0], "txHash")
-			return repair328JSON(t, traces)
+			return traceCoverageJSON(t, traces)
 		}},
 		{"wrong_hash", "trace coverage", func(traces []map[string]json.RawMessage) json.RawMessage {
-			traces[0]["txHash"] = repair328JSON(t, n.Blocks[0])
-			return repair328JSON(t, traces)
+			traces[0]["txHash"] = traceCoverageJSON(t, n.Blocks[0])
+			return traceCoverageJSON(t, traces)
 		}},
 		{"missing_result", "missing or invalid prestate result", func(traces []map[string]json.RawMessage) json.RawMessage {
 			delete(traces[0], "result")
-			return repair328JSON(t, traces)
+			return traceCoverageJSON(t, traces)
 		}},
 		{"null_result", "missing or invalid prestate result", func(traces []map[string]json.RawMessage) json.RawMessage {
 			traces[0]["result"] = json.RawMessage("null")
-			return repair328JSON(t, traces)
+			return traceCoverageJSON(t, traces)
 		}},
 		{"empty_result", "missing or invalid prestate result", func(traces []map[string]json.RawMessage) json.RawMessage {
 			traces[0]["result"] = json.RawMessage("{}")
-			return repair328JSON(t, traces)
+			return traceCoverageJSON(t, traces)
 		}},
 		{"array_result", "missing or invalid prestate result", func(traces []map[string]json.RawMessage) json.RawMessage {
 			traces[0]["result"] = json.RawMessage("[]")
-			return repair328JSON(t, traces)
+			return traceCoverageJSON(t, traces)
 		}},
 		{"null_account", "missing account", func(traces []map[string]json.RawMessage) json.RawMessage {
 			var result map[string]json.RawMessage
@@ -432,16 +432,16 @@ func TestRepair_328_TraceCoverage(t *testing.T) {
 					t.Error(err)
 				}
 				accounts[n.Contract.Hex()] = json.RawMessage("null")
-				result["pre"] = repair328JSON(t, accounts)
+				result["pre"] = traceCoverageJSON(t, accounts)
 			} else {
 				result[n.Contract.Hex()] = json.RawMessage("null")
 			}
-			traces[0]["result"] = repair328JSON(t, result)
-			return repair328JSON(t, traces)
+			traces[0]["result"] = traceCoverageJSON(t, result)
+			return traceCoverageJSON(t, traces)
 		}},
 		{"null_entry", "trace coverage", func(traces []map[string]json.RawMessage) json.RawMessage {
 			traces[0] = nil
-			return repair328JSON(t, traces)
+			return traceCoverageJSON(t, traces)
 		}},
 		{"null_list", "trace coverage", func([]map[string]json.RawMessage) json.RawMessage { return json.RawMessage("null") }},
 		{"empty_list", "trace coverage", func([]map[string]json.RawMessage) json.RawMessage { return json.RawMessage("[]") }},
@@ -449,7 +449,7 @@ func TestRepair_328_TraceCoverage(t *testing.T) {
 	for _, diffMode := range []bool{false, true} {
 		for _, tc := range cases {
 			t.Run(fmt.Sprintf("diffMode=%t/%s", diffMode, tc.name), func(t *testing.T) {
-				url := repair328HTTP(t, n, nil, func(method string, diff bool, raw json.RawMessage) json.RawMessage {
+				url := traceCoverageHTTP(t, n, nil, func(method string, diff bool, raw json.RawMessage) json.RawMessage {
 					if !strings.HasPrefix(method, "debug_traceBlockBy") || diff != diffMode {
 						return raw
 					}
@@ -460,13 +460,13 @@ func TestRepair_328_TraceCoverage(t *testing.T) {
 					}
 					return tc.alter(traces)
 				})
-				repair328Indeterminate(t, repair328Source(t, url), reader, 1, tc.want)
+				traceCoverageIndeterminate(t, traceCoverageSource(t, url), reader, 1, tc.want)
 			})
 		}
 	}
 	for _, field := range []string{"pre", "post"} {
 		t.Run("missing_diff_"+field, func(t *testing.T) {
-			url := repair328HTTP(t, n, nil, func(method string, diff bool, raw json.RawMessage) json.RawMessage {
+			url := traceCoverageHTTP(t, n, nil, func(method string, diff bool, raw json.RawMessage) json.RawMessage {
 				if !strings.HasPrefix(method, "debug_traceBlockBy") || !diff {
 					return raw
 				}
@@ -481,30 +481,30 @@ func TestRepair_328_TraceCoverage(t *testing.T) {
 					return raw
 				}
 				delete(result, field)
-				traces[0]["result"] = repair328JSON(t, result)
-				return repair328JSON(t, traces)
+				traces[0]["result"] = traceCoverageJSON(t, result)
+				return traceCoverageJSON(t, traces)
 			})
-			repair328Indeterminate(t, repair328Source(t, url), reader, 1, "missing or invalid prestate result")
+			traceCoverageIndeterminate(t, traceCoverageSource(t, url), reader, 1, "missing or invalid prestate result")
 		})
 	}
-	url := repair328HTTP(t, n, nil, nil)
-	source := repair328Source(t, url)
+	url := traceCoverageHTTP(t, n, nil, nil)
+	source := traceCoverageSource(t, url)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	touched, err := source.TouchedAccounts(ctx, 2)
 	if err != nil || len(touched) != 0 {
 		t.Fatalf("empty block: touched=%+v error=%v", touched, err)
 	}
-	cleanComparison := repair328Comparison(t, ctx, reader, reader, source, 2)
+	cleanComparison := traceCoverageComparison(t, ctx, reader, reader, source, 2)
 	clean := cleanComparison.Layer2
 	if !cleanComparison.Match || clean.Indeterminate || clean.AccountsChecked != 0 || clean.KeysChecked != 0 || len(clean.Divergences) != 0 {
 		t.Fatalf("empty block should compare cleanly: %+v", clean)
 	}
-	repair328Indeterminate(t, source, reader, 3, "missing or invalid EVM block")
-	repair328Indeterminate(t, source, reader, -1, "invalid trace height")
+	traceCoverageIndeterminate(t, source, reader, 3, "missing or invalid EVM block")
+	traceCoverageIndeterminate(t, source, reader, -1, "invalid trace height")
 }
 
-func repair328JSON(t *testing.T, value any) json.RawMessage {
+func traceCoverageJSON(t *testing.T, value any) json.RawMessage {
 	t.Helper()
 	raw, err := json.Marshal(value)
 	if err != nil {
@@ -513,14 +513,14 @@ func repair328JSON(t *testing.T, value any) json.RawMessage {
 	return raw
 }
 
-func TestRepair_328_DiffTraceCoverage(t *testing.T) {
-	canonical := repair328Chain(t, false)
-	shadow := repair328Chain(t, true)
-	canonicalURL := repair328HTTP(t, canonical, nil, nil)
-	shadowURL := repair328HTTP(t, shadow, nil, nil)
-	canonicalReader := repair328Reader(t, canonicalURL)
-	shadowReader := repair328Reader(t, shadowURL)
-	source := repair328Source(t, canonicalURL)
+func TestTraceCoverageDiffAccountsAndStorage(t *testing.T) {
+	canonical := traceCoverageChain(t, false)
+	shadow := traceCoverageChain(t, true)
+	canonicalURL := traceCoverageHTTP(t, canonical, nil, nil)
+	shadowURL := traceCoverageHTTP(t, shadow, nil, nil)
+	canonicalReader := traceCoverageReader(t, canonicalURL)
+	shadowReader := traceCoverageReader(t, shadowURL)
+	source := traceCoverageSource(t, canonicalURL)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	// Establish the producer behavior that made diff-only enumeration incomplete.
@@ -573,7 +573,7 @@ func TestRepair_328_DiffTraceCoverage(t *testing.T) {
 	if len(created.Slots) != 1 || created.Slots[0] != common.HexToHash("0x2") {
 		t.Fatalf("diff poststate lost created storage: %+v", created)
 	}
-	comparison := repair328Comparison(t, ctx, shadowReader, canonicalReader, source, 1)
+	comparison := traceCoverageComparison(t, ctx, shadowReader, canonicalReader, source, 1)
 	result := comparison.Layer2
 	if comparison.Match || comparison.DivergenceLayer == nil || *comparison.DivergenceLayer != 2 {
 		t.Fatalf("read-only state divergence must reject the block at Layer 2: %+v", comparison)
@@ -589,7 +589,7 @@ func TestRepair_328_DiffTraceCoverage(t *testing.T) {
 		found["code"].Addr != canonical.Contract.Hex() {
 		t.Fatalf("consumer missed read-only storage or unchanged contract code: %+v", result.Divergences)
 	}
-	cleanComparison := repair328Comparison(t, ctx, canonicalReader, canonicalReader, source, 1)
+	cleanComparison := traceCoverageComparison(t, ctx, canonicalReader, canonicalReader, source, 1)
 	clean := cleanComparison.Layer2
 	if !cleanComparison.Match || clean.Indeterminate || clean.AccountsChecked != 4 || clean.KeysChecked != 15 || len(clean.Divergences) != 0 {
 		t.Fatalf("identical RPC state did not compare cleanly: %+v", clean)
@@ -599,12 +599,12 @@ func TestRepair_328_DiffTraceCoverage(t *testing.T) {
 // The native tracer's committed full/diff vectors are copied verbatim as
 // results into this fixture. This independently covers the wire contract with
 // producer data, including three unchanged SLOAD slots omitted by diff mode.
-func TestRepair_328_RecordedTraceContract(t *testing.T) {
-	canonical := repair328ChainFixture(t, "testdata/repair_328_recorded.json", false)
-	shadow := repair328ChainFixture(t, "testdata/repair_328_recorded.json", true)
-	source := repair328Source(t, canonical.URL)
-	canonicalReader := repair328Reader(t, canonical.URL)
-	shadowReader := repair328Reader(t, shadow.URL)
+func TestTraceCoverageRecordedTraceContract(t *testing.T) {
+	canonical := traceCoverageChainFixture(t, "testdata/prestate_recorded.json", false)
+	shadow := traceCoverageChainFixture(t, "testdata/prestate_recorded.json", true)
+	source := traceCoverageSource(t, canonical.URL)
+	canonicalReader := traceCoverageReader(t, canonical.URL)
+	shadowReader := traceCoverageReader(t, shadow.URL)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	touched, err := source.TouchedAccounts(ctx, 1)
@@ -628,7 +628,7 @@ func TestRepair_328_RecordedTraceContract(t *testing.T) {
 			t.Fatalf("recorded SLOAD key %d = %s", i, slot)
 		}
 	}
-	result := repair328Comparison(t, ctx, shadowReader, canonicalReader, source, 1)
+	result := traceCoverageComparison(t, ctx, shadowReader, canonicalReader, source, 1)
 	if result.Match || result.Layer2.Indeterminate || result.Layer2.AccountsChecked != 4 || result.Layer2.KeysChecked != 16 || len(result.Layer2.Divergences) != 2 {
 		t.Fatalf("recorded trace comparison: %+v", result)
 	}
@@ -639,7 +639,7 @@ func TestRepair_328_RecordedTraceContract(t *testing.T) {
 	if found["storage"].Slot != common.HexToHash("0x1").Hex() || found["storage"].Addr != canonical.Contract.Hex() || found["code"].Addr != canonical.Contract.Hex() {
 		t.Fatalf("recorded trace lost unchanged storage/code: %+v", result.Layer2.Divergences)
 	}
-	clean := repair328Comparison(t, ctx, canonicalReader, canonicalReader, source, 1)
+	clean := traceCoverageComparison(t, ctx, canonicalReader, canonicalReader, source, 1)
 	if !clean.Match || clean.Layer2.Indeterminate || clean.Layer2.AccountsChecked != 4 || clean.Layer2.KeysChecked != 16 || len(clean.Layer2.Divergences) != 0 {
 		t.Fatalf("recorded state must compare cleanly to itself: %+v", clean)
 	}

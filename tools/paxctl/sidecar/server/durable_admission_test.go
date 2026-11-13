@@ -23,7 +23,7 @@ import (
 	"github.com/sei-protocol/seictl/sidecar/tasks"
 )
 
-type repair842Node struct {
+type admissionNode struct {
 	store  *TaskStore
 	eng    *engine.Engine
 	client *sidecar.ClientWithResponses
@@ -32,7 +32,7 @@ type repair842Node struct {
 	once   sync.Once
 }
 
-func repair842Open(t *testing.T, path, home string, handlers map[engine.TaskType]engine.TaskHandler) *repair842Node {
+func admissionOpen(t *testing.T, path, home string, handlers map[engine.TaskType]engine.TaskHandler) *admissionNode {
 	t.Helper()
 	store, err := NewTaskStore(path)
 	if err != nil {
@@ -61,16 +61,16 @@ func repair842Open(t *testing.T, path, home string, handlers map[engine.TaskType
 		store.Close()
 		t.Fatal(err)
 	}
-	n := &repair842Node{store: store, eng: eng, client: client, http: transport, cancel: cancel}
+	n := &admissionNode{store: store, eng: eng, client: client, http: transport, cancel: cancel}
 	t.Cleanup(n.close)
 	return n
 }
 
-func (n *repair842Node) close() {
+func (n *admissionNode) close() {
 	n.once.Do(func() { n.http.Close(); n.cancel(); _ = n.store.Close() })
 }
 
-func repair842Eventually(t *testing.T, description string, f func() bool) {
+func admissionEventually(t *testing.T, description string, f func() bool) {
 	t.Helper()
 	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
@@ -82,7 +82,7 @@ func repair842Eventually(t *testing.T, description string, f func() bool) {
 	t.Fatal("timed out: " + description)
 }
 
-func repair842Submit(t *testing.T, n *repair842Node, id uuid.UUID, request sidecar.TaskRequest, status int) {
+func admissionSubmit(t *testing.T, n *admissionNode, id uuid.UUID, request sidecar.TaskRequest, status int) {
 	t.Helper()
 	request.Id = &id
 	response, err := n.client.SubmitTaskWithResponse(context.Background(), request)
@@ -107,10 +107,10 @@ func repair842Submit(t *testing.T, n *repair842Node, id uuid.UUID, request sidec
 	}
 }
 
-func repair842Completed(t *testing.T, n *repair842Node, id uuid.UUID, run int, status engine.TaskStatus) *engine.TaskResult {
+func admissionCompleted(t *testing.T, n *admissionNode, id uuid.UUID, run int, status engine.TaskStatus) *engine.TaskResult {
 	t.Helper()
 	var result engine.TaskResult
-	repair842Eventually(t, "HTTP terminal result for "+id.String(), func() bool {
+	admissionEventually(t, "HTTP terminal result for "+id.String(), func() bool {
 		response, err := n.client.GetTaskWithResponse(context.Background(), id)
 		if err != nil {
 			t.Fatal(err)
@@ -126,7 +126,7 @@ func repair842Completed(t *testing.T, n *repair842Node, id uuid.UUID, run int, s
 	return &result
 }
 
-func repair842RPC(t *testing.T) (*httptest.Server, *atomic.Int64, <-chan struct{}) {
+func admissionRPC(t *testing.T) (*httptest.Server, *atomic.Int64, <-chan struct{}) {
 	t.Helper()
 	height := &atomic.Int64{}
 	seen := make(chan struct{})
@@ -145,7 +145,7 @@ func repair842RPC(t *testing.T) (*httptest.Server, *atomic.Int64, <-chan struct{
 	return server, height, seen
 }
 
-func repair842WaitSeen(t *testing.T, seen <-chan struct{}) {
+func admissionWaitSeen(t *testing.T, seen <-chan struct{}) {
 	t.Helper()
 	select {
 	case <-seen:
@@ -154,12 +154,12 @@ func repair842WaitSeen(t *testing.T, seen <-chan struct{}) {
 	}
 }
 
-func repair842Patch(moniker string) sidecar.TaskRequest {
+func admissionPatch(moniker string) sidecar.TaskRequest {
 	return (sidecar.ConfigPatchTask{Files: map[string]map[string]any{"config.toml": {"moniker": moniker}}}).ToTaskRequest()
 }
 
-func TestRepairM_842_RequestSize(t *testing.T) {
-	n := repair842Open(t, filepath.Join(t.TempDir(), "sidecar.db"), t.TempDir(), map[engine.TaskType]engine.TaskHandler{engine.TaskMarkReady: tasks.MarkReadyHandler()})
+func TestDurableAdmissionRequestSize(t *testing.T) {
+	n := admissionOpen(t, filepath.Join(t.TempDir(), "sidecar.db"), t.TempDir(), map[engine.TaskType]engine.TaskHandler{engine.TaskMarkReady: tasks.MarkReadyHandler()})
 	base := `{"type":"mark-ready"}`
 	exact := base + strings.Repeat(" ", MaxTaskRequestBytes-len(base))
 	for _, test := range []struct {
@@ -209,21 +209,21 @@ func TestRepairM_842_RequestSize(t *testing.T) {
 	}
 }
 
-func TestRepairM_842_BoundedQueueAndNodeExclusion(t *testing.T) {
-	rpcServer, height, seen := repair842RPC(t)
+func TestDurableAdmissionBoundedQueueAndNodeExclusion(t *testing.T) {
+	rpcServer, height, seen := admissionRPC(t)
 	home := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(home, "config"), 0700); err != nil {
 		t.Fatal(err)
 	}
-	n := repair842Open(t, filepath.Join(t.TempDir(), "sidecar.db"), home, map[engine.TaskType]engine.TaskHandler{
+	n := admissionOpen(t, filepath.Join(t.TempDir(), "sidecar.db"), home, map[engine.TaskType]engine.TaskHandler{
 		engine.TaskAwaitCondition: tasks.NewConditionWaiter(rpc.NewStatusClient(rpcServer.URL, nil)).Handler(),
 		engine.TaskConfigPatch:    tasks.NewConfigPatcher(home).Handler(), engine.TaskMarkReady: tasks.MarkReadyHandler(),
 	})
 	active := uuid.New()
-	repair842Submit(t, n, active, (sidecar.AwaitConditionTask{Condition: sidecar.ConditionHeight, TargetHeight: 10}).ToTaskRequest(), http.StatusCreated)
-	repair842WaitSeen(t, seen)
+	admissionSubmit(t, n, active, (sidecar.AwaitConditionTask{Condition: sidecar.ConditionHeight, TargetHeight: 10}).ToTaskRequest(), http.StatusCreated)
+	admissionWaitSeen(t, seen)
 	patchID := uuid.New()
-	repair842Submit(t, n, patchID, repair842Patch("after-exclusive-work"), http.StatusCreated)
+	admissionSubmit(t, n, patchID, admissionPatch("after-exclusive-work"), http.StatusCreated)
 	const producers = 2 * MaxQueuedTasks
 	results := make(chan int, producers)
 	var wg sync.WaitGroup
@@ -262,7 +262,7 @@ func TestRepairM_842_BoundedQueueAndNodeExclusion(t *testing.T) {
 	if accepted != MaxQueuedTasks-2 || rejected != producers-accepted {
 		t.Fatalf("queue bound: accepted=%d rejected=%d", accepted, rejected)
 	}
-	repair842Submit(t, n, active, (sidecar.AwaitConditionTask{Condition: sidecar.ConditionHeight, TargetHeight: 10}).ToTaskRequest(), http.StatusCreated)
+	admissionSubmit(t, n, active, (sidecar.AwaitConditionTask{Condition: sidecar.ConditionHeight, TargetHeight: 10}).ToTaskRequest(), http.StatusCreated)
 	if _, err := os.Stat(filepath.Join(home, "config", "config.toml")); !os.IsNotExist(err) {
 		t.Fatalf("queued node mutation executed concurrently: %v", err)
 	}
@@ -285,20 +285,20 @@ func TestRepairM_842_BoundedQueueAndNodeExclusion(t *testing.T) {
 		t.Fatalf("running=%d err=%v", running, err)
 	}
 	height.Store(10)
-	repair842Completed(t, n, active, 1, engine.TaskStatusCompleted)
-	repair842Completed(t, n, patchID, 1, engine.TaskStatusCompleted)
+	admissionCompleted(t, n, active, 1, engine.TaskStatusCompleted)
+	admissionCompleted(t, n, patchID, 1, engine.TaskStatusCompleted)
 	data, err := os.ReadFile(filepath.Join(home, "config", "config.toml"))
 	if err != nil || !bytes.Contains(data, []byte("after-exclusive-work")) {
 		t.Fatalf("real queued consumer did not patch config: %s %v", data, err)
 	}
-	repair842Eventually(t, "drain all accepted tasks", func() bool {
+	admissionEventually(t, "drain all accepted tasks", func() bool {
 		var queued int
 		return n.store.admission.db.QueryRow("SELECT count(*) FROM task_admission").Scan(&queued) == nil && queued == 0
 	})
 }
 
-func TestRepairM_842_PersistentQueueRecovery(t *testing.T) {
-	rpcServer, height, seen := repair842RPC(t)
+func TestDurableAdmissionPersistentQueueRecovery(t *testing.T) {
+	rpcServer, height, seen := admissionRPC(t)
 	home := t.TempDir()
 	path := filepath.Join(t.TempDir(), "sidecar.db")
 	if err := os.MkdirAll(filepath.Join(home, "config"), 0700); err != nil {
@@ -313,26 +313,26 @@ func TestRepairM_842_PersistentQueueRecovery(t *testing.T) {
 		},
 		engine.TaskConfigPatch: tasks.NewConfigPatcher(home).Handler(),
 	}
-	first := repair842Open(t, path, home, handlers)
+	first := admissionOpen(t, path, home, handlers)
 	active, pending := uuid.New(), uuid.New()
-	repair842Submit(t, first, active, (sidecar.AwaitConditionTask{Condition: sidecar.ConditionHeight, TargetHeight: 10}).ToTaskRequest(), http.StatusCreated)
-	repair842WaitSeen(t, seen)
-	repair842Submit(t, first, pending, repair842Patch("recovered-from-durable-queue"), http.StatusCreated)
+	admissionSubmit(t, first, active, (sidecar.AwaitConditionTask{Condition: sidecar.ConditionHeight, TargetHeight: 10}).ToTaskRequest(), http.StatusCreated)
+	admissionWaitSeen(t, seen)
+	admissionSubmit(t, first, pending, admissionPatch("recovered-from-durable-queue"), http.StatusCreated)
 	before, err := first.store.Get(active.String())
 	if err != nil || before == nil || before.Generation == "" {
 		t.Fatalf("active recovery generation: %+v %v", before, err)
 	}
 	first.cancel()
-	repair842WaitSeen(t, stopped)
+	admissionWaitSeen(t, stopped)
 	first.close()
 	height.Store(10)
 	handlers[engine.TaskAwaitCondition] = realWaiter
-	reopened := repair842Open(t, path, home, handlers)
-	recovered := repair842Completed(t, reopened, active, 1, engine.TaskStatusCompleted)
+	reopened := admissionOpen(t, path, home, handlers)
+	recovered := admissionCompleted(t, reopened, active, 1, engine.TaskStatusCompleted)
 	if recovered.ID != active.String() {
 		t.Fatal("recovery changed task identity")
 	}
-	repair842Completed(t, reopened, pending, 1, engine.TaskStatusCompleted)
+	admissionCompleted(t, reopened, pending, 1, engine.TaskStatusCompleted)
 	after, err := reopened.store.Get(active.String())
 	if err != nil || after.Generation != before.Generation {
 		t.Fatalf("recovery replaced generation: before=%+v after=%+v err=%v", before, after, err)
@@ -343,7 +343,7 @@ func TestRepairM_842_PersistentQueueRecovery(t *testing.T) {
 	}
 }
 
-func TestRepairM_842_DeleteKeepsNodeSlotUntilHandlerExit(t *testing.T) {
+func TestDurableAdmissionDeleteKeepsNodeSlotUntilHandlerExit(t *testing.T) {
 	home := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(home, "config"), 0700); err != nil {
 		t.Fatal(err)
@@ -352,7 +352,7 @@ func TestRepairM_842_DeleteKeepsNodeSlotUntilHandlerExit(t *testing.T) {
 	var releaseOnce sync.Once
 	t.Cleanup(func() { releaseOnce.Do(func() { close(release) }) })
 	consumer := tasks.NewConfigPatcher(home).Handler()
-	n := repair842Open(t, filepath.Join(t.TempDir(), "sidecar.db"), home, map[engine.TaskType]engine.TaskHandler{
+	n := admissionOpen(t, filepath.Join(t.TempDir(), "sidecar.db"), home, map[engine.TaskType]engine.TaskHandler{
 		engine.TaskConfigPatch: func(ctx context.Context, p map[string]any) (json.RawMessage, error) {
 			result, err := consumer(ctx, p)
 			close(patched)
@@ -361,14 +361,14 @@ func TestRepairM_842_DeleteKeepsNodeSlotUntilHandlerExit(t *testing.T) {
 		}, engine.TaskMarkReady: tasks.MarkReadyHandler(),
 	})
 	active, next := uuid.New(), uuid.New()
-	repair842Submit(t, n, active, repair842Patch("real-consumer-completed-before-delayed-return"), http.StatusCreated)
-	repair842WaitSeen(t, patched)
-	repair842Submit(t, n, next, (sidecar.MarkReadyTask{}).ToTaskRequest(), http.StatusCreated)
+	admissionSubmit(t, n, active, admissionPatch("real-consumer-completed-before-delayed-return"), http.StatusCreated)
+	admissionWaitSeen(t, patched)
+	admissionSubmit(t, n, next, (sidecar.MarkReadyTask{}).ToTaskRequest(), http.StatusCreated)
 	deleted, err := n.client.DeleteTaskWithResponse(context.Background(), active)
 	if err != nil || deleted.StatusCode() != http.StatusNoContent {
 		t.Fatalf("DELETE: %+v %v", deleted, err)
 	}
-	repair842Submit(t, n, active, repair842Patch("cannot-overlap-cancelled-handler"), http.StatusTooManyRequests)
+	admissionSubmit(t, n, active, admissionPatch("cannot-overlap-cancelled-handler"), http.StatusTooManyRequests)
 	var state string
 	var cancellations int
 	if err = n.store.admission.db.QueryRow("SELECT state FROM task_admission WHERE id=?", active.String()).Scan(&state); err != nil || state != "cancelled" {
@@ -381,7 +381,7 @@ func TestRepairM_842_DeleteKeepsNodeSlotUntilHandlerExit(t *testing.T) {
 		t.Fatal("DELETE released the node slot before handler exit")
 	}
 	releaseOnce.Do(func() { close(release) })
-	repair842Completed(t, n, next, 1, engine.TaskStatusCompleted)
+	admissionCompleted(t, n, next, 1, engine.TaskStatusCompleted)
 	response, err := n.client.GetTaskWithResponse(context.Background(), active)
 	if err != nil || response.StatusCode() != http.StatusNotFound {
 		t.Fatalf("deleted task resurrected: %+v %v", response, err)
@@ -391,43 +391,43 @@ func TestRepairM_842_DeleteKeepsNodeSlotUntilHandlerExit(t *testing.T) {
 	}
 }
 
-func TestRepairM_842_RetentionAndRecoveryMarkers(t *testing.T) {
+func TestDurableAdmissionRetentionAndRecoveryMarkers(t *testing.T) {
 	path, home := filepath.Join(t.TempDir(), "sidecar.db"), t.TempDir()
 	if err := os.MkdirAll(filepath.Join(home, "config"), 0700); err != nil {
 		t.Fatal(err)
 	}
-	n := repair842Open(t, path, home, map[engine.TaskType]engine.TaskHandler{engine.TaskMarkReady: tasks.MarkReadyHandler(), engine.TaskConfigPatch: tasks.NewConfigPatcher(home).Handler()})
+	n := admissionOpen(t, path, home, map[engine.TaskType]engine.TaskHandler{engine.TaskMarkReady: tasks.MarkReadyHandler(), engine.TaskConfigPatch: tasks.NewConfigPatcher(home).Handler()})
 	ids := make([]uuid.UUID, MaxRetainedTasks)
 	for i := range ids {
 		ids[i] = uuid.New()
 		if i == len(ids)-1 {
-			repair842Submit(t, n, ids[i], sidecar.TaskRequest{Type: string(engine.TaskConfigPatch)}, http.StatusCreated)
-			repair842Completed(t, n, ids[i], 1, engine.TaskStatusFailed)
+			admissionSubmit(t, n, ids[i], sidecar.TaskRequest{Type: string(engine.TaskConfigPatch)}, http.StatusCreated)
+			admissionCompleted(t, n, ids[i], 1, engine.TaskStatusFailed)
 		} else {
-			repair842Submit(t, n, ids[i], (sidecar.MarkReadyTask{}).ToTaskRequest(), http.StatusCreated)
-			repair842Completed(t, n, ids[i], 1, engine.TaskStatusCompleted)
+			admissionSubmit(t, n, ids[i], (sidecar.MarkReadyTask{}).ToTaskRequest(), http.StatusCreated)
+			admissionCompleted(t, n, ids[i], 1, engine.TaskStatusCompleted)
 		}
 	}
-	repair842Submit(t, n, ids[len(ids)-1], repair842Patch("retry-at-retention-capacity"), http.StatusCreated)
-	repair842Completed(t, n, ids[len(ids)-1], 2, engine.TaskStatusCompleted)
+	admissionSubmit(t, n, ids[len(ids)-1], admissionPatch("retry-at-retention-capacity"), http.StatusCreated)
+	admissionCompleted(t, n, ids[len(ids)-1], 2, engine.TaskStatusCompleted)
 	marker := &engine.TxMarker{TaskID: ids[0].String(), TxHash: "retained-recovery-hash", TxBytes: []byte("retained-signed-transaction"), ChainID: "repair-chain", AccountNumber: 7, Sequence: 9}
 	if err := n.store.SaveTxMarker(marker); err != nil {
 		t.Fatal(err)
 	}
-	repair842Submit(t, n, uuid.New(), (sidecar.MarkReadyTask{}).ToTaskRequest(), http.StatusTooManyRequests)
-	repair842Submit(t, n, ids[1], (sidecar.MarkReadyTask{}).ToTaskRequest(), http.StatusCreated)
+	admissionSubmit(t, n, uuid.New(), (sidecar.MarkReadyTask{}).ToTaskRequest(), http.StatusTooManyRequests)
+	admissionSubmit(t, n, ids[1], (sidecar.MarkReadyTask{}).ToTaskRequest(), http.StatusCreated)
 	deleted, err := n.client.DeleteTaskWithResponse(context.Background(), ids[0])
 	if err != nil || deleted.StatusCode() != http.StatusNoContent {
 		t.Fatalf("delete pinned result: %+v %v", deleted, err)
 	}
-	repair842Submit(t, n, uuid.New(), (sidecar.MarkReadyTask{}).ToTaskRequest(), http.StatusTooManyRequests)
+	admissionSubmit(t, n, uuid.New(), (sidecar.MarkReadyTask{}).ToTaskRequest(), http.StatusTooManyRequests)
 	deleted, err = n.client.DeleteTaskWithResponse(context.Background(), ids[1])
 	if err != nil || deleted.StatusCode() != http.StatusNoContent {
 		t.Fatalf("delete unpinned terminal result: %+v %v", deleted, err)
 	}
 	replacement := uuid.New()
-	repair842Submit(t, n, replacement, (sidecar.MarkReadyTask{}).ToTaskRequest(), http.StatusCreated)
-	repair842Completed(t, n, replacement, 1, engine.TaskStatusCompleted)
+	admissionSubmit(t, n, replacement, (sidecar.MarkReadyTask{}).ToTaskRequest(), http.StatusCreated)
+	admissionCompleted(t, n, replacement, 1, engine.TaskStatusCompleted)
 	n.close()
 	reopened, err := NewTaskStore(path)
 	if err != nil {
@@ -444,35 +444,35 @@ func TestRepairM_842_RetentionAndRecoveryMarkers(t *testing.T) {
 	}
 }
 
-func TestRepairM_842_FailedTaskRetry(t *testing.T) {
+func TestDurableAdmissionFailedTaskRetry(t *testing.T) {
 	home := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(home, "config"), 0700); err != nil {
 		t.Fatal(err)
 	}
-	n := repair842Open(t, filepath.Join(t.TempDir(), "sidecar.db"), home, map[engine.TaskType]engine.TaskHandler{engine.TaskConfigPatch: tasks.NewConfigPatcher(home).Handler()})
+	n := admissionOpen(t, filepath.Join(t.TempDir(), "sidecar.db"), home, map[engine.TaskType]engine.TaskHandler{engine.TaskConfigPatch: tasks.NewConfigPatcher(home).Handler()})
 	id := uuid.New()
-	repair842Submit(t, n, id, sidecar.TaskRequest{Type: string(engine.TaskConfigPatch)}, http.StatusCreated)
-	failed := repair842Completed(t, n, id, 1, engine.TaskStatusFailed)
+	admissionSubmit(t, n, id, sidecar.TaskRequest{Type: string(engine.TaskConfigPatch)}, http.StatusCreated)
+	failed := admissionCompleted(t, n, id, 1, engine.TaskStatusFailed)
 	if failed.Error == "" {
 		t.Fatal("real consumer failure disappeared")
 	}
-	repair842Submit(t, n, id, repair842Patch("second-attempt"), http.StatusCreated)
-	repair842Completed(t, n, id, 2, engine.TaskStatusCompleted)
+	admissionSubmit(t, n, id, admissionPatch("second-attempt"), http.StatusCreated)
+	admissionCompleted(t, n, id, 2, engine.TaskStatusCompleted)
 	data, err := os.ReadFile(filepath.Join(home, "config", "config.toml"))
 	if err != nil || !bytes.Contains(data, []byte("second-attempt")) {
 		t.Fatalf("retry did not reach real consumer: %s %v", data, err)
 	}
 }
 
-func TestRepairM_842_AdmissionUnavailable(t *testing.T) {
-	n := repair842Open(t, filepath.Join(t.TempDir(), "sidecar.db"), t.TempDir(), map[engine.TaskType]engine.TaskHandler{engine.TaskMarkReady: tasks.MarkReadyHandler()})
+func TestDurableAdmissionUnavailable(t *testing.T) {
+	n := admissionOpen(t, filepath.Join(t.TempDir(), "sidecar.db"), t.TempDir(), map[engine.TaskType]engine.TaskHandler{engine.TaskMarkReady: tasks.MarkReadyHandler()})
 	if err := n.store.Close(); err != nil {
 		t.Fatal(err)
 	}
-	repair842Submit(t, n, uuid.New(), (sidecar.MarkReadyTask{}).ToTaskRequest(), http.StatusServiceUnavailable)
+	admissionSubmit(t, n, uuid.New(), (sidecar.MarkReadyTask{}).ToTaskRequest(), http.StatusServiceUnavailable)
 }
 
-func TestRepairM_842_ExclusiveStoreOwner(t *testing.T) {
+func TestDurableAdmissionExclusiveStoreOwner(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "sidecar.db")
 	first, err := NewTaskStore(path)
 	if err != nil {
@@ -496,20 +496,20 @@ func TestRepairM_842_ExclusiveStoreOwner(t *testing.T) {
 	}
 }
 
-func TestRepairM_842_DeletePendingTask(t *testing.T) {
-	rpcServer, height, seen := repair842RPC(t)
+func TestDurableAdmissionDeletePendingTask(t *testing.T) {
+	rpcServer, height, seen := admissionRPC(t)
 	home := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(home, "config"), 0700); err != nil {
 		t.Fatal(err)
 	}
-	n := repair842Open(t, filepath.Join(t.TempDir(), "sidecar.db"), home, map[engine.TaskType]engine.TaskHandler{
+	n := admissionOpen(t, filepath.Join(t.TempDir(), "sidecar.db"), home, map[engine.TaskType]engine.TaskHandler{
 		engine.TaskAwaitCondition: tasks.NewConditionWaiter(rpc.NewStatusClient(rpcServer.URL, nil)).Handler(),
 		engine.TaskConfigPatch:    tasks.NewConfigPatcher(home).Handler(),
 	})
 	active, pending := uuid.New(), uuid.New()
-	repair842Submit(t, n, active, (sidecar.AwaitConditionTask{Condition: sidecar.ConditionHeight, TargetHeight: 10}).ToTaskRequest(), http.StatusCreated)
-	repair842WaitSeen(t, seen)
-	repair842Submit(t, n, pending, repair842Patch("must-not-run"), http.StatusCreated)
+	admissionSubmit(t, n, active, (sidecar.AwaitConditionTask{Condition: sidecar.ConditionHeight, TargetHeight: 10}).ToTaskRequest(), http.StatusCreated)
+	admissionWaitSeen(t, seen)
+	admissionSubmit(t, n, pending, admissionPatch("must-not-run"), http.StatusCreated)
 	deleted, err := n.client.DeleteTaskWithResponse(context.Background(), pending)
 	if err != nil || deleted.StatusCode() != http.StatusNoContent {
 		t.Fatalf("delete pending: %+v %v", deleted, err)
@@ -519,8 +519,8 @@ func TestRepairM_842_DeletePendingTask(t *testing.T) {
 		t.Fatalf("pending task survived DELETE: %+v %v", response, err)
 	}
 	height.Store(10)
-	repair842Completed(t, n, active, 1, engine.TaskStatusCompleted)
-	repair842Eventually(t, "active claim cleanup", func() bool {
+	admissionCompleted(t, n, active, 1, engine.TaskStatusCompleted)
+	admissionEventually(t, "active claim cleanup", func() bool {
 		var count int
 		return n.store.admission.db.QueryRow("SELECT count(*) FROM task_admission").Scan(&count) == nil && count == 0
 	})

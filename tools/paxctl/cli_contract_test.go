@@ -33,7 +33,7 @@ import (
 	"github.com/sei-protocol/seictl/sidecar/tasks"
 )
 
-func repair839Read(t *testing.T, path string) string {
+func cliContractRead(t *testing.T, path string) string {
 	t.Helper()
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -42,7 +42,7 @@ func repair839Read(t *testing.T, path string) string {
 	return string(data)
 }
 
-func repair839Require(t *testing.T, text string, needles ...string) {
+func cliContractRequire(t *testing.T, text string, needles ...string) {
 	t.Helper()
 	for _, needle := range needles {
 		if !strings.Contains(text, needle) {
@@ -53,11 +53,11 @@ func repair839Require(t *testing.T, text string, needles ...string) {
 
 // Copy the actual registrations, including flags/arguments, so independent CLI
 // invocations do not reuse urfave's mutable parser state.
-func repair839Command(source *cli.Command) *cli.Command {
+func cliContractCommand(source *cli.Command) *cli.Command {
 	cmd := *source
 	cmd.Commands = nil
 	for _, child := range source.Commands {
-		cmd.Commands = append(cmd.Commands, repair839Command(child))
+		cmd.Commands = append(cmd.Commands, cliContractCommand(child))
 	}
 	cmd.Flags = nil
 	for _, flag := range source.Flags {
@@ -76,7 +76,7 @@ func repair839Command(source *cli.Command) *cli.Command {
 	return &cmd
 }
 
-func repair839Run(t *testing.T, ctx context.Context, args []string) ([]byte, error) {
+func cliContractRun(t *testing.T, ctx context.Context, args []string) ([]byte, error) {
 	t.Helper()
 	out, err := os.CreateTemp(t.TempDir(), "stdout-")
 	if err != nil {
@@ -86,7 +86,7 @@ func repair839Run(t *testing.T, ctx context.Context, args []string) ([]byte, err
 	previous := os.Stdout
 	os.Stdout = out
 	defer func() { os.Stdout = previous }()
-	cmd := repair839Command(&seictlCmd)
+	cmd := cliContractCommand(&seictlCmd)
 	cmd.ExitErrHandler = func(context.Context, *cli.Command, error) {}
 	cmd.Writer = out
 	cmd.ErrWriter = io.Discard
@@ -100,7 +100,7 @@ func repair839Run(t *testing.T, ctx context.Context, args []string) ([]byte, err
 
 // Validate executable examples against the registered production command tree,
 // rather than maintaining a separate list of supported verbs and flags.
-func repair839DocCommands(t *testing.T, doc string) map[string]bool {
+func cliContractDocCommands(t *testing.T, doc string) map[string]bool {
 	t.Helper()
 	found := map[string]bool{}
 	inShell := false
@@ -159,9 +159,9 @@ func repair839DocCommands(t *testing.T, doc string) map[string]bool {
 	return found
 }
 
-func TestRepairM_839_RetiredSmokeCommands(t *testing.T) {
-	doc := repair839Read(t, ".agent/runbooks/seictl-smoke.md")
-	found := repair839DocCommands(t, doc)
+func TestCLIContractSupportedSmokeCommands(t *testing.T) {
+	doc := cliContractRead(t, ".agent/runbooks/seictl-smoke.md")
+	found := cliContractDocCommands(t, doc)
 	for _, tree := range []string{"network", "node", "workflow", "task"} {
 		if !found[tree] {
 			t.Errorf("smoke does not execute %s", tree)
@@ -172,7 +172,7 @@ func TestRepairM_839_RetiredSmokeCommands(t *testing.T) {
 			t.Errorf("retired smoke operation: %s", retired)
 		}
 	}
-	repair839Require(t, doc, "seinetworks.sei.io", "seinodes.sei.io", "seinodetaskworkflows.sei.io", "eth_chainId", ".result.node_info.network", "EXPECTED_EVM_CHAIN_ID", "latest_block_height", "--proxy-ca-file", "--dry-run", "config-validate", "status=completed", "two-minute timeout", "registry.example.invalid", "--until Ready", "--until Running")
+	cliContractRequire(t, doc, "seinetworks.sei.io", "seinodes.sei.io", "seinodetaskworkflows.sei.io", "eth_chainId", ".result.node_info.network", "EXPECTED_EVM_CHAIN_ID", "latest_block_height", "--proxy-ca-file", "--dry-run", "config-validate", "status=completed", "two-minute timeout", "registry.example.invalid", "--until Ready", "--until Running")
 	// The same documented read-only task must traverse the real wire codec and
 	// production handler against a config written by the production generator.
 	home := t.TempDir()
@@ -193,7 +193,7 @@ func TestRepairM_839_RetiredSmokeCommands(t *testing.T) {
 	}
 }
 
-func TestRepairM_839_ReleaseProvenance(t *testing.T) {
+func TestCLIContractReleaseProvenance(t *testing.T) {
 	version, err := releaseproof.ReadVersion("version.json", "")
 	if err != nil {
 		t.Fatal(err)
@@ -203,16 +203,16 @@ func TestRepairM_839_ReleaseProvenance(t *testing.T) {
 	cliutil.Version = version
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	if err := releaseproof.Verify(ctx, version, func(ctx context.Context, args []string) ([]byte, error) { return repair839Run(t, ctx, args) }); err != nil {
+	if err := releaseproof.Verify(ctx, version, func(ctx context.Context, args []string) ([]byte, error) { return cliContractRun(t, ctx, args) }); err != nil {
 		t.Fatal(err)
 	}
 	// A missing linker stamp is rejected by the same verifier used for releases.
 	cliutil.Version = "dev"
-	if err := releaseproof.Verify(ctx, version, func(ctx context.Context, args []string) ([]byte, error) { return repair839Run(t, ctx, args) }); err == nil {
+	if err := releaseproof.Verify(ctx, version, func(ctx context.Context, args []string) ([]byte, error) { return cliContractRun(t, ctx, args) }); err == nil {
 		t.Fatal("unstamped artifact passed provenance verification")
 	}
 	cliutil.Version = version
-	if err := releaseproof.Verify(ctx, "v999.888.777", func(ctx context.Context, args []string) ([]byte, error) { return repair839Run(t, ctx, args) }); err == nil {
+	if err := releaseproof.Verify(ctx, "v999.888.777", func(ctx context.Context, args []string) ([]byte, error) { return cliContractRun(t, ctx, args) }); err == nil {
 		t.Fatal("wrong release stamp passed provenance verification")
 	}
 
@@ -239,7 +239,7 @@ func TestRepairM_839_ReleaseProvenance(t *testing.T) {
 			Goarch  []string `json:"goarch"`
 		} `json:"builds"`
 	}
-	if err := yaml.Unmarshal([]byte(repair839Read(t, ".goreleaser.yaml")), &config); err != nil {
+	if err := yaml.Unmarshal([]byte(cliContractRead(t, ".goreleaser.yaml")), &config); err != nil {
 		t.Fatal(err)
 	}
 	if len(config.Builds) != 1 {
@@ -248,35 +248,35 @@ func TestRepairM_839_ReleaseProvenance(t *testing.T) {
 	if !slices.Equal(config.Builds[0].Goos, []string{"linux", "darwin"}) || !slices.Equal(config.Builds[0].Goarch, []string{"amd64", "arm64"}) {
 		t.Fatalf("documented release platforms differ: %+v", config.Builds[0])
 	}
-	repair839Require(t, strings.Join(config.Before.Hooks, "\n"), "go run ./internal/release version --expected {{ .Tag }}")
+	cliContractRequire(t, strings.Join(config.Before.Hooks, "\n"), "go run ./internal/release version --expected {{ .Tag }}")
 	flags := strings.Join(config.Builds[0].LDFlags, " ")
-	repair839Require(t, flags, "-X github.com/sei-protocol/seictl/internal/cliutil.Version={{ .Tag }}")
+	cliContractRequire(t, flags, "-X github.com/sei-protocol/seictl/internal/cliutil.Version={{ .Tag }}")
 	if strings.Contains(flags, "main.") {
 		t.Fatal("release still stamps nonexistent main symbols")
 	}
-	makefile := repair839Read(t, "Makefile")
-	repair839Require(t, makefile, "VERSION   := $(shell go run ./internal/release version)", "github.com/sei-protocol/seictl/internal/cliutil.Version=$(VERSION)", "go run ./internal/release verify --binary $(BUILD_DIR)/$(BIN)")
+	makefile := cliContractRead(t, "Makefile")
+	cliContractRequire(t, makefile, "VERSION   := $(shell go run ./internal/release version)", "github.com/sei-protocol/seictl/internal/cliutil.Version=$(VERSION)", "go run ./internal/release verify --binary $(BUILD_DIR)/$(BIN)")
 	// The Makefile's defense-in-depth shell guard must match the shared validator.
-	repair839Require(t, makefile, strings.TrimSuffix(releaseproof.VersionPattern, "$")+"$$")
-	docker := repair839Read(t, "Dockerfile")
-	repair839Require(t, docker, `VERSION="$(/go/bin/releaseverify version)"`, "github.com/sei-protocol/seictl/internal/cliutil.Version=${VERSION}", `/go/bin/releaseverify verify --binary /go/bin/seictl --expected "$VERSION"`, "COPY . /src")
-	workflow := repair839Read(t, ".github/workflows/release-provenance.yml")
+	cliContractRequire(t, makefile, strings.TrimSuffix(releaseproof.VersionPattern, "$")+"$$")
+	docker := cliContractRead(t, "Dockerfile")
+	cliContractRequire(t, docker, `VERSION="$(/go/bin/releaseverify version)"`, "github.com/sei-protocol/seictl/internal/cliutil.Version=${VERSION}", `/go/bin/releaseverify verify --binary /go/bin/seictl --expected "$VERSION"`, "COPY . /src")
+	workflow := cliContractRead(t, ".github/workflows/release-provenance.yml")
 	for _, archive := range []string{"seictl_Linux_x86_64.tar.gz", "seictl_Linux_arm64.tar.gz", "seictl_Darwin_x86_64.tar.gz", "seictl_Darwin_arm64.tar.gz"} {
-		repair839Require(t, workflow, archive)
+		cliContractRequire(t, workflow, archive)
 	}
-	repair839Require(t, workflow, "ubuntu-24.04-arm", "macos-15-intel", "macos-14", "shasum -a 256 -c selected-checksum.txt", `go run ./internal/release verify --expected "$RELEASE_TAG" --binary "$RUNNER_TEMP/paxctl-artifact/seictl"`)
+	cliContractRequire(t, workflow, "ubuntu-24.04-arm", "macos-15-intel", "macos-14", "shasum -a 256 -c selected-checksum.txt", `go run ./internal/release verify --expected "$RELEASE_TAG" --binary "$RUNNER_TEMP/paxctl-artifact/seictl"`)
 }
 
-func TestRepairM_839_UpstreamInstallInstructions(t *testing.T) {
-	doc := repair839Read(t, "README.md")
-	repair839DocCommands(t, doc)
-	versionLine := regexp.MustCompile(`(?m)^go ([0-9.]+)$`).FindStringSubmatch(repair839Read(t, "go.mod"))
+func TestCLIContractInstallInstructions(t *testing.T) {
+	doc := cliContractRead(t, "README.md")
+	cliContractDocCommands(t, doc)
+	versionLine := regexp.MustCompile(`(?m)^go ([0-9.]+)$`).FindStringSubmatch(cliContractRead(t, "go.mod"))
 	if len(versionLine) != 2 {
 		t.Fatal("module toolchain is missing")
 	}
-	repair839Require(t, doc, "Go "+versionLine[1], "Paxeer-Network/paxctl/releases", "Sidiora-Labs/paxeer-monorepo.git", `git checkout --detach "$SOURCE_REVISION"`, "make build", "local", "replace", "--proxy-ca-file", "TokenReview", "SubjectAccessReview", "Windows and ARMv7 archives are unsupported")
+	cliContractRequire(t, doc, "Go "+versionLine[1], "Paxeer-Network/paxctl/releases", "Sidiora-Labs/paxeer-monorepo.git", `git checkout --detach "$SOURCE_REVISION"`, "make build", "local", "replace", "--proxy-ca-file", "TokenReview", "SubjectAccessReview", "Windows and ARMv7 archives are unsupported")
 	for _, archive := range []string{"seictl_Linux_x86_64.tar.gz", "seictl_Linux_arm64.tar.gz", "seictl_Darwin_x86_64.tar.gz", "seictl_Darwin_arm64.tar.gz"} {
-		repair839Require(t, doc, archive)
+		cliContractRequire(t, doc, archive)
 	}
 	for _, retired := range []string{"https://github.com/sei-protocol/seictl/releases", "go install github.com/sei-protocol/seictl@latest", "Go 1.25.4"} {
 		if strings.Contains(doc, retired) {
@@ -284,16 +284,16 @@ func TestRepairM_839_UpstreamInstallInstructions(t *testing.T) {
 		}
 	}
 	// Real CLI help is generated from main.go's command registrations.
-	data, err := repair839Run(t, context.Background(), []string{"--help"})
+	data, err := cliContractRun(t, context.Background(), []string{"--help"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, name := range []string{"network", "node", "workflow", "task"} {
-		repair839Require(t, string(data), name)
+		cliContractRequire(t, string(data), name)
 	}
 }
 
-type repair839Server struct {
+type cliContractServer struct {
 	url    string
 	cancel context.CancelFunc
 	done   chan error
@@ -302,7 +302,7 @@ type repair839Server struct {
 	once   sync.Once
 }
 
-func repair839Open(t *testing.T, path, home string, handlers map[engine.TaskType]engine.TaskHandler) *repair839Server {
+func cliContractOpen(t *testing.T, path, home string, handlers map[engine.TaskType]engine.TaskHandler) *cliContractServer {
 	t.Helper()
 	store, err := server.NewTaskStore(path)
 	if err != nil {
@@ -321,7 +321,7 @@ func repair839Open(t *testing.T, path, home string, handlers map[engine.TaskType
 	addr := listener.Addr().String()
 	listener.Close()
 	srv := server.NewServer(addr, eng, home, server.AuthnModeTrustedHeader)
-	node := &repair839Server{url: "http://" + addr, cancel: cancel, done: make(chan error, 1), store: store, eng: eng}
+	node := &cliContractServer{url: "http://" + addr, cancel: cancel, done: make(chan error, 1), store: store, eng: eng}
 	go func() { node.done <- srv.ListenAndServe(ctx) }()
 	t.Cleanup(func() { node.stop(t) })
 	deadline := time.Now().Add(3 * time.Second)
@@ -343,7 +343,7 @@ func repair839Open(t *testing.T, path, home string, handlers map[engine.TaskType
 	return node
 }
 
-func (n *repair839Server) stop(t *testing.T) {
+func (n *cliContractServer) stop(t *testing.T) {
 	t.Helper()
 	n.once.Do(func() {
 		n.cancel()
@@ -361,7 +361,7 @@ func (n *repair839Server) stop(t *testing.T) {
 	})
 }
 
-func repair839Client(t *testing.T, url string) *sidecar.ClientWithResponses {
+func cliContractClient(t *testing.T, url string) *sidecar.ClientWithResponses {
 	t.Helper()
 	client, err := sidecar.NewClientWithResponses(url, sidecar.WithHTTPClient(&http.Client{Timeout: time.Second}), sidecar.WithRequestEditorFn(func(_ context.Context, r *http.Request) error {
 		r.Header.Set("X-Remote-User", "isolated-fixture-proxy")
@@ -373,7 +373,7 @@ func repair839Client(t *testing.T, url string) *sidecar.ClientWithResponses {
 	return client
 }
 
-func repair839Wait(t *testing.T, store *server.TaskStore, id string) *engine.TaskResult {
+func cliContractWait(t *testing.T, store *server.TaskStore, id string) *engine.TaskResult {
 	t.Helper()
 	deadline := time.Now().Add(3 * time.Second)
 	for {
@@ -391,10 +391,10 @@ func repair839Wait(t *testing.T, store *server.TaskStore, id string) *engine.Tas
 	}
 }
 
-func TestRepairM_839_QueryHandlerSignatures(t *testing.T) {
+func TestCLIContractQueryHandlerSignatures(t *testing.T) {
 	home := t.TempDir()
-	node := repair839Open(t, filepath.Join(home, "sidecar.db"), home, nil)
-	client := repair839Client(t, node.url)
+	node := cliContractOpen(t, filepath.Join(home, "sidecar.db"), home, nil)
+	client := cliContractClient(t, node.url)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	id := uuid.New()
@@ -443,9 +443,9 @@ func TestRepairM_839_QueryHandlerSignatures(t *testing.T) {
 	}
 }
 
-func TestRepairM_839_ArchitectureAndDurableRecovery(t *testing.T) {
-	doc := repair839Read(t, "CLAUDE.md")
-	repair839Require(t, doc, "one-shot", "no cron scheduler", "RehydrateStaleTasks", "sidecar.db", "workflow state-sync", "task snapshot-upload", "trusted-header", "127.0.0.1:7777", ":7777", "SEI_SIDECAR_ISOLATED_DEVELOPMENT=true", "--proxy-ca-file", "TokenReview", "SubjectAccessReview", "hostNetwork", "hostPID", "hostIPC", "413/429/503")
+func TestCLIContractArchitectureAndDurableRecovery(t *testing.T) {
+	doc := cliContractRead(t, "CLAUDE.md")
+	cliContractRequire(t, doc, "one-shot", "no cron scheduler", "RehydrateStaleTasks", "sidecar.db", "workflow state-sync", "task snapshot-upload", "trusted-header", "127.0.0.1:7777", ":7777", "SEI_SIDECAR_ISOLATED_DEVELOPMENT=true", "--proxy-ca-file", "TokenReview", "SubjectAccessReview", "hostNetwork", "hostPID", "hostIPC", "413/429/503")
 	t.Setenv("SEI_SIDECAR_AUTHN_MODE", "")
 	t.Setenv("SEI_SIDECAR_ISOLATED_DEVELOPMENT", "")
 	mode, err := server.AuthnMode()
@@ -463,7 +463,7 @@ func TestRepairM_839_ArchitectureAndDurableRecovery(t *testing.T) {
 	if mode, err := server.AuthnMode(); err != nil || server.BindAddress("7777", mode) != ":7777" {
 		t.Fatalf("isolated development bind: %s %v", mode, err)
 	}
-	if _, err := repair839Run(t, context.Background(), []string{"serve"}); err == nil || !strings.Contains(err.Error(), "requires trusted-header") {
+	if _, err := cliContractRun(t, context.Background(), []string{"serve"}); err == nil || !strings.Contains(err.Error(), "requires trusted-header") {
 		t.Fatalf("serve accepted unauthenticated destructive handlers: %v", err)
 	}
 	t.Setenv("SEI_SIDECAR_AUTHN_MODE", server.AuthnModeTrustedHeader)
@@ -490,8 +490,8 @@ func TestRepairM_839_ArchitectureAndDurableRecovery(t *testing.T) {
 		engine.TaskConfigPatch:    tasks.NewConfigPatcher(home).Handler(),
 		engine.TaskAwaitCondition: tasks.NewConditionWaiter(rpc.NewStatusClient(endpoint.URL, endpoint.Client())).Handler(),
 	}
-	node := repair839Open(t, path, home, handlers)
-	client := repair839Client(t, node.url)
+	node := cliContractOpen(t, path, home, handlers)
+	client := cliContractClient(t, node.url)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	// Exercise the actual authenticated middleware, not just listener constants.
@@ -518,7 +518,7 @@ func TestRepairM_839_ArchitectureAndDurableRecovery(t *testing.T) {
 		t.Fatalf("real task submit: %+v %v", submitted, err)
 	}
 	patchID := submitted.JSON201.Id
-	result := repair839Wait(t, node.store, patchID.String())
+	result := cliContractWait(t, node.store, patchID.String())
 	if result.Status != engine.TaskStatusCompleted || result.Run != 1 {
 		t.Fatalf("patch outcome: %+v", result)
 	}
@@ -542,15 +542,15 @@ func TestRepairM_839_ArchitectureAndDurableRecovery(t *testing.T) {
 	// and engine and let the production waiter finish at the recovered height.
 	node.stop(t)
 	height.Store(42)
-	reopened := repair839Open(t, path, home, handlers)
-	recovered := repair839Wait(t, reopened.store, waitID.String())
+	reopened := cliContractOpen(t, path, home, handlers)
+	recovered := cliContractWait(t, reopened.store, waitID.String())
 	if recovered.Status != engine.TaskStatusCompleted || recovered.Run != 1 {
 		t.Fatalf("recovered task: %+v", recovered)
 	}
 	if recovered.Generation == "" || recovered.Params == nil {
 		t.Fatalf("recovery metadata lost: %+v", recovered)
 	}
-	cli := repair839Client(t, reopened.url)
+	cli := cliContractClient(t, reopened.url)
 	for _, id := range []uuid.UUID{patchID, waitID} {
 		response, err := cli.GetTaskWithResponse(ctx, id)
 		if err != nil || response.StatusCode() != http.StatusOK || response.JSON200 == nil {
