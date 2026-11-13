@@ -1,0 +1,40 @@
+[manifest]
+task = "22.43.100"
+records_moved = 2
+files_renamed = 2
+
+[file.1]
+from = "sdk/baseapp/repair_22_39_327.kvx"
+to = "spec/layerx-merge/programme/records/sdk/baseapp/repair_22_39_327.kvx"
+
+[file.2]
+from = "sdk/baseapp/repair_m607.kvx"
+to = "spec/layerx-merge/programme/records/sdk/baseapp/repair_m607.kvx"
+
+[file.3]
+from = "sdk/baseapp/repair_22_39_367_test.go"
+to = "sdk/baseapp/close_test.go"
+
+[file.4]
+from = "sdk/baseapp/repair_m607_test.go"
+to = "sdk/baseapp/state_lifecycle_test.go"
+
+[reference.1]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/baseapp/repair_22_39_327.kvx"
+
+[reference.2]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/baseapp/repair_m607_test.go"
+
+[reference.3]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m607_test.go"
+
+[reference.4]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_607_"
+
+[reference.5]
+file = "spec/layerx-merge/programme/records/tests/ci/repair_22_39_367.kvx"
+name = "TestRepair2239367CloseReleasesApplicationStoreBeforeHandler"

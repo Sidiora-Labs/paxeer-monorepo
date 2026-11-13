@@ -27,7 +27,7 @@ Give a concrete example of what is difficult today.
 Describe the behavior you want and how a user would interact with it.
 If the request involves the network, identify whether it concerns Paxeer mainnet-beta
 (EVM chain id `125`) or a tenant domain. See the
-[public RPC reference](../../../../docs/site/docs/reference/public-rpc.md).
+[public RPC reference](../../../../docs/readme/PUBLIC-RPC.md).
 
 ## Alternatives considered
 
