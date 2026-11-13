@@ -170101,7 +170101,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.23]
 title = "Move the task records and name the files after what they hold in apps/web/src and 1 more directory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -170133,7 +170133,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.22]
 title = "Move the task records and name the files after what they hold in apps/web and 3 more directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -170579,7 +170579,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.8]
 title = "Move the task records and name the files after what they hold in apps/explorer/ui/shared"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -170611,7 +170611,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.7]
 title = "Move the task records and name the files after what they hold in apps/explorer/ui/pages and 2 more directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -170739,7 +170739,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.3]
 title = "Move the task records and name the files after what they hold in apps/explorer and 3 more directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -239741,7 +239741,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.111]
 title = "Move the task records and name the files after what they hold in sdk/launchpad/shared"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -239773,7 +239773,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.110]
 title = "Move the task records and name the files after what they hold in sdk/launchpad/protocol"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -372867,7 +372867,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.243]
 title = "Move the task records and name the files after what they hold in tools/qualification/audit_repairs, numbers 22.33.1230 to 22.33.1339"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373059,7 +373059,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.237]
 title = "Move the task records and name the files after what they hold in tools/qualification/audit_repairs, numbers 22.33.440 to 22.33.599"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373091,7 +373091,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.236]
 title = "Move the task records and name the files after what they hold in tools/qualification/audit_repairs, numbers 22.33.310 to 22.33.429"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373123,7 +373123,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.235]
 title = "Move the task records and name the files after what they hold in tools/qualification/audit_repairs, numbers 22.33.150 to 22.33.299"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
