@@ -1,0 +1,83 @@
+[manifest]
+task = "22.41.64"
+pages = 20
+
+[page.1]
+path = "docs/readme/README.es.md"
+status = "reviewed"
+
+[page.2]
+path = "docs/readme/README.fr.md"
+status = "reviewed"
+
+[page.3]
+path = "docs/readme/README.ja.md"
+status = "reviewed"
+
+[page.4]
+path = "docs/readme/README.pt-BR.md"
+status = "reviewed"
+
+[page.5]
+path = "docs/readme/README.ru.md"
+status = "reviewed"
+
+[page.6]
+path = "docs/readme/README.zh-CN.md"
+status = "corrected"
+
+[page.7]
+path = "docs/release/7.0.0-candidate-report.md"
+status = "reviewed"
+
+[page.8]
+path = "docs/release/7.0.0-readiness-checklist.md"
+status = "reviewed"
+
+[page.9]
+path = "docs/release/7.0.0-readiness-matrix.md"
+status = "reviewed"
+
+[page.10]
+path = "docs/release/7.0.0-service-operator-runbook.md"
+status = "corrected"
+
+[page.11]
+path = "docs/release/7.0.0-upgrade-plan.md"
+status = "corrected"
+
+[page.12]
+path = "docs/release/7.0.0-validator-runbook.md"
+status = "corrected"
+
+[page.13]
+path = "docs/release/consensus-commits.md"
+status = "corrected"
+
+[page.14]
+path = "docs/runbooks/paxeer-x-fork.md"
+status = "corrected"
+
+[page.15]
+path = "docs/site/README.md"
+status = "reviewed"
+
+[page.16]
+path = "docs/site/docs/agents/agentd.md"
+status = "reviewed"
+
+[page.17]
+path = "docs/site/docs/agents/index.md"
+status = "corrected"
+
+[page.18]
+path = "docs/site/docs/agents/lni.md"
+status = "corrected"
+
+[page.19]
+path = "docs/site/docs/agents/mcp.md"
+status = "reviewed"
+
+[page.20]
+path = "docs/site/docs/agents/running.md"
+status = "reviewed"
