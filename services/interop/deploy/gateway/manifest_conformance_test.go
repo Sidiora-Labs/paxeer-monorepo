@@ -18,7 +18,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/verify"
 )
 
-func repairM109Read(t *testing.T, path string) []byte {
+func gatewayManifestRead(t *testing.T, path string) []byte {
 	t.Helper()
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -27,21 +27,21 @@ func repairM109Read(t *testing.T, path string) []byte {
 	return data
 }
 
-func repairM109JSON(t *testing.T, path string, value any) {
+func gatewayManifestJSON(t *testing.T, path string, value any) {
 	t.Helper()
-	if err := json.Unmarshal(repairM109Read(t, path), value); err != nil {
+	if err := json.Unmarshal(gatewayManifestRead(t, path), value); err != nil {
 		t.Fatalf("%s: %v", path, err)
 	}
 }
 
-type repairM109Pin struct {
+type gatewayManifestPin struct {
 	KeyID       string `json:"keyId"`
 	PublicKey   string `json:"publicKey"`
 	FirstHeight uint64 `json:"firstHeight"`
 	LastHeight  uint64 `json:"lastHeight"`
 }
 
-type repairM109Manifest struct {
+type gatewayManifestConfig struct {
 	Adapters []struct {
 		ID                  string `json:"id"`
 		SpecificationSHA256 string `json:"specification_sha256"`
@@ -64,7 +64,7 @@ type repairM109Manifest struct {
 	} `json:"x402_supported"`
 }
 
-func repairM109Suite(t *testing.T, directory string) (int, string) {
+func gatewayManifestSuite(t *testing.T, directory string) (int, string) {
 	t.Helper()
 	digest := sha256.New()
 	count := 0
@@ -84,7 +84,7 @@ func repairM109Suite(t *testing.T, directory string) (int, string) {
 	}
 	sort.Strings(files)
 	for _, path := range files {
-		data := repairM109Read(t, path)
+		data := gatewayManifestRead(t, path)
 		relative, err := filepath.Rel(directory, path)
 		if err != nil {
 			t.Fatal(err)
@@ -112,9 +112,9 @@ func repairM109Suite(t *testing.T, directory string) (int, string) {
 	return count, hex.EncodeToString(digest.Sum(nil))
 }
 
-func TestRepairM_109_ExamplePins(t *testing.T) {
-	var manifest repairM109Manifest
-	repairM109JSON(t, "config.example.json", &manifest)
+func TestGatewayManifestExamplePins(t *testing.T) {
+	var manifest gatewayManifestConfig
+	gatewayManifestJSON(t, "config.example.json", &manifest)
 	root := filepath.Join("..", "..", "..", "..")
 	documents := map[string]string{
 		"x402":     "services/interop/specs/vendor/x402/x402-specification-v2.md",
@@ -132,11 +132,11 @@ func TestRepairM_109_ExamplePins(t *testing.T) {
 			t.Fatalf("unexpected adapter %q", adapter.ID)
 		}
 		seen[adapter.ID] = true
-		count, digest := repairM109Suite(t, filepath.Join(root, "services/interop/specs/conformance", adapter.ID))
+		count, digest := gatewayManifestSuite(t, filepath.Join(root, "services/interop/specs/conformance", adapter.ID))
 		if adapter.Count != count || adapter.Digest != digest || adapter.Suite != "layerx-"+adapter.ID+"-conformance-v1" {
 			t.Errorf("%s pins (%d, %s); checkout has (%d, %s)", adapter.ID, adapter.Count, adapter.Digest, count, digest)
 		}
-		spec := sha256.Sum256(repairM109Read(t, filepath.Join(root, documents[adapter.ID])))
+		spec := sha256.Sum256(gatewayManifestRead(t, filepath.Join(root, documents[adapter.ID])))
 		if adapter.SpecificationSHA256 != hex.EncodeToString(spec[:]) {
 			t.Errorf("%s specification pin drifted", adapter.ID)
 		}
@@ -148,18 +148,18 @@ func TestRepairM_109_ExamplePins(t *testing.T) {
 			t.Fatalf("unexpected transport %q", transport.ID)
 		}
 		transports[transport.ID] = true
-		_, digest := repairM109Suite(t, filepath.Join(root, "services/interop/specs/conformance/transport-"+transport.ID))
+		_, digest := gatewayManifestSuite(t, filepath.Join(root, "services/interop/specs/conformance/transport-"+transport.ID))
 		if transport.Digest != digest {
 			t.Errorf("%s conformance pin drifted", transport.ID)
 		}
-		spec := sha256.Sum256(repairM109Read(t, filepath.Join(root, "services/interop/specs/vendor/x402/transports", transport.ID+".md")))
+		spec := sha256.Sum256(gatewayManifestRead(t, filepath.Join(root, "services/interop/specs/vendor/x402/transports", transport.ID+".md")))
 		if transport.SpecificationSHA256 != hex.EncodeToString(spec[:]) {
 			t.Errorf("%s specification pin drifted", transport.ID)
 		}
 	}
 	var document, inputs map[string]json.RawMessage
-	repairM109JSON(t, "config.example.json", &document)
-	repairM109JSON(t, "trust-inputs.example.json", &inputs)
+	gatewayManifestJSON(t, "config.example.json", &document)
+	gatewayManifestJSON(t, "trust-inputs.example.json", &inputs)
 	if len(inputs) != 5 {
 		t.Fatal("all five external trust inputs must be explicit")
 	}
@@ -177,8 +177,8 @@ func TestRepairM_109_ExamplePins(t *testing.T) {
 	}
 }
 
-func TestRepairM_109_ReadmeManifest(t *testing.T) {
-	readme := strings.Join(strings.Fields(string(repairM109Read(t, "README.md"))), " ")
+func TestGatewayManifestReadme(t *testing.T) {
+	readme := strings.Join(strings.Fields(string(gatewayManifestRead(t, "README.md"))), " ")
 	for _, required := range []string{
 		"all five adapters and three transport bindings", "LAYERX_INTEROP_RECEIPT_KEYS_FILE",
 		"px_getReceiptKeys", "complete signer set", "eth_sendRawTransaction",
@@ -199,11 +199,11 @@ func TestRepairM_109_ReadmeManifest(t *testing.T) {
 			t.Errorf("README omits input link %s", path)
 		}
 		var value any
-		repairM109JSON(t, path, &value)
+		gatewayManifestJSON(t, path, &value)
 	}
 }
 
-func repairM109Hex(t *testing.T, value string, length int) []byte {
+func gatewayManifestHex(t *testing.T, value string, length int) []byte {
 	t.Helper()
 	if !strings.HasPrefix(value, "0x") {
 		t.Fatal("recorded value lacks hex prefix")
@@ -218,11 +218,11 @@ func repairM109Hex(t *testing.T, value string, length int) []byte {
 	return data
 }
 
-func TestRepairM_109_ReceiptKeyWindows(t *testing.T) {
-	var pins []repairM109Pin
-	var manifest repairM109Manifest
-	repairM109JSON(t, "receipt-keys.example.json", &pins)
-	repairM109JSON(t, "config.example.json", &manifest)
+func TestGatewayManifestReceiptKeyWindows(t *testing.T) {
+	var pins []gatewayManifestPin
+	var manifest gatewayManifestConfig
+	gatewayManifestJSON(t, "receipt-keys.example.json", &pins)
+	gatewayManifestJSON(t, "config.example.json", &manifest)
 	if len(pins) != 2 {
 		t.Fatal("example must cover both recorded receipt windows")
 	}
@@ -243,18 +243,18 @@ func TestRepairM_109_ReceiptKeyWindows(t *testing.T) {
 	fixtures := filepath.Join("..", "..", "..", "..", "sdk/platform/conformance/fixtures")
 	var old struct {
 		Cases []struct {
-			Receipt string        `json:"signedReceipt"`
-			Pin     repairM109Pin `json:"pinnedKey"`
+			Receipt string             `json:"signedReceipt"`
+			Pin     gatewayManifestPin `json:"pinnedKey"`
 		} `json:"cases"`
 	}
 	var current struct {
 		Vectors []struct {
-			Receipt string          `json:"receipt"`
-			Keys    []repairM109Pin `json:"receiptKeys"`
+			Receipt string               `json:"receipt"`
+			Keys    []gatewayManifestPin `json:"receiptKeys"`
 		} `json:"vectors"`
 	}
-	repairM109JSON(t, filepath.Join(fixtures, "sequencer-receipt-v1.json"), &old)
-	repairM109JSON(t, filepath.Join(fixtures, "receipt-sequencer-v1.json"), &current)
+	gatewayManifestJSON(t, filepath.Join(fixtures, "sequencer-receipt-v1.json"), &old)
+	gatewayManifestJSON(t, filepath.Join(fixtures, "receipt-sequencer-v1.json"), &current)
 	if len(old.Cases) == 0 || len(current.Vectors) == 0 || len(current.Vectors[0].Keys) == 0 {
 		t.Fatal("missing producer recordings")
 	}
@@ -268,14 +268,14 @@ func TestRepairM_109_ReceiptKeyWindows(t *testing.T) {
 			t.Fatal("example key differs from the real producer's recorded public key")
 		}
 		var publicKey [32]byte
-		copy(publicKey[:], repairM109Hex(t, pin.PublicKey, 32))
-		receipt := repairM109Hex(t, recording, 0)
+		copy(publicKey[:], gatewayManifestHex(t, pin.PublicKey, 32))
+		receipt := gatewayManifestHex(t, recording, 0)
 		verified, err := verify.ReceiptSignature(receipt, publicKey)
 		if err != nil {
 			t.Fatalf("window %d: real proof verifier refused recording: %v", index, err)
 		}
 		height := binary.BigEndian.Uint64(verified.Receipt.BatchID[24:])
-		if height < pin.FirstHeight || height > pin.LastHeight || !bytes.Equal(verified.Receipt.ContextHash[:], repairM109Hex(t, pin.KeyID, 32)) {
+		if height < pin.FirstHeight || height > pin.LastHeight || !bytes.Equal(verified.Receipt.ContextHash[:], gatewayManifestHex(t, pin.KeyID, 32)) {
 			t.Fatalf("window %d does not authorize the recorded key id and height", index)
 		}
 		if height != []uint64{1000, 1200}[index] {

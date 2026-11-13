@@ -2,8 +2,8 @@
   "source_hashes": {
     "services/interop/deploy/mirror/render-config.py": "467cbc3be472530972b4a50b14bd9bb5c4ab43cdd30f8cb12fcb2a8a122499f9",
     "services/interop/deploy/mirror/config.example.json": "72ea627f778dfebe610e6c590c6e28305452b33729d2ac6c192a690412e228d5",
-    "services/interop/deploy/mirror/testdata/repair_m110/receipt-keys.json": "291b3db747f812eca3f3dbd0e9a3b67687837981bb063e910151679d9a3a455d",
-    "services/interop/deploy/mirror/testdata/repair_m110/record.py": "0fcadc08c0f65d375e50bc7f365f825ba92a7b404bf01e233788a167ffb99cdb",
+    "services/interop/deploy/mirror/testdata/receipt_key_policy/receipt-keys.json": "291b3db747f812eca3f3dbd0e9a3b67687837981bb063e910151679d9a3a455d",
+    "services/interop/deploy/mirror/testdata/receipt_key_policy/record.py": "0fcadc08c0f65d375e50bc7f365f825ba92a7b404bf01e233788a167ffb99cdb",
     "services/interop/deploy/gateway/render.py": "651614c6a641ae9c4c63f5fff81c02ea5a219f5c8c2eca3dc12f61c3be11f11c",
     "services/interop/crates/layerx-mirror/tests/fixtures/committed_blocks.json": "21e44e52aa99bd6cfa8db10aaff3da68dca2c1f39ec337b70e2104df1937f2fe",
     "services/agent/crates/layerx-proof/src/receipt.rs": "11b3d5c202014972fb043a5ea90f038e3e0afdb7efd392729fcc8d5a4fa1034f",

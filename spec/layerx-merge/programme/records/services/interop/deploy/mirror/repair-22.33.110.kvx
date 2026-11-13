@@ -17,9 +17,9 @@ repair = "Normalized key IDs must be unique even across disjoint windows; firstH
 proof = "One committed canonical receipt-key file feeds the production mirror renderer and gateway key loader/render function. Recorded outputs preserve identities, complete gateway signer sets and bounds; negative transcripts cover duplicate/normalized IDs, overlap, malformed identities, reversed bounds, wrong types and overflow. Real node-produced receipts cross a loopback JSON-RPC transport into the production Go receipt codec and strict signature verifier using the rendered key, with signed key/height/digest binding, signature tamper, key substitution and noncanonical-byte refusals."
 
 [fixtures]
-recorder = "PYTHONDONTWRITEBYTECODE=1 python3 services/interop/deploy/mirror/testdata/repair_m110/record.py"
-location = "services/interop/deploy/mirror/testdata/repair_m110/rendered.json"
-canonical_keys = "services/interop/deploy/mirror/testdata/repair_m110/receipt-keys.json"
+recorder = "PYTHONDONTWRITEBYTECODE=1 python3 services/interop/deploy/mirror/testdata/receipt_key_policy/record.py"
+location = "services/interop/deploy/mirror/testdata/receipt_key_policy/rendered.json"
+canonical_keys = "services/interop/deploy/mirror/testdata/receipt_key_policy/receipt-keys.json"
 producer = "services/interop/crates/layerx-mirror/tests/fixtures/committed_blocks.json records signed receipts from rpc/sequencer_receipt_vectors_test.go; receipt bytes and signatures are not synthesized by the repair test."
 runtime = "The Go gate uses committed source-hashed transcripts, in-process HTTP/TLS transports and real Go codec/signature implementations; it needs no environment variable, credential, subprocess, native artifact or live endpoint."
 existing_tests = "Python regression assertions now cover accepted zero boundaries and duplicate IDs. The existing repair_m111 renderer/source transcript is regenerated because the production renderer and Python assertion source changed."

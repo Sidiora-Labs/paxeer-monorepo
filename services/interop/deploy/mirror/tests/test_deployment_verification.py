@@ -131,7 +131,7 @@ def rpc_servers(certificates, dispatch):
 
 
 def test_mirror_verify_shape(clients, certificates, tmp_path):
-    produced = json.loads(run([str(clients / "repair-driver"), "produce"]).stdout)
+    produced = json.loads(run([str(clients / "deployment-driver"), "produce"]).stdout)
     example = json.loads((MIRROR / "verify-config.example.json").read_text())
     publisher = json.loads((MIRROR / "config.example.json").read_text())
     assert set(example) == {"layerx_network_id", "receipt_keys", "sources"}
@@ -205,7 +205,7 @@ def test_mirror_verify_shape(clients, certificates, tmp_path):
 
 def test_solana_mutable_deployment(clients, certificates, tmp_path):
     elf = Path("/bin/true")
-    fixture = json.loads(run([str(clients / "repair-driver"), "loader-fixture", str(elf)]).stdout)
+    fixture = json.loads(run([str(clients / "deployment-driver"), "loader-fixture", str(elf)]).stdout)
     deployment = fixture["identity"]
     state = {"data": fixture["mutable"], "root": 100, "account_slot": 100,
              "status": "finalized", "owner": deployment["upgradeable_loader_id"], "executable": False}
@@ -252,7 +252,7 @@ def test_solana_mutable_deployment(clients, certificates, tmp_path):
         def clients_observe(name):
             config = tmp_path / (name + ".json")
             config.write_text(json.dumps({"rpc": rpc, "deployment": deployment, "code_hash": fixture["code_hash"]}))
-            return json.loads(run([str(clients / "repair-driver"), "identity", str(config)]).stdout)
+            return json.loads(run([str(clients / "deployment-driver"), "identity", str(config)]).stdout)
 
         before = check(["--expected-authority", deployment["publisher_ed25519_public_key"]])
         assert before.returncode == 0, before.stderr
