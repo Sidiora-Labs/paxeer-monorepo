@@ -1,4 +1,6 @@
-# Wasm-tools's C API
+# wasm-tools C API
 
-For more information you can find the documentation for this library (TODO).
-TODO EXCLUDE_SYMBOLS INPUT INCLUDE_PATH in doxygen needs modifying
+The public declarations and ownership documentation are in
+[`include/wasm-tools.h`](include/wasm-tools.h). The CMake integration is in
+[`CMakeLists.txt`](CMakeLists.txt), and the implementation is in
+[`src/lib.rs`](src/lib.rs).

@@ -2,8 +2,7 @@
 
 The sidecar opens a Cosmos SDK keyring at startup when configured to do so.
 The keyring is the entry point for all transaction-signing tasks (governance
-votes, software-upgrade proposals, deposits — Component C of the in-pod
-governance signing design).
+votes, software-upgrade proposals and deposits).
 
 This document covers the operator-facing contract. Operators must provide the
 keyring directory in the pod through a Kubernetes Secret projection and configure
@@ -14,7 +13,7 @@ the environment variables below.
 | Env | Values | Default | Required when |
 |---|---|---|---|
 | `SEI_KEYRING_BACKEND` | `test` \| `file` \| `os` | unset (governance signing disabled) | sign-tx tasks in use |
-| `SEI_KEYRING_DIR` | absolute path | `<home>/keyring-file` where `<home>` is the `--home` flag (defaults to `$SEI_HOME`) | required for `file` |
+| `SEI_KEYRING_DIR` | directory path | `<home>/keyring-file`, using `--home` or `SEI_HOME`, with `/sei` as the `serve` fallback | optional for all configured backends |
 | `SEI_KEYRING_PASSPHRASE` | string | unset | `backend == file` |
 
 For the `file` backend, a trailing `/keyring-file` path segment is stripped before handoff to the SDK — the Cosmos SDK keyring re-appends `keyring-file/` internally, so callers passing `/sei/keyring-file` and `/sei` both end up at `/sei/keyring-file/*`. This matches both operator mental models.
@@ -32,7 +31,8 @@ KMS / HSM / Vault / remote-signer backends are not supported yet.
 
 When `SEI_KEYRING_BACKEND` is set, the sidecar:
 
-1. Reads `SEI_KEYRING_BACKEND`, `SEI_KEYRING_DIR`, `SEI_KEYRING_PASSPHRASE`.
+1. Reads and unsets `SEI_KEYRING_PASSPHRASE` before checking the backend, then
+   reads `SEI_KEYRING_BACKEND` and `SEI_KEYRING_DIR`.
 2. Validates the backend value and (for `file`) the presence of a passphrase.
    A missing passphrase on the file backend is a startup error — operators
    see a clear `SEI_KEYRING_PASSPHRASE required when SEI_KEYRING_BACKEND=file`
@@ -41,9 +41,11 @@ When `SEI_KEYRING_BACKEND` is set, the sidecar:
 4. Runs a structural liveness check (`kr.List()`) with a bounded retry of 3
    attempts, 2 seconds between attempts. The retry absorbs the rare kubelet
    Secret-mount race where the projected file is briefly absent.
-5. Wipes `SEI_KEYRING_PASSPHRASE` from the process environment so the secret
-   no longer appears in `/proc/<pid>/environ` for the lifetime of the
-   container.
+
+The passphrase is removed from the process environment before validation or
+keyring opening, including when no backend is configured. See
+[`buildExecutionConfig`](../../serve.go) and
+[`OpenKeyring`](../server/keyring.go).
 
 An empty keyring is a permitted outcome of the smoke test — the sidecar
 trusts that callers will supply key names that exist when they submit
@@ -51,13 +53,12 @@ sign-tx tasks, and surfaces missing-key errors at that point.
 
 ## Trust model
 
-- The passphrase lives in the process env between `os.Getenv` and
-  `os.Unsetenv` — a window of a few milliseconds at startup.
+- Startup reads the passphrase with `os.Getenv` and immediately calls
+  `os.Unsetenv` before opening the keyring.
 - The passphrase is never logged. The sidecar logs `keyring opened` with the
   backend and directory only.
 - Errors returned from the keyring-open path are scrubbed of any verbatim
   occurrence of the passphrase before they leave the function.
-- The keyring directory is mounted read-only; the sidecar never writes to it.
 - Operators must rotate the passphrase by re-projecting the Secret and
   restarting the sidecar pod (see the operator runbook below).
 

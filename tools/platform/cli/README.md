@@ -46,18 +46,22 @@ curl --fail-with-body --silent --show-error "$RPC_URL" \
   --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'
 ```
 
-The chain ID result is `0x7d`. Node namespaces are `debug`, `echo`, `eth`, `net`,
-`pax`, `px`, `test` and `txpool`. The `px` namespace answers from node state; `px_register` and
-`px_requestFunds` are operations of the hosted identity and faucet
-services declared in [the gateway OpenRPC contract](../../../services/platform/hosted/gateway/openrpc.json). `node.hyperpaxeer.com` is only the library mirror used by build scripts.
+The chain ID result is `0x7d`. HTTP node registrations include `debug`, `echo`,
+`eth`, `net`, `pax`, `pax2`, `px`, `txpool` and `web3`. The `test` namespace is
+enabled only on non-live chain IDs when configured. See
+[the node registrations](../../../rpc/server.go).
+The `px` namespace answers from node state; `px_register` and `px_requestFunds`
+are operations of the hosted identity and faucet services declared in
+[the gateway OpenRPC contract](../../../services/platform/hosted/gateway/openrpc.json).
+`node.hyperpaxeer.com` is only the library mirror used by build scripts.
 
-The global `--rpc` override and the environment endpoint must be an HTTP(S)
+For node operations, the `--rpc` override must be an HTTP(S)
 origin at the root path (`/`); the CLI refuses any other path, including the
 retired `/rpc` route, which the hosted gateway answers with HTTP 404. `--rpc`
 names a node root for node operations; hosted wallet balance and write-account
-queries travel through `--gateway-rpc` with the operator's hosted service origin
-and a gateway credential. Token info and list select the hosted service through
-`--rpc` instead. Bind and program
+queries travel through `--gateway-rpc` with the operator's explicit hosted service
+URL and a gateway credential. Hosted service URLs can include a service path.
+Token info and list select the hosted service through `--rpc` instead. Bind and program
 commands additionally depend on their methods being admitted by the CLI allowlist;
 the examples here do not qualify those paths.
 
@@ -68,12 +72,13 @@ provisioned separately; `auth set` does not create one. Configure the hosted
 profile explicitly:
 
 ```bash
-export CLI_RPC_URL="$HOSTED_SERVICE_URL/"
+export CLI_RPC_URL="$NODE_RPC_URL/"
 layerx environment use beta --endpoint "$HOSTED_SERVICE_URL" --network-id 125 \
   --sequencer-trust-anchor-file "$RECEIPT_ANCHOR_FILE"
 layerx auth set --environment beta
 ```
 
+`NODE_RPC_URL` is the selected node's HTTPS origin without a trailing slash.
 `HOSTED_SERVICE_URL` is the operator's HTTPS base URL without a trailing slash;
 `auth set` reads the identity token from stdin. Public nodes do not supply this
 hosted identity service. The RPC examples below require this compatible hosted

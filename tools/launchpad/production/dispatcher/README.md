@@ -6,7 +6,7 @@ Concurrency is bounded by the configured admission ceiling, resource capacity an
 
 ## Coordinator lifecycle
 
-Run commands from the repository root. The examples use the launchpad production-system inputs referenced by the root qualifier: `launchpad/spec/production-system/spec.kvx` and `launchpad/spec/production-system/execution-plan.json`. Both files are absent from this checkout. Restore the reviewed pair or supply explicit reviewed `--spec` and `--plan` paths before running the lifecycle or qualification harness. The dispatcher expects a two-part task-ID DAG with lane ownership and a matching plan; the layerx-merge specification is not a drop-in replacement.
+Run commands from the repository root. Set the shell variables `LAUNCHPAD_SPEC_FILE` and `LAUNCHPAD_PLAN_FILE` to a reviewed production-system specification and its matching execution-plan projection. Supply them through `--spec` and `--plan`. The dispatcher expects a two-part task-ID DAG with lane ownership and a matching plan.
 
 Use the current specification and matching execution-plan projection. Graph layout identity excludes status; the execution-plan projection must still match the full current spec SHA and task states. After canonical task states change, the coordinator refreshes that projection before subsequent dispatcher commands. A worker must never do so.
 
@@ -14,8 +14,8 @@ Prepare coordinator-reviewed JSON capacity and per-worker resource files. Units 
 
 ```bash
 python3 tools/launchpad/production/dispatcher/cli.py --state-dir /tmp/kindle-wave1-state init \
-  --spec launchpad/spec/production-system/spec.kvx \
-  --plan launchpad/spec/production-system/execution-plan.json \
+  --spec "$LAUNCHPAD_SPEC_FILE" \
+  --plan "$LAUNCHPAD_PLAN_FILE" \
   --source . --interface-digest "$FROZEN_INTERFACE_SHA256" \
   --capacity /tmp/kindle-wave1-capacity.json --available-ai-slots 20
 
@@ -85,8 +85,8 @@ Supply every accepted directory; the abbreviated example needs the remaining dir
 
 ```bash
 PYTHONDONTWRITEBYTECODE=1 python3 tools/launchpad/production/dispatcher/qualification.py \
-  --spec launchpad/spec/production-system/spec.kvx \
-  --plan launchpad/spec/production-system/execution-plan.json \
+  --spec "$LAUNCHPAD_SPEC_FILE" \
+  --plan "$LAUNCHPAD_PLAN_FILE" \
   --state-dir /tmp/kindle-dispatch-proof-unique/state \
   --evidence-dir /tmp/kindle-dispatch-proof-unique/dispatcher --case all
 ```
