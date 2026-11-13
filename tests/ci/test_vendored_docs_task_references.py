@@ -14,13 +14,10 @@ def test_documentation_page_names_no_task_ids():
     assert not task_ids, f"Internal task identifiers in product docs: {task_ids}"
     assert not spec_paths, f"Internal spec paths in product docs: {spec_paths}"
     assert (
-        "The distributed documentation operations (`docs.packet`, `docs.check`, "
-        "`docs.close`) are described in the "
-        "[operations page](hyperfide/operations.md#distributed-documentation-api) "
-        "and are not part of the local CLI in this revision."
-    ) in page
-    assert (
-        "Under a distributed authority descriptor the local `hyperfide docs` "
-        "and `hyperfide spec` commands refuse with exit 78 "
-        "(see [Authority mode](integrate.md#authority-mode))."
+        "In distributed authority mode, `docs packet`, `docs inspect`, "
+        "`docs check` and `docs close` route to the control service with explicit "
+        "operation identities; the local lifecycle sequence below applies in "
+        "local authority mode. See the [distributed documentation API]"
+        "(hyperfide/operations.md#distributed-documentation-api) and "
+        "[Authority mode](integrate.md#authority-mode)."
     ) in page
