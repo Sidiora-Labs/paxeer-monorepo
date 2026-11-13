@@ -6,7 +6,7 @@ The demo targets Paxeer mainnet-beta, one BFT network with EVM chain ID `125` (`
 
 ## Run
 
-Use pnpm and Node matching the wallet workspace's `engines` requirement (`>=20.10.0`). From `services/wallet`:
+Use pnpm and Node matching the wallet workspace's `engines` requirement (`>=22.0.0`). From `services/wallet`:
 
 ```sh
 pnpm install
@@ -28,7 +28,7 @@ Enable the desired Supabase sign-in providers (Google, X/Twitter, GitHub, email 
 
 The configured origin must serve the authenticated `/v1/wallet/*` routes. The panel also constructs its node JSON-RPC URL as `<origin>/`; deployment must provide that root endpoint for forwarded RPC calls. The wallet gateway's `buildApp()` in `../gateway/src/index.ts` registers HTTP wallet routes, but does not register a root JSON-RPC handler. Starting that gateway alone does not supply every endpoint the panel assumes. See the [wallet workspace guide](../README.md) for gateway configuration.
 
-Public node JSON-RPC is available at the root of `https://api-mainnet-beta.paxeer.network` and `https://api1.mainnet-beta.paxeer.network` through `https://api14.mainnet-beta.paxeer.network`. See [public RPC endpoints](../../../docs/site/docs/reference/public-rpc.md). These node endpoints do not supply the authenticated wallet HTTP API, so they are not substitutes for `NEXT_PUBLIC_PAXEER_WALLET_API`.
+Public node JSON-RPC uses the root path of the configured node origin. See [public RPC endpoints](../../../docs/site/docs/reference/public-rpc.md). These node endpoints do not supply the authenticated wallet HTTP API, so they are not substitutes for `NEXT_PUBLIC_PAXEER_WALLET_API`.
 
 Other package commands, from `services/wallet`:
 
@@ -60,9 +60,12 @@ that panel; `SendTxForm` is not mounted by the modal.
 
 The panel also accepts typed-data JSON and calls `WalletInterface.signTypedData()` through `eth_signTypedData_v4` after checking the connected account and chain.
 
-**Read availability and plan intent** is a planning action, separate from sending a transaction. It checks kernel availability before calling `HumanClient.planIntent()` (`POST /v1/intents/plan`) and displays the plan, an unavailable state or an error. It does not submit or execute a plan. In the current tree, the panel constructs `EndpointClient` with only `url`, while `getNetwork()` requires `hostedUrl` for `px_getNetwork`. Consequently this button reports `EndpointClient: hostedUrl required for hosted px_ reads` before reaching the planner. The demo exposes no environment variable to supply that missing option. Hosted `px_` methods belong to the [hosted gateway contract](../../../services/platform/hosted/gateway/openrpc.json), rather than the public node API.
-
-The paragraph above records the earlier hosted-URL limitation. In the current SDK, `EndpointClient.getNetwork()` reads the node's `px_getNetwork`; only registration and funding need `hostedUrl`. Planning is unavailable when the consensus head is null or still catching up.
+**Read availability and plan intent** checks kernel availability before calling
+`HumanClient.planIntent()` (`POST /v1/intents/plan`) and displays the plan, an
+unavailable state or an error. It does not submit or execute a plan.
+`EndpointClient.getNetwork()` reads `px_getNetwork` from the configured node;
+registration and funding use a separately configured `hostedUrl`. Planning is
+unavailable when the consensus head is null or still catching up.
 
 ## Source
 

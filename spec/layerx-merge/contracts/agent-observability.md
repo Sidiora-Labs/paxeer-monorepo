@@ -1,125 +1,65 @@
 # Agent observability contract
 
-Source revision: `2a1033aa2`. This contract freezes the cited interface and acceptance blocks of the specification. Statuses include the specification overrides. A source marked planned has line 0; a positive source line is verified in the pinned revision.
+[`Metrics`](../../../services/agent/crates/layerx-agentd/src/obs/metrics.rs) is a
+bounded, in-process registry. Each point is keyed by tenant, `MetricKind` and
+`MetricLabel`; it records `total`, `samples` and `maximum`. A tenant must be
+registered before observation. Unknown tenants, exhausted tenant capacity and
+labels outside the selected family are refused.
 
-The context and decision tables reproduce the rules linked by interface identifiers. An anchor without a linked context gains no additional storage, gas, activation or pause rule here. Acceptance qualification remains UNRUN until its declared gate succeeds.
+`observe_named` decodes a label through `MetricLabel::ALL` before recording it.
+`snapshot` returns only the selected tenant's points. The labels below are the
+strings emitted by `MetricLabel::name`.
 
 ## boundarylatency
 
-| Interface | Kind | Status | Source at pinned revision | Signature |
-|---|---|---|---|---|
-| <code>interface.9.met-agentd-boundarylatency</code> | <code>metric</code> | <code>stable</code> | <code>services/agent/crates/layerx-agentd/src/obs/metrics.rs:12</code> | <code>metric BoundaryLatency labels BoundaryReady&#124;BoundaryBackpressured&#124;BoundaryUnavailable</code> |
-
-| Interface | Field | Value |
-|---|---|---|
-| <code>interface.9.met-agentd-boundarylatency</code> | notes | In-process per-tenant counter (total, samples, maximum) behind Metrics::observe and Metrics::snapshot; no exporter or scrape endpoint exists at this revision. Boundary labels describe the LNI node boundary that stale task 11.5.16 re-targets. |
+`BoundaryLatency`: `boundary_ready`, `boundary_backpressured`, `boundary_unavailable`.
 
 ## budgetutilization
 
-| Interface | Kind | Status | Source at pinned revision | Signature |
-|---|---|---|---|---|
-| <code>interface.9.met-agentd-budgetutilization</code> | <code>metric</code> | <code>stable</code> | <code>services/agent/crates/layerx-agentd/src/obs/metrics.rs:16</code> | <code>metric BudgetUtilization labels UtilizationLow&#124;UtilizationHigh</code> |
-
-| Interface | Field | Value |
-|---|---|---|
-| <code>interface.9.met-agentd-budgetutilization</code> | notes | In-process per-tenant counter (total, samples, maximum) behind Metrics::observe and Metrics::snapshot; no exporter or scrape endpoint exists at this revision. |
+`BudgetUtilization`: `utilization_low`, `utilization_high`.
 
 ## capabilitydecision
 
-| Interface | Kind | Status | Source at pinned revision | Signature |
-|---|---|---|---|---|
-| <code>interface.9.met-agentd-capabilitydecision</code> | <code>metric</code> | <code>stable</code> | <code>services/agent/crates/layerx-agentd/src/obs/metrics.rs:15</code> | <code>metric CapabilityDecision labels Allowed&#124;Denied</code> |
-
-| Interface | Field | Value |
-|---|---|---|
-| <code>interface.9.met-agentd-capabilitydecision</code> | notes | In-process per-tenant counter (total, samples, maximum) behind Metrics::observe and Metrics::snapshot; no exporter or scrape endpoint exists at this revision. |
+`CapabilityDecision`: `allowed`, `denied`.
 
 ## degradedstate
 
-| Interface | Kind | Status | Source at pinned revision | Signature |
-|---|---|---|---|---|
-| <code>interface.9.met-agentd-degradedstate</code> | <code>metric</code> | <code>stable</code> | <code>services/agent/crates/layerx-agentd/src/obs/metrics.rs:19</code> | <code>metric DegradedState labels BoundaryReady&#124;BoundaryUnavailable&#124;BoundaryBehind&#124;CoreHalted&#124;CoreEmergency&#124;DataUnavailable</code> |
-
-| Interface | Field | Value |
-|---|---|---|
-| <code>interface.9.met-agentd-degradedstate</code> | notes | In-process per-tenant counter (total, samples, maximum) behind Metrics::observe and Metrics::snapshot; no exporter or scrape endpoint exists at this revision. Boundary labels describe the LNI node boundary that stale task 11.5.16 re-targets. |
+`DegradedState`: `boundary_ready`, `node_behind`, `node_unavailable`,
+`chain_halted`, `block_unavailable`.
 
 ## errorclass
 
-| Interface | Kind | Status | Source at pinned revision | Signature |
-|---|---|---|---|---|
-| <code>interface.9.met-agentd-errorclass</code> | <code>metric</code> | <code>stable</code> | <code>services/agent/crates/layerx-agentd/src/obs/metrics.rs:13</code> | <code>metric ErrorClass labels AccessDenied&#124;InvalidRequest&#124;StorageFailure&#124;BoundaryUnavailable&#124;InternalFailure</code> |
-
-| Interface | Field | Value |
-|---|---|---|
-| <code>interface.9.met-agentd-errorclass</code> | notes | In-process per-tenant counter (total, samples, maximum) behind Metrics::observe and Metrics::snapshot; no exporter or scrape endpoint exists at this revision. |
+`ErrorClass`: `access_denied`, `invalid_request`, `storage_failure`,
+`node_failure`, `boundary_unavailable`, `internal_failure`.
 
 ## policydecision
 
-| Interface | Kind | Status | Source at pinned revision | Signature |
-|---|---|---|---|---|
-| <code>interface.9.met-agentd-policydecision</code> | <code>metric</code> | <code>stable</code> | <code>services/agent/crates/layerx-agentd/src/obs/metrics.rs:14</code> | <code>metric PolicyDecision labels Allowed&#124;Denied</code> |
-
-| Interface | Field | Value |
-|---|---|---|
-| <code>interface.9.met-agentd-policydecision</code> | notes | In-process per-tenant counter (total, samples, maximum) behind Metrics::observe and Metrics::snapshot; no exporter or scrape endpoint exists at this revision. |
+`PolicyDecision`: `allowed`, `denied`.
 
 ## ratelimitrefusal
 
-| Interface | Kind | Status | Source at pinned revision | Signature |
-|---|---|---|---|---|
-| <code>interface.9.met-agentd-ratelimitrefusal</code> | <code>metric</code> | <code>stable</code> | <code>services/agent/crates/layerx-agentd/src/obs/metrics.rs:18</code> | <code>metric RateLimitRefusal labels RateExceeded</code> |
-
-| Interface | Field | Value |
-|---|---|---|
-| <code>interface.9.met-agentd-ratelimitrefusal</code> | notes | In-process per-tenant counter (total, samples, maximum) behind Metrics::observe and Metrics::snapshot; no exporter or scrape endpoint exists at this revision. |
+`RateLimitRefusal`: `rate_exceeded`.
 
 ## submissionoutcome
 
-| Interface | Kind | Status | Source at pinned revision | Signature |
-|---|---|---|---|---|
-| <code>interface.9.met-agentd-submissionoutcome</code> | <code>metric</code> | <code>stable</code> | <code>services/agent/crates/layerx-agentd/src/obs/metrics.rs:8</code> | <code>metric SubmissionOutcome labels Executed&#124;Failed&#124;Unknown</code> |
-
-| Interface | Field | Value |
-|---|---|---|
-| <code>interface.9.met-agentd-submissionoutcome</code> | notes | In-process per-tenant counter (total, samples, maximum) behind Metrics::observe and Metrics::snapshot; no exporter or scrape endpoint exists at this revision. |
+`SubmissionOutcome`: `executed`, `failed`, `unknown`.
 
 ## subscriptionlag
 
-| Interface | Kind | Status | Source at pinned revision | Signature |
-|---|---|---|---|---|
-| <code>interface.9.met-agentd-subscriptionlag</code> | <code>metric</code> | <code>stable</code> | <code>services/agent/crates/layerx-agentd/src/obs/metrics.rs:17</code> | <code>metric SubscriptionLag labels LagHealthy&#124;Lagging</code> |
-
-| Interface | Field | Value |
-|---|---|---|
-| <code>interface.9.met-agentd-subscriptionlag</code> | notes | In-process per-tenant counter (total, samples, maximum) behind Metrics::observe and Metrics::snapshot; no exporter or scrape endpoint exists at this revision. |
+`SubscriptionLag`: `lag_healthy`, `lagging`.
 
 ## unknownage
 
-| Interface | Kind | Status | Source at pinned revision | Signature |
-|---|---|---|---|---|
-| <code>interface.9.met-agentd-unknownage</code> | <code>metric</code> | <code>stable</code> | <code>services/agent/crates/layerx-agentd/src/obs/metrics.rs:10</code> | <code>metric UnknownAge labels AgeUnderSecond&#124;AgeUnderMinute&#124;AgeAtLeastMinute</code> |
-
-| Interface | Field | Value |
-|---|---|---|
-| <code>interface.9.met-agentd-unknownage</code> | notes | In-process per-tenant counter (total, samples, maximum) behind Metrics::observe and Metrics::snapshot; no exporter or scrape endpoint exists at this revision. |
+`UnknownAge`: `age_under_second`, `age_under_minute`, `age_at_least_minute`.
 
 ## unknownpopulation
 
-| Interface | Kind | Status | Source at pinned revision | Signature |
-|---|---|---|---|---|
-| <code>interface.9.met-agentd-unknownpopulation</code> | <code>metric</code> | <code>stable</code> | <code>services/agent/crates/layerx-agentd/src/obs/metrics.rs:9</code> | <code>metric UnknownPopulation labels Unknown</code> |
-
-| Interface | Field | Value |
-|---|---|---|
-| <code>interface.9.met-agentd-unknownpopulation</code> | notes | In-process per-tenant counter (total, samples, maximum) behind Metrics::observe and Metrics::snapshot; no exporter or scrape endpoint exists at this revision. |
+`UnknownPopulation`: `unknown`.
 
 ## verificationlevel
 
-| Interface | Kind | Status | Source at pinned revision | Signature |
-|---|---|---|---|---|
-| <code>interface.9.met-agentd-verificationlevel</code> | <code>metric</code> | <code>change</code> | <code>services/agent/crates/layerx-agentd/src/obs/metrics.rs:11</code> | <code>metric VerificationLevel labels SequencerSigned&#124;BatchIncluded&#124;StateProven&#124;CheckpointFinalised&#124;SettlementAnchored</code> |
+Receipt progress is recorded by `MetricKind::Rung`, with labels `submitted`,
+`receipted` and `committed`. See [agent-metrics.md](agent-metrics.md#rung).
 
-| Interface | Field | Value |
-|---|---|---|
-| <code>interface.9.met-agentd-verificationlevel</code> | notes | In-process per-tenant counter (total, samples, maximum) behind Metrics::observe and Metrics::snapshot; no exporter or scrape endpoint exists at this revision. Labels SequencerSigned..SettlementAnchored are the old verification ladder; stale tasks 0.58 and 6.5.13 move callers to the Rung ladder and 6.6.12 retires SettlementAnchored. |
+Observation output uses the tenant redaction rules in
+[`obs/mod.rs`](../../../services/agent/crates/layerx-agentd/src/obs/mod.rs).

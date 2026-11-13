@@ -1,18 +1,11 @@
 # Agent CLI contract
 
-Command declarations below were checked against the source tree at revision
-`4edaf4fff3f943e154c8337c0bcc16fe4dd9dd3c`. Paths are relative to the repository
-root; run repository-relative commands there unless stated otherwise. Source
-links name the implementation rather than retaining obsolete line numbers.
-Interface identifiers preserve the links to [the registry](../interfaces.kvx).
-“Current” means declared in this tree, not qualified by this documentation rewrite.
+Paths are relative to the repository root. Source links identify command implementations.
 
 Paxeer mainnet-beta is one BFT network, with EVM chain ID `125` (`0x7d`). The
 kernel participates in the network and proposes blocks; a receipt is final when
 its block is committed. Agent tools consume node JSON-RPC. Public HTTPS node
-endpoints use the root path: `https://api1.mainnet-beta.paxeer.network/` through
-`https://api14.mainnet-beta.paxeer.network/`, and
-`https://api-mainnet-beta.paxeer.network/`. Node namespaces are `debug`, `echo`,
+endpoints use the root path. Node namespaces are `debug`, `echo`,
 `eth`, `net`, `pax`, `test` and `txpool`. Hosted `px_` methods have their own
 [OpenRPC contract](../../../services/platform/hosted/gateway/openrpc.json);
 they must not be assumed to exist on every node. See the
@@ -20,16 +13,9 @@ they must not be assumed to exist on every node. See the
 
 There is no separate LayerX interface, router or sequencer service.
 The retired `layerxd` binary and LNI transport are not prerequisites of these commands.
-`node.hyperpaxeer.com` is a library mirror, not an RPC endpoint. Sub-chains are
-tenant domains in the database; keep tenant identifiers on agent operations.
+Sub-chains are tenant domains in the database; keep tenant identifiers on agent operations.
 The running `layerx-agentd` described below is an off-chain agent application,
 not a second network executor or a source of chain finality.
-
-The original page froze specification blocks at `2a1033aa2`. References headed
-“Specification history” below retain useful requirement, capability and test
-traceability, but do not reproduce that snapshot as live topology or claim its
-`UNRUN` gates passed. Current declarations come from code; qualification evidence
-must come from each task's recorded gate, not from this page.
 
 ## agent-boundary-conformance
 
@@ -67,13 +53,6 @@ the hash of the retained transaction.
 with a 65,536-byte bound. `MODE` is `default` or one of the production flags
 above; the qualification wrapper uses this strict decoder. Success exits zero;
 refusals exit nonzero with `node RPC boundary conformance refused:` on stderr.
-
-Specification history: `acceptance.9.58.1` / `9058.1` and
-`acceptance.9.58.2` / `9058.2`, grouped by `capability.9.18.1`, cover the required
-node URL and rejection of the retired socket setting. The corresponding test
-functions are `production_mode_requires_the_node_rpc_url` and
-`retired_lni_socket_variable_is_refused` in
-[tests/modes.rs](../../../services/agent/tests/boundary/tests/modes.rs).
 
 ## agent-isolation-suite
 
@@ -134,15 +113,6 @@ The [input helper](../../../services/agent/fuzz/fuzz_targets/support.rs) accepts
 `hex:` seeds. Round-trip assertion failures abort; this context has no gas,
 event or pause interface.
 
-Specification history (references, not qualification results):
-
-| Acceptance / requirement | Capability | Recorded criterion and current source |
-|---|---|---|
-| `acceptance.9.313.1` / `9313.1`; `acceptance.9.313.2` / `9313.2` | `capability.9.30.1` | EIP-1559 envelope and corpus round trips; [tests/codec.rs](../../../services/agent/fuzz/tests/codec.rs) declares `envelope_decode_round_trips_signed_eip1559_transactions` and `roundtrip_corpus_seeds_round_trip_through_their_codecs`. |
-| `acceptance.9.59.1` / `9059.1` | `capability.9.18.2` | Refuse the retired wire gate; `wire_gate_is_refused_as_retired` in [tests/gates.rs](../../../services/agent/tests/qualify/tests/gates.rs). |
-| `acceptance.9.62.1` / `9062.1`; `acceptance.9.62.2` / `9062.2` | `capability.9.18.5` | Require a node URL and remove the retired LNI test-node files; [tests/boundary_gate.rs](../../../services/agent/tests/qualify/tests/boundary_gate.rs). |
-| `acceptance.9.64.1` / `9064.1` | `capability.9.18.7` | Keep `contract_request` and `policy_loader` while excluding the retired frame target; `fuzz_gate_requires_no_lni_frame_target` in `tests/qualify/fuzz.rs`. |
-
 ## agent-sdk-doc-check
 
 `interface.9.cli-agent-sdk-doc-check` declares
@@ -168,14 +138,6 @@ mode compares generated output and the programs golden against their canonical
 inputs; write mode updates generated SDK files and `golden/programs.kvx` under
 the schema root. An error prints `agent-sdk-gen:` and exits nonzero.
 
-Specification history: `acceptance.9.61.1` / `9061.1` and
-`acceptance.9.61.2` / `9061.2`, under `capability.9.18.4`, describe contract major
-2, the `submitted`, `receipted`, `committed` rungs, 65-byte signatures and 20-byte
-addresses. [tests/major_two.rs](../../../services/agent/tools/sdk-gen/tests/major_two.rs)
-contains `generated_typescript_declares_contract_major_two_and_rungs` and
-`generated_bindings_use_65_byte_signatures`. These are specification references,
-not evidence that generation or those tests ran during this rewrite.
-
 ## agent-sdk-parity
 
 `interface.9.cli-agent-sdk-parity` declares `agent-sdk-parity NODE REPOSITORY`.
@@ -192,15 +154,6 @@ running the parity suite. The checked-in
 `submitted`, `receipted` and `committed` verification rungs. Invalid rungs fail;
 errors print `SDK parity failed:` and exit nonzero.
 
-Specification history: `acceptance.9.4.1` / `9004.1` and
-`acceptance.9.4.2` / `9004.2`, grouped by `capability.9.20.94`, are covered by
-`parity_requires_a_node_json_rpc_url` and `parity_scenarios_record_rungs` in
-[tests/arguments.rs](../../../services/agent/tests/parity/tests/arguments.rs).
-The original `acceptance.9.999.1` / `9999.1` and `capability.9.0.9` named a planned
-`agent_completion_retired_surfaces_absent` completion test. Its cited
-`services/agent/tests/parity/tests/completion_gate.rs` is absent in this tree;
-this page does not present it as an available command or a completed gate.
-
 ## agent-secret-check
 
 `interface.9.cli-agent-secret-check` declares `agent-secret-check [ROOT]`.
@@ -211,11 +164,7 @@ success prints `agent secret hygiene passed`.
 
 ## agent-wire-differential
 
-Retired interface `interface.9.cli-agent-wire-differential` referred to the
-removed `services/agent/tools/wire-differential/src/main.rs` and the old C
-reference selection through `LAYERX_C_REFERENCE`. There is no current binary
-declaration at that path. Use the current EVM codecs and node boundary tooling;
-the [wire qualification command](#agent-qualification-gates) refuses explicitly.
+The wire differential command is unavailable. The [wire qualification mode](#agent-qualification-gates) refuses with `wire gate is retired`.
 
 ## dependency-policy
 
@@ -276,12 +225,13 @@ Refusal exits 2 with `layerx-agentd: MCP evidence refused`.
 
 ## layerx-agentd-modes
 
-Source: [human_owner_mode.rs](../../../services/agent/crates/layerx-agentd/src/human_owner_mode.rs).
+Source: [mode selection](../../../services/agent/crates/layerx-agentd/src/human_owner_mode.rs) and [startup](../../../services/agent/crates/layerx-agentd/src/main.rs).
 
 | Interface | Current setting | Behavior |
 |---|---|---|
 | `interface.9.cli-layerx-agentd-mode-full` | `LAYERX_AGENT_MODE=full`, or unset | Starts the full configured agent application. |
 | `interface.9.cli-layerx-agentd-mode-human-owner` | `LAYERX_AGENT_MODE=human-owner` | Starts the human owner and exposes only authenticated `GET /healthz` on its HTTP listener. |
+| Inference market | `LAYERX_AGENT_MODE=inference-market` | Starts the configured inference-market service. |
 
 Other values, including an empty value, are invalid. Human-owner health uses
 `LAYERX_AGENT_PROGRAM_LISTEN` (loopback `127.0.0.1:`) and
@@ -312,14 +262,6 @@ nondeterminism outside the clock allowlist. Any `layerx_client::lni` reference
 is a retired transport violation, including inside the client crate; it prints
 `direct-core-connection` with the file path. No stable-ABI allowlist is read.
 Success prints `agent boundary purity passed`; violations exit 1.
-
-Specification history: `acceptance.9.60.1` / `9060.1` and
-`acceptance.9.60.2` / `9060.2`, under `capability.9.18.3`, name
-`any_lni_import_fails_the_purity_check` and
-`purity_check_runs_without_a_stable_abi_allowlist` in
-[tests/lni_retired.rs](../../../services/agent/tools/boundary-check/tests/lni_retired.rs).
-`resolution.17.845`, citing `decision.910` and tasks `9.18.3` / `9.19.1`, retains
-`layerx-wire` as a canonical encoding library; that does not restore LNI access.
 
 ## layerx-mcp
 
@@ -391,13 +333,6 @@ Remote RPC failures preserve `code`, `message` and `data`. Pending waits report
 `kind="pending"`, `txHash` and `rung="submitted"`. Other invalid/unavailable
 requests report `kind="wallet_request_refused_or_unavailable"`.
 
-Specification history: `acceptance.9.333.1` / `9333.1` and
-`acceptance.9.333.2` / `9333.2`, under `capability.9.32.3`, name
-`submit_reply_carries_the_transaction_hash_and_rung` and
-`wait_accepts_rung_names_and_refuses_kernel_commitments` in
-[tests/wallet_rpc_bin.rs](../../../services/agent/crates/layerx-sdk/tests/wallet_rpc_bin.rs).
-The old `commitment=executed|batched|finalised` invocation is retired.
-
 ## operator-commands
 
 These are agent command descriptors, not shell subcommands of `layerx-agentd`.
@@ -447,12 +382,6 @@ path. Prepare requires `CARGO_TARGET_DIR`; `LAYERX_TEST_NATIVE_BUILD_DIR`
 selects native output, defaulting to the repository's `build` directory in the
 prepare function. The script restores build-output ownership on exit.
 
-Specification history: `acceptance.9.63.1` / `9063.1`, under
-`capability.9.18.6`, excludes the retired standalone kernel daemon and old
-finality/signing preparation. The source test is
-`real_node_prepare_builds_no_kernel_daemon` in
-[tests/real_node_script.rs](../../../services/agent/tests/qualify/tests/real_node_script.rs).
-
 ## run-sanitizers
 
 `interface.9.cli-run-sanitizers` declares
@@ -462,5 +391,4 @@ workspace tests for `x86_64-unknown-linux-gnu` with AddressSanitizer, followed b
 ThreadSanitizer with a rebuilt standard library using `nightly-2025-11-10`.
 It requires that toolchain's `rust-src`; missing sources fail immediately.
 `LAYERX_AGENT_TSAN_TARGET_DIR` overrides the separate TSan target directory.
-These are aggregate qualification tools; documenting them does not run or
-qualify them as part of this page's rewrite.
+

@@ -1,218 +1,163 @@
-# address-table.md Precompile address and error registry of the merged Paxeer X chain
+# Precompile address and error registry
 
-Version 1.0.2. Source revision 52b672ac4. Binding inputs: decision D6, decision D10, decision D18, decision D20. Conforming file: method names, signatures, selectors, events and error codes are taken from ledger-auth.md, pay.md, exchange-launchpad.md, programs.md, web.md, agent-functions.md and sequencer.md. Change control: changes only by amendment; each amendment raises the version.
+The registered precompiles execute within the merged Paxeer network. The source of address registration is [setup.go](../../../precompiles/setup.go), with application keepers supplied by [node wiring](../../../node/precompiles.go). Construct behavior is described by [ledger and auth](ledger-auth.md), [pay](pay.md), [markets](markets.md), [launchpad](launchpad.md), [programs](programs.md), [web](web.md), [agent functions](agent-functions.md), and [virtual chains](virtual-chains.md).
 
 ## (a) Address table
-One row per address the merged chain serves; existing rows read from precompiles/setup.go:67-95 and each package's address constant; "merge plan" means the single named plan of section (c); method signatures and selectors of changed and new addresses are in (a2).
+
+The existing/new column distinguishes base addresses from entries in `MergeAddressTable`. Registration, upgrade versions and module activation determine availability. The table uses full 20-byte EVM addresses.
 
 | Address | Name (GetName) | Package path (address constant; registration) | Existing or new | Status after merge | Activation gate | Construct (merged) |
-|---|---|---|---|---|---|---|
-| 0x0000000000000000000000000000000000001001 | bank | precompiles/bank (bank.go:33; setup.go:68) | existing | extended: `send` gains the LayerX context-hash overload and LayerXReceipt log used by unified-account transfers; signature frozen by ledger-auth.md section 0-B: `send(address,address,string,uint256,bytes32)` 0x2e4c85ac and log `LayerXReceipt(address,address,string,uint256,bytes32)` (selector and topic0 in a2); every other method live unchanged; errors return Error(string) "LXP_<code>: <message>" from the plan height through the opt-in reason path of the dynamic-gas base (rule row "Dynamic-gas precompiles") | versions by tag (precompiles/bank/setup.go:24-32); new `send` overload and the reason path gated on the merge plan | bank (sdk/x/bank) |
-| 0x0000000000000000000000000000000000001002 | wasmd | precompiles/wasmd (wasmd.go:30; setup.go:69) | existing | live, unchanged | versions by tag (precompiles/wasmd/setup.go:25-33); none new | wasm |
-| 0x0000000000000000000000000000000000001003 | json | precompiles/json (json.go:28; setup.go:70) | existing | live, unchanged | versions by tag (precompiles/json/setup.go:21-29); none new | json (utility) |
-| 0x0000000000000000000000000000000000001004 | addr | precompiles/addr (addr.go:57; setup.go:71); keeper modules/evm/keeper/layerx_binding.go | existing | live; DID binding used by every unified-account flow (`bindLayerX`, `unbindLayerX`, `getLayerXDid`, `getEvmAddrByLayerX`, `layerXBindNonce`, `getUnifiedAccount` addr.go:43,434) and the principal resolution sender→DID of 0x101A-0x101D and 0x0901-0x0908; errors return Error(string) "LXP_<code>: <message>" from the plan height through the opt-in reason path of the dynamic-gas base (decision D6); extensions `rotateLayerXKey`, `setRecoveryRoot`, `recoverLayerX` NOT added by this plan (D16 ruled out of merge scope) | versions by tag (precompiles/addr/setup.go:24-32); reason path gated on the merge plan; no method gated by the merge plan | addr (evm module binding keeper) |
-| 0x0000000000000000000000000000000000001005 | staking | precompiles/staking (staking.go:49; setup.go:72) | existing | live, unchanged | versions by tag (precompiles/staking/setup.go:21-29); none new | staking |
-| 0x0000000000000000000000000000000000001006 | gov | precompiles/gov (gov.go:30; setup.go:73) | existing | live, unchanged | versions by tag (precompiles/gov/setup.go:21-29); none new | gov |
-| 0x0000000000000000000000000000000000001007 | distribution | precompiles/distribution (distribution.go:37; setup.go:74) | existing | live, unchanged | versions by tag (precompiles/distribution/setup.go:21-29); none new | distribution |
-| 0x0000000000000000000000000000000000001008 | oracle | precompiles/oracle (oracle.go:26; setup.go:75) | existing | live, unchanged (not the perps price source; agent oracle 0x0903 uses the 0x1015 store) | versions by tag (precompiles/oracle/setup.go:23-31); none new | oracle |
-| 0x0000000000000000000000000000000000001009 | ibc | precompiles/ibc (ibc.go:30; setup.go:76) | existing | live, unchanged | versions by tag (precompiles/ibc/setup.go:23-31); none new | ibc |
-| 0x000000000000000000000000000000000000100A | pointerview | precompiles/pointerview (pointerview.go:24; setup.go:78) | existing | live, unchanged | versions by tag (precompiles/pointerview/setup.go:20-28); none new | pointerview |
-| 0x000000000000000000000000000000000000100B | pointer | precompiles/pointer (pointer.go:29; setup.go:77) | existing | live, unchanged | versions by tag (precompiles/pointer/setup.go:23-31); none new | pointer |
-| 0x000000000000000000000000000000000000100C | solo | precompiles/solo (solo.go:32; setup.go:80) | existing | live, unchanged | versions by tag (precompiles/solo/setup.go:14-20); none new | solo |
-| 0x0000000000000000000000000000000000001011 | p256Verify | precompiles/p256 (p256.go:24; setup.go:79) | existing | live, unchanged | versions by tag (precompiles/p256/setup.go:15-22); none new | p256 (utility) |
-| 0x0000000000000000000000000000000000001012 | layerxVerify | precompiles/layerxverify (layerxverify.go:52-53; setup.go:81) | existing | retired executor: every method (`verifyEd25519`, `verifyReceipt`, `verifyReceiptInclusion`, `verifyStateProof`, `verifyDiscoveryProof`) returns Error("LXP_MODULE_DISABLED: layerxVerify retired") at or above the merge plan height; address stays registered (an unregistered address returns empty success) | served from v6.9 (node/upgrades.go:398-411, module layerxanchor); per-method retire gate on the merge plan | none (retired; replaced by abci_query prove=true, eth_getProof, receipt inclusion) |
-| 0x0000000000000000000000000000000000001013 | layerxCustody | precompiles/layerxcustody (modules/layerxcustody/types/ids.go:17, layerxcustody.go:83-84; setup.go:82) | existing | retired executor: every method (`deposit`, `depositToken`, `requestWithdrawal`, `finaliseWithdrawal`, `requestForcedExit`, `executeForcedExit`, `exitEligible`, `registerDepositRoot`, `depositRootAuthority`, `depositRootRegistered`, `depositRegistrationDigest`, `getAsset`, `assetByPointer`, `nativeAssetId`, `getDeposit`, `getDepositByIndex`, `depositNonce`, `depositCount`, `getClaim`, `nullifierStatus`) returns LXP_MODULE_DISABLED at or above the merge plan height; no claim drain window (D4 moot) | served from v6.9 (node/upgrades.go:405); governance content gated on v6.11 (modules/layerxcustody/keeper/keeper.go:42, types/governance_activation.go:5); per-method retire gate on the merge plan | none (retired; funding a sub-account is a bank or layerxledger move) |
-| 0x0000000000000000000000000000000000001014 | layerxAnchor | precompiles/layerxanchor (layerxanchor.go:65-66; setup.go:83) | existing | retired executor: writes (`submitCheckpoint`, `submitAvailabilityAttestation`, `finalize`, `registerGuarantor`, `increaseBond`, `beginUnbond`, `completeUnbond`, `activateGuarantor`, `submitEquivocation`, `openChallenge`, `resolveChallenge`, `setSequencerAuthorization`) return LXP_MODULE_DISABLED at or above the merge plan height; reads (`latestFinalized`, `checkpoint`, `finalizedStateRoot`, `finalizedReceiptRoot`, `guarantor`, `threshold`, `statusOf`, `checkpointBatch`, `checkpointGuarantors`; names in precompiles/layerxanchor/abi.json) stay served until every posted guarantor bond and open challenge deposit has been returned by the plan handler (D4); then the layerxanchor store is deleted and the reads also return LXP_MODULE_DISABLED; the address stays registered | served from v6.9 (node/upgrades.go:406); per-method retire gate on the merge plan; read retirement and store delete at the store-delete step after the bond return (step name and height set at activation rehearsal) | none (retired; finality = block height and commit) |
-| 0x0000000000000000000000000000000000001015 | layerxExchange | precompiles/layerxexchange (modules/layerxexchange/types/ids.go:15, layerxexchange.go:71-72; setup.go:84) | existing | extended (per-method gate), rows exchange-launchpad.md E1-E12, P1-P3, P6-P12, S1-S4, B: `depositMargin`, `depositMarginToken`, `placeOrder`, `cancelOrder` switch from intent recording to engine execution (E1, E2, E4, E5; `placeOrder` and `cancelOrder` change signature); `withdrawMargin(bytes32 market,uint256 amount)` becomes an immediate bank release from the caller DID's D2 margin address to its D2 main address behind a free-margin check (E3); `requestSettlement`, `getIntent` retired with LXP_MODULE_DISABLED (E6, E7); `intentNonce` kept as the nonce input of the D8 chain-derived order and deposit id (E8); `getMarket`, `getOrder`, `getPosition`, `getMargin` lose the batch/witness arguments (E9-E12); new perps methods `createPerpsMarket`, `setPerpsHalt`, `pushOracle`, `openPosition`, `increasePosition`, `closePosition`, `fundingTick`, `liquidate`, `adl`, `registerMargin`; new spot methods `createSpotMarket`, `placeSpotOrder`, `cancelSpotOrder`, `setSpotHalt`; new views `getPerpsBook`, `getFunding`, `getOracle`, `getDeficit`, `getSpotMarket`, `getSpotOrder`, `getSpotBook`, `getPerpsPositions`; new module Params.Paused refuses every state-changing method except the exit paths `cancelOrder`, `cancelSpotOrder`, `closePosition`, `withdrawMargin` with LXP_PAUSED_SCOPE (exchange-launchpad.md F pause row); its committed oracle store is also read and written by agent oracle 0x0903 | served from v6.9 (node/upgrades.go:407); per-method gate on the merge plan (section c) | layerxexchange |
-| 0x0000000000000000000000000000000000001016 | layerxBridge | precompiles/layerxbridge (modules/layerxbridge/types/keys.go:27, layerxbridge.go:54-55; setup.go:85) | existing | live, unchanged methods (`bridgeIn`, `bridgeOut`, `getChain`, `getAttestors`, `getCap`, `isPaused`, `isNullified`) | served from v6.9 (node/upgrades.go:408); none new | layerxbridge |
-| 0x0000000000000000000000000000000000001017 | launchpad | precompiles/launchpad (modules/launchpad/types/keys.go:26, launchpad.go:84-85; setup.go:86) | existing | live methods L1-L12 of exchange-launchpad.md (`createMarket`, `buy`, `sell`, `setFeeStrategy`, `claimFees`, `executeBurn`, `executeAirdrop`, `claimAirdrop`, `claimAirdropForEpoch`, `executeLpRewards`, `pause`, `unpause`); `buy` and `sell` move the protocol cut to a per-market counter (D8 B, L2, L3); `getConfig()` keeps its selector but its Config tuple drops the last field protocolFeesPending; new view `getProtocolFees(address token)` is its per-market replacement | served from v6.9 (node/upgrades.go:409); `getProtocolFees` and the Config change gated on the merge plan | launchpad |
-| 0x0000000000000000000000000000000000001018 | feeToken | precompiles/feetoken (feetoken.go:22-23; setup.go:88-92) | existing | live, unchanged (`setFeeDenom`, `getFeeDenom`, `clearFeeDenom`) | tag v6.7 (precompiles/setup.go:43,88) and v6.9 gate with layerxbridge (node/upgrades.go:410); none new | feetoken (evm fee-token keeper) |
-| 0x0000000000000000000000000000000000001019 | xweb | precompiles/xweb (xweb.go:58-59; setup.go:93-95) | existing | extended (web.md A10, B7, B8): `fulfilProgram(bytes observation)` (raw canonical kernel OBSERVATION payload, origin 2), views `getProgramResult(bytes32,uint64)` and `getKernelNetworkId()` added; one attestor set for both origins, registration capped at 16 (A4, D12); MsgPause stops both origins (A8); `refund` serves origin 1 only: origin-2 requests are never keyed in the refund store, so a refund of such an id returns LXP_XWEB_UNKNOWN_REQUEST (D11, web.md A3, F7); other methods live | tag v6.8 (precompiles/setup.go:37,93) and v6.9 gate (node/upgrades.go:411); `fulfilProgram`, `getProgramResult`, `getKernelNetworkId` gated per method on the merge plan (web.md F11) | xweb |
-| 0x000000000000000000000000000000000000101A | layerxledger (D10 "lxpay") | precompiles/layerxledger + modules/layerxledger (new) | new | live at plan height (ledger-auth.md precompile 1): `register`, `pause`, `unpause`, `openAccount`, `send(bytes)`, `draw`, `payExact`, `issueGrant`, `revokeGrant(bytes32,uint64)`, `mint`, `burn`; views `getAsset`, `balanceOf`, `totalUnits`, `accountId`, `accountOwner`, `nextSequence`, `getPayerGrant` (drawn totals carried in it, no separate `drawn` view); events `AssetRegistered`, `AssetPaused`, `AssetUnpaused`, `AccountOpened`, `Transfer`, `PayerGrantIssued`, `PayerGrantRevoked`, `PaymentDrawn`, `PaymentExact`; no `withdraw` (kernel WITHDRAW 0x00010009 not registered) and no `receive` method (the typed `draw` is the receive entry point); D10 per-request draw lives here: one `draw` per paid request, one receipt, one `PaymentDrawn` log, USD 0.001, draw sender class min gas price at most 0.067 gwei | whole address served from the merge plan height; every method gated on the merge plan | layerxledger, which is the lxpay construct of D10 (resolution below) |
-| 0x000000000000000000000000000000000000101B | layerxpay | precompiles/layerxpay + modules/layerxpay (new) | new | live at plan height: escrow (A.1), budget (A.2), stream (A.3) and service (A.4) method families of pay.md, including `budgetPull` and `budgetDelegateSpend` (exposed, executable once a kernel activity type reaches lx_budget_delegate_spend_execute and lx_budget_pull_execute (src/modules/budget/lx_budget_delegate.c:101,146)); service disputes resolved by the linked escrow's arbiter, which settles the escrow on the ruling (A.6); its stream keeper holds the only stream state and backs agent streams 0x0906 (A.7); write methods outside the exit set refuse with LXP_PAUSED_SCOPE under the governance pause scope (pay.md F pause row) | whole address served from the merge plan height | layerxpay (escrow, budget, stream, service keepers) |
-| 0x000000000000000000000000000000000000101C | layerxauth | precompiles/layerxauth + modules/layerxauth (new) | new | live at plan height (ledger-auth.md precompile 2): `grantSession`, `grantSessionSuccessor`, `grantCapability`, `revokeGrant(bytes32,uint8,uint64)`; views `resultByIdempotency(bytes32,bytes32)`, `getGrant(bytes32)`, `isLive`, `sessionKey(bytes32)`, `capabilityScope(bytes32)`, `checkActivity`; events `SessionGranted`, `GrantBody`, `CapabilityGranted`, `GrantRevoked`, `IdentityStateUpdated`; authz `LayerXScopeAuthorization` (D3) | whole address served from the merge plan height | layerxauth |
-| 0x000000000000000000000000000000000000101D | layerxprograms | precompiles/layerxprograms + modules/layerxprograms (new) | new | live at plan height (programs.md A, B, C): `deploy`, `upgrade`, `call`, `registryRead`, `transfer`, `registerAccount`, `setExitRoute`, `deprecate`, `tombstone`, `exitValue`, `exitValueBounded`, `sandboxExecute`, `sandboxFund`, `sandboxActivate`, `retireStorage` (the wind-down and sandbox families replace `windDown` and `sandbox`); `upgrade`, `call`, `simulateCall` and `sandboxExecute` take a trailing `uint128 feeLimit`; views `simulateCall`, `getProgram`, `getInterface`, `getProgramOwner`, `getProgramAccount`, `getProgramAccountById`, `getAccountProfile`, `getValueAccount`, `getStateHead`, `getWindDown`, `getExitRoute`, `getSandbox`, `getFeeSchedule`, `getCurrentFeeSchedule`, `getPendingFeeSchedule`, `getMeteringSchedule`, `getCurrentMeteringSchedule`, `getWebRequest`, `getRetirementControl`, `quoteCallFee`; events of programs.md C (`ProgramGuestEvent`, `ProgramCallOutcome` and peers) | whole address served from the merge plan height | layerxprograms |
-| 0x0000000000000000000000000000000000000901 | orob resolver (agent function) | precompiles/layerxagent/orob (new) | new | live at plan height (D20 port; agent-functions.md A.1): pure `resolveOffset`, `resolveOffsetBatch`, `toOffset`; route constant human/wallet/gateway/src/precompiles.ts:18 | merge plan | agent functions (D20) |
-| 0x0000000000000000000000000000000000000902 | batch clearing (agent function) | precompiles/layerxagent/clearing (new) | new | live at plan height (D20 port; agent-functions.md A.1): pure `computeClearing`, a helper outside the spot book; precompiles.ts:19 | merge plan | agent functions (D20) |
-| 0x0000000000000000000000000000000000000903 | oracle aggregator (agent function) | precompiles/layerxagent/oracle (new; distinct from 0x1008 oracle) | new | live at plan height (D20 port; agent-functions.md A.1, B): pure `aggregate`; `submitPrice` writes and view `getValidatorPrice` reads the 0x1015 exchange oracle store, not 0x1008; precompiles.ts:20 | merge plan | agent functions (D20) |
-| 0x0000000000000000000000000000000000000904 | pofq scorer (agent function) | precompiles/layerxagent/pofq (new) | new | live at plan height (D20 port; agent-functions.md A.1): pure `scoreFill`, `scoreBatch`, `updateRollingScore`; precompiles.ts:21 | merge plan | agent functions (D20) |
-| 0x0000000000000000000000000000000000000905 | scheduler (agent function) | precompiles/layerxagent/scheduler (new) | new | live at plan height (D20 port; agent-functions.md A.1, B): `schedule` (payable), `cancel`, `reschedule`, views `getJob`, `pending`; job store run in receipt order; gateway ABI SCHEDULER_ABI precompiles.ts:50-97 matches | merge plan | agent functions (D20) |
-| 0x0000000000000000000000000000000000000906 | payment streams (agent function) | precompiles/layerxagent/streams (new) | new | live at plan height (D20 port; agent-functions.md A.1, B): `open`, `settle`, `close`, `updateRate`, views `accrued`, `getStream`; keeps no store and executes through the 0x101B stream keeper, one stream state (pay.md A.7); gateway ABI STREAMS_ABI precompiles.ts:99-151 matches | merge plan | agent functions (D20) |
-| 0x0000000000000000000000000000000000000907 | tee attestor (agent function) | precompiles/layerxagent/teeattestor (new) | new | live at plan height (D20 port; agent-functions.md A.1, B): views `verify`, `verifyAndExpect`, `rootOf`, `rootCount`; roots in gov-set params; signer rules use the embedded-wallet attestor set; gateway ABI TEE_ATTESTOR_ABI precompiles.ts:189-237 matches | merge plan | agent functions (D20) |
-| 0x0000000000000000000000000000000000000908 | eip712 helper (agent function) | precompiles/layerxagent/eip712 (new) | new | live at plan height (D20 port; agent-functions.md A.1): pure EIP-712 hashing `hashTypedData`, `domainSeparator`, view `recoverTypedSigner`; gateway ABI EIP712_ABI precompiles.ts:153-187 matches | merge plan | agent functions (D20) |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0x0000000000000000000000000000000000001001 | bank | precompiles/bank | existing | served when its activation conditions hold | upgrade versions | bank |
+| 0x0000000000000000000000000000000000001002 | wasmd | precompiles/wasmd | existing | served when its activation conditions hold | upgrade versions | wasmd |
+| 0x0000000000000000000000000000000000001003 | json | precompiles/json | existing | served when its activation conditions hold | upgrade versions | json |
+| 0x0000000000000000000000000000000000001004 | addr | precompiles/addr | existing | served when its activation conditions hold | upgrade versions | addr |
+| 0x0000000000000000000000000000000000001005 | staking | precompiles/staking | existing | served when its activation conditions hold | upgrade versions | staking |
+| 0x0000000000000000000000000000000000001006 | gov | precompiles/gov | existing | served when its activation conditions hold | upgrade versions | gov |
+| 0x0000000000000000000000000000000000001007 | distribution | precompiles/distribution | existing | served when its activation conditions hold | upgrade versions | distribution |
+| 0x0000000000000000000000000000000000001008 | oracle | precompiles/oracle | existing | served when its activation conditions hold | upgrade versions | oracle |
+| 0x0000000000000000000000000000000000001009 | ibc | precompiles/ibc | existing | served when its activation conditions hold | upgrade versions | ibc |
+| 0x000000000000000000000000000000000000100A | pointerview | precompiles/pointerview | existing | served when its activation conditions hold | upgrade versions | pointerview |
+| 0x000000000000000000000000000000000000100B | pointer | precompiles/pointer | existing | served when its activation conditions hold | upgrade versions | pointer |
+| 0x000000000000000000000000000000000000100C | solo | precompiles/solo | existing | served when its activation conditions hold | upgrade versions | solo |
+| 0x0000000000000000000000000000000000001011 | p256Verify | precompiles/p256 | existing | served when its activation conditions hold | upgrade versions | p256Verify |
+| 0x0000000000000000000000000000000000001012 | layerxVerify | precompiles/layerxverify | existing | registered; methods retired at the merge plan height | upgrade versions and module activation; see (c) | layerxVerify |
+| 0x0000000000000000000000000000000000001013 | layerxCustody | precompiles/layerxcustody | existing | registered; methods retired at the merge plan height | upgrade versions and module activation; see (c) | layerxCustody |
+| 0x0000000000000000000000000000000000001014 | layerxAnchor | precompiles/layerxanchor | existing | writes retired at the merge plan height; reads retired at the anchor store-delete plan height | upgrade versions and module activation; see (c) | layerxAnchor |
+| 0x0000000000000000000000000000000000001015 | perps | precompiles/perps | existing | perps ABI from v6.12.0 | v6.12.0 contract switch; see (c) | perps |
+| 0x0000000000000000000000000000000000001016 | layerxBridge | precompiles/layerxbridge | existing | served when its activation conditions hold | upgrade versions and module activation; see (c) | layerxBridge |
+| 0x0000000000000000000000000000000000001017 | launchpad | precompiles/launchpad | existing | launchpad ABI from v6.12.0 | upgrade versions and module activation; see (c) | launchpad |
+| 0x0000000000000000000000000000000000001018 | feeToken | precompiles/feetoken | existing | served when its activation conditions hold | upgrade versions and module activation; see (c) | feeToken |
+| 0x0000000000000000000000000000000000001019 | xweb | precompiles/xweb | existing | served when its activation conditions hold | upgrade versions and module activation; see (c) | xweb |
+| 0x000000000000000000000000000000000000101A | layerxledger | precompiles/layerxledger | new | served when its activation conditions hold | merge plan | layerxledger |
+| 0x000000000000000000000000000000000000101B | layerxpay | precompiles/layerxpay | new | served when its activation conditions hold | merge plan | layerxpay |
+| 0x000000000000000000000000000000000000101C | layerxauth | precompiles/layerxauth | new | served when its activation conditions hold | merge plan | layerxauth |
+| 0x000000000000000000000000000000000000101D | layerxprograms | precompiles/layerxprograms | new | served when its activation conditions hold | merge plan | layerxprograms |
+| 0x0000000000000000000000000000000000000901 | orob | precompiles/layerxagent/orob | new | served when its activation conditions hold | merge plan | orob |
+| 0x0000000000000000000000000000000000000902 | clearing | precompiles/layerxagent/clearing | new | served when its activation conditions hold | merge plan | clearing |
+| 0x0000000000000000000000000000000000000903 | oracle aggregator | precompiles/layerxagent/oracle | new | served when its activation conditions hold | merge plan | oracle aggregator |
+| 0x0000000000000000000000000000000000000904 | pofq | precompiles/layerxagent/pofq | new | served when its activation conditions hold | merge plan | pofq |
+| 0x0000000000000000000000000000000000000905 | scheduler | precompiles/layerxagent/scheduler | new | served when its activation conditions hold | merge plan | scheduler |
+| 0x0000000000000000000000000000000000000906 | streams | precompiles/layerxagent/streams | new | served when its activation conditions hold | merge plan | streams |
+| 0x0000000000000000000000000000000000000907 | tee attestor | precompiles/layerxagent/teeattestor | new | served when its activation conditions hold | merge plan | tee attestor |
+| 0x0000000000000000000000000000000000000908 | eip712 | precompiles/layerxagent/eip712 | new | served when its activation conditions hold | merge plan | eip712 |
+| 0x000000000000000000000000000000000000101E | layerxchains | precompiles/layerxchains | new | served when its activation conditions hold | merge plan | layerxchains |
+| 0x0000000000000000000000000000000000001020 | pricefeed | precompiles/pricefeed | existing | served when its activation conditions hold | v6.12.0 | pricefeed |
+| 0x0000000000000000000000000000000000001021 | spot PECOR | precompiles/spot | existing | served when its activation conditions hold | v6.12.0 | spot PECOR |
+| 0x0000000000000000000000000000000000001022 | spot orders | precompiles/spot | existing | served when its activation conditions hold | v6.12.0 | spot orders |
+| 0x0000000000000000000000000000000000001023 | spot stop orders | precompiles/spot | existing | served when its activation conditions hold | v6.12.0 | spot stop orders |
+| 0x0000000000000000000000000000000000001024 | spot quoter | precompiles/spot | existing | served when its activation conditions hold | v6.12.0 | spot quoter |
+| 0x0000000000000000000000000000000000001025 | spot vault | precompiles/spot | existing | served when its activation conditions hold | v6.12.0 | spot vault |
 
 ### (a2) Method selectors of changed and new addresses
-One row per signature; selector = first 4 bytes of keccak256 of the canonical signature, each one recomputed with keccak-256 for this amendment and equal to the owning construct contract where that part prints one; rows marked "computed" carry a selector the owning part does not print. From v6.12.0 the 0x1015 and 0x1017 rows of this section and of sections (a) and (c) describe only the precompiles served below that height: at and above it 0x1015 serves the perps precompile of precompiles/perps/abi/abi.json, spot is served by the PECOR precompiles at the addresses of modules/spot/types/keys.go, and 0x1017 serves the launchpad ABIs of precompiles/launchpad/abi; clients take those ABIs and addresses from the served JSON and the Go constants, and contracts/address-inventory.md records each superseded row (decision.323, decision.341, decision.1792).
+
+Selected current signatures are listed below. A method selector is the first four bytes of Keccak-256 of its canonical signature; an event topic is its full hash. The complete ABIs are in each precompile package. At `0x1015`, use [the perps ABI](../../../precompiles/perps/abi/abi.json); at `0x1017`, use [the launchpad ABIs](../../../precompiles/launchpad/abi). Spot addresses and ABI files are defined in [spot keys](../../../modules/spot/types/keys.go) and [spot ABI files](../../../precompiles/spot/abi).
 
 | Address | Canonical signature | Selector | Source (row) |
-|---|---|---|---|
-| 0x1001 | send(address,address,string,uint256,bytes32) | 0x2e4c85ac | ledger-auth.md 0-B; overload of send(address,address,string,uint256) 0x5c05961b (precompiles/bank/abi.json); computed |
-| 0x1001 | log LayerXReceipt(address,address,string,uint256,bytes32) | topic0 0x4b11729a809ec729868d9ba54f3192aa4179fe63668e9f742aa9b25de21de65f | ledger-auth.md 0-B; emitted only by the overload; computed |
-| 0x1015 | depositMargin(bytes32) | 0x4498105f | exchange-launchpad.md E1; unchanged (precompiles/layerxexchange/abi.json); computed |
-| 0x1015 | depositMarginToken(address,uint256,bytes32) | 0x4576dad4 | E2; unchanged (abi.json); computed |
-| 0x1015 | withdrawMargin(bytes32,uint256) | 0xdcea2ab6 | E3; replaces withdrawMargin(bytes32,bytes32,uint256) 0x661e2df4 (abi.json); computed |
-| 0x1015 | placeOrder(bytes32,bytes32,uint8,uint256,uint256,uint8) | 0xf9835781 | E4; replaces placeOrder(bytes32,uint8,uint256,uint256,uint8) 0x36633730 (abi.json); computed |
-| 0x1015 | cancelOrder(bytes32,bytes32) | 0xa47d9d33 | E5; replaces cancelOrder(bytes32) 0x7489ec23 (abi.json); computed |
-| 0x1015 | requestSettlement(bytes32) | 0xe2ab32b3 | E6, retired; computed |
-| 0x1015 | getIntent(bytes32) | 0xf13c46aa | E7, retired; computed |
-| 0x1015 | intentNonce(address) | 0x634a2320 | E8, kept; computed |
-| 0x1015 | getMarket(bytes32) | 0xc3c95c7b | E9; replaces getMarket(bytes32,uint64,bytes) 0x2b2336de (abi.json); computed |
-| 0x1015 | getOrder(bytes32,bytes32) | 0x8b99f140 | E10; replaces getOrder(bytes32,bytes32,uint64,bytes) 0x28ae3df5; computed |
-| 0x1015 | getPosition(bytes32,bytes32) | 0x68870299 | E11; replaces getPosition(bytes32,bytes32,uint64,bytes) 0x4fad915f; computed |
-| 0x1015 | getMargin(address,bytes32) | 0x59c7fa18 | E12; replaces getMargin(bytes32,bytes32,uint64,bytes) 0xba721079; computed |
-| 0x1015 | createPerpsMarket((...)) | tuple PerpsMarketParams in kernel order, see exchange-launchpad.md P1 | P1 |
-| 0x1015 | setPerpsHalt(bytes32,bool) | 0x141053a4 | P2; computed |
-| 0x1015 | pushOracle(bytes,bytes) | 0x0e4d9382 | P3; computed |
-| 0x1015 | openPosition(bytes32,bytes32,uint8,uint256,uint256) | 0xb14bfbe6 | P6; computed |
-| 0x1015 | increasePosition(bytes32,bytes32,uint256,uint256) | 0xf9f467f3 | P7; computed |
-| 0x1015 | closePosition(bytes32,bytes32) | 0x9c49d053 | P8; computed |
-| 0x1015 | fundingTick(bytes32) | 0x2b6edb1e | P9; computed |
-| 0x1015 | liquidate(bytes32,bytes32,bytes32) | 0xd5b3e4d9 | P10; computed |
-| 0x1015 | adl(bytes32,bytes32[]) | 0xc293c109 | P11; computed |
-| 0x1015 | registerMargin(bytes32) | 0xf378512d | P12; computed |
-| 0x1015 | createSpotMarket(bytes32,bytes32,bytes32,bytes32,uint256,uint256) | 0xdba301bc | S1; computed |
-| 0x1015 | placeSpotOrder(bytes32,bytes32,bytes32,uint8,uint8,uint8,uint256,uint256) | 0x91a861ce | S2; computed |
-| 0x1015 | cancelSpotOrder(bytes32,bytes32) | 0x7f94da73 | S3; computed |
-| 0x1015 | setSpotHalt(bytes32,bool) | 0x9b89e0a4 | S4; computed |
-| 0x1015 | getPerpsBook(bytes32) | 0x96f91fc5 | B; computed |
-| 0x1015 | getFunding(bytes32) | 0xf7f943e0 | B; computed |
-| 0x1015 | getOracle(bytes32) | 0xdafaf94a | B; computed |
-| 0x1015 | getDeficit(bytes32) | 0x5fc35ffc | B; computed |
-| 0x1015 | getSpotMarket(bytes32) | 0xf60ebf98 | B; computed |
-| 0x1015 | getSpotOrder(bytes32,bytes32) | 0x1596fc79 | B; computed |
-| 0x1015 | getSpotBook(bytes32) | 0xd4794507 | B; computed |
-| 0x1015 | getPerpsPositions(bytes32) | 0xc0451774 | B; computed |
-| 0x1017 | getConfig() | 0xc3f909d4 | B: selector unchanged, output tuple loses protocolFeesPending; computed |
-| 0x1017 | getProtocolFees(address) | 0xf27dd8ab | B; computed |
-| 0x1019 | fulfilProgram(bytes) | 0x2d4bf7ad | web.md A10 |
-| 0x1019 | getProgramResult(bytes32,uint64) | 0x2b2e13fc | web.md B7 |
-| 0x1019 | getKernelNetworkId() | 0xfc0d26f4 | web.md B8 |
-| 0x101A | register(bytes32,bytes32,string,string,uint8,uint128,uint8,bytes) | 0xfd03012a | ledger-auth.md 1 A; computed |
-| 0x101A | pause(bytes32) | 0xed56531a | 1 A; computed |
-| 0x101A | unpause(bytes32) | 0x2f4dae9f | 1 A; computed |
-| 0x101A | openAccount(bytes32) | 0xbdf52150 | 1 A; computed |
-| 0x101A | send(bytes) | 0x2bb1ae7c | 1 A; computed |
-| 0x101A | draw(bytes32,bytes32,uint128,bytes32,uint64,bytes32,bytes32) | 0x2e89490f | 1 A; computed |
-| 0x101A | payExact(bytes32,bytes32,bytes32,uint128,uint64,bytes32) | 0x78ea11db | 1 A; computed |
-| 0x101A | issueGrant(bytes) | 0xd0d53480 | 1 A; computed |
-| 0x101A | revokeGrant(bytes32,uint64) | 0x58d183a8 | 1 A; computed |
-| 0x101A | mint(bytes32,bytes32,uint128) | 0xf04db938 | 1 A; computed |
-| 0x101A | burn(bytes32,bytes32,uint128) | 0xda3c63f3 | 1 A; computed |
-| 0x101A | getAsset(bytes32) | 0x2cc3ce80 | 1 B; computed |
-| 0x101A | balanceOf(bytes32,bytes32) | 0xb1ffc03e | 1 B; computed |
-| 0x101A | totalUnits(bytes32) | 0x53a6332b | 1 B; computed |
-| 0x101A | accountId(bytes32,bytes32) | 0x3f050cbc | 1 B; computed |
-| 0x101A | accountOwner(bytes32) | 0x37955ab2 | 1 B; computed |
-| 0x101A | getPayerGrant(bytes32) | 0x423fe4b2 | 1 B; computed |
-| 0x101A | nextSequence(bytes32,bytes32) | 0xce2f921f | 1 B; computed |
-| 0x101B | budgetPull(bytes32,bytes32,uint128,bytes) | 0xbc2548e7 | pay.md A.2; computed |
-| 0x101B | budgetDelegateSpend(bytes32,bytes32,uint128) | 0xf9708fc1 | pay.md A.2; computed |
-| 0x101B | every other method and view | as pay.md A.1-A.4, B | pay.md |
-| 0x101C | grantSession(bytes,uint64,bytes32) | 0x1107b49e | ledger-auth.md 2 A; computed |
-| 0x101C | grantSessionSuccessor(bytes,uint64,bytes32,bytes32,bytes32) | 0x0c49a046 | 2 A; computed |
-| 0x101C | grantCapability(bytes) | 0x0cb291d1 | 2 A; computed |
-| 0x101C | revokeGrant(bytes32,uint8,uint64) | 0x859615ab | 2 A; computed |
-| 0x101C | resultByIdempotency(bytes32,bytes32) | 0x2eda9f2b | 2 B; computed |
-| 0x101C | getGrant(bytes32) | 0xe483ac04 | 2 B; computed |
-| 0x101C | isLive(bytes32,uint64,uint64) | 0xd4a03b3d | 2 B; computed |
-| 0x101C | sessionKey(bytes32) | 0x55eb131c | 2 B; computed |
-| 0x101C | capabilityScope(bytes32) | 0xd05b2513 | 2 B; computed |
-| 0x101C | checkActivity(bytes32,uint32,bytes32,uint128) | 0xd825990c | 2 B; computed |
-| 0x101D | deploy(bytes32,uint16,uint8,bytes32,bytes32,bytes,bytes) | 0xbde3ff66 | programs.md A |
-| 0x101D | upgrade(bytes32,uint16,uint8,bytes32,bytes32,bytes,bytes,bytes,uint128) | 0xa860929f | A |
-| 0x101D | call(bytes32,uint16,string,bytes,bytes,bytes,uint32,uint64[7],uint128) | 0x54bd2b48 | A |
-| 0x101D | registryRead(bytes32,bytes) | 0xfb28c4b1 | A |
-| 0x101D | transfer(bytes32,(bytes32,bytes32,bytes32,uint128)[]) | 0x59849fe7 | A |
-| 0x101D | registerAccount(bytes32,uint8,bytes32,bytes) | 0xfc786007 | A |
-| 0x101D | setExitRoute(bytes32,bytes32,bytes32,bytes32,bytes) | 0x23330dd5 | A |
-| 0x101D | deprecate(bytes32,bytes32,uint64) | 0x86ba1a99 | A |
-| 0x101D | tombstone(bytes32) | 0xa512f1a9 | A |
-| 0x101D | exitValue(bytes32,bytes32) | 0x4dc50730 | A |
-| 0x101D | exitValueBounded(bytes32,bytes32,uint128) | 0xade5d9e6 | A |
-| 0x101D | sandboxExecute(bytes32,uint64,bytes32,bytes32,bytes32,bytes32,uint32,uint64[7],bytes,uint128) | 0xff04aa78 | A |
-| 0x101D | sandboxFund(bytes32,bytes32,bytes32,bytes32,bytes32,uint128,uint64,uint32,uint64[7],bytes,bytes32,(bytes32,bytes32,bytes32,uint128)[]) | 0xf11e5752 | A |
-| 0x101D | sandboxActivate(bytes32,bytes32,uint64) | 0x64e1674e | A |
-| 0x101D | retireStorage(bytes) | 0x1a5fe5ff | A |
-| 0x101D | simulateCall(bytes32,uint16,string,bytes,bytes,bytes,uint32,uint64[7],uint128) | 0x3044bd56 | B |
-| 0x101D | getProgram(bytes32), getInterface(bytes32), getProgramOwner(bytes32), getProgramAccount(bytes32,bytes32,bytes), getProgramAccountById(bytes32), getAccountProfile(bytes32), getValueAccount(bytes32,bytes32), getStateHead(bytes32), getWindDown(bytes32), getExitRoute(bytes32,bytes32), getSandbox(bytes32,uint8), getFeeSchedule(uint32), getCurrentFeeSchedule(), getPendingFeeSchedule(), getMeteringSchedule(uint32), getCurrentMeteringSchedule(), getWebRequest(bytes32,uint64), getRetirementControl() | 0xb1ffb3d4, 0x8efc7240, 0x5d6be786, 0x9677b10c, 0x7a599bd0, 0x0f2d0496, 0x24460e23, 0x0833650b, 0x98e4e41d, 0x3ee6f18d, 0xb8b4f8bc, 0x8d8bfb15, 0xbbe2e42d, 0xe8b5cd95, 0xa842e85b, 0x543c7a2f, 0x61bc2ca4, 0xdcee2e41 (in order) | B |
-| 0x101D | quoteCallFee(uint64[7]) | 0xd67f9ffa | B; computed |
-| 0x0901 | resolveOffset(int256,int16) | 0x454ad3a1 | agent-functions.md A.1 |
-| 0x0901 | resolveOffsetBatch(int256,int16[]) | 0x3df597e3 | A.1 |
-| 0x0901 | toOffset(int256,int256) | 0x3f779aef | A.1 |
-| 0x0902 | computeClearing(int256,(int16,uint128)[],(int16,uint128)[]) | 0x8397e9f8 | A.1 |
-| 0x0903 | aggregate((int256,uint256,uint256)[]) | 0x81097a95 | A.1 |
-| 0x0903 | submitPrice(bytes32,int256,uint256) | 0xdc9c2875 | A.1 |
-| 0x0903 | getValidatorPrice(bytes32) | 0x99812615 | B |
-| 0x0904 | scoreFill(int256,int256) | 0xe087a6ba | A.1 |
-| 0x0904 | scoreBatch((int256,int256,uint128)[]) | 0x1b1fba48 | A.1 |
-| 0x0904 | updateRollingScore(uint256,uint256,uint256,uint256,uint16) | 0xa8f32b0e | A.1 |
-| 0x0905 | schedule(address,bytes,uint64,uint64) | 0x849ba0a3 | A.1 |
-| 0x0905 | cancel(uint256) | 0x40e58ee5 | A.1 |
-| 0x0905 | reschedule(uint256,uint64) | 0x08e6f770 | A.1 |
-| 0x0905 | getJob(uint256) | 0xbf22c457 | B |
-| 0x0905 | pending(address) | 0x5eebea20 | B |
-| 0x0906 | open(address,address,uint256,uint64,uint64,uint256) | 0x93e5b08b | A.1 |
-| 0x0906 | settle(uint256) | 0x8df82800 | A.1 |
-| 0x0906 | close(uint256) | 0x0aebeb4e | A.1 |
-| 0x0906 | updateRate(uint256,uint256) | 0x405abb41 | A.1 |
-| 0x0906 | accrued(uint256) | 0xf52981f4 | B |
-| 0x0906 | getStream(uint256) | 0x894e9a0d | B |
-| 0x0907 | verify(uint8,bytes) | 0x5fa55ca7 | A.1 |
-| 0x0907 | verifyAndExpect(uint8,bytes,bytes32) | 0x71ded4b3 | A.1 |
-| 0x0907 | rootOf(uint8,uint256) | 0x01ec24b8 | B |
-| 0x0907 | rootCount(uint8) | 0x26f02502 | B |
-| 0x0908 | hashTypedData(bytes32,bytes32) | 0xd61c3c34 | A.1 |
-| 0x0908 | domainSeparator(string,string,uint256,address) | 0xe6d341cd | A.1 |
-| 0x0908 | recoverTypedSigner(bytes32,bytes32,bytes) | 0xac580b5c | A.1 |
+| --- | --- | --- | --- |
+| 0x1001 | send(address,address,string,uint256,bytes32) | 0x2e4c85ac | `precompiles/bank/abi.json` |
+| 0x1001 | log LayerXReceipt(address,address,string,uint256,bytes32) | topic0 0x4b11729a809ec729868d9ba54f3192aa4179fe63668e9f742aa9b25de21de65f | `precompiles/bank/abi.json` |
+| 0x1019 | fulfilProgram(bytes) | 0x2d4bf7ad | `precompiles/xweb/abi.json` |
+| 0x1019 | getProgramResult(bytes32,uint64) | 0x2b2e13fc | `precompiles/xweb/abi.json` |
+| 0x1019 | getKernelNetworkId() | 0xfc0d26f4 | `precompiles/xweb/abi.json` |
+| 0x101A | register(bytes32,bytes32,string,string,uint8,uint128,uint8,bytes) | 0xfd03012a | `precompiles/layerxledger/abi.json` |
+| 0x101A | pause(bytes32) | 0xed56531a | `precompiles/layerxledger/abi.json` |
+| 0x101A | unpause(bytes32) | 0x2f4dae9f | `precompiles/layerxledger/abi.json` |
+| 0x101A | openAccount(bytes32) | 0xbdf52150 | `precompiles/layerxledger/abi.json` |
+| 0x101A | send(bytes) | 0x2bb1ae7c | `precompiles/layerxledger/abi.json` |
+| 0x101A | draw(bytes32,bytes32,uint128,bytes32,uint64,bytes32,bytes32) | 0x2e89490f | `precompiles/layerxledger/abi.json` |
+| 0x101A | payExact(bytes32,bytes32,bytes32,uint128,uint64,bytes32) | 0x78ea11db | `precompiles/layerxledger/abi.json` |
+| 0x101A | issueGrant(bytes) | 0xd0d53480 | `precompiles/layerxledger/abi.json` |
+| 0x101A | revokeGrant(bytes32,uint64) | 0x58d183a8 | `precompiles/layerxledger/abi.json` |
+| 0x101A | mint(bytes32,bytes32,uint128) | 0xf04db938 | `precompiles/layerxledger/abi.json` |
+| 0x101A | burn(bytes32,bytes32,uint128) | 0xda3c63f3 | `precompiles/layerxledger/abi.json` |
+| 0x101A | getAsset(bytes32) | 0x2cc3ce80 | `precompiles/layerxledger/abi.json` |
+| 0x101A | balanceOf(bytes32,bytes32) | 0xb1ffc03e | `precompiles/layerxledger/abi.json` |
+| 0x101A | totalUnits(bytes32) | 0x53a6332b | `precompiles/layerxledger/abi.json` |
+| 0x101A | accountId(bytes32,bytes32) | 0x3f050cbc | `precompiles/layerxledger/abi.json` |
+| 0x101A | accountOwner(bytes32) | 0x37955ab2 | `precompiles/layerxledger/abi.json` |
+| 0x101A | getPayerGrant(bytes32) | 0x423fe4b2 | `precompiles/layerxledger/abi.json` |
+| 0x101A | nextSequence(bytes32,bytes32) | 0xce2f921f | `precompiles/layerxledger/abi.json` |
+| 0x101B | budgetPull(bytes32,bytes32,uint128,bytes) | 0xbc2548e7 | `precompiles/layerxpay/abi.json` |
+| 0x101B | budgetDelegateSpend(bytes32,bytes32,uint128) | 0xf9708fc1 | `precompiles/layerxpay/abi.json` |
+| 0x101C | grantSession(bytes,uint64,bytes32) | 0x1107b49e | `precompiles/layerxauth/abi.json` |
+| 0x101C | grantSessionSuccessor(bytes,uint64,bytes32,bytes32,bytes32) | 0x0c49a046 | `precompiles/layerxauth/abi.json` |
+| 0x101C | grantCapability(bytes) | 0x0cb291d1 | `precompiles/layerxauth/abi.json` |
+| 0x101C | revokeGrant(bytes32,uint8,uint64) | 0x859615ab | `precompiles/layerxauth/abi.json` |
+| 0x101C | getGrant(bytes32) | 0xe483ac04 | `precompiles/layerxauth/abi.json` |
+| 0x101C | isLive(bytes32,uint64,uint64) | 0xd4a03b3d | `precompiles/layerxauth/abi.json` |
+| 0x101C | sessionKey(bytes32) | 0x55eb131c | `precompiles/layerxauth/abi.json` |
+| 0x101C | capabilityScope(bytes32) | 0xd05b2513 | `precompiles/layerxauth/abi.json` |
+| 0x101C | checkActivity(bytes32,uint32,bytes32,uint128) | 0xd825990c | `precompiles/layerxauth/abi.json` |
+| 0x101D | deploy(bytes32,uint16,uint8,bytes32,bytes32,bytes,bytes) | 0xbde3ff66 | `precompiles/layerxprograms/abi.json` |
+| 0x101D | upgrade(bytes32,uint16,uint8,bytes32,bytes32,bytes,bytes,bytes,uint128) | 0xa860929f | `precompiles/layerxprograms/abi.json` |
+| 0x101D | call(bytes32,uint16,string,bytes,bytes,bytes,uint32,uint64[7],uint128) | 0x54bd2b48 | `precompiles/layerxprograms/abi.json` |
+| 0x101D | registryRead(bytes32,bytes) | 0xfb28c4b1 | `precompiles/layerxprograms/abi.json` |
+| 0x101D | transfer(bytes32,(bytes32,bytes32,bytes32,uint128)[]) | 0x59849fe7 | `precompiles/layerxprograms/abi.json` |
+| 0x101D | registerAccount(bytes32,uint8,bytes32,bytes) | 0xfc786007 | `precompiles/layerxprograms/abi.json` |
+| 0x101D | setExitRoute(bytes32,bytes32,bytes32,bytes32,bytes) | 0x23330dd5 | `precompiles/layerxprograms/abi.json` |
+| 0x101D | deprecate(bytes32,bytes32,uint64) | 0x86ba1a99 | `precompiles/layerxprograms/abi.json` |
+| 0x101D | tombstone(bytes32) | 0xa512f1a9 | `precompiles/layerxprograms/abi.json` |
+| 0x101D | exitValue(bytes32,bytes32) | 0x4dc50730 | `precompiles/layerxprograms/abi.json` |
+| 0x101D | exitValueBounded(bytes32,bytes32,uint128) | 0xade5d9e6 | `precompiles/layerxprograms/abi.json` |
+| 0x101D | sandboxExecute(bytes32,uint64,bytes32,bytes32,bytes32,bytes32,uint32,uint64[7],bytes,uint128) | 0xff04aa78 | `precompiles/layerxprograms/abi.json` |
+| 0x101D | sandboxFund(bytes32,bytes32,bytes32,bytes32,bytes32,uint128,uint64,uint32,uint64[7],bytes,bytes32,(bytes32,bytes32,bytes32,uint128)[]) | 0xf11e5752 | `precompiles/layerxprograms/abi.json` |
+| 0x101D | sandboxActivate(bytes32,bytes32,uint64) | 0x64e1674e | `precompiles/layerxprograms/abi.json` |
+| 0x101D | retireStorage(bytes) | 0x1a5fe5ff | `precompiles/layerxprograms/abi.json` |
+| 0x101D | simulateCall(bytes32,uint16,string,bytes,bytes,bytes,uint32,uint64[7],uint128) | 0x3044bd56 | `precompiles/layerxprograms/abi.json` |
+| 0x101D | quoteCallFee(uint64[7]) | 0xd67f9ffa | `precompiles/layerxprograms/abi.json` |
+| 0x0901 | resolveOffset(int256,int16) | 0x454ad3a1 | `precompiles/layerxagent/orob/orob.go` |
+| 0x0901 | resolveOffsetBatch(int256,int16[]) | 0x3df597e3 | `precompiles/layerxagent/orob/orob.go` |
+| 0x0901 | toOffset(int256,int256) | 0x3f779aef | `precompiles/layerxagent/orob/orob.go` |
+| 0x0902 | computeClearing(int256,(int16,uint128)[],(int16,uint128)[]) | 0x8397e9f8 | `precompiles/layerxagent/clearing/clearing.go` |
+| 0x0903 | aggregate((int256,uint256,uint256)[]) | 0x81097a95 | `precompiles/layerxagent/oracle/oracle.go` |
+| 0x0903 | submitPrice(bytes32,int256,uint256) | 0xdc9c2875 | `precompiles/layerxagent/oracle/oracle.go` |
+| 0x0903 | getValidatorPrice(bytes32) | 0x99812615 | `precompiles/layerxagent/oracle/oracle.go` |
+| 0x0904 | scoreFill(int256,int256) | 0xe087a6ba | `precompiles/layerxagent/pofq/pofq.go` |
+| 0x0904 | scoreBatch((int256,int256,uint128)[]) | 0x1b1fba48 | `precompiles/layerxagent/pofq/pofq.go` |
+| 0x0904 | updateRollingScore(uint256,uint256,uint256,uint256,uint16) | 0xa8f32b0e | `precompiles/layerxagent/pofq/pofq.go` |
+| 0x0905 | schedule(address,bytes,uint64,uint64) | 0x849ba0a3 | `precompiles/layerxagent/scheduler/scheduler.go` |
+| 0x0905 | cancel(uint256) | 0x40e58ee5 | `precompiles/layerxagent/scheduler/scheduler.go` |
+| 0x0905 | reschedule(uint256,uint64) | 0x08e6f770 | `precompiles/layerxagent/scheduler/scheduler.go` |
+| 0x0905 | getJob(uint256) | 0xbf22c457 | `precompiles/layerxagent/scheduler/scheduler.go` |
+| 0x0905 | pending(address) | 0x5eebea20 | `precompiles/layerxagent/scheduler/scheduler.go` |
+| 0x0906 | open(address,address,uint256,uint64,uint64,uint256) | 0x93e5b08b | `precompiles/layerxagent/streams/streams.go` |
+| 0x0906 | settle(uint256) | 0x8df82800 | `precompiles/layerxagent/streams/streams.go` |
+| 0x0906 | close(uint256) | 0x0aebeb4e | `precompiles/layerxagent/streams/streams.go` |
+| 0x0906 | updateRate(uint256,uint256) | 0x405abb41 | `precompiles/layerxagent/streams/streams.go` |
+| 0x0906 | accrued(uint256) | 0xf52981f4 | `precompiles/layerxagent/streams/streams.go` |
+| 0x0906 | getStream(uint256) | 0x894e9a0d | `precompiles/layerxagent/streams/streams.go` |
+| 0x0907 | verify(uint8,bytes) | 0x5fa55ca7 | `precompiles/layerxagent/teeattestor/teeattestor.go` |
+| 0x0907 | verifyAndExpect(uint8,bytes,bytes32) | 0x71ded4b3 | `precompiles/layerxagent/teeattestor/teeattestor.go` |
+| 0x0907 | rootOf(uint8,uint256) | 0x01ec24b8 | `precompiles/layerxagent/teeattestor/teeattestor.go` |
+| 0x0907 | rootCount(uint8) | 0x26f02502 | `precompiles/layerxagent/teeattestor/teeattestor.go` |
+| 0x0908 | hashTypedData(bytes32,bytes32) | 0xd61c3c34 | `precompiles/layerxagent/eip712/eip712.go` |
+| 0x0908 | domainSeparator(string,string,uint256,address) | 0xe6d341cd | `precompiles/layerxagent/eip712/eip712.go` |
+| 0x0908 | recoverTypedSigner(bytes32,bytes32,bytes) | 0xac580b5c | `precompiles/layerxagent/eip712/eip712.go` |
 
 ### 0x101A resolution (D10 lxpay versus layerxledger)
-| Item | Value |
-|---|---|
-| Ruled layout | 0x101A = layerxledger; "lxpay" in decision D10 is the name of the same construct. 0x101B = layerxpay (escrow, budget, stream, service), which is not lxpay. 0x101C = layerxauth. 0x101D = layerxprograms. |
-| Why | the kernel executes grant issue, grant draw and the drawn total inside the ledger and asset module over one balance store: src/ledger/lxp_grant_store.c:72 (`lxp_verify_payer_grant`), :123 (`lxp_grant_draw_record`), src/ledger/lxp_receive.c:413-418 (receive resolves the grant and refuses LXP_ERR_NO_PAYER_GRANT), src/modules/asset/lx_asset_execution.h:46 (grant keys); a separate lxpay address would need a cross-precompile call into the ledger for every draw. |
-| D10 behaviour kept | address 0x101A (D10 follow-up "reserve 0x101A for lxpay"); per-request `draw(bytes32 from,bytes32 assetId,uint128 amount,bytes32 grantId,uint64 receiverSequence,bytes32 idempotencyKey,bytes32 contextHash)`, the typed form of the kernel RECEIVE fields (include/layerx/lxp_ledger.h:216-227; ledger-auth.md 1 A); one draw yields one receipt and one precompile-emitted `PaymentDrawn(bytes32 indexed grantId,bytes32 indexed from,bytes32 indexed to,bytes32 assetId,uint128 amount,bytes32 idempotencyKey,bytes32 contextHash)` log (no kernel event constant) at USD 0.001; draw sender class min gas price at most 0.067 gwei (evm params, owned by the fee contract sequencer.md f); x402 suite unchanged. |
-| payExact | `payExact(bytes32 from,bytes32 to,bytes32 assetId,uint128 amount,uint64 expiresAt,bytes32 paymentReference)`, a typed send whose paymentReference is the send idempotency key, with log `PaymentExact(bytes32 indexed from,bytes32 indexed to,bytes32 indexed paymentReference,bytes32 assetId,uint128 amount)` (ledger-auth.md 1 A, C) |
-| ABI naming | precompile name "layerxledger"; an `ILxPay` interface file is published as the ABI subset `issueGrant`, `revokeGrant`, `draw`, `payExact` of layerxledger at 0x101A for x402 clients; no chain change (ledger-auth.md D-6). |
-| Not adopted | Option of a separate modules/lxpay at 0x101A beside layerxledger elsewhere: would re-open the collision. |
+
+`0x101A` serves `layerxledger`, including `issueGrant`, `revokeGrant`, `draw` and `payExact`. `0x101B` serves the pay module's escrow, budget, stream and service operations. The `ILxPay` subset in the [ledger contract](ledger-auth.md) gives x402 clients the ledger payment ABI at `0x101A`.
 
 ### Route-map entries that are not chain addresses
-| Gateway key | Constant (human/wallet/gateway/src/precompiles.ts) | Registered address on the chain | Fix |
-|---|---|---|---|
-| staking | 0x0000000000000000000000000000000000000800 (line 26) | 0x1005 (precompiles/staking/staking.go:49) | point the constant at 0x1005 |
-| bech32 | 0x0000000000000000000000000000000000000400 (line 27) | none registered | map the key to addr 0x1004 `getPaxAddr`/`getEvmAddr` |
-| p256 | 0x0000000000000000000000000000000000000100 (line 28) | 0x1011 (precompiles/p256/p256.go:24) | point the constant at 0x1011 |
+
+The [wallet gateway route map](../../../services/wallet/gateway/src/precompiles.ts) maps `staking` to `0x1005`, `bech32` to addr at `0x1004`, and `p256` to `0x1011`. `bech32` uses `getPaxAddr` and `getEvmAddr` from the addr ABI. Route keys select registered addresses.
 
 ### Code-owned ABIs (no construct contract)
-These five constructs have no owning construct contract in 1.0.1; their ABI is owned by the code at 52b672ac4, and clients.md and services.md cite this table for them. A change to any of them needs a construct contract first.
 
-| Construct | Address | ABI file (path:line) | Solidity interface (path:line) | Code construct (path:line) |
-|---|---|---|---|---|
-| addr | 0x0000000000000000000000000000000000001004 | precompiles/addr/abi.json, embedded at precompiles/addr/addr.go:62, loaded :88 | precompiles/addr/Addr.sol:4 (address constant), :10 `IAddr` | precompiles/addr/addr.go:57 (AddrAddress), :134 Execute |
-| bank | 0x0000000000000000000000000000000000001001 | precompiles/bank/abi.json, embedded at precompiles/bank/bank.go:38 | precompiles/bank/Bank.sol:4, :10 `IBank` | precompiles/bank/bank.go:33 (BankAddress), :106 Execute; the LayerX `send` overload and LayerXReceipt log are owned by ledger-auth.md section 0-B |
-| feetoken | 0x0000000000000000000000000000000000001018 | precompiles/feetoken/abi.json, embedded at precompiles/feetoken/feetoken.go:29 | precompiles/feetoken/FeeToken.sol:4, :7 `IFeeToken` | precompiles/feetoken/feetoken.go:22-23 |
-| layerxbridge | 0x0000000000000000000000000000000000001016 | precompiles/layerxbridge/abi.json, embedded at precompiles/layerxbridge/layerxbridge.go:63 | precompiles/layerxbridge/LayerXBridge.sol:4, :30 `ILayerXBridge` | precompiles/layerxbridge/layerxbridge.go:54-55; modules/layerxbridge/types/keys.go:27 |
-| BatchCallAndSponsor | no fixed address: EIP-7702 delegation target contract, not a precompile; the gas station requires the authorization delegate to equal the configured paymaster address (interop/crates/layerx-gas-station/src/tx.rs:314) | no tracked ABI json; the ABI is the source contracts/src/BatchCallAndSponsor.sol | contracts/src/BatchCallAndSponsor.sol:16 `contract BatchCallAndSponsor`, :20 `nonce()`, :135 `executeSponsored`, :187 `execute` | contracts/src/BatchCallAndSponsor.sol:16 |
-
+Addr, bank, fee-token and bridge ABIs are published in their respective precompile directories. [BatchCallAndSponsor](../../../contracts/src/BatchCallAndSponsor.sol) is an EIP-7702 delegation target, with no fixed precompile address. The [gas station](../../../services/interop/crates/layerx-gas-station/src/tx.rs) requires the authorization delegate to match its configured paymaster.
 
 ## (b) Error code registry (D6)
-SDK registry snapshot: repair-22.39.297-v1 — 395 codes, 54 retryable; SHA-256 of the registry rows including trailing LF: `6a9f742816f66fc1707c20ded000821c47bf9ac4715387e825e2da8e2b63615f`. Synchronize this snapshot and `services/agent/sdk/typescript/test/revert.test.ts` on registry changes; retain `scripts/ci/result-codes-gen.py --check` in CI.
+SDK registry snapshot: repair-22.39.297-v1 — 395 codes, 54 retryable; SHA-256 of the registry rows including trailing LF: `6a9f742816f66fc1707c20ded000821c47bf9ac4715387e825e2da8e2b63615f`. 
 
-Encoding rules first, then every code; kernel codes are the lxp_result enum (include/layerx/lxp_result.h:29-157), Go codes are the registered module errors and precompile error sites.
+Kernel numeric codes are defined in [lxp_result.h](../../../include/layerx/lxp_result.h). Go codes come from module errors and precompile error sites. The registry retains each code, message, origin metadata and retryable flag. Origin strings are metadata stored in this registry; the linked construct implementations define execution behavior.
 
 | Rule | Value | Source |
-|---|---|---|
-| Wire form | ABI Error(string), selector 0x08c379a0, text "LXP_<code>: <message>" optionally followed by "; <detail>" | precompiles/common/precompiles.go:59-65 RevertReason |
-| Enabling | the precompile is built with WithRevertReasons (precompiles/common/precompiles.go:53); today used by layerxcustody, layerxanchor, layerxexchange, layerxbridge, launchpad, feetoken, xweb; every new precompile (0x101A-0x101D, 0x0901-0x0908) uses it | precompiles/common/precompiles.go:82-91 |
-| Dynamic-gas precompiles | addr 0x1004 and bank 0x1001 are DynamicGasPrecompile, whose error path drops the reason (precompiles/common/precompiles.go:177-184); from the merge plan height an opt-in reason path in the dynamic-gas base returns Error(string) "LXP_<code>: <message>" for these two; below it the bytes stay as today (decision D6) | precompiles/common/precompiles.go:177-184; precompiles/addr/addr.go:123; precompiles/bank/bank.go:98 |
-| Governance pause | modules/layerxgov is a Go proposal router (modules/layerxgov/handler.go:11-40 NewProposalHandler routes to module Msgs such as xweb MsgPause; types/proposal.go:37-38), not a precompile and without a pause flag; kernel pause scopes live in lxp_gov_emergency_state (include/layerx/lxp_governance.h:114-128, pauses[LXP_MAX_GOV_PAUSES] and module_enabled[]) checked by lxp_pause_scope_check (src/modules/governance/lxp_emergency.c:139-160) inside every kernel-backed precompile; Go-side pauses are per-module keys (xweb types.PausedKey modules/xweb/keeper/keeper.go:105-113; new layerxexchange Params.Paused) | as cited |
-| xweb origin rule | Go-origin xweb errors keep their LXP_XWEB_<NAME> codes; kernel-origin errors of origin-2 requests carry kernel codes | modules/xweb/types/errors.go:6-29; web.md F12 |
-| Height | the LXP_ text applies only at or above the merge plan height; below it every existing precompile returns byte-identical revert data (replay parity, must 1) | gate pattern modules/layerxcustody/keeper/keeper.go:42 |
-| Kernel code name | enum name with the LXP_ERR_ (or LXP_) prefix replaced by LXP_; the numeric kernel value travels in the origin column, not in the string | include/layerx/lxp_result.h:29-157; src/protocol/lxp_result.c:3-12 lxp_result_name |
-| Unknown kernel value | LXP_UNKNOWN, as lxp_result_name returns "LXP_ERR_UNKNOWN" for an unlisted value | src/protocol/lxp_result.c:10 |
-| Go code name | LXP_<MODULE>_<registered error name in upper snake case>; message = the registered message text | per row |
-| Fatal kernel values | never a revert: the cgo host halts the node (value <= -1000) | src/protocol/lxp_result.c:55-58 |
-| Single table | one shared mapping table plus one focused test asserting the revert string per code (decision D6) | decision D6 |
-| Retryable source | the Retryable column of this table is the single source of retriability; agent/crates/layerx-types/build.rs generates the Rust mirror from it and scripts/ci/result-codes-gen.py generates the TypeScript and Python SDK decoders, with a --check run in CI; a header code without a row fails the build | agent/crates/layerx-types/build.rs; scripts/ci/result-codes-gen.py |
+| --- | --- | --- |
+| Wire form | ABI `Error(string)`, selector `0x08c379a0`, with an `LXP_` code and message | [Revert reasons](../../../precompiles/common/precompiles.go) |
+| Dynamic-gas reasons | Addr and bank enable reason encoding from the merge plan's height | [DynamicGasPrecompile](../../../precompiles/common/precompiles.go) |
+| Kernel names | `lxp_result_name` supplies kernel result names; unknown values return `LXP_ERR_UNKNOWN` | [Result names](../../../src/protocol/lxp_result.c) |
+| Retryability | The Retryable column supplies the Rust, TypeScript and Python decoder mappings | [Rust mapping](../../../services/agent/crates/layerx-types/build.rs), [SDK mapping](../../../scripts/ci/result-codes-gen.py) |
 
 | Code | Message | Emitting construct | Kernel or Go origin (file:line) | Retryable |
 |---|---|---|---|---|
@@ -616,41 +561,14 @@ A guest trap in a profiled CALL is a retained failure record with replay evidenc
 LXP_ENGINE_FAULT describes an executor engine fault of a CALL.
 
 ## (c) Activation
-One named plan for the merge; per-method gates read its done height through IsUpgradeActiveAtHeight (sdk/x/upgrade/keeper/keeper.go:296-299) as modules/layerxcustody/keeper/keeper.go:42 does.
+
+`MergeUpgrade` is `v7.0`, defined by [the common precompile code](../../../precompiles/common/precompiles.go) and used by [node upgrades](../../../node/upgrades.go). The node registers `mergeUpgradePlan` as its handler. Activation checks read `IsUpgradeActiveAtHeight`; the EVM keeper stores a list of [CustomPrecompileActivation](../../../modules/evm/keeper/keeper.go) entries.
 
 | Item | Value | Source |
-|---|---|---|
-| Plan name | `MergeUpgrade = "v7.0"`, provisional in the v6.9/v6.10/v6.11 pattern; the activation rehearsal may rename it and every gate reads the constant | node/upgrades.go:82-107 |
-| Constant home | node/upgrades.go beside `ActivationUpgrade` (:88), `V610Upgrade` (:97), `V611Upgrade` (:107); no entry in node/tags (pattern of v6.9-v6.11, node/upgrades.go:82-107) | node/upgrades.go:82-107 |
-| Handler registration | `app.UpgradeKeeper.SetUpgradeHandler(MergeUpgrade, app.runMergeUpgrade)` in RegisterUpgradeHandlers beside :187-193; appended to knownUpgradePlans (:416-418) | node/upgrades.go:117-194, 416-418 |
-| Store mounts | store upgrade adding layerxledger, layerxpay, layerxauth, layerxprograms, sequencer stores, applied through the store loader | node/app.go:1307-1325 (existing pattern) |
-| Handler effects | run migrations; init the five new modules from genesis params; return every posted guarantor bond and open challenge deposit from layerxanchor (D4); no custody claim drain | decision D4 |
-| Precompile serving of new addresses | entries for 0x101A-0x101D and 0x0901-0x0908 added to GetCustomPrecompiles (precompiles/setup.go:63-97) and served only from the plan height; the evm keeper single CustomPrecompileActivation (modules/evm/keeper/keeper.go:100,195-223; set at node/app.go:940 from node/upgrades.go:398) becomes a list of (plan name, address set), each entry read through IsUpgradeActiveAtHeight | modules/evm/keeper/keeper.go:195-223 |
-| D18 activation height | the sequencer fork height H_act (set at activation rehearsal) and the leader list live in node config, identical on every validator; a node whose list or H_act differs refuses to start; the merge plan height is set equal to H_act (per sequencer.md c1, which owns it) | sequencer.md c1 (consensus/config/config.go new fields beside :1160-1187); consensus/internal/consensus/types/round_state.go:422 |
-| Retire mechanism | retired executors stay registered; each method checks IsUpgradeActiveAtHeight(ctx, MergeUpgrade, ctx.BlockHeight()) and returns Error("LXP_MODULE_DISABLED: <precompile> retired") when true | modules/layerxcustody/keeper/keeper.go:38-46 |
-| Anchor store-delete step | after the plan handler has returned every posted guarantor bond and open challenge deposit (D4), a later step deletes the layerxanchor store; from that height the nine anchor reads return LXP_MODULE_DISABLED; the 0x1014 address stays registered; step name and height set at activation rehearsal | modules/layerxcustody/keeper/keeper.go:38-46 gate pattern |
-
-| Address | Methods | Below the plan height | At or above the plan height |
-|---|---|---|---|
-| 0x1001 bank | `send(address,address,string,uint256,bytes32)` 0x2e4c85ac and its LayerXReceipt log (ledger-auth.md 0-B) | not registered, behaviour as today | live |
-| 0x1001 bank | every existing method | as today | as today with LXP_ revert text through the opt-in reason path |
-| 0x1004 addr | every existing method | as today | as today with LXP_ revert text through the opt-in reason path |
-| 0x1004 addr | `rotateLayerXKey`, `setRecoveryRoot`, `recoverLayerX` | not registered | not registered (D16 out of merge scope) |
-| 0x1012 layerxVerify | all five methods | as today | LXP_MODULE_DISABLED |
-| 0x1013 layerxCustody | all twenty methods of section (a) | as today | LXP_MODULE_DISABLED |
-| 0x1014 layerxAnchor | twelve write methods of section (a) | as today | LXP_MODULE_DISABLED |
-| 0x1014 layerxAnchor | nine read methods of section (a) | as today | served until the store-delete step, then LXP_MODULE_DISABLED |
-| 0x1015 layerxExchange | `depositMargin`, `depositMarginToken`, `withdrawMargin(bytes32,uint256)`, `placeOrder`, `cancelOrder` (signatures in a2) | intent recording (modules/layerxexchange/keeper/intents.go); old selectors as today | engine execution through modules/layerxexchange/native; `withdrawMargin` is a bank release behind a free-margin check; old selectors of the three changed signatures fall to LXP_PRECOMPILE_UNKNOWN_METHOD |
-| 0x1015 layerxExchange | `requestSettlement`, `getIntent` | as today | LXP_MODULE_DISABLED |
-| 0x1015 layerxExchange | `intentNonce` | as today | kept: nonce input of the D8 chain-derived order and deposit id |
-| 0x1015 layerxExchange | `getMarket`, `getOrder`, `getPosition`, `getMargin` (signatures in a2) | batch/witness proof reads | direct state reads (exchange-launchpad.md E9-E12) |
-| 0x1015 layerxExchange | `createPerpsMarket`, `setPerpsHalt`, `pushOracle`, `openPosition`, `increasePosition`, `closePosition`, `fundingTick`, `liquidate`, `adl`, `registerMargin`, `createSpotMarket`, `placeSpotOrder`, `cancelSpotOrder`, `setSpotHalt`, `getPerpsBook`, `getFunding`, `getOracle`, `getDeficit`, `getSpotMarket`, `getSpotOrder`, `getSpotBook`, `getPerpsPositions` | not registered, behaviour as today | live |
-| 0x1016 layerxBridge, 0x1018 feeToken | every method | as today | as today with LXP_ revert text |
-| 0x1017 launchpad | every existing method; `getConfig()` | as today | as today with LXP_ revert text; `getConfig` Config tuple without protocolFeesPending |
-| 0x1017 launchpad | `getProtocolFees(address)` | not registered, behaviour as today | live |
-| 0x1019 xweb | `fulfilProgram(bytes)`, `getProgramResult`, `getKernelNetworkId` | not registered, behaviour as today | live |
-| 0x1019 xweb | `refund` | as today | origin 1 as today; an origin-2 id returns LXP_XWEB_UNKNOWN_REQUEST |
-| 0x1019 xweb | every other method | as today | as today with LXP_ revert text |
-| 0x101A-0x101D | every method | address not served | live |
-| 0x0901-0x0908 | every method of agent-functions.md A.1, B (selectors in a2) | address not served (calls succeed empty today) | live |
-| 0x1002-0x100C, 0x1011 | every method | as today | as today (outside D6: not LayerX lineage) |
+| --- | --- | --- |
+| Base fork activation | `v6.9`, with the module dependencies of `activationPrecompileGate` | [node/upgrades.go](../../../node/upgrades.go) |
+| Perps, launchpad and spot | `v6.12.0`, with versioned contract switches and spot module gates | [node/precompiles_v6120.go](../../../node/precompiles_v6120.go) |
+| Merge construct addresses | `0x101A` through `0x101E`, requiring their respective ledger, pay, auth, programs and chains modules | [mergePrecompileGate](../../../node/upgrades.go) |
+| Agent function addresses | `0x0901` through `0x0908`; all require `layerxagent` except streams, which requires `layerxpay`; oracle also requires `layerxexchange` | [mergePrecompileGate](../../../node/upgrades.go) |
+| Constructor validation | All entries in `MergeAddressTable` require registered constructors with matching names and addresses | [precompiles/setup.go](../../../precompiles/setup.go), [node/upgrades.go](../../../node/upgrades.go) |
+| Retired addresses | Verify and custody methods refuse calls after merge activation; anchor writes are retired, and anchor reads are retired after `v7.0-anchor-store-delete` | [verify](../../../precompiles/layerxverify), [custody](../../../precompiles/layerxcustody), [anchor](../../../precompiles/layerxanchor), [upgrade handler](../../../node/upgrades.go) |
