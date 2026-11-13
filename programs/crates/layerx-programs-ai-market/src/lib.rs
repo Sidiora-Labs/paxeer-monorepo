@@ -229,7 +229,7 @@ mod deployment {
 mod guest {
     // Deployment qualification must build with release opt-level z and measure the
     // packaged Wasm plus its 104-byte envelope against the 524288-byte ceiling.
-    use crate::dispatch::{Buffers, Routed, SCRATCH_BYTES};
+    use crate::dispatch::{self, Buffers, Routed, SCRATCH_BYTES};
     use crate::host_adapter::{AdapterError, ApplicationEvent, DirectCall};
     use crate::registry_ops::CallContext;
     use crate::types::{GuestIndex as _, Presence};
