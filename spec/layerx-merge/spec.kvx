@@ -362822,7 +362822,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.41.69]
 title = "Read page sections 1 to 20 of the review manifest of task 22.41.16 a second time against the tree"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -362853,7 +362853,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.41.68]
 title = "Read page sections 21 to 40 of the review manifest of task 22.41.15 a second time against the tree"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -362884,7 +362884,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.41.67]
 title = "Read page sections 1 to 20 of the review manifest of task 22.41.15 a second time against the tree"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -362915,7 +362915,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.41.66]
 title = "Read page sections 21 to 39 of the review manifest of task 22.41.14 a second time against the tree"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -362946,7 +362946,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.41.65]
 title = "Read page sections 1 to 20 of the review manifest of task 22.41.14 a second time against the tree"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -362977,7 +362977,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.41.64]
 title = "Read page sections 21 to 40 of the review manifest of task 22.41.13 a second time against the tree"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -363070,7 +363070,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.41.61]
 title = "Read page sections 1 to 20 of the review manifest of task 22.41.12 a second time against the tree"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -363132,7 +363132,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.41.59]
 title = "Read page sections 1 to 20 of the review manifest of task 22.41.11 a second time against the tree"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -363225,7 +363225,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.41.56]
 title = "Read page sections 16 to 29 of the review manifest of task 22.41.9 a second time against the tree"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -363628,7 +363628,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.41.43]
 title = "Read page sections 21 to 40 of the review manifest of task 22.41.1 a second time against the tree"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
