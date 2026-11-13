@@ -195422,7 +195422,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.320]
 title = "Give the fixture answers of the wallet live check the block and application hashes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -195452,7 +195452,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.313]
 title = "Give the packages of the documentation site the first-party version"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374694,7 +374694,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.308]
 title = "Bring the test data path of the launchpad workflow to the present directory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374724,7 +374724,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.305]
 title = "Bring the asset record of the launchpad web application to its present files"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
