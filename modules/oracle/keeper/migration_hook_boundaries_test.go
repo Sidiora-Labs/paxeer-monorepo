@@ -14,19 +14,19 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepairM_254_011_AtomicRejection(t *testing.T) {
+func TestMigrationHooksAtomicRejection(t *testing.T) {
 	assertMigrate5To6AtomicRejection(t)
 }
 
-func TestRepairM_254_011_ZeroSuccessBoundary(t *testing.T) {
+func TestMigrationHooksZeroSuccessBoundary(t *testing.T) {
 	assertMigrate5To6ZeroSuccessBoundary(t)
 }
 
-func TestRepairM_254_010_DefaultBackfill(t *testing.T) {
+func TestMigrationHooksDefaultBackfill(t *testing.T) {
 	assertMigrate5To6DefaultBackfill(t)
 }
 
-func TestRepairM_254_010_HookBoundaries(t *testing.T) {
+func TestMigrationHooksHookBoundaries(t *testing.T) {
 	assertMigrate5To6HookBoundaries(t)
 }
 

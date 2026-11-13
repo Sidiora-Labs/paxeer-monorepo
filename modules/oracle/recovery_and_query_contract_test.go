@@ -18,7 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func repairM252Doc(t *testing.T, path string, claims ...string) string {
+func oracleContractDoc(t *testing.T, path string, claims ...string) string {
 	t.Helper()
 	data, err := os.ReadFile(path)
 	require.NoError(t, err)
@@ -28,7 +28,7 @@ func repairM252Doc(t *testing.T, path string, claims ...string) string {
 	return string(data)
 }
 
-func repairM252Validators(t *testing.T, input *testutils.TestInput) {
+func oracleContractValidators(t *testing.T, input *testutils.TestInput) {
 	t.Helper()
 	params := input.StakingKeeper.GetParams(input.Ctx)
 	params.MinCommissionRate = sdk.ZeroDec()
@@ -44,7 +44,7 @@ func repairM252Validators(t *testing.T, input *testutils.TestInput) {
 	}
 }
 
-func repairM252Submit(t *testing.T, input *testutils.TestInput, index int, rates string) *sdk.Result {
+func oracleContractSubmit(t *testing.T, input *testutils.TestInput, index int, rates string) *sdk.Result {
 	t.Helper()
 	msg := types.NewMsgAggregateExchangeRateVote(rates,
 		input.OracleKeeper.GetFeederDelegation(input.Ctx, testutils.ValAddrs[index]), testutils.ValAddrs[index])
@@ -57,7 +57,7 @@ func repairM252Submit(t *testing.T, input *testutils.TestInput, index int, rates
 	return result
 }
 
-func repairM252Targets(t *testing.T, input *testutils.TestInput) []string {
+func oracleContractTargets(t *testing.T, input *testutils.TestInput) []string {
 	t.Helper()
 	var targets []string
 	input.OracleKeeper.IterateVoteTargets(input.Ctx, func(denom string, info types.Denom) bool {
@@ -71,21 +71,21 @@ func repairM252Targets(t *testing.T, input *testutils.TestInput) []string {
 	return targets
 }
 
-func repairM252Recovery(t *testing.T, disk bool) {
+func oracleContractRecovery(t *testing.T, disk bool) {
 	t.Helper()
 	for _, format := range []string{"protobuf", "json"} {
 		t.Run(format, func(t *testing.T) {
 			var source, recovered *testutils.TestInput
 			var sourceDir, recoveredDir string
 			if disk {
-				source, sourceDir = repair12Input(t)
-				recovered, recoveredDir = repair12Input(t)
+				source, sourceDir = genesisFreshnessInput(t)
+				recovered, recoveredDir = genesisFreshnessInput(t)
 			} else {
 				s, r := testutils.CreateTestInput(t), testutils.CreateTestInput(t)
 				source, recovered = &s, &r
 			}
-			repairM252Validators(t, source)
-			repairM252Validators(t, recovered)
+			oracleContractValidators(t, source)
+			oracleContractValidators(t, recovered)
 			observed := time.UnixMilli(1700000000123).UTC()
 			source.Ctx = source.Ctx.WithBlockHeight(11).WithBlockTime(observed)
 			params := source.OracleKeeper.GetParams(source.Ctx)
@@ -100,15 +100,15 @@ func repairM252Recovery(t *testing.T, disk bool) {
 			require.NoError(t, delegate.ValidateBasic())
 			_, err := oracle.NewHandler(source.OracleKeeper)(source.Ctx, delegate)
 			require.NoError(t, err)
-			repairM252Submit(t, source, 0, "120uatom,240ueth")
-			repairM252Submit(t, source, 1, "120uatom")
-			wantTargets := repairM252Targets(t, source)
+			oracleContractSubmit(t, source, 0, "120uatom,240ueth")
+			oracleContractSubmit(t, source, 1, "120uatom")
+			wantTargets := oracleContractTargets(t, source)
 			require.Equal(t, []string{"uatom", "ueth"}, wantTargets)
 			if disk {
-				repair12Restart(t, source, sourceDir)
+				genesisFreshnessRestart(t, source, sourceDir)
 			}
 			exported := oracle.ExportGenesis(source.Ctx, source.OracleKeeper)
-			imported := repair12Transport(t, format, exported)
+			imported := genesisFreshnessTransport(t, format, exported)
 			require.NoError(t, types.ValidateGenesis(imported))
 			recovered.Ctx = recovered.Ctx.WithBlockHeight(100).WithBlockTime(observed.Add(48 * time.Hour))
 			// The fixture normally seeds default targets. Remove them so recovery
@@ -116,26 +116,26 @@ func repairM252Recovery(t *testing.T, disk bool) {
 			recovered.OracleKeeper.ClearVoteTargets(recovered.Ctx)
 			recovered.OracleKeeper.SetVoteTarget(recovered.Ctx, "ustale")
 			oracle.InitGenesis(recovered.Ctx, recovered.OracleKeeper, imported)
-			require.Equal(t, wantTargets, repairM252Targets(t, recovered))
+			require.Equal(t, wantTargets, oracleContractTargets(t, recovered))
 			if disk {
-				repair12Restart(t, recovered, recoveredDir)
+				genesisFreshnessRestart(t, recovered, recoveredDir)
 			}
 			require.Equal(t, exported, oracle.ExportGenesis(recovered.Ctx, recovered.OracleKeeper))
-			require.Equal(t, wantTargets, repairM252Targets(t, recovered))
+			require.Equal(t, wantTargets, oracleContractTargets(t, recovered))
 			for _, denom := range wantTargets {
-				want := repair12Rate(t, source, denom)
+				want := genesisFreshnessRate(t, source, denom)
 				require.Equal(t, sdk.NewInt(11), want.LastUpdate)
 				require.Equal(t, observed.UnixMilli(), want.LastUpdateTimestamp)
-				require.Equal(t, want, repair12Rate(t, recovered, denom))
+				require.Equal(t, want, genesisFreshnessRate(t, recovered, denom))
 			}
 			for _, input := range []*testutils.TestInput{source, recovered} {
 				input.Ctx = input.Ctx.WithBlockHeight(101).WithBlockTime(observed.Add(48 * time.Hour)).WithEventManager(sdk.NewEventManager())
 				oracle.MidBlocker(input.Ctx, input.OracleKeeper)
-				rate := repair12Rate(t, input, "uatom")
+				rate := genesisFreshnessRate(t, input, "uatom")
 				require.Equal(t, sdk.NewDec(120), rate.ExchangeRate)
 				require.Equal(t, sdk.NewInt(101), rate.LastUpdate)
 				require.Equal(t, input.Ctx.BlockTime().UnixMilli(), rate.LastUpdateTimestamp)
-				old := repair12Rate(t, input, "ueth")
+				old := genesisFreshnessRate(t, input, "ueth")
 				require.Equal(t, types.OracleExchangeRate{ExchangeRate: sdk.NewDec(7), LastUpdate: sdk.NewInt(11), LastUpdateTimestamp: observed.UnixMilli()}, old)
 				wantCounters := []types.VotePenaltyCounter{{SuccessCount: 1}, {MissCount: 1}, {AbstainCount: 1}}
 				for i, want := range wantCounters {
@@ -158,19 +158,19 @@ func repairM252Recovery(t *testing.T, disk bool) {
 	}
 }
 
-func TestRepairM_252_RestartTargetsAndFirstPeriod(t *testing.T) {
-	repairM252Recovery(t, true)
+func TestOracleContractRestartTargetsAndFirstPeriod(t *testing.T) {
+	oracleContractRecovery(t, true)
 }
 
-func TestRepairM_252_GenesisRoundTrip(t *testing.T) {
+func TestOracleContractGenesisRoundTrip(t *testing.T) {
 	TestExportInitGenesis(t)
 }
 
-func TestRepairM_252_RetainedQuerySurfaces(t *testing.T) {
+func TestOracleContractRetainedQuerySurfaces(t *testing.T) {
 	input, _ := setup(t)
 	input.Ctx = input.Ctx.WithBlockHeight(11).WithBlockTime(time.UnixMilli(1700000000123).UTC())
 	for i := 0; i < 3; i++ {
-		repairM252Submit(t, &input, i, "12uatom,24ueth")
+		oracleContractSubmit(t, &input, i, "12uatom,24ueth")
 	}
 	oracle.MidBlocker(input.Ctx, input.OracleKeeper)
 	response, err := keeper.NewQuerier(input.OracleKeeper).ExchangeRates(sdk.WrapSDKContext(input.Ctx), &types.QueryExchangeRatesRequest{})
@@ -184,16 +184,16 @@ func TestRepairM_252_RetainedQuerySurfaces(t *testing.T) {
 	require.Equal(t, &transported, wasm)
 	_, err = oraclewasm.NewOracleWasmQueryHandler(&input.OracleKeeper).GetOracleTwaps(input.Ctx, &types.QueryTwapsRequest{LookbackSeconds: 60})
 	require.ErrorIs(t, err, types.ErrNoTwapData)
-	repairM252Doc(t, "README.md", "ErrOraclePrecompileRetired", "0x0000000000000000000000000000000000001008", "CLI, gRPC and REST", "wasm", "../../precompiles/pricefeed/PriceFeed.sol", "0x0000000000000000000000000000000000001020")
+	oracleContractDoc(t, "README.md", "ErrOraclePrecompileRetired", "0x0000000000000000000000000000000000001008", "CLI, gRPC and REST", "wasm", "../../precompiles/pricefeed/PriceFeed.sol", "0x0000000000000000000000000000000000001020")
 }
 
-func TestRepairM_252_StateEncodingAndUnits(t *testing.T) {
+func TestOracleContractStateEncodingAndUnits(t *testing.T) {
 	input, _ := setup(t)
 	input.Ctx = input.Ctx.WithBlockHeight(11).WithBlockTime(time.UnixMilli(1700000000123).UTC())
 	delegate := types.NewMsgDelegateFeedConsent(testutils.ValAddrs[0], testutils.Addrs[3])
 	_, err := oracle.NewHandler(input.OracleKeeper)(input.Ctx, delegate)
 	require.NoError(t, err)
-	repairM252Submit(t, &input, 0, "12uatom,24ueth")
+	oracleContractSubmit(t, &input, 0, "12uatom,24ueth")
 	input.OracleKeeper.SetBaseExchangeRate(input.Ctx, "uatom", sdk.NewDec(12))
 	input.OracleKeeper.SetVotePenaltyCounter(input.Ctx, testutils.ValAddrs[0], 2, 3, 4)
 	store := input.Ctx.KVStore(input.OracleKeeper.GetStoreKey())
@@ -232,10 +232,10 @@ func TestRepairM_252_StateEncodingAndUnits(t *testing.T) {
 	require.Equal(t, types.OracleTwaps{{Denom: "uatom", Twap: sdk.NewDec(12), LookbackSeconds: 60}}, twaps)
 	require.NoError(t, input.OracleKeeper.CheckAndSetSpamPreventionCounter(input.Ctx, testutils.ValAddrs[0]))
 	require.ErrorIs(t, input.OracleKeeper.CheckAndSetSpamPreventionCounter(input.Ctx, testutils.ValAddrs[0]), sdkerrors.ErrAlreadyExists)
-	repairM252Doc(t, "spec/02_state.md", "not Amino", "Unix milliseconds", "Unix **seconds**", "0x06 + denom", "0x07 + uint64", "reconstructs targets", "2→3", "3→4", "4→5", "5→6")
+	oracleContractDoc(t, "spec/02_state.md", "not Amino", "Unix milliseconds", "Unix **seconds**", "0x06 + denom", "0x07 + uint64", "reconstructs targets", "2→3", "3→4", "4→5", "5→6")
 }
 
-func TestRepairM_252_MidBlockQuorumAndRetention(t *testing.T) {
+func TestOracleContractMidBlockQuorumAndRetention(t *testing.T) {
 	for _, quorum := range []bool{false, true} {
 		t.Run(map[bool]string{false: "below-quorum", true: "cross-rate-reference"}[quorum], func(t *testing.T) {
 			input, _ := setup(t)
@@ -245,28 +245,28 @@ func TestRepairM_252_MidBlockQuorumAndRetention(t *testing.T) {
 			observed := time.UnixMilli(1700000000123).UTC()
 			input.Ctx = input.Ctx.WithBlockHeight(7).WithBlockTime(observed)
 			input.OracleKeeper.SetBaseExchangeRate(input.Ctx, "uatom", sdk.NewDec(5))
-			old := repair12Rate(t, &input, "uatom")
+			old := genesisFreshnessRate(t, &input, "uatom")
 			input.Ctx = input.Ctx.WithBlockHeight(10).WithBlockTime(observed.Add(time.Hour)).WithEventManager(sdk.NewEventManager())
 			count := 1
 			if quorum {
 				count = 3
 			}
 			for i := 0; i < count; i++ {
-				repairM252Submit(t, &input, i, "12uatom,24ueth")
+				oracleContractSubmit(t, &input, i, "12uatom,24ueth")
 			}
 			oracle.MidBlocker(input.Ctx, input.OracleKeeper)
-			require.Equal(t, old, repair12Rate(t, &input, "uatom"))
+			require.Equal(t, old, genesisFreshnessRate(t, &input, "uatom"))
 			_, err := input.OracleKeeper.GetAggregateExchangeRateVote(input.Ctx, testutils.ValAddrs[0])
 			require.NoError(t, err)
 			require.Empty(t, input.Ctx.EventManager().Events())
 			input.Ctx = input.Ctx.WithBlockHeight(11)
 			oracle.MidBlocker(input.Ctx, input.OracleKeeper)
 			if quorum {
-				require.Equal(t, sdk.NewDec(12), repair12Rate(t, &input, "uatom").ExchangeRate)
-				require.Equal(t, sdk.NewDec(24), repair12Rate(t, &input, "ueth").ExchangeRate)
+				require.Equal(t, sdk.NewDec(12), genesisFreshnessRate(t, &input, "uatom").ExchangeRate)
+				require.Equal(t, sdk.NewDec(24), genesisFreshnessRate(t, &input, "ueth").ExchangeRate)
 				require.Len(t, input.Ctx.EventManager().Events(), 2)
 			} else {
-				require.Equal(t, old, repair12Rate(t, &input, "uatom"))
+				require.Equal(t, old, genesisFreshnessRate(t, &input, "uatom"))
 				require.Empty(t, input.Ctx.EventManager().Events())
 				_, _, _, err := input.OracleKeeper.GetBaseExchangeRate(input.Ctx, "ueth")
 				require.ErrorIs(t, err, types.ErrUnknownDenom)
@@ -282,10 +282,10 @@ func TestRepairM_252_MidBlockQuorumAndRetention(t *testing.T) {
 			}
 		})
 	}
-	repairM252Doc(t, "spec/03_end_block.md", "MidBlocker", "EndBlocker", "source height and Unix millisecond timestamp", "ascending denom name", "ClearBallots", "no ballot-winner token distribution")
+	oracleContractDoc(t, "spec/03_end_block.md", "MidBlocker", "EndBlocker", "source height and Unix millisecond timestamp", "ascending denom name", "ClearBallots", "no ballot-winner token distribution")
 }
 
-func TestRepairM_252_MessageWireAndAuthorization(t *testing.T) {
+func TestOracleContractMessageWireAndAuthorization(t *testing.T) {
 	input, _ := setup(t)
 	cdc := testutils.MakeTestCodec(t)
 	delegate := types.NewMsgDelegateFeedConsent(testutils.ValAddrs[0], testutils.Addrs[3])
@@ -341,10 +341,10 @@ func TestRepairM_252_MessageWireAndAuthorization(t *testing.T) {
 	validator, err := sdk.ValAddressFromBech32("paxvaloper1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqyp4n3k")
 	require.NoError(t, err)
 	require.Equal(t, []byte(account), []byte(validator))
-	repairM252Doc(t, "spec/04_messages.md", "`exchange_rates` (2)", "`feeder` (3)", "`validator` (4)", "reserves field 1", "4096 bytes", account.String(), validator.String())
+	oracleContractDoc(t, "spec/04_messages.md", "`exchange_rates` (2)", "`feeder` (3)", "`validator` (4)", "reserves field 1", "4096 bytes", account.String(), validator.String())
 }
 
-func repairM252Event(t *testing.T, events sdk.Events, name string, attrs map[string]string) {
+func oracleContractEvent(t *testing.T, events sdk.Events, name string, attrs map[string]string) {
 	t.Helper()
 	found := 0
 	for _, event := range events {
@@ -362,7 +362,7 @@ func repairM252Event(t *testing.T, events sdk.Events, name string, attrs map[str
 	require.Equal(t, 1, found, name)
 }
 
-func TestRepairM_252_EventsByPhase(t *testing.T) {
+func TestOracleContractEventsByPhase(t *testing.T) {
 	input, _ := setup(t)
 	params := input.OracleKeeper.GetParams(input.Ctx)
 	params.Whitelist = types.DenomList{{Name: "uatom"}}
@@ -375,19 +375,19 @@ func TestRepairM_252_EventsByPhase(t *testing.T) {
 	delegate := types.NewMsgDelegateFeedConsent(testutils.ValAddrs[0], testutils.Addrs[3])
 	_, err := server.DelegateFeedConsent(sdk.WrapSDKContext(input.Ctx), delegate)
 	require.NoError(t, err)
-	repairM252Event(t, input.Ctx.EventManager().Events(), types.EventTypeFeedDelegate, map[string]string{"feeder": delegate.Delegate})
-	repairM252Event(t, input.Ctx.EventManager().Events(), sdk.EventTypeMessage, map[string]string{"module": "oracle", "sender": delegate.Operator})
+	oracleContractEvent(t, input.Ctx.EventManager().Events(), types.EventTypeFeedDelegate, map[string]string{"feeder": delegate.Delegate})
+	oracleContractEvent(t, input.Ctx.EventManager().Events(), sdk.EventTypeMessage, map[string]string{"module": "oracle", "sender": delegate.Operator})
 	for i := 0; i < 3; i++ {
 		input.Ctx = input.Ctx.WithEventManager(sdk.NewEventManager())
 		msg := types.NewMsgAggregateExchangeRateVote("12uatom", input.OracleKeeper.GetFeederDelegation(input.Ctx, testutils.ValAddrs[i]), testutils.ValAddrs[i])
 		_, err := server.AggregateExchangeRateVote(sdk.WrapSDKContext(input.Ctx), msg)
 		require.NoError(t, err)
-		repairM252Event(t, input.Ctx.EventManager().Events(), types.EventTypeAggregateVote, map[string]string{"voter": msg.Validator, "exchange_rates": msg.ExchangeRates})
-		repairM252Event(t, input.Ctx.EventManager().Events(), sdk.EventTypeMessage, map[string]string{"module": "oracle", "sender": msg.Feeder})
+		oracleContractEvent(t, input.Ctx.EventManager().Events(), types.EventTypeAggregateVote, map[string]string{"voter": msg.Validator, "exchange_rates": msg.ExchangeRates})
+		oracleContractEvent(t, input.Ctx.EventManager().Events(), sdk.EventTypeMessage, map[string]string{"module": "oracle", "sender": msg.Feeder})
 	}
 	input.Ctx = input.Ctx.WithEventManager(sdk.NewEventManager())
 	oracle.MidBlocker(input.Ctx, input.OracleKeeper)
-	repairM252Event(t, input.Ctx.EventManager().Events(), types.EventTypeExchangeRateUpdate, map[string]string{"denom": "uatom", "exchange_rate": sdk.NewDec(12).String()})
+	oracleContractEvent(t, input.Ctx.EventManager().Events(), types.EventTypeExchangeRateUpdate, map[string]string{"denom": "uatom", "exchange_rate": sdk.NewDec(12).String()})
 	require.Len(t, input.Ctx.EventManager().Events(), 1)
 	input.Ctx = input.Ctx.WithEventManager(sdk.NewEventManager())
 	oracle.EndBlocker(input.Ctx, input.OracleKeeper)
@@ -400,13 +400,13 @@ func TestRepairM_252_EventsByPhase(t *testing.T) {
 		}
 		operator, err := sdk.ValAddressFromBech32(attrs["operator"])
 		require.NoError(t, err)
-		repairM252Event(t, sdk.Events{event}, types.EventTypeEndSlashWindow, map[string]string{"operator": operator.String(), "miss_count": "0", "abstain_count": "0", "success_count": "1"})
+		oracleContractEvent(t, sdk.Events{event}, types.EventTypeEndSlashWindow, map[string]string{"operator": operator.String(), "miss_count": "0", "abstain_count": "0", "success_count": "1"})
 		require.Equal(t, types.VotePenaltyCounter{}, input.OracleKeeper.GetVotePenaltyCounter(input.Ctx, operator))
 	}
-	repairM252Doc(t, "spec/05_events.md", "## MidBlocker", "## EndBlocker", "retired scalar `vote` event is absent", "`end_slash_window`", "`miss_count`", "`abstain_count`", "`success_count`")
+	oracleContractDoc(t, "spec/05_events.md", "## MidBlocker", "## EndBlocker", "retired scalar `vote` event is absent", "`end_slash_window`", "`miss_count`", "`abstain_count`", "`success_count`")
 }
 
-func TestRepairM_252_ParameterContract(t *testing.T) {
+func TestOracleContractParameterContract(t *testing.T) {
 	input := testutils.CreateTestInput(t)
 	defaults := types.DefaultParams()
 	require.NoError(t, defaults.Validate())
@@ -442,6 +442,6 @@ func TestRepairM_252_ParameterContract(t *testing.T) {
 	for _, lookback := range []uint64{0, 601} {
 		require.ErrorIs(t, input.OracleKeeper.ValidateLookbackSeconds(input.Ctx, lookback), types.ErrInvalidTwapLookback)
 	}
-	repairM252Doc(t, "spec/06_params.md", "0.667000000000000000", "216000", "3600", "8 is reserved", "`SlashWindow % VotePeriod == 0`", "0 < lookback_seconds <= LookbackDuration", "For illustration only")
-	repairM252Doc(t, "../../api/oracle/oracle.proto", "Removed reward_distribution_window", "reserved 8;", "maximum positive TWAP query lookback, in seconds")
+	oracleContractDoc(t, "spec/06_params.md", "0.667000000000000000", "216000", "3600", "8 is reserved", "`SlashWindow % VotePeriod == 0`", "0 < lookback_seconds <= LookbackDuration", "For illustration only")
+	oracleContractDoc(t, "../../api/oracle/oracle.proto", "Removed reward_distribution_window", "reserved 8;", "maximum positive TWAP query lookback, in seconds")
 }
