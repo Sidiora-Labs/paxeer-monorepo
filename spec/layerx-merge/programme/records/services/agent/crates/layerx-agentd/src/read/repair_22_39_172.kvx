@@ -12,7 +12,7 @@ verified_revision = "Resolve the revision field of the final verify row in the p
 target = "services/agent/crates/layerx-agentd/tests/history_served_contract.rs"
 before_source = "GOTCHA.kvx [gotcha.3687]: eight read_account cases expect null instead of the exclusive initial cursor."
 before_failures = ["read_account_decodes_a_served_gateway_page", "read_account_accepts_a_self_transfer_pair_that_closes_the_page", "read_account_accepts_equal_positions_within_the_limit", "read_account_continues_after_a_shared_position_group", "read_account_refuses_a_descending_row", "read_account_refuses_overflow_at_a_later_position", "read_account_preserves_response_and_cursor_bounds", "read_account_propagates_a_served_refusal"]
-producer = "22.33.1521 HistoryPage::read_account in src/read/history.rs; 22.31.218 src/read/repair_22_31_218.kvx [gotcha.reverse_history] records that the hosted producer supports ascending exclusive cursors."
+producer = "22.33.1521 HistoryPage::read_account in src/read/history.rs; 22.31.218 spec/layerx-merge/programme/records/services/agent/crates/layerx-agentd/src/read/repair_22_31_218.kvx [gotcha.reverse_history] records that the hosted producer supports ascending exclusive cursors."
 update = "Derive each first-page expected cursor with Cursor::to_hex at (from_height - 1, u32::MAX, u32::MAX), sharing from_height with the read_account call; preserve explicit continuation cursors and the direct endpoint.history null cursor."
 assertions = "Keep every page, height, cursor-bound and refusal assertion; decision 2995 aligns only the expected exact response-size value with the producer's four-field measure."
 after_failures = ["read_account_accepts_a_self_transfer_pair_that_closes_the_page", "read_account_accepts_equal_positions_within_the_limit", "read_account_continues_after_a_shared_position_group", "read_account_decodes_a_served_gateway_page", "read_account_preserves_response_and_cursor_bounds", "read_account_refuses_a_descending_row", "read_account_refuses_overflow_at_a_later_position"]
@@ -36,7 +36,7 @@ evidence = "Private /out/run/gates.jsonl final kind=build row supplies exact rev
 [qualification.verify]
 runner = "hf-done"
 command = "cg spec done 22.39.172 -f layerx-merge --root /work/paxeer-monorepo"
-verify_cmd = "test -s services/agent/crates/layerx-agentd/src/read/repair_22_39_172.kvx && sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-fail-fast --test history_served_contract --test repair_22_33_1506 --test repair_22_33_1521 --test repair_22_31_218"
+verify_cmd = "test -s spec/layerx-merge/programme/records/services/agent/crates/layerx-agentd/src/read/repair_22_39_172.kvx && sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-fail-fast --test history_served_contract --test repair_22_33_1506 --test repair_22_33_1521 --test repair_22_31_218"
 evidence = "Private /out/run/gates.jsonl final kind=verify row supplies exact revision, command, exit and log; /out/logs/verify-1.log is the initial run."
 
 [gotcha.gate_order]
