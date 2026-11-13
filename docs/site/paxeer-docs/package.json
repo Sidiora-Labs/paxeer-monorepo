@@ -1,0 +1,40 @@
+{
+  "name": "paxeer-docs",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Paxeer X documentation for the EVM chain, LayerX agent economy, payments, markets and deterministic programs",
+  "scripts": {
+    "search:index": "node scripts/build-search-index.mjs",
+    "predev": "npm run prepare:docs",
+    "dev": "next dev",
+    "prebuild": "npm run prepare:docs",
+    "build": "next build",
+    "start": "next start",
+    "lint": "tsc --noEmit",
+    "test:static": "npm run lint",
+    "generate:llms": "node scripts/generate-llms.mjs",
+    "prepare:docs": "npm run generate:llms && npm run search:index",
+    "audit:seo": "node scripts/audit-seo.mjs --dir out",
+    "postbuild": "npm run audit:seo",
+    "serve": "node scripts/serve.mjs"
+  },
+  "dependencies": {
+    "@openai/apps-sdk-ui": "0.2.2",
+    "next": "^14.2.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "tailwindcss": "4.3.3",
+    "@centra/docs-assistant": "file:../docs-assistant"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "4.3.3",
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "postcss": "8.5.26",
+    "typescript": "^5.4.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

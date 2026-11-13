@@ -34,7 +34,7 @@ Introducing the development contracts in the order they were created.
    how tooling and the runtime deal with those operations
    ([#970](https://github.com/CosmWasm/cosmwasm/pull/970)).
 9. **cyberpunk** is an attempt to cleanup hackatom and make writing runtime
-   tests (cosmwasm-vm/wamsmvm) easier by avoid the need for the escrow setup
+   tests (cosmwasm-vm/wasmvm) easier by avoid the need for the escrow setup
    that hackatom has.
 10. **virus** is a contract that reproduces itself and does nothing useful
     beyond that, showing how to use instantiate2 from a contract.
@@ -52,7 +52,7 @@ the CI for every release tag. In case you need to build them manually for some
 reason, use the following commands:
 
 ```sh
-# cd to the repo root first
+# Run from core/deps/cosmwasm
 
 docker run --rm -v "$(pwd)":/code \
   --mount type=volume,source="devcontract_cache_burner",target=/target \

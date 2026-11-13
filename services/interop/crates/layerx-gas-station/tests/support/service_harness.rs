@@ -300,7 +300,20 @@ fn with_sequencer_endpoint_rules(mut fixture: Value) -> Result<Value, Box<dyn st
 }
 
 #[derive(Clone)]
-struct SharedLog(Arc<Mutex<Vec<u8>>>);
+struct SharedLog(Arc<Mutex<Vec<u8>>>, Arc<Mutex<Option<TcpListener>>>);
+impl SharedLog {
+    fn new() -> Self {
+        Self(Arc::new(Mutex::new(Vec::new())), Arc::new(Mutex::new(None)))
+    }
+
+    fn stop_after_response(&self, listener: TcpListener) -> std::io::Result<()> {
+        *self
+            .1
+            .lock()
+            .map_err(|_| std::io::Error::other("listener control poisoned"))? = Some(listener);
+        Ok(())
+    }
+}
 impl std::io::Write for SharedLog {
     fn write(&mut self, data: &[u8]) -> std::io::Result<usize> {
         self.0
@@ -310,6 +323,14 @@ impl std::io::Write for SharedLog {
         Ok(data.len())
     }
     fn flush(&mut self) -> std::io::Result<()> {
+        if let Some(listener) = self
+            .1
+            .lock()
+            .map_err(|_| std::io::Error::other("listener control poisoned"))?
+            .take()
+        {
+            listener.set_nonblocking(true)?;
+        }
         Ok(())
     }
 }
@@ -521,7 +542,7 @@ fn start_configured(
         registered_senders: Vec::new(),
     };
     adjust(&mut config, account.address());
-    let log = SharedLog(Arc::new(Mutex::new(Vec::new())));
+    let log = SharedLog::new();
     let _did_env = DID_GAS_LIMIT_ENV
         .lock()
         .unwrap_or_else(PoisonError::into_inner);
@@ -744,9 +765,10 @@ impl Harness {
 
     fn stop(&mut self) -> TestResult {
         if let Some(worker) = self.worker.take() {
-            self.listener_control.set_nonblocking(true)?;
-            // Wake a blocking accept, then let the production serve loop return
-            // on its next nonblocking accept so it drops the journal lock.
+            // Switch the next accept to nonblocking after the final response,
+            // so the service releases its journal lock before reopening.
+            self.log
+                .stop_after_response(self.listener_control.try_clone()?)?;
             self.exchange(b"GET /healthz HTTP/1.1\r\nHost: station\r\n\r\n")?;
             worker.join().map_err(|_| "service worker panicked")?;
         }

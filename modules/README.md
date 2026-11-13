@@ -47,9 +47,9 @@ is committed. Kernel execution and native balances share chain state.
   governance controls the attestor set, threshold, and pause state.
 - [`oracle`](oracle/) — validator exchange-rate voting and price aggregation.
 - [`epoch`](epoch/) — time-based hooks and epoch lifecycle management.
-- [`mint`](mint/) — inflation and native-token minting policy.
-- [`tokenfactory`](tokenfactory/) — permissioned creation and management of native
-  token denominations.
+- [`mint`](mint/) — governed native-token release schedules and minting.
+- [`tokenfactory`](tokenfactory/) — account-created native token denominations
+  with admin and issuer controls.
 - [`store`](store/) — module-level store integration helpers.
 
 ## Retired settlement compatibility

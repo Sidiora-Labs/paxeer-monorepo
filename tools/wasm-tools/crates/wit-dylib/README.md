@@ -55,7 +55,8 @@ what's needed by `wasi-libc`).
 
 ## Example
 
-An example of using this crate is in `crates/wit-dylib/test-programs/src/*.rs`.
+An example of using this crate is in `crates/wit-dylib/test-programs/src/*.rs`,
+relative to the vendored project root at `tools/wasm-tools`.
 This is used for testing in this repository but is written in such a way that it
 should be general enough for external use. Specifically if you were implementing
 the interpreter in Rust you'd implement the `Interpreter` trait and use the
@@ -63,7 +64,7 @@ the interpreter in Rust you'd implement the `Interpreter` trait and use the
 
 ## Testing
 
-Testing this crate is done with:
+Testing this crate is done from the vendored project root at `tools/wasm-tools` with:
 
 ```
 cargo test -p wit-dylib

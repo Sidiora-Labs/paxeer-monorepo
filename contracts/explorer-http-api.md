@@ -2,7 +2,7 @@
 
 The explorer indexes and presents Paxeer mainnet-beta, one BFT network with EVM chain ID **125** (`0x7d`). The kernel is part of the network and proposes blocks; execution is final when its block is committed. Sub-chains are tenant domains in the database. An explorer index, cached response, or pending submission is not an independent source of finality.
 
-Public node JSON-RPC is served at the HTTPS root of `api1.mainnet-beta.paxeer.network` through `api14.mainnet-beta.paxeer.network`, and `api-mainnet-beta.paxeer.network`. The node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test`, and `txpool`. The `px` namespace answers from node state; `px_register` and `px_requestFunds` are operations of the hosted identity and faucet services declared in [the gateway OpenRPC contract](../services/platform/hosted/gateway/openrpc.json). `node.hyperpaxeer.com` is only the build library mirror, not an RPC endpoint.
+Node JSON-RPC uses HTTPS at the configured node’s root path. See [node transport and served methods](evm-rpc.md). Node-state `px_*` methods are distinct from the hosted identity and faucet operations in [the gateway OpenRPC contract](../services/platform/hosted/gateway/openrpc.json).
 
 This page describes the explorer's Phoenix HTTP application. Related contracts: [WebSocket topics and recovery](explorer-ws.md), [metrics](explorer-metrics.md), [Rust service configuration](explorer-services-config.md), [kernel archive formats](kernel.md), and [platform CLI](platform-cli.md).
 
@@ -20,7 +20,7 @@ V2 JSON routes pass `CheckApiV2`, fetch the session, and apply forgery protectio
 
 `GET /api/v2/transactions` lists transactions. Other collection reads are `/watchlist` and `/stats`. Reads under `/api/v2/transactions/:transaction_hash_param` include the detail itself, `/token-transfers`, `/internal-transactions`, `/logs`, `/raw-trace`, `/state-changes`, `/summary`, `/status`, and `/signature`.
 
-For an indexed transaction with successfully fetched traces, the HTTP raw-trace action renders the trace array directly, using the renderer's `raw_traces` assign. It does not return a `raw_trace` wrapper. The action's pending-transaction branch instead passes `internal_transactions: []`, which does not match that renderer clause; do not rely on that branch to produce an empty array. Fetch failures return HTTP 500. The [socket contract](explorer-ws.md#pushes) describes the current push mismatch and why clients need the HTTP read after indexing.
+For an indexed transaction with successfully fetched traces, the HTTP raw-trace action returns the trace array directly. Read traces after indexing and handle HTTP errors separately from an empty trace array. See [trace reads and socket refreshes](explorer-ws.md#raw-trace-reads).
 
 ### Transaction status and signature
 
@@ -32,7 +32,18 @@ For an indexed transaction with successfully fetched traces, the HTTP raw-trace 
 
 `rung` is `submitted`, `receipted`, or `committed`; the two heights can be null. An indexed consensus transaction is committed when its block number is covered by the committed height. Missing block/head evidence leaves it submitted. A verified signed receipt can establish receipted status, while verified landing evidence can establish commitment before indexing catches up. A signed pre-commit receipt alone is not final execution. See [Status.of](../services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/status.ex).
 
-For an unknown hash, the handler attempts receipt verification through its configured provider; without verified evidence it returns 404. The optional provider configuration still uses the internal key `router_url` under `Explorer.Chain.PaxeerX.SequencerReceipt`; that name is a legacy implementation detail, not a deployed routing tier. The handler calls `pax_sequencerReceipt` and uses receipt keys; landing verification additionally requests the transaction receipt, consensus commit/validators, and `px_getSequenceBatch`. A public node's root URL alone does not guarantee all these provider methods.
+For an unknown hash, the handler attempts receipt verification through its
+configured provider; without verified evidence it returns 404.
+`PAXEER_X_GATEWAY_URL` supplies the internal `router_url` key under
+`Explorer.Chain.PaxeerX.SequencerReceipt`. The handler calls
+`pax_sequencerReceipt` and authenticates discovered receipt keys against the
+configured governed pins. Landing verification reads `eth_getTransactionReceipt`,
+`px_getCommit`, `px_getValidators`, and `px_getSequenceBatch` from the gateway,
+plus `block` and `block_results` from the consensus listener selected by
+`PAXEER_X_NODE_RPC_URL`. Result inclusion also uses the successor height's commit
+and validators. Configure the trusted chain, receipt keys and validator
+checkpoints through the [authority file](explorer-config.md#paxeer-capabilities).
+A public node's root URL alone does not supply all these reads or trust anchors.
 
 [TransactionSignatureController](../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/transaction_signature_controller.ex) serves `/signature` only after receipt verification. It adds `committed_height` when verified as committed. Unconfigured, unavailable, malformed, or unverified receipt material follows the not-found path; this endpoint does not manufacture a signature.
 

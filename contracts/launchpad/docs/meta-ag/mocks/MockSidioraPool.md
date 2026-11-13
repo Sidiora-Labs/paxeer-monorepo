@@ -1,8 +1,10 @@
 # Solidity API
 
+Source: [MockSidioraPool.sol](../../../contracts/meta-ag/mocks/MockSidioraPool.sol).
+
 ## MockSidioraPool
 
-Minimal Sidiora-style pool used by SidioraFeedAdapter unit tests.
+Configurable pool price, reserves and optical address for contract tests.
 
 _Returns configurable price + reserves; optional forced revert on either view._
 
@@ -78,3 +80,16 @@ function getPrice() external view returns (uint256)
 function getReserves() external view returns (uint256, uint256, uint256)
 ```
 
+### opticalAddress
+
+```solidity
+address opticalAddress
+```
+
+### setOpticalAddress
+
+```solidity
+function setOpticalAddress(address optical) external
+```
+
+Set the optical address returned by the pool getter.

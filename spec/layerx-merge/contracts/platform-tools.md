@@ -1,105 +1,72 @@
 # Platform tools contract
 
-Source revision: `2a1033aa2`. This contract freezes the cited interface and acceptance blocks of the specification. Statuses include the specification overrides. A source marked planned has line 0; a positive source line is verified in the pinned revision.
+The [platform tools](../../../services/platform/tools) provide benchmarking, documentation checks and workspace checks. [Platform test support](../../../services/platform/tests) supplies shared harness code. The emulator is implemented separately under [tools/platform/emulator](../../../tools/platform/emulator).
 
-The context and decision tables reproduce the rules linked by interface identifiers. An anchor without a linked context gains no additional storage, gas, activation or pause rule here. Acceptance qualification remains UNRUN until its declared gate succeeds.
+The tables identify code declarations and configuration names. Activation, authentication and transport registration are defined by the linked implementations.
 
 ## platform-test-support-rust-pub-items
 
-| Interface | Kind | Status | Source at pinned revision | Signature |
-|---|---|---|---|---|
-| <code>interface.8.rs-platform-tests-tls-boundary-qualify-j41</code> | <code>rust_pub_item</code> | <code>stable</code> | <code>services/platform/tests/support/tls_boundary.rs:225</code> | <code>pub fn qualify(test_name: &amp;str, probe: impl Fn(&amp;str) -&gt; Result&lt;Vec&lt;u8&gt;, String&gt;) {</code> |
+| Kind | Declaration | Source |
+|---|---|---|
+| `rust_pub_item` | `pub fn qualify(test_name: &str, probe: impl Fn(&str) -> Result<Vec<u8>, String>) {` | [services/platform/tests/support/tls_boundary.rs](../../../services/platform/tests/support/tls_boundary.rs) |
 
 ## tools-benchmark-cli-commands
 
-| Interface | Kind | Status | Source at pinned revision | Signature |
-|---|---|---|---|---|
-| <code>interface.8.cli-tools-benchmark-benchmark</code> | <code>cli_command</code> | <code>stable</code> | <code>services/platform/tools/benchmark/src/main.rs:26</code> | <code>struct Arguments {</code> |
-| <code>interface.8.cli-tools-benchmark-benchmark-capture-snapshot</code> | <code>cli_command</code> | <code>stable</code> | <code>services/platform/tools/benchmark/src/main.rs:36</code> | <code>capture_snapshot: bool,</code> |
-| <code>interface.8.cli-tools-benchmark-benchmark-node</code> | <code>cli_command</code> | <code>stable</code> | <code>services/platform/tools/benchmark/src/main.rs:44</code> | <code>node: PathBuf,</code> |
-| <code>interface.8.cli-tools-benchmark-benchmark-npm</code> | <code>cli_command</code> | <code>stable</code> | <code>services/platform/tools/benchmark/src/main.rs:42</code> | <code>npm: PathBuf,</code> |
-| <code>interface.8.cli-tools-benchmark-benchmark-output</code> | <code>cli_command</code> | <code>stable</code> | <code>services/platform/tools/benchmark/src/main.rs:40</code> | <code>output: PathBuf,</code> |
-| <code>interface.8.cli-tools-benchmark-benchmark-registry-url</code> | <code>cli_command</code> | <code>stable</code> | <code>services/platform/tools/benchmark/src/main.rs:38</code> | <code>registry_url: Option&lt;String&gt;,</code> |
-| <code>interface.8.cli-tools-benchmark-benchmark-repository</code> | <code>cli_command</code> | <code>stable</code> | <code>services/platform/tools/benchmark/src/main.rs:28</code> | <code>repository: PathBuf,</code> |
-| <code>interface.8.cli-tools-benchmark-benchmark-snapshot</code> | <code>cli_command</code> | <code>stable</code> | <code>services/platform/tools/benchmark/src/main.rs:34</code> | <code>snapshot: Option&lt;PathBuf&gt;,</code> |
-
-| Interface | Field | Value |
+| Kind | Declaration | Source |
 |---|---|---|
-| <code>interface.8.cli-tools-benchmark-benchmark</code> | notes | 1937 callers total; no in-repo invocation outside the defining file |
-| <code>interface.8.cli-tools-benchmark-benchmark-capture-snapshot</code> | notes | no in-repo invocation outside the defining file |
-| <code>interface.8.cli-tools-benchmark-benchmark-node</code> | notes | no in-repo invocation outside the defining file |
-| <code>interface.8.cli-tools-benchmark-benchmark-npm</code> | notes | no in-repo invocation outside the defining file |
-| <code>interface.8.cli-tools-benchmark-benchmark-output</code> | notes | no in-repo invocation outside the defining file |
-| <code>interface.8.cli-tools-benchmark-benchmark-registry-url</code> | notes | no in-repo invocation outside the defining file |
-| <code>interface.8.cli-tools-benchmark-benchmark-repository</code> | notes | no in-repo invocation outside the defining file |
-| <code>interface.8.cli-tools-benchmark-benchmark-snapshot</code> | notes | no in-repo invocation outside the defining file |
+| `cli_command` | `struct Arguments {` | [services/platform/tools/benchmark/src/main.rs](../../../services/platform/tools/benchmark/src/main.rs) |
+| `cli_command` | `capture_snapshot: bool,` | [services/platform/tools/benchmark/src/main.rs](../../../services/platform/tools/benchmark/src/main.rs) |
+| `cli_command` | `node: PathBuf,` | [services/platform/tools/benchmark/src/main.rs](../../../services/platform/tools/benchmark/src/main.rs) |
+| `cli_command` | `npm: PathBuf,` | [services/platform/tools/benchmark/src/main.rs](../../../services/platform/tools/benchmark/src/main.rs) |
+| `cli_command` | `output: PathBuf,` | [services/platform/tools/benchmark/src/main.rs](../../../services/platform/tools/benchmark/src/main.rs) |
+| `cli_command` | `registry_url: Option<String>,` | [services/platform/tools/benchmark/src/main.rs](../../../services/platform/tools/benchmark/src/main.rs) |
+| `cli_command` | `repository: PathBuf,` | [services/platform/tools/benchmark/src/main.rs](../../../services/platform/tools/benchmark/src/main.rs) |
+| `cli_command` | `snapshot: Option<PathBuf>,` | [services/platform/tools/benchmark/src/main.rs](../../../services/platform/tools/benchmark/src/main.rs) |
 
 ## tools-benchmark-env-vars
 
-| Interface | Kind | Status | Source at pinned revision | Signature |
-|---|---|---|---|---|
-| <code>interface.8.env-tools-benchmark-node-options</code> | <code>env_var</code> | <code>stable</code> | <code>services/platform/tools/benchmark/src/main.rs:407</code> | <code>.env_remove("NODE_OPTIONS")</code> |
-| <code>interface.8.env-tools-benchmark-node-path</code> | <code>env_var</code> | <code>stable</code> | <code>services/platform/tools/benchmark/src/main.rs:406</code> | <code>.env_remove("NODE_PATH")</code> |
-| <code>interface.8.env-tools-benchmark-npm-config-audit</code> | <code>env_var</code> | <code>stable</code> | <code>services/platform/tools/benchmark/src/main.rs:410</code> | <code>.env("NPM_CONFIG_AUDIT", "false")</code> |
-| <code>interface.8.env-tools-benchmark-npm-config-cache</code> | <code>env_var</code> | <code>stable</code> | <code>services/platform/tools/benchmark/src/main.rs:409</code> | <code>.env("NPM_CONFIG_CACHE", current.join("cache"))</code> |
-| <code>interface.8.env-tools-benchmark-npm-config-fetch-retries</code> | <code>env_var</code> | <code>stable</code> | <code>services/platform/tools/benchmark/src/main.rs:413</code> | <code>.env("NPM_CONFIG_FETCH_RETRIES", "0")</code> |
-| <code>interface.8.env-tools-benchmark-npm-config-fetch-timeout</code> | <code>env_var</code> | <code>stable</code> | <code>services/platform/tools/benchmark/src/main.rs:414</code> | <code>.env("NPM_CONFIG_FETCH_TIMEOUT", "60000")</code> |
-| <code>interface.8.env-tools-benchmark-npm-config-fund</code> | <code>env_var</code> | <code>stable</code> | <code>services/platform/tools/benchmark/src/main.rs:411</code> | <code>.env("NPM_CONFIG_FUND", "false")</code> |
-| <code>interface.8.env-tools-benchmark-npm-config-ignore-scripts</code> | <code>env_var</code> | <code>stable</code> | <code>services/platform/tools/benchmark/src/main.rs:412</code> | <code>.env("NPM_CONFIG_IGNORE_SCRIPTS", "true")</code> |
-| <code>interface.8.env-tools-benchmark-npm-config-offline</code> | <code>env_var</code> | <code>stable</code> | <code>services/platform/tools/benchmark/src/main.rs:415</code> | <code>.env("NPM_CONFIG_OFFLINE", "false")</code> |
-| <code>interface.8.env-tools-benchmark-npm-config-registry</code> | <code>env_var</code> | <code>stable</code> | <code>services/platform/tools/benchmark/src/main.rs:408</code> | <code>.env("NPM_CONFIG_REGISTRY", registry)</code> |
-
-| Interface | Field | Value |
+| Kind | Declaration | Source |
 |---|---|---|
-| <code>interface.8.env-tools-benchmark-npm-config-audit</code> | notes | no in-repo setter or reader outside the defining file |
-| <code>interface.8.env-tools-benchmark-npm-config-cache</code> | notes | no in-repo setter or reader outside the defining file |
-| <code>interface.8.env-tools-benchmark-npm-config-fetch-retries</code> | notes | no in-repo setter or reader outside the defining file |
-| <code>interface.8.env-tools-benchmark-npm-config-fetch-timeout</code> | notes | no in-repo setter or reader outside the defining file |
-| <code>interface.8.env-tools-benchmark-npm-config-fund</code> | notes | no in-repo setter or reader outside the defining file |
-| <code>interface.8.env-tools-benchmark-npm-config-ignore-scripts</code> | notes | no in-repo setter or reader outside the defining file |
-| <code>interface.8.env-tools-benchmark-npm-config-offline</code> | notes | system variable; callers not enumerated |
-| <code>interface.8.env-tools-benchmark-npm-config-registry</code> | notes | no in-repo setter or reader outside the defining file |
+| `env_var` | `NODE_OPTIONS` | [services/platform/tools/benchmark/src/main.rs](../../../services/platform/tools/benchmark/src/main.rs) |
+| `env_var` | `NODE_PATH` | [services/platform/tools/benchmark/src/main.rs](../../../services/platform/tools/benchmark/src/main.rs) |
+| `env_var` | `NPM_CONFIG_AUDIT` | [services/platform/tools/benchmark/src/main.rs](../../../services/platform/tools/benchmark/src/main.rs) |
+| `env_var` | `NPM_CONFIG_CACHE` | [services/platform/tools/benchmark/src/main.rs](../../../services/platform/tools/benchmark/src/main.rs) |
+| `env_var` | `NPM_CONFIG_FETCH_RETRIES` | [services/platform/tools/benchmark/src/main.rs](../../../services/platform/tools/benchmark/src/main.rs) |
+| `env_var` | `NPM_CONFIG_FETCH_TIMEOUT` | [services/platform/tools/benchmark/src/main.rs](../../../services/platform/tools/benchmark/src/main.rs) |
+| `env_var` | `NPM_CONFIG_FUND` | [services/platform/tools/benchmark/src/main.rs](../../../services/platform/tools/benchmark/src/main.rs) |
+| `env_var` | `NPM_CONFIG_IGNORE_SCRIPTS` | [services/platform/tools/benchmark/src/main.rs](../../../services/platform/tools/benchmark/src/main.rs) |
+| `env_var` | `NPM_CONFIG_OFFLINE` | [services/platform/tools/benchmark/src/main.rs](../../../services/platform/tools/benchmark/src/main.rs) |
+| `env_var` | `NPM_CONFIG_REGISTRY` | [services/platform/tools/benchmark/src/main.rs](../../../services/platform/tools/benchmark/src/main.rs) |
 
 ## tools-docs-gate-cli-commands
 
-| Interface | Kind | Status | Source at pinned revision | Signature |
-|---|---|---|---|---|
-| <code>interface.8.cli-tools-docs-gate-docs-gate-repo-root</code> | <code>cli_command</code> | <code>stable</code> | <code>services/platform/tools/docs-gate:4</code> | <code>repo_root=${1:-$(CDPATH= cd -- "$(dirname -- "$0")/../../.." &amp;&amp; pwd)}</code> |
+| Kind | Declaration | Source |
+|---|---|---|
+| `cli_command` | `repo_root=${1:-$(CDPATH= cd -- "$(dirname -- "$0")/../../.." && pwd)}` | [services/platform/tools/docs-gate](../../../services/platform/tools/docs-gate) |
 
 ## tools-kvx-rust-pub-items
 
-| Interface | Kind | Status | Source at pinned revision | Signature |
-|---|---|---|---|---|
-| <code>interface.8.rs-tools-kvx-entry-j41</code> | <code>rust_pub_item</code> | <code>stable</code> | <code>services/platform/tools/kvx/src/lib.rs:2</code> | <code>pub struct Entry {</code> |
-| <code>interface.8.rs-tools-kvx-layerx-platform-kvx-document</code> | <code>rust_pub_item</code> | <code>stable</code> | <code>services/platform/tools/kvx/src/lib.rs:9</code> | <code>pub struct Document {</code> |
-| <code>interface.8.rs-tools-kvx-layerx-platform-kvx-parse</code> | <code>rust_pub_item</code> | <code>stable</code> | <code>services/platform/tools/kvx/src/lib.rs:58</code> | <code>pub fn parse(source: &amp;str) -&gt; Result&lt;Document, String&gt; {</code> |
-| <code>interface.8.rs-tools-kvx-layerx-platform-kvx-quote</code> | <code>rust_pub_item</code> | <code>stable</code> | <code>services/platform/tools/kvx/src/lib.rs:149</code> | <code>pub fn quote(value: &amp;str) -&gt; String {</code> |
-| <code>interface.8.rs-tools-kvx-layerx-platform-kvx-string-list</code> | <code>rust_pub_item</code> | <code>stable</code> | <code>services/platform/tools/kvx/src/lib.rs:136</code> | <code>pub fn string_list(value: &amp;str) -&gt; Result&lt;Vec&lt;String&gt;, String&gt; {</code> |
-| <code>interface.8.rs-tools-kvx-layerx-platform-kvx-unquote</code> | <code>rust_pub_item</code> | <code>stable</code> | <code>services/platform/tools/kvx/src/lib.rs:122</code> | <code>pub fn unquote(value: &amp;str) -&gt; Result&lt;String, String&gt; {</code> |
+| Kind | Declaration | Source |
+|---|---|---|
+| `rust_pub_item` | `pub struct Entry {` | [services/platform/tools/kvx/src/lib.rs](../../../services/platform/tools/kvx/src/lib.rs) |
+| `rust_pub_item` | `pub struct Document {` | [services/platform/tools/kvx/src/lib.rs](../../../services/platform/tools/kvx/src/lib.rs) |
+| `rust_pub_item` | `pub fn parse(source: &str) -> Result<Document, String> {` | [services/platform/tools/kvx/src/lib.rs](../../../services/platform/tools/kvx/src/lib.rs) |
+| `rust_pub_item` | `pub fn quote(value: &str) -> String {` | [services/platform/tools/kvx/src/lib.rs](../../../services/platform/tools/kvx/src/lib.rs) |
+| `rust_pub_item` | `pub fn string_list(value: &str) -> Result<Vec<String>, String> {` | [services/platform/tools/kvx/src/lib.rs](../../../services/platform/tools/kvx/src/lib.rs) |
+| `rust_pub_item` | `pub fn unquote(value: &str) -> Result<String, String> {` | [services/platform/tools/kvx/src/lib.rs](../../../services/platform/tools/kvx/src/lib.rs) |
 
 ## tools-workspace-gate-cli-commands
 
-| Interface | Kind | Status | Source at pinned revision | Signature |
-|---|---|---|---|---|
-| <code>interface.8.cli-tools-workspace-gate-platform-workspace-gate-manifest-path-repo-root</code> | <code>cli_command</code> | <code>stable</code> | <code>services/platform/tools/workspace-gate/src/main.rs:102</code> | <code>let arguments = env::args().skip(1).collect::&lt;Vec&lt;_&gt;&gt;();</code> |
+| Kind | Declaration | Source |
+|---|---|---|
+| `cli_command` | `let arguments = env::args().skip(1).collect::<Vec<_>>();` | [services/platform/tools/workspace-gate/src/main.rs](../../../services/platform/tools/workspace-gate/src/main.rs) |
 
 ## tools-workspace-gate-rust-pub-items
 
-| Interface | Kind | Status | Source at pinned revision | Signature |
-|---|---|---|---|---|
-| <code>interface.8.rs-tools-workspace-gate-workspace-gate-j41</code> | <code>rust_pub_item</code> | <code>stable</code> | <code>services/platform/tools/workspace-gate/src/main.rs:28</code> | <code>pub fn workspace_gate(repo_root: &amp;Path, source: &amp;str) -&gt; Result&lt;(), String&gt; {</code> |
+| Kind | Declaration | Source |
+|---|---|---|
+| `rust_pub_item` | `pub fn workspace_gate(repo_root: &Path, source: &str) -> Result<(), String> {` | [services/platform/tools/workspace-gate/src/main.rs](../../../services/platform/tools/workspace-gate/src/main.rs) |
 
-## Emulator routes
+<a id="emulator-routes"></a>
 
-The emulator serves `GET /healthz`, `GET /v1/sequencer`,
-`GET /v1/protocol/account-state/head`, `POST /v1/settle`, `GET /v1/state`,
-`GET /v1/dids/<did>/sequence`, `GET /v1/receipts/<id>`,
-`GET /v1/evidence/<id>` and `GET /v1/journeys/<id>`.
-Its local control routes are `POST /__emulator/accounts/prefund`,
-`POST /__emulator/time/set`, `POST /__emulator/time/advance`,
-`POST /__emulator/faults`, and `GET`/`PUT /__emulator/snapshot`.
-
-The retired activity and move routes (`/v1/activities`, `/v1/moves`,
-`/v1/moves/quote`) and every `/v1/programs` route, including registry,
-interface, receipt and activity reads, return HTTP 404 `not_found`, just like
-unknown paths. Snapshot recovery retains existing receipt and journey data.
+See the implementation sources above.

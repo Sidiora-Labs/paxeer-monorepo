@@ -8,8 +8,7 @@ placeholders and embedded key material, naming the refused field.
 
 Paxeer is one BFT network: `paxd` includes the kernel that proposes blocks.
 Mainnet-beta uses EVM chain id 125 (`0x7d`). Public node JSON-RPC uses the root
-path, for example `https://api1.mainnet-beta.paxeer.network/`; choose a node
-that provides the methods required below.
+path; choose a node that provides the methods required below.
 
 ## EVM program relay and settlement
 

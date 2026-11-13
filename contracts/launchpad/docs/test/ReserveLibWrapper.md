@@ -1,5 +1,7 @@
 # Solidity API
 
+Source: [ReserveLibWrapper.sol](../../contracts/test/ReserveLibWrapper.sol).
+
 ## ReserveLibWrapper
 
 Wrapper to expose ReserveLib library functions for testing
@@ -33,4 +35,3 @@ function getPrice(uint256 effectiveUsdl, uint256 tokenReserve) external pure ret
 ```solidity
 function getMarketCap(uint256 effectiveUsdl, uint256 tokenReserve, uint256 totalSupply) external pure returns (uint256)
 ```
-

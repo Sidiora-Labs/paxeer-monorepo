@@ -33,7 +33,7 @@ Votes are collected per denom into ballots. In the mid-block step of the last bl
 
 ### Reward Band
 
-A vote counts as a win when it is within an inclusive spread of `max(median * RewardBand / 2, ballot standard deviation)` around the weighted median, using cross rates for non-reference denoms. The current tally tracks wins but does not distribute token rewards. See [Reward Band](spec/01_concepts.md#reward-band).
+For a passing ballot, a vote counts as a win when it has positive voting power and is within an inclusive spread of `max(median * RewardBand / 2, ballot standard deviation)` around the weighted median, using cross rates for non-reference denoms. The current tally tracks wins but does not distribute token rewards. See [Reward Band](spec/01_concepts.md#reward-band).
 
 ### Slashing
 

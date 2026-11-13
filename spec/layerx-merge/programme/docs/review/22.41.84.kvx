@@ -1,0 +1,83 @@
+[manifest]
+task = "22.41.84"
+pages = 20
+
+[page.1]
+path = "services/interop/specs/conformance/visa-tap/README.md"
+status = "corrected"
+
+[page.2]
+path = "services/interop/specs/conformance/x402/README.md"
+status = "corrected"
+
+[page.3]
+path = "services/launchpad/discovery/contracts/clients.md"
+status = "corrected"
+
+[page.4]
+path = "services/launchpad/discovery/contracts/services.md"
+status = "reviewed"
+
+[page.5]
+path = "services/launchpad/licenses/README.md"
+status = "reviewed"
+
+[page.6]
+path = "services/launchpad/livestream/PROGRESS.md"
+status = "corrected"
+
+[page.7]
+path = "services/launchpad/security/control/README.md"
+status = "corrected"
+
+[page.8]
+path = "services/launchpad/security/control/provider-contract.md"
+status = "reviewed"
+
+[page.9]
+path = "services/launchpad/security/supplychain/README.md"
+status = "corrected"
+
+[page.10]
+path = "services/platform/examples/README.md"
+status = "corrected"
+
+[page.11]
+path = "services/platform/examples/agent-spend/README.md"
+status = "reviewed"
+
+[page.12]
+path = "services/platform/examples/buyer-agent/README.md"
+status = "corrected"
+
+[page.13]
+path = "services/platform/examples/buyer-agent/test/fixtures/README.md"
+status = "corrected"
+
+[page.14]
+path = "services/platform/examples/merchant-checkout/README.md"
+status = "corrected"
+
+[page.15]
+path = "services/platform/hosted/authority/README.md"
+status = "corrected"
+
+[page.16]
+path = "services/platform/hosted/dashboard/web/README.md"
+status = "reviewed"
+
+[page.17]
+path = "services/platform/hosted/gateway/README.md"
+status = "corrected"
+
+[page.18]
+path = "services/platform/hosted/human/README.md"
+status = "corrected"
+
+[page.19]
+path = "services/platform/hosted/identity/mail-delivery.md"
+status = "corrected"
+
+[page.20]
+path = "services/platform/hosted/internal/tests/fixtures/repair_22_33_1452_tls/README.md"
+status = "reviewed"

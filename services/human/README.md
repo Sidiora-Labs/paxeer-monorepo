@@ -72,14 +72,12 @@ the committed block. An ordinary EVM landing receipt or an RPC rung label alone
 cannot establish that proof. Hosted gateway reads are explicitly labeled
 `gateway-reported`, not promoted to cryptographically verified evidence.
 
-Public node JSON-RPC uses the root path of
-`https://api1.mainnet-beta.paxeer.network` through
-`https://api14.mainnet-beta.paxeer.network`, plus
-`https://api-mainnet-beta.paxeer.network`. The node namespaces are `debug`, `echo`,
-`eth`, `net`, `pax`, `px`, `test` and `txpool`. The `px` namespace answers from node state; `px_register` and
-`px_requestFunds` are operations of the hosted identity and faucet
-services declared in [the gateway OpenRPC contract](../platform/hosted/gateway/openrpc.json). `node.hyperpaxeer.com` is the library mirror,
-not a JSON-RPC endpoint.
+Node JSON-RPC uses the root path of the configured node origin. The node
+[RPC registration](../../rpc/server.go) includes `px` account, history, inference
+and kernel methods. Hosted identity registration and faucet requests use
+`px_register` and `px_requestFunds` through
+[the gateway OpenRPC contract](../platform/hosted/gateway/openrpc.json).
+Select the endpoint according to the required method contract.
 
 ## Build and test
 

@@ -56,7 +56,7 @@ func chartFaultSource(t *testing.T, pool *pgxpool.Pool, chain internaltest.Marke
 	if _, err := pool.Exec(ctx, `CREATE SCHEMA indexer; CREATE SCHEMA candles`); err != nil {
 		t.Fatal(err)
 	}
-	migrationDirectory := filepath.Join("..", "..", "..", "..", "launchpad", "spec", "production-system", "integration", "migrations")
+	migrationDirectory := filepath.Join("..", "..", "..", "..", "migrations")
 	for _, name := range []string{"60000.sql", "80000.sql", "80001.sql", "100000.sql", "100001.sql", "150002.sql", "150003.sql", "190001.sql"} {
 		migration, err := os.ReadFile(filepath.Join(migrationDirectory, name))
 		if err != nil {

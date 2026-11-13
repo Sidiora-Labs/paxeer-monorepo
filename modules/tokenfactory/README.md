@@ -132,9 +132,11 @@ the keeper compares the supplied DID with persisted authority metadata.
 The [ledger issuer adapter](../layerxledger/keeper/issuer_binding.go) implements
 asset registration with a factory denom binding and mirrors ledger pause
 changes into tokenfactory when used. These are keeper integration paths, not
-additional tokenfactory transaction messages. Issuer supply helpers do not
-create their own cache context; integrations that require rollback on failure
-must provide a transaction or cache context and commit only on success.
+additional tokenfactory transaction messages. `MintByIssuer` validates the
+recipient before minting and uses a cache context so a refused send leaves
+supply and balances unchanged. `BurnByIssuer` uses the caller's context;
+integrations that require rollback across its transfer and burn must provide
+a transaction or cache context and commit only on success.
 
 ## Pause enforcement and errors
 

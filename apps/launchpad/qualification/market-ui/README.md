@@ -1,4 +1,4 @@
-# L30 market presentation and journey checks
+# Market presentation and journey checks
 
 Market UI source lives in `apps/launchpad/web`. The tree includes presentation primitives, a market session, integrated token layouts and later service/browser runners. This guide describes their inputs and evidence boundaries; it does not claim that release capacity or a production journey has passed. See the [mobile architecture](../../mobile/ARCHITECTURE.md) for the merged chain-125 network boundary and native behavior.
 
@@ -13,7 +13,7 @@ cd apps/launchpad/web
 
 These are React DOM tests in jsdom with synthetic arithmetic and chain-order fixtures. They exercise actual-decimal normalization, 78-digit balances, unavailable quality, malicious identity text, identity disagreement, missing valuation, real versus virtual backing, bounded ranking compatibility, numeric holder sorting, trade deduplication and freshness transitions. They provide no chain receipts, live network journey, browser timing or capacity proof.
 
-The code imports shared generated DTOs and SDK validators rather than copying schemas. [market-session.ts](../../web/src/page-modules/token/market-session.ts) and the [token market layout](../../web/src/widgets/trading/token-market-layout.tsx) are implemented integration paths. The earlier phase-one statement that integration and mounting were wholly pending no longer describes this tree. Each route and control still needs evidence from the candidate actually measured.
+The code imports shared generated DTOs and SDK validators rather than copying schemas. [market-session.ts](../../web/src/page-modules/token/market-session.ts) and the [token market layout](../../web/src/widgets/trading/token-market-layout.tsx) are implemented integration paths. The market session supplies state to the token market layout.
 
 ## Integrated service and DOM journeys
 
@@ -43,4 +43,4 @@ Configuration binds candidate source, interface, topology and workload identitie
 
 The runner launches Chromium, captures DOM/network/socket/heap observations, reconciles fills with backend source events, exercises discovery/token/terminal navigation, checks freshness and reconnect behavior, and measures responsive layout and accessibility. Its policy requires at least ten minutes of steady measurement and twenty route cycles. It records `result.json`, raw observations and `artifact-sha256.json`; file existence alone is not proof that its assertions passed.
 
-Even a successful result explicitly records `capacity_qualified: false`, `shared_workload_qualified: false` and final capacity task `9.1`. Shared load/restore and final production acceptance remain deferred. Keep synthetic presentation output, real-service results and browser measurements tied to their actual scope and revision. The [account UI guide](../account-ui/README.md) documents neighboring account, browser and physical Android checks.
+The result records `capacity_qualified: false` and `shared_workload_qualified: false`: the runner measures market UI behavior within its configured workload. Keep synthetic presentation output, real-service results and browser measurements tied to their actual scope and revision. The [account UI guide](../account-ui/README.md) documents neighboring account, browser and physical Android checks.

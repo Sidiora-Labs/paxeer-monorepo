@@ -1,13 +1,14 @@
 # Solidity API
 
+Source: [TaxOptical.sol](../../../contracts/opticals/presets/TaxOptical.sol).
+
 ## TaxOptical
 
 Applies additional configurable buy/sell tax via beforeSwap amountDelta.
 
-_Uses beforeSwap hook. Tax is taken by reducing the effective amountIn
-     (negative amountDelta). The taxed portion remains in the pool, effectively
-     benefiting liquidity. Configurable separate buy/sell rates, capped at 10%.
-     Immutable once deployed — rates are set at construction._
+_Uses beforeSwap hook. Tax is taken by reducing the effective amountIn (negative amountDelta). The
+taxed portion remains in the pool, effectively benefiting liquidity. Configurable separate buy/sell
+rates, capped at 10%. Immutable once deployed — rates are set at construction._
 
 ### TaxTooHigh
 
@@ -47,12 +48,12 @@ constructor(address _poolRegistry, address _owner, uint256 _buyTaxBps, uint256 _
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| _poolRegistry | address | PoolRegistry address for pool validation |
-| _owner | address | Deployer/owner address |
-| _buyTaxBps | uint256 | Buy tax in basis points (max 1000 = 10%) |
-| _sellTaxBps | uint256 | Sell tax in basis points (max 1000 = 10%) |
+| Name           | Type    | Description                               |
+| -------------- | ------- | ----------------------------------------- |
+| \_poolRegistry | address | PoolRegistry address for pool validation  |
+| \_owner        | address | Deployer/owner address                    |
+| \_buyTaxBps    | uint256 | Buy tax in basis points (max 1000 = 10%)  |
+| \_sellTaxBps   | uint256 | Sell tax in basis points (max 1000 = 10%) |
 
 ### getFlags
 
@@ -63,6 +64,5 @@ function getFlags() external pure returns (uint8)
 ### beforeSwap
 
 ```solidity
-function beforeSwap(address, address, bool isBuy, uint256 amountIn) external view returns (bool proceed, int256 amountDelta)
+function beforeSwap(address pool, address, bool isBuy, uint256 amountIn) external view returns (bool proceed, int256 amountDelta)
 ```
-

@@ -52,7 +52,7 @@ def topology_v2():
 def connected_inputs(tmp_path):
     config = topology_v2()
     fixture = v1.load(Path(__file__).with_name('fixtures') / 'repair_22_31_313_documents.json')
-    grants = v1.load(SOURCE_ROOT / 'launchpad/spec/production-system/integration/migrations/grants.json')
+    grants = v1.load(SOURCE_ROOT / 'migrations/grants.json')
     manifests = {manifest['runtime_role']: manifest for manifest in grants['roles']}
     documents = {}
     for role, bodies in fixture['roles'].items():

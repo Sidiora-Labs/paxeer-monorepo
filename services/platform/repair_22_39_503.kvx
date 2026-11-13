@@ -1,0 +1,223 @@
+[platform_lint]
+rule = "Use accepted dependency releases first; retain single, dated and reasoned entries only for advisories or duplicate APIs constrained by pinned dependencies. SQLite is limited to the indexer store through rusqlite and its native bindings; sqlx-sqlite remains forbidden."
+files = ["services/platform/Cargo.toml", "services/platform/Cargo.lock", "services/platform/deny.toml", "services/platform/hosted/indexer/tests/store_writers.rs", "services/platform/hosted/indexer/Cargo.toml", "services/platform/repair_22_39_503.kvx", "tools/platform/Cargo.toml", "tools/platform/Cargo.lock", "tools/platform/deny.toml"]
+command = "test -s services/platform/repair_22_39_503.kvx && make -s platform-lint"
+build_command = "cargo build --offline --locked --workspace --manifest-path services/platform/Cargo.toml && cargo build --offline --locked --workspace --manifest-path tools/platform/Cargo.toml && cargo build --offline --locked --workspace --manifest-path sdk/platform/generators/Cargo.toml"
+writer_assertions = "Two independent connections each record 100 source heads; the count and every stored head are asserted, with checked integer conversions and explicit panic messages."
+dependency_versions = ["services/platform: ctutils 0.4.4", "services/platform: tokio 1.53.3", "tools/platform: async-executor 1.14.1", "services/platform: rusqlite 0.41.1 with libsqlite3-sys 0.39.1 (RUSTSEC-2026-0459)"]
+sqlite_integer_conversion = "The indexer enables rusqlite fallible_uint to retain checked unsigned integer decoding from SQLite integer columns."
+filesystem_version = "Both platform manifests share the agent daemon rustix 1.1.4 pin."
+
+[dependency_entry.1]
+configuration = "services/platform/deny.toml"
+kind = "advisory"
+identifier = "RUSTSEC-2026-0387"
+review_date = "2026-11-13"
+reason = "elliptic-curve 0.13.8, used by k256 0.13.4, requires crypto-bigint 0.5; the corrected crypto-bigint 0.7.6 API is incompatible with that requirement."
+
+[dependency_entry.2]
+configuration = "services/platform/deny.toml"
+kind = "advisory"
+identifier = "RUSTSEC-2022-0061"
+review_date = "2026-11-13"
+reason = "wasm-instrument 0.4.0 requires parity-wasm 0.45; this package has no maintained release."
+
+[dependency_entry.3]
+configuration = "services/platform/deny.toml"
+kind = "advisory"
+identifier = "RUSTSEC-2024-0449"
+review_date = "2026-11-13"
+reason = "serde_yaml 0.9.34 requires unsafe-libyaml 0.2; this package has no maintained release."
+
+[dependency_entry.4]
+configuration = "services/platform/deny.toml"
+kind = "duplicate"
+identifier = "base64@0.22.1"
+review_date = "2026-11-13"
+reason = "The pinned LayerX client uses base64 0.22 while the HTTP stack uses 0.23."
+
+[dependency_entry.5]
+configuration = "services/platform/deny.toml"
+kind = "duplicate"
+identifier = "block-buffer@0.10.4"
+review_date = "2026-11-13"
+reason = "The elliptic-curve digest 0.10 API and PostgreSQL digest 0.11 API require separate block buffers."
+
+[dependency_entry.6]
+configuration = "services/platform/deny.toml"
+kind = "duplicate"
+identifier = "chacha20@0.9.1"
+review_date = "2026-11-13"
+reason = "The pinned chacha20poly1305 0.10 API uses chacha20 0.9 while PostgreSQL rand 0.10 uses chacha20 0.10."
+
+[dependency_entry.7]
+configuration = "services/platform/deny.toml"
+kind = "duplicate"
+identifier = "const-oid@0.9.6"
+review_date = "2026-11-13"
+reason = "The pinned DER and elliptic-curve digest APIs use const-oid 0.9 while digest 0.11 uses 0.10."
+
+[dependency_entry.8]
+configuration = "services/platform/deny.toml"
+kind = "duplicate"
+identifier = "cpufeatures@0.2.17"
+review_date = "2026-11-13"
+reason = "The pinned elliptic-curve SHA-2 0.10 API uses cpufeatures 0.2 while PostgreSQL SHA-2 0.11 uses 0.3."
+
+[dependency_entry.9]
+configuration = "services/platform/deny.toml"
+kind = "duplicate"
+identifier = "crypto-common@0.1.7"
+review_date = "2026-11-13"
+reason = "The pinned elliptic-curve digest 0.10 API uses crypto-common 0.1 while PostgreSQL digest 0.11 uses 0.2."
+
+[dependency_entry.10]
+configuration = "services/platform/deny.toml"
+kind = "duplicate"
+identifier = "digest@0.10.7"
+review_date = "2026-11-13"
+reason = "The pinned elliptic-curve 0.13 API uses digest 0.10 while PostgreSQL hashing uses digest 0.11."
+
+[dependency_entry.11]
+configuration = "services/platform/deny.toml"
+kind = "duplicate"
+identifier = "fallible-iterator@0.2.0"
+review_date = "2026-11-13"
+reason = "PostgreSQL 0.19 requires fallible-iterator 0.2 while the indexer SQLite API requires 0.3."
+
+[dependency_entry.12]
+configuration = "services/platform/deny.toml"
+kind = "duplicate"
+identifier = "hmac@0.12.1"
+review_date = "2026-11-13"
+reason = "The pinned LayerX signing and HKDF APIs use HMAC 0.12 while PostgreSQL authentication uses 0.13."
+
+[dependency_entry.13]
+configuration = "services/platform/deny.toml"
+kind = "duplicate"
+identifier = "rand@0.9.5"
+review_date = "2026-11-13"
+reason = "The pinned tungstenite 0.29 API requires rand 0.9 while PostgreSQL uses rand 0.10."
+
+[dependency_entry.14]
+configuration = "services/platform/deny.toml"
+kind = "duplicate"
+identifier = "rand_core@0.6.4"
+review_date = "2026-11-13"
+reason = "The pinned elliptic-curve 0.13 API uses rand_core 0.6 while WebSocket randomness uses 0.9."
+
+[dependency_entry.15]
+configuration = "services/platform/deny.toml"
+kind = "duplicate"
+identifier = "sha2@0.10.9"
+review_date = "2026-11-13"
+reason = "The pinned LayerX signing APIs use SHA-2 0.10 while PostgreSQL and its TLS adapter use 0.11."
+
+[dependency_entry.16]
+configuration = "services/platform/deny.toml"
+kind = "duplicate"
+identifier = "wasi@0.11.1+wasi-snapshot-preview1"
+review_date = "2026-11-13"
+reason = "The getrandom 0.2 and mio WASI APIs use preview1 while wasite uses WASI 0.2."
+
+[dependency_entry.17]
+configuration = "services/platform/deny.toml"
+kind = "duplicate"
+identifier = "rand_core@0.9.5"
+review_date = "2026-11-13"
+reason = "The pinned tungstenite rand 0.9 API uses rand_core 0.9 while PostgreSQL rand 0.10 uses rand_core 0.10."
+
+[dependency_entry.18]
+configuration = "services/platform/deny.toml"
+kind = "boundary"
+identifier = "libsqlite3-sys"
+review_date = "2026-11-13"
+reason = "The platform workspace may not open node projections"
+wrappers = ["rusqlite"]
+
+[dependency_entry.19]
+configuration = "services/platform/deny.toml"
+kind = "boundary"
+identifier = "rusqlite"
+review_date = "2026-11-13"
+reason = "The platform workspace may not open node projections"
+wrappers = ["layerx-indexer"]
+
+[dependency_entry.20]
+configuration = "tools/platform/deny.toml"
+kind = "advisory"
+identifier = "RUSTSEC-2026-0387"
+review_date = "2026-11-13"
+reason = "elliptic-curve 0.13.8, used by k256 0.13.4, requires crypto-bigint 0.5; the corrected crypto-bigint 0.7.6 API is incompatible with that requirement."
+
+[dependency_entry.21]
+configuration = "tools/platform/deny.toml"
+kind = "advisory"
+identifier = "RUSTSEC-2022-0061"
+review_date = "2026-11-13"
+reason = "wasm-instrument 0.4.0 requires parity-wasm 0.45; this package has no maintained release."
+
+[dependency_entry.22]
+configuration = "tools/platform/deny.toml"
+kind = "advisory"
+identifier = "RUSTSEC-2026-0370"
+review_date = "2026-11-13"
+reason = "zbus 5.19.0, used by secret-service 5, requires zvariant 5; this package has no maintained release."
+
+[dependency_entry.23]
+configuration = "tools/platform/deny.toml"
+kind = "advisory"
+identifier = "RUSTSEC-2026-0371"
+review_date = "2026-11-13"
+reason = "zbus 5.19.0, used by secret-service 5, requires zbus_names 4; this package has no maintained release."
+
+[dependency_entry.24]
+configuration = "tools/platform/deny.toml"
+kind = "advisory"
+identifier = "RUSTSEC-2026-0372"
+review_date = "2026-11-13"
+reason = "zvariant 5.15.0, used by zbus 5.19.0, requires zvariant_derive 5; this package has no maintained release."
+
+[dependency_entry.25]
+configuration = "tools/platform/deny.toml"
+kind = "duplicate"
+identifier = "base64@0.22.1"
+review_date = "2026-11-13"
+reason = "The pinned LayerX client uses base64 0.22 while the HTTP stack uses 0.23."
+
+[dependency_entry.26]
+configuration = "tools/platform/deny.toml"
+kind = "duplicate"
+identifier = "rand_core@0.6.4"
+review_date = "2026-11-13"
+reason = "The pinned elliptic-curve 0.13 API uses rand_core 0.6 while WebSocket randomness uses 0.9."
+
+[dependency_entry.27]
+configuration = "tools/platform/deny.toml"
+kind = "boundary"
+identifier = "libsqlite3-sys"
+review_date = "2026-11-13"
+reason = "The platform workspace may not open node projections"
+wrappers = ["rusqlite"]
+
+[dependency_entry.28]
+configuration = "tools/platform/deny.toml"
+kind = "boundary"
+identifier = "rusqlite"
+review_date = "2026-11-13"
+reason = "The platform workspace may not open node projections"
+wrappers = ["layerx-indexer"]
+
+[dependency_entry.29]
+configuration = "services/platform/deny.toml"
+kind = "advisory"
+identifier = "RUSTSEC-2026-0382"
+review_date = "2026-11-13"
+reason = "layerx-agentd 0.1.0 requires rustls-webpki exactly 0.103.15; corrected patches 0.103.16 and 0.103.17 do not satisfy that manifest pin."
+
+[dependency_entry.30]
+configuration = "tools/platform/deny.toml"
+kind = "advisory"
+identifier = "RUSTSEC-2026-0382"
+review_date = "2026-11-13"
+reason = "layerx-agentd 0.1.0 requires rustls-webpki exactly 0.103.15; corrected patches 0.103.16 and 0.103.17 do not satisfy that manifest pin."

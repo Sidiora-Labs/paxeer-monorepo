@@ -51,7 +51,7 @@ const Region = "fixture-loopback"
 // Epoch is the recovery epoch the private bootstrap seeds.
 const Epoch = 1
 
-const migrationsDir = "launchpad/spec/production-system/integration/migrations"
+const migrationsDir = "migrations"
 
 // Runtime is one bootstrapped least-privilege runtime role.
 type Runtime struct {

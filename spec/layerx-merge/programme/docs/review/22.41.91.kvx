@@ -1,0 +1,35 @@
+[manifest]
+task = "22.41.91"
+pages = 8
+
+[page.1]
+path = "spec/layerx-merge/docs/activation-runbook.md"
+status = "reviewed"
+
+[page.2]
+path = "spec/layerx-merge/docs/architecture/clients-and-sdks.md"
+status = "corrected"
+
+[page.3]
+path = "spec/layerx-merge/docs/architecture/kernel-and-chain.md"
+status = "reviewed"
+
+[page.4]
+path = "spec/layerx-merge/docs/architecture/markets-and-launchpad.md"
+status = "corrected"
+
+[page.5]
+path = "spec/layerx-merge/docs/architecture/px-node-root.md"
+status = "corrected"
+
+[page.6]
+path = "spec/layerx-merge/docs/architecture/sequencer-and-consensus.md"
+status = "corrected"
+
+[page.7]
+path = "spec/layerx-merge/docs/architecture/services.md"
+status = "corrected"
+
+[page.8]
+path = "spec/layerx-merge/docs/architecture/system-overview.md"
+status = "corrected"
