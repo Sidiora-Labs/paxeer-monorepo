@@ -20,14 +20,14 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 )
 
-func TestRepair_107_CommittedEvidenceSurvivesRestart(t *testing.T) {
+func TestCommittedEvidenceCommittedEvidenceSurvivesRestart(t *testing.T) {
 	for _, locallyPending := range []bool{true, false} {
 		name := "never_pending"
 		if locallyPending {
 			name = "pending"
 		}
 		t.Run(name, func(t *testing.T) {
-			f := newRepair107Fixture(t)
+			f := newCommittedEvidenceFixture(t)
 			dir := t.TempDir()
 			pool := f.openPool(t, dir, false, f.state)
 			if locallyPending {
@@ -49,7 +49,7 @@ func TestRepair_107_CommittedEvidenceSurvivesRestart(t *testing.T) {
 			require.NoError(t, err)
 			pool = f.openPool(t, dir, false, recovered)
 			defer func() { require.NoError(t, pool.Close()) }()
-			repair107AssertCommitted(t, pool, block.Evidence)
+			committedEvidenceAssertCommitted(t, pool, block.Evidence)
 
 			// Consensus can report an offense again after restart. The real
 			// producer must also consult the recovered committed markers.
@@ -60,19 +60,19 @@ func TestRepair_107_CommittedEvidenceSurvivesRestart(t *testing.T) {
 			recovered.LastBlockHeight++
 			recovered.LastBlockTime = recovered.LastBlockTime.Add(time.Minute)
 			pool.Update(t.Context(), recovered, nil)
-			repair107AssertCommitted(t, pool, block.Evidence)
+			committedEvidenceAssertCommitted(t, pool, block.Evidence)
 		})
 	}
 }
 
-func TestRepair_107_FailedMarkerStopsLifecycleAndReplays(t *testing.T) {
+func TestCommittedEvidenceFailedMarkerStopsLifecycleAndReplays(t *testing.T) {
 	for _, locallyPending := range []bool{true, false} {
 		name := "never_pending"
 		if locallyPending {
 			name = "pending"
 		}
 		t.Run(name, func(t *testing.T) {
-			f := newRepair107Fixture(t)
+			f := newCommittedEvidenceFixture(t)
 			dir := t.TempDir()
 			pool := f.openPool(t, dir, false, f.state)
 			if locallyPending {
@@ -88,7 +88,7 @@ func TestRepair_107_FailedMarkerStopsLifecycleAndReplays(t *testing.T) {
 			pendingSize := pool.Size()
 			next, block := f.saveCommittedBlock(t)
 			var lifecycle sm.EvidencePool = pool
-			repair107RequirePanicError(t, leveldb.ErrReadOnly, func() {
+			committedEvidenceRequirePanicError(t, leveldb.ErrReadOnly, func() {
 				lifecycle.Update(t.Context(), next, block.Evidence)
 			})
 			require.Equal(t, f.state.LastBlockHeight, pool.State().LastBlockHeight)
@@ -119,22 +119,22 @@ func TestRepair_107_FailedMarkerStopsLifecycleAndReplays(t *testing.T) {
 			replayed := f.blocks.LoadBlock(next.LastBlockHeight)
 			require.NotNil(t, replayed)
 			pool.Update(t.Context(), next, replayed.Evidence)
-			repair107AssertCommitted(t, pool, replayed.Evidence)
+			committedEvidenceAssertCommitted(t, pool, replayed.Evidence)
 			require.NoError(t, f.states.Save(next))
 			require.NoError(t, pool.Close())
 
 			// The successful replay must itself survive another disk reopen.
 			pool = f.openPool(t, dir, false, next)
 			defer func() { require.NoError(t, pool.Close()) }()
-			repair107AssertCommitted(t, pool, replayed.Evidence)
+			committedEvidenceAssertCommitted(t, pool, replayed.Evidence)
 		})
 	}
 }
 
-func TestRepair_107_ReadErrorsRejectDuplicates(t *testing.T) {
+func TestCommittedEvidenceReadErrorsRejectDuplicates(t *testing.T) {
 	for _, status := range []string{"unseen", "pending", "committed"} {
 		t.Run(status, func(t *testing.T) {
-			f := newRepair107Fixture(t)
+			f := newCommittedEvidenceFixture(t)
 			pool := f.openPool(t, t.TempDir(), false, f.state)
 			if status != "unseen" {
 				for _, ev := range f.offenses {
@@ -163,15 +163,15 @@ func TestRepair_107_ReadErrorsRejectDuplicates(t *testing.T) {
 			next := pool.State()
 			next.LastBlockHeight++
 			next.LastBlockTime = next.LastBlockTime.Add(time.Minute)
-			repair107RequirePanicError(t, leveldb.ErrClosed, func() {
+			committedEvidenceRequirePanicError(t, leveldb.ErrClosed, func() {
 				pool.Update(t.Context(), next, nil)
 			})
 		})
 	}
 }
 
-func TestRepair_107_BufferCannotReadmitCommittedEvidence(t *testing.T) {
-	f := newRepair107Fixture(t)
+func TestCommittedEvidenceBufferCannotReadmitCommittedEvidence(t *testing.T) {
+	f := newCommittedEvidenceFixture(t)
 	pool := f.openPool(t, t.TempDir(), false, f.state)
 	defer func() { require.NoError(t, pool.Close()) }()
 	for _, ev := range f.offenses {
@@ -180,14 +180,14 @@ func TestRepair_107_BufferCannotReadmitCommittedEvidence(t *testing.T) {
 	}
 	next, block := f.saveCommittedBlock(t)
 	pool.Update(t.Context(), next, block.Evidence)
-	repair107AssertCommitted(t, pool, block.Evidence)
+	committedEvidenceAssertCommitted(t, pool, block.Evidence)
 }
 
-func repair107AssertCommitted(t *testing.T, pool *evidence.Pool, offenses types.EvidenceList) {
+func committedEvidenceAssertCommitted(t *testing.T, pool *evidence.Pool, offenses types.EvidenceList) {
 	t.Helper()
 	for _, ev := range offenses {
 		// Exercise the evidence wire codec before peer admission and block checking.
-		incoming := repair107WireEvidence(t, ev)
+		incoming := committedEvidenceWireEvidence(t, ev)
 		require.NoError(t, pool.AddEvidence(t.Context(), incoming))
 		var invalid *types.ErrInvalidEvidence
 		require.ErrorAs(t, pool.CheckEvidence(t.Context(), types.EvidenceList{incoming}), &invalid)
@@ -199,7 +199,7 @@ func repair107AssertCommitted(t *testing.T, pool *evidence.Pool, offenses types.
 	require.Nil(t, pool.EvidenceFront())
 }
 
-func repair107RequirePanicError(t *testing.T, want error, action func()) {
+func committedEvidenceRequirePanicError(t *testing.T, want error, action func()) {
 	t.Helper()
 	defer func() {
 		value := recover()
@@ -211,7 +211,7 @@ func repair107RequirePanicError(t *testing.T, want error, action func()) {
 	t.Fatal("commit lifecycle continued after a storage failure")
 }
 
-type repair107Fixture struct {
+type committedEvidenceFixture struct {
 	key      ed25519.SecretKey
 	states   sm.Store
 	blocks   *store.BlockStore
@@ -219,9 +219,9 @@ type repair107Fixture struct {
 	offenses types.EvidenceList
 }
 
-func newRepair107Fixture(t *testing.T) *repair107Fixture {
+func newCommittedEvidenceFixture(t *testing.T) *committedEvidenceFixture {
 	t.Helper()
-	f := &repair107Fixture{key: ed25519.TestSecretKey([]byte(t.Name()))}
+	f := &committedEvidenceFixture{key: ed25519.TestSecretKey([]byte(t.Name()))}
 	genesis := &types.GenesisDoc{
 		ChainID:         evidenceChainID,
 		InitialHeight:   1,
@@ -269,13 +269,13 @@ func newRepair107Fixture(t *testing.T) *repair107Fixture {
 	produced, _ := producer.PendingEvidence(-1)
 	require.Len(t, produced, 2)
 	for _, ev := range produced {
-		f.offenses = append(f.offenses, repair107WireEvidence(t, ev))
+		f.offenses = append(f.offenses, committedEvidenceWireEvidence(t, ev))
 	}
 	require.NoError(t, producer.Close())
 	return f
 }
 
-func (f *repair107Fixture) signedVote(height int64, round int32, blockID types.BlockID, timestamp time.Time) *types.Vote {
+func (f *committedEvidenceFixture) signedVote(height int64, round int32, blockID types.BlockID, timestamp time.Time) *types.Vote {
 	vote := &types.Vote{
 		Type:             tmproto.PrecommitType,
 		Height:           height,
@@ -289,7 +289,7 @@ func (f *repair107Fixture) signedVote(height int64, round int32, blockID types.B
 	return vote
 }
 
-func (f *repair107Fixture) saveBlock(t *testing.T, block *types.Block) *types.Commit {
+func (f *committedEvidenceFixture) saveBlock(t *testing.T, block *types.Block) *types.Commit {
 	t.Helper()
 	parts, err := block.MakePartSet(types.BlockPartSizeBytes)
 	require.NoError(t, err)
@@ -300,7 +300,7 @@ func (f *repair107Fixture) saveBlock(t *testing.T, block *types.Block) *types.Co
 	return commit
 }
 
-func (f *repair107Fixture) saveCommittedBlock(t *testing.T) (sm.State, *types.Block) {
+func (f *committedEvidenceFixture) saveCommittedBlock(t *testing.T) (sm.State, *types.Block) {
 	t.Helper()
 	next := f.state
 	next.LastBlockHeight++
@@ -316,16 +316,16 @@ func (f *repair107Fixture) saveCommittedBlock(t *testing.T) (sm.State, *types.Bl
 	return next, stored
 }
 
-func (f *repair107Fixture) openPool(t *testing.T, dir string, readOnly bool, state sm.State) *evidence.Pool {
+func (f *committedEvidenceFixture) openPool(t *testing.T, dir string, readOnly bool, state sm.State) *evidence.Pool {
 	t.Helper()
-	db, err := dbm.NewGoLevelDBWithOpts("repair107", dir, &opt.Options{ReadOnly: readOnly})
+	db, err := dbm.NewGoLevelDBWithOpts("committedEvidence", dir, &opt.Options{ReadOnly: readOnly})
 	require.NoError(t, err)
 	pool := evidence.NewPool(db, f.states, f.blocks, evidence.NopMetrics(), nil)
 	require.NoError(t, pool.Start(state))
 	return pool
 }
 
-func repair107WireEvidence(t *testing.T, ev types.Evidence) types.Evidence {
+func committedEvidenceWireEvidence(t *testing.T, ev types.Evidence) types.Evidence {
 	t.Helper()
 	outgoing, err := types.EvidenceToProto(ev)
 	require.NoError(t, err)

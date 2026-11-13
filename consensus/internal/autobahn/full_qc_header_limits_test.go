@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type repair79Workload struct {
+type fullQCWorkload struct {
 	committee    *types.Committee
 	keys         []types.SecretKey
 	availability *avail.State
@@ -24,10 +24,10 @@ type repair79Workload struct {
 	tips         map[types.LaneID]*types.LaneQC
 }
 
-func repair79Produce(t *testing.T, ctx context.Context, rng utils.Rng) *repair79Workload {
+func fullQCProduce(t *testing.T, ctx context.Context, rng utils.Rng) *fullQCWorkload {
 	t.Helper()
 	c, keys := types.GenCommittee(rng, 11)
-	w := &repair79Workload{committee: c, keys: keys, blocks: map[types.LaneID][]*types.Block{}, tips: map[types.LaneID]*types.LaneQC{}}
+	w := &fullQCWorkload{committee: c, keys: keys, blocks: map[types.LaneID][]*types.Block{}, tips: map[types.LaneID]*types.LaneQC{}}
 	wal, err := data.NewDataWAL(utils.None[string](), c)
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, wal.Close()) })
@@ -56,7 +56,7 @@ func repair79Produce(t *testing.T, ctx context.Context, rng utils.Rng) *repair79
 	return w
 }
 
-func (w *repair79Workload) leader(t *testing.T, vs types.ViewSpec) types.SecretKey {
+func (w *fullQCWorkload) leader(t *testing.T, vs types.ViewSpec) types.SecretKey {
 	t.Helper()
 	for _, key := range w.keys {
 		if key.Public() == w.committee.Leader(vs.View()) {
@@ -67,7 +67,7 @@ func (w *repair79Workload) leader(t *testing.T, vs types.ViewSpec) types.SecretK
 	return types.SecretKey{}
 }
 
-func (w *repair79Workload) commit(p *types.Proposal) *types.CommitQC {
+func (w *fullQCWorkload) commit(p *types.Proposal) *types.CommitQC {
 	var votes []*types.Signed[*types.CommitVote]
 	for _, key := range w.keys {
 		votes = append(votes, types.Sign(key, types.NewCommitVote(p)))
@@ -75,11 +75,11 @@ func (w *repair79Workload) commit(p *types.Proposal) *types.CommitQC {
 	return types.NewCommitQC(votes)
 }
 
-func TestRepair_79_FullQCHeaderBoundRestart(t *testing.T) {
+func TestFullQCHeaderBoundRestart(t *testing.T) {
 	rng := utils.TestRng()
 	ctx, cancel := context.WithTimeout(t.Context(), time.Minute)
 	defer cancel()
-	w := repair79Produce(t, ctx, rng)
+	w := fullQCProduce(t, ctx, rng)
 	c := w.committee
 	dir := utils.Some(t.TempDir())
 	wal, err := data.NewDataWAL(dir, c)
@@ -162,11 +162,11 @@ func TestRepair_79_FullQCHeaderBoundRestart(t *testing.T) {
 	}
 }
 
-func TestRepair_79_HeaderBudgetRejectsOversize(t *testing.T) {
+func TestFullQCHeaderBudgetRejectsOversize(t *testing.T) {
 	rng := utils.TestRng()
 	ctx, cancel := context.WithTimeout(t.Context(), time.Minute)
 	defer cancel()
-	w := repair79Produce(t, ctx, rng)
+	w := fullQCProduce(t, ctx, rng)
 	c := w.committee
 	vs := types.ViewSpec{}
 	_, err := types.NewProposal(w.leader(t, vs), c, vs, c.GenesisTimestamp(), w.tips, utils.None[*types.AppQC]())

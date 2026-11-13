@@ -15,7 +15,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/utils/scope"
 )
 
-func repairM1081Execute(ctx context.Context, env *testEnv, block *types.GlobalBlock) error {
+func producerReplayExecute(ctx context.Context, env *testEnv, block *types.GlobalBlock) error {
 	h := block.Header.Hash()
 	resp, err := env.state.cfg.App.FinalizeBlock(ctx, &abci.RequestFinalizeBlock{Txs: block.Payload.Txs(), Hash: h[:]})
 	if err != nil {
@@ -24,7 +24,7 @@ func repairM1081Execute(ctx context.Context, env *testEnv, block *types.GlobalBl
 	return env.data.PushAppHash(ctx, block.GlobalNumber, resp.AppHash)
 }
 
-func TestRepairM_1081_EstimatedGasSealing(t *testing.T) {
+func TestProducerReplayEstimatedGasSealing(t *testing.T) {
 	for _, tc := range []struct {
 		name      string
 		estimate  uint64
@@ -106,7 +106,7 @@ func TestRepairM_1081_EstimatedGasSealing(t *testing.T) {
 					require.Equal(t, stats.gasWanted, block.Payload.TotalGasWanted())
 					require.LessOrEqual(t, stats.gasEstimated, cfg.MaxGasEstimatedPerBlock)
 					require.False(t, stats.Push(txs[end], cfg), "the following transaction must force sealing")
-					if err := repairM1081Execute(ctx, env, block); err != nil {
+					if err := producerReplayExecute(ctx, env, block); err != nil {
 						return err
 					}
 				}
@@ -117,7 +117,7 @@ func TestRepairM_1081_EstimatedGasSealing(t *testing.T) {
 	}
 }
 
-func TestRepairM_1081_PendingIndexRestart(t *testing.T) {
+func TestProducerReplayPendingIndexRestart(t *testing.T) {
 	rng := utils.TestRng()
 	ctx, cancel := context.WithTimeout(t.Context(), 20*time.Second)
 	defer cancel()
@@ -222,7 +222,7 @@ func TestRepairM_1081_PendingIndexRestart(t *testing.T) {
 			}
 			require.Equal(t, types.BlockNumber(i), block.Header.BlockNumber(), "recovered blocks must not be produced again")
 			require.Equal(t, [][]byte{tx.encode()}, block.Payload.Txs())
-			if err := repairM1081Execute(ctx, env, block); err != nil {
+			if err := producerReplayExecute(ctx, env, block); err != nil {
 				return err
 			}
 		}
@@ -243,7 +243,7 @@ func TestRepairM_1081_PendingIndexRestart(t *testing.T) {
 	require.Equal(t, nonce+3, app.EvmNonce(addr))
 }
 
-func TestRepairM_1081_EstimatedGasOracle(t *testing.T) {
+func TestProducerReplayEstimatedGasOracle(t *testing.T) {
 	cfg := newTestApp().Cfg()
 	cfg.MaxGasEstimatedPerBlock = 63_000
 	stats := blockStats{}

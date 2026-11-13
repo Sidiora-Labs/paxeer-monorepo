@@ -28,16 +28,16 @@ import (
 )
 
 //go:embed doc.go
-var repairM1105Documentation string
+var inspectorLifecycleDocumentation string
 
-func TestRepairM_1105_OccupiedListenAddress(t *testing.T) {
+func TestInspectorLifecycleOccupiedListenAddress(t *testing.T) {
 	for _, tls := range []bool{false, true} {
 		name := "http"
 		if tls {
 			name = "https"
 		}
 		t.Run(name, func(t *testing.T) {
-			cfg, wantState, wantTx := repairM1105Config(t)
+			cfg, wantState, wantTx := inspectorLifecycleConfig(t)
 			listener, err := net.Listen("tcp", "127.0.0.1:0")
 			require.NoError(t, err)
 			t.Cleanup(func() { require.NoError(t, listener.Close()) })
@@ -72,13 +72,13 @@ func TestRepairM_1105_OccupiedListenAddress(t *testing.T) {
 			require.NoError(t, ctx.Err(), "Run must not cancel its caller")
 			require.False(t, ins.eventBus.IsRunning())
 			require.False(t, ins.indexerService.IsRunning())
-			repairM1105Reopen(t, cfg, wantState, wantTx)
+			inspectorLifecycleReopen(t, cfg, wantState, wantTx)
 		})
 	}
 }
 
-func TestRepairM_1105_DocumentedExamples(t *testing.T) {
-	file, err := parser.ParseFile(token.NewFileSet(), "doc.go", repairM1105Documentation, parser.ParseComments)
+func TestInspectorLifecycleDocumentedExamples(t *testing.T) {
+	file, err := parser.ParseFile(token.NewFileSet(), "doc.go", inspectorLifecycleDocumentation, parser.ParseComments)
 	require.NoError(t, err)
 	require.NotNil(t, file.Doc)
 	var commentParser comment.Parser
@@ -105,7 +105,7 @@ func TestRepairM_1105_DocumentedExamples(t *testing.T) {
 
 	// Exercise the documented full-config constructor, asynchronous Run, returned
 	// error and cancellation with real disk stores and a loopback listener.
-	cfg, wantState, wantTx := repairM1105Config(t)
+	cfg, wantState, wantTx := inspectorLifecycleConfig(t)
 	cfg.RPC.ListenAddress = "tcp://127.0.0.1:0"
 	ins, err := NewFromConfig(cfg)
 	require.NoError(t, err)
@@ -138,13 +138,13 @@ func TestRepairM_1105_DocumentedExamples(t *testing.T) {
 	}
 	require.False(t, ins.eventBus.IsRunning())
 	require.False(t, ins.indexerService.IsRunning())
-	repairM1105Reopen(t, cfg, wantState, wantTx)
+	inspectorLifecycleReopen(t, cfg, wantState, wantTx)
 }
 
-func TestRepairM_1105_ConstructorFailureClosesDatabases(t *testing.T) {
+func TestInspectorLifecycleConstructorFailureClosesDatabases(t *testing.T) {
 	for _, stage := range []string{"state", "genesis", "sink"} {
 		t.Run(stage, func(t *testing.T) {
-			cfg, wantState, wantTx := repairM1105Config(t)
+			cfg, wantState, wantTx := inspectorLifecycleConfig(t)
 			var locked dbm.DB
 			switch stage {
 			case "state":
@@ -165,13 +165,13 @@ func TestRepairM_1105_ConstructorFailureClosesDatabases(t *testing.T) {
 			if stage == "genesis" {
 				require.ErrorIs(t, err, os.ErrNotExist)
 			}
-			repairM1105Reopen(t, cfg, wantState, wantTx)
+			inspectorLifecycleReopen(t, cfg, wantState, wantTx)
 		})
 	}
 }
 
-func TestRepairM_1105_CallerRetainsStoreOwnership(t *testing.T) {
-	nodeConfig, _, _ := repairM1105Config(t)
+func TestInspectorLifecycleCallerRetainsStoreOwnership(t *testing.T) {
+	nodeConfig, _, _ := inspectorLifecycleConfig(t)
 	stateDB, err := config.DefaultDBProvider(&config.DBContext{ID: "state", Config: nodeConfig})
 	require.NoError(t, err)
 	blockDB, err := config.DefaultDBProvider(&config.DBContext{ID: "blockstore", Config: nodeConfig})
@@ -204,7 +204,7 @@ func TestRepairM_1105_CallerRetainsStoreOwnership(t *testing.T) {
 	}
 }
 
-func repairM1105Config(t *testing.T) (*config.Config, state.State, *abcitypes.TxResultV2) {
+func inspectorLifecycleConfig(t *testing.T) (*config.Config, state.State, *abcitypes.TxResultV2) {
 	t.Helper()
 	cfg := config.DefaultConfig().SetRoot(t.TempDir())
 	cfg.DBBackend = "goleveldb"
@@ -236,7 +236,7 @@ func repairM1105Config(t *testing.T) (*config.Config, state.State, *abcitypes.Tx
 	return cfg, wantState, tx
 }
 
-func repairM1105Reopen(t *testing.T, cfg *config.Config, wantState state.State, wantTx *abcitypes.TxResultV2) {
+func inspectorLifecycleReopen(t *testing.T, cfg *config.Config, wantState state.State, wantTx *abcitypes.TxResultV2) {
 	t.Helper()
 	// Reopening the real on-disk databases proves that no owner retains a lock.
 	for _, id := range []string{"blockstore", "state", "tx_index"} {

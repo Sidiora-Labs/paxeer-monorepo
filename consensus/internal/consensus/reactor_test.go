@@ -499,5 +499,5 @@ func TestReactorValidatorSetChanges(t *testing.T) {
 }
 
 func TestReactorMemoryLimitCoverage(t *testing.T) {
-	testRepairM1082MemoryLimit(t)
+	testConsensusNetworkMemoryLimit(t)
 }

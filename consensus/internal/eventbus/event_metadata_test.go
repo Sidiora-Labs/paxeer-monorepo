@@ -16,7 +16,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 )
 
-func TestRepairM_1115_ReservedKeys(t *testing.T) {
+func TestEventMetadataReservedKeys(t *testing.T) {
 	data := executeEventBusApplicationTx(t,
 		abci.Event{Type: "tm", Attributes: []abci.EventAttribute{
 			{Key: []byte("event"), Value: []byte("NewBlock"), Index: true},
@@ -91,7 +91,7 @@ func TestRepairM_1115_ReservedKeys(t *testing.T) {
 	for _, event := range backing[len(data.Result.Events):] {
 		require.Equal(t, abci.Event{Type: "untouched"}, event)
 	}
-	values := repairM1115EventValues(message.Events())
+	values := eventMetadataEventValues(message.Events())
 	require.Equal(t, []string{types.EventTxValue}, values[types.EventTypeKey])
 	require.Equal(t, []string{fmt.Sprintf("%X", types.Tx(data.Tx).Hash())}, values[types.TxHashKey])
 	require.Equal(t, []string{"1"}, values[types.TxHeightKey])
@@ -105,7 +105,7 @@ func TestRepairM_1115_ReservedKeys(t *testing.T) {
 	}
 }
 
-func TestRepairM_1115_DuplicateApplicationKeys(t *testing.T) {
+func TestEventMetadataDuplicateApplicationKeys(t *testing.T) {
 	transfers := []abci.Event{
 		{Type: "transfer", Attributes: []abci.EventAttribute{
 			{Key: []byte("sender"), Value: []byte("foo"), Index: true},
@@ -157,7 +157,7 @@ func TestRepairM_1115_DuplicateApplicationKeys(t *testing.T) {
 		require.NoError(t, err, queries[i])
 		require.Equal(t, data, message.Data())
 		require.Equal(t, transfers, message.Events()[1:1+len(transfers)])
-		values := repairM1115EventValues(message.Events())
+		values := eventMetadataEventValues(message.Events())
 		require.Equal(t, []string{"foo", "foo", "baz"}, values["transfer.sender"])
 		require.Equal(t, []string{"bar", "cat"}, values["transfer.recipient"])
 		require.Equal(t, []string{"5", "13"}, values["transfer.amount"])
@@ -170,7 +170,7 @@ func TestRepairM_1115_DuplicateApplicationKeys(t *testing.T) {
 	require.ErrorIs(t, err, tmpubsub.ErrTerminated)
 }
 
-func repairM1115EventValues(events []abci.Event) map[string][]string {
+func eventMetadataEventValues(events []abci.Event) map[string][]string {
 	values := make(map[string][]string)
 	for _, event := range events {
 		for _, attr := range event.Attributes {
