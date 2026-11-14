@@ -241676,7 +241676,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.558]
 title = "Keep the full node of the local node script on request and compare it with the sequencing node"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
