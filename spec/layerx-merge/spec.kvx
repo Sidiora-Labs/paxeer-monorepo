@@ -374578,7 +374578,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.327]
 title = "Bring the pages of the chain directories to the kernel sentence in every wording"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374638,7 +374638,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.325]
 title = "Bring the contract pages to the kernel sentence in every wording"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -375299,7 +375299,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.295]
 title = "Bring the network page, the overview page and the page of the programs to the kernel sentence, with the tests that read them"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
