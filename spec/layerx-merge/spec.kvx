@@ -170784,7 +170784,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.321]
 title = "Bring four page descriptions of the documentation site to the recommended length"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
