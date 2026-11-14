@@ -5,9 +5,10 @@ order: 1
 # Concepts
 
 The `x/upgrade` module schedules application upgrades for the single Paxeer
-network running `paxd`. The kernel participates in that network and proposes
-blocks. Upgrade handlers migrate the chain's application state at a block
-boundary; receipts become final when their blocks are committed.
+network running `paxd`. The LayerX kernel inside `paxd` executes and orders each
+transaction and builds each block; validators check and commit it. Upgrade
+handlers migrate the chain's application state at a block boundary; receipts
+become final when validators commit their blocks.
 
 ## Plan
 
