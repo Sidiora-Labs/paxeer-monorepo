@@ -197919,7 +197919,7 @@ do_4 = "do_4 Gotcha 4294, decision 3377. The task no longer requires task 22.38.
 
 [task.22.38.37]
 title = "Prove that a canary failure slashes the faulty peer bond"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["22.38.28", "22.38.7", "22.31.620", "22.39.370", "22.39.388", "22.39.513"]
@@ -206492,7 +206492,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.526]
 title = "Bring the tests of the member layerx-types of the agent workspace to pass"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.498"]
@@ -328553,7 +328553,7 @@ do_5 = "do_5 Decision 3516, gotcha 4430. The build now downloads the modules of 
 
 [task.22.39.534]
 title = "Let the rules for the linter of repeated literals cover package directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
