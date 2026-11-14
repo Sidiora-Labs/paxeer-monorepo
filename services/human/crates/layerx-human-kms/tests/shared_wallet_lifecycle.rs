@@ -876,6 +876,7 @@ fn publish_export_without_reply(
         tls.flush()?;
         // The metadata operation is a barrier for durable publication, independent of reply delivery.
         let mut deadline = Deadline::start(host.cluster.clock.as_ref(), Duration::from_secs(15))?;
+        let mut poll_delay = Duration::from_millis(10);
         loop {
             if remote.evm_operation(6, binding, description.reference(), &[])
                 == Err(KmsError::SelfCustodied)
@@ -885,7 +886,8 @@ fn publish_export_without_reply(
             if deadline.remaining(host.cluster.clock.as_ref())?.is_zero() {
                 return Err("export publication deadline".into());
             }
-            std::thread::sleep(Duration::from_millis(10));
+            std::thread::sleep(poll_delay);
+            poll_delay = poll_delay.saturating_mul(2).min(Duration::from_millis(200));
         }
         drop(tls);
     }
