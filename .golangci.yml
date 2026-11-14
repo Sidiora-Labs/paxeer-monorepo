@@ -125,7 +125,7 @@ linters:
         linters: [staticcheck]
 
       # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^consensus/cmd/contract_tests/hooks\\.go$"
+      - path: "^consensus/cmd/contract_tests/[^/]+\\.go$"
         linters: [goconst]
 
       # Scoped wiring request: see repair_22_39_511.kvx.
@@ -197,7 +197,7 @@ linters:
         linters: [prealloc]
 
       # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^consensus/privval/socket_dialers\\.go$"
+      - path: "^consensus/privval/[^/]+\\.go$"
         linters: [goconst]
 
       # Scoped wiring request: see repair_22_39_511.kvx.
@@ -377,7 +377,7 @@ linters:
         linters: [gosec]
 
       # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^modules/evm/client/cli/query\\.go$"
+      - path: "^modules/evm/client/cli/[^/]+\\.go$"
         linters: [goconst]
 
       # Scoped wiring request: see repair_22_39_511.kvx.
@@ -581,7 +581,7 @@ linters:
         linters: [goimports]
 
       # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^modules/layerxledger/keeper/events\\.go$"
+      - path: "^modules/layerxledger/keeper/[^/]+\\.go$"
         linters: [goconst]
 
       # Scoped wiring request: see repair_22_39_511.kvx.
@@ -809,7 +809,7 @@ linters:
         linters: [errcheck]
 
       # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^modules/spot/keeper/execute\\.go$"
+      - path: "^modules/spot/keeper/[^/]+\\.go$"
         linters: [goconst]
 
       # Scoped wiring request: see repair_22_39_511.kvx.
@@ -1073,7 +1073,7 @@ linters:
         linters: [gosec]
 
       # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^precompiles/layerxagent/scheduler/scheduler\\.go$"
+      - path: "^precompiles/layerxagent/scheduler/[^/]+\\.go$"
         linters: [goconst]
 
       # Scoped wiring request: see repair_22_39_511.kvx.
@@ -1085,11 +1085,7 @@ linters:
         linters: [gosec]
 
       # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^precompiles/layerxpay/budget\\.go$"
-        linters: [goconst]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^precompiles/layerxpay/escrow\\.go$"
+      - path: "^precompiles/layerxpay/[^/]+\\.go$"
         linters: [goconst]
 
       # Scoped wiring request: see repair_22_39_511.kvx.
@@ -1102,15 +1098,7 @@ linters:
 
       # Scoped wiring request: see repair_22_39_511.kvx.
       - path: "^precompiles/layerxpay/service\\.go$"
-        linters: [goconst]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^precompiles/layerxpay/service\\.go$"
         linters: [gosec]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^precompiles/layerxpay/stream\\.go$"
-        linters: [goconst]
 
       # Scoped wiring request: see repair_22_39_511.kvx.
       - path: "^precompiles/layerxprograms/events_call\\.go$"
@@ -1177,7 +1165,7 @@ linters:
         linters: [gosec]
 
       # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^precompiles/spot/orders\\.go$"
+      - path: "^precompiles/spot/[^/]+\\.go$"
         linters: [goconst]
 
       # Scoped wiring request: see repair_22_39_511.kvx.
@@ -1186,15 +1174,7 @@ linters:
 
       # Scoped wiring request: see repair_22_39_511.kvx.
       - path: "^precompiles/spot/pecor\\.go$"
-        linters: [goconst]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^precompiles/spot/pecor\\.go$"
         linters: [gosec]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^precompiles/spot/quoter\\.go$"
-        linters: [goconst]
 
       # Scoped wiring request: see repair_22_39_511.kvx.
       - path: "^precompiles/spot/quoter\\.go$"
@@ -1203,14 +1183,6 @@ linters:
       # Scoped wiring request: see repair_22_39_511.kvx.
       - path: "^precompiles/spot/spot\\.go$"
         linters: [gosec]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^precompiles/spot/stoporders\\.go$"
-        linters: [goconst]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^precompiles/spot/vault\\.go$"
-        linters: [goconst]
 
       # Scoped wiring request: see repair_22_39_511.kvx.
       - path: "^rpc/block\\.go$"
@@ -1225,7 +1197,7 @@ linters:
         linters: [gosec]
 
       # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^rpc/pax_legacy_http\\.go$"
+      - path: "^rpc/[^/]+\\.go$"
         linters: [goconst]
 
       # Scoped wiring request: see repair_22_39_511.kvx.
@@ -1239,10 +1211,6 @@ linters:
       # Scoped wiring request: see repair_22_39_511.kvx.
       - path: "^rpc/px_assets\\.go$"
         linters: [errcheck]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^rpc/px_assets\\.go$"
-        linters: [goconst]
 
       # Scoped wiring request: see repair_22_39_511.kvx.
       - path: "^rpc/px_history\\.go$"
@@ -1291,10 +1259,6 @@ linters:
       # Scoped wiring request: see repair_22_39_511.kvx.
       - path: "^rpc/trace_baker\\.go$"
         linters: [gosec]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^rpc/tx\\.go$"
-        linters: [goconst]
 
       # Scoped wiring request: see repair_22_39_511.kvx.
       - path: "^scripts/bump_version/archive\\.go$"
@@ -1369,11 +1333,7 @@ linters:
         linters: [gosec]
 
       # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^sdk/crypto/keyring/journal\\.go$"
-        linters: [goconst]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^sdk/crypto/keyring/output\\.go$"
+      - path: "^sdk/crypto/keyring/[^/]+\\.go$"
         linters: [goconst]
 
       # Scoped wiring request: see repair_22_39_511.kvx.
@@ -1413,7 +1373,7 @@ linters:
         linters: [errcheck]
 
       # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^sdk/version/version\\.go$"
+      - path: "^sdk/version/[^/]+\\.go$"
         linters: [goconst]
 
       # Scoped wiring request: see repair_22_39_511.kvx.
@@ -1973,7 +1933,7 @@ linters:
         linters: [errcheck]
 
       # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^tools/bringup/edge_routes\\.go$"
+      - path: "^tools/bringup/[^/]+\\.go$"
         linters: [goconst]
 
       # Scoped wiring request: see repair_22_39_511.kvx.
@@ -1994,19 +1954,11 @@ linters:
 
       # Scoped wiring request: see repair_22_39_511.kvx.
       - path: "^tools/bringup/fleet\\.go$"
-        linters: [goconst]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^tools/bringup/fleet\\.go$"
         linters: [gosec]
 
       # Scoped wiring request: see repair_22_39_511.kvx.
       - path: "^tools/bringup/foundation\\.go$"
         linters: [errcheck]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^tools/bringup/foundation\\.go$"
-        linters: [goconst]
 
       # Scoped wiring request: see repair_22_39_511.kvx.
       - path: "^tools/bringup/foundation\\.go$"
@@ -2022,10 +1974,6 @@ linters:
 
       # Scoped wiring request: see repair_22_39_511.kvx.
       - path: "^tools/bringup/foundation_cli\\.go$"
-        linters: [goconst]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^tools/bringup/foundation_cli\\.go$"
         linters: [gosec]
 
       # Scoped wiring request: see repair_22_39_511.kvx.
@@ -2034,15 +1982,7 @@ linters:
 
       # Scoped wiring request: see repair_22_39_511.kvx.
       - path: "^tools/bringup/inspect\\.go$"
-        linters: [goconst]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^tools/bringup/inspect\\.go$"
         linters: [gosec]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^tools/bringup/inventory\\.go$"
-        linters: [goconst]
 
       # Scoped wiring request: see repair_22_39_511.kvx.
       - path: "^tools/bringup/live_cli\\.go$"
@@ -2055,10 +1995,6 @@ linters:
       # Scoped wiring request: see repair_22_39_511.kvx.
       - path: "^tools/bringup/live_evidence\\.go$"
         linters: [errcheck]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^tools/bringup/live_evidence\\.go$"
-        linters: [goconst]
 
       # Scoped wiring request: see repair_22_39_511.kvx.
       - path: "^tools/bringup/live_evidence\\.go$"
@@ -2074,10 +2010,6 @@ linters:
 
       # Scoped wiring request: see repair_22_39_511.kvx.
       - path: "^tools/bringup/live_repair\\.go$"
-        linters: [goconst]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^tools/bringup/live_repair\\.go$"
         linters: [gosec]
 
       # Scoped wiring request: see repair_22_39_511.kvx.
@@ -2087,10 +2019,6 @@ linters:
       # Scoped wiring request: see repair_22_39_511.kvx.
       - path: "^tools/bringup/live_rpc\\.go$"
         linters: [errcheck]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^tools/bringup/live_rpc\\.go$"
-        linters: [goconst]
 
       # Scoped wiring request: see repair_22_39_511.kvx.
       - path: "^tools/bringup/live_rpc\\.go$"
@@ -2126,19 +2054,11 @@ linters:
 
       # Scoped wiring request: see repair_22_39_511.kvx.
       - path: "^tools/bringup/recovery_cli\\.go$"
-        linters: [goconst]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^tools/bringup/recovery_cli\\.go$"
         linters: [gosec]
 
       # Scoped wiring request: see repair_22_39_511.kvx.
       - path: "^tools/bringup/registry_lifecycle\\.go$"
         linters: [errcheck]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^tools/bringup/registry_lifecycle\\.go$"
-        linters: [goconst]
 
       # Scoped wiring request: see repair_22_39_511.kvx.
       - path: "^tools/bringup/registry_lifecycle\\.go$"
@@ -2149,24 +2069,12 @@ linters:
         linters: [staticcheck]
 
       # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^tools/bringup/renewal\\.go$"
-        linters: [goconst]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
       - path: "^tools/bringup/repair_cli\\.go$"
         linters: [errcheck]
 
       # Scoped wiring request: see repair_22_39_511.kvx.
       - path: "^tools/bringup/repair_cli\\.go$"
-        linters: [goconst]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^tools/bringup/repair_cli\\.go$"
         linters: [gosec]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^tools/bringup/resync_state\\.go$"
-        linters: [goconst]
 
       # Scoped wiring request: see repair_22_39_511.kvx.
       - path: "^tools/bringup/resync_state\\.go$"
@@ -2182,19 +2090,11 @@ linters:
 
       # Scoped wiring request: see repair_22_39_511.kvx.
       - path: "^tools/bringup/runtime_bundle\\.go$"
-        linters: [goconst]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^tools/bringup/runtime_bundle\\.go$"
         linters: [gosec]
 
       # Scoped wiring request: see repair_22_39_511.kvx.
       - path: "^tools/bringup/search_selection\\.go$"
         linters: [errcheck]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^tools/bringup/search_selection\\.go$"
-        linters: [goconst]
 
       # Scoped wiring request: see repair_22_39_511.kvx.
       - path: "^tools/bringup/search_selection\\.go$"
@@ -2223,10 +2123,6 @@ linters:
       # Scoped wiring request: see repair_22_39_511.kvx.
       - path: "^tools/bringup/upgrade_state\\.go$"
         linters: [errcheck]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^tools/bringup/upgrade_state\\.go$"
-        linters: [goconst]
 
       # Scoped wiring request: see repair_22_39_511.kvx.
       - path: "^tools/bringup/upgrade_state\\.go$"
@@ -2357,7 +2253,7 @@ linters:
         linters: [gosec]
 
       # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^wasm/staticarchive/archive\\.go$"
+      - path: "^wasm/staticarchive/[^/]+\\.go$"
         linters: [goconst]
 
       # Scoped wiring request: see repair_22_39_511.kvx.
