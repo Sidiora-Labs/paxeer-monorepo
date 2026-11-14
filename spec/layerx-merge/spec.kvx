@@ -14194,6 +14194,42 @@ value = "A rule of .golangci.yml that takes the linter goconst off code names th
 basis = "Gotcha 4426, decisions 3497 and 3508."
 affects = ["22.39.518"]
 
+[decision.3514]
+title = "The lint target of the node is made of step targets and its vet step reads a scope variable"
+value = "In chain.mk the target lint runs four step targets in the present order: lint-run for the lint program, lint-format for the format step, lint-vet for the vet step and lint-mod for the two module steps. Each holds its present commands unchanged. The vet step reads the variable LINT_VET_SCOPE in place of the fixed package pattern, and the default of the variable is that pattern, so the target without the variable runs what it ran before. Task 22.39.516 is counted on the steps run one after another, the vet step once for each top directory of the root module, with the build cache emptied between two parts where little room is left. Task 22.39.516 waits for task 22.39.535."
+basis = "Gotchas 4427 and 4428, decisions 3497, 3506 and 3511."
+affects = ["22.39.516"]
+
+[decision.3515]
+title = "The wallet bank transfer of the human service goes through the native pointer of the denomination"
+value = "The wallet bank transfer of the human service is one call of transfer with recipient and amount to the ERC-20 native pointer of the denomination, signed by the wallet at the pending nonce. The pointer moves the amount through the bank precompile, which serves its send to that pointer only. The service takes the pointer of a denomination from the pointer view of the chain and refuses a request that names another address, the zero address or the bank precompile. The asset of a request stays bound to the denomination by its digest. The route resolver, the production path of the server and the evidence of the bank journey follow this one form. Task 22.39.523 brings source and tests of the human service to it; the tests of the service that state the route follow, also outside the four test files of the task."
+basis = "Gotcha 4429, requirement 10051, decisions 3505 and 3509."
+affects = ["22.39.523"]
+
+[decision.3516]
+title = "The build of a task that vets with the module proxy off downloads the modules of the root module first"
+value = "Where the verification of a task runs go vet with the module proxy off, its build starts with go mod download in the root module. The build of task 22.39.535 takes this form; its verification stays as it is."
+basis = "Gotcha 4430, decision 3514."
+affects = ["22.39.535"]
+
+[decision.3517]
+title = "A change under a source or generator directory of the SDK pipeline carries its generation"
+value = "A task that changes a file under a source directory, a generator directory or a generated file named in sdk/platform/pipeline.kvx runs make platform-sdk-generate and commits the changed metadata with its change, and the check target platform-sdk-check passes at its revision. Task 22.39.536 does this for the texts of the schema of the human service and of the compatibility page of the agent kits."
+basis = "Gotcha 4431, decision 3496."
+affects = []
+
+[decision.3518]
+title = "The test files of the root module pass the vet step before the lint target is counted"
+value = "A helper of a test file does not take the name of a declaration of its package. A test case that needs a spec path other than the present one declares that path where the case reads it, or the package declares it where its source uses it. Task 22.39.537 does the first for the auth package of the perps data service and task 22.39.538 the second for the reference declarations of the launchpad tool. The vet step of task 22.39.516 passes over both directories once the two tasks are on main."
+basis = "Gotchas 4432 and 4433, decision 3514."
+affects = []
+
+[decision.3519]
+title = "A change of a bound producer of the resolver fixture carries the review and the binding"
+value = "A task that changes a file named in tools/pnsdns/testdata/names_sources.json runs the Solidity test testResolverLayoutVectorIsCurrent under the names profile of the root Forge project and, where the vector is current, writes the present digest of the file into the bindings in the same commit. Task 22.39.539 does this for the present foundry.toml."
+basis = "Gotcha 4434, decision 3517."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -43854,6 +43890,51 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.539]
+title = "Bind the resolver fixture of the names DNS tool to the present root Forge configuration"
+reqs = ["22998.1"]
+touches = ["tools/pnsdns/testdata/names_sources.json"]
+tests = []
+verification_contract = "test -s tools/pnsdns/repair_22_39_539.kvx && FOUNDRY_PROFILE=names forge test --root . --match-test testResolverLayoutVectorIsCurrent && CGO_ENABLED=1 go test -count=1 -run TestPnsDns ./tools/pnsdns/"
+do_1 = "do_1 Gotcha 4434, decision 3519. Read loadResolverContracts in tools/pnsdns/transport_contract_test.go and the bindings in tools/pnsdns/testdata/names_sources.json. Compare each bound digest with the file in the tree; only foundry.toml differs. Read the changes of foundry.toml since the bindings were written with git log and say in the record whether one of them reaches the names profile or the compiler settings it inherits."
+symbols = []
+
+[capability.22.39.538]
+title = "Bring the reference declaration test of the launchpad tool and its package to one spec path form"
+reqs = ["22998.1"]
+touches = ["tools/launchpad/production/feature-acceptance"]
+tests = []
+verification_contract = "test -s tools/launchpad/production/feature-acceptance/repair_22_39_538.kvx && make -s paxd-native-libs && CGO_ENABLED=1 GOPROXY=off go vet ./tools/launchpad/... && CGO_ENABLED=1 go test -count=1 -run NoCaseByThisName ./tools/launchpad/production/feature-acceptance/"
+do_1 = "do_1 Gotcha 4433, decision 3518. Read tools/launchpad/production/feature-acceptance/references.go, the case of tools/launchpad/production/feature-acceptance/reference_declarations_test.go that names the constant RetiredSpecPath, and the history of both files with git log, to see which path the case meant and when the package stopped declaring the constant."
+symbols = []
+
+[capability.22.39.537]
+title = "Give the challenge helper of the auth tests of the perps data service a name of its own"
+reqs = ["22998.1"]
+touches = ["services/platform/perps-data/internal/auth"]
+tests = []
+verification_contract = "test -s services/platform/perps-data/internal/auth/repair_22_39_537.kvx && make -s paxd-native-libs && CGO_ENABLED=1 GOPROXY=off go vet ./services/platform/perps-data/... && CGO_ENABLED=1 go test -count=1 ./services/platform/perps-data/internal/auth/"
+do_1 = "do_1 Gotcha 4432, decision 3518. Read the type challengeRequest in services/platform/perps-data/internal/auth/auth.go and the helper function of the same name in services/platform/perps-data/internal/auth/challenge_lifecycle_test.go with every call of it in the test files of the package."
+symbols = []
+
+[capability.22.39.536]
+title = "Bring the metadata of the SDK pipeline to the present texts of its sources and generators"
+reqs = ["22998.1"]
+touches = ["sdk/platform/pipeline.kvx"]
+tests = []
+verification_contract = "test -s sdk/platform/repair_22_39_536.kvx && make -s platform-sdk-check"
+do_1 = "do_1 Gotcha 4431, decision 3517. From the repository root run make -s platform-sdk-check and read which source or generator it names. Then run make -s platform-sdk-generate."
+symbols = []
+
+[capability.22.39.535]
+title = "Let the served test of the pay precompile read the escrow view in its present form"
+reqs = ["22998.1"]
+touches = ["precompiles/layerxpay/served/served_test.go"]
+tests = []
+verification_contract = "test -s precompiles/layerxpay/served/repair_22_39_535.kvx && make -s paxd-native-libs && CGO_ENABLED=1 GOPROXY=off go vet ./precompiles/layerxpay/... && CGO_ENABLED=1 go test -count=1 ./precompiles/layerxpay/served/"
+do_1 = "do_1 Gotcha 4427. Read the view GetEscrow in modules/layerxpay/keeper/escrow_views.go and the two calls of it in precompiles/layerxpay/served/served_test.go. The view returns the record, a found flag and an error."
+symbols = []
 
 [capability.22.39.534]
 title = "Let the rules for the linter of repeated literals cover package directories"
@@ -195978,6 +196059,7 @@ time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "do_6 Decision 3515, gotcha 4429. Read pointerSend in precompiles/bank/bank.go and the pointer view the test file move_money_bank_send reads on its node. Bring the bank route of the route resolver and the production path of the server under services/human/crates/layerx-human-service/src to the form of decision 3515: the call goes to the native pointer of the denomination with the transfer of the pointer, and the pointer is taken from the pointer view of the chain where the service reads the chain. Keep the binding of asset to denomination and every check on nonce, fee and signer. Bring the evidence of the bank journey and its recording in line with what a node returns for that call. Then bring the tests of the service that state the route to the same form, also outside the four test files of this task, among them send_routes and the unit tests beside the changed source. Change no file outside services/human. Name the route in the record."
 
 [task.22.39.522]
 title = "Bring the agent control and journey tests of the human service member to pass"
@@ -197852,7 +197934,7 @@ do_4 = "do_4 Gotcha 4294, decision 3377. The task no longer requires task 22.38.
 
 [task.22.38.37]
 title = "Prove that a canary failure slashes the faulty peer bond"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["22.38.28", "22.38.7", "22.31.620", "22.39.370", "22.39.388", "22.39.513"]
@@ -206265,7 +206347,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.531]
 title = "Bring the tests of the member layerx-mcp of the agent workspace to pass"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.498"]
@@ -206393,7 +206475,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.527]
 title = "Bring the tests of the member layerx-wire of the agent workspace to pass"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.498"]
@@ -206425,7 +206507,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.526]
 title = "Bring the tests of the member layerx-types of the agent workspace to pass"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.498"]
@@ -304467,6 +304549,38 @@ do_13 = "Decision 2117: delete the faucet.claim entry (the O28 group, sdk/platfo
 do_14 = "Decision 2118: this task requires 8.46.9, which first returns sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedContract.java to the generator's shape and moves the JVM verification enum to decision 2115. After do_10, run --write (do_1) and accept GeneratedContract.java and sdk/platform/conformance/jvm.kvx exactly as rendered; if the rendered GeneratedContract.java still differs from the 8.46.9 result, the difference is the generator's and the mvn test of the verify proves it compiles. Run the build and the verify once on the final revision."
 do_15 = "Decision 2127: continue from attempt 6 (a82f26174). In sdk/platform/go/cmd/conformance/main.go delete the PerLeg field of operationDescriptor (:25) and the `strings.HasPrefix(metadata.Method, 'eth_')` branch at :424-428, so the request-vector comparison at :429-431 runs for every human operation (intent.plan and intent.submit have POST vectors under services/human/schema/human-api/golden); drop the strings import only if nothing else uses it. Nothing else in attempt 6 changes. Build once and verify once."
 
+[task.22.39.536]
+title = "Bring the metadata of the SDK pipeline to the present texts of its sources and generators"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.536"]
+interfaces = []
+wiring = ["wiring.J42.1"]
+do_1 = "do_1 Gotcha 4431, decision 3517. From the repository root run make -s platform-sdk-check and read which source or generator it names. Then run make -s platform-sdk-generate."
+do_2 = "do_2 Read the output of git status after the generation. The expected change is sdk/platform/pipeline.kvx alone: the digests of the directories and generated files whose text changed. Read the change of the file line by line and confirm that every changed entry belongs to a directory or file whose text differs from the last generation. Where the generation changes a file outside the paths, do not commit that file; give its path and its first changed line in the final message."
+do_3 = "do_3 Run make -s platform-sdk-check again; it passes. Record in sdk/platform/repair_22_39_536.kvx which entries of the metadata changed and why. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["sdk/platform/pipeline.kvx"]
+tests = []
+planned_paths = ["sdk/platform/repair_22_39_536.kvx"]
+build_cmd = "make -s platform-build"
+verify_cmd = "test -s sdk/platform/repair_22_39_536.kvx && make -s platform-sdk-check"
+gate_kind = "planned"
+sandbox_profile = "sdk-all"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+
 [task.22.43.229]
 title = "Move the task records and name the files after what they hold in tools/workspace"
 status = "done"
@@ -328359,9 +328473,133 @@ do_16 = "Attempt 34 re-qualified the attempt 33 files on a base with 13.27.6 and
 do_17 = "Attempt 35 (566d189c8) reverts TestProgramsSandboxExecuteEmitsUsage with LXP_FATAL_INVARIANT on a base that holds 13.27.7 (7331258b0), and the test output carries no sandbox.c invariant line although sandbox_invariant (src/modules/programs/sandbox.c:82, called at :395, :411 and :440) prints the line, site and state to stderr: run the test so the kernel's stderr reaches the output (go test -v; the precompile harness must not redirect fd 2) and include the printed site with the lease-state record in the failure message. When the site shows the precompile's request out of order or missing a step (admit host, open lease, execute, publish usage, release), fix method_sandbox_execute.go; when the kernel refuses a legal sequence, record file, line and site as a finding and stop without changing src/."
 do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection (src/protocol/lxp_kernel.c:2389-2394) refuses the sandbox escrow-charge effect that task 13.27.7 made the call emit; task 13.27.8 binds it in the kernel (decision.1898). Once 13.27.8 is on main, continue attempt 35 unchanged: one build, one verify."
 
+[task.22.39.539]
+title = "Bind the resolver fixture of the names DNS tool to the present root Forge configuration"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.539"]
+interfaces = []
+do_1 = "do_1 Gotcha 4434, decision 3519. Read loadResolverContracts in tools/pnsdns/transport_contract_test.go and the bindings in tools/pnsdns/testdata/names_sources.json. Compare each bound digest with the file in the tree; only foundry.toml differs. Read the changes of foundry.toml since the bindings were written with git log and say in the record whether one of them reaches the names profile or the compiler settings it inherits."
+do_2 = "do_2 Run the Solidity test testResolverLayoutVectorIsCurrent under the names profile from the repository root. Read the output of git status after it. Where the test passes and tests/vectors/names/resolver_layout_v1.json is unchanged, write the present digest of foundry.toml into the bindings. Where the test changes the vector or does not pass, change nothing further, commit nothing of it and give the first message and the changed paths in the final message."
+do_3 = "do_3 Run the tests of tools/pnsdns whose names begin with TestPnsDns by hand; they pass. A cause in a file outside the paths: change nothing there and give file, case and first message in the final message."
+do_4 = "do_4 Record in tools/pnsdns/repair_22_39_539.kvx the former and the present digest and the result of the review. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/pnsdns/testdata/names_sources.json"]
+tests = []
+planned_paths = ["tools/pnsdns/repair_22_39_539.kvx"]
+build_cmd = "go mod download && make -s paxd-native-libs && FOUNDRY_PROFILE=names forge build --root ."
+verify_cmd = "test -s tools/pnsdns/repair_22_39_539.kvx && FOUNDRY_PROFILE=names forge test --root . --match-test testResolverLayoutVectorIsCurrent && CGO_ENABLED=1 go test -count=1 -run TestPnsDns ./tools/pnsdns/"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.538]
+title = "Bring the reference declaration test of the launchpad tool and its package to one spec path form"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.538"]
+interfaces = []
+do_1 = "do_1 Gotcha 4433, decision 3518. Read tools/launchpad/production/feature-acceptance/references.go, the case of tools/launchpad/production/feature-acceptance/reference_declarations_test.go that names the constant RetiredSpecPath, and the history of both files with git log, to see which path the case meant and when the package stopped declaring the constant."
+do_2 = "do_2 Bring the case and the package to one form by decision 3518: where no source of the package uses the path, the test file declares it beside the case; where the source uses it, the package declares it. The case keeps asserting that a reference to a spec other than the present one is refused. Run go vet with the module proxy off over tools/launchpad by hand; it reports nothing."
+do_3 = "do_3 Run the tests of the package by hand once. Bring a case to pass where the test file is the out-of-date side. Where the cause lies in a data file or in a file outside the paths, change nothing there and give file, case and first message in the final message; write no such list into a file of the tree."
+do_4 = "do_4 Record in tools/launchpad/production/feature-acceptance/repair_22_39_538.kvx the path the case uses and where it is declared. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/launchpad/production/feature-acceptance"]
+tests = []
+planned_paths = ["tools/launchpad/production/feature-acceptance/repair_22_39_538.kvx"]
+build_cmd = "go mod download && make -s paxd-native-libs && CGO_ENABLED=1 go build ./tools/launchpad/..."
+verify_cmd = "test -s tools/launchpad/production/feature-acceptance/repair_22_39_538.kvx && make -s paxd-native-libs && CGO_ENABLED=1 GOPROXY=off go vet ./tools/launchpad/... && CGO_ENABLED=1 go test -count=1 -run NoCaseByThisName ./tools/launchpad/production/feature-acceptance/"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.537]
+title = "Give the challenge helper of the auth tests of the perps data service a name of its own"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.537"]
+interfaces = []
+do_1 = "do_1 Gotcha 4432, decision 3518. Read the type challengeRequest in services/platform/perps-data/internal/auth/auth.go and the helper function of the same name in services/platform/perps-data/internal/auth/challenge_lifecycle_test.go with every call of it in the test files of the package."
+do_2 = "do_2 Give the helper a name of its own and bring every call to it. Change nothing of what the cases assert. Run go vet with the module proxy off over services/platform/perps-data by hand; it reports nothing. Then run the tests of the package by hand and bring every case to pass by repairing the test file where it is the out-of-date side. Where the cause lies in a file outside the paths, change nothing there and give file, case and first message in the final message."
+do_3 = "do_3 Record in services/platform/perps-data/internal/auth/repair_22_39_537.kvx the former and the present name of the helper. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/perps-data/internal/auth"]
+tests = []
+planned_paths = ["services/platform/perps-data/internal/auth/repair_22_39_537.kvx"]
+build_cmd = "go mod download && make -s paxd-native-libs && CGO_ENABLED=1 go build ./services/platform/perps-data/..."
+verify_cmd = "test -s services/platform/perps-data/internal/auth/repair_22_39_537.kvx && make -s paxd-native-libs && CGO_ENABLED=1 GOPROXY=off go vet ./services/platform/perps-data/... && CGO_ENABLED=1 go test -count=1 ./services/platform/perps-data/internal/auth/"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.535]
+title = "Let the served test of the pay precompile read the escrow view in its present form"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.535"]
+interfaces = []
+do_1 = "do_1 Gotcha 4427. Read the view GetEscrow in modules/layerxpay/keeper/escrow_views.go and the two calls of it in precompiles/layerxpay/served/served_test.go. The view returns the record, a found flag and an error."
+do_2 = "do_2 Bring both calls to the present form: take the third value and require that it is no error before the found flag is read. Change nothing else of what the cases assert. Then run the package by hand. Bring every case of the package to pass by repairing the test file where it is the out-of-date side. Where the cause lies in a file outside the paths, change nothing there and give file, case and first message in the final message."
+do_3 = "do_3 Run go vet with the module proxy off by hand over each top directory of the root module other than sdk, consensus and precompiles, one directory at a time. Read the free disk space before each run and empty the Go build cache where less than 8G is free, never while a go command runs. Change nothing for a report outside the paths; give every report with file, line and message in the final message."
+do_4 = "do_4 Record in precompiles/layerxpay/served/repair_22_39_535.kvx the two calls and the form they now have. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["precompiles/layerxpay/served/served_test.go"]
+tests = []
+planned_paths = ["precompiles/layerxpay/served/repair_22_39_535.kvx"]
+build_cmd = "go mod download && make -s paxd-native-libs && CGO_ENABLED=1 go build ./precompiles/layerxpay/..."
+verify_cmd = "test -s precompiles/layerxpay/served/repair_22_39_535.kvx && make -s paxd-native-libs && CGO_ENABLED=1 GOPROXY=off go vet ./precompiles/layerxpay/... && CGO_ENABLED=1 go test -count=1 ./precompiles/layerxpay/served/"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-ledger-auth-pay"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "do_5 Decision 3516, gotcha 4430. The build now downloads the modules of the root module first. Run the vet step of the verification once by hand after the build, then the counted verification."
+
 [task.22.39.534]
 title = "Let the rules for the linter of repeated literals cover package directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -328392,7 +328630,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.519]
 title = "Repair the code behind the lint rules of the benchmark tools and the pipeline controller and remove the rules"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.517"]
@@ -328424,7 +328662,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.518]
 title = "Repair the code behind the lint rules of three small tools and the fixture program and remove the rules"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -328457,7 +328695,7 @@ do_6 = "do_6 Decision 3513, gotcha 4426. In .golangci.yml replace the seven rule
 
 [task.22.39.517]
 title = "Repair the code behind the lint rules of the services under services/platform and remove the rules"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -328492,7 +328730,7 @@ title = "Let the format step of the lint target leave out what the Makefile leav
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.39.511"]
+requires = ["22.39.511", "22.39.535"]
 reqs = ["22998.1"]
 capabilities = ["22.39.516"]
 interfaces = []
@@ -328505,7 +328743,7 @@ touches = ["chain.mk"]
 tests = []
 planned_paths = ["tools/hpx/registry/repair_22_39_516.kvx"]
 build_cmd = "make -s paxeer-tools-install && go mod download && for d in tools/hpx/registry sdk/cosmovisor sdk/ics23; do (cd $d && go mod download) || exit 1; done"
-verify_cmd = "test -s tools/hpx/registry/repair_22_39_516.kvx && git grep -q -F -e '-path ./core/deps' -- chain.mk && git grep -q -F -e '-path ./build' -- chain.mk && make -s paxeer-lint"
+verify_cmd = "test -s tools/hpx/registry/repair_22_39_516.kvx && git grep -q -F -e '-path ./core/deps' -- chain.mk && git grep -q -F -e '-path ./build' -- chain.mk && git grep -q -F 'LINT_VET_SCOPE' -- chain.mk && make -s paxeer-go-lint && make -s -f chain.mk lint-format && for d in $(go list ./... | cut -d/ -f4 | sort -u); do test $(df -BG --output=avail . | tail -1 | tr -dc 0-9) -ge 12 || go clean -cache; make -s -f chain.mk lint-vet LINT_VET_SCOPE=./$d/... || exit 1; done && make -s -f chain.mk lint-mod"
 gate_kind = "planned"
 sandbox_profile = "go-cgo"
 owner_role = "fm-cosmos-fork"
@@ -328517,6 +328755,7 @@ time_limit_minutes = 180
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "do_5 Decision 3514, gotcha 4428. In chain.mk let the target lint run four step targets in the present order, also under a parallel make: lint-run with the check for the lint program and its run, lint-format with the format step, lint-vet with the vet step and lint-mod with the two module steps. Move each command unchanged; the native archives stay a prerequisite of the steps that need them. Define the variable LINT_VET_SCOPE with the present package pattern as its default and let the vet step read it. Declare the step targets phony. The verification of this task runs the lint program through the Makefile, then the steps lint-format, lint-vet once for each top directory of the root module, and lint-mod, each through chain.mk from the repository root. Run each step target once by hand that way before the counted run, the vet step for one small directory. Name the step targets and the variable in the record."
 
 [task.22.39.515]
 title = "Let the streams of the pay module find the asset of a token without a mapping of the custody module"
@@ -375529,7 +375768,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.43.333]
 title = "Add the test that keeps the pages on the kernel sentence and run the tests that read those pages"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []

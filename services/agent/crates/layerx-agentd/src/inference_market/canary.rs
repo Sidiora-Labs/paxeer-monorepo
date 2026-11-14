@@ -671,6 +671,14 @@ fn verify_answer(plan: &CanaryPlan, answer: &CanaryAnswer) -> Result<(), CanaryE
     {
         return Err(CanaryError::Invalid("canary answer binding differs"));
     }
+    let mut context = Reader::new(&plan.answer_context);
+    context.frozen_binding()?;
+    if context.digest32()?.bytes() != plan.deal_id || context.u64()? != plan.lap_index {
+        return Err(CanaryError::Invalid("canary answer context differs"));
+    }
+    context.worker_id()?;
+    context.digest32()?;
+    context.finish()?;
     let key = plan
         .peer_key
         .ok_or(CanaryError::Invalid("missing canary peer"))?;

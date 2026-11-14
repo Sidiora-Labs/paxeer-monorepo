@@ -74,9 +74,11 @@ fn temporary_repository(name: &str) -> PathBuf {
 
 #[test]
 fn repository_corpora_are_loaded_and_fully_accounted() {
-    let Ok(corpus) = Corpus::load(&repository_root()) else {
+    let repository = temporary_repository("published");
+    let Ok(corpus) = Corpus::load(&repository) else {
         panic!("published corpora failed to load");
     };
+    assert!(fs::remove_dir_all(&repository).is_ok());
     let Ok(retired_budget_pull) = ActivityType::new(ModuleId::Budget, 11) else {
         panic!("retired budget pull activity type is unrepresentable");
     };
