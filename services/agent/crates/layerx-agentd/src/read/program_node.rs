@@ -1147,7 +1147,7 @@ mod historical_deployment_tests {
 
     fn producer_recording() -> Result<std::collections::BTreeMap<&'static str, Vec<u8>>, String> {
         let transcript = include_str!(
-            "../../../../../../programs/crates/layerx-programs-registry/src/repair_22_31_256.hex"
+            "../../../../../../programs/crates/layerx-programs-registry/src/deployment_transcripts.hex"
         );
         assert_eq!(
             hex::encode(&digest(transcript.as_bytes())),

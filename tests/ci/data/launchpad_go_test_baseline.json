@@ -44,7 +44,7 @@
   {
     "package": "github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/app",
     "test": "TestRepair_27_log_free_receipts",
-    "reason": "repair_27_test.go line 240: SDK log-free evidence/position refusal expects ErrReceiptPosition and no receipt, but the shared v2 receipt projection returns included_success, a receipt and no error.",
+    "reason": "receipt_evidence_test.go line 240: SDK log-free evidence/position refusal expects ErrReceiptPosition and no receipt, but the shared v2 receipt projection returns included_success, a receipt and no error.",
     "retiring_task": "22.39.154"
   },
   {
@@ -224,43 +224,43 @@
   {
     "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/app",
     "test": "TestRepair_29_RewardSchemaReadiness",
-    "reason": "repair_29_test.go line 151: embedded SQL startup: process=exit status 1 scanner=<nil>: Cannot find package '@electric-sql/pglite' in the existing Node fixture; dependencies are installed only in contracts/launchpad by the public job.",
+    "reason": "reward_schema_recovery_test.go line 151: embedded SQL startup: process=exit status 1 scanner=<nil>: Cannot find package '@electric-sql/pglite' in the existing Node fixture; dependencies are installed only in contracts/launchpad by the public job.",
     "retiring_task": "22.39.154"
   },
   {
     "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/app",
     "test": "TestRepair_29_RewardRequestSchemaRecovery",
-    "reason": "repair_29_test.go line 330: production contract compilation: exit status 1: Cannot find package 'solc' in the existing Node fixture; dependencies are installed only in contracts/launchpad by the public job.",
+    "reason": "reward_schema_recovery_test.go line 330: production contract compilation: exit status 1: Cannot find package 'solc' in the existing Node fixture; dependencies are installed only in contracts/launchpad by the public job.",
     "retiring_task": "22.39.154"
   },
   {
     "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/app",
     "test": "TestRepairM_917_FreshInstallMigrationContract",
-    "reason": "repair_m917_test.go line 38: reward-proof-schema: production registry admission: unapproved migration registry",
+    "reason": "migration_contract_test.go line 38: reward-proof-schema: production registry admission: unapproved migration registry",
     "retiring_task": "22.39.154"
   },
   {
     "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/app",
     "test": "TestRepairM_917_ExistingSchemaUpgradeMigrationContract",
-    "reason": "repair_m917_test.go line 41: reward-proof-schema: production registry admission: unapproved migration registry",
+    "reason": "migration_contract_test.go line 41: reward-proof-schema: production registry admission: unapproved migration registry",
     "retiring_task": "22.39.154"
   },
   {
     "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/card",
     "test": "TestRepair_45_LegacyMintRetired",
-    "reason": "repair_45_test.go line 57: retired mint status = 410, want current handler rejection 500: {\"statusCode\":410,\"error\":\"Gone\",\"message\":\"legacy card minting retired; use owner-approved /v3/me/portfolio/shares/preview and /v3/me/portfolio/shares\"}",
+    "reason": "legacy_archive_test.go line 57: retired mint status = 410, want current handler rejection 500: {\"statusCode\":410,\"error\":\"Gone\",\"message\":\"legacy card minting retired; use owner-approved /v3/me/portfolio/shares/preview and /v3/me/portfolio/shares\"}",
     "retiring_task": "22.39.154"
   },
   {
     "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/devreads",
     "test": "TestRepairM_1032_LatePoolMetadataChangesSnapshotIdentity",
-    "reason": "repair_m1032_test.go line 404: real Store.FoldTrade: inserted=false err=store: load trade journal: ERROR: query outside peer schema: SELECT id, token_address, is_buy, usdl_amount, token_amount, block_number, block_timestamp FROM pnl.user_trades WHERE user_address = '0x00000000000000000000000000000000000000a1' AND pool_address = '0x0000000000000000000000000000000000000a0a' (SQLSTATE XX000)",
+    "reason": "snapshot_consistency_test.go line 404: real Store.FoldTrade: inserted=false err=store: load trade journal: ERROR: query outside peer schema: SELECT id, token_address, is_buy, usdl_amount, token_amount, block_number, block_timestamp FROM pnl.user_trades WHERE user_address = '0x00000000000000000000000000000000000000a1' AND pool_address = '0x0000000000000000000000000000000000000a0a' (SQLSTATE XX000)",
     "retiring_task": "22.39.154"
   },
   {
     "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/devreads",
     "test": "TestRepairM_1032_ConcurrentFoldStaysWithinHistoryWatermark",
-    "reason": "repair_m1032_test.go line 459: real Store.FoldTrade: inserted=false err=store: load trade journal: ERROR: query outside peer schema: SELECT id, token_address, is_buy, usdl_amount, token_amount, block_number, block_timestamp FROM pnl.user_trades WHERE user_address = '0x00000000000000000000000000000000000000a1' AND pool_address = '0x0000000000000000000000000000000000000a0a' (SQLSTATE XX000)",
+    "reason": "snapshot_consistency_test.go line 459: real Store.FoldTrade: inserted=false err=store: load trade journal: ERROR: query outside peer schema: SELECT id, token_address, is_buy, usdl_amount, token_amount, block_number, block_timestamp FROM pnl.user_trades WHERE user_address = '0x00000000000000000000000000000000000000a1' AND pool_address = '0x0000000000000000000000000000000000000a0a' (SQLSTATE XX000)",
     "retiring_task": "22.39.154"
   },
   {
@@ -326,37 +326,37 @@
   {
     "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l16",
     "test": "TestRepair_63_MigrationFixturePaths",
-    "reason": "repair_63_test.go line 90: open /work/paxeer-monorepo/launchpad/migrations/60000.sql: no such file or directory",
+    "reason": "coordinator_replay_test.go line 90: open /work/paxeer-monorepo/launchpad/migrations/60000.sql: no such file or directory",
     "retiring_task": "22.39.154"
   },
   {
     "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l16",
     "test": "TestRepair_63_CoordinatorWalletContract",
-    "reason": "repair_63_test.go line 102: open /work/paxeer-monorepo/launchpad/migrations/60000.sql: no such file or directory",
+    "reason": "coordinator_replay_test.go line 102: open /work/paxeer-monorepo/launchpad/migrations/60000.sql: no such file or directory",
     "retiring_task": "22.39.154"
   },
   {
     "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l16",
     "test": "TestRepair_63_ActiveSnapshotUpdateGrant",
-    "reason": "repair_63_test.go line 734: open /work/paxeer-monorepo/launchpad/migrations/60000.sql: no such file or directory",
+    "reason": "coordinator_replay_test.go line 734: open /work/paxeer-monorepo/launchpad/migrations/60000.sql: no such file or directory",
     "retiring_task": "22.39.154"
   },
   {
     "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l16",
     "test": "TestRepair_63_WalletRangeSchemaMigrated",
-    "reason": "repair_63_test.go line 785: open /work/paxeer-monorepo/launchpad/migrations/60000.sql: no such file or directory",
+    "reason": "coordinator_replay_test.go line 785: open /work/paxeer-monorepo/launchpad/migrations/60000.sql: no such file or directory",
     "retiring_task": "22.39.154"
   },
   {
     "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l16",
     "test": "TestRepairM_1018_ProductionGrantRendering",
-    "reason": "repair_m1018_test.go line 118: unapproved migration registry",
+    "reason": "coordinator_runtime_test.go line 118: unapproved migration registry",
     "retiring_task": "22.39.154"
   },
   {
     "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l16",
     "test": "TestRepairM_1018_CompleteDependencyMigrations",
-    "reason": "repair_m1018_test.go line 176: unapproved migration registry",
+    "reason": "coordinator_runtime_test.go line 176: unapproved migration registry",
     "retiring_task": "22.39.154"
   },
   {
@@ -398,73 +398,73 @@
   {
     "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l18",
     "test": "TestRepair1019MixedStrategyRewards",
-    "reason": "repair_1019_test.go line 27: bootstrap registry changed; refresh its catalog transcript",
+    "reason": "reward_outbox_recovery_test.go line 27: bootstrap registry changed; refresh its catalog transcript",
     "retiring_task": "22.39.154"
   },
   {
     "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l18",
     "test": "TestRepair1019CommunityPolicyRestart",
-    "reason": "repair_1019_test.go line 99: bootstrap registry changed; refresh its catalog transcript",
+    "reason": "reward_outbox_recovery_test.go line 99: bootstrap registry changed; refresh its catalog transcript",
     "retiring_task": "22.39.154"
   },
   {
     "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l18",
     "test": "TestRepair1019OutboxRuntimeRights",
-    "reason": "repair_1019_test.go line 137: bootstrap registry changed; refresh its catalog transcript",
+    "reason": "reward_outbox_recovery_test.go line 137: bootstrap registry changed; refresh its catalog transcript",
     "retiring_task": "22.39.154"
   },
   {
     "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l18",
     "test": "TestRepair1019OutboxCrashRecovery",
-    "reason": "repair_1019_test.go line 161: bootstrap registry changed; refresh its catalog transcript",
+    "reason": "reward_outbox_recovery_test.go line 161: bootstrap registry changed; refresh its catalog transcript",
     "retiring_task": "22.39.154"
   },
   {
     "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l18",
     "test": "TestRepair_62_SchemaSequenceGrants",
-    "reason": "repair_62_test.go line 47: bootstrap registry changed; refresh its catalog transcript",
+    "reason": "rewards_history_test.go line 47: bootstrap registry changed; refresh its catalog transcript",
     "retiring_task": "22.39.154"
   },
   {
     "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l18",
     "test": "TestRepair_62_JourneyIndexerGrants",
-    "reason": "repair_62_test.go line 96: bootstrap registry changed; refresh its catalog transcript",
+    "reason": "rewards_history_test.go line 96: bootstrap registry changed; refresh its catalog transcript",
     "retiring_task": "22.39.154"
   },
   {
     "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l18",
     "test": "TestRepair_62_RewardHistoryAgeOutage",
-    "reason": "repair_62_test.go line 160: bootstrap registry changed; refresh its catalog transcript",
+    "reason": "rewards_history_test.go line 160: bootstrap registry changed; refresh its catalog transcript",
     "retiring_task": "22.39.154"
   },
   {
     "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l18",
     "test": "TestRepair_62_IndexedPagingIntegrity",
-    "reason": "repair_62_test.go line 193: bootstrap registry changed; refresh its catalog transcript",
+    "reason": "rewards_history_test.go line 193: bootstrap registry changed; refresh its catalog transcript",
     "retiring_task": "22.39.154"
   },
   {
     "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/reconcile",
     "test": "TestRepairM_1014_PoisonPrefixRecovery",
-    "reason": "repair_m1014_test.go line 682: prefix=0 err=reconcile: fold swap 0xswap-0: store: scan trade journal: number of field descriptions must equal number of destinations, got 12 and 7",
+    "reason": "cursor_recovery_test.go line 682: prefix=0 err=reconcile: fold swap 0xswap-0: store: scan trade journal: number of field descriptions must equal number of destinations, got 12 and 7",
     "retiring_task": "22.39.154"
   },
   {
     "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/reconcile",
     "test": "TestRepairM_1014_CursorFailureReplayDeduplicates",
-    "reason": "repair_m1014_test.go line 719: cursor failure=0 reconcile: fold swap 0xswap-0: store: scan trade journal: number of field descriptions must equal number of destinations, got 12 and 7",
+    "reason": "cursor_recovery_test.go line 719: cursor failure=0 reconcile: fold swap 0xswap-0: store: scan trade journal: number of field descriptions must equal number of destinations, got 12 and 7",
     "retiring_task": "22.39.154"
   },
   {
     "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/reconcile",
     "test": "TestRepairM_1014_RestartRefreshObligation",
-    "reason": "repair_m1014_test.go line 759: interrupted refresh=0 reconcile: fold swap 0xswap-0: store: scan trade journal: number of field descriptions must equal number of destinations, got 12 and 7",
+    "reason": "cursor_recovery_test.go line 759: interrupted refresh=0 reconcile: fold swap 0xswap-0: store: scan trade journal: number of field descriptions must equal number of destinations, got 12 and 7",
     "retiring_task": "22.39.154"
   },
   {
     "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/reconcile",
     "test": "TestRepairM_1014_PoisonCursorFailureRecovery",
-    "reason": "repair_m1014_test.go line 814: poison plus cursor failure=0 reconcile: fold swap 0xswap-0: store: scan trade journal: number of field descriptions must equal number of destinations, got 12 and 7",
+    "reason": "cursor_recovery_test.go line 814: poison plus cursor failure=0 reconcile: fold swap 0xswap-0: store: scan trade journal: number of field descriptions must equal number of destinations, got 12 and 7",
     "retiring_task": "22.39.154"
   }
 ]

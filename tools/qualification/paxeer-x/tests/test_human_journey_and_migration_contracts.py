@@ -542,11 +542,11 @@ def test_budget_export_replays_real_bank_abi_and_commit(tmp_path):
 
 
 def test_human_security_node_material(tmp_path):
-    producer = load('human_journey_contract_policy_producer', ROOT / 'services/platform/hosted/human/test_repair_22_31_348.py')
+    producer = load('human_journey_contract_policy_producer', ROOT / 'services/platform/hosted/human/test_owner_custody.py')
     private = tmp_path / 'policy-producer'
     private.mkdir(mode=0o700)
     with producer.merged_environment(private) as environment:
-        fixtures = ROOT / 'services/platform/hosted/node/tests/fixtures/repair_22_31_355'
+        fixtures = ROOT / 'services/platform/hosted/node/tests/fixtures/native_lifecycle'
         configuration = json.loads((fixtures / 'native_configuration.json').read_text())
         genesis = put(tmp_path / 'genesis.json', (fixtures / 'genesis.json').read_bytes())
         seed = put(tmp_path / 'receipt.seed', configuration['receipt_seed'].encode())

@@ -33,11 +33,11 @@ Paxeer X connects EVM applications with LayerX identities, payments, markets, bu
 - [Escrow and Conditional Payments](https://docs.paxeer.app/escrow/): Reserve funds, capture milestone payments, refund unused balances, and resolve disputes through native Paxeer X escrow.
 - [EVM Module](https://docs.paxeer.app/evm/): Native EVM execution, address association, receipts, pointers, and precompile integration on chain ID 125.
 - [Fees and payment costs](https://docs.paxeer.app/fees/): Understand EVM gas, canonical kernel fee schedules, program occupancy, merchant prices, and fee ceilings on Paxeer.
-- [Finality & Commitment](https://docs.paxeer.app/finality/): Follow a transaction from submission through verified execution to BFT block commitment.
+- [Finality & Commitment](https://docs.paxeer.app/finality/): Follow transactions executed and ordered by the LayerX kernel inside paxd, from signed execution receipts to blocks checked and committed by validators.
 - [Build with Foundry](https://docs.paxeer.app/foundry/): Compile and test the in-tree Solidity contracts with Forge, then inspect a Paxeer deployment with Cast.
 - [Funding and money movement](https://docs.paxeer.app/funding/): Quote and commit money movements, fund managed agents, and inspect receipt evidence on Paxeer.
 - [Governance](https://docs.paxeer.app/governance/): Authorized module proposals, scoped pauses, and constrained proxy upgrades on Paxeer.
-- [Validators and commitment](https://docs.paxeer.app/guarantors/): BFT block commitment, signed execution receipts, and independent evidence verification.
+- [Validators and commitment](https://docs.paxeer.app/guarantors/): The LayerX kernel executes and orders transactions and builds blocks; validators check and commit them. Verify execution receipts and commitment evidence.
 - [Build with Hardhat](https://docs.paxeer.app/hardhat/): Use the repository's Hardhat 2 project to compile contracts and interact with a development node.
 - [Human interface](https://docs.paxeer.app/human-interface/): Manage your Paxeer identity, balances, agents, approvals, and recovery through receipt-backed journeys.
 - [Identity, Ownership and Credentials](https://docs.paxeer.app/identity/): Connect human ownership, agent identities, hosted sessions and scoped signing authority across Paxeer X.
@@ -58,15 +58,15 @@ Paxeer X connects EVM applications with LayerX identities, payments, markets, bu
 - [Paxeer X Modules](https://docs.paxeer.app/modules/): Native execution, markets, issuance, and data modules in modules/, including retired settlement-compatibility directories.
 - [Store Module](https://docs.paxeer.app/modules/store/): A single cached-context helper in modules/store/ — not a registered chain module.
 - [Token Factory Module](https://docs.paxeer.app/modules/tokenfactory/): Creation and admin management of native token denominations with creator-namespaced denoms.
-- [Network operations](https://docs.paxeer.app/network-operations/): Operate Paxeer mainnet-beta nodes and the optional hosted services, monitor readiness, and preserve durable state.
+- [Network operations](https://docs.paxeer.app/network-operations/): Operate paxd nodes with the LayerX kernel that executes and orders transactions and builds blocks for validators to check and commit.
 - [Network Parameters](https://docs.paxeer.app/network-parameters/): Chain identity, denominations, source defaults, and governance controls for Paxeer mainnet-beta.
 - [Troubleshoot a Node](https://docs.paxeer.app/node-troubleshooting/): Diagnose Paxeer X sync stalls, peer failures, RPC errors, database locks, and AppHash mismatches before changing node state.
-- [Operators Guide](https://docs.paxeer.app/operators/): Manage Paxeer X node services, validator accounts, monitoring, and recovery.
+- [Operators Guide](https://docs.paxeer.app/operators/): Manage paxd nodes, whose LayerX kernel executes and orders transactions and builds blocks, and the validators that check and commit them.
 - [Oracles & Market Risk](https://docs.paxeer.app/oracle-risk/): Understand how Paxeer X accepts signed price observations, rejects stale or anomalous inputs, and applies market-specific risk limits.
-- [Applications. Payments. Programs. Build on Paxeer.](https://docs.paxeer.app/): Paxeer mainnet-beta runs EVM applications and the embedded LayerX kernel on one BFT network, with native payments, markets and deterministic programs.
+- [Applications. Payments. Programs. Build on Paxeer.](https://docs.paxeer.app/): The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit each block.
 - [Paid APIs and x402](https://docs.paxeer.app/paid-apis/): Use x402 version 2 offers, EVM payments, and verified receipts to release paid HTTP resources on Paxeer mainnet-beta.
 - [Design for Parallel Execution](https://docs.paxeer.app/parallelization/): Reduce shared-state contention in Paxeer contracts, preserve on-chain invariants, and measure gas separately from throughput.
-- [Paxeer X and LayerX](https://docs.paxeer.app/paxeer-vs-layerx/): One BFT network combines EVM smart contracts, autonomous agent execution, and programmable finance, with finality at block commit.
+- [Paxeer X and LayerX](https://docs.paxeer.app/paxeer-vs-layerx/): The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit each block.
 - [Your first payment](https://docs.paxeer.app/payments-quickstart/): Quote, commit, and verify a Paxeer X payment using the application SDK or a signed ledger transaction.
 - [Payments](https://docs.paxeer.app/payments/): Build transfers, paid APIs, merchant checkout, metered usage, and subscriptions on Paxeer X with explicit approval, bounded fees, and verifiable settlement.
 - [Perpetual Futures](https://docs.paxeer.app/perpetuals/): Trade long and short exposure through the native order book, USDL cross margin, governed market parameters and committed transaction receipts.
@@ -75,7 +75,7 @@ Paxeer X connects EVM applications with LayerX identities, payments, markets, bu
 - [Programs Developer Workspace](https://docs.paxeer.app/program-workspace/): Build deterministic Paxeer X programs with runtime crates, language SDKs, fixtures, policies and reproducible development workflows.
 - [Deterministic Programs](https://docs.paxeer.app/programs/): Deploy and call deterministic Paxeer X programs with scoped capabilities, metered execution, governed upgrades and verifiable outputs.
 - [Receipts & Proofs](https://docs.paxeer.app/proofs/): Verify Paxeer outcomes independently with signed receipts, native state witnesses, custody proofs, and mirror archives.
-- [Public RPC endpoints](https://docs.paxeer.app/public-rpc/): Connect wallets and applications to Paxeer mainnet-beta, EVM chain ID 125, using node JSON-RPC at the endpoint root.
+- [Public RPC endpoints](https://docs.paxeer.app/public-rpc/): The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit each block on EVM chain ID 125.
 - [Python Quickstart](https://docs.paxeer.app/python/): Connect to Paxeer with web3.py, read PAX balances and ERC-20 state, and inspect transaction receipts without a signing key.
 - [Query the EVM](https://docs.paxeer.app/querying-evm/): Read Paxeer balances, contract state, receipts, and bounded event ranges with JSON-RPC, Cast, and viem.
 - [Receipts & Proofs](https://docs.paxeer.app/receipts/): Verify what the protocol executed, what it charged, and whether the covering block has committed.
@@ -86,7 +86,7 @@ Paxeer X connects EVM applications with LayerX identities, payments, markets, bu
 - [Bounded Sandboxes](https://docs.paxeer.app/sandbox/): Lease isolated deterministic computation with explicit resource ceilings, receipt-backed lifecycle transitions, metered snapshots, and resumable execution.
 - [SDK quickstarts](https://docs.paxeer.app/sdk-quickstarts/): Register a principal, fund an account, submit a signed transaction, and verify execution evidence with the Paxeer X SDKs.
 - [Cosmos SDK Fork](https://docs.paxeer.app/sdk/): Paxeer X’s in-tree Cosmos SDK fork with Paxeer X-specific modifications and extensions.
-- [Security and trust boundaries](https://docs.paxeer.app/security/): How transaction signatures, receipt keys, committed blocks, and scoped service credentials establish trust in Paxeer X.
+- [Security and trust boundaries](https://docs.paxeer.app/security/): Verify signed execution receipts from the LayerX kernel inside paxd and the blocks it builds that validators check and commit.
 - [Sequencing & Finality](https://docs.paxeer.app/sequencing/): Follow a signed transaction through ordered execution, receipt verification, and BFT block commitment.
 - [Services and agreements](https://docs.paxeer.app/services/): Publish paid capabilities, agree on deliverables, attest execution, and resolve delivery through the Paxeer X service lifecycle.
 - [Settlement & committed evidence](https://docs.paxeer.app/settlement/): Verify signed execution, transaction inclusion, and committed block evidence on the Paxeer BFT chain.
@@ -97,7 +97,7 @@ Paxeer X connects EVM applications with LayerX identities, payments, markets, bu
 - [Streaming Payments](https://docs.paxeer.app/streams/): Pay for elapsed time or verified usage with funded, capped streams, deterministic accrual, settlement, and cancellation.
 - [Event subscriptions](https://docs.paxeer.app/subscriptions/): Build durable agent consumers with scoped visibility, acknowledged cursors, explicit gap recovery, and verified receipt references.
 - [System map](https://docs.paxeer.app/system-map/): Explore every Paxeer 7.0.0 system by kind, release change, and name, with build commands, configuration, health checks, dependencies, and documentation.
-- [Unified Network Architecture](https://docs.paxeer.app/unified-network/): How Paxeer X combines EVM and Cosmos execution with LayerX activities, identity, programs, and receipts in one BFT network.
+- [Unified Network Architecture](https://docs.paxeer.app/unified-network/): The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit each block.
 - [WASM Runtime](https://docs.paxeer.app/wasm-runtime/): Understand Paxeer’s in-tree CosmWasm virtual machine, Go and Rust boundary, native library builds, and gas accounting.
 - [WASM](https://docs.paxeer.app/wasm/): CosmWasm contract lifecycle, deployment permissions, and calls between Paxeer’s EVM and WebAssembly runtimes.
 - [WASM Bindings](https://docs.paxeer.app/wasmbinding/): Use Paxeer custom messages and queries from CosmWasm, including token creation, EVM calls, address association, and native module reads.

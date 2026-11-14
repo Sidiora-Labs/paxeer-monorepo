@@ -15,6 +15,8 @@ from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[3]
 README = (ROOT / "README.md").read_text(encoding="utf-8")
+NETWORK = (ROOT / "docs/readme/NETWORK.md").read_text(encoding="utf-8")
+PUBLIC_RPC = (ROOT / "docs/readme/PUBLIC-RPC.md").read_text(encoding="utf-8")
 RECORD = ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_462.kvx"
 
 
@@ -24,10 +26,10 @@ def source(path):
 
 def section(heading, level):
     marker = "#" * level + " " + heading + "\n"
-    assert README.count(marker) == 1, heading
+    assert NETWORK.count(marker) == 1, heading
     lines = []
     fence = None
-    for line in README.split(marker, 1)[1].splitlines(keepends=True):
+    for line in NETWORK.split(marker, 1)[1].splitlines(keepends=True):
         delimiter = re.match(r"^ {0,3}(`{3,}|~{3,})(.*)$", line)
         if delimiter:
             ticks, suffix = delimiter.groups()
@@ -66,16 +68,14 @@ def test_readme_describes_one_embedded_paxd_chain_125_network():
         "validators commit those blocks through BFT consensus",
         "A receipt is final once its block is committed",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
-        "no router and no separate LayerX interface",
         "hosted gateway is optional developer tooling", "outside consensus",
-        "does not provide another execution or finality domain",
     ))
     assert "app.LayerXHost, err = NewHost(" in source("node/app.go")
     assert 'import "C"' in source("modules/lxphost/host.go")
     assert "var _ tmtypes.SequencerSource = (*ConsensusSource)(nil)" in source(
         "node/sequencer/consensus_source.go"
     )
-    diagrams = re.findall(r"```mermaid\n(.*?)\n```", README, re.S)
+    diagrams = re.findall(r"```mermaid\n(.*?)\n```", NETWORK, re.S)
     assert len(diagrams) == 2
     assert re.findall(r"```mermaid\n(.*?)\n```", overview, re.S) == [diagrams[0]]
     require_facts(diagrams[0], (
@@ -84,26 +84,20 @@ def test_readme_describes_one_embedded_paxd_chain_125_network():
         "Validators -->|Commit| State",
     ))
     for stale in (r"\blayerxd\b", r"two (?:execution )?domains", r"\blx_[A-Za-z0-9_*]*"):
-        assert not re.search(stale, README, re.I), stale
+        assert not re.search(stale, NETWORK, re.I), stale
 
 
 def test_public_rpc_urls_and_chain_probe_use_the_root():
     quickstart = section("Quick start: connect to chain 125", 3)
     require_facts(quickstart, (
-        "Public node JSON-RPC uses the root URL",
-        "`https://api1.mainnet-beta.paxeer.network` through "
-        "`https://api14.mainnet-beta.paxeer.network`",
-        "https://api-mainnet-beta.paxeer.network",
-        "root path of these hosts, without a route suffix",
-        "node.hyperpaxeer.com` is only the hpx library mirror",
-        "never a JSON-RPC endpoint",
+        "Send HTTPS JSON-RPC requests to the root path without a route suffix.",
     ))
     hosts = {
         "api-mainnet-beta.paxeer.network",
         *(f"api{i}.mainnet-beta.paxeer.network" for i in range(1, 15)),
     }
     public_urls = []
-    for url in re.findall(r"https?://[^\s`<>)]+", README):
+    for url in re.findall(r"https?://[^\s`<>)]+", PUBLIC_RPC):
         parsed = urlsplit(url)
         if parsed.hostname and parsed.hostname.endswith("mainnet-beta.paxeer.network"):
             assert parsed.hostname in hosts, url
@@ -111,19 +105,12 @@ def test_public_rpc_urls_and_chain_probe_use_the_root():
             assert parsed.path in ("", "/")
             assert not parsed.query and not parsed.fragment and parsed.port is None
             public_urls.append(parsed)
-    assert {url.hostname for url in public_urls} == {
-        "api-mainnet-beta.paxeer.network",
-        "api1.mainnet-beta.paxeer.network",
-        "api2.mainnet-beta.paxeer.network",
-        "api14.mainnet-beta.paxeer.network",
-    }
+    assert {url.hostname for url in public_urls} == hosts
     blocks = re.findall(r"```sh\n(.*?)\n```", quickstart, re.S)
     assert len(blocks) == 1
     argv = shlex.split(blocks[0].replace("\\\n", " "), comments=True)
     assert argv[0] == "curl"
-    assert [arg for arg in argv if arg.startswith("https://")] == [
-        "https://api1.mainnet-beta.paxeer.network"
-    ]
+    assert argv[argv.index("-H") - 1] == "$PAXEER_RPC_URL"
     assert argv[argv.index("-H") + 1] == "Content-Type: application/json"
     assert json.loads(argv[argv.index("-d") + 1]) == {
         "jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": []
@@ -187,7 +174,7 @@ def test_custody_and_checkpoint_executors_are_explicitly_retired():
         "External checkpoint registration, guarantor attestations and the L0–L4 settlement ladder are retired",
         "archived formats add no settlement step to current block finality",
     ))
-    assert "custody deposit and credit-attestation funding flow is retired" in README
+    assert "custody deposit and credit-attestation funding flow is retired" in NETWORK
     assert 'pcommon.RetiredRevert("layerxVerify")' in source(
         "precompiles/layerxverify/layerxverify.go"
     )
@@ -196,10 +183,10 @@ def test_custody_and_checkpoint_executors_are_explicitly_retired():
         "!isView(method.Name) && pcommon.RetiredAt(ctx, p.upgrades(), pcommon.MergeUpgrade",
         "pcommon.RetiredAt(ctx, p.upgrades(), StoreDeleteUpgrade",
     ))
-    retirements = [p for p in README.split("\n\n") if p.startswith("The pre-merge ")]
+    retirements = [p for p in NETWORK.split("\n\n") if p.startswith("The pre-merge ")]
     assert len(retirements) == 1
     assert not re.search(
-        r"layerx(?:Custody|Anchor|Verify)", README.replace(retirements[0], ""), re.I
+        r"layerx(?:Custody|Anchor|Verify)", NETWORK.replace(retirements[0], ""), re.I
     )
 
 

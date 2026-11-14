@@ -14,7 +14,13 @@ def _test_target_commands():
     makefile = (ROOT / "Makefile").read_text().replace("\\\n", " ")
     match = re.search(r"^test-tests-python:[^\n]*\n((?:\t[^\n]*\n)+)", makefile, re.M)
     assert match is not None, "test-tests-python must have an executable recipe"
-    return [shlex.split(line.strip()) for line in match[1].splitlines()]
+    commands = []
+    for line in match[1].splitlines():
+        command = shlex.split(line.strip())
+        while command and re.fullmatch(r"[A-Za-z_][A-Za-z_0-9]*=.*", command[0]):
+            command.pop(0)
+        commands.append(command)
+    return commands
 
 
 def pytest_paths():

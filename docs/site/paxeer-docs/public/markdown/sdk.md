@@ -93,6 +93,10 @@ Chain module source directories under `modules/`:
 
 - `layerxagent`, `layerxanchor`, `layerxauth`, `layerxbridge`, `layerxchains`, `layerxcustody`, `layerxexchange`, `layerxgov`, `layerxledger`, `layerxpay`
 
+- Anchor — writes retire at the v7.0 upgrade height and bonds return to their owners; archive reads remain until the separate anchor-store deletion plan.
+
+- Custody — calls retire at the v7.0 upgrade height; remaining balances move to the custody authority and pending claims are cancelled.
+
 ## BaseApp
 
 The core application framework (`baseapp/`) handles:

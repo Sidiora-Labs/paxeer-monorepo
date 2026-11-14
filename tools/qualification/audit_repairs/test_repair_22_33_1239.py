@@ -23,7 +23,7 @@ def source(path):
 
 def section(heading, level=3):
     """Extract one Markdown section, respecting fenced examples."""
-    readme = source("README.md")
+    readme = source("docs/readme/NETWORK.md")
     marker = "#" * level + " " + heading + "\n"
     assert readme.count(marker) == 1, heading
     lines = []
@@ -58,25 +58,19 @@ def test_readme_merged_paxd_execution_and_committed_finality():
         "signed execution receipt can arrive before that commitment",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
         "External checkpoint settlement is retired",
-        "no router and no separate LayerX interface",
     ))
     assert "app.LayerXHost, err = NewHost(" in source("node/app.go")
     assert 'import "C"' in source("modules/lxphost/host.go")
     assert "var _ tmtypes.SequencerSource = (*ConsensusSource)(nil)" in source(
         "node/sequencer/consensus_source.go"
     )
-    assert not re.search(r"\blayerxd\b|\bmake\s+layerxd\b", source("README.md"))
+    assert not re.search(r"\blayerxd\b|\bmake\s+layerxd\b", source("docs/readme/NETWORK.md"))
 
 
 def test_readme_root_rpc_range_and_chain_125_request():
     quickstart = section("Quick start: connect to chain 125")
     assert_facts(quickstart, (
-        "Public node JSON-RPC uses the root URL",
-        "`https://api1.mainnet-beta.paxeer.network` through "
-        "`https://api14.mainnet-beta.paxeer.network`",
-        "root path of these hosts, without a route suffix",
-        "node.hyperpaxeer.com` is only the hpx library mirror",
-        "never a JSON-RPC endpoint", "compare `eth_blockNumber`",
+        "Send HTTPS JSON-RPC requests to the root path without a route suffix.",
     ))
     blocks = re.findall(r"```sh\n(.*?)\n```", quickstart, re.S)
     assert len(blocks) == 1
@@ -87,13 +81,11 @@ def test_readme_root_rpc_range_and_chain_125_request():
         "jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": []
     }
     assert '# Expected result: "0x7d"' in blocks[0]
-    assert [arg for arg in argv if arg.startswith("https://")] == [
-        "https://api1.mainnet-beta.paxeer.network"
-    ]
+    assert argv[argv.index("-H") - 1] == "$PAXEER_RPC_URL"
     hosts = {f"api{i}.mainnet-beta.paxeer.network" for i in range(1, 15)}
     hosts.add("api-mainnet-beta.paxeer.network")
     urls = [urlsplit(url) for url in re.findall(
-        r"https?://[^\s`<>)]+", source("README.md")
+        r"https?://[^\s`<>)]+", source("docs/readme/PUBLIC-RPC.md")
     )]
     public = [url for url in urls if url.hostname and
               url.hostname.endswith("mainnet-beta.paxeer.network")]
@@ -246,7 +238,7 @@ def test_repair_record_maps_the_audit_finding_to_declared_proofs():
     }
     assert record["meta"]["task"] == "22.33.1239"
     assert record["qualification"]["verify_cmd"] == (
-        "python3 -m pytest -q tools/qualification/audit_repairs/test_readme_retired_daemon.py"
+        "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1239.py"
     )
     assert record["qualification"]["evidence_ledger"] == "/out/run/gates.jsonl"
     assert "not run" in record["baseline"]["verification"]

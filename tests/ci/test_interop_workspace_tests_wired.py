@@ -9,6 +9,7 @@ import subprocess
 import sys
 import tomllib
 
+import pytest
 import yaml
 
 import interop_workspace_test as workspace_runner
@@ -89,6 +90,7 @@ def test_interop_workspace_test_job_exists():
     assert steps.index(checkout) < steps.index(install) < steps.index(run)
 
 
+@pytest.mark.native
 def test_interop_test_target_uses_workspace():
     commands = interop_test_command()
     assert commands
@@ -119,6 +121,7 @@ def test_interop_test_target_uses_workspace():
     assert manifest["profile"]["test"]["debug"] == 0
 
 
+@pytest.mark.native
 def test_every_interop_member_covered():
     workspace_root = ROOT / "services/interop"
     workspace = tomllib.loads((ROOT / MANIFEST).read_text())["workspace"]
@@ -272,6 +275,7 @@ def cargo_test_totals(output):
     return tuple(sum(int(summary[index]) for summary in summaries) for index in range(3))
 
 
+@pytest.mark.native
 def test_interop_baseline_skips_are_scoped_to_cargo_targets(tmp_path):
     workspace = tmp_path / "workspace"
     write_cargo_file(workspace, "Cargo.toml", '''[workspace]
@@ -348,6 +352,7 @@ edition = "2021"
             assert f"retiring task {entry['retiring_task']} | {entry['first_error_line']}" in output
 
 
+@pytest.mark.native
 def test_interop_target_failure_propagates_and_continues(tmp_path):
     workspace = tmp_path / "workspace"
     write_cargo_file(workspace, "Cargo.toml", '''[package]

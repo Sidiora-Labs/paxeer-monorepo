@@ -14,9 +14,9 @@ import sys
 os.umask(0o077)
 ROOT = Path.cwd()
 OUT = Path(os.environ.get('PAXEER_X_INSTALL_ARTIFACTS',
-                          '/root/lx-ops/paxeer-x-integration-2026-10-03/task-104.17.6-artifacts'))
-CARGO = os.environ.get('PAXEER_X_CARGO', '/root/.cargo/bin/cargo')
-TARGET = Path(os.environ.get('CARGO_TARGET_DIR', '/root/lx-target/platform-cli-install'))
+                          str(ROOT / 'build/qualification/104.17.6')))
+CARGO = os.environ.get('PAXEER_X_CARGO', 'cargo')
+TARGET = Path(os.environ.get('CARGO_TARGET_DIR') or str(ROOT / 'tools/platform/target'))
 PACKAGE = 'layerx-platform-cli'
 SOURCES = (b'services/platform/', b'tools/platform/', b'services/agent/crates/', b'programs/', b'tools/paxeer-x/gates/104.17.6.sh')
 JOURNEY = ROOT / 'tools/platform/cli/tests/install-journey.sh'
@@ -81,7 +81,7 @@ def build():
     require(not git('status', '--porcelain=v1'), 'published immutable source required')
     OUT.mkdir(mode=0o700, parents=True, exist_ok=True)
     before = sources()
-    base = dict(os.environ, PATH='/root/.cargo/bin:' + os.environ.get('PATH', ''))
+    base = dict(os.environ, PATH=os.environ.get('PATH', ''))
     tests = compile_artifacts(['test', '--no-run', '--features', 'test-credential-store'], 'cargo-test-build',
                               dict(base, CARGO_TARGET_DIR=str(TARGET / 'test')))
     production = compile_artifacts(['build', '--bin', 'layerx'], 'cargo-production-build',

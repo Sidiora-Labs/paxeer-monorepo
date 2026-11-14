@@ -9,6 +9,7 @@ from urllib.parse import urlsplit
 
 
 ROOT = Path(__file__).resolve().parents[3]
+NETWORK = ROOT / "docs/readme/NETWORK.md"
 
 
 def source(path):
@@ -47,7 +48,7 @@ def shell_blocks(document):
 
 
 def test_architecture_root_introduction_and_receipt_commit_boundary():
-    introduction = section(source("README.md"), "## What is Paxeer X Network?")
+    introduction = section(source(NETWORK), "## What is Paxeer X Network?")
     assert "one BFT network" in introduction
     assert "**125** (`0x7d`)" in introduction
     assert "kernel is embedded in the node" in introduction
@@ -81,16 +82,19 @@ def test_architecture_root_introduction_and_receipt_commit_boundary():
 
 
 def test_architecture_root_component_table_links_real_runtime_boundaries():
-    introduction = section(source("README.md"), "## What is Paxeer X Network?")
+    introduction = section(source(NETWORK), "## What is Paxeer X Network?")
     components = introduction.split("The node integrates the following components:", 1)[1].split("A receipt is final", 1)[0]
     for fact in ("**Node and consensus.**", "**Kernel and programs.**", "runs inside `paxd`",
                  "build/liblayerx.a", "execution ordering and the consensus block source within the node"):
         assert fact in components
     paths = re.findall(r"\]\(([^)#]+)\)", components)
-    assert set(paths) == {"daemon/paxd/", "node/", "consensus/", "modules/", "rpc/",
-                          "modules/lxphost/", "programs/", "node/sequencer/"}
-    for path in paths:
-        assert (ROOT / path).is_dir(), path
+    resolved = {(NETWORK.parent / path).resolve() for path in paths}
+    assert resolved == {ROOT / path for path in (
+        "daemon/paxd/", "node/", "consensus/", "modules/", "rpc/",
+        "modules/lxphost/", "programs/", "node/sequencer/",
+    )}
+    for path in resolved:
+        assert path.is_dir(), path
     host = source("modules/lxphost/host.go")
     assert "//go:build cgo" in host
     ldflags = re.search(r"^#cgo LDFLAGS: (.+)$", host, re.M)
@@ -102,7 +106,7 @@ def test_architecture_root_component_table_links_real_runtime_boundaries():
 
 
 def test_architecture_root_diagram_contains_embedded_execution_and_gateway_relay():
-    architecture = section(source("README.md"), "### Integrated network topology")
+    architecture = section(source(NETWORK), "### Integrated network topology")
     diagrams = re.findall(r"^```mermaid\n(.*?)^```$", architecture, re.M | re.S)
     assert len(diagrams) == 1
     diagram = diagrams[0]
@@ -123,11 +127,11 @@ def test_architecture_root_diagram_contains_embedded_execution_and_gateway_relay
     for retired in ("layerxd", "layerxAnchor", "0x1014", "LNI", "guarantor"):
         assert retired not in diagram
     assert "outside consensus" in architecture
-    assert "does not provide another execution or finality domain" in architecture
+    assert "The public API reaches the node directly at the root path on EVM chain ID 125." in architecture
 
 
 def test_architecture_root_build_and_run_match_native_producer():
-    build = section(source("README.md"), "### Build")
+    build = section(source(NETWORK), "### Build")
     assert any("make paxd-build" in block for block in shell_blocks(build))
     prerequisites, recipe = make_rule(source("Makefile"), "paxd-build")
     assert prerequisites == ["paxd-native-libs"]
@@ -198,26 +202,24 @@ def test_architecture_root_build_and_run_match_native_producer():
 
 
 def test_architecture_root_public_rpc_example_and_hosted_contract_are_distinct():
-    documentation = section(source("README.md"), "## Documentation")
+    documentation = section(source(NETWORK), "## Documentation")
     blocks = shell_blocks(documentation)
     assert len(blocks) == 1
     command = shlex.split(blocks[0].split("# Expected result:", 1)[0].replace("\\\n", " "))
     assert command[0] == "curl"
     assert command[command.index("--max-time") + 1] == "10"
-    urls = [token for token in command if token.startswith("https://")]
-    assert urls == ["https://api1.mainnet-beta.paxeer.network"]
-    assert urlsplit(urls[0]).path == ""
+    assert command[command.index("-sS") + 1] == "$PAXEER_RPC_URL"
+    assert "Send HTTPS JSON-RPC requests to the root path without a route suffix." in documentation
     assert json.loads(command[command.index("-d") + 1]) == {
         "jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": []
     }
     assert 'Expected result: "0x7d"' in blocks[0]
-    for origin in (
-        "https://api-mainnet-beta.paxeer.network",
-        "https://api1.mainnet-beta.paxeer.network",
-        "https://api14.mainnet-beta.paxeer.network",
-    ):
-        assert origin in documentation
-        assert origin in source("docs/site/paxeer-docs/src/app/public-rpc/page.tsx")
+    references = re.findall(r"\[public RPC reference\]\(([^)]+)\)", documentation)
+    assert len(references) == 1
+    reference = (NETWORK.parent / urlsplit(references[0]).path).resolve()
+    assert reference == ROOT / "docs/site/paxeer-docs/src/app/public-rpc/page.tsx"
+    assert "HTTP JSON-RPC requests use the endpoint root." in source(reference)
+    assert "Your configured root JSON-RPC URL for reads and broadcasts." in source(reference)
     assert "`debug`, `echo`, `eth`, `net`, `pax`, `px` and `txpool`" in documentation
     assert "Method availability depends on node configuration" in documentation
     assert "Obtain its deployment URL and credentials from the operator" in documentation
@@ -232,7 +234,7 @@ def test_architecture_root_public_rpc_example_and_hosted_contract_are_distinct()
 
 
 def test_architecture_root_retired_model_is_labelled_and_never_launched():
-    readme = source("README.md")
+    readme = source(NETWORK)
     historical = section(readme, "### EVM and Native Precompiles")
     for term in ("layerxVerify", "layerxCustody", "layerxAnchor", "0x1014", "guarantor"):
         assert term in historical

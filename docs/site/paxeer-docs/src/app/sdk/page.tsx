@@ -177,6 +177,8 @@ export default function SDK() {
         <li><code>mint</code> — Token minting</li>
         <li><code>launchpad</code>, <code>spot</code>, <code>perps</code>, <code>sequencer</code>, <code>store</code>, <code>xweb</code>, <code>lxphost</code></li>
         <li><code>layerxagent</code>, <code>layerxanchor</code>, <code>layerxauth</code>, <code>layerxbridge</code>, <code>layerxchains</code>, <code>layerxcustody</code>, <code>layerxexchange</code>, <code>layerxgov</code>, <code>layerxledger</code>, <code>layerxpay</code></li>
+        <li>Anchor — writes retire at the v7.0 upgrade height and bonds return to their owners; archive reads remain until the separate anchor-store deletion plan.</li>
+        <li>Custody — calls retire at the v7.0 upgrade height; remaining balances move to the custody authority and pending claims are cancelled.</li>
       </ul>
 
       <h2>BaseApp</h2>

@@ -10,8 +10,8 @@ this fork. The filename and method anchors are retained for existing links.
 The upstream draft's wire schemas, same-block/next-block execution modes and
 vote-extension lifecycle do not define the current runtime contract.
 
-Paxeer is one BFT network run by `paxd`, with EVM chain ID **125** (`0x7d`).
-The kernel is part of that network and proposes blocks. A transaction receipt
+Paxeer uses EVM chain ID **125** (`0x7d`).
+The LayerX kernel runs inside every `paxd` node, executes each transaction when it arrives, assigns the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it. A transaction receipt
 is final when its block is committed. The methods below are internal Go calls,
 not public JSON-RPC methods. Public JSON-RPC uses the root path on the node
 hosts `api1.mainnet-beta.paxeer.network` through

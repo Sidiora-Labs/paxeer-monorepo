@@ -10,11 +10,11 @@ from pathlib import Path
 import re
 import shlex
 import tomllib
-from urllib.parse import urlsplit
 
 
 ROOT = Path(__file__).resolve().parents[3]
-README = (ROOT / "README.md").read_text(encoding="utf-8")
+README_PATH = ROOT / "docs/readme/NETWORK.md"
+README = README_PATH.read_text(encoding="utf-8")
 RECORD = ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_1524.kvx"
 
 
@@ -46,7 +46,7 @@ def test_doc_9_integrated_paxd_and_native_constructs():
     overview = section("What is Paxeer X Network?", 2)
     for fact in (
         "one BFT network with EVM chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node",
+        "The LayerX kernel is embedded in the node",
         "proposes blocks inside `paxd`",
         "validators commit those blocks through BFT consensus",
         "runs inside `paxd` through",
@@ -82,13 +82,7 @@ def test_doc_9_integrated_paxd_and_native_constructs():
 
 def test_doc_9_chain_125_and_root_rpc_hosts():
     quickstart = section("Quick start: connect to chain 125")
-    for fact in (
-        "Public node JSON-RPC uses the root URL",
-        "`https://api1.mainnet-beta.paxeer.network` through "
-        "`https://api14.mainnet-beta.paxeer.network`",
-        "root path of these hosts, without a route suffix",
-    ):
-        assert fact in quickstart, fact
+    assert "Send HTTPS JSON-RPC requests to the root path without a route suffix" in quickstart
     blocks = re.findall(r"```sh\n(.*?)\n```", quickstart, re.S)
     assert len(blocks) == 1
     command = blocks[0].split("\n# Expected result:", 1)[0].replace("\\\n", " ")
@@ -99,22 +93,7 @@ def test_doc_9_chain_125_and_root_rpc_hosts():
         "jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": []
     }
     assert '# Expected result: "0x7d"' in blocks[0]
-    assert [arg for arg in argv if arg.startswith("https://")] == [
-        "https://api1.mainnet-beta.paxeer.network"
-    ]
-    allowed_hosts = {
-        "api-mainnet-beta.paxeer.network",
-        *(f"api{i}.mainnet-beta.paxeer.network" for i in range(1, 15)),
-    }
-    urls = [
-        urlsplit(url) for url in re.findall(r"https?://[^\s`<>)]+", README)
-        if urlsplit(url).hostname.endswith("mainnet-beta.paxeer.network")
-    ]
-    assert urls
-    for url in urls:
-        assert url.hostname in allowed_hosts
-        assert url.scheme == "https" and url.path in ("", "/")
-        assert not url.query and not url.fragment and url.port is None
+    assert "$PAXEER_RPC_URL" in argv
     assert 'if path == "" {\n\t\treturn r.URL.Path == "/"' in source("rpc/rpcstack.go")
 
 

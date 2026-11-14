@@ -704,7 +704,7 @@ pub const MAX_CHUNK_BYTES: usize = 8_192;
     clippy::float_arithmetic,
     clippy::lossy_float_literal
 )]
-#[path = "../../../../../programs/crates/layerx-programs-ai-market/tests/support/repair_478_fixture.rs"]
+#[path = "../../../../../programs/crates/layerx-programs-ai-market/tests/support/fund_state_fixture.rs"]
 mod repair_478_fixture;
 
 use layerx_indexer::{

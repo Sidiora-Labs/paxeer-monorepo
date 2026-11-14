@@ -44,14 +44,16 @@ def qualification_evidence(tmp_path_factory):
     return evidence
 
 
+@pytest.mark.native
 def test_qualification_suites_pass(qualification_evidence):
     output = Path(qualification_evidence["log"]).read_text()
     assert qualification_evidence["exit"] == 0, output
     assert re.search(r"\b[1-9][0-9]* passed\b", output), output
 
 
+@pytest.mark.native
 def test_repair_record_settles_every_baseline_entry(qualification_evidence):
-    directory = ROOT / "tools/qualification"
+    directory = ROOT / "spec/layerx-merge/programme/records/tools/qualification"
     baseline = tomllib.loads((directory / "repair_22_31_621.kvx").read_text())
     record = tomllib.loads((directory / "repair_22_31_623.kvx").read_text())
     failures = baseline["failure"]
@@ -251,7 +253,7 @@ def test_qualification_modules_collect():
 
 
 def test_gateway_env_items_are_read_by_name():
-    path = ROOT / "tools/qualification/audit_repairs/test_repair_22_33_1395.py"
+    path = ROOT / "tools/qualification/audit_repairs/test_gateway_receipt_key_provisioning.py"
     spec = importlib.util.spec_from_file_location("gateway_receipt_key_audit", path)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)

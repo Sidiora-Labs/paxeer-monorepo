@@ -1,6 +1,6 @@
 # pax-load
 
-`tools/loadtest` holds the Go `paxload` generator, its workload contracts and profiles, and its tests. It signs EVM transactions, distributes them across configured node endpoints, and collects submission, receipt, and block metrics for Paxeer mainnet-beta, one BFT network with EVM chain ID **125** (`0x7d`). The kernel participates in block proposal and execution; receipts are final when their block is committed, and the tool connects to the node's root JSON-RPC surface.
+`tools/loadtest` holds the Go `paxload` generator, its workload contracts and profiles, and its tests. It signs EVM transactions, distributes them across configured node endpoints, and collects submission, receipt, and block metrics for Paxeer mainnet-beta with EVM chain ID **125** (`0x7d`). The LayerX kernel inside `paxd` executes and orders each transaction and builds each block; validators check and commit it. Receipts are final when their block is committed, and the tool connects to the node's root JSON-RPC surface.
 
 ## Layout
 

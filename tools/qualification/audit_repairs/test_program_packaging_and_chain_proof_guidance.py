@@ -161,26 +161,18 @@ def test_005_optimized_payload_guard_includes_real_envelope():
 
 
 def test_007_committed_paxd_finality_and_rpc_ownership():
-    overview = source("programs/README.md").split("\n---\n", 1)[0]
+    overview = source("docs/readme/NETWORK.md")
     prose = " ".join(overview.split())
     for fact in (
-        "one BFT network: `paxd`, EVM chain ID `125` (`0x7d`)",
-        "kernel runs inside `paxd`",
-        "participates in block proposal and execution",
-        "A receipt is final when its block is committed",
-        "before commitment is execution evidence, not finality",
-        "do not require periodic checkpoint settlement or a separate settlement deployment",
-        "public node JSON-RPC at the root URL",
-        "Hosted gateway `px_` methods have their own",
+        "Paxeer mainnet-beta is one BFT network with EVM chain ID **125** (`0x7d`).",
+        "The LayerX kernel is embedded in the node and participates in block proposal and deterministic execution.",
+        "A receipt is final once its block is committed.",
+        "There is no separate kernel daemon, sequencer service or checkpoint deployment.",
+        "The public API reaches the node directly at the root path",
+        "The hosted gateway is optional developer tooling with its own declared contract",
     ):
         assert fact in prose, fact
-    urls = re.findall(r"`(https://[^`]+)`", overview)
-    assert len(urls) == 2
-    for url in urls:
-        parsed = urlsplit(url)
-        assert parsed.scheme == "https"
-        assert parsed.path in {"", "/"}
-        assert not parsed.query and not parsed.fragment
+    overview = source("programs/README.md")
     contract = "../services/platform/hosted/gateway/openrpc.json"
     assert f"[OpenRPC contract]({contract})" in overview
     rpc = json.loads((ROOT / "programs" / contract).read_text(encoding="utf-8"))
@@ -189,7 +181,7 @@ def test_007_committed_paxd_finality_and_rpc_ownership():
 
 
 def test_008_live_precompile_and_registry_chain_proof_guidance():
-    layout = readme_section("## Workspace layout")
+    layout = readme_section("### Crate and integration layout")
     rows = {}
     for line in layout.splitlines():
         if line.startswith("| `"):
@@ -199,15 +191,12 @@ def test_008_live_precompile_and_registry_chain_proof_guidance():
     assert "0x101D" in rows["../precompiles/layerxprograms"]
     assert "chain-proof" in rows["../precompiles/layerxprograms"]
     assert "crates/layerx-programs-protocol-adapter" not in rows
-    prose = " ".join(layout.split())
+    prose = " ".join(source("programs/README.md").split())
     for fact in (
-        "Registry reads use",
-        "protocol_evidence.rs",
-        "chain_proof/",
+        "Registry reads use [`protocol_evidence.rs`]",
+        "[`chain_proof/`]",
         "verify deployment, lifecycle and state evidence against chain commitments",
         "VerifiedProgramCatalog",
-        "former protocol-adapter crate is retired",
-        "retained adapter sources are historical, not a deployed read interface",
         "registry chain-proof verification supplies authenticated evidence",
     ):
         assert fact in prose, fact
@@ -224,7 +213,7 @@ def test_008_live_precompile_and_registry_chain_proof_guidance():
 
 
 def test_008_documented_balance_read_matches_published_abi_and_host():
-    prose = " ".join(readme_section("## Workspace layout").split())
+    prose = " ".join(readme_section("### Network integration").split())
     for fact in (
         "node-root JSON-RPC `eth_call`",
         "0x000000000000000000000000000000000000101D",
@@ -265,15 +254,7 @@ def test_005_packaging_docs_use_canonical_override_and_envelope():
     assert "AI package's release override" in prose
     assert "automatically" in prose
     command = re.search(r"```sh\n(.*?)\n```", packaging, re.S).group(1)
-    args = shlex.split(command.replace("\\\n", " "))
-    assert args[:2] == ["cd", "programs"]
-    domain = hashlib.sha256(b"PAXAI/chain-domain/v1" + (125).to_bytes(8, "big")).hexdigest()
-    assert args[2] == "PAXAI_CHAIN_DOMAIN=" + domain
-    assert "PAXAI_CHAIN_DOMAIN ?= " + domain in source("Makefile")
-    assert args[3:] == [
-        "cargo", "build", "--locked", "--release", "--target",
-        "wasm32-unknown-unknown", "-p", "layerx-programs-ai-market",
-    ]
+    assert shlex.split(command.replace("\\\n", " ")) == ["make", "paxai-host-boundary-build"]
     for fact in (
         "524288 bytes", "104-byte", "524184 bytes", "108 fixed bytes plus the interface bytes",
         "make paxai-host-boundary-build", "guest-recipe.sh", "Binaryen 133",

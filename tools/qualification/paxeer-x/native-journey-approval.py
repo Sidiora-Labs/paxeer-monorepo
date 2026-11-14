@@ -75,7 +75,7 @@ def main():
         "genuine admitted kernel peer and protected fixture ownership required",
     )
     require(os.getuid() in (0, uid), "actual admitted peer unavailable")
-    target = Path(os.environ.get("CARGO_TARGET_DIR", "/root/lx-target/human"))
+    target = Path(os.environ.get("CARGO_TARGET_DIR", str(ROOT / "services/human/target")))
     binaries = [
         p
         for p in (target / "debug/deps").glob("native_journey_approval-*")

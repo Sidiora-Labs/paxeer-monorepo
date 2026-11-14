@@ -14,6 +14,9 @@ from urllib.parse import urlsplit
 
 
 ROOT = Path(__file__).resolve().parents[3]
+NETWORK = (ROOT / "docs/readme/NETWORK.md").read_text(encoding="utf-8")
+PUBLIC_RPC = (ROOT / "docs/readme/PUBLIC-RPC.md").read_text(encoding="utf-8")
+PROTOCOL = (ROOT / "docs/wiki/Protocol.md").read_text(encoding="utf-8")
 RECORD = ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_1233.kvx"
 
 
@@ -23,7 +26,7 @@ def source(path):
 
 def section(heading, level=3):
     """Extract the named Markdown section, respecting fenced examples."""
-    readme = source("README.md")
+    readme = NETWORK
     marker = "#" * level + " " + heading + "\n"
     assert readme.count(marker) == 1, heading
     lines = []
@@ -56,8 +59,9 @@ def test_finding_22_overview_is_one_embedded_paxd_bft_network():
         "A receipt is final once its block is committed",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
         "External checkpoint settlement is retired",
-        "no router and no separate LayerX interface", "outside consensus",
+        "outside consensus",
     ))
+    assert "There is no separate LayerX interface, router, or unified `/rpc` endpoint." in PROTOCOL
     assert "app.LayerXHost, err = NewHost(" in source("node/app.go")
     assert 'import "C"' in source("modules/lxphost/host.go")
     assert "var _ tmtypes.SequencerSource = (*ConsensusSource)(nil)" in source(
@@ -75,13 +79,10 @@ def test_finding_22_overview_is_one_embedded_paxd_bft_network():
 def test_finding_22_public_rpc_hosts_and_chain_probe_use_the_root():
     quickstart = section("Quick start: connect to chain 125")
     assert_facts(quickstart, (
-        "Public node JSON-RPC uses the root URL",
-        "`https://api1.mainnet-beta.paxeer.network` through "
-        "`https://api14.mainnet-beta.paxeer.network`",
-        "root path of these hosts, without a route suffix",
-        "node.hyperpaxeer.com` is only the hpx library mirror",
-        "never a JSON-RPC endpoint",
+        "Send HTTPS JSON-RPC requests to the root path without a route suffix",
     ))
+    assert "api1.mainnet-beta.paxeer.network" in PUBLIC_RPC
+    assert "api14.mainnet-beta.paxeer.network" in PUBLIC_RPC
     examples = re.findall(r"```sh\n(.*?)\n```", quickstart, re.S)
     assert len(examples) == 1
     argv = shlex.split(examples[0].replace("\\\n", " "), comments=True)
@@ -90,9 +91,7 @@ def test_finding_22_public_rpc_hosts_and_chain_probe_use_the_root():
     assert json.loads(argv[argv.index("-d") + 1]) == {
         "jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": [],
     }
-    assert [arg for arg in argv if arg.startswith("https://")] == [
-        "https://api1.mainnet-beta.paxeer.network",
-    ]
+    assert "$PAXEER_RPC_URL" in argv
     assert '# Expected result: "0x7d"' in examples[0]
     allowed = {
         "api-mainnet-beta.paxeer.network",
@@ -100,7 +99,7 @@ def test_finding_22_public_rpc_hosts_and_chain_probe_use_the_root():
     }
     urls = [
         urlsplit(url)
-        for url in re.findall(r"https?://[^\s`<>)]+", source("README.md"))
+        for url in re.findall(r"https?://[^\s`<>)]+", PUBLIC_RPC)
         if urlsplit(url).hostname in allowed
     ]
     assert {url.hostname for url in urls} >= {
@@ -183,7 +182,7 @@ def test_finding_22_build_and_upgrade_instructions_target_merged_paxd():
 
 
 def test_finding_22_retired_executors_stay_historical_and_out_of_operator_steps():
-    readme = source("README.md")
+    readme = NETWORK
     retired = [p for p in readme.split("\n\n") if p.startswith("The pre-merge ")]
     assert len(retired) == 1
     assert_facts(retired[0], (

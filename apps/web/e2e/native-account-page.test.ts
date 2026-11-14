@@ -69,7 +69,7 @@ type AccountQuery = Parameters<typeof AccountPage>[0]["searchParams"] extends Pr
 
 async function accountProducer(context: TestContext) {
   const transcript: NativeTranscript = JSON.parse(readFileSync(
-    new URL("../src/explorer/fixtures/repair-22-31-383-native-http.json", import.meta.url), "utf8",
+    new URL("../src/explorer/fixtures/account-history-http.json", import.meta.url), "utf8",
   ));
   for (const page of [transcript.firstPage, transcript.secondPage]) {
     assert.deepEqual(decodeNativeUnifiedAccount(page), page);

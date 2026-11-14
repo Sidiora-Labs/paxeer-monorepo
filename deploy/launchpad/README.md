@@ -2,9 +2,10 @@
 
 This directory holds service image builds, Railway deployment definitions,
 deployment values and production topology, bootstrap, observability and recovery
-tooling for the launchpad applications. The applications use one Paxeer
-mainnet-beta network: `paxd` includes the kernel in block execution and proposal,
-EVM chain ID is `125` (`0x7d`), and a receipt is final when its block is committed.
+tooling for the launchpad applications. The applications use Paxeer mainnet-beta with EVM chain ID `125` (`0x7d`). The
+LayerX kernel inside `paxd` executes and orders each transaction and builds each
+block; validators check and commit it. A receipt is final when its block is
+committed.
 Sub-chains are tenant domains in the database. The deployment values select node
 root JSON-RPC endpoints and public web origins; the image registry is supplied
 through `REGISTRY`.

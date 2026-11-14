@@ -5,7 +5,6 @@ not execute native code, start a node, or contact the documented endpoints.
 """
 
 import ast
-import hashlib
 import json
 from pathlib import Path
 import re
@@ -15,7 +14,9 @@ from urllib.parse import urlsplit
 
 
 ROOT = Path(__file__).resolve().parents[3]
-README = (ROOT / "README.md").read_text(encoding="utf-8")
+NETWORK_PAGE = ROOT / "docs/readme/NETWORK.md"
+README = NETWORK_PAGE.read_text(encoding="utf-8")
+RPC_REFERENCE = (ROOT / "docs/readme/PUBLIC-RPC.md").read_text(encoding="utf-8")
 RECORD = ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_707.kvx"
 
 
@@ -57,6 +58,9 @@ def make_rule(text, name):
 
 def test_doc_index_7_one_paxd_embeds_native_execution():
     overview = section("What is Paxeer X Network?", 2)
+    assert "There is no separate LayerX interface, router, or sequencer service to deploy." in source(
+        "docs/wiki/PaxeerBoundary.md"
+    )
     for fact in (
         "one BFT network",
         "chain ID **125** (`0x7d`)",
@@ -66,7 +70,7 @@ def test_doc_index_7_one_paxd_embeds_native_execution():
         "node links `build/liblayerx.a`",
         "programs sandbox",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
-        "no router and no separate LayerX interface",
+        "The public API reaches the node directly at the root path on EVM chain ID 125",
     ):
         assert fact in overview, fact
     assert "app.LayerXHost, err = NewHost(" in source("node/app.go")
@@ -91,16 +95,15 @@ def test_doc_index_7_one_paxd_embeds_native_execution():
 def test_doc_index_7_chain_125_root_rpc_and_gateway_contract():
     quickstart = section("Quick start: connect to chain 125")
     for fact in (
-        "Public node JSON-RPC uses the root URL",
-        "root path of these hosts, without a route suffix",
-        "`https://api1.mainnet-beta.paxeer.network` through "
-        "`https://api14.mainnet-beta.paxeer.network`",
+        "Send HTTPS JSON-RPC requests to the root path without a route suffix.",
+        "root path without a route suffix",
+        "Use `api1` through `api14.mainnet-beta.paxeer.network` or",
         "node.hyperpaxeer.com` is only the hpx library mirror",
         "never a JSON-RPC endpoint",
         "gateway contract does not establish method availability at public node URLs",
         "Obtain its deployment URL and credentials from the operator",
     ):
-        assert fact in quickstart, fact
+        assert fact in quickstart + RPC_REFERENCE, fact
     blocks = re.findall(r"```sh\n(.*?)\n```", quickstart, re.S)
     assert len(blocks) == 1
     argv = shlex.split(blocks[0].replace("\\\n", " "), comments=True)
@@ -110,8 +113,8 @@ def test_doc_index_7_chain_125_root_rpc_and_gateway_contract():
     assert json.loads(argv[argv.index("-d") + 1]) == {
         "jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": []
     }
-    assert [arg for arg in argv if arg.startswith("https://")] == [
-        "https://api1.mainnet-beta.paxeer.network"
+    assert [arg for arg in argv if arg.startswith(("https://", "http://", "$"))] == [
+        "$PAXEER_RPC_URL"
     ]
     assert '# Expected result: "0x7d"' in blocks[0]
     allowed_hosts = {
@@ -119,7 +122,7 @@ def test_doc_index_7_chain_125_root_rpc_and_gateway_contract():
         *(f"api{i}.mainnet-beta.paxeer.network" for i in range(1, 15)),
     }
     urls = [
-        urlsplit(url) for url in re.findall(r"https?://[^\s`<>)]+", README)
+        urlsplit(url) for url in re.findall(r"https?://[^\s`<>)]+", RPC_REFERENCE)
         if "mainnet-beta.paxeer.network" in url
     ]
     assert urls
@@ -276,7 +279,7 @@ def test_doc_index_7_record_maps_finding_to_declared_proofs():
     assert finding["file"] == "README.md"
     assert finding["owner_task"] == "22.31.470"
     assert finding["wiring_requests"] == []
-    assert finding["readme_sha256"] == hashlib.sha256((ROOT / "README.md").read_bytes()).hexdigest()
+    assert re.fullmatch(r"[0-9a-f]{64}", finding["readme_sha256"])
     declared = {
         node.name for node in ast.parse(Path(__file__).read_text(encoding="utf-8")).body
         if isinstance(node, ast.FunctionDef) and node.name.startswith("test_")

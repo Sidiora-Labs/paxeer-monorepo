@@ -45,6 +45,13 @@ def _doc_entries(page):
     return entries
 
 
+def _doc_destination(entry):
+    """Resolve repository-map paths from the vendored workspace."""
+    if entry.startswith("docs/"):
+        return (DOCS / entry.removeprefix("docs/")).resolve()
+    return (VENDOR / entry).resolve()
+
+
 @pytest.mark.parametrize("page", TRANSLATIONS, ids=lambda page: page.name)
 def test_translation_source_map_paths_exist(page):
     for entry in _source_entries(page):
@@ -57,7 +64,7 @@ def test_translation_source_map_paths_exist(page):
 @pytest.mark.parametrize("page", TRANSLATIONS, ids=lambda page: page.name)
 def test_translation_doc_map_paths_exist(page):
     for entry in _doc_entries(page):
-        destination = (page.parent / entry).resolve()
+        destination = _doc_destination(entry)
         assert destination.is_relative_to(DOCS), (page, entry, destination)
         assert destination.is_file(), (page, entry, destination)
 
@@ -65,11 +72,8 @@ def test_translation_doc_map_paths_exist(page):
 @pytest.mark.parametrize("page", TRANSLATIONS, ids=lambda page: page.name)
 def test_translations_match_english_map_entries(page):
     assert sorted(_source_entries(page)) == sorted(_source_entries(ENGLISH)), page
-    english_docs = sorted(
-        (DOCS / entry.removeprefix("docs/")).resolve()
-        for entry in _doc_entries(ENGLISH)
-    )
+    english_docs = sorted(_doc_destination(entry) for entry in _doc_entries(ENGLISH))
     translated_docs = sorted(
-        (page.parent / entry).resolve() for entry in _doc_entries(page)
+        _doc_destination(entry) for entry in _doc_entries(page)
     )
     assert translated_docs == english_docs, page

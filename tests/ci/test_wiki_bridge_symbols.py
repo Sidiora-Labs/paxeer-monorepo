@@ -10,10 +10,15 @@ BRIDGE_PAGE = ROOT / "docs/wiki/Bridge.md"
 
 def test_wiki_bridge_names_only_existing_lxp_symbols():
     text = BRIDGE_PAGE.read_text(encoding="utf-8")
-    # Source filenames are paths, not API identifiers.
-    prose = re.sub(r"\b(?:include|src)/[\w/.-]+\.[ch]\b", "", text)
+    assert (
+        "The retained library declarations in" in text
+        and "[`lxp_bridge.h`](../../include/layerx/lxp_bridge.h)" in text
+    )
+    # The current page names the declaration header rather than individual
+    # helper symbols; source paths are documentation links, not API names.
+    prose = re.sub(r"\[[^\]]+\]\([^)]+\)", "", text)
+    prose = re.sub(r"`[^`\n]+\.(?:h|c)`", "", prose)
     names = set(re.findall(r"\blxp_[A-Za-z0-9_]+\b", prose))
-    assert {"lxp_exit_eligibility", "lxp_exit_declare"} <= names
 
     headers = sorted((ROOT / "include").rglob("*.h"))
     assert headers, "Public headers must be present"

@@ -15,7 +15,7 @@ sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[3]
 TEST_SOURCES = {
     'client': ROOT / 'services/agent/crates/layerx-client/tests/committed_caps.rs',
-    'agentd': ROOT / 'services/agent/crates/layerx-agentd/tests/budget_schema.rs',
+    'agentd': ROOT / 'services/agent/crates/layerx-agentd/tests/suites/budget_schema.rs',
 }
 
 

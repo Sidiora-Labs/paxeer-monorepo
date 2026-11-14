@@ -14,7 +14,7 @@ import sys
 
 ROOT = Path.cwd()
 SRC = ROOT / 'programs/crates/layerx-programs-runtime/src'
-CARGO = os.environ.get('PROGRAMS_CARGO', '/root/.cargo/bin/cargo')
+CARGO = os.environ.get('PROGRAMS_CARGO', 'cargo')
 UNIT = {
     'budget::tests::checked_fee_ceiling_rejects_product_and_sum_overflow': 'admission fee ceiling is checked',
     'meter::declared_budget_tests::declared_ceiling_never_changes_consumed_usage_or_billed_fee': 'usage and fee are independent of the declared ceiling',
@@ -89,7 +89,7 @@ def production_path():
 
 try:
     count = production_path()
-    env = dict(os.environ, CARGO_TARGET_DIR=os.environ.get('CARGO_TARGET_DIR', '/root/lx-target/task-104.28.5'))
+    env = dict(os.environ, CARGO_TARGET_DIR=os.environ.get('CARGO_TARGET_DIR') or str(ROOT / 'programs/target'))
     base = [CARGO, 'test', '--locked', '--manifest-path', 'programs/Cargo.toml', '-p', 'layerx-programs-runtime']
     output = run(base + ['--lib', '--', 'budget::', 'meter::'], 'budget and meter unit suites', env)
     missing = sorted(name for name in UNIT if name not in passed_names(output))

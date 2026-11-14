@@ -1,6 +1,6 @@
 # Paxeer X Network for developers
 
-Paxeer X Network executes transactions in the BFT node `paxd`, with EVM chain ID 125 (`0x7d`) and the LayerX kernel integrated into execution and block proposals. A receipt is final once its block is committed. This site describes payment integrations, receipt verification and the components that enforce each capability.
+Paxeer X Network uses EVM chain ID 125 (`0x7d`). The LayerX kernel inside `paxd` executes and orders each transaction and builds each block; validators check and commit it. A receipt is final once its block is committed. This site describes payment integrations, receipt verification and the components that enforce each capability.
 
 ## Integration surfaces
 

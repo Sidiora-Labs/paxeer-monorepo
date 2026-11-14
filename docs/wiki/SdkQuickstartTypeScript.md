@@ -6,8 +6,9 @@ The package requires Node.js 22 or later. Its public exports are in
 Offline receipt verification lives in `src/verifier.ts`; the hosted
 human-plane client is `ProductionClient` in `src/production.ts`.
 
-Paxeer mainnet-beta is one BFT network. Its kernel participates in the
-network and proposes blocks; a receipt is final when its block is committed.
+Paxeer mainnet-beta uses `paxd`. The LayerX kernel inside `paxd` executes and
+orders each transaction and builds each block; validators check and commit it. A
+receipt is final when its block is committed.
 Public node JSON-RPC uses the configured node's HTTPS root, with EVM chain ID
 `125` (`0x7d`). See [Public RPC](PublicRpc.md) for node access. Hosted onboarding
 and payment APIs require an operator-provided deployment; the node origins are not hosted service origins.
