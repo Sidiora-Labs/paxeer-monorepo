@@ -16,8 +16,8 @@ use layerx_agent_api::track::{SubmissionRef, TrackRequest, TrackedSubmission};
 use layerx_agent_api::{Amount, Sequence, TimestampSeconds};
 use layerx_client::sequencer::ReceiptKeyEntry;
 use layerx_crypto::disclosure::Disclosure;
-use layerx_intents::{compile, CompileError, DisclosureCheck, DisclosureCheckError, Intent};
-use layerx_proof::receipt::{verify_outcome, AuthorizedBatch, VerificationFailure};
+use layerx_intents::{CompileError, DisclosureCheck, DisclosureCheckError, Intent, compile};
+use layerx_proof::receipt::{AuthorizedBatch, VerificationFailure, verify_outcome};
 use layerx_sdk::{Call, Client as AgentClient, SdkError, SubmissionOutcome};
 use layerx_types::payload::{ActivityType, ModuleRegistry, PayloadError};
 use layerx_types::rung::Rung;
@@ -1227,7 +1227,7 @@ impl JourneyEngine {
             JourneyPhase::AwaitingApproval => {
                 return Err(JourneyError::Corrupt(
                     "legacy journey has native approval phase",
-                ))
+                ));
             }
             JourneyPhase::ReceiptVerified | JourneyPhase::Refused => {}
         }
@@ -1911,7 +1911,7 @@ impl JourneyEngine {
         scope: &mut PrincipalScope<'_>,
         advance: &BankAdvance<'_>,
     ) -> Result<(), JourneyError> {
-        use layerx_client::rpc::receipt::{lookup_authenticated, Lookup, LookupContext};
+        use layerx_client::rpc::receipt::{Lookup, LookupContext, lookup_authenticated};
         use layerx_crypto::evm_transaction::transaction_hash;
         let BankAdvance {
             endpoint,
@@ -2038,7 +2038,7 @@ impl JourneyEngine {
         index: usize,
         now: u64,
     ) -> Result<JourneyStatus, JourneyError> {
-        use layerx_client::rpc::receipt::{lookup_authenticated, Lookup, LookupContext};
+        use layerx_client::rpc::receipt::{Lookup, LookupContext, lookup_authenticated};
         if matches!(self.record.kind, StoredJourneyKind::Retired(_))
             || index != self.record.current_leg
             || self.record.legs.get(index).is_none_or(|leg| {
@@ -2211,6 +2211,32 @@ impl JourneyEngine {
                 .ok_or(JourneyError::Corrupt("verified leg has no receipt digest"))?,
             authorised_batch: authenticate_chain_material(&verified_material(leg)?)?,
         }))
+    }
+
+    pub(crate) fn verified_disclosure(
+        &self,
+        index: usize,
+    ) -> Result<layerx_crypto::disclosure::Disclosure, JourneyError> {
+        let leg = self
+            .record
+            .legs
+            .get(index)
+            .ok_or(JourneyError::ReceiptRequired)?;
+        if leg.phase != JourneyPhase::ReceiptVerified {
+            return Err(JourneyError::ReceiptRequired);
+        }
+        validate_verified_leg(leg)?;
+        let raw = leg
+            .signed
+            .as_ref()
+            .and_then(|signed| signed.raw_transaction.as_ref())
+            .ok_or(JourneyError::ReceiptRequired)?;
+        let (call, signature) = layerx_crypto::evm_transaction::decode_signed(raw)
+            .map_err(|_| JourneyError::PreparationMismatch)?;
+        let sender = layerx_crypto::evm_transaction::recover_sender(&call, &signature)
+            .map_err(|_| JourneyError::PreparationMismatch)?;
+        layerx_crypto::disclosure::call::bind_call(&call, sender)
+            .map_err(|_| JourneyError::PreparationMismatch)
     }
 
     /// Reads ordered progress events from the resumable stream outbox.
