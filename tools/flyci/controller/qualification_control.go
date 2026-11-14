@@ -8,9 +8,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"os"
 	"path/filepath"
+	"sync"
 	"syscall"
 	"time"
 )
@@ -54,7 +56,7 @@ func qHandle(registry *qualificationRegistry, raw []byte) qualificationResponse 
 			return fail(e)
 		}
 		out.Record = &rec
-	case "status", "export":
+	case statusField, "export":
 		if in.Request != nil {
 			return fail(errors.New("read operation cannot carry a request"))
 		}
@@ -64,7 +66,7 @@ func qHandle(registry *qualificationRegistry, raw []byte) qualificationResponse 
 		}
 		out.Record = &rec
 		if in.Operation == "export" {
-			if rec.State != "completed_validated" {
+			if rec.State != qStateCompletedValidated {
 				return fail(errors.New("completed evidence unavailable"))
 			}
 			b, e := qRead(filepath.Join(registry.root, in.LogicalID+".completed.json"))
@@ -97,41 +99,43 @@ func qServe(ctx context.Context, r *qualificationRegistry) error {
 		return e
 	}
 	if e = syscall.Flock(int(leader.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); e != nil {
-		leader.Close()
-		return e
+		return qCloseError(leader, e)
 	}
 	socket := filepath.Join(r.root, "control.sock")
 	if info, e := os.Lstat(socket); e == nil {
 		if info.Mode()&os.ModeSocket == 0 {
-			leader.Close()
-			return errors.New("control path is not a socket")
+			return qCloseError(leader, errors.New("control path is not a socket"))
 		}
 		if e = os.Remove(socket); e != nil {
-			leader.Close()
-			return e
+			return qCloseError(leader, e)
 		}
 	}
 	listener, e := net.Listen("unix", socket)
 	if e != nil {
-		leader.Close()
-		return e
+		return qCloseError(leader, e)
 	}
 	if e = os.Chmod(socket, 0600); e != nil {
-		listener.Close()
-		leader.Close()
-		return e
+		return qCloseError(leader, qCloseError(listener, e))
 	}
-	go func() { <-ctx.Done(); listener.Close() }()
+	var closeOnce sync.Once
+	closeListener := func() {
+		closeOnce.Do(func() {
+			if err := listener.Close(); err != nil {
+				slog.Error("qualification listener close failed", "error", err)
+			}
+		})
+	}
+	go func() { <-ctx.Done(); closeListener() }()
 	go func() {
-		defer leader.Close()
-		defer listener.Close()
+		defer qLogClose(leader)
+		defer closeListener()
 		for {
 			conn, e := listener.Accept()
 			if e != nil {
 				return
 			}
 			func() {
-				defer conn.Close()
+				defer qLogClose(conn)
 				_ = conn.SetDeadline(time.Now().Add(30 * time.Second))
 				b, e := io.ReadAll(io.LimitReader(conn, qualificationLimit+1))
 				if e != nil {
@@ -143,7 +147,7 @@ func qServe(ctx context.Context, r *qualificationRegistry) error {
 	}()
 	return nil
 }
-func qCLI(args []string) int {
+func qCLI(args []string) (exitCode int) {
 	fail := func(e error) int { fmt.Fprintln(os.Stderr, "qualification: refused:", e); return 2 }
 	if len(args) == 0 {
 		return fail(errors.New("operation required"))
@@ -184,7 +188,11 @@ func qCLI(args []string) int {
 		if e != nil {
 			return fail(e)
 		}
-		defer conn.Close()
+		defer func() {
+			if err := conn.Close(); err != nil && exitCode == 0 {
+				exitCode = fail(err)
+			}
+		}()
 		_ = conn.SetDeadline(time.Now().Add(30 * time.Second))
 		if _, e = conn.Write(b); e != nil {
 			return fail(e)
@@ -211,4 +219,10 @@ func qCLI(args []string) int {
 		return fail(errors.New("unknown qualification command"))
 	}
 	return 0
+}
+
+func qLogClose(closer io.Closer) {
+	if err := closer.Close(); err != nil {
+		slog.Error("qualification connection close failed", "error", err)
+	}
 }
