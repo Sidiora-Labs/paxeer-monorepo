@@ -75,6 +75,9 @@ incomplete. See [onboarding_sponsor.rs](src/server/onboarding_sponsor.rs).
 
 ## Configuration
 
+Passkeys default to relying party `paxportwallet.com` and web origins
+`https://paxportwallet.com,https://api-mainnet-beta.paxeer.network`.
+
 This table locates the main configuration boundaries; it is not a complete
 deployment environment. Required fields and bounds are read by
 `ProductionComponentsConfig::from_environment` and its helper parsers in
@@ -147,6 +150,7 @@ clock process:
 ```sh
 cargo test --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --test agent_runtime_eip1559
 cargo test --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --test agent_runtime_nonces
+cargo test --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --test documented_service_contract
 ```
 
 Production still requires its authenticated runtime-clock supervisor. Broader suites

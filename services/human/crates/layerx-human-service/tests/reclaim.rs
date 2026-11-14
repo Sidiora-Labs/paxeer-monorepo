@@ -298,6 +298,7 @@ fn every_reclaim_mechanism_uses_real_agent_receipts_and_projects_activity() {
         );
     }
     drop(scope);
+    drop(store);
 
     let modes = BTreeMap::from([
         ([0x71; 32], DeliveryMode::TrackThenReceipt),

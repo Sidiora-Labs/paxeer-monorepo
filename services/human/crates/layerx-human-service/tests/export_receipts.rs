@@ -1,10 +1,14 @@
+#[path = "support/committed_receipt.rs"]
+mod committed_receipt;
+
 use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_agent_api::subscription::{Cursor, EventDelivery, EventIdentity, ReceiptReference};
 use layerx_agent_api::track::ReceiptRef;
 use layerx_client::sequencer::ReceiptKeyEntry;
 use layerx_human_service::activity::{
-    ActivityKind, AgentActivity, EvidenceBundle, EvidenceExport, ExportError, Feed, FilterDraft,
-    PendingStatus, ReceiptExport, ReceiptFact, UnverifiedReason, VerifiedStatus, VerifyError,
+    ActivityKind, AgentActivity, ConsensusAuthority, EvidenceBundle, EvidenceExport, ExportError,
+    Feed, FilterDraft, PendingStatus, ReceiptExport, ReceiptFact, UnverifiedReason, VerifiedStatus,
+    VerifyError,
 };
 use layerx_human_service::notify::ActivityEntryId;
 use layerx_human_test_support as support;
@@ -12,7 +16,17 @@ use layerx_intents::vectors::{receipt as receipt_vector, receipt_signing_digest}
 use layerx_types::rung::Rung;
 use sha2::{Digest as _, Sha256};
 
-fn fixture(rung: Rung) -> (ActivityEntryId, ReceiptFact, Vec<ReceiptKeyEntry>) {
+fn fixture(
+    rung: Rung,
+) -> (
+    ActivityEntryId,
+    ReceiptFact,
+    Vec<ReceiptKeyEntry>,
+    Vec<ConsensusAuthority>,
+) {
+    if rung == Rung::Committed {
+        return committed_receipt::recorded_receipt();
+    }
     let (id, tx_hash, height) = match rung {
         Rung::Committed => ("act_receiptexport2", [2; 32], 21_u64),
         Rung::Receipted | Rung::Submitted => ("act_receiptexport1", [1; 32], 20_u64),
@@ -50,19 +64,27 @@ fn fixture(rung: Rung) -> (ActivityEntryId, ReceiptFact, Vec<ReceiptKeyEntry>) {
         first_height: 10,
         last_height: 30,
     }];
-    (id, fact, keys)
+    (id, fact, keys, Vec::new())
 }
 
 #[test]
-fn evidence_bundle_v2_round_trips_receipt_fields() {
+fn evidence_bundle_v3_round_trips_receipt_fields() {
     let fixtures = [fixture(Rung::Receipted), fixture(Rung::Committed)];
+    let keys: Vec<_> = fixtures
+        .iter()
+        .flat_map(|(_, _, keys, _)| keys.clone())
+        .collect();
+    let consensus: Vec<_> = fixtures
+        .iter()
+        .flat_map(|(_, _, _, consensus)| consensus.clone())
+        .collect();
     let root = support::directory("receipt-export-round-trip");
     let tenancy = support::tenancy(&[("alice", "tenant-a")]);
     let (mut store, _) =
         support::install_and_open(&root, &tenancy, support::retention_uniform(100));
     let principal = support::principal("alice");
     let mut scope = store.principal(&principal).or_fail("principal scope");
-    for (index, (id, fact, _)) in fixtures.iter().enumerate() {
+    for (index, (id, fact, _, _)) in fixtures.iter().enumerate() {
         let reference = layerx_human_service::hex::lower((fact.receipt_hash).as_ref());
         let index_byte = u8::try_from(index).unwrap_or_else(|_| panic!("event index fits u8"));
         let delivery = EventDelivery::new(
@@ -92,7 +114,7 @@ fn evidence_bundle_v2_round_trips_receipt_fields() {
     }
     let protocol = fixtures
         .iter()
-        .map(|(_, fact, _)| ReceiptExport {
+        .map(|(_, fact, _, _)| ReceiptExport {
             receipts: vec![fact.clone()],
             inclusions: Vec::new(),
             derived_aggregates: Vec::new(),
@@ -100,28 +122,29 @@ fn evidence_bundle_v2_round_trips_receipt_fields() {
         .collect();
     let (bundle, report) = EvidenceExport::new(Feed::new(5).or_fail("feed"), 64 * 1024)
         .or_fail("exporter")
-        .evidence(
+        .evidence_with_consensus(
             &scope,
             &Feed::apply_filters(FilterDraft::new()).or_fail("filters"),
             &fixtures
                 .iter()
-                .map(|(id, _, _)| id.clone())
+                .map(|(id, _, _, _)| id.clone())
                 .collect::<Vec<_>>(),
             protocol,
-            &fixtures[0].2,
+            &keys,
+            &consensus,
             22,
             2,
         )
         .or_fail("bundle");
     assert_eq!(report.entries(), 2);
     let bytes = bundle.encode().or_fail("encode");
-    assert_eq!(&bytes[..8], b"LXHEXPV2");
-    assert_eq!(bytes[8], 2);
+    assert_eq!(&bytes[..8], b"LXHEXPV3");
+    assert_eq!(bytes[8], 3);
     let decoded = EvidenceBundle::decode(&bytes).or_fail("decode v2");
     assert_eq!(decoded.encode().or_fail("re-encode"), bytes);
     assert_eq!(decoded.entries().len(), 2);
     assert_eq!(decoded.principal_binding(), bundle.principal_binding());
-    for (id, fact, _) in &fixtures {
+    for (id, fact, _, _) in &fixtures {
         let entry = decoded
             .entries()
             .iter()
@@ -141,10 +164,11 @@ fn evidence_bundle_v2_round_trips_receipt_fields() {
     }
     assert_eq!(
         decoded
-            .verify(
+            .verify_with_consensus(
                 decoded.digest().or_fail("digest"),
                 &principal,
-                &fixtures[0].2
+                &keys,
+                &consensus,
             )
             .or_fail("verify")
             .verified_receipts(),
@@ -182,7 +206,7 @@ fn evidence_bundle_v1_is_refused() {
 
 #[test]
 fn tampered_receipt_hash_fails_verify_receipt() {
-    let (_, mut fact, keys) = fixture(Rung::Receipted);
+    let (_, mut fact, keys, _) = fixture(Rung::Receipted);
     assert_eq!(
         EvidenceBundle::verify_receipt(&fact, &keys)
             .or_fail("valid receipt")

@@ -1,3 +1,4 @@
+use std::os::unix::fs::PermissionsExt as _;
 pub mod canonical_owner {
     include!("support/canonical_owner.rs");
 }
@@ -102,6 +103,8 @@ impl RealAgentLayer {
         primary_public_key: [u8; 32],
     ) -> Self {
         fs::create_dir_all(&root).unwrap_or_else(|error| panic!("agent root: {error}"));
+        fs::set_permissions(&root, fs::Permissions::from_mode(0o700))
+            .unwrap_or_else(|error| panic!("agent root permissions: {error}"));
         Self {
             store: Store::open(&root).unwrap_or_else(|error| panic!("agent store: {error}")),
             sessions: SessionRegistry::default(),

@@ -26,11 +26,22 @@ pub(super) struct Installation {
 }
 impl Installation {
     pub fn issue(&self) -> Result<IssuedSessionKey, SessionKeyError> {
+        let signing_key = k256::ecdsa::SigningKey::from_slice(&self.seed)
+            .map_err(|_| SessionKeyError::InvalidEvidence)?;
+        let address = layerx_crypto::secp256k1::evm_address(
+            signing_key
+                .verifying_key()
+                .to_encoded_point(false)
+                .as_bytes(),
+        )
+        .map_err(|_| SessionKeyError::InvalidEvidence)?;
+        let mut session_public_key = [0; 32];
+        session_public_key[12..].copy_from_slice(&address);
         Ok(issue_session_key(&SessionKeyRequest {
             fee_budget: None,
             purpose: layerx_crypto::session::SessionPurpose::Activity,
             grantor: self.grantor,
-            session_public_key: LocalSigner::new(self.seed).public_key(),
+            session_public_key,
             not_before: self.not_before,
             expires_at: Some(self.expires_at),
             permitted_activity_types: self.activities.clone(),

@@ -24,6 +24,7 @@ use rustls::RootCertStore;
 type TestResult<T = ()> = Result<T, Box<dyn Error>>;
 const PROVIDER: &str = "gateway-frame-kms";
 const BACKEND_PROCESS: &str = "LAYERX_GATEWAY_FRAME_BACKEND_PROCESS";
+const CHAIN_SNAPSHOT: &str = "LAYERX_HUMAN_KMS_GATEWAY_REGISTRY_FILE";
 const STARTUP_LIMIT: Duration = Duration::from_secs(15);
 
 struct Process(Child, Arc<StepClock>);
@@ -168,7 +169,6 @@ impl Fixture {
         let mut seal = [0; 32];
         getrandom::fill(&mut seal).map_err(|error| error.to_string())?;
         fixture.write("seal", &seal)?;
-        fixture.write("backend.json", br#"{"chain_id":125}"#)?;
         for entry in fs::read_dir(&fixture.0)? {
             fs::set_permissions(entry?.path(), fs::Permissions::from_mode(0o600))?;
         }
@@ -370,8 +370,14 @@ fn kms_gateway_starts_with_a_chain_snapshot_document() -> TestResult {
         let clock: Arc<dyn Clock> = layerx_client::runtime_clock::RuntimeClock::from_environment()?;
         return layerx_human_kms::run_from_environment(&clock).map_err(Into::into);
     }
+    let Some(path) = std::env::var_os(CHAIN_SNAPSHOT) else {
+        eprintln!("{CHAIN_SNAPSHOT} is unset");
+        return Ok(());
+    };
     let fixture = Fixture::new()?;
-    fixture.write("snapshot.json", br#"{"chain_id":125}"#)?;
+    let snapshot = fs::read(path)?;
+    fixture.write("snapshot.json", &snapshot)?;
+    fixture.write("backend.json", &snapshot)?;
     let backend_address = free_address()?;
     let mut backend = fixture.backend(backend_address)?;
     wait_for_socket(
