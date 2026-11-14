@@ -42,6 +42,7 @@ pub(crate) struct Transcript {
     pub(crate) tx_fates: Vec<Fate>,
     pub(crate) txs: Vec<Vec<u8>>,
     pub(crate) ticker_requests: usize,
+    pub(crate) fresh_quotes: bool,
     pub(crate) api_keys: Vec<String>,
     pub(crate) redirect: Option<String>,
     pub(crate) lose_ack: bool,
@@ -66,6 +67,7 @@ impl Default for Transcript {
             tx_fates: Vec::new(),
             txs: Vec::new(),
             ticker_requests: 0,
+            fresh_quotes: false,
             api_keys: Vec::new(),
             redirect: None,
             lose_ack: false,
@@ -268,6 +270,42 @@ impl Peer {
     pub(crate) fn observation_bound_passed(&self) -> bool {
         self.observation_gate.bound_passed()
     }
+
+    pub(crate) fn serve_fresh_quotes(&self) {
+        self.state
+            .lock()
+            .unwrap_or_else(|error| panic!("{error:?}"))
+            .fresh_quotes = true;
+    }
+
+    pub(crate) fn disable_transaction_lookup(&self) {
+        self.state
+            .lock()
+            .unwrap_or_else(|error| panic!("{error:?}"))
+            .lookup_error = Some(json!({
+            "code": -32603,
+            "message": "Internal error",
+            "data": "transaction querying is disabled",
+        }));
+    }
+
+    pub(crate) fn commit_submission(&self, index: usize, height: u64) {
+        let mut state = self
+            .state
+            .lock()
+            .unwrap_or_else(|error| panic!("{error:?}"));
+        assert!(index < state.txs.len(), "commit follows a broadcast");
+        let previous = state.tx_fates.get(index).copied().unwrap_or(state.fate);
+        if !matches!(previous, Fate::Committed { .. }) {
+            state.account_sequence = state.account_sequence.saturating_add(1);
+            state.observation_sequence = state.observation_sequence.saturating_add(1);
+        }
+        if state.tx_fates.len() <= index {
+            state.tx_fates.resize(index + 1, Fate::Pending);
+        }
+        state.tx_fates[index] = Fate::Committed { code: 0, height };
+        state.committed_height = Some(height);
+    }
 }
 
 fn serve_connection(
@@ -298,12 +336,14 @@ fn serve_connection(
         if let Some(location) = &transcript.redirect {
             (302, format!("Location: {location}\r\n"), String::new())
         } else {
-            (
-                200,
-                String::new(),
-                include_str!("../fixtures/chainflow_ticker_btc.json")
-                    .replace("PERP_BTC_USDC", &format!("PERP_{symbol}_USDC")),
-            )
+            let mut ticker: Value =
+                serde_json::from_str(include_str!("../fixtures/chainflow_ticker_btc.json"))
+                    .unwrap_or_else(|error| panic!("{error:?}"));
+            ticker["symbol"] = json!(format!("PERP_{symbol}_USDC"));
+            if transcript.fresh_quotes {
+                ticker["updated_at"] = json!(now_ms());
+            }
+            (200, String::new(), ticker.to_string())
         }
     } else {
         assert!(header.starts_with("POST / "));

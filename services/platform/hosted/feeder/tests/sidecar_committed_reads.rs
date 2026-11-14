@@ -56,7 +56,11 @@ fn committed_reads_decided_fate_reads_each_market_once_in_parallel() -> TestResu
     }
     peer.hold_observation_reads_until(config.markets.len());
 
-    assert!(sidecar.reconcile(&config, &peer.rpc(), &metrics, &dir.0)?);
+    assert!(
+        !sidecar
+            .reconcile(&config, &peer.rpc(), &metrics, &dir.0)?
+            .fate_open
+    );
     let state = peer.state.lock().unwrap();
     assert!(peer.observation_bound_passed());
     assert_eq!(state.account_reads.len(), 1);
@@ -91,7 +95,11 @@ fn committed_reads_open_fate_skips_observations_until_commit() -> TestResult {
     }
     peer.hold_observation_reads_until(config.markets.len());
 
-    assert!(!sidecar.reconcile(&config, &peer.rpc(), &metrics, &dir.0)?);
+    assert!(
+        sidecar
+            .reconcile(&config, &peer.rpc(), &metrics, &dir.0)?
+            .fate_open
+    );
     {
         let state = peer.state.lock().unwrap();
         assert_eq!(state.account_reads.len(), 1);
@@ -110,7 +118,11 @@ fn committed_reads_open_fate_skips_observations_until_commit() -> TestResult {
         state.account_reads.clear();
         state.observation_reads.clear();
     }
-    assert!(sidecar.reconcile(&config, &peer.rpc(), &metrics, &dir.0)?);
+    assert!(
+        !sidecar
+            .reconcile(&config, &peer.rpc(), &metrics, &dir.0)?
+            .fate_open
+    );
     let state = peer.state.lock().unwrap();
     assert!(peer.observation_bound_passed());
     assert_eq!(state.observation_reads.len(), config.markets.len());
