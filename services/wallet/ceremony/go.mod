@@ -5,11 +5,11 @@ go 1.25.8
 require (
 	filippo.io/edwards25519 v1.1.1
 	github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor v0.0.0
-	github.com/ethereum/go-ethereum v1.17.0
+	github.com/ethereum/go-ethereum v1.17.10
 	github.com/getamis/alice v1.0.9-0.20260916062408-d8fd6861d3b2
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/lib/pq v1.10.9
-	golang.org/x/crypto v0.54.0
+	golang.org/x/crypto v0.55.0
 	golang.org/x/sys v0.47.0
 )
 
@@ -22,10 +22,10 @@ require (
 	github.com/btcsuite/btcd/btcec/v2 v2.3.5 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/consensys/gnark-crypto v0.18.1 // indirect
-	github.com/crate-crypto/go-eth-kzg v1.4.0 // indirect
+	github.com/crate-crypto/go-eth-kzg v1.5.0 // indirect
 	github.com/decred/dcrd/dcrec/edwards v1.0.0 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.1 // indirect
-	github.com/ethereum/c-kzg-4844/v2 v2.1.5 // indirect
+	github.com/ethereum/c-kzg-4844/v2 v2.1.8 // indirect
 	github.com/getamis/sirius v1.1.7 // indirect
 	github.com/go-stack/stack v1.8.0 // indirect
 	github.com/goccy/go-json v0.10.6 // indirect
@@ -49,12 +49,12 @@ require (
 	github.com/prometheus/procfs v0.21.1 // indirect
 	github.com/rollbar/rollbar-go v1.2.0 // indirect
 	github.com/segmentio/asm v1.2.1 // indirect
-	github.com/supranational/blst v0.3.16-0.20250831170142-f48500c1fdbe // indirect
+	github.com/supranational/blst v0.3.16 // indirect
 	go.etcd.io/bbolt v1.5.0 // indirect
 	golang.org/x/sync v0.22.0 // indirect
-	golang.org/x/text v0.40.0 // indirect
+	golang.org/x/text v0.41.0 // indirect
 	gonum.org/v1/gonum v0.7.0 // indirect
-	google.golang.org/protobuf v1.36.11 // indirect
+	google.golang.org/protobuf v1.36.12 // indirect
 )
 
 replace github.com/Sidiora-Labs/Paxeer-X-Network => ../../..
