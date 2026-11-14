@@ -14284,6 +14284,12 @@ value = "Task 22.39.544 brings services/interop/Cargo.lock in step with the mani
 basis = "Gotcha 4443, decisions 3422 and 3526."
 affects = []
 
+[decision.3529]
+title = "The client of the price sidecar keeps an idle connection for every request of a round"
+value = "http_agent sets the count of idle connections for one host and in total to sixty-four, which covers the markets of a round and the calls to the node. A round then reuses the connections of the round before it. The timeouts, the redirect rule and the trust roots stay as they are."
+basis = "Gotcha 4444."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -43944,6 +43950,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.545]
+title = "Let the price sidecar reuse its feed connections across rounds"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/feeder/src/lib.rs"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-oracle-feeder --lib --test feed_connection_reuse"
+do_1 = "do_1 Gotcha 4444, decision 3529. Read http_agent in services/platform/hosted/feeder/src/lib.rs and the defaults for idle connections of the client library in the version the lock file pins. Set in http_agent the count of idle connections for one host and in total to sixty-four. Put the pool settings into one function that http_agent and a test share, so that the test needs no root certificate. Change no timeout, no caller and no other file of the package."
+symbols = []
 
 [capability.22.39.544]
 title = "Bring the interop lock file in step with the manifests it resolves"
@@ -206407,6 +206422,36 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.545]
+title = "Let the price sidecar reuse its feed connections across rounds"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.545"]
+interfaces = []
+do_1 = "do_1 Gotcha 4444, decision 3529. Read http_agent in services/platform/hosted/feeder/src/lib.rs and the defaults for idle connections of the client library in the version the lock file pins. Set in http_agent the count of idle connections for one host and in total to sixty-four. Put the pool settings into one function that http_agent and a test share, so that the test needs no root certificate. Change no timeout, no caller and no other file of the package."
+do_2 = "do_2 Add services/platform/hosted/feeder/tests/feed_connection_reuse.rs with cases whose names begin with feed_connection_reuse_. A stand-in feed on a local listener counts the connections it accepts and keeps each connection open between requests. A client with the shared pool settings sends eighteen requests at once in each of five rounds, and the feed has accepted no more than eighteen connections at the end. A client with the defaults of the library over the same rounds makes more, which shows that the case measures the setting. Wait between the rounds until every answer is read."
+do_3 = "do_3 Run the tests of the feeder package once by hand. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/feeder/src/lib.rs"]
+tests = []
+planned_paths = ["services/platform/hosted/feeder/tests/feed_connection_reuse.rs"]
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-oracle-feeder --all-targets"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-oracle-feeder --lib --test feed_connection_reuse"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
