@@ -195437,7 +195437,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.322]
 title = "Let the shell harness of the wallet live checker pass the node root in the variable the checker reads"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.43.320"]
