@@ -123,11 +123,11 @@ func (c *flyClient) do(ctx context.Context, method, target string, payload []byt
 	if err != nil {
 		return 0, nil, err
 	}
-	req.Header.Set("Authorization", "Bearer "+c.token)
-	req.Header.Set("Accept", "application/json")
+	req.Header.Set(authorizationHeader, bearerPrefix+c.token)
+	req.Header.Set(acceptHeader, jsonMediaType)
 	req.Header.Set("User-Agent", userAgent)
 	if payload != nil {
-		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set(contentTypeHeader, jsonMediaType)
 	}
 	resp, err := c.httpClient.Do(req)
 	if err != nil {

@@ -42,6 +42,13 @@ const CODE_RATE_LIMITED: u64 = 11;
 const SEQUENCE_MISMATCH: &str = "account sequence mismatch";
 /// `getObservation` answers a static five-word tuple.
 const OBSERVATION_ANSWER_BYTES: usize = 5 * 32;
+pub const PENDING_SUBMISSION_BLOCK_LIMIT: u64 = 10;
+
+enum TxLookup {
+    Found(Value),
+    NotFound,
+    NotServed,
+}
 
 /// JSON-RPC clients of the consensus RPC and the EVM RPC.
 pub struct Rpc {
@@ -117,10 +124,21 @@ impl Rpc {
         self.consensus("broadcast_tx_sync", &json!({"tx": STANDARD.encode(tx)}))
     }
 
-    fn lookup_tx(&self, hash: &str) -> Result<Option<Value>, String> {
+    fn lookup_tx(&self, hash: &str) -> Result<TxLookup, String> {
         let body = self.consensus("tx", &json!({"hash": hash.to_uppercase(), "prove": false}))?;
         let answer: Value = serde_json::from_str(&body).map_err(|e| e.to_string())?;
         if let Some(error) = answer.get("error") {
+            if error.get("code").and_then(Value::as_i64) == Some(-32603)
+                && error
+                    .get("data")
+                    .and_then(Value::as_str)
+                    .is_some_and(|data| {
+                        data == "transaction querying is disabled"
+                            || data.starts_with("transaction querying is disabled ")
+                    })
+            {
+                return Ok(TxLookup::NotServed);
+            }
             let expected = format!("tx ({hash}) not found");
             if error.get("code").and_then(Value::as_i64) == Some(-32603)
                 && error
@@ -131,11 +149,11 @@ impl Rpc {
                             || data.eq_ignore_ascii_case(&format!("{expected}, err: %!w(<nil>)"))
                     })
             {
-                return Ok(None);
+                return Ok(TxLookup::NotFound);
             }
             return Err(format!("tx lookup: {error}"));
         }
-        result_of(answer).map(Some)
+        result_of(answer).map(TxLookup::Found)
     }
 
     /// `eth_call` of `data` on 0x1020 at the latest block; returns the hex answer.
@@ -635,7 +653,7 @@ impl Sidecar {
         }
     }
 
-    fn sync_committed(&mut self, config: &Config, rpc: &Rpc, dir: &Path) -> Result<(), String> {
+    fn read_committed(&self, config: &Config, rpc: &Rpc) -> Result<(Account, Journal), String> {
         let account = parse_account(&rpc.query_account(&self.feeder)?, &self.feeder)?;
         if account.height < self.progress.confirmed_height {
             return Err("account query is behind the confirmed transaction height".to_owned());
@@ -654,6 +672,11 @@ impl Sidecar {
             }
             record.sequence = sequence;
         }
+        Ok((account, journal))
+    }
+
+    fn sync_committed(&mut self, config: &Config, rpc: &Rpc, dir: &Path) -> Result<(), String> {
+        let (_, journal) = self.read_committed(config, rpc)?;
         journal.store(dir)?;
         self.journal = journal;
         Ok(())
@@ -686,68 +709,127 @@ impl Sidecar {
         };
         lock(metrics).pending(&pending.hash, pending.proposed_height);
         let result = rpc.lookup_tx(&pending.hash)?;
-        let outcome = if let Some(result) = result {
-            let hash = result
-                .get("hash")
-                .and_then(Value::as_str)
-                .ok_or("tx: no hash")?;
-            let tx = result
-                .get("tx")
-                .and_then(Value::as_str)
-                .ok_or("tx: no bytes")?;
-            if !hash.eq_ignore_ascii_case(&pending.hash) || tx != pending.tx {
-                return Err("tx lookup does not match pending transaction".to_owned());
-            }
-            let height = json_u64(result.get("height"))
-                .filter(|h| *h > 0)
-                .ok_or("tx: invalid committed height")?;
-            let execution: ExecutionResult = serde_json::from_value(
-                result
-                    .get("tx_result")
-                    .cloned()
-                    .ok_or("tx: missing execution result")?,
-            )
-            .map_err(|e| format!("tx: invalid execution result: {e}"))?;
-            if execution.code == 0 {
-                self.journal = pending.journal;
-                self.progress.confirmed_height = height;
-                self.progress.confirmed_ms = now_ms();
-                Outcome::Committed {
-                    hash: pending.hash,
-                    height,
+        let outcome = match result {
+            TxLookup::Found(result) => {
+                let hash = result
+                    .get("hash")
+                    .and_then(Value::as_str)
+                    .ok_or("tx: no hash")?;
+                let tx = result
+                    .get("tx")
+                    .and_then(Value::as_str)
+                    .ok_or("tx: no bytes")?;
+                if !hash.eq_ignore_ascii_case(&pending.hash) || tx != pending.tx {
+                    return Err("tx lookup does not match pending transaction".to_owned());
                 }
-            } else {
-                Outcome::Failed
+                let height = json_u64(result.get("height"))
+                    .filter(|h| *h > 0)
+                    .ok_or("tx: invalid committed height")?;
+                let execution: ExecutionResult = serde_json::from_value(
+                    result
+                        .get("tx_result")
+                        .cloned()
+                        .ok_or("tx: missing execution result")?,
+                )
+                .map_err(|e| format!("tx: invalid execution result: {e}"))?;
+                if execution.code == 0 {
+                    self.journal = pending.journal;
+                    self.progress.confirmed_height = height;
+                    self.progress.confirmed_ms = now_ms();
+                    Outcome::Committed {
+                        hash: pending.hash,
+                        height,
+                    }
+                } else {
+                    Outcome::Failed
+                }
             }
-        } else {
-            let body = rpc.consensus("unconfirmed_txs", &json!({"page": 1, "per_page": 100}))?;
-            let result = rpc_result(&body)?;
-            let txs = match result.get("txs") {
-                Some(Value::Array(txs)) => txs.as_slice(),
-                Some(Value::Null) => &[],
-                _ => return Err("unconfirmed_txs: missing transactions".to_owned()),
-            };
-            for tx in txs {
-                let bytes = STANDARD
-                    .decode(tx.as_str().ok_or("unconfirmed_txs: invalid bytes")?)
-                    .map_err(|e| e.to_string())?;
-                if hex_encode(&Sha256::digest(bytes)) == pending.hash {
-                    lock(metrics).pending(&pending.hash, pending.proposed_height);
+            TxLookup::NotServed => {
+                let (account, committed) = self.read_committed(config, rpc)?;
+                if account.sequence >= pending.journal.next_account_sequence {
+                    let observations_match = pending
+                        .journal
+                        .markets
+                        .iter()
+                        .filter(|(_, record)| record.activity_id == pending.hash)
+                        .all(|(symbol, proposed)| {
+                            committed
+                                .markets
+                                .get(symbol)
+                                .is_some_and(|record| record.sequence == proposed.sequence)
+                        });
+                    if observations_match {
+                        self.journal = pending.journal;
+                        self.progress.confirmed_height = account.height;
+                        self.progress.confirmed_ms = now_ms();
+                        Outcome::Committed {
+                            hash: pending.hash,
+                            height: account.height,
+                        }
+                    } else {
+                        Outcome::Failed
+                    }
+                } else if account.height.saturating_sub(pending.proposed_height)
+                    < PENDING_SUBMISSION_BLOCK_LIMIT
+                {
                     return Ok(false);
+                } else {
+                    Outcome::Evicted
                 }
             }
-            if json_u64(result.get("total")) != Some(txs.len() as u64) {
-                return Err(
-                    "unconfirmed_txs: incomplete mempool; submission fate unknown".to_owned(),
-                );
+            TxLookup::NotFound => {
+                let mut page = 1u64;
+                let mut read = 0u64;
+                let mut total = None;
+                loop {
+                    let body =
+                        rpc.consensus("unconfirmed_txs", &json!({"page": page, "per_page": 100}))?;
+                    let result = rpc_result(&body)?;
+                    let page_total =
+                        json_u64(result.get("total")).ok_or("unconfirmed_txs: missing total")?;
+                    if total.is_some_and(|total| total != page_total) {
+                        return Err(
+                            "unconfirmed_txs: changing mempool; submission fate unknown".to_owned()
+                        );
+                    }
+                    total = Some(page_total);
+                    let txs = match result.get("txs") {
+                        Some(Value::Array(txs)) => txs.as_slice(),
+                        Some(Value::Null) => &[],
+                        _ => return Err("unconfirmed_txs: missing transactions".to_owned()),
+                    };
+                    read = read
+                        .checked_add(txs.len() as u64)
+                        .ok_or("unconfirmed_txs: transaction count overflow")?;
+                    if read > page_total || txs.len() > 100 || (txs.is_empty() && read < page_total)
+                    {
+                        return Err(
+                            "unconfirmed_txs: incomplete mempool; submission fate unknown"
+                                .to_owned(),
+                        );
+                    }
+                    for tx in txs {
+                        let bytes = STANDARD
+                            .decode(tx.as_str().ok_or("unconfirmed_txs: invalid bytes")?)
+                            .map_err(|e| e.to_string())?;
+                        if hex_encode(&Sha256::digest(bytes)) == pending.hash {
+                            return Ok(false);
+                        }
+                    }
+                    if read == page_total {
+                        break;
+                    }
+                    page += 1;
+                }
+                // A transaction can leave the mempool by committing while we inspect it.
+                if !matches!(rpc.lookup_tx(&pending.hash)?, TxLookup::NotFound) {
+                    return Err(
+                        "transaction committed during mempool reconciliation; retry lookup"
+                            .to_owned(),
+                    );
+                }
+                Outcome::Evicted
             }
-            // A transaction can leave the mempool by committing while we inspect it.
-            if rpc.lookup_tx(&pending.hash)?.is_some() {
-                return Err(
-                    "transaction committed during mempool reconciliation; retry lookup".to_owned(),
-                );
-            }
-            Outcome::Evicted
         };
         if !matches!(outcome, Outcome::Committed { .. }) {
             self.journal = Journal::load(dir, 0)?;

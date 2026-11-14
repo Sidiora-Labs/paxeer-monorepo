@@ -21955,3 +21955,98 @@ fix = "Decision 3512. The case carries an ignore attribute and the harness runs 
 title = "The linter of repeated literals names one occurrence of a literal and the occurrence can differ between runs"
 symptom = "The linter goconst reports a literal that a package repeats at one of its occurrences. It reads the files of the package side by side, so the file it names is not the same in every run. The rules of .golangci.yml for this linter name single files."
 fix = "Decision 3513. A rule for this linter covers the Go files of the package directory."
+
+[gotcha.4427]
+title = "The served test of the pay precompile reads the escrow view in its earlier form"
+symptom = "The escrow view of the pay keeper returns the record, a found flag and an error. Two calls in precompiles/layerxpay/served/served_test.go take two values."
+fix = "Task 22.39.535 brings the two calls to the present form."
+
+[gotcha.4428]
+title = "The vet step of the lint target of the node takes no scope"
+symptom = "The target lint of chain.mk holds its steps in one recipe and its vet step runs over the whole root module in one command. A verification cannot run one step alone or vet the module by parts."
+fix = "Decision 3514. The target is made of step targets and the vet step reads a variable."
+
+[gotcha.4429]
+title = "The bank precompile serves its send to the native pointer of the denomination"
+symptom = "The send of the bank precompile is served to one caller, the ERC-20 native pointer of the denomination. A wallet moves a bank denomination by the transfer of that pointer, and the pointer view of the chain names the pointer of a denomination."
+fix = "Decision 3515. The wallet bank transfer of the human service is the transfer of the pointer."
+
+[gotcha.4430]
+title = "A vet with the module proxy off reads more modules than a build of the same directory"
+symptom = "The vet step reads the test files of a directory and every package they import. A build of the directory alone leaves some modules of the root module out of the module cache, and with the proxy off the vet step cannot fetch them."
+fix = "Decision 3516. The build of such a task downloads the modules of the root module first."
+
+[gotcha.4431]
+title = "The check of the platform SDKs follows the text of the schema and generator directories"
+symptom = "The check target platform-sdk-check compares the digests of the schema directories, of the generator directories and of the generated files with sdk/platform/pipeline.kvx. A change of text in one of them, also of a description alone, changes its digest, and the check asks for a generation."
+fix = "Decision 3517. Task 22.39.536 runs the generation and commits the metadata."
+
+[gotcha.4432]
+title = "A test helper of the auth package of the perps data service shares its name with a type of the package"
+symptom = "The package under services/platform/perps-data/internal/auth declares the type challengeRequest in auth.go, and the test file challenge_lifecycle_test.go declares a helper function of the same name in the same package."
+fix = "Decision 3518. Task 22.39.537 gives the helper its own name."
+
+[gotcha.4433]
+title = "A test of the reference declarations of the launchpad tool names a constant the package does not declare"
+symptom = "One case of tools/launchpad/production/feature-acceptance/reference_declarations_test.go sets a reference to the constant RetiredSpecPath. The package declares the constant SpecPath in references.go and no constant of that name."
+fix = "Decision 3518. Task 22.39.538 brings the case and the package to one form."
+
+[gotcha.4434]
+title = "The resolver fixture of the names DNS tool binds the digest of the root Forge configuration"
+symptom = "The contract test of tools/pnsdns reads the digests of seven producers of its resolver fixture from tools/pnsdns/testdata/names_sources.json, among them foundry.toml. A change of foundry.toml, also in a profile the fixture does not use, asks for a review of the fixture and a new binding."
+fix = "Decision 3519. Task 22.39.539 reviews the fixture against the present configuration and binds it."
+
+[gotcha.4435]
+title = "The pipeline metadata binds the digest of the conformance entry of the JVM kit"
+symptom = "The file sdk/platform/pipeline.kvx records a digest for each file of the JVM kit that the generator names, among them the conformance entry under sdk/platform/jvm/src/conformance/java/com/sidiora/layerx/sdk/ConformanceMain.java. A change of such a file asks the check target platform-sdk-check for a generation."
+fix = "Decision 3520. The paths of task 22.39.505 take the metadata and the task runs the generation."
+
+[gotcha.4436]
+title = "The documentation test phase of a member that depends on members left out of a selection"
+symptom = "Under a selection of the platform workspace that leaves members out, the documentation test phase of a member that depends on them is part of the run although the member holds no documentation test."
+fix = "Decision 3521. The selection of task 22.39.504 names the library, binary and test targets."
+
+[gotcha.4437]
+title = "The reason of a replay record refusal carries the check and its site"
+symptom = "The producer in programs/crates/layerx-programs-runtime appends the check and its site to the reason of a refusal of the replay record. A reader of that reason takes the refusal by its leading text."
+fix = "Decision 3522. Task 22.39.509 brings the adapter of the native result and its test file to the leading text."
+
+[gotcha.4438]
+title = "A test module inside a source file is compiled in every test target that includes the file by path"
+symptom = "The test targets intent_chain_domain and proof_human_intents of the intents member include the source of the journey resolver of the human service by path. The test module pointer_view_tests at the end of that source is compiled in those targets as well and names the JSON crate, so the including member declares that crate among its development dependencies."
+fix = "Decision 3523. Task 22.39.540 declares the crate in services/human/crates/layerx-intents/Cargo.toml."
+
+[gotcha.4439]
+title = "A node without a transaction index does not serve the transaction lookup"
+symptom = "The consensus interface of a node whose transaction index is set to null answers the transaction lookup with an internal error whose data says that transaction querying is disabled. A client beside such a node learns the fate of a submission from committed state: the account sequence and the state the submission writes, read at one committed height. The price sidecar takes that route when the lookup is not served and keeps the lookup as the first source where it is."
+fix = "Decision 3524. Task 22.39.541 adds the route in services/platform/hosted/feeder/src/bin/price-sidecar/round.rs."
+
+[gotcha.4440]
+title = "A pool entry leaves the pool by commit, by a refused recheck or by a time limit"
+symptom = "The store of the pool removes an entry when it is committed, when a recheck refuses it or when one of the two time limits has passed. The recheck runs when the consensus parameter for it is on, and a time limit applies when its key is not zero. With the parameter off and both keys at zero a node that does not propose blocks keeps an entry that can no longer pass, such as one with a used account sequence, until the pool is emptied. The defaults of a new home set both limits."
+fix = "Decision 3525. Task 22.39.542 reports the configuration without a limit at construction."
+
+[gotcha.4441]
+title = "A manifest change in a workspace changes the lock file of that workspace"
+symptom = "A member manifest that gains or loses a dependency changes the lock file at the root of its workspace when the build resolves it. A build with the locked flag refuses a lock file that is behind its manifests. A task that changes a manifest therefore commits the lock file with it."
+fix = "Decision 3526. The paths of task 22.39.540 take services/human/Cargo.lock."
+
+[gotcha.4442]
+title = "A round of the price sidecar lasts as long as its committed reads and the commit of its submission"
+symptom = "The price sidecar starts a round only when no submission is pending, and it reads the committed observation sequence of each configured market one call after another, once to decide the fate of the pending submission and once more to synchronise. A round therefore lasts the commit time of the submission plus twice the market count times the answer time of the EVM endpoint. The price module counts an observation as a source only inside its staleness window, and the readiness answer of the sidecar expects a confirmed execution within three cadences. A sidecar whose rounds are longer than its cadence meets neither."
+fix = "Decision 3527. Task 22.39.543 lets the sidecar submit at its cadence."
+
+[gotcha.4443]
+title = "The interop workspace resolves packages of the platform workspace through its path dependencies"
+symptom = "Members of the interop workspace depend by path on members of the platform workspace, so the lock file of the interop workspace also pins the packages those members name. A version change in a manifest of the platform workspace that such a path reaches asks for the same change in services/interop/Cargo.lock. Until then a command with the locked flag over the interop workspace refuses the lock file, and so does scripts/interop/dependency-policy.sh, which reads the metadata with that flag."
+fix = "Decision 3528. Task 22.39.544 brings the lock file in step."
+
+[gotcha.4444]
+title = "The client of the price sidecar keeps the default count of idle connections"
+symptom = "The client that http_agent builds in services/platform/hosted/feeder/src/lib.rs keeps the default count of idle connections of its library for one host, which is smaller than the market count of a usual configuration. A round fetches the ticker of every configured market at once from one host. The requests beyond that count open a new connection with a new handshake in every round, inside the timeout of the request."
+fix = "Decision 3529. Task 22.39.545 sets the counts."
+
+[gotcha.4445]
+title = "The process case probe of the agent envelope runs under its harness"
+symptom = "The test testAgentOperationEnvelopeProcessCases of the Swift kit reads a case file that the envelope harness names for it and refuses a run without one. The recipe platform-verify-sdks in services/platform/Makefile.inc runs the test target of each kit outside that harness. Its dotnet step leaves the probe of that kit out; the Swift step names the whole test target."
+fix = "Decision 3530. Task 22.39.505 brings the Swift step to the form of the dotnet step."

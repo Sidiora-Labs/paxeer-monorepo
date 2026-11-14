@@ -51,15 +51,14 @@ pub fn hex(bytes: &[u8]) -> String {
     text
 }
 pub fn transcript() -> Value {
-    serde_json::from_str(include_str!(
-        "../../src/journeys/bank_commit_transcript.json"
-    ))
-    .unwrap_or_else(|error| {
-        panic!(
-            "{}: {error:?}",
-            "committed node/sequencer and Comet producer transcript"
-        )
-    })
+    serde_json::from_str(include_str!("../fixtures/bank_move_receipts.json")).unwrap_or_else(
+        |error| {
+            panic!(
+                "{}: {error:?}",
+                "committed node/sequencer and Comet producer transcript"
+            )
+        },
+    )
 }
 pub fn keys() -> Vec<ReceiptKeyEntry> {
     let document = transcript();
@@ -103,7 +102,11 @@ fn bank_request(nonce: u64) -> RouteRequest {
             from: EvmAddress::new(sender()),
             to: EvmAddress::new([0x22; 20]),
             route: send_route(nonce),
-            pointer: EvmAddress::new(BANK_ADDRESS),
+            pointer: EvmAddress::new(
+                unhex(transcript()["pointer"].as_str().or_fail("native pointer"))
+                    .try_into()
+                    .or_fail("pointer width"),
+            ),
             denom: "uhpx".to_owned(),
             chain_id: 125,
             max_priority_fee_per_gas: 1,
@@ -190,12 +193,13 @@ impl StoreFixture {
         )
         .or_fail("module")])
         .or_fail("registry");
-        let request = bank_request(7);
+        let nonce = transcript()["nonce"].as_u64().or_fail("recorded nonce");
+        let request = bank_request(nonce);
         let execution = MoveLegExecution::new(
             [0x31; 32],
             AgentDid::new("did:layerx:alice").or_fail("actor"),
             AuthorityRef::new("custody-human-primary").or_fail("authority"),
-            7,
+            nonce,
             0,
             u64::MAX,
             1_000_000_000_000_000_000,
@@ -224,9 +228,7 @@ impl StoreFixture {
             100,
         )
         .or_fail("production engine record");
-        // Restore the exact previously submitted pointer transaction from the
-        // committed pre-migration node transcript. Recovery must authenticate
-        // already-signed history without resolving it as a new current route.
+        // Reopen the exact signed pointer transaction with its node-issued evidence.
         let document = transcript();
         let raw = unhex(
             document["records"][0]["raw"]

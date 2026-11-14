@@ -246,7 +246,7 @@ func (r qualificationRequest) validate() error {
 	return nil
 }
 func qTransition(old, next string) bool {
-	allowed := map[string][]string{"prepared": {"dispatch_intent"}, "dispatch_intent": {"acknowledgement_unknown", "run_bound", "terminal_failed"}, "acknowledgement_unknown": {"run_bound", "conflict"}, "run_bound": {"running", "completed_uncollected", "terminal_failed", "conflict"}, "running": {"completed_uncollected", "terminal_failed", "conflict"}, "completed_uncollected": {"completed_validated", "terminal_failed", "conflict"}}
+	allowed := map[string][]string{qStatePrepared: {qStateDispatchIntent}, qStateDispatchIntent: {qStateAcknowledgementUnknown, qStateRunBound, qStateTerminalFailed}, qStateAcknowledgementUnknown: {qStateRunBound, qStateConflict}, qStateRunBound: {qStateRunning, qStateCompletedUncollected, qStateTerminalFailed, qStateConflict}, qStateRunning: {qStateCompletedUncollected, qStateTerminalFailed, qStateConflict}, qStateCompletedUncollected: {qStateCompletedValidated, qStateTerminalFailed, qStateConflict}}
 	for _, s := range allowed[old] {
 		if s == next {
 			return true

@@ -1,5 +1,7 @@
 //! Attestor signing preserves audit order, deadlines and durable replay bindings.
 
+pub use layerx_human_kms::verify_native_pointer;
+
 #[allow(dead_code)]
 mod attestor {
     pub(super) fn decode_peer_evm_wire(raw: &[u8]) -> Result<Eip1559Call, AttestorError> {
@@ -1132,6 +1134,7 @@ fn fragmented_handshake_and_frame_release_all_permits() -> Result {
         host.remote().probe().is_ok(),
         "permits must admit a new authenticated request"
     );
+    await_count(&host.active, 0, peers.runtime.clock.as_ref());
     let start = std::sync::Barrier::new(16);
     let mut frames = thread::scope(|scope| {
         let workers: Vec<_> = (0..16)

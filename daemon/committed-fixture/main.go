@@ -141,7 +141,7 @@ func recordSelected(ctx context.Context, paxd, out, selection string, names []st
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(n.home)
+	defer func() { _ = os.RemoveAll(n.home) }()
 	defer func() {
 		if err != nil {
 			n.printLogTail(stderr)
@@ -151,13 +151,13 @@ func recordSelected(ctx context.Context, paxd, out, selection string, names []st
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(standby.home)
+	defer func() { _ = os.RemoveAll(standby.home) }()
 	defer func() {
 		if err != nil {
 			standby.printLogTail(stderr)
 		}
 	}()
-	defer os.RemoveAll(observer.home)
+	defer func() { _ = os.RemoveAll(observer.home) }()
 	defer func() {
 		if err != nil {
 			observer.printLogTail(stderr)
@@ -290,7 +290,7 @@ func (n *node) recordVector(name string, all bool) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer os.RemoveAll(home)
+	defer func() { _ = os.RemoveAll(home) }()
 	if err := os.Mkdir(filepath.Join(home, "config"), 0700); err != nil {
 		return nil, err
 	}
@@ -388,7 +388,7 @@ func prepareHome(ctx context.Context, paxd string) (_ *node, err error) {
 	}
 	defer func() {
 		if err != nil {
-			os.RemoveAll(n.home)
+			_ = os.RemoveAll(n.home)
 		}
 	}()
 	n.standby, err = prepareNodeHome(ctx, paxd, true, n.home)
@@ -421,7 +421,7 @@ func prepareNodeHome(ctx context.Context, paxd string, standby bool, parent stri
 	}
 	defer func() {
 		if err != nil {
-			os.RemoveAll(home)
+			_ = os.RemoveAll(home)
 		}
 	}()
 	n := &node{home: home, paxd: paxd, ctx: ctx, isStandby: standby, receiptKeyFile: filepath.Join(home, "config", "receipt-key.hex")}
@@ -623,7 +623,7 @@ func (n *node) configure() error {
 	defer func() {
 		for _, listener := range listeners {
 			if listener != nil {
-				listener.Close()
+				_ = listener.Close()
 			}
 		}
 	}()
@@ -841,7 +841,7 @@ func (n *node) prepareObserver(standby *node) (_ *node, err error) {
 	}
 	defer func() {
 		if err != nil {
-			os.RemoveAll(o.home)
+			_ = os.RemoveAll(o.home)
 		}
 	}()
 	o.observer = true
@@ -906,23 +906,23 @@ func (n *node) bootstrap(peers ...*node) error {
 			"--sequencer.enable=false")
 		cmd.Stdout, cmd.Stderr = log, log
 		if err := cmd.Start(); err != nil {
-			log.Close()
+			_ = log.Close()
 			return err
 		}
 		done := make(chan struct{})
 		go func() {
-			cmd.Wait()
+			_ = cmd.Wait()
 			close(done)
 		}()
 		peerStops = append(peerStops, func() {
-			cmd.Process.Signal(os.Interrupt)
+			_ = cmd.Process.Signal(os.Interrupt)
 			select {
 			case <-done:
 			case <-time.After(5 * time.Second):
-				cmd.Process.Kill()
+				_ = cmd.Process.Kill()
 				<-done
 			}
-			log.Close()
+			_ = log.Close()
 		})
 	}
 	logPath := filepath.Join(n.home, "bootstrap.log")
@@ -938,7 +938,7 @@ func (n *node) bootstrap(peers ...*node) error {
 		"--sequencer.enable=false", "--halt-height", fmt.Sprint(height))
 	cmd.Stdout, cmd.Stderr = log, log
 	err = cmd.Run()
-	log.Close()
+	_ = log.Close()
 	stopPeers()
 	if err != nil {
 		data, readErr := os.ReadFile(logPath)
@@ -1011,7 +1011,7 @@ func (n *node) start() (_ func(), err error) {
 			if err != nil {
 				return nil, err
 			}
-			stopObserver = func() { os.RemoveAll(observer.home) }
+			stopObserver = func() { _ = os.RemoveAll(observer.home) }
 			if err := n.bootstrap(n.standby, observer); err != nil {
 				return nil, err
 			}
@@ -1021,7 +1021,7 @@ func (n *node) start() (_ func(), err error) {
 			}
 			stopObserver = func() {
 				stop()
-				os.RemoveAll(observer.home)
+				_ = os.RemoveAll(observer.home)
 			}
 		}
 		stopStandby = n.standby.stopProcess
@@ -1049,7 +1049,7 @@ func (n *node) start() (_ func(), err error) {
 	cmd := exec.CommandContext(n.ctx, n.paxd, "start", "--home", n.home, "--chain-id", fixtureChainID)
 	cmd.Stdout, cmd.Stderr = log, log
 	if err := cmd.Start(); err != nil {
-		log.Close()
+		_ = log.Close()
 		return nil, err
 	}
 	done := make(chan struct{})
@@ -1065,14 +1065,14 @@ func (n *node) start() (_ func(), err error) {
 			if n.client != nil {
 				n.client.Close()
 			}
-			cmd.Process.Signal(os.Interrupt)
+			_ = cmd.Process.Signal(os.Interrupt)
 			select {
 			case <-done:
 			case <-time.After(5 * time.Second):
-				cmd.Process.Kill()
+				_ = cmd.Process.Kill()
 				<-done
 			}
-			log.Close()
+			_ = log.Close()
 			if stopStandby != nil {
 				stopStandby()
 			}
@@ -1105,7 +1105,7 @@ func (n *node) start() (_ func(), err error) {
 			var conn net.Conn
 			conn, lastErr = (&net.Dialer{}).DialContext(probe, "tcp", address)
 			if lastErr == nil {
-				conn.Close()
+				_ = conn.Close()
 			}
 		} else {
 			if n.client == nil {
@@ -1151,10 +1151,10 @@ func (n *node) printLogTail(stderr io.Writer) {
 	if err != nil {
 		return
 	}
-	defer log.Close()
+	defer func() { _ = log.Close() }()
 	info, err := log.Stat()
 	if err != nil {
-		fmt.Fprintf(stderr, "stat recorder log %s: %v\n", path, err)
+		_, _ = fmt.Fprintf(stderr, "stat recorder log %s: %v\n", path, err)
 		return
 	}
 	const tailBytes = 16 * 1024
@@ -1165,20 +1165,20 @@ func (n *node) printLogTail(stderr io.Writer) {
 		for scanner.Scan() {
 			line := scanner.Text()
 			if strings.Contains(line, "standby refused") || strings.Contains(line, "standby stopped") || strings.Contains(line, "fences this primary") {
-				fmt.Fprintf(stderr, "recorder replication failure %s: %s\n", path, line)
+				_, _ = fmt.Fprintf(stderr, "recorder replication failure %s: %s\n", path, line)
 			}
 		}
 		if err := scanner.Err(); err != nil {
-			fmt.Fprintf(stderr, "scan recorder log %s: %v\n", path, err)
+			_, _ = fmt.Fprintf(stderr, "scan recorder log %s: %v\n", path, err)
 		}
 		if _, err := log.Seek(-tailBytes, io.SeekEnd); err != nil {
-			fmt.Fprintf(stderr, "seek recorder log %s: %v\n", path, err)
+			_, _ = fmt.Fprintf(stderr, "seek recorder log %s: %v\n", path, err)
 			return
 		}
 	}
-	fmt.Fprintf(stderr, "recorder log tail %s:\n", path)
+	_, _ = fmt.Fprintf(stderr, "recorder log tail %s:\n", path)
 	if _, err := io.Copy(stderr, log); err != nil {
-		fmt.Fprintf(stderr, "read recorder log %s: %v\n", path, err)
+		_, _ = fmt.Fprintf(stderr, "read recorder log %s: %v\n", path, err)
 	}
 }
 

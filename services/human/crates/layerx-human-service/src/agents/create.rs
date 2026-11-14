@@ -795,11 +795,10 @@ impl ProtocolEvidence {
                 ) => (disclosure.canonical_payload().to_vec(), 3),
                 Some(layerx_crypto::disclosure::call::ConstructMethod::PointerTransfer {
                     ..
-                }) => {
-                    return Err(AgentFailure::Refused(
-                        "lifecycle transaction is a pointer transfer",
-                    ))
-                }
+                }) => (
+                    disclosure.canonical_payload().to_vec(),
+                    layerx_wire::limits::PROTOCOL_VERSION,
+                ),
                 Some(layerx_crypto::disclosure::call::ConstructMethod::BindLayerX { .. }) => {
                     return Err(AgentFailure::Refused(
                         "lifecycle transaction is a bind registration",
