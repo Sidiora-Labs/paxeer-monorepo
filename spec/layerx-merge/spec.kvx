@@ -328436,7 +328436,7 @@ do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection
 
 [task.22.39.535]
 title = "Let the served test of the pay precompile read the escrow view in its present form"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
