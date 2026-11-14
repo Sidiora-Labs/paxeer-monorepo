@@ -219,7 +219,7 @@ fn session_open_binds_every_dimension_and_token_is_daemon_only() {
     let record_debug = format!("{record:?}");
     assert!(record_debug.contains("[REDACTED]"));
     assert!(!record_debug.contains(&raw_bearer_debug));
-    assert!(stored_bytes(&store, &tenant_id, 1).starts_with(b"LXSR04"));
+    assert!(stored_bytes(&store, &tenant_id, 1).starts_with(b"LXSR05"));
     let _ = fs::remove_dir_all(root);
 }
 
@@ -596,7 +596,7 @@ fn legacy_records_load_at_the_first_generation_and_are_rewritten_on_change() {
 
     close(&mut store, &mut registry, &tenant_id, SessionId([1; 32]))
         .unwrap_or_else(|error| panic!("close failed: {error:?}"));
-    assert!(stored_bytes(&store, &tenant_id, 1).starts_with(b"LXSR04"));
+    assert!(stored_bytes(&store, &tenant_id, 1).starts_with(b"LXSR05"));
     assert_eq!(
         token.authorize(&registry, &tenant_id, &agent, "read", 11),
         Err(SessionError::Revoked)
@@ -627,7 +627,7 @@ fn generation_exhaustion_is_typed_and_does_not_mutate_or_persist_the_session() {
         identity.did(),
     );
     let mut bytes = stored_bytes(&store, &tenant_id, 1);
-    bytes[111..119].copy_from_slice(&u64::MAX.to_be_bytes());
+    bytes[112..120].copy_from_slice(&u64::MAX.to_be_bytes());
     store
         .put_local(session_key(&tenant_id, 1), bytes.clone())
         .unwrap_or_else(|error| panic!("put failed: {error}"));
@@ -657,8 +657,8 @@ fn a_zero_generation_record_is_refused_rather_than_defaulted() {
     let mut registry = SessionRegistry::default();
     open_session(&mut store, &mut registry, &identity, 1, &tenant_id, &agent);
     let mut bytes = stored_bytes(&store, &tenant_id, 1);
-    assert_eq!(&bytes[111..119], &1_u64.to_be_bytes());
-    bytes[111..119].copy_from_slice(&0_u64.to_be_bytes());
+    assert_eq!(&bytes[112..120], &1_u64.to_be_bytes());
+    bytes[112..120].copy_from_slice(&0_u64.to_be_bytes());
     store
         .put_local(session_key(&tenant_id, 1), bytes)
         .unwrap_or_else(|error| panic!("put failed: {error}"));

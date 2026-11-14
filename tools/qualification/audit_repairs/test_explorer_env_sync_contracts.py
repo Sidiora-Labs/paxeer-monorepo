@@ -37,8 +37,8 @@ def test_env_template_describes_merged_chain_and_retired_surfaces():
         "in one global sequence, returns a signed execution receipt and builds "
         "each block.",
         "Validators check that block and commit it.",
-        "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "A receipt is final once its block is committed",
         "There is no separate kernel daemon, sequencer service or checkpoint deployment",
         "retired refusal surfaces retained for compatibility",

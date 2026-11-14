@@ -17,6 +17,7 @@ use layerx_proof::inclusion::SequencerAuthorization;
 use layerx_proof::merkle::build_proof;
 use layerx_proof::receipt::{verify_outcome, AuthorizedBatch};
 use layerx_types::ids::{ActivityId, Did, IdempotencyKey};
+use layerx_types::rung::Rung;
 use layerx_types::verify::VerificationLevel;
 use layerx_wire::encode::Encoder;
 use layerx_wire::hash::{batch_header_digest, receipt_digest};
@@ -96,9 +97,9 @@ fn entry(
             .then_some(ProtocolAuthority::CapabilityGrant([6; 32])),
         submitted_bytes,
         receipt_id,
-        tx_hash: None,
-        nonce: None,
-        rung: None,
+        tx_hash: receipt_id.map(|_| [8; 32]),
+        nonce: receipt_id.map(|_| 7),
+        rung: receipt_id.map(|_| Rung::Receipted),
     }
 }
 

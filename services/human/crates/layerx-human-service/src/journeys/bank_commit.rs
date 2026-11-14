@@ -13,6 +13,16 @@ use sha2::{Digest as _, Sha256};
 
 use super::JourneyError;
 
+pub(crate) fn pointer_transfer_succeeded(
+    receipt: &layerx_intents::canonical::ProtocolReceipt,
+) -> bool {
+    let envelope = layerx_wire::receipt::Receipt::Protocol(Box::new(receipt.clone()));
+    receipt.result_code() == 0
+        && receipt.activity_root() == <[u8; 32]>::from(Sha256::digest(super::resolver::abi_word(1)))
+        && layerx_proof::sequencer_logs::decode_summary(&envelope)
+            .is_ok_and(|summary| summary.return_data_len() == 32)
+}
+
 /// A pinned consensus trust set and the node's exact sequence-batch inclusion proof.
 /// The proof fields use the daemon's Comet simple-proof transport encoding.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -83,6 +93,9 @@ impl BankCommitEvidence {
                 .landing()
                 .is_some_and(|landing| landing.block_number > self.covering_height)
         {
+            return Err(bad());
+        }
+        if !pointer_transfer_succeeded(receipt.receipt().protocol().ok_or_else(bad)?) {
             return Err(bad());
         }
         self.verify_batch(receipt, keys)?;
@@ -156,6 +169,9 @@ impl BankCommitEvidence {
         let mut inclusion = [0; 8];
         inclusion.copy_from_slice(&receipt.batch_id()[24..]);
         if self.chain_id.is_empty() || self.covering_height < u64::from_be_bytes(inclusion) {
+            return Err(bad());
+        }
+        if !pointer_transfer_succeeded(receipt) {
             return Err(bad());
         }
         self.verify_protocol_batch(receipt, keys)?;

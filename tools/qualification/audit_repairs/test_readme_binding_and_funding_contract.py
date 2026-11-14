@@ -195,7 +195,7 @@ def test_f39_operator_build_uses_native_paxd_prerequisites():
     assert "$(PAXEER_MAKE) build" in recipe
     release = section("Releases and Network Upgrades")
     assert "executes kernel activity inside `paxd`" in release
-    assert "commits it with the BFT chain state" in release
+    assert "validators commit it in the same block" in release
 
 
 def test_f39_rpc_example_targets_chain_125_at_node_root():

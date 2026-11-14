@@ -21915,3 +21915,58 @@ fix = "Decision 3504. The file of the case joins the paths of the task."
 title = "The test target of the human workspace takes no member selection"
 symptom = "The target human-test of the Makefile runs the tests of every member of the human workspace in one cargo line. A task that brings a group of members in line cannot be counted on that group."
 fix = "Decision 3505. The cargo line of the target reads its member selection from a variable whose default is the whole workspace."
+
+[gotcha.4419]
+title = "The two format steps of the lint targets leave out different directories"
+symptom = "The format step of the target paxeer-manifest-lint of the Makefile leaves out the dependency sources under core/deps, the output directory build and the fixtures of the vendored tree under tools. The format step of the target lint of chain.mk, which the same target calls next, leaves out none of the three."
+fix = "Decision 3506. Task 22.39.516."
+
+[gotcha.4420]
+title = "No test keeps the pages on the kernel sentence"
+symptom = "Decision 3496 and the decisions after it brought every page, comment and schema text to the kernel sentence, task by task. No test of the tree reads the pages for the old wordings, so a later page can bring one back unseen."
+fix = "Decision 3507. Task 22.43.333 adds the test."
+
+[gotcha.4421]
+title = "The lint rules by file and linter are wider than the reports they were written for"
+symptom = "Most rules of the lint configuration name a file and a linter. A rule of that form covers every report of the linter in the file, while the report it was written for concerned single lines."
+fix = "Decision 3508. Tasks 22.39.517 to 22.39.519 repair the code of three groups of directories and remove their rules."
+
+[gotcha.4422]
+title = "The members outside the scopes of decisions 3498 and 3505 have no task yet"
+symptom = "Decisions 3498 and 3505 give the test targets of the agent workspace and of the human services a scope variable, and name tasks by member and by group for the members outside the counted scope. Those tasks are not in the plan."
+fix = "Decision 3509. Tasks 22.39.520 to 22.39.533."
+
+[gotcha.4423]
+title = "The page on the modules of the docs site and the files built from it do not hold the kernel sentence"
+symptom = "The page names the kernel inside a link and describes it with an earlier wording. The search index, the copies of the pages in markdown and the files for assistants are built from the pages and hold the same wording."
+fix = "Decision 3510. Task 22.43.334."
+
+[gotcha.4424]
+title = "The test target of the platform workspaces takes no member selection"
+symptom = "The target platform-test runs the tests of every member of the platform workspace in one cargo line and those of the workspace of the platform tools in a second. A task that brings a group of members in line cannot be counted on that group."
+fix = "Decision 3511. The two cargo lines read their member selections from variables whose defaults are the present options."
+
+[gotcha.4425]
+title = "A case of the program interface tests reads fixtures that only its harness provides"
+symptom = "The case on native receipts in the interface tests of the member layerx-programs-registry reads its fixtures from a directory that the harness of the program interface provides. The target programs-test runs the same test program without that directory."
+fix = "Decision 3512. The case carries an ignore attribute and the harness runs its test program with the ignored cases included."
+
+[gotcha.4426]
+title = "The linter of repeated literals names one occurrence of a literal and the occurrence can differ between runs"
+symptom = "The linter goconst reports a literal that a package repeats at one of its occurrences. It reads the files of the package side by side, so the file it names is not the same in every run. The rules of .golangci.yml for this linter name single files."
+fix = "Decision 3513. A rule for this linter covers the Go files of the package directory."
+
+[gotcha.4427]
+title = "The served test of the pay precompile reads the escrow view in its earlier form"
+symptom = "The escrow view of the pay keeper returns the record, a found flag and an error. Two calls in precompiles/layerxpay/served/served_test.go take two values."
+fix = "Task 22.39.535 brings the two calls to the present form."
+
+[gotcha.4428]
+title = "The vet step of the lint target of the node takes no scope"
+symptom = "The target lint of chain.mk holds its steps in one recipe and its vet step runs over the whole root module in one command. A verification cannot run one step alone or vet the module by parts."
+fix = "Decision 3514. The target is made of step targets and the vet step reads a variable."
+
+[gotcha.4429]
+title = "The bank precompile serves its send to the native pointer of the denomination"
+symptom = "The send of the bank precompile is served to one caller, the ERC-20 native pointer of the denomination. A wallet moves a bank denomination by the transfer of that pointer, and the pointer view of the chain names the pointer of a denomination."
+fix = "Decision 3515. The wallet bank transfer of the human service is the transfer of the pointer."

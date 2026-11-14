@@ -52,8 +52,8 @@ def test_f15_single_paxd_network_and_block_finality():
         "It executes each transaction when it arrives, assigns the next position "
         "in one global sequence, returns a signed execution receipt and builds "
         "each block.",
-        "Validators check that block and commit it.", "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "Validators check that block and commit it.", "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "A receipt is final once its block is committed",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
         "External checkpoint settlement is retired",
@@ -64,7 +64,7 @@ def test_f15_single_paxd_network_and_block_finality():
     assert "var _ tmtypes.SequencerSource = (*ConsensusSource)(nil)" in source(
         "node/sequencer/consensus_source.go"
     )
-    assert "subgraph Network[One Paxeer BFT network / EVM chain 125]" in overview
+    assert "subgraph Network[Paxeer X / EVM chain 125]" in overview
     assert "subgraph Node[paxd]" in overview
     assert "RPC --> Order --> Host --> Native" in overview
     assert "Validators -->|Commit| State" in overview
@@ -215,7 +215,7 @@ def test_f15_paxd_build_and_release_examples():
     assert "-o ./build/paxd ./daemon/paxd" in source("chain.mk")
     release = section("Releases and Network Upgrades")
     assert "executes kernel activity inside `paxd`" in release
-    assert "commits it with the BFT chain state" in release
+    assert "validators commit it in the same block" in release
     assert "`v7.0` merge handler activates the merged interfaces" in release
     assert "`v7.0-anchor-store-delete` removes the historical anchor store" in release
     assert "network's recorded upgrade height" in release

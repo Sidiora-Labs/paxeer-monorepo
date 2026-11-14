@@ -285,7 +285,7 @@ const blocksQuery = `SELECT number, hash, time, proposer, tx_count FROM perps.bl
 
 // Blocks returns the newest blocks first; limit is the raw query value,
 // clamped to [1, 50] with default 20 (Hyperpax:data_api.md:562).
-func (e *Explorer) Blocks(ctx context.Context, limit string) ([]Block, error) {
+func (e *Explorer) Blocks(ctx context.Context, limit string) (result0 []Block, resultErr error) {
 	n, err := clamp(limit, defaultBlocks, maxBlocks)
 	if err != nil {
 		return nil, err
@@ -294,7 +294,11 @@ func (e *Explorer) Blocks(ctx context.Context, limit string) ([]Block, error) {
 	if err != nil {
 		return nil, fmt.Errorf("explorer: read blocks: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); resultErr == nil {
+			resultErr = closeErr
+		}
+	}()
 	out := []Block{}
 	for rows.Next() {
 		var (
@@ -403,12 +407,16 @@ func (e *Explorer) MarketHistory(ctx context.Context, symbol, cursor, limit stri
 	return page, nil
 }
 
-func (e *Explorer) readActions(ctx context.Context, query string, args ...any) ([]actionRow, error) {
+func (e *Explorer) readActions(ctx context.Context, query string, args ...any) (result0 []actionRow, resultErr error) {
 	rows, err := e.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("explorer: read transactions: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); resultErr == nil {
+			resultErr = closeErr
+		}
+	}()
 	out := []actionRow{}
 	for rows.Next() {
 		r, err := e.scanAction(rows)

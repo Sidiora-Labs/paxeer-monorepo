@@ -357,9 +357,13 @@ fn verify_chain_unlocked(path: &Path) -> Result<Verification, AuditError> {
 
 fn scan_chain(mut reader: impl Read) -> Result<Verification, AuditError> {
     let mut header = [0_u8; HEADER_BYTES];
-    reader
-        .read_exact(&mut header)
-        .map_err(|_| invalid(0, ChainIssue::InvalidHeader))?;
+    match reader.read_exact(&mut header) {
+        Ok(()) => {}
+        Err(error) if error.kind() == io::ErrorKind::UnexpectedEof => {
+            return Err(invalid(0, ChainIssue::InvalidHeader));
+        }
+        Err(error) => return Err(error.into()),
+    }
     if &header[..8] != LOG_MAGIC {
         return Err(invalid(0, ChainIssue::InvalidHeader));
     }

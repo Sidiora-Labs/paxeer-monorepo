@@ -277,6 +277,9 @@ func (r *Runner) Run(ctx context.Context, req Request) (rep Report, err error) {
 
 // batch rewrites [from, to] in one transaction and returns its counts.
 func (r *Runner) batch(ctx context.Context, tables []table, from, to int64, dryRun bool) (_ []TableCount, err error) {
+	if from < 0 || to < from {
+		return nil, Refusal("invalid replay height range")
+	}
 	if err := renewLease(ctx, r.DB, r.Holder, r.LeaseTTL); err != nil {
 		return nil, err
 	}
@@ -341,11 +344,14 @@ func (r *Runner) batch(ctx context.Context, tables []table, from, to int64, dryR
 		return nil, fmt.Errorf("read outbox sequence: %w", err)
 	}
 	for _, t := range tables {
-		if _, err := tx.ExecContext(ctx, `DELETE FROM perps.`+pq.QuoteIdentifier(t.name)+` WHERE block BETWEEN $1 AND $2`, from, to); err != nil {
+		if _, err := tx.ExecContext(ctx, strings.Join([]string{`DELETE FROM perps.`, pq.QuoteIdentifier(t.name), ` WHERE block BETWEEN $1 AND $2`}, ""), from, to); err != nil {
 			return nil, fmt.Errorf("delete perps.%s: %w", t.name, err)
 		}
 	}
 	for h := from; h <= to; h++ {
+		if h < 0 {
+			return nil, Refusal("replay height is negative")
+		}
 		block, rows, err := r.Source.Read(ctx, tx, uint64(h))
 		if err != nil {
 			return nil, fmt.Errorf("read height %d: %w", h, err)
@@ -397,7 +403,7 @@ func (r *Runner) batch(ctx context.Context, tables []table, from, to int64, dryR
 
 // blockTables lists the base tables of schema perps with a block column: every
 // fact table and the block-keyed projections, with their columns.
-func blockTables(ctx context.Context, db *sql.DB) ([]table, error) {
+func blockTables(ctx context.Context, db *sql.DB) (result0 []table, resultErr error) {
 	rows, err := db.QueryContext(ctx, `SELECT c.table_name, array_agg(c.column_name::text ORDER BY c.ordinal_position)
 FROM information_schema.columns c
 JOIN information_schema.tables t ON t.table_schema = c.table_schema AND t.table_name = c.table_name
@@ -408,7 +414,11 @@ ORDER BY c.table_name`)
 	if err != nil {
 		return nil, fmt.Errorf("list block tables: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); resultErr == nil {
+			resultErr = closeErr
+		}
+	}()
 	var out []table
 	for rows.Next() {
 		var t table
@@ -431,12 +441,16 @@ ORDER BY c.table_name`)
 	return out, nil
 }
 
-func storedHashes(ctx context.Context, tx *sql.Tx, from, to int64) (map[int64][]byte, error) {
+func storedHashes(ctx context.Context, tx *sql.Tx, from, to int64) (result0 map[int64][]byte, resultErr error) {
 	rows, err := tx.QueryContext(ctx, `SELECT number, hash FROM perps.blocks WHERE number BETWEEN $1 AND $2`, from, to)
 	if err != nil {
 		return nil, fmt.Errorf("read stored blocks: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); resultErr == nil {
+			resultErr = closeErr
+		}
+	}()
 	out := make(map[int64][]byte, to-from+1)
 	for rows.Next() {
 		var n int64
@@ -578,11 +592,11 @@ func restoreRowIDs(ctx context.Context, tx *sql.Tx, t table, snap string) error 
 		ret = append(ret, "f."+q)
 	}
 	name := `perps.` + pq.QuoteIdentifier(t.name)
-	query := `WITH moved AS (DELETE FROM ` + name + ` f USING ` + snap + ` s
+	query := strings.Join([]string{`WITH moved AS (DELETE FROM `, name, ` f USING `, pq.QuoteIdentifier(snap), ` s
 WHERE f.tx_hash = s.tx_hash AND f.log_index = s.log_index AND f.sub = s.sub AND f.row_id <> s.row_id
-RETURNING s.row_id AS replay_row_id, ` + strings.Join(ret, ", ") + `)
-INSERT INTO ` + name + ` (row_id, ` + strings.Join(cols, ", ") + `) OVERRIDING SYSTEM VALUE
-SELECT replay_row_id, ` + strings.Join(cols, ", ") + ` FROM moved`
+RETURNING s.row_id AS replay_row_id, `, strings.Join(ret, ", "), `)
+INSERT INTO `, name, ` (row_id, `, strings.Join(cols, ", "), `) OVERRIDING SYSTEM VALUE
+SELECT replay_row_id, `, strings.Join(cols, ", "), ` FROM moved`}, "")
 	if _, err := tx.ExecContext(ctx, query); err != nil {
 		return fmt.Errorf("restore row ids of %s: %w", name, err)
 	}

@@ -55,8 +55,8 @@ def test_readme_network_embeds_kernel_in_one_paxd_bft_network():
         "in one global sequence, returns a signed execution receipt and builds "
         "each block.",
         "Validators check that block and commit it.",
-        "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "A receipt is final once its block is committed",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
         "External checkpoint settlement is retired",
@@ -70,7 +70,7 @@ def test_readme_network_embeds_kernel_in_one_paxd_bft_network():
     topology = re.findall(r"```mermaid\n(.*?)\n```", overview, re.S)
     assert len(topology) == 1
     for fact in (
-        "subgraph Network[One Paxeer BFT network / EVM chain 125]",
+        "subgraph Network[Paxeer X / EVM chain 125]",
         "subgraph Node[paxd]",
         "RPC --> Order --> Host --> Native",
         "Validators -->|Commit| State",

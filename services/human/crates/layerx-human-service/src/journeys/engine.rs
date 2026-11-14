@@ -1801,6 +1801,14 @@ impl JourneyEngine {
         {
             return Err(JourneyError::PreparationMismatch);
         }
+        let mut view = [0; 20];
+        view[18..].copy_from_slice(&0x100a_u16.to_be_bytes());
+        let answer = endpoint
+            .call_pending(&view, &super::native_pointer_query(&bank.denom))
+            .map_err(|_| AgentBoundaryError::Unavailable)?;
+        if super::decode_native_pointer(&answer) != Some(call.to) {
+            return Err(JourneyError::PreparationMismatch);
+        }
         match self.record.legs[index].phase {
             JourneyPhase::Compiled => {
                 self.transition(scope, index, JourneyPhase::Preparing, now)?;
@@ -2695,7 +2703,8 @@ fn evm_receipt_matches_leg(
         && receipt.fee_charged() <= u128::from(call.gas_limit).saturating_mul(call.max_fee_per_gas)
         && (leg.preparation.not_before..=leg.preparation.not_after).contains(&receipt.timestamp())
         && leg.bank.as_ref().is_none_or(|bank| {
-            bank.unsigned == call.encode_unsigned()
+            super::bank_commit::pointer_transfer_succeeded(receipt)
+                && bank.unsigned == call.encode_unsigned()
                 && bank.sender == sender
                 && receipt.asset() == <[u8; 32]>::from(Sha256::digest(bank.denom.as_bytes()))
         })

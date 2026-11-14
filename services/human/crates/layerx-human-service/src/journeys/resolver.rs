@@ -26,20 +26,36 @@ pub(super) fn abi_word(value: u128) -> [u8; 32] {
     word
 }
 
-fn bank_send_calldata(from: [u8; 20], to: [u8; 20], denom: &str, amount: u128) -> Vec<u8> {
+pub(crate) fn pointer_transfer_calldata(to: [u8; 20], amount: u128) -> Vec<u8> {
     let mut data =
-        layerx_crypto::disclosure::call::ledger_selector("send(address,address,string,uint256)")
-            .to_vec();
-    for address in [from, to] {
-        data.extend([0; 12]);
-        data.extend(address);
-    }
-    data.extend(abi_word(128));
+        layerx_crypto::disclosure::call::ledger_selector("transfer(address,uint256)").to_vec();
+    data.extend([0; 12]);
+    data.extend(to);
     data.extend(abi_word(amount));
+    data
+}
+
+pub(crate) fn native_pointer_query(denom: &str) -> Vec<u8> {
+    let mut data =
+        layerx_crypto::disclosure::call::ledger_selector("getNativePointer(string)").to_vec();
+    data.extend(abi_word(32));
     data.extend(abi_word(denom.len() as u128));
     data.extend(denom.as_bytes());
     data.resize(4 + (data.len() - 4).div_ceil(32) * 32, 0);
     data
+}
+
+pub(crate) fn decode_native_pointer(answer: &[u8]) -> Option<[u8; 20]> {
+    if answer.len() != 96
+        || answer[..12] != [0; 12]
+        || answer[32..62] != [0; 30]
+        || answer[64..95] != [0; 31]
+        || answer[95] != 1
+    {
+        return None;
+    }
+    let pointer = answer[12..32].try_into().ok()?;
+    (pointer != [0; 20] && pointer != BANK_ADDRESS).then_some(pointer)
 }
 
 /// The only source and destination kinds accepted by the movement API.
@@ -871,7 +887,8 @@ impl RouteResolver {
                 if from == to
                     || from.bytes() == [0; 20]
                     || to.bytes() == [0; 20]
-                    || pointer.bytes() != BANK_ADDRESS
+                    || pointer.bytes() == [0; 20]
+                    || pointer.bytes() == BANK_ADDRESS
                     || request.asset.bytes() != <[u8; 32]>::from(Sha256::digest(denom.as_bytes()))
                     || request.amount == Amount::ZERO
                     || route.expires_at.value() == 0
@@ -888,8 +905,7 @@ impl RouteResolver {
                 {
                     return Err(unavailable(request));
                 }
-                let data =
-                    bank_send_calldata(from.bytes(), to.bytes(), &denom, request.amount.value());
+                let data = pointer_transfer_calldata(to.bytes(), request.amount.value());
                 Ok(Route {
                     legs: Vec::new(),
                     bank_transfers: vec![Eip1559Call {
@@ -898,7 +914,7 @@ impl RouteResolver {
                         max_priority_fee_per_gas,
                         max_fee_per_gas,
                         gas_limit,
-                        to: BANK_ADDRESS,
+                        to: pointer.bytes(),
                         data,
                     }],
                 })
@@ -1091,5 +1107,46 @@ fn unavailable(request: &RouteRequest) -> RouteError {
             Relationship::Custody(CustodyRoute::Deposit { .. }) => "custody-deposit",
             Relationship::Custody(CustodyRoute::Withdrawal { .. }) => "custody-withdrawal",
         },
+    }
+}
+
+#[cfg(test)]
+mod pointer_view_tests {
+    use super::*;
+
+    #[test]
+    fn native_pointer_view_requires_canonical_registered_address() {
+        let recording: serde_json::Value =
+            serde_json::from_str(include_str!("../../tests/fixtures/bank_move_receipts.json"))
+                .unwrap_or_else(|error| panic!("pointer recording: {error}"));
+        let text = recording["pointerView"]
+            .as_str()
+            .unwrap_or_else(|| panic!("pointer view"));
+        let answer: Vec<_> = text[2..]
+            .as_bytes()
+            .chunks_exact(2)
+            .map(|pair| {
+                u8::from_str_radix(
+                    std::str::from_utf8(pair).unwrap_or_else(|error| panic!("hex: {error}")),
+                    16,
+                )
+                .unwrap_or_else(|error| panic!("hex: {error}"))
+            })
+            .collect();
+        let pointer =
+            decode_native_pointer(&answer).unwrap_or_else(|| panic!("registered native pointer"));
+        assert_ne!(pointer, [0; 20]);
+        assert_ne!(pointer, BANK_ADDRESS);
+        for index in [0, 32, 64, 95] {
+            let mut malformed = answer.clone();
+            malformed[index] ^= 1;
+            assert!(decode_native_pointer(&malformed).is_none());
+        }
+        assert!(decode_native_pointer(&answer[..95]).is_none());
+        for invalid in [[0; 20], BANK_ADDRESS] {
+            let mut malformed = answer.clone();
+            malformed[12..32].copy_from_slice(&invalid);
+            assert!(decode_native_pointer(&malformed).is_none());
+        }
     }
 }
