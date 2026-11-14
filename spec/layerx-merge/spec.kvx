@@ -375576,7 +375576,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.43.333]
 title = "Add the test that keeps the pages on the kernel sentence and run the tests that read those pages"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
