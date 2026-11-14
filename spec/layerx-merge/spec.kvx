@@ -14224,6 +14224,12 @@ value = "A helper of a test file does not take the name of a declaration of its 
 basis = "Gotchas 4432 and 4433, decision 3514."
 affects = []
 
+[decision.3519]
+title = "A change of a bound producer of the resolver fixture carries the review and the binding"
+value = "A task that changes a file named in tools/pnsdns/testdata/names_sources.json runs the Solidity test testResolverLayoutVectorIsCurrent under the names profile of the root Forge project and, where the vector is current, writes the present digest of the file into the bindings in the same commit. Task 22.39.539 does this for the present foundry.toml."
+basis = "Gotcha 4434, decision 3517."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -43884,6 +43890,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.539]
+title = "Bind the resolver fixture of the names DNS tool to the present root Forge configuration"
+reqs = ["22998.1"]
+touches = ["tools/pnsdns/testdata/names_sources.json"]
+tests = []
+verification_contract = "test -s tools/pnsdns/repair_22_39_539.kvx && FOUNDRY_PROFILE=names forge test --root . --match-test testResolverLayoutVectorIsCurrent && CGO_ENABLED=1 go test -count=1 -run TestPnsDns ./tools/pnsdns/"
+do_1 = "do_1 Gotcha 4434, decision 3519. Read loadResolverContracts in tools/pnsdns/transport_contract_test.go and the bindings in tools/pnsdns/testdata/names_sources.json. Compare each bound digest with the file in the tree; only foundry.toml differs. Read the changes of foundry.toml since the bindings were written with git log and say in the record whether one of them reaches the names profile or the compiler settings it inherits."
+symbols = []
 
 [capability.22.39.538]
 title = "Bring the reference declaration test of the launchpad tool and its package to one spec path form"
@@ -328457,6 +328472,37 @@ do_15 = "Attempt 32 (28dfb4c7c) reverts the funded sandboxExecute with LXP_SEQUE
 do_16 = "Attempt 34 re-qualified the attempt 33 files on a base with 13.27.6 and sandboxExecute still reverted with a bare LXP_FATAL_INVARIANT returned by host Execute (not by the handler or a receipt code); the stored lease is Active with zero usage, the escrow funded 100000000 with nothing spent, and the ledger is the initial one. This task changes nothing further; it requires 13.27.7 (decision.1890), which fixes the -1001 site on the sandboxed SUCCESS path with an end-to-end SANDBOX_EXECUTE SUCCESS case in tests/codec/lxp_test_sandbox_lifecycle.c; then re-qualify ef3be2b2f unchanged."
 do_17 = "Attempt 35 (566d189c8) reverts TestProgramsSandboxExecuteEmitsUsage with LXP_FATAL_INVARIANT on a base that holds 13.27.7 (7331258b0), and the test output carries no sandbox.c invariant line although sandbox_invariant (src/modules/programs/sandbox.c:82, called at :395, :411 and :440) prints the line, site and state to stderr: run the test so the kernel's stderr reaches the output (go test -v; the precompile harness must not redirect fd 2) and include the printed site with the lease-state record in the failure message. When the site shows the precompile's request out of order or missing a step (admit host, open lease, execute, publish usage, release), fix method_sandbox_execute.go; when the kernel refuses a legal sequence, record file, line and site as a finding and stop without changing src/."
 do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection (src/protocol/lxp_kernel.c:2389-2394) refuses the sandbox escrow-charge effect that task 13.27.7 made the call emit; task 13.27.8 binds it in the kernel (decision.1898). Once 13.27.8 is on main, continue attempt 35 unchanged: one build, one verify."
+
+[task.22.39.539]
+title = "Bind the resolver fixture of the names DNS tool to the present root Forge configuration"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.539"]
+interfaces = []
+do_1 = "do_1 Gotcha 4434, decision 3519. Read loadResolverContracts in tools/pnsdns/transport_contract_test.go and the bindings in tools/pnsdns/testdata/names_sources.json. Compare each bound digest with the file in the tree; only foundry.toml differs. Read the changes of foundry.toml since the bindings were written with git log and say in the record whether one of them reaches the names profile or the compiler settings it inherits."
+do_2 = "do_2 Run the Solidity test testResolverLayoutVectorIsCurrent under the names profile from the repository root. Read the output of git status after it. Where the test passes and tests/vectors/names/resolver_layout_v1.json is unchanged, write the present digest of foundry.toml into the bindings. Where the test changes the vector or does not pass, change nothing further, commit nothing of it and give the first message and the changed paths in the final message."
+do_3 = "do_3 Run the tests of tools/pnsdns whose names begin with TestPnsDns by hand; they pass. A cause in a file outside the paths: change nothing there and give file, case and first message in the final message."
+do_4 = "do_4 Record in tools/pnsdns/repair_22_39_539.kvx the former and the present digest and the result of the review. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/pnsdns/testdata/names_sources.json"]
+tests = []
+planned_paths = ["tools/pnsdns/repair_22_39_539.kvx"]
+build_cmd = "go mod download && make -s paxd-native-libs && FOUNDRY_PROFILE=names forge build --root ."
+verify_cmd = "test -s tools/pnsdns/repair_22_39_539.kvx && FOUNDRY_PROFILE=names forge test --root . --match-test testResolverLayoutVectorIsCurrent && CGO_ENABLED=1 go test -count=1 -run TestPnsDns ./tools/pnsdns/"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.538]
 title = "Bring the reference declaration test of the launchpad tool and its package to one spec path form"

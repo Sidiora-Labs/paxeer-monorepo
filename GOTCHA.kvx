@@ -21990,3 +21990,8 @@ fix = "Decision 3518. Task 22.39.537 gives the helper its own name."
 title = "A test of the reference declarations of the launchpad tool names a constant the package does not declare"
 symptom = "One case of tools/launchpad/production/feature-acceptance/reference_declarations_test.go sets a reference to the constant RetiredSpecPath. The package declares the constant SpecPath in references.go and no constant of that name."
 fix = "Decision 3518. Task 22.39.538 brings the case and the package to one form."
+
+[gotcha.4434]
+title = "The resolver fixture of the names DNS tool binds the digest of the root Forge configuration"
+symptom = "The contract test of tools/pnsdns reads the digests of seven producers of its resolver fixture from tools/pnsdns/testdata/names_sources.json, among them foundry.toml. A change of foundry.toml, also in a profile the fixture does not use, asks for a review of the fixture and a new binding."
+fix = "Decision 3519. Task 22.39.539 reviews the fixture against the present configuration and binds it."
