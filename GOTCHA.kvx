@@ -21915,3 +21915,28 @@ fix = "Decision 3504. The file of the case joins the paths of the task."
 title = "The test target of the human workspace takes no member selection"
 symptom = "The target human-test of the Makefile runs the tests of every member of the human workspace in one cargo line. A task that brings a group of members in line cannot be counted on that group."
 fix = "Decision 3505. The cargo line of the target reads its member selection from a variable whose default is the whole workspace."
+
+[gotcha.4419]
+title = "The two format steps of the lint targets leave out different directories"
+symptom = "The format step of the target paxeer-manifest-lint of the Makefile leaves out the dependency sources under core/deps, the output directory build and the fixtures of the vendored tree under tools. The format step of the target lint of chain.mk, which the same target calls next, leaves out none of the three."
+fix = "Decision 3506. Task 22.39.516."
+
+[gotcha.4420]
+title = "No test keeps the pages on the kernel sentence"
+symptom = "Decision 3496 and the decisions after it brought every page, comment and schema text to the kernel sentence, task by task. No test of the tree reads the pages for the old wordings, so a later page can bring one back unseen."
+fix = "Decision 3507. Task 22.43.333 adds the test."
+
+[gotcha.4421]
+title = "The lint rules by file and linter are wider than the reports they were written for"
+symptom = "Most rules of the lint configuration name a file and a linter. A rule of that form covers every report of the linter in the file, while the report it was written for concerned single lines."
+fix = "Decision 3508. Tasks 22.39.517 to 22.39.519 repair the code of three groups of directories and remove their rules."
+
+[gotcha.4422]
+title = "The members outside the scopes of decisions 3498 and 3505 have no task yet"
+symptom = "Decisions 3498 and 3505 give the test targets of the agent workspace and of the human services a scope variable, and name tasks by member and by group for the members outside the counted scope. Those tasks are not in the plan."
+fix = "Decision 3509. Tasks 22.39.520 to 22.39.533."
+
+[gotcha.4423]
+title = "The page on the modules of the docs site and the files built from it do not hold the kernel sentence"
+symptom = "The page names the kernel inside a link and describes it with an earlier wording. The search index, the copies of the pages in markdown and the files for assistants are built from the pages and hold the same wording."
+fix = "Decision 3510. Task 22.43.334."

@@ -766,13 +766,33 @@ impl<'a> ProductionAgentCreation<'a> {
         let bound = evidence.bound_activity(kind).map_err(|_| {
             AgentFailure::Refused("lifecycle receipt does not prove successful action")
         })?;
-        let verified = verify_evm_outcome(evidence, bound.activity_type())?;
+        let receipt = layerx_wire::receipt::decode(&evidence.receipt_bytes)
+            .map_err(|_| AgentFailure::Refused("invalid transaction receipt"))?;
+        let receipt_module = receipt
+            .protocol()
+            .ok_or(AgentFailure::Refused(
+                "lifecycle receipt is not protocol material",
+            ))?
+            .module_id();
+        let (verified, module, operation) = if receipt_module == EVM_RECEIPT_MODULE_ID {
+            (
+                verify_evm_outcome(evidence, bound.activity_type())?,
+                EVM_RECEIPT_MODULE_ID,
+                2,
+            )
+        } else {
+            (
+                evidence.verify_outcome(bound.activity_type())?,
+                expected_module as u16,
+                0,
+            )
+        };
         let protocol = verified.protocol().ok_or(AgentFailure::Refused(
             "lifecycle receipt is not protocol material",
         ))?;
         if protocol.activity_id() != evidence.tx_hash
-            || protocol.module_id() != EVM_RECEIPT_MODULE_ID
-            || protocol.operation() != 2
+            || protocol.module_id() != module
+            || protocol.operation() != operation
             || protocol.result_code() != 0
         {
             return Err(AgentFailure::Refused(

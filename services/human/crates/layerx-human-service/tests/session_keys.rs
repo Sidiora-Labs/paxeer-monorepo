@@ -6,6 +6,7 @@ use layerx_human_test_support as support;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::future::Future;
+use std::os::unix::fs::PermissionsExt as _;
 use std::pin::pin;
 use std::sync::Arc;
 use std::task::{Context, Poll, Wake, Waker};
@@ -169,6 +170,8 @@ impl AgentLayer {
         primary_public_key: [u8; 32],
     ) -> Self {
         fs::create_dir_all(&root).unwrap_or_else(|error| panic!("agent root: {error}"));
+        fs::set_permissions(&root, fs::Permissions::from_mode(0o700))
+            .unwrap_or_else(|error| panic!("agent root permissions: {error}"));
         let store = Store::open(&root).unwrap_or_else(|error| panic!("agent store: {error}"));
         let protocol_identity = Sha256::digest(did.as_bytes()).into();
         Self {
@@ -440,13 +443,27 @@ impl AgentSessionContract for AgentLayer {
         if target.grant_id != target.daemon_session_id {
             return Err(AgentContractError::Refused("session target mismatch"));
         }
-        close(
-            &mut self.store,
-            &mut self.registry,
-            &self.tenant,
-            SessionId(target.daemon_session_id),
-        )
-        .map_err(|_| AgentContractError::Refused("daemon session close failed"))?;
+        let session_id = SessionId(target.daemon_session_id);
+        let record = self
+            .registry
+            .get(&self.tenant, session_id)
+            .ok_or(AgentContractError::Refused("daemon session missing"))?;
+        if record.open {
+            close(
+                &mut self.store,
+                &mut self.registry,
+                &self.tenant,
+                session_id,
+            )
+            .map_err(|_| AgentContractError::Refused("daemon session close failed"))?;
+        }
+        assert!(
+            !self
+                .registry
+                .get(&self.tenant, session_id)
+                .unwrap_or_else(|| panic!("retained daemon session"))
+                .open
+        );
         self.now = self.now.max(requested_at);
         self.events.push(("suspend", target.grant_id));
         let mut evidence = SuspensionEvidence {

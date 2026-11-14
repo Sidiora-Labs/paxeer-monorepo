@@ -16,8 +16,17 @@ pub fn live_route() -> (NativeReadRoute, NodeRpcConfig) {
         ("eth_getBlockByNumber", json!(["0x96", true]), block.clone()),
         ("eth_getBlockByNumber", json!(["0x96", true]), block),
         ("eth_chainId", json!([]), json!("0x7d")),
-        ("px_getHistory", json!([rpc_hex(&receipt_hash()), null, 2]),
-            json!({"items": [], "next_cursor": null, "indexedHeight": HEIGHT, "chainHeight": HEIGHT})),
+        (
+            "px_getHistory",
+            json!([rpc_hex(&receipt_hash()), null, 2]),
+            json!({"account": rpc_hex(&receipt_hash()), "items": [], "next_cursor": null,
+                "indexedHeight": HEIGHT, "chainHeight": HEIGHT,
+                "freshness": {"version": 1, "database": "ok", "status": "ready",
+                    "sources": [{"source": "paxeer", "source_head": HEIGHT,
+                        "indexed_cursor": HEIGHT, "finalized_cursor": HEIGHT,
+                        "last_success_at": 1000, "freshness_secs": 0, "last_error_at": null,
+                        "reconciled": true, "consecutive_failures": 0, "state": "ready"}]}}),
+        ),
     ]);
     let (config, _server) = serve(exchanges);
     let route = NativeReadRoute::new(endpoint(&config), config.chain_id);

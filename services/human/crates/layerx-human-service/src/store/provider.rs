@@ -1,6 +1,6 @@
 use super::{
-    fs, io, verify_principals_tree, AgentTenantId, BTreeSet, Path, PrincipalId, PrincipalStore,
-    RetentionPolicy, StoreError, TenancyDigest, TenancyError, PRINCIPALS_DIR,
+    codec::Directory, fs, io, verify_principals_tree, AgentTenantId, BTreeSet, Path, PrincipalId,
+    PrincipalStore, RetentionPolicy, StoreError, TenancyDigest, TenancyError, PRINCIPALS_DIR,
 };
 use std::os::unix::fs::MetadataExt as _;
 use std::sync::Arc;
@@ -27,7 +27,7 @@ impl PrincipalStore {
         let mut store = Self::open(root, retention, tenancy_digest)?;
         store.provider = Some(authority);
         for principal in store.known_principals()? {
-            store.resolve_tenant(&principal)?;
+            store.resolve_principal(&principal)?;
         }
         Ok(store)
     }
@@ -53,44 +53,45 @@ impl PrincipalStore {
         Ok(principals.into_iter().collect())
     }
 
-    pub(super) fn resolve_tenant(
+    pub(super) fn resolve_principal(
         &self,
         principal: &PrincipalId,
-    ) -> Result<AgentTenantId, StoreError> {
+    ) -> Result<(AgentTenantId, Directory), StoreError> {
         self.verify_root()?;
-        let directory = self.principal_directory(principal)?;
-        self.resolve_tenant_in(principal, &directory)
-    }
-
-    pub(super) fn resolve_tenant_in(
-        &self,
-        principal: &PrincipalId,
-        directory: &super::codec::Directory,
-    ) -> Result<AgentTenantId, StoreError> {
         let configured = self.tenancy.tenant_for(principal);
-        let Some(provider) = &self.provider else {
-            return configured.cloned().map_err(StoreError::from);
-        };
-        let tenant = provider.tenant_for(principal)?;
-        if configured.is_ok_and(|value| value != &tenant) {
-            return Err(StoreError::Tenancy(TenancyError::DigestMismatch));
-        }
-        let bytes = tenant.as_str().as_bytes();
-        if let Some(file) = binding_file(directory, "provider-binding")? {
-            verify_binding_file(&file, bytes)?;
-        } else {
-            if let Some(file) = binding_file(directory, "provider-binding.pending")? {
-                verify_binding_file(&file, bytes)?;
+        let tenant = if let Some(provider) = &self.provider {
+            let tenant = provider.tenant_for(principal)?;
+            if configured.is_ok_and(|value| value != &tenant) {
+                return Err(StoreError::Tenancy(TenancyError::DigestMismatch));
             }
-            super::codec::write_atomic(
-                directory,
-                "provider-binding",
-                "provider-binding.pending",
-                bytes,
-            )?;
+            tenant
+        } else {
+            configured.cloned().map_err(StoreError::from)?
+        };
+        let directory = self.principal_directory(principal)?;
+        if self.provider.is_some() {
+            pin_provider_binding(&directory, &tenant)?;
         }
-        Ok(tenant)
+        Ok((tenant, directory))
     }
+}
+
+fn pin_provider_binding(directory: &Directory, tenant: &AgentTenantId) -> Result<(), StoreError> {
+    let bytes = tenant.as_str().as_bytes();
+    if let Some(file) = binding_file(directory, "provider-binding")? {
+        verify_binding_file(&file, bytes)?;
+    } else {
+        if let Some(file) = binding_file(directory, "provider-binding.pending")? {
+            verify_binding_file(&file, bytes)?;
+        }
+        super::codec::write_atomic(
+            directory,
+            "provider-binding",
+            "provider-binding.pending",
+            bytes,
+        )?;
+    }
+    Ok(())
 }
 
 fn binding_file(
