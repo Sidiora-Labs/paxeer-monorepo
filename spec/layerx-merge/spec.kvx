@@ -374745,7 +374745,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.326]
 title = "Bring the service and kit pages to the kernel sentence in every wording"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374805,7 +374805,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.324]
 title = "Bring the wiki pages to the kernel sentence in every wording"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.43.295"]
