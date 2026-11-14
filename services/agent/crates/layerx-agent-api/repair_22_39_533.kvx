@@ -1,0 +1,5 @@
+[agent_workspace_tests]
+member = "agent workspace"
+rule = "The agent test target runs every workspace member with the native-node and TLS prerequisites and runtime clock it exports, while retaining every case and assertion."
+repair_rule = "The native-read fixture terminates its dedicated feeder before the local-node harness reaps the chain and retries a transient bootstrap cleanup race, preserving deterministic startup and cleanup while retaining every proof assertion."
+changed_files = ["services/agent/crates/layerx-agent-api/repair_22_39_533.kvx", "services/agent/crates/layerx-agentd/tests/proof_native_reads.rs"]
