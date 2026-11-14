@@ -14176,6 +14176,24 @@ value = "Task 22.43.334 brings the page on the modules of the docs site to the k
 basis = "Gotcha 4423, decisions 3496 and 3507."
 affects = []
 
+[decision.3511]
+title = "The test target of the platform workspaces reads its member selections from variables"
+value = "In the target platform-test the cargo line of the platform workspace reads the variable PLATFORM_TEST_SCOPE in place of the fixed workspace option, and the cargo line of the workspace of the platform tools reads the variable PLATFORM_TOOLS_TEST_SCOPE in place of its workspace option and its feature option. The defaults of the variables are the present options, so the target without the variables runs every member as before. Task 22.39.504 is counted on the members its verification selects. Each member left out gets a task of its own, counted through the same target by the rules of decision 3509, and a closing task runs the target without the variables."
+basis = "Gotcha 4424, decisions 3498, 3505 and 3509."
+affects = ["22.39.504"]
+
+[decision.3512]
+title = "A case that reads the fixtures of a harness runs in the harness"
+value = "A Rust case that reads fixtures from a directory which only a harness of the qualification tools provides carries an ignore attribute whose reason names the harness. The harness runs the test program with the option that includes ignored cases and keeps requiring the case by name. The test target of the workspace reports the case as ignored."
+basis = "Gotcha 4425, decision 3509."
+affects = ["22.39.509"]
+
+[decision.3513]
+title = "A rule for the linter of repeated literals covers the package directory"
+value = "A rule of .golangci.yml that takes the linter goconst off code names the Go files directly under one package directory in one path expression. The rules of a directory that name single files for this linter are replaced by that one rule; rules for other linters keep their form. The path expression is the directory, a slash, the expression [^/]+ for the file name and the ending for Go files, anchored and escaped as the rules by file are. Task 22.39.518 does this for the launchpad precompile and task 22.39.534 for the other directories outside the group tasks of decision 3508. A group task removes the rule of a directory when the lint program reports no literal of the package without it."
+basis = "Gotcha 4426, decisions 3497 and 3508."
+affects = ["22.39.518"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -43836,6 +43854,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.534]
+title = "Let the rules for the linter of repeated literals cover package directories"
+reqs = ["22998.1"]
+touches = [".golangci.yml"]
+tests = []
+verification_contract = "test -s tools/hpx/registry/repair_22_39_534.kvx && test $(git grep -h -B1 -F 'linters: [goconst]' -- .golangci.yml | grep -E 'path: ..(consensus|modules|precompiles/layerxagent|precompiles/layerxpay|precompiles/spot|rpc|sdk|tools/bringup|wasm)/' | grep -v -c -F '[^/]+') -eq 0 && test $(git grep -h -B1 -F 'linters: [goconst]' -- .golangci.yml | grep -E 'path: ..(consensus|modules|precompiles/layerxagent|precompiles/layerxpay|precompiles/spot|rpc|sdk|tools/bringup|wasm)/' | grep -c -F '[^/]+') -eq 13 && make -s paxeer-go-lint"
+do_1 = "do_1 Decision 3513, gotcha 4426. Read the rules of .golangci.yml whose linters key holds goconst alone. Each names one file. This task covers the 39 rules of these 13 directories: consensus/cmd/contract_tests, consensus/privval, modules/evm/client/cli, modules/layerxledger/keeper, modules/spot/keeper, precompiles/layerxagent/scheduler, precompiles/layerxpay, precompiles/spot, rpc, sdk/crypto/keyring, sdk/version, tools/bringup, wasm/staticarchive. The rules of the launchpad precompile, of services/platform, of daemon/committed-fixture, of tools/benchmark and of tools/flyci belong to other tasks; leave them as they are."
+symbols = []
 
 [capability.22.43.334]
 title = "Bring the page on the modules of the docs site and the files built from it to the kernel sentence"
@@ -171144,7 +171171,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.334]
 title = "Bring the page on the modules of the docs site and the files built from it to the kernel sentence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -196453,7 +196480,7 @@ interfaces = []
 do_1 = "do_1 Gotcha 4337, decision 3418. The command make programs-test passes from a clean tree. The two cases of programs/sdk/rust/tests/bindgen_conformance.rs that read built artifacts of the quickstart, the response fixture and the examples run after the step that builds those artifacts: either the cases build what they read through the build scripts of programs/sdk/rust, or the targets of the Makefile order the build scripts before the test run of the programs workspace. No case is removed or ignored, and the case that the SDK target runs by name keeps running."
 do_2 = "do_2 Record in programs/sdk/rust/repair_22_39_509.kvx the rule, the changed files and the command. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["programs/sdk/rust", "Makefile", "programs/crates"]
+touches = ["programs/sdk/rust", "Makefile", "programs/crates", "tools/qualification/paxeer-x/program-interface.py"]
 tests = []
 planned_paths = ["programs/sdk/rust/repair_22_39_509.kvx"]
 build_cmd = "make -s programs-build"
@@ -196473,6 +196500,7 @@ do_3 = "do_3 Decision 3421, gotcha 4339. The two cases of programs/sdk/rust/test
 do_4 = "do_4 Decision 3426, gotcha 4344. The command make programs-test passes over every member under programs/crates. In the target f03_evaluator_host of programs/crates/layerx-programs-ai-market each case prepares the state and the order of calls that the program requires and asserts the values the program returns, and the test recipe of the Makefile builds the native harness with paxai-host-boundary-build before the target that reads build/paxai-host-boundary. Change test sources and test support files only, never a source of a program. Where a case shows that the program differs from its function terms, leave the case, and name the case, the call and the returned code in the record. Run the build once and the verification once at the final revision."
 do_5 = "do_5 Decision 3481, gotcha 4394. The paths of this task now hold tools/qualification/paxeer-x. Read Fixture load in the two arbiter tests named in the gotcha, then authenticated-replay-step.py and replay-authority.py under tools/qualification/paxeer-x, the make fragment tools/paxeer-x/build/104.35.29.mk and the history of the two test files, and write down which command produced each corpus when the tests were written and what it answers today. Bring the producer to run in a checkout at any location: no path of one machine as a default, outputs under the build directory, tools found on the search path. In the Makefile give programs-test a prerequisite that produces the corpora once, and let its recipe pass the manifests in the variables the tests read, the third variable of that line of programs/crates/README.md included where a test of the workspace requires it; say in that README line which target produces the inputs. The corpora come from the real runtime and the real signer as before: no corpus written by hand, no shortened case, and no other source in the tests. Where a corpus needs an interface that the upgrade retires or a service the test target cannot start, change no test and name the file, the line and what is missing in the final message. Record the rule in the repair file of this task."
 do_6 = "do_6 Decision 3482, gotcha 4395. This item takes the place of do_5, and the paths of this task are again programs/sdk/rust, Makefile and programs/crates. In the test files of programs/crates/layerx-programs-arbiter that read a corpus from a variable of the environment, verified_step, authority_from_prestate and the case of the market profile among them, the function that loads the corpus gives nothing back where the variable is not set, and each case that needs the corpus then prints one line that names the variable and returns. With the variable set nothing changes: a path that cannot be read or a corpus that cannot be parsed stops the case as before. No case gets an ignore attribute and no assertion changes. The line of programs/crates/README.md about these variables says that the cases run where the variables name a corpus. Add the rule to the record. Run make programs-test by hand to its end before the counted runs; a stop in another member is handled by the items above. Run the build once and the verification once at the final revision."
+do_7 = "do_7 Decision 3512, gotcha 4425. The paths of this task now take in tools/qualification/paxeer-x/program-interface.py. In the interface test file of the member layerx-programs-registry the case on native receipts, which reads the directory named by PAXEER_X_INTERFACE_FIXTURES, gets an ignore attribute whose reason says that it runs in the harness of the program interface; change nothing else of the case. In the harness the command of the protocol suite gets the option --include-ignored directly after the path of the test program; change nothing else in that file. The harness keeps requiring that no case is reported as ignored and keeps the case in its list of required cases. If a test under tools/qualification/paxeer-x/tests reads that command, run it by hand where the test runner is present, and name it in the final message if it would have to change."
 
 [task.22.39.500]
 title = "Bring the lint target of the human services in line"
@@ -206365,7 +206393,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.527]
 title = "Bring the tests of the member layerx-wire of the agent workspace to pass"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.498"]
@@ -207814,7 +207842,7 @@ touches = ["services/platform/hosted/indexer/src", "services/platform/hosted/ind
 tests = []
 planned_paths = ["services/platform/hosted/indexer/repair_22_39_504.kvx"]
 build_cmd = "make -s platform-build"
-verify_cmd = "test -s services/platform/hosted/indexer/repair_22_39_504.kvx && make -s platform-test"
+verify_cmd = "test -s services/platform/hosted/indexer/repair_22_39_504.kvx && git grep -q -F 'PLATFORM_TEST_SCOPE' -- services/platform/Makefile.inc && git grep -q -F 'PLATFORM_TOOLS_TEST_SCOPE' -- services/platform/Makefile.inc && make -s platform-test PLATFORM_TEST_SCOPE='--workspace --exclude layerx-ramp-toolkit --exclude layerx-reference-ramp --exclude layerx-platform-core --exclude layerx-platform-authority --exclude layerx-platform-agent-boundary --exclude layerx-platform-identity --exclude layerx-platform-paxeer-boundary --exclude layerx-platform-gateway --exclude layerx-platform-registry --exclude layerx-platform-webhooks --exclude layerx-platform-testnet --exclude layerx-paxai-*' PLATFORM_TOOLS_TEST_SCOPE='-p layerx-platform-release'"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-platform"
@@ -207830,6 +207858,7 @@ do_3 = "do_3 Decision 3429, gotcha 4347. Run make platform-sdk-generate and keep
 do_4 = "do_4 Decision 3475, gotcha 4388. Read the revocation in src/modules/budget/lx_budget_close.c and the case of modules/layerxpay/keeper/budget_revoke_precompile_test.go: the kernel revokes a budget whose period holds no spend and returns its unused funds. In precompiles/layerxpay/proof_layerxpay_0x101b_test.go the step that expects a refusal of the revocation by the owner before any spend follows that rule: remove the step or turn it into an assertion of the present rule on a budget of its own, and let the comment at the site say what the kernel does. Keep the refusal for the wrong signer, the spend, the funding, the revocation with its event and the recorded blocks, so that the history case of the indexer reads the same sequence of blocks. Change no other file under precompiles/layerxpay and no product code. Where another producer of the history case stops for a like reason, name the file and the line in the final message and leave the file as it is."
 do_5 = "do_5 Decision 3489, gotcha 4402. The paths of this task now take in the test directory of the PaxAI participant member under services/platform/hosted. Run the test line of the target platform-test by hand over every member to its end, with the option of cargo that does not stop at the first member, before the counted runs. The cases of tests/job_admission.rs of that member build their market by the operations of the member layerx-programs-ai-market: read the present operations and bring the steps of the cases that create, fund, schedule and open to the form the program takes now. Every assertion of the cases stays and no case gets an ignore attribute. Where a case shows that the program no longer refuses what its page says it refuses, change nothing there and name the place in the record. Any other case the hand run names is handled the same way where its file lies inside the paths, and is named in the record where it does not. Add the rule to the record. Run the build once and the verification once at the final revision."
 do_6 = "do_6 Decision 3502, gotcha 4415. In the tests of the PaxAI participant member the file job_recovery.rs holds two cases that take a real model runner from the variable PAXAI_RUNNER. Let the helper that reads the variable return, where the variable is not set, the runner binary the member builds, through the variable cargo sets for a built binary, the way the files real_workload.rs and job_admission.rs name it, with the state and model directories a run of that runner needs. Bring the comment at the head of the file to that rule. Every assertion of the two cases stays and no case is ignored. Do the same in any other test file of the member whose case stops on the same message. Change no source of the member for this. If the built runner cannot serve one of the two cases, leave that case, and say in the final message what the case asks of a runner that the built one does not give."
+do_7 = "do_7 Decision 3511, gotcha 4424. In services/platform/Makefile.inc the first cargo line of the target platform-test reads the variable PLATFORM_TEST_SCOPE where it now holds the workspace option, and the second reads the variable PLATFORM_TOOLS_TEST_SCOPE where it now holds the workspace option and the feature option that follows it. Define both variables at the head of the file with those options as their defaults, and change nothing else in the file for this item. The verification of this task passes selections that leave out the members whose cases wait for tasks of their own. What this task changed in those members stays as it is, and their tasks start from it. Repair no further case of those members in this task. Name the two variables in the record of the task."
 
 [task.22.39.503]
 title = "Bring the lint target of the platform workspaces in line"
@@ -328330,6 +328359,37 @@ do_16 = "Attempt 34 re-qualified the attempt 33 files on a base with 13.27.6 and
 do_17 = "Attempt 35 (566d189c8) reverts TestProgramsSandboxExecuteEmitsUsage with LXP_FATAL_INVARIANT on a base that holds 13.27.7 (7331258b0), and the test output carries no sandbox.c invariant line although sandbox_invariant (src/modules/programs/sandbox.c:82, called at :395, :411 and :440) prints the line, site and state to stderr: run the test so the kernel's stderr reaches the output (go test -v; the precompile harness must not redirect fd 2) and include the printed site with the lease-state record in the failure message. When the site shows the precompile's request out of order or missing a step (admit host, open lease, execute, publish usage, release), fix method_sandbox_execute.go; when the kernel refuses a legal sequence, record file, line and site as a finding and stop without changing src/."
 do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection (src/protocol/lxp_kernel.c:2389-2394) refuses the sandbox escrow-charge effect that task 13.27.7 made the call emit; task 13.27.8 binds it in the kernel (decision.1898). Once 13.27.8 is on main, continue attempt 35 unchanged: one build, one verify."
 
+[task.22.39.534]
+title = "Let the rules for the linter of repeated literals cover package directories"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.534"]
+interfaces = []
+do_1 = "do_1 Decision 3513, gotcha 4426. Read the rules of .golangci.yml whose linters key holds goconst alone. Each names one file. This task covers the 39 rules of these 13 directories: consensus/cmd/contract_tests, consensus/privval, modules/evm/client/cli, modules/layerxledger/keeper, modules/spot/keeper, precompiles/layerxagent/scheduler, precompiles/layerxpay, precompiles/spot, rpc, sdk/crypto/keyring, sdk/version, tools/bringup, wasm/staticarchive. The rules of the launchpad precompile, of services/platform, of daemon/committed-fixture, of tools/benchmark and of tools/flyci belong to other tasks; leave them as they are."
+do_2 = "do_2 For each directory of the list replace its rules for goconst by one rule at the place of the first of them. Its path expression is the directory, a slash, the expression [^/]+ for the file name and the ending for Go files, anchored and escaped exactly as the rules by file are. Its linters key holds goconst alone. Remove the other rules of the directory for goconst together with the comment line above each. Keep one comment line above the new rule in the wording the removed comments had, naming the directory in place of the file."
+do_3 = "do_3 Change no rule for another linter, no setting of a linter and no file other than .golangci.yml and the record. Add no rule for a directory that has none and add no exemption comment to code. Run the lint program by hand three times and compare: it reports nothing in each run. For a report in a file outside the list change nothing and give file, line and message in the final message."
+do_4 = "do_4 Record in tools/hpx/registry/repair_22_39_534.kvx for each directory the number of rules replaced and the path expression of the new rule. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = [".golangci.yml"]
+tests = []
+planned_paths = ["tools/hpx/registry/repair_22_39_534.kvx"]
+build_cmd = "make -s paxeer-tools-install && go mod download"
+verify_cmd = "test -s tools/hpx/registry/repair_22_39_534.kvx && test $(git grep -h -B1 -F 'linters: [goconst]' -- .golangci.yml | grep -E 'path: ..(consensus|modules|precompiles/layerxagent|precompiles/layerxpay|precompiles/spot|rpc|sdk|tools/bringup|wasm)/' | grep -v -c -F '[^/]+') -eq 0 && test $(git grep -h -B1 -F 'linters: [goconst]' -- .golangci.yml | grep -E 'path: ..(consensus|modules|precompiles/layerxagent|precompiles/layerxpay|precompiles/spot|rpc|sdk|tools/bringup|wasm)/' | grep -c -F '[^/]+') -eq 13 && make -s paxeer-go-lint"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.519]
 title = "Repair the code behind the lint rules of the benchmark tools and the pipeline controller and remove the rules"
 status = "pending"
@@ -328393,10 +328453,11 @@ time_limit_minutes = 180
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "do_6 Decision 3513, gotcha 4426. In .golangci.yml replace the seven rules that take goconst off single files of precompiles/launchpad by one rule at the place of the first of them. Its path expression is the directory, a slash, the expression [^/]+ for the file name and the ending for Go files, anchored and escaped exactly as the rules by file are, and its linters key holds goconst alone. Keep one comment line above it in the wording the removed comments had. Change no other rule outside the group of this task and no file under precompiles. Name the rule in the record of the task."
 
 [task.22.39.517]
 title = "Repair the code behind the lint rules of the services under services/platform and remove the rules"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []

@@ -25,6 +25,16 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/telemetry"
 )
 
+const (
+	topicField          = "topic"
+	chainFamily         = "chain"
+	spotFamily          = "spot"
+	orderAction         = "order"
+	fillAction          = "fill"
+	symbolField         = "symbol"
+	marketFramesMessage = "feeds: market frames"
+)
+
 // Fixed topics of the markets and chain families.
 const (
 	TopicMarketsAll    = "markets@all"
@@ -210,7 +220,7 @@ func NewProviders(ctx context.Context, db *sql.DB, logger *slog.Logger, metrics 
 	return p, nil
 }
 
-func (p *Providers) reloadMarkets(ctx context.Context) error {
+func (p *Providers) reloadMarkets(ctx context.Context) (resultErr error) {
 	symbol, err := records.NewSymbol(p.db)
 	if err != nil {
 		return err
@@ -220,7 +230,11 @@ func (p *Providers) reloadMarkets(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); resultErr == nil {
+			resultErr = closeErr
+		}
+	}()
 	for rows.Next() {
 		var id, sym string
 		if err := rows.Scan(&id, &sym); err != nil {
@@ -518,7 +532,7 @@ func (p *Providers) Held(topic string) (json.RawMessage, bool) {
 	}
 	data, err := encode(topic, h)
 	if err != nil {
-		p.logger.Error("feeds: held snapshot", slog.String("topic", topic), slog.Any("err", err))
+		p.logger.Error("feeds: held snapshot", slog.String(topicField, topic), slog.Any("err", err))
 		return nil, false
 	}
 	return data, true
@@ -562,23 +576,23 @@ func (p *Providers) Prepare(ctx context.Context, subject string, env delivery.En
 	pf := &prefetch{rows: map[string][]decode.Row{}, items: map[string][]item{}, marks: map[string]marks{}}
 	var book, tape, sym string
 	switch family := parts[2]; {
-	case family == "chain" && len(parts) == 4 && parts[3] == "block":
+	case family == chainFamily && len(parts) == 4 && parts[3] == "block":
 		tape = TopicChainBlocks
-	case family == "chain" && len(parts) == 4 && parts[3] == "tx":
+	case family == chainFamily && len(parts) == 4 && parts[3] == "tx":
 		tape = TopicChainTxs
-	case family == "spot" && len(parts) == 5 && (parts[4] == "order" || parts[4] == "swap"):
+	case family == spotFamily && len(parts) == 5 && (parts[4] == orderAction || parts[4] == "swap"):
 		spot, err := p.spotSymbol(ctx, parts[3])
 		if err != nil || spot == "" {
 			return
 		}
 		tape = spot + "@" + kindTrade
-	case family != "chain" && family != "spot" && family != "user" && len(parts) == 4:
+	case family != chainFamily && family != spotFamily && family != "user" && len(parts) == 4:
 		var ok bool
 		if sym, ok = p.markets.Load().ids[family]; !ok {
 			return
 		}
 		book = sym + "@" + kindPerpBook
-		if parts[3] == "fill" {
+		if parts[3] == fillAction {
 			tape = sym + "@" + kindPerpTrade
 		}
 	}
@@ -596,7 +610,7 @@ func (p *Providers) Prepare(ctx context.Context, subject string, env delivery.En
 	}
 	if b != nil {
 		switch parts[3] {
-		case "order", "fill":
+		case orderAction, fillAction:
 			if pos, err := sourcePos(env.SourceOrder); err == nil {
 				if rows, err := loadOrderRows(ctx, p.db, b.market, pos[0], pos[1], pos[2]); err == nil {
 					pf.rows[b.market] = rows
@@ -629,7 +643,7 @@ func (p *Providers) Message(ctx context.Context, subject string, env delivery.En
 	delete(p.pre, env.EventID)
 	defer func() { p.cur = nil }()
 	switch family := parts[2]; {
-	case family == "chain" && len(parts) == 4:
+	case family == chainFamily && len(parts) == 4:
 		switch parts[3] {
 		case "block":
 			return p.advance(ctx, TopicChainBlocks)
@@ -647,18 +661,18 @@ func (p *Providers) Message(ctx context.Context, subject string, env delivery.En
 			}
 			return nil, resnap, nil
 		}
-	case family == "spot" && len(parts) == 5:
+	case family == spotFamily && len(parts) == 5:
 		sym, err := p.spotSymbol(ctx, parts[3])
 		if err != nil || sym == "" {
 			return nil, nil, err
 		}
-		if parts[4] == "order" {
+		if parts[4] == orderAction {
 			p.touchLocked(sym + "@" + kindBook)
 			if b, ok := p.books[sym+"@"+kindBook]; ok {
 				b.dirty = true
 			}
 		}
-		if parts[4] == "order" || parts[4] == "swap" {
+		if parts[4] == orderAction || parts[4] == "swap" {
 			return p.advance(ctx, sym+"@"+kindTrade)
 		}
 	case family == "user":
@@ -671,13 +685,13 @@ func (p *Providers) Message(ctx context.Context, subject string, env delivery.En
 		p.touchLocked(topic)
 		b := p.books[topic]
 		switch parts[3] {
-		case "order", "fill":
+		case orderAction, fillAction:
 			if b != nil {
 				if err := p.applyAt(ctx, b, env.SourceOrder); err != nil {
 					return nil, nil, err
 				}
 			}
-			if parts[3] == "fill" {
+			if parts[3] == fillAction {
 				return p.advance(ctx, sym+"@"+kindPerpTrade)
 			}
 		case "mark", "index":
@@ -830,7 +844,7 @@ func (p *Providers) trades(ctx context.Context, sym, kind string) ([]item, error
 		if err := json.Unmarshal(t["id"], &id); err != nil {
 			return nil, fmt.Errorf("feeds: trade without id: %w", err)
 		}
-		t["symbol"] = symbol
+		t[symbolField] = symbol
 		data, err := json.Marshal(t)
 		if err != nil {
 			return nil, err
@@ -1022,7 +1036,7 @@ func (p *Providers) bodyFrames(ctx context.Context, now time.Time) []Frame {
 			for _, kind := range kinds {
 				data, err := p.stats(ctx, sym, kind)
 				if err != nil {
-					p.logger.Error("feeds: stats frame", slog.String("symbol", sym), slog.Any("err", err))
+					p.logger.Error("feeds: stats frame", slog.String(symbolField, sym), slog.Any("err", err))
 					continue
 				}
 				bodies = append(bodies, Frame{Topic: sym + "@" + kind, Data: data})
@@ -1060,14 +1074,14 @@ func (p *Providers) bookFrames(ctx context.Context, now time.Time) []Frame {
 		if b.token != nil && b.dirty {
 			asks, bids, err := spotLevels(ctx, p.db, b.token, SnapshotLevels)
 			if err != nil {
-				p.logger.Error("feeds: book frame", slog.String("topic", topic), slog.Any("err", err))
+				p.logger.Error("feeds: book frame", slog.String(topicField, topic), slog.Any("err", err))
 				continue
 			}
 			b.spotAsks, b.spotBids, b.snap = asks, bids, nil
 		}
 		data, err := bookBody(b, LiveLevels, withChecksum)
 		if err != nil {
-			p.logger.Error("feeds: book frame", slog.String("topic", topic), slog.Any("err", err))
+			p.logger.Error("feeds: book frame", slog.String(topicField, topic), slog.Any("err", err))
 			continue
 		}
 		frames = append(frames, Frame{Topic: topic, Data: data})
@@ -1082,17 +1096,17 @@ func (p *Providers) bookFrames(ctx context.Context, now time.Time) []Frame {
 func (p *Providers) marketFrames(ctx context.Context, watched []string) []Frame {
 	recs, err := p.records(ctx, p.markets.Load().order)
 	if err != nil {
-		p.logger.Error("feeds: market frames", slog.Any("err", err))
+		p.logger.Error(marketFramesMessage, slog.Any("err", err))
 		return nil
 	}
 	all, err := json.Marshal(recs)
 	if err != nil {
-		p.logger.Error("feeds: market frames", slog.Any("err", err))
+		p.logger.Error(marketFramesMessage, slog.Any("err", err))
 		return nil
 	}
 	totals, err := json.Marshal(totalsOf(recs))
 	if err != nil {
-		p.logger.Error("feeds: market frames", slog.Any("err", err))
+		p.logger.Error(marketFramesMessage, slog.Any("err", err))
 		return nil
 	}
 	frames := []Frame{{Topic: TopicMarketsAll, Data: all}, {Topic: TopicMarketsTotals, Data: totals}}
@@ -1102,7 +1116,7 @@ func (p *Providers) marketFrames(ctx context.Context, watched []string) []Frame 
 		}
 		data, err := json.Marshal(r)
 		if err != nil {
-			p.logger.Error("feeds: market frame", slog.String("symbol", r.Symbol), slog.Any("err", err))
+			p.logger.Error("feeds: market frame", slog.String(symbolField, r.Symbol), slog.Any("err", err))
 			continue
 		}
 		frames = append(frames, Frame{Topic: r.Symbol + "@" + kindMarket, Data: data})
@@ -1133,6 +1147,9 @@ const OIContractsSQL = `(SELECT COALESCE(sum(p.size_usd / p.entry_price), 0) FRO
 // last fill price, the time of the block that last updated them, the 24-hour
 // fill volume in contracts, the open interest in contracts and the settled
 // hourly rate and eight times it of the latest FundingSettled.
+const lastFundingRateHourlySQL = records.LastFundingRateHourlySQL
+const funding8hSQL = records.Funding8hSQL
+
 const rollingSQL = `SELECT m.market_id::text, m.symbol, m.name, s.volume_7d / $1::numeric, s.volume_30d / $1::numeric, s.trades_count,
 	(s.last_price - s.open_24h) / NULLIF(s.open_24h, 0), b.time,
 	(SELECT COALESCE(sum(f.size_usd / NULLIF(f.price, 0)), 0) FROM perps.fills f
@@ -1140,7 +1157,7 @@ const rollingSQL = `SELECT m.market_id::text, m.symbol, m.name, s.volume_7d / $1
 	fs.hourly, fs.eight
 	FROM perps.markets m
 	LEFT JOIN perps.market_stats_rolling s ON s.market_id = m.market_id
-	LEFT JOIN LATERAL (SELECT ` + records.LastFundingRateHourlySQL + ` AS hourly, ` + records.Funding8hSQL + ` AS eight
+	LEFT JOIN LATERAL (SELECT ` + lastFundingRateHourlySQL + ` AS hourly, ` + funding8hSQL + ` AS eight
 		FROM perps.funding_settlements WHERE market_id = m.market_id
 		ORDER BY block DESC, tx_index DESC, log_index DESC, sub DESC LIMIT 1) fs ON true
 	LEFT JOIN perps.blocks b ON b.number = s.updated_block
@@ -1151,13 +1168,17 @@ const rollingSQL = `SELECT m.market_id::text, m.symbol, m.name, s.volume_7d / $1
 // next whole UTC funding hour. last_funding_rate_hourly and perp_funding_rate
 // are the settled hourly rate and funding_8h eight times it, all three from
 // the same latest FundingSettled row.
-func (p *Providers) records(ctx context.Context, syms []string) ([]records.MarketRecord, error) {
+func (p *Providers) records(ctx context.Context, syms []string) (result0 []records.MarketRecord, resultErr error) {
 	now := time.Now()
 	rows, err := p.db.QueryContext(ctx, rollingSQL, usdScale.String(), now.Add(-24*time.Hour))
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); resultErr == nil {
+			resultErr = closeErr
+		}
+	}()
 	var out []records.MarketRecord
 	for rows.Next() {
 		var (
@@ -1269,13 +1290,17 @@ type txItem struct {
 // user is the bech32 form with prefix pax of the row account; prices are
 // 18-decimal, sizes 18-decimal on perps rows, 6-decimal on spot rows and
 // counts on the Oracle Updated and Sealed Batch Executed rows.
-func (p *Providers) chainItems(ctx context.Context, topic string) ([]item, error) {
+func (p *Providers) chainItems(ctx context.Context, topic string) (result0 []item, resultErr error) {
 	if topic == TopicChainBlocks {
 		rows, err := p.db.QueryContext(ctx, blocksSQL, BlockSnapshot)
 		if err != nil {
 			return nil, err
 		}
-		defer rows.Close()
+		defer func() {
+			if closeErr := rows.Close(); resultErr == nil {
+				resultErr = closeErr
+			}
+		}()
 		var out []item
 		for rows.Next() {
 			var (
@@ -1299,7 +1324,11 @@ func (p *Providers) chainItems(ctx context.Context, topic string) ([]item, error
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); resultErr == nil {
+			resultErr = closeErr
+		}
+	}()
 	var out []item
 	for rows.Next() {
 		var (
