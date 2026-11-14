@@ -196016,7 +196016,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.524]
 title = "Bring the onboarding and node tests and the unit tests of the human service member to pass"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.499"]
