@@ -442,6 +442,21 @@ pub struct ReconcileReport {
 }
 
 impl Outcome {
+    fn refuses_ahead_sequence(&self, next_sequence: u64) -> bool {
+        let Self::SequenceMismatch(log) = self else {
+            return false;
+        };
+        let Some((_, numbers)) = log.split_once("account sequence mismatch, expected ") else {
+            return false;
+        };
+        let Some((expected, got)) = numbers.split_once(", got ") else {
+            return false;
+        };
+        let expected = expected.parse::<u64>();
+        let got = got.split(':').next().unwrap_or(got).trim().parse::<u64>();
+        matches!((expected, got), (Ok(expected), Ok(got)) if expected < got && got.saturating_add(1) == next_sequence)
+    }
+
     /// Metric label of the outcome.
     #[must_use]
     pub fn label(&self) -> &'static str {
@@ -684,6 +699,7 @@ pub struct Sidecar {
     feeder: String,
     journal: Journal,
     progress: Progress,
+    wait_for_pending: bool,
 }
 
 /// Checks the registration on 0x1020 and syncs every market's next sequence
@@ -725,6 +741,7 @@ impl Sidecar {
             feeder: cosmos_tx::feed_account(&feed_account),
             journal,
             progress: Progress::default(),
+            wait_for_pending: false,
         }
     }
 
@@ -838,6 +855,7 @@ impl Sidecar {
                     self.sync_committed(config, rpc, dir)?;
                 }
                 lock(metrics).clear_pending();
+                self.wait_for_pending = false;
                 return Ok(ReconcileReport {
                     could_read: true,
                     fate_open: false,
@@ -1015,6 +1033,7 @@ impl Sidecar {
                 self.journal = journal_for_store;
                 self.progress.store(dir)?;
                 lock(metrics).clear_pending();
+                self.wait_for_pending = false;
                 return Ok(ReconcileReport {
                     could_read: true,
                     fate_open: false,
@@ -1178,6 +1197,9 @@ impl Sidecar {
         metrics: &Mutex<Metrics>,
         state_dir: &Path,
     ) -> Result<(), String> {
+        if self.wait_for_pending && !self.progress.pending.is_empty() {
+            return Ok(());
+        }
         let mut observations = observations.to_vec();
         let mut plan = RetryPlan::new(config.retry_backoff_ms, config.retry_max_attempts);
         let mut account = None;
@@ -1256,6 +1278,29 @@ impl Sidecar {
                 }
                 other => eprintln!("price-sidecar: submission {}: {other:?}", other.label()),
             }
+            if let Some(index) = pending_index {
+                let pending = &self.progress.pending[index];
+                if outcome.refuses_ahead_sequence(pending.journal.next_account_sequence) {
+                    self.progress.pending.remove(index);
+                    let journal = match self.progress.pending.last() {
+                        Some(previous) => previous.journal.clone(),
+                        None => Journal::load(state_dir, 0)?,
+                    };
+                    self.journal = journal;
+                    self.wait_for_pending = true;
+                    self.progress.store(state_dir)?;
+                    if let Some(pending) = self.progress.pending.last() {
+                        lock(metrics).pending(
+                            &pending.hash,
+                            pending.proposed_height,
+                            self.progress.pending.len(),
+                        );
+                        break;
+                    }
+                    lock(metrics).clear_pending();
+                    pending_index = None;
+                }
+            }
             last = Some(outcome);
         }
         Ok(())
@@ -1287,7 +1332,9 @@ pub fn run_round(
     if !report.could_read {
         return Ok(());
     }
-    if sidecar.pending_count() >= config.max_pending_submissions {
+    if sidecar.pending_count() >= config.max_pending_submissions
+        || (sidecar.wait_for_pending && sidecar.pending_count() != 0)
+    {
         return Ok(());
     }
     let results: Vec<(&MarketConfig, Result<Ticker, FetchError>)> = thread::scope(|scope| {
