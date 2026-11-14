@@ -22015,3 +22015,38 @@ fix = "Decision 3522. Task 22.39.509 brings the adapter of the native result and
 title = "A test module inside a source file is compiled in every test target that includes the file by path"
 symptom = "The test targets intent_chain_domain and proof_human_intents of the intents member include the source of the journey resolver of the human service by path. The test module pointer_view_tests at the end of that source is compiled in those targets as well and names the JSON crate, so the including member declares that crate among its development dependencies."
 fix = "Decision 3523. Task 22.39.540 declares the crate in services/human/crates/layerx-intents/Cargo.toml."
+
+[gotcha.4439]
+title = "A node without a transaction index does not serve the transaction lookup"
+symptom = "The consensus interface of a node whose transaction index is set to null answers the transaction lookup with an internal error whose data says that transaction querying is disabled. A client beside such a node learns the fate of a submission from committed state: the account sequence and the state the submission writes, read at one committed height. The price sidecar takes that route when the lookup is not served and keeps the lookup as the first source where it is."
+fix = "Decision 3524. Task 22.39.541 adds the route in services/platform/hosted/feeder/src/bin/price-sidecar/round.rs."
+
+[gotcha.4440]
+title = "A pool entry leaves the pool by commit, by a refused recheck or by a time limit"
+symptom = "The store of the pool removes an entry when it is committed, when a recheck refuses it or when one of the two time limits has passed. The recheck runs when the consensus parameter for it is on, and a time limit applies when its key is not zero. With the parameter off and both keys at zero a node that does not propose blocks keeps an entry that can no longer pass, such as one with a used account sequence, until the pool is emptied. The defaults of a new home set both limits."
+fix = "Decision 3525. Task 22.39.542 reports the configuration without a limit at construction."
+
+[gotcha.4441]
+title = "A manifest change in a workspace changes the lock file of that workspace"
+symptom = "A member manifest that gains or loses a dependency changes the lock file at the root of its workspace when the build resolves it. A build with the locked flag refuses a lock file that is behind its manifests. A task that changes a manifest therefore commits the lock file with it."
+fix = "Decision 3526. The paths of task 22.39.540 take services/human/Cargo.lock."
+
+[gotcha.4442]
+title = "A round of the price sidecar lasts as long as its committed reads and the commit of its submission"
+symptom = "The price sidecar starts a round only when no submission is pending, and it reads the committed observation sequence of each configured market one call after another, once to decide the fate of the pending submission and once more to synchronise. A round therefore lasts the commit time of the submission plus twice the market count times the answer time of the EVM endpoint. The price module counts an observation as a source only inside its staleness window, and the readiness answer of the sidecar expects a confirmed execution within three cadences. A sidecar whose rounds are longer than its cadence meets neither."
+fix = "Decision 3527. Task 22.39.543 lets the sidecar submit at its cadence."
+
+[gotcha.4443]
+title = "The interop workspace resolves packages of the platform workspace through its path dependencies"
+symptom = "Members of the interop workspace depend by path on members of the platform workspace, so the lock file of the interop workspace also pins the packages those members name. A version change in a manifest of the platform workspace that such a path reaches asks for the same change in services/interop/Cargo.lock. Until then a command with the locked flag over the interop workspace refuses the lock file, and so does scripts/interop/dependency-policy.sh, which reads the metadata with that flag."
+fix = "Decision 3528. Task 22.39.544 brings the lock file in step."
+
+[gotcha.4444]
+title = "The client of the price sidecar keeps the default count of idle connections"
+symptom = "The client that http_agent builds in services/platform/hosted/feeder/src/lib.rs keeps the default count of idle connections of its library for one host, which is smaller than the market count of a usual configuration. A round fetches the ticker of every configured market at once from one host. The requests beyond that count open a new connection with a new handshake in every round, inside the timeout of the request."
+fix = "Decision 3529. Task 22.39.545 sets the counts."
+
+[gotcha.4445]
+title = "The process case probe of the agent envelope runs under its harness"
+symptom = "The test testAgentOperationEnvelopeProcessCases of the Swift kit reads a case file that the envelope harness names for it and refuses a run without one. The recipe platform-verify-sdks in services/platform/Makefile.inc runs the test target of each kit outside that harness. Its dotnet step leaves the probe of that kit out; the Swift step names the whole test target."
+fix = "Decision 3530. Task 22.39.505 brings the Swift step to the form of the dotnet step."
