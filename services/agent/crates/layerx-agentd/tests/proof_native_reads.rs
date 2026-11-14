@@ -590,7 +590,6 @@ pub(crate) mod disposable_node {
     use std::path::{Path, PathBuf};
     use std::process::{Command, Stdio};
     use std::thread;
-    use std::time::{SystemTime, UNIX_EPOCH};
     use zeroize::Zeroizing;
 
     #[track_caller]
@@ -621,10 +620,12 @@ pub(crate) mod disposable_node {
                 "missing producer harness: {}",
                 script.display()
             );
+            let mut identifier = [0_u8; 16];
+            must(getrandom::fill(&mut identifier));
             let directory = Path::new("/tmp/lx-localnode").join(format!(
                 "native-reads-{}-{}",
                 std::process::id(),
-                must(SystemTime::now().duration_since(UNIX_EPOCH)).as_nanos()
+                layerx_programs::hex::encode(&identifier)
             ));
             must(
                 std::fs::DirBuilder::new()
@@ -641,12 +642,18 @@ pub(crate) mod disposable_node {
                     .mode(0o600)
                     .open(&log_path),
             );
+            let paxd = std::env::var_os("PAXD")
+                .unwrap_or_else(|| panic!("PAXD must name the built native node"));
+            assert!(
+                Path::new(&paxd).is_file(),
+                "PAXD must name a native node file"
+            );
             let status = Command::new("bash")
                 .arg(&script)
                 .args(["--sequencer", "--env-out"])
                 .arg(&environment)
                 .env("TMPDIR", "/tmp")
-                .env_remove("PAXD")
+                .env("PAXD", paxd)
                 .stdout(Stdio::from(must(log.try_clone())))
                 .stderr(Stdio::from(log))
                 .status()
@@ -1072,6 +1079,7 @@ mod proof {
     }
 
     #[test]
+    #[ignore = "tools/qualification/localnode/v6120-node.sh"]
     fn program_state_unavailable() {
         let path = format!("/v1/programs/{}/balances", "11".repeat(32));
         // Both actual producers: refreshing authority fails on a wrong chain,
