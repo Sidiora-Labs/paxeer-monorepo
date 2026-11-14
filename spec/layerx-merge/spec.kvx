@@ -206624,7 +206624,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.556]
 title = "Keep the stored position of the request watch of the web search service"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -329230,7 +329230,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.554]
 title = "Honour the trace switch in the deliver entry of the node"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -329260,7 +329260,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.553]
 title = "Serve store iteration in the ordinary deliver step of the concurrent block path"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
