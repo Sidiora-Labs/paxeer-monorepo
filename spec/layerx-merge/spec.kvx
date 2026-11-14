@@ -14086,6 +14086,24 @@ value = "Every case of tests/wallet/check-live.test.sh that runs the endpoint mo
 basis = "Gotcha 4408."
 affects = []
 
+[decision.3496]
+title = "No page names the network by its commit step or places the kernel inside it"
+value = "Decision 3490 holds for every wording, not for one sentence. No page calls Paxeer mainnet-beta a BFT network, a BFT chain or a BFT node, and none says the kernel is part of the network, runs or executes within it, or takes part in proposal. Where a page spoke of the network in that way it says what the LayerX kernel does: the kernel inside paxd executes and orders each transaction and builds each block, and validators check and commit it. A sentence on finality says a receipt is final when the validators commit its block. A sentence that states a fact of the commit step, such as the commit that a checkpoint contains or the consensus stack in the tree, stays."
+basis = "Gotcha 4409, decision 3490, decision 3494."
+affects = []
+
+[decision.3497]
+title = "Task 22.39.511 is counted on the lint program alone"
+value = "The Makefile gets the target paxeer-go-lint. It installs the pinned tools, has the prerequisites the target lint of chain.mk has, and runs the lint program alone with the pinned binary. The verification of task 22.39.511 runs that target, the module comparison and the build of the registry module. The format step and the vet step of the target lint are brought in line by a later task, which runs the manifest lint target as a whole."
+basis = "Gotcha 4410, decision 3488."
+affects = ["22.39.511"]
+
+[decision.3498]
+title = "The test target of the agent workspace reads its member selection from a variable"
+value = "The cargo line of the target agent-test reads the variable AGENT_TEST_SCOPE in place of the fixed workspace option. The default of the variable is the workspace option, so the target without the variable runs every member as before. Task 22.39.498 is counted on the members outside layerx-agentd, layerx-agentd-host, layerx-client, layerx-mcp, layerx-sdk, layerx-types and layerx-wire; each of those seven gets a task of its own that is counted on that member, and a closing task runs the target without the variable."
+basis = "Gotcha 4411."
+affects = ["22.39.498"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -43746,6 +43764,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.43.323]
+title = "Let the pages of the documentation site describe the network by its kernel in every wording"
+reqs = ["22998.1"]
+touches = ["docs/site/paxeer-docs/src/app", "docs/site/paxeer-docs/src/lib/seo-pages.json", "docs/site/paxeer-docs/public", "docs/site/paxeer-docs/.generated"]
+tests = []
+verification_contract = "npm --prefix docs/site/paxeer-docs run build && test -s docs/site/paxeer-docs/out/index.html && SEO_STRICT=1 npm --prefix docs/site/paxeer-docs run audit:seo && git grep -q -F 'LayerX kernel' -- docs/site/paxeer-docs/src/app/consensus/page.tsx && git grep -q -F 'LayerX kernel' -- docs/site/paxeer-docs/src/app/checkpoints/page.tsx && test $(git grep -c -i -E 'BFT (network|chain|nodes?)|proposes blocks|(part of|participat[a-z]+ in|including|execution and|kernel and|network.s) block proposal|participat[a-z]+ in block (production|execution)|block proposal (path|and execution|and finality|and block commit)|in block proposal|and block proposal;|(runs|executes) within the network|within the Paxeer consensus network' -- docs/site/paxeer-docs/src docs/site/paxeer-docs/public docs/site/paxeer-docs/.generated | wc -l) -eq 0"
+do_1 = "do_1 Decision 3496, gotcha 4409. Read first how the node works, in the code and not on a page: the executor under node/sequencer and the kernel under src execute a transaction when it arrives, give it the next position in one global sequence and return a signed execution receipt before any vote; the block is the sealed layer the kernel built, and validators check it and commit it (the proposal step under consensus/internal/state and the check of a proposed block under node). Then list with the pattern of the verification every line under docs/site/paxeer-docs/src/app that it matches. At the time of writing these are the front page and the pages activities, admin-hpx, agent-runtime, agents, bridge, checkpoints, commerce, configuration, consensus, contracts, debugging-transactions, evm, guarantors, installation, mirrors, payments, programs, sdk, sequencing and settlement."
+symbols = []
 
 [capability.22.43.322]
 title = "Let the shell harness of the wallet live checker pass the node root in the variable the checker reads"
@@ -170782,6 +170809,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.43.323]
+title = "Let the pages of the documentation site describe the network by its kernel in every wording"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.43.321"]
+reqs = ["22998.1"]
+capabilities = ["22.43.323"]
+interfaces = []
+do_1 = "do_1 Decision 3496, gotcha 4409. Read first how the node works, in the code and not on a page: the executor under node/sequencer and the kernel under src execute a transaction when it arrives, give it the next position in one global sequence and return a signed execution receipt before any vote; the block is the sealed layer the kernel built, and validators check it and commit it (the proposal step under consensus/internal/state and the check of a proposed block under node). Then list with the pattern of the verification every line under docs/site/paxeer-docs/src/app that it matches. At the time of writing these are the front page and the pages activities, admin-hpx, agent-runtime, agents, bridge, checkpoints, commerce, configuration, consensus, contracts, debugging-transactions, evm, guarantors, installation, mirrors, payments, programs, sdk, sequencing and settlement."
+do_2 = "do_2 Rewrite each matched sentence and no other. A sentence that calls the network one BFT chain, a BFT network or a BFT node, or says the kernel is part of the network, runs or executes within it, or takes part in proposal, says instead what the kernel does: the LayerX kernel inside paxd executes and orders each transaction and builds each block, and validators check and commit it. Use that sentence once on a page; where the page already holds it, the old sentence loses its network clause and keeps its other facts. A sentence on finality says a receipt is final when the validators commit its block. A node is a paxd node. Keep every other fact of the sentence: the chain identifier 125, the paths, the method names, the links. On the page consensus the sentence on the consensus stack in the tree stays, and the page says first that the kernel builds the block and the validators commit it. On the page guarantors the sentence on validator membership says that validators check and commit the blocks the kernel builds. The lead paragraph of the page settlement is its description and stays within 50 to 160 characters. Do not write that validators order transactions or build blocks."
+do_3 = "do_3 Do not write the generated copies by hand. The build runs the generators of the site before it compiles; commit what they write under the paths of this task and nothing else. Change no script and no page the pattern does not match. Run the audit in its strict mode by hand until it reports no warning, and the pattern until it matches no line. Before each commit read the output of git status. Then run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docs/site/paxeer-docs/src/app", "docs/site/paxeer-docs/src/lib/seo-pages.json", "docs/site/paxeer-docs/public", "docs/site/paxeer-docs/.generated"]
+tests = []
+planned_paths = []
+build_cmd = "npm ci --prefix docs/site/paxeer-docs"
+verify_cmd = "npm --prefix docs/site/paxeer-docs run build && test -s docs/site/paxeer-docs/out/index.html && SEO_STRICT=1 npm --prefix docs/site/paxeer-docs run audit:seo && git grep -q -F 'LayerX kernel' -- docs/site/paxeer-docs/src/app/consensus/page.tsx && git grep -q -F 'LayerX kernel' -- docs/site/paxeer-docs/src/app/checkpoints/page.tsx && test $(git grep -c -i -E 'BFT (network|chain|nodes?)|proposes blocks|(part of|participat[a-z]+ in|including|execution and|kernel and|network.s) block proposal|participat[a-z]+ in block (production|execution)|block proposal (path|and execution|and finality|and block commit)|in block proposal|and block proposal;|(runs|executes) within the network|within the Paxeer consensus network' -- docs/site/paxeer-docs/src docs/site/paxeer-docs/public docs/site/paxeer-docs/.generated | wc -l) -eq 0"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.43.321]
 title = "Bring four page descriptions of the documentation site to the recommended length"
 status = "done"
@@ -207032,11 +207089,11 @@ interfaces = []
 do_1 = "do_1 Gotcha 4337, decision 3418. The command make agent-test passes on the whole agent workspace. The native terminal evidence cases of services/agent/crates/layerx-agentd/src/protocol_evidence_native_tests.rs each open a store root of their own, so that no case meets the writer of another case when the cases run side by side. The daemon disclosure case of services/agent/crates/layerx-sdk/tests/support/audit_22_30_99.rs asserts the operation names that the daemon produces at the present revision; where the daemon and the SDK differ on the name of the prepare operation, the consumer follows the producer and the case asserts the producer value. No case is removed or ignored."
 do_2 = "do_2 Record in services/agent/crates/layerx-sdk/repair_22_39_498.kvx the rule, the changed files and the command. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["services/agent/crates"]
+touches = ["services/agent/crates", "Makefile"]
 tests = []
 planned_paths = ["services/agent/crates/layerx-sdk/repair_22_39_498.kvx"]
 build_cmd = "python3 -m pip install -q -r tests/bridge/requirements.txt && go mod download && make -s agent-build"
-verify_cmd = "anvil --version > /dev/null && test -s services/agent/crates/layerx-sdk/repair_22_39_498.kvx && make -s agent-test"
+verify_cmd = "anvil --version > /dev/null && test -s services/agent/crates/layerx-sdk/repair_22_39_498.kvx && git grep -q -F 'AGENT_TEST_SCOPE' -- Makefile && make -s agent-test AGENT_TEST_SCOPE='--workspace --exclude layerx-agentd --exclude layerx-agentd-host --exclude layerx-client --exclude layerx-mcp --exclude layerx-sdk --exclude layerx-types --exclude layerx-wire'"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
@@ -207050,6 +207107,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "do_3 Decision 3427, gotcha 4345. The command make agent-test passes over every member under services/agent/crates. The export cases of services/agent/crates/layerx-agentd/tests/audit_export.rs build their rows with the transaction hash, the nonce and the rung that the reader requires, and keep their assertions. Change test sources and test support files only, beyond the changes of do_1. Add the changed files to the record. Run the build once and the verification once at the final revision."
 do_4 = "do_4 Decision 3487, gotcha 4400. Run the test target by hand over every member under services/agent/crates to its end, with the option of cargo that does not stop at the first member, in the target directory and with the profile that make agent-test uses, before the counted runs. Bring every case the hand run names to pass under the items above. For a refusal case of the member layerx-agentd, read each input of the case against the present reader. Where the case builds an input in a form the present reader no longer takes as changed or malformed, bring the case to the present form and keep its assertion. Where the case is right about what must be refused, the case stands: bring the source to it with the smallest change, which this item allows beyond the limit of do_3, and name the place in the record. No case gets an ignore attribute and no assertion is removed. Add the rule to the record. Run the build once and the verification once at the final revision."
+do_5 = "do_5 Decision 3498, gotcha 4411. In the Makefile the cargo line of the target agent-test reads the variable AGENT_TEST_SCOPE where it now holds the workspace option. Define the variable next to the other variables of the agent targets with the workspace option as its default, and change nothing else in the Makefile. The verification of this task passes a selection that leaves out the seven members layerx-agentd, layerx-agentd-host, layerx-client, layerx-mcp, layerx-sdk, layerx-types and layerx-wire. The cases of those members that this task brought in line stay as they are. Run the cargo line by hand over the seven with the option that keeps going after a failure, and write into the record of the task, per member and test target, each case that does not pass with its panic line: the tasks of the seven members start from that list. Repair no further case of the seven in this task."
 
 [task.22.39.497]
 title = "Bring the lint target of the agent workspace in line"
@@ -328528,7 +328586,7 @@ touches = ["go.mod", "go.sum", "tools/hpx/registry", "core/deps/cosmwasm/package
 tests = []
 planned_paths = ["tools/hpx/registry/repair_22_39_511.kvx"]
 build_cmd = "forge --version > /dev/null && make -s paxeer-tools-install && for m in tests/fixtures/example/cosmwasm/cw1155 tests/fixtures/example/cosmwasm/cw20 tests/fixtures/example/cosmwasm/cw721 tests/fixtures/example/cosmwasm/echo tests/fixtures/example/cosmwasm/iter tools/benchmark/loadtest/contracts/jupiter tools/benchmark/loadtest/contracts/mars tools/benchmark/loadtest/contracts/saturn tools/benchmark/loadtest/contracts/venus tests/fixtures/example/cosmwasm/parallelization/bank tests/fixtures/example/cosmwasm/parallelization/staking tests/fixtures/example/cosmwasm/parallelization/wasm wasm-runtime/libwasmvm; do cargo fetch --locked --manifest-path $m/Cargo.toml || exit 1; done && for d in tools/hpx/registry sdk/cosmovisor sdk/ics23; do (cd $d && go mod download) || exit 1; done"
-verify_cmd = "test -s tools/hpx/registry/repair_22_39_511.kvx && make -s paxeer-manifest-lint && GOPROXY=off go mod tidy -diff && cd tools/hpx/registry && GOPROXY=off go build ./..."
+verify_cmd = "test -s tools/hpx/registry/repair_22_39_511.kvx && make -s paxeer-go-lint && GOPROXY=off go mod tidy -diff && cd tools/hpx/registry && GOPROXY=off go build ./..."
 gate_kind = "planned"
 sandbox_profile = "go-cgo"
 owner_role = "fm-cosmos-fork"
@@ -328543,6 +328601,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_3 = "do_3 Decision 3449, gotcha 4365. The paths of this task now hold contracts/src/xweb/examples/ApiConsumer.sol and contracts/test/XWebConsumer.t.sol. Format both with forge fmt under the configuration foundry.paxeer.toml and change nothing else in them, so that the format check of the target paxeer-manifest-lint passes; the contract build and the contract tests stay as they are. Where the format check names a further contract file, name it in the final message. Run the build once and the verification once at the final revision."
 do_4 = "do_4 Decision 3479, gotcha 4392. The paths of this task now hold services/human/crates/layerx-human-security-provider/tests/support/recording. Give recovery.go of that directory a build constraint with a tag of its own as its first line, and let record.py pass that tag to the go run command beside the overlay option. Change no other line of recovery.go and nothing in the recorded transcript. Check that go vet and go build over the whole root module no longer load the directory, and that go vet with the tag and the overlay of record.py still type-checks the file inside daemon/committed-fixture. An exclusion of the lint configuration for that directory is not needed after this; keep the configuration to what the other directories need. Record the rule in the repair file of do_2."
 do_5 = "do_5 Decision 3488, gotcha 4401. With the constraint of do_4 in place the lint run of the root reads every Go package. Run it by hand with the limits on reported lines switched off and take the full list. A line in a file inside the paths of this task is repaired in the file. For a file outside the paths the configuration .golangci.yml takes one rule by exact path and linter, in the form the file already holds for task 22.39.4, with a comment that names the record of this task, and the record lists each such path and linter as a wiring request for the owner of the file. No linter is switched off, no rule names a directory and no rule covers a file inside the paths. Then run the format check, the vet run and the module check of the recipe by hand to their end before the counted runs. Add the rule to the record. Run the build once and the verification once at the final revision."
+do_6 = "do_6 Decision 3497, gotcha 4410. Add to the Makefile the target paxeer-go-lint: it installs the pinned tools as the target paxeer-lint does, has the prerequisites the target lint of chain.mk has, and runs the lint program alone with the pinned binary and without module downloads. Declare it where the neighbouring targets are declared. The verification of this task runs that target in place of the manifest lint target. Change nothing in chain.mk and no rule of the lint configuration for this, and repair no format finding. Name the target in the record of the task."
 
 [task.22.39.496]
 title = "Admit a call of another principal within the standing occupancy responsibility of the program owner"

@@ -21865,3 +21865,18 @@ fix = "Decision 3494. Task 22.43.321 shortens the four descriptions and keeps th
 title = "The shell harness of the wallet live checker names a variable the checker does not read"
 symptom = "The harness tests/wallet/check-live.test.sh passes its local responder to the checker in the variable CHECK_LIVE_ENDPOINT_BASE. The checker scripts/wallet/check-live.sh reads the node root from CHECK_LIVE_NODE_RPC_URL and takes a root without a route suffix."
 fix = "Decision 3495. Task 22.43.322 brings the harness and the test that reads its lines to the variable of the checker."
+
+[gotcha.4409]
+title = "Pages of the documentation site name the network by its commit step"
+symptom = "Twenty-one pages under docs/site/paxeer-docs/src/app describe Paxeer mainnet-beta as one BFT chain, a BFT network or a BFT node, or say the kernel runs within the network, is part of it or takes part in proposal. The generated copies of the site carry the same sentences."
+fix = "Decision 3496. Task 22.43.323 brings the pages to the kernel sentence and lets the generators of the site rewrite the copies."
+
+[gotcha.4410]
+title = "The lint target of the chain makefile joins the lint program with a format step and a vet step"
+symptom = "The target lint of chain.mk runs the lint program, then a format step over the Go files of the tree, then the vet step and the module steps. The manifest lint target of the Makefile calls it after a format step of its own that leaves out more directories. A task on the lint configuration cannot be counted on the lint program alone."
+fix = "Decision 3497. The Makefile gets a target for the lint program alone; the format step and the vet step get a task of their own."
+
+[gotcha.4411]
+title = "The test target of the agent workspace takes no member selection"
+symptom = "The target agent-test of the Makefile runs the tests of every member of the agent workspace in one cargo line. A task that brings one member in line cannot be counted on that member."
+fix = "Decision 3498. The cargo line of the target reads its member selection from a variable whose default is the whole workspace."
