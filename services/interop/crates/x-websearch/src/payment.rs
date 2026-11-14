@@ -356,6 +356,14 @@ impl LedgerTransaction {
     /// # Errors
     /// Returns an error when payment evidence or chain access is refused.
     pub fn sign(&self, receiver: &SigningKey) -> Result<SignedTransaction, SubmitError> {
+        self.sign_to(receiver, LEDGER_PRECOMPILE)
+    }
+
+    pub(crate) fn sign_to(
+        &self,
+        receiver: &SigningKey,
+        to: [u8; 20],
+    ) -> Result<SignedTransaction, SubmitError> {
         if self.chain_id == 0 || self.gas_limit == 0 || self.gas_price == 0 {
             return Err(SubmitError::Encode);
         }
@@ -363,7 +371,7 @@ impl LedgerTransaction {
             rlp_integer(&self.nonce.to_be_bytes()),
             rlp_integer(&self.gas_price.to_be_bytes()),
             rlp_integer(&self.gas_limit.to_be_bytes()),
-            rlp_bytes(&LEDGER_PRECOMPILE, false),
+            rlp_bytes(&to, false),
             rlp_integer(&[]),
             rlp_bytes(&self.data, false),
         ]
