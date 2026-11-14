@@ -2,7 +2,7 @@
 #[path = "../../layerx-human-kms/tests/support/attestor_cluster.rs"]
 mod cluster;
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::env;
 use std::ffi::OsString;
 use std::fs::{self, DirBuilder};
@@ -18,6 +18,15 @@ use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
+use layerx_agentd::budget::{LimitConfig, LimitId, LimitScope};
+use layerx_agentd::human::{HumanListenerConfig, HumanPeer, HumanUnixServer};
+use layerx_agentd::human_runtime::{
+    HumanAuthorityBoundary, ProductionHumanOperations, RemoteHumanAuthority, SharedAgentOwner,
+    UnifiedAgentOwner,
+};
+use layerx_agentd::node_rpc::{NodeRpc, NodeRpcConfig};
+use layerx_agentd::session_keys::SessionKeyRegistry;
+use layerx_agentd::store::{Store, TenantId};
 use layerx_client::runtime_clock::RuntimeClock;
 use layerx_client::sequencer::SequencerEndpoint;
 use layerx_human_service::server::production_components::{
@@ -165,37 +174,6 @@ impl Environment {
         env::set_var(name, value.into());
     }
 
-    fn wait_for_agent(
-        process: &mut Process,
-        socket: &Path,
-        stderr: &Path,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        let clock = RuntimeClock::from_environment()?;
-        let mut deadline = Deadline::start(clock.as_ref(), Duration::from_secs(15))?;
-        loop {
-            if let Some(status) = process.0.try_wait()? {
-                return Err(format!(
-                    "real agent daemon exited {status}: {}",
-                    fs::read_to_string(stderr)?
-                )
-                .into());
-            }
-            if let Ok(connection) = UnixStream::connect(socket) {
-                assert!(process.0.try_wait()?.is_none());
-                drop(connection);
-                return Ok(());
-            }
-            if deadline.remaining(clock.as_ref())?.is_zero() {
-                return Err(format!(
-                    "real agent daemon did not bind: {}",
-                    fs::read_to_string(stderr)?
-                )
-                .into());
-            }
-            std::thread::sleep(Duration::from_millis(20));
-        }
-    }
-
     fn write_agent_policy(&self, network: u32) -> Result<PathBuf, Box<dyn std::error::Error>> {
         let policy = self.root.join("agent-native-policy.json");
         let native_policy = serde_json::to_string(&json!({
@@ -221,277 +199,230 @@ impl Environment {
         Ok(policy)
     }
 
-    fn start_agent(&mut self) -> Result<Process, Box<dyn std::error::Error>> {
-        let binary = env::var_os("LAYERX_TEST_AGENTD_BIN")
-            .ok_or("LAYERX_TEST_AGENTD_BIN must name the built, real layerx-agentd")?;
-        let rpc_url =
-            env::var("LOCAL_NODE_RPC").map_err(|error| format!("LOCAL_NODE_RPC: {error}"))?;
+    fn start_agent(&mut self) -> Result<AgentServer, Box<dyn std::error::Error>> {
+        let node = LocalNode::start(&self.root)?;
         let network: u32 = env::var("LAYERX_HUMAN_NETWORK_ID")?.parse()?;
-        let chain_id = SequencerEndpoint::new(&rpc_url, &[])
-            .map_err(|error| format!("LOCAL_NODE_RPC endpoint: {error:?}"))?
+        let endpoint = SequencerEndpoint::new(&node.endpoint, &[])
+            .map_err(|error| format!("node endpoint: {error:?}"))?;
+        let chain_id = endpoint
             .chain_id()
-            .map_err(|error| format!("LOCAL_NODE_RPC eth_chainId: {error:?}"))?;
+            .map_err(|error| format!("node chain: {error:?}"))?;
         assert_eq!(chain_id, u64::from(network), "local node network mismatch");
-        let node_rpc = NodeRpcAdapter::start(rpc_url, network)?;
-        self.set("LAYERX_AGENT_NODE_RPC_URL", node_rpc.endpoint.clone());
-        self.set("LAYERX_AGENT_NODE_CHAIN_ID", chain_id.to_string());
+        layerx_agentd::human_node::verify_direct_node_readiness_for_chain(
+            &endpoint,
+            chain_id,
+            &node.consensus_chain,
+        )
+        .map_err(|error| format!("committed node readiness: {error:?}"))?;
         let authority = Authority::start(&self.root)?;
-        let uid = rustix::process::getuid().as_raw().to_string();
-        let gid = rustix::process::getgid().as_raw().to_string();
+        let uid = rustix::process::getuid().as_raw();
+        let gid = rustix::process::getgid().as_raw();
         let actor = env::var("LAYERX_HUMAN_AGENT_ACTOR")?;
+        let peers = BTreeMap::from([(uid, (actor.clone(), "tenant-a".to_owned()))]);
+        let deadline = Duration::from_secs(5);
+        let remote = RemoteHumanAuthority::connect(
+            &authority.endpoint,
+            authority.bearer.clone(),
+            deadline,
+            1_048_576,
+            &fs::read(self.root.join("authority-ca.der"))?,
+        )
+        .map_err(|error| format!("authority connection: {error:?}"))?;
+        remote
+            .registry(&HumanPeer {
+                uid,
+                principal: actor,
+                tenant: "tenant-a".to_owned(),
+                subject: None,
+            })
+            .map_err(|error| format!("authority readiness: {error:?}"))?;
+        let store = Arc::new(Mutex::new(Store::open(self.root.join("agent-store"))?));
+        let chain = NodeRpc::connect(&NodeRpcConfig {
+            url: node.endpoint.clone(),
+            chain_id,
+            deadline,
+        })
+        .map_err(|error| format!("node connection: {error:?}"))?;
+        let mut operations = ProductionHumanOperations::new(
+            remote,
+            endpoint,
+            Box::new(chain),
+            Arc::clone(&store),
+            &peers,
+            1_048_576,
+            300,
+            RuntimeClock::from_environment()?,
+        )
+        .map_err(|error| format!("agent operations: {error:?}"))?;
+        operations
+            .attach_native_policies(&BTreeMap::from([(
+                TenantId::new("tenant-a")?,
+                self.write_agent_policy(network)?,
+            )]))
+            .map_err(|error| format!("native policy: {error:?}"))?;
         let sessions = self.root.join("agent-sessions");
         DirBuilder::new().mode(0o700).create(&sessions)?;
         let mut secret = [0; 32];
         getrandom::fill(&mut secret).map_err(|error| error.to_string())?;
-        let operator_secret = self.root.join("agent-operator-secret");
-        write_private(&operator_secret, &secret)?;
-        let health_bearer = URL_SAFE_NO_PAD.encode(secret);
-        let policy = self.write_agent_policy(network)?;
-        let stderr = self.root.join("agent.stderr");
+        let keys = SessionKeyRegistry::open(sessions, secret.to_vec(), network, uid)
+            .map_err(|error| format!("session keys: {error:?}"))?;
+        let owner = UnifiedAgentOwner::new(
+            operations,
+            store,
+            &peers,
+            vec![LimitConfig {
+                id: LimitId([1; 16]),
+                name: "production-components".to_owned(),
+                scope: LimitScope::Tenant([2; 32]),
+                ceiling: 1000,
+                consumed: 0,
+            }],
+            keys,
+        )
+        .map_err(|error| format!("agent owner: {error:?}"))?;
         let socket_directory = self.root.join("agent-socket");
         DirBuilder::new().mode(0o700).create(&socket_directory)?;
         let socket = socket_directory.join("agent.sock");
-        let mut process = Process::new(
-            Command::new(binary)
-                .env("LAYERX_AGENT_MODE", "human-owner")
-                .env("LAYERX_AGENT_NODE_RPC_URL", &node_rpc.endpoint)
-                .env("LAYERX_AGENT_NODE_CHAIN_ID", chain_id.to_string())
-                .env("LAYERX_AGENT_HUMAN_AUTHORITY_ENDPOINT", &authority.endpoint)
-                .env("LAYERX_AGENT_HUMAN_AUTHORITY_BEARER", &authority.bearer)
-                .env(
-                    "LAYERX_AGENT_HUMAN_AUTHORITY_CA_DER",
-                    self.root.join("authority-ca.der"),
-                )
-                .env("LAYERX_AGENT_PROGRAM_LISTEN", "127.0.0.1:0")
-                .env("LAYERX_AGENT_PROGRAM_BEARER_TOKEN", health_bearer)
-                .env(
-                    "LAYERX_AGENT_HUMAN_PEERS",
-                    format!("uid={uid};tenant=tenant-a;principal={actor}"),
-                )
-                .env(
-                    "LAYERX_NATIVE_POLICY_SOURCES",
-                    format!("tenant-a:{}", policy.display()),
-                )
-                .env("LAYERX_AGENT_HUMAN_STORE", self.root.join("agent-store"))
-                .env("LAYERX_AGENT_HUMAN_SOCKET", &socket)
-                .env("LAYERX_AGENT_HUMAN_SOCKET_UID", uid)
-                .env("LAYERX_AGENT_HUMAN_SOCKET_GID", gid)
-                .env("LAYERX_AGENT_HUMAN_SOCKET_MODE", "600")
-                .env("LAYERX_AGENT_HUMAN_SESSION_KEY_ROOT", sessions)
-                .env(
-                    "LAYERX_AGENT_HUMAN_SESSION_OPERATOR_SECRET_FILE",
-                    operator_secret,
-                )
-                .env("LAYERX_AGENT_HUMAN_NETWORK_ID", network.to_string())
-                .env(
-                    "LAYERX_AGENT_HUMAN_PROTOCOL_VERSION",
-                    layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION.to_string(),
-                )
-                .env("LAYERX_AGENT_HUMAN_MAX_FRAME_BYTES", "1048576")
-                .env("LAYERX_AGENT_HUMAN_MAX_CONNECTIONS", "4")
-                .env("LAYERX_AGENT_HUMAN_MAX_STREAMS", "4")
-                .env("LAYERX_AGENT_HUMAN_MAX_QUEUED_BYTES", "1048576")
-                .env("LAYERX_AGENT_HUMAN_DEADLINE_MS", "5000")
-                .env("LAYERX_AGENT_HUMAN_AUTHORITY_MAX_BYTES", "1048576")
-                .env("LAYERX_AGENT_HUMAN_MAX_PAYLOAD_BYTES", "1048576")
-                .env("LAYERX_AGENT_HUMAN_TIMESTAMP_SPAN", "300")
-                .env("LAYERX_AGENT_HUMAN_RECONNECT_ATTEMPTS", "1")
-                .env("LAYERX_AGENT_HUMAN_RECONNECT_BASE_MS", "10")
-                .env("LAYERX_AGENT_HUMAN_RECONNECT_MAX_MS", "10")
-                .env("LAYERX_AGENT_HUMAN_RECONNECT_JITTER_PERCENT", "0")
-                .env("LAYERX_AGENT_HUMAN_LIMIT_ID", cluster::hex(&[1; 16]))
-                .env("LAYERX_AGENT_HUMAN_LIMIT_NAME", "production-unhooked")
-                .env("LAYERX_AGENT_HUMAN_LIMIT_SCOPE", "tenant")
-                .env("LAYERX_AGENT_HUMAN_LIMIT_SCOPE_ID", cluster::hex(&[2; 32]))
-                .env("LAYERX_AGENT_HUMAN_LIMIT_CEILING", "1000")
-                .env("LAYERX_AGENT_HUMAN_LIMIT_CONSUMED", "0")
-                .stdin(Stdio::null())
-                .stdout(Stdio::null())
-                .stderr(fs::File::create(&stderr)?)
-                .spawn()?,
-        );
-        process.1 = Some(authority);
-        process.2 = Some(node_rpc);
-        Self::wait_for_agent(&mut process, &socket, &stderr)?;
-        Ok(process)
-    }
-}
-
-struct NodeRpcAdapter {
-    endpoint: String,
-    stop: Arc<AtomicBool>,
-    worker: Option<JoinHandle<()>>,
-}
-
-impl NodeRpcAdapter {
-    fn answer(
-        agent: &ureq::Agent,
-        comet: &str,
-        upstream: &str,
-        network: u32,
-        request: &Value,
-        body: &[u8],
-    ) -> Vec<u8> {
-        if request["method"] == "px_getNetwork" {
-            let mut response = agent
-                .get(format!("{}/status", comet.trim_end_matches('/')))
-                .call()
-                .or_fail("real CometBFT status");
-            assert!(response.status().is_success(), "CometBFT status HTTP");
-            let status: Value = serde_json::from_slice(
-                &response
-                    .body_mut()
-                    .read_to_vec()
-                    .unwrap_or_else(|error| panic!("{}: {error:?}", "CometBFT status body")),
-            )
-            .or_fail("CometBFT status JSON");
-            let sync = &status["sync_info"];
-            let height = sync["latest_block_height"]
-                .as_str()
-                .or_fail("CometBFT latest height");
-            height.parse::<u64>().or_fail("CometBFT decimal height");
-            let block_hash = sync["latest_block_hash"]
-                .as_str()
-                .or_fail("CometBFT latest block hash");
-            let app_hash = sync["latest_app_hash"]
-                .as_str()
-                .or_fail("CometBFT latest app hash");
-            let catching_up = sync["catching_up"]
-                .as_bool()
-                .or_fail("CometBFT catching up");
-            let quantity = |method: &str| {
-                let body =
-                    json!({"jsonrpc": "2.0", "id": 1, "method": method, "params": []}).to_string();
-                let mut response = agent
-                    .post(upstream)
-                    .header("Content-Type", "application/json")
-                    .send(body.as_bytes())
-                    .unwrap_or_else(|error| panic!("{}: {error:?}", "real node network quantity"));
-                assert!(response.status().is_success(), "node quantity HTTP");
-                let answer: Value = serde_json::from_slice(
-                    &response
-                        .body_mut()
-                        .read_to_vec()
-                        .unwrap_or_else(|error| panic!("{}: {error:?}", "node quantity body")),
-                )
-                .or_fail("node quantity JSON");
-                assert!(answer.get("error").is_none(), "node quantity RPC: {answer}");
-                answer["result"]
-                    .as_str()
-                    .or_fail("node quantity text")
-                    .to_owned()
-            };
-            let chain_id = quantity("eth_chainId");
-            let latest_block = quantity("eth_blockNumber");
-            serde_json::to_vec(&json!({
-                "jsonrpc": "2.0",
-                "id": request["id"],
-                "result": {
-                    "network_id": network.to_string(),
-                    "paxeer": {"chain_id": chain_id, "latest_block": latest_block},
-                    "consensus": {
-                        "latest_height": height,
-                        "latest_block_hash": block_hash,
-                        "latest_app_hash": app_hash,
-                        "catching_up": catching_up
-                    }
-                }
-            }))
-            .or_fail("network response JSON")
-        } else {
-            agent
-                .post(upstream)
-                .header("Content-Type", "application/json")
-                .send(body)
-                .or_fail("forward node RPC")
-                .body_mut()
-                .read_to_vec()
-                .unwrap_or_else(|error| panic!("{}: {error:?}", "forward node RPC response"))
-        }
-    }
-
-    fn serve(
-        listener: &TcpListener,
-        stopped: &AtomicBool,
-        upstream: &str,
-        comet: &str,
-        network: u32,
-    ) {
-        let agent = ureq::Agent::config_builder()
-            .timeout_global(Some(Duration::from_secs(5)))
-            .http_status_as_error(false)
-            .build()
-            .new_agent();
-        while !stopped.load(Ordering::Acquire) {
-            let mut stream = match listener.accept() {
-                Ok((stream, _)) => stream,
-                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
-                    thread::sleep(Duration::from_millis(10));
-                    continue;
-                }
-                Err(error) => panic!("node RPC adapter accept: {error}"),
-            };
-            stream
-                .set_read_timeout(Some(Duration::from_secs(5)))
-                .unwrap_or_else(|error| panic!("{}: {error:?}", "node RPC adapter read timeout"));
-            stream
-                .set_write_timeout(Some(Duration::from_secs(5)))
-                .unwrap_or_else(|error| panic!("{}: {error:?}", "node RPC adapter write timeout"));
-            let mut headers = Vec::new();
-            while !headers.ends_with(b"\r\n\r\n") {
-                assert!(headers.len() < 16_384, "node RPC request header bound");
-                let mut byte = [0];
-                stream.read_exact(&mut byte).or_fail("node RPC headers");
-                headers.push(byte[0]);
-            }
-            let headers = String::from_utf8(headers).or_fail("node RPC HTTP UTF-8");
-            let length: usize = headers
-                .lines()
-                .filter_map(|line| line.split_once(':'))
-                .find(|(name, _)| name.eq_ignore_ascii_case("content-length"))
-                .or_fail("node RPC content length")
-                .1
-                .trim()
-                .parse()
-                .unwrap_or_else(|error| panic!("{}: {error:?}", "node RPC content length integer"));
-            assert!(length <= 1_048_576, "node RPC request body bound");
-            let mut body = vec![0; length];
-            stream.read_exact(&mut body).or_fail("node RPC body");
-            let request: Value = serde_json::from_slice(&body).or_fail("node RPC JSON");
-            let answer = Self::answer(&agent, comet, upstream, network, &request, &body);
-            write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", answer.len())
-                .or_fail("node RPC response headers");
-            stream.write_all(&answer).or_fail("node RPC response body");
-            stream.flush().or_fail("node RPC response flush");
-        }
-    }
-
-    fn start(upstream: String, network: u32) -> Result<Self, Box<dyn std::error::Error>> {
-        let comet = env::var("PERPS_DATA_TEST_COMET")
-            .map_err(|error| format!("PERPS_DATA_TEST_COMET: {error}"))?;
-        let listener = TcpListener::bind("127.0.0.1:0")?;
-        let endpoint = format!("http://{}", listener.local_addr()?);
-        listener.set_nonblocking(true)?;
+        let server = HumanUnixServer::bind(
+            HumanListenerConfig {
+                endpoint: socket.clone(),
+                owner_uid: uid,
+                owner_gid: gid,
+                mode: 0o600,
+                maximum_frame_bytes: 1_048_576,
+                deadline,
+                maximum_connections: 4,
+                maximum_streams: 4,
+                maximum_queued_bytes: 1_048_576,
+                peers,
+            },
+            SharedAgentOwner::new(owner),
+        )
+        .map_err(|error| format!("agent listener: {error:?}"))?;
         let stop = Arc::new(AtomicBool::new(false));
         let stopped = Arc::clone(&stop);
-        let worker =
-            thread::spawn(move || Self::serve(&listener, &stopped, &upstream, &comet, network));
-        Ok(Self {
-            endpoint,
+        let worker = thread::spawn(move || {
+            server
+                .serve_until(&stopped)
+                .map_err(|error| format!("agent listener: {error:?}"))
+        });
+        let agent = AgentServer {
             stop,
             worker: Some(worker),
-        })
+            _authority: authority,
+            _node: node,
+        };
+        assert!(!agent.worker.as_ref().or_fail("agent worker").is_finished());
+        drop(UnixStream::connect(socket)?);
+        Ok(agent)
     }
 }
 
-impl Drop for NodeRpcAdapter {
+struct LocalNode {
+    script: PathBuf,
+    directory: PathBuf,
+    home: PathBuf,
+    endpoint: String,
+    consensus_chain: String,
+}
+
+impl LocalNode {
+    fn command(&self) -> Command {
+        let mut command = Command::new("bash");
+        command.arg(&self.script).env("TMPDIR", &self.directory);
+        command
+    }
+
+    fn start(directory: &Path) -> Result<Self, Box<dyn std::error::Error>> {
+        let binary = env::var_os("PAXD").ok_or("PAXD must name the built node")?;
+        assert!(Path::new(&binary).is_file(), "built node exists");
+        let repository = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .ancestors()
+            .nth(4)
+            .ok_or("repository root")?;
+        let script = repository.join("tools/qualification/localnode/v6120-node.sh");
+        let settings = directory.join("lx-localnode/localnode.env");
+        let mut node = Self {
+            script,
+            directory: directory.to_owned(),
+            home: PathBuf::new(),
+            endpoint: String::new(),
+            consensus_chain: String::new(),
+        };
+        let output = node
+            .command()
+            .env("PAXD", binary)
+            .args(["--sequencer", "--env-out"])
+            .arg(&settings)
+            .stdin(Stdio::null())
+            .output()?;
+        assert!(
+            output.status.success(),
+            "local node startup: {}: {}",
+            output.status,
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let document = zeroize::Zeroizing::new(fs::read_to_string(settings)?);
+        let field = |name: &str| -> Result<String, Box<dyn std::error::Error>> {
+            let value = document
+                .lines()
+                .filter_map(|line| line.split_once('='))
+                .find_map(|(key, value)| (key == name).then_some(value))
+                .ok_or_else(|| format!("node setting {name} required"))?;
+            assert!(
+                !value.is_empty()
+                    && value
+                        .bytes()
+                        .all(|byte| byte.is_ascii_alphanumeric() || b"/._:-".contains(&byte)),
+                "node setting encoding"
+            );
+            Ok(value.to_owned())
+        };
+        node.home = field("LOCAL_NODE_HOME")?.into();
+        assert!(node.home.starts_with(directory.join("lx-localnode")));
+        node.endpoint = field("LOCAL_NODE_SEQUENCER_RPC")?;
+        let genesis: Value =
+            serde_json::from_slice(&fs::read(node.home.join("config/genesis.json"))?)?;
+        node.consensus_chain = genesis["chain_id"]
+            .as_str()
+            .ok_or("node consensus chain")?
+            .to_owned();
+        Ok(node)
+    }
+}
+
+impl Drop for LocalNode {
+    fn drop(&mut self) {
+        if !self.home.as_os_str().is_empty() {
+            let status = self
+                .command()
+                .arg("--stop")
+                .arg(&self.home)
+                .output()
+                .or_fail("stop local node")
+                .status;
+            if !thread::panicking() {
+                assert!(status.success(), "local node shutdown: {status}");
+            }
+        }
+    }
+}
+
+struct AgentServer {
+    stop: Arc<AtomicBool>,
+    worker: Option<JoinHandle<Result<(), String>>>,
+    _authority: Authority,
+    _node: LocalNode,
+}
+
+impl Drop for AgentServer {
     fn drop(&mut self) {
         self.stop.store(true, Ordering::Release);
-        let result = self.worker.take().or_fail("node RPC adapter worker").join();
+        let result = self.worker.take().or_fail("agent worker").join();
         if !thread::panicking() {
-            result.unwrap_or_else(|error| {
-                panic!("{}: {error:?}", "node RPC adapter worker panicked")
-            });
+            result
+                .or_fail("agent worker panicked")
+                .or_fail("agent listener stopped");
         }
     }
 }
@@ -882,11 +813,11 @@ impl Drop for Environment {
     }
 }
 
-struct Process(Child, Option<Authority>, Option<NodeRpcAdapter>);
+struct Process(Child);
 
 impl Process {
     fn new(child: Child) -> Self {
-        Self(child, None, None)
+        Self(child)
     }
 }
 
