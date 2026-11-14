@@ -164,7 +164,7 @@ func runLiveInspector(ctx context.Context, args []string, input io.Reader, outpu
 		defer client.CloseIdleConnections()
 		return true, CheckInteropPayment(ctx, client, args[1], args[2], args[3], strings.TrimSpace(string(token)), raw, time.Now(), output)
 	case "search-payment":
-		if len(args) != 5 {
+		if len(args) != 3 {
 			return true, invalid
 		}
 		client, err := liveHTTPClient("")
@@ -172,7 +172,7 @@ func runLiveInspector(ctx context.Context, args []string, input io.Reader, outpu
 			return true, err
 		}
 		defer client.CloseIdleConnections()
-		return true, CheckSearchPayment(ctx, client, args[1], args[2], args[3], args[4], os.Getenv("CHECK_LIVE_GATEWAY_TOKEN"), output)
+		return true, CheckSearchPayment(ctx, client, args[1], args[2], os.Getenv("CHECK_LIVE_SEARCH_NODE_RPC"), os.Getenv("CHECK_LIVE_SEARCH_PAYER_KEY_FILE"), os.Getenv("CHECK_LIVE_SEARCH_PAYER_ADDRESS"), os.Getenv("CHECK_LIVE_GATEWAY_TOKEN"), output)
 	case "developers-delivery":
 		if len(args) != 8 {
 			return true, invalid

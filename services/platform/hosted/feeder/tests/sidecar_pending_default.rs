@@ -84,7 +84,8 @@ fn pending_default_committed_sequence_admits_twelve_rounds() -> TestResult {
 }
 
 #[test]
-fn pending_default_bound_four_keeps_refused_sequences_pending() -> TestResult {
+fn pending_default_bound_four_removes_ahead_refusal_and_waits_for_committed_sequence() -> TestResult
+{
     let peer = Peer::new();
     peer.admit_only_committed_sequence();
     peer.serve_fresh_quotes();
@@ -106,8 +107,9 @@ fn pending_default_bound_four_keeps_refused_sequences_pending() -> TestResult {
             &dir.0,
         )?;
     }
-    assert_eq!(sidecar.pending_count(), 4);
-    assert!(peer.state.lock().unwrap().sequence_refusals > 0);
+    assert_eq!(sidecar.pending_count(), 1);
+    assert_eq!(dir.progress()["pending"].as_array().unwrap().len(), 1);
+    assert_eq!(peer.state.lock().unwrap().sequence_refusals, 1);
 
     let before = peer.state.lock().unwrap().ticker_requests;
     round::run_round(
@@ -119,7 +121,7 @@ fn pending_default_bound_four_keeps_refused_sequences_pending() -> TestResult {
         &metrics,
         &dir.0,
     )?;
-    assert_eq!(sidecar.pending_count(), 4);
+    assert_eq!(sidecar.pending_count(), 1);
     assert_eq!(peer.state.lock().unwrap().ticker_requests, before);
     Ok(())
 }
