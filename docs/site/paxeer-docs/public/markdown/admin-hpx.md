@@ -9,7 +9,7 @@ Runtime administration, the HPX node distribution, and operational controls for 
 
 ## Operating the unified network
 
-The HPX distribution installs and manages the Paxeer mainnet-beta BFT node, paxd. The node includes the EVM and native kernel on one network. EVM chain ID 125 identifies this network, and a receipt is final when its block is committed.
+The HPX distribution installs and manages the Paxeer mainnet-beta paxd node. The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it. The node includes the EVM and native kernel on one network. EVM chain ID 125 identifies this network, and a receipt is final when validators commit its block.
 
 Runtime logging administration is separate from economic and security administration. Chain governance controls native parameter and admin messages through `modules/layerxgov/`. Module configuration follows the authorization model implemented by that module.
 
