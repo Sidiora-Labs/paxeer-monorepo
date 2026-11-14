@@ -206464,7 +206464,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.544]
 title = "Bring the interop lock file in step with the manifests it resolves"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
