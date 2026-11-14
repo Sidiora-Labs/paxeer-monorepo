@@ -3,9 +3,9 @@
 `tools/platform/cli` builds the `layerx` binary (package `layerx-platform-cli` in the
 [`tools/platform`](../Cargo.toml) Cargo workspace). It provides developer tools for
 Paxeer X Network, including native wallets, tokens, programs and agent transports.
-The kernel is part of the network and proposes blocks on the same BFT chain;
-a transaction is final once its block is committed. Mainnet-beta uses EVM chain
-ID **125** (`0x7d`). Sub-chains are tenant domains in the database.
+The LayerX kernel inside `paxd` executes and orders each transaction and builds
+each block; validators check and commit it, and a receipt is final when the
+validators commit its block. Mainnet-beta uses EVM chain ID **125** (`0x7d`). Sub-chains are tenant domains in the database.
 
 The top-level commands are `chains`, `wallet`, `token`, `new`, `workspace`,
 `environment`, `key`, `auth`, `account`, `register`, `faucet`, `payment`, `receipt`,
@@ -283,8 +283,8 @@ another payment.
 | `receipted` (default), alias `executed` | Verifies the signed receipt and bound execution/log fields; returns at least rung `receipted` |
 | `committed`, aliases `batched` and `finalised` | Also matches the committed block hash, number, status and transaction index to `eth_getTransactionReceipt`; returns rung `committed` |
 
-Use `committed` to request committed-block evidence. Commitment is finality on
-this BFT network; it does not require another certificate. Receipt reads use
+Use `committed` to request committed-block evidence. A receipt is final when
+the validators commit its block; it does not require another certificate. Receipt reads use
 `pax_sequencerReceipt`. Signature, transaction hash, nonce, log or execution
 mismatches fail verification; a reverted transaction exits nonzero.
 `--timeout-seconds` on writes accepts 1–300 and defaults to 60. A timeout returns
