@@ -6,7 +6,7 @@ Build Solidity applications on Paxeer X and integrate wrapped PAX, token pointer
 
 ## Custody and settlement
 
-Paxeer mainnet-beta executes and settles transactions on one BFT chain. Funding uses native bank balances and derived sub-accounts. The `LayerXCustody.sol` ABI is in `precompiles/layerxcustody/LayerXCustody.sol`; `contracts/src/precompiles/ILayerXCustody.sol` is a Solidity interface. Custody calls at `0x1013` are disabled on the merged network. The checkpoint anchor at `0x1014` is also disabled once its store-delete upgrade is active.
+On Paxeer mainnet-beta, the LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it to settle transactions. Funding uses native bank balances and derived sub-accounts. The `LayerXCustody.sol` ABI is in `precompiles/layerxcustody/LayerXCustody.sol`; `contracts/src/precompiles/ILayerXCustody.sol` is a Solidity interface. Custody calls at `0x1013` are disabled on the merged network. The checkpoint anchor at `0x1014` is also disabled once its store-delete upgrade is active.
 
 Choose the interface for the native module your application uses and verify its authorization requirements. A deployed Solidity contract and a native precompile have distinct call targets and state. A receipt is final when its block is committed; see the [settlement guide](https://docs.paxeer.app/settlement) for related evidence.
 

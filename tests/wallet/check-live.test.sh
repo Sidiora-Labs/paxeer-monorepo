@@ -396,19 +396,29 @@ endpoint_base() {
 	printf 'http://127.0.0.1:%s/' "$endpoint_port"
 }
 
+CHECK_LIVE_NODE_RPC_URL="$(endpoint_base good)"
+export CHECK_LIVE_NODE_RPC_URL
+
 failures=0
 
 run_checker() {
-	CHECK_LIVE_ENDPOINT_BASE="$1" CHECK_LIVE_TIMEOUT=5 "$checker" "${@:2}" 2>&1
+	CHECK_LIVE_NODE_RPC_URL="$1" CHECK_LIVE_TIMEOUT=5 "$checker" "${@:2}" 2>&1
 }
 
 expect() {
 	local name="$1" profile="$2" want_status="$3" output status=0
 	shift 3
 	output="$(run_checker "$(endpoint_base "$profile")" endpoint)" || status=$?
-	local ok=1 line
+	local ok=1 line verdict method detail node_root
+	node_root="$(endpoint_base "$profile")"
 	[ "$status" -eq "$want_status" ] || ok=0
 	for line in "$@"; do
+		case "$line" in
+		pass\ * | fail\ *)
+			IFS=' ' read -r verdict method detail <<<"$line"
+			line="$verdict $method owner=node url=$node_root${detail:+ $detail}"
+			;;
+		esac
 		grep -qF -- "$line" <<<"$output" || ok=0
 	done
 	if [ "$ok" -eq 1 ]; then
@@ -465,8 +475,8 @@ expect check_live_resolve_read_error resolve_error 1 \
 	"check-live: 1 check(s) failed"
 
 status=0
-output="$(CHECK_LIVE_ENDPOINT_BASE="http://127.0.0.1:1" CHECK_LIVE_TIMEOUT=2 "$checker" endpoint 2>&1)" || status=$?
-if [ "$status" -eq 1 ] && grep -q '^fail eth_chainId transport ' <<<"$output" &&
+output="$(CHECK_LIVE_NODE_RPC_URL="http://127.0.0.1:1" CHECK_LIVE_TIMEOUT=2 "$checker" endpoint 2>&1)" || status=$?
+if [ "$status" -eq 1 ] && grep -q '^fail eth_chainId owner=node url=http://127\.0\.0\.1:1 transport ' <<<"$output" &&
 	grep -q 'check-live: 4 check(s) failed' <<<"$output"; then
 	echo "ok   check_live_transport_error"
 else
@@ -476,18 +486,17 @@ else
 fi
 
 status=0
-output="$(CHECK_LIVE_ENDPOINT_BASE="" "$checker" endpoint 2>&1)" || status=$?
-if [ "$status" -eq 2 ] && grep -q 'CHECK_LIVE_ENDPOINT_BASE is required' <<<"$output" &&
-	grep -q '^usage: ' <<<"$output"; then
+output="$(CHECK_LIVE_NODE_RPC_URL="" "$checker" endpoint 2>&1)" || status=$?
+if [ "$status" -eq 2 ] && grep -qxF 'check-live: CHECK_LIVE_NODE_RPC_URL must name an HTTPS (or loopback HTTP) node root without a route suffix' <<<"$output"; then
 	echo "ok   check_live_missing_base"
 else
-	echo "FAIL check_live_missing_base: want exit 2 with usage, got exit $status"
+	echo "FAIL check_live_missing_base: want exit 2 with node root validation, got exit $status"
 	printf '%s\n' "$output"
 	failures=$((failures + 1))
 fi
 
 status=0
-output="$(CHECK_LIVE_ENDPOINT_BASE="http://127.0.0.1:$port/good" "$checker" nonexistent 2>&1)" || status=$?
+output="$(CHECK_LIVE_NODE_RPC_URL="$(endpoint_base good)" "$checker" nonexistent 2>&1)" || status=$?
 if [ "$status" -eq 2 ] && grep -q '^usage: ' <<<"$output"; then
 	echo "ok   check_live_unknown_mode"
 else
