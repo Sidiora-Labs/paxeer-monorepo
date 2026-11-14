@@ -26,8 +26,14 @@ def section(title):
 
 def test_finding_61_one_paxd_network_and_tenant_namespaces():
     overview = section("What is Paxeer X Network?")
-    assert "one BFT network with EVM chain ID **125** (`0x7d`)" in overview
-    assert "kernel is embedded in the node" in overview
+    assert "The LayerX kernel runs inside every `paxd` node." in overview
+    assert "EVM chain ID **125** (`0x7d`)" in overview
+    assert (
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block."
+    ) in overview
+    assert "Validators check that block and commit it." in overview
     assert "proposes blocks inside `paxd`" in overview
     assert "validators commit those blocks through BFT consensus" in overview
     assert "no separate kernel daemon, sequencer service or checkpoint deployment" in overview

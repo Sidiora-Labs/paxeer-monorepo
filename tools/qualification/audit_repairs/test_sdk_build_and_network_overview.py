@@ -179,8 +179,10 @@ def test_markdown_container_image(target, fix):
 def test_sdk_overview_one_network_native_path_and_endpoints():
     readme = (SDK / "README.md").read_text()
     for fact in (
-        "one BFT network", "EVM chain ID `125` (`0x7d`)",
-        "kernel runs inside `paxd`", "a receipt is final once its covering block is committed",
+        "The LayerX kernel inside `paxd` executes and orders each transaction "
+        "and builds each block; validators check and commit it.",
+        "EVM chain ID `125` (`0x7d`)",
+        "kernel inside `paxd`", "A receipt is final once its covering block is committed",
         "EIP-1559 transaction", "eth_sendRawTransaction", "pax_sequencerReceipt",
         "`submitted`, `receipted` and `committed`", "independently trusted receipt keys",
         "committed failure remains a failure", "root HTTPS or WebSocket endpoint",

@@ -62,9 +62,12 @@ def test_doc_index_7_one_paxd_embeds_native_execution():
         "docs/wiki/PaxeerBoundary.md"
     )
     for fact in (
-        "one BFT network",
+        "The LayerX kernel runs inside every `paxd` node.",
         "chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.",
         "proposes blocks inside `paxd`",
         "validators commit those blocks through BFT consensus",
         "node links `build/liblayerx.a`",

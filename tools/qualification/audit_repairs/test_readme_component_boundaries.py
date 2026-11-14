@@ -52,8 +52,12 @@ def test_doc_01_one_paxd_bft_network_embeds_kernel_execution():
         "docs/wiki/PaxeerBoundary.md"
     )
     for fact in (
-        "one BFT network", "chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node", "block proposal and deterministic execution",
+        "The LayerX kernel runs inside every `paxd` node.", "chain ID **125** (`0x7d`)",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.",
+        "returns a signed execution receipt and builds each block.",
         "proposes blocks inside `paxd`", "validators commit those blocks through BFT consensus",
         "C17 kernel", "runs inside `paxd`", "modules/lxphost",
         "no separate kernel daemon, sequencer service or checkpoint deployment",

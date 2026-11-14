@@ -164,8 +164,12 @@ def test_007_committed_paxd_finality_and_rpc_ownership():
     overview = source("docs/readme/NETWORK.md")
     prose = " ".join(overview.split())
     for fact in (
-        "Paxeer mainnet-beta is one BFT network with EVM chain ID **125** (`0x7d`).",
-        "The LayerX kernel is embedded in the node and participates in block proposal and deterministic execution.",
+        "The LayerX kernel runs inside every `paxd` node.",
+        "EVM chain ID **125** (`0x7d`).",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.",
         "A receipt is final once its block is committed.",
         "There is no separate kernel daemon, sequencer service or checkpoint deployment.",
         "The public API reaches the node directly at the root path",
