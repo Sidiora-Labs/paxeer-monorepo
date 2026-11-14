@@ -14380,6 +14380,12 @@ value = "A cursor that stands without a journal is taken as the next block; the 
 basis = "Gotcha 4458."
 affects = []
 
+[decision.3545]
+title = "The start test of the daemon command supplies replication TLS material"
+value = "The case makes a certificate, a key and roots in its temporary directory and sets the five replication flags, by the means the tests of node/sequencer use. The requirement of node/sequencer/dial.go stays as it is. Task 22.39.551 carries the change, since the file is in its paths."
+basis = "Gotcha 4459."
+affects = ["22.39.551"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -329314,6 +329320,7 @@ time_limit_minutes = 180
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "do_5 Decision 3545, gotcha 4459. TestNewAppPassesSequencerConfigToNode in daemon/paxd/cmd/new_app_test.go names a standby address and sets none of the replication flags. Give the case a certificate, a key, roots, a peer name and the digest of the peer key, made in its temporary directory and set through the five replication flags of node/sequencer/config.go, by the means the tests of node/sequencer use. Every present expectation of the case stays. The requirement of node/sequencer/dial.go does not change. Run the build once and the verification once at the final revision."
 
 [task.22.39.539]
 title = "Bind the resolver fixture of the names DNS tool to the present root Forge configuration"
