@@ -207929,7 +207929,7 @@ do_3 = "do_3 Decision 3425, gotcha 4343. In the metrics case of wasm-runtime/lib
 
 [task.22.39.504]
 title = "Bring the test target of the platform workspaces in line"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.42.176"]
