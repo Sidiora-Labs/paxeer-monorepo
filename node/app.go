@@ -2652,7 +2652,7 @@ func (app *App) ProcessTXsWithOCCGiga(ctx sdk.Context, txs [][]byte, typedTxs []
 	var v2BatchResult []abci.ResponseDeliverTx
 
 	if len(v2Entries) > 0 {
-		v2Scheduler := tasks.NewScheduler(
+		v2Scheduler := tasks.NewDeliverScheduler(
 			app.ConcurrencyWorkers(),
 			app.TracingInfo,
 			app.DeliverTx,

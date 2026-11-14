@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
+	gigastore "github.com/Sidiora-Labs/Paxeer-X-Network/engine/deps/store"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/multiversion"
 	store "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/telemetry"
@@ -106,19 +107,20 @@ type Scheduler interface {
 }
 
 type scheduler struct {
-	deliverTx          func(ctx sdk.Context, req types.RequestDeliverTxV2, tx sdk.Tx, checksum [32]byte) (res types.ResponseDeliverTx)
-	workers            int
-	multiVersionStores map[sdk.StoreKey]multiversion.MultiVersionStore
-	tracingInfo        *tracing.Info
-	allTasksMap        map[int]*deliverTxTask
-	allTasks           []*deliverTxTask
-	executeCh          chan func()
-	validateCh         chan func()
-	metrics            *schedulerMetrics
-	synchronous        bool           // true if maxIncarnation exceeds threshold
-	maxIncarnation     int            // current highest incarnation
-	conflictKeyCounts  map[string]int // per-key conflict counts accumulated over the block
-	conflictKeyMu      sync.Mutex
+	deliverTx           func(ctx sdk.Context, req types.RequestDeliverTxV2, tx sdk.Tx, checksum [32]byte) (res types.ResponseDeliverTx)
+	workers             int
+	multiVersionStores  map[sdk.StoreKey]multiversion.MultiVersionStore
+	tracingInfo         *tracing.Info
+	allTasksMap         map[int]*deliverTxTask
+	allTasks            []*deliverTxTask
+	executeCh           chan func()
+	validateCh          chan func()
+	metrics             *schedulerMetrics
+	synchronous         bool           // true if maxIncarnation exceeds threshold
+	maxIncarnation      int            // current highest incarnation
+	conflictKeyCounts   map[string]int // per-key conflict counts accumulated over the block
+	conflictKeyMu       sync.Mutex
+	serveStoreIteration bool
 }
 
 // NewScheduler creates a new scheduler
@@ -129,6 +131,12 @@ func NewScheduler(workers int, tracingInfo *tracing.Info, deliverTxFunc func(ctx
 		tracingInfo: tracingInfo,
 		metrics:     &schedulerMetrics{},
 	}
+}
+
+func NewDeliverScheduler(workers int, tracingInfo *tracing.Info, deliverTxFunc func(ctx sdk.Context, req types.RequestDeliverTxV2, tx sdk.Tx, checksum [32]byte) (res types.ResponseDeliverTx)) Scheduler {
+	s := NewScheduler(workers, tracingInfo, deliverTxFunc).(*scheduler)
+	s.serveStoreIteration = true
+	return s
 }
 
 func (s *scheduler) invalidateTask(task *deliverTxTask) {
@@ -240,7 +248,11 @@ func (s *scheduler) tryInitMultiVersionStore(ctx sdk.Context) {
 	keys := ctx.MultiStore().StoreKeys()
 	for _, sk := range keys {
 		if ctx.GigaMultiStore().IsStoreGiga(sk) {
-			mvs[sk] = multiversion.NewMultiVersionStore(ctx.GigaKVStore(sk))
+			parent := ctx.GigaKVStore(sk)
+			if s.serveStoreIteration {
+				parent = gigastore.NewIterationView(parent)
+			}
+			mvs[sk] = multiversion.NewMultiVersionStore(parent)
 		} else {
 			mvs[sk] = multiversion.NewMultiVersionStore(ctx.MultiStore().GetKVStore(sk))
 		}
