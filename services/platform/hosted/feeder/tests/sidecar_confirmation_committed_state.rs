@@ -31,10 +31,13 @@ fn two_markets(peer: &Peer) -> Config {
 fn assert_reads(peer: &Peer, height: u64, markets: &[u64], reads: usize) {
     let state = peer.state.lock().unwrap();
     assert_eq!(state.account_reads, vec![height; reads]);
-    let expected: Vec<_> = (0..reads)
+    let mut expected: Vec<_> = (0..reads)
         .flat_map(|_| markets.iter().map(|market| (*market, height)))
         .collect();
-    assert_eq!(state.observation_reads, expected);
+    expected.sort_unstable();
+    let mut observations = state.observation_reads.clone();
+    observations.sort_unstable();
+    assert_eq!(observations, expected);
     assert!(state.mempool_pages.is_empty());
 }
 
@@ -174,7 +177,10 @@ fn committed_state_unused_sequence_stays_pending_within_bound() -> TestResult {
         peer.state.lock().unwrap().committed_height = Some(height);
         clear_reads(&peer);
         assert!(!sidecar.reconcile(&config, &peer.rpc(), &metrics, &dir.0)?);
-        assert_reads(&peer, height, &[0], 1);
+        let state = peer.state.lock().unwrap();
+        assert_eq!(state.account_reads, [height]);
+        assert!(state.observation_reads.is_empty());
+        assert!(state.mempool_pages.is_empty());
         assert_eq!(dir.progress(), pending);
         assert_eq!(Journal::load(&dir.0, 0)?, journal);
         assert_unconfirmed(&metrics);

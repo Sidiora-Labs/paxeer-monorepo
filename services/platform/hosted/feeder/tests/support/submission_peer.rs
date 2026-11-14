@@ -4,9 +4,9 @@ use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Condvar, Mutex};
 use std::thread::{self, JoinHandle};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine as _;
@@ -90,8 +90,94 @@ impl Default for Transcript {
 pub(crate) struct Peer {
     pub(crate) url: String,
     pub(crate) state: Arc<Mutex<Transcript>>,
+    observation_gate: Arc<ObservationGate>,
     stop: Arc<AtomicBool>,
     handle: Option<JoinHandle<()>>,
+}
+
+struct ObservationGate {
+    state: Mutex<ObservationGateState>,
+    changed: Condvar,
+}
+
+#[derive(Default)]
+struct ObservationGateState {
+    expected: usize,
+    in_flight: usize,
+    bound_passed: bool,
+}
+
+struct ObservationPermit {
+    gate: Arc<ObservationGate>,
+}
+
+impl ObservationGate {
+    fn new() -> Self {
+        Self {
+            state: Mutex::new(ObservationGateState::default()),
+            changed: Condvar::new(),
+        }
+    }
+
+    fn configure(&self, expected: usize) {
+        let mut state = self
+            .state
+            .lock()
+            .unwrap_or_else(|error| panic!("{error:?}"));
+        state.expected = expected;
+        state.in_flight = 0;
+        state.bound_passed = false;
+        self.changed.notify_all();
+    }
+
+    fn enter(self: &Arc<Self>) -> ObservationPermit {
+        let deadline = Instant::now() + Duration::from_secs(10);
+        let mut state = self
+            .state
+            .lock()
+            .unwrap_or_else(|error| panic!("{error:?}"));
+        state.in_flight += 1;
+        if state.expected != 0 && state.in_flight >= state.expected {
+            state.bound_passed = true;
+            self.changed.notify_all();
+        }
+        while state.expected != 0 && !state.bound_passed {
+            let remaining = deadline.saturating_duration_since(Instant::now());
+            if remaining.is_zero() {
+                break;
+            }
+            let (next, result) = self
+                .changed
+                .wait_timeout(state, remaining)
+                .unwrap_or_else(|error| panic!("{error:?}"));
+            state = next;
+            if result.timed_out() {
+                break;
+            }
+        }
+        ObservationPermit {
+            gate: Arc::clone(self),
+        }
+    }
+
+    fn bound_passed(&self) -> bool {
+        self.state
+            .lock()
+            .unwrap_or_else(|error| panic!("{error:?}"))
+            .bound_passed
+    }
+}
+
+impl Drop for ObservationPermit {
+    fn drop(&mut self) {
+        let mut state = self
+            .gate
+            .state
+            .lock()
+            .unwrap_or_else(|error| panic!("{error:?}"));
+        state.in_flight = state.in_flight.saturating_sub(1);
+        self.gate.changed.notify_all();
+    }
 }
 
 fn read_request(stream: &mut TcpStream) -> (String, Vec<u8>) {
@@ -141,15 +227,18 @@ impl Peer {
             .set_nonblocking(true)
             .unwrap_or_else(|error| panic!("{error:?}"));
         let state = Arc::new(Mutex::new(Transcript::default()));
+        let observation_gate = Arc::new(ObservationGate::new());
         let stop = Arc::new(AtomicBool::new(false));
         let shared = Arc::clone(&state);
+        let gate = Arc::clone(&observation_gate);
         let stopped = Arc::clone(&stop);
         let handle = thread::spawn(move || {
             while !stopped.load(Ordering::SeqCst) {
                 match listener.accept() {
                     Ok((stream, _)) => {
                         let shared = Arc::clone(&shared);
-                        thread::spawn(move || serve_connection(stream, shared));
+                        let gate = Arc::clone(&gate);
+                        thread::spawn(move || serve_connection(stream, shared, gate));
                     }
                     Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
                         thread::sleep(Duration::from_millis(1));
@@ -161,6 +250,7 @@ impl Peer {
         Self {
             url,
             state,
+            observation_gate,
             stop,
             handle: Some(handle),
         }
@@ -170,12 +260,24 @@ impl Peer {
         round::Rpc::new(agent(), self.url.clone(), self.url.clone())
             .unwrap_or_else(|error| panic!("{error:?}"))
     }
+
+    pub(crate) fn hold_observation_reads_until(&self, markets: usize) {
+        self.observation_gate.configure(markets);
+    }
+
+    pub(crate) fn observation_bound_passed(&self) -> bool {
+        self.observation_gate.bound_passed()
+    }
 }
 
-fn serve_connection(mut stream: TcpStream, shared: Arc<Mutex<Transcript>>) {
+fn serve_connection(
+    mut stream: TcpStream,
+    shared: Arc<Mutex<Transcript>>,
+    observation_gate: Arc<ObservationGate>,
+) {
     let (header, body) = read_request(&mut stream);
-    let mut transcript = shared.lock().unwrap_or_else(|error| panic!("{error:?}"));
     let (status, extra, body) = if header.starts_with("GET ") {
+        let mut transcript = shared.lock().unwrap_or_else(|error| panic!("{error:?}"));
         transcript.ticker_requests += 1;
         let key = header
             .lines()
@@ -208,15 +310,24 @@ fn serve_connection(mut stream: TcpStream, shared: Arc<Mutex<Transcript>>) {
         let request: Value =
             serde_json::from_slice(&body).unwrap_or_else(|error| panic!("{error:?}"));
         assert_eq!(request["jsonrpc"], "2.0");
+        let observation_permit = (request["method"] == "eth_call"
+            && request["params"][0]["data"]
+                .as_str()
+                .is_some_and(|data| data.starts_with("0x48f83666")))
+        .then(|| observation_gate.enter());
+        let mut transcript = shared.lock().unwrap_or_else(|error| panic!("{error:?}"));
         let result = transcript.answer(&request);
+        drop(observation_permit);
         if transcript.lose_ack && request["method"] == "broadcast_tx_sync" {
             (503, String::new(), "acknowledgement lost".to_owned())
         } else {
             (200, String::new(), result.to_string())
         }
     };
-    let response_delay_ms = transcript.response_delay_ms;
-    drop(transcript);
+    let response_delay_ms = shared
+        .lock()
+        .unwrap_or_else(|error| panic!("{error:?}"))
+        .response_delay_ms;
     thread::sleep(Duration::from_millis(response_delay_ms));
     let response = format!("HTTP/1.1 {status} Fixture\r\nContent-Type: application/json\r\n{extra}Content-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len());
     stream
