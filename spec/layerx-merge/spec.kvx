@@ -241644,7 +241644,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.22.39.560]
 title = "Pay the paid search of the live check with the exact scheme"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
