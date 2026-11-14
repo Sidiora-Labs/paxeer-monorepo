@@ -1,3 +1,6 @@
+#[path = "live_bank_node.rs"]
+mod live_bank_node;
+
 #[path = "recorded_node.rs"]
 pub(crate) mod recorded_node;
 
@@ -139,10 +142,10 @@ impl Drop for IdentityServer {
     }
 }
 
-// Bank asset identifiers are the SHA-256 digest of the ASCII denom "alxp".
+// Bank asset identifiers are the SHA-256 digest of the ASCII denom "uhpx".
 pub(crate) const ASSET: [u8; 32] = [
-    0x80, 0xfa, 0xce, 0x2b, 0x4a, 0x14, 0x30, 0x8e, 0x32, 0x93, 0x26, 0xee, 0x2f, 0x81, 0x41, 0xd2,
-    0x49, 0x07, 0xae, 0x84, 0x75, 0x54, 0xcb, 0xba, 0xb6, 0x48, 0x54, 0xc6, 0xec, 0xc9, 0x11, 0xf7,
+    0x0e, 0x23, 0x75, 0x84, 0x33, 0x2f, 0xc3, 0xe1, 0xf1, 0x67, 0x2d, 0x80, 0xa1, 0x67, 0xa8, 0xd0,
+    0x27, 0x59, 0x7a, 0x64, 0xb3, 0x4f, 0x4b, 0xe1, 0x89, 0x51, 0xe6, 0x0b, 0xab, 0xdd, 0x4f, 0x73,
 ];
 pub(crate) const HEAD: u64 = 88;
 pub(crate) const NONCE: u64 = 19;
@@ -161,6 +164,7 @@ pub(crate) struct PeerState {
     pub(crate) blocks: BTreeMap<u64, Value>,
     pub(crate) receipt_rung: Option<layerx_types::rung::Rung>,
     pub(crate) node_recording: Option<recorded_node::NodeRecording>,
+    pub(crate) bank_node: Option<Arc<live_bank_node::BankNode>>,
     pub(crate) fail_next_receipt_lookup: bool,
     pub(crate) failed_receipt_lookups: usize,
     pub(crate) reject_repeated_send: bool,
@@ -206,7 +210,6 @@ impl PeerState {
         account: Option<String>,
     ) -> Vec<u8> {
         use layerx_agentd::human::HumanRequest;
-        use layerx_types::rung::Rung;
         self.served.push(request_name(&request).to_owned());
         let mut out = Vec::new();
         match request {
@@ -268,7 +271,6 @@ impl PeerState {
                     .max()
                     .unwrap_or(NONCE);
                 out.extend_from_slice(&next.to_be_bytes());
-                out.push(Rung::Committed.wire_rank());
             }
             HumanRequest::IdentityResolve { agent } => return self.identity_response(&agent),
             HumanRequest::Balance => {
@@ -434,7 +436,7 @@ impl RealAgentLayer {
                     expected_activity_id,
                 } = inner
                 {
-                    let raw = {
+                    let (raw, bank_node, rung) = {
                         let mut state = state.lock().or_fail("peer state");
                         state.served.push("ReceiptLookup".to_owned());
                         state
@@ -464,9 +466,15 @@ impl RealAgentLayer {
                             .idempotency_key,
                             *idempotency_key
                         );
-                        raw.clone()
+                        (raw.clone(), state.bank_node.clone(), state.receipt_rung)
                     };
-                    receipt_lookup_answer(&rpc_url, *expected_activity_id, &raw)
+                    receipt_lookup_answer(
+                        &rpc_url,
+                        *expected_activity_id,
+                        &raw,
+                        bank_node.as_deref(),
+                        rung,
+                    )
                 } else {
                     state.lock().or_fail("peer state").answer(request, None)
                 };
@@ -505,7 +513,13 @@ impl Drop for RealAgentLayer {
     }
 }
 
-fn receipt_lookup_answer(rpc_url: &str, hash: [u8; 32], raw: &[u8]) -> Vec<u8> {
+fn receipt_lookup_answer(
+    rpc_url: &str,
+    hash: [u8; 32],
+    raw: &[u8],
+    bank_node: Option<&live_bank_node::BankNode>,
+    rung: Option<layerx_types::rung::Rung>,
+) -> Vec<u8> {
     use layerx_agentd::human_receipt_frame::{ReceiptLookupAnswer, ReceiptLookupFrame};
     use layerx_client::rpc::receipt::{lookup_authenticated, Lookup, LookupContext};
     use layerx_client::sequencer::SequencerEndpoint;
@@ -514,16 +528,21 @@ fn receipt_lookup_answer(rpc_url: &str, hash: [u8; 32], raw: &[u8]) -> Vec<u8> {
 
     let endpoint = required(SequencerEndpoint::new(rpc_url, &[]), "receipt endpoint");
     let keys = required(endpoint.receipt_keys(), "receipt keys");
-    let lookup = required(
-        lookup_authenticated(
-            &endpoint,
-            hash,
-            LookupContext {
-                receipt_keys: &keys,
-            },
-        ),
-        "authenticated receipt",
-    );
+    let lookup = if let (Some(node), Some(layerx_types::rung::Rung::Committed)) = (bank_node, rung)
+    {
+        Lookup::Verified(node.receipt(hash, &keys, layerx_types::rung::Rung::Committed))
+    } else {
+        required(
+            lookup_authenticated(
+                &endpoint,
+                hash,
+                LookupContext {
+                    receipt_keys: &keys,
+                },
+            ),
+            "authenticated receipt",
+        )
+    };
     if let Some(answer) = layerx_agentd::human_runtime::receipt_lookup_not_ready_bytes(&lookup) {
         return answer;
     }
@@ -729,7 +748,7 @@ fn receipted_answer(raw: &[u8], timestamp: u64) -> Value {
         "height": format!("0x{HEAD:x}"), "index": "0x0", "timestamp": format!("0x{timestamp:x}"),
         "status": "0x1", "returnData": "0x", "logs": [], "gasUsed": format!("0x{gas:x}"),
         "cumulativeGasUsed": format!("0x{gas:x}"), "effectiveGasPrice": "0x1",
-        "feeDenom": "alxp", "feeAmount": format!("0x{fee:x}"),
+        "feeDenom": "uhpx", "feeAmount": format!("0x{fee:x}"),
         "sponsor": format!("0x{}", cluster::hex(&[0; 20])),
         "from": format!("0x{}", cluster::hex(&sender)), "to": format!("0x{}", cluster::hex(&call.to)),
         "contractAddress": format!("0x{}", cluster::hex(&[0; 20])), "vmError": "",
@@ -874,9 +893,14 @@ fn balance_answer(state: &PeerState, request: &Value) -> Value {
         },
         "height": HEAD.to_string(),
         "balances": [{
-            "denom": "alxp", "amount": "1000000000000000000"
+            "denom": "uhpx", "amount": "1000000000000000000"
         }]
     })
+}
+
+pub(crate) fn native_pointer_recording() -> Value {
+    serde_json::from_str(include_str!("../fixtures/bank_move_receipts.json"))
+        .or_fail("native pointer recording")
 }
 
 fn answer_rpc(
@@ -886,6 +910,73 @@ fn answer_rpc(
     clock: Option<&Arc<SerialClock>>,
 ) -> (Value, Option<Value>) {
     let mut rpc_error = None;
+    if let Some(node) = state.bank_node.clone() {
+        let response = match method {
+            "eth_getTransactionCount" => {
+                assert_eq!(request["params"][1], "pending");
+                let wallet = unhex(request["params"][0].as_str().or_fail("wallet"))
+                    .try_into()
+                    .or_fail("wallet width");
+                let nonce = live_bank_node::pending(node.clock.as_ref(), || {
+                    node.endpoint.pending_nonce(&wallet)
+                });
+                state.pending_nonces.push((wallet, nonce));
+                Some(Ok(json!(format!("0x{nonce:x}"))))
+            }
+            "eth_sendRawTransaction" => {
+                let result = send_transaction_answer(state, request, &mut rpc_error);
+                if rpc_error.is_none() {
+                    let raw = unhex(request["params"][0].as_str().or_fail("raw transaction"));
+                    let hash = live_bank_node::submit(&node, &raw);
+                    let receipt = node.receipt(
+                        hash,
+                        &node.receipt_keys(),
+                        layerx_types::rung::Rung::Committed,
+                    );
+                    assert!(
+                        receipt.execution().success,
+                        "native pointer transfer succeeds"
+                    );
+                }
+                return (result, rpc_error);
+            }
+            "pax_sequencerReceipt" if state.receipt_rung.is_none() => {
+                return (sequencer_receipt_answer(state, request, clock), None);
+            }
+            "eth_call"
+                if request["params"][0]["to"] != "0x000000000000000000000000000000000000100a" =>
+            {
+                None
+            }
+            "eth_call"
+            | "px_getBalances"
+            | "eth_chainId"
+            | "px_getReceiptKeys"
+            | "pax_sequencerReceipt"
+            | "eth_getTransactionReceipt"
+            | "eth_getBlockByNumber"
+            | "eth_getRawTransactionByHash"
+            | "px_getSequenceBatch"
+            | "px_getCommit"
+            | "px_getValidators"
+            | "block"
+            | "commit"
+            | "validators"
+            | "tx" => Some(node.rpc(method, &request["params"])),
+            _ => None,
+        };
+        if let Some(response) = response {
+            if let Ok(result) = &response {
+                if method.starts_with("px_") {
+                    state.gateway_last_answer = Some(result.clone());
+                }
+            }
+            return match response {
+                Ok(result) => (result, None),
+                Err(error) => (Value::Null, Some(error)),
+            };
+        }
+    }
     let recording = state.node_recording.clone().or_else(|| {
         (state.receipt_rung == Some(layerx_types::rung::Rung::Committed)
             && matches!(
@@ -920,14 +1011,23 @@ fn answer_rpc(
                     "height": HEAD.to_string(),
                     "joined_limit": 16,
                     "assets": [{
-                        "asset_id": "denom:alxp",
-                        "denom": "alxp", "kind": "bank",
+                        "asset_id": "denom:uhpx",
+                        "denom": "uhpx", "kind": "bank",
                         "name": null, "symbol": null, "decimals": null, "supply": null
                     }]
                 })
             }
             "eth_call" => {
                 let data = unhex(request["params"][0]["data"].as_str().or_fail("call data"));
+                if request["params"][0]["to"] == "0x000000000000000000000000000000000000100a" {
+                    let recording = native_pointer_recording();
+                    assert_eq!(request["params"][0]["data"], recording["pointerQuery"]);
+                    assert!(
+                        request["params"][1] == format!("0x{HEAD:x}")
+                            || request["params"][1] == "pending"
+                    );
+                    return (recording["pointerView"].clone(), None);
+                }
                 let key: [u8; 32] = data[4..].try_into().or_fail("DID public key");
                 let wallet = state
                     .identities
@@ -1234,14 +1334,47 @@ impl Fixture {
         Ok(fixture)
     }
 
+    pub(crate) fn start_bank_node(&mut self) -> Result<u64> {
+        let node = Arc::new(live_bank_node::BankNode::start());
+        let wallet = {
+            let peer = self.peer_state.lock().map_err(|_| "peer state")?;
+            peer.identities
+                .get(self.document["actor"].as_str().ok_or("actor")?)
+                .ok_or("wallet")?
+                .1
+        };
+        let pointer = node.fund(wallet);
+        assert_eq!(
+            format!("0x{}", cluster::hex(&pointer)),
+            native_pointer_recording()["pointer"]
+        );
+        let nonce =
+            live_bank_node::pending(node.clock.as_ref(), || node.endpoint.pending_nonce(&wallet));
+        self.peer_state.lock().map_err(|_| "peer state")?.bank_node = Some(node);
+        Ok(nonce)
+    }
+
     pub(crate) fn configure_services(&mut self, tenancy_digest: [u8; 32]) -> Result<()> {
-        let cluster = cluster::Cluster::start_with_kernel_policy(
+        let pointer = native_pointer_recording()["pointer"]
+            .as_str()
+            .ok_or("native pointer address")?
+            .to_owned();
+        let cluster = cluster::Cluster::start_with_policies(
             &[
                 layerx_types::payload::ActivityType::new(layerx_types::payload::ModuleId::Asset, 5)
                     .map_err(|error| format!("send activity: {error:?}"))?
                     .value()
                     .to_string(),
             ],
+            &json!({"version": 1, "defaults": {
+                "chain_id": 125,
+                "kinds": ["lx_activity", "evm_tx"],
+                "caps": {
+                    "native": {"per_transaction": "1000000000000000000", "daily": "10000000000000000000"},
+                    (pointer): {"per_transaction": "1000000000000000000", "daily": "10000000000000000000"}
+                },
+                "rate_per_minute": 1000
+            }}),
             &json!({"version": 1, "defaults": {
                 "modules": {"asset": [5]},
                 "caps": {"native": {"per_operation": "1000000000000000000"}}

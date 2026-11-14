@@ -142,11 +142,14 @@ fn documented_bank_call_crosses_custody_and_attestor_codecs() {
         value: [0; 32],
         calldata: Vec::new(),
     };
-    let transaction = checked(
-        template
-            .clone()
-            .with_bank_transfer(sender, recipient, "uhpx", amount),
-    );
+    let (recorded, _) = checked(decode_signed(&unhex(
+        transcript()["records"][0]["raw"]
+            .as_str()
+            .expect("recorded transfer"),
+    )));
+    let mut transaction = template.clone();
+    transaction.to = recorded.to;
+    transaction.calldata = recorded.data;
     let call = Eip1559Call {
         chain_id: transaction.chain_id,
         nonce: transaction.nonce,
@@ -164,10 +167,9 @@ fn documented_bank_call_crosses_custody_and_attestor_codecs() {
     let disclosure = checked(bind_call(&decoded, sender));
     assert_eq!(
         checked(disclosure.construct_method()),
-        Some(ConstructMethod::BankSend {
-            from: sender,
+        Some(ConstructMethod::PointerTransfer {
+            pointer: call.to,
             to: recipient,
-            denom: "uhpx".into(),
             amount,
         })
     );
@@ -194,8 +196,8 @@ fn documented_bank_call_crosses_custody_and_attestor_codecs() {
     for claim in [
         "intent authority is separate from",
         "EIP-1559 codecs",
-        "0x0000000000000000000000000000000000001001",
-        "send(address,address,string,uint256)",
+        "native pointer",
+        "transfer(address,uint256)",
         "configured attestor key identities",
         "private material is not returned",
     ] {
@@ -252,7 +254,7 @@ fn documented_sponsorship_uses_chain_125_quote() {
 
 fn transcript() -> Value {
     checked(serde_json::from_str(include_str!(
-        "../crates/layerx-human-service/src/journeys/bank_commit_transcript.json"
+        "../crates/layerx-human-service/tests/fixtures/bank_move_receipts.json"
     )))
 }
 fn unhex(text: &str) -> Vec<u8> {
@@ -464,8 +466,8 @@ fn documented_commitment_requires_authenticated_consensus_evidence() {
     assert_eq!(committed.rung(), Rung::Committed);
     assert_eq!(committed.receipt().activity_id(), hash);
     assert_eq!(committed.receipt().height(), execution.height());
-    assert_eq!(committed.receipt().height(), 8);
-    assert_eq!(proof.covering_height, 18);
+    assert_eq!(committed.receipt().height(), 34_742_435);
+    assert_eq!(proof.covering_height, 34_742_435);
     let mut wrong_key = keys.clone();
     wrong_key[0].public_key[0] ^= 1;
     assert!(proof
