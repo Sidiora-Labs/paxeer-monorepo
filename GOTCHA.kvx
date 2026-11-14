@@ -21975,3 +21975,8 @@ fix = "Decision 3515. The wallet bank transfer of the human service is the trans
 title = "A vet with the module proxy off reads more modules than a build of the same directory"
 symptom = "The vet step reads the test files of a directory and every package they import. A build of the directory alone leaves some modules of the root module out of the module cache, and with the proxy off the vet step cannot fetch them."
 fix = "Decision 3516. The build of such a task downloads the modules of the root module first."
+
+[gotcha.4431]
+title = "The check of the platform SDKs follows the text of the schema and generator directories"
+symptom = "The check target platform-sdk-check compares the digests of the schema directories, of the generator directories and of the generated files with sdk/platform/pipeline.kvx. A change of text in one of them, also of a description alone, changes its digest, and the check asks for a generation."
+fix = "Decision 3517. Task 22.39.536 runs the generation and commits the metadata."

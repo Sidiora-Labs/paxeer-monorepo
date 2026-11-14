@@ -14212,6 +14212,12 @@ value = "Where the verification of a task runs go vet with the module proxy off,
 basis = "Gotcha 4430, decision 3514."
 affects = ["22.39.535"]
 
+[decision.3517]
+title = "A change under a source or generator directory of the SDK pipeline carries its generation"
+value = "A task that changes a file under a source directory, a generator directory or a generated file named in sdk/platform/pipeline.kvx runs make platform-sdk-generate and commits the changed metadata with its change, and the check target platform-sdk-check passes at its revision. Task 22.39.536 does this for the texts of the schema of the human service and of the compatibility page of the agent kits."
+basis = "Gotcha 4431, decision 3496."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -43872,6 +43878,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.536]
+title = "Bring the metadata of the SDK pipeline to the present texts of its sources and generators"
+reqs = ["22998.1"]
+touches = ["sdk/platform/pipeline.kvx"]
+tests = []
+verification_contract = "test -s sdk/platform/repair_22_39_536.kvx && make -s platform-sdk-check"
+do_1 = "do_1 Gotcha 4431, decision 3517. From the repository root run make -s platform-sdk-check and read which source or generator it names. Then run make -s platform-sdk-generate."
+symbols = []
 
 [capability.22.39.535]
 title = "Let the served test of the pay precompile read the escrow view in its present form"
@@ -304494,6 +304509,38 @@ do_12 = "Decision 2116: sdk/platform/conformance/operations.json:1442-1463: inte
 do_13 = "Decision 2117: delete the faucet.claim entry (the O28 group, sdk/platform/conformance/operations.json:392-404) and rerun generate_portable.py so the Swift and .NET catalogues lose their faucet case; sdk/platform/go/agent_operation_envelope_test.go:498 encodes Operation: 'faucet.claim' as a string literal instead of string(AgentOperationFaucetClaim); delete testSdkSwiftFaucetClaimIsRetiredUnavailableCapability (sdk/platform/swift/Tests/LayerXSDKTests/AgentOperationEnvelopeTests.swift:181-190) and RetiredFaucetClaimReturnsTerminalUnavailableCapability (sdk/platform/dotnet/tests/LayerX.Sdk.Tests/AgentOperationEnvelopeTests.cs:198-210). The regenerated Go agent catalogue has 53 operations, equal to the agent sections of services/agent/schema/agent-api."
 do_14 = "Decision 2118: this task requires 8.46.9, which first returns sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedContract.java to the generator's shape and moves the JVM verification enum to decision 2115. After do_10, run --write (do_1) and accept GeneratedContract.java and sdk/platform/conformance/jvm.kvx exactly as rendered; if the rendered GeneratedContract.java still differs from the 8.46.9 result, the difference is the generator's and the mvn test of the verify proves it compiles. Run the build and the verify once on the final revision."
 do_15 = "Decision 2127: continue from attempt 6 (a82f26174). In sdk/platform/go/cmd/conformance/main.go delete the PerLeg field of operationDescriptor (:25) and the `strings.HasPrefix(metadata.Method, 'eth_')` branch at :424-428, so the request-vector comparison at :429-431 runs for every human operation (intent.plan and intent.submit have POST vectors under services/human/schema/human-api/golden); drop the strings import only if nothing else uses it. Nothing else in attempt 6 changes. Build once and verify once."
+
+[task.22.39.536]
+title = "Bring the metadata of the SDK pipeline to the present texts of its sources and generators"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.536"]
+interfaces = []
+wiring = ["wiring.J42.1"]
+do_1 = "do_1 Gotcha 4431, decision 3517. From the repository root run make -s platform-sdk-check and read which source or generator it names. Then run make -s platform-sdk-generate."
+do_2 = "do_2 Read the output of git status after the generation. The expected change is sdk/platform/pipeline.kvx alone: the digests of the directories and generated files whose text changed. Read the change of the file line by line and confirm that every changed entry belongs to a directory or file whose text differs from the last generation. Where the generation changes a file outside the paths, do not commit that file; give its path and its first changed line in the final message."
+do_3 = "do_3 Run make -s platform-sdk-check again; it passes. Record in sdk/platform/repair_22_39_536.kvx which entries of the metadata changed and why. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["sdk/platform/pipeline.kvx"]
+tests = []
+planned_paths = ["sdk/platform/repair_22_39_536.kvx"]
+build_cmd = "make -s platform-build"
+verify_cmd = "test -s sdk/platform/repair_22_39_536.kvx && make -s platform-sdk-check"
+gate_kind = "planned"
+sandbox_profile = "sdk-all"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
 
 [task.22.43.229]
 title = "Move the task records and name the files after what they hold in tools/workspace"
