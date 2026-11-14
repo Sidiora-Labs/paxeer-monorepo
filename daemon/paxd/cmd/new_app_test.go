@@ -2,9 +2,16 @@ package cmd
 
 import (
 	"crypto/ed25519"
+	"crypto/rand"
+	"crypto/sha256"
+	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/hex"
 	"encoding/json"
+	"encoding/pem"
 	"math"
+	"math/big"
 	"os"
 	"path/filepath"
 	"testing"
@@ -33,6 +40,112 @@ func ReadConfig(t *testing.T, opts servertypes.AppOptions) sequencer.Config {
 	cfg, err := sequencer.ReadConfig(opts)
 	require.NoError(t, err)
 	return cfg
+}
+
+func newAppReplicationTLS(t *testing.T) (sequencer.ReplicationTLSConfig, sequencer.ReplicationTLSConfig) {
+	t.Helper()
+	dir := t.TempDir()
+	public, private, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+	ca := &x509.Certificate{
+		SerialNumber: big.NewInt(1), Subject: pkix.Name{CommonName: "replication-test-root"},
+		NotBefore: time.Now().Add(-time.Hour), NotAfter: time.Now().Add(time.Hour),
+		IsCA: true, BasicConstraintsValid: true, KeyUsage: x509.KeyUsageCertSign,
+	}
+	der, err := x509.CreateCertificate(rand.Reader, ca, ca, public, private)
+	require.NoError(t, err)
+	roots := filepath.Join(dir, "roots.pem")
+	require.NoError(t, os.WriteFile(roots, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}), 0o600))
+	issue := func(name string, serial int64) (sequencer.ReplicationTLSConfig, string) {
+		public, key, err := ed25519.GenerateKey(rand.Reader)
+		require.NoError(t, err)
+		cert := &x509.Certificate{
+			SerialNumber: big.NewInt(serial), DNSNames: []string{name},
+			NotBefore: ca.NotBefore, NotAfter: ca.NotAfter,
+			KeyUsage:    x509.KeyUsageDigitalSignature,
+			ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
+		}
+		der, err := x509.CreateCertificate(rand.Reader, cert, ca, public, private)
+		require.NoError(t, err)
+		parsed, err := x509.ParseCertificate(der)
+		require.NoError(t, err)
+		digest := sha256.Sum256(parsed.RawSubjectPublicKeyInfo)
+		auth := sequencer.ReplicationTLSConfig{
+			CAFile: roots, CertFile: filepath.Join(dir, name+".pem"), KeyFile: filepath.Join(dir, name+".key"),
+		}
+		require.NoError(t, os.WriteFile(auth.CertFile, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}), 0o600))
+		encodedKey, err := x509.MarshalPKCS8PrivateKey(key)
+		require.NoError(t, err)
+		require.NoError(t, os.WriteFile(auth.KeyFile, pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: encodedKey}), 0o600))
+		return auth, hex.EncodeToString(digest[:])
+	}
+	primary, primaryPin := issue("primary.test", 2)
+	standby, standbyPin := issue("standby.test", 3)
+	primary.PeerName, primary.PeerSPKI = "standby.test", standbyPin
+	standby.PeerName, standby.PeerSPKI = "primary.test", primaryPin
+	return primary, standby
+}
+
+func newAppReplicationStandby(t *testing.T, opts *viper.Viper, state []byte, start time.Time, primary *privval.FilePV, keyPath string, auth sequencer.ReplicationTLSConfig) string {
+	t.Helper()
+	home := t.TempDir()
+	standbyOpts := viper.New()
+	require.NoError(t, standbyOpts.MergeConfigMap(opts.AllSettings()))
+	standbyOpts.Set(flags.FlagHome, home)
+	cfg := tmcfg.DefaultConfig().SetRoot(home)
+	standbyApp := newApp(dbm.NewMemDB(), nil, cfg, standbyOpts).(*sequencedApp)
+	t.Cleanup(func() { require.NoError(t, standbyApp.Close()) })
+	_, err := standbyApp.InitChain(t.Context(), &abci.RequestInitChain{
+		Time: start, ChainId: "pax-test", ConsensusParams: app.DefaultConsensusParams, AppStateBytes: state,
+	})
+	require.NoError(t, err)
+	_, err = standbyApp.FinalizeBlock(t.Context(), &abci.RequestFinalizeBlock{
+		Header: &tmproto.Header{ChainID: "pax-test", Height: 1, Time: start},
+	})
+	require.NoError(t, err)
+	standbyApp.SetDeliverStateToCommit()
+	_, err = standbyApp.Commit(t.Context())
+	require.NoError(t, err)
+	require.NoError(t, os.MkdirAll(filepath.Dir(cfg.PrivValidator.KeyFile()), 0o700))
+	standbyPV, err := privval.GenFilePV(cfg.PrivValidator.KeyFile(), cfg.PrivValidator.StateFile(), "")
+	require.NoError(t, err)
+	_, standbyReceipt, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+	pins, err := standbyApp.SequencerKeeper.ReceiptKeyPins(standbyApp.GetCheckCtx())
+	require.NoError(t, err)
+	primaryConsensus := tmcfg.DefaultConfig().SetRoot(opts.GetString(flags.FlagHome)).PrivValidator
+	key, err := sequencer.LoadReceiptKey(keyPath, primaryConsensus.KeyFile(), pins, 2)
+	require.NoError(t, err)
+	exec, err := sequencer.NewExecutor(standbyApp.App, sequencer.Options{
+		ChainID: "pax-test", ProposerAddress: primary.Key.PubKey.Address(),
+	})
+	require.NoError(t, err)
+	receipter, err := sequencer.NewReceipter(exec, standbyApp.App, &standbyApp.EvmKeeper, key, app.EVMReceiptModuleID)
+	require.NoError(t, err)
+	journal, err := wal.OpenWAL(filepath.Join(home, "sequencer-wal"), wal.DefaultConfig())
+	require.NoError(t, err)
+	t.Cleanup(journal.Close)
+	public := key.PublicKey()
+	standby, err := sequencer.NewStandby(t.Context(), sequencer.StandbyConfig{
+		WAL: journal, Executor: sequencer.NewAppReplayer(exec, receipter),
+		ConsensusKey: standbyPV, ReceiptKey: standbyReceipt,
+		PrimaryConsensusKey: primary.Key.PubKey, PrimaryReceiptKey: public[:], CommittedHeight: 1,
+	})
+	require.NoError(t, err)
+	tlsConfig, err := auth.TLSConfig(true)
+	require.NoError(t, err)
+	listener, err := tls.Listen("tcp", "127.0.0.1:0", tlsConfig)
+	require.NoError(t, err)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		_ = standby.Serve(listener)
+	}()
+	t.Cleanup(func() {
+		require.NoError(t, listener.Close())
+		<-done
+	})
+	return listener.Addr().String()
 }
 
 func TestNewAppPassesSequencerConfigToNode(t *testing.T) {
@@ -96,11 +209,18 @@ func TestNewAppPassesSequencerConfigToNode(t *testing.T) {
 			require.NoError(t, err)
 			require.NoError(t, initial.Close())
 
+			auth, standbyAuth := newAppReplicationTLS(t)
+			standbyAddress := newAppReplicationStandby(t, opts, state, start, pv, keyPath, standbyAuth)
 			opts.Set(sequencer.FlagEnable, true)
 			opts.Set(sequencer.FlagMode, mode)
 			opts.Set(sequencer.FlagWALDir, filepath.Join(home, "sequencer-wal"))
 			opts.Set(sequencer.FlagReceiptKeyFile, keyPath)
-			opts.Set(sequencer.FlagStandbyAddress, "127.0.0.1:1")
+			opts.Set(sequencer.FlagStandbyAddress, standbyAddress)
+			opts.Set(sequencer.FlagReplicationTLSCert, auth.CertFile)
+			opts.Set(sequencer.FlagReplicationTLSKey, auth.KeyFile)
+			opts.Set(sequencer.FlagReplicationTLSCA, auth.CAFile)
+			opts.Set(sequencer.FlagReplicationPeerName, auth.PeerName)
+			opts.Set(sequencer.FlagReplicationPeerSPKI, auth.PeerSPKI)
 			opts.Set(sequencer.FlagReplicationTimeout, 2*time.Second)
 			opts.Set(sequencer.FlagWALRetainBlocks, uint64(7))
 			opts.Set(sequencer.FlagNonceQueueMaxPerSender, 3)
@@ -160,4 +280,17 @@ func TestNewAppRefusesSequencerWithoutWALDir(t *testing.T) {
 	require.PanicsWithValue(t, sequencer.ErrConfigWALDir, func() {
 		newApp(database, nil, tmcfg.DefaultConfig(), opts)
 	})
+}
+
+func TestNewAppRefusesReceiptForwardURLWhenSequencingEnabled(t *testing.T) {
+	opts := viper.New()
+	opts.Set(flags.FlagHome, t.TempDir())
+	opts.Set(server.FlagPruning, "nothing")
+	opts.Set(sequencer.FlagEnable, true)
+	opts.Set("sequencer.receipt-forward-url", "https://sequencer.example/receipts")
+	database := dbm.NewMemDB()
+	t.Cleanup(func() { require.NoError(t, database.Close()) })
+	require.PanicsWithError(t,
+		"sequencer config: invalid value: sequencer.receipt-forward-url cannot be set when sequencer.enable is true",
+		func() { newApp(database, nil, tmcfg.DefaultConfig(), opts) })
 }
