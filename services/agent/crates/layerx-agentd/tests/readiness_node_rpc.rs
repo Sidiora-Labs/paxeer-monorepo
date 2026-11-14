@@ -181,17 +181,11 @@ fn daemon_is_not_ready_without_receipt_keys() {
         })
     );
     assert_eq!(gate.status(), &Status::NotReady);
-    assert_eq!(node.receipt_keys(), Err(malformed_keys()));
-    assert_eq!(
-        readiness_gate(&node),
-        Err(GateError::NodeRpc(malformed_keys()))
-    );
+    assert_eq!(node.receipt_keys(), Ok(Vec::new()));
+    assert_eq!(readiness_gate(&node), Err(GateError::NoReceiptKeys));
     let operation_ran = std::cell::Cell::new(false);
     for _ in 0..2 {
-        assert_eq!(
-            gate.readiness_gate(&node),
-            Err(GateError::NodeRpc(malformed_keys()))
-        );
+        assert_eq!(gate.readiness_gate(&node), Err(GateError::NoReceiptKeys));
         assert_eq!(gate.status(), &Status::NotReady);
         assert_eq!(
             gate.guard_write(|| operation_ran.set(true)),
@@ -278,10 +272,7 @@ fn empty_receipt_keys_invalidate_an_already_ready_gate() {
     assert_eq!(status.receipt_keys[0].last_height, 100);
     assert_eq!(gate.guard_write(|| 7), Ok(7));
     assert!(gate.evidence_authority().is_ok());
-    assert_eq!(
-        gate.readiness_gate(&node),
-        Err(GateError::NodeRpc(malformed_keys()))
-    );
+    assert_eq!(gate.readiness_gate(&node), Err(GateError::NoReceiptKeys));
     assert_closed(&gate);
     assert_eq!(must(gate.readiness_gate(&node)).generation, 2);
     assert_eq!(gate.guard_write(|| 8), Ok(8));
@@ -420,7 +411,7 @@ fn readiness_refresh_closes_writes_and_preserves_generation() {
     for expected in [
         GateError::Evidence(VerifierPolicyError::HandshakeKey),
         GateError::Evidence(VerifierPolicyError::HandshakeKey),
-        GateError::NodeRpc(malformed_keys()),
+        GateError::NoReceiptKeys,
     ] {
         assert_eq!(gate.readiness_gate(&node), Err(expected));
         assert_eq!(gate.status(), &Status::NotReady);

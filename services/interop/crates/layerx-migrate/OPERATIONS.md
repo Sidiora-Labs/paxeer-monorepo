@@ -4,9 +4,9 @@
 
 ## Network and source configuration
 
-Paxeer mainnet-beta is one BFT network with EVM chain ID 125 (`0x7d`); the
-kernel participates in the network and proposes blocks. Block commit establishes
-network finality. Source-chain verification establishes external provenance;
+Paxeer mainnet-beta uses EVM chain ID 125 (`0x7d`). The LayerX kernel inside
+`paxd` executes and orders each transaction and builds each block; validators
+check and commit it. Block commit establishes network finality. Source-chain verification establishes external provenance;
 it does not by itself execute a payment or create a network balance.
 
 Public node JSON-RPC uses the root HTTPS path. The protected source and

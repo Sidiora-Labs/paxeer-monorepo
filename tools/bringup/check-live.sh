@@ -296,7 +296,7 @@ bringup_inspect() {
 	"${BRINGUP_INSPECT_BIN:-bringup-inspect}" "$@"
 }
 
-rpc_inventory="$repo_root/docs/site/docs/reference/public-rpc.md"
+rpc_inventory="$repo_root/docs/readme/PUBLIC-RPC.md"
 rpc_names=()
 node_endpoints=()
 rpc_public_names=()

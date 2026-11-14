@@ -335,7 +335,7 @@ def _verify_buyer_receipt(tmp_path, vector, rpc, exchanges):
 
 
 def test_http_committed_offer_waits_for_verified_inclusion_after_restart(tmp_path, commit_producer):
-    from test_repair_22_31_147 import finality_bundle
+    from test_committed_receipt_consumers import finality_bundle
     vector = _payment_vector()
     raw, signed, key = _bytes(vector["rawTransaction"]), _bytes(vector["signedReceipt"]), _key(vector)
     activity = vector["receiptJson"]["txHash"]
@@ -397,7 +397,7 @@ def test_http_emitted_receive_registration_cannot_release_retired_grant(tmp_path
     required = _required(vector)
     key = _key(vector)
     with _receipt_rpc(vector) as (rpc, node):
-        from test_repair_22_33_17 import draw_inputs
+        from test_receipt_authority_recovery import draw_inputs
         receive, body, offer, values, canonical, actor = draw_inputs()
         grant_required = {**required, "accepts": [offer]}
         grant_header = grant_payment_header(grant_required, offer, receive.hex())

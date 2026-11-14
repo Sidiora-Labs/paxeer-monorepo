@@ -1,9 +1,9 @@
 # Paxeer X tools
 
 This directory holds candidate inventory, release verification, route catalogues,
-governance proposal rendering and SID holder export tools for Paxeer X. Paxeer is
-one BFT network: its kernel runs inside `paxd`, and a receipt is final when its
-block is committed. These tools describe and check network components and prepare
+governance proposal rendering and SID holder export tools for Paxeer X. Paxeer uses the LayerX kernel inside `paxd`, which executes and orders each
+transaction and builds each block; validators check and commit it. A receipt is
+final when its block is committed. These tools describe and check network components and prepare
 upgrade inputs.
 
 ## Layout

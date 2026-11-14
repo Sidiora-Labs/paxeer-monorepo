@@ -36,9 +36,9 @@ use super::{fail, tenant, IsolationFailure, Workspace};
 const SEQUENCE: u64 = 20;
 const DEADLINE: Duration = Duration::from_secs(5);
 const CERTIFICATE: &[u8] =
-    include_bytes!("../../../crates/layerx-sdk/src/repair_22_31_227_fixture/server.der");
+    include_bytes!("../../../crates/layerx-sdk/tests/fixtures/tls_server/server.der");
 const PRIVATE_KEY: &[u8] =
-    include_bytes!("../../../crates/layerx-sdk/src/repair_22_31_227_fixture/server-key.der");
+    include_bytes!("../../../crates/layerx-sdk/tests/fixtures/tls_server/server-key.der");
 // SHA-256 of the canonical arguments of mcp.describe, the empty JSON object.
 const DESCRIPTION_DIGEST: [u8; 32] = [
     0x44, 0x13, 0x6f, 0xa3, 0x55, 0xb3, 0x67, 0x8a, 0x11, 0x46, 0xad, 0x16, 0xf7, 0xe8, 0x64, 0x9e,
@@ -219,7 +219,7 @@ impl Provisioned {
         checked(
             std::fs::write(
                 workspace.0.join("ca.pem"),
-                include_bytes!("../../../crates/layerx-sdk/src/repair_22_31_227_fixture/ca.pem"),
+                include_bytes!("../../../crates/layerx-sdk/tests/fixtures/tls_server/ca.pem"),
             ),
             "write trust fixture",
         )?;

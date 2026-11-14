@@ -304,4 +304,7 @@ def test_wasm_repair_record_maps_findings_limits_wiring_and_evidence():
     for command in ("bash scripts/protoc.sh", "bash scripts/protoc.sh --wasm-swagger"):
         assert command in readme
     assert "query.swagger.json" in readme
-    assert "wasm/Makefile" in readme
+    assert (
+        "The module [`Makefile`](Makefile) lists the following commands for preparing "
+        "native libraries and running the module tests."
+    ) in " ".join(source("wasm/README.md").split())

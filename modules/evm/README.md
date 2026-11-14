@@ -1,6 +1,6 @@
 # EVM module
 
-This directory implements Ethereum transaction execution within the Paxeer BFT network running `paxd`. It connects EVM execution to SDK state, associates Pax and EVM addresses, manages gas, fees, receipts and logs, and provides pointer contracts for interoperability with native tokens and CosmWasm. The kernel is part of the network and proposes blocks; receipts become final when their blocks commit. Mainnet-beta uses EVM chain ID 125 (`0x7d`), and tenant sub-chains use separate database domains within the same network.
+This directory implements Ethereum transaction execution inside `paxd`. It connects EVM execution to SDK state, associates Pax and EVM addresses, manages gas, fees, receipts and logs, and provides pointer contracts for interoperability with native tokens and CosmWasm. The LayerX kernel inside `paxd` executes and orders each transaction and builds each block; validators check and commit it. Receipts become final when validators commit their blocks. Mainnet-beta uses EVM chain ID 125 (`0x7d`), and tenant sub-chains use separate database domains within the same network.
 
 ## Layout
 

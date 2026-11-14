@@ -3,7 +3,7 @@ name = "journeys"
 contract_major = 1
 compatibility = "additive_only"
 spine = "Every operation on this contract speaks in journeys, stages, states and evidence references. Raw protocol structures never cross this boundary."
-network = "Journeys describe one merged Paxeer network, whose kernel participates in the network and proposes blocks. A receipt establishes the verified execution outcome; that outcome is final once its block is committed. The current rungs are submitted, receipted and committed on this same network; committed is final, with no later settlement or checkpoint rung."
+network = "Journeys describe one merged Paxeer network. The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it. A receipt establishes the verified execution outcome; that outcome is final once its block is committed. The current rungs are submitted, receipted and committed on this same network; committed is final, with no later settlement or checkpoint rung."
 intent_progress = "Plans and signed submissions are described in intent.kvx. Poll journey.get for the resulting journey_id and use evidence.get to retrieve the material behind its evidence references."
 
 [type.JourneyKind]

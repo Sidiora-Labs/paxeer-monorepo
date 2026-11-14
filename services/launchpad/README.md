@@ -2,8 +2,7 @@
 
 This directory holds the Go backend services for Launchpad: market-event indexing,
 portfolio accounting, statistics, rankings, charts, realtime data delivery, media,
-community features and accounts. They support the launchpad markets on Paxeer's
-single BFT network by reading committed chain state and maintaining application
+community features and accounts. They support the launchpad markets on Paxeer by reading committed chain state and maintaining application
 views in PostgreSQL and Redis, with NATS used for event delivery. Market execution
 belongs to the network's [launchpad module](../../modules/launchpad/) and
 [precompile](../../precompiles/launchpad/); these services provide the application

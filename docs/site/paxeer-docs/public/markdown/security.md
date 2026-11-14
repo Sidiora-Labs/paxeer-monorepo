@@ -2,9 +2,9 @@
 
 # Security and trust boundaries
 
-How transaction signatures, receipt keys, committed blocks, and scoped service credentials establish trust in Paxeer X.
+Verify signed execution receipts from the LayerX kernel inside paxd and the blocks it builds that validators check and commit.
 
-Paxeer mainnet-beta is one BFT network. The kernel executes within the chain, and a transaction is final when its covering block is committed. A signed execution receipt establishes a narrower claim before commitment. Applications verify the evidence needed before releasing goods or updating balances.
+The LayerX kernel runs inside every paxd node, executes each transaction when it arrives, gives it the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it. A transaction is final when its covering block is committed. A signed execution receipt establishes a narrower claim before commitment. Applications verify the evidence needed before releasing goods or updating balances.
 
 ## The trust boundaries
 

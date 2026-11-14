@@ -1,9 +1,10 @@
 # Porting a CosmWasm contract to LayerX programs
 
-LayerX programs execute inside `paxd` on the single Paxeer BFT network. The
-kernel is part of the network and proposes blocks; a receipt is final when its
-block commits. Public Ethereum JSON-RPC uses the root URL documented in the
-[public RPC reference](../../../docs/site/docs/reference/public-rpc.md),
+LayerX programs execute inside `paxd`. The LayerX kernel inside `paxd` executes
+and orders each transaction and builds each block; validators check and commit
+it. A receipt is final when validators commit its block. Public Ethereum JSON-RPC
+uses the root URL documented in the
+[public RPC reference](../../../docs/readme/PUBLIC-RPC.md),
 with chain ID 125 (`0x7d`). Program execution and monetary effects belong to the
 same chain transaction. Sub-chains are tenant domains in the database.
 

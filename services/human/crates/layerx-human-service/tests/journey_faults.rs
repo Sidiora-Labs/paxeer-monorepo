@@ -1109,8 +1109,12 @@ impl Fixture {
                     .unwrap_or_else(|error| panic!("entropy: {error}")),
             )
             .unwrap_or_else(|error| panic!("generate key: {error}"));
+        let signer_root = root.join("signer-store");
+        let signer_digest = map
+            .install(&signer_root)
+            .unwrap_or_else(|error| panic!("signer tenancy: {error}"));
         let signer_store =
-            PrincipalStore::open(&store_root, retention_uniform(10_000), tenancy_digest)
+            PrincipalStore::open(&signer_root, retention_uniform(10_000), signer_digest)
                 .unwrap_or_else(|error| panic!("signer store: {error}"));
         let signer = CustodySigner::new(
             keystore,
@@ -1412,7 +1416,7 @@ fn repeated_start_repairs_initial_progress_after_restart() {
 }
 
 pub mod repair_bank {
-    include!("support/repair_22_33_63_bank.rs");
+    include!("support/bank_journey_fixture.rs");
 }
 
 #[test]

@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"math"
 	"math/big"
 	"net/http"
 	"sort"
@@ -283,11 +284,15 @@ func (s *RPC) Logs(ctx context.Context, opts FetchOptions) (FetchResult, error) 
 	if len(opts.MonitoredAddresses) == 0 || opts.FromBlock < 0 || opts.ToBlock < opts.FromBlock || opts.ToBlock-opts.FromBlock >= MaxLogRange {
 		return FetchResult{}, fmt.Errorf("source: invalid log range %d-%d", opts.FromBlock, opts.ToBlock)
 	}
+	toBlock := opts.ToBlock
+	if toBlock < 0 {
+		return FetchResult{}, fmt.Errorf("source: invalid log range %d-%d", opts.FromBlock, opts.ToBlock)
+	}
 	timeout := s.timeout
 	if opts.Historical {
 		timeout = bulkTimeout
 	}
-	wire, err := s.getLogs(ctx, timeout, opts.MonitoredAddresses, uint64(opts.FromBlock), uint64(opts.ToBlock))
+	wire, err := s.getLogs(ctx, timeout, opts.MonitoredAddresses, uint64(opts.FromBlock), uint64(toBlock))
 	if err != nil {
 		return FetchResult{}, err
 	}
@@ -302,7 +307,7 @@ func (s *RPC) Logs(ctx context.Context, opts FetchOptions) (FetchResult, error) 
 		if err != nil {
 			return FetchResult{}, err
 		}
-		if l.BlockNumber < uint64(opts.FromBlock) || l.BlockNumber > uint64(opts.ToBlock) {
+		if l.BlockNumber < uint64(opts.FromBlock) || l.BlockNumber > uint64(toBlock) {
 			return FetchResult{}, fmt.Errorf("source: log of block %d outside %d-%d", l.BlockNumber, opts.FromBlock, opts.ToBlock)
 		}
 		logs = append(logs, l)
@@ -340,6 +345,13 @@ func (s *RPC) Logs(ctx context.Context, opts FetchOptions) (FetchResult, error) 
 						firstErr = fmt.Errorf("block %d: %w", bn, err)
 					}
 				} else {
+					if ts > math.MaxInt64 {
+						if firstErr == nil {
+							firstErr = fmt.Errorf("block %d timestamp exceeds int64", bn)
+						}
+						mu.Unlock()
+						continue
+					}
 					res.BlockTimestamps[bn] = int64(ts)
 					for _, tx := range blk.Transactions {
 						if tx.Hash != "" && tx.From != "" {
@@ -763,7 +775,11 @@ func (s *RPC) doRequest(ctx context.Context, timeout time.Duration, idx int, met
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); err == nil {
+			err = closeErr
+		}
+	}()
 	if resp.StatusCode == http.StatusRequestEntityTooLarge {
 		return nil, fmt.Errorf("%w: http %d", ErrResponseSize, resp.StatusCode)
 	}
@@ -963,9 +979,14 @@ func (s *RPC) runHealthCheck(ctx context.Context) {
 	}
 	sort.Slice(heads, func(a, b int) bool { return heads[a] < heads[b] })
 	median := heads[len(heads)/2]
+	staleThreshold := s.staleThreshold
+	if staleThreshold < 0 {
+		s.logger.Error("source: negative stale threshold")
+		return
+	}
 	for i, sl := range s.slots {
 		wasStale := sl.isStale
-		behind := sl.lastSeenAt != 0 && median > sl.lastBlock && median-sl.lastBlock > uint64(s.staleThreshold)
+		behind := sl.lastSeenAt != 0 && median > sl.lastBlock && median-sl.lastBlock > uint64(staleThreshold)
 		sl.isStale = sl.consecutiveFailures >= 3 || behind
 		if sl.isStale && !wasStale {
 			s.logger.Warn("source: node quarantined as stale", slog.Int("endpoint", i), slog.String("method", "eth_blockNumber"), slog.Uint64("lastBlock", sl.lastBlock), slog.Uint64("median", median))

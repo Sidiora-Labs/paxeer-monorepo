@@ -21,6 +21,21 @@ import (
 )
 
 const (
+	jsonMediaType             = "application/json"
+	githubMediaType           = "application/vnd.github+json"
+	conclusionSuccess         = "success"
+	authorizationHeader       = "Authorization"
+	contentTypeHeader         = "Content-Type"
+	acceptHeader              = "Accept"
+	bearerPrefix              = "Bearer "
+	githubPerPage             = "per_page"
+	githubPageSize            = "100"
+	githubRunPath             = "/actions/runs/"
+	qualificationWorkflowPath = ".github/workflows/paxeer-x-qualification.yml"
+	qualificationDomain       = "github-actions"
+)
+
+const (
 	githubAPIVersion   = "2022-11-28"
 	githubMaxPages     = 100
 	githubMaxAttempts  = 3
@@ -28,6 +43,12 @@ const (
 	errorBodyMaxLength = 512
 	userAgent          = "paxeer-flyci-controller"
 )
+
+type githubResponse struct {
+	StatusCode int
+	Header     http.Header
+	Request    *http.Request
+}
 
 type workflowRun struct {
 	ID     int64  `json:"id"`
@@ -102,11 +123,11 @@ func newGitHubClient(cfg config, httpClient *http.Client) (*githubClient, error)
 	}
 	guarded := *httpClient
 	guarded.CheckRedirect = func(req *http.Request, via []*http.Request) error {
-		if len(via) > 3 || (base.Scheme == "https" && req.URL.Scheme != "https") || req.URL.User != nil {
+		if len(via) > 3 || (base.Scheme == httpsScheme && req.URL.Scheme != httpsScheme) || req.URL.User != nil {
 			return errors.New("unsafe provider redirect")
 		}
 		if req.URL.Host != base.Host {
-			req.Header.Del("Authorization")
+			req.Header.Del(authorizationHeader)
 		}
 		return nil
 	}
@@ -143,7 +164,7 @@ func (c *githubClient) repoURL(suffix string, query url.Values) string {
 }
 
 func (c *githubClient) listRuns(ctx context.Context, status string) ([]workflowRun, error) {
-	first := c.repoURL("/actions/runs", url.Values{"status": {status}, "per_page": {"100"}})
+	first := c.repoURL("/actions/runs", url.Values{statusField: {status}, githubPerPage: {githubPageSize}})
 	var runs []workflowRun
 	err := c.getPages(ctx, first, func(body []byte) error {
 		var page struct {
@@ -179,7 +200,7 @@ func decodeWorkflowJobs(body []byte, runID int64) ([]workflowJob, error) {
 }
 
 func (c *githubClient) listJobs(ctx context.Context, runID int64) ([]workflowJob, error) {
-	first := c.repoURL("/actions/runs/"+strconv.FormatInt(runID, 10)+"/jobs", url.Values{"per_page": {"100"}, "filter": {"all"}})
+	first := c.repoURL(githubRunPath+strconv.FormatInt(runID, 10)+"/jobs", url.Values{githubPerPage: {githubPageSize}, "filter": {"all"}})
 	var jobs []workflowJob
 	err := c.getPages(ctx, first, func(body []byte) error {
 		page, err := decodeWorkflowJobs(body, runID)
@@ -277,7 +298,7 @@ func (c *githubClient) getCached(ctx context.Context, pageURL string) ([]byte, s
 	}
 }
 
-func (c *githubClient) nextLink(resp *http.Response) (string, error) {
+func (c *githubClient) nextLink(resp *githubResponse) (string, error) {
 	for _, header := range resp.Header.Values("Link") {
 		for _, part := range strings.Split(header, ",") {
 			target, params, ok := strings.Cut(strings.TrimSpace(part), ";")
@@ -308,7 +329,7 @@ func (c *githubClient) nextLink(resp *http.Response) (string, error) {
 	return "", nil
 }
 
-func (c *githubClient) send(ctx context.Context, method, target string, payload []byte, etag string) (*http.Response, []byte, error) {
+func (c *githubClient) send(ctx context.Context, method, target string, payload []byte, etag string) (*githubResponse, []byte, error) {
 	for attempt := 1; ; attempt++ {
 		if err := c.waitForRateLimit(ctx); err != nil {
 			return nil, nil, err
@@ -321,12 +342,12 @@ func (c *githubClient) send(ctx context.Context, method, target string, payload 
 		if err != nil {
 			return nil, nil, err
 		}
-		req.Header.Set("Accept", "application/vnd.github+json")
-		req.Header.Set("Authorization", "Bearer "+c.token)
+		req.Header.Set(acceptHeader, githubMediaType)
+		req.Header.Set(authorizationHeader, bearerPrefix+c.token)
 		req.Header.Set("X-GitHub-Api-Version", githubAPIVersion)
 		req.Header.Set("User-Agent", userAgent)
 		if payload != nil {
-			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set(contentTypeHeader, jsonMediaType)
 		}
 		if etag != "" {
 			req.Header.Set("If-None-Match", etag)
@@ -336,14 +357,17 @@ func (c *githubClient) send(ctx context.Context, method, target string, payload 
 			return nil, nil, fmt.Errorf("%s %s: %w", method, req.URL.Path, err)
 		}
 		body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes))
-		resp.Body.Close()
+		closeErr := resp.Body.Close()
 		if err != nil {
 			return nil, nil, fmt.Errorf("%s %s: read body: %w", method, req.URL.Path, err)
+		}
+		if closeErr != nil {
+			return nil, nil, fmt.Errorf("%s %s: close body: %w", method, req.URL.Path, closeErr)
 		}
 		if c.observeRateLimit(resp) && attempt < githubMaxAttempts {
 			continue
 		}
-		return resp, body, nil
+		return &githubResponse{StatusCode: resp.StatusCode, Header: resp.Header, Request: resp.Request}, body, nil
 	}
 }
 
@@ -458,7 +482,7 @@ func (c *githubClient) qSource(ctx context.Context, r qualificationRequest) erro
 	}
 	return nil
 }
-func (c *githubClient) qDispatch(ctx context.Context, r qualificationRequest) error {
+func (c *githubClient) qDispatch(ctx context.Context, r qualificationRequest) (e error) {
 	requestBytes, e := qCanonical(r)
 	if e != nil {
 		return e
@@ -474,16 +498,23 @@ func (c *githubClient) qDispatch(ctx context.Context, r qualificationRequest) er
 	if e != nil {
 		return e
 	}
-	req.Header.Set("Authorization", "Bearer "+c.token)
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set(authorizationHeader, bearerPrefix+c.token)
+	req.Header.Set(contentTypeHeader, jsonMediaType)
+	req.Header.Set(acceptHeader, githubMediaType)
 	req.Header.Set("X-GitHub-Api-Version", githubAPIVersion)
 	resp, e := c.httpClient.Do(req)
 	if e != nil {
 		return errors.New("dispatch acknowledgement unknown")
 	}
-	defer resp.Body.Close()
-	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4096))
+	defer func() {
+		closeErr := resp.Body.Close()
+		if e == nil {
+			e = closeErr
+		}
+	}()
+	if _, e = io.Copy(io.Discard, io.LimitReader(resp.Body, 4096)); e != nil {
+		return e
+	}
 	if resp.StatusCode != 204 && resp.StatusCode != 200 {
 		return errors.New("dispatch acknowledgement not accepted")
 	}
@@ -491,7 +522,7 @@ func (c *githubClient) qDispatch(ctx context.Context, r qualificationRequest) er
 }
 func (c *githubClient) qFind(ctx context.Context, rec qualificationRecord) ([]qualificationRun, error) {
 	var runs []qualificationRun
-	first := c.repoURL("/actions/workflows/paxeer-x-qualification.yml/runs", url.Values{"event": {"workflow_dispatch"}, "head_sha": {rec.Request.Manifest.Revision}, "per_page": {"100"}})
+	first := c.repoURL("/actions/workflows/paxeer-x-qualification.yml/runs", url.Values{"event": {"workflow_dispatch"}, "head_sha": {rec.Request.Manifest.Revision}, githubPerPage: {githubPageSize}})
 	e := c.getPages(ctx, first, func(b []byte) error {
 		var page struct {
 			Runs []qualificationRun `json:"workflow_runs"`
@@ -500,7 +531,7 @@ func (c *githubClient) qFind(ctx context.Context, rec qualificationRecord) ([]qu
 			return e
 		}
 		for _, run := range page.Runs {
-			if run.DisplayTitle == "paxeer-x-qualification/"+rec.Request.LogicalID && run.HeadSHA == rec.Request.Manifest.Revision && run.Event == "workflow_dispatch" && strings.Split(run.Path, "@")[0] == ".github/workflows/paxeer-x-qualification.yml" {
+			if run.DisplayTitle == "paxeer-x-qualification/"+rec.Request.LogicalID && run.HeadSHA == rec.Request.Manifest.Revision && run.Event == "workflow_dispatch" && strings.Split(run.Path, "@")[0] == qualificationWorkflowPath {
 				runs = append(runs, run)
 			}
 		}
@@ -550,16 +581,16 @@ func qLogEnvelope(log []byte, binding string) ([]byte, error) {
 	return b, nil
 }
 func (c *githubClient) qCollect(ctx context.Context, rec qualificationRecord, key *rsa.PrivateKey, signer ed25519.PrivateKey) (qualificationCompleted, error) {
-	out := qualificationCompleted{Schema: "paxeer-x.completed-qualification.v1", Request: rec.Request, RunID: rec.RunID, Attempt: rec.Attempt, Repository: c.owner + "/" + c.repo, Workflow: ".github/workflows/paxeer-x-qualification.yml", Status: "completed", Conclusion: "success", ObservedAt: time.Now().UTC(), Domain: "github-actions", ArchiveDigests: map[string]string{}}
+	out := qualificationCompleted{Schema: "paxeer-x.completed-qualification.v1", Request: rec.Request, RunID: rec.RunID, Attempt: rec.Attempt, Repository: c.owner + "/" + c.repo, Workflow: qualificationWorkflowPath, Status: statusDone, Conclusion: conclusionSuccess, ObservedAt: time.Now().UTC(), Domain: qualificationDomain, ArchiveDigests: map[string]string{}}
 	var current qualificationRun
-	if e := c.qGet(ctx, "/actions/runs/"+strconv.FormatInt(rec.RunID, 10), nil, &current); e != nil {
+	if e := c.qGet(ctx, githubRunPath+strconv.FormatInt(rec.RunID, 10), nil, &current); e != nil {
 		return out, e
 	}
-	if current.ID != rec.RunID || current.RunAttempt != rec.Attempt || current.HeadSHA != rec.Request.Manifest.Revision || current.Status != "completed" || current.Conclusion != "success" || current.DisplayTitle != "paxeer-x-qualification/"+rec.Request.LogicalID {
+	if current.ID != rec.RunID || current.RunAttempt != rec.Attempt || current.HeadSHA != rec.Request.Manifest.Revision || current.Status != statusDone || current.Conclusion != conclusionSuccess || current.DisplayTitle != "paxeer-x-qualification/"+rec.Request.LogicalID {
 		return out, errors.New("run completion changed")
 	}
 	var jobs []qualificationJobProof
-	e := c.getPages(ctx, c.repoURL("/actions/runs/"+strconv.FormatInt(rec.RunID, 10)+"/attempts/"+strconv.FormatInt(rec.Attempt, 10)+"/jobs", url.Values{"per_page": {"100"}}), func(b []byte) error {
+	e := c.getPages(ctx, c.repoURL(githubRunPath+strconv.FormatInt(rec.RunID, 10)+"/attempts/"+strconv.FormatInt(rec.Attempt, 10)+"/jobs", url.Values{githubPerPage: {githubPageSize}}), func(b []byte) error {
 		var page struct {
 			Jobs []qualificationJobProof `json:"jobs"`
 		}
@@ -615,7 +646,7 @@ func (c *githubClient) qCollect(ctx context.Context, rec qualificationRecord, ke
 	if e = qSign(&out, signer); e != nil {
 		return out, e
 	}
-	return out, qValidateCompleted(out, signer.Public().(ed25519.PublicKey), "github-actions", time.Now().Add(time.Minute))
+	return out, qValidateCompleted(out, signer.Public().(ed25519.PublicKey), qualificationDomain, time.Now().Add(time.Minute))
 }
 func (c *githubClient) qTick(ctx context.Context, registry *qualificationRegistry) error {
 	records, e := registry.list()
@@ -628,31 +659,31 @@ func (c *githubClient) qTick(ctx context.Context, registry *qualificationRegistr
 	}
 	for _, rec := range records {
 		switch rec.State {
-		case "prepared":
+		case qStatePrepared:
 			if e = c.qSource(ctx, rec.Request); e != nil {
 				return e
 			}
-			rec, e = registry.advance(rec.Request.LogicalID, "prepared", "dispatch_intent", 0, 0, "")
+			rec, e = registry.advance(rec.Request.LogicalID, qStatePrepared, qStateDispatchIntent, 0, 0, "")
 			if e != nil {
 				return e
 			}
 			_ = c.qDispatch(ctx, rec.Request)
-			_, e = registry.advance(rec.Request.LogicalID, "dispatch_intent", "acknowledgement_unknown", 0, 0, "reconcile before any retry")
+			_, e = registry.advance(rec.Request.LogicalID, qStateDispatchIntent, qStateAcknowledgementUnknown, 0, 0, "reconcile before any retry")
 			if e != nil {
 				return e
 			}
-		case "dispatch_intent":
-			_, e = registry.advance(rec.Request.LogicalID, rec.State, "acknowledgement_unknown", 0, 0, "recovered unresolved intent")
+		case qStateDispatchIntent:
+			_, e = registry.advance(rec.Request.LogicalID, rec.State, qStateAcknowledgementUnknown, 0, 0, "recovered unresolved intent")
 			if e != nil {
 				return e
 			}
-		case "acknowledgement_unknown", "run_bound", "running":
+		case qStateAcknowledgementUnknown, qStateRunBound, qStateRunning:
 			runs, err := c.qFind(ctx, rec)
 			if err != nil {
 				return err
 			}
 			if len(runs) > 1 {
-				_, e = registry.advance(rec.Request.LogicalID, rec.State, "conflict", rec.RunID, rec.Attempt, "multiple request runs")
+				_, e = registry.advance(rec.Request.LogicalID, rec.State, qStateConflict, rec.RunID, rec.Attempt, "multiple request runs")
 				if e != nil {
 					return e
 				}
@@ -663,24 +694,24 @@ func (c *githubClient) qTick(ctx context.Context, registry *qualificationRegistr
 			}
 			run := runs[0]
 			if rec.RunID != 0 && (rec.RunID != run.ID || rec.Attempt != run.RunAttempt) {
-				_, e = registry.advance(rec.Request.LogicalID, rec.State, "conflict", rec.RunID, rec.Attempt, "run attempt changed")
+				_, e = registry.advance(rec.Request.LogicalID, rec.State, qStateConflict, rec.RunID, rec.Attempt, "run attempt changed")
 				if e != nil {
 					return e
 				}
 				continue
 			}
-			if rec.State == "acknowledgement_unknown" {
-				_, e = registry.advance(rec.Request.LogicalID, rec.State, "run_bound", run.ID, run.RunAttempt, "")
+			if rec.State == qStateAcknowledgementUnknown {
+				_, e = registry.advance(rec.Request.LogicalID, rec.State, qStateRunBound, run.ID, run.RunAttempt, "")
 				if e != nil {
 					return e
 				}
 				continue
 			}
-			state := "running"
-			if run.Status == "completed" {
-				state = "terminal_failed"
-				if run.Conclusion == "success" {
-					state = "completed_uncollected"
+			state := qStateRunning
+			if run.Status == statusDone {
+				state = qStateTerminalFailed
+				if run.Conclusion == conclusionSuccess {
+					state = qStateCompletedUncollected
 				}
 			}
 			if state != rec.State {
@@ -689,7 +720,7 @@ func (c *githubClient) qTick(ctx context.Context, registry *qualificationRegistr
 					return e
 				}
 			}
-		case "completed_uncollected":
+		case qStateCompletedUncollected:
 			path := filepath.Join(registry.root, rec.Request.LogicalID+".completed.json")
 			b, readErr := qRead(path)
 			if readErr == nil {
@@ -708,7 +739,7 @@ func (c *githubClient) qTick(ctx context.Context, registry *qualificationRegistr
 				if !bytes.Equal(existingBytes, requestBytes) || existing.RunID != rec.RunID || existing.Attempt != rec.Attempt {
 					return errors.New("retained completion identity mismatch")
 				}
-				if e = qValidateCompleted(existing, signer.Public().(ed25519.PublicKey), "github-actions", time.Now().Add(time.Minute)); e != nil {
+				if e = qValidateCompleted(existing, signer.Public().(ed25519.PublicKey), qualificationDomain, time.Now().Add(time.Minute)); e != nil {
 					return e
 				}
 			} else {
@@ -727,7 +758,7 @@ func (c *githubClient) qTick(ctx context.Context, registry *qualificationRegistr
 					return e
 				}
 			}
-			_, e = registry.advance(rec.Request.LogicalID, rec.State, "completed_validated", rec.RunID, rec.Attempt, qHash(b))
+			_, e = registry.advance(rec.Request.LogicalID, rec.State, qStateCompletedValidated, rec.RunID, rec.Attempt, qHash(b))
 			if e != nil {
 				return e
 			}

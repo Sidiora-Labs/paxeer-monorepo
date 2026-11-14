@@ -14,9 +14,9 @@ This directory holds scripts, workload configurations, a load-test client and TP
 - [tps_stats.py](tps_stats.py) — summarize TPS readings and compare median throughput against a regression limit.
 - [python-tests.mk](python-tests.mk) — register this directory with the root Python tools test target.
 - [scenarios_test.go](scenarios_test.go) — check scenario loading and running-chain identity overrides.
-- [repair_430_test.go](repair_430_test.go) — test benchmark home ownership, path boundaries and reset behavior.
-- [repair_m825_test.go](repair_m825_test.go) — test scenario documentation commands and deployment descriptions.
-- [repair_m858_test.go](repair_m858_test.go) — test home propagation, node exit status, output and signal delivery.
+- [benchmark_home_test.go](benchmark_home_test.go) — test benchmark home ownership, path boundaries and reset behavior.
+- [scenarios_documentation_test.go](scenarios_documentation_test.go) — test scenario documentation commands and deployment descriptions.
+- [benchmark_launcher_test.go](benchmark_launcher_test.go) — test home propagation, node exit status, output and signal delivery.
 - [test_benchmark_compare.py](test_benchmark_compare.py) — test the comparison script with collected TPS output.
 - [test_tps_stats.py](test_tps_stats.py) — test TPS filtering, summaries and regression comparisons.
 

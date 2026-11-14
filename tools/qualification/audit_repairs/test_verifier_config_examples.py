@@ -2,6 +2,7 @@
 
 from pathlib import Path
 import re
+import shlex
 import tomllib
 
 import pytest
@@ -95,37 +96,80 @@ def test_commented_toml_examples_use_supported_fetcher_fields():
 
 
 def test_environment_examples_match_supported_toml_paths_and_values():
-    config = tomllib.loads((CONFIG / "base.toml").read_text(encoding="utf-8"))
+    toml_example = (CONFIG / "base.toml").read_text(encoding="utf-8")
+    config = tomllib.loads(toml_example)
     expected = leaves(config)
     source = (SERVER / "src/settings.rs").read_text(encoding="utf-8")
     s3_keys = rust_fields(source, "S3FetcherSettings").keys()
-    allowed_s3 = {("solidity", "fetcher", "s3", key) for key in s3_keys}
+    documentation = (SERVER / "README.md").read_text(encoding="utf-8")
+    documented_config = tomllib.loads(re.findall(r"```toml\n(.*?)\n```", documentation, re.S)[0])
+    expected.update(leaves(documented_config))
+    assert set(documented_config) == rust_fields(source, "Settings").keys()
+    assert set(documented_config["zksync_solidity"]) == (
+        rust_fields(source, "ZksyncSoliditySettings").keys()
+        - {"evm_fetcher", "era_evm_fetcher", "zk_fetcher"}
+    )
+    expected.update({
+        ("config",): "",
+        ("server", "http", "base_path"): "",
+        ("server", "http", "cors", "enabled"): False,
+        ("server", "http", "cors", "allowed_credentials"): True,
+        ("server", "http", "cors", "allowed_methods"): "PUT, GET, POST, OPTIONS, DELETE, PATCH",
+        ("server", "http", "cors", "allowed_origin"): "",
+        ("server", "http", "cors", "block_on_origin_mismatch"): False,
+        ("server", "http", "cors", "max_age"): 3600,
+        ("server", "http", "cors", "send_wildcard"): False,
+    })
+    unset = {
+        ("config",), ("compilers", "max_threads"), ("jaeger", "agent_endpoint"),
+        ("metrics", "addr"), ("server", "grpc", "addr"),
+        ("server", "http", "addr"), ("server", "http", "base_path"),
+        ("sourcify", "api_url"),
+    }
+    for section, fetcher in (
+        ("solidity", "fetcher"), ("vyper", "fetcher"),
+        ("zksync_solidity", "evm_fetcher"),
+        ("zksync_solidity", "era_evm_fetcher"),
+        ("zksync_solidity", "zk_fetcher"),
+    ):
+        paths = {(section, fetcher, "s3", key) for key in s3_keys}
+        paths.add((section, fetcher, "list", "list_url"))
+        unset.update(paths)
+        for path in paths:
+            expected[path] = ""
     examples = {}
-    primary = {}
+    process_inputs = {}
     for line in (CONFIG / "base.env").read_text(encoding="utf-8").splitlines():
-        if not line.strip() or line.startswith("## "):
+        if not line.strip() or line.startswith("# ") and "=" not in line:
             continue
-        match = re.fullmatch(r"(#{1,2})" + PREFIX + r"([A-Z][A-Z0-9_]*)=(.+)", line)
+        match = re.fullmatch(r"(# )?([A-Z][A-Z0-9_]*)=(.*)", line)
         assert match is not None, line
-        path = tuple(match[2].lower().split("__"))
-        assert path in expected or path in allowed_s3, path
-        examples.setdefault(path, []).append(match[3])
-        if match[1] == "#":
-            assert path not in primary, path
-            primary[path] = match[3]
-    assert set(primary) == set(expected)
-    assert set(examples) == set(expected) | allowed_s3
+        tokens = shlex.split("VALUE=" + match[3])
+        assert len(tokens) == 1, line
+        entry = (tokens[0].removeprefix("VALUE="), match[1] is not None)
+        if match[2].startswith(PREFIX):
+            path = tuple(match[2].removeprefix(PREFIX).lower().split("__"))
+            assert path in expected and path not in examples, path
+            examples[path] = entry
+        else:
+            assert match[2] not in process_inputs, line
+            process_inputs[match[2]] = entry
+    assert set(examples) == set(expected)
     for path, value in expected.items():
-        serialized = str(value).lower() if isinstance(value, bool) else str(value)
-        assert primary[path] == serialized, path
+        serialized = "" if path in unset else str(value).lower() if isinstance(value, bool) else str(value)
+        assert examples[path] == (serialized, path in unset), path
+    assert process_inputs == {
+        "CARGO_MANIFEST_DIR": ("", True), "OUT_DIR": ("", True),
+        "RUST_LOG": ("info", False), "TMPDIR": ("", True),
+        "VERIFICATION_METRIC_CHAIN_IDS": ("125", False),
+    }
     for key in s3_keys:
-        assert examples[("solidity", "fetcher", "s3", key)] == [key]
-    assert examples[("solidity", "fetcher", "list", "list_url")] == [
+        assert f'#{key} = "{key}"' in toml_example
+    list_urls = re.findall(r'^#?\s*list_url = "([^"]+)"', toml_example, re.M)
+    assert list_urls == [
         "https://binaries.soliditylang.org/linux-amd64/list.json",
         "https://binaries.soliditylang.org/macosx-amd64/list.json",
         "https://binaries.soliditylang.org/windows-amd64/list.json",
-    ]
-    assert examples[("vyper", "fetcher", "list", "list_url")] == [
         "https://raw.githubusercontent.com/blockscout/solc-bin/main/vyper.list.json",
         "https://raw.githubusercontent.com/blockscout/solc-bin/main/vyper.macos.list.json",
     ]

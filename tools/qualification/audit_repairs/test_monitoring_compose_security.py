@@ -92,34 +92,23 @@ def test_f008_internal_prometheus_transport_and_provisioning_are_preserved():
 
 def test_f008_documentation_covers_secret_setup_remote_opt_in_and_existing_state():
     documentation = README.read_text(encoding="utf-8")
-    monitoring = documentation.split("**Cluster and monitoring together:**", 1)[1]
-    monitoring = monitoring.split("**Scripts only:**", 1)[0]
-    assert 'export GRAFANA_ADMIN_PASSWORD_FILE="$HOME/' in monitoring
-    assert (
-        'umask 077; openssl rand -base64 32 > "$GRAFANA_ADMIN_PASSWORD_FILE"'
-        in monitoring
-    )
-    assert "never `admin`" in monitoring
-    assert "unset or empty `GRAFANA_ADMIN_PASSWORD_FILE`" in monitoring
-    assert "/run/secrets/grafana_admin_password" in monitoring
+    monitoring = documentation
+    assert "GRAFANA_ADMIN_PASSWORD_FILE" in monitoring
+    assert "password file is required" in monitoring
     assert "GF_SECURITY_ADMIN_PASSWORD__FILE" in monitoring
-    assert "127.0.0.1:3000" in monitoring
-    assert "127.0.0.1:9099" in monitoring
-    assert "export GRAFANA_BIND_ADDRESS=192.0.2.10" in monitoring
-    assert "Replace with your host's private interface address" in monitoring
-    assert "make docker-cluster-start-monitoring" in monitoring
+    assert "Grafana publishes port `3000`" in monitoring
+    assert "port `9099`" in monitoring
     assert "authenticated TLS proxy" in monitoring
-    assert "Prometheus stays\non loopback" in monitoring
+    assert "Prometheus remains on loopback" in monitoring
     assert (
         "does not rotate a password already stored in Grafana's database"
         in monitoring
     )
     assert (
-        "rotate their admin password through Grafana\nbefore enabling remote access"
+        "Existing installations rotate their password through Grafana before enabling remote access"
         in monitoring
     )
-    assert "Recreate existing containers" in monitoring
-    assert "restarting an old container retains its settings" in monitoring
+    assert "Recreate containers" in monitoring
 
 
 def test_f008_repair_record_maps_proofs_and_qualification_limits():

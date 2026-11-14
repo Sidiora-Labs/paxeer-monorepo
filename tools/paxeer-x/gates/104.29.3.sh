@@ -15,7 +15,7 @@ import sys
 ROOT = Path.cwd()
 SRC = ROOT / 'programs/crates/layerx-programs-runtime/src'
 TESTS = ROOT / 'programs/crates/layerx-programs-runtime/tests'
-CARGO = os.environ.get('PROGRAMS_CARGO', '/root/.cargo/bin/cargo')
+CARGO = os.environ.get('PROGRAMS_CARGO', 'cargo')
 SUITE = 'storage_scan'
 UNIT_TESTS = [
     'storage::ordered_scan::tests::empty_prefix_and_single_entry_return_canonical_entry_without_cursor',
@@ -86,7 +86,7 @@ def structure():
 
 try:
     count = structure()
-    env = dict(os.environ, CARGO_TARGET_DIR=os.environ.get('CARGO_TARGET_DIR', '/root/lx-target/task-104.29.3'))
+    env = dict(os.environ, CARGO_TARGET_DIR=os.environ.get('CARGO_TARGET_DIR') or str(ROOT / 'programs/target'))
     base = [CARGO, 'test', '--locked', '--manifest-path', 'programs/Cargo.toml', '-p', 'layerx-programs-runtime']
     output = run(base + ['--lib', '--', 'scan::tests::'], 'scan unit suite', env)
     ran = set(re.findall(r'^test (\S+) \.\.\. ok$', output, re.M))

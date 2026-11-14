@@ -46,6 +46,11 @@ def test_native_archives_track_source_membership(tmp_path):
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(ROOT / name, destination)
         assert destination.read_bytes() == (ROOT / name).read_bytes()
+    for source in ROOT.glob("tools/**/python-tests.mk"):
+        destination = repo / source.relative_to(ROOT)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, destination)
+        assert destination.read_bytes() == source.read_bytes()
 
     build = repo / "out" / "native-archives"
     archives = (build / "liblayerx.a", build / "liblayerx-testing.a")

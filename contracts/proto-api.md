@@ -1,6 +1,6 @@
 # Protobuf and REST API contract
 
-The protobuf sources define typed node messages and services for Paxeer. Paxeer mainnet-beta is one BFT network with EVM chain ID **125** (`0x7d`); the kernel is part of the network and proposes blocks. Receipts become final with block commitment. Module names beginning `layerx` are modules or precompile adapters in this network, not a second chain or public interface. Sub-chains are tenant namespaces in the database.
+The protobuf sources define typed node messages and services for Paxeer. Paxeer mainnet-beta uses EVM chain ID **125** (`0x7d`). The LayerX kernel inside `paxd` executes and orders each transaction and builds each block; validators check and commit it. Receipts become final with block commitment. Module names beginning `layerx` are modules or precompile adapters in this network, not a second chain or public interface. Sub-chains are tenant namespaces in the database.
 
 Public node JSON-RPC uses HTTPS at the configured node origin's root path. Node method availability follows the [node RPC contract](rpc.md#public-json-rpc). Protobuf gRPC and its HTTP bindings are separate node server transports configured by the operator; do not append an HTTP query path to an Ethereum endpoint and assume it is mounted there. The `px` namespace answers from node state; `px_register` and `px_requestFunds` are operations of the hosted identity and faucet services declared in [the gateway contract](platform-gateway.md).
 

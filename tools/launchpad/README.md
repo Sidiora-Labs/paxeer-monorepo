@@ -1,6 +1,6 @@
 # tools/launchpad
 
-tools/launchpad contains Python and shell utilities for qualifying launchpad services and SDKs, checking delivery and storage behavior, measuring cache and chart capacity, and enforcing coverage inventories. These checks support components that run on the single Paxeer mainnet-beta BFT network, whose EVM chain ID is 125 and whose committed blocks provide finality.
+tools/launchpad contains Python and shell utilities for qualifying launchpad services and SDKs, checking delivery and storage behavior, measuring cache and chart capacity, and enforcing coverage inventories. These checks support components that run on the single Paxeer mainnet-beta network, whose EVM chain ID is 125: the LayerX kernel inside `paxd` executes and orders each transaction and builds each block; validators check and commit it, and a receipt is final when the validators commit its block.
 
 ## Layout
 

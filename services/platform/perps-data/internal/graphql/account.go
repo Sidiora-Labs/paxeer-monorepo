@@ -14,7 +14,7 @@ import (
 
 type accountAmount string
 
-func (accountAmount) ImplementsGraphQLType(name string) bool { return name == "BigDecimal" }
+func (accountAmount) ImplementsGraphQLType(name string) bool { return name == bigDecimalTypeName }
 
 func (v *accountAmount) UnmarshalGraphQL(input any) error {
 	raw, ok := input.(string)
@@ -135,7 +135,7 @@ func (r *Resolver) User(ctx context.Context, args struct{ Address string }) (*ac
 	return &out, nil
 }
 
-func (r *Resolver) UserBalances(ctx context.Context, args struct{ Address string }) ([]*accountBalance, error) {
+func (r *Resolver) UserBalances(ctx context.Context, args struct{ Address string }) (result0 []*accountBalance, resultErr error) {
 	address, err := accountAddress(args.Address)
 	if err != nil {
 		return nil, err
@@ -153,7 +153,11 @@ func (r *Resolver) UserBalances(ctx context.Context, args struct{ Address string
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); resultErr == nil {
+			resultErr = closeErr
+		}
+	}()
 	out := []*accountBalance{}
 	for rows.Next() {
 		row := new(accountBalance)
@@ -168,7 +172,7 @@ func (r *Resolver) UserBalances(ctx context.Context, args struct{ Address string
 func (r *Resolver) UserDailyPnl(ctx context.Context, args struct {
 	Address string
 	Limit   *int32
-}) ([]*accountDailyPnl, error) {
+}) (result0 []*accountDailyPnl, resultErr error) {
 	address, err := accountAddress(args.Address)
 	if err != nil {
 		return nil, err
@@ -182,7 +186,11 @@ func (r *Resolver) UserDailyPnl(ctx context.Context, args struct {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); resultErr == nil {
+			resultErr = closeErr
+		}
+	}()
 	out := []*accountDailyPnl{}
 	for rows.Next() {
 		row := new(accountDailyPnl)
@@ -194,7 +202,7 @@ func (r *Resolver) UserDailyPnl(ctx context.Context, args struct {
 	return out, rows.Err()
 }
 
-func (r *Resolver) UserAlerts(ctx context.Context, args struct{ Address string }) ([]*accountAlert, error) {
+func (r *Resolver) UserAlerts(ctx context.Context, args struct{ Address string }) (result0 []*accountAlert, resultErr error) {
 	address, err := accountAddress(args.Address)
 	if err != nil {
 		return nil, err
@@ -204,7 +212,11 @@ func (r *Resolver) UserAlerts(ctx context.Context, args struct{ Address string }
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); resultErr == nil {
+			resultErr = closeErr
+		}
+	}()
 	out := []*accountAlert{}
 	for rows.Next() {
 		row := new(accountAlert)
@@ -240,13 +252,17 @@ func (r *Resolver) UserReferrals(ctx context.Context, args struct{ Address strin
 	return &out, nil
 }
 
-func (r *Resolver) ReferralTiers(ctx context.Context) ([]*accountReferralTier, error) {
+func (r *Resolver) ReferralTiers(ctx context.Context) (result0 []*accountReferralTier, resultErr error) {
 	rows, err := r.DB.QueryContext(ctx, `SELECT tier, min_referrals, trunc(min_volume)::text, reward_bps, fee_discount_bps
         FROM perps.referral_tiers ORDER BY min_referrals, min_volume, tier`)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); resultErr == nil {
+			resultErr = closeErr
+		}
+	}()
 	out := []*accountReferralTier{}
 	for rows.Next() {
 		row := new(accountReferralTier)
@@ -272,12 +288,16 @@ func accountScanCompetition(row interface{ Scan(...any) error }, db *sql.DB) (*a
 	return out, nil
 }
 
-func (r *Resolver) Competitions(ctx context.Context) ([]*accountCompetition, error) {
+func (r *Resolver) Competitions(ctx context.Context) (result0 []*accountCompetition, resultErr error) {
 	rows, err := r.DB.QueryContext(ctx, accountCompetitionSelect+` ORDER BY start_at DESC, id DESC`)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); resultErr == nil {
+			resultErr = closeErr
+		}
+	}()
 	out := []*accountCompetition{}
 	for rows.Next() {
 		row, err := accountScanCompetition(rows, r.DB)
@@ -301,7 +321,7 @@ func (r *Resolver) Competition(ctx context.Context, args struct{ ID string }) (*
 	return out, err
 }
 
-func (c *accountCompetition) Rankings(ctx context.Context) ([]*accountCompetitionEntry, error) {
+func (c *accountCompetition) Rankings(ctx context.Context) (result0 []*accountCompetitionEntry, resultErr error) {
 	rows, err := c.db.QueryContext(ctx, `WITH scores AS (
         SELECT e.address, CASE c.metric WHEN 'pnl' THEN
             COALESCE((SELECT sum(p.realized_pnl) FROM perps.position_events p WHERE p.account = e.address
@@ -314,7 +334,11 @@ func (c *accountCompetition) Rankings(ctx context.Context) ([]*accountCompetitio
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); resultErr == nil {
+			resultErr = closeErr
+		}
+	}()
 	out := []*accountCompetitionEntry{}
 	for rows.Next() {
 		row := new(accountCompetitionEntry)

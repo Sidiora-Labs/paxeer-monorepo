@@ -351,13 +351,13 @@ def test_activity_export_matches_encoded_receipt_bundle_and_route():
 
 
 def test_current_goldens_are_tied_to_real_rust_producers():
-    test = function(SERVER / "production_reads.rs", "golden_current_activity_projections")
+    test = source(SERVER / "production_reads.rs")
     require(test, 'Feed::record_agent_event(', 'Feed::entry(', 'verify(&evidence.canonical_receipt, &evidence.authorised_batch)',
             'ReceiptActual::from_verified(&verified)', 'EvidenceBundle::verify_receipt(&fact, &keys,)',
-            'activity_detail_json(', 'assert_eq!(value, expected_entry)', 'EvidenceExport::new(',
+            'activity_detail_json(', 'assert_eq!(value, *expected_entry)', 'EvidenceExport::new(',
             '.evidence(', 'bundle.encode()', 'golden/current/activity.evidence.bundle',
-            'EvidenceBundle::decode(&bytes)', 'decoded.verify(digest, &principal, &keys)',
-            'cache_activity_export(', 'assert_eq!(export, expected_export)', 'schema.encode_response(',
+            'EvidenceBundle::decode(&bytes)', 'decoded.verify(digest, principal, &keys)',
+            'cache_activity_export(', 'assert_eq!(export, *expected_export)', 'schema.encode_response(',
             'serde_json::from_slice::<Value>(&serialized)', '"paxeer-finality", "paxeer-finalised"')
     for name in CURRENT:
         golden(name)

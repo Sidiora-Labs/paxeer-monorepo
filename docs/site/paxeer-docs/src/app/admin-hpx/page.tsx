@@ -20,7 +20,7 @@ export default function AdminHpx() {
       </div>
 
       <h2>Operating the unified network</h2>
-      <p>The HPX distribution installs and manages the Paxeer mainnet-beta BFT node, paxd. The node includes the EVM and native kernel on one network. EVM chain ID 125 identifies this network, and a receipt is final when its block is committed.</p>
+      <p>The HPX distribution installs and manages the Paxeer mainnet-beta paxd node. The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it. The node includes the EVM and native kernel on one network. EVM chain ID 125 identifies this network, and a receipt is final when validators commit its block.</p>
       <p>Runtime logging administration is separate from economic and security administration. Chain governance controls native parameter and admin messages through <code>modules/layerxgov/</code>. Module configuration follows the authorization model implemented by that module.</p>
       <p>Monitor consensus health, block progress, transaction receipts, node connectivity, and the state of the modules used by your applications. The <Link href="/network-parameters">parameter reference</Link>, <Link href="/settlement">settlement lifecycle</Link>, and <Link href="/layerx-kernel">kernel architecture</Link> explain those responsibilities. Application operators integrate through the <Link href="/platform-api">platform API</Link>.</p>
 

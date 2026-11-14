@@ -638,6 +638,7 @@ fn archive_requires_real_reclaim_and_step_up_then_retires_authority_once() {
         Err(ArchiveError::FundsRemain(remaining)) if remaining[0].amount == 1
     ));
     drop(scope);
+    drop(store);
 
     let reclaim_request = reclaim_request(
         "jrn_archivereclaim",
@@ -655,6 +656,7 @@ fn archive_requires_real_reclaim_and_step_up_then_retires_authority_once() {
     Reclaim::start(&mut scope, &reclaim_request, &registry(), 601)
         .unwrap_or_else(|error| panic!("archive reclaim start: {error}"));
     drop(scope);
+    drop(store);
     let mut reclaim_agent = RealAgentLayer::new(
         &fixture.agent_root,
         BTreeMap::from([([0x75; 32], DeliveryMode::TrackThenReceipt)]),
@@ -752,6 +754,7 @@ fn archive_requires_real_reclaim_and_step_up_then_retires_authority_once() {
         Err(ArchiveError::Agent(AgentContractError::Unavailable))
     ));
     drop(scope);
+    drop(store);
 
     let mut store = fixture.store();
     let mut scope = store

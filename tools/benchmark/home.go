@@ -14,7 +14,7 @@ const benchmarkHomeMarker = ".pax-benchmark-home"
 
 // RunHome prepares the dedicated home consumed by benchmark.sh. Reset is an
 // exact path confirmation and is accepted only for a previously marked home.
-func RunHome(args []string, output io.Writer) error {
+func RunHome(args []string, output io.Writer) (err error) {
 	flags := flag.NewFlagSet("benchmark-home", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 	target := flags.String("home", "", "dedicated benchmark directory")
@@ -66,7 +66,7 @@ func RunHome(args []string, output io.Writer) error {
 	if err != nil {
 		return err
 	}
-	defer root.Close()
+	defer func() { err = closeBenchmarkDirectory(root, err) }()
 	entries, err := benchmarkDirectoryEntries(root)
 	if err != nil {
 		return err
@@ -157,23 +157,22 @@ func openBenchmarkDirectory(path string) (*os.Root, error) {
 			}
 		}
 		if err != nil {
-			root.Close()
-			return nil, err
+			return nil, closeBenchmarkDirectory(root, err)
 		}
 		if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
-			root.Close()
-			return nil, errors.New("benchmark home components must be directories, never symlinks")
+			return nil, closeBenchmarkDirectory(root, errors.New("benchmark home components must be directories, never symlinks"))
 		}
 		next, err := root.OpenRoot(component)
 		if err != nil {
-			root.Close()
-			return nil, err
+			return nil, closeBenchmarkDirectory(root, err)
 		}
 		opened, err := next.Stat(".")
-		root.Close()
 		if err != nil || !os.SameFile(info, opened) {
-			next.Close()
-			return nil, errors.New("benchmark home component changed during preparation")
+			err = errors.New("benchmark home component changed during preparation")
+			return nil, closeBenchmarkDirectory(next, closeBenchmarkDirectory(root, err))
+		}
+		if err = root.Close(); err != nil {
+			return nil, closeBenchmarkDirectory(next, err)
 		}
 		root = next
 	}
@@ -191,4 +190,12 @@ func benchmarkDirectoryEntries(root *os.Root) ([]os.DirEntry, error) {
 		return nil, readErr
 	}
 	return entries, closeErr
+}
+
+func closeBenchmarkDirectory(root *os.Root, err error) error {
+	closeErr := root.Close()
+	if err != nil {
+		return err
+	}
+	return closeErr
 }

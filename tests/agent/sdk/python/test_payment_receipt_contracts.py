@@ -399,7 +399,7 @@ def test_payment_baseline_entries_are_retired_and_the_transport_baseline_is_pres
     repaired_paths = {
         "tests/agent/sdk/python/" + name for name in (
             "test_ai_market.py", "test_web_search.py", "test_x402.py",
-            "test_repair_22_33_16.py", "test_repair_22_33_702.py",
+            "test_signed_mutation_contracts.py", "test_payment_receipt_contracts.py",
         )
     }
     retired = [entry for entry in original if entry["nodeid"].split("::")[0] in repaired_paths]

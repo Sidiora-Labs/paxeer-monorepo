@@ -1,3 +1,5 @@
+//go:build layerx_recovery_22_33_47
+
 package main
 
 // Implementation-time extension of daemon/committed-fixture, loaded with a Go

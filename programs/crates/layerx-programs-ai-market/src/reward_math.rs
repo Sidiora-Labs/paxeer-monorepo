@@ -281,7 +281,7 @@ pub fn conservation_holds(
 }
 
 const PAYOUT_BPS: u64 = 10_000;
-#[cfg_attr(target_arch = "wasm32", inline(never))]
+#[cfg_attr(target_arch = "wasm32", inline(always))]
 /// # Errors
 /// Returns an error if the requested operation cannot be completed.
 pub fn split_settled_amount(

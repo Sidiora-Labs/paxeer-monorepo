@@ -7,7 +7,7 @@
 //! captured execution height. Malformed bytes come from the real binding encoder.
 //! The retired `CheckpointFinality` path is exercised as a refusal, not reintroduced.
 //! RPC production replays the registered gateway contract examples in
-//! `tests/fixtures/repair_22_33_1546_gateway.json` over a loopback listener.
+//! `tests/fixtures/gateway_observations.json` over a loopback listener.
 //! The public HTTP/JSON-RPC transport and consumer decoders run on every read;
 //! only refusal cases damage a producer result. No URL comes from the environment.
 //! Inventory finding: `interfaces.kvx::rs-client-ai-market-checkpointfinality-j44`
@@ -577,8 +577,12 @@ struct Crossing {
     worker: Option<JoinHandle<()>>,
 }
 
+#[track_caller]
 fn must<T, E: fmt::Debug>(result: Result<T, E>) -> T {
-    result.unwrap_or_else(|error| panic!("{error:?}"))
+    match result {
+        Ok(value) => value,
+        Err(error) => panic!("{error:?}"),
+    }
 }
 
 impl Crossing {
@@ -703,6 +707,15 @@ fn number(value: &Value) -> u64 {
     }
 }
 
+fn account_digest(value: &Value) -> [u8; 32] {
+    let text = value
+        .as_str()
+        .unwrap_or_else(|| panic!("account digest: {value}"));
+    assert_eq!(text.len(), 64);
+    assert!(text.bytes().all(|byte| byte.is_ascii_hexdigit()));
+    must(market_repair::unhex(text).try_into())
+}
+
 fn word(value: &Value) -> [u8; 32] {
     let hex = value
         .as_str()
@@ -771,7 +784,9 @@ fn assert_network_read_iteration(
     assert_eq!(joined.account.evm_address, Some(*address));
     assert_eq!(
         joined.account.layerx_account,
-        Some(word(&exchange.result["account"]["layerx_account"]))
+        Some(account_digest(
+            &exchange.result["account"]["layerx_account"]
+        ))
     );
     assert_eq!(
         joined.account.layerx_did.as_deref(),

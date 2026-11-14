@@ -4,13 +4,15 @@ PAXEER X / NETWORK DOCUMENTATION
 
 # Applications. Payments. Programs. Build on Paxeer.
 
-Paxeer mainnet-beta runs EVM applications and the embedded LayerX kernel on one BFT network, with native payments, markets and deterministic programs.
+The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit each block.
 
 [Explore the network](https://docs.paxeer.app/unified-network)[Start with the XDK](https://docs.paxeer.app/xdk)
 
-One BFT networkEVM chain ID `125`Native token `PAX`
+LayerX kernelEVM chain ID `125`Native token `PAX`
 
-    Paxeer mainnet-beta: EVM applications and the LayerX kernel execute on one BFT network.EVM 125 · PAX
+    The LayerX kernel executes, orders and receipts every transaction; EVM applications run on the same sequence.EVM 125 · PAX
+
+On arrival, the kernel gives each transaction a position in one global sequence and returns a signed execution receipt. Validators check and commit each block it builds.
 
 NETWORK INTERFACES
 
@@ -120,7 +122,7 @@ Nodes, configuration, network services and settlement infrastructure.](https://d
 
 What is the difference between Paxeer X and LayerX?
 
-Paxeer mainnet-beta is one BFT network. LayerX is its embedded kernel for native activities and deterministic execution. EVM transactions call native precompiles, and receipt finality comes from the covering block commit. [Explore the network architecture](https://docs.paxeer.app/paxeer-vs-layerx)
+Paxeer X is the network and LayerX its kernel. LayerX executes each transaction on arrival, orders it, signs the receipt and builds the block that validators commit. EVM transactions run on the same sequence and call native precompiles. Receipt finality comes from the commit of the covering block. [Explore the network architecture](https://docs.paxeer.app/paxeer-vs-layerx)
 
  Which chain ID and token does the network use?
 
@@ -132,7 +134,7 @@ Through scoped, revocable delegation: primary and session keys, budget limits an
 
  How do I verify a payment actually settled?
 
-Verify the signed execution receipt against trusted receipt keys, check its transaction and outcome, and confirm the covering BFT block is committed. [Receipts and proofs](https://docs.paxeer.app/receipts)
+Verify the signed execution receipt against trusted receipt keys, check its transaction and outcome, and confirm the covering block is committed. [Receipts and proofs](https://docs.paxeer.app/receipts)
 
  Can I use my existing EVM tooling?
 
@@ -140,7 +142,7 @@ Yes. Deploy Solidity with Foundry or Hardhat, connect wallets over JSON-RPC, and
 
  How do I run a node or operate the network?
 
-Start with installation and configuration, then the operator guides for BFT nodes, validators, RPC endpoints and retained chain history. [Run a node](https://docs.paxeer.app/run-node)
+Start with installation and configuration, then the operator guides for paxd nodes, validators, RPC endpoints and retained chain history. [Run a node](https://docs.paxeer.app/run-node)
 
 ## Build an application. Connect to Paxeer.
 
