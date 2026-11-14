@@ -22095,3 +22095,63 @@ fix = "Decision 3539. Task 22.39.551 joins them at start."
 title = "The price sidecar keeps eight submissions pending by default while a node admits one sequence per account at a time"
 symptom = "default_max_pending_submissions in services/platform/hosted/feeder/src/bin/price-sidecar/main.rs returns 8, so a sidecar without the key starts a round at every cadence until eight submissions of its account are pending. A node admits a submission only at the committed sequence of the account and answers every later sequence with account sequence mismatch until the earlier one is committed. With the default a round after the first is refused and repeated."
 fix = "Decision 3540. Task 22.39.552 sets the default to one."
+
+[gotcha.4455]
+title = "The ordinary deliver step of the concurrent block path takes stores that do not serve iteration"
+symptom = "ProcessTXsWithOCCGiga in node/app.go builds two schedulers from engine/deps/tasks: one for the fast executor and one with app.DeliverTx for the ordinary deliver path. tryInitMultiVersionStore in engine/deps/tasks/scheduler.go gives both the stores of the fast executor, whose Iterator and ReverseIterator in engine/deps/store/cachekv.go are not served. A handler of the ordinary deliver path that iterates a store, such as the balance migration of the address association in utils/helpers/associate.go, therefore ends differently on this path than in synchronous delivery."
+fix = "Decision 3541. Task 22.39.553 gives the ordinary deliver step the view of synchronous delivery."
+
+[gotcha.4456]
+title = "The deliver entry of the node does not honour the trace switch"
+symptom = "DeliverTx in node/abci.go passes a fixed false as the last argument of ResponseDeliverTxWithEvents at both of its calls, while the same calls in sdk/baseapp/abci.go pass the trace switch of the application. A node started with the trace switch reports a failed delivery of this entry with the short text only."
+fix = "Decision 3542. Task 22.39.554 passes the switch."
+
+[gotcha.4457]
+title = "The tracing methods answer tx parse error for a block built by the sequencing node"
+symptom = "For a block built by a node with sequencing enabled, debug_traceTransaction, debug_traceBlockByNumber and debug_traceCall of rpc/tracers.go answer with the text expected 2 wire type, got 0: tx parse error, while the block read methods serve the same block. The entry of the block that the transaction decoder does not read has not been named yet."
+fix = "Decision 3543. Task 22.39.555 names it and makes the tracing methods read such a block."
+
+[gotcha.4458]
+title = "The request watch of the web search service starts at block zero when a cursor stands without a journal"
+symptom = "RequestWatcher::open in services/interop/crates/x-websearch/src/watch.rs sets the next block to zero when the cursor file exists and the journal does not. On a long chain the scan from zero does not end in useful time, and a read endpoint that keeps only recent blocks refuses the early ranges, so the watch does not advance."
+fix = "Decision 3544. Task 22.39.556 continues at the cursor and moves forward to the earliest block the endpoint serves."
+
+[gotcha.4459]
+title = "The start test of the daemon command names a standby address without replication TLS material"
+symptom = "TestNewAppPassesSequencerConfigToNode in daemon/paxd/cmd/new_app_test.go sets the standby address flag and none of the five replication flags of node/sequencer/config.go. ReplicationTLSConfig in node/sequencer/dial.go requires certificate, key, roots and peer identity wherever a standby is named, so the case needs that material to start the node."
+fix = "Decision 3545. Task 22.39.551 gives the case the material."
+
+[gotcha.4460]
+title = "Six cases of the spend composition test need directories that only its producer makes"
+symptom = "actual_guest in programs/crates/layerx-programs-runtime/tests/program_spend_composition.rs reads the directory named by PAXEER_X_SPEND_GUESTS, and two cases read the directory named by PAXEER_X_SPEND_RESULTS. Only tools/qualification/paxeer-x/program_spend_composition.py makes these directories and sets the two names, and it runs each case alone by its exact name. The programs-test target of the Makefile runs the tests of the whole workspace without the two names, so the six cases whose names begin with actual_ find no input there."
+fix = "Decision 3546. Task 22.39.509 carries the change."
+
+[gotcha.4461]
+title = "The price sidecar keeps a submission that the node refused as ahead of the committed sequence"
+symptom = "attempt in services/platform/hosted/feeder/src/bin/price-sidecar/round.rs puts a submission into the pending list before the broadcast, and record_broadcast raises the next account sequence of the journal. When the node answers the broadcast with account sequence mismatch because the sent sequence is ahead of the committed one, the entry stays in the list with its sequences and next_submission signs every later submission past it. With max_pending_submissions above one and a node that admits only the committed sequence, the later submissions get the same answer until the entry is decided as evicted, which takes pending_submission_block_limit blocks where the node does not serve the transaction lookup."
+fix = "Decision 3547. Task 22.39.557 removes such an entry at once."
+
+[gotcha.4462]
+title = "The local node script stops its full node before the first EVM call"
+symptom = "In sequencer mode tools/qualification/localnode/v6120-node.sh starts a full node under the role bootstrap-peer beside the sequencing node and stops it once the sequencing node has left block sync, before the mint, approve, deposit and feed key calls. No test of tools/qualification/localnode therefore shows a node without sequencing applying a block that the sequencing node built from EVM transactions."
+fix = "Decision 3548. Task 22.39.558 adds the option and the tests."
+
+[gotcha.4463]
+title = "The release scripts name the release version as a literal"
+symptom = "tools/release/version.json holds the version and the upgrade plan, and the workflows read it. tools/release/preflight.sh and tools/release/postflight.sh compare the version of a node with the literals 7.0.0 and v7.0.0, and tools/release/tests/identity.test.sh holds the literal as well. A release that keeps the plan and raises the version needs each of these places changed by hand."
+fix = "Decision 3549. Task 22.39.559 makes the scripts follow the file and sets 7.0.1."
+
+[gotcha.4464]
+title = "The live check of paid search selects an offer the web search service does not publish"
+symptom = "CheckSearchPayment in tools/bringup/live_rpc.go takes the offer whose scheme is metered and sends a standing grant id, and check_search in tools/bringup/check-live.sh requires CHECK_LIVE_SEARCH_GRANT_ID. The web search service publishes only offers of the exact scheme, where the buyer sends payExact at 0x000000000000000000000000000000000000101a and presents the transaction, and the ledger has retired grants and metered draws. The check therefore ends with the message that the metered offer is absent."
+fix = "Decision 3550. Task 22.39.560 moves the check to the exact scheme."
+
+[gotcha.4465]
+title = "No test pays for a search against a running network"
+symptom = "The tests of services/interop/crates/x-websearch answer the ledger and the receipt reads with stand-in endpoints, and the tests of tools/qualification/localnode send no transaction to the ledger precompile. The chain of steps a buyer and a seller take on a network, from the registration of an asset to the released result, is shown by no test, and no test shows a node without sequencing applying the blocks of these steps."
+fix = "Decision 3551. Task 22.39.561 adds the cases on the local network."
+
+[gotcha.4466]
+title = "The web search service offers payment in assets without reading their records"
+symptom = "resolve_receiver in services/interop/crates/x-websearch/src/payment.rs reads the identity of the receiver and derives one account for each accepted asset through accountId. It does not read the record of an asset, and it reads once: after the first success the state stays ready. An asset that the ledger does not hold, or holds as paused, is therefore offered, and a buyer cannot pay such an offer."
+fix = "Decision 3552. Task 22.39.562 reads the records and withholds such assets."

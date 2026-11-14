@@ -50,6 +50,12 @@ type Node struct {
 
 func NewNode(cfg Config, a *app.App) (_ *Node, err error) {
 	if !cfg.Enable {
+		if option, forward := NewFollowerReceiptOption(cfg); forward {
+			if a == nil {
+				return nil, fmt.Errorf("%w: sequencer needs an app", ErrConfigValue)
+			}
+			a.SetSequencerRPC(evmrpc.SequencerOption{}, option)
+		}
 		return nil, nil
 	}
 	if err := cfg.Validate(); err != nil {

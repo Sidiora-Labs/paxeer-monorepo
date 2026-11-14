@@ -447,6 +447,30 @@ fn config_path(arguments: impl IntoIterator<Item = OsString>) -> Option<PathBuf>
         .then(|| PathBuf::from(path))
 }
 
+enum CommandMode {
+    Serve,
+    ReceiverStatus,
+    BindReceiver(PathBuf),
+}
+
+fn invocation(arguments: impl IntoIterator<Item = OsString>) -> Option<(PathBuf, CommandMode)> {
+    let arguments: Vec<_> = arguments.into_iter().collect();
+    let path = config_path(arguments.get(..2)?.iter().cloned())?;
+    let command = match &arguments[2..] {
+        [] => CommandMode::Serve,
+        [command] if command == "receiver-status" => CommandMode::ReceiverStatus,
+        [command, option, path]
+            if command == "bind-receiver"
+                && option == "--identity-key-file"
+                && !path.is_empty() =>
+        {
+            CommandMode::BindReceiver(PathBuf::from(path))
+        }
+        _ => return None,
+    };
+    Some((path, command))
+}
+
 /// The program relay and what it runs beside: the EVM endpoint it reads the
 /// registered attestor set from and the time between its steps.
 struct RelayParts {
@@ -1222,6 +1246,7 @@ fn start_relay(
                             .saturating_sub(relay.confirmations)
                             .saturating_add(1)
                             .saturating_sub(next)),
+                        "blocks_skipped": watcher.skipped_blocks(),
                         "pending": watcher.program_work().len(),
                     }));
                 }
@@ -1319,9 +1344,11 @@ fn wind_down(
 }
 
 fn main() -> ExitCode {
-    let Some(path) = config_path(std::env::args_os().skip(1)) else {
+    let Some((path, command)) = invocation(std::env::args_os().skip(1)) else {
         eprintln!("Paxeer X Network web search sidecar");
         eprintln!("usage: x-websearch --config PATH");
+        eprintln!("       x-websearch --config PATH receiver-status");
+        eprintln!("       x-websearch --config PATH bind-receiver --identity-key-file PATH");
         return ExitCode::from(2);
     };
     let config = match x_websearch::load(&path) {
@@ -1331,6 +1358,23 @@ fn main() -> ExitCode {
             return ExitCode::from(2);
         }
     };
+    let identity_path = match &command {
+        CommandMode::Serve => None,
+        CommandMode::ReceiverStatus => Some(None),
+        CommandMode::BindReceiver(path) => Some(Some(path.as_path())),
+    };
+    if let Some(identity_path) = identity_path {
+        return match x_websearch::receiver::run(&config, identity_path) {
+            Ok(report) => {
+                println!("{report}");
+                ExitCode::SUCCESS
+            }
+            Err(error) => {
+                eprintln!("x-websearch receiver command: {error}");
+                ExitCode::FAILURE
+            }
+        };
+    }
     let keys = match KeyFiles::from_env().and_then(|files| files.load()) {
         Ok(keys) => keys,
         Err(error) => {
