@@ -3,8 +3,10 @@
 Asynchronous Rust client for the Chainflow Data Gateway REST API and WebSocket
 streams. The default gateway is selected by [`Environment`](src/client.rs).
 
-For Paxeer integrations, the network is one BFT chain with chain ID 125 (`0x7d`);
-its kernel proposes blocks and receipts are final when their block is committed.
+For Paxeer integrations, the network is one chain with chain ID 125 (`0x7d`).
+The LayerX kernel inside paxd executes and orders each transaction and builds
+each block; validators check and commit it. A receipt is final when the
+validators commit its block.
 Node JSON-RPC uses the public node root path. Configure node access separately
 from this market-data client; see [public RPC](../../../docs/readme/PUBLIC-RPC.md).
 

@@ -3,8 +3,10 @@
 This directory holds the Rust agent workspace, Python and TypeScript SDKs,
 API schemas, tests and boundary tools. It provides non-authoritative clients,
 policy, custody, proof verification and agent-facing tools for Paxeer
-mainnet-beta, the single BFT network run by `paxd`. Its kernel proposes blocks,
-and a receipt is final when its block is committed. Sub-chains are tenant
+mainnet-beta, the single network run by `paxd`. The LayerX kernel inside paxd
+executes and orders each transaction and builds each block; validators check and
+commit it; a receipt is final when its block is committed by the validators.
+Sub-chains are tenant
 domains in the database, without a separate deployment for each tenant.
 
 ## Layout
