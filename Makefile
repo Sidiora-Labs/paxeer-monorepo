@@ -18,6 +18,7 @@ AGENT_NODE_RPC_URL ?= http://127.0.0.1:8545
 AGENT_BOUNDARY_COMMAND ?= $(AGENT_CARGO) run --manifest-path services/agent/tests/boundary/Cargo.toml --locked --
 AGENT_BOUNDARY_MODE ?=
 HUMAN_CARGO ?= cargo
+HUMAN_TEST_SCOPE ?= --workspace
 HUMAN_API_GEN ?= $(HUMAN_CARGO) run --manifest-path services/human/tools/api-gen/Cargo.toml --locked --
 HUMAN_API_SCHEMA_DIR ?= services/human/schema/human-api
 HUMAN_API_OUT_DIR ?= apps/web/src/api/generated
@@ -1742,7 +1743,7 @@ human-build:
 	$(HUMAN_NPM) run build
 
 human-test: human-test-hosted-provisioning
-	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(HUMAN_CARGO) test --manifest-path $(HUMAN_MANIFEST) --locked --workspace
+	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(HUMAN_CARGO) test --manifest-path $(HUMAN_MANIFEST) --locked $(HUMAN_TEST_SCOPE)
 	$(HUMAN_NPM) test
 
 HUMAN_TARGET_DIR ?= $(or $(CARGO_TARGET_DIR),$(CURDIR)/services/human/target)
@@ -1978,6 +1979,7 @@ public-tls-test-prerequisites:
 	cargo build --manifest-path services/platform/Cargo.toml --locked -p layerx-platform-paxeer-boundary -p layerx-runtime-clock --target-dir "$(PUBLIC_TLS_TEST_TARGET_DIR)"
 
 AGENT_TEST_TARGET_DIR := $(abspath $(or $(CARGO_TARGET_DIR),.lane-target))
+AGENT_TEST_SCOPE ?= --workspace
 
 .PHONY: agent-test-native-prerequisites
 agent-test agent-test-sanitize: agent-test-native-prerequisites
@@ -1990,7 +1992,7 @@ agent-test-native-prerequisites:
 	LAYERX_TEST_NATIVE_BUILD_DIR="$(abspath $(BUILD_DIR))" CARGO_TARGET_DIR="$(AGENT_TEST_TARGET_DIR)" sh services/agent/tools/run-real-node-tests.sh prepare
 
 agent-test: public-tls-test-prerequisites
-	LAYERX_PAXEER_BOUNDARY_BIN="$(PUBLIC_TLS_TEST_BOUNDARY)" LAYERX_RUNTIME_CLOCK_BIN="$(PUBLIC_TLS_TEST_CLOCK)" LAYERX_TEST_RUNTIME_CLOCK_BIN="$(PUBLIC_TLS_TEST_CLOCK)" sh $(CURDIR)/tools/runtime/run-with-clock.sh $(AGENT_CARGO) test --manifest-path $(AGENT_MANIFEST) --locked --workspace
+	LAYERX_PAXEER_BOUNDARY_BIN="$(PUBLIC_TLS_TEST_BOUNDARY)" LAYERX_RUNTIME_CLOCK_BIN="$(PUBLIC_TLS_TEST_CLOCK)" LAYERX_TEST_RUNTIME_CLOCK_BIN="$(PUBLIC_TLS_TEST_CLOCK)" sh $(CURDIR)/tools/runtime/run-with-clock.sh $(AGENT_CARGO) test --manifest-path $(AGENT_MANIFEST) --locked $(AGENT_TEST_SCOPE)
 
 agent-lint:
 	$(AGENT_CARGO) clippy --manifest-path $(AGENT_MANIFEST) --locked --workspace --all-targets -- -D warnings

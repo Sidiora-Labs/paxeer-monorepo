@@ -1,4 +1,5 @@
 use crate::{config, server, store, wire};
+use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use layerx_client::runtime_clock::{ClockBinding, RuntimeClock};
 use layerx_crypto::evm_transaction::{decode_signed, recover_sender};
 use layerx_human_service::custody::{
@@ -6,6 +7,7 @@ use layerx_human_service::custody::{
 };
 use layerx_human_service::frame::{Limits, MutualTlsConfig};
 use layerx_types::clock::Clock;
+use ring::signature::{Ed25519KeyPair, KeyPair};
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, ServerName};
 use rustls::{
     ClientConfig, ClientConnection, RootCertStore, ServerConfig, ServerConnection, StreamOwned,
@@ -239,7 +241,8 @@ impl Host {
                 peers.push(worker);
             }
             let assertion = root.join(format!("owner-{index}.jwt"));
-            fs::write(&assertion, format!("fixture-owner-{principal}"))?;
+            let now = clock.sample(Duration::from_secs(1))?.unix_seconds();
+            fs::write(&assertion, owner_assertion(principal, now)?)?;
             fs::set_permissions(&assertion, fs::Permissions::from_mode(0o600))?;
             rows.push(json!({"binding":binding.digest(),"tenant":"tenant","principal":principal,"assertion_file":assertion,
                 "config":{"nodes":nodes,"trust_anchors":[root.join("ca.der")],"client_certificate_chain":[root.join("client.der")],
@@ -285,7 +288,7 @@ impl Host {
     pub fn start(&mut self) -> Result<()> {
         let store = Arc::new(Mutex::new(checked(store::Store::open(&self.config))?));
         let config = self.config.clone();
-        let clock = self.clock.clone();
+        let clock = RuntimeClock::connect(self.clock_service.binding.clone())?;
         let listener = TcpListener::bind(self.address)?;
         self.kms = Some(Worker::spawn(listener, move |tcp| {
             // Production connection authenticates mTLS, decodes and validates the
@@ -383,6 +386,20 @@ impl Host {
     }
 }
 
+pub fn owner_assertion(principal: &str, now: u64) -> Result<String> {
+    let issuer =
+        Ed25519KeyPair::from_seed_unchecked(&[7; 32]).map_err(|_| "owner assertion key")?;
+    let header = URL_SAFE_NO_PAD.encode(br#"{"alg":"EdDSA","typ":"JWT"}"#);
+    let claims = URL_SAFE_NO_PAD.encode(serde_json::to_vec(&json!({
+        "sub": format!("fixture-owner-{principal}"), "iat": now, "exp": now + 600,
+    }))?);
+    let content = format!("{header}.{claims}");
+    Ok(format!(
+        "{content}.{}",
+        URL_SAFE_NO_PAD.encode(issuer.sign(content.as_bytes()).as_ref())
+    ))
+}
+
 fn peer(
     tcp: TcpStream,
     config: &Arc<ServerConfig>,
@@ -405,9 +422,36 @@ fn peer(
     }
     let header = std::str::from_utf8(&header)?;
     assert!(header.starts_with("POST /v1/sign HTTP/1.1\r\n"));
-    assert!(header
-        .to_ascii_lowercase()
-        .contains("authorization: bearer fixture-owner-"));
+    let authorization = header
+        .lines()
+        .find_map(|line| {
+            let (name, value) = line.split_once(':')?;
+            name.eq_ignore_ascii_case("authorization")
+                .then_some(value.trim())
+        })
+        .ok_or("owner assertion missing")?;
+    let parts: Vec<_> = authorization
+        .strip_prefix("Bearer ")
+        .ok_or("bearer missing")?
+        .split('.')
+        .collect();
+    assert_eq!(parts.len(), 3);
+    let issuer =
+        Ed25519KeyPair::from_seed_unchecked(&[7; 32]).map_err(|_| "owner assertion key")?;
+    ring::signature::UnparsedPublicKey::new(
+        &ring::signature::ED25519,
+        issuer.public_key().as_ref(),
+    )
+    .verify(
+        format!("{}.{}", parts[0], parts[1]).as_bytes(),
+        &URL_SAFE_NO_PAD.decode(parts[2])?,
+    )
+    .map_err(|_| "owner assertion signature")?;
+    let claims: Value = serde_json::from_slice(&URL_SAFE_NO_PAD.decode(parts[1])?)?;
+    assert!(matches!(
+        claims["sub"].as_str(),
+        Some("fixture-owner-alice" | "fixture-owner-bob")
+    ));
     let length = header
         .lines()
         .find_map(|line| {

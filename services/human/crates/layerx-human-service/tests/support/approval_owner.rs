@@ -819,6 +819,7 @@ impl HoldContext<'_> {
             1 => 25,
             2 => 26,
             3 => 24,
+            4 => 77,
             _ => panic!("undeclared hold"),
         };
         word[16..].copy_from_slice(&u128::to_be_bytes(amount));
@@ -1030,11 +1031,11 @@ fn create_approval_limit(
 
 fn prepare_holds(ids: &[u8], context: &HoldContext<'_>) -> BTreeMap<u8, Prepared> {
     let mut prepared = BTreeMap::new();
-        for &id in ids {
-            let (held, amount) = context.prepare(id);
-            context.reserve(id, &held, amount);
-            prepared.insert(id, held);
-        }
+    for &id in ids {
+        let (held, amount) = context.prepare(id);
+        context.reserve(id, &held, amount);
+        prepared.insert(id, held);
+    }
     prepared
 }
 

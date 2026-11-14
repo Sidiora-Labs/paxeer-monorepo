@@ -150,9 +150,9 @@ fn replay_settled_on_the_node_maps_to_idempotent_replay() {
         let local_key = [7; 32];
         assert_eq!(
             store
-                .execute(local_key, b"local-request", 100, |attempt| {
+                .execute(local_key, b"local-request", 101, |attempt| {
                     assert!(!attempt.retry);
-                    assert_eq!(attempt.head_height, 100);
+                    assert_eq!(attempt.head_height, 101);
                     assert_eq!(attempt.transaction_hash, None);
                     Ok(result())
                 })
@@ -161,14 +161,14 @@ fn replay_settled_on_the_node_maps_to_idempotent_replay() {
         );
         assert_eq!(
             store
-                .execute(local_key, b"local-request", 101, |_| {
+                .execute(local_key, b"local-request", 102, |_| {
                     panic!("a locally settled transaction must never be resubmitted")
                 })
                 .unwrap_or_else(|error| panic!("local replay: {error:?}")),
             Outcome::RepeatedOriginal(result())
         );
         assert!(matches!(
-            store.execute(local_key, b"changed-local-request", 101, |_| {
+            store.execute(local_key, b"changed-local-request", 102, |_| {
                 panic!("conflicting request bytes must never execute")
             }),
             Err(IdempotencyError::Conflict(conflict)) if conflict.key == local_key
@@ -226,6 +226,12 @@ fn replay_settled_on_the_node_maps_to_idempotent_replay() {
         store
             .sweep(111)
             .unwrap_or_else(|error| panic!("expire node result: {error:?}")),
+        1
+    );
+    assert_eq!(
+        store
+            .sweep(112)
+            .unwrap_or_else(|error| panic!("expire local result: {error:?}")),
         1
     );
 }

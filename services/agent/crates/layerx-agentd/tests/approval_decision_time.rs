@@ -253,7 +253,7 @@ fn durable_awaiting_hold_lists_gets_and_approves_with_explicit_time() {
     let reopened = Durable::open(&directory);
     assert_eq!(
         reopened.registry.replay_tenant(&tenant, &reopened.limiter),
-        Ok(0)
+        Ok(1)
     );
     assert_eq!(
         require_ok(
@@ -297,7 +297,7 @@ fn durable_awaiting_hold_rejects_with_explicit_time() {
     let reopened = Durable::open(&directory);
     assert_eq!(
         reopened.registry.replay_tenant(&tenant, &reopened.limiter),
-        Ok(0)
+        Ok(1)
     );
     assert_eq!(
         require_ok(

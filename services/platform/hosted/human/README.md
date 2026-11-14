@@ -338,7 +338,13 @@ The error instructs the operator to retain custody and retry the same request.
 The KMS's private state and original idempotency key remain the recovery source;
 a timeout does not authorize a new owner or regenerated keys.
 
-## Committed account observations
+## Remaining cluster migration barriers
+
+The retained configuration below is not a provisioning recipe for merged accounts.
+Use authenticated committed observations and preserve the original owner state
+and recovery binding when reconciling retained material.
+
+### Committed account observations
 
 `human_owner_provision` runs the offline identity and counterparty jobs with
 exclusive access to identity state. The merged owner producer then registers
@@ -351,8 +357,28 @@ The `layerx.human.account-head.v1` result contains `schema`, `chain_id`,
 `observed_at`, `balance` and `consumed`. Provisioning requires a positive
 committed height and `consumed = 0` for the initial limit. It retains the full
 observation in `account-observation.json` and its consumed result in
-`account-head-result.json`. A retained account's later observations must reflect
-its actual balance and usage.
+`account-head-result.json`. The validator authenticates the account binding,
+balance and debit sequence at a stable committed head; only a zero debit
+sequence permits `consumed=0`. Retired protocol-3 batch-number-one envelopes
+are refused. Never synthesize the result from a balance, reset consumed limits
+or replace missing evidence with zero.
+
+### Retained process configuration
+
+[`material.py`](material.py) publishes `LAYERX_HUMAN_MOVEMENT_PROVIDER_`
+settings for the merged ledger and payment bindings, and configures the local
+movement socket as `/run/layerx/human/movement.sock`. Its policy graph retains
+the `human-movement` role, and KMS executor certificates use the
+`layerx-human-movement` identity. The [node manifest](../node/deployment.yaml)
+defines only the native node container; these projections require a workload
+that supplies their runtime consumers.
+
+Generated owner-agent settings retain `HUMAN_NODE_LNI` pointing at
+`/run/layerx/node/layerxd.lni.sock`. The current agent consumes the configured
+node JSON-RPC endpoint and committed receipts. Preserve retained material
+bindings during reconciliation.
+
+### Registry generation
 
 `registry_kernel_material` reads an authenticated signed registry generation
 and verifies its network, signer and replica bindings before publishing the

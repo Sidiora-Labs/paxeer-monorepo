@@ -15,6 +15,7 @@ mod control_fixture {
 
     use std::collections::{BTreeMap, BTreeSet};
     use std::fs;
+    use std::os::unix::fs::PermissionsExt as _;
 
     use ed25519_dalek::{Signer as _, SigningKey};
     use layerx_agentd::budget::{
@@ -109,6 +110,8 @@ mod control_fixture {
             primary_public_key: [u8; 32],
         ) -> Self {
             fs::create_dir_all(&root).unwrap_or_else(|error| panic!("agent root: {error}"));
+            fs::set_permissions(&root, fs::Permissions::from_mode(0o700))
+                .unwrap_or_else(|error| panic!("agent root permissions: {error}"));
             Self {
                 store: Store::open(&root).unwrap_or_else(|error| panic!("agent store: {error}")),
                 sessions: SessionRegistry::default(),
@@ -2008,8 +2011,12 @@ mod archive_fixture {
                         .unwrap_or_else(|error| panic!("entropy: {error}")),
                 )
                 .unwrap_or_else(|error| panic!("generate key: {error}"));
+            let signer_root = root.join("signer-store");
+            let signer_digest = map
+                .install(&signer_root)
+                .unwrap_or_else(|error| panic!("signer tenancy: {error}"));
             let signer_store =
-                PrincipalStore::open(&store_root, retention_uniform(10_000), tenancy_digest)
+                PrincipalStore::open(&signer_root, retention_uniform(10_000), signer_digest)
                     .unwrap_or_else(|error| panic!("signer store: {error}"));
             let signer = CustodySigner::new(
                 keystore,
@@ -2702,6 +2709,7 @@ mod archive_fixture {
             );
         }
         drop(scope);
+        drop(store);
 
         let modes = BTreeMap::from([
             ([0x71; 32], DeliveryMode::TrackThenReceipt),
@@ -3385,6 +3393,7 @@ mod archive_fixture {
             Err(ArchiveError::FundsRemain(remaining)) if remaining[0].amount == 1
         ));
         drop(scope);
+        drop(store);
 
         let funds = &mut boundary.inner.sessions_mut().contract_mut().funds;
         funds.before[0].amount = 0;
@@ -3507,6 +3516,7 @@ mod archive_fixture {
             Err(ArchiveError::Agent(AgentContractError::Unavailable))
         ));
         drop(scope);
+        drop(store);
 
         let mut store = fixture.store();
         let mut scope = store
