@@ -21945,3 +21945,8 @@ fix = "Decision 3510. Task 22.43.334."
 title = "The test target of the platform workspaces takes no member selection"
 symptom = "The target platform-test runs the tests of every member of the platform workspace in one cargo line and those of the workspace of the platform tools in a second. A task that brings a group of members in line cannot be counted on that group."
 fix = "Decision 3511. The two cargo lines read their member selections from variables whose defaults are the present options."
+
+[gotcha.4425]
+title = "A case of the program interface tests reads fixtures that only its harness provides"
+symptom = "The case on native receipts in the interface tests of the member layerx-programs-registry reads its fixtures from a directory that the harness of the program interface provides. The target programs-test runs the same test program without that directory."
+fix = "Decision 3512. The case carries an ignore attribute and the harness runs its test program with the ignored cases included."
