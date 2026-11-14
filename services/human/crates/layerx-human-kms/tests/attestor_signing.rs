@@ -81,7 +81,7 @@ use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::sync::{Arc, Condvar, Mutex};
+use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
 use zeroize::Zeroizing;
@@ -94,6 +94,7 @@ const TLS_KEY: &[u8] = include_bytes!("../src/fixtures/attestor_tls/peer.pk8");
 const SIGNERS: [&str; 3] = ["node-1", "node-2", "node-3"];
 const PROVIDER: &str = "repair-22-33-25";
 const MAX_FRAME: usize = 2_097_152;
+static ATTESTOR_FIXTURE: Mutex<()> = Mutex::new(());
 
 fn checked<T, E: std::fmt::Debug>(result: std::result::Result<T, E>) -> Result<T> {
     result.map_err(|error| format!("{error:?}").into())
@@ -329,6 +330,7 @@ struct PeerContext {
     sequence: Arc<AtomicUsize>,
 }
 struct Peers {
+    _serial: MutexGuard<'static, ()>,
     runtime: Runtime,
     root: Directory,
     nodes: Vec<(String, SocketAddr)>,
@@ -402,6 +404,9 @@ fn authenticate(token: &str, clock: &dyn Clock) -> String {
 }
 impl Peers {
     fn new() -> Arc<Self> {
+        let serial = ATTESTOR_FIXTURE
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
         let runtime = Runtime::new();
         let root = Directory::new();
         let tls = server_tls();
@@ -461,6 +466,7 @@ impl Peers {
             }));
         }
         Arc::new(Self {
+            _serial: serial,
             runtime,
             root,
             nodes,
@@ -1069,7 +1075,7 @@ fn native_sessions_journal_replay_conflict_and_restart() -> Result {
         .is_err());
     assert!(fs::metadata(&journal)?.len() < 8 * 1024 * 1024);
     let mut expiring = purpose.clone();
-    let expires = peers.runtime.now() + 1;
+    let expires = peers.runtime.now() + 5;
     expiring.expires_at_ms = expires * 1000;
     recovered.sign_native_preparation_purpose(&expiring, "expiring", &assertion)?;
     while peers.runtime.now() <= expires {
@@ -1136,38 +1142,58 @@ fn fragmented_handshake_and_frame_release_all_permits() -> Result {
     );
     await_count(&host.active, 0, peers.runtime.clock.as_ref());
     let start = std::sync::Barrier::new(16);
-    let mut frames = thread::scope(|scope| {
-        let workers: Vec<_> = (0..16)
-            .map(|_| {
-                scope.spawn(|| -> std::io::Result<_> {
+    let frames_started = AtomicUsize::new(0);
+    let config = client_tls();
+    let connections = (0..16)
+        .map(|_| {
+            ClientConnection::new(
+                config.clone(),
+                ServerName::IpAddress(host.address.ip().into()),
+            )
+        })
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    let started = peers.runtime.reading();
+    thread::scope(|scope| -> std::io::Result<()> {
+        let workers: Vec<_> = connections
+            .into_iter()
+            .map(|connection| {
+                let start = &start;
+                let frames_started = &frames_started;
+                let active = &host.active;
+                let address = host.address;
+                scope.spawn(move || -> std::io::Result<()> {
                     start.wait();
-                    let mut stream = tls(host.address);
+                    let tcp = TcpStream::connect(address)?;
+                    tcp.set_nodelay(true)?;
+                    tcp.set_read_timeout(Some(Duration::from_secs(10)))?;
+                    tcp.set_write_timeout(Some(Duration::from_secs(10)))?;
+                    let mut stream = StreamOwned::new(connection, tcp);
                     while stream.conn.is_handshaking() {
                         stream.conn.complete_io(&mut stream.sock)?;
                     }
                     stream.write_all(&100_u32.to_be_bytes())?;
+                    stream.write_all(&[0x41])?;
                     stream.flush()?;
-                    Ok(stream)
+                    frames_started.fetch_add(1, Ordering::AcqRel);
+                    for _ in 0..30 {
+                        thread::sleep(Duration::from_millis(25));
+                        let _ = stream.write_all(&[0x41]);
+                        let _ = stream.flush();
+                        if active.load(Ordering::Acquire) == 0 {
+                            break;
+                        }
+                    }
+                    Ok(())
                 })
             })
             .collect();
-        workers
-            .into_iter()
-            .map(|worker| worker.join().unwrap_or_else(|error| panic!("{error:?}")))
-            .collect::<std::io::Result<Vec<_>>>()
+        await_count(&host.active, 16, peers.runtime.clock.as_ref());
+        for worker in workers {
+            worker.join().unwrap_or_else(|error| panic!("{error:?}"))?;
+        }
+        Ok(())
     })?;
-    await_count(&host.active, 16, peers.runtime.clock.as_ref());
-    let started = peers.runtime.reading();
-    for _ in 0..30 {
-        thread::sleep(Duration::from_millis(25));
-        for stream in &mut frames {
-            let _ = stream.write_all(&[0x41]);
-            let _ = stream.flush();
-        }
-        if host.active.load(Ordering::Acquire) == 0 {
-            break;
-        }
-    }
+    assert_eq!(frames_started.load(Ordering::Acquire), 16);
     assert_eq!(
         host.active.load(Ordering::Acquire),
         0,
@@ -1248,7 +1274,7 @@ fn blocked_attestor_expires_queued_authority_and_late_result() {
     let mut host = Host::new(peers.clone(), Duration::from_secs(10));
     let description = host.create(0);
     let mut first = plan(&peers, 0, 0, 1);
-    first.not_after = peers.runtime.now() + 1;
+    first.not_after = peers.runtime.now() + 5;
     host.action(7, 0, &description, &encoded(&first));
     peers.gate.hold();
     let address = host.address;
