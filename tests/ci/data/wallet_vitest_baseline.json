@@ -156,31 +156,31 @@
     "retiring_task": "22.39.145"
   },
   {
-    "file": "sdk/wallet/test/repair-22-31-238.test.ts",
+    "file": "sdk/wallet/test/receipt-authentication-session-binding.test.ts",
     "full_name": "receipt_fields_lost_preserves_complete_node_views",
     "reason": "JsonRpcTransportError: the receipt authentication fixture returns a response that does not answer the request id.",
     "retiring_task": "22.39.145"
   },
   {
-    "file": "sdk/wallet/test/repair-22-31-238.test.ts",
+    "file": "sdk/wallet/test/receipt-authentication-session-binding.test.ts",
     "full_name": "receipt_authentication_rejects_tampered_node_outputs",
     "reason": "JsonRpcTransportError: the receipt authentication fixture returns a response that does not answer the request id.",
     "retiring_task": "22.39.145"
   },
   {
-    "file": "sdk/wallet/test/repair-22-31-238.test.ts",
+    "file": "sdk/wallet/test/receipt-authentication-session-binding.test.ts",
     "full_name": "receipt_authentication_protects_module_provider_and_ladder_consumers",
     "reason": "JsonRpcTransportError: the receipt authentication fixture returns a response that does not answer the request id.",
     "retiring_task": "22.39.145"
   },
   {
-    "file": "sdk/wallet/test/repair-22-31-238.test.ts",
+    "file": "sdk/wallet/test/receipt-authentication-session-binding.test.ts",
     "full_name": "default_node_hosted_methods_require_hosted_configuration_and_use_producer_namespaces",
     "reason": "AssertionError: the account method now uses the node root rather than the recorded hosted namespace.",
     "retiring_task": "22.39.145"
   },
   {
-    "file": "sdk/wallet/test/repair-22-33-135.test.ts",
+    "file": "sdk/wallet/test/review-storage-auth-rpc.test.ts",
     "full_name": "react_auth_refresh_tracks_stable_client_and_discards_replaced_reads",
     "reason": "TypeError: the React refresh case reads active from an undefined renderer result.",
     "retiring_task": "22.39.145"

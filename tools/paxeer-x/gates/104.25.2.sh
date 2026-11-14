@@ -19,7 +19,7 @@ ROOT = Path(sys.argv[1])
 BUILD = sys.argv[2:] == ['--build']
 if sys.argv[2:] and not BUILD:
     raise SystemExit('usage: 104.25.2.sh [--build]')
-EVIDENCE = Path(os.environ.get('PAXEER_X_MIRROR_EVIDENCE_ROOT', '/root/lx-ops/paxeer-x-integration-2026-10-03/qualification/task104252'))
+EVIDENCE = Path(os.environ.get('PAXEER_X_MIRROR_EVIDENCE_ROOT', str(ROOT / 'build/qualification/104.25.2')))
 DEADLINE = int(os.environ.get('PAXEER_X_TASK_DEADLINE_EPOCH', str(int(time.time()) + 1800)))
 TESTS = ['verify::tests::native_fixture_receipt_verifies_and_altered_bytes_are_refused']
 
@@ -33,8 +33,8 @@ def private_directory(path):
     path.mkdir(mode=0o700, parents=True, exist_ok=True)
     resolved = path.resolve()
     info = resolved.stat()
-    if (resolved == ROOT or ROOT in resolved.parents or not stat.S_ISDIR(info.st_mode)
-            or info.st_uid != os.geteuid() or info.st_mode & 0o077):
+    if ((resolved == ROOT or ROOT in resolved.parents) and resolved != ROOT / 'build/qualification/104.25.2') \
+            or not stat.S_ISDIR(info.st_mode) or info.st_uid != os.geteuid() or info.st_mode & 0o077:
         refuse('evidence directory is not private and outside source')
     return resolved
 
@@ -86,7 +86,7 @@ def execute(argv, log, maximum, environment=None):
 
 def build(directory):
     before = source_identity()
-    lock_path = Path('/root/lx-cargo/interop-build.lock')
+    lock_path = ROOT / 'build/qualification/cargo/interop-build.lock'
     lock_path.parent.mkdir(parents=True, exist_ok=True)
     with lock_path.open('a') as lock:
         while True:
@@ -96,10 +96,10 @@ def build(directory):
             except BlockingIOError:
                 remaining(1)
                 time.sleep(1)
-        command = ['/root/.cargo/bin/cargo', 'build', '--locked', '--manifest-path', 'services/interop/Cargo.toml',
+        command = ['cargo', 'build', '--locked', '--manifest-path', 'services/interop/Cargo.toml',
                    '-p', 'layerx-mirror', '--tests', '--bin', 'layerx-mirror-verify', '--message-format=json']
         execute(command, directory / 'build.log', 1200)
-    with Path('/root/lx-cargo/platform-build.lock').open('a') as platform_lock:
+    with ROOT / 'build/qualification/cargo/platform-build.lock'.open('a') as platform_lock:
         while True:
             try:
                 fcntl.flock(platform_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -107,8 +107,8 @@ def build(directory):
             except BlockingIOError:
                 remaining(1)
                 time.sleep(1)
-        execute(['/root/.cargo/bin/cargo', 'build', '--locked', '--manifest-path', 'services/platform/Cargo.toml', '-p', 'layerx-platform-gateway', '--bin', 'layerx-gateway'], directory / 'gateway-build.log', 600,
-                dict(os.environ, CARGO_TARGET_DIR='/root/lx-target/platform'))
+        execute(['cargo', 'build', '--locked', '--manifest-path', 'services/platform/Cargo.toml', '-p', 'layerx-platform-gateway', '--bin', 'layerx-gateway'], directory / 'gateway-build.log', 600,
+                dict(os.environ, CARGO_TARGET_DIR=os.environ.get('CARGO_TARGET_DIR') or str(ROOT / 'services/platform/target')))
     if source_identity() != before:
         refuse('source changed during compilation')
     artifacts = {}
@@ -129,7 +129,7 @@ def build(directory):
     if not tsc_value:
         refuse('PAXEER_X_MIRROR_WEB_TSC must name the web TypeScript compiler (apps/web/node_modules/typescript/bin/tsc)')
     tsc = Path(tsc_value)
-    node = Path('/root/lx-toolchains/node24/bin/node')
+    node = Path('node')
     execute([str(node), str(tsc), '--noEmit', '--incremental', 'false', '--project', str(ROOT / 'apps/web/tsconfig.json')], directory / 'web-typecheck.log', 300)
     if source_identity() != before:
         refuse('consumer source changed during focused typecheck')

@@ -14,7 +14,9 @@ from urllib.parse import urlsplit
 
 
 ROOT = Path(__file__).resolve().parents[3]
-README = (ROOT / "README.md").read_text(encoding="utf-8")
+NETWORK_PATH = ROOT / "docs/readme/NETWORK.md"
+README = NETWORK_PATH.read_text(encoding="utf-8")
+PUBLIC_RPC = (ROOT / "docs/readme/PUBLIC-RPC.md").read_text(encoding="utf-8")
 RECORD = ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_1549.kvx"
 
 
@@ -44,16 +46,21 @@ def section(heading, level=3):
 
 def test_f59_integrated_network_and_merge_status():
     overview = section("What is Paxeer X Network?", 2)
+    assert "There is no separate LayerX interface, router, or unified `/rpc` endpoint." in source(
+        "docs/wiki/Protocol.md"
+    )
     for fact in (
-        "one BFT network",
+        "The LayerX kernel runs inside every `paxd` node.",
         "chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.",
         "proposes blocks inside `paxd`",
         "validators commit those blocks through BFT consensus",
         "A receipt is final once its block is committed",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
         "External checkpoint settlement is retired",
-        "no router and no separate LayerX interface",
     ):
         assert fact in overview, fact
     releases = section("Releases and Network Upgrades")
@@ -74,16 +81,14 @@ def test_f59_integrated_network_and_merge_status():
 
 def test_f59_root_rpc_hosts_and_chain_probe():
     quickstart = section("Quick start: connect to chain 125")
+    assert "Use `api1` through `api14.mainnet-beta.paxeer.network` or" in PUBLIC_RPC
+    assert "`api-mainnet-beta.paxeer.network`, all at the root path." in PUBLIC_RPC
     for fact in (
-        "Public node JSON-RPC uses the root URL",
-        "`https://api-mainnet-beta.paxeer.network`",
-        "`https://api1.mainnet-beta.paxeer.network` through "
-        "`https://api14.mainnet-beta.paxeer.network`",
-        "root path of these hosts, without a route suffix",
-        "node.hyperpaxeer.com` is only the hpx library mirror",
-        "never a JSON-RPC endpoint",
+        "Send HTTPS JSON-RPC requests to the root path without a route suffix",
+        "Set `PAXEER_RPC_URL` to a node root URL",
     ):
         assert fact in quickstart, fact
+    assert "`node.hyperpaxeer.com` is only the hpx library mirror, never a JSON-RPC endpoint." in PUBLIC_RPC
     blocks = re.findall(r"```sh\n(.*?)\n```", quickstart, re.S)
     assert len(blocks) == 1
     command = blocks[0].split("\n# Expected result:", 1)[0].replace("\\\n", " ")
@@ -98,14 +103,14 @@ def test_f59_root_rpc_hosts_and_chain_probe():
         "params": [],
     }
     assert '# Expected result: "0x7d"' in blocks[0]
-    assert [arg for arg in argv if arg.startswith("https://")] == [
-        "https://api1.mainnet-beta.paxeer.network"
+    assert [arg for arg in argv if arg.startswith(("https://", "http://", "$"))] == [
+        "$PAXEER_RPC_URL"
     ]
     allowed_hosts = {
         "api-mainnet-beta.paxeer.network",
         *(f"api{i}.mainnet-beta.paxeer.network" for i in range(1, 15)),
     }
-    for url in re.findall(r"https?://[^\s`<>)]+", README):
+    for url in re.findall(r"https?://[^\s`<>)]+", PUBLIC_RPC):
         parsed = urlsplit(url)
         if parsed.hostname and parsed.hostname.endswith("mainnet-beta.paxeer.network"):
             assert parsed.hostname in allowed_hosts

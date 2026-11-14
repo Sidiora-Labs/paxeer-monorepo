@@ -10,7 +10,9 @@ from urllib.parse import urlsplit
 
 
 ROOT = Path(__file__).resolve().parents[3]
-README = (ROOT / "README.md").read_text(encoding="utf-8")
+NETWORK_PATH = ROOT / "docs/readme/NETWORK.md"
+README = NETWORK_PATH.read_text(encoding="utf-8")
+PUBLIC_RPC = (ROOT / "docs/readme/PUBLIC-RPC.md").read_text(encoding="utf-8")
 RECORD = (ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_982.kvx")
 
 
@@ -39,9 +41,16 @@ def section(heading, level=3):
 
 def test_merged_paxd_network_and_block_commit_finality():
     overview = section("What is Paxeer X Network?", 2)
+    assert "There is no separate LayerX interface, router, or unified `/rpc` endpoint." in source(
+        "docs/wiki/Protocol.md"
+    )
     for fact in (
-        "one BFT network with EVM chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node",
+        "The LayerX kernel runs inside every `paxd` node.",
+        "EVM chain ID **125** (`0x7d`)",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.",
         "proposes blocks inside `paxd`",
         "validators commit those blocks through BFT consensus",
         "C17 kernel in `src/` and `include/` runs inside `paxd`",
@@ -49,7 +58,6 @@ def test_merged_paxd_network_and_block_commit_finality():
         "A signed execution receipt can arrive before that commitment",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
         "External checkpoint settlement is retired",
-        "no router and no separate LayerX interface",
         "outside consensus",
     ):
         assert fact in overview, fact
@@ -64,18 +72,16 @@ def test_merged_paxd_network_and_block_commit_finality():
 
 def test_chain_125_and_numbered_root_rpc_hosts():
     quickstart = section("Quick start: connect to chain 125")
-    assert "Public node JSON-RPC uses the root URL" in quickstart
-    assert "root path of these hosts, without a route suffix" in quickstart
-    assert (
-        "`https://api1.mainnet-beta.paxeer.network` through "
-        "`https://api14.mainnet-beta.paxeer.network`"
-    ) in quickstart
+    assert "Use `api1` through `api14.mainnet-beta.paxeer.network` or" in PUBLIC_RPC
+    assert "`api-mainnet-beta.paxeer.network`, all at the root path." in PUBLIC_RPC
+    assert "Send HTTPS JSON-RPC requests to the root path without a route suffix" in quickstart
+    assert "Set `PAXEER_RPC_URL` to a node root URL" in quickstart
     assert "gateway contract does not establish method availability at public node URLs" in quickstart
     allowed_hosts = {
         "api-mainnet-beta.paxeer.network",
         *(f"api{i}.mainnet-beta.paxeer.network" for i in range(1, 15)),
     }
-    for url in re.findall(r"https?://[^\s`<>)]+", README):
+    for url in re.findall(r"https?://[^\s`<>)]+", PUBLIC_RPC):
         parsed = urlsplit(url)
         if parsed.hostname and parsed.hostname.endswith("mainnet-beta.paxeer.network"):
             assert parsed.hostname in allowed_hosts, url
@@ -85,8 +91,8 @@ def test_chain_125_and_numbered_root_rpc_hosts():
     assert len(blocks) == 1
     argv = shlex.split(blocks[0].split("\n# Expected result:")[0].replace("\\\n", " "))
     assert argv[0] == "curl"
-    assert [arg for arg in argv if arg.startswith("https://")] == [
-        "https://api1.mainnet-beta.paxeer.network"
+    assert [arg for arg in argv if arg.startswith(("https://", "http://", "$"))] == [
+        "$PAXEER_RPC_URL"
     ]
     assert argv[argv.index("--max-time") + 1] == "10"
     assert argv[argv.index("-H") + 1] == "Content-Type: application/json"
@@ -209,10 +215,10 @@ def test_current_build_start_and_source_links():
         re.findall(r"```sh\n(.*?)\n```", README, re.S)
     ))
     links = re.findall(r"\]\(([^)]+)\)", README)
-    assert {"daemon/paxd/", "modules/lxphost/", "node/upgrades.go", "rpc/send.go"} <= set(links)
+    assert {"../../daemon/paxd/", "../../modules/lxphost/", "../../node/upgrades.go", "../../rpc/send.go"} <= set(links)
     for target in links:
         if not target.startswith(("https:", "http:", "#")):
-            assert (ROOT / target.split("#", 1)[0]).exists(), target
+            assert (NETWORK_PATH.parent / target.split("#", 1)[0]).exists(), target
 
 
 def test_finding_record_names_every_proof_and_evidence_contract():

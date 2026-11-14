@@ -31,8 +31,7 @@ The authoritative API is the Go
 See [Client and Server](./abci++_client_server_002_draft.md) for integration and
 startup details.
 
-Paxeer mainnet-beta is one BFT network, run by `paxd`, with EVM chain ID 125
-(`0x7d`). The kernel is part of that network and proposes blocks. A receipt is
+Paxeer mainnet-beta uses EVM chain ID 125 (`0x7d`). The LayerX kernel runs inside every `paxd` node, executes each transaction when it arrives, assigns the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it. A receipt is
 final once its block is committed. Sub-chains are tenant domains represented by
 database namespaces, rather than independently deployed consensus engines.
 

@@ -11,8 +11,8 @@ Tendermint trust, validator and timing assumptions; the
 [discussion decisions](discussions.md) explain why conflicting headers alone
 are insufficient and why proof minimization must not require a faulty primary.
 
-Paxeer is one BFT network with its kernel inside the network participating in
-block proposal. Its EVM chain ID is 125 (`0x7d`), and a receipt is final once
+Paxeer uses EVM chain ID 125 (`0x7d`).
+The LayerX kernel runs inside every `paxd` node, executes each transaction when it arrives, assigns the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it. A receipt is final once
 its block is committed. These proposals concern an observer verifying a chain
 and an IBC client verifying counterparty headers. They do not introduce another
 execution domain or settlement stage.

@@ -7,6 +7,7 @@ from pathlib import Path
 import signal
 import socket
 import stat
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -14,8 +15,8 @@ import time
 from urllib.parse import urlparse
 
 ROOT = Path(__file__).resolve().parents[3]
-NODE = Path('/root/lx-toolchains/node24/bin/node')
-EVIDENCE = Path(os.environ.get('WALLET_SUPPORTED_DEMO_EVIDENCE_ROOT', '/root/lx-ops/paxeer-x-integration-2026-10-03/task-14.7'))
+NODE = 'node'
+EVIDENCE = Path(os.environ.get('WALLET_SUPPORTED_DEMO_EVIDENCE_ROOT', ROOT / "build/qualification/wallet-supported-demo"))
 MANIFEST = EVIDENCE / 'candidate.json'
 DEMO = ROOT / 'services/wallet/demo'
 SDK = ROOT / 'sdk/wallet'
@@ -268,9 +269,8 @@ def emit_programs(directory):
 def main():
     EVIDENCE.mkdir(parents=True, exist_ok=True, mode=0o700)
     require(EVIDENCE.stat().st_mode & 0o077 == 0, 'private evidence directory required')
-    require(NODE.is_file(), 'actual Node24 tooling required')
+    require(shutil.which(NODE) is not None, 'actual Node24 tooling required')
     environment = os.environ.copy()
-    environment['PATH'] = str(NODE.parent) + ':' + environment.get('PATH', '')
     if sys.argv[1:] == ['--build']:
         before = sources()
         require((ROOT / 'services/agent/sdk/typescript/dist/src/index.js').is_file(), 'prebuilt actual Agent SDK prerequisite required')

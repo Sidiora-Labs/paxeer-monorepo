@@ -116,7 +116,7 @@ def test_runbook_work_sequence_examples_match_strict_handler_and_customer_author
                  'return Err(RampError::PayerGrantRequired)')
     assert_facts(operations, 'omit `account_sequence` or send JSON `null`',
                  "pending EVM nonce", 'RampEngine::submit_customer_payment',
-                 'currently no reference HTTP request', 'keep off-ramp\nenablement closed')
+                 'For a customer-signed\n   off-ramp')
     assert_facts(source("toolkit/src/engine.rs"), 'pub fn submit_customer_payment(')
 
 
@@ -128,7 +128,7 @@ def test_runbook_finality_matches_transaction_recovery_and_bft_refusals():
                  'changed committed block identity', 'Keep inventory unavailable',
                  'do not credit from stale inclusion', 'external-custody disclosure')
     engine = source("toolkit/src/engine.rs")
-    assert_facts(engine, 'self.layerx.resolve_transaction(', 'if leg.rung != Rung::Committed')
+    assert_facts(engine, 'self.layerx.resolve_transaction(', 'if committed {')
     clients = source("toolkit/src/clients.rs")
     assert_facts(clients, '.sequencer_receipt(&tx_hash)',
                  'self.authenticate_payment_transaction(order, tx_hash, raw)?',
@@ -169,7 +169,10 @@ def test_readme_missing_purpose_examples_and_conflict_bind_real_order_schema():
 
 def test_readme_payment_path_matches_native_compiler_transport_and_receipt_verifier():
     readme = source("README.md")
-    assert_facts(readme, 'chain ID is **125**', '`eth_sendRawTransaction`', '`pax_sequencerReceipt`',
+    assert_facts(" ".join(readme.split()),
+                 'The LayerX kernel inside `paxd` executes and orders each transaction '
+                 'and builds each block; validators check and commit it.')
+    assert_facts(readme, 'EVM chain ID **125**', '`eth_sendRawTransaction`', '`pax_sequencerReceipt`',
                  '`budgetSpend(bytes32,bytes32,uint128)`', '`submit_customer_payment`',
                  'independently pinned Ed25519 receipt', 'height ranges', '`PayerGrantRequired`',
                  'base64 compact 64-byte `signature` and `recovery_id`',
@@ -302,7 +305,7 @@ def test_merged_relay_producer_route_and_native_service_are_documented_without_p
     operations = source('OPERATIONS.md')
     assert_facts(operations, 'paxd` Service `layerx-native-chain` on 8545',
                  'There is no public\nprovider egress', 'four owner boundary Services',
-                 'before claiming a reachable runtime deployment')
+                 'obtain and qualify those deployments before activation')
 
 
 def test_journey_retired_verifier_current_config_and_cli_producer_consumer_contract():

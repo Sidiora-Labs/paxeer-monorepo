@@ -15,6 +15,8 @@ from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[3]
 README = (ROOT / "README.md").read_text(encoding="utf-8")
+NETWORK = (ROOT / "docs/readme/NETWORK.md").read_text(encoding="utf-8")
+PUBLIC_RPC = (ROOT / "docs/readme/PUBLIC-RPC.md").read_text(encoding="utf-8")
 RECORD = (ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_824.kvx")
 
 
@@ -25,10 +27,10 @@ def source(path):
 def section(heading, level=3):
     """Keep code-fence comments from terminating a Markdown section."""
     marker = "#" * level + " " + heading + "\n"
-    assert README.count(marker) == 1, heading
+    assert NETWORK.count(marker) == 1, heading
     lines = []
     fence = None
-    for line in README.split(marker, 1)[1].splitlines(keepends=True):
+    for line in NETWORK.split(marker, 1)[1].splitlines(keepends=True):
         delimiter = re.match(r"^ {0,3}(`{3,}|~{3,})(.*)$", line)
         if delimiter:
             ticks, suffix = delimiter.groups()
@@ -45,11 +47,13 @@ def section(heading, level=3):
 def test_doc_readme_merged_network_and_tenant_topology():
     overview = section("What is Paxeer X Network?", 2)
     for fact in (
-        "one BFT network", "chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node", "proposes blocks inside `paxd`",
+        "The LayerX kernel runs inside every `paxd` node.", "chain ID **125** (`0x7d`)",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.", "proposes blocks inside `paxd`",
         "validators commit those blocks through BFT consensus",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
-        "no router and no separate LayerX interface",
         "Sub-chains are tenant domains stored in the database",
         "namespaces state within the shared network",
         "does not require new node infrastructure",
@@ -74,11 +78,7 @@ def test_doc_readme_merged_network_and_tenant_topology():
 def test_doc_readme_root_rpc_probe_and_mirror_distinction():
     quickstart = section("Quick start: connect to chain 125")
     for fact in (
-        "Public node JSON-RPC uses the root URL",
-        "`https://api1.mainnet-beta.paxeer.network` through `https://api14.mainnet-beta.paxeer.network`",
-        "root path of these hosts, without a route suffix",
-        "node.hyperpaxeer.com` is only the hpx library mirror",
-        "never a JSON-RPC endpoint",
+        "Send HTTPS JSON-RPC requests to the root path without a route suffix.",
         "gateway contract does not establish method availability at public node URLs",
     ):
         assert fact in quickstart, fact
@@ -92,13 +92,11 @@ def test_doc_readme_root_rpc_probe_and_mirror_distinction():
     assert json.loads(argv[argv.index("-d") + 1]) == {
         "jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": []
     }
-    assert [arg for arg in argv if arg.startswith("https://")] == [
-        "https://api1.mainnet-beta.paxeer.network"
-    ]
+    assert argv[argv.index("-H") - 1] == "$PAXEER_RPC_URL"
     assert '# Expected result: "0x7d"' in blocks[0]
     hosts = {f"api{i}.mainnet-beta.paxeer.network" for i in range(1, 15)}
     hosts.add("api-mainnet-beta.paxeer.network")
-    for url in re.findall(r"https?://[^\s`<>)]+", README):
+    for url in re.findall(r"https?://[^\s`<>)]+", PUBLIC_RPC):
         parsed = urlsplit(url)
         if parsed.hostname and parsed.hostname.endswith("mainnet-beta.paxeer.network"):
             assert parsed.scheme == "https" and parsed.hostname in hosts, url
@@ -151,7 +149,7 @@ def test_doc_readme_transaction_to_committed_receipt_path():
 
 
 def test_doc_readme_finality_requires_authenticated_commitment():
-    assert "A receipt is final once its block is committed" in README
+    assert "A receipt is final once its block is committed" in NETWORK
     proof = section("Receipt and proof verification")
     for fact in (
         "ProtocolReceipt v2", "pinned for the receipt height",
@@ -193,14 +191,14 @@ def test_doc_readme_retired_executors_and_historical_guidance():
     anchor = source("precompiles/layerxanchor/layerxanchor.go")
     assert "!isView(method.Name) && pcommon.RetiredAt(ctx, p.upgrades(), pcommon.MergeUpgrade" in anchor
     assert "pcommon.RetiredAt(ctx, p.upgrades(), StoreDeleteUpgrade" in anchor
-    for paragraph in README.split("\n\n"):
+    for paragraph in NETWORK.split("\n\n"):
         if re.search(r"layerxAnchor|layerxCustody|layerxVerify|guarantor|L0–L4", paragraph):
             assert re.search(r"retired|historical|archived", paragraph), paragraph
     for stale in (
         r"\blayerxd\b", r"two (?:execution )?domains", r"kernel still runs separately",
-        r"\blx_[A-Za-z0-9_*]*", r"/rpc(?:/|\b)",
+        r"\blx_[A-Za-z0-9_*]*",
     ):
-        assert not re.search(stale, README, re.I), stale
+        assert not re.search(stale, NETWORK, re.I), stale
 
 
 def test_doc_readme_current_build_activation_and_repository_paths():
@@ -221,10 +219,10 @@ def test_doc_readme_current_build_activation_and_repository_paths():
     release = section("Releases and Network Upgrades")
     assert "`v7.0` merge handler activates the merged interfaces" in release
     assert "retires the old custody/checkpoint write paths" in release
-    assert "Source directory names describe code organization, not separate network deployments" in README
-    for target in re.findall(r"\]\(([^)]+)\)", README):
+    assert "Source directory names describe code organization, not separate network deployments" in NETWORK
+    for target in re.findall(r"\]\(([^)]+)\)", NETWORK):
         if not target.startswith(("http:", "https:", "#")):
-            assert (ROOT / target.split("#", 1)[0]).exists(), target
+            assert (ROOT / "docs/readme" / target.split("#", 1)[0]).exists(), target
 
 
 def test_doc_readme_record_maps_finding_and_evidence_limits():

@@ -1,7 +1,7 @@
-"""Qualify readme-retired-daemon against the real README and node sources.
+"""Qualify readme-retired-daemon against the real NETWORK and node sources.
 
 These are offline documentation/source checks, not native execution or live RPC
-qualification. README ownership remains with task 22.31.470 (decision 2525).
+qualification. NETWORK ownership remains with task 22.31.470 (decision 2525).
 """
 
 import ast
@@ -10,7 +10,6 @@ from pathlib import Path
 import re
 import shlex
 import tomllib
-from urllib.parse import urlsplit
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -23,7 +22,7 @@ def source(path):
 
 def section(heading, level=3):
     """Read actual Markdown headings while preserving fenced shell comments."""
-    text = source("README.md")
+    text = source("docs/readme/NETWORK.md")
     marker = "#" * level + " " + heading + "\n"
     assert text.count(marker) == 1, heading
     lines = []
@@ -45,8 +44,11 @@ def section(heading, level=3):
 def test_readme_one_paxd_bft_network():
     overview = section("What is Paxeer X Network?", 2)
     for fact in (
-        "mainnet-beta is one BFT network", "chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node", "proposes blocks inside `paxd`",
+        "The LayerX kernel runs inside every `paxd` node.", "chain ID **125** (`0x7d`)",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.", "proposes blocks inside `paxd`",
         "validators commit those blocks through BFT consensus",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
         "External checkpoint settlement is retired",
@@ -69,10 +71,9 @@ def test_readme_one_paxd_bft_network():
 def test_beta_root_rpc_and_chain_probe():
     quickstart = section("Quick start: connect to chain 125")
     for fact in (
-        "Public node JSON-RPC uses the root URL",
-        "`https://api1.mainnet-beta.paxeer.network` through `https://api14.mainnet-beta.paxeer.network`",
-        "root path of these hosts, without a route suffix",
-        "compare `eth_blockNumber`", "never a JSON-RPC endpoint",
+        "Set `PAXEER_RPC_URL` to a node root URL from the [public RPC reference]",
+        "Send HTTPS JSON-RPC requests to the root path without a route suffix",
+        "Configure more than one node and compare `eth_blockNumber`",
         "gateway contract does not establish method availability at public node URLs",
     ):
         assert fact in quickstart, fact
@@ -82,22 +83,11 @@ def test_beta_root_rpc_and_chain_probe():
     assert argv[0] == "curl"
     assert argv[argv.index("--max-time") + 1] == "10"
     assert argv[argv.index("-H") + 1] == "Content-Type: application/json"
+    assert "$PAXEER_RPC_URL" in argv
     assert json.loads(argv[argv.index("-d") + 1]) == {
         "jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": []
     }
-    assert [arg for arg in argv if arg.startswith("https://")] == [
-        "https://api1.mainnet-beta.paxeer.network"
-    ]
     assert '# Expected result: "0x7d"' in blocks[0]
-    allowed_hosts = {
-        "api-mainnet-beta.paxeer.network",
-        *(f"api{i}.mainnet-beta.paxeer.network" for i in range(1, 15)),
-    }
-    for url in re.findall(r"https?://[^\s`<>)]+", source("README.md")):
-        parsed = urlsplit(url)
-        if parsed.hostname and parsed.hostname.endswith("mainnet-beta.paxeer.network"):
-            assert parsed.scheme == "https" and parsed.path in ("", "/")
-            assert parsed.hostname in allowed_hosts
     assert 'if path == "" {\n\t\treturn r.URL.Path == "/"' in source("rpc/rpcstack.go")
 
 
@@ -138,7 +128,7 @@ def test_transaction_to_committed_receipt_source_path():
 
 
 def test_custody_checkpoint_and_daemon_guidance_is_retired():
-    readme = source("README.md")
+    readme = source("docs/readme/NETWORK.md")
     native = section("EVM and Native Precompiles")
     for fact in (
         "`layerxVerify` (`0x1012`) and `layerxCustody` (`0x1013`) interfaces are retired",

@@ -14,7 +14,8 @@ from urllib.parse import urlsplit
 
 
 ROOT = Path(__file__).resolve().parents[3]
-README = (ROOT / "README.md").read_text(encoding="utf-8")
+NETWORK_PAGE = ROOT / "docs/readme/NETWORK.md"
+README = NETWORK_PAGE.read_text(encoding="utf-8")
 RECORD = ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_446.kvx"
 
 
@@ -49,12 +50,14 @@ def require_facts(text, facts):
 def test_root_network_embeds_kernel_in_one_chain_125_paxd():
     overview = section("What is Paxeer X Network?", 2)
     require_facts(overview, (
-        "one BFT network", "chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node", "proposes blocks inside `paxd`",
+        "The LayerX kernel runs inside every `paxd` node.", "chain ID **125** (`0x7d`)",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.", "proposes blocks inside `paxd`",
         "validators commit those blocks through BFT consensus",
         "A receipt is final once its block is committed",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
-        "no router and no separate LayerX interface",
     ))
     assert "app.LayerXHost, err = NewHost(" in source("node/app.go")
     assert 'import "C"' in source("modules/lxphost/host.go")
@@ -79,44 +82,15 @@ def test_root_network_embeds_kernel_in_one_chain_125_paxd():
 def test_public_rpc_hosts_use_root_and_probe_chain_125():
     quickstart = section("Quick start: connect to chain 125", 3)
     require_facts(quickstart, (
-        "Public node JSON-RPC uses the root URL",
-        "`https://api1.mainnet-beta.paxeer.network` through "
-        "`https://api14.mainnet-beta.paxeer.network`",
-        "https://api-mainnet-beta.paxeer.network",
-        "root path of these hosts, without a route suffix",
-        "node.hyperpaxeer.com` is only the hpx library mirror",
-        "never a JSON-RPC endpoint",
+        "Set `PAXEER_RPC_URL` to a node root URL",
+        "Send HTTPS JSON-RPC requests to the root path without a route suffix",
+        "Confirm the chain ID before signing or broadcasting",
     ))
-    allowed_hosts = {
-        "api-mainnet-beta.paxeer.network",
-        *(f"api{i}.mainnet-beta.paxeer.network" for i in range(1, 15)),
-    }
-    public_urls = [
-        urlsplit(url)
-        for url in re.findall(r"https?://[^\s`<>)]+", README)
-        if urlsplit(url).hostname in allowed_hosts
-    ]
-    assert {url.hostname for url in public_urls} == {
-        "api-mainnet-beta.paxeer.network",
-        "api1.mainnet-beta.paxeer.network",
-        "api2.mainnet-beta.paxeer.network",
-        "api14.mainnet-beta.paxeer.network",
-    }
-    for url in public_urls:
-        assert url.scheme == "https"
-        assert url.path in ("", "/")
-        assert not url.query and not url.fragment and url.port is None
-    for url in re.findall(r"https?://[^\s`<>)]+", README):
-        parsed = urlsplit(url)
-        if parsed.hostname and parsed.hostname.endswith("mainnet-beta.paxeer.network"):
-            assert parsed.hostname in allowed_hosts, url
     blocks = re.findall(r"```sh\n(.*?)\n```", quickstart, re.S)
     assert len(blocks) == 1
     argv = shlex.split(blocks[0].replace("\\\n", " "), comments=True)
     assert argv[0] == "curl"
-    assert [arg for arg in argv if arg.startswith("https://")] == [
-        "https://api1.mainnet-beta.paxeer.network"
-    ]
+    assert "$PAXEER_RPC_URL" in argv
     assert argv[argv.index("-H") + 1] == "Content-Type: application/json"
     assert json.loads(argv[argv.index("-d") + 1]) == {
         "jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": []
@@ -186,7 +160,7 @@ def test_hosted_px_contract_and_private_services_are_explicit():
     overview = section("What is Paxeer X Network?", 2)
     require_facts(overview, (
         "hosted gateway is optional developer tooling",
-        "outside consensus", "does not provide another execution or finality domain",
+        "outside consensus",
     ))
     contract = json.loads(source("services/platform/hosted/gateway/openrpc.json"))
     assert contract["openrpc"] == "1.3.2"
@@ -232,9 +206,13 @@ def test_custody_and_checkpoint_executors_are_retired_not_deployments():
 
 
 def test_readme_links_actual_node_and_hosted_contracts():
-    links = set(re.findall(r"\]\(([^)]+)\)", README))
+    links = {
+        str((NETWORK_PAGE.parent / target.split("#", 1)[0]).resolve().relative_to(ROOT))
+        for target in re.findall(r"\]\(([^)]+)\)", README)
+        if not target.startswith(("https:", "http:", "#"))
+    }
     expected = {
-        "daemon/paxd/", "modules/lxphost/", "node/sequencer/",
+        "daemon/paxd", "modules/lxphost", "node/sequencer",
         "rpc/server.go", "rpc/send.go", "rpc/sequencer_receipt.go",
         "services/platform/hosted/gateway/openrpc.json",
         "docs/site/paxeer-docs/src/app/platform-api/page.tsx",

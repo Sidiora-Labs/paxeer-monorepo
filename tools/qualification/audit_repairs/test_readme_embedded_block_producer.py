@@ -14,7 +14,9 @@ from urllib.parse import urlsplit
 
 
 ROOT = Path(__file__).resolve().parents[3]
-README = (ROOT / "README.md").read_text(encoding="utf-8")
+NETWORK_PAGE = ROOT / "docs/readme/NETWORK.md"
+README = NETWORK_PAGE.read_text(encoding="utf-8")
+RPC_REFERENCE = (ROOT / "docs/readme/PUBLIC-RPC.md").read_text(encoding="utf-8")
 RECORD = ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_1419.kvx"
 
 
@@ -48,14 +50,20 @@ def require(text, *facts):
 
 def test_051_single_paxd_network_and_embedded_block_producer():
     overview = section("What is Paxeer X Network?", 2)
+    assert "There is no separate LayerX interface, router, or sequencer service to deploy." in source(
+        "docs/wiki/PaxeerBoundary.md"
+    )
     require(
-        overview, "one BFT network", "chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node", "proposes blocks inside `paxd`",
+        overview, "The LayerX kernel runs inside every `paxd` node.", "chain ID **125** (`0x7d`)",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.", "proposes blocks inside `paxd`",
         "validators commit those blocks through BFT consensus",
         "A receipt is final once its block is committed",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
-        "no router and no separate LayerX interface", "outside consensus",
-        "durable WAL for recovery", "without an external settlement service",
+        "The public API reaches the node directly at the root path on EVM chain ID 125", "outside consensus",
+        "durable WAL for recovery", "External checkpoint settlement is retired",
     )
     require(source("node/app.go"), "app.LayerXHost, err = NewHost(")
     require(source("modules/lxphost/host.go"), 'import "C"')
@@ -68,10 +76,9 @@ def test_051_single_paxd_network_and_embedded_block_producer():
 def test_051_root_rpc_hosts_and_chain_probe_match_node_transport():
     quickstart = section("Quick start: connect to chain 125")
     require(
-        quickstart, "Public node JSON-RPC uses the root URL",
-        "root path of these hosts, without a route suffix",
-        "`https://api1.mainnet-beta.paxeer.network` through "
-        "`https://api14.mainnet-beta.paxeer.network`",
+        quickstart + RPC_REFERENCE, "Send HTTPS JSON-RPC requests to the root path without a route suffix.",
+        "root path without a route suffix",
+        "Use `api1` through `api14.mainnet-beta.paxeer.network` or",
         "compare `eth_blockNumber`",
         "node.hyperpaxeer.com` is only the hpx library mirror",
         "never a JSON-RPC endpoint",
@@ -85,12 +92,12 @@ def test_051_root_rpc_hosts_and_chain_probe_match_node_transport():
     assert json.loads(argv[argv.index("-d") + 1]) == {
         "jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": [],
     }
-    assert [arg for arg in argv if arg.startswith("https://")] == [
-        "https://api1.mainnet-beta.paxeer.network",
+    assert [arg for arg in argv if arg.startswith(("https://", "http://", "$"))] == [
+        "$PAXEER_RPC_URL",
     ]
     assert '# Expected result: "0x7d"' in blocks[0]
     assert hex(125) == "0x7d"
-    urls = re.findall(r"https?://[^\s`<>)]+", README)
+    urls = re.findall(r"https?://[^\s`<>)]+", RPC_REFERENCE)
     hosts = {f"api{i}.mainnet-beta.paxeer.network" for i in range(1, 15)}
     for url in urls:
         parsed = urlsplit(url)
@@ -219,8 +226,9 @@ def test_051_build_commands_target_the_merged_node_without_obsolete_steps():
     release = section("Releases and Network Upgrades")
     require(release, "executes kernel activity inside `paxd`",
             "commits it with the BFT chain state")
+    assert "The former unified router and its prefixed RPC routes are retired." in RPC_REFERENCE
     for stale in (
-        r"\blayerxd\b", r"\blx_sendActivity\b", r"/rpc(?:/|\b)",
+        r"\blayerxd\b", r"\blx_sendActivity\b", r"https?://[^\s`<>)]+/rpc(?:/|\b)",
         r"merge is (?:only )?a draft", r"kernel still runs separately",
     ):
         assert not re.search(stale, README, re.I), stale

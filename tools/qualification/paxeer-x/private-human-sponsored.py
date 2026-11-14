@@ -6,18 +6,19 @@ import json
 import os
 from pathlib import Path
 import stat
+import shutil
 import subprocess
 import sys
 import time
 import urllib.parse
 
 ROOT = Path(__file__).resolve().parents[3]
-NODE = Path('/root/lx-toolchains/node24/bin/node')
+NODE = 'node'
 WEB = ROOT / 'apps/web'
-EVIDENCE = Path(os.environ.get('PRIVATE_HUMAN_SPONSORED_EVIDENCE_ROOT', '/root/lx-ops/paxeer-x-integration-2026-10-03/qualification/task146'))
+EVIDENCE = Path(os.environ.get('PRIVATE_HUMAN_SPONSORED_EVIDENCE_ROOT', ROOT / "build/qualification/private-human-sponsored"))
 MANIFEST = EVIDENCE / 'build-manifest.json'
-SDK_MANIFEST = Path(os.environ.get('PRIVATE_HUMAN_SPONSORED_SDK_MANIFEST', '/root/lx-ops/paxeer-x-integration-2026-10-03/task-14.3-evidence/wallet-sponsored-sdk-candidate.json'))
-SHARED_MANIFEST = Path(os.environ.get('PRIVATE_HUMAN_SPONSORED_SHARED_BUILD', '/root/lx-ops/paxeer-x-integration-2026-10-03/qualification/task145/build-manifest.json'))
+SDK_MANIFEST = Path(os.environ.get('PRIVATE_HUMAN_SPONSORED_SDK_MANIFEST', ROOT / 'build/qualification/wallet-sponsored-fees/wallet-sponsored-sdk-candidate.json'))
+SHARED_MANIFEST = Path(os.environ.get('PRIVATE_HUMAN_SPONSORED_SHARED_BUILD', ROOT / 'build/qualification/private-human-custody/build-manifest.json'))
 CASES = ['first_use', 'domain_changed', 'nonce_changed', 'expiry_changed', 'chain_changed', 'account_changed',
          'target_changed', 'amount_changed', 'calldata_changed', 'stale_consent', 'restart_retry', 'reload', 'expired_retry']
 
@@ -146,7 +147,7 @@ def main():
     options = parser.parse_args()
     EVIDENCE.mkdir(parents=True, exist_ok=True, mode=0o700)
     helper = shared()
-    require(NODE.is_file(), 'existing Node24 required')
+    require(shutil.which(NODE) is not None, 'existing Node24 required')
     candidate = bound_manifest(helper)
     if options.build:
         MANIFEST.write_text(json.dumps(candidate, sort_keys=True))

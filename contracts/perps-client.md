@@ -1,11 +1,11 @@
 # Perps client contract
 
-The [Next.js application](../apps/perps) trades the native
-[market contracts](markets.md) on Paxeer mainnet-beta, EVM chain ID 125
-(`0x7d`). This is one BFT network: the kernel belongs to the network and
-proposes blocks, and a transaction receipt is final when its block commits.
-The [data services](perps-data.md) provide indexed views and subscriptions;
-the client sends chain reads and transactions to node JSON-RPC.
+The [Next.js application](../apps/perps) trades the native [market
+contracts](markets.md) on Paxeer mainnet-beta, EVM chain ID 125 (`0x7d`). The
+LayerX kernel inside `paxd` executes and orders each transaction and builds each
+block; validators check and commit it, and a transaction receipt is final when
+its block commits. The [data services](perps-data.md) provide indexed views and
+subscriptions; the client sends chain reads and transactions to node JSON-RPC.
 
 ## Env
 

@@ -9,9 +9,9 @@ agent. Service crates live under
 [cluster script](../tests/beta-cluster.sh). The website has its own
 [`layerx-human-web` Deployment](web-deployment.yaml).
 
-Paxeer mainnet-beta is one BFT network running `paxd`, with EVM chain ID `125`
-(`0x7d`). The kernel is part of the network and proposes blocks. A receipt is
-final when its block is committed. Human provisioning registers identity and
+Paxeer mainnet-beta uses EVM chain ID `125` (`0x7d`). The LayerX kernel inside
+`paxd` executes and orders each transaction and builds each block; validators
+check and commit it. A receipt is final when its block is committed. Human provisioning registers identity and
 recovery state, opens an asset account and funds it on this same chain.
 Use HTTPS JSON-RPC at the node root path and check `eth_chainId` before signing. See
 [Public RPC endpoints](../../../../docs/readme/PUBLIC-RPC.md).

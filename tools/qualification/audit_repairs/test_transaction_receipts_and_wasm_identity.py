@@ -20,8 +20,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[3]
 UTILS = ROOT / "tests/integration/utils"
 RECORD = (
-    ROOT / "spec/layerx-merge/programme/records"
-    / "tools/qualification/audit_repairs/repair_22_33_762.kvx"
+    ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_762.kvx"
 )
 SPEC = importlib.util.spec_from_file_location("transaction_receipt_consumer", UTILS / "_tx_receipts.py")
 RECEIPTS = importlib.util.module_from_spec(SPEC)

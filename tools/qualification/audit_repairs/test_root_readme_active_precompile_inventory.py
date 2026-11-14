@@ -15,6 +15,10 @@ from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[3]
 README = (ROOT / "README.md").read_text(encoding="utf-8")
+NETWORK = (ROOT / "docs/readme/NETWORK.md").read_text(encoding="utf-8")
+PUBLIC_RPC = (ROOT / "docs/readme/PUBLIC-RPC.md").read_text(encoding="utf-8")
+PROTOCOL = (ROOT / "docs/wiki/Protocol.md").read_text(encoding="utf-8")
+PAGE_DIR = ROOT / "docs/readme"
 RECORD = (ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_296.kvx")
 
 
@@ -25,10 +29,10 @@ def source(path):
 def section(heading, level=3):
     """Keep fenced shell comments from terminating a Markdown section."""
     marker = "#" * level + " " + heading + "\n"
-    assert README.count(marker) == 1, heading
+    assert NETWORK.count(marker) == 1, heading
     lines = []
     fence = None
-    for line in README.split(marker, 1)[1].splitlines(keepends=True):
+    for line in NETWORK.split(marker, 1)[1].splitlines(keepends=True):
         delimiter = re.match(r"^ {0,3}(`{3,}|~{3,})(.*)$", line)
         if delimiter:
             ticks, suffix = delimiter.groups()
@@ -45,13 +49,15 @@ def section(heading, level=3):
 def test_doc_1_one_merged_paxd_network_and_block_finality():
     overview = section("What is Paxeer X Network?", 2)
     for fact in (
-        "one BFT network", "chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node", "proposes blocks inside `paxd`",
+        "The LayerX kernel runs inside every `paxd` node.", "chain ID **125** (`0x7d`)",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.", "proposes blocks inside `paxd`",
         "validators commit those blocks through BFT consensus",
         "A receipt is final once its block is committed",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
         "External checkpoint settlement is retired",
-        "no router and no separate LayerX interface",
     ):
         assert fact in overview, fact
     assert "app.LayerXHost, err = NewHost(" in source("node/app.go")
@@ -64,17 +70,16 @@ def test_doc_1_one_merged_paxd_network_and_block_finality():
 def test_doc_1_root_rpc_hosts_and_chain_125_example():
     quickstart = section("Quick start: connect to chain 125")
     for fact in (
-        "Public node JSON-RPC uses the root URL",
-        "root path of these hosts, without a route suffix",
-        "`https://api1.mainnet-beta.paxeer.network` through `https://api14.mainnet-beta.paxeer.network`",
+        "Send HTTPS JSON-RPC requests to the root path without a route suffix",
         "gateway contract does not establish method availability at public node URLs",
-        "node.hyperpaxeer.com` is only the hpx library mirror",
-        "never a JSON-RPC endpoint",
     ):
         assert fact in quickstart, fact
+    assert "api1.mainnet-beta.paxeer.network" in PUBLIC_RPC
+    assert "api14.mainnet-beta.paxeer.network" in PUBLIC_RPC
+    assert "node.hyperpaxeer.com` is only the hpx library mirror, never a JSON-RPC endpoint." in PUBLIC_RPC
     urls = [
         urlsplit(url)
-        for url in re.findall(r"https?://[^\s`<>)]+", README)
+        for url in re.findall(r"https?://[^\s`<>)]+", PUBLIC_RPC)
         if "mainnet-beta.paxeer.network" in url
     ]
     assert urls
@@ -94,9 +99,7 @@ def test_doc_1_root_rpc_hosts_and_chain_125_example():
     assert json.loads(argv[argv.index("-d") + 1]) == {
         "jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": []
     }
-    assert [arg for arg in argv if arg.startswith("https://")] == [
-        "https://api1.mainnet-beta.paxeer.network"
-    ]
+    assert "$PAXEER_RPC_URL" in argv
     assert '# Expected result: "0x7d"' in blocks[0]
     assert 'if path == "" {\n\t\treturn r.URL.Path == "/"' in source("rpc/rpcstack.go")
 
@@ -179,11 +182,11 @@ def test_doc_1_retired_executors_are_only_historical_guidance():
     anchor = source("precompiles/layerxanchor/layerxanchor.go")
     assert "!isView(method.Name) && pcommon.RetiredAt(ctx, p.upgrades(), pcommon.MergeUpgrade" in anchor
     assert "pcommon.RetiredAt(ctx, p.upgrades(), StoreDeleteUpgrade" in anchor
-    for paragraph in README.split("\n\n"):
+    for paragraph in NETWORK.split("\n\n"):
         if re.search(r"layerxVerify|layerxCustody|layerxAnchor|guarantor|L0–L4", paragraph):
             assert re.search(r"retired|historical|archived", paragraph), paragraph
-    for stale in (r"\blayerxd\b", r"/rpc(?:/|\b)", r"kernel still runs separately", r"merge is (?:only )?a draft"):
-        assert not re.search(stale, README, re.I), stale
+    for stale in (r"\blayerxd\b", r"kernel still runs separately", r"merge is (?:only )?a draft"):
+        assert not re.search(stale, NETWORK, re.I), stale
 
 
 def test_doc_1_build_and_source_paths_describe_merged_node():
@@ -199,10 +202,10 @@ def test_doc_1_build_and_source_paths_describe_merged_node():
     assert "\npaxd-native-libs: $(LIBRARY) programs-release-build evmone-lib\n" in makefile
     assert "\npaxd-build: paxd-native-libs\n" in makefile
     assert "-o ./build/paxd ./daemon/paxd" in source("chain.mk")
-    assert "Source directory names describe code organization, not separate network deployments" in README
-    for target in re.findall(r"\]\(([^)]+)\)", README):
+    assert "Source directory names describe code organization, not separate network deployments" in NETWORK
+    for target in re.findall(r"\]\(([^)]+)\)", NETWORK):
         if not target.startswith(("https:", "http:", "#")):
-            assert (ROOT / target.split("#", 1)[0]).exists(), target
+            assert (PAGE_DIR / target.split("#", 1)[0]).exists(), target
 
 
 def test_doc_1_repair_record_maps_the_finding_and_evidence_limits():

@@ -10,8 +10,8 @@ The token address is fixed at `0x21f7b20a555199fa73a238b1a91fd0f549068fee`.
 
 The SID holder migration and SID mint-authority move run as hooks of the
 v6.12.0 handler in [`node/upgrades_v6120.go`](../../../node/upgrades_v6120.go)
-and ship together in that release. Paxeer is one BFT network whose kernel is
-part of the network and proposes blocks. A receipt is final when its block is
+and ship together in that release. The LayerX kernel inside `paxd` executes and orders each transaction and builds
+each block; validators check and commit it. A receipt is final when its block is
 committed; the exporter selects that committed state via the RPC `finalized` tag.
 
 ## Export
@@ -134,7 +134,7 @@ moves balances again, and proves the export still matches that fixed state,
 including the full supply, the sorted JSON and its evidence digest. It also
 refuses stale and conflicting history; it never accepts a supply drop.
 
-The [CSV/RPC test suite](../../qualification/audit_repairs/test_repair_22_33_846.py)
+The [CSV/RPC test suite](../../qualification/audit_repairs/test_sid_snapshot_height_and_transfer.py)
 exercises export and reconciliation with an in-process RPC peer. That suite
 does not execute an EVM. Neither it nor the real-contract integration regenerates
 the embedded release holder file.

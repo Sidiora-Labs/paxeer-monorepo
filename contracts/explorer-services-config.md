@@ -1,6 +1,6 @@
 # Explorer Rust service configuration
 
-The shared [blockscout-service-launcher](../services/explorer/services/libs/blockscout-service-launcher/src/lib.rs) configures explorer support applications, including signature lookup and source verification. These applications serve the explorer for one Paxeer BFT network; they are not additional execution or finality authorities. Mainnet-beta has EVM chain ID **125**. Sub-chains are database tenant domains, not one new service stack per domain.
+The shared [blockscout-service-launcher](../services/explorer/services/libs/blockscout-service-launcher/src/lib.rs) configures explorer support applications, including signature lookup and source verification. These applications serve the explorer for one Paxeer network; they are not additional execution or finality authorities. The LayerX kernel inside `paxd` executes and orders each transaction and builds each block; validators check and commit it. Mainnet-beta has EVM chain ID **125**. Sub-chains are database tenant domains, not one new service stack per domain.
 
 See [HTTP contracts](explorer-http-api.md), [sockets](explorer-ws.md), and [metrics](explorer-metrics.md#launcher). This configuration is distinct from Elixir backend environment configuration and the [platform CLI profiles](platform-cli.md#cli-config-keys).
 

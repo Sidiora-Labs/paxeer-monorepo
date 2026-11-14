@@ -6,9 +6,10 @@ This blueprint describes the explorer's account HTTP API. Command examples
 use `EXPLORER_ORIGIN`, supplied by the deployment, as the explorer backend
 origin. Account routes are served by that backend.
 
-Paxeer mainnet-beta is one BFT `paxd` network on EVM chain id `125` (`0x7d`);
-its kernel participates in the network and proposes blocks. A receipt is final
-when its block is committed. These account APIs store explorer preferences,
+Paxeer mainnet-beta uses `paxd` on EVM chain id `125` (`0x7d`). The
+LayerX kernel inside `paxd` executes and orders each transaction and builds each
+block; validators check and commit it. A receipt is final when its block is
+committed. These account APIs store explorer preferences,
 not chain accounts or finality evidence. Native identities and indexed chain
 APIs are described in the [backend overview](../../README.md#paxeer-x-additions).
 The [explorer overview](../../../README.md) covers deployment and node URLs.

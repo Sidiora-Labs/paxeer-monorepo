@@ -7,9 +7,9 @@ crate is `layerx-platform-webhooks`, under
 dead letters and cursor-based replay. A delivery becomes `delivered` only after
 the subscriber endpoint returns an accepting HTTP status.
 
-Paxeer mainnet-beta is one BFT network with EVM chain ID `125` (`0x7d`). The
-kernel is part of the network and proposes blocks; a receipt is final when its
-block is committed. Webhooks transport observations of that network. Neither
+Paxeer mainnet-beta uses EVM chain ID `125` (`0x7d`). The LayerX kernel inside
+`paxd` executes and orders each transaction and builds each block; validators
+check and commit it. A receipt is final when its block is committed. Webhooks transport observations of that network. Neither
 an outgoing webhook signature nor a successful HTTP delivery creates finality.
 See [Modules](Modules.md) for execution and [Hosted dashboard](HostedDashboard.md)
 for developer views of delivery health, keys and test payments.

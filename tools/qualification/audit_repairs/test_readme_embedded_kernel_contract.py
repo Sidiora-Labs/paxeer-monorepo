@@ -13,7 +13,9 @@ from urllib.parse import urlsplit
 
 
 ROOT = Path(__file__).resolve().parents[3]
-README = (ROOT / "README.md").read_text(encoding="utf-8")
+NETWORK_PAGE = ROOT / "docs/readme/NETWORK.md"
+README = NETWORK_PAGE.read_text(encoding="utf-8")
+RPC_REFERENCE = (ROOT / "docs/readme/PUBLIC-RPC.md").read_text(encoding="utf-8")
 RECORD = (ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_854.kvx")
 
 
@@ -43,18 +45,24 @@ def section(heading, level=3):
 
 def test_f048_architecture_is_one_paxd_network_with_embedded_kernel():
     overview = section("What is Paxeer X Network?", 2)
+    assert "There is no separate LayerX interface, router, or sequencer service to deploy." in source(
+        "docs/wiki/PaxeerBoundary.md"
+    )
     for fact in (
-        "one BFT network", "chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node", "proposes blocks inside `paxd`",
+        "The LayerX kernel runs inside every `paxd` node.", "chain ID **125** (`0x7d`)",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.", "proposes blocks inside `paxd`",
         "validators commit those blocks through BFT consensus",
         "A receipt is final once its block is committed",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
-        "no router and no separate LayerX interface", "outside consensus",
+        "The public API reaches the node directly at the root path on EVM chain ID 125", "outside consensus",
         "Sub-chains are tenant domains stored in the database",
     ):
         assert fact in overview, fact
     for path in ("daemon/paxd/", "node/", "consensus/", "modules/", "rpc/", "modules/lxphost/"):
-        assert f"]({path})" in overview, path
+        assert f"](../../{path})" in overview, path
         assert (ROOT / path).is_dir(), path
     assert "app.LayerXHost, err = NewHost(" in source("node/app.go")
     assert 'import "C"' in source("modules/lxphost/host.go")
@@ -66,14 +74,14 @@ def test_f048_architecture_is_one_paxd_network_with_embedded_kernel():
 def test_f048_root_rpc_chain_probe_and_mirror_boundary():
     quickstart = section("Quick start: connect to chain 125")
     for fact in (
-        "Public node JSON-RPC uses the root URL",
-        "root path of these hosts, without a route suffix",
-        "`https://api1.mainnet-beta.paxeer.network` through `https://api14.mainnet-beta.paxeer.network`",
+        "Send HTTPS JSON-RPC requests to the root path without a route suffix.",
+        "root path without a route suffix",
+        "Use `api1` through `api14.mainnet-beta.paxeer.network` or",
         "node.hyperpaxeer.com` is only the hpx library mirror",
         "never a JSON-RPC endpoint",
         "gateway contract does not establish method availability at public node URLs",
     ):
-        assert fact in quickstart, fact
+        assert fact in quickstart + RPC_REFERENCE, fact
     blocks = re.findall(r"```sh\n(.*?)\n```", quickstart, re.S)
     assert len(blocks) == 1
     argv = shlex.split(blocks[0].split("\n# Expected result:", 1)[0].replace("\\\n", " "))
@@ -84,13 +92,13 @@ def test_f048_root_rpc_chain_probe_and_mirror_boundary():
         "jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": []
     }
     assert '# Expected result: "0x7d"' in blocks[0]
-    assert [arg for arg in argv if arg.startswith("https://")] == [
-        "https://api1.mainnet-beta.paxeer.network"
+    assert [arg for arg in argv if arg.startswith(("https://", "http://", "$"))] == [
+        "$PAXEER_RPC_URL"
     ]
     allowed = {"api-mainnet-beta.paxeer.network"} | {
         f"api{i}.mainnet-beta.paxeer.network" for i in range(1, 15)
     }
-    for url in re.findall(r"https?://[^\s`<>)]+", README):
+    for url in re.findall(r"https?://[^\s`<>)]+", RPC_REFERENCE):
         parsed = urlsplit(url)
         if parsed.hostname and parsed.hostname.endswith("mainnet-beta.paxeer.network"):
             assert parsed.hostname in allowed, url

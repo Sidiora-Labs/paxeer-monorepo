@@ -1,8 +1,8 @@
 # Settlement evidence
 
-Paxeer mainnet-beta is one BFT network, with EVM chain ID `125` (`0x7d`).
-The kernel runs inside `paxd` through `modules/lxphost` and participates in
-block production. A transaction receipt is final once its block commits.
+Paxeer mainnet-beta uses EVM chain ID `125` (`0x7d`). The LayerX kernel inside
+`paxd` executes and orders each transaction and builds each block; validators
+check and commit it. A transaction receipt is final once its block commits.
 Execution, receipt authentication, block inclusion and consensus commitment
 are distinct facts that a consumer must check.
 

@@ -604,7 +604,7 @@ func TestInternalPlatformShape(t *testing.T) {
 }
 
 func TestDocsNamePolicy(t *testing.T) {
-	inventory, e := ReadPublicInventory(bytes.NewReader(platformRoutesRead(t, "../../docs/site/docs/reference/public-rpc.md")))
+	inventory, e := ReadPublicInventory(bytes.NewReader(platformRoutesRead(t, "../../docs/readme/PUBLIC-RPC.md")))
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -653,7 +653,7 @@ func TestDocsNamePolicy(t *testing.T) {
 			t.Fatal("root slash refused", e)
 		}
 	}
-	platformRoutesWire(t, "docs-names.sh", "docs/site/docs/reference/public-rpc.md", `docs-names "$inventory" "$spec"`)
+	platformRoutesWire(t, "docs-names.sh", "docs/readme/PUBLIC-RPC.md", `docs-names "$inventory" "$spec"`)
 }
 
 func platformRoutesStage(t *testing.T, root string, names ...string) {

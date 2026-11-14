@@ -14,6 +14,8 @@ from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[3]
 README = (ROOT / "README.md").read_text(encoding="utf-8")
+NETWORK = (ROOT / "docs/readme/NETWORK.md").read_text(encoding="utf-8")
+PUBLIC_RPC = (ROOT / "docs/readme/PUBLIC-RPC.md").read_text(encoding="utf-8")
 RECORD = (
     ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_134.kvx"
 )
@@ -26,10 +28,10 @@ def source(path):
 def section(heading, level=3):
     """Read a section without treating comments inside code fences as headings."""
     marker = "#" * level + " " + heading + "\n"
-    assert README.count(marker) == 1, heading
+    assert NETWORK.count(marker) == 1, heading
     lines = []
     fence = None
-    for line in README.split(marker, 1)[1].splitlines(keepends=True):
+    for line in NETWORK.split(marker, 1)[1].splitlines(keepends=True):
         delimiter = re.match(r"^ {0,3}(`{3,}|~{3,})(.*)$", line)
         if delimiter:
             ticks, suffix = delimiter.groups()
@@ -57,12 +59,14 @@ def make_rule(path, target):
 def test_f54_one_paxd_network_embeds_the_kernel():
     overview = section("What is Paxeer X Network?", 2)
     for fact in (
-        "one BFT network", "chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node", "proposes blocks inside `paxd`",
+        "The LayerX kernel runs inside every `paxd` node.", "chain ID **125** (`0x7d`)",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.", "proposes blocks inside `paxd`",
         "validators commit those blocks through BFT consensus",
         "A receipt is final once its block is committed",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
-        "no router and no separate LayerX interface", "outside consensus",
     ):
         assert fact in overview, fact
     assert "app.LayerXHost, err = NewHost(" in source("node/app.go")
@@ -83,12 +87,7 @@ def test_f54_one_paxd_network_embeds_the_kernel():
 def test_f54_chain_125_probe_and_numbered_hosts_use_root_json_rpc():
     quickstart = section("Quick start: connect to chain 125")
     for fact in (
-        "Public node JSON-RPC uses the root URL",
-        "`https://api-mainnet-beta.paxeer.network`",
-        "`https://api1.mainnet-beta.paxeer.network` through `https://api14.mainnet-beta.paxeer.network`",
-        "root path of these hosts, without a route suffix",
-        "compare `eth_blockNumber`", "never a JSON-RPC endpoint",
-        "node.hyperpaxeer.com` is only the hpx library mirror",
+        "Send HTTPS JSON-RPC requests to the root path without a route suffix.",
     ):
         assert fact in quickstart, fact
     blocks = re.findall(r"```sh\n(.*?)\n```", quickstart, re.S)
@@ -100,15 +99,13 @@ def test_f54_chain_125_probe_and_numbered_hosts_use_root_json_rpc():
     assert json.loads(argv[argv.index("-d") + 1]) == {
         "jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": []
     }
-    assert [arg for arg in argv if arg.startswith("https://")] == [
-        "https://api1.mainnet-beta.paxeer.network"
-    ]
+    assert argv[argv.index("-H") - 1] == "$PAXEER_RPC_URL"
     assert '# Expected result: "0x7d"' in blocks[0]
     allowed = {
         "api-mainnet-beta.paxeer.network",
         *(f"api{i}.mainnet-beta.paxeer.network" for i in range(1, 15)),
     }
-    for url in re.findall(r"https?://[^\s`<>)]+", README):
+    for url in re.findall(r"https?://[^\s`<>)]+", PUBLIC_RPC):
         parsed = urlsplit(url)
         if parsed.hostname and parsed.hostname.endswith("mainnet-beta.paxeer.network"):
             assert parsed.hostname in allowed, url
@@ -199,14 +196,14 @@ def test_f54_retired_executors_are_labeled_history_not_deployment():
         "Historical anchor reads before store deletion are archive-only",
     ):
         assert fact in history, fact
-    current = README.replace(history, "")
+    current = NETWORK.replace(history, "")
     assert not re.search(r"layerx(?:Verify|Custody|Anchor)", current, re.I)
     assert not re.search(
         r"\blayerxd\b|\blx_[A-Za-z0-9_*]*|two (?:execution )?domains|merge is (?:only )?a draft",
-        README, re.I,
+        NETWORK, re.I,
     )
     assert "custody deposit and credit-attestation funding flow is retired" in section("Accounts and native funding")
-    assert "External checkpoint settlement is retired" in README
+    assert "External checkpoint settlement is retired" in NETWORK
     assert "guarantor attestations and the L0–L4 settlement ladder are retired" in native
     assert "archived formats add no settlement step to current block finality" in native
     assert 'pcommon.RetiredRevert("layerxVerify")' in source("precompiles/layerxverify/layerxverify.go")
@@ -276,6 +273,6 @@ def test_f54_repair_record_maps_the_audit_to_executed_proofs():
     wiring = record["wiring"]["readme"]
     assert wiring["path"] == "README.md" and wiring["owner_domain"] == 17
     assert wiring["owning_task"] == "22.31.470" and wiring["status"] == "supplied"
-    owner = tomllib.loads(source("tools/qualification/audit_repairs/repair_22_31_470.kvx"))
+    owner = tomllib.loads(source("spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_31_470.kvx"))
     coverage = owner["coverage"]["audit_22_30_114"]
     assert coverage["finding"] == "54" and coverage["consumer_tasks"] == ["22.33.134"]

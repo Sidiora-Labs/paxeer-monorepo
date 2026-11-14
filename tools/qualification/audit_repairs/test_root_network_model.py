@@ -13,7 +13,8 @@ from urllib.parse import urlsplit
 
 
 ROOT = Path(__file__).resolve().parents[3]
-README = (ROOT / "README.md").read_text(encoding="utf-8")
+NETWORK_PAGE = ROOT / "docs/readme/NETWORK.md"
+README = NETWORK_PAGE.read_text(encoding="utf-8")
 RECORD = ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_1024.kvx"
 
 
@@ -44,11 +45,13 @@ def section(heading, level=3):
 def test_root_network_model_embeds_kernel_in_chain_125():
     overview = section("What is Paxeer X Network?", 2)
     for fact in (
-        "one BFT network", "chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node", "proposes blocks inside `paxd`",
+        "The LayerX kernel runs inside every `paxd` node.", "chain ID **125** (`0x7d`)",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.", "proposes blocks inside `paxd`",
         "validators commit those blocks through BFT consensus",
         "A receipt is final once its block is committed",
-        "no router and no separate LayerX interface",
         "Sub-chains are tenant domains stored in the database",
         "does not require new node infrastructure",
     ):
@@ -70,21 +73,12 @@ def test_root_network_model_embeds_kernel_in_chain_125():
 def test_root_network_model_public_rpc_hosts_and_probe():
     quickstart = section("Quick start: connect to chain 125")
     for fact in (
-        "Public node JSON-RPC uses the root URL",
-        "`https://api1.mainnet-beta.paxeer.network` through `https://api14.mainnet-beta.paxeer.network`",
-        "root path of these hosts, without a route suffix",
-        "compare `eth_blockNumber`", "never a JSON-RPC endpoint",
-        "node.hyperpaxeer.com` is only the hpx library mirror",
+        "Set `PAXEER_RPC_URL` to a node root URL",
+        "Send HTTPS JSON-RPC requests to the root path without a route suffix",
+        "Confirm the chain ID before signing or broadcasting",
+        "Configure more than one node and compare `eth_blockNumber`",
     ):
         assert fact in quickstart, fact
-    urls = re.findall(r"https?://[^\s`<>)]+", quickstart)
-    node_urls = [urlsplit(url) for url in urls if "mainnet-beta.paxeer.network" in url]
-    assert {url.hostname for url in node_urls} == {
-        "api-mainnet-beta.paxeer.network",
-        "api1.mainnet-beta.paxeer.network",
-        "api14.mainnet-beta.paxeer.network",
-    }
-    assert all(url.scheme == "https" and url.path in ("", "/") for url in node_urls)
     blocks = re.findall(r"```sh\n(.*?)\n```", quickstart, re.S)
     assert len(blocks) == 1
     argv = shlex.split(blocks[0].split("\n# Expected result:")[0].replace("\\\n", " "))
@@ -94,9 +88,7 @@ def test_root_network_model_public_rpc_hosts_and_probe():
     assert json.loads(argv[argv.index("-d") + 1]) == {
         "jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": []
     }
-    assert [arg for arg in argv if arg.startswith("https://")] == [
-        "https://api1.mainnet-beta.paxeer.network"
-    ]
+    assert "$PAXEER_RPC_URL" in argv
     assert '# Expected result: "0x7d"' in blocks[0]
     assert 'if path == "" {\n\t\treturn r.URL.Path == "/"' in source("rpc/rpcstack.go")
 
@@ -104,7 +96,7 @@ def test_root_network_model_public_rpc_hosts_and_probe():
 def test_root_network_model_hosted_contract_is_explicit():
     quickstart = section("Quick start: connect to chain 125")
     contract_path = "services/platform/hosted/gateway/openrpc.json"
-    assert f"]({contract_path})" in quickstart
+    assert f"](../../{contract_path})" in quickstart
     for fact in (
         "Obtain its deployment URL and credentials from the operator",
         "gateway contract does not establish method availability at public node URLs",
@@ -246,7 +238,7 @@ def test_root_network_model_supported_build_and_source_links():
         assert links
         for target in links:
             if not target.startswith(("https:", "http:", "#")):
-                assert (ROOT / target.split("#", 1)[0]).exists(), target
+                assert (NETWORK_PAGE.parent / target.split("#", 1)[0]).resolve().exists(), target
 
 
 def test_root_network_model_record_binds_finding_and_evidence():

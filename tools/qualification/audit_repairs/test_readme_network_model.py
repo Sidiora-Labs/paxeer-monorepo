@@ -10,7 +10,9 @@ from urllib.parse import urlsplit
 
 
 ROOT = Path(__file__).resolve().parents[3]
-README = (ROOT / "README.md").read_text(encoding="utf-8")
+NETWORK_PATH = ROOT / "docs/readme/NETWORK.md"
+README = NETWORK_PATH.read_text(encoding="utf-8")
+PUBLIC_RPC = (ROOT / "docs/readme/PUBLIC-RPC.md").read_text(encoding="utf-8")
 
 
 def source(path):
@@ -38,15 +40,21 @@ def section(heading, level=3):
 
 def test_readme_describes_one_block_proposing_paxd_network():
     overview = section("What is Paxeer X Network?", 2)
+    assert "There is no separate LayerX interface, router, or unified `/rpc` endpoint." in source(
+        "docs/wiki/Protocol.md"
+    )
     for fact in (
-        "one BFT network with EVM chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node",
+        "The LayerX kernel runs inside every `paxd` node.",
+        "EVM chain ID **125** (`0x7d`)",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.",
         "proposes blocks inside `paxd`",
         "validators commit those blocks through BFT consensus",
         "A receipt is final once its block is committed",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
         "External checkpoint settlement is retired",
-        "no router and no separate LayerX interface",
     ):
         assert fact in overview, fact
     topology = re.findall(r"```mermaid\n(.*?)\n```", overview, re.S)
@@ -74,20 +82,21 @@ def test_readme_describes_one_block_proposing_paxd_network():
 
 def test_readme_links_root_rpc_contract_and_chain_125_probe():
     quickstart = section("Quick start: connect to chain 125")
+    assert "Use `api1` through `api14.mainnet-beta.paxeer.network` or" in PUBLIC_RPC
+    assert "`api-mainnet-beta.paxeer.network`, all at the root path." in PUBLIC_RPC
     contract_path = "docs/site/paxeer-docs/src/app/public-rpc/page.tsx"
-    assert f"]({contract_path})" in README
+    assert f"](../../{contract_path})" in README
+    assert (NETWORK_PATH.parent / "../.." / contract_path).is_file()
     contract = source(contract_path)
-    assert "JSON-RPC is served over HTTPS at the root path" in contract
-    assert "EVM chain ID `125` (`0x7d`)" in contract
-    assert "root path of these hosts, without a route suffix" in quickstart
-    assert "`https://api1.mainnet-beta.paxeer.network` through" in quickstart
-    assert "`https://api14.mainnet-beta.paxeer.network`" in quickstart
+    assert "HTTP JSON-RPC requests use the endpoint root." in contract
+    assert "<td>EVM chain ID</td><td>125 / <code>0x7d</code>" in contract
+    assert "Set `PAXEER_RPC_URL` to a node root URL" in quickstart
     endpoints = {
         f"https://api{i}.mainnet-beta.paxeer.network" for i in range(1, 15)
     }
-    contract_urls = re.findall(r"`(https://[^`]+)`", contract)
+    contract_urls = re.findall(r"`(https://[^`]+)`", PUBLIC_RPC)
     assert endpoints <= set(contract_urls)
-    for url in re.findall(r"https://[^\s`<>)]+", README) + contract_urls:
+    for url in re.findall(r"https://[^\s`<>)]+", PUBLIC_RPC) + contract_urls:
         parsed = urlsplit(url)
         if parsed.hostname and parsed.hostname.endswith("mainnet-beta.paxeer.network"):
             assert parsed.path in ("", "/"), url
@@ -98,15 +107,15 @@ def test_readme_links_root_rpc_contract_and_chain_125_probe():
     assert argv[0] == "curl"
     assert argv[argv.index("--max-time") + 1] == "10"
     assert argv[argv.index("-H") + 1] == "Content-Type: application/json"
-    assert [arg for arg in argv if arg.startswith("https://")] == [
-        "https://api1.mainnet-beta.paxeer.network"
+    assert [arg for arg in argv if arg.startswith(("https://", "http://", "$"))] == [
+        "$PAXEER_RPC_URL"
     ]
     assert json.loads(argv[argv.index("-d") + 1]) == {
         "jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": []
     }
     assert '# Expected result: "0x7d"' in blocks[0]
-    assert "node.hyperpaxeer.com` is only the hpx library mirror" in quickstart
-    assert "never a JSON-RPC endpoint" in quickstart
+    assert "node.hyperpaxeer.com` is only the hpx library mirror" in PUBLIC_RPC
+    assert "never a JSON-RPC endpoint" in PUBLIC_RPC
     assert 'if path == "" {\n\t\treturn r.URL.Path == "/"' in source("rpc/rpcstack.go")
 
 

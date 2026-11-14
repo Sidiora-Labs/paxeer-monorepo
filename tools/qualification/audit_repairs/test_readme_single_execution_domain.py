@@ -11,6 +11,8 @@ from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[3]
 README = (ROOT / "README.md").read_text(encoding="utf-8")
+NETWORK = (ROOT / "docs/readme/NETWORK.md").read_text(encoding="utf-8")
+PUBLIC_RPC = (ROOT / "docs/readme/PUBLIC-RPC.md").read_text(encoding="utf-8")
 RECORD = (ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_959.kvx")
 
 
@@ -21,10 +23,10 @@ def source(path):
 def section(title, level=3):
     """Keep comments inside fenced examples from becoming section boundaries."""
     marker = "#" * level + " " + title + "\n"
-    assert README.count(marker) == 1, title
+    assert NETWORK.count(marker) == 1, title
     lines = []
     fence = None
-    for line in README.split(marker, 1)[1].splitlines(keepends=True):
+    for line in NETWORK.split(marker, 1)[1].splitlines(keepends=True):
         delimiter = re.match(r"^ {0,3}(`{3,}|~{3,})(.*)$", line)
         if delimiter:
             ticks, suffix = delimiter.groups()
@@ -41,13 +43,15 @@ def section(title, level=3):
 def test_readme_two_domains_integrated_paxd_and_bft_finality():
     overview = section("What is Paxeer X Network?", 2)
     for fact in (
-        "one BFT network", "chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node", "proposes blocks inside `paxd`",
+        "The LayerX kernel runs inside every `paxd` node.", "chain ID **125** (`0x7d`)",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.", "proposes blocks inside `paxd`",
         "validators commit those blocks through BFT consensus",
         "A receipt is final once its block is committed",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
         "External checkpoint settlement is retired",
-        "no router and no separate LayerX interface",
     ):
         assert fact in overview, fact
     assert "app.LayerXHost, err = NewHost(" in source("node/app.go")
@@ -67,15 +71,9 @@ def test_readme_two_domains_integrated_paxd_and_bft_finality():
 
 def test_readme_two_domains_root_rpc_hosts_and_chain_probe():
     quickstart = section("Quick start: connect to chain 125")
-    assert "Public node JSON-RPC uses the root URL" in quickstart
-    assert "root path of these hosts, without a route suffix" in quickstart
-    assert (
-        "`https://api1.mainnet-beta.paxeer.network` through "
-        "`https://api14.mainnet-beta.paxeer.network`"
-    ) in quickstart
-    assert "node.hyperpaxeer.com` is only the hpx library mirror" in quickstart
-    assert "never a JSON-RPC endpoint" in quickstart
-    urls = re.findall(r"https?://[^\s`<>)]+", README)
+    assert "Send HTTPS JSON-RPC requests to the root path without a route suffix." in quickstart
+    assert "The former unified router and its prefixed RPC routes are retired." in PUBLIC_RPC
+    urls = re.findall(r"https?://[^\s`<>)]+", PUBLIC_RPC)
     public = [urlsplit(url) for url in urls if "mainnet-beta.paxeer.network" in url]
     assert public
     hosts = {f"api{i}.mainnet-beta.paxeer.network" for i in range(1, 15)}
@@ -92,9 +90,7 @@ def test_readme_two_domains_root_rpc_hosts_and_chain_probe():
     assert json.loads(argv[argv.index("-d") + 1]) == {
         "jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": []
     }
-    assert [arg for arg in argv if arg.startswith("https://")] == [
-        "https://api1.mainnet-beta.paxeer.network"
-    ]
+    assert argv[argv.index("-H") - 1] == "$PAXEER_RPC_URL"
     assert '# Expected result: "0x7d"' in examples[0]
     assert 'if path == "" {\n\t\treturn r.URL.Path == "/"' in source("rpc/rpcstack.go")
 
@@ -190,9 +186,8 @@ def test_readme_two_domains_build_and_run_guidance_has_no_daemon():
     for stale in (
         r"\blayerxd\b", r"two (?:execution )?domains", r"kernel still runs separately",
         r"merge is (?:only )?a draft", r"make\s+(?:layerxd|daemon)-build",
-        r"/rpc(?:/|\b)",
     ):
-        assert not re.search(stale, README, re.I), stale
+        assert not re.search(stale, NETWORK, re.I), stale
 
 
 def test_readme_two_domains_record_maps_finding_and_proof_limits():

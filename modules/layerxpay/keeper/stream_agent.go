@@ -1,6 +1,7 @@
 package keeper
 
 import (
+	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
 	"errors"
@@ -11,10 +12,13 @@ import (
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
 	custodytypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody/types"
+	ledgertypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxledger/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxpay/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost"
+	tokenfactorytypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/tokenfactory/types"
 	agentcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxagent/common"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	authtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/types"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -66,39 +70,82 @@ func agentStreamBigInt(value codec.U128) *big.Int {
 	return new(big.Int).SetBytes(b[:])
 }
 
-func (k Keeper) agentStreamAsset(ctx sdk.Context, token common.Address) ([32]byte, error) {
-	if k.custody == nil {
-		return [32]byte{}, agentcommon.ErrStreamsUnknownToken
+// agentStreamNativeAssetID follows lxp_genesis_custody_asset_id's PAX entry.
+func agentStreamNativeAssetID() [32]byte {
+	return sha256.Sum256([]byte("layerx-asset:125:PAX"))
+}
+
+func agentStreamDenomAsset(denom, baseDenom string) ([32]byte, bool) {
+	if denom == baseDenom && baseDenom != "" {
+		return agentStreamNativeAssetID(), true
 	}
+	if asset, err := ledgertypes.ParseMirrorDenom(denom); err == nil {
+		return asset, asset != ([32]byte{})
+	}
+	// Ledger issuer denoms encode the asset ID as a canonical base-62 subdenom.
+	creator, subdenom, err := tokenfactorytypes.DeconstructDenom(denom)
+	if err != nil || creator != authtypes.NewModuleAddress(ledgertypes.ModuleName).String() {
+		return [32]byte{}, false
+	}
+	value, ok := new(big.Int).SetString(subdenom, 62)
+	if !ok || value.Sign() <= 0 || value.BitLen() > 256 || fmt.Sprintf("%043s", value.Text(62)) != subdenom {
+		return [32]byte{}, false
+	}
+	var asset [32]byte
+	value.FillBytes(asset[:])
+	return asset, true
+}
+
+func (k Keeper) agentStreamAsset(ctx sdk.Context, token common.Address) ([32]byte, error) {
 	var mapping custodytypes.AssetMapping
 	var found bool
+	var denom string
+	baseDenom, baseErr := sdk.GetBaseDenom()
 	if token == (common.Address{}) {
-		denom, err := sdk.GetBaseDenom()
-		if err != nil {
+		if baseErr != nil {
 			return [32]byte{}, agentcommon.ErrStreamsUnknownToken
 		}
-		mapping, found = k.custody.GetAssetByDenom(ctx, denom)
+		denom = baseDenom
+		if k.custody != nil {
+			mapping, found = k.custody.GetAssetByDenom(ctx, denom)
+		}
 	} else {
-		mapping, found = k.custody.GetAssetByPointer(ctx, token)
+		if k.custody != nil {
+			mapping, found = k.custody.GetAssetByPointer(ctx, token)
+		}
 		if !found {
 			if reader, ok := k.evm.(interface {
 				GetNativePointee(sdk.Context, string) (string, uint16, bool)
 			}); ok {
-				denom, _, exists := reader.GetNativePointee(ctx, token.Hex())
-				if exists && strings.HasPrefix(denom, "factory/") {
-					mapping, found = k.custody.GetAssetByDenom(ctx, denom)
+				pointee, _, exists := reader.GetNativePointee(ctx, token.Hex())
+				if exists {
+					denom = pointee
+					if k.custody != nil && strings.HasPrefix(denom, "factory/") {
+						mapping, found = k.custody.GetAssetByDenom(ctx, denom)
+					}
 				}
 			}
 		}
 	}
-	if !found {
+	if found {
+		asset, err := custodytypes.ParseNonZeroHash32(mapping.AssetId)
+		if err != nil {
+			return [32]byte{}, fmt.Errorf("%w: invalid custody asset id", agentcommon.ErrStreamsUnknownToken)
+		}
+		return asset, nil
+	}
+	asset, known := agentStreamDenomAsset(denom, baseDenom)
+	if !known || k.host == nil {
 		return [32]byte{}, agentcommon.ErrStreamsUnknownToken
 	}
-	asset, err := custodytypes.ParseNonZeroHash32(mapping.AssetId)
-	if err != nil {
-		return [32]byte{}, fmt.Errorf("%w: invalid custody asset id", agentcommon.ErrStreamsUnknownToken)
+	record, err := k.host.ReadAsset(ctx, asset)
+	if errors.Is(err, lxphost.Code(-402)) {
+		return [32]byte{}, agentcommon.ErrStreamsUnknownToken
 	}
-	return asset, nil
+	if err != nil {
+		return [32]byte{}, err
+	}
+	return record.AssetID, nil
 }
 
 func (k Keeper) OpenAgentStream(ctx sdk.Context, payer, payee, token common.Address, ratePerSecond *big.Int, startTime, stopTime uint64, cap *big.Int) (*big.Int, error) {

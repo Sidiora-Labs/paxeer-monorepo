@@ -3,6 +3,7 @@
 # Baseline: c6a45ed6d0f1f5ee8cf4a80ea804efdef8e8d9c4.
 # The historical inventory listed 78 files; this checkout has 127.
 # Each entry may grow by at most ten percent of its recorded byte size.
+GOTCHA.kvx	2788242	Repository planning ledger. [no-growth-budget]
 apps/explorer/public/static/fonts/Inter-fallback.sfd	3912143	Editable Inter fallback font source.
 apps/launchpad/web/public/Kindle-Launch-logo-dark.png	2370201	Existing web application image or icon asset.
 apps/launchpad/web/public/charting_library/bundles/library.f5eaeb6901219f861981.js	2801934	Vendored charting library browser bundle.
@@ -19,6 +20,14 @@ core/deps/geth/core/vm/testdata/precompiles/blsG1MultiExp.json	3596854	Upstream 
 core/deps/geth/core/vm/testdata/precompiles/blsG2MultiExp.json	2477758	Upstream elliptic-curve precompile test vectors.
 core/deps/geth/crypto/secp256k1/libsecp256k1/src/precomputed_ecmult.c	2409168	Upstream secp256k1 precomputed multiplication tables.
 core/deps/geth/signer/fourbyte/4byte.json	11095582	Upstream contract function signature database.
+docs/site/image.png	3259887	Documentation site image asset.
+docs/site/paxeer-docs/public/art/docs/Portfolio allocation card with cloud border-4.png	2581379	Documentation site image asset.
+docs/site/paxeer-docs/public/art/docs/Retro cloud-framed portfolio growth dashboard-5.png	2310314	Documentation site image asset.
+docs/site/paxeer-docs/public/art/docs/Retro crypto dashboard with cloud border-3.png	2058724	Documentation site image asset.
+docs/site/paxeer-docs/public/art/docs/Retro crypto notification panel with clouds-2.png	2332582	Documentation site image asset.
+docs/site/paxeer-docs/public/art/docs/Retro wallet connector panel with cloud border-1.png	2338965	Documentation site image asset.
+docs/site/paxeer-docs/public/art/execution-layers.png	2387236	Documentation site image asset.
+docs/site/paxeer-docs/public/art/settlement-network.png	2333150	Documentation site image asset.
 docs/swagger-ui/swagger.yml	2311079	Generated API schema used by Swagger UI.
 docs/swagger/statik.go	9544315	Generated statik bundle serving embedded API documentation.
 engine/tests/data/fixtures_general_state_tests.tgz	9304144	Archived Ethereum general state test fixtures.
@@ -41,15 +50,15 @@ sdk/client/docs/swagger-ui/swagger-ui-es-bundle.js.map	4278829	Vendored Swagger 
 sdk/client/docs/swagger-ui/swagger-ui.js.map	2014968	Vendored Swagger UI JavaScript source map.
 services/explorer/backend/apps/ethereum_jsonrpc/test/support/fixture/geth/trace/struct_logger.json	7856253	Upstream geth structured trace test fixture.
 services/explorer/backend/apps/explorer/benchmarks/explorer/chain/transaction/recent_collated_transactions.benchee	4301269	Upstream explorer transaction benchmark reference data.
-services/launchpad/indexer/internal/receipt/testdata/repair53-producer.json	2034703	Launchpad receipt producer integration test fixture.
+services/launchpad/indexer/internal/receipt/testdata/producer_receipts.json	2034703	Launchpad receipt producer integration test fixture.
 spec/layerx-merge/contracts/operations.md	2665181	Existing engineering specification or qualification inventory.
 spec/layerx-merge/contracts/platform-sdk.md	2064212	Existing engineering specification or qualification inventory.
 spec/layerx-merge/docs/architecture/markets-and-launchpad.md	5614043	Existing engineering specification or qualification inventory.
 spec/layerx-merge/docs/plans/interface-matrix.md	18832197	Existing engineering specification or qualification inventory.
 spec/layerx-merge/interfaces.kvx	51754694	Existing engineering specification or qualification inventory.
 spec/layerx-merge/programme/sweeps/interfaces.kvx	3996546	Existing engineering specification or qualification inventory.
-spec/layerx-merge/qualification.kvx	2627923	Existing engineering specification or qualification inventory.
-spec/layerx-merge/spec.kvx	44540508	Existing engineering specification or qualification inventory.
+spec/layerx-merge/qualification.kvx	2627923	Existing engineering specification or qualification inventory. [no-growth-budget]
+spec/layerx-merge/spec.kvx	44540508	Existing engineering specification or qualification inventory. [no-growth-budget]
 spec/release-v6-12-0/hyperfide/gen1.kvx	3049718	Existing engineering specification or qualification inventory.
 spec/release-v6-12-0/hyperfide/gen2.kvx	2416142	Existing engineering specification or qualification inventory.
 spec/release-v6-12-0/spec.kvx	3205304	Existing engineering specification or qualification inventory.
@@ -83,6 +92,7 @@ tools/hyperfide/vendor/parsers/systems/rust/parser.c	6505510	Vendored generated 
 tools/hyperfide/vendor/parsers/web/javascript/src/parser.c	2487319	Vendored generated tree-sitter parser tables.
 tools/hyperfide/vendor/parsers/web/typescript/tsx/src/parser.c	8769870	Vendored generated tree-sitter parser tables.
 tools/hyperfide/vendor/parsers/web/typescript/typescript/src/parser.c	8745894	Vendored generated tree-sitter parser tables.
+tools/jev/tests/fixtures/ledger/beta-qualification.kvx	2711384	Ledger qualification fixture.
 tools/wasm-tools/crates/wasmparser/benches/spidermonkey.wasm	5399306	Upstream WebAssembly parser benchmark module.
 tools/wasm-tools/tests/snapshots/testsuite/simd_f32x4_cmp.wast.json	2140607	Upstream WebAssembly SIMD conformance snapshot.
 tools/wasm-tools/tests/snapshots/testsuite/simd_f32x4_pmin_pmax.wast.json	3388772	Upstream WebAssembly SIMD conformance snapshot.

@@ -1,5 +1,7 @@
 from retired_tests import assert_symbols_unreferenced, build_and_run_c_suite
 
+import pytest
+
 
 # Retired symbol identifiers used by the source absence checks.
 lxp_checkpoint_maximum_attestation_delay_ms = (
@@ -10,6 +12,7 @@ lxp_checkpoint_certificate = "lxp_checkpoint_certificate"
 lxp_guarantor_key_record = "lxp_guarantor_key_record"
 
 
+@pytest.mark.native
 def test_protocol_cases_retired():
     assert_symbols_unreferenced(
         [

@@ -1,9 +1,7 @@
 # Isolated bootstrap fixtures
 
 This stack supplies local integration dependencies for the
-[launchpad services](../../README.md). Paxeer mainnet-beta is one BFT network
-with the kernel participating in block proposal and execution; a receipt is
-final when its block is committed. This fixture is not a production deployment
+[launchpad services](../../README.md). The LayerX kernel inside `paxd` executes and orders each transaction and builds each block; validators check and commit it. A receipt is final when its block is committed. This fixture is not a production deployment
 or a Paxeer consensus benchmark. Its Ganache EVM uses chain ID 125 and instant local
 mining; it does not reproduce Paxeer's validator, finality, transaction extension,
 or performance implementation. The publicly known accounts and fixed credentials

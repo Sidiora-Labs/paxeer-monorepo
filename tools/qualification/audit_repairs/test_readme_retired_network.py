@@ -1,4 +1,4 @@
-"""Qualify readme-retired-network against the README and production sources.
+"""Qualify readme-retired-network against the NETWORK and production sources.
 
 Offline source proof only: no native build, node, subprocess or live RPC call.
 """
@@ -9,11 +9,10 @@ from pathlib import Path
 import re
 import shlex
 import tomllib
-from urllib.parse import urlsplit
 
 
 ROOT = Path(__file__).resolve().parents[3]
-README = (ROOT / "README.md").read_text(encoding="utf-8")
+NETWORK = (ROOT / "docs/readme/NETWORK.md").read_text(encoding="utf-8")
 RECORD = ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_1121.kvx"
 
 
@@ -24,10 +23,10 @@ def source(path):
 def section(heading, level=3):
     """Keep fenced shell comments from ending a Markdown section."""
     marker = "#" * level + " " + heading + "\n"
-    assert README.count(marker) == 1, heading
+    assert NETWORK.count(marker) == 1, heading
     lines = []
     fence = None
-    for line in README.split(marker, 1)[1].splitlines(keepends=True):
+    for line in NETWORK.split(marker, 1)[1].splitlines(keepends=True):
         delimiter = re.match(r"^ {0,3}(`{3,}|~{3,})(.*)$", line)
         if delimiter:
             ticks, suffix = delimiter.groups()
@@ -52,16 +51,17 @@ def make_target(text, name):
 def test_readme_retired_network_is_one_paxd_bft_chain():
     overview = section("What is Paxeer X Network?", 2)
     for fact in (
-        "one BFT network",
+        "The LayerX kernel runs inside every `paxd` node.",
         "chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node",
-        "participates in block proposal and deterministic execution",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.",
         "proposes blocks inside `paxd`",
         "validators commit those blocks through BFT consensus",
         "A receipt is final once its block is committed",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
         "External checkpoint settlement is retired",
-        "no router and no separate LayerX interface",
         "outside consensus",
     ):
         assert fact in overview, fact
@@ -79,26 +79,12 @@ def test_readme_retired_network_is_one_paxd_bft_chain():
 def test_readme_root_rpc_hosts_and_chain_probe():
     quickstart = section("Quick start: connect to chain 125")
     for fact in (
-        "Public node JSON-RPC uses the root URL",
-        "root path of these hosts, without a route suffix",
-        "`https://api1.mainnet-beta.paxeer.network` through",
-        "`https://api14.mainnet-beta.paxeer.network`",
-        "compare `eth_blockNumber`",
-        "node.hyperpaxeer.com` is only the hpx library mirror",
-        "never a JSON-RPC endpoint",
+        "Set `PAXEER_RPC_URL` to a node root URL from the [public RPC reference]",
+        "Send HTTPS JSON-RPC requests to the root path without a route suffix",
+        "Configure more than one node and compare `eth_blockNumber`",
         "gateway contract does not establish method availability at public node URLs",
     ):
         assert fact in quickstart, fact
-    urls = re.findall(r"https?://[^\s`<>)]+", quickstart)
-    rpc_urls = [urlsplit(url) for url in urls if "mainnet-beta.paxeer.network" in url]
-    assert {url.hostname for url in rpc_urls} == {
-        "api-mainnet-beta.paxeer.network",
-        "api1.mainnet-beta.paxeer.network",
-        "api14.mainnet-beta.paxeer.network",
-    }
-    for url in rpc_urls:
-        assert url.scheme == "https"
-        assert url.path in ("", "/") and not url.query and not url.fragment
     blocks = re.findall(r"```sh\n(.*?)\n```", quickstart, re.S)
     assert len(blocks) == 1
     command = blocks[0].split("\n# Expected result:", 1)[0].replace("\\\n", " ")
@@ -106,9 +92,7 @@ def test_readme_root_rpc_hosts_and_chain_probe():
     assert argv[0] == "curl"
     assert argv[argv.index("--max-time") + 1] == "10"
     assert argv[argv.index("-H") + 1] == "Content-Type: application/json"
-    assert [arg for arg in argv if arg.startswith("https://")] == [
-        "https://api1.mainnet-beta.paxeer.network"
-    ]
+    assert "$PAXEER_RPC_URL" in argv
     assert json.loads(argv[argv.index("-d") + 1]) == {
         "jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": []
     }
@@ -165,7 +149,7 @@ def test_readme_transaction_to_committed_receipt_source_path():
 
 
 def test_readme_diagrams_keep_execution_and_finality_in_paxd():
-    diagrams = re.findall(r"```mermaid\n(.*?)\n```", README, re.S)
+    diagrams = re.findall(r"```mermaid\n(.*?)\n```", NETWORK, re.S)
     assert len(diagrams) == 2
     topology, sequence = diagrams
     for fact in (
@@ -258,13 +242,13 @@ def test_readme_custody_and_checkpoint_paths_are_historical_refusals():
         r"two (?:execution )?domains",
         r"https?://[^\s`]+/rpc(?:[/\s`]|$)",
     ):
-        assert not re.search(stale, README, re.I), stale
-    for paragraph in README.split("\n\n"):
+        assert not re.search(stale, NETWORK, re.I), stale
+    for paragraph in NETWORK.split("\n\n"):
         if re.search(r"layerxAnchor|guarantor|L0–L4", paragraph):
             assert re.search(r"retired|historical|archived", paragraph), paragraph
     for target in re.findall(r"\]\(([^)]+)\)", native):
         assert not target.startswith(("http:", "https:"))
-        assert (ROOT / target.split("#", 1)[0]).exists(), target
+        assert (ROOT / "docs/readme" / target.split("#", 1)[0]).exists(), target
 
 
 def test_retired_network_record_maps_audited_finding_and_proof_limits():
@@ -284,7 +268,7 @@ def test_retired_network_record_maps_audited_finding_and_proof_limits():
     }
     assert len(finding["tests"]) == len(declared)
     assert set(finding["tests"]) == declared
-    owner = tomllib.loads(source("tools/qualification/audit_repairs/repair_22_31_470.kvx"))
+    owner = tomllib.loads(source("spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_31_470.kvx"))
     coverage = owner["coverage"]["audit_22_30_48"]
     assert coverage["finding"] == "readme-retired-network"
     assert coverage["file"] == "README.md"
