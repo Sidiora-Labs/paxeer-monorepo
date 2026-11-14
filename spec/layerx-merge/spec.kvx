@@ -14164,6 +14164,18 @@ value = "For a group of directories a task repairs the code behind each rule of 
 basis = "Gotcha 4421, decision 3497."
 affects = []
 
+[decision.3509]
+title = "Member and group tasks bring the two test targets to their whole scope"
+value = "Each member of the agent workspace outside the scope of decision 3498 gets a task counted through the target agent-test with the variable set to that member. The two members of the human services outside the scope of decision 3505 get one task for the key-management member and four tasks for groups of test files of the service member, each counted through the target human-test with the variable set to its group. A task brings every case of its scope to pass by repairing the case, its fixture or the source inside its paths. Where the cause lies in a file outside the paths, the case gets an ignore attribute whose reason names that file, the final message gives it, and the case gets a task of its own. One closing task for each target runs it without the variable."
+basis = "Gotcha 4422, decisions 3498 and 3505."
+affects = []
+
+[decision.3510]
+title = "The page on the modules takes the kernel sentence, and the test of decision 3507 leaves out the consensus directory whole"
+value = "Task 22.43.334 brings the page on the modules of the docs site to the kernel sentence and builds the files that are built from the pages again. The directory consensus holds the consensus engine, whose code and tests name the steps of its validators in the vocabulary of the engine; the test of decision 3507 leaves out every file under that directory, not only its pages."
+basis = "Gotcha 4423, decisions 3496 and 3507."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -43824,6 +43836,141 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.43.334]
+title = "Bring the page on the modules of the docs site and the files built from it to the kernel sentence"
+reqs = ["22998.1"]
+touches = ["docs/site/paxeer-docs/src/app/modules/page.tsx", "docs/site/paxeer-docs/public", "docs/site/paxeer-docs/.generated"]
+tests = []
+verification_contract = "npm --prefix docs/site/paxeer-docs run build && test -s docs/site/paxeer-docs/out/index.html && git grep -q -F 'LayerX kernel' -- docs/site/paxeer-docs/src/app/modules/page.tsx && test $(git grep -c -i -F 'part of the same network' -- docs/site/paxeer-docs/src/app docs/site/paxeer-docs/public docs/site/paxeer-docs/.generated | wc -l) -eq 0 && git diff --quiet -- docs/site/paxeer-docs/public/search-index.json"
+do_1 = "do_1 Decisions 3496, 3507 and 3510, gotcha 4423. Read the opening of README.md at the root for the kernel sentence, the page docs/site/paxeer-docs/src/app/modules/page.tsx and the script prepare:docs in the package file of the docs site."
+symbols = []
+
+[capability.22.39.533]
+title = "Run the test target of the agent workspace over its whole scope"
+reqs = ["22998.1"]
+touches = ["services/agent/crates"]
+tests = []
+verification_contract = "anvil --version > /dev/null && test -s services/agent/crates/layerx-agent-api/repair_22_39_533.kvx && make -s agent-test"
+do_1 = "do_1 Decisions 3498, 3505 and 3509, gotcha 4422. Read the target agent-test of the Makefile and its variable AGENT_TEST_SCOPE. The scope of this task is the whole target, run without the variable, after tasks 22.39.526 to 22.39.532. Run the tests of the scope by hand with the options of the target and without stopping at the first case that does not pass. Keep the list for the final message."
+symbols = []
+
+[capability.22.39.532]
+title = "Bring the tests of the member layerx-sdk of the agent workspace to pass"
+reqs = ["22998.1"]
+touches = ["services/agent/crates"]
+tests = []
+verification_contract = "anvil --version > /dev/null && test -s services/agent/crates/layerx-sdk/repair_22_39_532.kvx && make -s agent-test AGENT_TEST_SCOPE='-p layerx-sdk'"
+do_1 = "do_1 Decisions 3498, 3505 and 3509, gotcha 4422. Read the target agent-test of the Makefile and its variable AGENT_TEST_SCOPE. The scope of this task is the member layerx-sdk as a whole. Run the tests of the scope by hand with the options of the target and without stopping at the first case that does not pass. Keep the list for the final message."
+symbols = []
+
+[capability.22.39.531]
+title = "Bring the tests of the member layerx-mcp of the agent workspace to pass"
+reqs = ["22998.1"]
+touches = ["services/agent/crates"]
+tests = []
+verification_contract = "anvil --version > /dev/null && test -s services/agent/crates/layerx-mcp/repair_22_39_531.kvx && make -s agent-test AGENT_TEST_SCOPE='-p layerx-mcp'"
+do_1 = "do_1 Decisions 3498, 3505 and 3509, gotcha 4422. Read the target agent-test of the Makefile and its variable AGENT_TEST_SCOPE. The scope of this task is the member layerx-mcp as a whole. Run the tests of the scope by hand with the options of the target and without stopping at the first case that does not pass. Keep the list for the final message."
+symbols = []
+
+[capability.22.39.530]
+title = "Bring the tests of the member layerx-agentd-host of the agent workspace to pass"
+reqs = ["22998.1"]
+touches = ["services/agent/crates"]
+tests = []
+verification_contract = "anvil --version > /dev/null && test -s services/agent/crates/layerx-agentd-host/repair_22_39_530.kvx && make -s agent-test AGENT_TEST_SCOPE='-p layerx-agentd-host'"
+do_1 = "do_1 Decisions 3498, 3505 and 3509, gotcha 4422. Read the target agent-test of the Makefile and its variable AGENT_TEST_SCOPE. The scope of this task is the member layerx-agentd-host as a whole. Run the tests of the scope by hand with the options of the target and without stopping at the first case that does not pass. Keep the list for the final message."
+symbols = []
+
+[capability.22.39.529]
+title = "Bring the tests of the member layerx-agentd of the agent workspace to pass"
+reqs = ["22998.1"]
+touches = ["services/agent/crates"]
+tests = []
+verification_contract = "anvil --version > /dev/null && test -s services/agent/crates/layerx-agentd/repair_22_39_529.kvx && make -s agent-test AGENT_TEST_SCOPE='-p layerx-agentd'"
+do_1 = "do_1 Decisions 3498, 3505 and 3509, gotcha 4422. Read the target agent-test of the Makefile and its variable AGENT_TEST_SCOPE. The scope of this task is the member layerx-agentd as a whole. Run the tests of the scope by hand with the options of the target and without stopping at the first case that does not pass. Keep the list for the final message."
+symbols = []
+
+[capability.22.39.528]
+title = "Bring the tests of the member layerx-client of the agent workspace to pass"
+reqs = ["22998.1"]
+touches = ["services/agent/crates"]
+tests = []
+verification_contract = "anvil --version > /dev/null && test -s services/agent/crates/layerx-client/repair_22_39_528.kvx && make -s agent-test AGENT_TEST_SCOPE='-p layerx-client'"
+do_1 = "do_1 Decisions 3498, 3505 and 3509, gotcha 4422. Read the target agent-test of the Makefile and its variable AGENT_TEST_SCOPE. The scope of this task is the member layerx-client as a whole. Run the tests of the scope by hand with the options of the target and without stopping at the first case that does not pass. Keep the list for the final message."
+symbols = []
+
+[capability.22.39.527]
+title = "Bring the tests of the member layerx-wire of the agent workspace to pass"
+reqs = ["22998.1"]
+touches = ["services/agent/crates"]
+tests = []
+verification_contract = "anvil --version > /dev/null && test -s services/agent/crates/layerx-wire/repair_22_39_527.kvx && make -s agent-test AGENT_TEST_SCOPE='-p layerx-wire'"
+do_1 = "do_1 Decisions 3498, 3505 and 3509, gotcha 4422. Read the target agent-test of the Makefile and its variable AGENT_TEST_SCOPE. The scope of this task is the member layerx-wire as a whole. Run the tests of the scope by hand with the options of the target and without stopping at the first case that does not pass. Keep the list for the final message."
+symbols = []
+
+[capability.22.39.526]
+title = "Bring the tests of the member layerx-types of the agent workspace to pass"
+reqs = ["22998.1"]
+touches = ["services/agent/crates"]
+tests = []
+verification_contract = "anvil --version > /dev/null && test -s services/agent/crates/layerx-types/repair_22_39_526.kvx && make -s agent-test AGENT_TEST_SCOPE='-p layerx-types'"
+do_1 = "do_1 Decisions 3498, 3505 and 3509, gotcha 4422. Read the target agent-test of the Makefile and its variable AGENT_TEST_SCOPE. The scope of this task is the member layerx-types as a whole. Run the tests of the scope by hand with the options of the target and without stopping at the first case that does not pass. Keep the list for the final message."
+symbols = []
+
+[capability.22.39.525]
+title = "Run the test target of the human services over its whole scope"
+reqs = ["22998.1"]
+touches = ["services/human"]
+tests = []
+verification_contract = "test -s services/human/crates/layerx-human-test-support/repair_22_39_525.kvx && make -s human-test"
+do_1 = "do_1 Decisions 3498, 3505 and 3509, gotcha 4422. Read the target human-test of the Makefile and its variable HUMAN_TEST_SCOPE. The scope of this task is the whole target, run without the variable, after tasks 22.39.520 to 22.39.524. Run the tests of the scope by hand with the options of the target and without stopping at the first case that does not pass. Keep the list for the final message."
+symbols = []
+
+[capability.22.39.524]
+title = "Bring the onboarding and node tests and the unit tests of the human service member to pass"
+reqs = ["22998.1"]
+touches = ["services/human"]
+tests = []
+verification_contract = "test -s services/human/crates/layerx-human-service/repair_22_39_524.kvx && make -s human-test HUMAN_TEST_SCOPE='-p layerx-human-service --lib --test onboarding --test key_export --test wallet_identity_e2e --test evidence_node --test production_un*'"
+do_1 = "do_1 Decisions 3498, 3505 and 3509, gotcha 4422. Read the target human-test of the Makefile and its variable HUMAN_TEST_SCOPE. The scope of this task is the unit tests of the library of the member layerx-human-service and its test files onboarding, key_export, wallet_identity_e2e and evidence_node and the test file on production components, which the verification selects by the start of its name. Run the tests of the scope by hand with the options of the target and without stopping at the first case that does not pass. Keep the list for the final message."
+symbols = []
+
+[capability.22.39.523]
+title = "Bring the money movement tests of the human service member to pass"
+reqs = ["22998.1"]
+touches = ["services/human"]
+tests = []
+verification_contract = "test -s services/human/crates/layerx-human-service/repair_22_39_523.kvx && make -s human-test HUMAN_TEST_SCOPE='-p layerx-human-service --test move_money --test move_money_bank_send --test move_commit_bank_send --test bank_journey_persistence'"
+do_1 = "do_1 Decisions 3498, 3505 and 3509, gotcha 4422. Read the target human-test of the Makefile and its variable HUMAN_TEST_SCOPE. The scope of this task is the test files move_money, move_money_bank_send, move_commit_bank_send and bank_journey_persistence of the member layerx-human-service. Run the tests of the scope by hand with the options of the target and without stopping at the first case that does not pass. Keep the list for the final message."
+symbols = []
+
+[capability.22.39.522]
+title = "Bring the agent control and journey tests of the human service member to pass"
+reqs = ["22998.1"]
+touches = ["services/human"]
+tests = []
+verification_contract = "test -s services/human/crates/layerx-human-service/repair_22_39_522.kvx && make -s human-test HUMAN_TEST_SCOPE='-p layerx-human-service --test agent_control_persistence --test agent_controls_rungs --test archive --test reclaim --test journey_faults'"
+do_1 = "do_1 Decisions 3498, 3505 and 3509, gotcha 4422. Read the target human-test of the Makefile and its variable HUMAN_TEST_SCOPE. The scope of this task is the test files agent_control_persistence, agent_controls_rungs, archive, reclaim and journey_faults of the member layerx-human-service. Run the tests of the scope by hand with the options of the target and without stopping at the first case that does not pass. Keep the list for the final message."
+symbols = []
+
+[capability.22.39.521]
+title = "Bring the intent tests of the human service member to pass"
+reqs = ["22998.1"]
+touches = ["services/human"]
+tests = []
+verification_contract = "test -s services/human/crates/layerx-human-service/repair_22_39_521.kvx && make -s human-test HUMAN_TEST_SCOPE='-p layerx-human-service --test intent_submit --test intent_plan_evm --test receipt_evidence_v2 --test intent_schema_contract'"
+do_1 = "do_1 Decisions 3498, 3505 and 3509, gotcha 4422. Read the target human-test of the Makefile and its variable HUMAN_TEST_SCOPE. The scope of this task is the test files intent_submit, intent_plan_evm, receipt_evidence_v2 and intent_schema_contract of the member layerx-human-service. Run the tests of the scope by hand with the options of the target and without stopping at the first case that does not pass. Keep the list for the final message."
+symbols = []
+
+[capability.22.39.520]
+title = "Bring the tests of the key-management member of the human services to pass"
+reqs = ["22998.1"]
+touches = ["services/human"]
+tests = []
+verification_contract = "test -s services/human/crates/layerx-human-kms/repair_22_39_520.kvx && make -s human-test HUMAN_TEST_SCOPE='-p layerx-human-kms'"
+do_1 = "do_1 Decisions 3498, 3505 and 3509, gotcha 4422. Read the target human-test of the Makefile and its variable HUMAN_TEST_SCOPE. The scope of this task is the member layerx-human-kms as a whole. Run the tests of the scope by hand with the options of the target and without stopping at the first case that does not pass. Keep the list for the final message."
+symbols = []
 
 [capability.22.39.519]
 title = "Repair the code behind the lint rules of the benchmark tools and the pipeline controller and remove the rules"
@@ -170995,6 +171142,37 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.43.334]
+title = "Bring the page on the modules of the docs site and the files built from it to the kernel sentence"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.43.334"]
+interfaces = []
+do_1 = "do_1 Decisions 3496, 3507 and 3510, gotcha 4423. Read the opening of README.md at the root for the kernel sentence, the page docs/site/paxeer-docs/src/app/modules/page.tsx and the script prepare:docs in the package file of the docs site."
+do_2 = "do_2 Rewrite the sentence of the page that describes the kernel as part of the same network. It says in the short form that the LayerX kernel inside paxd executes and orders each transaction and builds each block, and that validators check and commit it. The link to the page on the kernel stays, and so do the statement that a receipt is final when its block is committed and the sentence on addresses. Change nothing else of the page."
+do_3 = "do_3 Build the files that are built from the pages again with the script prepare:docs of the docs site and commit every file it changes under docs/site/paxeer-docs/public and docs/site/paxeer-docs/.generated. Change none of these files by hand. If the script changes a file outside the paths of this task, leave that file out of the commit and name it in the final message."
+do_4 = "do_4 Run the build of the site by hand. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docs/site/paxeer-docs/src/app/modules/page.tsx", "docs/site/paxeer-docs/public", "docs/site/paxeer-docs/.generated"]
+tests = []
+planned_paths = []
+build_cmd = "npm ci --prefix docs/site/paxeer-docs"
+verify_cmd = "npm --prefix docs/site/paxeer-docs run build && test -s docs/site/paxeer-docs/out/index.html && git grep -q -F 'LayerX kernel' -- docs/site/paxeer-docs/src/app/modules/page.tsx && test $(git grep -c -i -F 'part of the same network' -- docs/site/paxeer-docs/src/app docs/site/paxeer-docs/public docs/site/paxeer-docs/.generated | wc -l) -eq 0 && git diff --quiet -- docs/site/paxeer-docs/public/search-index.json"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.43.323]
 title = "Let the pages of the documentation site describe the network by its kernel in every wording"
 status = "done"
@@ -195678,6 +195856,198 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.525]
+title = "Run the test target of the human services over its whole scope"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.520", "22.39.521", "22.39.522", "22.39.523", "22.39.524"]
+reqs = ["22998.1"]
+capabilities = ["22.39.525"]
+interfaces = []
+do_1 = "do_1 Decisions 3498, 3505 and 3509, gotcha 4422. Read the target human-test of the Makefile and its variable HUMAN_TEST_SCOPE. The scope of this task is the whole target, run without the variable, after tasks 22.39.520 to 22.39.524. Run the tests of the scope by hand with the options of the target and without stopping at the first case that does not pass. Keep the list for the final message."
+do_2 = "do_2 Bring every case of the scope to pass. Find the cause first: read the case, its fixture and the source it calls, down to the line that refuses. Repair the side that is out of date: the case or its fixture where the source states the present rule, the source where the case states it. Weaken no assertion and remove no case to get a pass. A case that needs a program of the build takes it from the variables the target exports."
+do_3 = "do_3 Where the cause lies in a file outside the paths of this task, change nothing there. Give the case an ignore attribute whose reason names that file in one short line, and give case, file, function and what would have to change there in the final message."
+do_4 = "do_4 Change no test outside the scope, except through a support file the scope shares with it; where you change a shared support file or a source file, run by hand the other tests of the workspace that use it. Run the web tests of the target by hand before the counted run."
+do_5 = "do_5 Record in services/human/crates/layerx-human-test-support/repair_22_39_525.kvx the rule each repair follows and the changed files. List no case that does not pass in any file of the tree. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/human"]
+tests = []
+planned_paths = ["services/human/crates/layerx-human-test-support/repair_22_39_525.kvx"]
+build_cmd = "python3 -m pip install -q -r tests/bridge/requirements.txt pytest PyYAML && go mod download && make -s human-build"
+verify_cmd = "test -s services/human/crates/layerx-human-test-support/repair_22_39_525.kvx && make -s human-test"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-human"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.524]
+title = "Bring the onboarding and node tests and the unit tests of the human service member to pass"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.499"]
+reqs = ["22998.1"]
+capabilities = ["22.39.524"]
+interfaces = []
+do_1 = "do_1 Decisions 3498, 3505 and 3509, gotcha 4422. Read the target human-test of the Makefile and its variable HUMAN_TEST_SCOPE. The scope of this task is the unit tests of the library of the member layerx-human-service and its test files onboarding, key_export, wallet_identity_e2e and evidence_node and the test file on production components, which the verification selects by the start of its name. Run the tests of the scope by hand with the options of the target and without stopping at the first case that does not pass. Keep the list for the final message."
+do_2 = "do_2 Bring every case of the scope to pass. Find the cause first: read the case, its fixture and the source it calls, down to the line that refuses. Repair the side that is out of date: the case or its fixture where the source states the present rule, the source where the case states it. Weaken no assertion and remove no case to get a pass. A case that needs a program of the build takes it from the variables the target exports."
+do_3 = "do_3 Where the cause lies in a file outside the paths of this task, change nothing there. Give the case an ignore attribute whose reason names that file in one short line, and give case, file, function and what would have to change there in the final message."
+do_4 = "do_4 Change no test outside the scope, except through a support file the scope shares with it; where you change a shared support file or a source file, run by hand the other tests of the workspace that use it. Run the web tests of the target by hand before the counted run."
+do_5 = "do_5 Record in services/human/crates/layerx-human-service/repair_22_39_524.kvx the rule each repair follows and the changed files. List no case that does not pass in any file of the tree. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/human"]
+tests = []
+planned_paths = ["services/human/crates/layerx-human-service/repair_22_39_524.kvx"]
+build_cmd = "python3 -m pip install -q -r tests/bridge/requirements.txt pytest PyYAML && go mod download && make -s human-build"
+verify_cmd = "test -s services/human/crates/layerx-human-service/repair_22_39_524.kvx && make -s human-test HUMAN_TEST_SCOPE='-p layerx-human-service --lib --test onboarding --test key_export --test wallet_identity_e2e --test evidence_node --test production_un*'"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-human"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.523]
+title = "Bring the money movement tests of the human service member to pass"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.499"]
+reqs = ["22998.1"]
+capabilities = ["22.39.523"]
+interfaces = []
+do_1 = "do_1 Decisions 3498, 3505 and 3509, gotcha 4422. Read the target human-test of the Makefile and its variable HUMAN_TEST_SCOPE. The scope of this task is the test files move_money, move_money_bank_send, move_commit_bank_send and bank_journey_persistence of the member layerx-human-service. Run the tests of the scope by hand with the options of the target and without stopping at the first case that does not pass. Keep the list for the final message."
+do_2 = "do_2 Bring every case of the scope to pass. Find the cause first: read the case, its fixture and the source it calls, down to the line that refuses. Repair the side that is out of date: the case or its fixture where the source states the present rule, the source where the case states it. Weaken no assertion and remove no case to get a pass. A case that needs a program of the build takes it from the variables the target exports."
+do_3 = "do_3 Where the cause lies in a file outside the paths of this task, change nothing there. Give the case an ignore attribute whose reason names that file in one short line, and give case, file, function and what would have to change there in the final message."
+do_4 = "do_4 Change no test outside the scope, except through a support file the scope shares with it; where you change a shared support file or a source file, run by hand the other tests of the workspace that use it. Run the web tests of the target by hand before the counted run."
+do_5 = "do_5 Record in services/human/crates/layerx-human-service/repair_22_39_523.kvx the rule each repair follows and the changed files. List no case that does not pass in any file of the tree. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/human"]
+tests = []
+planned_paths = ["services/human/crates/layerx-human-service/repair_22_39_523.kvx"]
+build_cmd = "python3 -m pip install -q -r tests/bridge/requirements.txt pytest PyYAML && go mod download && make -s human-build"
+verify_cmd = "test -s services/human/crates/layerx-human-service/repair_22_39_523.kvx && make -s human-test HUMAN_TEST_SCOPE='-p layerx-human-service --test move_money --test move_money_bank_send --test move_commit_bank_send --test bank_journey_persistence'"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-human"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.522]
+title = "Bring the agent control and journey tests of the human service member to pass"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.499"]
+reqs = ["22998.1"]
+capabilities = ["22.39.522"]
+interfaces = []
+do_1 = "do_1 Decisions 3498, 3505 and 3509, gotcha 4422. Read the target human-test of the Makefile and its variable HUMAN_TEST_SCOPE. The scope of this task is the test files agent_control_persistence, agent_controls_rungs, archive, reclaim and journey_faults of the member layerx-human-service. Run the tests of the scope by hand with the options of the target and without stopping at the first case that does not pass. Keep the list for the final message."
+do_2 = "do_2 Bring every case of the scope to pass. Find the cause first: read the case, its fixture and the source it calls, down to the line that refuses. Repair the side that is out of date: the case or its fixture where the source states the present rule, the source where the case states it. Weaken no assertion and remove no case to get a pass. A case that needs a program of the build takes it from the variables the target exports."
+do_3 = "do_3 Where the cause lies in a file outside the paths of this task, change nothing there. Give the case an ignore attribute whose reason names that file in one short line, and give case, file, function and what would have to change there in the final message."
+do_4 = "do_4 Change no test outside the scope, except through a support file the scope shares with it; where you change a shared support file or a source file, run by hand the other tests of the workspace that use it. Run the web tests of the target by hand before the counted run."
+do_5 = "do_5 Record in services/human/crates/layerx-human-service/repair_22_39_522.kvx the rule each repair follows and the changed files. List no case that does not pass in any file of the tree. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/human"]
+tests = []
+planned_paths = ["services/human/crates/layerx-human-service/repair_22_39_522.kvx"]
+build_cmd = "python3 -m pip install -q -r tests/bridge/requirements.txt pytest PyYAML && go mod download && make -s human-build"
+verify_cmd = "test -s services/human/crates/layerx-human-service/repair_22_39_522.kvx && make -s human-test HUMAN_TEST_SCOPE='-p layerx-human-service --test agent_control_persistence --test agent_controls_rungs --test archive --test reclaim --test journey_faults'"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-human"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.521]
+title = "Bring the intent tests of the human service member to pass"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.499"]
+reqs = ["22998.1"]
+capabilities = ["22.39.521"]
+interfaces = []
+do_1 = "do_1 Decisions 3498, 3505 and 3509, gotcha 4422. Read the target human-test of the Makefile and its variable HUMAN_TEST_SCOPE. The scope of this task is the test files intent_submit, intent_plan_evm, receipt_evidence_v2 and intent_schema_contract of the member layerx-human-service. Run the tests of the scope by hand with the options of the target and without stopping at the first case that does not pass. Keep the list for the final message."
+do_2 = "do_2 Bring every case of the scope to pass. Find the cause first: read the case, its fixture and the source it calls, down to the line that refuses. Repair the side that is out of date: the case or its fixture where the source states the present rule, the source where the case states it. Weaken no assertion and remove no case to get a pass. A case that needs a program of the build takes it from the variables the target exports."
+do_3 = "do_3 Where the cause lies in a file outside the paths of this task, change nothing there. Give the case an ignore attribute whose reason names that file in one short line, and give case, file, function and what would have to change there in the final message."
+do_4 = "do_4 Change no test outside the scope, except through a support file the scope shares with it; where you change a shared support file or a source file, run by hand the other tests of the workspace that use it. Run the web tests of the target by hand before the counted run."
+do_5 = "do_5 Record in services/human/crates/layerx-human-service/repair_22_39_521.kvx the rule each repair follows and the changed files. List no case that does not pass in any file of the tree. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/human"]
+tests = []
+planned_paths = ["services/human/crates/layerx-human-service/repair_22_39_521.kvx"]
+build_cmd = "python3 -m pip install -q -r tests/bridge/requirements.txt pytest PyYAML && go mod download && make -s human-build"
+verify_cmd = "test -s services/human/crates/layerx-human-service/repair_22_39_521.kvx && make -s human-test HUMAN_TEST_SCOPE='-p layerx-human-service --test intent_submit --test intent_plan_evm --test receipt_evidence_v2 --test intent_schema_contract'"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-human"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.520]
+title = "Bring the tests of the key-management member of the human services to pass"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.499"]
+reqs = ["22998.1"]
+capabilities = ["22.39.520"]
+interfaces = []
+do_1 = "do_1 Decisions 3498, 3505 and 3509, gotcha 4422. Read the target human-test of the Makefile and its variable HUMAN_TEST_SCOPE. The scope of this task is the member layerx-human-kms as a whole. Run the tests of the scope by hand with the options of the target and without stopping at the first case that does not pass. Keep the list for the final message."
+do_2 = "do_2 Bring every case of the scope to pass. Find the cause first: read the case, its fixture and the source it calls, down to the line that refuses. Repair the side that is out of date: the case or its fixture where the source states the present rule, the source where the case states it. Weaken no assertion and remove no case to get a pass. A case that needs a program of the build takes it from the variables the target exports."
+do_3 = "do_3 Where the cause lies in a file outside the paths of this task, change nothing there. Give the case an ignore attribute whose reason names that file in one short line, and give case, file, function and what would have to change there in the final message."
+do_4 = "do_4 Change no test outside the scope, except through a support file the scope shares with it; where you change a shared support file or a source file, run by hand the other tests of the workspace that use it. Run the web tests of the target by hand before the counted run."
+do_5 = "do_5 Record in services/human/crates/layerx-human-kms/repair_22_39_520.kvx the rule each repair follows and the changed files. List no case that does not pass in any file of the tree. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/human"]
+tests = []
+planned_paths = ["services/human/crates/layerx-human-kms/repair_22_39_520.kvx"]
+build_cmd = "python3 -m pip install -q -r tests/bridge/requirements.txt pytest PyYAML && go mod download && make -s human-build"
+verify_cmd = "test -s services/human/crates/layerx-human-kms/repair_22_39_520.kvx && make -s human-test HUMAN_TEST_SCOPE='-p layerx-human-kms'"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-human"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.43.322]
 title = "Let the shell harness of the wallet live checker pass the node root in the variable the checker reads"
 status = "done"
@@ -205797,6 +206167,262 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.533]
+title = "Run the test target of the agent workspace over its whole scope"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.526", "22.39.527", "22.39.528", "22.39.529", "22.39.530", "22.39.531", "22.39.532"]
+reqs = ["22998.1"]
+capabilities = ["22.39.533"]
+interfaces = []
+do_1 = "do_1 Decisions 3498, 3505 and 3509, gotcha 4422. Read the target agent-test of the Makefile and its variable AGENT_TEST_SCOPE. The scope of this task is the whole target, run without the variable, after tasks 22.39.526 to 22.39.532. Run the tests of the scope by hand with the options of the target and without stopping at the first case that does not pass. Keep the list for the final message."
+do_2 = "do_2 Bring every case of the scope to pass. Find the cause first: read the case, its fixture and the source it calls, down to the line that refuses. Repair the side that is out of date: the case or its fixture where the source states the present rule, the source where the case states it. Weaken no assertion and remove no case to get a pass. A case that needs a program of the build takes it from the variables the target exports."
+do_3 = "do_3 Where the cause lies in a file outside the paths of this task, change nothing there. Give the case an ignore attribute whose reason names that file in one short line, and give case, file, function and what would have to change there in the final message."
+do_4 = "do_4 Change no test outside the scope, except through a support file the scope shares with it; where you change a shared support file or a source file, run by hand the other tests of the workspace that use it. Keep a change to another member as small as the cause needs."
+do_5 = "do_5 Record in services/agent/crates/layerx-agent-api/repair_22_39_533.kvx the rule each repair follows and the changed files. List no case that does not pass in any file of the tree. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/agent/crates"]
+tests = []
+planned_paths = ["services/agent/crates/layerx-agent-api/repair_22_39_533.kvx"]
+build_cmd = "python3 -m pip install -q -r tests/bridge/requirements.txt && go mod download && make -s agent-build"
+verify_cmd = "anvil --version > /dev/null && test -s services/agent/crates/layerx-agent-api/repair_22_39_533.kvx && make -s agent-test"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.532]
+title = "Bring the tests of the member layerx-sdk of the agent workspace to pass"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.498"]
+reqs = ["22998.1"]
+capabilities = ["22.39.532"]
+interfaces = []
+do_1 = "do_1 Decisions 3498, 3505 and 3509, gotcha 4422. Read the target agent-test of the Makefile and its variable AGENT_TEST_SCOPE. The scope of this task is the member layerx-sdk as a whole. Run the tests of the scope by hand with the options of the target and without stopping at the first case that does not pass. Keep the list for the final message."
+do_2 = "do_2 Bring every case of the scope to pass. Find the cause first: read the case, its fixture and the source it calls, down to the line that refuses. Repair the side that is out of date: the case or its fixture where the source states the present rule, the source where the case states it. Weaken no assertion and remove no case to get a pass. A case that needs a program of the build takes it from the variables the target exports."
+do_3 = "do_3 Where the cause lies in a file outside the paths of this task, change nothing there. Give the case an ignore attribute whose reason names that file in one short line, and give case, file, function and what would have to change there in the final message."
+do_4 = "do_4 Change no test outside the scope, except through a support file the scope shares with it; where you change a shared support file or a source file, run by hand the other tests of the workspace that use it. Keep a change to another member as small as the cause needs."
+do_5 = "do_5 Record in services/agent/crates/layerx-sdk/repair_22_39_532.kvx the rule each repair follows and the changed files. List no case that does not pass in any file of the tree. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/agent/crates"]
+tests = []
+planned_paths = ["services/agent/crates/layerx-sdk/repair_22_39_532.kvx"]
+build_cmd = "python3 -m pip install -q -r tests/bridge/requirements.txt && go mod download && make -s agent-build"
+verify_cmd = "anvil --version > /dev/null && test -s services/agent/crates/layerx-sdk/repair_22_39_532.kvx && make -s agent-test AGENT_TEST_SCOPE='-p layerx-sdk'"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.531]
+title = "Bring the tests of the member layerx-mcp of the agent workspace to pass"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.498"]
+reqs = ["22998.1"]
+capabilities = ["22.39.531"]
+interfaces = []
+do_1 = "do_1 Decisions 3498, 3505 and 3509, gotcha 4422. Read the target agent-test of the Makefile and its variable AGENT_TEST_SCOPE. The scope of this task is the member layerx-mcp as a whole. Run the tests of the scope by hand with the options of the target and without stopping at the first case that does not pass. Keep the list for the final message."
+do_2 = "do_2 Bring every case of the scope to pass. Find the cause first: read the case, its fixture and the source it calls, down to the line that refuses. Repair the side that is out of date: the case or its fixture where the source states the present rule, the source where the case states it. Weaken no assertion and remove no case to get a pass. A case that needs a program of the build takes it from the variables the target exports."
+do_3 = "do_3 Where the cause lies in a file outside the paths of this task, change nothing there. Give the case an ignore attribute whose reason names that file in one short line, and give case, file, function and what would have to change there in the final message."
+do_4 = "do_4 Change no test outside the scope, except through a support file the scope shares with it; where you change a shared support file or a source file, run by hand the other tests of the workspace that use it. Keep a change to another member as small as the cause needs."
+do_5 = "do_5 Record in services/agent/crates/layerx-mcp/repair_22_39_531.kvx the rule each repair follows and the changed files. List no case that does not pass in any file of the tree. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/agent/crates"]
+tests = []
+planned_paths = ["services/agent/crates/layerx-mcp/repair_22_39_531.kvx"]
+build_cmd = "python3 -m pip install -q -r tests/bridge/requirements.txt && go mod download && make -s agent-build"
+verify_cmd = "anvil --version > /dev/null && test -s services/agent/crates/layerx-mcp/repair_22_39_531.kvx && make -s agent-test AGENT_TEST_SCOPE='-p layerx-mcp'"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.530]
+title = "Bring the tests of the member layerx-agentd-host of the agent workspace to pass"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.498"]
+reqs = ["22998.1"]
+capabilities = ["22.39.530"]
+interfaces = []
+do_1 = "do_1 Decisions 3498, 3505 and 3509, gotcha 4422. Read the target agent-test of the Makefile and its variable AGENT_TEST_SCOPE. The scope of this task is the member layerx-agentd-host as a whole. Run the tests of the scope by hand with the options of the target and without stopping at the first case that does not pass. Keep the list for the final message."
+do_2 = "do_2 Bring every case of the scope to pass. Find the cause first: read the case, its fixture and the source it calls, down to the line that refuses. Repair the side that is out of date: the case or its fixture where the source states the present rule, the source where the case states it. Weaken no assertion and remove no case to get a pass. A case that needs a program of the build takes it from the variables the target exports."
+do_3 = "do_3 Where the cause lies in a file outside the paths of this task, change nothing there. Give the case an ignore attribute whose reason names that file in one short line, and give case, file, function and what would have to change there in the final message."
+do_4 = "do_4 Change no test outside the scope, except through a support file the scope shares with it; where you change a shared support file or a source file, run by hand the other tests of the workspace that use it. Keep a change to another member as small as the cause needs."
+do_5 = "do_5 Record in services/agent/crates/layerx-agentd-host/repair_22_39_530.kvx the rule each repair follows and the changed files. List no case that does not pass in any file of the tree. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/agent/crates"]
+tests = []
+planned_paths = ["services/agent/crates/layerx-agentd-host/repair_22_39_530.kvx"]
+build_cmd = "python3 -m pip install -q -r tests/bridge/requirements.txt && go mod download && make -s agent-build"
+verify_cmd = "anvil --version > /dev/null && test -s services/agent/crates/layerx-agentd-host/repair_22_39_530.kvx && make -s agent-test AGENT_TEST_SCOPE='-p layerx-agentd-host'"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.529]
+title = "Bring the tests of the member layerx-agentd of the agent workspace to pass"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.498"]
+reqs = ["22998.1"]
+capabilities = ["22.39.529"]
+interfaces = []
+do_1 = "do_1 Decisions 3498, 3505 and 3509, gotcha 4422. Read the target agent-test of the Makefile and its variable AGENT_TEST_SCOPE. The scope of this task is the member layerx-agentd as a whole. Run the tests of the scope by hand with the options of the target and without stopping at the first case that does not pass. Keep the list for the final message."
+do_2 = "do_2 Bring every case of the scope to pass. Find the cause first: read the case, its fixture and the source it calls, down to the line that refuses. Repair the side that is out of date: the case or its fixture where the source states the present rule, the source where the case states it. Weaken no assertion and remove no case to get a pass. A case that needs a program of the build takes it from the variables the target exports."
+do_3 = "do_3 Where the cause lies in a file outside the paths of this task, change nothing there. Give the case an ignore attribute whose reason names that file in one short line, and give case, file, function and what would have to change there in the final message."
+do_4 = "do_4 Change no test outside the scope, except through a support file the scope shares with it; where you change a shared support file or a source file, run by hand the other tests of the workspace that use it. Keep a change to another member as small as the cause needs."
+do_5 = "do_5 Record in services/agent/crates/layerx-agentd/repair_22_39_529.kvx the rule each repair follows and the changed files. List no case that does not pass in any file of the tree. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/agent/crates"]
+tests = []
+planned_paths = ["services/agent/crates/layerx-agentd/repair_22_39_529.kvx"]
+build_cmd = "python3 -m pip install -q -r tests/bridge/requirements.txt && go mod download && make -s agent-build"
+verify_cmd = "anvil --version > /dev/null && test -s services/agent/crates/layerx-agentd/repair_22_39_529.kvx && make -s agent-test AGENT_TEST_SCOPE='-p layerx-agentd'"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.528]
+title = "Bring the tests of the member layerx-client of the agent workspace to pass"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.498"]
+reqs = ["22998.1"]
+capabilities = ["22.39.528"]
+interfaces = []
+do_1 = "do_1 Decisions 3498, 3505 and 3509, gotcha 4422. Read the target agent-test of the Makefile and its variable AGENT_TEST_SCOPE. The scope of this task is the member layerx-client as a whole. Run the tests of the scope by hand with the options of the target and without stopping at the first case that does not pass. Keep the list for the final message."
+do_2 = "do_2 Bring every case of the scope to pass. Find the cause first: read the case, its fixture and the source it calls, down to the line that refuses. Repair the side that is out of date: the case or its fixture where the source states the present rule, the source where the case states it. Weaken no assertion and remove no case to get a pass. A case that needs a program of the build takes it from the variables the target exports."
+do_3 = "do_3 Where the cause lies in a file outside the paths of this task, change nothing there. Give the case an ignore attribute whose reason names that file in one short line, and give case, file, function and what would have to change there in the final message."
+do_4 = "do_4 Change no test outside the scope, except through a support file the scope shares with it; where you change a shared support file or a source file, run by hand the other tests of the workspace that use it. Keep a change to another member as small as the cause needs."
+do_5 = "do_5 Record in services/agent/crates/layerx-client/repair_22_39_528.kvx the rule each repair follows and the changed files. List no case that does not pass in any file of the tree. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/agent/crates"]
+tests = []
+planned_paths = ["services/agent/crates/layerx-client/repair_22_39_528.kvx"]
+build_cmd = "python3 -m pip install -q -r tests/bridge/requirements.txt && go mod download && make -s agent-build"
+verify_cmd = "anvil --version > /dev/null && test -s services/agent/crates/layerx-client/repair_22_39_528.kvx && make -s agent-test AGENT_TEST_SCOPE='-p layerx-client'"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.527]
+title = "Bring the tests of the member layerx-wire of the agent workspace to pass"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.498"]
+reqs = ["22998.1"]
+capabilities = ["22.39.527"]
+interfaces = []
+do_1 = "do_1 Decisions 3498, 3505 and 3509, gotcha 4422. Read the target agent-test of the Makefile and its variable AGENT_TEST_SCOPE. The scope of this task is the member layerx-wire as a whole. Run the tests of the scope by hand with the options of the target and without stopping at the first case that does not pass. Keep the list for the final message."
+do_2 = "do_2 Bring every case of the scope to pass. Find the cause first: read the case, its fixture and the source it calls, down to the line that refuses. Repair the side that is out of date: the case or its fixture where the source states the present rule, the source where the case states it. Weaken no assertion and remove no case to get a pass. A case that needs a program of the build takes it from the variables the target exports."
+do_3 = "do_3 Where the cause lies in a file outside the paths of this task, change nothing there. Give the case an ignore attribute whose reason names that file in one short line, and give case, file, function and what would have to change there in the final message."
+do_4 = "do_4 Change no test outside the scope, except through a support file the scope shares with it; where you change a shared support file or a source file, run by hand the other tests of the workspace that use it. Keep a change to another member as small as the cause needs."
+do_5 = "do_5 Record in services/agent/crates/layerx-wire/repair_22_39_527.kvx the rule each repair follows and the changed files. List no case that does not pass in any file of the tree. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/agent/crates"]
+tests = []
+planned_paths = ["services/agent/crates/layerx-wire/repair_22_39_527.kvx"]
+build_cmd = "python3 -m pip install -q -r tests/bridge/requirements.txt && go mod download && make -s agent-build"
+verify_cmd = "anvil --version > /dev/null && test -s services/agent/crates/layerx-wire/repair_22_39_527.kvx && make -s agent-test AGENT_TEST_SCOPE='-p layerx-wire'"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.526]
+title = "Bring the tests of the member layerx-types of the agent workspace to pass"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.498"]
+reqs = ["22998.1"]
+capabilities = ["22.39.526"]
+interfaces = []
+do_1 = "do_1 Decisions 3498, 3505 and 3509, gotcha 4422. Read the target agent-test of the Makefile and its variable AGENT_TEST_SCOPE. The scope of this task is the member layerx-types as a whole. Run the tests of the scope by hand with the options of the target and without stopping at the first case that does not pass. Keep the list for the final message."
+do_2 = "do_2 Bring every case of the scope to pass. Find the cause first: read the case, its fixture and the source it calls, down to the line that refuses. Repair the side that is out of date: the case or its fixture where the source states the present rule, the source where the case states it. Weaken no assertion and remove no case to get a pass. A case that needs a program of the build takes it from the variables the target exports."
+do_3 = "do_3 Where the cause lies in a file outside the paths of this task, change nothing there. Give the case an ignore attribute whose reason names that file in one short line, and give case, file, function and what would have to change there in the final message."
+do_4 = "do_4 Change no test outside the scope, except through a support file the scope shares with it; where you change a shared support file or a source file, run by hand the other tests of the workspace that use it. Keep a change to another member as small as the cause needs."
+do_5 = "do_5 Record in services/agent/crates/layerx-types/repair_22_39_526.kvx the rule each repair follows and the changed files. List no case that does not pass in any file of the tree. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/agent/crates"]
+tests = []
+planned_paths = ["services/agent/crates/layerx-types/repair_22_39_526.kvx"]
+build_cmd = "python3 -m pip install -q -r tests/bridge/requirements.txt && go mod download && make -s agent-build"
+verify_cmd = "anvil --version > /dev/null && test -s services/agent/crates/layerx-types/repair_22_39_526.kvx && make -s agent-test AGENT_TEST_SCOPE='-p layerx-types'"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
@@ -374870,6 +375496,7 @@ time_limit_minutes = 150
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "do_5 Decision 3510, gotcha 4423. Leave out every file under the directory consensus, not only its pages. Task 22.43.334 brings the page on the modules of the docs site and the files built from it to the kernel sentence, so the first case passes at a main that holds that task."
 
 [task.22.43.332]
 title = "Bring seven pages whose sentence runs over a line break to the kernel sentence"

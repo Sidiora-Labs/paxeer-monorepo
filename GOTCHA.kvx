@@ -21930,3 +21930,13 @@ fix = "Decision 3507. Task 22.43.333 adds the test."
 title = "The lint rules by file and linter are wider than the reports they were written for"
 symptom = "Most rules of the lint configuration name a file and a linter. A rule of that form covers every report of the linter in the file, while the report it was written for concerned single lines."
 fix = "Decision 3508. Tasks 22.39.517 to 22.39.519 repair the code of three groups of directories and remove their rules."
+
+[gotcha.4422]
+title = "The members outside the scopes of decisions 3498 and 3505 have no task yet"
+symptom = "Decisions 3498 and 3505 give the test targets of the agent workspace and of the human services a scope variable, and name tasks by member and by group for the members outside the counted scope. Those tasks are not in the plan."
+fix = "Decision 3509. Tasks 22.39.520 to 22.39.533."
+
+[gotcha.4423]
+title = "The page on the modules of the docs site and the files built from it do not hold the kernel sentence"
+symptom = "The page names the kernel inside a link and describes it with an earlier wording. The search index, the copies of the pages in markdown and the files for assistants are built from the pages and hold the same wording."
+fix = "Decision 3510. Task 22.43.334."
