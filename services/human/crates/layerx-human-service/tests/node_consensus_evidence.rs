@@ -155,18 +155,26 @@ fn validators(v: &Value) -> Vec<CommitValidator> {
         .collect()
 }
 fn commit(v: &Value, trusted: &[CommitValidator]) -> BlockCommit {
+    let signatures = v["signatures"].as_array().or_fail("votes");
+    assert_eq!(signatures.len(), trusted.len());
     BlockCommit {
         height: number(&v["height"]),
         round: number(&v["round"]).try_into().or_fail("round"),
         block_id: block_id(&v["block_id"]),
-        votes: v["signatures"]
-            .as_array()
-            .or_fail("votes")
+        votes: signatures
             .iter()
-            .map(|vote| {
+            .zip(trusted)
+            .filter_map(|(vote, validator)| {
+                if vote["block_id_flag"] == 1 {
+                    assert_eq!(vote["validator_address"], "");
+                    assert_eq!(vote["timestamp"], "0001-01-01T00:00:00Z");
+                    assert_eq!(vote["signature"], Value::Null);
+                    return None;
+                }
                 assert_eq!(vote["block_id_flag"], 2);
                 let address = fixed(&vote["validator_address"]);
-                CommitVote {
+                assert_eq!(address, validator.address);
+                Some(CommitVote {
                     validator_address: address,
                     voting_power: trusted
                         .iter()
@@ -179,7 +187,7 @@ fn commit(v: &Value, trusted: &[CommitValidator]) -> BlockCommit {
                         .or_fail("base64 signature")
                         .try_into()
                         .or_fail("64 byte signature"),
-                }
+                })
             })
             .collect(),
     }

@@ -957,6 +957,7 @@ impl RemoteKmsProvider {
             let _permit = self.gate.acquire().map_err(map_transport)?;
             let tcp = TcpStream::connect_timeout(&self.endpoint, limits.deadline)
                 .map_err(|_| KmsError::Timeout)?;
+            tcp.set_nodelay(true).map_err(|_| KmsError::Unavailable)?;
             let socket = DeadlineSocket {
                 tcp,
                 deadline,
@@ -1572,6 +1573,18 @@ impl EnvelopeKms {
                 && to == request.disclosure.recipient
                 && denom == request.disclosure.denom
                 && amount == request.disclosure.amount => {}
+            Some(layerx_crypto::disclosure::call::ConstructMethod::PointerTransfer {
+                pointer,
+                to,
+                amount,
+            }) if to == request.disclosure.recipient && amount == request.disclosure.amount => {
+                layerx_human_kms::verify_native_pointer(
+                    &request.disclosure.denom,
+                    pointer,
+                    call.chain_id,
+                )
+                .map_err(|_| KmsError::Refused)?;
+            }
             _ => return Err(KmsError::Refused),
         }
         let authorization =
@@ -2239,8 +2252,11 @@ impl Write for DeadlineSocket {
         self.bound()?;
         self.tcp.write(bytes)
     }
-    fn flush(&mut self) -> std::io::Result<()> {
+    fn write_vectored(&mut self, buffers: &[std::io::IoSlice<'_>]) -> std::io::Result<usize> {
         self.bound()?;
+        self.tcp.write_vectored(buffers)
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
         self.tcp.flush()
     }
 }

@@ -3,8 +3,9 @@
 This directory holds YAML-driven integration tests, contract fixtures, shell
 probes, and Go, Python, JavaScript and TypeScript suites for `paxd`. They exercise
 the node's modules, EVM interfaces, storage, consensus and upgrades. Paxeer
-mainnet-beta is one BFT network, with the kernel participating in block proposal;
-a receipt is final when its block is committed, and its EVM chain ID is 125
+mainnet-beta uses EVM chain ID 125. The LayerX kernel inside `paxd` executes
+and orders each transaction and builds each block; validators check and commit it.
+A receipt is final when its block is committed, and its EVM chain ID is 125
 (`0x7d`). The commands below target a disposable local cluster whose genesis
 settings can differ from mainnet. YAML commands run sequentially and verifiers
 check captured output; the Python and Go drivers share the files but have

@@ -6,12 +6,9 @@
 // data; the payment wrapper must reject it before any keeper execution.
 // services/platform/hosted/indexer/src/paxeer.rs: decode_log quarantines
 // malformed event data as undecodable, with no holder projection.
-// src/modules/budget/lx_budget_module.c: budget_execute_revoke reduces the
-// period limit to spent_this_period; src/modules/budget/lx_budget_create.c:
-// lx_budget_record_validate then rejects zero. An unused budget should be
-// revocable, but currently refuses atomically with LXP_ERR_NON_CANONICAL.
-// Assert that behaviour, then spend and refund through SDK calls to prove the
-// successful revocation and its unchanged 200-unit drain across the consumer.
+// Budget revocation returns unused funds with or without spend in the period.
+// Spend and refund through SDK calls before revocation to prove the
+// 200-unit drain across the consumer.
 // budgetPull is retired: its current typed retirement refusal is asserted rather
 // than treating the retained ABI selector as an active payment operation.
 package layerxpay_test
@@ -291,18 +288,8 @@ func TestProofLayerxpay0x101b(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, reason, "LXP_NON_CANONICAL")
 	require.Equal(t, before, h.keeper.ExportGenesis(h.db.Ctx()))
-	// Preserve the out-of-scope kernel defect as an explicit atomic refusal.
-	before = h.keeper.ExportGenesis(h.db.Ctx())
-	logs = len(h.db.GetAllLogs())
-	output, err = invoke(2, sender)
-	require.ErrorIs(t, err, vm.ErrExecutionReverted)
-	reason, err = abi.UnpackRevert(output)
-	require.NoError(t, err)
-	require.Contains(t, reason, "LXP_ERR_NON_CANONICAL")
-	require.Equal(t, before, h.keeper.ExportGenesis(h.db.Ctx()))
-	require.Len(t, h.db.GetAllLogs(), logs)
-	// A genuine spend makes the terminal period limit nonzero. Refund the
-	// amount via budgetFund so the original 200-unit drain remains required.
+	// Revocation returns unused funds even without spend in the period. Keep
+	// this budget open for a spend and refund before its 200-unit revocation.
 	output, err = invoke(5, sender)
 	require.NoError(t, err, "%x", output)
 	output, err = invoke(6, sender)

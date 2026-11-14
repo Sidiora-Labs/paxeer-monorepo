@@ -35,7 +35,7 @@ interface CommittedVector {
       readonly ResultProof: RecordedProof; readonly NextHeader: RecordedHeader; readonly NextCommit: RecordedCommit; readonly NextValidators: readonly RecordedValidator[] };
   };
 }
-export const committedVector = fixture<CommittedVector>("services/agent/sdk/typescript/test/fixtures/repair-22-33-24/committed.json").positive;
+export const committedVector = fixture<CommittedVector>("services/agent/sdk/typescript/test/fixtures/recorded-payment-evidence/committed.json").positive;
 function time(s: string): CometHeader["time"] {
   const match = /^(.*?)(?:\.(\d{1,9}))?Z$/u.exec(s); assert(match);
   return { seconds: BigInt(Date.parse(`${match[1]}Z`)) / 1000n, nanos: Number((match[2] ?? "").padEnd(9, "0")) };

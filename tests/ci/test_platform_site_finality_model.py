@@ -58,10 +58,16 @@ def test_platform_receipt_pages_do_not_present_checkpoint_finality(page):
     ):
         assert obsolete not in text, f"Obsolete finality claim in {page}: {obsolete}"
 
+    rung_page = (
+        "concepts/receipts.md"
+        if page in {"guide/receipts.md", "quickstart/rust.md", "environments/emulator.md"}
+        else page
+    )
+    rungs = (CONTENT / rung_page).read_text(encoding="utf-8")
     assert (
         "`settlement-anchored` and `paxeer-finalised` are never reached "
         "on the merged network."
-    ) in text, page
+    ) in rungs, rung_page
     for line in text.splitlines():
         if line.startswith("|"):
             assert not re.search(
@@ -73,16 +79,32 @@ def test_platform_receipt_pages_do_not_present_checkpoint_finality(page):
 @pytest.mark.parametrize("page", RECEIPT_PAGES)
 def test_platform_receipt_pages_name_committed_as_final(page):
     text = (CONTENT / page).read_text(encoding="utf-8")
-    assert "A receipt is final once its block is committed." in text, page
+    finality_page = "concepts/receipts.md" if page == "environments/emulator.md" else page
+    finality = (CONTENT / finality_page).read_text(encoding="utf-8")
+    assert "A receipt is final once its block is committed." in finality, finality_page
     assert f"]({COMMITTED_EVIDENCE})" in text, page
     assert "CometBFT commit" in text, page
     assert "inclusion" in text and "height" in text, page
 
-    if page != "concepts/paying.md":
-        assert "local compatibility verifier" in text, page
+    if page == "framework/spring.md":
+        assert "Signed receipt verification authenticates execution" in text, page
+        assert "independently trusted receipt keys" in text, page
+    elif page == "environments/emulator.md":
+        assert (
+            "The emulator does not participate in consensus or establish block commitment."
+        ) in " ".join(text.split()), page
+        assert "Verify receipts against independently pinned keys." in text, page
+    elif page != "concepts/paying.md":
+        phrase = (
+            "local compatibility verification" if page == "guide/receipts.md"
+            else "local compatibility verifier"
+        )
+        assert phrase in text, page
         assert "caller-supplied batch facts" in text, page
+    if page != "concepts/paying.md":
+        rungs = finality if page == "environments/emulator.md" else text
         for rung in ("submitted", "receipted", "committed"):
-            assert f"`{rung}`" in text, page
+            assert f"`{rung}`" in rungs, page
 
     if page in ("concepts/receipts.md", "guide/receipts.md"):
         rows = re.findall(r"^\| `([^`]+)` \| (.+) \|$", text, re.MULTILINE)
@@ -99,10 +121,11 @@ def test_platform_receipt_pages_name_committed_as_final(page):
                 "The committed block covers the receipt; block commit is finality",
             ),
         ], page
+        aliases = (CONTENT / "concepts/receipts.md").read_text(encoding="utf-8")
         assert (
             "`checkpoint-finalised` and `done-finalised` are retained API names "
             "for the `committed` rung."
-        ) in text, page
+        ) in aliases
 
 
 def test_platform_paying_done_finalised_is_committed_rung():

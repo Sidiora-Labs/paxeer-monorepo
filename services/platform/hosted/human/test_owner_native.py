@@ -25,7 +25,7 @@ def native_inputs(work):
     """Real merged producer inputs with a persisted, TLS loopback ledger peer."""
     server = LoopbackRpcServer(work)
     try:
-        from test_owner_custody import bind, document, put
+        from test_merged_owner import bind, document, put
         funder, issuer = bind(server, bytes([11]) * 32, 11)
         salt = bytes([41]) * 32
         asset = hashlib.sha256(b'LX:ASSET:v1' + issuer + salt).hexdigest()

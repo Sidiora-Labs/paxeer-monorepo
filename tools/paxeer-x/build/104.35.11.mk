@@ -1,4 +1,4 @@
-PAXEER_X_ARBITER_PRESTATE_DIR ?= /root/lx-target/arbiter-prestate
+PAXEER_X_ARBITER_PRESTATE_DIR ?= $(CURDIR)/build/qualification/arbiter-prestate
 
 .PHONY: paxeer-x-arbiter-prestate-build
 paxeer-x-arbiter-prestate-build:

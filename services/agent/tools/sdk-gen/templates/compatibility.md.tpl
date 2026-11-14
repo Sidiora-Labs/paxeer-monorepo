@@ -38,8 +38,9 @@ All three SDKs preserve these distinctions:
 
 `submitted` means only the transaction hash is known. `receipted` requires a
 receipt verified against an authorized receipt key. `committed` requires a
-verified CometBFT commit at that receipt's height. The network's kernel
-proposes blocks, and finality is the block commit. Response metadata or a
+verified CometBFT commit at that receipt's height. The LayerX kernel inside paxd
+executes and orders each transaction and builds each block; validators check and
+commit it. A receipt is final when the validators commit its block. Response metadata or a
 successful transport exchange alone cannot establish a rung.
 
 The generated [TypeScript guarantees](typescript/src/generated/guarantees.md)

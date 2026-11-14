@@ -6,7 +6,7 @@ Block commitment, trusted state-sync checkpoints, and the disabled checkpoint an
 
 ## Block commitment
 
-Paxeer mainnet-beta is one BFT chain with EVM chain ID 125. Its kernel proposes blocks within the network. A receipt is final when its block is committed; a separate checkpoint submission is not part of application settlement.
+The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it. Paxeer mainnet-beta uses EVM chain ID 125. A receipt is final when validators commit its block; a separate checkpoint submission is not part of application settlement.
 
 - `SubmitCheckpoint`, `SubmitAvailabilityAttestation`, and `SubmitEquivocation` in modules/layerxanchor/keeper/ unconditionally return a module-retired error.
 
@@ -34,7 +34,7 @@ Obtain commitments from verified block headers and validator commits. A root cop
 ## Transaction and block flow
 
 1. A signed transaction is submitted to the node and checked for mempool admission.
-2. The kernel proposes a block within the Paxeer consensus network.
+2. The kernel seals the block it has built.
 3. Validators evaluate the proposal under the configured consensus protocol.
 4. The application executes the ordered transactions and records their results.
 5. Consensus commits the block and the application commits its state.

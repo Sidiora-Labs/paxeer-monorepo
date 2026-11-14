@@ -3,9 +3,11 @@
 This directory holds the Go application used by `paxd`: module and store wiring,
 transaction admission and execution, block processing, receipts, and upgrades.
 The LayerX kernel runs inside this application through the native host in
-[`modules/lxphost`](../modules/lxphost). Paxeer mainnet-beta is one BFT network
-with EVM chain ID 125; the proposer executes transactions and proposes them in
-sequence order, and a receipt is final when its block is committed.
+[`modules/lxphost`](../modules/lxphost). Paxeer mainnet-beta uses EVM chain ID 125;
+the LayerX kernel inside every `paxd` node executes each transaction when it
+arrives, assigns the next position in one global sequence, returns a signed
+execution receipt and builds each block; validators check and commit it,
+and a receipt is final when its block is committed.
 
 ## Layout
 

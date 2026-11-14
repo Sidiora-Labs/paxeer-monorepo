@@ -93,7 +93,7 @@ func (n *node) prime() error {
 	a := app.New(nil, nil, true, map[int64]bool{}, n.home, 0, true, cfg,
 		app.MakeEncodingConfig(), wasm.EnableAllProposals, opts, app.EmptyWasmOpts, app.EmptyAppOptions,
 		baseapp.SetMinGasPrices(opts.GetString("minimum-gas-prices")))
-	defer a.Close()
+	defer func() { _ = a.Close() }()
 	seqCfg, err := sequencer.ReadConfig(opts)
 	if err != nil {
 		return err
@@ -102,7 +102,7 @@ func (n *node) prime() error {
 	if err != nil {
 		return err
 	}
-	defer primary.Stop()
+	defer func() { _ = primary.Stop() }()
 	if err := primary.Start(n.ctx); err != nil {
 		return err
 	}

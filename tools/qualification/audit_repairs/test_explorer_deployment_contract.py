@@ -147,7 +147,8 @@ def test_local_database_exposure_remote_override_requires_matching_credentials()
 def test_local_database_exposure_remote_access_documents_safe_transition():
     readme = (DEPLOY / "README.md").read_text()
     for fact in (
-        "127.0.0.1", "db:5432", "Compose 2.24.4 or later",
+        "loopback interface", "port 5432 through the Compose network",
+        "Compose 2.24.4 or later",
         "POSTGRES_BIND_ADDRESS", "POSTGRES_USER", "POSTGRES_PASSWORD",
         "strong, unique operator-provided password", "protected environment",
         "unset\nor empty values", "URL-safe credentials", "firewall",

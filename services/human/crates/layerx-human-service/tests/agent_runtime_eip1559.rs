@@ -48,6 +48,7 @@ const FEE: u128 = 100_000;
 const ACTOR: &str = "did:layerx:alice";
 const AUTHORITY: &str = "custody-human-primary";
 const ACTION: [u8; 32] = [0x31; 32];
+const SUBMISSION: [u8; 32] = [0x62; 32];
 const MAX_FRAME: usize = 8192;
 
 fn checked<T, E: Debug>(value: Result<T, E>) -> T {
@@ -226,7 +227,7 @@ impl Peer {
                             assert_eq!(&decoded, call);
                             assert_eq!(checked(recover_sender(&decoded, &signature)), sender);
                             let mut out = transaction_hash(&raw).to_vec();
-                            bytes(&mut out, b"type2-submission");
+                            out.extend_from_slice(&SUBMISSION);
                             out.extend_from_slice(&[3, Rung::Submitted.wire_rank(), 0, 0, 0]);
                             encode_response(Ok(checked(HumanResponse::new(out))))
                         }
@@ -341,6 +342,10 @@ fn runtime_prepares_an_unsigned_type2_transaction() {
     ));
     assert_eq!(submitted.activity_id, transaction_hash(&raw));
     assert_eq!(submitted.submission.rung, Rung::Submitted);
+    assert_eq!(
+        submitted.submission.submission_ref.as_str(),
+        layerx_human_service::hex::lower(&SUBMISSION)
+    );
     peer.finish();
     checked(std::fs::remove_dir_all(root));
 }

@@ -1,8 +1,9 @@
 # Monorepo layout
 
 This repository contains the Paxeer network node, its embedded kernel, contracts,
-services, SDKs and applications. `paxd` runs BFT consensus and calls the kernel
-for execution and block proposal. Receipts are final when their blocks commit.
+services, SDKs and applications. The LayerX kernel inside `paxd` executes
+and orders each transaction and builds each block; validators check and commit it.
+Receipts are final when the validators commit their blocks.
 Paxeer mainnet-beta uses EVM chain ID `125` (`0x7d`); sub-chains are tenant
 domains in the same network. See the [network overview](paxeer-network.md).
 

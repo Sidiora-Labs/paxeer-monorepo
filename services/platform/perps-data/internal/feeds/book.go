@@ -85,7 +85,7 @@ const (
 // LoadBook reads the active orders of market and the head cursor in one
 // repeatable-read transaction, so the book holds every fact row up to the
 // head and Apply folds only the rows after it.
-func LoadBook(ctx context.Context, db *sql.DB, market string) (*Book, error) {
+func LoadBook(ctx context.Context, db *sql.DB, market string) (result0 *Book, resultErr error) {
 	tx, err := db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelRepeatableRead, ReadOnly: true})
 	if err != nil {
 		return nil, err
@@ -100,7 +100,11 @@ func LoadBook(ctx context.Context, db *sql.DB, market string) (*Book, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); resultErr == nil {
+			resultErr = closeErr
+		}
+	}()
 	for rows.Next() {
 		var (
 			id, remaining string
@@ -288,7 +292,11 @@ func spotLevels(ctx context.Context, db *sql.DB, token []byte, depth int) (asks,
 	if err != nil {
 		return nil, nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); err == nil {
+			err = closeErr
+		}
+	}()
 	sums := map[bool]map[string]*big.Int{true: {}, false: {}}
 	prices := map[string]*big.Int{}
 	for rows.Next() {
@@ -337,13 +345,17 @@ func parseRaw(raw string) (*big.Int, error) {
 // loadOrderRows reads the order_events and fills rows of market at the
 // source position (block, tx_index, log_index) of one stream message as
 // decode rows in row order, the input of Book.Apply.
-func loadOrderRows(ctx context.Context, db *sql.DB, market string, block, txIndex, logIndex int64) ([]decode.Row, error) {
+func loadOrderRows(ctx context.Context, db *sql.DB, market string, block, txIndex, logIndex int64) (result0 []decode.Row, resultErr error) {
 	var out []decode.Row
 	rows, err := db.QueryContext(ctx, orderRowsSQL, block, txIndex, logIndex)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); resultErr == nil {
+			resultErr = closeErr
+		}
+	}()
 	for rows.Next() {
 		var (
 			f                                decode.Fact

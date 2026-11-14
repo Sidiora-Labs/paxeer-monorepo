@@ -1,6 +1,6 @@
 # Sequencer module
 
-This directory holds the chain module for sequencing state in Paxeer's BFT network: the leader list, pinned receipt keys, activation height, committed sequence position and hash, and decided votes. The proposer injects `MsgSequenceBatch` at transaction index zero after activation; the keeper validates its height, continuity and signature before recording the sequence state. Sequencing runs inside the node through [`node/sequencer`](../../node/sequencer/). A receipt becomes final when its covering block commits.
+This directory holds the chain module for sequencing state in `paxd`: the leader list, pinned receipt keys, activation height, committed sequence position and hash, and decided votes. The proposer injects `MsgSequenceBatch` at transaction index zero after activation; the keeper validates its height, continuity and signature before recording the sequence state. Sequencing runs inside the node through [`node/sequencer`](../../node/sequencer/). The LayerX kernel inside `paxd` executes and orders each transaction and builds each block; validators check and commit it. A receipt becomes final when validators commit its covering block.
 
 ## Layout
 

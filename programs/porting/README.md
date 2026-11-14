@@ -1,6 +1,6 @@
 # Programs porting kits
 
-This directory holds Rust porting kits for selected EVM, Solana/Anchor, and CosmWasm account, storage, message, and value-flow patterns. The kits map those patterns to deterministic LayerX Programs WebAssembly guests and ABI v2 reference programs that execute in the single Paxeer BFT network, whose kernel runs in `paxd` and whose committed blocks provide transaction finality.
+This directory holds Rust porting kits for selected EVM, Solana/Anchor, and CosmWasm account, storage, message, and value-flow patterns. The kits map those patterns to deterministic LayerX Programs WebAssembly guests and ABI v2 reference programs that execute inside `paxd`. The LayerX kernel inside `paxd` executes and orders each transaction and builds each block; validators check and commit it. A receipt is final when validators commit its block.
 
 ## Layout
 

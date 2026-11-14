@@ -1,9 +1,10 @@
 # Install the tools
 
 Install the `layerx` CLI and the SDK your application uses, then configure the
-service it actually calls. Paxeer mainnet-beta is one BFT network: `paxd`
-contains the kernel, which executes transactions and proposes blocks. EVM chain
-ID is **125** (`0x7d`); a receipt is final when its block commits. Tenant domains
+service it actually calls. Paxeer mainnet-beta uses EVM chain ID **125** (`0x7d`).
+The LayerX kernel inside `paxd` executes and orders each transaction and builds
+each block; validators check and commit it. A receipt is final when its block
+commits. Tenant domains
 are database namespaces and do not require another chain deployment.
 
 This page describes source-checkout tooling. Package publication and hosted

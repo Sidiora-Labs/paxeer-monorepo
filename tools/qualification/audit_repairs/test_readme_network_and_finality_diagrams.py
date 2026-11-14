@@ -10,11 +10,11 @@ from pathlib import Path
 import re
 import shlex
 import tomllib
-from urllib.parse import urlsplit
 
 
 ROOT = Path(__file__).resolve().parents[3]
-README = (ROOT / "README.md").read_text(encoding="utf-8")
+README_PATH = ROOT / "docs/readme/NETWORK.md"
+README = README_PATH.read_text(encoding="utf-8")
 RECORD = ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_1504.kvx"
 
 
@@ -45,20 +45,22 @@ def section(heading, level=3):
 def test_f21_integrated_network_and_merge_status():
     overview = section("What is Paxeer X Network?", 2)
     for fact in (
-        "one BFT network",
+        "The LayerX kernel runs inside every `paxd` node.",
         "chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node",
-        "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.",
+        "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "A receipt is final once its block is committed",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
         "External checkpoint settlement is retired",
-        "no router and no separate LayerX interface",
     ):
         assert fact in overview, fact
     releases = section("Releases and Network Upgrades")
     assert "executes kernel activity inside `paxd`" in releases
-    assert "commits it with the BFT chain state" in releases
+    assert "validators commit it in the same block" in releases
     assert "retires the old custody/checkpoint write paths" in releases
     assert "app.LayerXHost, err = NewHost(" in source("node/app.go")
     assert 'import "C"' in source("modules/lxphost/host.go")
@@ -74,16 +76,7 @@ def test_f21_integrated_network_and_merge_status():
 
 def test_f21_root_rpc_hosts_and_chain_probe():
     quickstart = section("Quick start: connect to chain 125")
-    for fact in (
-        "Public node JSON-RPC uses the root URL",
-        "`https://api-mainnet-beta.paxeer.network`",
-        "`https://api1.mainnet-beta.paxeer.network` through "
-        "`https://api14.mainnet-beta.paxeer.network`",
-        "root path of these hosts, without a route suffix",
-        "node.hyperpaxeer.com` is only the hpx library mirror",
-        "never a JSON-RPC endpoint",
-    ):
-        assert fact in quickstart, fact
+    assert "Send HTTPS JSON-RPC requests to the root path without a route suffix" in quickstart
     blocks = re.findall(r"```sh\n(.*?)\n```", quickstart, re.S)
     assert len(blocks) == 1
     command = blocks[0].split("\n# Expected result:", 1)[0].replace("\\\n", " ")
@@ -98,19 +91,7 @@ def test_f21_root_rpc_hosts_and_chain_probe():
         "params": [],
     }
     assert '# Expected result: "0x7d"' in blocks[0]
-    assert [arg for arg in argv if arg.startswith("https://")] == [
-        "https://api1.mainnet-beta.paxeer.network"
-    ]
-    allowed_hosts = {
-        "api-mainnet-beta.paxeer.network",
-        *(f"api{i}.mainnet-beta.paxeer.network" for i in range(1, 15)),
-    }
-    for url in re.findall(r"https?://[^\s`<>)]+", README):
-        parsed = urlsplit(url)
-        if parsed.hostname and parsed.hostname.endswith("mainnet-beta.paxeer.network"):
-            assert parsed.hostname in allowed_hosts
-            assert parsed.scheme == "https" and parsed.path in ("", "/")
-            assert not parsed.query and not parsed.fragment
+    assert "$PAXEER_RPC_URL" in argv
     assert 'if path == "" {\n\t\treturn r.URL.Path == "/"' in source("rpc/rpcstack.go")
 
 
@@ -160,7 +141,7 @@ def test_f21_diagrams_keep_execution_and_finality_in_one_network():
     assert len(diagrams) == 2
     topology, sequence = diagrams
     for fact in (
-        "subgraph Network[One Paxeer BFT network / EVM chain 125]",
+        "subgraph Network[Paxeer X / EVM chain 125]",
         "subgraph Node[paxd]",
         "Embedded C17 kernel and Rust programs host",
         "RPC --> Order --> Host --> Native",

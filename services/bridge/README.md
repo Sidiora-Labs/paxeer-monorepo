@@ -1,6 +1,6 @@
 # Paxeer X Network bridge deployment tooling
 
-This directory holds deployment and configuration tools for the external-chain bridge: EVM vault and Solana custody deployment, governance proposal generation, deployment readback, and bridge app environment generation. The tools connect foreign custody configuration to the `layerxbridge` module and `LayerXBridge` precompile on Paxeer, whose kernel executes within the same BFT chain.
+This directory holds deployment and configuration tools for the external-chain bridge: EVM vault and Solana custody deployment, governance proposal generation, deployment readback, and bridge app environment generation. The tools connect foreign custody configuration to the `layerxbridge` module and `LayerXBridge` precompile on Paxeer. The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it.
 
 ## Layout
 

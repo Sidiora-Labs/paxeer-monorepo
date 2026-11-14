@@ -232,7 +232,7 @@ func TestAttestSurfaceAndPrecompileRoles(t *testing.T) {
 	if got := crypto.Keccak256Hash(surfaceRuntime).Hex(); got != surfaceRuntimeHash {
 		t.Fatalf("installed surface runtime hash = %s, want %s", got, surfaceRuntimeHash)
 	}
-	data, err := os.ReadFile("../../../../../services/launchpad/indexer/internal/receipt/testdata/repair53-producer.json")
+	data, err := os.ReadFile("../../../../../services/launchpad/indexer/internal/receipt/testdata/producer_receipts.json")
 	if err != nil {
 		t.Fatal(err)
 	}

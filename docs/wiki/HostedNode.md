@@ -1,9 +1,10 @@
 # Hosted node
 
 The hosted node runs `paxd` with the LayerX kernel embedded in the network.
-Paxeer mainnet-beta is one BFT chain, with EVM chain ID **125** (`0x7d`) and
-consensus chain ID `hyperpax_125-1`. The kernel participates in block proposal;
-a receipt is final when its block is committed.
+Paxeer mainnet-beta uses EVM chain ID **125** (`0x7d`) and consensus chain ID
+`hyperpax_125-1`. The LayerX kernel inside `paxd` executes and orders each
+transaction and builds each block; validators check and commit it. A receipt is
+final when its block is committed.
 
 The [node manifest](../../services/platform/hosted/node/deployment.yaml) launches
 [`kernel_runtime.py`](../../docker/kernel/kernel_runtime.py). The runtime owns

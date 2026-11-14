@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strings"
 
 	"github.com/lib/pq"
 
@@ -35,11 +36,11 @@ func rebuildAffected(ctx context.Context, tx *sql.Tx, a source.Affected) error {
 	}
 	accountTables := []string{"positions_current", "orders", "spot_orders", "account_margin", "user_stats", "user_pnl_daily"}
 	for _, table := range accountTables {
-		if _, err := tx.ExecContext(ctx, `CREATE TEMP TABLE rewind_`+table+` ON COMMIT DROP AS
-SELECT * FROM perps.`+table+` WHERE NOT (account = ANY($1::bytea[]))`, accounts); err != nil {
+		if _, err := tx.ExecContext(ctx, strings.Join([]string{`CREATE TEMP TABLE `, pq.QuoteIdentifier("rewind_" + table), ` ON COMMIT DROP AS
+SELECT * FROM perps.`, pq.QuoteIdentifier(table), ` WHERE NOT (account = ANY($1::bytea[]))`}, ""), accounts); err != nil {
 			return fmt.Errorf("indexer: preserve %s: %w", table, err)
 		}
-		if _, err := tx.ExecContext(ctx, `DELETE FROM perps.`+table+` WHERE account = ANY($1::bytea[])`, accounts); err != nil {
+		if _, err := tx.ExecContext(ctx, strings.Join([]string{`DELETE FROM perps.`, pq.QuoteIdentifier(table), ` WHERE account = ANY($1::bytea[])`}, ""), accounts); err != nil {
 			return err
 		}
 	}
@@ -49,14 +50,14 @@ SELECT * FROM perps.`+table+` WHERE NOT (account = ANY($1::bytea[]))`, accounts)
 		return err
 	}
 	for _, table := range []string{"market_snapshots", "protocol_snapshots"} {
-		if _, err := tx.ExecContext(ctx, `DELETE FROM perps.`+table+` WHERE hour >= date_trunc('hour', $1::timestamptz)`, a.FromTime); err != nil {
+		if _, err := tx.ExecContext(ctx, strings.Join([]string{`DELETE FROM perps.`, pq.QuoteIdentifier(table), ` WHERE hour >= date_trunc('hour', $1::timestamptz)`}, ""), a.FromTime); err != nil {
 			return err
 		}
 	}
 	// An empty surviving history must remove orphan boards too. The normal
 	// range rebuild has no changing block at which it could do that.
 	for _, table := range []string{"leaderboard", "spot_leaderboard", "spot_account_legs", "spot_token_seen"} {
-		if _, err := tx.ExecContext(ctx, `DELETE FROM perps.`+table); err != nil {
+		if _, err := tx.ExecContext(ctx, strings.Join([]string{`DELETE FROM perps.`, pq.QuoteIdentifier(table)}, "")); err != nil {
 			return err
 		}
 	}
@@ -72,13 +73,13 @@ SELECT * FROM perps.`+table+` WHERE NOT (account = ANY($1::bytea[]))`, accounts)
 		return err
 	}
 	for _, table := range accountTables {
-		if _, err := tx.ExecContext(ctx, `DELETE FROM perps.`+table+` WHERE NOT (account = ANY($1::bytea[]))`, accounts); err != nil {
+		if _, err := tx.ExecContext(ctx, strings.Join([]string{`DELETE FROM perps.`, pq.QuoteIdentifier(table), ` WHERE NOT (account = ANY($1::bytea[]))`}, ""), accounts); err != nil {
 			return err
 		}
-		if _, err := tx.ExecContext(ctx, `INSERT INTO perps.`+table+` SELECT * FROM rewind_`+table); err != nil {
+		if _, err := tx.ExecContext(ctx, strings.Join([]string{`INSERT INTO perps.`, pq.QuoteIdentifier(table), ` SELECT * FROM `, pq.QuoteIdentifier("rewind_" + table)}, "")); err != nil {
 			return err
 		}
-		if _, err := tx.ExecContext(ctx, `DROP TABLE rewind_`+table); err != nil {
+		if _, err := tx.ExecContext(ctx, strings.Join([]string{`DROP TABLE `, pq.QuoteIdentifier("rewind_" + table)}, "")); err != nil {
 			return err
 		}
 	}

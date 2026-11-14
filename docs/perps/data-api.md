@@ -7,9 +7,10 @@ credentials, query or fragment. [`gatewayUrls`](../../apps/perps/src/core/networ
 derives `/api`, `/ws`, and `/graphql` from that origin. Symbol, market and chain
 topics share this gateway; separate per-asset ports are not required.
 
-Paxeer mainnet-beta is one BFT network with EVM chain ID **125 (`0x7d`)**. Its
-kernel participates in block proposal and receipts are final when their block
-commits. Public node JSON-RPC uses the node root path; see the
+Paxeer mainnet-beta uses EVM chain ID **125 (`0x7d`)**. The LayerX kernel inside
+`paxd` executes and orders each transaction and builds each block; validators
+check and commit it. Receipts are final when their block commits. Public node
+JSON-RPC uses the node root path; see the
 [public RPC guide](../site/paxeer-docs/src/app/public-rpc/page.tsx) for connection details.
 Those node endpoints are
 separate from the application data gateway described here. Tenant sub-chains

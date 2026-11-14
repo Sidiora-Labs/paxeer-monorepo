@@ -29,7 +29,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[3]
 KERNEL = ROOT / 'docker/kernel'
 NODE_OWNER = ROOT / 'services/platform/hosted/node'
-FIXTURES = NODE_OWNER / 'tests/fixtures/repair_22_31_355'
+FIXTURES = NODE_OWNER / 'tests/fixtures' / 'native_lifecycle'
 RECORD = (ROOT / 'spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_31_427.kvx')
 CAPTURE = json.loads((FIXTURES / 'native_configuration.json').read_text())
 GENESIS = hashlib.sha256((FIXTURES / 'genesis.json').read_bytes()).hexdigest()

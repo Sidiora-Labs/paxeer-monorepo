@@ -1,6 +1,6 @@
 # Explorer metrics
 
-Explorer metrics describe indexing and supporting services for Paxeer mainnet-beta, one BFT network with EVM chain ID **125** (`0x7d`). The kernel proposes blocks as part of that network. Indexed height, HTTP success, and a live socket are operational observations; finality comes from the block's commit. See [HTTP health and status](explorer-http-api.md), [socket recovery](explorer-ws.md), and [service configuration](explorer-services-config.md).
+Explorer metrics describe indexing and supporting services for Paxeer mainnet-beta, with EVM chain ID **125** (`0x7d`). The LayerX kernel inside `paxd` executes and orders each transaction and builds each block; validators check and commit it. Indexed height, HTTP success, and a live socket are operational observations; finality comes from the block's commit. See [HTTP health and status](explorer-http-api.md), [socket recovery](explorer-ws.md), and [service configuration](explorer-services-config.md).
 
 ## Exporters
 

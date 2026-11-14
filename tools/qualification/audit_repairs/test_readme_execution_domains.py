@@ -10,7 +10,9 @@ from urllib.parse import urlsplit
 
 
 ROOT = Path(__file__).resolve().parents[3]
-README = (ROOT / "README.md").read_text(encoding="utf-8")
+NETWORK_PAGE = ROOT / "docs/readme/NETWORK.md"
+README = NETWORK_PAGE.read_text(encoding="utf-8")
+PUBLIC_RPC = (ROOT / "docs/readme/PUBLIC-RPC.md").read_text(encoding="utf-8")
 RECORD = (
     ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs"
     / "repair_22_33_418.kvx"
@@ -42,12 +44,16 @@ def section(heading, level=3):
 
 def test_readme_two_domains_is_one_integrated_chain_125_network():
     overview = section("What is Paxeer X Network?", level=2)
-    assert "one BFT network" in overview
+    assert "The LayerX kernel runs inside every `paxd` node." in overview
     assert "chain ID **125** (`0x7d`)" in overview
-    assert "kernel is embedded in the node" in overview
-    assert "participates in block proposal and deterministic execution" in overview
-    assert "proposes blocks inside `paxd`" in overview
-    assert "validators commit those blocks through BFT consensus" in overview
+    assert (
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block."
+    ) in overview
+    assert "Validators check that block and commit it." in overview
+    assert "A receipt is final when the validators commit its block." in overview
+    assert "A receipt is final when the validators commit its block." in overview
     assert "Sub-chains are tenant domains stored in the database" in overview
     assert "does not require new node infrastructure" in overview
     assert "app.LayerXHost, err = NewHost(" in source("node/app.go")
@@ -61,15 +67,19 @@ def test_readme_two_domains_is_one_integrated_chain_125_network():
 
 def test_readme_two_domains_root_rpc_hosts_and_chain_id_example():
     quickstart = section("Quick start: connect to chain 125")
-    assert "Public node JSON-RPC uses the root URL" in quickstart
-    assert "root path of these hosts, without a route suffix" in quickstart
-    urls = re.findall(r"`(https://[^`]+)`", quickstart)
-    assert urls == [
+    for fact in (
+        "Use `api1` through `api14.mainnet-beta.paxeer.network` or",
+        "`api-mainnet-beta.paxeer.network`, all at the root path",
+        "node.hyperpaxeer.com` is only the hpx library mirror, never a JSON-RPC endpoint",
+    ):
+        assert fact in PUBLIC_RPC, fact
+    assert "Set `PAXEER_RPC_URL` to a node root URL" in quickstart
+    assert "Send HTTPS JSON-RPC requests to the root path without a route suffix" in quickstart
+    urls = re.findall(r"`(https://[^`]+)`", PUBLIC_RPC)
+    assert set(urls) == {
         "https://api-mainnet-beta.paxeer.network",
-        "https://api1.mainnet-beta.paxeer.network",
-        "https://api14.mainnet-beta.paxeer.network",
-    ]
-    assert f"`{urls[1]}` through `{urls[2]}`" in quickstart
+        *(f"https://api{i}.mainnet-beta.paxeer.network" for i in range(1, 15)),
+    }
     for url in urls:
         parsed = urlsplit(url)
         assert parsed.scheme == "https" and parsed.path in {"", "/"}
@@ -79,7 +89,7 @@ def test_readme_two_domains_root_rpc_hosts_and_chain_id_example():
     argv = shlex.split(blocks[0].replace("\\\n", " "), comments=True)
     assert argv[0] == "curl"
     assert argv[argv.index("--max-time") + 1] == "10"
-    assert [arg for arg in argv if arg.startswith("https://")] == [urls[1]]
+    assert argv[argv.index("-sS") + 1] == "$PAXEER_RPC_URL"
     assert argv[argv.index("-H") + 1] == "Content-Type: application/json"
     assert json.loads(argv[argv.index("-d") + 1]) == {
         "jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": []
@@ -114,7 +124,7 @@ def test_readme_two_domains_transaction_to_committed_receipt_path():
     ]
     assert "covered by the MsgSequenceBatch of a committed block" in rpc
     for target in re.findall(r"\]\(([^)]+)\)", flow):
-        assert (ROOT / target).is_file(), target
+        assert (NETWORK_PAGE.parent / target).is_file(), target
 
 
 def test_readme_two_domains_signed_execution_is_distinct_from_finality():
@@ -176,7 +186,7 @@ def test_readme_two_domains_build_and_release_use_integrated_paxd():
     assert "$(PAXEER_MAKE) build" in recipe
     release = section("Releases and Network Upgrades")
     assert "executes kernel activity inside `paxd`" in release
-    assert "commits it with the BFT chain state" in release
+    assert "validators commit it in the same block" in release
 
 
 def test_readme_two_domains_record_maps_finding_proofs_and_limits():

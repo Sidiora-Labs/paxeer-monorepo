@@ -3,7 +3,7 @@ use layerx_crypto::disclosure::call::{bind_call, ConstructMethod};
 use layerx_crypto::evm_transaction::{decode_signed, recover_sender};
 use layerx_human_service::journeys::{
     CustodyRoute, Endpoint, EndpointKind, ExecutableShape, LegMechanism, Mechanism, Relationship,
-    RouteError, RouteRequest, RouteResolver, SendRoute,
+    RouteError, RouteRequest, RouteResolver, SendRoute, BANK_ADDRESS,
 };
 use layerx_intents::{Intent, IntentKind};
 use layerx_types::account::AccountId;
@@ -13,7 +13,8 @@ use layerx_types::intent::{
     AuthorizationSignature, ContextHash, DepositProofId, EvmAddress, NetworkId, ProtocolVersion,
     PublicKey, SendAuthorization, SendAuthorizationKind, Sequence, TimestampSeconds,
 };
-use sha3::{Digest as _, Keccak256};
+use sha2::{Digest as _, Sha256};
+use sha3::Keccak256;
 
 fn send_route(pending_nonce: u64) -> SendRoute {
     let signer = SigningKey::from_bytes(&[7; 32]);
@@ -49,6 +50,18 @@ fn assert_rejected_bank_variants(request: &RouteRequest) {
         RouteRequest::canonical_decode(&no_pointer.canonical_encode()),
         Err(RouteError::Unavailable { .. })
     ));
+    let mut bank_pointer = request.clone();
+    if let Relationship::BankTransfer { pointer, .. } = &mut bank_pointer.relationship {
+        *pointer = EvmAddress::new(BANK_ADDRESS);
+    }
+    assert!(matches!(
+        RouteResolver::resolve(&bank_pointer),
+        Err(RouteError::Unavailable { .. })
+    ));
+    assert!(RouteRequest::canonical_decode(&bank_pointer.canonical_encode()).is_err());
+    let mut wrong_asset = request.clone();
+    wrong_asset.asset = AssetId::new([0; 32]);
+    assert!(RouteResolver::resolve(&wrong_asset).is_err());
     let mut zero = request.clone();
     zero.amount = Amount::ZERO;
     assert!(matches!(
@@ -76,7 +89,7 @@ fn send_to_an_evm_address_resolves_to_a_bank_transfer() {
     )
     .or_fail("sender address");
     let to = [4; 20];
-    let pointer = [6; 20];
+    let pointer = [0x88; 20];
     for (pending_nonce, amount, denom) in [
         (0, 1, "upax"),
         (1, 50, "upax"),
@@ -101,7 +114,7 @@ fn send_to_an_evm_address_resolves_to_a_bank_transfer() {
                 max_fee_per_gas: 30,
                 gas_limit: 100_000,
             },
-            AssetId::new([1; 32]),
+            AssetId::new(Sha256::digest(denom.as_bytes()).into()),
             Amount::from_u128(amount),
         )
         .or_fail("bank route admitted through public API");
@@ -133,13 +146,13 @@ fn send_to_an_evm_address_resolves_to_a_bank_transfer() {
         assert_eq!(&call.data[4..16], &[0; 12]);
         assert_eq!(&call.data[16..36], &to);
         assert_eq!(&call.data[36..68], &amount_word);
-        let disclosure = bind_call(call, from).or_fail("real pointer calldata consumer");
+        let disclosure = bind_call(call, from).or_fail("bank calldata consumer");
         assert_eq!(
-            disclosure.construct_method().or_fail("bank ABI"),
+            disclosure.construct_method().or_fail("pointer ABI"),
             Some(ConstructMethod::PointerTransfer {
                 pointer,
                 to,
-                amount: amount_word,
+                amount: amount_word
             })
         );
         let signed_call = call.sign(&secret).or_fail("signed executable bank call");

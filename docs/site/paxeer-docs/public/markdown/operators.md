@@ -2,13 +2,13 @@
 
 # Operators Guide
 
-Manage Paxeer X node services, validator accounts, monitoring, and recovery.
+Manage paxd nodes, whose LayerX kernel executes and orders transactions and builds blocks, and the validators that check and commit them.
 
 For stalled heights, peer failures, or state mismatches, start with [Troubleshoot a Node](https://docs.paxeer.app/node-troubleshooting). Record the binary revision and failing height before changing state.
 
 ## Operate the node and application services
 
-Paxeer mainnet-beta is one BFT chain with EVM chain ID 125. Kernel execution is embedded in `paxd` and participates in block proposal. A receipt is final when its block is committed. Hosted gateways and user services support applications around the chain. Assign each deployed service its own health checks, storage policy, and recovery procedure.
+The LayerX kernel inside `paxd` executes and orders each transaction and builds each block; validators check and commit it. Paxeer mainnet-beta uses EVM chain ID 125. A receipt is final when its block is committed. Hosted gateways and user services support applications around the chain. Assign each deployed service its own health checks, storage policy, and recovery procedure.
 
 | Role | Responsibility | Operational evidence |
 | --- | --- | --- |

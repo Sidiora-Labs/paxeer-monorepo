@@ -2,7 +2,7 @@
 //! value establishes host authority or finality.
 #![cfg_attr(target_arch = "wasm32", no_std)]
 
-// File modules are mirrored in gateway/tests/repair_22_33_1439.rs and checked by
+// File modules are mirrored in gateway/tests/upstream_read_contracts.rs and checked by
 // tests/ci/test_ai_market_module_mirror.py, including conditional private modules.
 pub mod admission;
 pub mod aggregation;
@@ -229,7 +229,7 @@ mod deployment {
 mod guest {
     // Deployment qualification must build with release opt-level z and measure the
     // packaged Wasm plus its 104-byte envelope against the 524288-byte ceiling.
-    use crate::dispatch::{Buffers, Routed, SCRATCH_BYTES};
+    use crate::dispatch::{self, Buffers, Routed, SCRATCH_BYTES};
     use crate::host_adapter::{AdapterError, ApplicationEvent, DirectCall};
     use crate::registry_ops::CallContext;
     use crate::types::{GuestIndex as _, Presence};

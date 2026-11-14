@@ -1,6 +1,6 @@
 # Chain node variables
 
-The chain node is `paxd`, with command utilities in `cmd/` and application and proposer execution in `node/`. Paxeer mainnet-beta is one BFT network with EVM chain ID 125; the kernel proposes blocks inside the node, and receipts become final when their block commits. Node JSON-RPC uses the root path. The settings below cover environment reads and configuration readers used by these directories.
+The chain node is `paxd`, with command utilities in `cmd/` and application and proposer execution in `node/`. Paxeer mainnet-beta uses EVM chain ID 125; the LayerX kernel inside `paxd` executes and orders each transaction and builds each block; validators check and commit it. Receipts become final when their block commits. Node JSON-RPC uses the root path. The settings below cover environment reads and configuration readers used by these directories.
 
 Environment names are uppercase. TOML rows identify the file relative to the node home, section and key; `[root]` means a top-level key. JSON rows identify the file selected by `BENCHMARK_CONFIG`, its object and key. Required includes settings required only when the named feature is enabled. Empty means an empty string; none means no supplied default. Secret-file paths are not secrets themselves; their private contents must remain protected. Host addresses, account values and key values are omitted.
 

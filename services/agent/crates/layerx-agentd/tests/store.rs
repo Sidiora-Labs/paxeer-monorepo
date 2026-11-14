@@ -3,6 +3,8 @@ use layerx_agentd::store::{
     TenantKey, CURRENT_SCHEMA_VERSION,
 };
 use std::fs;
+use std::io::Write as _;
+use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -197,7 +199,7 @@ fn deletion_loses_only_declared_local_artifacts_and_core_cache_rebuilds() {
 #[test]
 fn migrates_every_supported_prior_version_and_refuses_newer() {
     let root = test_directory("migration");
-    if let Err(error) = fs::create_dir_all(&root) {
+    if let Err(error) = fs::DirBuilder::new().mode(0o700).create(&root) {
         panic!("test directory failed: {error}");
     }
     let mut v1 = Vec::new();
@@ -212,9 +214,16 @@ fn migrates_every_supported_prior_version_and_refuses_newer() {
         v1.extend_from_slice(&u32::try_from(bytes.len()).unwrap_or(0).to_be_bytes());
         v1.extend_from_slice(bytes);
     }
-    if let Err(error) = fs::write(root.join("store.bin"), v1) {
+    let mut snapshot = fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .open(root.join("store.bin"))
+        .unwrap_or_else(|error| panic!("private snapshot: {error}"));
+    if let Err(error) = snapshot.write_all(&v1) {
         panic!("v1 store write failed: {error}");
     }
+    drop(snapshot);
     if let Err(error) = migrate(&root) {
         panic!("migration failed: {error}");
     }
@@ -232,6 +241,7 @@ fn migrates_every_supported_prior_version_and_refuses_newer() {
         opened.get(&receipt).map(StoredValue::class),
         Some(StorageClass::CoreProducedCache)
     );
+    drop(opened);
 
     let mut newer = b"LXAS".to_vec();
     newer.extend_from_slice(&(CURRENT_SCHEMA_VERSION + 1).to_be_bytes());

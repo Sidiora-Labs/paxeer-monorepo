@@ -1,0 +1,374 @@
+[platform_services]
+rule = "Platform services check resource cleanup, bound wire integers before conversion and share named protocol strings."
+
+[rule.1]
+file = "services/platform/hosted/paxeer/profile.go"
+linter = "errcheck"
+action = "removed"
+
+[rule.2]
+file = "services/platform/hosted/paxeer/profile.go"
+linter = "gosec"
+action = "narrowed"
+reason = "Deployment profiles and their adjacent manifest are selected by the operator."
+
+[rule.3]
+file = "services/platform/hosted/paxeer/profile.go"
+linter = "staticcheck"
+action = "removed"
+
+[rule.4]
+file = "services/platform/hosted/tests/beta_readiness.go"
+linter = "errcheck"
+action = "removed"
+
+[rule.5]
+file = "services/platform/hosted/tests/beta_readiness.go"
+linter = "gosec"
+action = "removed"
+
+[rule.6]
+file = "services/platform/hosted/tests/beta_runtime.go"
+linter = "errcheck"
+action = "removed"
+
+[rule.7]
+file = "services/platform/hosted/tests/beta_runtime.go"
+linter = "goconst"
+action = "removed"
+
+[rule.8]
+file = "services/platform/hosted/tests/beta_runtime.go"
+linter = "gosec"
+action = "narrowed"
+reason = "Native material and genesis paths are selected by the operator."
+
+[rule.9]
+file = "services/platform/hosted/tests/beta_topology.go"
+linter = "goconst"
+action = "removed"
+
+[rule.10]
+file = "services/platform/hosted/tests/beta_topology.go"
+linter = "prealloc"
+action = "removed"
+
+[rule.11]
+file = "services/platform/hosted/tests/cmd/hosted-beta-tool/main.go"
+linter = "errcheck"
+action = "removed"
+
+[rule.12]
+file = "services/platform/hosted/tests/cmd/hosted-beta-tool/main.go"
+linter = "goconst"
+action = "removed"
+
+[rule.13]
+file = "services/platform/hosted/tests/cmd/hosted-beta-tool/main.go"
+linter = "staticcheck"
+action = "removed"
+
+[rule.14]
+file = "services/platform/perps-data/cmd/perps-explorer/main.go"
+linter = "errcheck"
+action = "removed"
+
+[rule.15]
+file = "services/platform/perps-data/cmd/perps-gateway/main.go"
+linter = "errcheck"
+action = "removed"
+
+[rule.16]
+file = "services/platform/perps-data/cmd/perps-indexer/main.go"
+linter = "errcheck"
+action = "removed"
+
+[rule.17]
+file = "services/platform/perps-data/cmd/perps-replay/main.go"
+linter = "errcheck"
+action = "removed"
+
+[rule.18]
+file = "services/platform/perps-data/cmd/perps-replay/main.go"
+linter = "gosec"
+action = "removed"
+
+[rule.19]
+file = "services/platform/perps-data/internal/config/config.go"
+linter = "gosec"
+action = "narrowed"
+reason = "The constant names the environment variable from which the operator supplies the authentication secret."
+
+[rule.20]
+file = "services/platform/perps-data/internal/decode/perps.go"
+linter = "goconst"
+action = "removed"
+
+[rule.21]
+file = "services/platform/perps-data/internal/decode/pricefeed.go"
+linter = "gosec"
+action = "removed"
+
+[rule.22]
+file = "services/platform/perps-data/internal/decode/registry.go"
+linter = "gosec"
+action = "removed"
+
+[rule.23]
+file = "services/platform/perps-data/internal/decode/spot.go"
+linter = "goconst"
+action = "removed"
+
+[rule.24]
+file = "services/platform/perps-data/internal/decode/spot.go"
+linter = "gosec"
+action = "narrowed"
+reason = "The share-token query is static SQL for assets from the configured chain and uses a bind parameter for the address."
+
+[rule.25]
+file = "services/platform/perps-data/internal/delivery/store.go"
+linter = "errcheck"
+action = "removed"
+
+[rule.26]
+file = "services/platform/perps-data/internal/delivery/store.go"
+linter = "gosec"
+action = "narrowed"
+reason = "Operator-selected schema identifiers are validated and quoted; record values use SQL parameters."
+
+[rule.27]
+file = "services/platform/perps-data/internal/explorer/explorer.go"
+linter = "errcheck"
+action = "removed"
+
+[rule.28]
+file = "services/platform/perps-data/internal/feeds/book.go"
+linter = "errcheck"
+action = "removed"
+
+[rule.29]
+file = "services/platform/perps-data/internal/feeds/topics.go"
+linter = "errcheck"
+action = "removed"
+
+[rule.30]
+file = "services/platform/perps-data/internal/feeds/topics.go"
+linter = "goconst"
+action = "removed"
+
+[rule.31]
+file = "services/platform/perps-data/internal/feeds/topics.go"
+linter = "gosec"
+action = "narrowed"
+reason = "The token query is static SQL for assets from the configured chain and uses a bind parameter for the asset rank."
+
+[rule.32]
+file = "services/platform/perps-data/internal/graphql/account.go"
+linter = "errcheck"
+action = "removed"
+
+[rule.33]
+file = "services/platform/perps-data/internal/graphql/perps.go"
+linter = "errcheck"
+action = "removed"
+
+[rule.34]
+file = "services/platform/perps-data/internal/graphql/perps.go"
+linter = "gosec"
+action = "removed"
+
+[rule.35]
+file = "services/platform/perps-data/internal/graphql/spot.go"
+linter = "errcheck"
+action = "removed"
+
+[rule.36]
+file = "services/platform/perps-data/internal/graphql/spot.go"
+linter = "goconst"
+action = "removed"
+
+[rule.37]
+file = "services/platform/perps-data/internal/graphql/subscriptions.go"
+linter = "errcheck"
+action = "removed"
+
+[rule.38]
+file = "services/platform/perps-data/internal/indexer/indexer.go"
+linter = "gosec"
+action = "removed"
+
+[rule.39]
+file = "services/platform/perps-data/internal/indexer/rewind.go"
+linter = "gosec"
+action = "removed"
+
+[rule.40]
+file = "services/platform/perps-data/internal/markets/markets.go"
+linter = "gosec"
+action = "removed"
+
+[rule.41]
+file = "services/platform/perps-data/internal/pnl/pnl.go"
+linter = "errcheck"
+action = "removed"
+
+[rule.42]
+file = "services/platform/perps-data/internal/portal/pages.go"
+linter = "errcheck"
+action = "removed"
+
+[rule.43]
+file = "services/platform/perps-data/internal/portal/server.go"
+linter = "errcheck"
+action = "removed"
+
+[rule.44]
+file = "services/platform/perps-data/internal/publish/publisher.go"
+linter = "gosec"
+action = "removed"
+
+[rule.45]
+file = "services/platform/perps-data/internal/records/marketset.go"
+linter = "errcheck"
+action = "removed"
+
+[rule.46]
+file = "services/platform/perps-data/internal/records/records.go"
+linter = "errcheck"
+action = "removed"
+
+[rule.47]
+file = "services/platform/perps-data/internal/records/records.go"
+linter = "gosec"
+action = "narrowed"
+reason = "The token query is static SQL for assets from the configured chain and uses a bind parameter for the asset rank."
+
+[rule.48]
+file = "services/platform/perps-data/internal/replay/replay.go"
+linter = "errcheck"
+action = "removed"
+
+[rule.49]
+file = "services/platform/perps-data/internal/replay/replay.go"
+linter = "gosec"
+action = "removed"
+
+[rule.50]
+file = "services/platform/perps-data/internal/rest/accountv2.go"
+linter = "errcheck"
+action = "removed"
+
+[rule.51]
+file = "services/platform/perps-data/internal/rest/accountv2.go"
+linter = "goconst"
+action = "removed"
+
+[rule.52]
+file = "services/platform/perps-data/internal/rest/markets.go"
+linter = "errcheck"
+action = "removed"
+
+[rule.53]
+file = "services/platform/perps-data/internal/rest/markets.go"
+linter = "gosec"
+action = "removed"
+
+[rule.54]
+file = "services/platform/perps-data/internal/rest/spotusers.go"
+linter = "errcheck"
+action = "removed"
+
+[rule.55]
+file = "services/platform/perps-data/internal/rest/symbol.go"
+linter = "goconst"
+action = "removed"
+
+[rule.56]
+file = "services/platform/perps-data/internal/rest/venue.go"
+linter = "errcheck"
+action = "removed"
+
+[rule.57]
+file = "services/platform/perps-data/internal/rest/venue.go"
+linter = "gosec"
+action = "removed"
+
+[rule.58]
+file = "services/platform/perps-data/internal/source/follower.go"
+linter = "errcheck"
+action = "removed"
+
+[rule.59]
+file = "services/platform/perps-data/internal/source/follower.go"
+linter = "gosec"
+action = "removed"
+
+[rule.60]
+file = "services/platform/perps-data/internal/source/rpc.go"
+linter = "errcheck"
+action = "removed"
+
+[rule.61]
+file = "services/platform/perps-data/internal/source/rpc.go"
+linter = "gosec"
+action = "removed"
+
+[rule.62]
+file = "services/platform/perps-data/internal/store/facts.go"
+linter = "errcheck"
+action = "removed"
+
+[rule.63]
+file = "services/platform/perps-data/internal/store/facts.go"
+linter = "gosec"
+action = "removed"
+
+[rule.64]
+file = "services/platform/perps-data/internal/store/migrate.go"
+linter = "errcheck"
+action = "removed"
+
+[rule.65]
+file = "services/platform/perps-data/internal/store/projections.go"
+linter = "errcheck"
+action = "removed"
+
+[rule.66]
+file = "services/platform/perps-data/internal/store/projections.go"
+linter = "goconst"
+action = "removed"
+
+[rule.67]
+file = "services/platform/perps-data/internal/store/spotboard.go"
+linter = "errcheck"
+action = "removed"
+
+[rule.68]
+file = "services/platform/perps-data/internal/store/spotboard.go"
+linter = "gosec"
+action = "removed"
+
+[rule.69]
+file = "services/platform/perps-data/internal/ws/spotuser.go"
+linter = "errcheck"
+action = "removed"
+
+[rule.70]
+file = "services/platform/perps-data/loadtest/load.go"
+linter = "errcheck"
+action = "removed"
+
+[rule.71]
+file = "services/platform/perps-data/loadtest/load.go"
+linter = "goconst"
+action = "removed"
+
+[rule.72]
+file = "services/platform/perps-data/internal/graphql/account.go"
+linter = "goconst"
+action = "removed"
+
+[rule.73]
+file = "services/platform/perps-data/internal/graphql/perps.go"
+linter = "goconst"
+action = "removed"

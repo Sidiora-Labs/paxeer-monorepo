@@ -43,7 +43,7 @@ pub(crate) fn digest(
         || plan.not_before > now
         || plan.not_after < now
         || plan.not_after <= plan.not_before
-        || tx.to != bank
+        || tx.to == [0; 20]
         || tx.value != [0; 32]
         || tx.gas_limit < 21_000
         || tx.max_fee_per_gas == 0
@@ -76,6 +76,18 @@ pub(crate) fn digest(
             && denom == value.disclosure.denom
             && amount == value.disclosure.amount =>
         {
+            Ok(call.signing_hash())
+        }
+        Some(ConstructMethod::PointerTransfer {
+            pointer,
+            to,
+            amount,
+        }) if pointer != bank
+            && to == value.disclosure.recipient
+            && amount == value.disclosure.amount =>
+        {
+            crate::verify_native_pointer(&value.disclosure.denom, pointer, tx.chain_id)
+                .map_err(|_| Error::Refused)?;
             Ok(call.signing_hash())
         }
         _ => Err(Error::Refused),

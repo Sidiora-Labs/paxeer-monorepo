@@ -1,12 +1,4 @@
-"""Resolve documented shell commands against this checkout without running them.
-
-Decision 2809 supplies the command inventory contract. Following decision 2943
-and the Jev command page's refusal output (gotcha 3650), a dollar-prompt block
-contains commands only at its prompts, including continuations and heredocs.
-Following the public-node endpoint producers in decisions 2810 and 2944,
-JSON-RPC and WebSocket upgrades use only the root of the alias and api1–api14;
-the retired /rpc/ws route has no upgrade.
-"""
+"""Resolve documented shell commands, working directories and public RPC roots."""
 
 from dataclasses import dataclass
 from fnmatch import fnmatchcase
@@ -167,15 +159,18 @@ def _page_root(page, preceding=""):
         r"(?:^|[\n.!?,]\s*)(?:Run|run|Start|start)[^\n.]{0,120}?from\s+"
         r"(?:the\s+)?(?:directory\s+)?`([^`]+)`", preceding,
     ))
-    if sentences:
+    root_directives = list(re.finditer(
+        r"(?:From|from) the (?:monorepo|repository|repo) root\b", preceding
+    ))
+    if root_directives and (not sentences or root_directives[-1].start() > sentences[-1].start()):
+        directory = ROOT / entries[prefix] if name.startswith("docs/hyperfide/") else ROOT
+    elif sentences:
         reference = sentences[-1][1].removeprefix("paxeer-monorepo/")
         directory = ROOT / reference
-    elif re.search(r"(?:From|from) the (?:monorepo|repository|repo) root\b", preceding):
-        directory = ROOT / entries[prefix] if name.startswith("docs/hyperfide/") else ROOT
     local = re.search(r"(?:^|[\n.!?]\s*)(?:From|from)\s+`([^`]+)`[^\n]*:\s*$", preceding)
     if local:
         directory = ROOT / local[1]
-    if re.search(r"From this SDK directory[^\n]*:\s*$", preceding):
+    if re.search(r"From this SDK directory(?:[^\n]|\n(?!\n))*:\s*$", preceding):
         directory = page.parent
     if re.search(r"(?:^|[\n.!?]\s*)(?:From|from|Run it from|run from) this directory[^\n]*:\s*$", preceding):
         directory = page.parent
@@ -312,7 +307,11 @@ def _options(words, directory, names):
         index += 1
     for key in ("-C", "--directory", "--dir", "--cwd", "--prefix"):
         for value in values.get(key, []):
-            directory = _path(value, directory).resolve()
+            if key == "--dir" and directory == ROOT / "tools/hyperfide" \
+                    and value == "tools/hyperfide":
+                directory = ROOT / value
+            else:
+                directory = _path(value, directory).resolve()
     return result, directory, values
 
 
@@ -741,18 +740,19 @@ def test_doc_public_rpc_hosts_use_root_path():
 
 
 def test_shell_command_extraction():
-    # Jev's prompt-led refusal at line 89: output beginning with a shell builtin
-    # and an apostrophe must not become a command or reach shlex.
+    # Prompt-led output remains separate from executable command lines.
     body = "$ jev export --format json\nexport refused: this isn't an enrolled workspace\n"
     commands = list(_logical_commands(body))
     assert commands == [(1, "jev export --format json")]
     assert len(commands) == 1
     jev = ROOT / "docs/hyperfide/jev.md"
-    refusal_blocks = [body for _, _, body in _shell_blocks(jev.read_text(encoding="utf-8"))
-                      if "$ hyperfide jev ask --state hello" in body]
-    assert len(refusal_blocks) == 1
-    assert list(_logical_commands(refusal_blocks[0])) == [
-        (1, 'hyperfide jev ask --state hello --noul greeting "Is it a greeting?"'),
+    decision_blocks = [body for _, _, body in _shell_blocks(jev.read_text(encoding="utf-8"))
+                       if 'hyperfide jev ask --state "Choose the documentation category"' in body]
+    assert len(decision_blocks) == 1
+    assert list(_logical_commands(decision_blocks[0])) == [
+        (1, 'hyperfide jev ask --state "Choose the documentation category" '
+            '--choice category "Which category fits this state?" '
+            '--option user="User guidance" --option developer="Developer reference"'),
     ]
     for language in SHELL_LANGUAGES:
         assert list(_logical_commands(body, language)) == commands

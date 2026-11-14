@@ -6,11 +6,10 @@ from pathlib import Path
 import re
 import shlex
 import tomllib
-from urllib.parse import urlsplit
 
 
 ROOT = Path(__file__).resolve().parents[3]
-README = (ROOT / "README.md").read_text(encoding="utf-8")
+NETWORK = (ROOT / "docs/readme/NETWORK.md").read_text(encoding="utf-8")
 
 
 def source(path):
@@ -19,10 +18,10 @@ def source(path):
 
 def section(heading, level=3):
     marker = "#" * level + " " + heading + "\n"
-    assert README.count(marker) == 1, heading
+    assert NETWORK.count(marker) == 1, heading
     lines = []
     fence = None
-    for line in README.split(marker, 1)[1].splitlines(keepends=True):
+    for line in NETWORK.split(marker, 1)[1].splitlines(keepends=True):
         delimiter = re.match(r"^ {0,3}(`{3,}|~{3,})(.*)$", line)
         if delimiter:
             ticks, suffix = delimiter.groups()
@@ -39,20 +38,23 @@ def section(heading, level=3):
 def test_readme_retired_topology_merged_network_and_finality():
     overview = section("What is Paxeer X Network?", 2)
     for fact in (
-        "one BFT network with EVM chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node",
-        "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
-        "runs inside `paxd` through [`modules/lxphost`](modules/lxphost/)",
+        "The LayerX kernel runs inside every `paxd` node.",
+        "EVM chain ID **125** (`0x7d`)",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.",
+        "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
+        "runs inside `paxd` through [`modules/lxphost`](../../modules/lxphost/)",
         "node links `build/liblayerx.a`",
         "A receipt is final once its block is committed",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
-        "no router and no separate LayerX interface",
     ):
         assert fact in overview, fact
     topology = section("Integrated network topology")
     for fact in (
-        "subgraph Network[One Paxeer BFT network / EVM chain 125]",
+        "subgraph Network[Paxeer X / EVM chain 125]",
         "subgraph Node[paxd]",
         "RPC --> Order --> Host --> Native",
         "Validators -->|Commit| State[Committed block and chain state]",
@@ -69,26 +71,8 @@ def test_readme_retired_topology_merged_network_and_finality():
 
 def test_readme_retired_topology_root_rpc_and_chain_probe():
     quickstart = section("Quick start: connect to chain 125")
-    assert "Public node JSON-RPC uses the root URL" in quickstart
-    assert "root path of these hosts, without a route suffix" in quickstart
-    assert (
-        "`https://api1.mainnet-beta.paxeer.network` through "
-        "`https://api14.mainnet-beta.paxeer.network`"
-    ) in quickstart
-    public_urls = [
-        urlsplit(url)
-        for url in re.findall(r"https?://[^\s`<>)]+", README)
-        if urlsplit(url).hostname
-        and urlsplit(url).hostname.endswith("mainnet-beta.paxeer.network")
-    ]
-    assert public_urls
-    hosts = {
-        "api-mainnet-beta.paxeer.network",
-        *(f"api{i}.mainnet-beta.paxeer.network" for i in range(1, 15)),
-    }
-    for url in public_urls:
-        assert url.scheme == "https" and url.hostname in hosts
-        assert url.path in ("", "/") and not url.query and not url.fragment
+    assert "Set `PAXEER_RPC_URL` to a node root URL from the [public RPC reference]" in quickstart
+    assert "Send HTTPS JSON-RPC requests to the root path without a route suffix" in quickstart
     blocks = re.findall(r"```sh\n(.*?)\n```", quickstart, re.S)
     assert len(blocks) == 1
     argv = shlex.split(blocks[0].replace("\\\n", " "), comments=True)
@@ -98,10 +82,8 @@ def test_readme_retired_topology_root_rpc_and_chain_probe():
     assert json.loads(argv[argv.index("-d") + 1]) == {
         "jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": []
     }
-    assert "https://api1.mainnet-beta.paxeer.network" in argv
+    assert "$PAXEER_RPC_URL" in argv
     assert '# Expected result: "0x7d"' in blocks[0]
-    assert "node.hyperpaxeer.com` is only the hpx library mirror" in quickstart
-    assert "never a JSON-RPC endpoint" in quickstart
     assert 'if path == "" {\n\t\treturn r.URL.Path == "/"' in source("rpc/rpcstack.go")
 
 
@@ -163,9 +145,9 @@ def test_readme_retired_topology_executors_are_refusal_surfaces():
         "archived formats add no settlement step to current block finality",
     ):
         assert fact in native, fact
-    assert "custody deposit and credit-attestation funding flow is retired" in README
-    assert "External checkpoint settlement is retired" in README
-    assert not re.search(r"\blayerxd\b", README, re.I)
+    assert "custody deposit and credit-attestation funding flow is retired" in NETWORK
+    assert "External checkpoint settlement is retired" in NETWORK
+    assert not re.search(r"\blayerxd\b", NETWORK, re.I)
     assert 'pcommon.RetiredRevert("layerxVerify")' in source(
         "precompiles/layerxverify/layerxverify.go"
     )
@@ -196,7 +178,7 @@ def test_readme_retired_topology_linked_node_build_and_commands():
         "running network entry point is `paxd`",
     ):
         assert fact in build, fact
-    assert "[commands below](#build)" in README
+    assert "[commands below](#build)" in NETWORK
     makefile = source("Makefile")
     dependencies = dict(re.findall(r"^([\w-]+):([^\n]*)$", makefile, re.M))
     assert dependencies["paxd-build"].split() == ["paxd-native-libs"]
@@ -204,9 +186,9 @@ def test_readme_retired_topology_linked_node_build_and_commands():
     chain = source("chain.mk")
     assert re.search(r"^build: paxd-native-libs\n\tgo build .* -o ./build/paxd ./daemon/paxd$", chain, re.M)
     assert "server.AddCommands(" in source("daemon/paxd/cmd/root.go")
-    for target in re.findall(r"\]\(([^)]+)\)", README):
+    for target in re.findall(r"\]\(([^)]+)\)", NETWORK):
         if not target.startswith(("https:", "http:", "#")):
-            assert (ROOT / target.split("#", 1)[0]).exists(), target
+            assert (ROOT / "docs/readme" / target.split("#", 1)[0]).exists(), target
 
 
 def test_readme_retired_topology_record_maps_finding_to_executable_proofs():

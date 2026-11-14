@@ -1041,11 +1041,9 @@ fn service(root: &Path, runner: PathBuf) -> Checked<JobService> {
 }
 
 fn real_runner() -> Checked<PathBuf> {
-    std::env::var_os(RUNNER_ENV)
+    Ok(std::env::var_os(RUNNER_ENV)
         .map(PathBuf::from)
-        .ok_or(Failure::Unexpected(
-            "real model runner executable: PAXAI_RUNNER is not provisioned",
-        ))
+        .unwrap_or_else(|| PathBuf::from(env!("CARGO_BIN_EXE_layerx-paxai-runner"))))
 }
 
 /// Encoded encrypted F09 manifest of `object` bound to `task` of epoch 1.

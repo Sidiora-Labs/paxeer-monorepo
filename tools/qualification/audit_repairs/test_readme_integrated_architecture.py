@@ -13,7 +13,9 @@ from urllib.parse import urlsplit
 
 
 ROOT = Path(__file__).resolve().parents[3]
-README = (ROOT / "README.md").read_text(encoding="utf-8")
+NETWORK_PAGE = ROOT / "docs/readme/NETWORK.md"
+README = NETWORK_PAGE.read_text(encoding="utf-8")
+PUBLIC_RPC = (ROOT / "docs/readme/PUBLIC-RPC.md").read_text(encoding="utf-8")
 RECORD = ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_1037.kvx"
 
 
@@ -44,14 +46,18 @@ def section(heading, level=3):
 def test_integrated_architecture_architecture_is_the_integrated_paxd_network():
     overview = section("What is Paxeer X Network?", 2)
     for fact in (
-        "one BFT network", "chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node", "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
-        "[`daemon/paxd`](daemon/paxd/)", "[`modules/lxphost`](modules/lxphost/)",
+        "The LayerX kernel runs inside every `paxd` node.", "chain ID **125** (`0x7d`)",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.", "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
+        "[`daemon/paxd`](../../daemon/paxd/)", "[`modules/lxphost`](../../modules/lxphost/)",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
-        "no router and no separate LayerX interface",
     ):
         assert fact in overview, fact
+    assert "The former unified router and its prefixed RPC routes are retired" in PUBLIC_RPC
+    assert "The node serves the `px` namespace at the root path, answering from node state" in PUBLIC_RPC
     assert "app.LayerXHost, err = NewHost(" in source("node/app.go")
     host = source("modules/lxphost/host.go")
     assert 'import "C"' in host
@@ -60,7 +66,7 @@ def test_integrated_architecture_architecture_is_the_integrated_paxd_network():
         "node/sequencer/consensus_source.go"
     )
     topology = section("Integrated network topology")
-    assert "subgraph Network[One Paxeer BFT network / EVM chain 125]" in topology
+    assert "subgraph Network[Paxeer X / EVM chain 125]" in topology
     assert "subgraph Node[paxd]" in topology
     assert "RPC --> Order --> Host --> Native" in topology
     assert "Validators -->|Commit| State" in topology
@@ -69,11 +75,14 @@ def test_integrated_architecture_architecture_is_the_integrated_paxd_network():
 def test_integrated_architecture_public_rpc_example_uses_chain_125_at_the_node_root():
     quickstart = section("Quick start: connect to chain 125")
     for fact in (
-        "Public node JSON-RPC uses the root URL",
-        "`https://api1.mainnet-beta.paxeer.network` through `https://api14.mainnet-beta.paxeer.network`",
-        "root path of these hosts, without a route suffix",
-        "node.hyperpaxeer.com` is only the hpx library mirror",
-        "never a JSON-RPC endpoint",
+        "Use `api1` through `api14.mainnet-beta.paxeer.network` or",
+        "`api-mainnet-beta.paxeer.network`, all at the root path",
+        "node.hyperpaxeer.com` is only the hpx library mirror, never a JSON-RPC endpoint",
+    ):
+        assert fact in PUBLIC_RPC, fact
+    for fact in (
+        "Set `PAXEER_RPC_URL` to a node root URL",
+        "Send HTTPS JSON-RPC requests to the root path without a route suffix",
     ):
         assert fact in quickstart, fact
     blocks = re.findall(r"```sh\n(.*?)\n```", quickstart, re.S)
@@ -85,11 +94,9 @@ def test_integrated_architecture_public_rpc_example_uses_chain_125_at_the_node_r
     assert json.loads(argv[argv.index("-d") + 1]) == {
         "jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": []
     }
-    assert [arg for arg in argv if arg.startswith("https://")] == [
-        "https://api1.mainnet-beta.paxeer.network"
-    ]
+    assert argv[argv.index("-sS") + 1] == "$PAXEER_RPC_URL"
     assert '# Expected result: "0x7d"' in blocks[0]
-    for url in re.findall(r"https?://[^\s`<>)]+", README):
+    for url in re.findall(r"https?://[^\s`<>)]+", PUBLIC_RPC):
         parsed = urlsplit(url)
         if parsed.hostname and parsed.hostname.endswith("mainnet-beta.paxeer.network"):
             assert parsed.scheme == "https" and parsed.path in ("", "/")
@@ -139,7 +146,7 @@ def test_integrated_architecture_transaction_and_committed_receipt_follow_the_re
 
 def test_integrated_architecture_specification_describes_implemented_upgrade_control():
     specification = section("Specification", 2)
-    assert "maintained architecture entry point" in specification
+    assert "This reference page describes the integrated network architecture" in specification
     assert "integrated network's requirements and implementation tasks" in specification
     assert "Runtime behavior is implemented in the node, kernel host and native modules" in specification
     assert "activation is controlled by the upgrade handlers" in specification
@@ -209,13 +216,13 @@ def test_integrated_architecture_build_and_start_target_the_linked_paxd_binary()
     assert "server.AddCommands(" in source("daemon/paxd/cmd/root.go")
     releases = section("Releases and Network Upgrades")
     assert "executes kernel activity inside `paxd`" in releases
-    assert "commits it with the BFT chain state" in releases
+    assert "validators commit it in the same block" in releases
     for body in (section("What is Paxeer X Network?", 2), section("Specification", 2), build):
         links = re.findall(r"\]\(([^)]+)\)", body)
         assert links
         for target in links:
             if not target.startswith(("http:", "https:", "#")):
-                assert (ROOT / target.split("#", 1)[0]).exists(), target
+                assert (NETWORK_PAGE.parent / target.split("#", 1)[0]).exists(), target
 
 
 def test_integrated_architecture_repair_record_names_its_proofs_ownership_and_limits():

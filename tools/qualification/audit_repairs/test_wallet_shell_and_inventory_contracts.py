@@ -155,7 +155,10 @@ def test_57_rpc_owner_routing_source():
 @pytest.mark.parametrize("method,result", [
     ("eth_chainId", "0x7d"),
     ("px_resolveAccount", {"bound": False}),
-    ("px_getNetwork", {"paxeer": {"chain_id": "0x7d"}, "consensus": {"latest_height": "42"}}),
+    ("px_getNetwork", {"paxeer": {"chain_id": "0x7d"}, "consensus": {
+        "latest_height": "42", "latest_block_hash": "AB" * 32,
+        "latest_app_hash": "CD" * 32, "catching_up": False,
+    }}),
     ("px_getNetwork", {"paxeer": {"chain_id": "0x7d"}, "consensus": None, "reason": "consensus_unavailable"}),
     ("px_getAccount", {
         "account": {"bound": False, "evm_address": ACCOUNT.lower()},

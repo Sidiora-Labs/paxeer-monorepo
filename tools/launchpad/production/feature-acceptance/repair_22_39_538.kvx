@@ -1,0 +1,6 @@
+[reference]
+path = "launchpad/spec/production-system/spec.kvx"
+declaration = "tools/launchpad/production/feature-acceptance/reference_declarations_test.go"
+symbol = "RetiredSpecPath"
+case = "TestReferenceDeclarationsReferenceIntegrity/wrong-spec"
+behavior = "References to the retired specification are refused."
