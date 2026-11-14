@@ -21925,3 +21925,8 @@ fix = "Decision 3506. Task 22.39.516."
 title = "No test keeps the pages on the kernel sentence"
 symptom = "Decision 3496 and the decisions after it brought every page, comment and schema text to the kernel sentence, task by task. No test of the tree reads the pages for the old wordings, so a later page can bring one back unseen."
 fix = "Decision 3507. Task 22.43.333 adds the test."
+
+[gotcha.4421]
+title = "The lint rules by file and linter are wider than the reports they were written for"
+symptom = "Most rules of the lint configuration name a file and a linter. A rule of that form covers every report of the linter in the file, while the report it was written for concerned single lines."
+fix = "Decision 3508. Tasks 22.39.517 to 22.39.519 repair the code of three groups of directories and remove their rules."

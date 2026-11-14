@@ -14158,6 +14158,12 @@ value = "The directory tests/ci gets a test that reads the tracked text files of
 basis = "Gotcha 4420, decisions 3496, 3500, 3501 and 3503."
 affects = []
 
+[decision.3508]
+title = "The lint rules by file and linter are removed by repair, group by group, services and tools first"
+value = "For a group of directories a task repairs the code behind each rule of the lint configuration that names a file of the group, and removes the rule. The linters for unchecked errors, repeated literals, static checks, preallocation, response bodies and imports leave no rule of the group behind. A report of the security linter is repaired where the code can check its input. Where a program must act on a value its operator gives, such as the path or the command of a command-line tool, the rule is narrowed to the exact text of the report. No exemption comment is added to code. The first groups are the services under services/platform, the tools tools/pnsdns, tools/specgen and tools/tx-scanner with the fixture program under daemon, and tools/benchmark with tools/flyci. The directories of the node, of its modules and precompiles, of the consensus and storage code and of the tools of a network upgrade keep their rules until a later decision."
+basis = "Gotcha 4421, decision 3497."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -43818,6 +43824,33 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.519]
+title = "Repair the code behind the lint rules of the benchmark tools and the pipeline controller and remove the rules"
+reqs = ["22998.1"]
+touches = [".golangci.yml", "tools/benchmark", "tools/flyci"]
+tests = []
+verification_contract = "test -s tools/benchmark/repair_22_39_519.kvx && test $(git grep -h -A1 -E 'path: ..(tools/benchmark|tools/flyci)/' -- .golangci.yml | grep -c -E 'linters: .(errcheck|goconst|staticcheck|prealloc|bodyclose|goimports|unconvert|misspell|ineffassign)') -eq 0 && test $(git grep -h -A2 -E 'path: ..(tools/benchmark|tools/flyci)/' -- .golangci.yml | grep -c -F 'text: ') -eq $(git grep -h -E 'path: ..(tools/benchmark|tools/flyci)/' -- .golangci.yml | wc -l) && make -s paxeer-go-lint"
+do_1 = "do_1 Decisions 3497 and 3508, gotcha 4421. Read the rules of .golangci.yml whose path begins with tools/benchmark or tools/flyci, and the target paxeer-go-lint of the Makefile. Each of these rules takes one linter off one file. Take the rules of the group out of a working copy of the configuration and run the lint program to see the reports behind them. Keep that list for the record."
+symbols = []
+
+[capability.22.39.518]
+title = "Repair the code behind the lint rules of three small tools and the fixture program and remove the rules"
+reqs = ["22998.1"]
+touches = [".golangci.yml", "tools/pnsdns", "tools/specgen", "tools/tx-scanner", "daemon/committed-fixture"]
+tests = []
+verification_contract = "test -s tools/pnsdns/repair_22_39_518.kvx && test $(git grep -h -A1 -E 'path: ..(tools/pnsdns|tools/specgen|tools/tx.*scanner|daemon/committed.*fixture)/' -- .golangci.yml | grep -c -E 'linters: .(errcheck|goconst|staticcheck|prealloc|bodyclose|goimports|unconvert|misspell|ineffassign)') -eq 0 && test $(git grep -h -A2 -E 'path: ..(tools/pnsdns|tools/specgen|tools/tx.*scanner|daemon/committed.*fixture)/' -- .golangci.yml | grep -c -F 'text: ') -eq $(git grep -h -E 'path: ..(tools/pnsdns|tools/specgen|tools/tx.*scanner|daemon/committed.*fixture)/' -- .golangci.yml | wc -l) && make -s paxeer-go-lint"
+do_1 = "do_1 Decisions 3497 and 3508, gotcha 4421. Read the rules of .golangci.yml whose path begins with tools/pnsdns, tools/specgen, tools/tx-scanner or daemon/committed-fixture, and the target paxeer-go-lint of the Makefile. Each of these rules takes one linter off one file. Take the rules of the group out of a working copy of the configuration and run the lint program to see the reports behind them. Keep that list for the record."
+symbols = []
+
+[capability.22.39.517]
+title = "Repair the code behind the lint rules of the services under services/platform and remove the rules"
+reqs = ["22998.1"]
+touches = [".golangci.yml", "services/platform/perps-data", "services/platform/hosted"]
+tests = []
+verification_contract = "test -s services/platform/perps-data/repair_22_39_517.kvx && test $(git grep -h -A1 -E 'path: ..services/platform/' -- .golangci.yml | grep -c -E 'linters: .(errcheck|goconst|staticcheck|prealloc|bodyclose|goimports|unconvert|misspell|ineffassign)') -eq 0 && test $(git grep -h -A2 -E 'path: ..services/platform/' -- .golangci.yml | grep -c -F 'text: ') -eq $(git grep -h -E 'path: ..services/platform/' -- .golangci.yml | wc -l) && make -s paxeer-go-lint"
+do_1 = "do_1 Decisions 3497 and 3508, gotcha 4421. Read the rules of .golangci.yml whose path begins with services/platform, and the target paxeer-go-lint of the Makefile. Each of these rules takes one linter off one file. Take the rules of the group out of a working copy of the configuration and run the lint program to see the reports behind them. Keep that list for the record."
+symbols = []
 
 [capability.22.43.333]
 title = "Add the test that keeps the pages on the kernel sentence and run the tests that read those pages"
@@ -327670,6 +327703,102 @@ do_15 = "Attempt 32 (28dfb4c7c) reverts the funded sandboxExecute with LXP_SEQUE
 do_16 = "Attempt 34 re-qualified the attempt 33 files on a base with 13.27.6 and sandboxExecute still reverted with a bare LXP_FATAL_INVARIANT returned by host Execute (not by the handler or a receipt code); the stored lease is Active with zero usage, the escrow funded 100000000 with nothing spent, and the ledger is the initial one. This task changes nothing further; it requires 13.27.7 (decision.1890), which fixes the -1001 site on the sandboxed SUCCESS path with an end-to-end SANDBOX_EXECUTE SUCCESS case in tests/codec/lxp_test_sandbox_lifecycle.c; then re-qualify ef3be2b2f unchanged."
 do_17 = "Attempt 35 (566d189c8) reverts TestProgramsSandboxExecuteEmitsUsage with LXP_FATAL_INVARIANT on a base that holds 13.27.7 (7331258b0), and the test output carries no sandbox.c invariant line although sandbox_invariant (src/modules/programs/sandbox.c:82, called at :395, :411 and :440) prints the line, site and state to stderr: run the test so the kernel's stderr reaches the output (go test -v; the precompile harness must not redirect fd 2) and include the printed site with the lease-state record in the failure message. When the site shows the precompile's request out of order or missing a step (admit host, open lease, execute, publish usage, release), fix method_sandbox_execute.go; when the kernel refuses a legal sequence, record file, line and site as a finding and stop without changing src/."
 do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection (src/protocol/lxp_kernel.c:2389-2394) refuses the sandbox escrow-charge effect that task 13.27.7 made the call emit; task 13.27.8 binds it in the kernel (decision.1898). Once 13.27.8 is on main, continue attempt 35 unchanged: one build, one verify."
+
+[task.22.39.519]
+title = "Repair the code behind the lint rules of the benchmark tools and the pipeline controller and remove the rules"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.517"]
+reqs = ["22998.1"]
+capabilities = ["22.39.519"]
+interfaces = []
+do_1 = "do_1 Decisions 3497 and 3508, gotcha 4421. Read the rules of .golangci.yml whose path begins with tools/benchmark or tools/flyci, and the target paxeer-go-lint of the Makefile. Each of these rules takes one linter off one file. Take the rules of the group out of a working copy of the configuration and run the lint program to see the reports behind them. Keep that list for the record."
+do_2 = "do_2 Repair the code behind each report and remove the rule together with the comment line above it. An unchecked error is handled or returned in the way the surrounding code handles errors; where a close or a removal runs on a path that already returns an error, the first error is kept. A repeated literal becomes a named constant of its package. A report of the static checks, of preallocation, of response bodies or of imports is repaired as the linter names it. For these linters no rule of the group is left."
+do_3 = "do_3 A report of the security linter is repaired where the code can check its input: a bound before a conversion between integer types, a cleaned path held under its base directory, a file mode no wider than its use needs where no other program reads the file. Where the program must act on a value its operator gives, the rule stays and gets the exact text of the report as its text key, on the line after its linters key, in the form the rules with a text key already have. Add no exemption comment to code, widen no rule, and add no rule for a file that has none."
+do_4 = "do_4 The behaviour of the programs stays: output, exit codes, file formats and the names of flags and variables do not change. Add no dependency; go.mod and go.sum are outside the paths. Run gofmt over the changed files and run by hand the Go tests of every package you changed. A test that does not pass at the present main either is left as it is and named in the final message. For a report of the lint program in a file outside the paths change nothing and give file, line and message in the final message."
+do_5 = "do_5 Record in tools/benchmark/repair_22_39_519.kvx for each rule of the group the file, the linter and whether the rule was removed or narrowed, with the reason for each narrowed rule in one line. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = [".golangci.yml", "tools/benchmark", "tools/flyci"]
+tests = []
+planned_paths = ["tools/benchmark/repair_22_39_519.kvx"]
+build_cmd = "make -s paxeer-tools-install && go mod download"
+verify_cmd = "test -s tools/benchmark/repair_22_39_519.kvx && test $(git grep -h -A1 -E 'path: ..(tools/benchmark|tools/flyci)/' -- .golangci.yml | grep -c -E 'linters: .(errcheck|goconst|staticcheck|prealloc|bodyclose|goimports|unconvert|misspell|ineffassign)') -eq 0 && test $(git grep -h -A2 -E 'path: ..(tools/benchmark|tools/flyci)/' -- .golangci.yml | grep -c -F 'text: ') -eq $(git grep -h -E 'path: ..(tools/benchmark|tools/flyci)/' -- .golangci.yml | wc -l) && make -s paxeer-go-lint"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.518]
+title = "Repair the code behind the lint rules of three small tools and the fixture program and remove the rules"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.518"]
+interfaces = []
+do_1 = "do_1 Decisions 3497 and 3508, gotcha 4421. Read the rules of .golangci.yml whose path begins with tools/pnsdns, tools/specgen, tools/tx-scanner or daemon/committed-fixture, and the target paxeer-go-lint of the Makefile. Each of these rules takes one linter off one file. Take the rules of the group out of a working copy of the configuration and run the lint program to see the reports behind them. Keep that list for the record."
+do_2 = "do_2 Repair the code behind each report and remove the rule together with the comment line above it. An unchecked error is handled or returned in the way the surrounding code handles errors; where a close or a removal runs on a path that already returns an error, the first error is kept. A repeated literal becomes a named constant of its package. A report of the static checks, of preallocation, of response bodies or of imports is repaired as the linter names it. For these linters no rule of the group is left."
+do_3 = "do_3 A report of the security linter is repaired where the code can check its input: a bound before a conversion between integer types, a cleaned path held under its base directory, a file mode no wider than its use needs where no other program reads the file. Where the program must act on a value its operator gives, the rule stays and gets the exact text of the report as its text key, on the line after its linters key, in the form the rules with a text key already have. Add no exemption comment to code, widen no rule, and add no rule for a file that has none."
+do_4 = "do_4 The behaviour of the programs stays: output, exit codes, file formats and the names of flags and variables do not change. Add no dependency; go.mod and go.sum are outside the paths. Run gofmt over the changed files and run by hand the Go tests of every package you changed. A test that does not pass at the present main either is left as it is and named in the final message. For a report of the lint program in a file outside the paths change nothing and give file, line and message in the final message."
+do_5 = "do_5 Record in tools/pnsdns/repair_22_39_518.kvx for each rule of the group the file, the linter and whether the rule was removed or narrowed, with the reason for each narrowed rule in one line. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = [".golangci.yml", "tools/pnsdns", "tools/specgen", "tools/tx-scanner", "daemon/committed-fixture"]
+tests = []
+planned_paths = ["tools/pnsdns/repair_22_39_518.kvx"]
+build_cmd = "make -s paxeer-tools-install && go mod download"
+verify_cmd = "test -s tools/pnsdns/repair_22_39_518.kvx && test $(git grep -h -A1 -E 'path: ..(tools/pnsdns|tools/specgen|tools/tx.*scanner|daemon/committed.*fixture)/' -- .golangci.yml | grep -c -E 'linters: .(errcheck|goconst|staticcheck|prealloc|bodyclose|goimports|unconvert|misspell|ineffassign)') -eq 0 && test $(git grep -h -A2 -E 'path: ..(tools/pnsdns|tools/specgen|tools/tx.*scanner|daemon/committed.*fixture)/' -- .golangci.yml | grep -c -F 'text: ') -eq $(git grep -h -E 'path: ..(tools/pnsdns|tools/specgen|tools/tx.*scanner|daemon/committed.*fixture)/' -- .golangci.yml | wc -l) && make -s paxeer-go-lint"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.517]
+title = "Repair the code behind the lint rules of the services under services/platform and remove the rules"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.517"]
+interfaces = []
+do_1 = "do_1 Decisions 3497 and 3508, gotcha 4421. Read the rules of .golangci.yml whose path begins with services/platform, and the target paxeer-go-lint of the Makefile. Each of these rules takes one linter off one file. Take the rules of the group out of a working copy of the configuration and run the lint program to see the reports behind them. Keep that list for the record."
+do_2 = "do_2 Repair the code behind each report and remove the rule together with the comment line above it. An unchecked error is handled or returned in the way the surrounding code handles errors; where a close or a removal runs on a path that already returns an error, the first error is kept. A repeated literal becomes a named constant of its package. A report of the static checks, of preallocation, of response bodies or of imports is repaired as the linter names it. For these linters no rule of the group is left."
+do_3 = "do_3 A report of the security linter is repaired where the code can check its input: a bound before a conversion between integer types, a cleaned path held under its base directory, a file mode no wider than its use needs where no other program reads the file. Where the program must act on a value its operator gives, the rule stays and gets the exact text of the report as its text key, on the line after its linters key, in the form the rules with a text key already have. Add no exemption comment to code, widen no rule, and add no rule for a file that has none."
+do_4 = "do_4 The behaviour of the programs stays: output, exit codes, file formats and the names of flags and variables do not change. Add no dependency; go.mod and go.sum are outside the paths. Run gofmt over the changed files and run by hand the Go tests of every package you changed. A test that does not pass at the present main either is left as it is and named in the final message. For a report of the lint program in a file outside the paths change nothing and give file, line and message in the final message."
+do_5 = "do_5 Record in services/platform/perps-data/repair_22_39_517.kvx for each rule of the group the file, the linter and whether the rule was removed or narrowed, with the reason for each narrowed rule in one line. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = [".golangci.yml", "services/platform/perps-data", "services/platform/hosted"]
+tests = []
+planned_paths = ["services/platform/perps-data/repair_22_39_517.kvx"]
+build_cmd = "make -s paxeer-tools-install && go mod download"
+verify_cmd = "test -s services/platform/perps-data/repair_22_39_517.kvx && test $(git grep -h -A1 -E 'path: ..services/platform/' -- .golangci.yml | grep -c -E 'linters: .(errcheck|goconst|staticcheck|prealloc|bodyclose|goimports|unconvert|misspell|ineffassign)') -eq 0 && test $(git grep -h -A2 -E 'path: ..services/platform/' -- .golangci.yml | grep -c -F 'text: ') -eq $(git grep -h -E 'path: ..services/platform/' -- .golangci.yml | wc -l) && make -s paxeer-go-lint"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.516]
 title = "Let the format step of the lint target leave out what the Makefile leaves out and bring the target to pass as a whole"
