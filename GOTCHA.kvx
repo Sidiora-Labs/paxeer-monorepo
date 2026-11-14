@@ -22115,3 +22115,8 @@ fix = "Decision 3543. Task 22.39.555 names it and makes the tracing methods read
 title = "The request watch of the web search service starts at block zero when a cursor stands without a journal"
 symptom = "RequestWatcher::open in services/interop/crates/x-websearch/src/watch.rs sets the next block to zero when the cursor file exists and the journal does not. On a long chain the scan from zero does not end in useful time, and a read endpoint that keeps only recent blocks refuses the early ranges, so the watch does not advance."
 fix = "Decision 3544. Task 22.39.556 continues at the cursor and moves forward to the earliest block the endpoint serves."
+
+[gotcha.4459]
+title = "The start test of the daemon command names a standby address without replication TLS material"
+symptom = "TestNewAppPassesSequencerConfigToNode in daemon/paxd/cmd/new_app_test.go sets the standby address flag and none of the five replication flags of node/sequencer/config.go. ReplicationTLSConfig in node/sequencer/dial.go requires certificate, key, roots and peer identity wherever a standby is named, so the case needs that material to start the node."
+fix = "Decision 3545. Task 22.39.551 gives the case the material."
