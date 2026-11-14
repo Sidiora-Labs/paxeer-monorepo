@@ -46,6 +46,14 @@ On the network, a receipt is final once its block is committed. See the
 [x402 conformance notes](../../specs/conformance/x402/README.md) for the
 distinction between wire validation and authenticated settlement evidence.
 
+The sidecar starts its listener while the receiver identity and ledger accounts
+are unresolved. During that period paid routes return `503 payment_unavailable`
+and publish no offer. `GET /readyz` reports `payment.state` as `unresolved` with
+the failed read as `payment.reason`; the sidecar retries the reads every thirty
+seconds. Once all reads pass, the payment state becomes `ready` and paid routes
+open without a restart. Configuration, key, store, lock and adapter refusals
+remain startup errors.
+
 | Key | Meaning |
 | --- | --- |
 | `gateway.endpoint` | Settlement authority shared by the payment gate and readiness. Must serve `eth_chainId`, ledger/account `eth_call` lookups and `pax_sequencerReceipt` for exact payments. |
