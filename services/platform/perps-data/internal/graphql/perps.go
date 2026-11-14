@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -25,12 +26,14 @@ const (
 
 // headCursor is the perps.cursors row the indexer advances.
 const headCursor = "head"
+const bigDecimalTypeName = "BigDecimal"
+const dateTimeTypeName = "DateTime"
 
 // BigDecimal is a canonical decimal integer string of raw event units.
 type BigDecimal string
 
 // ImplementsGraphQLType binds BigDecimal to the BigDecimal scalar.
-func (BigDecimal) ImplementsGraphQLType(name string) bool { return name == "BigDecimal" }
+func (BigDecimal) ImplementsGraphQLType(name string) bool { return name == bigDecimalTypeName }
 
 // UnmarshalGraphQL accepts a canonical signed decimal integer string.
 func (b *BigDecimal) UnmarshalGraphQL(input any) error {
@@ -65,7 +68,7 @@ func (b *BigInt) UnmarshalGraphQL(input any) error {
 type DateTime struct{ time.Time }
 
 // ImplementsGraphQLType binds DateTime to the DateTime scalar.
-func (DateTime) ImplementsGraphQLType(name string) bool { return name == "DateTime" }
+func (DateTime) ImplementsGraphQLType(name string) bool { return name == dateTimeTypeName }
 
 // UnmarshalGraphQL accepts an RFC 3339 string.
 func (d *DateTime) UnmarshalGraphQL(input any) error {
@@ -676,7 +679,7 @@ func nameCase(column string, names []string) string {
 	var b strings.Builder
 	b.WriteString("CASE " + column)
 	for i, n := range names {
-		fmt.Fprintf(&b, " WHEN %d THEN '%s'", i, n)
+		b.WriteString(" WHEN " + strconv.Itoa(i) + " THEN " + pq.QuoteLiteral(n))
 	}
 	b.WriteString(" END")
 	return b.String()
@@ -740,22 +743,26 @@ func textArg(v *string) any {
 }
 
 // collect runs query and scans every row into a new T.
-func collect[T any](ctx context.Context, db *sql.DB, root, query string, args []any, dest func(*T) []any) ([]*T, error) {
+func collect[T any](ctx context.Context, db *sql.DB, root, query string, args []any, dest func(*T) []any) (result0 []*T, resultErr error) {
 	rows, err := db.QueryContext(ctx, query, args...)
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", root, err)
+		return nil, fmt.Errorf(queryError, root, err)
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); resultErr == nil {
+			resultErr = closeErr
+		}
+	}()
 	out := []*T{}
 	for rows.Next() {
 		v := new(T)
 		if err := rows.Scan(dest(v)...); err != nil {
-			return nil, fmt.Errorf("%s: %w", root, err)
+			return nil, fmt.Errorf(queryError, root, err)
 		}
 		out = append(out, v)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("%s: %w", root, err)
+		return nil, fmt.Errorf(queryError, root, err)
 	}
 	return out, nil
 }
@@ -803,7 +810,7 @@ func (r *Resolver) withMarkets(list []*Position) []*Position {
 }
 
 func (r *Resolver) Position(ctx context.Context, args struct{ PositionID string }) (*Position, error) {
-	id, err := idArg("positionId", &args.PositionID)
+	id, err := idArg(positionIDField, &args.PositionID)
 	if err != nil {
 		return nil, err
 	}
@@ -821,7 +828,7 @@ func (r *Resolver) Positions(ctx context.Context, args struct {
 	Limit       *int32
 	Offset      *int32
 }) ([]*Position, error) {
-	user, err := addressArg("userAddress", args.UserAddress)
+	user, err := addressArg(userAddressField, args.UserAddress)
 	if err != nil {
 		return nil, err
 	}
@@ -848,11 +855,11 @@ func (r *Resolver) Trades(ctx context.Context, args struct {
 	Limit       *int32
 	Offset      *int32
 }) ([]*Trade, error) {
-	user, err := addressArg("userAddress", args.UserAddress)
+	user, err := addressArg(userAddressField, args.UserAddress)
 	if err != nil {
 		return nil, err
 	}
-	position, err := idArg("positionId", args.PositionID)
+	position, err := idArg(positionIDField, args.PositionID)
 	if err != nil {
 		return nil, err
 	}
@@ -930,7 +937,7 @@ func (r *Resolver) Orders(ctx context.Context, args struct {
 	Limit       *int32
 	Offset      *int32
 }) ([]*Order, error) {
-	user, err := addressArg("userAddress", args.UserAddress)
+	user, err := addressArg(userAddressField, args.UserAddress)
 	if err != nil {
 		return nil, err
 	}
@@ -948,7 +955,7 @@ func (r *Resolver) Liquidations(ctx context.Context, args struct {
 	Limit       *int32
 	Offset      *int32
 }) ([]*Liquidation, error) {
-	user, err := addressArg("userAddress", args.UserAddress)
+	user, err := addressArg(userAddressField, args.UserAddress)
 	if err != nil {
 		return nil, err
 	}
@@ -1027,14 +1034,18 @@ func (l *marginTiers) get(ctx context.Context, id int32) ([]*MarginTier, error) 
 	return l.byID[id], nil
 }
 
-func (l *marginTiers) load(ctx context.Context) (map[int32][]*MarginTier, error) {
+func (l *marginTiers) load(ctx context.Context) (result0 map[int32][]*MarginTier, resultErr error) {
 	rows, err := l.r.DB.QueryContext(ctx, `SELECT market_id, tier, lower_bound_usd::text,
     max_leverage::text, maintenance_bps::text, deduction_usd::text
 FROM perps.market_tiers WHERE market_id = ANY($1::numeric[]) ORDER BY market_id, tier`, pq.Array(distinct(l.ids)))
 	if err != nil {
-		return nil, fmt.Errorf("market margin tiers: %w", err)
+		return nil, fmt.Errorf(marketMarginTiersError, err)
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); resultErr == nil {
+			resultErr = closeErr
+		}
+	}()
 	out := make(map[int32][]*MarginTier, len(l.ids))
 	for _, id := range l.ids {
 		out[id] = []*MarginTier{}
@@ -1043,12 +1054,12 @@ FROM perps.market_tiers WHERE market_id = ANY($1::numeric[]) ORDER BY market_id,
 		var id int32
 		tier := &MarginTier{}
 		if err := rows.Scan(&id, &tier.Tier, &tier.LowerBoundUsd, &tier.MaxLeverage, &tier.MaintenanceBps, &tier.DeductionUsd); err != nil {
-			return nil, fmt.Errorf("market margin tiers: %w", err)
+			return nil, fmt.Errorf(marketMarginTiersError, err)
 		}
 		out[id] = append(out[id], tier)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("market margin tiers: %w", err)
+		return nil, fmt.Errorf(marketMarginTiersError, err)
 	}
 	return out, nil
 }
@@ -1109,8 +1120,8 @@ type marketStateLoader struct {
 	err  error
 }
 
-var marketStateSQL = `SELECT m.id, mp.index_price::text, floor(extract(epoch FROM mp.block_time))::bigint, mp.block, mp.block_time,
-    fr.row_id, fr.new_rate_per_second::text, fr.funding_rate24h::text, fr.block, ` + hexSQL("fr.tx_hash") + `, fr.block_time
+const marketStateSQL = `SELECT m.id, mp.index_price::text, floor(extract(epoch FROM mp.block_time))::bigint, mp.block, mp.block_time,
+    fr.row_id, fr.new_rate_per_second::text, fr.funding_rate24h::text, fr.block, ` + "'0x' || encode(fr.tx_hash, 'hex')" + `, fr.block_time
 FROM unnest($1::bigint[]) AS m(id)
 LEFT JOIN LATERAL (SELECT index_price, block, block_time FROM (` + indexPriceRowsSQL + `) prices
     WHERE market_id = m.id::numeric ORDER BY ` + newest + ` LIMIT 1) mp ON true
@@ -1125,12 +1136,16 @@ func (l *marketStateLoader) get(ctx context.Context, id int32) (*marketState, er
 	return l.byID[id], nil
 }
 
-func (l *marketStateLoader) load(ctx context.Context) (map[int32]*marketState, error) {
+func (l *marketStateLoader) load(ctx context.Context) (result0 map[int32]*marketState, resultErr error) {
 	rows, err := l.r.DB.QueryContext(ctx, marketStateSQL, pq.Array(distinct(l.ids)))
 	if err != nil {
-		return nil, fmt.Errorf("market state: %w", err)
+		return nil, fmt.Errorf(marketStateError, err)
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); resultErr == nil {
+			resultErr = closeErr
+		}
+	}()
 	out := map[int32]*marketState{}
 	for rows.Next() {
 		var (
@@ -1143,7 +1158,7 @@ func (l *marketStateLoader) load(ctx context.Context) (map[int32]*marketState, e
 			frAt                  sql.NullTime
 		)
 		if err := rows.Scan(&id, &price, &epoch, &block, &at, &rowID, &rate, &rate24h, &frBlock, &txHash, &frAt); err != nil {
-			return nil, fmt.Errorf("market state: %w", err)
+			return nil, fmt.Errorf(marketStateError, err)
 		}
 		s := &marketState{}
 		if price.Valid {
@@ -1159,7 +1174,7 @@ func (l *marketStateLoader) load(ctx context.Context) (map[int32]*marketState, e
 		out[id] = s
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("market state: %w", err)
+		return nil, fmt.Errorf(marketStateError, err)
 	}
 	return out, nil
 }
@@ -1210,7 +1225,7 @@ func (r *Resolver) FundingRates(ctx context.Context, args struct {
 }) ([]*FundingRate, error) {
 	limit, offset := paging(args.Limit, args.Offset)
 	return collect(ctx, r.DB, "fundingRates", `SELECT row_id, market_id, new_rate_per_second::text, funding_rate24h::text, block,
-    `+hexSQL("tx_hash")+`, block_time
+    `+hexSQL(txHashField)+`, block_time
 FROM perps.funding_rates WHERE market_id = $1::numeric ORDER BY `+newest+` LIMIT $2 OFFSET $3`,
 		[]any{int64(args.MarketID), limit, offset},
 		func(f *FundingRate) []any {
@@ -1219,7 +1234,7 @@ FROM perps.funding_rates WHERE market_id = $1::numeric ORDER BY `+newest+` LIMIT
 }
 
 func (r *Resolver) UserVault(ctx context.Context, args struct{ UserAddress string }) (*UserVault, error) {
-	user, err := addressArg("userAddress", &args.UserAddress)
+	user, err := addressArg(userAddressField, &args.UserAddress)
 	if err != nil {
 		return nil, err
 	}
@@ -1239,13 +1254,13 @@ func (r *Resolver) VaultEvents(ctx context.Context, args struct {
 	Limit       *int32
 	Offset      *int32
 }) ([]*VaultEvent, error) {
-	user, err := addressArg("userAddress", args.UserAddress)
+	user, err := addressArg(userAddressField, args.UserAddress)
 	if err != nil {
 		return nil, err
 	}
 	limit, offset := paging(args.Limit, args.Offset)
-	return collect(ctx, r.DB, "vaultEvents", `SELECT row_id, kind, `+hexSQL("account")+`, `+hexSQL("$1::bytea")+`, amount::text, block,
-    `+hexSQL("tx_hash")+`, log_index, block_time
+	return collect(ctx, r.DB, "vaultEvents", `SELECT row_id, kind, `+hexSQL(accountField)+`, `+hexSQL(accountParameter)+`, amount::text, block,
+    `+hexSQL(txHashField)+`, log_index, block_time
 FROM perps.collateral_events
 WHERE ($2::bytea IS NULL OR account = $2::bytea) AND ($3::text IS NULL OR kind = $3::text)
 ORDER BY `+newest+` LIMIT $4 OFFSET $5`,
@@ -1259,7 +1274,7 @@ ORDER BY `+newest+` LIMIT $4 OFFSET $5`,
 // CollateralTokens answers the one collateral token, USDL with 6 decimals,
 // added at the activation block.
 func (r *Resolver) CollateralTokens(ctx context.Context) ([]*CollateralToken, error) {
-	return collect(ctx, r.DB, "collateralTokens", `SELECT `+hexSQL("$1::bytea")+`, 6, true,
+	return collect(ctx, r.DB, "collateralTokens", `SELECT `+hexSQL(accountParameter)+`, 6, true,
     (SELECT block_time FROM perps.protocol_events WHERE receipt_kind = 'activation' ORDER BY block, tx_index, log_index, sub LIMIT 1)`,
 		[]any{store.USDL.Bytes()},
 		func(c *CollateralToken) []any { return []any{&c.TokenAddress, &c.Decimals, &c.IsActive, &c.AddedAt} })
@@ -1303,7 +1318,7 @@ func (r *Resolver) ProtocolEvents(ctx context.Context, args struct {
 	Offset    *int32
 }) ([]*ProtocolEvent, error) {
 	limit, offset := paging(args.Limit, args.Offset)
-	return collect(ctx, r.DB, "protocolEvents", `SELECT row_id, event_name, args::text, block, `+hexSQL("tx_hash")+`, log_index, block_time
+	return collect(ctx, r.DB, "protocolEvents", `SELECT row_id, event_name, args::text, block, `+hexSQL(txHashField)+`, log_index, block_time
 FROM perps.protocol_events WHERE ($1::text IS NULL OR event_name = $1::text) ORDER BY `+newest+` LIMIT $2 OFFSET $3`,
 		[]any{textArg(args.EventName), limit, offset},
 		func(e *ProtocolEvent) []any {
@@ -1442,17 +1457,17 @@ func (r *Resolver) AccountLedger(ctx context.Context, args struct {
 	Limit       *int32
 	Offset      *int32
 }) ([]*AccountLedgerEntry, error) {
-	user, err := addressArg("userAddress", args.UserAddress)
+	user, err := addressArg(userAddressField, args.UserAddress)
 	if err != nil {
 		return nil, err
 	}
-	position, err := idArg("positionId", args.PositionID)
+	position, err := idArg(positionIDField, args.PositionID)
 	if err != nil {
 		return nil, err
 	}
 	limit, offset := paging(args.Limit, args.Offset)
-	return collect(ctx, r.DB, "accountLedger", `SELECT row_id, row_id::text, `+hexSQL("account")+`, entry_type, `+hexSQL("token")+`,
-    amount::text, position_id::text, is_debit, block, `+hexSQL("tx_hash")+`, block_time
+	return collect(ctx, r.DB, "accountLedger", `SELECT row_id, row_id::text, `+hexSQL(accountField)+`, entry_type, `+hexSQL("token")+`,
+    amount::text, position_id::text, is_debit, block, `+hexSQL(txHashField)+`, block_time
 FROM perps.account_ledger
 WHERE ($1::bytea IS NULL OR account = $1::bytea) AND ($2::numeric IS NULL OR position_id = $2::numeric)
 ORDER BY `+newest+`, entry_type LIMIT $3 OFFSET $4`,
@@ -1465,7 +1480,7 @@ ORDER BY `+newest+`, entry_type LIMIT $3 OFFSET $4`,
 
 // Delegates answers an empty list: this release emits no delegate events.
 func (r *Resolver) Delegates(args struct{ UserAddress string }) ([]*Delegate, error) {
-	if _, err := addressArg("userAddress", &args.UserAddress); err != nil {
+	if _, err := addressArg(userAddressField, &args.UserAddress); err != nil {
 		return nil, err
 	}
 	return []*Delegate{}, nil
@@ -1480,15 +1495,15 @@ func (r *Resolver) TradingAccountEvents(ctx context.Context, args struct {
 	Limit       *int32
 	Offset      *int32
 }) ([]*TradingAccountEvent, error) {
-	user, err := addressArg("userAddress", args.UserAddress)
+	user, err := addressArg(userAddressField, args.UserAddress)
 	if err != nil {
 		return nil, err
 	}
 	limit, offset := paging(args.Limit, args.Offset)
-	return collect(ctx, r.DB, "tradingAccountEvents", `SELECT row_id, kind, `+hexSQL("account")+`, position_id, token, amount, extra,
-    block, `+hexSQL("tx_hash")+`, block_time
+	return collect(ctx, r.DB, "tradingAccountEvents", `SELECT row_id, kind, `+hexSQL(accountField)+`, position_id, token, amount, extra,
+    block, `+hexSQL(txHashField)+`, block_time
 FROM (
-    SELECT row_id, kind, account, NULL::text AS position_id, `+hexSQL("$1::bytea")+` AS token, amount::text AS amount,
+    SELECT row_id, kind, account, NULL::text AS position_id, `+hexSQL(accountParameter)+` AS token, amount::text AS amount,
         jsonb_strip_nulls(jsonb_build_object('account', `+hexSQL("account_arg")+`, 'new_balance', new_balance::text,
             'from_account', `+hexSQL("from_account")+`, 'to_account', `+hexSQL("to_account")+`))::text AS extra,
         block, tx_index, log_index, sub, tx_hash, block_time
@@ -1523,11 +1538,11 @@ func (r *Resolver) Fees(ctx context.Context, args struct {
 	Limit       *int32
 	Offset      *int32
 }) ([]*Fee, error) {
-	user, err := addressArg("userAddress", args.UserAddress)
+	user, err := addressArg(userAddressField, args.UserAddress)
 	if err != nil {
 		return nil, err
 	}
-	position, err := idArg("positionId", args.PositionID)
+	position, err := idArg(positionIDField, args.PositionID)
 	if err != nil {
 		return nil, err
 	}
@@ -1556,11 +1571,11 @@ func (r *Resolver) TradeSettlements(ctx context.Context, args struct {
 	Limit       *int32
 	Offset      *int32
 }) ([]*TradeSettlement, error) {
-	user, err := addressArg("userAddress", args.UserAddress)
+	user, err := addressArg(userAddressField, args.UserAddress)
 	if err != nil {
 		return nil, err
 	}
-	position, err := idArg("positionId", args.PositionID)
+	position, err := idArg(positionIDField, args.PositionID)
 	if err != nil {
 		return nil, err
 	}
@@ -1587,7 +1602,7 @@ func (r *Resolver) OiSnapshots(ctx context.Context, args struct {
 }) ([]*OiSnapshot, error) {
 	limit, offset := paging(args.Limit, args.Offset)
 	return collect(ctx, r.DB, "oiSnapshots", `SELECT row_id, market_id, long_oi::text, short_oi::text, delta_usd::text, is_increase,
-    block, `+hexSQL("tx_hash")+`, block_time
+    block, `+hexSQL(txHashField)+`, block_time
 FROM perps.open_interest WHERE market_id = $1::numeric ORDER BY `+newest+` LIMIT $2 OFFSET $3`,
 		[]any{int64(args.MarketID), limit, offset},
 		func(o *OiSnapshot) []any {
@@ -1603,7 +1618,7 @@ func (r *Resolver) MarkPriceHistory(ctx context.Context, args struct {
 }) ([]*MarkPriceRecord, error) {
 	limit, offset := paging(args.Limit, args.Offset)
 	return collect(ctx, r.DB, "markPriceHistory", `SELECT row_id, market_id, mark_price::text, index_price::text, '0', '0', block,
-    `+hexSQL("tx_hash")+`, block_time
+    `+hexSQL(txHashField)+`, block_time
 FROM perps.mark_prices WHERE market_id = $1::numeric ORDER BY `+newest+` LIMIT $2 OFFSET $3`,
 		[]any{int64(args.MarketID), limit, offset},
 		func(m *MarkPriceRecord) []any {
@@ -1626,8 +1641,8 @@ func (r *Resolver) VaultBalanceHistory(ctx context.Context, args struct {
 		return nil, err
 	}
 	limit, offset := paging(args.Limit, args.Offset)
-	return collect(ctx, r.DB, "vaultBalanceHistory", `SELECT row_id, `+hexSQL("$1::bytea")+`, vault_type, vault_type_name,
-    new_balance::text, amount::text, is_increase, block, `+hexSQL("tx_hash")+`, block_time
+	return collect(ctx, r.DB, "vaultBalanceHistory", `SELECT row_id, `+hexSQL(accountParameter)+`, vault_type, vault_type_name,
+    new_balance::text, amount::text, is_increase, block, `+hexSQL(txHashField)+`, block_time
 FROM (
     SELECT row_id, 0 AS vault_type, 'collateral' AS vault_type_name,
         SUM(CASE kind WHEN 'deposited' THEN amount WHEN 'withdrawn' THEN -amount ELSE 0 END)
@@ -1655,17 +1670,17 @@ func (r *Resolver) FundingPayments(ctx context.Context, args struct {
 	Limit       *int32
 	Offset      *int32
 }) ([]*FundingPayment, error) {
-	user, err := addressArg("userAddress", args.UserAddress)
+	user, err := addressArg(userAddressField, args.UserAddress)
 	if err != nil {
 		return nil, err
 	}
-	position, err := idArg("positionId", args.PositionID)
+	position, err := idArg(positionIDField, args.PositionID)
 	if err != nil {
 		return nil, err
 	}
 	limit, offset := paging(args.Limit, args.Offset)
-	return collect(ctx, r.DB, "fundingPayments", `SELECT row_id, position_id::text, `+hexSQL("account")+`, market_id,
-    funding_payment_usd::text, new_collateral_usd::text, new_collateral_amount::text, block, `+hexSQL("tx_hash")+`, block_time
+	return collect(ctx, r.DB, "fundingPayments", `SELECT row_id, position_id::text, `+hexSQL(accountField)+`, market_id,
+    funding_payment_usd::text, new_collateral_usd::text, new_collateral_amount::text, block, `+hexSQL(txHashField)+`, block_time
 FROM perps.funding_payments
 WHERE ($1::bytea IS NULL OR account = $1::bytea) AND ($2::numeric IS NULL OR market_id = $2::numeric)
     AND ($3::numeric IS NULL OR position_id = $3::numeric)
@@ -1854,7 +1869,7 @@ func (r *Resolver) Leaderboard(ctx context.Context, args struct {
 	Offset *int32
 }) ([]*LeaderboardEntry, error) {
 	limit, offset := paging(args.Limit, args.Offset)
-	return collect(ctx, r.DB, "leaderboard", `SELECT rank, `+hexSQL("account")+`, realized_pnl::text, trades_count, win_rate,
+	return collect(ctx, r.DB, "leaderboard", `SELECT rank, `+hexSQL(accountField)+`, realized_pnl::text, trades_count, win_rate,
     avg_hold_time_seconds, open_positions, volume_usd::text
 FROM perps.leaderboard WHERE "window" = 'all' ORDER BY rank LIMIT $1 OFFSET $2`, []any{limit, offset},
 		func(e *LeaderboardEntry) []any {
