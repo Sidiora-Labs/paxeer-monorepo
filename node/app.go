@@ -3612,6 +3612,9 @@ func (app *App) SequencerSource() tmtypes.SequencerSource {
 }
 
 func (app *App) SetSequencerRPC(opt evmrpc.SequencerOption, rcpt evmrpc.SequencerReceiptOption) {
+	if rcpt.ForwardURL != nil && rcpt.Keeper == nil {
+		rcpt.Keeper = &app.SequencerKeeper
+	}
 	app.sequencerRPC = opt
 	app.sequencerReceipt = rcpt
 }
