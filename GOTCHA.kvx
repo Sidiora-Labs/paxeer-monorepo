@@ -22000,3 +22000,13 @@ fix = "Decision 3519. Task 22.39.539 reviews the fixture against the present con
 title = "The pipeline metadata binds the digest of the conformance entry of the JVM kit"
 symptom = "The file sdk/platform/pipeline.kvx records a digest for each file of the JVM kit that the generator names, among them the conformance entry under sdk/platform/jvm/src/conformance/java/com/sidiora/layerx/sdk/ConformanceMain.java. A change of such a file asks the check target platform-sdk-check for a generation."
 fix = "Decision 3520. The paths of task 22.39.505 take the metadata and the task runs the generation."
+
+[gotcha.4436]
+title = "The documentation test phase of a member that depends on members left out of a selection"
+symptom = "Under a selection of the platform workspace that leaves members out, the documentation test phase of a member that depends on them is part of the run although the member holds no documentation test."
+fix = "Decision 3521. The selection of task 22.39.504 names the library, binary and test targets."
+
+[gotcha.4437]
+title = "The reason of a replay record refusal carries the check and its site"
+symptom = "The producer in programs/crates/layerx-programs-runtime appends the check and its site to the reason of a refusal of the replay record. A reader of that reason takes the refusal by its leading text."
+fix = "Decision 3522. Task 22.39.509 brings the adapter of the native result and its test file to the leading text."
