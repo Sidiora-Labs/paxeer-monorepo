@@ -14188,6 +14188,12 @@ value = "A Rust case that reads fixtures from a directory which only a harness o
 basis = "Gotcha 4425, decision 3509."
 affects = ["22.39.509"]
 
+[decision.3513]
+title = "A rule for the linter of repeated literals covers the package directory"
+value = "A rule of .golangci.yml that takes the linter goconst off code names the Go files directly under one package directory in one path expression. The rules of a directory that name single files for this linter are replaced by that one rule; rules for other linters keep their form. The path expression is the directory, a slash, the expression [^/]+ for the file name and the ending for Go files, anchored and escaped as the rules by file are. Task 22.39.518 does this for the launchpad precompile and task 22.39.534 for the other directories outside the group tasks of decision 3508. A group task removes the rule of a directory when the lint program reports no literal of the package without it."
+basis = "Gotcha 4426, decisions 3497 and 3508."
+affects = ["22.39.518"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -43848,6 +43854,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.534]
+title = "Let the rules for the linter of repeated literals cover package directories"
+reqs = ["22998.1"]
+touches = [".golangci.yml"]
+tests = []
+verification_contract = "test -s tools/hpx/registry/repair_22_39_534.kvx && test $(git grep -h -B1 -F 'linters: [goconst]' -- .golangci.yml | grep -E 'path: ..(consensus|modules|precompiles/layerxagent|precompiles/layerxpay|precompiles/spot|rpc|sdk|tools/bringup|wasm)/' | grep -v -c -F '[^/]+') -eq 0 && test $(git grep -h -B1 -F 'linters: [goconst]' -- .golangci.yml | grep -E 'path: ..(consensus|modules|precompiles/layerxagent|precompiles/layerxpay|precompiles/spot|rpc|sdk|tools/bringup|wasm)/' | grep -c -F '[^/]+') -eq 13 && make -s paxeer-go-lint"
+do_1 = "do_1 Decision 3513, gotcha 4426. Read the rules of .golangci.yml whose linters key holds goconst alone. Each names one file. This task covers the 39 rules of these 13 directories: consensus/cmd/contract_tests, consensus/privval, modules/evm/client/cli, modules/layerxledger/keeper, modules/spot/keeper, precompiles/layerxagent/scheduler, precompiles/layerxpay, precompiles/spot, rpc, sdk/crypto/keyring, sdk/version, tools/bringup, wasm/staticarchive. The rules of the launchpad precompile, of services/platform, of daemon/committed-fixture, of tools/benchmark and of tools/flyci belong to other tasks; leave them as they are."
+symbols = []
 
 [capability.22.43.334]
 title = "Bring the page on the modules of the docs site and the files built from it to the kernel sentence"
@@ -328344,6 +328359,37 @@ do_16 = "Attempt 34 re-qualified the attempt 33 files on a base with 13.27.6 and
 do_17 = "Attempt 35 (566d189c8) reverts TestProgramsSandboxExecuteEmitsUsage with LXP_FATAL_INVARIANT on a base that holds 13.27.7 (7331258b0), and the test output carries no sandbox.c invariant line although sandbox_invariant (src/modules/programs/sandbox.c:82, called at :395, :411 and :440) prints the line, site and state to stderr: run the test so the kernel's stderr reaches the output (go test -v; the precompile harness must not redirect fd 2) and include the printed site with the lease-state record in the failure message. When the site shows the precompile's request out of order or missing a step (admit host, open lease, execute, publish usage, release), fix method_sandbox_execute.go; when the kernel refuses a legal sequence, record file, line and site as a finding and stop without changing src/."
 do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection (src/protocol/lxp_kernel.c:2389-2394) refuses the sandbox escrow-charge effect that task 13.27.7 made the call emit; task 13.27.8 binds it in the kernel (decision.1898). Once 13.27.8 is on main, continue attempt 35 unchanged: one build, one verify."
 
+[task.22.39.534]
+title = "Let the rules for the linter of repeated literals cover package directories"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.534"]
+interfaces = []
+do_1 = "do_1 Decision 3513, gotcha 4426. Read the rules of .golangci.yml whose linters key holds goconst alone. Each names one file. This task covers the 39 rules of these 13 directories: consensus/cmd/contract_tests, consensus/privval, modules/evm/client/cli, modules/layerxledger/keeper, modules/spot/keeper, precompiles/layerxagent/scheduler, precompiles/layerxpay, precompiles/spot, rpc, sdk/crypto/keyring, sdk/version, tools/bringup, wasm/staticarchive. The rules of the launchpad precompile, of services/platform, of daemon/committed-fixture, of tools/benchmark and of tools/flyci belong to other tasks; leave them as they are."
+do_2 = "do_2 For each directory of the list replace its rules for goconst by one rule at the place of the first of them. Its path expression is the directory, a slash, the expression [^/]+ for the file name and the ending for Go files, anchored and escaped exactly as the rules by file are. Its linters key holds goconst alone. Remove the other rules of the directory for goconst together with the comment line above each. Keep one comment line above the new rule in the wording the removed comments had, naming the directory in place of the file."
+do_3 = "do_3 Change no rule for another linter, no setting of a linter and no file other than .golangci.yml and the record. Add no rule for a directory that has none and add no exemption comment to code. Run the lint program by hand three times and compare: it reports nothing in each run. For a report in a file outside the list change nothing and give file, line and message in the final message."
+do_4 = "do_4 Record in tools/hpx/registry/repair_22_39_534.kvx for each directory the number of rules replaced and the path expression of the new rule. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = [".golangci.yml"]
+tests = []
+planned_paths = ["tools/hpx/registry/repair_22_39_534.kvx"]
+build_cmd = "make -s paxeer-tools-install && go mod download"
+verify_cmd = "test -s tools/hpx/registry/repair_22_39_534.kvx && test $(git grep -h -B1 -F 'linters: [goconst]' -- .golangci.yml | grep -E 'path: ..(consensus|modules|precompiles/layerxagent|precompiles/layerxpay|precompiles/spot|rpc|sdk|tools/bringup|wasm)/' | grep -v -c -F '[^/]+') -eq 0 && test $(git grep -h -B1 -F 'linters: [goconst]' -- .golangci.yml | grep -E 'path: ..(consensus|modules|precompiles/layerxagent|precompiles/layerxpay|precompiles/spot|rpc|sdk|tools/bringup|wasm)/' | grep -c -F '[^/]+') -eq 13 && make -s paxeer-go-lint"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.519]
 title = "Repair the code behind the lint rules of the benchmark tools and the pipeline controller and remove the rules"
 status = "pending"
@@ -328407,6 +328453,7 @@ time_limit_minutes = 180
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "do_6 Decision 3513, gotcha 4426. In .golangci.yml replace the seven rules that take goconst off single files of precompiles/launchpad by one rule at the place of the first of them. Its path expression is the directory, a slash, the expression [^/]+ for the file name and the ending for Go files, anchored and escaped exactly as the rules by file are, and its linters key holds goconst alone. Keep one comment line above it in the wording the removed comments had. Change no other rule outside the group of this task and no file under precompiles. Name the rule in the record of the task."
 
 [task.22.39.517]
 title = "Repair the code behind the lint rules of the services under services/platform and remove the rules"

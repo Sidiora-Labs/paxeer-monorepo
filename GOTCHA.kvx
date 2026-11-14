@@ -21950,3 +21950,8 @@ fix = "Decision 3511. The two cargo lines read their member selections from vari
 title = "A case of the program interface tests reads fixtures that only its harness provides"
 symptom = "The case on native receipts in the interface tests of the member layerx-programs-registry reads its fixtures from a directory that the harness of the program interface provides. The target programs-test runs the same test program without that directory."
 fix = "Decision 3512. The case carries an ignore attribute and the harness runs its test program with the ignored cases included."
+
+[gotcha.4426]
+title = "The linter of repeated literals names one occurrence of a literal and the occurrence can differ between runs"
+symptom = "The linter goconst reports a literal that a package repeats at one of its occurrences. It reads the files of the package side by side, so the file it names is not the same in every run. The rules of .golangci.yml for this linter name single files."
+fix = "Decision 3513. A rule for this linter covers the Go files of the package directory."
