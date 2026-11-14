@@ -21965,3 +21965,8 @@ fix = "Task 22.39.535 brings the two calls to the present form."
 title = "The vet step of the lint target of the node takes no scope"
 symptom = "The target lint of chain.mk holds its steps in one recipe and its vet step runs over the whole root module in one command. A verification cannot run one step alone or vet the module by parts."
 fix = "Decision 3514. The target is made of step targets and the vet step reads a variable."
+
+[gotcha.4429]
+title = "The bank precompile serves its send to the native pointer of the denomination"
+symptom = "The send of the bank precompile is served to one caller, the ERC-20 native pointer of the denomination. A wallet moves a bank denomination by the transfer of that pointer, and the pointer view of the chain names the pointer of a denomination."
+fix = "Decision 3515. The wallet bank transfer of the human service is the transfer of the pointer."

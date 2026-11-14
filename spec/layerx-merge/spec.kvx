@@ -14200,6 +14200,12 @@ value = "In chain.mk the target lint runs four step targets in the present order
 basis = "Gotchas 4427 and 4428, decisions 3497, 3506 and 3511."
 affects = ["22.39.516"]
 
+[decision.3515]
+title = "The wallet bank transfer of the human service goes through the native pointer of the denomination"
+value = "The wallet bank transfer of the human service is one call of transfer with recipient and amount to the ERC-20 native pointer of the denomination, signed by the wallet at the pending nonce. The pointer moves the amount through the bank precompile, which serves its send to that pointer only. The service takes the pointer of a denomination from the pointer view of the chain and refuses a request that names another address, the zero address or the bank precompile. The asset of a request stays bound to the denomination by its digest. The route resolver, the production path of the server and the evidence of the bank journey follow this one form. Task 22.39.523 brings source and tests of the human service to it; the tests of the service that state the route follow, also outside the four test files of the task."
+basis = "Gotcha 4429, requirement 10051, decisions 3505 and 3509."
+affects = ["22.39.523"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -195993,6 +195999,7 @@ time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "do_6 Decision 3515, gotcha 4429. Read pointerSend in precompiles/bank/bank.go and the pointer view the test file move_money_bank_send reads on its node. Bring the bank route of the route resolver and the production path of the server under services/human/crates/layerx-human-service/src to the form of decision 3515: the call goes to the native pointer of the denomination with the transfer of the pointer, and the pointer is taken from the pointer view of the chain where the service reads the chain. Keep the binding of asset to denomination and every check on nonce, fee and signer. Bring the evidence of the bank journey and its recording in line with what a node returns for that call. Then bring the tests of the service that state the route to the same form, also outside the four test files of this task, among them send_routes and the unit tests beside the changed source. Change no file outside services/human. Name the route in the record."
 
 [task.22.39.522]
 title = "Bring the agent control and journey tests of the human service member to pass"
