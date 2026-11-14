@@ -54,10 +54,14 @@ def abi_methods(path):
 
 def test_f39_one_bft_network_and_embedded_kernel():
     overview = section("What is Paxeer X Network?", level=2)
-    assert "one BFT network" in overview
+    assert "The LayerX kernel runs inside every `paxd` node." in overview
     assert "chain ID **125** (`0x7d`)" in overview
-    assert "kernel is embedded in the node" in overview
-    assert "participates in block proposal and deterministic execution" in overview
+    assert (
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block."
+    ) in overview
+    assert "Validators check that block and commit it." in overview
     assert "Sub-chains are tenant domains stored in the database" in overview
     assert "does not require new node infrastructure" in overview
     assert "app.LayerXHost, err = NewHost(" in source("node/app.go")

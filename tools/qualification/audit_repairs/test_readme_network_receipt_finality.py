@@ -46,10 +46,12 @@ def section(heading, level=3):
 def test_readme_network_doc_one_paxd_embedded_kernel_and_commit_finality():
     overview = section("What is Paxeer X Network?", level=2)
     for fact in (
-        "one BFT network",
+        "The LayerX kernel runs inside every `paxd` node.",
         "chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node",
-        "participates in block proposal and deterministic execution",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.",
         "kernel is part of the network and proposes blocks inside `paxd`",
         "A receipt is final once its block is committed",
         "There is no separate kernel daemon, sequencer service or checkpoint deployment",
