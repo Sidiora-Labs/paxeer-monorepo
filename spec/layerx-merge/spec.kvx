@@ -374438,7 +374438,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.43.319]
 title = "Bring the rows of the inference interfaces and the contract page of the inference market to the present sources"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374529,7 +374529,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.316]
 title = "Bring the clock source pins of the agent to the present Rust sources"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
