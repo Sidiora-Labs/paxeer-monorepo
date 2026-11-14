@@ -35,6 +35,12 @@ pub(crate) enum Fate {
     CommitDuringLookup,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum SubmissionSequenceMode {
+    Any,
+    CommittedOnly,
+}
+
 pub(crate) struct Transcript {
     pub(crate) account_sequence: u8,
     pub(crate) observation_sequence: u64,
@@ -58,6 +64,8 @@ pub(crate) struct Transcript {
     pub(crate) observation_error: Option<Value>,
     pub(crate) observation_sequences: std::collections::BTreeMap<u64, u64>,
     pub(crate) response_delay_ms: u64,
+    pub(crate) submission_sequence_mode: SubmissionSequenceMode,
+    pub(crate) sequence_refusals: usize,
 }
 
 impl Default for Transcript {
@@ -85,6 +93,8 @@ impl Default for Transcript {
             observation_error: None,
             observation_sequences: std::collections::BTreeMap::new(),
             response_delay_ms: 0,
+            submission_sequence_mode: SubmissionSequenceMode::Any,
+            sequence_refusals: 0,
         }
     }
 }
@@ -314,6 +324,13 @@ impl Peer {
         }));
     }
 
+    pub(crate) fn admit_only_committed_sequence(&self) {
+        self.state
+            .lock()
+            .unwrap_or_else(|error| panic!("{error:?}"))
+            .submission_sequence_mode = SubmissionSequenceMode::CommittedOnly;
+    }
+
     pub(crate) fn commit_submission(&self, index: usize, height: u64) {
         let mut state = self
             .state
@@ -512,9 +529,25 @@ impl Transcript {
                     .unwrap_or_else(|error| panic!("{error:?}"));
                 assert!(!tx.is_empty());
                 let hash = hex_encode(&Sha256::digest(&tx));
+                let sequence = tx_sequence(&tx);
                 let tx_index = self.txs.len();
                 self.txs.push(tx);
                 let fate = self.tx_fates.get(tx_index).copied().unwrap_or(self.fate);
+                if self.submission_sequence_mode == SubmissionSequenceMode::CommittedOnly
+                    && sequence != u64::from(self.account_sequence)
+                {
+                    self.sequence_refusals += 1;
+                    return json!({
+                        "code": 32,
+                        "data": "",
+                        "log": format!(
+                            "account sequence mismatch, expected {}, got {}: incorrect account sequence",
+                            self.account_sequence, sequence
+                        ),
+                        "codespace": "sdk",
+                        "hash": hash.to_uppercase(),
+                    });
+                }
                 if matches!(fate, Fate::Committed { .. }) {
                     self.account_sequence = self.account_sequence.saturating_add(1);
                     self.observation_sequence = self.observation_sequence.saturating_add(1);
@@ -596,6 +629,78 @@ impl Transcript {
         };
         json!({"jsonrpc":"2.0","id":1,"result":result})
     }
+}
+
+fn tx_sequence(tx: &[u8]) -> u64 {
+    let auth_info = protobuf_bytes(tx, 2).unwrap_or_else(|| panic!("transaction auth info absent"));
+    let signer_info =
+        protobuf_bytes(auth_info, 1).unwrap_or_else(|| panic!("transaction signer info absent"));
+    protobuf_field_varint(signer_info, 3).unwrap_or_else(|| panic!("transaction sequence absent"))
+}
+
+fn protobuf_bytes(mut input: &[u8], wanted: u64) -> Option<&[u8]> {
+    while !input.is_empty() {
+        let key = protobuf_varint(&mut input)?;
+        let field = key >> 3;
+        match key & 7 {
+            0 => {
+                protobuf_varint(&mut input)?;
+                if field == wanted {
+                    return None;
+                }
+            }
+            2 => {
+                let length = usize::try_from(protobuf_varint(&mut input)?).ok()?;
+                if input.len() < length {
+                    return None;
+                }
+                let value = &input[..length];
+                input = &input[length..];
+                if field == wanted {
+                    return Some(value);
+                }
+            }
+            _ => return None,
+        }
+    }
+    None
+}
+
+fn protobuf_varint(input: &mut &[u8]) -> Option<u64> {
+    let mut value = 0;
+    for shift in (0..70).step_by(7) {
+        let byte = *input.first()?;
+        *input = &input[1..];
+        value |= u64::from(byte & 0x7f) << shift;
+        if byte & 0x80 == 0 {
+            return Some(value);
+        }
+    }
+    None
+}
+
+fn protobuf_field_varint(mut input: &[u8], wanted: u64) -> Option<u64> {
+    while !input.is_empty() {
+        let key = protobuf_varint(&mut input)?;
+        let field = key >> 3;
+        match key & 7 {
+            0 => {
+                let value = protobuf_varint(&mut input)?;
+                if field == wanted {
+                    return Some(value);
+                }
+            }
+            2 => {
+                let length = usize::try_from(protobuf_varint(&mut input)?).ok()?;
+                if input.len() < length {
+                    return None;
+                }
+                input = &input[length..];
+            }
+            _ => return None,
+        }
+    }
+    None
 }
 
 pub(crate) struct StateDir(pub(crate) PathBuf);

@@ -1246,6 +1246,7 @@ fn start_relay(
                             .saturating_sub(relay.confirmations)
                             .saturating_add(1)
                             .saturating_sub(next)),
+                        "blocks_skipped": watcher.skipped_blocks(),
                         "pending": watcher.program_work().len(),
                     }));
                 }
