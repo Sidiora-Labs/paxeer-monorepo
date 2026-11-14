@@ -329199,7 +329199,7 @@ do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection
 
 [task.22.39.555]
 title = "Answer the tracing methods for blocks built by the sequencing node"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
