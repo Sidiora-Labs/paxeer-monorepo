@@ -1,0 +1,7 @@
+[resolver_fixture]
+source = "foundry.toml"
+former_digest = "70160cbca3648f22c040ec0199aea3fed1a801a0910e9d5f7e55f67cb9a8eb00"
+present_digest = "7377eb74ac9d107989d8a2a0de28576f1f577ee40f545399f1358de17038f51f"
+review = "The later root configuration changes add a default test path and a default artifact read permission. The names profile declares its own test path and permissions, so those changes do not reach the names profile or its inherited compiler settings."
+vector_test = "testResolverLayoutVectorIsCurrent passes and tests/vectors/names/resolver_layout_v1.json is unchanged."
+binding = "tools/pnsdns/testdata/names_sources.json records the present foundry.toml digest."
