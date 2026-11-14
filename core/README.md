@@ -1,6 +1,6 @@
 # Core dependencies
 
-`core` holds vendored dependencies for Paxeer's execution, storage, logging and utility code. The network runs through `paxd`, with the kernel executing inside the node and participating in block proposal; receipts become final when their blocks commit. The root [Go module](../go.mod) selects the local Geth fork in `core/deps/geth` for Ethereum execution and RPC types.
+`core` holds vendored dependencies for Paxeer's execution, storage, logging and utility code. The LayerX kernel inside `paxd` executes and orders each transaction and builds each block; validators check and commit it. Receipts become final when validators commit their blocks. The root [Go module](../go.mod) selects the local Geth fork in `core/deps/geth` for Ethereum execution and RPC types.
 
 ## Layout
 
