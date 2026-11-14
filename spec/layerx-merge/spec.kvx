@@ -14254,6 +14254,18 @@ value = "A task that adds a test module to a source file searches the workspace 
 basis = "Gotcha 4438."
 affects = []
 
+[decision.3524]
+title = "The price sidecar decides the fate of a submission from committed state when the lookup is not served"
+value = "The feed account sequence and the observation sequences at one committed height decide the fate of a pending submission. An account sequence beyond the one the submission used together with the observation sequences it proposed means committed. An account sequence beyond it without those observation sequences means failed. An unused account sequence a bounded number of blocks after the proposed height means evicted. Two transactions at one account sequence cannot both commit, so a round after that bound spends no sequence twice. Where the node serves the lookup it stays the first source, and a pool larger than one page is read page by page."
+basis = "Gotcha 4439."
+affects = []
+
+[decision.3525]
+title = "The pool reports at construction a configuration without an entry time limit"
+value = "The pool configuration gains a method that tells whether both time limits are zero. The pool logs one warning at construction when its configuration carries neither limit and names the two keys. The comment above the keys in the configuration template states the three ways an entry leaves the pool. Defaults, validation and key names stay as they are, so an existing home starts as before."
+basis = "Gotcha 4440."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -43914,6 +43926,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.542]
+title = "Report at construction a pool configuration without an entry time limit"
+reqs = ["22998.1"]
+touches = ["consensus/config", "consensus/internal/mempool"]
+tests = []
+verification_contract = "go test -count=1 -v -run '^TestEntryTimeLimit' ./consensus/config/ ./consensus/internal/mempool/ > /tmp/entry-time-limit.log 2>&1; s=$?; grep -E '^(--- (PASS|FAIL)|FAIL|ok|panic|# )' /tmp/entry-time-limit.log | tail -n 80; grep -q -- '--- PASS: TestEntryTimeLimit' /tmp/entry-time-limit.log && test $s -eq 0"
+do_1 = "do_1 Gotcha 4440, decision 3525. Read the removal rule in the Update method of the store in consensus/internal/mempool/tx.go, the constructor NewTxMempool in consensus/internal/mempool/mempool.go and ToMempoolConfig in consensus/config/config.go. Add to the pool configuration in consensus/config/config.go a method that tells whether both time limits are zero. Make the pool log one warning at construction when its configuration carries neither limit. The warning names the keys ttl-duration and ttl-num-blocks."
+symbols = []
+
+[capability.22.39.541]
+title = "Decide the fate of a pending price submission from committed state when the node serves no transaction lookup"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/feeder"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-oracle-feeder --test sidecar_confirmation_committed_state --test sidecar_submission_recovery"
+do_1 = "do_1 Gotcha 4439, decision 3524. Read lookup_tx, sync_committed and reconcile in services/platform/hosted/feeder/src/bin/price-sidecar/round.rs and the stand-in peer in services/platform/hosted/feeder/tests/sidecar_submission_recovery.rs. Give lookup_tx a third answer beside found and not found: the lookup is not served, recognised by the internal error whose data says that transaction querying is disabled. Every other error stays an error."
+symbols = []
 
 [capability.22.39.540]
 title = "Declare the JSON crate for the test targets of the intents member that include the journey resolver"
@@ -206345,6 +206375,37 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.541]
+title = "Decide the fate of a pending price submission from committed state when the node serves no transaction lookup"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.541"]
+interfaces = []
+do_1 = "do_1 Gotcha 4439, decision 3524. Read lookup_tx, sync_committed and reconcile in services/platform/hosted/feeder/src/bin/price-sidecar/round.rs and the stand-in peer in services/platform/hosted/feeder/tests/sidecar_submission_recovery.rs. Give lookup_tx a third answer beside found and not found: the lookup is not served, recognised by the internal error whose data says that transaction querying is disabled. Every other error stays an error."
+do_2 = "do_2 In reconcile, when the lookup is not served, decide from committed state as decision 3524 says, reading the feed account and the observation sequences at one committed height the way sync_committed does. Keep the submission pending while its account sequence is unused and fewer blocks than a named constant have passed since the proposed height. After that bound treat it as evicted and synchronise again from committed state. When the fate is committed, record the height of the deciding read as the confirmed height. Where the lookup is served the present behaviour stays, except that a pool larger than one page is read page by page until the total is reached."
+do_3 = "do_3 Add services/platform/hosted/feeder/tests/sidecar_confirmation_committed_state.rs with cases whose names begin with committed_state_ and that drive the sidecar against the stand-in peer: with the lookup not served a committed submission, a failed execution, an unused sequence within the bound and an unused sequence past the bound, and with the lookup served a pool of more than one page. Share the stand-in peer with the existing test file where that is practical instead of copying it. Change no configuration key and no log line that an existing test reads."
+do_4 = "do_4 Run the tests of the feeder package once by hand. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/feeder"]
+tests = []
+planned_paths = ["services/platform/hosted/feeder/tests/sidecar_confirmation_committed_state.rs"]
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-oracle-feeder --all-targets"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-oracle-feeder --test sidecar_confirmation_committed_state --test sidecar_submission_recovery"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.533]
 title = "Run the test target of the agent workspace over its whole scope"
 status = "pending"
@@ -240790,6 +240851,37 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
+
+[task.22.39.542]
+title = "Report at construction a pool configuration without an entry time limit"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.542"]
+interfaces = []
+do_1 = "do_1 Gotcha 4440, decision 3525. Read the removal rule in the Update method of the store in consensus/internal/mempool/tx.go, the constructor NewTxMempool in consensus/internal/mempool/mempool.go and ToMempoolConfig in consensus/config/config.go. Add to the pool configuration in consensus/config/config.go a method that tells whether both time limits are zero. Make the pool log one warning at construction when its configuration carries neither limit. The warning names the keys ttl-duration and ttl-num-blocks."
+do_2 = "do_2 In the configuration template in consensus/config/toml.go state above the two keys the three ways an entry leaves the pool: committed, refused by a recheck when the consensus parameter is on, or past one of the limits. Change no default, no validation rule and no key name."
+do_3 = "do_3 Add consensus/config/entry_time_limit_test.go and consensus/internal/mempool/entry_time_limit_test.go with cases whose names begin with TestEntryTimeLimit. They cover the method for the four combinations of the two keys, an entry that the application no longer accepts and that stays without a limit and leaves with one once the limit has passed, and the warning being logged once. Use the test application the pool package already has."
+do_4 = "do_4 Run the tests of the two packages once by hand. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["consensus/config", "consensus/internal/mempool"]
+tests = []
+planned_paths = ["consensus/config/entry_time_limit_test.go", "consensus/internal/mempool/entry_time_limit_test.go"]
+build_cmd = "go build ./consensus/config/... ./consensus/internal/mempool/..."
+verify_cmd = "go test -count=1 -v -run '^TestEntryTimeLimit' ./consensus/config/ ./consensus/internal/mempool/ > /tmp/entry-time-limit.log 2>&1; s=$?; grep -E '^(--- (PASS|FAIL)|FAIL|ok|panic|# )' /tmp/entry-time-limit.log | tail -n 80; grep -q -- '--- PASS: TestEntryTimeLimit' /tmp/entry-time-limit.log && test $s -eq 0"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-cosmos-fork"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.43.262]
 title = "Name in the readiness checklist the asset record of the native denomination"

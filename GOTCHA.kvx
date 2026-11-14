@@ -22015,3 +22015,13 @@ fix = "Decision 3522. Task 22.39.509 brings the adapter of the native result and
 title = "A test module inside a source file is compiled in every test target that includes the file by path"
 symptom = "The test targets intent_chain_domain and proof_human_intents of the intents member include the source of the journey resolver of the human service by path. The test module pointer_view_tests at the end of that source is compiled in those targets as well and names the JSON crate, so the including member declares that crate among its development dependencies."
 fix = "Decision 3523. Task 22.39.540 declares the crate in services/human/crates/layerx-intents/Cargo.toml."
+
+[gotcha.4439]
+title = "A node without a transaction index does not serve the transaction lookup"
+symptom = "The consensus interface of a node whose transaction index is set to null answers the transaction lookup with an internal error whose data says that transaction querying is disabled. A client beside such a node learns the fate of a submission from committed state: the account sequence and the state the submission writes, read at one committed height. The price sidecar takes that route when the lookup is not served and keeps the lookup as the first source where it is."
+fix = "Decision 3524. Task 22.39.541 adds the route in services/platform/hosted/feeder/src/bin/price-sidecar/round.rs."
+
+[gotcha.4440]
+title = "A pool entry leaves the pool by commit, by a refused recheck or by a time limit"
+symptom = "The store of the pool removes an entry when it is committed, when a recheck refuses it or when one of the two time limits has passed. The recheck runs when the consensus parameter for it is on, and a time limit applies when its key is not zero. With the parameter off and both keys at zero a node that does not propose blocks keeps an entry that can no longer pass, such as one with a used account sequence, until the pool is emptied. The defaults of a new home set both limits."
+fix = "Decision 3525. Task 22.39.542 reports the configuration without a limit at construction."
