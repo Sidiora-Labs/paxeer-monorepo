@@ -196036,7 +196036,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.523]
 title = "Bring the money movement tests of the human service member to pass"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.499"]
@@ -328482,7 +328482,7 @@ do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection
 
 [task.22.39.539]
 title = "Bind the resolver fixture of the names DNS tool to the present root Forge configuration"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
