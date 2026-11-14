@@ -22045,3 +22045,8 @@ fix = "Decision 3528. Task 22.39.544 brings the lock file in step."
 title = "The client of the price sidecar keeps the default count of idle connections"
 symptom = "The client that http_agent builds in services/platform/hosted/feeder/src/lib.rs keeps the default count of idle connections of its library for one host, which is smaller than the market count of a usual configuration. A round fetches the ticker of every configured market at once from one host. The requests beyond that count open a new connection with a new handshake in every round, inside the timeout of the request."
 fix = "Decision 3529. Task 22.39.545 sets the counts."
+
+[gotcha.4445]
+title = "The process case probe of the agent envelope runs under its harness"
+symptom = "The test testAgentOperationEnvelopeProcessCases of the Swift kit reads a case file that the envelope harness names for it and refuses a run without one. The recipe platform-verify-sdks in services/platform/Makefile.inc runs the test target of each kit outside that harness. Its dotnet step leaves the probe of that kit out; the Swift step names the whole test target."
+fix = "Decision 3530. Task 22.39.505 brings the Swift step to the form of the dotnet step."

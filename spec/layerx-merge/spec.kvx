@@ -14290,6 +14290,12 @@ value = "http_agent sets the count of idle connections for one host and in total
 basis = "Gotcha 4444."
 affects = []
 
+[decision.3530]
+title = "The Swift step of the SDK verification recipe leaves the process case probe of the agent envelope out"
+value = "The Swift test step of the recipe platform-verify-sdks leaves the test testAgentOperationEnvelopeProcessCases out, as the dotnet step leaves the probe of its kit out. The probe runs under the envelope harness, which names its case file, and keeps refusing a run without one. Task 22.39.505 takes services/platform/Makefile.inc into its paths for that one step."
+basis = "Gotcha 4445, decision 3418."
+affects = ["22.39.505"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -304963,7 +304969,7 @@ wiring = ["wiring.J42.1"]
 do_1 = "do_1 Gotcha 4337, decision 3418. The command make platform-verify-sdks passes. The native lifecycle fixtures under sdk/platform/conformance/fixtures equal the output of their generator at the present revision and are produced by it. The JVM conformance run reads the account sequence in the encoding that the producer of the fixture writes, and the SDK under sdk/platform/jvm accepts that encoding. The cases of the Swift SDK under sdk/platform/swift assert the receipt version that the producer writes at the present revision, and a case that needs the envelope case variable of the agent operation states that need through the make target, so that the target sets it. In each of the three the consumer follows the producer. No case is removed or ignored."
 do_2 = "do_2 Record in sdk/platform/repair_22_39_505.kvx the rule, the changed files and the command. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["sdk/platform/conformance", "sdk/platform/conformance-runner", "sdk/platform/jvm", "sdk/platform/swift", "sdk/platform/pipeline.kvx"]
+touches = ["sdk/platform/conformance", "sdk/platform/conformance-runner", "sdk/platform/jvm", "sdk/platform/swift", "sdk/platform/pipeline.kvx", "services/platform/Makefile.inc"]
 tests = []
 planned_paths = ["sdk/platform/repair_22_39_505.kvx"]
 build_cmd = "make -s platform-build"
@@ -304981,6 +304987,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
 do_3 = "do_3 Decision 3520, gotcha 4435. After the change of the conformance entry of the JVM kit run make -s platform-sdk-generate from the repository root and read the output of git status. Where the generation keeps the changed file and writes only sdk/platform/pipeline.kvx, commit the metadata with the change. Where the generation writes the file back to its former text, the file has a producer under sdk/platform/generators: change nothing there, and give the producer and the lines in the final message. Then make -s platform-sdk-check passes before the counted build."
+do_4 = "do_4 Decision 3530, gotcha 4445. In the recipe platform-verify-sdks of services/platform/Makefile.inc the Swift test step leaves the test testAgentOperationEnvelopeProcessCases out with the skip option of the test command, as the dotnet step of the same recipe leaves the probe of its kit out. Change no other line of that file. The probe keeps refusing a run without its case file and is not changed to pass without one. Every other case of the Swift test target passes under the recipe. A case whose cause lies in a file outside the paths: change nothing there and give test, file, function and what would have to change in the final message."
 
 [task.22.39.454]
 title = "Bring the whole lint recipe of the programs workspace through"
