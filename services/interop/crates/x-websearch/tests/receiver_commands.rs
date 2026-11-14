@@ -1,3 +1,6 @@
+#[path = "support/ledger_assets.rs"]
+mod ledger_assets;
+
 mod test_network {
     include!(concat!(env!("CARGO_MANIFEST_DIR"), "/../test_network.rs"));
 }
@@ -201,6 +204,9 @@ fn dispatch(state: &mut State, method: &str, params: &Value) -> Outcome<Value> {
                 && selector == &keccak(b"getKernelNetworkId()")[..4]
             {
                 return Ok(json!(hex0x(&word(1))));
+            }
+            if let Some(record) = ledger_assets::get_asset_answer(params) {
+                return Ok(record);
             }
             if params[0]["to"] == hex0x(&LEDGER_PRECOMPILE) {
                 assert_eq!(selector, &keccak(b"accountId(bytes32,bytes32)")[..4]);
@@ -542,7 +548,7 @@ fn receiver_command_status_unbound() -> Outcome {
     let state = setup.endpoint.state.lock().map_err(|_| "state")?;
     assert_eq!(
         value,
-        json!({"address":hex0x(&state.address), "bound":false, "identity":null, "ledger_accounts":{}, "balance":(GAS * GAS_PRICE).to_string()})
+        json!({"address":hex0x(&state.address), "bound":false, "identity":null, "ledger_accounts":{}, "payable_assets":[], "withheld_assets":[], "balance":(GAS * GAS_PRICE).to_string()})
     );
     assert!(!state.calls.iter().any(
         |(method, params)| method == "eth_call" && params[0]["to"] == hex0x(&LEDGER_PRECOMPILE)
