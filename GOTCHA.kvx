@@ -21905,3 +21905,13 @@ fix = "Decision 3502. Item do_6 of task 22.39.504."
 title = "Seven pages hold the old network sentence across a line break"
 symptom = "On seven pages, the page of the kernel sources under src among them, the sentence that says the kernel participates in the network or in block proposal runs over two lines of the file, so a search by line does not find it."
 fix = "Decisions 3496 and 3503. Task 22.43.332."
+
+[gotcha.4417]
+title = "A case outside the paths of a page task reads the sentence of the contributor page"
+symptom = "A case of tools/qualification/audit_repairs/test_contributor_merged_node.py reads from the section on the repository layout of CONTRIBUTING.md the words that name the block proposal path. The file of the case is not among the paths of task 22.43.328, which changes that sentence."
+fix = "Decision 3504. The file of the case joins the paths of the task."
+
+[gotcha.4418]
+title = "The test target of the human workspace takes no member selection"
+symptom = "The target human-test of the Makefile runs the tests of every member of the human workspace in one cargo line. A task that brings a group of members in line cannot be counted on that group."
+fix = "Decision 3505. The cargo line of the target reads its member selection from a variable whose default is the whole workspace."
