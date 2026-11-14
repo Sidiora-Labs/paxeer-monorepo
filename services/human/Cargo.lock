@@ -1066,6 +1066,7 @@ dependencies = [
  "layerx-network-gateway",
  "layerx-platform-internal",
  "layerx-portable",
+ "layerx-programs-registry",
  "layerx-proof",
  "layerx-sdk",
  "layerx-types",
@@ -1076,6 +1077,7 @@ dependencies = [
  "proptest",
  "rustix",
  "rustls",
+ "rustls-native-certs",
  "serde",
  "serde_json",
  "sha2",
@@ -1125,6 +1127,7 @@ dependencies = [
  "layerx-types",
  "layerx-wire",
  "proptest",
+ "serde_json",
  "sha2",
 ]
 

@@ -123,11 +123,9 @@ impl MoveLegExecution {
             || execution.timestamp < self.not_before
             || execution.timestamp > self.not_after
             || execution.fee_amount > ceiling
-            || (execution.to[18..] == 0x1001_u16.to_be_bytes()
-                && execution.to[..18] == [0; 18]
-                && (execution.return_data.len() != 32
-                    || execution.return_data[..31] != [0; 31]
-                    || execution.return_data[31] != 1))
+            || execution.to == [0; 20]
+            || execution.to == super::BANK_ADDRESS
+            || execution.return_data.as_slice() != super::resolver::abi_word(1)
             || self.receipt.as_ref().is_some_and(|previous| {
                 previous.activity_id() != tx_hash
                     || previous.canonical_bytes() != receipt.canonical_bytes()

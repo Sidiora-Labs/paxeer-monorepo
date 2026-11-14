@@ -53,8 +53,9 @@ final class ProgramTransportRetiredTests: XCTestCase {
       do {
         try await invoke()
         XCTFail("\(operation) did not reach the recording transport")
-      } catch let error as URLError {
-        XCTAssertEqual(error.code, .networkConnectionLost, operation)
+      } catch let error as PlatformSDKError {
+        XCTAssertEqual(error.code, .transportFailure, operation)
+        XCTAssertEqual(error.retry, .safe, operation)
       }
       let requests = RecordingProgramHTTP.requests.snapshot()
       XCTAssertEqual(requests.count, before + 1, operation)

@@ -21995,3 +21995,148 @@ fix = "Decision 3518. Task 22.39.538 brings the case and the package to one form
 title = "The resolver fixture of the names DNS tool binds the digest of the root Forge configuration"
 symptom = "The contract test of tools/pnsdns reads the digests of seven producers of its resolver fixture from tools/pnsdns/testdata/names_sources.json, among them foundry.toml. A change of foundry.toml, also in a profile the fixture does not use, asks for a review of the fixture and a new binding."
 fix = "Decision 3519. Task 22.39.539 reviews the fixture against the present configuration and binds it."
+
+[gotcha.4435]
+title = "The pipeline metadata binds the digest of the conformance entry of the JVM kit"
+symptom = "The file sdk/platform/pipeline.kvx records a digest for each file of the JVM kit that the generator names, among them the conformance entry under sdk/platform/jvm/src/conformance/java/com/sidiora/layerx/sdk/ConformanceMain.java. A change of such a file asks the check target platform-sdk-check for a generation."
+fix = "Decision 3520. The paths of task 22.39.505 take the metadata and the task runs the generation."
+
+[gotcha.4436]
+title = "The documentation test phase of a member that depends on members left out of a selection"
+symptom = "Under a selection of the platform workspace that leaves members out, the documentation test phase of a member that depends on them is part of the run although the member holds no documentation test."
+fix = "Decision 3521. The selection of task 22.39.504 names the library, binary and test targets."
+
+[gotcha.4437]
+title = "The reason of a replay record refusal carries the check and its site"
+symptom = "The producer in programs/crates/layerx-programs-runtime appends the check and its site to the reason of a refusal of the replay record. A reader of that reason takes the refusal by its leading text."
+fix = "Decision 3522. Task 22.39.509 brings the adapter of the native result and its test file to the leading text."
+
+[gotcha.4438]
+title = "A test module inside a source file is compiled in every test target that includes the file by path"
+symptom = "The test targets intent_chain_domain and proof_human_intents of the intents member include the source of the journey resolver of the human service by path. The test module pointer_view_tests at the end of that source is compiled in those targets as well and names the JSON crate, so the including member declares that crate among its development dependencies."
+fix = "Decision 3523. Task 22.39.540 declares the crate in services/human/crates/layerx-intents/Cargo.toml."
+
+[gotcha.4439]
+title = "A node without a transaction index does not serve the transaction lookup"
+symptom = "The consensus interface of a node whose transaction index is set to null answers the transaction lookup with an internal error whose data says that transaction querying is disabled. A client beside such a node learns the fate of a submission from committed state: the account sequence and the state the submission writes, read at one committed height. The price sidecar takes that route when the lookup is not served and keeps the lookup as the first source where it is."
+fix = "Decision 3524. Task 22.39.541 adds the route in services/platform/hosted/feeder/src/bin/price-sidecar/round.rs."
+
+[gotcha.4440]
+title = "A pool entry leaves the pool by commit, by a refused recheck or by a time limit"
+symptom = "The store of the pool removes an entry when it is committed, when a recheck refuses it or when one of the two time limits has passed. The recheck runs when the consensus parameter for it is on, and a time limit applies when its key is not zero. With the parameter off and both keys at zero a node that does not propose blocks keeps an entry that can no longer pass, such as one with a used account sequence, until the pool is emptied. The defaults of a new home set both limits."
+fix = "Decision 3525. Task 22.39.542 reports the configuration without a limit at construction."
+
+[gotcha.4441]
+title = "A manifest change in a workspace changes the lock file of that workspace"
+symptom = "A member manifest that gains or loses a dependency changes the lock file at the root of its workspace when the build resolves it. A build with the locked flag refuses a lock file that is behind its manifests. A task that changes a manifest therefore commits the lock file with it."
+fix = "Decision 3526. The paths of task 22.39.540 take services/human/Cargo.lock."
+
+[gotcha.4442]
+title = "A round of the price sidecar lasts as long as its committed reads and the commit of its submission"
+symptom = "The price sidecar starts a round only when no submission is pending, and it reads the committed observation sequence of each configured market one call after another, once to decide the fate of the pending submission and once more to synchronise. A round therefore lasts the commit time of the submission plus twice the market count times the answer time of the EVM endpoint. The price module counts an observation as a source only inside its staleness window, and the readiness answer of the sidecar expects a confirmed execution within three cadences. A sidecar whose rounds are longer than its cadence meets neither."
+fix = "Decision 3527. Task 22.39.543 lets the sidecar submit at its cadence."
+
+[gotcha.4443]
+title = "The interop workspace resolves packages of the platform workspace through its path dependencies"
+symptom = "Members of the interop workspace depend by path on members of the platform workspace, so the lock file of the interop workspace also pins the packages those members name. A version change in a manifest of the platform workspace that such a path reaches asks for the same change in services/interop/Cargo.lock. Until then a command with the locked flag over the interop workspace refuses the lock file, and so does scripts/interop/dependency-policy.sh, which reads the metadata with that flag."
+fix = "Decision 3528. Task 22.39.544 brings the lock file in step."
+
+[gotcha.4444]
+title = "The client of the price sidecar keeps the default count of idle connections"
+symptom = "The client that http_agent builds in services/platform/hosted/feeder/src/lib.rs keeps the default count of idle connections of its library for one host, which is smaller than the market count of a usual configuration. A round fetches the ticker of every configured market at once from one host. The requests beyond that count open a new connection with a new handshake in every round, inside the timeout of the request."
+fix = "Decision 3529. Task 22.39.545 sets the counts."
+
+[gotcha.4445]
+title = "The process case probe of the agent envelope runs under its harness"
+symptom = "The test testAgentOperationEnvelopeProcessCases of the Swift kit reads a case file that the envelope harness names for it and refuses a run without one. The recipe platform-verify-sdks in services/platform/Makefile.inc runs the test target of each kit outside that harness. Its dotnet step leaves the probe of that kit out; the Swift step names the whole test target."
+fix = "Decision 3530. Task 22.39.505 brings the Swift step to the form of the dotnet step."
+
+[gotcha.4446]
+title = "Formatting a library root also formats the modules it declares"
+symptom = "The formatter follows the module declarations of the file it is given. Formatting services/platform/hosted/feeder/src/lib.rs therefore also formats services/platform/hosted/feeder/src/chainflow.rs, which the library root declares. A task whose paths name only the library root then carries a formatting change in a file beside it."
+fix = "Decision 3531. Task 22.39.545 takes the module file into its paths for its formatting."
+
+[gotcha.4447]
+title = "A spawn and its join in one iterator chain run the reads one after another"
+symptom = "read_committed in services/platform/hosted/feeder/src/bin/price-sidecar/round.rs spawns the read of a market and joins it in one iterator chain. An iterator chain takes one element through every step before it takes the next, so each read is joined before the next is spawned and the reads run one after another. Where the node serves no transaction lookup, a reconcile also makes these reads before it compares the account sequence, so a reconcile that decides nothing reads every market."
+fix = "Decision 3532. Task 22.39.546 collects the handles first and reads the account first."
+
+[gotcha.4448]
+title = "A reconcile that reports an open fate holds the round of the price sidecar"
+symptom = "reconcile in services/platform/hosted/feeder/src/bin/price-sidecar/round.rs answers false while the oldest pending submission has no fate, and run_round and the reread step of submit start nothing on that answer. The bound max_pending_submissions is compared only after a reconcile that answered true. The list of pending submissions therefore holds one entry at most, and a round follows the fate of the submission before it and not the cadence."
+fix = "Decision 3533. Task 22.39.547 starts a round at every cadence below the bound."
+
+[gotcha.4449]
+title = "The cross-language cases of the Rust program kit start the compilers of the other kits"
+symptom = "The cases of programs/sdk/rust/tests/cross_language_call_budget.rs start javac, swiftc, dotnet and tsc. They run with make programs-test, so a task that verifies with that target needs the profile that carries those compilers."
+fix = "Decision 3534. Task 22.39.509 takes the profile sdk-all."
+
+[gotcha.4450]
+title = "The stop step of the local node script ends on a bound of ten seconds"
+symptom = "stop_node in tools/qualification/localnode/v6120-node.sh signals a role and waits ten seconds for it. A role that still runs then ends the script. The script stops the bootstrap peer once before it replaces the data directory of that peer, and a test that starts the script ends with it when the peer stops later than the bound."
+fix = "Decision 3535. Task 22.39.529 takes the script into its paths."
+
+[gotcha.4451]
+title = "The node answers an EVM read above its bound with a busy error at once"
+symptom = "The EVM read interface in rpc/simulate.go admits at most max_concurrent_simulation_calls reads at a time, by default the count of processor cores. A read above the bound does not wait; it is answered at once with a busy error. read_observations in services/platform/hosted/feeder/src/bin/price-sidecar/round.rs starts one read for every market at the same moment, so the reads of one reconcile can take the whole bound and a read of this or of another client then ends with the busy error."
+fix = "Decision 3536. Task 22.39.548 bounds the reads in flight and repeats a busy answer."
+
+[gotcha.4452]
+title = "The web search sidecar ends at start when its receiver has no bound identity"
+symptom = "PaymentGate::new_with_network_id in services/interop/crates/x-websearch/src/payment.rs reads the identity bound to the receiver address and the ledger account of each accepted asset, and assemble in services/interop/crates/x-websearch/src/main.rs ends the process when one of these reads does not pass. The text of the refusal names the adapter and not the read. The binary takes the option for the config and nothing else, so it shows no receiver address and has no means to bind one."
+fix = "Decisions 3537 and 3538. Task 22.39.549 lets the sidecar start with the paid route closed, task 22.39.550 adds the two commands."
+
+[gotcha.4453]
+title = "A node with sequencing disabled does not forward receipt requests although the forward URL is set"
+symptom = "NewFollowerReceiptOption in node/sequencer/follower.go builds the forwarding option from the key sequencer.receipt-forward-url, and the node command reads the key in daemon/paxd/cmd/root.go. No start path hands the option to the application: NewNode returns no node when sequencing is disabled and SetSequencerRPC is called only for a sequencing node. Such a node answers pax_sequencerReceipt with the text served by sequencer whatever the key holds. Only tests join the two."
+fix = "Decision 3539. Task 22.39.551 joins them at start."
+
+[gotcha.4454]
+title = "The price sidecar keeps eight submissions pending by default while a node admits one sequence per account at a time"
+symptom = "default_max_pending_submissions in services/platform/hosted/feeder/src/bin/price-sidecar/main.rs returns 8, so a sidecar without the key starts a round at every cadence until eight submissions of its account are pending. A node admits a submission only at the committed sequence of the account and answers every later sequence with account sequence mismatch until the earlier one is committed. With the default a round after the first is refused and repeated."
+fix = "Decision 3540. Task 22.39.552 sets the default to one."
+
+[gotcha.4455]
+title = "The ordinary deliver step of the concurrent block path takes stores that do not serve iteration"
+symptom = "ProcessTXsWithOCCGiga in node/app.go builds two schedulers from engine/deps/tasks: one for the fast executor and one with app.DeliverTx for the ordinary deliver path. tryInitMultiVersionStore in engine/deps/tasks/scheduler.go gives both the stores of the fast executor, whose Iterator and ReverseIterator in engine/deps/store/cachekv.go are not served. A handler of the ordinary deliver path that iterates a store, such as the balance migration of the address association in utils/helpers/associate.go, therefore ends differently on this path than in synchronous delivery."
+fix = "Decision 3541. Task 22.39.553 gives the ordinary deliver step the view of synchronous delivery."
+
+[gotcha.4456]
+title = "The deliver entry of the node does not honour the trace switch"
+symptom = "DeliverTx in node/abci.go passes a fixed false as the last argument of ResponseDeliverTxWithEvents at both of its calls, while the same calls in sdk/baseapp/abci.go pass the trace switch of the application. A node started with the trace switch reports a failed delivery of this entry with the short text only."
+fix = "Decision 3542. Task 22.39.554 passes the switch."
+
+[gotcha.4457]
+title = "The tracing methods answer tx parse error for a block built by the sequencing node"
+symptom = "For a block built by a node with sequencing enabled, debug_traceTransaction, debug_traceBlockByNumber and debug_traceCall of rpc/tracers.go answer with the text expected 2 wire type, got 0: tx parse error, while the block read methods serve the same block. The entry of the block that the transaction decoder does not read has not been named yet."
+fix = "Decision 3543. Task 22.39.555 names it and makes the tracing methods read such a block."
+
+[gotcha.4458]
+title = "The request watch of the web search service starts at block zero when a cursor stands without a journal"
+symptom = "RequestWatcher::open in services/interop/crates/x-websearch/src/watch.rs sets the next block to zero when the cursor file exists and the journal does not. On a long chain the scan from zero does not end in useful time, and a read endpoint that keeps only recent blocks refuses the early ranges, so the watch does not advance."
+fix = "Decision 3544. Task 22.39.556 continues at the cursor and moves forward to the earliest block the endpoint serves."
+
+[gotcha.4459]
+title = "The start test of the daemon command names a standby address without replication TLS material"
+symptom = "TestNewAppPassesSequencerConfigToNode in daemon/paxd/cmd/new_app_test.go sets the standby address flag and none of the five replication flags of node/sequencer/config.go. ReplicationTLSConfig in node/sequencer/dial.go requires certificate, key, roots and peer identity wherever a standby is named, so the case needs that material to start the node."
+fix = "Decision 3545. Task 22.39.551 gives the case the material."
+
+[gotcha.4460]
+title = "Six cases of the spend composition test need directories that only its producer makes"
+symptom = "actual_guest in programs/crates/layerx-programs-runtime/tests/program_spend_composition.rs reads the directory named by PAXEER_X_SPEND_GUESTS, and two cases read the directory named by PAXEER_X_SPEND_RESULTS. Only tools/qualification/paxeer-x/program_spend_composition.py makes these directories and sets the two names, and it runs each case alone by its exact name. The programs-test target of the Makefile runs the tests of the whole workspace without the two names, so the six cases whose names begin with actual_ find no input there."
+fix = "Decision 3546. Task 22.39.509 carries the change."
+
+[gotcha.4461]
+title = "The price sidecar keeps a submission that the node refused as ahead of the committed sequence"
+symptom = "attempt in services/platform/hosted/feeder/src/bin/price-sidecar/round.rs puts a submission into the pending list before the broadcast, and record_broadcast raises the next account sequence of the journal. When the node answers the broadcast with account sequence mismatch because the sent sequence is ahead of the committed one, the entry stays in the list with its sequences and next_submission signs every later submission past it. With max_pending_submissions above one and a node that admits only the committed sequence, the later submissions get the same answer until the entry is decided as evicted, which takes pending_submission_block_limit blocks where the node does not serve the transaction lookup."
+fix = "Decision 3547. Task 22.39.557 removes such an entry at once."
+
+[gotcha.4462]
+title = "The local node script stops its full node before the first EVM call"
+symptom = "In sequencer mode tools/qualification/localnode/v6120-node.sh starts a full node under the role bootstrap-peer beside the sequencing node and stops it once the sequencing node has left block sync, before the mint, approve, deposit and feed key calls. No test of tools/qualification/localnode therefore shows a node without sequencing applying a block that the sequencing node built from EVM transactions."
+fix = "Decision 3548. Task 22.39.558 adds the option and the tests."
+
+[gotcha.4463]
+title = "The release scripts name the release version as a literal"
+symptom = "tools/release/version.json holds the version and the upgrade plan, and the workflows read it. tools/release/preflight.sh and tools/release/postflight.sh compare the version of a node with the literals 7.0.0 and v7.0.0, and tools/release/tests/identity.test.sh holds the literal as well. A release that keeps the plan and raises the version needs each of these places changed by hand."
+fix = "Decision 3549. Task 22.39.559 makes the scripts follow the file and sets 7.0.1."

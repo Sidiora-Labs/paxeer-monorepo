@@ -4644,59 +4644,85 @@ impl ProductionComponents {
                 .admit_assertion(&assertion_subject(assertion)?, assertion)
                 .map_err(|_| ApiFailure::forbidden())?;
         }
-        let raw_transaction =
-            if let Some(layerx_crypto::disclosure::call::ConstructMethod::BankSend {
+        let bank_send = match disclosure
+            .construct_method()
+            .map_err(|_| ApiFailure::forbidden())?
+        {
+            Some(layerx_crypto::disclosure::call::ConstructMethod::BankSend {
                 to,
                 denom,
                 amount,
                 ..
-            }) = disclosure
-                .construct_method()
-                .map_err(|_| ApiFailure::forbidden())?
-            {
-                self.custody
-                    .creation_keystore()
-                    .authorize_send_transaction(
-                        scope.principal(),
-                        &context.custody_key,
-                        authorization,
-                        to,
-                        denom,
-                        amount,
-                    )
-                    .map_err(|_| ApiFailure::forbidden())?
-            } else {
-                let trace = TraceId::parse(&request.trace)
-                    .map_err(|_| ApiFailure::invalid_request(None))?;
-                let principal = scope.principal().clone();
-                let unsigned = layerx_human_kms::attestor::unsigned_evm_transaction(&call);
-                let grant = super::executor::poll_once_ready(self.custody.sign_in_scope(
-                    scope,
-                    crate::custody::SignRequest::new(
-                        &principal,
-                        &context.custody_key,
-                        &trace,
-                        crate::custody::SignAuthorization::new(
-                            crate::custody::Operation::ProtocolMutation,
-                            None,
-                        ),
-                        &unsigned,
-                        &disclosure,
-                        now,
-                    ),
-                ))
-                .map_err(|_| ApiFailure::upstream_degraded())?
-                .map_err(|_| ApiFailure::forbidden())?;
-                let signature = layerx_crypto::signer::AgentSignature::new(*grant.signature())
-                    .map_err(|_| ApiFailure::upstream_degraded())?;
-                if layerx_crypto::evm_transaction::recover_sender(&call, &signature)
-                    .map_err(|_| ApiFailure::forbidden())?
-                    != authorization.wallet
-                {
+            }) => Some((to, denom, amount)),
+            Some(layerx_crypto::disclosure::call::ConstructMethod::PointerTransfer {
+                pointer,
+                to,
+                amount,
+            }) => {
+                if amount[..16] != [0; 16] {
                     return Err(ApiFailure::forbidden());
                 }
-                assemble(&call, &signature)
-            };
+                let value = u128::from_be_bytes(
+                    amount[16..]
+                        .try_into()
+                        .map_err(|_| ApiFailure::forbidden())?,
+                );
+                let balance = self
+                    .principal_agent(scope)?
+                    .balance()
+                    .map_err(agent_failure)?;
+                let (denom, height) = quote_bank_denom(authorization.wallet, balance.asset, value)?;
+                if native_bank_pointer(&intent_node()?, height, &denom)? != pointer {
+                    return Err(ApiFailure::forbidden());
+                }
+                Some((to, denom, amount))
+            }
+            _ => None,
+        };
+        let raw_transaction = if let Some((to, denom, amount)) = bank_send {
+            self.custody
+                .creation_keystore()
+                .authorize_send_transaction(
+                    scope.principal(),
+                    &context.custody_key,
+                    authorization,
+                    to,
+                    denom,
+                    amount,
+                )
+                .map_err(|_| ApiFailure::forbidden())?
+        } else {
+            let trace =
+                TraceId::parse(&request.trace).map_err(|_| ApiFailure::invalid_request(None))?;
+            let principal = scope.principal().clone();
+            let unsigned = layerx_human_kms::attestor::unsigned_evm_transaction(&call);
+            let grant = super::executor::poll_once_ready(self.custody.sign_in_scope(
+                scope,
+                crate::custody::SignRequest::new(
+                    &principal,
+                    &context.custody_key,
+                    &trace,
+                    crate::custody::SignAuthorization::new(
+                        crate::custody::Operation::ProtocolMutation,
+                        None,
+                    ),
+                    &unsigned,
+                    &disclosure,
+                    now,
+                ),
+            ))
+            .map_err(|_| ApiFailure::upstream_degraded())?
+            .map_err(|_| ApiFailure::forbidden())?;
+            let signature = layerx_crypto::signer::AgentSignature::new(*grant.signature())
+                .map_err(|_| ApiFailure::upstream_degraded())?;
+            if layerx_crypto::evm_transaction::recover_sender(&call, &signature)
+                .map_err(|_| ApiFailure::forbidden())?
+                != authorization.wallet
+            {
+                return Err(ApiFailure::forbidden());
+            }
+            assemble(&call, &signature)
+        };
         Ok(raw_transaction)
     }
 
@@ -4840,8 +4866,8 @@ impl ProductionComponents {
                             .map_err(|_| ApiFailure::upstream_degraded())?;
                         let denom = send_leg_denom(&assets, &balances, leg.asset())?;
                         (
-                            precompile(0x1001),
-                            bank_send_calldata(wallet, recipient, &denom, leg.amount().value()),
+                            native_bank_pointer(&intent_node()?, balances.height, &denom)?,
+                            pointer_transfer_calldata(recipient, leg.amount().value()),
                         )
                     }
                     crate::journeys::LegMechanism::Protocol(
@@ -4935,7 +4961,7 @@ impl ProductionComponents {
             text_field(&request.body, "destination")?,
             wallet,
         )?;
-        let denom = quote_bank_denom(wallet, balance.asset, amount)?;
+        let (denom, height) = quote_bank_denom(wallet, balance.asset, amount)?;
         let node = intent_node()?;
         if node.chain_id() != u64::from(self.network_id) {
             return Err(ApiFailure::forbidden());
@@ -4962,9 +4988,9 @@ impl ProductionComponents {
                 max_priority_fee_per_gas: self.evm_max_priority_fee_per_gas,
                 max_fee_per_gas: self.evm_max_fee_per_gas,
                 gas_limit: self.evm_gas_limit,
-                to: precompile(0x1001),
+                to: native_bank_pointer(&node, height, &denom)?,
                 value: [0; 32],
-                calldata: bank_send_calldata(wallet, recipient, &denom, amount),
+                calldata: pointer_transfer_calldata(recipient, amount),
             },
         };
         bind_call(&evm_call(&quote.transaction), wallet).map_err(|_| ApiFailure::forbidden())?;
@@ -5025,6 +5051,20 @@ impl ProductionComponents {
                 attestor
                     .admit_assertion(&assertion_subject(assertion)?, assertion)
                     .map_err(|_| ApiFailure::forbidden())?;
+            }
+            let (denom, height) = quote_bank_denom(
+                quote.wallet,
+                Sha256::digest(quote.denom.as_bytes()).into(),
+                quote.amount,
+            )?;
+            let node = intent_node()?;
+            if denom != quote.denom
+                || native_bank_pointer(&node, height, &denom)? != quote.transaction.to
+                || quote.transaction.value != [0; 32]
+                || quote.transaction.calldata
+                    != pointer_transfer_calldata(quote.recipient, quote.amount)
+            {
+                return Err(ApiFailure::forbidden());
             }
             let raw_transaction = self
                 .custody
@@ -7744,6 +7784,13 @@ impl AttestorKms {
                 && to == request.disclosure.recipient
                 && denom == request.disclosure.denom
                 && amount == request.disclosure.amount => {}
+            Some(layerx_crypto::disclosure::call::ConstructMethod::PointerTransfer {
+                pointer,
+                to,
+                amount,
+            }) if pointer == call.to
+                && to == request.disclosure.recipient
+                && amount == request.disclosure.amount => {}
             _ => return Err(KmsError::Refused),
         }
         let mut sends = self.inner.sends.lock().map_err(|_| KmsError::Unavailable)?;
@@ -7775,7 +7822,7 @@ impl AttestorKms {
             return Ok(raw);
         }
         // The attestor signs the disclosure-checked EIP-1559 bank-send transaction.
-        let transaction_signer = DisclosedAttestorSigner(signer);
+        let transaction_signer = DisclosedAttestorSigner(signer, self.clone());
         let signature = super::executor::poll_once_ready(sign_disclosed_call(
             &transaction_signer,
             &call,
@@ -8824,7 +8871,7 @@ fn validate_attestor_send_request(
         || authorization.not_before > now
         || authorization.not_after < now
         || authorization.not_after <= authorization.not_before
-        || transaction.to != bank
+        || transaction.to == [0; 20]
         || transaction.value != [0; 32]
         || transaction.gas_limit < 21_000
         || transaction.max_fee_per_gas == 0
@@ -8845,10 +8892,22 @@ fn validate_attestor_send_request(
         to: transaction.to,
         data: transaction.calldata.clone(),
     };
+    if transaction.to != bank {
+        layerx_human_kms::verify_native_pointer(
+            &request.disclosure.denom,
+            transaction.to,
+            transaction.chain_id,
+        )
+        .map_err(|_| KmsError::Refused)?;
+    }
     Ok(call)
 }
 
-fn quote_bank_denom(wallet: [u8; 20], asset: [u8; 32], amount: u128) -> Result<String, ApiFailure> {
+fn quote_bank_denom(
+    wallet: [u8; 20],
+    asset: [u8; 32],
+    amount: u128,
+) -> Result<(String, u64), ApiFailure> {
     let gateway = layerx_network_gateway::GatewayEndpoint::from_environment()
         .map_err(|_| ApiFailure::upstream_degraded())?;
     let balances = gateway
@@ -8866,7 +8925,7 @@ fn quote_bank_denom(wallet: [u8; 20], asset: [u8; 32], amount: u128) -> Result<S
     {
         return Err(ApiFailure::forbidden());
     }
-    Ok(denom)
+    Ok((denom, balances.height))
 }
 
 fn send_leg_denom(
@@ -8887,23 +8946,23 @@ fn send_leg_denom(
     Ok(denom.clone())
 }
 
-fn bank_send_calldata(from: [u8; 20], to: [u8; 20], denom: &str, amount: u128) -> Vec<u8> {
-    let mut source = [0; 32];
-    source[12..].copy_from_slice(&from);
-    let mut recipient = [0; 32];
-    recipient[12..].copy_from_slice(&to);
-    let mut data = [
-        vec![0x5c, 0x05, 0x96, 0x1b],
-        source.to_vec(),
-        recipient.to_vec(),
-        abi_amount(128).to_vec(),
-        abi_amount(amount).to_vec(),
-        abi_amount(denom.len() as u128).to_vec(),
-        denom.as_bytes().to_vec(),
-    ]
-    .concat();
-    data.resize(4 + (data.len() - 4).div_ceil(32) * 32, 0);
-    data
+fn native_bank_pointer(
+    node: &layerx_agentd::node_rpc::NodeRpc,
+    height: u64,
+    denom: &str,
+) -> Result<[u8; 20], ApiFailure> {
+    let answer = node
+        .call_at(
+            height,
+            &precompile(0x100a),
+            &crate::journeys::native_pointer_query(denom),
+        )
+        .map_err(|_| ApiFailure::upstream_degraded())?;
+    crate::journeys::decode_native_pointer(&answer).ok_or_else(ApiFailure::forbidden)
+}
+
+fn pointer_transfer_calldata(to: [u8; 20], amount: u128) -> Vec<u8> {
+    crate::journeys::pointer_transfer_calldata(to, amount)
 }
 
 fn intent_account(endpoint: &crate::journeys::Endpoint) -> Result<&AccountId, ApiFailure> {
@@ -8916,7 +8975,7 @@ fn intent_account(endpoint: &crate::journeys::Endpoint) -> Result<&AccountId, Ap
 }
 
 #[derive(Debug)]
-struct DisclosedAttestorSigner(layerx_human_kms::attestor::AttestorSigner);
+struct DisclosedAttestorSigner(layerx_human_kms::attestor::AttestorSigner, AttestorKms);
 impl layerx_crypto::signer::Signer for DisclosedAttestorSigner {
     fn public_key(&self) -> [u8; 32] {
         self.0.public_key()
@@ -8943,7 +9002,10 @@ impl layerx_crypto::signer::Signer for DisclosedAttestorSigner {
                     &layerx_human_kms::attestor::unsigned_evm_transaction(call),
                     call.chain_id,
                 )
-                .map_err(|_| layerx_crypto::signer::SignError::RemoteRefused)?;
+                .map_err(|error| {
+                    self.1.refused(&error);
+                    layerx_crypto::signer::SignError::RemoteRefused
+                })?;
             signature[64] += 27;
             layerx_crypto::signer::AgentSignature::new(signature)
                 .map_err(|_| layerx_crypto::signer::SignError::ReturnedSignatureInvalid)
@@ -9276,21 +9338,20 @@ mod intent_bank_golden_tests {
     fn assert_bank_transaction(
         transaction: &crate::custody::EvmTransaction,
         context: &Value,
-        sender: [u8; 20],
+        _sender: [u8; 20],
         recipient: [u8; 20],
         amount: u128,
     ) {
         assert_eq!(transaction.chain_id, 125);
-        assert_eq!(transaction.to, precompile(0x1001));
+        assert_eq!(
+            transaction.to,
+            decode_hex_20(context["pointer"].as_str().or_fail("native pointer"))
+                .or_fail("pointer address")
+        );
         assert_eq!(transaction.value, [0; 32]);
         assert_eq!(
             transaction.calldata,
-            bank_send_calldata(
-                sender,
-                recipient,
-                context["denom"].as_str().or_fail("denom"),
-                amount
-            )
+            pointer_transfer_calldata(recipient, amount)
         );
         assert_eq!(
             context["nonce_observation"]["params"],
@@ -9489,7 +9550,7 @@ mod intent_bank_golden_tests {
 
 #[cfg(test)]
 mod send_leg_denom_tests {
-    use super::{bank_send_calldata, hex_bytes, send_leg_denom, ApiFailure, AssetId};
+    use super::{hex_bytes, pointer_transfer_calldata, send_leg_denom, ApiFailure, AssetId};
     use layerx_network_gateway::{
         AccountBalances, AssetBalance, AssetEntry, AssetTable, Evidence, ResolvedIdentities,
     };
@@ -9555,11 +9616,15 @@ mod send_leg_denom_tests {
             .unwrap_or_else(|error| panic!("{}: {error:?}", "bank asset resolves"));
         assert_eq!(denom, "ubank");
 
-        let calldata = bank_send_calldata([0x11; 20], [0x22; 20], &denom, 42);
-        assert_eq!(calldata.len(), 4 + 6 * 32);
-        let tail = &calldata[4 + 5 * 32..];
-        assert_eq!(&tail[..5], b"ubank");
-        assert_eq!(&tail[5..], &[0; 27]);
+        let calldata = pointer_transfer_calldata([0x22; 20], 42);
+        assert_eq!(calldata.len(), 4 + 2 * 32);
+        assert_eq!(
+            &calldata[..4],
+            &layerx_crypto::disclosure::call::ledger_selector("transfer(address,uint256)")
+        );
+        assert_eq!(&calldata[4..16], &[0; 12]);
+        assert_eq!(&calldata[16..36], &[0x22; 20]);
+        assert_eq!(&calldata[36..], &super::abi_amount(42));
 
         assets.assets[0].asset_id = format!("0x{}", hex_bytes(&asset.bytes()));
         assert_eq!(

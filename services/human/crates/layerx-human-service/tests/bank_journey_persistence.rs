@@ -71,7 +71,7 @@ fn request(nonce: u64, to: u8, amount: u128) -> RouteRequest {
             max_fee_per_gas: 10,
             gas_limit: 100_000,
         },
-        asset: AssetId::new([0x33; 32]),
+        asset: AssetId::new(Sha256::digest(b"uhpx").into()),
         amount: Amount::from_u128(amount),
     }
 }
@@ -108,7 +108,7 @@ fn unhex(text: &str) -> Vec<u8> {
 // Recorded once using node/sequencer's signing/receipt codecs, node RPC view
 // validation, and Comet's header, vote, batch and transaction-proof producers.
 fn transcript() -> Value {
-    serde_json::from_str(include_str!("../src/journeys/bank_commit_transcript.json"))
+    serde_json::from_str(include_str!("fixtures/bank_move_receipts.json"))
         .or_fail("committed Go producer transcript")
 }
 
@@ -164,6 +164,15 @@ impl BankNode {
                     fixture["nonce"].as_u64().or_fail("nonce")
                         + sent.iter().filter(|sent| **sent).count() as u64
                 ))
+            }
+            "eth_call" => {
+                assert_eq!(
+                    params[0]["to"],
+                    "0x000000000000000000000000000000000000100a"
+                );
+                assert_eq!(params[0]["data"], fixture["pointerQuery"]);
+                assert_eq!(params[1], "pending");
+                fixture["pointerView"].clone()
             }
             "eth_sendRawTransaction" => {
                 let index = records
@@ -1080,6 +1089,42 @@ fn bank_plan_constructor_commit_reopen_two_sends() {
         retention,
         store_root,
     } = bank_setup();
+    let substituted = MovePlan::new_bank_transfers(
+        JourneyId::new("jrn_substitutedpointer").or_fail("journey"),
+        [0x46; 32],
+        KeyId::new("human-primary").or_fail("key"),
+        Operation::ProtocolMutation,
+        vec![live_request(nonce, 0x22, 90, sender, [0x99; 20])],
+        vec![execution(3, nonce, ceiling)],
+        100,
+        "HPX",
+        "a few seconds",
+    )
+    .or_fail("pure pointer route");
+    let mut scope = store.principal(&owner).or_fail("scope");
+    let mut refused = MoveJourney::commit(
+        &mut scope,
+        &substituted,
+        MoveAuthorization::Allowed,
+        &registry(),
+        clock.now(),
+    )
+    .or_fail("retain request");
+    assert!(matches!(
+        ready(refused.advance_bank(
+            &mut scope,
+            &node.endpoint,
+            &keys,
+            &custody,
+            &trace,
+            clock.now()
+        )),
+        Err(MoveJourneyError::Journey(
+            layerx_human_service::journeys::JourneyError::PreparationMismatch
+        ))
+    ));
+    assert!(refused.signed_transaction(0).is_none());
+    drop(scope);
     let mut journey = commit_bank_journey(&mut store, &owner, &movement, &clock);
     let (before, first_raw) = assert_first_bank_leg(BankAdvance {
         store: &mut store,

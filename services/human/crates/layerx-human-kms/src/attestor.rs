@@ -220,8 +220,28 @@ impl AttestorClock {
 
 impl Clock for AttestorClock {
     fn sample(&self, transport_budget: Duration) -> Result<ClockReading, ClockError> {
-        let clock = self.clock.lock().map_err(|_| ClockError::Unavailable)?;
-        let result = clock.sample(transport_budget);
+        let expires = std::time::Instant::now()
+            .checked_add(transport_budget)
+            .ok_or(ClockError::Overflow)?;
+        let remaining = || {
+            expires
+                .checked_duration_since(std::time::Instant::now())
+                .filter(|budget| !budget.is_zero())
+                .ok_or(ClockError::Unavailable)
+        };
+        let clock = loop {
+            let budget = remaining()?;
+            match self.clock.try_lock() {
+                Ok(clock) => break clock,
+                Err(std::sync::TryLockError::Poisoned(_)) => {
+                    return Err(ClockError::Unavailable);
+                }
+                Err(std::sync::TryLockError::WouldBlock) => {
+                    std::thread::sleep(budget.min(Duration::from_millis(1)));
+                }
+            }
+        };
+        let result = clock.sample(remaining()?);
         if native_consumer_trace() {
             if let Err(error) = &result {
                 eprintln!("native attestor clock error={error:?}");

@@ -248,12 +248,12 @@ fn inference_profile_refuses_missing_or_unavailable_f11_before_binding() {
 fn inference_listener_boot_binds_signal_first_and_cleans_up_on_completion_failure() {
     let directory = Directory::new();
     let completion = must(TcpListener::bind("127.0.0.1:0"));
-    let signal = must(TcpListener::bind("127.0.0.1:0"));
     let mut config = directory.config();
-    config.signal_listen = must(signal.local_addr());
     config.serve_listen = must(completion.local_addr());
+    // Keep the port allocated on one loopback address while the signal listener
+    // uses another, so concurrent ephemeral listeners cannot take its port.
+    config.signal_listen = std::net::SocketAddr::from(([127, 0, 0, 2], config.serve_listen.port()));
     let signal_address = config.signal_listen;
-    drop(signal);
     let Err(error) = serve_inference_market(config, ready_gate()) else {
         panic!("profile booted with an occupied completion listener");
     };

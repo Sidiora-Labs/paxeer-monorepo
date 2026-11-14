@@ -60,13 +60,12 @@ fn hex(bytes: &[u8]) -> String {
     text
 }
 fn transcript() -> Value {
-    serde_json::from_str(include_str!("../src/journeys/bank_commit_transcript.json"))
-        .unwrap_or_else(|error| {
-            panic!(
-                "{}: {error:?}",
-                "committed node/sequencer and Comet producer transcript"
-            )
-        })
+    serde_json::from_str(include_str!("fixtures/bank_move_receipts.json")).unwrap_or_else(|error| {
+        panic!(
+            "{}: {error:?}",
+            "committed node/sequencer and Comet producer transcript"
+        )
+    })
 }
 fn keys() -> Vec<ReceiptKeyEntry> {
     let document = transcript();
@@ -110,7 +109,11 @@ fn bank_request(nonce: u64) -> RouteRequest {
             from: EvmAddress::new(sender()),
             to: EvmAddress::new([0x22; 20]),
             route: send_route(nonce),
-            pointer: EvmAddress::new(BANK_ADDRESS),
+            pointer: EvmAddress::new(
+                unhex(transcript()["pointer"].as_str().or_fail("native pointer"))
+                    .try_into()
+                    .or_fail("pointer width"),
+            ),
             denom: "uhpx".to_owned(),
             chain_id: 125,
             max_priority_fee_per_gas: 1,
@@ -213,12 +216,13 @@ impl StoreFixture {
         )
         .or_fail("module")])
         .or_fail("registry");
-        let request = bank_request(7);
+        let nonce = transcript()["nonce"].as_u64().or_fail("recorded nonce");
+        let request = bank_request(nonce);
         let execution = MoveLegExecution::new(
             [0x31; 32],
             AgentDid::new("did:layerx:alice").or_fail("actor"),
             AuthorityRef::new("custody-human-primary").or_fail("authority"),
-            7,
+            nonce,
             0,
             u64::MAX,
             1_000_000_000_000_000_000,
@@ -244,9 +248,7 @@ impl StoreFixture {
             100,
         )
         .or_fail("production engine record");
-        // Restore the exact previously submitted pointer transaction from the
-        // committed pre-migration node transcript. Recovery must authenticate
-        // already-signed history without resolving it as a new current route.
+        // Reopen the exact signed pointer transaction with its node-issued evidence.
         let document = transcript();
         let raw = unhex(
             document["records"][0]["raw"]
@@ -548,7 +550,14 @@ fn verified_evidence_reload_refuses_missing_or_changed_evidence_before_done() {
             4 => leg["rung_evidence"]["public_key"] = json!(vec![0x99; 32]),
             5 => leg["rung_evidence"]["key_id"] = json!(vec![0x99; 32]),
             6 => leg["rung_evidence"]["inclusion_height"] = json!(0),
-            7 => leg["rung_evidence"]["first_height"] = json!(9),
+            7 => {
+                leg["rung_evidence"]["first_height"] = json!(
+                    transcript()["records"][0]["height"]
+                        .as_u64()
+                        .or_fail("recorded height")
+                        + 1
+                );
+            }
             8 => leg["rung_evidence"]["last_height"] = json!(7),
             9 => leg["rung_evidence"]["tx_hash"] = json!(vec![0x99; 32]),
             10 => leg["rung_evidence"]["rung"] = json!(0),
@@ -862,31 +871,34 @@ fn bank_target_drift_producer_matches_bank_consumer_at_pending_nonce() {
     let [call] = route.bank_transfers() else {
         panic!("one bank call")
     };
-    assert_eq!(call.to, BANK_ADDRESS);
+    assert_eq!(
+        call.to,
+        unhex(transcript()["pointer"].as_str().or_fail("native pointer")).as_slice()
+    );
     assert_eq!(call.nonce, nonce);
     let mut amount = [0; 32];
     amount[31] = 90;
     let disclosure = bind_call(call, sender()).or_fail("real bank call consumer");
     assert_eq!(
         disclosure.construct_method().or_fail("decode bank ABI"),
-        Some(ConstructMethod::BankSend {
-            from: sender(),
+        Some(ConstructMethod::PointerTransfer {
+            pointer: call.to,
             to: [0x22; 20],
-            denom: "uhpx".to_owned(),
             amount
         })
     );
     // The consumer is the production signing/disclosure decoder, and its ABI
     // agrees with the actual bank precompile's frozen interface.
-    let bank_abi: Value =
-        serde_json::from_str(include_str!("../../../../../precompiles/bank/abi.json"))
-            .or_fail("bank ABI");
+    let bank_abi: Value = serde_json::from_str(include_str!(
+        "../../../../../precompiles/common/erc20_abi.json"
+    ))
+    .or_fail("bank ABI");
     let method = bank_abi
         .as_array()
         .or_fail("ABI methods")
         .iter()
         .find(|method| {
-            method["name"] == "send" && method["inputs"].as_array().or_fail("inputs").len() == 4
+            method["name"] == "transfer" && method["inputs"].as_array().or_fail("inputs").len() == 2
         })
         .or_fail("actual bank send consumer");
     let types: Vec<_> = method["inputs"]
@@ -897,7 +909,10 @@ fn bank_target_drift_producer_matches_bank_consumer_at_pending_nonce() {
         .collect();
     assert_eq!(
         &call.data[..4],
-        &layerx_crypto::disclosure::call::ledger_selector(&format!("send({})", types.join(",")))
+        &layerx_crypto::disclosure::call::ledger_selector(&format!(
+            "transfer({})",
+            types.join(",")
+        ))
     );
     let raw = call
         .sign(
@@ -925,11 +940,11 @@ fn bank_target_drift_producer_matches_bank_consumer_at_pending_nonce() {
     let Relationship::BankTransfer { pointer, .. } = &mut wrong.relationship else {
         panic!("bank")
     };
-    *pointer = EvmAddress::new([0x88; 20]);
+    *pointer = EvmAddress::new(BANK_ADDRESS);
     wrong.asset = asset();
     assert!(
         RouteResolver::resolve(&wrong).is_err(),
-        "arbitrary pointer cannot acquire canonical bank authority"
+        "the bank precompile cannot be used as a native pointer"
     );
 }
 

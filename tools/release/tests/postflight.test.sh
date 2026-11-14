@@ -3,6 +3,8 @@ set -euo pipefail
 export LC_ALL=C
 
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)
+release_version=$(jq -er '.version' "$root/tools/release/version.json")
+release_version_unprefixed=${release_version#v}
 work=$(mktemp -d)
 server_pid=
 cleanup() {
@@ -15,7 +17,7 @@ cleanup() {
 trap cleanup EXIT
 
 # Response files describe the Cosmos, CometBFT and EVM wire interfaces.
-python3 - "$work" <<'PY'
+python3 - "$work" "$root" <<'PY'
 import base64
 import copy
 import json
@@ -23,6 +25,10 @@ from pathlib import Path
 import sys
 
 work = Path(sys.argv[1])
+root = Path(sys.argv[2])
+identity = json.loads((root / 'tools/release/version.json').read_text())
+release_version = identity['version']
+release_version_unprefixed = release_version.removeprefix('v')
 
 def word(*values):
     return ''.join(f'{value:064x}' for value in values)
@@ -38,7 +44,7 @@ def result(value):
 
 base = {'get': {}, 'rpc': {}}
 labels = ['version', 'height', 'catching_up', 'chain_id']
-base['get']['/cosmos/base/tendermint/v1beta1/node_info'] = {'application_version': {'version': 'v7.0.0'}}
+base['get']['/cosmos/base/tendermint/v1beta1/node_info'] = {'application_version': {'version': release_version}}
 base['status'] = [{'result': {'sync_info': {'latest_block_height': str(height), 'catching_up': False}}}
                   for height in (101, 102)]
 for module in ('layerxledger', 'layerxauth', 'layerxchains'):
@@ -105,9 +111,9 @@ def variant(name, change):
     save(name, fixture)
 
 save('passing', base)
-variant('unprefixed_version', lambda f: f['get']['/cosmos/base/tendermint/v1beta1/node_info']['application_version'].update(version='7.0.0'))
+variant('unprefixed_version', lambda f: f['get']['/cosmos/base/tendermint/v1beta1/node_info']['application_version'].update(version=release_version_unprefixed))
 variant('wrong_version', lambda f: f['get']['/cosmos/base/tendermint/v1beta1/node_info']['application_version'].update(version='v6.12.0'))
-variant('suffix_version', lambda f: f['get']['/cosmos/base/tendermint/v1beta1/node_info']['application_version'].update(version='v7.0.0-rc1'))
+variant('suffix_version', lambda f: f['get']['/cosmos/base/tendermint/v1beta1/node_info']['application_version'].update(version=release_version + '-rc1'))
 variant('below_height', lambda f: f['status'][0]['result']['sync_info'].update(latest_block_height='99'))
 variant('at_height', lambda f: f['status'][0]['result']['sync_info'].update(latest_block_height='100'))
 variant('stalled_height', lambda f: f['status'][1]['result']['sync_info'].update(latest_block_height='101'))
@@ -255,8 +261,8 @@ assert_failure() {
 }
 
 version_checks() {
-  assert_failure wrong_version 'version: expected 7.0.0, got v6.12.0' || return 1
-  assert_failure suffix_version 'version: expected 7.0.0, got v7.0.0-rc1'
+  assert_failure wrong_version "version: expected $release_version_unprefixed, got v6.12.0" || return 1
+  assert_failure suffix_version "version: expected $release_version_unprefixed, got ${release_version}-rc1"
 }
 
 height_checks() {

@@ -673,7 +673,7 @@ mod tests {
         registry
     }
 
-    const LAUNCHPAD_EVENTS: [(&str, &str); 12] = [
+    const LAUNCHPAD_EVENTS: [(&str, &str); 16] = [
         (
             "ConfigUpdated(bytes32,uint256,uint256,uint256,uint256)",
             "2903b3642d2105b7fbd127326de888ab50e8d975bf819398337fb58407c1b10e",
@@ -685,6 +685,22 @@ mod tests {
         (
             "FeeFlow(uint8,address,address,uint256,uint256,uint256,uint256,uint256,uint256)",
             "626e3fd5d9323ca4b7ffa3ca51c21c02766b638d15eb8896a36a4e0e97ae6de4",
+        ),
+        (
+            "ChainLaunched(uint32,address,address,uint64,uint256,address,uint256,uint256)",
+            "cc3fdcbf1588c99f8d97297b1e742174af195b321237d1f9517f600bdb62817d",
+        ),
+        (
+            "ChainRevenueEpochOpened(uint32,uint64,uint256,uint64,uint256,uint256,uint256)",
+            "052cccce5cfb5c079d591a2ac716ddd1759e66d62f036bd44be608ac47615703",
+        ),
+        (
+            "ChainRevenueClaimed(uint32,uint64,address,uint256,uint256,uint256)",
+            "1e561bbeb84dbf638f5444931d883ff8a4ff458bea55b7c85f2f198bcd17630e",
+        ),
+        (
+            "LaunchedChainRetired(uint32,address,uint256,uint256,uint256)",
+            "562436e1654eaa173e7e0825a3f072b8d0f9056f0ae31ef5c72a894137a0392a",
         ),
         (
             "FeeStrategyChanged(bytes32,uint256,uint8,uint8,uint256,uint256)",
@@ -1046,8 +1062,34 @@ mod tests {
         assert!(registry.lookup(precompile_address(0x1004), bound).is_some());
         let launchpad = launchpad_abi(&registry);
         assert_eq!(launchpad.address, Some(precompile_address(0x1017)));
-        assert_eq!(launchpad.events.len(), 12);
-        let swap = keccak(LAUNCHPAD_EVENTS[10].0.as_bytes());
+        assert_eq!(launchpad.events.len(), 16);
+        assert_eq!(
+            launchpad
+                .events
+                .iter()
+                .map(|event| event.name.as_str())
+                .collect::<Vec<_>>(),
+            [
+                "ConfigUpdated",
+                "FeeDistributed",
+                "FeeFlow",
+                "ChainLaunched",
+                "ChainRevenueEpochOpened",
+                "ChainRevenueClaimed",
+                "LaunchedChainRetired",
+                "FeeStrategyChanged",
+                "MarketCreated",
+                "NftMint",
+                "NftTransfer",
+                "PoolRegistered",
+                "PoolStateUpdated",
+                "RouterTrade",
+                "Swap",
+                "TokenDeployed",
+            ]
+        );
+        let swap =
+            keccak(b"Swap(bytes32,address,bool,uint256,uint256,uint256,uint256,uint256,uint256)");
         assert_eq!(
             registry
                 .lookup(precompile_address(0x1017), swap)

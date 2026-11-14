@@ -1,6 +1,9 @@
 //! AI.F02-T02 transport identity: signed service envelopes, delegate-signed metadata,
 //! discovery from a finalized capture of a really opened market, the pinned TLS transport and
 //! the worker binary.
+#[path = "support/authority_snapshot.rs"]
+mod authority_snapshot;
+
 use ed25519_dalek::{Signer, SigningKey};
 use layerx_client::px::{PxNetworkHead, PxPaxeerHead};
 use layerx_paxai_worker::{
@@ -315,6 +318,7 @@ struct Parts {
     policy: Vec<u8>,
     workers: WorkerTable,
     region: Vec<u8>,
+    reputation_prefix: Vec<u8>,
     reports: Vec<u8>,
     rewards: Vec<u8>,
     admission: AdmissionTable,
@@ -323,13 +327,20 @@ struct Parts {
 impl Parts {
     fn load(bytes: &[u8]) -> CodecResult<Self> {
         let state = decode_shared_state(bytes)?;
-        let [policy, identity, reports, rewards, admission] = state.feature_sections;
+        let [policy, identity, reports, rewards, admission_section] = state.feature_sections;
         let (workers, region) = split_identity_section(identity)?;
+        let (_, admission) =
+            layerx_programs_ai_market::reputation_transition::split_joint(admission_section)?;
+        let prefix_len = admission_section
+            .len()
+            .checked_sub(admission.len())
+            .ok_or(NON_CANONICAL)?;
         Ok(Self {
             revision: state.revision,
             policy: policy.to_vec(),
             workers: WorkerTable::decode(workers)?,
             region: region.to_vec(),
+            reputation_prefix: admission_section[..prefix_len].to_vec(),
             reports: reports.to_vec(),
             rewards: rewards.to_vec(),
             admission: AdmissionTable::decode(admission)?,
@@ -350,6 +361,8 @@ impl Parts {
         identity.extend_from_slice(&self.region);
         let mut admission = vec![0; TABLE_MAX_BYTES];
         let admission_len = self.admission.encode(&mut admission)?;
+        let mut reputation = self.reputation_prefix.clone();
+        reputation.extend_from_slice(&admission[..admission_len]);
         encode_state(&SharedState {
             revision: self.revision,
             feature_sections: [
@@ -357,7 +370,7 @@ impl Parts {
                 &identity,
                 &self.reports,
                 &self.rewards,
-                &admission[..admission_len],
+                &reputation,
             ],
             control: Control {
                 replay: self.replay.clone(),
@@ -1284,7 +1297,7 @@ fn hex(bytes: &[u8]) -> String {
     out
 }
 /// Worker files and configuration under the test target directory.
-fn worker_config(name: &str, pki: &Pki, signed: &[u8], port: u16) -> Checked<PathBuf> {
+fn worker_config(name: &str, pki: &Pki, market: &Market, port: u16) -> Checked<PathBuf> {
     let dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR"))
         .join(format!("transport-identity-{name}-{}", std::process::id()));
     fs::create_dir_all(&dir)?;
@@ -1292,8 +1305,8 @@ fn worker_config(name: &str, pki: &Pki, signed: &[u8], port: u16) -> Checked<Pat
     fs::write(file("chain.pem"), format!("{}{}", pki.leaf_pem, pki.ca_pem))?;
     fs::write(file("key.pem"), &pki.key_pem)?;
     fs::write(file("delegate.hex"), hex(&DELEGATE_SEED))?;
-    fs::write(file("metadata.bin"), signed)?;
-    let (market, owner, worker) = identities()?;
+    fs::write(file("metadata.bin"), &market.signed)?;
+    let (market_id, owner, worker) = identities()?;
     let text = |value: String| Value::String(value);
     let path = |name: &str| Value::String(file(name).to_string_lossy().into_owned());
     let mut config = Map::new();
@@ -1304,7 +1317,7 @@ fn worker_config(name: &str, pki: &Pki, signed: &[u8], port: u16) -> Checked<Pat
     config.insert("signed_metadata".into(), path("metadata.bin"));
     config.insert("chain".into(), text(hex(&CHAIN)));
     config.insert("program".into(), text(hex(&PROGRAM)));
-    config.insert("market".into(), text(hex(market.as_bytes())));
+    config.insert("market".into(), text(hex(market_id.as_bytes())));
     config.insert("worker".into(), text(hex(worker.as_bytes())));
     config.insert("owner".into(), text(hex(owner.as_bytes())));
     config.insert("state_dir".into(), path("state"));
@@ -1321,6 +1334,22 @@ fn worker_config(name: &str, pki: &Pki, signed: &[u8], port: u16) -> Checked<Pat
     config.insert("response_capacity".into(), serde_json::json!(16384));
     config.insert("budget".into(), serde_json::json!([1, 2, 3, 4, 5, 6, 7]));
     config.insert("fee_limit".into(), serde_json::json!(100));
+    fs::create_dir_all(file("inputs"))?;
+    let (_, facts) = capture(&market.world.bytes, 1_150)?;
+    authority_snapshot::write(
+        &dir,
+        &market.world.bytes,
+        &market.roster,
+        &market.signed,
+        &facts.proof,
+        &IdentityEvidence {
+            principal: owner,
+            primary_key: PublicKey32([0x0E; 32]),
+            frozen: false,
+            execution_height: 1_150,
+        },
+        &[customer_at(1_150)?],
+    )?;
     let config_path = file("worker.json");
     fs::write(&config_path, serde_json::to_string(&Value::Object(config))?)?;
     Ok(config_path)
@@ -1546,7 +1575,7 @@ fn transport_identity_a13_manifest_grammar_refusals() -> Checked {
     )?;
     let bytes = base.encode()?;
     let mut schema = bytes.clone();
-    schema[1] = 2;
+    schema[1] = 3;
     assert_eq!(
         Manifest::decode(&schema),
         Err(ServiceError::UnsupportedVersion)
@@ -2450,6 +2479,72 @@ fn transport_identity_a06_resolution_outside_the_profile_never_connects() -> Che
     Ok(())
 }
 
+/// Sends an unknown route over validated TLS to exercise the worker's HTTP refusal.
+fn unknown_route(
+    pki: &Pki,
+    endpoint: &Endpoint,
+    body: &[u8],
+) -> Checked<Result<Vec<u8>, TransportError>> {
+    let (_, port) = endpoint.authority()?;
+    let config = rustls::ClientConfig::builder_with_provider(Arc::new(
+        rustls::crypto::ring::default_provider(),
+    ))
+    .with_protocol_versions(&[&rustls::version::TLS13])?
+    .with_root_certificates((*pki.roots).clone())
+    .with_no_client_auth();
+    let name = rustls::pki_types::ServerName::try_from("localhost")
+        .map_err(|_| Failure::Unexpected("TLS server name"))?;
+    let mut connection = rustls::ClientConnection::new(Arc::new(config), name)?;
+    let mut socket = std::net::TcpStream::connect((Ipv4Addr::LOCALHOST, port))?;
+    socket.set_read_timeout(Some(IO_TIMEOUT))?;
+    socket.set_write_timeout(Some(IO_TIMEOUT))?;
+    while connection.is_handshaking() {
+        connection.complete_io(&mut socket)?;
+    }
+    let leaf = connection
+        .peer_certificates()
+        .and_then(|chain| chain.first())
+        .ok_or(Failure::Unexpected("TLS peer certificate"))?;
+    assert_eq!(spki_sha256(leaf)?, endpoint.spki_sha256);
+    let mut stream = StreamOwned::new(connection, socket);
+    write!(
+        stream,
+        "POST /paxai/v1/unknown HTTP/1.1\r\nHost: localhost:{port}\r\nContent-Length: {}\r\nContent-Type: application/octet-stream\r\nConnection: close\r\n\r\n",
+        body.len()
+    )?;
+    stream.write_all(body)?;
+    stream.flush()?;
+    let mut response = BufReader::new(stream);
+    let mut status = String::new();
+    response.read_line(&mut status)?;
+    assert!(status.starts_with("HTTP/1.1 404 "), "{status}");
+    let mut length = None;
+    loop {
+        let mut header = String::new();
+        let read = response.read_line(&mut header)?;
+        if header == "\r\n" {
+            break;
+        }
+        if read == 0 {
+            return Err(Failure::Unexpected("complete HTTP response headers"));
+        }
+        if let Some(value) = header.to_ascii_lowercase().strip_prefix("content-length:") {
+            length = Some(
+                value
+                    .trim()
+                    .parse::<usize>()
+                    .map_err(|_| Failure::Unexpected("HTTP response length"))?,
+            );
+        }
+    }
+    let length = length.ok_or(Failure::Unexpected("HTTP response length"))?;
+    assert!(length <= ERROR_BODY_BYTES);
+    let mut body = vec![0; length];
+    response.read_exact(&mut body)?;
+    let (error, _) = ServiceError::decode_body(&body)?;
+    Ok(Err(TransportError::Service(error)))
+}
+
 #[test]
 fn transport_identity_worker_binary_serves_signed_status_and_refuses_jobs() -> Checked {
     let pki = pki()?;
@@ -2465,7 +2560,8 @@ fn transport_identity_worker_binary_serves_signed_status_and_refuses_jobs() -> C
         .first()
         .cloned()
         .ok_or(Failure::Unexpected("advertised endpoint"))?;
-    let _worker = start(&worker_config("serves", &pki, &market.signed, port)?)?;
+    let config = worker_config("serves", &pki, &market, port)?;
+    let _worker = start(&config)?;
     let client = local_client(&pki);
     let challenge = StatusChallenge {
         epoch: 1,
@@ -2474,6 +2570,14 @@ fn transport_identity_worker_binary_serves_signed_status_and_refuses_jobs() -> C
         expiry: TASK_EXPIRY,
         challenge: RequestId::new([0x5C; 32])?,
     };
+    let until = std::time::Instant::now() + IO_TIMEOUT;
+    while matches!(
+        client.verify_status(&authority, &endpoint, &challenge, 7_000, loopback()),
+        Err(TransportError::Service(ServiceError::StaleAuthority))
+    ) && std::time::Instant::now() < until
+    {
+        std::thread::sleep(Duration::from_millis(50));
+    }
     assert_eq!(
         client.verify_status(&authority, &endpoint, &challenge, 7_000, loopback())?,
         ReadinessObservation {
@@ -2481,6 +2585,18 @@ fn transport_identity_worker_binary_serves_signed_status_and_refuses_jobs() -> C
             observed_ms: 7_000,
         }
     );
+    // Losing finalized authority after signed status prevents every new admission.
+    let observation_path = config.with_file_name("observation.json");
+    let observation = fs::read(&observation_path)?;
+    fs::remove_file(&observation_path)?;
+    let until = std::time::Instant::now() + IO_TIMEOUT;
+    while client
+        .verify_status(&authority, &endpoint, &challenge, 7_000, loopback())
+        .is_ok()
+        && std::time::Instant::now() < until
+    {
+        std::thread::sleep(Duration::from_millis(50));
+    }
     let send = |path: &str, body: &[u8]| client.post(&endpoint, path, body, loopback());
     let refused = |error| Err(TransportError::Service(error));
     let base = submit(&authority, &capability(0x31))?;
@@ -2489,6 +2605,16 @@ fn transport_identity_worker_binary_serves_signed_status_and_refuses_jobs() -> C
         send(SUBMIT_PATH, &valid),
         refused(ServiceError::StaleAuthority)
     );
+    // Finalized authority lets request authentication enforce route and context bindings.
+    fs::write(&observation_path, observation)?;
+    let until = std::time::Instant::now() + IO_TIMEOUT;
+    while matches!(
+        client.verify_status(&authority, &endpoint, &challenge, 7_000, loopback()),
+        Err(TransportError::Service(ServiceError::StaleAuthority))
+    ) && std::time::Instant::now() < until
+    {
+        std::thread::sleep(Duration::from_millis(50));
+    }
     assert_eq!(
         send(QUERY_PATH, &valid),
         refused(ServiceError::BadSignature)
@@ -2522,6 +2648,10 @@ fn transport_identity_worker_binary_serves_signed_status_and_refuses_jobs() -> C
     }
     assert_eq!(
         send("/paxai/v1/unknown", &valid),
+        Err(TransportError::UnsafeEndpoint)
+    );
+    assert_eq!(
+        unknown_route(&pki, &endpoint, &valid)?,
         refused(ServiceError::NotFound)
     );
     Ok(())
@@ -2531,7 +2661,7 @@ fn transport_identity_worker_binary_serves_signed_status_and_refuses_jobs() -> C
 fn transport_identity_worker_binary_refuses_an_unpinned_leaf() -> Checked {
     let pki = pki()?;
     let market = opened(vec![endpoint(DEFAULT_URI, [0xE1; 32])])?;
-    let config = worker_config("unpinned", &pki, &market.signed, free_port()?)?;
+    let config = worker_config("unpinned", &pki, &market, free_port()?)?;
     let output = worker_command(&config).output()?;
     assert_eq!(output.status.code(), Some(1));
     assert_eq!(String::from_utf8_lossy(&output.stderr), UNPINNED);
