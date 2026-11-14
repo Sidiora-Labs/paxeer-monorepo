@@ -14326,6 +14326,12 @@ value = "Task 22.39.529 takes tools/qualification/localnode/v6120-node.sh into i
 basis = "Gotcha 4450."
 affects = ["22.39.529"]
 
+[decision.3536]
+title = "The committed reads of the price sidecar stay below a bound and repeat a busy answer"
+value = "The configuration of the price sidecar takes the optional key max_committed_reads_in_flight with the default 6; zero is refused. read_observations has at most that many reads in flight and keeps the order of the answers by market. A read that the node answers with its busy error is repeated by the retry plan of the configuration, retry_backoff_ms and retry_max_attempts, before the reconcile reports that it could not read. Every other error of a read ends the reconcile as now. The rules of decisions 3532 and 3533, the stored forms, the metric names and the log lines stay as they are."
+basis = "Gotcha 4451, decisions 3532 and 3533."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -43986,6 +43992,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.548]
+title = "Keep the committed reads of the price sidecar below a bound and repeat a busy answer of the node"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/feeder"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-oracle-feeder --bin price-sidecar --test sidecar_read_bound --test sidecar_round_cadence --test sidecar_committed_reads --test sidecar_cadence_pending --test sidecar_confirmation_committed_state --test sidecar_submission_recovery"
+do_1 = "do_1 Gotcha 4451, decision 3536. Read read_observations, read_committed and reconcile in services/platform/hosted/feeder/src/bin/price-sidecar/round.rs and the configuration in services/platform/hosted/feeder/src/bin/price-sidecar/main.rs. Add the optional key max_committed_reads_in_flight beside max_pending_submissions: default 6, zero refused with the message form of the other keys, shown in the start-up report where the other bounds are shown. A configuration without the key parses as before."
+symbols = []
 
 [capability.22.39.547]
 title = "Start a round of the price sidecar at every cadence while fewer submissions than the bound are pending"
@@ -206477,6 +206492,38 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.548]
+title = "Keep the committed reads of the price sidecar below a bound and repeat a busy answer of the node"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.547"]
+reqs = ["22998.1"]
+capabilities = ["22.39.548"]
+interfaces = []
+do_1 = "do_1 Gotcha 4451, decision 3536. Read read_observations, read_committed and reconcile in services/platform/hosted/feeder/src/bin/price-sidecar/round.rs and the configuration in services/platform/hosted/feeder/src/bin/price-sidecar/main.rs. Add the optional key max_committed_reads_in_flight beside max_pending_submissions: default 6, zero refused with the message form of the other keys, shown in the start-up report where the other bounds are shown. A configuration without the key parses as before."
+do_2 = "do_2 In read_observations keep at most max_committed_reads_in_flight reads in flight at any moment and start the next read when one ends. Keep the one committed height of the reads, the order of the answers by market and the present error texts."
+do_3 = "do_3 A read whose error carries the busy answer of the node, the text rejected due to rate limit, is repeated by the retry plan of the configuration before it counts as failed. Only that read is repeated, not the reads that answered. Every other error ends the reconcile as now. Change no fate rule, no stored form, no metric name and no log line."
+do_4 = "do_4 Add services/platform/hosted/feeder/tests/sidecar_read_bound.rs with cases whose names begin with read_bound_ and extend the stand-in peer in services/platform/hosted/feeder/tests/support/submission_peer.rs where it lacks a means. The peer counts the observation reads in flight, records the highest count, and can answer the busy error to every read above a limit the case sets. With eighteen markets and the default bound, one reconcile decides committed and the highest count is six at most. With a peer limit of three and the default bound, the reconcile still decides committed and the peer answered busy at least once. With a peer that answers busy to every read, the reconcile reports that it could not read after the attempts of the retry plan, and the pending submission keeps its open fate. A configuration with the key at zero is refused and one without the key holds six. No case compares a measured duration. Adjust the cases of services/platform/hosted/feeder/tests/sidecar_committed_reads.rs so that its peer holds the reads until as many are in flight as the bound allows."
+do_5 = "do_5 Run the tests of the feeder package once by hand. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/feeder"]
+tests = []
+planned_paths = ["services/platform/hosted/feeder/tests/sidecar_read_bound.rs"]
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-oracle-feeder --all-targets"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-oracle-feeder --bin price-sidecar --test sidecar_read_bound --test sidecar_round_cadence --test sidecar_committed_reads --test sidecar_cadence_pending --test sidecar_confirmation_committed_state --test sidecar_submission_recovery"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."

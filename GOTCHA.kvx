@@ -22075,3 +22075,8 @@ fix = "Decision 3534. Task 22.39.509 takes the profile sdk-all."
 title = "The stop step of the local node script ends on a bound of ten seconds"
 symptom = "stop_node in tools/qualification/localnode/v6120-node.sh signals a role and waits ten seconds for it. A role that still runs then ends the script. The script stops the bootstrap peer once before it replaces the data directory of that peer, and a test that starts the script ends with it when the peer stops later than the bound."
 fix = "Decision 3535. Task 22.39.529 takes the script into its paths."
+
+[gotcha.4451]
+title = "The node answers an EVM read above its bound with a busy error at once"
+symptom = "The EVM read interface in rpc/simulate.go admits at most max_concurrent_simulation_calls reads at a time, by default the count of processor cores. A read above the bound does not wait; it is answered at once with a busy error. read_observations in services/platform/hosted/feeder/src/bin/price-sidecar/round.rs starts one read for every market at the same moment, so the reads of one reconcile can take the whole bound and a read of this or of another client then ends with the busy error."
+fix = "Decision 3536. Task 22.39.548 bounds the reads in flight and repeats a busy answer."
