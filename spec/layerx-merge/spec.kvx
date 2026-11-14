@@ -14128,6 +14128,12 @@ value = "The two recovery cases that need a real model runner read the variable 
 basis = "Gotcha 4415."
 affects = ["22.39.504"]
 
+[decision.3503]
+title = "A page is checked for the old wordings with its line breaks removed"
+value = "The verification of a task on the kernel sentence joins the lines of each page before it searches, so that a sentence is found wherever its line breaks fall. The seven pages follow decision 3496; the module pages among them keep what they say about the module itself, as decision 3501 has it."
+basis = "Gotcha 4416, decisions 3496 and 3501."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -43788,6 +43794,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.43.332]
+title = "Bring seven pages whose sentence runs over a line break to the kernel sentence"
+reqs = ["22998.1"]
+touches = ["contracts/bridge-vectors.md", "docs/platform/beta-environment.md", "interchain/modules/core/spec/01_concepts.md", "sdk/x/staking/spec/09_client.md", "sdk/x/upgrade/spec/01_concepts.md", "src/README.md", "wasm/x/wasm/IBC.md"]
+tests = []
+verification_contract = "test $(paste -s -d ' ' contracts/bridge-vectors.md docs/platform/beta-environment.md interchain/modules/core/spec/01_concepts.md sdk/x/staking/spec/09_client.md sdk/x/upgrade/spec/01_concepts.md src/README.md wasm/x/wasm/IBC.md | grep -c -i -E '(^|[^A-Za-z])BFT (network|chain|nodes?)|proposes blocks|kernel (is )?part of (the|that) network|participat[a-z]+ in (the|that|the same) network|participat[a-z]+ in block (proposal|production|execution)|block proposal (path|and execution|and finality|and block commit)') -eq 0 && git grep -q -F 'LayerX kernel' -- src/README.md && git grep -q -F 'LayerX kernel' -- docs/platform/beta-environment.md"
+do_1 = "do_1 Decisions 3496, 3501 and 3503, gotcha 4416. Read the code before writing, not the pages: in node/sequencer the files executor.go, accepter.go, receipt.go and seal.go; the function CreateProposalBlock in consensus/internal/state/execution.go; the function ProcessProposalHandler in node/app.go with node/process_proposal_order.go and node/process_proposal_proposer.go; rpc/sequencer_receipt.go. Then read the opening of README.md at the root, which says the same at full length."
+symbols = []
 
 [capability.22.43.331]
 title = "Bring the two network texts of the schema of the human service to the kernel sentence"
@@ -374621,6 +374636,36 @@ do_3 = "Add test_issue_closure_treats_a_superseded_task_as_closed to spec/layerx
 do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its tests passed; the closure over the live spec named three pending issue tasks that the requires list now carries and one superseded task. Once every required task is done, continue from attempt 1 rebased onto current main, add the superseded case of decision 2248 with its test, and run the declared build and verify once as written."
 do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible): the three programme tests pass and the closure gate exits 1 only because 29 issue tasks are not done; the task now requires every one of them and is re-qualified without change when the last publishes."
 do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; it now requires every open issue task, so it is launched only when all of them are done and its verify can pass. Keep the superseded-task handling and the three regression cases of attempt 2."
+
+[task.22.43.332]
+title = "Bring seven pages whose sentence runs over a line break to the kernel sentence"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.43.332"]
+interfaces = []
+do_1 = "do_1 Decisions 3496, 3501 and 3503, gotcha 4416. Read the code before writing, not the pages: in node/sequencer the files executor.go, accepter.go, receipt.go and seal.go; the function CreateProposalBlock in consensus/internal/state/execution.go; the function ProcessProposalHandler in node/app.go with node/process_proposal_order.go and node/process_proposal_proposer.go; rpc/sequencer_receipt.go. Then read the opening of README.md at the root, which says the same at full length."
+do_2 = "do_2 On each of the seven pages find the sentence that says the kernel is part of the network, participates in the network or in the same network, participates in block proposal, or proposes blocks. It runs over two lines on most of them: read the page as running text. Say instead what the code shows, in the fewest words that fit the page: The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it. The page src/README.md is the page of the kernel sources: it says the full form, that the kernel executes each transaction when it arrives, assigns the next position in one global sequence, returns a signed execution receipt and builds each block, and that validators check that block and commit it. A sentence on finality says a receipt is final when the validators commit its block. The pages under sdk, interchain and wasm keep what they say about their module; the page on bridge vectors keeps that finality comes from committed blocks on chain 125. Keep the chain identifier, the paths, the links and every other sentence word for word."
+do_3 = "do_3 State nothing that the code read under do_1 does not show, no figure of speed or volume and no comparison with other networks. Do not write that validators order transactions or build blocks. Change no code, no link, no table and no heading. Before changing a sentence search tests/ci, tools/qualification and the tests next to the page for its words; two tests read the page docs/platform/beta-environment.md. Where a test or a script reads words of the sentence, keep those words in the new sentence if they stay true; if they do not, leave the sentence as it is and name it in the final message with the file and line of the reader. Change no file outside the paths of this task. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["contracts/bridge-vectors.md", "docs/platform/beta-environment.md", "interchain/modules/core/spec/01_concepts.md", "sdk/x/staking/spec/09_client.md", "sdk/x/upgrade/spec/01_concepts.md", "src/README.md", "wasm/x/wasm/IBC.md"]
+tests = []
+planned_paths = []
+build_cmd = "test -s README.md"
+verify_cmd = "test $(paste -s -d ' ' contracts/bridge-vectors.md docs/platform/beta-environment.md interchain/modules/core/spec/01_concepts.md sdk/x/staking/spec/09_client.md sdk/x/upgrade/spec/01_concepts.md src/README.md wasm/x/wasm/IBC.md | grep -c -i -E '(^|[^A-Za-z])BFT (network|chain|nodes?)|proposes blocks|kernel (is )?part of (the|that) network|participat[a-z]+ in (the|that|the same) network|participat[a-z]+ in block (proposal|production|execution)|block proposal (path|and execution|and finality|and block commit)') -eq 0 && git grep -q -F 'LayerX kernel' -- src/README.md && git grep -q -F 'LayerX kernel' -- docs/platform/beta-environment.md"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.43.330]
 title = "Bring the remaining pages and source comments to the kernel sentence"

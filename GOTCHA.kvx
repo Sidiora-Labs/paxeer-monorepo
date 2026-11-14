@@ -21900,3 +21900,8 @@ fix = "Decisions 3496 and 3501. Tasks 22.43.330 and 22.43.331."
 title = "Two recovery cases read the model runner only from a variable"
 symptom = "In the tests of the PaxAI participant member the two cases of the file job_recovery.rs that use a real model runner read its path from the variable PAXAI_RUNNER alone. The test recipe of the platform workspaces does not set that variable, while the member builds a runner of its own."
 fix = "Decision 3502. Item do_6 of task 22.39.504."
+
+[gotcha.4416]
+title = "Seven pages hold the old network sentence across a line break"
+symptom = "On seven pages, the page of the kernel sources under src among them, the sentence that says the kernel participates in the network or in block proposal runs over two lines of the file, so a search by line does not find it."
+fix = "Decisions 3496 and 3503. Task 22.43.332."
