@@ -21920,3 +21920,8 @@ fix = "Decision 3505. The cargo line of the target reads its member selection fr
 title = "The two format steps of the lint targets leave out different directories"
 symptom = "The format step of the target paxeer-manifest-lint of the Makefile leaves out the dependency sources under core/deps, the output directory build and the fixtures of the vendored tree under tools. The format step of the target lint of chain.mk, which the same target calls next, leaves out none of the three."
 fix = "Decision 3506. Task 22.39.516."
+
+[gotcha.4420]
+title = "No test keeps the pages on the kernel sentence"
+symptom = "Decision 3496 and the decisions after it brought every page, comment and schema text to the kernel sentence, task by task. No test of the tree reads the pages for the old wordings, so a later page can bring one back unseen."
+fix = "Decision 3507. Task 22.43.333 adds the test."

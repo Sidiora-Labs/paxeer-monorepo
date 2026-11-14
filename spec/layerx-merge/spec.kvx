@@ -14152,6 +14152,12 @@ value = "The format step of the target lint of chain.mk takes the list of direct
 basis = "Gotcha 4419, decisions 3488 and 3497."
 affects = []
 
+[decision.3507]
+title = "A test of the tree keeps the pages on the kernel sentence"
+value = "The directory tests/ci gets a test that reads the tracked text files of the tree with their line breaks removed, as decision 3503 has it, and passes while none of them holds a wording that decision 3496 retired. It leaves out the records of the specification, the change log and the code map at the root, the vendored tree under tools, the dependency sources under core/deps, the upstream pages under consensus, build output, and the cases under tools/qualification/audit_repairs, which hold records of their day. A sentence that states a fact of the commit step stays allowed, as decision 3496 has it."
+basis = "Gotcha 4420, decisions 3496, 3500, 3501 and 3503."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -43812,6 +43818,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.43.333]
+title = "Add the test that keeps the pages on the kernel sentence and run the tests that read those pages"
+reqs = ["22998.1"]
+touches = ["tests/ci"]
+tests = []
+verification_contract = "python3 -m pytest -q tests/ci/test_docs_kernel_sentence.py && python3 -m pytest -q -m 'not native' $(git grep -l -i -E 'LayerX kernel|BFT network|proposes blocks|block proposal' -- tests/ci tools/qualification/audit_repairs | grep -E '[.]py$' | grep -v -E 'test_(gateway_receipt_key_provisioning|kernel_backend_readiness|kernel_container_state_and_identity)[.]py$')"
+do_1 = "do_1 Decisions 3496, 3500, 3501, 3503 and 3507, gotcha 4420. Read the opening of README.md at the root and the page docs/readme/NETWORK.md: they hold the kernel sentence in its full form. Read two neighbours of the new file in tests/ci that read pages, to take their way of finding the root, listing tracked files and reporting."
+symbols = []
 
 [capability.22.39.516]
 title = "Let the format step of the lint target leave out what the Makefile leaves out and bring the target to pass as a whole"
@@ -374695,6 +374710,37 @@ do_3 = "Add test_issue_closure_treats_a_superseded_task_as_closed to spec/layerx
 do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its tests passed; the closure over the live spec named three pending issue tasks that the requires list now carries and one superseded task. Once every required task is done, continue from attempt 1 rebased onto current main, add the superseded case of decision 2248 with its test, and run the declared build and verify once as written."
 do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible): the three programme tests pass and the closure gate exits 1 only because 29 issue tasks are not done; the task now requires every one of them and is re-qualified without change when the last publishes."
 do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; it now requires every open issue task, so it is launched only when all of them are done and its verify can pass. Keep the superseded-task handling and the three regression cases of attempt 2."
+
+[task.22.43.333]
+title = "Add the test that keeps the pages on the kernel sentence and run the tests that read those pages"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.43.333"]
+interfaces = []
+do_1 = "do_1 Decisions 3496, 3500, 3501, 3503 and 3507, gotcha 4420. Read the opening of README.md at the root and the page docs/readme/NETWORK.md: they hold the kernel sentence in its full form. Read two neighbours of the new file in tests/ci that read pages, to take their way of finding the root, listing tracked files and reporting."
+do_2 = "do_2 Write tests/ci/test_docs_kernel_sentence.py. Its first case lists the tracked files with git, leaves out the paths decision 3507 names and its own file, reads each remaining text file below three megabytes, joins its lines into running text with comment marks at line starts removed, and searches without regard to case for the retired wordings: BFT network, BFT chain or BFT node as a name for the network; BFT chain state; proposes blocks; the kernel is part of the network, of that network or of the same network; the kernel participates in the network; participates in block proposal, block production or block execution; block proposal path; block proposal and execution, and finality, and block commit; in block proposal; runs within the network or executes within the network; within the Paxeer consensus network. The words BFT commit and BFT consensus and the name of the consensus engine stay allowed. The case fails with the list of files and the words found in each. Its second case holds one sample sentence for each retired wording, two of them broken over two lines, and proves that the search finds every sample, and holds three sample sentences of the allowed kind and proves that the search finds none of them."
+do_3 = "do_3 The first case passes at the present main. If it finds a wording, do not narrow the search and do not add the file to the paths that are left out: a file inside the paths of this task is brought to the kernel sentence, and a file outside them is given in the final message with the words found. Where the neighbours of the new file are listed in a workflow, a makefile or a manifest of the tests, list the new file in the same way only if that list lies under tests/ci; otherwise name the list in the final message."
+do_4 = "do_4 Run by hand the tests under tests/ci and tools/qualification/audit_repairs that read pages changed by the tasks on the kernel sentence: the selection of the verification, and the cases of tests/ci whose names begin with test_docs, test_markdown, test_readme, test_root and test_wiki. A case under tests/ci that does not pass because a page now says the kernel sentence is brought to the new words. Any other case that does not pass is left as it is and given in the final message with file, case and first message. Change no file outside the paths of this task. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tests/ci"]
+tests = []
+planned_paths = ["tests/ci/test_docs_kernel_sentence.py"]
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m pytest -q tests/ci/test_docs_kernel_sentence.py && python3 -m pytest -q -m 'not native' $(git grep -l -i -E 'LayerX kernel|BFT network|proposes blocks|block proposal' -- tests/ci tools/qualification/audit_repairs | grep -E '[.]py$' | grep -v -E 'test_(gateway_receipt_key_provisioning|kernel_backend_readiness|kernel_container_state_and_identity)[.]py$')"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.43.332]
 title = "Bring seven pages whose sentence runs over a line break to the kernel sentence"
