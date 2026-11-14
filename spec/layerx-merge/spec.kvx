@@ -206377,7 +206377,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.541]
 title = "Decide the fate of a pending price submission from committed state when the node serves no transaction lookup"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
