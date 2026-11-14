@@ -51,9 +51,10 @@ final class KernelVerifierRetiredTests: XCTestCase {
     let inclusion = try v.receiptInclusion.value()
     let commit = try v.commit.value()
     let validators = v.validatorSet.map(\.value)
+    let trust = try RecordedProgramEvidence.checkpoint()
     let verified = try Committed.verify(
       receipt, blockHeader: header, receiptInclusion: inclusion,
-      commit: commit, validatorSet: validators)
+      commit: commit, validatorSet: validators, trust: trust)
     XCTAssertEqual(receipt.level, VerificationLevel.receipted.rawValue)
     XCTAssertEqual(verified.rung, VerificationLevel.committed.rawValue)
     XCTAssertEqual(verified.rung, v.expected.rung)
@@ -67,7 +68,8 @@ final class KernelVerifierRetiredTests: XCTestCase {
       XCTAssertThrowsError(
         try Committed.verify(
           receipt, blockHeader: header,
-          receiptInclusion: refusedInclusion, commit: commit, validatorSet: validators), refusal.id
+          receiptInclusion: refusedInclusion, commit: commit, validatorSet: validators,
+          trust: trust), refusal.id
       ) {
         XCTAssertEqual($0 as? CommittedError, .nextCommit, refusal.id)
       }
@@ -160,7 +162,8 @@ final class KernelVerifierRetiredTests: XCTestCase {
       }
       return .init(
         blockIDFlag: flag, validatorAddress: validatorAddress,
-        timestamp: try KernelVerifierRetiredTests.timestamp(timestamp), signature: bytes)
+        timestamp: flag == .absent && timestamp == "0001-01-01T00:00:00Z"
+          ? .init() : try KernelVerifierRetiredTests.timestamp(timestamp), signature: bytes)
     }
   }
   private struct Commit: Decodable {
