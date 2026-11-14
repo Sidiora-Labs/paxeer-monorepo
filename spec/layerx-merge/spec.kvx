@@ -206315,7 +206315,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.532]
 title = "Bring the tests of the member layerx-sdk of the agent workspace to pass"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.498"]
