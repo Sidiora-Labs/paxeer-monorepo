@@ -21955,3 +21955,13 @@ fix = "Decision 3512. The case carries an ignore attribute and the harness runs 
 title = "The linter of repeated literals names one occurrence of a literal and the occurrence can differ between runs"
 symptom = "The linter goconst reports a literal that a package repeats at one of its occurrences. It reads the files of the package side by side, so the file it names is not the same in every run. The rules of .golangci.yml for this linter name single files."
 fix = "Decision 3513. A rule for this linter covers the Go files of the package directory."
+
+[gotcha.4427]
+title = "The served test of the pay precompile reads the escrow view in its earlier form"
+symptom = "The escrow view of the pay keeper returns the record, a found flag and an error. Two calls in precompiles/layerxpay/served/served_test.go take two values."
+fix = "Task 22.39.535 brings the two calls to the present form."
+
+[gotcha.4428]
+title = "The vet step of the lint target of the node takes no scope"
+symptom = "The target lint of chain.mk holds its steps in one recipe and its vet step runs over the whole root module in one command. A verification cannot run one step alone or vet the module by parts."
+fix = "Decision 3514. The target is made of step targets and the vet step reads a variable."
