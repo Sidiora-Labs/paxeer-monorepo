@@ -978,3 +978,5 @@ The environment examples list required inputs with empty values when the source 
 | `x-websearch/config.json (--config) :: payment.conformance_suite` | Conformance suite identifier or payment exchange directory; Applies when payment is configured | Unset; pinned suite registered without reading a directory | No | `services/interop/crates/x-websearch/src/config.rs` |
 | `x-websearch/config.json (--config) :: payment.draw_fee_limit` | Maximum draw fee in fee-asset base units; Applies when payment is configured | 1000000000000 | No | `services/interop/crates/x-websearch/src/config.rs` |
 | `x-websearch/config.json (--config) :: payment.payer_address` | Fixed metered payment payer; otherwise read per request; Applies when payment is configured | Unset; request supplies the payer | No | `services/interop/crates/x-websearch/src/config.rs` |
+
+The web search service withholds assets whose ledger records are refused or paused, refreshes availability every thirty seconds, and lists `payable_assets` and `withheld_assets` with reasons in payment readiness and receiver status.

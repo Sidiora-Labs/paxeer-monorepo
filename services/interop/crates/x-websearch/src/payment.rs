@@ -31,7 +31,8 @@ use layerx_proof::sequencer_logs::{verify_logs, SequencerLog};
 use layerx_types::payload::ModuleId;
 pub use layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION as PROTOCOL_VERSION;
 use layerx_x402::model::{
-    AtomicAmount, PaymentRequired, PaymentRequirements, ResourceInfo, X402_VERSION,
+    AtomicAmount, PaymentPayload, PaymentRequired, PaymentRequirements, ResourceInfo, X402Error,
+    X402_VERSION,
 };
 use layerx_x402::seller::{
     ExecutedPayment, LayerXPaymentRequest, PaymentPlane, PlanePaymentOutcome, Seller, SellerOutcome,
@@ -61,7 +62,7 @@ pub const METERED: &str = "metered";
 pub const EXACT: &str = "exact";
 pub const OFFER_TIMEOUT_SECONDS: u32 = 60;
 pub const DRAW_VALIDITY_MS: u64 = 60_000;
-/// Time between attempts to resolve the receiver identity and ledger accounts.
+/// Time between reads of the receiver identity, ledger accounts and asset records.
 pub const PAYMENT_RESOLUTION_INTERVAL: Duration = Duration::from_secs(30);
 pub const GRANT_BYTES: usize = 346;
 pub const LEDGER_PRECOMPILE: [u8; 20] = [
@@ -172,6 +173,86 @@ fn ledger_account_for_owner(
             .map_err(|_| SettlementError::Malformed);
     }
     Ok(account)
+}
+
+/// Reads a registered asset record and reports why it cannot be offered.
+///
+/// # Errors
+/// Returns an error for transport failures or malformed settlement answers.
+pub fn read_asset_availability(
+    rpc: &SettlementRpc,
+    asset_id: &[u8; 32],
+) -> Result<Option<&'static str>, SettlementError> {
+    let data = [&keccak(b"getAsset(bytes32)")[..4], asset_id.as_slice()].concat();
+    let answer = match rpc.eth_call(LEDGER_PRECOMPILE, &data) {
+        Err(SettlementError::Rpc { .. }) => return Ok(Some("ledger reports no usable record")),
+        result => result?,
+    };
+    decode_asset_record(&answer, asset_id)
+        .map(|paused| paused.then_some("ledger reports no usable record: asset is paused"))
+}
+
+fn decode_asset_record(answer: &[u8], asset_id: &[u8; 32]) -> Result<bool, SettlementError> {
+    let malformed = SettlementError::Malformed;
+    if answer.len() < 12 * 32 || answer[..32] != *asset_id {
+        return Err(malformed);
+    }
+    for (index, width) in [(3, 1), (4, 16), (7, 1), (8, 1), (10, 1), (11, 16)] {
+        if answer[index * 32..(index + 1) * 32 - width]
+            .iter()
+            .any(|byte| *byte != 0)
+        {
+            return Err(malformed);
+        }
+    }
+    let paused = answer[11 * 32 - 1];
+    if paused > 1 {
+        return Err(malformed);
+    }
+    let word = |bytes: &[u8]| -> Result<usize, SettlementError> {
+        if bytes.len() != 32 || bytes[..24].iter().any(|byte| *byte != 0) {
+            return Err(SettlementError::Malformed);
+        }
+        usize::try_from(u64::from_be_bytes(
+            bytes[24..]
+                .try_into()
+                .map_err(|_| SettlementError::Malformed)?,
+        ))
+        .map_err(|_| SettlementError::Malformed)
+    };
+    let mut cursor = 12 * 32;
+    for index in [1, 2, 9] {
+        if word(&answer[index * 32..(index + 1) * 32])? != cursor {
+            return Err(malformed);
+        }
+        let length_end = cursor.checked_add(32).ok_or(SettlementError::Malformed)?;
+        let length = word(
+            answer
+                .get(cursor..length_end)
+                .ok_or(SettlementError::Malformed)?,
+        )?;
+        let end = length_end
+            .checked_add(length)
+            .ok_or(SettlementError::Malformed)?;
+        let padded = end.checked_add(31).ok_or(SettlementError::Malformed)? / 32 * 32;
+        let value = answer
+            .get(length_end..end)
+            .ok_or(SettlementError::Malformed)?;
+        if (index != 9 && std::str::from_utf8(value).is_err())
+            || answer
+                .get(end..padded)
+                .ok_or(SettlementError::Malformed)?
+                .iter()
+                .any(|byte| *byte != 0)
+        {
+            return Err(malformed);
+        }
+        cursor = padded;
+    }
+    if cursor != answer.len() {
+        return Err(malformed);
+    }
+    Ok(paused == 1)
 }
 
 /// The purpose every grant for this receiver's paid routes carries.
@@ -1177,10 +1258,25 @@ struct Receiver {
     accounts: [[u8; 32]; 4],
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct WithheldAsset {
+    pub symbol: &'static str,
+    pub reason: &'static str,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct PaymentResolution {
+    pub payable_assets: Vec<&'static str>,
+    pub withheld_assets: Vec<WithheldAsset>,
     pub state: &'static str,
     pub reason: Option<String>,
+}
+
+#[derive(Clone)]
+struct ResolvedReceiver {
+    owner: [u8; 32],
+    accounts: [[u8; 32]; 4],
+    withheld: [Option<&'static str>; 4],
 }
 
 /// The payment hook every paid route calls.
@@ -1196,7 +1292,7 @@ pub struct PaymentGate {
     store: PaymentStore,
     clock: Clock,
     adapter: AdapterDescriptor,
-    resolution: Mutex<Option<([u8; 32], [[u8; 32]; 4])>>,
+    resolution: Mutex<Option<ResolvedReceiver>>,
     delivery_lock: Mutex<()>,
     payment_lock: Mutex<()>,
     _lease: fs::File,
@@ -1296,34 +1392,41 @@ impl PaymentGate {
         })
     }
 
-    /// Attempts to resolve the receiver identity and one ledger account for
-    /// each accepted asset. A failed read leaves the gate closed and can be
-    /// retried after the settlement chain becomes available.
+    /// Refreshes receiver identity, ledger accounts and asset availability.
+    /// An unsuccessful transport leaves the previous resolution unchanged.
     pub fn resolve_receiver(&self) -> Result<(), String> {
-        if self
-            .resolution
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .is_some()
-        {
-            return Ok(());
-        }
         let owner = read_receiver_did(&self.rpc, &self.receiver.address)
             .map_err(|error| format!("receiver identity read failed: {error}"))?;
         let mut accounts = [[0; 32]; 4];
-        for (slot, asset) in accounts.iter_mut().zip(self.assets.all()) {
-            *slot = ledger_account_for_owner(&self.rpc, &owner, asset).map_err(|error| {
-                format!(
-                    "ledger account read failed for {}: {error}",
-                    asset.symbol.code()
-                )
-            })?;
+        let mut withheld = [None; 4];
+        for (index, asset) in self.assets.all().iter().enumerate() {
+            accounts[index] =
+                ledger_account_for_owner(&self.rpc, &owner, asset).map_err(|error| {
+                    format!(
+                        "ledger account read failed for {}: {error}",
+                        asset.symbol.code()
+                    )
+                })?;
+            withheld[index] =
+                read_asset_availability(&self.rpc, &asset.asset_id).map_err(|error| {
+                    format!(
+                        "ledger asset read failed for {}: {error}",
+                        asset.symbol.code()
+                    )
+                })?;
         }
         *self
             .resolution
             .lock()
-            .unwrap_or_else(PoisonError::into_inner) = Some((owner, accounts));
-        Ok(())
+            .unwrap_or_else(PoisonError::into_inner) = Some(ResolvedReceiver {
+            owner,
+            accounts,
+            withheld,
+        });
+        match self.payment_resolution(None).reason {
+            Some(reason) => Err(reason),
+            None => Ok(()),
+        }
     }
 
     #[must_use]
@@ -1331,29 +1434,55 @@ impl PaymentGate {
         self.resolution
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
-            .is_some()
+            .as_ref()
+            .is_some_and(|resolved| resolved.withheld.iter().any(Option::is_none))
     }
 
     #[must_use]
     pub fn payment_resolution(&self, reason: Option<String>) -> PaymentResolution {
-        if self.payment_ready() {
-            PaymentResolution {
-                state: "ready",
-                reason: None,
+        let resolution = self
+            .resolution
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        let mut payment = PaymentResolution {
+            state: "unresolved",
+            reason,
+            payable_assets: Vec::new(),
+            withheld_assets: Vec::new(),
+        };
+        if let Some(resolved) = resolution.as_ref() {
+            for (asset, reason) in self.assets.all().iter().zip(resolved.withheld) {
+                if let Some(reason) = reason {
+                    payment.withheld_assets.push(WithheldAsset {
+                        symbol: asset.symbol.code(),
+                        reason,
+                    });
+                } else {
+                    payment.payable_assets.push(asset.symbol.code());
+                }
             }
-        } else {
-            PaymentResolution {
-                state: "unresolved",
-                reason,
+            if payment.payable_assets.is_empty() {
+                let symbols = payment
+                    .withheld_assets
+                    .iter()
+                    .map(|asset| asset.symbol)
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                payment.reason = Some(format!("{symbols}: ledger reports no usable record"));
+            } else {
+                payment.state = "ready";
+                payment.reason = None;
             }
         }
+        payment
     }
 
     fn resolved_identity(&self) -> Option<([u8; 32], [[u8; 32]; 4])> {
         self.resolution
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
-            .clone()
+            .as_ref()
+            .map(|resolved| (resolved.owner, resolved.accounts))
     }
 
     /// The configured settlement authority, shared by payment and readiness.
@@ -1474,9 +1603,15 @@ impl PaymentGate {
             })
             .ok_or_else(|| Response::error(400, "missing_host"))?;
         let target = canonical_target(request)?;
+        let payment = self.payment_resolution(None);
+        if payment.state != "ready" {
+            return Err(Response::error(503, "payment_unavailable"));
+        }
         let mut accepts = Vec::with_capacity(4);
         for asset in self.assets.all() {
-            accepts.push(self.offer(asset, EXACT, None)?);
+            if payment.payable_assets.contains(&asset.symbol.code()) {
+                accepts.push(self.offer(asset, EXACT, None)?);
+            }
         }
         Ok(PaymentRequired {
             x402_version: X402_VERSION,
@@ -1598,6 +1733,25 @@ impl PaymentGate {
         match outcome {
             Err(_) if plane.refusal == Some("payment_pending") => {
                 Response::error(503, "payment_pending").with_header("Retry-After", "1")
+            }
+            Err(error)
+                if matches!(error.error(), X402Error::RequirementsMismatch)
+                    && STANDARD
+                        .decode(header)
+                        .ok()
+                        .and_then(|bytes| serde_json::from_slice::<PaymentPayload>(&bytes).ok())
+                        .and_then(|payload| {
+                            unhex32(payload.accepted.asset.trim_start_matches("0x"))
+                        })
+                        .and_then(|id| self.assets.by_id(&id))
+                        .is_some_and(|asset| {
+                            self.payment_resolution(None)
+                                .withheld_assets
+                                .iter()
+                                .any(|withheld| withheld.symbol == asset.symbol.code())
+                        }) =>
+            {
+                Self::challenge(&seller, "payment_not_offered")
             }
             Err(_) => Self::challenge(&seller, plane.refusal.unwrap_or("payment_invalid")),
             Ok(SellerOutcome::Pending { .. }) => {
@@ -2931,7 +3085,7 @@ mod offer_tests {
             })
             .collect();
         rules.extend(payer_rules);
-        for _ in 0..10 {
+        for _ in 0..18 {
             let (mut stream, _) = listener
                 .accept()
                 .unwrap_or_else(|error| panic!("ledger connection: {error:?}"));
@@ -2961,6 +3115,24 @@ mod offer_tests {
             };
             let result = if request["method"] == "eth_chainId" {
                 json!("0x7d")
+            } else if request["params"][0]["data"].as_str().is_some_and(|data| {
+                data.starts_with(&format!(
+                    "0x{}",
+                    super::hex(&super::keccak(b"getAsset(bytes32)")[..4])
+                ))
+            }) {
+                let data = request["params"][0]["data"]
+                    .as_str()
+                    .unwrap_or_else(|| panic!("asset calldata"));
+                let asset = super::unhex(&data[10..]).unwrap_or_else(|| panic!("asset id"));
+                let mut record = vec![0; 12 * 32];
+                record[..32].copy_from_slice(&asset);
+                for index in [1, 2, 9] {
+                    let offset = (record.len() as u64).to_be_bytes();
+                    record[index * 32 + 24..(index + 1) * 32].copy_from_slice(&offset);
+                    record.extend_from_slice(&[0; 32]);
+                }
+                json!(format!("0x{}", super::hex(&record)))
             } else {
                 assert_eq!(request["method"], "eth_call");
                 rules

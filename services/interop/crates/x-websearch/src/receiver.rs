@@ -10,7 +10,10 @@ use serde_json::{json, Value};
 
 use crate::attest::signer_address;
 use crate::keys::{load_identity, KeyFiles};
-use crate::payment::{hex, read_receiver_did, LedgerTransaction, LEDGER_PRECOMPILE};
+use crate::payment::{
+    hex, read_asset_availability, read_receiver_did, LedgerTransaction, WithheldAsset,
+    LEDGER_PRECOMPILE,
+};
 use crate::settlement::SettlementRpc;
 use crate::watch::{hex0x, keccak, parse_quantity, unhex0x};
 use crate::Config;
@@ -105,7 +108,25 @@ fn quantity(rpc: &SettlementRpc, method: &str, params: &Value) -> Result<u128, S
 fn status(config: &Config, rpc: &SettlementRpc, address: [u8; 20]) -> Result<Value, String> {
     let owner = bound_identity(rpc, &address)?;
     let mut accounts = BTreeMap::new();
+    let mut payable_assets = Vec::new();
+    let mut withheld_assets = Vec::new();
     if let Some(owner) = owner {
+        for symbol in crate::config::AssetSymbol::ALL {
+            let asset = config
+                .assets
+                .iter()
+                .find(|asset| asset.symbol == symbol)
+                .ok_or_else(|| format!("asset {} is missing", symbol.code()))?;
+            match read_asset_availability(rpc, &asset.asset_id).map_err(|error| {
+                format!("ledger asset read failed for {}: {error}", symbol.code())
+            })? {
+                Some(reason) => withheld_assets.push(WithheldAsset {
+                    symbol: symbol.code(),
+                    reason,
+                }),
+                None => payable_assets.push(symbol.code()),
+            }
+        }
         for asset in &config.assets {
             let data = [
                 &keccak(b"accountId(bytes32,bytes32)")[..4],
@@ -131,6 +152,8 @@ fn status(config: &Config, rpc: &SettlementRpc, address: [u8; 20]) -> Result<Val
         "bound": owner.is_some(),
         "identity": owner.map(|key| format!("did:layerx:{}", hex(&key))),
         "ledger_accounts": accounts,
+        "payable_assets": payable_assets,
+        "withheld_assets": withheld_assets,
         "balance": balance.to_string(),
     }))
 }

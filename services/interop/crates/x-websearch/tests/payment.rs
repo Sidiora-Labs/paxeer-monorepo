@@ -1,3 +1,6 @@
+#[path = "support/ledger_assets.rs"]
+mod ledger_assets;
+
 mod test_network {
     include!(concat!(env!("CARGO_MANIFEST_DIR"), "/../test_network.rs"));
 }
@@ -220,6 +223,11 @@ fn answer(rules: &Mutex<Vec<Rule>>, calls: &Mutex<Vec<String>>, body: &[u8]) -> 
         .lock()
         .unwrap_or_else(PoisonError::into_inner)
         .push(method.clone());
+    if method == "eth_call" {
+        if let Some(result) = ledger_assets::get_asset_answer(&params) {
+            return Some(json!({"jsonrpc": "2.0", "id": request["id"], "result": result}));
+        }
+    }
     let mut rules = rules.lock().unwrap_or_else(PoisonError::into_inner);
     let rule = rules.iter_mut().find(|rule| {
         !rule.used
