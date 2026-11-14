@@ -131,8 +131,8 @@ impl CommittedPrograms {
                 has_authority_key: false.into(),
             };
             pairs.push((
-                programs_state_key(&leaf.primary_key()),
-                must(leaf.primary_value()),
+                [vec![6], leaf.account_id.to_vec()].concat(),
+                must(leaf.host_record_encoding()),
             ));
             leaves.push(Some(leaf));
         }
@@ -699,7 +699,7 @@ fn committed_accounts(
         let Some(leaf) = leaf else {
             continue;
         };
-        let key = programs_state_key(&leaf.primary_key());
+        let key = [vec![6], leaf.account_id.to_vec()].concat();
         let verified = must(VerifiedAccountSnapshot::verify_chain(
             &head,
             &leaf,

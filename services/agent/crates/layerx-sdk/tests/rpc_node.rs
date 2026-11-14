@@ -135,7 +135,7 @@ fn reads_use_only_eth_and_px_methods() {
         json!({"status": "0x1"}),
         json!({"number": "0x9"}),
         json!("0x7"),
-        json!({"balances": []}),
+        json!({"account":{"layerx_did":"did:layerx:alice","bound":true,"evm_address":ADDRESS},"height":9,"units":"base","evidence":"committed_eth_call","balances": []}),
         json!({"chainId": "0x7d"}),
         page(&[0x11], None),
         page(&[0x22], None),
@@ -178,7 +178,7 @@ fn reads_use_only_eth_and_px_methods() {
         rpc.get_balances("did:layerx:alice")
             .unwrap_or_else(|error| panic!("balances: {error:?}"))
             .into_value(),
-        json!({"balances": []})
+        json!({"account":{"layerx_did":"did:layerx:alice","bound":true,"evm_address":ADDRESS},"height":9,"units":"base","evidence":"committed_eth_call","balances": []})
     );
     assert_eq!(
         rpc.get_node_info()
