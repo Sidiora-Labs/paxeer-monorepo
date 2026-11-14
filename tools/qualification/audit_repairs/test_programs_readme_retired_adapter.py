@@ -33,8 +33,12 @@ def read_bridge():
 def test_programs_readme_merged_node():
     overview = prose(README.split("## Workspace layout", 1)[0])
     for fact in (
-        "one BFT network: `paxd`, EVM chain ID `125` (`0x7d`)",
-        "The kernel runs inside `paxd` and participates in block proposal and execution.",
+        "The LayerX kernel runs inside every `paxd` node.",
+        "EVM chain ID `125` (`0x7d`)",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.",
         "A receipt is final when its block is committed",
         "Programs do not require periodic checkpoint settlement or a separate settlement deployment.",
     ):

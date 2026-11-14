@@ -256,8 +256,8 @@ impl AdmissionSequencer {
                     }
                     "px_getReceiptKeys" => {
                         assert_eq!(params, &json!([]));
-                        json!({"result": [{"keyId": hex(&self.receipt_key),
-                            "publicKey": hex(&self.receipt_key), "firstHeight": "0x7", "lastHeight": "0x7"}]})
+                        json!({"result": {"keys": [{"keyId": hex(&self.receipt_key),
+                            "publicKey": hex(&self.receipt_key), "firstHeight": 7, "lastHeight": 7}]}})
                     }
                     "eth_getBlockByNumber" => {
                         assert_eq!(params, &json!(["0x7", true]));

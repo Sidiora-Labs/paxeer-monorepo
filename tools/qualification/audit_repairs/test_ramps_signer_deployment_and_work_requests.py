@@ -169,7 +169,10 @@ def test_readme_missing_purpose_examples_and_conflict_bind_real_order_schema():
 
 def test_readme_payment_path_matches_native_compiler_transport_and_receipt_verifier():
     readme = source("README.md")
-    assert_facts(readme, 'chain ID is **125**', '`eth_sendRawTransaction`', '`pax_sequencerReceipt`',
+    assert_facts(" ".join(readme.split()),
+                 'The LayerX kernel inside `paxd` executes and orders each transaction '
+                 'and builds each block; validators check and commit it.')
+    assert_facts(readme, 'EVM chain ID **125**', '`eth_sendRawTransaction`', '`pax_sequencerReceipt`',
                  '`budgetSpend(bytes32,bytes32,uint128)`', '`submit_customer_payment`',
                  'independently pinned Ed25519 receipt', 'height ranges', '`PayerGrantRequired`',
                  'base64 compact 64-byte `signature` and `recovery_id`',

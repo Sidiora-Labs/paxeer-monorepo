@@ -22,6 +22,7 @@ use layerx_crypto::evm_transaction::{
 use layerx_human_service::custody::{KeyId, Operation};
 use layerx_human_service::journeys::{
     Endpoint, MoveJourneyError, MoveLegExecution, MovePlan, Relationship, RouteRequest, SendRoute,
+    BANK_ADDRESS,
 };
 use layerx_human_service::notify::JourneyId;
 use layerx_types::amount::Amount;
@@ -32,6 +33,7 @@ use layerx_types::intent::{
 };
 use layerx_types::rung::Rung;
 use serde_json::Value;
+use sha2::Digest as _;
 
 fn execution(key: u8, nonce: u64, ceiling: u128) -> MoveLegExecution {
     MoveLegExecution::new(
@@ -66,14 +68,14 @@ fn request(nonce: u64, to: u8, amount: u128) -> RouteRequest {
                 network_id: NetworkId::new(125).or_fail("network"),
                 protocol_version: ProtocolVersion::new(2).or_fail("protocol"),
             },
-            pointer: EvmAddress::new([0x88; 20]),
+            pointer: EvmAddress::new(BANK_ADDRESS),
             denom: "uhpx".to_owned(),
             chain_id: 125,
             max_priority_fee_per_gas: 1,
             max_fee_per_gas: 10,
             gas_limit: 100_000,
         },
-        asset: AssetId::new([0x33; 32]),
+        asset: AssetId::new(sha2::Sha256::digest(b"uhpx").into()),
         amount: Amount::from_u128(amount),
     }
 }
@@ -103,23 +105,31 @@ fn move_plan_is_one_bank_transfer_per_leg() {
     assert_eq!(movement.bank_transfers().len(), 2);
     assert!(movement.route().legs().is_empty());
     for (index, call) in movement.bank_transfers().iter().enumerate() {
-        assert_eq!(call.to, [0x88; 20]);
+        assert_eq!(call.to, BANK_ADDRESS);
         assert_eq!(call.nonce, 7 + index as u64);
         assert_eq!(movement.executions()[index].pending_nonce(), call.nonce);
         assert_eq!(call.chain_id, 125);
         assert_eq!(
             &call.data[..4],
-            &ledger_selector("transfer(address,uint256)")
+            &ledger_selector("send(address,address,string,uint256)")
         );
-        assert_eq!(call.data.len(), 68);
+        assert_eq!(call.data.len(), 196);
         assert_eq!(&call.data[4..16], &[0; 12]);
+        assert_eq!(&call.data[16..36], &[0x11; 20]);
+        assert_eq!(&call.data[36..48], &[0; 12]);
         assert_eq!(
-            &call.data[16..36],
+            &call.data[48..68],
             &[if index == 0 { 0x22 } else { 0x55 }; 20]
         );
+        assert_eq!(&call.data[68..99], &[0; 31]);
+        assert_eq!(call.data[99], 128);
         let amount = if index == 0 { 90_u128 } else { 40_u128 };
-        assert_eq!(&call.data[36..52], &[0; 16]);
-        assert_eq!(&call.data[52..68], &amount.to_be_bytes());
+        assert_eq!(&call.data[100..116], &[0; 16]);
+        assert_eq!(&call.data[116..132], &amount.to_be_bytes());
+        assert_eq!(&call.data[132..163], &[0; 31]);
+        assert_eq!(call.data[163], 4);
+        assert_eq!(&call.data[164..168], b"uhpx");
+        assert_eq!(&call.data[168..], &[0; 28]);
         let raw = call.sign(&[0x66; 32]).or_fail("real EIP-1559 signing");
         assert_eq!(
             decode_signed(&raw).or_fail("decode signed bank call").0,
@@ -598,7 +608,9 @@ fn move_leg_completes_from_its_receipt() {
     let sender = recover_sender(&probe_call, &probe_signature).or_fail("real sender");
     let keys = node.receipt_keys();
     assert!(!keys.is_empty());
-    let pointer = native_pointer(&node, sender, &keys);
+    let native = native_pointer(&node, sender, &keys);
+    assert_ne!(native, BANK_ADDRESS);
+    let pointer = BANK_ADDRESS;
     let nonce = pending(node.clock.as_ref(), || node.endpoint.pending_nonce(&sender));
     let ceiling = 1_000_000_000_000_000_000;
     let requests = vec![

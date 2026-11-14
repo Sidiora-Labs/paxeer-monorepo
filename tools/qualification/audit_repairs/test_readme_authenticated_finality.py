@@ -45,9 +45,12 @@ def section(heading, level=3):
 def test_f042_merged_network_embeds_kernel_and_block_proposal():
     overview = section("What is Paxeer X Network?", level=2)
     for fact in (
-        "one BFT network", "chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node", "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "The LayerX kernel runs inside every `paxd` node.", "chain ID **125** (`0x7d`)",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.", "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "runs inside `paxd` through", "modules/lxphost/",
         "There is no separate kernel daemon, sequencer service or checkpoint deployment",
     ):
@@ -62,7 +65,7 @@ def test_f042_merged_network_embeds_kernel_and_block_proposal():
     diagrams = re.findall(r"```mermaid\n(.*?)\n```", README, re.S)
     assert len(diagrams) == 2
     topology = diagrams[0]
-    assert "subgraph Network[One Paxeer BFT network / EVM chain 125]" in topology
+    assert "subgraph Network[Paxeer X / EVM chain 125]" in topology
     assert "subgraph Node[paxd]" in topology
     assert "RPC --> Order --> Host --> Native" in topology
     assert "Validators -->|Commit| State" in topology
@@ -225,7 +228,7 @@ def test_f042_build_examples_produce_and_start_paxd():
     assert "-o ./build/paxd ./daemon/paxd" in source("chain.mk")
     release = section("Releases and Network Upgrades")
     assert "executes kernel activity inside `paxd`" in release
-    assert "commits it with the BFT chain state" in release
+    assert "validators commit it in the same block" in release
 
 
 def test_f042_explorer_and_optional_hosted_gateway_entry_points():

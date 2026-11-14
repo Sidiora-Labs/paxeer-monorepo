@@ -44,12 +44,16 @@ def section(heading, level=3):
 
 def test_readme_two_domains_is_one_integrated_chain_125_network():
     overview = section("What is Paxeer X Network?", level=2)
-    assert "one BFT network" in overview
+    assert "The LayerX kernel runs inside every `paxd` node." in overview
     assert "chain ID **125** (`0x7d`)" in overview
-    assert "kernel is embedded in the node" in overview
-    assert "participates in block proposal and deterministic execution" in overview
-    assert "proposes blocks inside `paxd`" in overview
-    assert "validators commit those blocks through BFT consensus" in overview
+    assert (
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block."
+    ) in overview
+    assert "Validators check that block and commit it." in overview
+    assert "A receipt is final when the validators commit its block." in overview
+    assert "A receipt is final when the validators commit its block." in overview
     assert "Sub-chains are tenant domains stored in the database" in overview
     assert "does not require new node infrastructure" in overview
     assert "app.LayerXHost, err = NewHost(" in source("node/app.go")
@@ -182,7 +186,7 @@ def test_readme_two_domains_build_and_release_use_integrated_paxd():
     assert "$(PAXEER_MAKE) build" in recipe
     release = section("Releases and Network Upgrades")
     assert "executes kernel activity inside `paxd`" in release
-    assert "commits it with the BFT chain state" in release
+    assert "validators commit it in the same block" in release
 
 
 def test_readme_two_domains_record_maps_finding_proofs_and_limits():

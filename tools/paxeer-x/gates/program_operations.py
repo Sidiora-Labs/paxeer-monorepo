@@ -303,7 +303,7 @@ def connected(root, cli, inputs):
             "committed transaction must name the requested program")
     receipt = committed(origin, tx_hash, transaction)
     # The retained SDK consumer authenticates the signed receipt. The canonical
-    # block check above separately establishes commitment on this BFT node.
+    # block check above separately establishes commitment on this node.
     keys = fixture["receipt_keys"]
     require(isinstance(keys, list) and keys, "independently pinned receipt key roster required")
     verified = run(["node", "services/platform/examples/agent-program-call/verify-receipt.mjs", tx_hash], root,

@@ -49,9 +49,12 @@ def test_f048_architecture_is_one_paxd_network_with_embedded_kernel():
         "docs/wiki/PaxeerBoundary.md"
     )
     for fact in (
-        "one BFT network", "chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node", "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "The LayerX kernel runs inside every `paxd` node.", "chain ID **125** (`0x7d`)",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.", "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "A receipt is final once its block is committed",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
         "The public API reaches the node directly at the root path on EVM chain ID 125", "outside consensus",
@@ -200,7 +203,7 @@ def test_f048_retired_executors_supply_no_current_settlement_step():
     assert "pcommon.RetiredAt(ctx, p.upgrades(), StoreDeleteUpgrade" in anchor
     release = section("Releases and Network Upgrades")
     assert "executes kernel activity inside `paxd`" in release
-    assert "commits it with the BFT chain state" in release
+    assert "validators commit it in the same block" in release
     assert not re.search(r"\blayerxd\b", README)
     assert not re.search(r"https?://[^\s`]+/rpc(?:[/\s`]|$)", README)
     for paragraph in README.split("\n\n"):

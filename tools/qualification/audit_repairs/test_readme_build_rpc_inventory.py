@@ -62,11 +62,14 @@ def test_doc_index_7_one_paxd_embeds_native_execution():
         "docs/wiki/PaxeerBoundary.md"
     )
     for fact in (
-        "one BFT network",
+        "The LayerX kernel runs inside every `paxd` node.",
         "chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node",
-        "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.",
+        "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "node links `build/liblayerx.a`",
         "programs sandbox",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
@@ -83,7 +86,7 @@ def test_doc_index_7_one_paxd_embeds_native_execution():
     topology = re.findall(r"```mermaid\n(.*?)\n```", overview, re.S)
     assert len(topology) == 1
     for fact in (
-        "subgraph Network[One Paxeer BFT network / EVM chain 125]",
+        "subgraph Network[Paxeer X / EVM chain 125]",
         "subgraph Node[paxd]",
         "Embedded C17 kernel and Rust programs host",
         "RPC --> Order --> Host --> Native",
@@ -263,7 +266,7 @@ def test_doc_index_7_build_and_release_inventory_match_paxd():
     release = section("Releases and Network Upgrades")
     for fact in (
         "executes kernel activity inside `paxd`",
-        "commits it with the BFT chain state",
+        "validators commit it in the same block",
         "`v7.0` merge handler activates the merged interfaces",
         "retires the old custody/checkpoint write paths",
         "network's recorded upgrade height",

@@ -37,10 +37,14 @@ def section(heading, level=3):
 def test_root_doc_two_domains_integrated_network_and_finality():
     overview = section("What is Paxeer X Network?", 2)
     for fact in (
-        "one BFT network with EVM chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node",
-        "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "The LayerX kernel runs inside every `paxd` node.",
+        "EVM chain ID **125** (`0x7d`)",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.",
+        "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "runs inside `paxd` through",
         "modules/lxphost",
         "A receipt is final once its block is committed",
@@ -124,16 +128,16 @@ def test_root_doc_two_domains_diagrams_show_integrated_execution_and_commit():
             stack.pop()
         elif line.startswith(("RPC[", "Order[", "Host[", "Native[")):
             assert stack == [
-                "subgraph Network[One Paxeer BFT network / EVM chain 125]",
+                "subgraph Network[Paxeer X / EVM chain 125]",
                 "subgraph Node[paxd]",
             ], line
     assert not stack
     for fact in (
-        "RPC[Node JSON-RPC]", "Order[Integrated sequencing and block proposal]",
+        "RPC[Node JSON-RPC]", "Order[LayerX kernel executes, orders and builds the block]",
         "Host[Embedded C17 kernel and Rust programs host]",
         "Native[Native bank, ledger, payments, authority and programs]",
         "RPC --> Order --> Host --> Native",
-        "Order -->|Proposed block in execution order| Validators[BFT validators]",
+        "Order -->|Proposed block in execution order| Validators[Validators check and commit]",
         "Validators -->|Commit| State[Committed block and chain state]",
         "State -->|Transaction receipts, logs and proofs| Client",
     ):

@@ -26,7 +26,7 @@ import native_manifest
 import owner_kms
 import owner_native
 import provision
-from test_owner_custody import document, merged_environment, put, test_kms_network_registry
+from test_merged_owner import document, merged_environment, put, test_kms_network_registry
 
 
 def snapshot(root):

@@ -39,10 +39,14 @@ def section(heading):
 def test_readme_premerge_network_embedded_paxd_and_committed_finality():
     overview = section("What is Paxeer X Network?")
     for fact in (
-        "one BFT network with EVM chain ID **125** (`0x7d`)",
-        "The LayerX kernel is embedded in the node",
-        "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "The LayerX kernel runs inside every `paxd` node.",
+        "EVM chain ID **125** (`0x7d`)",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.",
+        "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "runs inside `paxd` through [`modules/lxphost`]",
         "A receipt is final once its block is committed",
         "signed execution receipt can arrive before that commitment",
@@ -52,7 +56,7 @@ def test_readme_premerge_network_embedded_paxd_and_committed_finality():
         assert fact in overview, fact
     release = section("Releases and Network Upgrades")
     assert "executes kernel activity inside `paxd`" in release
-    assert "commits it with the BFT chain state" in release
+    assert "validators commit it in the same block" in release
     for obsolete in (
         r"\blayerxd\b", r"two execution domains", r"merge is (?:only )?a draft",
         r"kernel still runs separately", r"make\s+layerxd",

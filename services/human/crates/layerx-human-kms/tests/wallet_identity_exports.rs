@@ -472,14 +472,14 @@ fn assert_invalid_frame_versions(
         wire::Request::decode(&zero),
         Err(wire::Error::Refused)
     ));
-    assert!(host.exchange(&zero, false).is_err());
+    assert_eq!(host.exchange(&zero, false)?, b"LXKP\0\x07\x05\x01");
     let mut v1 = sign;
     v1[4..6].copy_from_slice(&1_u16.to_be_bytes());
     assert!(matches!(
         wire::Request::decode(&v1),
         Err(wire::Error::Refused)
     ));
-    assert!(host.exchange(&v1, false).is_err());
+    assert_eq!(host.exchange(&v1, false)?, b"LXKP\0\x01\x05\x01");
     Ok(())
 }
 

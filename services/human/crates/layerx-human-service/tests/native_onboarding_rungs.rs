@@ -432,8 +432,7 @@ fn native_onboarding_uses_the_pending_nonce() {
     push_bytes(&mut nonce_request, b"did:layerx:registrar");
     push_bytes(&mut nonce_request, b"custody:human-primary");
     let nonce_request = frame(13, &nonce_request);
-    let mut nonce_answer = pending_nonce.to_be_bytes().to_vec();
-    nonce_answer.push(Rung::Receipted.wire_rank());
+    let nonce_answer = pending_nonce.to_be_bytes().to_vec();
     let nonce_answer = frame(0, &nonce_answer);
     let socket = fixture.root.join("peer.sock");
     let listener =

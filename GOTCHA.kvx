@@ -21880,3 +21880,63 @@ fix = "Decision 3497. The Makefile gets a target for the lint program alone; the
 title = "The test target of the agent workspace takes no member selection"
 symptom = "The target agent-test of the Makefile runs the tests of every member of the agent workspace in one cargo line. A task that brings one member in line cannot be counted on that member."
 fix = "Decision 3498. The cargo line of the target reads its member selection from a variable whose default is the whole workspace."
+
+[gotcha.4412]
+title = "Pages outside the documentation site name the network by its commit step"
+symptom = "Seventy-nine pages and one page template under docs/wiki, contracts, services, the software kits, modules, precompiles, programs, tools, tests and the root call Paxeer mainnet-beta a BFT network or a BFT chain, or say the kernel is part of the network, proposes blocks within it or takes part in proposal."
+fix = "Decisions 3496 and 3499. Tasks 22.43.324 to 22.43.328 bring the pages to the kernel sentence, one task per area."
+
+[gotcha.4413]
+title = "The network page names the network by its commit step in three places"
+symptom = "The page docs/readme/NETWORK.md says in its opening that the kernel is part of the network and proposes blocks, labels the outer box of its topology diagram a BFT network, and says in its release section that kernel activity commits with the BFT chain state. Tests under tools/qualification/audit_repairs read these words."
+fix = "Decisions 3496 and 3500. Task 22.43.329 changes the page and the tests together."
+
+[gotcha.4414]
+title = "Source comments and schema texts name the network by its commit step"
+symptom = "Five more pages, four comments in source files and two texts of the schema of the human service call Paxeer mainnet-beta a BFT network or a BFT chain, or say the kernel is part of the network or takes part in proposal."
+fix = "Decisions 3496 and 3501. Tasks 22.43.330 and 22.43.331."
+
+[gotcha.4415]
+title = "Two recovery cases read the model runner only from a variable"
+symptom = "In the tests of the PaxAI participant member the two cases of the file job_recovery.rs that use a real model runner read its path from the variable PAXAI_RUNNER alone. The test recipe of the platform workspaces does not set that variable, while the member builds a runner of its own."
+fix = "Decision 3502. Item do_6 of task 22.39.504."
+
+[gotcha.4416]
+title = "Seven pages hold the old network sentence across a line break"
+symptom = "On seven pages, the page of the kernel sources under src among them, the sentence that says the kernel participates in the network or in block proposal runs over two lines of the file, so a search by line does not find it."
+fix = "Decisions 3496 and 3503. Task 22.43.332."
+
+[gotcha.4417]
+title = "A case outside the paths of a page task reads the sentence of the contributor page"
+symptom = "A case of tools/qualification/audit_repairs/test_contributor_merged_node.py reads from the section on the repository layout of CONTRIBUTING.md the words that name the block proposal path. The file of the case is not among the paths of task 22.43.328, which changes that sentence."
+fix = "Decision 3504. The file of the case joins the paths of the task."
+
+[gotcha.4418]
+title = "The test target of the human workspace takes no member selection"
+symptom = "The target human-test of the Makefile runs the tests of every member of the human workspace in one cargo line. A task that brings a group of members in line cannot be counted on that group."
+fix = "Decision 3505. The cargo line of the target reads its member selection from a variable whose default is the whole workspace."
+
+[gotcha.4419]
+title = "The two format steps of the lint targets leave out different directories"
+symptom = "The format step of the target paxeer-manifest-lint of the Makefile leaves out the dependency sources under core/deps, the output directory build and the fixtures of the vendored tree under tools. The format step of the target lint of chain.mk, which the same target calls next, leaves out none of the three."
+fix = "Decision 3506. Task 22.39.516."
+
+[gotcha.4420]
+title = "No test keeps the pages on the kernel sentence"
+symptom = "Decision 3496 and the decisions after it brought every page, comment and schema text to the kernel sentence, task by task. No test of the tree reads the pages for the old wordings, so a later page can bring one back unseen."
+fix = "Decision 3507. Task 22.43.333 adds the test."
+
+[gotcha.4421]
+title = "The lint rules by file and linter are wider than the reports they were written for"
+symptom = "Most rules of the lint configuration name a file and a linter. A rule of that form covers every report of the linter in the file, while the report it was written for concerned single lines."
+fix = "Decision 3508. Tasks 22.39.517 to 22.39.519 repair the code of three groups of directories and remove their rules."
+
+[gotcha.4422]
+title = "The members outside the scopes of decisions 3498 and 3505 have no task yet"
+symptom = "Decisions 3498 and 3505 give the test targets of the agent workspace and of the human services a scope variable, and name tasks by member and by group for the members outside the counted scope. Those tasks are not in the plan."
+fix = "Decision 3509. Tasks 22.39.520 to 22.39.533."
+
+[gotcha.4423]
+title = "The page on the modules of the docs site and the files built from it do not hold the kernel sentence"
+symptom = "The page names the kernel inside a link and describes it with an earlier wording. The search index, the copies of the pages in markdown and the files for assistants are built from the pages and hold the same wording."
+fix = "Decision 3510. Task 22.43.334."

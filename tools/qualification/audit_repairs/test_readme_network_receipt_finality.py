@@ -46,11 +46,13 @@ def section(heading, level=3):
 def test_readme_network_doc_one_paxd_embedded_kernel_and_commit_finality():
     overview = section("What is Paxeer X Network?", level=2)
     for fact in (
-        "one BFT network",
+        "The LayerX kernel runs inside every `paxd` node.",
         "chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node",
-        "participates in block proposal and deterministic execution",
-        "kernel is part of the network and proposes blocks inside `paxd`",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.",
+        "A receipt is final when the validators commit its block.",
         "A receipt is final once its block is committed",
         "There is no separate kernel daemon, sequencer service or checkpoint deployment",
         "External checkpoint settlement is retired",
@@ -198,7 +200,7 @@ def test_readme_network_doc_merged_node_build_and_release():
     release = section("Releases and Network Upgrades")
     for fact in (
         "executes kernel activity inside `paxd`",
-        "commits it with the BFT chain state",
+        "validators commit it in the same block",
         "`v7.0` merge handler",
         "retires the old custody/checkpoint write paths",
         "`v7.0-anchor-store-delete` removes the historical anchor store",

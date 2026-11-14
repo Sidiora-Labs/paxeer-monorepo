@@ -46,9 +46,12 @@ def require_facts(text, facts):
 
 def test_doc_1_merged_paxd_network_programs_and_tenant_domains():
     require_facts(section("What is Paxeer X Network?", 2), (
-        "one BFT network", "chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node", "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "The LayerX kernel runs inside every `paxd` node.", "chain ID **125** (`0x7d`)",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.", "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "programs sandbox", "Sub-chains are tenant domains stored in the database",
         "managed by [`modules/layerxchains`]", "namespaces state within the shared network",
         "does not require new node infrastructure",

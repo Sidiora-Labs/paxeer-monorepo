@@ -50,9 +50,12 @@ def test_doc_root_readme_merged_network_and_tenants():
         "docs/wiki/Protocol.md"
     )
     for fact in (
-        "one BFT network", "chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node", "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "The LayerX kernel runs inside every `paxd` node.", "chain ID **125** (`0x7d`)",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.", "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "A receipt is final once its block is committed",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
         "Sub-chains are tenant domains stored in the database",
@@ -67,7 +70,7 @@ def test_doc_root_readme_merged_network_and_tenants():
     diagrams = re.findall(r"```mermaid\n(.*?)\n```", overview, re.S)
     assert len(diagrams) == 1
     for fact in (
-        "subgraph Network[One Paxeer BFT network / EVM chain 125]",
+        "subgraph Network[Paxeer X / EVM chain 125]",
         "subgraph Node[paxd]", "RPC --> Order --> Host --> Native",
         "Validators -->|Commit| State",
     ):
@@ -225,7 +228,7 @@ def test_doc_root_readme_integration_links_and_wiring_request():
         assert (NETWORK_PATH.parent / path).exists(), path
     payments = source("docs/wiki/PaymentsQuickstart.md")
     assert "merged Paxeer network" in payments
-    assert "successful payment is final when its block is" in payments
+    assert "A successful payment is final when validators\ncommit its block." in payments
     tenant_guide = "docs/wiki/VirtualChains.md"
     assert "Creating one starts no process and requires no new infrastructure" in source(tenant_guide)
     record = tomllib.loads(RECORD_PATH.read_text(encoding="utf-8"))

@@ -2,7 +2,7 @@
 
 The gateway in [services/platform/hosted/gateway](../services/platform/hosted/gateway) provides hosted account discovery, history, credentials and product ingress. It is an application boundary for the same Paxeer network served by `paxd`. It does not introduce another execution or settlement chain. See [hosted services](platform-hosted.md), [payment middleware](platform-middleware.md) and [protobuf APIs](proto-api.md) for the adjacent boundaries.
 
-Paxeer mainnet-beta has EVM chain ID **125** (`0x7d`). Its kernel is part of the network and proposes blocks. A receipt is final when its block is committed. Sub-chains are tenant domains in the database, launchable without separate chain infrastructure.
+Paxeer mainnet-beta has EVM chain ID **125** (`0x7d`). The LayerX kernel inside `paxd` executes and orders each transaction and builds each block; validators check and commit it. A receipt is final when the validators commit its block. Sub-chains are tenant domains in the database, launchable without separate chain infrastructure.
 
 ## Gateway HTTP routes
 
