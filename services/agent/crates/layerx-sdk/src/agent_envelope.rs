@@ -1956,6 +1956,25 @@ mod native_disclosure_tests {
     #[test]
     fn native_disclosure_binds_unsigned_ledger_call_and_signer() {
         let (request, value) = served_call();
+        let body = crate::native_effect::encode_native_disclosure(&request)
+            .unwrap_or_else(|error| panic!("native disclosure request: {error:?}"));
+        let credential = EnvelopeCredential::new("disclosure", [1; 32], [2; 32], 1)
+            .unwrap_or_else(|error| panic!("disclosure credential: {error:?}"));
+        let envelope = encode_envelope(
+            Operation::Prepare,
+            RequestId(1),
+            &body,
+            Some(&credential),
+            Some(Key::new([3; 32]).unwrap_or_else(|error| panic!("disclosure key: {error:?}"))),
+        )
+        .unwrap_or_else(|error| panic!("disclosure envelope: {error:?}"));
+        assert_eq!(envelope["operation"], "prepare");
+        let encoded = serde_json::to_vec(&envelope)
+            .unwrap_or_else(|error| panic!("disclosure envelope bytes: {error:?}"));
+        let decoded = layerx_agentd::agent_rpc::decode(&encoded)
+            .unwrap_or_else(|error| panic!("daemon disclosure operation: {error:?}"));
+        assert_eq!(decoded.operation, Operation::Prepare);
+        assert_eq!(serde_json::Value::Object(decoded.request), body);
         let disclosure = validate_call_disclosure(&request, &value, [0x11; 20])
             .unwrap_or_else(|error| panic!("served unsigned call and signer agree: {error:?}"));
         let call = layerx_crypto::evm_transaction::decode_unsigned(&request.canonical_bytes)

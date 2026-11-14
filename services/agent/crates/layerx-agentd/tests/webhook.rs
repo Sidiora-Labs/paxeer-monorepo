@@ -120,12 +120,24 @@ fn filter() -> SubscriptionFilter {
     }
 }
 
+fn native_event_bytes() -> Vec<u8> {
+    text(
+        serde_json::to_vec(&serde_json::json!({
+            "blockNumber":"0x1", "transactionIndex":"0x0", "logIndex":"0x0",
+            "blockHash":format!("0x{}", "01".repeat(32)),
+            "address":format!("0x{}", "11".repeat(20)), "topics":[],
+            "data":format!("0x{}", hex::encode(b"exact-core-event-one")), "removed":false
+        })),
+        "canonical log",
+    )
+}
+
 fn engine(root: &PathBuf) -> DeliveryEngine {
     let durable = match Store::open(root) {
         Ok(value) => value,
         Err(error) => panic!("store open failed: {error}"),
     };
-    let mut ingestor = match EventIngestor::open(durable, durable_tenant(), 2, 0) {
+    let mut ingestor = match EventIngestor::open(durable, durable_tenant(), 2, 1) {
         Ok(value) => value,
         Err(error) => panic!("ingestor open failed: {error}"),
     };
@@ -135,8 +147,8 @@ fn engine(root: &PathBuf) -> DeliveryEngine {
         "verified event receipt",
     );
     let event = CoreEvent {
-        global_sequence: 0,
-        canonical_bytes: b"exact-core-event-zero".to_vec(),
+        global_sequence: 1,
+        canonical_bytes: native_event_bytes(),
         receipt_reference: Some(receipt.receipt_ref()),
         receipt_verification_level: receipt.level(),
         attributes: EventAttributes {
@@ -149,9 +161,46 @@ fn engine(root: &PathBuf) -> DeliveryEngine {
             result_code: 0,
         },
     };
+    let attributes = event.attributes.clone();
     if let Err(error) = ingest(&mut ingestor, event) {
         panic!("event ingest failed: {error}");
     }
+    let source_listener = text(
+        std::net::TcpListener::bind("127.0.0.1:0"),
+        "log source listener",
+    );
+    let source = text(
+        layerx_agentd::events::gap::EthLogSource::new(
+            &format!(
+                "http://{}",
+                text(source_listener.local_addr(), "log source address")
+            ),
+            &[],
+            layerx_client::subscription::SubscriptionTopic::Logs {
+                address: None,
+                topics: Vec::new(),
+            },
+        ),
+        "log source",
+    );
+    text(
+        ingestor.new_head(
+            2,
+            &source,
+            layerx_agentd::read::HistoryLimits {
+                maximum_items: 2,
+                maximum_response_bytes: 4096,
+            },
+            2,
+            attributes,
+        ),
+        "completed log block",
+    );
+    text(source_listener.set_nonblocking(true), "passive log source");
+    assert_eq!(
+        source_listener.accept().err().map(|error| error.kind()),
+        Some(std::io::ErrorKind::WouldBlock)
+    );
     let mut subscriptions = match SubscriptionStore::open(ingestor.into_store(), durable_tenant()) {
         Ok(value) => value,
         Err(error) => panic!("subscription store open failed: {error}"),
@@ -175,7 +224,7 @@ fn engine(root: &PathBuf) -> DeliveryEngine {
         jitter_percent: 20,
         maximum_attempts: 4,
     };
-    match DeliveryEngine::open(subscriptions, target(), 1, 2, retry) {
+    match DeliveryEngine::open(subscriptions, target(), 2, 2, retry) {
         Ok(value) => value,
         Err(error) => panic!("delivery engine open failed: {error}"),
     }
@@ -461,9 +510,9 @@ fn slow_retry_receiver(
             event_bytes,
             ..
         } => {
-            assert_eq!(*global_sequence, 0);
+            assert_eq!(*global_sequence, 1);
             assert!(receipt_reference.is_some());
-            assert_eq!(event_bytes, b"exact-core-event-zero");
+            assert_eq!(event_bytes, &native_event_bytes());
         }
         other @ VerifiedItem::BackfillComplete { .. } => {
             panic!("unexpected outbound item: {other:?}")

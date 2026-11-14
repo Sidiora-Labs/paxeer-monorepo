@@ -67,7 +67,22 @@ mod hex {
 mod native_store;
 
 fn record_authority_budget_state(url: String, fixture: &RecordedAuthority) -> Value {
-    let response = must(read_authority_budget_state(url, fixture));
+    const READINESS_ATTEMPTS: usize = 20;
+    let response = (0..READINESS_ATTEMPTS)
+        .find_map(
+            |_| match read_authority_budget_state(url.clone(), fixture) {
+                Ok(response) => Some(Ok(response)),
+                Err(response) if response.status == 503 => {
+                    thread::sleep(Duration::from_millis(50));
+                    None
+                }
+                Err(response) => Some(Err(response)),
+            },
+        )
+        .unwrap_or_else(|| {
+            panic!("budget state did not become ready after {READINESS_ATTEMPTS} attempts")
+        });
+    let response = must(response);
     assert_eq!(response.status, 200);
     must(serde_json::from_slice(&response.body))
 }

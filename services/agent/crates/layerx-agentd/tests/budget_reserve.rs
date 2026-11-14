@@ -62,7 +62,7 @@ fn refusal_names_limit_and_leaks_no_reservation() {
         BudgetLimiter::new(configs(100)).unwrap_or_else(|error| panic!("limiter: {error:?}"));
     for id in 0_u16..1_000 {
         let mut request = request(u8::try_from(id % 251).unwrap_or(0), 101);
-        request.id[..2].copy_from_slice(&id.to_be_bytes());
+        request.id[..2].copy_from_slice(&(id + 1).to_be_bytes());
         let Err(error) = reserve(&limiter, &request) else {
             panic!("reservation {id} was accepted past the ceiling");
         };
