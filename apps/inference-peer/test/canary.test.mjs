@@ -76,7 +76,7 @@ function plan({ position = 0, lap = 0 } = {}) {
         ),
         integer(binding.epoch, 8),
         integer(binding.config, 8),
-        Buffer.from(binding.roster_digest),
+        Buffer.from(fixture.frozen_roster_digest),
         Buffer.from(binding.deal_id),
         integer(lap, 8),
         Buffer.alloc(32, 0x20), // Frozen worker ID; distinct from the peer public key.
@@ -218,6 +218,10 @@ async function canary_answer_signs_the_program_context_and_q16_digest() {
   canaries.recordLogits({ lapIndex: 0, position: 0, logits });
   logits.fill(0);
   const request = plan();
+  assert.notDeepEqual(
+    request.answer_context.slice(112, 144),
+    deal().roster_digest,
+  );
   const answer = await canaryAnswer(request, canaries);
   assert.deepEqual(Object.keys(answer), [
     "deal_id",
@@ -343,6 +347,31 @@ async function mismatched_deal_peer_prompt_and_context_refuse() {
       }),
     /closed/,
   );
+}
+
+async function each_compared_canary_context_field_must_match() {
+  const canaries = await tracker();
+  canaries.recordLogits({
+    lapIndex: 0,
+    position: 0,
+    logits: fixture.program_codec.logits,
+  });
+  for (const [field, offset] of [
+    ["chain", 0],
+    ["program", 32],
+    ["market", 64],
+    ["epoch", 96],
+    ["config", 104],
+    ["deal", 144],
+    ["lap", 176],
+  ]) {
+    const request = plan();
+    request.answer_context[offset] ^= 1;
+    assert.deepEqual(await canaryAnswer(request, canaries), {
+      type: "refusal",
+      reason: "answer_context_mismatch",
+    }, field);
+  }
 }
 
 async function invalid_plans_and_conflicting_position_records_refuse() {
@@ -508,11 +537,15 @@ function socketBinding() {
     ["chain", 0],
     ["program", 32],
     ["market", 64],
-    ["roster_digest", 112],
   ])
     binding[key] = Array.from(context.subarray(offset, offset + 32));
   binding.epoch = context.readBigUInt64BE(96);
   binding.config = context.readBigUInt64BE(104);
+  assert.deepEqual(
+    Array.from(context.subarray(112, 144)),
+    fixture.frozen_roster_digest,
+  );
+  assert.notDeepEqual(binding.roster_digest, fixture.frozen_roster_digest);
   binding.deal_id = request.deal_id.slice();
   binding.model_digest = Array(32).fill(1); // inference_canary_frames.rs::table
   binding.plan.layers[1].peer_key = request.peer_key.slice();
@@ -876,6 +909,7 @@ for (const criterion of [
   canary_answer_for_unknown_position_refuses,
   canary_answer_signs_the_program_context_and_q16_digest,
   mismatched_deal_peer_prompt_and_context_refuse,
+  each_compared_canary_context_field_must_match,
   invalid_plans_and_conflicting_position_records_refuse,
   host_http_payloads_cannot_be_sent_as_signalling_frames,
   host_canary_socket_vectors_cover_both_directions,

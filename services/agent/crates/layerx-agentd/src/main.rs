@@ -683,10 +683,11 @@ fn connect_human_node() -> Result<SequencerEndpoint, String> {
     let roots: Vec<&[u8]> = certificates.iter().map(AsRef::as_ref).collect();
     let endpoint = SequencerEndpoint::new(&config.url, &roots)
         .map_err(|error| format!("human sequencer endpoint is invalid: {error:?}"))?;
-    if endpoint
-        .chain_id()
-        .map_err(|error| format!("human sequencer chain id is unavailable: {error:?}"))?
-        != config.chain_id
+    if config.chain_id != 125
+        || endpoint
+            .chain_id()
+            .map_err(|error| format!("human sequencer chain id is unavailable: {error:?}"))?
+            != config.chain_id
     {
         return Err("human sequencer chain id mismatch".to_owned());
     }
@@ -694,9 +695,20 @@ fn connect_human_node() -> Result<SequencerEndpoint, String> {
         .map(|path| load_chain_trust_root(Path::new(&path)).map(|trust| trust.chain_id))
         .transpose()?
         .unwrap_or_else(|| config.chain_id.to_string());
-    layerx_agentd::human_node::verify_direct_node_readiness_for_chain(
+    if consensus_chain_id.is_empty() {
+        return Err("human sequencer consensus chain id is unavailable".to_owned());
+    }
+    let height = endpoint
+        .block_number()
+        .map_err(|error| format!("human sequencer head is unavailable: {error:?}"))?;
+    let block = endpoint
+        .block_by_number(height)
+        .map_err(|error| format!("human sequencer block is unavailable: {error:?}"))?
+        .ok_or("human sequencer block is not committed")?;
+    layerx_agentd::read::ServedCheckpoint::acquire_at_committed_block(
         &endpoint,
-        config.chain_id,
+        height,
+        Some(block.hash),
         &consensus_chain_id,
     )
     .map_err(|error| format!("human node evidence refused: {error:?}"))?;
@@ -2538,6 +2550,13 @@ impl inference_signal::deals::laps::LapTransport for InferenceLapTransport<'_> {
                 inference_signal::deals::laps::LapError::Invalid("finalized lap state unavailable")
             })
     }
+    fn height(&mut self) -> Result<Option<u64>, inference_signal::deals::laps::LapError> {
+        self.0
+            .endpoint
+            .block_number()
+            .map(Some)
+            .map_err(|_| inference_signal::deals::laps::LapError::Invalid("lap head unavailable"))
+    }
     fn submit(
         &mut self,
         operation: &layerx_client::ai_market::inference_market::MarketOperation,
@@ -3596,23 +3615,6 @@ fn supervise_services(
                 );
                 let result = observed.and_then(|()| {
                     let snapshot = inference.deals.snapshot()?;
-                    let canaries_ready = {
-                        let mut canaries = inference
-                            .deals
-                            .laps
-                            .canaries
-                            .lock()
-                            .map_err(|_| "canary engine unavailable")?;
-                        if let Some(runtime) = canaries.as_mut() {
-                            runtime.state = snapshot.state_bytes().to_vec();
-                            runtime
-                                .engine
-                                .tick(&mut InferenceLapTransport(&inference.deals))
-                                .map_err(|error| error.to_string())?
-                        } else {
-                            true
-                        }
-                    };
                     let mut signal = inference
                         .signal
                         .lock()
@@ -3636,16 +3638,60 @@ fn supervise_services(
                         .laps
                         .lock()
                         .map_err(|_| "inference laps unavailable")?;
-                    for engine in sessions.values_mut().filter(|_| canaries_ready) {
+                    let canaries_enabled = inference
+                        .deals
+                        .laps
+                        .canaries
+                        .lock()
+                        .map_err(|_| "canary engine unavailable")?
+                        .is_some();
+                    for engine in sessions.values_mut() {
                         engine
-                            .seal_and_settle(
+                            .advance_batch(
                                 &mut InferenceLapTransport(&inference.deals),
                                 &inference.deals.laps.host,
+                                !canaries_enabled,
                             )
                             .map_err(|error| error.to_string())?;
                     }
                     drop(sessions);
                     drop(signal);
+                    let canaries_ready = {
+                        let mut canaries = inference
+                            .deals
+                            .laps
+                            .canaries
+                            .lock()
+                            .map_err(|_| "canary engine unavailable")?;
+                        if let Some(runtime) = canaries.as_mut() {
+                            runtime.state = snapshot.state_bytes().to_vec();
+                            runtime
+                                .engine
+                                .tick(&mut InferenceLapTransport(&inference.deals))
+                                .map_err(|error| error.to_string())?
+                        } else {
+                            true
+                        }
+                    };
+                    if canaries_enabled && canaries_ready {
+                        let signal = inference
+                            .signal
+                            .lock()
+                            .map_err(|_| "inference signal unavailable")?;
+                        let mut sessions = signal
+                            .laps
+                            .lock()
+                            .map_err(|_| "inference laps unavailable")?;
+                        for engine in sessions.values_mut() {
+                            engine
+                                .advance_batch(
+                                    &mut InferenceLapTransport(&inference.deals),
+                                    &inference.deals.laps.host,
+                                    true,
+                                )
+                                .map_err(|error| error.to_string())?;
+                        }
+                    }
                     inference.deals.submit_ready()
                 });
                 if let Err(error) = result {
