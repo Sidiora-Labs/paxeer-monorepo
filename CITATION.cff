@@ -4,9 +4,9 @@ type: software
 title: Paxeer X Network
 abstract: >-
   Paxeer X Network is a distributed HyperState Machine for payments, code
-  execution and intent routing. It is one BFT network with EVM chain ID 125;
-  the LayerX kernel is embedded in the paxd node and participates in block
-  proposal and deterministic execution.
+  execution and intent routing. The LayerX kernel runs inside every paxd node,
+  executes and orders each transaction, issues signed execution receipts and
+  builds the blocks that validators check and commit; EVM chain ID 125.
 authors:
   - name: Sidiora Labs
 version: v7.0.0

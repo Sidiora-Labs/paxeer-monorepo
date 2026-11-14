@@ -136,9 +136,7 @@ fn documented_configuration_and_assertion_lifecycle() -> Result<()> {
     let description = remote.create_key(&binding)?;
     let reference = description.reference();
     let wallet = remote.wallet_descriptor(&binding, reference)?;
-    // The running store retains the assertion it loaded. Reopening re-reads it.
     let assertion = host.root.join("owner-0.jwt");
-    fs::write(&assertion, " \n")?;
     let tx = call(0);
     let disclosure = checked(bind_call(&tx, wallet.evm_secp256k1))?;
     let signature = fixture::run(remote.sign_wallet_call(&binding, reference, &tx, &disclosure))?;
@@ -146,9 +144,20 @@ fn documented_configuration_and_assertion_lifecycle() -> Result<()> {
         recover_sender(&tx, &checked(AgentSignature::new(signature))?)?,
         wallet.evm_secp256k1
     );
+    fs::write(&assertion, " \n")?;
+    assert!(matches!(
+        fixture::run(remote.sign_wallet_call(&binding, reference, &tx, &disclosure)),
+        Err(layerx_human_service::custody::CustodyError::Kms(
+            KmsError::Unavailable
+        ))
+    ));
     host.stop()?;
     assert!(host.start().is_err());
-    fs::write(&assertion, "fixture-owner-renewed\n")?;
+    let now = host
+        .clock
+        .sample(std::time::Duration::from_secs(1))?
+        .unix_seconds();
+    fs::write(&assertion, fixture::owner_assertion("alice", now)?)?;
     host.start()?;
     let tx = call(1);
     let disclosure = checked(bind_call(&tx, wallet.evm_secp256k1))?;
@@ -171,7 +180,9 @@ fn documented_configuration_and_assertion_lifecycle() -> Result<()> {
     fs::write(&attestors, saved)?;
     host.start()?;
     assert_eq!(remote.wallet_descriptor(&binding, reference)?, wallet);
-    assert!(README.contains("running process does not\nrefresh it"));
+    assert!(
+        README.contains("reread before relevant\nEVM wallet, authorization and signing operations")
+    );
     assert!(README.contains("each binding's `assertion_file`"));
     Ok(())
 }
@@ -213,7 +224,7 @@ fn documented_v7_sign_and_retired_encodings() -> Result<()> {
         wire::Request::decode(&old),
         Err(wire::Error::Refused)
     ));
-    assert!(host.exchange(&old, false).is_err());
+    assert_eq!(host.exchange(&old, false)?, b"LXKP\0\x01\x05\x01");
     let mut retired = remote.encode_evm_request(6, &binding, reference, &[])?;
     retired[6] = 13;
     assert!(matches!(

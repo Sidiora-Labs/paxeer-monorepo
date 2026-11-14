@@ -1406,7 +1406,7 @@ impl CreationJourney {
         let evidence = agent.submit_protocol_scoped(scope, action)?;
         if evidence.action_key != action_key
             || evidence.network_id != self.record.network_id
-            || evidence.bound_activity(kind)?.call.data != payload
+            || evidence.bound_activity(kind)?.payload() != payload
         {
             return Err(AgentCreationError::EvidenceConflict);
         }

@@ -1,6 +1,6 @@
 use ed25519_dalek::{Signer as _, SigningKey};
-use layerx_agentd::human::HumanOperationError;
-use layerx_agentd::managed_agent::restore_owner_transaction;
+use layerx_agentd::human::{HumanOperationError, HumanRefusal};
+use layerx_agentd::managed_agent::{restore_owner_transaction, ManagedAgentCheck};
 use layerx_agentd::outbox::Outbox;
 use layerx_agentd::receipt::{serve, store as store_receipt, ReceiptLookupKey, ServedReceipt};
 use layerx_agentd::store::{Store, TenantId};
@@ -184,7 +184,9 @@ fn managed_agent_accepts_signed_eip1559() {
     for (owner, network) in [([0x22; 20], NETWORK), (OWNER, NETWORK + 1), (OWNER, 0)] {
         assert!(matches!(
             restore_owner_transaction(&store, &fixture.tenant, &fixture.served, owner, network),
-            Err(HumanOperationError::Refused)
+            Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                ManagedAgentCheck::OwnerTransactionBinding
+            )))
         ));
     }
 }
@@ -203,7 +205,9 @@ fn managed_agent_refuses_hash_mismatch() {
     );
     assert!(matches!(
         restore_owner_transaction(&store, &fixture.tenant, &fixture.served, OWNER, NETWORK),
-        Err(HumanOperationError::Refused)
+        Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::OwnerTransactionBinding
+        )))
     ));
     let mut outbox = Outbox::default();
     lint_success(

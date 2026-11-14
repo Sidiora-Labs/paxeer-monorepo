@@ -325,12 +325,13 @@ mod tests {
 
     /// Compares the generated code for a given type with the code in the corresponding file in
     /// `tests/`.
-    /// The file name is derived from the type name by replacing `::` with `__` and adding `.go`.
+    /// The file name is derived from the type name by replacing `::` with `__` and adding `.go.golden`.
     macro_rules! compare_codes {
         ($name:ty) => {{
             let filename = stringify!($name).replace("::", "__");
             let generated = generate_go(cosmwasm_schema::schema_for!($name)).unwrap();
-            let expected = std::fs::read_to_string(format!("tests/{}.go", filename)).unwrap();
+            let expected =
+                std::fs::read_to_string(format!("tests/{}.go.golden", filename)).unwrap();
 
             assert_code_eq_ignore_docs(generated, &expected);
         }};

@@ -12,6 +12,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[3]
 GATEWAY = ROOT / "services/platform/hosted/gateway"
+FIXTURES = GATEWAY / "tests/fixtures"
 PRODUCER = ROOT / "services/platform/hosted/tests/sequencer-pins.py"
 DOCUMENTS = list(yaml.safe_load_all((GATEWAY / "deployment.yaml").read_text()))
 DEPLOYMENT = next(
@@ -30,7 +31,7 @@ ENV = {
     for item in CONTAINER["env"]
 }
 RECORDED = json.loads(
-    (GATEWAY / "tests/fixtures/committed_evidence.json").read_text()
+    (FIXTURES / "committed_evidence.json").read_text()
 )
 
 

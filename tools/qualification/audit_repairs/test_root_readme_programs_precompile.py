@@ -52,10 +52,16 @@ def make_rule(text, target):
 def test_doc03_one_paxd_network_embeds_kernel_and_commits_finality():
     overview = section("What is Paxeer X Network?", level=2)
     for fact in (
-        "one BFT network", "chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node", "participates in block proposal and deterministic execution",
-        "kernel is part of the network and proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "The LayerX kernel runs inside every `paxd` node.", "chain ID **125** (`0x7d`)",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.", "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.",
+        "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "A receipt is final once its block is committed",
         "There is no separate kernel daemon, sequencer service or checkpoint deployment",
         "External checkpoint settlement is retired",
@@ -68,7 +74,7 @@ def test_doc03_one_paxd_network_embeds_kernel_and_commits_finality():
     assert len(diagrams) == 2
     topology, sequence = diagrams
     for fact in (
-        "subgraph Network[One Paxeer BFT network / EVM chain 125]",
+        "subgraph Network[Paxeer X / EVM chain 125]",
         "subgraph Node[paxd]", "Embedded C17 kernel and Rust programs host",
         "RPC --> Order --> Host --> Native", "Validators -->|Commit| State",
     ):

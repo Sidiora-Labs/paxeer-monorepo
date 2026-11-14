@@ -6,7 +6,7 @@ Move assets between registered external chains and Paxeer with attestor signatur
 
 ## Choose the asset path
 
-External-chain bridging moves value between a foreign vault and a Paxeer bank denomination. Paxeer mainnet-beta is one BFT chain with EVM chain ID 125; its kernel executes within the network. A successful Paxeer receipt is final when its block is committed. An external payout also requires the destination chain receipt.
+External-chain bridging moves value between a foreign vault and a Paxeer bank denomination. Paxeer mainnet-beta uses EVM chain ID 125. The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it. A successful Paxeer receipt is final when validators commit its block. An external payout also requires the destination chain receipt.
 
 | Boundary | Asset backing | Acceptance evidence |
 | --- | --- | --- |

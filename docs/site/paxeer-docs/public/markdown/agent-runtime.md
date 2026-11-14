@@ -88,7 +88,7 @@ The receipt route is served by the hosted agent boundary; the JSON-RPC methods a
 
 ## Evidence and write readiness
 
-Receipt trust keys are configured independently of incoming proof data. The hosted boundary verifies the receipt signature, its authorized key interval, transaction hash, and signing identity. The Agent API distinguishes execution evidence from committed-block evidence; a receipt is final when its block is committed by the BFT network.
+Receipt trust keys are configured independently of incoming proof data. The hosted boundary verifies the receipt signature, its authorized key interval, transaction hash, and signing identity. The Agent API distinguishes execution evidence from committed-block evidence; a receipt is final when validators commit its block.
 
 `tenant.readiness` reports `transport_ready`, `verified_reads_ready`, `writes_admitted`, and an optional recovery reason. Writes are admitted exactly when no recovery reason is present, which requires transport and a genuine state-proven account read for the authenticated tenant. Readiness is tenant-scoped; an HTTP connection alone does not establish recovered spending authority.
 

@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"math"
 	"os"
 	"os/signal"
 	"syscall"
@@ -46,21 +47,29 @@ func main() {
 func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	req, err := parse(args, stderr)
 	if err != nil {
-		fmt.Fprintln(stderr, err)
+		if _, writeErr := fmt.Fprintln(stderr, err); writeErr != nil {
+			return replay.Exit(err)
+		}
 		return replay.Exit(err)
 	}
 	rep, err := replayRange(ctx, req)
 	if err != nil {
-		fmt.Fprintln(stderr, err)
+		if _, writeErr := fmt.Fprintln(stderr, err); writeErr != nil {
+			return replay.Exit(err)
+		}
 		return replay.Exit(err)
 	}
 	mode := "replayed"
 	if rep.Request.DryRun {
 		mode = "dry run"
 	}
-	fmt.Fprintf(stdout, "%s heights %d to %d\n", mode, rep.Request.From, rep.Request.To)
+	if _, err := fmt.Fprintf(stdout, "%s heights %d to %d\n", mode, rep.Request.From, rep.Request.To); err != nil {
+		return replay.Exit(err)
+	}
 	for _, t := range rep.Tables {
-		fmt.Fprintf(stdout, "%s rows=%d changed=%d\n", t.Table, t.Rows, t.Changed)
+		if _, err := fmt.Fprintf(stdout, "%s rows=%d changed=%d\n", t.Table, t.Rows, t.Changed); err != nil {
+			return replay.Exit(err)
+		}
 	}
 	return 0
 }
@@ -136,6 +145,9 @@ func replayRange(ctx context.Context, req replay.Request) (replay.Report, error)
 			return store.WriteBlock(ctx, tx, store.Block{Number: b.Number, Hash: b.Hash, ParentHash: b.ParentHash, Time: b.Time, Proposer: b.Proposer, TxCount: b.TxCount}, rows)
 		},
 		Rebuild: func(ctx context.Context, tx *sql.Tx, a source.Affected) error {
+			if a.From > math.MaxInt64 {
+				return fmt.Errorf("replay: rewind height %d exceeds database range", a.From)
+			}
 			return store.Rebuild(ctx, tx, int64(a.From), int64(a.From))
 		},
 	})

@@ -60,11 +60,14 @@ def make_rule(path, target):
 def test_network_overview_embeds_the_proposing_kernel_in_paxd():
     overview = section("What is Paxeer X Network?", 2)
     for fact in (
-        "one BFT network with EVM chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node",
-        "participates in block proposal and deterministic execution",
-        "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "The LayerX kernel runs inside every `paxd` node.",
+        "EVM chain ID **125** (`0x7d`)",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.",
+        "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "A receipt is final once its block is committed",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
         "External checkpoint settlement is retired",
@@ -75,7 +78,7 @@ def test_network_overview_embeds_the_proposing_kernel_in_paxd():
     assert "var _ tmtypes.SequencerSource = (*ConsensusSource)(nil)" in source(
         "node/sequencer/consensus_source.go"
     )
-    assert "subgraph Network[One Paxeer BFT network / EVM chain 125]" in overview
+    assert "subgraph Network[Paxeer X / EVM chain 125]" in overview
     assert "subgraph Node[paxd]" in overview
     assert "RPC --> Order --> Host --> Native" in overview
     assert "Validators -->|Commit| State" in overview
@@ -242,7 +245,7 @@ def test_kernel_build_and_release_guidance_use_the_paxd_lifecycle():
     assert "-o ./build/paxd ./daemon/paxd" in recipe
     assert "server.AddCommands(" in source("daemon/paxd/cmd/root.go")
     release = section("Releases and Network Upgrades")
-    assert "executes kernel activity inside `paxd` and commits it with the BFT chain state" in release
+    assert "executes kernel activity inside `paxd`; validators commit it in the same block" in release
     assert "retires the old custody/checkpoint write paths" in release
     assert "`v7.0-anchor-store-delete` removes the historical anchor store" in release
 

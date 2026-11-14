@@ -6,8 +6,9 @@ and webhooks. Its crate is `layerx-platform-agent-boundary`, with the binary
 in [`src/main.rs`](../../services/platform/hosted/agent-boundary/src/main.rs).
 The service identifies itself as `agent-boundary`.
 
-Paxeer is one BFT network: the kernel is integrated into `paxd` and proposes
-blocks. EVM chain id is `125` (`0x7d`), and block commit establishes finality.
+Paxeer uses EVM chain id `125` (`0x7d`), and block commit establishes finality.
+The LayerX kernel inside `paxd` executes and orders each transaction and builds
+each block; validators check and commit it.
 Callers submit signed EIP-1559 transactions through node JSON-RPC and use
 this service to retrieve signed receipts. The current boundary's live routes
 are reads; the old activity submission, program execution, simulation, and

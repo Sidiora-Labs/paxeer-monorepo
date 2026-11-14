@@ -1,6 +1,6 @@
 # Paxeer 7.0.0 release files
 
-This index covers the files used to prepare and operate release `paxeer-network/v7.0.0` and the governance upgrade `v7.0`. Paxeer uses one BFT network with EVM chain ID 125; the kernel executes inside `paxd` and receipts become final when their blocks commit. Commands run from the repository root unless a page says otherwise. Deployment values belong in the operator’s private configuration.
+This index covers the files used to prepare and operate release `paxeer-network/v7.0.0` and the governance upgrade `v7.0`. Paxeer uses EVM chain ID 125; the LayerX kernel inside `paxd` executes and orders each transaction and builds each block; validators check and commit it. Receipts become final when their blocks commit. Commands run from the repository root unless a page says otherwise. Deployment values belong in the operator’s private configuration.
 
 ## Files
 

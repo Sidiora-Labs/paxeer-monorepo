@@ -525,7 +525,7 @@ fn lxkp_sign_refuses_the_version_1_frame() -> Result<()> {
         .ok_or("version 1 SIGN admitted")?;
     assert_eq!(refusal, wire::Error::Refused);
     assert_eq!(refusal as u8, 1);
-    assert!(host.call(&legacy).is_err());
+    assert_eq!(host.call(&legacy)?, b"LXKP\0\x01\x05\x01");
     Ok(())
 }
 
@@ -566,7 +566,7 @@ fn lxkp_sign_refuses_a_zero_sender() -> Result<()> {
         wire::Request::decode(&request),
         Err(wire::Error::Refused)
     ));
-    assert!(host.call(&request).is_err());
+    assert_eq!(host.call(&request)?, b"LXKP\0\x07\x05\x01");
     Ok(())
 }
 

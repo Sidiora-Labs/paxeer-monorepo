@@ -1,8 +1,7 @@
 # Data Structures
 
 This page describes the consensus types implemented in Paxeer's embedded
-consensus engine. Paxeer mainnet-beta is one BFT network, with EVM chain ID 125
-(`0x7d`); the kernel participates in the network and proposes blocks. A receipt
+consensus engine. Paxeer mainnet-beta uses EVM chain ID 125 (`0x7d`). The LayerX kernel runs inside every `paxd` node, executes each transaction when it arrives, assigns the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it. A receipt
 is final when its block is committed.
 
 The types below are defined in [types](../../types/) and the

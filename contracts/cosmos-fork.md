@@ -9,10 +9,11 @@ services define the available API.
 
 ## Network boundary
 
-Paxeer mainnet-beta is one BFT network, run by `paxd`, with EVM chain ID **125**
-(`0x7d`). The kernel is part of the network and proposes blocks. A transaction
-receipt is final when its block is committed. Sub-chains are tenant domains in
-the database, launchable without separate chain infrastructure.
+Paxeer mainnet-beta uses EVM chain ID **125** (`0x7d`). The LayerX kernel inside
+`paxd` executes and orders each transaction and builds each block; validators
+check and commit it. A transaction receipt is final when its block is committed.
+Sub-chains are tenant domains in the database, launchable without separate chain
+infrastructure.
 
 Public Ethereum JSON-RPC uses HTTPS at the configured node’s root path.
 See [node transport and served methods](evm-rpc.md) and

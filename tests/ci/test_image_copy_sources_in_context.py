@@ -318,13 +318,6 @@ def test_registry_chain_trust_not_ignored():
     assert not ignored(source, ignore_rules(ROOT, dockerfile))
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "programs/vendor/wasmi-0.31.2/.cargo-checksum.json records a different "
-        "SHA-256 for PATCHES.md."
-    ),
-)
 def test_table_image_copy_sources_exist(image_rows):
     failures = []
     checked = 0
@@ -342,13 +335,6 @@ def test_table_image_copy_sources_exist(image_rows):
     assert not failures, "\n".join(failures)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "programs/vendor/wasmi-0.31.2/.cargo-checksum.json records a different "
-        "SHA-256 for PATCHES.md."
-    ),
-)
 def test_table_image_copy_sources_not_ignored(image_rows):
     failures = []
     checked = 0

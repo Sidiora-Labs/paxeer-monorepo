@@ -230,8 +230,12 @@ def test_finding_23_readme_matches_embedded_network_and_precompile_producer():
     page = ROOT / "docs/readme/NETWORK.md"
     readme = page.read_text(encoding="utf-8")
     for fact in (
-        "one BFT network with EVM chain ID **125** (`0x7d`)",
-        "LayerX kernel is embedded in the node", "proposes blocks inside `paxd`",
+        "The LayerX kernel runs inside every `paxd` node.",
+        "EVM chain ID **125** (`0x7d`)",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.", "A receipt is final when the validators commit its block.",
         "A receipt is final once its block is committed", "root path without a route suffix",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
         "`submitted`, `receipted` and `committed`", "make paxd-build",
@@ -301,10 +305,6 @@ def test_finding_22_release_script_syntax_guards_and_merged_artifacts():
         assert name in script and name in guide
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="RELEASE.md does not state that historical release packages may include retired components.",
-)
 def test_finding_22_guide_matches_builder_verification_and_recovery():
     guide = read("RELEASE.md")
     for fact in (

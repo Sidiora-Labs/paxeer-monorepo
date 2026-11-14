@@ -88,7 +88,7 @@ fn trusted_policy_issues_state_evidence_only_for_its_exact_identity() {
     );
     assert_eq!(
         verified.level(),
-        layerx_types::verify::VerificationLevel::CHECKPOINT_FINALISED
+        layerx_types::verify::VerificationLevel::COMMITTED
     );
     assert_eq!(verified.observed_head_sequence(), 150);
     let authority = lint_success(

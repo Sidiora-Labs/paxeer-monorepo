@@ -298,7 +298,7 @@ impl Host {
         fs::write(
             &registry,
             serde_json::to_vec(
-                &json!({"schema_version":2,"assets":[{"asset":asset}],"modules":[{"module":1,"ordinals":[1]}]}),
+                &json!({"schema_version":2,"network_id":125,"assets":[{"asset":asset}],"modules":[{"module":1,"ordinals":[1]}]}),
             )?,
         )?;
         fs::set_permissions(&registry, fs::Permissions::from_mode(0o600))?;
@@ -824,17 +824,12 @@ fn assert_attestor_misbinding_refused(
         host.root.join("attestors.json"),
         serde_json::to_vec(&wrong_owner)?,
     )?;
-    host.start()?;
-    let remote = host.remote()?;
+    let output = host.command().output()?;
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr)
+        .contains("retained wallet attestor identity changed"));
     let call = call(2);
     let disclosure = checked(bind_call(&call, host.addresses[0]))?;
-    assert!(run(remote.sign_wallet_call(
-        &host.bindings[0],
-        description.reference(),
-        &call,
-        &disclosure
-    ))
-    .is_err());
     host.stop();
     fs::write(host.root.join("attestors.json"), original)?;
     host.start()?;

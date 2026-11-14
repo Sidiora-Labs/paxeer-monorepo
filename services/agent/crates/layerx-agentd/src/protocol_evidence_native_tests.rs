@@ -397,7 +397,6 @@ fn prove_terminal_recovery() {
     use layerx_client::sequencer::SequencerEndpoint;
     use layerx_crypto::evm_transaction::transaction_hash;
     use sha2::{Digest, Sha256};
-    static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
     let (prepared, registry, signed, receipt_view, keys) = native_fixture();
     let verified = checked(crate::sign::verify_before_submit(
         &signed,
@@ -428,11 +427,7 @@ fn prove_terminal_recovery() {
         &[],
     ));
     let server = spawn_terminal_server(listener, signed.clone(), receipt_view, hash);
-    let root = std::env::temp_dir().join(format!(
-        "native-terminal-{}-{}",
-        std::process::id(),
-        NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
-    ));
+    let root = native_terminal_store_root();
     let tenant = checked(TenantId::new("native-terminal"));
     let mut store = checked(Store::open(&root));
     let mut outbox = Outbox::default();
@@ -490,6 +485,29 @@ fn prove_terminal_recovery() {
         &before_reopen,
     );
 }
+
+fn native_terminal_store_root() -> std::path::PathBuf {
+    use std::os::unix::fs::DirBuilderExt;
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static NEXT: AtomicU64 = AtomicU64::new(0);
+    let parent = checked(std::fs::canonicalize(std::env::temp_dir()));
+    loop {
+        let mut identifier = [0; 16];
+        checked(getrandom::fill(&mut identifier));
+        let root = parent.join(format!(
+            "native-terminal-{}-{}-{}",
+            std::process::id(),
+            NEXT.fetch_add(1, Ordering::Relaxed),
+            hex::encode(identifier)
+        ));
+        match std::fs::DirBuilder::new().mode(0o700).create(&root) {
+            Ok(()) => return root,
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(error) => panic!("native terminal store root: {error}"),
+        }
+    }
+}
+
 fn assert_recovered_terminal(
     resources: (
         crate::store::Store,

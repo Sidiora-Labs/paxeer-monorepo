@@ -1,8 +1,8 @@
 # Governance proposal types
 
-Paxeer has one merged network: chain governance runs in `paxd`, and the
-kernel is part of that network and proposes blocks. A receipt is final when
-its block is committed.
+Chain governance runs in `paxd`. The LayerX kernel inside `paxd` executes and
+orders each transaction and builds each block; validators check and commit it. A
+receipt is final when its block is committed.
 
 This reference covers Go proposal declarations and their execution handlers,
 plus the kernel governance constants. A retained declaration does not by itself

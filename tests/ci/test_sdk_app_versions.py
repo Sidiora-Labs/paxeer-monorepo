@@ -189,13 +189,6 @@ def test_first_party_sdk_versions_are_0_1_0():
     _assert_versions(path for path in _manifests() if _is_sdk(path))
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "docs/site/docs-assistant/package.json and docs/site/paxeer-docs/package.json "
-        "declare version 1.0.0 rather than the first-party version 0.1.0."
-    ),
-)
 def test_first_party_app_versions_are_0_1_0():
     _assert_versions(path for path in _manifests() if not _is_sdk(path))
 

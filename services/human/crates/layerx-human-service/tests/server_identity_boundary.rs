@@ -355,7 +355,16 @@ fn real_component_boundary_registers_asserts_opens_and_authorizes_session() {
     );
     assert_eq!(listed.result["sessions"][0]["current"], true);
 
-    verify_principal_route(&socket_path, &session.access_token);
+    verify_principal_route(
+        &socket_path,
+        &session.access_token,
+        required(
+            listed.result["sessions"][0]["session_id"]
+                .as_str()
+                .ok_or("opened session missing"),
+            "opened session id",
+        ),
+    );
 
     shutdown.request();
     let completion = server
@@ -446,7 +455,7 @@ fn register_and_open_session(
     session
 }
 
-fn verify_principal_route(socket: &std::path::Path, access_token: &str) {
+fn verify_principal_route(socket: &std::path::Path, access_token: &str, session_id: &str) {
     use layerx_human_service::server::{HttpConfig, PrincipalLimits, Router};
     use std::io::{Read as _, Write as _};
     let backend = Arc::new(required(
@@ -502,7 +511,10 @@ fn verify_principal_route(socket: &std::path::Path, access_token: &str) {
                 .split_once("\r\n\r\n")
                 .unwrap_or_else(|| panic!("HTTP body"));
             let body: Value = required(serde_json::from_str(body), "principal JSON");
-            assert_eq!(body["result"], json!({"active":true,"sub":ACCOUNT_ID}));
+            assert_eq!(
+                body["result"],
+                json!({"active":true,"sub":ACCOUNT_ID,"tenant_id":"tenant-mara","session_id":session_id})
+            );
         }
     }
 }

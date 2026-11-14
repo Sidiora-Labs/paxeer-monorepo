@@ -11,6 +11,7 @@ mod control_proof {
 
     use std::collections::{BTreeMap, BTreeSet};
     use std::fs;
+    use std::os::unix::fs::PermissionsExt as _;
 
     use ed25519_dalek::{Signer as _, SigningKey};
     use layerx_agentd::budget::{BudgetLimiter, LimitConfig, LimitId, LimitScope, LocalLimit};
@@ -103,6 +104,8 @@ mod control_proof {
             primary_public_key: [u8; 32],
         ) -> Self {
             fs::create_dir_all(&root).unwrap_or_else(|error| panic!("agent root: {error}"));
+            fs::set_permissions(&root, fs::Permissions::from_mode(0o700))
+                .unwrap_or_else(|error| panic!("agent root permissions: {error}"));
             Self {
                 store: Store::open(&root).unwrap_or_else(|error| panic!("agent store: {error}")),
                 sessions: SessionRegistry::default(),
@@ -336,10 +339,7 @@ mod control_proof {
             }
             let receipt =
                 protocol_receipt_for_payload(action.action_key, action.compiled.payload());
-            layerx_human_service::server::agent_creation::verify_evm_outcome(
-                &receipt,
-                action.compiled.activity_type(),
-            )?;
+            receipt.verify_outcome(action.compiled.activity_type())?;
             decoded_limit(action.intent.kind())?;
             let finalization = ProductionAgentCreation::finalization_evidence(
                 &receipt,
@@ -604,11 +604,9 @@ mod control_proof {
             protocol.resulting_state_root(),
             authorized_batch.resulting_state_root()
         );
-        let receipt = layerx_human_service::server::agent_creation::verify_evm_outcome(
-            &evidence,
-            payload.activity_type(),
-        )
-        .or_fail("verified owner transaction outcome");
+        let receipt = evidence
+            .verify_outcome(payload.activity_type())
+            .or_fail("verified owner transaction outcome");
         let protocol = receipt.protocol().or_fail("protocol receipt");
         assert_eq!(evidence.tx_hash, protocol.activity_id());
         assert_eq!(evidence.tx_hash, evidence.activity_id);
@@ -638,10 +636,10 @@ mod control_proof {
         bytes.extend_from_slice(&0_u32.to_be_bytes());
         bytes.extend_from_slice(&1_u128.to_be_bytes());
         push_bytes(&mut bytes, &fields.batch_id);
-        push_u16(&mut bytes, 12);
+        push_u16(&mut bytes, ModuleId::Budget as u16);
         bytes.extend_from_slice(&1_u32.to_be_bytes());
         bytes.extend_from_slice(&1_u32.to_be_bytes());
-        bytes.push(2);
+        bytes.push(0);
         push_bytes(&mut bytes, &[0; 32]);
         bytes.extend_from_slice(&0_u128.to_be_bytes());
         push_bytes(&mut bytes, &[0; 32]);

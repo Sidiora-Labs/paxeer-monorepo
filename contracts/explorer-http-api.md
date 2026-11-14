@@ -1,6 +1,6 @@
 # Explorer HTTP API
 
-The explorer indexes and presents Paxeer mainnet-beta, one BFT network with EVM chain ID **125** (`0x7d`). The kernel is part of the network and proposes blocks; execution is final when its block is committed. Sub-chains are tenant domains in the database. An explorer index, cached response, or pending submission is not an independent source of finality.
+The explorer indexes and presents Paxeer mainnet-beta, with EVM chain ID **125** (`0x7d`). The LayerX kernel inside `paxd` executes and orders each transaction and builds each block; validators check and commit it; execution is final when its block is committed. Sub-chains are tenant domains in the database. An explorer index, cached response, or pending submission is not an independent source of finality.
 
 Node JSON-RPC uses HTTPS at the configured node’s root path. See [node transport and served methods](evm-rpc.md). Node-state `px_*` methods are distinct from the hosted identity and faucet operations in [the gateway OpenRPC contract](../services/platform/hosted/gateway/openrpc.json).
 

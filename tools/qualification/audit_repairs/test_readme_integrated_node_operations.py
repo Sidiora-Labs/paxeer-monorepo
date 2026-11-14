@@ -49,11 +49,14 @@ def test_finding_016_integrated_paxd_network_and_block_finality():
     ) in boundary
     overview = section("What is Paxeer X Network?", 2)
     for fact in (
-        "one BFT network",
+        "The LayerX kernel runs inside every `paxd` node.",
         "chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node",
-        "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.",
+        "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "A receipt is final once its block is committed",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
         "External checkpoint settlement is retired",
@@ -72,12 +75,12 @@ def test_finding_016_architecture_and_receipt_diagrams():
     diagrams = re.findall(r"```mermaid\n(.*?)\n```", NETWORK_PATH.read_text(encoding="utf-8"), re.S)
     assert len(diagrams) == 2
     topology, sequence = diagrams
-    assert "subgraph Network[One Paxeer BFT network / EVM chain 125]" in topology
+    assert "subgraph Network[Paxeer X / EVM chain 125]" in topology
     node = re.search(r"subgraph Node\[paxd\]\n(.*?)\n\s*end", topology, re.S)
     assert node is not None
     assert "Embedded C17 kernel and Rust programs host" in node[1]
     assert "RPC --> Order --> Host --> Native" in node[1]
-    assert "Order -->|Proposed block in execution order| Validators[BFT validators]" in topology
+    assert "Order -->|Proposed block in execution order| Validators[Validators check and commit]" in topology
     assert "Validators -->|Commit| State[Committed block and chain state]" in topology
     assert "State -->|Transaction receipts, logs and proofs| Client" in topology
     ordered = (

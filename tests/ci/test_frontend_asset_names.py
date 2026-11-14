@@ -92,16 +92,7 @@ def test_no_spaces_in_app_asset_names(app):
 @pytest.mark.parametrize(
     "app",
     [
-        pytest.param(
-            "apps/launchpad/web",
-            marks=pytest.mark.xfail(
-                strict=True,
-                reason=(
-                    "apps/launchpad/web/asset-renames.kvx records a different "
-                    "SHA-256 for public/icons/logo.svg."
-                ),
-            ),
-        ),
+        "apps/launchpad/web",
         "apps/perps",
     ],
 )

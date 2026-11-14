@@ -44,14 +44,16 @@ def qualification_evidence(tmp_path_factory):
     return evidence
 
 
+@pytest.mark.native
 def test_qualification_suites_pass(qualification_evidence):
     output = Path(qualification_evidence["log"]).read_text()
     assert qualification_evidence["exit"] == 0, output
     assert re.search(r"\b[1-9][0-9]* passed\b", output), output
 
 
+@pytest.mark.native
 def test_repair_record_settles_every_baseline_entry(qualification_evidence):
-    directory = ROOT / "tools/qualification"
+    directory = ROOT / "spec/layerx-merge/programme/records/tools/qualification"
     baseline = tomllib.loads((directory / "repair_22_31_621.kvx").read_text())
     record = tomllib.loads((directory / "repair_22_31_623.kvx").read_text())
     failures = baseline["failure"]

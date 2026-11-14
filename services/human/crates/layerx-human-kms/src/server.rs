@@ -290,20 +290,7 @@ fn sign(request: &Request<'_>, config: &Config, network: u32) -> Result<Option<[
     if call.chain_id != config.chain.chain_id || request.network != network {
         return Err(Error::Refused);
     }
-    let actor_length = request.disclosure.get(5..9).ok_or(Error::Refused)?;
-    if actor_length != 20_u32.to_be_bytes() {
-        return Err(Error::Refused);
-    }
-    let sender = request
-        .disclosure
-        .get(9..29)
-        .ok_or(Error::Refused)?
-        .try_into()
-        .map_err(|_| Error::Refused)?;
-    if sender != request.from {
-        return Err(Error::Refused);
-    }
-    let disclosure = bind_call(&call, sender).map_err(|_| Error::Refused)?;
+    let disclosure = bind_call(&call, request.from).map_err(|_| Error::Refused)?;
     disclosure
         .validate_for_signing()
         .map_err(|_| Error::Refused)?;

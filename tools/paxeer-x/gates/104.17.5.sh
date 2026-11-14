@@ -5,11 +5,11 @@ import base64,fcntl,hashlib,json,os,re,shutil,ssl,stat,subprocess,sys,time,urlli
 from pathlib import Path
 os.umask(0o077)
 ROOT=Path.cwd()
-OUT=Path(os.environ.get('PAXEER_X_WEBHOOK_DASHBOARD_ARTIFACTS','/root/lx-ops/paxeer-x-integration-2026-10-03/task-104.17.5-artifacts'))
+OUT=Path(os.environ.get('PAXEER_X_WEBHOOK_DASHBOARD_ARTIFACTS',str(ROOT / 'build/qualification/104.17.5')))
 OUT.mkdir(mode=0o700,parents=True,exist_ok=True)
-NODE='/root/lx-toolchains/node24/bin/node'
-CARGO='/root/.cargo/bin/cargo'
-TARGET=Path(os.environ.get('CARGO_TARGET_DIR','/root/lx-target/platform-webhook-dashboard'))
+NODE='node'
+CARGO='cargo'
+TARGET=Path(os.environ.get('CARGO_TARGET_DIR') or str(ROOT / 'services/platform/target'))
 def require(ok,reason):
  if not ok:raise RuntimeError(reason)
 def sha(path):return hashlib.sha256(Path(path).read_bytes()).hexdigest()
@@ -33,8 +33,8 @@ def private(path):
   if fd>=0:os.close(fd)
 def build():
  require(not git('status','--porcelain=v1'),'published immutable source required')
- before=sources();env=dict(os.environ,PATH='/root/lx-toolchains/node24/bin:/root/.cargo/bin:'+os.environ.get('PATH',''),RUSTUP_TOOLCHAIN='1.91.1',CARGO_BUILD_JOBS='2',CARGO_TARGET_DIR=str(TARGET))
- with Path('/root/lx-cargo/platform-tooling.lock').open('a') as lock:
+ before=sources();env=dict(os.environ,PATH=os.environ.get('PATH',''),RUSTUP_TOOLCHAIN='1.91.1',CARGO_BUILD_JOBS='2',CARGO_TARGET_DIR=str(TARGET))
+ with (ROOT / 'build/qualification/cargo/platform-tooling.lock').open('a') as lock:
   fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
   raw=run([CARGO,'test','--locked','--manifest-path','services/platform/Cargo.toml','-p','layerx-platform-webhooks','-p','layerx-platform-dashboard','--test','plain_listener','--no-run','--message-format=json'],'rust-build',env=env)
   artifacts=[]
@@ -49,7 +49,7 @@ def build():
      artifacts.append({'original':str(source),'path':str(captured),'sha256':sha(captured),'name':name,'kind':kind})
   require(sum(row['name']=='plain_listener' for row in artifacts)==2,'both genuine listener corpora required')
   require({row['name'] for row in artifacts}>={'layerx-webhooks','layerx-dashboard','verify_delivery'},'actual production executables required')
-  run(['/root/lx-toolchains/node24/bin/npm','--prefix','services/platform/hosted/dashboard/web','run','build'],'dashboard-build',env=env)
+  run(['npm','--prefix','services/platform/hosted/dashboard/web','run','build'],'dashboard-build',env=env)
   require(before==sources(),'source changed during compilation')
   (OUT/'manifest.json').write_text(json.dumps({'revision':git('rev-parse','HEAD'),'sources':before,'artifacts':artifacts},indent=2)+'\n')
 class NoRedirect(urllib.request.HTTPRedirectHandler):

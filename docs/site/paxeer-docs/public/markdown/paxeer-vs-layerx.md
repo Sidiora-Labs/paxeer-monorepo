@@ -2,11 +2,11 @@
 
 # Paxeer X and LayerX
 
-One BFT network combines EVM smart contracts, autonomous agent execution, and programmable finance, with finality at block commit.
+The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit each block.
 
 ## One Network, Kernel In-Process
 
-Paxeer X is one BFT network with EVM chain ID `125`. `paxd` supplies the Cosmos SDK chain and native EVM. The LayerX kernel is embedded in the node through `modules/lxphost` and participates in block proposal and deterministic execution. `node/sequencer` supplies execution ordering within the node. Applications compose both through native EVM precompiles and protocol receipts.
+Paxeer X uses EVM chain ID `125`. `paxd` supplies the Cosmos SDK chain and native EVM. The LayerX kernel runs inside the node through `modules/lxphost`, executes and orders each transaction and builds each block; validators check and commit it. Each transaction receives the next position in one global sequence and a signed execution receipt. EVM smart contracts, autonomous agent execution, and programmable finance share that sequence, with finality at block commit. `node/sequencer` supplies execution ordering within the node. Applications compose both through native EVM precompiles and protocol receipts.
 
 The kernel runs inside `paxd`. Native wallet payments submit signed EVM transactions to the ledger precompile; protocol activity authorization binds the payment terms. Kernel state changes commit with the rest of the node's transaction state. A receipt is final once its block is committed. There is no later checkpoint or settlement step.
 

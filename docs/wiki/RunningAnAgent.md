@@ -6,9 +6,9 @@ registers a daemon-bound MCP client with an agent runtime. The daemon owns the
 signing, policy, budget, approval, and receipt-resolution paths. Installing a
 client does not create protocol authority.
 
-Paxeer mainnet-beta is one BFT network, with EVM chain ID `125` (`0x7d`).
-The kernel is part of the network and proposes blocks. Execution and finality
-belong to that network: a receipt is final once its block is committed.
+Paxeer mainnet-beta uses EVM chain ID `125` (`0x7d`). The LayerX kernel inside
+`paxd` executes and orders each transaction and builds each block; validators
+check and commit it. Execution and finality belong to that network: a receipt is final once its block is committed.
 Sub-chains are tenant domains in the database, not additional infrastructure
 or new public chain endpoints.
 
@@ -382,7 +382,7 @@ The migrated result vocabulary is `rung`:
 | --- | --- |
 | `submitted` | Transaction submission; no verified execution receipt yet |
 | `receipted` | Receipt verified against a pinned receipt-key entry; committed-block finality has not yet been established by this result |
-| `committed` | Verified Comet commit at the receipt height; final on the BFT network |
+| `committed` | Verified Comet commit at the receipt height; final when validators commit its block |
 
 These meanings are shared in [the rung type](../../services/agent/crates/layerx-types/src/rung.rs).
 

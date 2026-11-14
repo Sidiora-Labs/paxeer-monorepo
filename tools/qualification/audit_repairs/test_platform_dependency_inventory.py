@@ -17,6 +17,9 @@ ROWS = (
     "rust|services/platform/Cargo.toml|locked-workspace-root",
     "rust|services/platform/hosted/core/Cargo.toml|covered-by-platform-cargo",
     "npm|services/platform/middleware/agent/package.json|covered-by-root-npm",
+    "python|services/platform/hosted/paxeer/requirements.txt|covered-by-python-source:services/platform/hosted/paxeer/evm.py",
+    "rust|services/platform/perf-db/Cargo.toml|locked-independent",
+    "rust|services/platform/perf-db/src/storage/durability_probe/Cargo.toml|covered-by-test:services/platform/perf-db/src/storage/durability_test.go",
 )
 
 
@@ -38,7 +41,12 @@ def workspace(tmp_path):
     for row in ROWS:
         assert inventory.count(row) == 1
     paths = [Path(row.split("|")[1]) for row in ROWS]
-    paths += [SCANNER, REGRESSION, Path("package.json"), Path("services/platform/Cargo.lock")]
+    paths += [
+        SCANNER, REGRESSION, Path("package.json"), Path("services/platform/Cargo.lock"),
+        Path("services/platform/hosted/paxeer/evm.py"),
+        Path("services/platform/perf-db/Cargo.lock"),
+        Path("services/platform/perf-db/src/storage/durability_test.go"),
+    ]
     for path in paths:
         destination = tmp_path / path
         destination.parent.mkdir(parents=True, exist_ok=True)

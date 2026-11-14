@@ -1,6 +1,6 @@
 """Offline source proof for audit 22.30.153/readme-separate-daemon.
 
-Read the actual README and production sources; do not claim native execution,
+Read the actual NETWORK and production sources; do not claim native execution,
 endpoint availability, consensus, cryptographic verification or recovery.
 """
 
@@ -10,11 +10,10 @@ from pathlib import Path
 import re
 import shlex
 import tomllib
-from urllib.parse import urlsplit
 
 
 ROOT = Path(__file__).resolve().parents[3]
-README = (ROOT / "README.md").read_text(encoding="utf-8")
+NETWORK = (ROOT / "docs/readme/NETWORK.md").read_text(encoding="utf-8")
 RECORD = ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_522.kvx"
 
 
@@ -24,10 +23,10 @@ def source(path):
 
 def section(heading, level=3):
     marker = "#" * level + " " + heading + "\n"
-    assert README.count(marker) == 1, heading
+    assert NETWORK.count(marker) == 1, heading
     lines = []
     fence = None
-    for line in README.split(marker, 1)[1].splitlines(keepends=True):
+    for line in NETWORK.split(marker, 1)[1].splitlines(keepends=True):
         delimiter = re.match(r"^ {0,3}(`{3,}|~{3,})(.*)$", line)
         if delimiter:
             ticks, suffix = delimiter.groups()
@@ -44,13 +43,15 @@ def section(heading, level=3):
 def test_readme_describes_one_embedded_paxd_network():
     overview = section("What is Paxeer X Network?", 2)
     for fact in (
-        "one BFT network", "chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node", "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "The LayerX kernel runs inside every `paxd` node.", "chain ID **125** (`0x7d`)",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.", "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "`modules/lxphost`", "`node/sequencer`",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
         "External checkpoint settlement is retired",
-        "no router and no separate LayerX interface",
     ):
         assert fact in overview, fact
     assert "app.LayerXHost, err = NewHost(" in source("node/app.go")
@@ -58,37 +59,24 @@ def test_readme_describes_one_embedded_paxd_network():
     assert "var _ tmtypes.SequencerSource = (*ConsensusSource)(nil)" in source(
         "node/sequencer/consensus_source.go"
     )
-    assert not re.search(r"\blayerxd\b|cmd/layerxd|two execution domains", README, re.I)
+    assert not re.search(r"\blayerxd\b|cmd/layerxd|two execution domains", NETWORK, re.I)
 
 
 def test_root_rpc_hosts_and_chain_probe_are_current():
     quickstart = section("Quick start: connect to chain 125")
-    assert "Public node JSON-RPC uses the root URL" in quickstart
-    assert "`https://api1.mainnet-beta.paxeer.network` through `https://api14.mainnet-beta.paxeer.network`" in quickstart
-    assert "root path of these hosts, without a route suffix" in quickstart
-    hosts = {f"api{i}.mainnet-beta.paxeer.network" for i in range(1, 15)}
-    hosts.add("api-mainnet-beta.paxeer.network")
-    for url in re.findall(r"https?://[^\s`<>)]+", README):
-        parsed = urlsplit(url)
-        if parsed.hostname and parsed.hostname.endswith("mainnet-beta.paxeer.network"):
-            assert parsed.hostname in hosts, url
-            assert parsed.scheme == "https" and parsed.path in ("", "/"), url
-            assert not parsed.query and not parsed.fragment, url
+    assert "Set `PAXEER_RPC_URL` to a node root URL from the [public RPC reference]" in quickstart
+    assert "Send HTTPS JSON-RPC requests to the root path without a route suffix" in quickstart
     blocks = re.findall(r"```sh\n(.*?)\n```", quickstart, re.S)
     assert len(blocks) == 1
     argv = shlex.split(blocks[0].split("\n# Expected result:")[0].replace("\\\n", " "))
     assert argv[0] == "curl"
     assert argv[argv.index("--max-time") + 1] == "10"
+    assert "$PAXEER_RPC_URL" in argv
     assert argv[argv.index("-H") + 1] == "Content-Type: application/json"
-    assert [arg for arg in argv if arg.startswith("https://")] == [
-        "https://api1.mainnet-beta.paxeer.network"
-    ]
     assert json.loads(argv[argv.index("-d") + 1]) == {
         "jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": []
     }
     assert '# Expected result: "0x7d"' in blocks[0]
-    assert "node.hyperpaxeer.com` is only the hpx library mirror" in quickstart
-    assert "never a JSON-RPC endpoint" in quickstart
     assert 'if path == "" {\n\t\treturn r.URL.Path == "/"' in source("rpc/rpcstack.go")
 
 
@@ -140,18 +128,18 @@ def test_transaction_and_committed_receipt_follow_production_sources():
     assert re.findall(r'Rung\w+ Rung = "(\w+)"', rpc) == ["submitted", "receipted", "committed"]
     assert "a.coveringHeight(decoded.GlobalSequence, decoded.ResultingStateRoot, uint64(view.Height))" in rpc
     assert "result.Rung, result.BlockNumber, result.BlockHash = RungCommitted" in rpc
-    assert "A receipt is final once its block is committed" in README
+    assert "A receipt is final once its block is committed" in NETWORK
     proof = section("Receipt and proof verification")
     assert "Neither a transaction hash nor a signed execution receipt alone establishes block commitment" in proof
     assert "authenticate the block header and CometBFT commit against trusted validator information" in proof
 
 
 def test_diagrams_keep_execution_and_commitment_in_one_network():
-    diagrams = re.findall(r"```mermaid\n(.*?)\n```", README, re.S)
+    diagrams = re.findall(r"```mermaid\n(.*?)\n```", NETWORK, re.S)
     assert len(diagrams) == 2
     topology, sequence = diagrams
     for fact in (
-        "subgraph Network[One Paxeer BFT network / EVM chain 125]",
+        "subgraph Network[Paxeer X / EVM chain 125]",
         "subgraph Node[paxd]", "Embedded C17 kernel and Rust programs host",
         "RPC --> Order --> Host --> Native", "Validators -->|Commit| State",
     ):
@@ -196,7 +184,7 @@ def test_precompile_overview_matches_merged_activation_and_retirement():
     anchor = source("precompiles/layerxanchor/layerxanchor.go")
     assert "!isView(method.Name) && pcommon.RetiredAt(ctx, p.upgrades(), pcommon.MergeUpgrade" in anchor
     assert "pcommon.RetiredAt(ctx, p.upgrades(), StoreDeleteUpgrade" in anchor
-    assert "custody deposit and credit-attestation funding flow is retired" in README
+    assert "custody deposit and credit-attestation funding flow is retired" in NETWORK
     build = section("Build")
     assert "make paxd-build" in build
     assert "running network entry point is `paxd`" in build

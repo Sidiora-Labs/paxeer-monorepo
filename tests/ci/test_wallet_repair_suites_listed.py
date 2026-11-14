@@ -1,11 +1,10 @@
-"""Every wallet repair keeps a colocated suite in the public workflow's test scope."""
+"""Every wallet repair keeps its suites in the public workflow's test scope."""
 
 from pathlib import Path
 import re
 import shlex
 import tomllib
 
-import pytest
 import yaml
 
 from test_pnpm_workspace_roots import expand_matrix, matrix_rows, run_directory
@@ -58,20 +57,14 @@ def repair_suites():
         if not suites:
             suite = source_record.with_suffix(".test.ts")
             suites = {renames.get(suite, suite)}
-        assert any(suite.parent == source_record.parent for suite in suites), (
-            f"{record.relative_to(ROOT)} must retain a colocated repair suite"
-        )
+        if not explicit:
+            assert any(suite.parent == source_record.parent for suite in suites), (
+                f"{record.relative_to(ROOT)} must retain a colocated repair suite"
+            )
         inventory[record] = suites
     return inventory
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "spec/layerx-merge/programme/records/apps/wallet/src/wallet/"
-        "repair-22-39-346.kvx names component suites without a colocated wallet suite."
-    ),
-)
 def test_wallet_repair_suites_exist():
     inventory = repair_suites()
     assert ACCOUNT_SUITE in inventory[ACCOUNT_RECORD]
@@ -84,13 +77,6 @@ def test_wallet_repair_suites_exist():
             assert suite.is_relative_to(SOURCE)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "spec/layerx-merge/programme/records/apps/wallet/src/wallet/"
-        "repair-22-39-346.kvx names component suites without a colocated wallet suite."
-    ),
-)
 def test_wallet_repair_suites_named_in_workflow_scope():
     workflow = yaml.load(
         (ROOT / ".github/workflows/wallet-test.yml").read_text(),

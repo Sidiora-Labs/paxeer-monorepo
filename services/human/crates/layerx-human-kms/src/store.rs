@@ -880,6 +880,9 @@ impl Store {
             if record.class != request.class || request.reference != record.handle {
                 return Err(Error::Refused);
             }
+            if record.self_custodied {
+                return Err(Error::SelfCustodied);
+            }
             if record
                 .send_reservations
                 .get(&key)

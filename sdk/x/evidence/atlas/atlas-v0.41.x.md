@@ -9,8 +9,8 @@ be queried individually or with pagination.
 **Upstream provenance:** this filename and [atlas manifest](manifest.toml)
 retain the Cosmos SDK v0.41 origin; the manifest links identify upstream sources.
 The integration details below describe the local fork used by
-`paxd`. Paxeer is one BFT network, with EVM chain ID `125`; its kernel participates
-in proposing blocks. These evidence operations belong to that node's SDK
+`paxd`. Paxeer uses EVM chain ID `125`.
+The LayerX kernel runs inside every `paxd` node, executes each transaction when it arrives, assigns the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it. These evidence operations belong to that node's SDK
 application.
 
 ## Usage
