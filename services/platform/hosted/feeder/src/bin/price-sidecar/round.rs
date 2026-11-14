@@ -3,7 +3,8 @@
 //! broadcast with `broadcast_tx_sync` on the consensus RPC.
 
 use std::path::Path;
-use std::sync::Mutex;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{mpsc, Mutex};
 use std::thread;
 use std::time::Duration;
 
@@ -560,6 +561,30 @@ impl RetryPlan {
     }
 }
 
+fn read_observation(
+    config: &Config,
+    rpc: &Rpc,
+    market: &MarketConfig,
+    validator: &[u8; 20],
+    height: &str,
+) -> Result<u64, String> {
+    let mut plan = RetryPlan::new(config.retry_backoff_ms, config.retry_max_attempts);
+    let mut last = None;
+    while let Some(attempt) = plan.next(last.as_ref()) {
+        thread::sleep(Duration::from_millis(attempt.delay_ms));
+        match rpc.call_pricefeed_at(&observation_call(market.market_id, validator), height) {
+            Err(error) if error.contains("rejected due to rate limit") => {
+                last = Some(Outcome::Transport(error));
+            }
+            result => return result.and_then(|answer| observation_sequence(&answer)),
+        }
+    }
+    match last {
+        Some(Outcome::Transport(error)) => Err(error),
+        _ => unreachable!("retry plan always starts with an observation read"),
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 struct Pending {
     hash: String,
@@ -726,29 +751,34 @@ impl Sidecar {
         let validator = config.validator()?;
         journal.next_account_sequence = account.sequence;
         let height = format!("0x{:x}", account.height);
-        let sequences: Vec<_> = thread::scope(|scope| {
-            let handles: Vec<_> = config
-                .markets
-                .iter()
-                .map(|market| {
+        let next = AtomicUsize::new(0);
+        let (sender, receiver) = mpsc::channel();
+        thread::scope(|scope| {
+            let handles: Vec<_> = (0..config
+                .max_committed_reads_in_flight
+                .min(config.markets.len()))
+                .map(|_| {
                     scope.spawn(|| {
-                        rpc.call_pricefeed_at(
-                            &observation_call(market.market_id, &validator),
-                            &height,
-                        )
-                        .and_then(|answer| observation_sequence(&answer))
+                        while let Some((index, market)) = {
+                            let index = next.fetch_add(1, Ordering::Relaxed);
+                            config.markets.get(index).map(|market| (index, market))
+                        } {
+                            let result = read_observation(config, rpc, market, &validator, &height);
+                            if sender.send((index, result)).is_err() {
+                                break;
+                            }
+                        }
                     })
                 })
                 .collect();
-            handles
-                .into_iter()
-                .map(|handle| {
-                    handle
-                        .join()
-                        .unwrap_or_else(|_| Err("observation read panicked".to_owned()))
-                })
-                .collect()
+            for handle in handles {
+                let _ = handle.join();
+            }
         });
+        let mut sequences = vec![Err("observation read panicked".to_owned()); config.markets.len()];
+        for (index, sequence) in receiver.try_iter() {
+            sequences[index] = sequence;
+        }
         for (market, sequence) in config.markets.iter().zip(sequences) {
             let sequence = sequence?;
             let record = journal.markets.entry(market.symbol.clone()).or_default();
@@ -1340,6 +1370,7 @@ mod tests {
             gas_limit: 200_000,
             cadence_ms: 1000,
             max_pending_submissions: 8,
+            max_committed_reads_in_flight: 6,
             pending_submission_block_limit: PENDING_SUBMISSION_BLOCK_LIMIT,
             retry_backoff_ms: 200,
             retry_max_attempts: 3,
