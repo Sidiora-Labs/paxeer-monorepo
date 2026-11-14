@@ -401,7 +401,7 @@ jobs:
           pnpm compile
       - &launchpad_go_reward_schema
         name: Install reward schema fixture dependencies
-        working-directory: services/launchpad/pnl-tracker/internal/app/testdata/repair29
+        working-directory: services/launchpad/pnl-tracker/internal/app/testdata/reward_schema
         run: pnpm install --ignore-workspace --frozen-lockfile
       - &launchpad_go_protocol_proofs
         name: Build protocol proof dependencies
@@ -423,12 +423,12 @@ jobs:
               build_proof_dependencies precompiles/launchpad
             )
             (
-              cd sdk/launchpad/protocol/bindings/testdata/repair37/contracts
+              cd sdk/launchpad/protocol/bindings/testdata/contract_events/contracts
               go mod download all
             )
-            build_proof_dependencies sdk/launchpad/protocol/bindings/testdata/repair37/contracts
+            build_proof_dependencies sdk/launchpad/protocol/bindings/testdata/contract_events/contracts
             (
-              cd sdk/launchpad/protocol/coverage/testdata/repair28producer
+              cd sdk/launchpad/protocol/coverage/testdata/emitter_producer
               cp go.mod "$RUNNER_TEMP/launchpad-repair28.mod"
               go build -modfile="$RUNNER_TEMP/launchpad-repair28.mod" -mod=mod -o "$RUNNER_TEMP/launchpad-repair28-producer" .
             )
@@ -438,7 +438,7 @@ jobs:
           if [ "${{ matrix.module }}" = services/launchpad/indexer ]; then
             anvil --version
             test -s internal/internaltest/chainfixture/testdata/paxeer125-market.jsonl.gz
-            test -s internal/receipt/testdata/repair53-producer.json
+            test -s internal/receipt/testdata/producer_receipts.json
             test -s ../../../contracts/launchpad/artifacts/contracts/core/SidioraNFT.sol/SidioraNFT.json
             test -s ../../../contracts/launchpad/artifacts/contracts/core/SidioraERC20.sol/SidioraERC20.json
             # The historical range and NFT tests mine their own chain-125 inputs.

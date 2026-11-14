@@ -3,8 +3,11 @@
 import subprocess
 from pathlib import Path
 
+import pytest
+
 
 ROOT = Path(__file__).resolve().parents[2]
+pytestmark = pytest.mark.native
 
 
 def assert_wallet_lockfile_installs_frozen(directory, *options):

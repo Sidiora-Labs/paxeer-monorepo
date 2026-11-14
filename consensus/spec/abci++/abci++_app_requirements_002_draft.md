@@ -8,8 +8,8 @@ title: Application Requirements
 ## Current fork requirements
 
 This page documents the in-process application contract used by the consensus
-engine embedded in `paxd`. Paxeer mainnet-beta is one BFT network, with EVM chain
-ID 125 (`0x7d`); the merged kernel is part of the network and proposes blocks.
+engine embedded in `paxd`. Paxeer mainnet-beta uses EVM chain ID 125 (`0x7d`).
+The LayerX kernel runs inside every `paxd` node, executes each transaction when it arrives, assigns the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it.
 A receipt is final when its block is committed. See the
 [specification overview](../README.md#mode-applicability) for mode selection and
 the [Autobahn protocol map](../README.md#autobahn-protocol-and-implementation-map)

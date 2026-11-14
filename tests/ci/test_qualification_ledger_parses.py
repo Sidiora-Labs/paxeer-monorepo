@@ -7,7 +7,6 @@ import re
 import subprocess
 import tempfile
 
-
 ROOT = Path(__file__).resolve().parents[2]
 LEDGER = ROOT / "spec/layerx-merge/qualification.kvx"
 

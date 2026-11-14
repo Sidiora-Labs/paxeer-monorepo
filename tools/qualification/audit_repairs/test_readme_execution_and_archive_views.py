@@ -1,7 +1,7 @@
 """Offline source proof for audit 22.30.154/readme_split_execution.
 
-README.md is produced by task 22.31.470. These checks consume that actual
-document and its production source references without running native tools.
+The network reference and public RPC page describe the node and retained
+history. These checks read those pages and their production source references.
 """
 
 import ast
@@ -14,6 +14,8 @@ from urllib.parse import urlsplit
 
 
 ROOT = Path(__file__).resolve().parents[3]
+NETWORK_PAGE = ROOT / "docs/readme/NETWORK.md"
+PUBLIC_RPC = (ROOT / "docs/readme/PUBLIC-RPC.md").read_text(encoding="utf-8")
 RECORD = ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_526.kvx"
 
 
@@ -23,7 +25,7 @@ def source(path):
 
 def section(heading, level=3):
     """Read a section while preserving headings and comments inside fences."""
-    text = source("README.md")
+    text = NETWORK_PAGE.read_text(encoding="utf-8")
     marker = "#" * level + " " + heading + "\n"
     assert text.count(marker) == 1, heading
     lines = []
@@ -51,11 +53,15 @@ def test_readme_split_execution_one_embedded_paxd_network():
         "C17 kernel", "runs inside `paxd`", "modules/lxphost",
         "A receipt is final once its block is committed",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
-        "archive node `api2.mainnet-beta.paxeer.network` keeps full history",
-        "other thirteen numbered public nodes prune",
-        "retention return JSON-RPC error `-32000`",
     ):
         assert fact in overview, fact
+    for fact in (
+        "`api2.mainnet-beta.paxeer.network` is the archive node and keeps\nfull history",
+        "the other thirteen numbered nodes prune",
+        "Historical queries\ndepend on the node's retained state and receipt availability",
+        "Error `-32000` alone does not identify a retention limit",
+    ):
+        assert fact in PUBLIC_RPC, fact
     topology = re.findall(r"```mermaid\n(.*?)\n```", overview, re.S)
     assert len(topology) == 1
     for fact in (
@@ -75,10 +81,14 @@ def test_readme_split_execution_one_embedded_paxd_network():
 def test_readme_split_execution_root_json_rpc_chain_probe():
     quickstart = section("Quick start: connect to chain 125")
     for fact in (
-        "Public node JSON-RPC uses the root URL",
-        "root path of these hosts, without a route suffix",
-        "`https://api1.mainnet-beta.paxeer.network` through "
-        "`https://api14.mainnet-beta.paxeer.network`",
+        "Use `api1` through `api14.mainnet-beta.paxeer.network` or",
+        "`api-mainnet-beta.paxeer.network`, all at the root path",
+        "node.hyperpaxeer.com` is only the hpx library mirror, never a JSON-RPC endpoint",
+    ):
+        assert fact in PUBLIC_RPC, fact
+    for fact in (
+        "Set `PAXEER_RPC_URL` to a node root URL",
+        "Send HTTPS JSON-RPC requests to the root path without a route suffix",
         "compare `eth_blockNumber`",
     ):
         assert fact in quickstart, fact
@@ -92,10 +102,8 @@ def test_readme_split_execution_root_json_rpc_chain_probe():
         "jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": []
     }
     assert '# Expected result: "0x7d"' in blocks[0]
-    assert [arg for arg in argv if arg.startswith("https://")] == [
-        "https://api1.mainnet-beta.paxeer.network"
-    ]
-    for url in re.findall(r"https?://[^\s`<>)]+", source("README.md")):
+    assert argv[argv.index("-sS") + 1] == "$PAXEER_RPC_URL"
+    for url in re.findall(r"https?://[^\s`<>)]+", PUBLIC_RPC):
         parsed = urlsplit(url)
         if parsed.hostname and parsed.hostname.endswith("mainnet-beta.paxeer.network"):
             assert parsed.scheme == "https"
@@ -193,7 +201,7 @@ def test_readme_split_execution_examples_use_paxd_and_library_tools():
         r"\blayerxd\b", r"two (?:execution )?domains",
         r"kernel still runs separately", r"make\s+checkpoint",
     ):
-        assert not re.search(stale, source("README.md"), re.I), stale
+        assert not re.search(stale, NETWORK_PAGE.read_text(encoding="utf-8"), re.I), stale
 
 
 def test_readme_split_execution_repair_record_maps_proof_and_limits():

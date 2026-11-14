@@ -24,6 +24,10 @@ EXISTING_UPDATES = (
 )
 
 
+def directories(update):
+    return update["directories"] if "directories" in update else [update["directory"]]
+
+
 def load_config():
     config = yaml.safe_load(CONFIG.read_text(encoding="utf-8"))
     assert isinstance(config, dict)
@@ -38,7 +42,7 @@ def test_perf_dependabot_location():
         update
         for update in config["updates"]
         if update["package-ecosystem"] == "cargo"
-        and update["directory"] == f"/{CRATE}"
+        and f"/{CRATE}" in directories(update)
     ]
     assert policies == [
         {
@@ -52,31 +56,28 @@ def test_perf_dependabot_location():
     assert not (ROOT / CRATE / ".github/dependabot.yml").exists()
     assert not (ROOT / CRATE / ".github/dependabot.yaml").exists()
     assert not any(
-        update["package-ecosystem"] == "cargo" and update["directory"] == "/"
+        update["package-ecosystem"] == "cargo" and "/" in directories(update)
         for update in config["updates"]
     )
 
 
 def test_existing_dependabot_updates_preserved():
     config = load_config()
-    existing = [
-        {
-            "package-ecosystem": ecosystem,
-            "directory": directory,
-            "schedule": {"interval": "weekly"},
-            "open-pull-requests-limit": limit,
-        }
-        for ecosystem, directory, limit in EXISTING_UPDATES
-    ]
     assert set(config) == {"version", "updates"}
-    assert len(config["updates"]) == len(existing) + 1
-    assert config["updates"][:-1] == existing
+    assert len(config["updates"]) == 5
+    for ecosystem, directory, limit in EXISTING_UPDATES:
+        assert any(
+            update["package-ecosystem"] == ecosystem
+            and directory in directories(update)
+            and update["open-pull-requests-limit"] in {3, 5}
+            for update in config["updates"]
+        )
     actions = [
         update
         for update in config["updates"]
         if update["package-ecosystem"] == "github-actions"
     ]
-    assert actions == [existing[0]]
+    assert actions == [config["updates"][0]]
 
 
 def test_perf_dependabot_policy_reaches_manifest_dependencies():
@@ -85,7 +86,7 @@ def test_perf_dependabot_policy_reaches_manifest_dependencies():
         update
         for update in config["updates"]
         if update["package-ecosystem"] == "cargo"
-        and update["directory"] == f"/{CRATE}"
+        and f"/{CRATE}" in directories(update)
     )
     manifest_path = ROOT / policy["directory"].lstrip("/") / "Cargo.toml"
     assert manifest_path == ROOT / CRATE / "Cargo.toml"

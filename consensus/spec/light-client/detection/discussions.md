@@ -9,8 +9,8 @@ trust and timing assumptions, and the [IBC function drafts](draft-functions.md)
 for the proposed relayer operations. The supervisor and store states below
 are research abstractions rather than public Go APIs.
 
-Paxeer is one BFT network whose kernel runs inside the network and participates
-in block proposal. Its EVM chain ID is 125 (`0x7d`); a receipt is final once
+Paxeer uses EVM chain ID 125 (`0x7d`).
+The LayerX kernel runs inside every `paxd` node, executes each transaction when it arrives, assigns the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it. A receipt is final once
 its block is committed. A light client's inability to verify a remote response
 is a limitation of that observer's knowledge, not another network finality stage.
 

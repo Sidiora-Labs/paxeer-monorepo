@@ -1,8 +1,9 @@
 # Paxeer X chain modules
 
 Chain-specific modules and integration helpers for `paxd` live here. Paxeer
-mainnet-beta is one BFT network with EVM chain ID **125** (`0x7d`). The kernel
-is part of this network and proposes blocks; a receipt is final when its block
+mainnet-beta uses EVM chain ID **125** (`0x7d`). The LayerX kernel inside every
+`paxd` node executes and orders each transaction and builds each block;
+validators check and commit it; a receipt is final when its block
 is committed. Kernel execution and native balances share chain state.
 
 ## Layout

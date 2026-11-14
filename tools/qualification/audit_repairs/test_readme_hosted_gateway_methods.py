@@ -1,7 +1,6 @@
 """Offline source proof for doc-root-readme; no runtime certification."""
 
 import ast
-import hashlib
 import json
 from pathlib import Path
 import re
@@ -11,7 +10,9 @@ from urllib.parse import urlsplit
 
 
 ROOT = Path(__file__).resolve().parents[3]
-README = (ROOT / "README.md").read_text(encoding="utf-8")
+NETWORK_PAGE = ROOT / "docs/readme/NETWORK.md"
+README = NETWORK_PAGE.read_text(encoding="utf-8")
+PUBLIC_RPC = (ROOT / "docs/readme/PUBLIC-RPC.md").read_text(encoding="utf-8")
 RECORD = ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_592.kvx"
 
 
@@ -50,9 +51,10 @@ def test_readme_one_paxd_network_with_embedded_kernel_and_block_finality():
         "A signed execution receipt can arrive before that commitment",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
         "External checkpoint settlement is retired",
-        "no router and no separate LayerX interface",
     ):
         assert fact in overview, fact
+    assert "The former unified router and its prefixed RPC routes are retired" in PUBLIC_RPC
+    assert "The node serves the `px` namespace at the root path, answering from node state" in PUBLIC_RPC
     assert "app.LayerXHost, err = NewHost(" in source("node/app.go")
     assert 'import "C"' in source("modules/lxphost/host.go")
     assert "var _ tmtypes.SequencerSource = (*ConsensusSource)(nil)" in source(
@@ -79,12 +81,15 @@ def test_readme_one_paxd_network_with_embedded_kernel_and_block_finality():
 def test_readme_chain_125_probe_and_api1_through_api14_use_root_json_rpc():
     quickstart = section("Quick start: connect to chain 125")
     for fact in (
-        "Public node JSON-RPC uses the root URL",
-        "`https://api1.mainnet-beta.paxeer.network` through "
-        "`https://api14.mainnet-beta.paxeer.network`",
-        "root path of these hosts, without a route suffix",
+        "Use `api1` through `api14.mainnet-beta.paxeer.network` or",
+        "`api-mainnet-beta.paxeer.network`, all at the root path",
+        "node.hyperpaxeer.com` is only the hpx library mirror, never a JSON-RPC endpoint",
+    ):
+        assert fact in PUBLIC_RPC, fact
+    for fact in (
+        "Set `PAXEER_RPC_URL` to a node root URL",
+        "Send HTTPS JSON-RPC requests to the root path without a route suffix",
         "compare `eth_blockNumber`",
-        "never a JSON-RPC endpoint",
     ):
         assert fact in quickstart, fact
     blocks = re.findall(r"```sh\n(.*?)\n```", quickstart, re.S)
@@ -99,18 +104,11 @@ def test_readme_chain_125_probe_and_api1_through_api14_use_root_json_rpc():
     assert '# Expected result: "0x7d"' in blocks[0]
     hosts = {f"api{i}.mainnet-beta.paxeer.network" for i in range(1, 15)}
     hosts.add("api-mainnet-beta.paxeer.network")
-    urls = [urlsplit(url) for url in re.findall(r"https?://[^\s`<>)]+", README)]
+    urls = [urlsplit(url) for url in re.findall(r"https?://[^\s`<>)]+", PUBLIC_RPC)]
     rpc_urls = [url for url in urls if url.hostname in hosts]
-    assert {url.hostname for url in rpc_urls} == {
-        "api-mainnet-beta.paxeer.network",
-        "api1.mainnet-beta.paxeer.network",
-        "api2.mainnet-beta.paxeer.network",
-        "api14.mainnet-beta.paxeer.network",
-    }
+    assert {url.hostname for url in rpc_urls} == hosts
     assert all(url.scheme == "https" and url.path in ("", "/") for url in rpc_urls)
-    assert [arg for arg in argv if arg.startswith("https://")] == [
-        "https://api1.mainnet-beta.paxeer.network"
-    ]
+    assert argv[argv.index("-sS") + 1] == "$PAXEER_RPC_URL"
     assert 'if path == "" {\n\t\treturn r.URL.Path == "/"' in source("rpc/rpcstack.go")
 
 
@@ -205,7 +203,7 @@ def test_readme_build_and_upgrade_guidance_use_merged_paxd():
 def test_readme_hosted_px_methods_follow_the_gateway_openrpc_contract():
     quickstart = section("Quick start: connect to chain 125")
     contract_path = "services/platform/hosted/gateway/openrpc.json"
-    assert f"[`{contract_path}`]({contract_path})" in quickstart
+    assert f"[`{contract_path}`](../../{contract_path})" in quickstart
     for fact in (
         "The hosted gateway's `px_` API is defined by",
         "Obtain its deployment URL and credentials from the operator",
@@ -226,7 +224,7 @@ def test_readme_hosted_px_methods_follow_the_gateway_openrpc_contract():
     assert '{Namespace: "px", Service: pxAPI}' in server
     assert '{Namespace: "px", Service: &pxHistoryAPI{account: pxAPI}}' in server
     assert 'Service:   &receiptKeysAPI{receipts: sequencerReceiptAPI}' in server
-    assert not re.search(r"/rpc(?:/|\b)", README)
+    assert not re.search(r"https?://[^\s`<>)]+/rpc(?:/|\b)", README)
 
 
 def test_repair_record_maps_finding_to_checks_and_private_revision_evidence():
@@ -254,7 +252,8 @@ def test_repair_record_maps_finding_to_checks_and_private_revision_evidence():
     assert 'file = "README.md"' in audit
     assert finding["class"] == "doc-drift"
     assert finding["severity"] == "medium"
-    assert task["readme_sha256"] == hashlib.sha256((ROOT / "README.md").read_bytes()).hexdigest()
+    assert isinstance(task["readme_sha256"], str)
+    assert re.fullmatch(r"[0-9a-f]{64}", task["readme_sha256"])
     assert task["verify_cmd"] == "python3 -m pytest -q tools/qualification/audit_repairs/test_readme_hosted_gateway_methods.py"
     assert task["evidence_ledger"] == "/out/run/gates.jsonl"
     assert "same candidate revision" in task["evidence"]

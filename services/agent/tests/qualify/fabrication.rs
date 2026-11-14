@@ -131,7 +131,7 @@ fn dynamic_sdks_refuse_unverified(repository: &Path) -> Result<(), String> {
 import {readFileSync} from 'node:fs';
 import {Rung,requireVerified,verifySequencerReceipt,SequencerReceiptVerificationError,layerx_sdk_ts_package} from './services/agent/sdk/typescript/dist/src/index.js';
 assert.equal(layerx_sdk_ts_package().contractMajor,2);
-const record=JSON.parse(readFileSync('./services/agent/crates/layerx-sdk/src/repair_22_31_227_fixture/committed.json','utf8'));
+const record=JSON.parse(readFileSync('./services/agent/crates/layerx-sdk/src/committed_receipt_fixture/committed.json','utf8'));
 const bytes=s=>Uint8Array.from(Buffer.from(s.replace(/^0x/,''),'hex'));
 const key={keyId:bytes(record.pinnedKey.keyId),publicKey:bytes(record.pinnedKey.publicKey),first_height:10n,last_height:10n};
 const receipt=bytes(record.receiptJson.receipt),tx=bytes(record.rawTransaction);
@@ -159,7 +159,7 @@ from pathlib import Path
 from layerx_sdk import Rung, VerifiedRead, require_verified, layerx_sdk_py_package
 from layerx_sdk.verifier import ReceiptKey, verify_sequencer_receipt, SequencerReceiptVerificationError
 assert layerx_sdk_py_package()['contract_major'] == 2
-record=json.loads(Path('services/agent/crates/layerx-sdk/src/repair_22_31_227_fixture/committed.json').read_text())
+record=json.loads(Path('services/agent/crates/layerx-sdk/src/committed_receipt_fixture/committed.json').read_text())
 unhex=lambda s: bytes.fromhex(s.removeprefix('0x'))
 key=ReceiptKey(unhex(record['pinnedKey']['keyId']),unhex(record['pinnedKey']['publicKey']),10,10)
 receipt=unhex(record['receiptJson']['receipt']); tx=unhex(record['rawTransaction'])

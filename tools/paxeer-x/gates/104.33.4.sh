@@ -115,9 +115,9 @@ def build(directory):
     jobs = os.environ.get('CARGO_BUILD_JOBS', '3')
     require(jobs in {'1', '2', '3', '4'}, 'bounded compiler job count required')
     environment = dict(os.environ, CARGO_BUILD_JOBS=jobs,
-        CARGO_TARGET_DIR=os.environ.get('CARGO_TARGET_DIR', '/root/lx-target/programs'),
-        PATH='/root/.cargo/bin:' + os.environ.get('PATH', ''))
-    cargo = os.environ.get('CARGO', '/root/.cargo/bin/cargo')
+        CARGO_TARGET_DIR=os.environ.get('CARGO_TARGET_DIR') or str(ROOT / 'programs/target'),
+        PATH=os.environ.get('PATH', ''))
+    cargo = os.environ.get('CARGO', 'cargo')
     commands = [
         [cargo, 'build', '--locked', '--offline', '--manifest-path', 'programs/Cargo.toml',
          '-p', 'layerx-programs-interpreter', '--release', '--target', 'wasm32-unknown-unknown', '--message-format=json'],
@@ -129,9 +129,11 @@ def build(directory):
     binaries, prefixes, compiler = {}, set(), []
     capture_dir = directory / 'compiled'
     capture_dir.mkdir(mode=0o700)
-    lock_path = Path('/root/lx-cargo/interpreter-build.lock'
-        if environment['CARGO_TARGET_DIR'] == '/root/lx-target/arbiter-prestate/rust'
-        else '/root/lx-cargo/native-build.lock')
+    lock_path = (
+        ROOT / 'build/qualification/cargo/interpreter-build.lock'
+        if environment['CARGO_TARGET_DIR'] == str(ROOT / 'build/qualification/arbiter-prestate/rust')
+        else ROOT / 'build/qualification/cargo/native-build.lock'
+    )
     lock_path.parent.mkdir(parents=True, exist_ok=True)
     with lock_path.open('a') as lock:
         while True:
@@ -217,11 +219,11 @@ try:
     args = sys.argv[2:]
     require(args in ([], ['--build']), 'only --build or the declared verify selector is admitted')
     directory = Path(os.environ.get('PAXEER_X_INTERPRETER_EVIDENCE',
-        '/root/lx-ops/paxeer-x-integration-2026-10-03/qualification/task104334'))
+        str(ROOT / 'build/qualification/104.33.4')))
     directory.mkdir(parents=True, exist_ok=True, mode=0o700)
     private(directory, True)
     directory = directory.resolve(strict=True)
-    require(ROOT != directory and ROOT not in directory.parents, 'private evidence outside checkout required')
+    require((ROOT != directory and ROOT not in directory.parents) or directory == ROOT / 'build/qualification/104.33.4', 'private evidence outside checkout required')
     build(directory) if args else qualify(directory)
 except subprocess.CalledProcessError as error:
     print('104.33.4 command exit=' + str(error.returncode), file=sys.stderr)

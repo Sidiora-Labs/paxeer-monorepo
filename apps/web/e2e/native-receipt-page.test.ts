@@ -57,7 +57,7 @@ async function recordedProducer(context: TestContext) {
     import.meta.url,
   ), "utf8"));
   const archive = JSON.parse(readFileSync(new URL(
-    "../src/explorer/fixtures/repair-22-31-383-native-http.json", import.meta.url,
+    "../src/explorer/fixtures/account-history-http.json", import.meta.url,
   ), "utf8"));
   const transaction = JSON.parse(transcript.response.body);
   const transactionPath: string = transcript.request.urlPath;

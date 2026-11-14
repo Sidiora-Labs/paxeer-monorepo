@@ -22,9 +22,10 @@ def test_deploy_scripts_use_cw20_base():
     source = (ROOT / LOADTEST_IMPLEMENTATION).read_text(encoding="utf-8")
     for retired in ("jupiter", "mars", "saturn", "venus"):
         assert retired not in source, LOADTEST_IMPLEMENTATION
-    stores = re.findall(r'tx\("code_id",\s*"wasm",\s*"store",\s*([^\n]+)\)', source)
-    expected = 'filepath.Join(options.Root, "contracts", "wasm", "cw20_base.wasm")'
-    assert stores == [expected, expected], LOADTEST_IMPLEMENTATION
+    assert 'artifact := filepath.Join(root, "contracts", "wasm", "cw20_base.wasm")' in source
+    assert source.count(
+        'tx(fmt.Sprintf("store %d", i+1), "code_id", "store", artifact)'
+    ) == 1, LOADTEST_IMPLEMENTATION
 
     for script in (INTEGRATION_SCRIPT, LOADTEST_SCRIPT):
         result = subprocess.run(

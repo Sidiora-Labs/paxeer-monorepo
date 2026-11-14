@@ -1,6 +1,6 @@
 # Receipts and verification
 
-A receipt records protocol execution. A receipt is final once its block is committed. Paxeer is one BFT network.
+A receipt records protocol execution. A receipt is final once its block is committed. The LayerX kernel inside `paxd` executes and orders each transaction and builds each block; validators check and commit it.
 
 For independent finality verification, authenticate the block header and CometBFT commit, then verify transaction or state inclusion against the authenticated root at the relevant height. See [Committed block evidence](https://docs.paxeer.app/checkpoints/).
 

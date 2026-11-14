@@ -14,8 +14,9 @@ methods; [`requests.go`](../../rpc/coretypes/requests.go) and
 These local consensus methods are distinct from the public Ethereum-compatible
 node API.
 
-Paxeer mainnet-beta is one BFT network, with the kernel participating in block
-proposal. Its EVM chain ID is 125 (`0x7d`), and a receipt is final once its block
+Paxeer mainnet-beta uses EVM chain ID 125 (`0x7d`).
+The LayerX kernel runs inside every `paxd` node, executes each transaction when it arrives, assigns the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it.
+A receipt is final once its block
 is committed. The public JSON-RPC endpoints are HTTPS at the **root path** of
 `api1.mainnet-beta.paxeer.network` through `api14.mainnet-beta.paxeer.network` and
 `api-mainnet-beta.paxeer.network`. They expose the node namespaces `debug`,

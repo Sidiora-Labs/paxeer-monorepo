@@ -26,15 +26,12 @@ def test_contributor_daemon_embedded_kernel_and_retirement():
         "one Paxeer network",
         "the C17 kernel executes inside `paxd`",
         "the node's execution domain and block proposal path",
-        "The former `layerxd` daemon is retired.",
         "A transaction receipt is final once its block is committed.",
         "`daemon/paxd/`",
     ):
         assert fact in layout, fact
-    # Every mention must explicitly describe retirement, never a runnable peer.
-    mentions = [line for line in GUIDE.splitlines() if "layerxd" in line.lower()]
-    assert len(mentions) == 1
-    assert "The former `layerxd` daemon is retired." in mentions[0]
+    protocol = (ROOT / "docs/wiki/Protocol.md").read_text(encoding="utf-8")
+    assert "The retired `layerxd` binary is not a running network component." in protocol
     commands = "\n".join(re.findall(r"```sh\n(.*?)\n```", GUIDE, re.S))
     assert "layerxd" not in commands.lower()
     for retired_guidance in ("separate settlement", "make layerxd", "cmd/layerxd"):
@@ -44,7 +41,7 @@ def test_contributor_daemon_embedded_kernel_and_retirement():
 def test_contributor_daemon_preserves_native_library_build_boundaries():
     layout = section("Repository layout")
     for fact in (
-        "`src/` and `include/`",
+        "The C17 kernel sources and headers live in `src/` and `include/`",
         "[`modules/lxphost/`](modules/lxphost/)",
         "`build/liblayerx.a`",
         "`programs/target/release/liblayerx_programs_sandbox.a`",
@@ -77,22 +74,21 @@ def test_contributor_daemon_links_merged_network_qualification():
     gates = section("Gates")
     target = "spec/layerx-merge/docs/plans/test-plan.md"
     assert "merged-network [test plan]" in tools
-    assert f"({target}#command-shapes-and-manifest-constraints)" in tools
+    assert f"({target}#toolchains-and-native-dependencies)" in tools
     assert f"[test plan]({target})" in gates
     assert "Merged-network acceptance coverage, domain ownership and release qualification" in gates
-    assert "the active task declares the commands to run" in tools
+    assert "describes toolchain boundaries and native dependencies." in tools
     assert "Run only the task's declared build and verification commands." in gates
     assert "aggregate gates" in gates
     # Follow the actual contributor links into their committed qualification plan.
     plan = (ROOT / target).read_text(encoding="utf-8")
     for heading in (
-        "## Command shapes and manifest constraints",
-        "## Aggregate gates and completion",
+        "## Toolchains and native dependencies",
+        "## Selecting tests",
     ):
         assert heading in plan
     assert "modules/lxphost/host.go" in plan
-    assert "kernel static library" in plan
-    assert "programs sandbox static library" in plan
+    assert "links `liblayerx`, `liblayerx_programs_sandbox`, OpenSSL and platform libraries." in plan
 
 
 def test_contributor_daemon_record_names_proofs_and_evidence_limits():

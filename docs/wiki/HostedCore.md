@@ -245,7 +245,7 @@ The current coverage is under
 [core/tests](../../services/platform/hosted/core/tests), rather than the retired
 standalone-daemon boundary harness. Relevant sources include:
 
-- [repair_22_31_354.rs](../../services/platform/hosted/core/tests/repair_22_31_354.rs):
+- [native_chain_boundary.rs](../../services/platform/hosted/core/tests/native_chain_boundary.rs):
   native committed-state readiness, explicit retired routes, native asset reads
   and binding receipt evidence to its actual landing block.
 - [chain_fund.rs](../../services/platform/hosted/core/tests/chain_fund.rs):
