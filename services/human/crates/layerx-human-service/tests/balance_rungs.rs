@@ -623,12 +623,14 @@ fn assert_balance(result: &Value, rung: Option<Rung>) {
     }
 }
 fn assert_material(material: &[u8], rung: Option<Rung>) {
-    assert_eq!(&material[..5], b"LXHB1");
+    assert_eq!(&material[..5], b"LXHB2");
     let start = if let Some(rung) = rung {
-        assert_eq!(material[5], rung.wire_rank());
-        6
+        assert_eq!(material[5], 1);
+        assert_eq!(material[6], rung.wire_rank());
+        7
     } else {
-        5
+        assert_eq!(material[5], 0);
+        6
     };
     let len = u32::from_be_bytes(
         material[start..start + 4]

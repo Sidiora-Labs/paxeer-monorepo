@@ -82,7 +82,7 @@ an accessible description of the exact affected surfaces.
 
 ## Verification
 
-`tests/repair-22-33-11.test.ts` drives the production preference switch, shared
+`tests/dialog-access-and-settings.test.ts` drives the production preference switch, shared
 hook and motion consumers, checks actual Radix server-rendered semantics and
 controlled dismissal, exercises the focus-restoration controller, and restarts
 the component and preference modules while retaining browser storage. It also

@@ -9,12 +9,12 @@ export default function Operators() {
     <DocsLayout>
       <div className="page-header">
         <h1 className="page-title">Operators Guide</h1>
-        <p className="page-description">Manage Paxeer X node services, validator accounts, monitoring, and recovery.</p>
+        <p className="page-description">Manage paxd nodes, whose LayerX kernel executes and orders transactions and builds blocks, and the validators that check and commit them.</p>
       </div>
 
       <p>For stalled heights, peer failures, or state mismatches, start with <Link href="/node-troubleshooting">Troubleshoot a Node</Link>. Record the binary revision and failing height before changing state.</p>
       <h2>Operate the node and application services</h2>
-      <p>Paxeer mainnet-beta is one BFT chain with EVM chain ID 125. Kernel execution is embedded in <code>paxd</code> and participates in block proposal. A receipt is final when its block is committed. Hosted gateways and user services support applications around the chain. Assign each deployed service its own health checks, storage policy, and recovery procedure.</p>
+      <p>The LayerX kernel inside <code>paxd</code> executes and orders each transaction and builds each block; validators check and commit it. Paxeer mainnet-beta uses EVM chain ID 125. A receipt is final when its block is committed. Hosted gateways and user services support applications around the chain. Assign each deployed service its own health checks, storage policy, and recovery procedure.</p>
       <table><thead><tr><th>Role</th><th>Responsibility</th><th>Operational evidence</th></tr></thead><tbody>
         <tr><td>Chain node and validator</td><td>Execute EVM and Cosmos transactions; enforce active exchange, bridge, launchpad, ledger, and XWeb rules</td><td>Chain identity, synchronization, peers, application hash, upgrade version, and RPC health</td></tr>
         <tr><td>Embedded kernel</td><td>Execute ordered activities as part of chain block processing</td><td>Committed blocks, execution results, state roots, and receipts</td></tr>

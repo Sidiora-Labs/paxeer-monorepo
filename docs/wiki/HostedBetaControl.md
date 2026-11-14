@@ -7,9 +7,9 @@ control hostname on Paxeer mainnet-beta. Public accounts receive native chain
 transfers; the private funding and reset APIs below are not a public funding
 service.
 
-Paxeer is one BFT network running `paxd`, with the kernel inside the network
-proposing blocks. EVM chain ID is `125` (`0x7d`), and a receipt is final when its
-block is committed. Use a root node URL from
+Paxeer runs `paxd` with EVM chain ID `125` (`0x7d`). The LayerX kernel inside
+`paxd` executes and orders each transaction and builds each block; validators
+check and commit it. A receipt is final when its block is committed. Use a root node URL from
 [Public JSON-RPC](PublicRpc.md) for chain calls. Hosted identity and faucet
 operations use the configured gateway application.
 

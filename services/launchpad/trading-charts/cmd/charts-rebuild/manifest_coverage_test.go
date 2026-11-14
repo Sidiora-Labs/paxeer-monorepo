@@ -18,12 +18,12 @@ func TestRebuildReadsBoundedManifestDocument(t *testing.T) {
 		{"empty manifest", `[]`, "rebuild runtime schema readiness"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			repair1052Environment(t, true)
+			rebuildRuntimeEnvironment(t, true)
 			path := filepath.Join(t.TempDir(), "manifests.json")
 			if err := os.WriteFile(path, []byte(tc.document), 0600); err != nil {
 				t.Fatal(err)
 			}
-			err := runArgs(repair1052Args(path))
+			err := runArgs(rebuildRuntimeArgs(path))
 			if err == nil || !strings.Contains(err.Error(), tc.expected) {
 				t.Fatalf("manifest %q: %v", tc.name, err)
 			}
@@ -31,20 +31,20 @@ func TestRebuildReadsBoundedManifestDocument(t *testing.T) {
 	}
 
 	t.Run("oversized manifest", func(t *testing.T) {
-		repair1052Environment(t, true)
+		rebuildRuntimeEnvironment(t, true)
 		path := filepath.Join(t.TempDir(), "manifests.json")
 		if err := os.WriteFile(path, []byte(strings.Repeat(" ", 16<<20+1)), 0600); err != nil {
 			t.Fatal(err)
 		}
-		if err := runArgs(repair1052Args(path)); err == nil || !strings.Contains(err.Error(), "manifest file exceeds bound") {
+		if err := runArgs(rebuildRuntimeArgs(path)); err == nil || !strings.Contains(err.Error(), "manifest file exceeds bound") {
 			t.Fatalf("oversized manifest: %v", err)
 		}
 	})
 
 	t.Run("missing manifest", func(t *testing.T) {
-		repair1052Environment(t, true)
+		rebuildRuntimeEnvironment(t, true)
 		path := filepath.Join(t.TempDir(), "missing.json")
-		err := runArgs(repair1052Args(path))
+		err := runArgs(rebuildRuntimeArgs(path))
 		var pathError *os.PathError
 		if !errors.As(err, &pathError) || pathError.Path != path {
 			t.Fatalf("manifest path: %v", err)

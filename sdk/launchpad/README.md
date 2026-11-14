@@ -1,6 +1,6 @@
 # Launchpad SDK
 
-This directory holds TypeScript clients, Go contract bindings and shared Go libraries for the launchpad applications and services. They connect market creation, trading, indexing and application streams to Paxeer mainnet-beta, the BFT network with EVM chain ID 125. Chain receipts are final when their block commits; launchpad application APIs and streams are served by the application services, while chain JSON-RPC uses the node root path.
+This directory holds TypeScript clients, Go contract bindings and shared Go libraries for the launchpad applications and services. They connect market creation, trading, indexing and application streams to Paxeer mainnet-beta with EVM chain ID 125. The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it. A chain receipt is final when the validators commit its block; launchpad application APIs and streams are served by the application services, while chain JSON-RPC uses the node root path.
 
 ## Layout
 
@@ -68,5 +68,5 @@ TypeScript clients receive their service origins and deployment information thro
 - [Launchpad web configuration checklist](../../docs/launchpad/production-checklist.md)
 - [Launchpad documentation site page](../../docs/site/paxeer-docs/src/app/launchpad/page.tsx)
 - [Launchpad site Markdown guide](../../docs/site/paxeer-docs/public/markdown/launchpad.md)
-- [Public node RPC reference](../../docs/site/docs/reference/public-rpc.md)
+- [Public node RPC reference](../../docs/readme/PUBLIC-RPC.md)
 - [Main TypeScript SDK](packages/sdk/README.md), [indexer SDK](packages/indexer-sdk/README.md) and [statistics SDK](packages/stats-sdk/README.md)

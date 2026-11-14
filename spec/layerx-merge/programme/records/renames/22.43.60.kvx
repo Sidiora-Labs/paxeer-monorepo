@@ -1,0 +1,28 @@
+[manifest]
+task = "22.43.60"
+records_moved = 2
+files_renamed = 1
+
+[file.1]
+from = "modules/layerxexchange/keeper/repair_m574_test.go"
+to = "modules/layerxexchange/keeper/upgrade_reader_test.go"
+
+[file.2]
+from = "modules/layerxexchange/keeper/repair_m574.kvx"
+to = "spec/layerx-merge/programme/records/modules/layerxexchange/keeper/repair_m574.kvx"
+
+[file.3]
+from = "modules/layerxexchange/repair_22_39_286.kvx"
+to = "spec/layerx-merge/programme/records/modules/layerxexchange/repair_22_39_286.kvx"
+
+[reference.1]
+file = "spec/layerx-merge/spec.kvx"
+name = "modules/layerxexchange/keeper/repair_m574_test.go"
+
+[reference.2]
+file = "spec/layerx-merge/spec.kvx"
+name = "modules/layerxexchange/repair_22_39_286.kvx"
+
+[reference.3]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_574_"

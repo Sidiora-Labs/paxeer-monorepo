@@ -59,7 +59,7 @@ The [final section](#putting-it-all-together-littdb) describes this distinction 
 This is segment-driven visibility: deleting the segment's keymap entries makes its primary and
 secondary keys absent to the cache wrapper. It does not immediately reclaim their cached bytes.
 `RunGC` completes keymap removal before returning; releasing the segment schedules asynchronous file deletion
-after all reservations are released. [TestRepairM_1165_CacheDeletion](../repair_m1165_test.go)
+after all reservations are released. [TestCacheDeletion](../table_limits_and_lifecycle_test.go)
 checks immediate cache invisibility, waits for file removal, and verifies the state after reopening.
 
 ## Iteration 3: Add an index
@@ -275,7 +275,7 @@ to subranges of those same bytes.
 subsequent cached reads of its primary key or aliases return absent even if old bytes remain physically
 in either cache. This is an existence check, not eager cache invalidation; eviction and cache size
 changes reclaim cache memory independently. The regression test
-[`TestRepair_113_CacheExpiryVisibility`](../dbcache/repair_113_test.go) covers read/write caches,
+[`TestCacheExpiryVisibility`](../dbcache/cache_expiry_visibility_test.go) covers read/write caches,
 primary and secondary keys, base and wrapper GC, iteration, and close/reopen behavior.
 
 The control loop collects sealed segments in age order using their seal times and the current table
@@ -296,6 +296,6 @@ unpublished segments. The snapshot does not include the actively written segment
 [push or prune](littdb_cli.md#litt-push) the snapshot to release retained files; otherwise disk usage grows.
 Restore from ordinary backup roots requires `litt push --no-gc` and a stopped destination database.
 
-These are local storage guarantees. Paxeer's kernel proposes blocks as part of the same BFT network;
-a receipt is final when its block is committed. A local flush or snapshot does not establish that
-consensus result. Tenant domains do not require a separate database process per sub-chain.
+These are local storage guarantees. The LayerX kernel inside `paxd` executes and orders each transaction
+and builds each block; validators check and commit it. A receipt is final when validators commit its block.
+A local flush or snapshot does not establish that consensus result. Tenant domains do not require a separate database process per sub-chain.

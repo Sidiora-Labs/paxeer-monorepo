@@ -63,7 +63,7 @@ fn unhex(value: &Value) -> Vec<u8> {
 
 fn committed_case() -> Value {
     let recording: Value = must(serde_json::from_str(include_str!(
-        "../../layerx-client/tests/fixtures/repair_22_33_1546_node.json"
+        "../../layerx-client/tests/fixtures/node_committed_evidence.json"
     )));
     recording["receipt"].clone()
 }
@@ -169,7 +169,7 @@ fn record(case: &Value, rung: Rung) -> AuthenticatedTransactionReceipt {
 
 fn receipted_record(success: bool) -> AuthenticatedTransactionReceipt {
     let recording: Value = must(serde_json::from_str(include_str!(
-        "../../layerx-agentd-host/src/repair_22_31_363_receipts.json"
+        "../../layerx-agentd-host/src/payer_payment_receipts.json"
     )));
     let case = &recording[if success { "success" } else { "reverted" }];
     record(

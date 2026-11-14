@@ -1,5 +1,9 @@
 # Inference market contract: rooms, deals, laps, canaries, bonds, streams and the orchestration profile
 
+| Field | Value |
+|---|---|
+| Revision | repository at 4bf40d96827730373898dfe869065e56fb9ebf54 |
+
 ## Scope and reading guide
 
 The pooled inference market uses native program state and payment streams. The chain verifies, pays and connects peers: room, ask, bid, deal, lap receipt, canary, bond and payout records in the ai-market program, metered ask streams in 0x101B and peer attestation bindings in 0x0907. Orchestration runs off chain in the agent daemon profile inference-market and in the vendored peer runtime under apps/inference-peer; validators and nodes never take part in a room.

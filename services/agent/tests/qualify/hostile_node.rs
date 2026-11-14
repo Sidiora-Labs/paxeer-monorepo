@@ -19,7 +19,7 @@ use layerx_wire::receipt::{decode, encode_unsigned, Receipt};
 use serde_json::{json, Value};
 
 pub const OWNER_TRANSCRIPT: &str =
-    include_str!("../../crates/layerx-sdk/src/repair_22_31_227_fixture/committed.json");
+    include_str!("../../crates/layerx-sdk/src/committed_receipt_fixture/committed.json");
 const RECEIPT_KEY: &str = "aed3d83b59b735683edb641862d13d6855f37284c190b7b501a46ca29085b239";
 const RECEIPT_KEY_ID: &str = "ba3a5a0bba18e7ead9fd281c793daaec55218c5d084483346e45c959a92bf699";
 const VALIDATOR_KEY: &str = "c614a1c91884c3c13bed586a16d51f7253072f7cc41018ea28dd864e4e548e4d";

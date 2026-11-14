@@ -78,7 +78,7 @@ node_modules
 *.keystore
 !services/platform/ramps/reference/tests/fixtures/repair_fixtures/localhost.pem
 !services/platform/ramps/reference/tests/fixtures/repair_fixtures/localhost.p12
-!services/agent/crates/layerx-sdk/tests/fixtures/repair_22_31_227_fixture/ca.pem
+!services/agent/crates/layerx-sdk/tests/fixtures/tls_server/ca.pem
 
 # Local editor packages and machine state
 /.vscode/*

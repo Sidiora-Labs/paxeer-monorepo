@@ -1,6 +1,6 @@
 # Explorer WebSocket contract
 
-The explorer uses Phoenix channels to publish indexed data from the single Paxeer BFT network (EVM chain ID **125**, `0x7d`). Its kernel participates in block proposal. A transaction is final when its block is committed; a socket message announcing a pending item or refreshing an index does not establish commitment. See [HTTP snapshots and transaction status](explorer-http-api.md) and [metrics](explorer-metrics.md).
+The explorer uses Phoenix channels to publish indexed data from Paxeer mainnet-beta (EVM chain ID **125**, `0x7d`). The LayerX kernel inside `paxd` executes and orders each transaction and builds each block; validators check and commit it. A transaction is final when its block is committed; a socket message announcing a pending item or refreshing an index does not establish commitment. See [HTTP snapshots and transaction status](explorer-http-api.md) and [metrics](explorer-metrics.md).
 
 ## Sockets
 

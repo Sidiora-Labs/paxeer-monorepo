@@ -359,6 +359,7 @@ func TestReferenceDeclarationsReferenceIntegrity(t *testing.T) {
 			ref := doc["spec_reference"].(map[string]any)
 			switch mutation {
 			case "wrong-spec":
+				const RetiredSpecPath = "launchpad/spec/production-system/spec.kvx"
 				ref["spec"] = RetiredSpecPath
 			case "missing-current-source":
 				doc["verify_cmd"] = strings.TrimSuffix(doc["verify_cmd"].(string), " --require-current-source")

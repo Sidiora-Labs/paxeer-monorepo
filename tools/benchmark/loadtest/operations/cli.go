@@ -56,7 +56,7 @@ func RunCLI(ctx context.Context, args []string, input io.Reader, output io.Write
 		root := flags.String("root", "", "contract root")
 		endpoint := flags.String("endpoint", "", "RPC endpoint")
 		contract := flags.String("contract", "", "erc20 or erc721")
-		paxd := flags.String("paxd", filepath.Join(home, "go", "bin", "paxd"), "paxd executable")
+		paxd := flags.String(paxdName, filepath.Join(home, "go", "bin", paxdName), "paxd executable")
 		if err = flags.Parse(args[1:]); err != nil {
 			return err
 		}
@@ -71,7 +71,7 @@ func RunCLI(ctx context.Context, args []string, input io.Reader, output io.Write
 		return e
 	case "deploy-wasm":
 		root := flags.String("root", "", "repository root")
-		paxd := flags.String("paxd", "", "paxd executable")
+		paxd := flags.String(paxdName, "", "paxd executable")
 		key := flags.String("key", "", "admin key")
 		chain := flags.String("chain-id", "", "chain id")
 		if err = flags.Parse(args[1:]); err != nil {
@@ -95,7 +95,7 @@ func RunCLI(ctx context.Context, args []string, input io.Reader, output io.Write
 		count := flags.Int("count", -1, "exact account count")
 		paxHome := flags.String("home", filepath.Join(home, ".pax"), "paxd home")
 		accounts := flags.String("accounts", filepath.Join(home, "test_accounts"), "private account directory")
-		paxd := flags.String("paxd", filepath.Join(home, "go", "bin", "paxd"), "paxd executable")
+		paxd := flags.String(paxdName, filepath.Join(home, "go", "bin", paxdName), "paxd executable")
 		local := flags.Bool("local", false, "use test keyring")
 		if err = flags.Parse(args[1:]); err != nil {
 			return err
@@ -110,7 +110,7 @@ func RunCLI(ctx context.Context, args []string, input io.Reader, output io.Write
 		concurrent := flags.Int("concurrent", 2, "batch size")
 		key := flags.String("ssh-key", "", "SSH identity path")
 		chain := flags.String("chain-id", "", "chain id")
-		paxd := flags.String("paxd", "paxd", "paxd executable")
+		paxd := flags.String(paxdName, paxdName, "paxd executable")
 		recovery := flags.String("recovery", filepath.Join(home, ".pax", "benchmark_faults", "recovery.json"), "private recovery record")
 		recoverPath := flags.String("recover", "", "recover a stopped controller")
 		hold := flags.Duration("hold", 10*time.Minute, "fault hold duration")
@@ -154,7 +154,7 @@ func RunCLI(ctx context.Context, args []string, input io.Reader, output io.Write
 	case "deploy-ten":
 		scenarioPath := flags.String("scenario", "", "native asset/order scenario JSON")
 		config := flags.String("config", "", "loadtest configuration to publish")
-		paxd := flags.String("paxd", "paxd", "paxd executable")
+		paxd := flags.String(paxdName, paxdName, "paxd executable")
 		from := flags.String("from", "", "funded vault owner key")
 		chain := flags.String("chain-id", "", "chain id")
 		rpc := flags.String("evm-rpc", "http://localhost:8545", "EVM RPC endpoint")

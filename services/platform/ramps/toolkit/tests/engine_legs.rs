@@ -15,13 +15,13 @@ use layerx_types::rung::Rung;
 use serde::Serialize;
 use sha2::{Digest as _, Sha256};
 
-#[path = "support/repair_22_33_1490.rs"]
-pub mod repair_1490;
-pub use repair_1490::*;
+#[path = "support/recovery_payment.rs"]
+pub mod recovery_payment;
+pub use recovery_payment::*;
 
 #[test]
 fn engine_written_v2_journal_uses_production_settlement_recovery() {
-    repair_1490::engine_restart();
+    recovery_payment::engine_restart();
 }
 
 static NEXT_DIRECTORY: AtomicU64 = AtomicU64::new(0);

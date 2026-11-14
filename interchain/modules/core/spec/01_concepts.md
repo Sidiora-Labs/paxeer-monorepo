@@ -6,10 +6,11 @@ order: 1
 
 IBC core provides clients, connections, channels and packet proof verification
 for communication with counterparty chains. In the merged Paxeer network these
-keepers execute within `paxd`, alongside the EVM and the kernel that participates
-in block proposal. Paxeer mainnet-beta has EVM chain id `125` (`0x7d`); a receipt
-is final when its block is committed. IBC packet completion additionally depends
-on counterparty state proofs and their relay.
+keepers execute within `paxd`, alongside the EVM. The LayerX kernel inside `paxd`
+executes and orders each transaction and builds each block; validators check and
+commit it. Paxeer mainnet-beta has EVM chain id `125` (`0x7d`); a receipt
+is final when validators commit its block. IBC packet completion additionally
+depends on counterparty state proofs and their relay.
 
 Sub-chains are tenant domains in the database. A tenant namespace alone does not
 establish an IBC client, connection or channel to another chain.
@@ -67,7 +68,7 @@ hosting these clients. Submitting a proposal does not itself recover the client:
 the checks above run when governance executes the approved proposal through the
 [client proposal handler](../02-client/proposal_handler.go). The deprecated
 allow-update flags do not bypass these checks. See
-[`TestRepairM_1225_GovernanceRecovery`](../repair_m1225_test.go) for CLI-generated
+[`TestCoreContractGovernanceRecovery`](../governance_timeout_contract_test.go) for CLI-generated
 proposal encoding, rejected prerequisites, and frozen/expired subject recovery
 through that handler with consensus-state metadata preserved.
 
@@ -232,7 +233,7 @@ The receiver's [RecvPacket checks](../04-channel/keeper/packet.go) likewise reje
 a packet when either enabled local deadline is reached. The
 [packet validation](../04-channel/types/packet.go) rejects packets with both
 deadlines disabled. Representative keeper tests are
-[`TestRepairM_1225_TimeoutDeadlines`](../repair_m1225_test.go) and
+[`TestCoreContractTimeoutDeadlines`](../governance_timeout_contract_test.go) and
 [`TestTimeoutPacket`](../04-channel/keeper/timeout_test.go): they cover independent
 deadlines, disabled fields, equality and non-receipt proofs.
 
@@ -248,7 +249,7 @@ deadline to have elapsed. A closed channel does not automatically refund all
 tokens or erase outstanding obligations; relayers must submit the applicable
 proofs and execute the packet callbacks. The
 [`TimeoutOnClose` keeper checks](../04-channel/keeper/timeout.go) and
-[`TestRepairM_1225_TimeoutOnClose`](../repair_m1225_test.go) demonstrate closure
+[`TestCoreContractTimeoutOnClose`](../governance_timeout_contract_test.go) demonstrate closure
 and non-receipt verification before either deadline. See the transfer application's
 [locked-funds discussion](../../apps/transfer/spec/01_concepts.md#locked-funds)
 for the effect of channel closure on voucher redemption.

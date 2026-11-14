@@ -5,8 +5,8 @@ order: 1
 # Concepts
 
 The `transfer` module implements ICS20 fungible token transfers through IBC channels.
-On Paxeer, it runs in the same network as the EVM and kernel: Paxeer mainnet-beta
-uses EVM chain id `125` (`0x7d`), and its kernel participates in block proposal.
+On Paxeer, it runs in the same network as the EVM and kernel: Paxeer mainnet-beta uses EVM chain id `125` (`0x7d`).
+The LayerX kernel runs inside every `paxd` node, executes each transaction when it arrives, assigns the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it.
 A receipt is final when its block is committed. IBC transfers to a counterparty
 chain still require packet and acknowledgement proofs verified by IBC clients.
 
@@ -102,7 +102,7 @@ path with EVM chain id `125`.
 
 The denom-trace response above is checked against a packet-produced voucher,
 the registered query service and the generated HTTP gateway in
-`TestRepairM_1206_QueryShape` in [the repair tests](../repair_m1206_test.go).
+`TestTransferContractQueryShape` in [the transfer contract tests](../transfer_contract_test.go).
 
 ### Multiple hops
 

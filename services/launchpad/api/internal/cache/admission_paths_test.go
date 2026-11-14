@@ -13,7 +13,7 @@ import (
 )
 
 func TestWriteAdmissionRejectsMissingScopeAndUnavailableBudget(t *testing.T) {
-	runtime := repairM992Runtime(t, repairM992Config(t, 0))
+	runtime := runtimeAdmissionRuntime(t, runtimeAdmissionConfig(t, 0))
 	adapter := runtime.adapter
 	const route = "account_update"
 	adapter.policies[route] = RoutePolicy{ID: route, Version: "v2", Origin: "postgres", Generation: "g1", Class: AccountWrite, RequestLimit: 10, RequestWindow: time.Hour}
@@ -50,7 +50,7 @@ func TestWriteAdmissionRejectsMissingScopeAndUnavailableBudget(t *testing.T) {
 }
 
 func TestAccountingMarketRequiresDurablePosition(t *testing.T) {
-	runtime := repairM992Runtime(t, repairM992Config(t, 0))
+	runtime := runtimeAdmissionRuntime(t, runtimeAdmissionConfig(t, 0))
 	if err := runtime.bindings.ConsumeMarket(t.Context(), nil); err == nil {
 		t.Fatal("missing durable message accepted")
 	}

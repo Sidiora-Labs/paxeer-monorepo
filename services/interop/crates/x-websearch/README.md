@@ -6,7 +6,8 @@ The Paxeer web search sidecar serves `GET /health` and `GET /readyz` for free,
 `--config <path>`. The loader refuses unknown fields, missing required fields,
 placeholders and embedded key material, naming the refused field.
 
-Paxeer is one BFT network: `paxd` includes the kernel that proposes blocks.
+Paxeer uses the LayerX kernel inside `paxd`, which executes and orders each
+transaction and builds each block; validators check and commit it.
 Mainnet-beta uses EVM chain id 125 (`0x7d`). Public node JSON-RPC uses the root
 path; choose a node that provides the methods required below.
 
@@ -44,6 +45,14 @@ evidence as `receipted`; RPC block fields alone do not establish a commit proof.
 On the network, a receipt is final once its block is committed. See the
 [x402 conformance notes](../../specs/conformance/x402/README.md) for the
 distinction between wire validation and authenticated settlement evidence.
+
+The sidecar starts its listener while the receiver identity and ledger accounts
+are unresolved. During that period paid routes return `503 payment_unavailable`
+and publish no offer. `GET /readyz` reports `payment.state` as `unresolved` with
+the failed read as `payment.reason`; the sidecar retries the reads every thirty
+seconds. Once all reads pass, the payment state becomes `ready` and paid routes
+open without a restart. Configuration, key, store, lock and adapter refusals
+remain startup errors.
 
 | Key | Meaning |
 | --- | --- |
@@ -89,7 +98,43 @@ Keys are read from files named by these environment variables:
 Each key file holds 32 hexadecimal bytes, must be unreadable by group and
 others, and must hold a different key from the other configured roles.
 
-### State and lag
+## Receiver commands
+
+Use the same configuration and receiver key file to inspect or bind the
+receiver before starting the sidecar:
+
+```sh
+x-websearch --config config.json receiver-status
+x-websearch --config config.json bind-receiver --identity-key-file identity.key
+```
+
+Both commands use `gateway.endpoint` and load only the receiver key plus the
+identity key when binding. They start no listener, take no store lock and
+write nothing to `data_dir`. Omitting the command starts the sidecar as usual.
+
+`receiver-status` prints one JSON line with `address` (hexadecimal EVM address),
+`bound` (boolean), `identity` (the bound `did:layerx:…`, or null),
+`ledger_accounts` (an object keyed by accepted asset symbol, empty when unbound),
+and `balance` (a decimal string in native base units). It reads the identity,
+each bound identity's configured asset account and the receiver balance through
+the settlement endpoint. Successful reads exit zero even when unbound.
+
+`bind-receiver` reads a 32-byte hexadecimal Ed25519 seed from the
+`--identity-key-file` path with the same size, encoding and permission rules as
+the role key files. The identity key must differ from the receiver key. It
+signs consent for the chain id, receiver address and current binding nonce,
+estimates gas, checks the receiver balance, then submits a receiver-signed
+`bindLayerX` transaction to the address precompile. It waits up to sixty seconds
+for the receipt and confirms the identity with `getLayerXDid`.
+
+The binding result is one JSON line with `address`, `identity`, `bound`,
+`already_bound` and `transaction_hash`. An existing binding to the same identity
+exits zero with `already_bound: true` and a null transaction hash. A different
+identity or insufficient balance refuses submission; the balance refusal names
+the address and required amount. Receipt failures exit nonzero and name the
+transaction hash. Output contains neither private keys nor signatures.
+
+## State and lag
 
 Keep `data_dir` on durable storage. The relay keeps watcher state under
 `<data_dir>/program-watch`, program answers and collected peer signatures in
@@ -105,7 +150,7 @@ Keep `data_dir` on durable storage. The relay keeps watcher state under
   Restarting after signing reuses the identical answer and collected signatures
   even if the index changes. See the
   [pre-quorum restart proof](tests/proof_x_websearch_program_requests.rs) and
-  [documentation recovery/retirement test](tests/repair_22_33_120.rs).
+  [documentation recovery/retirement test](tests/websearch_documented_recovery.rs).
 - Pending submission or quorum alone does not retire an answer. After completed
   submission (fulfilled, already fulfilled, refunded or reorged), or a durably
   recorded terminal request refusal, the relay retires watcher work and calls

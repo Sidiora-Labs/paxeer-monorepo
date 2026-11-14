@@ -1,6 +1,6 @@
 # Protocol tests
 
-This directory holds native LayerX protocol and receipt tests, Go qualification checks, host migration coverage, and retained policy evidence checks. The tests exercise the deterministic kernel and its Programs, ledger, authority, receipt, genesis, and migration paths inside the single Paxeer BFT network; the kernel runs in `paxd`, and a receipt becomes final when its block commits.
+This directory holds native LayerX protocol and receipt tests, Go qualification checks, host migration coverage, and retained policy evidence checks. The tests exercise the deterministic kernel and its Programs, ledger, authority, receipt, genesis, and migration paths inside the single Paxeer network: the LayerX kernel inside `paxd` executes and orders each transaction and builds each block; validators check and commit it, and a receipt becomes final when the validators commit its block.
 
 ## Layout
 
@@ -21,14 +21,14 @@ This directory holds native LayerX protocol and receipt tests, Go qualification 
 - `lxp_test_owner_rotation.c` — two-key native owner rotation, account updates, preview, commit, and rollback checks.
 - `lxp_test_protocol.c` — protocol versions, network identifiers, limits, and domain-tag checks.
 - `lxp_test_receipts.c` — signed receipt, effect, program-artifact, and supply-binding checks.
-- `lxp_test_repair_22_33_18.c` — producer receipt codec and node-return event fixtures.
+- `lxp_test_producer_receipts.c` — producer receipt codec and node-return event fixtures.
 - `lxp_test_result.c` — result names, domains, fatal classification, and uniqueness checks.
 - `lxp_test_sanitizer_smoke.c` — arena allocation smoke and sanitizer-build indicator.
 - `lxp_test_smoke.c` — named test-harness registration and unknown-case checks.
 - `paxeer_x_rejection_policy.py` — Python entry point for retained node rejection-policy evidence.
 - `lxp_check_no_clock.sh` — runs the consensus-source clock and entropy scan.
-- `repair_22_33_18_receipts.h` — signed receipt byte fixtures and return-data vectors.
-- `repair_m730_test.go` — filesystem clock-scan and retained node admission, execution, commit, and replay tests.
+- `lxp_test_node_receipt_vectors.h` — signed receipt byte fixtures and return-data vectors.
+- `clock_and_rejection_policy_test.go` — filesystem clock-scan and retained node admission, execution, commit, and replay tests.
 
 ## Build and test
 

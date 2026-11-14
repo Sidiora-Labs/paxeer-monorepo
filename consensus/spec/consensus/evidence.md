@@ -1,7 +1,6 @@
 # Evidence
 
-Paxeer is one BFT network, run by `paxd`, with EVM chain ID 125. Its kernel
-is part of the network and proposes blocks. A receipt is final when its block
+Paxeer uses EVM chain ID 125. The LayerX kernel runs inside every `paxd` node, executes each transaction when it arrives, assigns the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it. A receipt is final when its block
 is committed. Evidence records validator misbehavior; it does not add another
 finality step.
 

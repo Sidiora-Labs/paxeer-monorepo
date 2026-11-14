@@ -13,8 +13,8 @@ This directory contains the Go implementation, Solidity interface, ABI, and test
 - [wasmd_test.go](wasmd_test.go): contract lifecycle, query, payment, and batch execution tests.
 - [abi_freeze_test.go](abi_freeze_test.go): ABI signatures, selectors, and address checks.
 - [gas_golden_test.go](gas_golden_test.go): dynamic gas and result checks across merge activation.
-- [repair_m1275_test.go](repair_m1275_test.go): pointer delegatecall, artifact, payment, query, and batch rollback tests, including state recovery after restart.
-- [repair_m1275.kvx](repair_m1275.kvx): contract-call behavior and pointer artifact references.
+- [evm_integration_test.go](evm_integration_test.go): pointer delegatecall, artifact, payment, query, and batch rollback tests, including state recovery after restart.
+- [Contract-call record](../../spec/layerx-merge/programme/records/precompiles/wasmd/repair_m1275.kvx): contract-call behavior and pointer artifact references.
 
 ## Build and test
 

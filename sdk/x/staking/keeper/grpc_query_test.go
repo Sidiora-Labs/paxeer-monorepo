@@ -813,14 +813,14 @@ func createValidators(t *testing.T, ctx sdk.Context, app *paxapp.App, powers []i
 func TestRedelegationsSparsePageContinuation(t *testing.T) {
 	for _, gap := range []int{int(query.MaxScanLimit), int(query.MaxScanLimit) + 1} {
 		t.Run(fmt.Sprintf("nonmatches_%d", gap), func(t *testing.T) {
-			f := repair310Open(t, t.TempDir())
+			f := stakingTransitionOpen(t, t.TempDir())
 			t.Cleanup(func() { require.NoError(t, f.store.Close()) })
 			f.ctx = f.ctx.WithBlockHeight(1).WithGasMeter(sdk.NewInfiniteGasMeter(1, 1))
 			k, ctx := f.staking, f.ctx
-			source := repair310Validator(t, k, ctx, 240).UpdateStatus(types.Bonded)
+			source := stakingTransitionValidator(t, k, ctx, 240).UpdateStatus(types.Bonded)
 			k.SetValidator(ctx, source)
-			destination := repair310Validator(t, k, ctx, 241)
-			distractor := repair310Validator(t, k, ctx, 242)
+			destination := stakingTransitionValidator(t, k, ctx, 241)
+			distractor := stakingTransitionValidator(t, k, ctx, 242)
 			server := keeper.NewMsgServerImpl(k)
 			delegators := make([]sdk.AccAddress, gap+4)
 			keys := make([][]byte, len(delegators))
@@ -938,7 +938,7 @@ func testRedelegationPartialFilters(t *testing.T) {
 	delegators := paxapp.AddTestAddrsIncremental(app, ctx, 2, sdk.NewInt(10_000))
 	validators := make([]types.Validator, 4)
 	for i := range validators {
-		validator := repair310Validator(t, k, ctx, 240+i).UpdateStatus(types.Unbonding)
+		validator := stakingTransitionValidator(t, k, ctx, 240+i).UpdateStatus(types.Unbonding)
 		validator.UnbondingTime = ctx.BlockTime().Add(24 * time.Hour)
 		k.SetValidator(ctx, validator)
 		validators[i] = validator
@@ -1008,7 +1008,7 @@ func testRedelegationPartialFilters(t *testing.T) {
 					amount, exists := expected[id]
 					require.True(t, exists, "unexpected redelegation: %+v", id)
 					require.False(t, seen[id], "duplicate redelegation across pages: %+v", id)
-					stored, found := k.GetRedelegation(ctx, sdk.MustAccAddressFromBech32(id.delegator), mustRepair310Val(id.source), mustRepair310Val(id.destination))
+					stored, found := k.GetRedelegation(ctx, sdk.MustAccAddressFromBech32(id.delegator), mustStakingTransitionVal(id.source), mustStakingTransitionVal(id.destination))
 					require.True(t, found)
 					require.Len(t, stored.Entries, 1)
 					require.Empty(t, row.Redelegation.Entries)

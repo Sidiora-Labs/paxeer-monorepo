@@ -140,11 +140,12 @@ does not identify the CometBFT block. Native settlement verifies the transaction
 chain and sender; USDL requires the exact custody-to-beneficiary Transfer log.
 A unique receipt can settle only one obligation.
 
-Paxeer is one BFT network whose kernel proposes blocks as part of the network.
-Receipts are final once their blocks commit; there is no additional execution
+The LayerX kernel inside `paxd` executes and orders each transaction and builds
+each block; validators check and commit it. Receipts are final once their blocks
+commit; there is no additional execution
 or periodic settlement chain. Public node JSON-RPC is at the root path,
 with chain ID 125 (`0x7d`); see the
-[public RPC reference](../../../../docs/site/docs/reference/public-rpc.md).
+[public RPC reference](../../../../docs/readme/PUBLIC-RPC.md).
 Private Anvil fixtures prove adapter behavior, not Paxeer consensus or current
 mainnet custody authority.
 

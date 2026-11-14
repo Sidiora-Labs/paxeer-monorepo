@@ -2,8 +2,9 @@
 
 Java and Kotlin SDK (`com.sidiora.layerx:layerx-sdk`, package
 `com.sidiora.layerx.sdk`) for the Agent and Human APIs of Paxeer X Network.
-LayerX is merged into the network. The kernel is part of the `paxd` BFT node
-and proposes blocks; a receipt is final once its block is committed.
+LayerX is merged into the network. The LayerX kernel inside paxd executes and
+orders each transaction and builds each block; validators check and commit it.
+A receipt is final when the validators commit its block.
 
 ## Features
 
@@ -54,7 +55,7 @@ Once installed locally, depend on it as:
 
 Public node JSON-RPC uses HTTPS at the root path. Check `eth_chainId` for
 `0x7d` (decimal `125`) before signing or broadcasting. See
-[Public RPC endpoints](../../../docs/site/docs/reference/public-rpc.md).
+[Public RPC endpoints](../../../docs/readme/PUBLIC-RPC.md).
 Sub-chains are tenant domains in the database and share the network.
 
 `ProductionClient` uses schema-defined authenticated service APIs.

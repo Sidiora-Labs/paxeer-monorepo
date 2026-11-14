@@ -70,7 +70,7 @@ including updates, and `blocks` counts completed commits. Both metrics sum all
 divided by that same elapsed time. Progress reports use actual completed block
 and pair counts. Every producer is canceled and joined when its consumer exits.
 
-The correctness fixtures in [repair_m1194_test.go](repair_m1194_test.go) assert
+The correctness fixtures in [benchmark_workload_test.go](benchmark_workload_test.go) assert
 these completed counts for **each** of MemIAVL and FlatKV, then close and reopen
 the store and check every generated key and the recovered version:
 
@@ -85,7 +85,7 @@ the store and check every generated key and the recovered version:
 Run the storage correctness tests from the repository root:
 
 ```bash
-go test -count=1 -v -run '^TestRepairM_1194_' ./storage/state_db/bench/
+go test -count=1 -v -run '^TestBenchmarkWorkload' ./storage/state_db/bench/
 ```
 
 The multi-iteration fixture also asserts 16 committed pairs and four blocks per

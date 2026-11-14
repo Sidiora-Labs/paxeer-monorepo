@@ -92,7 +92,7 @@ func TestCreate(t *testing.T) {
 }
 
 func TestSelfDestructAssociated(t *testing.T) {
-	fixture := newRepairM1246Fixture(t)
+	fixture := newBalanceLifecycleFixture(t)
 	k, ctx := fixture.k, fixture.ctx
 	paxAddr, evmAddr := testkeeper.MockAddressPair()
 	castAddr := sdk.AccAddress(evmAddr[:])

@@ -15,7 +15,9 @@ use x_websearch::content::{self, ContentStore};
 use x_websearch::crawl::{CrawlBudget, CrawlReport, Crawler, StopSignal};
 use x_websearch::fetch::Fetcher;
 use x_websearch::index::WebIndex;
-use x_websearch::payment::{system_clock, PaymentGate};
+use x_websearch::payment::{
+    system_clock, PaymentGate, PaymentResolution, PAYMENT_RESOLUTION_INTERVAL,
+};
 use x_websearch::program::{self, ProgramAttestor, ProgramExchange, ProgramRelay, Step};
 
 #[derive(Clone, Copy, Eq, PartialEq, Serialize)]
@@ -46,6 +48,7 @@ struct RoleReadiness {
 
 struct Readiness {
     roles: Mutex<BTreeMap<&'static str, RoleReadiness>>,
+    payment: Mutex<PaymentResolution>,
     network_id: u32,
     relay_lag: Mutex<Option<serde_json::Value>>,
 }
@@ -109,6 +112,10 @@ impl Readiness {
         }
         Self {
             roles: Mutex::new(roles),
+            payment: Mutex::new(PaymentResolution {
+                state: "unresolved",
+                reason: Some("receiver identity has not been resolved".to_owned()),
+            }),
             network_id,
             relay_lag: Mutex::new(None),
         }
@@ -130,6 +137,12 @@ impl Readiness {
                     row.last_success_unix_ms = Some(now_ms());
                 }
             }
+        }
+    }
+
+    fn set_payment(&self, payment: PaymentResolution) {
+        if let Ok(mut current) = self.payment.lock() {
+            *current = payment;
         }
     }
 
@@ -177,7 +190,14 @@ impl Readiness {
         }
         let ready =
             !roles.is_empty() && roles.iter().all(|row| row.state == DependencyState::Ready);
-        let mut answer = serde_json::json!({"version":1,"ready":ready,"roles":roles,"checked_at_unix_ms":now,"network_id":self.network_id,"protocol_version":x_websearch::payment::PROTOCOL_VERSION});
+        let payment = self
+            .payment
+            .lock()
+            .map(|payment| serde_json::json!({"state": payment.state, "reason": payment.reason}))
+            .unwrap_or_else(
+                |_| serde_json::json!({"state":"unresolved","reason":"readiness_unavailable"}),
+            );
+        let mut answer = serde_json::json!({"version":1,"ready":ready,"roles":roles,"payment":payment,"checked_at_unix_ms":now,"network_id":self.network_id,"protocol_version":x_websearch::payment::PROTOCOL_VERSION});
         if let Some(lag) = self.relay_lag.lock().ok().and_then(|lag| lag.clone()) {
             answer["relay_lag"] = lag;
         }
@@ -192,6 +212,8 @@ struct ReadinessProbe {
     index: Arc<WebIndex>,
     store: Arc<ContentStore>,
     signer: Option<[u8; 20]>,
+    payment_next_attempt: Mutex<Instant>,
+    payment_reason: Mutex<Option<String>>,
 }
 
 fn directory_usable(path: &std::path::Path) -> bool {
@@ -312,6 +334,31 @@ fn peer_readiness_digest(
 
 impl ReadinessProbe {
     fn check(&self) {
+        if !self.gate.payment_ready() {
+            let attempt = self
+                .payment_next_attempt
+                .lock()
+                .map(|mut next| {
+                    if Instant::now() >= *next {
+                        *next = Instant::now() + PAYMENT_RESOLUTION_INTERVAL;
+                        true
+                    } else {
+                        false
+                    }
+                })
+                .unwrap_or(false);
+            if attempt {
+                let reason = self.gate.resolve_receiver().err();
+                if reason.is_none() {
+                    self.readiness
+                        .set_payment(self.gate.payment_resolution(None));
+                } else if let Ok(mut current) = self.payment_reason.lock() {
+                    *current = reason;
+                    self.readiness
+                        .set_payment(self.gate.payment_resolution(current.clone()));
+                }
+            }
+        }
         self.readiness.update(
             "paid_delivery",
             "index",
@@ -398,6 +445,30 @@ fn config_path(arguments: impl IntoIterator<Item = OsString>) -> Option<PathBuf>
     let path = arguments.next()?;
     (flag == "--config" && !path.is_empty() && arguments.next().is_none())
         .then(|| PathBuf::from(path))
+}
+
+enum CommandMode {
+    Serve,
+    ReceiverStatus,
+    BindReceiver(PathBuf),
+}
+
+fn invocation(arguments: impl IntoIterator<Item = OsString>) -> Option<(PathBuf, CommandMode)> {
+    let arguments: Vec<_> = arguments.into_iter().collect();
+    let path = config_path(arguments.get(..2)?.iter().cloned())?;
+    let command = match &arguments[2..] {
+        [] => CommandMode::Serve,
+        [command] if command == "receiver-status" => CommandMode::ReceiverStatus,
+        [command, option, path]
+            if command == "bind-receiver"
+                && option == "--identity-key-file"
+                && !path.is_empty() =>
+        {
+            CommandMode::BindReceiver(PathBuf::from(path))
+        }
+        _ => return None,
+    };
+    Some((path, command))
 }
 
 /// The program relay and what it runs beside: the EVM endpoint it reads the
@@ -514,8 +585,11 @@ fn assemble(config: &Config, keys: &Keys) -> Result<Assembled, String> {
         )
         .map_err(|error| format!("assets, gateway or data_dir: {error}"))?,
     );
-    gate.recover_pending_deliveries()
-        .map_err(|error| format!("payment delivery recovery in data_dir: {error}"))?;
+    let initial_payment_reason = gate.resolve_receiver().err();
+    if initial_payment_reason.is_none() {
+        gate.recover_pending_deliveries()
+            .map_err(|error| format!("payment delivery recovery in data_dir: {error}"))?;
+    }
     let store = Arc::new(
         ContentStore::open(&config.data_dir, &config.peers)
             .map_err(|error| format!("peers or data_dir: {error}"))?,
@@ -549,6 +623,7 @@ fn assemble(config: &Config, keys: &Keys) -> Result<Assembled, String> {
         pipeline.is_some(),
         relay.is_some(),
     ));
+    readiness.set_payment(gate.payment_resolution(initial_payment_reason.clone()));
     register_status_routes(
         &mut routes,
         &readiness,
@@ -571,6 +646,8 @@ fn assemble(config: &Config, keys: &Keys) -> Result<Assembled, String> {
             index: Arc::clone(&index),
             store,
             signer,
+            payment_next_attempt: Mutex::new(Instant::now() + PAYMENT_RESOLUTION_INTERVAL),
+            payment_reason: Mutex::new(initial_payment_reason),
         },
     })
 }
@@ -1266,9 +1343,11 @@ fn wind_down(
 }
 
 fn main() -> ExitCode {
-    let Some(path) = config_path(std::env::args_os().skip(1)) else {
+    let Some((path, command)) = invocation(std::env::args_os().skip(1)) else {
         eprintln!("Paxeer X Network web search sidecar");
         eprintln!("usage: x-websearch --config PATH");
+        eprintln!("       x-websearch --config PATH receiver-status");
+        eprintln!("       x-websearch --config PATH bind-receiver --identity-key-file PATH");
         return ExitCode::from(2);
     };
     let config = match x_websearch::load(&path) {
@@ -1278,6 +1357,23 @@ fn main() -> ExitCode {
             return ExitCode::from(2);
         }
     };
+    let identity_path = match &command {
+        CommandMode::Serve => None,
+        CommandMode::ReceiverStatus => Some(None),
+        CommandMode::BindReceiver(path) => Some(Some(path.as_path())),
+    };
+    if let Some(identity_path) = identity_path {
+        return match x_websearch::receiver::run(&config, identity_path) {
+            Ok(report) => {
+                println!("{report}");
+                ExitCode::SUCCESS
+            }
+            Err(error) => {
+                eprintln!("x-websearch receiver command: {error}");
+                ExitCode::FAILURE
+            }
+        };
+    }
     let keys = match KeyFiles::from_env().and_then(|files| files.load()) {
         Ok(keys) => keys,
         Err(error) => {
@@ -1301,6 +1397,14 @@ fn main() -> ExitCode {
             return ExitCode::from(2);
         }
     };
+    if let Ok(reason) = probe.payment_reason.lock() {
+        if let Some(reason) = reason.as_deref() {
+            eprintln!(
+                "x-websearch payment unresolved: receiver 0x{}: {reason}",
+                x_websearch::payment::hex(&probe.gate.receiver_address())
+            );
+        }
+    }
     let signals = match Signals::new([SIGTERM, SIGINT]) {
         Ok(signals) => signals,
         Err(error) => {

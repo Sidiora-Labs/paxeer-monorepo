@@ -19,7 +19,7 @@ import (
 func TestCapacityRunRejectsUnavailableInitialStateAndCapture(t *testing.T) {
 	ctx := context.Background()
 	node := newCapacityChain(t)
-	live := repair997Open(t, fopts(node.server.URL))
+	live := sourceRecoveryOpen(t, fopts(node.server.URL))
 	dsn, pool := canonicaltest.New(t)
 	explorer := capacityExplorer(t, dsn, pool, live, 100)
 	st := store.New(pool)
@@ -139,7 +139,7 @@ func TestCapacityWorkloadBoundsActiveProcessAndFaultDelivery(t *testing.T) {
 }
 
 func TestCapacityBindingRequiresCompleteSourceInventory(t *testing.T) {
-	live := repair997Open(t, fopts(fixture(t, "0x7d").URL))
+	live := sourceRecoveryOpen(t, fopts(fixture(t, "0x7d").URL))
 	opts := capacityBoundOptions(t, live)
 	providers := CapacityProviders{Live: live, Historical: &HistoricalSource{RPC: live}}
 	for _, mode := range []string{"missing source", "missing module", "unavailable source", "source directory"} {
@@ -171,7 +171,7 @@ func TestCapacityBindingRequiresCompleteSourceInventory(t *testing.T) {
 func TestLagRecoveryRejectsUnavailableObservationAndCapture(t *testing.T) {
 	ctx := context.Background()
 	node := newCapacityChain(t)
-	live := repair997Open(t, fopts(node.server.URL))
+	live := sourceRecoveryOpen(t, fopts(node.server.URL))
 	_, pool := canonicaltest.New(t)
 	p := CapacityProviders{Live: live, Historical: &HistoricalSource{RPC: live}, Pool: pool}
 	base := capacityBoundOptions(t, live)

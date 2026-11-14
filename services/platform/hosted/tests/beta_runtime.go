@@ -34,6 +34,27 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/object"
 )
 
+const (
+	dockerfileName           = "Dockerfile"
+	genesisFilename          = "genesis.json"
+	genesisRelativePath      = "config/genesis.json"
+	validatorKeyFilename     = "priv_validator_key.json"
+	validatorKeyRelativePath = "config/priv_validator_key.json"
+	nodeKeyFilename          = "node_key.json"
+	validatorStateFilename   = "priv_validator_state.json"
+	bankModuleName           = "bank"
+	sequencerModuleName      = "sequencer"
+	evmModuleName            = "evm"
+	receiptKeysFilename      = "receipt-keys.json"
+	treasuryPolicyFilename   = "treasury-policy.json"
+	manifestFilename         = "manifest.json"
+	ethAddressField          = "eth_address"
+	paxAddressField          = "pax_address"
+	offclusterHostKind       = "offcluster"
+	serviceHostKind          = "service"
+	topologyFailure          = "FAIL"
+)
+
 type SourceSnapshot struct {
 	Revision   string `json:"revision"`
 	SourceTree string `json:"source_tree"`
@@ -50,7 +71,16 @@ func buildInput(name string) bool {
 	return !strings.HasPrefix(name, "qual-logs/") && name != "NEEDS.md" && name != "STATUS.md"
 }
 
-func SnapshotSource(root string, archive io.Writer) (SourceSnapshot, error) {
+func SnapshotSource(root string, archive io.Writer) (snapshot SourceSnapshot, resultErr error) {
+	directory, err := os.OpenRoot(root)
+	if err != nil {
+		return SourceSnapshot{}, err
+	}
+	defer func() {
+		if closeErr := directory.Close(); resultErr == nil {
+			resultErr = closeErr
+		}
+	}()
 	repository, err := git.PlainOpenWithOptions(root, &git.PlainOpenOptions{EnableDotGitCommonDir: true})
 	if err != nil {
 		return SourceSnapshot{}, err
@@ -100,8 +130,11 @@ func SnapshotSource(root string, archive io.Writer) (SourceSnapshot, error) {
 	output := tar.NewWriter(io.MultiWriter(archive, digest))
 	dirty := false
 	for _, name := range names {
-		filename := filepath.Join(root, filepath.FromSlash(name))
-		info, err := os.Lstat(filename)
+		filename := filepath.FromSlash(name)
+		if !filepath.IsLocal(filename) {
+			return SourceSnapshot{}, fmt.Errorf("invalid tracked build input %s", name)
+		}
+		info, err := directory.Lstat(filename)
 		if errors.Is(err, os.ErrNotExist) {
 			dirty = true
 			continue
@@ -114,14 +147,14 @@ func SnapshotSource(root string, archive io.Writer) (SourceSnapshot, error) {
 		var link string
 		if info.Mode()&os.ModeSymlink != 0 {
 			mode = filemode.Symlink
-			link, err = os.Readlink(filename)
+			link, err = directory.Readlink(filename)
 			raw = []byte(link)
 		} else if info.Mode().IsRegular() {
 			mode = filemode.Regular
 			if info.Mode()&0o111 != 0 {
 				mode = filemode.Executable
 			}
-			raw, err = os.ReadFile(filename)
+			raw, err = directory.ReadFile(filename)
 		} else {
 			return SourceSnapshot{}, fmt.Errorf("unsupported tracked build input %s", name)
 		}
@@ -154,7 +187,7 @@ func SnapshotSource(root string, archive io.Writer) (SourceSnapshot, error) {
 	if err := output.Close(); err != nil {
 		return SourceSnapshot{}, err
 	}
-	snapshot := SourceSnapshot{Revision: head.Hash().String(), SourceTree: hex.EncodeToString(digest.Sum(nil)), Dirty: dirty}
+	snapshot = SourceSnapshot{Revision: head.Hash().String(), SourceTree: hex.EncodeToString(digest.Sum(nil)), Dirty: dirty}
 	snapshot.Tag = snapshot.Revision[:12]
 	if dirty {
 		snapshot.Tag += "-dirty-" + snapshot.SourceTree[:16]
@@ -181,27 +214,36 @@ func PlanImage(name, dockerfile, context, prepared, archive string) (ImageBuildP
 		if name != "explorer-backend" {
 			return plan, errors.New("unexpected explorer context")
 		}
-		plan.Dockerfile = "Dockerfile"
+		plan.Dockerfile = dockerfileName
 	case "@registry-builder":
 		if name != "platform-registry-builder" || prepared == "" {
 			return plan, errors.New("registry context must be produced by build-env.sh --prepare-context")
 		}
 		plan.Context = prepared
-		plan.Dockerfile = "Dockerfile"
+		plan.Dockerfile = dockerfileName
 	default:
 		return plan, fmt.Errorf("undeclared image context %s", context)
 	}
 	return plan, nil
 }
 
-func ProjectImageContext(plan ImageBuildPlan, rootArchive io.Reader, destination io.Writer) (ImageBuildPlan, error) {
+func ProjectImageContext(plan ImageBuildPlan, rootArchive io.Reader, destination io.Writer) (result ImageBuildPlan, resultErr error) {
 	digest := sha256.New()
 	output := tar.NewWriter(io.MultiWriter(destination, digest))
 	foundRecipe := false
 	if plan.Name == "platform-registry-builder" {
-		required := map[string]bool{"Dockerfile": false, "Dockerfile.dockerignore": false, "package.json": false, "package-lock.json": false, "rust-downloads.lock": false, "install-rust.sh": false, "cargo-config.toml": false, "layerx-rustc": false, "layerx-build": false}
+		directory, err := os.OpenRoot(plan.Context)
+		if err != nil {
+			return plan, err
+		}
+		defer func() {
+			if closeErr := directory.Close(); resultErr == nil {
+				resultErr = closeErr
+			}
+		}()
+		required := map[string]bool{dockerfileName: false, "Dockerfile.dockerignore": false, "package.json": false, "package-lock.json": false, "rust-downloads.lock": false, "install-rust.sh": false, "cargo-config.toml": false, "layerx-rustc": false, "layerx-build": false}
 		vendor := false
-		err := filepath.WalkDir(plan.Context, func(filename string, entry os.DirEntry, walkErr error) error {
+		err = filepath.WalkDir(plan.Context, func(filename string, entry os.DirEntry, walkErr error) error {
 			if walkErr != nil {
 				return walkErr
 			}
@@ -219,8 +261,11 @@ func ProjectImageContext(plan ImageBuildPlan, rootArchive io.Reader, destination
 			if err != nil {
 				return err
 			}
+			if !filepath.IsLocal(relative) {
+				return fmt.Errorf("invalid builder context input %s", relative)
+			}
+			raw, err := directory.ReadFile(relative)
 			relative = filepath.ToSlash(relative)
-			raw, err := os.ReadFile(filename)
 			if err != nil {
 				return err
 			}
@@ -263,13 +308,16 @@ func ProjectImageContext(plan ImageBuildPlan, rootArchive io.Reader, destination
 				return plan, err
 			}
 			name := header.Name
+			if !filepath.IsLocal(filepath.FromSlash(name)) || path.Clean(name) != name {
+				return plan, fmt.Errorf("invalid image context input %s", name)
+			}
 			if plan.Context != "." {
 				prefix := plan.Context + "/"
 				switch {
 				case strings.HasPrefix(name, prefix):
 					name = strings.TrimPrefix(name, prefix)
 				case name == "docker/explorer-backend/Dockerfile":
-					name = "Dockerfile"
+					name = dockerfileName
 				case name == "docker/explorer-backend/Dockerfile.dockerignore":
 					name = "Dockerfile.dockerignore"
 				default:
@@ -283,7 +331,7 @@ func ProjectImageContext(plan ImageBuildPlan, rootArchive io.Reader, destination
 			if err := output.WriteHeader(header); err != nil {
 				return plan, err
 			}
-			if _, err := io.Copy(output, input); err != nil {
+			if _, err := io.CopyN(output, input, header.Size); err != nil {
 				return plan, err
 			}
 		}
@@ -366,9 +414,9 @@ type NativeMaterial struct {
 }
 
 var nativeInputPaths = map[string]string{
-	"genesis.json": "config/genesis.json", "config.toml": "config/config.toml", "app.toml": "config/app.toml",
-	"priv_validator_key.json": "config/priv_validator_key.json", "node_key.json": "config/node_key.json",
-	"priv_validator_state.json": "data/priv_validator_state.json", "receipt.key": "config/receipt.key",
+	genesisFilename: genesisRelativePath, "config.toml": "config/config.toml", "app.toml": "config/app.toml",
+	validatorKeyFilename: validatorKeyRelativePath, nodeKeyFilename: "config/node_key.json",
+	validatorStateFilename: "data/priv_validator_state.json", "receipt.key": "config/receipt.key",
 }
 
 func readNativeFile(filename string) ([]byte, error) {
@@ -406,10 +454,10 @@ func validateNativeInputs(files map[string][]byte, policy TreasuryPolicy) (seqke
 		Validators []json.RawMessage          `json:"validators"`
 		AppState   map[string]json.RawMessage `json:"app_state"`
 	}
-	if err := json.Unmarshal(files["genesis.json"], &genesis); err != nil {
+	if err := json.Unmarshal(files[genesisFilename], &genesis); err != nil {
 		return nil, err
 	}
-	if genesis.ChainID != NativeChainID || len(genesis.Validators) == 0 || genesis.AppState["bank"] == nil || genesis.AppState["lxphost"] == nil {
+	if genesis.ChainID != NativeChainID || len(genesis.Validators) == 0 || genesis.AppState[bankModuleName] == nil || genesis.AppState["lxphost"] == nil {
 		return nil, errors.New("native genesis must bind validators, bank and merged kernel on chain 125")
 	}
 	var state struct {
@@ -419,7 +467,7 @@ func validateNativeInputs(files map[string][]byte, policy TreasuryPolicy) (seqke
 		LastSeq    uint64                `json:"last_seq"`
 		LastHash   []byte                `json:"last_seq_hash"`
 	}
-	if err := json.Unmarshal(genesis.AppState["sequencer"], &state); err != nil {
+	if err := json.Unmarshal(genesis.AppState[sequencerModuleName], &state); err != nil {
 		return nil, err
 	}
 	if len(state.Keys) == 0 {
@@ -459,7 +507,7 @@ func validateNativeInputs(files map[string][]byte, policy TreasuryPolicy) (seqke
 	if !pinned {
 		return nil, errors.New("native signing seed is not pinned at genesis")
 	}
-	for name, required := range map[string][]string{"priv_validator_key.json": {"priv_key", "pub_key", "address"}, "node_key.json": {"priv_key"}, "priv_validator_state.json": {"height", "round", "step"}} {
+	for name, required := range map[string][]string{validatorKeyFilename: {"priv_key", "pub_key", "address"}, nodeKeyFilename: {"priv_key"}, validatorStateFilename: {"height", "round", "step"}} {
 		var fields map[string]json.RawMessage
 		if err := json.Unmarshal(files[name], &fields); err != nil {
 			return nil, err
@@ -471,13 +519,13 @@ func validateNativeInputs(files map[string][]byte, policy TreasuryPolicy) (seqke
 		}
 	}
 	var validator privval.FilePVKey
-	if err := json.Unmarshal(files["priv_validator_key.json"], &validator); err != nil {
+	if err := json.Unmarshal(files[validatorKeyFilename], &validator); err != nil {
 		return nil, err
 	}
 	if bytes.Equal(validator.PubKey.Bytes(), make([]byte, 32)) || !bytes.Equal(validator.PubKey.Bytes(), validator.PrivKey.Public().Bytes()) || !bytes.Equal(validator.Address, validator.PubKey.Address()) {
 		return nil, errors.New("native validator keypair differs")
 	}
-	doc, err := tmtypes.GenesisDocFromJSON(files["genesis.json"])
+	doc, err := tmtypes.GenesisDocFromJSON(files[genesisFilename])
 	if err != nil {
 		return nil, err
 	}
@@ -490,15 +538,15 @@ func validateNativeInputs(files map[string][]byte, policy TreasuryPolicy) (seqke
 	if !validatorFound || !bytes.Equal(state.Leaders[0], validator.PubKey.Bytes()) {
 		return nil, errors.New("native validator does not lead the configured genesis")
 	}
-	if err := (seqmodule.AppModuleBasic{}).ValidateGenesis(nil, nil, genesis.AppState["sequencer"]); err != nil {
+	if err := (seqmodule.AppModuleBasic{}).ValidateGenesis(nil, nil, genesis.AppState[sequencerModuleName]); err != nil {
 		return nil, err
 	}
 	var node tmtypes.NodeKey
-	if err := json.Unmarshal(files["node_key.json"], &node); err != nil {
+	if err := json.Unmarshal(files[nodeKeyFilename], &node); err != nil {
 		return nil, err
 	}
 	var signing privval.FilePVLastSignState
-	if err := json.Unmarshal(files["priv_validator_state.json"], &signing); err != nil {
+	if err := json.Unmarshal(files[validatorStateFilename], &signing); err != nil {
 		return nil, err
 	}
 	if signing.Height < 0 || signing.Round < 0 || signing.Step < 0 || signing.Step > 3 || (signing.Height > 0 && (len(signing.Signature) == 0 || len(signing.SignBytes) == 0)) {
@@ -518,7 +566,7 @@ func validateNativeInputs(files map[string][]byte, policy TreasuryPolicy) (seqke
 	if _, err := toml.Decode(string(files["config.toml"]), &config); err != nil {
 		return nil, err
 	}
-	if config.Mode != "validator" || config.Data != "data" || config.Genesis != "config/genesis.json" || config.Node != "config/node_key.json" || config.Validator.Key != "config/priv_validator_key.json" || config.Validator.State != "data/priv_validator_state.json" || config.Validator.Address != "" {
+	if config.Mode != "validator" || config.Data != "data" || config.Genesis != genesisRelativePath || config.Node != "config/node_key.json" || config.Validator.Key != validatorKeyRelativePath || config.Validator.State != "data/priv_validator_state.json" || config.Validator.Address != "" {
 		return nil, errors.New("native configuration escapes the provisioned validator home")
 	}
 	var appConfig map[string]any
@@ -540,10 +588,10 @@ func validateNativeInputs(files map[string][]byte, policy TreasuryPolicy) (seqke
 			} `json:"coins"`
 		} `json:"balances"`
 	}
-	if err := json.Unmarshal(genesis.AppState["evm"], &evm); err != nil {
+	if err := json.Unmarshal(genesis.AppState[evmModuleName], &evm); err != nil {
 		return nil, err
 	}
-	if err := json.Unmarshal(genesis.AppState["bank"], &bank); err != nil {
+	if err := json.Unmarshal(genesis.AppState[bankModuleName], &bank); err != nil {
 		return nil, err
 	}
 	funded := false
@@ -569,7 +617,7 @@ func validateNativeInputs(files map[string][]byte, policy TreasuryPolicy) (seqke
 	return state.Keys, nil
 }
 
-func SaveNativeMaterial(home, directory string, policy TreasuryPolicy) (*NativeMaterial, error) {
+func SaveNativeMaterial(home, directory string, policy TreasuryPolicy) (result0 *NativeMaterial, resultErr error) {
 	files := map[string][]byte{}
 	for name, relative := range nativeInputPaths {
 		raw, err := readNativeFile(filepath.Join(home, filepath.FromSlash(relative)))
@@ -582,11 +630,11 @@ func SaveNativeMaterial(home, directory string, policy TreasuryPolicy) (*NativeM
 	if err != nil {
 		return nil, err
 	}
-	files["receipt-keys.json"], err = GatewayReceiptKeys(pins)
+	files[receiptKeysFilename], err = GatewayReceiptKeys(pins)
 	if err != nil {
 		return nil, err
 	}
-	files["treasury-policy.json"], err = json.Marshal(policy)
+	files[treasuryPolicyFilename], err = json.Marshal(policy)
 	if err != nil {
 		return nil, err
 	}
@@ -604,14 +652,18 @@ func SaveNativeMaterial(home, directory string, policy TreasuryPolicy) (*NativeM
 	if err != nil {
 		return nil, err
 	}
-	if err := writeNativeFile(filepath.Join(directory, "manifest.json"), raw); err != nil {
+	if err := writeNativeFile(filepath.Join(directory, manifestFilename), raw); err != nil {
 		return nil, err
 	}
 	parent, err := os.Open(directory)
 	if err != nil {
 		return nil, err
 	}
-	defer parent.Close()
+	defer func() {
+		if closeErr := parent.Close(); resultErr == nil {
+			resultErr = closeErr
+		}
+	}()
 	if err := parent.Sync(); err != nil {
 		return nil, err
 	}
@@ -619,7 +671,7 @@ func SaveNativeMaterial(home, directory string, policy TreasuryPolicy) (*NativeM
 }
 
 func OpenNativeMaterial(directory string, expected TreasuryPolicy) (*NativeMaterial, error) {
-	raw, err := readNativeFile(filepath.Join(directory, "manifest.json"))
+	raw, err := readNativeFile(filepath.Join(directory, manifestFilename))
 	if err != nil {
 		return nil, err
 	}
@@ -640,7 +692,7 @@ func OpenNativeMaterial(directory string, expected TreasuryPolicy) (*NativeMater
 	for name := range nativeInputPaths {
 		files[name] = nil
 	}
-	files["receipt-keys.json"], files["treasury-policy.json"] = nil, nil
+	files[receiptKeysFilename], files[treasuryPolicyFilename] = nil, nil
 	for name := range files {
 		raw, err := readNativeFile(filepath.Join(directory, name))
 		if err != nil {
@@ -656,11 +708,11 @@ func OpenNativeMaterial(directory string, expected TreasuryPolicy) (*NativeMater
 		return nil, err
 	}
 	projected, err := GatewayReceiptKeys(pins)
-	if err != nil || !bytes.Equal(projected, files["receipt-keys.json"]) {
+	if err != nil || !bytes.Equal(projected, files[receiptKeysFilename]) {
 		return nil, errors.New("retained native receipt keys changed")
 	}
 	policy, err := json.Marshal(expected)
-	if err != nil || !bytes.Equal(policy, files["treasury-policy.json"]) {
+	if err != nil || !bytes.Equal(policy, files[treasuryPolicyFilename]) {
 		return nil, errors.New("retained treasury policy changed")
 	}
 	material.directory = directory
@@ -684,11 +736,11 @@ func (material *NativeMaterial) Secret(namespace string) (map[string]any, error)
 		}
 		data[name] = raw
 	}
-	raw, err := readNativeFile(filepath.Join(material.directory, "manifest.json"))
+	raw, err := readNativeFile(filepath.Join(material.directory, manifestFilename))
 	if err != nil {
 		return nil, err
 	}
-	data["manifest.json"] = raw
+	data[manifestFilename] = raw
 	return map[string]any{"apiVersion": "v1", "kind": "Secret", "type": "Opaque", "metadata": map[string]string{"name": "layerx-native-inputs", "namespace": namespace}, "data": data}, nil
 }
 
@@ -756,7 +808,7 @@ func ConfigureNativeHome(home, recipientAccount string, policy TreasuryPolicy) e
 	if err := policy.Validate(); err != nil {
 		return err
 	}
-	genesisPath := filepath.Join(home, "config/genesis.json")
+	genesisPath := filepath.Join(home, genesisRelativePath)
 	raw, err := readNativeFile(genesisPath)
 	if err != nil {
 		return err
@@ -773,13 +825,13 @@ func ConfigureNativeHome(home, recipientAccount string, policy TreasuryPolicy) e
 	if err := json.Unmarshal(genesis["app_state"], &app); err != nil {
 		return err
 	}
-	if app["bank"] == nil || app["lxphost"] == nil {
+	if app[bankModuleName] == nil || app["lxphost"] == nil {
 		return errors.New("paxd init did not produce bank and merged kernel genesis")
 	}
 	var validator struct {
 		Public json.RawMessage `json:"pub_key"`
 	}
-	raw, err = readNativeFile(filepath.Join(home, "config/priv_validator_key.json"))
+	raw, err = readNativeFile(filepath.Join(home, validatorKeyRelativePath))
 	if err != nil {
 		return err
 	}
@@ -807,12 +859,12 @@ func ConfigureNativeHome(home, recipientAccount string, policy TreasuryPolicy) e
 		Leaders [][]byte              `json:"leaders"`
 		Keys    seqkeeper.ReceiptKeys `json:"receipt_keys"`
 	}{[][]byte{public.Value}, keys}
-	app["sequencer"], err = json.Marshal(state)
+	app[sequencerModuleName], err = json.Marshal(state)
 	if err != nil {
 		return err
 	}
 	var evm map[string]json.RawMessage
-	if err := json.Unmarshal(app["evm"], &evm); err != nil {
+	if err := json.Unmarshal(app[evmModuleName], &evm); err != nil {
 		return err
 	}
 	prefix, account, err := bech32.DecodeAndConvert(recipientAccount)
@@ -827,21 +879,21 @@ func ConfigureNativeHome(home, recipientAccount string, policy TreasuryPolicy) e
 	}
 	exists := false
 	for _, association := range associations {
-		if strings.EqualFold(association["eth_address"], "0x"+policy.Recipient) || association["pax_address"] == recipientAccount {
-			if !strings.EqualFold(association["eth_address"], "0x"+policy.Recipient) || association["pax_address"] != recipientAccount {
+		if strings.EqualFold(association[ethAddressField], "0x"+policy.Recipient) || association[paxAddressField] == recipientAccount {
+			if !strings.EqualFold(association[ethAddressField], "0x"+policy.Recipient) || association[paxAddressField] != recipientAccount {
 				return errors.New("native treasury association conflicts with genesis")
 			}
 			exists = true
 		}
 	}
 	if !exists {
-		associations = append(associations, map[string]string{"eth_address": "0x" + policy.Recipient, "pax_address": recipientAccount})
+		associations = append(associations, map[string]string{ethAddressField: "0x" + policy.Recipient, paxAddressField: recipientAccount})
 	}
 	evm["address_associations"], err = json.Marshal(associations)
 	if err != nil {
 		return err
 	}
-	app["evm"], err = json.Marshal(evm)
+	app[evmModuleName], err = json.Marshal(evm)
 	if err != nil {
 		return err
 	}

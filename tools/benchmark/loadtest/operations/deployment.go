@@ -175,7 +175,7 @@ func DeployEVM(ctx context.Context, commands Commands, options EVMDeployment) (s
 	}
 	threshold, _ := new(big.Int).SetString("100000000000000000000", 10)
 	if balance.Cmp(threshold) < 0 {
-		raw, err := commands.Run(ctx, Command{Args: []string{options.Paxd, "tx", "evm", "send", account, threshold.String(), "--from", "admin", "--evm-rpc", options.Endpoint, "-y"}})
+		raw, err := commands.Run(ctx, Command{Args: []string{options.Paxd, "tx", "evm", "send", account, threshold.String(), fromFlag, adminAccount, "--evm-rpc", options.Endpoint, "-y"}})
 		if err != nil {
 			return "", err
 		}
@@ -245,7 +245,7 @@ func (e *WasmDeploymentError) Error() string {
 
 func (e *WasmDeploymentError) Unwrap() error { return e.Cause }
 
-func DeployWasm(ctx context.Context, commands Commands, options WasmDeployment, output io.Writer) error {
+func DeployWasm(ctx context.Context, commands Commands, options WasmDeployment, output io.Writer) (err error) {
 	if options.Root == "" || options.Paxd == "" || options.Key == "" || options.Chain == "" {
 		return errors.New("home, binary, key and chain are required")
 	}
@@ -254,7 +254,12 @@ func DeployWasm(ctx context.Context, commands Commands, options WasmDeployment, 
 		return err
 	}
 	artifact := filepath.Join(root, "contracts", "wasm", "cw20_base.wasm")
-	file, err := os.Open(artifact)
+	directory, err := os.OpenRoot(filepath.Dir(artifact))
+	if err != nil {
+		return fmt.Errorf("CW20 preflight artifact %q: %w", artifact, err)
+	}
+	defer func() { err = closeWithError(directory, err) }()
+	file, err := directory.Open(filepath.Base(artifact))
 	if err != nil {
 		return fmt.Errorf("CW20 preflight artifact %q: %w", artifact, err)
 	}

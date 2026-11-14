@@ -13,9 +13,9 @@ use std::sync::{mpsc, Arc, Mutex};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
-const CA: &[u8] = include_bytes!("../fixtures/repair_22_33_1324/ca.der");
-const CERT: &[u8] = include_bytes!("../fixtures/repair_22_33_1324/server.der");
-const KEY: &[u8] = include_bytes!("../fixtures/repair_22_33_1324/server-key.der");
+const CA: &[u8] = include_bytes!("../fixtures/chain_evidence_tls/ca.der");
+const CERT: &[u8] = include_bytes!("../fixtures/chain_evidence_tls/server.der");
+const KEY: &[u8] = include_bytes!("../fixtures/chain_evidence_tls/server-key.der");
 const REQUEST: &[u8] =
     b"GET /chain-reference HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n";
 const TIMEOUT: Duration = Duration::from_secs(5);
@@ -159,7 +159,7 @@ impl EvidencePeer {
         Self::with_identity(
             reference,
             CA,
-            include_bytes!("../fixtures/repair_22_33_1324/ca-key.der"),
+            include_bytes!("../fixtures/chain_evidence_tls/ca-key.der"),
         )
     }
 
@@ -349,7 +349,7 @@ fn exchange(
     Ok(())
 }
 
-pub const TRUST: &str = include_str!("../fixtures/repair_22_33_1324/chain-trust-v1.json");
+pub const TRUST: &str = include_str!("../fixtures/chain_evidence_tls/chain-trust-v1.json");
 pub const ARCHIVE: &str =
     include_str!("../../../../../../contracts/config/checkpoint-settlement.json");
 
@@ -371,7 +371,7 @@ fn hash(value: &serde_json::Value) -> [u8; 32] {
 #[must_use]
 pub fn reference_from_recording() -> BlockReference {
     let record: serde_json::Value =
-        serde_json::from_str(include_str!("../fixtures/repair_22_33_1324/commit.json"))
+        serde_json::from_str(include_str!("../fixtures/chain_evidence_tls/commit.json"))
             .unwrap_or_else(|error| panic!("recorded node interface: {error:?}"));
     let signed = &record["result"]["signed_header"];
     let header = &signed["header"];
@@ -443,7 +443,7 @@ pub fn qualify_tls_identity() {
         "empty root store must not trust the server"
     );
     let unrelated = client_config(Some(include_bytes!(
-        "../fixtures/repair_22_33_1324/unrelated-ca.der"
+        "../fixtures/chain_evidence_tls/unrelated-ca.der"
     )))
     .unwrap_or_else(|error| panic!("unrelated CA: {error:?}"));
     assert!(
@@ -457,7 +457,7 @@ pub fn qualify_tls_identity() {
     assert!(
         std::fs::read(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/tests/fixtures/repair_22_33_1324/missing-ca.der"
+            "/tests/fixtures/chain_evidence_tls/missing-ca.der"
         ))
         .is_err(),
         "missing CA is an explicit configuration failure"

@@ -1,0 +1,140 @@
+[manifest]
+task = "22.43.99"
+records_moved = 10
+files_renamed = 9
+
+[file.1]
+from = "scripts/bump_version/repair_m855_test.go"
+to = "scripts/bump_version/archive_recovery_test.go"
+
+[file.2]
+from = "scripts/evm_stress/repair_m872_test.go"
+to = "scripts/evm_stress/submission_accounting_test.go"
+
+[file.3]
+from = "scripts/gates/test_repair_22_33_899.py"
+to = "scripts/gates/test_gate_retention.py"
+
+[file.4]
+from = "scripts/qualification/paxeer-x/test_repair_22_33_808.py"
+to = "scripts/qualification/paxeer-x/test_program_http_qualification.py"
+
+[file.5]
+from = "scripts/repair_m802_test.go"
+to = "scripts/maintenance_operations_test.go"
+
+[file.6]
+from = "scripts/replica/test_repair_22_33_721.py"
+to = "scripts/replica/test_replay_fixture.py"
+
+[file.7]
+from = "scripts/test_repair_22_31_320.py"
+to = "scripts/test_maintenance_workflows.py"
+
+[file.8]
+from = "scripts/fixtures/repair_22_31_320/block.json"
+to = "scripts/fixtures/maintenance_rpc/block.json"
+
+[file.9]
+from = "scripts/fixtures/repair_22_31_320/status.json"
+to = "scripts/fixtures/maintenance_rpc/status.json"
+
+[file.10]
+from = "scripts/bump_version/repair_22_33_855.kvx"
+to = "spec/layerx-merge/programme/records/scripts/bump_version/repair_22_33_855.kvx"
+
+[file.11]
+from = "scripts/ci/repair_22_31_317.kvx"
+to = "spec/layerx-merge/programme/records/scripts/ci/repair_22_31_317.kvx"
+
+[file.12]
+from = "scripts/evm_stress/repair_22_33_872.kvx"
+to = "spec/layerx-merge/programme/records/scripts/evm_stress/repair_22_33_872.kvx"
+
+[file.13]
+from = "scripts/gates/repair_22_33_899.kvx"
+to = "spec/layerx-merge/programme/records/scripts/gates/repair_22_33_899.kvx"
+
+[file.14]
+from = "scripts/gates/repair_22_39_339.kvx"
+to = "spec/layerx-merge/programme/records/scripts/gates/repair_22_39_339.kvx"
+
+[file.15]
+from = "scripts/qualification/paxeer-x/repair_22_33_808.kvx"
+to = "spec/layerx-merge/programme/records/scripts/qualification/paxeer-x/repair_22_33_808.kvx"
+
+[file.16]
+from = "scripts/repair_22_31_320.kvx"
+to = "spec/layerx-merge/programme/records/scripts/repair_22_31_320.kvx"
+
+[file.17]
+from = "scripts/repair_22_33_802.kvx"
+to = "spec/layerx-merge/programme/records/scripts/repair_22_33_802.kvx"
+
+[file.18]
+from = "scripts/replica/repair_22_33_721.kvx"
+to = "spec/layerx-merge/programme/records/scripts/replica/repair_22_33_721.kvx"
+
+[file.19]
+from = "scripts/workspace/repair_22_39_510.kvx"
+to = "spec/layerx-merge/programme/records/scripts/workspace/repair_22_39_510.kvx"
+
+[reference.1]
+file = "GOTCHA.kvx"
+name = "scripts/gates/repair_22_33_899.kvx"
+
+[reference.2]
+file = "daemon/committed-fixture/repair_22_31_486.kvx"
+name = "scripts/qualification/paxeer-x/test_repair_22_33_808.py"
+
+[reference.3]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_802"
+
+[reference.4]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_855"
+
+[reference.5]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_872"
+
+[reference.6]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_31_320"
+
+[reference.7]
+file = "spec/layerx-merge/spec.kvx"
+name = "scripts/bump_version/repair_m855_test.go"
+
+[reference.8]
+file = "spec/layerx-merge/spec.kvx"
+name = "scripts/evm_stress/repair_m872_test.go"
+
+[reference.9]
+file = "spec/layerx-merge/spec.kvx"
+name = "scripts/gates/repair_22_39_339.kvx"
+
+[reference.10]
+file = "spec/layerx-merge/spec.kvx"
+name = "scripts/gates/test_repair_22_33_899.py"
+
+[reference.11]
+file = "spec/layerx-merge/spec.kvx"
+name = "scripts/qualification/paxeer-x/test_repair_22_33_808.py"
+
+[reference.12]
+file = "spec/layerx-merge/spec.kvx"
+name = "scripts/repair_m802_test.go"
+
+[reference.13]
+file = "spec/layerx-merge/spec.kvx"
+name = "scripts/replica/test_repair_22_33_721.py"
+
+[reference.14]
+file = "spec/layerx-merge/spec.kvx"
+name = "scripts/test_repair_22_31_320.py"
+
+[reference.15]
+file = "spec/layerx-merge/spec.kvx"
+name = "scripts/workspace/repair_22_39_510.kvx"

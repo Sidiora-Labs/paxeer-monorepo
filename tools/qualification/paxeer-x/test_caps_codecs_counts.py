@@ -12,7 +12,7 @@ caps_codecs = importlib.util.module_from_spec(definition)
 definition.loader.exec_module(caps_codecs)
 TEST_SOURCES = {
     'client': ROOT / 'services/agent/crates/layerx-client/tests/committed_caps.rs',
-    'agentd': ROOT / 'services/agent/crates/layerx-agentd/tests/budget_schema.rs',
+    'agentd': ROOT / 'services/agent/crates/layerx-agentd/tests/suites/budget_schema.rs',
 }
 VECTORS = ROOT / 'tests/vectors/native-budget-records.json'
 

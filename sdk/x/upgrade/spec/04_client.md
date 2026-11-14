@@ -27,10 +27,10 @@ at height `30` in a separate example. Version examples assume a stored `upgrade`
 module consensus version of `1`; query the node for its actual version map.
 The CurrentPlan JSON and CLI YAML examples are checked against the real keeper,
 registered gRPC service, node gateway marshaler and CLI printer by
-`TestRepairM_610_CurrentPlanShape` in
-[repair_m610_test.go](../repair_m610_test.go). The grpcurl method paths and request
+`TestUpgradeDocumentation_CurrentPlanShape` in
+[upgrade_documentation_test.go](../upgrade_documentation_test.go). The grpcurl method paths and request
 bodies are also exercised through that registered service by
-`TestRepairM_610_GRPCService`; these tests need no grpcurl executable.
+`TestUpgradeDocumentation_GRPCService`; these tests need no grpcurl executable.
 
 ## CLI
 

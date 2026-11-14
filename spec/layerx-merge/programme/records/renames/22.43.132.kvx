@@ -1,0 +1,700 @@
+[manifest]
+task = "22.43.132"
+records_moved = 20
+files_renamed = 25
+
+[file.1]
+from = "services/agent/crates/layerx-proof/tests/repair_22_31_226.rs"
+to = "services/agent/crates/layerx-proof/tests/certificate_retirement.rs"
+
+[file.2]
+from = "services/agent/crates/layerx-proof/tests/repair_22_33_1557.rs"
+to = "services/agent/crates/layerx-proof/tests/receipt_evidence_exports.rs"
+
+[file.3]
+from = "services/agent/crates/layerx-proof/tests/repair_22_33_1562.rs"
+to = "services/agent/crates/layerx-proof/tests/export_terminal_refusals.rs"
+
+[file.4]
+from = "services/agent/crates/layerx-proof/tests/repair_22_33_1563.rs"
+to = "services/agent/crates/layerx-proof/tests/withdrawal_outcome_binding.rs"
+
+[file.5]
+from = "services/agent/crates/layerx-sdk/tests/repair_22_31_190.rs"
+to = "services/agent/crates/layerx-sdk/tests/program_lifecycle_replay.rs"
+
+[file.6]
+from = "services/agent/crates/layerx-sdk/tests/repair_22_31_227.rs"
+to = "services/agent/crates/layerx-sdk/tests/wallet_program_recovery.rs"
+
+[file.7]
+from = "services/agent/crates/layerx-sdk/tests/repair_22_31_228.rs"
+to = "services/agent/crates/layerx-sdk/tests/wallet_cli_balance.rs"
+
+[file.8]
+from = "services/agent/crates/layerx-sdk/tests/repair_22_31_487.rs"
+to = "services/agent/crates/layerx-sdk/tests/read_budget_wire_contract.rs"
+
+[file.9]
+from = "services/agent/crates/layerx-sdk/tests/repair_22_31_494.rs"
+to = "services/agent/crates/layerx-sdk/tests/submitted_transaction_evidence.rs"
+
+[file.10]
+from = "services/agent/crates/layerx-sdk/tests/repair_22_31_547.rs"
+to = "services/agent/crates/layerx-sdk/tests/native_send_consent.rs"
+
+[file.11]
+from = "services/agent/crates/layerx-sdk/tests/repair_22_31_563.rs"
+to = "services/agent/crates/layerx-sdk/tests/submitted_commitment_waits.rs"
+
+[file.12]
+from = "services/agent/crates/layerx-sdk/tests/repair_22_31_567.rs"
+to = "services/agent/crates/layerx-sdk/tests/sequence_batch_coverage.rs"
+
+[file.13]
+from = "services/agent/crates/layerx-sdk/tests/repair_22_31_576.rs"
+to = "services/agent/crates/layerx-sdk/tests/signed_activity_binding.rs"
+
+[file.14]
+from = "services/agent/crates/layerx-sdk/tests/repair_22_31_592.rs"
+to = "services/agent/crates/layerx-sdk/tests/hosted_faucet.rs"
+
+[file.15]
+from = "services/agent/crates/layerx-sdk/tests/repair_22_33_1564.rs"
+to = "services/agent/crates/layerx-sdk/tests/rpc_trust_stream_recovery.rs"
+
+[file.16]
+from = "services/agent/crates/layerx-sdk/tests/repair_22_33_1566.rs"
+to = "services/agent/crates/layerx-sdk/tests/sdk_transport_contracts.rs"
+
+[file.17]
+from = "services/agent/crates/layerx-types/tests/repair_22_33_1542.rs"
+to = "services/agent/crates/layerx-types/tests/program_admission_chain_trust.rs"
+
+[file.18]
+from = "services/agent/crates/layerx-types/tests/repair_22_33_1548.rs"
+to = "services/agent/crates/layerx-types/tests/consumer_proof_rungs.rs"
+
+[file.19]
+from = "services/agent/crates/layerx-sdk/src/repair_22_31_227_fixture/committed.json"
+to = "services/agent/crates/layerx-sdk/src/committed_receipt_fixture/committed.json"
+
+[file.20]
+from = "services/agent/crates/layerx-sdk/tests/fixtures/repair_22_31_227_fixture/README.md"
+to = "services/agent/crates/layerx-sdk/tests/fixtures/tls_server/README.md"
+
+[file.21]
+from = "services/agent/crates/layerx-sdk/tests/fixtures/repair_22_31_227_fixture/ca.pem"
+to = "services/agent/crates/layerx-sdk/tests/fixtures/tls_server/ca.pem"
+
+[file.22]
+from = "services/agent/crates/layerx-sdk/tests/fixtures/repair_22_31_227_fixture/server-key.der"
+to = "services/agent/crates/layerx-sdk/tests/fixtures/tls_server/server-key.der"
+
+[file.23]
+from = "services/agent/crates/layerx-sdk/tests/fixtures/repair_22_31_227_fixture/server.der"
+to = "services/agent/crates/layerx-sdk/tests/fixtures/tls_server/server.der"
+
+[file.24]
+from = "services/agent/crates/layerx-sdk/tests/fixtures/repair_22_33_1564_fixture/README.md"
+to = "services/agent/crates/layerx-sdk/tests/fixtures/private_ca/README.md"
+
+[file.25]
+from = "services/agent/crates/layerx-sdk/tests/fixtures/repair_22_33_1564_fixture/ca.der"
+to = "services/agent/crates/layerx-sdk/tests/fixtures/private_ca/ca.der"
+
+[file.26]
+from = "services/agent/crates/layerx-proof/src/repair_22_33_1557.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-proof/src/repair_22_33_1557.kvx"
+
+[file.27]
+from = "services/agent/crates/layerx-proof/src/repair_22_39_218.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-proof/src/repair_22_39_218.kvx"
+
+[file.28]
+from = "services/agent/crates/layerx-sdk/repair_22_31_494.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-sdk/repair_22_31_494.kvx"
+
+[file.29]
+from = "services/agent/crates/layerx-sdk/repair_22_39_257.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-sdk/repair_22_39_257.kvx"
+
+[file.30]
+from = "services/agent/crates/layerx-sdk/repair_22_39_310.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-sdk/repair_22_39_310.kvx"
+
+[file.31]
+from = "services/agent/crates/layerx-sdk/src/bin/repair_22_31_228.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-sdk/src/bin/repair_22_31_228.kvx"
+
+[file.32]
+from = "services/agent/crates/layerx-sdk/src/repair_22_31_227.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-sdk/src/repair_22_31_227.kvx"
+
+[file.33]
+from = "services/agent/crates/layerx-sdk/src/repair_22_33_1564.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-sdk/src/repair_22_33_1564.kvx"
+
+[file.34]
+from = "services/agent/crates/layerx-sdk/src/repair_22_39_225.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-sdk/src/repair_22_39_225.kvx"
+
+[file.35]
+from = "services/agent/crates/layerx-sdk/src/repair_22_39_233.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-sdk/src/repair_22_39_233.kvx"
+
+[file.36]
+from = "services/agent/crates/layerx-sdk/tests/repair_22_31_547.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-sdk/tests/repair_22_31_547.kvx"
+
+[file.37]
+from = "services/agent/crates/layerx-sdk/tests/repair_22_31_563.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-sdk/tests/repair_22_31_563.kvx"
+
+[file.38]
+from = "services/agent/crates/layerx-sdk/tests/repair_22_31_567.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-sdk/tests/repair_22_31_567.kvx"
+
+[file.39]
+from = "services/agent/crates/layerx-sdk/tests/repair_22_31_576.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-sdk/tests/repair_22_31_576.kvx"
+
+[file.40]
+from = "services/agent/crates/layerx-sdk/tests/repair_22_33_1566.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-sdk/tests/repair_22_33_1566.kvx"
+
+[file.41]
+from = "services/agent/crates/layerx-types/repair_22_39_254.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-types/repair_22_39_254.kvx"
+
+[file.42]
+from = "services/agent/crates/layerx-types/src/repair_22_33_1542.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-types/src/repair_22_33_1542.kvx"
+
+[file.43]
+from = "services/agent/crates/layerx-types/src/repair_22_39_211.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-types/src/repair_22_39_211.kvx"
+
+[file.44]
+from = "services/agent/crates/layerx-types/src/repair_22_39_215.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-types/src/repair_22_39_215.kvx"
+
+[file.45]
+from = "services/agent/crates/layerx-types/tests/repair_22_33_1548.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-types/tests/repair_22_33_1548.kvx"
+
+[reference.1]
+file = ".gitignore"
+name = "repair_22_31_227_fixture"
+
+[reference.2]
+file = "GOTCHA.kvx"
+name = "repair_22_31_226.rs"
+
+[reference.3]
+file = "GOTCHA.kvx"
+name = "repair_22_31_227_fixture"
+
+[reference.4]
+file = "GOTCHA.kvx"
+name = "repair_22_31_487.rs"
+
+[reference.5]
+file = "GOTCHA.kvx"
+name = "repair_22_31_494.rs"
+
+[reference.6]
+file = "GOTCHA.kvx"
+name = "repair_22_31_547.rs"
+
+[reference.7]
+file = "GOTCHA.kvx"
+name = "repair_22_31_563.rs"
+
+[reference.8]
+file = "GOTCHA.kvx"
+name = "repair_22_31_567.rs"
+
+[reference.9]
+file = "GOTCHA.kvx"
+name = "repair_22_31_576.rs"
+
+[reference.10]
+file = "GOTCHA.kvx"
+name = "repair_22_31_592.rs"
+
+[reference.11]
+file = "GOTCHA.kvx"
+name = "repair_22_33_1557.rs"
+
+[reference.12]
+file = "GOTCHA.kvx"
+name = "repair_22_33_1562.rs"
+
+[reference.13]
+file = "GOTCHA.kvx"
+name = "repair_22_39_225.kvx"
+
+[reference.14]
+file = "sdk/platform/pipeline.kvx"
+name = "repair_22_31_227.kvx"
+
+[reference.15]
+file = "sdk/platform/pipeline.kvx"
+name = "repair_22_31_227_fixture"
+
+[reference.16]
+file = "sdk/platform/pipeline.kvx"
+name = "repair_22_31_228.kvx"
+
+[reference.17]
+file = "sdk/platform/pipeline.kvx"
+name = "repair_22_33_1564.kvx"
+
+[reference.18]
+file = "sdk/platform/pipeline.kvx"
+name = "repair_22_39_225.kvx"
+
+[reference.19]
+file = "sdk/platform/pipeline.kvx"
+name = "repair_22_39_233.kvx"
+
+[reference.20]
+file = "sdk/platform/repair_22_39_237.kvx"
+name = "repair_22_31_227.kvx"
+
+[reference.21]
+file = "sdk/platform/repair_22_39_237.kvx"
+name = "repair_22_31_227_fixture"
+
+[reference.22]
+file = "sdk/platform/repair_22_39_237.kvx"
+name = "repair_22_31_228.kvx"
+
+[reference.23]
+file = "sdk/platform/repair_22_39_237.kvx"
+name = "repair_22_33_1564.kvx"
+
+[reference.24]
+file = "sdk/platform/repair_22_39_237.kvx"
+name = "repair_22_39_233.kvx"
+
+[reference.25]
+file = "sdk/platform/repair_22_39_309.kvx"
+name = "repair_22_39_225.kvx"
+
+[reference.26]
+file = "services/agent/crates/layerx-agentd/src/prepare/repair_9_35_24.kvx"
+name = "repair_22_31_547.rs"
+
+[reference.27]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_539.kvx"
+name = "repair_22_33_1557.rs"
+
+[reference.28]
+file = "services/agent/tests/isolation/src/owner_routes.rs"
+name = "repair_22_31_227_fixture"
+
+[reference.29]
+file = "services/agent/tests/qualify/fabrication.rs"
+name = "repair_22_31_227_fixture"
+
+[reference.30]
+file = "services/agent/tests/qualify/hostile_node.rs"
+name = "repair_22_31_227_fixture"
+
+[reference.31]
+file = "services/agent/tests/qualify/repair_22_33_1575.kvx"
+name = "repair_22_31_227_fixture"
+
+[reference.32]
+file = "services/platform/ramps/reference/tests/repair_22_39_163.kvx"
+name = "repair_22_31_227_fixture"
+
+[reference.33]
+file = "spec/layerx-merge/dispositions/d22-17.kvx"
+name = "repair_22_31_190.rs"
+
+[reference.34]
+file = "spec/layerx-merge/dispositions/d22-17.kvx"
+name = "repair_22_31_226.rs"
+
+[reference.35]
+file = "spec/layerx-merge/dispositions/d22-17.kvx"
+name = "repair_22_31_227.rs"
+
+[reference.36]
+file = "spec/layerx-merge/dispositions/d22-19.kvx"
+name = "repair_22_31_494.rs"
+
+[reference.37]
+file = "spec/layerx-merge/dispositions/d22-20.kvx"
+name = "repair_22_31_547.rs"
+
+[reference.38]
+file = "spec/layerx-merge/dispositions/d22-21.kvx"
+name = "repair_22_31_547.rs"
+
+[reference.39]
+file = "spec/layerx-merge/dispositions/d22-21.kvx"
+name = "repair_22_31_563.rs"
+
+[reference.40]
+file = "spec/layerx-merge/dispositions/d22-25.kvx"
+name = "repair_22_33_1557.rs"
+
+[reference.41]
+file = "spec/layerx-merge/dispositions/d9-14.kvx"
+name = "repair_22_31_547.rs"
+
+[reference.42]
+file = "spec/layerx-merge/programme/docs/review/22.41.22.kvx"
+name = "repair_22_31_227_fixture"
+
+[reference.43]
+file = "spec/layerx-merge/programme/docs/review/22.41.22.kvx"
+name = "repair_22_33_1564_fixture"
+
+[reference.44]
+file = "spec/layerx-merge/programme/docs/review/22.41.80.kvx"
+name = "repair_22_31_227_fixture"
+
+[reference.45]
+file = "spec/layerx-merge/programme/docs/review/22.41.80.kvx"
+name = "repair_22_33_1564_fixture"
+
+[reference.46]
+file = "spec/layerx-merge/programme/issues/1734.kvx"
+name = "repair_22_33_1564.rs"
+
+[reference.47]
+file = "spec/layerx-merge/programme/issues/1764.kvx"
+name = "repair_22_31_494.rs"
+
+[reference.48]
+file = "spec/layerx-merge/programme/issues/1764.kvx"
+name = "repair_22_31_563.rs"
+
+[reference.49]
+file = "spec/layerx-merge/programme/issues/1764.kvx"
+name = "repair_22_31_567.rs"
+
+[reference.50]
+file = "spec/layerx-merge/programme/issues/1764.kvx"
+name = "repair_22_31_576.rs"
+
+[reference.51]
+file = "spec/layerx-merge/programme/issues/1809.kvx"
+name = "repair_22_31_547.rs"
+
+[reference.52]
+file = "spec/layerx-merge/programme/issues/1809.kvx"
+name = "repair_22_31_563.kvx"
+
+[reference.53]
+file = "spec/layerx-merge/programme/issues/1809.kvx"
+name = "repair_22_31_563.rs"
+
+[reference.54]
+file = "spec/layerx-merge/programme/issues/1865.kvx"
+name = "repair_22_31_227_fixture"
+
+[reference.55]
+file = "spec/layerx-merge/programme/issues/1866.kvx"
+name = "repair_22_31_227_fixture"
+
+[reference.56]
+file = "spec/layerx-merge/programme/issues/1866.kvx"
+name = "repair_22_33_1564.rs"
+
+[reference.57]
+file = "spec/layerx-merge/programme/issues/1872.kvx"
+name = "repair_22_31_227_fixture"
+
+[reference.58]
+file = "spec/layerx-merge/programme/issues/1872.kvx"
+name = "repair_22_33_1564.rs"
+
+[reference.59]
+file = "spec/layerx-merge/programme/issues/1885.kvx"
+name = "repair_22_33_1542.rs"
+
+[reference.60]
+file = "spec/layerx-merge/programme/issues/input/1809.md"
+name = "repair_22_31_563.kvx"
+
+[reference.61]
+file = "spec/layerx-merge/programme/issues/input/1865.md"
+name = "repair_22_31_227_fixture"
+
+[reference.62]
+file = "spec/layerx-merge/programme/issues/input/1866.md"
+name = "repair_22_31_227_fixture"
+
+[reference.63]
+file = "spec/layerx-merge/programme/issues/input/1866.md"
+name = "repair_22_33_1564.rs"
+
+[reference.64]
+file = "spec/layerx-merge/programme/issues/input/1872.md"
+name = "repair_22_31_227_fixture"
+
+[reference.65]
+file = "spec/layerx-merge/programme/issues/input/1872.md"
+name = "repair_22_33_1564.rs"
+
+[reference.66]
+file = "spec/layerx-merge/programme/issues/input/1872.md"
+name = "repair_22_33_1564_fixture"
+
+[reference.67]
+file = "spec/layerx-merge/programme/issues/input/1885.md"
+name = "repair_22_33_1542.rs"
+
+[reference.68]
+file = "spec/layerx-merge/programme/parity-stale.kvx"
+name = "finding_018_real_sequencer_receipt_requires_height_pins_and_programs_identity"
+
+[reference.69]
+file = "spec/layerx-merge/programme/parity-stale.kvx"
+name = "repair_22_31_190.rs"
+
+[reference.70]
+file = "spec/layerx-merge/programme/parity-stale.kvx"
+name = "repair_22_33_1564.rs"
+
+[reference.71]
+file = "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_1565.kvx"
+name = "repair_22_31_190.rs"
+
+[reference.72]
+file = "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_1565.kvx"
+name = "repair_22_31_228.rs"
+
+[reference.73]
+file = "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_1565.kvx"
+name = "repair_22_31_494.rs"
+
+[reference.74]
+file = "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_1565.kvx"
+name = "repair_22_31_563.rs"
+
+[reference.75]
+file = "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_1565.kvx"
+name = "repair_22_31_576.rs"
+
+[reference.76]
+file = "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_1565.kvx"
+name = "repair_22_31_592.rs"
+
+[reference.77]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_31_190.rs"
+
+[reference.78]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_31_226.rs"
+
+[reference.79]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_31_227.rs"
+
+[reference.80]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_31_487.rs"
+
+[reference.81]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_31_494.rs"
+
+[reference.82]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_31_547.rs"
+
+[reference.83]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_31_563.rs"
+
+[reference.84]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_33_1557.rs"
+
+[reference.85]
+file = "spec/layerx-merge/spec.kvx"
+name = "finding_018_real_sequencer_receipt_requires_height_pins_and_programs_identity"
+
+[reference.86]
+file = "spec/layerx-merge/spec.kvx"
+name = "finding_019_disconnect_and_listener_restart_replay_by_block_transaction_and_log"
+
+[reference.87]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_31_190.rs"
+
+[reference.88]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_31_226.rs"
+
+[reference.89]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_31_227.rs"
+
+[reference.90]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_31_227_fixture"
+
+[reference.91]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_31_228.rs"
+
+[reference.92]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_31_487.rs"
+
+[reference.93]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_31_494.kvx"
+
+[reference.94]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_31_494.rs"
+
+[reference.95]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_31_547.kvx"
+
+[reference.96]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_31_547.rs"
+
+[reference.97]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_31_563.kvx"
+
+[reference.98]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_31_563.rs"
+
+[reference.99]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_31_567.kvx"
+
+[reference.100]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_31_567.rs"
+
+[reference.101]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_31_576.kvx"
+
+[reference.102]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_31_576.rs"
+
+[reference.103]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_31_592.rs"
+
+[reference.104]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_1542.rs"
+
+[reference.105]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_1548.rs"
+
+[reference.106]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_1557.rs"
+
+[reference.107]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_1562.rs"
+
+[reference.108]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_1563.rs"
+
+[reference.109]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_1564.rs"
+
+[reference.110]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_1564_fixture"
+
+[reference.111]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_1566.rs"
+
+[reference.112]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_211.kvx"
+
+[reference.113]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_215.kvx"
+
+[reference.114]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_218.kvx"
+
+[reference.115]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_225.kvx"
+
+[reference.116]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_233.kvx"
+
+[reference.117]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_254.kvx"
+
+[reference.118]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_257.kvx"
+
+[reference.119]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_310.kvx"
+
+[reference.120]
+file = "tests/bridge/retired/repair_6_59_7.kvx"
+name = "repair_22_33_1542.rs"
+
+[reference.121]
+file = "tests/bridge/retired/test_retired_checkpoint_settlement.py"
+name = "repair_22_33_1542.rs"
+
+[reference.122]
+file = "tests/ci/data/key_material_fixture_paths.json"
+name = "repair_22_31_227_fixture"
+
+[reference.123]
+file = "tests/ci/data/key_material_fixture_paths.json"
+name = "repair_22_33_1564_fixture"
+
+[reference.124]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_543.kvx"
+name = "repair_22_31_547"
+
+[reference.125]
+file = "spec/layerx-merge/programme/issues/input/1872.md"
+name = "repair_22_31_227"
+
+[reference.126]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_33_1562"
+
+[reference.127]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_31_567"
+
+[reference.128]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_31_576"
+
+[reference.129]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_31_592"

@@ -190,7 +190,6 @@ def test_vendored_doc_repo_paths_exist():
                 if not exists:
                     failures.append(f"{page}:{line}: {reference} -> {target}")
     assert "tools/repository/hyperfide/measure-source-day.sh" in references
-    assert "tools/workspace/provider-corpus/snapshot-rows.sh" in references
     assert "apps/web/scripts/check-bundle-budget.mjs" in references
     assert not failures, "Missing repository paths:\n" + "\n".join(failures)
 

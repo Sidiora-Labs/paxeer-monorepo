@@ -2,9 +2,11 @@
 
 This guide covers a wallet, account funding, an Asset payment, token issuance,
 a Programs guest, and HTTP 402 payment evidence on the merged Paxeer network.
-The network runs `paxd`, including its kernel and block proposal path, with
-EVM chain ID `125` (`0x7d`). A successful payment is final when its block is
-committed. See [Protocol](Protocol.md) for execution and receipt semantics.
+The network runs `paxd` with EVM chain ID `125` (`0x7d`). The LayerX kernel
+inside `paxd` executes and orders each transaction and builds each block;
+validators check and commit it. A successful payment is final when validators
+commit its block. See [Protocol](Protocol.md) for execution and receipt
+semantics.
 
 Start with [Getting started](Getting-Started-Beta.md). Related references are
 [Assets](Assets.md), [Public JSON-RPC](PublicRpc.md),

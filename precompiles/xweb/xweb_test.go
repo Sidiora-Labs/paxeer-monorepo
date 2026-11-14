@@ -1031,10 +1031,10 @@ func TestEventTopics(t *testing.T) {
 
 		local, err := os.ReadFile("XWeb.sol")
 		require.NoError(t, err)
-		declared := repairM1282SolidityEvents(t, local)
+		declared := solidityEvents(t, local)
 		imported, err := os.ReadFile("../../contracts/src/precompiles/IXWeb.sol")
 		require.NoError(t, err)
-		consumer := repairM1282SolidityEvents(t, imported)
+		consumer := solidityEvents(t, imported)
 		require.Len(t, declared, len(want))
 		require.Len(t, consumer, len(want))
 

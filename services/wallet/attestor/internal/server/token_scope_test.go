@@ -124,7 +124,7 @@ func testChangedTransactionRetainsSessionIdentity(t *testing.T) {
 			t.Fatalf("%s: quorum signature recovered %s: %v", response.NodeID, sender, err)
 		}
 	}
-	repair243Totals(t, c, account, 1000, 1)
+	signingRecoveryTotals(t, c, account, 1000, 1)
 	assertChangesRefused := func(label string, round int) {
 		t.Helper()
 		// Each stage uses unseen request bytes so even the original token must
@@ -145,7 +145,7 @@ func testChangedTransactionRetainsSessionIdentity(t *testing.T) {
 				}
 			}
 		}
-		repair243Totals(t, c, account, 1000, 1)
+		signingRecoveryTotals(t, c, account, 1000, 1)
 	}
 	assertChangesRefused("before expiry", 0)
 	time.Sleep(transport.DefaultLimits().PendingTTL + time.Second)
@@ -163,9 +163,9 @@ func testChangedTransactionRetainsSessionIdentity(t *testing.T) {
 	for _, node := range append([]*testNode(nil), c.nodes...) {
 		c.restart(t, node)
 	}
-	repair243Totals(t, c, account, 1000, 1)
+	signingRecoveryTotals(t, c, account, 1000, 1)
 	assertChangesRefused("after full quorum restart", 2)
-	repair243Totals(t, c, account, 1000, 1)
+	signingRecoveryTotals(t, c, account, 1000, 1)
 	for _, quorum := range [][]string{{"node-1", "node-2", "node-3"}, {"node-3", "node-4", "node-5"}} {
 		next, _ := makeRequest(2, other)
 		next.SessionID, next.Signers = "repair-m157-over-cap-"+quorum[0], quorum

@@ -2,11 +2,11 @@
 
 # Finality & Commitment
 
-Follow a transaction from submission through verified execution to BFT block commitment.
+Follow transactions executed and ordered by the LayerX kernel inside paxd, from signed execution receipts to blocks checked and committed by validators.
 
 ## Transaction progress on one network
 
-Paxeer is one BFT network. Its kernel participates in block production, and an execution receipt becomes final when its block is committed. EVM chain ID is `125`. The node implementation lives in `node/`; receipt progress is exposed by `rpc/sequencer_receipt.go`. See [Commitment evidence](https://docs.paxeer.app/checkpoints).
+The LayerX kernel runs inside every paxd node, executes each transaction when it arrives, gives it the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it. An execution receipt becomes final when its block is committed. EVM chain ID is `125`. The node implementation lives in `node/`; receipt progress is exposed by `rpc/sequencer_receipt.go`. See [Commitment evidence](https://docs.paxeer.app/checkpoints).
 
 | Stage | Name | Evidence and responsibility |
 | --- | --- | --- |

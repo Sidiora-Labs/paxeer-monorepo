@@ -13,6 +13,33 @@ import (
 	perpsabi "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/perps/abi"
 )
 
+const (
+	userField                 = "user"
+	accountField              = "account"
+	amountField               = "amount"
+	newBalanceField           = "newBalance"
+	orderIDField              = "orderId"
+	marketIDField             = "marketId"
+	sizeUSDField              = "sizeUsd"
+	markPriceField            = "markPrice"
+	positionIDField           = "positionId"
+	tokenField                = "token"
+	collateralEventsTable     = "collateral_events"
+	orderEventsTable          = "order_events"
+	positionEventsTable       = "position_events"
+	insuranceEventsTable      = "insurance_events"
+	tokenOutField             = "tokenOut"
+	ownershipTransferredEvent = "OwnershipTransferred"
+	pausedEvent               = "Paused"
+	unpausedEvent             = "Unpaused"
+	newReserveField           = "newReserve"
+	sellSide                  = "sell"
+	spotSwapsTable            = "spot_swaps"
+	spotOrderEventsTable      = "spot_order_events"
+	spotVaultEventsTable      = "spot_vault_events"
+	spotAdminTable            = "spot_admin"
+)
+
 // PerpsAddress is the perpetuals precompile, the emitter of every perps event.
 var PerpsAddress = common.HexToAddress("0x0000000000000000000000000000000000001015")
 
@@ -271,21 +298,21 @@ func (b *batch) feeType(v uint8) uint8 {
 var perpsEvents = []eventDecoder{
 	{"VaultCreated", func(_ *batch, f Fact, r *reader) []Row {
 		f.Kind = "created"
-		f.Account = r.addr("user")
+		f.Account = r.addr(userField)
 		return []Row{VaultCreatedRow{f, f.Account, r.addr("vault")}}
 	}},
 	{"CollateralDeposited", func(_ *batch, f Fact, r *reader) []Row {
 		f.Kind = "deposited"
-		f.Account = r.addr("account")
-		return []Row{CollateralDepositedRow{f, f.Account, r.u256("amount"), r.u256("newBalance")}}
+		f.Account = r.addr(accountField)
+		return []Row{CollateralDepositedRow{f, f.Account, r.u256(amountField), r.u256(newBalanceField)}}
 	}},
 	{"CollateralWithdrawn", func(_ *batch, f Fact, r *reader) []Row {
 		f.Kind = "withdrawn"
-		f.Account = r.addr("account")
-		return []Row{CollateralWithdrawnRow{f, f.Account, r.u256("amount"), r.u256("newBalance")}}
+		f.Account = r.addr(accountField)
+		return []Row{CollateralWithdrawnRow{f, f.Account, r.u256(amountField), r.u256(newBalanceField)}}
 	}},
 	{"CollateralTransferred", func(_ *batch, f Fact, r *reader) []Row {
-		from, to, amount := r.addr("from"), r.addr("to"), r.u256("amount")
+		from, to, amount := r.addr("from"), r.addr("to"), r.u256(amountField)
 		out, in := f, f
 		out.Kind, out.Sub, out.Account = "transferred_out", 0, from
 		in.Kind, in.Sub, in.Account = "transferred_in", 1, to
@@ -296,45 +323,45 @@ var perpsEvents = []eventDecoder{
 	}},
 	{"OrderPlaced", func(b *batch, f Fact, r *reader) []Row {
 		f.Kind = "placed"
-		id := r.u256("orderId")
-		f.Account = r.addr("user")
+		id := r.u256(orderIDField)
+		f.Account = r.addr(userField)
 		if r.err == nil {
 			b.orders[id] = f.Account
 			b.projected["order "+id] = true
 		}
-		return []Row{OrderPlacedRow{f, id, f.Account, r.u256("marketId"), r.u8("orderType"), r.flag("isLong"), r.u256("triggerPrice"), r.u256("sizeUsd")}}
+		return []Row{OrderPlacedRow{f, id, f.Account, r.u256(marketIDField), r.u8("orderType"), r.flag("isLong"), r.u256("triggerPrice"), r.u256(sizeUSDField)}}
 	}},
 	{"OrderOptions", func(b *batch, f Fact, r *reader) []Row {
 		f.Kind = "options"
-		id := r.u256("orderId")
+		id := r.u256(orderIDField)
 		f.Account = b.orderUser(r, f, id)
 		return []Row{OrderOptionsRow{f, id, r.u8("timeInForce"), r.flag("reduceOnly"), r.u256("limitPrice"), r.u256("acceptablePrice"), r.u64("deadline"), r.b16("cloid")}}
 	}},
 	{"OrderCancelled", func(b *batch, f Fact, r *reader) []Row {
 		f.Kind = "cancelled"
-		f.Account = r.addr("user")
-		id := r.u256("orderId")
+		f.Account = r.addr(userField)
+		id := r.u256(orderIDField)
 		b.seedOrder(r, f, id)
 		return []Row{OrderCancelledRow{f, id, f.Account}}
 	}},
 	{"OrderExpired", func(b *batch, f Fact, r *reader) []Row {
 		f.Kind = "expired"
-		f.Account = r.addr("user")
-		id := r.u256("orderId")
+		f.Account = r.addr(userField)
+		id := r.u256(orderIDField)
 		b.seedOrder(r, f, id)
-		return []Row{OrderExpiredRow{f, id, f.Account, r.u256("marketId")}}
+		return []Row{OrderExpiredRow{f, id, f.Account, r.u256(marketIDField)}}
 	}},
 	{"OrderTriggered", func(b *batch, f Fact, r *reader) []Row {
 		f.Kind = "triggered"
-		id := r.u256("orderId")
+		id := r.u256(orderIDField)
 		f.Account = b.orderUser(r, f, id)
-		return []Row{OrderTriggeredRow{f, id, r.u256("marketId"), r.u256("markPrice")}}
+		return []Row{OrderTriggeredRow{f, id, r.u256(marketIDField), r.u256(markPriceField)}}
 	}},
 	{"OrderExecuted", func(b *batch, f Fact, r *reader) []Row {
 		f.Kind = "executed"
-		id := r.u256("orderId")
+		id := r.u256(orderIDField)
 		f.Account = b.orderUser(r, f, id)
-		return []Row{OrderExecutedRow{f, id, r.u256("positionId"), r.u256("executionPrice")}}
+		return []Row{OrderExecutedRow{f, id, r.u256(positionIDField), r.u256("executionPrice")}}
 	}},
 	{"Fill", func(b *batch, f Fact, r *reader) []Row {
 		f.Kind = "fill"
@@ -342,116 +369,116 @@ var perpsEvents = []eventDecoder{
 		maker, taker := r.u256("makerOrderId"), r.u256("takerOrderId")
 		b.seedOrder(r, f, maker)
 		b.seedOrder(r, f, taker)
-		return []Row{FillRow{f, r.u256("marketId"), maker, taker, r.addr("maker"), f.Account,
-			r.flag("takerIsLong"), r.u256("price"), r.u256("sizeUsd"), r.i256("makerFeeUsd"), r.u256("takerFeeUsd")}}
+		return []Row{FillRow{f, r.u256(marketIDField), maker, taker, r.addr("maker"), f.Account,
+			r.flag("takerIsLong"), r.u256("price"), r.u256(sizeUSDField), r.i256("makerFeeUsd"), r.u256("takerFeeUsd")}}
 	}},
 	{"PositionOpened", func(b *batch, f Fact, r *reader) []Row {
 		f.Kind = "opened"
-		id := r.u256("positionId")
-		f.Account = r.addr("user")
+		id := r.u256(positionIDField)
+		f.Account = r.addr(userField)
 		if r.err == nil {
 			b.positions[id] = f.Account
 			b.projected["position "+id] = true
 		}
-		return []Row{PositionOpenedRow{f, id, f.Account, r.u256("marketId"), r.flag("isLong"), r.u256("sizeUsd"), r.u256("leverage"),
+		return []Row{PositionOpenedRow{f, id, f.Account, r.u256(marketIDField), r.flag("isLong"), r.u256(sizeUSDField), r.u256("leverage"),
 			r.u256("entryPrice"), r.addr("collateralToken"), r.u256("collateralAmount")}}
 	}},
 	{"PositionModified", func(b *batch, f Fact, r *reader) []Row {
 		f.Kind = "modified"
-		id := r.u256("positionId")
+		id := r.u256(positionIDField)
 		f.Account = b.positionUser(r, f, id)
 		return []Row{PositionModifiedRow{f, id, r.u256("newSizeUsd"), r.u256("newCollateralUsd"), r.u256("newCollateralAmount")}}
 	}},
 	{"PositionEntryPriceChanged", func(b *batch, f Fact, r *reader) []Row {
 		f.Kind = "entry_price_changed"
-		id := r.u256("positionId")
+		id := r.u256(positionIDField)
 		f.Account = b.positionUser(r, f, id)
 		return []Row{PositionEntryPriceChangedRow{f, id, r.u256("oldEntryPrice"), r.u256("newEntryPrice")}}
 	}},
 	{"PositionClosed", func(b *batch, f Fact, r *reader) []Row {
 		f.Kind = "closed"
-		f.Account = r.addr("user")
-		id := r.u256("positionId")
+		f.Account = r.addr(userField)
+		id := r.u256(positionIDField)
 		b.seedPosition(r, f, id)
-		return []Row{PositionClosedRow{f, id, f.Account, r.u256("marketId"), r.u256("closedSizeUsd"), r.u256("exitPrice"),
+		return []Row{PositionClosedRow{f, id, f.Account, r.u256(marketIDField), r.u256("closedSizeUsd"), r.u256("exitPrice"),
 			r.i256("realizedPnl"), r.flag("isFullClose")}}
 	}},
 	{"PositionTpSlSet", func(b *batch, f Fact, r *reader) []Row {
 		f.Kind = "tpsl_set"
-		id := r.u256("positionId")
+		id := r.u256(positionIDField)
 		f.Account = b.positionUser(r, f, id)
 		return []Row{PositionTpSlSetRow{f, id, r.u256("takeProfitPrice"), r.u256("stopLossPrice")}}
 	}},
 	{"TradeSettled", func(b *batch, f Fact, r *reader) []Row {
 		f.Kind = "settled"
-		f.Account = r.addr("user")
-		return []Row{TradeSettledRow{f, r.u256("positionId"), f.Account, r.u256("marketId"), b.tradeType(r.u8("tradeType")), r.u256("sizeUsd"),
+		f.Account = r.addr(userField)
+		return []Row{TradeSettledRow{f, r.u256(positionIDField), f.Account, r.u256(marketIDField), b.tradeType(r.u8("tradeType")), r.u256(sizeUSDField),
 			r.u256("executionPrice"), r.i256("grossPnl"), r.u256("totalFeesUsd"), r.i256("fundingPaidUsd"), r.u256("netPayoutTokens")}}
 	}},
 	{"FeeCollected", func(b *batch, f Fact, r *reader) []Row {
 		f.Kind = "collected"
-		f.Account = r.addr("user")
-		return []Row{FeeCollectedRow{f, r.u256("positionId"), f.Account, r.u256("marketId"), b.feeType(r.u8("feeType")), r.u256("feeUsd"),
-			r.u256("feeTokens"), r.addr("token")}}
+		f.Account = r.addr(userField)
+		return []Row{FeeCollectedRow{f, r.u256(positionIDField), f.Account, r.u256(marketIDField), b.feeType(r.u8("feeType")), r.u256("feeUsd"),
+			r.u256("feeTokens"), r.addr(tokenField)}}
 	}},
 	{"MarkPriceUpdated", func(_ *batch, f Fact, r *reader) []Row {
 		f.Kind = "mark"
-		return []Row{MarkPriceUpdatedRow{f, r.u256("marketId"), r.u256("markPrice"), r.u256("indexPrice"), r.u256("midPrice")}}
+		return []Row{MarkPriceUpdatedRow{f, r.u256(marketIDField), r.u256(markPriceField), r.u256("indexPrice"), r.u256("midPrice")}}
 	}},
 	{"FundingRateUpdated", func(_ *batch, f Fact, r *reader) []Row {
 		f.Kind = "rate"
-		return []Row{FundingRateUpdatedRow{f, r.u256("marketId"), r.i256("newRatePerSecond"), r.i256("fundingRate24h")}}
+		return []Row{FundingRateUpdatedRow{f, r.u256(marketIDField), r.i256("newRatePerSecond"), r.i256("fundingRate24h")}}
 	}},
 	{"FundingSettled", func(_ *batch, f Fact, r *reader) []Row {
 		f.Kind = "settled"
-		return []Row{FundingSettledRow{f, r.u256("marketId"), r.i256("fundingRate"), r.i256("longPayment"), r.i256("shortPayment")}}
+		return []Row{FundingSettledRow{f, r.u256(marketIDField), r.i256("fundingRate"), r.i256("longPayment"), r.i256("shortPayment")}}
 	}},
 	{"PositionFundingApplied", func(b *batch, f Fact, r *reader) []Row {
 		f.Kind = "applied"
-		f.Account = r.addr("user")
-		id := r.u256("positionId")
+		f.Account = r.addr(userField)
+		id := r.u256(positionIDField)
 		b.seedPosition(r, f, id)
-		return []Row{PositionFundingAppliedRow{f, id, f.Account, r.u256("marketId"), r.i256("fundingPaymentUsd"),
+		return []Row{PositionFundingAppliedRow{f, id, f.Account, r.u256(marketIDField), r.i256("fundingPaymentUsd"),
 			r.u256("newCollateralUsd"), r.u256("newCollateralAmount")}}
 	}},
 	{"OpenInterestChanged", func(_ *batch, f Fact, r *reader) []Row {
 		f.Kind = "oi"
-		return []Row{OpenInterestChangedRow{f, r.u256("marketId"), r.u256("longOI"), r.u256("shortOI"), r.u256("deltaUsd"), r.flag("isIncrease")}}
+		return []Row{OpenInterestChangedRow{f, r.u256(marketIDField), r.u256("longOI"), r.u256("shortOI"), r.u256("deltaUsd"), r.flag("isIncrease")}}
 	}},
 	{"Liquidation", func(b *batch, f Fact, r *reader) []Row {
 		f.Kind = "liquidated"
-		f.Account = r.addr("user")
-		id := r.u256("positionId")
+		f.Account = r.addr(userField)
+		id := r.u256(positionIDField)
 		b.seedPosition(r, f, id)
-		return []Row{LiquidationRow{f, id, f.Account, r.u256("marketId"), r.u256("liquidationPrice"), r.u256("penalty"), r.addr("keeper")}}
+		return []Row{LiquidationRow{f, id, f.Account, r.u256(marketIDField), r.u256("liquidationPrice"), r.u256("penalty"), r.addr("keeper")}}
 	}},
 	{"BackstopLiquidation", func(_ *batch, f Fact, r *reader) []Row {
 		f.Kind = "backstop"
-		f.Account = r.addr("account")
-		return []Row{BackstopLiquidationRow{f, f.Account, r.u256("marketId"), r.u256("sizeUsd"), r.u256("markPrice"), r.u256("marginTakenUsd")}}
+		f.Account = r.addr(accountField)
+		return []Row{BackstopLiquidationRow{f, f.Account, r.u256(marketIDField), r.u256(sizeUSDField), r.u256(markPriceField), r.u256("marginTakenUsd")}}
 	}},
 	{"InsuranceContribution", func(_ *batch, f Fact, r *reader) []Row {
 		f.Kind = "contribution"
-		return []Row{InsuranceContributionRow{f, r.addr("token"), r.u256("amount"), r.u8("source")}}
+		return []Row{InsuranceContributionRow{f, r.addr(tokenField), r.u256(amountField), r.u8("source")}}
 	}},
 	{"InsuranceDraw", func(_ *batch, f Fact, r *reader) []Row {
 		f.Kind = "draw"
-		return []Row{InsuranceDrawRow{f, r.u256("marketId"), r.u256("amount"), r.u256("newBalance")}}
+		return []Row{InsuranceDrawRow{f, r.u256(marketIDField), r.u256(amountField), r.u256(newBalanceField)}}
 	}},
 	{"VaultDeficit", func(_ *batch, f Fact, r *reader) []Row {
 		f.Kind = "vault_deficit"
-		return []Row{VaultDeficitRow{f, r.addr("token"), r.u256("deficit")}}
+		return []Row{VaultDeficitRow{f, r.addr(tokenField), r.u256("deficit")}}
 	}},
 	{"ADLExecuted", func(b *batch, f Fact, r *reader) []Row {
 		f.Kind = "adl"
-		id := r.u256("positionId")
+		id := r.u256(positionIDField)
 		f.Account = b.positionUser(r, f, id)
 		return []Row{ADLExecutedRow{f, id, r.u256("deleveragedSizeUsd")}}
 	}},
 	{"ADLMatched", func(_ *batch, f Fact, r *reader) []Row {
 		f.Kind = "matched"
-		f.Account = r.addr("account")
-		return []Row{ADLMatchedRow{f, r.u256("marketId"), r.u256("positionId"), f.Account, r.u256("sizeUsd"), r.u256("price"), r.u256("rankScore")}}
+		f.Account = r.addr(accountField)
+		return []Row{ADLMatchedRow{f, r.u256(marketIDField), r.u256(positionIDField), f.Account, r.u256(sizeUSDField), r.u256("price"), r.u256("rankScore")}}
 	}},
 }
 
@@ -751,21 +778,21 @@ type ADLMatchedRow struct {
 }
 
 func (VaultCreatedRow) Table() string              { return "vaults" }
-func (CollateralDepositedRow) Table() string       { return "collateral_events" }
-func (CollateralWithdrawnRow) Table() string       { return "collateral_events" }
-func (CollateralTransferredRow) Table() string     { return "collateral_events" }
-func (OrderPlacedRow) Table() string               { return "order_events" }
-func (OrderOptionsRow) Table() string              { return "order_events" }
-func (OrderCancelledRow) Table() string            { return "order_events" }
-func (OrderExpiredRow) Table() string              { return "order_events" }
-func (OrderTriggeredRow) Table() string            { return "order_events" }
-func (OrderExecutedRow) Table() string             { return "order_events" }
+func (CollateralDepositedRow) Table() string       { return collateralEventsTable }
+func (CollateralWithdrawnRow) Table() string       { return collateralEventsTable }
+func (CollateralTransferredRow) Table() string     { return collateralEventsTable }
+func (OrderPlacedRow) Table() string               { return orderEventsTable }
+func (OrderOptionsRow) Table() string              { return orderEventsTable }
+func (OrderCancelledRow) Table() string            { return orderEventsTable }
+func (OrderExpiredRow) Table() string              { return orderEventsTable }
+func (OrderTriggeredRow) Table() string            { return orderEventsTable }
+func (OrderExecutedRow) Table() string             { return orderEventsTable }
 func (FillRow) Table() string                      { return "fills" }
-func (PositionOpenedRow) Table() string            { return "position_events" }
-func (PositionModifiedRow) Table() string          { return "position_events" }
-func (PositionEntryPriceChangedRow) Table() string { return "position_events" }
-func (PositionClosedRow) Table() string            { return "position_events" }
-func (PositionTpSlSetRow) Table() string           { return "position_events" }
+func (PositionOpenedRow) Table() string            { return positionEventsTable }
+func (PositionModifiedRow) Table() string          { return positionEventsTable }
+func (PositionEntryPriceChangedRow) Table() string { return positionEventsTable }
+func (PositionClosedRow) Table() string            { return positionEventsTable }
+func (PositionTpSlSetRow) Table() string           { return positionEventsTable }
 func (TradeSettledRow) Table() string              { return "trade_settlements" }
 func (FeeCollectedRow) Table() string              { return "fees" }
 func (MarkPriceUpdatedRow) Table() string          { return "mark_prices" }
@@ -775,8 +802,8 @@ func (PositionFundingAppliedRow) Table() string    { return "funding_payments" }
 func (OpenInterestChangedRow) Table() string       { return "open_interest" }
 func (LiquidationRow) Table() string               { return "liquidations" }
 func (BackstopLiquidationRow) Table() string       { return "backstop_liquidations" }
-func (InsuranceContributionRow) Table() string     { return "insurance_events" }
-func (InsuranceDrawRow) Table() string             { return "insurance_events" }
-func (VaultDeficitRow) Table() string              { return "insurance_events" }
+func (InsuranceContributionRow) Table() string     { return insuranceEventsTable }
+func (InsuranceDrawRow) Table() string             { return insuranceEventsTable }
+func (VaultDeficitRow) Table() string              { return insuranceEventsTable }
 func (ADLExecutedRow) Table() string               { return "adl_events" }
 func (ADLMatchedRow) Table() string                { return "adl_events" }

@@ -8,7 +8,7 @@ export const metadata = metadataFor('/activities')
 export default function Activities() {
   return <DocsLayout>
     <div className="page-header"><h1 className="page-title">Activities</h1><p className="page-description">The signed, canonical unit of agent action across the Paxeer X execution system.</p></div>
-    <p>The kernel represents native operations as activities with an actor, authority, payload, sequence, and receipt. Public clients submit signed EVM transactions to node JSON-RPC; native precompiles invoke the kernel within those transactions. The kernel is part of the Paxeer mainnet-beta BFT node and proposes blocks. Kernel state changes commit with the node&apos;s blocks, and a receipt is final when its block is committed.</p>
+    <p>The kernel represents native operations as activities with an actor, authority, payload, sequence, and receipt. Public clients submit signed EVM transactions to node JSON-RPC; native precompiles invoke the kernel within those transactions. The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it. Kernel state changes commit with the node&apos;s blocks, and a receipt is final when validators commit its block.</p>
     <DocArt name="request-envelope" />
     <h2>The exact envelope</h2>
     <p>The <code>lxp_activity</code> structure carries exactly twelve fields. Omitting, repeating, or introducing an undeclared field makes an envelope malformed. LXC/1 uses canonical binary encoding, fixed-width big-endian integers, and no floating-point values or unordered maps. Trailing bytes are refused.</p>

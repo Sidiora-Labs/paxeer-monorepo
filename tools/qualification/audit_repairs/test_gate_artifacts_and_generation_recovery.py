@@ -27,7 +27,7 @@ import yaml
 ROOT = Path(__file__).resolve().parents[3]
 GATES = ROOT / "tools/paxeer-x/gates"
 NODE = ROOT / "services/platform/hosted/node"
-FIXTURES = NODE / "tests/fixtures/repair_22_31_355"
+FIXTURES = NODE / "tests/fixtures/native_lifecycle"
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(NODE))
 import generation_client as client
@@ -212,7 +212,7 @@ def test_f024_current_paxd_profile_keeps_source_and_artifact_admission():
 
 
 def test_f024_real_kernel_committed_readiness_stop_reopen_and_recovery(tmp_path):
-    proof = load_module("kernel_committed_recovery", Path(__file__).with_name("test_repair_22_31_427.py"))
+    proof = load_module("kernel_committed_recovery", Path(__file__).with_name("test_kernel_backend_readiness.py"))
     runtime = proof.runtime.__wrapped__()
     proof.test_kernel_backend_cold_start_and_reopened_committed_readiness(runtime, tmp_path)
     checkpoint = json.loads((tmp_path / "committed.json").read_bytes())
@@ -320,7 +320,7 @@ def test_f029_real_pytest_reports_and_standard_dispatcher_count(tmp_path):
     cases = declarations("24.20", "VERIFY")["ExecutedCases"]()
     # Drive the real pytest producer into the production gate plugin. The four
     # collected cases exercise protected recovery-record refusals, with no skip.
-    target = Path(__file__).with_name("test_repair_22_31_427.py")
+    target = Path(__file__).with_name("test_kernel_backend_readiness.py")
     code = pytest.main(["-q", "--tb=short", str(target) + "::test_kernel_backend_refuses_untrusted_recovery_record"], plugins=[cases])
     assert cases.count(code) == 4
     assert dispatcher_counts(marker("24.20", "VERIFY", cases.count(code))) == (4, 0)

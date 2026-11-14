@@ -13,6 +13,8 @@ import tarfile
 import tempfile
 import tomllib
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[2]
 DOCKERFILE = "docker/layerx/Dockerfile"
 IGNORE = DOCKERFILE + ".dockerignore"
@@ -238,6 +240,7 @@ def context_inputs():
     return available, manifests
 
 
+@pytest.mark.native
 def test_websearch_context_inputs_exist():
     available, manifests = context_inputs()
     assert "services/interop/Cargo.toml" in available
@@ -246,6 +249,7 @@ def test_websearch_context_inputs_exist():
 
 
 def test_no_uncollected_modules_in_tests_ci():
+    from data import launchpad_go_tests as _launchpad_go_tests
     from test_tests_ci_modules_collected import (
         test_tests_ci_python_modules_are_collectable_or_helpers as assert_collected,
     )

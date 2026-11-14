@@ -142,13 +142,18 @@ final class CommittedReceiptTests: XCTestCase {
       CommittedWire.bytes(1, Data("/ethermint.evm.v1.MsgEthereumTx".utf8))
       + CommittedWire.bytes(2, CommittedWire.bytes(1, raw))
     let transaction = CommittedWire.bytes(1, CommittedWire.bytes(1, message))
-    let transactions = [batch, transaction, Data("another block transaction".utf8)].map(sha)
-    let results = [
-      ExecTxResult().encoded, result.encoded,
-      ExecTxResult(gasWanted: 60000, gasUsed: 46220).encoded,
-    ]
-    let (dataHash, txProof) = tree(transactions, index: 1)
-    let (resultsHash, resultProof) = tree(results, index: 1)
+    let index = Int(CommittedWire.bigEndian(r.effects[0].body.dropFirst(24).prefix(4)))
+    XCTAssertGreaterThan(index, 0)
+    var transactions = Array(repeating: Data("another block transaction".utf8), count: index + 2)
+    transactions[0] = batch
+    transactions[index] = transaction
+    transactions = transactions.map(sha)
+    var results = Array(
+      repeating: ExecTxResult(gasWanted: 60000, gasUsed: 46220).encoded, count: transactions.count)
+    results[0] = ExecTxResult().encoded
+    results[index] = result.encoded
+    let (dataHash, txProof) = tree(transactions, index: index)
+    let (resultsHash, resultProof) = tree(results, index: index)
     let setHash = CommittedWire.validatorsHash(validators)
     let header = CommittedHeader(
       versionApp: 2, chainID: "committed-sdk-test", height: height,
@@ -171,11 +176,13 @@ final class CommittedReceiptTests: XCTestCase {
       trust: CommittedTrust(chainID: header.chainID, height: header.height, blockHash: header.hash))
   }
   private func reanchorResult(_ f: inout Fixture) throws {
-    let results = [
-      ExecTxResult().encoded, f.inclusion.result.encoded,
-      ExecTxResult(gasWanted: 60000, gasUsed: 46220).encoded,
-    ]
-    let (hash, proof) = tree(results, index: 1)
+    let index = Int(f.inclusion.resultProof.index)
+    var results = Array(
+      repeating: ExecTxResult(gasWanted: 60000, gasUsed: 46220).encoded,
+      count: Int(f.inclusion.resultProof.total))
+    results[0] = ExecTxResult().encoded
+    results[index] = f.inclusion.result.encoded
+    let (hash, proof) = tree(results, index: index)
     f.inclusion.resultProof = proof
     f.inclusion.nextHeader.lastResultsHash = hash
     f.inclusion.nextCommit = try signedCommit(f.inclusion.nextHeader, keys: f.keys, signers: 3)
@@ -344,11 +351,11 @@ final class CommittedReceiptTests: XCTestCase {
 
 extension CommittedReceiptTests {
   func testRecordedNodeCommitRequiresIndependentCheckpointAndRefusesAttackerValidators() throws {
-    try Self.proveRecordedCommitTrust1398()
+    try Self.proveRecordedCommitTrust()
   }
 
-  static func proveRecordedCommitTrust1398() throws {
-    typealias E = RecordedProgramEvidence1398
+  static func proveRecordedCommitTrust() throws {
+    typealias E = RecordedProgramEvidence
     let (vector, view) = try E.recordedCommitted()
     let evidence = try E.evidence(vector)
     let receipt = try E.verify(vector, view: view)
@@ -371,7 +378,11 @@ extension CommittedReceiptTests {
     XCTAssertEqual(verified.receiptDigest, try E.bytes(vector, "receiptDigest"))
     XCTAssertEqual(
       verified.receiptVerification.canonicalBytes, try E.bytes(vector, "signedReceipt"))
-    XCTAssertEqual(verified.votingPower, evidence.validators.reduce(0) { $0 + $1.votingPower })
+    let signedPower = zip(evidence.commit.signatures, evidence.validators).reduce(Int64(0)) {
+      $0 + ($1.0.blockIDFlag == .block ? $1.1.votingPower : 0)
+    }
+    XCTAssertEqual(verified.votingPower, signedPower)
+    XCTAssertGreaterThan(signedPower * 3, evidence.validators.reduce(0) { $0 + $1.votingPower } * 2)
     for trust in [
       nil,
       CommittedTrust(

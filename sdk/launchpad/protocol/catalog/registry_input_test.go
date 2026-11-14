@@ -87,7 +87,7 @@ func TestOpticalRegistryReviewUsesRealCompiledArtifactAndExplicitAttestation(t *
 	}
 }
 
-//go:embed testdata/repair-m924/*.json
+//go:embed testdata/optical_registry/*.json
 var opticalRegistryFixture embed.FS
 
 const opticalRegistryReviewSHA256 = "da1d4cad4551158d234430a096addde5ec3432065ebd05be99aaf6cb7e6e3408"
@@ -101,7 +101,7 @@ func reviewedOpticalRegistryFixture(t *testing.T) (Bundle, []byte, string) {
 	t.Helper()
 	read := func(name string) []byte {
 		t.Helper()
-		raw, err := opticalRegistryFixture.ReadFile("testdata/repair-m924/" + name + ".json")
+		raw, err := opticalRegistryFixture.ReadFile("testdata/optical_registry/" + name + ".json")
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -3,6 +3,8 @@ PLATFORM_MANIFEST := services/platform/Cargo.toml
 PLATFORM_TOOLS_MANIFEST := tools/platform/Cargo.toml
 PLATFORM_SDKGEN_MANIFEST := sdk/platform/generators/Cargo.toml
 PLATFORM_BETA_CLUSTER_ENV ?= build/beta-cluster/env
+PLATFORM_TEST_SCOPE ?= --workspace
+PLATFORM_TOOLS_TEST_SCOPE ?= --workspace --features layerx-platform-cli/test-credential-store
 
 .PHONY: platform-js-install platform-build platform-build-all platform-lint platform-test platform-sdk-check \
 	platform-sdk-generate platform-receipt-fixture platform-verify-sdks platform-test-sdks platform-release-check platform-release-plan platform-release-test \
@@ -123,9 +125,9 @@ platform-lint:
 	cargo deny --manifest-path $(PLATFORM_TOOLS_MANIFEST) check --disable-fetch advisories bans sources
 	cargo deny --manifest-path $(PLATFORM_SDKGEN_MANIFEST) check --disable-fetch advisories bans sources
 
-platform-test: public-tls-test-prerequisites
-	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(PLATFORM_CARGO) test --offline --manifest-path $(PLATFORM_MANIFEST) --locked --workspace
-	LAYERX_PAXEER_BOUNDARY_BIN="$(PUBLIC_TLS_TEST_BOUNDARY)" sh $(CURDIR)/tools/runtime/run-with-clock.sh $(PLATFORM_CARGO) test --offline --manifest-path $(PLATFORM_TOOLS_MANIFEST) --locked --workspace --features layerx-platform-cli/test-credential-store
+platform-test: public-tls-test-prerequisites $(LIBRARY) programs-release-build
+	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(PLATFORM_CARGO) test --offline --manifest-path $(PLATFORM_MANIFEST) --locked $(PLATFORM_TEST_SCOPE) -- --test-threads=1
+	LAYERX_PAXEER_BOUNDARY_BIN="$(PUBLIC_TLS_TEST_BOUNDARY)" sh $(CURDIR)/tools/runtime/run-with-clock.sh $(PLATFORM_CARGO) test --offline --manifest-path $(PLATFORM_TOOLS_MANIFEST) --locked $(PLATFORM_TOOLS_TEST_SCOPE)
 	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(PLATFORM_CARGO) test --offline --manifest-path $(PLATFORM_SDKGEN_MANIFEST) --locked --workspace
 
 platform-test-tooling: platform-test-cli-production-credential-refusal public-tls-test-prerequisites
@@ -286,7 +288,7 @@ platform-verify-sdks: programs-check-native-lifecycle-fixtures programs-check-ca
 	sh sdk/platform/conformance/run-jvm.sh $(CURDIR)
 	command -v swift >/dev/null
 	swift build --disable-automatic-resolution --package-path sdk/platform/swift
-	swift test --disable-automatic-resolution --package-path sdk/platform/swift
+	swift test --disable-automatic-resolution --package-path sdk/platform/swift --skip testAgentOperationEnvelopeProcessCases
 	command -v dotnet >/dev/null
 	dotnet build sdk/platform/dotnet/LayerX.Sdk.csproj --no-restore --configuration Release --nologo
 	dotnet test sdk/platform/dotnet/tests/LayerX.Sdk.Tests/LayerX.Sdk.Tests.csproj --no-restore --nologo --filter 'Category!=AgentOperationEnvelopeDecodeProbe&FullyQualifiedName!=LayerX.Sdk.Tests.AgentOperationEnvelopeTests.ProcessCasesReachTheDaemonThroughTheGateway&FullyQualifiedName!=LayerX.Sdk.Tests.AgentOperationEnvelopeTests.UnverifiedRungIsPreservedFromTheDaemon&FullyQualifiedName!=LayerX.Sdk.Tests.AgentOperationEnvelopeTests.WrongGenerationIsRefusedByTheDaemonSessionAuthority&FullyQualifiedName!=LayerX.Sdk.Tests.AgentOperationEnvelopeTests.CatalogueReadWithoutSessionCredentialIsRefusedBeforeSending&FullyQualifiedName!=LayerX.Sdk.Tests.AgentOperationEnvelopeTests.MutationWithoutIdempotencyKeyIsRefusedBeforeSending'

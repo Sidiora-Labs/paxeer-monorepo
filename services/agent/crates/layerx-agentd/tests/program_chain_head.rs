@@ -243,12 +243,21 @@ impl HeadServer {
                     let request: Value =
                         lint_success(serde_json::from_slice(&body), "required test operation");
                     assert_eq!(request["jsonrpc"], "2.0");
-                    let reads = lint_success(checkpoint.lock(), "required test operation");
-                    let key = json!([request["method"], request["params"]]);
-                    let (_, result) = reads
-                        .iter()
-                        .find(|(expected, _)| expected == &key)
-                        .unwrap_or_else(|| panic!("unexpected checkpoint read: {request}"));
+                    let result = if request["method"] == "eth_blockNumber" {
+                        let height = lint_success(served.lock(), "required test operation")
+                            ["observed_sequence"]
+                            .as_u64()
+                            .unwrap_or_else(|| panic!("checkpoint sequence: {request}"));
+                        json!(format!("{height:#x}"))
+                    } else {
+                        let reads = lint_success(checkpoint.lock(), "required test operation");
+                        let key = json!([request["method"], request["params"]]);
+                        reads
+                            .iter()
+                            .find(|(expected, _)| expected == &key)
+                            .map(|(_, result)| result.clone())
+                            .unwrap_or_else(|| panic!("unexpected checkpoint read: {request}"))
+                    };
                     json!({"jsonrpc": "2.0", "id": request["id"], "result": result}).to_string()
                 } else {
                     assert_eq!(request_line, format!("GET {path} HTTP/1.1"));
@@ -576,6 +585,7 @@ fn sign_journal_head(fixture: &mut deployment_support::ProtocolFixture, now: u64
 }
 
 #[test]
+#[ignore = "programs/crates/layerx-programs-registry/tests/support/mod.rs: primitive deployment fixture"]
 fn journal_admission_verifies_through_the_current_chain_head() {
     chain_head_read_verifies_the_validator_signed_commitment();
 

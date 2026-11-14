@@ -1,6 +1,6 @@
 # Paxeer X wallet workspace
 
-This directory holds the Paxeer X wallet gateway, threshold-custody attestors, key ceremony tools, API schemas, deployment configuration and reference web app. Its pnpm workspace also includes the wallet SDK and perpetuals app. The gateway authenticates wallet users and agents, applies signing policies and submits transactions to Paxeer mainnet-beta, one BFT network with EVM chain ID 125. The kernel is part of the network and proposes blocks; a transaction receipt is final when its block is committed.
+This directory holds the Paxeer X wallet gateway, threshold-custody attestors, key ceremony tools, API schemas, deployment configuration and reference web app. Its pnpm workspace also includes the wallet SDK and perpetuals app. The gateway authenticates wallet users and agents, applies signing policies and submits transactions to Paxeer mainnet-beta with EVM chain ID 125. The LayerX kernel inside `paxd` executes and orders each transaction and builds each block; validators check and commit it. A transaction receipt is final when its block is committed.
 
 ## Layout
 

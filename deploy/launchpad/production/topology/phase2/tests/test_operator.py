@@ -16,7 +16,7 @@ from phase2 import v1
 from phase2.attestations import SignatureVerifier, regular_bytes
 from phase2.operator import Journal
 from phase2.providers import connected_plan, safe_diagnostics, validate_connected_plan
-from phase2.tests.test_repair_22_31_313 import actual_adapter, connected_inputs
+from phase2.tests.test_runtime_adapter import actual_adapter, connected_inputs
 
 
 def assert_connected_runtime_bindings(plan, config, documents):

@@ -37,14 +37,14 @@ PREPARE
 import hashlib,json,os,stat,subprocess,time
 from pathlib import Path
 root=Path.cwd()
-paths=['services/platform/hosted/node/'+name for name in ('generation_transport.py','generation_client.py','native_runtime.py','reset_state.py','data_directory.py','supervisor.sh','bootstrap.sh','deployment.yaml','tests/test_generation_transport.py','tests/test_repair_22_31_355.py')]
+paths=['services/platform/hosted/node/'+name for name in ('generation_transport.py','generation_client.py','native_runtime.py','reset_state.py','data_directory.py','supervisor.sh','bootstrap.sh','deployment.yaml','tests/test_generation_transport.py','tests/test_native_lifecycle.py')]
 paths += ['docker/kernel/'+name for name in ('init.sh','kernel_runtime.py','Dockerfile','Dockerfile.dockerignore')]
-paths += ['tools/paxeer-x/gates/24.20.sh','tools/qualification/audit_repairs/test_repair_22_31_427.py']
+paths += ['tools/paxeer-x/gates/24.20.sh','tools/qualification/audit_repairs/test_kernel_backend_readiness.py']
 def git(*args): return subprocess.check_output(['git',*args]).decode().strip()
 def digest(p):
  with p.open('rb') as f: return hashlib.file_digest(f,'sha256').hexdigest()
 assert not git('status','--porcelain','--untracked-files=all'), 'source changed during build'
-for name in ('generation_transport.py','generation_client.py','native_runtime.py','reset_state.py','data_directory.py','tests/test_generation_transport.py','tests/test_repair_22_31_355.py'):
+for name in ('generation_transport.py','generation_client.py','native_runtime.py','reset_state.py','data_directory.py','tests/test_generation_transport.py','tests/test_native_lifecycle.py'):
  p=root/'services/platform/hosted/node'/name;compile(p.read_bytes(),str(p),'exec')
 for name in ('supervisor.sh','bootstrap.sh'):
  subprocess.run(['bash','-n',str(root/'services/platform/hosted/node'/name)],check=True)
@@ -83,9 +83,9 @@ assert value['version']==1 and value['source_revision']==git('rev-parse','HEAD')
 assert value['native_build_source_binding']==hashlib.sha256(subprocess.check_output(['git','ls-tree','-r','-z','--full-tree','HEAD'])).hexdigest()
 assert set(value['candidate_sources'])=={
  'services/platform/hosted/node/'+name for name in
- ('generation_transport.py','generation_client.py','native_runtime.py','reset_state.py','data_directory.py','supervisor.sh','bootstrap.sh','deployment.yaml','tests/test_generation_transport.py','tests/test_repair_22_31_355.py')
+ ('generation_transport.py','generation_client.py','native_runtime.py','reset_state.py','data_directory.py','supervisor.sh','bootstrap.sh','deployment.yaml','tests/test_generation_transport.py','tests/test_native_lifecycle.py')
 } | {'docker/kernel/'+name for name in ('init.sh','kernel_runtime.py','Dockerfile','Dockerfile.dockerignore')} | {
- 'tools/paxeer-x/gates/24.20.sh','tools/qualification/audit_repairs/test_repair_22_31_427.py'
+ 'tools/paxeer-x/gates/24.20.sh','tools/qualification/audit_repairs/test_kernel_backend_readiness.py'
 }
 for name,expected in value['candidate_sources'].items(): assert digest(root/name)==expected,'candidate source mismatch: '+name
 assert set(value['executables'])=={'paxd'}
@@ -97,10 +97,10 @@ sys.path.insert(0,str(root/'services/platform/hosted/node/tests'))
 
 PYTHON_CORPORA = (
     'services/platform/hosted/node/tests/test_generation_transport.py',
-    'tools/qualification/audit_repairs/test_repair_22_31_427.py::test_kernel_backend_cold_start_and_reopened_committed_readiness',
-    'tools/qualification/audit_repairs/test_repair_22_31_427.py::test_kernel_backend_refuses_uncommitted_or_divergent_peers',
-    'tools/qualification/audit_repairs/test_repair_22_31_427.py::test_kernel_backend_preserves_recovery_floor_on_refusal',
-    'tools/qualification/audit_repairs/test_repair_22_31_427.py::test_kernel_backend_refuses_untrusted_recovery_record',
+    'tools/qualification/audit_repairs/test_kernel_backend_readiness.py::test_kernel_backend_cold_start_and_reopened_committed_readiness',
+    'tools/qualification/audit_repairs/test_kernel_backend_readiness.py::test_kernel_backend_refuses_uncommitted_or_divergent_peers',
+    'tools/qualification/audit_repairs/test_kernel_backend_readiness.py::test_kernel_backend_preserves_recovery_floor_on_refusal',
+    'tools/qualification/audit_repairs/test_kernel_backend_readiness.py::test_kernel_backend_refuses_untrusted_recovery_record',
 )
 
 

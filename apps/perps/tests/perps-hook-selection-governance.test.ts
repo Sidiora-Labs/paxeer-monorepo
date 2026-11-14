@@ -157,7 +157,7 @@ let walletAddress = alice;
 let origin: string;
 let wagmiConfig: Config;
 let abi: typeof import("../src/core/network/abi/PerpsPrecompile").PerpsPrecompileABI;
-let captured: typeof import("../src/hooks/perps/repair-22-31-20-fixtures.json");
+let captured: typeof import("../src/hooks/perps/indexer-wire-fixtures.json");
 let config: MarketConfig;
 let tiers: readonly MarginTier[];
 let governanceRevision = 0;
@@ -686,7 +686,7 @@ async function setup() {
   captured = JSON.parse(
     readFileSync(
       new URL(
-        "../src/hooks/perps/repair-22-31-20-fixtures.json",
+        "../src/hooks/perps/indexer-wire-fixtures.json",
         import.meta.url,
       ),
       "utf8",

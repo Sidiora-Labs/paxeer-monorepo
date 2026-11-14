@@ -156,7 +156,7 @@ def test_f060_manifest_refusals(tmp_path, mutation):
 
 
 def chain_recording():
-    path = ROOT / 'services/human/crates/layerx-human-service/src/journeys/repair_22_31_153_transcript.json'
+    path = ROOT / 'services/human/crates/layerx-human-service/src/journeys/bank_commit_transcript.json'
     document = json.loads(path.read_text())
     assert 'consensus/types header, votes and transaction proof' in document['producer']
     record = document['records'][0]
@@ -358,7 +358,7 @@ def test_f023_retained_executor(tmp_path):
     document = {'schema': MOVEMENT.SCHEMA, 'revision': SOURCE['revision'], 'artifacts': {
         name: {'path': str(executable), 'sha256': MOVEMENT.digest(executable)} for name in MOVEMENT.ARTIFACTS}}
     assert MOVEMENT.admit_artifacts(document, SOURCE['revision']) == document['artifacts']
-    files = {'probe': 'proof_human_kms', 'kms_cases': 'provider', 'deadline_cases': 'repair_22_33_25'}
+    files = {'probe': 'proof_human_kms', 'kms_cases': 'provider', 'deadline_cases': 'attestor_signing'}
     for target, test in MOVEMENT.CASES:
         source = ROOT / 'services/human/crates/layerx-human-kms/tests' / (files[target] + '.rs')
         assert '\nfn ' + test + '(' in source.read_text()

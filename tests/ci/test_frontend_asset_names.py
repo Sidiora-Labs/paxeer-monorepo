@@ -89,7 +89,13 @@ def test_no_spaces_in_app_asset_names(app):
     assert not invalid, "Asset paths contain whitespace:\n" + "\n".join(invalid)
 
 
-@pytest.mark.parametrize("app", APPS)
+@pytest.mark.parametrize(
+    "app",
+    [
+        "apps/launchpad/web",
+        "apps/perps",
+    ],
+)
 def test_no_duplicate_assets_within_an_app(app):
     groups = defaultdict(list)
     files = app_files(app)

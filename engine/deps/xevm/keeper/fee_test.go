@@ -179,14 +179,14 @@ func TestAdjustBaseFeePerGas(t *testing.T) {
 }
 
 func TestGetDynamicBaseFeePerGasWithNilMinFee(t *testing.T) {
-	k, ctx := newRepairM1130Keeper(t)
+	k, ctx := newFeeAndReceiptKeeper(t)
 
 	// Remove the actual next-fee key and minimum parameter read by the keeper.
 	k.SetCurrBaseFeePerGas(ctx, sdk.NewDec(777))
 	k.SetNextBaseFeePerGas(ctx, sdk.NewDec(888))
 	store := k.GetKVStore(ctx)
 	store.Delete(types.NextBaseFeePerGasPrefix)
-	clearRepairM1130MinimumFee(t, k, ctx)
+	clearMinimumFeeParameter(t, k, ctx)
 	require.Nil(t, store.Get(types.NextBaseFeePerGasPrefix))
 
 	fee := k.GetNextBaseFeePerGas(ctx)
@@ -203,13 +203,13 @@ func TestGetDynamicBaseFeePerGasWithNilMinFee(t *testing.T) {
 }
 
 func TestGetPrevBlockBaseFeePerGasWithNilMinFee(t *testing.T) {
-	k, ctx := newRepairM1130Keeper(t)
+	k, ctx := newFeeAndReceiptKeeper(t)
 
 	k.SetCurrBaseFeePerGas(ctx, sdk.NewDec(777))
 	k.SetNextBaseFeePerGas(ctx, sdk.NewDec(888))
 	store := k.GetKVStore(ctx)
 	store.Delete(types.NextBaseFeePerGasPrefix)
-	clearRepairM1130MinimumFee(t, k, ctx)
+	clearMinimumFeeParameter(t, k, ctx)
 	require.Nil(t, store.Get(types.NextBaseFeePerGasPrefix))
 
 	fee := k.GetNextBaseFeePerGas(ctx)

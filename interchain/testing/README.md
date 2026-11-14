@@ -2,8 +2,10 @@
 
 This package exercises IBC clients, connections, channels and packets against SDK
 applications in process. Its chains are test fixtures. Paxeer runs one network
-through `paxd`, with the kernel participating in block proposal and finality at
-block commit. Creating two `TestChain` instances does not provision production
+through `paxd`. The LayerX kernel inside `paxd` executes and orders each
+transaction and builds each block; validators check and commit it. A receipt is
+final when the validators commit its block. Creating two `TestChain` instances
+does not provision production
 networks or tenant domains.
 
 The default application is [simapp](simapp/README.md); the [mock application](mock/README.md)
@@ -146,8 +148,8 @@ func TestMockPacketRelay(t *testing.T) {
 
 The literal identifiers above apply to the first client, connection and channel
 on fresh chains. They belong to three different fields and may differ when a
-chain already has IBC state. `TestRepairM_1276_ReadmeIdentifiers` in
-[repair_m1276_test.go](repair_m1276_test.go) executes these assertions and relays
+chain already has IBC state. `TestChainRelayReadmeIdentifiers` in
+[chain_relay_contract_test.go](chain_relay_contract_test.go) executes these assertions and relays
 the example packet against the coordinator and real keepers.
 
 Configure the endpoints before starting their handshakes. The defaults in
@@ -244,7 +246,7 @@ its handshake must begin on the controller with open-init. Through the real
 controller route, assert `called == false` and `icatypes.ErrInvalidChannelFlow`.
 Calling `chainA.GetSimApp().ICAAuthModule.OnChanOpenTry` directly with those same
 arguments invokes the base callback, sets `called` and returns its version and
-error. `TestRepairM_1276_ReadmeCallback` compiles this example and exercises both
+error. `TestChainRelayReadmeCallback` compiles this example and exercises both
 calls with a channel and capability created by the real controller keeper.
 
 Install an override before the operation under test, then assert the outcome

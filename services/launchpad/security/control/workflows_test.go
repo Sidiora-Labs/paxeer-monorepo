@@ -49,7 +49,7 @@ func phase2EnvironmentFor(t *testing.T) *phase2Environment {
 	store, err := New(pool, schema, identity, nil)
 	must(t, err)
 	must(t, store.Install(ctx))
-	store.replay = repairM1020ReplayProvider(t, nil)
+	store.replay = workflowRecoveryReplayProvider(t, nil)
 	t.Cleanup(func() {
 		_, _ = pool.Exec(context.Background(), "DROP SCHEMA "+pgx.Identifier{schema}.Sanitize()+" CASCADE")
 		pool.Close()
@@ -655,7 +655,7 @@ func TestPhase3ProductionRolesDetectRecoverAndRestart(t *testing.T) {
 		must(t, json.NewEncoder(w).Encode(RevocationAcknowledgement{request.Incident, request.Identity, payload["rotation"], payload["integrity"], true, true}))
 	}))
 	defer endpoint.Close()
-	provider, err := NewRevocationProvider(endpoint.URL, strings.Repeat("v", 32), repairM1020Transport(endpoint))
+	provider, err := NewRevocationProvider(endpoint.URL, strings.Repeat("v", 32), workflowRecoveryTransport(endpoint))
 	must(t, err)
 	must(t, (IncidentWorker{Store: e.store, Identity: e.identity, Revocation: provider, Credential: e.credentials["infrastructure"], Observe: func(string, error) {}}).Drain(ctx))
 	_, err = e.identity.Resolve(ctx, original)

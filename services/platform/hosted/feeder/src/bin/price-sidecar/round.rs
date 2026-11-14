@@ -3,7 +3,8 @@
 //! broadcast with `broadcast_tx_sync` on the consensus RPC.
 
 use std::path::Path;
-use std::sync::Mutex;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{mpsc, Mutex};
 use std::thread;
 use std::time::Duration;
 
@@ -42,6 +43,13 @@ const CODE_RATE_LIMITED: u64 = 11;
 const SEQUENCE_MISMATCH: &str = "account sequence mismatch";
 /// `getObservation` answers a static five-word tuple.
 const OBSERVATION_ANSWER_BYTES: usize = 5 * 32;
+pub const PENDING_SUBMISSION_BLOCK_LIMIT: u64 = 10;
+
+enum TxLookup {
+    Found(Value),
+    NotFound,
+    NotServed,
+}
 
 /// JSON-RPC clients of the consensus RPC and the EVM RPC.
 pub struct Rpc {
@@ -117,10 +125,21 @@ impl Rpc {
         self.consensus("broadcast_tx_sync", &json!({"tx": STANDARD.encode(tx)}))
     }
 
-    fn lookup_tx(&self, hash: &str) -> Result<Option<Value>, String> {
+    fn lookup_tx(&self, hash: &str) -> Result<TxLookup, String> {
         let body = self.consensus("tx", &json!({"hash": hash.to_uppercase(), "prove": false}))?;
         let answer: Value = serde_json::from_str(&body).map_err(|e| e.to_string())?;
         if let Some(error) = answer.get("error") {
+            if error.get("code").and_then(Value::as_i64) == Some(-32603)
+                && error
+                    .get("data")
+                    .and_then(Value::as_str)
+                    .is_some_and(|data| {
+                        data == "transaction querying is disabled"
+                            || data.starts_with("transaction querying is disabled ")
+                    })
+            {
+                return Ok(TxLookup::NotServed);
+            }
             let expected = format!("tx ({hash}) not found");
             if error.get("code").and_then(Value::as_i64) == Some(-32603)
                 && error
@@ -131,11 +150,11 @@ impl Rpc {
                             || data.eq_ignore_ascii_case(&format!("{expected}, err: %!w(<nil>)"))
                     })
             {
-                return Ok(None);
+                return Ok(TxLookup::NotFound);
             }
             return Err(format!("tx lookup: {error}"));
         }
-        result_of(answer).map(Some)
+        result_of(answer).map(TxLookup::Found)
     }
 
     /// `eth_call` of `data` on 0x1020 at the latest block; returns the hex answer.
@@ -413,6 +432,15 @@ pub enum Outcome {
     Transport(String),
 }
 
+/// Result of reconciling the oldest pending submissions.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct ReconcileReport {
+    /// Whether the node reads needed to decide the available fates succeeded.
+    pub could_read: bool,
+    /// Whether the oldest pending submission still has an open fate.
+    pub fate_open: bool,
+}
+
 impl Outcome {
     /// Metric label of the outcome.
     #[must_use]
@@ -533,6 +561,30 @@ impl RetryPlan {
     }
 }
 
+fn read_observation(
+    config: &Config,
+    rpc: &Rpc,
+    market: &MarketConfig,
+    validator: &[u8; 20],
+    height: &str,
+) -> Result<u64, String> {
+    let mut plan = RetryPlan::new(config.retry_backoff_ms, config.retry_max_attempts);
+    let mut last = None;
+    while let Some(attempt) = plan.next(last.as_ref()) {
+        thread::sleep(Duration::from_millis(attempt.delay_ms));
+        match rpc.call_pricefeed_at(&observation_call(market.market_id, validator), height) {
+            Err(error) if error.contains("rejected due to rate limit") => {
+                last = Some(Outcome::Transport(error));
+            }
+            result => return result.and_then(|answer| observation_sequence(&answer)),
+        }
+    }
+    match last {
+        Some(Outcome::Transport(error)) => Err(error),
+        _ => unreachable!("retry plan always starts with an observation read"),
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 struct Pending {
     hash: String,
@@ -541,11 +593,50 @@ struct Pending {
     journal: Journal,
 }
 
-#[derive(Debug, Default, Deserialize, Serialize)]
+#[derive(Debug, Default, Serialize)]
 struct Progress {
-    pending: Option<Pending>,
+    pending: Vec<Pending>,
     confirmed_height: u64,
     confirmed_ms: u64,
+}
+
+impl<'de> Deserialize<'de> for Progress {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct StoredProgress {
+            #[serde(default)]
+            pending: Option<Value>,
+            #[serde(default)]
+            confirmed_height: u64,
+            #[serde(default)]
+            confirmed_ms: u64,
+        }
+
+        let stored = StoredProgress::deserialize(deserializer)?;
+        let pending = match stored.pending {
+            None | Some(Value::Null) => Vec::new(),
+            Some(Value::Array(entries)) => entries
+                .into_iter()
+                .map(|entry| serde_json::from_value(entry).map_err(serde::de::Error::custom))
+                .collect::<Result<Vec<Pending>, D::Error>>()?,
+            Some(entry @ Value::Object(_)) => {
+                vec![serde_json::from_value(entry).map_err(serde::de::Error::custom)?]
+            }
+            Some(other) => {
+                return Err(serde::de::Error::custom(format!(
+                    "pending must be an object, array or null, got {other}"
+                )))
+            }
+        };
+        Ok(Self {
+            pending,
+            confirmed_height: stored.confirmed_height,
+            confirmed_ms: stored.confirmed_ms,
+        })
+    }
 }
 
 impl Progress {
@@ -554,7 +645,7 @@ impl Progress {
             Ok(bytes) => {
                 let progress: Self =
                     serde_json::from_slice(&bytes).map_err(|e| format!("progress: {e}"))?;
-                if let Some(pending) = &progress.pending {
+                for pending in &progress.pending {
                     let tx = STANDARD
                         .decode(&pending.tx)
                         .map_err(|e| format!("progress: {e}"))?;
@@ -617,8 +708,10 @@ pub fn start(
     let journal = Journal::load(state_dir, 0)?;
     let mut sidecar = Sidecar::new(secret, feed_account, journal);
     sidecar.progress = Progress::load(state_dir)?;
-    if sidecar.progress.pending.is_none() {
+    if sidecar.progress.pending.is_empty() {
         sidecar.sync_committed(config, rpc, state_dir)?;
+    } else if let Some(last) = sidecar.progress.pending.last() {
+        sidecar.journal = last.journal.clone();
     }
     Ok(sidecar)
 }
@@ -635,32 +728,91 @@ impl Sidecar {
         }
     }
 
-    fn sync_committed(&mut self, config: &Config, rpc: &Rpc, dir: &Path) -> Result<(), String> {
+    #[must_use]
+    pub fn pending_count(&self) -> usize {
+        self.progress.pending.len()
+    }
+
+    fn read_account(&self, rpc: &Rpc) -> Result<Account, String> {
         let account = parse_account(&rpc.query_account(&self.feeder)?, &self.feeder)?;
         if account.height < self.progress.confirmed_height {
             return Err("account query is behind the confirmed transaction height".to_owned());
         }
+        Ok(account)
+    }
+
+    fn read_observations_from(
+        &self,
+        config: &Config,
+        rpc: &Rpc,
+        account: Account,
+        mut journal: Journal,
+    ) -> Result<Journal, String> {
         let validator = config.validator()?;
-        let mut journal = self.journal.clone();
         journal.next_account_sequence = account.sequence;
-        for market in &config.markets {
-            let sequence = observation_sequence(&rpc.call_pricefeed_at(
-                &observation_call(market.market_id, &validator),
-                &format!("0x{:x}", account.height),
-            )?)?;
+        let height = format!("0x{:x}", account.height);
+        let next = AtomicUsize::new(0);
+        let (sender, receiver) = mpsc::channel();
+        thread::scope(|scope| {
+            let handles: Vec<_> = (0..config
+                .max_committed_reads_in_flight
+                .min(config.markets.len()))
+                .map(|_| {
+                    scope.spawn(|| {
+                        while let Some((index, market)) = {
+                            let index = next.fetch_add(1, Ordering::Relaxed);
+                            config.markets.get(index).map(|market| (index, market))
+                        } {
+                            let result = read_observation(config, rpc, market, &validator, &height);
+                            if sender.send((index, result)).is_err() {
+                                break;
+                            }
+                        }
+                    })
+                })
+                .collect();
+            for handle in handles {
+                let _ = handle.join();
+            }
+        });
+        let mut sequences = vec![Err("observation read panicked".to_owned()); config.markets.len()];
+        for (index, sequence) in receiver.try_iter() {
+            sequences[index] = sequence;
+        }
+        for (market, sequence) in config.markets.iter().zip(sequences) {
+            let sequence = sequence?;
             let record = journal.markets.entry(market.symbol.clone()).or_default();
             if record.sequence != sequence {
                 *record = layerx_oracle_feeder::MarketRecord::default();
             }
             record.sequence = sequence;
         }
+        Ok(journal)
+    }
+
+    fn read_observations(
+        &self,
+        config: &Config,
+        rpc: &Rpc,
+        account: Account,
+    ) -> Result<Journal, String> {
+        self.read_observations_from(config, rpc, account, self.journal.clone())
+    }
+
+    fn read_committed(&self, config: &Config, rpc: &Rpc) -> Result<(Account, Journal), String> {
+        let account = self.read_account(rpc)?;
+        let journal = self.read_observations(config, rpc, account)?;
+        Ok((account, journal))
+    }
+
+    fn sync_committed(&mut self, config: &Config, rpc: &Rpc, dir: &Path) -> Result<(), String> {
+        let (_, journal) = self.read_committed(config, rpc)?;
         journal.store(dir)?;
         self.journal = journal;
         Ok(())
     }
 
     /// Reconciles durable submissions with committed execution and the mempool.
-    /// Returns false while a submission is still pending; no new round may spend its sequences.
     ///
     /// # Errors
     /// Returns an error when the account, transaction lookup, mempool response,
@@ -671,98 +823,204 @@ impl Sidecar {
         rpc: &Rpc,
         metrics: &Mutex<Metrics>,
         dir: &Path,
-    ) -> Result<bool, String> {
-        // The execution code is zero when the protobuf JSON omits its default field.
+    ) -> Result<ReconcileReport, String> {
         #[derive(Deserialize)]
         struct ExecutionResult {
             #[serde(default)]
             code: u32,
         }
+
         lock(metrics).confirmed(self.progress.confirmed_height, self.progress.confirmed_ms);
-        let Some(pending) = self.progress.pending.clone() else {
-            self.journal = Journal::load(dir, 0)?;
-            self.sync_committed(config, rpc, dir)?;
-            return Ok(true);
-        };
-        lock(metrics).pending(&pending.hash, pending.proposed_height);
-        let result = rpc.lookup_tx(&pending.hash)?;
-        let outcome = if let Some(result) = result {
-            let hash = result
-                .get("hash")
-                .and_then(Value::as_str)
-                .ok_or("tx: no hash")?;
-            let tx = result
-                .get("tx")
-                .and_then(Value::as_str)
-                .ok_or("tx: no bytes")?;
-            if !hash.eq_ignore_ascii_case(&pending.hash) || tx != pending.tx {
-                return Err("tx lookup does not match pending transaction".to_owned());
-            }
-            let height = json_u64(result.get("height"))
-                .filter(|h| *h > 0)
-                .ok_or("tx: invalid committed height")?;
-            let execution: ExecutionResult = serde_json::from_value(
-                result
-                    .get("tx_result")
-                    .cloned()
-                    .ok_or("tx: missing execution result")?,
-            )
-            .map_err(|e| format!("tx: invalid execution result: {e}"))?;
-            if execution.code == 0 {
-                self.journal = pending.journal;
-                self.progress.confirmed_height = height;
-                self.progress.confirmed_ms = now_ms();
-                Outcome::Committed {
-                    hash: pending.hash,
-                    height,
+        let mut committed_read = false;
+        loop {
+            let Some(pending) = self.progress.pending.first().cloned() else {
+                if self.progress.confirmed_height == 0 && !committed_read {
+                    self.sync_committed(config, rpc, dir)?;
                 }
-            } else {
-                Outcome::Failed
-            }
-        } else {
-            let body = rpc.consensus("unconfirmed_txs", &json!({"page": 1, "per_page": 100}))?;
-            let result = rpc_result(&body)?;
-            let txs = match result.get("txs") {
-                Some(Value::Array(txs)) => txs.as_slice(),
-                Some(Value::Null) => &[],
-                _ => return Err("unconfirmed_txs: missing transactions".to_owned()),
+                lock(metrics).clear_pending();
+                return Ok(ReconcileReport {
+                    could_read: true,
+                    fate_open: false,
+                });
             };
-            for tx in txs {
-                let bytes = STANDARD
-                    .decode(tx.as_str().ok_or("unconfirmed_txs: invalid bytes")?)
-                    .map_err(|e| e.to_string())?;
-                if hex_encode(&Sha256::digest(bytes)) == pending.hash {
-                    lock(metrics).pending(&pending.hash, pending.proposed_height);
-                    return Ok(false);
+            lock(metrics).pending(
+                &pending.hash,
+                pending.proposed_height,
+                self.progress.pending.len(),
+            );
+            let mut committed_journal = None;
+            let outcome = match rpc.lookup_tx(&pending.hash)? {
+                TxLookup::Found(result) => {
+                    let hash = result
+                        .get("hash")
+                        .and_then(Value::as_str)
+                        .ok_or("tx: no hash")?;
+                    let tx = result
+                        .get("tx")
+                        .and_then(Value::as_str)
+                        .ok_or("tx: no bytes")?;
+                    if !hash.eq_ignore_ascii_case(&pending.hash) || tx != pending.tx {
+                        return Err("tx lookup does not match pending transaction".to_owned());
+                    }
+                    let height = json_u64(result.get("height"))
+                        .filter(|h| *h > 0)
+                        .ok_or("tx: invalid committed height")?;
+                    let execution: ExecutionResult = serde_json::from_value(
+                        result
+                            .get("tx_result")
+                            .cloned()
+                            .ok_or("tx: missing execution result")?,
+                    )
+                    .map_err(|e| format!("tx: invalid execution result: {e}"))?;
+                    if execution.code == 0 {
+                        self.journal = pending.journal.clone();
+                        self.progress.confirmed_height = height;
+                        self.progress.confirmed_ms = now_ms();
+                        Outcome::Committed {
+                            hash: pending.hash,
+                            height,
+                        }
+                    } else {
+                        Outcome::Failed
+                    }
                 }
+                TxLookup::NotServed => {
+                    let account = self.read_account(rpc)?;
+                    if account.sequence < pending.journal.next_account_sequence
+                        && account.height.saturating_sub(pending.proposed_height)
+                            < config.pending_submission_block_limit
+                    {
+                        return Ok(ReconcileReport {
+                            could_read: true,
+                            fate_open: true,
+                        });
+                    }
+                    let committed_base = Journal::load(dir, 0)?;
+                    let committed =
+                        self.read_observations_from(config, rpc, account, committed_base)?;
+                    committed_read = true;
+                    committed_journal = Some(committed.clone());
+                    if account.sequence >= pending.journal.next_account_sequence {
+                        let observations_match = pending
+                            .journal
+                            .markets
+                            .iter()
+                            .filter(|(_, record)| record.activity_id == pending.hash)
+                            .all(|(symbol, proposed)| {
+                                committed
+                                    .markets
+                                    .get(symbol)
+                                    .is_some_and(|record| record.sequence == proposed.sequence)
+                            });
+                        if observations_match {
+                            self.journal = pending.journal.clone();
+                            self.progress.confirmed_height = account.height;
+                            self.progress.confirmed_ms = now_ms();
+                            Outcome::Committed {
+                                hash: pending.hash,
+                                height: account.height,
+                            }
+                        } else {
+                            Outcome::Failed
+                        }
+                    } else {
+                        Outcome::Evicted
+                    }
+                }
+                TxLookup::NotFound => {
+                    let mut page = 1u64;
+                    let mut read = 0u64;
+                    let mut total = None;
+                    loop {
+                        let body = rpc.consensus(
+                            "unconfirmed_txs",
+                            &json!({"page": page, "per_page": 100}),
+                        )?;
+                        let result = rpc_result(&body)?;
+                        let page_total = json_u64(result.get("total"))
+                            .ok_or("unconfirmed_txs: missing total")?;
+                        if total.is_some_and(|total| total != page_total) {
+                            return Err(
+                                "unconfirmed_txs: changing mempool; submission fate unknown"
+                                    .to_owned(),
+                            );
+                        }
+                        total = Some(page_total);
+                        let txs = match result.get("txs") {
+                            Some(Value::Array(txs)) => txs.as_slice(),
+                            Some(Value::Null) => &[],
+                            _ => return Err("unconfirmed_txs: missing transactions".to_owned()),
+                        };
+                        read = read
+                            .checked_add(txs.len() as u64)
+                            .ok_or("unconfirmed_txs: transaction count overflow")?;
+                        if read > page_total
+                            || txs.len() > 100
+                            || (txs.is_empty() && read < page_total)
+                        {
+                            return Err(
+                                "unconfirmed_txs: incomplete mempool; submission fate unknown"
+                                    .to_owned(),
+                            );
+                        }
+                        for tx in txs {
+                            let bytes = STANDARD
+                                .decode(tx.as_str().ok_or("unconfirmed_txs: invalid bytes")?)
+                                .map_err(|e| e.to_string())?;
+                            if hex_encode(&Sha256::digest(bytes)) == pending.hash {
+                                return Ok(ReconcileReport {
+                                    could_read: true,
+                                    fate_open: true,
+                                });
+                            }
+                        }
+                        if read == page_total {
+                            break;
+                        }
+                        page += 1;
+                    }
+                    if !matches!(rpc.lookup_tx(&pending.hash)?, TxLookup::NotFound) {
+                        return Err(
+                            "transaction committed during mempool reconciliation; retry lookup"
+                                .to_owned(),
+                        );
+                    }
+                    Outcome::Evicted
+                }
+            };
+
+            if !matches!(outcome, Outcome::Committed { .. }) {
+                self.journal = committed_journal.unwrap_or(Journal::load(dir, 0)?);
             }
-            if json_u64(result.get("total")) != Some(txs.len() as u64) {
-                return Err(
-                    "unconfirmed_txs: incomplete mempool; submission fate unknown".to_owned(),
-                );
+            let journal_for_store = self.journal.clone();
+            self.progress.pending.remove(0);
+            if let Some(next) = self.progress.pending.last() {
+                self.journal = next.journal.clone();
             }
-            // A transaction can leave the mempool by committing while we inspect it.
-            if rpc.lookup_tx(&pending.hash)?.is_some() {
-                return Err(
-                    "transaction committed during mempool reconciliation; retry lookup".to_owned(),
-                );
+            self.progress.store(dir)?;
+            journal_for_store.store(dir)?;
+            let outcome_ms = if matches!(outcome, Outcome::Committed { .. }) {
+                self.progress.confirmed_ms
+            } else {
+                now_ms()
+            };
+            lock(metrics).submission(&outcome, 0, outcome_ms);
+
+            if matches!(outcome, Outcome::Evicted) {
+                // An evicted account sequence is never spent. Every later
+                // transaction carries a gap and therefore has the same fate.
+                while self.progress.pending.pop().is_some() {
+                    lock(metrics).submission(&Outcome::Evicted, 0, now_ms());
+                }
+                self.journal = journal_for_store;
+                self.progress.store(dir)?;
+                lock(metrics).clear_pending();
+                return Ok(ReconcileReport {
+                    could_read: true,
+                    fate_open: false,
+                });
             }
-            Outcome::Evicted
-        };
-        if !matches!(outcome, Outcome::Committed { .. }) {
-            self.journal = Journal::load(dir, 0)?;
         }
-        self.sync_committed(config, rpc, dir)?;
-        self.progress.pending = None;
-        self.progress.store(dir)?;
-        let outcome_ms = if matches!(outcome, Outcome::Committed { .. }) {
-            self.progress.confirmed_ms
-        } else {
-            now_ms()
-        };
-        lock(metrics).submission(&outcome, 0, outcome_ms);
-        lock(metrics).clear_pending();
-        Ok(true)
     }
 
     /// The observations of the markets that produced a ticker, each with its
@@ -857,9 +1115,15 @@ impl Sidecar {
         observations: &[Observation],
         account: &mut Option<Account>,
         reread: bool,
+        pending_index: &mut Option<usize>,
         state_dir: &Path,
     ) -> Result<Outcome, String> {
-        if let Some(pending) = &self.progress.pending {
+        if let Some(index) = *pending_index {
+            let pending = self
+                .progress
+                .pending
+                .get(index)
+                .ok_or("pending submission disappeared during retry")?;
             let tx = STANDARD.decode(&pending.tx).map_err(|e| e.to_string())?;
             return Ok(rpc
                 .broadcast(&tx)
@@ -875,9 +1139,6 @@ impl Sidecar {
                 },
             },
         };
-        if reread {
-            self.journal.next_account_sequence = read.sequence;
-        }
         *account = Some(read);
         let submission = self.next_submission(config, read, observations.to_vec());
         let tx = match encode_tx(&self.secret, &submission) {
@@ -890,12 +1151,13 @@ impl Sidecar {
             &submission,
             &Outcome::Submitted { hash: hash.clone() },
         );
-        self.progress.pending = Some(Pending {
+        self.progress.pending.push(Pending {
             hash,
             tx: STANDARD.encode(&tx),
             proposed_height: read.height.saturating_add(1),
             journal: self.journal.clone(),
         });
+        *pending_index = Some(self.progress.pending.len() - 1);
         // Persist the exact signed bytes before the network can admit them.
         self.progress.store(state_dir)?;
         Ok(rpc
@@ -916,21 +1178,27 @@ impl Sidecar {
         metrics: &Mutex<Metrics>,
         state_dir: &Path,
     ) -> Result<(), String> {
-        if self.progress.pending.is_some() {
-            return Err(
-                "reconcile the pending submission before collecting another round".to_owned(),
-            );
-        }
         let mut observations = observations.to_vec();
         let mut plan = RetryPlan::new(config.retry_backoff_ms, config.retry_max_attempts);
         let mut account = None;
+        let mut pending_index: Option<usize> = None;
         let mut last = None;
         while let Some(attempt) = plan.next(last.as_ref()) {
             thread::sleep(Duration::from_millis(attempt.delay_ms));
             if attempt.reread {
-                if !self.reconcile(config, rpc, metrics, state_dir)? {
+                let pending_hash = pending_index
+                    .and_then(|index| self.progress.pending.get(index))
+                    .map(|pending| pending.hash.clone());
+                let report = self.reconcile(config, rpc, metrics, state_dir)?;
+                if !report.could_read {
                     break;
                 }
+                pending_index = pending_hash.and_then(|hash| {
+                    self.progress
+                        .pending
+                        .iter()
+                        .position(|pending| pending.hash == hash)
+                });
                 for observation in &mut observations {
                     let market = config
                         .markets
@@ -947,25 +1215,39 @@ impl Sidecar {
                 &observations,
                 &mut account,
                 attempt.reread,
+                &mut pending_index,
                 state_dir,
             )?;
-            let target_height = self.progress.pending.as_ref().map_or_else(
-                || account.map_or(0, |read| read.height.saturating_add(1)),
-                |pending| pending.proposed_height,
-            );
-            if let Some(pending) = &self.progress.pending {
-                lock(metrics).pending(&pending.hash, pending.proposed_height);
+            let target_height = pending_index
+                .and_then(|index| self.progress.pending.get(index))
+                .map_or_else(
+                    || account.map_or(0, |read| read.height.saturating_add(1)),
+                    |pending| pending.proposed_height,
+                );
+            if let Some(pending) = pending_index.and_then(|index| self.progress.pending.get(index))
+            {
+                lock(metrics).pending(
+                    &pending.hash,
+                    pending.proposed_height,
+                    self.progress.pending.len(),
+                );
             }
             lock(metrics).submission(&outcome, target_height, now_ms());
             match &outcome {
                 Outcome::Submitted { hash } => {
-                    if let Some(pending) = &self.progress.pending {
+                    if let Some(pending) =
+                        pending_index.and_then(|index| self.progress.pending.get(index))
+                    {
                         if !hash.eq_ignore_ascii_case(&pending.hash) {
                             return Err(
                                 "broadcast hash does not match signed transaction".to_owned()
                             );
                         }
-                        lock(metrics).pending(&pending.hash, pending.proposed_height);
+                        lock(metrics).pending(
+                            &pending.hash,
+                            pending.proposed_height,
+                            self.progress.pending.len(),
+                        );
                     }
                     eprintln!(
                         "price-sidecar: submitted {hash}, {} observations, proposed target height {target_height}",
@@ -995,13 +1277,18 @@ pub fn run_round(
     metrics: &Mutex<Metrics>,
     state_dir: &Path,
 ) -> Result<(), String> {
-    match sidecar.reconcile(config, rpc, metrics, state_dir) {
-        Ok(true) => {}
-        Ok(false) => return Ok(()),
+    let report = match sidecar.reconcile(config, rpc, metrics, state_dir) {
+        Ok(report) => report,
         Err(error) => {
             eprintln!("price-sidecar: reconciliation deferred: {error}");
             return Ok(());
         }
+    };
+    if !report.could_read {
+        return Ok(());
+    }
+    if sidecar.pending_count() >= config.max_pending_submissions {
+        return Ok(());
     }
     let results: Vec<(&MarketConfig, Result<Ticker, FetchError>)> = thread::scope(|scope| {
         let handles: Vec<_> = config
@@ -1010,8 +1297,7 @@ pub fn run_round(
             .map(|market| {
                 (
                     market,
-                    scope
-                        .spawn(move || config.fetch_ticker(agent, &market.symbol, api_key, now_ms)),
+                    scope.spawn(move || fetch_ticker(config, agent, &market.symbol, api_key)),
                 )
             })
             .collect();
@@ -1034,6 +1320,22 @@ pub fn run_round(
         return Ok(());
     };
     sidecar.submit(config, rpc, &observations, metrics, state_dir)
+}
+
+fn fetch_ticker(
+    config: &Config,
+    agent: &ureq::Agent,
+    symbol: &str,
+    api_key: &str,
+) -> Result<Ticker, FetchError> {
+    #[cfg(test)]
+    {
+        return config.fetch_ticker_loopback(agent, symbol, api_key, now_ms);
+    }
+    #[cfg(not(test))]
+    {
+        config.fetch_ticker(agent, symbol, api_key, now_ms)
+    }
 }
 
 #[cfg(test)]
@@ -1067,6 +1369,9 @@ mod tests {
             feed_account: hex_encode(&FEED_ACCOUNT),
             gas_limit: 200_000,
             cadence_ms: 1000,
+            max_pending_submissions: 8,
+            max_committed_reads_in_flight: 6,
+            pending_submission_block_limit: PENDING_SUBMISSION_BLOCK_LIMIT,
             retry_backoff_ms: 200,
             retry_max_attempts: 3,
             chainflow: ChainflowConfig {
@@ -1430,6 +1735,18 @@ mod tests {
             zero.validate(),
             Err("config field gas_limit is zero".to_owned())
         );
+        let mut zero_pending = config.clone();
+        zero_pending.max_pending_submissions = 0;
+        assert_eq!(
+            zero_pending.validate(),
+            Err("config field max_pending_submissions is zero".to_owned())
+        );
+        let mut zero_limit = config.clone();
+        zero_limit.pending_submission_block_limit = 0;
+        assert_eq!(
+            zero_limit.validate(),
+            Err("config field pending_submission_block_limit is zero".to_owned())
+        );
         let mut zero_address = config.clone();
         zero_address.validator = "00".repeat(20);
         assert_eq!(
@@ -1447,6 +1764,11 @@ mod tests {
         )
         .map_err(|e| e.to_string())?;
         assert_eq!(parsed.cadence_ms, 1000);
+        assert_eq!(parsed.max_pending_submissions, 1);
+        assert_eq!(
+            parsed.pending_submission_block_limit,
+            PENDING_SUBMISSION_BLOCK_LIMIT
+        );
         assert_eq!(parsed.feed_account()?, FEED_ACCOUNT);
         Ok(())
     }

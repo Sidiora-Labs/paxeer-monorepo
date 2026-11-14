@@ -7,9 +7,9 @@ subscriptions; client variants adapt node-specific responses. HTTP request
 coordination, throttling and endpoint availability tracking are implemented
 in [lib/ethereum_jsonrpc](lib/ethereum_jsonrpc).
 
-Paxeer mainnet-beta is one BFT network, EVM chain ID 125 (`0x7d`). Its kernel
-is part of the network and proposes blocks; receipts are final when their
-blocks commit. Public HTTP JSON-RPC uses the configured node's root URL.
+Paxeer mainnet-beta uses EVM chain ID 125 (`0x7d`). The LayerX kernel inside
+`paxd` executes and orders each transaction and builds each block; validators
+check and commit it. Receipts are final when their blocks commit. Public HTTP JSON-RPC uses the configured node's root URL.
 The explorer's [account REST API](../block_scout_web/API.md) is served by
 the explorer origin.
 
@@ -225,7 +225,7 @@ From the repository root, this focused transport test runs through the builder
 without a supplied node or credentials:
 
 ```sh
-services/explorer/deploy/tools/mix-in-builder.sh test apps/ethereum_jsonrpc/test/repair/repair_22_33_445_test.exs
+services/explorer/deploy/tools/mix-in-builder.sh test apps/ethereum_jsonrpc/test/repair/readme_configuration_test.exs
 ```
 
 The test executes the named-argument example, checks it against the active

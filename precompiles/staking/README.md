@@ -1,6 +1,6 @@
 # Staking precompile
 
-This directory contains the Go implementation, embedded ABI, Solidity interface, and tests for the EVM staking precompile at `0x0000000000000000000000000000000000001005`. It connects EVM contracts to the staking module on the single Paxeer BFT network, supporting delegation, redelegation, undelegation, validator creation and editing, and queries for validators, delegations, unbonding, redelegations, historical information, the pool, and staking parameters. Versioned executors support execution at the corresponding upgrade heights.
+This directory contains the Go implementation, embedded ABI, Solidity interface, and tests for the EVM staking precompile at `0x0000000000000000000000000000000000001005`. It connects EVM contracts to the staking module inside `paxd`, supporting delegation, redelegation, undelegation, validator creation and editing, and queries for validators, delegations, unbonding, redelegations, historical information, the pool, and staking parameters. The LayerX kernel inside `paxd` executes and orders each transaction and builds each block; validators check and commit it. Versioned executors support execution at the corresponding upgrade heights.
 
 ## Layout
 
@@ -9,10 +9,14 @@ This directory contains the Go implementation, embedded ABI, Solidity interface,
 - `abi.json` — embedded ABI served by the current precompile.
 - `abi_freeze_test.go` — checks the served ABI, method selectors, event topics, and address.
 - `gas_golden_test.go` — gas usage and ABI result checks across merge activation.
-- `repair_126.kvx` — redelegation-share projection and activation contract.
-- `repair_126_test.go` — redelegation-share precision and upgrade replay tests.
-- `repair_m1201.kvx` — validator-key validation and staking query contracts.
-- `repair_m1201_test.go` — validator-key, error, share precision, static query, and upgrade-boundary tests.
+- `redelegation_shares_test.go` — redelegation-share precision and upgrade replay tests.
+- `staking_activation_test.go` — validator-key, error, share precision, static query, and upgrade-boundary tests.
+- `legacy/v614/validator_key_replay_test.go` — validator-key and historical replay tests for v6.14.
+- `legacy/v620/validator_key_replay_test.go` — validator-key and historical replay tests for v6.20.
+- `legacy/v630/staking_compatibility_test.go` — validator-key, redelegation-share, and ABI compatibility tests for v6.30.
+- `legacy/v640/staking_compatibility_test.go` — validator-key, redelegation-share, and ABI compatibility tests for v6.40.
+- `legacy/v65/staking_compatibility_test.go` — validator-key, redelegation-share, and ABI compatibility tests for v6.5.
+- Task records are stored under `spec/layerx-merge/programme/records/precompiles/staking/`.
 - `setup.go` — generated version registry that selects the current or historical executor.
 - `staking.go` — current staking precompile executor and its keeper-backed transaction and query handlers.
 - `staking_events_test.go` — EVM event emission tests.

@@ -93,28 +93,13 @@ def test_wiki_governance_lists_registered_ordinals():
                 assert f"`{name}`" in role
 
 
-def test_wiki_asset_receive_marked_historical():
+def test_wiki_asset_lists_current_activities():
     wiki = (ROOT / "docs/wiki/Asset.md").read_text()
-    sections = re.split(r"^## Historical payloads\s*$", wiki, flags=re.MULTILINE)
-    assert len(sections) == 2, "Asset wiki must have one Historical payloads section"
-    current, historical = sections
-    historical = re.split(r"^## ", historical, maxsplit=1, flags=re.MULTILINE)[0]
-    assert (
-        "[Historical payment payloads]"
-        "(../site/paxeer-docs/src/app/assets/page.tsx)"
-    ) in historical
-    prose = " ".join(historical.split())
-    assert "retained only for decoding archived artifacts" in prose
-    assert "do not authorize current grant issuance, receive or submission" in prose
-    for heading in ("RECEIVE", "GRANT_ISSUE / GRANT_REVOKE"):
-        assert re.search(
-            r"^### " + re.escape(heading) + r"$", historical, re.MULTILINE
-        )
-        assert not re.search(
-            r"^#{2,6} " + re.escape(heading) + r"$", current, re.MULTILINE
-        )
-    assert "0x5201" in historical, "Keep the archived RECEIVE layout identifiable"
-    assert "revocation_sequence:u64" in historical, "Keep the archived revoke layout"
+    activities = wiki.split("## Activities\n", 1)[1]
+    assert "`LX_ASSET_SEND`" in activities
+    assert "`LX_ASSET_MINT`" in activities
+    assert "`LX_ASSET_BURN`" in activities
+    assert "Historical payloads" not in wiki
 
 
 def test_wiki_backticked_paths_exist():

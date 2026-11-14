@@ -1,6 +1,6 @@
 # Paxeer X Network bridge deployment tooling
 
-This directory holds deployment and configuration tools for the external-chain bridge: EVM vault and Solana custody deployment, governance proposal generation, deployment readback, and bridge app environment generation. The tools connect foreign custody configuration to the `layerxbridge` module and `LayerXBridge` precompile on Paxeer, whose kernel executes within the same BFT chain.
+This directory holds deployment and configuration tools for the external-chain bridge: EVM vault and Solana custody deployment, governance proposal generation, deployment readback, and bridge app environment generation. The tools connect foreign custody configuration to the `layerxbridge` module and `LayerXBridge` precompile on Paxeer. The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it.
 
 ## Layout
 
@@ -26,7 +26,7 @@ The Go packages use the repository's [go.mod](../../go.mod). They compile as par
 
 ```sh
 npm ci --no-audit --no-fund --prefix services/bridge/deploy/appenv
-npm ci --no-audit --no-fund --prefix services/bridge/deploy/proposals/testdata/repair_270
+npm ci --no-audit --no-fund --prefix services/bridge/deploy/proposals/testdata/vault_compiler_fixtures
 go test -count=1 ./contracts/bridge/vectors/... ./services/bridge/deploy/...
 bash services/bridge/deploy/tests/workflow-check.sh
 bash services/bridge/deploy/tests/deploy-scripts-check.sh

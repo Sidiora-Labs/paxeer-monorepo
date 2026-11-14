@@ -30,8 +30,9 @@ LittDB is a highly specialized embedded key-value store that is optimized for th
 
 LittDB lives in `storage/db_engine/litt` in the Paxeer monorepo. It is an embedded Go library;
 its [CLI](docs/littdb_cli.md) operates on local storage files and backups. Storage flushes establish
-local durability, not network consensus finality. Paxeer is one BFT network with EVM chain ID 125;
-the kernel is part of that network and proposes blocks. Sub-chains are tenant domains in the
+local durability, not network consensus finality. Paxeer uses EVM chain ID 125;
+the LayerX kernel inside every `paxd` node executes and orders each transaction and builds each
+block; validators check and commit it. Sub-chains are tenant domains in the
 database, not separate infrastructure. A LittDB table supplies a local key namespace; this package
 does not itself provision tenant domains.
 
@@ -426,8 +427,8 @@ group once on a fresh segment. `Segment.Write` still checks the bounds. After a 
 configured size target, reaching `MaxSegmentKeyCount`, or reaching `TargetSegmentKeyFileSize` also
 causes rollover. A single legal value may exceed a smaller configured target, but never the format limit.
 See [control_loop.go](disktable/control_loop.go) and [segment.go](disktable/segment/segment.go).
-The [capacity regression test](disktable/repair_111_test.go) exercises pre-write rotation at
-the uint32 boundary; [TestRepairM_1165_BoundedValue](repair_m1165_test.go) ties this documentation
+The [capacity regression test](disktable/segment_capacity_test.go) exercises pre-write rotation at
+the uint32 boundary; [TestBoundedValue](table_limits_and_lifecycle_test.go) ties this documentation
 to the same disk write, address codec and recovery path.
 
 Each segment may split its data into multiple [shards](#shard). The number of shards in a segment is called the

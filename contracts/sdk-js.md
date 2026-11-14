@@ -2,8 +2,10 @@
 
 `sdk/js` owns the first-party `@pax-js/cosmos` package. It provides native
 module types, protobuf codecs and REST query helpers for the same Paxeer
-network served by `paxd`. The EVM chain ID is `125` (`0x7d`); the kernel is
-part of the network and receipts are final when their block commits.
+network served by `paxd`. The EVM chain ID is `125` (`0x7d`). The LayerX kernel
+inside `paxd` executes and orders each transaction and builds each block;
+validators check and commit it. A receipt is final when the validators commit
+its block.
 
 Use [node RPC](rpc.md) for transport addresses and module query paths. This
 package is not an EVM JSON-RPC client. Explorer source verification uses the

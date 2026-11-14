@@ -187,8 +187,8 @@ func TestRecoverReceiptStoreReplaysChangelog(t *testing.T) {
 		{"multiple_unapplied_entries", 1, 3},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			cfg, key, records := repairM1146CrashTail(t, tc.prefix, tc.tail)
-			repairM1146AssertReopens(t, cfg, key, records)
+			cfg, key, records := makeReceiptCrashTail(t, tc.prefix, tc.tail)
+			assertReceiptRecoveryReopens(t, cfg, key, records)
 		})
 	}
 }

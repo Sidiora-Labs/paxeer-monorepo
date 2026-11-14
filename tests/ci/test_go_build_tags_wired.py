@@ -24,8 +24,8 @@ def go_workflow():
     return yaml.load((ROOT / WORKFLOW).read_text(), Loader=yaml.BaseLoader)
 
 
-def assert_required_job(job):
-    assert job["runs-on"] == ROUTED
+def assert_required_job(job, runner=ROUTED):
+    assert job["runs-on"] == runner
     assert "if" not in job
     assert "continue-on-error" not in job
     for step in job["steps"]:
@@ -103,10 +103,10 @@ def test_go_test_matrix_covers_build_tags():
         assert "f.Fuzz(" in content, source
     release = (ROOT / "consensus/rpc/jsonrpc/client/integration_test.go").read_text()
     assert "func TestWSClientReconnectWithJitter(t *testing.T)" in release
-    assert "repairM1102ReconnectWithJitter(t, 8, 3)" in release
+    assert "assertReconnectWithJitter(t, 8, 3)" in release
 
     autobahn = workflow["jobs"]["autobahn-integration"]
-    assert_required_job(autobahn)
+    assert_required_job(autobahn, runner="ubuntu-24.04")
     assert autobahn["env"] == {
         "DOCKER_PLATFORM": "linux/amd64",
         "GIGA_EXECUTOR": "true", "GIGA_STORAGE": "true", "GIGA_OCC": "true",

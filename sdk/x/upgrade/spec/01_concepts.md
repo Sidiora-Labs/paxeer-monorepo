@@ -5,9 +5,10 @@ order: 1
 # Concepts
 
 The `x/upgrade` module schedules application upgrades for the single Paxeer
-network running `paxd`. The kernel participates in that network and proposes
-blocks. Upgrade handlers migrate the chain's application state at a block
-boundary; receipts become final when their blocks are committed.
+network running `paxd`. The LayerX kernel inside `paxd` executes and orders each
+transaction and builds each block; validators check and commit it. Upgrade
+handlers migrate the chain's application state at a block boundary; receipts
+become final when validators commit their blocks.
 
 ## Plan
 
@@ -83,8 +84,8 @@ processing runs first, then upgrade, capability, distribution, slashing,
 evidence, staking, IBC client and EVM begin-block processing. This is the node's
 explicit call order, rather than a module-manager `EndBlock` upgrade hook.
 The halt/restart/commit sequence below is exercised against the real keeper and
-reopened store by `TestRepairM_610_BeginBlockRestart` in
-[repair_m610_test.go](../repair_m610_test.go).
+reopened store by `TestUpgradeDocumentation_BeginBlockRestart` in
+[upgrade_documentation_test.go](../upgrade_documentation_test.go).
 
 `Plan.ShouldExecute` becomes true when the current block height is at least the
 plan height. For a normal scheduled upgrade at height `H`:

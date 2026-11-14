@@ -22,6 +22,7 @@ pub mod index;
 pub mod keys;
 pub mod payment;
 pub mod program;
+pub mod receiver;
 pub mod resolve;
 pub mod robots;
 pub mod search;

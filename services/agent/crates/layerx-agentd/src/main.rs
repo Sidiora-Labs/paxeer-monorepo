@@ -683,10 +683,11 @@ fn connect_human_node() -> Result<SequencerEndpoint, String> {
     let roots: Vec<&[u8]> = certificates.iter().map(AsRef::as_ref).collect();
     let endpoint = SequencerEndpoint::new(&config.url, &roots)
         .map_err(|error| format!("human sequencer endpoint is invalid: {error:?}"))?;
-    if endpoint
-        .chain_id()
-        .map_err(|error| format!("human sequencer chain id is unavailable: {error:?}"))?
-        != config.chain_id
+    if config.chain_id != 125
+        || endpoint
+            .chain_id()
+            .map_err(|error| format!("human sequencer chain id is unavailable: {error:?}"))?
+            != config.chain_id
     {
         return Err("human sequencer chain id mismatch".to_owned());
     }
@@ -694,9 +695,20 @@ fn connect_human_node() -> Result<SequencerEndpoint, String> {
         .map(|path| load_chain_trust_root(Path::new(&path)).map(|trust| trust.chain_id))
         .transpose()?
         .unwrap_or_else(|| config.chain_id.to_string());
-    layerx_agentd::human_node::verify_direct_node_readiness_for_chain(
+    if consensus_chain_id.is_empty() {
+        return Err("human sequencer consensus chain id is unavailable".to_owned());
+    }
+    let height = endpoint
+        .block_number()
+        .map_err(|error| format!("human sequencer head is unavailable: {error:?}"))?;
+    let block = endpoint
+        .block_by_number(height)
+        .map_err(|error| format!("human sequencer block is unavailable: {error:?}"))?
+        .ok_or("human sequencer block is not committed")?;
+    layerx_agentd::read::ServedCheckpoint::acquire_at_committed_block(
         &endpoint,
-        config.chain_id,
+        height,
+        Some(block.hash),
         &consensus_chain_id,
     )
     .map_err(|error| format!("human node evidence refused: {error:?}"))?;
@@ -2538,6 +2550,13 @@ impl inference_signal::deals::laps::LapTransport for InferenceLapTransport<'_> {
                 inference_signal::deals::laps::LapError::Invalid("finalized lap state unavailable")
             })
     }
+    fn height(&mut self) -> Result<Option<u64>, inference_signal::deals::laps::LapError> {
+        self.0
+            .endpoint
+            .block_number()
+            .map(Some)
+            .map_err(|_| inference_signal::deals::laps::LapError::Invalid("lap head unavailable"))
+    }
     fn submit(
         &mut self,
         operation: &layerx_client::ai_market::inference_market::MarketOperation,
@@ -3596,23 +3615,6 @@ fn supervise_services(
                 );
                 let result = observed.and_then(|()| {
                     let snapshot = inference.deals.snapshot()?;
-                    let canaries_ready = {
-                        let mut canaries = inference
-                            .deals
-                            .laps
-                            .canaries
-                            .lock()
-                            .map_err(|_| "canary engine unavailable")?;
-                        if let Some(runtime) = canaries.as_mut() {
-                            runtime.state = snapshot.state_bytes().to_vec();
-                            runtime
-                                .engine
-                                .tick(&mut InferenceLapTransport(&inference.deals))
-                                .map_err(|error| error.to_string())?
-                        } else {
-                            true
-                        }
-                    };
                     let mut signal = inference
                         .signal
                         .lock()
@@ -3636,16 +3638,60 @@ fn supervise_services(
                         .laps
                         .lock()
                         .map_err(|_| "inference laps unavailable")?;
-                    for engine in sessions.values_mut().filter(|_| canaries_ready) {
+                    let canaries_enabled = inference
+                        .deals
+                        .laps
+                        .canaries
+                        .lock()
+                        .map_err(|_| "canary engine unavailable")?
+                        .is_some();
+                    for engine in sessions.values_mut() {
                         engine
-                            .seal_and_settle(
+                            .advance_batch(
                                 &mut InferenceLapTransport(&inference.deals),
                                 &inference.deals.laps.host,
+                                !canaries_enabled,
                             )
                             .map_err(|error| error.to_string())?;
                     }
                     drop(sessions);
                     drop(signal);
+                    let canaries_ready = {
+                        let mut canaries = inference
+                            .deals
+                            .laps
+                            .canaries
+                            .lock()
+                            .map_err(|_| "canary engine unavailable")?;
+                        if let Some(runtime) = canaries.as_mut() {
+                            runtime.state = snapshot.state_bytes().to_vec();
+                            runtime
+                                .engine
+                                .tick(&mut InferenceLapTransport(&inference.deals))
+                                .map_err(|error| error.to_string())?
+                        } else {
+                            true
+                        }
+                    };
+                    if canaries_enabled && canaries_ready {
+                        let signal = inference
+                            .signal
+                            .lock()
+                            .map_err(|_| "inference signal unavailable")?;
+                        let mut sessions = signal
+                            .laps
+                            .lock()
+                            .map_err(|_| "inference laps unavailable")?;
+                        for engine in sessions.values_mut() {
+                            engine
+                                .advance_batch(
+                                    &mut InferenceLapTransport(&inference.deals),
+                                    &inference.deals.laps.host,
+                                    true,
+                                )
+                                .map_err(|error| error.to_string())?;
+                        }
+                    }
                     inference.deals.submit_ready()
                 });
                 if let Err(error) = result {
@@ -4125,13 +4171,7 @@ mod inference_availability_tests {
                     .unwrap_or_else(|| panic!("unavailable producer block hash")),
             )
             .unwrap_or_else(|error| panic!("unavailable block hash: {error:?}"));
-            let (_, status, _) = ai_producer::consensus(1000, true);
-            let block_hash = layerx_programs::hex::decode_digest(
-                status["sync_info"]["latest_block_hash"]
-                    .as_str()
-                    .unwrap_or_else(|| panic!("producer block hash")),
-            )
-            .unwrap_or_else(|error| panic!("block hash: {error:?}"));
+            let block_hash = ai_producer::rpc_block_hash(1000, true);
             let paths = Arc::new(Mutex::new(Vec::new()));
             let recorded = paths.clone();
             let node = HttpsPeer::start(node_certificate.tls.clone(), move |request| {
@@ -4150,7 +4190,7 @@ mod inference_availability_tests {
                 let call: Value = serde_json::from_slice(&request.body)
                     .unwrap_or_else(|error| panic!("node RPC request: {error:?}"));
                 Some(response(
-                    &json!({"jsonrpc":"2.0","id":call["id"],"result":ai_producer::node_result(call["method"].as_str().unwrap_or_else(|| panic!("RPC method")),
+                    &json!({"jsonrpc":"2.0","id":call["id"],"result":ai_producer::node_result(call["method"].as_str().unwrap_or_else(|| panic!("RPC method")), &call["params"],
                 if node_room_enabled.load(Ordering::Acquire) { block_hash } else { unavailable_block_hash },
                 node_room_enabled.load(Ordering::Acquire))}),
                 ))
@@ -4257,14 +4297,122 @@ mod inference_availability_tests {
                 ..
             } = self;
             let profile = directory.path().join("room-profile");
-            fs::write(&profile, b"room profile")
-                .unwrap_or_else(|error| panic!("room profile: {error:?}"));
+            fs::write(
+                &profile,
+                serde_json::to_vec(&inference_signal::RoomOffer {
+                    room_id: [40; 32],
+                    model_digest: [1; 32],
+                    runtime_digest: [2; 32],
+                    layer_plan: vec![inference_signal::LayerAssignment {
+                        peer_key: [3; 32],
+                        first_layer: 0,
+                        end_layer: 1,
+                    }],
+                    price: "1".into(),
+                })
+                .unwrap_or_else(|error| panic!("room profile: {error:?}")),
+            )
+            .unwrap_or_else(|error| panic!("room profile: {error:?}"));
             fixture_config(
                 values,
                 node,
                 node_certificate.certificate.cert.der().to_vec(),
                 profile,
             )
+        }
+
+        fn configure_deals(&self, config: &mut Config) {
+            use std::os::unix::fs::PermissionsExt as _;
+            let root = self.directory.path();
+            let certificate = self.node_certificate.write(root, "deal");
+            let private_key = root.join("deal.key.der");
+            fs::write(
+                &private_key,
+                self.node_certificate
+                    .certificate
+                    .signing_key
+                    .serialize_der(),
+            )
+            .unwrap_or_else(|error| panic!("deal private key: {error:?}"));
+            let assertion = root.join("deal.assertion");
+            fs::write(&assertion, b"test-owner-assertion")
+                .unwrap_or_else(|error| panic!("deal assertion: {error:?}"));
+            let meter_seed = root.join("deal.meter-seed");
+            fs::write(&meter_seed, [7_u8; 32])
+                .unwrap_or_else(|error| panic!("deal meter seed: {error:?}"));
+            for path in [&private_key, &assertion, &meter_seed] {
+                fs::set_permissions(path, fs::Permissions::from_mode(0o600))
+                    .unwrap_or_else(|error| panic!("deal source permissions: {error:?}"));
+            }
+            let verifier = ai_producer::verifier();
+            let trust = verifier
+                .chain_trust()
+                .unwrap_or_else(|| panic!("fixture chain trust"));
+            let header_hash = ai_producer::rpc_block_hash(1000, true);
+            let trust_root = root.join("deal.trust-root");
+            let root_bytes = layerx_programs::chain_proof::trust_store::TrustRoot {
+                chain_id: trust.chain_id.clone(),
+                height: 1000,
+                time_ms: 1,
+                header_hash,
+                validators: trust.validators.clone(),
+            }
+            .canonical_bytes()
+            .unwrap_or_else(|error| panic!("fixture trust root: {error:?}"));
+            fs::write(&trust_root, root_bytes)
+                .unwrap_or_else(|error| panic!("fixture trust root: {error:?}"));
+            fs::set_permissions(&trust_root, fs::Permissions::from_mode(0o600))
+                .unwrap_or_else(|error| panic!("fixture trust root permissions: {error:?}"));
+            config.chain_trust_root = trust_root;
+            let signer = json!({
+                "nodes": [
+                    {"id":"one","address":"127.0.0.1:1"},
+                    {"id":"two","address":"127.0.0.1:2"},
+                    {"id":"three","address":"127.0.0.1:3"}
+                ],
+                "trust_anchors": [certificate],
+                "client_certificate_chain": [certificate],
+                "client_private_key_pkcs8": private_key,
+                "key_id":"deal-key",
+                "public_key":vec![4_u8; 32],
+                "evm_key_id":"deal-evm-key",
+                "evm_address":vec![5_u8; 20],
+                "signers":["one","two","three"],
+                "network_id":125,
+                "timeout_seconds":1
+            });
+            let deals = root.join("deal.json");
+            let journal = root.join("deal-journal");
+            let terms = json!({
+                "signer": signer.clone(),
+                "assertion_source": assertion,
+                "journal": journal,
+                "actor_did": format!("did:layerx:{}", layerx_programs::hex::encode(&[4_u8; 32])),
+                "layer_count":1,
+                "layer_memory_mib":1,
+                "validity_blocks":1,
+                "fee_limit":1,
+                "gas_limit":1,
+                "max_fee_per_gas":1,
+                "max_priority_fee_per_gas":1,
+                "resources":[1,1,1,1,1,1,1],
+                "laps": {
+                    "batch_size":1,
+                    "host_meter_seed_source":meter_seed,
+                    "evidence_signers":[{
+                        "signer": signer.clone(),
+                        "assertion_source": assertion
+                    }]
+                }
+            });
+            fs::write(
+                &deals,
+                serde_json::to_vec(&terms).unwrap_or_else(|error| panic!("deal terms: {error:?}")),
+            )
+            .unwrap_or_else(|error| panic!("deal terms: {error:?}"));
+            fs::set_permissions(&deals, fs::Permissions::from_mode(0o600))
+                .unwrap_or_else(|error| panic!("deal terms permissions: {error:?}"));
+            std::env::set_var("LAYERX_AGENT_INFERENCE_DEALS", &deals);
         }
 
         fn refuse(&self, settings: &BTreeMap<String, String>) -> String {
@@ -4353,9 +4501,10 @@ mod inference_availability_tests {
                 .lock()
                 .unwrap_or_else(|error| panic!("fault: {error:?}")) = None;
             room_enabled.store(false, Ordering::Release);
+            let refusal = self.refuse(values);
             assert!(
-                self.refuse(values).contains("F11Unavailable"),
-                "an unavailable F11 must close availability"
+                refusal.contains("F11Unavailable"),
+                "an unavailable F11 must close availability: {refusal}"
             );
             *fault
                 .lock()
@@ -4440,6 +4589,7 @@ mod inference_availability_tests {
             values.insert(ENDPOINT.into(), gateway.url());
             config.inference_availability = availability(values)
                 .unwrap_or_else(|error| panic!("reopened gateway configuration: {error:?}"));
+            self.configure_deals(config);
             let availability = config
                 .inference_availability
                 .as_ref()
@@ -4608,11 +4758,17 @@ mod inference_availability_tests {
         use layerx_indexer::ai_market::ViewError;
         use layerx_indexer::codec::hex;
         use layerx_programs_ai_market::{
+            admission::{AdmissionMeta, AdmissionTable, Participant, FLAG_ADMITTED},
             codec::{
-                self, decode_envelope, derive_market, derive_worker, encode_envelope, Envelope,
+                self, decode_envelope, derive_evaluator, derive_market, derive_worker,
+                encode_envelope, Envelope,
             },
             dispatch,
             errors::ApplicationError,
+            evaluators::{
+                codec::encode_grant,
+                model::{EvaluatorGrant, GrantStatus},
+            },
             policy::{PolicyCommitments, RoomProfile, TaskPolicyV1, TASK_POLICY_BYTES},
             queries::{read_state_chunk, QueryError, ReadProof, StateCapture},
             registry::{derive_rewards_account, F01_SECTION_CAP},
@@ -4778,9 +4934,9 @@ mod inference_availability_tests {
                 key_version: 2,
                 metadata_revision: 4,
                 valid_from: 200,
-                expiry: 400,
+                expiry: 1_000_000,
                 revocation_sequence: 0,
-                effective_epoch: 1,
+                effective_epoch: 0,
                 last_sequence: 0,
                 last_request_id: [0; 32],
                 last_request_digest: [0; 32],
@@ -4848,8 +5004,37 @@ mod inference_availability_tests {
             Ok(next)
         }
 
-        fn room_state() -> Checked<Vec<u8>> {
-            let current = funded_state()?;
+        fn room_state(open_epoch: bool) -> Checked<Vec<u8>> {
+            let mut current = funded_state()?;
+            if open_epoch {
+                let shared = state::decode_shared_state(&current)?;
+                let section = shared.section(Section::ReputationAdmission)?;
+                let (_, table) =
+                    layerx_programs_ai_market::reputation_transition::split_joint(section)?;
+                let offset = section
+                    .len()
+                    .checked_sub(table.len())
+                    .ok_or("admission section")?;
+                let mut empty_table = vec![0; 4096];
+                let empty_len = layerx_programs_ai_market::admission::AdmissionTable::new()
+                    .encode(&mut empty_table)?;
+                empty_table.truncate(empty_len);
+                let source_table = if table.is_empty() {
+                    &empty_table
+                } else {
+                    table
+                };
+                let mut opened_table = Vec::with_capacity(source_table.len() + 8);
+                opened_table.extend_from_slice(source_table.get(..2).ok_or("admission table")?);
+                opened_table.push(1);
+                opened_table.extend_from_slice(&0_u64.to_be_bytes());
+                opened_table.extend_from_slice(source_table.get(3..).ok_or("admission table")?);
+                let mut opened_section = section.get(..offset).ok_or("admission section")?.to_vec();
+                opened_section.extend_from_slice(&opened_table);
+                current = encode_shared(
+                    &shared.replace_section(Section::ReputationAdmission, &opened_section)?,
+                )?;
+            }
             let shared = state::decode_shared_state(&current)?;
             let header =
                 registry_ops::PolicySection::decode(shared.section(Section::PolicyLifecycle)?)?
@@ -4866,10 +5051,10 @@ mod inference_availability_tests {
             let request = OpenRoomRequest {
                 room_id: digest(40)?,
                 model_digest: policy()?.commitments.model_artifact,
-                runtime_digest: digest(41)?,
+                runtime_digest: digest(2)?,
                 profile: RoomProfile {
                     minimum_bond: 100,
-                    canary_ratio_bps: 250,
+                    canary_ratio_bps: 0,
                     lap_size_tokens: 256,
                     challenge_window_blocks: 120,
                     slash_fraction_bps: 2500,
@@ -4937,26 +5122,228 @@ mod inference_availability_tests {
 
         /// Funded market plus an F02 worker table; even slots available, odd slots retired. Seat
         /// `slot` is held by the worker derived from nonce `slot + nonce_base`.
-        fn market_with_workers(count: u8, nonce_base: u8, room_enabled: bool) -> Checked<Vec<u8>> {
+        fn market_with_workers(
+            count: u8,
+            nonce_base: u8,
+            room_enabled: bool,
+            open_epoch: bool,
+        ) -> Checked<Vec<u8>> {
             let base = if room_enabled {
-                room_state()?
+                room_state(false)?
             } else {
                 funded_state()?
             };
             let shared = state::decode_shared_state(&base)?;
+            let (_, evaluator_region) =
+                layerx_programs_ai_market::evaluators::authority::split_identity_section(
+                    shared.section(Section::IdentityRoster)?,
+                )?;
             let mut table = WorkerTable::new();
+            let mut admitted_workers = Vec::new();
             for slot in 0..count {
                 let status = if slot % 2 == 0 {
                     WorkerState::Available
                 } else {
                     WorkerState::Retired
                 };
-                table.insert(&worker(slot, slot + nonce_base, status)?)?;
+                let current = worker(slot, slot + nonce_base, status)?;
+                if matches!(status, WorkerState::Available | WorkerState::Enrolled) {
+                    admitted_workers.push(current.worker);
+                }
+                table.insert(&current)?;
             }
             let mut section = vec![0; WORKER_TABLE_MAX_BYTES];
             let n = table.encode(&mut section)?;
-            let identity = section.get(..n).ok_or("worker table")?;
-            encode_shared(&shared.replace_section(Section::IdentityRoster, identity)?)
+            let worker_prefix = section.get(..n).ok_or("worker table")?.to_vec();
+            let mut identity = worker_prefix.clone();
+            identity.extend_from_slice(evaluator_region);
+            let mut current = encode_shared(
+                &shared
+                    .replace_section(Section::IdentityRoster, &identity)
+                    .map_err(|error| Failure(format!("worker identity replace: {error:?}")))?,
+            )
+            .map_err(|error| Failure(format!("worker state encode: {error:?}")))?;
+            if open_epoch {
+                let shared = state::decode_shared_state(&current)?;
+                let admission_section = shared.section(Section::ReputationAdmission)?;
+                let (_, table_bytes) =
+                    layerx_programs_ai_market::reputation_transition::split_joint(
+                        admission_section,
+                    )?;
+                let mut admission = AdmissionTable::decode(table_bytes)?;
+                for worker in admitted_workers {
+                    admission.insert(AdmissionMeta {
+                        participant: Participant::Worker(worker),
+                        owner: principal([20; 32])?,
+                        admitted_epoch: None,
+                        last_heartbeat_epoch: None,
+                        last_heartbeat_height: None,
+                        immunity_until_epoch: 0,
+                        pending_exit: None,
+                        membership_generation: 1,
+                        complete_missed_opened_epochs: 0,
+                        membership_flags: FLAG_ADMITTED,
+                        delegate_generation: 2,
+                        admission_height: Some(200),
+                        approval: None,
+                    })?;
+                }
+                let mut encoded_admission = vec![0; 4096];
+                let admission_len = admission.encode(&mut encoded_admission)?;
+                encoded_admission.truncate(admission_len);
+                let prefix_len = admission_section.len() - table_bytes.len();
+                let mut replaced_admission = admission_section[..prefix_len].to_vec();
+                replaced_admission.extend_from_slice(&encoded_admission);
+                current = encode_shared(
+                    &shared.replace_section(Section::ReputationAdmission, &replaced_admission)?,
+                )?;
+                let mut region = vec![3];
+                let mut grants = Vec::new();
+                for (offset, byte) in [21_u8, 22, 23].into_iter().enumerate() {
+                    grants.push(EvaluatorGrant {
+                        evaluator: derive_evaluator(
+                            market()?,
+                            principal([byte; 32])?,
+                            [9 + offset as u8; 32],
+                        )
+                        .unwrap_or_else(|error| panic!("derive evaluator: {error:?}")),
+                        principal: principal([byte; 32])?,
+                        rubric: policy()?.commitments.rubric,
+                        grant_version: layerx_programs_ai_market::types::Version::new(1)?,
+                        key_version: layerx_programs_ai_market::types::Version::new(1)?,
+                        signing_key: PublicKey32([8 + offset as u8; 32]),
+                        effective_epoch: 0,
+                        expiry_epoch_exclusive: 2,
+                        status: GrantStatus::Active,
+                    });
+                }
+                grants.sort_by_key(|grant| grant.evaluator);
+                for (offset, evaluator) in grants.into_iter().enumerate() {
+                    let mut grant = [0; layerx_programs_ai_market::evaluators::model::GRANT_BYTES];
+                    encode_grant(&evaluator, &mut grant)
+                        .unwrap_or_else(|error| panic!("encode evaluator grant: {error:?}"));
+                    region.extend_from_slice(&grant);
+                    region.extend_from_slice(&1_u64.to_be_bytes());
+                    region.extend_from_slice(&[6 + offset as u8; 32]);
+                    region.extend_from_slice(&[7 + offset as u8; 32]);
+                    region.extend_from_slice(&[8 + offset as u8; 32]);
+                    region.extend_from_slice(
+                        &[0; layerx_programs_ai_market::evaluators::authority::REKEY_BYTES],
+                    );
+                    region.extend_from_slice(
+                        &[0; layerx_programs_ai_market::evaluators::authority::REVOCATION_BYTES],
+                    );
+                }
+                region.push(0);
+                let shared = state::decode_shared_state(&current)
+                    .map_err(|error| Failure(format!("decode evaluator state: {error:?}")))?;
+                let identity = [worker_prefix, region].concat();
+                current = encode_shared(
+                    &shared
+                        .replace_section(Section::IdentityRoster, &identity)
+                        .map_err(|error| {
+                            Failure(format!("evaluator identity replace: {error:?}"))
+                        })?,
+                )
+                .map_err(|error| Failure(format!("evaluator state encode: {error:?}")))?;
+                let shared = state::decode_shared_state(&current)?;
+                let admission_section = shared.section(Section::ReputationAdmission)?;
+                let (_, table_bytes) =
+                    layerx_programs_ai_market::reputation_transition::split_joint(
+                        admission_section,
+                    )?;
+                let mut admission = AdmissionTable::decode(table_bytes)?;
+                let region = layerx_programs_ai_market::evaluators::authority::evaluator_region(
+                    shared.section(Section::IdentityRoster)?,
+                )?;
+                for record in region.records() {
+                    admission.insert(AdmissionMeta {
+                        participant: Participant::Evaluator(record.grant.evaluator),
+                        owner: record.grant.principal,
+                        admitted_epoch: None,
+                        last_heartbeat_epoch: None,
+                        last_heartbeat_height: None,
+                        immunity_until_epoch: 0,
+                        pending_exit: None,
+                        membership_generation: 1,
+                        complete_missed_opened_epochs: 0,
+                        membership_flags: FLAG_ADMITTED,
+                        delegate_generation: record.grant.key_version.get(),
+                        admission_height: Some(200),
+                        approval: None,
+                    })?;
+                }
+                let mut encoded_admission = vec![0; 4096];
+                let admission_len = admission.encode(&mut encoded_admission)?;
+                encoded_admission.truncate(admission_len);
+                let prefix_len = admission_section.len() - table_bytes.len();
+                let mut replaced_admission = admission_section[..prefix_len].to_vec();
+                replaced_admission.extend_from_slice(&encoded_admission);
+                current = encode_shared(
+                    &shared.replace_section(Section::ReputationAdmission, &replaced_admission)?,
+                )?;
+                let mut preview_next = vec![0; MAX_STATE_BYTES];
+                let mut preview_scratch = vec![0; MAX_STATE_BYTES * 8];
+                let _frozen = layerx_programs_ai_market::epoch::preview_open(
+                    &current,
+                    1000,
+                    &mut preview_next,
+                    &mut preview_scratch,
+                )
+                .map_err(|error| Failure(format!("preview open: {error:?}")))?;
+                let envelope = Envelope {
+                    operation: dispatch::OPEN_EPOCH,
+                    chain: chain().unwrap_or_else(|error| panic!("open chain: {error:?}")),
+                    program: program().unwrap_or_else(|error| panic!("open program: {error:?}")),
+                    market: market().unwrap_or_else(|error| panic!("open market: {error:?}")),
+                    actor: principal(OWNER).unwrap_or_else(|error| panic!("open actor: {error:?}")),
+                    epoch: 0,
+                    config: 1,
+                    roster: Presence::Absent,
+                    sequence: 0,
+                    expiry: 1_000_000,
+                    request: RequestId::new([4; 32])
+                        .unwrap_or_else(|error| panic!("open request: {error:?}")),
+                    payload: &[],
+                    authentication: Authentication::Native,
+                };
+                let mut encoded = vec![0; 16_384];
+                let n = encode_envelope(&envelope, &mut encoded)?;
+                let mut next = vec![0; MAX_STATE_BYTES];
+                let mut scratch = vec![0; dispatch::SCRATCH_BYTES];
+                let mut event = vec![0; MAX_EVENT_BYTES];
+                let mut result = vec![0; MAX_RESULT_BYTES];
+                let routed = dispatch::route(
+                    &registry_ops::CallContext {
+                        chain: chain()?,
+                        program: program()?,
+                        principal: principal(OWNER)?,
+                        height: 1000,
+                    },
+                    &encoded[..n],
+                    Some(&current),
+                    dispatch::Buffers {
+                        next: &mut next,
+                        scratch: &mut scratch,
+                        event: &mut event,
+                        result: &mut result,
+                    },
+                )
+                .map_err(|error| Failure(format!("open epoch route: {error:?}")))?;
+                let state_len = match routed {
+                    dispatch::Routed::Applied { state_len, .. } => state_len,
+                    dispatch::Routed::Refused { result_len }
+                    | dispatch::Routed::Unchanged { result_len } => {
+                        return Err(Failure(format!(
+                            "fresh OpenEpoch did not apply: {:?}",
+                            codec::decode_result(&result[..result_len])
+                        )));
+                    }
+                };
+                next.truncate(state_len);
+                current = next;
+            }
+            Ok(current)
         }
 
         fn chunk_payload(
@@ -5132,7 +5519,26 @@ mod inference_availability_tests {
             let fixture = super::chain::ChainFixture::new(
                 CHAIN_ID,
                 &[[1; 32], [2; 32], [3; 32], [4; 32]],
-                vec![(key.clone(), head), (vec![2], 2_u64.to_be_bytes().to_vec())],
+                vec![
+                    (key.clone(), head.clone()),
+                    (vec![2], 2_u64.to_be_bytes().to_vec()),
+                    (
+                        {
+                            let mut blob = vec![5, 0, 9];
+                            blob.extend(Sha256::digest(&manifest));
+                            blob
+                        },
+                        manifest.clone(),
+                    ),
+                    (
+                        {
+                            let mut blob = vec![5, 0, 9];
+                            blob.extend(Sha256::digest(state));
+                            blob
+                        },
+                        state.to_vec(),
+                    ),
+                ],
             )
             .unwrap_or_else(|error| panic!("real IAVL namespace and host marker: {error:?}"));
             (fixture, key, manifest)
@@ -5163,12 +5569,16 @@ mod inference_availability_tests {
             bytes
         }
 
-        pub(super) fn node_result(method: &str, block_hash: [u8; 32], room_enabled: bool) -> Value {
-            let state = market_with_workers(4, 0, room_enabled)
+        pub(super) fn node_result(
+            method: &str,
+            params: &Value,
+            block_hash: [u8; 32],
+            room_enabled: bool,
+        ) -> Value {
+            let state = market_with_workers(4, 0, room_enabled, room_enabled)
                 .unwrap_or_else(|error| panic!("market producer: {error:?}"));
-            let (fixture, _, _) =
+            let (_fixture, namespace_key, manifest) =
                 namespace(&state, PROGRAM, layerx_programs_ai_market::SHARED_STATE_KEY);
-            let (_, _, committed) = consensus(1000, room_enabled);
             match method {
                 "eth_chainId" => json!("0x7d"),
                 "eth_blockNumber" => json!("0x3e8"),
@@ -5176,17 +5586,138 @@ mod inference_availability_tests {
                     json!({"keys":[{"keyId":format!("0x{}", "01".repeat(32)),"publicKey":format!("0x{}", hex(&validators()[0].pub_key)),"firstHeight":1,"lastHeight":2000}]})
                 }
                 "eth_getBlockByNumber" => {
-                    json!({"number":"0x3e8","hash":format!("0x{}",hex(&block_hash)),"parentHash":format!("0x{}","01".repeat(32)),"timestamp":"0x3e8","transactionsRoot":format!("0x{}","02".repeat(32)),"receiptsRoot":format!("0x{}","03".repeat(32)),"transactions":[]})
+                    let current_block_hash = if room_enabled {
+                        rpc_block_hash(1000, true)
+                    } else {
+                        block_hash
+                    };
+                    json!({"number":"0x3e8","hash":format!("0x{}",hex(&current_block_hash)),"parentHash":format!("0x{}","01".repeat(32)),"timestamp":"0x3e8","transactionsRoot":format!("0x{}","02".repeat(32)),"receiptsRoot":format!("0x{}","03".repeat(32)),"transactions":[]})
                 }
-                "commit" => committed,
+                "commit" => {
+                    if !room_enabled {
+                        let (_, _, committed) = consensus(
+                            params["height"]
+                                .as_str()
+                                .and_then(|value| value.parse::<u64>().ok())
+                                .unwrap_or_else(|| panic!("commit height")),
+                            false,
+                        );
+                        return committed;
+                    }
+                    let height = params["height"]
+                        .as_str()
+                        .and_then(|value| value.parse::<u64>().ok())
+                        .unwrap_or_else(|| panic!("commit height"));
+                    let state = market_with_workers(4, 0, room_enabled, room_enabled)
+                        .unwrap_or_else(|error| panic!("market producer: {error:?}"));
+                    let material = certify_rpc_at(&state, height)
+                        .unwrap_or_else(|error| panic!("signed RPC material: {error:?}"));
+                    let h = &material.header;
+                    let c = &material.commit;
+                    let block = |b: &BlockId| json!({"hash":hex(&b.hash),"parts":{"total":b.part_set_header.total,"hash":hex(&b.part_set_header.hash)}});
+                    let header = json!({"version":{"block":h.version.block.to_string(),"app":h.version.app.to_string()},
+                    "chain_id":h.chain_id,"height":h.height.to_string(),"time":stamp(0),
+                    "last_block_id":block(&h.last_block_id),"last_commit_hash":hex(&h.last_commit_hash),"data_hash":hex(&h.data_hash),
+                    "validators_hash":hex(&h.validators_hash),"next_validators_hash":hex(&h.next_validators_hash),
+                    "consensus_hash":hex(&h.consensus_hash),"app_hash":hex(&h.app_hash),"last_results_hash":hex(&h.last_results_hash),
+                    "evidence_hash":hex(&h.evidence_hash),"proposer_address":hex(&h.proposer_address)});
+                    let commit = json!({"height":c.height.to_string(),"round":c.round,"block_id":block(&c.block_id),
+                    "signatures":c.signatures.iter().map(|v|json!({"block_id_flag":2,"validator_address":hex(&v.validator_address),
+                        "timestamp":stamp(123),"signature":v.signature.as_ref().map(|v|layerx_platform_internal::base64::encode(v))})).collect::<Vec<_>>()});
+                    json!({"signed_header":{"header":header,"commit":commit}})
+                }
+                "px_getCommit" => {
+                    let height = params[0]
+                        .as_str()
+                        .and_then(|value| value.parse::<u64>().ok())
+                        .unwrap_or_else(|| panic!("commit height"));
+                    let state = market_with_workers(4, 0, room_enabled, room_enabled)
+                        .unwrap_or_else(|error| panic!("market producer: {error:?}"));
+                    let material = certify_rpc_at(&state, height)
+                        .unwrap_or_else(|error| panic!("signed RPC material: {error:?}"));
+                    let h = &material.header;
+                    let c = &material.commit;
+                    let block = |b: &BlockId| json!({"hash":hex(&b.hash),"parts":{"total":b.part_set_header.total,"hash":hex(&b.part_set_header.hash)}});
+                    let header = json!({"version":{"block":h.version.block.to_string(),"app":h.version.app.to_string()},
+                    "chain_id":h.chain_id,"height":h.height.to_string(),"time":stamp(0),
+                    "last_block_id":block(&h.last_block_id),"last_commit_hash":hex(&h.last_commit_hash),"data_hash":hex(&h.data_hash),
+                    "validators_hash":hex(&h.validators_hash),"next_validators_hash":hex(&h.next_validators_hash),
+                    "consensus_hash":hex(&h.consensus_hash),"app_hash":hex(&h.app_hash),"last_results_hash":hex(&h.last_results_hash),
+                    "evidence_hash":hex(&h.evidence_hash),"proposer_address":hex(&h.proposer_address)});
+                    let commit = json!({"height":c.height.to_string(),"round":c.round,"block_id":block(&c.block_id),
+                    "signatures":c.signatures.iter().map(|v|json!({"block_id_flag":2,"validator_address":hex(&v.validator_address),
+                        "timestamp":stamp(123),"signature":v.signature.as_ref().map(|v|layerx_platform_internal::base64::encode(v))})).collect::<Vec<_>>()});
+                    let committed = json!({"signed_header":{"header":header,"commit":commit}});
+                    json!({"height":height.to_string(),"signedHeader":committed["signed_header"]})
+                }
+                "px_getValidators" => {
+                    let height = params[0]
+                        .as_str()
+                        .and_then(|value| value.parse::<u64>().ok())
+                        .unwrap_or_else(|| panic!("validator height"));
+                    json!({"height":height.to_string(),"total":"4","validators":validators().iter().map(|validator|json!({"address":hex(&Sha256::digest(validator.pub_key)[..20]),"pubKey":{"type":"tendermint/PubKeyEd25519","value":layerx_platform_internal::base64::encode(&validator.pub_key)},"votingPower":"1"})).collect::<Vec<_>>()})
+                }
                 "validators" => {
                     json!({"block_height":"1000","count":"4","total":"4","validators":validators().iter().map(|v|json!({"address":hex(&Sha256::digest(v.pub_key)[..20]),"pub_key":{"type":"tendermint/PubKeyEd25519","value":layerx_platform_internal::base64::encode(&v.pub_key)},"voting_power":"1"})).collect::<Vec<_>>()})
                 }
                 "block" => {
-                    json!({"block":{"header":{"height":"1000"},"data":{"txs":[layerx_platform_internal::base64::encode(&batch(1000))]}}})
+                    let height = params["height"]
+                        .as_str()
+                        .and_then(|value| value.parse::<u64>().ok())
+                        .unwrap_or_else(|| panic!("block height"));
+                    json!({"block":{"header":{"height":height.to_string()},"data":{"txs":[layerx_platform_internal::base64::encode(&batch(height))]}}})
                 }
                 "abci_query" => {
-                    json!({"response":{"code":0,"height":"999","key":"Ag==","value":layerx_platform_internal::base64::encode(&2_u64.to_be_bytes()),"proof_ops":{"ops":fixture.prove(&[2]).unwrap_or_else(|error| panic!("host marker proof: {error:?}")).iter().map(|op|json!({"type":op.op_type,"key":layerx_platform_internal::base64::encode(&op.key),"data":layerx_platform_internal::base64::encode(&op.data)})).collect::<Vec<_>>()}}})
+                    let height = params["height"]
+                        .as_str()
+                        .and_then(|value| value.parse::<u64>().ok())
+                        .unwrap_or_else(|| panic!("query height"));
+                    let query_key = params["data"]
+                        .as_str()
+                        .and_then(|data| layerx_programs::hex::decode(data).ok())
+                        .unwrap_or_else(|| panic!("query key"));
+                    let (query_fixture, _, _) = if query_key == [2] {
+                        let state = market_with_workers(4, 0, room_enabled, room_enabled)
+                            .unwrap_or_else(|error| panic!("market producer: {error:?}"));
+                        namespace(&state, PROGRAM, layerx_programs_ai_market::SHARED_STATE_KEY)
+                    } else {
+                        namespace(&state, PROGRAM, layerx_programs_ai_market::SHARED_STATE_KEY)
+                    };
+                    let proof_ops = query_fixture
+                        .prove(&query_key)
+                        .unwrap_or_else(|error| panic!("query key proof: {error:?}"));
+                    let value = if query_key == [2] {
+                        2_u64.to_be_bytes().to_vec()
+                    } else if query_key == namespace_key {
+                        let mut head = vec![0, 1];
+                        head.extend(1_u32.to_be_bytes());
+                        head.extend(Sha256::digest(&manifest));
+                        head
+                    } else if query_key.len() >= 3 && query_key[..3] == [5, 0, 9] {
+                        let state = market_with_workers(4, 0, room_enabled, room_enabled)
+                            .unwrap_or_else(|error| panic!("market producer: {error:?}"));
+                        let (_, _, manifest) =
+                            namespace(&state, PROGRAM, layerx_programs_ai_market::SHARED_STATE_KEY);
+                        let mut manifest_key = vec![5, 0, 9];
+                        manifest_key.extend(Sha256::digest(&manifest));
+                        if query_key == manifest_key {
+                            manifest
+                        } else if query_key == {
+                            let mut state_key = vec![5, 0, 9];
+                            state_key.extend(Sha256::digest(&state));
+                            state_key
+                        } {
+                            state
+                        } else {
+                            panic!("unknown content-addressed query key")
+                        }
+                    } else {
+                        panic!(
+                            "unknown query key {}",
+                            layerx_programs::hex::encode(&query_key)
+                        )
+                    };
+                    json!({"response":{"code":0,"height":height.to_string(),"key":layerx_platform_internal::base64::encode(&query_key),"value":layerx_platform_internal::base64::encode(&value),"proofOps":{"ops":proof_ops.iter().map(|op|json!({"type":op.op_type,"key":layerx_platform_internal::base64::encode(&op.key),"data":layerx_platform_internal::base64::encode(&op.data)})).collect::<Vec<_>>()}}})
                 }
                 _ => panic!("unexpected node method {method}"),
             }
@@ -5223,6 +5754,49 @@ mod inference_availability_tests {
                 commit,
                 proof,
             })
+        }
+
+        fn certify_rpc_at(state: &[u8], height: u64) -> Checked<Material> {
+            let program = PROGRAM;
+            let cell = layerx_programs_ai_market::SHARED_STATE_KEY;
+            let (proof, root) = native_membership(state, program, cell);
+            let mut header = header(height, Digest32::new(root)?);
+            let validators = layerx_programs::chain_proof::validators::ValidatorSet::new(
+                validators()
+                    .iter()
+                    .map(|validator| {
+                        layerx_programs::chain_proof::validators::TrustedValidator::new(
+                            validator.pub_key,
+                            u64::try_from(validator.voting_power)
+                                .unwrap_or_else(|error| panic!("validator voting power: {error}")),
+                        )
+                    })
+                    .collect(),
+            )
+            .unwrap_or_else(|error| panic!("fixture validator set: {error:?}"));
+            header.validators_hash = validators.hash();
+            header.next_validators_hash = validators.hash().to_vec();
+            header.last_block_id = BlockId {
+                hash: vec![6; 32],
+                part_set_header: PartSetHeader {
+                    total: 1,
+                    hash: vec![7; 32],
+                },
+            };
+            let commit = signed(&header, &[(1, false), (2, false), (3, false), (4, false)]);
+            Ok(Material {
+                header,
+                commit,
+                proof,
+            })
+        }
+
+        pub(super) fn rpc_block_hash(height: u64, room_enabled: bool) -> [u8; 32] {
+            let state = market_with_workers(4, 0, room_enabled, room_enabled)
+                .unwrap_or_else(|error| panic!("RPC market state: {error:?}"));
+            let material = certify_rpc_at(&state, height)
+                .unwrap_or_else(|error| panic!("RPC block material: {error:?}"));
+            material.header.hash()
         }
 
         fn capture_state(
@@ -5262,7 +5836,7 @@ mod inference_availability_tests {
         }
 
         pub(super) fn consensus(height: u64, room_enabled: bool) -> (Value, Value, Value) {
-            let state = market_with_workers(4, 0, room_enabled)
+            let state = market_with_workers(4, 0, room_enabled, false)
                 .unwrap_or_else(|error| panic!("real market state: {error:?}"));
             let material = certify_at(&state, height)
                 .unwrap_or_else(|error| panic!("signed consensus material: {error:?}"));
@@ -5293,10 +5867,14 @@ mod inference_availability_tests {
             count: u8,
             room_enabled: bool,
         ) -> (String, Value) {
-            let state = market_with_workers(count, 0, room_enabled)
+            let state = market_with_workers(count, 0, room_enabled, room_enabled)
                 .unwrap_or_else(|error| panic!("real market producer: {error:?}"));
-            let material = certify_at(&state, height)
-                .unwrap_or_else(|error| panic!("native membership and signed commit: {error:?}"));
+            let material = if room_enabled {
+                certify_rpc_at(&state, height)
+            } else {
+                certify_at(&state, height)
+            }
+            .unwrap_or_else(|error| panic!("native membership and signed commit: {error:?}"));
             let (_, chunks, _) = capture_state(&state, &material)
                 .unwrap_or_else(|error| panic!("real whole-root chunk codec: {error:?}"));
             let config = serde_json::json!({"chain":chain_bytes(),"program":PROGRAM,"consensus_chain_id":CHAIN_ID,

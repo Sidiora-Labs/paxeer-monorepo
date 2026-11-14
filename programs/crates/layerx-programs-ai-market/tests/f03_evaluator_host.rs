@@ -1,7 +1,7 @@
 //! AI.F03-T04 evaluator ordering through the real router and the native host boundary.
 //! Admission and evaluator authority calls use the registered router with real envelopes;
 //! bounded aggregation and reward codec cases also exercise their landed transitions.
-#[path = "repair_22_33_260.rs"]
+#[path = "market_state_producers.rs"]
 mod repair;
 
 #[path = "support/native_replay.rs"]

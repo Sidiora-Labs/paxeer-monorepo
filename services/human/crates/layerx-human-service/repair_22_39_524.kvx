@@ -1,0 +1,23 @@
+[onboarding]
+rule = "Identity activation and recovery registration require committed native owner outcomes bound to the journey action and compiled setup payload. A restart releases the prior principal-store owner before reopening."
+files = ["services/human/crates/layerx-human-service/tests/onboarding.rs"]
+
+[key_export]
+rule = "Export custody checks use a disclosure-bound EIP-1559 call prepared from explicit chain state, with the custody network and sender nonce."
+files = ["services/human/crates/layerx-human-service/tests/key_export.rs"]
+
+[node_evidence]
+rule = "A block height alone cannot authorize a storage proof bundle; the caller must provide an authenticated committed header."
+files = ["services/human/crates/layerx-human-service/tests/evidence_node.rs"]
+
+[production_components]
+rule = "Production components obtain their registry from the authenticated agent Unix service composed from the production owner, durable store, authority and committed local node. The node executable is supplied by PAXD."
+files = ["services/human/crates/layerx-human-service/tests/production_unhooked.rs"]
+
+[wallet_identity]
+rule = "Attestor-backed wallet sends use the durable send journal and the runtime clock configured by production components."
+files = ["services/human/crates/layerx-human-service/tests/wallet_identity_e2e.rs"]
+
+[event_producer_tls]
+rule = "Event producer sources wait for the authenticated principal and webhook admission before adopting credentials or delivering notifications."
+files = ["services/human/crates/layerx-human-service/src/event_producer_tls.rs"]

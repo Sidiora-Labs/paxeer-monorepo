@@ -1,10 +1,11 @@
 # EVM RPC SPECS
 
 The `evmrpc` package in `rpc/` serves JSON-RPC inside `paxd`. Paxeer
-mainnet-beta is one BFT network with EVM chain ID `125` (`0x7d`); the kernel
-participates in block proposal and execution. A receipt is final when its
+mainnet-beta uses EVM chain ID `125` (`0x7d`). The LayerX kernel inside every
+`paxd` node executes and orders each transaction and builds each block;
+validators check and commit it. A receipt is final when its
 block is committed. See [README.md](README.md) for the interface guide and
-[public endpoints](../docs/site/docs/reference/public-rpc.md) for root-path URLs.
+[public endpoints](../docs/readme/PUBLIC-RPC.md) for root-path URLs.
 
 ## Pending and committed reads
 

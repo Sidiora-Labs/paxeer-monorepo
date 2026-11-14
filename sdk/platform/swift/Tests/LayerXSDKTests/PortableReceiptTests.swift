@@ -253,7 +253,7 @@ final class PortableReceiptTests: XCTestCase {
       XCTAssertEqual(try height("lastHeight"), pinned.lastHeight, level)
       let verified = try PortableReceipt.verify(
         bytes, keys: [pinned], prevSeqHash: source.prevSeqHash,
-        trust: level == "committed" ? RecordedProgramEvidence1398.checkpoint() : nil)
+        trust: level == "committed" ? RecordedProgramEvidence.checkpoint() : nil)
       XCTAssertEqual(verified.verificationLevel, level, level)
       XCTAssertEqual(verified.status, 1, level)
       XCTAssertEqual(
@@ -283,7 +283,7 @@ final class PortableReceiptTests: XCTestCase {
       let source = try XCTUnwrap(sources[level])
       let verified = try PortableReceipt.verify(
         bytes, keys: [source.pin], prevSeqHash: source.prevSeqHash,
-        trust: level == "committed" ? RecordedProgramEvidence1398.checkpoint() : nil)
+        trust: level == "committed" ? RecordedProgramEvidence.checkpoint() : nil)
       XCTAssertEqual(verified.export(), bytes, level)
       XCTAssertNotEqual(bytes, try encode(bundle), level)
     }
@@ -319,7 +319,7 @@ final class PortableReceiptTests: XCTestCase {
 
   func testPortableReceiptRoundTripsAtReceipted() throws {
     let cases = try vectors()
-    XCTAssertEqual(cases.count, 4)
+    XCTAssertEqual(cases.count, 5)
     for v in cases {
       let exported = try export(v)
       XCTAssertEqual(exported.verificationLevel, "receipted", v.id)
@@ -397,7 +397,7 @@ final class PortableReceiptTests: XCTestCase {
 
   func testPortableReceiptRefusesVersionOneFormat() throws {
     let cases = try vectors()
-    XCTAssertEqual(cases.count, 4)
+    XCTAssertEqual(cases.count, 5)
     for v in cases {
       let exported = try export(v)
       let pinned = try key(v)
@@ -460,11 +460,11 @@ final class PortableReceiptTests: XCTestCase {
 
 extension PortableReceiptTests {
   func testRecordedNodePortableShapesRequireIndependentReceiptAndConsensusPins() throws {
-    try Self.proveRecordedPortableShapes1398()
+    try Self.proveRecordedPortableShapes()
   }
 
-  static func proveRecordedPortableShapes1398() throws {
-    typealias E = RecordedProgramEvidence1398
+  static func proveRecordedPortableShapes() throws {
+    typealias E = RecordedProgramEvidence
     let (vector, committedView) = try E.recordedCommitted()
     let evidence = try E.evidence(vector)
     let pin = try E.pin(vector)
@@ -541,8 +541,8 @@ extension PortableReceiptTests {
     }
   }
 
-  static func provePublishedPortableBytes1398() throws {
-    typealias E = RecordedProgramEvidence1398
+  static func provePublishedPortableBytes() throws {
+    typealias E = RecordedProgramEvidence
     let data = try Data(
       contentsOf: E.root.appendingPathComponent(
         "sdk/platform/conformance/fixtures/vector-v5-portable.json"))

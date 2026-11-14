@@ -50,7 +50,7 @@ func (s *Symbol) Register(mux *http.ServeMux) {
 func (s *Symbol) serve(w http.ResponseWriter, r *http.Request) {
 	symbol := strings.ToUpper(r.PathValue("symbol"))
 	name, arg, hasArg := strings.Cut(r.PathValue("route"), "/")
-	if hasArg && name != "trades" && name != "perp_trades" {
+	if hasArg && name != tradesField && name != "perp_trades" {
 		writeError(w, http.StatusNotFound, "Not found")
 		return
 	}
@@ -73,13 +73,13 @@ func (s *Symbol) serve(w http.ResponseWriter, r *http.Request) {
 		cache = true
 	case "perp_stats":
 		body, err = s.data.PerpStats(ctx, symbol)
-	case "trades", "perp_trades":
+	case tradesField, "perp_trades":
 		limit, lerr := parseLimit(r.URL.Query())
 		if lerr != nil {
 			writeError(w, http.StatusBadRequest, "invalid limit")
 			return
 		}
-		if name == "trades" {
+		if name == tradesField {
 			body, err = s.data.Trades(ctx, symbol, limit)
 		} else {
 			body, err = s.data.PerpTrades(ctx, symbol, limit)
@@ -95,7 +95,7 @@ func (s *Symbol) serve(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "internal error")
+		writeError(w, http.StatusInternalServerError, internalErrorMessage)
 		return
 	}
 	if cache {

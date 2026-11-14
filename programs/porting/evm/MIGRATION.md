@@ -5,10 +5,11 @@ LayerX program. It maps the EVM vocabulary you already use onto the programs
 ABI, and it is explicit about the constructs that do not carry over,
 because the kit refuses those by name rather than emulating them.
 
-LayerX programs execute inside `paxd` on the single Paxeer BFT network. The
-kernel is part of the network and proposes blocks; a receipt is final when its
-block commits. Public Ethereum JSON-RPC uses the root URL documented in the
-[public RPC reference](../../../docs/site/docs/reference/public-rpc.md),
+LayerX programs execute inside `paxd`. The LayerX kernel inside `paxd` executes
+and orders each transaction and builds each block; validators check and commit
+it. A receipt is final when validators commit its block. Public Ethereum JSON-RPC
+uses the root URL documented in the
+[public RPC reference](../../../docs/readme/PUBLIC-RPC.md),
 with chain ID 125 (`0x7d`). Program execution and monetary effects belong to the
 same chain transaction. Sub-chains are tenant domains in the database.
 
@@ -450,7 +451,7 @@ and allowance; `08-transfer_from` refuses missing spend authority,
 succeeds after unpausing. `11-transfer` returns 15 units, `12` through `15`
 query state and metadata, and `16`/`17` revoke and refuse further allowance
 spending. These recorded fixtures do not certify a live deployment. The
-integration tests in [`tests/repair_22_33_239.rs`](tests/repair_22_33_239.rs)
+integration tests in [`tests/custody_lxt20_guide.rs`](tests/custody_lxt20_guide.rs)
 execute the committed guest in-process using the real SDK codec and the
 runtime's authenticated ABI-v5 calls, and compare its
 ABI-v2 registry interface to the fixture. They do not run the native C replay

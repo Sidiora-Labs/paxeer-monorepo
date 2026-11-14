@@ -78,5 +78,5 @@ def test_TestRepairM_1402_WebExplorerRelay():
     assert program.group(1).strip() == '\n'.join((
         'if (!validExplorerIdentifier(identifier)) throw new TypeError("Invalid program identifier");',
         '  explorerBaseUrl();',
-        '  throw new ExplorerInterfaceUnavailableError("program-read");',
+        '  return Promise.reject(new ExplorerInterfaceUnavailableError("program-read"));',
     )), 'Reconcile changes to the documented program-read refusal with domains 10 and 14'

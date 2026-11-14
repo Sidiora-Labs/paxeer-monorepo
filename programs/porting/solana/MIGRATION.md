@@ -1,13 +1,14 @@
 # Porting a Solana program to LayerX programs
 
 This guide maps Anchor accounts, instructions and payments onto the programs
-runtime in Paxeer. Paxeer mainnet-beta is one BFT network, with EVM chain ID
-125 (`0x7d`). The kernel is part of the network and proposes blocks; a receipt
+runtime in Paxeer. Paxeer mainnet-beta uses EVM chain ID
+125 (`0x7d`). The LayerX kernel inside every `paxd` node executes and orders each
+transaction and builds each block; validators check and commit it; a receipt
 is final when its block is committed. Program execution, storage changes and
 payments belong to that network's transaction processing.
 
 For node access, use the root-path endpoints in the
-[public RPC reference](../../../docs/site/docs/reference/public-rpc.md).
+[public RPC reference](../../../docs/readme/PUBLIC-RPC.md).
 Sub-chains are tenant domains in the database. They do not require a separate
 program execution service.
 
@@ -508,7 +509,7 @@ The committed `native-token/05-initialize.*` artifacts record successful
 initialization before approve and transfer calls; `08-transfer_from.*` records
 the refused missing-spend-authority case, `09-transfer_from.*` the paused-asset
 refusal and `10-transfer_from.*` the authorized delegated payment. The focused
-[integration test](tests/repair_22_33_241.rs) executes the committed token
+[integration test](tests/custody_crypto_lxt20_guide.rs) executes the committed token
 WASM in-process, including positive and refused initialization and later
 owner-bound payouts; it needs no native harness or live endpoint.
 Fixtures and runtime tests are not certification of a live deployment.
